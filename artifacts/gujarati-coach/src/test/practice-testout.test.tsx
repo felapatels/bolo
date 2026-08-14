@@ -216,7 +216,7 @@ async function recordAndStop() {
     const releaseTarget = document.querySelector('[aria-label="Release to submit"]') ?? belly;
     fireEvent.pointerUp(releaseTarget);
   });
-  await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument());
 }
 
 /** Complete the whole 2-phrase run: record, next, record, finish. */

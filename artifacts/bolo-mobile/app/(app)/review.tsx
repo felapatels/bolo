@@ -1694,15 +1694,21 @@ export default function ReviewScreen() {
             ]}
           >
             <Text style={[styles.gradeLabel, { color: bandColor(result.band, colors) }]}>
-              {result.band === 'perfect'
-                ? 'Perfect!'
+              {/* Headline copy is deliberately NOT BAND_LABEL: the ladder keeps
+                saying Perfect/Great/Good/Almost/Try again. The bare else is the
+                nocatch arm: a system miss is not a weak attempt, so it keeps
+                the encouraging wording. Mirrored verbatim in practice/[id].tsx. */}
+            {result.band === 'perfect'
+                ? 'Peak 🗿'
                 : result.band === 'great'
-                  ? 'Amazing!'
+                  ? 'Goated 🐐'
                   : result.band === 'good'
-                    ? 'Nice work!'
+                    ? 'Fire 🔥'
                     : result.band === 'almost'
-                      ? 'So close!'
-                      : 'Good try, keep going!'}
+                      ? 'Valid 👍'
+                      : result.band === 'retry'
+                        ? 'Mid 😐'
+                        : 'Good try, keep going!'}
             </Text>
 
             {/* Five-band ladder for scored attempts; nocatch keeps its

@@ -228,7 +228,7 @@ async function scoreAndNext() {
     fireEvent.pointerUp(releaseTarget);
   });
   // Wait for result screen.
-  await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument());
   // Tap the advance slot (always the right-hand button, Task #1040).
   fireEvent.click(screen.getByTestId("advance-button"));
 }
@@ -242,7 +242,7 @@ async function scorePhrase() {
       document.querySelector('[aria-label="Release to submit"]') ?? bellyButton();
     fireEvent.pointerUp(releaseTarget);
   });
-  await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument());
 }
 
 // ---------------------------------------------------------------------------
@@ -512,7 +512,7 @@ describe("audio prefetch", () => {
         document.querySelector('[aria-label="Release to submit"]') ?? bellyButton();
       fireEvent.pointerUp(releaseTarget);
     });
-    await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument());
 
     // Reset synth call count so we can count only what happens during phrase1's
     // coach play. Singleton architecture (ca8fe04): the coach plays phrase1 on

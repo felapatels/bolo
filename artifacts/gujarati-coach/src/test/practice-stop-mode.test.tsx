@@ -249,7 +249,7 @@ describe("hold-to-talk recording mechanics", () => {
 
     expect(h.stopRecording).not.toHaveBeenCalled();
     expect(h.evaluate).not.toHaveBeenCalled();
-    expect(screen.queryByText("Amazing!")).not.toBeInTheDocument();
+    expect(screen.queryByText("Goated 🐐")).not.toBeInTheDocument();
     expect(screen.queryByText("Didn't catch that one")).not.toBeInTheDocument();
     // Back to idle, ready for a fresh press.
     await waitFor(() =>
@@ -300,7 +300,7 @@ describe("evaluation error surfacing", () => {
     await reachIdle();
     await recordAndStop();
 
-    await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument());
     expect(screen.getByText(/couldn't be saved to your progress/i)).toBeInTheDocument();
   });
 });

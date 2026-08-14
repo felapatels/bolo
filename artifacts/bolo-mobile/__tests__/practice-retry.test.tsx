@@ -265,7 +265,7 @@ async function recordToResult() {
     fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
   await waitFor(() =>
-    expect(screen.getByText('Good try, keep going!')).toBeOnTheScreen(),
+    expect(screen.getByText('Mid 😐')).toBeOnTheScreen(),
   );
 }
 
@@ -320,7 +320,7 @@ describe('score card retry', () => {
   });
 
   test('the advance slot advances without retry side effects', async () => {
-    await scoreBand('good', 4, 'Nice work!');
+    await scoreBand('good', 4, 'Fire 🔥');
 
     await act(async () => {
       fireEvent.press(screen.getByTestId('advance-button'));
@@ -332,7 +332,7 @@ describe('score card retry', () => {
   });
 
   test('a good band moves the emphasis to the advance, and nothing else', async () => {
-    await scoreBand('good', 4, 'Nice work!');
+    await scoreBand('good', 4, 'Fire 🔥');
 
     expect(slotOrder()).toEqual(['try-again-button', 'advance-button']);
     expect(isSecondarySlot('try-again-button')).toBe(true);
@@ -353,11 +353,11 @@ describe('score card retry', () => {
 // ---------------------------------------------------------------------------
 describe('constant result-actions layout', () => {
   const BANDS: Array<[string, number, string]> = [
-    ['perfect', 12, 'Perfect!'],
-    ['great', 10, 'Amazing!'],
-    ['good', 4, 'Nice work!'],
-    ['almost', 2, 'So close!'],
-    ['retry', 0, 'Good try, keep going!'],
+    ['perfect', 12, 'Peak 🗿'],
+    ['great', 10, 'Goated 🐐'],
+    ['good', 4, 'Fire 🔥'],
+    ['almost', 2, 'Valid 👍'],
+    ['retry', 0, 'Mid 😐'],
     ['nocatch', 0, "Didn't catch that"],
   ];
 
@@ -410,7 +410,7 @@ describe('advance gate', () => {
   });
 
   test('a good score opens the gate immediately', async () => {
-    await scoreBand('good', 4, 'Nice work!');
+    await scoreBand('good', 4, 'Fire 🔥');
     expect(screen.getByTestId('advance-button')).not.toBeDisabled();
   });
 
@@ -418,10 +418,10 @@ describe('advance gate', () => {
     await recordToResult();
     expect(screen.getByTestId('advance-button')).toBeDisabled();
 
-    await anotherGo('Good try, keep going!');
+    await anotherGo('Mid 😐');
     expect(screen.getByTestId('advance-button')).toBeDisabled();
 
-    await anotherGo('Good try, keep going!');
+    await anotherGo('Mid 😐');
     expect(screen.getByTestId('advance-button')).not.toBeDisabled();
   });
 
@@ -438,8 +438,8 @@ describe('advance gate', () => {
 
   test('the third take advances for real', async () => {
     await recordToResult();
-    await anotherGo('Good try, keep going!');
-    await anotherGo('Good try, keep going!');
+    await anotherGo('Mid 😐');
+    await anotherGo('Mid 😐');
 
     await act(async () => {
       fireEvent.press(screen.getByTestId('advance-button'));

@@ -272,7 +272,7 @@ async function recordCurrentPhrase() {
   await act(async () => {
     fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
-  await waitFor(() => expect(screen.getByText('Nice work!')).toBeOnTheScreen());
+  await waitFor(() => expect(screen.getByText('Fire 🔥')).toBeOnTheScreen());
 }
 
 /** Complete the whole 2-phrase run: record, next, record, finish. */
@@ -344,7 +344,7 @@ describe('test-out run mechanics', () => {
     await act(async () => {
       fireEvent(screen.getByTestId('record-button'), 'pressOut');
     });
-    await waitFor(() => expect(screen.getByText('Good try, keep going!')).toBeOnTheScreen());
+    await waitFor(() => expect(screen.getByText('Mid 😐')).toBeOnTheScreen());
     // Even on a weak band there is no second take in test-out, and the
     // advance stays ungated so nobody is stranded mid-run.
     expect(screen.getByTestId('try-again-button')).toBeDisabled();

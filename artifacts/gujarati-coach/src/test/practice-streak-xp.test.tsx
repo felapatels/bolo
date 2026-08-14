@@ -154,7 +154,7 @@ async function reachIdle(phraseList = phrases.slice(0, 3)) {
 type Band = "great" | "good" | "retry" | "nocatch";
 
 function bandLabel(band: Band): string {
-  return band === "great" ? "Amazing!" : band === "good" ? "Nice work!" : "Good try, keep going!";
+  return band === "great" ? "Goated 🐐" : band === "good" ? "Fire 🔥" : "Mid 😐";
 }
 
 /**
@@ -355,19 +355,19 @@ describe("band display", () => {
   test("shows the nailed tagline after a nailed band", async () => {
     await reachIdle(phrases.slice(0, 1));
     await scoreOnce("great");
-    expect(screen.getByText("Amazing!")).toBeInTheDocument();
+    expect(screen.getByText("Goated 🐐")).toBeInTheDocument();
   });
 
   test("shows the close tagline after a close band", async () => {
     await reachIdle(phrases.slice(0, 1));
     await scoreOnce("good", 5);
-    expect(screen.getByText("Nice work!")).toBeInTheDocument();
+    expect(screen.getByText("Fire 🔥")).toBeInTheDocument();
   });
 
   test("shows the retry tagline after a retry band", async () => {
     await reachIdle(phrases.slice(0, 1));
     await scoreOnce("retry", 0);
-    expect(screen.getByText("Good try, keep going!")).toBeInTheDocument();
+    expect(screen.getByText("Mid 😐")).toBeInTheDocument();
   });
 
   test("no numeric score element is ever rendered in the result card", async () => {

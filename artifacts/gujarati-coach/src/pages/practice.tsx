@@ -2853,10 +2853,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                     result.band === "almost" ? "text-primary" :
                     "text-foreground"
                   )}>
-                    {result.band === "perfect" ? "Perfect!"
-                      : result.band === "great" ? "Amazing!"
-                      : result.band === "good" ? "Nice work!"
-                      : result.band === "almost" ? "So close!"
+                    {/* Headline copy is deliberately NOT BAND_LABEL: the ladder
+                        keeps saying Perfect/Great/Good/Almost/Try again. The bare
+                        else is the nocatch arm: a system miss is not a weak
+                        attempt, so it keeps the encouraging wording. */}
+                    {result.band === "perfect" ? "Peak 🗿"
+                      : result.band === "great" ? "Goated 🐐"
+                      : result.band === "good" ? "Fire 🔥"
+                      : result.band === "almost" ? "Valid 👍"
+                      : result.band === "retry" ? "Mid 😐"
                       : "Good try, keep going!"}
                   </p>
                   <div className="my-2 flex justify-center">

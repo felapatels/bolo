@@ -180,7 +180,7 @@ describe("acceptance item 5 — score absent from evaluate response", () => {
 
     // The result card should appear with the nailed-band tagline.
     await waitFor(
-      () => expect(screen.getByText("Amazing!")).toBeInTheDocument(),
+      () => expect(screen.getByText("Goated 🐐")).toBeInTheDocument(),
       WT,
     );
 
@@ -204,7 +204,7 @@ describe("acceptance item 5 — score absent from evaluate response", () => {
     await triggerRecording();
 
     await waitFor(
-      () => expect(screen.getByText("Nice work!")).toBeInTheDocument(),
+      () => expect(screen.getByText("Fire 🔥")).toBeInTheDocument(),
       WT,
     );
     expect(screen.queryByText(/Score:/)).toBeNull();
@@ -226,7 +226,7 @@ describe("acceptance item 5 — score absent from evaluate response", () => {
     await triggerRecording();
 
     await waitFor(
-      () => expect(screen.getByText("Good try, keep going!")).toBeInTheDocument(),
+      () => expect(screen.getByText("Mid 😐")).toBeInTheDocument(),
       WT,
     );
     expect(screen.queryByText(/Score:/)).toBeNull();

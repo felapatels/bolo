@@ -181,7 +181,7 @@ async function recordAndScore() {
       document.querySelector('[aria-label="Release to submit"]') ?? belly;
     fireEvent.pointerUp(releaseTarget);
   });
-  await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument());
 }
 
 describe("spoken feedback after scoring", () => {

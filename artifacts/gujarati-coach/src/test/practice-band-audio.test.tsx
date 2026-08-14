@@ -209,7 +209,7 @@ describe("instant band audio on results", () => {
   test("the band clip for the result's band plays as soon as the result lands", async () => {
     await reachIdle();
     await recordAndRelease();
-    await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument());
 
     // band "great" → great.mp3, already playing (no synthesis round-trip).
     await waitFor(() => expect(playedBandClips()).toHaveLength(1));
@@ -253,7 +253,7 @@ describe("instant band audio on results", () => {
     localStorage.setItem("bolo.spokenFeedback", "off");
     await reachIdle();
     await recordAndRelease();
-    await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument());
 
     await act(async () => {
       await Promise.resolve();
@@ -297,7 +297,7 @@ describe("instant band audio on results", () => {
     await recordAndRelease();
 
     // Result card renders normally — never blocked on audio.
-    await waitFor(() => expect(screen.getByText("Amazing!")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument());
     await waitFor(() => expect(playedBandClips()).toHaveLength(1));
 
     // Finish the clip; the failed synthesis must not produce feedback audio
@@ -309,6 +309,6 @@ describe("instant band audio on results", () => {
       await Promise.resolve();
     });
     expect(feedbackAudioInstances()).toHaveLength(0);
-    expect(screen.getByText("Amazing!")).toBeInTheDocument();
+    expect(screen.getByText("Goated 🐐")).toBeInTheDocument();
   });
 });

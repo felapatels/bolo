@@ -199,9 +199,9 @@ describe('Unsupported language — listen-record-compare mode', () => {
     ).toBeOnTheScreen();
     expect(screen.getByText(/It still counts!/i)).toBeOnTheScreen();
     // No scored verdict text.
-    expect(screen.queryByText('Amazing!')).toBeNull();
-    expect(screen.queryByText('Nice work!')).toBeNull();
-    expect(screen.queryByText('Good try, keep going!')).toBeNull();
+    expect(screen.queryByText('Goated 🐐')).toBeNull();
+    expect(screen.queryByText('Fire 🔥')).toBeNull();
+    expect(screen.queryByText('Mid 😐')).toBeNull();
   });
 
   test('compare card offers play-target and hear-yourself actions', async () => {

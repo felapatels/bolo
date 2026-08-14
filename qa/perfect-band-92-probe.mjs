@@ -5,7 +5,7 @@
 // clip (the first data:audio play at mount) is piped into it, so STT hears a
 // clean rendition of the target. That lands the sim = 1.0 fast path, the
 // honesty cap holds the score at 92, and at the new 91 threshold the attempt
-// must render: band 'perfect' in the eval JSON, the "Perfect!" flash, and the
+// must render: band 'perfect' in the eval JSON, the "Peak 🗿" flash, and the
 // perfect-only confetti overlay.
 //
 //   cd qa && CHROME_BIN=$(which chromium) node perfect-band-92-probe.mjs
@@ -152,7 +152,7 @@ try {
   const domSeen = await page
     .waitForFunction(
       () => {
-        const flash = document.body.innerText.includes("Perfect!");
+        const flash = document.body.innerText.includes("Peak 🗿");
         const conf = [...document.querySelectorAll("div.pointer-events-none.fixed.inset-0.z-50")]
           .some((d) => d.children.length > 30);
         window.__domSeen = window.__domSeen || { flash: false, conf: false };
@@ -170,7 +170,7 @@ try {
 
   check("eval score is exactly 92 (honesty cap)", evalJson?.score === 92, `score=${evalJson?.score}`);
   check("eval band is 'perfect' at the 91 threshold", evalJson?.band === "perfect", `band=${evalJson?.band}`);
-  check("'Perfect!' flash rendered", !!domSeenDetail?.flash, JSON.stringify(domSeenDetail));
+  check("'Peak 🗿' flash rendered", !!domSeenDetail?.flash, JSON.stringify(domSeenDetail));
   check("perfect-only confetti overlay rendered", !!domSeenDetail?.conf, JSON.stringify(domSeenDetail));
   if (!domSeen) console.log("page text:", (await page.evaluate(() => document.body.innerText)).slice(0, 600));
 

@@ -213,7 +213,7 @@ function overlayBackground() {
 describe('score flash band treatment', () => {
   test('a retry band flashes destructive red', async () => {
     mockState.evaluate = jest.fn(async () => evalResult({ band: 'retry' }));
-    await recordThrough('Good try, keep going!');
+    await recordThrough('Mid 😐');
     expect(overlayBackground()).toBe(COLORS.destructive);
   });
 

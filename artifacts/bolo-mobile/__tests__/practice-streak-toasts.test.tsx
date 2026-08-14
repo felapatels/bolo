@@ -219,7 +219,7 @@ async function goToNextPhrase() {
   });
 }
 
-async function recordOnce(resultLabel: string | RegExp = /Nice work!|Good try, keep going!|Amazing!/) {
+async function recordOnce(resultLabel: string | RegExp = /Fire 🔥|Mid 😐|Goated 🐐/) {
   await waitForRecordReady();
   await act(async () => {
     fireEvent(screen.getByTestId('record-button'), 'pressIn');
@@ -246,19 +246,19 @@ describe('hot-streak toasts', () => {
     render(<PracticeScreen />);
 
     // Phrase 1
-    await recordOnce('Amazing!');
+    await recordOnce('Goated 🐐');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
 
     // Phrase 2
-    await recordOnce('Amazing!');
+    await recordOnce('Goated 🐐');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
 
     // Phrase 3 — streak hits 3
-    await recordOnce('Amazing!');
+    await recordOnce('Goated 🐐');
 
     await waitFor(() =>
       expect(screen.getByText('🔥 3 in a row!')).toBeOnTheScreen(),
@@ -271,13 +271,13 @@ describe('hot-streak toasts', () => {
     render(<PracticeScreen />);
 
     for (let i = 0; i < 4; i++) {
-      await recordOnce('Amazing!');
+      await recordOnce('Goated 🐐');
       await act(async () => {
         fireEvent.press(screen.getByText('Next phrase'));
       });
     }
     // Phrase 5 — streak hits 5
-    await recordOnce('Amazing!');
+    await recordOnce('Goated 🐐');
 
     await waitFor(() =>
       expect(screen.getByText('🔥🔥 On a roll!')).toBeOnTheScreen(),
@@ -296,12 +296,12 @@ describe('hot-streak toasts', () => {
     render(<PracticeScreen />);
 
     for (let i = 0; i < 3; i++) {
-      const label = i === 1 ? 'Good try, keep going!' : 'Amazing!';
+      const label = i === 1 ? 'Mid 😐' : 'Goated 🐐';
       await recordOnce(label);
       await goToNextPhrase();
     }
     // Phrase 4: streak=2, no three-in-a-row toast.
-    await recordOnce('Amazing!');
+    await recordOnce('Goated 🐐');
 
     // Give any pending state updates a tick to settle.
     await act(async () => { await Promise.resolve(); });
@@ -322,13 +322,13 @@ describe('mid-session milestone toasts', () => {
     render(<PracticeScreen />);
 
     // Phrase 1 (index 0) → advance to index 1
-    await recordOnce('Amazing!');
+    await recordOnce('Goated 🐐');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
 
     // Phrase 2 (index 1) → advance to index 2 (the midpoint) — toast fires here
-    await recordOnce('Amazing!');
+    await recordOnce('Goated 🐐');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
@@ -345,14 +345,14 @@ describe('mid-session milestone toasts', () => {
     render(<PracticeScreen />);
 
     for (let i = 0; i < 2; i++) {
-      await recordOnce('Amazing!');
+      await recordOnce('Goated 🐐');
       await act(async () => {
         fireEvent.press(screen.getByText('Next phrase'));
       });
     }
 
     // Phrase 3 (index 2) → advance to index 3 (the last) — toast fires here
-    await recordOnce('Amazing!');
+    await recordOnce('Goated 🐐');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
@@ -374,7 +374,7 @@ describe('session summary XP chip', () => {
     mockState.evaluate = jest.fn(async () => goodResult(80));
     render(<PracticeScreen />);
 
-    await recordOnce('Amazing!');
+    await recordOnce('Goated 🐐');
     await act(async () => {
       fireEvent.press(screen.getByText('Finish'));
     });
@@ -406,15 +406,15 @@ describe('session summary XP chip', () => {
     // practice-zero-xp-encore for the rule itself). Weak takes also keep the
     // advance gate shut (Task #1040), so those goes are taken via "Try again"
     // until the third one opens it.
-    await recordOnce('Good try, keep going!');
+    await recordOnce('Mid 😐');
     await act(async () => {
       fireEvent.press(screen.getByTestId('try-again-button'));
     });
-    await recordOnce('Good try, keep going!');
+    await recordOnce('Mid 😐');
     await act(async () => {
       fireEvent.press(screen.getByTestId('try-again-button'));
     });
-    await recordOnce('Good try, keep going!');
+    await recordOnce('Mid 😐');
     await act(async () => {
       fireEvent.press(screen.getByTestId('advance-button'));
     });
