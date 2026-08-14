@@ -68,18 +68,12 @@ function errorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-function displayNameFor(u: {
-  displayName: string | null;
-  email: string | null;
-}): string {
-  return u.displayName?.trim() || u.email || "Fellow learner";
+function displayNameFor(u: { displayName: string | null }): string {
+  return u.displayName?.trim() || "Fellow learner";
 }
 
-function initialsFor(u: {
-  displayName: string | null;
-  email: string | null;
-}): string {
-  const source = u.displayName?.trim() || u.email || "?";
+function initialsFor(u: { displayName: string | null }): string {
+  const source = u.displayName?.trim() || "?";
   const parts = source.split(/[\s@.]+/).filter(Boolean);
   const letters = parts.slice(0, 2).map((p) => p[0]).join("");
   return (letters || source[0] || "?").toUpperCase();
@@ -167,7 +161,7 @@ function Avatar({
   user,
   className,
 }: {
-  user: { displayName: string | null; email: string | null };
+  user: { displayName: string | null };
   className?: string;
 }) {
   return (
@@ -658,11 +652,6 @@ function IncomingRequests() {
                 <p className="truncate font-bold text-foreground leading-tight">
                   {displayNameFor(req.user)}
                 </p>
-                {req.user.email && (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {req.user.email}
-                  </p>
-                )}
               </div>
               <div className="flex gap-2 shrink-0">
                 <Button
@@ -716,11 +705,6 @@ function OutgoingRequests() {
               <p className="truncate font-bold text-foreground leading-tight">
                 {displayNameFor(req.user)}
               </p>
-              {req.user.email && (
-                <p className="truncate text-xs text-muted-foreground">
-                  {req.user.email}
-                </p>
-              )}
             </div>
             <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground shrink-0">
               <Clock className="w-3.5 h-3.5" /> Waiting
@@ -803,11 +787,6 @@ function FriendsList() {
                 <p className="truncate font-bold text-foreground leading-tight">
                   {displayNameFor(friend)}
                 </p>
-                {friend.email && (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {friend.email}
-                  </p>
-                )}
               </div>
               <Button
                 size="icon"

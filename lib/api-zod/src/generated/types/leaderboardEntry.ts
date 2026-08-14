@@ -12,7 +12,6 @@
 export interface LeaderboardEntry {
   userId: string;
   displayName: string | null;
-  email: string | null;
   /** Total XP summed across every language. */
   xp: number;
   /** 1-based rank, highest XP first. */

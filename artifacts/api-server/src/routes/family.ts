@@ -92,8 +92,10 @@ async function loadUser(id: string) {
   return db.query.usersTable.findFirst({ where: eq(usersTable.id, id) });
 }
 
-function displayName(u: { displayName: string | null; email: string | null } | undefined | null): string {
-  return u?.displayName || u?.email || "A Bolo! learner";
+// Never falls back to the address: this name is shown to other people (the
+// member's plan view, and the invite email's "from" line).
+function displayName(u: { displayName: string | null } | undefined | null): string {
+  return u?.displayName || "Fellow learner";
 }
 
 export function createFamilyRouter(
@@ -135,7 +137,7 @@ export function createFamilyRouter(
           email: s.invitedEmail ?? s.memberEmail ?? null,
           memberUserId: s.memberUserId,
           displayName: s.memberUserId
-            ? s.memberDisplayName || s.memberEmail || "Member"
+            ? s.memberDisplayName || "Member"
             : null,
           joinedAt: s.joinedAt ? s.joinedAt.toISOString() : null,
         })),

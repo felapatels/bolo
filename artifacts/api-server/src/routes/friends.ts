@@ -41,7 +41,6 @@ function getUserId(req: Request): string {
 interface UserSummary {
   id: string;
   displayName: string | null;
-  email: string | null;
   // What this learner's Bolo is wearing, so a friend row can render their
   // mascot dressed. An outfit is bought with Chai and was previously visible
   // only to its owner (the self-only GET /tokens); friend and leaderboard rows
@@ -58,14 +57,12 @@ interface UserSummary {
 function toSummary(u: {
   id: string;
   displayName: string | null;
-  email: string | null;
   equippedOutfit?: string | null;
   equippedAccessory?: string | null;
 }): UserSummary {
   return {
     id: u.id,
     displayName: u.displayName,
-    email: u.email,
     equippedOutfit: u.equippedOutfit ?? null,
     equippedAccessory: u.equippedAccessory ?? null,
   };
@@ -84,7 +81,6 @@ async function loadUserSummaries(
     .select({
       id: usersTable.id,
       displayName: usersTable.displayName,
-      email: usersTable.email,
       equippedOutfit: userTokenStateTable.equippedOutfit,
       equippedAccessory: userTokenStateTable.equippedAccessory,
     })
@@ -99,7 +95,6 @@ function unknownSummary(id: string): UserSummary {
   return {
     id,
     displayName: null,
-    email: null,
     equippedOutfit: null,
     equippedAccessory: null,
   };
@@ -262,7 +257,6 @@ router.post(
       .select({
         id: usersTable.id,
         displayName: usersTable.displayName,
-        email: usersTable.email,
       })
       .from(usersTable)
       .where(eq(usersTable.referralCode, code))
@@ -537,16 +531,15 @@ router.post(
       return;
     }
 
-    // Resolve the caller's display name for the email body.
+    // Resolve the caller's display name for the email body. Deliberately NOT
+    // their email local-part: this name is read by a third party who may not
+    // know the caller's address, and an address is not ours to forward.
     const [callerRow] = await db
-      .select({ displayName: usersTable.displayName, email: usersTable.email })
+      .select({ displayName: usersTable.displayName })
       .from(usersTable)
       .where(eq(usersTable.id, userId))
       .limit(1);
-    const inviterName =
-      callerRow?.displayName?.trim() ||
-      callerRow?.email?.split("@")[0] ||
-      "A friend";
+    const inviterName = callerRow?.displayName?.trim() || "Fellow learner";
 
     // Send the invite email. Fail fast — the DB row is only written after a
     // successful send so stale rows never block the cooldown window.
@@ -653,7 +646,6 @@ router.get(
       return {
         userId: id,
         displayName: summary.displayName,
-        email: summary.email,
         // The row's mascot, carried by the leaderboard payload itself so no
         // row has to fetch anything of its own.
         equippedOutfit: summary.equippedOutfit,

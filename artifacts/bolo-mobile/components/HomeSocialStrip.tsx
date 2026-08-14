@@ -28,8 +28,8 @@ import { referralLinkFor } from '@/lib/referral';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function displayName(u: { displayName: string | null; email: string | null }): string {
-  return u.displayName?.trim() || u.email || 'Fellow learner';
+function displayName(u: { displayName: string | null }): string {
+  return u.displayName?.trim() || 'Fellow learner';
 }
 
 // ── mini leaderboard row ──────────────────────────────────────────────────────

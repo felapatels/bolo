@@ -13,8 +13,8 @@ import { cn } from "@/lib/utils";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function displayName(u: { displayName: string | null; email: string | null }) {
-  return u.displayName?.trim() || u.email || "Fellow learner";
+function displayName(u: { displayName: string | null }) {
+  return u.displayName?.trim() || "Fellow learner";
 }
 
 function rankColor(rank: number) {

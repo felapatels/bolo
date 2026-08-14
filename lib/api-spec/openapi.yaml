@@ -4378,9 +4378,6 @@ components:
         displayName:
           type: string
           nullable: true
-        email:
-          type: string
-          nullable: true
         equippedOutfit:
           type: string
           nullable: true
@@ -4399,7 +4396,6 @@ components:
       required:
         - id
         - displayName
-        - email
 
     SendFriendRequestByCodeInput:
       type: object
@@ -4464,9 +4460,6 @@ components:
         displayName:
           type: string
           nullable: true
-        email:
-          type: string
-          nullable: true
         equippedOutfit:
           type: string
           nullable: true
@@ -4486,7 +4479,6 @@ components:
         - friendshipId
         - id
         - displayName
-        - email
 
     ScriptTraceCharacterProgress:
       type: object
@@ -5110,9 +5102,6 @@ components:
         displayName:
           type: string
           nullable: true
-        email:
-          type: string
-          nullable: true
         xp:
           type: integer
           description: Total XP summed across every language.
@@ -5140,7 +5129,6 @@ components:
       required:
         - userId
         - displayName
-        - email
         - xp
         - rank
         - isSelf

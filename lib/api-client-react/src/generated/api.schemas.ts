@@ -1121,7 +1121,6 @@ export interface FriendInviteResult {
 export interface UserSummary {
   id: string;
   displayName: string | null;
-  email: string | null;
   /** The outfit this learner's Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. Carried on the row so friend and leaderboard lists render each learner's mascot without a per-row fetch. Optional: older clients that predate outfits on rows simply ignore it. */
   equippedOutfit?: string | null;
   /** The head accessory this learner's Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed. */
@@ -1163,7 +1162,6 @@ export interface Friend {
   since?: string | null;
   id: string;
   displayName: string | null;
-  email: string | null;
   /** The outfit this learner's Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. Carried on the row so friend and leaderboard lists render each learner's mascot without a per-row fetch. Optional: older clients that predate outfits on rows simply ignore it. */
   equippedOutfit?: string | null;
   /** The head accessory this learner's Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed. */
@@ -1593,7 +1591,6 @@ export interface TokenSpendResult {
 export interface LeaderboardEntry {
   userId: string;
   displayName: string | null;
-  email: string | null;
   /** Total XP summed across every language. */
   xp: number;
   /** 1-based rank, highest XP first. */

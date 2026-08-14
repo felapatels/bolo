@@ -51,20 +51,14 @@ import { AppFonts } from '@/constants/fonts';
 
 type Tab = 'friends' | 'leaderboard';
 
-/** Human-friendly label for a learner: their name, else email, else a fallback. */
-function displayFor(u: {
-  displayName?: string | null;
-  email?: string | null;
-}): string {
-  return u.displayName?.trim() || u.email?.trim() || 'Learner';
+/** Human-friendly label for a learner: their name, else a fallback. */
+function displayFor(u: { displayName?: string | null }): string {
+  return u.displayName?.trim() || 'Fellow learner';
 }
 
-/** First one or two initials from a name/email for the avatar. */
-function initialsFor(u: {
-  displayName?: string | null;
-  email?: string | null;
-}): string {
-  const base = u.displayName?.trim() || u.email?.trim() || '?';
+/** First one or two initials from a name for the avatar. */
+function initialsFor(u: { displayName?: string | null }): string {
+  const base = u.displayName?.trim() || '?';
   const parts = base.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) {
     return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -762,14 +756,6 @@ function FriendsTab() {
                 >
                   {displayFor(friend)}
                 </Text>
-                {friend.email ? (
-                  <Text
-                    style={[styles.personSub, { color: colors.mutedForeground }]}
-                    numberOfLines={1}
-                  >
-                    {friend.email}
-                  </Text>
-                ) : null}
               </View>
               {removingId === friend.id ? (
                 <ActivityIndicator color={colors.mutedForeground} />
@@ -1193,7 +1179,7 @@ function Avatar({
   muted,
   onPrimary,
 }: {
-  user: { displayName?: string | null; email?: string | null };
+  user: { displayName?: string | null };
   muted?: boolean;
   onPrimary?: boolean;
 }) {

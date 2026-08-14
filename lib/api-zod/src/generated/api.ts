@@ -956,7 +956,6 @@ export const SendFriendRequestByCodeResponse = zod.object({
   "user": zod.object({
   "id": zod.string(),
   "displayName": zod.string().nullable(),
-  "email": zod.string().nullable(),
   "equippedOutfit": zod.string().nullish().describe('The outfit this learner\'s Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. Carried on the row so friend and leaderboard lists render each learner\'s mascot without a per-row fetch. Optional: older clients that predate outfits on rows simply ignore it.'),
   "equippedAccessory": zod.string().nullish().describe('The head accessory this learner\'s Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed.')
 }).describe('A learner\'s public identity for friends features.')
@@ -973,7 +972,6 @@ export const ListIncomingFriendRequestsResponseItem = zod.object({
   "user": zod.object({
   "id": zod.string(),
   "displayName": zod.string().nullable(),
-  "email": zod.string().nullable(),
   "equippedOutfit": zod.string().nullish().describe('The outfit this learner\'s Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. Carried on the row so friend and leaderboard lists render each learner\'s mascot without a per-row fetch. Optional: older clients that predate outfits on rows simply ignore it.'),
   "equippedAccessory": zod.string().nullish().describe('The head accessory this learner\'s Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed.')
 }).describe('A learner\'s public identity for friends features.')
@@ -991,7 +989,6 @@ export const ListOutgoingFriendRequestsResponseItem = zod.object({
   "user": zod.object({
   "id": zod.string(),
   "displayName": zod.string().nullable(),
-  "email": zod.string().nullable(),
   "equippedOutfit": zod.string().nullish().describe('The outfit this learner\'s Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. Carried on the row so friend and leaderboard lists render each learner\'s mascot without a per-row fetch. Optional: older clients that predate outfits on rows simply ignore it.'),
   "equippedAccessory": zod.string().nullish().describe('The head accessory this learner\'s Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed.')
 }).describe('A learner\'s public identity for friends features.')
@@ -1012,7 +1009,6 @@ export const AcceptFriendRequestResponse = zod.object({
   "friend": zod.object({
   "id": zod.string(),
   "displayName": zod.string().nullable(),
-  "email": zod.string().nullable(),
   "equippedOutfit": zod.string().nullish().describe('The outfit this learner\'s Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. Carried on the row so friend and leaderboard lists render each learner\'s mascot without a per-row fetch. Optional: older clients that predate outfits on rows simply ignore it.'),
   "equippedAccessory": zod.string().nullish().describe('The head accessory this learner\'s Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed.')
 }).describe('A learner\'s public identity for friends features.')
@@ -1037,7 +1033,6 @@ export const ListFriendsResponseItem = zod.object({
   "since": zod.coerce.date().nullish().describe('When the friendship was accepted.'),
   "id": zod.string(),
   "displayName": zod.string().nullable(),
-  "email": zod.string().nullable(),
   "equippedOutfit": zod.string().nullish().describe('The outfit this learner\'s Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. Carried on the row so friend and leaderboard lists render each learner\'s mascot without a per-row fetch. Optional: older clients that predate outfits on rows simply ignore it.'),
   "equippedAccessory": zod.string().nullish().describe('The head accessory this learner\'s Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed.')
 }).describe('An accepted friend in the caller\'s friends list.')
@@ -1075,7 +1070,6 @@ export const SendFriendInviteResponse = zod.object({
 export const GetFriendsLeaderboardResponseItem = zod.object({
   "userId": zod.string(),
   "displayName": zod.string().nullable(),
-  "email": zod.string().nullable(),
   "xp": zod.number().describe('Total XP summed across every language.'),
   "rank": zod.number().describe('1-based rank, highest XP first.'),
   "isSelf": zod.boolean().describe('True for the caller\'s own entry.'),
