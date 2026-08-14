@@ -13,9 +13,15 @@ const mockState = {
   isLoading: false,
 };
 
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: jest.fn(), replace: jest.fn() }),
-}));
+jest.mock('expo-router', () => {
+  const { Text } = require('react-native');
+  return {
+    useRouter: () => ({ back: jest.fn(), replace: jest.fn() }),
+    // Speed Round gates at render time with <Redirect>, so the stub has to
+    // surface the destination for the test to assert on.
+    Redirect: ({ href }: { href: string }) => <Text testID="redirect">{String(href)}</Text>,
+  };
+});
 
 jest.mock('@workspace/api-client-react', () => ({
   // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
@@ -170,12 +176,32 @@ describe('Speed Round setup screen — plan label (mobile)', () => {
     expect(screen.queryByText('Free')).not.toBeOnTheScreen();
   });
 
-  test('shows "Free" during the loading window before entitlements resolve', () => {
+  // Speed Round gates at render time, not in an effect: the loading window
+  // paints nothing at all, and a non-Plus learner never reaches the setup
+  // screen. That makes the "Free" plan pill unreachable on this screen — the
+  // two cases below assert the gate instead of the pill.
+  test('renders nothing while entitlements are still loading', () => {
     mockState.isPlus = false;
     mockState.isLoading = true;
     render(<SpeedRoundScreen />);
 
-    expect(screen.getByText('Free')).toBeOnTheScreen();
+    // No setup screen, no plan pill of either value, and no redirect yet — a
+    // paying subscriber must not be bounced before the server has answered.
+    expect(screen.queryByText('Ready to race?')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Start Game')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Free')).not.toBeOnTheScreen();
     expect(screen.queryByText('Plus')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('redirect')).not.toBeOnTheScreen();
+  });
+
+  test('sends a non-Plus learner to the paywall without rendering the setup screen', () => {
+    mockState.isPlus = false;
+    mockState.isLoading = false;
+    render(<SpeedRoundScreen />);
+
+    expect(screen.getByTestId('redirect')).toHaveTextContent('/(app)/paywall');
+    expect(screen.queryByText('Ready to race?')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Start Game')).not.toBeOnTheScreen();
+    expect(screen.queryByText('Free')).not.toBeOnTheScreen();
   });
 });
