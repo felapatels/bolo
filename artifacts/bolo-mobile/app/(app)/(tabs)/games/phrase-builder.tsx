@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useListCategories,
@@ -651,14 +651,7 @@ function DoneScreen({
 
 export default function PhraseBuilderScreen() {
   const { isPlus, isLoading } = useEntitlements();
-  const router = useRouter();
   const { soundOn, toggle: toggleSound } = useGameAudio();
-
-  useEffect(() => {
-    if (!isLoading && !isPlus) {
-      router.replace('/(app)/paywall' as never);
-    }
-  }, [isLoading, isPlus, router]);
 
   const [phase, setPhase] = useState<GamePhase>('setup');
   const [categoryId, setCategoryId] = useState<number | null>(null);
@@ -673,6 +666,16 @@ export default function PhraseBuilderScreen() {
     setFinalMisses(misses);
     setPhase('done');
   };
+
+  // Render-time paywall gate, after every hook so no render path skips one.
+  // Loading FIRST: the entitlements context falls back to plan 'free' until
+  // the server answers, so checking isPlus first would bounce a paying
+  // subscriber to the paywall on every cold open. Returning null (rather than
+  // redirecting) while loading also means the game never paints for a frame
+  // before a non-Plus learner is sent away, which an effect-based redirect
+  // could not prevent.
+  if (isLoading) return null;
+  if (!isPlus) return <Redirect href="/(app)/paywall" />;
 
   if (phase === 'setup') return <SetupScreen onStart={(id) => { setCategoryId(id); setPhase('playing'); }} />;
   if (phase === 'playing' && categoryId !== null) {

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { Mascot } from '@/components/Mascot';
@@ -631,16 +631,6 @@ export default function BoloQuizScreen() {
   const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
   const { soundOn, toggle: toggleSound } = useGameAudio();
 
-  // Gate: redirect non-Plus users. Fail closed while entitlements are still
-  // loading (#892): a Plus user deep-linking straight here must not be
-  // bounced to the paywall before the entitlements query resolves.
-  useEffect(() => {
-    if (entitlementsLoading) return;
-    if (!isPlus) {
-      router.replace('/(app)/paywall');
-    }
-  }, [isPlus, entitlementsLoading, router]);
-
   const quizParams = { lang: activeLang };
   const { data, isLoading } = useGetDailyQuiz(quizParams, {
     query: {
@@ -748,7 +738,15 @@ export default function BoloQuizScreen() {
     [currentAnswered],
   );
 
-  if (!isPlus) return null;
+  // Render-time paywall gate, after every hook so no render path skips one.
+  // Loading FIRST: the entitlements context falls back to plan 'free' until
+  // the server answers, so checking isPlus first would bounce a paying
+  // subscriber to the paywall on every cold open (#892). Returning null (rather
+  // than redirecting) while loading also means the quiz never paints for a
+  // frame before a non-Plus learner is sent away, which the effect-based
+  // redirect this replaces could not prevent.
+  if (entitlementsLoading) return null;
+  if (!isPlus) return <Redirect href="/(app)/paywall" />;
 
   const questions = data?.questions ?? [];
   const currentQ = questions[currentIndex];
