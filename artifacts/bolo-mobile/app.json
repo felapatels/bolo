@@ -60,7 +60,7 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow Bolo! to access your photos so you can set a profile picture.",
-          "cameraPermission": "Allow Bolo! to use your camera so you can take a new profile picture."
+          "cameraPermission": "Allow Bolo! to use your camera to take a profile picture or scan a friend's QR code."
         }
       ],
       "expo-secure-store",
