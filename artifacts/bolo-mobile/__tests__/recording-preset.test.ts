@@ -1,19 +1,28 @@
 /**
- * Guards the recording preset's bitrate lever.
+ * Guards the recording preset's bitrate.
  *
- * The noise-robustness bench (docs/specs/noise-robustness-bench.md §7) scored
- * the same clips re-encoded at 32 kbps and 96 kbps: +6.1 points at 12 dB SNR
- * with the no-score rate falling 15 % → 5 %, +3.1 on replication, and +2.4 on
- * clean audio. 96 kbps is applied unconditionally — there is no client-side
- * room classifier to gate it with, and it costs nothing in a quiet room.
+ * 96 kbps was bench-selected for noise (docs/specs/noise-robustness-bench.md
+ * §7 scored the same clips at both rates: +6.1 points at 12 dB SNR with the
+ * no-score rate falling 15 % → 5 %, +3.1 on replication, +2.4 on clean audio)
+ * and it broke recording on iOS. AVAudioRecorder rejects AAC-LC at 16 kHz
+ * mono 96 kbps; expo-audio's `createRecorder` swallows the settings error and
+ * hands back a bare `AVAudioRecorder`, `prepareToRecord()` then returns false,
+ * and the learner gets "Recording failed" with no usable microphone. 32 kbps
+ * is the known-good rate, restored August 14, 2026.
  *
- * The subtle part is that it must reach iOS, where bitrate is the only
- * capture-side lever available without a native build. expo-audio flattens a
- * preset per platform before handing it to the native recorder: common fields
- * first, then the platform block. A `bitRate` inside the `ios` block would
- * therefore silently win over the top-level one. This test drives the REAL
- * flattening function rather than restating that rule, so the guarantee is
- * checked against expo-audio's actual behaviour.
+ * Where the encoder's real ceiling sits between 32 and 96 kbps is unmeasured.
+ * Raising this value is a device test, not a config edit — the failure mode is
+ * a swallowed exception, so nothing in CI or on Expo web will catch it.
+ *
+ * The other half of this guard is that the value reaches iOS at all, since
+ * bitrate is the only capture-side lever available there without a native
+ * build. expo-audio flattens a preset per platform before handing it to the
+ * native recorder: common fields first, then the platform block. A `bitRate`
+ * inside the `ios` block would therefore silently win over the top-level one.
+ * The flattening test below drives the REAL function rather than restating
+ * that rule, so the guarantee is checked against expo-audio's behaviour.
+ *
+ * See CODEBASE-FACTS §10ad (the raise) and §10be (the revert).
  */
 
 // Only RecordingPresets is needed from expo-audio here; the rest of the module
@@ -44,8 +53,8 @@ const {
 };
 
 describe('RECORDING_PRESET', () => {
-  test('records at the bench-selected 96 kbps', () => {
-    expect(RECORDING_PRESET.bitRate).toBe(96000);
+  test('records at 32 kbps, the rate iOS accepts at 16 kHz mono AAC-LC', () => {
+    expect(RECORDING_PRESET.bitRate).toBe(32000);
   });
 
   test('stays 16 kHz mono — Whisper resamples anyway', () => {
@@ -61,9 +70,9 @@ describe('RECORDING_PRESET', () => {
     expect(RECORDING_PRESET.ios).not.toHaveProperty('bitRate');
   });
 
-  test('96 kbps survives expo-audio flattening on iOS', () => {
+  test('the accepted 32 kbps survives expo-audio flattening on iOS', () => {
     const flattened = createRecordingOptions(RECORDING_PRESET);
-    expect(flattened.bitRate).toBe(96000);
+    expect(flattened.bitRate).toBe(32000);
     expect(flattened.sampleRate).toBe(16000);
     expect(flattened.numberOfChannels).toBe(1);
   });

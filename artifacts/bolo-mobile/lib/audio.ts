@@ -9,22 +9,21 @@ import {
 import * as FileSystem from 'expo-file-system/legacy';
 import { Sentry } from '@/lib/sentry';
 
-// Speech-optimised recording preset: 16 kHz mono at 96 kbps.
+// Speech-optimised recording preset: 16 kHz mono at 32 kbps.
 // Whisper resamples to 16 kHz internally regardless of input sample rate, so
 // sending 44.1 kHz stereo (HIGH_QUALITY default) wastes upload bandwidth
 // without improving transcription.
 //
-// BITRATE (96 kbps, was 32 kbps): the noise-robustness bench
-// (docs/specs/noise-robustness-bench.md §7) re-encoded the same clips at both
-// rates and scored them. 96 kbps gained +6.1 points at 12 dB SNR with the
-// no-score rate falling 15 % → 5 %, replicated at +3.1, and gained +2.4 on
-// clean audio — so a quieter encoder budget is never spent on the learner's
-// voice, only on the room. Read those deltas against the bench's ±3.8-point
-// measurement floor: this is a cheap bet, not a proven win. It is applied
-// unconditionally rather than switched on in noisy rooms because the same
-// bench found no loudness threshold worth switching anything on, so there is
-// no client-side room classifier to gate it with — and at +2.4 on clean audio
-// there is nothing to protect quiet rooms from.
+// BITRATE (32 kbps): 96 kbps was bench-selected for noise
+// (docs/specs/noise-robustness-bench.md §7: +6.1 points at 12 dB SNR with the
+// no-score rate falling 15 % → 5 %) and shipped on August 11, 2026. It broke
+// recording on iOS. AVAudioRecorder rejects AAC-LC at 16 kHz mono 96 kbps,
+// expo-audio's createRecorder swallows the settings error and returns a bare
+// recorder, prepareToRecord() returns false, and the learner sees "Recording
+// failed" with no usable microphone. Reverted to the known-good 32 kbps on
+// August 14, 2026. The real ceiling between 32 and 96 kbps is unmeasured, and
+// the failure is a swallowed exception that no test or Expo web run can see,
+// so raising this needs a device test rather than a config edit.
 //
 // `bitRate` is deliberately a TOP-LEVEL field. expo-audio's
 // createRecordingOptions spreads the common options first and the platform
