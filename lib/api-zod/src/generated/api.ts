@@ -592,6 +592,7 @@ export const GetEntitlementsResponse = zod.object({
   "currentPeriodEnd": zod.coerce.date().nullable(),
   "chosenLanguage": zod.string().nullable().describe('The single language a One Language ($6.99) subscriber unlocked on top of free Hindi. Null for Free and all-access Plus.'),
   "allowedLanguages": zod.array(zod.string()).describe('The concrete language codes the caller may access.'),
+  "freeLanguage": zod.string().describe('The single language every tier gets for free. Plan-independent: it names the language, not the viewer\'s access, so clients can label it without keeping their own copy of the policy.'),
   "features": zod.object({
   "allLanguages": zod.boolean(),
   "unlimitedLessons": zod.boolean(),
@@ -632,6 +633,7 @@ export const SetChosenLanguageResponse = zod.object({
   "currentPeriodEnd": zod.coerce.date().nullable(),
   "chosenLanguage": zod.string().nullable().describe('The single language a One Language ($6.99) subscriber unlocked on top of free Hindi. Null for Free and all-access Plus.'),
   "allowedLanguages": zod.array(zod.string()).describe('The concrete language codes the caller may access.'),
+  "freeLanguage": zod.string().describe('The single language every tier gets for free. Plan-independent: it names the language, not the viewer\'s access, so clients can label it without keeping their own copy of the policy.'),
   "features": zod.object({
   "allLanguages": zod.boolean(),
   "unlimitedLessons": zod.boolean(),

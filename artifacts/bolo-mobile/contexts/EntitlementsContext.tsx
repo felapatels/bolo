@@ -32,6 +32,12 @@ type EntitlementsContextValue = {
   chosenLanguage: string | null;
   /** Concrete language codes the caller may open (empty until loaded). */
   allowedLanguages: string[];
+  /**
+   * The one language every tier gets for free, named by the server. Empty
+   * until the snapshot loads. It describes the language, not the viewer, so
+   * it is the same string on every plan.
+   */
+  freeLanguage: string;
   /** Whether a given language code is unlocked for the caller. */
   isLanguageAllowed: (code: string) => boolean;
   /** Plus feature flags. */
@@ -78,6 +84,7 @@ export function EntitlementsProvider({
       isOneLanguage,
       chosenLanguage: e?.chosenLanguage ?? null,
       allowedLanguages,
+      freeLanguage: e?.freeLanguage ?? '',
       isLanguageAllowed: (code: string) => {
         if (!e) return true; // unknown yet — don't lock prematurely
         if (isPlus) return true;

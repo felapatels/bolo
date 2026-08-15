@@ -39,10 +39,28 @@ type LanguagePickerProps = {
  * all. On this surface the pair means "locked to YOU", so it renders only
  * when the language is actually locked.
  */
-function FreeTasteChip() {
+function FreeTasteChip({ label = "Free taste" }: { label?: string } = {}) {
   return (
     <span className="inline-flex w-fit items-center whitespace-nowrap rounded-full bg-gradient-to-b from-[#4ADE80] to-[#16A34A] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-white shadow-[0_1px_0_rgba(0,0,0,0.28)] ring-1 ring-white/70">
-      Free taste
+      {label}
+    </span>
+  );
+}
+
+/**
+ * The free-tier language's own chip. The server names that language
+ * (entitlements.freeLanguage) because allowedLanguages cannot: for a paid
+ * learner every code is allowed, so the free one is indistinguishable. It
+ * describes the LANGUAGE rather than the viewer, so it renders on every plan.
+ */
+function IncludedFreeBadge({ testId }: { testId: string }) {
+  return (
+    <span
+      data-testid={testId}
+      aria-label="Included free"
+      className="mt-1.5 flex flex-wrap items-center gap-1"
+    >
+      <FreeTasteChip label="Included free" />
     </span>
   );
 }
@@ -65,7 +83,7 @@ function AllAccessBadge({ testId }: { testId: string }) {
 
 export function LanguagePicker({ open: openProp, onOpenChange, trigger }: LanguagePickerProps = {}) {
   const { languages, activeLang, activeLanguage, setActiveLang } = useLanguage();
-  const { isLanguageAllowed } = useEntitlements();
+  const { isLanguageAllowed, freeLanguage } = useEntitlements();
   // An explicit pick here is a real choice: persist it (and the B1
   // hasChosenLanguage flag) server-side, fire-and-forget, so the choice
   // follows the learner across devices and the selection step never re-shows.
@@ -167,7 +185,13 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                 <span className="mt-0.5 block w-full text-xs font-medium text-muted-foreground">
                   {lang.name}
                 </span>
-                {locked ? <AllAccessBadge testId={`picker-locked-${lang.code}`} /> : null}
+                {/* Explicit branches: the free language is never locked, but
+                    say so in the code rather than leaning on that. */}
+                {locked ? (
+                  <AllAccessBadge testId={`picker-locked-${lang.code}`} />
+                ) : lang.code === freeLanguage ? (
+                  <IncludedFreeBadge testId={`picker-free-${lang.code}`} />
+                ) : null}
               </button>
             );
           })}

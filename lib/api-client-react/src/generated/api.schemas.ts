@@ -1072,6 +1072,8 @@ export interface Entitlements {
   chosenLanguage: string | null;
   /** The concrete language codes the caller may access. */
   allowedLanguages: string[];
+  /** The single language every tier gets for free. Plan-independent: it names the language, not the viewer's access, so clients can label it without keeping their own copy of the policy. */
+  freeLanguage: string;
   features: PlanFeatures;
   limits: EntitlementLimits;
 }

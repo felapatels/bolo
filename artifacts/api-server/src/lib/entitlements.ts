@@ -380,6 +380,11 @@ export interface Entitlements {
   chosenLanguage: string | null;
   // The concrete list of language codes the caller may access.
   allowedLanguages: string[];
+  // The single language every tier gets for free. Clients need it to label
+  // that language, which allowedLanguages cannot tell them: for a paid
+  // learner every code is allowed, so the free one is indistinguishable.
+  // Sourced from FREE_LANGUAGE so no client keeps its own copy of the policy.
+  freeLanguage: string;
   features: PlanFeatures;
   limits: {
     dailyNewLessons: DailyLessonAllowance;
@@ -423,6 +428,8 @@ export function buildEntitlements(
     // For Plus (allowed === null) return every seeded language so clients never
     // hardcode the list.
     allowedLanguages: allowed === null ? allLanguageCodes : allowed,
+    // Plan-independent: it names the language, not the viewer's access.
+    freeLanguage: FREE_LANGUAGE,
     features: featuresForPlan(plan),
     limits: {
       dailyNewLessons: { limit, used: usedToday, remaining },

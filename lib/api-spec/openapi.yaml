@@ -4303,6 +4303,12 @@ components:
           items:
             type: string
           description: The concrete language codes the caller may access.
+        freeLanguage:
+          type: string
+          description: >-
+            The single language every tier gets for free. Plan-independent: it
+            names the language, not the viewer's access, so clients can label
+            it without keeping their own copy of the policy.
         features:
           $ref: "#/components/schemas/PlanFeatures"
         limits:
@@ -4314,6 +4320,7 @@ components:
         - currentPeriodEnd
         - chosenLanguage
         - allowedLanguages
+        - freeLanguage
         - features
         - limits
 

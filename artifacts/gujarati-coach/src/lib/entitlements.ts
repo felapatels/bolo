@@ -59,6 +59,12 @@ export type EntitlementsView = {
   /** The One Language subscriber's chosen language, or null for Free/All-Access. */
   chosenLanguage: string | null;
   allowedLanguages: string[];
+  /**
+   * The one language every tier gets for free, named by the server. Empty
+   * until the snapshot loads. It describes the language, not the viewer, so
+   * it is the same string on every plan.
+   */
+  freeLanguage: string;
   features: PlanFeatures;
   dailyNewLessons: DailyLessonAllowance;
   /** Whether the caller's plan may open a given language code. */
@@ -95,6 +101,7 @@ export function useEntitlements(): EntitlementsView {
     currentPeriodEnd: data?.currentPeriodEnd ?? null,
     chosenLanguage: data?.chosenLanguage ?? null,
     allowedLanguages: data?.allowedLanguages ?? [],
+    freeLanguage: data?.freeLanguage ?? "",
     features: data?.features ?? LOCKED_FEATURES,
     dailyNewLessons: data?.limits?.dailyNewLessons ?? UNKNOWN_ALLOWANCE,
     // Until the snapshot loads we optimistically allow, so the default language

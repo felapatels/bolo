@@ -24,7 +24,7 @@ export default function LanguageModal() {
   const colors = useColors();
   const router = useRouter();
   const { languages, activeLang, adoptLanguageLocally, isLoading } = useLanguage();
-  const { isLanguageAllowed } = useEntitlements();
+  const { isLanguageAllowed, freeLanguage } = useEntitlements();
   // Explicit pick: the shared helper PATCHes activeLanguage AND
   // hasChosenLanguage together, so a pick here also retires the first-time
   // language step for good.
@@ -92,6 +92,7 @@ export default function LanguageModal() {
                 language={item}
                 active={item.code === activeLang}
                 locked={locked}
+                free={item.code === freeLanguage}
                 onPress={() =>
                   locked ? openShowroom(item.code) : choose(item.code)
                 }
@@ -119,11 +120,18 @@ function LanguageTile({
   language,
   active,
   locked,
+  free,
   onPress,
 }: {
   language: Language;
   active: boolean;
   locked: boolean;
+  /**
+   * This is the language every tier gets for free, per the server's
+   * entitlements.freeLanguage. It describes the language, not the viewer, so
+   * it is true on every plan.
+   */
+  free: boolean;
   onPress: () => void;
 }) {
   const colors = useColors();
@@ -189,6 +197,20 @@ function LanguageTile({
             <Feather name="star" size={8} color="#4A2C00" />
             <Text style={[styles.chipText, { color: '#4A2C00' }]}>
               All-Access
+            </Text>
+          </View>
+        </View>
+      ) : free ? (
+        // Explicit branch: the free language is never locked, but say so in
+        // the code rather than leaning on that.
+        <View
+          testID={`picker-free-${language.code}`}
+          accessibilityLabel="Included free"
+          style={styles.chipRow}
+        >
+          <View style={[styles.chip, styles.chipFree]}>
+            <Text style={[styles.chipText, { color: '#FFFFFF' }]}>
+              Included free
             </Text>
           </View>
         </View>
