@@ -682,7 +682,7 @@ function WalletHistory() {
               }
             >
               {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
-              <ChaiGlyph className="h-9 w-9" />
+              <ChaiGlyph className="h-4 w-4" />
             </span>
           </li>
         ))}
