@@ -1084,9 +1084,40 @@ export const GetFriendsLeaderboardResponseItem = zod.object({
   "rank": zod.number().describe('1-based rank, highest XP first.'),
   "isSelf": zod.boolean().describe('True for the caller\'s own entry.'),
   "equippedOutfit": zod.string().nullish().describe('The outfit this learner\'s Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. Carried on the row so friend and leaderboard lists render each learner\'s mascot without a per-row fetch. Optional: older clients that predate outfits on rows simply ignore it.'),
-  "equippedAccessory": zod.string().nullish().describe('The head accessory this learner\'s Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed.')
+  "equippedAccessory": zod.string().nullish().describe('The head accessory this learner\'s Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed.'),
+  "firstClassActive": zod.boolean().describe('Whether this learner\'s First Class window is open right now, resolved server-side from the expiry the spend wrote. A boolean and never the timestamp: a friend\'s exact expiry is not the reader\'s business, and a countdown on someone else\'s row is noise.')
 }).describe('One learner\'s standing on the friends leaderboard.')
 export const GetFriendsLeaderboardResponse = zod.array(GetFriendsLeaderboardResponseItem)
+
+
+/**
+ * Returns what the caller's accepted friends have been doing, newest first. Friends only and never the caller's own events: whose activity comes back is resolved server-side from the accepted friendships, and no client input selects it. Each entry carries an actor with a display name and mascot only, never an email address.
+ * @summary Recent activity from the caller's friends
+ */
+export const getFriendsFeedQueryLimitDefault = 20;
+export const getFriendsFeedQueryLimitMax = 50;
+
+
+
+export const GetFriendsFeedQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getFriendsFeedQueryLimitMax).default(getFriendsFeedQueryLimitDefault).describe('How many events to return. Defaults to 20 and is capped at 50; a malformed value falls back to the default rather than erroring.')
+})
+
+export const GetFriendsFeedResponseItem = zod.object({
+  "id": zod.number(),
+  "type": zod.string().describe('What happened: `equip_outfit`, `equip_accessory`, `badge_earned` or `zone_closeout`. Left open rather than enumerated so an older client meeting a newer event type can skip it instead of failing to parse the page; clients render nothing for a type they do not know.'),
+  "refId": zod.string().describe('The subject of the event: the item id for an equip, the badge key for a badge, `languageCode:categoryId` for a zone closeout.'),
+  "payload": zod.record(zod.string(), zod.unknown()).nullable().describe('Everything a renderer needs beyond the type and the ref.'),
+  "createdAt": zod.coerce.date(),
+  "actor": zod.object({
+  "userId": zod.string(),
+  "displayName": zod.string().nullable(),
+  "equippedOutfit": zod.string().nullable().describe('The outfit this friend\'s Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird.'),
+  "equippedAccessory": zod.string().nullable().describe('The head accessory this friend\'s Bolo is wearing, or null. A separate slot from the garment.'),
+  "firstClassActive": zod.boolean().describe('Whether this friend\'s First Class window is open right now. A boolean, never the expiry timestamp.')
+}).describe('The friend a feed entry is about. Display name and mascot only: a feed never carries an email address, because a friend code is deliberately the only way to find another learner.')
+}).describe('One moment from a friend\'s activity log.')
+export const GetFriendsFeedResponse = zod.array(GetFriendsFeedResponseItem)
 
 
 /**

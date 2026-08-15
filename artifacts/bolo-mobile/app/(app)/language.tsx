@@ -9,6 +9,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { GoldChip } from '@/components/GoldChip';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useExplicitLanguageChoice } from '@/lib/language-step';
@@ -193,12 +194,9 @@ function LanguageTile({
               Free taste
             </Text>
           </View>
-          <View style={[styles.chip, styles.chipAllAccess]}>
-            <Feather name="star" size={8} color="#4A2C00" />
-            <Text style={[styles.chipText, { color: '#4A2C00' }]}>
-              All-Access
-            </Text>
-          </View>
+          {/* The gold pill lives in components/GoldChip.tsx now that friend
+              rows wear the same one for First Class. Same shape, one place. */}
+          <GoldChip label="All-Access" />
         </View>
       ) : free ? (
         // Explicit branch: the free language is never locked, but say so in

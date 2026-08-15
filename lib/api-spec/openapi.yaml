@@ -1271,6 +1271,39 @@ paths:
                 items:
                   $ref: "#/components/schemas/LeaderboardEntry"
 
+  /friends/feed:
+    get:
+      operationId: getFriendsFeed
+      tags: [friends]
+      summary: Recent activity from the caller's friends
+      description: >-
+        Returns what the caller's accepted friends have been doing, newest
+        first. Friends only and never the caller's own events: whose activity
+        comes back is resolved server-side from the accepted friendships, and
+        no client input selects it. Each entry carries an actor with a display
+        name and mascot only, never an email address.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: >-
+            How many events to return. Defaults to 20 and is capped at 50; a
+            malformed value falls back to the default rather than erroring.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: The friends activity feed, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FeedEntry"
+
   /games/script-trace/progress:
     get:
       operationId: getScriptTraceProgress
@@ -5160,6 +5193,78 @@ components:
           format: date-time
           nullable: true
 
+    FeedActor:
+      type: object
+      description: >-
+        The friend a feed entry is about. Display name and mascot only: a feed
+        never carries an email address, because a friend code is deliberately
+        the only way to find another learner.
+      properties:
+        userId:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        equippedOutfit:
+          type: string
+          nullable: true
+          description: >-
+            The outfit this friend's Bolo is wearing (see OutfitCatalog ids), or
+            null for the canonical undressed bird.
+        equippedAccessory:
+          type: string
+          nullable: true
+          description: >-
+            The head accessory this friend's Bolo is wearing, or null. A separate
+            slot from the garment.
+        firstClassActive:
+          type: boolean
+          description: >-
+            Whether this friend's First Class window is open right now. A
+            boolean, never the expiry timestamp.
+      required:
+        - userId
+        - displayName
+        - equippedOutfit
+        - equippedAccessory
+        - firstClassActive
+
+    FeedEntry:
+      type: object
+      description: One moment from a friend's activity log.
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          description: >-
+            What happened: `equip_outfit`, `equip_accessory`, `badge_earned` or
+            `zone_closeout`. Left open rather than enumerated so an older client
+            meeting a newer event type can skip it instead of failing to parse
+            the page; clients render nothing for a type they do not know.
+        refId:
+          type: string
+          description: >-
+            The subject of the event: the item id for an equip, the badge key
+            for a badge, `languageCode:categoryId` for a zone closeout.
+        payload:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Everything a renderer needs beyond the type and the ref.
+        createdAt:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/FeedActor"
+      required:
+        - id
+        - type
+        - refId
+        - payload
+        - createdAt
+        - actor
+
     LeaderboardEntry:
       type: object
       description: One learner's standing on the friends leaderboard.
@@ -5211,6 +5316,13 @@ components:
             The head accessory this learner's Bolo is wearing, or null. A garment and
             an accessory are separate slots, so a row that shipped only the garment
             would show a pagdi-wearing friend bare-headed.
+        firstClassActive:
+          type: boolean
+          description: >-
+            Whether this learner's First Class window is open right now,
+            resolved server-side from the expiry the spend wrote. A boolean and
+            never the timestamp: a friend's exact expiry is not the reader's
+            business, and a countdown on someone else's row is noise.
       required:
         - userId
         - displayName
@@ -5219,3 +5331,4 @@ components:
         - reachedAt
         - rank
         - isSelf
+        - firstClassActive

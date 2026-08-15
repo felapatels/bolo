@@ -166,6 +166,7 @@ import {
   STOP_UNLOCK_COST,
 } from "../lib/tokenEconomy";
 import { maybeGrantAllowance } from "./tokens";
+import { recordActivityEvent } from "../lib/activityEvents";
 import {
   getUnlockedGroupIds,
   isPhraseServable,
@@ -2408,6 +2409,18 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
       );
       if (granted) {
         chaiGranted = CLOSEOUT_FIRST_CHAI;
+        // The ONE zone-closeout feed emit, gated on the same `granted` the
+        // Chai receipt is gated on: it is true only for the call that actually
+        // inserted the ledger row, so a replay posts nothing. The three
+        // earn_zone_complete sites deliberately do not emit — they all use bare
+        // grantTokens, which cannot say whether this call or a concurrent one
+        // wrote the row, and an emit there would repeat the line.
+        await recordActivityEvent({
+          userId,
+          type: "zone_closeout",
+          refId,
+          payload: { languageCode, categoryId },
+        });
       }
     } catch (err) {
       req.log.warn({ err }, "token_closeout_grant_failed");

@@ -14,7 +14,10 @@ process.env.EXPO_PUBLIC_DOMAIN = 'bolo.example.com';
 import React from 'react';
 import { Share } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
-import type { LeaderboardEntry } from '@workspace/api-client-react';
+import type {
+  FeedEntry,
+  LeaderboardEntry,
+} from '@workspace/api-client-react';
 
 // ── mutable mock state ────────────────────────────────────────────────────────
 
@@ -23,12 +26,14 @@ const mockState: {
   leaderboardLoading: boolean;
   leaderboardError: boolean;
   referralCode: string | undefined;
+  feedData: FeedEntry[];
   pushFn: jest.Mock;
 } = {
   leaderboardData: [],
   leaderboardLoading: false,
   leaderboardError: false,
   referralCode: 'K7XM2P',
+  feedData: [],
   pushFn: jest.fn(),
 };
 
@@ -45,10 +50,22 @@ jest.mock('@workspace/api-client-react', () => ({
     isLoading: false,
     isError: false,
   }),
+  // The card now also shows the single most recent friend moment above the
+  // rank rows. These tests are about the ranks, so the feed stays empty and
+  // the line stays absent.
+  useGetFriendsFeed: () => ({
+    data: mockState.feedData,
+    isLoading: false,
+    isError: false,
+    refetch: jest.fn(),
+  }),
+  getGetFriendsFeedQueryKey: () => ['feed'],
+  useGetOutfits: () => ({ data: { outfits: [] } }),
 }));
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockState.pushFn }),
+  useFocusEffect: () => {},
 }));
 
 jest.mock('@/hooks/useColors', () => ({

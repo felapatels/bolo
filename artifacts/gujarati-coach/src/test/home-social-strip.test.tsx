@@ -10,7 +10,7 @@
 import React from "react";
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { LeaderboardEntry } from "@workspace/api-client-react";
+import type { FeedEntry, LeaderboardEntry } from "@workspace/api-client-react";
 
 // ── hoisted mutable state ─────────────────────────────────────────────────────
 
@@ -21,6 +21,8 @@ const h = vi.hoisted(() => ({
   referralCode: "K7XM2P" as string | undefined,
   referralLoading: false,
   referralError: false,
+  feedData: [] as FeedEntry[],
+  outfits: [] as { id: string; name: string }[],
 }));
 
 // ── module mocks ──────────────────────────────────────────────────────────────
@@ -71,6 +73,16 @@ vi.mock("@workspace/api-client-react", () => ({
     isLoading: h.referralLoading,
     isError: h.referralError,
   }),
+  // The card now also shows the single most recent friend moment above the
+  // rank rows. These tests are about the ranks, so the feed stays empty and
+  // the line stays absent; the feed line has its own coverage.
+  useGetFriendsFeed: () => ({
+    data: h.feedData,
+    isLoading: false,
+    isError: false,
+  }),
+  getGetFriendsFeedQueryKey: () => ["feed"],
+  useGetOutfits: () => ({ data: { outfits: h.outfits } }),
 }));
 
 vi.mock("@/lib/referral-code", () => ({

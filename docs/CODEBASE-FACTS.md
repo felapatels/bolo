@@ -2898,3 +2898,76 @@ stays quiet. Mobile added `historyList`, `historyEntry`, `historyLabel` and
 
 Both chai-wallet suites mock `useGetTokenHistory` and default it to an empty
 `entries` array, so every pre-existing sheet test still sees the empty frame.
+
+## 10bp. The friends feed: activity events, First Class on rows, a third board tab (August 15, 2026, server + both platforms)
+
+**What the server records.** `ActivityEventType` in api-server
+`src/lib/activityEvents.ts` gained `badge_earned` and `zone_closeout` beside the
+two equip events that already existed. `recordActivityEvent` still swallows and
+logs its own failure (an activity row must never fail the action it describes),
+and now trims that user's rows older than `RETENTION_DAYS = 90` after a
+successful insert. The trim is per user and swallowed the same way: no cron, no
+global sweep, nothing to schedule, and a feed nobody reads costs nothing to keep
+tidy. There is NO backfill, so the feed starts at the first event written after
+this ships.
+
+`badge_earned` is emitted in `awardNewlyEarnedBadges`
+(`src/lib/badgeAward.ts`), one event per row of the `.returning()` insert, so
+the unique `(user, language, badge)` constraint's `onConflictDoNothing` is what
+makes it fire once. `refId` is the badge key. `zone_closeout` is emitted in
+`src/routes/learning.ts` inside the single `earn_closeout_first` branch, gated
+on `granted`, sharing the grant's own `refId`. The three `earn_zone_complete`
+sites deliberately stay silent: a zone can be completed more than once, and the
+closeout grant is the moment that happens once.
+
+**Who can read it.** `GET /friends/feed` (`src/routes/friends.ts`) returns the
+caller's accepted friends' events, newest first (`createdAt desc, id desc`),
+`limit` 1..50 default 20. Junk in `limit` falls back to the default rather than
+400ing: a feed is not worth an error page. The caller's OWN events are not in
+it, which is the difference from the leaderboard's
+`[userId, ...friendIds]`; both now share `loadAcceptedFriendIds()`. With no
+friends it short-circuits to `[]` without touching `activity_events`. Actors
+come from one `loadUserSummaries()` call for the page, so a feed carries display
+name and mascot only, never an email.
+
+**First Class on a row.** `UserSummary` gained `firstClassActive: boolean`,
+derived in `toSummary()` from `user_token_state.firstClassExpiresAt` against
+now. Clients get a boolean and never an expiry, so there is nothing to count
+down and nothing to get wrong at the boundary.
+
+**Shared client pieces.** The row mascot and the gold pill were each defined
+once and are now imported by three surfaces apiece: web
+`src/components/mascot-avatar.tsx` (`MascotAvatar`, `size` prop, crop offsets
+computed from fractions so they scale) and `src/components/gold-chip.tsx`
+(`GoldChip` plus `FirstClassChip`), mobile `components/MascotAvatar.tsx` and
+`components/GoldChip.tsx`. The language picker's All-Access chip now renders
+`GoldChip` on both platforms. Feed copy lives in web `src/lib/feed-copy.ts` and
+mobile `lib/feedCopy.ts`: `feedLineFor()` returns one sentence per known type
+and `null` for anything else, and the callers render NOTHING for a null, so a
+build that predates a new event kind skips it instead of printing a placeholder.
+
+**The board's third tab.** `BoardTab` is now a union of `RankedTab` (kind
+`"ranked"`, the two tabs that re-sort the one board payload) and `FeedTabDef`
+(kind `"feed"`). The feed tab is not a re-sort: it reads its own endpoint and
+owns its loading, error and empty states. `FEED_EMPTY_BODY` is the empty copy.
+Web reads `?tab=feed` through wouter's `useSearch`, mobile through
+`useLocalSearchParams`, both falling back to the first tab. Feed rows are
+`feed-row`: a 40px mascot, one truncated line, and the gold chip when the actor
+holds First Class. Mobile's segment row carries three segments now, so its gaps
+tightened (10 to 8, inner 7 to 6, 6pt of horizontal padding) and the label
+shrinks with `adjustsFontSizeToFit` / `minimumFontScale={0.85}` rather than
+wrapping on a 320pt phone.
+
+**Home.** Both `HomeSocialStrip`s fetch `limit: 1` and render the single most
+recent friend moment (`home-latest-moment`) above the mini rank rows, tapping
+through to the feed tab. Loading, error, empty and an undescribable event all
+render nothing: an empty row there would push the ranks down for no
+information. The no-friends invite state is untouched.
+
+**Test debt paid.** `badgeAward.test.ts`'s cleanup now deletes the test user's
+`activity_events` before deleting the user, since the award path writes an
+FK-carrying row; both `home-social-strip` suites gained
+`useGetFriendsFeed`/`useGetOutfits` in their api-client mock factories, the
+known full-replacement-mock trap. No leaderboard screen test exists on either
+platform, so the feed tab, the First Class chip and the `?tab=feed` deep link
+are currently covered only by typecheck.

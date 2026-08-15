@@ -1,6 +1,13 @@
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { db, pool, badgesTable, usersTable, languagesTable } from "@workspace/db";
+import {
+  db,
+  pool,
+  badgesTable,
+  usersTable,
+  languagesTable,
+  activityEventsTable,
+} from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { awardNewlyEarnedBadges } from "./badgeAward";
 import type { ExtendedProgressMetrics } from "./badges";
@@ -45,6 +52,12 @@ const STARTER_KEYS = ["first_phrase", "mastery_1"];
 
 async function clearBadges(): Promise<void> {
   await db.delete(badgesTable).where(eq(badgesTable.userId, TEST_USER_ID));
+  // Awarding a badge now also writes a badge_earned activity event, and that
+  // row carries an FK to the user. Left behind, it blocks the teardown that
+  // deletes the throwaway learner.
+  await db
+    .delete(activityEventsTable)
+    .where(eq(activityEventsTable.userId, TEST_USER_ID));
 }
 
 async function storedBadgeKeys(languageCode: string): Promise<string[]> {

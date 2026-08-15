@@ -2,9 +2,16 @@ import { Link } from "wouter";
 import { Users, Crown, Gift } from "lucide-react";
 import {
   useGetFriendsLeaderboard,
+  useGetFriendsFeed,
+  getGetFriendsFeedQueryKey,
+  useGetOutfits,
   useGetReferral,
   type LeaderboardEntry,
+  type GetFriendsFeedParams,
 } from "@workspace/api-client-react";
+import { MascotAvatar } from "@/components/mascot-avatar";
+import { FirstClassChip } from "@/components/gold-chip";
+import { feedLineFor } from "@/lib/feed-copy";
 import { REFERRAL_REWARD_CHAI, referralLink } from "@/lib/referral-code";
 import { copyReferralLink, shareReferralLink } from "@/lib/referral-share";
 import { motion } from "framer-motion";
@@ -63,6 +70,56 @@ function MiniRow({ entry, index }: { entry: LeaderboardEntry; index: number }) {
         {entry.xp}
       </span>
     </motion.div>
+  );
+}
+
+// ── latest friend moment ──────────────────────────────────────────────────────
+
+const LATEST_PARAMS: GetFriendsFeedParams = { limit: 1 };
+
+/**
+ * The single most recent thing a friend did, above the rank rows.
+ *
+ * ONE event, not a feed: home is a launchpad, and the whole point of the line
+ * is to be a door to the Feed tab rather than a second copy of it. It fetches
+ * limit=1 for the same reason — a card that shows one line has no business
+ * pulling twenty.
+ *
+ * Absent while loading, on error, and when there is nothing to say. Never a
+ * placeholder: an empty row here would push the ranks down for no information.
+ */
+function LatestFriendMoment() {
+  const feed = useGetFriendsFeed(LATEST_PARAMS, {
+    query: {
+      queryKey: getGetFriendsFeedQueryKey(LATEST_PARAMS),
+      refetchOnWindowFocus: true,
+      refetchOnMount: "always",
+    },
+  });
+  const outfits = useGetOutfits();
+
+  const entry = feed.data?.[0];
+  if (!entry) return null;
+
+  const line = feedLineFor(
+    entry,
+    (id) => outfits.data?.outfits.find((o) => o.id === id)?.name ?? null,
+  );
+  // An event this build cannot describe is not a reason to show an empty row.
+  if (line === null) return null;
+
+  return (
+    <Link
+      href="/leaderboard?tab=feed"
+      data-testid="home-latest-moment"
+      className="flex items-center gap-2.5 rounded-xl bg-muted/50 px-3 py-2 transition-opacity hover:opacity-80"
+    >
+      <MascotAvatar user={entry.actor} size={28} />
+      <span className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">
+        {line}
+      </span>
+      {entry.actor.firstClassActive && <FirstClassChip />}
+    </Link>
   );
 }
 
@@ -136,8 +193,9 @@ export function HomeSocialStrip() {
       </div>
 
       {hasFriends ? (
-        /* ── populated: rank strip ── */
+        /* ── populated: latest moment, then the rank strip ── */
         <div className="space-y-1.5">
+          <LatestFriendMoment />
           {displayEntries.map((entry, i) => (
             <MiniRow key={entry.userId} entry={entry} index={i} />
           ))}

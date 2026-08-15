@@ -28,6 +28,7 @@ import {
   type GameSessionSummary,
 } from "./progressMetrics";
 import { loadStreakLadder } from "./streakDays";
+import { recordActivityEvent } from "./activityEvents";
 
 export interface NewlyEarnedBadge {
   key: string;
@@ -59,6 +60,26 @@ export async function awardNewlyEarnedBadges(
     )
     .onConflictDoNothing()
     .returning();
+
+  // The feed emit lives HERE rather than at this function's four call sites,
+  // and off `inserted` rather than off `satisfiedKeys`. Those rows are the
+  // badges this call actually wrote, so a re-evaluation of the catalog (which
+  // happens after every attempt, session and quiz) cannot post the same badge
+  // a second time. Siting it inside also means the nocatch gate in
+  // routes/learning.ts is respected for free: that path does not call this
+  // function at all, so a recording the system never heard emits nothing.
+  //
+  // Sequential, not Promise.all: recordActivityEvent trims retention on every
+  // write, and one learner earning several badges at once is rare enough that
+  // ordering the writes costs nothing worth optimising.
+  for (const row of inserted) {
+    await recordActivityEvent({
+      userId,
+      type: "badge_earned",
+      refId: row.badgeKey,
+      payload: { badgeKey: row.badgeKey, languageCode },
+    });
+  }
 
   const earnedAtByKey = new Map(inserted.map((r) => [r.badgeKey, r.earnedAt]));
 

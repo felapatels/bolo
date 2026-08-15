@@ -52,6 +52,7 @@ import type {
   EquipOutfitInput,
   Error,
   FamilyStatus,
+  FeedEntry,
   FirstClassInput,
   FirstClassResult,
   Friend,
@@ -61,6 +62,7 @@ import type {
   GameSessionResult,
   GeneratedPhrase,
   GetDailyQuizParams,
+  GetFriendsFeedParams,
   GetFriendsLeaderboardParams,
   GetProgressAnalyticsParams,
   GetProgressSummaryParams,
@@ -3279,6 +3281,91 @@ export function useGetFriendsLeaderboard<TData = Awaited<ReturnType<typeof getFr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetFriendsLeaderboardQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetFriendsFeedUrl = (params?: GetFriendsFeedParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/friends/feed?${stringifiedParams}` : `/api/friends/feed`
+}
+
+/**
+ * Returns what the caller's accepted friends have been doing, newest first. Friends only and never the caller's own events: whose activity comes back is resolved server-side from the accepted friendships, and no client input selects it. Each entry carries an actor with a display name and mascot only, never an email address.
+ * @summary Recent activity from the caller's friends
+ */
+export const getFriendsFeed = async (params?: GetFriendsFeedParams, options?: RequestInit): Promise<FeedEntry[]> => {
+
+  return customFetch<FeedEntry[]>(getGetFriendsFeedUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFriendsFeedQueryKey = (params?: GetFriendsFeedParams,) => {
+    return [
+    `/api/friends/feed`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetFriendsFeedQueryOptions = <TData = Awaited<ReturnType<typeof getFriendsFeed>>, TError = ErrorType<unknown>>(params?: GetFriendsFeedParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFriendsFeed>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFriendsFeedQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFriendsFeed>>> = ({ signal }) => getFriendsFeed(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFriendsFeed>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFriendsFeedQueryResult = NonNullable<Awaited<ReturnType<typeof getFriendsFeed>>>
+export type GetFriendsFeedQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Recent activity from the caller's friends
+ */
+
+export function useGetFriendsFeed<TData = Awaited<ReturnType<typeof getFriendsFeed>>, TError = ErrorType<unknown>>(
+ params?: GetFriendsFeedParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFriendsFeed>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFriendsFeedQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

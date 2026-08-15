@@ -13,12 +13,19 @@
 import React from 'react';
 import { Share, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   useGetFriendsLeaderboard,
+  useGetFriendsFeed,
+  getGetFriendsFeedQueryKey,
+  useGetOutfits,
   useGetReferral,
   type LeaderboardEntry,
+  type GetFriendsFeedParams,
 } from '@workspace/api-client-react';
+import { MascotAvatar } from '@/components/MascotAvatar';
+import { FirstClassChip } from '@/components/GoldChip';
+import { feedLineFor } from '@/lib/feedCopy';
 import { REFERRAL_REWARD_CHAI } from '@workspace/referral-link';
 import { PressableScale } from '@/components/PressableScale';
 import { useColors } from '@/hooks/useColors';
@@ -77,6 +84,78 @@ function MiniRow({ entry, colors }: { entry: LeaderboardEntry; colors: ReturnTyp
         </Text>
       </View>
     </View>
+  );
+}
+
+// ── latest friend moment ──────────────────────────────────────────────────────
+
+const LATEST_PARAMS: GetFriendsFeedParams = { limit: 1 };
+
+/**
+ * The single most recent thing a friend did, above the rank rows.
+ *
+ * ONE event, not a feed: home is a launchpad, and the point of the line is to
+ * be a door to the Feed tab rather than a second copy of it. It fetches limit=1
+ * for the same reason — a card that shows one line has no business pulling
+ * twenty.
+ *
+ * Absent while loading, on error, and when there is nothing to say. Never a
+ * placeholder: an empty row here would push the ranks down for no information.
+ */
+function LatestFriendMoment({
+  colors,
+}: {
+  colors: ReturnType<typeof useColors>;
+}) {
+  const router = useRouter();
+  const feed = useGetFriendsFeed(LATEST_PARAMS, {
+    query: {
+      queryKey: getGetFriendsFeedQueryKey(LATEST_PARAMS),
+      refetchOnMount: 'always',
+    },
+  });
+  const outfits = useGetOutfits();
+
+  const { refetch } = feed;
+  useFocusEffect(
+    React.useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
+
+  const entry = feed.data?.[0];
+  if (!entry) return null;
+
+  const line = feedLineFor(
+    entry,
+    (id) => outfits.data?.outfits.find((o) => o.id === id)?.name ?? null,
+  );
+  // An event this build cannot describe is not a reason to show an empty row.
+  if (line === null) return null;
+
+  return (
+    <PressableScale
+      testID="home-latest-moment"
+      accessibilityRole="link"
+      accessibilityLabel={line}
+      onPress={() => {
+        hapticLight();
+        router.push('/(app)/leaderboard?tab=feed');
+      }}
+      style={[
+        styles.momentRow,
+        { backgroundColor: `${colors.mutedForeground}18` },
+      ]}
+    >
+      <MascotAvatar user={entry.actor} size={28} />
+      <Text
+        numberOfLines={1}
+        style={[styles.momentText, { color: colors.foreground }]}
+      >
+        {line}
+      </Text>
+      {entry.actor.firstClassActive ? <FirstClassChip /> : null}
+    </PressableScale>
   );
 }
 
@@ -159,8 +238,9 @@ export function HomeSocialStrip() {
       </View>
 
       {hasFriends ? (
-        /* ── populated: rank strip ── */
+        /* ── populated: latest moment, then the rank strip ── */
         <View style={styles.rows}>
+          <LatestFriendMoment colors={colors} />
           {displayEntries.map((entry) => (
             <MiniRow key={entry.userId} entry={entry} colors={colors} />
           ))}
@@ -239,6 +319,20 @@ const styles = StyleSheet.create({
   },
   rows: {
     gap: 5,
+  },
+  momentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  momentText: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: AppFonts.bold,
+    fontSize: 13,
   },
   miniRow: {
     flexDirection: 'row',

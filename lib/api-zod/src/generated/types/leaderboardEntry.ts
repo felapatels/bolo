@@ -26,4 +26,6 @@ export interface LeaderboardEntry {
   equippedOutfit?: string | null;
   /** The head accessory this learner's Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed. */
   equippedAccessory?: string | null;
+  /** Whether this learner's First Class window is open right now, resolved server-side from the expiry the spend wrote. A boolean and never the timestamp: a friend's exact expiry is not the reader's business, and a countdown on someone else's row is noise. */
+  firstClassActive: boolean;
 }

@@ -8,8 +8,20 @@ import {
   friendCodeAttemptsTable,
   userTokenStateTable,
   xpLedgerTable,
+  activityEventsTable,
 } from "@workspace/db";
-import { and, asc, eq, gte, ne, or, inArray, sql, sum } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  ne,
+  or,
+  inArray,
+  sql,
+  sum,
+} from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { loadStreakLadder } from "../lib/streakDays";
 import { createRateLimit } from "../middlewares/rateLimit";
@@ -51,6 +63,11 @@ interface UserSummary {
   // canonical undressed bird — never a blank or a fallback initial.
   equippedOutfit: string | null;
   equippedAccessory: string | null;
+  // Whether this learner's First Class window is open RIGHT NOW. A boolean,
+  // never the expiry timestamp: when somebody else's status runs out is not
+  // the reader's business, and a countdown on a friend's row is noise on a
+  // screen that exists to compare progress.
+  firstClassActive: boolean;
 }
 
 // The equipped slots are optional here so callers that already hold a plain
@@ -63,6 +80,7 @@ function toSummary(u: {
   timezone?: string | null;
   equippedOutfit?: string | null;
   equippedAccessory?: string | null;
+  firstClassExpiresAt?: Date | null;
 }): UserSummary {
   return {
     id: u.id,
@@ -70,6 +88,12 @@ function toSummary(u: {
     timezone: u.timezone ?? null,
     equippedOutfit: u.equippedOutfit ?? null,
     equippedAccessory: u.equippedAccessory ?? null,
+    // Resolved here, server-side, from the absolute deadline the spend wrote.
+    // A learner with no token state row at all (never opened the stall) has no
+    // deadline and so is not First Class.
+    firstClassActive: u.firstClassExpiresAt
+      ? u.firstClassExpiresAt.getTime() > Date.now()
+      : false,
   };
 }
 
@@ -89,6 +113,7 @@ async function loadUserSummaries(
       timezone: usersTable.timezone,
       equippedOutfit: userTokenStateTable.equippedOutfit,
       equippedAccessory: userTokenStateTable.equippedAccessory,
+      firstClassExpiresAt: userTokenStateTable.firstClassExpiresAt,
     })
     .from(usersTable)
     .leftJoin(userTokenStateTable, eq(userTokenStateTable.userId, usersTable.id))
@@ -104,6 +129,7 @@ function unknownSummary(id: string): UserSummary {
     timezone: null,
     equippedOutfit: null,
     equippedAccessory: null,
+    firstClassActive: false,
   };
 }
 
@@ -584,6 +610,37 @@ router.post(
 type LeaderboardWindow = "all-time" | "week";
 
 /**
+ * The caller's ACCEPTED friends, never the caller themselves.
+ *
+ * One resolution shared by the board and the feed. A friendship is a single
+ * directional row, so the caller can sit on either side of it and the "other
+ * end" has to be picked per row; doing that twice in two handlers is how the
+ * two surfaces end up disagreeing about who a friend is.
+ */
+async function loadAcceptedFriendIds(userId: string): Promise<string[]> {
+  const friendships = await db
+    .select()
+    .from(friendshipsTable)
+    .where(
+      and(
+        eq(friendshipsTable.status, "accepted"),
+        or(
+          eq(friendshipsTable.requesterId, userId),
+          eq(friendshipsTable.addresseeId, userId),
+        ),
+      ),
+    );
+  const ids = new Set<string>();
+  for (const f of friendships) {
+    ids.add(f.requesterId === userId ? f.addresseeId : f.requesterId);
+  }
+  // A self-friendship cannot be created, but if one ever existed it must not
+  // put the caller's own events in their friends' feed.
+  ids.delete(userId);
+  return [...ids];
+}
+
+/**
  * Midnight UTC on the Monday of the week containing `now`.
  *
  * The week is a UTC week for everybody, deliberately. A leaderboard is a
@@ -634,23 +691,9 @@ router.get(
     const window: LeaderboardWindow =
       req.query.window === "week" ? "week" : "all-time";
 
-    const friendships = await db
-      .select()
-      .from(friendshipsTable)
-      .where(
-        and(
-          eq(friendshipsTable.status, "accepted"),
-          or(
-            eq(friendshipsTable.requesterId, userId),
-            eq(friendshipsTable.addresseeId, userId),
-          ),
-        ),
-      );
-    const memberIds = new Set<string>([userId]);
-    for (const f of friendships) {
-      memberIds.add(f.requesterId === userId ? f.addresseeId : f.requesterId);
-    }
-    const ids = [...memberIds];
+    const friendIds = await loadAcceptedFriendIds(userId);
+    // The board is the caller AND their friends; the feed is friends only.
+    const ids = [userId, ...friendIds];
 
     const xpFilters = [inArray(xpLedgerTable.userId, ids)];
     if (window === "week") {
@@ -707,6 +750,9 @@ router.get(
         // row has to fetch anything of its own.
         equippedOutfit: summary.equippedOutfit,
         equippedAccessory: summary.equippedAccessory,
+        // Status, not a countdown: the row shows a gold chip while the window
+        // is open and nothing once it closes.
+        firstClassActive: summary.firstClassActive,
         xp: xpByUser.get(id) ?? 0,
         currentStreakDays: streakByUser.get(id) ?? 0,
         // ISO, or null for a learner with no XP in this window; they have not
@@ -742,5 +788,95 @@ function compareLeaderboardEntries(
   if (b.reachedAt === null) return -1;
   return a.reachedAt < b.reachedAt ? -1 : 1;
 }
+
+// ---------------------------------------------------------------------------
+// The activity feed
+// ---------------------------------------------------------------------------
+
+/** Feed page size: the default a tab asks for, and the ceiling it may ask for. */
+const FEED_DEFAULT_LIMIT = 20;
+const FEED_MAX_LIMIT = 50;
+
+/**
+ * `limit`, clamped. A junk value falls back to the default rather than 400ing:
+ * the feed is a read of things that already happened, and refusing to show it
+ * over a malformed query string helps nobody.
+ */
+function parseFeedLimit(raw: unknown): number {
+  const n = typeof raw === "string" ? Number.parseInt(raw, 10) : NaN;
+  if (!Number.isFinite(n) || n < 1) return FEED_DEFAULT_LIMIT;
+  return Math.min(n, FEED_MAX_LIMIT);
+}
+
+// GET /friends/feed — what the caller's accepted friends have been doing,
+// newest first.
+//
+// FRIENDS ONLY, and never the caller. The gate is the friend-id set resolved
+// server-side (the same one the board uses); no client input selects whose
+// events come back. The caller's own moments are excluded because a feed is
+// for reading about other people: seeing your own equip echoed back is noise,
+// and the surfaces that celebrate your own wins already did so at the moment.
+//
+// The actor carries a display name and a mascot and NOTHING else. Email in
+// particular is never on this payload: a friend code is deliberately the only
+// way to find somebody in this router, and a feed that leaked addresses would
+// undo that in one response.
+router.get(
+  "/friends/feed",
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = getUserId(req);
+    const limit = parseFeedLimit(req.query.limit);
+
+    const friendIds = await loadAcceptedFriendIds(userId);
+    // No friends, no feed. Skipping the query also keeps `inArray` off an
+    // empty list, which no dialect answers usefully.
+    if (friendIds.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    const rows = await db
+      .select({
+        id: activityEventsTable.id,
+        userId: activityEventsTable.userId,
+        type: activityEventsTable.type,
+        refId: activityEventsTable.refId,
+        payload: activityEventsTable.payload,
+        createdAt: activityEventsTable.createdAt,
+      })
+      .from(activityEventsTable)
+      .where(inArray(activityEventsTable.userId, friendIds))
+      // id breaks the tie: two events written in the same transaction share a
+      // timestamp, and a feed that reorders them between reads looks broken.
+      .orderBy(desc(activityEventsTable.createdAt), desc(activityEventsTable.id))
+      .limit(limit);
+
+    // One summary load for the whole page, keyed by actor, so a page of twenty
+    // events by the same friend still costs one query.
+    const summaries = await loadUserSummaries([
+      ...new Set(rows.map((r) => r.userId)),
+    ]);
+
+    res.json(
+      rows.map((row) => {
+        const summary = summaries.get(row.userId) ?? unknownSummary(row.userId);
+        return {
+          id: row.id,
+          type: row.type,
+          refId: row.refId,
+          payload: row.payload ?? null,
+          createdAt: row.createdAt.toISOString(),
+          actor: {
+            userId: summary.id,
+            displayName: summary.displayName,
+            equippedOutfit: summary.equippedOutfit,
+            equippedAccessory: summary.equippedAccessory,
+            firstClassActive: summary.firstClassActive,
+          },
+        };
+      }),
+    );
+  },
+);
 
 export default router;

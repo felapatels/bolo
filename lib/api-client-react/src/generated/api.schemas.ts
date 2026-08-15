@@ -1601,6 +1601,40 @@ export interface TokenSpendResult {
 }
 
 /**
+ * The friend a feed entry is about. Display name and mascot only: a feed never carries an email address, because a friend code is deliberately the only way to find another learner.
+ */
+export interface FeedActor {
+  userId: string;
+  displayName: string | null;
+  /** The outfit this friend's Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. */
+  equippedOutfit: string | null;
+  /** The head accessory this friend's Bolo is wearing, or null. A separate slot from the garment. */
+  equippedAccessory: string | null;
+  /** Whether this friend's First Class window is open right now. A boolean, never the expiry timestamp. */
+  firstClassActive: boolean;
+}
+
+/**
+ * Everything a renderer needs beyond the type and the ref.
+ */
+export type FeedEntryPayload = { [key: string]: unknown } | null;
+
+/**
+ * One moment from a friend's activity log.
+ */
+export interface FeedEntry {
+  id: number;
+  /** What happened: `equip_outfit`, `equip_accessory`, `badge_earned` or `zone_closeout`. Left open rather than enumerated so an older client meeting a newer event type can skip it instead of failing to parse the page; clients render nothing for a type they do not know. */
+  type: string;
+  /** The subject of the event: the item id for an equip, the badge key for a badge, `languageCode:categoryId` for a zone closeout. */
+  refId: string;
+  /** Everything a renderer needs beyond the type and the ref. */
+  payload: FeedEntryPayload;
+  createdAt: string;
+  actor: FeedActor;
+}
+
+/**
  * One learner's standing on the friends leaderboard.
  */
 export interface LeaderboardEntry {
@@ -1620,6 +1654,8 @@ export interface LeaderboardEntry {
   equippedOutfit?: string | null;
   /** The head accessory this learner's Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed. */
   equippedAccessory?: string | null;
+  /** Whether this learner's First Class window is open right now, resolved server-side from the expiry the spend wrote. A boolean and never the timestamp: a friend's exact expiry is not the reader's business, and a countdown on someone else's row is noise. */
+  firstClassActive: boolean;
 }
 
 export type ListCategoriesParams = {
@@ -1661,6 +1697,15 @@ export const GetFriendsLeaderboardWindow = {
   'all-time': 'all-time',
   week: 'week',
 } as const;
+
+export type GetFriendsFeedParams = {
+/**
+ * How many events to return. Defaults to 20 and is capped at 50; a malformed value falls back to the default rather than erroring.
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
+};
 
 export type GetScriptTraceProgressParams = {
 chapter: GetScriptTraceProgressChapter;

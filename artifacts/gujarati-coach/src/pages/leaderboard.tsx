@@ -5,11 +5,12 @@
  * Standing is a different thing you come to look at, so it gets its own route
  * and home links straight to it.
  *
- * Two tabs today, Weekly XP and Streak. Both read the SAME payload: streak is
- * window-independent, so the streak tab re-sorts the entries the weekly query
- * already returned rather than fetching a second board. A third tab (the feed,
- * deferred) drops into the TABS array below without restructuring anything —
- * that is what the array is for.
+ * Three tabs: Weekly XP, Streak and Feed. The first two read the SAME payload,
+ * because a streak is window-independent, so the Streak tab re-sorts the
+ * entries the weekly query already returned rather than fetching a second
+ * board. The Feed tab is the one that is NOT a re-sort: it reads
+ * GET /friends/feed, has no metric and no ranking, and so carries its own
+ * query and its own empty state (see FeedList).
  *
  * Ordering follows the ruling exactly: the tab's own metric first, then the
  * longer current streak, then whoever reached the total first. The server
@@ -17,7 +18,7 @@
  * metric it ranks by is not the one the payload arrives sorted on.
  */
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import {
   ArrowLeft,
   Trophy,
@@ -26,17 +27,26 @@ import {
   AlertCircle,
   Loader2,
   Users,
+  Newspaper,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   useGetFriendsLeaderboard,
   getGetFriendsLeaderboardQueryKey,
+  useGetFriendsFeed,
+  getGetFriendsFeedQueryKey,
+  useGetOutfits,
   type LeaderboardEntry,
   type GetFriendsLeaderboardParams,
+  type GetFriendsFeedParams,
+  type FeedEntry,
 } from "@workspace/api-client-react";
 import { motion } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
+import { MascotAvatar } from "@/components/mascot-avatar";
+import { FirstClassChip } from "@/components/gold-chip";
+import { FEED_EMPTY_BODY, feedLineFor } from "@/lib/feed-copy";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FunFactSectionLoader } from "@/components/fun-fact-loader";
@@ -47,77 +57,14 @@ function displayNameFor(u: { displayName: string | null }): string {
   return u.displayName?.trim() || "Fellow learner";
 }
 
-/* ------------------------------- row avatar ------------------------------ */
-
-// Same crop as the friends page rows: the 1024 frame windowed to the bird minus
-// her feet, so a garment reads at thumbnail size. Numbers settled by looking at
-// rendered thumbnails, not by reasoning about them.
-const ROW_AVATAR_PX = 56;
-const ROW_CROP = { frame: 1024, window: 745, x: 125, y: 55 } as const;
-const ROW_MASCOT_PX = Math.round(
-  (ROW_AVATAR_PX * ROW_CROP.frame) / ROW_CROP.window,
-);
-const ROW_MASCOT_LEFT = -Math.round(
-  (ROW_CROP.x / ROW_CROP.frame) * ROW_MASCOT_PX,
-);
-const ROW_MASCOT_TOP = -Math.round(
-  (ROW_CROP.y / ROW_CROP.frame) * ROW_MASCOT_PX,
-);
-const ROW_MASCOT_POSE = "wave" as const;
-
-/**
- * A row avatar: the learner's mascot, dressed, cropped into a circle.
- *
- * `outfit`/`accessory` are passed EXPLICITLY (null included). Left undefined,
- * <Mascot> falls back to the *viewer's* equipped outfit, which would paint
- * every friend in the reader's own clothes.
- */
-function MascotAvatar({
-  user,
-  className,
-}: {
-  user: {
-    displayName: string | null;
-    equippedOutfit?: string | null;
-    equippedAccessory?: string | null;
-  };
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "relative shrink-0 overflow-hidden rounded-full bg-primary/15",
-        className,
-      )}
-      style={{ width: ROW_AVATAR_PX, height: ROW_AVATAR_PX }}
-      data-testid="row-mascot"
-      data-outfit={user.equippedOutfit ?? "none"}
-      data-accessory={user.equippedAccessory ?? "none"}
-    >
-      <div
-        className="absolute"
-        style={{ left: ROW_MASCOT_LEFT, top: ROW_MASCOT_TOP }}
-      >
-        <Mascot
-          pose={ROW_MASCOT_POSE}
-          size={ROW_MASCOT_PX}
-          idle="none"
-          ambient="calm"
-          outfit={user.equippedOutfit ?? null}
-          accessory={user.equippedAccessory ?? null}
-        />
-      </div>
-    </div>
-  );
-}
-
 /* --------------------------------- tabs ---------------------------------- */
 
 /**
- * One tab of the board. Everything that differs between tabs lives here, so a
- * third tab is a fourth object in the array and nothing else.
+ * A tab that RANKS the one board payload by a number of its own. Everything
+ * that differs between two such tabs lives here.
  */
-interface BoardTab {
+interface RankedTab {
+  kind: "ranked";
   value: string;
   label: string;
   icon: LucideIcon;
@@ -130,10 +77,27 @@ interface BoardTab {
 }
 
 /**
- * The ranking rule, shared by both tabs: the tab's metric, then the longer
- * current streak, then earliest to reach the total. Nothing falls back to ids.
+ * The feed tab. A separate shape rather than a third RankedTab, because the
+ * feed is not a re-sort of the board: it reads a different endpoint, has no
+ * metric and no ranking, and its rows are sentences rather than scores.
+ * Pretending otherwise would mean a metric that returns nothing and a unit that
+ * is never shown.
  */
-function compareBy(tab: BoardTab) {
+interface FeedTabDef {
+  kind: "feed";
+  value: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+type BoardTab = RankedTab | FeedTabDef;
+
+/**
+ * The ranking rule, shared by both ranked tabs: the tab's metric, then the
+ * longer current streak, then earliest to reach the total. Nothing falls back
+ * to ids.
+ */
+function compareBy(tab: RankedTab) {
   return (a: LeaderboardEntry, b: LeaderboardEntry): number => {
     const byMetric = tab.metric(b) - tab.metric(a);
     if (byMetric !== 0) return byMetric;
@@ -149,6 +113,7 @@ function compareBy(tab: BoardTab) {
 
 const TABS: BoardTab[] = [
   {
+    kind: "ranked",
     value: "weekly-xp",
     label: "Weekly XP",
     icon: Trophy,
@@ -158,6 +123,7 @@ const TABS: BoardTab[] = [
       "Add a friend to see how this week's XP stacks up. A little friendly competition goes a long way!",
   },
   {
+    kind: "ranked",
     value: "streak",
     label: "Streak",
     icon: Flame,
@@ -165,6 +131,12 @@ const TABS: BoardTab[] = [
     unit: "days",
     emptyBody:
       "Add a friend and see who can keep their streak alive the longest.",
+  },
+  {
+    kind: "feed",
+    value: "feed",
+    label: "Feed",
+    icon: Newspaper,
   },
 ];
 
@@ -178,7 +150,7 @@ function BoardRow({
 }: {
   entry: LeaderboardEntry;
   rank: number;
-  tab: BoardTab;
+  tab: RankedTab;
   index: number;
 }) {
   // Rank colour is the indigo primary, never gold: gold is reserved for paid
@@ -218,6 +190,12 @@ function BoardRow({
           {entry.isSelf && (
             <span className="ml-1.5 text-xs font-bold opacity-80">(You)</span>
           )}
+          {/* Gold for status somebody paid for, and only while it is live. */}
+          {entry.firstClassActive && (
+            <span className="ml-1.5 align-middle">
+              <FirstClassChip />
+            </span>
+          )}
         </p>
         <p
           className={cn(
@@ -255,7 +233,7 @@ function BoardList({
   tab,
 }: {
   entries: LeaderboardEntry[];
-  tab: BoardTab;
+  tab: RankedTab;
 }) {
   // With nobody but the learner on it, a board is a mirror. Send them to
   // /friends, which is where standing is actually changed.
@@ -294,6 +272,93 @@ function BoardList({
   );
 }
 
+/* --------------------------------- feed ---------------------------------- */
+
+const FEED_PARAMS: GetFriendsFeedParams = { limit: 20 };
+
+function FeedRow({ entry, index }: { entry: FeedEntry; index: number }) {
+  const outfits = useGetOutfits();
+  const line = feedLineFor(
+    entry,
+    (id) => outfits.data?.outfits.find((o) => o.id === id)?.name ?? null,
+  );
+  // An event this build does not know how to describe renders nothing at all.
+  if (line === null) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...springs.snappy, delay: index * 0.04 }}
+      data-testid="feed-row"
+      className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-3 shadow-sm"
+    >
+      <MascotAvatar user={entry.actor} size={40} />
+      <p className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">
+        {line}
+      </p>
+      {entry.actor.firstClassActive && <FirstClassChip />}
+    </motion.div>
+  );
+}
+
+/**
+ * The feed tab's own content. Its own query, not a re-sort of the board: the
+ * board is a ranking of people and this is a list of moments.
+ */
+function FeedList() {
+  const { data, isLoading, isError, refetch, isFetching } = useGetFriendsFeed(
+    FEED_PARAMS,
+    {
+      query: {
+        queryKey: getGetFriendsFeedQueryKey(FEED_PARAMS),
+        refetchOnWindowFocus: true,
+        refetchOnMount: "always",
+      },
+    },
+  );
+
+  if (isLoading) return <FunFactSectionLoader />;
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center rounded-3xl border border-card-border bg-card px-6 py-8 text-center">
+        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
+          <AlertCircle className="h-7 w-7 text-destructive" />
+        </div>
+        <p className="mb-1 text-base font-bold text-foreground">
+          Bolo couldn't load this 🦜
+        </p>
+        <p className="mb-4 text-sm text-muted-foreground">
+          We couldn't load your friends' activity.
+        </p>
+        <Button
+          variant="outline"
+          className="rounded-xl"
+          onClick={() => refetch()}
+          disabled={isFetching}
+        >
+          {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Try again"}
+        </Button>
+      </div>
+    );
+  }
+
+  const entries = data ?? [];
+  if (entries.length === 0) {
+    return (
+      <EmptyState pose="thinking" title="Nothing here yet" body={FEED_EMPTY_BODY} />
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {entries.map((entry, i) => (
+        <FeedRow key={entry.id} entry={entry} index={i} />
+      ))}
+    </div>
+  );
+}
+
 /* --------------------------------- page ---------------------------------- */
 
 // The weekly window is the only one fetched: the Streak tab ranks by a number
@@ -302,8 +367,14 @@ function BoardList({
 const BOARD_PARAMS: GetFriendsLeaderboardParams = { window: "week" };
 
 export default function Leaderboard() {
-  const [tabValue, setTabValue] = useState(TABS[0].value);
-  const tab = TABS.find((t) => t.value === tabValue) ?? TABS[0];
+  // `?tab=feed` opens the board straight on the feed, which is how the home
+  // card's one-line teaser links through. An unknown value falls back to the
+  // first tab rather than showing nothing.
+  const search = useSearch();
+  const requestedTab = new URLSearchParams(search).get("tab");
+  const [tabValue, setTabValue] = useState(
+    TABS.some((t) => t.value === requestedTab) ? (requestedTab as string) : TABS[0].value,
+  );
 
   // Refetch on focus and on mount, nothing else: no polling and no socket. A
   // board is only wrong while you are looking at it, and coming back to the tab
@@ -355,7 +426,11 @@ export default function Leaderboard() {
 
           {TABS.map((t) => (
             <TabsContent key={t.value} value={t.value} className="mt-6">
-              {isLoading ? (
+              {t.kind === "feed" ? (
+                // The feed owns its query, its loading and its empty state; the
+                // board's states below say nothing about it.
+                <FeedList />
+              ) : isLoading ? (
                 <FunFactSectionLoader />
               ) : isError ? (
                 <div className="flex flex-col items-center rounded-3xl border border-card-border bg-card px-6 py-8 text-center">

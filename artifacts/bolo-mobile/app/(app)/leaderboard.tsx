@@ -8,16 +8,24 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import {
   useGetFriendsLeaderboard,
   getGetFriendsLeaderboardQueryKey,
+  useGetFriendsFeed,
+  getGetFriendsFeedQueryKey,
+  useGetOutfits,
   type LeaderboardEntry,
   type GetFriendsLeaderboardParams,
+  type GetFriendsFeedParams,
+  type FeedEntry,
 } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
+import { MascotAvatar } from '@/components/MascotAvatar';
+import { FirstClassChip } from '@/components/GoldChip';
+import { FEED_EMPTY_BODY, feedLineFor } from '@/lib/feedCopy';
 import { PressableScale } from '@/components/PressableScale';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { ChunkyButton } from '@/components/ChunkyButton';
@@ -41,8 +49,12 @@ import { AppFonts } from '@/constants/fonts';
  * tab (the feed, deferred) is a third entry in TABS and nothing else.
  */
 
-/** One tab of the board. Everything that differs between tabs lives here. */
-interface BoardTab {
+/**
+ * A tab that RANKS the one board payload by a number of its own. Everything
+ * that differs between two such tabs lives here.
+ */
+interface RankedTab {
+  kind: 'ranked';
   value: string;
   label: string;
   icon: keyof typeof Feather.glyphMap;
@@ -54,8 +66,23 @@ interface BoardTab {
   emptyBody: string;
 }
 
+/**
+ * The feed tab. A separate shape rather than a third RankedTab, because the
+ * feed is not a re-sort of the board: it reads a different endpoint, has no
+ * metric and no ranking, and its rows are sentences rather than scores.
+ */
+interface FeedTabDef {
+  kind: 'feed';
+  value: string;
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+}
+
+type BoardTab = RankedTab | FeedTabDef;
+
 const TABS: BoardTab[] = [
   {
+    kind: 'ranked',
     value: 'weekly-xp',
     label: 'Weekly XP',
     icon: 'award',
@@ -65,6 +92,7 @@ const TABS: BoardTab[] = [
       "Add a friend to see how this week's XP stacks up. A little friendly competition goes a long way!",
   },
   {
+    kind: 'ranked',
     value: 'streak',
     label: 'Streak',
     icon: 'zap',
@@ -73,13 +101,19 @@ const TABS: BoardTab[] = [
     emptyBody:
       'Add a friend and see who can keep their streak alive the longest.',
   },
+  {
+    kind: 'feed',
+    value: 'feed',
+    label: 'Feed',
+    icon: 'activity',
+  },
 ];
 
 /**
  * The ranking rule, shared by both tabs: the tab's metric, then the longer
  * current streak, then earliest to reach the total. Nothing falls back to ids.
  */
-function compareBy(tab: BoardTab) {
+function compareBy(tab: RankedTab) {
   return (a: LeaderboardEntry, b: LeaderboardEntry): number => {
     const byMetric = tab.metric(b) - tab.metric(a);
     if (byMetric !== 0) return byMetric;
@@ -96,66 +130,6 @@ function compareBy(tab: BoardTab) {
 /** Human-friendly label for a learner: their name, else a fallback. */
 function displayFor(u: { displayName?: string | null }): string {
   return u.displayName?.trim() || 'Fellow learner';
-}
-
-// Row mascot geometry, kept in step with the friends rows: the 1024 frame
-// cropped to the bird minus her feet so a garment reads at thumbnail size.
-const ROW_AVATAR_PX = 56;
-const ROW_CROP = { frame: 1024, window: 745, x: 125, y: 55 } as const;
-const ROW_MASCOT_PX = Math.round(
-  (ROW_AVATAR_PX * ROW_CROP.frame) / ROW_CROP.window,
-);
-const ROW_MASCOT_LEFT = -Math.round(
-  (ROW_CROP.x / ROW_CROP.frame) * ROW_MASCOT_PX,
-);
-const ROW_MASCOT_TOP = -Math.round(
-  (ROW_CROP.y / ROW_CROP.frame) * ROW_MASCOT_PX,
-);
-const ROW_MASCOT_POSE = 'wave' as const;
-
-/**
- * A row avatar: the learner's mascot, dressed, cropped into a circle.
- *
- * `outfit`/`accessory` are passed EXPLICITLY (null included). Left undefined,
- * <Mascot> falls back to the *viewer's* equipped outfit, which would paint
- * every friend in the reader's own clothes.
- */
-function MascotAvatar({
-  user,
-  onPrimary,
-}: {
-  user: {
-    equippedOutfit?: string | null;
-    equippedAccessory?: string | null;
-  };
-  onPrimary?: boolean;
-}) {
-  const colors = useColors();
-  return (
-    <View
-      testID="row-mascot"
-      accessible={false}
-      style={[
-        styles.rowMascot,
-        {
-          backgroundColor: onPrimary
-            ? 'rgba(255,255,255,0.22)'
-            : `${colors.primary}1F`,
-        },
-      ]}
-    >
-      <View style={styles.rowMascotInner}>
-        <Mascot
-          pose={ROW_MASCOT_POSE}
-          size={ROW_MASCOT_PX}
-          motion="none"
-          entering={false}
-          outfit={user.equippedOutfit ?? null}
-          accessory={user.equippedAccessory ?? null}
-        />
-      </View>
-    </View>
-  );
 }
 
 function Segment({
@@ -189,7 +163,12 @@ function Segment({
         size={17}
         color={active ? colors.primaryForeground : colors.mutedForeground}
       />
+      {/* Three segments now share the row, so "Weekly XP" is tight on a 320pt
+          phone. It shrinks a little rather than wrapping or clipping. */}
       <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
         style={[
           styles.segmentText,
           { color: active ? colors.primaryForeground : colors.mutedForeground },
@@ -208,7 +187,7 @@ function BoardRow({
 }: {
   entry: LeaderboardEntry;
   rank: number;
-  tab: BoardTab;
+  tab: RankedTab;
 }) {
   const colors = useColors();
   const isSelf = entry.isSelf;
@@ -258,15 +237,20 @@ function BoardRow({
       <MascotAvatar user={entry} onPrimary={isSelf} />
 
       <View style={{ flex: 1 }}>
-        <Text
-          style={[
-            styles.name,
-            { color: isSelf ? colors.primaryForeground : colors.foreground },
-          ]}
-          numberOfLines={1}
-        >
-          {isSelf ? 'You' : displayFor(entry)}
-        </Text>
+        <View style={styles.nameRow}>
+          <Text
+            style={[
+              styles.name,
+              { color: isSelf ? colors.primaryForeground : colors.foreground },
+              { flexShrink: 1 },
+            ]}
+            numberOfLines={1}
+          >
+            {isSelf ? 'You' : displayFor(entry)}
+          </Text>
+          {/* Gold for status somebody paid for, and only while it is live. */}
+          {entry.firstClassActive ? <FirstClassChip /> : null}
+        </View>
         <Text
           style={[
             styles.sub,
@@ -284,7 +268,7 @@ function BoardRow({
   );
 }
 
-function EmptyBoard({ tab }: { tab: BoardTab }) {
+function EmptyBoard({ emptyBody }: { emptyBody: string }) {
   const colors = useColors();
   const router = useRouter();
   const skipEnter = useAppearSkip();
@@ -305,7 +289,7 @@ function EmptyBoard({ tab }: { tab: BoardTab }) {
         entering={skipEnter ? undefined : FadeInDown.duration(350).delay(160)}
         style={[styles.emptyText, { color: colors.mutedForeground }]}
       >
-        {tab.emptyBody}
+        {emptyBody}
       </Animated.Text>
       <ChunkyButton
         title="Add friends"
@@ -319,6 +303,138 @@ function EmptyBoard({ tab }: { tab: BoardTab }) {
   );
 }
 
+/* --------------------------------- feed ---------------------------------- */
+
+const FEED_PARAMS: GetFriendsFeedParams = { limit: 20 };
+
+function FeedRow({
+  entry,
+  itemName,
+}: {
+  entry: FeedEntry;
+  itemName: (id: string) => string | null;
+}) {
+  const colors = useColors();
+  const line = feedLineFor(entry, itemName);
+  // An event this build does not know how to describe renders nothing at all.
+  if (line === null) return null;
+
+  return (
+    <View
+      testID="feed-row"
+      style={[
+        styles.feedRow,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
+      <MascotAvatar user={entry.actor} size={40} />
+      <Text
+        style={[styles.feedLine, { color: colors.foreground }]}
+        numberOfLines={2}
+      >
+        {line}
+      </Text>
+      {entry.actor.firstClassActive ? <FirstClassChip /> : null}
+    </View>
+  );
+}
+
+/**
+ * The feed tab's own content. Its own query, not a re-sort of the board: the
+ * board ranks people and this lists moments.
+ */
+function FeedList() {
+  const colors = useColors();
+  const skipEnter = useAppearSkip();
+  const feed = useGetFriendsFeed(FEED_PARAMS, {
+    query: {
+      queryKey: getGetFriendsFeedQueryKey(FEED_PARAMS),
+      refetchOnMount: 'always',
+    },
+  });
+  const outfits = useGetOutfits();
+
+  const { refetch } = feed;
+  useFocusEffect(
+    React.useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
+
+  const itemName = React.useCallback(
+    (id: string) => outfits.data?.outfits.find((o) => o.id === id)?.name ?? null,
+    [outfits.data],
+  );
+
+  if (feed.isLoading) {
+    return (
+      <View style={{ gap: 10, marginTop: 8 }}>
+        {[0, 1, 2, 3].map((i) => (
+          <SkeletonCard key={i} height={64} borderRadius={16} />
+        ))}
+      </View>
+    );
+  }
+
+  if (feed.isError) {
+    return (
+      <View
+        style={[
+          styles.errorCard,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[styles.errorTitle, { color: colors.foreground }]}>
+          Bolo couldn't load this
+        </Text>
+        <Text style={[styles.errorText, { color: colors.mutedForeground }]}>
+          We couldn't load your friends' activity.
+        </Text>
+        <ChunkyButton
+          title="Try again"
+          icon="refresh-cw"
+          onPress={() => feed.refetch()}
+        />
+      </View>
+    );
+  }
+
+  const entries = feed.data ?? [];
+  if (entries.length === 0) {
+    return (
+      <View style={styles.emptyState}>
+        <Animated.View
+          entering={skipEnter ? undefined : ZoomIn.springify().damping(14)}
+        >
+          <Mascot pose="thinking" size={92} motion="float" />
+        </Animated.View>
+        <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+          {FEED_EMPTY_BODY}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <>
+      {entries.map((entry, i) => (
+        <Animated.View
+          key={entry.id}
+          entering={
+            skipEnter
+              ? undefined
+              : FadeInDown.duration(360).delay(Math.min(i, 8) * 45)
+          }
+        >
+          <FeedRow entry={entry} itemName={itemName} />
+        </Animated.View>
+      ))}
+    </>
+  );
+}
+
+/* --------------------------------- screen -------------------------------- */
+
 // The weekly window is the only one fetched: the Streak tab ranks by a number
 // that does not depend on the window, so a second request would return the same
 // streaks with different XP nobody on that tab is looking at.
@@ -328,7 +444,15 @@ export default function LeaderboardScreen() {
   const colors = useColors();
   const router = useRouter();
   const skipEnter = useAppearSkip();
-  const [tabValue, setTabValue] = React.useState(TABS[0].value);
+  // `?tab=feed` opens the board straight on the feed, which is how the home
+  // card's one-line teaser links through. An unknown value falls back to the
+  // first tab rather than showing nothing.
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [tabValue, setTabValue] = React.useState(
+    TABS.some((t) => t.value === params.tab)
+      ? (params.tab as string)
+      : TABS[0].value,
+  );
   const tab = TABS.find((t) => t.value === tabValue) ?? TABS[0];
 
   // Refetch on focus and on mount, nothing else: no polling and no socket. A
@@ -349,7 +473,10 @@ export default function LeaderboardScreen() {
   );
 
   const entries = board.data ?? [];
-  const ranked = [...entries].sort(compareBy(tab));
+  // Only the ranked tabs sort the board payload; the feed tab has no metric
+  // and reads its own endpoint.
+  const ranked =
+    tab.kind === 'ranked' ? [...entries].sort(compareBy(tab)) : entries;
 
   return (
     <Screen>
@@ -401,7 +528,11 @@ export default function LeaderboardScreen() {
           />
         }
       >
-        {board.isLoading ? (
+        {tab.kind === 'feed' ? (
+          // The feed owns its query, its loading and its empty state; the
+          // board's states below say nothing about it.
+          <FeedList />
+        ) : board.isLoading ? (
           <View style={{ gap: 10, marginTop: 8 }}>
             {[0, 1, 2, 3, 4].map((i) => (
               <SkeletonCard key={i} height={72} borderRadius={16} />
@@ -422,7 +553,7 @@ export default function LeaderboardScreen() {
             />
           </View>
         ) : ranked.length <= 1 ? (
-          <EmptyBoard tab={tab} />
+          <EmptyBoard emptyBody={tab.emptyBody} />
         ) : (
           ranked.map((entry, i) => (
             <Animated.View
@@ -462,7 +593,7 @@ const styles = StyleSheet.create({
   headSub: { fontSize: 14, fontFamily: AppFonts.regular, marginTop: 2 },
   segmentWrap: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     paddingHorizontal: 20,
     paddingBottom: 12,
   },
@@ -471,7 +602,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
+    gap: 6,
+    paddingHorizontal: 6,
     height: 44,
     borderRadius: 16,
     borderWidth: 1.5,
@@ -494,18 +626,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rankText: { fontSize: 14, fontFamily: AppFonts.extrabold },
-  rowMascot: {
-    width: ROW_AVATAR_PX,
-    height: ROW_AVATAR_PX,
-    borderRadius: ROW_AVATAR_PX / 2,
-    overflow: 'hidden',
-  },
-  rowMascotInner: {
-    position: 'absolute',
-    left: ROW_MASCOT_LEFT,
-    top: ROW_MASCOT_TOP,
-  },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { fontSize: 16, fontFamily: AppFonts.bold },
+  feedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1.5,
+  },
+  feedLine: { fontSize: 14, fontFamily: AppFonts.bold, flexShrink: 1 },
   sub: { fontSize: 13, fontFamily: AppFonts.regular, marginTop: 2 },
   emptyState: {
     alignItems: 'center',

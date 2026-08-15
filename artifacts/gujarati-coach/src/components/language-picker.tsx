@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
-import { Check, ChevronDown, Globe, Star } from "lucide-react";
+import { Check, ChevronDown, Globe } from "lucide-react";
+import { GoldChip } from "@/components/gold-chip";
 import {
   Dialog,
   DialogContent,
@@ -73,10 +74,9 @@ function AllAccessBadge({ testId }: { testId: string }) {
       className="mt-1.5 flex flex-wrap items-center gap-1"
     >
       <FreeTasteChip />
-      <span className="inline-flex w-fit items-center gap-0.5 whitespace-nowrap rounded-full bg-gradient-to-b from-[#FFD65A] to-[#F0A202] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[#4A2C00] shadow-[0_1px_0_rgba(0,0,0,0.28)] ring-1 ring-white/70">
-        <Star className="h-2 w-2 fill-[#4A2C00]" />
-        All-Access
-      </span>
+      {/* The gold pill lives in components/gold-chip.tsx now that friend rows
+          wear the same one for First Class. Same shape, one definition. */}
+      <GoldChip>All-Access</GoldChip>
     </span>
   );
 }
