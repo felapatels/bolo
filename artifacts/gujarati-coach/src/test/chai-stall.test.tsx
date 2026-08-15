@@ -46,13 +46,14 @@ function read(rel: string): string {
 
 /**
  * The Chai surfaces and how many amounts each one marks. Total is the
- * per-platform count; the wallet sheet marks two (its balance on the stall
- * header art, and one ChaiCoin shared by both spend buttons). Mobile's twin census lives in
+ * per-platform count. The count is a raw substring count over source text,
+ * so a glyph inside a conditional branch still counts and only deleting it
+ * from the file lowers the number. Mobile's twin census lives in
  * artifacts/bolo-mobile/__tests__/chai-stall.test.tsx.
  */
 const GLYPH_SITES: Record<string, number> = {
   "components/chai-stall.tsx": 1, // the band's own balance readout
-  "components/chai-wallet.tsx": 2, // balance on the header art + the shared ChaiCoin both spend buttons render
+  "components/chai-wallet.tsx": 4, // header balance, the shared ChaiCoin, the empty-history illustration, the per-row delta
   "components/referral-card.tsx": 1, // Chai earned from referrals
   "pages/home.tsx": 2, // Chai stat cell + streak-repair banner balance
   "pages/games/quick-game-frame.tsx": 1, // chai-earn-beat
@@ -60,10 +61,10 @@ const GLYPH_SITES: Record<string, number> = {
   "pages/journey.tsx": 2, // signal-chai-chip, stop-unlock offer
   "pages/practice.tsx": 1, // session-chai-pill
   "pages/bazaar.tsx": 2, // wardrobe balance, the action bar's Buy · N
-  "components/outfit-card.tsx": 2, // the card's price pill + its own Buy Now
+  "components/outfit-card.tsx": 1, // Buy Now. The thumbnail price pill went with the card-to-row rebuild (5414ef9)
 };
 
-const WEB_GLYPH_COUNT = 15;
+const WEB_GLYPH_COUNT = 16;
 
 describe("chai glyph", () => {
   test("renders the delivered kulhad art, decoratively", () => {
@@ -118,15 +119,21 @@ describe("chai stall scene", () => {
 
   test("is a full-width band whose kettle map survives the new scale", () => {
     // Owner correction (Aug 6): the stall is a SCENE, not an icon — it fills
-    // the column at the art's own 1024/572 aspect instead of the 56px
-    // wallet-vignette scale it shipped at. The kettle map is unaffected BY
-    // CONSTRUCTION: the plume offsets are percentages of a box whose aspect
-    // never changes, and object-cover on a same-aspect box crops nothing.
+    // the column, cropped 12% at the bottom (BOTTOM_CROP), while the scene
+    // layer inside it holds the art's own 1024/572. The kettle map is
+    // unaffected BY CONSTRUCTION: the plume offsets are percentages of the
+    // SCENE layer, whose aspect never changes, and object-cover on a
+    // same-aspect box crops nothing.
     render(<ChaiStallVignette />);
     const box = screen.getByTestId("chai-stall-vignette");
     expect(box.className).toContain("w-full");
     expect(box.className).not.toContain("shrink-0");
-    expect(box.style.aspectRatio).toBe("1024 / 572");
+    // The BAND is the cropped box: 572 * (1 - 0.12) = 503.36. The SCENE
+    // LAYER inside it keeps 1024/572, and that is the box the fraction
+    // maps below are fractions OF.
+    expect(box.style.aspectRatio).toBe("1024 / 503.36");
+    const sceneLayer = screen.getByTestId("chai-stall-scene").parentElement!;
+    expect(sceneLayer.style.aspectRatio).toBe("1024 / 572");
     const steam = screen.getByTestId("chai-stall-steam");
     expect(steam.style.left).toBe("21%");
     expect(steam.style.bottom).toBe("46%");
@@ -155,19 +162,20 @@ describe("chai stall scene", () => {
   });
 
   test("the overlay is legible over the art, not just where it is dark", () => {
-    // Both ends of the scene are in play: bright sky on the right, dark awning
-    // on the left. The scrim therefore spans the full width (inset-x-0) rather
-    // than sitting behind the text, and the text carries its own shadow.
+    // The title and balance sit top-right over the brightest part of the
+    // art, so the scrim is a right-half vertical band fading leftward, and
+    // the text carries its own shadow on top of it.
     render(<ChaiStallVignette balance={3} />);
     const scrim = screen.getByTestId("chai-stall-scrim");
-    expect(scrim.className).toContain("inset-x-0");
-    expect(scrim.className).toContain("bottom-0");
-    expect(scrim.className).toMatch(/bg-gradient-to-t/);
-    const row = screen.getByTestId("chai-stall-title").parentElement!;
-    expect(row.className).toMatch(/drop-shadow/);
-    expect(row.className).toContain("text-white");
-    // The scrim must not reach the plume, which starts at 46%.
-    expect(scrim.className).toContain("h-2/5");
+    expect(scrim.className).toContain("inset-y-0");
+    expect(scrim.className).toContain("right-0");
+    expect(scrim.className).toContain("w-1/2");
+    expect(scrim.className).toMatch(/bg-gradient-to-l/);
+    // The styling sits on the title itself now; its parent is the layout
+    // column and carries no colour or shadow.
+    const title = screen.getByTestId("chai-stall-title");
+    expect(title.className).toMatch(/drop-shadow/);
+    expect(title.className).toContain("text-white");
   });
 
   test("stays decorative when no tap target is asked for", () => {
