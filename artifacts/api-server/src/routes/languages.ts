@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, languagesTable } from "@workspace/db";
 import { c1RolloutLanguageCodes } from "@workspace/db/seed-data";
-import { asc } from "drizzle-orm";
+import { asc, notLike } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -17,6 +17,14 @@ router.get("/languages", async (_req: Request, res: Response): Promise<void> => 
   const rows = await db
     .select()
     .from(languagesTable)
+    // The api-server suites insert rows with a __test_lang_ prefix and
+    // drop them in their after hooks. A crashed or killed run leaves one
+    // behind, and sortOrder defaults to 0, so a survivor renders to
+    // learners as the FIRST tile in the picker. Dev carried
+    // __test_lang_lbcount for exactly that reason. This is public
+    // reference data with no auth, so the guard belongs here rather than
+    // in each client.
+    .where(notLike(languagesTable.code, "__test\\_lang\\_%"))
     .orderBy(asc(languagesTable.sortOrder));
   res.json(
     rows.map((row) => ({
