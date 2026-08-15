@@ -100,6 +100,9 @@ jest.mock('@workspace/api-client-react', () => ({
   // mockState.tokens so a test can drive the undefined (still loading) case
   // the repair banner has to degrade through.
   useGetTokens: () => ({ data: mockState.tokens, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  // The wallet sheet's history strip reads this. Settled and empty, so
+  // WalletHistory renders its "nothing yet" frame rather than returning null.
+  useGetTokenHistory: () => ({ data: { entries: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   // The wallet sheet and home contextual banner both read the streak-repair
   // offer; mockState.repairOffer lets each test control eligibility.
   useGetStreakRepair: () => ({ data: mockState.repairOffer, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
