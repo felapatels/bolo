@@ -1,5 +1,24 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render as renderRTL, screen, fireEvent } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+const SAFE_AREA_METRICS = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+};
+
+// HomeScreen mounts ChaiWalletSheet, which reads
+// useSafeAreaInsets(). Fixed metrics rather than device-derived,
+// so the harness does not depend on a simulator.
+function SafeAreaHarness({ children }: { children: React.ReactNode }) {
+  return <SafeAreaProvider initialMetrics={SAFE_AREA_METRICS}>{children}</SafeAreaProvider>;
+}
+
+// One wrap point for the file: RNTL re-applies `wrapper` on rerender, so
+// every existing render and rerender call site is covered unchanged.
+function render(ui: React.ReactElement) {
+  return renderRTL(ui, { wrapper: SafeAreaHarness });
+}
 
 // ---------------------------------------------------------------------------
 // Build 31 one-path restructure: the home screen shows NO topic list. Directly
