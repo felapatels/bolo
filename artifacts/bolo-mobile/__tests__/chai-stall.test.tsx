@@ -37,21 +37,23 @@ function read(rel: string): string {
 }
 
 /**
- * The Chai surfaces and how many amounts each one marks. Mobile carries SIX;
- * web carries seven because its wallet sheet marks both spend buttons while
- * mobile's balance row marks the balance itself.
+ * The Chai surfaces and how many amounts each one marks. The count is a raw
+ * substring count over source text, so a glyph inside a conditional branch
+ * still counts and only deleting it from the file lowers the number. Web's
+ * twin census lives in
+ * artifacts/gujarati-coach/src/test/chai-stall.test.tsx.
  */
 const GLYPH_SITES: Record<string, number> = {
   'components/ChaiStall.tsx': 1, // the band's own balance readout
   'app/(app)/(tabs)/index.tsx': 2, // Chai stat cell + streak-repair banner balance
-  'components/ChaiWallet.tsx': 2, // balance badge + the shared ChaiCoin both spend buttons render
+  'components/ChaiWallet.tsx': 4, // header balance, the shared ChaiCoin, the empty-history tile, the per-row delta
   'components/journey/SignalEncounter.tsx': 1, // signal-chai-chip
   'app/(app)/practice/[id].tsx': 1, // session-chai-pill
   'components/journey/ZoneCloseout.tsx': 1, // closeout payoff chip
-  'app/(app)/bazaar.tsx': 4, // wardrobe balance, Buy · 25, rack price, per-card Buy Now
+  'app/(app)/bazaar.tsx': 3, // wardrobe balance, action-bar Buy, row Buy Now. The thumbnail price pill went with the card-to-row rebuild (5414ef9)
 };
 
-const MOBILE_GLYPH_COUNT = 12;
+const MOBILE_GLYPH_COUNT = 13;
 
 describe('chai glyph', () => {
   test('renders the delivered kulhad art at the caller size', () => {
@@ -81,8 +83,14 @@ describe('chai stall scene', () => {
     const box = screen.getByTestId('chai-stall-vignette', HIDDEN);
     const flat = Object.assign({}, ...[box.props.style].flat(2));
     expect(flat.width).toBe('100%');
-    expect(flat.aspectRatio).toBeCloseTo(1024 / 572, 5);
+    // The BAND is the cropped box (BOTTOM_CROP 0.12). The SCENE LAYER
+    // inside it keeps 1024/572, and that is the box every fraction map
+    // below is a fraction OF.
+    expect(flat.aspectRatio).toBeCloseTo(1024 / (572 * (1 - 0.12)), 5);
     expect(flat.height).toBeUndefined();
+    const layer = screen.getByTestId('chai-stall-scene-layer', HIDDEN);
+    const layerFlat = Object.assign({}, ...[layer.props.style].flat(2));
+    expect(layerFlat.aspectRatio).toBeCloseTo(1024 / 572, 5);
   });
 
   test('the kettle map still lands on the kettle at full width', () => {
@@ -93,7 +101,10 @@ describe('chai stall scene', () => {
     render(<ChaiStallVignette />);
     const width = 390 - 40; // a phone viewport minus the home screen's padding
     const height = width / (1024 / 572);
-    fireEvent(screen.getByTestId('chai-stall-vignette', HIDDEN), 'layout', {
+    // onLayout lives on the inner SCENE LAYER, not the band. RNTL walks UP
+    // from the target looking for an onLayout prop and never down, so
+    // firing at the band silently does nothing and every fraction stays 0.
+    fireEvent(screen.getByTestId('chai-stall-scene-layer', HIDDEN), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width, height } },
     });
 
@@ -115,7 +126,8 @@ describe('chai stall scene', () => {
     render(<ChaiStallVignette />);
     const width = 390 - 40; // a phone viewport minus the home screen's padding
     const height = width / (1024 / 572);
-    fireEvent(screen.getByTestId('chai-stall-vignette', HIDDEN), 'layout', {
+    // Same as the kettle map: the measurer is the inner scene layer.
+    fireEvent(screen.getByTestId('chai-stall-scene-layer', HIDDEN), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width, height } },
     });
 
@@ -162,27 +174,28 @@ describe('chai stall scene', () => {
   });
 
   test('the overlay is legible over the art, not just where it is dark', () => {
-    // Both ends of the scene are in play: bright sky on the right, dark awning
-    // on the left. The scrim therefore spans the full width rather than
-    // sitting behind the text, and the text carries its own shadow.
+    // The title and balance sit top-right over the brightest part of the
+    // art, so the scrim is a right-half vertical band fading leftward, and
+    // the text carries its own shadow on top of it.
     render(<ChaiStallVignette balance={3} />);
     const scrim = screen.getByTestId('chai-stall-scrim', HIDDEN);
     const scrimStyle = Object.assign({}, ...[scrim.props.style].flat(2));
-    expect(scrimStyle.left).toBe(0);
-    expect(scrimStyle.right).toBe(0);
+    expect(scrimStyle.top).toBe(0);
     expect(scrimStyle.bottom).toBe(0);
-    // Must not reach the plume, which starts at 46%.
-    expect(scrimStyle.height).toBe('40%');
+    expect(scrimStyle.right).toBe(0);
+    // Half the width, so the left of the art is untouched.
+    expect(scrimStyle.width).toBe('50%');
+    expect(scrimStyle.left).toBeUndefined();
     // jest-expo's LinearGradient stub does not forward `colors` onto the host
     // view, so the ramp itself is pinned at the source: transparent at the top
     // (no hard edge across the art) down to a near-opaque base under the text.
     const src = read('components/ChaiStall.tsx');
-    expect(src).toContain("colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.40)', 'rgba(0,0,0,0.75)']}");
+    expect(src).toContain("colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.80)']}");
 
     const title = screen.getByTestId('chai-stall-title', HIDDEN);
     const titleStyle = Object.assign({}, ...[title.props.style].flat(2));
     expect(titleStyle.color).toBe('#FFFFFF');
-    expect(titleStyle.textShadowColor).toBe('rgba(0,0,0,0.8)');
+    expect(titleStyle.textShadowColor).toBe('rgba(0,0,0,0.9)');
   });
 
   test('stays decorative when no tap target is asked for', () => {

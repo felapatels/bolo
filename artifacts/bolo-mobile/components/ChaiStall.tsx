@@ -2,8 +2,9 @@
 // (artifacts/gujarati-coach/src/components/chai-stall.tsx). Owner ruling 4:
 // same asset, same loop, same layer map on both platforms, built once.
 //
-// TIER 1, the SCENE: a FULL-WIDTH band on home at the art's natural 1024/572
-// aspect, directly below the boarding pass (Task #1049) so the pass reads as
+// TIER 1, the SCENE: a FULL-WIDTH band on home, the art's 1024/572 scene
+// cropped 12% at the bottom (BOTTOM_CROP) to drop the platform edge and
+// track, directly below the boarding pass (Task #1049) so the pass reads as
 // standing in front of the stall. It carries one slow ambient steam plume over
 // the kettle,
 // and tapping it opens the Chai wallet sheet — the same sheet the Chai stat
@@ -17,13 +18,14 @@
 // out of the a11y tree EITHER WAY, so the Pressable is the single node a
 // screen reader lands on — the overlay text below never splits it in two.
 //
-// The band NAMES ITSELF and shows the live balance, bottom-left / bottom-right,
-// so it reads as a wallet surface rather than scenery (same strings and layout
-// as web). Both sit over photographic art with a bright sky, so legibility is
-// the house pair: a LinearGradient scrim (the home bottom-fade / pass-shimmer
-// pattern) plus white text with the textShadow treatment speed-round already
-// uses over art. The scrim spans the full width, so the row never depends on
-// the art happening to be dark under it. The balance is the caller's — this
+// The band NAMES ITSELF and shows the live balance in a top-right column,
+// so it reads as a wallet surface rather than scenery (same strings and
+// layout as web). Both sit over photographic art with a bright sky, so
+// legibility is the house pair: a LinearGradient scrim fading leftward
+// across the right half (the home bottom-fade / pass-shimmer pattern) plus
+// white text with the textShadow treatment speed-round already uses over
+// art. The scrim covers the whole right half, so the column never depends
+// on the art happening to be dark under it. The balance is the caller's — this
 // component never queries or caches one, because spends are
 // server-authoritative and every surface refetches on change.
 //
@@ -313,9 +315,9 @@ export function ChaiStallVignette({
           />
         </Animated.View>
       </View>
-      {/* Legibility scrim: full width, so the row stays readable over the
-          bright sky end of the art as well as the dark awning end. It stops
-          below the plume (which starts at 46%), so the steam is untouched. */}
+      {/* Legibility scrim: the right half, fading leftward, so the top-right
+          column stays readable over the bright sky end of the art. The left
+          of the scene, including the plume, is untouched. */}
       <LinearGradient
         testID="chai-stall-scrim"
         pointerEvents="none"
