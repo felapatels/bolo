@@ -671,7 +671,33 @@ export function ChaiWalletSheet({
             are still exported from this file and still rendered by
             pages/bazaar.tsx. */}
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
-          <StreakRepairRow />
+          {/* Chai history. The ledger exists and is append-only, but no
+              endpoint returns its rows yet and its `reason` column holds
+              raw strings (spend_outfit, earn_zone_complete) that no
+              learner should read. The placeholder is deliberate: a wallet
+              that never mentions history teaches a learner there is none,
+              and this is where it will land. */}
+          <div
+            data-testid="wallet-history-placeholder"
+            className="flex items-center gap-3 rounded-2xl border border-dashed border-card-border p-4"
+          >
+            <span
+              aria-hidden="true"
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
+              style={{ background: INDIA.cloth }}
+            >
+              <ChaiGlyph className="h-7 w-7" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-black text-foreground">Chai history</p>
+              <p className="text-xs leading-snug text-muted-foreground">
+                Every cup you earn and every one you spend will show up here.
+              </p>
+            </div>
+            <span className="shrink-0 text-xs font-black uppercase tracking-wider text-muted-foreground">
+              Soon
+            </span>
+          </div>
 
           {/* Dark until CHAI_PACKS_LIVE is flipped; renders nothing at all
               while the flag is off, so the wallet is unchanged today. */}
@@ -687,7 +713,7 @@ export function ChaiWalletSheet({
             <div className="min-w-0 flex-1">
               <p className="font-black text-foreground">Bolo Bazaar</p>
               <p className="text-xs leading-snug text-muted-foreground">
-                Outfits for Bolo. Buy once, hers for good.
+                Outfits, passes and everything else Chai buys.
               </p>
             </div>
             <button

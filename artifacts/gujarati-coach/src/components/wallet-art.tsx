@@ -164,40 +164,27 @@ export function StreakMendTile() {
 export function BazaarTile() {
   return (
     <Tile style={{ background: INDIA.wall }}>
-      {/* awning across the top, scalloped hem beneath it */}
+      {/* The real stall, not a drawn approximation of one. The bazaar has
+          painted art now (public/bazaar/), so the door into it shows the
+          place it opens rather than eight striped divs pretending to be an
+          awning. */}
+      <img
+        src={`${import.meta.env.BASE_URL}bazaar/tailor-scene.png`}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      {/* The bird stands in front of it: it is HER wardrobe. */}
       <span
-        className="absolute inset-x-0 top-0 block"
+        aria-hidden="true"
+        className="absolute inset-0 block"
         style={{
-          height: 13,
-          backgroundImage: `repeating-linear-gradient(90deg, ${INDIA.stripe} 0 8px, ${INDIA.cloth} 8px 16px)`,
+          background: `linear-gradient(180deg, transparent 45%, ${INDIA.timber}B3 100%)`,
         }}
       />
-      <span className="absolute inset-x-0 top-[13px] flex">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <span
-            key={i}
-            className="h-1.5 flex-1 rounded-b-full"
-            style={{ background: i % 2 === 0 ? INDIA.stripe : INDIA.cloth }}
-          />
-        ))}
+      <span className="absolute bottom-[3px] left-1/2 block -translate-x-1/2">
+        <Mascot pose="wave" size={36} ambient="calm" />
       </span>
-      {/* a marigold hanging from the awning */}
-      <span
-        className="absolute left-2 top-[21px] block h-1.5 w-1.5 rounded-full"
-        style={{ background: INDIA.gold }}
-      />
-      {/* the bird, wearing whatever he owns */}
-      <span className="absolute bottom-[7px] left-1/2 block -translate-x-1/2">
-        <Mascot pose="wave" size={40} ambient="calm" />
-      </span>
-      {/* the counter he stands behind */}
-      <span
-        className="absolute inset-x-0 bottom-0 block"
-        style={{
-          height: 7,
-          background: `linear-gradient(180deg, ${INDIA.timber} 0 55%, ${INDIA.timberShade} 55% 100%)`,
-        }}
-      />
     </Tile>
   );
 }

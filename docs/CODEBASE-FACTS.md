@@ -2797,3 +2797,56 @@ The DRESSING ROOM shortfall line is a different element and is untouched on
 both platforms: testID `outfit-short` (no id suffix), reading
 "{cost - balance} more Chai and she can wear it." Both outfits suites assert
 that one, which is why neither needed editing for this change.
+
+## 10bm. The wallet's Bazaar tile is the painted stall (August 15, 2026, both platforms)
+
+`BazaarTile` no longer draws a stall out of divs. Both twins now render the
+painted scene shipped with the bazaar art: web reads
+`${import.meta.env.BASE_URL}bazaar/tailor-scene.png` from
+`artifacts/gujarati-coach/public/bazaar/`, mobile `require`s the same picture
+from `artifacts/bolo-mobile/assets/images/bazaar/tailor-scene.png`. The
+canonical `Mascot` still stands in front of it at size 36 (was 40), so the
+bird keeps wearing whatever the learner owns. Web lays a bottom-weighted
+timber scrim over the photo to keep her readable; mobile does not, because the
+art already darkens where she stands.
+
+Mobile's `Image` now comes from the existing react-native import.
+`styles.tileAwning`, `styles.tileHem` and `styles.marigold` were deleted with
+the drawn stall. `styles.counter` and `styles.counterLip` were KEPT: the
+ticket tile in the same file still uses them. `styles.birdSlot` is still the
+new tile's mascot slot.
+
+The row's copy on both platforms reads "Outfits, passes and everything else
+Chai buys.", because the bazaar street now stocks every sink the wallet used
+to sell, not just outfits. Both chai-wallet suites assert that string
+verbatim.
+
+## 10bn. Mend the line leaves the wallet sheet, history takes its place (August 15, 2026, both platforms)
+
+`ChaiWalletSheet` no longer renders `StreakRepairRow` on either platform. The
+component is still exported and still mounted by the bazaar street
+(`pages/bazaar.tsx` and `app/(app)/bazaar.tsx`), so mending is unchanged: it
+just has its own moment on the home streak cell and its own row on the signal
+box band instead of a permanent shelf slot in the wallet.
+
+On mobile that row was the ONLY consumer of the sheet's `notice`/`noticeKey`
+state, so both `useState` declarations, the `MilestoneToast` element and the
+`MilestoneToast` import all went with it. Web had no equivalent state.
+
+In its place, first row in the sheet body on both platforms, sits
+`wallet-history-placeholder`: a dashed-border row reading "Chai history /
+Every cup you earn and every one you spend will show up here." with a SOON
+marker and no action. It is deliberately inert. `token_ledger` is append-only
+and complete, but no endpoint serves its rows (`GET /tokens` is current state
+only) and the `reason` column holds raw machine strings like `spend_outfit`
+that no learner should read. Mobile added `historyRow`, `historyTile` and
+`historySoon` styles for it.
+
+Sheet body order is now: history placeholder, then `ChaiPackShop` (dark until
+CHAI_PACKS_LIVE), then the Bazaar door on web; history, Bazaar door, then
+`ChaiPackShop` on mobile.
+
+Both chai-wallet suites moved their streak-repair tests off the sheet and onto
+the row itself, matching how the other relocated rows are already tested: web
+uses the existing `renderRows(<StreakRepairRow />)` helper, mobile gained a
+`RepairRow` harness that renders the row plus its notice as plain text.

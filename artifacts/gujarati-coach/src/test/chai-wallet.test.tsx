@@ -73,6 +73,7 @@ import {
   ExpressMultiplierRow,
   LanguageSignpostRow,
   StationPauseRow,
+  StreakRepairRow,
 } from "@/components/chai-wallet";
 
 function renderWallet(path = "/") {
@@ -146,7 +147,7 @@ describe("Chai wallet sheet", () => {
     expect(browse.tagName).toBe("BUTTON");
     expect(browse).toHaveTextContent("Browse");
     expect(
-      screen.getByText("Outfits for Bolo. Buy once, hers for good."),
+      screen.getByText("Outfits, passes and everything else Chai buys."),
     ).toBeInTheDocument();
 
     await user.click(browse);
@@ -216,14 +217,14 @@ describe("streak repair row", () => {
   };
 
   test("shows nothing at all when there is no break to mend", () => {
-    renderWallet();
+    renderRows(<StreakRepairRow />);
     expect(screen.queryByTestId("wallet-streak-repair")).toBeNull();
     expect(screen.queryByText("Mend the line")).toBeNull();
   });
 
   test("names the day, the streak it restores, and the server's price", () => {
     h.repairOffer = eligible;
-    renderWallet();
+    renderRows(<StreakRepairRow />);
 
     const row = screen.getByTestId("wallet-streak-repair");
     expect(row).toHaveTextContent("Mend the line");
@@ -240,7 +241,7 @@ describe("streak repair row", () => {
   test("mends with an empty request — the client never names the day", async () => {
     h.repairOffer = eligible;
     const user = userEvent.setup();
-    renderWallet();
+    renderRows(<StreakRepairRow />);
 
     await user.click(screen.getByTestId("wallet-repair-streak"));
     expect(h.repair).toHaveBeenCalledTimes(1);

@@ -119,6 +119,7 @@ import {
   LanguageInfoOverlay,
   LanguageSignpostRow,
   StationPauseRow,
+  StreakRepairRow,
 } from '@/components/ChaiWallet';
 import { ApiError } from '@workspace/api-client-react';
 
@@ -133,6 +134,18 @@ function SpendRows() {
     <>
       <StationPauseRow onNotice={setNotice} />
       <ExpressMultiplierRow onNotice={setNotice} />
+      <Text>{notice}</Text>
+    </>
+  );
+}
+
+// Mend the line left the sheet too, so it is mounted here the way the bazaar
+// mounts it: the row asks, the caller renders the notice.
+function RepairRow() {
+  const [notice, setNotice] = React.useState('');
+  return (
+    <>
+      <StreakRepairRow onNotice={setNotice} />
       <Text>{notice}</Text>
     </>
   );
@@ -353,7 +366,7 @@ describe('express countdown', () => {
     expect(browse).toHaveTextContent('Browse');
     // Bolo is female; the row copy must not call her a boy.
     expect(
-      screen.getByText('Outfits for Bolo. Buy once, hers for good.'),
+      screen.getByText('Outfits, passes and everything else Chai buys.'),
     ).toBeOnTheScreen();
 
     fireEvent.press(browse);
@@ -426,7 +439,7 @@ describe('streak repair row', () => {
   };
 
   it('shows nothing at all when there is no break to mend', () => {
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(<RepairRow />);
 
     expect(screen.queryByTestId('wallet-streak-repair')).toBeNull();
     expect(screen.queryByText('Mend the line')).toBeNull();
@@ -434,7 +447,7 @@ describe('streak repair row', () => {
 
   it('names the day, the streak it restores, and the server price', () => {
     mockState.repairOffer = eligible;
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(<RepairRow />);
 
     expect(screen.getByTestId('wallet-streak-repair')).toBeOnTheScreen();
     expect(screen.getByText('Mend the line')).toBeOnTheScreen();
@@ -450,7 +463,7 @@ describe('streak repair row', () => {
 
   it('mends with an empty request — the client never names the day', () => {
     mockState.repairOffer = eligible;
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(<RepairRow />);
 
     fireEvent.press(screen.getByTestId('wallet-repair-streak'));
     expect(mockState.repairCalls).toHaveLength(1);
@@ -460,7 +473,7 @@ describe('streak repair row', () => {
 
   it('surfaces the 409 refusals in the Chai copy register, never a paywall', () => {
     mockState.repairOffer = eligible;
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(<RepairRow />);
 
     act(() => {
       mockState.repairHandlers?.onError?.(
@@ -480,7 +493,7 @@ describe('streak repair row', () => {
 
   it('confirms the mend and refreshes token, offer, and progress state', () => {
     mockState.repairOffer = eligible;
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(<RepairRow />);
 
     act(() => {
       mockState.repairHandlers?.onSuccess?.({

@@ -32,7 +32,6 @@ import {
   useSpendTokens,
 } from '@workspace/api-client-react';
 import { TrainEngine } from '@/components/journey/TrainEngine';
-import { MilestoneToast } from '@/components/MilestoneToast';
 import { ChaiPackShop } from '@/components/ChaiPackShop';
 import { repairErrorMessage } from '@/lib/chai-errors';
 import {
@@ -699,8 +698,6 @@ export function ChaiWalletSheet({
   // where the proxied preview reports 0.
   const headerPadTop = Platform.OS === 'web' ? 67 : insets.top;
   const tokensQuery = useGetTokens();
-  const [notice, setNotice] = React.useState('');
-  const [noticeKey, setNoticeKey] = React.useState(0);
   const tokens = tokensQuery.data;
 
   return (
@@ -757,14 +754,31 @@ export function ChaiWalletSheet({
           </View>
 
           <ScrollView style={styles.bodyScroll} contentContainerStyle={styles.body}>
-            <MilestoneToast message={notice} toastKey={noticeKey} />
-
-            <StreakRepairRow
-              onNotice={(message) => {
-                setNotice(message);
-                setNoticeKey((k) => k + 1);
-              }}
-            />
+            {/* Chai history. See the web twin: the ledger is append-only
+                but nothing serves its rows yet, and its reasons are raw
+                strings no learner should read. */}
+            <View
+              testID="wallet-history-placeholder"
+              style={[
+                styles.historyRow,
+                { borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.historyTile}>
+                <ChaiGlyph size={28} />
+              </View>
+              <View style={styles.itemInfo}>
+                <Text style={[styles.itemTitle, { color: colors.foreground }]}>
+                  Chai history
+                </Text>
+                <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
+                  Every cup you earn and every one you spend will show up here.
+                </Text>
+              </View>
+              <Text style={[styles.historySoon, { color: colors.mutedForeground }]}>
+                SOON
+              </Text>
+            </View>
 
             {/* THE WALLET IS A BALANCE AND A DOOR NOW. Every sink it used to
                 sell (pause, express, First Class, the language signpost) is
@@ -787,7 +801,7 @@ export function ChaiWalletSheet({
                   Bolo Bazaar
                 </Text>
                 <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
-                  Outfits for Bolo. Buy once, hers for good.
+                  Outfits, passes and everything else Chai buys.
                 </Text>
               </View>
               <Pressable
@@ -889,6 +903,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 16,
     padding: 14,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    padding: 14,
+  },
+  historyTile: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: INDIA.cloth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  historySoon: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 11,
+    letterSpacing: 1.2,
   },
   goldTile: {
     width: 56,

@@ -15,7 +15,7 @@
 //    (bob / drive), so a learner with Reduce Motion on gets a clean parked
 //    frame. Nothing here animates layout — transforms and opacity only.
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Feather from '@expo/vector-icons/Feather';
 import { Mascot } from '@/components/Mascot';
@@ -120,37 +120,17 @@ export function StreakMendTile() {
 export function BazaarTile() {
   return (
     <Tile background={INDIA.wall}>
-      <View style={styles.tileAwning}>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <View
-            key={i}
-            style={{
-              flex: 1,
-              backgroundColor: i % 2 === 0 ? INDIA.stripe : INDIA.cloth,
-            }}
-          />
-        ))}
-      </View>
-      <View style={styles.tileHem}>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <View
-            key={i}
-            style={{
-              flex: 1,
-              height: 6,
-              borderBottomLeftRadius: 999,
-              borderBottomRightRadius: 999,
-              backgroundColor: i % 2 === 0 ? INDIA.stripe : INDIA.cloth,
-            }}
-          />
-        ))}
-      </View>
-      <View style={styles.marigold} />
+      {/* The real stall, not a drawn approximation. Web twin uses the same
+          asset out of public/bazaar/. */}
+      <Image
+        source={require('../assets/images/bazaar/tailor-scene.png')}
+        resizeMode="cover"
+        style={StyleSheet.absoluteFill}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      />
       <View style={styles.birdSlot}>
-        <Mascot pose="wave" size={40} entering={false} />
-      </View>
-      <View style={styles.counter}>
-        <View style={styles.counterLip} />
+        <Mascot pose="wave" size={36} entering={false} />
       </View>
     </Tile>
   );
@@ -309,30 +289,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: 7,
     backgroundColor: INDIA.timberShade,
-  },
-  tileAwning: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 13,
-    flexDirection: 'row',
-  },
-  tileHem: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 13,
-    flexDirection: 'row',
-  },
-  marigold: {
-    position: 'absolute',
-    left: 8,
-    top: 21,
-    width: 6,
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: INDIA.gold,
   },
   birdSlot: {
     position: 'absolute',
