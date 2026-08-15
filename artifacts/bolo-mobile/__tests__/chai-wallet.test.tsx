@@ -319,7 +319,7 @@ describe('express countdown', () => {
 
     fireEvent.press(browse);
     expect(onClose).toHaveBeenCalled();
-    expect(mockState.push).toHaveBeenCalledWith('/(app)/outfits');
+    expect(mockState.push).toHaveBeenCalledWith('/(app)/bazaar');
   });
 
   // Build 37: Chai also buys stops beyond Hindi — but only a free learner

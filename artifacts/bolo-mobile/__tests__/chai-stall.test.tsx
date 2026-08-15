@@ -48,7 +48,7 @@ const GLYPH_SITES: Record<string, number> = {
   'components/journey/SignalEncounter.tsx': 1, // signal-chai-chip
   'app/(app)/practice/[id].tsx': 1, // session-chai-pill
   'components/journey/ZoneCloseout.tsx': 1, // closeout payoff chip
-  'app/(app)/outfits.tsx': 4, // wardrobe balance, Buy · 25, rack price, per-card Buy Now
+  'app/(app)/bazaar.tsx': 4, // wardrobe balance, Buy · 25, rack price, per-card Buy Now
 };
 
 const MOBILE_GLYPH_COUNT = 12;

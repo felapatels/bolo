@@ -83,7 +83,7 @@ await page.goto(`${ORIGIN}/sign-in?__clerk_ticket=${await signInToken()}`, {
   waitUntil: "networkidle",
 });
 await page.waitForURL(/\/app|\/$/, { timeout: 30000 }).catch(() => {});
-await page.goto(`${ORIGIN}/outfits`, { waitUntil: "networkidle" });
+await page.goto(`${ORIGIN}/bazaar`, { waitUntil: "networkidle" });
 await page.waitForSelector('[data-testid="outfit-storefront"]', { timeout: 20000 });
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${OUT}/web-top.png` });
@@ -142,7 +142,7 @@ check("everything comes back", allBack === cards, `${allBack} vs ${cards}`);
 const wide = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const wp = await wide.newPage();
 await wp.goto(`${ORIGIN}/sign-in?__clerk_ticket=${await signInToken()}`, { waitUntil: "networkidle" });
-await wp.goto(`${ORIGIN}/outfits`, { waitUntil: "networkidle" });
+await wp.goto(`${ORIGIN}/bazaar`, { waitUntil: "networkidle" });
 await wp.waitForSelector('[data-testid="outfit-storefront"]');
 await wp.waitForTimeout(1200);
 await wp.screenshot({ path: `${OUT}/web-desktop.png` });

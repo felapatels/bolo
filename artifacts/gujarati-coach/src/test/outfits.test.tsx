@@ -30,19 +30,49 @@ const mockState: {
   equipCalls: unknown[];
 } = { outfits: null, buyCalls: [], equipCalls: [] };
 
-vi.mock("@workspace/api-client-react", () => ({
-  useGetOutfits: () => mockState.outfits,
-  getGetOutfitsQueryKey: () => ["/api/outfits"],
-  getGetTokensQueryKey: () => ["/api/tokens"],
-  useBuyOutfit: () => ({
-    isPending: false,
-    mutate: (vars: unknown) => mockState.buyCalls.push(vars),
-  }),
-  useEquipOutfit: () => ({
-    isPending: false,
-    mutate: (vars: unknown) => mockState.equipCalls.push(vars),
-  }),
-  useGetTokens: () => ({ data: undefined }),
+// The bazaar is a STREET now: the tailor's rack is the first stall, and the
+// ticket counter, signal box and chai stall below it render the WALLET'S OWN
+// rows. Those rows bring their own hooks, so this full-replacement mock has to
+// answer for them too or the page cannot mount. They are stubbed flat and
+// silent here on purpose - the rows' behaviour is pinned in
+// chai-wallet.test.tsx; these tests are still only about the tailor.
+vi.mock("@workspace/api-client-react", () => {
+  class ApiError extends Error {
+    constructor(
+      public status: number,
+      public data: unknown,
+    ) {
+      super(`api ${status}`);
+    }
+  }
+  return {
+    ApiError,
+    useGetOutfits: () => mockState.outfits,
+    getGetOutfitsQueryKey: () => ["/api/outfits"],
+    getGetTokensQueryKey: () => ["/api/tokens"],
+    getGetStreakRepairQueryKey: () => ["/api/streak-repair"],
+    getGetProgressSummaryQueryKey: () => ["/api/progress/summary"],
+    useBuyOutfit: () => ({
+      isPending: false,
+      mutate: (vars: unknown) => mockState.buyCalls.push(vars),
+    }),
+    useEquipOutfit: () => ({
+      isPending: false,
+      mutate: (vars: unknown) => mockState.equipCalls.push(vars),
+    }),
+    useGetTokens: () => ({ data: undefined }),
+    useSpendTokens: () => ({ isPending: false, mutate: vi.fn() }),
+    useBuyFirstClass: () => ({ isPending: false, mutate: vi.fn() }),
+    // No break to mend, so the signal box's first row stays silent.
+    useGetStreakRepair: () => ({ data: { eligible: false } }),
+    useRepairStreak: () => ({ isPending: false, mutate: vi.fn() }),
+  };
+});
+
+// The language signpost is a free-tier row and reads entitlements; without the
+// provider the hook throws.
+vi.mock("@/lib/entitlements", () => ({
+  useEntitlements: () => ({ isPaid: false, isLoading: false }),
 }));
 
 // The mascot crossfades between looks, so mid-transition BOTH images are
@@ -64,7 +94,7 @@ vi.mock("@/components/mascot", () => ({
   ),
 }));
 
-import OutfitsPage from "@/pages/outfits";
+import OutfitsPage from "@/pages/bazaar";
 
 const NAVRATRI = {
   id: "navratri",

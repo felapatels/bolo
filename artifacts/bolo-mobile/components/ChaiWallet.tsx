@@ -79,6 +79,10 @@ const HEADER_ART_HEIGHT = 132;
 // authoritative; these only size copy client-side).
 const STATION_PAUSE_COST = 10;
 const STATION_PAUSE_MAX_EQUIPPED = 2;
+// The Express price was hardcoded into its own button copy as a bare "10",
+// which is the one thing on this screen that could silently disagree with the
+// server after a repricing. Named here like every other cost.
+const EXPRESS_MULTIPLIER_COST = 10;
 
 /**
  * Live "mm:ss" until expressMultiplierActiveUntil, or null when inactive or
@@ -235,7 +239,7 @@ function missedDayLabel(dayKey: string): string {
  * inferred here; the button posts an empty body and the server picks the day
  * it is willing to sell. Web twin: StreakRepairRow in chai-wallet.tsx.
  */
-function StreakRepairRow({ onNotice }: { onNotice: (message: string) => void }) {
+export function StreakRepairRow({ onNotice }: { onNotice: (message: string) => void }) {
   const colors = useColors();
   const queryClient = useQueryClient();
   const offerQuery = useGetStreakRepair();
@@ -446,6 +450,241 @@ function ChaiCoin() {
  * as a Modal anchored to the bottom edge (the journey lock dialog's Modal
  * pattern; mobile has no shared Sheet component).
  */
+// THE ROWS BELOW ARE SHARED SURFACES. The wallet sheet and the bazaar street
+// (app/(app)/bazaar.tsx) render the same components rather than two copies of
+// the same markup, so a price, a testID or a line of copy can only ever change
+// in one place. Each row owns its own token query - react-query hands every
+// caller the one cached result, so rendering a row on either surface costs
+// nothing extra and both stay on the server's number.
+
+/** Station Pause: bought BEFORE a miss and spent automatically. */
+export function StationPauseRow({
+  onNotice,
+}: {
+  onNotice: (message: string) => void;
+}) {
+  const colors = useColors();
+  const tokensQuery = useGetTokens();
+  const tokens = tokensQuery.data;
+  const spend = useSpendWithNotice(onNotice);
+
+  return (
+    <View
+      style={[
+        styles.itemRow,
+        { backgroundColor: colors.background, borderColor: colors.border },
+      ]}
+    >
+      <RowWash color={`${INDIA.gold}2E`} />
+      <StationPauseTile />
+      <View style={styles.itemInfo}>
+        <Text style={[styles.itemTitle, { color: colors.foreground }]}>
+          Station Pause
+        </Text>
+        {/* Verbatim web copy (house rule). Forward-looking on purpose:
+            this sink is bought BEFORE the miss, unlike the Mend row. */}
+        <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
+          Equip it before you need it. The next day you miss is already covered,
+          so your streak is safe.
+        </Text>
+        <Text style={[styles.itemMeta, { color: colors.mutedForeground }]}>
+          {tokens?.stationPausesEquipped ?? 0} of {STATION_PAUSE_MAX_EQUIPPED}{' '}
+          equipped
+        </Text>
+      </View>
+      <Pressable
+        testID="wallet-equip-pause"
+        accessibilityRole="button"
+        disabled={spend.isPending}
+        onPress={() => spend.mutate({ data: { item: 'station_pause' } })}
+        style={({ pressed }) => [
+          styles.spendBtn,
+          (pressed || spend.isPending) && styles.spendBtnPressed,
+        ]}
+      >
+        <SpendFace />
+        <Text style={styles.spendBtnText}>Equip · {STATION_PAUSE_COST}</Text>
+        <ChaiCoin />
+      </Pressable>
+    </View>
+  );
+}
+
+/** Express Multiplier: double XP for 20 minutes, one at a time. */
+export function ExpressMultiplierRow({
+  onNotice,
+}: {
+  onNotice: (message: string) => void;
+}) {
+  const colors = useColors();
+  const tokensQuery = useGetTokens();
+  const spend = useSpendWithNotice(onNotice);
+  const countdown = useExpressCountdown(
+    tokensQuery.data?.expressMultiplierActiveUntil,
+  );
+
+  return (
+    <View
+      style={[
+        styles.itemRow,
+        { backgroundColor: colors.background, borderColor: colors.border },
+      ]}
+    >
+      <RowWash color={`${INDIA.express}26`} />
+      <ExpressTile running={countdown !== null} />
+      <View style={styles.itemInfo}>
+        <Text style={[styles.itemTitle, { color: colors.foreground }]}>
+          Express Multiplier
+        </Text>
+        <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
+          Double XP for 20 minutes.
+        </Text>
+      </View>
+      {countdown ? (
+        <Text
+          testID="wallet-express-countdown"
+          style={[styles.countdownText, { color: colors.primary }]}
+        >
+          Express running: {countdown} left
+        </Text>
+      ) : (
+        <Pressable
+          testID="wallet-start-express"
+          accessibilityRole="button"
+          disabled={spend.isPending}
+          onPress={() => spend.mutate({ data: { item: 'express_multiplier' } })}
+          style={({ pressed }) => [
+            styles.spendBtn,
+            (pressed || spend.isPending) && styles.spendBtnPressed,
+          ]}
+        >
+          <SpendFace />
+          <Text style={styles.spendBtnText}>
+            Start · {EXPRESS_MULTIPLIER_COST}
+          </Text>
+          <ChaiCoin />
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+/**
+ * First Class, with the remount key the idempotency contract needs: the key
+ * flips when the status changes, which generates a fresh UUID for the next
+ * purchase. The same UUID on a second tap is the free-replay path.
+ */
+export function FirstClassWalletRow({
+  onNotice,
+}: {
+  onNotice: (message: string) => void;
+}) {
+  const tokensQuery = useGetTokens();
+  const countdown = useFirstClassCountdown(
+    tokensQuery.data?.firstClassActiveUntil,
+  );
+  return (
+    <FirstClassRow
+      key={countdown ?? 'inactive'}
+      countdown={countdown}
+      onNotice={onNotice}
+    />
+  );
+}
+
+/**
+ * Unlock a Language: a SIGNPOST, not a till. Nothing is bought here - the
+ * button explains where the spend actually happens (a stop on a locked
+ * language's journey), which is why it is a free-tier row only: a paid plan
+ * already owns the stops it would explain how to buy.
+ *
+ * The explainer is the caller's to place (LanguageInfoOverlay below): on the
+ * wallet it is an overlay inside the sheet's own Modal, because stacking
+ * native modals is where iOS animations and dismissals start fighting.
+ */
+export function LanguageSignpostRow({ onInfo }: { onInfo: () => void }) {
+  const colors = useColors();
+  const { isPlus, isOneLanguage, isLoading: entitlementsLoading } =
+    useEntitlements();
+  const isPaid = isPlus || isOneLanguage;
+
+  if (entitlementsLoading || isPaid) return null;
+
+  return (
+    <View
+      testID="wallet-language-row"
+      style={[
+        styles.itemRow,
+        { backgroundColor: colors.background, borderColor: colors.border },
+      ]}
+    >
+      <RowWash color={`${INDIA.board}26`} />
+      <LanguagesTile />
+      <View style={styles.itemInfo}>
+        <Text style={[styles.itemTitle, { color: colors.foreground }]}>
+          Unlock a Language
+        </Text>
+        <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
+          Chai opens stops beyond Hindi.
+        </Text>
+      </View>
+      <Pressable
+        testID="wallet-language-info"
+        accessibilityRole="button"
+        onPress={onInfo}
+        style={({ pressed }) => [
+          styles.spendBtn,
+          pressed && styles.spendBtnPressed,
+        ]}
+      >
+        <SpendFace />
+        <Text style={styles.spendBtnText}>How it works</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/** The language explainer card, on its own scrim. Verbatim web copy. */
+export function LanguageInfoOverlay({ onClose }: { onClose: () => void }) {
+  const colors = useColors();
+  return (
+    <Pressable
+      testID="wallet-language-info-dialog"
+      style={styles.infoScrim}
+      onPress={onClose}
+    >
+      <Pressable
+        style={[
+          styles.infoCard,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+        onPress={(e) => e.stopPropagation()}
+      >
+        <Text style={[styles.infoTitle, { color: colors.foreground }]}>
+          Unlock a language with Chai
+        </Text>
+        <Text style={[styles.infoBody, { color: colors.mutedForeground }]}>
+          You can use Chai to unlock additional non-Hindi stops. Open the
+          journey for a locked language and spend your Chai on a stop to ride
+          it.
+        </Text>
+        <Pressable
+          testID="wallet-language-info-close"
+          accessibilityRole="button"
+          onPress={onClose}
+          style={({ pressed }) => [
+            styles.spendBtn,
+            styles.infoBtn,
+            pressed && styles.spendBtnPressed,
+          ]}
+        >
+          <Text style={styles.spendBtnText}>Got it</Text>
+        </Pressable>
+      </Pressable>
+    </Pressable>
+  );
+}
+
 export function ChaiWalletSheet({
   visible,
   onClose,
@@ -462,20 +701,12 @@ export function ChaiWalletSheet({
   const tokensQuery = useGetTokens();
   const [notice, setNotice] = React.useState('');
   const [noticeKey, setNoticeKey] = React.useState(0);
-  const spend = useSpendWithNotice((message) => {
+  const tokens = tokensQuery.data;
+  // Every spend row reports its rejections through the sheet's own toast.
+  const showNotice = React.useCallback((message: string) => {
     setNotice(message);
     setNoticeKey((k) => k + 1);
-  });
-  const tokens = tokensQuery.data;
-  const countdown = useExpressCountdown(tokens?.expressMultiplierActiveUntil);
-  const firstClassCountdown = useFirstClassCountdown(tokens?.firstClassActiveUntil);
-  // key forces a fresh UUID when First Class row remounts after status change.
-  const firstClassBuyKey = firstClassCountdown ?? 'inactive';
-  // The language row is a free-tier row only: a paid plan already owns the
-  // stops it would explain how to buy.
-  const { isPlus, isOneLanguage, isLoading: entitlementsLoading } =
-    useEntitlements();
-  const isPaid = isPlus || isOneLanguage;
+  }, []);
   const [languageInfoOpen, setLanguageInfoOpen] = React.useState(false);
 
   return (
@@ -541,44 +772,7 @@ export function ChaiWalletSheet({
               }}
             />
 
-            <View
-              style={[
-                styles.itemRow,
-                { backgroundColor: colors.background, borderColor: colors.border },
-              ]}
-            >
-              <RowWash color={`${INDIA.gold}2E`} />
-              <StationPauseTile />
-              <View style={styles.itemInfo}>
-                <Text style={[styles.itemTitle, { color: colors.foreground }]}>
-                  Station Pause
-                </Text>
-                {/* Verbatim web copy (house rule). Forward-looking on purpose:
-                    this sink is bought BEFORE the miss, unlike the Mend row. */}
-                <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
-                  Equip it before you need it. The next day you miss is already
-                  covered, so your streak is safe.
-                </Text>
-                <Text style={[styles.itemMeta, { color: colors.mutedForeground }]}>
-                  {tokens?.stationPausesEquipped ?? 0} of{' '}
-                  {STATION_PAUSE_MAX_EQUIPPED} equipped
-                </Text>
-              </View>
-              <Pressable
-                testID="wallet-equip-pause"
-                accessibilityRole="button"
-                disabled={spend.isPending}
-                onPress={() => spend.mutate({ data: { item: 'station_pause' } })}
-                style={({ pressed }) => [
-                  styles.spendBtn,
-                  (pressed || spend.isPending) && styles.spendBtnPressed,
-                ]}
-              >
-                <SpendFace />
-                <Text style={styles.spendBtnText}>Equip · {STATION_PAUSE_COST}</Text>
-                <ChaiCoin />
-              </Pressable>
-            </View>
+            <StationPauseRow onNotice={showNotice} />
 
             <View
               style={[
@@ -601,7 +795,7 @@ export function ChaiWalletSheet({
                 accessibilityRole="button"
                 onPress={() => {
                   onClose();
-                  router.push('/(app)/outfits');
+                  router.push('/(app)/bazaar');
                 }}
                 style={({ pressed }) => [
                   styles.spendBtn,
@@ -613,95 +807,13 @@ export function ChaiWalletSheet({
               </Pressable>
             </View>
 
-            <View
-              style={[
-                styles.itemRow,
-                { backgroundColor: colors.background, borderColor: colors.border },
-              ]}
-            >
-              <RowWash color={`${INDIA.express}26`} />
-              <ExpressTile running={countdown !== null} />
-              <View style={styles.itemInfo}>
-                <Text style={[styles.itemTitle, { color: colors.foreground }]}>
-                  Express Multiplier
-                </Text>
-                <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
-                  Double XP for 20 minutes.
-                </Text>
-              </View>
-              {countdown ? (
-                <Text
-                  testID="wallet-express-countdown"
-                  style={[styles.countdownText, { color: colors.primary }]}
-                >
-                  Express running: {countdown} left
-                </Text>
-              ) : (
-                <Pressable
-                  testID="wallet-start-express"
-                  accessibilityRole="button"
-                  disabled={spend.isPending}
-                  onPress={() =>
-                    spend.mutate({ data: { item: 'express_multiplier' } })
-                  }
-                  style={({ pressed }) => [
-                    styles.spendBtn,
-                    (pressed || spend.isPending) && styles.spendBtnPressed,
-                  ]}
-                >
-                  <SpendFace />
-                  <Text style={styles.spendBtnText}>Start · 10</Text>
-                  <ChaiCoin />
-                </Pressable>
-              )}
-            </View>
+            <ExpressMultiplierRow onNotice={showNotice} />
 
             {/* First Class: 24 hours of gold-train status + complimentary Express
-                boost on boarding. Repeatable — repurchase adds 24 hours.
-                key flips the row when status changes, generating a fresh UUID. */}
-            <FirstClassRow
-              key={firstClassBuyKey}
-              countdown={firstClassCountdown}
-              onNotice={(msg) => {
-                setNotice(msg);
-                setNoticeKey((k) => k + 1);
-              }}
-            />
+                boost on boarding. Repeatable - repurchase adds 24 hours. */}
+            <FirstClassWalletRow onNotice={showNotice} />
 
-            {!entitlementsLoading && !isPaid && (
-              <View
-                testID="wallet-language-row"
-                style={[
-                  styles.itemRow,
-                  { backgroundColor: colors.background, borderColor: colors.border },
-                ]}
-              >
-                <RowWash color={`${INDIA.board}26`} />
-                <LanguagesTile />
-                <View style={styles.itemInfo}>
-                  <Text style={[styles.itemTitle, { color: colors.foreground }]}>
-                    Unlock a Language
-                  </Text>
-                  <Text
-                    style={[styles.itemDesc, { color: colors.mutedForeground }]}
-                  >
-                    Chai opens stops beyond Hindi.
-                  </Text>
-                </View>
-                <Pressable
-                  testID="wallet-language-info"
-                  accessibilityRole="button"
-                  onPress={() => setLanguageInfoOpen(true)}
-                  style={({ pressed }) => [
-                    styles.spendBtn,
-                    pressed && styles.spendBtnPressed,
-                  ]}
-                >
-                  <SpendFace />
-                  <Text style={styles.spendBtnText}>How it works</Text>
-                </Pressable>
-              </View>
-            )}
+            <LanguageSignpostRow onInfo={() => setLanguageInfoOpen(true)} />
 
             {/* Buying Chai with money, through Apple. Dark until
                 CHAI_PACKS_LIVE flips — exactly as the web shop is — while the
@@ -715,40 +827,7 @@ export function ChaiWalletSheet({
             second Modal: stacking native modals is where iOS animations and
             dismissals start fighting each other, and this needs neither. */}
         {languageInfoOpen && (
-          <Pressable
-            testID="wallet-language-info-dialog"
-            style={styles.infoScrim}
-            onPress={() => setLanguageInfoOpen(false)}
-          >
-            <Pressable
-              style={[
-                styles.infoCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <Text style={[styles.infoTitle, { color: colors.foreground }]}>
-                Unlock a language with Chai
-              </Text>
-              <Text style={[styles.infoBody, { color: colors.mutedForeground }]}>
-                You can use Chai to unlock additional non-Hindi stops. Open the
-                journey for a locked language and spend your Chai on a stop to
-                ride it.
-              </Text>
-              <Pressable
-                testID="wallet-language-info-close"
-                accessibilityRole="button"
-                onPress={() => setLanguageInfoOpen(false)}
-                style={({ pressed }) => [
-                  styles.spendBtn,
-                  styles.infoBtn,
-                  pressed && styles.spendBtnPressed,
-                ]}
-              >
-                <Text style={styles.spendBtnText}>Got it</Text>
-              </Pressable>
-            </Pressable>
-          </Pressable>
+          <LanguageInfoOverlay onClose={() => setLanguageInfoOpen(false)} />
         )}
       </Pressable>
     </Modal>

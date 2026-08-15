@@ -23,6 +23,16 @@ import { PressableScale } from '@/components/PressableScale';
 import { Mascot } from '@/components/Mascot';
 import { mascotSource } from '@/lib/mascotOutfits';
 import { ChaiGlyph } from '@/components/ChaiStall';
+import { StallBand } from '@/components/StallBand';
+import {
+  ChaiWalletSheet,
+  ExpressMultiplierRow,
+  FirstClassWalletRow,
+  LanguageInfoOverlay,
+  LanguageSignpostRow,
+  StationPauseRow,
+  StreakRepairRow,
+} from '@/components/ChaiWallet';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { Awning, MarigoldString } from '@/components/IndiaDecor';
 import { DressingRoom } from '@/components/DressingRoom';
@@ -30,7 +40,18 @@ import { INDIA } from '@/constants/india';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
-// Bolo Bazaar (mobile twin of artifacts/gujarati-coach/src/pages/outfits.tsx).
+// Bolo Bazaar (mobile twin of artifacts/gujarati-coach/src/pages/bazaar.tsx).
+//
+// The bazaar is a STREET: FOUR painted stall bands stacked down one scroller,
+// each with its own goods listed directly underneath it - the tailor (outfits),
+// the ticket counter (First Class, and the signpost to unlocking a language),
+// the signal box (mend, pause, express) and Chacha-ji's chai stall (the
+// wallet). Never a hub of tiles, never a painted hotspot map: a learner
+// scrolls the street and sees every price on the way past.
+//
+// The stall art and the character layer contract live in components/StallBand.tsx.
+// The rows are the WALLET'S OWN rows, imported rather than re-typed, so a copy
+// or price change lands on both surfaces at once.
 //
 // Outfits are a Chai sink: bought once, owned forever, worn everywhere the
 // mascot appears. The shop previews a costume ON THE LEARNER'S OWN BOLO rather
@@ -152,6 +173,10 @@ export default function OutfitsScreen() {
   // The rack grows; what a learner already paid for should not need hunting
   // for. One chip narrows it to their own wardrobe.
   const [ownedOnly, setOwnedOnly] = React.useState(false);
+  // The chai stall at the bottom of the street opens the wallet a learner
+  // already knows, rather than a second balance surface built here.
+  const [walletOpen, setWalletOpen] = React.useState(false);
+  const [languageInfoOpen, setLanguageInfoOpen] = React.useState(false);
   const [notice, setNotice] = React.useState('');
   const [noticeKey, setNoticeKey] = React.useState(0);
 
@@ -250,11 +275,19 @@ export default function OutfitsScreen() {
         </View>
       </View>
 
-      {/* THE DRESSING ROOM STAYS PUT. It sits outside the scroller, so the
-          rack is the only thing that moves: a learner comparing eight items
-          should never have to scroll the bird back into view to see what a
-          costume looks like on her. */}
-      <View testID="outfit-dressing-room" style={styles.dressingRoom}>
+      <ScrollView
+        contentContainerStyle={styles.street}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* STALL 1 - THE TAILOR. The band is the shopfront; the dressing room,
+            the filters and the rack below it are his stock. */}
+        <StallBand stall="tailor" />
+
+        {/* The dressing room no longer sits outside the scroller: on a street
+            of four stalls a pinned bird would hang over the ticket counter and
+            the signal box, which read as different places. Its own markup is
+            untouched. */}
+        <View testID="outfit-dressing-room" style={styles.dressingRoom}>
         {/* The storefront: awning, toran, painted board, and the counter Bolo
             stands behind — one shop rather than a header stacked on a card. */}
         <View
@@ -404,15 +437,8 @@ export default function OutfitsScreen() {
           )}
         </View>
 
-      </View>
+        </View>
 
-      <ScrollView
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingBottom: TAB_BAR_CLEARANCE,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
         {/* The two facts the UI cannot show on its own: the pick is worn
             app-wide, and the slots combine. */}
         <Text style={[styles.shopLine, { color: colors.mutedForeground }]}>
@@ -648,7 +674,46 @@ export default function OutfitsScreen() {
             </Text>
           </Pressable>
         ) : null}
+
+        {/* STALL 2 - THE TICKET COUNTER. First Class is the only paid-status
+            thing on the street, and the language signpost sits with it because
+            both are bought at a counter rather than off a rack. */}
+        <View style={styles.stall}>
+          <StallBand stall="ticket" />
+          <FirstClassWalletRow onNotice={showNotice} />
+          <LanguageSignpostRow onInfo={() => setLanguageInfoOpen(true)} />
+        </View>
+
+        {/* STALL 3 - THE SIGNAL BOX. Everything that keeps the line running:
+            mending a break, holding a pause in reserve, running an express.
+            The mend row is silent unless the server is offering a repair. */}
+        <View style={styles.stall}>
+          <StallBand stall="signal" />
+          <StreakRepairRow onNotice={showNotice} />
+          <StationPauseRow onNotice={showNotice} />
+          <ExpressMultiplierRow onNotice={showNotice} />
+        </View>
+
+        {/* STALL 4 - THE CHAI STALL. One door, into the wallet the rest of the
+            app already opens; the balance and the packs live there. */}
+        <View style={styles.stall}>
+          <StallBand
+            stall="chai"
+            onPress={() => setWalletOpen(true)}
+            accessibilityLabel="Open your Chai wallet"
+          />
+        </View>
       </ScrollView>
+
+      <ChaiWalletSheet
+        visible={walletOpen}
+        onClose={() => setWalletOpen(false)}
+      />
+      {/* The language explainer, owned by this screen rather than the row, so
+          it covers the street instead of one card. */}
+      {languageInfoOpen && (
+        <LanguageInfoOverlay onClose={() => setLanguageInfoOpen(false)} />
+      )}
     </Screen>
   );
 }
@@ -730,6 +795,10 @@ const styles = StyleSheet.create({
   counter: { marginTop: 12, height: 14, backgroundColor: INDIA.timber },
   counterLip: { height: 6, backgroundColor: INDIA.timberShade, marginTop: 8 },
   actionRow: { alignItems: 'center', marginTop: 16 },
+  // The street itself: one scroller, every stall inside it.
+  street: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE },
+  // A stall below the first: its band, then its goods.
+  stall: { marginTop: 28, gap: 12 },
   primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',

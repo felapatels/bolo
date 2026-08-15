@@ -80,7 +80,7 @@ const GamesWrongPlatform = lazyRoute(() => import('@/pages/games/wrong-platform'
 const GamesLuggageMatch = lazyRoute(() => import('@/pages/games/luggage-match'));
 const GamesExpressListening = lazyRoute(() => import('@/pages/games/express-listening'));
 const GamesSignalLights = lazyRoute(() => import('@/pages/games/signal-lights'));
-const Outfits = lazyRoute(() => import('@/pages/outfits'));
+const Bazaar = lazyRoute(() => import('@/pages/bazaar'));
 const Account = lazyRoute(() => import('@/pages/account'));
 const Contact = lazyRoute(() => import('@/pages/contact'));
 const Subscription = lazyRoute(() => import('@/pages/subscription'));
@@ -401,10 +401,10 @@ function AppRouter() {
           </AppShell>
         </Guard>
       </Route>
-      <Route path="/outfits">
+      <Route path="/bazaar">
         <Guard>
           <AppShell>
-            <Outfits />
+            <Bazaar />
           </AppShell>
         </Guard>
       </Route>

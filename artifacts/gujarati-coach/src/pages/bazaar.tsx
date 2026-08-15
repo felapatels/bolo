@@ -11,6 +11,15 @@ import {
 } from "@workspace/api-client-react";
 import { Mascot } from "@/components/mascot";
 import { ChaiGlyph } from "@/components/chai-stall";
+import { StallBand } from "@/components/stall-band";
+import {
+  ChaiWalletSheet,
+  ExpressMultiplierRow,
+  FirstClassWalletRow,
+  LanguageSignpostRow,
+  StationPauseRow,
+  StreakRepairRow,
+} from "@/components/chai-wallet";
 import { Awning, MarigoldString } from "@/components/india-decor";
 import { DressingRoom } from "@/components/dressing-room";
 import { OutfitCard, groupOutfits } from "@/components/outfit-card";
@@ -18,8 +27,19 @@ import { mascotAssetSrc } from "@/lib/mascot-outfits";
 import { INDIA } from "@/lib/india-palette";
 import { cn } from "@/lib/utils";
 
-// Bolo Bazaar. Outfits are a Chai sink: bought once, owned forever, worn
-// everywhere the mascot appears.
+// Bolo Bazaar - the market street. FOUR stalls stacked down one scroller, each
+// a painted band with its own goods listed directly underneath it: the tailor
+// (outfits), the ticket counter (First Class, and the signpost to unlocking a
+// language), the signal box (mend, pause, express) and Chacha-ji's chai stall
+// (the wallet). Never a hub of tiles, never a painted hotspot map: a learner
+// scrolls the street and sees every price on the way past.
+//
+// The stall art and the character layer contract live in components/stall-band.tsx.
+// The rows are the WALLET'S OWN rows, imported rather than re-typed, so a copy
+// or price change lands on both surfaces at once.
+//
+// Outfits are a Chai sink: bought once, owned forever, worn everywhere the
+// mascot appears.
 //
 // The shop previews an outfit ON THE LEARNER'S OWN BOLO rather than showing a
 // grid of thumbnails (owner ruling) — tap a costume, see the bird wearing it,
@@ -52,6 +72,9 @@ export default function OutfitsPage() {
   // The rack grows; what a learner already paid for should not need hunting
   // for. One chip narrows it to their own wardrobe.
   const [ownedOnly, setOwnedOnly] = useState(false);
+  // The chai stall at the bottom of the street opens the wallet a learner
+  // already knows, rather than a second balance surface built here.
+  const [walletOpen, setWalletOpen] = useState(false);
   const previewedItem = data?.outfits.find((o) => o.id === previewed) ?? null;
   const previewedKind = previewedItem?.kind ?? "garment";
   const shownGarment =
@@ -171,15 +194,17 @@ export default function OutfitsPage() {
         Back
       </Link>
 
-      {/* THE DRESSING ROOM STAYS PUT. The rack is the only thing that
-          scrolls: a learner comparing eight items should not have to scroll
-          the bird back into view to see what a costume looks like on her.
-          Sticky (not fixed) so it still sits inside the page's own scroller
-          and needs no height maths; the negative margin lets it cover the
-          rack sliding underneath it edge to edge. */}
+      {/* STALL 1 - THE TAILOR. The band is the shopfront; the dressing room,
+          the filters and the rack below it are his stock. */}
+      <StallBand stall="tailor" className="mt-4" />
+
+      {/* The dressing room. It no longer sticks to the top of the scroller:
+          on a street of four stalls a pinned bird would hang over the ticket
+          counter and the signal box, which read as different places. Its own
+          markup is untouched. */}
       <div
         data-testid="outfit-dressing-room"
-        className="sticky top-0 z-20 -mx-4 bg-background px-4 pb-3 pt-1"
+        className="bg-background pb-3 pt-1"
       >
       {/* The storefront. Awning, toran, painted board, and the counter Bolo
           stands behind — one continuous shop rather than a header stacked on
@@ -447,6 +472,36 @@ export default function OutfitsPage() {
           </button>
         ) : null}
       </div>
+
+      {/* STALL 2 - THE TICKET COUNTER. First Class is the only paid-status
+          thing on the street, and the language signpost sits with it because
+          both are bought at a counter rather than off a rack. */}
+      <div className="mt-8 space-y-3" data-testid="bazaar-ticket-counter">
+        <StallBand stall="ticket" />
+        <FirstClassWalletRow />
+        <LanguageSignpostRow />
+      </div>
+
+      {/* STALL 3 - THE SIGNAL BOX. Everything that keeps the line running:
+          mending a break, holding a pause in reserve, running an express. The
+          mend row is silent unless the server is offering a real repair. */}
+      <div className="mt-8 space-y-3" data-testid="bazaar-signal-box">
+        <StallBand stall="signal" />
+        <StreakRepairRow />
+        <StationPauseRow />
+        <ExpressMultiplierRow />
+      </div>
+
+      {/* STALL 4 - THE CHAI STALL. One door, into the wallet the rest of the
+          app already opens; the balance and the packs live there. */}
+      <div className="mt-8" data-testid="bazaar-chai-stall">
+        <StallBand
+          stall="chai"
+          onClick={() => setWalletOpen(true)}
+          label="Open your Chai wallet"
+        />
+      </div>
+      <ChaiWalletSheet open={walletOpen} onOpenChange={setWalletOpen} />
     </div>
   );
 }

@@ -17,7 +17,7 @@ const OUT = "qa/shots/dark";
 mkdirSync(OUT, { recursive: true });
 
 const PAGES = (
-  process.env.PAGES ?? "/,/chat,/journey,/outfits,/progress,/account,/games"
+  process.env.PAGES ?? "/,/chat,/journey,/bazaar,/progress,/account,/games"
 ).split(",");
 
 async function signInToken() {

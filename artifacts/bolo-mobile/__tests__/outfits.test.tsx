@@ -24,10 +24,26 @@ const mockState: Record<string, any> = {
   equipCalls: [],
 };
 
+// The bazaar is a STREET now: the tailor's rack is the first stall, and the
+// ticket counter, signal box and chai stall below it render the WALLET'S OWN
+// rows. Those rows bring their own hooks, so this full-replacement mock has to
+// answer for them too or the screen cannot mount. They are stubbed flat and
+// silent here on purpose - the rows' behaviour is pinned in
+// chai-wallet.test.tsx; these tests are still only about the tailor.
 jest.mock('@workspace/api-client-react', () => ({
+  ApiError: class ApiError extends Error {
+    status: number;
+    data: unknown;
+    constructor(status: number, data: unknown) {
+      super(`api ${status}`);
+      this.status = status;
+      this.data = data;
+    }
+  },
   useGetOutfits: () => mockState.outfits,
   getGetOutfitsQueryKey: () => ['/api/outfits'],
   getGetTokensQueryKey: () => ['/api/tokens'],
+  getGetProgressSummaryQueryKey: () => ['/api/progress/summary'],
   useBuyOutfit: () => ({
     isPending: false,
     mutate: (vars: unknown) => mockState.buyCalls.push(vars),
@@ -37,14 +53,32 @@ jest.mock('@workspace/api-client-react', () => ({
     mutate: (vars: unknown) => mockState.equipCalls.push(vars),
   }),
   useGetTokens: () => ({ data: undefined }),
+  useSpendTokens: () => ({ isPending: false, mutate: jest.fn() }),
+  useBuyFirstClass: () => ({ isPending: false, mutate: jest.fn() }),
   // The wallet sheet reads the streak-repair offer; no break to mend here.
   useGetStreakRepair: () => ({ data: { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   useRepairStreak: () => ({ isPending: false, mutate: jest.fn() }),
   getGetStreakRepairQueryKey: () => ['/api/tokens/streak-repair'],
 }));
 
+// The language signpost is a free-tier row and reads entitlements; without the
+// provider the hook throws.
+jest.mock('@/contexts/EntitlementsContext', () => ({
+  useEntitlements: () => ({
+    isPlus: false,
+    isOneLanguage: false,
+    isLoading: false,
+  }),
+}));
+
 jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
+}));
+
+// The chai stall at the foot of the street mounts the wallet sheet, which
+// keeps its own header clear of the notch.
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
 }));
 
 jest.mock('expo-router', () => ({
@@ -120,7 +154,7 @@ jest.mock('@/constants/fonts', () => ({
   },
 }));
 
-import OutfitsScreen from '../app/(app)/outfits';
+import OutfitsScreen from '../app/(app)/bazaar';
 import {
   mascotSource,
   CANONICAL_POSE_SOURCES,

@@ -153,7 +153,7 @@ const ROUTES = [
   "/phrasebook",
   "/progress",
   "/friends",
-  "/outfits",
+  "/bazaar",
   "/games",
   "/games/word-match",
   "/games/speed-round",

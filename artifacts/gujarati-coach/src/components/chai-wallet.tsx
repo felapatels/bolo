@@ -366,7 +366,7 @@ function missedDayLabel(dayKey: string): string {
  * never inferred here; the button posts an empty body and the server picks the
  * day it is willing to sell.
  */
-function StreakRepairRow() {
+export function StreakRepairRow() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const offerQuery = useGetStreakRepair();
@@ -428,6 +428,185 @@ function StreakRepairRow() {
   );
 }
 
+// THE ROWS BELOW ARE SHARED SURFACES. The wallet sheet and the bazaar street
+// (pages/bazaar.tsx) render the same components rather than two copies of the
+// same markup, so a price, a testid or a line of copy can only ever change in
+// one place. Each row owns its own token query - react-query hands every
+// caller the one cached result, so rendering a row on either surface costs
+// nothing extra and both stay on the server's number.
+
+/**
+ * First Class, with the remount key the idempotency contract needs.
+ *
+ * The key flips when the status changes inactive→active, which remounts
+ * useFirstClassBuy and generates a fresh UUID: the same UUID on a second tap
+ * is the free-replay path, not a second charge.
+ */
+export function FirstClassWalletRow() {
+  const tokensQuery = useGetTokens();
+  const countdown = useFirstClassCountdown(
+    tokensQuery.data?.firstClassActiveUntil,
+  );
+  return <FirstClassRow key={countdown ?? "inactive"} countdown={countdown} />;
+}
+
+/** Station Pause: bought BEFORE a miss and spent automatically. */
+export function StationPauseRow() {
+  const tokensQuery = useGetTokens();
+  const spend = useSpendWithRefresh();
+  const tokens = tokensQuery.data;
+
+  return (
+    <div
+      className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
+      style={{
+        backgroundImage: `linear-gradient(90deg, ${INDIA.gold}1F 0%, transparent 55%)`,
+      }}
+    >
+      <StationPauseTile />
+      <div className="min-w-0 flex-1">
+        <p className="font-black text-foreground">Station Pause</p>
+        {/* Deliberately forward-looking. The old line ("Covers a missed
+            day...") read like the Mend row above it, so the two sinks
+            were indistinguishable: this one is bought BEFORE the miss and
+            spends itself automatically, and the copy has to say so or a
+            learner has no reason to hold one on a day nothing is wrong. */}
+        <p className="text-xs leading-snug text-muted-foreground">
+          Equip it before you need it. The next day you miss is already covered,
+          so your streak is safe.
+        </p>
+        <p className="mt-1 text-xs font-bold text-muted-foreground">
+          {tokens?.stationPausesEquipped ?? 0} of {STATION_PAUSE_MAX_EQUIPPED}{" "}
+          equipped
+        </p>
+      </div>
+      <button
+        type="button"
+        disabled={spend.isPending}
+        onClick={() => spend.mutate({ data: { item: "station_pause" } })}
+        data-testid="wallet-equip-pause"
+        className={SPEND_BTN_CLASS}
+        style={SPEND_BTN_STYLE}
+      >
+        <span>Equip · {STATION_PAUSE_COST}</span>
+        <ChaiCoin />
+      </button>
+    </div>
+  );
+}
+
+/** Express Multiplier: double XP for 20 minutes, one at a time. */
+export function ExpressMultiplierRow() {
+  const tokensQuery = useGetTokens();
+  const spend = useSpendWithRefresh();
+  const countdown = useExpressCountdown(
+    tokensQuery.data?.expressMultiplierActiveUntil,
+  );
+
+  return (
+    <div
+      className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
+      style={{
+        backgroundImage: `linear-gradient(90deg, ${INDIA.express}1A 0%, transparent 55%)`,
+      }}
+    >
+      <ExpressTile running={countdown !== null} />
+      <div className="min-w-0 flex-1">
+        <p className="font-black text-foreground">Express Multiplier</p>
+        <p className="text-xs leading-snug text-muted-foreground">
+          Double XP for 20 minutes.
+        </p>
+      </div>
+      {countdown ? (
+        <p
+          className="shrink-0 text-sm font-black text-primary"
+          data-testid="wallet-express-countdown"
+        >
+          Express running: {countdown} left
+        </p>
+      ) : (
+        <button
+          type="button"
+          disabled={spend.isPending}
+          onClick={() => spend.mutate({ data: { item: "express_multiplier" } })}
+          data-testid="wallet-start-express"
+          className={SPEND_BTN_CLASS}
+          style={SPEND_BTN_STYLE}
+        >
+          <span>Start · {EXPRESS_MULTIPLIER_COST}</span>
+          <ChaiCoin />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Unlock a Language: a SIGNPOST, not a till. Nothing is bought here - the
+ * button explains where the spend actually happens (a stop on a locked
+ * language's journey), which is why it is a free-tier row only: a paid plan
+ * already owns the stops it would explain how to buy.
+ */
+export function LanguageSignpostRow() {
+  const { isPaid, isLoading: entitlementsLoading } = useEntitlements();
+  const [languageInfoOpen, setLanguageInfoOpen] = useState(false);
+
+  if (entitlementsLoading || isPaid) return null;
+
+  return (
+    <>
+      <div
+        data-testid="wallet-language-row"
+        className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
+        style={{
+          backgroundImage: `linear-gradient(90deg, ${INDIA.board}1F 0%, transparent 55%)`,
+        }}
+      >
+        <LanguagesTile />
+        <div className="min-w-0 flex-1">
+          <p className="font-black text-foreground">Unlock a Language</p>
+          <p className="text-xs leading-snug text-muted-foreground">
+            Chai opens stops beyond Hindi.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setLanguageInfoOpen(true)}
+          data-testid="wallet-language-info"
+          className={SPEND_BTN_CLASS}
+          style={SPEND_BTN_STYLE}
+        >
+          How it works
+        </button>
+      </div>
+
+      <Dialog open={languageInfoOpen} onOpenChange={setLanguageInfoOpen}>
+        <DialogContent
+          className="max-w-sm"
+          data-testid="wallet-language-info-dialog"
+        >
+          <DialogHeader>
+            <DialogTitle>Unlock a language with Chai</DialogTitle>
+            <DialogDescription>
+              You can use Chai to unlock additional non-Hindi stops. Open the
+              journey for a locked language and spend your Chai on a stop to
+              ride it.
+            </DialogDescription>
+          </DialogHeader>
+          <button
+            type="button"
+            onClick={() => setLanguageInfoOpen(false)}
+            className={cn(SPEND_BTN_CLASS, "w-full justify-center")}
+            style={SPEND_BTN_STYLE}
+          >
+            Got it
+          </button>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 /** Bottom sheet: balance, Station Pause row, Express Multiplier row. First Class row. */
 export function ChaiWalletSheet({
   open,
@@ -437,18 +616,8 @@ export function ChaiWalletSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const tokensQuery = useGetTokens();
-  const spend = useSpendWithRefresh();
   const tokens = tokensQuery.data;
-  const countdown = useExpressCountdown(tokens?.expressMultiplierActiveUntil);
-  const firstClassCountdown = useFirstClassCountdown(tokens?.firstClassActiveUntil);
-  // key forces a fresh UUID when the First Class row remounts after a purchase,
-  // so the next tap is a genuinely new idempotency key.
-  const firstClassBuyKey = firstClassCountdown ?? "inactive";
   const [, navigate] = useLocation();
-  // The language row is a free-tier row only: a paid plan already owns the
-  // stops it would explain how to buy.
-  const { isPaid, isLoading: entitlementsLoading } = useEntitlements();
-  const [languageInfoOpen, setLanguageInfoOpen] = useState(false);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -500,41 +669,7 @@ export function ChaiWalletSheet({
               while the flag is off, so the wallet is unchanged today. */}
           <ChaiPackShop />
 
-          <div
-            className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
-            style={{
-              backgroundImage: `linear-gradient(90deg, ${INDIA.gold}1F 0%, transparent 55%)`,
-            }}
-          >
-            <StationPauseTile />
-            <div className="min-w-0 flex-1">
-              <p className="font-black text-foreground">Station Pause</p>
-              {/* Deliberately forward-looking. The old line ("Covers a missed
-                  day...") read like the Mend row above it, so the two sinks
-                  were indistinguishable: this one is bought BEFORE the miss and
-                  spends itself automatically, and the copy has to say so or a
-                  learner has no reason to hold one on a day nothing is wrong. */}
-              <p className="text-xs leading-snug text-muted-foreground">
-                Equip it before you need it. The next day you miss is already
-                covered, so your streak is safe.
-              </p>
-              <p className="mt-1 text-xs font-bold text-muted-foreground">
-                {tokens?.stationPausesEquipped ?? 0} of{" "}
-                {STATION_PAUSE_MAX_EQUIPPED} equipped
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={spend.isPending}
-              onClick={() => spend.mutate({ data: { item: "station_pause" } })}
-              data-testid="wallet-equip-pause"
-              className={SPEND_BTN_CLASS}
-              style={SPEND_BTN_STYLE}
-            >
-              <span>Equip · {STATION_PAUSE_COST}</span>
-              <ChaiCoin />
-            </button>
-          </div>
+          <StationPauseRow />
 
           <div
             className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
@@ -553,7 +688,7 @@ export function ChaiWalletSheet({
               type="button"
               onClick={() => {
                 onOpenChange(false);
-                navigate("/outfits");
+                navigate("/bazaar");
               }}
               data-testid="wallet-open-wardrobe"
               className={SPEND_BTN_CLASS}
@@ -563,105 +698,15 @@ export function ChaiWalletSheet({
             </button>
           </div>
 
-          <div
-            className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
-            style={{
-              backgroundImage: `linear-gradient(90deg, ${INDIA.express}1A 0%, transparent 55%)`,
-            }}
-          >
-            <ExpressTile running={countdown !== null} />
-            <div className="min-w-0 flex-1">
-              <p className="font-black text-foreground">Express Multiplier</p>
-              <p className="text-xs leading-snug text-muted-foreground">
-                Double XP for 20 minutes.
-              </p>
-            </div>
-            {countdown ? (
-              <p
-                className="shrink-0 text-sm font-black text-primary"
-                data-testid="wallet-express-countdown"
-              >
-                Express running: {countdown} left
-              </p>
-            ) : (
-              <button
-                type="button"
-                disabled={spend.isPending}
-                onClick={() =>
-                  spend.mutate({ data: { item: "express_multiplier" } })
-                }
-                data-testid="wallet-start-express"
-                className={SPEND_BTN_CLASS}
-                style={SPEND_BTN_STYLE}
-              >
-                <span>Start · {EXPRESS_MULTIPLIER_COST}</span>
-                <ChaiCoin />
-              </button>
-            )}
-          </div>
+          <ExpressMultiplierRow />
 
           {/* First Class: 24 hours of gold-train status + one complimentary
               Express boost on boarding. Repeatable — buying again adds another
-              24 hours instead of being refused. The key prop forces a fresh
-              UUID whenever the status flips inactive→active (a new purchase
-              must carry a new idempotency key; the same UUID on a second tap
-              is the free-replay path, not a second charge). */}
-          <FirstClassRow
-            key={firstClassBuyKey}
-            countdown={firstClassCountdown}
-          />
+              24 hours instead of being refused. */}
+          <FirstClassWalletRow />
 
-          {!entitlementsLoading && !isPaid && (
-            <div
-              data-testid="wallet-language-row"
-              className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
-              style={{
-                backgroundImage: `linear-gradient(90deg, ${INDIA.board}1F 0%, transparent 55%)`,
-              }}
-            >
-              <LanguagesTile />
-              <div className="min-w-0 flex-1">
-                <p className="font-black text-foreground">Unlock a Language</p>
-                <p className="text-xs leading-snug text-muted-foreground">
-                  Chai opens stops beyond Hindi.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setLanguageInfoOpen(true)}
-                data-testid="wallet-language-info"
-                className={SPEND_BTN_CLASS}
-                style={SPEND_BTN_STYLE}
-              >
-                How it works
-              </button>
-            </div>
-          )}
+          <LanguageSignpostRow />
         </div>
-
-        <Dialog open={languageInfoOpen} onOpenChange={setLanguageInfoOpen}>
-          <DialogContent
-            className="max-w-sm"
-            data-testid="wallet-language-info-dialog"
-          >
-            <DialogHeader>
-              <DialogTitle>Unlock a language with Chai</DialogTitle>
-              <DialogDescription>
-                You can use Chai to unlock additional non-Hindi stops. Open the
-                journey for a locked language and spend your Chai on a stop to
-                ride it.
-              </DialogDescription>
-            </DialogHeader>
-            <button
-              type="button"
-              onClick={() => setLanguageInfoOpen(false)}
-              className={cn(SPEND_BTN_CLASS, "w-full justify-center")}
-              style={SPEND_BTN_STYLE}
-            >
-              Got it
-            </button>
-          </DialogContent>
-        </Dialog>
       </SheetContent>
     </Sheet>
   );

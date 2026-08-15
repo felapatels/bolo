@@ -77,7 +77,7 @@ await page.goto(`${ORIGIN}/sign-in?__clerk_ticket=${await signInToken()}`, {
   waitUntil: "networkidle",
 });
 await page.waitForURL(/\/app|\/$/, { timeout: 30000 }).catch(() => {});
-await page.goto(`${ORIGIN}/outfits`, { waitUntil: "networkidle" });
+await page.goto(`${ORIGIN}/bazaar`, { waitUntil: "networkidle" });
 await page.waitForSelector('[data-testid="outfit-storefront"]', { timeout: 20000 });
 await page.waitForTimeout(1200);
 
@@ -146,7 +146,7 @@ for (const [label, path] of [
 }
 
 // Taking the hat off must leave the garment on, everywhere.
-await page.goto(`${ORIGIN}/outfits`, { waitUntil: "networkidle" });
+await page.goto(`${ORIGIN}/bazaar`, { waitUntil: "networkidle" });
 await page.waitForSelector('[data-testid="outfit-storefront"]');
 await tap(page.locator(`[data-testid="outfit-takeoff-${ITEM}"]`));
 await page.waitForTimeout(2000);
