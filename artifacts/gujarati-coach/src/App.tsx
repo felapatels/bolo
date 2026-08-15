@@ -67,6 +67,7 @@ const Journey = lazyRoute(() => import('@/pages/journey'));
 const Phrasebook = lazyRoute(() => import('@/pages/phrasebook'));
 const Progress = lazyRoute(() => import('@/pages/progress'));
 const Friends = lazyRoute(() => import('@/pages/friends'));
+const Leaderboard = lazyRoute(() => import('@/pages/leaderboard'));
 const Games = lazyRoute(() => import('@/pages/games/index'));
 const GamesWordMatch = lazyRoute(() => import('@/pages/games/word-match'));
 const GamesSpeedRound = lazyRoute(() => import('@/pages/games/speed-round'));
@@ -389,6 +390,14 @@ function AppRouter() {
         <Guard>
           <AppShell>
             <Friends />
+          </AppShell>
+        </Guard>
+      </Route>
+      {/* Standing gets its own surface; /friends stays management. */}
+      <Route path="/leaderboard">
+        <Guard>
+          <AppShell>
+            <Leaderboard />
           </AppShell>
         </Guard>
       </Route>

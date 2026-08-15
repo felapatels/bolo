@@ -898,10 +898,6 @@ export default function Home() {
       <ChaiPurchaseReturn />
 
       <main className="mx-auto mt-8 w-full max-w-6xl px-6 lg:px-10">
-        {/* Social strip: rank + top friends, or single invite affordance when
-            the learner has no friends yet. Replaces the old referral card so
-            there is exactly one invite affordance on home. Links to /friends. */}
-        <HomeSocialStrip />
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Left / main column — the learning surface */}
           {/* min-w-0: without it the grid track honors the ticket's intrinsic
@@ -1149,6 +1145,17 @@ export default function Home() {
                 balance={tokensQuery.data?.balance}
               />
             </motion.div>
+
+            {/* Social strip: rank + top friends, or a single invite affordance
+                when the learner has no friends yet. Replaces the old referral
+                card so there is exactly one invite affordance on home, and
+                links through to the board (/leaderboard).
+
+                It sits BELOW the stall, not between the pass and the stall:
+                Task #1049's pass-then-platform adjacency and their shared
+                entrance wrapper stay intact, and home's order of intent reads
+                practise → spend → compare. */}
+            <HomeSocialStrip />
 
             {/* Phrasebook door (Task #906): the topic grid moved to the
                 /phrasebook library surface; home keeps one quiet bordered

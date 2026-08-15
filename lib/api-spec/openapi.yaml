@@ -1239,13 +1239,28 @@ paths:
     get:
       operationId: getFriendsLeaderboard
       tags: [friends]
-      summary: The caller and their friends ranked by total XP
+      summary: The caller and their friends ranked by XP
       description: >-
-        Returns the caller plus their accepted friends ranked by total XP
-        (summed across every language), highest first. Each entry carries a
-        display name, XP, and 1-based rank, and the caller's own entry is flagged
-        with `isSelf` so clients can highlight their position. Available to all
-        authenticated learners.
+        Returns the caller plus their accepted friends ranked by XP (summed
+        across every language from the XP ledger), highest first. Each entry
+        carries a display name, XP, current streak, and 1-based rank, and the
+        caller's own entry is flagged with `isSelf` so clients can highlight
+        their position. Ties break by current streak, then by whoever reached
+        the total first. Available to all authenticated learners.
+      parameters:
+        - name: window
+          in: query
+          required: false
+          description: >-
+            Which stretch of time the XP is summed over. `all-time` (the
+            default) covers every ledger row including the pre-ledger backfill.
+            `week` covers the current UTC week, from Monday 00:00 UTC, and
+            excludes backfill rows because they carry the backfill's own
+            timestamp rather than the day the XP was earned.
+          schema:
+            type: string
+            enum: [all-time, week]
+            default: all-time
       responses:
         "200":
           description: The friends leaderboard, ranked highest XP first
@@ -5104,7 +5119,25 @@ components:
           nullable: true
         xp:
           type: integer
-          description: Total XP summed across every language.
+          description: >-
+            XP summed across every language from the XP ledger, over the
+            requested window. All-time includes the pre-ledger backfill; the
+            weekly window excludes it.
+        currentStreakDays:
+          type: integer
+          description: >-
+            This learner's current streak in days, read the same way every other
+            streak surface reads it (their own time zone, covers included). Also
+            the first tie-break when two learners are level on XP.
+        reachedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            When this learner last earned XP in the window, which is when they
+            reached the total shown. The final tie-break: level on XP and level
+            on streak, whoever got there first ranks higher. Null for a learner
+            with no XP in the window.
         rank:
           type: integer
           description: 1-based rank, highest XP first.
@@ -5130,5 +5163,7 @@ components:
         - userId
         - displayName
         - xp
+        - currentStreakDays
+        - reachedAt
         - rank
         - isSelf

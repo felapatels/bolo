@@ -1064,13 +1064,21 @@ export const SendFriendInviteResponse = zod.object({
 
 
 /**
- * Returns the caller plus their accepted friends ranked by total XP (summed across every language), highest first. Each entry carries a display name, XP, and 1-based rank, and the caller's own entry is flagged with `isSelf` so clients can highlight their position. Available to all authenticated learners.
- * @summary The caller and their friends ranked by total XP
+ * Returns the caller plus their accepted friends ranked by XP (summed across every language from the XP ledger), highest first. Each entry carries a display name, XP, current streak, and 1-based rank, and the caller's own entry is flagged with `isSelf` so clients can highlight their position. Ties break by current streak, then by whoever reached the total first. Available to all authenticated learners.
+ * @summary The caller and their friends ranked by XP
  */
+export const getFriendsLeaderboardQueryWindowDefault = `all-time`;
+
+export const GetFriendsLeaderboardQueryParams = zod.object({
+  "window": zod.enum(['all-time', 'week']).default(getFriendsLeaderboardQueryWindowDefault).describe('Which stretch of time the XP is summed over. `all-time` (the default) covers every ledger row including the pre-ledger backfill. `week` covers the current UTC week, from Monday 00:00 UTC, and excludes backfill rows because they carry the backfill\'s own timestamp rather than the day the XP was earned.')
+})
+
 export const GetFriendsLeaderboardResponseItem = zod.object({
   "userId": zod.string(),
   "displayName": zod.string().nullable(),
-  "xp": zod.number().describe('Total XP summed across every language.'),
+  "xp": zod.number().describe('XP summed across every language from the XP ledger, over the requested window. All-time includes the pre-ledger backfill; the weekly window excludes it.'),
+  "currentStreakDays": zod.number().describe('This learner\'s current streak in days, read the same way every other streak surface reads it (their own time zone, covers included). Also the first tie-break when two learners are level on XP.'),
+  "reachedAt": zod.coerce.date().nullable().describe('When this learner last earned XP in the window, which is when they reached the total shown. The final tie-break: level on XP and level on streak, whoever got there first ranks higher. Null for a learner with no XP in the window.'),
   "rank": zod.number().describe('1-based rank, highest XP first.'),
   "isSelf": zod.boolean().describe('True for the caller\'s own entry.'),
   "equippedOutfit": zod.string().nullish().describe('The outfit this learner\'s Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. Carried on the row so friend and leaderboard lists render each learner\'s mascot without a per-row fetch. Optional: older clients that predate outfits on rows simply ignore it.'),

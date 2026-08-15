@@ -1,0 +1,393 @@
+/**
+ * The board — the friends leaderboard on a surface of its own.
+ *
+ * /friends stays what it always was: management (add by code, requests, remove).
+ * Standing is a different thing you come to look at, so it gets its own route
+ * and home links straight to it.
+ *
+ * Two tabs today, Weekly XP and Streak. Both read the SAME payload: streak is
+ * window-independent, so the streak tab re-sorts the entries the weekly query
+ * already returned rather than fetching a second board. A third tab (the feed,
+ * deferred) drops into the TABS array below without restructuring anything —
+ * that is what the array is for.
+ *
+ * Ordering follows the ruling exactly: the tab's own metric first, then the
+ * longer current streak, then whoever reached the total first. The server
+ * applies the same rule for XP; the streak tab applies it here because the
+ * metric it ranks by is not the one the payload arrives sorted on.
+ */
+import { useState } from "react";
+import { Link } from "wouter";
+import {
+  ArrowLeft,
+  Trophy,
+  Flame,
+  Medal,
+  AlertCircle,
+  Loader2,
+  Users,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  useGetFriendsLeaderboard,
+  getGetFriendsLeaderboardQueryKey,
+  type LeaderboardEntry,
+  type GetFriendsLeaderboardParams,
+} from "@workspace/api-client-react";
+import { motion } from "framer-motion";
+import { springs } from "@/lib/motion";
+import { Mascot } from "@/components/mascot";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FunFactSectionLoader } from "@/components/fun-fact-loader";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+
+function displayNameFor(u: { displayName: string | null }): string {
+  return u.displayName?.trim() || "Fellow learner";
+}
+
+/* ------------------------------- row avatar ------------------------------ */
+
+// Same crop as the friends page rows: the 1024 frame windowed to the bird minus
+// her feet, so a garment reads at thumbnail size. Numbers settled by looking at
+// rendered thumbnails, not by reasoning about them.
+const ROW_AVATAR_PX = 56;
+const ROW_CROP = { frame: 1024, window: 745, x: 125, y: 55 } as const;
+const ROW_MASCOT_PX = Math.round(
+  (ROW_AVATAR_PX * ROW_CROP.frame) / ROW_CROP.window,
+);
+const ROW_MASCOT_LEFT = -Math.round(
+  (ROW_CROP.x / ROW_CROP.frame) * ROW_MASCOT_PX,
+);
+const ROW_MASCOT_TOP = -Math.round(
+  (ROW_CROP.y / ROW_CROP.frame) * ROW_MASCOT_PX,
+);
+const ROW_MASCOT_POSE = "wave" as const;
+
+/**
+ * A row avatar: the learner's mascot, dressed, cropped into a circle.
+ *
+ * `outfit`/`accessory` are passed EXPLICITLY (null included). Left undefined,
+ * <Mascot> falls back to the *viewer's* equipped outfit, which would paint
+ * every friend in the reader's own clothes.
+ */
+function MascotAvatar({
+  user,
+  className,
+}: {
+  user: {
+    displayName: string | null;
+    equippedOutfit?: string | null;
+    equippedAccessory?: string | null;
+  };
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative shrink-0 overflow-hidden rounded-full bg-primary/15",
+        className,
+      )}
+      style={{ width: ROW_AVATAR_PX, height: ROW_AVATAR_PX }}
+      data-testid="row-mascot"
+      data-outfit={user.equippedOutfit ?? "none"}
+      data-accessory={user.equippedAccessory ?? "none"}
+    >
+      <div
+        className="absolute"
+        style={{ left: ROW_MASCOT_LEFT, top: ROW_MASCOT_TOP }}
+      >
+        <Mascot
+          pose={ROW_MASCOT_POSE}
+          size={ROW_MASCOT_PX}
+          idle="none"
+          ambient="calm"
+          outfit={user.equippedOutfit ?? null}
+          accessory={user.equippedAccessory ?? null}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------------- tabs ---------------------------------- */
+
+/**
+ * One tab of the board. Everything that differs between tabs lives here, so a
+ * third tab is a fourth object in the array and nothing else.
+ */
+interface BoardTab {
+  value: string;
+  label: string;
+  icon: LucideIcon;
+  /** The number this tab ranks by. */
+  metric: (entry: LeaderboardEntry) => number;
+  /** The unit shown beside it. */
+  unit: string;
+  /** Copy for a board holding nobody but the learner. */
+  emptyBody: string;
+}
+
+/**
+ * The ranking rule, shared by both tabs: the tab's metric, then the longer
+ * current streak, then earliest to reach the total. Nothing falls back to ids.
+ */
+function compareBy(tab: BoardTab) {
+  return (a: LeaderboardEntry, b: LeaderboardEntry): number => {
+    const byMetric = tab.metric(b) - tab.metric(a);
+    if (byMetric !== 0) return byMetric;
+    if (b.currentStreakDays !== a.currentStreakDays) {
+      return b.currentStreakDays - a.currentStreakDays;
+    }
+    if (a.reachedAt === b.reachedAt) return 0;
+    if (a.reachedAt === null) return 1;
+    if (b.reachedAt === null) return -1;
+    return a.reachedAt < b.reachedAt ? -1 : 1;
+  };
+}
+
+const TABS: BoardTab[] = [
+  {
+    value: "weekly-xp",
+    label: "Weekly XP",
+    icon: Trophy,
+    metric: (e) => e.xp,
+    unit: "XP",
+    emptyBody:
+      "Add a friend to see how this week's XP stacks up. A little friendly competition goes a long way!",
+  },
+  {
+    value: "streak",
+    label: "Streak",
+    icon: Flame,
+    metric: (e) => e.currentStreakDays,
+    unit: "days",
+    emptyBody:
+      "Add a friend and see who can keep their streak alive the longest.",
+  },
+];
+
+/* --------------------------------- rows ---------------------------------- */
+
+function BoardRow({
+  entry,
+  rank,
+  tab,
+  index,
+}: {
+  entry: LeaderboardEntry;
+  rank: number;
+  tab: BoardTab;
+  index: number;
+}) {
+  // Rank colour is the indigo primary, never gold: gold is reserved for paid
+  // status, and a leaderboard position is not something anybody bought.
+  const leading = rank === 1;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...springs.snappy, delay: index * 0.05 }}
+      data-testid="board-row"
+      className={cn(
+        "flex items-center gap-3 rounded-2xl border p-3 shadow-sm",
+        entry.isSelf
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-card-border bg-card",
+      )}
+    >
+      <div
+        className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-black",
+          entry.isSelf
+            ? "bg-white/20 text-primary-foreground"
+            : leading
+              ? "bg-primary/15 text-primary"
+              : "bg-muted text-muted-foreground",
+        )}
+      >
+        {leading ? <Medal className="h-5 w-5" /> : <span className="text-sm">{rank}</span>}
+      </div>
+
+      <MascotAvatar user={entry} className={cn(entry.isSelf && "bg-white/20")} />
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-bold leading-tight">
+          {displayNameFor(entry)}
+          {entry.isSelf && (
+            <span className="ml-1.5 text-xs font-bold opacity-80">(You)</span>
+          )}
+        </p>
+        <p
+          className={cn(
+            "text-xs font-medium",
+            entry.isSelf
+              ? "text-primary-foreground/80"
+              : "text-muted-foreground",
+          )}
+        >
+          Rank #{rank}
+        </p>
+      </div>
+
+      <div className="flex shrink-0 items-baseline gap-1.5">
+        <span className="text-lg font-black tabular-nums">
+          {tab.metric(entry)}
+        </span>
+        <span
+          className={cn(
+            "text-[10px] font-bold uppercase tracking-wider",
+            entry.isSelf
+              ? "text-primary-foreground/70"
+              : "text-muted-foreground",
+          )}
+        >
+          {tab.unit}
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+function BoardList({
+  entries,
+  tab,
+}: {
+  entries: LeaderboardEntry[];
+  tab: BoardTab;
+}) {
+  // With nobody but the learner on it, a board is a mirror. Send them to
+  // /friends, which is where standing is actually changed.
+  if (entries.length <= 1) {
+    return (
+      <div className="space-y-4">
+        <EmptyState
+          pose="thinking"
+          title="Your board is waiting"
+          body={tab.emptyBody}
+        />
+        <div className="flex justify-center">
+          <Link href="/friends">
+            <Button className="rounded-2xl font-black">
+              <Users className="mr-2 h-4 w-4" /> Add friends
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const ranked = [...entries].sort(compareBy(tab));
+  return (
+    <div className="space-y-3">
+      {ranked.map((entry, i) => (
+        <BoardRow
+          key={entry.userId}
+          entry={entry}
+          rank={i + 1}
+          tab={tab}
+          index={i}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* --------------------------------- page ---------------------------------- */
+
+// The weekly window is the only one fetched: the Streak tab ranks by a number
+// that does not depend on the window, so a second request would return the same
+// streaks with different XP nobody on that tab is looking at.
+const BOARD_PARAMS: GetFriendsLeaderboardParams = { window: "week" };
+
+export default function Leaderboard() {
+  const [tabValue, setTabValue] = useState(TABS[0].value);
+  const tab = TABS.find((t) => t.value === tabValue) ?? TABS[0];
+
+  // Refetch on focus and on mount, nothing else: no polling and no socket. A
+  // board is only wrong while you are looking at it, and coming back to the tab
+  // is exactly the moment to be right.
+  const { data, isLoading, isError, refetch, isFetching } =
+    useGetFriendsLeaderboard(BOARD_PARAMS, {
+      query: {
+        queryKey: getGetFriendsLeaderboardQueryKey(BOARD_PARAMS),
+        refetchOnWindowFocus: true,
+        refetchOnMount: "always",
+      },
+    });
+
+  return (
+    <div className="min-h-[100dvh] bg-background pb-nav lg:pb-12">
+      <header className="relative mx-auto flex w-full max-w-3xl flex-col items-center px-6 pb-4 pt-6 text-center">
+        <Link
+          href="/"
+          className="absolute left-6 top-6 flex h-10 w-10 items-center justify-center rounded-2xl border border-card-border bg-card text-muted-foreground transition-colors hover:text-foreground"
+          aria-label="Back to home"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <Mascot pose="thumbsup" size={96} idle="float" className="mb-2" />
+        <h1 className="mb-1 text-3xl font-extrabold text-foreground lg:text-4xl">
+          Leaderboard
+        </h1>
+        <p className="text-lg font-medium text-muted-foreground">
+          You and your friends, this week
+        </p>
+      </header>
+
+      <main className="mx-auto w-full max-w-3xl px-6">
+        <Tabs value={tabValue} onValueChange={setTabValue} className="w-full">
+          <TabsList
+            className="grid h-11 w-full rounded-2xl"
+            style={{ gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))` }}
+          >
+            {TABS.map((t) => (
+              <TabsTrigger
+                key={t.value}
+                value={t.value}
+                className="gap-1.5 rounded-xl font-bold"
+              >
+                <t.icon className="h-4 w-4" /> {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {TABS.map((t) => (
+            <TabsContent key={t.value} value={t.value} className="mt-6">
+              {isLoading ? (
+                <FunFactSectionLoader />
+              ) : isError ? (
+                <div className="flex flex-col items-center rounded-3xl border border-card-border bg-card px-6 py-8 text-center">
+                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
+                    <AlertCircle className="h-7 w-7 text-destructive" />
+                  </div>
+                  <p className="mb-1 text-base font-bold text-foreground">
+                    Bolo couldn't load this 🦜
+                  </p>
+                  <p className="mb-4 text-sm text-muted-foreground">
+                    We couldn't load the leaderboard.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => refetch()}
+                    disabled={isFetching}
+                  >
+                    {isFetching ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Try again"
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <BoardList entries={data ?? []} tab={t} />
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
+      </main>
+    </div>
+  );
+}

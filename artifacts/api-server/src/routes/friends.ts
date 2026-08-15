@@ -3,16 +3,15 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import {
   db,
   usersTable,
-  attemptsTable,
   friendshipsTable,
   friendInvitesTable,
   friendCodeAttemptsTable,
-  gameSessionsTable,
   userTokenStateTable,
+  xpLedgerTable,
 } from "@workspace/db";
-import { and, asc, eq, gte, or, inArray, sql, sum } from "drizzle-orm";
+import { and, asc, eq, gte, ne, or, inArray, sql, sum } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
-import { sumAttemptXp } from "../lib/progressMetrics";
+import { loadStreakLadder } from "../lib/streakDays";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { sendFriendInviteEmail } from "../lib/inviteEmail";
 import { findFriendshipBetween } from "../lib/friendship";
@@ -41,6 +40,10 @@ function getUserId(req: Request): string {
 interface UserSummary {
   id: string;
   displayName: string | null;
+  // IANA zone this learner's days are bucketed in. Carried here so the
+  // leaderboard's per-member streak read does not fetch the users row a second
+  // time; null means UTC, which is what streakDays already assumes.
+  timezone: string | null;
   // What this learner's Bolo is wearing, so a friend row can render their
   // mascot dressed. An outfit is bought with Chai and was previously visible
   // only to its owner (the self-only GET /tokens); friend and leaderboard rows
@@ -57,12 +60,14 @@ interface UserSummary {
 function toSummary(u: {
   id: string;
   displayName: string | null;
+  timezone?: string | null;
   equippedOutfit?: string | null;
   equippedAccessory?: string | null;
 }): UserSummary {
   return {
     id: u.id,
     displayName: u.displayName,
+    timezone: u.timezone ?? null,
     equippedOutfit: u.equippedOutfit ?? null,
     equippedAccessory: u.equippedAccessory ?? null,
   };
@@ -81,6 +86,7 @@ async function loadUserSummaries(
     .select({
       id: usersTable.id,
       displayName: usersTable.displayName,
+      timezone: usersTable.timezone,
       equippedOutfit: userTokenStateTable.equippedOutfit,
       equippedAccessory: userTokenStateTable.equippedAccessory,
     })
@@ -95,6 +101,7 @@ function unknownSummary(id: string): UserSummary {
   return {
     id,
     displayName: null,
+    timezone: null,
     equippedOutfit: null,
     equippedAccessory: null,
   };
@@ -569,15 +576,63 @@ router.post(
   },
 );
 
+// ---------------------------------------------------------------------------
+// The leaderboard
+// ---------------------------------------------------------------------------
+
+/** The two windows the board asks for. */
+type LeaderboardWindow = "all-time" | "week";
+
+/**
+ * Midnight UTC on the Monday of the week containing `now`.
+ *
+ * The week is a UTC week for everybody, deliberately. A leaderboard is a
+ * COMPARISON, so its window has to be one window: bucketing each learner's
+ * rows in their own zone would put friends on different weeks and let the
+ * Sunday-evening Auckland learner and the Sunday-evening Los Angeles learner
+ * be scored against different stretches of time. Per-learner zones are still
+ * exactly right for streaks (a day is a day where you live), which is why
+ * streakDays keeps using them and this does not.
+ */
+function utcWeekStart(now: Date): Date {
+  const midnight = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  // getUTCDay is Sunday-first; shift so Monday is 0.
+  const daysSinceMonday = (midnight.getUTCDay() + 6) % 7;
+  midnight.setUTCDate(midnight.getUTCDate() - daysSinceMonday);
+  return midnight;
+}
+
 // GET /friends/leaderboard — the caller plus their accepted friends, ranked by
-// total XP (summed across every language), highest first. XP reuses the same
-// progress math as the progress summary: a learner's XP is the sum of all their
-// attempt scores. The caller's own entry is flagged with `isSelf` so clients can
-// highlight their rank.
+// XP, highest first. The caller's own entry is flagged with `isSelf` so clients
+// can highlight their position.
+//
+// XP comes from xp_ledger, the one authority: the ledger applies difficulty
+// and decay multipliers before writing, so summing attempt scores (which this
+// route used to do) produced a number that disagreed with every other XP a
+// learner is shown. One grouped query covers the whole board, never a scan
+// per member.
+//
+// Two windows:
+//   all-time: every ledger row, INCLUDING the 'bootstrap' backfill lump sums,
+//              because those rows are how pre-ledger history exists at all and
+//              dropping them would erase most of a long-standing learner.
+//   week:     rows since Monday 00:00 UTC, EXCLUDING 'bootstrap', because a
+//              backfill row carries the backfill's own timestamp: leave it in
+//              and whichever week the backfill landed in counts a lifetime of
+//              XP as seven days' work.
+//
+// Ties break by current streak, then by who reached the total first. There is
+// deliberately no id-based fallback any more: ordering two genuinely level
+// learners by the alphabet of their user ids is not a tie-break, it is a coin
+// toss dressed up as one, and it silently favoured the same person forever.
 router.get(
   "/friends/leaderboard",
   async (req: Request, res: Response): Promise<void> => {
     const userId = getUserId(req);
+    const window: LeaderboardWindow =
+      req.query.window === "week" ? "week" : "all-time";
 
     const friendships = await db
       .select()
@@ -597,52 +652,54 @@ router.get(
     }
     const ids = [...memberIds];
 
-    const [summaries, attempts, gameSessions] = await Promise.all([
+    const xpFilters = [inArray(xpLedgerTable.userId, ids)];
+    if (window === "week") {
+      xpFilters.push(gte(xpLedgerTable.createdAt, utcWeekStart(new Date())));
+      xpFilters.push(ne(xpLedgerTable.source, "bootstrap"));
+    }
+
+    const [summaries, xpRows] = await Promise.all([
       loadUserSummaries(ids),
       db
         .select({
-          userId: attemptsTable.userId,
-          phraseId: attemptsTable.phraseId,
-          score: attemptsTable.score,
-          createdAt: attemptsTable.createdAt,
+          userId: xpLedgerTable.userId,
+          totalXp: sql<number>`COALESCE(SUM(${xpLedgerTable.xp}), 0)`,
+          // When the learner's cumulative XP last moved, which for a total is
+          // the moment they reached it. Used only as the final tie-break.
+          reachedAt: sql<string | null>`MAX(${xpLedgerTable.createdAt})`,
         })
-        .from(attemptsTable)
-        .where(inArray(attemptsTable.userId, ids)),
-      db
-        .select({
-          userId: gameSessionsTable.userId,
-          totalXp: sql<number>`COALESCE(SUM(${gameSessionsTable.xpAwarded}), 0)`,
-        })
-        .from(gameSessionsTable)
-        .where(inArray(gameSessionsTable.userId, ids))
-        .groupBy(gameSessionsTable.userId),
+        .from(xpLedgerTable)
+        .where(and(...xpFilters))
+        .groupBy(xpLedgerTable.userId),
     ]);
 
-    // Build a per-user map of total XP earned through game sessions.
-    const gameXpByUser = new Map<string, number>();
-    for (const g of gameSessions) {
-      gameXpByUser.set(g.userId, Number(g.totalXp));
+    const xpByUser = new Map<string, number>();
+    const reachedAtByUser = new Map<string, number>();
+    for (const row of xpRows) {
+      xpByUser.set(row.userId, Number(row.totalXp));
+      if (row.reachedAt != null) {
+        reachedAtByUser.set(row.userId, new Date(row.reachedAt).getTime());
+      }
     }
 
-    // Group each member's attempts (across all languages) and run them through
-    // the shared progress math so XP is computed identically to /progress.
-    const byUser = new Map<
-      string,
-      { phraseId: number | null; score: number; createdAt: Date }[]
-    >();
-    for (const id of ids) byUser.set(id, []);
-    for (const a of attempts) {
-      byUser.get(a.userId)?.push({
-        phraseId: a.phraseId,
-        score: a.score,
-        createdAt: a.createdAt,
-      });
-    }
+    // Streaks are read one learner at a time, by construction: loadStreakLadder
+    // resolves each learner's own plan and time zone before it can bucket a
+    // single day, so there is no set-wide version of it to reach for. N loads
+    // is the cost of putting a streak on a friend row, and it is paid here
+    // rather than by redesigning the one streak read every other surface uses.
+    const streakByUser = new Map<string, number>();
+    await Promise.all(
+      ids.map(async (id) => {
+        const ladder = await loadStreakLadder(
+          id,
+          summaries.get(id)?.timezone ?? null,
+        );
+        streakByUser.set(id, ladder.currentStreakDays);
+      }),
+    );
 
     const entries = ids.map((id) => {
       const summary = summaries.get(id) ?? unknownSummary(id);
-      const practiceXp = sumAttemptXp(byUser.get(id) ?? []);
-      const xp = practiceXp + (gameXpByUser.get(id) ?? 0);
       return {
         userId: id,
         displayName: summary.displayName,
@@ -650,17 +707,40 @@ router.get(
         // row has to fetch anything of its own.
         equippedOutfit: summary.equippedOutfit,
         equippedAccessory: summary.equippedAccessory,
-        xp,
+        xp: xpByUser.get(id) ?? 0,
+        currentStreakDays: streakByUser.get(id) ?? 0,
+        // ISO, or null for a learner with no XP in this window; they have not
+        // reached anything, so there is nothing to be earliest at.
+        reachedAt: reachedAtByUser.has(id)
+          ? new Date(reachedAtByUser.get(id) as number).toISOString()
+          : null,
         isSelf: id === userId,
       };
     });
 
-    // Rank highest XP first; break ties deterministically by user id so ordering
-    // (and ranks) are stable across requests.
-    entries.sort((a, b) => b.xp - a.xp || a.userId.localeCompare(b.userId));
+    entries.sort((a, b) => compareLeaderboardEntries(a, b));
 
     res.json(entries.map((e, i) => ({ ...e, rank: i + 1 })));
   },
 );
+
+/**
+ * The ranking rule, in one place: more XP first, then the longer streak, then
+ * whoever got there first. A learner with no XP in the window has no
+ * reached-at, and sorts behind anyone who does at the same total.
+ */
+function compareLeaderboardEntries(
+  a: { xp: number; currentStreakDays: number; reachedAt: string | null },
+  b: { xp: number; currentStreakDays: number; reachedAt: string | null },
+): number {
+  if (b.xp !== a.xp) return b.xp - a.xp;
+  if (b.currentStreakDays !== a.currentStreakDays) {
+    return b.currentStreakDays - a.currentStreakDays;
+  }
+  if (a.reachedAt === b.reachedAt) return 0;
+  if (a.reachedAt === null) return 1;
+  if (b.reachedAt === null) return -1;
+  return a.reachedAt < b.reachedAt ? -1 : 1;
+}
 
 export default router;

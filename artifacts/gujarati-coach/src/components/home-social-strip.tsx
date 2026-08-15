@@ -76,7 +76,12 @@ function MiniRow({ entry, index }: { entry: LeaderboardEntry; index: number }) {
  *  • No friends yet   — shows the referral invite affordance (share + copy).
  *
  * Replaces HomeReferralCard: one invite affordance on home, never two.
- * Links through to /friends for both states.
+ *
+ * Where the header link goes depends on what the card is showing, because the
+ * two states want different surfaces: standing goes to the board (/leaderboard),
+ * while a learner with nobody to compare against needs /friends, which is where
+ * friends are actually added. Sending "Add friends" to an empty board would be
+ * a dead end.
  *
  * Loading: absent (no layout shift). Error: absent (quiet fail).
  */
@@ -123,7 +128,7 @@ export function HomeSocialStrip() {
           <span className="text-sm font-black text-foreground">Friends</span>
         </div>
         <Link
-          href="/friends"
+          href={hasFriends ? "/leaderboard" : "/friends"}
           className="text-xs font-bold text-primary transition-opacity hover:opacity-70"
         >
           {hasFriends ? "See all →" : "Add friends →"}

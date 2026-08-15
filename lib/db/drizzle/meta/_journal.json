@@ -351,6 +351,13 @@
       "when": 1786656796832,
       "tag": "0049_whole_celestials",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1786754460263,
+      "tag": "0050_sour_ozymandias",
+      "breakpoints": true
     }
   ]
 }

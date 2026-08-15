@@ -61,6 +61,7 @@ import type {
   GameSessionResult,
   GeneratedPhrase,
   GetDailyQuizParams,
+  GetFriendsLeaderboardParams,
   GetProgressAnalyticsParams,
   GetProgressSummaryParams,
   GetScriptTraceProgressParams,
@@ -3204,21 +3205,28 @@ export const useSendFriendInvite = <TError = ErrorType<Error>,
       return useMutation(getSendFriendInviteMutationOptions(options));
     }
 
-export const getGetFriendsLeaderboardUrl = () => {
+export const getGetFriendsLeaderboardUrl = (params?: GetFriendsLeaderboardParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/friends/leaderboard`
+  return stringifiedParams.length > 0 ? `/api/friends/leaderboard?${stringifiedParams}` : `/api/friends/leaderboard`
 }
 
 /**
- * Returns the caller plus their accepted friends ranked by total XP (summed across every language), highest first. Each entry carries a display name, XP, and 1-based rank, and the caller's own entry is flagged with `isSelf` so clients can highlight their position. Available to all authenticated learners.
- * @summary The caller and their friends ranked by total XP
+ * Returns the caller plus their accepted friends ranked by XP (summed across every language from the XP ledger), highest first. Each entry carries a display name, XP, current streak, and 1-based rank, and the caller's own entry is flagged with `isSelf` so clients can highlight their position. Ties break by current streak, then by whoever reached the total first. Available to all authenticated learners.
+ * @summary The caller and their friends ranked by XP
  */
-export const getFriendsLeaderboard = async ( options?: RequestInit): Promise<LeaderboardEntry[]> => {
+export const getFriendsLeaderboard = async (params?: GetFriendsLeaderboardParams, options?: RequestInit): Promise<LeaderboardEntry[]> => {
 
-  return customFetch<LeaderboardEntry[]>(getGetFriendsLeaderboardUrl(),
+  return customFetch<LeaderboardEntry[]>(getGetFriendsLeaderboardUrl(params),
   {
     ...options,
     method: 'GET'
@@ -3231,23 +3239,23 @@ export const getFriendsLeaderboard = async ( options?: RequestInit): Promise<Lea
 
 
 
-export const getGetFriendsLeaderboardQueryKey = () => {
+export const getGetFriendsLeaderboardQueryKey = (params?: GetFriendsLeaderboardParams,) => {
     return [
-    `/api/friends/leaderboard`
+    `/api/friends/leaderboard`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetFriendsLeaderboardQueryOptions = <TData = Awaited<ReturnType<typeof getFriendsLeaderboard>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFriendsLeaderboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetFriendsLeaderboardQueryOptions = <TData = Awaited<ReturnType<typeof getFriendsLeaderboard>>, TError = ErrorType<unknown>>(params?: GetFriendsLeaderboardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFriendsLeaderboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetFriendsLeaderboardQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetFriendsLeaderboardQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFriendsLeaderboard>>> = ({ signal }) => getFriendsLeaderboard({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFriendsLeaderboard>>> = ({ signal }) => getFriendsLeaderboard(params, { signal, ...requestOptions });
 
 
 
@@ -3261,15 +3269,15 @@ export type GetFriendsLeaderboardQueryError = ErrorType<unknown>
 
 
 /**
- * @summary The caller and their friends ranked by total XP
+ * @summary The caller and their friends ranked by XP
  */
 
 export function useGetFriendsLeaderboard<TData = Awaited<ReturnType<typeof getFriendsLeaderboard>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFriendsLeaderboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetFriendsLeaderboardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFriendsLeaderboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetFriendsLeaderboardQueryOptions(options)
+  const queryOptions = getGetFriendsLeaderboardQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

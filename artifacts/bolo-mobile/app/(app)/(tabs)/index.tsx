@@ -738,13 +738,6 @@ export default function HomeScreen() {
           balance={tokensQuery.data?.balance}
         />
 
-        {/* Social strip: rank + top friends, or single invite affordance when
-            the learner has no friends yet. Replaces HomeReferralCard so there
-            is exactly one invite affordance on home. Links to Friends tab. */}
-        <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(150)}>
-          <HomeSocialStrip />
-        </Animated.View>
-
         {/* Spec D1b-M: boarding-pass hero — the journey map is the primary
             path into practice and the sole continue mechanism. */}
         <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(200)}>
@@ -774,6 +767,19 @@ export default function HomeScreen() {
               setWalletOpen(true);
             }}
           />
+        </Animated.View>
+
+        {/* Social strip: rank + top friends, or a single invite affordance when
+            the learner has no friends yet. Replaces HomeReferralCard so there
+            is exactly one invite affordance on home, and links through to the
+            board.
+
+            It sits BELOW the stall, not between the pass and the stall: Task
+            #1049's pass-then-platform adjacency and their shared entrance
+            wrapper stay intact, and home's order of intent reads practise →
+            spend → compare. */}
+        <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(205)}>
+          <HomeSocialStrip />
         </Animated.View>
 
         {/* Phrasebook door (Task #906): the topic grid moved to the

@@ -14,6 +14,7 @@ import {
   friendCodeAttemptsTable,
   gameSessionsTable,
   userTokenStateTable,
+  xpLedgerTable,
 } from "@workspace/db";
 import { eq, inArray, or, and } from "drizzle-orm";
 import friendsRouter from "./friends";
@@ -97,6 +98,27 @@ async function seedGameSession(userId: string, xpAwarded: number): Promise<void>
   });
 }
 
+// Writes one XP ledger row. The ledger is the leaderboard's only XP source, so
+// every ranking test seeds here rather than through attempts or game sessions.
+// `source` and `createdAt` are explicit because both change the answer: weekly
+// drops 'bootstrap' rows, and the window is decided by the timestamp.
+let ledgerSeq = 0;
+async function seedXp(
+  userId: string,
+  xp: number,
+  opts: { source?: string; createdAt?: Date } = {},
+): Promise<void> {
+  ledgerSeq += 1;
+  await db.insert(xpLedgerTable).values({
+    userId,
+    languageCode: LANG,
+    source: opts.source ?? "attempt",
+    refId: `test-${ledgerSeq}`,
+    xp,
+    ...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
+  });
+}
+
 // Dresses a learner's Bolo. Equipping is a column write, not a ledger row —
 // see api-server/src/lib/outfits.ts — so the test does not need to buy first.
 async function equipMascot(
@@ -142,6 +164,7 @@ async function clearSocialRows(): Promise<void> {
         inArray(friendshipsTable.addresseeId, ALL_USERS),
       ),
     );
+  await db.delete(xpLedgerTable).where(inArray(xpLedgerTable.userId, ALL_USERS));
   await db.delete(attemptsTable).where(inArray(attemptsTable.userId, ALL_USERS));
   await db.delete(gameSessionsTable).where(inArray(gameSessionsTable.userId, ALL_USERS));
   await db
@@ -203,6 +226,18 @@ before(async () => {
       last_sent_at timestamptz NOT NULL DEFAULT now(),
       created_at timestamptz NOT NULL DEFAULT now(),
       CONSTRAINT friend_invites_pair_unique UNIQUE (inviter_id, invitee_email)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS xp_ledger (
+      id serial PRIMARY KEY,
+      user_id text NOT NULL REFERENCES users(id),
+      language_code text NOT NULL REFERENCES languages(code),
+      source text NOT NULL,
+      ref_id text NOT NULL,
+      xp integer NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT uq_xp_ledger_user_source_ref UNIQUE (user_id, source, ref_id)
     );
   `);
   await pool.query(`
@@ -541,19 +576,17 @@ test("removing a friend clears it for both sides", async () => {
   assert.equal(again.status, 404);
 });
 
-test("leaderboard ranks the caller and friends by total XP across languages", async () => {
-  // Practice XP (attempt scores): A=110, B=90, C=170.
-  await seedAttempt(USER_A, 50);
-  await seedAttempt(USER_A, 60); // A practice: 110
-  await seedAttempt(USER_B, 90); // B practice:  90
-  await seedAttempt(USER_C, 30);
-  await seedAttempt(USER_C, 40);
-  await seedAttempt(USER_C, 100); // C practice: 170
-
-  // Game XP: B earns 200 game XP, which should lift B above A.
-  // Combined totals: A=110, B=90+200=290, C=170.
-  await seedGameSession(USER_B, 120);
-  await seedGameSession(USER_B, 80); // B game: 200
+test("leaderboard ranks the caller and friends by ledger XP across languages", async () => {
+  // XP is whatever the ledger says, whatever wrote it: A=110, C=170, and B
+  // 90 of practice plus 200 of game XP, which lifts B above both.
+  await seedXp(USER_A, 50);
+  await seedXp(USER_A, 60); // A: 110
+  await seedXp(USER_B, 90);
+  await seedXp(USER_C, 30);
+  await seedXp(USER_C, 40);
+  await seedXp(USER_C, 100); // C: 170
+  await seedXp(USER_B, 120, { source: "game_session" });
+  await seedXp(USER_B, 80, { source: "game_session" }); // B: 290
 
   await makeFriends(USER_A, USER_B);
   await makeFriends(USER_A, USER_C);
@@ -584,7 +617,7 @@ test("leaderboard ranks the caller and friends by total XP across languages", as
 });
 
 test("leaderboard shows a friendless learner alone at rank 1", async () => {
-  await seedAttempt(USER_A, 42);
+  await seedXp(USER_A, 42);
   actAs(USER_A);
   const { status, json } = await api("GET", "/friends/leaderboard");
   assert.equal(status, 200);
@@ -593,6 +626,64 @@ test("leaderboard shows a friendless learner alone at rank 1", async () => {
   assert.equal(json[0].xp, 42);
   assert.equal(json[0].rank, 1);
   assert.equal(json[0].isSelf, true);
+  // Every entry carries the learner's current streak, whichever tab reads it.
+  assert.equal(typeof json[0].currentStreakDays, "number");
+});
+
+test("the weekly window counts only this UTC week, and never bootstrap rows", async () => {
+  const now = new Date();
+  const dayMs = 24 * 60 * 60 * 1000;
+  // Monday 00:00 UTC of the current week, the window's own boundary.
+  const weekStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  weekStart.setUTCDate(
+    weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7),
+  );
+
+  // Inside the window: counted. Sits one minute after the boundary so the row
+  // cannot drift out of the week between seeding and reading.
+  await seedXp(USER_A, 30, { createdAt: new Date(weekStart.getTime() + 60_000) });
+  // Before the window: all-time only.
+  await seedXp(USER_A, 500, { createdAt: new Date(weekStart.getTime() - dayMs) });
+  // A backfill row landing inside the window: excluded from weekly regardless,
+  // because its timestamp is the backfill's, not the day the XP was earned.
+  await seedXp(USER_A, 900, {
+    source: "bootstrap",
+    createdAt: new Date(weekStart.getTime() + 120_000),
+  });
+
+  actAs(USER_A);
+  const weekly = await api("GET", "/friends/leaderboard?window=week");
+  assert.equal(weekly.status, 200);
+  assert.equal(weekly.json[0].xp, 30);
+
+  const allTime = await api("GET", "/friends/leaderboard");
+  assert.equal(allTime.status, 200);
+  assert.equal(allTime.json[0].xp, 1430);
+
+  // An unrecognised window is the default, not an error.
+  const bogus = await api("GET", "/friends/leaderboard?window=fortnight");
+  assert.equal(bogus.status, 200);
+  assert.equal(bogus.json[0].xp, 1430);
+});
+
+test("a tie on XP and streak is broken by who reached the total first", async () => {
+  const base = Date.now() - 60 * 60 * 1000;
+  // Same total for both, and neither has practised, so both streaks are 0.
+  // USER_B's last earning row is older, so USER_B got there first.
+  await seedXp(USER_B, 100, { createdAt: new Date(base) });
+  await seedXp(USER_A, 100, { createdAt: new Date(base + 60_000) });
+  await makeFriends(USER_A, USER_B);
+
+  actAs(USER_A);
+  const { status, json } = await api("GET", "/friends/leaderboard");
+  assert.equal(status, 200);
+  assert.deepEqual(
+    json.map((e: any) => e.userId),
+    [USER_B, USER_A],
+  );
+  assert.equal(json[0].currentStreakDays, json[1].currentStreakDays);
 });
 
 // ---------------------------------------------------------------------------

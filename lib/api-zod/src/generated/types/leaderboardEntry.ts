@@ -12,8 +12,12 @@
 export interface LeaderboardEntry {
   userId: string;
   displayName: string | null;
-  /** Total XP summed across every language. */
+  /** XP summed across every language from the XP ledger, over the requested window. All-time includes the pre-ledger backfill; the weekly window excludes it. */
   xp: number;
+  /** This learner's current streak in days, read the same way every other streak surface reads it (their own time zone, covers included). Also the first tie-break when two learners are level on XP. */
+  currentStreakDays: number;
+  /** When this learner last earned XP in the window, which is when they reached the total shown. The final tie-break: level on XP and level on streak, whoever got there first ranks higher. Null for a learner with no XP in the window. */
+  reachedAt: Date | null;
   /** 1-based rank, highest XP first. */
   rank: number;
   /** True for the caller's own entry. */

@@ -9,6 +9,7 @@ import {
   usersTable,
   tokenLedgerTable,
   userTokenStateTable,
+  activityEventsTable,
 } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
 import outfitsRouter from "./outfits";
@@ -217,6 +218,11 @@ after(async () => {
     DIRECT_USER_ID,
     BOTH_USER_ID,
   ];
+  // Equipping now writes an activity event, which holds a foreign key on the
+  // user, so these have to go before the users do.
+  await db
+    .delete(activityEventsTable)
+    .where(inArray(activityEventsTable.userId, users));
   await db
     .delete(tokenLedgerTable)
     .where(inArray(tokenLedgerTable.userId, users));

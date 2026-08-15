@@ -32,6 +32,7 @@ import {
   streakRepairDayKey,
   streakRepairRefId,
 } from "./streakRepair";
+import { recordActivityEvent } from "./activityEvents";
 
 // Chunk 5: the one module allowed to write token_ledger or user_token_state.
 // Every mutation is a single transaction pairing a ledger row with the state
@@ -481,13 +482,22 @@ export async function buyFirstClass(
  * up the server cannot tell which slot the learner meant. Omitting it clears
  * BOTH, which is what an old client sending `{outfitId: null}` to mean
  * "undress her" expects.
+ *
+ * A successful DRESSING also appends one activity event, because this is the
+ * only place the wearing is decided and the columns it writes carry no
+ * history. Three rules hold that write in its place: taking something off
+ * writes nothing (an empty slot is not a moment), re-equipping what is already
+ * worn writes nothing (a repeated tap is not a moment either), and a failed
+ * append never fails the equip. The log records the action, it does not
+ * license it. The append happens AFTER the transaction commits so a slow or
+ * broken log cannot hold the wardrobe's row lock.
  */
 export async function equipOutfit(
   userId: string,
   outfitId: OutfitId | null,
   slot?: OutfitKind,
 ): Promise<{ state: TokenStateRow; owned: boolean }> {
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const state = await ensureState(tx, userId);
     if (outfitId != null) {
       const [owned] = await tx
@@ -501,11 +511,19 @@ export async function equipOutfit(
           ),
         )
         .limit(1);
-      if (!owned) return { state, owned: false };
+      if (!owned) return { state, owned: false, equipped: null };
     }
+    const kind = outfitId != null ? getOutfit(outfitId)?.kind ?? "garment" : null;
+    // Read BEFORE the update: whether this item was already in its slot is the
+    // difference between a moment and a no-op, and the update erases it.
+    const alreadyWorn =
+      outfitId != null &&
+      (kind === "accessory"
+        ? state.equippedAccessory === outfitId
+        : state.equippedOutfit === outfitId);
     const change =
       outfitId != null
-        ? slotSet(getOutfit(outfitId)?.kind ?? "garment", outfitId)
+        ? slotSet(kind ?? "garment", outfitId)
         : slot
           ? slotSet(slot, null)
           : { equippedOutfit: null, equippedAccessory: null };
@@ -514,8 +532,31 @@ export async function equipOutfit(
       .set({ ...change, updatedAt: new Date() })
       .where(eq(userTokenStateTable.userId, userId))
       .returning();
-    return { state: toState(updated), owned: true };
+    return {
+      state: toState(updated),
+      owned: true,
+      equipped:
+        outfitId != null && !alreadyWorn
+          ? { outfitId, kind: kind ?? "garment" }
+          : null,
+    };
   });
+
+  if (result.equipped) {
+    // recordActivityEvent swallows its own failures; awaiting it only orders
+    // the write, it can never reject.
+    await recordActivityEvent({
+      userId,
+      type:
+        result.equipped.kind === "accessory"
+          ? "equip_accessory"
+          : "equip_outfit",
+      refId: result.equipped.outfitId,
+      payload: { outfitId: result.equipped.outfitId, slot: result.equipped.kind },
+    });
+  }
+
+  return { state: result.state, owned: result.owned };
 }
 
 /**

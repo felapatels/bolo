@@ -62,6 +62,8 @@ export default function AppLayout() {
               <Stack.Screen name="practice/daily" />
               <Stack.Screen name="badges" />
               <Stack.Screen name="journey" />
+              {/* The board: standing lives outside the tab bar, like journey. */}
+              <Stack.Screen name="leaderboard" />
               <Stack.Screen name="outfits" />
               <Stack.Screen name="analytics" />
               <Stack.Screen name="account/index" />

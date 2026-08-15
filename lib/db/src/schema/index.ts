@@ -30,3 +30,4 @@ export * from "./userTokenState";
 export * from "./signalWaves";
 export * from "./chachaEncounters";
 export * from "./referralRedemptions";
+export * from "./activityEvents";

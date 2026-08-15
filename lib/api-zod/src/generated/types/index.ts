@@ -75,6 +75,8 @@ export * from './gameSessionInputGame';
 export * from './gameSessionResult';
 export * from './generatedPhrase';
 export * from './getDailyQuizParams';
+export * from './getFriendsLeaderboardParams';
+export * from './getFriendsLeaderboardWindow';
 export * from './getProgressAnalyticsParams';
 export * from './getProgressSummaryParams';
 export * from './getScriptTraceProgressChapter';

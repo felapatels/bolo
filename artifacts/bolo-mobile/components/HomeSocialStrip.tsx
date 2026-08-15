@@ -104,8 +104,17 @@ export function HomeSocialStrip() {
 
   const link = referralLinkFor(referral.data?.code);
 
-  const goToFriends = () => {
+  // Where the header link goes depends on what the card is showing, because the
+  // two states want different surfaces: standing goes to the board, while a
+  // learner with nobody to compare against needs the Friends tab, which is
+  // where friends are actually added. Sending "Add friends" to an empty board
+  // would be a dead end.
+  const goToBoard = () => {
     hapticLight();
+    if (hasFriends) {
+      router.push('/(app)/leaderboard');
+      return;
+    }
     router.push('/(app)/(tabs)/friends');
   };
 
@@ -141,7 +150,7 @@ export function HomeSocialStrip() {
         <PressableScale
           accessibilityRole="link"
           accessibilityLabel={hasFriends ? 'See all friends' : 'Add friends'}
-          onPress={goToFriends}
+          onPress={goToBoard}
         >
           <Text style={[styles.headerLink, { color: colors.primary }]}>
             {hasFriends ? 'See all →' : 'Add friends →'}

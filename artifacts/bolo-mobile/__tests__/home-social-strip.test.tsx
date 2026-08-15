@@ -209,12 +209,15 @@ describe('HomeSocialStrip — populated state (has friends)', () => {
     expect(screen.queryByTestId('home-referral-share')).toBeNull();
   });
 
-  test('"See all" press navigates to the Friends tab', () => {
+  // With friends on the strip, "See all" opens the board, not the management
+  // tab: the strip is a standings preview, so seeing all of it means the full
+  // standings. Adding and removing friends still lives on the Friends tab.
+  test('"See all" press navigates to the leaderboard', () => {
     mockState.leaderboardData = [SELF, FRIEND_A];
     render(<HomeSocialStrip />);
 
     fireEvent.press(screen.getByLabelText('See all friends'));
-    expect(mockState.pushFn).toHaveBeenCalledWith('/(app)/(tabs)/friends');
+    expect(mockState.pushFn).toHaveBeenCalledWith('/(app)/leaderboard');
   });
 });
 

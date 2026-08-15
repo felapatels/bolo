@@ -63,6 +63,7 @@ export function createDbMockExports(
     pool: { end: async () => {}, query: async () => ({ rows: [] }) },
 
     // Tables — inert sentinels, must track the schema barrel exactly.
+    activityEventsTable: {},
     attemptsTable: {},
     badgesTable: {},
     categoriesTable: {},

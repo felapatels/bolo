@@ -4,7 +4,7 @@
  * Pins four contracts:
  *   1. Empty state   — no friends → invite affordance, share button, "Add friends" link
  *   2. Loading state — component stays absent (no layout shift)
- *   3. Populated state — friends present → rank rows, "See all" link to /friends
+ *   3. Populated state, friends present: rank rows, "See all" link to /leaderboard
  *   4. Self outside top 4 — rank-5+ learner sees their own row appended below the top 4
  */
 import React from "react";
@@ -200,12 +200,14 @@ describe("HomeSocialStrip — populated state (has friends)", () => {
     expect(screen.getByText("Mira")).toBeInTheDocument();
   });
 
-  test("shows 'See all' link pointing to /friends", () => {
+  // Standing goes to the board. The empty state's "Add friends" link stays on
+  // /friends, which is where friends are actually added.
+  test("shows 'See all' link pointing to /leaderboard", () => {
     h.leaderboardData = [SELF, FRIEND_A];
     render(<HomeSocialStrip />);
 
     const link = screen.getByRole("link", { name: /see all/i });
-    expect(link).toHaveAttribute("href", "/friends");
+    expect(link).toHaveAttribute("href", "/leaderboard");
   });
 
   test("does not show the invite affordance when friends are present", () => {
