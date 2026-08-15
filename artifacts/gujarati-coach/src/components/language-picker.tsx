@@ -22,27 +22,43 @@ type LanguagePickerProps = {
 };
 
 /**
- * The All-Access badge, borrowed from the games hub (pages/games/index.tsx)
- * at a smaller size. There is no shared token behind this gold: the games
- * hub types the same literals inline, so this copies them rather than
- * inventing a third value.
+ * The two chips on a locked language card, borrowed from the games hub
+ * (pages/games/index.tsx) at a smaller size. There is no shared token
+ * behind either colour: the games hub types the same literals inline, so
+ * this copies them rather than inventing a third value.
+ *
+ * TWO CHIPS, not one, because gold alone reads as a wall. Every language
+ * gives a real free taste and the paywall says so out loud ("You've had
+ * your free taste of Gujarati"). The green invites, the gold explains what
+ * comes after. Neither fact is obvious from the other.
  *
  * ONE DELIBERATE DIFFERENCE from the games rule. There, gold labels the
  * CONTENT and shows on a gated card even to a subscriber, which reads fine
  * on a mixed catalog. Here 21 of 22 languages are All-Access, so that rule
  * would paint gold on almost every card for someone who already owns them
- * all. On this surface the badge means "locked to YOU", so it renders only
+ * all. On this surface the pair means "locked to YOU", so it renders only
  * when the language is actually locked.
  */
+function FreeTasteChip() {
+  return (
+    <span className="inline-flex w-fit items-center whitespace-nowrap rounded-full bg-gradient-to-b from-[#4ADE80] to-[#16A34A] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-white shadow-[0_1px_0_rgba(0,0,0,0.28)] ring-1 ring-white/70">
+      Free taste
+    </span>
+  );
+}
+
 function AllAccessBadge({ testId }: { testId: string }) {
   return (
     <span
       data-testid={testId}
-      aria-label="Needs All-Access"
-      className="mt-1.5 inline-flex w-fit items-center gap-0.5 whitespace-nowrap rounded-full bg-gradient-to-b from-[#FFD65A] to-[#F0A202] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[#4A2C00] shadow-[0_1px_0_rgba(0,0,0,0.28)] ring-1 ring-white/70"
+      aria-label="Free taste, then All-Access"
+      className="mt-1.5 flex flex-wrap items-center gap-1"
     >
-      <Star className="h-2 w-2 fill-[#4A2C00]" />
-      All-Access
+      <FreeTasteChip />
+      <span className="inline-flex w-fit items-center gap-0.5 whitespace-nowrap rounded-full bg-gradient-to-b from-[#FFD65A] to-[#F0A202] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[#4A2C00] shadow-[0_1px_0_rgba(0,0,0,0.28)] ring-1 ring-white/70">
+        <Star className="h-2 w-2 fill-[#4A2C00]" />
+        All-Access
+      </span>
     </span>
   );
 }

@@ -538,41 +538,98 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
               Tamil
             </Text>
             <View
+              accessibilityLabel="Free taste, then All-Access"
               style={
                 {
                   "alignItems": "center",
                   "alignSelf": "flex-start",
-                  "backgroundColor": "#F5B31B",
-                  "borderColor": "rgba(255,255,255,0.72)",
-                  "borderRadius": 100,
-                  "borderWidth": 1,
                   "flexDirection": "row",
-                  "gap": 3,
+                  "flexWrap": "wrap",
+                  "gap": 4,
                   "marginTop": 6,
-                  "paddingHorizontal": 6,
-                  "paddingVertical": 2,
                 }
               }
               testID="picker-locked-ta"
             >
               <View
-                color="#4A2C00"
-                name="star"
-                size={8}
-              />
-              <Text
                 style={
-                  {
-                    "color": "#4A2C00",
-                    "fontFamily": "Inter_800ExtraBold",
-                    "fontSize": 9,
-                    "letterSpacing": 0.4,
-                    "textTransform": "uppercase",
-                  }
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderColor": "rgba(255,255,255,0.72)",
+                      "borderRadius": 100,
+                      "borderWidth": 1,
+                      "flexDirection": "row",
+                      "gap": 3,
+                      "paddingHorizontal": 6,
+                      "paddingVertical": 2,
+                    },
+                    {
+                      "backgroundColor": "#22C55E",
+                    },
+                  ]
                 }
               >
-                All-Access
-              </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontFamily": "Inter_800ExtraBold",
+                        "fontSize": 9,
+                        "letterSpacing": 0.4,
+                        "textTransform": "uppercase",
+                      },
+                      {
+                        "color": "#FFFFFF",
+                      },
+                    ]
+                  }
+                >
+                  Free taste
+                </Text>
+              </View>
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderColor": "rgba(255,255,255,0.72)",
+                      "borderRadius": 100,
+                      "borderWidth": 1,
+                      "flexDirection": "row",
+                      "gap": 3,
+                      "paddingHorizontal": 6,
+                      "paddingVertical": 2,
+                    },
+                    {
+                      "backgroundColor": "#F5B31B",
+                    },
+                  ]
+                }
+              >
+                <View
+                  color="#4A2C00"
+                  name="star"
+                  size={8}
+                />
+                <Text
+                  style={
+                    [
+                      {
+                        "fontFamily": "Inter_800ExtraBold",
+                        "fontSize": 9,
+                        "letterSpacing": 0.4,
+                        "textTransform": "uppercase",
+                      },
+                      {
+                        "color": "#4A2C00",
+                      },
+                    ]
+                  }
+                >
+                  All-Access
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -1120,41 +1177,98 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
               Tamil
             </Text>
             <View
+              accessibilityLabel="Free taste, then All-Access"
               style={
                 {
                   "alignItems": "center",
                   "alignSelf": "flex-start",
-                  "backgroundColor": "#F5B31B",
-                  "borderColor": "rgba(255,255,255,0.72)",
-                  "borderRadius": 100,
-                  "borderWidth": 1,
                   "flexDirection": "row",
-                  "gap": 3,
+                  "flexWrap": "wrap",
+                  "gap": 4,
                   "marginTop": 6,
-                  "paddingHorizontal": 6,
-                  "paddingVertical": 2,
                 }
               }
               testID="picker-locked-ta"
             >
               <View
-                color="#4A2C00"
-                name="star"
-                size={8}
-              />
-              <Text
                 style={
-                  {
-                    "color": "#4A2C00",
-                    "fontFamily": "Inter_800ExtraBold",
-                    "fontSize": 9,
-                    "letterSpacing": 0.4,
-                    "textTransform": "uppercase",
-                  }
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderColor": "rgba(255,255,255,0.72)",
+                      "borderRadius": 100,
+                      "borderWidth": 1,
+                      "flexDirection": "row",
+                      "gap": 3,
+                      "paddingHorizontal": 6,
+                      "paddingVertical": 2,
+                    },
+                    {
+                      "backgroundColor": "#22C55E",
+                    },
+                  ]
                 }
               >
-                All-Access
-              </Text>
+                <Text
+                  style={
+                    [
+                      {
+                        "fontFamily": "Inter_800ExtraBold",
+                        "fontSize": 9,
+                        "letterSpacing": 0.4,
+                        "textTransform": "uppercase",
+                      },
+                      {
+                        "color": "#FFFFFF",
+                      },
+                    ]
+                  }
+                >
+                  Free taste
+                </Text>
+              </View>
+              <View
+                style={
+                  [
+                    {
+                      "alignItems": "center",
+                      "borderColor": "rgba(255,255,255,0.72)",
+                      "borderRadius": 100,
+                      "borderWidth": 1,
+                      "flexDirection": "row",
+                      "gap": 3,
+                      "paddingHorizontal": 6,
+                      "paddingVertical": 2,
+                    },
+                    {
+                      "backgroundColor": "#F5B31B",
+                    },
+                  ]
+                }
+              >
+                <View
+                  color="#4A2C00"
+                  name="star"
+                  size={8}
+                />
+                <Text
+                  style={
+                    [
+                      {
+                        "fontFamily": "Inter_800ExtraBold",
+                        "fontSize": 9,
+                        "letterSpacing": 0.4,
+                        "textTransform": "uppercase",
+                      },
+                      {
+                        "color": "#4A2C00",
+                      },
+                    ]
+                  }
+                >
+                  All-Access
+                </Text>
+              </View>
             </View>
           </View>
         </View>

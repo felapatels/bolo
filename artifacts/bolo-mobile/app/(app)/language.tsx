@@ -175,9 +175,22 @@ function LanguageTile({
         {language.name}
       </Text>
       {locked ? (
-        <View testID={`picker-locked-${language.code}`} style={styles.allAccess}>
-          <Feather name="star" size={8} color="#4A2C00" />
-          <Text style={styles.allAccessText}>All-Access</Text>
+        <View
+          testID={`picker-locked-${language.code}`}
+          accessibilityLabel="Free taste, then All-Access"
+          style={styles.chipRow}
+        >
+          <View style={[styles.chip, styles.chipFree]}>
+            <Text style={[styles.chipText, { color: '#FFFFFF' }]}>
+              Free taste
+            </Text>
+          </View>
+          <View style={[styles.chip, styles.chipAllAccess]}>
+            <Feather name="star" size={8} color="#4A2C00" />
+            <Text style={[styles.chipText, { color: '#4A2C00' }]}>
+              All-Access
+            </Text>
+          </View>
         </View>
       ) : null}
     </Pressable>
@@ -237,28 +250,36 @@ const styles = StyleSheet.create({
   nativeTall: { lineHeight: 52 },
   tileTall: { minHeight: 128 },
   name: { fontFamily: AppFonts.bold, fontSize: 14, marginTop: 6 },
-  // The All-Access badge, borrowed from the games hub at a smaller size.
-  // It renders only when the language is locked TO THIS LEARNER: 21 of 22
-  // languages are All-Access, so labelling the content the way the games
-  // hub does would gild almost every card for a subscriber.
-  allAccess: {
+  // The two chips on a locked card, borrowed from the games hub at a
+  // smaller size. They render only when the language is locked TO THIS
+  // LEARNER: 21 of 22 languages are All-Access, so labelling the content
+  // the way the games hub does would gild almost every card. flexWrap is
+  // load-bearing at two columns, where the pair is close to the card's
+  // width and a narrow handset must be allowed to stack them.
+  chipRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 3,
+    gap: 4,
     marginTop: 6,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 100,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.72)',
-    backgroundColor: '#F5B31B',
   },
-  allAccessText: {
+  chipFree: { backgroundColor: '#22C55E' },
+  chipAllAccess: { backgroundColor: '#F5B31B' },
+  chipText: {
     fontFamily: AppFonts.extrabold,
     fontSize: 9,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    color: '#4A2C00',
   },
 });
