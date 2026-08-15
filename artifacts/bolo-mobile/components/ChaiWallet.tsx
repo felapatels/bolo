@@ -433,16 +433,12 @@ function SpendFace() {
 }
 
 /**
- * The kulhad on a spend button, lit. Terracotta on green is two mid-tone warm
- * colours side by side and the cup disappeared into the enamel, so the glyph
- * now sits on a cream coin with a marigold halo (web parity).
+ * The mark every spend button carries after its amount. A bare kulhad, web
+ * parity: it was a cream disc with a marigold ring and a shadow halo, which
+ * read as a glow behind the cup on the dark spend buttons.
  */
 function ChaiCoin() {
-  return (
-    <View style={styles.chaiCoin}>
-      <ChaiGlyph size={14} />
-    </View>
-  );
+  return <ChaiGlyph size={16} />;
 }
 
 /**
@@ -1056,22 +1052,6 @@ const styles = StyleSheet.create({
     backgroundColor: INDIA.board,
     borderBottomWidth: 3,
     borderBottomColor: INDIA.boardDeep,
-  },
-  chaiCoin: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: INDIA.cream,
-    borderWidth: 1,
-    borderColor: INDIA.gold,
-    // The halo: iOS shadow + Android elevation both read as a lit coin.
-    shadowColor: INDIA.gold,
-    shadowOpacity: 0.9,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 3,
   },
   spendBtnPressed: {
     opacity: 0.6,

@@ -1,7 +1,8 @@
 // Chacha-ji's Chai Stall — the two-tier Chai treatment.
 //
-// TIER 1, the SCENE: a FULL-WIDTH band on home at the art's natural 1024/572
-// aspect, sitting directly below the boarding pass (Task #1049) so the pass
+// TIER 1, the SCENE: a FULL-WIDTH band on home, the art's 1024/572 scene
+// cropped 12% at the bottom (BOTTOM_CROP) to drop the platform edge and
+// track, sitting directly below the boarding pass (Task #1049) so the pass
 // reads as standing in front of the stall. It carries one slow ambient steam
 // plume over the kettle, and tapping it opens the Chai wallet — the same sheet
 // the Chai stat cell opens, never a second wallet surface. (It shipped at
@@ -12,13 +13,14 @@
 // the box is a real button with an accessible label. Callers that pass none
 // keep the old atmospheric treatment (aria-hidden, pointer-events-none).
 //
-// The band NAMES ITSELF and shows the live balance, bottom-left / bottom-right,
+// The band NAMES ITSELF and shows the live balance in a top-right column,
 // so it reads as a wallet surface rather than scenery. Both sit over
 // photographic art with a bright sky, so legibility is a two-part house
-// treatment: a bottom scrim (the fade-mask gradient pattern used for the
-// mobile home fade and the pass shimmer) plus white text with a drop-shadow
-// (the ticket's own text-over-art treatment on home). The scrim runs the full
-// width, so the text does not depend on the art happening to be dark under it.
+// treatment: a right-half scrim fading leftward (the fade-mask gradient
+// pattern used for the mobile home fade and the pass shimmer) plus white
+// text with a drop-shadow (the ticket's own text-over-art treatment on
+// home). The scrim covers the whole right half, so the text does not depend
+// on the art happening to be dark under it.
 // The overlay is pointer-events-none: the band keeps exactly ONE tap target,
 // and the balance it shows is the caller's — the component never queries or
 // caches a balance, because the spend contract is server-authoritative.

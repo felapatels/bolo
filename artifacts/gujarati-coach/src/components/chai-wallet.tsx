@@ -75,24 +75,14 @@ const SPEND_BTN_STYLE = {
 } as const;
 
 /**
- * The kulhad on a spend button, lit. Terracotta on green is two mid-tone warm
- * colours side by side and the cup disappeared into the enamel, so the glyph
- * now sits on a cream coin with a marigold halo — the same trick the games
- * hub uses to keep vignette art readable on a painted board.
+ * The mark every spend button carries after its amount. A bare kulhad, the
+ * same treatment outfit-card.tsx uses on Buy Now, so a Chai amount looks the
+ * same everywhere in the app. It was a cream-and-marigold disc with a glow;
+ * on the dark spend buttons that read as a halo behind the cup rather than
+ * as a coin.
  */
 function ChaiCoin() {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
-      style={{
-        background: `radial-gradient(circle at 50% 45%, ${INDIA.cream} 52%, ${INDIA.gold} 100%)`,
-        boxShadow: `0 0 10px 1px rgba(240,163,43,0.75), inset 0 0 0 1px rgba(240,163,43,0.55)`,
-      }}
-    >
-      <ChaiGlyph className="h-4 w-4" />
-    </span>
-  );
+  return <ChaiGlyph className="h-4 w-4" />;
 }
 
 // One dismissal hides the offer moment everywhere for the rest of the session.
