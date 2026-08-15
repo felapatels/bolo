@@ -216,20 +216,20 @@ const styles = StyleSheet.create({
     minHeight: 104,
     marginBottom: 12,
     justifyContent: 'flex-end',
+    overflow: 'hidden',
   },
   corner: { position: 'absolute', top: 12, right: 12 },
-  // The ticket stub edge. Absolute insets resolve against the PADDING box, so
-  // top/left/bottom 0 sits just inside the 1.5px border — the stripe reads as
-  // part of the card stock rather than a bar floating on top of it. Its inner
-  // radius is the tile radius minus that border.
+  // The ticket stub edge. The tile clips (overflow: 'hidden'), so
+  // the stripe follows the card's own corner instead of carrying
+  // its own radius. A 5pt-wide box cannot trace a 20.5pt arc
+  // anyway: RN clamps radii to the edge length, so the corners
+  // came out square and overhung the card.
   rail: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
     width: 5,
-    borderTopLeftRadius: 20.5,
-    borderBottomLeftRadius: 20.5,
   },
   native: { fontSize: 24, textAlign: 'left' },
   // Nastaliq calligraphic glyphs cascade steeply above/below the baseline.
