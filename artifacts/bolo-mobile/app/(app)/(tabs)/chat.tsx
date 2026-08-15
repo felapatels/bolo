@@ -767,14 +767,56 @@ export default function ChatScreen() {
           xhr.send(JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: 'audio/m4a', history: [], clientDurationSeconds }));
         });
       } catch {
-        // Network error — greeting already playing, let it finish.
+        // Network error. The greeting can finish, but the SCREEN cannot be
+        // left on processing/voicing: nothing else will move it, and the
+        // pre-warm effect gates on idle, so the mic stops re-warming too.
         finishingRef.current = false;
+        if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
+        setPhase('error');
+        setErrorMsg(
+          "Bolo flew out for a mango lassi 🥭 — check your connection and try again!",
+        );
         return;
       }
 
       if (gHttpStatus < 200 || gHttpStatus >= 300 || !gReplyPayload) {
-        // Server error — greeting already playing, let it finish gracefully.
+        // A non-2xx XHR is inspected here, never thrown, so it cannot reach
+        // the recorded-turn catch below. That is why this branch has to end
+        // the turn itself. 402 is the common case on a Free account with a
+        // locked language, and it must land on the same surfaces the
+        // recorded path uses: the paywall for a weekly cap, the in-screen
+        // upgrade state otherwise. gRawResponse was assigned and unread
+        // until now; it carries the reason.
         finishingRef.current = false;
+        if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
+
+        if (gHttpStatus === 402) {
+          let reason: string | null = null;
+          try {
+            reason = JSON.parse(gRawResponse)?.reason ?? null;
+          } catch {
+            // A body that will not parse is still a 402; treat it as the
+            // generic upgrade case rather than swallowing the turn.
+          }
+          if (reason === 'weekly_cap_exceeded') {
+            setSecondsRemaining(0);
+            router.push('/(app)/paywall');
+            setPhase('idle');
+            return;
+          }
+          setUpgradeRequired(true);
+          setPhase('idle');
+          return;
+        }
+
+        setPhase('error');
+        if (gHttpStatus === 502) {
+          setErrorMsg("Bolo couldn't catch that 🦜 — give it another try!");
+        } else if (gHttpStatus === 429) {
+          setErrorMsg('Slow down a bit! Wait a moment and try again.');
+        } else {
+          setErrorMsg('Bolo ran into a snag — hold to try again!');
+        }
         return;
       }
 
