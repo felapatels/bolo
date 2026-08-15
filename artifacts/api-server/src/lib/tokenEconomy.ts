@@ -137,6 +137,48 @@ export type TokenReason =
   // a credit, since a Stripe refund never claws back Chai automatically.
   | "adjust_manual";
 
+// The learner-facing name for every ledger reason. This map lives SERVER-SIDE
+// on purpose: GET /tokens/history returns the label, never the raw reason, so
+// there is one wording for both platforms and no parity drift to police. It is
+// typed Record<TokenReason, string>, which makes a new reason a compile error
+// here rather than a blank line in someone's wallet.
+//
+// The two Chai-pack reasons share one label deliberately: the ledger keeps web
+// and App Store purchases apart so their transaction-id spaces cannot collide,
+// but a learner who bought Chai just bought Chai.
+export const TOKEN_REASON_LABELS: Record<TokenReason, string> = {
+  earn_streak_day: "Streak day",
+  earn_zone_complete: "Zone finished",
+  earn_express_stamp: "Express stamp",
+  earn_quiz: "Daily quiz",
+  earn_allowance_monthly: "Monthly allowance",
+  earn_signal_first_clear: "Signal cleared",
+  earn_closeout_first: "Zone closeout",
+  earn_chacha_encounter: "Chacha-ji's stall",
+  earn_referral_referrer: "A friend joined",
+  earn_referral_referee: "Invite bonus",
+  spend_station_pause: "Station Pause",
+  spend_express_multiplier: "Express Multiplier",
+  spend_stop_unlock: "Stop unlocked",
+  spend_outfit: "Bazaar purchase",
+  spend_streak_repair: "Mended the line",
+  spend_first_class: "First Class",
+  station_pause_consumed: "Station Pause used",
+  purchase_chai_pack: "Chai pack",
+  purchase_chai_pack_ios: "Chai pack",
+  adjust_manual: "Adjustment",
+};
+
+/**
+ * The label for a ledger row's reason. The column is plain text, so a row
+ * written outside the union is possible (a hand-written adjustment, an older
+ * reason retired from the type). Those fall back to "Chai" rather than
+ * leaking a machine string like `spend_outfit` onto a learner's screen.
+ */
+export function tokenReasonLabel(reason: string): string {
+  return TOKEN_REASON_LABELS[reason as TokenReason] ?? "Chai";
+}
+
 export type SpendItem = "station_pause" | "express_multiplier";
 
 /** The ledger reason First Class spends are written under, named once. */

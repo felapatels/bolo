@@ -25,6 +25,7 @@ import {
   getGetStreakRepairQueryKey,
   getGetTokensQueryKey,
   useGetStreakRepair,
+  useGetTokenHistory,
   useGetTokens,
   useBuyFirstClass,
   useRepairStreak,
@@ -607,6 +608,89 @@ export function LanguageSignpostRow() {
   );
 }
 
+/**
+ * Chai history: the last ten movements on the ledger, newest first, straight
+ * from GET /tokens/history.
+ *
+ * The label is the SERVER's word for the row. The ledger's own `reason` column
+ * holds machine strings (spend_outfit, earn_zone_complete) and never leaves
+ * the server, so there is one wording for both platforms and no map to keep in
+ * sync here.
+ *
+ * Loading and error both render NOTHING (the HomeSocialStrip rule): a wallet
+ * that flashes a skeleton or an apology where its history goes is worse than
+ * one that shows the balance, the shop and the door and stays quiet about the
+ * rest.
+ */
+function WalletHistory() {
+  const history = useGetTokenHistory();
+  if (history.isLoading) return null;
+  if (history.isError) return null;
+
+  const entries = history.data?.entries ?? [];
+
+  // Nothing earned and nothing spent yet. The dashed frame is the placeholder
+  // this replaced: a wallet that never mentions history teaches a learner
+  // there is none, so the empty case still says where it will land.
+  if (entries.length === 0) {
+    return (
+      <div
+        data-testid="wallet-history-placeholder"
+        className="flex items-center gap-3 rounded-2xl border border-dashed border-card-border p-4"
+      >
+        <span
+          aria-hidden="true"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
+          style={{ background: INDIA.cloth }}
+        >
+          <ChaiGlyph className="h-7 w-7" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-black text-foreground">Chai history</p>
+          <p className="text-xs leading-snug text-muted-foreground">
+            Nothing yet. Every cup you earn and every one you spend will show up
+            here.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      data-testid="wallet-history-list"
+      className="rounded-2xl border border-card-border p-4"
+    >
+      <p className="font-black text-foreground">Chai history</p>
+      <ul className="mt-2 space-y-1">
+        {entries.map((entry) => (
+          <li
+            key={entry.id}
+            data-testid="wallet-history-entry"
+            className="flex items-center gap-3"
+          >
+            <span className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">
+              {entry.label}
+            </span>
+            <span
+              className={cn(
+                "flex shrink-0 items-center gap-1 text-sm font-black tabular-nums",
+                entry.delta <= 0 && "text-muted-foreground",
+              )}
+              style={
+                entry.delta > 0 ? { color: INDIA.board } : undefined
+              }
+            >
+              {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
+              <ChaiGlyph className="h-9 w-9" />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** Bottom sheet: balance, Station Pause row, Express Multiplier row. First Class row. */
 export function ChaiWalletSheet({
   open,
@@ -671,33 +755,10 @@ export function ChaiWalletSheet({
             are still exported from this file and still rendered by
             pages/bazaar.tsx. */}
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
-          {/* Chai history. The ledger exists and is append-only, but no
-              endpoint returns its rows yet and its `reason` column holds
-              raw strings (spend_outfit, earn_zone_complete) that no
-              learner should read. The placeholder is deliberate: a wallet
-              that never mentions history teaches a learner there is none,
-              and this is where it will land. */}
-          <div
-            data-testid="wallet-history-placeholder"
-            className="flex items-center gap-3 rounded-2xl border border-dashed border-card-border p-4"
-          >
-            <span
-              aria-hidden="true"
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
-              style={{ background: INDIA.cloth }}
-            >
-              <ChaiGlyph className="h-7 w-7" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="font-black text-foreground">Chai history</p>
-              <p className="text-xs leading-snug text-muted-foreground">
-                Every cup you earn and every one you spend will show up here.
-              </p>
-            </div>
-            <span className="shrink-0 text-xs font-black uppercase tracking-wider text-muted-foreground">
-              Soon
-            </span>
-          </div>
+          {/* Chai history: the real ledger rows now, labelled server-side.
+              See WalletHistory above for why loading and error show
+              nothing. */}
+          <WalletHistory />
 
           {/* Dark until CHAI_PACKS_LIVE is flipped; renders nothing at all
               while the flag is off, so the wallet is unchanged today. */}

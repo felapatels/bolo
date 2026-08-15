@@ -4,7 +4,8 @@ import {
   SpendTokensBody,
   UnlockStopBody,
 } from "@workspace/api-zod";
-import { db } from "@workspace/db";
+import { db, tokenLedgerTable } from "@workspace/db";
+import { desc, eq } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import {
@@ -23,6 +24,7 @@ import {
   STOP_UNLOCK_COST,
   STREAK_REPAIR_COST,
   TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY,
+  tokenReasonLabel,
 } from "../lib/tokenEconomy";
 import { findRepairableBreak } from "../lib/streakRepair";
 import { loadStreakLadder } from "../lib/streakDays";
@@ -30,6 +32,11 @@ import { checkStopUnlockEligibility } from "../lib/stopUnlock";
 import { getLanguageAccess, sendLockedLanguageDenial } from "../lib/gating";
 
 const router: IRouter = Router();
+
+/** How many ledger rows the wallet's receipt strip shows. Owner ruling: ten,
+ * newest first, with no pagination. A learner who needs more than the last ten
+ * movements needs a statement, which is a different feature. */
+const TOKEN_HISTORY_LIMIT = 10;
 
 function getUserId(req: Request): string {
   return (req as AuthedRequest).userId;
@@ -74,6 +81,47 @@ router.get("/tokens", async (req: Request, res: Response): Promise<void> => {
     equippedAccessory: state.equippedAccessory,
   });
 });
+
+// GET /tokens/history — the caller's last 10 ledger rows, newest first.
+//
+// The caller's own rows and nothing else: the userId comes from the auth
+// middleware, never from the request.
+//
+// What a row does NOT carry is the point of this shape. `reason` stays on the
+// server and is translated here through tokenReasonLabel, so no learner ever
+// reads `spend_outfit`, and the wording cannot drift between web and mobile.
+// `refId` is withheld because it carries an outfit id or an idempotency UUID,
+// and `balanceAfter` because it is an audit column: a running total shown
+// beside a capped list of 10 invites arithmetic that does not add up.
+//
+// Ten rows, no pagination: this is a receipt strip in the wallet sheet, not a
+// statement. The (userId, createdAt) index orders the scan; id breaks the tie
+// for rows written in the same transaction so the order is stable.
+router.get(
+  "/tokens/history",
+  async (req: Request, res: Response): Promise<void> => {
+    const rows = await db
+      .select({
+        id: tokenLedgerTable.id,
+        delta: tokenLedgerTable.delta,
+        reason: tokenLedgerTable.reason,
+        createdAt: tokenLedgerTable.createdAt,
+      })
+      .from(tokenLedgerTable)
+      .where(eq(tokenLedgerTable.userId, getUserId(req)))
+      .orderBy(desc(tokenLedgerTable.createdAt), desc(tokenLedgerTable.id))
+      .limit(TOKEN_HISTORY_LIMIT);
+
+    res.json({
+      entries: rows.map((row) => ({
+        id: row.id,
+        delta: row.delta,
+        label: tokenReasonLabel(row.reason),
+        createdAt: row.createdAt.toISOString(),
+      })),
+    });
+  },
+);
 
 // POST /tokens/spend
 router.post(

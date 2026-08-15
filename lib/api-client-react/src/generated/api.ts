@@ -112,6 +112,7 @@ import type {
   StreakRepairOffer,
   StreakRepairResult,
   SubscriptionDetails,
+  TokenHistory,
   TokenSpendResult,
   TokenState,
   TokensSpendInput,
@@ -5370,6 +5371,84 @@ export function useGetTokens<TData = Awaited<ReturnType<typeof getTokens>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetTokensQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTokenHistoryUrl = () => {
+
+
+
+
+  return `/api/tokens/history`
+}
+
+/**
+ * A receipt strip for the wallet sheet, not a statement: the last ten ledger rows, newest first, with no pagination. Each row carries a learner-facing label resolved server-side, never the raw ledger reason, so the wording cannot drift between platforms. refId and balanceAfter are deliberately withheld.
+ * @summary The caller's ten most recent Chai movements
+ */
+export const getTokenHistory = async ( options?: RequestInit): Promise<TokenHistory> => {
+
+  return customFetch<TokenHistory>(getGetTokenHistoryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTokenHistoryQueryKey = () => {
+    return [
+    `/api/tokens/history`
+    ] as const;
+    }
+
+
+export const getGetTokenHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getTokenHistory>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTokenHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTokenHistoryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTokenHistory>>> = ({ signal }) => getTokenHistory({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTokenHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTokenHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getTokenHistory>>>
+export type GetTokenHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The caller's ten most recent Chai movements
+ */
+
+export function useGetTokenHistory<TData = Awaited<ReturnType<typeof getTokenHistory>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTokenHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTokenHistoryQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

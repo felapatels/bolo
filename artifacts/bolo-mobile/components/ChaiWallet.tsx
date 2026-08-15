@@ -26,6 +26,7 @@ import {
   getGetStreakRepairQueryKey,
   getGetTokensQueryKey,
   useGetStreakRepair,
+  useGetTokenHistory,
   useGetTokens,
   useBuyFirstClass,
   useRepairStreak,
@@ -684,6 +685,91 @@ export function LanguageInfoOverlay({ onClose }: { onClose: () => void }) {
   );
 }
 
+/**
+ * Chai history: the last ten movements on the ledger, newest first, straight
+ * from GET /tokens/history (web twin: chai-wallet.tsx's WalletHistory).
+ *
+ * The label is the SERVER's word for the row. The ledger's own reason column
+ * holds machine strings (spend_outfit, earn_zone_complete) and never leaves
+ * the server, so there is one wording for both platforms and no map to keep in
+ * sync on either.
+ *
+ * Loading and error both render NOTHING (the HomeSocialStrip rule): a wallet
+ * that flashes a skeleton or an apology where its history goes is worse than
+ * one that shows the balance, the shop and the door and stays quiet about the
+ * rest.
+ */
+function WalletHistory() {
+  const colors = useColors();
+  const history = useGetTokenHistory();
+  if (history.isLoading) return null;
+  if (history.isError) return null;
+
+  const entries = history.data?.entries ?? [];
+
+  // Nothing earned and nothing spent yet. The dashed frame is the placeholder
+  // this replaced: a wallet that never mentions history teaches a learner
+  // there is none, so the empty case still says where it will land.
+  if (entries.length === 0) {
+    return (
+      <View
+        testID="wallet-history-placeholder"
+        style={[styles.historyRow, { borderColor: colors.border }]}
+      >
+        <View style={styles.historyTile}>
+          <ChaiGlyph size={28} />
+        </View>
+        <View style={styles.itemInfo}>
+          <Text style={[styles.itemTitle, { color: colors.foreground }]}>
+            Chai history
+          </Text>
+          <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
+            Nothing yet. Every cup you earn and every one you spend will show up
+            here.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      testID="wallet-history-list"
+      style={[styles.historyList, { borderColor: colors.border }]}
+    >
+      <Text style={[styles.itemTitle, { color: colors.foreground }]}>
+        Chai history
+      </Text>
+      {entries.map((entry) => (
+        <View
+          key={entry.id}
+          testID="wallet-history-entry"
+          style={styles.historyEntry}
+        >
+          <Text
+            numberOfLines={1}
+            style={[styles.historyLabel, { color: colors.foreground }]}
+          >
+            {entry.label}
+          </Text>
+          <Text
+            style={[
+              styles.historyDelta,
+              {
+                color:
+                  entry.delta > 0 ? INDIA.board : colors.mutedForeground,
+              },
+            ]}
+          >
+            {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
+          </Text>
+          <ChaiGlyph size={40} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function ChaiWalletSheet({
   visible,
   onClose,
@@ -754,31 +840,10 @@ export function ChaiWalletSheet({
           </View>
 
           <ScrollView style={styles.bodyScroll} contentContainerStyle={styles.body}>
-            {/* Chai history. See the web twin: the ledger is append-only
-                but nothing serves its rows yet, and its reasons are raw
-                strings no learner should read. */}
-            <View
-              testID="wallet-history-placeholder"
-              style={[
-                styles.historyRow,
-                { borderColor: colors.border },
-              ]}
-            >
-              <View style={styles.historyTile}>
-                <ChaiGlyph size={28} />
-              </View>
-              <View style={styles.itemInfo}>
-                <Text style={[styles.itemTitle, { color: colors.foreground }]}>
-                  Chai history
-                </Text>
-                <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
-                  Every cup you earn and every one you spend will show up here.
-                </Text>
-              </View>
-              <Text style={[styles.historySoon, { color: colors.mutedForeground }]}>
-                SOON
-              </Text>
-            </View>
+            {/* Chai history: the real ledger rows now, labelled server-side.
+                See WalletHistory above for why loading and error show
+                nothing. */}
+            <WalletHistory />
 
             {/* THE WALLET IS A BALANCE AND A DOOR NOW. Every sink it used to
                 sell (pause, express, First Class, the language signpost) is
@@ -926,6 +991,26 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.extrabold,
     fontSize: 11,
     letterSpacing: 1.2,
+  },
+  historyList: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    gap: 4,
+  },
+  historyEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  historyLabel: {
+    flex: 1,
+    fontFamily: AppFonts.bold,
+    fontSize: 14,
+  },
+  historyDelta: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 14,
   },
   goldTile: {
     width: 56,

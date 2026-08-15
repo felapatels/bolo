@@ -1394,6 +1394,19 @@ export interface TokenState {
   equippedAccessory?: string | null;
 }
 
+export interface TokenHistoryEntry {
+  id: number;
+  /** Signed movement in Chai: positive for an earn or a purchase, negative for a spend or a consumed Station Pause. */
+  delta: number;
+  /** The learner-facing name for this movement, resolved server-side from the ledger reason. Clients render this string as given; the raw reason is never sent, and an unrecognised one reads "Chai". */
+  label: string;
+  createdAt: string;
+}
+
+export interface TokenHistory {
+  entries: TokenHistoryEntry[];
+}
+
 /**
  * A garment redresses the whole bird; an accessory adds one thing to her. The shop groups its rack by this, so a new kind of stock does not need a client change.
  */

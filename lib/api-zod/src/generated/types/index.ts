@@ -154,6 +154,8 @@ export * from './streakRepairOffer';
 export * from './streakRepairResult';
 export * from './subscriptionDetails';
 export * from './teaserProgress';
+export * from './tokenHistory';
+export * from './tokenHistoryEntry';
 export * from './tokenSpendResult';
 export * from './tokensSpendInput';
 export * from './tokensSpendInputItem';

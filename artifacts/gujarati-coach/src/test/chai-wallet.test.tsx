@@ -15,6 +15,7 @@ import { memoryLocation } from "wouter/memory-location";
 //      itself in a dialog rather than navigating anywhere.
 const h = vi.hoisted(() => ({
   tokens: undefined as unknown,
+  history: undefined as unknown,
   isPaid: false,
   spend: vi.fn(),
   repairOffer: undefined as unknown,
@@ -47,6 +48,7 @@ vi.mock("@workspace/api-client-react", () => {
     getGetStreakRepairQueryKey: () => ["streak-repair"],
     getGetProgressSummaryQueryKey: () => ["/api/progress/summary"],
     useGetTokens: () => h.tokens,
+    useGetTokenHistory: () => h.history,
     useSpendTokens: () => ({ mutate: h.spend, isPending: false }),
     useBuyFirstClass: () => ({ mutate: vi.fn(), isPending: false }),
     useGetStreakRepair: () => h.repairOffer,
@@ -117,6 +119,13 @@ beforeEach(() => {
       expressMultiplierActiveUntil: null,
     },
     isLoading: false,
+  };
+  // Default: a learner who has never earned or spent, so the empty state is
+  // what the other sheet tests see.
+  h.history = {
+    data: { entries: [] },
+    isLoading: false,
+    isError: false,
   };
 });
 
@@ -247,5 +256,76 @@ describe("streak repair row", () => {
     expect(h.repair).toHaveBeenCalledTimes(1);
     // No arguments: the server picks the day it is willing to sell.
     expect(h.repair.mock.calls[0]).toHaveLength(0);
+  });
+});
+
+// Chai history. The label is the server's word for the row: the raw ledger
+// reason never reaches a client, so there is nothing to translate here and
+// nothing that can drift from mobile.
+describe("Chai history", () => {
+  test("lists the movements the server labelled, signed", () => {
+    h.history = {
+      data: {
+        entries: [
+          {
+            id: 3,
+            delta: -25,
+            label: "First Class",
+            createdAt: "2026-08-15T10:00:00.000Z",
+          },
+          {
+            id: 2,
+            delta: 5,
+            label: "Streak day",
+            createdAt: "2026-08-14T10:00:00.000Z",
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    };
+    renderWallet();
+
+    const list = screen.getByTestId("wallet-history-list");
+    expect(list).toHaveTextContent("Chai history");
+    // An earn reads +N; a spend keeps its own minus sign.
+    expect(list).toHaveTextContent("+5");
+    expect(list).toHaveTextContent("-25");
+    expect(list).toHaveTextContent("Streak day");
+    expect(list).toHaveTextContent("First Class");
+    expect(screen.getAllByTestId("wallet-history-entry")).toHaveLength(2);
+    // The empty frame is gone once there is anything to show.
+    expect(screen.queryByTestId("wallet-history-placeholder")).toBeNull();
+  });
+
+  test("keeps the dashed frame, reworded, when nothing has moved yet", () => {
+    renderWallet();
+
+    const empty = screen.getByTestId("wallet-history-placeholder");
+    expect(empty).toHaveTextContent("Chai history");
+    expect(empty).toHaveTextContent(
+      "Nothing yet. Every cup you earn and every one you spend will show up here.",
+    );
+    // It is not a promise of a feature any more, so the marker is gone.
+    expect(empty).not.toHaveTextContent("Soon");
+    expect(screen.queryByTestId("wallet-history-list")).toBeNull();
+  });
+
+  // A wallet that flashes a skeleton or an apology where its history goes is
+  // worse than one that shows the rest of itself and stays quiet.
+  test("renders nothing while loading, and nothing on failure", () => {
+    h.history = { data: undefined, isLoading: true, isError: false };
+    const loading = renderWallet();
+    expect(screen.queryByTestId("wallet-history-list")).toBeNull();
+    expect(screen.queryByTestId("wallet-history-placeholder")).toBeNull();
+    // The rest of the sheet is untouched.
+    expect(screen.getByTestId("wallet-balance-band")).toBeInTheDocument();
+    loading.unmount();
+
+    h.history = { data: undefined, isLoading: false, isError: true };
+    renderWallet();
+    expect(screen.queryByTestId("wallet-history-list")).toBeNull();
+    expect(screen.queryByTestId("wallet-history-placeholder")).toBeNull();
+    expect(screen.getByTestId("wallet-balance-band")).toBeInTheDocument();
   });
 });

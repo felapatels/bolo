@@ -2850,3 +2850,51 @@ Both chai-wallet suites moved their streak-repair tests off the sheet and onto
 the row itself, matching how the other relocated rows are already tested: web
 uses the existing `renderRows(<StreakRepairRow />)` helper, mobile gained a
 `RepairRow` harness that renders the row plus its notice as plain text.
+
+## 10bo. Chai history: GET /tokens/history, server-side labels, wallet list (August 15, 2026, server + both platforms)
+
+`GET /tokens/history` (api-server `src/routes/tokens.ts`) returns the caller's
+ten most recent `token_ledger` rows, newest first, ordered on the existing
+`token_ledger_user_created_idx` with `id` as the tie-break for rows written in
+the same transaction. `TOKEN_HISTORY_LIMIT = 10` is a local const in that file;
+there is no pagination.
+
+A row returns `id`, `delta`, `label`, `createdAt` and nothing else. `reason`,
+`refId` and `balanceAfter` are deliberately withheld: `refId` carries an outfit
+id or an idempotency UUID, and `balanceAfter` is an audit column whose running
+total would not add up beside a list capped at ten.
+
+`label` is resolved SERVER-SIDE by `tokenReasonLabel()` in
+`src/lib/tokenEconomy.ts`, backed by `TOKEN_REASON_LABELS`, a
+`Record<TokenReason, string>` sitting beside the union. Typing it as a full
+record makes a new reason a compile error rather than a blank line in a
+learner's wallet. The two Chai-pack reasons share the label "Chai pack": the
+ledger keeps web and App Store purchases apart so their transaction-id spaces
+cannot collide, but a learner who bought Chai just bought Chai. The column is
+plain text, so a row written outside the union is possible; those fall back to
+"Chai". No client holds a copy of this map, so the two platforms cannot drift.
+
+Spec: `TokenHistory` / `TokenHistoryEntry` schemas and the `getTokenHistory`
+operation in `lib/api-spec/openapi.yaml`, client regenerated
+(`useGetTokenHistory`).
+
+Clients: `WalletHistory` in `chai-wallet.tsx` (web) and `ChaiWallet.tsx`
+(mobile) replaces the inert `wallet-history-placeholder` row from 10bn as the
+first child of the sheet body. Populated, it is `wallet-history-list`: a header
+reading "Chai history" in the row-title weight, then one
+`wallet-history-entry` per movement with the label left and the signed delta
+right. Positive deltas read `+N` in `INDIA.board` (the spend-button green);
+negative deltas keep their own minus sign in `mutedForeground`. The `ChaiGlyph`
+follows the number at the balance band's size (web `h-9 w-9`, mobile `size={40}`).
+
+Empty, it keeps the dashed frame and the `wallet-history-placeholder` testID,
+reworded to "Nothing yet. Every cup you earn and every one you spend will show
+up here." with the SOON marker dropped. Loading and error render NOTHING at
+all, the `HomeSocialStrip` rule: a wallet that flashes a skeleton or an apology
+where its history goes is worse than one that shows the rest of itself and
+stays quiet. Mobile added `historyList`, `historyEntry`, `historyLabel` and
+`historyDelta` styles; `historyRow`, `historyTile` (empty state) and
+`historySoon` (now unused) were left in place.
+
+Both chai-wallet suites mock `useGetTokenHistory` and default it to an empty
+`entries` array, so every pre-existing sheet test still sees the empty frame.

@@ -1636,6 +1636,20 @@ export const GetTokensResponse = zod.object({
 
 
 /**
+ * A receipt strip for the wallet sheet, not a statement: the last ten ledger rows, newest first, with no pagination. Each row carries a learner-facing label resolved server-side, never the raw ledger reason, so the wording cannot drift between platforms. refId and balanceAfter are deliberately withheld.
+ * @summary The caller's ten most recent Chai movements
+ */
+export const GetTokenHistoryResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "id": zod.number(),
+  "delta": zod.number().describe('Signed movement in Chai: positive for an earn or a purchase, negative for a spend or a consumed Station Pause.'),
+  "label": zod.string().describe('The learner-facing name for this movement, resolved server-side from the ledger reason. Clients render this string as given; the raw reason is never sent, and an unrecognised one reads \"Chai\".'),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
  * @summary Spend Chai on a convenience item
  */
 export const SpendTokensBody = zod.object({

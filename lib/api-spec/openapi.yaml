@@ -2083,6 +2083,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TokenState"
+  /tokens/history:
+    get:
+      operationId: getTokenHistory
+      tags: [tokens]
+      summary: The caller's ten most recent Chai movements
+      description: >-
+        A receipt strip for the wallet sheet, not a statement: the last ten
+        ledger rows, newest first, with no pagination. Each row carries a
+        learner-facing label resolved server-side, never the raw ledger reason,
+        so the wording cannot drift between platforms. refId and balanceAfter
+        are deliberately withheld.
+      responses:
+        "200":
+          description: The caller's recent Chai movements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenHistory"
   /tokens/spend:
     post:
       operationId: spendTokens
@@ -4836,6 +4854,33 @@ components:
             from equippedOutfit because she wears both at once: clients stack
             the accessory's overlay art on top of whichever base the garment
             selects.
+    TokenHistoryEntry:
+      type: object
+      required: [id, delta, label, createdAt]
+      properties:
+        id: { type: integer }
+        delta:
+          type: integer
+          description: >-
+            Signed movement in Chai: positive for an earn or a purchase,
+            negative for a spend or a consumed Station Pause.
+        label:
+          type: string
+          description: >-
+            The learner-facing name for this movement, resolved server-side
+            from the ledger reason. Clients render this string as given; the
+            raw reason is never sent, and an unrecognised one reads "Chai".
+        createdAt:
+          type: string
+          format: date-time
+    TokenHistory:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenHistoryEntry"
     OutfitCatalogItem:
       type: object
       required: [id, name, tagline, cost, owned, kind, preview]
