@@ -100,7 +100,6 @@ export function OutfitCard({
   outfit,
   isShown,
   isWorn,
-  balance,
   busy,
   onTryOn,
   onBuy,
@@ -109,7 +108,6 @@ export function OutfitCard({
   outfit: RackOutfit;
   isShown: boolean;
   isWorn: boolean;
-  balance: number;
   busy: boolean;
   onTryOn: (id: string) => void;
   onBuy: (id: string) => void;
@@ -119,7 +117,6 @@ export function OutfitCard({
    */
   onEquip: (id: string | null, slot: string) => void;
 }) {
-  const short = outfit.cost - balance;
   return (
     // A row, not a tile. The bazaar is a street of stalls whose goods are
     // listed underneath them, and the tailor's stock reads the same way as
@@ -168,13 +165,6 @@ export function OutfitCard({
         >
           {isWorn ? "Take it off" : "Dress Bolo"}
         </button>
-      ) : short > 0 ? (
-        <span
-          data-testid={`outfit-short-${outfit.id}`}
-          className="shrink-0 text-xs font-bold text-muted-foreground"
-        >
-          {short} more
-        </span>
       ) : (
         <button
           type="button"

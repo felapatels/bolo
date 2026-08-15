@@ -425,7 +425,6 @@ export default function OutfitsPage() {
                   outfit={outfit}
                   isShown={previewed === outfit.id}
                   isWorn={isWorn(outfit.id, outfit.kind)}
-                  balance={balance}
                   busy={busy}
                   onTryOn={tryOn}
                   onBuy={(id) => {

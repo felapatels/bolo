@@ -2776,3 +2776,24 @@ Sources are `${import.meta.env.BASE_URL}bazaar/welcome.mp4` and
 `${import.meta.env.BASE_URL}bazaar/keyart.png` (the poster is the key art, so
 there is no second still to keep in step). This is the first and only
 `<video>` element in gujarati-coach. Mobile has no equivalent.
+
+## 10bl. One button shape on the tailor's rack (August 15, 2026, both platforms)
+
+An unowned outfit row now always renders its buy control, on web
+(`outfit-buynow-<id>` in `src/components/outfit-card.tsx`) and on mobile
+(the same testID in `app/(app)/bazaar.tsx`). The old "N more" affordance text
+on the ROW is gone: `outfit-short-<id>` no longer exists on either platform,
+the `short = outfit.cost - balance` local is deleted from both, and mobile's
+now-unreferenced `styles.rackShort` was removed. The buy control's disabled
+prop is `busy` alone, so an empty tin reaches the server and the server's 409
+is the only refusal. This matches every other wallet row, which has always
+shown its button and let the server decide.
+
+`OutfitCard` no longer takes `balance` (prop type, destructure and the call
+site in `src/pages/bazaar.tsx` all dropped it). The page still computes
+`balance` for the tin pill and the dressing room.
+
+The DRESSING ROOM shortfall line is a different element and is untouched on
+both platforms: testID `outfit-short` (no id suffix), reading
+"{cost - balance} more Chai and she can wear it." Both outfits suites assert
+that one, which is why neither needed editing for this change.

@@ -530,7 +530,6 @@ export default function OutfitsScreen() {
               {section.items.map((outfit) => {
                 const isShown = previewed === outfit.id;
                 const worn = isWorn(outfit.id, outfit.kind);
-                const short = outfit.cost - balance;
                 return (
                   // A row, not a tile. The tailor's stock reads the same way
                   // as the ticket counter's and the signal box's: picture,
@@ -610,13 +609,6 @@ export default function OutfitsScreen() {
                           {worn ? 'Take it off' : 'Dress Bolo'}
                         </Text>
                       </Pressable>
-                    ) : short > 0 ? (
-                      <Text
-                        testID={`outfit-short-${outfit.id}`}
-                        style={[styles.rackShort, { color: colors.mutedForeground }]}
-                      >
-                        {short} more
-                      </Text>
                     ) : (
                       <Pressable
                         testID={`outfit-buynow-${outfit.id}`}
@@ -832,11 +824,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 9,
-  },
-  rackShort: {
-    fontFamily: AppFonts.bold,
-    fontSize: 12,
-    flexShrink: 0,
   },
   thumb: {
     width: '100%',
