@@ -64,6 +64,10 @@ export const STALL_ASSETS = {
 const SCENE_W = 1024;
 const SCENE_H = 572;
 
+/** Bottom crop: the platform edge and track, the least informative strip. */
+const BOTTOM_CROP = 0.12;
+const VISIBLE_H = SCENE_H * (1 - BOTTOM_CROP);
+
 /**
  * Where the plume sits, in fractions of the SCENE box (the kettle sits on the
  * burner at the left end of the counter, spout at ~29% across). If the scene
@@ -144,55 +148,56 @@ export function ChaiStallVignette({
 }) {
   const layers = (
     <>
-      <img
-        src={STALL_ASSETS.scene}
-        alt=""
-        data-testid="chai-stall-scene"
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-      {/* Decorative layer, under the scrim like the rest of the art: he is
-          the man at the stall, not a control. No tap target, no a11y node. */}
-      <img
-        src={STALL_ASSETS.chachaji}
-        alt=""
-        aria-hidden="true"
-        data-testid="chai-stall-chachaji"
-        className="pointer-events-none absolute"
-        style={{
-          left: CHACHAJI.left,
-          bottom: CHACHAJI.bottom,
-          width: CHACHAJI.width,
-        }}
-      />
-      <img
-        src={STALL_ASSETS.steam}
-        alt=""
-        data-testid="chai-stall-steam"
-        className="chai-stall-steam absolute"
-        style={{ left: KETTLE.left, bottom: KETTLE.bottom, width: KETTLE.width }}
-      />
-      {/* Legibility scrim: full width, so the row stays readable over the
-          bright sky end of the art as well as the dark awning end. It stops
-          below the plume (which starts at 46%), so the steam is untouched. */}
+      <div
+        className="absolute inset-x-0 top-0"
+        style={{ aspectRatio: `${SCENE_W} / ${SCENE_H}` }}
+      >
+        <img
+          src={STALL_ASSETS.scene}
+          alt=""
+          data-testid="chai-stall-scene"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <img
+          src={STALL_ASSETS.chachaji}
+          alt=""
+          aria-hidden="true"
+          data-testid="chai-stall-chachaji"
+          className="pointer-events-none absolute"
+          style={{
+            left: CHACHAJI.left,
+            bottom: CHACHAJI.bottom,
+            width: CHACHAJI.width,
+          }}
+        />
+        <img
+          src={STALL_ASSETS.steam}
+          alt=""
+          data-testid="chai-stall-steam"
+          className="chai-stall-steam absolute"
+          style={{ left: KETTLE.left, bottom: KETTLE.bottom, width: KETTLE.width }}
+        />
+      </div>
       <div
         data-testid="chai-stall-scrim"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/75 via-black/40 to-transparent"
+        className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-black/80 via-black/45 to-transparent"
       />
-      {/* Quiet on purpose: white on the scrim, no accent fill, so it does not
-          compete with the orange boarding pass directly above. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 px-3 pb-2.5 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+      <div className="pointer-events-none absolute right-0 top-0 flex w-[42%] flex-col items-end gap-2.5 px-3 pt-3 text-right">
         <span
           data-testid="chai-stall-title"
-          className="min-w-0 truncate text-sm font-black leading-none"
+          className="text-lg font-black leading-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
         >
           {STALL_TITLE}
         </span>
-        <span className="flex shrink-0 items-center gap-1.5 leading-none">
-          <ChaiGlyph className="h-4 w-4" />
-          <span data-testid="chai-stall-balance" className="text-sm font-black">
+        <span
+          data-testid="chai-stall-balance-chip"
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-3.5 py-1.5 leading-none text-white shadow-[0_2px_6px_rgba(0,0,0,0.55)] ring-1 ring-white/30"
+        >
+          <ChaiGlyph className="h-6 w-6" />
+          <span data-testid="chai-stall-balance" className="text-lg font-black">
             {balance ?? "-"}
           </span>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-white/80">
+          <span className="text-xs font-bold uppercase tracking-wider text-white/90">
             Chai
           </span>
         </span>
@@ -203,7 +208,7 @@ export function ChaiStallVignette({
   // object-cover on an aspect box of the SAME aspect crops nothing, which is
   // what keeps the layer map honest at full width.
   const box = "relative w-full overflow-hidden rounded-2xl border border-card-border";
-  const style = { aspectRatio: `${SCENE_W} / ${SCENE_H}` };
+  const style = { aspectRatio: `${SCENE_W} / ${VISIBLE_H}` };
 
   if (!onClick) {
     return (

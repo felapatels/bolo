@@ -83,6 +83,10 @@ const SCENE_ASPECT = 1024 / 572;
 const STEAM_ASPECT = 226 / 485;
 const CHACHAJI_ASPECT = 386 / 520;
 
+/** Bottom crop: the platform edge and track, the least informative strip. */
+const BOTTOM_CROP = 0.12;
+const VISIBLE_ASPECT = 1024 / (572 * (1 - BOTTOM_CROP));
+
 /**
  * Where the plume sits, in fractions of the SCENE box — the same three
  * numbers as the web KETTLE map. If the scene art moves the kettle, update
@@ -222,14 +226,6 @@ export function ChaiStallVignette({
   const scene = (
     <View
       testID="chai-stall-vignette"
-      onLayout={(e) => {
-        const { width, height } = e.nativeEvent.layout;
-        setBox((prev) =>
-          prev.width === width && prev.height === height
-            ? prev
-            : { width, height },
-        );
-      }}
       // Never pressable on its own, and never in the a11y tree: when the
       // caller wants a tap target the Pressable below owns it, so a screen
       // reader lands on ONE node (the button) rather than on the button plus
@@ -239,81 +235,103 @@ export function ChaiStallVignette({
       pointerEvents="none"
       style={[styles.vignette, onPress ? undefined : style]}
     >
-      {/* width/height 100% are LOAD-BEARING, not redundant with absoluteFill.
-          With only the four insets, iOS gives the Image its INTRINSIC size
-          (1024x572pt) anchored top-left; overflow:hidden then crops the band
-          to the art's top-left corner and resizeMode="cover" scales nothing,
-          because the frame already equals the intrinsic size. Expo web is
-          unaffected (RN-web maps the insets straight to CSS), so this only
-          ever shows up on device. Mirrors web's `absolute inset-0 h-full
-          w-full object-cover`, and matches the chachaji/steam layers below. */}
-      <Image
-        source={STALL_ASSETS.scene}
-        testID="chai-stall-scene"
-        resizeMode="cover"
-        style={[StyleSheet.absoluteFill, styles.fillImage]}
-      />
-      {/* Decorative layer, under the scrim like the rest of the art: he is
-          the man at the stall, not a control. Not pressable, and the whole
-          scene is already out of the a11y tree, so no node is added. */}
-      {/* A View carries the placement and the pointerEvents rule (Image takes
-          no pointerEvents prop) — the scene above is already unpressable, and
-          this states the same rule on the layer itself. */}
       <View
-        testID="chai-stall-chachaji"
+        testID="chai-stall-scene-layer"
         pointerEvents="none"
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          setBox((prev) =>
+            prev.width === width && prev.height === height
+              ? prev
+              : { width, height },
+          );
+        }}
         style={{
           position: 'absolute',
-          left: box.width * CHACHAJI.left,
-          bottom: box.height * CHACHAJI.bottom,
-          width: chachajiWidth,
-          height: chachajiWidth / CHACHAJI_ASPECT,
+          left: 0,
+          right: 0,
+          top: 0,
+          aspectRatio: SCENE_ASPECT,
         }}
       >
+        {/* width/height 100% are LOAD-BEARING, not redundant with absoluteFill.
+            With only the four insets, iOS gives the Image its INTRINSIC size
+            (1024x572pt) anchored top-left; overflow:hidden then crops the band
+            to the art's top-left corner and resizeMode="cover" scales nothing,
+            because the frame already equals the intrinsic size. Expo web is
+            unaffected (RN-web maps the insets straight to CSS), so this only
+            ever shows up on device. Mirrors web's `absolute inset-0 h-full
+            w-full object-cover`, and matches the chachaji/steam layers below. */}
         <Image
-          source={STALL_ASSETS.chachaji}
-          testID="chai-stall-chachaji-image"
-          resizeMode="contain"
-          style={styles.fillImage}
+          source={STALL_ASSETS.scene}
+          testID="chai-stall-scene"
+          resizeMode="cover"
+          style={[StyleSheet.absoluteFill, styles.fillImage]}
         />
-      </View>
-      <Animated.View
-        testID="chai-stall-steam"
-        style={[
-          {
+        {/* Decorative layer, under the scrim like the rest of the art: he is
+            the man at the stall, not a control. Not pressable, and the whole
+            scene is already out of the a11y tree, so no node is added. */}
+        {/* A View carries the placement and the pointerEvents rule (Image takes
+            no pointerEvents prop) — the scene above is already unpressable, and
+            this states the same rule on the layer itself. */}
+        <View
+          testID="chai-stall-chachaji"
+          pointerEvents="none"
+          style={{
             position: 'absolute',
-            left: box.width * KETTLE.left,
-            bottom: box.height * KETTLE.bottom,
-            width: steamWidth,
-            height: steamWidth / STEAM_ASPECT,
-            opacity: loop.restOpacity,
-          },
-          steamStyle,
-        ]}
-      >
-        <Image
-          source={STALL_ASSETS.steam}
-          resizeMode="contain"
-          style={styles.steamImage}
-        />
-      </Animated.View>
+            left: box.width * CHACHAJI.left,
+            bottom: box.height * CHACHAJI.bottom,
+            width: chachajiWidth,
+            height: chachajiWidth / CHACHAJI_ASPECT,
+          }}
+        >
+          <Image
+            source={STALL_ASSETS.chachaji}
+            testID="chai-stall-chachaji-image"
+            resizeMode="contain"
+            style={styles.fillImage}
+          />
+        </View>
+        <Animated.View
+          testID="chai-stall-steam"
+          style={[
+            {
+              position: 'absolute',
+              left: box.width * KETTLE.left,
+              bottom: box.height * KETTLE.bottom,
+              width: steamWidth,
+              height: steamWidth / STEAM_ASPECT,
+              opacity: loop.restOpacity,
+            },
+            steamStyle,
+          ]}
+        >
+          <Image
+            source={STALL_ASSETS.steam}
+            resizeMode="contain"
+            style={styles.steamImage}
+          />
+        </Animated.View>
+      </View>
       {/* Legibility scrim: full width, so the row stays readable over the
           bright sky end of the art as well as the dark awning end. It stops
           below the plume (which starts at 46%), so the steam is untouched. */}
       <LinearGradient
         testID="chai-stall-scrim"
         pointerEvents="none"
-        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.40)', 'rgba(0,0,0,0.75)']}
+        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.80)']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
         style={styles.scrim}
       />
       {/* Quiet on purpose: white on the scrim, no accent fill, so it does not
           compete with the orange boarding pass directly above. */}
-      <View pointerEvents="none" style={styles.overlayRow}>
-        <Text testID="chai-stall-title" numberOfLines={1} style={styles.title}>
+      <View pointerEvents="none" style={styles.overlayColumn}>
+        <Text testID="chai-stall-title" style={styles.title}>
           {STALL_TITLE}
         </Text>
-        <View style={styles.balanceGroup}>
-          <ChaiGlyph size={16} />
+        <View style={styles.balanceChip}>
+          <ChaiGlyph size={24} />
           <Text testID="chai-stall-balance" style={styles.balanceValue}>
             {balance === undefined ? '-' : String(balance)}
           </Text>
@@ -343,7 +361,7 @@ const styles = StyleSheet.create({
     // Full-width band at the scene's own aspect: Yoga derives the height from
     // the measured width, which is what keeps the KETTLE fractions true.
     width: '100%',
-    aspectRatio: SCENE_ASPECT,
+    aspectRatio: VISIBLE_ASPECT,
     borderRadius: 14,
     overflow: 'hidden',
   },
@@ -357,47 +375,49 @@ const styles = StyleSheet.create({
   },
   scrim: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    top: 0,
     bottom: 0,
-    height: '40%',
+    right: 0,
+    width: '50%',
   },
-  overlayRow: {
+  overlayColumn: {
     position: 'absolute',
-    left: 12,
+    top: 12,
     right: 12,
-    bottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    width: '42%',
+    alignItems: 'flex-end',
+    gap: 10,
   },
   title: {
-    flexShrink: 1,
     color: '#FFFFFF',
     fontFamily: AppFonts.extrabold,
-    fontSize: 13,
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    fontSize: 18,
+    lineHeight: 22,
+    textAlign: 'right',
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  balanceGroup: {
+  balanceChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    backgroundColor: '#4F46E5',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.30)',
   },
   balanceValue: {
     color: '#FFFFFF',
     fontFamily: AppFonts.extrabold,
-    fontSize: 13,
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    fontSize: 18,
   },
   balanceUnit: {
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.9)',
     fontFamily: AppFonts.bold,
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
