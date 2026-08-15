@@ -215,8 +215,9 @@ describe("the wardrobe previews before it charges", () => {
   test("it opens on the learner's own Bolo and previews a costume on tap", () => {
     renderShop({ balance: 40, equipped: null, outfits: [NAVRATRI] });
 
-    // Undressed to begin with — the preview is his real look, not a sample.
-    expect(previewOutfit()).toBe("canonical");
+    // The booth only opens on an item: with nothing being tried on, the
+    // street is the rack, not a bird standing in an empty changing room.
+    expect(screen.queryByTestId("outfit-dressing-room")).toBeNull();
 
     fireEvent.click(screen.getByTestId("outfit-card-navratri"));
     expect(previewOutfit()).toBe("navratri");
@@ -230,9 +231,9 @@ describe("the wardrobe previews before it charges", () => {
     expect(mockState.buyCalls).toEqual([]);
     expect(mockState.equipCalls).toEqual([]);
 
-    // Backing out returns him to what he actually wears.
+    // Backing out closes the booth again.
     fireEvent.click(screen.getByTestId("outfit-cancel-preview"));
-    expect(previewOutfit()).toBe("canonical");
+    expect(screen.queryByTestId("outfit-dressing-room")).toBeNull();
   });
 
   test("buying sends the outfit id and shows the server's price", () => {
@@ -277,10 +278,14 @@ describe("the wardrobe previews before it charges", () => {
       outfits: [{ ...NAVRATRI, owned: true }],
     });
 
-    // The shop opens showing him dressed, because that is how he looks.
+    // Tapping what he already wears opens the booth on it, and the booth
+    // offers to take that slot off.
+    fireEvent.click(screen.getByTestId("outfit-card-navratri"));
     expect(previewOutfit()).toBe("navratri");
     fireEvent.click(screen.getByTestId("outfit-unequip"));
-    expect(mockState.equipCalls).toEqual([{ data: { outfitId: null } }]);
+    expect(mockState.equipCalls).toEqual([
+      { data: { outfitId: null, slot: "garment" } },
+    ]);
   });
 });
 
@@ -302,6 +307,9 @@ describe("a hat and an outfit are worn together", () => {
       ],
     });
 
+    // The booth opens on whichever item is tapped, and it shows him as he
+    // actually is: both slots at once.
+    fireEvent.click(screen.getByTestId("outfit-card-navratri"));
     expect(previewOutfit()).toBe("navratri");
     expect(previewAccessory()).toBe("pagdi");
   });
@@ -359,10 +367,19 @@ describe("a hat and an outfit are worn together", () => {
       outfits: [NAVRATRI, { ...PAGDI, owned: true }],
     });
 
-    // Nothing in the garment slot, but a hat is on — the bare "take it all
-    // off" must still be reachable, and it clears both slots.
+    // The booth only exists while something is being tried on, so with
+    // nothing tapped there is no strip button on the page at all.
+    expect(screen.queryByTestId("outfit-dressing-room")).toBeNull();
+    expect(screen.queryByTestId("outfit-unequip")).toBeNull();
+
+    // Nothing in the garment slot, but a hat is on: tapping the hat opens the
+    // booth on it, and taking it off names the head slot so a garment worn
+    // alongside it would survive.
+    fireEvent.click(screen.getByTestId("outfit-card-pagdi"));
     fireEvent.click(screen.getByTestId("outfit-unequip"));
-    expect(mockState.equipCalls).toEqual([{ data: { outfitId: null } }]);
+    expect(mockState.equipCalls).toEqual([
+      { data: { outfitId: null, slot: "accessory" } },
+    ]);
   });
 });
 
@@ -396,9 +413,9 @@ describe("the rack shows stock as pictures, grouped by what it is", () => {
     const accessories = screen.getByTestId("outfit-section-accessory");
     expect(within(garments).getByTestId("outfit-card-navratri")).toBeTruthy();
     expect(within(accessories).getByTestId("outfit-card-pagdi")).toBeTruthy();
-    // The section a card is in is the only thing that moved — it still
-    // carries its own two doors.
-    expect(within(accessories).getByTestId("outfit-tryon-pagdi")).toBeTruthy();
+    // The row is the try-on now, so the only button it carries is the till.
+    expect(within(accessories).queryByTestId("outfit-tryon-pagdi")).toBeNull();
+    expect(within(accessories).getByTestId("outfit-buynow-pagdi")).toBeTruthy();
   });
 
   test("each card sells at its own price, not one flat shop price", () => {

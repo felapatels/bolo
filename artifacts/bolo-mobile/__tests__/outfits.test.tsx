@@ -243,7 +243,9 @@ describe('pose art resolves from the equipped outfit', () => {
 describe('the wardrobe previews before it charges', () => {
   test('it opens on the learner’s own Bolo and previews a costume on tap', () => {
     renderShop({ balance: 40, equipped: null, outfits: [NAVRATRI] });
-    expect(previewOutfit()).toBe('canonical');
+    // The booth only opens on an item: with nothing being tried on, the
+    // street is the rack, not a bird standing in an empty changing room.
+    expect(screen.queryByTestId('outfit-dressing-room')).toBeNull();
 
     fireEvent.press(screen.getByTestId('outfit-card-navratri'));
     expect(previewOutfit()).toBe('navratri');
@@ -260,7 +262,7 @@ describe('the wardrobe previews before it charges', () => {
     expect(mockState.equipCalls).toEqual([]);
 
     fireEvent.press(screen.getByTestId('outfit-cancel-preview'));
-    expect(previewOutfit()).toBe('canonical');
+    expect(screen.queryByTestId('outfit-dressing-room')).toBeNull();
   });
 
   test('buying sends the outfit id and shows the server’s price', () => {
@@ -304,6 +306,9 @@ describe('the wardrobe previews before it charges', () => {
       outfits: [{ ...NAVRATRI, owned: true }, { ...PAGDI, owned: true }],
     });
 
+    // The booth opens on whichever item is tapped, and it shows her as she
+    // actually is: both slots at once.
+    fireEvent.press(screen.getByTestId('outfit-card-navratri'));
     expect(previewOutfit()).toBe('navratri');
     expect(previewAccessory()).toBe('pagdi');
   });
@@ -357,9 +362,13 @@ describe('the wardrobe previews before it charges', () => {
       outfits: [{ ...NAVRATRI, owned: true }],
     });
 
-    // The shop opens showing him dressed, because that is how he looks.
+    // Tapping what she already wears opens the booth on it, and the booth
+    // offers to take that slot off.
+    fireEvent.press(screen.getByTestId('outfit-card-navratri'));
     expect(previewOutfit()).toBe('navratri');
     fireEvent.press(screen.getByTestId('outfit-unequip'));
-    expect(mockState.equipCalls).toEqual([{ data: { outfitId: null } }]);
+    expect(mockState.equipCalls).toEqual([
+      { data: { outfitId: null, slot: 'garment' } },
+    ]);
   });
 });

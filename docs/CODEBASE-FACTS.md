@@ -2719,3 +2719,37 @@ Web suite after the change: 88 files / 750 tests, all passing — `src/test/bott
 **Tests follow the rows.** Both wallet suites used to reach spend rows through the sheet, which no longer renders them, so those cases now mount the rows directly the way the bazaar does: web gained a `renderRows` helper, mobile a `SpendRows` harness (rendering the row's notice as plain text, so every 409 copy assertion is unchanged) and a `LanguageRow` harness (row plus overlay, wired as the page wires them). Each platform also gained one test pinning the strip itself, so a row cannot quietly reappear in the sheet. No copy, price or testid changed on anything that survived.
 
 **Debt:** web's new sticky header row is verified by construction and by tests, not by a real-browser probe, and the sticky trap in this codebase (an animated ancestor with `fill-mode: both` becoming a containing block) can only be caught in a browser, so the next QA pass over `/bazaar` should confirm the tin actually stays pinned while scrolling the rack.
+
+## 10bj. The tailor's rack became a stack of rows, and the dressing room only opens on a tap (August 15, 2026, web + mobile, client only)
+
+The bazaar's four stalls sold their goods two different ways: the ticket
+counter and the signal box listed rows, the tailor showed a grid of tiles. The
+rack is now rows on both platforms, shaped like a wallet row: a 56px thumbnail,
+a name/tagline column with a WEARING or OWNED meta line, and one button on the
+right. The row itself is the try-on, so the per-card Try On button is gone
+(`outfit-tryon-<id>` no longer exists on either platform). An unaffordable item
+shows a plain `outfit-short-<id>` label instead of a disabled buy button;
+`outfit-buynow-<id>`, `outfit-wear-<id>` and `outfit-takeoff-<id>` are unchanged.
+
+The dressing room (`outfit-dressing-room`, which holds the preview bird, the
+storefront panel and the action row) now renders only while something is being
+tried on. Two consequences worth knowing:
+
+- The bare "take it all off" branch of `outfit-unequip` (the one that posts
+  `{ outfitId: null }` with no slot) is unreachable, because the room only
+  mounts when a preview is set and every preview resolves to a shown outfit.
+  The slot-named branches are the live ones.
+- Tests can no longer read the preview on load. They must tap a rack row first.
+  Five web tests and three mobile tests were updated for this.
+
+The storefront panel is a card surface now, not a painted wall: web is
+`rounded-2xl border border-card-border bg-card`, mobile is `borderRadius: 16`
+with `backgroundColor: colors.card` applied inline next to the existing border
+colour. `INDIA.wall` is no longer used by either storefront.
+
+Mobile styles removed as dead: `card`, `cardActions`, `cardPrimaryBtn`,
+`tryOnBtn`, `tryOnText`. `buyNowBtn` lost `flex: 1` (it sat in a column before
+and sits in a row now) and gained horizontal padding. `rack` is now just
+`{ gap: 12 }`. The badge styles (`badge`, `priceBadge`, `badgeText`) are now
+unreferenced but were left in place; the price and ownership moved into the row
+text and button.

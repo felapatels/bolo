@@ -220,9 +220,10 @@ export default function OutfitsPage() {
           on a street of four stalls a pinned bird would hang over the ticket
           counter and the signal box, which read as different places. Its own
           markup is untouched. */}
+      {previewed ? (
       <div
         data-testid="outfit-dressing-room"
-        className="bg-background pb-3 pt-1"
+        className="pb-3 pt-1"
       >
       {/* The tailor's own floor. The awning, the toran and the painted
           "Bolo Bazaar" board used to stand here, announcing a shop the stall
@@ -232,8 +233,7 @@ export default function OutfitsPage() {
           instead of floating in the page. */}
       <div
         data-testid="outfit-storefront"
-        className="mt-3 overflow-hidden rounded-3xl border border-card-border shadow-sm"
-        style={{ background: INDIA.wall }}
+        className="mt-3 overflow-hidden rounded-2xl border border-card-border bg-card"
       >
         {/* Preview: the learner's own Bolo, standing at the counter in
             whatever is selected. */}
@@ -351,6 +351,7 @@ export default function OutfitsPage() {
         )}
       </div>
       </div>
+      ) : null}
 
       {/* The two facts the UI cannot show on its own: the pick is worn
           app-wide, and the slots combine. */}
@@ -415,7 +416,7 @@ export default function OutfitsPage() {
             <h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-muted-foreground">
               {section.label}
             </h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="space-y-3">
               {section.items.map((outfit) => (
                 <OutfitCard
                   key={outfit.id}

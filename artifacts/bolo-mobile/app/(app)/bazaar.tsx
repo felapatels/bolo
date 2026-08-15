@@ -286,6 +286,7 @@ export default function OutfitsScreen() {
             of four stalls a pinned bird would hang over the ticket counter and
             the signal box, which read as different places. Its own markup is
             untouched. */}
+        {previewed ? (
         <View testID="outfit-dressing-room" style={styles.dressingRoom}>
         {/* The tailor's own floor. The awning, the toran and the painted
             "Bolo Bazaar" board used to stand here, announcing a shop the stall
@@ -295,7 +296,10 @@ export default function OutfitsScreen() {
             instead of floating in the scroller. */}
         <View
           testID="outfit-storefront"
-          style={[styles.storefront, { borderColor: colors.border }]}
+          style={[
+            styles.storefront,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
         >
           <View style={styles.shopBody}>
             {/* Preview: the learner's own Bolo, at the counter in whatever is
@@ -432,6 +436,7 @@ export default function OutfitsScreen() {
         </View>
 
         </View>
+        ) : null}
 
         {/* The two facts the UI cannot show on its own: the pick is worn
             app-wide, and the slots combine. */}
@@ -527,128 +532,111 @@ export default function OutfitsScreen() {
                 const worn = isWorn(outfit.id, outfit.kind);
                 const short = outfit.cost - balance;
                 return (
+                  // A row, not a tile. The tailor's stock reads the same way
+                  // as the ticket counter's and the signal box's: picture,
+                  // name, one button. The row itself is the try-on.
                   <Pressable
                     key={outfit.id}
                     testID={`outfit-card-${outfit.id}`}
                     accessibilityRole="button"
                     onPress={() => tryOn(outfit.id)}
                     style={[
-                      styles.card,
+                      styles.rackRow,
                       {
                         backgroundColor: colors.card,
                         borderColor: isShown ? colors.primary : colors.border,
                       },
                     ]}
                   >
-                    <View>
+                    <View style={styles.rackThumb}>
                       <OutfitThumb
                         outfitId={outfit.id}
                         preview={outfit.preview}
-                        size={THUMB_SIZE}
+                        size={56}
                       />
-                      {/* Ownership reads off the picture itself, so the eye
-                          can skim the rack without reading every card. */}
-                      {outfit.owned ? (
-                        <View style={[styles.badge, { backgroundColor: INDIA.board }]}>
-                          <Text style={[styles.badgeText, { color: INDIA.cream }]}>
-                            {worn ? 'WEARING' : 'OWNED'}
-                          </Text>
-                        </View>
-                      ) : (
-                        <View style={[styles.badge, styles.priceBadge]}>
-                          <Text style={[styles.badgeText, { color: INDIA.board }]}>
-                            {outfit.cost}
-                          </Text>
-                          <ChaiGlyph size={11} />
-                        </View>
-                      )}
                     </View>
 
-                    <Text
-                      numberOfLines={1}
-                      style={[styles.cardTitle, { color: colors.foreground }]}
-                    >
-                      {outfit.name}
-                    </Text>
-                    <Text
-                      numberOfLines={2}
-                      style={[styles.cardDesc, { color: colors.mutedForeground }]}
-                    >
-                      {outfit.tagline}
-                    </Text>
+                    <View style={styles.rackInfo}>
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.cardTitle, { color: colors.foreground }]}
+                      >
+                        {outfit.name}
+                      </Text>
+                      <Text
+                        numberOfLines={2}
+                        style={[styles.cardDesc, { color: colors.mutedForeground }]}
+                      >
+                        {outfit.tagline}
+                      </Text>
+                      {outfit.owned ? (
+                        <Text style={[styles.rackMeta, { color: INDIA.board }]}>
+                          {worn ? 'WEARING' : 'OWNED'}
+                        </Text>
+                      ) : null}
+                    </View>
 
-                    <View style={styles.cardActions}>
+                    {outfit.owned ? (
                       <Pressable
-                        testID={`outfit-tryon-${outfit.id}`}
+                        testID={
+                          worn
+                            ? `outfit-takeoff-${outfit.id}`
+                            : `outfit-wear-${outfit.id}`
+                        }
                         accessibilityRole="button"
-                        onPress={() => tryOn(outfit.id)}
+                        disabled={busy}
+                        onPress={() =>
+                          equip.mutate({
+                            data: {
+                              outfitId: worn ? null : outfit.id,
+                              slot: (outfit.kind ?? 'garment') as
+                                | 'garment'
+                                | 'accessory',
+                            },
+                          })
+                        }
                         style={({ pressed }) => [
-                          styles.tryOnBtn,
-                          pressed && styles.btnDisabled,
+                          styles.rackBtn,
+                          { backgroundColor: colors.primary },
+                          (pressed || busy) && styles.btnDisabled,
                         ]}
                       >
-                        <Text style={styles.tryOnText}>
-                          {isShown ? 'On the bird' : 'Try On'}
+                        <Text
+                          style={[
+                            styles.cardBtnText,
+                            { color: colors.primaryForeground },
+                          ]}
+                        >
+                          {worn ? 'Take it off' : 'Dress Bolo'}
                         </Text>
                       </Pressable>
-
-                      {outfit.owned ? (
-                        <Pressable
-                          testID={
-                            worn
-                              ? `outfit-takeoff-${outfit.id}`
-                              : `outfit-wear-${outfit.id}`
-                          }
-                          accessibilityRole="button"
-                          disabled={busy}
-                          onPress={() =>
-                            equip.mutate({
-                              data: {
-                                outfitId: worn ? null : outfit.id,
-                                slot: (outfit.kind ?? 'garment') as
-                                  | 'garment'
-                                  | 'accessory',
-                              },
-                            })
-                          }
-                          style={({ pressed }) => [
-                            styles.cardPrimaryBtn,
-                            { backgroundColor: colors.primary },
-                            (pressed || busy) && styles.btnDisabled,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.cardBtnText,
-                              { color: colors.primaryForeground },
-                            ]}
-                          >
-                            {worn ? 'Take it off' : 'Dress Bolo'}
-                          </Text>
-                        </Pressable>
-                      ) : (
-                        <Pressable
-                          testID={`outfit-buynow-${outfit.id}`}
-                          accessibilityRole="button"
-                          disabled={busy || short > 0}
-                          onPress={() => {
-                            setPreviewed(outfit.id);
-                            buy.mutate({ data: { outfitId: outfit.id } });
-                          }}
-                          style={({ pressed }) => [
-                            styles.buyNowBtn,
-                            (pressed || busy || short > 0) && styles.btnDisabled,
-                          ]}
-                        >
-                          <Text
-                            style={[styles.cardBtnText, { color: INDIA.cream }]}
-                          >
-                            {short > 0 ? `${short} more` : `Buy · ${outfit.cost}`}
-                          </Text>
-                          <ChaiGlyph size={12} />
-                        </Pressable>
-                      )}
-                    </View>
+                    ) : short > 0 ? (
+                      <Text
+                        testID={`outfit-short-${outfit.id}`}
+                        style={[styles.rackShort, { color: colors.mutedForeground }]}
+                      >
+                        {short} more
+                      </Text>
+                    ) : (
+                      <Pressable
+                        testID={`outfit-buynow-${outfit.id}`}
+                        accessibilityRole="button"
+                        disabled={busy}
+                        onPress={() => {
+                          setPreviewed(outfit.id);
+                          buy.mutate({ data: { outfitId: outfit.id } });
+                        }}
+                        style={({ pressed }) => [
+                          styles.buyNowBtn,
+                          (pressed || busy) && styles.btnDisabled,
+                        ]}
+                      >
+                        <Text style={[styles.cardBtnText, { color: INDIA.cream }]}>
+                          Buy · {outfit.cost}
+                        </Text>
+                        <ChaiGlyph size={14} />
+                      </Pressable>
+                    )}
                   </Pressable>
                 );
               })}
@@ -742,9 +730,8 @@ const styles = StyleSheet.create({
   balanceValue: { fontFamily: AppFonts.extrabold, fontSize: 15 },
   storefront: {
     borderWidth: 1,
-    borderRadius: 24,
+    borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: INDIA.wall,
   },
   shopBody: { paddingHorizontal: 16, paddingTop: 14 },
   shopLine: {
@@ -820,12 +807,36 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     marginBottom: 8,
   },
-  rack: { flexDirection: 'row', flexWrap: 'wrap', gap: COLUMN_GAP },
-  card: {
-    width: CARD_WIDTH,
+  rack: { gap: 12 },
+  // The rack row: the same shape as a wallet row (StationPauseRow in
+  // components/ChaiWallet.tsx), so the tailor's goods read like every other
+  // stall's on the street.
+  rackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     borderWidth: 1,
-    borderRadius: 18,
-    padding: CARD_PADDING,
+    borderRadius: 16,
+    padding: 14,
+  },
+  rackThumb: { width: 56, flexShrink: 0 },
+  rackInfo: { flex: 1, minWidth: 0, gap: 2 },
+  rackMeta: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    marginTop: 2,
+  },
+  rackBtn: {
+    flexShrink: 0,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  rackShort: {
+    fontFamily: AppFonts.bold,
+    fontSize: 12,
+    flexShrink: 0,
   },
   thumb: {
     width: '100%',
@@ -850,31 +861,15 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 0.8,
   },
-  cardActions: { gap: 6, marginTop: 10 },
-  tryOnBtn: {
-    flex: 1,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: INDIA.gold,
-    backgroundColor: INDIA.cloth,
-    borderRadius: 12,
-    paddingVertical: 10,
-  },
-  tryOnText: { fontFamily: AppFonts.extrabold, fontSize: 13, color: INDIA.board },
-  cardPrimaryBtn: {
-    flex: 1,
-    alignItems: 'center',
-    borderRadius: 12,
-    paddingVertical: 10,
-  },
   buyNowBtn: {
-    flex: 1,
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     borderRadius: 12,
-    paddingVertical: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
     backgroundColor: INDIA.board,
     borderBottomWidth: 3,
     borderBottomColor: INDIA.boardDeep,

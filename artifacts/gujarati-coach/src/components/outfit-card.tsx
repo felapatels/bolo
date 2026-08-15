@@ -121,102 +121,80 @@ export function OutfitCard({
 }) {
   const short = outfit.cost - balance;
   return (
+    // A row, not a tile. The bazaar is a street of stalls whose goods are
+    // listed underneath them, and the tailor's stock reads the same way as
+    // the ticket counter's and the signal box's: picture, name, one button.
+    // The row itself is the try-on, so the separate Try On button is gone.
     <div
       data-testid={`outfit-card-${outfit.id}`}
       onClick={() => onTryOn(outfit.id)}
       className={cn(
-        "flex flex-col rounded-2xl border bg-card p-2.5 text-left transition-colors",
-        isShown ? "border-primary" : "border-card-border hover:border-primary/40",
+        "flex cursor-pointer items-center gap-3 rounded-2xl border bg-card p-4 transition-colors",
+        isShown
+          ? "border-primary"
+          : "border-card-border hover:border-primary/40",
       )}
     >
-      <div className="relative">
+      <div className="h-14 w-14 shrink-0">
         <OutfitThumb outfitId={outfit.id} preview={outfit.preview} />
-        {/* Ownership reads off the picture itself, so the eye can skim the
-            rack without reading every card. */}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-black text-foreground">{outfit.name}</p>
+        <p className="text-xs leading-snug text-muted-foreground">
+          {outfit.tagline}
+        </p>
         {outfit.owned ? (
-          <span
-            className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider"
-            style={{ background: INDIA.board, color: INDIA.cream }}
+          <p
+            className="mt-1 inline-flex items-center gap-1 text-xs font-black uppercase tracking-wider"
+            style={{ color: INDIA.board }}
           >
             <Check className="h-3 w-3" />
             {isWorn ? "Wearing" : "Owned"}
-          </span>
-        ) : (
-          <span
-            className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-black"
-            style={{
-              background: INDIA.cream,
-              color: INDIA.board,
-              boxShadow: `inset 0 0 0 1.5px ${INDIA.gold}`,
-            }}
-          >
-            {outfit.cost}
-            <ChaiGlyph className="h-3 w-3" />
-          </span>
-        )}
+          </p>
+        ) : null}
       </div>
-
-      <p className="mt-2 truncate text-sm font-black text-foreground">
-        {outfit.name}
-      </p>
-      <p className="mt-0.5 line-clamp-2 min-h-8 text-[11px] leading-snug text-muted-foreground">
-        {outfit.tagline}
-      </p>
-
-      <div className="mt-2 flex flex-col gap-1.5">
+      {outfit.owned ? (
         <button
           type="button"
-          data-testid={`outfit-tryon-${outfit.id}`}
+          disabled={busy}
+          data-testid={
+            isWorn ? `outfit-takeoff-${outfit.id}` : `outfit-wear-${outfit.id}`
+          }
           onClick={(e) => {
             e.stopPropagation();
-            onTryOn(outfit.id);
+            onEquip(isWorn ? null : outfit.id, outfit.kind ?? "garment");
           }}
-          className="rounded-lg border-2 px-2 py-1.5 text-xs font-black transition-all active:translate-y-0.5"
+          className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-black text-primary-foreground shadow-[0_4px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
+        >
+          {isWorn ? "Take it off" : "Dress Bolo"}
+        </button>
+      ) : short > 0 ? (
+        <span
+          data-testid={`outfit-short-${outfit.id}`}
+          className="shrink-0 text-xs font-bold text-muted-foreground"
+        >
+          {short} more
+        </span>
+      ) : (
+        <button
+          type="button"
+          disabled={busy}
+          data-testid={`outfit-buynow-${outfit.id}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onBuy(outfit.id);
+          }}
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-black transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
           style={{
-            borderColor: INDIA.gold,
-            background: INDIA.cloth,
-            color: INDIA.board,
+            backgroundImage: `linear-gradient(180deg, #1E7357 0%, ${INDIA.board} 58%, #103F31 100%)`,
+            color: INDIA.cream,
+            boxShadow: `0 4px 0 ${INDIA.boardDeep}, inset 0 1px 0 rgba(255,247,234,0.35)`,
           }}
         >
-          {isShown ? "On the bird" : "Try On"}
+          <span>Buy · {outfit.cost}</span>
+          <ChaiGlyph className="h-4 w-4" />
         </button>
-
-        {outfit.owned ? (
-          <button
-            type="button"
-            disabled={busy}
-            data-testid={
-              isWorn ? `outfit-takeoff-${outfit.id}` : `outfit-wear-${outfit.id}`
-            }
-            onClick={(e) => {
-              e.stopPropagation();
-              onEquip(isWorn ? null : outfit.id, outfit.kind ?? "garment");
-            }}
-            className="rounded-lg bg-primary px-2 py-1.5 text-xs font-black text-primary-foreground shadow-[0_3px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-0.5 active:shadow-none disabled:opacity-50"
-          >
-            {isWorn ? "Take it off" : "Dress Bolo"}
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={busy || short > 0}
-            data-testid={`outfit-buynow-${outfit.id}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onBuy(outfit.id);
-            }}
-            className="inline-flex items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-black transition-all active:translate-y-0.5 active:shadow-none disabled:opacity-60"
-            style={{
-              backgroundImage: `linear-gradient(180deg, #1E7357 0%, ${INDIA.board} 58%, #103F31 100%)`,
-              color: INDIA.cream,
-              boxShadow: `0 3px 0 ${INDIA.boardDeep}, inset 0 1px 0 rgba(255,247,234,0.35)`,
-            }}
-          >
-            <span>{short > 0 ? `${short} more` : `Buy · ${outfit.cost}`}</span>
-            <ChaiGlyph className="h-3 w-3" />
-          </button>
-        )}
-      </div>
+      )}
     </div>
   );
 }
