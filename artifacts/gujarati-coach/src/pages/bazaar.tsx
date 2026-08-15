@@ -20,6 +20,7 @@ import {
   StationPauseRow,
   StreakRepairRow,
 } from "@/components/chai-wallet";
+import { BazaarWelcome } from "@/components/bazaar-welcome";
 import { DressingRoom } from "@/components/dressing-room";
 import { OutfitCard, groupOutfits } from "@/components/outfit-card";
 import { mascotAssetSrc } from "@/lib/mascot-outfits";
@@ -185,6 +186,7 @@ export default function OutfitsPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-6 lg:pb-12" data-testid="outfit-shop">
+      <BazaarWelcome />
       {/* Back and the tin, pinned to the top of the scroller. The balance used
           to sit on the painted signboard, which is gone; a learner scrolling
           four stalls has to be able to see what they can afford at every one

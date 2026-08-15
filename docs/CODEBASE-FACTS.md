@@ -2753,3 +2753,26 @@ and sits in a row now) and gained horizontal padding. `rack` is now just
 `{ gap: 12 }`. The badge styles (`badge`, `priceBadge`, `badgeText`) are now
 unreferenced but were left in place; the price and ownership moved into the row
 text and button.
+
+## 10bk. Chacha-ji greets the bazaar once a day (August 15, 2026, web only)
+
+`src/components/bazaar-welcome.tsx` mounts as the first child of the bazaar
+page and plays a full-screen welcome film over it. Three rules are baked in:
+
+- Once per calendar day, not per session. The stamp is `localStorage` key
+  `bolo-bazaar-welcome-day` holding a local `Y-M-D` string, read once into lazy
+  state at mount so a remount inside the same visit cannot replay it. The
+  read fails CLOSED (a thrown `localStorage` returns "seen"), unlike the
+  express offer's session flag which fails open.
+- Interruptible: click, Enter, Space or Escape ends it, and `onError` ends it
+  too, so a missing or unplayable file lands the learner in the bazaar rather
+  than on a black rectangle.
+- Reduced motion swaps the `<video>` for the poster image on a 1800ms timer.
+  The global `prefers-reduced-motion` rule in index.css only reaches CSS
+  animation and transition, so the video gates itself with the imperative
+  helper `prefersReducedMotion()` from `lib/motionPrefs.ts`.
+
+Sources are `${import.meta.env.BASE_URL}bazaar/welcome.mp4` and
+`${import.meta.env.BASE_URL}bazaar/keyart.png` (the poster is the key art, so
+there is no second still to keep in step). This is the first and only
+`<video>` element in gujarati-coach. Mobile has no equivalent.

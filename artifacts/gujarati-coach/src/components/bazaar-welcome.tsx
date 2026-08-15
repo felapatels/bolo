@@ -1,0 +1,111 @@
+import { useEffect, useState } from "react";
+import { prefersReducedMotion } from "@/lib/motionPrefs";
+
+// Chacha-ji's welcome to the bazaar.
+//
+// ONCE A DAY, not once a session and not every visit: the bazaar is a shop a
+// learner opens repeatedly to buy things, and a greeting that plays on every
+// entry stops being a greeting. The stamp is the calendar day, so the second
+// visit today is silent and tomorrow's first is not.
+//
+// INTERRUPTIBLE. Tapping anywhere ends it. A welcome that cannot be skipped
+// is an obstacle.
+//
+// REDUCED MOTION shows the still instead of the film. The global CSS rule in
+// index.css only reaches CSS animation and transition, so a <video> has to
+// gate itself; prefersReducedMotion() is the house helper for a one-shot
+// like this (lib/motionPrefs.ts).
+//
+// The poster IS the key art, so there is no separate still to keep in step
+// and nothing to extract from the film.
+
+const WELCOME_KEY = "bolo-bazaar-welcome-day";
+const VIDEO_SRC = `${import.meta.env.BASE_URL}bazaar/welcome.mp4`;
+const POSTER_SRC = `${import.meta.env.BASE_URL}bazaar/keyart.png`;
+
+/** Local calendar day, so the stamp rolls over at the learner's midnight. */
+function today(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+function seenToday(): boolean {
+  try {
+    return localStorage.getItem(WELCOME_KEY) === today();
+  } catch {
+    // Fail open the safe way: a lost stamp means it plays, never that it
+    // blocks. Same shape as the express offer's session flag.
+    return true;
+  }
+}
+
+function markSeen(): void {
+  try {
+    localStorage.setItem(WELCOME_KEY, today());
+  } catch {
+    // A greeting is a nicety; losing the stamp just means it greets again.
+  }
+}
+
+export function BazaarWelcome() {
+  // Read once at mount, so a remount inside the same visit does not replay.
+  const [open, setOpen] = useState(() => !seenToday());
+  const [reduced] = useState(prefersReducedMotion);
+
+  useEffect(() => {
+    if (open) markSeen();
+  }, [open]);
+
+  // The still is a greeting, not a film: it holds for a beat and goes.
+  useEffect(() => {
+    if (!open || !reduced) return;
+    const t = window.setTimeout(() => setOpen(false), 1800);
+    return () => window.clearTimeout(t);
+  }, [open, reduced]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      data-testid="bazaar-welcome"
+      role="button"
+      tabIndex={0}
+      aria-label="Skip the welcome"
+      onClick={() => setOpen(false)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+          setOpen(false);
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black"
+    >
+      {reduced ? (
+        <img
+          src={POSTER_SRC}
+          alt=""
+          data-testid="bazaar-welcome-still"
+          className="max-h-full max-w-full object-contain"
+        />
+      ) : (
+        <video
+          src={VIDEO_SRC}
+          poster={POSTER_SRC}
+          data-testid="bazaar-welcome-video"
+          autoPlay
+          muted
+          playsInline
+          preload="auto"
+          onEnded={() => setOpen(false)}
+          // The film is the nicety, not the gate: if it will not play, the
+          // learner lands in the bazaar rather than staring at a black
+          // rectangle.
+          onError={() => setOpen(false)}
+          className="max-h-full max-w-full object-contain"
+        />
+      )}
+      <span className="pointer-events-none absolute bottom-8 text-xs font-bold uppercase tracking-widest text-white/70">
+        Tap to skip
+      </span>
+    </div>
+  );
+}
