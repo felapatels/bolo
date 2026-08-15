@@ -19,6 +19,12 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 const mockState: Record<string, any> = {};
 
+// The sheet header reads the top inset directly (Screen.tsx's rule), so the
+// tests supply one the way the journey and tab-bar tests do: a notched phone.
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+}));
+
 jest.mock('@workspace/api-client-react', () => {
   class ApiError extends Error {
     status: number;

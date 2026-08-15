@@ -454,13 +454,13 @@ export function ChaiWalletSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="mx-auto max-w-md overflow-hidden rounded-t-3xl p-0 [&>button]:z-10 [&>button]:text-white [&>button]:opacity-90"
+        className="mx-auto flex max-h-[80vh] max-w-md flex-col overflow-hidden rounded-t-3xl p-0 [&>button]:z-10 [&>button]:text-white [&>button]:opacity-90"
         data-testid="chai-wallet-sheet"
       >
         {/* The wallet opens ON the stall: the painted scene as the header,
             with the balance struck across the bottom of it. The scrim is what
             keeps white lettering legible over a warm sunset. */}
-        <div className="relative" data-testid="wallet-header">
+        <div className="relative shrink-0" data-testid="wallet-header">
           <img
             src={HEADER_SRC}
             alt=""
@@ -491,7 +491,9 @@ export function ChaiWalletSheet({
           </div>
         </div>
 
-        <div className="space-y-3 p-5">
+        {/* Only the rows scroll; the painted header above stays put, which is
+            what keeps the balance readable when the row stack is long. */}
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
           <StreakRepairRow />
 
           {/* Dark until CHAI_PACKS_LIVE is flipped; renders nothing at all

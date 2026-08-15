@@ -6,7 +6,17 @@
 // rejections surface through the house transient-notice pattern
 // (MilestoneToast) with the exact web 409 copy.
 import React from 'react';
-import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChaiGlyph } from '@/components/ChaiStall';
 import { useQueryClient } from '@tanstack/react-query';
@@ -59,6 +69,11 @@ function RowWash({ color }: { color: string }) {
 // balance struck across it. (The home band still composites the layered art;
 // this is a single flattened still, used only as a header.)
 const HEADER_IMAGE = require('../assets/images/stall/wallet-header.jpg') as number;
+
+// The painted band's own height, before any safe-area padding. The art and its
+// scrim fill the whole header box, so on a notched phone the picture runs up
+// under the status bar and only the lettering moves down.
+const HEADER_ART_HEIGHT = 132;
 
 // Mirrors artifacts/api-server/src/lib/tokenEconomy.ts (server is
 // authoritative; these only size copy client-side).
@@ -440,6 +455,10 @@ export function ChaiWalletSheet({
 }) {
   const colors = useColors();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  // Screen.tsx's rule: real inset on device, the scaffold's fixed 67 on web,
+  // where the proxied preview reports 0.
+  const headerPadTop = Platform.OS === 'web' ? 67 : insets.top;
   const tokensQuery = useGetTokens();
   const [notice, setNotice] = React.useState('');
   const [noticeKey, setNoticeKey] = React.useState(0);
@@ -465,6 +484,7 @@ export function ChaiWalletSheet({
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      statusBarTranslucent
     >
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable
@@ -478,7 +498,10 @@ export function ChaiWalletSheet({
           {/* The wallet opens ON the stall: the painted scene as the header,
               with the balance struck across the bottom of it. The scrim is
               what keeps white lettering legible over a warm sunset. */}
-          <View style={styles.header} testID="wallet-header">
+          <View
+            style={[styles.header, { height: HEADER_ART_HEIGHT + headerPadTop }]}
+            testID="wallet-header"
+          >
             <Image
               source={HEADER_IMAGE}
               style={styles.headerImage}
@@ -496,7 +519,9 @@ export function ChaiWalletSheet({
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             />
-            <Text style={styles.titleOnArt}>Chai Wallet</Text>
+            <Text style={[styles.titleOnArt, { top: 14 + headerPadTop }]}>
+              Chai Wallet
+            </Text>
             <View testID="wallet-balance-band" style={styles.balanceRow}>
               <ChaiGlyph size={40} testID="wallet-balance-glyph" />
               <Text style={styles.balanceValue} testID="wallet-balance">
@@ -506,7 +531,7 @@ export function ChaiWalletSheet({
             </View>
           </View>
 
-          <View style={styles.body}>
+          <ScrollView style={styles.bodyScroll} contentContainerStyle={styles.body}>
             <MilestoneToast message={notice} toastKey={noticeKey} />
 
             <StreakRepairRow
@@ -683,7 +708,7 @@ export function ChaiWalletSheet({
                 catalog, the StoreKit purchase, the webhook credit and the
                 launch recovery underneath it all stay live and tested. */}
             <ChaiPackShop />
-          </View>
+          </ScrollView>
         </Pressable>
 
         {/* The language explainer. An overlay INSIDE this modal rather than a
@@ -741,6 +766,14 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderWidth: 1,
     overflow: 'hidden',
+    // Same bound the other tall sheets use (GameMissReview), so a long row
+    // stack can never push the header off the top of the screen.
+    maxHeight: '80%',
+  },
+  // The scroller inside that bound. flexShrink lets it give way to the fixed
+  // header instead of overflowing the sheet.
+  bodyScroll: {
+    flexShrink: 1,
   },
   body: {
     padding: 20,
@@ -748,7 +781,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   header: {
-    height: 132,
+    height: HEADER_ART_HEIGHT,
     justifyContent: 'flex-end',
   },
   headerImage: {
