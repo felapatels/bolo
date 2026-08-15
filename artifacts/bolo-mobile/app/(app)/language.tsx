@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -153,14 +153,7 @@ function LanguageTile({
         testID={`lang-rail-${language.code}`}
         style={[styles.rail, { backgroundColor: accent }]}
       />
-      {locked ? (
-        <MaterialCommunityIcons
-          name="crown"
-          size={18}
-          color={colors.gold}
-          style={styles.corner}
-        />
-      ) : active ? (
+      {active ? (
         <Feather
           name="check-circle"
           size={18}
@@ -181,6 +174,12 @@ function LanguageTile({
       <Text style={[styles.name, { color: colors.foreground }]}>
         {language.name}
       </Text>
+      {locked ? (
+        <View testID={`picker-locked-${language.code}`} style={styles.allAccess}>
+          <Feather name="star" size={8} color="#4A2C00" />
+          <Text style={styles.allAccessText}>All-Access</Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -238,4 +237,28 @@ const styles = StyleSheet.create({
   nativeTall: { lineHeight: 52 },
   tileTall: { minHeight: 128 },
   name: { fontFamily: AppFonts.bold, fontSize: 14, marginTop: 6 },
+  // The All-Access badge, borrowed from the games hub at a smaller size.
+  // It renders only when the language is locked TO THIS LEARNER: 21 of 22
+  // languages are All-Access, so labelling the content the way the games
+  // hub does would gild almost every card for a subscriber.
+  allAccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 3,
+    marginTop: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: '#F5B31B',
+  },
+  allAccessText: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 9,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: '#4A2C00',
+  },
 });

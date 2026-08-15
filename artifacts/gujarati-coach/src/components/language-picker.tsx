@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
-import { Check, ChevronDown, Crown, Globe } from "lucide-react";
+import { Check, ChevronDown, Globe, Star } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,32 @@ type LanguagePickerProps = {
   /** Optional custom trigger element. Falls back to the default Globe button. */
   trigger?: ReactNode;
 };
+
+/**
+ * The All-Access badge, borrowed from the games hub (pages/games/index.tsx)
+ * at a smaller size. There is no shared token behind this gold: the games
+ * hub types the same literals inline, so this copies them rather than
+ * inventing a third value.
+ *
+ * ONE DELIBERATE DIFFERENCE from the games rule. There, gold labels the
+ * CONTENT and shows on a gated card even to a subscriber, which reads fine
+ * on a mixed catalog. Here 21 of 22 languages are All-Access, so that rule
+ * would paint gold on almost every card for someone who already owns them
+ * all. On this surface the badge means "locked to YOU", so it renders only
+ * when the language is actually locked.
+ */
+function AllAccessBadge({ testId }: { testId: string }) {
+  return (
+    <span
+      data-testid={testId}
+      aria-label="Needs All-Access"
+      className="mt-1.5 inline-flex w-fit items-center gap-0.5 whitespace-nowrap rounded-full bg-gradient-to-b from-[#FFD65A] to-[#F0A202] px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-[#4A2C00] shadow-[0_1px_0_rgba(0,0,0,0.28)] ring-1 ring-white/70"
+    >
+      <Star className="h-2 w-2 fill-[#4A2C00]" />
+      All-Access
+    </span>
+  );
+}
 
 export function LanguagePicker({ open: openProp, onOpenChange, trigger }: LanguagePickerProps = {}) {
   const { languages, activeLang, activeLanguage, setActiveLang } = useLanguage();
@@ -105,13 +131,6 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                     full-width badge, so names always render in full. */}
                 {selected ? (
                   <Check className="absolute right-2.5 top-2.5 h-4 w-4 text-primary" />
-                ) : locked ? (
-                  <Crown
-                    className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-secondary"
-                    fill="currentColor"
-                    aria-label="Needs All-Access"
-                    data-testid={`picker-locked-${lang.code}`}
-                  />
                 ) : null}
                 <span
                   className={cn(
@@ -132,6 +151,7 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                 <span className="mt-0.5 block w-full text-xs font-medium text-muted-foreground">
                   {lang.name}
                 </span>
+                {locked ? <AllAccessBadge testId={`picker-locked-${lang.code}`} /> : null}
               </button>
             );
           })}

@@ -218,8 +218,8 @@ describe('LanguageRow Nastaliq rendering — light theme', () => {
   test('locked tile (Tamil) is labelled locked with a journey preview hint', () => {
     const { getByText, getByLabelText } = renderModal();
     expect(getByText('தமிழ்')).toBeTruthy();
-    // The locked tile carries the crown glyph; its accessibility label is the
-    // stable contract for "this language needs All-Access".
+    // The locked tile carries the All-Access badge; its accessibility label is
+    // the stable contract for "this language needs All-Access".
     expect(getByLabelText('Tamil — locked, preview its journey')).toBeTruthy();
   });
 });

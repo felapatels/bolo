@@ -220,6 +220,7 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                   "justifyContent": "flex-end",
                   "marginBottom": 12,
                   "minHeight": 104,
+                  "overflow": "hidden",
                   "padding": 16,
                   "paddingRight": 30,
                   "paddingTop": 18,
@@ -236,8 +237,6 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
               style={
                 [
                   {
-                    "borderBottomLeftRadius": 20.5,
-                    "borderTopLeftRadius": 20.5,
                     "bottom": 0,
                     "left": 0,
                     "position": "absolute",
@@ -341,6 +340,7 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                   "justifyContent": "flex-end",
                   "marginBottom": 12,
                   "minHeight": 104,
+                  "overflow": "hidden",
                   "padding": 16,
                   "paddingRight": 30,
                   "paddingTop": 18,
@@ -359,8 +359,6 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
               style={
                 [
                   {
-                    "borderBottomLeftRadius": 20.5,
-                    "borderTopLeftRadius": 20.5,
                     "bottom": 0,
                     "left": 0,
                     "position": "absolute",
@@ -473,6 +471,7 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                   "justifyContent": "flex-end",
                   "marginBottom": 12,
                   "minHeight": 104,
+                  "overflow": "hidden",
                   "padding": 16,
                   "paddingRight": 30,
                   "paddingTop": 18,
@@ -489,8 +488,6 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
               style={
                 [
                   {
-                    "borderBottomLeftRadius": 20.5,
-                    "borderTopLeftRadius": 20.5,
                     "bottom": 0,
                     "left": 0,
                     "position": "absolute",
@@ -503,17 +500,6 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                 ]
               }
               testID="lang-rail-ta"
-            />
-            <View
-              name="crown"
-              size={18}
-              style={
-                {
-                  "position": "absolute",
-                  "right": 12,
-                  "top": 12,
-                }
-              }
             />
             <Text
               style={
@@ -551,6 +537,43 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
             >
               Tamil
             </Text>
+            <View
+              style={
+                {
+                  "alignItems": "center",
+                  "alignSelf": "flex-start",
+                  "backgroundColor": "#F5B31B",
+                  "borderColor": "rgba(255,255,255,0.72)",
+                  "borderRadius": 100,
+                  "borderWidth": 1,
+                  "flexDirection": "row",
+                  "gap": 3,
+                  "marginTop": 6,
+                  "paddingHorizontal": 6,
+                  "paddingVertical": 2,
+                }
+              }
+              testID="picker-locked-ta"
+            >
+              <View
+                color="#4A2C00"
+                name="star"
+                size={8}
+              />
+              <Text
+                style={
+                  {
+                    "color": "#4A2C00",
+                    "fontFamily": "Inter_800ExtraBold",
+                    "fontSize": 9,
+                    "letterSpacing": 0.4,
+                    "textTransform": "uppercase",
+                  }
+                }
+              >
+                All-Access
+              </Text>
+            </View>
           </View>
         </View>
       </View>
@@ -779,6 +802,7 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                   "justifyContent": "flex-end",
                   "marginBottom": 12,
                   "minHeight": 104,
+                  "overflow": "hidden",
                   "padding": 16,
                   "paddingRight": 30,
                   "paddingTop": 18,
@@ -795,8 +819,6 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
               style={
                 [
                   {
-                    "borderBottomLeftRadius": 20.5,
-                    "borderTopLeftRadius": 20.5,
                     "bottom": 0,
                     "left": 0,
                     "position": "absolute",
@@ -900,6 +922,7 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                   "justifyContent": "flex-end",
                   "marginBottom": 12,
                   "minHeight": 104,
+                  "overflow": "hidden",
                   "padding": 16,
                   "paddingRight": 30,
                   "paddingTop": 18,
@@ -918,8 +941,6 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
               style={
                 [
                   {
-                    "borderBottomLeftRadius": 20.5,
-                    "borderTopLeftRadius": 20.5,
                     "bottom": 0,
                     "left": 0,
                     "position": "absolute",
@@ -1032,6 +1053,7 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                   "justifyContent": "flex-end",
                   "marginBottom": 12,
                   "minHeight": 104,
+                  "overflow": "hidden",
                   "padding": 16,
                   "paddingRight": 30,
                   "paddingTop": 18,
@@ -1048,8 +1070,6 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
               style={
                 [
                   {
-                    "borderBottomLeftRadius": 20.5,
-                    "borderTopLeftRadius": 20.5,
                     "bottom": 0,
                     "left": 0,
                     "position": "absolute",
@@ -1062,17 +1082,6 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                 ]
               }
               testID="lang-rail-ta"
-            />
-            <View
-              name="crown"
-              size={18}
-              style={
-                {
-                  "position": "absolute",
-                  "right": 12,
-                  "top": 12,
-                }
-              }
             />
             <Text
               style={
@@ -1110,6 +1119,43 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
             >
               Tamil
             </Text>
+            <View
+              style={
+                {
+                  "alignItems": "center",
+                  "alignSelf": "flex-start",
+                  "backgroundColor": "#F5B31B",
+                  "borderColor": "rgba(255,255,255,0.72)",
+                  "borderRadius": 100,
+                  "borderWidth": 1,
+                  "flexDirection": "row",
+                  "gap": 3,
+                  "marginTop": 6,
+                  "paddingHorizontal": 6,
+                  "paddingVertical": 2,
+                }
+              }
+              testID="picker-locked-ta"
+            >
+              <View
+                color="#4A2C00"
+                name="star"
+                size={8}
+              />
+              <Text
+                style={
+                  {
+                    "color": "#4A2C00",
+                    "fontFamily": "Inter_800ExtraBold",
+                    "fontSize": 9,
+                    "letterSpacing": 0.4,
+                    "textTransform": "uppercase",
+                  }
+                }
+              >
+                All-Access
+              </Text>
+            </View>
           </View>
         </View>
       </View>
