@@ -20,7 +20,6 @@ import {
   StationPauseRow,
   StreakRepairRow,
 } from "@/components/chai-wallet";
-import { Awning, MarigoldString } from "@/components/india-decor";
 import { DressingRoom } from "@/components/dressing-room";
 import { OutfitCard, groupOutfits } from "@/components/outfit-card";
 import { mascotAssetSrc } from "@/lib/mascot-outfits";
@@ -186,13 +185,32 @@ export default function OutfitsPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-6 lg:pb-12" data-testid="outfit-shop">
-      <Link
-        href="/app"
-        className="inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </Link>
+      {/* Back and the tin, pinned to the top of the scroller. The balance used
+          to sit on the painted signboard, which is gone; a learner scrolling
+          four stalls has to be able to see what they can afford at every one
+          of them, so the pill rides along instead of scrolling away with the
+          tailor. Its own markup is unchanged. */}
+      <div className="sticky top-0 z-30 -mx-4 flex items-center justify-between gap-4 bg-background px-4 pb-2 pt-1">
+        <Link
+          href="/app"
+          className="inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Link>
+        <span
+          data-testid="outfit-balance"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-black"
+          style={{
+            borderColor: INDIA.gold,
+            background: INDIA.cloth,
+            color: INDIA.board,
+          }}
+        >
+          {balance}
+          <ChaiGlyph className="h-4 w-4" />
+        </span>
+      </div>
 
       {/* STALL 1 - THE TAILOR. The band is the shopfront; the dressing room,
           the filters and the rack below it are his stock. */}
@@ -206,56 +224,22 @@ export default function OutfitsPage() {
         data-testid="outfit-dressing-room"
         className="bg-background pb-3 pt-1"
       >
-      {/* The storefront. Awning, toran, painted board, and the counter Bolo
-          stands behind — one continuous shop rather than a header stacked on
-          a card. */}
+      {/* The tailor's own floor. The awning, the toran and the painted
+          "Bolo Bazaar" board used to stand here, announcing a shop the stall
+          band above now announces by name; two signboards on one screen read
+          as two different shops. What is left is the wall the bird stands
+          against and the counter she stands behind, so she has a floor
+          instead of floating in the page. */}
       <div
         data-testid="outfit-storefront"
         className="mt-3 overflow-hidden rounded-3xl border border-card-border shadow-sm"
         style={{ background: INDIA.wall }}
       >
-        <Awning />
-
-        <div className="px-5 pb-4 pt-4">
-          <MarigoldString className="mb-3" />
-          <div className="flex items-center justify-between gap-4">
-            <div
-              className="rounded-xl border-2 px-4 py-2"
-              style={{ borderColor: INDIA.gold, background: INDIA.board }}
-            >
-              <h1
-                className="text-2xl font-black leading-none tracking-wide"
-                style={{ color: INDIA.cream }}
-              >
-                Bolo Bazaar
-              </h1>
-              <p
-                className="mt-1 text-[10px] font-black uppercase tracking-[0.22em]"
-                style={{ color: INDIA.gold }}
-              >
-                Outfits &amp; accessories · paid in Chai
-              </p>
-            </div>
-            <span
-              data-testid="outfit-balance"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-black"
-              style={{
-                borderColor: INDIA.gold,
-                background: INDIA.cloth,
-                color: INDIA.board,
-              }}
-            >
-              {balance}
-              <ChaiGlyph className="h-4 w-4" />
-            </span>
-          </div>
-        </div>
-
         {/* Preview: the learner's own Bolo, standing at the counter in
             whatever is selected. */}
         <div
           data-testid="outfit-preview"
-          className="flex flex-col items-center px-5 pb-0 pt-1"
+          className="flex flex-col items-center px-5 pb-0 pt-5"
         >
           <DressingRoom closed={changing} className="w-full rounded-t-xl">
             <div className="flex justify-center pt-3">

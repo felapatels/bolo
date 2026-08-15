@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
@@ -113,8 +113,42 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
   }),
 }));
 
-import { ChaiWalletSheet } from '@/components/ChaiWallet';
+import {
+  ChaiWalletSheet,
+  ExpressMultiplierRow,
+  LanguageInfoOverlay,
+  LanguageSignpostRow,
+  StationPauseRow,
+} from '@/components/ChaiWallet';
 import { ApiError } from '@workspace/api-client-react';
+
+// The sheet stopped selling. Every spend row it used to carry is stocked on
+// the bazaar street instead, so the rows are exercised here on their own,
+// mounted exactly as app/(app)/bazaar.tsx mounts them. Their refusals go to
+// the caller's notice, which this harness renders as plain text, so every
+// copy assertion below is the one the sheet used to satisfy.
+function SpendRows() {
+  const [notice, setNotice] = React.useState('');
+  return (
+    <>
+      <StationPauseRow onNotice={setNotice} />
+      <ExpressMultiplierRow onNotice={setNotice} />
+      <Text>{notice}</Text>
+    </>
+  );
+}
+
+// The signpost and its explainer, wired the way the bazaar wires them: the
+// row asks, the caller opens the overlay.
+function LanguageRow() {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <LanguageSignpostRow onInfo={() => setOpen(true)} />
+      {open ? <LanguageInfoOverlay onClose={() => setOpen(false)} /> : null}
+    </>
+  );
+}
 
 function tokensQuery(data: unknown) {
   return {
@@ -157,7 +191,12 @@ afterEach(() => {
 
 describe('Chai wallet sheet content', () => {
   it('renders the verbatim web copy with server token state', () => {
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(
+      <>
+        <ChaiWalletSheet visible onClose={jest.fn()} />
+        <SpendRows />
+      </>,
+    );
 
     expect(screen.getByText('Chai Wallet')).toBeOnTheScreen();
     expect(screen.getByTestId('wallet-balance')).toHaveTextContent('12');
@@ -209,7 +248,7 @@ describe('Chai wallet sheet content', () => {
 
 describe('spending', () => {
   it('posts the exact web payloads for both items', () => {
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(<SpendRows />);
 
     fireEvent.press(screen.getByTestId('wallet-equip-pause'));
     fireEvent.press(screen.getByTestId('wallet-start-express'));
@@ -237,7 +276,7 @@ describe('spending', () => {
       'An Express Multiplier is already running.',
     ],
   ])('surfaces the exact 409 copy for %s', (_key, data, message) => {
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(<SpendRows />);
     act(() => {
       mockState.spendHandlers.onError(new (ApiError as any)(409, data));
     });
@@ -245,7 +284,7 @@ describe('spending', () => {
   });
 
   it('uses the generic line for non-409 failures', () => {
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(<SpendRows />);
     act(() => {
       mockState.spendHandlers.onError(new Error('network down'));
     });
@@ -255,7 +294,7 @@ describe('spending', () => {
   });
 
   it('settle refreshes the tokens query (success and rejection alike)', () => {
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(<SpendRows />);
     act(() => {
       mockState.spendHandlers.onSettled();
     });
@@ -276,7 +315,7 @@ describe('express countdown', () => {
       expressMultiplierActiveUntil: '2026-08-03T12:01:30.000Z',
     });
 
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(<SpendRows />);
 
     expect(screen.getByTestId('wallet-express-countdown')).toHaveTextContent(
       'Express running: 01:30 left',
@@ -293,7 +332,7 @@ describe('express countdown', () => {
       expressMultiplierActiveUntil: '2026-08-03T12:00:05.000Z',
     });
 
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(<SpendRows />);
     expect(mockState.invalidateQueries).not.toHaveBeenCalled();
 
     act(() => {
@@ -325,7 +364,7 @@ describe('express countdown', () => {
   // Build 37: Chai also buys stops beyond Hindi — but only a free learner
   // needs telling, so the row is free-tier only and explains itself in place.
   it('offers the language row to free learners and explains it', () => {
-    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    render(<LanguageRow />);
 
     expect(screen.getByTestId('wallet-language-row')).toBeOnTheScreen();
     expect(screen.queryByTestId('wallet-language-info-dialog')).toBeNull();
@@ -346,8 +385,22 @@ describe('express countdown', () => {
 
   it('hides the language row once a plan is paid for', () => {
     mockState.isPlus = true;
+    render(<LanguageRow />);
+
+    expect(screen.queryByTestId('wallet-language-row')).toBeNull();
+  });
+
+  // The sheet is a balance and a door. Everything it used to sell is stocked
+  // on the bazaar street, and selling the same thing on two surfaces is how
+  // the two drift apart, so the strip is pinned rather than left to habit.
+  it('sells nothing itself: no spend rows in the sheet', () => {
     render(<ChaiWalletSheet visible onClose={jest.fn()} />);
 
+    expect(screen.getByTestId('wallet-balance-band')).toBeOnTheScreen();
+    expect(screen.getByTestId('wallet-open-wardrobe')).toBeOnTheScreen();
+    expect(screen.queryByTestId('wallet-equip-pause')).toBeNull();
+    expect(screen.queryByTestId('wallet-start-express')).toBeNull();
+    expect(screen.queryByTestId('wallet-first-class-row')).toBeNull();
     expect(screen.queryByTestId('wallet-language-row')).toBeNull();
   });
 });

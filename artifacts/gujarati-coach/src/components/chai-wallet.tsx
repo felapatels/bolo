@@ -661,15 +661,21 @@ export function ChaiWalletSheet({
         </div>
 
         {/* Only the rows scroll; the painted header above stays put, which is
-            what keeps the balance readable when the row stack is long. */}
+            what keeps the balance readable when the row stack is long.
+            THE WALLET IS A BALANCE AND A DOOR NOW. Every sink it used to sell
+            (pause, express, First Class, the language signpost) is stocked on
+            the bazaar street, where the learner can see all four stalls and
+            every price at once; selling the same things twice made the wallet
+            a second, worse shop. What is left is what only the wallet can do:
+            show the balance, top it up, and point at the street. Those rows
+            are still exported from this file and still rendered by
+            pages/bazaar.tsx. */}
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
           <StreakRepairRow />
 
           {/* Dark until CHAI_PACKS_LIVE is flipped; renders nothing at all
               while the flag is off, so the wallet is unchanged today. */}
           <ChaiPackShop />
-
-          <StationPauseRow />
 
           <div
             className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
@@ -697,15 +703,6 @@ export function ChaiWalletSheet({
               Browse
             </button>
           </div>
-
-          <ExpressMultiplierRow />
-
-          {/* First Class: 24 hours of gold-train status + one complimentary
-              Express boost on boarding. Repeatable — buying again adds another
-              24 hours instead of being refused. */}
-          <FirstClassWalletRow />
-
-          <LanguageSignpostRow />
         </div>
       </SheetContent>
     </Sheet>

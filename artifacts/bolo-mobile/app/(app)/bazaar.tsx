@@ -34,7 +34,6 @@ import {
   StreakRepairRow,
 } from '@/components/ChaiWallet';
 import { MilestoneToast } from '@/components/MilestoneToast';
-import { Awning, MarigoldString } from '@/components/IndiaDecor';
 import { DressingRoom } from '@/components/DressingRoom';
 import { INDIA } from '@/constants/india';
 import { useColors } from '@/hooks/useColors';
@@ -288,22 +287,17 @@ export default function OutfitsScreen() {
             the signal box, which read as different places. Its own markup is
             untouched. */}
         <View testID="outfit-dressing-room" style={styles.dressingRoom}>
-        {/* The storefront: awning, toran, painted board, and the counter Bolo
-            stands behind — one shop rather than a header stacked on a card. */}
+        {/* The tailor's own floor. The awning, the toran and the painted
+            "Bolo Bazaar" board used to stand here, announcing a shop the stall
+            band above now announces by name; two signboards on one screen read
+            as two different shops. What is left is the wall the bird stands
+            against and the counter she stands behind, so she has a floor
+            instead of floating in the scroller. */}
         <View
           testID="outfit-storefront"
           style={[styles.storefront, { borderColor: colors.border }]}
         >
-          <Awning />
-
           <View style={styles.shopBody}>
-            <MarigoldString />
-
-            <View style={styles.signboard}>
-              <Text style={styles.signName}>Bolo Bazaar</Text>
-              <Text style={styles.signSub}>OUTFITS · PAID IN CHAI</Text>
-            </View>
-
             {/* Preview: the learner's own Bolo, at the counter in whatever is
                 selected. */}
             <View testID="outfit-preview" style={styles.preview}>
@@ -753,23 +747,6 @@ const styles = StyleSheet.create({
     backgroundColor: INDIA.wall,
   },
   shopBody: { paddingHorizontal: 16, paddingTop: 14 },
-  signboard: {
-    alignSelf: 'flex-start',
-    borderWidth: 2,
-    borderColor: INDIA.gold,
-    backgroundColor: INDIA.board,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  signName: { fontFamily: AppFonts.extrabold, fontSize: 22, color: INDIA.cream },
-  signSub: {
-    fontFamily: AppFonts.extrabold,
-    fontSize: 9,
-    letterSpacing: 2,
-    marginTop: 3,
-    color: INDIA.gold,
-  },
   shopLine: {
     fontFamily: AppFonts.bold,
     fontSize: 13,

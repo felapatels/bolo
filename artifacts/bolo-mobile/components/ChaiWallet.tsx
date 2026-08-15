@@ -702,12 +702,6 @@ export function ChaiWalletSheet({
   const [notice, setNotice] = React.useState('');
   const [noticeKey, setNoticeKey] = React.useState(0);
   const tokens = tokensQuery.data;
-  // Every spend row reports its rejections through the sheet's own toast.
-  const showNotice = React.useCallback((message: string) => {
-    setNotice(message);
-    setNoticeKey((k) => k + 1);
-  }, []);
-  const [languageInfoOpen, setLanguageInfoOpen] = React.useState(false);
 
   return (
     <Modal
@@ -772,8 +766,14 @@ export function ChaiWalletSheet({
               }}
             />
 
-            <StationPauseRow onNotice={showNotice} />
-
+            {/* THE WALLET IS A BALANCE AND A DOOR NOW. Every sink it used to
+                sell (pause, express, First Class, the language signpost) is
+                stocked on the bazaar street, where a learner sees all four
+                stalls and every price at once; selling the same things twice
+                made the wallet a second, worse shop. What is left is what only
+                the wallet can do: show the balance, top it up, and point at
+                the street. Those rows are still exported from this file and
+                still rendered by app/(app)/bazaar.tsx. */}
             <View
               style={[
                 styles.itemRow,
@@ -807,14 +807,6 @@ export function ChaiWalletSheet({
               </Pressable>
             </View>
 
-            <ExpressMultiplierRow onNotice={showNotice} />
-
-            {/* First Class: 24 hours of gold-train status + complimentary Express
-                boost on boarding. Repeatable - repurchase adds 24 hours. */}
-            <FirstClassWalletRow onNotice={showNotice} />
-
-            <LanguageSignpostRow onInfo={() => setLanguageInfoOpen(true)} />
-
             {/* Buying Chai with money, through Apple. Dark until
                 CHAI_PACKS_LIVE flips — exactly as the web shop is — while the
                 catalog, the StoreKit purchase, the webhook credit and the
@@ -822,13 +814,6 @@ export function ChaiWalletSheet({
             <ChaiPackShop />
           </ScrollView>
         </Pressable>
-
-        {/* The language explainer. An overlay INSIDE this modal rather than a
-            second Modal: stacking native modals is where iOS animations and
-            dismissals start fighting each other, and this needs neither. */}
-        {languageInfoOpen && (
-          <LanguageInfoOverlay onClose={() => setLanguageInfoOpen(false)} />
-        )}
       </Pressable>
     </Modal>
   );

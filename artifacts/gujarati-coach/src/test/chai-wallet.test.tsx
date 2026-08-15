@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { describe, test, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -67,7 +68,12 @@ vi.mock("@tanstack/react-query", async (importOriginal) => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
 
-import { ChaiWalletSheet } from "@/components/chai-wallet";
+import {
+  ChaiWalletSheet,
+  ExpressMultiplierRow,
+  LanguageSignpostRow,
+  StationPauseRow,
+} from "@/components/chai-wallet";
 
 function renderWallet(path = "/") {
   const { hook } = memoryLocation({ path, record: true });
@@ -77,6 +83,14 @@ function renderWallet(path = "/") {
     </Router>,
   );
   return result;
+}
+
+// The sheet stopped selling. Every spend row it used to carry is stocked on
+// the bazaar street instead, so the rows are exercised here on their own,
+// exactly as pages/bazaar.tsx mounts them.
+function renderRows(node: ReactNode, path = "/") {
+  const { hook } = memoryLocation({ path, record: true });
+  return render(<Router hook={hook}>{node}</Router>);
 }
 
 beforeEach(() => {
@@ -142,7 +156,7 @@ describe("Chai wallet sheet", () => {
 
   test("offers the language row to free learners and explains it in place", async () => {
     const user = userEvent.setup();
-    renderWallet();
+    renderRows(<LanguageSignpostRow />);
 
     expect(screen.getByTestId("wallet-language-row")).toBeInTheDocument();
     expect(screen.queryByTestId("wallet-language-info-dialog")).toBeNull();
@@ -157,12 +171,32 @@ describe("Chai wallet sheet", () => {
 
   test("hides the language row once a plan is paid for", () => {
     h.isPaid = true;
-    renderWallet();
+    renderRows(
+      <>
+        <LanguageSignpostRow />
+        <StationPauseRow />
+        <ExpressMultiplierRow />
+      </>,
+    );
 
     expect(screen.queryByTestId("wallet-language-row")).toBeNull();
     // The spend rows are unaffected by tier.
     expect(screen.getByTestId("wallet-equip-pause")).toBeInTheDocument();
     expect(screen.getByTestId("wallet-start-express")).toBeInTheDocument();
+  });
+
+  // The sheet is a balance and a door. Everything it used to sell is stocked
+  // on the bazaar street, and selling the same thing on two surfaces is how
+  // the two drift apart, so the strip is pinned rather than left to habit.
+  test("sells nothing itself: no spend rows in the sheet", () => {
+    renderWallet();
+
+    expect(screen.getByTestId("wallet-balance-band")).toBeInTheDocument();
+    expect(screen.getByTestId("wallet-open-wardrobe")).toBeInTheDocument();
+    expect(screen.queryByTestId("wallet-equip-pause")).toBeNull();
+    expect(screen.queryByTestId("wallet-start-express")).toBeNull();
+    expect(screen.queryByTestId("wallet-first-class-row")).toBeNull();
+    expect(screen.queryByTestId("wallet-language-row")).toBeNull();
   });
 });
 
