@@ -66,14 +66,18 @@ describe("blessed audio singletons", () => {
 
   test("blessAudioPlayback plays a silent wav through ALL singletons on every call", () => {
     blessAudioPlayback();
-    expect(MockAudio.instances).toHaveLength(5);
+    // SIX, not five: coach, meaning, band, feedback, chacha, and
+    // the bazaar welcome voice added when the welcome film gained
+    // Chacha-ji's greeting. The loop below is what actually pins
+    // the guarantee; this count just names how many there are.
+    expect(MockAudio.instances).toHaveLength(6);
     for (const el of MockAudio.instances) {
       expect(el.play).toHaveBeenCalledTimes(1);
       expect(el.src.startsWith("data:audio/wav;base64,")).toBe(true);
     }
     // A re-entry gesture blesses again on the SAME elements (no once-flag).
     blessAudioPlayback();
-    expect(MockAudio.instances).toHaveLength(5);
+    expect(MockAudio.instances).toHaveLength(6);
     for (const el of MockAudio.instances) {
       expect(el.play).toHaveBeenCalledTimes(2);
     }
