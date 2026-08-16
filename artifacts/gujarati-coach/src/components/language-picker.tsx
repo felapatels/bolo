@@ -165,7 +165,13 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                 className={cn(
                   // pr-8 clears the corner glyph; the English name below gets
                   // the full tile width and never truncates.
-                  "relative flex flex-col rounded-3xl border border-l-4 p-3 pr-8 text-left shadow-sm transition-all active:scale-[0.98]",
+                  // MIN-HEIGHT IS LOAD-BEARING. Without it the tile shrinks
+                  // to its natural height and the chip row overlaps the
+                  // native name. Matches mobile's minHeight 104 / 128, and
+                  // justify-end sits the content at the bottom of the taller
+                  // box the way mobile's justifyContent: 'flex-end' does.
+                  "relative flex flex-col justify-end rounded-3xl border border-l-4 p-3 pr-8 text-left shadow-sm transition-all active:scale-[0.98]",
+                  native.isNastaliq ? "min-h-[128px]" : "min-h-[104px]",
                   selected
                     ? "border-primary bg-primary/5"
                     : locked
