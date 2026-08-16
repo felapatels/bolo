@@ -324,7 +324,11 @@ function BrandSplashOverlay({ exiting }: { exiting: boolean }) {
               alt=""
               draggable={false}
               data-testid="splash-still"
-              className="h-full w-full object-cover"
+              // cover on a portrait phone crops almost nothing (0.46 vs the
+              // film's 0.45). On any landscape viewport cover would scale to
+              // fill the width and throw away most of the height, so contain
+              // centres the film on the white overlay instead.
+              className="h-full w-full object-cover landscape:object-contain"
             />
           ) : (
             <video
@@ -335,7 +339,11 @@ function BrandSplashOverlay({ exiting }: { exiting: boolean }) {
               muted
               playsInline
               preload="auto"
-              className="h-full w-full object-cover"
+              // cover on a portrait phone crops almost nothing (0.46 vs the
+              // film's 0.45). On any landscape viewport cover would scale to
+              // fill the width and throw away most of the height, so contain
+              // centres the film on the white overlay instead.
+              className="h-full w-full object-cover landscape:object-contain"
             />
           )}
         </div>
