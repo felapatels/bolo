@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { prefersReducedMotion } from "@/lib/motionPrefs";
+import { getBazaarWelcomeAudioElement } from "@/lib/iosAudio";
 
 // Chacha-ji's welcome to the bazaar.
 //
@@ -22,6 +23,7 @@ import { prefersReducedMotion } from "@/lib/motionPrefs";
 const WELCOME_KEY = "bolo-bazaar-welcome-day";
 const VIDEO_SRC = `${import.meta.env.BASE_URL}bazaar/welcome.mp4`;
 const POSTER_SRC = `${import.meta.env.BASE_URL}bazaar/keyart.png`;
+const VOICE_SRC = `${import.meta.env.BASE_URL}bazaar/chacha-welcome.mp3`;
 
 /** Local calendar day, so the stamp rolls over at the learner's midnight. */
 function today(): string {
@@ -33,8 +35,10 @@ function seenToday(): boolean {
   try {
     return localStorage.getItem(WELCOME_KEY) === today();
   } catch {
-    // Fail open the safe way: a lost stamp means it plays, never that it
-    // blocks. Same shape as the express offer's session flag.
+    // Fail CLOSED: an unreadable stamp is treated as already seen, so a
+    // browser with storage blocked gets the bazaar rather than the
+    // greeting on every single entry. (The old comment here claimed the
+    // opposite of what the code does.)
     return true;
   }
 }
@@ -56,10 +60,38 @@ export function BazaarWelcome() {
     if (open) markSeen();
   }, [open]);
 
+  // The voice, alongside the muted film. ONE effect owns the whole
+  // lifetime: the cleanup fires on skip, on Escape, on ended, on
+  // error, on the reduced-motion timeout and on a route change,
+  // because every one of those paths flips `open` or unmounts. That
+  // is deliberately not five stop calls in five handlers.
+  useEffect(() => {
+    if (!open) return;
+    const el = getBazaarWelcomeAudioElement();
+    el.src = VOICE_SRC;
+    el.currentTime = 0;
+    // A refused play() means no blessing yet (direct URL, refresh,
+    // restored tab). The greeting is a nicety, so it stays silent
+    // rather than blocking the film or throwing.
+    const p = el.play();
+    if (p) p.catch(() => {});
+    return () => {
+      try {
+        el.pause();
+        el.currentTime = 0;
+      } catch {
+        /* best effort */
+      }
+    };
+  }, [open]);
+
   // The still is a greeting, not a film: it holds for a beat and goes.
   useEffect(() => {
     if (!open || !reduced) return;
-    const t = window.setTimeout(() => setOpen(false), 1800);
+    // 2200, not 1800: the still has to outlast the 2.04s voice clip,
+    // or the greeting is cut mid-word. Reduced motion suppresses
+    // movement, not sound.
+    const t = window.setTimeout(() => setOpen(false), 2200);
     return () => window.clearTimeout(t);
   }, [open, reduced]);
 

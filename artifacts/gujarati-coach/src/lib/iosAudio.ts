@@ -36,6 +36,7 @@ let meaningEl: HTMLAudioElement | null = null;
 let bandEl: HTMLAudioElement | null = null;
 let feedbackEl: HTMLAudioElement | null = null;
 let chachaEl: HTMLAudioElement | null = null;
+let bazaarWelcomeEl: HTMLAudioElement | null = null;
 
 export function getCoachAudioElement(): HTMLAudioElement {
   if (!coachEl) coachEl = new Audio();
@@ -72,6 +73,16 @@ export function getChachaAudioElement(): HTMLAudioElement {
   return chachaEl;
 }
 
+/**
+ * Chacha-ji's spoken welcome over the bazaar film. Its own element,
+ * like his encounter voice: the film is muted so it can autoplay,
+ * and the greeting rides alongside it rather than inside it.
+ */
+export function getBazaarWelcomeAudioElement(): HTMLAudioElement {
+  if (!bazaarWelcomeEl) bazaarWelcomeEl = new Audio();
+  return bazaarWelcomeEl;
+}
+
 // Test-only: the singletons otherwise persist across tests within a file,
 // which would leak instances across each test's Audio mock.
 export function __resetBlessedAudioElementsForTests(): void {
@@ -89,6 +100,7 @@ export function blessAudioPlayback(): void {
     getBandAudioElement(),
     getFeedbackAudioElement(),
     getChachaAudioElement(),
+    getBazaarWelcomeAudioElement(),
   ];
   for (const el of targets) {
     try {

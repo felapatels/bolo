@@ -18,6 +18,7 @@ import { INDIA, FIRST_CLASS_GOLD_VARS } from "@/lib/india-palette";
 import { TrainEngine } from "@/components/train-svg";
 import { useEntitlements } from "@/lib/entitlements";
 import { repairErrorMessage } from "@/lib/chai-errors";
+import { blessAudioPlayback } from "@/lib/iosAudio";
 import { ChaiPackShop } from "@/components/chai-packs";
 import {
   ApiError,
@@ -770,6 +771,10 @@ export function ChaiWalletSheet({
             <button
               type="button"
               onClick={() => {
+                // The only in-app door to the bazaar, so it is the only
+                // gesture that can bless the welcome voice before it
+                // tries to play. A direct URL or refresh stays silent.
+                blessAudioPlayback();
                 onOpenChange(false);
                 navigate("/bazaar");
               }}
