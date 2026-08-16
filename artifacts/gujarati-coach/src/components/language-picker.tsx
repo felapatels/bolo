@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
+import { getJourneyLine } from "@/lib/journeyLines";
 import { useEntitlements } from "@/lib/entitlements";
 import { useExplicitLanguageChoice } from "@/lib/language-step";
 
@@ -132,6 +133,17 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
             const native = nativeTextProps(lang);
             const selected = lang.code === activeLang;
             const locked = !isLanguageAllowed(lang.code);
+            // The tile wears its language's RAIL LINE ACCENT, the same
+            // colour its boarding pass and journey map use. Picking a
+            // language is picking a line. Mobile has worn this since
+            // chat 13; web is catching up.
+            //
+            // A BORDER, not an absolute stripe. A 5px positioned box
+            // cannot trace a rounded-3xl corner and renders as a
+            // crescent; border-l-4 follows the radius natively and needs
+            // no clipping. Locked tiles keep the accent at full
+            // strength: the stripe is the invitation to preview.
+            const accent = getJourneyLine(lang.code).accent;
             return (
               <button
                 key={lang.code}
@@ -153,13 +165,14 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                 className={cn(
                   // pr-8 clears the corner glyph; the English name below gets
                   // the full tile width and never truncates.
-                  "relative flex flex-col rounded-3xl border p-3 pr-8 text-left shadow-sm transition-all active:scale-[0.98]",
+                  "relative flex flex-col rounded-3xl border border-l-4 p-3 pr-8 text-left shadow-sm transition-all active:scale-[0.98]",
                   selected
                     ? "border-primary bg-primary/5"
                     : locked
                       ? "border-card-border/70 bg-muted/40 hover:border-primary/30"
                       : "border-card-border/70 bg-card hover:border-primary/30",
                 )}
+                style={{ borderLeftColor: accent }}
               >
                 {/* Lock state is a single compact corner glyph — no
                     full-width badge, so names always render in full. */}
