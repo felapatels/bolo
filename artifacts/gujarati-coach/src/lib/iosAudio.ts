@@ -91,6 +91,10 @@ export function __resetBlessedAudioElementsForTests(): void {
   bandEl = null;
   feedbackEl = null;
   chachaEl = null;
+  // Added with the bazaar welcome voice. Omitting it here made the
+  // element survive every beforeEach, so any test touching it
+  // inherited state from the test before.
+  bazaarWelcomeEl = null;
 }
 
 export function blessAudioPlayback(): void {

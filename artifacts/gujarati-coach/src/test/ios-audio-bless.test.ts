@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, vi } from "vitest";
 import {
   blessAudioPlayback,
   getBandAudioElement,
+  getBazaarWelcomeAudioElement,
   getChachaAudioElement,
   getCoachAudioElement,
   getFeedbackAudioElement,
@@ -40,6 +41,7 @@ const allGetters = [
   getBandAudioElement,
   getFeedbackAudioElement,
   getChachaAudioElement,
+  getBazaarWelcomeAudioElement,
 ];
 
 beforeEach(() => {
@@ -49,13 +51,13 @@ beforeEach(() => {
 });
 
 describe("blessed audio singletons", () => {
-  test("all five voice surfaces are distinct persistent singletons", () => {
+  test("all six voice surfaces are distinct persistent singletons", () => {
     const els = allGetters.map((get) => get());
     for (const [i, get] of allGetters.entries()) {
       expect(get()).toBe(els[i]);
     }
-    expect(new Set(els).size).toBe(5);
-    expect(MockAudio.instances).toHaveLength(5);
+    expect(new Set(els).size).toBe(6);
+    expect(MockAudio.instances).toHaveLength(6);
   });
 
   test("Chacha-ji speaks through his own element, never the coach's", () => {
