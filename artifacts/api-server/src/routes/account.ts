@@ -471,6 +471,8 @@ export function createAccountRouter(
       //   phrase_reports, daily_quiz_completions,
       //   game_sessions, lesson_group_progress, lesson_group_testouts,
       //   script_trace_progress, contact_submissions, users
+      //   activity_events cascades on user delete (0052), so it is
+      //   deliberately absent from this list.
       // TODO (build-32): also delete token_ledger and token_spend_ledger
       //   once those tables are added by the build-32 schema work.
       await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, id));

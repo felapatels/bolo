@@ -29,9 +29,14 @@ export const activityEventsTable = pgTable(
   "activity_events",
   {
     id: serial("id").primaryKey(),
+    // CASCADE, like every user-keyed table added since: the delete
+    // handler carries no line for these. Shipping this as `no action`
+    // in 0050 broke DELETE /account for any learner with a badge,
+    // an equip or a zone closeout, and it broke 2 api suites with
+    // 42 more exposed.
     userId: text("user_id")
       .notNull()
-      .references(() => usersTable.id),
+      .references(() => usersTable.id, { onDelete: "cascade" }),
     // Event type (see above).
     type: text("type").notNull(),
     // The subject of the event: the item id for an equip.

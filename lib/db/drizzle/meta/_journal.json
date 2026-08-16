@@ -365,6 +365,13 @@
       "when": 1786909225095,
       "tag": "0051_daily_goal_default_10",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1786913167108,
+      "tag": "0052_activity_events_cascade",
+      "breakpoints": true
     }
   ]
 }
