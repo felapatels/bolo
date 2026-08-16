@@ -17,7 +17,7 @@
  * applies the same rule for XP; the streak tab applies it here because the
  * metric it ranks by is not the one the payload arrives sorted on.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearch } from "wouter";
 import {
   ArrowLeft,
@@ -36,6 +36,8 @@ import {
   useGetFriendsFeed,
   getGetFriendsFeedQueryKey,
   useGetOutfits,
+  useListBadges,
+  getListBadgesQueryKey,
   type LeaderboardEntry,
   type GetFriendsLeaderboardParams,
   type GetFriendsFeedParams,
@@ -46,7 +48,12 @@ import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
 import { MascotAvatar } from "@/components/mascot-avatar";
 import { FirstClassChip } from "@/components/gold-chip";
-import { FEED_EMPTY_BODY, feedLineFor } from "@/lib/feed-copy";
+import {
+  FEED_EMPTY_BODY,
+  feedLineFor,
+  type FeedResolvers,
+} from "@/lib/feed-copy";
+import { useLanguage } from "@/lib/language-context";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FunFactSectionLoader } from "@/components/fun-fact-loader";
@@ -276,12 +283,16 @@ function BoardList({
 
 const FEED_PARAMS: GetFriendsFeedParams = { limit: 20 };
 
-function FeedRow({ entry, index }: { entry: FeedEntry; index: number }) {
-  const outfits = useGetOutfits();
-  const line = feedLineFor(
-    entry,
-    (id) => outfits.data?.outfits.find((o) => o.id === id)?.name ?? null,
-  );
+function FeedRow({
+  entry,
+  index,
+  resolvers,
+}: {
+  entry: FeedEntry;
+  index: number;
+  resolvers: FeedResolvers;
+}) {
+  const line = feedLineFor(entry, resolvers);
   // An event this build does not know how to describe renders nothing at all.
   if (line === null) return null;
 
@@ -316,6 +327,29 @@ function FeedList() {
         refetchOnMount: "always",
       },
     },
+  );
+
+  // Hoisted, matching mobile's FeedList: one catalog query for the
+  // whole list rather than one per row.
+  const outfits = useGetOutfits();
+  const { activeLang } = useLanguage();
+  const badges = useListBadges(
+    { lang: activeLang },
+    {
+      query: {
+        queryKey: getListBadgesQueryKey({ lang: activeLang }),
+        enabled: !!activeLang,
+      },
+    },
+  );
+  const resolvers = useMemo(
+    () => ({
+      itemName: (id: string) =>
+        outfits.data?.outfits.find((o) => o.id === id)?.name ?? null,
+      badgeName: (key: string) =>
+        badges.data?.find((b) => b.key === key)?.title ?? null,
+    }),
+    [outfits.data, badges.data],
   );
 
   if (isLoading) return <FunFactSectionLoader />;
@@ -353,7 +387,7 @@ function FeedList() {
   return (
     <div className="space-y-3">
       {entries.map((entry, i) => (
-        <FeedRow key={entry.id} entry={entry} index={i} />
+        <FeedRow key={entry.id} entry={entry} index={i} resolvers={resolvers} />
       ))}
     </div>
   );

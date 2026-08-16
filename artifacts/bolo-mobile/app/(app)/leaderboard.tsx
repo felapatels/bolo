@@ -16,6 +16,8 @@ import {
   useGetFriendsFeed,
   getGetFriendsFeedQueryKey,
   useGetOutfits,
+  useListBadges,
+  getListBadgesQueryKey,
   type LeaderboardEntry,
   type GetFriendsLeaderboardParams,
   type GetFriendsFeedParams,
@@ -25,7 +27,12 @@ import { Screen } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { MascotAvatar } from '@/components/MascotAvatar';
 import { FirstClassChip } from '@/components/GoldChip';
-import { FEED_EMPTY_BODY, feedLineFor } from '@/lib/feedCopy';
+import {
+  FEED_EMPTY_BODY,
+  feedLineFor,
+  type FeedResolvers,
+} from '@/lib/feedCopy';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { PressableScale } from '@/components/PressableScale';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { ChunkyButton } from '@/components/ChunkyButton';
@@ -309,13 +316,13 @@ const FEED_PARAMS: GetFriendsFeedParams = { limit: 20 };
 
 function FeedRow({
   entry,
-  itemName,
+  resolvers,
 }: {
   entry: FeedEntry;
-  itemName: (id: string) => string | null;
+  resolvers: FeedResolvers;
 }) {
   const colors = useColors();
-  const line = feedLineFor(entry, itemName);
+  const line = feedLineFor(entry, resolvers);
   // An event this build does not know how to describe renders nothing at all.
   if (line === null) return null;
 
@@ -353,6 +360,16 @@ function FeedList() {
     },
   });
   const outfits = useGetOutfits();
+  const { activeLang } = useLanguage();
+  const badges = useListBadges(
+    { lang: activeLang },
+    {
+      query: {
+        queryKey: getListBadgesQueryKey({ lang: activeLang }),
+        enabled: !!activeLang,
+      },
+    },
+  );
 
   const { refetch } = feed;
   useFocusEffect(
@@ -361,9 +378,14 @@ function FeedList() {
     }, [refetch]),
   );
 
-  const itemName = React.useCallback(
-    (id: string) => outfits.data?.outfits.find((o) => o.id === id)?.name ?? null,
-    [outfits.data],
+  const resolvers = React.useMemo(
+    () => ({
+      itemName: (id: string) =>
+        outfits.data?.outfits.find((o) => o.id === id)?.name ?? null,
+      badgeName: (key: string) =>
+        badges.data?.find((b) => b.key === key)?.title ?? null,
+    }),
+    [outfits.data, badges.data],
   );
 
   if (feed.isLoading) {
@@ -426,7 +448,7 @@ function FeedList() {
               : FadeInDown.duration(360).delay(Math.min(i, 8) * 45)
           }
         >
-          <FeedRow entry={entry} itemName={itemName} />
+          <FeedRow entry={entry} resolvers={resolvers} />
         </Animated.View>
       ))}
     </>

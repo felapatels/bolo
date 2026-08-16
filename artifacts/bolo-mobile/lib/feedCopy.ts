@@ -16,23 +16,35 @@ export function feedActorName(actor: { displayName: string | null }): string {
   return actor.displayName?.trim() || 'Fellow learner';
 }
 
-/**
- * @param itemName resolves an outfit/accessory id to its catalog name. Returns
- *   null while the catalog is still loading or for an id it does not know, in
- *   which case the line falls back to "something new" rather than showing the
- *   learner a raw id like `station-cap`.
- */
+/** Resolvers a feed line needs to name the things it mentions. */
+export interface FeedResolvers {
+  /**
+   * Resolves an outfit/accessory id to its catalog name. Returns null
+   * while the catalog is loading or for an id it does not know, in
+   * which case the line says "something new" rather than showing a raw
+   * id like `station-cap`.
+   */
+  itemName: (id: string) => string | null;
+  /**
+   * Resolves a badge key to its title. Optional: a surface showing ONE
+   * event has nothing to disambiguate, so the home strips omit it and
+   * the line falls back to 'a badge'.
+   */
+  badgeName?: (key: string) => string | null;
+}
+
 export function feedLineFor(
   entry: FeedEntry,
-  itemName: (id: string) => string | null,
+  resolvers: FeedResolvers,
 ): string | null {
   const name = feedActorName(entry.actor);
   switch (entry.type) {
     case 'equip_outfit':
     case 'equip_accessory':
-      return `${name} put on ${itemName(entry.refId) ?? 'something new'}`;
+      return `${name} put on ${resolvers.itemName(entry.refId) ?? 'something new'}`;
     case 'badge_earned':
-      return `${name} earned a badge`;
+      // refId IS the badge key, typed and documented as such on FeedEntry.
+      return `${name} earned ${resolvers.badgeName?.(entry.refId) ?? 'a badge'}`;
     case 'zone_closeout':
       return `${name} finished a zone`;
     default:

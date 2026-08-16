@@ -101,10 +101,9 @@ function LatestFriendMoment() {
   const entry = feed.data?.[0];
   if (!entry) return null;
 
-  const line = feedLineFor(
-    entry,
-    (id) => outfits.data?.outfits.find((o) => o.id === id)?.name ?? null,
-  );
+  const line = feedLineFor(entry, {
+    itemName: (id) => outfits.data?.outfits.find((o) => o.id === id)?.name ?? null,
+  });
   // An event this build cannot describe is not a reason to show an empty row.
   if (line === null) return null;
 
