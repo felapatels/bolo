@@ -84,14 +84,22 @@ function BrandSplashFilm() {
     void (async () => {
       const first = await isFirstColdStartToday();
       if (cancelled || !first) return;
-      setFull((wasFull) => {
-        if (!wasFull) {
-          // Stamped when FULL STARTS, not when it ends: a launch killed
-          // mid-film has still spent the day's full play.
-          void markFullPlayed();
-        }
-        return true;
-      });
+      // Stamped when FULL STARTS, not when it ends: a launch killed
+      // mid-film has still spent the day's full play.
+      //
+      // In PLAIN STATEMENT POSITION, never inside the setFull updater.
+      // React updaters must be pure: React may discard an invocation
+      // (unmount, thrown-away render) or run it twice, so a write in
+      // there fires unpredictably. Every other AsyncStorage write in
+      // this app sits in statement position, including the daily-goal
+      // stamp in (tabs)/index.tsx, and every one of them is reliable.
+      //
+      // Awaited, so FULL mode does not engage until the stamp is
+      // durable. The film is already on screen either way, so the wait
+      // costs the learner nothing.
+      await markFullPlayed();
+      if (cancelled) return;
+      setFull(true);
     })();
     return () => {
       cancelled = true;
