@@ -123,6 +123,20 @@ const THEME_OPTIONS: { value: Theme; label: string; icon: React.ElementType }[] 
   { value: "dark", label: "Dark", icon: Moon },
 ];
 
+type VoiceMode = "on" | "tap" | "off";
+
+const VOICE_MODE_SUB: Record<VoiceMode, string> = {
+  on: "Bolo speaks, and phrases play on their own",
+  tap: "Bolo speaks, but you tap to hear each phrase",
+  off: "Bolo is silent everywhere",
+};
+
+const VOICE_MODE_OPTIONS: { value: VoiceMode; label: string; icon: React.ElementType }[] = [
+  { value: "on", label: "On", icon: Mic },
+  { value: "tap", label: "Tap to play", icon: Play },
+  { value: "off", label: "Off", icon: MicOff },
+];
+
 function initialsOf(name: string | null | undefined, email: string | null | undefined): string {
   const src = (name && name.trim()) || (email && email.split("@")[0]) || "";
   const parts = src.split(/\s+/).filter(Boolean);
@@ -214,6 +228,27 @@ export default function Account() {
   function handleChangeCoachVoiceOn(enabled: boolean) {
     setCoachVoiceOn(enabled);
     saveCoachVoicePref(enabled);
+  }
+
+  /** One control, two stored keys. The pairing coachVoice=off plus
+   *  silentMode=off was expressible and meaningless: nothing to skip,
+   *  and the card entered playing_coach with no audio. Three states
+   *  cannot express it. */
+  const voiceMode: VoiceMode = !coachVoiceOn
+    ? "off"
+    : silentMode
+      ? "tap"
+      : "on";
+
+  /** Both handlers, never reimplemented, so persistence stays identical.
+   *  'off' deliberately leaves silentMode as it is. */
+  function handleChangeVoiceMode(mode: VoiceMode) {
+    if (mode === "off") {
+      handleChangeCoachVoiceOn(false);
+      return;
+    }
+    handleChangeCoachVoiceOn(true);
+    handleChangeSilentMode(mode === "tap");
   }
 
   // Profile form — seeded from the account snapshot once it loads.
@@ -690,43 +725,32 @@ export default function Account() {
                 <Mic className="h-[18px] w-[18px]" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">Coach voice</p>
+                <p className="text-sm font-semibold text-foreground">Bolo's voice</p>
                 <p className="mt-0.5 text-xs font-medium text-muted-foreground">
-                  Play Bolo's spoken voice and phrase audio
+                  {VOICE_MODE_SUB[voiceMode]}
                 </p>
               </div>
-              <Switch
-                checked={coachVoiceOn}
-                onCheckedChange={handleChangeCoachVoiceOn}
-              />
             </div>
-          </div>
-
-          {/* Unreachable when Coach voice is off: nothing would be
-              skipped, and the pairing used to leave the card in a
-              coach-playing state with no audio. */}
-          <div className="space-y-2">
-            <div className="flex items-start gap-3 py-1">
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <MicOff className="h-[18px] w-[18px]" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p
-                  className={`text-sm font-semibold ${
-                    coachVoiceOn ? "text-foreground" : "text-muted-foreground"
-                  }`}
-                >
-                  Silent mode
-                </p>
-                <p className="mt-0.5 text-xs font-medium text-muted-foreground">
-                  Skip the coach voice — read the phrase and record right away
-                </p>
-              </div>
-              <Switch
-                checked={silentMode}
-                onCheckedChange={handleChangeSilentMode}
-                disabled={!coachVoiceOn}
-              />
+            <div className="grid grid-cols-3 gap-2">
+              {VOICE_MODE_OPTIONS.map(({ value, label, icon: Icon }) => {
+                const active = voiceMode === value;
+                return (
+                  <button
+                    key={value}
+                    onClick={() => handleChangeVoiceMode(value)}
+                    aria-pressed={active}
+                    className={
+                      "flex flex-col items-center gap-1.5 rounded-2xl border-2 px-2 py-3 text-sm font-semibold transition-all " +
+                      (active
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-card-border bg-card text-muted-foreground hover:text-foreground")
+                    }
+                  >
+                    <Icon className="h-5 w-5" />
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

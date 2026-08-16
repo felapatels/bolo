@@ -171,6 +171,43 @@ export default function AccountScreen() {
     setCoachVoiceOn(enabled);
     void saveCoachVoicePref(enabled);
   };
+
+  type VoiceMode = 'on' | 'tap' | 'off';
+
+  /** One control, two stored keys. The pairing coachVoice=off plus
+   *  silentMode=off was expressible and meaningless: nothing to skip,
+   *  and the card entered playing_coach with no audio. Three states
+   *  cannot express it. */
+  const voiceMode: VoiceMode = !coachVoiceOn
+    ? 'off'
+    : silentMode
+      ? 'tap'
+      : 'on';
+
+  const VOICE_MODE_SUB: Record<VoiceMode, string> = {
+    on: 'Bolo speaks, and phrases play on their own',
+    tap: 'Bolo speaks, but you tap to hear each phrase',
+    off: 'Bolo is silent everywhere',
+  };
+
+  /** Segmented already fires the tap haptic, and the two states that write
+   *  both keys would call changeCoachVoiceOn and changeSilentMode back to
+   *  back, firing hapticLight twice. So this sets state and persists
+   *  directly, matching those handlers' bodies exactly minus the haptic.
+   *  'off' deliberately leaves silentMode as it is. */
+  const changeVoiceMode = (mode: string) => {
+    if (mode === 'off') {
+      setCoachVoiceOn(false);
+      void saveCoachVoicePref(false);
+      return;
+    }
+    setCoachVoiceOn(true);
+    void saveCoachVoicePref(true);
+    const silent = mode === 'tap';
+    setSilentMode(silent);
+    void saveSilentMode(silent);
+  };
+
   const [name, setName] = React.useState('');
   const [avatarBusy, setAvatarBusy] = React.useState(false);
   const seeded = React.useRef(false);
@@ -578,58 +615,28 @@ export default function AccountScreen() {
               are all narrower cases of it. */}
           <SectionLabel>AUDIO</SectionLabel>
           <View style={[styles.card, styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.row}>
-              <View style={styles.rowIcon}>
-                <Feather name="mic" size={18} color={colors.primary} />
+            <View style={styles.themeBlock}>
+              <View style={styles.row}>
+                <View style={styles.rowIcon}>
+                  <Feather name="mic" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                    Bolo's voice
+                  </Text>
+                  <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                    {VOICE_MODE_SUB[voiceMode]}
+                  </Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.rowLabel, { color: colors.foreground }]}>
-                  Coach voice
-                </Text>
-                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                  Play Bolo's spoken voice and phrase audio
-                </Text>
-              </View>
-              <Switch
-                accessibilityLabel="Coach voice"
-                value={coachVoiceOn}
-                onValueChange={changeCoachVoiceOn}
-                trackColor={{ true: colors.primary }}
-              />
-            </View>
-            <Divider />
-            {/* Unreachable when Coach voice is off: nothing would be
-                skipped, and the pairing used to leave the card in a
-                coach-playing state with no audio. */}
-            <View style={styles.row}>
-              <View style={styles.rowIcon}>
-                <Feather name="mic-off" size={18} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={[
-                    styles.rowLabel,
-                    { color: coachVoiceOn ? colors.foreground : colors.mutedForeground },
-                  ]}
-                >
-                  Silent mode
-                </Text>
-                <Text
-                  style={[
-                    styles.rowSub,
-                    { color: coachVoiceOn ? colors.mutedForeground : colors.border },
-                  ]}
-                >
-                  Skip the coach voice — read the phrase and record right away
-                </Text>
-              </View>
-              <Switch
-                accessibilityLabel="Silent mode"
-                testID="silent-mode-switch"
-                value={silentMode}
-                onValueChange={changeSilentMode}
-                disabled={!coachVoiceOn}
-                trackColor={{ true: colors.primary }}
+              <Segmented
+                options={[
+                  { value: 'on', label: 'On' },
+                  { value: 'tap', label: 'Tap to play' },
+                  { value: 'off', label: 'Off' },
+                ]}
+                value={voiceMode}
+                onChange={changeVoiceMode}
               />
             </View>
             <Divider />
