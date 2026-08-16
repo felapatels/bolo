@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, vi } from "vitest";
+import { describe, test, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
@@ -201,6 +201,14 @@ function pinTuningVars(vars: Record<string, string>) {
 }
 
 beforeEach(() => {
+  // useSplashShape reads matchMedia at mount; jsdom does not implement
+  // it. Portrait by default, so the existing cases are unchanged.
+  vi.stubGlobal("matchMedia", (q: string) => ({
+    matches: false,
+    media: q,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
   h.groups = [];
   h.reduceMotion = false;
   h.catsLoading = true;
@@ -218,6 +226,10 @@ beforeEach(() => {
   } catch {
     /* jsdom always has storage */
   }
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe("home brand splash v2", () => {
@@ -437,6 +449,28 @@ describe("home brand splash v2", () => {
       await waitFor(() => expect(splash()).toBeNull());
       // And the stamp is now set, so the next cold start releases on ready.
       expect(localStorage.getItem("bolo-splash-day")).not.toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test("a landscape viewport gets the wide film and its own still", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({
+      matches: true,
+      media: q,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+    const spy = pinTuningVars({ "--splash-min-hold": "40", "--splash-exit": "40" });
+    try {
+      renderHome();
+      const overlay = splash() as HTMLElement;
+      await waitFor(() =>
+        expect(overlay.querySelector('[data-testid="splash-film"]')).not.toBeNull(),
+      );
+      const film = overlay.querySelector('[data-testid="splash-film"]') as HTMLVideoElement;
+      expect(film.getAttribute("src")).toContain("welcome-bolo-wide.mp4");
+      expect(film.getAttribute("poster")).toContain("welcome-bolo-wide-poster.png");
     } finally {
       spy.mockRestore();
     }

@@ -33,14 +33,43 @@ import { cn, cssTimeMs } from "@/lib/utils";
 // below changes, update index.html's boot style in the same commit.
 
 /**
- * The boot film and its still. The still is the reduced-motion frame AND
- * the video's poster, so the overlay never paints empty before the first
- * video frame lands.
+ * The boot film and its still, in two shapes. A phone-shaped film on a
+ * desktop viewport letterboxes badly, so a landscape cut exists and the
+ * pair is chosen by orientation. Each still is BOTH the reduced-motion
+ * frame and its film's poster, so the overlay never paints empty before
+ * the first video frame lands.
  */
 export const SPLASH_V2_ASSETS = {
   film: `${import.meta.env.BASE_URL}splash/welcome-bolo.mp4`,
   poster: `${import.meta.env.BASE_URL}splash/welcome-bolo-poster.png`,
+  filmWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide.mp4`,
+  posterWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide-poster.png`,
 } as const;
+
+/**
+ * Which pair to use. Read ONCE, at mount, deliberately:
+ *  - CSS cannot swap a <video> src, and <source media> was dropped by
+ *    Chrome, so the choice has to happen in JS.
+ *  - Reading once means exactly one file is ever fetched. Rendering both
+ *    and hiding one would decode two videos on the one screen where the
+ *    browser is busiest.
+ *  - A mid-splash resize therefore does not swap. That is correct:
+ *    swapping the src would restart playback five seconds into a
+ *    five-second film.
+ * Failure-safe: anything unexpected yields the portrait pair.
+ */
+function useSplashShape(): { film: string; poster: string } {
+  const [wide] = useState(() => {
+    try {
+      return window.matchMedia("(orientation: landscape)").matches;
+    } catch {
+      return false;
+    }
+  });
+  return wide
+    ? { film: SPLASH_V2_ASSETS.filmWide, poster: SPLASH_V2_ASSETS.posterWide }
+    : { film: SPLASH_V2_ASSETS.film, poster: SPLASH_V2_ASSETS.poster };
+}
 
 // jsdom / ancient-UA fallbacks for the :root tuning vars (values in ms).
 const SPLASH_MAX_HOLD_FALLBACK_MS = 8000;
@@ -261,7 +290,7 @@ export function BrandSplash({ exiting }: { exiting: boolean }) {
 // ready is revealed anyway, and the max-hold failsafe still bounds total
 // time. The decode runs on an off-DOM Image object; the same URL is already
 // in cache when the real element mounts, so the reveal paints in one frame.
-function usePosterReady(): boolean {
+function usePosterReady(posterSrc: string): boolean {
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
     let settled = false;
@@ -277,7 +306,7 @@ function usePosterReady(): boolean {
     );
     try {
       Promise.allSettled(
-        [SPLASH_V2_ASSETS.poster].map((src) => {
+        [posterSrc].map((src) => {
           const img = new Image();
           img.src = src;
           return typeof img.decode === "function"
@@ -303,7 +332,8 @@ function usePosterReady(): boolean {
 // pointer-events-none so the overlay can never block interaction.
 function BrandSplashOverlay({ exiting }: { exiting: boolean }) {
   const reduceMotion = useReducedMotion();
-  const revealed = usePosterReady();
+  const shape = useSplashShape();
+  const revealed = usePosterReady(shape.poster);
   return createPortal(
     <div
       data-testid="brand-splash"
@@ -320,30 +350,30 @@ function BrandSplashOverlay({ exiting }: { exiting: boolean }) {
         <div className="absolute inset-0" data-testid="splash-scene">
           {reduceMotion ? (
             <img
-              src={SPLASH_V2_ASSETS.poster}
+              src={shape.poster}
               alt=""
               draggable={false}
               data-testid="splash-still"
-              // cover on a portrait phone crops almost nothing (0.46 vs the
-              // film's 0.45). On any landscape viewport cover would scale to
-              // fill the width and throw away most of the height, so contain
-              // centres the film on the white overlay instead.
-              className="h-full w-full object-cover landscape:object-contain"
+              // cover on both shapes: the orientation switch above means
+              // the film already roughly matches the viewport, and what
+              // cover crops is the white plate or the blurred fill, which
+              // exist to be cropped.
+              className="h-full w-full object-cover"
             />
           ) : (
             <video
-              src={SPLASH_V2_ASSETS.film}
-              poster={SPLASH_V2_ASSETS.poster}
+              src={shape.film}
+              poster={shape.poster}
               data-testid="splash-film"
               autoPlay
               muted
               playsInline
               preload="auto"
-              // cover on a portrait phone crops almost nothing (0.46 vs the
-              // film's 0.45). On any landscape viewport cover would scale to
-              // fill the width and throw away most of the height, so contain
-              // centres the film on the white overlay instead.
-              className="h-full w-full object-cover landscape:object-contain"
+              // cover on both shapes: the orientation switch above means
+              // the film already roughly matches the viewport, and what
+              // cover crops is the white plate or the blurred fill, which
+              // exist to be cropped.
+              className="h-full w-full object-cover"
             />
           )}
         </div>
