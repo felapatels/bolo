@@ -549,6 +549,12 @@ export default function Account() {
             </Select>
           </div>
 
+          {/* Daily goal — hidden. XP already carries daily progress, and a
+              configurable attempts target on top of it was a second number
+              doing a similar job. The value still drives the goal celebration
+              and the home ticket stat; only the control is gone. Re-enable by
+              removing the {false && …} wrapper below. */}
+          {false && (
           <div className="space-y-2">
             <Label>Daily goal</Label>
             <Select
@@ -569,6 +575,7 @@ export default function Account() {
               </SelectContent>
             </Select>
           </div>
+          )}
 
           <div className="space-y-2">
             <Label>Theme</Label>

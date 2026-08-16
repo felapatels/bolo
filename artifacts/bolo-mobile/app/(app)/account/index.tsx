@@ -512,7 +512,12 @@ export default function AccountScreen() {
               value={activeLanguage?.name ?? '…'}
               onPress={() => router.push('/(app)/language')}
             />
-            <Divider />
+            {/* Daily goal — hidden. XP already carries daily progress, and
+                a configurable attempts target on top of it was a second
+                number doing a similar job. The value still drives the goal
+                celebration and the home arc; only the control is gone.
+                Re-enable by removing the {false && …} wrapper. */}
+            {false && (<><Divider />
             <StepperRow
               label="Daily goal"
               sub="Phrases to practice each day"
@@ -522,7 +527,7 @@ export default function AccountScreen() {
               step={5}
               format={(v) => `${v}`}
               onChange={(v) => savePrefs({ dailyGoal: v })}
-            />
+            /></>)}
             <Divider />
             <View style={styles.themeBlock}>
               <View style={styles.row}>
