@@ -4,7 +4,7 @@ import { ChachaEncounterDialog } from "@/components/chacha-encounter";
 import { useRecordChachaEncounter, useBuyOutfit, useGetChachaLines, useGetTokens, useSynthesizeSpeech } from "@workspace/api-client-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { isChachaEncounterStation } from "@/lib/quick-games";
-import { speakChachaLine } from "@/lib/chachaVoice";
+import { speakChachaLine, stopChachaVoice } from "@/lib/chachaVoice";
 import { loadCoachVoicePref } from "@/lib/coachVoicePref";
 
 // Mock wouter
@@ -33,6 +33,7 @@ vi.mock("@workspace/api-client-react", async (importOriginal) => {
 // chacha-voice.test.ts.
 vi.mock("@/lib/chachaVoice", () => ({
   speakChachaLine: vi.fn(),
+  stopChachaVoice: vi.fn(),
   __resetChachaVoiceQueueForTests: vi.fn(),
 }));
 
@@ -298,7 +299,7 @@ describe("Chacha-ji's spoken lines", () => {
     // Chacha-ji" only exists when there is nothing to sell.
     [/Thanks, Chacha-ji/i, null],
     [/Not today, Chacha-ji/i, OFFER],
-  ])("says farewell when the learner leaves via %s", (name, offer) => {
+  ])("does not speak the farewell when the learner leaves via %s", (name, offer) => {
     vi.mocked(useRecordChachaEncounter).mockReturnValue({
       mutate: vi.fn(),
       isPending: false,
@@ -312,9 +313,11 @@ describe("Chacha-ji's spoken lines", () => {
 
     fireEvent.click(screen.getByRole("button", { name }));
 
-    expect(spoken()).toContain("farewell");
-    // He is handed to the queue BEFORE the dialog closes, so the module-scope
-    // player still has him when the route changes.
+    // The farewell was removed deliberately: it was queued here and
+    // the route changed on the next line, so it played over the
+    // lesson that followed.
+    expect(spoken()).not.toContain("farewell");
+    expect(stopChachaVoice).toHaveBeenCalled();
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -323,7 +326,15 @@ describe("Chacha-ji's spoken lines", () => {
     fireEvent.click(screen.getByRole("button", { name: /Thanks, Chacha-ji/i }));
     fireEvent.click(screen.getByRole("button", { name: /Thanks, Chacha-ji/i }));
 
-    expect(spoken()).toEqual(["greeting", "gift", "farewell"]);
+    expect(spoken()).toEqual(["greeting", "gift"]);
+  });
+
+  it("stops the voice when the dialog unmounts, not just on a close tap", () => {
+    const { unmount } = renderStall();
+
+    unmount();
+
+    expect(stopChachaVoice).toHaveBeenCalled();
   });
 
   it("is completely silent, and asks for nothing, when Bolo's voice is off", () => {

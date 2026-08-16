@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { ChachaEncounterDialog } from '@/components/journey/ChachaEncounter';
 import { isChachaEncounterStation } from '@/lib/chachaMemory';
-import { speakChachaLine } from '@/lib/chachaVoice';
+import { speakChachaLine, stopChachaVoice } from '@/lib/chachaVoice';
 import { loadCoachVoicePref } from '@/lib/coachVoicePref';
 import type { ChachaEncounterResult } from '@workspace/api-client-react';
 
@@ -37,6 +37,7 @@ jest.mock('@workspace/api-client-react', () => ({
 // moment. The queue's own ordering guarantee lives in chachaVoice.test.ts.
 jest.mock('@/lib/chachaVoice', () => ({
   speakChachaLine: jest.fn(),
+  stopChachaVoice: jest.fn(),
   __resetChachaVoiceQueueForTests: jest.fn(),
 }));
 
@@ -251,7 +252,7 @@ describe("Chacha-ji's spoken lines", () => {
     expect(spoken()).not.toContain('gift');
   });
 
-  it('says farewell when the learner leaves with Thanks, Chacha-ji', async () => {
+  it('does not speak the farewell when the learner leaves with Thanks, Chacha-ji', async () => {
     const onDismiss = jest.fn();
     renderEncounter(encounterOf({ granted: true }), { onDismiss });
     await settle();
@@ -259,13 +260,15 @@ describe("Chacha-ji's spoken lines", () => {
 
     fireEvent.press(screen.getByTestId('chacha-dismiss-btn'));
 
-    // Handed to the module-scope queue BEFORE the modal closes, so it outlives
-    // the unmount cleanup that tears the phrase player down.
-    expect(spoken()).toEqual(['greeting', 'gift', 'farewell']);
+    // The farewell was removed deliberately: it was queued here and
+    // the route changed on the next line, so it played over the
+    // lesson that followed.
+    expect(spoken()).not.toContain('farewell');
+    expect(stopChachaVoice).toHaveBeenCalled();
     expect(onDismiss).toHaveBeenCalled();
   });
 
-  it('says farewell when the learner leaves with Not today, Chacha-ji', async () => {
+  it('does not speak the farewell when the learner leaves with Not today, Chacha-ji', async () => {
     const onDecline = jest.fn();
     renderEncounter(
       encounterOf({
@@ -285,7 +288,11 @@ describe("Chacha-ji's spoken lines", () => {
 
     fireEvent.press(screen.getByTestId('chacha-decline-btn'));
 
-    expect(spoken()).toContain('farewell');
+    // The farewell was removed deliberately: it was queued here and
+    // the route changed on the next line, so it played over the
+    // lesson that followed.
+    expect(spoken()).not.toContain('farewell');
+    expect(stopChachaVoice).toHaveBeenCalled();
     expect(onDecline).toHaveBeenCalled();
   });
 
@@ -296,7 +303,16 @@ describe("Chacha-ji's spoken lines", () => {
     fireEvent.press(screen.getByTestId('chacha-dismiss-btn'));
     fireEvent.press(screen.getByTestId('chacha-dismiss-btn'));
 
-    expect(spoken()).toEqual(['greeting', 'gift', 'farewell']);
+    expect(spoken()).toEqual(['greeting', 'gift']);
+  });
+
+  it('stops the voice when the dialog unmounts, not just on a close tap', async () => {
+    const result = renderEncounter(encounterOf({ granted: true }));
+    await settle();
+
+    result.unmount();
+
+    expect(stopChachaVoice).toHaveBeenCalled();
   });
 
   it("is completely silent, and asks for nothing, when Bolo's voice is off", async () => {

@@ -171,6 +171,12 @@ export function ChachaEncounterDialog({
   }, []);
 
   const handleClose = () => {
+    // Bless FIRST, then stop. This tap navigates into a lesson, so it
+    // is the gesture that arms the coach, meaning, band and feedback
+    // elements for the screen the learner is about to land on. The
+    // blessing skips any element currently sounding, so it leaves
+    // Chacha alone and the stop below cuts him.
+    blessAudioPlayback();
     // The farewell used to be queued here, then the route changed on
     // the next line, so it played over the lesson that followed. A
     // learner who tapped "Thanks, Chacha-ji" has already said thanks.
