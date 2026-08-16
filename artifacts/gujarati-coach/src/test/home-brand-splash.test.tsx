@@ -5,24 +5,32 @@ import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
 import { PLUS_ENTITLEMENTS } from "./fixtures";
 
-// Cold-load brand splash v2 + home skeleton. Pins the behavior contract of
-// useBrandSplash/BrandSplash (ready-signal hold with a minimum hold, and
-// compose-then-reveal) and the skeleton handoff:
+// Cold-load brand splash v2 + home skeleton. The moment is a boot FILM over
+// a white plate, with the poster still as its first frame, and it runs in one
+// of two modes captured at mount:
+//   FULL   the day's first cold start (no "bolo-splash-day" stamp for today)
+//          plays the film through on --splash-full-play and ignores the ready
+//          signal entirely, then stamps the day;
+//   READY  every later cold start releases on the ready signal once the
+//          minimum hold has elapsed.
+// Pins the behavior contract of useBrandSplash/BrandSplash and the skeleton
+// handoff:
 // (1) a cold load with data still in flight shows the skeleton with the
-//     splash (layered carriage/Bolo/steam composition) overlaying it, and
-//     the ready signal landing releases the hold;
+//     splash (the film) overlaying it, and the ready signal landing releases
+//     the hold;
 // (2) release fires at the LATER of the ready signal and the minimum hold
 //     (--splash-min-hold), so an instant signal cannot blink the moment;
-// (3) compose-then-reveal: the overlay renders no composition until all five
-//     layers decode, then one complete frame; a stalled decode is capped by
+// (3) poster-first reveal: the overlay renders nothing until the still
+//     decodes, then the film in one reveal; a stalled decode is capped by
 //     --splash-decode-cap and never traps the user;
 // (4) the max-hold failsafe retires the moment even if the ready signal
 //     never lands (NOT gated on the minimum hold), leaving the skeleton;
-// (5) reduced motion follows the same gate, then renders the STATIC composed
-//     frame (no animation classes, single wing frame), never a blank screen;
+// (5) reduced motion follows the same gate, then renders the STILL and never
+//     the film, so it is never a blank screen;
 // (6) warm cache (data ready at first paint) skips the moment entirely;
 // (7) a remount (client-side navigation back to home) never replays it;
-// (8) a failure inside the moment falls through to the normal loading home.
+// (8) a failure inside the moment falls through to the normal loading home;
+// (9) the day's first cold start plays in full and ignores the ready signal.
 const h = vi.hoisted(() => ({
   groups: [] as unknown[],
   reduceMotion: false,
@@ -200,6 +208,16 @@ beforeEach(() => {
   h.track.mockClear();
   h.decodeResolvers = [];
   __resetBrandSplashForTests();
+  // Default: NOT the day's first cold start, so these exercise the
+  // ready-signal release. The full-play test clears it again.
+  try {
+    localStorage.setItem(
+      "bolo-splash-day",
+      `${new Date().getFullYear()}-${new Date().getMonth() + 1}-${new Date().getDate()}`,
+    );
+  } catch {
+    /* jsdom always has storage */
+  }
 });
 
 describe("home brand splash v2", () => {
@@ -220,18 +238,11 @@ describe("home brand splash v2", () => {
       await waitFor(() =>
         expect(overlay.querySelector('[data-testid="splash-scene"]')).not.toBeNull(),
       );
-      expect(overlay.querySelector('img[src*="carriage.svg"]')).not.toBeNull();
-      const windowBox = overlay.querySelector('[data-testid="splash-window"]');
-      expect(windowBox).not.toBeNull();
+      expect(overlay.querySelector('[data-testid="splash-film"]')).not.toBeNull();
       expect(
-        (windowBox as HTMLElement).querySelector('img[src*="mascot-wave.png"]'),
-      ).not.toBeNull();
-      expect(
-        (windowBox as HTMLElement).querySelector('img[src*="mascot-cheer.png"]'),
-      ).not.toBeNull();
-      expect(overlay.querySelector('img[src*="steam-a.svg"]')).not.toBeNull();
-      expect(overlay.querySelector('img[src*="steam-b.svg"]')).not.toBeNull();
-      expect(overlay).toHaveTextContent("Bolo!");
+        (overlay.querySelector('[data-testid="splash-film"]') as HTMLVideoElement)
+          .muted,
+      ).toBe(true);
 
       // The ready signal lands: the splash releases and unmounts after the
       // short exit fade. waitFor's 1s default timeout is far under the 8s
@@ -267,7 +278,7 @@ describe("home brand splash v2", () => {
     }
   });
 
-  test("compose-then-reveal: nothing renders until all five layers decode, then one complete frame", async () => {
+  test("nothing renders until the still decodes, then the film in one reveal", async () => {
     vi.stubGlobal("Image", FakeImage);
     const spy = pinTuningVars({
       "--splash-decode-cap": "5000",
@@ -278,26 +289,17 @@ describe("home brand splash v2", () => {
       renderHome();
       const overlay = splash() as HTMLElement;
       expect(overlay).not.toBeNull();
-      // The gate is holding: five decodes in flight, and the overlay is a
-      // gradient-only holding surface with no imgs and no wordmark.
-      expect(h.decodeResolvers.length).toBe(5);
+      // The gate is holding: the one still is decoding, and the overlay is a
+      // white holding surface with nothing in it.
+      expect(h.decodeResolvers.length).toBe(1);
       expect(overlay.querySelector("img")).toBeNull();
       expect(overlay.textContent).toBe("");
-      // Four of five decoded: STILL nothing (no piecemeal paint).
-      h.decodeResolvers.slice(0, 4).forEach((resolve) => resolve());
-      await new Promise((r) => setTimeout(r, 20));
-      expect(overlay.querySelector("img")).toBeNull();
-      // The fifth decode lands: the whole composed frame in a single reveal.
-      h.decodeResolvers[4]();
+      // The decode lands: the film appears in a single reveal.
+      h.decodeResolvers[0]();
       await waitFor(() =>
         expect(overlay.querySelector('[data-testid="splash-scene"]')).not.toBeNull(),
       );
-      expect(overlay.querySelector('img[src*="carriage.svg"]')).not.toBeNull();
-      expect(overlay.querySelector('img[src*="mascot-wave.png"]')).not.toBeNull();
-      expect(overlay.querySelector('img[src*="mascot-cheer.png"]')).not.toBeNull();
-      expect(overlay.querySelector('img[src*="steam-a.svg"]')).not.toBeNull();
-      expect(overlay.querySelector('img[src*="steam-b.svg"]')).not.toBeNull();
-      expect(overlay).toHaveTextContent("Bolo!");
+      expect(overlay.querySelector('[data-testid="splash-film"]')).not.toBeNull();
     } finally {
       spy.mockRestore();
       vi.unstubAllGlobals();
@@ -352,7 +354,7 @@ describe("home brand splash v2", () => {
     }
   });
 
-  test("reduced motion renders the static composed frame: no animation classes, never blank", async () => {
+  test("reduced motion renders the still, never the film", async () => {
     h.reduceMotion = true;
     const spy = pinTuningVars({ "--splash-min-hold": "40", "--splash-exit": "40" });
     try {
@@ -361,16 +363,12 @@ describe("home brand splash v2", () => {
       const overlay = splash() as HTMLElement;
       expect(overlay).not.toBeNull();
       expect(skeleton()).not.toBeNull();
-      // ...and follows the same compose-then-reveal gate, then shows the
-      // fully composed STATIC frame (carriage, ONE wing frame, steam): the
-      // raised-wing frame is absent and no animate-splash2-* class applies.
+      // ...and follows the same poster-first gate, then shows the STILL:
+      // the film is not rendered at all.
       await waitFor(() =>
-        expect(overlay.querySelector('img[src*="carriage.svg"]')).not.toBeNull(),
+        expect(overlay.querySelector('[data-testid="splash-still"]')).not.toBeNull(),
       );
-      expect(overlay.querySelector('img[src*="mascot-wave.png"]')).not.toBeNull();
-      expect(overlay.querySelector('img[src*="mascot-cheer.png"]')).toBeNull();
-      expect(overlay.querySelector('img[src*="steam-a.svg"]')).not.toBeNull();
-      expect(overlay.querySelector('[class*="animate-splash"]')).toBeNull();
+      expect(overlay.querySelector('[data-testid="splash-film"]')).toBeNull();
       // The ready-signal hold still releases it.
       h.catsLoading = false;
       rerenderHome();
@@ -415,6 +413,32 @@ describe("home brand splash v2", () => {
       );
     } finally {
       errSpy.mockRestore();
+    }
+  });
+
+  test("the day's first cold start plays the film in full and ignores the ready signal", async () => {
+    // Clear the stamp beforeEach set: this IS the day's first.
+    localStorage.removeItem("bolo-splash-day");
+    const spy = pinTuningVars({
+      "--splash-full-play": "200",
+      "--splash-min-hold": "10",
+      "--splash-exit": "20",
+    });
+    try {
+      const { rerenderHome } = renderHome();
+      expect(splash()).not.toBeNull();
+      // The ready signal lands immediately and is DELIBERATELY ignored:
+      // the film plays through on its own clock.
+      h.catsLoading = false;
+      rerenderHome();
+      await new Promise((r) => setTimeout(r, 60));
+      expect(splash()).not.toBeNull();
+      // Only the full-play timer ends it.
+      await waitFor(() => expect(splash()).toBeNull());
+      // And the stamp is now set, so the next cold start releases on ready.
+      expect(localStorage.getItem("bolo-splash-day")).not.toBeNull();
+    } finally {
+      spy.mockRestore();
     }
   });
 });

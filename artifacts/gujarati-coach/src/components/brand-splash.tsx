@@ -33,29 +33,13 @@ import { cn, cssTimeMs } from "@/lib/utils";
 // below changes, update index.html's boot style in the same commit.
 
 /**
- * Splash v2 asset map: paths only. The owner swaps in final art by editing
- * these paths, zero code changes. Current values are placeholders derived
- * from existing bundled art (canonical mascot PNGs and simple SVG shapes).
+ * The boot film and its still. The still is the reduced-motion frame AND
+ * the video's poster, so the overlay never paints empty before the first
+ * video frame lands.
  */
 export const SPLASH_V2_ASSETS = {
-  /** Carriage with a transparent center window aperture (see WINDOW below). */
-  carriage: `${import.meta.env.BASE_URL}splash/carriage.svg`,
-  /** Flap frame, wings up. Placeholder: canonical cheer pose, whole image. */
-  boloWingRaised: `${import.meta.env.BASE_URL}mascot/mascot-cheer.png`,
-  /** Flap frame, wings settled. Placeholder: canonical wave pose. */
-  boloWingLowered: `${import.meta.env.BASE_URL}mascot/mascot-wave.png`,
-  steamPuffA: `${import.meta.env.BASE_URL}splash/steam-a.svg`,
-  steamPuffB: `${import.meta.env.BASE_URL}splash/steam-b.svg`,
-} as const;
-
-// The carriage placeholder's empty window aperture in viewBox fractions
-// (240x140 viewBox, window x 88..152, y 34..82). If final carriage art moves
-// the window, update these fractions alongside the SPLASH_V2_ASSETS path.
-const WINDOW = {
-  left: "36.667%",
-  top: "24.286%",
-  width: "26.667%",
-  height: "34.286%",
+  film: `${import.meta.env.BASE_URL}splash/welcome-bolo.mp4`,
+  poster: `${import.meta.env.BASE_URL}splash/welcome-bolo-poster.png`,
 } as const;
 
 // jsdom / ancient-UA fallbacks for the :root tuning vars (values in ms).
@@ -71,6 +55,37 @@ const SPLASH_MIN_HOLD_FALLBACK_MS = 1500;
 // gradient indefinitely; the max-hold failsafe still governs total time).
 const SPLASH_DECODE_CAP_FALLBACK_MS = 1200;
 
+const SPLASH_FULL_PLAY_FALLBACK_MS = 5100;
+
+/** The day's first cold start plays the film through. Local calendar day,
+ *  so it rolls over at the learner's midnight. Same contract as the bazaar
+ *  welcome's stamp (bazaar-welcome.tsx). */
+const SPLASH_DAY_KEY = "bolo-splash-day";
+
+function splashToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+function isFirstColdStartToday(): boolean {
+  try {
+    return localStorage.getItem(SPLASH_DAY_KEY) !== splashToday();
+  } catch {
+    // Fail CLOSED, matching seenToday(): an unreadable stamp means NOT the
+    // first, so storage-blocked browsers never sit through the full film on
+    // every single cold load.
+    return false;
+  }
+}
+
+function markFullPlayed(): void {
+  try {
+    localStorage.setItem(SPLASH_DAY_KEY, splashToday());
+  } catch {
+    /* A nicety. Losing the stamp only means it plays full again. */
+  }
+}
+
 // Play-once latch for this page load. Consumed by the FIRST home mount
 // (in a mount effect, after the phase initializer reads it), whether or not
 // the moment actually played, so a later navigation back never replays it.
@@ -78,6 +93,11 @@ let coldStartConsumed = false;
 
 export function __resetBrandSplashForTests() {
   coldStartConsumed = false;
+  try {
+    localStorage.removeItem(SPLASH_DAY_KEY);
+  } catch {
+    /* nothing to clear */
+  }
 }
 
 // Captured once at module eval (before React renders): does this page load
@@ -133,31 +153,31 @@ export function useBrandSplash(dataReady: boolean): {
   active: boolean;
   exiting: boolean;
 } {
-  const [phase, setPhase] = useState<SplashPhase>(() => {
+  // Phase and mode are captured TOGETHER at mount. Two modes:
+  //  FULL   the day's first cold start, plays the film through on a fixed
+  //         timer and ignores dataReady entirely. Even a warm cache plays.
+  //  READY  every later cold start, releases on the ready signal once the
+  //         minimum hold has elapsed.
+  const [init] = useState(() => {
     try {
-      if (coldStartConsumed || !bootQualifies) return "done";
-      // Warm cache (data ready at first paint): nothing to hold for -
-      // a forced beat would delay content that is already renderable.
-      if (dataReady) return "done";
-      // Reduced motion still mounts: it renders the static composed frame
-      // (never a blank screen) and follows the same hold/release lifecycle.
-      return "playing";
+      if (coldStartConsumed || !bootQualifies) {
+        return { phase: "done" as SplashPhase, full: false };
+      }
+      const full = isFirstColdStartToday();
+      if (dataReady && !full) return { phase: "done" as SplashPhase, full: false };
+      return { phase: "playing" as SplashPhase, full };
     } catch {
-      return "done";
+      return { phase: "done" as SplashPhase, full: false };
     }
   });
+  const [phase, setPhase] = useState<SplashPhase>(init.phase);
+  const fullPlay = init.full;
 
-  // Consume the play-once latch AFTER the initializer read it (same commit).
-  // Unconditional: a skipped moment still counts as this page load's shot.
   useEffect(() => {
     coldStartConsumed = true;
-  }, []);
+    if (init.phase === "playing" && init.full) markFullPlayed();
+  }, [init.phase, init.full]);
 
-  // Minimum hold (item 1): once the moment mounts, it plays for at least
-  // --splash-min-hold before the ready signal may release it. Applies ONLY
-  // to mounts: the warm-cache skip above never enters "playing", so skipped
-  // loads keep skipping. The max-hold failsafe below is NOT gated on this
-  // and always wins.
   const [minHoldDone, setMinHoldDone] = useState(false);
   useEffect(() => {
     if (phase !== "playing") return;
@@ -168,8 +188,18 @@ export function useBrandSplash(dataReady: boolean): {
     return () => window.clearTimeout(t);
   }, [phase]);
 
-  // Max-hold failsafe: a stuck ready signal can never trap the user behind
-  // the splash. NOT the primary release mechanism.
+  // FULL mode: a fixed timer is the only thing that ends it.
+  useEffect(() => {
+    if (phase !== "playing" || !fullPlay) return;
+    const t = window.setTimeout(
+      () => setPhase("exiting"),
+      readTuningMs("--splash-full-play", SPLASH_FULL_PLAY_FALLBACK_MS),
+    );
+    return () => window.clearTimeout(t);
+  }, [phase, fullPlay]);
+
+  // Failsafe cap, both modes. Sits above the full-play length so it never
+  // truncates the film.
   useEffect(() => {
     if (phase !== "playing") return;
     const t = window.setTimeout(
@@ -179,14 +209,12 @@ export function useBrandSplash(dataReady: boolean): {
     return () => window.clearTimeout(t);
   }, [phase]);
 
-  // Primary release: fires at whichever is LATER, the ready signal settling
-  // or the minimum hold elapsing. The exit fade below is the handoff
-  // (content/skeleton is already painted beneath, so no blank flash).
+  // READY mode only.
   useEffect(() => {
+    if (fullPlay) return;
     if (phase === "playing" && dataReady && minHoldDone) setPhase("exiting");
-  }, [phase, dataReady, minHoldDone]);
+  }, [phase, dataReady, minHoldDone, fullPlay]);
 
-  // Unmount once the exit fade has run.
   useEffect(() => {
     if (phase !== "exiting") return;
     const t = window.setTimeout(
@@ -222,18 +250,18 @@ export function BrandSplash({ exiting }: { exiting: boolean }) {
   );
 }
 
-// Compose-then-reveal (item 2): the composition stays unrendered until all
-// five SPLASH_V2_ASSETS layers are fetched AND decoded (image decode, not
-// merely onload), then the whole scene appears as one complete frame. While
-// the gate holds, the overlay paints only its gradient backdrop, which is
-// byte-identical to the index.html boot gradient, so the holding surface is
-// seamless (the boot <style> stops applying once React fills #root, which is
-// why the overlay must carry the gradient itself). A stalled or failed
+// Poster-first reveal: nothing renders until the ONE still is fetched AND
+// decoded (image decode, not merely onload), so the film's poster is already
+// paintable the instant the video mounts and the reveal lands as one
+// complete frame. While the gate holds, the overlay paints only its white
+// backdrop, which matches the index.html boot style, so the holding surface
+// is seamless (the boot <style> stops applying once React fills #root, which
+// is why the overlay must carry the backdrop itself). A stalled or failed
 // decode can never trap the user: after --splash-decode-cap, whatever is
 // ready is revealed anyway, and the max-hold failsafe still bounds total
-// time. Decodes run on off-DOM Image objects; the same URLs are already in
-// cache when the real img tags mount, so the reveal paints in one frame.
-function useComposedReveal(): boolean {
+// time. The decode runs on an off-DOM Image object; the same URL is already
+// in cache when the real element mounts, so the reveal paints in one frame.
+function usePosterReady(): boolean {
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
     let settled = false;
@@ -249,7 +277,7 @@ function useComposedReveal(): boolean {
     );
     try {
       Promise.allSettled(
-        Object.values(SPLASH_V2_ASSETS).map((src) => {
+        [SPLASH_V2_ASSETS.poster].map((src) => {
           const img = new Image();
           img.src = src;
           return typeof img.decode === "function"
@@ -258,7 +286,7 @@ function useComposedReveal(): boolean {
         }),
       ).then(finish, finish);
     } catch {
-      // Failure-safe: reveal rather than hold a blank gradient.
+      // Failure-safe: reveal rather than hold a blank backdrop.
       finish();
     }
     return () => {
@@ -274,97 +302,43 @@ function useComposedReveal(): boolean {
 // would turn a fixed-position descendant into a container-relative one.
 // pointer-events-none so the overlay can never block interaction.
 function BrandSplashOverlay({ exiting }: { exiting: boolean }) {
-  // Reduced motion: same composition, zero animation classes (static frame).
-  // The raised-wing frame is not rendered at all so exactly one composed
-  // frame shows. Reduced motion follows the same compose-then-reveal gate,
-  // then shows the static composed frame.
   const reduceMotion = useReducedMotion();
-  const revealed = useComposedReveal();
+  const revealed = usePosterReady();
   return createPortal(
     <div
       data-testid="brand-splash"
       aria-hidden="true"
       className={cn(
-        "brand-splash pointer-events-none fixed inset-0 z-[100] flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-primary via-[hsl(220,70%,52%)] to-secondary",
+        // WHITE, not the old gradient: the film opens on a white plate, so
+        // any other backdrop flashes on reveal. index.html's boot style
+        // carries the same value and must stay in step.
+        "brand-splash pointer-events-none fixed inset-0 z-[100] overflow-hidden bg-white",
         exiting && "brand-splash-exiting",
       )}
     >
       {revealed && (
-        <>
-      {/* Layered scene. Sizing follows the composition (supersedes the old
-          fixed mascot clamp treatment). */}
-      <div
-        className="relative w-[min(72vw,380px)]"
-        style={{ aspectRatio: "240 / 140" }}
-        data-testid="splash-scene"
-      >
-        {/* Steam puffs rising from the roof vent on offset loops. Base
-            opacity keeps them visible in the static frame. */}
-        <img
-          src={SPLASH_V2_ASSETS.steamPuffA}
-          alt=""
-          draggable={false}
-          className={cn(
-            "absolute w-[14%] opacity-80",
-            !reduceMotion && "animate-splash2-steam-a",
-          )}
-          style={{ left: "70%", top: "-14%" }}
-        />
-        <img
-          src={SPLASH_V2_ASSETS.steamPuffB}
-          alt=""
-          draggable={false}
-          className={cn(
-            "absolute w-[11%] opacity-70",
-            !reduceMotion && "animate-splash2-steam-b",
-          )}
-          style={{ left: "79%", top: "-22%" }}
-        />
-        {/* Bolo composited into the empty window by the app layer. Two whole
-            canonical frames alternate in a gentle flap loop; the clip box
-            matches the carriage aperture so overflow never leaks past the
-            frame. */}
-        <div
-          className="absolute overflow-hidden"
-          style={{ ...WINDOW, borderRadius: "18%" }}
-          data-testid="splash-window"
-        >
-          <img
-            src={SPLASH_V2_ASSETS.boloWingLowered}
-            alt=""
-            draggable={false}
-            className={cn(
-              "absolute bottom-[-52%] left-1/2 w-[150%] max-w-none -translate-x-1/2",
-              !reduceMotion && "animate-splash2-frame-a",
-            )}
-          />
-          {!reduceMotion && (
+        <div className="absolute inset-0" data-testid="splash-scene">
+          {reduceMotion ? (
             <img
-              src={SPLASH_V2_ASSETS.boloWingRaised}
+              src={SPLASH_V2_ASSETS.poster}
               alt=""
               draggable={false}
-              className="animate-splash2-frame-b absolute bottom-[-52%] left-1/2 w-[150%] max-w-none -translate-x-1/2"
+              data-testid="splash-still"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <video
+              src={SPLASH_V2_ASSETS.film}
+              poster={SPLASH_V2_ASSETS.poster}
+              data-testid="splash-film"
+              autoPlay
+              muted
+              playsInline
+              preload="auto"
+              className="h-full w-full object-cover"
             />
           )}
         </div>
-        {/* Carriage on top: its transparent aperture frames Bolo. */}
-        <img
-          src={SPLASH_V2_ASSETS.carriage}
-          alt=""
-          draggable={false}
-          className="absolute inset-0 h-full w-full"
-        />
-      </div>
-      {/* Text wordmark, matching the desktop-nav brand row's treatment. */}
-      <div
-        className={cn(
-          "mt-6 text-5xl font-black tracking-tight text-white lg:text-6xl",
-          !reduceMotion && "animate-splash-wordmark",
-        )}
-      >
-        Bolo!
-      </div>
-        </>
       )}
     </div>,
     document.body,

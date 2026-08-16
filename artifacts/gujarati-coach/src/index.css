@@ -341,13 +341,11 @@
   --splash-min-hold: 1500ms;     /* minimum time a MOUNTED splash plays before
                                     the ready signal may release it; clock
                                     starts at overlay mount */
+  --splash-full-play: 5100ms;    /* the day's first cold start plays the
+                                    film through: 5.07s of footage plus
+                                    margin. Ignored on later cold starts. */
   --splash-decode-cap: 1200ms;   /* compose-then-reveal decode wait cap; past
                                     it, reveal whatever is ready */
-  --splash-wordmark-delay: 0.26s;/* wordmark entrance lag behind the scene */
-  --splash-wordmark-rise: 14px;  /* wordmark entrance rise distance */
-  --splash2-flap-cycle: 1.5s;    /* wing frame swap period (gentle flap) */
-  --splash2-steam-cycle-a: 2.8s; /* steam puff A rise loop period */
-  --splash2-steam-cycle-b: 3.6s; /* steam puff B rise loop period (offset) */
   --station-surface: hsl(40 55% 97.5%); /* warm signboard surface, active stop card */
 }
 .dark {
@@ -696,78 +694,18 @@
   }
 }
 
-/* Brand splash v2 (layered motion boot; brand-splash.tsx). Whole-image
-   transforms/opacity only, per the canonical mascot rule. Reduced motion
-   renders the STATIC composed frame: the JS gate omits every
-   animate-splash2-* class, so nothing here needs the reduce block (and the
-   reduce block above collapses these keyframes regardless). The release is
-   an opacity fade over the already-painted skeleton/content, so the handoff
-   never blank-flashes. Timing constants live in the :root tuning block. */
+/* Brand splash v2 (boot film; brand-splash.tsx). The overlay is a full-bleed
+   film over a white plate, with the poster still as its first frame and as
+   the reduced-motion rendering, so there is no layered composition and no
+   per-layer animation to gate. The release is an opacity fade over the
+   already-painted skeleton/content, so the handoff never blank-flashes.
+   Timing constants live in the :root tuning block. */
 .brand-splash {
   opacity: 1;
   transition: opacity var(--splash-exit) ease-out;
 }
 .brand-splash-exiting {
   opacity: 0;
-}
-/* Two-frame wing flap: whole-image frames swap on a steps() cycle. Frame A
-   (wing lowered) shows the first half of the cycle, frame B (wing raised)
-   the second half. */
-@keyframes splash2-frame-a {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-@keyframes splash2-frame-b {
-  0%, 100% {
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-.animate-splash2-frame-a {
-  animation: splash2-frame-a var(--splash2-flap-cycle) steps(1, end) infinite;
-}
-.animate-splash2-frame-b {
-  animation: splash2-frame-b var(--splash2-flap-cycle) steps(1, end) infinite;
-}
-/* Steam puffs rise and fade on offset loops. The imgs carry base opacity
-   so the static (reduced-motion) frame still shows composed puffs. */
-@keyframes splash2-steam-rise {
-  0% {
-    opacity: 0;
-    transform: translateY(20%) scale(0.8);
-  }
-  30% {
-    opacity: 0.85;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-160%) scale(1.2);
-  }
-}
-.animate-splash2-steam-a {
-  animation: splash2-steam-rise var(--splash2-steam-cycle-a) ease-out infinite;
-}
-.animate-splash2-steam-b {
-  animation: splash2-steam-rise var(--splash2-steam-cycle-b) ease-out 1.2s infinite backwards;
-}
-@keyframes splash-wordmark-enter {
-  from {
-    opacity: 0;
-    transform: translateY(var(--splash-wordmark-rise));
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.animate-splash-wordmark {
-  animation: splash-wordmark-enter 0.45s ease-out var(--splash-wordmark-delay) backwards;
 }
 
 /* Hotfix 3 item 7c: quick-game 3-2-1 countdown pop. Decorative, so it only
