@@ -45,6 +45,7 @@ import {
   saveSilentMode,
 } from '@/lib/settings';
 import { loadSoundPref, saveSoundPref } from '@/lib/soundPref';
+import { loadMeaningAudio, saveMeaningAudio } from '@/lib/meaning-audio';
 import {
   apiFailureDetail,
   apiFailureMessage,
@@ -94,6 +95,24 @@ export default function AccountScreen() {
     hapticLight();
     setSpokenFeedback(enabled);
     void saveSpokenFeedback(enabled);
+  };
+
+  // Device-local practice preference: whether the coach says the English
+  // meaning after each phrase clip. Same async-load shape as spokenFeedback.
+  const [meaningAudio, setMeaningAudio] = React.useState(true);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadMeaningAudio().then((enabled) => {
+      if (!cancelled) setMeaningAudio(enabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const changeMeaningAudio = (enabled: boolean) => {
+    hapticLight();
+    setMeaningAudio(enabled);
+    void saveMeaningAudio(enabled);
   };
 
   // Silent mode: skip coach voice auto-play on each phrase so the learner can
@@ -505,48 +524,6 @@ export default function AccountScreen() {
               onChange={(v) => savePrefs({ dailyGoal: v })}
             />
             <Divider />
-            <View style={styles.row}>
-              <View style={styles.rowIcon}>
-                <Feather name="volume-2" size={18} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.rowLabel, { color: colors.foreground }]}>
-                  Spoken feedback
-                </Text>
-                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                  Read the coach's feedback aloud after each score
-                </Text>
-              </View>
-              <Switch
-                accessibilityLabel="Spoken feedback"
-                testID="spoken-feedback-switch"
-                value={spokenFeedback}
-                onValueChange={changeSpokenFeedback}
-                trackColor={{ true: colors.primary }}
-              />
-            </View>
-            <Divider />
-            <View style={styles.row}>
-              <View style={styles.rowIcon}>
-                <Feather name="mic-off" size={18} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.rowLabel, { color: colors.foreground }]}>
-                  Silent mode
-                </Text>
-                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                  Skip the coach voice — read the phrase and record right away
-                </Text>
-              </View>
-              <Switch
-                accessibilityLabel="Silent mode"
-                testID="silent-mode-switch"
-                value={silentMode}
-                onValueChange={changeSilentMode}
-                trackColor={{ true: colors.primary }}
-              />
-            </View>
-            <Divider />
             <View style={styles.themeBlock}>
               <View style={styles.row}>
                 <View style={styles.rowIcon}>
@@ -587,27 +564,15 @@ export default function AccountScreen() {
                 setTimezoneModalVisible(true);
               }}
             />
-            <Divider />
-            <View style={styles.row}>
-              <View style={styles.rowIcon}>
-                <Feather name="volume-2" size={18} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.rowLabel, { color: colors.foreground }]}>
-                  Sound effects
-                </Text>
-                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                  Play audio cues during practice
-                </Text>
-              </View>
-              <Switch
-                accessibilityLabel="Sound effects"
-                value={soundOn}
-                onValueChange={changeSoundOn}
-                trackColor={{ true: colors.primary }}
-              />
-            </View>
-            <Divider />
+          </View>
+
+          {/* Audio — every sound setting in one place. They were spread
+              across the Learning card with Theme, Voice and Timezone
+              between them, so a learner hunting for one had to read the
+              whole list. Coach voice leads because the three below it
+              are all narrower cases of it. */}
+          <SectionLabel>AUDIO</SectionLabel>
+          <View style={[styles.card, styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.row}>
               <View style={styles.rowIcon}>
                 <Feather name="mic" size={18} color={colors.primary} />
@@ -624,6 +589,124 @@ export default function AccountScreen() {
                 accessibilityLabel="Coach voice"
                 value={coachVoiceOn}
                 onValueChange={changeCoachVoiceOn}
+                trackColor={{ true: colors.primary }}
+              />
+            </View>
+            <Divider />
+            {/* Unreachable when Coach voice is off: nothing would be
+                skipped, and the pairing used to leave the card in a
+                coach-playing state with no audio. */}
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Feather name="mic-off" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.rowLabel,
+                    { color: coachVoiceOn ? colors.foreground : colors.mutedForeground },
+                  ]}
+                >
+                  Silent mode
+                </Text>
+                <Text
+                  style={[
+                    styles.rowSub,
+                    { color: coachVoiceOn ? colors.mutedForeground : colors.border },
+                  ]}
+                >
+                  Skip the coach voice — read the phrase and record right away
+                </Text>
+              </View>
+              <Switch
+                accessibilityLabel="Silent mode"
+                testID="silent-mode-switch"
+                value={silentMode}
+                onValueChange={changeSilentMode}
+                disabled={!coachVoiceOn}
+                trackColor={{ true: colors.primary }}
+              />
+            </View>
+            <Divider />
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Feather name="message-circle" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.rowLabel,
+                    { color: coachVoiceOn ? colors.foreground : colors.mutedForeground },
+                  ]}
+                >
+                  Speak meaning
+                </Text>
+                <Text
+                  style={[
+                    styles.rowSub,
+                    { color: coachVoiceOn ? colors.mutedForeground : colors.border },
+                  ]}
+                >
+                  Say the English meaning after each phrase
+                </Text>
+              </View>
+              <Switch
+                accessibilityLabel="Speak meaning"
+                value={meaningAudio}
+                onValueChange={changeMeaningAudio}
+                disabled={!coachVoiceOn}
+                trackColor={{ true: colors.primary }}
+              />
+            </View>
+            <Divider />
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Feather name="volume-2" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.rowLabel,
+                    { color: coachVoiceOn ? colors.foreground : colors.mutedForeground },
+                  ]}
+                >
+                  Spoken feedback
+                </Text>
+                <Text
+                  style={[
+                    styles.rowSub,
+                    { color: coachVoiceOn ? colors.mutedForeground : colors.border },
+                  ]}
+                >
+                  Read the coach's feedback aloud after each score
+                </Text>
+              </View>
+              <Switch
+                accessibilityLabel="Spoken feedback"
+                testID="spoken-feedback-switch"
+                value={spokenFeedback}
+                onValueChange={changeSpokenFeedback}
+                disabled={!coachVoiceOn}
+                trackColor={{ true: colors.primary }}
+              />
+            </View>
+            <Divider />
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Feather name="volume-2" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                  Sound effects
+                </Text>
+                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                  Play sounds for ticket tears and chat
+                </Text>
+              </View>
+              <Switch
+                accessibilityLabel="Sound effects"
+                value={soundOn}
+                onValueChange={changeSoundOn}
                 trackColor={{ true: colors.primary }}
               />
             </View>

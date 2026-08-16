@@ -20,6 +20,8 @@ import {
   Users,
   Volume2,
   Mic,
+  MicOff,
+  MessageCircle,
   Lock,
   Check,
   Play,
@@ -71,6 +73,7 @@ import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { loadSoundPref, saveSoundPref } from "@/lib/soundPref";
 import { loadCoachVoicePref, saveCoachVoicePref } from "@/lib/coachVoicePref";
+import { loadMeaningAudio, saveMeaningAudio } from "@/lib/meaning-audio";
 import { TimezoneSelect, detectedTimezone } from "@/components/timezone-select";
 import { ReferralCard } from "@/components/referral-card";
 
@@ -179,6 +182,14 @@ export default function Account() {
   function handleChangeSpokenFeedback(enabled: boolean) {
     setSpokenFeedback(enabled);
     saveSpokenFeedback(enabled);
+  }
+
+  // Device-local practice preference: whether the coach says the English
+  // meaning after each phrase clip. Same localStorage pattern as the above.
+  const [meaningAudio, setMeaningAudio] = useState(loadMeaningAudio);
+  function handleChangeMeaningAudio(enabled: boolean) {
+    setMeaningAudio(enabled);
+    saveMeaningAudio(enabled);
   }
 
   // Device-local practice preference: whether the coach's voice is skipped
@@ -559,38 +570,6 @@ export default function Account() {
             </Select>
           </div>
 
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <Label htmlFor="spokenFeedback" className="text-base">
-                Spoken feedback
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Read the coach's feedback aloud after each score.
-              </p>
-            </div>
-            <Switch
-              id="spokenFeedback"
-              checked={spokenFeedback}
-              onCheckedChange={handleChangeSpokenFeedback}
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <Label htmlFor="silentMode" className="text-base">
-                Silent mode
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Skip the coach's voice and start recording immediately.
-              </p>
-            </div>
-            <Switch
-              id="silentMode"
-              checked={silentMode}
-              onCheckedChange={handleChangeSilentMode}
-            />
-          </div>
-
           <div className="space-y-2">
             <Label>Theme</Label>
             <div className="grid grid-cols-3 gap-2">
@@ -637,44 +616,6 @@ export default function Account() {
                   Used for daily streak. Detected: {detectedTz}
                 </p>
               </div>
-            </div>
-          </div>
-
-          {/* Sound effects */}
-          <div className="space-y-2">
-            <div className="flex items-start gap-3 py-1">
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Volume2 className="h-[18px] w-[18px]" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">Sound effects</p>
-                <p className="mt-0.5 text-xs font-medium text-muted-foreground">
-                  Play audio cues during practice sessions
-                </p>
-              </div>
-              <Switch
-                checked={soundOn}
-                onCheckedChange={handleChangeSoundOn}
-              />
-            </div>
-          </div>
-
-          {/* Coach voice */}
-          <div className="space-y-2">
-            <div className="flex items-start gap-3 py-1">
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Mic className="h-[18px] w-[18px]" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">Coach voice</p>
-                <p className="mt-0.5 text-xs font-medium text-muted-foreground">
-                  Play Bolo's spoken voice and phrase audio
-                </p>
-              </div>
-              <Switch
-                checked={coachVoiceOn}
-                onCheckedChange={handleChangeCoachVoiceOn}
-              />
             </div>
           </div>
 
@@ -725,6 +666,130 @@ export default function Account() {
           </div>
           )}
 
+        </Section>
+
+        {/* Audio — every sound setting in one place. They were spread
+            through Learning with Theme and Timezone between them.
+            Coach voice leads because the three below it are all
+            narrower cases of it. */}
+        <Section
+          icon={Volume2}
+          title="Audio"
+          subtitle="Voice, feedback and sound effects"
+        >
+          <div className="space-y-2">
+            <div className="flex items-start gap-3 py-1">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Mic className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">Coach voice</p>
+                <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                  Play Bolo's spoken voice and phrase audio
+                </p>
+              </div>
+              <Switch
+                checked={coachVoiceOn}
+                onCheckedChange={handleChangeCoachVoiceOn}
+              />
+            </div>
+          </div>
+
+          {/* Unreachable when Coach voice is off: nothing would be
+              skipped, and the pairing used to leave the card in a
+              coach-playing state with no audio. */}
+          <div className="space-y-2">
+            <div className="flex items-start gap-3 py-1">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <MicOff className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p
+                  className={`text-sm font-semibold ${
+                    coachVoiceOn ? "text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  Silent mode
+                </p>
+                <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                  Skip the coach voice — read the phrase and record right away
+                </p>
+              </div>
+              <Switch
+                checked={silentMode}
+                onCheckedChange={handleChangeSilentMode}
+                disabled={!coachVoiceOn}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-start gap-3 py-1">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <MessageCircle className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p
+                  className={`text-sm font-semibold ${
+                    coachVoiceOn ? "text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  Speak meaning
+                </p>
+                <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                  Say the English meaning after each phrase
+                </p>
+              </div>
+              <Switch
+                checked={meaningAudio}
+                onCheckedChange={handleChangeMeaningAudio}
+                disabled={!coachVoiceOn}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-start gap-3 py-1">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Volume2 className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p
+                  className={`text-sm font-semibold ${
+                    coachVoiceOn ? "text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  Spoken feedback
+                </p>
+                <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                  Read the coach's feedback aloud after each score
+                </p>
+              </div>
+              <Switch
+                checked={spokenFeedback}
+                onCheckedChange={handleChangeSpokenFeedback}
+                disabled={!coachVoiceOn}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-start gap-3 py-1">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Volume2 className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">Sound effects</p>
+                <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                  Play sounds for ticket tears and chat
+                </p>
+              </div>
+              <Switch
+                checked={soundOn}
+                onCheckedChange={handleChangeSoundOn}
+              />
+            </div>
+          </div>
         </Section>
 
         {/* Invite friends */}
