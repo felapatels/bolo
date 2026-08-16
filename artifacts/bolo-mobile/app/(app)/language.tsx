@@ -107,8 +107,9 @@ export default function LanguageModal() {
 }
 
 // Rounded tile matching the web picker: prominent native script on top, the
-// full English name below (wrapping, never truncated), and a single corner
-// glyph — gold crown when the language needs All-Access, check when active.
+// full English name below (wrapping, never truncated), a check glyph when
+// active, and the Free taste / All-Access chip pair when locked. The crown
+// this comment used to describe was removed in 949de80.
 //
 // Each tile also wears its language's RAIL LINE ACCENT (lib/journeyLines.ts —
 // the same colour its boarding pass and journey map use), as a stub stripe
@@ -153,7 +154,15 @@ function LanguageTile({
         styles.tile,
         tall && styles.tileTall,
         {
-          backgroundColor: active ? `${accent}14` : colors.card,
+          // Locked tiles are MUTED, matching web's bg-muted/40 and
+          // text-muted-foreground. Selected still outranks locked, and
+          // the rail below keeps its full accent either way: the stripe
+          // is what invites a preview tap.
+          backgroundColor: active
+            ? `${accent}14`
+            : locked
+              ? colors.muted
+              : colors.card,
           borderColor: active ? accent : colors.border,
         },
       ]}
@@ -175,7 +184,7 @@ function LanguageTile({
           nativeTextStyle(language, { bold: true }),
           styles.native,
           tall && styles.nativeTall,
-          { color: colors.foreground },
+          { color: locked ? colors.mutedForeground : colors.foreground },
         ]}
       >
         {language.nativeName}
@@ -295,7 +304,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.72)',
   },
   chipFree: { backgroundColor: '#22C55E' },
-  chipAllAccess: { backgroundColor: '#F5B31B' },
   chipText: {
     fontFamily: AppFonts.extrabold,
     fontSize: 9,

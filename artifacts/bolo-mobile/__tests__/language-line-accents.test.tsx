@@ -171,4 +171,35 @@ describe('language picker line accents', () => {
       COLORS.border,
     );
   });
+
+  test('a locked tile is muted; an unlocked one is not', () => {
+    // The fixture in this file hardcodes its own palette, so this asserts a
+    // DIFFERENCE between two tiles rather than a value. Its
+    // isLanguageAllowed fixture locks 'ta'.
+    const { getByLabelText, getByText, getByTestId } = render(<LanguageModal />);
+
+    // Locked Tamil vs unlocked Gujarati: different backgroundColor.
+    const tamil = flatten(
+      getByLabelText('Tamil — locked, preview its journey').props.style,
+    );
+    const gujarati = flatten(getByLabelText('Gujarati').props.style);
+    expect(tamil.backgroundColor).not.toBe(gujarati.backgroundColor);
+    expect(tamil.backgroundColor).toBe(COLORS.muted);
+    expect(gujarati.backgroundColor).toBe(COLORS.card);
+
+    // The native name dims with it; the English name below was already muted
+    // on every tile, locked or not.
+    expect(flatten(getByText('தமிழ்').props.style).color).not.toBe(
+      flatten(getByText('ગુજરાતી').props.style).color,
+    );
+
+    // The RAIL is unaffected: both still carry their own accent. Dimming the
+    // stripe would take away the one thing inviting a preview tap.
+    expect(flatten(getByTestId('lang-rail-ta').props.style).backgroundColor).toBe(
+      JOURNEY_LINES.ta.accent,
+    );
+    expect(flatten(getByTestId('lang-rail-gu').props.style).backgroundColor).toBe(
+      JOURNEY_LINES.gu.accent,
+    );
+  });
 });

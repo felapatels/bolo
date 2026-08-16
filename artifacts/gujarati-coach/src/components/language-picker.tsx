@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
+import { getJourneyLine } from "@/lib/journeyLines";
 import { useEntitlements } from "@/lib/entitlements";
 import { useExplicitLanguageChoice } from "@/lib/language-step";
 
@@ -132,6 +133,12 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
             const native = nativeTextProps(lang);
             const selected = lang.code === activeLang;
             const locked = !isLanguageAllowed(lang.code);
+            // The tile wears its language's RAIL LINE ACCENT, the same
+            // colour its boarding pass and journey map use. Picking a
+            // language is picking a line. Mobile has worn this since
+            // chat 13; web is catching up. Locked tiles keep the accent
+            // at full strength: the stripe is the invitation to preview.
+            const accent = getJourneyLine(lang.code).accent;
             return (
               <button
                 key={lang.code}
@@ -153,7 +160,12 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                 className={cn(
                   // pr-8 clears the corner glyph; the English name below gets
                   // the full tile width and never truncates.
-                  "relative flex flex-col rounded-3xl border p-3 pr-8 text-left shadow-sm transition-all active:scale-[0.98]",
+                  // overflow-hidden is LOAD-BEARING: the 5px rail cannot
+                  // trace a rounded-3xl corner, so it overhangs unless the
+                  // tile clips. Mobile hit exactly this in 646fbe3 and
+                  // solved it the same way. pl-3 becomes pl-4 to clear
+                  // the stripe.
+                  "relative flex flex-col overflow-hidden rounded-3xl border py-3 pl-4 pr-8 text-left shadow-sm transition-all active:scale-[0.98]",
                   selected
                     ? "border-primary bg-primary/5"
                     : locked
@@ -161,6 +173,12 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                       : "border-card-border/70 bg-card hover:border-primary/30",
                 )}
               >
+                <span
+                  aria-hidden="true"
+                  data-testid={`lang-rail-${lang.code}`}
+                  className="absolute inset-y-0 left-0 w-[5px]"
+                  style={{ backgroundColor: accent }}
+                />
                 {/* Lock state is a single compact corner glyph — no
                     full-width badge, so names always render in full. */}
                 {selected ? (

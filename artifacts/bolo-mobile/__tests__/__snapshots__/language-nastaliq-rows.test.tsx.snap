@@ -478,7 +478,7 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                 },
                 false,
                 {
-                  "backgroundColor": "#1C1C28",
+                  "backgroundColor": "#252530",
                   "borderColor": "#2D2D3D",
                 },
               ]
@@ -514,7 +514,7 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
                   },
                   false,
                   {
-                    "color": "#F9FAFB",
+                    "color": "#9CA3AF",
                   },
                 ]
               }
@@ -1117,7 +1117,7 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                 },
                 false,
                 {
-                  "backgroundColor": "#FFFFFF",
+                  "backgroundColor": "#F3F4F6",
                   "borderColor": "#E5E7EB",
                 },
               ]
@@ -1153,7 +1153,7 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
                   },
                   false,
                   {
-                    "color": "#1A1A1A",
+                    "color": "#6B7280",
                   },
                 ]
               }
