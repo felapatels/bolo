@@ -806,8 +806,13 @@ function YourFriendCode() {
 
   const onShare = () => {
     if (!link) return;
+    // A FRIEND invite, not a referral: it sells the leaderboard, not
+    // the Chai. The link is the same /join/<CODE> either way, so the
+    // reward still lands; it is simply not the pitch here. The
+    // referral copy lives on the two home surfaces.
     void Share.share({
-      message: `Learn your family's language with me on Bolo! ${link}`,
+      message: `I'm learning my family's language on Bolo! Add me as a friend and let's see who keeps the better streak. ${link}`,
+      url: link,
     });
   };
 
