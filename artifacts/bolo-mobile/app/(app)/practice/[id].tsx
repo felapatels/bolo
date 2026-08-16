@@ -45,6 +45,7 @@ import {
   type PhraseTally,
 } from '@/lib/ui';
 import { ResultActions } from '@/components/ResultActions';
+import { ExpressOfferMoment } from '@/components/ExpressOfferMoment';
 import { XpCounter } from '@/components/XpCounter';
 import { appear, useAppearSkip } from '@/lib/entrance';
 import { playBandClip, type BandClipHandle } from '@/lib/band-audio';
@@ -2764,6 +2765,12 @@ export default function PracticeScreen() {
             ampLevel={ampLevel}
             noInput={noInput}
           />
+        )}
+        {/* Express Multiplier offer moment. BELOW the action row on
+            purpose: it is an aside, and above the buttons it pushes
+            Retry and Next further down the phone screen. */}
+        {phase === 'result' && (
+          <ExpressOfferMoment surface="result" onNotice={showToast} />
         )}
       </View>
       {/* Score flash overlay: full-bleed color pulse after each scored attempt */}
