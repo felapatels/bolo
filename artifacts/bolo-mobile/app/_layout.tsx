@@ -11,6 +11,7 @@ import { ClerkLoaded, ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { setBaseUrl, ApiError } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { BrandSplash } from '@/components/BrandSplash';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { fontMap } from '@/constants/fonts';
 import { useColors } from '@/hooks/useColors';
@@ -124,6 +125,10 @@ function RootLayout() {
                     <Stack.Screen name="(app)" />
                   </Stack>
                 </KeyboardProvider>
+                {/* The boot film, over the Stack. The native splash still
+                    runs first and still hides on fonts; this picks up from
+                    there and covers Clerk plus both redirect hops. */}
+                <BrandSplash />
               </GestureHandlerRootView>
             </QueryClientProvider>
           </ErrorBoundary>

@@ -24,6 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { appear, useAppearSkip } from '@/lib/entrance';
+import { markHomeReady } from '@/lib/splashReady';
 import { XpCounter } from '@/components/XpCounter';
 import {
   useListCategories,
@@ -317,6 +318,14 @@ export default function HomeScreen() {
   const summary = useGetProgressSummary({ lang: activeLang });
   const categories = useListCategories({ lang: activeLang });
   const recent = useListRecentAttempts({ lang: activeLang, limit: 5 });
+
+  // Publishes "home has its data" to the boot film mounted at the
+  // root. Fires on settle, success OR error: a failed categories
+  // fetch must still release the splash, or a network problem traps
+  // the learner behind it until the 8s cap.
+  useEffect(() => {
+    if (!categories.isLoading) markHomeReady();
+  }, [categories.isLoading]);
 
   // Chai wallet (Build 34B, web parity): balance rides in the stats banner as
   // a fourth cell; tapping it opens the wallet sheet. Token state is
