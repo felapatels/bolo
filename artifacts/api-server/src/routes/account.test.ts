@@ -383,8 +383,10 @@ test("GET /account returns profile, default preferences, and a free subscription
   assert.equal(json.profile.id, TEST_USER_ID);
   assert.equal(json.profile.email, "acct@example.test");
   assert.equal(json.preferences.notifications.dailyReminderEnabled, false);
-  // Column default is 50 since migration 0025 (daily_goal default change).
-  assert.equal(json.preferences.learning.dailyGoal, 50);
+  // Column default is 10: 0025 raised it to 50, 0051 put it back
+  // when the daily-goal control was hidden. 50 made the goal
+  // celebration close to unreachable.
+  assert.equal(json.preferences.learning.dailyGoal, 10);
   assert.equal(json.preferences.learning.theme, "system");
   assert.equal(json.subscription.tier, "free");
   assert.equal(json.subscription.status, "none");
