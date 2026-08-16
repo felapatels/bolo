@@ -22,7 +22,7 @@ import { MilestoneToast } from "@/components/ui/milestone-toast";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { markChachaStopSeen } from "@/lib/quick-games";
 import { getCoachAudioElement, blessAudioPlayback } from "@/lib/iosAudio";
-import { speakChachaLine } from "@/lib/chachaVoice";
+import { speakChachaLine, stopChachaVoice } from "@/lib/chachaVoice";
 import { loadCoachVoicePref } from "@/lib/coachVoicePref";
 import { useSynthesizeSpeech } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -161,13 +161,21 @@ export function ChachaEncounterDialog({
     }
   }, [open]);
 
-  // Beat three: he sees the learner off on every close path — the Thanks
-  // button, the Not today button, and dismissing the dialog. Queued before the
-  // close so it finishes over the closing dialog and the route change; the
-  // player is a module-scope singleton precisely so it survives both.
+  // One cleanup covers every exit that is not a button: Escape, the
+  // backdrop, the close X, and a route change that unmounts the
+  // dialog. Five handlers would each have to remember.
+  useEffect(() => {
+    return () => {
+      stopChachaVoice();
+    };
+  }, []);
+
   const handleClose = () => {
-    blessAudioPlayback();
-    say("farewell");
+    // The farewell used to be queued here, then the route changed on
+    // the next line, so it played over the lesson that followed. A
+    // learner who tapped "Thanks, Chacha-ji" has already said thanks.
+    // Silence beats overlap.
+    stopChachaVoice();
     onOpenChange(false);
     setLocation(firstItemHref);
   };

@@ -15,7 +15,7 @@ import {
   type ChachaLine,
 } from '@workspace/api-client-react';
 import { playBase64Audio } from '@/lib/audio';
-import { speakChachaLine } from '@/lib/chachaVoice';
+import { speakChachaLine, stopChachaVoice } from '@/lib/chachaVoice';
 import { loadCoachVoicePref } from '@/lib/coachVoicePref';
 import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -146,14 +146,21 @@ export function ChachaEncounterDialog({
     say('gift');
   }, [encounter?.granted, say]);
 
-  // Beat three: he sees the learner off on every close path — Thanks,
-  // Chacha-ji, Not today, Chacha-ji, and a hardware-back dismissal. Queued
-  // before the close so it finishes over the closing modal; the queue is
-  // module-scope precisely so it outlives this component's unmount cleanup.
+  // The farewell used to be queued here and the route pushed on the
+  // next line, so it played over the lesson that followed. Silence
+  // beats overlap.
   const leaveWith = (go: () => void) => () => {
-    say('farewell');
+    stopChachaVoice();
     go();
   };
+
+  // One cleanup covers every exit that is not a button: the Android
+  // hardware back button and a route change that unmounts the modal.
+  useEffect(() => {
+    return () => {
+      stopChachaVoice();
+    };
+  }, []);
   const dismissWithFarewell = leaveWith(onDismiss);
   const declineWithFarewell = leaveWith(onDecline);
 

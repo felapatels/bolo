@@ -74,3 +74,24 @@ export function speakChachaLine(
     }
   });
 }
+
+/**
+ * Cut Chacha-ji off. Called on every path out of the encounter.
+ *
+ * Two halves, both needed: pause the element that is SOUNDING now,
+ * and reset the queue so lines already chained behind it never
+ * start. Without the second half a farewell queued microseconds
+ * earlier still fires over the next screen.
+ */
+export function stopChachaVoice(): void {
+  chain = Promise.resolve();
+  try {
+    const audio = getChachaAudioElement();
+    audio.onended = null;
+    audio.onerror = null;
+    audio.pause();
+    audio.currentTime = 0;
+  } catch {
+    // Best effort. A failure here must never block navigation.
+  }
+}
