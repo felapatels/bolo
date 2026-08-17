@@ -659,6 +659,32 @@ export default function HomeScreen() {
                   </Pressable>
                 </View>
               </View>
+            ) : !summary.data && summary.isError ? (
+              // A failed fetch used to fall through to the cells below, where
+              // every `?? 0` rendered a confident zero: a wiped streak, no XP,
+              // nothing mastered. The locked-language branch above already
+              // refuses to show misleading zeros; this is the same refusal for
+              // the failure case, and the web twin has carried it since #1081.
+              <View style={styles.lockedStats}>
+                <Text style={styles.lockedStatsText}>
+                  Your stats couldn&apos;t load.
+                </Text>
+                <View style={styles.lockedStatsRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Try loading your stats again"
+                    onPress={() => {
+                      hapticLight();
+                      void summary.refetch();
+                    }}
+                    style={styles.lockedSolidBtn}
+                  >
+                    <Text style={[styles.lockedSolidText, { color: colors.primary }]}>
+                      Try again
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
             ) : (
               <>
                 {/* Day Streak stands on its own, exactly as the Chai cell
