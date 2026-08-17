@@ -34,6 +34,7 @@ import {
   StreakRepairRow,
 } from '@/components/ChaiWallet';
 import { MilestoneToast } from '@/components/MilestoneToast';
+import { BazaarWelcome } from '@/components/BazaarWelcome';
 import { DressingRoom } from '@/components/DressingRoom';
 import { INDIA } from '@/constants/india';
 import { useColors } from '@/hooks/useColors';
@@ -245,6 +246,9 @@ export default function OutfitsScreen() {
 
   return (
     <Screen>
+      {/* Over everything, including the header: the greeting is the arrival,
+          not a layer on the shop. */}
+      <BazaarWelcome />
       <MilestoneToast message={notice} toastKey={noticeKey} />
       <View style={styles.header}>
         <PressableScale
