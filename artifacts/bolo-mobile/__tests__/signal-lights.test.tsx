@@ -33,9 +33,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
-  useSynthesizeSpeech: () => ({
-    mutateAsync: jest.fn(async () => ({ audioBase64: 'AAAA', format: 'mp3' })),
-  }),
+  useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
   useGetAccount: () => ({
     data: { preferences: { learning: { ttsVoice: 'auto' } } },
     isLoading: false,
@@ -79,7 +77,7 @@ jest.mock('@/lib/gameExit', () => ({
 }));
 
 jest.mock('@/lib/gameAudioPref', () => ({
-  loadGameAudioPref: jest.fn(async () => true),
+  loadGameAudioPref: jest.fn(async () => mockState.gameAudioOn),
   saveGameAudioPref: jest.fn(async () => {}),
 }));
 
@@ -195,6 +193,8 @@ beforeEach(() => {
   mockState.replace = jest.fn();
   mockState.invalidate = jest.fn();
   mockState.sessionResponse = { xpEarned: 30, totalXp: 900 };
+  mockState.gameAudioOn = true;
+  mockState.synth = jest.fn(async () => ({ audioBase64: 'AAAA', format: 'mp3' }));
   mockState.recordMutate = jest.fn((_vars: unknown, opts: any) => {
     opts?.onSuccess?.(mockState.sessionResponse);
   });
@@ -362,11 +362,20 @@ describe('Signal Lights round', () => {
     expect(screen.getByText('Round 1 of 10')).toBeTruthy();
   });
 
-  test('the game is SILENT: no mute toggle, because it speaks nothing', async () => {
-    // The audio port is deferred; until it lands the shell must not offer a
-    // control over sound this game never makes.
+  test('the game SPEAKS, so the shell offers a mute toggle', async () => {
+    // The phrase is spoken each round, so the shell shows its mute
+    // control. This asserted the opposite while the port carried no
+    // synthesis; the audio landed and the premise went with it.
     await startRun();
-    expect(screen.queryByTestId('game-mute-btn')).toBeNull();
+    expect(screen.queryByTestId('game-mute-btn')).toBeTruthy();
+  });
+
+  test('a muted run never synthesizes', async () => {
+    // soundOnRef is the only guard on this, and a muted run that still calls
+    // the TTS endpoint burns quota silently: nothing plays, so nothing shows.
+    mockState.gameAudioOn = false;
+    await startRun();
+    expect(mockState.synth).not.toHaveBeenCalled();
   });
 
   test('the claim shows the phrase and the meaning being asserted', async () => {
