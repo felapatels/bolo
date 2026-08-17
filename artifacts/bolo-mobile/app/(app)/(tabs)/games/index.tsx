@@ -89,7 +89,7 @@ const GAMES: GameDef[] = [
     title: 'Word Match',
     description: 'Match words to their translations before time runs out',
     difficulty: 'Beginner',
-    plusOnly: false,
+    plusOnly: true,
     icon: 'link',
   },
   {
@@ -97,7 +97,7 @@ const GAMES: GameDef[] = [
     title: 'Listen & Pick',
     description: 'Hear a word or phrase and choose the right translation',
     difficulty: 'Beginner',
-    plusOnly: false,
+    plusOnly: true,
     icon: 'headphones',
   },
   {
@@ -145,7 +145,7 @@ const GAMES: GameDef[] = [
     id: 'signal-lights',
     title: 'Signal Lights',
     description: 'Green or red? Call the phrase before the signal changes.',
-    difficulty: 'Intermediate',
+    difficulty: 'Beginner',
     plusOnly: false,
     icon: 'radio',
   },
