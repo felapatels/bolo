@@ -23,11 +23,19 @@
 //     mechanic is speed, and a manual beat every 4 seconds would break it.
 //   - the game NEVER persists anything: it reports each round through
 //     api.submitRound and the shell owns the single end-of-run POST.
+//   - the phrase is SPOKEN each round. Web's prod hotfix note says it plainly:
+//     soundOn arrived in props and was dead code. Same here until now. The
+//     synthesis, cache and playback follow listen-and-pick's pattern exactly,
+//     because a second way of playing a clip is how two files drift.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import type { Phrase } from '@workspace/api-client-react';
+import {
+  useGetAccount,
+  useSynthesizeSpeech,
+  type Phrase,
+} from '@workspace/api-client-react';
 import {
   QuickGameShell,
   type QuickRoundProps,
@@ -36,6 +44,7 @@ import { PressableScale } from '@/components/PressableScale';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { hapticNotify } from '@/lib/haptics';
+import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
 import { quickGameById } from '@/lib/quick-games';
 
 const ROUNDS = 10;
@@ -105,11 +114,84 @@ export function buildPlan(phrases: Phrase[], count: number): LightsQuestion[] {
   return plan;
 }
 
-function SignalLightsRound({ phrases, api, activeLanguage }: QuickRoundProps) {
+function SignalLightsRound({
+  phrases,
+  api,
+  activeLanguage,
+  soundOn,
+  setAudioPlaying,
+}: QuickRoundProps) {
   const colors = useColors();
   const nativeProps = nativeTextStyle(activeLanguage);
   const [plan] = useState(() => buildPlan(phrases, ROUNDS));
   const [judged, setJudged] = useState<boolean | null>(null);
+
+  const synthesize = useSynthesizeSpeech();
+  // The learner's TTS voice, so the cache key can include it. Without it a
+  // mid-session voice change still plays the old clip. Stale data is fine:
+  // an ancestor has almost always pre-fetched the account already.
+  const accountQuery = useGetAccount();
+  const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
+
+  const playbackRef = useRef<PlaybackHandle | null>(null);
+  const audioCache = useRef(
+    new Map<string, { audioBase64: string; format: string }>(),
+  );
+  // Mute must skip SYNTHESIS, not just playback, so the async path reads the
+  // live value rather than the one captured when the callback was built.
+  const soundOnRef = useRef(soundOn);
+  soundOnRef.current = soundOn;
+  // The round the async playback started for, so a clip that resolves after
+  // the 4-second clock has already moved on never speaks over the next claim.
+  const roundRef = useRef(api.round);
+  roundRef.current = api.round;
+
+  const stopAudio = useCallback(() => {
+    if (playbackRef.current) {
+      playbackRef.current.stop();
+      playbackRef.current = null;
+    }
+    setAudioPlaying(false);
+  }, [setAudioPlaying]);
+
+  const playPhrase = useCallback(
+    async (phrase: Phrase) => {
+      if (!soundOnRef.current) return;
+      stopAudio();
+      const capturedRound = roundRef.current;
+      try {
+        const cacheKey = `${phrase.id}:${ttsVoice}`;
+        const cached = audioCache.current.get(cacheKey);
+        const res =
+          cached ??
+          (await synthesize.mutateAsync({
+            data: {
+              text: phrase.nativeScript,
+              languageName: activeLanguage?.name,
+              languageCode: activeLanguage?.code,
+            },
+          }));
+        audioCache.current.set(cacheKey, {
+          audioBase64: res.audioBase64,
+          format: res.format,
+        });
+        // The clock is 4 seconds. A slow synthesis can easily land after the
+        // round turned over, and speaking the previous claim over the current
+        // one is worse than silence.
+        if (roundRef.current !== capturedRound) return;
+        setAudioPlaying(true);
+        playbackRef.current = await playBase64Audio(
+          res.audioBase64,
+          res.format,
+          () => setAudioPlaying(false),
+        );
+      } catch {
+        // Audio is a garnish on this game: a failed clip never blocks a round.
+        setAudioPlaying(false);
+      }
+    },
+    [synthesize, activeLanguage, ttsVoice, stopAudio, setAudioPlaying],
+  );
 
   // api.round is ZERO-BASED (shell contract), so it indexes the plan directly.
   const q = plan[api.round];
@@ -133,7 +215,48 @@ function SignalLightsRound({ phrases, api, activeLanguage }: QuickRoundProps) {
     return clearFlash;
   }, [api.round]);
 
+  // Speak the claim as the round opens.
+  useEffect(() => {
+    const current = plan[api.round];
+    if (current) void playPhrase(current.phrase);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api.round]);
+
+  /**
+   * Warm the NEXT round's clip while this one is on screen. On a 4-second
+   * clock a cold synthesis can eat most of the round, so the prefetch is what
+   * makes the audio land near the start of the claim rather than the end.
+   * The voice is in the cache key, so a mid-run change refetches rather than
+   * serving a stale clip.
+   */
+  useEffect(() => {
+    if (!soundOn) return;
+    const next = plan[api.round + 1];
+    if (!next) return;
+    const nextKey = `${next.phrase.id}:${ttsVoice}`;
+    if (audioCache.current.has(nextKey)) return;
+    synthesize
+      .mutateAsync({
+        data: {
+          text: next.phrase.nativeScript,
+          languageName: activeLanguage?.name,
+          languageCode: activeLanguage?.code,
+        },
+      })
+      .then((res) =>
+        audioCache.current.set(nextKey, {
+          audioBase64: res.audioBase64,
+          format: res.format,
+        }),
+      )
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api.round, ttsVoice, soundOn]);
+
   useEffect(() => clearFlash, []);
+
+  // Stop on unmount: a clip outliving the game would speak over the summary.
+  useEffect(() => stopAudio, [stopAudio]);
 
   // Timeout counts as a wrong judgement: brief flash, then submit the miss.
   // Web parity — the shell deliberately does not auto-submit for the game,
@@ -177,6 +300,9 @@ function SignalLightsRound({ phrases, api, activeLanguage }: QuickRoundProps) {
   const handleJudge = (saidTrue: boolean) => {
     if (answered || api.timedOut) return;
     api.lockRound();
+    // Web pauses its clip the moment a light is pressed: the call is made, so
+    // the phrase carrying on talking over the verdict reads as a lag.
+    stopAudio();
     setJudged(saidTrue);
     const correct = saidTrue === q.isTrue;
     hapticNotify(
@@ -295,10 +421,9 @@ export default function SignalLightsScreen() {
       def={def}
       secondsPerRound={SECONDS_PER_ROUND}
       roundsPerRun={ROUNDS}
-      // Silent for now: this port carries no clip synthesis, so the shell
-      // shows no mute toggle. Web's round audio lands in build 35, and this
-      // flips back to the default then.
-      usesAudio={false}
+      // The round speaks, so the shell shows its mute toggle and the button
+      // lights while a clip is outputting.
+      usesAudio
       instruction="Green for true, red for false. Quick!"
       renderRound={(props) => <SignalLightsRound {...props} />}
     />

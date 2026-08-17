@@ -33,12 +33,29 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  useSynthesizeSpeech: () => ({
+    mutateAsync: jest.fn(async () => ({ audioBase64: 'AAAA', format: 'mp3' })),
+  }),
+  useGetAccount: () => ({
+    data: { preferences: { learning: { ttsVoice: 'auto' } } },
+    isLoading: false,
+  }),
   useListCategories: () => mockState.categories,
   useListCategoryPhrases: () => mockState.phrases,
   getListCategoryPhrasesQueryKey: () => ['phrases'],
   useRecordGameSession: () => ({ mutate: mockState.recordMutate }),
   getGetProgressSummaryQueryKey: () => ['progress'],
   getGetTokensQueryKey: () => ['tokens'],
+}));
+
+// Same precedent as word-match-voice-cache.test.tsx: the game imports
+// playBase64Audio from '@/lib/audio', which pulls in expo-audio, which has no
+// native module under jest. Mock the lib, not expo-audio.
+jest.mock('@/lib/audio', () => ({
+  playBase64Audio: jest.fn(async (_b: string, _f: string, onDone?: () => void) => {
+    onDone?.();
+    return { stop: jest.fn() };
+  }),
 }));
 
 jest.mock('@tanstack/react-query', () => ({
