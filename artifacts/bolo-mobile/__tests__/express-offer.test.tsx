@@ -48,14 +48,26 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: mockState.invalidateQueries }),
 }));
 
-// The countdown hook is the wallet's, already pinned by chai-wallet.test.tsx.
-// Stubbed here so these tests drive the running/not-running branch directly
-// rather than re-testing wall-clock derivation through the whole wallet module.
+// The offer imports its spend contract, its 409 copy and its price from the
+// wallet, which owns them. All four are stubbed here so these tests drive the
+// running/not-running branch directly rather than re-testing wall-clock
+// derivation and the spend wrapper (both already pinned by
+// chai-wallet.test.tsx) through the whole wallet module graph.
 jest.mock('@/components/ChaiWallet', () => ({
+  EXPRESS_MULTIPLIER_COST: 10,
   useExpressCountdown: (activeUntil: string | null | undefined) =>
     activeUntil && new Date(activeUntil).getTime() > Date.now()
       ? '19:59'
       : null,
+  spendErrorMessage: (error: unknown) =>
+    `spend refused: ${String(error)}`,
+  useSpendWithNotice: (onNotice: (message: string) => void) => {
+    mockState.onNotice = onNotice;
+    return {
+      isPending: false,
+      mutate: (vars: unknown) => mockState.spendCalls.push(vars),
+    };
+  },
 }));
 
 jest.mock('@/hooks/useColors', () => ({

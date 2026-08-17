@@ -24,24 +24,17 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
+import { useGetTokens } from '@workspace/api-client-react';
+// Imported, not copied. The wallet owns the spend contract and
+// the 409 copy; a second definition is how the two drift.
 import {
-  ApiError,
-  getGetTokensQueryKey,
-  useGetTokens,
-  useSpendTokens,
-} from '@workspace/api-client-react';
-import { useExpressCountdown } from '@/components/ChaiWallet';
+  EXPRESS_MULTIPLIER_COST,
+  useExpressCountdown,
+  useSpendWithNotice,
+} from '@/components/ChaiWallet';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { INDIA } from '@/constants/india';
-
-/**
- * Mirrors EXPRESS_MULTIPLIER_COST in the server's tokenEconomy.ts, the same
- * way ChaiWallet.tsx mirrors it. Its own const because the wallet's copy is
- * module-local there, not exported.
- */
-const EXPRESS_MULTIPLIER_COST = 10;
 
 /**
  * One dismissal hides the offer for the rest of this LAUNCH.
@@ -56,46 +49,6 @@ let offerDismissed = false;
 
 export function __resetExpressOfferForTests(): void {
   offerDismissed = false;
-}
-
-/**
- * Exact 409 copy for the two rejections this spend can raise. A local twin of
- * ChaiWallet.tsx's spendErrorMessage, which is module-local there.
- */
-function spendErrorMessage(error: unknown): string {
-  if (error instanceof ApiError && error.status === 409) {
-    const data = error.data as
-      | { error?: string; balance?: number; cost?: number }
-      | null;
-    if (data?.error === 'insufficient_tokens') {
-      return `Not enough Chai yet. You have ${data.balance ?? 0}, this costs ${data.cost ?? 0}. Keep riding to earn more.`;
-    }
-    if (data?.error === 'multiplier_active') {
-      return 'An Express Multiplier is already running.';
-    }
-  }
-  return 'That spend did not go through. Try again in a moment.';
-}
-
-/**
- * Spend mutation with the web refresh contract: errors surface a notice,
- * success stays silent, and settle (success and rejection both) refreshes
- * token state from the server truth. The wallet's useSpendWithNotice is
- * module-local, so this is its twin.
- */
-function useSpendWithNotice(onNotice: (message: string) => void) {
-  const queryClient = useQueryClient();
-  return useSpendTokens({
-    mutation: {
-      onError: (error: unknown) => {
-        onNotice(spendErrorMessage(error));
-      },
-      onSettled: () => {
-        // Success and rejection both refresh from the server truth.
-        queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
-      },
-    },
-  });
 }
 
 export function ExpressOfferMoment({

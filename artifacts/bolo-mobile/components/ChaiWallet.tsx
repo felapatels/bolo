@@ -82,7 +82,7 @@ const STATION_PAUSE_MAX_EQUIPPED = 2;
 // The Express price was hardcoded into its own button copy as a bare "10",
 // which is the one thing on this screen that could silently disagree with the
 // server after a repricing. Named here like every other cost.
-const EXPRESS_MULTIPLIER_COST = 10;
+export const EXPRESS_MULTIPLIER_COST = 10;
 
 /**
  * Live "mm:ss" until expressMultiplierActiveUntil, or null when inactive or
@@ -176,7 +176,7 @@ export function useFirstClassCountdown(
 }
 
 /** Exact 409 copy per spend rejection; rejections are never paywall moments. */
-function spendErrorMessage(error: unknown): string {
+export function spendErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.status === 409) {
     const data = error.data as
       | { error?: string; balance?: number; cost?: number }
@@ -399,7 +399,7 @@ function FirstClassRow({
  * success stays silent, and settle (success and rejection both) refreshes
  * token state from the server truth.
  */
-function useSpendWithNotice(onNotice: (message: string) => void) {
+export function useSpendWithNotice(onNotice: (message: string) => void) {
   const queryClient = useQueryClient();
   return useSpendTokens({
     mutation: {
