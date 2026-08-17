@@ -4,7 +4,9 @@ import { Show } from "@clerk/react";
 import { motion } from "framer-motion";
 import { Loader2, PartyPopper } from "lucide-react";
 import { Mascot } from "@/components/mascot";
+import { AppStoreBadge } from "@/components/app-store-badge";
 import { useReferralRedemption } from "@/components/referral-redeemer";
+import { detectShortcutPlatform } from "@/lib/platform";
 import {
   REFERRAL_REWARD_CHAI,
   normalizeReferralCode,
@@ -25,6 +27,14 @@ import { cn } from "@/lib/utils";
 // It never dead-ends. Whatever happens to the code, including an unknown or
 // self-referring one, the visitor leaves through a working button: signed-out
 // visitors to signup, signed-in learners into the app.
+//
+// A referral link is tapped on a PHONE far more often than anywhere else, and
+// there is no deep link, so the tap lands here in a browser. Without a store
+// badge the invited friend's only route was the web app, on the platform
+// where they are most likely to want the native one. The badge picks the
+// visitor's own store and stays muted and unlinked until that listing is live
+// (APP_STORE_LIVE / PLAY_STORE_LIVE), so it can ship before either approval
+// lands.
 
 const CTA = "w-full rounded-2xl px-6 py-4 text-center text-base font-black";
 
@@ -40,6 +50,34 @@ function Shell({ children }: { children: React.ReactNode }) {
       </motion.div>
     </div>
   );
+}
+
+
+/**
+ * Where this visitor's platform gets the app, or nothing at all.
+ *
+ * Apple on iOS, Play on Android, never both, matching add-to-home-screen's
+ * rule. A desktop visitor has no store to point at and simply does not see
+ * this: the web app is the right answer there, and it is already one button
+ * away above.
+ */
+function StoreBadge({ placement }: { placement: string }) {
+  const platform = detectShortcutPlatform();
+  if (platform === "ios") {
+    return (
+      <div className="mt-6 flex justify-center" data-testid={`${placement}-ios`}>
+        <AppStoreBadge placement={placement} />
+      </div>
+    );
+  }
+  if (platform === "android") {
+    return (
+      <div className="mt-6 flex justify-center" data-testid={`${placement}-android`}>
+        <AppStoreBadge store="play" placement={placement} />
+      </div>
+    );
+  }
+  return null;
 }
 
 export default function Join() {
@@ -104,6 +142,11 @@ export default function Join() {
           >
             I already have an account
           </Link>
+          {/* Below both routes, not instead of them: the code is remembered in
+              this browser, so creating the account here is still the shortest
+              path to the Chai. The badge is for the visitor who would rather
+              have the app. */}
+          <StoreBadge placement="join-store-badge" />
         </Shell>
       </Show>
 
@@ -159,6 +202,7 @@ export default function Join() {
               >
                 Start learning
               </Link>
+              <StoreBadge placement="join-redeemed-store-badge" />
             </>
           )}
         </Shell>
