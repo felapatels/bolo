@@ -11,12 +11,13 @@
 // exists, so this screen tells the learner plainly rather than dealing them a
 // three-letter game. The old page is untouched and still hidden; it should be
 // deleted once this one has an alphabet behind it.
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Check, Eraser, Undo2 } from "lucide-react";
+import { ArrowLeft, Check, Eraser, Play, Undo2 } from "lucide-react";
 import { useLanguage } from "@/lib/language-context";
 import {
   scoreGlyph,
+  strokesUpTo,
   PASS_SCORE,
   type AuthoredGlyph,
   type StrokePoint,
@@ -33,6 +34,21 @@ import {
 const BOX = 100;
 /** Glyphs per run. Short enough to finish standing up. */
 export const ROUNDS = 6;
+
+/**
+ * WATCH, THEN TRACE.
+ *
+ * The guide stays hidden during the attempt, which is right: a visible guide
+ * turns the game into colouring in. But hiding it on a letter the learner has
+ * never seen written is not teaching either, it is testing something never
+ * taught. So every letter opens with the pen demo, and the attempt begins when
+ * the learner says it does.
+ *
+ * The demo is free here in a way it never was for the shipped game: it replays
+ * the authored stroke instead of trying to recover a path from an outline.
+ */
+const DEMO_MS = 2200;
+const DEMO_TICK_MS = 40;
 
 const FAULT_COPY: Record<TraceFault, string> = {
   "too-few-strokes": "Some strokes are missing.",
@@ -82,6 +98,9 @@ export default function ScriptTraceGame() {
   const [strokes, setStrokes] = useState<StrokePoint[][]>([]);
   const [checked, setChecked] = useState(false);
   const [scores, setScores] = useState<number[]>([]);
+  const [phase, setPhase] = useState<"watch" | "trace">("watch");
+  const [demoT, setDemoT] = useState(0);
+  const [replay, setReplay] = useState(0);
 
   const liveRef = useRef<StrokePoint[]>([]);
   const [live, setLive] = useState<StrokePoint[]>([]);
@@ -92,6 +111,24 @@ export default function ScriptTraceGame() {
     () => (glyph && strokes.length > 0 ? scoreGlyph(strokes, glyph) : null),
     [strokes, glyph],
   );
+
+  // Runs only while watching, so a learner mid-attempt is never re-animated.
+  useEffect(() => {
+    if (phase !== "watch") return;
+    const started = performance.now();
+    const id = setInterval(() => {
+      const t = Math.min(1, (performance.now() - started) / DEMO_MS);
+      setDemoT(t);
+      if (t >= 1) clearInterval(id);
+    }, DEMO_TICK_MS);
+    return () => clearInterval(id);
+  }, [phase, idx, replay]);
+
+  const watchAgain = () => {
+    setDemoT(0);
+    setReplay((r) => r + 1);
+    setPhase("watch");
+  };
 
   const clear = () => {
     liveRef.current = [];
@@ -164,16 +201,26 @@ export default function ScriptTraceGame() {
         </span>
       </header>
 
-      <p className="pb-2 text-center text-sm font-bold text-muted-foreground">
-        Trace <span className="text-2xl text-foreground">{glyph!.char}</span> ({glyph!.label})
+      <p className="text-center text-sm font-bold text-muted-foreground">
+        {phase === "watch" ? "Watch" : "Trace"}{" "}
+        <span className="text-2xl text-foreground">{glyph!.char}</span> ({glyph!.label})
       </p>
+      {glyph!.example ? (
+        <p data-testid="trace-example" className="pb-2 pt-0.5 text-center text-xs text-muted-foreground">
+          <span className="text-foreground">{glyph!.char}</span> as in{" "}
+          <span className="font-bold text-foreground">{glyph!.example.word}</span>{" "}
+          ({glyph!.example.roman}), {glyph!.example.gloss}
+        </p>
+      ) : (
+        <div className="pb-2" />
+      )}
 
       <svg
         viewBox={`0 0 ${BOX} ${BOX}`}
         data-testid="trace-canvas"
         className="aspect-square w-full touch-none rounded-2xl border-2 border-border bg-card"
         onPointerDown={(e) => {
-          if (checked) return;
+          if (checked || phase !== "trace") return;
           e.currentTarget.setPointerCapture?.(e.pointerId);
           drawing.current = true;
           liveRef.current = [toGlyphSpace(e, e.currentTarget)];
@@ -197,6 +244,33 @@ export default function ScriptTraceGame() {
           setLive([]);
         }}
       >
+        {/* The pen demo: the authored strokes drawing themselves, in order. Only
+            while watching, so the attempt itself stays unguided. */}
+        {phase === "watch" &&
+          strokesUpTo(glyph!.strokes, demoT).map((s, i) => (
+            <g key={`demo-${i}`} data-testid={`trace-demo-stroke-${i}`}>
+              <path
+                d={toPath(s)}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={6}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-primary"
+              />
+              <circle cx={s[0]!.x} cy={s[0]!.y} r={4} className="fill-primary" />
+              <text
+                x={s[0]!.x}
+                y={s[0]!.y + 1.6}
+                textAnchor="middle"
+                className="fill-white"
+                style={{ fontSize: 5, fontWeight: 800 }}
+              >
+                {i + 1}
+              </text>
+            </g>
+          ))}
+
         {/* The guide appears only AFTER a check. Showing it while tracing turns
             the game into colouring in; showing it with the verdict is how a
             learner sees what they got wrong. */}
@@ -261,7 +335,25 @@ export default function ScriptTraceGame() {
       ) : null}
 
       <div className="flex gap-2 pt-3">
-        {!checked ? (
+        {phase === "watch" ? (
+          <>
+            <button
+              onClick={watchAgain}
+              data-testid="trace-watch-again"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-border bg-card py-2.5 text-sm font-bold"
+            >
+              <Play className="h-4 w-4" /> Watch again
+            </button>
+            <button
+              onClick={() => setPhase("trace")}
+              data-testid="trace-my-turn"
+              className="flex flex-[1.4] items-center justify-center rounded-xl py-2.5 text-sm font-black text-white"
+              style={{ background: "hsl(var(--primary))" }}
+            >
+              My turn
+            </button>
+          </>
+        ) : !checked ? (
           <>
             <button
               onClick={() => setStrokes((s) => s.slice(0, -1))}
@@ -293,6 +385,10 @@ export default function ScriptTraceGame() {
               setScores((s) => [...s, result?.score ?? 0]);
               setIdx((i) => i + 1);
               clear();
+              // Every letter opens with its demo, including ones already seen:
+              // a run deals six different letters, not six attempts at one.
+              setDemoT(0);
+              setPhase("watch");
             }}
             data-testid="trace-next"
             className="flex-1 rounded-xl py-2.5 text-sm font-black text-white"

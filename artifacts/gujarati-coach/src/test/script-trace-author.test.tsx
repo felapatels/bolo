@@ -245,3 +245,71 @@ describe("A DRAFT SURVIVES A RELOAD", () => {
     expect(screen.getByTestId("author-canvas")).toBeInTheDocument();
   });
 });
+
+describe("THE ALPHABET IS PICKED, NOT TYPED", () => {
+  test("it is a select, so a prefix cannot be fat-fingered mid-session", () => {
+    // Was a free-text box. Half a session filed under a typo'd prefix is
+    // invisible until the game deals an empty round.
+    renderAuthor();
+    expect(screen.getByTestId("author-script").tagName).toBe("SELECT");
+  });
+
+  test("choosing a different alphabet changes the id it derives", () => {
+    const { canvas } = renderAuthor();
+    fireEvent.change(screen.getByTestId("author-script"), { target: { value: "gujarati" } });
+    fireEvent.change(screen.getByTestId("author-char"), { target: { value: "ક" } });
+    fireEvent.change(screen.getByTestId("author-label"), { target: { value: "ka" } });
+    drawStroke(canvas, DOWN);
+    fireEvent.click(screen.getByTestId("author-add"));
+
+    expect(JSON.parse((screen.getByTestId("author-json") as HTMLTextAreaElement).value)[0].id)
+      .toBe("guj-ka");
+  });
+});
+
+describe("THE MNEMONIC a letter is taught with", () => {
+  function authorKa(example?: { word: string; roman: string; gloss: string }) {
+    const { canvas } = renderAuthor();
+    fireEvent.change(screen.getByTestId("author-char"), { target: { value: "क" } });
+    fireEvent.change(screen.getByTestId("author-label"), { target: { value: "ka" } });
+    if (example) {
+      fireEvent.change(screen.getByTestId("author-ex-word"), { target: { value: example.word } });
+      fireEvent.change(screen.getByTestId("author-ex-roman"), { target: { value: example.roman } });
+      fireEvent.change(screen.getByTestId("author-ex-gloss"), { target: { value: example.gloss } });
+    }
+    drawStroke(canvas, DOWN);
+    fireEvent.click(screen.getByTestId("author-add"));
+    return JSON.parse((screen.getByTestId("author-json") as HTMLTextAreaElement).value);
+  }
+
+  test("all three parts ride along into the export", () => {
+    const out = authorKa({ word: "कमल", roman: "kamal", gloss: "lotus" });
+    expect(out[0].example).toEqual({ word: "कमल", roman: "kamal", gloss: "lotus" });
+  });
+
+  test("a glyph with no mnemonic exports without the key, not with an empty one", () => {
+    // The field is optional in the type; an empty shell would read as authored.
+    const out = authorKa();
+    expect(out[0]).not.toHaveProperty("example");
+  });
+
+  test("HALF A MNEMONIC IS DROPPED, because it teaches worse than none", () => {
+    const { canvas } = renderAuthor();
+    fireEvent.change(screen.getByTestId("author-char"), { target: { value: "क" } });
+    fireEvent.change(screen.getByTestId("author-label"), { target: { value: "ka" } });
+    fireEvent.change(screen.getByTestId("author-ex-word"), { target: { value: "कमल" } });
+    // roman and gloss left blank
+    drawStroke(canvas, DOWN);
+    fireEvent.click(screen.getByTestId("author-add"));
+
+    const out = JSON.parse((screen.getByTestId("author-json") as HTMLTextAreaElement).value);
+    expect(out[0]).not.toHaveProperty("example");
+  });
+
+  test("the mnemonic fields empty out for the next letter", () => {
+    authorKa({ word: "कमल", roman: "kamal", gloss: "lotus" });
+    expect((screen.getByTestId("author-ex-word") as HTMLInputElement).value).toBe("");
+    expect((screen.getByTestId("author-ex-roman") as HTMLInputElement).value).toBe("");
+    expect((screen.getByTestId("author-ex-gloss") as HTMLInputElement).value).toBe("");
+  });
+});

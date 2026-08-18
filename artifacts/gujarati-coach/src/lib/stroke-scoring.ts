@@ -31,12 +31,32 @@ export type StrokePoint = { x: number; y: number };
  */
 export type AuthoredStroke = StrokePoint[];
 
+/**
+ * The mnemonic word a letter is taught with.
+ *
+ * Every alphabet primer in India teaches this way: क से कमल, "ka as in kamal,
+ * lotus". A bare "Trace क (ka)" gives a learner a sound with nothing to hang it
+ * on, which is thin teaching for the one screen whose whole job is teaching.
+ *
+ * Optional, because the format predates it and the three prototype glyphs have
+ * none. A glyph without one still plays; it just teaches less.
+ */
+export type GlyphExample = {
+  /** In the script itself, e.g. कमल. */
+  word: string;
+  /** Romanised, e.g. kamal. */
+  roman: string;
+  /** What it means in English, e.g. lotus. */
+  gloss: string;
+};
+
 export type AuthoredGlyph = {
   id: string;
   char: string;
   label: string;
   /** In writing order. For Devanagari the shirorekha is last. */
   strokes: AuthoredStroke[];
+  example?: GlyphExample;
 };
 
 /** What went wrong, in terms a learner can act on. */
@@ -213,4 +233,27 @@ export function scoreGlyph(
   if (faults.includes("wrong-order")) score = Math.min(score, 55);
 
   return { score, passed: score >= PASS_SCORE && faults.length === 0, faults, perStroke };
+}
+
+/**
+ * The authored strokes revealed part-way through, for the pen demo.
+ *
+ * Points are the unit rather than seconds, so a long stroke takes longer to
+ * draw than a short one and the replay reads like a hand rather than a
+ * metronome. Pure, so the demo's timing can be tested without a clock.
+ */
+export function strokesUpTo(
+  strokes: AuthoredStroke[],
+  t: number,
+): AuthoredStroke[] {
+  const clamped = Math.max(0, Math.min(1, t));
+  const total = strokes.reduce((n, s) => n + s.length, 0);
+  let budget = Math.round(total * clamped);
+  const out: AuthoredStroke[] = [];
+  for (const stroke of strokes) {
+    if (budget <= 0) break;
+    out.push(stroke.slice(0, Math.min(stroke.length, budget)));
+    budget -= stroke.length;
+  }
+  return out;
 }

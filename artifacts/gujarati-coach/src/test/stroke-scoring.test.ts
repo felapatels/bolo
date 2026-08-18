@@ -3,6 +3,7 @@ import {
   scoreGlyph,
   compareStroke,
   resample,
+  strokesUpTo,
   PASS_SCORE,
   type AuthoredGlyph,
 } from "@/lib/stroke-scoring";
@@ -213,4 +214,47 @@ describe("every prototype glyph is self-consistent", () => {
       }
     },
   );
+});
+
+describe("strokesUpTo: the pen demo's reveal", () => {
+  const A = [
+    { x: 10, y: 10 },
+    { x: 10, y: 50 },
+    { x: 10, y: 90 },
+  ];
+  const B = [
+    { x: 20, y: 20 },
+    { x: 80, y: 20 },
+  ];
+
+  test("nothing at the start, everything at the end", () => {
+    expect(strokesUpTo([A, B], 0)).toEqual([]);
+    expect(strokesUpTo([A, B], 1)).toEqual([A, B]);
+  });
+
+  test("STROKE ORDER IS THE POINT: the second never starts before the first ends", () => {
+    // The whole lesson is that the shirorekha goes last. A demo that revealed
+    // strokes in parallel would teach the opposite of the thing being taught.
+    for (let t = 0; t <= 1; t += 0.05) {
+      const shown = strokesUpTo([A, B], t);
+      if (shown.length > 1) expect(shown[0]).toHaveLength(A.length);
+    }
+  });
+
+  test("a long stroke takes longer than a short one", () => {
+    // Points are the unit, not strokes, so the replay reads like a hand rather
+    // than a metronome ticking once per stroke. Halfway through the POINTS of a
+    // long stroke plus a short one is PART WAY along the long one, where a
+    // per-stroke clock would already have finished it.
+    const long = Array.from({ length: 8 }, (_, i) => ({ x: 10, y: 10 + i * 10 }));
+    const half = strokesUpTo([long, B], 0.5);
+    expect(half).toHaveLength(1);
+    expect(half[0]!.length).toBeGreaterThan(0);
+    expect(half[0]!.length).toBeLessThan(long.length);
+  });
+
+  test("out-of-range progress is clamped, not thrown at", () => {
+    expect(strokesUpTo([A, B], -5)).toEqual([]);
+    expect(strokesUpTo([A, B], 99)).toEqual([A, B]);
+  });
 });
