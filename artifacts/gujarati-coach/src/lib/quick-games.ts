@@ -27,6 +27,14 @@ export type QuickGameDef = {
   floor: number;
   /** The frozen server game id this quick game rides for scoring. */
   serverGame: "listen-and-pick" | "word-match";
+  /**
+   * Journeys this game appears in. Absent means every journey.
+   *
+   * Journey 2 opens the roster to games that would not have suited journey 1:
+   * its topics are travel, money, time, work, health and festivals, where a
+   * learner is dealing with the world rather than naming it.
+   */
+  journeys?: readonly number[];
 };
 
 /** Roster order is the deterministic signal rotation order. */
@@ -76,10 +84,40 @@ export function quickGameById(id: string): QuickGameDef | undefined {
   return QUICK_GAMES.find((g) => g.id === id);
 }
 
-/** Games playable with `visibleCount` plan-visible phrases, roster order. */
-export function eligibleQuickGames(visibleCount: number): QuickGameDef[] {
-  return QUICK_GAMES.filter((g) => g.floor <= visibleCount);
+/**
+ * Games playable with `visibleCount` plan-visible phrases, roster order.
+ *
+ * `journey` defaults to 1 so every existing caller keeps the exact roster it
+ * had: a game with no `journeys` list appears everywhere, and nothing in the
+ * shipped roster declares one.
+ */
+export function eligibleQuickGames(
+  visibleCount: number,
+  journey = 1,
+): QuickGameDef[] {
+  return QUICK_GAMES.filter(
+    (g) => g.floor <= visibleCount && (!g.journeys || g.journeys.includes(journey)),
+  );
 }
+
+// ---------------------------------------------------------------------------
+// WHY SCRIPT TRACE IS NOT IN THIS ROSTER YET.
+//
+// It was asked for as a journey 2 mini game and it cannot join on the current
+// contract. Every entry here rides a frozen server game id, and the server's
+// enum is [speed-round, phrase-builder, word-match, listen-and-pick]; a session
+// carries phraseResults which the server validates against real phrase ids.
+//
+// Script Trace has no phrases. It has glyphs, and its result is a stroke score
+// with named faults. Filing a trace run as "listen-and-pick" with invented
+// phraseResults would be lying to a server that checks, and the token and XP
+// economy hangs off game sessions.
+//
+// Joining needs a server-side game type: a new enum value and a results shape
+// carrying glyph id, score and faults. That is an API change to a graded path,
+// and it should be a deliberate one rather than a ride-along. The journey
+// scoping above is the half that was safe to build now.
+// ---------------------------------------------------------------------------
 
 /**
  * Deterministic rotation: the game offered at a signal is picked by the
@@ -90,8 +128,9 @@ export function eligibleQuickGames(visibleCount: number): QuickGameDef[] {
 export function gameForSignal(
   signalIndex: number,
   visibleCount: number,
+  journey = 1,
 ): QuickGameDef | null {
-  const eligible = eligibleQuickGames(visibleCount);
+  const eligible = eligibleQuickGames(visibleCount, journey);
   if (eligible.length === 0) return null;
   return eligible[signalIndex % eligible.length]!;
 }

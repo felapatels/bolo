@@ -10,6 +10,11 @@ import {
   availableJourneys,
   zoneIdsForJourney,
 } from "@/lib/journeyLines";
+import {
+  QUICK_GAMES,
+  eligibleQuickGames,
+  gameForSignal,
+} from "@/lib/quick-games";
 
 // ---------------------------------------------------------------------------
 // Journey 2: the onward leg. Structure, category ids and geography land here;
@@ -191,5 +196,65 @@ describe("resolving zones to the ids everything downstream speaks", () => {
 
   test("no listing resolves to nothing rather than throwing", () => {
     expect(zoneIdsForJourney(2, undefined)).toEqual([]);
+  });
+});
+
+describe("journey-aware mini-game roster", () => {
+  test("journey 1 gets exactly the roster it always had", () => {
+    // The default is journey 1 and nothing in the shipped roster declares a
+    // journey list, so this must be byte-identical to the old behaviour.
+    expect(eligibleQuickGames(10)).toEqual(eligibleQuickGames(10, 1));
+    expect(eligibleQuickGames(10).map((g) => g.id)).toEqual(
+      QUICK_GAMES.map((g) => g.id),
+    );
+  });
+
+  test("a game with no journey list appears in every journey", () => {
+    expect(eligibleQuickGames(10, 2).map((g) => g.id)).toEqual(
+      QUICK_GAMES.map((g) => g.id),
+    );
+  });
+
+  test("the phrase floor still binds, in either journey", () => {
+    // Signal Lights has the lowest floor, so a thin category offers only it.
+    for (const journey of [1, 2]) {
+      expect(eligibleQuickGames(2, journey).map((g) => g.id)).toEqual([
+        "signal-lights",
+      ]);
+      expect(eligibleQuickGames(0, journey)).toEqual([]);
+    }
+  });
+
+  test("gameForSignal rotates within the journey's roster", () => {
+    const roster = eligibleQuickGames(10, 2);
+    for (let i = 0; i < roster.length * 2; i++) {
+      expect(gameForSignal(i, 10, 2)!.id).toBe(roster[i % roster.length]!.id);
+    }
+  });
+
+  test("gameForSignal still defaults to journey 1", () => {
+    expect(gameForSignal(0, 10)).toEqual(gameForSignal(0, 10, 1));
+  });
+
+  test("a category too thin for any game auto-waves in journey 2 too", () => {
+    // null is the auto-wave case, and it must not become an exception just
+    // because a second journey exists.
+    expect(gameForSignal(0, 0, 2)).toBeNull();
+  });
+
+  test("SCRIPT TRACE IS DELIBERATELY ABSENT", () => {
+    // It was asked for as a journey 2 mini game and cannot join on the current
+    // contract: every roster entry rides a frozen server game id, and a game
+    // session carries phraseResults the server validates against real phrase
+    // ids. Script Trace has glyphs, not phrases. Filing a trace run as
+    // "listen-and-pick" with invented phrase results would be lying to a server
+    // that checks, on the path the token and XP economy hangs off.
+    //
+    // This test is the reminder, and it should be inverted the day a
+    // server-side trace game type lands.
+    expect(QUICK_GAMES.map((g) => g.id)).not.toContain("script-trace");
+    for (const g of QUICK_GAMES) {
+      expect(["listen-and-pick", "word-match"]).toContain(g.serverGame);
+    }
   });
 });
