@@ -56,6 +56,9 @@ const ACROSS = [
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  // The tool restores a draft on mount, so one test's glyphs would otherwise
+  // arrive already banked in the next.
+  localStorage.clear();
 });
 
 describe("authoring a glyph", () => {
@@ -195,5 +198,50 @@ describe("THE ROUND TRIP: what it exports, the scorer consumes", () => {
     const result = scoreGlyph(swapped, glyph!);
     expect(result.faults).toContain("wrong-order");
     expect(result.passed).toBe(false);
+  });
+});
+
+describe("A DRAFT SURVIVES A RELOAD", () => {
+  // An authoring run is an hour of hand tracing. Before this, any file save in
+  // dev hot-reloaded the module and took the whole set with it silently.
+  test("banked glyphs come back when the tool is mounted again", () => {
+    const first = renderAuthor();
+    fireEvent.change(screen.getByTestId("author-char"), { target: { value: "\u0915" } });
+    fireEvent.change(screen.getByTestId("author-label"), { target: { value: "ka" } });
+    drawStroke(first.canvas, DOWN);
+    fireEvent.click(screen.getByTestId("author-add"));
+    expect(screen.getByTestId("author-remove-deva-ka")).toBeInTheDocument();
+
+    first.unmount();
+    renderAuthor();
+
+    expect(screen.getByTestId("author-remove-deva-ka")).toBeInTheDocument();
+    const restored = JSON.parse(
+      (screen.getByTestId("author-json") as HTMLTextAreaElement).value,
+    ) as AuthoredGlyph[];
+    expect(restored).toHaveLength(1);
+    // Not just the id: the strokes themselves have to survive, in order.
+    expect(restored[0]!.strokes).toHaveLength(1);
+    expect(restored[0]!.strokes[0]!.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test("removing a glyph removes it from the draft too", () => {
+    const first = renderAuthor();
+    fireEvent.change(screen.getByTestId("author-char"), { target: { value: "\u0915" } });
+    fireEvent.change(screen.getByTestId("author-label"), { target: { value: "ka" } });
+    drawStroke(first.canvas, DOWN);
+    fireEvent.click(screen.getByTestId("author-add"));
+    fireEvent.click(screen.getByTestId("author-remove-deva-ka"));
+
+    first.unmount();
+    renderAuthor();
+
+    expect(screen.queryByTestId("author-remove-deva-ka")).not.toBeInTheDocument();
+  });
+
+  test("a corrupt draft is ignored rather than breaking the tool", () => {
+    localStorage.setItem("bolo:script-trace-author:draft:v1", "{not json");
+    renderAuthor();
+    expect(screen.getByTestId("author-canvas")).toBeInTheDocument();
   });
 });

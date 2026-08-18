@@ -16,12 +16,30 @@
 // wrong.
 //
 // Unlisted: reachable at /games/script-trace-author and linked from nowhere.
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, Check, Copy, Eraser, Trash2, Undo2 } from "lucide-react";
 import type { AuthoredGlyph, StrokePoint } from "@/lib/stroke-scoring";
 
 const BOX = 100;
+
+// An authoring run is ~45 glyphs and the better part of an hour of hand
+// tracing, held until now in React state alone. In dev that is one saved file
+// away from gone: Vite hot-reloads the module on any edit anywhere in the app
+// and the set resets silently. Persist every add, so the only way to lose a
+// draft is to ask for it.
+const DRAFT_KEY = "bolo:script-trace-author:draft:v1";
+
+function loadDraft(): AuthoredGlyph[] {
+  try {
+    const raw = globalThis.localStorage?.getItem(DRAFT_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) ? (parsed as AuthoredGlyph[]) : [];
+  } catch {
+    // A corrupt or unreadable draft must not take the whole tool down with it.
+    return [];
+  }
+}
 
 function toGlyphSpace(
   e: React.PointerEvent<SVGSVGElement>,
@@ -69,12 +87,20 @@ export default function ScriptTraceAuthor() {
   const [char, setChar] = useState("");
   const [label, setLabel] = useState("");
   const [strokes, setStrokes] = useState<StrokePoint[][]>([]);
-  const [glyphs, setGlyphs] = useState<AuthoredGlyph[]>([]);
+  const [glyphs, setGlyphs] = useState<AuthoredGlyph[]>(loadDraft);
   const [copied, setCopied] = useState(false);
 
   const liveRef = useRef<StrokePoint[]>([]);
   const [live, setLive] = useState<StrokePoint[]>([]);
   const drawing = useRef(false);
+
+  useEffect(() => {
+    try {
+      globalThis.localStorage?.setItem(DRAFT_KEY, JSON.stringify(glyphs));
+    } catch {
+      // Private-mode or quota failures are not worth interrupting authoring for.
+    }
+  }, [glyphs]);
 
   const canAdd = char.trim().length > 0 && strokes.length > 0;
 
