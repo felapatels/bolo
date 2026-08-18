@@ -2,12 +2,13 @@ import { describe, test, expect } from "vitest";
 import {
   JOURNEY_ZONES,
   JOURNEY_2_ZONES,
-  JOURNEYS,
+  JOURNEY_COUNT,
   JOURNEY_LINES,
   zonesForJourney,
   stationsForJourney,
   journeyIsReady,
   availableJourneys,
+  zoneIdsForJourney,
 } from "@/lib/journeyLines";
 
 // ---------------------------------------------------------------------------
@@ -25,26 +26,51 @@ describe("the shape of a journey", () => {
     expect(JOURNEY_ZONES).toHaveLength(6);
   });
 
-  test("its category ids continue from journey 1 and never collide", () => {
-    const ids1 = JOURNEY_ZONES.map((z) => z.id);
-    const ids2 = JOURNEY_2_ZONES.map((z) => z.id);
-    expect(ids1).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(ids2).toEqual([7, 8, 9, 10, 11, 12]);
-    expect(ids1.some((id) => ids2.includes(id))).toBe(false);
+  test("zones are keyed by SLUG, because ids are not stable", () => {
+    // Journey 1's ids are 1-6 only because those were the first rows ever
+    // inserted. Seeding journey 2's six landed them at 277-282, not 7-12: the
+    // sequence had moved on. An id is whatever the database felt like that
+    // day; a slug is what the seed declares.
+    expect(JOURNEY_2_ZONES.map((z) => z.slug)).toEqual([
+      "travel",
+      "shopping",
+      "time",
+      "work",
+      "health",
+      "festivals",
+    ]);
+    const slugs1 = zonesForJourney(1).map((z) => z.slug);
+    const slugs2 = zonesForJourney(2).map((z) => z.slug);
+    expect(slugs1.some((s) => slugs2.includes(s))).toBe(false);
   });
 
   test("zonesForJourney returns the right set, and falls back safely", () => {
-    expect(zonesForJourney(1)).toEqual(JOURNEY_ZONES);
-    expect(zonesForJourney(2)).toEqual(JOURNEY_2_ZONES);
+    // Compared by slug: journey 1's raw constant still carries ids for the
+    // callers that use them directly, while the journey view is slug-keyed.
+    const slugsOf = (j: number) => zonesForJourney(j).map((z) => z.slug);
+    expect(slugsOf(1)).toEqual([
+      "greetings",
+      "family",
+      "numbers",
+      "food",
+      "everyday",
+      "feelings",
+    ]);
+    expect(zonesForJourney(2)).toEqual([...JOURNEY_2_ZONES]);
     // An unknown journey must not throw or return nothing: falling back to
     // journey 1 keeps a bad route parameter from emptying the map.
-    expect(zonesForJourney(99)).toEqual(JOURNEY_ZONES);
-    expect(zonesForJourney(0)).toEqual(JOURNEY_ZONES);
+    expect(slugsOf(99)).toEqual(slugsOf(1));
+    expect(slugsOf(0)).toEqual(slugsOf(1));
   });
 
-  test("JOURNEYS is ordered so index + 1 is the journey number", () => {
-    expect(JOURNEYS[0]).toEqual(JOURNEY_ZONES);
-    expect(JOURNEYS[1]).toEqual(JOURNEY_2_ZONES);
+  test("there are two journeys", () => {
+    expect(JOURNEY_COUNT).toBe(2);
+  });
+
+  test("journey 1's zones still line up with its shipped titles", () => {
+    expect(zonesForJourney(1).map((z) => z.title)).toEqual(
+      JOURNEY_ZONES.map((z) => z.title),
+    );
   });
 });
 
@@ -86,11 +112,13 @@ describe("every one of the 22 lines runs both journeys", () => {
 });
 
 describe("THE GATE: an empty journey is never offered", () => {
+  // Ids deliberately unlike 1-12, mirroring what the seed actually produced.
+  const cat = (slug: string, id: number, phraseCount: number) => ({ id, slug, phraseCount });
+  const journey1Only = zonesForJourney(1).map((z, i) => cat(z.slug, i + 1, 40));
   const full = [
-    ...JOURNEY_ZONES.map((z) => ({ id: z.id, phraseCount: 40 })),
-    ...JOURNEY_2_ZONES.map((z) => ({ id: z.id, phraseCount: 40 })),
+    ...journey1Only,
+    ...zonesForJourney(2).map((z, i) => cat(z.slug, 277 + i, 40)),
   ];
-  const journey1Only = JOURNEY_ZONES.map((z) => ({ id: z.id, phraseCount: 40 }));
 
   test("journey 1 is always ready: it is the shipped content", () => {
     expect(journeyIsReady(1, undefined)).toBe(true);
@@ -111,7 +139,7 @@ describe("THE GATE: an empty journey is never offered", () => {
     // one, just later, so "some" must not be enough.
     const partial = [
       ...journey1Only,
-      ...JOURNEY_2_ZONES.map((z, i) => ({ id: z.id, phraseCount: i < 4 ? 40 : 0 })),
+      ...zonesForJourney(2).map((z, i) => cat(z.slug, 277 + i, i < 4 ? 40 : 0)),
     ];
     expect(journeyIsReady(2, partial)).toBe(false);
     expect(journeyIsReady(2, full)).toBe(true);
@@ -120,13 +148,16 @@ describe("THE GATE: an empty journey is never offered", () => {
   test("a category present with zero phrases counts as not ready", () => {
     const zeroed = [
       ...journey1Only,
-      ...JOURNEY_2_ZONES.map((z) => ({ id: z.id, phraseCount: 0 })),
+      ...zonesForJourney(2).map((z, i) => cat(z.slug, 277 + i, 0)),
     ];
     expect(journeyIsReady(2, zeroed)).toBe(false);
   });
 
   test("a category missing its count entirely counts as not ready", () => {
-    const noCounts = [...journey1Only, ...JOURNEY_2_ZONES.map((z) => ({ id: z.id }))];
+    const noCounts = [
+      ...journey1Only,
+      ...zonesForJourney(2).map((z, i) => ({ id: 277 + i, slug: z.slug })),
+    ];
     expect(journeyIsReady(2, noCounts)).toBe(false);
   });
 
@@ -134,5 +165,31 @@ describe("THE GATE: an empty journey is never offered", () => {
     expect(availableJourneys(journey1Only)).toEqual([1]);
     expect(availableJourneys(full)).toEqual([1, 2]);
     expect(availableJourneys(undefined)).toEqual([1]);
+  });
+});
+
+describe("resolving zones to the ids everything downstream speaks", () => {
+  const cats = [
+    ...zonesForJourney(1).map((z, i) => ({ id: i + 1, slug: z.slug, phraseCount: 40 })),
+    ...zonesForJourney(2).map((z, i) => ({ id: 277 + i, slug: z.slug, phraseCount: 40 })),
+  ];
+
+  test("journey 2 resolves to whatever ids the seed actually produced", () => {
+    expect(zoneIdsForJourney(2, cats)).toEqual([277, 278, 279, 280, 281, 282]);
+  });
+
+  test("journey 1 resolves too, unchanged", () => {
+    expect(zoneIdsForJourney(1, cats)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  test("a partially resolvable journey resolves to NOTHING", () => {
+    // Returning a short list would silently draw a journey with fewer zones
+    // than it has, which is harder to notice than drawing none.
+    const missing = cats.filter((c) => c.slug !== "health");
+    expect(zoneIdsForJourney(2, missing)).toEqual([]);
+  });
+
+  test("no listing resolves to nothing rather than throwing", () => {
+    expect(zoneIdsForJourney(2, undefined)).toEqual([]);
   });
 });
