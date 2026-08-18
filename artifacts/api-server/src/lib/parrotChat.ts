@@ -14,7 +14,10 @@ import { isEffectivelyEmpty } from "./pronunciationGuards";
 import { isQuotaExhaustedError } from "./ttsUtils";
 import { elevenLabsQuotaMonitor } from "./elevenLabsQuotaMonitor";
 import { TTS_PROVIDER, BOLO_CHAT_TTS_INSTRUCTIONS, BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST } from "./ttsConfig";
-import type { Scenario } from "./scenarios";
+// The RESOLVED scene, not the definition: by the time a prompt is built the
+// phrases and the steering are language-specific, and a definition still
+// carrying "{{language}}" must never reach the model.
+import type { ResolvedScenario } from "./scenarios";
 
 // A single prior turn of the conversation, supplied by the client as a short
 // rolling context window (no server-side chat history is persisted — see the
@@ -125,7 +128,7 @@ export interface ParrotTurnInput {
    * steering instructions are injected into the user message (not the system
    * prompt), preserving OpenAI prompt-cache hits on the static BOLO_PERSONA_PROMPT.
    */
-  scenario?: Scenario;
+  scenario?: ResolvedScenario;
 }
 
 // Per-stage wall-clock durations for one chat turn, in milliseconds.
@@ -907,7 +910,7 @@ export function buildUserPrompt(
   languageName: string,
   history: ChatHistoryTurn[],
   transcript: string,
-  scenario?: Scenario,
+  scenario?: ResolvedScenario,
 ): string {
   const historyText = history
     .map((h) => `${h.role === "learner" ? "Learner" : "Bolo"}: ${h.text}`)

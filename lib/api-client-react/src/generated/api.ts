@@ -66,6 +66,7 @@ import type {
   GetFriendsLeaderboardParams,
   GetProgressAnalyticsParams,
   GetProgressSummaryParams,
+  GetScenarioParams,
   GetScriptTraceProgressParams,
   HealthStatus,
   JoinFamily200,
@@ -4936,21 +4937,31 @@ export const useJoinFamily = <TError = ErrorType<Error>,
       return useMutation(getJoinFamilyMutationOptions(options));
     }
 
-export const getGetScenarioUrl = (id: string,) => {
+export const getGetScenarioUrl = (id: string,
+    params: GetScenarioParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/scenarios/${id}`
+  return stringifiedParams.length > 0 ? `/api/scenarios/${id}?${stringifiedParams}` : `/api/scenarios/${id}`
 }
 
 /**
  * Returns the public subset of a scenario (title, framing copy, target phrases). Steering instructions are never sent to the client. Auth required; no entitlement gate -- the gate is on POST /openai/chat.
+ * Target phrases are drawn from the learner's own seeded content for the scene's category, so `lang` is required: a scene is language-neutral but its chips never are.
  * @summary Fetch client-safe metadata for a zone capstone scenario
  */
-export const getScenario = async (id: string, options?: RequestInit): Promise<ScenarioPublic> => {
+export const getScenario = async (id: string,
+    params: GetScenarioParams, options?: RequestInit): Promise<ScenarioPublic> => {
 
-  return customFetch<ScenarioPublic>(getGetScenarioUrl(id),
+  return customFetch<ScenarioPublic>(getGetScenarioUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -4963,23 +4974,25 @@ export const getScenario = async (id: string, options?: RequestInit): Promise<Sc
 
 
 
-export const getGetScenarioQueryKey = (id: string,) => {
+export const getGetScenarioQueryKey = (id: string,
+    params?: GetScenarioParams,) => {
     return [
-    `/api/scenarios/${id}`
+    `/api/scenarios/${id}`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetScenarioQueryOptions = <TData = Awaited<ReturnType<typeof getScenario>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScenario>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetScenarioQueryOptions = <TData = Awaited<ReturnType<typeof getScenario>>, TError = ErrorType<Error>>(id: string,
+    params: GetScenarioParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScenario>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetScenarioQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getGetScenarioQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getScenario>>> = ({ signal }) => getScenario(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getScenario>>> = ({ signal }) => getScenario(id,params, { signal, ...requestOptions });
 
 
 
@@ -4997,11 +5010,12 @@ export type GetScenarioQueryError = ErrorType<Error>
  */
 
 export function useGetScenario<TData = Awaited<ReturnType<typeof getScenario>>, TError = ErrorType<Error>>(
- id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScenario>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: string,
+    params: GetScenarioParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScenario>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetScenarioQueryOptions(id,options)
+  const queryOptions = getGetScenarioQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -97,17 +97,29 @@ export default function ChatPage() {
   const recorder = useVoiceRecorder();
   const prefersReducedMotion = useReducedMotion();
 
+  // Per-session chat language — does NOT change the global active language.
+  // Declared BEFORE the scenario query, which now depends on it.
+  const [chatLang, setChatLang] = useState<string>(activeLang);
+  const chatLanguage = languages.find((l) => l.code === chatLang);
+
   // Scenario metadata (title, framing copy, target phrases) — fetched only
   // when a scenarioId is present in the URL. Steering instructions are
   // server-only; this endpoint returns the client-safe subset.
-  const scenarioQuery = useGetScenario(scenarioId ?? "", {
-    query: { enabled: !!scenarioId, queryKey: ["scenario", scenarioId ?? ""] },
-  });
+  //
+  // Fetched PER LANGUAGE: the target phrases are drawn from the learner's own
+  // seeded content for the scene's category, so the same capstone in Tamil and
+  // in Gujarati is two different sets of chips.
+  const scenarioQuery = useGetScenario(
+    scenarioId ?? "",
+    { lang: chatLang },
+    {
+      query: {
+        enabled: !!scenarioId && !!chatLang,
+        queryKey: ["scenario", scenarioId ?? "", chatLang],
+      },
+    },
+  );
   const scenario = scenarioQuery.data;
-
-  // Per-session chat language — does NOT change the global active language.
-  const [chatLang, setChatLang] = useState<string>(activeLang);
-  const chatLanguage = languages.find((l) => l.code === chatLang);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);

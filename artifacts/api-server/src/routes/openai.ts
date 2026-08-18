@@ -37,7 +37,7 @@ import { writeNocatchDiagnostic, type NocatchCause } from "../lib/nocatchDiagnos
 import { measureAttemptSnrDb } from "../lib/audioNoise";
 import { denyLockedFeature, denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
 import { upgradeRequired, featuresForPlan } from "../lib/entitlements";
-import { SCENARIOS, toPublicScenario } from "../lib/scenarios";
+import { SCENARIOS, toPublicScenario, resolveScenario } from "../lib/scenarios";
 import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/chatLimits";
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
@@ -1669,12 +1669,14 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
   // read it directly from the raw body so Zod's strip mode doesn't lose it.
   const scenarioId =
     typeof req.body?.scenarioId === "string" ? req.body.scenarioId : undefined;
-  const scenario = scenarioId ? SCENARIOS[scenarioId] : undefined;
+  // The DEFINITION only. Phrases and steering are language-dependent and are
+  // resolved below, once the language row is in hand.
+  const scenarioDef = scenarioId ? SCENARIOS[scenarioId] : undefined;
 
   const { userId, resolvedPlan } = req as EntitledRequest;
 
   // Zone 2+ capstone requires Plus. Zone 1 is free for everyone.
-  if (scenario && scenario.zoneIndex >= 1) {
+  if (scenarioDef && scenarioDef.zoneIndex >= 1) {
     if (!featuresForPlan(resolvedPlan.plan).allLanguages) {
       sendUpgradeRequired(res, upgradeRequired("feature_locked", "Zone capstone chat requires All-Access", "allLanguages"));
       return;
@@ -1699,6 +1701,15 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
     res.status(404).json({ error: "Unknown language" });
     return;
   }
+
+  // Resolve the scene for THIS language: chips drawn from the phrases the
+  // learner practised in that zone, and steering that names the language the
+  // model should speak. Null when the language has no content for the scene's
+  // category, and null is treated exactly like no scenario at all: a capstone
+  // with nothing to aim at must not be gradeable.
+  const scenario = scenarioDef
+    ? ((await resolveScenario(scenarioDef, languageCode, language.name)) ?? undefined)
+    : undefined;
 
   const trimmedHistory: ChatHistoryTurn[] = Array.isArray(history)
     ? history.slice(-8).map((h) => ({
@@ -2489,14 +2500,41 @@ router.post(
   },
 );
 
-// GET /scenarios/:id — client-safe scenario metadata.
+// GET /scenarios/:id?lang=xx — client-safe scenario metadata.
 // Returns the public subset of a zone capstone scenario (title, framing copy,
 // target phrases). Steering instructions are never sent. Auth required; no
 // entitlement gate here -- the gate is on POST /openai/chat.
+//
+// `lang` is REQUIRED because the target phrases are the learner's own language
+// content. Serving a default would hand a Tamil learner Gujarati chips, which
+// is exactly the bug this route grew out of.
 router.get(
   "/scenarios/:id",
   async (req: Request, res: Response): Promise<void> => {
-    const scenario = SCENARIOS[String(req.params.id)];
+    const scenarioDef = SCENARIOS[String(req.params.id)];
+    if (!scenarioDef) {
+      res.status(404).json({ error: "Unknown scenario" });
+      return;
+    }
+    const languageCode = String(req.query.lang ?? "");
+    if (!languageCode) {
+      res.status(400).json({ error: "Missing language" });
+      return;
+    }
+    const language = await db.query.languagesTable.findFirst({
+      where: eq(languagesTable.code, languageCode),
+    });
+    if (!language) {
+      res.status(404).json({ error: "Unknown language" });
+      return;
+    }
+    const scenario = await resolveScenario(
+      scenarioDef,
+      languageCode,
+      language.name,
+    );
+    // No content for this scene in this language: there is no capstone to
+    // offer, and saying so is better than serving an unfinishable one.
     if (!scenario) {
       res.status(404).json({ error: "Unknown scenario" });
       return;

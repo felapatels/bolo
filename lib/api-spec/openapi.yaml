@@ -1947,6 +1947,10 @@ paths:
         Returns the public subset of a scenario (title, framing copy, target
         phrases). Steering instructions are never sent to the client. Auth
         required; no entitlement gate -- the gate is on POST /openai/chat.
+
+        Target phrases are drawn from the learner's own seeded content for the
+        scene's category, so `lang` is required: a scene is language-neutral
+        but its chips never are.
       parameters:
         - name: id
           in: path
@@ -1954,6 +1958,14 @@ paths:
           schema:
             type: string
           description: Scenario id (e.g. "greetings-manners")
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
+          description: >-
+            Language code the capstone is being played in. Determines the target
+            phrases and the language the model is steered to speak.
       responses:
         "200":
           description: Scenario metadata
@@ -1961,8 +1973,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ScenarioPublic"
+        "400":
+          description: Missing language
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "404":
-          description: Unknown scenario id
+          description: >-
+            Unknown scenario id, unknown language, or no content for this scene
+            in this language (an unfinishable capstone is never served)
           content:
             application/json:
               schema:
