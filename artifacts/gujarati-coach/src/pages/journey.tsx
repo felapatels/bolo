@@ -944,6 +944,18 @@ export default function Journey() {
   const [signalTick, setSignalTick] = useState(0);
   const { ref: mapRef, w: mapW } = useMapWidth();
   const reduceMotion = useReducedMotion();
+  /** Scroll the page so a map y lands where the auto-scroll puts the current
+   *  stop. Same framing constant, so a jump and the initial landing agree. */
+  const scrollToMapY = useCallback(
+    (y: number) => {
+      const map = mapRef.current;
+      if (!map || typeof window === "undefined" || typeof window.scrollTo !== "function") return;
+      const lead = Math.min(260, Math.max(140, Math.round(window.innerHeight * 0.3)));
+      const top = map.getBoundingClientRect().top + window.scrollY + y - lead;
+      window.scrollTo({ top: Math.max(0, top), behavior: reduceMotion ? "auto" : "smooth" });
+    },
+    [mapRef, reduceMotion],
+  );
 
   // Task 985: light scroll parallax on the scenery layer — ONE scroll-linked
   // transform on the scenery group, so it drifts slightly slower than the
@@ -1296,6 +1308,29 @@ export default function Journey() {
   // reached. Pure client geometry off the same predicate the arrival check
   // uses: no server call, no state, and no encounter row. Rendering is NOT
   // triggering — the gift still happens only on arrival, below.
+  // Zone index for the desktop rail. The map column is phone-width and centred,
+  // so on a wide screen most of the viewport is empty margin while the learner
+  // scrolls 52 stations looking for where they are. The rail fills that margin
+  // with the one thing the page cannot otherwise show: the whole line at once.
+  //
+  // y comes off the SAME geometry the map draws, so a jump can never disagree
+  // with where the zone actually sits.
+  const zoneNav = zones.map((z, zi) => {
+    const pc = pts.find((p) => p.kind === "postcard" && p.zoneIndex === zi);
+    const total = z.stations.length;
+    const done = z.stations.filter(
+      (st) => st.status === "completed" || st.status === "tested_out",
+    ).length;
+    return {
+      zoneIndex: zi,
+      geoName: z.geoName,
+      y: pc?.y ?? 0,
+      done,
+      total,
+      hasCurrent: z.stations.some((st) => st.id === currentId),
+    };
+  });
+
   const haltPts = new Map(
     pts.filter((p) => p.kind === "halt").map((p) => [p.haltAfterStation!, p]),
   );
@@ -1503,6 +1538,66 @@ export default function Journey() {
           </div>
         </div>
       </header>
+
+      {/* Desktop line index. Fixed, so it never enters the map's layout, and
+          xl-only because below that the margin it lives in does not exist.
+          Hidden from assistive tech as a duplicate: every zone it lists is
+          already reachable by scrolling the map itself. */}
+      <nav
+        aria-label="Jump to a fare zone"
+        data-testid="journey-zone-rail"
+        className="pointer-events-none fixed left-6 top-1/2 z-10 hidden -translate-y-1/2 xl:block"
+      >
+        <ol className="pointer-events-auto flex w-44 flex-col gap-1">
+          {zoneNav.map((z) => (
+            <li key={z.zoneIndex}>
+              <button
+                type="button"
+                data-testid={`zone-rail-${z.zoneIndex}`}
+                onClick={() => scrollToMapY(z.y)}
+                className={cn(
+                  "group flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition-colors",
+                  z.hasCurrent
+                    ? "border-transparent"
+                    : "border-transparent hover:bg-muted",
+                )}
+                style={
+                  z.hasCurrent
+                    ? { backgroundColor: `${line.accent}14`, borderColor: `${line.accent}59` }
+                    : undefined
+                }
+              >
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-black text-white"
+                  style={{
+                    backgroundColor:
+                      z.done === z.total ? line.accent : `${line.accent}66`,
+                  }}
+                >
+                  {z.zoneIndex + 1}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[11px] font-extrabold text-foreground">
+                    {z.geoName}
+                  </span>
+                  <span className="mt-1 block h-1 overflow-hidden rounded-full bg-muted">
+                    <span
+                      className="block h-full rounded-full"
+                      style={{
+                        width: `${z.total > 0 ? Math.round((z.done / z.total) * 100) : 0}%`,
+                        backgroundColor: line.accent,
+                      }}
+                    />
+                  </span>
+                </span>
+                <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground">
+                  {z.done}/{z.total}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </nav>
 
       {/* pb-nav below lg clears the floating BottomNav pill mounted by AppShell */}
       <main className="mx-auto w-full max-w-2xl flex-1 pb-nav lg:pb-14">

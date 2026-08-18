@@ -199,6 +199,32 @@ describe("boarding-pass header numbers (task 1082 item 1)", () => {
     expect(screen.getByText(/· Stop 1 of 59 stations/)).toBeInTheDocument();
   });
 
+  test("the desktop rail indexes every zone with its real progress", () => {
+    // The map column is phone-width and centred, so on a wide screen most of
+    // the viewport is empty margin while the learner scrolls 52 stations
+    // looking for where they are. The rail fills it with the whole line.
+    h.zones = zonesOf(
+      [grp(1, "completed", { masteredCount: 8, attemptedCount: 8 }), grp(2, "completed", { masteredCount: 8, attemptedCount: 8 })],
+      [grp(3, "in_progress", { masteredCount: 3, attemptedCount: 5 }), grp(4, "locked")],
+      [grp(5, "locked")],
+      [grp(6, "locked")],
+      [grp(7, "locked")],
+      [grp(8, "locked")],
+    );
+    renderJourney();
+
+    const rail = screen.getByTestId("journey-zone-rail");
+    expect(rail).toBeInTheDocument();
+    // One entry per fare zone, no more and no fewer.
+    for (let zi = 0; zi < 6; zi++) {
+      expect(screen.getByTestId(`zone-rail-${zi}`)).toBeInTheDocument();
+    }
+    // Counts come off the same station list the map draws, so they cannot
+    // disagree with it: zone 1 is 2/2 done, zone 2 is 0/2.
+    expect(screen.getByTestId("zone-rail-0")).toHaveTextContent("2/2");
+    expect(screen.getByTestId("zone-rail-1")).toHaveTextContent("0/2");
+  });
+
   test("the ticket stub always carries a stamp, even on a finished line", () => {
     // Reported from the app: the stub rendered EMPTY, which read as unfinished
     // development sitting above a finished map. A finished line has no CURRENT
