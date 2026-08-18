@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
@@ -19,6 +19,12 @@ const h = vi.hoisted(() => ({
   // Left undefined, every zone serves the single default group these title
   // tests were written against.
   zones: undefined as (unknown[] | undefined)[] | undefined,
+  // Aug 18 2026: a zone only folds when it owes no uncollected Chai, so the
+  // fold tests need to say which trackside signals have been cleared.
+  signalsByZone: {} as Record<
+    number,
+    { rewardChai: number; waves: string[]; clears: string[] }
+  >,
 }));
 
 // framer-motion caches the prefers-reduced-motion media query globally on its
@@ -72,6 +78,7 @@ vi.mock("@workspace/api-client-react", async () => ({
       lessonGroups: h.zones
         ? h.zones[JOURNEY_ZONE_IDS.indexOf(zoneId)] ?? []
         : GROUPS,
+      signals: h.signalsByZone[zoneId] ?? { rewardChai: 1, waves: [], clears: [] },
     },
     isLoading: false,
     isError: false,
@@ -95,6 +102,7 @@ function renderJourney() {
 }
 
 beforeEach(() => {
+  h.signalsByZone = {};
   h.cats = undefined;
   h.zones = undefined;
   h.reduceMotion = false;
@@ -197,6 +205,90 @@ describe("boarding-pass header numbers (task 1082 item 1)", () => {
     );
     renderJourney();
     expect(screen.getByText(/· Stop 1 of 59 stations/)).toBeInTheDocument();
+  });
+
+  // ── Folding finished zones ────────────────────────────────────────────────
+  // With 52 stations the page is dominated by work already done, so a finished
+  // zone folds to a single row. The GUARD is the interesting half: an earlier
+  // attempt at this was thrown away because folding also hid trackside signals,
+  // and an active or waved signal still owes the learner Chai.
+
+  /** Six zones, the first N finished, with every signal in them cleared. */
+  const foldable = (finished: number) => {
+    const zs: unknown[][] = [];
+    let id = 100;
+    for (let zi = 0; zi < 6; zi++) {
+      const done = zi < finished;
+      zs.push([
+        grp(id++, done ? "completed" : zi === finished ? "in_progress" : "locked", {
+          masteredCount: done ? 8 : 2,
+          attemptedCount: done ? 8 : 3,
+        }),
+        grp(id++, done ? "completed" : "locked", {
+          masteredCount: done ? 8 : 0,
+          attemptedCount: done ? 8 : 0,
+        }),
+      ]);
+    }
+    return zs;
+  };
+
+  /** Clear every gap, so no zone is owed any Chai. */
+  const clearAllSignals = () => {
+    const clears = Array.from({ length: 40 }, (_, i) => `gap-${i + 1}`);
+    for (const z of JOURNEY_ZONES) {
+      h.signalsByZone[z.id] = { rewardChai: 1, waves: [], clears };
+    }
+  };
+
+  test("a finished zone with nothing owed folds to one row", () => {
+    h.zones = foldable(2) as never;
+    clearAllSignals();
+    renderJourney();
+
+    expect(screen.getByTestId("zone-collapsed-0")).toBeInTheDocument();
+    expect(screen.getByTestId("zone-collapsed-0")).toHaveTextContent("2 stops ridden");
+  });
+
+  test("a zone still owing Chai NEVER folds, however finished it is", () => {
+    // The reason the first attempt at this was reverted: folding a zone with an
+    // active or waved signal hides Chai the learner has not collected.
+    h.zones = foldable(2) as never;
+    // No clears anywhere: every signal still owes.
+    renderJourney();
+
+    expect(screen.queryByTestId("zone-collapsed-0")).toBeNull();
+    expect(screen.queryByTestId("zone-collapsed-1")).toBeNull();
+  });
+
+  test("the zone the learner is standing in never folds", () => {
+    // The one thing this map exists to show is where you are.
+    h.zones = foldable(2) as never;
+    clearAllSignals();
+    renderJourney();
+
+    expect(screen.queryByTestId("zone-collapsed-2")).toBeNull();
+  });
+
+  test("an unfinished zone never folds", () => {
+    h.zones = foldable(2) as never;
+    clearAllSignals();
+    renderJourney();
+
+    for (const zi of [3, 4, 5]) {
+      expect(screen.queryByTestId(`zone-collapsed-${zi}`)).toBeNull();
+    }
+  });
+
+  test("tapping a folded zone opens it again", () => {
+    h.zones = foldable(2) as never;
+    clearAllSignals();
+    renderJourney();
+
+    fireEvent.click(screen.getByTestId("zone-collapsed-0"));
+    expect(screen.queryByTestId("zone-collapsed-0")).toBeNull();
+    // And the other folded zone is unaffected: expanding is per zone.
+    expect(screen.getByTestId("zone-collapsed-1")).toBeInTheDocument();
   });
 
   test("the desktop rail indexes every zone with its real progress", () => {
