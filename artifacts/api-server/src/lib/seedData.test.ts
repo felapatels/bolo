@@ -6,6 +6,8 @@ import path from "node:path";
 import {
   LANGUAGES,
   CATEGORIES,
+  CURATED_CATEGORIES,
+  UNCURATED_CATEGORY_SLUGS,
   CURATED_LANGUAGE_CODE,
   PHRASES_PER_LESSON,
   GUJARATI_LESSONS,
@@ -53,7 +55,7 @@ test("frozen data covers every non-Gujarati language × every category", () => {
   for (const code of generatedLanguageCodes) {
     const byCategory = curated[code];
     assert.ok(byCategory, `frozen file is missing language "${code}"`);
-    for (const cat of CATEGORIES) {
+    for (const cat of CURATED_CATEGORIES) {
       assert.ok(
         byCategory[cat.slug],
         `frozen file is missing ${code}/${cat.slug}`,
@@ -90,7 +92,7 @@ test("frozen data covers every non-Gujarati language × every category", () => {
 test("every frozen lesson holds the full starter + premium library", () => {
   for (const code of generatedLanguageCodes) {
     const byCategory = curated[code] ?? {};
-    for (const cat of CATEGORIES) {
+    for (const cat of CURATED_CATEGORIES) {
       const lesson = byCategory[cat.slug];
       // The frozen file must carry the *extended* library (starter + premium),
       // so a Bolo! Plus subscriber opens a deep, ready lesson with no AI wait.
@@ -212,7 +214,7 @@ test("a malformed or empty frozen lesson makes the seed refuse to run", () => {
   // than silently skipping it: inject one bad lesson into a copy of the real
   // file and confirm validateCuratedLessons reports it.
   const victimCode = generatedLanguageCodes[0];
-  const victimCat = CATEGORIES[0].slug;
+  const victimCat = CURATED_CATEGORIES[0].slug;
   const tampered: CuratedLessonsFile = {
     ...curated,
     [victimCode]: {
@@ -233,7 +235,7 @@ test("a malformed or empty frozen lesson makes the seed refuse to run", () => {
 // out-of-range difficulty) would ship silently and greet a learner with a blank
 // or malformed starter lesson. These tests fail first instead.
 test("Gujarati lessons cover every category slug", () => {
-  for (const cat of CATEGORIES) {
+  for (const cat of CURATED_CATEGORIES) {
     assert.ok(
       GUJARATI_LESSONS[cat.slug],
       `GUJARATI_LESSONS is missing category "${cat.slug}"`,
@@ -251,7 +253,7 @@ test("Gujarati lessons cover every category slug", () => {
 });
 
 test("every Gujarati lesson holds the full starter + premium library", () => {
-  for (const cat of CATEGORIES) {
+  for (const cat of CURATED_CATEGORIES) {
     const lesson = GUJARATI_LESSONS[cat.slug];
     // Gujarati now ships the same extended library as every other language:
     // the full starter + premium set per topic (Numbers 1-10 stays at ten).
@@ -293,11 +295,11 @@ test("every Gujarati lesson holds the full starter + premium library", () => {
 // "<lang>/<category>" so a failure points straight at the offending lesson.
 const allSeedLessons: Array<[string, SeedLesson]> = [
   ...generatedLanguageCodes.flatMap((code) =>
-    CATEGORIES.map(
+    CURATED_CATEGORIES.map(
       (cat) => [`${code}/${cat.slug}`, curated[code][cat.slug]] as [string, SeedLesson],
     ),
   ),
-  ...CATEGORIES.map(
+  ...CURATED_CATEGORIES.map(
     (cat) =>
       [`${CURATED_LANGUAGE_CODE}/${cat.slug}`, GUJARATI_LESSONS[cat.slug]] as [
         string,
@@ -757,4 +759,38 @@ test("gloss-agnostic guard catches a transliterated loanword mislabeled with an 
     ],
   };
   assert.equal(findGlossAgnosticLoanwords("test/correct", correct).length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Journey 2's topics exist as rows and carry no curated content yet. That gap
+// is asserted here rather than left to be noticed, because the coverage guards
+// above were scoped to CURATED_CATEGORIES to accommodate it and a silent
+// scope-narrowing is how a guard quietly stops guarding.
+// ---------------------------------------------------------------------------
+
+test("the uncurated set is exactly journey 2, and nothing from journey 1", () => {
+  assert.deepEqual(
+    [...UNCURATED_CATEGORY_SLUGS].sort(),
+    ["festivals", "health", "shopping", "time", "travel", "work"],
+  );
+  for (const slug of ["greetings", "family", "numbers", "food", "everyday", "feelings"]) {
+    assert.ok(
+      !UNCURATED_CATEGORY_SLUGS.has(slug),
+      `${slug} is journey 1 content and must stay under the coverage guards`,
+    );
+  }
+});
+
+test("every category is either curated or knowingly uncurated", () => {
+  // No third state. A topic that is neither is one the guards do not cover and
+  // nobody has declared empty.
+  for (const cat of CATEGORIES) {
+    const curated = CURATED_CATEGORIES.some((c) => c.slug === cat.slug);
+    const known = UNCURATED_CATEGORY_SLUGS.has(cat.slug);
+    assert.ok(curated !== known, `${cat.slug} must be exactly one of curated / uncurated`);
+  }
+});
+
+test("the curated set still covers all six journey 1 topics", () => {
+  assert.equal(CURATED_CATEGORIES.length, 6);
 });

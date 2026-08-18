@@ -83,7 +83,49 @@ export const CATEGORIES: SeedCategory[] = [
   { slug: "food", title: "Food & Eating", description: "Words for the dinner table.", iconName: "Utensils", accent: "#7A5AF8" },
   { slug: "everyday", title: "Everyday Words", description: "Handy things you say all the time.", iconName: "Sun", accent: "#F5871F" },
   { slug: "feelings", title: "Feelings", description: "Say how you feel inside.", iconName: "Smile", accent: "#1FA6A0" },
+  // ── Journey 2 ──────────────────────────────────────────────────────────────
+  // The onward leg: journey 1 is who you are and what you feel, journey 2 is
+  // moving through a place and dealing with the people in it. Ids 7-12 in
+  // insertion order, matching JOURNEY_2_ZONES in the clients' journeyLines.ts,
+  // which is where the zone-to-category mapping lives for journey 1 too.
+  //
+  // These rows land BEFORE their phrases do, on purpose: a category with no
+  // phrases is invisible to a learner because journeyIsReady() gates the whole
+  // journey on every one of them carrying content. Seeding the topics first is
+  // what lets content be authored against real ids.
+  { slug: "travel", title: "Travel & Directions", description: "Find your way and say where you are going.", iconName: "Compass", accent: "#7A5AF8" },
+  { slug: "shopping", title: "Shopping & Money", description: "Ask the price and pay for it.", iconName: "ShoppingBag", accent: "#F5871F" },
+  { slug: "time", title: "Time & Days", description: "Days, hours and when to meet.", iconName: "Clock", accent: "#1FA6A0" },
+  { slug: "work", title: "Work & Study", description: "Talk about what you do all day.", iconName: "Briefcase", accent: "#E84E8A" },
+  { slug: "health", title: "Health & Body", description: "Say what hurts and ask for help.", iconName: "HeartPulse", accent: "#7A5AF8" },
+  { slug: "festivals", title: "Celebrations & Festivals", description: "Wishes, invitations and good news.", iconName: "PartyPopper", accent: "#F5871F" },
 ];
+
+/**
+ * Journey 2's topics, which exist as rows but carry NO curated content yet.
+ *
+ * Kept as a named set rather than left implicit because the content guards in
+ * seedData.test.ts assert that every category has a full curated library in
+ * every language, and that assertion must keep its full strength for the
+ * topics that are supposed to have one. Journey 2 is deliberately empty and is
+ * gated out of the map by journeyIsReady() until it is not.
+ *
+ * A slug leaves this set the moment its content lands, and the guards then
+ * cover it automatically.
+ */
+export const UNCURATED_CATEGORY_SLUGS: ReadonlySet<string> = new Set([
+  "travel",
+  "shopping",
+  "time",
+  "work",
+  "health",
+  "festivals",
+]);
+
+/** The topics that MUST carry a full curated library in every language. */
+export const CURATED_CATEGORIES: SeedCategory[] = CATEGORIES.filter(
+  (c) => !UNCURATED_CATEGORY_SLUGS.has(c.slug),
+);
 
 // The "starter" set every learner — including Free — sees for a topic. This is
 // the tier boundary: the first `starterPhraseCount(slug)` phrases of a curated
@@ -795,7 +837,12 @@ export function validateCuratedLessons(
   for (const lang of LANGUAGES) {
     if (lang.code === CURATED_LANGUAGE_CODE) continue;
     const byCategory = curated[lang.code];
-    for (const cat of CATEGORIES) {
+    // CURATED_CATEGORIES, not CATEGORIES: journey 2's topics exist as rows with
+    // no frozen lesson yet, and reporting 126 of them as "missing" would drown
+    // the one signal this gate exists to give -- a journey 1 topic that lost
+    // its content. An uncurated topic still generates on first open, which is
+    // the same path any exhausted topic takes.
+    for (const cat of CURATED_CATEGORIES) {
       const lesson = byCategory?.[cat.slug];
       if (!lesson) {
         missing.push(`${lang.code}/${cat.slug}`);

@@ -30,25 +30,55 @@ export const JOURNEY_ZONES = [
  * with the people in it, finishing on festivals the same way journey 1
  * finishes on a festival city.
  *
- * Category ids continue from journey 1 (7-12) and MUST match the seeded rows.
+ * KEYED BY SLUG, NOT ID, and journey 1's ids are the reason why. Those happen
+ * to be 1-6 because they were the first rows ever inserted; the sequence has
+ * since advanced, and seeding these six landed them at 277-282 rather than
+ * 7-12. An id is whatever the database felt like that day. A slug is what the
+ * seed actually declares, so it is the only stable join.
+ *
  * Nothing here is live until those categories carry phrases: see
  * journeyIsReady() below, which is what gates the map.
  */
 export const JOURNEY_2_ZONES = [
-  { id: 7, title: "Travel & Directions" },
-  { id: 8, title: "Shopping & Money" },
-  { id: 9, title: "Time & Days" },
-  { id: 10, title: "Work & Study" },
-  { id: 11, title: "Health & Body" },
-  { id: 12, title: "Celebrations & Festivals" }, // the festival finale, again
+  { slug: "travel", title: "Travel & Directions" },
+  { slug: "shopping", title: "Shopping & Money" },
+  { slug: "time", title: "Time & Days" },
+  { slug: "work", title: "Work & Study" },
+  { slug: "health", title: "Health & Body" },
+  { slug: "festivals", title: "Celebrations & Festivals" }, // the festival finale, again
 ] as const;
 
 /** Every journey, in order. Index + 1 is the journey number. */
-export const JOURNEYS = [JOURNEY_ZONES, JOURNEY_2_ZONES] as const;
+/** How many journeys exist. Index + 1 is the journey number. */
+export const JOURNEY_COUNT = 2;
+
+/** A category as the journey needs to see it: the listing both clients fetch. */
+export interface JourneyCategory {
+  id: number;
+  slug: string;
+  phraseCount?: number;
+}
+
+/** One fare zone, in journey order. `slug` is the stable join to a category. */
+export interface JourneyZone {
+  slug: string;
+  title: string;
+}
+
+/** Journey 1's zones carry ids for the callers that still use them directly. */
+const JOURNEY_1_SLUGS = [
+  "greetings",
+  "family",
+  "numbers",
+  "food",
+  "everyday",
+  "feelings",
+] as const;
 
 /** Zones for a journey number (1-based). Falls back to journey 1. */
-export function zonesForJourney(journey: number): readonly { id: number; title: string }[] {
-  return JOURNEYS[journey - 1] ?? JOURNEY_ZONES;
+export function zonesForJourney(journey: number): readonly JourneyZone[] {
+  if (journey === 2) return JOURNEY_2_ZONES;
+  return JOURNEY_ZONES.map((z, i) => ({ slug: JOURNEY_1_SLUGS[i]!, title: z.title }));
 }
 
 export interface JourneyLine {
@@ -86,19 +116,39 @@ export interface JourneyLine {
  */
 export function journeyIsReady(
   journey: number,
-  categories: readonly { id: number; phraseCount?: number }[] | undefined,
+  categories: readonly JourneyCategory[] | undefined,
 ): boolean {
   if (journey === 1) return true; // journey 1 is the shipped content
   if (!categories || categories.length === 0) return false;
-  const byId = new Map(categories.map((c) => [c.id, c.phraseCount ?? 0]));
-  return zonesForJourney(journey).every((z) => (byId.get(z.id) ?? 0) > 0);
+  const bySlug = new Map(categories.map((c) => [c.slug, c.phraseCount ?? 0]));
+  return zonesForJourney(journey).every((z) => (bySlug.get(z.slug) ?? 0) > 0);
 }
 
 /** Journeys a learner can actually be offered, in order. */
 export function availableJourneys(
-  categories: readonly { id: number; phraseCount?: number }[] | undefined,
+  categories: readonly JourneyCategory[] | undefined,
 ): number[] {
-  return JOURNEYS.map((_, i) => i + 1).filter((j) => journeyIsReady(j, categories));
+  return Array.from({ length: JOURNEY_COUNT }, (_, i) => i + 1).filter((j) =>
+    journeyIsReady(j, categories),
+  );
+}
+
+/**
+ * The category ids for a journey, resolved from the listing.
+ *
+ * Everything downstream (the zone payload queries, the closeout's zoneId, the
+ * signal grant refs) speaks in ids, so the slug-to-id hop happens exactly once,
+ * here. Returns [] when any zone is unresolved rather than a short list: a
+ * partially resolved journey would silently draw fewer zones than it has.
+ */
+export function zoneIdsForJourney(
+  journey: number,
+  categories: readonly JourneyCategory[] | undefined,
+): number[] {
+  if (!categories) return [];
+  const bySlug = new Map(categories.map((c) => [c.slug, c.id]));
+  const ids = zonesForJourney(journey).map((z) => bySlug.get(z.slug));
+  return ids.every((id): id is number => typeof id === "number") ? ids : [];
 }
 
 /** A line's station names for a journey number (1-based). */
