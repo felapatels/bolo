@@ -207,6 +207,10 @@ export default function ChatScreen() {
   // whole session rather than per turn, and whether the scene is finished.
   const [usedPhrases, setUsedPhrases] = React.useState<Set<string>>(new Set());
   const [sceneDone, setSceneDone] = React.useState(false);
+  // Chai the server actually granted for passing the capstone. 0 on a replay,
+  // because the grant is idempotent per zone; the overlay shows the chip only
+  // when something was really paid.
+  const [capstoneChai, setCapstoneChai] = React.useState(0);
 
   /**
    * Folds one turn's scenario payload into session state. Both the voice and
@@ -216,11 +220,16 @@ export default function ChatScreen() {
    * scenarioId was sent, so a plain chat turn is a no-op here.
    */
   const applyScenarioTurn = React.useCallback(
-    (phrasesUsed: string[] | undefined, turnSceneDone: boolean | undefined) => {
+    (
+      phrasesUsed: string[] | undefined,
+      turnSceneDone: boolean | undefined,
+      tokensEarned: number | undefined,
+    ) => {
       if (phrasesUsed && phrasesUsed.length > 0) {
         setUsedPhrases((prev) => new Set([...prev, ...phrasesUsed]));
       }
       if (turnSceneDone) setSceneDone(true);
+      if (tokensEarned && tokensEarned > 0) setCapstoneChai(tokensEarned);
     },
     [],
   );
@@ -1215,6 +1224,7 @@ export default function ChatScreen() {
       applyScenarioTurn(
         payload.phrasesUsed as string[] | undefined,
         payload.sceneDone as boolean | undefined,
+        payload.tokensEarned as number | undefined,
       );
 
       // A newer turn started or user left — drop stale result.
@@ -1566,6 +1576,7 @@ export default function ChatScreen() {
       applyScenarioTurn(
         p.phrasesUsed as string[] | undefined,
         p.sceneDone as boolean | undefined,
+        p.tokensEarned as number | undefined,
       );
 
       if (remainingSecs !== null) setSecondsRemaining(remainingSecs);
@@ -2213,8 +2224,22 @@ export default function ChatScreen() {
           <Text style={[styles.completionBody, { color: colors.mutedForeground }]}>
             You spoke {chatLanguage?.name ?? chatLang} at the chai stall!
           </Text>
-          <View style={[styles.xpChip, { backgroundColor: `${colors.primary}1A` }]}>
-            <Text style={[styles.xpChipText, { color: colors.primary }]}>+20 XP</Text>
+          <View style={styles.chipRowCenter}>
+            <View style={[styles.xpChip, { backgroundColor: `${colors.primary}1A` }]}>
+              <Text style={[styles.xpChipText, { color: colors.primary }]}>+20 XP</Text>
+            </View>
+            {/* Only when the server actually granted: a replay pays nothing and
+                must not claim otherwise. */}
+            {capstoneChai > 0 ? (
+              <View
+                testID="capstone-chai-chip"
+                style={[styles.xpChip, { backgroundColor: 'rgba(217,164,65,0.18)' }]}
+              >
+                <Text style={[styles.xpChipText, { color: '#B8863B' }]}>
+                  +{capstoneChai} Chai
+                </Text>
+              </View>
+            ) : null}
           </View>
           {/* Same offer moment web shows here, after the celebration content. */}
           <ExpressOfferMoment
@@ -2533,6 +2558,11 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.regular,
     fontSize: 16,
     textAlign: 'center',
+  },
+  chipRowCenter: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
   },
   xpChip: {
     marginTop: 16,

@@ -24,6 +24,8 @@ import { teeAudioToPilot, isPilotCaptureUser, discardLastCapture } from "../lib/
 import type { PronunciationBand } from "../lib/fsrsScheduler";
 import { bandFromScore, isFullCreditBand, isHalfCreditBand } from "../lib/scoreBands";
 import { computePronunciationXp, writeZoneCapstoneXp } from "../lib/xpEngine";
+import { grantTokensDetailed } from "../lib/tokenService";
+import { CAPSTONE_FIRST_CHAI } from "../lib/tokenEconomy";
 import {
   applyScoreGuards,
   chooseConservativeTranscript,
@@ -1907,7 +1909,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
       const majority = usedOverall.size > scenario.targetPhrases.length / 2;
 
       let xpAwarded = 0;
-      let tokensEarned = 0; // Chai token stub -- will be non-zero when tokenEngine.ts lands
+      let tokensEarned = 0;
       if (majority) {
         // Write a zone_conversation_stamps row idempotently. If already stamped,
         // ON CONFLICT DO NOTHING means no double-XP.
@@ -1925,6 +1927,28 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
           const CAPSTONE_XP = 20;
           await writeZoneCapstoneXp(userId, languageCode, stamp.id, CAPSTONE_XP);
           xpAwarded = CAPSTONE_XP;
+
+          // ...and Chai. The capstone is framed as a test the learner passes,
+          // and a test that pays nothing is a treat with extra steps (owner
+          // ruling, Aug 18 2026).
+          //
+          // Belt and braces on idempotency: this block only runs for the call
+          // that actually inserted the stamp, AND the ledger's own
+          // (userId, reason, refId) unique index refuses a second row for the
+          // same zone. The refId mirrors the closeout grant's shape. A failure
+          // here must never cost the learner the stamp or the XP they earned,
+          // so it is caught and logged rather than thrown.
+          try {
+            const { granted } = await grantTokensDetailed(
+              userId,
+              "earn_capstone_first",
+              `${languageCode}:${scenario.zoneIndex}`,
+              CAPSTONE_FIRST_CHAI,
+            );
+            if (granted) tokensEarned = CAPSTONE_FIRST_CHAI;
+          } catch (err) {
+            req.log.warn({ err }, "token_capstone_grant_failed");
+          }
         }
       }
 

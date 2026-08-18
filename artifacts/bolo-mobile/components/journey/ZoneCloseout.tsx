@@ -198,12 +198,18 @@ export function ZoneCloseoutOverlay({
               <Mascot pose="wave" size={88} />
               {offerCapstone ? (
                 <>
+                  {/* "Test your knowledge", not an invitation to a chat (owner
+                      ruling, Aug 18 2026). The old copy read as a treat, so a
+                      learner had no reason to think anything was being asked of
+                      them. The scene itself is unchanged and still never
+                      mentions scores: the framing lives out here, on the offer.
+                      Web says the same words. */}
                   <Text style={[styles.title, { color: colors.foreground }]}>
-                    Before you roll on
+                    Test your knowledge
                   </Text>
                   <Text style={[styles.blurb, { color: colors.mutedForeground }]}>
-                    The stationmaster at {zone.geoName} fancies a quick chat.
-                    Ready for a capstone conversation?
+                    The stationmaster at {zone.geoName} wants to hear you speak.
+                    Pass and there is Chai in it.
                   </Text>
                   <View style={styles.actions}>
                     <Pressable
@@ -217,7 +223,7 @@ export function ZoneCloseoutOverlay({
                       }}
                       style={[styles.cta, { backgroundColor: accent }]}
                     >
-                      <Text style={styles.ctaText}>Chat with Bolo</Text>
+                      <Text style={styles.ctaText}>Test your knowledge</Text>
                     </Pressable>
                     <Pressable
                       testID="closeout-later"
