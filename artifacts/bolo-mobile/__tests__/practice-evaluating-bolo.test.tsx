@@ -53,6 +53,17 @@ jest.mock('expo-router', () => ({
 // Superset of the practice + review data hooks so one harness renders both
 // screens.
 jest.mock('@workspace/api-client-react', () => ({
+  // ExpressOfferMoment (70d27c8a) renders inside the shared results tree and
+  // reads the chai wallet, so these hooks are needed even in suites that are
+  // not about the offer. Added when the mobile suite was first run off Replit.
+  useGetTokens: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getGetTokensQueryKey: () => ['tokens'],
+  useSpendTokens: () => ({ mutate: jest.fn(), mutateAsync: jest.fn(async () => ({})), data: undefined, isPending: false, isError: false, error: null }),
+  useGetStreakRepair: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getGetStreakRepairQueryKey: () => ['streak-repair'],
+  useGetTokenHistory: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  useBuyFirstClass: () => ({ mutate: jest.fn(), mutateAsync: jest.fn(async () => ({})), data: undefined, isPending: false, isError: false, error: null }),
+  useRepairStreak: () => ({ mutate: jest.fn(), mutateAsync: jest.fn(async () => ({})), data: undefined, isPending: false, isError: false, error: null }),
   useGetZoneTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getGetZoneTestoutQueryKey: () => ['zone-testout'],
   useSubmitZoneTestout: () => ({ data: undefined, isError: false, error: null, isPending: false, mutate: jest.fn() }),

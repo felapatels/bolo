@@ -126,8 +126,11 @@ describe('games hub - tile vignettes', () => {
     expect(screen.getByText('Signal Lights')).toBeOnTheScreen();
     expect(screen.getByText('Wrong Platform')).toBeOnTheScreen();
     expect(screen.getByText('Luggage Match')).toBeOnTheScreen();
-    expect(screen.getAllByText('Beginner').length).toBe(4);
-    expect(screen.getAllByText('Intermediate').length).toBe(4);
+    // Was 4/4/1. Commit 10257678 moved Signal Lights from Intermediate to
+    // Beginner to match web, which is one game crossing the line, not a new
+    // game: the nine tiles still add up.
+    expect(screen.getAllByText('Beginner').length).toBe(5);
+    expect(screen.getAllByText('Intermediate').length).toBe(3);
     expect(screen.getAllByText('Advanced').length).toBe(1);
   });
 });

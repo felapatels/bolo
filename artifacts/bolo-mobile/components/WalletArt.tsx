@@ -17,7 +17,12 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Feather from '@expo/vector-icons/Feather';
+// Named import from the package root, like the other 63 icon call sites. The
+// deep path '@expo/vector-icons/Feather' resolves to a module jest-setup's
+// mock does not cover, so it reached the native bridge and failed 70 suites
+// with "__fbBatchedBridgeConfig is not set" the first time this suite ran off
+// Replit. Same component either way.
+import { Feather } from '@expo/vector-icons';
 import { Mascot } from '@/components/Mascot';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import { INDIA } from '@/constants/india';
