@@ -1938,6 +1938,46 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /scenarios:
+    get:
+      operationId: listScenarios
+      tags: [openai]
+      summary: Which zones have a capstone scenario in this language
+      description: >-
+        Lists the zone capstone scenes available for a language, so the journey
+        map can decide which zones to offer a capstone on without hardcoding a
+        zone-to-scenario table in every client. Only scenes that actually
+        resolve are listed: a zone whose category has no content in this
+        language has no capstone and must not be offered one.
+      parameters:
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Language code the capstones would be played in.
+      responses:
+        "200":
+          description: Available capstone scenes, ordered by zone
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScenarioSummary"
+        "400":
+          description: Missing language
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Unknown language
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /scenarios/{id}:
     get:
       operationId: getScenario
@@ -4100,6 +4140,25 @@ components:
         - format
         - languageCode
         - secondsRemaining
+
+    ScenarioSummary:
+      type: object
+      description: >-
+        A capstone scene as the journey map needs to know it: which zone it
+        belongs to and what to call it. No framing copy and no target phrases;
+        those come from GET /scenarios/{id}.
+      properties:
+        id:
+          type: string
+        zoneIndex:
+          type: integer
+          description: 0-based zone index.
+        title:
+          type: string
+      required:
+        - id
+        - zoneIndex
+        - title
 
     ScenarioPublic:
       type: object

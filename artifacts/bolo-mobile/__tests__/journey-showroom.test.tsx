@@ -148,6 +148,11 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Capstone plumbing the journey map now reads to decide whether the zone
+  // closeout offers a conversation or the wallet. Empty here: these suites
+  // are about station rendering, not the closeout.
+  useListZoneStamps: () => ({ data: [], isLoading: false, isError: false, error: null, refetch: jest.fn() }),
+  useListScenarios: () => ({ data: [], isLoading: false, isError: false, error: null, refetch: jest.fn() }),
   useGetZoneTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getGetZoneTestoutQueryKey: () => ['zone-testout'],
   useSubmitZoneTestout: () => ({ data: undefined, isError: false, error: null, isPending: false, mutate: jest.fn() }),

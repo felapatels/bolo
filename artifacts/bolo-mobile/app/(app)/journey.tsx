@@ -45,6 +45,8 @@ import {
   useGetTokens,
   useListCategories,
   useListCategoryLessonGroups,
+  useListZoneStamps,
+  useListScenarios,
   useRecordSignalWave,
   useRecordChachaEncounter,
   useUnlockStop,
@@ -512,6 +514,23 @@ export default function JourneyScreen() {
   // One language's map never fetches another language's data: exactly six
   // fixed zone queries for the active language.
   const categoriesQuery = useListCategories({ lang: activeLang });
+  // Which zones already have a capstone conversation stamped, and which zones
+  // have a capstone to offer at all in this language. Both feed the closeout's
+  // beat 2: a capstone is only offered where one exists and has not been done.
+  // The scene list comes from the server rather than a hand-written table,
+  // which web used to carry and mobile would otherwise have had to copy.
+  const zoneStampsQuery = useListZoneStamps({ lang: activeLang });
+  const scenariosQuery = useListScenarios({ lang: activeLang });
+  const stampedZoneIndices = React.useMemo(
+    () => new Set((zoneStampsQuery.data ?? []).map((z) => z.zoneIndex)),
+    [zoneStampsQuery.data],
+  );
+  const scenarioIdByZone = React.useMemo(() => {
+    const m = new Map<number, string>();
+    for (const sc of scenariosQuery.data ?? []) m.set(sc.zoneIndex, sc.id);
+    return m;
+  }, [scenariosQuery.data]);
+
   const q1 = useListCategoryLessonGroups(JOURNEY_ZONES[0].id, activeLang);
   const q2 = useListCategoryLessonGroups(JOURNEY_ZONES[1].id, activeLang);
   const q3 = useListCategoryLessonGroups(JOURNEY_ZONES[2].id, activeLang);
@@ -1978,6 +1997,8 @@ export default function JourneyScreen() {
             geoName: z.geoName,
             title: z.title,
             allDone: z.zoneAllDone,
+            scenarioId: scenarioIdByZone.get(zi),
+            hasStamp: stampedZoneIndices.has(zi),
           }))}
         />
       )}

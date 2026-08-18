@@ -1535,6 +1535,22 @@ export const JoinFamilyResponse = zod.object({
 
 
 /**
+ * Lists the zone capstone scenes available for a language, so the journey map can decide which zones to offer a capstone on without hardcoding a zone-to-scenario table in every client. Only scenes that actually resolve are listed: a zone whose category has no content in this language has no capstone and must not be offered one.
+ * @summary Which zones have a capstone scenario in this language
+ */
+export const ListScenariosQueryParams = zod.object({
+  "lang": zod.coerce.string().describe('Language code the capstones would be played in.')
+})
+
+export const ListScenariosResponseItem = zod.object({
+  "id": zod.string(),
+  "zoneIndex": zod.number().describe('0-based zone index.'),
+  "title": zod.string()
+}).describe('A capstone scene as the journey map needs to know it: which zone it belongs to and what to call it. No framing copy and no target phrases; those come from GET \/scenarios\/{id}.')
+export const ListScenariosResponse = zod.array(ListScenariosResponseItem)
+
+
+/**
  * Returns the public subset of a scenario (title, framing copy, target phrases). Steering instructions are never sent to the client. Auth required; no entitlement gate -- the gate is on POST /openai/chat.
  * Target phrases are drawn from the learner's own seeded content for the scene's category, so `lang` is required: a scene is language-neutral but its chips never are.
  * @summary Fetch client-safe metadata for a zone capstone scenario
