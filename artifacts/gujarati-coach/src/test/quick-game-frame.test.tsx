@@ -326,6 +326,54 @@ describe("malformed launches", () => {
 });
 
 // ---------------------------------------------------------------------------
+// The language being practised is ALWAYS on screen (owner ruling, Aug 18 2026,
+// reported from the web app: Express Listening gave no clue which language it
+// was drilling). Games are the one surface with no other language cue, and a
+// learner with several languages could not tell them apart. Mobile has shown
+// the language name under the game title since the shell was written; this is
+// the web half.
+//
+// The trap it guards is the silent-game one: the badge must NOT be tucked
+// inside the usesAudio branch, or Ticket Check loses it along with the mute
+// button.
+// ---------------------------------------------------------------------------
+describe("the practised language is always on screen", () => {
+  test("both forms render: the code for phones, the full name for wider screens", () => {
+    renderFrame("/games/x?cat=7");
+    // jsdom does not evaluate the sm: breakpoint, so both are in the document
+    // and the CSS class is the contract. What a test CAN pin is that each form
+    // exists and carries the right text.
+    expect(screen.getByTestId("game-language-short")).toHaveTextContent("gu");
+    expect(screen.getByTestId("game-language-full")).toHaveTextContent("Gujarati");
+    expect(screen.getByTestId("game-language-short").className).toContain("sm:hidden");
+    expect(screen.getByTestId("game-language-full").className).toContain("hidden");
+  });
+
+  test.each([
+    ["Ticket Check", TicketCheckPage, "/games/ticket-check?cat=7"],
+    ["Luggage Match", LuggageMatchPage, "/games/luggage-match?cat=7"],
+    ["Wrong Platform", WrongPlatformPage, "/games/wrong-platform?cat=7"],
+  ])("%s shows it too, with no mute control to sit beside", (_name, Page, path) => {
+    const { hook } = memoryLocation({ path });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <Router hook={hook}>
+          <Page />
+        </Router>
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByTestId("game-mute-btn")).not.toBeInTheDocument();
+    expect(screen.getByTestId("game-language-short")).toHaveTextContent("gu");
+  });
+
+  test("it names the language for a screen reader, not just the code", () => {
+    renderFrame("/games/x?cat=7");
+    expect(screen.getByLabelText("Practising Gujarati")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Silent-game declaration (Aug 12, 2026, reported from a phone: Ticket Check
 // showed a speaker button over a game that never makes a sound). Web now has
 // mobile's `usesAudio` opt-out. It defaults to TRUE, which is the trap — a

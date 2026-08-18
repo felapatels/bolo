@@ -560,15 +560,40 @@ export function QuickGameShell({
           </Link>
         )}
         <h1 className="text-lg font-extrabold text-foreground">{def.title}</h1>
-        {usesAudio && (
-          <div className="ml-auto">
+        {/* The language being practised is ALWAYS on screen (owner ruling,
+            Aug 18 2026). A learner with several languages could not tell which
+            one a game was drilling, and the games are the one surface with no
+            other language cue. Deliberately outside the usesAudio guard: a
+            silent game like Ticket Check has no mute button and still has to
+            say what it is teaching. Sits to the LEFT of the sound control. */}
+        <div className="ml-auto flex items-center gap-2">
+          <span
+            data-testid="game-language-code"
+            title={activeLanguage?.name ?? activeLang}
+            aria-label={`Practising ${activeLanguage?.name ?? activeLang}`}
+            className="rounded-lg border border-border bg-card px-2 py-1 text-xs font-black text-muted-foreground"
+          >
+            {/* Code on a phone, full name once there is room for it. The header
+                is a single row with the title and the sound control, so the
+                full name is what pushes it off on a narrow screen. Both are
+                rendered and CSS picks one, which is also why a test can only
+                assert that each exists with the right text: jsdom does not
+                evaluate the breakpoint. */}
+            <span data-testid="game-language-short" className="uppercase tracking-wide sm:hidden">
+              {activeLang}
+            </span>
+            <span data-testid="game-language-full" className="hidden sm:inline">
+              {activeLanguage?.name ?? activeLang}
+            </span>
+          </span>
+          {usesAudio && (
             <GameMuteButton
               soundOn={soundOn}
               onToggle={toggleSound}
               active={soundOn && roundAudioOn}
             />
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {phase === "picker" && (
