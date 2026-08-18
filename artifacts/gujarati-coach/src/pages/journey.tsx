@@ -31,7 +31,7 @@ import {
   type LessonGroupList,
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
-import { ArrowLeft, Lock, Sparkles, Star } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Lock, Sparkles, Star } from "lucide-react";
 import { ChaiGlyph } from "@/components/chai-stall";
 import { TrainEngine } from "@/components/train-svg";
 import { useReducedMotion } from "framer-motion";
@@ -107,6 +107,8 @@ const MAP_MAX_W = 390;
 // comes down with it. Chacha-ji's stall is unaffected: it is seated in its own
 // halt row off the halt point, not off a station row.
 const STATION_H = 88; // vertical rhythm per station row
+/** A folded zone's whole station block, in place of N * STATION_H. */
+const COLLAPSED_H = 56;
 const PC_H = 184; // vertical rhythm per fare-zone postcard (incl. picture side + fact strip)
 const TERM_H = 92; // terminus row
 // Chacha-ji's halt: a scenery-only row inserted after every encounter station
@@ -769,6 +771,13 @@ type Pt = {
   lit: boolean;
   station?: Station;
   zoneIndex?: number;
+  /** Station rows only: 0-based global index, the serpentine phase. Carried on
+   *  the point so a render that SKIPS rows (a folded zone) still puts the label
+   *  cards on the right flanks, instead of counting render order. */
+  globalIdx?: number;
+  /** Station rows only: this row belongs to a folded zone, so it keeps its
+   *  place in the numbering but draws nothing and hosts nothing. */
+  collapsed?: boolean;
   /** Halt rows only: the 1-based global station number this halt follows. */
   haltAfterStation?: number;
 };
@@ -940,6 +949,19 @@ export default function Journey() {
   const [factDlg, setFactDlg] = useState<{ geoName: string; fact: string } | null>(null);
 
   const [chachaDlg, setChachaDlg] = useState<number | null>(null);
+
+  // Folded zones. With 52 stations the page is dominated by work already done
+  // and the learner lands in their own history. Expanding is per-session and
+  // per-zone, never persisted: it is a view, not progress.
+  const [expandedZones, setExpandedZones] = useState<Set<number>>(new Set());
+  const toggleZone = useCallback((zi: number) => {
+    setExpandedZones((prev) => {
+      const next = new Set(prev);
+      if (next.has(zi)) next.delete(zi);
+      else next.add(zi);
+      return next;
+    });
+  }, []);
 
   const [signalTick, setSignalTick] = useState(0);
   const { ref: mapRef, w: mapW } = useMapWidth();
@@ -1152,12 +1174,49 @@ export default function Journey() {
   // the measured map column; the track curves between them.
   const rightX = mapW - 94; // mirror of LEFT_X within the measured column
   const stationX = (k: number) => (k % 2 === 0 ? LEFT_X : rightX);
+  // Zones still holding Chai nobody has collected. THE reason an earlier
+  // attempt at folding was thrown away: a finished zone can still carry a
+  // trackside signal that is active or waved, and both of those still owe the
+  // learner Chai. Folding one hides a reward they have not taken.
+  //
+  // Derived from the same three inputs the signal spots use (the zone payload,
+  // this device's wave/clear memory, and progress) and NOT from the map
+  // geometry, which is what makes it available this early: the fold decision
+  // has to be made before any of the layout exists.
+  const zonesOwingChai = new Set<number>();
+  if (!showroom) {
+    for (const { afterStop } of planTracksideSignals(totalCount)) {
+      const st = allStations[afterStop - 1];
+      if (!st) continue;
+      const gapRef = `gap-${afterStop}`;
+      const cleared =
+        zoneQueries[st.zoneIndex]?.data?.signals?.clears.includes(gapRef) ||
+        isSignalCleared(activeLang, afterStop);
+      // Anything not CLEARED still owes: an active signal has never been
+      // played, and a waved one was rolled past with its Chai left on offer.
+      if (!cleared) zonesOwingChai.add(st.zoneIndex);
+    }
+  }
+
   const pts: Pt[] = [];
   const postcardYs: { y: number; zoneIndex: number }[] = [];
+  const collapsedRowYs: { y: number; zoneIndex: number }[] = [];
   let layoutY = TOP_PAD;
   let k = 0; // global station index (drives the serpentine phase)
+  /**
+   * A zone folds when it is FINISHED, is not the zone the learner is standing
+   * in, owes no uncollected Chai, and has not been opened by hand this session.
+   * Never folds the current zone: the one thing this map exists to show is
+   * where you are.
+   */
+  const isZoneCollapsed = (zi: number, zone: (typeof zones)[number]) =>
+    zone.zoneAllDone &&
+    !zone.stations.some((st) => st.id === currentId) &&
+    !zonesOwingChai.has(zi) &&
+    !expandedZones.has(zi);
   for (let zi = 0; zi < zones.length; zi++) {
     const zone = zones[zi]!;
+    const collapsed = isZoneCollapsed(zi, zone);
     const zoneLit = zone.stations.some(
       (s) => isStatusAccessible(s.status) || s.teaserStation,
     );
@@ -1173,6 +1232,12 @@ export default function Journey() {
       zoneIndex: zi,
     });
     layoutY += PC_H;
+    // Every station of a folded zone shares the summary row's y. They stay in
+    // the list, dense and in order, so global stop numbers and everything
+    // indexed by them (signals, Chacha-ji's stalls, the rail pulse) keep
+    // working untouched; they simply draw nothing.
+    const collapsedRowY = layoutY + COLLAPSED_H / 2;
+    if (collapsed) collapsedRowYs.push({ y: layoutY, zoneIndex: zi });
     for (const s of zone.stations) {
       // Free-tier content policy: a plan-gated sentence stop arrives
       // status "locked" (planLocked) from the server, so unlocked means lit.
@@ -1181,8 +1246,16 @@ export default function Journey() {
         s.status === "tested_out" ||
         s.status === "in_progress" ||
         s.status === "unlocked";
-      pts.push({ x: stationX(k), y: layoutY + STATION_H / 2, kind: "station", lit, station: s });
-      layoutY += STATION_H;
+      pts.push({
+        x: stationX(k),
+        y: collapsed ? collapsedRowY : layoutY + STATION_H / 2,
+        kind: "station",
+        lit,
+        station: s,
+        globalIdx: k,
+        collapsed,
+      });
+      if (!collapsed) layoutY += STATION_H;
       const stationNumber = k + 1;
       k++;
       // Chacha-ji's halt. Encounter stations are odd stops, so their 0-based
@@ -1191,7 +1264,7 @@ export default function Journey() {
       // the whole right side of the row for the stall. It advances the layout
       // only: `k` does not move, so the serpentine phase, the stop numbers and
       // the station count are all exactly what they were.
-      if (isChachaEncounterStation(stationNumber)) {
+      if (!collapsed && isChachaEncounterStation(stationNumber)) {
         pts.push({
           x: stationX(k - 1),
           y: layoutY + HALT_H / 2,
@@ -1202,6 +1275,8 @@ export default function Journey() {
         layoutY += HALT_H;
       }
     }
+    // The folded zone's whole station block costs ONE row.
+    if (collapsed) layoutY += COLLAPSED_H;
   }
   const allDone = doneCount === totalCount && totalCount > 0;
   const termX = k > 0 ? stationX(k - 1) : LEFT_X;
@@ -1387,7 +1462,10 @@ export default function Journey() {
     ? []
     : planTracksideSignals(totalCount).flatMap(({ afterStop, signalIndex }) => {
         const a = stationPts[afterStop - 1];
-        if (!a) return [];
+        // A folded zone draws no track furniture: its stations share one
+        // summary row, so a signal placed off them would stack on that row.
+        // Guarded upstream too, since a zone owing Chai never folds.
+        if (!a || a.collapsed) return [];
         const station = a.station!;
         const zone = zones[station.zoneIndex]!;
         // Station label cards alternate right/left by render order (k2 % 2),
@@ -1436,7 +1514,9 @@ export default function Journey() {
   // --- Chunk 6B Story 5: one tappable signpost per zone, seated on a station
   // row the zone's scenery plan left free, on the marker's side of the track.
   const signposts = zones.flatMap((zone, zi) => {
-    const zonePts = pts.filter((p) => p.kind === "station" && p.station!.zoneIndex === zi);
+    const zonePts = pts.filter(
+      (p) => p.kind === "station" && p.station!.zoneIndex === zi && !p.collapsed,
+    );
     const spot = planZoneSignpost(zi, zonePts.length, stallRowsByZone.get(zi));
     if (!spot) return [];
     const p = zonePts[spot.row];
@@ -1646,7 +1726,8 @@ export default function Journey() {
               <g data-testid="journey-scenery-layer" ref={sceneryLayerRef}>
                 {zones.map((zone, zi) => {
                   const zonePts = pts.filter(
-                    (p) => p.kind === "station" && p.station!.zoneIndex === zi,
+                    (p) =>
+                      p.kind === "station" && p.station!.zoneIndex === zi && !p.collapsed,
                   );
                   const zoneAccessible = zone.stations.some(
                     (st) => isStatusAccessible(st.status) || st.teaserStation,
@@ -1847,9 +1928,44 @@ export default function Journey() {
               );
             })}
 
+            {/* A folded zone's whole station block, as one row. It stands in
+                for nine stops, so it has to say what it holds and how to get
+                it back. */}
+            {collapsedRowYs.map(({ y, zoneIndex }) => {
+              const zone = zones[zoneIndex]!;
+              return (
+                <div
+                  key={`collapsed-${zoneIndex}`}
+                  className="absolute"
+                  style={{ left: 16, right: 16, top: y, zIndex: DEPTH_2_5D.layers.postcard }}
+                >
+                  <button
+                    type="button"
+                    data-testid={`zone-collapsed-${zoneIndex}`}
+                    onClick={() => toggleZone(zoneIndex)}
+                    aria-expanded={false}
+                    aria-label={`${zone.stations.length} stops ridden in ${zone.geoName}. Open this zone again.`}
+                    className="flex w-full items-center gap-2 rounded-xl border-2 border-dashed bg-card/80 px-3 text-left transition-colors hover:bg-muted"
+                    style={{ borderColor: `${line.accent}59`, height: COLLAPSED_H - 12 }}
+                  >
+                    <Check className="h-4 w-4 shrink-0" style={{ color: line.accent }} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-extrabold text-foreground">
+                        {zone.stations.length} stops ridden
+                      </span>
+                      <span className="block truncate text-[10px] text-muted-foreground">
+                        {zone.geoName} · tap to open this zone again
+                      </span>
+                    </span>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                </div>
+              );
+            })}
+
             {/* Stations */}
             {pts
-              .filter((p) => p.kind === "station")
+              .filter((p) => p.kind === "station" && !p.collapsed)
               .map((p) => {
                 const s = p.station!;
                 const zone = zones[s.zoneIndex]!;
@@ -1858,7 +1974,13 @@ export default function Journey() {
                 );
                 const grayed = showroom && !zoneAccessible;
                 const zoneColor = grayed ? GRAY : line.accent;
-                const k2 = stationIdx++;
+                // The flank comes off the station's GLOBAL index, not render
+                // order: a folded zone removes rows from the render, and
+                // counting them would flip every card below it onto the wrong
+                // side of the track. Identical to the old counter when nothing
+                // is folded.
+                const k2 = p.globalIdx ?? stationIdx;
+                stationIdx++;
                 const side: "left" | "right" = k2 % 2 === 0 ? "right" : "left";
                 const boxLeft = side === "right" ? p.x + 28 : 16;
                 const boxWidth =
