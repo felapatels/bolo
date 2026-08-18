@@ -62,8 +62,14 @@ export interface ResolvedScenario {
  */
 const COMMON_STEER =
   "Speak to the learner in {{language}} and keep the conversation flowing naturally. " +
+  // ASK, do not wait. The first version only said to make using the phrases
+  // "feel natural", which left the learner to volunteer them unprompted: the
+  // capstone then played exactly like ordinary free chat, which is what it was
+  // reported as. A test asks questions. The scene still never says so.
+  "ASK QUESTIONS. Lead each turn with a question whose most natural answer in {{language}} is one of the target phrases, one at a time, so the learner is answering you rather than having to think of something to say. " +
+  "Never list the target phrases, never translate them, and never tell the learner what to say: a question that gives away its own answer tests nothing. " +
+  "If a turn goes by without the learner reaching a target phrase, come at the same one from a different angle rather than moving on. " +
   "Whenever the learner uses one of the target phrases -- even roughly -- acknowledge it warmly and naturally (never grade or score them; just react as a real person would). " +
-  "Steer the conversation so that using the target phrases feels natural rather than demanded. " +
   "When the majority of the target phrases have been used across the conversation, wrap up warmly with a closing line that signals this visit is complete. " +
   "Stay in character at all times; never mention scores, bands, or learning. This is a real conversation.";
 

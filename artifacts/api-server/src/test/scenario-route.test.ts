@@ -64,6 +64,24 @@ describe("SCENARIOS config", () => {
     }
   });
 
+  it("every scene tells the model to ASK, not to wait", () => {
+    // Reported from the app: "Test your knowledge just takes you to bolo
+    // chat". The steering only said to make using the phrases feel natural,
+    // which left the learner to volunteer them unprompted, so a capstone
+    // played exactly like ordinary free chat. A test asks questions.
+    for (const s of Object.values(SCENARIOS)) {
+      assert.ok(
+        s.steerInstructions.includes("ASK QUESTIONS"),
+        `${s.id} must instruct the model to ask`,
+      );
+      // And must not hand the answer over while asking.
+      assert.ok(
+        s.steerInstructions.includes("Never list the target phrases"),
+        `${s.id} must not give its own answers away`,
+      );
+    }
+  });
+
   it("every scene points at a real seeded category", () => {
     const SEEDED = new Set([
       "greetings",

@@ -657,7 +657,11 @@ export default function ChatPage() {
         const gRes = await fetch(chatUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
-          body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, clientDurationSeconds: wallClockDuration, history: [] }),
+          // scenarioId rides the FIRST turn too. Without it the opening
+          // exchange of a capstone was sent as plain chat: no framing, no
+          // steering, and no phrase matching, which is why "Test your
+          // knowledge" felt like it just dropped you into Bolo chat.
+          body: JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: audioMimeType, clientDurationSeconds: wallClockDuration, history: [], ...(scenarioId ? { scenarioId } : {}) }),
           signal: abortController.signal,
         });
 
