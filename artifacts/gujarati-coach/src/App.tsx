@@ -74,6 +74,11 @@ const GamesSpeedRound = lazyRoute(() => import('@/pages/games/speed-round'));
 const GamesListenAndPick = lazyRoute(() => import('@/pages/games/listen-and-pick'));
 const GamesPhraseBuilder = lazyRoute(() => import('@/pages/games/phrase-builder'));
 const GamesScriptTrace = lazyRoute(() => import('@/pages/games/script-trace'));
+// PROTOTYPE sandbox for stroke-based trace scoring. Unlisted: reachable by
+// URL only and linked from nowhere, so it cannot be stumbled into.
+const GamesScriptTraceProto = lazyRoute(
+  () => import('@/pages/games/script-trace-proto'),
+);
 const GamesBoloQuiz = lazyRoute(() => import('@/pages/games/bolo-quiz'));
 const GamesTicketCheck = lazyRoute(() => import('@/pages/games/ticket-check'));
 const GamesWrongPlatform = lazyRoute(() => import('@/pages/games/wrong-platform'));
@@ -438,6 +443,11 @@ function AppRouter() {
       <Route path="/games/script-trace">
         <Guard>
           <GamesScriptTrace />
+        </Guard>
+      </Route>
+      <Route path="/games/script-trace-proto">
+        <Guard>
+          <GamesScriptTraceProto />
         </Guard>
       </Route>
       <Route path="/games/bolo-quiz">
