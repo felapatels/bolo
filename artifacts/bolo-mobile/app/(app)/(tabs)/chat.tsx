@@ -1186,6 +1186,11 @@ export default function ChatScreen() {
           mimeType: 'audio/m4a',
           history,
           clientDurationSeconds,
+          // The MAIN voice path. The earlier scenario work patched the
+          // greeting turn beside it and missed this one, so every spoken turn
+          // after the first was sent as plain chat: no steering and no phrase
+          // matching, which made a capstone unfinishable by voice.
+          ...(scenarioId ? { scenarioId } : {}),
         }));
       });
 
