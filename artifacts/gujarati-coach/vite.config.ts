@@ -72,6 +72,23 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    // Local development only. On Replit the client and the API sat behind one
+    // origin, so the generated client's "/api" base just worked and this config
+    // never needed a proxy. On a laptop they are two processes on two ports, and
+    // without this every request 404s against the vite server.
+    //
+    // Env-gated so it is INERT anywhere API_PROXY_TARGET is unset, which is
+    // every deployed environment.
+    ...(process.env.API_PROXY_TARGET
+      ? {
+          proxy: {
+            '/api': {
+              target: process.env.API_PROXY_TARGET,
+              changeOrigin: true,
+            },
+          },
+        }
+      : {}),
   },
   preview: {
     port,

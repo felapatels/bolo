@@ -68,15 +68,10 @@ export function ZoneCloseoutOverlay({
       if (!z.allDone) continue;
       const stage = stages[z.zoneIndex];
       if (stage === "done") continue;
-      if (stage === undefined) {
-        setActive({ zone: z, beat: 1 });
-      } else if (z.scenarioId && !z.hasStamp) {
-        // Returning from the closeout game (or a skipped beat 1).
-        setActive({ zone: z, beat: 2 });
-      } else {
-        // Nothing to offer in beat 2 for this zone: close out silently.
-        writeCloseoutStage(lang, z.zoneIndex, "done");
-      }
+      // Beat 2 ALWAYS runs now. It used to be skipped whenever the zone had no
+      // capstone to offer, which meant five of six zones ended on silence the
+      // moment the game was over. What varies is what beat 2 SAYS.
+      setActive({ zone: z, beat: stage === undefined ? 1 : 2 });
       return;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,13 +82,14 @@ export function ZoneCloseoutOverlay({
 
   const advanceFromBeat1 = () => {
     writeCloseoutStage(lang, zone.zoneIndex, "beat2");
-    if (zone.scenarioId && !zone.hasStamp) {
-      setActive({ zone, beat: 2 });
-    } else {
-      writeCloseoutStage(lang, zone.zoneIndex, "done");
-      setActive(null);
-    }
+    setActive({ zone, beat: 2 });
   };
+
+  // The two faces of beat 2, ruled Aug 18 2026 when the twins were converged.
+  // A capstone is the better payoff when there is one to offer; otherwise the
+  // beat still exists and its job is the door into the wallet, which no other
+  // surface in the game flow provides.
+  const offerCapstone = Boolean(zone.scenarioId) && !zone.hasStamp;
   const finish = () => {
     writeCloseoutStage(lang, zone.zoneIndex, "done");
     setActive(null);
@@ -166,35 +162,73 @@ export function ZoneCloseoutOverlay({
         ) : (
           <div data-testid="closeout-beat2" className="flex flex-col items-center gap-4">
             <Mascot pose="wave" size={88} />
-            <div>
-              <h2 className="text-xl font-extrabold text-foreground">Before you roll on</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                The stationmaster at {zone.geoName} fancies a quick chat. Ready for a capstone
-                conversation?
-              </p>
-            </div>
-            <div className="flex w-full flex-col gap-2.5">
-              <Link
-                href={`/chat?scenario=${zone.scenarioId}`}
-                onClick={() => {
-                  blessAudioPlayback();
-                  finish();
-                }}
-                data-testid="closeout-chat-cta"
-                className="flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-black text-white active:scale-[0.98] transition-transform"
-                style={{ background: accent }}
-              >
-                Chat with Bolo
-              </Link>
-              <button
-                type="button"
-                onClick={finish}
-                data-testid="closeout-later"
-                className="w-full rounded-xl border-2 border-border bg-card px-4 py-3 text-sm font-bold text-foreground active:scale-[0.98] transition-transform"
-              >
-                Maybe later
-              </button>
-            </div>
+            {offerCapstone ? (
+              <>
+                <div>
+                  <h2 className="text-xl font-extrabold text-foreground">Before you roll on</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    The stationmaster at {zone.geoName} fancies a quick chat. Ready for a capstone
+                    conversation?
+                  </p>
+                </div>
+                <div className="flex w-full flex-col gap-2.5">
+                  <Link
+                    href={`/chat?scenario=${zone.scenarioId}`}
+                    onClick={() => {
+                      blessAudioPlayback();
+                      finish();
+                    }}
+                    data-testid="closeout-chat-cta"
+                    className="flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-black text-white active:scale-[0.98] transition-transform"
+                    style={{ background: accent }}
+                  >
+                    Chat with Bolo
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={finish}
+                    data-testid="closeout-later"
+                    className="w-full rounded-xl border-2 border-border bg-card px-4 py-3 text-sm font-bold text-foreground active:scale-[0.98] transition-transform"
+                  >
+                    Maybe later
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* No capstone to offer, or it is already stamped. The beat still
+                 runs: its job is the wallet, which nothing else in the game
+                 flow opens. Deliberately does NOT restate the Chai number the
+                 game result already showed. */
+              <>
+                <div>
+                  <h2 className="text-xl font-extrabold text-foreground">
+                    {zone.geoName} is behind you
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Your Chai is in the wallet whenever you want to spend it.
+                  </p>
+                </div>
+                <div className="flex w-full flex-col gap-2.5">
+                  <Link
+                    href="/bazaar"
+                    onClick={finish}
+                    data-testid="closeout-wallet-cta"
+                    className="flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-black text-white active:scale-[0.98] transition-transform"
+                    style={{ background: accent }}
+                  >
+                    Open your Chai wallet
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={finish}
+                    data-testid="closeout-later"
+                    className="w-full rounded-xl border-2 border-border bg-card px-4 py-3 text-sm font-bold text-foreground active:scale-[0.98] transition-transform"
+                  >
+                    Keep rolling
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

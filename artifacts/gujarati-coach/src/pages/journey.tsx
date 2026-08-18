@@ -18,13 +18,14 @@
 // pass chrome changed.
 import { Link } from "wouter";
 import { blessAudioPlayback } from "@/lib/iosAudio";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
   useGetTokens,
   useListCategories,
   useListCategoryLessonGroups,
   useListZoneStamps,
+  useListScenarios,
   useRecordSignalWave,
   useUnlockStop,
   type LessonGroupList,
@@ -95,17 +96,6 @@ import { ZoneCloseoutOverlay } from "@/components/zone-closeout";
 import { ChachaEncounterDialog } from "@/components/chacha-encounter";
 
 const GRAY = "#9ca3af"; // rail/marker color for locked showroom zones
-
-// Client-side scenario id lookup by zone index (0-based). Must stay in sync
-// with the server-side SCENARIOS map in artifacts/api-server/src/lib/scenarios.ts.
-// Adding a new zone scenario is a content-only change: add the entry here and
-// the matching entry in scenarios.ts.
-function scenarioIdForZone(zoneIndex: number): string | undefined {
-  const MAP: Record<number, string> = {
-    0: "greetings-manners",
-  };
-  return MAP[zoneIndex];
-}
 
 // Serpentine layout rhythm (approved "pronounced" treatment). The map column
 // is mobile-width (max 390px) and centers inside the page's max-w-2xl on
@@ -991,6 +981,17 @@ export default function Journey() {
   // Zone conversation stamps: lightweight list of zones where the learner
   // has already completed the capstone chat. Used to show "Replay the chat".
   const stampsQuery = useListZoneStamps({ lang: activeLang });
+  // Which zones have a capstone in THIS language. Replaces a hand-written
+  // zone-to-scenario table that carried a comment telling the next person to
+  // keep it in sync with the server's SCENARIOS map. The server owns the
+  // scenes, so it answers directly, and a language with no content for a
+  // scene's category simply is not listed.
+  const scenariosQuery = useListScenarios({ lang: activeLang });
+  const scenarioIdByZone = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const s of scenariosQuery.data ?? []) m.set(s.zoneIndex, s.id);
+    return m;
+  }, [scenariosQuery.data]);
   const q1 = useListCategoryLessonGroups(JOURNEY_ZONES[0].id, activeLang);
   const q2 = useListCategoryLessonGroups(JOURNEY_ZONES[1].id, activeLang);
   const q3 = useListCategoryLessonGroups(JOURNEY_ZONES[2].id, activeLang);
@@ -1648,7 +1649,7 @@ export default function Journey() {
                       stationCount={zone.stations.length}
                       grayed={grayed}
                       zoneAllDone={zone.zoneAllDone}
-                      scenarioId={scenarioIdForZone(zoneIndex)}
+                      scenarioId={scenarioIdByZone.get(zoneIndex)}
                       hasStamp={stampedZoneIndices.has(zoneIndex)}
                       testOutHref={
                         zoneGateLocked
@@ -2273,7 +2274,7 @@ export default function Journey() {
               geoName: z.geoName,
               title: z.title,
               allDone: z.zoneAllDone,
-              scenarioId: scenarioIdForZone(zi),
+              scenarioId: scenarioIdByZone.get(zi),
               hasStamp: stampedZoneIndices.has(zi),
             }))}
           />

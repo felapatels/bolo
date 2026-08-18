@@ -9,7 +9,7 @@
 // everything".
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
@@ -409,5 +409,73 @@ describe('dialog suppression', () => {
         ZONES.map((z) => z.allDone),
       ),
     ).toBe(false);
+  });
+});
+
+// ─── beat 2, the two faces ───────────────────────────────────────────────────
+
+describe('beat two offers a capstone when there is one', () => {
+  // Ruled Aug 18 2026: the twins were converged on ONE rule for beat 2. A zone
+  // with a capstone the learner has not done offers the conversation; every
+  // other zone keeps the Chai payoff, whose real job is the wallet door that
+  // nothing else in the game flow opens. Mobile could not do the first half
+  // until scenario plumbing landed, which is why beat 2 used to be the payoff
+  // unconditionally.
+  const WITH_SCENE: CloseoutZone[] = [
+    {
+      zoneIndex: 0,
+      zoneId: 7,
+      geoName: 'Ahmedabad',
+      title: 'Greetings',
+      allDone: true,
+      scenarioId: 'greetings-manners',
+      hasStamp: false,
+    },
+  ];
+
+  test('a zone with an unstamped capstone offers the conversation', async () => {
+    await seedDevice({ 0: 'beat2' });
+    render(<Host zones={WITH_SCENE} />);
+    await waitFor(() => expect(screen.getByTestId('closeout-beat2')).toBeTruthy());
+
+    expect(screen.getByTestId('closeout-chat-cta')).toBeTruthy();
+    // The payoff's wallet door is not shown alongside it: one beat, one ask.
+    expect(screen.queryByTestId('closeout-wallet-cta')).toBeNull();
+  });
+
+  test('taking the capstone routes into scenario mode and closes the zone', async () => {
+    await seedDevice({ 0: 'beat2' });
+    render(<Host zones={WITH_SCENE} />);
+    await waitFor(() => expect(screen.getByTestId('closeout-beat2')).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('closeout-chat-cta'));
+    });
+
+    expect(mockState.push).toHaveBeenCalledWith(
+      '/(app)/(tabs)/chat?scenario=greetings-manners',
+    );
+    expect(screen.queryByTestId('zone-closeout-overlay')).toBeNull();
+  });
+
+  test('a zone already stamped gets the wallet beat, not the capstone again', async () => {
+    await seedDevice({ 0: 'beat2' });
+    render(<Host zones={[{ ...WITH_SCENE[0], hasStamp: true }]} />);
+    await waitFor(() => expect(screen.getByTestId('closeout-beat2')).toBeTruthy());
+
+    // A learner who already had the conversation is not asked to have it again.
+    expect(screen.queryByTestId('closeout-chat-cta')).toBeNull();
+    expect(screen.getByTestId('closeout-wallet-cta')).toBeTruthy();
+  });
+
+  test('a zone with no capstone in this language keeps the Chai payoff', async () => {
+    // scenarioId absent is the honest signal that the server listed no scene
+    // for this zone in this language. The beat still runs.
+    await seedDevice({ 0: 'beat2' });
+    render(<Host zones={[{ ...WITH_SCENE[0], scenarioId: undefined }]} />);
+    await waitFor(() => expect(screen.getByTestId('closeout-beat2')).toBeTruthy());
+
+    expect(screen.queryByTestId('closeout-chat-cta')).toBeNull();
+    expect(screen.getByTestId('closeout-wallet-cta')).toBeTruthy();
   });
 });

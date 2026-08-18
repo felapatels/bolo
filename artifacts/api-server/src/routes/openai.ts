@@ -2500,6 +2500,48 @@ router.post(
   },
 );
 
+// GET /scenarios?lang=xx — which zones have a capstone in this language.
+//
+// Exists to kill a duplicated map. Web carried a hand-written
+// scenarioIdForZone() lookup with a comment telling the next person to keep it
+// in sync with scenarios.ts, and mobile was about to need a third copy of the
+// same table. The server already owns the scenes, so it answers the question
+// directly.
+//
+// Only scenes that actually RESOLVE for this language are listed: a zone whose
+// category has no content in this language has no capstone, and the journey map
+// must not offer one. Cheap enough for the map to call on load.
+router.get(
+  "/scenarios",
+  async (req: Request, res: Response): Promise<void> => {
+    const languageCode = String(req.query.lang ?? "");
+    if (!languageCode) {
+      res.status(400).json({ error: "Missing language" });
+      return;
+    }
+    const language = await db.query.languagesTable.findFirst({
+      where: eq(languagesTable.code, languageCode),
+    });
+    if (!language) {
+      res.status(404).json({ error: "Unknown language" });
+      return;
+    }
+    const scenes = await Promise.all(
+      Object.values(SCENARIOS).map(async (def) => {
+        const resolved = await resolveScenario(def, languageCode, language.name);
+        return resolved
+          ? { id: resolved.id, zoneIndex: resolved.zoneIndex, title: resolved.title }
+          : null;
+      }),
+    );
+    res.json(
+      scenes
+        .filter((s): s is NonNullable<typeof s> => s !== null)
+        .sort((a, b) => a.zoneIndex - b.zoneIndex),
+    );
+  },
+);
+
 // GET /scenarios/:id?lang=xx — client-safe scenario metadata.
 // Returns the public subset of a zone capstone scenario (title, framing copy,
 // target phrases). Steering instructions are never sent. Auth required; no

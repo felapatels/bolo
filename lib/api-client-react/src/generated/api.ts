@@ -81,6 +81,7 @@ import type {
   ListCategoriesParams,
   ListRecentAttemptsParams,
   ListReviewPhrasesParams,
+  ListScenariosParams,
   ListZoneStampsParams,
   Ok,
   OutfitCatalog,
@@ -102,6 +103,7 @@ import type {
   ReferralSummary,
   RegenerateFamilyCode200,
   ScenarioPublic,
+  ScenarioSummary,
   ScriptTraceCharacterProgress,
   ScriptTraceProgressInput,
   SendFriendInviteInput,
@@ -4936,6 +4938,91 @@ export const useJoinFamily = <TError = ErrorType<Error>,
       > => {
       return useMutation(getJoinFamilyMutationOptions(options));
     }
+
+export const getListScenariosUrl = (params: ListScenariosParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/scenarios?${stringifiedParams}` : `/api/scenarios`
+}
+
+/**
+ * Lists the zone capstone scenes available for a language, so the journey map can decide which zones to offer a capstone on without hardcoding a zone-to-scenario table in every client. Only scenes that actually resolve are listed: a zone whose category has no content in this language has no capstone and must not be offered one.
+ * @summary Which zones have a capstone scenario in this language
+ */
+export const listScenarios = async (params: ListScenariosParams, options?: RequestInit): Promise<ScenarioSummary[]> => {
+
+  return customFetch<ScenarioSummary[]>(getListScenariosUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListScenariosQueryKey = (params?: ListScenariosParams,) => {
+    return [
+    `/api/scenarios`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListScenariosQueryOptions = <TData = Awaited<ReturnType<typeof listScenarios>>, TError = ErrorType<Error>>(params: ListScenariosParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listScenarios>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListScenariosQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listScenarios>>> = ({ signal }) => listScenarios(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listScenarios>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListScenariosQueryResult = NonNullable<Awaited<ReturnType<typeof listScenarios>>>
+export type ListScenariosQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Which zones have a capstone scenario in this language
+ */
+
+export function useListScenarios<TData = Awaited<ReturnType<typeof listScenarios>>, TError = ErrorType<Error>>(
+ params: ListScenariosParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listScenarios>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListScenariosQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetScenarioUrl = (id: string,
     params: GetScenarioParams,) => {

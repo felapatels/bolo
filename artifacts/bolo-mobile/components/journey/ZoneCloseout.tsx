@@ -37,6 +37,10 @@ export type CloseoutZone = {
   geoName: string;
   title: string;
   allDone: boolean;
+  /** The capstone scene for this zone, when one exists in this language. */
+  scenarioId?: string;
+  /** True once the learner has completed this zone's capstone conversation. */
+  hasStamp?: boolean;
 };
 
 type Colors = {
@@ -148,6 +152,12 @@ export function ZoneCloseoutOverlay({
 
   const grantedChai = memory.grantedChai(zone.zoneId);
 
+  // The two faces of beat 2, ruled Aug 18 2026 when the twins were converged.
+  // A capstone conversation is the better payoff when there is one to offer;
+  // otherwise the beat keeps its original job, which is the door into the
+  // wallet that nothing else in the game flow opens.
+  const offerCapstone = Boolean(zone.scenarioId) && !zone.hasStamp;
+
   return (
     <Modal visible transparent animationType="fade" onRequestClose={finish}>
       <View style={styles.backdrop} testID="zone-closeout-overlay">
@@ -186,6 +196,42 @@ export function ZoneCloseoutOverlay({
           ) : (
             <View testID="closeout-beat2" style={styles.body}>
               <Mascot pose="wave" size={88} />
+              {offerCapstone ? (
+                <>
+                  <Text style={[styles.title, { color: colors.foreground }]}>
+                    Before you roll on
+                  </Text>
+                  <Text style={[styles.blurb, { color: colors.mutedForeground }]}>
+                    The stationmaster at {zone.geoName} fancies a quick chat.
+                    Ready for a capstone conversation?
+                  </Text>
+                  <View style={styles.actions}>
+                    <Pressable
+                      testID="closeout-chat-cta"
+                      onPress={() => {
+                        hapticLight();
+                        finish();
+                        router.push(
+                          `/(app)/(tabs)/chat?scenario=${zone.scenarioId}` as never,
+                        );
+                      }}
+                      style={[styles.cta, { backgroundColor: accent }]}
+                    >
+                      <Text style={styles.ctaText}>Chat with Bolo</Text>
+                    </Pressable>
+                    <Pressable
+                      testID="closeout-later"
+                      onPress={finish}
+                      style={[styles.secondary, { borderColor: colors.border }]}
+                    >
+                      <Text style={[styles.secondaryText, { color: colors.foreground }]}>
+                        Maybe later
+                      </Text>
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <>
               <Text style={[styles.title, { color: colors.foreground }]}>
                 Chai on the house
               </Text>
@@ -227,6 +273,8 @@ export function ZoneCloseoutOverlay({
                   </Text>
                 </Pressable>
               </View>
+                </>
+              )}
             </View>
           )}
         </View>

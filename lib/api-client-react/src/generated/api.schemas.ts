@@ -958,6 +958,16 @@ export interface ChatTurnResult {
   tokensEarned?: number;
 }
 
+/**
+ * A capstone scene as the journey map needs to know it: which zone it belongs to and what to call it. No framing copy and no target phrases; those come from GET /scenarios/{id}.
+ */
+export interface ScenarioSummary {
+  id: string;
+  /** 0-based zone index. */
+  zoneIndex: number;
+  title: string;
+}
+
 export type ScenarioPublicTargetPhrasesItem = {
   romanized: string;
   native: string;
@@ -1745,6 +1755,13 @@ export type JoinFamily200 = {
   ownerName: string;
   previousSubscriptionCanceled: boolean;
   active: boolean;
+};
+
+export type ListScenariosParams = {
+/**
+ * Language code the capstones would be played in.
+ */
+lang: string;
 };
 
 export type GetScenarioParams = {
