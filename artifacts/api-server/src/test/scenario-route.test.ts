@@ -82,6 +82,28 @@ describe("SCENARIOS config", () => {
     }
   });
 
+  it("every scene tells the model to USE the words, not just fish for them", () => {
+    // Reported: Bolo should speak the zone's words in sentences and steer back
+    // to them. Safe to do, and this is why: routes/openai.ts matches the target
+    // list against LEARNER turns only, so Bolo saying a phrase never counts
+    // toward completion. He models it for free.
+    for (const s of Object.values(SCENARIOS)) {
+      assert.ok(
+        s.steerInstructions.includes("USE THE TARGET PHRASES YOURSELF"),
+        `${s.id} must model the phrases in its own sentences`,
+      );
+      assert.ok(
+        s.steerInstructions.includes("STAY ON THIS SCENE'S WORDS"),
+        `${s.id} must steer back to the scene's vocabulary`,
+      );
+      // Modelling a word in a sentence is not the same as handing it over.
+      assert.ok(
+        s.steerInstructions.includes("never translate them into English"),
+        `${s.id} must not translate its own targets`,
+      );
+    }
+  });
+
   it("every scene points at a real seeded category", () => {
     const SEEDED = new Set([
       "greetings",

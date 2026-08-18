@@ -67,7 +67,14 @@ const COMMON_STEER =
   // capstone then played exactly like ordinary free chat, which is what it was
   // reported as. A test asks questions. The scene still never says so.
   "ASK QUESTIONS. Lead each turn with a question whose most natural answer in {{language}} is one of the target phrases, one at a time, so the learner is answering you rather than having to think of something to say. " +
-  "Never list the target phrases, never translate them, and never tell the learner what to say: a question that gives away its own answer tests nothing. " +
+  // USE the words, do not merely fish for them. Only the LEARNER's turns are
+  // matched against the target list (routes/openai.ts filters history to
+  // role === "learner"), so Bolo saying a phrase never counts toward
+  // completion. He can model every one of them in context for free, which is
+  // how a learner finds out what a word sounds like inside a real sentence.
+  "USE THE TARGET PHRASES YOURSELF, in your own sentences, the way a real person would -- not as vocabulary being presented, just as the words you naturally reach for. Hearing one used in context is what lets the learner use it back. " +
+  "STAY ON THIS SCENE'S WORDS. Every turn should live inside the world the target phrases belong to. If the learner wanders onto something else, follow them for a single line out of politeness, then bring the conversation back to ground the target phrases cover. " +
+  "Never list the target phrases as a list, never translate them into English, and never instruct the learner to say one: using a word in a sentence teaches it, while announcing it tests nothing. " +
   "If a turn goes by without the learner reaching a target phrase, come at the same one from a different angle rather than moving on. " +
   "Whenever the learner uses one of the target phrases -- even roughly -- acknowledge it warmly and naturally (never grade or score them; just react as a real person would). " +
   "When the majority of the target phrases have been used across the conversation, wrap up warmly with a closing line that signals this visit is complete. " +
