@@ -55,6 +55,24 @@ export async function recordChatTurn(
 // Returns an upgrade-required payload when the caller has hit the Free weekly
 // chat-time cap, or null when the caller may chat (One Language and Plus are
 // always unlimited).
+/**
+ * Whether this turn is a zone capstone that does NOT spend the free weekly chat
+ * budget (owner ruling, Aug 18 2026). The capstone is part of the journey, not
+ * free chat, and charging it to the same two minutes meant a free learner could
+ * be locked out of finishing their own zone.
+ *
+ * THE BOUND IS THE POINT, which is why this is a named rule rather than an
+ * inline `if`. The exemption ends the moment the zone is stamped. Without that,
+ * passing a scenarioId on every request would turn a capped free plan into an
+ * unlimited chat channel, and nothing else in the request is hard to forge.
+ */
+export function capstoneExemptFromWeeklyCap(
+  hasScenario: boolean,
+  zoneAlreadyStamped: boolean,
+): boolean {
+  return hasScenario && !zoneAlreadyStamped;
+}
+
 export async function chatTimeCapDenial(
   resolved: ResolvedPlan,
   userId: string,

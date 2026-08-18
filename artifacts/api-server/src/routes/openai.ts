@@ -40,7 +40,12 @@ import { measureAttemptSnrDb } from "../lib/audioNoise";
 import { denyLockedFeature, denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
 import { upgradeRequired, featuresForPlan } from "../lib/entitlements";
 import { SCENARIOS, toPublicScenario, resolveScenario } from "../lib/scenarios";
-import { chatTimeCapDenial, chatSecondsRemaining, recordChatTurn } from "../lib/chatLimits";
+import {
+  chatTimeCapDenial,
+  chatSecondsRemaining,
+  recordChatTurn,
+  capstoneExemptFromWeeklyCap,
+} from "../lib/chatLimits";
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { ttsCacheKey, legacyTtsCacheKey, phraseTtsCacheKey } from "../lib/ttsCache";
@@ -1689,11 +1694,39 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
   // Language may be locked out of this language entirely).
   if (await denyLockedLanguage(req, res, languageCode)) return;
 
+  // A zone capstone does NOT spend the free weekly chat budget (owner ruling,
+  // Aug 18 2026). The capstone is part of the journey rather than free chat,
+  // and charging it to the same two minutes meant a free learner could be
+  // locked out of finishing their own zone, or could finish it and find their
+  // week's conversation spent.
+  //
+  // The exemption ENDS at the stamp. Once the zone is completed the capstone
+  // has been had, and further turns in that scene are ordinary chat and are
+  // capped like any other. That bound matters: without it, passing a
+  // scenarioId on every request would be an unlimited free chat channel.
+  let capstoneExempt = false;
+  if (scenarioDef) {
+    const [alreadyStamped] = await db
+      .select({ zoneIndex: zoneConversationStampsTable.zoneIndex })
+      .from(zoneConversationStampsTable)
+      .where(
+        and(
+          eq(zoneConversationStampsTable.userId, userId),
+          eq(zoneConversationStampsTable.languageCode, languageCode),
+          eq(zoneConversationStampsTable.zoneIndex, scenarioDef.zoneIndex),
+        ),
+      )
+      .limit(1);
+    capstoneExempt = capstoneExemptFromWeeklyCap(true, Boolean(alreadyStamped));
+  }
+
   // Free's weekly chat-time cap. One Language and Plus are never capped.
-  const timeDenial = await chatTimeCapDenial(resolvedPlan, userId);
-  if (timeDenial) {
-    sendUpgradeRequired(res, timeDenial);
-    return;
+  if (!capstoneExempt) {
+    const timeDenial = await chatTimeCapDenial(resolvedPlan, userId);
+    if (timeDenial) {
+      sendUpgradeRequired(res, timeDenial);
+      return;
+    }
   }
 
   const language = await db.query.languagesTable.findFirst({
@@ -1873,7 +1906,11 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
 
     // Record usage from the server-measured duration, not any client claim.
     // Use the value captured by onTranscript (same as result.durationSeconds).
-    await recordChatTurn(userId, languageCode, capturedDuration || result.durationSeconds);
+    // An exempt capstone turn is not written to the ledger the weekly cap sums,
+    // so it cannot spend the budget after the fact either.
+    if (!capstoneExempt) {
+      await recordChatTurn(userId, languageCode, capturedDuration || result.durationSeconds);
+    }
     const secondsRemaining = await chatSecondsRemaining(resolvedPlan, userId);
 
     // Scenario completion logic: detect target phrase usage and track overall
