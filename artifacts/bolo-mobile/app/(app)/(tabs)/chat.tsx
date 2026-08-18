@@ -1770,16 +1770,27 @@ export default function ChatScreen() {
           and it appears only once the metadata lands so the header never
           jumps for an ordinary chat. Twin of web's scenario-banner. */}
       {scenario ? (
+        /* The scene has to be read, not glanced past. It was 12px muted text
+           in a 5%-tint box, the styling this app uses for asides, so a learner
+           who skims it does not know who they are talking to or why. Label,
+           foreground weight, and a solid accent rule down the left edge. Web
+           says the same words in the same shape. */
         <View
           testID="scenario-banner"
           style={[
             styles.scenarioBanner,
-            { backgroundColor: `${colors.primary}0D`, borderColor: `${colors.primary}33` },
+            { backgroundColor: `${colors.primary}1A`, borderColor: `${colors.primary}4D` },
           ]}
         >
-          <Text style={[styles.scenarioBannerText, { color: colors.mutedForeground }]}>
-            {scenario.framingCopy}
-          </Text>
+          <View style={[styles.scenarioRule, { backgroundColor: colors.primary }]} />
+          <View style={styles.scenarioBannerBody}>
+            <Text style={[styles.scenarioBannerLabel, { color: colors.primary }]}>
+              YOUR SCENE
+            </Text>
+            <Text style={[styles.scenarioBannerText, { color: colors.foreground }]}>
+              {scenario.framingCopy}
+            </Text>
+          </View>
         </View>
       ) : null}
 
@@ -1938,8 +1949,10 @@ export default function ChatScreen() {
           ]}
         >
           <Text style={[styles.bubbleText, { color: colors.foreground }]}>
-            {'I\'m Bolo — your feathered conversation buddy! Hold my belly and let\'s chat in English or ' +
-              (chatLanguage?.name ?? chatLang) + '!'}
+            {/* Says what to DO first, then what is allowed. Web says the
+                same words. */}
+            {'Hi! I\'m Bolo. Hold my belly to chat in English or ' +
+              (chatLanguage?.name ?? chatLang) + '. Ask me or tell me anything!'}
           </Text>
         </Animated.View>
       )}
@@ -2515,17 +2528,34 @@ const styles = StyleSheet.create({
 
   // ── Scenario (zone capstone) mode ────────────────────────────────────────
   scenarioBanner: {
+    flexDirection: 'row',
+    gap: 10,
     marginHorizontal: 16,
-    marginBottom: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
+  },
+  scenarioRule: {
+    width: 3,
+    borderRadius: 999,
+    alignSelf: 'stretch',
+  },
+  scenarioBannerBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  scenarioBannerLabel: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    marginBottom: 3,
   },
   scenarioBannerText: {
-    fontFamily: AppFonts.regular,
-    fontSize: 12,
-    lineHeight: 17,
+    fontFamily: AppFonts.bold,
+    fontSize: 13,
+    lineHeight: 18,
   },
   chipRow: {
     flexDirection: 'row',
