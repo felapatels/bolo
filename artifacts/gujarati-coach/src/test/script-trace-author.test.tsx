@@ -313,3 +313,89 @@ describe("THE MNEMONIC a letter is taught with", () => {
     expect((screen.getByTestId("author-ex-gloss") as HTMLInputElement).value).toBe("");
   });
 });
+
+describe("IT SAYS WHEN IT CANNOT SAVE", () => {
+  // The first version caught the storage failure and said nothing, so an author
+  // in an embedded preview got no draft AND no warning. That is the failure this
+  // feature exists to prevent, wearing the costume of working.
+  test("a working browser says the draft is kept", () => {
+    renderAuthor();
+    expect(screen.getByTestId("author-saves")).toBeInTheDocument();
+    expect(screen.queryByTestId("author-no-save")).not.toBeInTheDocument();
+  });
+
+  test("a browser that blocks storage is warned about, loudly", () => {
+    vi.spyOn(globalThis.localStorage, "setItem").mockImplementation(() => {
+      throw new Error("blocked in a third-party iframe");
+    });
+    renderAuthor();
+
+    const warning = screen.getByTestId("author-no-save");
+    expect(warning).toHaveTextContent("not keeping your draft");
+    // And it says what to do about it, rather than only that it is broken.
+    expect(warning).toHaveTextContent("own browser tab");
+    expect(screen.queryByTestId("author-saves")).not.toBeInTheDocument();
+  });
+
+  test("the tool still works when storage is blocked, it just does not persist", () => {
+    vi.spyOn(globalThis.localStorage, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const { canvas } = renderAuthor();
+    fireEvent.change(screen.getByTestId("author-char"), { target: { value: "क" } });
+    fireEvent.change(screen.getByTestId("author-label"), { target: { value: "ka" } });
+    drawStroke(canvas, DOWN);
+    fireEvent.click(screen.getByTestId("author-add"));
+
+    expect(screen.getByTestId("author-remove-deva-ka")).toBeInTheDocument();
+  });
+});
+
+describe("REPLAY: see the order back before banking it", () => {
+  test("it is refused with nothing drawn", () => {
+    renderAuthor();
+    expect(screen.getByTestId("author-replay")).toBeDisabled();
+  });
+
+  test("it is offered once a stroke exists", () => {
+    const { canvas } = renderAuthor();
+    drawStroke(canvas, DOWN);
+    expect(screen.getByTestId("author-replay")).toBeEnabled();
+  });
+
+  test("starting a replay empties the canvas back to the first point", () => {
+    // A wrong stroke ORDER is invisible in a finished drawing and expensive to
+    // find forty glyphs later, so the replay starts from nothing.
+    const { container, canvas } = renderAuthor();
+    drawStroke(canvas, DOWN);
+    drawStroke(canvas, ACROSS);
+    const drawn = container.querySelectorAll("path").length;
+
+    fireEvent.click(screen.getByTestId("author-replay"));
+    expect(container.querySelectorAll("path").length).toBeLessThan(drawn);
+  });
+});
+
+describe("THE TIP FOLLOWS THE ALPHABET", () => {
+  test("Devanagari is told the head-line goes last", () => {
+    renderAuthor();
+    expect(screen.getByTestId("author-order-tip")).toHaveTextContent("shirorekha");
+  });
+
+  test("GUJARATI IS TOLD THE OPPOSITE, because it has no head-line", () => {
+    // The tip was hardcoded to Devanagari. Switching to Gujarati would have
+    // instructed the author to draw a line the script does not have.
+    renderAuthor();
+    fireEvent.change(screen.getByTestId("author-script"), { target: { value: "gujarati" } });
+
+    const tip = screen.getByTestId("author-order-tip");
+    expect(tip).toHaveTextContent("NO head-line");
+    expect(tip).not.toHaveTextContent("shirorekha");
+  });
+
+  test("Perso-Arabic is told the direction, which no other script here needs", () => {
+    renderAuthor();
+    fireEvent.change(screen.getByTestId("author-script"), { target: { value: "perso-arabic" } });
+    expect(screen.getByTestId("author-order-tip")).toHaveTextContent("RIGHT TO LEFT");
+  });
+});

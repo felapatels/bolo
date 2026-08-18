@@ -3,6 +3,7 @@ import {
   SCRIPT_BY_LANGUAGE,
   SCRIPT_NAMES,
   AUTHORED_GLYPHS,
+  SCRIPT_ORDER_TIP,
   PLAYABLE_GLYPH_FLOOR,
   scriptFor,
   glyphsForLanguage,
@@ -137,5 +138,23 @@ describe("authored data is well formed wherever it exists", () => {
   test.each(Object.entries(AUTHORED_GLYPHS))("%s glyph ids are unique", (_script, glyphs) => {
     const ids = (glyphs ?? []).map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("every script tells its author the right order rule", () => {
+  test("all twelve have a tip", () => {
+    for (const script of new Set(Object.values(SCRIPT_BY_LANGUAGE))) {
+      expect(SCRIPT_ORDER_TIP[script]?.trim(), `${script} has no order tip`).toBeTruthy();
+    }
+  });
+
+  test("the head-line scripts and the no-head-line script do not share copy", () => {
+    // Gujarati's whole difference from Devanagari is the absent head-line. A
+    // shared or copy-pasted tip here would teach a stroke that does not exist.
+    expect(SCRIPT_ORDER_TIP.gujarati).not.toEqual(SCRIPT_ORDER_TIP.devanagari);
+    expect(SCRIPT_ORDER_TIP.gujarati.toLowerCase()).toContain("no head-line");
+    for (const s of ["devanagari", "bengali", "gurmukhi"] as const) {
+      expect(SCRIPT_ORDER_TIP[s].toLowerCase()).toContain("last");
+    }
   });
 });

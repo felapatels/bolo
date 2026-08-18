@@ -18,9 +18,9 @@
 // Unlisted: reachable at /games/script-trace-author and linked from nowhere.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Check, Copy, Eraser, Trash2, Undo2 } from "lucide-react";
-import type { AuthoredGlyph, GlyphExample, StrokePoint } from "@/lib/stroke-scoring";
-import { SCRIPT_NAMES, type ScriptId } from "@/lib/scripts";
+import { AlertTriangle, ArrowLeft, Check, Copy, Eraser, Play, Trash2, Undo2 } from "lucide-react";
+import { strokesUpTo, type AuthoredGlyph, type GlyphExample, type StrokePoint } from "@/lib/stroke-scoring";
+import { SCRIPT_NAMES, SCRIPT_ORDER_TIP, type ScriptId } from "@/lib/scripts";
 
 const BOX = 100;
 
@@ -52,6 +52,27 @@ export const SCRIPT_PREFIX: Record<ScriptId, string> = {
 };
 
 const DRAFT_KEY = "bolo:script-trace-author:draft:v1";
+
+/**
+ * Whether this browser will actually keep a draft.
+ *
+ * A write that throws was being caught and swallowed, so an author in an
+ * embedded preview pane got no draft AND no warning: the failure mode this
+ * whole feature exists to prevent, dressed up as working. Storage is commonly
+ * blocked inside a third-party iframe, which is exactly where the Replit
+ * preview runs, so probe it and say so out loud.
+ */
+function storageWorks(): boolean {
+  try {
+    const probe = `${DRAFT_KEY}:probe`;
+    globalThis.localStorage?.setItem(probe, "1");
+    const ok = globalThis.localStorage?.getItem(probe) === "1";
+    globalThis.localStorage?.removeItem(probe);
+    return ok;
+  } catch {
+    return false;
+  }
+}
 
 function loadDraft(): AuthoredGlyph[] {
   try {
@@ -115,6 +136,8 @@ export default function ScriptTraceAuthor() {
   const [strokes, setStrokes] = useState<StrokePoint[][]>([]);
   const [glyphs, setGlyphs] = useState<AuthoredGlyph[]>(loadDraft);
   const [copied, setCopied] = useState(false);
+  const [saves] = useState(storageWorks);
+  const [replayT, setReplayT] = useState<number | null>(null);
 
   const liveRef = useRef<StrokePoint[]>([]);
   const [live, setLive] = useState<StrokePoint[]>([]);
@@ -145,6 +168,26 @@ export default function ScriptTraceAuthor() {
       ),
     [glyphs],
   );
+
+  // Replays what you just drew, at the pace the learner will see it. The point
+  // is to catch a wrong stroke ORDER before it is banked, which is invisible in
+  // a finished drawing and expensive to find 40 glyphs later.
+  useEffect(() => {
+    if (replayT === null) return;
+    const started = performance.now();
+    const id = setInterval(() => {
+      const t = (performance.now() - started) / 2200;
+      if (t >= 1) {
+        clearInterval(id);
+        setReplayT(null);
+      } else {
+        setReplayT(t);
+      }
+    }, 40);
+    return () => clearInterval(id);
+    // Starts on the transition into replay, not on every frame it sets.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replayT === null]);
 
   const clearCanvas = () => {
     liveRef.current = [];
@@ -198,6 +241,30 @@ export default function ScriptTraceAuthor() {
           </p>
         </div>
       </header>
+
+      {/* Loud, because the alternative is an hour of tracing that evaporates on
+          a refresh with nothing having warned anyone. */}
+      {!saves ? (
+        <div
+          data-testid="author-no-save"
+          className="mb-3 flex gap-2 rounded-xl border-2 p-3"
+          style={{ borderColor: "#EF4444" }}
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: "#EF4444" }} />
+          <p className="text-xs font-bold text-foreground">
+            This browser is not keeping your draft. Anything you trace here is
+            lost on a refresh.
+            <span className="block pt-1 font-normal text-muted-foreground">
+              Storage is blocked inside an embedded preview pane. Open this page
+              in its own browser tab and the warning goes away.
+            </span>
+          </p>
+        </div>
+      ) : (
+        <p data-testid="author-saves" className="mb-3 text-xs text-muted-foreground">
+          Draft is kept in this browser. A refresh will not lose your work.
+        </p>
+      )}
 
       <div className="flex gap-2 pb-3">
         <select
@@ -303,7 +370,7 @@ export default function ScriptTraceAuthor() {
           </text>
         )}
 
-        {[...strokes, live].map((s, i) => (
+        {(replayT !== null ? strokesUpTo(strokes, replayT) : [...strokes, live]).map((s, i) => (
           <g key={i}>
             <path
               d={toPath(s)}
@@ -341,6 +408,14 @@ export default function ScriptTraceAuthor() {
           <Undo2 className="h-4 w-4" /> Undo
         </button>
         <button
+          onClick={() => setReplayT(0)}
+          disabled={strokes.length === 0 || replayT !== null}
+          data-testid="author-replay"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-border bg-card py-2.5 text-sm font-bold disabled:opacity-40"
+        >
+          <Play className="h-4 w-4" /> Replay
+        </button>
+        <button
           onClick={clearCanvas}
           data-testid="author-clear"
           className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-border bg-card py-2.5 text-sm font-bold"
@@ -359,9 +434,16 @@ export default function ScriptTraceAuthor() {
       </div>
 
       <p className="pt-2 text-xs text-muted-foreground">
-        {strokes.length === 0
-          ? "Draw the first stroke. Order matters: in Devanagari the head-line goes on last."
-          : `${strokes.length} stroke${strokes.length === 1 ? "" : "s"} recorded.`}
+        {strokes.length === 0 ? (
+          <>
+            Draw the first stroke.{" "}
+            <span data-testid="author-order-tip" className="font-bold text-foreground">
+              {SCRIPT_ORDER_TIP[script]}
+            </span>
+          </>
+        ) : (
+          `${strokes.length} stroke${strokes.length === 1 ? "" : "s"} recorded.`
+        )}
       </p>
 
       {glyphs.length > 0 && (
