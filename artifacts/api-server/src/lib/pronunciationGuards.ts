@@ -309,7 +309,12 @@ export interface GuardResult {
   score: number;
   passed: boolean;
   /** Which deterministic rule fired, for logging; undefined when LLM stands. */
-  guard?: "near-match-floor" | "wrong-phrase-cap" | "partial-match-cap" | "script-mismatch-nocatch";
+  guard?:
+    | "near-match-floor"
+    | "wrong-phrase-cap"
+    | "partial-match-cap"
+    | "script-mismatch-nocatch"
+    | "word-substitution-cap";
   /**
    * True when the transcript's script proves the RECOGNIZER failed, not the
    * learner. The route must resolve this to band 'nocatch' (no XP, but no
@@ -350,6 +355,55 @@ export interface GuardResult {
  *      in the 0.25–0.70 range, and the LLM then over-rewards it. After guard 1b,
  *      this only fires for same-script (native) transcripts.
  */
+/**
+ * A token that is clearly a DIFFERENT word rather than the same word spelled
+ * another way. Chosen from measured pairs, not by feel:
+ *
+ *   errors    hu/hain .25   ho/hain .25   hu/hai .33   hu/ho .50
+ *   variants  namaste/namaskar .63   hu/hoon .67   kaise/kaisay .67
+ *
+ * 0.55 is the gap between those two groups. Everything below it in the sample
+ * is a different word; everything above is the same word romanized differently.
+ */
+const WORD_SUBSTITUTION_FLOOR = 0.55;
+
+/**
+ * Whether the learner said a DIFFERENT WORD somewhere in the phrase.
+ *
+ * WHY THIS EXISTS. Every other check here compares whole strings, and
+ * normalizeLatin strips spaces, so "namaste, aap kaise hu" against
+ * "namaste, aap kaise hain?" scores 0.83 similarity: the wrong verb ending is
+ * a small fraction of a long phrase. The same error on the short phrase
+ * "kaise hain?" scores 0.67 and is capped. So the protection silently switched
+ * off exactly where a phrase was long enough to hide a mistake -- and in Indic
+ * languages the ending IS the grammar ("hain" formal-plural vs "hu" first
+ * person). Reported from the app: "Kaise Hu" scored Perfect.
+ *
+ * ONLY WHEN THE WORD COUNTS MATCH. A recognizer that drops or invents a word
+ * is recognizer noise, and the learner must not wear it; those cases are
+ * already handled by the nocatch and script-mismatch paths. Equal counts mean
+ * the shapes line up and a bad pair is a real substitution.
+ *
+ * Romanized side only: this needs word boundaries, and the native-script
+ * targets do not tokenize the same way.
+ */
+export function hasWordSubstitution(
+  transcript: string,
+  targetRomanized: string,
+): boolean {
+  if (!isLatin(transcript)) return false;
+  const said = transcript.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const want = targetRomanized.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (said.length === 0 || said.length !== want.length) return false;
+  return said.some((tok, i) => {
+    const a = normalizeLatin(tok);
+    const b = normalizeLatin(want[i]!);
+    // A token that normalizes away entirely (pure punctuation) tells us nothing.
+    if (!a || !b) return false;
+    return similarity(a, b) < WORD_SUBSTITUTION_FLOOR;
+  });
+}
+
 export function applyScoreGuards(input: GuardInput): GuardResult {
   const { transcript, targetNative, targetRomanized, otherPhrases } = input;
   let score = Math.max(0, Math.min(100, Math.round(input.score)));
@@ -360,6 +414,19 @@ export function applyScoreGuards(input: GuardInput): GuardResult {
     guard: "script-mismatch-nocatch",
     nocatch: true,
   };
+
+  // Computed once, consumed twice below. A substituted WORD must survive the
+  // near-match early return (that branch's whole-string similarity is exactly
+  // what a wrong ending on a long phrase hides behind), but must NOT preempt
+  // wrong-phrase-cap, which is the stronger signal: matching a different
+  // catalog phrase outright earns a harder cap than saying one wrong word.
+  // NOT gated on the score. Its second job is to switch off the near-match
+  // RESCUE, which lifts an under-scored attempt to a pass on whole-string
+  // similarity alone -- and lifting a learner who said a different word is the
+  // worst version of this bug, not a milder one. The 72 cap below is what is
+  // gated on the score, since there is nothing to cap on an attempt that was
+  // already failing.
+  const substituted = hasWordSubstitution(transcript, targetRomanized);
 
   const target = compareToTarget(transcript, targetNative, targetRomanized);
   if (!target.comparable) {
@@ -374,7 +441,7 @@ export function applyScoreGuards(input: GuardInput): GuardResult {
   // verdict (score >= 80) rather than unconditionally overriding it with true.
   // The floor-rescue branch (score < floor) still forces passed=true because
   // it is actively lifting an under-scored, phonetically correct attempt.
-  if (target.sim >= 0.90) {
+  if (target.sim >= 0.90 && !substituted) {
     const floor = simToScore(target.sim, 0.90);
     if (score < floor) {
       return { score: floor, passed: true, guard: "near-match-floor" };
@@ -399,6 +466,17 @@ export function applyScoreGuards(input: GuardInput): GuardResult {
         };
       }
     }
+  }
+
+  // A substituted word fails, however well the whole string matches. Sits below
+  // wrong-phrase-cap deliberately: if the transcript is actually a different
+  // catalog phrase, that guard has already returned the harder cap.
+  if (substituted && score >= 80) {
+    return {
+      score: Math.min(score, 72),
+      passed: false,
+      guard: "word-substitution-cap",
+    };
   }
 
   // Guard 1b: a Latin transcript for a non-Latin-script phrase, with romanized
