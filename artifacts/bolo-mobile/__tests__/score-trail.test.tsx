@@ -88,6 +88,20 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // ExpressOfferMoment (70d27c8a) renders inside the shared results tree and
+  // reads the chai wallet, so these hooks are needed even in suites that are
+  // not about the offer. Added when the mobile suite was first run off Replit.
+  getGetTokensQueryKey: () => ['tokens'],
+  useSpendTokens: () => ({ mutate: jest.fn(), mutateAsync: jest.fn(async () => ({})), data: undefined, isPending: false, isError: false, error: null }),
+  useGetStreakRepair: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  getGetStreakRepairQueryKey: () => ['streak-repair'],
+  useGetTokenHistory: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  useBuyFirstClass: () => ({ mutate: jest.fn(), mutateAsync: jest.fn(async () => ({})), data: undefined, isPending: false, isError: false, error: null }),
+  useRepairStreak: () => ({ mutate: jest.fn(), mutateAsync: jest.fn(async () => ({})), data: undefined, isPending: false, isError: false, error: null }),
+  // ExpressOfferMoment (70d27c8a) reads the token wallet from inside the
+  // shared results tree, so every suite that renders it needs this hook even
+  // when the offer is not what the test is about.
+  useGetTokens: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   useGetZoneTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getGetZoneTestoutQueryKey: () => ['zone-testout'],
   useSubmitZoneTestout: () => ({ data: undefined, isError: false, error: null, isPending: false, mutate: jest.fn() }),

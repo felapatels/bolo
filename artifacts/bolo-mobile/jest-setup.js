@@ -13,6 +13,15 @@
 // Jest matchers (toBeOnTheScreen, etc.) are auto-registered when the library is
 // imported in the test file (built in since @testing-library/react-native v12.4).
 
+// PurchasesContext captures the RevenueCat keys into module-level consts at
+// import time (contexts/PurchasesContext.tsx:54). chai-pack-shop.test.tsx sets
+// EXPO_PUBLIC_REVENUECAT_TEST_API_KEY in a beforeEach, which is far too late:
+// the const is already undefined, resolveApiKey() returns null, the store never
+// binds to the learner, and purchaseChaiPack() short-circuits to 'error'. On
+// Replit the real key was in the environment so this never showed. Set here,
+// because setupFilesAfterEnv runs BEFORE the test module is evaluated.
+process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY ||= 'test_key';
+
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
   const RN = require('react-native');
@@ -218,4 +227,52 @@ jest.mock('react-native-purchases', () => ({
     syncPurchases: jest.fn(async () => undefined),
   },
   LOG_LEVEL: { WARN: 'warn', ERROR: 'error' },
+}));
+
+// expo-video is a NATIVE module, pulled in when commit 918509d8 put
+// BazaarWelcome at the top of the bazaar screen. Without a bridge it throws on
+// import, so every suite that renders that screen failed to load at all. The
+// player is inert and the view is a plain View; __tests__/bazaar-welcome.test
+// .tsx declares its own mock for this path to assert on play/pause, which
+// takes precedence over this one.
+jest.mock('expo-video', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    useVideoPlayer: (_source, setup) => {
+      const player = { play: jest.fn(), pause: jest.fn(), muted: false, loop: false };
+      if (typeof setup === 'function') setup(player);
+      return player;
+    },
+    VideoView: (props) => React.createElement(View, props),
+  };
+});
+
+// expo-audio is the other half of the same problem: BazaarWelcome imports it
+// on the line after expo-video, so mocking only the video left outfits.test
+// .tsx still failing to load. Every recorder-driven suite (practice, quiz,
+// barge-in) already declares its own richer mock for this path, which takes
+// precedence; this exists so that merely RENDERING a screen that plays a cue
+// does not need one.
+jest.mock('expo-audio', () => ({
+  __esModule: true,
+  createAudioPlayer: jest.fn(() => ({
+    play: jest.fn(),
+    pause: jest.fn(),
+    remove: jest.fn(),
+    seekTo: jest.fn(),
+    volume: 1,
+    muted: false,
+  })),
+  useAudioRecorder: jest.fn(() => ({
+    record: jest.fn(),
+    stop: jest.fn(),
+    prepareToRecordAsync: jest.fn(async () => undefined),
+    uri: null,
+  })),
+  useAudioRecorderState: jest.fn(() => ({ isRecording: false, metering: 0 })),
+  setAudioModeAsync: jest.fn(async () => undefined),
+  AudioModule: { requestRecordingPermissionsAsync: jest.fn(async () => ({ granted: true })) },
+  RecordingPresets: { HIGH_QUALITY: {} },
 }));

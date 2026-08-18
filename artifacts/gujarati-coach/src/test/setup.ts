@@ -6,6 +6,48 @@ import { __resetBlessedAudioElementsForTests } from "@/lib/iosAudio";
 import { __seedPricingForTests } from "@/lib/pricing";
 import { PRICING_CATALOG } from "./fixtures";
 
+// Node 26 ships its OWN `localStorage` global, gated behind
+// --localstorage-file. Unflagged it is `undefined`, and because Node defines
+// the property first, jsdom's real Storage never lands on globalThis: window
+// .localStorage is undefined too. Every test that touches storage then dies in
+// its own beforeEach, which took the suite from green to 258 failures the
+// first time it was run on a Mac with Node 26 rather than on Replit.
+//
+// Guarded, so this is INERT wherever jsdom's Storage survives (Replit, CI, any
+// Node before 26). Delete it when the repo pins a Node that does not shadow
+// storage. Not a behaviour shim: it is the same get/set/remove/clear contract
+// the tests were already written against.
+if (typeof globalThis.localStorage === "undefined") {
+  class MemoryStorage {
+    #map = new Map<string, string>();
+    get length(): number {
+      return this.#map.size;
+    }
+    key(i: number): string | null {
+      return Array.from(this.#map.keys())[i] ?? null;
+    }
+    getItem(k: string): string | null {
+      return this.#map.has(String(k)) ? this.#map.get(String(k))! : null;
+    }
+    setItem(k: string, v: string): void {
+      this.#map.set(String(k), String(v));
+    }
+    removeItem(k: string): void {
+      this.#map.delete(String(k));
+    }
+    clear(): void {
+      this.#map.clear();
+    }
+  }
+  for (const name of ["localStorage", "sessionStorage"] as const) {
+    Object.defineProperty(globalThis, name, {
+      configurable: true,
+      writable: true,
+      value: new MemoryStorage(),
+    });
+  }
+}
+
 // React Testing Library leaves rendered trees in the jsdom document between
 // tests; tear them down so each test starts from a clean slate.
 afterEach(() => {

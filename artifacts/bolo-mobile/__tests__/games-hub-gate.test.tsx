@@ -114,7 +114,22 @@ describe('games hub - Plus tiles fail closed', () => {
     mockState.entitlements = { isPlus: undefined, isLoading: true };
     render(<GamesScreen />);
 
+    // Was Word Match. Commit 10257678 made Word Match and Listen & Pick
+    // plusOnly, so this now uses Luggage Match, which is still free. The
+    // behaviour under test is unchanged: a FREE game must open while
+    // entitlements are still resolving, rather than bouncing to the paywall.
+    fireEvent.press(screen.getByText('Luggage Match'));
+    expect(mockPush).toHaveBeenCalledWith('/(app)/(tabs)/games/luggage-match');
+  });
+
+  it('Word Match is Plus-only and bounces to the paywall while loading', () => {
+    // The INVERTED half of the assertion above, kept rather than dropped:
+    // commit 10257678 started charging for Word Match, and gating fails
+    // CLOSED, so an unresolved entitlement sends a learner to the paywall.
+    mockState.entitlements = { isPlus: undefined, isLoading: true };
+    render(<GamesScreen />);
+
     fireEvent.press(screen.getByText('Word Match'));
-    expect(mockPush).toHaveBeenCalledWith('/(app)/(tabs)/games/word-match');
+    expect(mockPush).toHaveBeenCalledWith('/(app)/paywall');
   });
 });

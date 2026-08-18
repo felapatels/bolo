@@ -5,6 +5,13 @@ import { defineConfig } from 'vitest/config';
 // Standalone config for the component/integration test suite. We deliberately
 // don't reuse vite.config.ts here because that config throws unless PORT and
 // BASE_PATH are set (they only exist when the dev server runs under a workflow).
+
+// The suite formats dates for display and asserts the result, so the machine's
+// timezone was a hidden input. Replit's container ran UTC and every assertion
+// was written against it; the same suite on a Mac in EDT rendered
+// "Dec 31, 2025" where the test wanted "Jan 1, 2026". Pinned here rather than
+// in setup.ts because Node resolves the zone before setup files run.
+process.env.TZ = 'UTC';
 export default defineConfig({
   plugins: [react()],
   resolve: {
