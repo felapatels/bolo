@@ -4,6 +4,14 @@ packages:
   - lib/integrations/*
   - scripts
 
+allowBuilds:
+  '@clerk/shared': true
+  '@sentry/cli': true
+  browser-tabs-lock: true
+  core-js: true
+  dtrace-provider: true
+  esbuild: true
+
 autoInstallPeers: false
 
 catalog:
