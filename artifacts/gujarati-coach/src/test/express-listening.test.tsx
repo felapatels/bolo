@@ -351,6 +351,42 @@ describe("Express Listening audio", () => {
   });
 });
 
+describe("Express Listening answer choices show MEANING, not romanization", () => {
+  // Owner ruling, Aug 12 2026, and the second time this has regressed on web.
+  // The clip IS the question, so a romanized reading under each option spells
+  // out the answer: a learner could win every round by matching Latin letters
+  // to the sounds they just heard, without reading the script or knowing the
+  // word. Mobile's listen-and-pick has done this since 5ddaa082; web showed
+  // romanized from 86bfb6fe until this test landed.
+  //
+  // Fixtures make the three forms distinguishable on sight: native "n1",
+  // romanized "r1", english "e1".
+
+  test("every option carries its English meaning", async () => {
+    renderGame();
+    await runCountdown();
+
+    const buttons = choiceButtons();
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const b of buttons) {
+      const native = nativeLabel(b);
+      const n = Number(native.slice(1));
+      expect(b.textContent).toContain(`e${n}`);
+    }
+  });
+
+  test("no option leaks the romanized reading", async () => {
+    renderGame();
+    await runCountdown();
+
+    for (const b of choiceButtons()) {
+      const n = Number(nativeLabel(b).slice(1));
+      // The exact regression: r<N> must not appear anywhere on the option.
+      expect(b.textContent).not.toContain(`r${n}`);
+    }
+  });
+});
+
 describe("Express Listening rounds (unchanged behaviour)", () => {
   test("a CORRECT pick advances on the 700ms beat, not before", async () => {
     renderGame();
