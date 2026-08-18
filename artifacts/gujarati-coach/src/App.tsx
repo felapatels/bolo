@@ -83,6 +83,11 @@ const GamesScriptTraceProto = lazyRoute(
 const GamesScriptTraceAuthor = lazyRoute(
   () => import('@/pages/games/script-trace-author'),
 );
+// Script Trace rebuilt on stroke scoring. Gated on authored content rather
+// than a flag: it tells the learner plainly when its alphabet is unwritten.
+const GamesScriptTraceGame = lazyRoute(
+  () => import('@/pages/games/script-trace-game'),
+);
 const GamesBoloQuiz = lazyRoute(() => import('@/pages/games/bolo-quiz'));
 const GamesTicketCheck = lazyRoute(() => import('@/pages/games/ticket-check'));
 const GamesWrongPlatform = lazyRoute(() => import('@/pages/games/wrong-platform'));
@@ -457,6 +462,11 @@ function AppRouter() {
       <Route path="/games/script-trace-author">
         <Guard>
           <GamesScriptTraceAuthor />
+        </Guard>
+      </Route>
+      <Route path="/games/script-trace-game">
+        <Guard>
+          <GamesScriptTraceGame />
         </Guard>
       </Route>
       <Route path="/games/bolo-quiz">
