@@ -169,23 +169,47 @@ describe("scenery placement plan (story 2)", () => {
       zoneOf(3, 600),
     );
     const { container } = renderJourney();
-    // Zone 4's planned row is station 11, an encounter station, so Chacha-ji's
-    // stall takes that strip and the decoration there stands down: a landmark
-    // outranks scenery on the row it marks.
+    // INVERTED Aug 18 2026, "a cow in every zone". At three stations a zone
+    // plans exactly ONE element, and the cow is substituted into the last (and
+    // here only) slot of any zone whose theme lacks one. So every zone shows a
+    // cow at this size, and the themed kinds only reappear once a zone is big
+    // enough to plan two or three elements. Zone 4's row is still station 11,
+    // an encounter station, so Chacha-ji's stall takes that strip and the
+    // decoration there still stands down: a landmark outranks scenery.
     expect(kinds(sceneryItems(container))).toEqual([
-      "tuktuk",
-      "cycleRickshaw",
-      "fruitCart",
-      "temple",
-      "ghat",
+      "cow",
+      "cow",
+      "cow",
+      "cow",
+      "cow",
     ]);
   });
 
-  test("a full-size zone renders its first three theme kinds", () => {
+  test("a full-size zone keeps its theme, with a cow in the last slot", () => {
+    // INVERTED Aug 18 2026. The zone's PRIMARY character (theme[0]) and its
+    // second element are untouched; the cow takes the third slot, which is what
+    // "a cow in every zone" costs on a zone whose theme has none. Zone 1 is
+    // tuktuk, fruitCart, banyan, so the banyan is what stands down.
     setZones(zoneOf(11, 100));
     const { container } = renderJourney();
     const zone0 = kinds(sceneryItems(container)).slice(0, 3);
-    expect(zone0).toEqual([...ZONE_SCENERY_THEMES[0]!]);
+    expect(zone0).toEqual([ZONE_SCENERY_THEMES[0]![0], ZONE_SCENERY_THEMES[0]![1], "cow"]);
+  });
+
+  test("every zone gets a cow, whatever its theme", () => {
+    // The reported gap: only zones 3 and 4 carried a cow, so most of the line
+    // had none.
+    for (let zi = 0; zi < 6; zi++) {
+      expect(planZoneScenery(zi, 11).map((p) => p.kind)).toContain("cow");
+      expect(planZoneScenery(zi, 3).map((p) => p.kind)).toContain("cow");
+    }
+  });
+
+  test("a zone whose theme already has a cow is not given a second one", () => {
+    for (const zi of [2, 3]) {
+      const cows = planZoneScenery(zi, 11).filter((p) => p.kind === "cow");
+      expect(cows).toHaveLength(1);
+    }
   });
 
   test("two renders of the same layout produce identical scenery (no per-render randomness)", () => {

@@ -787,10 +787,19 @@ export function planZoneScenery(
   if (stationCount <= 0) return [];
   const theme = ZONE_SCENERY_THEMES[Math.min(zoneIndex, ZONE_SCENERY_THEMES.length - 1)]!;
   const count = Math.max(1, Math.min(3, Math.floor(stationCount / 3)));
-  return Array.from({ length: count }, (_, i) => ({
+  const plan = Array.from({ length: count }, (_, i) => ({
     kind: theme[i % theme.length]!,
     row: Math.min(stationCount - 1, Math.floor(((i + 0.5) * stationCount) / count)),
   }));
+  // A COW IN EVERY ZONE (owner ruling, Aug 18 2026). The themes carry the
+  // Delhi-urban to Varanasi-riverine progression and only zones 3 and 4 had a
+  // cow in them, so most of the line had none. Substituted into the LAST slot
+  // rather than appended, so counts, rows and the rail-clearance geometry are
+  // untouched and the zone's primary character survives. Web says the same.
+  if (!plan.some((p) => p.kind === 'cow')) {
+    plan[plan.length - 1] = { ...plan[plan.length - 1]!, kind: 'cow' };
+  }
+  return plan;
 }
 
 /** One placed scenery element (rendered inside a map SVG block, anchored at

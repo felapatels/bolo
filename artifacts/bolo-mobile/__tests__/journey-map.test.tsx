@@ -817,17 +817,35 @@ describe('journey map — build 31 signboard dressing + rail pulse', () => {
 describe('journey map - trackside scenery (web Task 985 port)', () => {
   it('plans 1-3 elements per zone, spread across rows with theme cycling', () => {
     const { planZoneScenery } = require('@/components/journey/Scenery');
+    // INVERTED Aug 18 2026, "a cow in every zone". Only zones 3 and 4 carried
+    // one, so most of the line had none. The cow is substituted into the LAST
+    // slot of any zone whose theme lacks it, which leaves the counts and the
+    // rows exactly as they were and keeps each zone's primary character.
     expect(planZoneScenery(0, 0)).toEqual([]);
-    expect(planZoneScenery(0, 2)).toEqual([{ kind: 'tuktuk', row: 1 }]);
+    // At two stations a zone plans ONE element, so the cow takes it.
+    expect(planZoneScenery(0, 2)).toEqual([{ kind: 'cow', row: 1 }]);
     // The chai stall is retired from the decorative table: on the map that
     // art now means Chacha-ji's landmark and nothing else.
     expect(planZoneScenery(0, 9)).toEqual([
       { kind: 'tuktuk', row: 1 },
       { kind: 'fruitCart', row: 4 },
-      { kind: 'banyan', row: 7 },
+      { kind: 'cow', row: 7 },
     ]);
-    // Final zone leads with the river ghat, the Varanasi-approach finale.
-    expect(planZoneScenery(5, 3)).toEqual([{ kind: 'ghat', row: 1 }]);
+    // Final zone still leads with the river ghat at full size; at three
+    // stations its single slot is the cow.
+    expect(planZoneScenery(5, 3)).toEqual([{ kind: 'cow', row: 1 }]);
+    expect(planZoneScenery(5, 9).map((p: { kind: string }) => p.kind)).toEqual([
+      'ghat',
+      'temple',
+      'cow',
+    ]);
+    // Zones whose theme already has a cow are not given a second one.
+    for (const zi of [2, 3]) {
+      const cows = planZoneScenery(zi, 9).filter(
+        (p: { kind: string }) => p.kind === 'cow',
+      );
+      expect(cows).toHaveLength(1);
+    }
   });
 
   it('renders the planned scenery inside the parallax layer', () => {
