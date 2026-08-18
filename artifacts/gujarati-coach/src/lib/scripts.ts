@@ -108,6 +108,34 @@ export const AUTHORED_GLYPHS: Partial<Record<ScriptId, AuthoredGlyph[]>> = {
  */
 export const PLAYABLE_GLYPH_FLOOR = 12;
 
+/**
+ * The writing-order rule an author most needs in front of them, per script.
+ *
+ * The tool used to hardcode Devanagari's head-line, which is not just unhelpful
+ * for the other eleven but WRONG for Gujarati, whose defining difference from
+ * Devanagari is that it has no head-line at all. An author switching alphabets
+ * would have been told to draw a line that does not exist.
+ *
+ * Kept to the ORDER, since order and direction are the only things this format
+ * records that a font cannot.
+ */
+export const SCRIPT_ORDER_TIP: Record<ScriptId, string> = {
+  devanagari: "The head-line (shirorekha) goes on LAST, after the letter body.",
+  bengali: "The head-line (matra) goes on LAST, after the letter body.",
+  gurmukhi: "The head-line (sirlekh) goes on LAST, after the letter body.",
+  gujarati:
+    "There is NO head-line. That is the difference from Devanagari, so do not draw one.",
+  odia: "The curved umbrella top is part of the letter. Body first, curve to close.",
+  "perso-arabic":
+    "RIGHT TO LEFT. Draw the connected skeleton first, then the dots and marks.",
+  tamil: "Left to right, top to bottom. Curves in one continuous stroke where you can.",
+  telugu: "Left to right, top to bottom. The tick above the letter comes last.",
+  kannada: "Left to right, top to bottom. The tick above the letter comes last.",
+  malayalam: "Left to right, top to bottom. Keep round shapes as one stroke.",
+  "ol-chiki": "Left to right, top to bottom.",
+  meitei: "Left to right, top to bottom.",
+};
+
 export function scriptFor(languageCode: string): ScriptId | undefined {
   return SCRIPT_BY_LANGUAGE[languageCode];
 }
