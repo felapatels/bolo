@@ -1,0 +1,94 @@
+# BOLO
+
+South Asian language learning. Product name is **Bolo!**; the web artifact dir is
+still `gujarati-coach` for historical reasons. See `replit.md` for architecture,
+auth, audio flow, and RevenueCat detail.
+
+## Layout
+
+pnpm monorepo. Workspaces: `artifacts/*`, `lib/*`, `lib/integrations/*`, `scripts`.
+
+- `artifacts/gujarati-coach` — web app (React, Vite, Wouter, Clerk)
+- `artifacts/bolo-mobile` — iOS/Android (Expo SDK 54, expo-router)
+- `artifacts/api-server` — API (Express 5, Drizzle, Postgres)
+- `lib/api-spec` — `openapi.yaml`; `pnpm --filter @workspace/api-spec run codegen`
+  regenerates `lib/api-client-react` (orval) and `lib/api-zod`
+- `lib/db` — Drizzle schema, migrations, seed
+- `lib/referral-link`, `lib/train-class`, `lib/integrations-openai-ai-{react,server}`
+
+Database lives in Replit; `DATABASE_URL` in `.env` points at it. Dev and prod are
+out of sync. Assume nothing about parity.
+
+## Typecheck
+
+- `pnpm run typecheck:libs` — `tsc --build` over the `lib/*` project references.
+  **A fresh clone must run this first**; nothing else compiles until `lib/*` is built.
+- `pnpm run typecheck` — runs `typecheck:libs`, then each artifact's own `typecheck`.
+
+## Tests, per artifact
+
+Run from the repo root.
+
+- api: `pnpm --filter @workspace/api-server run test`
+  Baseline 1064 tests, 68 suites, 1062 pass, 2 skipped, ~350s. **Run it alone.**
+  The script runs `sync-schema` first, so running the api tests APPLIES pending
+  migrations to the dev database.
+- web: `pnpm --filter @workspace/gujarati-coach run test` (vitest)
+  Baseline 93 suites, 842 tests, all pass, ~66s.
+- mobile: `pnpm --filter @workspace/bolo-mobile run test` (jest)
+  Baseline 108 suites, 1007 tests, all pass. Needs `--forceExit`; workers leak and
+  CI does not pass that flag. Known open item.
+
+**Never run the api suite concurrently with web.** A different total is not a
+failure; a different PASS count is.
+
+Default to the minimum set covering the change (changed files plus importers), and
+say which set you ran and why. Typecheck always. Full suites only on request, or
+for the two exceptions: any migration change, and any change to tokenService, the
+token ledger, the RevenueCat or Stripe webhook paths, or entitlement resolution.
+
+## Migrations
+
+`lib/db/drizzle/`, numbered sequentially, each with a matching entry in
+`meta/_journal.json`. Generate with `pnpm --filter @workspace/db run generate`.
+**Never create a table by hand in the database.** Doing exactly that broke
+`migrate` for a day.
+
+## Working rules
+
+- **Verify by content, never by commit message.** Replit auto-committed 22 times in
+  two days and the message rarely survived. Read the diffstat and file list.
+- **Never rewrite history on `main`.** No amend, no `reset --hard`, no rebase onto
+  main, no force push. `origin` is GitHub; `gitsafe-backup` is a stale Replit remote.
+- **Reuse before you write.** Web and mobile share no components: they are
+  hand-maintained twins held together only by prose comments. Grep for an existing
+  helper first. A second definition of the same thing is the defect, not the fix.
+- **Both platforms, or say why not.** Every user-facing change states its reach:
+  web done, iOS done, Android done, or why one is excluded.
+- **Read the test before changing it.** If an assertion fails because behaviour
+  changed on purpose, INVERT it with a comment. Do not delete it.
+- **Quote before you edit.** For any non-trivial change, quote the current code
+  first. Several bugs here came from a stale mental model of a file.
+- **Comments carry reasoning, not description.** Name the commit or task that caused
+  the thing. If you change behaviour a comment describes, change the comment.
+
+## Style, for anything written for the human
+
+Verdict first, then short bullets. Bold the key words. No long paragraphs.
+**No em dashes, ever** (app copy, comments, or chat). Offer a recommendation with
+any choice. End with a numbered "Your Plate", 2 to 3 actions max, then "Nothing
+else on you." The human has ADHD: one step at a time, and say plainly where a
+command runs.
+
+## Known open items
+
+- `.easignore` missing; every EAS build ships a 224 MB archive.
+- Scenario mode (guided roleplay chat) is web only. Documented in mobile's
+  `ZoneCloseout.tsx`.
+- `playCue` is wired at 13 call sites on both platforms; the audio files were never
+  authored. Both no-op by design.
+- Mobile splash and Bazaar welcome have no tests; nothing renders `app/_layout.tsx`
+  or `(tabs)/index.tsx`.
+- Sentry ingests development events into the production stream.
+- One-Language tier is dead (no RevenueCat package, no purchasers) but
+  `allowedLanguagesForPlan` still branches on it.

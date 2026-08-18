@@ -70,3 +70,12 @@ qa/pilot-results/noise-bench/results.jsonl
 
 # Downloaded production audio clips (task 1047 dry run) — regenerable from the prod cache; never commit
 qa/tts-audit-prod-gu-clips/
+
+# Local secrets. Replit ignored these via a machine file that does not
+# exist outside it, so the rule has to live in the repo. The glob is
+# deliberately wide: .env.bak and .env.save slip past an explicit list, and a
+# leaked key costs more than an ignored file nobody wanted ignored.
+.env*
+# Templates carry no secrets and must stay committed. Covers the root and
+# artifacts/bolo-mobile/.env.production.example alike.
+!.env*.example
