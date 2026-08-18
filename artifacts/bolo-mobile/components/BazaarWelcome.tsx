@@ -78,12 +78,17 @@ export function BazaarWelcome() {
   const [open, setOpen] = React.useState<boolean | undefined>(undefined);
   const voiceRef = React.useRef<AudioPlayer | null>(null);
 
+  // Configured here, STARTED in the effect below. Playing in this setup
+  // callback meant the film began at mount, while the AsyncStorage stamp was
+  // still being read, so by the time the overlay appeared Chacha-ji's lips
+  // were ahead of his voice by the length of that read, and the opening frames
+  // were never seen at all. Web has no such gap because localStorage is
+  // synchronous and its <video autoPlay> mounts only once open.
   const player = useVideoPlayer(
     reduceMotion ? null : WELCOME_FILM,
     (p) => {
       p.muted = true;
       p.loop = false;
-      p.play();
     },
   );
 
@@ -117,6 +122,16 @@ export function BazaarWelcome() {
     if (open !== true) return;
     let cancelled = false;
 
+    // Film, voice, and the close timer all start on THIS tick. That is the
+    // whole point of starting playback here rather than at mount.
+    if (!reduceMotion) {
+      try {
+        player.play();
+      } catch {
+        /* a silent still is still a greeting */
+      }
+    }
+
     try {
       const p = createAudioPlayer(WELCOME_VOICE);
       voiceRef.current = p;
@@ -145,6 +160,14 @@ export function BazaarWelcome() {
     return () => {
       cancelled = true;
       clearTimeout(t);
+      // The film stops on the same cleanup as the voice. A skipped greeting
+      // that keeps decoding behind the shop is the same defect as one that
+      // keeps talking.
+      try {
+        player.pause();
+      } catch {
+        /* already released */
+      }
       try {
         voiceRef.current?.remove();
       } catch {
@@ -152,6 +175,10 @@ export function BazaarWelcome() {
       }
       voiceRef.current = null;
     };
+    // `player` is intentionally absent: useVideoPlayer only rebuilds it when
+    // its source changes, and the source depends solely on reduceMotion, which
+    // is already a dependency. Adding it would restart the voice on any
+    // incidental identity change.
   }, [open, reduceMotion]);
 
   if (open !== true) return null;
