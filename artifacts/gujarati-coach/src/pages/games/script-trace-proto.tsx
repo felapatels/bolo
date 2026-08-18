@@ -55,20 +55,26 @@ const FAULT_COPY: Record<string, string> = {
 export default function ScriptTraceProto() {
   const [glyphIdx, setGlyphIdx] = useState(0);
   const [strokes, setStrokes] = useState<StrokePoint[][]>([]);
-  const [current, setCurrent] = useState<StrokePoint[]>([]);
   const [showGuide, setShowGuide] = useState(true);
   const drawing = useRef(false);
+  // The stroke being drawn lives in a REF, mirrored into state only so it can
+  // be painted. The first version kept it in state and committed it from
+  // inside a setState updater, which is a side effect in an updater: React is
+  // free to invoke those twice, so every stroke was committed twice and the
+  // sandbox reported "too many strokes" the moment the pen lifted.
+  const liveRef = useRef<StrokePoint[]>([]);
+  const [live, setLive] = useState<StrokePoint[]>([]);
 
   const glyph = DEVANAGARI_PROTOTYPE_GLYPHS[glyphIdx]!;
-  const committed = current.length > 1 ? [...strokes, current] : strokes;
   const result: TraceResult | null = useMemo(
-    () => (committed.length > 0 ? scoreGlyph(committed, glyph) : null),
-    [committed, glyph],
+    () => (strokes.length > 0 ? scoreGlyph(strokes, glyph) : null),
+    [strokes, glyph],
   );
 
   const reset = () => {
+    liveRef.current = [];
+    setLive([]);
     setStrokes([]);
-    setCurrent([]);
   };
 
   return (
@@ -119,20 +125,28 @@ export default function ScriptTraceProto() {
         data-testid="proto-canvas"
         className="aspect-square w-full touch-none rounded-2xl border-2 border-border bg-card"
         onPointerDown={(e) => {
-          e.currentTarget.setPointerCapture(e.pointerId);
+          // jsdom has no pointer capture; the sandbox must not die in tests.
+          e.currentTarget.setPointerCapture?.(e.pointerId);
           drawing.current = true;
-          setCurrent([toGlyphSpace(e, e.currentTarget)]);
+          liveRef.current = [toGlyphSpace(e, e.currentTarget)];
+          setLive(liveRef.current);
         }}
         onPointerMove={(e) => {
           if (!drawing.current) return;
-          setCurrent((c) => [...c, toGlyphSpace(e, e.currentTarget)]);
+          liveRef.current = [...liveRef.current, toGlyphSpace(e, e.currentTarget)];
+          setLive(liveRef.current);
         }}
         onPointerUp={() => {
           drawing.current = false;
-          setCurrent((c) => {
-            if (c.length > 1) setStrokes((s) => [...s, c]);
-            return [];
-          });
+          const finished = liveRef.current;
+          liveRef.current = [];
+          setLive([]);
+          if (finished.length > 1) setStrokes((s) => [...s, finished]);
+        }}
+        onPointerCancel={() => {
+          drawing.current = false;
+          liveRef.current = [];
+          setLive([]);
         }}
       >
         {/* The authored strokes, faint. Numbered, because the ORDER is the
@@ -162,7 +176,7 @@ export default function ScriptTraceProto() {
             </g>
           ))}
 
-        {[...strokes, current].map((s, i) => (
+        {[...strokes, live].map((s, i) => (
           <path
             key={`drawn-${i}`}
             d={toPath(s)}
