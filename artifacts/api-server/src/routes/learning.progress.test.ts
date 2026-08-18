@@ -15,6 +15,7 @@ import {
   lessonGroupsTable,
   phrasesTable,
   xpLedgerTable,
+  userItemMemoryTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import learningRouter from "./learning";
@@ -339,7 +340,12 @@ after(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((err) => (err ? reject(err) : resolve())),
   );
-  // FK order: phrases → lesson groups → lessons → category, then language + user.
+  // FK order: user_item_memory → phrases → lesson groups → lessons → category,
+  // then language + user. The memory rows MUST go before phrases: they carry a
+  // FK to phrase_id, and leaving them behind fails the phrase delete.
+  await db
+    .delete(userItemMemoryTable)
+    .where(eq(userItemMemoryTable.userId, TEST_USER_ID));
   await db.delete(phrasesTable).where(eq(phrasesTable.languageCode, LANG));
   await db
     .delete(lessonGroupsTable)
@@ -437,6 +443,53 @@ test("GET /progress/summary reports the computed per-language numbers", async ()
   // them; the streak counts the DAY, earned by finishing station 1 (Task #1081).
   assert.equal(json.currentStreakDays, 1);
   assert.equal(json.attemptsToday, 6);
+});
+
+test("GET /progress/summary counts the phrases due for review", async () => {
+  // The reminder copy is built from this number, so it has to mean exactly what
+  // GET /review/phrases would hand back: practiced at least once, not yet
+  // mastered, and due now. Each row below fails one of those three, except the
+  // first, so a filter that goes missing changes the count.
+  const seeded = await db
+    .select({ id: phrasesTable.id })
+    .from(phrasesTable)
+    .where(eq(phrasesTable.languageCode, LANG));
+  assert.ok(seeded.length >= 4, "fixture needs at least 4 phrases");
+
+  const past = new Date(Date.now() - 60 * 60 * 1000);
+  const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await db.insert(userItemMemoryTable).values([
+    // Counts: practiced, not mastered, overdue.
+    { userId: TEST_USER_ID, phraseId: seeded[0].id, reps: 3, stability: 2, dueAt: past },
+    // Excluded: not due yet.
+    { userId: TEST_USER_ID, phraseId: seeded[1].id, reps: 3, stability: 2, dueAt: future },
+    // Excluded: stability >= 21 means mastered, not in need of review.
+    { userId: TEST_USER_ID, phraseId: seeded[2].id, reps: 9, stability: 30, dueAt: past },
+    // Excluded: never actually practiced, so it is new rather than due.
+    { userId: TEST_USER_ID, phraseId: seeded[3].id, reps: 0, stability: 0, dueAt: past },
+  ]);
+
+  try {
+    const { status, json } = await getJson(
+      `/progress/summary?lang=${encodeURIComponent(LANG)}`,
+    );
+    assert.equal(status, 200);
+    assert.equal(json.dueCount, 1);
+  } finally {
+    await db
+      .delete(userItemMemoryTable)
+      .where(eq(userItemMemoryTable.userId, TEST_USER_ID));
+  }
+});
+
+test("GET /progress/summary reports no reviews due when nothing is scheduled", async () => {
+  const { status, json } = await getJson(
+    `/progress/summary?lang=${encodeURIComponent(LANG)}`,
+  );
+  assert.equal(status, 200);
+  // 0, never undefined: the client treats an absent count as "unknown" and
+  // falls back to streak-only copy, which would be wrong here.
+  assert.equal(json.dueCount, 0);
 });
 
 test("GET /progress/summary requires a language", async () => {
