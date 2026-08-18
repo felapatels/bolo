@@ -78,6 +78,47 @@ describe('buildReminderCopy', () => {
   });
 });
 
+describe('buildReminderCopy, with a due count', () => {
+  // A streak is a loss to avoid and only bites once you have one. A due count
+  // is a task with an end, and works from day one. So the count leads for a
+  // learner with no streak and supports the streak for a learner who has one.
+
+  it('promotes the task to the title when there is no streak to protect', () => {
+    const c = buildReminderCopy(0, 3);
+    expect(c.title).toBe('3 phrases are ready for you');
+    expect(c.title).not.toMatch(/streak/i);
+  });
+
+  it('says "1 phrase", not "1 phrases"', () => {
+    expect(buildReminderCopy(0, 1).title).toBe('1 phrase is ready for you');
+    expect(buildReminderCopy(5, 1).body).toContain('1 phrase is ready');
+    expect(buildReminderCopy(5, 2).body).toContain('2 phrases are ready');
+  });
+
+  it('keeps the streak in the title and puts the task in the body', () => {
+    const c = buildReminderCopy(5, 4);
+    expect(c.title).toBe('Keep your 5-day streak alive!');
+    expect(c.body).toContain('4 phrases are ready for review.');
+  });
+
+  it('keeps the badge milestone winning over the count', () => {
+    const c = buildReminderCopy(6, 9);
+    expect(c.title).toContain('Week Warrior');
+    // The count still earns its place in the body rather than being dropped.
+    expect(c.body).toContain('9 phrases are ready for review.');
+  });
+
+  it('never invents a number it was not given', () => {
+    // The count is optional end to end: an older server omits it and an older
+    // client cannot send it. Both must degrade to the previous copy, NOT to a
+    // reminder that claims zero phrases are waiting.
+    for (const streak of [0, 1, 5, 6]) {
+      expect(buildReminderCopy(streak, 0)).toEqual(buildReminderCopy(streak));
+      expect(buildReminderCopy(streak).body).not.toMatch(/\b0 phrases?\b/);
+    }
+  });
+});
+
 describe('computeUpcomingReminderDates', () => {
   it('returns nothing when disabled, malformed, or with no days', () => {
     expect(

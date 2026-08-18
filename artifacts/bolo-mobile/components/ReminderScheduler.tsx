@@ -56,13 +56,20 @@ export function ReminderScheduler() {
 
   const streakDays = summary.data?.currentStreakDays;
   const attemptsToday = summary.data?.attemptsToday;
+  // Optional on the response for installed-client back-compat, so an older
+  // server simply yields streak-only copy rather than a reminder claiming zero.
+  const dueCount = summary.data?.dueCount;
 
   // Re-derive the schedule whenever fresh progress data lands.
   useEffect(() => {
     if (!remindersSupported) return;
     if (streakDays == null || attemptsToday == null) return;
-    rescheduleReminders({ streakDays, practicedToday: attemptsToday > 0 });
-  }, [streakDays, attemptsToday]);
+    rescheduleReminders({
+      streakDays,
+      practicedToday: attemptsToday > 0,
+      dueCount,
+    });
+  }, [streakDays, attemptsToday, dueCount]);
 
   // Refetch progress when the app returns to the foreground so the schedule
   // reflects practice done since (possibly on another device).

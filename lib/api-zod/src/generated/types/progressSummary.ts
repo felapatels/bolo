@@ -20,4 +20,6 @@ export interface ProgressSummary {
   xp: number;
   todayXp: number;
   dailyGoal: number;
+  /** Phrases whose spaced-repetition due date has arrived or passed, for this language. Same predicate as GET /review/phrases, so the count matches the session a learner lands in. Unlike that route this is NOT Plus-gated: a free learner is exactly who a "3 phrases are due" reminder has to reach. Optional for installed-client back-compat. */
+  dueCount?: number;
 }

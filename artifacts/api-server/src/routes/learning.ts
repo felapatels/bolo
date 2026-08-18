@@ -1909,6 +1909,7 @@ router.get(
       [userRow],
       recentXpRows,
       streakLadder,
+      [dueRow],
     ] = await Promise.all([
         db
           .select()
@@ -1963,6 +1964,32 @@ router.get(
         // language — which the SPEAKING streak (untouched by that task) reads
         // below rather than fetching a second time on this hot path.
         loadStreakLadder(userId, timezone),
+        // How many phrases are due for review RIGHT NOW. Deliberately the same
+        // predicate as GET /review/phrases (reps > 0, stability < 21, due date
+        // passed), so the number a learner is nudged with is the number of
+        // cards they actually land on. A count, not the rows: the reminder
+        // needs a quantity and this is a hot path.
+        //
+        // Lives on the basic summary rather than the Plus-gated review route on
+        // purpose. A free learner is exactly who a "3 phrases are due" nudge
+        // has to reach; gating the count would nudge only the people who
+        // already pay.
+        db
+          .select({ n: sql<number>`COUNT(*)` })
+          .from(userItemMemoryTable)
+          .innerJoin(
+            phrasesTable,
+            eq(userItemMemoryTable.phraseId, phrasesTable.id),
+          )
+          .where(
+            and(
+              eq(userItemMemoryTable.userId, userId),
+              eq(phrasesTable.languageCode, lang),
+              sql`${userItemMemoryTable.reps} > 0`,
+              sql`${userItemMemoryTable.stability} < 21`,
+              sql`${userItemMemoryTable.dueAt} <= NOW()`,
+            ),
+          ),
       ]);
 
     const totalPhrases = phrases.length;
@@ -2014,6 +2041,8 @@ router.get(
       xp: totalXp,
       todayXp,
       dailyGoal,
+      // Optional for installed-client back-compat, like speakingStreakDays.
+      dueCount: Number(dueRow?.n ?? 0),
     });
   },
 );

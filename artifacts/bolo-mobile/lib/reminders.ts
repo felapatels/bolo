@@ -92,6 +92,9 @@ async function ensureAndroidChannel(): Promise<void> {
 export async function rescheduleReminders(input: {
   streakDays: number;
   practicedToday: boolean;
+  /** Phrases due for review now. Omitted means "unknown", not "none": the copy
+   *  falls back to the streak-only wording rather than claiming zero. */
+  dueCount?: number;
 }): Promise<void> {
   if (!remindersSupported) return;
   try {
@@ -102,7 +105,7 @@ export async function rescheduleReminders(input: {
     if (!prefs.enabled || !granted) return;
 
     await ensureAndroidChannel();
-    const copy = buildReminderCopy(input.streakDays);
+    const copy = buildReminderCopy(input.streakDays, input.dueCount ?? 0);
     const dates = computeUpcomingReminderDates(
       prefs,
       new Date(),

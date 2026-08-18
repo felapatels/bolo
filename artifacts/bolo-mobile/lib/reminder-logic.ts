@@ -72,30 +72,66 @@ export const STREAK_MILESTONES: { days: number; badge: string }[] = [
 
 export type ReminderCopy = { title: string; body: string };
 
+/** "3 phrases are ready for review." Null when nothing is due. */
+function duePhrase(dueCount: number): string | null {
+  if (dueCount <= 0) return null;
+  const noun = dueCount === 1 ? 'phrase is' : 'phrases are';
+  return `${dueCount} ${noun} ready for review.`;
+}
+
 /**
- * Notification copy tailored to the learner's current streak. Escalates when a
- * real streak is at risk and celebrates when today's practice would cross a
- * badge-unlocking milestone.
+ * Notification copy tailored to the learner's current streak AND to what is
+ * actually waiting for them. Escalates when a real streak is at risk and
+ * celebrates when today's practice would cross a badge-unlocking milestone.
+ *
+ * WHY THE DUE COUNT IS HERE: a streak is a loss to avoid, which works only
+ * once a learner has one worth protecting. A due count is a task with a
+ * visible end, which works from day one. So a learner with a streak gets the
+ * streak in the title and the task in the body, and a learner without one gets
+ * the task promoted to the title instead of the generic line that used to be
+ * the only thing we could say to them.
+ *
+ * `dueCount` defaults to 0, and at 0 every branch returns exactly the copy it
+ * returned before the count existed. An older client that cannot send it, or a
+ * server response that omits it, degrades to the previous behaviour rather
+ * than to a wrong number.
  */
-export function buildReminderCopy(streakDays: number): ReminderCopy {
+export function buildReminderCopy(
+  streakDays: number,
+  dueCount = 0,
+): ReminderCopy {
+  const due = duePhrase(dueCount);
   const next = streakDays + 1;
   const milestone = STREAK_MILESTONES.find((m) => m.days === next);
   if (milestone && streakDays > 0) {
     return {
       title: `Your "${milestone.badge}" badge is one practice away!`,
-      body: `Practice now to hit a ${milestone.days}-day streak and earn it.`,
+      body: due
+        ? `${due} Practice now to hit a ${milestone.days}-day streak and earn it.`
+        : `Practice now to hit a ${milestone.days}-day streak and earn it.`,
     };
   }
   if (streakDays >= 2) {
     return {
       title: `Keep your ${streakDays}-day streak alive!`,
-      body: 'A few minutes of practice today keeps it going.',
+      body: due
+        ? `${due} A few minutes today keeps the streak going.`
+        : 'A few minutes of practice today keeps it going.',
     };
   }
   if (streakDays === 1) {
     return {
       title: "Don't break the chain",
-      body: 'You started a streak yesterday — practice today to keep it.',
+      body: due
+        ? `${due} Practice today to keep the streak you started yesterday.`
+        : 'You started a streak yesterday — practice today to keep it.',
+    };
+  }
+  // No streak to protect. The task IS the hook.
+  if (due) {
+    return {
+      title: dueCount === 1 ? '1 phrase is ready for you' : `${dueCount} phrases are ready for you`,
+      body: 'A few minutes of review is all it takes.',
     };
   }
   return {
