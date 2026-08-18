@@ -15,6 +15,9 @@ import { memoryLocation } from "wouter/memory-location";
 //   2. THE GUIDE IS NOT SHOWN WHILE TRACING. A visible guide turns the game
 //      into colouring in; it appears with the verdict, which is when it
 //      teaches.
+//   3. WATCH, THEN TRACE. Hiding the guide on a letter nobody has ever seen
+//      written is testing something never taught, so every letter opens with
+//      the pen demo and the attempt starts when the learner says so.
 // ---------------------------------------------------------------------------
 
 const h = vi.hoisted(() => ({
@@ -72,6 +75,11 @@ function fakeAlphabet(n: number) {
   }));
 }
 
+/** Every letter opens on the demo; the attempt starts on My turn. */
+function myTurn() {
+  fireEvent.click(screen.getByTestId("trace-my-turn"));
+}
+
 function renderGame() {
   const { hook } = memoryLocation({ path: "/games/script-trace-game" });
   return render(
@@ -118,6 +126,7 @@ describe("a round", () => {
 
   test("Check is refused until something is drawn", () => {
     renderGame();
+    myTurn();
     expect(screen.getByTestId("trace-check")).toBeDisabled();
 
     const canvas = screen.getByTestId("trace-canvas");
@@ -128,6 +137,7 @@ describe("a round", () => {
 
   test("THE GUIDE IS HIDDEN while tracing and shown with the verdict", () => {
     const { container } = renderGame();
+    myTurn();
     const canvas = screen.getByTestId("trace-canvas");
     stubBox(canvas);
 
@@ -144,6 +154,7 @@ describe("a round", () => {
 
   test("a correct trace reads clean", () => {
     renderGame();
+    myTurn();
     const canvas = screen.getByTestId("trace-canvas");
     stubBox(canvas);
     drawStroke(canvas, BAR);
@@ -155,6 +166,7 @@ describe("a round", () => {
 
   test("wrong order is named, not just marked down", () => {
     renderGame();
+    myTurn();
     const canvas = screen.getByTestId("trace-canvas");
     stubBox(canvas);
     drawStroke(canvas, TOP);
@@ -167,6 +179,7 @@ describe("a round", () => {
 
   test("drawing is locked once checked, so a verdict cannot be edited", () => {
     const { container } = renderGame();
+    myTurn();
     const canvas = screen.getByTestId("trace-canvas");
     stubBox(canvas);
     drawStroke(canvas, BAR);
@@ -188,6 +201,7 @@ describe("a run", () => {
     renderGame();
     for (let round = 1; round <= 6; round++) {
       expect(screen.getByTestId("trace-progress")).toHaveTextContent(`${round} of 6`);
+      myTurn();
       const canvas = screen.getByTestId("trace-canvas");
       stubBox(canvas);
       drawStroke(canvas, BAR);
@@ -206,5 +220,91 @@ describe("a run", () => {
     h.glyphs = fakeAlphabet(4);
     renderGame();
     expect(screen.getByTestId("trace-progress")).toHaveTextContent("1 of 4");
+  });
+});
+
+describe("WATCH, THEN TRACE", () => {
+  beforeEach(() => {
+    h.glyphs = fakeAlphabet(12);
+    h.ready = true;
+  });
+
+  test("a letter opens on the demo, not on a blank canvas", () => {
+    renderGame();
+    // The demo's controls are the tell, and Check is not among them: the
+    // learner cannot be scored on a letter they have not been shown.
+    expect(screen.getByTestId("trace-my-turn")).toBeInTheDocument();
+    expect(screen.getByTestId("trace-watch-again")).toBeInTheDocument();
+    expect(screen.queryByTestId("trace-check")).not.toBeInTheDocument();
+  });
+
+  test("THE PEN IS DEAD while the demo plays, so watching cannot be scored", () => {
+    const { container } = renderGame();
+    const canvas = screen.getByTestId("trace-canvas");
+    stubBox(canvas);
+
+    const before = container.querySelectorAll("path").length;
+    drawStroke(canvas, BAR);
+    // Nothing banked: strokes drawn over the demo would otherwise arrive as the
+    // learner's own the moment they pressed My turn.
+    expect(container.querySelectorAll("path")).toHaveLength(before);
+
+    myTurn();
+    expect(screen.getByTestId("trace-check")).toBeDisabled();
+  });
+
+  test("My turn clears the demo away", () => {
+    const { container } = renderGame();
+    myTurn();
+    expect(container.querySelectorAll('[data-testid^="trace-demo-stroke-"]')).toHaveLength(0);
+    expect(screen.queryByTestId("trace-my-turn")).not.toBeInTheDocument();
+  });
+
+  test("Watch again returns to the demo without losing the letter", () => {
+    renderGame();
+    const letter = screen.getByTestId("trace-progress").textContent;
+    fireEvent.click(screen.getByTestId("trace-watch-again"));
+    expect(screen.getByTestId("trace-my-turn")).toBeInTheDocument();
+    expect(screen.getByTestId("trace-progress")).toHaveTextContent(letter!);
+  });
+
+  test("every letter gets its own demo, not just the first", () => {
+    renderGame();
+    myTurn();
+    const canvas = screen.getByTestId("trace-canvas");
+    stubBox(canvas);
+    drawStroke(canvas, BAR);
+    drawStroke(canvas, TOP);
+    fireEvent.click(screen.getByTestId("trace-check"));
+    fireEvent.click(screen.getByTestId("trace-next"));
+
+    expect(screen.getByTestId("trace-progress")).toHaveTextContent("2 of 6");
+    expect(screen.getByTestId("trace-my-turn")).toBeInTheDocument();
+  });
+});
+
+describe("THE MNEMONIC: a letter is taught with a word", () => {
+  test("the example word is shown when the glyph carries one", () => {
+    h.ready = true;
+    // Every glyph carries one, because the run is shuffled and a conditional
+    // assertion here would pass whether or not the feature works.
+    h.glyphs = fakeAlphabet(12).map((g) => ({
+      ...g,
+      example: { word: "कमल", roman: "kamal", gloss: "lotus" },
+    }));
+    renderGame();
+
+    const shown = screen.getByTestId("trace-example");
+    expect(shown).toHaveTextContent("कमल");
+    expect(shown).toHaveTextContent("kamal");
+    expect(shown).toHaveTextContent("lotus");
+  });
+
+  test("a glyph with no example still plays, it just teaches less", () => {
+    h.ready = true;
+    h.glyphs = fakeAlphabet(12); // none carry an example
+    renderGame();
+    expect(screen.queryByTestId("trace-example")).not.toBeInTheDocument();
+    expect(screen.getByTestId("trace-my-turn")).toBeInTheDocument();
   });
 });

@@ -19,7 +19,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, Check, Copy, Eraser, Trash2, Undo2 } from "lucide-react";
-import type { AuthoredGlyph, StrokePoint } from "@/lib/stroke-scoring";
+import type { AuthoredGlyph, GlyphExample, StrokePoint } from "@/lib/stroke-scoring";
+import { SCRIPT_NAMES, type ScriptId } from "@/lib/scripts";
 
 const BOX = 100;
 
@@ -28,6 +29,28 @@ const BOX = 100;
 // away from gone: Vite hot-reloads the module on any edit anywhere in the app
 // and the set resets silently. Persist every add, so the only way to lose a
 // draft is to ask for it.
+/**
+ * The id prefix for each script.
+ *
+ * Was a free-text box. That is a quiet hazard in a session that authors 45
+ * glyphs: a stray keystroke files the rest under a prefix nothing looks up, and
+ * the damage only shows when the game deals an empty round.
+ */
+export const SCRIPT_PREFIX: Record<ScriptId, string> = {
+  devanagari: "deva",
+  bengali: "beng",
+  gujarati: "guj",
+  gurmukhi: "guru",
+  tamil: "taml",
+  telugu: "telu",
+  kannada: "knda",
+  malayalam: "mlym",
+  odia: "orya",
+  "perso-arabic": "arab",
+  "ol-chiki": "olck",
+  meitei: "mtei",
+};
+
 const DRAFT_KEY = "bolo:script-trace-author:draft:v1";
 
 function loadDraft(): AuthoredGlyph[] {
@@ -77,13 +100,16 @@ function thin(pts: StrokePoint[], minGap = 2.5): StrokePoint[] {
 }
 
 /** `id` has to be stable and file-safe; derive it rather than ask for it. */
-function deriveId(script: string, label: string, index: number): string {
+function deriveId(script: ScriptId, label: string, index: number): string {
   const slug = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return `${script.trim().toLowerCase() || "script"}-${slug || `glyph-${index + 1}`}`;
+  return `${SCRIPT_PREFIX[script]}-${slug || `glyph-${index + 1}`}`;
 }
 
 export default function ScriptTraceAuthor() {
-  const [script, setScript] = useState("deva");
+  const [script, setScript] = useState<ScriptId>("devanagari");
+  const [exWord, setExWord] = useState("");
+  const [exRoman, setExRoman] = useState("");
+  const [exGloss, setExGloss] = useState("");
   const [char, setChar] = useState("");
   const [label, setLabel] = useState("");
   const [strokes, setStrokes] = useState<StrokePoint[][]>([]);
@@ -112,6 +138,7 @@ export default function ScriptTraceAuthor() {
           char: g.char,
           label: g.label,
           strokes: g.strokes.map((s) => s.map((p) => ({ x: +p.x.toFixed(1), y: +p.y.toFixed(1) }))),
+          ...(g.example ? { example: g.example } : {}),
         })),
         null,
         2,
@@ -125,8 +152,17 @@ export default function ScriptTraceAuthor() {
     setStrokes([]);
   };
 
+  /** All three parts or none: half a mnemonic teaches worse than no mnemonic. */
+  const exampleOf = (): GlyphExample | undefined => {
+    const word = exWord.trim();
+    const roman = exRoman.trim();
+    const gloss = exGloss.trim();
+    return word && roman && gloss ? { word, roman, gloss } : undefined;
+  };
+
   const addGlyph = () => {
     if (!canAdd) return;
+    const example = exampleOf();
     setGlyphs((g) => [
       ...g,
       {
@@ -134,10 +170,14 @@ export default function ScriptTraceAuthor() {
         char: char.trim(),
         label: label.trim() || char.trim(),
         strokes,
+        ...(example ? { example } : {}),
       },
     ]);
     setChar("");
     setLabel("");
+    setExWord("");
+    setExRoman("");
+    setExGloss("");
     clearCanvas();
   };
 
@@ -160,14 +200,19 @@ export default function ScriptTraceAuthor() {
       </header>
 
       <div className="flex gap-2 pb-3">
-        <input
+        <select
           value={script}
-          onChange={(e) => setScript(e.target.value)}
-          aria-label="Script prefix for ids"
+          onChange={(e) => setScript(e.target.value as ScriptId)}
+          aria-label="Alphabet"
           data-testid="author-script"
-          className="w-24 rounded-xl border-2 border-border bg-card px-3 py-2 text-sm font-bold text-foreground"
-          placeholder="deva"
-        />
+          className="w-36 rounded-xl border-2 border-border bg-card px-3 py-2 text-sm font-bold text-foreground"
+        >
+          {(Object.keys(SCRIPT_NAMES) as ScriptId[]).map((id) => (
+            <option key={id} value={id}>
+              {SCRIPT_NAMES[id]}
+            </option>
+          ))}
+        </select>
         <input
           value={char}
           onChange={(e) => setChar(e.target.value)}
@@ -183,6 +228,35 @@ export default function ScriptTraceAuthor() {
           data-testid="author-label"
           className="flex-1 rounded-xl border-2 border-border bg-card px-3 py-2 text-sm font-bold text-foreground"
           placeholder="ka"
+        />
+      </div>
+
+      {/* The mnemonic a letter is actually taught with: क से कमल. Optional, but
+          a glyph without one reaches the learner as a bare sound. */}
+      <div className="flex gap-2 pb-3">
+        <input
+          value={exWord}
+          onChange={(e) => setExWord(e.target.value)}
+          aria-label="Example word in the script"
+          data-testid="author-ex-word"
+          className="w-24 rounded-xl border-2 border-border bg-card px-3 py-2 text-center text-lg text-foreground"
+          placeholder="कमल"
+        />
+        <input
+          value={exRoman}
+          onChange={(e) => setExRoman(e.target.value)}
+          aria-label="Example word romanised"
+          data-testid="author-ex-roman"
+          className="flex-1 rounded-xl border-2 border-border bg-card px-3 py-2 text-sm font-bold text-foreground"
+          placeholder="kamal"
+        />
+        <input
+          value={exGloss}
+          onChange={(e) => setExGloss(e.target.value)}
+          aria-label="Example word in English"
+          data-testid="author-ex-gloss"
+          className="flex-1 rounded-xl border-2 border-border bg-card px-3 py-2 text-sm font-bold text-foreground"
+          placeholder="lotus"
         />
       </div>
 
