@@ -55,6 +55,8 @@ const mockState = {
 // ── Common module mocks ─────────────────────────────────────────────────────
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Scenario metadata; disabled when no ?scenario param is present.
+  useGetScenario: () => ({ data: undefined, isLoading: false, isError: false, error: null }),
   // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
@@ -222,6 +224,9 @@ jest.mock('expo-router', () => {
     __esModule: true,
     Tabs,
     useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
+    // Scenario mode reads ?scenario=<id> off the route. Absent here, so this
+    // suite exercises ordinary free chat, which is what it is about.
+    useLocalSearchParams: () => ({}),
     useFocusEffect: (cb: () => (() => void) | void) => {
       React.useEffect(() => {
         const cleanup = cb();
