@@ -1,4 +1,4 @@
-// Script Trace, rebuilt on stroke scoring.
+// Script Trace, rebuilt on stroke scoring, with a ladder.
 //
 // The shipped games/script-trace.tsx scores AREA COVERAGE of a font outline and
 // cannot see stroke order or direction, which in an Indic script is the skill
@@ -6,33 +6,45 @@
 // where it goes and when it lifts, so it can say "the head-line goes on last"
 // instead of only "not enough ink".
 //
-// GATED ON CONTENT, not on a flag. lib/scripts.ts serves the authored set for
-// the learner's script and traceReadyFor() is false until a real alphabet
-// exists, so this screen tells the learner plainly rather than dealing them a
-// three-letter game. The old page is untouched and still hidden; it should be
-// deleted once this one has an alphabet behind it.
+// THE LADDER IS LETTERS, WORDS, SENTENCES, and it costs no new stroke data: a
+// word is the authored letters traced in sequence. See lib/trace-levels.ts for
+// the arithmetic and the composability gate that comes with it.
+//
+// GATED TWICE. On content, by lib/scripts.ts and the per-level floors, so a
+// level with three items says so instead of dealing a three-item game. And on
+// plan, because this is paid: the ladder is the deepest thing in the games
+// roster and it sits behind /upgrade the way Bolo Quiz does.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "wouter";
-import { ArrowLeft, Check, Eraser, Play, Undo2 } from "lucide-react";
+import { Link, Redirect } from "wouter";
+import { ArrowLeft, Check, Eraser, Lock, Play, Undo2 } from "lucide-react";
 import { useLanguage } from "@/lib/language-context";
+import { useEntitlements } from "@/lib/entitlements";
+import {
+  useListCategories,
+  useListCategoryPhrases,
+  getListCategoriesQueryKey,
+  getListCategoryPhrasesQueryKey,
+} from "@workspace/api-client-react";
 import {
   scoreGlyph,
   strokesUpTo,
   PASS_SCORE,
-  type AuthoredGlyph,
   type StrokePoint,
   type TraceFault,
 } from "@/lib/stroke-scoring";
+import { glyphsForLanguage, scriptFor, SCRIPT_NAMES } from "@/lib/scripts";
 import {
-  glyphsForLanguage,
-  scriptFor,
-  SCRIPT_NAMES,
-  traceReadyFor,
-  PLAYABLE_GLYPH_FLOOR,
-} from "@/lib/scripts";
+  itemsForLevel,
+  levelLadder,
+  LEVEL_BLURBS,
+  LEVEL_NAMES,
+  type TraceItem,
+  type TraceLevel,
+  type TraceSource,
+} from "@/lib/trace-levels";
 
 const BOX = 100;
-/** Glyphs per run. Short enough to finish standing up. */
+/** Items per run. Short enough to finish standing up. */
 export const ROUNDS = 6;
 
 /**
@@ -75,26 +87,94 @@ const toPath = (pts: StrokePoint[]) =>
     : `M ${pts.map((p) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" L ")}`;
 
 /**
- * The run's glyphs. Deterministic per mount rather than reshuffled on every
+ * The run's items. Deterministic per mount rather than reshuffled on every
  * render, so a re-render mid-round cannot swap the letter under the learner.
  */
-function pickRound(all: AuthoredGlyph[]): AuthoredGlyph[] {
+function pickRound(all: TraceItem[]): TraceItem[] {
   const pool = [...all];
-  const out: AuthoredGlyph[] = [];
+  const out: TraceItem[] = [];
   while (out.length < Math.min(ROUNDS, all.length) && pool.length > 0) {
     out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]!);
   }
   return out;
 }
 
-export default function ScriptTraceGame() {
-  const { activeLang, activeLanguage } = useLanguage();
-  const all = glyphsForLanguage(activeLang);
-  const ready = traceReadyFor(activeLang);
-  const script = scriptFor(activeLang);
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mx-auto min-h-[100dvh] w-full max-w-lg px-4 pb-16">
+      <header className="flex items-center gap-2 py-4">
+        <Link href="/games" aria-label="Back to Games" className="rounded-full p-2 hover:bg-muted">
+          <ArrowLeft className="h-5 w-5 text-muted-foreground" />
+        </Link>
+        <h1 className="flex-1 text-lg font-extrabold text-foreground">Script Trace</h1>
+      </header>
+      {children}
+    </div>
+  );
+}
 
-  const [run] = useState(() => pickRound(all));
-  const [idx, setIdx] = useState(0);
+/**
+ * The ladder.
+ *
+ * A locked level is SHOWN, with how far off it is. Hiding it would read as a
+ * missing feature; naming the shortfall reads as a roadmap.
+ */
+function LevelPicker({
+  ladder,
+  onPick,
+  languageName,
+  scriptName,
+}: {
+  ladder: ReturnType<typeof levelLadder>;
+  onPick: (l: TraceLevel) => void;
+  languageName: string;
+  scriptName: string;
+}) {
+  return (
+    <Shell>
+      <p className="pb-4 text-sm text-muted-foreground">
+        Writing {scriptName} for {languageName}, in writing order.
+      </p>
+      <div className="flex flex-col gap-3">
+        {ladder.map(({ level, ready, have, need }) =>
+          ready ? (
+            <button
+              key={level}
+              data-testid={`trace-level-${level}`}
+              onClick={() => onPick(level)}
+              className="rounded-2xl border-2 border-border bg-card p-4 text-left"
+            >
+              <span className="block text-base font-black text-foreground">
+                {LEVEL_NAMES[level]}
+              </span>
+              <span className="block pt-0.5 text-xs text-muted-foreground">
+                {LEVEL_BLURBS[level]}
+              </span>
+            </button>
+          ) : (
+            <div
+              key={level}
+              data-testid={`trace-level-locked-${level}`}
+              className="rounded-2xl border-2 border-dashed border-border p-4 opacity-70"
+            >
+              <span className="flex items-center gap-2 text-base font-black text-muted-foreground">
+                <Lock className="h-4 w-4" /> {LEVEL_NAMES[level]}
+              </span>
+              <span className="block pt-0.5 text-xs text-muted-foreground">
+                {have} of {need} ready. {LEVEL_BLURBS[level]}
+              </span>
+            </div>
+          ),
+        )}
+      </div>
+    </Shell>
+  );
+}
+
+function Run({ items, onDone }: { items: TraceItem[]; onDone: () => void }) {
+  const [run] = useState(() => pickRound(items));
+  const [itemIdx, setItemIdx] = useState(0);
+  const [glyphIdx, setGlyphIdx] = useState(0);
   const [strokes, setStrokes] = useState<StrokePoint[][]>([]);
   const [checked, setChecked] = useState(false);
   const [scores, setScores] = useState<number[]>([]);
@@ -106,7 +186,8 @@ export default function ScriptTraceGame() {
   const [live, setLive] = useState<StrokePoint[]>([]);
   const drawing = useRef(false);
 
-  const glyph = run[idx];
+  const item = run[itemIdx];
+  const glyph = item?.glyphs[glyphIdx];
   const result = useMemo(
     () => (glyph && strokes.length > 0 ? scoreGlyph(strokes, glyph) : null),
     [strokes, glyph],
@@ -122,13 +203,7 @@ export default function ScriptTraceGame() {
       if (t >= 1) clearInterval(id);
     }, DEMO_TICK_MS);
     return () => clearInterval(id);
-  }, [phase, idx, replay]);
-
-  const watchAgain = () => {
-    setDemoT(0);
-    setReplay((r) => r + 1);
-    setPhase("watch");
-  };
+  }, [phase, itemIdx, glyphIdx, replay]);
 
   const clear = () => {
     liveRef.current = [];
@@ -137,34 +212,27 @@ export default function ScriptTraceGame() {
     setChecked(false);
   };
 
-  // Not enough authored glyphs to make a game. Saying so is the honest move:
-  // the alternative is dealing three letters and calling it Script Trace.
-  if (!ready) {
-    return (
-      <div className="mx-auto min-h-[100dvh] w-full max-w-lg px-4 py-6">
-        <Link href="/games" className="text-sm font-bold text-muted-foreground">
-          <ArrowLeft className="mr-1 inline h-4 w-4" /> Games
-        </Link>
-        <div
-          data-testid="trace-not-ready"
-          className="mt-6 rounded-2xl border-2 border-dashed border-border p-6 text-center"
-        >
-          <h1 className="text-lg font-extrabold text-foreground">
-            Script Trace is not ready for{" "}
-            {activeLanguage?.name ?? activeLang} yet
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Tracing {script ? SCRIPT_NAMES[script] : "this script"} needs its
-            letters authored stroke by stroke, in writing order.{" "}
-            {all.length} of {PLAYABLE_GLYPH_FLOOR} are done.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const watchAgain = () => {
+    setDemoT(0);
+    setReplay((r) => r + 1);
+    setPhase("watch");
+  };
 
-  const finished = idx >= run.length;
-  if (finished) {
+  /** Next letter within the item, or the next item, or the end of the run. */
+  const advance = () => {
+    setScores((s) => [...s, result?.score ?? 0]);
+    clear();
+    setDemoT(0);
+    setPhase("watch");
+    if (item && glyphIdx + 1 < item.glyphs.length) {
+      setGlyphIdx((i) => i + 1);
+    } else {
+      setGlyphIdx(0);
+      setItemIdx((i) => i + 1);
+    }
+  };
+
+  if (itemIdx >= run.length) {
     const total = Math.round(scores.reduce((a, b) => a + b, 0) / Math.max(1, scores.length));
     return (
       <div className="mx-auto min-h-[100dvh] w-full max-w-lg px-4 py-6 text-center">
@@ -178,16 +246,19 @@ export default function ScriptTraceGame() {
         <p className="mt-1 text-sm text-muted-foreground">
           {scores.filter((s) => s >= PASS_SCORE).length} of {scores.length} letters clean
         </p>
-        <Link
-          href="/games"
+        <button
+          onClick={onDone}
+          data-testid="trace-again"
           className="mt-8 inline-block rounded-2xl px-6 py-3 text-sm font-black text-white"
           style={{ background: "hsl(var(--primary))" }}
         >
-          Back to Games
-        </Link>
+          Back to levels
+        </button>
       </div>
     );
   }
+
+  const multi = item!.glyphs.length > 1;
 
   return (
     <div className="mx-auto min-h-[100dvh] w-full max-w-lg px-4 pb-16">
@@ -197,19 +268,40 @@ export default function ScriptTraceGame() {
         </Link>
         <h1 className="flex-1 text-lg font-extrabold text-foreground">Script Trace</h1>
         <span data-testid="trace-progress" className="text-xs font-bold text-muted-foreground">
-          {idx + 1} of {run.length}
+          {itemIdx + 1} of {run.length}
         </span>
       </header>
+
+      {/* For a word, the whole word with the current letter marked: a learner
+          tracing letter three of कमल needs to see which letter that is. */}
+      {multi ? (
+        <p data-testid="trace-word" className="pb-1 text-center text-3xl text-muted-foreground">
+          {item!.glyphs.map((g, i) => (
+            <span
+              key={i}
+              data-active={i === glyphIdx ? "true" : undefined}
+              className={i === glyphIdx ? "font-black text-foreground" : undefined}
+            >
+              {g.char}
+              {item!.breaks.includes(i + 1) ? " " : ""}
+            </span>
+          ))}
+        </p>
+      ) : null}
 
       <p className="text-center text-sm font-bold text-muted-foreground">
         {phase === "watch" ? "Watch" : "Trace"}{" "}
         <span className="text-2xl text-foreground">{glyph!.char}</span> ({glyph!.label})
+        {multi ? (
+          <span data-testid="trace-letter-of" className="pl-2 text-xs">
+            letter {glyphIdx + 1} of {item!.glyphs.length}
+          </span>
+        ) : null}
       </p>
-      {glyph!.example ? (
+
+      {item!.gloss ? (
         <p data-testid="trace-example" className="pb-2 pt-0.5 text-center text-xs text-muted-foreground">
-          <span className="text-foreground">{glyph!.char}</span> as in{" "}
-          <span className="font-bold text-foreground">{glyph!.example.word}</span>{" "}
-          ({glyph!.example.roman}), {glyph!.example.gloss}
+          <span className="font-bold text-foreground">{item!.roman}</span>, {item!.gloss}
         </p>
       ) : (
         <div className="pb-2" />
@@ -381,23 +473,101 @@ export default function ScriptTraceGame() {
           </>
         ) : (
           <button
-            onClick={() => {
-              setScores((s) => [...s, result?.score ?? 0]);
-              setIdx((i) => i + 1);
-              clear();
-              // Every letter opens with its demo, including ones already seen:
-              // a run deals six different letters, not six attempts at one.
-              setDemoT(0);
-              setPhase("watch");
-            }}
+            onClick={advance}
             data-testid="trace-next"
             className="flex-1 rounded-xl py-2.5 text-sm font-black text-white"
             style={{ background: "hsl(var(--primary))" }}
           >
-            {idx + 1 >= run.length ? "Finish" : "Next letter"}
+            {itemIdx + 1 >= run.length && glyphIdx + 1 >= item!.glyphs.length
+              ? "Finish"
+              : glyphIdx + 1 < item!.glyphs.length
+                ? "Next letter"
+                : "Next word"}
           </button>
         )}
       </div>
     </div>
   );
+}
+
+export default function ScriptTraceGame() {
+  const { isPlus, isLoading: entLoading } = useEntitlements();
+  const { activeLang, activeLanguage } = useLanguage();
+  const [level, setLevel] = useState<TraceLevel | null>(null);
+
+  const all = glyphsForLanguage(activeLang);
+  const script = scriptFor(activeLang);
+
+  // Sentences come from the learner's own first zone, so the level asks them to
+  // write things they have actually been taught to say.
+  const catParams = { lang: activeLang };
+  const { data: categories } = useListCategories(catParams, {
+    query: {
+      enabled: !!isPlus && !!activeLang,
+      queryKey: getListCategoriesQueryKey(catParams),
+    },
+  });
+  const firstCategory = categories?.[0]?.id;
+  const { data: phraseData } = useListCategoryPhrases(firstCategory!, activeLang, {
+    query: {
+      enabled: !!isPlus && !!firstCategory && !!activeLang,
+      queryKey: getListCategoryPhrasesQueryKey(firstCategory!, activeLang),
+    },
+  });
+  const phrases: TraceSource[] = useMemo(
+    () =>
+      (phraseData ?? []).map((p) => ({
+        nativeScript: p.nativeScript,
+        romanized: p.romanized,
+        english: p.english,
+      })),
+    [phraseData],
+  );
+
+  const ladder = useMemo(() => levelLadder(all, phrases), [all, phrases]);
+  const items = useMemo(
+    () => (level ? itemsForLevel(level, all, phrases) : []),
+    [level, all, phrases],
+  );
+
+  // Paid, like Bolo Quiz. The ladder is the deepest thing in the roster.
+  if (!entLoading && !isPlus) {
+    return <Redirect to="/upgrade" />;
+  }
+
+  // Nothing authored at all: say so once, rather than three locked rows all
+  // reporting the same shortfall.
+  if (!ladder.some((l) => l.ready)) {
+    const letters = ladder.find((l) => l.level === "letters")!;
+    return (
+      <Shell>
+        <div
+          data-testid="trace-not-ready"
+          className="mt-2 rounded-2xl border-2 border-dashed border-border p-6 text-center"
+        >
+          <h1 className="text-lg font-extrabold text-foreground">
+            Script Trace is not ready for {activeLanguage?.name ?? activeLang} yet
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Tracing {script ? SCRIPT_NAMES[script] : "this script"} needs its letters
+            authored stroke by stroke, in writing order. {letters.have} of {letters.need}{" "}
+            are done.
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (!level) {
+    return (
+      <LevelPicker
+        ladder={ladder}
+        onPick={setLevel}
+        languageName={activeLanguage?.name ?? activeLang}
+        scriptName={script ? SCRIPT_NAMES[script] : "this script"}
+      />
+    );
+  }
+
+  return <Run key={level} items={items} onDone={() => setLevel(null)} />;
 }
