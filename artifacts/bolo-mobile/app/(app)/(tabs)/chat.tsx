@@ -187,9 +187,20 @@ export default function ChatScreen() {
   // pass the id along and render what comes back.
   const { scenario: scenarioParam } = useLocalSearchParams<{ scenario?: string }>();
   const scenarioId = typeof scenarioParam === 'string' && scenarioParam ? scenarioParam : undefined;
-  const scenarioQuery = useGetScenario(scenarioId ?? '', {
-    query: { enabled: !!scenarioId, queryKey: ['scenario', scenarioId ?? ''] },
-  });
+  // The chips are the learner's OWN language content, so the scene is fetched
+  // per language: the same capstone in Tamil and in Gujarati is two different
+  // sets of phrases. chatLang, not activeLang, because the chat language is a
+  // per-session choice on this screen.
+  const scenarioQuery = useGetScenario(
+    scenarioId ?? '',
+    { lang: chatLang },
+    {
+      query: {
+        enabled: !!scenarioId && !!chatLang,
+        queryKey: ['scenario', scenarioId ?? '', chatLang],
+      },
+    },
+  );
   const scenario = scenarioQuery.data;
 
   // Which target phrases the server has confirmed the learner used, across the

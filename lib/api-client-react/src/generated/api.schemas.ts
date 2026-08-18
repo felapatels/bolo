@@ -1747,6 +1747,13 @@ export type JoinFamily200 = {
   active: boolean;
 };
 
+export type GetScenarioParams = {
+/**
+ * Language code the capstone is being played in. Determines the target phrases and the language the model is steered to speak.
+ */
+lang: string;
+};
+
 export type ListZoneStampsParams = {
 /**
  * Language code to filter stamps by.

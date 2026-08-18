@@ -33,9 +33,52 @@ describe("SCENARIOS config", () => {
     assert.strictEqual(scenario!.zoneIndex, 0);
   });
 
-  it("zone-1 scenario has at least 5 target phrases", () => {
-    const scenario = getScenarioByZoneIndex(0);
-    assert.ok(scenario!.targetPhrases.length >= 5, "Zone 1 must have at least 5 target phrases");
+  it("every scene asks for at least 5 target phrases", () => {
+    // Phrases are no longer inline: a scene declares how many to draw and they
+    // come from the learner's own language content. The floor still matters,
+    // because "the majority" of four is two, which is not a conversation.
+    for (const s of Object.values(SCENARIOS)) {
+      assert.ok(
+        s.targetPhraseCount >= 5,
+        `${s.id} must ask for at least 5 target phrases`,
+      );
+    }
+  });
+
+  it("journey 1 has a scene for every one of its six zones", () => {
+    for (let zone = 0; zone < 6; zone++) {
+      const scene = getScenarioByZoneIndex(zone);
+      assert.ok(scene, `zone ${zone} must have a capstone scene`);
+    }
+  });
+
+  it("no scene carries language-specific steering", () => {
+    // The whole point of the rewrite: a scene must name the learner's language
+    // through the placeholder, never a hardcoded one, or a Tamil learner gets
+    // told to speak Gujarati.
+    for (const s of Object.values(SCENARIOS)) {
+      assert.ok(
+        s.steerInstructions.includes("{{language}}"),
+        `${s.id} must steer in {{language}}`,
+      );
+    }
+  });
+
+  it("every scene points at a real seeded category", () => {
+    const SEEDED = new Set([
+      "greetings",
+      "family",
+      "numbers",
+      "food",
+      "everyday",
+      "feelings",
+    ]);
+    for (const s of Object.values(SCENARIOS)) {
+      assert.ok(
+        SEEDED.has(s.categorySlug),
+        `${s.id} points at unknown category ${s.categorySlug}`,
+      );
+    }
   });
 
   it("SCENARIOS map contains the greetings-manners key", () => {
@@ -113,7 +156,16 @@ describe("phrase detection helper (unit)", () => {
       .map(tp => tp.romanized);
   }
 
-  const scenario = getScenarioByZoneIndex(0)!;
+  // A fixed fixture rather than a scene's phrases: these tests are about the
+  // MATCHER, and pinning them to live content would make them fail whenever a
+  // seed reorders a category.
+  const scenario = {
+    targetPhrases: [
+      { romanized: "namaste", native: "નમસ્તે" },
+      { romanized: "kem cho?", native: "કેમ છો?" },
+      { romanized: "aabhaar", native: "આભાર" },
+    ],
+  };
 
   it("detects 'namaste' in a transcript that contains it", () => {
     const found = detectUsedPhrases(scenario.targetPhrases, "Namaste, how are you?");

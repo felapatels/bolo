@@ -11,9 +11,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import { buildUserPrompt } from "../lib/parrotChat.js";
-import type { Scenario } from "../lib/scenarios.js";
+import type { ResolvedScenario } from "../lib/scenarios.js";
 
-const ZONE_1_SCENARIO: Scenario = {
+// A RESOLVED scene, which is what a prompt is ever built from: phrases already
+// drawn for one language and steering with {{language}} already substituted.
+const ZONE_1_SCENARIO: ResolvedScenario = {
   id: "greetings-manners",
   zoneIndex: 0,
   categorySlug: "greetings",

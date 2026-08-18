@@ -55,6 +55,13 @@ export default defineConfig({
       mode: "split",
       clean: true,
       prettier: true,
+      // Do NOT generate lib/api-zod/src/index.ts. orval appends a star export
+      // for BOTH ./generated/api and ./generated/types, and those two collide
+      // by name for any GET endpoint with a path param AND a query param
+      // (orval emits a zod schema and a TS type both called e.g.
+      // GetScenarioParams). That barrel is hand-written and values-only; see
+      // the comment in it. Editing it here is useless because orval re-appends.
+      indexFiles: false,
       override: {
         zod: {
           coerce: {

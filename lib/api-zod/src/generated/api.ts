@@ -1536,10 +1536,15 @@ export const JoinFamilyResponse = zod.object({
 
 /**
  * Returns the public subset of a scenario (title, framing copy, target phrases). Steering instructions are never sent to the client. Auth required; no entitlement gate -- the gate is on POST /openai/chat.
+ * Target phrases are drawn from the learner's own seeded content for the scene's category, so `lang` is required: a scene is language-neutral but its chips never are.
  * @summary Fetch client-safe metadata for a zone capstone scenario
  */
 export const GetScenarioParams = zod.object({
   "id": zod.coerce.string().describe('Scenario id (e.g. \"greetings-manners\")')
+})
+
+export const GetScenarioQueryParams = zod.object({
+  "lang": zod.coerce.string().describe('Language code the capstone is being played in. Determines the target phrases and the language the model is steered to speak.')
 })
 
 export const GetScenarioResponse = zod.object({
