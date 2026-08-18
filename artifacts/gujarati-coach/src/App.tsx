@@ -79,6 +79,10 @@ const GamesScriptTrace = lazyRoute(() => import('@/pages/games/script-trace'));
 const GamesScriptTraceProto = lazyRoute(
   () => import('@/pages/games/script-trace-proto'),
 );
+// Authoring tool for the stroke data the prototype needs. Also unlisted.
+const GamesScriptTraceAuthor = lazyRoute(
+  () => import('@/pages/games/script-trace-author'),
+);
 const GamesBoloQuiz = lazyRoute(() => import('@/pages/games/bolo-quiz'));
 const GamesTicketCheck = lazyRoute(() => import('@/pages/games/ticket-check'));
 const GamesWrongPlatform = lazyRoute(() => import('@/pages/games/wrong-platform'));
@@ -448,6 +452,11 @@ function AppRouter() {
       <Route path="/games/script-trace-proto">
         <Guard>
           <GamesScriptTraceProto />
+        </Guard>
+      </Route>
+      <Route path="/games/script-trace-author">
+        <Guard>
+          <GamesScriptTraceAuthor />
         </Guard>
       </Route>
       <Route path="/games/bolo-quiz">
