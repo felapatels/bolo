@@ -88,10 +88,13 @@ export function BazaarWelcome() {
   // The still is a greeting, not a film: it holds for a beat and goes.
   useEffect(() => {
     if (!open || !reduced) return;
-    // 2200, not 1800: the still has to outlast the 2.04s voice clip,
-    // or the greeting is cut mid-word. Reduced motion suppresses
-    // movement, not sound.
-    const t = window.setTimeout(() => setOpen(false), 2200);
+    // 4600, not 2200: the still has to outlast the voice or the greeting is
+    // cut mid-word. The old value came with a comment calling this a "2.04s
+    // voice clip"; chacha-welcome.mp3 is 4.284s and is byte-identical to the
+    // file mobile ships, so reduced-motion learners lost the last two seconds
+    // of Chacha-ji every time. Mobile's STILL_MS is the same 4600 for the same
+    // clip. Reduced motion suppresses movement, not sound.
+    const t = window.setTimeout(() => setOpen(false), 4600);
     return () => window.clearTimeout(t);
   }, [open, reduced]);
 
