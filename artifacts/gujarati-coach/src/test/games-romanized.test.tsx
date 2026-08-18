@@ -198,13 +198,25 @@ describe("Luggage Match tags", () => {
 });
 
 describe("Express Listening choices", () => {
-  test("every choice shows its romanized reading under the script", async () => {
+  // INVERTED. This suite guards the always-visible romanization ruling, and
+  // Express Listening is the ONE surface exempt from it (owner ruling, Aug 12
+  // 2026): the clip is the question, so a romanized reading under each option
+  // spells out the answer. A learner could win every round by matching Latin
+  // letters to the sounds they just heard, never reading the script. Mobile's
+  // listen-and-pick has shown the meaning since 5ddaa082; web kept showing
+  // romanized because this assertion held it there.
+  //
+  // The rest of this file is untouched: reading surfaces still must show the
+  // romanization, and those tests still say so.
+
+  test("choices show the MEANING, never the romanized reading", async () => {
     await openQuickGame(ExpressListeningPage, "/games/express-listening?cat=1");
 
-    expect(romanizedOnScreen()).toHaveLength(4);
+    expect(romanizedOnScreen()).toHaveLength(0);
+    expect(screen.queryAllByText(/^e\d+$/)).toHaveLength(4);
   });
 
-  test("no romanization degrades to the script alone", async () => {
+  test("a phrase with no romanization is unaffected, since none is shown", async () => {
     state.withRomanized = false;
     const { container } = await openQuickGame(
       ExpressListeningPage,
@@ -212,6 +224,8 @@ describe("Express Listening choices", () => {
     );
 
     expect(romanizedOnScreen()).toHaveLength(0);
+    // The meaning still carries the option, and no empty slot is left behind.
+    expect(screen.queryAllByText(/^e\d+$/)).toHaveLength(4);
     expect(emptyMutedSlots(container)).toHaveLength(0);
   });
 });

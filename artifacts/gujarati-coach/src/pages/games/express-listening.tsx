@@ -200,9 +200,18 @@ function ExpressListeningRound({
               <span style={native.style} dir={native.dir} className="text-base leading-snug text-foreground">
                 {choice.nativeScript}
               </span>
-              {/* Romanized reading, always visible beneath the script. */}
-              {choice.romanized.trim() !== "" && (
-                <span className="text-xs font-medium text-muted-foreground">{choice.romanized}</span>
+              {/* MEANING ONLY under the script (owner ruling, Aug 12, 2026).
+                  The romanized reading used to sit here (86bfb6fe), but it
+                  spells out what the clip just said: a learner could win every
+                  round by matching Latin letters to sounds, without reading the
+                  script or knowing the word. The always-visible romanization
+                  ruling still holds on READING surfaces; a listening game is
+                  the exception because the clip is the question.
+                  Mobile's listen-and-pick.tsx has said this since 5ddaa082 and
+                  its comment claimed "Web matches" while this file still showed
+                  romanized. Now it does match. */}
+              {choice.english.trim() !== "" && (
+                <span className="text-xs font-medium text-muted-foreground">{choice.english}</span>
               )}
               {(answered || missed) && idx === q.correctIdx && (
                 <span className="absolute right-2 top-2">
