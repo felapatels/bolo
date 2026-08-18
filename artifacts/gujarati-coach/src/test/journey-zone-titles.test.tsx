@@ -199,6 +199,36 @@ describe("boarding-pass header numbers (task 1082 item 1)", () => {
     expect(screen.getByText(/· Stop 1 of 59 stations/)).toBeInTheDocument();
   });
 
+  test("the ticket stub always carries a stamp, even on a finished line", () => {
+    // Reported from the app: the stub rendered EMPTY, which read as unfinished
+    // development sitting above a finished map. A finished line has no CURRENT
+    // station, and the stamp was gated on one. It now falls back to the
+    // terminus: where you are, or where you ended up.
+    h.zones = zonesOf(
+      [grp(1, "completed", { masteredCount: 8, attemptedCount: 8 })],
+      [grp(2, "completed", { masteredCount: 8, attemptedCount: 8 })],
+      [grp(3, "completed", { masteredCount: 8, attemptedCount: 8 })],
+      [grp(4, "completed", { masteredCount: 8, attemptedCount: 8 })],
+      [grp(5, "completed", { masteredCount: 8, attemptedCount: 8 })],
+      [grp(6, "completed", { masteredCount: 8, attemptedCount: 8 })],
+    );
+    renderJourney();
+    expect(screen.getByTestId("zone-stamp")).toBeInTheDocument();
+  });
+
+  test("the stub stamps the CURRENT zone while a line is still being ridden", () => {
+    h.zones = zonesOf(
+      [grp(1, "completed", { masteredCount: 8, attemptedCount: 8 })],
+      [grp(2, "in_progress", { masteredCount: 3, attemptedCount: 5 })],
+      [grp(3, "locked")],
+      [grp(4, "locked")],
+      [grp(5, "locked")],
+      [grp(6, "locked")],
+    );
+    renderJourney();
+    expect(screen.getByTestId("zone-stamp")).toBeInTheDocument();
+  });
+
   test("a finished line reads as complete rather than borrowing a stop number", () => {
     h.zones = zonesOf(
       [grp(1, "completed", { masteredCount: 8, attemptedCount: 8 })],

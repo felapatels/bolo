@@ -1123,6 +1123,12 @@ export default function Journey() {
   )?.id;
   const currentStation = allStations.find((s) => s.id === currentId) ?? null;
   const currentZone = currentStation ? zones[currentStation.zoneIndex]! : null;
+  // The ticket stub's stamp. A finished line has NO current station, and the
+  // stub then rendered empty, which read as unfinished development rather than
+  // as a finished line. Fall back to the terminus so the stub always carries a
+  // stamp: where you are, or where you ended up.
+  const stubStation = currentStation ?? allStations[allStations.length - 1] ?? null;
+  const stubZone = stubStation ? zones[stubStation.zoneIndex]! : null;
 
   const languageName = activeLanguage?.name ?? "this language";
   const upgradeLanguageHref = upgradeHref({
@@ -1428,14 +1434,24 @@ export default function Journey() {
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <div className="relative flex-1 overflow-hidden rounded-lg border-2 border-dashed border-border bg-card">
-            <TicketStripes ink={`${line.accent}08`} />
+          {/* Same OBJECT as the pass on home (pages/home.tsx), not a second
+              design: accent fill, white ink, the engine riding on the right.
+              It used to be a pale outlined strip whose middle was empty
+              hatching and whose stub was blank, which read as unfinished work
+              sitting above a finished map. It stays a slim sticky header
+              rather than a copy of home's hero, because it has to survive
+              being pinned to the top of a scrolling map. */}
+          <div
+            className="relative flex-1 overflow-hidden rounded-lg border-2 border-dashed"
+            style={{ backgroundColor: line.accent, borderColor: "rgba(255,255,255,0.45)" }}
+          >
+            <TicketStripes ink="rgba(255,255,255,0.10)" />
             <div className="relative flex items-stretch">
               <div className="min-w-0 flex-1 px-4 py-2.5">
-                <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+                <div className="text-[9px] font-black uppercase tracking-widest text-white/80">
                   Boarding pass · બોલો રેલ
                 </div>
-                <div className="text-base font-extrabold text-foreground leading-tight truncate">
+                <div className="text-base font-extrabold text-white leading-tight truncate">
                   {line.lineName}
                 </div>
                 {/* Item 1: this line carries the number the whole item is
@@ -1443,7 +1459,7 @@ export default function Journey() {
                     route alone fills the ticket, and `truncate` cut the stop
                     count off the end entirely. Wrapping shows both at every
                     width and still sits on one line once there is room. */}
-                <div className="text-[11px] leading-tight text-muted-foreground">
+                <div className="text-[11px] leading-tight text-white/85">
                   {line.zones[0]} → {line.zones[5]} · {headerStations}
                 </div>
                 {access === "teaser" && teaserProgress && (
@@ -1452,19 +1468,30 @@ export default function Journey() {
                   </div>
                 )}
               </div>
+              {/* The engine that fills the dead space, and the same cue home
+                  uses to say "this is a ticket for a train". Hidden on the
+                  narrowest widths, where the route text needs the room. */}
+              <div className="hidden shrink-0 items-end pb-2 pr-1 sm:flex" aria-hidden>
+                <TrainEngine
+                  className={cn(
+                    "h-7 w-auto text-white drop-shadow-sm",
+                    !reduceMotion && "animate-train-drive",
+                  )}
+                />
+              </div>
               {/* tear-off stub */}
-              <TicketPerforationV light={false} />
+              <TicketPerforationV light />
               {/* Stub: perforation-end notches (edge bites) come from
                   TicketPerforationV. The floating notch dot and 🎫 emoji were
                   removed — cutout circles only ever straddle card edges
                   (approved ruling, ported from the mobile build-28 pass), and
                   the emoji renders as tofu without an emoji font. */}
               <div className="relative flex w-[76px] shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-1.5">
-                {currentZone && currentStation && (
+                {stubZone && stubStation && (
                   <ZoneStamp
-                    ink={line.accent}
-                    zone={currentStation.zoneIndex + 1}
-                    name={currentZone.geoName}
+                    ink="#FFFFFF"
+                    zone={stubStation.zoneIndex + 1}
+                    name={stubZone.geoName}
                     // R1 amendment: derive the stamp from the slot so label +
                     // circle scale as one unit (76px slot - 16px px-2 padding
                     // - 8px rotated-extent margin).
@@ -1558,15 +1585,58 @@ export default function Journey() {
                     ahead of the learner and behind. Scenery only — this layer
                     is pointer-events-none and carries no state. */}
                 {chachaStalls.map((s) => (
-                  <SceneryElement
-                    key={`chacha-stall-${s.station}`}
-                    kind="chaiStall"
-                    x={s.x}
-                    y={s.y}
-                    accent={line.accent}
-                    gray={s.gray}
-                    testId={`chacha-stall-${s.station}`}
-                  />
+                  <g key={`chacha-stall-${s.station}`}>
+                    <SceneryElement
+                      kind="chaiStall"
+                      x={s.x}
+                      y={s.y}
+                      accent={line.accent}
+                      gray={s.gray}
+                      testId={`chacha-stall-${s.station}`}
+                    />
+                    {/* The halt has a NAME. It was unlabelled scenery, so the
+                        one recurring character on the map read as decoration:
+                        a learner had no way to know the stall between stops is
+                        the same stall, or whose it is. Indian lines name their
+                        smallest stops "<name> Halt", and this is his.
+                        Deliberately identical at every encounter station,
+                        because it IS the same stall each time.
+                        Two lines: the possessive is the quiet half and the
+                        halt is the label, which keeps the wider line off a
+                        18px-wide piece of art. Scenery still, so it inherits
+                        the layer's pointer-events-none. */}
+                    <text
+                      data-testid={`chacha-stall-label-${s.station}`}
+                      x={s.x}
+                      y={s.y + 17}
+                      textAnchor="middle"
+                      className="select-none"
+                      style={{
+                        fill: line.accent,
+                        opacity: s.gray ? 0.35 : 0.75,
+                        fontSize: 7,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Chacha-ji&rsquo;s
+                    </text>
+                    <text
+                      x={s.x}
+                      y={s.y + 25}
+                      textAnchor="middle"
+                      className="select-none"
+                      style={{
+                        fill: line.accent,
+                        opacity: s.gray ? 0.3 : 0.6,
+                        fontSize: 6,
+                        fontWeight: 800,
+                        letterSpacing: 0.6,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      CHAI HALT
+                    </text>
+                  </g>
                 ))}
               </g>
               <g data-testid="journey-rail-layer">
