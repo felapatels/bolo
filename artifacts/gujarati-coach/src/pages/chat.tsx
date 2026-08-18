@@ -134,6 +134,10 @@ export default function ChatPage() {
   // across all turns, and whether Bolo has signalled the scene is complete.
   const [usedPhrases, setUsedPhrases] = useState<Set<string>>(new Set());
   const [sceneDone, setSceneDone] = useState(false);
+  // Chai the server actually granted for passing the capstone. 0 on a replay,
+  // because the grant is idempotent per zone; the overlay shows the chip only
+  // when something was really paid.
+  const [capstoneChai, setCapstoneChai] = useState(0);
 
   const playbackRef = useRef<HTMLAudioElement | null>(null);
   const wordRevealTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -968,6 +972,8 @@ export default function ChatPage() {
               setUsedPhrases(prev => new Set([...prev, ...turnPhrasesUsed]));
             }
             if (turnSceneDone) setSceneDone(true);
+            const turnChai = (payload.tokensEarned as number | undefined) ?? 0;
+            if (turnChai > 0) setCapstoneChai(turnChai);
 
             const replyWords = replyText.split(/\s+/).filter(Boolean);
             // Skip the typewriter reveal when the early replyText bubble was
@@ -1413,6 +1419,8 @@ export default function ChatPage() {
               setUsedPhrases(prev => new Set([...prev, ...textTurnPhrasesUsed]));
             }
             if (textTurnSceneDone) setSceneDone(true);
+            const textTurnChai = (payload.tokensEarned as number | undefined) ?? 0;
+            if (textTurnChai > 0) setCapstoneChai(textTurnChai);
 
             if (remainingSecs !== null) setSecondsRemaining(remainingSecs);
             else setSecondsRemaining(null);
@@ -2100,8 +2108,20 @@ export default function ChatPage() {
           <p className="mt-2 text-base text-muted-foreground">
             You spoke {chatLanguage?.name ?? chatLang} at the chai stall!
           </p>
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-bold text-primary">
-            +20 XP
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-bold text-primary">
+              +20 XP
+            </span>
+            {/* Only when the server actually granted: a replay pays nothing and
+                must not claim otherwise. */}
+            {capstoneChai > 0 && (
+              <span
+                data-testid="capstone-chai-chip"
+                className="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-4 py-1.5 text-sm font-bold text-amber-700 dark:text-amber-300"
+              >
+                +{capstoneChai} Chai
+              </span>
+            )}
           </div>
           {/* Express Multiplier offer moment (Chunk 5B): after the primary
               celebration content. Nothing renders while a multiplier runs or

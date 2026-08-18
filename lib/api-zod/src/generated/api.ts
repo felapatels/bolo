@@ -1433,7 +1433,7 @@ export const ChatTurnResponse = zod.object({
   "phrasesUsed": zod.array(zod.string()).optional().describe('Romanized target phrases from the scenario\'s target list that the server detected in the learner\'s transcript this turn (case-insensitive substring match). Only present when a scenarioId was supplied.'),
   "sceneDone": zod.boolean().optional().describe('True when the majority of the scenario\'s target phrases have been used across the session, signalling that the capstone is complete. Only present when a scenarioId was supplied.'),
   "xpAwarded": zod.number().optional().describe('XP awarded on this turn (non-zero only on the first sceneDone=true turn; 0 on replays). Only present when a scenarioId was supplied.'),
-  "tokensEarned": zod.number().optional().describe('Chai tokens earned this turn (always 0 in build 32; the token engine stub will be wired when tokenEngine.ts lands). Only present when a scenarioId was supplied.')
+  "tokensEarned": zod.number().optional().describe('Chai earned this turn. Non-zero only on the FIRST turn that completes a zone capstone, and 0 on every replay: the grant is idempotent on (user, reason, zone) in the token ledger. Only present when a scenarioId was supplied.')
 })
 
 

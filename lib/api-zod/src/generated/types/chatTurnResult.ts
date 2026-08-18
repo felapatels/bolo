@@ -30,6 +30,6 @@ export interface ChatTurnResult {
   sceneDone?: boolean;
   /** XP awarded on this turn (non-zero only on the first sceneDone=true turn; 0 on replays). Only present when a scenarioId was supplied. */
   xpAwarded?: number;
-  /** Chai tokens earned this turn (always 0 in build 32; the token engine stub will be wired when tokenEngine.ts lands). Only present when a scenarioId was supplied. */
+  /** Chai earned this turn. Non-zero only on the FIRST turn that completes a zone capstone, and 0 on every replay: the grant is idempotent on (user, reason, zone) in the token ledger. Only present when a scenarioId was supplied. */
   tokensEarned?: number;
 }

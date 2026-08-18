@@ -104,7 +104,12 @@ describe("beat 2: capstone offer", () => {
     renderOverlay([Z()]);
     fireEvent.click(screen.getByTestId("closeout-skip"));
     expect(screen.getByTestId("closeout-beat2")).toBeInTheDocument();
-    expect(screen.getByText("Before you roll on")).toBeInTheDocument();
+    // Copy changed Aug 18 2026: the capstone is framed as a test, not a treat.
+    // The words appear twice, as the heading and on the CTA, so this asserts
+    // the CTA specifically rather than a bare text match.
+    expect(screen.getByTestId("closeout-chat-cta")).toHaveTextContent(
+      "Test your knowledge",
+    );
     expect(screen.getByTestId("closeout-chat-cta")).toHaveAttribute(
       "href",
       "/chat?scenario=greetings-manners",

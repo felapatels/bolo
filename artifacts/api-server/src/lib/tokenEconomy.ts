@@ -29,6 +29,13 @@ export function signalFirstClearChai(languageCode: string): number {
 }
 export const CLOSEOUT_FIRST_CHAI = 2;
 
+// The zone capstone conversation, once ever per (learner, language, zone).
+// Priced above the daily quiz (2) and Chacha-ji's trackside gift (3) and below
+// finishing the whole zone (10): it is a real milestone but it is not the zone.
+// Owner ruling Aug 18 2026, when the capstone became "Test your knowledge"
+// rather than a treat -- a test the learner passes has to pay something.
+export const CAPSTONE_FIRST_CHAI = 5;
+
 // Referral R1 (owner spec): both sides earn Chai when the referee's first
 // completed session activates a pending redemption. Granted through the
 // ledger like every other earn; refId is referral:<redemption row id>.
@@ -113,6 +120,7 @@ export type TokenReason =
   | "earn_allowance_monthly"
   | "earn_signal_first_clear"
   | "earn_closeout_first"
+  | "earn_capstone_first"
   | "earn_chacha_encounter"
   | "earn_referral_referrer"
   | "earn_referral_referee"
@@ -154,6 +162,7 @@ export const TOKEN_REASON_LABELS: Record<TokenReason, string> = {
   earn_allowance_monthly: "Monthly allowance",
   earn_signal_first_clear: "Signal cleared",
   earn_closeout_first: "Zone closeout",
+  earn_capstone_first: "Capstone passed",
   earn_chacha_encounter: "Chacha-ji's stall",
   earn_referral_referrer: "A friend joined",
   earn_referral_referee: "Invite bonus",

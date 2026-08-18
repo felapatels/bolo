@@ -165,10 +165,15 @@ export function ZoneCloseoutOverlay({
             {offerCapstone ? (
               <>
                 <div>
-                  <h2 className="text-xl font-extrabold text-foreground">Before you roll on</h2>
+                  {/* "Test your knowledge", not an invitation to a chat (owner
+                      ruling, Aug 18 2026). The old copy read as a treat, so a
+                      learner had no reason to think anything was being asked of
+                      them. The scene itself is unchanged and still never
+                      mentions scores: the framing lives out here, on the offer. */}
+                  <h2 className="text-xl font-extrabold text-foreground">Test your knowledge</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    The stationmaster at {zone.geoName} fancies a quick chat. Ready for a capstone
-                    conversation?
+                    The stationmaster at {zone.geoName} wants to hear you speak. Pass and there is
+                    Chai in it.
                   </p>
                 </div>
                 <div className="flex w-full flex-col gap-2.5">
@@ -182,7 +187,7 @@ export function ZoneCloseoutOverlay({
                     className="flex w-full items-center justify-center rounded-xl px-4 py-3 text-sm font-black text-white active:scale-[0.98] transition-transform"
                     style={{ background: accent }}
                   >
-                    Chat with Bolo
+                    Test your knowledge
                   </Link>
                   <button
                     type="button"
