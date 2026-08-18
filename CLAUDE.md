@@ -25,6 +25,39 @@ out of sync. Assume nothing about parity.
   **A fresh clone must run this first**; nothing else compiles until `lib/*` is built.
 - `pnpm run typecheck` — runs `typecheck:libs`, then each artifact's own `typecheck`.
 
+## Running locally
+
+Replit served the client and the API from one origin and injected every secret
+into the environment. Neither is true on a laptop, so local dev needs three
+things the repo does not do for you.
+
+**Nothing loads `.env`.** There is no dotenv anywhere; every consumer reads
+`process.env` directly. Export it yourself before any command that touches the
+database or the API:
+
+```
+set -a; . ./.env; set +a
+```
+
+**`.env` is incomplete.** `SESSION_SECRET`, the `STRIPE_*` keys, the `R2_*`
+keys, `CRON_SECRET` and `TTS_AUDIT_SECRET` only ever lived in Replit's Secrets
+panel. The api suite needs `SESSION_SECRET` at minimum.
+
+**Two processes, one origin.** The API is API-only and vite has no proxy of its
+own, so `vite.config.ts` grows one when `API_PROXY_TARGET` is set. It is inert
+everywhere that variable is unset, which is every deployed environment.
+
+```
+# API, from the repo root
+pnpm --filter @workspace/api-server run build
+PORT=3001 node artifacts/api-server/dist/index.mjs
+
+# Web, from the repo root
+PORT=5173 BASE_PATH=/ API_PROXY_TARGET=http://localhost:3001 \
+  VITE_CLERK_PUBLISHABLE_KEY="$CLERK_PUBLISHABLE_KEY" \
+  pnpm --filter @workspace/gujarati-coach run dev
+```
+
 ## Tests, per artifact
 
 Run from the repo root.
@@ -58,6 +91,13 @@ token ledger, the RevenueCat or Stripe webhook paths, or entitlement resolution.
 
 - **Verify by content, never by commit message.** Replit auto-committed 22 times in
   two days and the message rarely survived. Read the diffstat and file list.
+- **Prefer `pnpm install --frozen-lockfile`.** Any manifest change re-resolves on
+  pnpm 11 and threads `supports-color` through the graph (48 peer suffixes become
+  1136), which leaves several `react-native` copies in the store. That used to
+  break jest-expo's native mocks in 22 suites; `jest.config.js` now pins
+  react-native to one resolved copy, so the churn is survivable rather than
+  fatal. It is still noise in a tracked lockfile: review the diff before
+  committing one, and do not let it ride along with an unrelated change.
 - **Never rewrite history on `main`.** No amend, no `reset --hard`, no rebase onto
   main, no force push. `origin` is GitHub; `gitsafe-backup` is a stale Replit remote.
 - **Reuse before you write.** Web and mobile share no components: they are
@@ -83,12 +123,10 @@ command runs.
 ## Known open items
 
 - `.easignore` missing; every EAS build ships a 224 MB archive.
-- Scenario mode (guided roleplay chat) is web only. Documented in mobile's
-  `ZoneCloseout.tsx`.
-- `playCue` is wired at 13 call sites on both platforms; the audio files were never
+- `playCue` is wired at 22 call sites on both platforms; the audio files were never
   authored. Both no-op by design.
-- Mobile splash and Bazaar welcome have no tests; nothing renders `app/_layout.tsx`
-  or `(tabs)/index.tsx`.
+- Mobile splash has no tests; nothing renders `app/_layout.tsx` or
+  `(tabs)/index.tsx`. (Bazaar welcome now has tests on both platforms.)
 - Sentry ingests development events into the production stream.
 - One-Language tier is dead (no RevenueCat package, no purchasers) but
   `allowedLanguagesForPlan` still branches on it.
