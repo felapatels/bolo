@@ -224,7 +224,7 @@ describe("bilingual hint — visibility", () => {
 
     // Greeting bubble and the persistent hint should be in the DOM initially.
     expect(
-      screen.getByText(/Hold my belly and let's chat in English or Gujarati/),
+      screen.getByText(/Hold my belly to chat in English or Gujarati/),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/You can respond in English or Gujarati/),
@@ -256,7 +256,7 @@ describe("bilingual hint — visibility", () => {
     await waitFor(() => {
       // The empty-state greeting bubble goes away…
       expect(
-        screen.queryByText(/Hold my belly and let's chat in English or Gujarati/),
+        screen.queryByText(/Hold my belly to chat in English or Gujarati/),
       ).not.toBeInTheDocument();
       // …but the persistent hint remains visible.
       expect(

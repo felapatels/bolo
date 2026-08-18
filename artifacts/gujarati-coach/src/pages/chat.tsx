@@ -1604,13 +1604,25 @@ export default function ChatPage() {
       {/* Scenario banner: non-dismissible framing strip when in scenario mode.
           Shown below the header once the scenario metadata loads. */}
       {scenario && (
+        /* The scene has to be read, not glanced past. This was 11px muted text
+           in a 5%-tint box, which is the styling the app uses for asides, and
+           a learner who skims it does not know who they are talking to or why.
+           It now carries a label saying what it IS, sets the copy in
+           foreground weight at body size, and takes a solid accent rule down
+           its left edge so it reads as the scene rather than a hint. */
         <div
-          className="mx-4 mb-1 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2"
+          className="mx-4 mb-2 flex gap-3 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3"
           data-testid="scenario-banner"
         >
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            {scenario.framingCopy}
-          </p>
+          <span className="mt-0.5 w-1 shrink-0 rounded-full bg-primary" aria-hidden />
+          <div className="min-w-0">
+            <div className="text-[10px] font-black uppercase tracking-widest text-primary">
+              Your scene
+            </div>
+            <p className="mt-1 text-sm font-semibold leading-snug text-foreground">
+              {scenario.framingCopy}
+            </p>
+          </div>
         </div>
       )}
 
@@ -1891,7 +1903,12 @@ export default function ChatPage() {
                   transition={{ ...springs.snappy, delay: 0.1 }}
                   className="max-w-[80%] self-start rounded-2xl rounded-bl-sm border border-card-border bg-card px-4 py-2.5 text-sm leading-relaxed text-foreground"
                 >
-                  I'm Bolo — your feathered conversation buddy! Hold my belly and let's chat in English or {chatLanguage?.name ?? chatLang}!
+                  {/* Says what to DO first, then what is allowed. The old
+                      line led with "your feathered conversation buddy", which
+                      spends a beginner's attention on flavour before telling
+                      them the one thing they cannot guess: that the mascot is
+                      a press-and-hold button. Mobile says the same words. */}
+                  Hi! I'm Bolo. Hold my belly to chat in English or {chatLanguage?.name ?? chatLang}. Ask me or tell me anything!
                 </motion.div>
               </>
             )}
