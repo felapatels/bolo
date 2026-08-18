@@ -1,32 +1,41 @@
 import React from 'react';
-import {
-  render,
-  screen,
-  fireEvent,
-  act,
-  waitFor,
-} from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
-// Guards the persistent bilingual hint on the Bolo chat screen
-// (app/(app)/(tabs)/chat.tsx):
+// Scenario (zone capstone) mode on the mobile chat screen, the mobile half of
+// web's gujarati-coach/src/pages/chat.tsx.
 //
-//   - "You can respond in English or <Language>" is visible in the rendered
-//     tree before the learner has said anything (messages === []).
-//   - The hint STAYS visible once the first recording attempt begins — it is
-//     persistent, unlike the old empty-state tip that disappeared when the
-//     pending learner bubble made messages.length > 0.
+// The server owns every decision here: it injects the framing and steering,
+// gates zone 2+ on Plus, decides which target phrases were actually spoken,
+// and writes the zone_conversation_stamp. This screen only passes the id along
+// and renders what comes back, so that is what these tests pin:
 //
-// Interaction under test — a REAL hold-and-release on the Bolo mascot
-// (R6, 32.1: a quick tap or a release-during-startup now aborts and discards
-// instead of submitting, so the hint test must hold through startup and
-// release only after the minimum recording duration):
-//   1. pressIn  → handleStartRecording fires; startup completes with the
-//                 finger still down, so the recorder goes live.
-//   2. Date.now advances past MIN_RECORDING_MS (spied).
-//   3. pressOut → handleStopRecording submits and synchronously adds the
-//      pending learner bubble, making messages.length === 1.
+//   · the banner and chips appear ONLY in scenario mode, never in free chat
+//   · a chip fills in only once the SERVER reports the phrase used
+//   · the completion overlay is session state, driven by sceneDone
+//
+// The mock harness below is lifted from chat-bilingual-hint.test.tsx, which is
+// the house harness for rendering this screen under jest.
 // ---------------------------------------------------------------------------
+
+const SCENARIO = {
+  id: 'greetings-manners',
+  zoneIndex: 0,
+  title: 'At the chai stall',
+  framingCopy: 'You have just sat down. Greet the stall owner and order chai.',
+  targetPhrases: [
+    { romanized: 'namaste', native: 'નમસ્તે' },
+    { romanized: 'dhanyavaad', native: 'ધન્યવાદ' },
+  ],
+};
+
+// Flipped per test before render. The `mock` prefix is REQUIRED, not style:
+// jest.mock factories are hoisted above this declaration and may only reach
+// out-of-scope variables whose name begins with `mock`.
+const mockScenarioState: { param: string | undefined; data: typeof SCENARIO | undefined } = {
+  param: undefined,
+  data: undefined,
+};
 
 // ── Mutable state ──────────────────────────────────────────────────────────
 const mockState = {
@@ -42,7 +51,7 @@ jest.mock('expo-router', () => {
     useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
     // Scenario mode reads ?scenario=<id> off the route. Absent here, so these
     // suites exercise ordinary free chat, which is what they are about.
-    useLocalSearchParams: () => ({}),
+    useLocalSearchParams: () => (mockScenarioState.param ? { scenario: mockScenarioState.param } : {}),
     // Run the callback synchronously so isFocusedRef.current is set to true
     // before any interaction fires, matching what the real navigator does.
     useFocusEffect: (cb: () => (() => void) | void) => {
@@ -56,7 +65,7 @@ jest.mock('expo-router', () => {
 
 jest.mock('@workspace/api-client-react', () => ({
   // Scenario metadata; disabled when no ?scenario param is present.
-  useGetScenario: () => ({ data: undefined, isLoading: false, isError: false, error: null }),
+  useGetScenario: () => ({ data: mockScenarioState.data, isLoading: false, isError: false, error: null }),
   // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
@@ -228,44 +237,88 @@ beforeEach(() => {
   xhrMock.status = 0;
 });
 
-describe('bilingual hint on the Bolo chat screen', () => {
-  test('hint is visible before the first attempt', () => {
-    render(<ChatScreen />);
-    expect(screen.getByText(HINT_TEXT)).toBeOnTheScreen();
+
+// ---------------------------------------------------------------------------
+
+function renderChat() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ChatScreen = require('@/app/(app)/(tabs)/chat').default;
+  return render(<ChatScreen />);
+}
+
+beforeEach(() => {
+  mockScenarioState.param = undefined;
+  mockScenarioState.data = undefined;
+});
+
+describe('free chat is untouched by scenario mode', () => {
+  it('shows no banner and no chips without a scenario param', () => {
+    renderChat();
+    expect(screen.queryByTestId('scenario-banner')).toBeNull();
+    expect(screen.queryByTestId('target-phrase-chips')).toBeNull();
+    expect(screen.queryByTestId('scenario-completion-overlay')).toBeNull();
   });
 
-  test('hint stays visible after the first recording attempt begins', async () => {
-    // Control the clock so the release clears the R6 minimum-duration guard.
-    let now = 1_700_000_000_000;
-    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+  it('keeps the ordinary header', () => {
+    renderChat();
+    expect(screen.getByText('Chat with Bolo')).toBeTruthy();
+  });
+});
 
-    render(<ChatScreen />);
+describe('scenario mode', () => {
+  beforeEach(() => {
+    mockScenarioState.param = SCENARIO.id;
+    mockScenarioState.data = SCENARIO;
+  });
 
-    // Sanity: hint is present in the initial render.
-    expect(screen.getByText(HINT_TEXT)).toBeOnTheScreen();
+  it('puts the scene title in the header and the framing in a banner', () => {
+    renderChat();
+    expect(screen.getByText('At the chai stall')).toBeTruthy();
+    expect(screen.getByTestId('scenario-banner')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'You have just sat down. Greet the stall owner and order chai.',
+      ),
+    ).toBeTruthy();
+    // The generic title is replaced, not shown alongside.
+    expect(screen.queryByText('Chat with Bolo')).toBeNull();
+  });
 
-    // Press and HOLD: startup completes with the finger still down, so the
-    // recorder goes live and the button flips to "Release to send".
-    await act(async () => {
-      fireEvent(screen.getByRole('button', { name: 'Hold to speak' }), 'pressIn');
-    });
+  it('renders one chip per target phrase, none of them used yet', () => {
+    renderChat();
+    expect(screen.getByTestId('target-phrase-chips')).toBeTruthy();
+    for (const tp of SCENARIO.targetPhrases) {
+      const chip = screen.getByTestId(`phrase-chip-${tp.romanized}`);
+      expect(chip).toBeTruthy();
+      // The accessibility label is what carries used/not-used to a screen
+      // reader, so it is the honest thing to assert rather than a colour.
+      expect(chip.props.accessibilityLabel).toBe(`${tp.romanized}, not said yet`);
+    }
+  });
 
-    // Release after a hold longer than the minimum duration — the stop path
-    // submits, synchronously adding the pending learner bubble (setMessages)
-    // before any further awaits, making messages.length === 1.
-    now += 500;
-    await act(async () => {
-      fireEvent(screen.getByRole('button', { name: 'Release to send' }), 'pressOut');
-    });
-    nowSpy.mockRestore();
+  it('does not show the completion overlay before the server says so', () => {
+    renderChat();
+    expect(screen.queryByTestId('scenario-completion-overlay')).toBeNull();
+  });
 
-    // The empty-state greeting bubble disappears once a message exists…
-    await waitFor(() =>
-      expect(
-        screen.queryByText(/Hold my belly and let's chat in English or Gujarati/),
-      ).not.toBeOnTheScreen(),
-    );
-    // …but the persistent hint remains visible.
-    expect(screen.getByText(HINT_TEXT)).toBeOnTheScreen();
+  it('renders the banner even with no target phrases', () => {
+    // A scenario may legitimately carry no chips; the framing still stands.
+    mockScenarioState.data = { ...SCENARIO, targetPhrases: [] };
+    renderChat();
+    expect(screen.getByTestId('scenario-banner')).toBeTruthy();
+    expect(screen.queryByTestId('target-phrase-chips')).toBeNull();
+  });
+});
+
+describe('scenario metadata that has not landed yet', () => {
+  it('shows nothing scenario-shaped while the query is still empty', () => {
+    // The param is present but the fetch has not resolved. The screen must not
+    // render an empty banner or a chip row with nothing in it.
+    mockScenarioState.param = SCENARIO.id;
+    mockScenarioState.data = undefined;
+    renderChat();
+    expect(screen.queryByTestId('scenario-banner')).toBeNull();
+    expect(screen.queryByTestId('target-phrase-chips')).toBeNull();
+    expect(screen.getByText('Chat with Bolo')).toBeTruthy();
   });
 });

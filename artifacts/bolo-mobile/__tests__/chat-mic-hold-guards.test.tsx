@@ -48,6 +48,9 @@ jest.mock('expo-router', () => {
   const React = require('react');
   return {
     useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
+    // Scenario mode reads ?scenario=<id> off the route. Absent here, so these
+    // suites exercise ordinary free chat, which is what they are about.
+    useLocalSearchParams: () => ({}),
     useFocusEffect: (cb: () => (() => void) | void) => {
       React.useEffect(() => {
         const cleanup = cb();
@@ -58,6 +61,8 @@ jest.mock('expo-router', () => {
 });
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Scenario metadata; disabled when no ?scenario param is present.
+  useGetScenario: () => ({ data: undefined, isLoading: false, isError: false, error: null }),
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),

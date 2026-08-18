@@ -15,7 +15,8 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useGetScenario } from '@workspace/api-client-react';
 import { useAudioRecorder, useAudioRecorderState, createAudioPlayer } from 'expo-audio';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { appear } from '@/lib/entrance';
@@ -29,6 +30,8 @@ import {
 import { Screen, TAB_BAR_CLEARANCE, RAISED_PARROT_CLEARANCE } from '@/components/Screen';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { TalkingMascot, type TalkingMascotMode } from '@/components/TalkingMascot';
+import { Mascot } from '@/components/Mascot';
+import { ExpressOfferMoment } from '@/components/ExpressOfferMoment';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
@@ -171,6 +174,45 @@ export default function ChatScreen() {
 
   // Language picker bottom-sheet state.
   const [pickerOpen, setPickerOpen] = React.useState(false);
+
+  // ── Scenario (zone capstone) mode ────────────────────────────────────────
+  // Mobile twin of web's gujarati-coach/src/pages/chat.tsx. Web reads
+  // ?scenario=<id> off the URL; expo-router gives us the same thing as a route
+  // param, so /(app)/(tabs)/chat?scenario=greetings-manners is the same entry
+  // point. Absent param means ordinary free chat, exactly as before.
+  //
+  // The server does all the work: it injects the framing and steering, gates
+  // zone 2+ on Plus, detects which target phrases were spoken, and writes the
+  // zone_conversation_stamp on majority completion. This screen only has to
+  // pass the id along and render what comes back.
+  const { scenario: scenarioParam } = useLocalSearchParams<{ scenario?: string }>();
+  const scenarioId = typeof scenarioParam === 'string' && scenarioParam ? scenarioParam : undefined;
+  const scenarioQuery = useGetScenario(scenarioId ?? '', {
+    query: { enabled: !!scenarioId, queryKey: ['scenario', scenarioId ?? ''] },
+  });
+  const scenario = scenarioQuery.data;
+
+  // Which target phrases the server has confirmed the learner used, across the
+  // whole session rather than per turn, and whether the scene is finished.
+  const [usedPhrases, setUsedPhrases] = React.useState<Set<string>>(new Set());
+  const [sceneDone, setSceneDone] = React.useState(false);
+
+  /**
+   * Folds one turn's scenario payload into session state. Both the voice and
+   * the text path call this, so the two can never drift: a phrase counted on
+   * one and dropped on the other is exactly the twin defect this app keeps
+   * producing. Fields are optional on the response and absent entirely when no
+   * scenarioId was sent, so a plain chat turn is a no-op here.
+   */
+  const applyScenarioTurn = React.useCallback(
+    (phrasesUsed: string[] | undefined, turnSceneDone: boolean | undefined) => {
+      if (phrasesUsed && phrasesUsed.length > 0) {
+        setUsedPhrases((prev) => new Set([...prev, ...phrasesUsed]));
+      }
+      if (turnSceneDone) setSceneDone(true);
+    },
+    [],
+  );
 
   // Conversation history shown in the UI (and sent to the server as context)
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
@@ -764,7 +806,7 @@ export default function ChatScreen() {
           };
           xhr.onerror = () => reject(new TypeError('Network error'));
           xhr.ontimeout = () => reject(new TypeError('Request timed out'));
-          xhr.send(JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: 'audio/m4a', history: [], clientDurationSeconds }));
+          xhr.send(JSON.stringify({ languageCode: chatLang, audioBase64, mimeType: 'audio/m4a', history: [], clientDurationSeconds, ...(scenarioId ? { scenarioId } : {}) }));
         });
       } catch {
         // Network error. The greeting can finish, but the SCREEN cannot be
@@ -1157,6 +1199,12 @@ export default function ChatScreen() {
       const format             = (payload.format as string) || 'mp3';
       const squawkVariant      = payload.squawkVariant as 0 | 1 | 2 | null;
       const secondsRemaining   = payload.secondsRemaining as number | null;
+      // Scenario: fold this turn's phrase matches and completion flag in.
+      // Both absent on a plain chat turn, which makes this a no-op.
+      applyScenarioTurn(
+        payload.phrasesUsed as string[] | undefined,
+        payload.sceneDone as boolean | undefined,
+      );
 
       // A newer turn started or user left — drop stale result.
       if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
@@ -1480,7 +1528,7 @@ export default function ChatScreen() {
         };
         xhr.onerror = () => reject(new TypeError('Network error'));
         xhr.ontimeout = () => reject(new TypeError('Request timed out'));
-        xhr.send(JSON.stringify({ languageCode: chatLang, textInput: text, history }));
+        xhr.send(JSON.stringify({ languageCode: chatLang, textInput: text, history, ...(scenarioId ? { scenarioId } : {}) }));
       });
 
       if (httpStatus < 200 || httpStatus >= 300) {
@@ -1503,6 +1551,11 @@ export default function ChatScreen() {
       const format           = (p.format as string) || 'mp3';
       const squawkVariant    = p.squawkVariant as 0 | 1 | 2 | null;
       const remainingSecs    = p.secondsRemaining as number | null;
+      // Same fold as the voice path above; one helper so the two cannot drift.
+      applyScenarioTurn(
+        p.phrasesUsed as string[] | undefined,
+        p.sceneDone as boolean | undefined,
+      );
 
       if (remainingSecs !== null) setSecondsRemaining(remainingSecs);
       else setSecondsRemaining(null);
@@ -1681,10 +1734,27 @@ export default function ChatScreen() {
       <View style={styles.header}>
         <View style={styles.headerCenter}>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-            Chat with Bolo
+            {scenario ? scenario.title : 'Chat with Bolo'}
           </Text>
         </View>
       </View>
+
+      {/* Scenario framing strip. Non-dismissible: it is the scene, not a tip,
+          and it appears only once the metadata lands so the header never
+          jumps for an ordinary chat. Twin of web's scenario-banner. */}
+      {scenario ? (
+        <View
+          testID="scenario-banner"
+          style={[
+            styles.scenarioBanner,
+            { backgroundColor: `${colors.primary}0D`, borderColor: `${colors.primary}33` },
+          ]}
+        >
+          <Text style={[styles.scenarioBannerText, { color: colors.mutedForeground }]}>
+            {scenario.framingCopy}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Language pill — tap to switch chat language */}
       <View style={styles.langPillRow}>
@@ -1944,6 +2014,42 @@ export default function ChatScreen() {
         </Animated.View>
       )}
 
+      {/* Scenario target-phrase chips, directly above the input so they read as
+          the things left to say. A chip fills in once the SERVER reports the
+          phrase used, never on a local guess: the match is a server-side
+          substring check and a chip that lit optimistically would promise
+          credit the stamp does not agree with. Twin of web's
+          target-phrase-chips. */}
+      {scenario && scenario.targetPhrases.length > 0 ? (
+        <View testID="target-phrase-chips" style={styles.chipRow}>
+          {scenario.targetPhrases.map((tp) => {
+            const used = usedPhrases.has(tp.romanized);
+            return (
+              <View
+                key={tp.romanized}
+                testID={`phrase-chip-${tp.romanized}`}
+                accessibilityLabel={`${tp.romanized}${used ? ', said' : ', not said yet'}`}
+                style={[
+                  styles.phraseChip,
+                  used
+                    ? { backgroundColor: `${colors.primary}1F`, borderColor: colors.primary }
+                    : { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.phraseChipText,
+                    { color: used ? colors.primary : colors.mutedForeground },
+                  ]}
+                >
+                  {tp.romanized}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
+
       {/* Text input row — keyboard fallback for when speaking isn't convenient */}
       <View style={[styles.textInputRow, { borderTopColor: colors.border }]}>
         <TextInput
@@ -2079,6 +2185,44 @@ export default function ChatScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Scenario completion. Session state, not persisted: a learner who
+          revisits a zone they already stamped still gets the chat surface
+          rather than this overlay, matching web. Rendered last so it covers
+          the input and the language modal alike. */}
+      {sceneDone ? (
+        <View
+          testID="scenario-completion-overlay"
+          style={[styles.completionOverlay, { backgroundColor: colors.background }]}
+        >
+          <Mascot pose="cheer" size={160} />
+          <Text style={[styles.completionTitle, { color: colors.foreground }]}>
+            Zone complete!
+          </Text>
+          <Text style={[styles.completionBody, { color: colors.mutedForeground }]}>
+            You spoke {chatLanguage?.name ?? chatLang} at the chai stall!
+          </Text>
+          <View style={[styles.xpChip, { backgroundColor: `${colors.primary}1A` }]}>
+            <Text style={[styles.xpChipText, { color: colors.primary }]}>+20 XP</Text>
+          </View>
+          {/* Same offer moment web shows here, after the celebration content. */}
+          <ExpressOfferMoment
+            surface="celebration"
+            onNotice={setErrorMsg}
+            style={styles.completionOffer}
+          />
+          <Pressable
+            testID="scenario-back-to-journey"
+            accessibilityRole="button"
+            onPress={() => router.replace('/(app)/journey')}
+            style={[styles.completionCta, { backgroundColor: colors.primary }]}
+          >
+            <Text style={[styles.completionCtaText, { color: colors.primaryForeground }]}>
+              Back to journey
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
     </Screen>
   );
 }
@@ -2326,5 +2470,84 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.regular,
     fontSize: 12,
     marginTop: 2,
+  },
+
+  // ── Scenario (zone capstone) mode ────────────────────────────────────────
+  scenarioBanner: {
+    marginHorizontal: 16,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  scenarioBannerText: {
+    fontFamily: AppFonts.regular,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  phraseChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  phraseChipText: {
+    fontFamily: AppFonts.bold,
+    fontSize: 12,
+  },
+  completionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    zIndex: 9997,
+    elevation: 9997,
+  },
+  completionTitle: {
+    marginTop: 24,
+    fontFamily: AppFonts.extrabold,
+    fontSize: 26,
+    textAlign: 'center',
+  },
+  completionBody: {
+    marginTop: 8,
+    fontFamily: AppFonts.regular,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  xpChip: {
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  xpChipText: {
+    fontFamily: AppFonts.bold,
+    fontSize: 14,
+  },
+  completionOffer: {
+    marginTop: 16,
+    width: '100%',
+    maxWidth: 320,
+  },
+  completionCta: {
+    marginTop: 32,
+    width: '100%',
+    maxWidth: 320,
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  completionCtaText: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 16,
   },
 });
