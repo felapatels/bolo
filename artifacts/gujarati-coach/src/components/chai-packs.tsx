@@ -39,12 +39,12 @@ export const PACK_COPY = {
   // Deliberately not a hard sell: earning is still the main road, and a
   // learner who reads this and goes back to practising has done the right
   // thing.
-  blurb: "Top up the wallet, or keep practising — both fill the cup.",
+  blurb: "Top up the wallet, or keep practising. Both fill the cup.",
   failed: "That purchase did not go through. Nothing has been charged.",
   canceled: "Purchase canceled. Nothing has been charged.",
   // Shown when we land back from Stripe. The webhook does the crediting, so
   // there is a beat where the money is taken and the Chai has not landed yet.
-  success: "Chai on the way — your balance updates in a moment.",
+  success: "Chai on the way. Your balance updates in a moment.",
   pending: "Taking you to checkout…",
 } as const;
 

@@ -41,12 +41,12 @@ export const CHAI_PACKS_LIVE = true;
 // uses both should not meet two different shops.
 export const PACK_COPY = {
   title: 'Out of Chai?',
-  blurb: 'Top up the wallet, or keep practising — both fill the cup.',
+  blurb: 'Top up the wallet, or keep practising. Both fill the cup.',
   failed: 'That purchase did not go through. Nothing has been charged.',
   cancelled: 'Purchase cancelled. Nothing has been charged.',
   // The honest line for "Apple charged, the Chai has not landed yet". It never
   // claims the Chai has arrived, because it has not.
-  pending: 'Chai on the way — your balance updates in a moment.',
+  pending: 'Chai on the way. Your balance updates in a moment.',
   buying: 'Talking to the App Store…',
 } as const;
 
