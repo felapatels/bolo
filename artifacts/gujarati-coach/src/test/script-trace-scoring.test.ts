@@ -24,7 +24,7 @@ import { SCRIPT_TRACE_CHAPTERS } from "@/data/script-trace-chapters";
 //  1. parseSvgPath never fabricates "connector" geometry between contours.
 //  2. scoreCoverage passes honest traces and fails off-target/degenerate ones.
 //  3. extractStrokes produces sane, in-glyph, ordered pen strokes for every
-//     character — and "writing the letter" the way the animation demonstrates
+//     character, and "writing the letter" the way the animation demonstrates
 //     passes the game's own scorer.
 // ---------------------------------------------------------------------------
 
@@ -96,7 +96,7 @@ function strokesFor(guide: string): Point[][] {
 
 describe("parseSvgPath subpath handling", () => {
   test("does not create points between two separate contours", () => {
-    // Two vertical bars at x=20 and x=60 — no geometry exists between them.
+    // Two vertical bars at x=20 and x=60, no geometry exists between them.
     const guide = parseSvgPath("M 20,20 L 20,80 M 60,20 L 60,80", 80);
     expect(guide.length).toBeGreaterThan(10);
     const connectors = guide.filter((p) => p.x > 25 && p.x < 55);
@@ -118,7 +118,7 @@ describe("parseSvgPath subpath handling", () => {
 // ---------------------------------------------------------------------------
 
 // Two filled vertical bars: x∈[15,25] and x∈[55,65], y∈[15,85]. Contours are
-// closed by returning to their start point — same as real font outlines
+// closed by returning to their start point, same as real font outlines
 // (the parser supports M/L/Q/C only; there is no Z command).
 const TWO_BARS_D =
   "M 15,15 L 25,15 L 25,85 L 15,85 L 15,15 M 55,15 L 65,15 L 65,85 L 55,85 L 55,15";
@@ -151,7 +151,7 @@ describe("scoreCoverage on a synthetic two-bar glyph", () => {
     const sloppyScore = scoreCoverage([bar(20), bar(60), tail], interior);
     expect(sloppyScore).toBeLessThan(cleanScore);
     expect(sloppyScore).toBeLessThan(100);
-    // Precision tempers the score — it must not fail otherwise-honest work.
+    // Precision tempers the score, it must not fail otherwise-honest work.
     expect(sloppyScore).toBeGreaterThanOrEqual(PASS_THRESHOLD);
   });
 
@@ -221,11 +221,11 @@ describe("extractStrokes pen-stroke skeleton", () => {
             expect(p.y, `${ch.id} stroke point below glyph`).toBeLessThanOrEqual(maxY);
           }
         }
-        // The pen must travel a meaningful distance — a letter is not a dot.
+        // The pen must travel a meaningful distance, a letter is not a dot.
         expect(totalLen, `${ch.id} skeleton too short`).toBeGreaterThan(15);
       }
     },
-    180000, // heavy geometry sweep; validation runs suites concurrently — 60s flaked under CPU contention
+    180000, // heavy geometry sweep; validation runs suites concurrently, 60s flaked under CPU contention
   );
 
   test(
@@ -245,7 +245,7 @@ describe("extractStrokes pen-stroke skeleton", () => {
       }
       expect(upperStarts / guidedChars.length).toBeGreaterThan(0.8);
     },
-    180000, // heavy geometry sweep; validation runs suites concurrently — 60s flaked under CPU contention
+    180000, // heavy geometry sweep; validation runs suites concurrently, 60s flaked under CPU contention
   );
 });
 
@@ -264,7 +264,7 @@ describe("scoreCoverage on real glyphs", () => {
   test(
     "writing the letter as the animation demonstrates passes for every character",
     () => {
-      // The demo animation IS the lesson — following it with a wobbly finger
+      // The demo animation IS the lesson, following it with a wobbly finger
       // must pass the game's own scorer, for every single character.
       for (const ch of guidedChars) {
         const interior = getInteriorPoints(ch.guide);
@@ -273,7 +273,7 @@ describe("scoreCoverage on real glyphs", () => {
         expect(score, `${ch.id} demo-written trace`).toBeGreaterThanOrEqual(PASS_THRESHOLD);
       }
     },
-    180000, // heavy geometry sweep; validation runs suites concurrently — 60s flaked under CPU contention
+    180000, // heavy geometry sweep; validation runs suites concurrently, 60s flaked under CPU contention
   );
 
   test(
@@ -288,7 +288,7 @@ describe("scoreCoverage on real glyphs", () => {
         expect(score, `${ch.id} dense fill`).toBeGreaterThanOrEqual(PASS_THRESHOLD);
       }
     },
-    180000, // heavy geometry sweep; validation runs suites concurrently — 60s flaked under CPU contention
+    180000, // heavy geometry sweep; validation runs suites concurrently, 60s flaked under CPU contention
   );
 
   test("a stationary tap at the glyph centroid fails for every character", () => {
@@ -332,7 +332,7 @@ describe("scoreCoverage on real glyphs", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Score distribution audit — reported to CI output for ongoing review.
+// Score distribution audit, reported to CI output for ongoing review.
 // ---------------------------------------------------------------------------
 
 describe("PASS_THRESHOLD score distribution audit", () => {
@@ -362,6 +362,6 @@ describe("PASS_THRESHOLD score distribution audit", () => {
       expect(min).toBeGreaterThanOrEqual(PASS_THRESHOLD);
       expect(min - PASS_THRESHOLD).toBeGreaterThanOrEqual(10);
     },
-    180000, // heavy geometry sweep; validation runs suites concurrently — 60s flaked under CPU contention
+    180000, // heavy geometry sweep; validation runs suites concurrently, 60s flaked under CPU contention
   );
 });

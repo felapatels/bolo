@@ -3,7 +3,7 @@
 //
 // CANONICAL MASCOT RULE (owner ruling): no new Bolo artwork, by any means. So a
 // garment is never a repainted bird. It is one flat piece of cloth composited
-// over the only part of her that is safe to cover — the teal belly — with every
+// over the only part of her that is safe to cover, the teal belly, with every
 // non-belly canonical pixel restacked on top afterwards. That last step is what
 // keeps her wings in front of the cloth on the poses where a wing folds across
 // her chest (all five, in fact), and her feet in front of the hem.
@@ -14,13 +14,13 @@
 // so the mask cannot climb onto her (also teal) head.
 //
 // THE SLEEVE RULE (owner ruling, Aug 8 2026). Because her wings redraw in
-// FRONT of the cloth, a sleeve can never wrap a wing — it can only appear
+// FRONT of the cloth, a sleeve can never wrap a wing, it can only appear
 // beside one, which reads as a sleeve dangling off an empty arm. So above the
 // hem line the cloth is clipped to her silhouette: at shoulder height the
 // garment may only exist where Bolo is. Below that line it hangs free, which
 // is what lets a skirt flare past her body. The practical consequence for
 // stocking: drapes, tunics, wraps and vests work; sleeved outerwear (jackets,
-// hoodies) does not, and no amount of tuning fixes it — the sleeve has nothing
+// hoodies) does not, and no amount of tuning fixes it, the sleeve has nothing
 // to wrap.
 //
 // Every number in the tables below was measured off the canonical PNGs once.
@@ -43,14 +43,13 @@ import { basename } from "node:path";
 const POSES = ["wave", "cheer", "thumbsup", "thinking", "tryagain"];
 
 /** Bottom of Bolo's beak per pose: the mask must start below this or it eats
- *  her (teal) head. Measured, not guessed — wave sits 5px lower than the rest. */
+ *  her (teal) head. Measured, not guessed, wave sits 5px lower than the rest. */
 const CHIN = { wave: 500, cheer: 495, thumbsup: 495, thinking: 495, tryagain: 495 };
 
 /** How wide to cut the cloth per pose. These track the measured teal belly
  *  EXCEPT thumbsup: there a wing folds across her chest and splits the visible
  *  teal down to 500px, so measurement would tailor one pose two sizes too
- *  small. The cloth is cut to the body that is there, not the body that shows —
- *  the wing redraws in front of it regardless. */
+ *  small. The cloth is cut to the body that is there, not the body that shows, *  the wing redraws in front of it regardless. */
 const WIDTH = { wave: 714, cheer: 722, thumbsup: 688, thinking: 646, tryagain: 731 };
 
 /** Where the cloth hangs from, horizontally. These are the anchors of the
@@ -60,7 +59,7 @@ const WIDTH = { wave: 714, cheer: 722, thumbsup: 688, thinking: 646, tryagain: 7
  *  off. `--live-centre` recomputes instead, for measuring a new pose set. */
 const CX = { wave: 502, cheer: 476, thumbsup: 504, thinking: 508, tryagain: 506 };
 
-// Her body colour, read off the canonical art's own histogram — NOT the brand
+// Her body colour, read off the canonical art's own histogram, NOT the brand
 // teal, which is a different, darker hex and keys only a fifth of her.
 const TEAL = "#0CA6A0";
 const FUZZ = "22%";
@@ -72,16 +71,15 @@ const FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
 
 /**
  * The shipped set, and exactly how each piece was cut. This is the record of
- * which source art and which knobs produced the art now in the asset dirs —
- * without it, regenerating one garment means guessing the parameters back.
+ * which source art and which knobs produced the art now in the asset dirs, * without it, regenerating one garment means guessing the parameters back.
  *
  * `squash` forces the cloth's height to a multiple of the belly height. Most
  * generated garments come out portrait (a real garment is taller than wide);
- * Bolo is a squat round bird, so all but the kediyu — whose art was already
- * re-cut wide at source — get squashed to her proportions.
+ * Bolo is a squat round bird, so all but the kediyu, whose art was already
+ * re-cut wide at source, get squashed to her proportions.
  */
 // Source art lives in the repo (scripts/mascot-garment-art/), NOT in
-// attached_assets/ — that whole directory is gitignored, so art left there is
+// attached_assets/, that whole directory is gitignored, so art left there is
 // gone the moment anyone clones or the workspace is reset, and this table would
 // point at nothing. Every id below regenerates byte-for-byte from a fresh
 // checkout.
@@ -91,7 +89,7 @@ const ITEMS = [
   // The anarkali runs on RECUT art (`-c`, srcSuffix: "" in the recut tool since
   // there was no prior `-b` closed-front pass for this piece). Its waist band
   // has interior transparency gaps (embroidery/fold highlighting, not holes at
-  // the silhouette edge) that job A's edge-widen alone never closes — the
+  // the silhouette edge) that job A's edge-widen alone never closes, the
   // yoke fraction plateaus once it reaches the gap band because the resize is
   // a single uniform horizontal scale, so extending MORE rows to full width
   // doesn't add width where the source pixels themselves are transparent.
@@ -107,7 +105,7 @@ const ITEMS = [
   //
   // The kurta is the odd one. Short sleeves mean it tapers a SECOND time below
   // the cuff and a third time at the ankles, so its art is widened full height
-  // with interior gaps filled — and a full-height widen is only safe at
+  // with interior gaps filled, and a full-height widen is only safe at
   // freefrac 1.0, because below the hem line cloth hangs unclipped and the
   // widened rows become a slab through her feet.
   { id: "kurta", art: `${ART}/gar-kurta-c.png`, squash: 1.05, freefrac: 1.0 },
@@ -124,7 +122,7 @@ const ITEMS = [
 // garments (the shipped cut reads as a more open coat). The owner picked the
 // first cut; swapping one in is a single --art run with no code change. A
 // Western everyday set (denim jacket, hoodie, track jacket, puffer vest) was
-// generated and rejected outright — don't regenerate it without asking.
+// generated and rejected outright, don't regenerate it without asking.
 
 function arg(name, fallback = null) {
   const i = process.argv.indexOf(`--${name}`);
@@ -164,7 +162,7 @@ function dressPose(pose, { art, tmp, wfrac, dy, squash, freefrac }) {
   // Teal pixels anywhere (head included at this point). Keyed POSITIVELY: the
   // obvious `-transparent TEAL -alpha extract -negate` route also whitens the
   // transparent background, and the negate then mangles it into a speckle that
-  // captures a fifth of her — which silently lets her body redraw over the
+  // captures a fifth of her, which silently lets her body redraw over the
   // cloth and turns a dress into a bib.
   magick([canon, "-alpha", "off", "-fuzz", FUZZ, "-fill", "white", "-opaque", TEAL,
     "-fill", "black", "+opaque", "white", "-alpha", "off", p("keyed")]);
@@ -190,7 +188,7 @@ function dressPose(pose, { art, tmp, wfrac, dy, squash, freefrac }) {
 
   // THE SLEEVE RULE. Above the hem line the cloth may only exist where SHE is;
   // below it, it hangs free. Without this, any garment whose art has sleeves
-  // leaves them floating in the gap beside a wing — cloth on an arm that is
+  // leaves them floating in the gap beside a wing, cloth on an arm that is
   // not there. The clip is a silhouette OR a below-the-line band, so a skirt
   // still flares past her body while a shoulder cannot.
   const hemY = gy + Math.round(freefrac * gh);
@@ -204,7 +202,7 @@ function dressPose(pose, { art, tmp, wfrac, dy, squash, freefrac }) {
   magick([canon, p("clothclip"), "-composite", p("dressed")]);
 
   // Everything of hers that is NOT belly goes back on top: wings, beak, eyes,
-  // feet, tail. Build the alpha first and copy it in — flattening her to an
+  // feet, tail. Build the alpha first and copy it in, flattening her to an
   // opaque layer here (an earlier bug) paints the whole frame and hides the
   // garment completely.
   magick([p("alpha"), "(", p("belly"), "-negate", ")", "-compose", "multiply",
@@ -252,7 +250,7 @@ function buildItem({ id, art, squash = null, wfrac, dy, freefrac, install }) {
       POSES.forEach((pose, i) => {
         // Quantise on the way out. These are flat cel-shaded images, so a
         // 256-colour palette is visually identical and roughly a tenth of the
-        // weight — and this set is 45 files shipped twice, once to the web
+        // weight, and this set is 45 files shipped twice, once to the web
         // public dir and once into the mobile bundle.
         magick([finals[i], "-strip", "-colors", "255", "-define", "png:compression-level=9",
           `${dir}/mascot-${pose}.png`]);

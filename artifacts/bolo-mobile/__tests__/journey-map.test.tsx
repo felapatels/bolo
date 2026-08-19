@@ -252,7 +252,7 @@ beforeEach(() => {
 
 // ─── tests ───────────────────────────────────────────────────────────────────
 
-describe('journey map — station state rendering', () => {
+describe('journey map, station state rendering', () => {
   it('renders every server state with its own treatment', () => {
     setZones([
       [
@@ -270,7 +270,7 @@ describe('journey map — station state rendering', () => {
     // Boarding-pass header: line identity + the learner's position on it.
     // Task 1082 item 1: this used to read "2/7 stations", where the 2 was the
     // number of FINISHED stops sitting in the slot a learner reads as "the
-    // stop I am on" — and the map highlights stop 3 here, not stop 2. Both
+    // stop I am on", and the map highlights stop 3 here, not stop 2. Both
     // numbers now come off the one flattened station list.
     expect(screen.getByText('Gujarat Express')).toBeOnTheScreen();
     expect(
@@ -356,7 +356,7 @@ describe('journey map — station state rendering', () => {
       }
     };
     walk(screen.toJSON());
-    const offenders = texts.filter((t) => t.includes('—'));
+    const offenders = texts.filter((t) => t.includes('-'));
     expect(offenders).toEqual([]);
     // The replacements are actually on screen, not merely absent.
     expect(screen.getByText(/Terminus: Dwarka, the festival finale awaits/)).toBeOnTheScreen();
@@ -365,7 +365,7 @@ describe('journey map — station state rendering', () => {
 
 });
 
-describe('journey map — scroll to the current stop on open (Task 1082 item 4)', () => {
+describe('journey map, scroll to the current stop on open (Task 1082 item 4)', () => {
   // The scroll is issued from the map's layout pass; the test renderer never
   // lays anything out, so the test plays that pass itself.
   const layOutMap = (y = 0) =>
@@ -470,7 +470,7 @@ describe('journey map — scroll to the current stop on open (Task 1082 item 4)'
   });
 });
 
-describe('journey map — group-scoped routing', () => {
+describe('journey map, group-scoped routing', () => {
   it('routes a tapped accessible stop into practice scoped to its lesson group', () => {
     const target = grp({ status: 'in_progress', masteredCount: 2, attemptedCount: 4 });
     setZones([
@@ -729,7 +729,7 @@ describe('journey header ticket sizing (build-28 regression)', () => {
 // a zone-color tick, attempted stops trade the "x/y mastered" status suffix
 // for a real progress track, and the rail segment between the current stop
 // and the next one carries a directional pulse.
-describe('journey map — build 31 signboard dressing + rail pulse', () => {
+describe('journey map, build 31 signboard dressing + rail pulse', () => {
   function threeStopZone() {
     const a = grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 });
     const b = grp({ status: 'in_progress', masteredCount: 3, attemptedCount: 5 });
@@ -900,11 +900,11 @@ describe('journey header inset and stamp slot (build 30)', () => {
 // ─── Build 35: trackside signals ────────────────────────────────────────────
 // Signal memory is module-scoped and would otherwise leak between cases (a
 // stop marked seen never auto-opens again), so each case starts clean.
-describe('journey map — trackside signals', () => {
+describe('journey map, trackside signals', () => {
   beforeEach(async () => {
     resetSignalMemory();
     // Stop-seen and clears are DEVICE scoped now, so wiping the in-memory
-    // caches is not enough — hydration would restore the previous case's
+    // caches is not enough, hydration would restore the previous case's
     // marks and every auto-open assertion would go quiet.
     await AsyncStorage.clear();
     // The rotation only offers a game a zone can actually fill, so the zone
@@ -934,7 +934,7 @@ describe('journey map — trackside signals', () => {
     render(<JourneyScreen />);
 
     // gap-1 sits after the completed stop 1, which is exactly where the run
-    // is held, so the encounter opens itself once — but only once the
+    // is held, so the encounter opens itself once, but only once the
     // device's cleared marks have hydrated, which is a tick away.
     await waitFor(() =>
       expect(screen.getByTestId('signal-dialog-title')).toHaveTextContent('Signal ahead'),
@@ -1001,9 +1001,9 @@ describe('journey map — trackside signals', () => {
 
 // Chacha-ji's stall as a permanent map LANDMARK, mirroring the web map. Two
 // rules are load-bearing: it stands at EVERY encounter station (ahead of the
-// learner and behind), and RENDERING IS NOT TRIGGERING — drawing it records
+// learner and behind), and RENDERING IS NOT TRIGGERING, drawing it records
 // no encounter and mints no Chai. Only arrival does that.
-describe('journey map — Chacha-ji stall landmark', () => {
+describe('journey map, Chacha-ji stall landmark', () => {
   const stallStations = () =>
     screen
       .getAllByTestId(/^chacha-stall-\d+$/)

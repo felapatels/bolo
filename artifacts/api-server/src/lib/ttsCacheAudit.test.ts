@@ -1,9 +1,9 @@
 /**
  * Sweep behaviour: what the audit does with a clip it cannot hear properly.
  *
- * The stakes are asymmetric — evicting a good clip strips a learner's audio
+ * The stakes are asymmetric, evicting a good clip strips a learner's audio
  * and burns a synthesis, while keeping a doubtful one merely preserves the
- * status quo — so these tests pin the caution: two failed listens before
+ * status quo, so these tests pin the caution: two failed listens before
  * anything is deleted, a replacement synthesized before the old row goes, and
  * nothing at all touched in a dry run.
  */
@@ -49,7 +49,7 @@ const silentLog = { info: () => {}, warn: () => {}, error: () => {} };
 mock.module("@workspace/integrations-openai-ai-server/audio", {
   namedExports: {
     UndecodableAudioError: class UndecodableAudioError extends Error {},
-    speechToText: async () => "unused — tests inject transcribe",
+    speechToText: async () => "unused, tests inject transcribe",
     textToSpeech: async () => Buffer.from("synth"),
     textToSpeechElevenLabs: async () => Buffer.from("synth"),
     openai: { audio: { speech: { create: async () => ({ arrayBuffer: async () => new ArrayBuffer(4) }) } } },
@@ -170,7 +170,7 @@ test("a truncated clip is replaced only after failing a second listen", async ()
 });
 
 test("a clip that clears on the second listen is kept", async () => {
-  // First read drops a word, second read hears it — recognizer noise, not a
+  // First read drops a word, second read hears it, recognizer noise, not a
   // bad clip. Nothing may be thrown away on that evidence.
   transcripts = ["saachvine", "saachvine jajo"];
   const result = await auditPhraseAudioBatch({ limit: 10, log: silentLog, deps });

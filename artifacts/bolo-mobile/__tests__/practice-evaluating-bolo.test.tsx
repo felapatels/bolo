@@ -126,7 +126,7 @@ jest.mock('@/lib/audio', () => ({
   ensureRecordingMode: jest.fn(async () => undefined),
   stopAndReadRecording: jest.fn(async () => 'base64audio'),
   // Coach playback that NEVER finishes on its own: onDone is captured so the
-  // test controls when (or whether) playback ends — the barge-in window.
+  // test controls when (or whether) playback ends, the barge-in window.
   playBase64Audio: jest.fn(async (_b: string, _f: string, onDone?: () => void) => {
     mockState.playbackDone = onDone;
     return { stop: jest.fn() };
@@ -219,7 +219,7 @@ beforeEach(async () => {
   mockState.reviewPhrases = successQuery([phraseA]);
   mockState.playbackDone = undefined;
   mockState.synth = jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' }));
-  // Evaluation hangs until the test releases it — that pending window IS the
+  // Evaluation hangs until the test releases it, that pending window IS the
   // evaluating state.
   mockState.evaluate = jest.fn(
     () =>
@@ -249,7 +249,7 @@ async function recordAndRelease() {
   );
 }
 
-describe('practice — evaluating state', () => {
+describe('practice, evaluating state', () => {
   it('zooms Bolo out small while the score comes back', async () => {
     render(<PracticeScreen />);
     await recordAndRelease();
@@ -286,7 +286,7 @@ describe('practice — evaluating state', () => {
   });
 });
 
-describe('Mascot — the zoom-out itself', () => {
+describe('Mascot, the zoom-out itself', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -305,8 +305,7 @@ describe('Mascot — the zoom-out itself', () => {
     render(<Mascot pose="thinking" motion="working" />);
     const shrunk = screen.getByTestId('mascot-working');
 
-    // The scale lives in a static style, so it survives with animations off —
-    // the state reads as "away working", never as an empty or frozen full-size
+    // The scale lives in a static style, so it survives with animations off, // the state reads as "away working", never as an empty or frozen full-size
     // bird. The spin and the zoom springs are the parts that stay off.
     expect(shrunk).toBeOnTheScreen();
     expect(shrunk).toHaveStyle({ transform: [{ scale: 0.45 }] });

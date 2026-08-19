@@ -95,7 +95,7 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
 /**
  * Auto-detect and convert audio to an OpenAI-Whisper-compatible format.
  *
- * WAV, MP3, WebM, MP4, and OGG are accepted natively by Whisper — pass them
+ * WAV, MP3, WebM, MP4, and OGG are accepted natively by Whisper, pass them
  * through unchanged. Only truly unrecognised formats go through the ffmpeg
  * WAV conversion path; this avoids ffmpeg crashes on short recordings that
  * produce a valid WebM/MP4 container but no decodable frames.
@@ -118,7 +118,7 @@ export async function ensureCompatibleFormat(
   if (detected === "mp4")  return { buffer: audioBuffer, format: "mp4" };
   if (detected === "ogg")  return { buffer: audioBuffer, format: "ogg" };
 
-  // Magic bytes didn't match — use the client-reported MIME type as a
+  // Magic bytes didn't match, use the client-reported MIME type as a
   // fallback before routing through ffmpeg. Short recordings (< 100 ms)
   // can produce a container skeleton whose magic bytes are intact in the
   // raw stream but get lost during chunking; trusting the MIME type here
@@ -217,7 +217,7 @@ export async function textToSpeech(
       {
         role: "system",
         content:
-          "You are an assistant that performs text-to-speech. Read the given text exactly as written — never substitute, add, or omit words." +
+          "You are an assistant that performs text-to-speech. Read the given text exactly as written, never substitute, add, or omit words." +
           langHint,
       },
       { role: "user", content: `Repeat the following text verbatim: ${text}` },
@@ -236,7 +236,7 @@ export async function textToSpeech(
  * decoded from the `audio_base64` field of the `/with-timestamps` JSON
  * response.
  *
- * Voice: "George" (default premade, ID JBFqnCBsd6RMkjVDRZzb) — warm, clear,
+ * Voice: "George" (default premade, ID JBFqnCBsd6RMkjVDRZzb), warm, clear,
  * works well across Latin and non-Latin scripts with eleven_multilingual_v2.
  * Chosen over "Rachel" (21m00Tcm4TlvDq8ikWAM) because Rachel is a *library*
  * voice that free-tier API keys are not allowed to use (the API returns a 402
@@ -256,7 +256,7 @@ export async function textToSpeechElevenLabs(
   modelId = "eleven_multilingual_v2",
   // ElevenLabs language_id for eleven_multilingual_v2. When present, the API
   // uses this to select the correct phoneme inventory instead of auto-detecting
-  // from the Unicode script — critical for Devanagari (shared by Hindi, Marathi,
+  // from the Unicode script, critical for Devanagari (shared by Hindi, Marathi,
   // Nepali, etc.) and transliterated text. Pass undefined to fall back to
   // auto-detection for unsupported language codes.
   languageId?: string,
@@ -283,13 +283,13 @@ export async function textToSpeechElevenLabs(
       // correct phoneme inventory rather than guessing from the Unicode script.
       ...(languageId ? { language_id: languageId } : {}),
       // Voice settings tuned for eleven_multilingual_v2 + Laura.
-      // stability=0.5: balanced — lets the model insert natural breath pauses
+      // stability=0.5: balanced, lets the model insert natural breath pauses
       //   and prosodic variation (0.7 was calibrated for the flash model and
       //   runs too steadily / without natural pauses on multilingual_v2).
       // similarity_boost=0.8: preserves Laura's voice character.
       // style=0.3: slightly more expressive to support natural pacing.
       // use_speaker_boost: final audio enhancement pass for non-Latin clarity.
-      // speed=0.9 (top-level): 10% slower delivery — prevents the rushed
+      // speed=0.9 (top-level): 10% slower delivery, prevents the rushed
       //   cadence that multilingual_v2 defaults to with Latin-script settings.
       speed: 0.9,
       voice_settings: {
@@ -400,7 +400,7 @@ export async function getElevenLabsQuota(): Promise<ElevenLabsQuota> {
  * Calls the `/stream` variant of the text-to-speech endpoint, which returns
  * raw MP3 bytes progressively as synthesis proceeds. Each chunk is forwarded
  * to `onChunk` as it arrives (chunk boundaries are arbitrary byte offsets in
- * the MP3 stream — callers concatenating all chunks in order reconstruct the
+ * the MP3 stream, callers concatenating all chunks in order reconstruct the
  * exact same file). Resolves with the complete audio Buffer once the stream
  * ends, so callers can also use the full clip (e.g. for a final payload).
  */
@@ -410,7 +410,7 @@ export async function textToSpeechElevenLabsStream(
   // Kept for API symmetry with textToSpeechElevenLabs; not sent to the API.
   _language?: string,
   modelId = "eleven_multilingual_v2",
-  // ElevenLabs language_id — same semantics as in textToSpeechElevenLabs.
+  // ElevenLabs language_id, same semantics as in textToSpeechElevenLabs.
   // Placed before onChunk so it sits alongside the other API parameters;
   // callers that were passing onChunk positionally must be updated accordingly.
   languageId?: string,
@@ -505,7 +505,7 @@ export interface SpeechToTextOptions {
   /** Context prompt (e.g. the phrase the speaker is attempting). Steers the
    * transcriber's vocabulary without forcing the output. */
   prompt?: string;
-  /** Use the larger transcription model — worth it when the fast model
+  /** Use the larger transcription model, worth it when the fast model
    * returned nothing or something wildly divergent. */
   highQuality?: boolean;
 }
@@ -546,7 +546,7 @@ export async function speechToText(
   } catch (err) {
     // The transcribe models accept only a subset of ISO-639-1 codes (e.g.
     // 'pa' for Punjabi is rejected with a 400 invalid_value on `language`).
-    // Retry without the code — the prompt already names the language, which
+    // Retry without the code, the prompt already names the language, which
     // is enough of a hint. Any other error propagates unchanged.
     const e = err as { status?: number; param?: string; message?: string };
     const languageRejected =
@@ -554,7 +554,7 @@ export async function speechToText(
       (e?.param === "language" ||
         /language(_| )?code|'language'|unsupported language/i.test(e?.message ?? ""));
     if (options.language && languageRejected) {
-      // Behavior unchanged — just record which language codes force the
+      // Behavior unchanged, just record which language codes force the
       // no-language-hint retry, so degraded-recognition patterns are traceable.
       console.warn("[stt] language_code_rejected_retrying_without_hint", {
         language: options.language,

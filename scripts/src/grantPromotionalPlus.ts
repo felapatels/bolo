@@ -5,7 +5,7 @@
 //   pnpm --filter @workspace/scripts exec tsx src/grantPromotionalPlus.ts <clerk_user_id>
 //
 // v1 calls authenticate with the owner-provided REVENUECAT_SECRET_API_KEY (a
-// V1 secret key) — the Replit connector's token is v2-only and 401s on every
+// V1 secret key), the Replit connector's token is v2-only and 401s on every
 // v1 endpoint, and promotional grants exist only on v1. The v2 read-back still
 // goes through the connector proxy (its v2 reads work).
 //
@@ -98,12 +98,12 @@ async function main(): Promise<void> {
     console.error(
       `GRANT FAILED (HTTP ${grant.status}): ${JSON.stringify(grant.json)}`,
     );
-    console.error("STOP — do the grant manually in the RevenueCat dashboard.");
+    console.error("STOP, do the grant manually in the RevenueCat dashboard.");
     process.exit(2);
   }
   console.log(`Grant accepted (HTTP ${grant.status}).`);
 
-  // 2) Read back the v1 subscriber — the exact shape reconcile-on-read uses.
+  // 2) Read back the v1 subscriber, the exact shape reconcile-on-read uses.
   const sub = await rcV1("GET", `/v1/subscribers/${encoded}`);
   const ent = sub.json?.subscriber?.entitlements?.[ENTITLEMENT_ID];
   const promoSubs = Object.entries(
@@ -124,7 +124,7 @@ async function main(): Promise<void> {
   const expires = ent?.expires_date ? new Date(ent.expires_date) : null;
   const activeNow = expires != null && expires.getTime() > Date.now();
   console.log(
-    `\nRESULT: ${activeNow ? "ACTIVE" : "NOT ACTIVE"} — expires ${expires?.toISOString() ?? "n/a"}`,
+    `\nRESULT: ${activeNow ? "ACTIVE" : "NOT ACTIVE"}, expires ${expires?.toISOString() ?? "n/a"}`,
   );
   process.exit(activeNow ? 0 : 3);
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Put an accessory on Bolo — as a LAYER, not a baked-in bird.
+// Put an accessory on Bolo, as a LAYER, not a baked-in bird.
 //
 // CANONICAL MASCOT RULE (owner ruling): no new Bolo artwork, by any means. An
 // accessory is an isolated transparent object composited over the untouched
@@ -9,13 +9,13 @@
 // belly, an accessory sits on her head, and the owner wants both worn at once.
 // That only works if the accessory ships as a TRANSPARENT OVERLAY the client
 // stacks over whatever base is showing (canonical Bolo, or a dressed one).
-// Baking the hat into a whole-bird PNG — the old shape — makes hat and garment
+// Baking the hat into a whole-bird PNG, the old shape, makes hat and garment
 // mutually exclusive, because each file is a complete picture of her.
 //
 // Two files per pose:
 //   overlay-<pose>.png   the accessory alone in the 1024 frame, aligned so it
 //                        drops onto any base with no maths at the call site.
-//   mascot-<pose>.png    canonical Bolo wearing it — still shipped for the
+//   mascot-<pose>.png    canonical Bolo wearing it, still shipped for the
 //                        shop thumbnail and any single-layer surface.
 //
 // EYE CLEARANCE (owner ruling, Aug 8 2026): a hat may not clip the top of her
@@ -87,7 +87,7 @@ function layerBox(path, pose) {
 
 /**
  * Her eyes, measured off the canonical art. Nothing else on the mascot is that
- * bright, so the two largest near-white blobs are the eye whites — a threshold
+ * bright, so the two largest near-white blobs are the eye whites, a threshold
  * plus connected components finds them without knowing anything about a pose.
  * The angle between their centroids is her head roll, which differs enormously
  * between poses: a flat hat on a tilted head is instantly obvious.
@@ -106,7 +106,7 @@ function eyes(pose, tmp) {
       /^\d+:\s+(\d+)x(\d+)\+(-?\d+)\+(-?\d+)\s+([\d.]+),([\d.]+)\s+(\d+)\s+(\S+)/,
     );
     if (!g) continue;
-    // White blobs only — the background is one enormous black component.
+    // White blobs only, the background is one enormous black component.
     if (!/255,255,255|gray\(255\)|white/.test(g[8])) continue;
     blobs.push({ y: +g[4], h: +g[2], cx: +g[5], cy: +g[6], area: +g[7] });
   }
@@ -123,7 +123,7 @@ function eyes(pose, tmp) {
 /**
  * The eye whites as a mask, grown upwards by the clearance margin.
  *
- * It has to be the blobs themselves — not the box around them, and not the
+ * It has to be the blobs themselves, not the box around them, and not the
  * column range they span. The pagdi's side flaps hang more than 100px below
  * eye level BESIDE her head, so any region-based measure reports a hat that
  * covers her whole face and shrinks it into a toy.

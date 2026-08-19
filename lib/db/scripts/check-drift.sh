@@ -7,9 +7,9 @@
 # in CI / validation automation.
 #
 # Two guards:
-#   1. `drizzle-kit check` — verifies the committed migrations + meta snapshots
+#   1. `drizzle-kit check`, verifies the committed migrations + meta snapshots
 #      are internally consistent (no collisions / corrupt journal).
-#   2. `drizzle-kit generate` produces no new migration — if generating against
+#   2. `drizzle-kit generate` produces no new migration, if generating against
 #      the current schema would emit a migration, the schema has drifted from
 #      the committed migrations. Any files generate emits are reverted so the
 #      check leaves the working tree untouched.

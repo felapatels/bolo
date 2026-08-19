@@ -1,4 +1,4 @@
-// Boarding-pass ticket treatment — variant MINIMAL.
+// Boarding-pass ticket treatment, variant MINIMAL.
 // Both passes keep their current structure; additions are limited to the
 // spec'd elements: edge notch cutouts at the perforation, the existing dashed
 // perforation retained, a subtle brand-color watermark, and a fare-zone stamp.
@@ -8,7 +8,7 @@ import { TrainEngine } from "./_shared/TrainEngine";
 import { ACCENT, DONE_COUNT, LINE_NAME, TOTAL_COUNT } from "./_shared/data";
 
 /** Rotated repeating brand-text watermark (existing brand string + colors
- *  only — no artwork). */
+ *  only, no artwork). */
 function Watermark({ light }: { light: boolean }) {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>

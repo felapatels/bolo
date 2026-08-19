@@ -116,7 +116,7 @@ function billingStatusMeta(
 /**
  * Subscription management. Reads the server-authoritative snapshot and lets a
  * subscriber see their plan/status/dates/language/payment method, work a
- * retention flow (3-month discount or pause — recorded through the backend),
+ * retention flow (3-month discount or pause, recorded through the backend),
  * and deep-link to the OS store for the actual cancellation, which Apple/Google
  * don't permit an app to perform directly. Free/expired learners get an upgrade
  * entry point into the existing paywall and can always restore purchases.
@@ -172,7 +172,7 @@ export default function SubscriptionScreen() {
       setRetentionOpen(false);
       setBanner({
         kind: 'success',
-        text: 'Your discount is applied — welcome back!',
+        text: 'Your discount is applied, welcome back!',
       });
     } catch {
       Alert.alert(
@@ -208,7 +208,7 @@ export default function SubscriptionScreen() {
     const managementUrl = details.paymentMethod?.managementUrl ?? null;
 
     if (details.provider === 'stripe') {
-      // Web/Stripe billing must be managed in the Stripe portal — the in-app
+      // Web/Stripe billing must be managed in the Stripe portal, the in-app
       // DB-only endpoints would desync app state from Stripe.
       const opened = await openWebBillingPortal(managementUrl);
       if (!opened) {
@@ -257,7 +257,7 @@ export default function SubscriptionScreen() {
   };
 
   // Clear a pause and restore Plus access immediately. The endpoint is
-  // idempotent — calling it on an already-active plan is a no-op — so a
+  // idempotent, calling it on an already-active plan is a no-op, so a
   // double-tap is safe.
   const onUnpause = async () => {
     setBanner(null);
@@ -266,7 +266,7 @@ export default function SubscriptionScreen() {
       applyDetails(next);
       setBanner({
         kind: 'success',
-        text: 'Your subscription is active again — welcome back!',
+        text: 'Your subscription is active again, welcome back!',
       });
     } catch {
       Alert.alert(
@@ -277,8 +277,8 @@ export default function SubscriptionScreen() {
   };
 
   // Undo a pending cancellation while the plan is still live. Store (RevenueCat)
-  // subscriptions un-cancel through the backend resume endpoint — a plain,
-  // repeatable status flip with no discount — so the snapshot reads active
+  // subscriptions un-cancel through the backend resume endpoint, a plain,
+  // repeatable status flip with no discount, so the snapshot reads active
   // again; if it fails we fall back to the store's re-subscribe page. Stripe
   // (web) billing is managed on the web.
   const onReactivate = async () => {
@@ -302,10 +302,10 @@ export default function SubscriptionScreen() {
       applyDetails(next);
       setBanner({
         kind: 'success',
-        text: 'Your plan is active again — welcome back!',
+        text: 'Your plan is active again, welcome back!',
       });
     } catch {
-      // The backend couldn't resume — send the learner to the store to
+      // The backend couldn't resume, send the learner to the store to
       // turn auto-renew back on.
       const opened = await openStoreSubscriptions(managementUrl);
       if (opened) {
@@ -351,7 +351,7 @@ export default function SubscriptionScreen() {
         <View style={styles.centerState}>
           <Feather name="alert-circle" size={32} color={colors.mutedForeground} />
           <Text style={[styles.stateText, { color: colors.mutedForeground }]}>
-            Bolo couldn't load your subscription right now 🥭 — check your connection and try again.
+            Bolo couldn't load your subscription right now 🥭, check your connection and try again.
           </Text>
           <ChunkyButton
             title="Retry"
@@ -414,7 +414,7 @@ export default function SubscriptionScreen() {
 
           <BillingHistory entries={details.billingHistory} />
 
-          {/* Restore is always reachable — a reinstall or new device needs it. */}
+          {/* Restore is always reachable, a reinstall or new device needs it. */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Restore purchases"
@@ -649,7 +649,7 @@ function PlanState({
  * server-resolved: an owner sees live seat usage, a member sees whose plan
  * they're on, and everyone else gets the Family upsell (which also hosts the
  * join-code entry for invited learners). Hidden only while the status is
- * still loading or failed — the family screen handles every role.
+ * still loading or failed, the family screen handles every role.
  */
 function FamilySection({ onOpen }: { onOpen: () => void }) {
   const colors = useColors();
@@ -658,7 +658,7 @@ function FamilySection({ onOpen }: { onOpen: () => void }) {
   if (!data) return null;
 
   let title = 'Bolo! Family';
-  let subtitle = 'All-Access for up to 4 people — or join with a code.';
+  let subtitle = 'All-Access for up to 4 people, or join with a code.';
   if (data.role === 'owner') {
     const seats = data.seats ?? [];
     const capacity = data.capacity ?? 4;
@@ -706,7 +706,7 @@ function FamilySection({ onOpen }: { onOpen: () => void }) {
 
 /**
  * Past billing periods from the provider (RevenueCat / Stripe). The array can be
- * empty — some providers don't expose history — so we degrade to a friendly
+ * empty, some providers don't expose history, so we degrade to a friendly
  * empty state rather than hiding all trace of it.
  */
 function BillingHistory({ entries }: { entries: BillingHistoryEntry[] }) {
@@ -842,7 +842,7 @@ function DetailRow({
 /**
  * Shown before a cancellation. Offers the one-time 3-month discount and a pause
  * (both recorded through the backend) as retention, then a clear path to finish
- * canceling. For Stripe (web) subscribers the in-app offers are hidden — their
+ * canceling. For Stripe (web) subscribers the in-app offers are hidden, their
  * billing is provider-authoritative and managed on the web.
  */
 function RetentionModal({
@@ -900,7 +900,7 @@ function RetentionModal({
             <OfferCard
               icon="gift"
               title="3 months at a discount"
-              desc="Stay on and save — a one-time offer to keep everything you’ve unlocked."
+              desc="Stay on and save, a one-time offer to keep everything you’ve unlocked."
               cta="Claim the offer"
               onPress={onAcceptRetention}
               disabled={busy}
@@ -912,7 +912,7 @@ function RetentionModal({
             <OfferCard
               icon="pause-circle"
               title="Pause instead"
-              desc="Take a break for a month — your progress waits for you, and billing pauses too."
+              desc="Take a break for a month, your progress waits for you, and billing pauses too."
               cta="Pause subscription"
               onPress={onPause}
               disabled={busy}

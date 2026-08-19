@@ -1,4 +1,4 @@
-// Spec D1b — Concept 1: "Winding path"
+// Spec D1b, Concept 1: "Winding path"
 // A serpentine Duolingo-style trail snaking down through Gujarat-themed
 // scenery. Nodes are tappable circles; Bolo perches at the current node.
 
@@ -117,7 +117,7 @@ function PathNode({ node, index }: { node: JourneyNode; index: number }) {
       )}
       <button
         type="button"
-        aria-label={`${node.title} — ${node.status}`}
+        aria-label={`${node.title}, ${node.status}`}
         className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold transition-transform hover:scale-105 active:translate-y-0.5"
         style={circleStyle}
       >

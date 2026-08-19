@@ -7,8 +7,7 @@ export const springBouncy: Transition = { type: 'spring', stiffness: 300, dampin
 export const springSmooth: Transition = { type: 'spring', stiffness: 120, damping: 25 };
 
 // A varied spread of native scripts hinting at the full 22-language set from the
-// very first frame. Positioned around the perimeter so they frame — never cover —
-// the mascot and title in the center. Each floats gently with its own rhythm.
+// very first frame. Positioned around the perimeter so they frame, never cover, // the mascot and title in the center. Each floats gently with its own rhythm.
 type ScriptChip = {
   script: string;
   font: string;

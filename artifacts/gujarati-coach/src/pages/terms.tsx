@@ -88,7 +88,7 @@ export default function Terms() {
             </li>
             <li>
               Upload or transmit content that is abusive, harassing, infringing, or that
-              you do not have the right to share — including through the microphone
+              you do not have the right to share, including through the microphone
               recording features.
             </li>
             <li>
@@ -149,7 +149,7 @@ export default function Terms() {
           <p>
             You retain ownership of the content you provide, including your voice
             recordings. You grant us a limited license to process that content solely to
-            operate the app — for example, to transcribe and score your pronunciation and
+            operate the app, for example, to transcribe and score your pronunciation and
             return feedback. How we handle your voice recordings and other data is
             described in our{' '}
             <Link href="/privacy" className="font-bold text-primary hover:underline">
@@ -231,7 +231,7 @@ export default function Terms() {
       </main>
 
       <footer className="px-6 pb-10 text-center text-sm text-muted-foreground font-medium">
-        Bolo! — stop tapping, start talking.
+        Bolo!, stop tapping, start talking.
       </footer>
     </div>
   );

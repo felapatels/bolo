@@ -1,4 +1,4 @@
-# Bolo! Social Clips — Captions & Hashtags
+# Bolo! Social Clips, Captions & Hashtags
 
 Ready-to-post captions for TikTok and Instagram Reels.
 

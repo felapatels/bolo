@@ -6,7 +6,7 @@ let resend: Resend | null = null;
 
 function getResend(): Resend | null {
   if (!process.env.RESEND_API_KEY) {
-    logger.warn("RESEND_API_KEY is not set — contact notification emails will be skipped");
+    logger.warn("RESEND_API_KEY is not set, contact notification emails will be skipped");
     return null;
   }
   if (!resend) {
@@ -24,7 +24,7 @@ function fromAddress(): string {
   const from = process.env.RESEND_FROM;
   if (!from) {
     throw new Error(
-      "RESEND_FROM is not set — contact notification emails cannot be sent. Set it to the verified sender address (e.g. hello@bolo-india.app).",
+      "RESEND_FROM is not set, contact notification emails cannot be sent. Set it to the verified sender address (e.g. hello@bolo-india.app).",
     );
   }
   return from;

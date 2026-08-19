@@ -103,7 +103,7 @@ describe('MissReviewModal', () => {
     render(
       <MissReviewModal misses={[miss({ answer: null })]} visible onClose={() => {}} />,
     );
-    expect(screen.getByText('nothing — the round ran out')).toBeTruthy();
+    expect(screen.getByText('nothing, the round ran out')).toBeTruthy();
   });
 
   test('a game that is not answered in words can relabel both rows', () => {

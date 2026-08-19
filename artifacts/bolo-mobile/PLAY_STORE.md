@@ -1,4 +1,4 @@
-# Bolo! Mobile — Google Play Store submission guide
+# Bolo! Mobile, Google Play Store submission guide
 
 Everything needed to produce a release **AAB** and fill out the Google Play
 Console listing for Bolo! Mobile. The iOS equivalent lives in the App Store
@@ -28,7 +28,7 @@ pronunciation (via `expo-audio`). It is declared and justified through the
 
 `expo-location` has been removed from the project entirely (it was never used
 by any screen), so no location permissions exist to strip. `expo-image-picker`
-**is used** — the Account screen lets learners pick a profile picture from
+**is used**, the Account screen lets learners pick a profile picture from
 their photo library (`app/(app)/account/index.tsx` → `pickAvatar`). On Android
 the library opens the **system photo picker**, which requires no runtime
 permissions, so the legacy permissions the library would otherwise inject
@@ -41,7 +41,7 @@ sensitive runtime permission is the microphone.
 for pronunciation scoring, is not shared with third parties, and is not stored
 beyond the scoring request; and that a **user-chosen profile photo** is
 collected (uploaded to the auth provider, Clerk, to display the learner's
-avatar — optional, user-initiated). No location, contacts, or advertising IDs
+avatar, optional, user-initiated). No location, contacts, or advertising IDs
 are collected.
 
 ## 2a. Privacy policy (required)
@@ -51,7 +51,7 @@ before an app that records audio can be published. Bolo! records the learner's
 voice (microphone → backend) for pronunciation scoring, so the URL is mandatory.
 
 The policy is hosted on the Bolo! web app (`artifacts/gujarati-coach`) at the
-public route **`/privacy`** — it is served for both signed-in and signed-out
+public route **`/privacy`**, it is served for both signed-in and signed-out
 visitors, so it works as a public link.
 
 | Environment | URL |
@@ -75,7 +75,7 @@ delete data.
 App stores expect a Terms of Service / EULA in addition to the privacy policy,
 especially for apps with paid subscriptions (Bolo! Plus). The terms are hosted
 on the Bolo! web app (`artifacts/gujarati-coach`) at the public route
-**`/terms`** — served for both signed-in and signed-out visitors, so it works
+**`/terms`**, served for both signed-in and signed-out visitors, so it works
 as a public link.
 
 | Environment | URL |
@@ -112,40 +112,40 @@ bash scripts/gen-store-assets.sh
 ```
 
 The **feature graphic** (the 1024×500 banner at the top of the listing) leads
-with the brand lockup — speech-bubble mark, the **Bolo!** wordmark, and the
-tagline **"Speak all 22 official Indian languages"** — over a cloud of all 22
+with the brand lockup, speech-bubble mark, the **Bolo!** wordmark, and the
+tagline **"Speak all 22 official Indian languages"**, over a cloud of all 22
 scheduled Indian languages written in their **own native scripts** (हिन्दी,
 বাংলা, தமிழ், ગુજરાતી, اردو, ᱥᱟᱱᱛᱟᱲᱤ, ꯃꯤꯇꯩ …). This surfaces Bolo!'s headline
-differentiator — the full breadth of Indian languages — before a shopper even
+differentiator, the full breadth of Indian languages, before a shopper even
 scrolls to the screenshots.
 
 The native-script text is shaped by ImageMagick's bundled librsvg delegate
 (Pango/HarfBuzz), using the Noto Sans + Bricolage fonts vendored under
 `assets/store/fonts/` (committed to the repo). The generator wires only that
 dir into a throwaway fontconfig config, so the output reproduces byte-for-byte
-from a **clean checkout** — no `pnpm install` or system font install required.
+from a **clean checkout**, no `pnpm install` or system font install required.
 The script fails loudly if any required font is missing rather than silently
 falling back to a different face.
 
 ### Screenshots
 
 `screenshots/` holds nine real captures of the app, all at a Play-compliant
-**824×1648** (a 412×824 viewport captured at 2x device pixel ratio — exactly 2:1, within the ≤2:1 ratio and 320–3840px-per-side rules — so device text stays pixel-crisp when framed):
+**824×1648** (a 412×824 viewport captured at 2x device pixel ratio, exactly 2:1, within the ≤2:1 ratio and 320–3840px-per-side rules, so device text stays pixel-crisp when framed):
 
 | File | Screen |
 | --- | --- |
-| `01-sign-in.jpg` | Onboarding — sign in |
-| `02-sign-up.jpg` | Onboarding — create account |
-| `03-home-topics.jpg` | Home — streak/stats + lesson topics list (Hindi) |
-| `04-practice.jpg` | Practice — phrase card + record button (Hindi) |
-| `05-progress.jpg` | Progress — mastery, stats, badges entry |
-| `06-badges.jpg` | Badges — earned + in-progress achievements |
-| `07-home-topics-gujarati.jpg` | Home — topics list in **Gujarati** (ગુજરાતી) |
-| `08-practice-tamil.jpg` | Practice — phrase card in **Tamil** (தமிழ்) |
-| `09-topic-phrases-bengali.jpg` | Topic — phrase list in **Bengali** (বাংলা) |
+| `01-sign-in.jpg` | Onboarding, sign in |
+| `02-sign-up.jpg` | Onboarding, create account |
+| `03-home-topics.jpg` | Home, streak/stats + lesson topics list (Hindi) |
+| `04-practice.jpg` | Practice, phrase card + record button (Hindi) |
+| `05-progress.jpg` | Progress, mastery, stats, badges entry |
+| `06-badges.jpg` | Badges, earned + in-progress achievements |
+| `07-home-topics-gujarati.jpg` | Home, topics list in **Gujarati** (ગુજરાતી) |
+| `08-practice-tamil.jpg` | Practice, phrase card in **Tamil** (தமிழ்) |
+| `09-topic-phrases-bengali.jpg` | Topic, phrase list in **Bengali** (বাংলা) |
 
 Screenshots 07–09 show the same screens in **non-Hindi scripts** to make Bolo!'s
-headline differentiator — all 22 official Indian languages — obvious at a glance
+headline differentiator, all 22 official Indian languages, obvious at a glance
 to a shopper scrolling the listing.
 
 The four feature screens (03–06) live behind Clerk auth and real learner data,
@@ -164,13 +164,13 @@ adb exec-out screencap -p > screenshots/03-home-topics.png
 ### Branded, captioned screenshots (upload these)
 
 The raw `screenshots/*.jpg` are bare app frames. `gen-store-assets.sh` also
-generates **branded, captioned** versions into `screenshots-framed/` — each raw
+generates **branded, captioned** versions into `screenshots-framed/`, each raw
 capture is wrapped in an on-brand cream→mint gradient with the Bolo! mark,
 wordmark, and a short benefit headline above a rounded phone plate with a soft
 shadow. Pairing every screenshot with a caption (instead of a bare screen dump)
 is a well-known Play/App Store install-conversion lever.
 
-Each framed image is **1080×1920** (9:16 = 1.78:1 — inside Play's ≤2:1 ratio and
+Each framed image is **1080×1920** (9:16 = 1.78:1, inside Play's ≤2:1 ratio and
 320–3840px-per-side rules). Headlines:
 
 | File | Headline |
@@ -187,7 +187,7 @@ Each framed image is **1080×1920** (9:16 = 1.78:1 — inside Play's ≤2:1 rati
 
 **Upload the `screenshots-framed/` images to the listing** (the raw ones stay as
 the reproducible source captures). Play accepts **2–8** phone screenshots, so
-pick the strongest 8 — e.g. drop `01-sign-in` and lead with `03`, `04`, `05`,
+pick the strongest 8, e.g. drop `01-sign-in` and lead with `03`, `04`, `05`,
 `06`, `07`, `08`, `09`, `02`. Re-run `bash scripts/gen-store-assets.sh` to
 regenerate every frame after a re-capture or a copy tweak.
 
@@ -195,9 +195,9 @@ regenerate every frame after a re-capture or a copy tweak.
 
 Build profiles are defined in `eas.json`:
 
-- `development` — dev client APK for debugging on device
-- `preview` — internal-distribution APK for QA / sideloading
-- `production` — **app-bundle (AAB)** for the Play Store, `autoIncrement` on
+- `development`, dev client APK for debugging on device
+- `preview`, internal-distribution APK for QA / sideloading
+- `production`, **app-bundle (AAB)** for the Play Store, `autoIncrement` on
 
 ```bash
 # one-time

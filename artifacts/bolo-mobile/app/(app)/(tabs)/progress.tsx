@@ -116,7 +116,7 @@ export default function ProgressScreen() {
           </View>
         ) : (
           <>
-            {/* Next badge goal — shows the nearest locked badge as a directed
+            {/* Next badge goal, shows the nearest locked badge as a directed
                 motivator at the top of the screen so the learner always knows
                 what they're working toward. */}
             <NextBadgeSpotlight lang={activeLang} />
@@ -152,7 +152,7 @@ export default function ProgressScreen() {
               />
               {/* Spec D2 speaking streak is still tracked server-side
                   (`speakingStreakDays`), but it no longer earns a permanent
-                  stat here — the grid matches its four-card skeleton. */}
+                  stat here, the grid matches its four-card skeleton. */}
             </View>
 
             {/* Overall mastery */}
@@ -496,7 +496,7 @@ function Stat({
     return () => anim.removeListener(id);
   }, [value, index, reduceMotion, anim]);
 
-  // Entrance "pop" — a progressive enhancement implemented as a reanimated
+  // Entrance "pop", a progressive enhancement implemented as a reanimated
   // layout animation. Visibility is never gated on it: the card renders at full
   // opacity in its resting position by default, so if the animation never
   // commits (e.g. some Expo Go setups where reanimated entrance animations

@@ -1,11 +1,11 @@
-# Noise Robustness Bench — findings
+# Noise Robustness Bench, findings
 
 **Task #1028. Measurement only: nothing in this bench touches the live evaluation route, the mobile app, or the web app.**
 
 Bench: `qa/noise-robustness-bench.mjs`
 Sample: `qa/pilot-results/noise-bench/sample.json` (committed)
 Full results table: `qa/pilot-results/noise-bench/summary.md` (regenerate with `--report`)
-Raw per-run records: `qa/pilot-results/noise-bench/results.jsonl` (gitignored — holds learner transcripts)
+Raw per-run records: `qa/pilot-results/noise-bench/results.jsonl` (gitignored, holds learner transcripts)
 
 ---
 
@@ -13,7 +13,7 @@ Raw per-run records: `qa/pilot-results/noise-bench/results.jsonl` (gitignored �
 
 **Do not ship audio cleanup.** Across 2,640 scored runs on a stratified 80-clip sample at a
 five-rung noise ladder, **no cleanup chain produced a reproducible improvement at any noise
-level, in either noise character** — and the trim variant reproducibly *destroys* scores. The
+level, in either noise character**, and the trim variant reproducibly *destroys* scores. The
 single significant win in the first pass (profile-based cleanup on babble at 20 dB, +15.2 points)
 **did not reproduce** on an independent re-run of the same cell (+4.5 ± 4.6, not significant).
 With ~20 cell comparisons at a 2-SE bar, roughly one false positive was expected; that was it.
@@ -21,7 +21,7 @@ With ~20 cell comparisons at a 2-SE bar, roughly one false positive was expected
 What the bench *did* establish is worth more than the cleanup result:
 
 1. **Speech babble is the entire problem. Steady broadband room noise is nearly free.** Babble
-   already costs 16 points at 20 dB SNR — a background level most people would call quiet — and
+   already costs 16 points at 20 dB SNR, a background level most people would call quiet, and
    63 points at 0 dB. Broadband noise costs nothing measurable until 6 dB and only 16 points at
    0 dB.
 2. **Cleanup does not help clean audio, and the generic filter leans negative** (−3.3 ± 2.5).
@@ -36,26 +36,26 @@ What the bench *did* establish is worth more than the cleanup result:
 
 ## 2. What was run
 
-- **Sample** — 80 of the 237 frozen round-2 pilot clips, stratified by tester × language × label
+- **Sample**, 80 of the 237 frozen round-2 pilot clips, stratified by tester × language × label
   with largest-remainder allocation, seeded at 1028. Marginals land within one point of the
   corpus: testers 23/30/21/26% (corpus 23/29/21/27%), languages gu 49 / hi 46 / mr 5%, labels
   27/26/26/21%. The exact selection is committed so the run reproduces.
-- **Noise ladder** — clean plus 20 / 12 / 6 / 0 dB SNR. Noise character is assigned per clip
+- **Noise ladder**, clean plus 20 / 12 / 6 / 0 dB SNR. Noise character is assigned per clip
   (40 broadband, 40 babble, alternating through the stratum-ordered list) rather than crossed
   with the ladder, which keeps the matrix at the budgeted 1,600 runs while covering both.
   Broadband is pink noise; babble is four staggered, rotated layers of *other* pilot clips, so no
   external noise assets were needed. Every mixed clip opens with **0.6 s of noise-only lead-in**
   (digital silence on the clean rung) so the profile-based pipeline has something realistic to
   profile from. Delivered SNR was verified against the requested rung with a rig check.
-- **Pipelines** — `passthrough` (today), `generic` (highpass 80 Hz + lowpass 7.5 kHz + fixed-floor
+- **Pipelines**, `passthrough` (today), `generic` (highpass 80 Hz + lowpass 7.5 kHz + fixed-floor
   `afftdn` + `dynaudnorm`), `profiled` (`afftdn` sampling the clip's own opening), and
   `profiled_trim` (profile → clean → silence-trim to the dominant speech segment, gate derived
   from the measured lead level). Ordering is fixed profile → clean → trim; trimming first would
   delete the opening the profile reads.
-- **Scoring** — the real dual-pass STT (`gpt-4o-mini-transcribe` + `gpt-4o-transcribe` in
+- **Scoring**, the real dual-pass STT (`gpt-4o-mini-transcribe` + `gpt-4o-transcribe` in
   parallel) into the real `chooseConservativeTranscript` → `compareToTarget` → `applyScoreGuards`
   → honesty cap → `bandFromScore`, imported from the api-server sources rather than copied.
-- **Label protocol** — score deltas are computed over `native` / `american_accent` /
+- **Label protocol**, score deltas are computed over `native` / `american_accent` /
   `subtle_error` only. A `wrong_attempt` scoring low is the corpus protocol working; those clips
   are reported in their own column.
 
@@ -64,13 +64,12 @@ What the bench *did* establish is worth more than the cleanup result:
 The stochastic `gpt-5.4-mini` text judge is substituted with a deterministic monotone proxy
 (`round(sim × 100)`) feeding the real guards. Everything else on the path is production code.
 
-**Why:** the bench measures *deltas*. The judge adds variance without adding signal about noise —
-and, as section 5 shows, the transcription stage alone already contributes a ±3.8-point floor
+**Why:** the bench measures *deltas*. The judge adds variance without adding signal about noise, and, as section 5 shows, the transcription stage alone already contributes a ±3.8-point floor
 that swamped most effects. Adding judge variance on top would have required several times the
 sample to see the same effects. **What it costs:** absolute scores here are not the scores a
 learner would see (the proxy is harsher on mid-similarity transcripts), and any effect that acts
 *only* through judge behaviour is invisible to this bench. Deltas, no-score rates, and dual-pass
-disagreement — the three metrics the task asked for — are unaffected.
+disagreement, the three metrics the task asked for, are unaffected.
 
 ## 3. Go/no-go: does cleanup hurt clean audio?
 
@@ -78,16 +77,16 @@ disagreement — the three metrics the task asked for — are unaffected.
 
 | Pipeline | n | Δ vs passthrough on clean audio | nocatch | clips harmed | clips helped |
 |---|---|---|---|---|---|
-| passthrough | 63 | — | 4% | — | — |
+| passthrough | 63 |, | 4% |, |, |
 | generic | 63 | **−3.3 ± 2.5** | 9% | 10 | 6 |
 | profiled | 63 | +0.0 ± 3.2 | 5% | 12 | 7 |
 | profiled_trim | 63 | −2.4 ± 3.4 | 8% | 11 | 7 |
 
 Neither negative clears the 2-SE bar on its own, but the direction is consistent and the
 per-clip counts show why the means look calm: cleanup does not leave clean audio alone, it
-**shuffles it** — 10-12 clips of 63 get worse and 6-7 get better under every chain. The generic
+**shuffles it**, 10-12 clips of 63 get worse and 6-7 get better under every chain. The generic
 filter also nearly doubles the no-score rate on clean audio (4% → 9%). This is the known failure
-mode — denoising already-clean speech eats the consonant detail scoring depends on — showing up
+mode, denoising already-clean speech eats the consonant detail scoring depends on, showing up
 exactly where it was predicted. Per the task's instruction, this shrinks the follow-on work
 rather than being worked around.
 
@@ -134,7 +133,7 @@ the transcription call:
 
 This is a finding in its own right and belongs in any future scoring discussion: **roughly one
 attempt in five would show a different band purely because the transcriber was called twice.**
-It also sets the design rule for the successor work — an 80-clip sample cannot detect anything
+It also sets the design rule for the successor work, an 80-clip sample cannot detect anything
 smaller than ~4 points, so a cleanup that "helps a bit" is indistinguishable from doing nothing
 without several hundred clips.
 
@@ -151,7 +150,7 @@ No-score rate and dual-pass disagreement track the same split. Broadband: no-sco
 and disagreement 33-58% across the whole ladder. Babble: no-score climbs 3% → 18% → 15% → 23% →
 **33%**, and disagreement climbs 38% → 63% → 78% → 75% → **90%** (100% under the profiled chain
 at 0 dB). Dual-pass disagreement is the cleanest available *proxy signal* for "this recording is
-compromised" — it more than doubles under babble while barely moving under broadband.
+compromised", it more than doubles under babble while barely moving under broadband.
 
 ## 7. Bitrate lever
 
@@ -163,13 +162,13 @@ passthrough:
 | clean | 63 | 76.1 | 78.4 | +2.4 ± 2.4 | 4% | 4% |
 | 12 dB | 63 | 67.9 | 74.0 | +6.1 ± 3.7 | **15% → 5%** | |
 | 6 dB | 63 | 50.3 | 55.7 | +5.4 ± 5.0 | 19% | 20% |
-| 12 dB (replication) | 63 | — | — | +3.1 ± 3.2 | 15% → 10% | |
+| 12 dB (replication) | 63 |, |, | +3.1 ± 3.2 | 15% → 10% | |
 
 All three rungs are positive, the no-score improvement at 12 dB reproduced in direction (15% →
 5%, then 15% → 10%), and nothing clears 2 SE. **Recommendation: keep this open, do not act on it
 yet.** It is the only treatment that never harmed anything, its cost is a recorder-preset change
 rather than a processing stage on the latency path, and its plausible mechanism is exactly the
-one the task named — a lossy encoder at 32 kbps spending its budget on whatever is loudest. But
+one the task named, a lossy encoder at 32 kbps spending its budget on whatever is loudest. But
 it has not been shown to work. A dedicated bitrate-only run at ~250 clips would settle it, and
 that is a much cheaper experiment than the cleanup work it would replace.
 
@@ -193,7 +192,7 @@ efficacy is.
 - **~$0.54** of transcription (partially inferred: ~10 audio tokens/s at published
   mini/high-quality rates; the transcription API does not return usage here).
 - **~22 min of wall time** at concurrency 5, in resumable ≤4-minute foreground chunks.
-  **Zero failures and zero rate-limit retries** across all 5,280 calls — the dual-pass STT path
+  **Zero failures and zero rate-limit retries** across all 5,280 calls, the dual-pass STT path
   (direct OpenAI key, not the chat proxy) tolerated concurrency 5 comfortably.
 - The 10-clip cost slice measured 1.2 s/run and predicted ~30 min for the 1,600-run matrix; the
   actual matrix ran faster (0.4-0.5 s/run at higher concurrency), so the ladder was never cut and
@@ -218,12 +217,12 @@ Constants worth carrying forward into any successor work:
 - **Babble at 20 dB SNR already costs 16 points**; broadband is free until ~6 dB. If anything is
   detected, detect *babble*, not loudness.
 - **Dual-pass disagreement rises 38% → 90% under babble** while broadband holds near 50%. That
-  is the strongest in-band signal available for "this recording was compromised" — and it needs
+  is the strongest in-band signal available for "this recording was compromised", and it needs
   no extra processing, because both passes already run.
 
 **What this means for the follow-on "adapt to noisy rooms automatically" work: the cleanup half
-of it is dead.** What survives is detection — telling the learner (or the scorer) that a
-recording was compromised — for which dual-pass disagreement is already measured on every
+of it is dead.** What survives is detection, telling the learner (or the scorer) that a
+recording was compromised, for which dual-pass disagreement is already measured on every
 attempt at zero added cost.
 
 ## 11. Reproducing
@@ -240,4 +239,4 @@ node qa/noise-robustness-bench.mjs --report                       # regenerate s
 
 Requires the R2 credentials (clips are fetched per run and cached in `/tmp`, never committed) and
 `qa/pilot-results/manifest.json`, the frozen round-2 corpus record. **Never run
-`qa/harvest-pilot-corpus.mjs`** — it overwrites that manifest, which is not in version control.
+`qa/harvest-pilot-corpus.mjs`**, it overwrites that manifest, which is not in version control.

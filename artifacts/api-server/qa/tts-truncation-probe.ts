@@ -6,7 +6,7 @@
  * synthesizes fresh takes through the exact same call the /openai/tts route
  * makes, measuring duration (ffprobe) and transcribing each one back.
  *
- * Temporary QA probe — delete once the truncation question is settled.
+ * Temporary QA probe, delete once the truncation question is settled.
  */
 import { writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";

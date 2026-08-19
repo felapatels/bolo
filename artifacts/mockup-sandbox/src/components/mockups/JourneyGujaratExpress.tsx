@@ -1,4 +1,4 @@
-// Spec D1b — Concept 3 (wildcard): "The Gujarat Express"
+// Spec D1b, Concept 3 (wildcard): "The Gujarat Express"
 // A railway-map take on the journey: one vertical train line, lessons as
 // stations, regions as fare zones, and Bolo riding the train at the
 // learner's current station. Ticket-stub styling for the header and a
@@ -57,7 +57,7 @@ function Station({ node }: { node: JourneyNode }) {
   return (
     <button
       type="button"
-      aria-label={`${node.title} station — ${node.status}`}
+      aria-label={`${node.title} station, ${node.status}`}
       className="relative w-full flex items-center gap-3 py-3 pr-3 text-left group"
     >
       {/* marker sits on the line */}
@@ -237,7 +237,7 @@ export default function JourneyGujaratExpress() {
             />
             <div style={{ width: LINE_X + 22 }} className="shrink-0" />
             <div className="text-xs font-bold text-muted-foreground">
-              🛕 Terminus: Dwarka — journey complete
+              🛕 Terminus: Dwarka, journey complete
             </div>
           </div>
         </div>

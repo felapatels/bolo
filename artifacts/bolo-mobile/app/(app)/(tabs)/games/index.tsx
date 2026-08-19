@@ -74,7 +74,7 @@ type GameDef = {
 };
 
 const GAMES: GameDef[] = [
-  // Luggage Match leads: free, beginner, visually distinct — the right first
+  // Luggage Match leads: free, beginner, visually distinct, the right first
   // impression for a new learner browsing the hub.
   {
     id: 'luggage-match',
@@ -453,7 +453,7 @@ function GameCardTile({
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        {/* Access badge — its own right-aligned row, in normal flow.
+        {/* Access badge, its own right-aligned row, in normal flow.
             It cannot share the medallion's row and it cannot be pinned to the
             corner: "ALL-ACCESS" measures ~103pt at 10pt extrabold, while a
             two-column card's content box is only ~146pt and the 64pt medallion

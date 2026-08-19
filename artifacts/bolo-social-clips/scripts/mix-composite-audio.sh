@@ -10,7 +10,7 @@
 # cross-correlating each stem against the mixed track; keep this script as the
 # source of truth for offsets/volumes so future remixes don't have to repeat
 # that. VO lines are spoken by ElevenLabs "Jessica" (voice_id
-# cgSgspJ2msm6clMCkdW9, eleven_multilingual_v2) — the same bubbly female voice
+# cgSgspJ2msm6clMCkdW9, eleven_multilingual_v2), the same bubbly female voice
 # as the launch video narration. If you re-record a VO clip, re-run this script
 # and nudge the vo adelay so the line still ends before its scene boundary.
 set -euo pipefail

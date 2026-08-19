@@ -2,10 +2,10 @@
 // C1 rollout QA pass over the batch-generated sentences of the 21 non-Gujarati
 // languages (two-check QA, same design the Gujarati pilot validated).
 //
-// Check A (meaning): BLIND back-translation — the model sees only the native
+// Check A (meaning): BLIND back-translation, the model sees only the native
 // text, never the stored gloss, so nothing anchors the translation.
 // Check B (grammar): the sentence is judged AS A NATIVE SENTENCE of the
-// language — is it grammatically correct and natural? The grammar instruction
+// language, is it grammatically correct and natural? The grammar instruction
 // stays GENERIC (no language-specific construction is named): the pilot showed
 // that naming a suspect construction makes the judge over-flag correct
 // sentences using the legitimate alternative.
@@ -141,13 +141,13 @@ async function judge(
         role: "system",
         content: `You are a native ${languageName} grammarian reviewing sentences for a language-learning app.
 
-STEP 1 — GRAMMAR (judge the ${languageName} sentence AS A NATIVE SENTENCE, do not translate it):
+STEP 1, GRAMMAR (judge the ${languageName} sentence AS A NATIVE SENTENCE, do not translate it):
 Is it grammatically correct, natural ${languageName} that a native speaker would say? Pay particular attention to case and agreement, postposition/particle choice, verb agreement, and word order.
 If incorrect: name the specific construction at fault and give the corrected sentence.
 
-STEP 2 — MEANING: compare the provided blind English translation with the intended gloss. Equivalent means same meaning; wording differences are fine.
+STEP 2, MEANING: compare the provided blind English translation with the intended gloss. Equivalent means same meaning; wording differences are fine.
 
-STEP 3 — ROMANIZATION: does the romanization plausibly represent the ${languageName} text?
+STEP 3, ROMANIZATION: does the romanization plausibly represent the ${languageName} text?
 
 Respond ONLY as JSON:
 {"grammatical": boolean, "construction": string|null, "grammarIssue": string|null, "correctedForm": string|null, "meaningEquivalent": boolean, "meaningNote": string|null, "romanizedOk": boolean}`,
@@ -236,7 +236,7 @@ async function main() {
         persist(report);
         if (severity !== "ok") {
           console.log(
-            `[${severity}] ${language}/${category}: ${s.nativeScript} — ${j.grammarIssue ?? j.meaningNote ?? "romanization"}`,
+            `[${severity}] ${language}/${category}: ${s.nativeScript}, ${j.grammarIssue ?? j.meaningNote ?? "romanization"}`,
           );
         }
       } catch (err) {
@@ -257,7 +257,7 @@ async function main() {
   for (const [lang, b] of Object.entries(byLanguage).sort()) {
     const total = b.ok + b.minor + b.major;
     console.log(
-      `  ${lang}: ${JSON.stringify(b)} — major rate ${((b.major / total) * 100).toFixed(1)}%`,
+      `  ${lang}: ${JSON.stringify(b)}, major rate ${((b.major / total) * 100).toFixed(1)}%`,
     );
   }
   console.log(

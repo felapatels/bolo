@@ -3,15 +3,15 @@
  *
  * It used to divide today's XP by `dailyGoal`, which is an ATTEMPTS target, so
  * it read things like "254/10 XP" with the bar clamped full. The denominator
- * now comes from the shared ladder in @workspace/train-class — the same module
+ * now comes from the shared ladder in @workspace/train-class, the same module
  * web reads, which is why both platforms show the same number, the same class
  * and the same bar for the same learner at the same moment. Nothing here
  * re-derives a class, a denominator or a fill from the raw XP. `dailyGoal` is
  * untouched and still correct on its other surfaces (the home attempts line,
  * the Day Streak arc, the MilestoneToast).
  *
- * variant="chrome"  — shown in the Home tab header. Slightly larger.
- * variant="session" — shown inside the PracticeHeader / ReviewHeader. Compact.
+ * variant="chrome" , shown in the Home tab header. Slightly larger.
+ * variant="session", shown inside the PracticeHeader / ReviewHeader. Compact.
  *
  * Registers its View ref with xpCounterRef so Spec 1's arc animation can
  * target it via measureInWindow without knowing which variant is mounted.
@@ -130,7 +130,7 @@ export function XpCounter({ variant }: { variant: 'chrome' | 'session' }) {
       testID="xp-counter"
       accessibilityLabel={
         meter.atTop
-          ? `${meter.heldClass} class — ${meter.xp} XP today, top class reached`
+          ? `${meter.heldClass} class, ${meter.xp} XP today, top class reached`
           : meter.heldClass
             ? `${meter.xp} of ${meter.target} XP today, ${meter.heldClass} class`
             : `${meter.xp} of ${meter.target} XP today`
@@ -139,7 +139,7 @@ export function XpCounter({ variant }: { variant: 'chrome' | 'session' }) {
     >
       {meter.atTop ? (
         // Top of the ladder: nothing further to fill, so the class name stands
-        // alone — no bar, no fraction.
+        // alone, no bar, no fraction.
         classBadge
       ) : (
         <>

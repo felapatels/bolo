@@ -213,7 +213,7 @@ function FriendsTab() {
 
   // Adding a friend is code-only: there is no lookup by email, name or partial
   // match on this screen any more. The code someone types is their friend's
-  // REFERRAL code — one code, two jobs — and that reuse is only safe because
+  // REFERRAL code, one code, two jobs, and that reuse is only safe because
   // this lands as a *pending* request the other learner has to accept. See the
   // note at the accept handler on the server before changing anything here.
   const submitCode = (raw: string) => {
@@ -386,7 +386,7 @@ function FriendsTab() {
         />
       }
     >
-      {/* Add a friend by their code — typed, or scanned off their QR. */}
+      {/* Add a friend by their code, typed, or scanned off their QR. */}
       <View
         style={[
           styles.card,
@@ -488,7 +488,7 @@ function FriendsTab() {
         ) : null}
 
         {/* Someone who isn't on Bolo! yet can't have a code, so the email
-            invite stays — it mails a download link and turns into a pending
+            invite stays, it mails a download link and turns into a pending
             request when they sign up. It is NOT a lookup: nothing here reveals
             whether an address belongs to a learner beyond what the invite
             endpoint already refuses to do. */}
@@ -785,7 +785,7 @@ function FriendsTab() {
 /**
  * The other half of adding a friend: the code the learner hands out.
  *
- * This is the learner's REFERRAL code — one code, two jobs. Someone who scans
+ * This is the learner's REFERRAL code, one code, two jobs. Someone who scans
  * the square (or taps the shared link) also lands on the referral flow, so the
  * Chai reward and the friendship both follow from a single act.
  */
@@ -829,7 +829,7 @@ function YourFriendCode() {
       </Text>
 
       <View style={{ alignItems: 'center', gap: 12 }}>
-        {/* Only render the square when there is a link to encode — a QR of a
+        {/* Only render the square when there is a link to encode, a QR of a
             bare code would not open the app for whoever scans it. */}
         {link ? <FriendQr value={link} size={148} /> : null}
         <Text
@@ -1169,7 +1169,7 @@ function EmptyLeaderboard() {
         entering={skipEnter ? undefined : appearDown(160, 350)}
         style={[styles.emptyText, { color: colors.mutedForeground }]}
       >
-        Add friends and keep practicing — your XP across every language decides
+        Add friends and keep practicing, your XP across every language decides
         the standings.
       </Animated.Text>
     </View>
@@ -1185,14 +1185,14 @@ function EmptyLeaderboard() {
 //
 // An outfit costs 40 Chai and, until now, only the learner who bought it could
 // see it. Friend and leaderboard rows are the one place anybody else does, so
-// a row shows that learner's Bolo wearing what they have on — mobile rows used
+// a row shows that learner's Bolo wearing what they have on, mobile rows used
 // to show initials and no mascot at all.
 //
 // The numbers were settled by LOOKING at rendered thumbnails, not by reasoning
 // about them. At the old 44px circle, with the whole 1024 frame contained
 // inside it, a kurta and a sherwani are two coloured smudges. Two changes fix
 // that: the circle grows to 56px, and the frame is cropped to the bird MINUS
-// HER FEET — a 745px window at (125, 55) of the 1024 frame — which magnifies
+// HER FEET, a 745px window at (125, 55) of the 1024 frame, which magnifies
 // her ~1.37x inside the same circle. The crop deliberately stops short of the
 // "upper body": the garments hang on her belly and the hem and placket are
 // exactly what separate the two cream ones.
@@ -1211,8 +1211,8 @@ const ROW_MASCOT_TOP = -Math.round(
   (ROW_CROP.y / ROW_CROP.frame) * ROW_MASCOT_PX,
 );
 
-// One pose on every row: "wave". Front-facing and friendly, and — unlike
-// thumbsup or thinking, where a wing crosses the chest — nothing covers the
+// One pose on every row: "wave". Front-facing and friendly, and, unlike
+// thumbsup or thinking, where a wing crosses the chest, nothing covers the
 // garment. (tryagain is the most neutral stance but wears a worried face,
 // which is not what you want beside a friend's name.)
 const ROW_MASCOT_POSE = 'wave' as const;

@@ -1,9 +1,9 @@
 // ---------------------------------------------------------------------------
 // C1 QA pass over the batch-generated Gujarati sentences (task: two-check QA).
 //
-// Check A (meaning): BLIND back-translation — the model sees only the Gujarati
+// Check A (meaning): BLIND back-translation, the model sees only the Gujarati
 // text, never the stored gloss, so nothing anchors the translation.
-// Check B (grammar): the sentence is judged AS A NATIVE SENTENCE — is it
+// Check B (grammar): the sentence is judged AS A NATIVE SENTENCE, is it
 // grammatically correct, natural Gujarati? If not, the specific construction
 // at fault is named (e.g. dative/experiencer subject) with a corrected form.
 // The same call then compares the blind translation to the stored gloss for
@@ -91,13 +91,13 @@ async function judge(
         role: "system",
         content: `You are a native Gujarati grammarian reviewing sentences for a language-learning app.
 
-STEP 1 — GRAMMAR (judge the Gujarati sentence AS A NATIVE SENTENCE, do not translate it):
+STEP 1, GRAMMAR (judge the Gujarati sentence AS A NATIVE SENTENCE, do not translate it):
 Is it grammatically correct, natural Gujarati that a native speaker would say? Pay particular attention to case and agreement, including dative/experiencer-subject constructions (verbs of wanting, liking, feeling, needing take મને/મારે + oblique construction, never a nominative હું subject), postposition choice, and verb agreement.
 If incorrect: name the specific construction at fault and give the corrected sentence.
 
-STEP 2 — MEANING: compare the provided blind English translation with the intended gloss. Equivalent means same meaning; wording differences are fine.
+STEP 2, MEANING: compare the provided blind English translation with the intended gloss. Equivalent means same meaning; wording differences are fine.
 
-STEP 3 — ROMANIZATION: does the romanization plausibly represent the Gujarati text?
+STEP 3, ROMANIZATION: does the romanization plausibly represent the Gujarati text?
 
 Respond ONLY as JSON:
 {"grammatical": boolean, "construction": string|null, "grammarIssue": string|null, "correctedForm": string|null, "meaningEquivalent": boolean, "meaningNote": string|null, "romanizedOk": boolean}`,
@@ -170,7 +170,7 @@ async function main() {
         });
         persist(report);
         if (severity !== "ok") {
-          console.log(`[${severity}] ${category}: ${s.nativeScript} — ${j.grammarIssue ?? j.meaningNote ?? "romanization"}`);
+          console.log(`[${severity}] ${category}: ${s.nativeScript}, ${j.grammarIssue ?? j.meaningNote ?? "romanization"}`);
         }
       } catch (err) {
         console.warn(`retryable failure on "${s.nativeScript}": ${err instanceof Error ? err.message : err}`);

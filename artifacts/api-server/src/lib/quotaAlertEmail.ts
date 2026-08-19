@@ -2,7 +2,7 @@ import { Resend } from "resend";
 import { logger } from "./logger";
 
 // Email alert for low ElevenLabs credits. Recipient and sender are
-// env-configurable with sane defaults; sending is best-effort — a failure is
+// env-configurable with sane defaults; sending is best-effort, a failure is
 // logged by the caller and never disturbs the TTS path.
 
 const ALERT_TO = process.env.ELEVENLABS_ALERT_EMAIL ?? "aakeshp@gmail.com";
@@ -16,7 +16,7 @@ let resend: Resend | null = null;
 function getResend(): Resend | null {
   if (!process.env.RESEND_API_KEY) {
     logger.warn(
-      "RESEND_API_KEY is not set — ElevenLabs quota alert emails will be skipped",
+      "RESEND_API_KEY is not set, ElevenLabs quota alert emails will be skipped",
     );
     return null;
   }
@@ -51,8 +51,8 @@ export async function sendQuotaAlertEmail(
   const exhausted = remaining === 0;
 
   const subject = exhausted
-    ? "Bolo!: ElevenLabs credits EXHAUSTED — audio is on gpt-audio fallback"
-    : `Bolo!: ElevenLabs credits low — ${pct}% remaining`;
+    ? "Bolo!: ElevenLabs credits EXHAUSTED, audio is on gpt-audio fallback"
+    : `Bolo!: ElevenLabs credits low, ${pct}% remaining`;
 
   const lines = [
     exhausted

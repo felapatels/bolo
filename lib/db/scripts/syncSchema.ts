@@ -31,7 +31,7 @@ const MIGRATIONS_DIR = path.join(
   "drizzle",
 );
 
-// Postgres error codes meaning "this object already exists" — safe to skip
+// Postgres error codes meaning "this object already exists", safe to skip
 // when replaying DDL that may have partially applied before.
 const ALREADY_EXISTS_CODES = new Set([
   "42P07", // duplicate_table (also indexes)

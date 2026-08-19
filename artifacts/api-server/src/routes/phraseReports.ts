@@ -11,8 +11,7 @@ import type { AuthedRequest } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-// Spec B2: phrase reports. Max stored reports per user per rolling hour —
-// DB-backed like the test-out throttle (counted from the phrase_reports rows
+// Spec B2: phrase reports. Max stored reports per user per rolling hour, // DB-backed like the test-out throttle (counted from the phrase_reports rows
 // themselves, so it holds across restarts and replicas). Unlike test-out, the
 // over-limit branch is a SILENT 200 with no row written: the reporter is not
 // an adversary worth signaling, and the client treats every outcome
@@ -27,9 +26,9 @@ const reportBodySchema = z.object({
   note: z.string().trim().max(280).optional(),
 });
 
-// POST /phrases/:id/report — flag a phrase as incorrect. Authenticated
+// POST /phrases/:id/report, flag a phrase as incorrect. Authenticated
 // (mounted behind requireAuth). language_code and stage are derived from the
-// phrase row server-side — the client sends only reason + optional note.
+// phrase row server-side, the client sends only reason + optional note.
 // Duplicate reports (same user, same phrase) are allowed; dedup is a
 // review-time concern. Success and over-limit both return { success: true }.
 router.post(
@@ -66,7 +65,7 @@ router.post(
     // phrase). At or over the cap: acknowledge and store nothing. The
     // count+insert is serialized per user via an advisory xact lock (same
     // pattern as the teaser consumption gate) so concurrent requests cannot
-    // all observe count < cap and overshoot — the cap is a hard guarantee.
+    // all observe count < cap and overshoot, the cap is a hard guarantee.
     const note = parsed.data.note;
     await db.transaction(async (tx) => {
       await tx.execute(
@@ -83,7 +82,7 @@ router.post(
           ),
         );
       if (count >= REPORT_MAX_PER_WINDOW) {
-        return; // silent drop — response is identical either way
+        return; // silent drop, response is identical either way
       }
       await tx.insert(phraseReportsTable).values({
         userId,

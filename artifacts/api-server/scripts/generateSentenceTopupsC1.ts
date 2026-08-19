@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// C1 offline sentence top-up runner — Gujarati pilot.
+// C1 offline sentence top-up runner, Gujarati pilot.
 //
 // Grows each Gujarati category's Plus-only sentence stage from the hand-curated
 // base (8) to TARGET_TOTAL (51+) by batch-generating sentences with the same
@@ -173,7 +173,7 @@ async function topUpCategory(
   }
 
   // Final quality gate over the FULL merged stage, same rules the seeder
-  // enforces at startup — fail here, offline, not at boot.
+  // enforces at startup, fail here, offline, not at boot.
   const issues = checkLessonQuality({
     titleNative: lesson.titleNative,
     phrases: [...base, ...generated],

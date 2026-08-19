@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
 /** Copied verbatim from artifacts/gujarati-coach/src/components/train-svg.tsx
- *  (inline SVG, tints with currentColor — no raster art). */
+ *  (inline SVG, tints with currentColor, no raster art). */
 export function TrainEngine({
   className,
   style,

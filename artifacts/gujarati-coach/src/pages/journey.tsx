@@ -9,9 +9,9 @@
 // zones = grayscale postcards.
 //
 // Task 3 visual upgrade (approved picks): the rail renders as a PRONOUNCED
-// serpentine railway track — stations alternate left/right, twin rails with
+// serpentine railway track, stations alternate left/right, twin rails with
 // sleeper ties curve between them, completed segments solid, locked segments
-// faded and dashed — and the map-header boarding pass gets the full-ticket
+// faded and dashed, and the map-header boarding pass gets the full-ticket
 // treatment (tear-off stub, stripes, fare-zone stamp, punched hole). Stop
 // cards, badges, lock states, dialogs and the parked-train marker are
 // functionally unchanged; only path geometry, connector art and the header
@@ -99,7 +99,7 @@ const GRAY = "#9ca3af"; // rail/marker color for locked showroom zones
 
 // Serpentine layout rhythm (approved "pronounced" treatment). The map column
 // is mobile-width (max 390px) and centers inside the page's max-w-2xl on
-// desktop — no separate desktop composition.
+// desktop, no separate desktop composition.
 const MAP_MAX_W = 390;
 // Task 1082 item 2: the station card was slimmed (tighter padding and line
 // spacing, and the "Bolo is waiting here" fragment gone, which used to wrap
@@ -112,7 +112,7 @@ const COLLAPSED_H = 56;
 const PC_H = 184; // vertical rhythm per fare-zone postcard (incl. picture side + fact strip)
 const TERM_H = 92; // terminus row
 // Chacha-ji's halt: a scenery-only row inserted after every encounter station
-// so his stall has a lane on the RIGHT of the track. It is NOT a stop — no
+// so his stall has a lane on the RIGHT of the track. It is NOT a stop, no
 // number, no marker, no card, nothing tappable, and it never enters the
 // station list, so stop numbering and the station count are untouched. It
 // only lengthens the map.
@@ -387,7 +387,7 @@ function FactStrip({
 }
 
 /** Fare-zone postcard: picture side on top (per-zone landmark vista, inline
- *  SVG in brand colors — no artwork is generated, acceptance 8), address side
+ *  SVG in brand colors, no artwork is generated, acceptance 8), address side
  *  below with stamp + postmark. Locked showroom zones render grayscale.
  *  Full-width card; the interchange diamond is drawn by the map on the track
  *  where it meets the card. */
@@ -423,7 +423,7 @@ function ZonePostcard({
   const color = grayed ? GRAY : accent;
   return (
     <div className={cn("pointer-events-auto", grayed && "grayscale opacity-80")}>
-      {/* postcard frame — outer 2px border */}
+      {/* postcard frame, outer 2px border */}
       <div className="rounded-lg border-2 bg-card depth-shadow overflow-hidden" style={{ borderColor: color }}>
         {/* dashed inner frame */}
         <div className="m-1 rounded-md border border-dashed overflow-hidden" style={{ borderColor: `${color}66` }}>
@@ -548,7 +548,7 @@ function StationCard({
   const card = (
     <div
       className={cn(
-        // Item 2: same type scale, tighter box — py-2 -> py-1.5 and the
+        // Item 2: same type scale, tighter box, py-2 -> py-1.5 and the
         // current stop's roof clearance pt-3 -> pt-2.5.
         "relative min-w-0 rounded-lg px-3 py-1.5 transition-colors",
         isCurrent ? "border pt-2.5 depth-shadow" : "group-hover:bg-accent",
@@ -601,7 +601,7 @@ function StationCard({
           {stopLabel}
         </span>
         {/* Entitlement chip only where the server actually serves the stop
-            plan-locked — on stops the caller can ride free (Hindi Zone 1
+            plan-locked, on stops the caller can ride free (Hindi Zone 1
             carve-out) or already owns (Plus/Family), the badge is noise. */}
         {station.stage === "sentence" && station.planLocked === true && (
           <span
@@ -646,7 +646,7 @@ function StationCard({
           ` · ${station.phraseCount} phrases`}
         {/* Item 2: no "Bolo is waiting here" fragment. Bolo herself already
             stands beside this card, so the line only ever said in words what
-            the mascot says in the art — and it was what pushed the current
+            the mascot says in the art, and it was what pushed the current
             stop's status onto a second line at narrow widths. */}
       </div>
       {/* Progress as a small filled track once the stop has attempts; the
@@ -741,7 +741,7 @@ function RailSegment({ d, lit, accent }: { d: string; lit: boolean; accent: stri
       {/* Rail-bed thickness (Task 985): the tie band repeated once in ink,
           offset down by the shared depth step, so every sleeper shows an
           underside edge and the track reads as a raised bed. Same `d` and
-          dash rhythm — the rail geometry the comet samples is untouched. */}
+          dash rhythm, the rail geometry the comet samples is untouched. */}
       <path
         d={d}
         transform={`translate(0 ${DEPTH_2_5D.railBedDy})`}
@@ -793,7 +793,7 @@ type SignalSpot = {
   zoneIndex: number;
   zoneId: number;
   state: "upcoming" | "active" | "waved" | "cleared";
-  /** Hotfix 3S Item 4: first-clear Chai served by the zone payload — the
+  /** Hotfix 3S Item 4: first-clear Chai served by the zone payload, the
    *  reward chip renders THIS value, never a hardcoded number. */
   rewardChai: number;
   /** Rotation pick for this signal; null means auto-wave (roster empty). */
@@ -979,7 +979,7 @@ export default function Journey() {
     [mapRef, reduceMotion],
   );
 
-  // Task 985: light scroll parallax on the scenery layer — ONE scroll-linked
+  // Task 985: light scroll parallax on the scenery layer, ONE scroll-linked
   // transform on the scenery group, so it drifts slightly slower than the
   // rail and reads as sitting behind it. Page scrolling is window scroll
   // (sticky header, no overflow container), so the listener binds to window.
@@ -1035,7 +1035,7 @@ export default function Journey() {
   const zoneQueries = [q1, q2, q3, q4, q5, q6];
   // Hotfix 3S Item 1: waves persist server-side; the sessionStorage mark stays
   // as the optimistic cache so the gate lifts instantly even if the POST is
-  // still in flight (or fails — the server catches up on the next wave).
+  // still in flight (or fails, the server catches up on the next wave).
   const recordSignalWave = useRecordSignalWave();
 
   // Chai stop unlock. The offer, its price and its cap all come from the
@@ -1363,7 +1363,7 @@ export default function Journey() {
   const currentStationNumber = currentGlobalIdx >= 0 ? currentGlobalIdx + 1 : -1;
   // Task 1082 item 1: the boarding pass used to read "{doneCount}/{totalCount}
   // stations", so the number in the current-station slot was actually the
-  // COUNT OF FINISHED STOPS — it said 2 while the map highlighted stop 1. Both
+  // COUNT OF FINISHED STOPS, it said 2 while the map highlighted stop 1. Both
   // numbers now come off `allStations`, the one flattened list the map, the
   // server payload and the Chacha encounter logic all already share: the total
   // is its length and the stop number is the very index the encounter check
@@ -1382,7 +1382,7 @@ export default function Journey() {
   // the learner and behind, so the stop that pays is visible before it is
   // reached. Pure client geometry off the same predicate the arrival check
   // uses: no server call, no state, and no encounter row. Rendering is NOT
-  // triggering — the gift still happens only on arrival, below.
+  // triggering, the gift still happens only on arrival, below.
   // Zone index for the desktop rail. The map column is phone-width and centred,
   // so on a wide screen most of the viewport is empty margin while the learner
   // scrolls 52 stations looking for where they are. The rail fills that margin
@@ -1539,7 +1539,7 @@ export default function Journey() {
 
   return (
     <div className="app-surface min-h-[100dvh] bg-background flex flex-col">
-      {/* Boarding-pass header — full-ticket treatment */}
+      {/* Boarding-pass header, full-ticket treatment */}
       <header className="sticky top-0 z-10 bg-card/95 backdrop-blur border-b border-border">
         <div className="mx-auto w-full max-w-2xl px-3 py-3 flex items-center gap-2">
           <Link
@@ -1598,7 +1598,7 @@ export default function Journey() {
               <TicketPerforationV light />
               {/* Stub: perforation-end notches (edge bites) come from
                   TicketPerforationV. The floating notch dot and 🎫 emoji were
-                  removed — cutout circles only ever straddle card edges
+                  removed, cutout circles only ever straddle card edges
                   (approved ruling, ported from the mobile build-28 pass), and
                   the emoji renders as tofu without an emoji font. */}
               <div className="relative flex w-[76px] shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-1.5">
@@ -1758,7 +1758,7 @@ export default function Journey() {
                 })}
                 {/* Chacha-ji's stall: the same shipped trackside chai-stall
                     scene, seated in the gap after EVERY encounter station,
-                    ahead of the learner and behind. Scenery only — this layer
+                    ahead of the learner and behind. Scenery only, this layer
                     is pointer-events-none and carries no state. */}
                 {chachaStalls.map((s) => (
                   <g key={`chacha-stall-${s.station}`}>
@@ -1988,7 +1988,7 @@ export default function Journey() {
                 const stopLabel = `Stop ${s.stopNumber} of ${s.stopCount}`;
                 // Free-tier content policy: sentence stops gate by the
                 // server's planLocked flag (all-premium groups), not by
-                // stage — Hindi Fare Zone 1's sentence stops serve free. A
+                // stage, Hindi Fare Zone 1's sentence stops serve free. A
                 // planLocked sentence stop keeps the first-class upsell.
                 const sentenceGated =
                   s.stage === "sentence" && s.planLocked === true;
@@ -2290,8 +2290,7 @@ export default function Journey() {
                     : `Your free taste covers the marked station (${teaserProgress?.consumed ?? 0}/${teaserProgress?.limit ?? 3} tried). Unlock ${languageName} to board every stop.`}
                 </DialogDescription>
               </DialogHeader>
-              {/* Chai stop unlock: offered ONLY where the server says so —
-                  inside the first fare zone of a line the learner hasn't
+              {/* Chai stop unlock: offered ONLY where the server says so, inside the first fare zone of a line the learner hasn't
                   bought. Once opened, the stop stays open for good (the
                   purchase is a ledger row, not device state). Everything
                   further down the line is All-Access territory, and the

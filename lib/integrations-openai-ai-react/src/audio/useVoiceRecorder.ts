@@ -35,13 +35,12 @@ const PREFERRED_MIME_TYPES = [
  * scoring reads, and AGC rides the level between words, lifting the room tone
  * the server profiles from the silent opening of each hold-to-talk clip.
  * Turning them off hands every learner the unprocessed signal, in a quiet
- * room and a loud one alike — the noise-robustness bench found no threshold
+ * room and a loud one alike, the noise-robustness bench found no threshold
  * at which extra processing earns its place
  * (docs/specs/noise-robustness-bench.md).
  *
  * Echo cancellation stays ON deliberately. It subtracts a KNOWN playback
- * reference — the coach's own voice coming back through the laptop speakers —
- * rather than guessing at what in the learner's audio is unwanted, and
+ * reference, the coach's own voice coming back through the laptop speakers, * rather than guessing at what in the learner's audio is unwanted, and
  * practice lets learners barge in while the coach is still talking. Speaker
  * bleed is what invalidated most of the pronunciation pilot corpus; AEC is
  * the one processor that addresses it.
@@ -101,7 +100,7 @@ export function useVoiceRecorder() {
   /**
    * Acquire the microphone ahead of time. Call this when the recording UI
    * mounts so that startRecording can begin capturing immediately.
-   * Rejects if permission is denied — callers may ignore that and let
+   * Rejects if permission is denied, callers may ignore that and let
    * startRecording surface the error at click time.
    */
   const prepare = useCallback(async (): Promise<void> => {
@@ -124,7 +123,7 @@ export function useVoiceRecorder() {
   }, [releaseStream]);
 
   // Live audio analysis (one AudioContext + AnalyserNode per recording).
-  // Feeds both silence auto-stop and the live amplitude readout — never
+  // Feeds both silence auto-stop and the live amplitude readout, never
   // create a second AudioContext for either.
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -220,7 +219,7 @@ export function useVoiceRecorder() {
       // Live analysis: always attach one AudioContext + AnalyserNode to the
       // recording stream so getAmplitude() has a real signal (Spec D2
       // waveform). Silence auto-stop reuses this same analyser when a
-      // callback is provided — never a second AudioContext.
+      // callback is provided, never a second AudioContext.
       try {
         const AudioCtx =
           window.AudioContext ||
@@ -229,7 +228,7 @@ export function useVoiceRecorder() {
         const audioContext = new AudioCtx();
         audioContextRef.current = audioContext;
         // The context is created after `await getUserMedia(...)`, i.e.
-        // outside the click gesture's task — browsers may start it in the
+        // outside the click gesture's task, browsers may start it in the
         // "suspended" state, where the analyser reads permanent silence and
         // auto-stop can never arm. Resume explicitly before analysing.
         if (audioContext.state === "suspended") {
@@ -334,7 +333,7 @@ export function useVoiceRecorder() {
           .then((s) => {
             // Only adopt this prewarm stream if:
             //   1. No newer prewarm/abort has started (token still matches).
-            //   2. No stream is already live — startRecording may have grabbed
+            //   2. No stream is already live, startRecording may have grabbed
             //      one between stopRecording and this resolution (rapid
             //      stop→start race), or abortRecording may have unmounted.
             if (prewarmTokenRef.current !== myToken || streamRef.current !== null) {
@@ -372,7 +371,7 @@ export function useVoiceRecorder() {
         if (recorder.state !== "inactive") recorder.stop();
         recorder.stream.getTracks().forEach((t) => t.stop());
       } catch {
-        // Ignore teardown errors — the goal is just to release resources.
+        // Ignore teardown errors, the goal is just to release resources.
       }
       mediaRecorderRef.current = null;
     }
@@ -391,7 +390,7 @@ export function useVoiceRecorder() {
 
   /**
    * Returns the wall-clock duration of the most recent recording in seconds.
-   * Always a finite number ≥ 0 — never NaN, Infinity, or undefined.
+   * Always a finite number ≥ 0, never NaN, Infinity, or undefined.
    * Call this immediately after awaiting stopRecording with no intervening await
    * so a concurrent recording cannot overwrite the value before it is read.
    */

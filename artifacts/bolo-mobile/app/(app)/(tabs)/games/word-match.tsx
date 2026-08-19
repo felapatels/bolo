@@ -115,7 +115,7 @@ function FlipCard({
 }) {
   // Use RN's built-in Animated (NOT Reanimated) for the flip.
   // Reanimated's Animated.View does not honour pointerEvents="none" on New
-  // Architecture — it intercepts every touch regardless, making the card
+  // Architecture, it intercepts every touch regardless, making the card
   // untappable whether we use GestureDetector or Pressable as the outer wrapper.
   // RN's native Animated.View honours pointerEvents correctly.
   const scaleAnim = useRef(new RNAnimated.Value(1)).current;
@@ -136,7 +136,7 @@ function FlipCard({
   const backBorder = isMatched ? '#10B981'   : isError ? '#EF4444'   : colors.primary;
   const textColor  = isMatched ? '#10B981'   : isError ? '#EF4444'   : colors.foreground;
 
-  // Render only ONE face at a time — no overlapping views, no pointerEvents
+  // Render only ONE face at a time, no overlapping views, no pointerEvents
   // battles. The Pressable is the sole touch target with nothing on top of it.
   return (
     <Pressable
@@ -156,14 +156,14 @@ function FlipCard({
         ]}
       >
         {isHidden ? (
-          /* Front face — bird mascot */
+          /* Front face, bird mascot */
           <Image
             source={require('../../../../assets/images/mascot/mascot-wave.png')}
             style={styles.cardBird}
             resizeMode="contain"
           />
         ) : card.type === 'native' ? (
-          /* Back face — native script + romanization */
+          /* Back face, native script + romanization */
           <>
             <Text
               style={[styles.cardLabel, nativeProps, { color: textColor }]}
@@ -183,7 +183,7 @@ function FlipCard({
             ) : null}
           </>
         ) : (
-          /* Back face — English meaning */
+          /* Back face, English meaning */
           <Text
             style={[styles.cardLabel, { color: textColor }]}
             numberOfLines={3}
@@ -349,7 +349,7 @@ function GameBoard({
   // Wrong flip attempts, described in the learner's own terms: the card they
   // turned over first and the card they wrongly paired it with, against the
   // partner it actually belonged to. There is no numeric score in a memory
-  // game — every pair is eventually found — so a "miss" here is a mismatched
+  // game, every pair is eventually found, so a "miss" here is a mismatched
   // guess, the only thing the learner got wrong on the way there.
   const missesRef = useRef<GameMiss[]>([]);
 
@@ -451,8 +451,8 @@ function GameBoard({
           return updated;
         } else {
           // A mismatch: record it framed from the first card the learner
-          // turned over. Each card is named the way it appears — the native
-          // card by its reading, the english card by its meaning — and the
+          // turned over. Each card is named the way it appears, the native
+          // card by its reading, the english card by its meaning, and the
           // true partner of the first card is shown as the answer.
           const partner = current.find(
             c => c.pairId === a.pairId && c.id !== a.id,
@@ -489,7 +489,7 @@ function GameBoard({
   const [gridSize, setGridSize] = useState<{ width: number; height: number } | null>(null);
   const cardWidth  = gridSize ? (gridSize.width  - GAP * (COLS - 1)) / COLS : null;
   // The grid is flex:1, so dividing its full height by the row count stretched
-  // every card into a slender tile — roughly 84x134 on a phone at four rows,
+  // every card into a slender tile, roughly 84x134 on a phone at four rows,
   // and worse at three. Cards are never taller than they are wide now, which
   // is the near-square shape the web board already uses; the leftover height
   // is distributed around the rows (alignContent) instead of inside them.
@@ -516,7 +516,7 @@ function GameBoard({
         </Text>
       </View>
 
-      {/* Card grid — flex:1 so it takes all remaining height; onLayout measures actual size */}
+      {/* Card grid, flex:1 so it takes all remaining height; onLayout measures actual size */}
       <View
         style={[styles.grid, { gap: GAP, flex: 1 }]}
         testID="word-match-grid"
@@ -609,8 +609,8 @@ function EndScreen({
         {/* The result card is the first thing a learner reaches for to see the
             pairs they slipped on, so it opens the review itself. A clean run
             (no mismatches) has nothing to review, so it stays a plain,
-            untappable Time card. Word Match has no numeric score — the "miss"
-            is a mismatched flip — so the label counts those instead. */}
+            untappable Time card. Word Match has no numeric score, the "miss"
+            is a mismatched flip, so the label counts those instead. */}
         <Pressable
           testID="word-match-score-card"
           onPress={canReview ? () => setReviewOpen(true) : undefined}

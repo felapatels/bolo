@@ -277,7 +277,7 @@ function PlayingScreen({
   // reads in the same terms as the choices they tapped.
   const [misses, setMisses] = useState<GameMiss[]>([]);
   const [started, setStarted] = useState(false);
-  // Combo burst overlay — message shown when streak crosses 3 / 5 / 10.
+  // Combo burst overlay, message shown when streak crosses 3 / 5 / 10.
   const [comboBurst, setComboBurst] = useState<string | null>(null);
   const [comboBurstKey, setComboBurstKey] = useState(0);
   const prevStreakRef = useRef(0);
@@ -361,7 +361,7 @@ function PlayingScreen({
       setResults((prev) => [...prev, { phraseId: phrase.id, selectedPhraseId: opt.phraseId }]);
       if (!correct) {
         // The right label is the correct option's text: English by default,
-        // native script in hard mode — mirroring what the buttons showed.
+        // native script in hard mode, mirroring what the buttons showed.
         const correctLabel = options.find((o) => o.isCorrect)?.label ?? '';
         setMisses((prev) => [
           ...prev,
@@ -451,7 +451,7 @@ function PlayingScreen({
         <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
       </View>
 
-      {/* Combo burst overlay — springs in when streak hits 3 / 5 / 10 */}
+      {/* Combo burst overlay, springs in when streak hits 3 / 5 / 10 */}
       {comboBurst ? (
         <Animated.Text
           key={comboBurstKey}
@@ -558,7 +558,7 @@ function DoneScreen({
   const recordSession = useRecordGameSession();
   const [xpEarned, setXpEarned] = useState<number | null>(null);
   // Tapping the Correct card opens the same review the CTA does. A run with
-  // no misses (or an empty run) keeps the card inert — nothing to show.
+  // no misses (or an empty run) keeps the card inert, nothing to show.
   const [reviewOpen, setReviewOpen] = useState(false);
   const submitted = useRef(false);
 

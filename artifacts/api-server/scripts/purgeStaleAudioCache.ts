@@ -10,7 +10,7 @@
 // benefit.
 //
 // This script deletes all rows whose created_at predates the v3 deployment.
-// It does NOT drop the table or take any locks — it issues batched DELETEs so
+// It does NOT drop the table or take any locks, it issues batched DELETEs so
 // production stays fully online throughout.
 //
 // Usage (from repo root):
@@ -104,7 +104,7 @@ async function main(): Promise<void> {
   // Step 2: Load stale keys in bulk, then delete in batches.
   //
   // We fetch the primary keys first so each DELETE targets an explicit list of
-  // rows — this is safer than a blind DELETE WHERE created_at < cutoff in a
+  // rows, this is safer than a blind DELETE WHERE created_at < cutoff in a
   // single statement, which could acquire a very long table-level lock under
   // some Postgres configurations. Batching keeps individual transactions small.
   // -------------------------------------------------------------------------

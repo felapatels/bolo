@@ -4,8 +4,8 @@
  * Runs the audit batch by batch until the catalog is exhausted, printing
  * progress and writing a JSON report. Two modes:
  *
- *   local  — audits the database this process is pointed at (development).
- *   remote — drives a deployment's own audit endpoint over HTTP, because the
+ *   local , audits the database this process is pointed at (development).
+ *   remote, drives a deployment's own audit endpoint over HTTP, because the
  *            clips learners hear live in that deployment's cache, not this one.
  *
  * The cursor is persisted after every batch, so an interrupted run resumes
@@ -179,7 +179,7 @@ async function main(): Promise<void> {
     );
     for (const f of result.findings) {
       console.log(
-        `   ✗ ${f.phraseId} [${f.languageCode}] ${f.nativeScript} — ${f.status} ` +
+        `   ✗ ${f.phraseId} [${f.languageCode}] ${f.nativeScript}, ${f.status} ` +
           `(${f.coverage?.toFixed(2) ?? "n/a"}) heard "${f.heard}"` +
           (f.replacementNote ? ` · ${f.replacementNote}` : ""),
       );

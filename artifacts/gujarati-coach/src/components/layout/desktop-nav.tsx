@@ -34,7 +34,7 @@ const NAV_ITEMS: NavItem[] = [
 
 /**
  * The persistent desktop navigation. Rendered by the app shell and only visible
- * at the `lg` breakpoint and up — phones keep the bottom nav instead. Mirrors
+ * at the `lg` breakpoint and up, phones keep the bottom nav instead. Mirrors
  * the mobile nav's destinations, active-state colors, and the live friend
  * request badge, and adds the account controls a desktop layout expects.
  */
@@ -115,7 +115,7 @@ export function DesktopNav() {
           );
         })}
 
-        {/* Upgrade — only for learners who aren't already on the top tier. */}
+        {/* Upgrade, only for learners who aren't already on the top tier. */}
         {!isLoading && !isPlus && (
           <Link
             href="/upgrade"
@@ -133,14 +133,14 @@ export function DesktopNav() {
         )}
       </nav>
 
-      {/* Language switcher — Globe icon + current language name, opens picker dialog. */}
+      {/* Language switcher, Globe icon + current language name, opens picker dialog. */}
       {activeLanguage && (
         <div className="px-4 pb-4">
           <LanguagePicker />
         </div>
       )}
 
-      {/* Account — the user block links to account settings & subscription
+      {/* Account, the user block links to account settings & subscription
           management; keep the separate sign-out button beside it. */}
       <div className="flex items-center gap-2 border-t border-card-border px-4 py-4">
         <Link

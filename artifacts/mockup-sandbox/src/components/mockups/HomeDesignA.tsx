@@ -467,7 +467,7 @@ function HomeScreenA() {
 
 function WhatChangedA() {
   const items = [
-    { emoji: '🃏', text: 'Stat widgets become 3 individual floating cards with coloured icon badges and a 4 px bottom shadow — no more gradient banner.' },
+    { emoji: '🃏', text: 'Stat widgets become 3 individual floating cards with coloured icon badges and a 4 px bottom shadow, no more gradient banner.' },
     { emoji: '🎯', text: '"Start Daily Practice" becomes a compact card row: icon badge + title + subtitle + small circle arrow. Same primary colour, half the height.' },
     { emoji: '💨', text: 'Overall feel is lighter, more Duolingo-adjacent. Cards breathe on the page instead of blending into a heavy block.' },
   ];
@@ -522,7 +522,7 @@ export default function HomeDesignA() {
           marginBottom: 8,
         }}>Option A · Stat Cards</div>
         <div style={{ fontSize: 22, fontWeight: 900, color: '#1A1A2E' }}>Floating stat cards + compact CTA</div>
-        <div style={{ fontSize: 14, color: MUTED_TXT, marginTop: 4 }}>Lighter, airy — Duolingo-adjacent but cleaner</div>
+        <div style={{ fontSize: 14, color: MUTED_TXT, marginTop: 4 }}>Lighter, airy, Duolingo-adjacent but cleaner</div>
       </div>
 
       <PhoneFrame>

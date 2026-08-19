@@ -13,7 +13,7 @@ import {
  * The server (GET /entitlements, backed by the store purchase via RevenueCat) is
  * the single source of truth for the plan, the languages the caller may open,
  * the Plus feature flags, and the remaining daily-lesson allowance. The client
- * never assumes a tier from a local purchase — it reads it from here, so a
+ * never assumes a tier from a local purchase, it reads it from here, so a
  * purchase only "counts" once the server reflects it.
  */
 /** The effective plan the server resolved the caller to. */
@@ -86,7 +86,7 @@ export function EntitlementsProvider({
       allowedLanguages,
       freeLanguage: e?.freeLanguage ?? '',
       isLanguageAllowed: (code: string) => {
-        if (!e) return true; // unknown yet — don't lock prematurely
+        if (!e) return true; // unknown yet, don't lock prematurely
         if (isPlus) return true;
         return allowedLanguages.includes(code);
       },

@@ -2,15 +2,15 @@
  * One-off generator for the six static band-announcement clips (Task 903).
  *
  * Bolo speaks the band name the instant a practice result lands, from
- * pre-bundled audio — no synthesis wait. This script synthesizes the clips
+ * pre-bundled audio, no synthesis wait. This script synthesizes the clips
  * with the SAME voice as the spoken-feedback path (nova, gpt-4o-mini-tts) so
  * the band call-out and the feedback sentence sound like one speaker.
  *
  * Tone rules:
  *  - perfect/great/good: celebratory coach energy.
- *  - almost/retry: warm and encouraging — never harsh.
+ *  - almost/retry: warm and encouraging, never harsh.
  *  - nocatch: NEUTRAL. A nocatch is a system miss, not a learner error
- *    (Spec 1 rule 16) — the clip must sound matter-of-fact, not disappointed.
+ *    (Spec 1 rule 16), the clip must sound matter-of-fact, not disappointed.
  *
  * Usage:
  *   cd artifacts/api-server && node --import tsx scripts/genBandClips.ts /tmp/band-clips
@@ -38,25 +38,25 @@ const CLIPS: Array<{ name: string; text: string; instructions: string }> = [
     name: "good",
     text: "Good!",
     instructions:
-      "Warm, upbeat and encouraging — a friendly coach genuinely happy with solid progress.",
+      "Warm, upbeat and encouraging, a friendly coach genuinely happy with solid progress.",
   },
   {
     name: "almost",
     text: "Almost!",
     instructions:
-      "Warm and encouraging, upbeat — so close, cheering the learner on for one more push. Never disappointed.",
+      "Warm and encouraging, upbeat, so close, cheering the learner on for one more push. Never disappointed.",
   },
   {
     name: "retry",
     text: "Try again.",
     instructions:
-      "Gentle, warm and kind — inviting one more try. Light and supportive, never harsh, never disappointed.",
+      "Gentle, warm and kind, inviting one more try. Light and supportive, never harsh, never disappointed.",
   },
   {
     name: "nocatch",
     text: "Didn't catch that.",
     instructions:
-      "Calm, neutral, friendly and matter-of-fact. Not disappointed, not apologetic, no negative color at all — a simple neutral note that the system missed it.",
+      "Calm, neutral, friendly and matter-of-fact. Not disappointed, not apologetic, no negative color at all, a simple neutral note that the system missed it.",
   },
 ];
 

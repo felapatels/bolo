@@ -1,6 +1,6 @@
 // Static stand-in for the live /journey data (Gujarat Express line, gu).
 // Shapes mirror LessonGroupSummary + the Station decoration in
-// artifacts/gujarati-coach/src/pages/journey.tsx — values are hand-picked to
+// artifacts/gujarati-coach/src/pages/journey.tsx, values are hand-picked to
 // exercise every visual state: completed, tested_out (Express), current
 // (train + mascot), progression-locked, sentence-gated (All-Access chip),
 // and a teaser (Free taste) station.
@@ -29,7 +29,7 @@ export interface MockStation {
   isCurrent?: boolean;
   /** Free-taste marked station (M1 teaser chip). */
   teaser?: boolean;
-  /** Sentence stop viewed by a Free learner — All-Access chip + lock. */
+  /** Sentence stop viewed by a Free learner, All-Access chip + lock. */
   sentenceGated?: boolean;
 }
 

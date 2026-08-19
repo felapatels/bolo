@@ -1,6 +1,6 @@
 /**
  * Audit: find phrase-audio cache entries that are suspiciously SHORT for the
- * text they are supposed to speak — the fingerprint of a synthesis take that
+ * text they are supposed to speak, the fingerprint of a synthesis take that
  * dropped a word (e.g. "સાચવીને જજો" cached as just "saachvine").
  *
  * mp3 output from the phrase providers is constant-bitrate, so stored bytes are

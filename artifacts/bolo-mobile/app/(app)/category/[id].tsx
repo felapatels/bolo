@@ -41,7 +41,7 @@ export default function CategoryScreen() {
 
   const categories = useListCategories({ lang: activeLang });
   // Background replenishment (Plus) generates fresh phrases server-side while
-  // the learner practices — refetching on focus (returning from practice) and
+  // the learner practices, refetching on focus (returning from practice) and
   // a gentle poll make them appear here without any manual action, and never
   // interrupt an in-progress recording (that lives on the practice screen).
   const phrases = useListCategoryPhrases(categoryId, activeLang, {
@@ -64,7 +64,7 @@ export default function CategoryScreen() {
 
   // Show the "more phrases coming" hint only to Free learners who have engaged
   // at least 80 % of the topic's visible phrases and are still below their
-  // ceiling — mirrors the shouldReplenishFree trigger in phraseReplenisher.ts.
+  // ceiling, mirrors the shouldReplenishFree trigger in phraseReplenisher.ts.
   const showReplenishHint = (() => {
     if (isPlus) return false;
     const list = phrases.data ?? [];
@@ -74,8 +74,7 @@ export default function CategoryScreen() {
   })();
 
   // The topic's final step: the Plus-only sentence stage. Only requested once
-  // the server-reported category listing says this caller can open it —
-  // `sentencesLocked` is server-authoritative, never a client-side guess.
+  // the server-reported category listing says this caller can open it, // `sentencesLocked` is server-authoritative, never a client-side guess.
   const canLoadSentences = !!category && !category.sentencesLocked;
   const sentences = useListCategorySentences(categoryId, activeLang, {
     query: {
@@ -97,8 +96,7 @@ export default function CategoryScreen() {
     sentenceList.some((p) => p.mastered) &&
     !sentenceList.every((p) => p.mastered);
 
-  // A daily-lesson-limit / locked-language 402 means "upgrade", not "retry" —
-  // route the learner to the paywall, mirroring the web UpgradeScreen. Any
+  // A daily-lesson-limit / locked-language 402 means "upgrade", not "retry", // route the learner to the paywall, mirroring the web UpgradeScreen. Any
   // other failure (e.g. a 502 when AI generation fails) is retry-able: nothing
   // broken was cached, so a later request can succeed.
   const upgrade = asUpgradeRequired(phrases.error);
@@ -205,7 +203,7 @@ export default function CategoryScreen() {
         ) : null}
 
         {/* Exhaustion state: all visible phrases mastered, no locked phrases
-            (upgrading won't help) — prompt the learner to review instead of
+            (upgrading won't help), prompt the learner to review instead of
             leaving them with nothing to do. Plus learners see this when they've
             genuinely mastered everything the AI could produce for this topic. */}
         {!phrases.isLoading &&
@@ -222,7 +220,7 @@ export default function CategoryScreen() {
             <View style={styles.exhaustedTop}>
               <Feather name="star" size={18} color={colors.success} />
               <Text style={[styles.exhaustedText, { color: colors.success }]}>
-                You've mastered every phrase — nice work! Keep them sharp with a review.
+                You've mastered every phrase, nice work! Keep them sharp with a review.
               </Text>
             </View>
             <PressableScale

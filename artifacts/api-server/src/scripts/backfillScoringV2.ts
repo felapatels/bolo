@@ -8,7 +8,7 @@
 // mastered-phrase count (best score ≥ 80) and the new count (FSRS stability
 // ≥ 21 days) for all active users (≥ 5 attempts per language). If the
 // aggregate mastered count would drop by more than 30 %, the script throws and
-// the server refuses to start — operators must investigate before deploying.
+// the server refuses to start, operators must investigate before deploying.
 //
 // Stability seeding rule: a phrase with ≥ 3 attempts at score ≥ 80 is given a
 // minimum stability of 21 days after replay, so the FSRS mastered count stays
@@ -35,8 +35,7 @@ const BACKFILL_LOCK_KEY = 727_002; // advisory lock key distinct from seed lock
 // Minimum passing-score attempts for a phrase to get stability seeded to 21 days.
 // Set to 1 so the FSRS mastered count exactly mirrors the old `best score ≥ 80`
 // definition on migration day: any phrase the learner ever passed stays "mastered"
-// in the new system. The 3-attempt threshold was too strict for the transition —
-// it caused the mastery drop check to fail on accounts that had a single passing
+// in the new system. The 3-attempt threshold was too strict for the transition, // it caused the mastery drop check to fail on accounts that had a single passing
 // attempt per phrase, which is the normal case for recently-onboarded learners.
 const STABILITY_SEED_MIN_GOOD_ATTEMPTS = 1;
 const STABILITY_SEED_MINIMUM_DAYS = 21;
@@ -144,7 +143,7 @@ async function _runBackfill(): Promise<void> {
     .from(attemptsTable);
 
   if (userRows.length === 0) {
-    logger.info("Backfill v2: no users with attempts — nothing to do");
+    logger.info("Backfill v2: no users with attempts, nothing to do");
     return;
   }
 
@@ -154,7 +153,7 @@ async function _runBackfill(): Promise<void> {
   let totalOldMastered = 0;
   let totalNewMastered = 0;
 
-  // Collected writes — committed after validation.
+  // Collected writes, committed after validation.
   const xpRows: {
     userId: string;
     languageCode: string;
@@ -317,7 +316,7 @@ async function _runBackfill(): Promise<void> {
             dropRatio: dropRatio.toFixed(3),
             threshold: MAX_MASTERED_DROP_RATIO,
           },
-          "SCORING_V2_GATE_OVERRIDE=1 — safety gate BYPASSED; mastered-count " +
+          "SCORING_V2_GATE_OVERRIDE=1, safety gate BYPASSED; mastered-count " +
             "drop exceeds threshold but proceeding anyway. Investigate urgently.",
         );
       } else {
@@ -330,7 +329,7 @@ async function _runBackfill(): Promise<void> {
       }
     }
   } else {
-    logger.info("Backfill v2: no active users with mastered phrases — skipping drop check");
+    logger.info("Backfill v2: no active users with mastered phrases, skipping drop check");
   }
 
   // ── Write xp_ledger rows (idempotent) ──────────────────────────────────────

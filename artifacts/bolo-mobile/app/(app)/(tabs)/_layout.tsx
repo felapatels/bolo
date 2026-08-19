@@ -57,7 +57,7 @@ function randomOtherPose(current: MascotPose): MascotPose {
 }
 
 // ---------------------------------------------------------------------------
-// BoloNavParrot — animated parrot for the bottom nav bubble
+// BoloNavParrot, animated parrot for the bottom nav bubble
 // ---------------------------------------------------------------------------
 function BoloNavParrot({ focused }: { focused: boolean }) {
   const reduceMotion = useReducedMotion();
@@ -108,7 +108,7 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
     [nextPose],
   );
 
-  // Pose cycling interval — restart whenever focused changes or app foregrounds
+  // Pose cycling interval, restart whenever focused changes or app foregrounds
   React.useEffect(() => {
     const focusedAtMount = focused;
     startInterval(focusedAtMount);
@@ -145,7 +145,7 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
     );
   }, [reduceMotion, translateY]);
 
-  // Idle float animation — continuous gentle bob, paused in background
+  // Idle float animation, continuous gentle bob, paused in background
   React.useEffect(() => {
     if (reduceMotion) {
       translateY.value = 0;
@@ -155,10 +155,10 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        // App returned to foreground — resume the float loop
+        // App returned to foreground, resume the float loop
         startFloat();
       } else {
-        // App went to background / inactive — cancel the worklet to save battery
+        // App went to background / inactive, cancel the worklet to save battery
         cancelAnimation(translateY);
         translateY.value = 0;
       }
@@ -174,7 +174,7 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
   React.useEffect(() => {
     if (reduceMotion) return;
     if (!focused) {
-      // Return to gentle idle — reset rotate, let scale spring back to 1
+      // Return to gentle idle, reset rotate, let scale spring back to 1
       rotate.value = withTiming(0, { duration: 300 });
       scale.value = withSpring(1, { damping: 12, stiffness: 200 });
       return;
@@ -207,7 +207,7 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
 
   // Wrap in Animated.View rather than using Animated.Image: Reanimated's
   // Animated.Image crashes on physical iOS devices running Expo Go with New
-  // Architecture (Fabric) enabled — the animated wrapper's prop pipeline
+  // Architecture (Fabric) enabled, the animated wrapper's prop pipeline
   // diverges from the simulator's Old Arch path at render time. A plain Image
   // inside an Animated.View avoids the crash while keeping all the transforms.
   return (
@@ -244,7 +244,7 @@ function BoloTabButton({
   const focused = ariaSelected ?? accessibilityState?.selected ?? false;
   const reduceMotion = useReducedMotion();
 
-  // Hold-to-talk context — available when the chat screen is mounted.
+  // Hold-to-talk context, available when the chat screen is mounted.
   const { startRecordingRef, stopRecordingRef, isRecording } = useChatRecording();
 
   // Press-in squish shared value
@@ -279,7 +279,7 @@ function BoloTabButton({
     }
   }
 
-  // Suppress navigation when the chat tab is already focused — the press
+  // Suppress navigation when the chat tab is already focused, the press
   // gesture is handled entirely by the recording callbacks above.
   function handlePress(e: Parameters<NonNullable<BoloTabButtonProps['onPress']>>[0]) {
     if (focused) return;
@@ -305,7 +305,7 @@ function BoloTabButton({
       accessibilityState={accessibilityState}
       accessibilityLabel={accessibilityLabel}
     >
-      {/* Circle — absolutely positioned so it overflows above the tab bar */}
+      {/* Circle, absolutely positioned so it overflows above the tab bar */}
       <Animated.View
         style={[
           styles.boloBubble,
@@ -327,7 +327,7 @@ function BoloTabButton({
           centre tab. ONE line, not web's two: the bar is 74 tall with the
           circle anchored at bottom 32 and the label block bottom-anchored
           10 above the slot floor, so a label may only occupy 22px before it
-          runs into the circle — two 11px lines need ~26.6 (natural leading)
+          runs into the circle, two 11px lines need ~26.6 (natural leading)
           and cannot be made to fit without moving the circle, the shared
           label baseline, or the bar height. One line does fit: "Bolo Chat"
           measures 51.3px in Inter SemiBold 11 against the centre slot's full
@@ -346,7 +346,7 @@ function BoloTabButton({
 }
 
 // ---------------------------------------------------------------------------
-// Standard tab icon — a brand-filled pill sits behind the icon when the tab
+// Standard tab icon, a brand-filled pill sits behind the icon when the tab
 // is active, matching the floating-pill bar's filled active treatment.
 // ---------------------------------------------------------------------------
 function TabIcon({
@@ -367,7 +367,7 @@ function TabIcon({
 }
 
 // ---------------------------------------------------------------------------
-// Language switcher tab — the 5th slot. Opens the language picker rather than
+// Language switcher tab, the 5th slot. Opens the language picker rather than
 // navigating to a tab screen (Profile is reachable from the top-right button
 // on Home, where the friend-request badge also lives now). Mirrors the web
 // nav's language item: globe icon + uppercase active-language code.
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingBottom: 10,
     // The tab bar forwards 5px of side padding to every slot, which clamps a
-    // 58px slot's label to 48px — enough for one word, not for "Bolo Chat"
+    // 58px slot's label to 48px, enough for one word, not for "Bolo Chat"
     // (51.3px at 11px) on a 320pt phone, where it ellipsised to "Bolo C…".
     // The centre slot has no icon row to protect, so it gives the padding
     // back to the label and uses its full 58px. This is a content-box change
@@ -486,7 +486,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         tabBarLabelStyle: { fontFamily: AppFonts.semibold, fontSize: 12 },
-        // Floating pill — detached from the screen edges with a soft drop
+        // Floating pill, detached from the screen edges with a soft drop
         // shadow; sits above the home indicator via the safe-area inset.
         tabBarStyle: {
           position: 'absolute',
@@ -540,14 +540,14 @@ export default function TabsLayout() {
           },
         })}
       />
-      {/* Friends tab — hidden from the tab bar; accessible from Profile/Account */}
+      {/* Friends tab, hidden from the tab bar; accessible from Profile/Account */}
       <Tabs.Screen
         name="friends"
         options={{
           href: null,
         }}
       />
-      {/* Center elevated tab — custom button handles all rendering; no header needed */}
+      {/* Center elevated tab, custom button handles all rendering; no header needed */}
       <Tabs.Screen
         name="chat"
         options={{
@@ -565,7 +565,7 @@ export default function TabsLayout() {
           ),
         }}
       />
-      {/* 5th slot — language switcher (opens the picker). The Profile screen
+      {/* 5th slot, language switcher (opens the picker). The Profile screen
           stays reachable from the top-right button on Home, which also carries
           the friend-request badge now. */}
       <Tabs.Screen

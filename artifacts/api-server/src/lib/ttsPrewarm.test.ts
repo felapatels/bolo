@@ -29,7 +29,7 @@ function makeGreetingKey(langCode: string): string {
 // TTS pre-warm cache-key alignment tests
 //
 // The pre-warm job and the /openai/tts route must produce byte-for-byte
-// identical cache keys, or pre-warmed entries are never hit — every first
+// identical cache keys, or pre-warmed entries are never hit, every first
 // learner still pays synthesis latency.
 //
 // The shared invariant:
@@ -141,7 +141,7 @@ test("different voices produce different keys (no cross-voice cache collision)",
 test("same phrase text in different languages produces different cache keys (language name is part of the key)", () => {
   // After task #643, Hindi (hi) and Tamil (ta) both resolve to the same Laura
   // voice ID. The cache key still differs because it incorporates the language
-  // name — preventing a Hindi greeting from being served as a Tamil greeting.
+  // name, preventing a Hindi greeting from being served as a Tamil greeting.
   const hiVoice = getVoiceIdForLanguage("hi");
   const taVoice = getVoiceIdForLanguage("ta");
 
@@ -150,7 +150,7 @@ test("same phrase text in different languages produces different cache keys (lan
   assert.notEqual(
     hiKey,
     taKey,
-    "Same phrase text in Hindi and Tamil must never share a TTS cache entry — language name must be part of the key",
+    "Same phrase text in Hindi and Tamil must never share a TTS cache entry, language name must be part of the key",
   );
 });
 
@@ -237,7 +237,7 @@ test("a cache entry written with the pre-warm key is found by the runtime route 
 
   assert.ok(
     cached,
-    "Runtime route cache lookup must hit the entry written by the pre-warm — keys must be identical",
+    "Runtime route cache lookup must hit the entry written by the pre-warm, keys must be identical",
   );
   assert.equal(cached.audioBase64, "dGVzdA==");
 });
@@ -278,7 +278,7 @@ test("onConflictDoNothing preserves the existing entry when pre-warm runs a seco
 });
 
 // ---------------------------------------------------------------------------
-// warmGreetings — injectable-deps unit tests
+// warmGreetings, injectable-deps unit tests
 //
 // These drive warmGreetings() directly via its injectable-deps interface so
 // no real DB connection or ElevenLabs account is needed.
@@ -370,7 +370,7 @@ test("warmGreetings skips languages whose greeting is already cached", async () 
 
   await warmGreetings(deps);
 
-  // Gujarati was pre-cached — synthesize must NOT be called for it.
+  // Gujarati was pre-cached, synthesize must NOT be called for it.
   assert.equal(
     synthesizeCalls,
     1,
@@ -450,10 +450,10 @@ test("warmGreetings logs a quota-exhaustion error and continues warming the rema
 // ─── Voice-ID selection in warmGreetings ─────────────────────────────────────
 //
 // warmGreetings must pass getVoiceIdForLanguage(lang.code) as the voiceId
-// argument to synthesize — not a hardcoded Bolo ID.  The injectable-deps
+// argument to synthesize, not a hardcoded Bolo ID.  The injectable-deps
 // interface makes this verifiable without a real ElevenLabs account.
 
-test("warmGreetings passes getVoiceIdForLanguage(lang.code) as voiceId to synthesize — not a hardcoded ID", async () => {
+test("warmGreetings passes getVoiceIdForLanguage(lang.code) as voiceId to synthesize, not a hardcoded ID", async () => {
   const languages = [
     { code: "gu", name: "Gujarati" },
     { code: "hi", name: "Hindi" },
@@ -473,7 +473,7 @@ test("warmGreetings passes getVoiceIdForLanguage(lang.code) as voiceId to synthe
   await warmGreetings(deps);
 
   // Each captured voice ID must equal what phraseAudioIdentity() returns for
-  // that language code — the single source of truth for provider+voice that
+  // that language code, the single source of truth for provider+voice that
   // both warmGreetings and the /openai/tts route must use. For ElevenLabs this
   // is a per-language voice ID; for other providers it is the fixed phrase-audio
   // default voice.
@@ -495,7 +495,7 @@ test("warmGreetings passes getVoiceIdForLanguage(lang.code) as voiceId to synthe
 test("warmGreetings uses the unified Laura voice for all languages (task #643)", async () => {
   // After the Auto-voice unification, every language resolves to Laura
   // (DEFAULT_MULTILINGUAL_VOICE_ID). warmGreetings must pass that voice ID
-  // to the synthesizer for every language — not a stale per-family ID.
+  // to the synthesizer for every language, not a stale per-family ID.
   const languages = [
     { code: "gu", name: "Gujarati" },
     { code: "hi", name: "Hindi" },

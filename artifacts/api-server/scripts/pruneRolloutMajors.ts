@@ -2,9 +2,9 @@
 // C1 rollout: prune QA-major rows ahead of regeneration.
 //
 // Removes every sentence the two-check QA flagged as "major" from
-// curatedSentencesC1Rollout.json — scoped by (language, category,
+// curatedSentencesC1Rollout.json, scoped by (language, category,
 // nativeScript), never by nativeScript alone (the pilot showed the same
-// sentence can legitimately appear in two topics) — and drops those rows'
+// sentence can legitimately appear in two topics), and drops those rows'
 // verdicts from the QA report so the final tallies describe only the shipped
 // set. Re-running the top-up generator afterwards refills each pruned
 // (language, category) back to target; the QA pass then judges only the

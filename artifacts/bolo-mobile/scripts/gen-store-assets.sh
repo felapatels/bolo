@@ -12,7 +12,7 @@
 # under assets/store/fonts/ (committed to the repo), made visible to fontconfig
 # through a generated temp config below. Because the fonts are committed rather
 # than pulled from node_modules, the output is fully reproducible from a clean
-# checkout — no `pnpm install` or system font install required.
+# checkout, no `pnpm install` or system font install required.
 #
 # Outputs land in assets/store/android/. Screenshots are captured separately
 # from the running app (see PLAY_STORE.md).
@@ -50,7 +50,7 @@ export FONTCONFIG_FILE="$FC_DIR/fonts.conf"
 fc-cache -f "$FC_DIR" >/dev/null 2>&1 || true
 
 # Fail loudly if a required font family is missing / falls back to another
-# face — a silent fallback is exactly what makes the output non-reproducible.
+# face, a silent fallback is exactly what makes the output non-reproducible.
 require_font() {
   local family="$1" expect="$2" got
   got="$(fc-match -f '%{file}' "$family")"
@@ -75,8 +75,8 @@ magick -density 384 -background none assets/branding/icon.svg \
 # --- Feature graphic (1024x500, required by Play) --------------------------
 # Headline lockup (mark + wordmark + "22 languages" tagline) over a cloud of
 # the 22 official Indian languages written in their own native scripts, so a
-# shopper sees Bolo!'s headline differentiator — the full breadth of Indian
-# languages — before scrolling to the screenshots.
+# shopper sees Bolo!'s headline differentiator, the full breadth of Indian
+# languages, before scrolling to the screenshots.
 
 # Native name of each of the 22 scheduled languages of India + the Noto font
 # that carries its script. Laid out in balanced rows (6 / 6 / 5 / 5).
@@ -173,12 +173,12 @@ magick "$FC_DIR/feature-flat.png" \
   "$OUT/feature-graphic.png"
 
 # --- Branded, captioned phone screenshots -----------------------------------
-# Wraps each raw capture (assets/store/android/screenshots/*.jpg, 824x1648 — captured at 2x DPR for a pixel-crisp phone plate) in an
+# Wraps each raw capture (assets/store/android/screenshots/*.jpg, 824x1648, captured at 2x DPR for a pixel-crisp phone plate) in an
 # on-brand background frame with a short benefit headline. Top-performing Play
 # listings pair every screenshot with a caption instead of a bare screen dump;
 # this is a well-known install-conversion lever.
 #
-# Output canvas is 1080x1920 (9:16 = 1.78:1) — comfortably inside Play's phone
+# Output canvas is 1080x1920 (9:16 = 1.78:1), comfortably inside Play's phone
 # spec (each side 320-3840px, ratio <=2:1). Framed versions land in
 # assets/store/android/screenshots-framed/ so the raw captures stay untouched.
 RAW="$OUT/screenshots"

@@ -17,8 +17,7 @@ import type { GeneratedLesson, LessonRequest } from "../lib/lessonGenerator";
 // OpenAI call happens:
 //   - a successful generation caches phrases and is reused (no re-generation),
 //   - a FAILED generation caches nothing, so a later open can still succeed,
-//   - a poisoned lesson row (exists but has zero phrases) is not served empty —
-//     it triggers regeneration so the learner recovers instead of seeing a
+//   - a poisoned lesson row (exists but has zero phrases) is not served empty, //     it triggers regeneration so the learner recovers instead of seeing a
 //     permanently broken screen.
 //
 // Rows are scoped to a test-only language code + category and cleaned up after.
@@ -144,7 +143,7 @@ test("generates and caches phrases on first open, reuses them on the next", asyn
     ["one", "two"],
   );
 
-  // Second open is served from the cache — the generator is NOT called again.
+  // Second open is served from the cache, the generator is NOT called again.
   const second = await getOrCreateLessonPhrases(LANG, categoryId, gen.generate);
   assert.equal(second.length, 2);
   assert.equal(gen.calls(), 1, "cached lesson must not re-generate");
@@ -174,7 +173,7 @@ test("a failed generation caches nothing, so a later open can succeed", async ()
   assert.equal(gen.calls(), 1);
 });
 
-test("a cached lesson with zero phrases is not served empty — it regenerates", async () => {
+test("a cached lesson with zero phrases is not served empty, it regenerates", async () => {
   // Simulate a poisoned entry: a lesson row exists but has no phrases (e.g. from
   // an old partial write). Opening it must recover, not return an empty lesson.
   await db.insert(lessonsTable).values({

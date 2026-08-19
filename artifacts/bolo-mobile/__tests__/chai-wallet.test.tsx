@@ -3,7 +3,7 @@ import { StyleSheet, Text } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
-// Build 34B: the Chai wallet sheet (components/ChaiWallet.tsx) — a genuinely
+// Build 34B: the Chai wallet sheet (components/ChaiWallet.tsx), a genuinely
 // new mobile surface (no prior test exercises the wallet). Contract pins,
 // all web-parity (gujarati-coach/src/components/chai-wallet.tsx):
 //   1. Verbatim copy: title, balance, item rows, button labels.
@@ -233,11 +233,11 @@ describe('Chai wallet sheet content', () => {
   });
 
   // Build 36 item 3: the balance badge used to set the terracotta kulhad on a
-  // 52pt disc filled with the indigo primary — the only plated Chai glyph
+  // 52pt disc filled with the indigo primary, the only plated Chai glyph
   // anywhere. Every other Chai surface (home stat cell, stall band, receipts,
   // journey payouts, web) renders it bare, so the plate is gone and the glyph
   // carries the header on its own size.
-  it('renders the balance glyph bare — no coloured disc behind it', () => {
+  it('renders the balance glyph bare, no coloured disc behind it', () => {
     render(<ChaiWalletSheet visible onClose={jest.fn()} />);
 
     // The glyph is decorative (accessibility-hidden), which RNTL skips by
@@ -378,7 +378,7 @@ describe('express countdown', () => {
     expect(mockState.push).toHaveBeenCalledWith('/(app)/bazaar');
   });
 
-  // Build 37: Chai also buys stops beyond Hindi — but only a free learner
+  // Build 37: Chai also buys stops beyond Hindi, but only a free learner
   // needs telling, so the row is free-tier only and explains itself in place.
   it('offers the language row to free learners and explains it', () => {
     render(<LanguageRow />);
@@ -465,7 +465,7 @@ describe('streak repair row', () => {
     expect(screen.getByText('Mend · 25')).toBeOnTheScreen();
   });
 
-  it('mends with an empty request — the client never names the day', () => {
+  it('mends with an empty request, the client never names the day', () => {
     mockState.repairOffer = eligible;
     render(<RepairRow />);
 

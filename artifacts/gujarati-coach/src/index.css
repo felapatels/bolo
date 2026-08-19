@@ -57,7 +57,7 @@
 }
 
 :root {
-  /* Calm & Modern theme — near-white slate background, indigo primary, teal accent. */
+  /* Calm & Modern theme, near-white slate background, indigo primary, teal accent. */
   --background: 210 40% 98%;      /* #F8FAFC */
   --foreground: 222 47% 11%;      /* #0F172A */
 
@@ -113,7 +113,7 @@
 
   /* Indigo has to carry two jobs in the dark: a fill under near-black text,
      and small text ON the dark background. At 68% lightness both landed just
-     under 4.5:1 — legible-looking in a screenshot, tiring to read. 75% clears
+     under 4.5:1, legible-looking in a screenshot, tiring to read. 75% clears
      it in both directions (about 5.9:1 as text on a card, 6.2:1 as a fill). */
   --primary: 243 80% 75%;
   --primary-foreground: 222 47% 11%;
@@ -213,7 +213,7 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  /* Floating bottom-nav pill (below lg only — the nav itself is lg:hidden).
+  /* Floating bottom-nav pill (below lg only, the nav itself is lg:hidden).
      Mirrors the mobile app's tab bar exactly: 14px side insets, 32px corner
      radius, and a lift off the bottom edge equal to the device safe-area
      inset with mobile's 14px minimum gap as the floor, so the pill clears the
@@ -449,7 +449,7 @@
    mid-tear halves are cloned into a body-level fixed overlay (Task #905,
    spawnTearHandoffOverlay) where these keyframes RESUME via a negative
    animation-delay and the gust-away wrapper below sweeps each piece off
-   over the incoming journey route — so the tear is never cut by home's
+   over the incoming journey route, so the tear is never cut by home's
    unmount. Animated properties are transforms/opacity only (clip-path rip
    edges and drop-shadows are static for the tear's lifetime). Reduced
    motion never applies the classes (JS gate in home.tsx) and the reduce
@@ -552,7 +552,7 @@
    cloned into a body-level fixed overlay (home.tsx spawnTearHandoffOverlay)
    where their tear keyframes resume via negative animation-delay, and this
    wrapper animation sweeps each piece away over the incoming journey route
-   — each along its own tear trajectory (per-half --gust-x/--gust-r set
+  , each along its own tear trajectory (per-half --gust-x/--gust-r set
    inline as ± the :root constants; never a morph toward the journey header
    ticket), the body half --gust-stagger behind the stub. Transforms/opacity
    only. The `both` fill is safe here: the overlay contains no

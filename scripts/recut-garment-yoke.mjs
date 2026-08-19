@@ -4,13 +4,13 @@
 // WHY THIS EXISTS (owner ruling, Aug 12 2026). Measurement of the -b alternates
 // showed every side leak was a HOLE IN THE CLOTH, not a placement error: zero
 // leaking pixels fell outside the cloth's horizontal cut at any row, in any of
-// the three garments. The art tapers in at the neck — at a tenth of the way
-// down it is only half its own width — so at the top band there is simply no
+// the three garments. The art tapers in at the neck, at a tenth of the way
+// down it is only half its own width, so at the top band there is simply no
 // cloth where her shoulders are, and no knob can fill a hole. The recut has
 // exactly two jobs, A and B below.
 //
 // WHY THIS IS PIXEL SURGERY AND NOT A NEW RENDER. The brief is "the same
-// outfits, cut correctly" — style, palette and silhouette must not drift. A
+// outfits, cut correctly", style, palette and silhouette must not drift. A
 // regenerated garment cannot promise that; extending a garment's own edge
 // pixels can. Every colour written here is sampled from the piece itself, a few
 // pixels inside its edge so an outline stroke is never the thing that gets
@@ -18,7 +18,7 @@
 //
 // A. FILL THE COLLAR TAPER. For each row in the top band, the row's opaque span
 //    is extended sideways to the full width of the piece. Interior transparency
-//    is left alone, so a neck opening stays an opening — the fill goes beside
+//    is left alone, so a neck opening stays an opening, the fill goes beside
 //    the neck, never over it. This costs nothing visually below the shoulders:
 //    above the hem line the compositor clips cloth to her silhouette, so the
 //    extra width only ever shows where she is.
@@ -62,15 +62,14 @@ const ITEMS = [
  * out of the art dir). Job A applied to the LOWER band instead of the yoke: the
  * kurta's churidar tapers toward the ankles and so leaves her hips bare below
  * the waist, which neither job A nor any knob touches. Widening there is only
- * safe alongside a raised freefrac — below the hem line cloth is unclipped, so
+ * safe alongside a raised freefrac, below the hem line cloth is unclipped, so
  * a widened lower band would otherwise hang past her legs as a slab.
  */
 
 const ALPHA_ON = 16; // "there is cloth here"
 const ALPHA_SOLID = 200; // "...and it is not a feathered edge, so its colour is trustworthy"
 // Every one of these pieces is drawn with a 2-3px near-black contour stroke, so
-// the first solid pixel inward from an edge is the OUTLINE, not the fabric —
-// sampling it paints black wings onto her shoulders. Step past the stroke, then
+// the first solid pixel inward from an edge is the OUTLINE, not the fabric, // sampling it paints black wings onto her shoulders. Step past the stroke, then
 // take a median over a short window so a single stray pixel cannot set the tone.
 const OUTLINE_SKIP = 4;
 const SAMPLE_WIN = 8;

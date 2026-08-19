@@ -216,7 +216,7 @@ async function waitForRecordReady() {
 /**
  * Move on to the next phrase. A weak take does not open the advance gate
  * (Task #1040), so fall back to the deliberately ungated phrase-strip
- * chevron rather than taking extra goes — extra goes would consume the
+ * chevron rather than taking extra goes, extra goes would consume the
  * queued evaluation results these streak scenarios depend on.
  */
 async function goToNextPhrase() {
@@ -268,7 +268,7 @@ describe('hot-streak toasts', () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
 
-    // Phrase 3 — streak hits 3
+    // Phrase 3, streak hits 3
     await recordOnce('Goated 🐐');
 
     await waitFor(() =>
@@ -287,7 +287,7 @@ describe('hot-streak toasts', () => {
         fireEvent.press(screen.getByText('Next phrase'));
       });
     }
-    // Phrase 5 — streak hits 5
+    // Phrase 5, streak hits 5
     await recordOnce('Goated 🐐');
 
     await waitFor(() =>
@@ -295,9 +295,9 @@ describe('hot-streak toasts', () => {
     );
   });
 
-  test('streak resets after a bad score — no toast at 3 when there is a miss in between', async () => {
+  test('streak resets after a bad score, no toast at 3 when there is a miss in between', async () => {
     mockState.phrases = successQuery(FOUR_PHRASES);
-    // Good, bad, good, good — streak never reaches 3.
+    // Good, bad, good, good, streak never reaches 3.
     mockState.evaluate = jest.fn()
       .mockResolvedValueOnce(goodResult())  // streak=1
       .mockResolvedValueOnce(badResult())   // streak reset to 0
@@ -338,7 +338,7 @@ describe('mid-session milestone toasts', () => {
       fireEvent.press(screen.getByText('Next phrase'));
     });
 
-    // Phrase 2 (index 1) → advance to index 2 (the midpoint) — toast fires here
+    // Phrase 2 (index 1) → advance to index 2 (the midpoint), toast fires here
     await recordOnce('Goated 🐐');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));
@@ -362,7 +362,7 @@ describe('mid-session milestone toasts', () => {
       });
     }
 
-    // Phrase 3 (index 2) → advance to index 3 (the last) — toast fires here
+    // Phrase 3 (index 2) → advance to index 3 (the last), toast fires here
     await recordOnce('Goated 🐐');
     await act(async () => {
       fireEvent.press(screen.getByText('Next phrase'));

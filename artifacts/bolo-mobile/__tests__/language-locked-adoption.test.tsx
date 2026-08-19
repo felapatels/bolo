@@ -2,7 +2,7 @@
 // language must survive in LanguageContext. The old auto-revert guard used to
 // bounce any non-allowed language back to the first allowed one, which made
 // the locked-language showroom (journey preview + locked home banner)
-// unreachable — the context would silently flip back before the screens could
+// unreachable, the context would silently flip back before the screens could
 // render. Only genuinely UNSUPPORTED codes (not in the language list at all)
 // may fall back to the default.
 //
@@ -93,7 +93,7 @@ beforeEach(async () => {
   mockState.accountData = undefined;
 });
 
-describe('LanguageProvider — locked language adoption (showroom mode)', () => {
+describe('LanguageProvider, locked language adoption (showroom mode)', () => {
   test('a persisted supported-but-locked language survives (no auto-revert)', async () => {
     // The learner picked Tamil (locked on the free plan) on this device to
     // browse its journey showroom. Reopening the app must keep Tamil active.
@@ -105,7 +105,7 @@ describe('LanguageProvider — locked language adoption (showroom mode)', () => 
       expect(screen.getByTestId('active-lang').props.children).toBe('ta');
     });
 
-    // And it must STAY 'ta' — the old auto-revert bug flipped back to the
+    // And it must STAY 'ta', the old auto-revert bug flipped back to the
     // first allowed language a tick after entitlements resolved. Give any
     // stray reconcile effects a chance to run, then re-assert.
     await new Promise((r) => setTimeout(r, 50));
@@ -129,7 +129,7 @@ describe('LanguageProvider — locked language adoption (showroom mode)', () => 
   });
 
   test('an UNSUPPORTED persisted code still falls back to the default language', async () => {
-    // 'xx' is not in the language list at all — this is the only case where
+    // 'xx' is not in the language list at all, this is the only case where
     // falling back is correct (e.g. a language was withdrawn from the app).
     await AsyncStorage.setItem('bolo.activeLang', 'xx');
 

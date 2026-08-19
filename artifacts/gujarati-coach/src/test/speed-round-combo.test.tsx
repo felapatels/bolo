@@ -40,7 +40,7 @@ vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({ invalidateQueries: vi.fn(), setQueryData: vi.fn() }),
 }));
 
-// A single phrase pool — buildOptions will produce exactly one button (always correct).
+// A single phrase pool, buildOptions will produce exactly one button (always correct).
 const singlePhrase = [
   { id: 1, nativeScript: " નમસ્તે", romanized: "namaste", english: "Hello" },
 ];
@@ -54,10 +54,10 @@ const manyPhrases = Array.from({ length: 4 }, (_, i) => ({
 
 vi.mock("@workspace/api-client-react", async () => ({
   ...(await (await import("./api-client-mock")).baseApiClientMock()),
-  // The language picker persists explicit picks (B1) — stubbed, never asserted.
+  // The language picker persists explicit picks (B1), stubbed, never asserted.
   useUpdateAccountPreferences: () => ({ mutate: vi.fn(), isPending: false }),
   getGetAccountQueryKey: () => ["account"],
-  // Categories — one entry so the first is auto-selected on the setup screen.
+  // Categories, one entry so the first is auto-selected on the setup screen.
   useListCategories: () => ({
     data: [{ id: 1, title: "Greetings", description: "", locked: false, phrasesCount: 1, masteredCount: 0 }],
     isLoading: false,
@@ -89,7 +89,7 @@ function renderPage(ui: ReactElement, path = "/games/speed-round") {
   return render(<Router hook={hook}>{ui}</Router>);
 }
 
-// Generous timeout — CI runs all suites in parallel.
+// Generous timeout, CI runs all suites in parallel.
 const WT = { timeout: 8000 };
 
 /**
@@ -98,7 +98,7 @@ const WT = { timeout: 8000 };
  */
 async function reachPlaying() {
   renderPage(<SpeedRoundPage />);
-  // Setup screen is shown first — wait for the Start button.
+  // Setup screen is shown first, wait for the Start button.
   const startBtn = await screen.findByText("Start Game", {}, WT);
   fireEvent.click(startBtn);
   // Wait for the first question to appear.
@@ -175,7 +175,7 @@ describe("Speed Round combo burst overlay", () => {
       WT,
     );
 
-    await answerCorrect(); // streak = 4 — no new burst
+    await answerCorrect(); // streak = 4, no new burst
     await answerCorrect(); // streak = 5 → ON FIRE replaces HOT STREAK
 
     await waitFor(
@@ -188,7 +188,7 @@ describe("Speed Round combo burst overlay", () => {
     await reachPlaying();
 
     await answerCorrect(); // streak = 1
-    await answerCorrect(); // streak = 2 — no burst yet
+    await answerCorrect(); // streak = 2, no burst yet
 
     await new Promise((r) => setTimeout(r, 200));
     expect(screen.queryByText("HOT STREAK 🔥")).toBeNull();

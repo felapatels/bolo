@@ -115,14 +115,14 @@ export default function Privacy() {
           </p>
           <ul className="list-disc pl-6 space-y-2">
             <li>
-              <span className="font-bold text-foreground">Clerk</span> — authentication
+              <span className="font-bold text-foreground">Clerk</span>, authentication
               and account management (stores your email and login credentials).
             </li>
             <li>
               <span className="font-bold text-foreground">
                 Speech and AI processing providers
               </span>{' '}
-              — used to transcribe and score your pronunciation. In normal use, audio is
+             , used to transcribe and score your pronunciation. In normal use, audio is
               sent only for scoring and is not retained by us beyond the request.
               Recordings made through our invited voice contribution mode are retained
               as described in Data retention below.
@@ -206,7 +206,7 @@ export default function Privacy() {
       </main>
 
       <footer className="px-6 pb-10 text-center text-sm text-muted-foreground font-medium">
-        Bolo! — stop tapping, start talking.
+        Bolo!, stop tapping, start talking.
       </footer>
     </div>
   );

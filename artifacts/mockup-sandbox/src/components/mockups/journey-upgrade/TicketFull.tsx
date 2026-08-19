@@ -1,9 +1,9 @@
-// Boarding-pass ticket treatment — variant FULL-TICKET.
+// Boarding-pass ticket treatment, variant FULL-TICKET.
 // A fuller train-ticket composition: a vertical tear-off stub on the right
 // with its own perforation, notches on both perforation lines, a diagonal
 // brand-stripe texture, the fare-zone stamp overlapping the perforation, and
 // a punched hole in the stub. Existing dashed horizontal perforation and all
-// live content retained. Brand colors only — no artwork.
+// live content retained. Brand colors only, no artwork.
 import "./_group.css";
 import { ArrowLeft, ArrowRight, Flame, Target } from "lucide-react";
 import { TrainEngine } from "./_shared/TrainEngine";

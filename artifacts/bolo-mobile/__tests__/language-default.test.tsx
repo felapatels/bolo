@@ -3,8 +3,8 @@
 // A learner who has never opened the app should land on Hindi ('hi'), matching
 // the web app's DEFAULT_LANG. This test exercises the real LanguageProvider
 // (not a mock) with:
-//   • AsyncStorage returning null  — no locally persisted choice
-//   • account.preferences.learning.activeLanguage = undefined  — no server choice
+//   • AsyncStorage returning null , no locally persisted choice
+//   • account.preferences.learning.activeLanguage = undefined , no server choice
 //   • a language list that includes Hindi
 //
 // If DEFAULT_LANG in LanguageContext.tsx is ever reverted to 'gu' (or another
@@ -88,14 +88,14 @@ function renderWithProvider() {
 // ---------------------------------------------------------------------------
 
 beforeEach(async () => {
-  // Ensure AsyncStorage is empty — no previously persisted language choice.
+  // Ensure AsyncStorage is empty, no previously persisted language choice.
   await AsyncStorage.clear();
 
   // No server-side preference recorded for this new user.
   mockState.accountData = undefined;
 });
 
-describe('LanguageProvider — default language for new users', () => {
+describe('LanguageProvider, default language for new users', () => {
   test('activeLang is "hi" when AsyncStorage is empty and account has no preference', async () => {
     renderWithProvider();
 
@@ -110,7 +110,7 @@ describe('LanguageProvider — default language for new users', () => {
     // The useState initializer uses DEFAULT_LANG = 'hi' directly, so even
     // before the async hydration effect completes the rendered value is 'hi'.
     renderWithProvider();
-    // We don't await — this is the synchronous first render.
+    // We don't await, this is the synchronous first render.
     const text = screen.getByTestId('active-lang').props.children;
     // It's either 'hi' (init) or 'loading' (language list still fetching).
     // Either way it must NOT be 'gu'.

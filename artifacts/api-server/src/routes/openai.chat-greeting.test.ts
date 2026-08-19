@@ -29,17 +29,17 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 // Tests for GET /openai/chat-greeting?languageCode=<code>
 //
 // Covers:
-//   1. 401  — request without a valid session (no userId on req)
-//   2. 400  — missing or blank languageCode query param
-//   3. 200  — cache hit: returns { text, english, audioBase64, format, squawkVariant } from tts_cache
-//   4. 200  — cache miss: synthesizes on-demand via injectable synthesizer, caches the
+//   1. 401 , request without a valid session (no userId on req)
+//   2. 400 , missing or blank languageCode query param
+//   3. 200 , cache hit: returns { text, english, audioBase64, format, squawkVariant } from tts_cache
+//   4. 200 , cache miss: synthesizes on-demand via injectable synthesizer, caches the
 //             result in tts_cache, and returns the same response shape
 //
 // Tests 3 and 4 use a language row seeded for this suite and clean up after
 // themselves. The cache-miss test injects a fake synthesizer by mounting the
 // router behind a thin middleware that replaces the ElevenLabs + gpt-audio
 // path with a pre-seeded cache entry written before the request hits the
-// handler — making the "synthesis" path deterministic and independent of
+// handler, making the "synthesis" path deterministic and independent of
 // network availability.
 //
 // Follows the node:test + shared dev DB pattern documented in
@@ -50,12 +50,12 @@ const TEST_LANG = `__test_lang_greeting${RUN}`;
 const TEST_LANG_NAME = `GreetingTestLang${RUN}`;
 const TEST_USER = `__test_user_greeting${RUN}`;
 
-// Fake base64 audio payloads — distinguishable from each other in assertions.
+// Fake base64 audio payloads, distinguishable from each other in assertions.
 const CACHED_AUDIO = "CACHED_GREETING_AUDIO_BASE64==";
 const SYNTHESIZED_AUDIO = "SYNTHESIZED_GREETING_AUDIO_BASE64==";
 
-let authedApp: Express;   // app with userId injected — used for 400 / cache tests
-let unauthApp: Express;   // app without userId — used for 401 test
+let authedApp: Express;   // app with userId injected, used for 400 / cache tests
+let unauthApp: Express;   // app without userId, used for 401 test
 let authedServer: Server;
 let unauthServer: Server;
 let authedBase: string;
@@ -137,7 +137,7 @@ before(async () => {
     })
     .onConflictDoNothing();
 
-  // Build two test servers — one with auth, one without.
+  // Build two test servers, one with auth, one without.
   const authed = await listen(buildApp(TEST_USER));
   authedServer = authed.server;
   authedBase = authed.baseUrl;
@@ -166,7 +166,7 @@ after(async () => {
 
 // ─── Auth guard ───────────────────────────────────────────────────────────────
 
-test("GET /openai/chat-greeting — 401 when no session is present", async () => {
+test("GET /openai/chat-greeting, 401 when no session is present", async () => {
   const { status, json } = await get(
     unauthBase,
     `/openai/chat-greeting?languageCode=${TEST_LANG}`,
@@ -177,13 +177,13 @@ test("GET /openai/chat-greeting — 401 when no session is present", async () =>
 
 // ─── Input validation ─────────────────────────────────────────────────────────
 
-test("GET /openai/chat-greeting — 400 when languageCode is missing", async () => {
+test("GET /openai/chat-greeting, 400 when languageCode is missing", async () => {
   const { status, json } = await get(authedBase, "/openai/chat-greeting");
   assert.equal(status, 400, "Missing languageCode must return 400");
   assert.ok(json?.error, "Response should include an error message");
 });
 
-test("GET /openai/chat-greeting — 400 when languageCode is blank", async () => {
+test("GET /openai/chat-greeting, 400 when languageCode is blank", async () => {
   const { status, json } = await get(
     authedBase,
     "/openai/chat-greeting?languageCode=",
@@ -194,7 +194,7 @@ test("GET /openai/chat-greeting — 400 when languageCode is blank", async () =>
 
 // ─── Cache hit ────────────────────────────────────────────────────────────────
 
-test("GET /openai/chat-greeting — cache hit returns correct shape immediately", async () => {
+test("GET /openai/chat-greeting, cache hit returns correct shape immediately", async () => {
   const cacheKey = makeGreetingKey(TEST_LANG);
 
   // Pre-seed the cache entry so no synthesis call is needed.
@@ -257,14 +257,14 @@ test("GET /openai/chat-greeting — cache hit returns correct shape immediately"
 // To make this test deterministic regardless of ElevenLabs availability we
 // mount a second server whose middleware writes our SYNTHESIZED_AUDIO payload
 // into the cache *after* the cache-read but *before* the handler starts
-// synthesis — simulating an injectable synthesizer without requiring a real API
+// synthesis, simulating an injectable synthesizer without requiring a real API
 // call. We achieve this by seeding the DB entry immediately after the request
 // is made (best-effort race) and relying on the fact that the handler's
 // on-conflict-do-nothing cache write is idempotent. The authoritative assertion
 // is that the response shape is correct and a cache row exists; the exact audio
 // bytes may come from the seeded entry or from real synthesis.
 
-test("GET /openai/chat-greeting — cache miss synthesizes, caches result, returns correct shape", async () => {
+test("GET /openai/chat-greeting, cache miss synthesizes, caches result, returns correct shape", async () => {
   const cacheKey = makeGreetingKey(TEST_LANG);
 
   // Ensure no stale entry exists.
@@ -325,9 +325,9 @@ test("GET /openai/chat-greeting — cache miss synthesizes, caches result, retur
 // synthesizer *would* write, then clear the read-side entry so the handler takes
 // the miss path, and finally re-seed immediately. Because the DB write is async
 // and fire-and-forget in the handler, we check the cache state *after* the
-// response is received — by which point the write has completed.
+// response is received, by which point the write has completed.
 
-test("GET /openai/chat-greeting — second hit after a cache-miss is served from cache, not re-synthesized", async () => {
+test("GET /openai/chat-greeting, second hit after a cache-miss is served from cache, not re-synthesized", async () => {
   const cacheKey = makeGreetingKey(TEST_LANG);
 
   // Seed a known entry (simulates the result of the first miss + synthesis).
@@ -372,7 +372,7 @@ test("GET /openai/chat-greeting — second hit after a cache-miss is served from
 //
 // These unit tests verify the building block (getVoiceIdForLanguage) resolves
 // the correct per-language voice and that two distinct languages never collapse
-// onto the same voice — catching a regression where voice selection is silently
+// onto the same voice, catching a regression where voice selection is silently
 // bypassed in favour of a hardcoded ID.
 
 test("getVoiceIdForLanguage returns a non-empty string for Gujarati (gu)", () => {
@@ -412,8 +412,8 @@ test("all mapped languages resolve to the universal Laura voice (task #643: unif
 });
 
 test("getVoiceIdForLanguage returns the same voice for mapped and unmapped languages (unified default)", () => {
-  // After the Auto-voice unification all languages — whether explicitly mapped
-  // or not — should return the same Laura voice ID. The fallback and every map
+  // After the Auto-voice unification all languages, whether explicitly mapped
+  // or not, should return the same Laura voice ID. The fallback and every map
   // entry intentionally share the same ID.
   const guVoiceId = getVoiceIdForLanguage("gu");
   const hiVoiceId = getVoiceIdForLanguage("hi");
@@ -427,7 +427,7 @@ test("getVoiceIdForLanguage returns the same voice for mapped and unmapped langu
 });
 
 test("getVoiceIdForLanguage is idempotent: same language code always returns the same voice ID", () => {
-  // Calling it multiple times must never produce a different result — the
+  // Calling it multiple times must never produce a different result, the
   // greeting handler calls it once per cache-miss request and the pre-warm
   // calls it once per language, so any non-determinism would cause a
   // cache-key / synthesis mismatch.

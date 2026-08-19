@@ -11,7 +11,7 @@
 // Segment `at` offsets are measured from the scene's start on the same
 // restart-from-0 timeline the audio seek uses (see SCENE_OFFSETS in
 // VideoTemplate). They must line up with where each vo_*.mp3 is placed in the
-// composite mix — the placement lives in scripts/mix-composite-audio.sh
+// composite mix, the placement lives in scripts/mix-composite-audio.sh
 // (vo_roots at 8.3s into roots, vo_howitworks at 1.0s into howItWorks,
 // vo_languages at 8.8s into languages). If a VO clip is re-recorded or moved,
 // update both this file and the mix script together.

@@ -1,4 +1,4 @@
-// Build 35 mobile parity — zone closeout: the two-beat celebration, its
+// Build 35 mobile parity, zone closeout: the two-beat celebration, its
 // hydrated stage memory, first-sight seeding, the grant-only payoff claim,
 // and suppression in both directions.
 //
@@ -275,7 +275,7 @@ describe('two-beat celebration', () => {
     expect(await screen.findByTestId('closeout-beat2', HIDDEN)).toBeTruthy();
     expect(screen.getByText('mascot-wave', HIDDEN)).toBeTruthy();
     expect(screen.queryByTestId('closeout-beat1', HIDDEN)).toBeNull();
-    // No confetti on the payoff beat — the result beat carried that.
+    // No confetti on the payoff beat, the result beat carried that.
     expect(screen.queryByTestId('closeout-confetti', HIDDEN)).toBeNull();
   });
 
@@ -328,7 +328,7 @@ describe('two-beat celebration', () => {
     );
   });
 
-  test('"Maybe later" also closes it out — nothing here gates', async () => {
+  test('"Maybe later" also closes it out, nothing here gates', async () => {
     await seedDevice({ 0: 'beat2' });
     render(<Host />);
     fireEvent.press(await screen.findByTestId('closeout-later', HIDDEN));

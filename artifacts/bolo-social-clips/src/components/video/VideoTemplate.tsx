@@ -69,8 +69,8 @@ export default function VideoTemplate({
 
   // Keep the composite audio track aligned to the visible scene. We re-anchor
   // to the scene's canonical offset only when the track has drifted (manual
-  // scene jumps, scene-lock replays); a normal linear pass — including the
-  // recorded export — free-runs so the output stays gapless while in sync.
+  // scene jumps, scene-lock replays); a normal linear pass, including the
+  // recorded export, free-runs so the output stays gapless while in sync.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;

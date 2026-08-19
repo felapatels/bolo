@@ -41,7 +41,7 @@ import { usePricing } from "@/lib/pricing";
 const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 
 // The discounted retention rate the server's retention offer represents. Kept in
-// the UI copy only — the server owns the actual extension math.
+// the UI copy only, the server owns the actual extension math.
 const RETENTION_PRICE = "$7.99";
 const RETENTION_MONTHS = 3;
 
@@ -74,7 +74,7 @@ function fmtShortDate(iso: string | null): string | null {
   return Number.isNaN(d.getTime()) ? null : format(d, "MMM d, yyyy");
 }
 
-// A human plan label for a billing entry, inferred from its product id — the
+// A human plan label for a billing entry, inferred from its product id, the
 // provider reports the raw SKU, so we map it to the names learners recognise.
 function billingPlanLabel(productId: string): string {
   const id = productId.toLowerCase();
@@ -135,13 +135,13 @@ export default function Subscription() {
     );
   }
 
-  // A family member has nothing to bill or manage here — their access flows
+  // A family member has nothing to bill or manage here, their access flows
   // through the owner's subscription, so the family page is their home.
   if (family?.role === "member") {
     return <Redirect to="/family" />;
   }
 
-  // If the details couldn't load we still don't want a dead end — send the
+  // If the details couldn't load we still don't want a dead end, send the
   // learner to the paywall/upgrade surface so they always have a path forward.
   if (isError || !sub || !isManageable(sub)) {
     return <Redirect to="/upgrade" />;
@@ -217,7 +217,7 @@ function ManageView({
     setUpgrading(true);
     setError(null);
     try {
-      // Already paying — move straight to All-Access with no fresh trial.
+      // Already paying, move straight to All-Access with no fresh trial.
       await beginAllAccessCheckout(/* withTrial */ false, "annual", queryClient);
     } catch (err) {
       setError(errorMessage(err, "Couldn't upgrade. Please try again."));
@@ -243,8 +243,8 @@ function ManageView({
 
   // Send Stripe subscribers to Stripe's hosted billing portal, where updating a
   // card, downloading invoices, and cancelling all happen provider-side (and
-  // sync back via webhook). Redirects the browser — does not return on success.
-  // Upgrade an individual All-Access sub to the Family plan — same Stripe
+  // sync back via webhook). Redirects the browser, does not return on success.
+  // Upgrade an individual All-Access sub to the Family plan, same Stripe
   // subscription, prorated in place, never a second one.
   const [, setLocation] = useLocation();
   async function handleUpgradeToFamily() {
@@ -356,8 +356,8 @@ function ManageView({
               isPaused
                 ? fmtDate(sub.pauseUntil) ?? "When the pause ends"
                 : isTrialing
-                  ? fmtDate(sub.trialEndsAt) ?? "—"
-                  : fmtDate(sub.currentPeriodEnd) ?? "—"
+                  ? fmtDate(sub.trialEndsAt) ?? "-"
+                  : fmtDate(sub.currentPeriodEnd) ?? "-"
             }
             hint={
               isCanceled && !isPaused
@@ -372,7 +372,7 @@ function ManageView({
             <DetailRow
               icon={Globe}
               label="Your language"
-              value={chosen ? chosen.name : sub.chosenLanguage ?? "—"}
+              value={chosen ? chosen.name : sub.chosenLanguage ?? "-"}
               divider
             />
           )}
@@ -473,7 +473,7 @@ function ManageView({
           )
         )}
 
-        {/* Resume early — the primary action for a paused subscription. Clears
+        {/* Resume early, the primary action for a paused subscription. Clears
             the pause immediately instead of making the learner wait out the
             window. */}
         {isPaused && (
@@ -507,8 +507,7 @@ function ManageView({
         {/* Billing history */}
         <BillingHistory entries={sub.billingHistory} />
 
-        {/* Upgrade an individual Stripe All-Access sub to the Family plan —
-            prorated on the same subscription, covers up to 4 people. */}
+        {/* Upgrade an individual Stripe All-Access sub to the Family plan, prorated on the same subscription, covers up to 4 people. */}
         {isStripe && !isFamilyOwner && !isOneLanguage && !isPaused && !isCanceled && (
           <button
             onClick={handleUpgradeToFamily}
@@ -606,7 +605,7 @@ function ManageView({
         )}
       </main>
 
-      {/* Downgrade warning for family owners — Stripe's portal can't tell them
+      {/* Downgrade warning for family owners, Stripe's portal can't tell them
           what canceling means for their members, so we do it here first. */}
       {downgradeWarnOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
@@ -763,7 +762,7 @@ function BillingHistory({ entries }: { entries: BillingHistoryEntry[] }) {
 }
 
 // The retention flow shown before final cancellation: offer the discounted
-// 3-month rate, a pause, or proceeding to cancel — each wired to its endpoint.
+// 3-month rate, a pause, or proceeding to cancel, each wired to its endpoint.
 function RetentionFlow({
   sub,
   onClose,
@@ -839,7 +838,7 @@ function RetentionFlow({
             Before you go…
           </h2>
           <p className="mt-1 text-base font-medium text-muted-foreground">
-            Keep your streak alive — here are a few ways to stay.
+            Keep your streak alive, here are a few ways to stay.
           </p>
         </div>
 
@@ -863,7 +862,7 @@ function RetentionFlow({
             <OfferCard
               icon={PauseCircle}
               title={`Pause for ${monthsLabel(pauseMonths)}`}
-              subtitle="Take a break — we'll keep your progress and resume you later."
+              subtitle="Take a break, we'll keep your progress and resume you later."
               cta="Pause instead"
               loading={pending === "pause"}
               disabled={busy}

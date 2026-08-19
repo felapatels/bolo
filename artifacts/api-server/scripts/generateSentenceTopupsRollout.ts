@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// C1 offline sentence top-up runner — 21-language rollout.
+// C1 offline sentence top-up runner, 21-language rollout.
 //
 // Grows every NON-Gujarati language's Plus-only sentence stage from the frozen
 // base (8 per category) to TARGET_TOTAL (51) by batch-generating sentences
@@ -225,7 +225,7 @@ async function topUpCategory(
   }
 
   // Final quality gate over the FULL merged stage, same rules the seeder
-  // enforces at startup — fail here, offline, not at boot.
+  // enforces at startup, fail here, offline, not at boot.
   const issues = checkLessonQuality(
     { titleNative: lesson.titleNative, phrases: [...base, ...generated] },
     LESSON_QUALITY_ALLOWLISTS[`${langCode}/${slug}#sentences`],

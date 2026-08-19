@@ -23,7 +23,7 @@ const MOBILE_PATH = resolve(
 // Strip the mobile-only sync comment so the normalised content of both files
 // must match exactly.
 const MOBILE_SYNC_COMMENT =
-  "// Mobile copy — kept in sync with artifacts/gujarati-coach/src/data/script-trace-chapters.ts.\n";
+  "// Mobile copy, kept in sync with artifacts/gujarati-coach/src/data/script-trace-chapters.ts.\n";
 
 function normalise(raw: string): string {
   return raw.replace(MOBILE_SYNC_COMMENT, "");

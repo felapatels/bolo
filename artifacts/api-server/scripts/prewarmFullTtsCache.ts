@@ -3,13 +3,13 @@
 //
 // Prerequisites
 // -------------
-//   DATABASE_URL      — Postgres connection string (same as the server uses)
-//   ELEVENLABS_API_KEY — ElevenLabs API key with `speech_synthesis` permission
+//   DATABASE_URL     , Postgres connection string (same as the server uses)
+//   ELEVENLABS_API_KEY, ElevenLabs API key with `speech_synthesis` permission
 //
 // Recommended invocation (from repo root):
 //   pnpm --filter @workspace/api-server run prewarm-full-tts-cache
 //
-// With --no-wait (for CI or scripted runs — exits immediately on quota exhaustion):
+// With --no-wait (for CI or scripted runs, exits immediately on quota exhaustion):
 //   pnpm --filter @workspace/api-server run prewarm-full-tts-cache -- --no-wait
 //
 // Single language:
@@ -69,7 +69,7 @@ const REPLENISHMENT_POLL_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 const DEFAULT_WAIT_TIMEOUT_MINUTES = 30;
 
 /**
- * Default voice used in the cache key — must match what /openai/tts uses
+ * Default voice used in the cache key, must match what /openai/tts uses
  * at runtime so pre-warmed entries are always hit on first playback.
  */
 const DEFAULT_VOICE = "nova" as const;
@@ -120,7 +120,7 @@ type PhraseRow = {
   languageName: string;
   elevenLabsVoiceId: string;
   languageId: string | undefined;
-  /** The DB stage value — "phrase" or "sentence". Used for progress labelling. */
+  /** The DB stage value, "phrase" or "sentence". Used for progress labelling. */
   stage: "phrase" | "sentence";
 };
 
@@ -218,7 +218,7 @@ export async function fetchQuota(): Promise<QuotaState | null> {
     };
     return cachedQuota;
   } catch {
-    // Missing user_read permission or network error — treat as unknown (not exhausted).
+    // Missing user_read permission or network error, treat as unknown (not exhausted).
     return null;
   }
 }
@@ -259,7 +259,7 @@ async function waitForReplenishment(
   let pollCount = 0;
 
   console.log(
-    `\n⏸  ElevenLabs quota exhausted — pausing synthesis.` +
+    `\n⏸  ElevenLabs quota exhausted, pausing synthesis.` +
       `\n   ${remainingPhrases} phrase(s) remain uncached.` +
       `\n   Polling every 2 minutes for up to ${Math.round(timeoutMs / 60_000)} minutes…`,
   );
@@ -274,7 +274,7 @@ async function waitForReplenishment(
     pollCount++;
 
     if (q === null) {
-      console.log(`   [poll ${pollCount}] quota unreadable — will retry`);
+      console.log(`   [poll ${pollCount}] quota unreadable, will retry`);
       continue;
     }
 
@@ -285,7 +285,7 @@ async function waitForReplenishment(
     );
 
     if (q.remaining > QUOTA_EXHAUSTED_BUFFER) {
-      console.log(`\n▶  Credits replenished — resuming synthesis.\n`);
+      console.log(`\n▶  Credits replenished, resuming synthesis.\n`);
       return true;
     }
   }
@@ -322,8 +322,7 @@ async function synthesizePass(
     items,
     CONCURRENCY,
     async ({ phrase, key }) => {
-      // If another worker already detected quota exhaustion, skip silently —
-      // no throw, so this does NOT count as a consecutive failure.
+      // If another worker already detected quota exhaustion, skip silently, // no throw, so this does NOT count as a consecutive failure.
       if (quotaExhausted) return;
 
       // Proactive quota guard: if the cached quota shows credits are gone,
@@ -367,11 +366,11 @@ async function synthesizePass(
         invalidateQuotaCache();
       } catch (err) {
         // Quota errors from the API (as opposed to the proactive guard above):
-        // flag and return WITHOUT throwing — same reasoning as above.
+        // flag and return WITHOUT throwing, same reasoning as above.
         if (isQuotaExhaustedError(err)) {
           quotaExhausted = true;
           invalidateQuotaCache();
-          return; // NOT a throw — quota exhaustion must not arm the circuit breaker
+          return; // NOT a throw, quota exhaustion must not arm the circuit breaker
         }
         // Genuine transient failure (network, malformed response, etc.):
         // increment the counter and throw so the circuit breaker fires on
@@ -385,7 +384,7 @@ async function synthesizePass(
     (remaining) => {
       circuitBroken = true;
       console.log(
-        `\n⚡ Circuit breaker fired — ${MAX_CONSECUTIVE_FAILURES} consecutive transient failures.` +
+        `\n⚡ Circuit breaker fired, ${MAX_CONSECUTIVE_FAILURES} consecutive transient failures.` +
           `\n   Stopped with ${remaining} phrase(s) remaining uncached.`,
       );
     },
@@ -429,7 +428,7 @@ async function main(): Promise<void> {
   }
 
   if (phrases.length === 0) {
-    console.log("Nothing to do — no phrase-stage rows found.");
+    console.log("Nothing to do, no phrase-stage rows found.");
     return;
   }
 
@@ -469,7 +468,7 @@ async function main(): Promise<void> {
   // 3. Dry-run: just list what would be synthesized.
   // -------------------------------------------------------------------------
   if (dryRun) {
-    console.log("\nDRY RUN — rows that would be synthesized:");
+    console.log("\nDRY RUN, rows that would be synthesized:");
     let currentLang = "";
     let currentStage = "";
     for (const { phrase } of missing) {
@@ -485,12 +484,12 @@ async function main(): Promise<void> {
         const parts = [];
         if (phrasesForLang > 0) parts.push(`${phrasesForLang} phrase(s)`);
         if (sentencesForLang > 0) parts.push(`${sentencesForLang} sentence(s) [Plus]`);
-        console.log(`\n  ${phrase.languageName} (${phrase.languageCode}) — ${parts.join(", ")}`);
+        console.log(`\n  ${phrase.languageName} (${phrase.languageCode}), ${parts.join(", ")}`);
       }
       if (phrase.stage !== currentStage) {
         currentStage = phrase.stage;
         if (phrase.stage === "sentence") {
-          console.log(`    — sentence-stage (Plus-only) —`);
+          console.log(`   , sentence-stage (Plus-only), `);
         }
       }
       console.log(`    [${phrase.id}] ${phrase.nativeScript}`);
@@ -504,7 +503,7 @@ async function main(): Promise<void> {
     const parts = [`${missingPhrases} phrase(s)`];
     if (missingSentences > 0) parts.push(`${missingSentences} sentence(s) [Plus]`);
     console.log(
-      `\nTotal: ${parts.join(", ")} — ${totalChars.toLocaleString()} characters.`,
+      `\nTotal: ${parts.join(", ")}, ${totalChars.toLocaleString()} characters.`,
     );
     return;
   }
@@ -546,7 +545,7 @@ async function main(): Promise<void> {
     }
   } else {
     console.log(
-      "ElevenLabs quota: unreadable (key may lack user_read — proceeding anyway)",
+      "ElevenLabs quota: unreadable (key may lack user_read, proceeding anyway)",
     );
   }
 
@@ -581,7 +580,7 @@ async function main(): Promise<void> {
     );
 
     if (circuitBroken) {
-      // Too many genuine transient failures — stop completely.
+      // Too many genuine transient failures, stop completely.
       break;
     }
 
@@ -627,7 +626,7 @@ async function main(): Promise<void> {
       const afterWaitCached = new Set(afterWaitRows.map((r) => r.cacheKey));
       remaining = remaining.filter((r) => !afterWaitCached.has(r.key));
     } else {
-      // Normal completion — pool drained without quota or circuit-break.
+      // Normal completion, pool drained without quota or circuit-break.
       break;
     }
   }
@@ -656,7 +655,7 @@ function printLangHeader(phrase: PhraseRow | undefined): void {
   if (phrase.stage !== lastStage) {
     lastStage = phrase.stage;
     if (phrase.stage === "sentence") {
-      console.log(`    [sentence-stage — Plus-only]`);
+      console.log(`    [sentence-stage, Plus-only]`);
     }
   }
 }

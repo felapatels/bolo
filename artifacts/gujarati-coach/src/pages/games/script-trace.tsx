@@ -83,7 +83,7 @@ function parseSvgSubpaths(d: string): Point[][] {
       cx = nums[0]; cy = nums[1];
       points.push({ x: cx, y: cy });
     } else if (type === "Q") {
-      // Quadratic bezier — sample 20 intermediate points. Iterate on an
+      // Quadratic bezier, sample 20 intermediate points. Iterate on an
       // integer counter so t reaches exactly 1: accumulating `t += 0.05`
       // overshoots 1 by float error and skips the endpoint, leaving contours
       // that end in a curve unclosed (which breaks the winding test).
@@ -150,7 +150,7 @@ export const PASS_THRESHOLD = 40; // % interior coverage needed to pass
 // ── Interior coverage scoring ─────────────────────────────────────────────────
 //
 // The old Chamfer metric compared user strokes against the *outline* of the
-// filled glyph.  Font outlines are the PERIMETER of a filled shape — a stroke
+// filled glyph.  Font outlines are the PERIMETER of a filled shape, a stroke
 // drawn naturally through the centre of a letter has high distance to the
 // outline and therefore a low (wrong) score.
 //
@@ -257,13 +257,12 @@ const COVERAGE_TOLERANCE = 9;
  * Accuracy score (0-100) = coverage × precision.
  *
  * Coverage: fraction of interior reference points reached by at least one
- * user stroke point within COVERAGE_TOLERANCE — did they draw the whole
+ * user stroke point within COVERAGE_TOLERANCE, did they draw the whole
  * character?
  *
  * Precision: fraction of the drawn ink that lands on (or near) the character,
  * judged with a looser tolerance so honest wobble along the glyph edge is not
- * punished. Long tails and scribbles outside the shape pull the score down —
- * a sloppy trace can still pass, but it no longer reads as a perfect 100%.
+ * punished. Long tails and scribbles outside the shape pull the score down, * a sloppy trace can still pass, but it no longer reads as a perfect 100%.
  */
 export function scoreCoverage(strokes: Point[][], referencePoints: Point[]): number {
   if (referencePoints.length === 0 || strokes.length === 0) return 0;
@@ -329,16 +328,16 @@ export function scoreCoverage(strokes: Point[][], referencePoints: Point[]): num
 // ── Pen-stroke skeleton extraction (demo animation) ───────────────────────────
 //
 // To demonstrate HOW to write a character the animation must follow pen
-// strokes down the MIDDLE of each limb — not the glyph outline (that is the
+// strokes down the MIDDLE of each limb, not the glyph outline (that is the
 // perimeter of the filled shape, so tracing it draws around the outside of
 // the letter) and not scan lines. This is the standard handwriting-animation
 // pipeline used by font-to-handwriting tools (Tegaki, MakeMeAHanzi):
 //
-//   1. Rasterize   — fill the glyph interior into a small binary bitmap
-//   2. Skeletonize — Zhang-Suen thinning erodes it to a 1-px centerline
-//   3. Trace       — walk skeleton pixels into polylines, split at junctions
-//   4. Simplify    — prune tiny spurs, Ramer-Douglas-Peucker smoothing
-//   5. Order       — top-left stroke first, then nearest-next; orient each
+//   1. Rasterize  , fill the glyph interior into a small binary bitmap
+//   2. Skeletonize, Zhang-Suen thinning erodes it to a 1-px centerline
+//   3. Trace      , walk skeleton pixels into polylines, split at junctions
+//   4. Simplify   , prune tiny spurs, Ramer-Douglas-Peucker smoothing
+//   5. Order      , top-left stroke first, then nearest-next; orient each
 //                    stroke to start where a pen naturally would
 //
 // The output is the letter's actual "pen paths", animated stroke by stroke.
@@ -348,7 +347,7 @@ const SKEL_RES = 64; // base bitmap resolution across the 0-100 glyph space
 /**
  * Bitmap resolution for a glyph: single letters thin cleanly at 64, but
  * multi-glyph words and multi-line sentences pack many small features into
- * the same 0-100 box — at 64px their limbs collapse below the thinning
+ * the same 0-100 box, at 64px their limbs collapse below the thinning
  * resolution and the skeleton (demo animation + coverage of honest traces)
  * loses chunks. Scale resolution with contour count.
  */
@@ -631,8 +630,7 @@ export function extractStrokes(guideD: string): Point[][] {
   );
   // Join segments that continue smoothly through junctions into long strokes.
   // Merging runs BEFORE spur pruning: the short fragments the thinning step
-  // leaves at junction clusters are the bridges between collinear limbs —
-  // pruning them first would leave gaps too wide to merge across.
+  // leaves at junction clusters are the bridges between collinear limbs, // pruning them first would leave gaps too wide to merge across.
   lines = mergeCollinearStrokes(lines);
   // Prune leftover tiny spurs (thinning artifacts) unless they are all we have
   const substantial = lines.filter((l) => polylineLength(l) >= 6);
@@ -873,7 +871,7 @@ function ScriptTraceCanvas({
   );
   const penStrokeFracs = useMemo(() => strokeTimeFractions(penStrokes), [penStrokes]);
   // Longer items (words/sentences have many strokes) get proportionally more
-  // demo time — capped at 3× — so the pen isn't absurdly fast on phrases.
+  // demo time, capped at 3×, so the pen isn't absurdly fast on phrases.
   const animDurationMs = ANIM_DURATION_MS * Math.min(3, Math.max(1, penStrokes.length / 6));
 
   const getPos = (e: MouseEvent | TouchEvent, rect: DOMRect): Point => {
@@ -924,7 +922,7 @@ function ScriptTraceCanvas({
     // ── Pen-stroke writing animation ─────────────────────────────────────────
     // The pen draws each centerline stroke in sequence: completed strokes stay
     // visible, the active stroke draws on progressively with a pen dot at its
-    // tip — exactly how the letter is written by hand.
+    // tip, exactly how the letter is written by hand.
     const animT = animProgressRef.current;
     if (animT !== null && animT > 0 && penStrokes.length > 0) {
       ctx.save();
@@ -994,7 +992,7 @@ function ScriptTraceCanvas({
       ctx.fillText(character.char, W / 2, H / 2);
       ctx.restore();
 
-      // Cursor dot at the leading edge — mimics a fingertip writing the word
+      // Cursor dot at the leading edge, mimics a fingertip writing the word
       if (revealFraction < 1) {
         ctx.save();
         ctx.beginPath();
@@ -1008,7 +1006,7 @@ function ScriptTraceCanvas({
 
     // ── Failed-region dots ────────────────────────────────────────────────────
     // After a failed trace, amber dots mark the interior points the user
-    // didn't cover — they can see exactly where to focus on the next attempt.
+    // didn't cover, they can see exactly where to focus on the next attempt.
     const fp = failedPointsRef.current;
     if (fp && fp.length > 0) {
       ctx.save();
@@ -1026,7 +1024,7 @@ function ScriptTraceCanvas({
     // A green dot at the approximate stroke-start position so the learner
     // knows where to put their pen. Hidden once they begin drawing.
     if (animT === null && character.guide && guidePoints.length > 0 && !hasStrokes) {
-      // Start of the first pen stroke — exactly where the writing demo begins.
+      // Start of the first pen stroke, exactly where the writing demo begins.
       // Falls back to the topmost outline point for degenerate glyphs.
       const startPt = penStrokes.length > 0
         ? penStrokes[0][0]
@@ -1152,7 +1150,7 @@ function ScriptTraceCanvas({
     const onStart = (e: MouseEvent | TouchEvent) => {
       e.preventDefault();
       stopAnim();
-      // Cancel any pending score debounce — user is adding another stroke.
+      // Cancel any pending score debounce, user is adding another stroke.
       if (scoreTimerRef.current !== null) {
         clearTimeout(scoreTimerRef.current);
         scoreTimerRef.current = null;
@@ -1307,7 +1305,7 @@ function ScriptTraceCanvas({
         </button>
       </div>
 
-      {/* Live coverage feedback — shown while drawing and after scoring */}
+      {/* Live coverage feedback, shown while drawing and after scoring */}
       {liveCoverage !== null && (
         <p className={`text-xs font-semibold ${liveCoverage >= PASS_THRESHOLD ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
           {liveCoverage}% accuracy{liveCoverage >= PASS_THRESHOLD ? " ✓" : ""}
@@ -1396,7 +1394,7 @@ function TraceSession({
     const total = chapter.characters.length;
     const passed = passedSet.size;
     // Tracing has no wrong "answer", so a miss here is a character that never
-    // reached the pass mark — worded with its own labels rather than the
+    // reached the pass mark, worded with its own labels rather than the
     // "You said / Answer" framing the answer games use.
     const misses: GameMiss[] = chapter.characters
       .filter((c) => !passedSet.has(c.id))
@@ -1419,7 +1417,7 @@ function TraceSession({
           <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
             Chapter Complete!
           </h2>
-          {/* The tally itself opens the review — it is what a learner reaches
+          {/* The tally itself opens the review, it is what a learner reaches
               for when they want to know WHICH characters did not pass. */}
           <button
             type="button"
@@ -1524,7 +1522,7 @@ function TraceSession({
                 result.passed ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400",
               )}
             >
-              {result.passed ? "Great trace!" : "Keep trying!"} — {result.score}%
+              {result.passed ? "Great trace!" : "Keep trying!"}, {result.score}%
             </span>
           </div>
           <div className="mt-3 flex justify-center gap-3">

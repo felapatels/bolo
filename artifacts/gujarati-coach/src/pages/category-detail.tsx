@@ -40,7 +40,7 @@ export default function CategoryDetail() {
     query: {
       queryKey: getListCategoryPhrasesQueryKey(id, activeLang),
       // Background replenishment (Plus) generates fresh phrases server-side
-      // while the learner practices — a gentle poll (plus the default
+      // while the learner practices, a gentle poll (plus the default
       // refetch-on-focus) makes them appear here without any manual action.
       // The poll only re-renders this list; it never touches an in-progress
       // recording on the practice screen.
@@ -52,7 +52,7 @@ export default function CategoryDetail() {
   const category = categories?.find(c => c.id === id);
 
   // The topic's final step: the Plus-only sentence stage. Only fetched once
-  // the server says this caller can open it — the lock state itself is
+  // the server says this caller can open it, the lock state itself is
   // server-authoritative via `sentencesLocked` on the category listing.
   const canLoadSentences = !!category && !category.sentencesLocked;
   const sentencesQuery = useListCategorySentences(id, activeLang, {
@@ -64,7 +64,7 @@ export default function CategoryDetail() {
   const addPhrases = useAddCategoryPhrases();
   const [noNewPhrases, setNoNewPhrases] = useState(false);
 
-  // Clear the "no new phrases" note whenever the lesson context changes — a
+  // Clear the "no new phrases" note whenever the lesson context changes, a
   // different category, a language switch, or the phrase list changing (e.g. it
   // later gained new phrases). Otherwise the stale note can linger on screen.
   useEffect(() => {
@@ -81,7 +81,7 @@ export default function CategoryDetail() {
       });
       if (!created || created.length === 0) {
         // Request succeeded but the AI only came back with duplicates, so
-        // nothing new was added — let the learner know instead of appearing idle.
+        // nothing new was added, let the learner know instead of appearing idle.
         setNoNewPhrases(true);
         return;
       }
@@ -348,7 +348,7 @@ export default function CategoryDetail() {
                         } with All-Access`
                       : "Full sentences with All-Access"
                   }
-                  description="Graduate from phrases to real, natural sentences — the final step for every topic."
+                  description="Graduate from phrases to real, natural sentences, the final step for every topic."
                   cta="Unlock with All-Access"
                   href={upgradeHref({ plan: "plus" })}
                 />
@@ -407,7 +407,7 @@ export default function CategoryDetail() {
               <div className="flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-success shrink-0 mt-0.5" />
                 <p className="flex-1 text-sm text-success font-medium">
-                  You've mastered every phrase — nice work! Keep them sharp with a review session.
+                  You've mastered every phrase, nice work! Keep them sharp with a review session.
                 </p>
                 <button
                   type="button"

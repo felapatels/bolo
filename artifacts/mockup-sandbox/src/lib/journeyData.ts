@@ -48,7 +48,7 @@ export const REGIONS: JourneyRegion[] = [
 ];
 
 export const JOURNEY_NODES: JourneyNode[] = [
-  // ── Ahmedabad (1–7) — all completed
+  // ── Ahmedabad (1–7), all completed
   { id: 1, title: "Namaste!", topic: "Greetings", status: "completed", region: "Ahmedabad", stars: 3 },
   { id: 2, title: "Kem cho?", topic: "Small talk", status: "completed", region: "Ahmedabad", stars: 3 },
   { id: 3, title: "My name is…", topic: "Introductions", status: "completed", region: "Ahmedabad", stars: 2 },
@@ -56,7 +56,7 @@ export const JOURNEY_NODES: JourneyNode[] = [
   { id: 5, title: "Counting to ten", topic: "Numbers", status: "completed", region: "Ahmedabad", stars: 2 },
   { id: 6, title: "How much is this?", topic: "Shopping", status: "completed", region: "Ahmedabad", stars: 3 },
   { id: 7, title: "Street food tour", topic: "Food & drink", status: "completed", region: "Ahmedabad", stars: 2 },
-  // ── Kutch (8–14) — completed up to 12, current at 13
+  // ── Kutch (8–14), completed up to 12, current at 13
   { id: 8, title: "Family words", topic: "Family", status: "completed", region: "Kutch", stars: 3 },
   { id: 9, title: "This & that", topic: "Demonstratives", status: "completed", region: "Kutch", stars: 2 },
   { id: 10, title: "Bargain at the bazaar", topic: "Shopping", status: "completed", region: "Kutch", stars: 1 },
@@ -64,7 +64,7 @@ export const JOURNEY_NODES: JourneyNode[] = [
   { id: 12, title: "What time is it?", topic: "Time", status: "completed", region: "Kutch", stars: 2 },
   { id: 13, title: "Days of the week", topic: "Calendar", status: "current", region: "Kutch" },
   { id: 14, title: "Desert weather", topic: "Weather", status: "locked", region: "Kutch" },
-  // ── Gir Forest (15–21) — locked
+  // ── Gir Forest (15–21), locked
   { id: 15, title: "Which way to Gir?", topic: "Directions", status: "locked", region: "Gir Forest" },
   { id: 16, title: "Animal names", topic: "Animals", status: "locked", region: "Gir Forest" },
   { id: 17, title: "On safari", topic: "Verbs of motion", status: "locked", region: "Gir Forest" },
@@ -72,7 +72,7 @@ export const JOURNEY_NODES: JourneyNode[] = [
   { id: 19, title: "Describing things", topic: "Adjectives", status: "locked", region: "Gir Forest" },
   { id: 20, title: "Yesterday & tomorrow", topic: "Past & future", status: "locked", region: "Gir Forest" },
   { id: 21, title: "Campfire stories", topic: "Simple past", status: "locked", region: "Gir Forest" },
-  // ── Coastal Saurashtra (22–27) — locked
+  // ── Coastal Saurashtra (22–27), locked
   { id: 22, title: "At the temple", topic: "Culture", status: "locked", region: "Coastal Saurashtra" },
   { id: 23, title: "By the sea", topic: "Nature", status: "locked", region: "Coastal Saurashtra" },
   { id: 24, title: "Making plans", topic: "Future tense", status: "locked", region: "Coastal Saurashtra" },

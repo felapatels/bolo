@@ -1,9 +1,9 @@
 /**
- * Acceptance item 5 — mobile app.
+ * Acceptance item 5, mobile app.
  *
  * Confirms the mobile practice screen renders correctly when the evaluate
  * response carries NO score field. This proves the later removal of score
- * from the API is safe — the client neither crashes nor shows a stale score.
+ * from the API is safe, the client neither crashes nor shows a stale score.
  *
  * Three bands are each exercised: nailed, close, retry.
  */
@@ -260,7 +260,7 @@ async function doRecordAndWaitForGradeLabel(expectedLabel: string) {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('acceptance item 5 — score absent from evaluate response (mobile)', () => {
+describe('acceptance item 5, score absent from evaluate response (mobile)', () => {
   test('renders Nailed-it result without crashing when score is omitted', async () => {
     mockState.evaluate = jest.fn(async () => ({
       band: 'great',
@@ -274,7 +274,7 @@ describe('acceptance item 5 — score absent from evaluate response (mobile)', (
     }));
 
     render(<PracticeScreen />);
-    // Grade label for nailed band — same text the celebrations test suite checks.
+    // Grade label for nailed band, same text the celebrations test suite checks.
     await doRecordAndWaitForGradeLabel('Goated 🐐');
 
     // The old numeric score must not appear anywhere.

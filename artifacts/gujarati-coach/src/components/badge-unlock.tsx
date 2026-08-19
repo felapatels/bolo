@@ -20,7 +20,7 @@ export function BadgeUnlock({
   const reduceMotion = useReducedMotion();
   const active = badges.length > 0;
 
-  // Mirror the mobile BadgeUnlock haptic — fire once when the overlay appears.
+  // Mirror the mobile BadgeUnlock haptic, fire once when the overlay appears.
   useEffect(() => {
     if (active) webHaptic('success');
   }, [active]);
@@ -100,7 +100,7 @@ export function BadgeUnlock({
           </motion.button>
 
           {/* Secondary escape hatch: the freshly earned badge lives on the
-              Progress page — link there instead of dead-ending at dismiss. */}
+              Progress page, link there instead of dead-ending at dismiss. */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

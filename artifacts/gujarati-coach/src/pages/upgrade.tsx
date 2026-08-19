@@ -195,7 +195,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
 
   const priceForTier = (tier: SelectableTier) => pricing?.[tier][interval];
 
-  // A handful of language native names for the bobbing hero tags — pure brand
+  // A handful of language native names for the bobbing hero tags, pure brand
   // flair echoing the launch video. Falls back gracefully if the list is short.
   const heroTags = languages.slice(0, 6);
 
@@ -222,11 +222,11 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
             {lapsed ? "Pick up where you left off" : "Choose your plan"}
           </h1>
           <p className="mt-3 text-lg font-medium text-muted-foreground">
-            Unlock all 22 languages and every premium tool — for yourself, or
+            Unlock all 22 languages and every premium tool, for yourself, or
             for the whole family.
           </p>
 
-          {/* Floating language tags — a little bobbing reminder of what's inside. */}
+          {/* Floating language tags, a little bobbing reminder of what's inside. */}
           {heroTags.length > 0 && (
             <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
               {heroTags.map((lang, i) => {
@@ -247,12 +247,12 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
           )}
         </motion.div>
 
-        {/* Trial banner — shown when the learner arrived after hitting the daily cap */}
+        {/* Trial banner, shown when the learner arrived after hitting the daily cap */}
         {intent.reason === "daily_lesson_limit" && (
           <div className="mx-auto mt-6 max-w-lg rounded-2xl border border-success/30 bg-success/10 px-4 py-3 text-sm font-semibold text-success flex items-center gap-2">
             <Sparkles className="h-4 w-4 shrink-0" />
             <span>
-              You qualify for a <strong>7-day free trial</strong> — the All-Access plan is pre-selected below.
+              You qualify for a <strong>7-day free trial</strong>, the All-Access plan is pre-selected below.
             </span>
           </div>
         )}
@@ -291,7 +291,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
 
         {/* Plan options */}
         <div className="mt-6 space-y-4 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0 lg:items-stretch">
-          {/* Free — the current plan, shown for context and never selectable.
+          {/* Free, the current plan, shown for context and never selectable.
               Kept far left so the plans read current → upgrade → best. */}
           <div className="rounded-3xl border border-dashed border-border bg-muted/30 p-5">
             <div className="flex items-center justify-between">
@@ -408,8 +408,8 @@ function FinePrint({
       )}
       {/* App Review, Guideline 3.1.2(c): the purchase flow must link the Terms
           of Use (EULA) and the privacy policy. These are the two exact,
-          owner-verified absolute URLs — the same pair the mobile paywall
-          hardcodes — never internal routes, shorteners or redirects. */}
+          owner-verified absolute URLs, the same pair the mobile paywall
+          hardcodes, never internal routes, shorteners or redirects. */}
       <p className="mt-2 text-center text-xs font-medium text-muted-foreground">
         By subscribing you agree to our{" "}
         <a

@@ -7,7 +7,7 @@ import { SCENE_NARRATION } from './narration';
 //
 // The caption words and per-scene timing come straight from SCENE_NARRATION
 // (see narration.ts), the single source of truth shared with voiceover
-// regeneration — so the text on screen can never drift from what viewers hear.
+// regeneration, so the text on screen can never drift from what viewers hear.
 // Segments are revealed at offsets measured from the scene's start. Because the
 // composite audio track re-anchors to each scene's canonical start (see
 // SCENE_OFFSETS in VideoTemplate), a caption timeline that also restarts from 0
