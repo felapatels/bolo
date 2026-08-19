@@ -2229,7 +2229,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               aria-label="Audio settings"
               title="Audio settings"
               data-testid="practice-settings-trigger"
-              className="shrink-0 h-8 w-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-secondary data-[state=open]:text-white"
+              className="shrink-0 h-8 w-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:text-foreground data-[state=open]:bg-secondary data-[state=open]:text-secondary-foreground"
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -2633,7 +2633,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   disabled={currentIndex === 0 || state === "recording" || state === "evaluating"}
                   aria-label="Go to previous phrase"
                   data-testid="button-prev-phrase"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full border border-border bg-white/90 text-muted-foreground flex items-center justify-center shadow-sm hover:text-foreground active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full border border-border bg-card/90 text-muted-foreground flex items-center justify-center shadow-sm hover:text-foreground active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
@@ -2643,7 +2643,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   disabled={currentIndex >= phrases.length - 1 || state === "recording" || state === "evaluating"}
                   aria-label="Go to next phrase"
                   data-testid="button-next-phrase"
-                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full border border-border bg-white/90 text-muted-foreground flex items-center justify-center shadow-sm hover:text-foreground active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full border border-border bg-card/90 text-muted-foreground flex items-center justify-center shadow-sm hover:text-foreground active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>

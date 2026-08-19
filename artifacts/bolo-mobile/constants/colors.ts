@@ -36,7 +36,11 @@ const colors = {
     destructiveForeground: '#FFFFFF',
 
     success: '#10B981', // emerald-500
-    successForeground: '#FFFFFF',
+    // Was #FFFFFF, which read at 2.54:1 on this green: the worst contrast in
+    // either palette and below even the 3:1 floor for UI text. The dark
+    // palette's own success foreground clears 5.84:1 here, so the fix reuses a
+    // value the design already has rather than inventing one. 2026-08-18.
+    successForeground: '#052E1F',
 
     gold: '#F59E0B', // amber-500 — XP / star / Plus highlight
 
