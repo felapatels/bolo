@@ -1,12 +1,12 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import Animated, {
-  FadeIn,
   FadeOut,
   SlideInUp,
   SlideOutUp,
   useReducedMotion,
 } from 'react-native-reanimated';
+import { appearPlain } from '@/lib/entrance';
 import { AppFonts } from '@/constants/fonts';
 
 interface MilestoneToastProps {
@@ -73,7 +73,7 @@ export function MilestoneToast({
   if (!visible) return null;
 
   const entering = reduceMotion
-    ? FadeIn.duration(200)
+    ? appearPlain()
     : SlideInUp.springify().damping(14).stiffness(220);
 
   const exiting = reduceMotion

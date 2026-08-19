@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import {
   useGetFriendsLeaderboard,
   getGetFriendsLeaderboardQueryKey,
@@ -36,7 +36,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { PressableScale } from '@/components/PressableScale';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { ChunkyButton } from '@/components/ChunkyButton';
-import { useAppearSkip } from '@/lib/entrance';
+import { appearDown, appearZoom, useAppearSkip } from '@/lib/entrance';
 import { hapticLight } from '@/lib/haptics';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -282,18 +282,18 @@ function EmptyBoard({ emptyBody }: { emptyBody: string }) {
   return (
     <View style={styles.emptyState}>
       <Animated.View
-        entering={skipEnter ? undefined : ZoomIn.springify().damping(14)}
+        entering={skipEnter ? undefined : appearZoom(0)}
       >
         <Mascot pose="cheer" size={92} motion="float" />
       </Animated.View>
       <Animated.Text
-        entering={skipEnter ? undefined : FadeInDown.duration(350).delay(80)}
+        entering={skipEnter ? undefined : appearDown(80, 350)}
         style={[styles.emptyTitle, { color: colors.foreground }]}
       >
         Your board is waiting
       </Animated.Text>
       <Animated.Text
-        entering={skipEnter ? undefined : FadeInDown.duration(350).delay(160)}
+        entering={skipEnter ? undefined : appearDown(160, 350)}
         style={[styles.emptyText, { color: colors.mutedForeground }]}
       >
         {emptyBody}
@@ -426,7 +426,7 @@ function FeedList() {
     return (
       <View style={styles.emptyState}>
         <Animated.View
-          entering={skipEnter ? undefined : ZoomIn.springify().damping(14)}
+          entering={skipEnter ? undefined : appearZoom(0)}
         >
           <Mascot pose="thinking" size={92} motion="float" />
         </Animated.View>
@@ -445,7 +445,7 @@ function FeedList() {
           entering={
             skipEnter
               ? undefined
-              : FadeInDown.duration(360).delay(Math.min(i, 8) * 45)
+              : appearDown(Math.min(i, 8) * 45, 360)
           }
         >
           <FeedRow entry={entry} resolvers={resolvers} />
@@ -503,7 +503,7 @@ export default function LeaderboardScreen() {
   return (
     <Screen>
       <Animated.View
-        entering={skipEnter ? undefined : FadeInDown.duration(500)}
+        entering={skipEnter ? undefined : appearDown(0, 500)}
         style={styles.head}
       >
         <Pressable
@@ -583,7 +583,7 @@ export default function LeaderboardScreen() {
               entering={
                 skipEnter
                   ? undefined
-                  : FadeInDown.duration(360).delay(Math.min(i, 8) * 45)
+                  : appearDown(Math.min(i, 8) * 45, 360)
               }
             >
               <BoardRow entry={entry} rank={i + 1} tab={tab} />

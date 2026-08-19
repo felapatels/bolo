@@ -9,8 +9,8 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { useAppearSkip } from '@/lib/entrance';
+import Animated from 'react-native-reanimated';
+import { appearDown, appearPlain, useAppearSkip } from '@/lib/entrance';
 import { useListCategories, type Category } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { SkeletonCard } from '@/components/SkeletonCard';
@@ -133,7 +133,7 @@ function CategoryCard({
 
   const skipEnter = useAppearSkip();
   return (
-    <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(420).delay(120 + index * 70)}>
+    <Animated.View entering={skipEnter ? undefined : appearDown(120 + index * 70, 420)}>
       <PressableScale
         testID={`phrasebook-topic-${category.id}`}
         onPress={onPress}
@@ -213,7 +213,7 @@ function CategoryCard({
 function ErrorNote({ message, color }: { message: string; color: string }) {
   const skipEnter = useAppearSkip();
   return (
-    <Animated.Text entering={skipEnter ? undefined : FadeIn} style={[styles.errorNote, { color }]}>
+    <Animated.Text entering={skipEnter ? undefined : appearPlain()} style={[styles.errorNote, { color }]}>
       {message}
     </Animated.Text>
   );

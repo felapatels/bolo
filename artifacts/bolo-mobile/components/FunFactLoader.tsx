@@ -12,8 +12,8 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useAppear } from '@/lib/entrance';
+import Animated from 'react-native-reanimated';
+import { appearDown, useAppear } from '@/lib/entrance';
 import { useColors } from '@/hooks/useColors';
 import { pickFunFact } from '@/lib/funFacts';
 
@@ -31,7 +31,7 @@ export function FunFactLoader({ size = 'large', color, style }: Props) {
   // Drop the entrance animation in Expo Go and when the user has Reduce Motion
   // enabled — both cases leave views stuck at the animation's initial state
   // (opacity 0), so we fall back to rendering the text directly in place.
-  const factEntering = useAppear(FadeInDown.duration(450).delay(150));
+  const factEntering = useAppear(appearDown(150, 450));
 
   return (
     <View style={[styles.wrap, style]}>

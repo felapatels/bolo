@@ -3,7 +3,6 @@ import { Image, StyleSheet, View, type ImageStyle, type StyleProp } from 'react-
 import Animated, {
   Easing,
   ReduceMotion,
-  ZoomIn,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -12,7 +11,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { appear } from '@/lib/entrance';
+import { appear, appearZoom } from '@/lib/entrance';
 import { accessoryOverlaySource, mascotSource } from '@/lib/mascotOutfits';
 import { useEquippedOutfit } from '@/contexts/OutfitContext';
 
@@ -336,7 +335,7 @@ export function Mascot({
   // replays on pose changes, matching the previous lively reaction.
   const entrance =
     entering && !reduceMotion
-      ? ZoomIn.springify().damping(10).stiffness(140).mass(0.6).delay(40)
+      ? appearZoom(40)
       : undefined;
 
   const overlay = accessoryOverlaySource(pose, wornAccessory);

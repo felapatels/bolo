@@ -55,3 +55,82 @@ export function useAppearSkip(): boolean {
   const reducedMotion = useReducedMotion();
   return isExpoGo || reducedMotion;
 }
+
+// ---------------------------------------------------------------------------
+// SAFE ENTRANCES: motion that cannot take the content with it.
+//
+// Confirmed on device 2026-08-19: in a preview build on reanimated 4.1.1 with
+// the New Architecture, FadeInDown mounts its view at opacity 0 and never runs.
+// The home screen rendered its layout correctly and showed nothing, and the
+// stagger was visible in the wreckage: delay-0 blocks faintly there, delay-200
+// blocks entirely absent. Turning Reduce Motion on fixed it, which is this
+// module's own guard doing its job and confirming the diagnosis.
+//
+// The guard above is a BLOCKLIST of environments known to break, and a
+// blocklist fails open: any environment nobody thought of gets the animation
+// and, when it does not run, an invisible screen. Chasing the upstream bug is
+// not the fix either, because the next version of it will fail the same way.
+//
+// So the entrances below carry NO opacity. They move, and movement is all they
+// do. An entrance that never runs leaves its content sitting a few pixels off
+// its resting place, fully readable, and nobody ever notices. That is a
+// progressive enhancement; the fade was not.
+import { withDelay, withTiming, type EntryAnimationsValues } from 'react-native-reanimated';
+
+const DEFAULT_MS = 500;
+/** Far enough to read as motion, near enough that a stalled one looks fine. */
+const TRAVEL = 16;
+
+type Entering = (values: EntryAnimationsValues) => {
+  initialValues: Record<string, unknown>;
+  animations: Record<string, unknown>;
+};
+
+function slide(from: number, delay: number, duration: number): Entering {
+  return () => {
+    'worklet';
+    return {
+      // No opacity key at all: the view is visible from its first frame, and
+      // stays visible whatever happens to the animation.
+      initialValues: { transform: [{ translateY: from }] },
+      animations: {
+        transform: [{ translateY: withDelay(delay, withTiming(0, { duration })) }],
+      },
+    };
+  };
+}
+
+/** Rises into place. The replacement for FadeInDown. */
+export function appearDown(delay = 0, duration = DEFAULT_MS): Entering {
+  return slide(TRAVEL, delay, duration);
+}
+
+/** Settles down into place. The replacement for FadeInUp. */
+export function appearUp(delay = 0, duration = DEFAULT_MS): Entering {
+  return slide(-TRAVEL, delay, duration);
+}
+
+/** Grows into place. The replacement for ZoomIn. */
+export function appearZoom(delay = 0, duration = DEFAULT_MS): Entering {
+  return () => {
+    'worklet';
+    return {
+      initialValues: { transform: [{ scale: 0.92 }] },
+      animations: {
+        transform: [{ scale: withDelay(delay, withTiming(1, { duration })) }],
+      },
+    };
+  };
+}
+
+/**
+ * The replacement for a bare FadeIn.
+ *
+ * There is no safe way to fade content in from nothing: the initial state IS
+ * invisible, so a stalled fade is an empty screen by definition. This renders
+ * the content and skips the animation. Losing a fade costs nothing; losing the
+ * screen cost an afternoon.
+ */
+export function appearPlain(): undefined {
+  return undefined;
+}

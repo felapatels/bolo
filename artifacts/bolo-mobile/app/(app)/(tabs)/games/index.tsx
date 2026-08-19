@@ -241,7 +241,7 @@ const DIFFICULTY_DOT: Record<GameDef['difficulty'], string> = {
 
 /**
  * Entrance cascade worklet (web: initial y28/scale0.9 → springs.poppy with
- * index*0.07s delay). A custom builder because the stock FadeInDown does not
+ * index*0.07s delay). A custom builder because the stock appearDown(0) does not
  * carry the scale pop.
  */
 function cardEntering(index: number) {

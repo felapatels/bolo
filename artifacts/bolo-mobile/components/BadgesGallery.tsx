@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useAppearSkip } from '@/lib/entrance';
+import Animated from 'react-native-reanimated';
+import { appearDown, useAppearSkip } from '@/lib/entrance';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useListBadges, type Badge } from '@workspace/api-client-react';
 import { FunFactLoader } from '@/components/FunFactLoader';
@@ -77,7 +77,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
             return (
               <Animated.View
                 key={badge.key}
-                entering={skipEnter ? undefined : FadeInDown.duration(360).delay(Math.min(i, 12) * 45)}
+                entering={skipEnter ? undefined : appearDown(Math.min(i, 12) * 45, 360)}
                 style={[
                   styles.card,
                   badge.earned
