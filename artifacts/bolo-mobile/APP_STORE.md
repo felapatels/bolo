@@ -78,3 +78,29 @@ domain and test Clerk key.
    `eas submit --platform ios --latest`. Test via TestFlight first, then
    submit for review. For review notes, provide a demo login and mention the
    microphone is used for pronunciation scoring.
+
+## In-app purchase images, and an App Store Connect bug
+
+Each Chai pack needs two images, and they are not interchangeable:
+
+- **App Review Screenshot** (required). A real screenshot showing the purchase
+  in the app. `assets/store/ios/review/chai-packs-1290x2796.png` serves all
+  three; it shows the wallet, the "Out of Chai?" panel and all three prices.
+  1290x2796 is used because it is a size Apple has already accepted from this
+  app, and their uploader rejects most raw phone screenshots (a device shoots
+  1320x2868) without saying why.
+- **Promotional Image** (optional). 1024x1024, 72dpi, RGB, flattened, no alpha.
+  `assets/store/ios/promo/chai-pack-1024.png`. Only needed to promote a
+  purchase on the product page or to use offer codes. It carries NO text: Apple
+  serves the one image in every country the app ships to.
+
+**THE UPLOADER LIES ON THE FIRST ATTEMPT.** Owner, 2026-08-19: a correctly
+sized image is rejected the first time regardless, and once it has rejected
+anything the page holds that error until it is RELOADED. So the sequence is:
+upload, see a dimensions error, **reload the page**, upload the same file
+again, and it takes. Nothing is wrong with the file. Two of these images were
+nearly re-cut over this.
+
+macOS footnote: screenshot filenames contain U+202F, a narrow no-break space,
+before AM and PM. A hand-typed path never matches one and `sips` reports only
+"not a valid file". Glob past it: `"...at 8.31.07"*"AM.png"`.
