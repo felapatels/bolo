@@ -747,7 +747,7 @@ export default function HomeScreen() {
                   index={3}
                   icon="chai"
                   value={tokensQuery.data?.balance ?? '-'}
-                  label="Chai"
+                  label="Spend it!"
                   loading={tokensQuery.isLoading}
                   testID="stat-chai"
                   accessibilityLabel="Chai balance"
@@ -1318,15 +1318,23 @@ function GradientStatCell({
           pressed && onPress != null && styles.gradientStatPressed,
         ]}
       >
-      {icon === 'chai' ? (
-        // The kulhad is a photo, not a line icon — it needs more pixels to
-        // read at the same visual weight as the 20 px Feather glyphs.
-        <ChaiGlyph size={28} />
-      ) : (
-        <Feather name={icon} size={20} color="rgba(255,255,255,0.9)" />
-      )}
+      {/* BANDED. Every cell reserves the same three heights, so alignment stops
+          depending on what is inside: the kulhad is 28px against 20px Feather
+          glyphs, the streak wraps its number in a 56px arc, and only Chai
+          carries a chevron. Three sources of height variance across four cells
+          is why this row kept drifting. Owner ruling 2026-08-19. */}
+      <View style={styles.statIconBand}>
+        {icon === 'chai' ? (
+          // The kulhad is a photo, not a line icon: it needs more pixels to
+          // read at the same visual weight as a 20 px Feather glyph.
+          <ChaiGlyph size={26} />
+        ) : (
+          <Feather name={icon} size={20} color="rgba(255,255,255,0.9)" />
+        )}
+      </View>
+      <View style={styles.statValueBand}>
       {loading ? (
-        <ActivityIndicator color="rgba(255,255,255,0.7)" style={{ marginVertical: 4 }} />
+        <ActivityIndicator color="rgba(255,255,255,0.7)" />
       ) : showArc ? (
         <View style={styles.arcValueWrap}>
           <Svg
@@ -1365,18 +1373,21 @@ function GradientStatCell({
       ) : (
         <Text style={styles.gradientStatValue}>{value}</Text>
       )}
-      {showChevron ?? onPress != null ? (
-        <View style={styles.gradientStatLabelRow}>
-          <Text style={styles.gradientStatLabel}>{label}</Text>
-          <Feather
-            name="chevron-right"
-            size={12}
-            color="rgba(255,255,255,0.6)"
-          />
-        </View>
-      ) : (
-        <Text style={styles.gradientStatLabel}>{label}</Text>
-      )}
+      </View>
+      <View style={styles.statLabelBand}>
+        {showChevron ?? onPress != null ? (
+          <View style={styles.gradientStatLabelRow}>
+            <Text numberOfLines={1} style={styles.gradientStatLabel}>{label}</Text>
+            <Feather
+              name="chevron-right"
+              size={12}
+              color="rgba(255,255,255,0.6)"
+            />
+          </View>
+        ) : (
+          <Text numberOfLines={1} style={styles.gradientStatLabel}>{label}</Text>
+        )}
+      </View>
       </Pressable>
     </Animated.View>
   );
@@ -1451,14 +1462,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderRadius: 18,
     paddingTop: 14,
-    // More than the top: the labels are the lowest ink in the card and were
-    // sitting on its edge.
-    paddingBottom: 18,
-    paddingHorizontal: 8,
-    // STRETCH, not center. The day-streak cell wraps its number in a ring,
-    // which makes that cell taller than the other three. Centering each cell
-    // independently then dropped its label below theirs and into the padding.
-    // Stretching lets every cell bottom-align its label on one baseline.
+    // More than the top: the labels are the lowest ink in the card.
+    paddingBottom: 16,
+    paddingHorizontal: 6,
+    // Stretch, so every cell is the full height of the row and its three bands
+    // line up with its neighbours' by construction rather than by luck.
     alignItems: 'stretch',
   },
   statsDivider: {
@@ -1466,16 +1474,23 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
-  gradientStatCell: {
-    flex: 1,
+  gradientStatCell: { flex: 1, alignItems: 'center' },
+  gradientStatPress: { alignItems: 'center', alignSelf: 'stretch' },
+  // The three fixed bands. Heights are set by the tallest possible occupant of
+  // each row: a 26px kulhad, the 56px streak arc, and one line of label.
+  statIconBand: { height: 28, justifyContent: 'center', alignItems: 'center' },
+  statValueBand: {
+    height: 56,
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
+    alignSelf: 'stretch',
   },
-  gradientStatPress: {
+  statLabelBand: {
+    height: 16,
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
+    alignSelf: 'stretch',
+    paddingHorizontal: 2,
   },
   gradientStatPressed: {
     opacity: 0.7,

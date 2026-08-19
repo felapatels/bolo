@@ -620,29 +620,29 @@ function WalletHistory() {
 
   const entries = history.data?.entries ?? [];
 
-  // Nothing earned and nothing spent yet. The dashed frame is the placeholder
-  // this replaced: a wallet that never mentions history teaches a learner
-  // there is none, so the empty case still says where it will land.
+  // Nothing earned and nothing spent yet. A wallet that never mentions history
+  // teaches a learner there is none, so the empty case still says where
+  // movements will land.
   if (entries.length === 0) {
     return (
+      /* THE EMPTY STATE IS THE SAME LIST, not a different component. It used to
+         borrow the SPEND row's shape, an icon tile beside a title and a body,
+         which is the exact silhouette of every buyable item above it. It read
+         as a button that would not respond to a click, which is worse than
+         saying nothing. Same frame, same heading, one muted row where the
+         entries will go. Owner ruling 2026-08-19, matched on both platforms. */
       <div
         data-testid="wallet-history-placeholder"
-        className="flex items-center gap-3 rounded-2xl border border-dashed border-card-border p-4"
+        className="rounded-2xl border border-card-border p-4"
       >
-        <span
-          aria-hidden="true"
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
-          style={{ background: INDIA.cloth }}
-        >
-          <ChaiGlyph className="h-7 w-7" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="font-black text-foreground">Chai history</p>
-          <p className="text-xs leading-snug text-muted-foreground">
-            Nothing yet. Every cup you earn and every one you spend will show up
-            here.
-          </p>
-        </div>
+        <p className="font-black text-foreground">Chai history</p>
+        <ul className="mt-2 space-y-1">
+          <li className="flex items-center gap-3">
+            <span className="min-w-0 flex-1 text-sm font-bold text-muted-foreground">
+              Cups you earn and buy will appear here.
+            </span>
+          </li>
+        </ul>
       </div>
     );
   }
@@ -765,7 +765,7 @@ export function ChaiWalletSheet({
             <div className="min-w-0 flex-1">
               <p className="font-black text-foreground">Bolo Bazaar</p>
               <p className="text-xs leading-snug text-muted-foreground">
-                Outfits, passes and everything else Chai buys.
+                Fits, boosts and streak savers.
               </p>
             </div>
             <button

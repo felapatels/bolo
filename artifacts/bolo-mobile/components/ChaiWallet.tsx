@@ -738,25 +738,27 @@ function WalletHistory() {
 
   const entries = history.data?.entries ?? [];
 
-  // Nothing earned and nothing spent yet. The dashed frame is the placeholder
-  // this replaced: a wallet that never mentions history teaches a learner
-  // there is none, so the empty case still says where it will land.
+  // Nothing earned and nothing spent yet.
+  //
+  // THE EMPTY STATE IS THE SAME LIST, not a different component. It used to
+  // borrow the SPEND row's shape: an icon tile beside a title and a body, which
+  // is the exact silhouette of every buyable item above it. It read as a button
+  // that would not respond to a tap, which is worse than saying nothing.
+  //
+  // Same frame, same heading, one muted row where the entries will go. Owner
+  // ruling 2026-08-19.
   if (entries.length === 0) {
     return (
       <View
         testID="wallet-history-placeholder"
-        style={[styles.historyRow, { borderColor: colors.border }]}
+        style={[styles.historyList, { borderColor: colors.border }]}
       >
-        <View style={styles.historyTile}>
-          <ChaiGlyph size={28} />
-        </View>
-        <View style={styles.itemInfo}>
-          <Text style={[styles.itemTitle, { color: colors.foreground }]}>
-            Chai history
-          </Text>
-          <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
-            Nothing yet. Every cup you earn and every one you spend will show up
-            here.
+        <Text style={[styles.itemTitle, { color: colors.foreground }]}>
+          Chai history
+        </Text>
+        <View style={styles.historyEntry}>
+          <Text style={[styles.historyLabel, { color: colors.mutedForeground }]}>
+            Cups you earn and buy will appear here.
           </Text>
         </View>
       </View>
@@ -897,7 +899,7 @@ export function ChaiWalletSheet({
                   Bolo Bazaar
                 </Text>
                 <Text style={[styles.itemDesc, { color: colors.mutedForeground }]}>
-                  Outfits, passes and everything else Chai buys.
+                  Fits, boosts and streak savers.
                 </Text>
               </View>
               <Pressable

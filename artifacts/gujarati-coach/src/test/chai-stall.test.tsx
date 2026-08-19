@@ -53,7 +53,7 @@ function read(rel: string): string {
  */
 const GLYPH_SITES: Record<string, number> = {
   "components/chai-stall.tsx": 1, // the band's own balance readout
-  "components/chai-wallet.tsx": 4, // header balance, the shared ChaiCoin, the empty-history illustration, the per-row delta
+  "components/chai-wallet.tsx": 3 /* was 4; the empty-history glyph went with the tile-to-list rebuild on 2026-08-19: the empty state is now the same LIST as the populated one, and that list carries no glyph in its heading */, // header balance, the shared ChaiCoin, the empty-history illustration, the per-row delta
   "components/referral-card.tsx": 1, // Chai earned from referrals
   "pages/home.tsx": 2, // Chai stat cell + streak-repair banner balance
   "pages/games/quick-game-frame.tsx": 1, // chai-earn-beat
@@ -64,7 +64,7 @@ const GLYPH_SITES: Record<string, number> = {
   "components/outfit-card.tsx": 1, // Buy Now. The thumbnail price pill went with the card-to-row rebuild (5414ef9)
 };
 
-const WEB_GLYPH_COUNT = 16;
+const WEB_GLYPH_COUNT = 15;
 
 describe("chai glyph", () => {
   test("renders the delivered kulhad art, decoratively", () => {

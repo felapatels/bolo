@@ -495,7 +495,10 @@ describe('HomeScreen - Chai stat cell (34B)', () => {
     render(<HomeScreen />);
 
     const cell = screen.getByTestId('stat-chai');
-    expect(screen.getByText('Chai')).toBeOnTheScreen();
+    // Label changed to a call to action on 2026-08-19. The kulhad glyph above
+    // the number already says "chai", so the word does a different job now:
+    // this is the only stat that leads somewhere you can spend.
+    expect(screen.getByText('Spend it!')).toBeOnTheScreen();
     expect(screen.queryByTestId('chai-wallet-sheet')).toBeNull();
 
     fireEvent.press(cell);
