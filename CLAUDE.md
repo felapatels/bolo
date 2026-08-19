@@ -122,6 +122,15 @@ command runs.
 
 ## Known open items
 
+- **`expo-video` crashes the app at launch. Do not reinstate it without a plan.**
+  Confirmed by bisect 2026-08-19: the Aug 16 build (no expo-video) survives 5
+  cold starts of 5; every build carrying it crashes 3 or 4 times out of 5, with
+  `EXC_BAD_ACCESS` inside the Hermes GC and no JS frames. The trap is that it is
+  not only the bazaar film: `BrandSplash` imports it too and mounts at
+  `app/_layout.tsx`, the ROOT, so a film decodes on EVERY cold start. Both
+  surfaces now show their poster instead, a path that already existed for Reduce
+  Motion. The `.mp4` assets are still in the repo. Bringing the films back means
+  a newer expo-video, a different library, or keeping video off the launch path.
 - ~~RevenueCat reconcile-on-read returns 401.~~ **Fixed 2026-08-19.** The cause
   was never a wrong key: Replit's RevenueCat connector issues a **v2-scoped**
   token, so the `/v1/subscribers` call through it always 401'd (documented in
