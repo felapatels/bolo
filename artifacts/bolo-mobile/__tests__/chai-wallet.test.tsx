@@ -370,7 +370,7 @@ describe('express countdown', () => {
     expect(browse).toHaveTextContent('Browse');
     // Bolo is female; the row copy must not call her a boy.
     expect(
-      screen.getByText('Outfits, passes and everything else Chai buys.'),
+      screen.getByText('Fits, boosts and streak savers.'),
     ).toBeOnTheScreen();
 
     fireEvent.press(browse);
@@ -560,14 +560,17 @@ describe('Chai history', () => {
     expect(screen.queryByTestId('wallet-history-placeholder')).toBeNull();
   });
 
-  it('keeps the dashed frame, reworded, when nothing has moved yet', () => {
+  it('THE EMPTY STATE IS A LIST, not a row that looks tappable', () => {
+    // It used to borrow the SPEND row's shape, an icon tile beside a title and
+    // a body, which is the silhouette of every buyable item above it. The
+    // owner read it as a button that would not respond. Same frame and heading
+    // as the populated list now, with one muted row. 2026-08-19.
     render(<ChaiWalletSheet visible onClose={jest.fn()} />);
 
     expect(screen.getByTestId('wallet-history-placeholder')).toBeOnTheScreen();
+    expect(screen.getByText('Chai history')).toBeOnTheScreen();
     expect(
-      screen.getByText(
-        'Nothing yet. Every cup you earn and every one you spend will show up here.',
-      ),
+      screen.getByText('Cups you earn and buy will appear here.'),
     ).toBeOnTheScreen();
     // It is not a promise of a feature any more, so the marker is gone.
     expect(screen.queryByText('SOON')).toBeNull();

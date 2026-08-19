@@ -46,14 +46,14 @@ function read(rel: string): string {
 const GLYPH_SITES: Record<string, number> = {
   'components/ChaiStall.tsx': 1, // the band's own balance readout
   'app/(app)/(tabs)/index.tsx': 2, // Chai stat cell + streak-repair banner balance
-  'components/ChaiWallet.tsx': 4, // header balance, the shared ChaiCoin, the empty-history tile, the per-row delta
+  'components/ChaiWallet.tsx': 3, // header balance, the shared ChaiCoin, the per-row delta. The empty-history glyph went with the tile-to-list rebuild (2026-08-19): the empty state is the same LIST as the populated one, and that list has no glyph in its heading.
   'components/journey/SignalEncounter.tsx': 1, // signal-chai-chip
   'app/(app)/practice/[id].tsx': 1, // session-chai-pill
   'components/journey/ZoneCloseout.tsx': 1, // closeout payoff chip
   'app/(app)/bazaar.tsx': 4, // wardrobe balance, action-bar Buy, row Buy Now, and the chai stall's top-up badge (2026-08-19). The thumbnail price pill went with the card-to-row rebuild (5414ef9)
 };
 
-const MOBILE_GLYPH_COUNT = 14;
+const MOBILE_GLYPH_COUNT = 13;
 
 describe('chai glyph', () => {
   test('renders the delivered kulhad art at the caller size', () => {

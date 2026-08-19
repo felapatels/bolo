@@ -156,7 +156,7 @@ describe("Chai wallet sheet", () => {
     expect(browse.tagName).toBe("BUTTON");
     expect(browse).toHaveTextContent("Browse");
     expect(
-      screen.getByText("Outfits, passes and everything else Chai buys."),
+      screen.getByText("Fits, boosts and streak savers."),
     ).toBeInTheDocument();
 
     await user.click(browse);
@@ -304,7 +304,7 @@ describe("Chai history", () => {
     const empty = screen.getByTestId("wallet-history-placeholder");
     expect(empty).toHaveTextContent("Chai history");
     expect(empty).toHaveTextContent(
-      "Nothing yet. Every cup you earn and every one you spend will show up here.",
+      "Cups you earn and buy will appear here.",
     );
     // It is not a promise of a feature any more, so the marker is gone.
     expect(empty).not.toHaveTextContent("Soon");
