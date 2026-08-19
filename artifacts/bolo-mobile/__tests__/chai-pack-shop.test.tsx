@@ -263,9 +263,14 @@ describe('buying a pack', () => {
   });
 
   it('the pending copy never claims the Chai has landed', () => {
+    // Em dash removed 2026-08-19; app copy never carries one. The intent this
+    // pins is unchanged and is the important half: "on the way" promises
+    // delivery, not arrival, so a learner reading it while the webhook is still
+    // in flight has not been lied to.
     expect(PACK_COPY.pending).toBe(
-      'Chai on the way — your balance updates in a moment.',
+      'Chai on the way. Your balance updates in a moment.',
     );
+    expect(PACK_COPY.pending).not.toMatch(/added|credited|landed|in your wallet/i);
     expect(PACK_COPY.failed).toContain('Nothing has been charged');
   });
 });

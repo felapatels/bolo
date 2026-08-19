@@ -43,7 +43,7 @@ export function repairErrorMessage(error: unknown): string {
       return 'That was a proper break, not a missed day. Today starts the next one.';
     }
     if (data.error === 'no_break_to_repair') {
-      return 'Nothing to mend — your streak is whole.';
+      return 'Nothing to mend. Your streak is whole.';
     }
   }
   return 'That repair did not go through. Try again in a moment.';
