@@ -274,7 +274,7 @@ describe("Listen & Pick choices", () => {
     await act(async () => {
       fireEvent.click(screen.getByText("Greetings"));
     });
-    // Fake timers are running, so the round is settled by advancing them, // waitFor would sit on a clock nothing is turning.
+    // Fake timers are running, so the round is settled by advancing them, waitFor would sit on a clock nothing is turning.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(50);
     });

@@ -230,7 +230,7 @@ async function anotherGo() {
 
 describe('zero-XP encore', () => {
   test('a phrase that earned nothing comes back after the last phrase', async () => {
-    // A: nothing, then half credit (settles the debt), then nothing again, // three goes, so the advance gate is open when the learner moves on and
+    // A: nothing, then half credit (settles the debt), then nothing again, three goes, so the advance gate is open when the learner moves on and
     // A leaves the phrase queued on 2 strikes. B earns XP.
     mockState.plan = [ZERO, HALF, ZERO, EARNED];
     render(<PracticeScreen />);

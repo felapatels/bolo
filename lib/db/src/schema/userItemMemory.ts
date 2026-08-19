@@ -16,7 +16,7 @@ import { phrasesTable } from "./phrases";
 // `due_at` drives the review-queue ordering: phrases past their due date
 // surface first. `stability` (days) is the FSRS forgetting-curve half-life;
 // once stability ≥ 21 days the phrase is considered "mastered" for the
-// purposes of the FSRS-based masteredCount definition (not yet active, // validated by the backfill before the categories route flips to it).
+// purposes of the FSRS-based masteredCount definition (not yet active, validated by the backfill before the categories route flips to it).
 //
 // `state` mirrors the FSRS State enum as a string:
 //   'new'       , never rated (default)

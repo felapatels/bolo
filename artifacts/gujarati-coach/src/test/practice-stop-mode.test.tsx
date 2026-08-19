@@ -9,7 +9,7 @@ import type { ReactElement } from "react";
 // an actionable message with a retry, never a silent reset.
 //
 // NOTE: The auto/manual stop-mode toggle was removed when hold-to-talk
-// replaced the old mic button. Recording now always uses manual stop, // the learner holds the parrot belly to record and releases to submit.
+// replaced the old mic button. Recording now always uses manual stop, the learner holds the parrot belly to record and releases to submit.
 // ---------------------------------------------------------------------------
 
 const h = vi.hoisted(() => ({

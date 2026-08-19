@@ -1,5 +1,5 @@
 // Task #899: train size bump + boarding-pass stub tear probe.
-// Task #905: extended — the visible stub tear now plays on a body-level
+// Task #905: extended, the visible stub tear now plays on a body-level
 // fixed overlay clone ([data-tear-overlay]) that outlives home's unmount;
 // MODE=after additionally verifies the overlay is still finishing OVER the
 // journey route right after navigation and is removed (animationend or the
@@ -194,7 +194,7 @@ if (MODE === "after") {
   await page.evaluate(`${findPass}().click()`);
   await page.waitForURL(/\/journey/, { timeout: 5000 });
   console.log(`real-timing click -> /journey in ${Date.now() - t0}ms`);
-  // Task #905: stock timing — the cleanup deadline is 900ms from the
+  // Task #905: stock timing, the cleanup deadline is 900ms from the
   // hand-off (navigation), and the final gust ends ~540ms after it, so by
   // ~1.2s post-navigation the overlay must be gone (animationend normally
   // beats the fallback).

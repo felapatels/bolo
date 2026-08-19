@@ -66,7 +66,7 @@ export function ChachaEncounterDialog({
     };
   }, [playbackStop]);
 
-  // Chacha's own voice, gated by the master "does Bolo speak at all" switch, // NOT by "Autoplay phrase" (bolo.silentMode). His lines are flavour dialogue,
+  // Chacha's own voice, gated by the master "does Bolo speak at all" switch, NOT by "Autoplay phrase" (bolo.silentMode). His lines are flavour dialogue,
   // not a pronunciation reference: there is no recording to get out of the way
   // of and no replay affordance, so a control labelled "Autoplay phrase" has no
   // business silencing them. A learner who switched Bolo's voice off entirely

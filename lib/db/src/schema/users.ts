@@ -110,6 +110,21 @@ export const usersTable = pgTable("users", {
   // exception is referral redemption, which auto-friends instantly because
   // redeeming someone's link is already an explicit act by both parties.
   referralCode: text("referral_code"),
+  // Analytics hygiene: marks an account whose activity is OURS, not a
+  // learner's. Development accounts, QA passes, demo recordings, and the
+  // deliberately-botched attempts used to exercise the scoring guards all
+  // land in the same tables as real usage, and by launch there is no way to
+  // tell them apart after the fact.
+  //
+  // Every analytics query MUST exclude these rows. Elo calibration is the
+  // motivating case: a run of intentionally-wrong pronunciations reads as a
+  // struggling learner and drags phrase difficulty toward "hard" for
+  // everyone. Set it with scripts/src/markTestUser.ts.
+  //
+  // NOT an entitlement or a role. It grants nothing, hides nothing, and is
+  // never read on a request path. Gating behaviour on it would make our
+  // accounts diverge from the product we are trying to test.
+  isTest: boolean("is_test").notNull().default(false),
 }, (t) => [
   uniqueIndex("users_referral_code_idx").on(t.referralCode),
 ]);

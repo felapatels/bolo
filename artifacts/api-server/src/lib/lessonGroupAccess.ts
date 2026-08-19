@@ -16,7 +16,7 @@
 // never be written for a language the caller's plan doesn't own.
 //
 // The per-phrase serve rule is isPhraseServable():
-//   group unlocked ∨ lessonGroupId NULL ∨ prior attempt (retake exemption, //   a Retake deep-link resolves against the category list, so a phrase the
+//   group unlocked ∨ lessonGroupId NULL ∨ prior attempt (retake exemption,   a Retake deep-link resolves against the category list, so a phrase the
 //   learner already practiced must stay servable even from a locked group).
 import {
   db,

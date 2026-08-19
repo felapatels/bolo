@@ -13,7 +13,7 @@ import { usersTable } from "./users";
 //
 // Billing state does NOT live here: the owner's `users` row stays the single
 // source of truth (tier "family", written by the Stripe webhook exactly like
-// Plus). This table records the group itself, who owns it and the join code, // and `family_seats` records who occupies the seats. Entitlement resolution
+// Plus). This table records the group itself, who owns it and the join code, and `family_seats` records who occupies the seats. Entitlement resolution
 // reads the owner's row through the seat, so when the subscription lapses every
 // member automatically resolves back to Free with no cascade writes.
 //

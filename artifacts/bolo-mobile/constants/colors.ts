@@ -2,7 +2,7 @@
  * Semantic design tokens for the Bolo! mobile app, "Calm & Modern" theme.
  *
  * A calm, modern palette built on indigo (primary), teal (accent) and slate
- * neutrals. Energy in the app comes from motion, the mascot and celebrations, * not from clashing bright colors. The token names are shared with the sibling
+ * neutrals. Energy in the app comes from motion, the mascot and celebrations, not from clashing bright colors. The token names are shared with the sibling
  * web artifact so both apps express the same Bolo! identity.
  */
 

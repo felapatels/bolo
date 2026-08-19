@@ -167,7 +167,7 @@ export function ChaiGlyph({
 
 /**
  * The stall scene. Fills its parent's width and takes its height from the
- * scene's aspect, so the KETTLE fractions land on the kettle at any width, * they are fractions OF THAT BOX, and the box never changes shape.
+ * scene's aspect, so the KETTLE fractions land on the kettle at any width, they are fractions OF THAT BOX, and the box never changes shape.
  *
  * The plume's pixel placement needs real numbers, so the box reports its size
  * via onLayout rather than the caller declaring a height. Until the first

@@ -9,7 +9,7 @@ import type { OutfitCatalogItem } from './outfitCatalogItem';
 
 export interface OutfitCatalog {
   balance: number;
-  /** The garment slot — see TokenState.equippedOutfit. */
+  /** The garment slot, see TokenState.equippedOutfit. */
   equipped: string | null;
   /** The accessory slot, worn at the same time as the garment. */
   equippedAccessory?: string | null;

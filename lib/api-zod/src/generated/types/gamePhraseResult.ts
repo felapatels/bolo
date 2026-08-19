@@ -12,8 +12,8 @@
 export interface GamePhraseResult {
   /** The database ID of the question phrase. */
   phraseId: number;
-  /** Speed Round — the phraseId of the option the learner tapped. Correct when selectedPhraseId === phraseId. */
+  /** Speed Round, the phraseId of the option the learner tapped. Correct when selectedPhraseId === phraseId. */
   selectedPhraseId?: number | null;
-  /** Phrase Builder — the assembled word tokens joined by a single space. Correct when it matches the phrase's nativeScript exactly. */
+  /** Phrase Builder, the assembled word tokens joined by a single space. Correct when it matches the phrase's nativeScript exactly. */
   submittedText?: string | null;
 }

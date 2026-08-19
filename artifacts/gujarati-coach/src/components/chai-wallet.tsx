@@ -63,7 +63,7 @@ const HEADER_SRC = `${import.meta.env.BASE_URL}stall/wallet-header.jpg`;
 
 // Spend buttons are bazaar green, not app indigo: the kulhad glyph is
 // terracotta, which muddied against indigo and pops against the signboard
-// enamel. Fixed scene colours (lib/india-palette.ts) with cream lettering, // contrast holds in both themes.
+// enamel. Fixed scene colours (lib/india-palette.ts) with cream lettering, contrast holds in both themes.
 const SPEND_BTN_CLASS =
   "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-black transition-all active:translate-y-1 active:shadow-none disabled:opacity-50";
 // Enamel, not flat paint: a lit top edge fading into the board green, over the

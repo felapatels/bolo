@@ -607,7 +607,7 @@ router.get(
 
     // Sequential-unlock filtering (runs AFTER every entitlement gate above):
     // only phrases in unlocked lesson groups are served, plus ungrouped rows
-    // (lessonGroupId NULL) and any phrase this learner already attempted, // the retake exemption: a Retake deep-link resolves against this list,
+    // (lessonGroupId NULL) and any phrase this learner already attempted, the retake exemption: a Retake deep-link resolves against this list,
     // so a previously practiced phrase must stay servable even if its group
     // is locked. Prior attempts come from the in-hand stats map, the
     // exemption costs zero extra queries.
@@ -1297,14 +1297,14 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   const userId = getUserId(req);
 
   // The score/feedback/transcript are taken from the server-signed evaluation
-  // token issued by /openai/pronunciation, never from client-asserted values, // so a client cannot fabricate or inflate its own progress.
+  // token issued by /openai/pronunciation, never from client-asserted values, so a client cannot fabricate or inflate its own progress.
   const claims = verifyEvaluation(parsed.data.evaluationToken);
   if (!claims || claims.userId !== userId) {
     res.status(400).json({ error: "Invalid or expired evaluation" });
     return;
   }
 
-  // Locked languages: attempts are admitted for (a) the M1 teaser exception, // a teaser-state attempt on a taste-set phrase, which is what consumes the
+  // Locked languages: attempts are admitted for (a) the M1 teaser exception, a teaser-state attempt on a taste-set phrase, which is what consumes the
   // teaser, and (b) the free-tier content policy's first stop: any phrase of
   // the language's position-1 Greetings group, whatever the teaser state.
   // Both run the full pipeline (FSRS, Elo, XP, badges). Any other locked
@@ -1528,7 +1528,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   let row: typeof attemptsTable.$inferSelect;
   // Teaser progress reported on the response (teaser-state attempts on
   // taste-set phrases only), computed under the same lock that admitted the
-  // insert. First-stop attempts outside the taste set insert plainly below, // they never consume or report the taste meter.
+  // insert. First-stop attempts outside the taste set insert plainly below, they never consume or report the taste meter.
   let teaser: { consumed: number; limit: number } | undefined;
   if (langAccess.state === "teaser" && inTeaserSet) {
     // The derived consumption count is raceable on its own: two concurrent
@@ -2322,7 +2322,7 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   }
 
   // Count verified correct / total answers for XP + badge evaluation.
-  // Only phrases the server confirmed belong to this language+category count, // any client-invented or wrong-category IDs are silently excluded.
+  // Only phrases the server confirmed belong to this language+category count, any client-invented or wrong-category IDs are silently excluded.
   let correctCount = 0;
   let totalCount = 0;
   for (const r of deduped) {
@@ -2629,7 +2629,7 @@ router.get(
           !chaiUnlocked &&
           g.id !== teaserGroupId &&
           // Same two filters the purchase route applies (lib/stopUnlock.ts):
-          // phrase stage only, first-class sentence stops stay All-Access, // and at least one non-premium row to actually serve.
+          // phrase stage only, first-class sentence stops stay All-Access, and at least one non-premium row to actually serve.
           (stageByGroup.get(g.id) ?? "phrase") === "phrase" &&
           allIds.some((pid) => !premiumIds.has(pid));
         return {
@@ -2730,7 +2730,7 @@ router.get(
     if (access.state !== "allowed") {
       const firstStop = await getFirstStopGroup(group.languageCode);
       // Chai stop unlock: a stop the learner BOUGHT (a ledger row, see
-      // lib/stopUnlock.ts) serves through this same free-taste branch, // identical premium filter, identical shape, no latch rows written.
+      // lib/stopUnlock.ts) serves through this same free-taste branch, identical premium filter, identical shape, no latch rows written.
       const boughtStop =
         firstStop?.groupId === id
           ? false

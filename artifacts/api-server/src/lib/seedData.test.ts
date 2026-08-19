@@ -313,7 +313,7 @@ const allSeedLessons: Array<[string, SeedLesson]> = [
 // approved once holds in both places and the two can never drift.
 
 // The generator runs this exact same checkLessonQuality rule set before it
-// writes curatedLessons.json, so a bad batch is rejected at generation time, // not just here, after the fact. Sharing the helper keeps the two from drifting.
+// writes curatedLessons.json, so a bad batch is rejected at generation time, not just here, after the fact. Sharing the helper keeps the two from drifting.
 test("no lesson repeats the same phrase or types a loanword in native script", () => {
   const failures: string[] = [];
 
@@ -519,7 +519,7 @@ function romanizationSoundsLike(romanized: string, gloss: string): boolean {
   const r = letters(romanized);
   const g = letters(gloss);
   if (r === "" || g === "") return false;
-  // Either the full forms are close, or their consonant skeletons match well, // the latter survives the vowel changes transliteration adds.
+  // Either the full forms are close, or their consonant skeletons match well, the latter survives the vowel changes transliteration adds.
   return similarity(r, g) >= 0.55 || similarity(consonants(romanized), consonants(gloss)) >= 0.6;
 }
 
@@ -747,7 +747,7 @@ test("gloss-agnostic guard catches a transliterated loanword mislabeled with an 
   };
   assert.equal(findGlossAgnosticLoanwords("test/fixed", fixed).length, 0);
 
-  // A correct native translation of "sorry" itself must also be left alone, // the guard should only fire when the romanization actually sounds like
+  // A correct native translation of "sorry" itself must also be left alone, the guard should only fire when the romanization actually sounds like
   // the English word, not merely because the topic is apologetic.
   const correct: SeedLesson = {
     titleNative: "test",

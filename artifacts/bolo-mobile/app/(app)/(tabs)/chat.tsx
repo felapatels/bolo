@@ -299,7 +299,7 @@ export default function ChatScreen() {
   // the learner has already been reading the full text during synthesis.
   const earlyReplyShownRef = React.useRef(false);
   // Incremented each time a new turn starts. handleStopRecording captures its
-  // own snapshot and only applies the result if the counter still matches, // prevents a stale older response from overwriting a newer one when the user
+  // own snapshot and only applies the result if the counter still matches, prevents a stale older response from overwriting a newer one when the user
   // cancels mid-flight and immediately starts again.
   const activeTurnRef = React.useRef(0);
 
@@ -1140,7 +1140,7 @@ export default function ChatScreen() {
               }
               setProcessingStep('voicing');
             } else if (eventType === 'audioStream') {
-              // Server minted a progressive audio stream for this turn, // start the native player now; first chunks land ~300 ms later.
+              // Server minted a progressive audio stream for this turn, start the native player now; first chunks land ~300 ms later.
               const streamId = (parsed.streamId as string) ?? '';
               if (streamId && wantsStreamingVoice && !streamStarted) {
                 streamPromise = startStreamingVoice(streamId);

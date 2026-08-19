@@ -236,7 +236,7 @@ test("POST /openai/chat, textInput accepted without audioBase64 (no 400, transcr
 
 test("POST /openai/chat, weekly cap does not decrease after a text-input turn (duration = 0)", async () => {
   // recordChatTurn is called by the route with durationSeconds = 0 for text
-  // turns. Verify that a 0-second entry does not consume any cap budget, // sumChatSecondsThisWeek must return the same total before and after.
+  // turns. Verify that a 0-second entry does not consume any cap budget, sumChatSecondsThisWeek must return the same total before and after.
   const before = await sumChatSecondsThisWeek(TEST_USER);
   assert.equal(before, 0, "Precondition: no usage recorded yet");
 

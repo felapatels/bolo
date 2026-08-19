@@ -1,11 +1,11 @@
-// Task 882 — the bird must actually render on /practice/:id (July 30 2026).
+// Task 882, the bird must actually render on /practice/:id (July 30 2026).
 // The canonical-PNG revert made the mascot <img> absolute inside a chain of
 // indefinite percentage heights, so the parrot zone collapsed to ~10px while
 // the image "loaded fine" (200, opacity 1). The Screenshot tool can't catch
 // this; only a real browser measuring the img bounding box can. This probe
 // pins the fix: mascot bbox height must stay above a sane floor in the idle,
 // recording, evaluating, and result/error states, at mobile AND desktop
-// widths (recording is driven by a getUserMedia shim — headless chromium has
+// widths (recording is driven by a getUserMedia shim, headless chromium has
 // no fake-mic here; see qa/chat-mic-grant-probe.mjs for the pattern).
 //   CHROME_BIN=$(which chromium) NODE_PATH=/tmp/pw/node_modules node qa/practice-mascot-probe.mjs
 import { chromium } from "playwright-core";
@@ -49,7 +49,7 @@ console.log("qa user:", userId);
 const mintToken = async () => {
   const r = await bapi("POST", "/sign_in_tokens", { user_id: userId });
   if (!r.j.token) throw new Error(`sign_in_token failed: ${r.status} ${JSON.stringify(r.j)}`);
-  return r.j.token; // single-use — mint one per context
+  return r.j.token; // single-use, mint one per context
 };
 
 // getUserMedia shim: resolves immediately with a WebAudio oscillator stream
@@ -82,7 +82,7 @@ const GUM_SHIM = `
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME_BIN, args: ["--no-sandbox"] });
 const results = [];
-const check = (name, ok, detail) => { results.push({ name, ok, detail }); console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`); };
+const check = (name, ok, detail) => { results.push({ name, ok, detail }); console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? `, ${detail}` : ""}`); };
 
 const MASCOT = "img[src*='mascot-']";
 const mascotBox = async (page) => {
@@ -134,7 +134,7 @@ try {
     `btn=${fmt(belly ?? { width: 0, height: 0 })} img=${fmt(idle)}`,
   );
 
-  // Press the bird's HEAD (top-center) — must start recording, proving the
+  // Press the bird's HEAD (top-center), must start recording, proving the
   // hit target isn't belly-only.
   await m.mouse.move(belly.x + belly.width / 2, belly.y + belly.height * 0.1);
   await m.mouse.down();
@@ -147,7 +147,7 @@ try {
   await m.waitForTimeout(1200); // > 400ms min-audio rule
   await m.mouse.up();
 
-  // Evaluating (transient — sample immediately, tolerate a fast skip).
+  // Evaluating (transient, sample immediately, tolerate a fast skip).
   const evalSeen = await m
     .locator(".animate-spin")
     .first()
@@ -163,7 +163,7 @@ try {
   }
 
   // A fresh user's first attempt pops the "First Words" badge overlay (its
-  // own 128px cheer mascot would pollute the measurement) — dismiss it.
+  // own 128px cheer mascot would pollute the measurement), dismiss it.
   const badge = m.getByText(/BADGE UNLOCKED/i).first();
   if (await badge.waitFor({ timeout: 20000 }).then(() => true).catch(() => false)) {
     await m.screenshot({ path: `${OUT}/practice-badge-overlay-mobile.png` });
@@ -172,7 +172,7 @@ try {
     await m.waitForTimeout(600);
   }
 
-  // Result/error: parrot zone compacts to a definite 110px band — the bird
+  // Result/error: parrot zone compacts to a definite 110px band, the bird
   // must still be visible there (height between the floor and ~130px).
   await m.waitForFunction(
     () => {

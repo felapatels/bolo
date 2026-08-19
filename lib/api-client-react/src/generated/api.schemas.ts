@@ -91,9 +91,9 @@ export interface AccountLearningPreferences {
   timezone: string | null;
   /** Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users. */
   hasCompletedTour: boolean;
-  /** Whether the learner has EXPLICITLY chosen a learning language (the post-sign-up selection step, the home picker, or account settings). Distinct from activeLanguage being non-null — the web client seeds that with a local default on first reconcile. Optional for mobile back-compat; treat absence as false. */
+  /** Whether the learner has EXPLICITLY chosen a learning language (the post-sign-up selection step, the home picker, or account settings). Distinct from activeLanguage being non-null, the web client seeds that with a local default on first reconcile. Optional for mobile back-compat; treat absence as false. */
   hasChosenLanguage?: boolean;
-  /** The learner's global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto — use the per-language default voice. */
+  /** The learner's global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto, use the per-language default voice. */
   ttsVoice: string | null;
 }
 
@@ -135,7 +135,7 @@ export interface BillingHistoryEntry {
   purchasedAt: string | null;
   expiresAt: string | null;
   periodType: string | null;
-  /** "active" | "expired" | "canceled" — derived from the dates/flags. */
+  /** "active" | "expired" | "canceled", derived from the dates/flags. */
   status: string;
 }
 
@@ -210,7 +210,7 @@ export interface UpdatePreferencesInput {
   theme?: UpdatePreferencesInputTheme;
   timezone?: string | null;
   hasCompletedTour?: boolean;
-  /** Marks the learner as having explicitly chosen a language. Only `true` is accepted — a choice can't be unmade. Sent by explicit picks (selection step, home picker, account settings); the client's first-reconcile seed write must never include it. */
+  /** Marks the learner as having explicitly chosen a language. Only `true` is accepted, a choice can't be unmade. Sent by explicit picks (selection step, home picker, account settings); the client's first-reconcile seed write must never include it. */
   hasChosenLanguage?: boolean;
   /** Global TTS voice preference (Plus only). Must be a valid voice ID from the voice catalog, or null to reset to Auto. */
   ttsVoice?: string | null;
@@ -247,7 +247,7 @@ export interface Language {
   sortOrder: number;
   /** How well speech recognition actually hears this language, verified by a per-language probe. `supported` = full scored practice. `degraded` = scoring runs but unverifiable failures soften to nocatch; clients show a one-time "feedback is approximate" notice. `unsupported` = recognition verifiably fails on correct speech; clients switch to listen-record-compare practice with no scored band. Optional for mobile back-compat; treat absence as `supported`. */
   speechCapability?: LanguageSpeechCapability;
-  /** True when this language's lesson content is primarily batch-generated (the C1 rollout set) with community review ongoing — clients may show a one-line "you can flag anything that looks wrong" note. Derived server-side from the committed rollout data; never hardcode the set client-side. Optional for mobile back-compat; treat absence as false. */
+  /** True when this language's lesson content is primarily batch-generated (the C1 rollout set) with community review ongoing clients may show a one-line "you can flag anything that looks wrong" note. Derived server-side from the committed rollout data; never hardcode the set client-side. Optional for mobile back-compat; treat absence as false. */
   communityReviewed?: boolean;
 }
 
@@ -352,7 +352,7 @@ export interface LessonGroupSummary {
   allTopBand?: boolean;
   /** True when the learner has BOUGHT this stop with Chai in a plan-locked language. The stop opens exactly like the free-taste stop, and because ownership is a ledger row it survives a reinstall. Present only in showroom payloads. Optional/additive. */
   chaiUnlocked?: boolean;
-  /** True when this stop is offered for Chai: inside the language's first zone, not the free stop, not already bought, and holding at least one phrase the caller's plan can practise. Absent everywhere else — a station without it can only be opened by All-Access, and the server refuses a purchase attempt on one. Optional/additive. */
+  /** True when this stop is offered for Chai: inside the language's first zone, not the free stop, not already bought, and holding at least one phrase the caller's plan can practise. Absent everywhere else, a station without it can only be opened by All-Access, and the server refuses a purchase attempt on one. Optional/additive. */
   chaiUnlockable?: boolean;
   /** True when the caller's plan can see ZERO of this group's phrases (every member is premium and the caller lacks extended-library access), so the station is reported locked with a Plus upsell instead of an unlocked stop that would serve an empty practice session. For these callers phraseCount/attemptedCount/ masteredCount count only plan-visible phrases. Absent for extended-library callers and in showroom (teaser/exhausted) payloads. Optional/additive. */
   planLocked?: boolean;
@@ -428,7 +428,7 @@ export interface StopUnlockOffer {
 }
 
 /**
- * Per-signal server truth for this zone's trackside signals, riding the existing journey fetch. `waves` and `clears` are bare gap-N contextRefs scoped to this category (stored server-side as languageCode:categoryId:gap-N). Clears are derived from the ledger-backed first-clear grants; a clear supersedes a wave for display. `rewardChai` is the single-source first-clear amount the server grants (config permits per-line values later) — clients must render it, never a hardcoded number.
+ * Per-signal server truth for this zone's trackside signals, riding the existing journey fetch. `waves` and `clears` are bare gap-N contextRefs scoped to this category (stored server-side as languageCode:categoryId:gap-N). Clears are derived from the ledger-backed first-clear grants; a clear supersedes a wave for display. `rewardChai` is the single-source first-clear amount the server grants (config permits per-line values later), clients must render it, never a hardcoded number.
  */
 export interface ZoneSignalStates {
   rewardChai: number;
@@ -455,7 +455,7 @@ export interface SignalWaveInput {
   /** @minimum 1 */
   categoryId: number;
   /**
-     * Global gap number N — the signal sits after stop N.
+     * Global gap number N, the signal sits after stop N.
      * @minimum 1
      * @maximum 999
      */
@@ -579,9 +579,9 @@ export const GameSessionInputContext = {
 export interface GamePhraseResult {
   /** The database ID of the question phrase. */
   phraseId: number;
-  /** Speed Round — the phraseId of the option the learner tapped. Correct when selectedPhraseId === phraseId. */
+  /** Speed Round, the phraseId of the option the learner tapped. Correct when selectedPhraseId === phraseId. */
   selectedPhraseId?: number | null;
-  /** Phrase Builder — the assembled word tokens joined by a single space. Correct when it matches the phrase's nativeScript exactly. */
+  /** Phrase Builder, the assembled word tokens joined by a single space. Correct when it matches the phrase's nativeScript exactly. */
   submittedText?: string | null;
 }
 
@@ -867,11 +867,11 @@ export interface PronunciationResult {
   transcript: string;
   /** Display-only romanization of `transcript` (deterministic transliteration, card-style ASCII, e.g. "kem cho"). A transcript that is already Latin passes through unchanged. Empty ("") when the script has no clean romanization (Perso-Arabic, Ol Chiki, Meetei Mayek) or on nocatch/empty-transcript outcomes. Clients hide the romanized line when this is empty. Optional for older-client compatibility; never stored or used in scoring. */
   transcriptRomanized?: string;
-  /** Deprecated — will be removed in a future release once all client builds have updated. Use `band` instead. Omitted when the server stops sending it; clients must treat this field as optional. */
+  /** Deprecated, will be removed in a future release once all client builds have updated. Use `band` instead. Omitted when the server stops sending it; clients must treat this field as optional. */
   score?: number;
   /** Five-band pronunciation ladder value, top to bottom: `perfect` and `great` earn full XP, `good` and `almost` earn half XP, `retry` is below the passing threshold (no XP). `nocatch` = no usable audio detected (no XP); it is a separate system outcome, not a rung on the ladder. */
   band: PronunciationResultBand;
-  /** XP earned for this attempt. Display only — the signed token is authoritative. */
+  /** XP earned for this attempt. Display only, the signed token is authoritative. */
   xpAwarded: number;
   /** Human-readable explanation of the XP awarded, e.g. "Full XP". */
   xpBreakdown?: string | null;
@@ -1158,7 +1158,7 @@ export interface FriendRequest {
 }
 
 /**
- * The result of accepting a request — a now-mutual friendship.
+ * The result of accepting a request, a now-mutual friendship.
  */
 export interface AcceptedFriendship {
   id: number;
@@ -1449,7 +1449,7 @@ export interface OutfitCatalogItem {
   tagline: string;
   /** Server-authoritative price in Chai, per item rather than one flat price. Clients must render this number, never a hardcoded one. */
   cost: number;
-  /** Bought once, owned forever — derived from the ledger. */
+  /** Bought once, owned forever, derived from the ledger. */
   owned: boolean;
   /** A garment redresses the whole bird; an accessory adds one thing to her. The shop groups its rack by this, so a new kind of stock does not need a client change. */
   kind: OutfitCatalogItemKind;
@@ -1459,7 +1459,7 @@ export interface OutfitCatalogItem {
 
 export interface OutfitCatalog {
   balance: number;
-  /** The garment slot — see TokenState.equippedOutfit. */
+  /** The garment slot, see TokenState.equippedOutfit. */
   equipped: string | null;
   /** The accessory slot, worn at the same time as the garment. */
   equippedAccessory?: string | null;
@@ -1475,7 +1475,7 @@ export interface OutfitPurchaseResult {
   balance: number;
   outfitId: string;
   owned: boolean;
-  /** False when the learner already owned this outfit — the call is a no-op that deducts nothing and leaves the equipped choice alone. */
+  /** False when the learner already owned this outfit, the call is a no-op that deducts nothing and leaves the equipped choice alone. */
   charged: boolean;
   cost: number;
   equipped: string | null;
@@ -1529,7 +1529,7 @@ export interface FirstClassInput {
 
 export interface FirstClassResult {
   balance: number;
-  /** False when this call replayed an idempotency key already spent — nothing was deducted and no time was added. */
+  /** False when this call replayed an idempotency key already spent, nothing was deducted and no time was added. */
   charged: boolean;
   cost: number;
   firstClassActiveUntil?: string | null;
@@ -1578,13 +1578,13 @@ export interface StopUnlockResult {
   lessonGroupId: number;
   languageCode: string;
   unlocked: boolean;
-  /** False when the learner already owned this stop — the call is a no-op that deducts nothing. Clients must not re-render a "spent" animation for it. */
+  /** False when the learner already owned this stop, the call is a no-op that deducts nothing. Clients must not re-render a "spent" animation for it. */
   charged: boolean;
   cost: number;
 }
 
 /**
- * Whether the learner has a streak break worth mending, and what mending it would cost. `eligible` false means there is nothing to offer — no break, an absence too long to be a slip, or a break older than the repair window — and clients must show nothing at all in that case.
+ * Whether the learner has a streak break worth mending, and what mending it would cost. `eligible` false means there is nothing to offer, no break, an absence too long to be a slip, or a break older than the repair window, and clients must show nothing at all in that case.
  */
 export interface StreakRepairOffer {
   eligible: boolean;
@@ -1600,7 +1600,7 @@ export interface StreakRepairResult {
   balance: number;
   repairedDay: string;
   restoredStreakDays: number;
-  /** False when this day was already repaired — the call is a no-op that deducts nothing. */
+  /** False when this day was already repaired, the call is a no-op that deducts nothing. */
   charged: boolean;
   cost: number;
 }

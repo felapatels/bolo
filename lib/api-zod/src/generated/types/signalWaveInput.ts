@@ -15,7 +15,7 @@ export interface SignalWaveInput {
   /** @minimum 1 */
   categoryId: number;
   /**
-     * Global gap number N — the signal sits after stop N.
+     * Global gap number N, the signal sits after stop N.
      * @minimum 1
      * @maximum 999
      */

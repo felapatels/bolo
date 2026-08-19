@@ -97,7 +97,7 @@ export function phraseKey(nativeScript: string): string {
 
 // Pure trigger decision: should a fetch of this topic's phrase list kick off
 // background replenishment for this caller?
-//   - Only Plus (the extended-library plan) ever replenishes via this path, //     Free and One Language use shouldReplenishFree instead.
+//   - Only Plus (the extended-library plan) ever replenishes via this path,     Free and One Language use shouldReplenishFree instead.
 //   - The learner must have engaged (attempted or mastered) at least
 //     REPLENISH_THRESHOLD of the phrases they can see.
 export function shouldReplenish(

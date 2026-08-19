@@ -59,7 +59,7 @@ const report = await page.evaluate(() => {
     out.push(`name text "${name.textContent}": ${rect(name)} cssW=${getComputedStyle(name).width} transform=${getComputedStyle(name).transform}`);
     out.push(`name slot(parent): ${rect(name.parentElement)}`);
   } else {
-    // maybe truncated — find rotated text inside stub
+    // maybe truncated, find rotated text inside stub
     const cand = within.filter((el) => el.children.length === 0 && getComputedStyle(el).transform !== "none");
     for (const c of cand.slice(0, 6)) out.push(`rotated leaf "${(c.textContent || "").slice(0, 20)}": ${rect(c)} cssW=${getComputedStyle(c).width}`);
   }

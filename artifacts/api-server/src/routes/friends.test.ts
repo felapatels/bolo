@@ -119,7 +119,7 @@ async function seedXp(
   });
 }
 
-// Dresses a learner's Bolo. Equipping is a column write, not a ledger row, // see api-server/src/lib/outfits.ts, so the test does not need to buy first.
+// Dresses a learner's Bolo. Equipping is a column write, not a ledger row, see api-server/src/lib/outfits.ts, so the test does not need to buy first.
 async function equipMascot(
   userId: string,
   outfit: string | null,

@@ -47,4 +47,4 @@ Identical copies are kept in both apps so each can import locally:
 - **Web:** `artifacts/gujarati-coach/public/mascot/` → reference as `/mascot/<file>` at runtime.
 - **Mobile (Expo):** `artifacts/bolo-mobile/assets/images/mascot/` → `require('.../assets/images/mascot/<file>')`.
 
-> Wiring the mascot into screens and animating it happens in the per-app makeover tasks, > this sheet just defines the character and which asset means what.
+> Wiring the mascot into screens and animating it happens in the per-app makeover tasks, this sheet just defines the character and which asset means what.

@@ -2,7 +2,7 @@
 //
 // First-time flow in a clean browser profile (no mic permission stored):
 // press the parrot, let the grant stay pending, release, then resolve the
-// grant ("Allow") — assert NO recording starts and the text input accepts
+// grant ("Allow"), assert NO recording starts and the text input accepts
 // text. Headless chromium has no clickable permission chrome and fake-mic
 // flags fail in this environment, so the pending→granted transition is
 // driven by a deferred getUserMedia shim (real pointer events on the real
@@ -10,12 +10,12 @@
 //
 // Scenarios:
 //   A. released-before-grant: real pointerup is delivered, then the grant
-//      resolves — no recording may start; typing works.
+//      resolves, no recording may start; typing works.
 //   B. lost release: the permission prompt steals focus (window blur); the
-//      pointerup is never delivered anywhere before the grant resolves — no
+//      pointerup is never delivered anywhere before the grant resolves, no
 //      recording may start; typing works.
 //   C. held-through-grant control: pointer still down when the grant
-//      resolves — recording DOES start (fix must not break the happy path).
+//      resolves, recording DOES start (fix must not break the happy path).
 //
 // Run (from repo root):
 //   CHROME_BIN=$(which chromium) E2E_USER_ID=<clerk user id> \
@@ -34,7 +34,7 @@ const log = (...a) => console.log(new Date().toISOString(), ...a);
 let failures = 0;
 const check = (name, ok, detail = "") => {
   if (!ok) failures++;
-  log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? ` — ${detail}` : ""}`);
+  log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? `, ${detail}` : ""}`);
 };
 
 async function mintTicket(userId) {
@@ -152,7 +152,7 @@ async function main() {
     await page.mouse.up().catch(() => {});
   }
 
-  // C. control: held through the grant — recording must start
+  // C. control: held through the grant, recording must start
   {
     const ticket = await mintTicket(USER_ID);
     const { context, page } = await freshChatPage(browser, ticket);

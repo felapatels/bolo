@@ -292,7 +292,7 @@ export async function buyOutfit(
   outfitId: OutfitId,
 ): Promise<{ state: TokenStateRow; charged: boolean }> {
   const refId = outfitRefId(outfitId);
-  // The shop is not one flat price, an accessory costs less than a garment, // so the price is READ FROM THE CATALOG HERE, keyed by the same id being
+  // The shop is not one flat price, an accessory costs less than a garment, so the price is READ FROM THE CATALOG HERE, keyed by the same id being
   // bought. It is deliberately not a parameter: a cost argument (even a
   // defaulted one) lets a caller pair an id with the wrong price, which for a
   // 10-Chai accessory means silently charging 25. Nothing client-supplied
@@ -711,7 +711,7 @@ export async function consumePausesForGap(
  *
  * SCOPE OF THE FLOOR, honestly stated: this function cannot take a balance
  * below zero, and no spend path can either (they all refuse when the balance
- * is under the cost). What it does NOT do is serialise the other writers, * `grantTokensDetailed` and `spendTokens` update the balance with an atomic
+ * is under the cost). What it does NOT do is serialise the other writers, `grantTokensDetailed` and `spendTokens` update the balance with an atomic
  * SQL expression but do not lock the state row first, so a spend that read a
  * positive balance concurrently with a large reversal can still land after it.
  * That is a pre-existing property of every sink in the app, not something this

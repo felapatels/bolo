@@ -1098,7 +1098,7 @@ describe('resolved run length', () => {
 
 // ─── Run key: the round subtree is remounted between runs ────────────────────
 //
-// `resetRun` clears the SHELL's state. A round that keeps state of its own, // a persistent board like Luggage Match, which holds a matched set and a
+// `resetRun` clears the SHELL's state. A round that keeps state of its own, a persistent board like Luggage Match, which holds a matched set and a
 // first-wrong map for a whole run, kept that state across Play Again until
 // the shell gained a run key, so a second run opened with every tag already
 // matched. Web has always done this (its `gameKey`); mobile did not.

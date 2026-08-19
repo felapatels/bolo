@@ -1,4 +1,4 @@
-// Task #1106 verification — the mobile centre tab label ("Bolo Chat").
+// Task #1106 verification, the mobile centre tab label ("Bolo Chat").
 //
 // Captured from the Expo WEB build (react-native-web renders the same
 // component tree; there is no device or emulator in this environment) at the
@@ -96,7 +96,7 @@ const MEASURE = () => {
 
 let failures = 0;
 const check = (ok, msg) => {
-  console.log(`${ok ? "PASS" : "FAIL"} — ${msg}`);
+  console.log(`${ok ? "PASS" : "FAIL"}, ${msg}`);
   if (!ok) failures += 1;
 };
 
@@ -191,7 +191,7 @@ for (const { width, scheme, shots } of RUNS) {
       },
     });
   }
-  // Chat tab focused — the label must stay brand-coloured in both states.
+  // Chat tab focused, the label must stay brand-coloured in both states.
   // Click the label text, not the parrot: the parrot never stops moving, so
   // Playwright's stability wait never settles on it.
   await page.getByText("Bolo Chat").first().click();

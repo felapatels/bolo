@@ -159,7 +159,7 @@ export async function countTeaserConsumed(
   return (await listTeaserConsumedIds(db, userId, lang, teaserPhraseIds)).length;
 }
 
-// The distinct teaser phrase ids this user has attempted, via any executor, // pass a transaction so the read participates in the caller's serialization
+// The distinct teaser phrase ids this user has attempted, via any executor, pass a transaction so the read participates in the caller's serialization
 // (POST /attempts holds an advisory lock across recount + insert so concurrent
 // submissions can't overshoot the limit).
 export async function listTeaserConsumedIds(

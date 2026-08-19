@@ -385,7 +385,7 @@ export async function auditPhraseAudioBatch(
 
             // An unverified replacement is only an improvement if it carried
             // more of the phrase than the clip it would destroy. Otherwise this
-            // is one unjudged take swapped for another, and the cached clip, // which at least a learner has been hearing, stays.
+            // is one unjudged take swapped for another, and the cached clip, which at least a learner has been hearing, stays.
             const oldCoverage = second.coverage ?? 0;
             const newCoverage = replacement.verdict.coverage ?? 0;
             if (!replacement.verdict.ok && newCoverage <= oldCoverage) {

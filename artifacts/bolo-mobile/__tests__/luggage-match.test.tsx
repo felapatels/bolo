@@ -611,7 +611,7 @@ describe('a second run starts clean', () => {
 // Owner ruling: any game surface showing native script must ALSO show its
 // romanized form, always visible during play. The luggage tags render script
 // only, so a learner who cannot read Gujarati yet was pairing shapes blind.
-// The romanized line comes off phrase.romanized, no transliteration engine, // and an empty romanized (a script with no romanization) must render nothing
+// The romanized line comes off phrase.romanized, no transliteration engine, and an empty romanized (a script with no romanization) must render nothing
 // rather than an empty line.
 
 describe('romanized reading on the tags', () => {

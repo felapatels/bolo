@@ -1,9 +1,9 @@
-// Task #1111 — mobile friends LIST evidence (Expo WEB build, 412×824 @2x).
+// Task #1111, mobile friends LIST evidence (Expo WEB build, 412×824 @2x).
 //
 // The add-friend card and the learner's own code fill the first screenful, so
 // the list itself needs scrolling into view. This probe also exercises
 // remove-friend on mobile, which is how the "no friends" list shot is produced
-// — no rows are deleted by hand.
+//, no rows are deleted by hand.
 import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";
 

@@ -29,7 +29,7 @@ export const userTokenStateTable = pgTable("user_token_state", {
   }),
   lastAllowanceMonth: text("last_allowance_month"),
   // Outfits (Chai sink, Aug 6 2026): the outfit this learner's Bolo is
-  // wearing, or NULL for canonical undressed Bolo. Ownership is NOT here, // that is the ledger row (see api-server/src/lib/outfits.ts). This column
+  // wearing, or NULL for canonical undressed Bolo. Ownership is NOT here, that is the ledger row (see api-server/src/lib/outfits.ts). This column
   // is only the choice, so equipping is free and instant and unequipping is
   // a write of NULL that loses nothing.
   equippedOutfit: text("equipped_outfit"),

@@ -4,7 +4,7 @@
  *
  * Task #1089 (App Review rejected build 34 on a Settings error) needed proof
  * that the production API verifies sessions minted by the SAME live Clerk
- * instance the store build signs into — an instance mismatch would 401 every
+ * instance the store build signs into, an instance mismatch would 401 every
  * authenticated request from a fresh account, which is exactly the observed
  * shape.
  *

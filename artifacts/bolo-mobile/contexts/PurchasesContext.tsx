@@ -34,7 +34,7 @@ export const PLUS_ENTITLEMENT_ID =
   process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() || 'plus';
 
 /**
- * The RevenueCat entitlement id for the middle "One Language" ($6.99) tier, * matches the server's REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID.
+ * The RevenueCat entitlement id for the middle "One Language" ($6.99) tier, matches the server's REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID.
  */
 export const ONE_LANGUAGE_ENTITLEMENT_ID =
   process.env.EXPO_PUBLIC_REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID?.trim() ||
@@ -148,7 +148,7 @@ type PurchasesContextValue = {
   /**
    * The Chai packs, straight from the server catalog: pack id, Apple product
    * id, and the Chai the ledger will credit. Empty until it loads (and if it
-   * never loads, the shop simply does not appear). The PRICE is not in here, * that comes from the StoreKit product, so what the learner reads is what
+   * never loads, the shop simply does not appear). The PRICE is not in here, that comes from the StoreKit product, so what the learner reads is what
    * Apple charges.
    */
   chaiPacks: ChaiPackCatalogEntry[];

@@ -12,7 +12,7 @@
 //
 // "Session" on mobile is the app process: an in-memory Set dies with the
 // app exactly as sessionStorage dies with the tab, so the semantics match
-// web without touching disk. Waving is never shamed and never permanent, // an unclaimed first-clear Chai grant must stay claimable on a later run.
+// web without touching disk. Waving is never shamed and never permanent, an unclaimed first-clear Chai grant must stay claimable on a later run.
 //
 // Every read below is synchronous and cheap, so the map can call them
 // during render; the only async work is hydration and the cleared write.

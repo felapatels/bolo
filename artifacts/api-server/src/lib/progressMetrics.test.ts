@@ -370,7 +370,7 @@ test("speaking streak anchors on yesterday when today has no qualifying attempt 
 
 test("speaking streak matches general streak bucketing for a Pacific/Auckland learner", () => {
   // Parity requirement: for a learner whose attempts all qualify, the
-  // speaking streak must equal the general streak in the same zone, // including positive-offset zones where local evenings sit on the
+  // speaking streak must equal the general streak in the same zone, including positive-offset zones where local evenings sit on the
   // previous UTC day.
   const AKL = "Pacific/Auckland";
   const key = localDayKey(new Date(), AKL);

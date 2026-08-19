@@ -15,6 +15,6 @@ export interface BillingHistoryEntry {
   purchasedAt: Date | null;
   expiresAt: Date | null;
   periodType: string | null;
-  /** "active" | "expired" | "canceled" — derived from the dates/flags. */
+  /** "active" | "expired" | "canceled", derived from the dates/flags. */
   status: string;
 }

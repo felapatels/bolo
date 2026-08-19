@@ -1,4 +1,4 @@
-/* Task #1117 web mock — the app's REAL stylesheet, nothing added.
+/* Task #1117 web mock, the app's REAL stylesheet, nothing added.
    The harness is copied into artifacts/gujarati-coach/src/<temp>/ at run time,
    so this relative import is the artifact's own src/index.css: the same theme
    tokens, the same train keyframes, the same reduced-motion reset the product

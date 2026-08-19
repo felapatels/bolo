@@ -8,7 +8,7 @@
 import type { UserSummary } from './userSummary';
 
 /**
- * The result of accepting a request — a now-mutual friendship.
+ * The result of accepting a request, a now-mutual friendship.
  */
 export interface AcceptedFriendship {
   id: number;

@@ -144,7 +144,7 @@ export function useQuickLaunch(): QuickLaunch {
 // ─── Round contract ──────────────────────────────────────────────────────────
 
 /**
- * One round's outcome. `correct` drives the shell's live score display only, * it is never sent to the server, which recomputes correctness from
+ * One round's outcome. `correct` drives the shell's live score display only, it is never sent to the server, which recomputes correctness from
  * `selectedPhraseId`.
  */
 export type QuickRoundResult = {
@@ -316,7 +316,7 @@ export function QuickGameShell({
   const poolReady = categoryId !== null && phrases.length >= def.floor;
   /**
    * THE run length. Everything downstream, progression, the finish
-   * condition, `api.total`, the "Round N of M" display, the end screen, * reads this and never the raw prop. A resolver is only called once the
+   * condition, `api.total`, the "Round N of M" display, the end screen, reads this and never the raw prop. A resolver is only called once the
    * pool clears the floor (web parity: `phrases.length >= def.floor ?
    * totalRounds(phrases) : 0`), so it never sees a half-loaded list.
    */

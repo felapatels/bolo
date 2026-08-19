@@ -1,4 +1,4 @@
-// Task 1101 — Plus-gated game screens must show the paywall, never a crash.
+// Task 1101, Plus-gated game screens must show the paywall, never a crash.
 //
 // jsdom cannot reproduce this defect: it is a HOOK-ORDER fault that only
 // appears across two real renders (entitlements loading -> resolved), so it

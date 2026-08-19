@@ -6,7 +6,7 @@ import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 
 // Build 37: the wallet sheet's own contract. The wallet had no web test, the
-// mobile port (bolo-mobile/__tests__/chai-wallet.test.tsx) carried them all, // so these pin the three things this build changed on the web side:
+// mobile port (bolo-mobile/__tests__/chai-wallet.test.tsx) carried them all, so these pin the three things this build changed on the web side:
 //   1. The sheet opens on the stall header, with the balance struck across it.
 //   2. Bolo Bazaar is reached by a real button (not a worded link), and the
 //      row copy does not call Bolo a boy.

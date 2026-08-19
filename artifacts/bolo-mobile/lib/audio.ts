@@ -406,7 +406,7 @@ let playbackModeToken = 0;
 /**
  * Play a progressive (still-being-synthesized) audio stream from a URL.
  * Native only: AVPlayer (iOS) and ExoPlayer (Android) handle chunked HTTP
- * audio natively, so playback starts as soon as enough initial bytes arrive, * callers on web should use the buffered path instead.
+ * audio natively, so playback starts as soon as enough initial bytes arrive, callers on web should use the buffered path instead.
  *
  * Reuses the same iOS earpiece-routing mode flip as playBase64Audio: while
  * the mic session is warm, playback must run in playback-only mode or it
@@ -430,7 +430,7 @@ export async function playStreamingAudio(
     }
   }
   const restoreMode = () => {
-    // Skip the restore if a newer playback has claimed the mode since, // otherwise this stale restore re-routes it to the earpiece. Both skips
+    // Skip the restore if a newer playback has claimed the mode since, otherwise this stale restore re-routes it to the earpiece. Both skips
     // breadcrumb: a restore that never runs leaves the session in playback
     // mode, and nothing downstream says so until record() fails.
     if (!needsModeFlip) {
@@ -594,7 +594,7 @@ export async function playBase64Audio(
     }
   }
   const restoreMode = () => {
-    // Skip the restore if a newer playback has claimed the mode since, // otherwise this stale restore re-routes it to the earpiece. Both skips
+    // Skip the restore if a newer playback has claimed the mode since, otherwise this stale restore re-routes it to the earpiece. Both skips
     // breadcrumb: a restore that never runs leaves the session in playback
     // mode, and nothing downstream says so until record() fails.
     if (!needsModeFlip) {

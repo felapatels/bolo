@@ -152,7 +152,7 @@ export interface ParrotTurnResult {
   // squawk_b, squawk_c, are bundled in both web and mobile so the sound
   // rotates each turn instead of repeating.
   squawkVariant: 0 | 1 | 2 | null;
-  // Server-measured duration of the learner's submitted audio, in seconds, // what actually gets charged against the weekly chat-time cap.
+  // Server-measured duration of the learner's submitted audio, in seconds, what actually gets charged against the weekly chat-time cap.
   durationSeconds: number;
 }
 

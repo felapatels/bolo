@@ -14,7 +14,7 @@ export interface OutfitCatalogItem {
   tagline: string;
   /** Server-authoritative price in Chai, per item rather than one flat price. Clients must render this number, never a hardcoded one. */
   cost: number;
-  /** Bought once, owned forever — derived from the ledger. */
+  /** Bought once, owned forever, derived from the ledger. */
   owned: boolean;
   /** A garment redresses the whole bird; an accessory adds one thing to her. The shop groups its rack by this, so a new kind of stock does not need a client change. */
   kind: OutfitCatalogItemKind;

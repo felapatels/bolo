@@ -1,4 +1,4 @@
-// Task 1103 — daily XP train-class ladder, real-browser evidence (WEB).
+// Task 1103, daily XP train-class ladder, real-browser evidence (WEB).
 //
 // jsdom cannot see layout, so this probe captures the three ladder states on
 // the running dev app at phone width (320px, the narrowest supported), in both
@@ -8,7 +8,7 @@
 //
 // Today's XP is forced by rewriting the /api/progress/summary response, so the
 // three states are reproducible without earning 900 XP by hand. Nothing else
-// is stubbed — the real component, the real nav and the real header render.
+// is stubbed, the real component, the real nav and the real header render.
 //
 // It also measures the compact variant against its neighbours: with a
 // three-digit numerator over a three-digit denominator the strip must still
@@ -128,7 +128,7 @@ page.on("pageerror", (e) => pass("no page error", false, String(e).slice(0, 160)
 await page.goto(`${ORIGIN}/sign-in?__clerk_ticket=${ticket}`, { waitUntil: "networkidle" });
 await page.waitForURL(/\/app/, { timeout: 60000 }).catch(() => {});
 
-// Dismiss the onboarding tour if it launches — it covers the nav.
+// Dismiss the onboarding tour if it launches, it covers the nav.
 const skip = page.getByRole("button", { name: /skip tour/i });
 if (await skip.count()) await skip.first().click().catch(() => {});
 

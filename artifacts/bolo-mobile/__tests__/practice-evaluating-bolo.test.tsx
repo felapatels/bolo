@@ -305,7 +305,7 @@ describe('Mascot, the zoom-out itself', () => {
     render(<Mascot pose="thinking" motion="working" />);
     const shrunk = screen.getByTestId('mascot-working');
 
-    // The scale lives in a static style, so it survives with animations off, // the state reads as "away working", never as an empty or frozen full-size
+    // The scale lives in a static style, so it survives with animations off, the state reads as "away working", never as an empty or frozen full-size
     // bird. The spin and the zoom springs are the parts that stay off.
     expect(shrunk).toBeOnTheScreen();
     expect(shrunk).toHaveStyle({ transform: [{ scale: 0.45 }] });

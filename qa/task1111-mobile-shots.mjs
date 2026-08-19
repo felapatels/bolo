@@ -1,4 +1,4 @@
-// Task #1111 — mobile friends-by-code evidence (Expo WEB build, 412×824 @2x).
+// Task #1111, mobile friends-by-code evidence (Expo WEB build, 412×824 @2x).
 //
 // QA-only. Same rule as the web probe: the "with friends" state is produced by
 // the feature itself (Meera types Arjun's code on mobile, Arjun accepts), never
@@ -74,7 +74,7 @@ try {
     log("shot mobile-your-friend-code");
   }
 
-  // Type the other learner's code — the same path a scan lands on.
+  // Type the other learner's code, the same path a scan lands on.
   const codeInput = page.getByLabel("Friend code", { exact: true }).first();
   await codeInput.scrollIntoViewIfNeeded();
   await codeInput.fill(FRIEND_CODE);

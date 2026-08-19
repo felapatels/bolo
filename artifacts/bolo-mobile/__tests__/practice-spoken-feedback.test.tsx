@@ -277,7 +277,7 @@ describe('one shared spoken-feedback state, two entry points', () => {
       fireEvent.press(screen.getByTestId('setting-spoken-feedback'));
     });
 
-    // The result-card control, untouched by this task and still on the card, // now shows the muted affordance without any state of its own.
+    // The result-card control, untouched by this task and still on the card, now shows the muted affordance without any state of its own.
     await waitFor(() => expect(resultCardMuted()).toBe(true));
     await waitFor(async () =>
       expect(await AsyncStorage.getItem('bolo.spokenFeedback')).toBe('off'),

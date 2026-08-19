@@ -20,7 +20,7 @@ const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;
 const OUT = "qa/shots/games-previews";
 mkdirSync(OUT, { recursive: true });
 
-// Clerk sign-in tokens are SINGLE-USE — mint one per browser context.
+// Clerk sign-in tokens are SINGLE-USE, mint one per browser context.
 async function signInToken() {
   const res = await fetch("https://api.clerk.com/v1/sign_in_tokens", {
     method: "POST",
@@ -42,7 +42,7 @@ const browser = await chromium.launch({
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
-  console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " — " + detail : ""}`);
+  console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? "-" + detail : ""}`);
   if (!ok) failures++;
 };
 

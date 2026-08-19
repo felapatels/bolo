@@ -149,7 +149,7 @@ describe("practice start position (Task 954: station resume)", () => {
     ]);
     renderPage(<Practice />, "/practice/0?group=7");
 
-    // Starts on phrase 3 (first below 80) as position 3 of the FULL set, // mastered phrases are skipped over, never removed.
+    // Starts on phrase 3 (first below 80) as position 3 of the FULL set, mastered phrases are skipped over, never removed.
     await expectStartsAt("phrase-3", "3/4");
     expect(screen.queryByText("phrase-1")).not.toBeInTheDocument();
   });

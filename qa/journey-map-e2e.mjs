@@ -32,7 +32,7 @@ if (!CLERK_SECRET) throw new Error("CLERK_SECRET_KEY is required");
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 const check = (name, ok, detail = "") =>
-  log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? ` — ${detail}` : ""}`);
+  log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? `, ${detail}` : ""}`);
 
 async function mintTicket(userId) {
   const res = await fetch("https://api.clerk.com/v1/sign_in_tokens", {
@@ -127,7 +127,7 @@ async function main() {
     }
     // Boarding-pass header renders with the line name and station tally.
     // The active language is server-authoritative and reconciles into local
-    // state asynchronously after hydration — wait for the EXPECTED line name
+    // state asynchronously after hydration, wait for the EXPECTED line name
     // so we assert against the right language's map, not the pre-reconcile
     // default.
     await page.getByText(/Boarding pass/i).waitFor({ timeout: 20000 });

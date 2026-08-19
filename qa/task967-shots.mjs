@@ -1,4 +1,4 @@
-// Task 967: colorful 2-column animated games hub (web) — visual verification.
+// Task 967: colorful 2-column animated games hub (web), visual verification.
 //
 // Checks, per viewport (320 / 480 / 640 / 1280):
 //   - all five cards render with titles fully visible (no clipping/truncation)
@@ -42,7 +42,7 @@ const browser = await chromium.launch({
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
-  console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " — " + detail : ""}`);
+  console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? "-" + detail : ""}`);
   if (!ok) failures++;
 };
 

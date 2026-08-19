@@ -1,4 +1,4 @@
-// Task #1049 verification shots — MOBILE home, captured from the Expo WEB
+// Task #1049 verification shots, MOBILE home, captured from the Expo WEB
 // build (react-native-web renders the same component tree; there is no device
 // or emulator in this environment). Viewport 412×824 @2x, the store-screenshot
 // convention used by qa/d1bm-shots.mjs.

@@ -231,7 +231,7 @@ before(async () => {
   app.use(express.json());
   app.use((req, _res, next) => {
     (req as unknown as { userId: string }).userId = TEST_USER_ID;
-    // The real app mounts pino-http, so routes may log on their error paths, // and this suite deliberately drives one of those paths.
+    // The real app mounts pino-http, so routes may log on their error paths, and this suite deliberately drives one of those paths.
     (req as unknown as { log: unknown }).log = {
       info: () => {},
       warn: () => {},

@@ -322,7 +322,7 @@ async function synthesizePass(
     items,
     CONCURRENCY,
     async ({ phrase, key }) => {
-      // If another worker already detected quota exhaustion, skip silently, // no throw, so this does NOT count as a consecutive failure.
+      // If another worker already detected quota exhaustion, skip silently, no throw, so this does NOT count as a consecutive failure.
       if (quotaExhausted) return;
 
       // Proactive quota guard: if the cached quota shows credits are gone,

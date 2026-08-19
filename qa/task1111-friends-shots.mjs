@@ -1,6 +1,6 @@
-// Task #1111 — friends-by-code evidence, real browser, real dev API.
+// Task #1111, friends-by-code evidence, real browser, real dev API.
 //
-// QA-only: drives the running dev web app through the ACTUAL product flow —
+// QA-only: drives the running dev web app through the ACTUAL product flow, 
 // learner A reads their friend code off /friends, learner B types it in, A
 // accepts the pending request. Nothing is inserted into the database by hand;
 // the "with friends" state is produced by the feature itself.

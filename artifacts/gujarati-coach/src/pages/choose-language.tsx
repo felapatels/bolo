@@ -170,7 +170,7 @@ function LanguageTile({
       <span
         className={cn(
           "block text-2xl font-bold text-foreground",
-          // Nastaliq glyphs (Kashmiri, Urdu, Sindhi) cascade vertically, // clipping truncation would cut them off.
+          // Nastaliq glyphs (Kashmiri, Urdu, Sindhi) cascade vertically, clipping truncation would cut them off.
           native.isNastaliq ? "overflow-visible" : "leading-tight truncate",
         )}
         style={native.style}

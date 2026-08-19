@@ -26,7 +26,7 @@
 // caches a balance, because the spend contract is server-authoritative.
 //
 // TIER 2, the GLYPH: the kulhad (clay chai cup) is Chai's inline mark. It
-// replaces the lucide Coffee icon at every spot that shows a Chai amount, // stat cell, wallet rows, earn chips. The Coffee icon survives ONLY in
+// replaces the lucide Coffee icon at every spot that shows a Chai amount, stat cell, wallet rows, earn chips. The Coffee icon survives ONLY in
 // lib/category-icons.tsx, where it is the food-topic icon and not a currency
 // mark at all.
 //

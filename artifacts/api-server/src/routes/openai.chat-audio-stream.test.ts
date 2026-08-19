@@ -102,7 +102,7 @@ test("failed stream aborts the connection instead of ending cleanly", async () =
   await new Promise((r) => setTimeout(r, 50));
   failChatAudioStream(stream);
 
-  // The socket is destroyed mid-body, so reading the body must reject, // a native player sees an error, never a "finished" truncated clip.
+  // The socket is destroyed mid-body, so reading the body must reject, a native player sees an error, never a "finished" truncated clip.
   await assert.rejects(async () => {
     const res = await resPromise;
     await res.arrayBuffer();

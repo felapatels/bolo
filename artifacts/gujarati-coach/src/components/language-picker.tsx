@@ -150,7 +150,7 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                 onClick={() => {
                   if (locked) {
                     // Locked-but-visible: open this language's journey map in
-                    // showroom mode, a browsable teaser with an upgrade path, // instead of bouncing straight to the paywall.
+                    // showroom mode, a browsable teaser with an upgrade path, instead of bouncing straight to the paywall.
                     setActiveLang(lang.code);
                     choose(lang.code);
                     setOpen(false);

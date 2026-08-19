@@ -20,7 +20,7 @@ import { lessonGroupsTable } from "./lessonGroups";
 // shifts (sentence groups moving up to make room for a new phrase-stage
 // group) can never orphan or misattribute progress.
 //
-// Convention: composite PK (user_id, ref_id), one row per (user, group), // matching user_item_memory's one-row-per-pair model.
+// Convention: composite PK (user_id, ref_id), one row per (user, group), matching user_item_memory's one-row-per-pair model.
 export const lessonGroupProgressTable = pgTable(
   "lesson_group_progress",
   {

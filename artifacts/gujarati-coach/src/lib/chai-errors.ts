@@ -1,6 +1,6 @@
 // Refusal copy for Chai spends, shared by every surface that can spend.
 //
-// The server answers a refused spend with 409 and a machine code (never 402, // that envelope is the Plus paywall). Each code has one sentence here, so the
+// The server answers a refused spend with 409 and a machine code (never 402, that envelope is the Plus paywall). Each code has one sentence here, so the
 // wallet, the journey and the home banner cannot drift apart, and so a
 // learner is never told to "try again" when trying again cannot work.
 //

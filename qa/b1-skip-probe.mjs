@@ -1,4 +1,4 @@
-// B1 language-step SKIP path probe (July 30 2026) — the one path qa unit tests
+// B1 language-step SKIP path probe (July 30 2026), the one path qa unit tests
 // couldn't cover in a real browser. Note: #859's qa/b1-402-probe.mjs never landed
 // in the tree (empty merge), so this is a standalone probe following the same
 // harness pattern (fresh +clerk_test user, sign_in_tokens, Nix chromium).
@@ -31,7 +31,7 @@ const created = await bapi("POST", "/users", {
 });
 if (created.status !== 200) { console.error("user create failed", created.status, JSON.stringify(created.j)); process.exit(1); }
 const userId = created.j.id;
-// Client Trust is ON in dev; ticket sign-ins may or may not trip it — set the
+// Client Trust is ON in dev; ticket sign-ins may or may not trip it, set the
 // documented per-user bypass so the harness is deterministic either way.
 const bypass = await bapi("PATCH", `/users/${userId}`, { bypass_client_trust: true });
 console.log("qa user:", userId, "| bypass_client_trust patch:", bypass.status);
@@ -39,12 +39,12 @@ console.log("qa user:", userId, "| bypass_client_trust patch:", bypass.status);
 const mintToken = async () => {
   const r = await bapi("POST", "/sign_in_tokens", { user_id: userId });
   if (!r.j.token) throw new Error(`sign_in_token failed: ${r.status} ${JSON.stringify(r.j)}`);
-  return r.j.token; // single-use — mint one per context
+  return r.j.token; // single-use, mint one per context
 };
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME_BIN, args: ["--no-sandbox"] });
 const results = [];
-const check = (name, ok, detail) => { results.push({ name, ok, detail }); console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`); };
+const check = (name, ok, detail) => { results.push({ name, ok, detail }); console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? `, ${detail}` : ""}`); };
 
 const signIn = async (ctx) => {
   const page = await ctx.newPage();

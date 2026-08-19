@@ -1,9 +1,9 @@
-// Task #1111 — mobile "no friends" list shot.
+// Task #1111, mobile "no friends" list shot.
 //
 // The friendship is undone through the real product (web client, Meera's own
 // Remove button) rather than by deleting a row: react-native-web has no Alert
-// implementation, so the mobile confirm dialog — and therefore mobile's own
-// Remove button — cannot be driven in the Expo WEB build. Mobile removal is
+// implementation, so the mobile confirm dialog, and therefore mobile's own
+// Remove button, cannot be driven in the Expo WEB build. Mobile removal is
 // covered by the RNTL test and by the shared DELETE /friends/:userId API test.
 import { chromium } from "playwright-core";
 import { mkdirSync } from "node:fs";

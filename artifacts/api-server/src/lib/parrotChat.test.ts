@@ -241,7 +241,7 @@ test("runParrotTurn: system prompt contains the language rules block; language n
     capturedSystemPrompt.includes("Gurmukhi"),
     "system prompt should contain the language rules block (Punjabi entry lists Gurmukhi script)",
   );
-  // System prompt must not contain a runtime-interpolated language reference, // the rules block is a static constant with no per-request template substitution.
+  // System prompt must not contain a runtime-interpolated language reference, the rules block is a static constant with no per-request template substitution.
   assert.ok(
     !capturedSystemPrompt.includes("Language: Punjabi"),
     "system prompt should not contain a runtime-interpolated language reference",
@@ -1117,7 +1117,7 @@ test("runParrotTurn: streaming failure pipes the fallback clip through the strea
 
   assert.equal(bufferedCalled, true, "buffered synthesize should run as fallback");
   // The client's progressive player is already connected to the stream URL,
-  // so the fallback clip must ride the same channel and be marked complete, // otherwise the player aborts and the turn risks going silent.
+  // so the fallback clip must ride the same channel and be marked complete, otherwise the player aborts and the turn risks going silent.
   assert.equal(doneFired, true, "onAudioDone must fire after the fallback clip is streamed");
   assert.equal(
     Buffer.concat(chunks.map((c) => Buffer.from(c, "base64"))).toString(),

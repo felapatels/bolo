@@ -185,7 +185,7 @@ async function sweepWithLock(): Promise<void> {
 }
 
 // Fire-and-forget scheduler: one pass shortly after boot (catching anything
-// missed while the server was down), then on a fixed interval. Never throws, // a Stripe outage during a sweep only means the next interval retries.
+// missed while the server was down), then on a fixed interval. Never throws, a Stripe outage during a sweep only means the next interval retries.
 export function scheduleStripeReconcileSweep(): void {
   if (!process.env.STRIPE_SECRET_KEY?.trim()) {
     logger.info("Stripe reconcile sweep disabled: no STRIPE_SECRET_KEY");

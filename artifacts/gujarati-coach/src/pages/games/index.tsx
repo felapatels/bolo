@@ -361,7 +361,7 @@ export default function GamesPage() {
                   const entered = enteredId === game.id;
                   const Card = (
                     <motion.div
-                      // Staggered entrance cascade (task 986: pronounced, // larger rise, scale from 0.9, springs.poppy overshoot).
+                      // Staggered entrance cascade (task 986: pronounced, larger rise, scale from 0.9, springs.poppy overshoot).
                       // Cards stay interactive throughout (no pointer-events
                       // gate). Under reduced motion this collapses to an
                       // instant fade and the gesture transforms are dropped.

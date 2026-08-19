@@ -871,7 +871,7 @@ export const getListCategorySentencesUrl = (id: number,
 }
 
 /**
- * The topic's final step after the phrase list — full, natural sentences that build on the topic's vocabulary. Bolo! Plus only: callers without the sentences feature receive a 402 upgrade payload and no sentence text. Generated + cached on first request for dynamically generated lessons.
+ * The topic's final step after the phrase list, full, natural sentences that build on the topic's vocabulary. Bolo! Plus only: callers without the sentences feature receive a 402 upgrade payload and no sentence text. Generated + cached on first request for dynamically generated lessons.
  * @summary List the topic's Plus-only sentence stage for a language
  */
 export const listCategorySentences = async (id: number,
@@ -1903,7 +1903,7 @@ export const getGetAccountUrl = () => {
 }
 
 /**
- * Returns the authenticated learner's profile (name, email, avatar), their notification and learning preferences, and a compact subscription summary — everything the account settings screen renders from.
+ * Returns the authenticated learner's profile (name, email, avatar), their notification and learning preferences, and a compact subscription summary, everything the account settings screen renders from.
  * @summary The caller's profile, preferences, and subscription summary
  */
 export const getAccount = async ( options?: RequestInit): Promise<Account> => {
@@ -2491,7 +2491,7 @@ export const getUnpauseAccountSubscriptionUrl = () => {
 }
 
 /**
- * Lets a learner who changes their mind come back before the pause window closes. Clears the pause and resumes the underlying paid tier immediately — the same outcome as waiting for pauseUntil to elapse naturally, just early. Only applies to a currently-paused subscription; a canceling, active, or expired subscription has nothing to unpause.
+ * Lets a learner who changes their mind come back before the pause window closes. Clears the pause and resumes the underlying paid tier immediately, the same outcome as waiting for pauseUntil to elapse naturally, just early. Only applies to a currently-paused subscription; a canceling, active, or expired subscription has nothing to unpause.
  * @summary Resume a paused subscription early
  */
 export const unpauseAccountSubscription = async ( options?: RequestInit): Promise<SubscriptionDetails> => {
@@ -2635,7 +2635,7 @@ export const getSendFriendRequestByCodeUrl = () => {
 }
 
 /**
- * Matches the code exactly (after uppercase/trim normalization) and creates a PENDING friend request the recipient must accept — never an instant friendship. A learner's friend code is their referral code, which is meant to be broadcast, so the accept step is what keeps a published code from becoming an open friend list. Rejection wording is deliberately uniform: an unknown code, a near-miss, and a code belonging to someone the caller already has a relationship with all return the same 404 and the same message, so the endpoint cannot be probed for which codes are real. Rate limited per account and per IP.
+ * Matches the code exactly (after uppercase/trim normalization) and creates a PENDING friend request the recipient must accept, never an instant friendship. A learner's friend code is their referral code, which is meant to be broadcast, so the accept step is what keeps a published code from becoming an open friend list. Rejection wording is deliberately uniform: an unknown code, a near-miss, and a code belonging to someone the caller already has a relationship with all return the same 404 and the same message, so the endpoint cannot be probed for which codes are real. Rate limited per account and per IP.
  * @summary Send a friend request to the learner who owns a friend code
  */
 export const sendFriendRequestByCode = async (sendFriendRequestByCodeInput: SendFriendRequestByCodeInput, options?: RequestInit): Promise<FriendRequest> => {
@@ -3400,7 +3400,7 @@ export const getGetScriptTraceProgressUrl = (params: GetScriptTraceProgressParam
 }
 
 /**
- * Returns the caller's per-character tracing progress for the requested Script Trace chapter. Plus-only — non-Plus callers receive a 402.
+ * Returns the caller's per-character tracing progress for the requested Script Trace chapter. Plus-only, non-Plus callers receive a 402.
  * @summary Get Script Trace chapter progress
  */
 export const getScriptTraceProgress = async (params: GetScriptTraceProgressParams, options?: RequestInit): Promise<ScriptTraceCharacterProgress[]> => {
@@ -3478,7 +3478,7 @@ export const getRecordScriptTraceProgressUrl = () => {
 }
 
 /**
- * Saves the result of a single character trace. Upserts so the best score is preserved and the `passed` flag is sticky (never reverted once true). Plus-only — non-Plus callers receive a 402.
+ * Saves the result of a single character trace. Upserts so the best score is preserved and the `passed` flag is sticky (never reverted once true). Plus-only, non-Plus callers receive a 402.
  * @summary Record a Script Trace attempt
  */
 export const recordScriptTraceProgress = async (scriptTraceProgressInput: ScriptTraceProgressInput, options?: RequestInit): Promise<ScriptTraceCharacterProgress> => {
@@ -3779,7 +3779,7 @@ export const getReportPhraseUrl = (id: number,) => {
 }
 
 /**
- * Stores a phrase report (reason + optional note) in phrase_reports. language_code and stage are derived server-side from the phrase row — never client-supplied. Fire-and-forget from the client's perspective: beyond the rolling-hour cap (20 stored reports per user) the server returns { success: true } and stores nothing. Duplicate reports for the same phrase are allowed; dedup is a review-time concern.
+ * Stores a phrase report (reason + optional note) in phrase_reports. language_code and stage are derived server-side from the phrase row, never client-supplied. Fire-and-forget from the client's perspective: beyond the rolling-hour cap (20 stored reports per user) the server returns { success: true } and stores nothing. Duplicate reports for the same phrase are allowed; dedup is a review-time concern.
  * @summary Flag a phrase as incorrect (Spec B2)
  */
 export const reportPhrase = async (id: number,
@@ -5362,7 +5362,7 @@ export const getRecordSignalWaveUrl = () => {
 }
 
 /**
- * Records that the caller waved through a trackside signal without playing its quick game, so the gate-up state survives devices and reinstalls. Idempotent — replaying the same signal is a silent no-op. The ref is composed server-side as languageCode:categoryId:gap-N, matching the first-clear ledger refId convention; a later clear supersedes the wave for display, so waves are never deleted.
+ * Records that the caller waved through a trackside signal without playing its quick game, so the gate-up state survives devices and reinstalls. Idempotent, replaying the same signal is a silent no-op. The ref is composed server-side as languageCode:categoryId:gap-N, matching the first-clear ledger refId convention; a later clear supersedes the wave for display, so waves are never deleted.
  * @summary Persist a signal wave-through for the caller
  */
 export const recordSignalWave = async (signalWaveInput: SignalWaveInput, options?: RequestInit): Promise<SignalWaveResult> => {
@@ -5732,7 +5732,7 @@ export const getBuyFirstClassUrl = () => {
 }
 
 /**
- * Buys 24 hours of First Class — a cosmetic status that renders the learner's own train in gold — plus one complimentary 20-minute Express boost thrown in on boarding. The caller supplies ONLY an idempotency key: the price, the 24 hours and the bundled boost are all server-side. Unlike every other Chai spend this purchase is repeatable, so a repeat call with the SAME key is a free replay (200, charged=false) while a new key is a genuine second purchase that adds another 24 hours to an active expiry. The bundled boost takes the max of its current value and 20 minutes from now, so it never shortens a longer running window and never accumulates. Money and clock conflicts (insufficient_tokens, first_class_horizon) answer 409, matching the other Chai spends; never 402, which is the plan-upgrade envelope.
+ * Buys 24 hours of First Class, a cosmetic status that renders the learner's own train in gold, plus one complimentary 20-minute Express boost thrown in on boarding. The caller supplies ONLY an idempotency key: the price, the 24 hours and the bundled boost are all server-side. Unlike every other Chai spend this purchase is repeatable, so a repeat call with the SAME key is a free replay (200, charged=false) while a new key is a genuine second purchase that adds another 24 hours to an active expiry. The bundled boost takes the max of its current value and 20 minutes from now, so it never shortens a longer running window and never accumulates. Money and clock conflicts (insufficient_tokens, first_class_horizon) answer 409, matching the other Chai spends; never 402, which is the plan-upgrade envelope.
  * @summary Spend Chai on 24 hours of First Class
  */
 export const buyFirstClass = async (firstClassInput: FirstClassInput, options?: RequestInit): Promise<FirstClassResult> => {
@@ -5804,7 +5804,7 @@ export const getUnlockStopUrl = () => {
 }
 
 /**
- * Buys a single station in a language the caller's plan does not include. The caller names only a lesson group id: the language, the price and the ledger idempotency key are all derived server-side, and the purchase is once-ever (a repeat call returns 200 with charged=false and deducts nothing). Only stops inside the language's FIRST zone — the zone that hosts the free-taste stop — are purchasable; anything beyond it answers 402 UpgradeRequired because that is the All-Access boundary. Money and state conflicts (insufficient_tokens, stop_already_free, stop_not_unlockable) answer 409, matching the other Chai spends.
+ * Buys a single station in a language the caller's plan does not include. The caller names only a lesson group id: the language, the price and the ledger idempotency key are all derived server-side, and the purchase is once-ever (a repeat call returns 200 with charged=false and deducts nothing). Only stops inside the language's FIRST zone, the zone that hosts the free-taste stop, are purchasable; anything beyond it answers 402 UpgradeRequired because that is the All-Access boundary. Money and state conflicts (insufficient_tokens, stop_already_free, stop_not_unlockable) answer 409, matching the other Chai spends.
  * @summary Spend Chai to open one stop in a plan-locked language
  */
 export const unlockStop = async (unlockStopInput: UnlockStopInput, options?: RequestInit): Promise<StopUnlockResult> => {
@@ -5876,7 +5876,7 @@ export const getGetStreakRepairUrl = () => {
 }
 
 /**
- * Streak repair is the ratified exception to the delight-only Chai spine: it buys back a streak lost to life happening, never an advantage. A day is repairable only when it is a real hole with practice on the day before it, and only within two local days — so at most one break is ever on offer and repairs cannot be walked backwards through history.
+ * Streak repair is the ratified exception to the delight-only Chai spine: it buys back a streak lost to life happening, never an advantage. A day is repairable only when it is a real hole with practice on the day before it, and only within two local days, so at most one break is ever on offer and repairs cannot be walked backwards through history.
  * @summary Whether a broken streak can be mended, and for how much
  */
 export const getStreakRepair = async ( options?: RequestInit): Promise<StreakRepairOffer> => {
@@ -5954,7 +5954,7 @@ export const getRepairStreakUrl = () => {
 }
 
 /**
- * Takes no body. The server re-derives which day is repairable, composes the ledger key from it (streak:<YYYY-MM-DD>), and charges STREAK_REPAIR_COST once — a replay answers 200 with charged=false and deducts nothing. Refusals are 409 and never 402: a broken streak is not a plan boundary and must never become an upsell.
+ * Takes no body. The server re-derives which day is repairable, composes the ledger key from it (streak:<YYYY-MM-DD>), and charges STREAK_REPAIR_COST once, a replay answers 200 with charged=false and deducts nothing. Refusals are 409 and never 402: a broken streak is not a plan boundary and must never become an upsell.
  * @summary Spend Chai to mend the day that broke the streak
  */
 export const repairStreak = async ( options?: RequestInit): Promise<StreakRepairResult> => {
@@ -6026,7 +6026,7 @@ export const getGetChaiPacksUrl = () => {
 }
 
 /**
- * The mobile shop's catalog. Deliberately NOT part of GET /pricing: that endpoint quotes live Stripe prices and fails when Stripe is unreachable, and the iOS shop must not depend on the web payment processor. It also carries no price at all — on iOS the price shown is the StoreKit product's own, so no server number can drift from what Apple charges. The Chai amount is the same catalog the credit path grants from, so the shop cannot advertise a pack size the purchase does not deliver.
+ * The mobile shop's catalog. Deliberately NOT part of GET /pricing: that endpoint quotes live Stripe prices and fails when Stripe is unreachable, and the iOS shop must not depend on the web payment processor. It also carries no price at all, on iOS the price shown is the StoreKit product's own, so no server number can drift from what Apple charges. The Chai amount is the same catalog the credit path grants from, so the shop cannot advertise a pack size the purchase does not deliver.
  * @summary The Chai packs, their Apple product ids and what each grants
  */
 export const getChaiPacks = async ( options?: RequestInit): Promise<ChaiPackCatalog> => {
@@ -6104,7 +6104,7 @@ export const getCheckChaiPackCreditsUrl = () => {
 }
 
 /**
- * A read, expressed as a POST because the input is a list. The app can see which consumables Apple sold it but not whether the server credited them; this answers that and nothing else. It never writes, never states an amount, and can never mint Chai — recovery works by asking the store to re-deliver an uncredited transaction, and double-crediting is prevented by the ledger's refId index rather than by client bookkeeping. Only the caller's own ledger is consulted.
+ * A read, expressed as a POST because the input is a list. The app can see which consumables Apple sold it but not whether the server credited them; this answers that and nothing else. It never writes, never states an amount, and can never mint Chai, recovery works by asking the store to re-deliver an uncredited transaction, and double-crediting is prevented by the ledger's refId index rather than by client bookkeeping. Only the caller's own ledger is consulted.
  * @summary Which of these App Store transactions has the ledger credited
  */
 export const checkChaiPackCredits = async (chaiPackCreditsInput: ChaiPackCreditsInput, options?: RequestInit): Promise<ChaiPackCreditsResult> => {
@@ -6325,7 +6325,7 @@ export const getEquipOutfitUrl = () => {
 }
 
 /**
- * Free and instant. Sends an owned outfit id to wear it, or null to unequip. Equipping an outfit the learner does not own answers 409 outfit_not_owned — ownership is never inferred from the equip call.
+ * Free and instant. Sends an owned outfit id to wear it, or null to unequip. Equipping an outfit the learner does not own answers 409 outfit_not_owned, ownership is never inferred from the equip call.
  * @summary Wear an owned outfit, or go back to undressed Bolo
  */
 export const equipOutfit = async (equipOutfitInput: EquipOutfitInput, options?: RequestInit): Promise<OutfitEquipResult> => {

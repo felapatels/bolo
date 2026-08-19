@@ -776,7 +776,7 @@ test("test-out throttle: the 4th submission within the hour gets 429", async () 
 
 test("test-out throttle 429 shape: Retry-After header + retryAfterSeconds body", async () => {
   // Still saturated from the previous test (3 in-window submissions). The
-  // throttle fires before token verification, so a minimal body suffices, // and proves a rate-limited caller learns nothing about sample validity.
+  // throttle fires before token verification, so a minimal body suffices, and proves a rate-limited caller learns nothing about sample validity.
   const res = await fetch(`${baseUrl}/lesson-groups/${g2Id}/test-out`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-test-user": THROTTLE_USER },

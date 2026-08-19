@@ -1,4 +1,4 @@
-// Task #1049 verification shots — web home.
+// Task #1049 verification shots, web home.
 //
 // Proves in a REAL browser (jsdom cannot lay anything out) that:
 //   1. the boarding pass renders ABOVE Chacha-ji's Chai stall, and
@@ -88,7 +88,7 @@ await page
 await page.waitForTimeout(500);
 await page.screenshot({ path: `${OUT}/home-referral.png` });
 
-// Desktop width too — the card must land after Recent plays at every width.
+// Desktop width too, the card must land after Recent plays at every width.
 // Same page, resized: a fresh browser.newPage() would open a new context and
 // land on the signed-out marketing page instead of home.
 await page.setViewportSize({ width: 1280, height: 950 });

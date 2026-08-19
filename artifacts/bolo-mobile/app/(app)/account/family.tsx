@@ -53,7 +53,7 @@ function errorMessage(err: unknown, fallback: string): string {
  * a member sees whose plan they're on and can leave; everyone else gets the
  * Family upsell plus a join-code entry so an invited learner can claim a seat
  * right from the phone. All state changes go through the existing family
- * endpoints; after any change we re-read the family status and entitlements, * the server stays the sole authority on who has Plus.
+ * endpoints; after any change we re-read the family status and entitlements, the server stays the sole authority on who has Plus.
  */
 export default function FamilyScreen() {
   const colors = useColors();

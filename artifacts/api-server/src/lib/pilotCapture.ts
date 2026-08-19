@@ -5,7 +5,7 @@
  *
  * This is a narrow, temporary precursor of the build-32 voice contribution
  * program (docs/specs/voice-data-program.md §3 and §5).  When
- * PILOT_CAPTURE_USER_IDS is absent or empty the feature is fully inert, * no R2 calls are made on any pronunciation attempt.
+ * PILOT_CAPTURE_USER_IDS is absent or empty the feature is fully inert, no R2 calls are made on any pronunciation attempt.
  *
  * R2 path scheme (pilot-only; build-32 will use voice-contributions/…):
  *   pilot-clips/{languageCode}/{clipId}.m4a   , raw audio bytes

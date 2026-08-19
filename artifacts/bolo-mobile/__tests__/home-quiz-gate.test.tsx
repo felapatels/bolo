@@ -86,7 +86,7 @@ jest.mock('@/lib/entrance', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
-  // Task #1049: the home referral card reads the learner's code. Idle here, // an undefined code hides the card, which is not what these files pin.
+  // Task #1049: the home referral card reads the learner's code. Idle here, an undefined code hides the card, which is not what these files pin.
   useGetReferral: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   // Stand-in for the real error class: the repair-refusal copy branches on
   // `instanceof ApiError`, so the tests have to throw the mocked module's own

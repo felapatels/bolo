@@ -472,7 +472,7 @@ export default function PracticeScreen() {
   const languageName = activeLanguage?.name ?? 'this language';
 
   // `?stage=sentences` runs the same practice flow over the topic's Plus-only
-  // sentence stage instead of its phrase list. The server enforces the gate, // a non-Plus deep link lands on the upgrade screen via the 402 below.
+  // sentence stage instead of its phrase list. The server enforces the gate, a non-Plus deep link lands on the upgrade screen via the 402 below.
   const isSentences = stage === 'sentences';
   const phraseQuery = useListCategoryPhrases(categoryId, activeLang, {
     query: {
@@ -1403,7 +1403,7 @@ export default function PracticeScreen() {
     if (typeof metering !== 'number') return;
     const now = Date.now();
     if (metering > peakDbRef.current) peakDbRef.current = metering;
-    // Don't arm auto-stop until the learner has actually said something, // otherwise ambient quiet before speaking would end the take early.
+    // Don't arm auto-stop until the learner has actually said something, otherwise ambient quiet before speaking would end the take early.
     if (peakDbRef.current < SPEECH_MIN_DB) {
       silenceSinceRef.current = null;
       return;
@@ -1636,7 +1636,7 @@ export default function PracticeScreen() {
         fireConfetti();
         setTimeout(() => hapticHeavy(), 140);
       }
-      // XP arc fires whenever XP was actually awarded (any passing band, // the half-credit group earns at the 0.5 band factor, so the counter
+      // XP arc fires whenever XP was actually awarded (any passing band, the half-credit group earns at the 0.5 band factor, so the counter
       // moves and the arc connects the result to it). retry/nocatch award no XP.
       // Test-out runs record no attempt and award no XP, so no arc either.
       if (!isTestout && isPassingBand(res.band) && res.xpAwarded > 0) {
@@ -1669,7 +1669,7 @@ export default function PracticeScreen() {
         });
         // Optimistic: increment todayXp immediately so the XP strip (and the
         // train class derived from it) reacts before the background refetch
-        // resolves. THE one writer, shared with web practice and review, // see applyOptimisticTodayXp in @workspace/train-class.
+        // resolves. THE one writer, shared with web practice and review, see applyOptimisticTodayXp in @workspace/train-class.
         applyOptimisticTodayXp(queryClient, activeLang, res.xpAwarded);
         queryClient.invalidateQueries({
           queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }),

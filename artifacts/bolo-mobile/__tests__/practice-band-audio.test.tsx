@@ -228,7 +228,7 @@ describe('instant band audio on results', () => {
     expect(mockState.bandClips).toEqual(['great']);
 
     // The full feedback sentence follows (synth #2 is the feedback readout;
-    // playback #2 goes through playBase64Audio after the clip finishes, // playback #1 was the coach phrase at mount).
+    // playback #2 goes through playBase64Audio after the clip finishes, playback #1 was the coach phrase at mount).
     await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(playBase64Audio).toHaveBeenCalledTimes(2));
   });

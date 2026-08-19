@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createQuotaMonitor } from "./elevenLabsQuotaMonitor";
 import type { ElevenLabsQuota } from "@workspace/integrations-openai-ai-server/audio";
 
-// Unit tests for the throttled ElevenLabs quota monitor. All deps injected, // no real API calls, no real clock.
+// Unit tests for the throttled ElevenLabs quota monitor. All deps injected, no real API calls, no real clock.
 
 function makeLog() {
   const infos: Array<{ fields: unknown; msg: string }> = [];

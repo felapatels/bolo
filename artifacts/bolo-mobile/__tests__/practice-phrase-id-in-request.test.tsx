@@ -14,7 +14,7 @@ import {
 // Background: POST /openai/pronunciation uses phraseId to look up the phrase's
 // languageCode and anchor Whisper's transcription to the correct language.
 // Without phraseId the language hint is absent and a phonetically identical
-// short word, e.g. "na", which is a valid word in both Gujarati and Hindi, // can silently pass in the wrong language.
+// short word, e.g. "na", which is a valid word in both Gujarati and Hindi, can silently pass in the wrong language.
 // ---------------------------------------------------------------------------
 
 const mockState: Record<string, any> = {};

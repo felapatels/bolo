@@ -1,4 +1,4 @@
-# Native-speaker review sheet — Manipuri / Meetei (ꯃꯤꯇꯩꯂꯣꯟ, Meetei Mayek script)
+# Native-speaker review sheet, Manipuri / Meetei (ꯃꯤꯇꯩꯂꯣꯟ, Meetei Mayek script)
 
 These are the **premium (Plus-only)** phrases in the Bolo! app. They had a fluent (non-native) review pass; we need a native speaker to confirm exact spelling/orthography, diacritics, kinship terms, and that each phrase truly matches its English meaning.
 

@@ -70,7 +70,7 @@ async function main() {
       }
       offenders.sort((a, b) => (b.right - b.width) - (a.right - a.width)); // prefer deep leaves? keep all
       // 2. recursive bisect: descend into whichever child restores the
-      // viewport width when hidden — ends at the culprit leaf.
+      // viewport width when hidden, ends at the culprit leaf.
       const chain = [];
       let node = document.querySelector("main") || document.body;
       for (let depth = 0; depth < 20 && node; depth++) {

@@ -487,7 +487,7 @@ export default function Home() {
     },
   );
   // A locked-language denial on the summary (402 upgrade_required with reason
-  // language_locked / teaser_exhausted) is a plan boundary, not an error, // home renders the showroom/upgrade state for it, never the retry shell.
+  // language_locked / teaser_exhausted) is a plan boundary, not an error, home renders the showroom/upgrade state for it, never the retry shell.
   const summaryUpgrade = asUpgradeRequired(summaryError);
   const { data: account } = useGetAccount();
   const dailyGoal: number = account?.preferences?.learning.dailyGoal ?? 10;

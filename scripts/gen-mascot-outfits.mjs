@@ -49,7 +49,7 @@ const CHIN = { wave: 500, cheer: 495, thumbsup: 495, thinking: 495, tryagain: 49
 /** How wide to cut the cloth per pose. These track the measured teal belly
  *  EXCEPT thumbsup: there a wing folds across her chest and splits the visible
  *  teal down to 500px, so measurement would tailor one pose two sizes too
- *  small. The cloth is cut to the body that is there, not the body that shows, *  the wing redraws in front of it regardless. */
+ *  small. The cloth is cut to the body that is there, not the body that shows,  the wing redraws in front of it regardless. */
 const WIDTH = { wave: 714, cheer: 722, thumbsup: 688, thinking: 646, tryagain: 731 };
 
 /** Where the cloth hangs from, horizontally. These are the anchors of the
@@ -71,7 +71,7 @@ const FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
 
 /**
  * The shipped set, and exactly how each piece was cut. This is the record of
- * which source art and which knobs produced the art now in the asset dirs, * without it, regenerating one garment means guessing the parameters back.
+ * which source art and which knobs produced the art now in the asset dirs, without it, regenerating one garment means guessing the parameters back.
  *
  * `squash` forces the cloth's height to a multiple of the belly height. Most
  * generated garments come out portrait (a real garment is taller than wide);

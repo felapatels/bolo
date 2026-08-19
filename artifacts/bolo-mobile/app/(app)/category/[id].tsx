@@ -74,7 +74,7 @@ export default function CategoryScreen() {
   })();
 
   // The topic's final step: the Plus-only sentence stage. Only requested once
-  // the server-reported category listing says this caller can open it, // `sentencesLocked` is server-authoritative, never a client-side guess.
+  // the server-reported category listing says this caller can open it, `sentencesLocked` is server-authoritative, never a client-side guess.
   const canLoadSentences = !!category && !category.sentencesLocked;
   const sentences = useListCategorySentences(categoryId, activeLang, {
     query: {
@@ -96,7 +96,7 @@ export default function CategoryScreen() {
     sentenceList.some((p) => p.mastered) &&
     !sentenceList.every((p) => p.mastered);
 
-  // A daily-lesson-limit / locked-language 402 means "upgrade", not "retry", // route the learner to the paywall, mirroring the web UpgradeScreen. Any
+  // A daily-lesson-limit / locked-language 402 means "upgrade", not "retry", route the learner to the paywall, mirroring the web UpgradeScreen. Any
   // other failure (e.g. a 502 when AI generation fails) is retry-able: nothing
   // broken was cached, so a later request can succeed.
   const upgrade = asUpgradeRequired(phrases.error);

@@ -4,7 +4,7 @@ import { and, eq, or } from "drizzle-orm";
 // Shared social-graph helpers. A friendship is ONE directional row
 // (requesterId → addresseeId) plus a status, so every "do these two already
 // have a relationship?" question has to look in both directions. The database
-// unique constraint only covers the ordered pair (requesterId, addresseeId), // it will happily accept a reverse duplicate, so this check is the only thing
+// unique constraint only covers the ordered pair (requesterId, addresseeId), it will happily accept a reverse duplicate, so this check is the only thing
 // standing between the graph and A→B / B→A double rows.
 
 export type FriendshipRow = typeof friendshipsTable.$inferSelect;

@@ -35,7 +35,7 @@ const BACKFILL_LOCK_KEY = 727_002; // advisory lock key distinct from seed lock
 // Minimum passing-score attempts for a phrase to get stability seeded to 21 days.
 // Set to 1 so the FSRS mastered count exactly mirrors the old `best score ≥ 80`
 // definition on migration day: any phrase the learner ever passed stays "mastered"
-// in the new system. The 3-attempt threshold was too strict for the transition, // it caused the mastery drop check to fail on accounts that had a single passing
+// in the new system. The 3-attempt threshold was too strict for the transition, it caused the mastery drop check to fail on accounts that had a single passing
 // attempt per phrase, which is the normal case for recently-onboarded learners.
 const STABILITY_SEED_MIN_GOOD_ATTEMPTS = 1;
 const STABILITY_SEED_MINIMUM_DAYS = 21;

@@ -17,7 +17,7 @@ import type { GeneratedLesson, LessonRequest } from "../lib/lessonGenerator";
 // OpenAI call happens:
 //   - a successful generation caches phrases and is reused (no re-generation),
 //   - a FAILED generation caches nothing, so a later open can still succeed,
-//   - a poisoned lesson row (exists but has zero phrases) is not served empty, //     it triggers regeneration so the learner recovers instead of seeing a
+//   - a poisoned lesson row (exists but has zero phrases) is not served empty,     it triggers regeneration so the learner recovers instead of seeing a
 //     permanently broken screen.
 //
 // Rows are scoped to a test-only language code + category and cleaned up after.

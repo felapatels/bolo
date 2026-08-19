@@ -66,7 +66,7 @@ const HORIZON_DAYS = STREAK_SCAN_DAYS + 3;
 /**
  * Takes on one item after which the advance gate opens whatever the band: a
  * dead mic or a brutally hard phrase must never strand the learner, and must
- * not silently cost them the day either. The client twins this exactly, * ADVANCE_ATTEMPT_LIMIT in web `pages/practice.tsx` and mobile `lib/ui.ts`.
+ * not silently cost them the day either. The client twins this exactly, ADVANCE_ATTEMPT_LIMIT in web `pages/practice.tsx` and mobile `lib/ui.ts`.
  */
 export const STREAK_ITEM_ATTEMPT_LIMIT = 3;
 
@@ -221,7 +221,7 @@ export interface StreakLadder {
  * streak-repair offer and the repair write itself.
  *
  * Reuses the existing ladder climb (progressMetrics.streakFromDayKeys) and the
- * existing covered-day accessor (tokenService.listCoveredDayKeys) untouched, * a covered day counts exactly as an earned one, which is what buying a cover
+ * existing covered-day accessor (tokenService.listCoveredDayKeys) untouched, a covered day counts exactly as an earned one, which is what buying a cover
  * means.
  */
 export async function loadStreakLadder(

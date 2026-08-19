@@ -38,7 +38,7 @@ export async function sumChatSecondsThisWeek(
 }
 
 // Logs a completed conversational turn against the user's weekly allowance.
-// `durationSeconds` must be computed server-side from the submitted audio, // never trust a client-supplied value.
+// `durationSeconds` must be computed server-side from the submitted audio, never trust a client-supplied value.
 export async function recordChatTurn(
   userId: string,
   languageCode: string,

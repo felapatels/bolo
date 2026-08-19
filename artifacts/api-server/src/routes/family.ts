@@ -488,7 +488,7 @@ export function createFamilyRouter(
             sql`SELECT id FROM family_plans WHERE id = ${plan.id} FOR UPDATE`,
           );
 
-          // Confirm the seat is still claimable while holding the lock, // before touching Stripe.
+          // Confirm the seat is still claimable while holding the lock, before touching Stripe.
           if (invitedSeatId != null) {
             const [claimed] = await tx
               .update(familySeatsTable)

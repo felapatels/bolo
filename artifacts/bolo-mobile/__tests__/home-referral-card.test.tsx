@@ -92,7 +92,7 @@ describe('home referral card', () => {
 describe('referral link module', () => {
   test('mobile resolves the same link web does for the same code', () => {
     // Web calls buildReferralLink with window.location.origin; mobile calls it
-    // with https://<EXPO_PUBLIC_DOMAIN>. Same module, same origin, same link, // there is no second place in the repo that assembles a /join/ URL.
+    // with https://<EXPO_PUBLIC_DOMAIN>. Same module, same origin, same link, there is no second place in the repo that assembles a /join/ URL.
     expect(referralLinkFor('k7xm2p')).toBe(
       buildReferralLink('https://bolo.example.com', 'k7xm2p'),
     );

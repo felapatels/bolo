@@ -2,7 +2,7 @@
 // come back with the M1 access envelope (access: teaser | exhausted), the
 // journey map renders the full line as a browsable showroom: only the marked
 // teaser station routes into practice; every other tap opens the
-// language-ticket dialog and writes NOTHING (no navigation, no mutations, // the screen has none). Exhausted mode adds the banner and its paywall CTA.
+// language-ticket dialog and writes NOTHING (no navigation, no mutations, the screen has none). Exhausted mode adds the banner and its paywall CTA.
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';

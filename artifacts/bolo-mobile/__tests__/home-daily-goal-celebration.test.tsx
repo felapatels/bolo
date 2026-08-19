@@ -87,7 +87,7 @@ jest.mock('@/lib/entrance', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
-  // Task #1049: the home referral card reads the learner's code. Idle here, // an undefined code hides the card, which is not what these files pin.
+  // Task #1049: the home referral card reads the learner's code. Idle here, an undefined code hides the card, which is not what these files pin.
   useGetReferral: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   useGetTokens: () => ({ data: { balance: 0, stationPausesEquipped: 0, expressMultiplierActiveUntil: null }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   // The wallet sheet reads the streak-repair offer; no break to mend here.
@@ -239,7 +239,7 @@ import HomeScreen from '../app/(app)/(tabs)/index';
 
 /**
  * Thin wrapper that conditionally renders its children. Rerendering with
- * `mounted={false}` unmounts the child, and `mounted={true}` remounts it, * without calling RNTL's `unmount()` directly (which corrupts shared renderer
+ * `mounted={false}` unmounts the child, and `mounted={true}` remounts it, without calling RNTL's `unmount()` directly (which corrupts shared renderer
  * state for subsequent tests).
  */
 function MountWrapper({

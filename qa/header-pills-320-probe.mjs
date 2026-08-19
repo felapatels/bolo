@@ -2,8 +2,8 @@
 //
 // Signs in a throwaway Clerk test user and loads /practice/1 at 320px width.
 // The three audio pills this probe was written for now live behind a settings
-// gear, so it measures the two controls that replaced them — the display-only
-// language chip and the gear — plus, once the menu is open, the three menu
+// gear, so it measures the two controls that replaced them, the display-only
+// language chip and the gear, plus, once the menu is open, the three menu
 // items. Everything must be fully inside the viewport with no horizontal page
 // overflow, in light and dark themes and with enlarged root text
 // (accessibility approximation), plus a 375px sanity pass.
@@ -95,7 +95,7 @@ try {
   await gear.waitFor({ timeout: 45000 });
 
   // Worst case for the fixed slot: a three-character code (SAT / MNI). The
-  // chip must never truncate — "SA" already means Sanskrit.
+  // chip must never truncate, "SA" already means Sanskrit.
   const WIDEN_CHIP = () => {
     const chip = document.querySelector('header [data-testid="lesson-language-chip"]');
     if (chip) chip.firstChild.textContent = "SAT";

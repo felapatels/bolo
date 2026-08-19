@@ -1,7 +1,7 @@
 // Fresh-device language-flip probe: localStorage's language differs from the
 // server's authoritative one (LanguageProvider reconciles after /account).
-// Asserts the home blocking gate resolves ONCE — no second full-screen
-// spinner wave after content first paints — and that the settled state
+// Asserts the home blocking gate resolves ONCE, no second full-screen
+// spinner wave after content first paints, and that the settled state
 // matches the SERVER's language (wrong-language content is transitional
 // only). Also counts the blocking API fetches per language: exactly one for
 // the server language, at most one transitional fetch for the local one.
@@ -46,7 +46,7 @@ const serverLang = await page.evaluate(async () => {
   if (!r.ok) throw new Error(`/api/account ${r.status}`);
   return (await r.json()).preferences.learning.activeLanguage;
 });
-if (!serverLang) throw new Error("QA user has no server activeLanguage — seed one first");
+if (!serverLang) throw new Error("QA user has no server activeLanguage, seed one first");
 const localLang = serverLang === "gu" ? "hi" : "gu";
 console.log(`server lang=${serverLang}, seeding localStorage with ${localLang} (fresh-device mismatch)`);
 await page.evaluate((code) => localStorage.setItem("bolo.activeLang", code), localLang);
@@ -73,12 +73,12 @@ console.log(`settled localStorage lang=${settledLang}`);
 const appears = (l) => l.filter((e) => e.ev === "appear").length;
 const failures = [];
 if (appears(log) > appears(logAtPaint))
-  failures.push(`spinner reappeared AFTER first content paint (${appears(log) - appears(logAtPaint)}x) — second wave not eliminated`);
+  failures.push(`spinner reappeared AFTER first content paint (${appears(log) - appears(logAtPaint)}x), second wave not eliminated`);
 if (spinnerNow > 0) failures.push("gate spinner still present at settle");
 if (settledLang !== serverLang) failures.push(`settled lang ${settledLang} != server ${serverLang}`);
 for (const ep of ["/api/progress/summary", "/api/categories"]) {
   const n = (lang) => apiReqs.filter((u) => u.startsWith(ep) && u.includes(`lang=${lang}`)).length;
-  if (n(serverLang) !== 1) failures.push(`${ep} fetched ${n(serverLang)}x for server lang (want exactly 1 — resolve once, not twice)`);
+  if (n(serverLang) !== 1) failures.push(`${ep} fetched ${n(serverLang)}x for server lang (want exactly 1, resolve once, not twice)`);
   if (n(localLang) > 1) failures.push(`${ep} fetched ${n(localLang)}x for transitional lang (want <=1)`);
 }
 

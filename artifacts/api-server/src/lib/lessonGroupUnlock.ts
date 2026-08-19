@@ -5,7 +5,7 @@
 //     bestScore >= MASTERY_THRESHOLD (the attempts-based mastery signal that
 //     already drives masteredCount on the read endpoints; per decision (a),
 //     NOT the FSRS stability signal, which stays the review scheduler).
-//   - tested_out: the only persisted state (lesson_group_progress rows), //     the learner passed the test-out assessment for the group.
+//   - tested_out: the only persisted state (lesson_group_progress rows),     the learner passed the test-out assessment for the group.
 //   - unlocked: first group by position, or previous group completed or
 //     tested out. in_progress: unlocked with at least one attempted phrase.
 //   - locked: everything else.

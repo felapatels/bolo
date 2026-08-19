@@ -1,5 +1,5 @@
 // Build 31 item 2 of the parity batch (#914): the review screen's result
-// card gains the same romanized "We heard" line practice already shows, // rendered under the raw transcript, hidden when the server sent none
+// card gains the same romanized "We heard" line practice already shows, rendered under the raw transcript, hidden when the server sent none
 // (uncovered script, nocatch) or when it would just repeat an already-Latin
 // transcript. Same harness shape as practice-we-heard-romanized.test.tsx,
 // with the review-specific data hooks mocked.
@@ -236,7 +236,7 @@ describe('review screen: phrase card romanized guard (#914, Build 34A)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Task #1040: review runs the same constant two-slot action row as practice, // same order, same labels, same soft advance gate. Review was left out of the
+// Task #1040: review runs the same constant two-slot action row as practice, same order, same labels, same soft advance gate. Review was left out of the
 // original web-only fix, which is how the platforms drifted in the first
 // place.
 // ---------------------------------------------------------------------------

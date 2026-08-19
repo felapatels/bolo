@@ -62,7 +62,7 @@ export default function OutfitsPage() {
   const equippedAccessory = data?.equippedAccessory ?? null;
   const balance = data?.balance ?? 0;
 
-  // Which item the learner is trying on. Null means "nothing being tried", // the bird stands in exactly what she is wearing.
+  // Which item the learner is trying on. Null means "nothing being tried", the bird stands in exactly what she is wearing.
   //
   // TWO SLOTS: trying a hat on must not take her outfit off, so the item under
   // consideration only replaces ITS OWN slot and the other slot keeps showing
@@ -129,7 +129,7 @@ export default function OutfitsPage() {
   const rackItems = ownedOnly ? allItems.filter((o) => o.owned) : allItems;
 
   // The changing room. Every costume change draws the curtain, swaps the art
-  // behind it and opens again once the dressed bird has actually decoded, // the wait is real (a first-time outfit is a fresh PNG), which is exactly
+  // behind it and opens again once the dressed bird has actually decoded, the wait is real (a first-time outfit is a fresh PNG), which is exactly
   // why an in-place swap looked like a glitch. The failsafe matters more than
   // the beat: a curtain that never reopens hides the product, so it opens on
   // load, on error, and on a timer regardless.

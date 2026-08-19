@@ -11,7 +11,7 @@ import type { ReactElement } from "react";
 // re-recording.
 //
 // NOTE: The old auto-stop / onSilence pattern was removed when hold-to-talk
-// replaced the mic button. Recording now always uses manual stop, // pointerDown on the belly starts recording, pointerUp ends it.
+// replaced the mic button. Recording now always uses manual stop, pointerDown on the belly starts recording, pointerUp ends it.
 // ---------------------------------------------------------------------------
 
 const h = vi.hoisted(() => ({

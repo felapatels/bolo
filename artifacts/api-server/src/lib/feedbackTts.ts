@@ -129,7 +129,7 @@ export function prewarmFeedbackTts(
     if (!text) return;
 
     const identity = phraseAudioIdentity(undefined);
-    // Clients send neither languageName nor languageCode for feedback text, // the language slot is the empty string, matching /openai/tts.
+    // Clients send neither languageName nor languageCode for feedback text, the language slot is the empty string, matching /openai/tts.
     const cacheKey = phraseTtsCacheKey(
       text,
       identity.provider,

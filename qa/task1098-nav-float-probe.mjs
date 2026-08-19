@@ -1,4 +1,4 @@
-// Task 1098 — floating web bottom nav, real-browser geometry evidence.
+// Task 1098, floating web bottom nav, real-browser geometry evidence.
 //
 // jsdom cannot see layout, so this probe measures the things the task's
 // acceptance criteria are actually about, on the running dev app:
@@ -76,7 +76,7 @@ const MEASURE_CLEARANCE = `(() => {
   const link = document.querySelector('a[aria-label="Chat with Bolo"]');
   const pill = link && link.closest('div.fixed');
   const pillTop = pill ? pill.getBoundingClientRect().top + window.scrollY : null;
-  // Scroll to the very bottom first — the last element only matters there.
+  // Scroll to the very bottom first, the last element only matters there.
   window.scrollTo(0, document.body.scrollHeight);
   let worst = null;
   const skip = (el) => pill && (pill === el || pill.contains(el));
@@ -145,7 +145,7 @@ await page.evaluate(() => document.documentElement.classList.remove("dark"));
 
 // ── Clearance on every route that renders the nav ──────────────────────────
 // The seven AppShell routes plus the game screens, which are NOT under
-// AppShell but mount <BottomNav /> themselves — so they need the same
+// AppShell but mount <BottomNav /> themselves, so they need the same
 // clearance and are just as easy to regress.
 const ROUTES = [
   "/app",

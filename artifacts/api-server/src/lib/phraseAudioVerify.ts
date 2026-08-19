@@ -52,7 +52,7 @@ export const MIN_COVERAGE = 0.7;
 export const MAX_COVERAGE = 2.2;
 
 /**
- * Phrases shorter than this many normalized letters are not length-checkable, * a single recognizer quirk swings the ratio past any threshold. They are
+ * Phrases shorter than this many normalized letters are not length-checkable, a single recognizer quirk swings the ratio past any threshold. They are
  * reported unverifiable rather than risked.
  */
 export const MIN_CHECKABLE_LENGTH = 6;
@@ -87,7 +87,7 @@ export type SpeechCapability = "supported" | "degraded" | "unsupported";
 
 /**
  * Verification borrows the recognizer, so it inherits the recognizer's blind
- * spots. For languages the per-language probe already found it cannot hear, * Santali comes back as an empty transcript every time, Manipuri as unrelated
+ * spots. For languages the per-language probe already found it cannot hear, Santali comes back as an empty transcript every time, Manipuri as unrelated
  * Latin, a failing verdict says nothing about the audio. Those languages are
  * reported unverifiable up front, before a pointless API call.
  */

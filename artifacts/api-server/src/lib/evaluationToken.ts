@@ -149,7 +149,7 @@ export function verifyEvaluation(token: string): EvaluationClaims | null {
   // Back-compat: tokens issued before the v2 upgrade won't have band/xpAwarded,
   // and tokens signed just before the five-band deploy carry legacy three-band
   // names (they stay valid for TOKEN_TTL_MS across the deploy). normalizeBand
-  // maps legacy/missing values via score-only derivation (Spec 0 rule 40, // never derive band from `passed`) and passes nocatch through untouched.
+  // maps legacy/missing values via score-only derivation (Spec 0 rule 40, never derive band from `passed`) and passes nocatch through untouched.
   const safeband: PronunciationBand = normalizeBand(
     claims.band as string | undefined,
     claims.score,

@@ -99,7 +99,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Persist the choice to the backend so it follows the learner to their other
-  // devices. Failure is non-fatal, the local mirror still drives this session, // so we swallow it rather than surface an error for a background sync.
+  // devices. Failure is non-fatal, the local mirror still drives this session, so we swallow it rather than surface an error for a background sync.
   const pushRemote = (code: string) => {
     updatePrefs.mutate(
       { data: { activeLanguage: code } },

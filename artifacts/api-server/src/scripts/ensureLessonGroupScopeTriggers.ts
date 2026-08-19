@@ -12,7 +12,7 @@
 // first prod boot after publish has enforcement in place before any
 // assignment write happens.
 //
-// Logs distinctly on both paths, "created" vs "already present (no-op)", // so the first prod boot's logs prove delivery either way.
+// Logs distinctly on both paths, "created" vs "already present (no-op)", so the first prod boot's logs prove delivery either way.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

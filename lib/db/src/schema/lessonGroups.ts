@@ -14,7 +14,7 @@ import { categoriesTable } from "./categories";
 
 // A lesson group is the journey-map "station" unit: an ordered partition of a
 // (language, category)'s phrases into chunks of ~10 (8-14 at boundaries). It is
-// purely additive structure on top of the existing category → phrase flow, // nothing existing reads it yet (D1a Slice 1, data layer only).
+// purely additive structure on top of the existing category → phrase flow, nothing existing reads it yet (D1a Slice 1, data layer only).
 //
 // NOTE ON NAMING: the existing `lessons` table is a per-(language, category)
 // AI-generated content-cache record, a misnomer left in place because renaming

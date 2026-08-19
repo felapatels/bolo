@@ -213,7 +213,7 @@ test("Free caller: an all-premium group reports planLocked with zero plan-visibl
 test("Free caller: the listing agrees with what the phrases endpoint serves", async () => {
   currentUserId = FREE_USER_ID;
   // The planLocked group's phrases endpoint returns no rows for this caller
-  // (premium filter). The listing must never render such a stop boardable, // that is the exact D1 defect this pins.
+  // (premium filter). The listing must never render such a stop boardable, that is the exact D1 defect this pins.
   const { status, json } = await getJson(`/lesson-groups/${groupFreeId}/phrases`);
   assert.equal(status, 200);
   assert.equal(json.length, 2, "the boardable group serves exactly its plan-visible phrases");

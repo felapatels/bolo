@@ -1256,7 +1256,7 @@ export default function ReviewScreen() {
         fireConfetti();
         setTimeout(() => hapticHeavy(), 140);
       }
-      // XP arc fires whenever XP was actually awarded (any passing band, // the half-credit group earns at the 0.5 band factor). retry/nocatch
+      // XP arc fires whenever XP was actually awarded (any passing band, the half-credit group earns at the 0.5 band factor). retry/nocatch
       // award no XP.
       if (isPassingBand(res.band) && res.xpAwarded > 0) {
         // Measure where the result card lands, then launch the arc from it.

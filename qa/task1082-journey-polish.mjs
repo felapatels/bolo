@@ -1,4 +1,4 @@
-// Task 1082 — journey map UX polish, real-browser evidence at 320px.
+// Task 1082, journey map UX polish, real-browser evidence at 320px.
 //
 // Measures, on the running dev app, the four things jsdom cannot see:
 //   1. the boarding-pass header numbers,
@@ -242,7 +242,7 @@ console.log("stall clearance:", JSON.stringify(clearance));
 // station rhythm no longer sets its clearance. Card/stall overlap is owned by
 // qa/chacha-stall-geometry.mjs, and that probe reports the SAME 12 collisions
 // (and the same "stall left of the track" failure) at STATION_H = 100 as at 88
-// — bisected by temporarily restoring 100 in both journey screens. Reported as
+//, bisected by temporarily restoring 100 in both journey screens. Reported as
 // a number so a rhythm change that DID make it worse would be visible.
 const stallHits = (clearance.out ?? []).filter((s) => s.hit.length > 0).length;
 console.log(

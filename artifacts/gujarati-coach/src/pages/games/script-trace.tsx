@@ -262,7 +262,7 @@ const COVERAGE_TOLERANCE = 9;
  *
  * Precision: fraction of the drawn ink that lands on (or near) the character,
  * judged with a looser tolerance so honest wobble along the glyph edge is not
- * punished. Long tails and scribbles outside the shape pull the score down, * a sloppy trace can still pass, but it no longer reads as a perfect 100%.
+ * punished. Long tails and scribbles outside the shape pull the score down, a sloppy trace can still pass, but it no longer reads as a perfect 100%.
  */
 export function scoreCoverage(strokes: Point[][], referencePoints: Point[]): number {
   if (referencePoints.length === 0 || strokes.length === 0) return 0;
@@ -630,7 +630,7 @@ export function extractStrokes(guideD: string): Point[][] {
   );
   // Join segments that continue smoothly through junctions into long strokes.
   // Merging runs BEFORE spur pruning: the short fragments the thinning step
-  // leaves at junction clusters are the bridges between collinear limbs, // pruning them first would leave gaps too wide to merge across.
+  // leaves at junction clusters are the bridges between collinear limbs, pruning them first would leave gaps too wide to merge across.
   lines = mergeCollinearStrokes(lines);
   // Prune leftover tiny spurs (thinning artifacts) unless they are all we have
   const substantial = lines.filter((l) => polylineLength(l) >= 6);

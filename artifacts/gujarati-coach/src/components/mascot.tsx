@@ -18,7 +18,7 @@ import { useEquippedOutfit } from "@/hooks/use-equipped-outfit";
 export type MascotPose = "wave" | "cheer" | "thumbsup" | "thinking" | "tryagain";
 
 /** Reactive mode: "talking" while Bolo's voice plays, "listening" while the
- * learner records, "evaluating" while something is being worked out for them, * he zooms out small and spins in place, then zooms back in when the answer
+ * learner records, "evaluating" while something is being worked out for them, he zooms out small and spins in place, then zooms back in when the answer
  * lands. Whole-image motion only (pulse / lean / shrink / spin), so the
  * canonical art rule holds. */
 export type MascotActivity = "talking" | "listening" | "evaluating";

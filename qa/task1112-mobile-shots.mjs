@@ -1,4 +1,4 @@
-// Task #1112 — mobile friend/leaderboard row mascots (Expo WEB build, 412×824).
+// Task #1112, mobile friend/leaderboard row mascots (Expo WEB build, 412×824).
 //
 // Mobile rows used to be initials in a 44px circle: an outfit bought with Chai
 // was invisible to everybody but its owner. This shoots both mobile surfaces

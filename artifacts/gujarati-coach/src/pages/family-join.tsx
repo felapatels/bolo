@@ -21,7 +21,7 @@ function errorMessage(err: unknown, fallback: string): string {
 }
 
 // The page an emailed invite link lands on (?invite=<token>), and the manual
-// join-code entry surface. On success it explains exactly what happened, // including that any previous personal subscription was closed out with a
+// join-code entry surface. On success it explains exactly what happened, including that any previous personal subscription was closed out with a
 // prorated credit.
 export default function FamilyJoin() {
   const search = useSearch();

@@ -335,7 +335,7 @@ export interface GuardResult {
  *      language, including fully supported ones. Two forms:
  *        a. non-Latin transcript in a different block than the target (e.g.
  *           Bengali script for a Manipuri phrase), always nocatch;
- *        b. Latin transcript for a non-Latin-script phrase with sim < 0.45, *           the recognizer wrote the wrong script AND the romanized transcript
+ *        b. Latin transcript for a non-Latin-script phrase with sim < 0.45,           the recognizer wrote the wrong script AND the romanized transcript
  *           shares almost nothing with the target; indistinguishable from
  *           recognizer noise, so it resolves in the learner's favor as nocatch.
  *           Latin transcripts with sim ≥ 0.45 remain scoreable: partial

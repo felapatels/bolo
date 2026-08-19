@@ -25,7 +25,7 @@ async function signInToken() {
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
-  console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " — " + detail : ""}`);
+  console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? "-" + detail : ""}`);
   if (!ok) failures++;
 };
 
@@ -38,7 +38,7 @@ const ctx = await browser.newContext({ viewport: { width: 402, height: 874 } });
 // The mobile rack's square thumbs, rendered the way RN-web lays out the RN
 // transform array (scale first, so the translate is in pre-scale units). This
 // is the only cheap way to eyeball the head crop without a device. Served from
-// a real file:// page — a setContent page is about:blank and cannot load the
+// a real file:// page, a setContent page is about:blank and cannot load the
 // art at all.
 async function mobileThumbs() {
   const SIZE = (402 - 40 - 12) / 2 - 20; // card width minus its padding

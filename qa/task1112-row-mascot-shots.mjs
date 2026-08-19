@@ -1,4 +1,4 @@
-// Task #1112 — web friend/leaderboard row mascots, in a real browser.
+// Task #1112, web friend/leaderboard row mascots, in a real browser.
 //
 // The row avatar was a 40px initials circle. It is now the learner's own Bolo
 // wearing whatever they bought, and the ONLY question a unit test cannot

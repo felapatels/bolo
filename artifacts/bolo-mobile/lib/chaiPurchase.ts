@@ -14,7 +14,7 @@
  *      Chai itself is credited by the RevenueCat webhook from the server's own
  *      catalog.
  *
- *   2. A purchase "succeeded" when the SERVER shows the transaction credited, *      not when the store call resolved. A consumable grants no entitlement,
+ *   2. A purchase "succeeded" when the SERVER shows the transaction credited,      not when the store call resolved. A consumable grants no entitlement,
  *      so the subscription flow's "did an entitlement appear?" test reports a
  *      perfectly good pack purchase as a failure.
  *

@@ -10,7 +10,7 @@ export interface OutfitPurchaseResult {
   balance: number;
   outfitId: string;
   owned: boolean;
-  /** False when the learner already owned this outfit — the call is a no-op that deducts nothing and leaves the equipped choice alone. */
+  /** False when the learner already owned this outfit, the call is a no-op that deducts nothing and leaves the equipped choice alone. */
   charged: boolean;
   cost: number;
   equipped: string | null;

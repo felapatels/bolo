@@ -13,9 +13,9 @@
  *   --dry-run   Stop after segment table + phrase grouping; no ensemble scoring.
  *
  * Recording protocol (REQUIRED for valid results):
- *   - PHONE MIC ONLY — iOS routes to the headset mic when earphones are plugged
+ *   - PHONE MIC ONLY, iOS routes to the headset mic when earphones are plugged
  *     in; verify that the captured audio is phone-mic, not headset mic.
- *   - APP AUDIO MUTED — use the in-app or system volume control so the phone
+ *   - APP AUDIO MUTED, use the in-app or system volume control so the phone
  *     speaker is silent.  This prevents app feedback ("Perfect!", TTS replay)
  *     from being captured by the mic and contaminating user-attempt clips.
  *   - Alternative: record in a quiet room with app media volume at zero; the
@@ -72,7 +72,7 @@ if (!args.r2 && (!args.video || !args.phrases)) {
 const LANG    = args.lang;
 const DRY_RUN = args["dry-run"];
 
-// Video-mode-only constants — undefined (and unused) in R2 mode.
+// Video-mode-only constants, undefined (and unused) in R2 mode.
 let VIDEO_PATH       = "";
 let PHRASE_ROMANIZED = /** @type {string[]} */ ([]);
 let N_PHRASES        = 0;
@@ -220,7 +220,7 @@ function computeRms(wavPath, start, dur) {
 
 const WAV_PATH = `/tmp/pilot-${LANG}.wav`;
 console.log(`\n═══════════════════════════════════════════════════════`);
-console.log(`  Pronunciation v2 Pilot — ${LANG.toUpperCase()} — ${N_PHRASES} phrases`);
+console.log(`  Pronunciation v2 Pilot, ${LANG.toUpperCase()}, ${N_PHRASES} phrases`);
 console.log(`═══════════════════════════════════════════════════════\n`);
 console.log(`[1] Extracting 16kHz mono WAV …`);
 ffmpeg("-i", VIDEO_PATH, "-vn", "-ar", "16000", "-ac", "1", "-acodec", "pcm_s16le", WAV_PATH);
@@ -359,13 +359,13 @@ const allSttResults = await batchRun(segments, async (seg, i) => {
 //
 // Two-signal algorithm (robust to non-deterministic STT failures):
 //
-// Primary — STT evidence:
+// Primary, STT evidence:
 //   If STT sim >= 0.40 AND phraseIdx > currentPhrase → advance to phraseIdx.
 //   Allows forward jumps of more than 1 phrase when STT is confident and the
 //   intervening phrase(s) had STT failures (e.g., "ha" returned Thai script).
 //   The 0.40 threshold blocks low-quality false-advances like "Try again." (0.38).
 //
-// Secondary — time-based fallback:
+// Secondary, time-based fallback:
 //   Expected phrase at time T = floor(T / duration * N_PHRASES).
 //   If the time estimate is ≥ 2 phrases ahead of currentPhrase AND there was
 //   no STT advance this segment, step forward by at most 2 phrases.
@@ -391,14 +391,14 @@ for (let i = 0; i < segments.length; i++) {
     }
     currentPhrase = phraseIdx;
   }
-  // Secondary A: time-based advance — we've passed the expected phrase boundary by > 5s
+  // Secondary A: time-based advance, we've passed the expected phrase boundary by > 5s
   // Advances by 1 so ha gets a chance before na
   else if (segments[i].start > expectedEnd + 5 && currentPhrase < N_PHRASES - 1) {
     const was = currentPhrase;
     currentPhrase++;
     console.log(`   [time-fallback] ${segments[i].start.toFixed(1)}s: P${was+1}→P${currentPhrase+1} (expectedEnd=${expectedEnd.toFixed(1)}s)`);
   }
-  // Secondary B: accumulation guard — phrase group is bloated (> MAX_GROUP_SEGS),
+  // Secondary B: accumulation guard, phrase group is bloated (> MAX_GROUP_SEGS),
   // advance to the phrase suggested by the time position
   else if (groupAccumulation[currentPhrase] >= MAX_GROUP_SEGS && currentPhrase < N_PHRASES - 1) {
     const timePh = Math.min(N_PHRASES - 1, Math.floor(segments[i].start / AUDIO_DURATION * N_PHRASES));
@@ -425,13 +425,13 @@ console.log(`   Groups: ${phraseGroups.map(g => `P${g.phraseIdx+1}(${g.segs.leng
 //
 // Two patterns observed in this recording:
 //
-// PATTERN A — Short-phrase alternating (≥7 segments):
+// PATTERN A, Short-phrase alternating (≥7 segments):
 //   For phrases where user utterance + app feedback do NOT merge into one blob,
 //   segments alternate: user (pos 0,2,4,6) ↔ TTS/feedback (pos 1,3,5,7).
 //   Signature: many short segments (< 2 s).
 //   Applies to: aabhaar, ha, na.
 //
-// PATTERN B — Long-phrase merged (< 7 segments in group):
+// PATTERN B, Long-phrase merged (< 7 segments in group):
 //   For phrases where user speech + English feedback + Gujarati TTS merge into
 //   a single 3–7 s blob per attempt.  Blobs are separated by >1.2 s gaps.
 //   The first N large segments (> 1.3 s) are the N attempt types in order.
@@ -462,14 +462,14 @@ for (const pg of phraseGroups) {
   const phrase = PHRASE_ROMANIZED[phraseIdx];
   const phraseNative = getNativeScript(phrase);
   if (segs.length === 0) {
-    console.warn(`   ⚠ P${phraseIdx+1} "${phrase}": no segments — skipping`);
+    console.warn(`   ⚠ P${phraseIdx+1} "${phrase}": no segments, skipping`);
     continue;
   }
 
   let attemptSegs;
   if (isAlternatingGroup(segs)) {
     // Pattern A: user attempts at even positions 0, 2, 4, 6
-    // For groups > 8: last phrase (maaf karjo) had a confirmed redo — use LAST 8.
+    // For groups > 8: last phrase (maaf karjo) had a confirmed redo, use LAST 8.
     // All other over-accumulated groups absorbed extra segs from the NEXT phrase
     // boundary; the real content is in the FIRST 8.
     const isConfirmedRedo = phraseIdx === N_PHRASES - 1;
@@ -521,7 +521,7 @@ for (let i = 0; i < segments.length; i++) {
   const stt  = allSttResults[i];
   const ua   = userAttempts.find(a => a.origIdx === i);
   const role = ua ? `user_${ua.attemptType}` : "tts/feedback";
-  const tx   = (stt.transcript || "—").slice(0, 26).replace(/\r?\n/g, " ");
+  const tx   = (stt.transcript || "-").slice(0, 26).replace(/\r?\n/g, " ");
   console.log(
     `   ${String(i+1).padStart(3)} ${String(ph).padStart(3)}` +
     ` ${s.start.toFixed(2).padStart(7)} ${s.end.toFixed(2).padStart(7)}` +
@@ -548,9 +548,9 @@ console.log(`\n   Total: ${foundAttempts}/${N_PHRASES * 4} user-attempt clips id
 const tooShortList = userAttempts.filter(a => a.tooShort);
 const scoreableList = userAttempts.filter(a => !a.tooShort);
 if (tooShortList.length) {
-  console.warn(`\n   ⚠ ${tooShortList.length} clip(s) < ${MIN_CLIP_DURATION}s — flagged too_short, will NOT be scored or counted in criteria:`);
+  console.warn(`\n   ⚠ ${tooShortList.length} clip(s) < ${MIN_CLIP_DURATION}s, flagged too_short, will NOT be scored or counted in criteria:`);
   for (const a of tooShortList) {
-    console.warn(`     P${a.phraseIdx+1} "${a.phrase}" ${a.attemptType}: ${a.trimDuration.toFixed(2)}s — speaker should aim > 1s`);
+    console.warn(`     P${a.phraseIdx+1} "${a.phrase}" ${a.attemptType}: ${a.trimDuration.toFixed(2)}s, speaker should aim > 1s`);
   }
 }
 console.log(`\n   User-attempt clips (scoreable: ${scoreableList.length}, too_short: ${tooShortList.length}):`);
@@ -571,7 +571,7 @@ if (DRY_RUN) {
 
 // ── Step 7: Extract trimmed clips (WAV for STT baseline, MP3 for ensemble) ────
 //
-// gpt-audio requires MP3 format — WAV inputs yield only ~5 audio tokens
+// gpt-audio requires MP3 format, WAV inputs yield only ~5 audio tokens
 // (the model barely hears the audio).  MP3 at 128k works correctly.
 
 console.log(`\n[7] Extracting trimmed user-attempt clips …`);
@@ -689,7 +689,7 @@ const ensembleResults = await batchRun(userAttempts, async (attempt, i) => {
   if (attempt.tooShort) {
     console.warn(
       `   [${i+1}/${userAttempts.length}] ⚠ SKIP "${attempt.phrase}" ${attempt.attemptType}` +
-      ` — clip ${attempt.trimDuration.toFixed(2)}s < ${MIN_CLIP_DURATION}s minimum` +
+      `, clip ${attempt.trimDuration.toFixed(2)}s < ${MIN_CLIP_DURATION}s minimum` +
       ` (speaker should say word deliberately, aiming > 1s)`,
     );
     return null;
@@ -767,7 +767,7 @@ function getScore(r) {
   return r.ensembleMedian ?? null;
 }
 
-// Criterion 1: Separation — native − heavy_accent ≥ 20 per phrase
+// Criterion 1: Separation, native − heavy_accent ≥ 20 per phrase
 // A phrase is SKIP if either clip is missing OR too_short.
 const sepRows = [];
 let crit1Pass = true, crit1Tested = 0;
@@ -778,7 +778,7 @@ for (let gi = 0; gi < N_PHRASES; gi++) {
   const hevS  = getScore(heavy);
   if (natS == null || hevS == null) {
     const reason = (!nat || !heavy) ? "incomplete" : "too_short";
-    sepRows.push({ phrase: PHRASE_ROMANIZED[gi], native: "—", heavy: "—", gap: "—", result: `SKIP (${reason})` });
+    sepRows.push({ phrase: PHRASE_ROMANIZED[gi], native: "-", heavy: "-", gap: "-", result: `SKIP (${reason})` });
     continue;
   }
   const gap  = natS - hevS;
@@ -789,7 +789,7 @@ for (let gi = 0; gi < N_PHRASES; gi++) {
 }
 if (crit1Tested === 0) crit1Pass = false;
 
-// Criterion 2: Stability — max−min ≤ 30 per clip (only scoreable clips)
+// Criterion 2: Stability, max−min ≤ 30 per clip (only scoreable clips)
 const stabFails = [];
 let crit2Pass = true;
 for (const r of clipResults) {
@@ -803,7 +803,7 @@ for (const r of clipResults) {
   }
 }
 
-// Criterion 3: Wrong-phrase cap — wrong_attempt median < 55 (only scoreable clips)
+// Criterion 3: Wrong-phrase cap, wrong_attempt median < 55 (only scoreable clips)
 const wrongFails = [];
 let crit3Pass = true;
 const wrongClips = clipResults.filter(r => r.attemptType === "wrong_attempt" && !r.tooShort);
@@ -812,7 +812,7 @@ for (const r of wrongClips) {
   if (s != null && s >= 55) { crit3Pass = false; wrongFails.push({ phrase: r.phrase, score: s }); }
 }
 
-// Criterion 4: False-negative rate — ≤ 1 mild_accent clip with scoreable median < 55
+// Criterion 4: False-negative rate, ≤ 1 mild_accent clip with scoreable median < 55
 // too_short clips are excluded (not counted as false-negatives or as tested)
 const mildClips    = clipResults.filter(r => r.attemptType === "mild_accent" && !r.tooShort);
 const mildFalseNeg = mildClips.filter(r => (getScore(r) ?? 100) < 55);
@@ -825,8 +825,8 @@ const overallPass = crit1Pass && crit2Pass && crit3Pass && crit4Pass;
 const lines = [];
 function emit(s = "") { lines.push(s); console.log(s); }
 
-emit(`\n# Pronunciation v2 Pilot Report — ${langName}`);
-emit(`**PRELIMINARY — one speaker, ${langName} only. Hindi video to follow separately.**`);
+emit(`\n# Pronunciation v2 Pilot Report, ${langName}`);
+emit(`**PRELIMINARY, one speaker, ${langName} only. Hindi video to follow separately.**`);
 emit(`**Overall verdict: ${overallPass ? "✅ PASS" : "❌ FAIL"}**`);
 emit();
 emit(`Generated: ${new Date().toISOString()}`);
@@ -836,15 +836,15 @@ const tooShortCount = clipResults.filter(r => r.tooShort).length;
 const scoreableCount = clipResults.filter(r => !r.tooShort).length;
 const missingCount   = N_PHRASES * 4 - clipResults.length;
 emit(`User-attempt clips: ${clipResults.length} / ${N_PHRASES * 4} detected` +
-  (missingCount   ? ` (${missingCount} missing — segment too short for silence-detector)` : "") +
+  (missingCount   ? ` (${missingCount} missing, segment too short for silence-detector)` : "") +
   (tooShortCount  ? ` · ${tooShortCount} flagged too_short (< ${MIN_CLIP_DURATION}s, excluded from scoring)` : "")
 );
 emit(`Scoreable clips: ${scoreableCount}`);
 emit(`Clip trimmed to first: ${TRIM_S}s per clip`);
 emit();
 emit(`> **Recording protocol:**`);
-emit(`> • Phone mic only — plug earphones for playback if needed, but verify iOS routes to phone mic, not headset mic.`);
-emit(`> • App audio muted — use in-app or system volume to silence the speaker so feedback audio is not captured.`);
+emit(`> • Phone mic only, plug earphones for playback if needed, but verify iOS routes to phone mic, not headset mic.`);
+emit(`> • App audio muted, use in-app or system volume to silence the speaker so feedback audio is not captured.`);
 emit(`> • Single-syllable phrases (ha, na): say the word deliberately, aiming > 1 s. Clips < ${MIN_CLIP_DURATION}s are`);
 emit(`>   flagged \`too_short\` in the table below and excluded from ensemble scoring and all criterion counts.`);
 emit();
@@ -854,9 +854,9 @@ emit(`> ⚠ = too_short clip (< ${MIN_CLIP_DURATION}s): excluded from ensemble a
 emit(`| # | Phrase | Type | Dur | Transcript | Baseline Score | Band | Ens Raw | Median | Prop Band |`);
 emit(`|---|--------|------|-----|------------|---------------|------|---------|--------|-----------|`);
 for (const [i, r] of clipResults.entries()) {
-  const raw    = r.ensembleRaw ? `[${r.ensembleRaw.join(",")}]` : "—";
-  const med    = r.ensembleMedian != null ? String(r.ensembleMedian) : "—";
-  const tx     = (r.transcript || "—").slice(0, 24).replace(/\|/g, "\\|");
+  const raw    = r.ensembleRaw ? `[${r.ensembleRaw.join(",")}]` : "-";
+  const med    = r.ensembleMedian != null ? String(r.ensembleMedian) : "-";
+  const tx     = (r.transcript || "-").slice(0, 24).replace(/\|/g, "\\|");
   const phrase = r.tooShort ? `⚠ ${r.phrase}` : r.phrase;
   emit(`| ${i+1} | ${phrase} | ${r.attemptType} | ${r.clipDuration}s | ${tx} | ${r.currentPipelineScore} | ${r.currentPipelineBand} | ${raw} | ${med} | ${r.proposedBand} |`);
 }
@@ -868,7 +868,7 @@ emit(`|--------|--------|-------|-----|--------|`);
 for (const row of sepRows) {
   emit(`| ${row.phrase} | ${row.native} | ${row.heavy} | ${row.gap} | ${row.result} |`);
 }
-emit(`\n**Criterion 1: ${crit1Pass ? "✅ PASS" : "❌ FAIL"}** — ${crit1Tested}/${N_PHRASES} phrases tested (${N_PHRASES-crit1Tested} incomplete)\n`);
+emit(`\n**Criterion 1: ${crit1Pass ? "✅ PASS" : "❌ FAIL"}**, ${crit1Tested}/${N_PHRASES} phrases tested (${N_PHRASES-crit1Tested} incomplete)\n`);
 
 emit(`## Criterion 2: Stability (max−min ≤ 30 per clip)\n`);
 if (!stabFails.length) {
@@ -883,7 +883,7 @@ emit(`\n**Criterion 2: ${crit2Pass ? "✅ PASS" : "❌ FAIL"}**\n`);
 emit(`## Criterion 3: Wrong-phrase cap (wrong_attempt median < 55)\n`);
 const wrongTooShort = clipResults.filter(r => r.attemptType === "wrong_attempt" && r.tooShort).length;
 emit(`Scoreable wrong_attempt clips: ${wrongClips.length} / ${N_PHRASES}` +
-  (wrongTooShort ? ` (${wrongTooShort} excluded — too_short)` : "") + ".");
+  (wrongTooShort ? ` (${wrongTooShort} excluded, too_short)` : "") + ".");
 if (!wrongFails.length) {
   emit(`All scoreable wrong_attempt clips scored < 55.`);
 } else {
@@ -896,7 +896,7 @@ emit(`\n**Criterion 3: ${crit3Pass ? "✅ PASS" : "❌ FAIL"}**\n`);
 emit(`## Criterion 4: False-negative rate (mild_accent < 55 ≤ 1)\n`);
 const mildTooShort = clipResults.filter(r => r.attemptType === "mild_accent" && r.tooShort).length;
 emit(`Scoreable mild_accent clips: ${mildClips.length} / ${N_PHRASES}` +
-  (mildTooShort ? ` (${mildTooShort} excluded — too_short)` : "") + ".");
+  (mildTooShort ? ` (${mildTooShort} excluded, too_short)` : "") + ".");
 emit(`Clips with median < 55: ${mildFalseNeg.length}`);
 if (mildFalseNeg.length) {
   emit(`| Phrase | Score |`);
@@ -909,13 +909,13 @@ emit(`---`);
 emit(`## Overall Verdict\n`);
 emit(`| Criterion | Result |`);
 emit(`|-----------|--------|`);
-emit(`| 1. Separation (gap ≥ 20)           | ${crit1Pass?"✅ PASS":"❌ FAIL"} — ${crit1Tested}/${N_PHRASES} phrases tested |`);
+emit(`| 1. Separation (gap ≥ 20)           | ${crit1Pass?"✅ PASS":"❌ FAIL"}, ${crit1Tested}/${N_PHRASES} phrases tested |`);
 emit(`| 2. Stability (spread ≤ 30)          | ${crit2Pass?"✅ PASS":"❌ FAIL"} |`);
-emit(`| 3. Wrong-phrase cap (< 55)          | ${crit3Pass?"✅ PASS":"❌ FAIL"} — ${wrongClips.length}/${N_PHRASES} clips tested |`);
-emit(`| 4. False-negative rate (≤ 1 of all) | ${crit4Pass?"✅ PASS":"❌ FAIL"} — ${mildClips.length}/${N_PHRASES} clips tested |`);
+emit(`| 3. Wrong-phrase cap (< 55)          | ${crit3Pass?"✅ PASS":"❌ FAIL"}, ${wrongClips.length}/${N_PHRASES} clips tested |`);
+emit(`| 4. False-negative rate (≤ 1 of all) | ${crit4Pass?"✅ PASS":"❌ FAIL"}, ${mildClips.length}/${N_PHRASES} clips tested |`);
 emit();
 emit(`### ${overallPass ? "✅ PILOT PASSES" : "❌ PILOT FAILS"}`);
-emit(`**PRELIMINARY — one speaker, ${langName} only.**`);
+emit(`**PRELIMINARY, one speaker, ${langName} only.**`);
 if (!overallPass) {
   const failing = [
     !crit1Pass && "Separation",
@@ -942,7 +942,7 @@ async function r2Mode() {
   const LANG_NAMES_R2 = { gu: "Gujarati", hi: "Hindi", ta: "Tamil", te: "Telugu" };
   const langName = LANG_NAMES_R2[LANG] ?? LANG;
 
-  // Dynamic import — only loaded in R2 mode, so video mode incurs no extra startup.
+  // Dynamic import, only loaded in R2 mode, so video mode incurs no extra startup.
   const { S3Client, ListObjectsV2Command, GetObjectCommand } =
     await import("@aws-sdk/client-s3");
 
@@ -965,7 +965,7 @@ async function r2Mode() {
 
   const prefix = `pilot-clips/${LANG}/`;
   console.log(`\n═══════════════════════════════════════════════════════`);
-  console.log(`  Pronunciation Pilot — R2 Mode — ${langName}`);
+  console.log(`  Pronunciation Pilot, R2 Mode, ${langName}`);
   console.log(`═══════════════════════════════════════════════════════\n`);
   console.log(`[1] Listing R2 objects at ${prefix} …`);
 
@@ -1016,7 +1016,7 @@ async function r2Mode() {
       const m4aPath  = join(TMP_DIR, `${clipId}.m4a`);
       const mp3Path  = join(TMP_DIR, `${clipId}.mp3`);
       writeFileSync(m4aPath, m4aBytes);
-      // gpt-audio requires MP3 — M4A/WAV inputs produce ~5 audio tokens.
+      // gpt-audio requires MP3, M4A/WAV inputs produce ~5 audio tokens.
       ffmpeg("-i", m4aPath, "-ar", "24000", "-ac", "1", "-b:a", "128k", mp3Path);
 
       // Download sidecar (best-effort; missing sidecar is non-fatal).
@@ -1026,7 +1026,7 @@ async function r2Mode() {
         const scBytes = await collectStream(scResp.Body);
         sidecar = JSON.parse(scBytes.toString("utf-8"));
       } catch {
-        /* no sidecar — proceed without metadata */
+        /* no sidecar, proceed without metadata */
       }
 
       clipItems.push({ clipId, mp3Path, sidecar });
@@ -1075,7 +1075,7 @@ async function r2Mode() {
       const b64    = readFileSync(item.mp3Path).toString("base64");
       const result = await audioEnsemble(b64, nat, rom);
       if (!result) {
-        console.warn(`   [${ensIdx}/${clipItems.length}] ⚠ ensemble null — ${item.clipId.slice(0, 8)}…`);
+        console.warn(`   [${ensIdx}/${clipItems.length}] ⚠ ensemble null, ${item.clipId.slice(0, 8)}…`);
         clipResults.push({ ...item, ensembleRaw: null, median: null });
       } else {
         console.log(
@@ -1118,7 +1118,7 @@ async function r2Mode() {
   const rLines = [];
   function remit(s = "") { rLines.push(s); console.log(s); }
 
-  remit(`\n# Pronunciation Pilot Report — R2 Mode — ${langName}`);
+  remit(`\n# Pronunciation Pilot Report, R2 Mode, ${langName}`);
   remit(`**Mode: R2 (server-side pilot tee clips)**`);
   remit(`Generated: ${new Date().toISOString()}`);
   remit(`R2 prefix: \`${prefix}\``);
@@ -1132,17 +1132,17 @@ async function r2Mode() {
   remit(`| # | Phrase | ClipId (prefix) | Transcript | Orig Score | Ens Raw | Median |`);
   remit(`|---|--------|-----------------|------------|------------|---------|--------|`);
   for (const [i, r] of clipResults.entries()) {
-    const rom      = (r.sidecar?.targetRomanized ?? "—").slice(0, 18);
-    const tx       = (r.sidecar?.transcript ?? "—").slice(0, 22).replace(/\|/g, "\\|");
-    const raw      = r.ensembleRaw ? `[${r.ensembleRaw.join(",")}]` : "—";
-    const med      = r.median != null ? String(r.median) : "—";
-    const origScore = r.sidecar?.score != null ? String(r.sidecar.score) : "—";
+    const rom      = (r.sidecar?.targetRomanized ?? "-").slice(0, 18);
+    const tx       = (r.sidecar?.transcript ?? "-").slice(0, 22).replace(/\|/g, "\\|");
+    const raw      = r.ensembleRaw ? `[${r.ensembleRaw.join(",")}]` : "-";
+    const med      = r.median != null ? String(r.median) : "-";
+    const origScore = r.sidecar?.score != null ? String(r.sidecar.score) : "-";
     remit(`| ${i + 1} | ${rom} | ${r.clipId.slice(0, 12)}… | ${tx} | ${origScore} | ${raw} | ${med} |`);
   }
   remit();
 
   remit(`## Criterion 1: Separation (native − heavy_accent ≥ 20)\n`);
-  remit(`**SKIP** — R2 pilot clips carry no attempt-type labels; separation cannot be computed.\n`);
+  remit(`**SKIP**, R2 pilot clips carry no attempt-type labels; separation cannot be computed.\n`);
 
   remit(`## Criterion 2: Stability (max−min ≤ 30 per phrase group)\n`);
   if (!stabFails.length) {
@@ -1159,19 +1159,19 @@ async function r2Mode() {
   remit(`\n**Criterion 2: ${crit2Pass ? "✅ PASS" : "❌ FAIL"}**\n`);
 
   remit(`## Criterion 3: Wrong-phrase cap (wrong_attempt median < 55)\n`);
-  remit(`**SKIP** — R2 pilot clips carry no attempt-type labels.\n`);
+  remit(`**SKIP**, R2 pilot clips carry no attempt-type labels.\n`);
 
   remit(`## Criterion 4: False-negative rate (mild_accent < 55 ≤ 1)\n`);
-  remit(`**SKIP** — R2 pilot clips carry no attempt-type labels.\n`);
+  remit(`**SKIP**, R2 pilot clips carry no attempt-type labels.\n`);
 
   remit(`---`);
   remit(`## Overall\n`);
   remit(`| Criterion | Result |`);
   remit(`|-----------|--------|`);
-  remit(`| 1. Separation     | SKIP — no attempt-type labels |`);
+  remit(`| 1. Separation     | SKIP, no attempt-type labels |`);
   remit(`| 2. Stability      | ${crit2Pass ? "✅ PASS" : "❌ FAIL"} |`);
-  remit(`| 3. Wrong-phrase   | SKIP — no attempt-type labels |`);
-  remit(`| 4. False-negative | SKIP — no attempt-type labels |`);
+  remit(`| 3. Wrong-phrase   | SKIP, no attempt-type labels |`);
+  remit(`| 4. False-negative | SKIP, no attempt-type labels |`);
   remit();
   remit(`> Criteria 1/3/4 require recordings tagged as native / heavy_accent / mild_accent /`);
   remit(`> wrong_attempt.  Run \`--video\` mode with a labelled recording session to evaluate them.`);

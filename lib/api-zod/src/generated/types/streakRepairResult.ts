@@ -10,7 +10,7 @@ export interface StreakRepairResult {
   balance: number;
   repairedDay: string;
   restoredStreakDays: number;
-  /** False when this day was already repaired — the call is a no-op that deducts nothing. */
+  /** False when this day was already repaired, the call is a no-op that deducts nothing. */
   charged: boolean;
   cost: number;
 }

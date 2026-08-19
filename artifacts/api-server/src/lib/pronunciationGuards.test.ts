@@ -28,7 +28,7 @@ test("normalizeLatin folds romanization variants to one key", () => {
   assert.equal(normalizeLatin("waat"), normalizeLatin("vaat"));
   // ee→i fold: "beet" and "bit" normalize identically.
   assert.equal(normalizeLatin("beet"), normalizeLatin("bit"));
-  // Aspiration folds (bh, th, sh, etc.) are intentionally NOT folded any more, // they collapse phonetically distinct sounds on short phrases.
+  // Aspiration folds (bh, th, sh, etc.) are intentionally NOT folded any more, they collapse phonetically distinct sounds on short phrases.
   assert.notEqual(normalizeLatin("bhai"), normalizeLatin("bai"));
   assert.notEqual(normalizeLatin("thal"), normalizeLatin("tal"));
   assert.notEqual(normalizeLatin("sham"), normalizeLatin("sam"));

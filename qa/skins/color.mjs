@@ -1,4 +1,4 @@
-// Task #1117 — colour maths for the skin mock measurements.
+// Task #1117, colour maths for the skin mock measurements.
 //
 // Every colour that reaches these functions is an [r,g,b] triple SAMPLED FROM
 // PAINTED PIXELS (see qa/task1117-*-skin-mock.mjs). Nothing here parses a

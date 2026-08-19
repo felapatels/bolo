@@ -1,6 +1,6 @@
 // Assembles the subscription-management snapshot the account UI reads: the
 // current tier/status, the relevant dates, the chosen language (middle tier), a
-// best-effort payment-method summary, and billing/invoice history. The server, // not the client, is authoritative for tier/status, so those come from the
+// best-effort payment-method summary, and billing/invoice history. The server, not the client, is authoritative for tier/status, so those come from the
 // resolved plan; the softer fields (payment method, invoice history) are pulled
 // from RevenueCat where available and degrade gracefully to null/empty when the
 // provider isn't configured or doesn't expose them.

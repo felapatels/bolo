@@ -188,7 +188,7 @@ router.post(
         mode: "subscription",
         line_items: [{ price: priceId, quantity: 1 }],
         // Tag the subscription with the Clerk user id so every subsequent
-        // webhook event (created/updated/deleted) is directly attributable, // see stripeSync.ts.
+        // webhook event (created/updated/deleted) is directly attributable, see stripeSync.ts.
         subscription_data: {
           // `plan` lets the webhook distinguish Family from Plus (stripeSync).
           metadata: { userId, plan },

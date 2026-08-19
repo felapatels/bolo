@@ -48,7 +48,7 @@ if (STAGE === "all" || STAGE === "plus") {
     height: 844,
   });
 
-  // Item 1: Progress — band chips, Best Attempt card, analytics bands.
+  // Item 1: Progress, band chips, Best Attempt card, analytics bands.
   await page.goto(`${ORIGIN}/progress`, { waitUntil: "networkidle" });
   await page.getByText("Practice History").waitFor({ timeout: 60000 });
   await page.waitForTimeout(1500);
@@ -56,7 +56,7 @@ if (STAGE === "all" || STAGE === "plus") {
   console.log(`progress: leftover numeric score strings = ${numericChips}`);
   await page.screenshot({ path: `${OUT}/1-progress.png`, fullPage: true });
 
-  // Item 2: Account — timezone dropdown closed + open.
+  // Item 2: Account, timezone dropdown closed + open.
   await page.goto(`${ORIGIN}/account`, { waitUntil: "networkidle" });
   const tzTrigger = page.getByTestId("timezone-trigger");
   await tzTrigger.waitFor({ timeout: 30000 });
@@ -72,7 +72,7 @@ if (STAGE === "all" || STAGE === "plus") {
   await page.screenshot({ path: `${OUT}/2-account-tz-open.png` });
   await page.keyboard.press("Escape");
 
-  // Item 3: Friends — back affordance in header.
+  // Item 3: Friends, back affordance in header.
   await page.goto(`${ORIGIN}/friends`, { waitUntil: "networkidle" });
   await page.waitForTimeout(1500);
   const back = await page.locator('[aria-label="Back to account"]').count();

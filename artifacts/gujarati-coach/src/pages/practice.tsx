@@ -263,7 +263,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const searchParams = new URLSearchParams(search);
   const startPhraseId = searchParams.get("phrase");
   const skipMastered = searchParams.get("skipMastered") === "true";
-  // The Plus-only sentence stage practices through this same session flow, // `?stage=sentences` swaps the phrase list for the topic's sentence list.
+  // The Plus-only sentence stage practices through this same session flow, `?stage=sentences` swaps the phrase list for the topic's sentence list.
   const isSentences = !isReview && searchParams.get("stage") === "sentences";
   // Spec D1b: the journey map enters practice per lesson group, `?group=<id>`
   // swaps the phrase list for that group's ordered members (phrase- and
@@ -541,7 +541,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const reduceMotion = useReducedMotion();
   // ── Spec D2: live input amplitude ──────────────────────────────────────
   // A single rAF loop samples recorder.getAmplitude() while recording and
-  // feeds two animation bindings, the waveform bars and the mascot scale, // through MotionValues, never React state. React state is only touched for
+  // feeds two animation bindings, the waveform bars and the mascot scale, through MotionValues, never React state. React state is only touched for
   // slow-changing facts: the zero-input hint and the reduced-motion level
   // segments (which change a few times per second at most).
   const amplitudeMv = useMotionValue(0);
@@ -1344,7 +1344,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         testoutTokensRef.current[phrase!.id] = evalRes.evaluationToken;
       } else try {
         // Save the attempt for the signed-in user. The score/feedback are
-        // carried inside the server-signed evaluation token, so the server, // not the client, decides what gets recorded. The response reports any
+        // carried inside the server-signed evaluation token, so the server, not the client, decides what gets recorded. The response reports any
         // badges newly earned by this attempt, which the server awards exactly
         // once per (user, language), so this celebration never replays.
         const attemptRes = await createAttempt.mutateAsync({
@@ -2125,7 +2125,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             ? "thinking"
             : "thumbsup";
 
-  // The belly zone is interactive whenever a hold can meaningfully record, // including DURING example playback and while a result (with its spoken
+  // The belly zone is interactive whenever a hold can meaningfully record, including DURING example playback and while a result (with its spoken
   // feedback) is showing: barge-in stops the audio and records on the same
   // gesture (Task 907). Only evaluating/error/summary keep it unmounted.
   const bellyActive =

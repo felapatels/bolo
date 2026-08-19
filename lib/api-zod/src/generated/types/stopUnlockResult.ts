@@ -11,7 +11,7 @@ export interface StopUnlockResult {
   lessonGroupId: number;
   languageCode: string;
   unlocked: boolean;
-  /** False when the learner already owned this stop — the call is a no-op that deducts nothing. Clients must not re-render a "spent" animation for it. */
+  /** False when the learner already owned this stop, the call is a no-op that deducts nothing. Clients must not re-render a "spent" animation for it. */
   charged: boolean;
   cost: number;
 }

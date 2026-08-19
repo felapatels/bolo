@@ -726,7 +726,7 @@ router.post(
       // Evaluation is gated exactly like serving (GET /phrases/:id): the
       // stored text below gets returned to the caller and signed into the
       // evaluation token, so an ungated evaluate would leak content the
-      // serving routes deny. Locked languages keep the id-aware exceptions, // the teaser set while it lasts, plus (free-tier content policy) the
+      // serving routes deny. Locked languages keep the id-aware exceptions, the teaser set while it lasts, plus (free-tier content policy) the
       // language's first stop, whatever the teaser state; every other locked
       // phrase keeps the byte-identical 402.
       if (
@@ -808,7 +808,7 @@ router.post(
     }
 
     // Server-authoritative capability gate: for a language where speech
-    // recognition verifiably fails on correct speech, never run STT/scoring, // a score here would be noise presented as judgment. Clients switch to
+    // recognition verifiably fails on correct speech, never run STT/scoring, a score here would be noise presented as judgment. Clients switch to
     // listen-record-compare mode; this branch is the backstop if one calls
     // anyway. Band 'nocatch' = no XP, no streak break, no mastery penalty.
     if (speechCapability === "unsupported") {
@@ -912,7 +912,7 @@ router.post(
     // in an unsupported format (e.g. a silent WebM the browser emitted with no
     // audio track, or a partial buffer from a cancelled recording). This is a
     // system miss, not a learner error and not an outage, so it degrades to
-    // the same nocatch outcome as an empty transcript instead of a 502, // mirroring the chat route's existing UndecodableAudioError handling.
+    // the same nocatch outcome as an empty transcript instead of a 502, mirroring the chat route's existing UndecodableAudioError handling.
     let sttUndecodableAudio = false;
     try {
       // Pass the client-reported mimeType as a fallback hint so very short
@@ -1844,7 +1844,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
           if (wantsSSE) {
             sseWrite(res, "replyText", { replyText, replyEnglish, squawkVariant });
             // TTS starts right after this callback, so this is the earliest
-            // useful moment to hand the client its progressive audio URL, // the native player connects and starts pulling chunks as they
+            // useful moment to hand the client its progressive audio URL, the native player connects and starts pulling chunks as they
             // are synthesized.
             if (audioStream) {
               sseWrite(res, "audioStream", { streamId: audioStream.id });

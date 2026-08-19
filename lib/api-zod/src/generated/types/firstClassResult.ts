@@ -8,7 +8,7 @@
 
 export interface FirstClassResult {
   balance: number;
-  /** False when this call replayed an idempotency key already spent — nothing was deducted and no time was added. */
+  /** False when this call replayed an idempotency key already spent, nothing was deducted and no time was added. */
   charged: boolean;
   cost: number;
   firstClassActiveUntil?: Date | null;

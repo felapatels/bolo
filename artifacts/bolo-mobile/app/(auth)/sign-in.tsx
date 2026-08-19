@@ -99,7 +99,7 @@ export default function SignInScreen() {
       // encountered status + factors observable in the on-screen copy.
       const detail = `status: ${status}; available sign-in methods: ${strategies.join(', ')}`;
       if (strategies.includes('password')) {
-        // A password-holding account should have completed in one shot, // this is the production-incident shape, so it also goes to Sentry.
+        // A password-holding account should have completed in one shot, this is the production-incident shape, so it also goes to Sentry.
         reportAuthIncompleteState(context, status, strategies);
         await sendCodeAndShowStep(
           `Password sign-in did not complete (${detail}), so we emailed you a sign-in code instead.`,

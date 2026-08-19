@@ -136,7 +136,7 @@ export const ACCESSORY_OVERLAY_SOURCES: Record<
 };
 
 /**
- * The overlay layer for an accessory, or null when there is nothing to stack, * no accessory, an unknown id, or a pose it has not shipped. Null means "draw
+ * The overlay layer for an accessory, or null when there is nothing to stack, no accessory, an unknown id, or a pose it has not shipped. Null means "draw
  * only the base", so a missing overlay costs the hat rather than the bird.
  */
 export function accessoryOverlaySource(

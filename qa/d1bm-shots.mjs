@@ -1,4 +1,4 @@
-// Spec D1b-M device screenshots — journey map mobile port, captured from the
+// Spec D1b-M device screenshots, journey map mobile port, captured from the
 // Expo WEB build (react-native-web renders the same component tree; no
 // device/emulator in this environment). Viewport 412×824 @2x per the store
 // screenshot convention.
@@ -7,10 +7,10 @@
 // instances verify with 424242). The account's free language is Hindi, so the
 // owned-line shots ride the Ganga Line and the showroom shot opens the
 // Plus-locked Gujarat Express through the picker (the real showroom entry).
-//   1. home-hero.png          — boarding-pass hero on home
-//   2. map-top.png            — journey map header pass + zone 1
-//   3. locked-stop-dialog.png — progression-locked stop dialog
-//   4. showroom.png           — locked-language showroom (Gujarati teaser)
+//   1. home-hero.png         , boarding-pass hero on home
+//   2. map-top.png           , journey map header pass + zone 1
+//   3. locked-stop-dialog.png, progression-locked stop dialog
+//   4. showroom.png          , locked-language showroom (Gujarati teaser)
 //
 // Usage:
 //   CHROME_BIN=$(which chromium) node qa/d1bm-shots.mjs
@@ -39,7 +39,7 @@ const dumpText = async (label) => {
   console.log(`--- page text (${label}):\n${t}\n---`);
 };
 
-// Expo web bundles on first hit — be patient.
+// Expo web bundles on first hit, be patient.
 console.log("loading", ORIGIN);
 await page.goto(ORIGIN, { waitUntil: "networkidle", timeout: 180000 });
 await page.waitForTimeout(3000);
@@ -60,7 +60,7 @@ if (await page.getByText("Choose your language").count()) {
   await page.waitForTimeout(5000);
 }
 
-// A fresh account may auto-launch the guided tour — dismiss it.
+// A fresh account may auto-launch the guided tour, dismiss it.
 const skipTour = page.getByLabel("Skip tour");
 if (await skipTour.count()) {
   await skipTour.first().click();
@@ -68,7 +68,7 @@ if (await skipTour.count()) {
 }
 
 // Reset to the owned language (a prior run may have left the account parked
-// on the locked showroom language — adoptions persist by design).
+// on the locked showroom language, adoptions persist by design).
 await page.getByText("Practicing").first().waitFor({ timeout: 90000 })
   .catch(async () => { await dumpText("home-pill"); throw new Error("home did not load"); });
 if (!(await page.getByText("Ganga Line").count())) {
@@ -94,7 +94,7 @@ console.log("journey open");
 await shot("map-top");
 
 // ── 3. Locked-stop dialog (progression lock) ────────────────────────────────
-const locked = page.getByLabel(/— Locked$/).first();
+const locked = page.getByLabel(/, Locked$/).first();
 await locked.waitFor({ timeout: 30000 })
   .catch(async () => { await dumpText("journey-locked"); throw new Error("no locked stop"); });
 await locked.scrollIntoViewIfNeeded();
@@ -110,7 +110,7 @@ await page.goto(ORIGIN, { waitUntil: "networkidle", timeout: 120000 });
 await page.waitForTimeout(3000);
 await page.getByText("Practicing").first().click(); // home language pill
 await page.waitForTimeout(1500);
-// Target the row subtitle — "ગુજરાતી" alone can also match the home language
+// Target the row subtitle, "ગુજરાતી" alone can also match the home language
 // pill underneath the modal.
 await page.getByText("Gujarati · Gujarati").first().click(); // locked row → showroom
 await page.getByText("Gujarat Express").first().waitFor({ timeout: 60000 })
@@ -120,4 +120,4 @@ console.log("showroom open");
 await shot("showroom");
 
 await browser.close();
-console.log("DONE — 4 shots in", OUT);
+console.log("DONE, 4 shots in", OUT);

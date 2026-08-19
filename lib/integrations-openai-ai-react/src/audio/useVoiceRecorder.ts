@@ -40,7 +40,7 @@ const PREFERRED_MIME_TYPES = [
  * (docs/specs/noise-robustness-bench.md).
  *
  * Echo cancellation stays ON deliberately. It subtracts a KNOWN playback
- * reference, the coach's own voice coming back through the laptop speakers, * rather than guessing at what in the learner's audio is unwanted, and
+ * reference, the coach's own voice coming back through the laptop speakers, rather than guessing at what in the learner's audio is unwanted, and
  * practice lets learners barge in while the coach is still talking. Speaker
  * bleed is what invalidated most of the pronunciation pilot corpus; AEC is
  * the one processor that addresses it.

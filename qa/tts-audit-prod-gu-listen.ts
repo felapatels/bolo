@@ -58,7 +58,7 @@ async function main(): Promise<void> {
       await new Promise((r) => setTimeout(r, 400));
     }
 
-    console.log(`\n${id} ${phrase.native} [${phrase.romanized}] — ${file}`);
+    console.log(`\n${id} ${phrase.native} [${phrase.romanized}], ${file}`);
     for (const [i, l] of listens.entries()) {
       console.log(
         `   listen ${i + 1}: ${l.status} (${l.coverage?.toFixed(2) ?? "n/a"}) heard "${l.heard.slice(0, 120)}"`,

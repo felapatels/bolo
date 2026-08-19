@@ -12,7 +12,7 @@
 //   - Words shape as one run; sentences are wrapped into up to 3 lines so the
 //     outline block stays traceable inside the square 0-100 canvas.
 //   - Glyph subpaths are emitted in logical writing order (cluster order), so
-//     the in-game pen demo draws characters the way a hand would write them, //     including right-to-left for Urdu/Sindhi/Kashmiri.
+//     the in-game pen demo draws characters the way a hand would write them,     including right-to-left for Urdu/Sindhi/Kashmiri.
 //
 // The emitted path strings use only absolute M/L/Q/C commands (no Z), because
 // the in-game parseSvgPath implementation only understands those. Closed

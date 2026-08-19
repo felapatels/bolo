@@ -69,7 +69,7 @@ const ITEMS = [
 const ALPHA_ON = 16; // "there is cloth here"
 const ALPHA_SOLID = 200; // "...and it is not a feathered edge, so its colour is trustworthy"
 // Every one of these pieces is drawn with a 2-3px near-black contour stroke, so
-// the first solid pixel inward from an edge is the OUTLINE, not the fabric, // sampling it paints black wings onto her shoulders. Step past the stroke, then
+// the first solid pixel inward from an edge is the OUTLINE, not the fabric, sampling it paints black wings onto her shoulders. Step past the stroke, then
 // take a median over a short window so a single stray pixel cannot set the tone.
 const OUTLINE_SKIP = 4;
 const SAMPLE_WIN = 8;

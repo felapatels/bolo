@@ -46,7 +46,7 @@ jest.mock('@workspace/api-client-react', () => ({
       this.data = data;
     }
   },
-  // Category phrase/sentence queries are disabled when ?group= is present, // return healthy data so the test proves the group query drives the screen.
+  // Category phrase/sentence queries are disabled when ?group= is present, return healthy data so the test proves the group query drives the screen.
   useListCategoryPhrases: () => ({
     data: [],
     isLoading: false,

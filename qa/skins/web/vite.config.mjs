@@ -1,4 +1,4 @@
-// Task #1117 — vite config for the web skin mock.
+// Task #1117, vite config for the web skin mock.
 //
 // Copied into artifacts/gujarati-coach/src/<temp>/ next to the harness, so it
 // resolves the artifact's own plugins, deps and `@` alias, and Tailwind's

@@ -39,7 +39,7 @@ export default function LanguageModal() {
   };
 
   // Spec D1b-M (mirrors the web picker): a tapped locked language opens its
-  // journey map in showroom mode, a browsable teaser with an upgrade path, // instead of bouncing straight to the paywall. The pick is a real language
+  // journey map in showroom mode, a browsable teaser with an upgrade path, instead of bouncing straight to the paywall. The pick is a real language
   // selection (server-side activeLanguage PATCHes just like an allowed pick).
   const openShowroom = (code: string) => {
     adoptLanguageLocally(code);
@@ -110,7 +110,7 @@ export default function LanguageModal() {
 // active, and the Free taste / All-Access chip pair when locked. The crown
 // this comment used to describe was removed in 949de80.
 //
-// Each tile also wears its language's RAIL LINE ACCENT (lib/journeyLines.ts, // the same colour its boarding pass and journey map use), as a stub stripe
+// Each tile also wears its language's RAIL LINE ACCENT (lib/journeyLines.ts, the same colour its boarding pass and journey map use), as a stub stripe
 // down the left edge. Picking a language is picking a line, so the colour a
 // learner chooses here is the colour they then travel on. The accent replaces
 // the theme primary for the selected border, tint and check too; it never

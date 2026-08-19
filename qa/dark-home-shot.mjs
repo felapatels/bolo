@@ -60,7 +60,7 @@ try {
     { timeout: 30000 },
   );
 } catch (err) {
-  console.log("WAIT FAILED — url:", page.url());
+  console.log("WAIT FAILED, url:", page.url());
   const body = await page.evaluate(() => document.body.innerText.slice(0, 600));
   console.log("body text:", JSON.stringify(body));
   await page.screenshot({ path: `${OUT}/dark-home-debug.png` });
@@ -75,7 +75,7 @@ const isDark = await page.evaluate(() =>
 );
 console.log("html.dark applied:", isDark);
 if (!isDark) {
-  // Account theme pref may be forced "light" — flip the class for the visual
+  // Account theme pref may be forced "light", flip the class for the visual
   // check (the CSS vars are what we're verifying).
   await page.evaluate(() => document.documentElement.classList.add("dark"));
   await page.waitForTimeout(500);

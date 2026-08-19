@@ -73,7 +73,7 @@ export async function stripeWebhookHandler(
       // ...and the second delivery for a slow payment method. A session can
       // COMPLETE unpaid (bank debits and some wallets settle afterwards);
       // Stripe then raises this once the money actually lands. Both events
-      // carry the same PaymentIntent, so handling both credits exactly once, // and omitting this one would charge that learner and credit nothing.
+      // carry the same PaymentIntent, so handling both credits exactly once, and omitting this one would charge that learner and credit nothing.
       case "checkout.session.async_payment_succeeded":
       case "checkout.session.completed": {
         const credit = chaiPackCreditFromSession(

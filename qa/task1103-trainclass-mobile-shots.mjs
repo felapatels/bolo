@@ -1,4 +1,4 @@
-// Task 1103 — daily XP train-class ladder, real-browser evidence (MOBILE).
+// Task 1103, daily XP train-class ladder, real-browser evidence (MOBILE).
 //
 // Captured from the Expo WEB build (react-native-web renders the same
 // component tree); there is no device or emulator in this environment.

@@ -1527,7 +1527,7 @@ export default function ChatPage() {
   }, [textInputValue, phase, chatLang, messages, clearWordReveal, setLocation, stopCurrentPlayback, acquireAudio, unlockAudioPlayback]);
 
   const handleMicPointerDown = useCallback((e: React.PointerEvent) => {
-    // Bless the pooled audio elements while we're inside a real gesture, // required on iOS/WebKit for the reply audio that plays seconds later.
+    // Bless the pooled audio elements while we're inside a real gesture, required on iOS/WebKit for the reply audio that plays seconds later.
     unlockAudioPlayback();
     if (capExhausted) return;
     e.preventDefault(); // suppress context menu on long-press

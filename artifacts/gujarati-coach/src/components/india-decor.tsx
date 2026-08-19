@@ -1,6 +1,6 @@
 // Shared bazaar dressing: the awning and the toran.
 //
-// Both are pure decoration, no state, no interaction, always aria-hidden, // and both draw from the fixed INDIA palette rather than theme tokens (see
+// Both are pure decoration, no state, no interaction, always aria-hidden, and both draw from the fixed INDIA palette rather than theme tokens (see
 // lib/india-palette.ts for why). The Bolo Bazaar storefront and the Chai
 // wallet share them so a stall looks like a stall wherever it appears.
 import { INDIA } from "@/lib/india-palette";

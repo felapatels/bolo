@@ -417,7 +417,7 @@ describe("belly zone availability", () => {
   });
 
   // Build 36 items 1+2: the Loader2 throbber that used to float over the
-  // mascot's belly while evaluating (and the 0.55 dim behind it) are gone, // Bolo plays the state himself, zoomed out small and spinning.
+  // mascot's belly while evaluating (and the 0.55 dim behind it) are gone, Bolo plays the state himself, zoomed out small and spinning.
   test("evaluating shows the zoomed-out mascot and no throbber", async () => {
     let resolveEval!: (v: unknown) => void;
     h.evaluate.mockReturnValue(new Promise((res) => { resolveEval = res; }));

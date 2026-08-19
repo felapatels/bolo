@@ -7,7 +7,7 @@
  */
 
 /**
- * Whether the learner has a streak break worth mending, and what mending it would cost. `eligible` false means there is nothing to offer — no break, an absence too long to be a slip, or a break older than the repair window — and clients must show nothing at all in that case.
+ * Whether the learner has a streak break worth mending, and what mending it would cost. `eligible` false means there is nothing to offer, no break, an absence too long to be a slip, or a break older than the repair window, and clients must show nothing at all in that case.
  */
 export interface StreakRepairOffer {
   eligible: boolean;

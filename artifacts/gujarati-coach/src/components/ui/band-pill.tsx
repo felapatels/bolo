@@ -68,7 +68,7 @@ export function bandFromScore(score: number): ScoredBand {
   return "retry";
 }
 
-// Text color classes for surfaces that tint a band word without the pill, // same ladder gradient as the pill/ladder treatments.
+// Text color classes for surfaces that tint a band word without the pill, same ladder gradient as the pill/ladder treatments.
 const BAND_TEXT_CLASS: Record<Band, string> = {
   perfect: "text-success",
   great: "text-[hsl(var(--accent))]",

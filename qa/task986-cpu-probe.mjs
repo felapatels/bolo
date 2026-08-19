@@ -1,4 +1,4 @@
-// Task 986: games hub CPU probe — measures hub idle cost so the vignette
+// Task 986: games hub CPU probe, measures hub idle cost so the vignette
 // energy-model change can report before/after, plus frame-time sampling.
 //
 // Metrics over a fixed IDLE_MS window on /games (after the entrance cascade):

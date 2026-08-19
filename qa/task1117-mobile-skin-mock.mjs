@@ -1,4 +1,4 @@
-// Task #1117 — mobile mock + measurement: train skins on leaderboard friend rows.
+// Task #1117, mobile mock + measurement: train skins on leaderboard friend rows.
 //
 // Writes a TEMPORARY top-level Expo route from the template in
 // qa/skins/mobile/, captures it through the running Expo web dev server at a

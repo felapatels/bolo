@@ -11,7 +11,7 @@ import type { AuthedRequest } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-// Spec B2: phrase reports. Max stored reports per user per rolling hour, // DB-backed like the test-out throttle (counted from the phrase_reports rows
+// Spec B2: phrase reports. Max stored reports per user per rolling hour, DB-backed like the test-out throttle (counted from the phrase_reports rows
 // themselves, so it holds across restarts and replicas). Unlike test-out, the
 // over-limit branch is a SILENT 200 with no row written: the reporter is not
 // an adversary worth signaling, and the client treats every outcome

@@ -3,14 +3,14 @@
 // post-session queue, Aug 2 2026, incl. the owner's harvest amendments).
 //
 // Reads every sidecar under pilot-clips/, assigns protocol labels, and writes
-// qa/pilot-results/manifest.json (gitignored; references clips by R2 key —
+// qa/pilot-results/manifest.json (gitignored; references clips by R2 key, 
 // recordings NEVER enter the repo, per the ratified storage rule).
 //
 // Label sources:
-//   explicit — sidecar has captureMode:true; its `label` is authoritative.
+//   explicit, sidecar has captureMode:true; its `label` is authoritative.
 //              Duplicates per (user, phrase, attemptOfFour) keep the LATER
 //              timestamp; sidecars with discarded:true are excluded.
-//   order    — pre-capture-mode clips only: group by (user, language, phrase),
+//   order   , pre-capture-mode clips only: group by (user, language, phrase),
 //              sort by timestamp, map position -> label for EXACT quads:
 //              ["native", "american_accent", "subtle_error", "wrong_attempt"]
 //              Incomplete/oversize groups go to needsReview.

@@ -1,8 +1,8 @@
-// Task #1117 — web mock + measurement: train skins on leaderboard friend rows.
+// Task #1117, web mock + measurement: train skins on leaderboard friend rows.
 //
 // Renders the real leaderboard row markup with the real train component
 // (qa/skins/web/harness.tsx) at a 360px viewport in light and dark, captures
-// the three treatments, and MEASURES the painted pixels — no colour is ever
+// the three treatments, and MEASURES the painted pixels, no colour is ever
 // read back out of a computed style string.
 //
 // Run from the repo root:

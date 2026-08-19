@@ -47,7 +47,7 @@ const PRIORITY_LANGUAGE_CODE = "hi";
  * ~58k characters, so re-synthesizing everything at once would blow the
  * monthly quota several times over. Instead each pre-warm run spends at most
  * this many characters, in priority order (Gujarati starter phrases first),
- * and the rest of the catalog fills in lazily on playback and on later runs, * batching the backlog over subsequent months. Old-provider audio remains in
+ * and the rest of the catalog fills in lazily on playback and on later runs, batching the backlog over subsequent months. Old-provider audio remains in
  * the cache under legacy keys as a fallback, so a learner never gets silence
  * while a phrase is still waiting for its refresh.
  *
@@ -136,7 +136,7 @@ async function loadPhrasesInPriorityOrder(): Promise<PhraseWithLanguageName[]> {
       // the synthesis call use the same voice, matching what /openai/tts does
       // at runtime when a client passes languageCode.
       elevenLabsVoiceId: getVoiceIdForLanguage(p.languageCode),
-      // Resolve the ElevenLabs language_id for correct phoneme selection, // undefined for unsupported codes (the API falls back to auto-detection).
+      // Resolve the ElevenLabs language_id for correct phoneme selection, undefined for unsupported codes (the API falls back to auto-detection).
       languageId: getLanguageIdForCode(p.languageCode),
     }));
 }

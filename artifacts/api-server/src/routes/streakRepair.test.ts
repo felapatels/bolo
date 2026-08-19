@@ -678,7 +678,7 @@ test("an empty tin is refused as 409, never as a paywall", async () => {
 });
 
 test("a client that asks anyway cannot buy a repair it was not offered", async () => {
-  // The write path re-derives eligibility rather than trusting the caller, // there is no day in the request to forge in the first place.
+  // The write path re-derives eligibility rather than trusting the caller, there is no day in the request to forge in the first place.
   const away = await post("/tokens/repair-streak", AWAY_USER_ID);
   assert.equal(away.status, 409);
   assert.equal(away.json.error, "break_too_long");

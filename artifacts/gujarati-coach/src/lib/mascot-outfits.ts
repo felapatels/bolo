@@ -101,7 +101,7 @@ export const OUTFIT_POSE_FILES: Record<
 /**
  * The accessory ALONE, transparent, in the same 1024 frame as every pose.
  *
- * This is what makes a hat and an outfit wearable at once. The alternative, * one baked PNG per garment×accessory pair, multiplies with the catalog and
+ * This is what makes a hat and an outfit wearable at once. The alternative, one baked PNG per garment×accessory pair, multiplies with the catalog and
  * would need regenerating every time either side gains an item. Stacking two
  * layers needs no new art when a garment ships, because the hat does not know
  * or care what she is wearing below it.
@@ -145,7 +145,7 @@ export function mascotAssetSrc(
 }
 
 /**
- * The overlay layer for an accessory, or null when there is nothing to stack, * no accessory, an unknown id, or a pose this accessory has not shipped. Null
+ * The overlay layer for an accessory, or null when there is nothing to stack, no accessory, an unknown id, or a pose this accessory has not shipped. Null
  * means "draw only the base", so a missing overlay quietly costs the hat
  * rather than blanking the bird.
  */
