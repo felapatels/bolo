@@ -1,0 +1,92 @@
+# What EAS Build uploads, and what it does not.
+#
+# READ THIS BEFORE EDITING. .easignore does NOT extend .gitignore, it REPLACES
+# it. The moment this file exists EAS stops reading .gitignore entirely, so
+# every rule from there has to be repeated below or the upload gets BIGGER, not
+# smaller: node_modules alone would dwarf everything this file saves.
+#
+# The second rule: NEVER exclude a whole pnpm workspace package. The workspace
+# globs are artifacts/*, lib/*, lib/integrations/* and scripts, and EAS runs
+# install with a frozen lockfile from the repo root. A package.json that
+# vanishes is a lockfile mismatch and a failed build. Excluding a package's
+# ASSET subdirectory is fine, because the manifest survives.
+#
+# Written 2026-08-18. Before it, every build shipped a 224 MB archive.
+
+# ---------------------------------------------------------------------------
+# Everything .gitignore excludes, repeated because this file replaces it.
+# ---------------------------------------------------------------------------
+dist
+tmp
+out-tsc
+*.tsbuildinfo
+.expo
+.expo-shared
+node_modules
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.vscode/*
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+/typings
+.DS_Store
+Thumbs.db
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+.cache/
+.local/
+qa/shots/
+qa/pilot-clips/
+qa/tts-audit-prod-gu-clips/
+qa/pilot-results/manifest.json
+qa/pilot-results/calibration/
+qa/pilot-results/noise-bench/results.jsonl
+attached_assets/
+.agents/
+.env*
+!.env*.example
+
+# ---------------------------------------------------------------------------
+# The weight. None of this is read by an iOS or Android build.
+# ---------------------------------------------------------------------------
+
+# The web app's static assets. gujarati-coach's package.json STAYS, so the
+# workspace and the lockfile are untouched; only its public/ payload goes.
+artifacts/gujarati-coach/public/
+
+# Design review imagery. Not a workspace package, so it can go whole.
+docs/garment-review/
+
+# App Store and Play Store listing art. Uploaded to the consoles by hand, never
+# bundled into the app itself. NOT to be confused with assets/images/, which IS
+# the app's own artwork and must stay.
+artifacts/bolo-mobile/assets/store/
+
+# Mascot art sources. `scripts` is a workspace, so only these subdirectories go.
+scripts/mascot-accessory-art/
+scripts/mascot-garment-art/
+
+# Server-side QA corpora: large JSON reports, read by nothing at build time.
+artifacts/api-server/scripts/
+
+# Sibling web artifacts' heavy media. Their package.json files stay.
+artifacts/bolo-social-clips/assets/
+artifacts/bolo-social-clips/public/
+artifacts/bolo-launch-video/assets/
+artifacts/bolo-launch-video/public/
+artifacts/mockup-sandbox/public/
+
+# Test suites. The build does not run them.
+**/__tests__/
+**/*.test.ts
+**/*.test.tsx
