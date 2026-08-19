@@ -39,12 +39,12 @@ export type BackupFn = (backup: ReplacedTakeBackup) => Promise<string>;
 /**
  * Copy a condemned take to R2 and return its object key.
  *
- * Throws when R2 is not configured or the upload fails, the audit treats that
+ * Throws when R2 is not configured or the upload fails — the audit treats that
  * as "cannot safely replace this clip" and leaves the cache row alone.
  */
 export async function backupReplacedTake(backup: ReplacedTakeBackup): Promise<string> {
   const r2 = getR2Client();
-  if (!r2) throw new Error("R2 is not configured, refusing to overwrite a take with no backup");
+  if (!r2) throw new Error("R2 is not configured — refusing to overwrite a take with no backup");
 
   const bucket = process.env.R2_BUCKET_NAME!;
   const base = replacedTakeKey(backup, backup.runAt);

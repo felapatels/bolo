@@ -96,7 +96,7 @@ const UNIT_WORDS: Record<string, string> = {
   YEAR: 'year',
 };
 
-// Derives the free-trial label straight from the store product metadata, never
+// Derives the free-trial label straight from the store product metadata — never
 // hardcoded. The Test Store can't model trials, so this returns null there.
 function trialLabel(pkg: PurchasesPackage | null): string | null {
   const intro = pkg?.product.introPrice;
@@ -143,7 +143,7 @@ export default function PaywallScreen() {
   const hasOfferings = hasOneLanguage || hasAllAccess;
 
   // A One-Language subscriber can only meaningfully move to all-access; a Free
-  // learner may choose either tier, but ONLY when a real, purchasable
+  // learner may choose either tier — but ONLY when a real, purchasable
   // one_language package exists. The tier is resolved from purchasability in
   // the effect below, never from the `?lang=` param alone: a locked-language
   // deep link must not be able to open a tier the store can't actually sell.
@@ -175,7 +175,7 @@ export default function PaywallScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Resolve the tier from what the store can actually sell, never from the
+  // Resolve the tier from what the store can actually sell — never from the
   // `?lang=` param by itself. A One-Language subscriber can only buy
   // all-access. If only one tier has a real package, that's the tier. If
   // both are purchasable, honor a locked-language deep link as a (harmless)
@@ -261,7 +261,7 @@ export default function PaywallScreen() {
               data: { language: chosenLangCode },
             });
           } catch {
-            // Non-fatal, the store webhook reconciles the language server-side.
+            // Non-fatal — the store webhook reconciles the language server-side.
           }
         }
         await onUnlocked();
@@ -271,7 +271,7 @@ export default function PaywallScreen() {
           text: 'That purchase didn’t go through. Please try again.',
         });
       }
-      // 'cancelled', silently return to the paywall.
+      // 'cancelled' — silently return to the paywall.
     },
     [purchase, onUnlocked, tier, chosenLangCode, setChosenLanguage],
   );
@@ -354,7 +354,7 @@ export default function PaywallScreen() {
             : 'Learn Hindi and the language you choose, no daily cap.'}
         </Text>
 
-        {/* Trial banner, shown when the learner arrived after hitting the daily cap */}
+        {/* Trial banner — shown when the learner arrived after hitting the daily cap */}
         {isDailyLimitDenial && tier === 'all_access' && (
           <View
             style={[

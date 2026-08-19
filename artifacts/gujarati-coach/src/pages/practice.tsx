@@ -263,9 +263,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const searchParams = new URLSearchParams(search);
   const startPhraseId = searchParams.get("phrase");
   const skipMastered = searchParams.get("skipMastered") === "true";
-  // The Plus-only sentence stage practices through this same session flow, // `?stage=sentences` swaps the phrase list for the topic's sentence list.
+  // The Plus-only sentence stage practices through this same session flow —
+  // `?stage=sentences` swaps the phrase list for the topic's sentence list.
   const isSentences = !isReview && searchParams.get("stage") === "sentences";
-  // Spec D1b: the journey map enters practice per lesson group, `?group=<id>`
+  // Spec D1b: the journey map enters practice per lesson group — `?group=<id>`
   // swaps the phrase list for that group's ordered members (phrase- and
   // sentence-stage groups alike) via the lesson-group phrases endpoint.
   const groupParam = searchParams.get("group");
@@ -287,7 +288,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const isTestout = isGroupTestout || isZoneTestout;
   // TEMPORARY capture mode: ?mode=capture, allowlisted users only (the server
   // checks PILOT_CAPTURE_USER_IDS). Anyone else with the param gets a normal
-  // session, the flag never activates without a server-confirmed yes.
+  // session — the flag never activates without a server-confirmed yes.
   const captureRequested = !isReview && !isTestout && searchParams.get("mode") === "capture";
   const captureEligibility = useGetPilotCaptureEligibility({
     query: {
@@ -541,7 +542,8 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const reduceMotion = useReducedMotion();
   // ── Spec D2: live input amplitude ──────────────────────────────────────
   // A single rAF loop samples recorder.getAmplitude() while recording and
-  // feeds two animation bindings, the waveform bars and the mascot scale, // through MotionValues, never React state. React state is only touched for
+  // feeds two animation bindings — the waveform bars and the mascot scale —
+  // through MotionValues, never React state. React state is only touched for
   // slow-changing facts: the zero-input hint and the reduced-motion level
   // segments (which change a few times per second at most).
   const amplitudeMv = useMotionValue(0);
@@ -553,11 +555,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // One-time first-practice coach hint (P1 v2 item 6): "Hold Bolo to speak"
   // floating callout the first time a learner reaches the practice screen with
   // phrases loaded. Fires once per browser via localStorage. MUST live up here
-  // with the unconditional hooks, the loading/error early returns below would
+  // with the unconditional hooks — the loading/error early returns below would
   // otherwise change the hook count between renders.
   const [showHint, setShowHint] = useState(false);
   // Re-shown (with its own copy) when a press was discarded because the
-  // recorder was still acquiring the mic, the learner pressed, nothing
+  // recorder was still acquiring the mic — the learner pressed, nothing
   // happened, and they deserve to know why and what to do instead.
   const [readyHint, setReadyHint] = useState(false);
   const readyHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -627,7 +629,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // first coach play attempt of this mount only.
   const [showIosHint, setShowIosHint] = useState(false);
   const iosHintCheckedRef = useRef(false);
-  // When true, the attempt scored but saving progress failed, the learner
+  // When true, the attempt scored but saving progress failed — the learner
   // keeps their result and gets a gentle note instead of a silent reset.
   const [saveFailed, setSaveFailed] = useState(false);
   // M1 teaser: latest teaser progress reported by the attempts endpoint for a
@@ -721,7 +723,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     saveSilentMode(enabled);
   };
 
-  // Spoken feedback preference, whether the coach reads the result text aloud
+  // Spoken feedback preference — whether the coach reads the result text aloud
   // after scoring. Mirrored in React state so the header quick-toggle applies
   // instantly without a full remount, matching the mobile quick-mute pattern.
   const [spokenFeedback, setSpokenFeedback] = useState<boolean>(loadSpokenFeedback);
@@ -746,14 +748,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     saveMeaningAudio(enabled);
   };
 
-  // Coach voice master gate, loaded once at mount (synchronous localStorage
+  // Coach voice master gate — loaded once at mount (synchronous localStorage
   // read). When off, all Bolo speech is silent regardless of the more granular
   // spoken-feedback and meaning-audio settings below.
   const coachVoiceRef = useRef<boolean>(loadCoachVoicePref());
 
   // Warm up the microphone as soon as the practice session mounts, so the
   // first hold starts capturing immediately and the first syllable isn't
-  // clipped, but only when permission is already granted, so first-time
+  // clipped — but only when permission is already granted, so first-time
   // users never see a permission prompt on page load. Their prompt fires on
   // the first hold. The hook releases the stream on unmount.
   useEffect(() => {
@@ -773,11 +775,11 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // Per-session cache of synthesized meaning audio, parallel to
   // coachAudioCacheRef, so repeated plays never re-synthesize the meaning.
   const meaningAudioCacheRef = useRef(new Map<number, { audioBase64: string; format: string }>());
-  // Pre-warmed audio for the starting phrase, kicked off when phrases first
+  // Pre-warmed audio for the starting phrase — kicked off when phrases first
   // load so the coach voice plays instantly instead of waiting 1–2 s for
   // gpt-audio synthesis after state flips to "playing_coach".
   const startingPhraseAudioRef = useRef<Promise<{ audioBase64: string; format: string } | null> | null>(null);
-  // Pre-synthesized feedback audio, started in parallel with createAttempt
+  // Pre-synthesized feedback audio — started in parallel with createAttempt
   // so the voice is ready (or nearly ready) when the result card appears.
   const feedbackAudioPendingRef = useRef<Promise<{ audioBase64: string; format: string } | null> | null>(null);
   // The instant band call-out clip playing for the current result (Task 903).
@@ -800,13 +802,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         if (firstUnmastered > 0) startIdx = firstUnmastered;
       } else if (isGroup && !isTestout && !polishMode && !phraseIdsParam) {
         // Task 954 + completed-station ruling: a station session ALWAYS runs
-        // the first-unmastered scan, the first phrase whose bestScore is
+        // the first-unmastered scan — the first phrase whose bestScore is
         // null or below the 80 credit edge (the same threshold lesson-group
         // completion uses). Station status (completed / tested_out) never
         // short-circuits the scan (no status field is consulted here), and
         // the entry route cannot change the result: every route into a plain
         // station session lands in this same branch. Index 0 is the fallback
-        // ONLY when the scan finds nothing, every phrase in the session at
+        // ONLY when the scan finds nothing — every phrase in the session at
         // 80+ (a deliberate review visit replays from phrase 1). A
         // tested-out station without per-phrase attempts is all-null, so the
         // scan itself lands on index 0. Only the starting index changes: the
@@ -815,7 +817,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         //
         // Teaser taste sets are INERT to resume: a teaser-state caller gets
         // the fixed free taste set (rows carry `teaser` progress), which must
-        // always play from the top, skipping an already-attempted free
+        // always play from the top — skipping an already-attempted free
         // phrase would shorten the taste → upsell flow.
         const isTeaserSet = phrases.some(p => p.teaser != null);
         if (!isTeaserSet) {
@@ -847,7 +849,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   }, [phrases, state]);
 
   // Prefetch the next phrase's audio while the learner is on the current one
-  // so advancing feels instant. Best-effort, failures are silently swallowed.
+  // so advancing feels instant. Best-effort — failures are silently swallowed.
   useEffect(() => {
     if (silentModeRef.current) return;
     const nextPhrase = phrases?.[currentIndex + 1];
@@ -946,7 +948,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         try {
           const cached = coachAudioCacheRef.current.get(phrase.id);
           // Consume any pre-warmed synthesis promise that was started when
-          // phrases first loaded, avoids a redundant gpt-audio API call.
+          // phrases first loaded — avoids a redundant gpt-audio API call.
           const pendingPrewarm = !cached ? startingPhraseAudioRef.current : null;
           if (pendingPrewarm) startingPhraseAudioRef.current = null;
           const prewarm = pendingPrewarm ? await pendingPrewarm : null;
@@ -1031,14 +1033,14 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     // the Account page applies to the very next score without a reload.
     if (state === "result" && result && spokenFeedback && coachVoiceRef.current) {
       let cancelled = false;
-      // 1) Band call-out, pre-bundled audio, no synthesis wait. Correct
+      // 1) Band call-out — pre-bundled audio, no synthesis wait. Correct
       // band mapping is result.band itself (nocatch gets the neutral clip).
       const clip = playBandClip(result.band);
       bandClipRef.current = clip;
       const speak = async () => {
         try {
           if (!spokenText) return;
-          // 2) Full feedback, consume the pre-synthesized audio started in
+          // 2) Full feedback — consume the pre-synthesized audio started in
           // finishRecording (parallel with createAttempt; server-side the
           // synthesis began even earlier via the eval-time prewarm). A
           // timeout guards the sequence: if synthesis is slow or failed,
@@ -1092,7 +1094,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // a pointerup the button never sees (permission prompt steals it, relayout
   // under the finger, tab switch) still ends the hold. A release while the
   // recorder is LIVE finishes and sends ("done speaking"); a release before
-  // the recorder resolved (permission prompt open) discards like chat, a
+  // the recorder resolved (permission prompt open) discards like chat — a
   // permission grant alone must never produce an attempt or a result card.
   const activeHoldPointerRef = useRef<number | null>(null);
   // Removes the window listeners WITHOUT firing release semantics (used when
@@ -1105,18 +1107,18 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
   // Prevents a manual stop and any double-release from both firing.
   const finishingRef = useRef(false);
-  // True once recorder.startRecording() has resolved, lets finishRecording
+  // True once recorder.startRecording() has resolved — lets finishRecording
   // guard without capturing stale React state in a closure.
   const isRecordingRef = useRef(false);
 
   const finishRecording = useCallback(async () => {
     if (finishingRef.current) return;
-    // Guard via ref, not React state, state may still be "idle" in the closure
+    // Guard via ref, not React state — state may still be "idle" in the closure
     // if this is called synchronously right after startRecording sets the ref.
     if (!isRecordingRef.current) return;
     isRecordingRef.current = false;
     finishingRef.current = true;
-    // Ear-training mode never scores, so there's no "evaluating" stage, the
+    // Ear-training mode never scores, so there's no "evaluating" stage — the
     // learner goes straight to a compare stage once we have their recording.
     setState(isUnsupported ? "recording" : "evaluating");
     setEvalError(null);
@@ -1195,7 +1197,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       const evalRes = { ...evalRaw, band: normalizeBand(evalRaw.band, evalRaw.score) };
 
       // TEMPORARY capture mode: the pipeline above (real STT, real scoring,
-      // real tee) ran UNCHANGED, only the display and progress writes are
+      // real tee) ran UNCHANGED — only the display and progress writes are
       // suppressed. No result card, no cues/confetti/XP, and no
       // createAttempt below (so no XP and no lesson progress). A brief
       // "attempt N saved" confirmation shows, then the protocol advances
@@ -1259,7 +1261,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         setPhraseTallies(phraseTalliesRef.current);
         if (evalRes.xpAwarded > 0) {
           // Earned something: the debt is settled, even if an earlier take on
-          // this phrase had already queued it. Strikes are NOT reset, they
+          // this phrase had already queued it. Strikes are NOT reset — they
           // are the record of what this phrase cost, not a live budget.
           setEncoreQueue(q => q.filter(id => id !== encoreId));
         } else {
@@ -1284,10 +1286,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           .catch(() => null);
       }
 
-      // The learner has their score, show it now. Saving the attempt below
+      // The learner has their score — show it now. Saving the attempt below
       // must never take the result away from them.
       setState("result");
-      // Web haptics, mirror the mobile practice pattern exactly.
+      // Web haptics — mirror the mobile practice pattern exactly.
       webHaptic('medium');
       if (isFullCreditBand(evalRes.band)) {
         webHaptic('heavy');
@@ -1311,7 +1313,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         confettiTimeoutRef.current = setTimeout(() => setShowConfetti(false), 3000);
       }
       // XP arc: badge flies from the result panel to the XP counter. Fires
-      // whenever XP was actually awarded (any passing band, the half-credit
+      // whenever XP was actually awarded (any passing band — the half-credit
       // group earns at the 0.5 band factor). retry/nocatch award no XP, so no arc.
       // Test-out runs record no attempt and award no XP, so no arc either.
       if (!isTestout && isPassingBand(evalRes.band) && evalRes.xpAwarded > 0) {
@@ -1344,9 +1346,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         testoutTokensRef.current[phrase!.id] = evalRes.evaluationToken;
       } else try {
         // Save the attempt for the signed-in user. The score/feedback are
-        // carried inside the server-signed evaluation token, so the server, // not the client, decides what gets recorded. The response reports any
+        // carried inside the server-signed evaluation token, so the server —
+        // not the client — decides what gets recorded. The response reports any
         // badges newly earned by this attempt, which the server awards exactly
-        // once per (user, language), so this celebration never replays.
+        // once per (user, language) — so this celebration never replays.
         const attemptRes = await createAttempt.mutateAsync({
           data: {
             evaluationToken: evalRes.evaluationToken
@@ -1362,7 +1365,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
         // Optimistic: increment todayXp immediately so the XP strip (and the
         // train class derived from it) reacts before the background refetch
-        // resolves. THE one writer, shared with both mobile call sites, see
+        // resolves. THE one writer, shared with both mobile call sites — see
         // applyOptimisticTodayXp in @workspace/train-class.
         applyOptimisticTodayXp(queryClient, activeLang, evalRes.xpAwarded);
         // Invalidate queries so progress updates
@@ -1372,7 +1375,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         queryClient.invalidateQueries({ queryKey: getListCategorySentencesQueryKey(id, activeLang) });
         queryClient.invalidateQueries({ queryKey: getListReviewPhrasesQueryKey({ lang: activeLang }) });
         queryClient.invalidateQueries({ queryKey: getListBadgesQueryKey({ lang: activeLang }) });
-        // Spec D1b: journey-map station states derive from attempts, refresh
+        // Spec D1b: journey-map station states derive from attempts — refresh
         // this topic's lesson-group listing (and the group's own phrase list
         // when practicing via the map) so the map is current on return.
         queryClient.invalidateQueries({ queryKey: getListCategoryLessonGroupsQueryKey(id, activeLang) });
@@ -1405,7 +1408,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const startRecording = async () => {
     // Barge-in (Task 907): a hold is honoured not just from idle but while
     // the example phrase plays and while a result (and its spoken feedback)
-    // is on screen. Recording/evaluating are still excluded, a hold there is
+    // is on screen. Recording/evaluating are still excluded — a hold there is
     // either the live gesture itself or an in-flight evaluation.
     if (state !== "idle" && state !== "playing_coach" && state !== "result") return;
     setEvalError(null);
@@ -1423,13 +1426,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     }
     const holdPointerId = activeHoldPointerRef.current;
     try {
-      // Hold-to-talk always uses manual stop, the learner releases their
+      // Hold-to-talk always uses manual stop — the learner releases their
       // finger to finish, so silence detection is not needed.
       await recorder.startRecording(undefined);
       // Positive hold-confirmation (chat.tsx grant-guard pattern): a
       // permission grant by itself must never produce an attempt or a result
       // card. Continue only if the exact pointer that started this press is
-      // verifiably still held, otherwise (released while the prompt was
+      // verifiably still held — otherwise (released while the prompt was
       // open, or the prompt's focus steal fired the blur release) abort and
       // discard. Nothing was captured before the recorder resolved, so there
       // is no audio to honour; the next press starts a fresh recording.
@@ -1442,7 +1445,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         // otherwise every later press pays a full device acquisition, a
         // normal-length click finishes before the recorder goes live, this
         // same guard discards it, and the bird looks dead for the rest of the
-        // session, reloading the stop was the only cure.
+        // session — reloading the stop was the only cure.
         void recorder.prepare().catch(() => {});
         // ...and say so, because a discarded press is otherwise silent.
         flashHoldHint();
@@ -1475,7 +1478,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // Marks a hold gesture as live and installs window-level release listeners.
   // pointerup/pointercancel anywhere (and window blur, when the permission
   // prompt or a tab switch steals focus) end the hold and run the release
-  // semantic, the button's own handlers are no longer trusted to see it.
+  // semantic — the button's own handlers are no longer trusted to see it.
   const beginHold = (pointerId: number) => {
     holdCleanupRef.current?.();
     activeHoldPointerRef.current = pointerId;
@@ -1491,7 +1494,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       }
     };
     const onRelease = (e: PointerEvent) => {
-      // Ignore other pointers (a second finger), only this hold's release counts.
+      // Ignore other pointers (a second finger) — only this hold's release counts.
       if (e.pointerId !== undefined && e.pointerId !== pointerId) return;
       cleanup();
       handleBellyRelease();
@@ -1551,7 +1554,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     // would replay in full.
     if (!inEncore && phrases && currentIndex < phrases.length - 1) {
       const nextIndex = currentIndex + 1;
-      // Mid-session milestone toasts, fire at most once each per session.
+      // Mid-session milestone toasts — fire at most once each per session.
       if (phrases.length >= 4 && nextIndex === Math.floor(phrases.length / 2) && !halfwayToastFiredRef.current) {
         halfwayToastFiredRef.current = true;
         showToast("Halfway there! 💪");
@@ -1564,7 +1567,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       setState(silentMode ? "idle" : "playing_coach");
     } else if (!isTestout && phrases && encoreQueue.length > 0) {
       // The list is done but something earned nothing. Bring the first such
-      // phrase back, it keeps its place in the queue order, so several
+      // phrase back — it keeps its place in the queue order, so several
       // zero-XP phrases return in the order they were missed.
       const [head, ...rest] = encoreQueue;
       const headIdx = phrases.findIndex(p => p.id === head);
@@ -1612,7 +1615,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   // so the auto-advance timer never calls a stale closure.
   handleNextRef.current = handleNext;
 
-  // TEMPORARY capture mode: "redo this attempt" for genuine fumbles, marks
+  // TEMPORARY capture mode: "redo this attempt" for genuine fumbles — marks
   // the just-saved clip discarded in its sidecar, then repeats the SAME
   // expectation. Steps back even when the server had nothing to discard
   // (e.g. a restart forgot its in-memory pointer): the tester still redoes
@@ -1898,7 +1901,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     const isPerfect = attemptCount > 0 && orderedSummaryEntries.every(r => isFullCreditBand(r.band));
     const anyPassed = orderedSummaryEntries.some(r => isPassingBand(r.band));
     // Spec 1 gating: session confetti only when at least half of the phrases
-    // ended in a passing band, never on rough sessions.
+    // ended in a passing band — never on rough sessions.
     const goodCount = orderedSummaryEntries.filter(r => isPassingBand(r.band)).length;
     const celebrateSession = attemptCount > 0 && goodCount * 2 >= attemptCount;
     return (
@@ -1939,7 +1942,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               </div>
             )}
 
-            {/* Hotfix 3S Item 3: Chai receipt, server-aggregated session
+            {/* Hotfix 3S Item 3: Chai receipt — server-aggregated session
                 earns, directly under the XP pill as its sibling, only when
                 something was actually earned. */}
             {sessionChai > 0 && (
@@ -1954,7 +1957,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               </div>
             )}
 
-            {/* XP breakdown, collapsed by default */}
+            {/* XP breakdown — collapsed by default */}
             {orderedSummaryEntries.some(r => r.xpBreakdown) && (
               <div className="mt-3 text-left">
                 <button
@@ -2120,12 +2123,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       : state === "error"
         ? "tryagain"
         : state === "compare"
-          ? "cheer" // ear-training always counts, celebrate the effort
+          ? "cheer" // ear-training always counts — celebrate the effort
           : state === "playing_coach" || state === "recording" || state === "evaluating"
             ? "thinking"
             : "thumbsup";
 
-  // The belly zone is interactive whenever a hold can meaningfully record, // including DURING example playback and while a result (with its spoken
+  // The belly zone is interactive whenever a hold can meaningfully record —
+  // including DURING example playback and while a result (with its spoken
   // feedback) is showing: barge-in stops the audio and records on the same
   // gesture (Task 907). Only evaluating/error/summary keep it unmounted.
   const bellyActive =
@@ -2135,7 +2139,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     state === "result";
 
   // ── Result-actions row state (Task #1040) ────────────────────────────────
-  // "Finish" would lie while there is another stop ahead, the tail of the
+  // "Finish" would lie while there is another stop ahead — the tail of the
   // base list, or a zero-XP phrase still queued for its encore.
   const hasNextStop = Boolean(
     phrases &&
@@ -2198,16 +2202,16 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             Another go
           </div>
         )}
-        {/* Daily XP counter, compact session variant */}
+        {/* Daily XP counter — compact session variant */}
         <XpCounter variant="session" />
         {/* Language chip + audio settings gear (Task 1044).
             The three audio controls used to sit here as loose pills; they now
             live behind the gear so the row has room, and the chip finally
-            names the language being practised, nothing on a lesson screen
+            names the language being practised — nothing on a lesson screen
             said so before. */}
         <div className="ml-auto flex items-center gap-2 shrink-0">
         {/* Display-only language code. Deliberately inert: no handler, no
-            button role, not focusable, the language cannot be changed
+            button role, not focusable — the language cannot be changed
             mid-lesson. The slot is fixed at three characters wide so the row
             never reflows between a two-letter code (HI) and a three-letter
             one (SAT); codes are NEVER truncated, since "sat" clipped to "SA"
@@ -2217,7 +2221,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           className="shrink-0 w-9 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground text-[11px] font-bold uppercase tracking-wide leading-none"
         >
           {activeLang.toUpperCase()}
-          <span className="sr-only">, practising {languageName}</span>
+          <span className="sr-only"> — practising {languageName}</span>
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -2257,7 +2261,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 {silentMode ? "Off" : "On"}
               </span>
             </DropdownMenuCheckboxItem>
-            {/* Spoken Feedback, the same preference the mobile result-card
+            {/* Spoken Feedback — the same preference the mobile result-card
                 mute writes; kept here for cross-platform parity. */}
             <DropdownMenuCheckboxItem
               checked={spokenFeedback}
@@ -2325,7 +2329,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
             className="mb-2 shrink-0 rounded-2xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-center"
           >
             <p className="text-[11px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">
-              Capture mode, attempt {captureStep + 1} of 4
+              Capture mode — attempt {captureStep + 1} of 4
             </p>
             <p className="mt-0.5 text-sm font-black text-foreground leading-snug">
               {CAPTURE_STEPS[captureStep]!.title}
@@ -2422,7 +2426,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 <p className="text-muted-foreground text-sm leading-tight">{phrase?.english}</p>
               </div>
 
-              {/* Spec B2: quiet flag affordance, must not compete with play */}
+              {/* Spec B2: quiet flag affordance — must not compete with play */}
               <PhraseReportButton phraseId={phrase?.id} />
             </div>
           </motion.div>
@@ -2491,7 +2495,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         >
           {/* Parrot image */}
           <div className="relative w-full h-full flex items-center justify-center">
-            {/* Idle pulsing ring, gentle invitation; stops when recording starts.
+            {/* Idle pulsing ring — gentle invitation; stops when recording starts.
                 Reduced-motion: omitted entirely so it respects the global rule. */}
             {!reduceMotion && (
               <motion.div
@@ -2516,7 +2520,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 aria-hidden="true"
               />
             )}
-            {/* Recording glow ring, brighter, faster */}
+            {/* Recording glow ring — brighter, faster */}
             <motion.div
               className="absolute inset-[10%] rounded-full pointer-events-none"
               animate={
@@ -2539,12 +2543,13 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               aria-hidden="true"
             />
 
-            {/* Pose changes morph the rigged mascot's body parts in place, no keyed remount/hard swap anymore (the rig springs between
+            {/* Pose changes morph the rigged mascot's body parts in place —
+                no keyed remount/hard swap anymore (the rig springs between
                 per-part pose targets). The evaluating dim is gone with the
                 spinner it used to sit behind: Bolo himself now plays that
                 state, so he stays at full strength while it runs. */}
             <div className="w-full h-full">
-              {/* Spec D2: mascot "hears" the learner, scale rides the live
+              {/* Spec D2: mascot "hears" the learner — scale rides the live
                     amplitude MotionValue (1.0–1.08) while recording. The rAF
                     loop leaves amplitudeMv at 0 under reduced motion or when
                     not recording, so this settles to scale 1 in those cases. */}
@@ -2570,7 +2575,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 </motion.div>
             </div>
 
-            {/* One-time first-practice hint, floats above the mascot belly,
+            {/* One-time first-practice hint — floats above the mascot belly,
                 auto-fades after 3.5s, then never shown again. Motion-safe:
                 the outer div is static; only the framer child animates. */}
             <AnimatePresence>
@@ -2584,7 +2589,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   aria-hidden="true"
                 >
                   <p className="whitespace-nowrap text-xs font-black text-primary-foreground">
-                    {readyHint ? "Mic's on, hold Bolo while you speak 🦜" : "Hold Bolo to speak 🦜"}
+                    {readyHint ? "Mic's on — hold Bolo while you speak 🦜" : "Hold Bolo to speak 🦜"}
                   </p>
                   {/* speech-bubble tail */}
                   <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 h-3 w-3 rotate-45 bg-primary" />
@@ -2592,12 +2597,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
               )}
             </AnimatePresence>
 
-            {/* Hold-to-speak hit zone, covers the FULL rendered bird (head to
+            {/* Hold-to-speak hit zone — covers the FULL rendered bird (head to
                 feet), not just the belly. The container's box tracks the
                 in-flow mascot img exactly (both are width-100% with the height
                 driven by the img), so inset-0 == the bird's visual bounds.
                 Task 882 addition: a belly-only inner box left the head dead to
-                touches. Keep this a plain rect, border-radius also clips
+                touches. Keep this a plain rect — border-radius also clips
                 pointer hit-testing. */}
             {bellyActive && (
               <div className="absolute inset-0">
@@ -2711,9 +2716,9 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   )}
                   {noInput ? (
                     // Zero-input state (Spec D2 rule 7): >1.5s of near-silence
-                    // while recording, most likely a muted or wrong mic.
+                    // while recording — most likely a muted or wrong mic.
                     <p className="text-center text-muted-foreground font-bold uppercase tracking-widest text-xs">
-                      We can't hear you, check your mic
+                      We can't hear you — check your mic
                     </p>
                   ) : (
                     <p className="text-center text-accent font-bold uppercase tracking-widest text-xs">
@@ -2751,7 +2756,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         </div>
 
         {/* ── TEMPORARY capture mode: brief save confirmation (no scores,
-               no bands, no feedback, display is suppressed by design) ───── */}
+               no bands, no feedback — display is suppressed by design) ───── */}
         {state === "capture_saved" && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -2868,7 +2873,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                       <BandLadder band={result.band} />
                     )}
                   </div>
-                  {/* "We heard", raw transcript plus card-style romanized
+                  {/* "We heard" — raw transcript plus card-style romanized
                       form (Task 907), mirroring mobile's placement and tone.
                       The romanized line hides when the server sent none
                       (uncovered script, nocatch) or when it would just repeat
@@ -2888,7 +2893,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   {/* Clamped: the coach's feedback can run to eight lines on a
                       phone, which pushed the action buttons below the fold and
                       made the learner scroll to reach "Next" after every
-                      attempt. Nothing is cut, the rest is one tap away. */}
+                      attempt. Nothing is cut — the rest is one tap away. */}
                   <ClampedText
                     text={`"${result.feedback}"`}
                     lines={4}
@@ -2900,7 +2905,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   )}
                   {saveFailed && (
                     <p className="mt-2 text-xs text-destructive font-medium">
-                      Heads up, this attempt couldn't be saved to your progress.
+                      Heads up — this attempt couldn't be saved to your progress.
                     </p>
                   )}
                   {/* Zero XP: say out loud that the phrase is coming back, or
@@ -2908,7 +2913,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   {!isTestout && result.xpAwarded === 0 && (
                     <p data-testid="encore-note" className="mt-2 text-xs font-medium text-muted-foreground">
                       {(phraseTallies[phrase?.id ?? -1]?.zeroStrikes ?? 0) >= ZERO_XP_STRIKE_LIMIT
-                        ? "That's three goes, we'll leave this one for next time."
+                        ? "That's three goes — we'll leave this one for next time."
                         : "No XP yet, so this one comes back at the end of the session."}
                     </p>
                   )}
@@ -2923,7 +2928,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   <UpgradeCard
                     icon={<Sparkles className="h-7 w-7" />}
                     title={`That's your free taste of ${languageName}!`}
-                    description={`Unlock ${languageName}, and every other language, with All-Access.`}
+                    description={`Unlock ${languageName} — and every other language — with All-Access.`}
                     cta="Keep learning"
                     href={upgradeHref({ plan: "plus", reason: "teaser_exhausted" })}
                     className="mt-3"
@@ -2931,7 +2936,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                 )}
               </motion.div>
 
-              {/* Action buttons, one row, constant order, constant labels
+              {/* Action buttons — one row, constant order, constant labels
                   (Task #1040). Error and test-out use the same two slots as
                   every other outcome, with the impermissible side dimmed,
                   rather than collapsing to a single full-width button. The
@@ -2986,7 +2991,7 @@ const SLOT_SECONDARY =
  *  counting a different thing. */
 const ADVANCE_ATTEMPT_LIMIT = 3;
 
-/** "Good or better", the earned half of the advance gate. */
+/** "Good or better" — the earned half of the advance gate. */
 function isGoodOrBetterBand(band: Band): boolean {
   return isFullCreditBand(band) || band === "good";
 }

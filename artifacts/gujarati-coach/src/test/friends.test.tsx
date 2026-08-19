@@ -12,7 +12,7 @@ vi.mock("@/components/language-picker", () => ({
   LanguagePicker: () => null,
 }));
 
-// BottomNav now reads activeLang directly, stub the context so no provider is needed.
+// BottomNav now reads activeLang directly — stub the context so no provider is needed.
 vi.mock("@/lib/language-context", () => ({
   useLanguage: () => ({ activeLang: "gu", activeLanguage: undefined, languages: [], setActiveLang: () => {}, isLoading: false }),
 }));
@@ -221,7 +221,7 @@ describe("Leaderboard", () => {
   test("every row wears that learner's own outfit, undressed when they have none", () => {
     // An outfit costs 40 Chai and used to be visible only to its buyer. These
     // rows are the audience. Three rows, three states: a dressed friend, the
-    // caller in something else, and a learner who owns nothing, who gets the
+    // caller in something else, and a learner who owns nothing — who gets the
     // canonical bird, never a blank or an initial.
     h.leaderboard = successQuery([
       { ...rival, equippedOutfit: "kurta", equippedAccessory: "pagdi" },
@@ -322,7 +322,7 @@ describe("Add friend (by code)", () => {
     );
   });
 
-  test("the request lands pending, the page never claims an instant friendship", async () => {
+  test("the request lands pending — the page never claims an instant friendship", async () => {
     // Load-bearing. Referral codes get broadcast on flyers and in group chats;
     // the accept step is the only thing standing between that and an open
     // friend list, so the success copy must not read as "you are now friends".

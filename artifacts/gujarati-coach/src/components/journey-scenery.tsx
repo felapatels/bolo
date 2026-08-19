@@ -86,7 +86,7 @@ function Ground({ a }: { a: string }) {
   return <rect x={0} y={54.5} width={240} height={1.5} fill={a} opacity={0.5} />;
 }
 
-/** Zone 1, Greetings & Manners: a welcoming city gateway arch. */
+/** Zone 1 — Greetings & Manners: a welcoming city gateway arch. */
 function GatewayScene({ a }: { a: string }) {
   return (
     <g>
@@ -106,7 +106,7 @@ function GatewayScene({ a }: { a: string }) {
   );
 }
 
-/** Zone 2, Family: a huddle of little homes with a shade tree. */
+/** Zone 2 — Family: a huddle of little homes with a shade tree. */
 function HomesScene({ a }: { a: string }) {
   return (
     <g>
@@ -128,7 +128,7 @@ function HomesScene({ a }: { a: string }) {
   );
 }
 
-/** Zone 3, Numbers 1-10: the town clock tower. */
+/** Zone 3 — Numbers 1-10: the town clock tower. */
 function ClockTowerScene({ a }: { a: string }) {
   return (
     <g>
@@ -151,7 +151,7 @@ function ClockTowerScene({ a }: { a: string }) {
   );
 }
 
-/** Zone 4, Food & Eating: the chai stall, steam rising. */
+/** Zone 4 — Food & Eating: the chai stall, steam rising. */
 function ChaiStallScene({ a }: { a: string }) {
   const stripes = [0, 1, 2, 3, 4, 5];
   return (
@@ -182,7 +182,7 @@ function ChaiStallScene({ a }: { a: string }) {
   );
 }
 
-/** Zone 5, Everyday Words: bazaar stalls under a pennant string. */
+/** Zone 5 — Everyday Words: bazaar stalls under a pennant string. */
 function BazaarScene({ a }: { a: string }) {
   const stall = (x: number, canopy: string) => (
     <g key={x}>
@@ -216,7 +216,7 @@ function BazaarScene({ a }: { a: string }) {
   );
 }
 
-/** Zone 6, Feelings, the festival-city finale: palace domes and fireworks. */
+/** Zone 6 — Feelings, the festival-city finale: palace domes and fireworks. */
 function FestivalScene({ a }: { a: string }) {
   return (
     <g>
@@ -269,7 +269,7 @@ export function ZoneVista({ zoneIndex, accent }: { zoneIndex: number; accent: st
 }
 
 // ---------------------------------------------------------------------------
-// India-flavored trackside scenery (Task 985): a dimensional FLAT set, every
+// India-flavored trackside scenery (Task 985): a dimensional FLAT set — every
 // asset shows a front face plus a right-hand face in exactly ONE darker
 // palette step (its shade tone), lit from a single shared upper-left light,
 // standing on a soft ground-contact ellipse. Purely decorative: no tap
@@ -532,7 +532,7 @@ function CycleRickshaw() {
 }
 
 /** River ghat: stone steps down to the water with a small wooden boat and a
- *  chhatri crowning the top step, the Varanasi-approach finale. */
+ *  chhatri crowning the top step — the Varanasi-approach finale. */
 function RiverGhat({ accent }: { accent: string }) {
   return (
     <g>
@@ -671,7 +671,7 @@ export const ZONE_SCENERY_THEMES: readonly (readonly SceneryKind[])[] = [
 
 /** Deterministic per-zone plan: 1-3 elements depending on how many stations
  *  the zone has, spread evenly across its station rows (`row` is the 0-based
- *  station index within the zone). Pure function of the zone layout, no
+ *  station index within the zone). Pure function of the zone layout — no
  *  per-render randomness, so screenshots and tests are stable. */
 export function planZoneScenery(
   zoneIndex: number,
@@ -767,7 +767,7 @@ export function SignalGlyph({
   const lamp = barDown ? SIGNAL_RED : state === "waved" ? SIGNAL_AMBER : SIGNAL_GREEN;
   // The striped gate arm, drawn ONCE pointing left from its pivot on the post.
   // The bar-up states rotate this same group about the pivot, so the arm's
-  // geometry, stripes, lamps and all, is identical in every state.
+  // geometry — stripes, lamps and all — is identical in every state.
   const arm = (
     <g>
       <rect x={1} y={20.9} width={16.4} height={3} rx={1.5} fill="#ffffff" stroke={SLATE} strokeWidth={0.6} />
@@ -855,11 +855,11 @@ export function SignalGlyph({
   );
 }
 
-/** Hotfix 3S Item 5: the Signalman, the friendly crossing keeper the copy
+/** Hotfix 3S Item 5: the Signalman — the friendly crossing keeper the copy
  *  already talks about ("the signalman kept your Chai"). Hand-drawn inline
  *  SVG in the brand palette, TrainEngine construction pattern: layered
  *  rects/circles/paths, flat playful shapes, no gradients, no raster, no AI
- *  art. Decorative only, always rendered inside an aria-hidden scene. */
+ *  art. Decorative only — always rendered inside an aria-hidden scene. */
 const SKIN = "#f5c99b"; // signalman face/hands (warm step of the AMBER family)
 
 export function SignalmanGlyph({ className }: { className?: string }) {
@@ -875,7 +875,7 @@ export function SignalmanGlyph({ className }: { className?: string }) {
     >
       {/* ground shadow (shared scenery convention: down-light from upper-left) */}
       <ellipse cx={13} cy={36.2} rx={8} ry={1.9} fill={INK} opacity={0.13} />
-      {/* flag pole, held high, drawn first so the hand overlaps the grip */}
+      {/* flag pole, held high — drawn first so the hand overlaps the grip */}
       <rect x={21.2} y={2.4} width={1.5} height={17} rx={0.75} fill={SLATE_SHADE} />
       {/* red pennant, pointing back toward the track */}
       <path d="M22.7 2.8 L22.7 8.8 L15.2 5.8 Z" fill={SIGNAL_RED} />
@@ -941,7 +941,7 @@ export function SignpostGlyph({ accent }: { accent: string }) {
 }
 
 /** One placed scenery element (rendered inside the map SVG, anchored at
- *  ground level, draws upward from y=0). Locked showroom zones gray out via
+ *  ground level — draws upward from y=0). Locked showroom zones gray out via
  *  CSS filter, matching the postcards. */
 export function SceneryElement({
   kind,

@@ -131,7 +131,7 @@ function renderPage(ui: ReactElement, path = "/learn/1") {
   return render(<Router hook={hook}>{ui}</Router>);
 }
 
-// Generous timeout for waitFor calls, the CI validation environment runs all
+// Generous timeout for waitFor calls — the CI validation environment runs all
 // test suites in parallel so individual async steps can take longer than the
 // 1 s default without indicating a real failure.
 const WT = { timeout: 8000 };
@@ -236,7 +236,7 @@ describe("hot-streak toasts", () => {
 
     await scoreAndNext("good");
     await scoreAndNext("great");
-    // Third consecutive passing band, toast fires
+    // Third consecutive passing band — toast fires
     await scoreOnce("great");
 
     await waitFor(
@@ -252,7 +252,7 @@ describe("hot-streak toasts", () => {
     await scoreAndNext("great");
     await scoreAndNext("great");
     await scoreAndNext("good");
-    // Fifth consecutive passing band, "On a roll!" fires
+    // Fifth consecutive passing band — "On a roll!" fires
     await scoreOnce("great");
 
     await waitFor(
@@ -273,7 +273,7 @@ describe("hot-streak toasts", () => {
     for (let i = 0; i < 9; i++) {
       await scoreAndNext("great");
     }
-    // Tenth consecutive passing band, "UNSTOPPABLE!" fires
+    // Tenth consecutive passing band — "UNSTOPPABLE!" fires
     await scoreOnce("great");
 
     await waitFor(
@@ -287,7 +287,7 @@ describe("hot-streak toasts", () => {
 
     await scoreAndNext("great");  // streak = 1
     await scoreAndNext("retry", 0);  // streak resets to 0
-    await scoreOnce("great");     // streak = 1, no "3 in a row" toast yet
+    await scoreOnce("great");     // streak = 1 — no "3 in a row" toast yet
 
     // Brief pause to confirm the toast does NOT appear
     await new Promise((r) => setTimeout(r, 150));
@@ -307,7 +307,7 @@ describe("mid-session toasts", () => {
     await reachIdle(fourPhrases);
 
     await scoreAndNext("great"); // index 0 → 1
-    await scoreOnce("great");    // index 1, next click will go to index 2
+    await scoreOnce("great");    // index 1 — next click will go to index 2
     fireEvent.click(screen.getByTestId("advance-button"));
     await waitFor(
       () => expect(screen.getByText("Halfway there! 💪")).toBeInTheDocument(),
@@ -320,7 +320,7 @@ describe("mid-session toasts", () => {
 
     await scoreAndNext("great"); // → index 1
     await scoreAndNext("great"); // → index 2
-    await scoreOnce("great");    // index 2, next click will go to index 3 (last)
+    await scoreOnce("great");    // index 2 — next click will go to index 3 (last)
     fireEvent.click(screen.getByTestId("advance-button"));
     await waitFor(
       () => expect(screen.getByText("Last one! 🦜 Finish strong!")).toBeInTheDocument(),
@@ -345,7 +345,7 @@ describe("mid-session toasts", () => {
   });
 
   test("halfway toast does not fire for sessions with fewer than 4 phrases", async () => {
-    await reachIdle(phrases.slice(0, 3)); // 3 phrases, below the 4-phrase guard
+    await reachIdle(phrases.slice(0, 3)); // 3 phrases — below the 4-phrase guard
 
     await scoreAndNext("great"); // → 1
     await scoreOnce("great");
@@ -431,7 +431,7 @@ describe("session summary XP chip", () => {
   });
 
   test('shows "Session Complete!" when at least one phrase is not nailed', async () => {
-    // One nailed, one close, passes but not perfect
+    // One nailed, one close — passes but not perfect
     await reachIdle(phrases.slice(0, 2));
 
     await scoreAndNext("great");

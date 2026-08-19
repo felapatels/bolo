@@ -38,7 +38,7 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 // router + the genuine loadEntitlements middleware, behind a stub that injects
 // req.userId like requireAuth would. Clerk identity operations are swapped for a
 // fake (Node's test runner has no module mocking) so name/email/password/delete
-// paths run without a live Clerk tenant, the fake records the calls so we can
+// paths run without a live Clerk tenant — the fake records the calls so we can
 // assert Clerk was driven.
 //
 // Everything is scoped to throwaway ids / a test-only language and cleaned up.
@@ -495,12 +495,12 @@ test("POST /account/password enforces a minimum length and calls Clerk", async (
 
 test("DELETE /account removes the Clerk user and purges all local rows", async () => {
   // Covered tables (14 total):
-  //   attempts, badges, lesson_generations, friendships  , existing
+  //   attempts, badges, lesson_generations, friendships   — existing
   //   xp_ledger, user_ability, user_item_memory,
   //   phrase_reports, daily_quiz_completions,
   //   game_sessions, lesson_group_progress,
   //   lesson_group_testouts, script_trace_progress,
-  //   contact_submissions                                , added here
+  //   contact_submissions                                 — added here
   // TODO (build-32): extend with token_ledger, token_spend_ledger.
 
   // Seed one row in every user-owned table.
@@ -884,7 +884,7 @@ test("resume is rejected for free users and paused subscriptions", async () => {
   const expired = await post("/account/subscription/resume");
   assert.equal(expired.status, 400);
 
-  // Paused is a different state, resume of a pause is via the pause window.
+  // Paused is a different state — resume of a pause is via the pause window.
   await setUser({
     tier: "plus",
     subscriptionStatus: "paused",
@@ -909,7 +909,7 @@ test("unpause resumes a paused subscription early, and rejects non-paused states
   assert.equal(resumed.json.status, "active");
   assert.equal(resumed.json.pauseUntil, null);
 
-  // Not paused anymore, a second call is rejected.
+  // Not paused anymore — a second call is rejected.
   const again = await post("/account/subscription/unpause");
   assert.equal(again.status, 400);
 });
@@ -937,41 +937,41 @@ test("retention is rejected for a free user", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// ttsVoice preference, entitlement gate (free / one_language / plus)
+// ttsVoice preference — entitlement gate (free / one_language / plus)
 // ---------------------------------------------------------------------------
 
-// George's voice ID from VOICE_CATALOG, a valid curated ElevenLabs voice.
+// George's voice ID from VOICE_CATALOG — a valid curated ElevenLabs voice.
 const GEORGE_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
 const PLUS_PERIOD = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-test("PATCH /account/preferences ttsVoice, 400 for an unknown voice ID", async () => {
+test("PATCH /account/preferences ttsVoice — 400 for an unknown voice ID", async () => {
   await setUser({ tier: "plus", subscriptionStatus: "active", currentPeriodEnd: PLUS_PERIOD });
   const { status } = await patch("/account/preferences", { ttsVoice: "not-a-real-voice-id" });
   assert.equal(status, 400);
 });
 
-test("PATCH /account/preferences ttsVoice, 402 upgrade_required for a free user", async () => {
+test("PATCH /account/preferences ttsVoice — 402 upgrade_required for a free user", async () => {
   // Default test-user state is free; no setUser call needed.
   const { status, json } = await patch("/account/preferences", { ttsVoice: GEORGE_VOICE_ID });
   assert.equal(status, 402);
   assert.equal(json?.code, "upgrade_required");
 });
 
-test("PATCH /account/preferences ttsVoice, 402 upgrade_required for a one_language user", async () => {
+test("PATCH /account/preferences ttsVoice — 402 upgrade_required for a one_language user", async () => {
   await setUser({ tier: "one_language", subscriptionStatus: "active", currentPeriodEnd: PLUS_PERIOD });
   const { status, json } = await patch("/account/preferences", { ttsVoice: GEORGE_VOICE_ID });
   assert.equal(status, 402);
   assert.equal(json?.code, "upgrade_required");
 });
 
-test("PATCH /account/preferences ttsVoice, 200 and persisted for a plus user", async () => {
+test("PATCH /account/preferences ttsVoice — 200 and persisted for a plus user", async () => {
   await setUser({ tier: "plus", subscriptionStatus: "active", currentPeriodEnd: PLUS_PERIOD });
   const { status, json } = await patch("/account/preferences", { ttsVoice: GEORGE_VOICE_ID });
   assert.equal(status, 200);
   assert.equal(json?.preferences?.learning?.ttsVoice, GEORGE_VOICE_ID);
 });
 
-test("PATCH /account/preferences ttsVoice null, 200 clears preference back to Auto for a plus user", async () => {
+test("PATCH /account/preferences ttsVoice null — 200 clears preference back to Auto for a plus user", async () => {
   await setUser({ tier: "plus", subscriptionStatus: "active", currentPeriodEnd: PLUS_PERIOD, ttsVoice: GEORGE_VOICE_ID });
   const { status, json } = await patch("/account/preferences", { ttsVoice: null });
   assert.equal(status, 200);

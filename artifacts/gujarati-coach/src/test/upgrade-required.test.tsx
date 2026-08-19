@@ -18,7 +18,7 @@ const h = vi.hoisted(() => ({
 }));
 
 // Preserve the real asUpgradeRequired/upgradeHref helpers (pure functions with
-// no Clerk dependency) but replace useEntitlements, it calls useUser() which
+// no Clerk dependency) but replace useEntitlements — it calls useUser() which
 // requires a <ClerkProvider> that the test harness doesn't provide.
 vi.mock("@/lib/entitlements", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/entitlements")>();
@@ -210,7 +210,7 @@ describe("Lesson load 402", () => {
     expect(screen.getByText("Start 7-day free trial")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Cancel anytime, no charge if you cancel before the trial ends.",
+        "Cancel anytime — no charge if you cancel before the trial ends.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("See All-Access")).not.toBeInTheDocument();
@@ -249,7 +249,7 @@ describe("Lesson load 402", () => {
 describe("Add-phrases refusals", () => {
   test("hitting the topic ceiling while adding phrases offers an upgrade link", () => {
     // Rendered without a matching <Route>, so useParams() is empty and the page
-    // parses categoryId as 0, the fixture category must share that id.
+    // parses categoryId as 0 — the fixture category must share that id.
     h.categories = [
       { id: 0, title: "Greetings", titleNative: null, accent: null },
     ];
@@ -368,7 +368,7 @@ describe("Add-phrases refusals", () => {
 
 describe("Plus-locked phrases upsell", () => {
   // Rendered without a matching <Route>, so useParams() is empty and the page
-  // parses categoryId as 0, the fixture category must share that id.
+  // parses categoryId as 0 — the fixture category must share that id.
   const withPhrases = () => {
     h.categoryPhrases = {
       ...idleQuery,
@@ -482,7 +482,7 @@ describe("Practice page 402", () => {
     expect(screen.getByText("Start 7-day free trial")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Cancel anytime, no charge if you cancel before the trial ends.",
+        "Cancel anytime — no charge if you cancel before the trial ends.",
       ),
     ).toBeInTheDocument();
     // Generic CTA must NOT appear when showTrial is true.

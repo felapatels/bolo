@@ -4,7 +4,7 @@
 // parent to auto, but native Yoga measures the Svg node, and the percentage
 // height inflated the perforation strip → row → card until BOTH ticket
 // surfaces (home hero JourneyPassCard + journey map header) filled the whole
-// iPhone screen, while Expo web looked perfect.
+// iPhone screen — while Expo web looked perfect.
 //
 // These tests pin the sizing contract from components/journey/TicketParts.tsx:
 //  1. No Svg renders inside the ticket fittings until an onLayout measure
@@ -91,7 +91,7 @@ jest.mock('@/contexts/LanguageContext', () => ({
 }));
 
 // JourneyPassCard now imports the tear SFX layer (R4), which pulls in
-// expo-audio's native bridge, mock it out; SFX behavior is pinned in
+// expo-audio's native bridge — mock it out; SFX behavior is pinned in
 // tear-audio.test.ts and journey-pass-motion.test.tsx.
 jest.mock('@/lib/tearAudio', () => ({
   preloadTearAudio: jest.fn(),
@@ -138,7 +138,7 @@ const treeHasPercent = (json: unknown) => JSON.stringify(json).includes('%');
 // ─── tests ───────────────────────────────────────────────────────────────────
 
 describe('TicketPerforationV stays content-sized (build-28 full-screen regression)', () => {
-  it('renders NO svg before measuring, the strip has zero normal-flow content', () => {
+  it('renders NO svg before measuring — the strip has zero normal-flow content', () => {
     const r = render(<TicketPerforationV dashColor="#ccc" holeColor="#fff" />);
     expect(r.queryByTestId('ticket-perforation-svg')).toBeNull();
     expect(treeHasPercent(r.toJSON())).toBe(false);
@@ -250,7 +250,7 @@ describe('zone stamp geometry (build 30)', () => {
   });
 });
 
-// R1 (32.1): the stub's four device defects shared one cause, fixed-size
+// R1 (32.1): the stub's four device defects shared one cause — fixed-size
 // type inside a fixed 64px column. Pins: the stamp's inner type scales with
 // the ring (a 7px FARE ZONE label overflowed the top-arc chord of a 48px
 // ring), the name budget respects the narrower lower-arc chord, and all
@@ -291,7 +291,7 @@ describe('zone stamp type scales as a unit (R1)', () => {
 
   it('the name budget respects the lower-arc chord (no mid-word wrap room)', () => {
     // "AHMEDABAD" (9 glyphs) at the old 0.84 budget computed to a font whose
-    // estimated run EQUALED the budget, zero margin, guaranteed mid-word
+    // estimated run EQUALED the budget — zero margin, guaranteed mid-word
     // wrap on device. The 0.72 budget leaves real margin.
     const size = 47;
     const font = stampNameFontSize('Ahmedabad Junction', size);

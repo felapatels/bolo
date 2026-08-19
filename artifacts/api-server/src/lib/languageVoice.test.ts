@@ -3,12 +3,12 @@
  *
  * Two test layers:
  *
- * 1. UNIT, getVoiceIdForLanguage routing logic (no network, instant).
+ * 1. UNIT — getVoiceIdForLanguage routing logic (no network, instant).
  *    Confirms every ISO code in LANGUAGE_VOICE_MAP resolves to the expected
  *    voice ID, unknown codes fall back to DEFAULT_MULTILINGUAL_VOICE_ID, and
  *    edge cases (undefined, whitespace, mixed-case) are handled correctly.
  *
- * 2. INTEGRATION, ElevenLabs voice-ID smoke test (live API, ~6 real calls).
+ * 2. INTEGRATION — ElevenLabs voice-ID smoke test (live API, ~6 real calls).
  *    Calls textToSpeechElevenLabs with a short native-script phrase for each
  *    distinct voice ID in the map.  Asserts:
  *      - No 402 / 400 error (voice is available on the current plan)
@@ -89,7 +89,7 @@ test("getVoiceIdForLanguage: leading/trailing whitespace is stripped", () => {
 
 // Verify every entry in the map resolves to its declared voice ID.
 // After the task #643 Auto-voice unification, all entries map to Laura
-// (DEFAULT_MULTILINGUAL_VOICE_ID), that is intentional and correct.
+// (DEFAULT_MULTILINGUAL_VOICE_ID) — that is intentional and correct.
 test("getVoiceIdForLanguage: every mapped code resolves to its declared voice ID", () => {
   for (const [code, expected] of Object.entries(LANGUAGE_VOICE_MAP)) {
     const resolved = getVoiceIdForLanguage(code);
@@ -101,7 +101,7 @@ test("getVoiceIdForLanguage: every mapped code resolves to its declared voice ID
   }
 });
 
-// Spot-check specific language families, all unified to Laura after task #643.
+// Spot-check specific language families — all unified to Laura after task #643.
 const LAURA = DEFAULT_MULTILINGUAL_VOICE_ID;
 
 test("getVoiceIdForLanguage: North Indian languages resolve to the Laura Auto-default", () => {
@@ -275,7 +275,7 @@ const VOICE_SMOKE_CASES: Array<{
     // Laura is the universal Auto default for all supported languages.
     voiceName: "Laura (Auto / all languages)",
     voiceId: DEFAULT_MULTILINGUAL_VOICE_ID,
-    phrase: "नमस्ते",   // "Namaste", Hindi Devanagari, 6 chars
+    phrase: "नमस्ते",   // "Namaste" — Hindi Devanagari, 6 chars
     languageCodes: [
       "hi", "pa", "mr", "ne", "sa",        // North Indian / Indic
       "ta", "te", "kn", "ml",               // Dravidian
@@ -288,7 +288,7 @@ const VOICE_SMOKE_CASES: Array<{
 ];
 
 // Confirm every distinct voice ID in the map is covered by the smoke cases
-// (pure code assertion, not skipped by key absence).
+// (pure code assertion — not skipped by key absence).
 test("smoke test coverage: every distinct voice ID in LANGUAGE_VOICE_MAP has a smoke case", () => {
   const smokeIds = new Set(VOICE_SMOKE_CASES.map((c) => c.voiceId));
   const mapIds = new Set(Object.values(LANGUAGE_VOICE_MAP));
@@ -335,16 +335,16 @@ const RUN_ELEVENLABS_LIVE_TESTS = Boolean(
 );
 
 const liveSkipReason: string | false = !RUN_ELEVENLABS_LIVE_TESTS
-  ? "live ElevenLabs network test, opt in with RUN_ELEVENLABS_LIVE_TESTS=1"
+  ? "live ElevenLabs network test — opt in with RUN_ELEVENLABS_LIVE_TESTS=1"
   : !process.env.ELEVENLABS_API_KEY
-    ? "RUN_ELEVENLABS_LIVE_TESTS is set but ELEVENLABS_API_KEY is absent, nothing to authenticate with"
+    ? "RUN_ELEVENLABS_LIVE_TESTS is set but ELEVENLABS_API_KEY is absent — nothing to authenticate with"
     : false;
 
 {
   // ─── Integration: textToSpeechElevenLabsStream language_id smoke test ──────
   //
   // Verifies that the streaming synthesis path passes language_id correctly to
-  // ElevenLabs. Uses Hindi ("hi"), a Devanagari-script language, because
+  // ElevenLabs. Uses Hindi ("hi") — a Devanagari-script language — because
   // Devanagari is shared by multiple languages (Hindi, Marathi, Nepali, etc.)
   // and is the primary case where language_id disambiguation matters.
   //
@@ -358,8 +358,8 @@ const liveSkipReason: string | false = !RUN_ELEVENLABS_LIVE_TESTS
     "textToSpeechElevenLabsStream: Hindi (hi) with language_id streams a valid MP3",
     { skip: liveSkipReason },
     async () => {
-      const hiVoiceId = DEFAULT_MULTILINGUAL_VOICE_ID; // Laura, universal Auto voice
-      const hiPhrase = "नमस्ते"; // "Namaste", 6 chars
+      const hiVoiceId = DEFAULT_MULTILINGUAL_VOICE_ID; // Laura — universal Auto voice
+      const hiPhrase = "नमस्ते"; // "Namaste" — 6 chars
       const hiLanguageId = getLanguageIdForCode("hi"); // should be "hi"
 
       const chunksSeen: number[] = [];
@@ -371,7 +371,7 @@ const liveSkipReason: string | false = !RUN_ELEVENLABS_LIVE_TESTS
           hiVoiceId,
           undefined,           // _language (not sent to API)
           "eleven_flash_v2_5", // low-latency model, same as parrotChat
-          hiLanguageId,        // language_id, the field under test
+          hiLanguageId,        // language_id — the field under test
           (chunk) => { chunksSeen.push(chunk.length); },
         );
       } catch (err: unknown) {
@@ -379,10 +379,10 @@ const liveSkipReason: string | false = !RUN_ELEVENLABS_LIVE_TESTS
 
         // Quota exhausted: the API accepted the request (voice + language_id
         // were valid) but synthesis was blocked by the billing gate. Skip
-        // rather than fail, this is not a language_id problem.
+        // rather than fail — this is not a language_id problem.
         if (/quota_exceeded/.test(msg) || /status 429/.test(msg)) {
           console.log(
-            "  ⚠  textToSpeechElevenLabsStream (hi): ElevenLabs quota exhausted, " +
+            "  ⚠  textToSpeechElevenLabsStream (hi): ElevenLabs quota exhausted — " +
               "language_id was accepted but credits are depleted.",
           );
           return;
@@ -391,7 +391,7 @@ const liveSkipReason: string | false = !RUN_ELEVENLABS_LIVE_TESTS
         // 400/422 most likely means language_id was rejected by the API.
         if (/status 400/.test(msg) || /status 422/.test(msg)) {
           assert.fail(
-            `textToSpeechElevenLabsStream returned ${msg.match(/status \d+/)?.[0] ?? "4xx"}, ` +
+            `textToSpeechElevenLabsStream returned ${msg.match(/status \d+/)?.[0] ?? "4xx"} — ` +
               "the language_id \"hi\" may be invalid for eleven_flash_v2_5, or the " +
               "request body was malformed. Check getLanguageIdForCode and the API payload.",
           );
@@ -399,12 +399,12 @@ const liveSkipReason: string | false = !RUN_ELEVENLABS_LIVE_TESTS
 
         if (/status 402/.test(msg)) {
           assert.fail(
-            "textToSpeechElevenLabsStream returned 402, the Laura voice may not be " +
+            "textToSpeechElevenLabsStream returned 402 — the Laura voice may not be " +
               "available on the current ElevenLabs plan. Replace it with a premade voice.",
           );
         }
 
-        throw err; // Unexpected error, surface as-is.
+        throw err; // Unexpected error — surface as-is.
       }
 
       assert.ok(
@@ -428,7 +428,7 @@ const liveSkipReason: string | false = !RUN_ELEVENLABS_LIVE_TESTS
 
       assert.ok(
         chunksSeen.length > 0,
-        "textToSpeechElevenLabsStream (hi): onChunk was never called, " +
+        "textToSpeechElevenLabsStream (hi): onChunk was never called — " +
           "the streaming path may have fallen back to a buffered response.",
       );
     },
@@ -453,7 +453,7 @@ const liveSkipReason: string | false = !RUN_ELEVENLABS_LIVE_TESTS
           const msg = err instanceof Error ? err.message : String(err);
 
           // ElevenLabs returns 401 with code:"quota_exceeded" when monthly credits
-          // are exhausted. This is NOT a voice-ID problem, it means the API key
+          // are exhausted. This is NOT a voice-ID problem — it means the API key
           // was accepted and the request was routed (so the voice ID is valid on
           // the account's plan) but synthesis was blocked by the quota gate.
           // Skip rather than fail so a depleted-quota environment doesn't
@@ -461,35 +461,35 @@ const liveSkipReason: string | false = !RUN_ELEVENLABS_LIVE_TESTS
           if (/quota_exceeded/.test(msg) || /status 429/.test(msg)) {
             console.log(
               `  ⚠  Voice "${voiceName}" (${voiceId}): ElevenLabs quota ` +
-                "exhausted, voice ID was accepted but credits are depleted. " +
+                "exhausted — voice ID was accepted but credits are depleted. " +
                 "Re-run after the monthly quota resets to verify audio quality.",
             );
-            return; // Skip this voice, not a map problem.
+            return; // Skip this voice — not a map problem.
           }
 
           // 402 = plan does not include this voice; 400 = invalid voice ID.
-          // Both indicate a misconfigured voice map, fail loudly.
+          // Both indicate a misconfigured voice map — fail loudly.
           if (/status 402/.test(msg)) {
             assert.fail(
-              `Voice "${voiceName}" (${voiceId}) returned 402, it may be a ` +
+              `Voice "${voiceName}" (${voiceId}) returned 402 — it may be a ` +
                 "library/cloned voice unavailable on the current ElevenLabs plan. " +
                 "Replace it with a premade voice in LANGUAGE_VOICE_MAP.",
             );
           }
           if (/status 400/.test(msg) || /status 404/.test(msg)) {
             assert.fail(
-              `Voice "${voiceName}" (${voiceId}) returned 400/404, the voice ID ` +
+              `Voice "${voiceName}" (${voiceId}) returned 400/404 — the voice ID ` +
                 "is invalid or was deleted. Update LANGUAGE_VOICE_MAP and bump " +
                 "TTS_PROVIDER_VERSION in ttsCache.ts.",
             );
           }
-          throw err; // Unexpected error (network outage, etc.), surface as-is.
+          throw err; // Unexpected error (network outage, etc.) — surface as-is.
         }
 
         assert.ok(
           buffer.length > 0,
           `Voice "${voiceName}" (${voiceId}) returned an empty audio buffer. ` +
-            "ElevenLabs accepted the request but produced no audio, check the phrase or voice settings.",
+            "ElevenLabs accepted the request but produced no audio — check the phrase or voice settings.",
         );
 
         // Verify the buffer starts with an MP3 ID3 tag or frame sync marker.

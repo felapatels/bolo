@@ -4,7 +4,7 @@
  *
  * `playCue(name)` plays a short feedback cue. It reads the Spec 1a sound
  * preference and no-ops when sound is off, when the app is backgrounded, and
- * when a cue asset is missing, so the app works fully before any audio file
+ * when a cue asset is missing — so the app works fully before any audio file
  * exists. React Native requires static `require` calls for bundled assets, so
  * cues are registered in CUE_SOURCES below; entries are added as assets land
  * (e.g. `correct: require('../assets/sounds/correct.mp3')`).
@@ -19,14 +19,14 @@ import { loadSoundPref } from './soundPref';
 
 export type CueName = 'correct' | 'wrong' | 'session_complete';
 
-// Static asset registry, RN cannot require() dynamically or conditionally
+// Static asset registry — RN cannot require() dynamically or conditionally
 // at runtime, so absent assets are simply absent entries here.
 const CUE_SOURCES: Partial<Record<CueName, number>> = {};
 
 export async function playCue(name: CueName): Promise<void> {
   try {
     const source = CUE_SOURCES[name];
-    if (source == null) return; // asset not shipped yet, silent no-op
+    if (source == null) return; // asset not shipped yet — silent no-op
     if (AppState.currentState !== 'active') return; // no audio when backgrounded
     if (!(await loadSoundPref())) return;
 

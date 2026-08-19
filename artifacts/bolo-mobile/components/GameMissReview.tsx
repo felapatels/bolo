@@ -1,5 +1,5 @@
 // The shared "what did I get wrong" review for the games' end screens
-// (mobile half of the web `game-miss-review.tsx` pair, keep the two in step).
+// (mobile half of the web `game-miss-review.tsx` pair — keep the two in step).
 //
 // Every game ends on a score (6 / 8 correct) that used to be a dead number:
 // the learner could see they missed two, never which two. Each game collects
@@ -11,7 +11,7 @@
 //
 // End screens own the open state, so the score card can open the same sheet
 // (tapping the 6/8 is the affordance most learners reach for first). A perfect
-// run renders neither piece, there is nothing to review.
+// run renders neither piece — there is nothing to review.
 //
 // A miss is described in the learner's own terms, not in ids: the prompt they
 // saw, what they answered, and what the answer was. Rounds that lapse pass
@@ -25,7 +25,7 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
 export type GameMiss = {
-  /** What the learner was asked, the prompt as it appeared on screen. */
+  /** What the learner was asked — the prompt as it appeared on screen. */
   prompt: string;
   /** Optional second line under the prompt (romanization, native script, a hint). */
   promptSub?: string | null;
@@ -35,7 +35,7 @@ export type GameMiss = {
   correct: string;
   /** Romanized readings for the two lines above, when the value is native
    *  script. Section 10j: script never appears without its reading. Empty or
-   *  null renders nothing, several scripts have no romanization. */
+   *  null renders nothing — several scripts have no romanization. */
   answerSub?: string | null;
   correctSub?: string | null;
   /** Overrides for the two row labels. A game that is not answered in words
@@ -112,7 +112,7 @@ export function MissReviewModal({
                   <Text style={[styles.answerText, { color: colors.mutedForeground }]}>
                     {miss.answerLabel ?? 'You said'}{' '}
                     <Text style={[styles.answerValue, { color: '#EF4444' }]}>
-                      {miss.answer ?? 'nothing, the round ran out'}
+                      {miss.answer ?? 'nothing — the round ran out'}
                     </Text>
                     {miss.answer && miss.answerSub?.trim() ? (
                       <Text style={[styles.answerSub, { color: colors.mutedForeground }]}>

@@ -3,7 +3,7 @@
 // A ticket shows the English meaning and the romanized reading; the learner
 // punches the matching native-script ticket. Selection game riding the frozen
 // listen-and-pick correctness model (selectedPhraseId === phraseId), declared
-// on the roster entry, this file adds no server game id and touches no
+// on the roster entry — this file adds no server game id and touches no
 // server file.
 //
 // Ported from the web game (gujarati-coach/src/pages/games/ticket-check.tsx),
@@ -45,7 +45,7 @@ export type TicketQuestion = {
  * Local Fisher-Yates. The planner owns its own shuffle rather than reaching
  * into the shell: shuffling is a game concern, and keeping it here is what
  * lets buildPlan stay pure and testable without rendering anything.
- * Returns a new array, the caller's phrase list is never mutated.
+ * Returns a new array — the caller's phrase list is never mutated.
  */
 function shuffle<T>(items: readonly T[]): T[] {
   const out = items.slice();
@@ -61,7 +61,7 @@ function shuffle<T>(items: readonly T[]): T[] {
  *
  * The pool is shuffled ONCE and walked with a cursor, reshuffling and
  * resetting when the cursor passes the end. That is what spreads anchors
- * evenly over a short category, picking a random anchor each round would
+ * evenly over a short category — picking a random anchor each round would
  * repeat some phrases and never show others.
  *
  * `correctIdx` is derived by findIndex AFTER the final shuffle, never carried
@@ -167,7 +167,7 @@ function TicketCheckRound({ phrases, api, activeLanguage }: QuickRoundProps) {
               </Text>
 
               {/* Every answer carries its own reading under the script, from
-                  the first look, the pairing IS the lesson. The correct tile
+                  the first look — the pairing IS the lesson. The correct tile
                   adds its English meaning once answered. Languages with no
                   romanization render no empty slot. */}
               {choice.romanized.trim() !== '' && (
@@ -237,7 +237,7 @@ export default function TicketCheckScreen() {
       // secondsPerRound deliberately omitted: Ticket Check is untimed.
       roundsPerRun={ROUNDS}
       // SILENT: the game speaks nothing, so the shell must not offer a mute
-      // control over silence. This landed after the port did, usesAudio
+      // control over silence. This landed after the port did — usesAudio
       // defaults to true, so the first game on the shell never opted out.
       usesAudio={false}
       instruction="Punch the ticket that matches the script"

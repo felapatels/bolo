@@ -133,7 +133,7 @@ async function generateQuizQuestions(
     );
   }
 
-  // Pick 5 random phrases, one per question.
+  // Pick 5 random phrases — one per question.
   const selected = sampleN(phrases, 5);
 
   // Assign question types in rotation: mcq, listen, order, mcq, listen
@@ -199,13 +199,13 @@ async function generateQuizQuestions(
 
 /**
  * Build the shuffled tile + subtitle arrays for an order_words question
- * (R3, 32.1). Exported for tests: the alignment invariant, element i of
- * tileRomanizations describes element i of tiles, must survive the shuffle.
+ * (R3, 32.1). Exported for tests: the alignment invariant — element i of
+ * tileRomanizations describes element i of tiles — must survive the shuffle.
  *
  * Word tokens have no curated per-word romanization, so the Task-907
  * display-only transliterator supplies one; scripts it cannot cover yield ""
  * and clients render no subtitle. The single-word fallback path builds tiles
- * from whole phrases, which DO have curated romanizations, those are
+ * from whole phrases, which DO have curated romanizations — those are
  * preferred over re-transliteration.
  */
 export function buildOrderTiles(
@@ -289,7 +289,7 @@ export async function computeQuizStreak(
 
 // GET /games/script-trace/progress?chapter=<chapter>
 // Returns the caller's per-character progress for the requested chapter.
-// Plus-only, non-Plus callers get a 402.
+// Plus-only — non-Plus callers get a 402.
 router.get(
   "/games/script-trace/progress",
   async (req: Request, res: Response): Promise<void> => {
@@ -335,7 +335,7 @@ router.get(
 // POST /games/script-trace/progress
 // Records a tracing attempt result. Upserts so the best score is always kept
 // and the `passed` flag is sticky (never reverted to false once true).
-// Plus-only, non-Plus callers get a 402.
+// Plus-only — non-Plus callers get a 402.
 router.post(
   "/games/script-trace/progress",
   async (req: Request, res: Response): Promise<void> => {
@@ -425,7 +425,7 @@ router.post(
             .limit(1);
 
           if (existing.length === 0) {
-            // First time completing this chapter, record session + phantom attempt.
+            // First time completing this chapter — record session + phantom attempt.
             const [[traceSession]] = await Promise.all([
               db
                 .insert(gameSessionsTable)
@@ -600,7 +600,7 @@ router.get(
  * CompleteDailyQuizInput schema for per-type encoding).
  *
  * Scoring is server-authoritative: the server loads today's stored questions
- * and compares each submitted answer against the ground truth, the client
+ * and compares each submitted answer against the ground truth — the client
  * cannot inflate its own score.
  *
  * Enforces one submission per (user, language, date). Returns the score and
@@ -639,7 +639,7 @@ router.post(
         andFn(eqFn(t.languageCode, lang), eqFn(t.quizDate, today)),
     });
     if (!quiz) {
-      res.status(404).json({ error: "Today's quiz not found, fetch it first" });
+      res.status(404).json({ error: "Today's quiz not found — fetch it first" });
       return;
     }
 
@@ -772,14 +772,14 @@ router.post(
 /**
  * POST /games/daily-quiz/generate
  *
- * Admin/cron endpoint, pre-generates today's quiz for every language.
+ * Admin/cron endpoint — pre-generates today's quiz for every language.
  * Requires X-Cron-Secret header matching CRON_SECRET (or SESSION_SECRET).
- * Idempotent, silently skips languages that already have today's quiz.
+ * Idempotent — silently skips languages that already have today's quiz.
  *
  * Authorization: requires the X-Cron-Secret header to match the CRON_SECRET
  * environment variable (or SESSION_SECRET as a fallback). Without a valid
- * secret the endpoint returns 401 to any caller, including authenticated
- * learners, so it cannot be abused to trigger bulk AI generation.
+ * secret the endpoint returns 401 to any caller — including authenticated
+ * learners — so it cannot be abused to trigger bulk AI generation.
  */
 publicRouter.post(
   "/games/daily-quiz/generate",

@@ -155,7 +155,7 @@ const BAND_LABEL: Record<Band, string> = {
 // accent teal, primary indigo, muted slate, destructive red. retry keeps its
 // destructive treatment; nocatch renders neutral (system miss, Spec 1 rule 16).
 // NOTE: deliberately kept as a local copy mirroring review.tsx (documented
-// debt, extraction is a separate task).
+// debt — extraction is a separate task).
 function bandColor(
   band: Band,
   colors: {
@@ -240,7 +240,7 @@ function ScoreDot({
   );
 }
 
-/** Row of colored dots, one per phrase, above the progress bar. */
+/** Row of colored dots — one per phrase — above the progress bar. */
 function ScoreTrail({
   total,
   bands,
@@ -406,7 +406,7 @@ function describeEvaluationError(error: unknown): string {
   if (error instanceof ApiError) {
     const status = (error as { status?: number }).status;
     if (status === 502) {
-      return "Bolo hit a snag 🦜, give it another try!";
+      return "Bolo hit a snag 🦜 — give it another try!";
     }
     if (status === 429) {
       return "Whoa, that's a lot of practice! Wait a moment, then try again.";
@@ -415,7 +415,7 @@ function describeEvaluationError(error: unknown): string {
   }
   if (error instanceof TypeError) {
     // fetch() rejects with a TypeError when the network is unreachable.
-    return "Bolo flew out for a mango lassi 🥭, check your connection and try again!";
+    return "Bolo flew out for a mango lassi 🥭 — check your connection and try again!";
   }
   return 'Something went wrong while scoring. Please try again.';
 }
@@ -449,14 +449,14 @@ export default function PracticeScreen() {
   }>();
   const categoryId = Number(id);
   // Spec D1b-M: `?group=` scopes the session to one journey stop (lesson
-  // group), the flow is identical, only the phrase source changes.
+  // group) — the flow is identical, only the phrase source changes.
   const groupId = Number(group);
   const isGroup = Number.isFinite(groupId) && groupId > 0;
   // Test-out mode (journey progression dialog): the same session flow runs
   // over the server's sampled phrase set; per-phrase attempts are NOT saved.
   // The batch of evaluation tokens is judged in one shot at the end.
   const isGroupTestout = isGroup && mode === 'testout';
-  // Zone scope (mode=testout&scope=zone, no group param, web parity): the
+  // Zone scope (mode=testout&scope=zone, no group param — web parity): the
   // identical flow over the zone-level sample for the route's category id.
   // Only the phrase source and the submit endpoint differ; every other
   // test-out behavior (one take per phrase, token collection, verdict
@@ -472,7 +472,8 @@ export default function PracticeScreen() {
   const languageName = activeLanguage?.name ?? 'this language';
 
   // `?stage=sentences` runs the same practice flow over the topic's Plus-only
-  // sentence stage instead of its phrase list. The server enforces the gate, // a non-Plus deep link lands on the upgrade screen via the 402 below.
+  // sentence stage instead of its phrase list. The server enforces the gate —
+  // a non-Plus deep link lands on the upgrade screen via the 402 below.
   const isSentences = stage === 'sentences';
   const phraseQuery = useListCategoryPhrases(categoryId, activeLang, {
     query: {
@@ -524,7 +525,7 @@ export default function PracticeScreen() {
   // Read the learner's TTS voice preference so the client-side audio cache
   // key can include the voice ID. Without this, changing voice mid-session
   // still plays the old cached audio until a phrase is encountered for the
-  // first time. Stale data is fine here, the account query is almost always
+  // first time. Stale data is fine here — the account query is almost always
   // pre-fetched by an ancestor; we just need the ttsVoice field.
   const accountQuery = useGetAccount();
   const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
@@ -594,7 +595,7 @@ export default function PracticeScreen() {
   const [index, setIndex] = React.useState(0);
   const [phase, setPhase] = React.useState<Phase>('idle');
   // Ref mirror of phase so async callbacks can check current phase without
-  // closing over a stale value, specifically to guard the auto-play flow
+  // closing over a stale value — specifically to guard the auto-play flow
   // against the race where a learner taps record during the loadSilentMode()
   // await and recording starts before playCoach() would be called.
   const phaseRef = React.useRef<Phase>('idle');
@@ -609,7 +610,7 @@ export default function PracticeScreen() {
   // Unsupported languages record no bands, so the summary count comes from the
   // set of phrase indices the learner reached the compare stage on.
   const [comparedIdx, setComparedIdx] = React.useState<Set<number>>(new Set());
-  // XP data per phrase index, xp earned and optional breakdown text.
+  // XP data per phrase index — xp earned and optional breakdown text.
   const [xpData, setXpData] = React.useState<Record<number, { xp: number; breakdown: string | null }>>({});
   // ── Zero-XP encore (owner rule, web practice.tsx parity) ─────────────────
   // A phrase that earns NO XP comes back at the END of the session and keeps
@@ -631,14 +632,14 @@ export default function PracticeScreen() {
   const [sessionChai, setSessionChai] = React.useState(0);
   // Whether the XP breakdown panel in the summary is expanded.
   const [xpExpanded, setXpExpanded] = React.useState(false);
-  // Feedback text per phrase index, used on the summary screen.
+  // Feedback text per phrase index — used on the summary screen.
   const [sessionFeedback, setSessionFeedback] = React.useState<Record<number, { feedback: string; tip: string }>>({});
   const [coachPlaying, setCoachPlaying] = React.useState(false);
   const [selfPlaying, setSelfPlaying] = React.useState(false);
   /** The learner's own recording from the most recent attempt (base64 m4a). */
   const lastRecordingBase64Ref = React.useRef<string | null>(null);
   const selfPlaybackRef = React.useRef<PlaybackHandle | null>(null);
-  /** Monotonic token, bumped on every stopSelfPlayback so post-await guards can detect staleness. */
+  /** Monotonic token — bumped on every stopSelfPlayback so post-await guards can detect staleness. */
   const selfPlayTokenRef = React.useRef(0);
   const [unlockedBadges, setUnlockedBadges] = React.useState<EarnedBadge[]>([]);
   const [celebrate, setCelebrate] = React.useState(false);
@@ -685,14 +686,14 @@ export default function PracticeScreen() {
   /** Guards so each mid-session milestone fires at most once per session. */
   const halfwayFiredRef = React.useRef(false);
   const lastPhraseFiredRef = React.useRef(false);
-  // When true, the attempt scored but saving progress failed, the learner
+  // When true, the attempt scored but saving progress failed — the learner
   // keeps their result and gets a gentle note instead of a silent reset.
   const [saveFailed, setSaveFailed] = React.useState(false);
 
   // ── Score flash overlay ──────────────────────────────────────────────────
   /** 0–0.18 animated opacity of the full-bleed color flash after scoring. */
   const flashOpacity = useSharedValue(0);
-  /** The color of the flash overlay, set before the animation fires. */
+  /** The color of the flash overlay — set before the animation fires. */
   const [flashColor, setFlashColor] = React.useState('#10B981');
   const flashOverlayStyle = useAnimatedStyle(() => ({ opacity: flashOpacity.value }));
 
@@ -789,7 +790,7 @@ export default function PracticeScreen() {
       }
     }
     // Pre-warm the starting phrase's coach audio as soon as the list loads,
-    // before playCoach() runs, gpt-audio synthesis takes 1–2 s and without
+    // before playCoach() runs — gpt-audio synthesis takes 1–2 s and without
     // this the record button stays blocked (coachPlaying=true) for that whole
     // window.
     void (async () => {
@@ -829,7 +830,7 @@ export default function PracticeScreen() {
   // The instant band call-out clip playing for the current result (Task 903).
   const bandClipRef = React.useRef<BandClipHandle | null>(null);
 
-  // Pre-warmed audio for the starting phrase, kicked off when the phrase list
+  // Pre-warmed audio for the starting phrase — kicked off when the phrase list
   // first loads so the coach voice plays instantly instead of waiting 1–2 s
   // for gpt-audio synthesis after coachPlaying flips to true (which blocks
   // the record button for the whole synthesis window).
@@ -867,7 +868,7 @@ export default function PracticeScreen() {
     return () => { cancelled = true; };
   }, []);
 
-  // Silent-mode preference, mirrored in state so the practice-header quick
+  // Silent-mode preference — mirrored in state so the practice-header quick
   // toggle (web parity) applies instantly without reloading the phrase.
   const [silentModeUI, setSilentModeUI] = React.useState(false);
   React.useEffect(() => {
@@ -953,7 +954,7 @@ export default function PracticeScreen() {
     const myToken = ++selfPlayTokenRef.current;
     try {
       const handle = await playBase64Audio(b64, 'm4a', () => {
-        // Natural end of playback, clear state only if we're still the active play.
+        // Natural end of playback — clear state only if we're still the active play.
         if (selfPlayTokenRef.current === myToken) {
           selfPlaybackRef.current = null;
           setSelfPlaying(false);
@@ -986,7 +987,7 @@ export default function PracticeScreen() {
   // Replays reuse the first synthesized audio for a phrase: regenerating on
   // every tap sometimes yields a different (wrong) reading from the TTS model.
   // The key is `${phrase.id}:${ttsVoice}` so a mid-session voice change
-  // automatically busts the old cached clip, the new voice is fetched fresh
+  // automatically busts the old cached clip — the new voice is fetched fresh
   // for the very next play rather than waiting for a phrase the user hasn't
   // heard yet.
   const audioCacheRef = React.useRef(
@@ -1029,7 +1030,7 @@ export default function PracticeScreen() {
         format: res.format || 'mp3',
       });
       // The learner may have moved on (or re-tapped) while we waited for the
-      // audio, this response belongs to the old word, so drop it silently.
+      // audio — this response belongs to the old word, so drop it silently.
       if (token !== playTokenRef.current) return;
       // Second segment of the play chain (web Task 1003 parity): after the
       // phrase clip ends, a short pause, then the English meaning in an
@@ -1181,7 +1182,7 @@ export default function PracticeScreen() {
           format: res.format || 'mp3',
         });
       } catch {
-        // Best-effort, playCoach will synthesize on demand if this fails.
+        // Best-effort — playCoach will synthesize on demand if this fails.
       }
     })();
     return () => {
@@ -1209,7 +1210,7 @@ export default function PracticeScreen() {
     if (!spokenEnabled || !coachVoiceEnabled) return;
     stopPlayback();
     const token = playTokenRef.current;
-    // 1) Band call-out (Task 903), bundled clip, starts effectively
+    // 1) Band call-out (Task 903) — bundled clip, starts effectively
     // instantly; plays even when no feedback synthesis is pending. The
     // nocatch band gets the neutral clip.
     const clip = playBandClip(result.band);
@@ -1217,7 +1218,7 @@ export default function PracticeScreen() {
     const pending = feedbackAudioRef.current;
     void (async () => {
       try {
-        // 2) Full feedback, usually already resolving (kicked at eval time
+        // 2) Full feedback — usually already resolving (kicked at eval time
         // client-side, and even earlier server-side). A timeout guards the
         // sequence: slow or failed synthesis degrades to band-clip-only.
         let timer: ReturnType<typeof setTimeout> | undefined;
@@ -1251,7 +1252,7 @@ export default function PracticeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, result, spokenEnabled, coachVoiceEnabled]);
 
-  // Celebrate finishing a whole session with a longer confetti shower, but
+  // Celebrate finishing a whole session with a longer confetti shower — but
   // only when the session went well: at least half of the phrases ended in a
   // passing band (Spec 1 gating; confetti must not fire on rough sessions).
   // If every phrase ended full-credit (legacy 'nailed' group), fire a heavy
@@ -1276,7 +1277,7 @@ export default function PracticeScreen() {
   // Warm up recording ahead of the tap: request permission + audio session
   // once, and run the recorder's prepare step whenever we're back in the idle
   // phase, so tapping record starts capturing immediately (no clipped first
-  // syllable). Permission denial here is silent, the tap handler surfaces
+  // syllable). Permission denial here is silent — the tap handler surfaces
   // the existing alert.
   const sessionReadyRef = React.useRef(false);
   const recorderPreparedRef = React.useRef(false);
@@ -1332,12 +1333,12 @@ export default function PracticeScreen() {
 
   // --- Silence auto-stop ---
   // A continuous stretch of quiet (metering stays below the threshold) ends
-  // the recording on its own, a safety net so the learner never has to
+  // the recording on its own — a safety net so the learner never has to
   // release and re-hold if they paused too long mid-phrase.
   // The learner's hold-gesture release is still the primary stop action.
   // 60ms poll (Spec D2): tight enough for a live waveform; the silence
   // auto-stop below is wall-clock based (Date.now() countdown against
-  // adaptive dB thresholds), so polling faster only adds samples, it never
+  // adaptive dB thresholds), so polling faster only adds samples — it never
   // shifts the auto-stop timing.
   const recorderState = useAudioRecorderState(recorder, 60);
   const silenceSinceRef = React.useRef<number | null>(null);
@@ -1349,7 +1350,7 @@ export default function PracticeScreen() {
 
   // ── Spec D2: live amplitude ────────────────────────────────────────────
   // dBFS → 0..1 via meteringToAmplitude, into a Reanimated shared value so
-  // the waveform bars and mascot scale animate on the UI thread, no React
+  // the waveform bars and mascot scale animate on the UI thread — no React
   // state per frame. React state is only used for slow-changing facts: the
   // zero-input hint and the reduced-motion level segments.
   const liveAmp = useSharedValue(0);
@@ -1379,7 +1380,7 @@ export default function PracticeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, metering]);
 
-  // Spec D2: mascot "hears" the learner, scale rides the live amplitude
+  // Spec D2: mascot "hears" the learner — scale rides the live amplitude
   // (1.0–1.08) on the UI thread. Disabled under reduced motion (rule 10,
   // via motionPrefs); liveAmp resets to 0 outside recording so the mascot
   // settles back to scale 1 on its own.
@@ -1403,7 +1404,8 @@ export default function PracticeScreen() {
     if (typeof metering !== 'number') return;
     const now = Date.now();
     if (metering > peakDbRef.current) peakDbRef.current = metering;
-    // Don't arm auto-stop until the learner has actually said something, // otherwise ambient quiet before speaking would end the take early.
+    // Don't arm auto-stop until the learner has actually said something —
+    // otherwise ambient quiet before speaking would end the take early.
     if (peakDbRef.current < SPEECH_MIN_DB) {
       silenceSinceRef.current = null;
       return;
@@ -1413,7 +1415,7 @@ export default function PracticeScreen() {
       peakDbRef.current - SILENCE_DROP_DB,
     );
     if (metering > threshold) {
-      // Heard something, restart the silence countdown.
+      // Heard something — restart the silence countdown.
       silenceSinceRef.current = now;
       return;
     }
@@ -1497,8 +1499,8 @@ export default function PracticeScreen() {
       lastRecordingBase64Ref.current = audioBase64;
 
       // Unsupported language: recognition can't hear it reliably, so we never
-      // send an evaluation. Move straight to the compare stage, no score,
-      // no band, no XP, where the learner listens, records, and compares.
+      // send an evaluation. Move straight to the compare stage — no score,
+      // no band, no XP — where the learner listens, records, and compares.
       if (isUnsupported) {
         setComparedIdx((prev) => {
           const nextSet = new Set(prev);
@@ -1568,7 +1570,7 @@ export default function PracticeScreen() {
         setPhraseTallies(phraseTalliesRef.current);
         if (res.xpAwarded > 0) {
           // Earned something: the debt is settled, even if an earlier take on
-          // this phrase had already queued it. Strikes are NOT reset, they
+          // this phrase had already queued it. Strikes are NOT reset — they
           // are the record of what this phrase cost, not a live budget.
           setEncoreQueue((q) => q.filter((i) => i !== encoreIdx));
         } else {
@@ -1636,7 +1638,8 @@ export default function PracticeScreen() {
         fireConfetti();
         setTimeout(() => hapticHeavy(), 140);
       }
-      // XP arc fires whenever XP was actually awarded (any passing band, // the half-credit group earns at the 0.5 band factor, so the counter
+      // XP arc fires whenever XP was actually awarded (any passing band —
+      // the half-credit group earns at the 0.5 band factor, so the counter
       // moves and the arc connects the result to it). retry/nocatch award no XP.
       // Test-out runs record no attempt and award no XP, so no arc either.
       if (!isTestout && isPassingBand(res.band) && res.xpAwarded > 0) {
@@ -1653,7 +1656,7 @@ export default function PracticeScreen() {
         }, 250);
       }
 
-      // The learner has their score, saving the attempt below must never
+      // The learner has their score — saving the attempt below must never
       // take the result away from them or silently reset the screen.
       if (isTestout) {
         // Test-out attempts are never saved individually. Collect the
@@ -1669,7 +1672,8 @@ export default function PracticeScreen() {
         });
         // Optimistic: increment todayXp immediately so the XP strip (and the
         // train class derived from it) reacts before the background refetch
-        // resolves. THE one writer, shared with web practice and review, // see applyOptimisticTodayXp in @workspace/train-class.
+        // resolves. THE one writer, shared with web practice and review —
+        // see applyOptimisticTodayXp in @workspace/train-class.
         applyOptimisticTodayXp(queryClient, activeLang, res.xpAwarded);
         queryClient.invalidateQueries({
           queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }),
@@ -1707,7 +1711,7 @@ export default function PracticeScreen() {
         setSaveFailed(true);
       }
     } catch (error) {
-      // Scoring failed, show a visible, in-context error state with a retry
+      // Scoring failed — show a visible, in-context error state with a retry
       // action instead of a fleeting alert or a silent reset to idle.
       setEvalError(describeEvaluationError(error));
       setPhaseSync('error');
@@ -1730,7 +1734,7 @@ export default function PracticeScreen() {
     // replay in full.
     if (!inEncore && index + 1 < list.length) {
       const nextIdx = index + 1;
-      // Mid-session milestone toasts, fire at the halfway phrase and the last phrase.
+      // Mid-session milestone toasts — fire at the halfway phrase and the last phrase.
       if (!halfwayFiredRef.current && nextIdx === Math.floor(list.length / 2) && list.length > 2) {
         halfwayFiredRef.current = true;
         setToastMessage('Halfway there! 💪');
@@ -1744,7 +1748,7 @@ export default function PracticeScreen() {
       setPhaseSync('idle');
     } else if (!isTestout && encoreQueue.length > 0) {
       // The list is done but something earned nothing. Bring the first such
-      // phrase back, queue order means several zero-XP phrases return in the
+      // phrase back — queue order means several zero-XP phrases return in the
       // order they were missed.
       const [head, ...rest] = encoreQueue;
       setEncoreQueue(rest);
@@ -1842,7 +1846,7 @@ export default function PracticeScreen() {
       </Screen>
     );
   }
-  // A 402 means "upgrade required", not a generation failure, send the
+  // A 402 means "upgrade required", not a generation failure — send the
   // learner to the paywall, mirroring the web UpgradeScreen. Any other failure
   // (e.g. a 502 when AI generation fails) is retry-able because nothing broken
   // was cached.
@@ -1866,7 +1870,7 @@ export default function PracticeScreen() {
   }
   // Spec D1b-M: a stale journey map (or a shared deep link) can point at a
   // stop the server considers locked. The group endpoint's 403
-  // lesson_group_locked is an expected state, not a failure, show the
+  // lesson_group_locked is an expected state, not a failure — show the
   // locked-stop card and send the learner back, never the error screen.
   const groupLocked =
     isGroup &&
@@ -1883,7 +1887,7 @@ export default function PracticeScreen() {
               This stop is still locked
             </Text>
             <Text style={[styles.lockedStopBody, { color: colors.mutedForeground }]}>
-              Finish the stop before it to board here, the line runs station
+              Finish the stop before it to board here — the line runs station
               by station.
             </Text>
             <ChunkyButton title="Back to the map" onPress={() => router.back()} />
@@ -2078,7 +2082,7 @@ export default function PracticeScreen() {
                 ? 'phrase'
                 : 'phrases'}.
           </Animated.Text>
-          {/* Band trail, lets learners review each phrase's result at a glance */}
+          {/* Band trail — lets learners review each phrase's result at a glance */}
           {Object.keys(bands).length > 0 && (
             <Animated.View
               entering={skipEnter ? undefined : appearDown(360)}
@@ -2133,7 +2137,7 @@ export default function PracticeScreen() {
               />
             </Animated.View>
           )}
-          {/* XP breakdown, collapsed by default */}
+          {/* XP breakdown — collapsed by default */}
           {Object.values(xpData).some((d) => d.breakdown) && (
             <Pressable
               onPress={() => setXpExpanded((x) => !x)}
@@ -2166,7 +2170,7 @@ export default function PracticeScreen() {
               })}
             </Animated.View>
           )}
-          {/* Per-phrase band indicators, tap any to see its feedback */}
+          {/* Per-phrase band indicators — tap any to see its feedback */}
           <SummaryRingRow
             list={list}
             bands={bands}
@@ -2206,7 +2210,7 @@ export default function PracticeScreen() {
       : phase === 'error'
         ? 'tryagain'
         : phase === 'compare'
-          ? 'thumbsup' // ear-training practice always "counts", never blame
+          ? 'thumbsup' // ear-training practice always "counts" — never blame
           : phase === 'result' && result
             ? isFullCreditBand(result.band)
               ? 'cheer'
@@ -2217,7 +2221,7 @@ export default function PracticeScreen() {
                   : 'tryagain'
             : 'wave';
   // Evaluating is Bolo's job, not a throbber's: he zooms out small and spins
-  // while the score comes back, then zooms back in (build 36, the
+  // while the score comes back, then zooms back in (build 36 — the
   // ActivityIndicator that used to sit inside the record button is gone).
   // "Finish" would lie while a zero-XP phrase is still queued to come back.
   const hasNextStop = index + 1 < list.length || (!isTestout && encoreQueue.length > 0);
@@ -2362,7 +2366,7 @@ export default function PracticeScreen() {
           </Animated.View>
         </View>
 
-        {/* Phrase card, keyed so entering/exiting fires on phrase change */}
+        {/* Phrase card — keyed so entering/exiting fires on phrase change */}
         <Animated.View
           key={phrase.id}
           entering={skipEnter ? undefined : appearPlain()}
@@ -2400,7 +2404,7 @@ export default function PracticeScreen() {
                 {coachPlaying ? 'Listening...' : 'Hear it'}
               </Text>
             </Pressable>
-            {/* Spec B2: quiet flag affordance, must not compete with play */}
+            {/* Spec B2: quiet flag affordance — must not compete with play */}
             <PhraseReportButton
               phraseId={phrase.id}
               onReported={() => {
@@ -2449,7 +2453,7 @@ export default function PracticeScreen() {
         ) : null}
 
         {/* Unsupported recognition: listen-record-compare card. No band, no
-            score, no XP, supportive ear-training copy only. */}
+            score, no XP — supportive ear-training copy only. */}
         {phase === 'compare' ? (
           <Animated.View
             entering={appearPlain()}
@@ -2608,7 +2612,7 @@ export default function PracticeScreen() {
                   color={bandColor(result.band, colors)}
                 />
               ) : isHalfCreditBand(result.band) ? (
-                // Half credit is not a failure, neutral icon, band-colored, no retry affordance here
+                // Half credit is not a failure — neutral icon, band-colored, no retry affordance here
                 // (the "Record again" button below still offers the retry).
                 <Feather
                   name="thumbs-up"
@@ -2646,7 +2650,8 @@ export default function PracticeScreen() {
             ) : null}
             {/* Card-style romanized form of the transcript (Task 907). The
                 server sends "" for scripts it cannot romanize cleanly and on
-                nocatch, and an already-Latin transcript would just repeat, hide the line in both cases. */}
+                nocatch, and an already-Latin transcript would just repeat —
+                hide the line in both cases. */}
             {result.transcript &&
             result.transcriptRomanized &&
             result.transcriptRomanized.toLowerCase() !==
@@ -2670,7 +2675,7 @@ export default function PracticeScreen() {
             ) : null}
             {saveFailed ? (
               <Text style={[styles.saveFailed, { color: colors.destructive }]}>
-                Heads up, this attempt couldn't be saved to your progress.
+                Heads up — this attempt couldn't be saved to your progress.
               </Text>
             ) : null}
             {/* Zero XP: say out loud that the phrase is coming back, or that
@@ -2681,11 +2686,11 @@ export default function PracticeScreen() {
                 style={[styles.encoreNote, { color: colors.mutedForeground }]}
               >
                 {(phraseTallies[index]?.zeroStrikes ?? 0) >= ZERO_XP_STRIKE_LIMIT
-                  ? "That's three goes, we'll leave this one for next time."
+                  ? "That's three goes — we'll leave this one for next time."
                   : 'No XP yet, so this one comes back at the end of the session.'}
               </Text>
             ) : null}
-            {/* Hear yourself, always shown so learners can compare their
+            {/* Hear yourself — always shown so learners can compare their
                 voice to the coach model. Not affected by spoken-feedback mute. */}
             <Pressable
               onPress={playSelf}
@@ -2800,7 +2805,7 @@ export default function PracticeScreen() {
 
 /**
  * One row of the audio settings sheet: a text label, the state in words, and a
- * checkmark. The label is the whole point of the menu, the two header toggles
+ * checkmark. The label is the whole point of the menu — the two header toggles
  * this replaced were icon-only, so nothing told a learner them apart.
  */
 function AudioSettingRow({
@@ -2881,7 +2886,7 @@ function PracticeHeader({
   /** When true, visibly disables the meaning item (coach voice is off). */
   meaningAudioDisabled?: boolean;
   /** Spoken feedback: the score read aloud. The SAME state the result-card
-   *  mute owns, this is a second entry point to it, never a second copy. */
+   *  mute owns — this is a second entry point to it, never a second copy. */
   spokenFeedback?: boolean;
   onToggleSpokenFeedback?: () => void;
   /** Active language code, shown as an inert uppercase chip left of the gear. */
@@ -2909,7 +2914,7 @@ function PracticeHeader({
       </View>
       {hasSettings && languageCode ? (
         // Display-only language code. Deliberately inert: no press handler and
-        // no role that implies interactivity, the language cannot be changed
+        // no role that implies interactivity — the language cannot be changed
         // mid-lesson. The slot is a fixed three-character width so the row
         // never reflows between HI and SAT; codes are NEVER truncated ("sat"
         // clipped to "SA" would collide with Sanskrit).
@@ -3059,7 +3064,7 @@ function RecordButton({
   const evaluating = phase === 'evaluating';
   const recording = phase === 'recording';
   // Barge-in (#913, web Task 907 parity): the mic stays live while the coach
-  // is speaking, a hold stops the audio and records on the same gesture
+  // is speaking — a hold stops the audio and records on the same gesture
   // (startRecording calls stopPlayback first). Only evaluation blocks the
   // button, since there is nothing to record against mid-score.
   const blocked = evaluating;
@@ -3096,7 +3101,7 @@ function RecordButton({
           />
         </Pressable>
       </View>
-      {/* Spec D2: live waveform, only while actually recording. The slot
+      {/* Spec D2: live waveform — only while actually recording. The slot
           keeps its height in every phase so the button never shifts under a
           holding finger when recording starts (frame-stability contract). */}
       <View style={styles.waveSlot} testID="waveform-slot">

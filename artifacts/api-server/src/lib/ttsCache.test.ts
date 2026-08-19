@@ -23,7 +23,7 @@ describe("ttsCacheKey", () => {
     assert.notEqual(
       kA,
       kB,
-      "Two voice IDs for the same text must not collide, a preview clip for one voice must never be served as another voice's audio",
+      "Two voice IDs for the same text must not collide — a preview clip for one voice must never be served as another voice's audio",
     );
   });
 
@@ -50,7 +50,7 @@ describe("ttsCacheKey", () => {
     assert.match(k, /^[0-9a-f]{64}$/);
   });
 
-  test("TTS_PROVIDER_VERSION is included, its string appears nowhere in the hash input collision space", () => {
+  test("TTS_PROVIDER_VERSION is included — its string appears nowhere in the hash input collision space", () => {
     // Rotating the provider version must produce a new key for otherwise identical inputs.
     // We verify this indirectly: if the provider string were absent the hash of
     // (text \x00 voice \x00 lang \x00 voiceId \x00) would match a legacy entry.

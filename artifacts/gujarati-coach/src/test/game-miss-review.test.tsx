@@ -184,7 +184,7 @@ describe("quick-game end screen", () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent("lapsed 1");
     // A lapsed round says so rather than showing an empty answer.
-    expect(rows[0]).toHaveTextContent("nothing, the round ran out");
+    expect(rows[0]).toHaveTextContent("nothing — the round ran out");
     expect(rows[1]).toHaveTextContent("prompt 2");
   });
 
@@ -251,7 +251,7 @@ describe("miss review dialog", () => {
     const [first, second] = screen.getAllByTestId("miss-review-row");
     expect(first).toHaveTextContent("You said શુભ રાત્રિshubh raatri");
     expect(first).toHaveTextContent("Answer આવજોaavjo");
-    expect(second).toHaveTextContent("nothing, the round ran out");
+    expect(second).toHaveTextContent("nothing — the round ran out");
     expect(second!.textContent).not.toContain("  ");
   });
 });

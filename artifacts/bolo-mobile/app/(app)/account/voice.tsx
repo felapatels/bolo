@@ -34,7 +34,7 @@ const VOICE_SAMPLE_TEXT = 'Namaste, I am learning your language.';
 // re-tapping a voice that's already been fetched plays instantly.
 const mobileSampleCache = new Map<string, string>();
 
-// Curated voice catalog, matches the server's VOICE_CATALOG exactly.
+// Curated voice catalog — matches the server's VOICE_CATALOG exactly.
 const VOICE_CATALOG: VoiceCatalogEntry[] = [
   {
     id: 'JBFqnCBsd6RMkjVDRZzb',
@@ -46,7 +46,7 @@ const VOICE_CATALOG: VoiceCatalogEntry[] = [
     id: 'nPczCjzI2devNBz1zQrb',
     name: 'Brian',
     gender: 'male',
-    description: 'Deep, resonant American male, great for North Indian languages.',
+    description: 'Deep, resonant American male — great for North Indian languages.',
   },
   {
     id: 'cjVigY5qzO86Huf0OWal',
@@ -88,7 +88,7 @@ const VOICE_CATALOG: VoiceCatalogEntry[] = [
     id: 'FGY2WhTYpPnrIDTdsKH5',
     name: 'Laura',
     gender: 'female',
-    description: 'Bright, upbeat female voice, cheerful and encouraging.',
+    description: 'Bright, upbeat female voice — cheerful and encouraging.',
   },
   {
     id: 'EXAVITQu4vr4xnSDxMaL',
@@ -122,7 +122,7 @@ export default function VoiceScreen() {
         });
       }
     } catch {
-      // ignore, the server error is non-blocking
+      // ignore — the server error is non-blocking
     } finally {
       setSaving(undefined as unknown as string | null);
     }
@@ -307,7 +307,7 @@ function VoiceRow({
         </Text>
       </Pressable>
 
-      {/* Play sample button, only for named voices */}
+      {/* Play sample button — only for named voices */}
       {id && !locked ? (
         <Pressable
           accessibilityRole="button"

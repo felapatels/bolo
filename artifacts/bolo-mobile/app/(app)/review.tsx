@@ -141,7 +141,7 @@ const BAND_LABEL: Record<Band, string> = {
 // accent teal, primary indigo, muted slate, destructive red. retry keeps its
 // destructive treatment; nocatch renders neutral (system miss, Spec 1 rule 16).
 // NOTE: deliberately kept as a local copy mirroring practice/[id].tsx
-// (documented debt, extraction is a separate task).
+// (documented debt — extraction is a separate task).
 function bandColor(
   band: Band,
   colors: {
@@ -296,11 +296,11 @@ function ScoreTrail({
 function describeEvaluationError(error: unknown): string {
   if (error instanceof ApiError) {
     const status = (error as { status?: number }).status;
-    if (status === 502) return "Bolo hit a snag 🦜, give it another try!";
+    if (status === 502) return "Bolo hit a snag 🦜 — give it another try!";
     if (status === 429) return "Whoa, that's a lot of practice! Wait a moment, then try again.";
     return 'Something went wrong while scoring. Please try again.';
   }
-  if (error instanceof TypeError) return "Bolo flew out for a mango lassi 🥭, check your connection and try again!";
+  if (error instanceof TypeError) return "Bolo flew out for a mango lassi 🥭 — check your connection and try again!";
   return 'Something went wrong while scoring. Please try again.';
 }
 
@@ -316,7 +316,7 @@ function ReviewHeader({
   label: string;
   /** When provided, shows the settings gear + menu as the rightmost control.
    *  Review is a practice screen, so it carries the same gear, menu and
-   *  language chip the practice header does, all three audio items included,
+   *  language chip the practice header does — all three audio items included,
    *  since Task 1046 gave review its own meaning segment. The loading / empty
    *  / summary header variants pass nothing and keep the plain spacer. */
   settingsItems?: LessonSettingsItem[];
@@ -404,7 +404,7 @@ function RecordButton({
   const evaluating = phase === 'evaluating';
   const recording = phase === 'recording';
   // Barge-in (#913, web Task 907 parity): the mic stays live while the coach
-  // is speaking, a hold stops the audio and records on the same gesture
+  // is speaking — a hold stops the audio and records on the same gesture
   // (startRecording calls stopPlayback first). Only evaluation blocks it.
   const blocked = evaluating;
 
@@ -431,7 +431,7 @@ function RecordButton({
           )}
         </Pressable>
       </View>
-      {/* Spec D2: live waveform, only while actually recording. The slot
+      {/* Spec D2: live waveform — only while actually recording. The slot
           keeps its height in every phase so the button never shifts under a
           holding finger when recording starts (frame-stability contract). */}
       <View style={styles.waveSlot} testID="waveform-slot">
@@ -674,7 +674,7 @@ export default function ReviewScreen() {
     });
   }, [stopPlayback]);
 
-  // Silent-mode preference, review already honours it at every coach autoplay
+  // Silent-mode preference — review already honours it at every coach autoplay
   // (it re-reads the stored value there), but had no control for it. Mirrored
   // in state so the header menu can show its on/off condition; the autoplay
   // reads stay fresh, so a flip applies from the very next phrase.
@@ -943,7 +943,7 @@ export default function ReviewScreen() {
           format: res.format || 'mp3',
         });
       } catch {
-        // Best-effort prefetch, playCoach handles on-demand synthesis.
+        // Best-effort prefetch — playCoach handles on-demand synthesis.
       }
     })();
     return () => { cancelled = true; };
@@ -978,7 +978,7 @@ export default function ReviewScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, result, spokenEnabled, coachVoiceEnabled]);
 
-  // Session-end celebration, confetti only when at least half of the phrases
+  // Session-end celebration — confetti only when at least half of the phrases
   // ended in a passing band (Spec 1 gating; no confetti on rough sessions).
   React.useEffect(() => {
     if (phase === 'done') {
@@ -1163,8 +1163,8 @@ export default function ReviewScreen() {
       lastRecordingBase64Ref.current = audioBase64;
 
       // Unsupported language: recognition can't hear it reliably, so we never
-      // send an evaluation. Move straight to the compare stage, no score,
-      // no band, no XP, where the learner listens, records, and compares.
+      // send an evaluation. Move straight to the compare stage — no score,
+      // no band, no XP — where the learner listens, records, and compares.
       if (isUnsupported) {
         setComparedIdx((prev) => {
           const nextSet = new Set(prev);
@@ -1214,7 +1214,7 @@ export default function ReviewScreen() {
       setPhaseSync('result');
 
       // Full-bleed color flash keyed to the five-band ladder color (nocatch
-      // resolves to the neutral muted tone, a system miss is never red).
+      // resolves to the neutral muted tone — a system miss is never red).
       const fColor = bandColor(res.band, colors);
       setFlashColor(fColor);
       flashOpacity.value = withSequence(
@@ -1256,7 +1256,8 @@ export default function ReviewScreen() {
         fireConfetti();
         setTimeout(() => hapticHeavy(), 140);
       }
-      // XP arc fires whenever XP was actually awarded (any passing band, // the half-credit group earns at the 0.5 band factor). retry/nocatch
+      // XP arc fires whenever XP was actually awarded (any passing band —
+      // the half-credit group earns at the 0.5 band factor). retry/nocatch
       // award no XP.
       if (isPassingBand(res.band) && res.xpAwarded > 0) {
         // Measure where the result card lands, then launch the arc from it.
@@ -1281,7 +1282,7 @@ export default function ReviewScreen() {
         queryClient.invalidateQueries({ queryKey: getListReviewPhrasesQueryKey(reviewParams) });
         // Optimistic: increment todayXp immediately so the XP strip (and the
         // train class derived from it) reacts before the background refetch
-        // resolves. THE one writer, shared with both practice screens, see
+        // resolves. THE one writer, shared with both practice screens — see
         // applyOptimisticTodayXp in @workspace/train-class.
         applyOptimisticTodayXp(queryClient, activeLang, res.xpAwarded);
         queryClient.invalidateQueries({ queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) });
@@ -1357,7 +1358,7 @@ export default function ReviewScreen() {
     );
   }
 
-  // ── Empty, no phrases due ───────────────────────────────────────────────
+  // ── Empty — no phrases due ───────────────────────────────────────────────
   if (!phrases.isLoading && list.length === 0) {
     return (
       <Screen>
@@ -1498,7 +1499,7 @@ export default function ReviewScreen() {
       : phase === 'error'
         ? 'tryagain'
         : phase === 'compare'
-          ? 'thumbsup' // ear-training practice always "counts", never blame
+          ? 'thumbsup' // ear-training practice always "counts" — never blame
           : phase === 'result' && result
             ? isFullCreditBand(result.band)
               ? 'cheer'
@@ -1620,7 +1621,7 @@ export default function ReviewScreen() {
         ) : null}
 
         {/* Unsupported recognition: listen-record-compare card. No band, no
-            score, no XP, supportive ear-training copy only. */}
+            score, no XP — supportive ear-training copy only. */}
         {phase === 'compare' ? (
           <Animated.View
             entering={appearPlain()}
@@ -1745,7 +1746,7 @@ export default function ReviewScreen() {
               {isFullCreditBand(result.band) ? (
                 <Feather name="check-circle" size={40} color={bandColor(result.band, colors)} />
               ) : isHalfCreditBand(result.band) ? (
-                // Half credit is not a failure, neutral icon, band-colored, no
+                // Half credit is not a failure — neutral icon, band-colored, no
                 // retry affordance here (matches the practice screen's treatment).
                 <Feather name="thumbs-up" size={40} color={bandColor(result.band, colors)} />
               ) : (
@@ -1781,7 +1782,7 @@ export default function ReviewScreen() {
             {/* Card-style romanized form of the transcript (#914, same rules
                 as practice per Task 907): the server sends "" for scripts it
                 cannot romanize cleanly and on nocatch, and an already-Latin
-                transcript would just repeat, hide the line in both cases. */}
+                transcript would just repeat — hide the line in both cases. */}
             {result.transcript &&
             result.transcriptRomanized &&
             result.transcriptRomanized.toLowerCase() !== result.transcript.toLowerCase() ? (
@@ -1800,7 +1801,7 @@ export default function ReviewScreen() {
             ) : null}
             {saveFailed ? (
               <Text style={[styles.saveFailed, { color: colors.destructive }]}>
-                Heads up, this attempt couldn't be saved to your progress.
+                Heads up — this attempt couldn't be saved to your progress.
               </Text>
             ) : null}
 
@@ -1837,7 +1838,7 @@ export default function ReviewScreen() {
 
       <View style={[styles.controls, { backgroundColor: colors.background }]}>
         {phase === 'result' || phase === 'compare' || phase === 'error' ? (
-          /* The same constant two-slot row as practice, same order, same
+          /* The same constant two-slot row as practice — same order, same
              labels, same gate (Task #1040). The ear-training compare stage
              produces no band, so it is ungated; the error card has nothing to
              advance from, so its advance slot stays inactive. */

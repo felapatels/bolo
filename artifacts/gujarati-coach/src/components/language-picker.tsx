@@ -16,7 +16,7 @@ import { useEntitlements } from "@/lib/entitlements";
 import { useExplicitLanguageChoice } from "@/lib/language-step";
 
 type LanguagePickerProps = {
-  /** Optional external open state, pass both open + onOpenChange to control from outside. */
+  /** Optional external open state — pass both open + onOpenChange to control from outside. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   /** Optional custom trigger element. Falls back to the default Globe button. */
@@ -150,7 +150,8 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                 onClick={() => {
                   if (locked) {
                     // Locked-but-visible: open this language's journey map in
-                    // showroom mode, a browsable teaser with an upgrade path, // instead of bouncing straight to the paywall.
+                    // showroom mode — a browsable teaser with an upgrade path —
+                    // instead of bouncing straight to the paywall.
                     setActiveLang(lang.code);
                     choose(lang.code);
                     setOpen(false);
@@ -179,7 +180,7 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                 )}
                 style={{ borderLeftColor: accent }}
               >
-                {/* Lock state is a single compact corner glyph, no
+                {/* Lock state is a single compact corner glyph — no
                     full-width badge, so names always render in full. */}
                 {selected ? (
                   <Check className="absolute right-2.5 top-2.5 h-4 w-4 text-primary" />
@@ -188,7 +189,7 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                   className={cn(
                     "block w-full text-xl font-bold",
                     // Nastaliq glyphs (Kashmiri, Urdu, Sindhi) cascade
-                    // vertically, leading-tight clips them. Give them
+                    // vertically — leading-tight clips them. Give them
                     // relaxed overflow instead of clipping.
                     native.isNastaliq
                       ? "overflow-visible"

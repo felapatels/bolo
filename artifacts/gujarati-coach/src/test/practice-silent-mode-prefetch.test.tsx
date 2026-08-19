@@ -103,7 +103,7 @@ import Practice from "@/pages/practice";
 import { getCoachAudioElement } from "@/lib/iosAudio";
 
 // ---------------------------------------------------------------------------
-// Fake Audio, tracks all instances so tests can trigger `onended`.
+// Fake Audio — tracks all instances so tests can trigger `onended`.
 // ---------------------------------------------------------------------------
 const audioInstances: FakeAudio[] = [];
 class FakeAudio {
@@ -248,7 +248,7 @@ async function scorePhrase() {
 // ---------------------------------------------------------------------------
 // Silent mode: load
 // ---------------------------------------------------------------------------
-describe("silent mode, initial load", () => {
+describe("silent mode — initial load", () => {
   test("with silent mode ON, state never passes through playing_coach on first load", async () => {
     localStorage.setItem("bolo.silentMode", "on");
     renderPage(<Practice />);
@@ -274,7 +274,7 @@ describe("silent mode, initial load", () => {
     expect(h.synth).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ text: phrase0.nativeScript }) }),
     );
-    // State only reaches idle once the audio finishes, belly zone not shown yet.
+    // State only reaches idle once the audio finishes — belly zone not shown yet.
     expect(screen.queryByText("Hold Bolo to speak")).not.toBeInTheDocument();
   });
 });
@@ -282,7 +282,7 @@ describe("silent mode, initial load", () => {
 // ---------------------------------------------------------------------------
 // Silent mode: Next
 // ---------------------------------------------------------------------------
-describe("silent mode, next phrase", () => {
+describe("silent mode — next phrase", () => {
   test("with silent mode ON, advancing to the next phrase skips playing_coach", async () => {
     await renderSilent();
     await scoreAndNext();
@@ -306,7 +306,7 @@ describe("silent mode, next phrase", () => {
 
     // Coach audio for phrase1 must start.
     await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
-    // We are in playing_coach, since barge-in (Task 907) the belly zone
+    // We are in playing_coach — since barge-in (Task 907) the belly zone
     // stays mounted during playback, but recording has not started.
     expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull();
     expect(document.querySelector('[aria-label="Release to submit"]')).toBeNull();
@@ -316,7 +316,7 @@ describe("silent mode, next phrase", () => {
 // ---------------------------------------------------------------------------
 // Silent mode: Retry
 // ---------------------------------------------------------------------------
-describe("silent mode, retry", () => {
+describe("silent mode — retry", () => {
   test("with silent mode ON, retry skips playing_coach", async () => {
     await renderSilent();
     await scorePhrase();
@@ -372,7 +372,7 @@ describe("belly zone availability", () => {
 
   test("belly zone IS rendered while the coach is playing (barge-in, Task 907)", async () => {
     renderPage(<Practice />); // silent mode OFF
-    // Coach audio kicks off, we're in playing_coach before onended fires.
+    // Coach audio kicks off — we're in playing_coach before onended fires.
     await waitFor(() => expect(audioInstances.length).toBeGreaterThan(0));
     // Barge-in: the belly zone stays mounted during playback so a hold can
     // stop the audio and record on the same gesture. Not recording yet.
@@ -417,7 +417,8 @@ describe("belly zone availability", () => {
   });
 
   // Build 36 items 1+2: the Loader2 throbber that used to float over the
-  // mascot's belly while evaluating (and the 0.55 dim behind it) are gone, // Bolo plays the state himself, zoomed out small and spinning.
+  // mascot's belly while evaluating (and the 0.55 dim behind it) are gone —
+  // Bolo plays the state himself, zoomed out small and spinning.
   test("evaluating shows the zoomed-out mascot and no throbber", async () => {
     let resolveEval!: (v: unknown) => void;
     h.evaluate.mockReturnValue(new Promise((res) => { resolveEval = res; }));

@@ -154,7 +154,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
     <View style={styles.centerState}>
       <Feather name="alert-circle" size={32} color={colors.mutedForeground} />
       <Text style={[styles.stateText, { color: colors.mutedForeground }]}>
-        Bolo couldn't load your analytics right now 🥭, check your connection and try again.
+        Bolo couldn't load your analytics right now 🥭 — check your connection and try again.
       </Text>
       <ChunkyButton
         title="Retry"
@@ -181,7 +181,7 @@ function EmptyState() {
 /** Animated XP count-up: counts from 0 → totalXp over 800ms on mount.
  *
  * Uses RNAnimated (not Reanimated) because the animated value drives a JS
- * state update, no layout props involved, so the listener approach is safe.
+ * state update — no layout props involved, so the listener approach is safe.
  * Reduced-motion users see the final value immediately.
  */
 function AnimatedXp({
@@ -268,7 +268,7 @@ function SummaryRow({
 
 /** A single animated topic mastery bar.
  *
- * Width is a layout prop, Reanimated's useAnimatedStyle crashes on New
+ * Width is a layout prop — Reanimated's useAnimatedStyle crashes on New
  * Architecture for layout props. Use RNAnimated.spring() instead, which gives
  * equivalent spring physics without the New Arch restriction.
  */
@@ -379,7 +379,7 @@ function MasteryByTopic({ categories }: { categories: CategoryAnalytics[] }) {
 
 /** A single animated bar in the Recent Activity chart.
  *
- * Height is a layout prop, must use RNAnimated.spring() (not Reanimated
+ * Height is a layout prop — must use RNAnimated.spring() (not Reanimated
  * useAnimatedStyle) to avoid New Architecture crashes in Expo Go.
  */
 function ActivityBar({

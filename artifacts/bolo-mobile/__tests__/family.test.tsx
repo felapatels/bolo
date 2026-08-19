@@ -4,7 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import type { FamilyStatus } from '@workspace/api-client-react';
 
 // ---------------------------------------------------------------------------
-// Mocks, same pattern as subscription.test.tsx: the real screen renders, the
+// Mocks — same pattern as subscription.test.tsx: the real screen renders, the
 // generated data hooks are stubbed so each test shapes the server snapshot.
 // ---------------------------------------------------------------------------
 
@@ -167,7 +167,7 @@ beforeEach(() => {
 
 // --------------------------------- tests ----------------------------------
 
-describe('FamilyScreen, owner', () => {
+describe('FamilyScreen — owner', () => {
   beforeEach(() => {
     mockState.family = query(ownerFamily);
   });
@@ -251,12 +251,12 @@ describe('FamilyScreen, owner', () => {
     });
     render(<FamilyScreen />);
     expect(
-      screen.getByText(/Your family plan is full, all 4 seats are taken/),
+      screen.getByText(/Your family plan is full — all 4 seats are taken/),
     ).toBeOnTheScreen();
   });
 });
 
-describe('FamilyScreen, member', () => {
+describe('FamilyScreen — member', () => {
   beforeEach(() => {
     mockState.family = query(memberFamily);
   });
@@ -288,7 +288,7 @@ describe('FamilyScreen, member', () => {
   });
 });
 
-describe('FamilyScreen, not on a plan', () => {
+describe('FamilyScreen — not on a plan', () => {
   beforeEach(() => {
     mockState.family = query({ role: 'none' });
   });

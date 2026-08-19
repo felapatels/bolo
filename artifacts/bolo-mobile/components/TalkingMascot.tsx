@@ -193,7 +193,7 @@ export function TalkingMascot({
                     : 'Bolo the parrot'
               }
             />
-            {/* Head slot over the garment base, same 1024 frame, drawn at the
+            {/* Head slot over the garment base — same 1024 frame, drawn at the
                 same size, so it lands where it belongs. Explicit width/height:
                 a bare absoluteFill Image takes its intrinsic size on iOS. */}
             {overlay ? (

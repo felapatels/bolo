@@ -6,7 +6,7 @@
  * the dash coordinate system, so the dash never covered the stroke and the
  * pen animation appeared broken on word and sentence exercises.
  *
- * Fix: `const lenPx = len * scale`, multiply by `scale` (= CANVAS_SIZE / 100)
+ * Fix: `const lenPx = len * scale` — multiply by `scale` (= CANVAS_SIZE / 100)
  * before passing to the dash props.
  *
  * These tests verify that the rendered strokeDasharray equals `len * scale`
@@ -128,7 +128,7 @@ function makeProgress(v = 0) {
 // Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('AnimPenStroke, strokeDasharray pixel-space invariant', () => {
+describe('AnimPenStroke — strokeDasharray pixel-space invariant', () => {
   test('renders strokeDasharray as len * scale (pixel space), not len (local space)', () => {
     // Simulates a single-character stroke: len=50 local units, scale=2.5 (250px canvas / 100)
     const len = 50;
@@ -182,7 +182,7 @@ describe('AnimPenStroke, strokeDasharray pixel-space invariant', () => {
     expect(calls[0].strokeDashoffset).not.toBe(len);
   });
 
-  test('word exercise scale: multi-stroke scenario, each stroke dasharray uses pixel units', () => {
+  test('word exercise scale: multi-stroke scenario — each stroke dasharray uses pixel units', () => {
     // Words have multiple pen strokes. Each AnimPenStroke gets its own len
     // (local-space polyline length of that skeleton stroke) and the shared
     // guideScale = CANVAS_SIZE / 100.  Simulate three strokes from a word glyph.
@@ -272,7 +272,7 @@ describe('AnimPenStroke, strokeDasharray pixel-space invariant', () => {
 // Pure-logic regression: the lenPx formula itself
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('lenPx formula, pixel-space conversion', () => {
+describe('lenPx formula — pixel-space conversion', () => {
   // Mirror the exact formula from AnimPenStroke so a future rename/refactor
   // that breaks it will fail this test even if the component rendering changes.
   function lenPx(len: number, scale: number): number {

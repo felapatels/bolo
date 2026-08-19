@@ -456,7 +456,7 @@ export function ResultsScreen({
 }) {
   const countdown = useCountdown(secondsUntilMidnightUtc());
   const perfect = score === total;
-  // Tapping the score opens the review, the affordance most learners reach
+  // Tapping the score opens the review — the affordance most learners reach
   // for first. A perfect run has nothing to review, so the score stays inert.
   const [reviewOpen, setReviewOpen] = useState(false);
   const canReview = misses.length > 0;
@@ -650,7 +650,7 @@ export default function BoloQuizScreen() {
   const [finalStreak, setFinalStreak] = useState(0);
   const [finalMisses, setFinalMisses] = useState<GameMiss[]>([]);
 
-  // Auto-advance timer, cleared on unmount or when quiz leaves 'playing'.
+  // Auto-advance timer — cleared on unmount or when quiz leaves 'playing'.
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Keep a stable ref to handleNext so the timeout always calls the latest version.
   const handleNextRef = useRef<() => void>(() => {});
@@ -855,7 +855,7 @@ export default function BoloQuizScreen() {
             <OrderQuestion key={currentIndex} q={currentQ} onAnswer={handleAnswer} answered={currentAnswered} colors={colors} />
           )}
 
-          {/* Auto-advance fires after 1.2 s, no manual Next button needed. */}
+          {/* Auto-advance fires after 1.2 s — no manual Next button needed. */}
         </ScrollView>
       )}
 
@@ -931,7 +931,7 @@ const s = StyleSheet.create({
   tileRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tile: { borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 8, alignItems: 'center' },
   tileText: { fontFamily: AppFonts.semibold, fontSize: 18, textAlign: 'center' },
-  // R3: romanized subtitle slot under each tile, no numberOfLines anywhere
+  // R3: romanized subtitle slot under each tile — no numberOfLines anywhere
   // on tiles, so neither line can ever truncate at large text sizes.
   tileRomanized: { fontFamily: AppFonts.regular, fontSize: 11, textAlign: 'center', marginTop: 1 },
 

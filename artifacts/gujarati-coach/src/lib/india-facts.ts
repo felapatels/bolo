@@ -1,5 +1,5 @@
 /**
- * 100 curated India fun facts, the same set used on the mobile app.
+ * 100 curated India fun facts — the same set used on the mobile app.
  * Displayed on loading screens to make wait time feel like learning.
  */
 export const INDIA_FACTS: readonly string[] = [
@@ -31,7 +31,7 @@ export const INDIA_FACTS: readonly string[] = [
   "India has a floating post office on Dal Lake in Srinagar.",
   "The peacock is India's national bird, admired for its vibrant plumage.",
   "India has the largest number of vegetarians in the world.",
-  "Ancient India was a pioneer in surgery, the physician Sushruta performed cataract surgery over 2,000 years ago.",
+  "Ancient India was a pioneer in surgery — the physician Sushruta performed cataract surgery over 2,000 years ago.",
   "The banyan tree is India's national tree, known for its vast, spreading canopy.",
   "India has more than 2,000 distinct ethnic groups.",
   "The game of Ludo is derived from an ancient Indian game called Pachisi.",
@@ -238,7 +238,7 @@ export function factRotationForZone(opts: {
   return pool.map((_, k) => INDIA_FACTS[pool[(start + k) % pool.length]!]);
 }
 
-/** Module-level last-picked index, prevents a fact from showing twice in a row. */
+/** Module-level last-picked index — prevents a fact from showing twice in a row. */
 let lastFactIndex = -1;
 
 /** Returns a random fact, never repeating the immediately previous one. */

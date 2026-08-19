@@ -100,14 +100,15 @@ export function ReferralCard() {
           {data.code}
         </p>
         {/* The same code as a scannable square. This code doubles as the
-            learner's friend code, so a scan is also how someone adds them, the request still has to be accepted. */}
+            learner's friend code, so a scan is also how someone adds them —
+            the request still has to be accepted. */}
         <div className="mt-3 flex justify-center">
           <div className="rounded-2xl bg-white p-2 shadow-sm">
             <FriendQr value={link} size={132} />
           </div>
         </div>
         <p className="mt-2 text-xs font-medium text-muted-foreground">
-          Also your friend code, scan or type it to send a friend request.
+          Also your friend code — scan or type it to send a friend request.
         </p>
       </div>
 

@@ -5,7 +5,7 @@ import { Sentry } from '@/lib/sentry';
  * Diagnosing API failures from the outside.
  *
  * Apple rejected build 34 because the Settings screen "shows an error message"
- * on a brand-new Sign in with Apple account, and nobody could say WHICH
+ * on a brand-new Sign in with Apple account — and nobody could say WHICH
  * request failed or with what status, because the app threw that away: one
  * generic "check your connection" line, no Sentry event, no breadcrumb.
  *
@@ -18,7 +18,7 @@ import { Sentry } from '@/lib/sentry';
  *    learner to "check your connection" sends them down the wrong path.
  *
  * PII: only method, path (query string stripped), status, and the server's
- * auth-reason headers ever leave the device, never bodies, tokens, or
+ * auth-reason headers ever leave the device — never bodies, tokens, or
  * emails. lib/sentry.ts scrubbing is the backstop, not the primary defense.
  */
 
@@ -72,7 +72,7 @@ function endpointPath(url: string): string {
  * Response headers that state WHY a request was rejected.
  *
  * Clerk sets `x-clerk-auth-reason` (`session-token-and-uat-missing`,
- * `token-expired`, `jwk-kid-mismatch`, ...), that single string separates
+ * `token-expired`, `jwk-kid-mismatch`, ...) — that single string separates
  * "the app sent no token" from "the app signed into a different Clerk instance
  * than the server verifies against".
  *
@@ -99,13 +99,13 @@ export function authFailureReason(err: unknown): string | null {
 export function apiFailureMessage(err: unknown): string {
   switch (apiFailureKind(err)) {
     case 'auth':
-      return "Bolo couldn't confirm your sign-in 🥭, try signing out and signing back in.";
+      return "Bolo couldn't confirm your sign-in 🥭 — try signing out and signing back in.";
     case 'connection':
-      return "Bolo couldn't reach the internet 🥭, check your connection and try again.";
+      return "Bolo couldn't reach the internet 🥭 — check your connection and try again.";
     case 'server':
-      return 'Bolo is having a wobble on our side 🥭, please try again in a moment.';
+      return 'Bolo is having a wobble on our side 🥭 — please try again in a moment.';
     case 'client':
-      return "Bolo couldn't load this right now 🥭, please try again.";
+      return "Bolo couldn't load this right now 🥭 — please try again.";
   }
 }
 
@@ -118,11 +118,11 @@ export function apiFailureMessage(err: unknown): string {
 export function apiFailureDetail(err: unknown): string {
   const status = apiFailureStatus(err);
   const endpoint = apiFailureEndpoint(err) ?? 'request';
-  if (status === null) return `${endpoint}, no response (network)`;
+  if (status === null) return `${endpoint} — no response (network)`;
   const reason = authFailureReason(err);
   return reason
-    ? `${endpoint}, HTTP ${status} · ${reason}`
-    : `${endpoint}, HTTP ${status}`;
+    ? `${endpoint} — HTTP ${status} · ${reason}`
+    : `${endpoint} — HTTP ${status}`;
 }
 
 /**

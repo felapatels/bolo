@@ -2,7 +2,8 @@
 // come back with the M1 access envelope (access: teaser | exhausted), the
 // journey map renders the full line as a browsable showroom: only the marked
 // teaser station routes into practice; every other tap opens the
-// language-ticket dialog and writes NOTHING (no navigation, no mutations, // the screen has none). Exhausted mode adds the banner and its paywall CTA.
+// language-ticket dialog and writes NOTHING (no navigation, no mutations —
+// the screen has none). Exhausted mode adds the banner and its paywall CTA.
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
@@ -245,7 +246,7 @@ beforeEach(() => {
 
 // ─── tests ───────────────────────────────────────────────────────────────────
 
-describe('journey map, showroom mode (locked language)', () => {
+describe('journey map — showroom mode (locked language)', () => {
   it('renders the full line with the teaser stop marked and boardable', () => {
     const teaserStop = setShowroom('teaser', { consumed: 1, limit: 3 });
     render(<JourneyScreen />);
@@ -292,12 +293,12 @@ describe('journey map, showroom mode (locked language)', () => {
     ).toBeOnTheScreen();
 
     // Locked-stop dialog switches to the exhausted copy.
-    // Several later zones each render a locked "Stop 1 of 1", take the first.
+    // Several later zones each render a locked "Stop 1 of 1" — take the first.
     fireEvent.press(screen.getAllByLabelText('Stop 1 of 1: Locked')[0]);
     expect(screen.getByText("You've tried this line!")).toBeOnTheScreen();
     expect(mockState.push).not.toHaveBeenCalled();
 
-    // Both the exhausted banner and the dialog carry this CTA, the dialog's
+    // Both the exhausted banner and the dialog carry this CTA — the dialog's
     // renders last in the tree.
     const ctas = screen.getAllByText('Get your ticket');
     fireEvent.press(ctas[ctas.length - 1]);
@@ -308,7 +309,7 @@ describe('journey map, showroom mode (locked language)', () => {
   });
 });
 
-describe('journey map, showroom signals', () => {
+describe('journey map — showroom signals', () => {
   it('seats no interactive signals on a line the learner has not bought', () => {
     setShowroom('teaser', { consumed: 1, limit: 3 });
     render(<JourneyScreen />);

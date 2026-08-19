@@ -169,7 +169,7 @@ describe('stub tear-off activation', () => {
     jest.useRealTimers();
   });
 
-  it('fires onPress at the 500ms tear mark, navigation is never blocked', () => {
+  it('fires onPress at the 500ms tear mark — navigation is never blocked', () => {
     const onPress = jest.fn();
     render(<JourneyPassCard onPress={onPress} />);
 
@@ -216,7 +216,7 @@ describe('stub tear-off activation', () => {
     const onPress = jest.fn();
     render(<JourneyPassCard onPress={onPress} />);
 
-    // Two presses in the SAME event burst, the tearing state has not
+    // Two presses in the SAME event burst — the tearing state has not
     // committed yet, so only a synchronous ref guard can swallow the second.
     const card = screen.getByTestId('journey-pass-card');
     fireEvent.press(card);
@@ -255,7 +255,7 @@ describe('stub tear-off activation', () => {
       // No idle theatrics either: glow and shimmer never mount.
       expect(screen.queryByTestId('pass-glow')).toBeNull();
       expect(screen.queryByTestId('pass-shimmer')).toBeNull();
-      // R4: reduced motion is silent, no tear, no tear sound.
+      // R4: reduced motion is silent — no tear, no tear sound.
       expect(playTearSfx).not.toHaveBeenCalled();
     } finally {
       spy.mockRestore();
@@ -263,7 +263,7 @@ describe('stub tear-off activation', () => {
   });
 
   // R4: the recorded tear SFX plays at tear start (before the 500ms nav
-  // mark), exactly once per tear, swallowed re-presses stay silent, and a
+  // mark), exactly once per tear — swallowed re-presses stay silent, and a
   // fresh activation after the reset window plays it again.
   // The SFX is gated behind an async soundPref check (Build 35), so each
   // press assertion awaits act to flush the resolved promise.

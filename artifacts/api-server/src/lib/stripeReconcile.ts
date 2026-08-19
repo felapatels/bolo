@@ -38,7 +38,7 @@ export async function applyStripeStateIfChanged(
     apply.tier === "free" &&
     (current == null || current.subscriptionProvider !== PROVIDER)
   ) {
-    // Ended Stripe subscription for a row Stripe doesn't manage, not drift.
+    // Ended Stripe subscription for a row Stripe doesn't manage — not drift.
     return false;
   }
 
@@ -107,7 +107,7 @@ export function authoritativeByUser(
   return byUser;
 }
 
-// Lists every subscription (all statuses, canceled ones are how we learn a
+// Lists every subscription (all statuses — canceled ones are how we learn a
 // missed deletion) with pagination. Injectable for tests.
 export type SubscriptionLister = () => Promise<Stripe.Subscription[]>;
 
@@ -129,7 +129,7 @@ export interface SweepResult {
 }
 
 // One reconciliation pass: compare every Stripe-tagged subscription with the
-// stored user row and repair drift. Best-effort per user, one bad row doesn't
+// stored user row and repair drift. Best-effort per user — one bad row doesn't
 // abort the sweep.
 export async function sweepStripeReconcile(
   listSubscriptions: SubscriptionLister = listAllStripeSubscriptions,
@@ -141,7 +141,7 @@ export async function sweepStripeReconcile(
   let repaired = 0;
   for (const [userId, sub] of byUser) {
     const apply = applyFromStripeSubscription(sub);
-    if (!apply) continue; // incomplete/paused, not an actionable state
+    if (!apply) continue; // incomplete/paused — not an actionable state
     checked += 1;
     try {
       if (await applyStripeStateIfChanged(apply)) repaired += 1;
@@ -185,7 +185,8 @@ async function sweepWithLock(): Promise<void> {
 }
 
 // Fire-and-forget scheduler: one pass shortly after boot (catching anything
-// missed while the server was down), then on a fixed interval. Never throws, // a Stripe outage during a sweep only means the next interval retries.
+// missed while the server was down), then on a fixed interval. Never throws —
+// a Stripe outage during a sweep only means the next interval retries.
 export function scheduleStripeReconcileSweep(): void {
   if (!process.env.STRIPE_SECRET_KEY?.trim()) {
     logger.info("Stripe reconcile sweep disabled: no STRIPE_SECRET_KEY");

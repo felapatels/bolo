@@ -28,7 +28,8 @@ test("normalizeLatin folds romanization variants to one key", () => {
   assert.equal(normalizeLatin("waat"), normalizeLatin("vaat"));
   // ee→i fold: "beet" and "bit" normalize identically.
   assert.equal(normalizeLatin("beet"), normalizeLatin("bit"));
-  // Aspiration folds (bh, th, sh, etc.) are intentionally NOT folded any more, // they collapse phonetically distinct sounds on short phrases.
+  // Aspiration folds (bh, th, sh, etc.) are intentionally NOT folded any more —
+  // they collapse phonetically distinct sounds on short phrases.
   assert.notEqual(normalizeLatin("bhai"), normalizeLatin("bai"));
   assert.notEqual(normalizeLatin("thal"), normalizeLatin("tal"));
   assert.notEqual(normalizeLatin("sham"), normalizeLatin("sam"));
@@ -140,7 +141,7 @@ test("wildly divergent transcript can't pass outright", () => {
 });
 
 test("mid-band close attempt: LLM score stands", () => {
-  // "kem so", clearly attempting the target, one sound off; no guard fires.
+  // "kem so" — clearly attempting the target, one sound off; no guard fires.
   const r = applyScoreGuards({
     score: 72,
     passed: false,
@@ -207,7 +208,7 @@ test("cross-script transcript that does NOT match after bridging still resolves 
 
 test("Latin transcript for a non-Latin phrase with low romanized similarity resolves to nocatch", () => {
   // The recognizer wrote English-looking words for Hindi speech. sim to the
-  // romanized target is far below 0.70, so this is recognizer noise, nocatch,
+  // romanized target is far below 0.70, so this is recognizer noise — nocatch,
   // never a learner failure, even when the LLM scored it as a pass.
   const r = applyScoreGuards({
     score: 84,
@@ -221,7 +222,7 @@ test("Latin transcript for a non-Latin phrase with low romanized similarity reso
   assert.equal(r.score, 0);
 });
 
-test("Latin transcript with verifiable similarity (sim >= 0.70) stays scoreable, not a mismatch", () => {
+test("Latin transcript with verifiable similarity (sim >= 0.70) stays scoreable — not a mismatch", () => {
   // Slightly-off romanized attempt: affirmative evidence the learner said the
   // phrase. Guard 1b must NOT fire; normal scoring applies.
   const r = applyScoreGuards({
@@ -252,7 +253,7 @@ test("Latin transcript matching a DIFFERENT phrase still gets wrong-phrase-cap, 
 });
 
 test("near-match-floor threshold is 0.90: sim in [0.85, 0.90) no longer rescues a wrong attempt", () => {
-  // "shukriyo" vs target "shukriya", one character off at the end.
+  // "shukriyo" vs target "shukriya" — one character off at the end.
   // normalizeLatin: no folds apply, both 8 chars, levenshtein=1 → sim = 0.875.
   // Under the old 0.85 threshold this would have been floored to 85/passed.
   // Under the new 0.90 threshold the LLM score of 70 stands (no guard fires).
@@ -327,7 +328,7 @@ test("cross-language ambiguity: 'na' romanization is identical for Gujarati and 
   assert.equal(
     normalizeLatin("na"),
     normalizeLatin("na"),
-    "same romanization folds to the same key (trivially true, confirms normalizeLatin is language-agnostic)",
+    "same romanization folds to the same key (trivially true — confirms normalizeLatin is language-agnostic)",
   );
 });
 
@@ -346,7 +347,7 @@ test("cross-language ambiguity: transcript 'na' matches both a Gujarati and a Hi
   assert.ok(cmpGu.comparable, "Gujarati comparison should be comparable");
   assert.ok(cmpHi.comparable, "Hindi comparison should be comparable");
 
-  // Both should score near 1.0, the ambiguity is real.
+  // Both should score near 1.0 — the ambiguity is real.
   assert.ok(
     cmpGu.sim >= 0.90,
     `expected sim ≥ 0.90 for Gujarati "na" target, got ${cmpGu.sim}`,
@@ -370,7 +371,7 @@ test("cross-language ambiguity: wrong-phrase-cap does NOT fire when sibling list
     transcript: "na",
     targetNative: gujarati.native,
     targetRomanized: gujarati.romanized,
-    otherPhrases: [], // empty, no cross-language pollution
+    otherPhrases: [], // empty — no cross-language pollution
   });
   // sim("na","na")=1.0 → near-match-floor fires regardless of the LLM score.
   assert.ok(r.passed, "exact 'na' for Gujarati target must pass");
@@ -379,7 +380,7 @@ test("cross-language ambiguity: wrong-phrase-cap does NOT fire when sibling list
 });
 
 test("cross-language ambiguity: wrong-phrase-cap fires when the sibling list contains an equally-matching phrase", () => {
-  // Edge case: if, hypothetically, the sibling list were contaminated with
+  // Edge case: if — hypothetically — the sibling list were contaminated with
   // a phrase from another language that also romanizes to "na", the
   // wrong-phrase-cap would fire and cap the score at 40.  In practice the
   // sibling list is always same-language, so this scenario doesn't arise in
@@ -406,7 +407,7 @@ test("cross-language ambiguity: wrong-phrase-cap fires when the sibling list con
 });
 
 // ---------------------------------------------------------------------------
-// normalizeNative, conjunct-nasal / anusvara equivalence (Devanagari)
+// normalizeNative — conjunct-nasal / anusvara equivalence (Devanagari)
 // ---------------------------------------------------------------------------
 
 test("normalizeNative: anusvara form and conjunct-nasal form produce the same key", () => {
@@ -422,8 +423,8 @@ test("normalizeNative: anusvara form and conjunct-nasal form produce the same ke
 });
 
 test("normalizeNative: standalone nasal survives; only nasal+virama is stripped (minimal pair)", () => {
-  // हिन्दी has न् (nasal + virama U+094D), the conjunct is stripped → "हद"
-  // हिनदी has न  (standalone nasal, no virama) , the letter survives → "हनद"
+  // हिन्दी has न् (nasal + virama U+094D) — the conjunct is stripped → "हद"
+  // हिनदी has न  (standalone nasal, no virama)  — the letter survives → "हनद"
   // The two strings differ ONLY in whether the nasal carries a virama.
   // If the rule were too aggressive (stripping all nasals), both would reduce
   // to the same key; this test catches that regression.
@@ -435,7 +436,7 @@ test("normalizeNative: standalone nasal survives; only nasal+virama is stripped 
 });
 
 test("normalizeNative is idempotent: applying it twice gives the same result as once", () => {
-  // Catches ordering bugs in the replace chain, e.g. a step that produces
+  // Catches ordering bugs in the replace chain — e.g. a step that produces
   // new strippable input for a later step, causing a second pass to differ.
   const inputs = ["हिन्दी", "हिंदी", "नम\u200Dस्ते", "kem chho", "केम छो"];
   for (const x of inputs) {

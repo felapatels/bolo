@@ -112,7 +112,7 @@ export function BadgeUnlock({
             </Text>
           </Pressable>
           {/* Secondary escape hatch: the freshly earned badge lives on the
-              Progress tab, link there instead of dead-ending at dismiss.
+              Progress tab — link there instead of dead-ending at dismiss.
               Mirrors the web BadgeUnlock's "See progress" action. */}
           <Pressable
             accessibilityRole="button"

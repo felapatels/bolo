@@ -1,5 +1,5 @@
 /**
- * Web XP strip component tests, the three visual states of the daily train
+ * Web XP strip component tests — the three visual states of the daily train
  * class ladder.
  *
  * The strip used to render `todayXp / dailyGoal`, an XP total over an ATTEMPTS
@@ -43,7 +43,7 @@ beforeEach(() => {
   h.todayXp = 0;
 });
 
-describe("XpCounter, below the first rung (no class yet)", () => {
+describe("XpCounter — below the first rung (no class yet)", () => {
   test("fills toward Local and names no class", () => {
     h.todayXp = 40;
     render(<XpCounter variant="chrome" />);
@@ -62,7 +62,7 @@ describe("XpCounter, below the first rung (no class yet)", () => {
   });
 });
 
-describe("XpCounter, mid-ladder (a class in hand)", () => {
+describe("XpCounter — mid-ladder (a class in hand)", () => {
   test("shows the held class beside the next rung", () => {
     h.todayXp = 254;
     render(<XpCounter variant="chrome" />);
@@ -84,7 +84,7 @@ describe("XpCounter, mid-ladder (a class in hand)", () => {
   });
 });
 
-describe("XpCounter, top of the ladder", () => {
+describe("XpCounter — top of the ladder", () => {
   test("renders the class name alone: no bar, no fraction", () => {
     h.todayXp = 900;
     render(<XpCounter variant="chrome" />);
@@ -94,12 +94,12 @@ describe("XpCounter, top of the ladder", () => {
     // Name only: no fraction, no "XP" unit, nothing else in the element.
     expect(screen.getByTestId("xp-counter").textContent).toBe("Shatabdi");
     expect(
-      screen.getByLabelText("Shatabdi class, 900 XP today, top class reached"),
+      screen.getByLabelText("Shatabdi class — 900 XP today, top class reached"),
     ).toBeInTheDocument();
   });
 });
 
-describe("XpCounter, compact session variant", () => {
+describe("XpCounter — compact session variant", () => {
   test("carries the class name too, so the top state is never empty", () => {
     h.todayXp = 254;
     render(<XpCounter variant="session" />);

@@ -4,12 +4,12 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 // ---------------------------------------------------------------------------
 // Guards two things:
 //
-//  1. Language switcher tab, the 5th slot is a custom tabBarButton showing the
+//  1. Language switcher tab — the 5th slot is a custom tabBarButton showing the
 //     globe icon plus the active-language code; pressing it opens the language
 //     picker instead of navigating to a tab screen. (The friend-request badge
 //     moved to the Home header's Account button; see home screen tests.)
 //
-//  2. Orientation stability, the BoloTabButton receives its slot width via the
+//  2. Orientation stability — the BoloTabButton receives its slot width via the
 //     `style` prop forwarded by the tab bar renderer.  When the device rotates,
 //     the tab bar remeasures and passes a new width.  The tests below confirm
 //     all visible tabs remain present and the Bolo button renders correctly after
@@ -229,7 +229,7 @@ describe('Registered tabs', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Orientation changes, BoloTabButton slot-width forwarding
+// Orientation changes — BoloTabButton slot-width forwarding
 //
 // The real tab bar remeasures on rotation and re-renders every tab button with
 // a new `style` prop.  These tests verify that BoloTabButton stays visible and
@@ -255,7 +255,7 @@ describe('Orientation changes', () => {
 
     // BoloTabButton renders an accessible Pressable whose name stays "Bolo"
     // (VoiceOver is unchanged) and a visible label reading "Bolo Chat",
-    // matching web's centre tab, both must be present.
+    // matching web's centre tab — both must be present.
     expect(screen.getByLabelText('Bolo')).toBeTruthy();
     expect(screen.getByText('Bolo Chat')).toBeTruthy();
   });
@@ -339,7 +339,7 @@ describe('Centre tab label', () => {
     expect(boloLabel()).toHaveStyle({ color: '#6C3FC5' });
   });
 
-  test('is a single line at 11px, never wraps onto the circle', () => {
+  test('is a single line at 11px — never wraps onto the circle', () => {
     render(<TabsLayout />);
     const label = boloLabel();
     expect(label.props.numberOfLines).toBe(1);

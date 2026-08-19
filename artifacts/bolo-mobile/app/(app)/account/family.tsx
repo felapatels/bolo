@@ -46,14 +46,15 @@ function errorMessage(err: unknown, fallback: string): string {
 }
 
 /**
- * Family plan management, the mobile counterpart of the web /family page.
+ * Family plan management — the mobile counterpart of the web /family page.
  *
  * Renders by the caller's server-resolved role: an owner sees seats, invites
  * (email + shareable join code via the native share sheet) and member removal;
  * a member sees whose plan they're on and can leave; everyone else gets the
  * Family upsell plus a join-code entry so an invited learner can claim a seat
  * right from the phone. All state changes go through the existing family
- * endpoints; after any change we re-read the family status and entitlements, * the server stays the sole authority on who has Plus.
+ * endpoints; after any change we re-read the family status and entitlements —
+ * the server stays the sole authority on who has Plus.
  */
 export default function FamilyScreen() {
   const colors = useColors();
@@ -86,7 +87,7 @@ export default function FamilyScreen() {
         <View style={styles.centerState}>
           <Feather name="alert-circle" size={32} color={colors.mutedForeground} />
           <Text style={[styles.stateText, { color: colors.mutedForeground }]}>
-            Bolo couldn't load your family plan right now 🥭, check your
+            Bolo couldn't load your family plan right now 🥭 — check your
             connection and try again.
           </Text>
           <ChunkyButton
@@ -192,22 +193,22 @@ function OwnerView({ family }: { family: FamilyStatus }) {
     clearMessages();
     try {
       await regenerate.mutateAsync();
-      setNotice('New join code generated, the old one no longer works.');
+      setNotice('New join code generated — the old one no longer works.');
       await refresh();
     } catch (err) {
       setError(errorMessage(err, "Couldn't generate a new code."));
     }
   };
 
-  // Native share sheet, the mobile-first way to hand the code to family.
+  // Native share sheet — the mobile-first way to hand the code to family.
   const onShareCode = async () => {
     if (!family.joinCode) return;
     try {
       await Share.share({
-        message: `Join my Bolo! family plan and get full All-Access, open Bolo!, go to Account → Family plan, and enter this join code: ${family.joinCode}`,
+        message: `Join my Bolo! family plan and get full All-Access — open Bolo!, go to Account → Family plan, and enter this join code: ${family.joinCode}`,
       });
     } catch {
-      // The learner dismissed the sheet or sharing is unavailable, no-op.
+      // The learner dismissed the sheet or sharing is unavailable — no-op.
     }
   };
 
@@ -346,7 +347,7 @@ function OwnerView({ family }: { family: FamilyStatus }) {
         </View>
         {openSeats === 0 ? (
           <Text style={[styles.fullText, { color: colors.mutedForeground }]}>
-            Your family plan is full, all {capacity} seats are taken (including
+            Your family plan is full — all {capacity} seats are taken (including
             pending invites).
           </Text>
         ) : null}
@@ -535,7 +536,7 @@ function MemberView({ family }: { family: FamilyStatus }) {
     try {
       await leave.mutateAsync();
       setConfirmLeave(false);
-      // Leaving changes the caller's own entitlements, re-pull everything
+      // Leaving changes the caller's own entitlements — re-pull everything
       // server-derived so gates re-lock immediately.
       await qc.invalidateQueries();
     } catch (err) {
@@ -565,7 +566,7 @@ function MemberView({ family }: { family: FamilyStatus }) {
           </View>
         </View>
         <Text style={[styles.memberBody, { color: colors.mutedForeground }]}>
-          You have full All-Access through this plan, every language, the
+          You have full All-Access through this plan — every language, the
           complete phrase library, review, and analytics. Your progress and streaks
           are completely your own; only the plan is shared. Billing is handled
           by {ownerName}, so there's nothing for you to pay or manage.
@@ -657,7 +658,7 @@ function JoinView({ inviteToken }: { inviteToken: string | null }) {
     try {
       const result = await join.mutateAsync({ data: body });
       setJoined(result);
-      // Plus should unlock immediately, re-pull everything server-derived.
+      // Plus should unlock immediately — re-pull everything server-derived.
       await qc.refetchQueries({ queryKey: getGetEntitlementsQueryKey() });
       await qc.invalidateQueries();
     } catch (err) {
@@ -681,13 +682,13 @@ function JoinView({ inviteToken }: { inviteToken: string | null }) {
         </Text>
         <Text style={[styles.helpText, { color: colors.mutedForeground }]}>
           {joined.active
-            ? 'You now have full All-Access, every language, the complete phrase library, review, and analytics. Your progress stays completely your own.'
+            ? 'You now have full All-Access — every language, the complete phrase library, review, and analytics. Your progress stays completely your own.'
             : "Your seat is saved. The family subscription isn't active right now, so All-Access will unlock as soon as it resumes."}
         </Text>
         {joined.previousSubscriptionCanceled ? (
           <View style={[styles.warnBox, { backgroundColor: `${colors.primary}12` }]}>
             <Text style={[styles.warnText, { color: colors.foreground }]}>
-              Your own subscription has ended, you're covered by the family
+              Your own subscription has ended — you're covered by the family
               plan now, and the unused time was credited back. No double
               billing.
             </Text>
@@ -771,7 +772,7 @@ function JoinView({ inviteToken }: { inviteToken: string | null }) {
         </View>
       )}
 
-      {/* Join by code, always available so an invited learner can claim a
+      {/* Join by code — always available so an invited learner can claim a
           seat even without opening the emailed link. */}
       <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
         Have a join code?

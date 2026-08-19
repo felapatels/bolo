@@ -6,7 +6,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react-native';
 //
 // What makes this one different from the three ports before it: the board is
 // PERSISTENT. It is built once per run and rounds turn over underneath it, so
-// the round holds state, a matched set and a first-wrong map, for the whole
+// the round holds state — a matched set and a first-wrong map — for the whole
 // run. That produces failure modes the other games cannot have:
 //
 //  1. the FIRST-WRONG MODEL. Only a correct pair submits. A pair solved first
@@ -18,7 +18,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react-native';
 //  2. STATE LEAKING ACROSS RUNS. Nothing in the round resets itself; it
 //     depends entirely on the shell remounting it between runs. If that
 //     regresses, run two opens with every tag already matched and every
-//     fumbled pair still fumbled, pinned here from the game's side, and from
+//     fumbled pair still fumbled — pinned here from the game's side, and from
 //     the shell's side in quick-game-shell.test.tsx.
 //
 //  3. the run length is POOL-DEPENDENT (min(6, pool)), not a constant.
@@ -238,7 +238,7 @@ describe('buildBoard', () => {
   test('the racks are shuffled INDEPENDENTLY, and may coincidentally align', () => {
     // Web shuffles the chosen set twice more, once per rack, which means a tag
     // can land opposite its own twin by chance. That is not a bug to design
-    // out, porting it faithfully means both of these are reachable.
+    // out — porting it faithfully means both of these are reachable.
     let sawDifferentOrders = false;
     let sawAnAlignedRow = false;
     for (let run = 0; run < 400; run++) {
@@ -379,7 +379,7 @@ describe('Luggage Match board', () => {
     matchPair(10);
     await act(async () => {});
 
-    // It still counts as a round completed, just not a clean one. The shell
+    // It still counts as a round completed — just not a clean one. The shell
     // scores it from what was submitted, so this pair must NOT read as
     // correct.
     expect(screen.getByText('✓ 0 correct')).toBeTruthy();
@@ -392,7 +392,7 @@ describe('Luggage Match board', () => {
     await startRun();
 
     pressLeft(10);
-    pressRight(12); // first fumble, this is the one that must stick
+    pressRight(12); // first fumble — this is the one that must stick
     await flushShake();
     pressLeft(10);
     pressRight(13); // second fumble
@@ -430,7 +430,7 @@ describe('Luggage Match board', () => {
 
     // The right pick SURVIVES: it is only cleared by resolving or by being
     // tapped again. So the next left tap resolves against 11, not against a
-    // blank rack, tapping 11's twin completes the pair outright.
+    // blank rack — tapping 11's twin completes the pair outright.
     pressLeft(11);
     await act(async () => {});
     expect(screen.getByText('Round 2 of 6')).toBeTruthy();
@@ -505,7 +505,7 @@ describe('a full Luggage Match run', () => {
     await startRun();
 
     // Fumble two of the six pairs before solving them. The wrong counterpart
-    // has to be a tag still IN PLAY, an already-matched tag is disabled, so
+    // has to be a tag still IN PLAY — an already-matched tag is disabled, so
     // pairing against it is not a fumble, it is a dead tap.
     const FUMBLED = [1, 3];
     for (let i = 0; i < RUN_PAIRS; i++) {
@@ -611,7 +611,8 @@ describe('a second run starts clean', () => {
 // Owner ruling: any game surface showing native script must ALSO show its
 // romanized form, always visible during play. The luggage tags render script
 // only, so a learner who cannot read Gujarati yet was pairing shapes blind.
-// The romanized line comes off phrase.romanized, no transliteration engine, // and an empty romanized (a script with no romanization) must render nothing
+// The romanized line comes off phrase.romanized — no transliteration engine —
+// and an empty romanized (a script with no romanization) must render nothing
 // rather than an empty line.
 
 describe('romanized reading on the tags', () => {

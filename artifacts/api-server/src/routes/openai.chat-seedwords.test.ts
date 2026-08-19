@@ -23,7 +23,7 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 //
 // Verifies that when phrases exist for the active language in the DB, the
 // route fetches them and passes their romanized forms as seed words to the
-// Whisper transcription prompt, giving the model phonetic anchoring for
+// Whisper transcription prompt — giving the model phonetic anchoring for
 // less-resourced languages (Kashmiri, Santali, Manipuri, etc.).
 //
 // Strategy: monkey-patch `defaultParrotChatDeps` (the live dependency object
@@ -40,7 +40,7 @@ const TEST_LANG_NAME = `SeedWordsLang${RUN}`;
 const TEST_USER = `__test_user_seedw${RUN}`;
 const CATEGORY_SLUG = `__cat_seedw${RUN}`;
 
-// A second language with ZERO phrases, exercises the non-fatal fallback path.
+// A second language with ZERO phrases — exercises the non-fatal fallback path.
 const TEST_LANG_EMPTY = `__test_seedw_e${RUN}`;
 const TEST_LANG_EMPTY_NAME = `SeedWordsEmptyLang${RUN}`;
 
@@ -56,7 +56,7 @@ const CATEGORY_SLUG_2 = `__cat_seedw2${RUN}`;
 const SEED_ROMANIZED = ["kyah chhu", "kus", "chu", "aasi", "baasith"] as const;
 const SEED_NATIVE = ["كیا چھُ", "کُس", "چُھ", "آسِ", "باسِتھ"] as const;
 
-// Phrases for the second (Santali-like) language, fully distinct tokens so
+// Phrases for the second (Santali-like) language — fully distinct tokens so
 // the isolation assertion can detect cross-language leakage.
 const SEED_ROMANIZED_2 = ["johar", "hende", "okoe", "alom", "bapla"] as const;
 const SEED_NATIVE_2 = ["ᱡᱚᱦᱟᱨ", "ᱦᱮᱸᱫᱮ", "ᱚᱠᱚᱭ", "ᱟᱞᱚᱢ", "ᱵᱟᱯᱞᱟ"] as const;
@@ -178,7 +178,7 @@ before(async () => {
     })
     .onConflictDoNothing();
 
-  // Zero-phrases language, never gets any phrase rows, exercises fallback.
+  // Zero-phrases language — never gets any phrase rows, exercises fallback.
   await db.insert(languagesTable)
     .values({
       code: TEST_LANG_EMPTY,
@@ -346,7 +346,7 @@ after(async () => {
   await db.delete(languagesTable).where(eq(languagesTable.code, TEST_LANG));
   await db.delete(languagesTable).where(eq(languagesTable.code, TEST_LANG_2));
   // Zero-phrases language has no phrases/lessons/categories rows, but the route
-  // records chat turns for it, delete those before the FK-constrained language row.
+  // records chat turns for it — delete those before the FK-constrained language row.
   await db.delete(chatTurnsTable).where(eq(chatTurnsTable.languageCode, TEST_LANG_EMPTY));
   await db.delete(languagesTable).where(eq(languagesTable.code, TEST_LANG_EMPTY));
   await db.delete(usersTable).where(eq(usersTable.id, TEST_USER));
@@ -365,7 +365,7 @@ async function postChat(body: unknown): Promise<{ status: number; json: unknown 
 
 // ─── Core seed-word integration tests ────────────────────────────────────────
 
-test("POST /openai/chat, transcription prompt includes romanized seed words fetched from DB", async () => {
+test("POST /openai/chat — transcription prompt includes romanized seed words fetched from DB", async () => {
   capturedTranscribeOptions = {};
 
   const { status } = await postChat({
@@ -388,12 +388,12 @@ test("POST /openai/chat, transcription prompt includes romanized seed words fetc
   for (const word of SEED_ROMANIZED) {
     assert.ok(
       (prompt as string).includes(word),
-      `prompt should include seeded romanized word "${word}", got: ${prompt}`,
+      `prompt should include seeded romanized word "${word}" — got: ${prompt}`,
     );
   }
 });
 
-test("POST /openai/chat, transcription prompt includes language name alongside seed words", async () => {
+test("POST /openai/chat — transcription prompt includes language name alongside seed words", async () => {
   capturedTranscribeOptions = {};
 
   await postChat({
@@ -405,16 +405,16 @@ test("POST /openai/chat, transcription prompt includes language name alongside s
   const prompt = capturedTranscribeOptions["prompt"] as string;
   assert.ok(
     prompt.includes(TEST_LANG_NAME),
-    `prompt must include the language name "${TEST_LANG_NAME}", got: ${prompt}`,
+    `prompt must include the language name "${TEST_LANG_NAME}" — got: ${prompt}`,
   );
   // The bilingual hint must still be present so Whisper allows English too.
   assert.ok(
     prompt.toLowerCase().includes("english"),
-    `prompt must mention 'English', got: ${prompt}`,
+    `prompt must mention 'English' — got: ${prompt}`,
   );
 });
 
-test("POST /openai/chat, romanized seed words appear before native-script words in the prompt", async () => {
+test("POST /openai/chat — romanized seed words appear before native-script words in the prompt", async () => {
   capturedTranscribeOptions = {};
 
   await postChat({
@@ -435,7 +435,7 @@ test("POST /openai/chat, romanized seed words appear before native-script words 
   );
 });
 
-test("POST /openai/chat, transcription prompt has the expected seed-word comma-separated format", async () => {
+test("POST /openai/chat — transcription prompt has the expected seed-word comma-separated format", async () => {
   capturedTranscribeOptions = {};
 
   await postChat({
@@ -449,18 +449,18 @@ test("POST /openai/chat, transcription prompt has the expected seed-word comma-s
   // Expected format: "<LangName> or English. <word1>, <word2>, ..., <native1>, <native2>, ..."
   assert.ok(
     prompt.startsWith(`${TEST_LANG_NAME} or English.`),
-    `prompt should start with the bilingual hint, got: ${prompt}`,
+    `prompt should start with the bilingual hint — got: ${prompt}`,
   );
 
   // The romanized words should appear as a comma-separated list after the base hint.
   const commaJoined = SEED_ROMANIZED.join(", ");
   assert.ok(
     prompt.includes(commaJoined),
-    `prompt should contain the romanized words comma-separated ("${commaJoined}"), got: ${prompt}`,
+    `prompt should contain the romanized words comma-separated ("${commaJoined}") — got: ${prompt}`,
   );
 });
 
-test("POST /openai/chat, transcription stub does not receive a hard language lock", async () => {
+test("POST /openai/chat — transcription stub does not receive a hard language lock", async () => {
   capturedTranscribeOptions = {};
 
   await postChat({
@@ -482,7 +482,7 @@ test("POST /openai/chat, transcription stub does not receive a hard language loc
 // (e.g. brand-new language before lesson generation), the route must still
 // return 200 and pass a valid bilingual hint prompt to the transcriber.
 
-test("POST /openai/chat, returns 200 when language has zero phrases (no crash on empty seed fetch)", async () => {
+test("POST /openai/chat — returns 200 when language has zero phrases (no crash on empty seed fetch)", async () => {
   capturedTranscribeOptions = {};
 
   const { status } = await postChat({
@@ -498,7 +498,7 @@ test("POST /openai/chat, returns 200 when language has zero phrases (no crash on
   );
 });
 
-test("POST /openai/chat, transcription prompt is non-empty for a language with zero phrases", async () => {
+test("POST /openai/chat — transcription prompt is non-empty for a language with zero phrases", async () => {
   capturedTranscribeOptions = {};
 
   await postChat({
@@ -516,15 +516,15 @@ test("POST /openai/chat, transcription prompt is non-empty for a language with z
   // The bare bilingual hint must be present so Whisper knows the language.
   assert.ok(
     (prompt as string).includes(TEST_LANG_EMPTY_NAME),
-    `prompt must include the language name "${TEST_LANG_EMPTY_NAME}", got: ${prompt}`,
+    `prompt must include the language name "${TEST_LANG_EMPTY_NAME}" — got: ${prompt}`,
   );
   assert.ok(
     (prompt as string).toLowerCase().includes("english"),
-    `prompt must mention 'English', got: ${prompt}`,
+    `prompt must mention 'English' — got: ${prompt}`,
   );
 });
 
-test("POST /openai/chat, prompt contains no empty comma-separated fragment when phrases are absent", async () => {
+test("POST /openai/chat — prompt contains no empty comma-separated fragment when phrases are absent", async () => {
   capturedTranscribeOptions = {};
 
   await postChat({
@@ -539,15 +539,15 @@ test("POST /openai/chat, prompt contains no empty comma-separated fragment when 
   // trailing ", " after the base hint. None of these must appear.
   assert.ok(
     !prompt.includes(", ,"),
-    `prompt must not contain empty comma fragments, got: ${prompt}`,
+    `prompt must not contain empty comma fragments — got: ${prompt}`,
   );
   assert.ok(
     !prompt.match(/\.\s*,/),
-    `prompt must not have a comma immediately after the period, got: ${prompt}`,
+    `prompt must not have a comma immediately after the period — got: ${prompt}`,
   );
   assert.ok(
     !prompt.match(/,\s*$/),
-    `prompt must not end with a trailing comma, got: ${prompt}`,
+    `prompt must not end with a trailing comma — got: ${prompt}`,
   );
 
   // The zero-phrases prompt should be exactly the bare bilingual hint.
@@ -560,7 +560,7 @@ test("POST /openai/chat, prompt contains no empty comma-separated fragment when 
 
 // ─── Language-switch mid-session test ────────────────────────────────────────
 
-test("POST /openai/chat, language switch mid-session: each turn uses only that language's seed words", async () => {
+test("POST /openai/chat — language switch mid-session: each turn uses only that language's seed words", async () => {
   // Turn 1: first language (Kashmiri-like).
   capturedTranscribeOptions = {};
   const { status: status1 } = await postChat({
@@ -571,7 +571,7 @@ test("POST /openai/chat, language switch mid-session: each turn uses only that l
   // Snapshot the prompt before the second call overwrites the capture variable.
   const promptLang1 = capturedTranscribeOptions["prompt"] as string;
 
-  // Turn 2: second language (Santali-like), simulates a learner switching
+  // Turn 2: second language (Santali-like) — simulates a learner switching
   // language mid-session without reloading the app.
   capturedTranscribeOptions = {};
   const { status: status2 } = await postChat({
@@ -588,14 +588,14 @@ test("POST /openai/chat, language switch mid-session: each turn uses only that l
   for (const word of SEED_ROMANIZED) {
     assert.ok(
       promptLang1.includes(word),
-      `lang1 prompt should contain "${word}", got: ${promptLang1}`,
+      `lang1 prompt should contain "${word}" — got: ${promptLang1}`,
     );
   }
   // … and must NOT contain any lang 2 word.
   for (const word of SEED_ROMANIZED_2) {
     assert.ok(
       !promptLang1.includes(word),
-      `lang1 prompt must NOT contain lang2 word "${word}", got: ${promptLang1}`,
+      `lang1 prompt must NOT contain lang2 word "${word}" — got: ${promptLang1}`,
     );
   }
 
@@ -603,24 +603,24 @@ test("POST /openai/chat, language switch mid-session: each turn uses only that l
   for (const word of SEED_ROMANIZED_2) {
     assert.ok(
       promptLang2.includes(word),
-      `lang2 prompt should contain "${word}", got: ${promptLang2}`,
+      `lang2 prompt should contain "${word}" — got: ${promptLang2}`,
     );
   }
   // … and must NOT contain any lang 1 word.
   for (const word of SEED_ROMANIZED) {
     assert.ok(
       !promptLang2.includes(word),
-      `lang2 prompt must NOT contain lang1 word "${word}", got: ${promptLang2}`,
+      `lang2 prompt must NOT contain lang1 word "${word}" — got: ${promptLang2}`,
     );
   }
 
   // Each prompt should include the correct language name.
   assert.ok(
     promptLang1.includes(TEST_LANG_NAME),
-    `lang1 prompt should include language name "${TEST_LANG_NAME}", got: ${promptLang1}`,
+    `lang1 prompt should include language name "${TEST_LANG_NAME}" — got: ${promptLang1}`,
   );
   assert.ok(
     promptLang2.includes(TEST_LANG_NAME_2),
-    `lang2 prompt should include language name "${TEST_LANG_NAME_2}", got: ${promptLang2}`,
+    `lang2 prompt should include language name "${TEST_LANG_NAME_2}" — got: ${promptLang2}`,
   );
 });

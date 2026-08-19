@@ -24,9 +24,9 @@ import type { MascotPose } from "@/components/mascot";
  * retired on July 29, 2026 (owner decision) because it doesn't match the
  * canonical art. It is kept on disk for reference only and must stay
  * unreferenced. The only permitted mascot pixels are the five canonical PNGs
- * in public/mascot/, animated as whole images, see components/mascot.tsx.
+ * in public/mascot/, animated as whole images — see components/mascot.tsx.
  *
- * BoloRig, Bolo the parrot as a layered, rigged SVG character.
+ * BoloRig — Bolo the parrot as a layered, rigged SVG character.
  *
  * Replaces the five static pose PNGs with one vector character whose body
  * parts (wings, head, crest, beak, eyes, tail) are individually animated.
@@ -35,7 +35,7 @@ import type { MascotPose } from "@/components/mascot";
  *
  * Every animated part uses an explicit SVG `transform` attribute built from
  * MotionValue templates (`rotate(deg cx cy)` etc.) so pivots are exact viewBox
- * coordinates, wings rotate at the shoulder, the head at the neck, the jaw at
+ * coordinates — wings rotate at the shoulder, the head at the neck, the jaw at
  * its hinge. (framer's own originX/originY fractions are unreliable for SVG
  * groups, which is why we don't use `animate={{ rotate }}` on parts.)
  *
@@ -45,14 +45,14 @@ import type { MascotPose } from "@/components/mascot";
  * a sympathetic flinch when entering the tryagain pose, and a squash-and-
  * stretch poke reaction when the learner touches him.
  *
- * Reduced motion: every behavior collapses, the rig renders the current
+ * Reduced motion: every behavior collapses — the rig renders the current
  * pose as a still frame (no blinking, tracking, beak sync, or beats).
  *
  * Visual reference: public/mascot/README.md and the pose PNGs it describes.
  */
 
 // ---------------------------------------------------------------------------
-// Palette, matches the PNG reference sheet (teal body, indigo wings/crest,
+// Palette — matches the PNG reference sheet (teal body, indigo wings/crest,
 // coral beak and feet, deep-slate eyes, rosy cheeks).
 // ---------------------------------------------------------------------------
 const C = {
@@ -85,7 +85,7 @@ export interface RigEffect {
 }
 
 // ---------------------------------------------------------------------------
-// Pose system, each pose is a set of per-part transform targets.
+// Pose system — each pose is a set of per-part transform targets.
 // Wing rotate convention: 0 = hanging at rest along the body; positive
 // values raise the wing outward/up (SVG rotation is clockwise, y-down, and
 // the wing hangs below its shoulder pivot); negative values sweep it inward
@@ -169,7 +169,7 @@ const WING_SPRING = { stiffness: 240, damping: 15 };
 /**
  * An SVG <g> whose `transform` attribute follows a MotionValue string
  * template. framer-motion intercepts the `transform` prop on motion.g (it
- * manages transforms itself), so we write the attribute directly, this is
+ * manages transforms itself), so we write the attribute directly — this is
  * what makes exact viewBox-coordinate pivots like `rotate(deg 57 110)` work.
  */
 function TG({ tpl, children }: { tpl: MotionValue<string>; children: ReactNode }) {
@@ -203,7 +203,7 @@ function usePartValue(
 }
 
 // ---------------------------------------------------------------------------
-// Talking amplitude, samples the currently playing chat audio element via
+// Talking amplitude — samples the currently playing chat audio element via
 // captureStream + AnalyserNode where supported (never reroutes playback, so
 // a failure can only cost us amplitude data, not the learner's audio). When
 // no real signal is available the beak falls back to a speech-like synthetic
@@ -227,7 +227,7 @@ function getTalkAnalyser(el: HTMLAudioElement): AnalyserNode | null {
         const source = talkCtx.createMediaStreamSource(stream);
         analyser = talkCtx.createAnalyser();
         analyser.fftSize = 256;
-        source.connect(analyser); // analysis only, element output untouched
+        source.connect(analyser); // analysis only — element output untouched
       }
     }
   } catch {
@@ -424,7 +424,7 @@ export function BoloRig({
           }
         }
         if (level === null) level = syntheticTalkLevel(performance.now());
-        // Fast attack, slower release, reads as speech, not flutter.
+        // Fast attack, slower release — reads as speech, not flutter.
         smoothed =
           level > smoothed ? smoothed * 0.45 + level * 0.55 : smoothed * 0.75 + level * 0.25;
         beakOpen.set(smoothed);
@@ -567,11 +567,11 @@ export function BoloRig({
         </radialGradient>
       </defs>
 
-      {/* Beat layer, poke squash / flinch shake for the whole character */}
+      {/* Beat layer — poke squash / flinch shake for the whole character */}
       <TG tpl={beatTpl}>
-        {/* Breathing layer, subtle bottom-anchored swell */}
+        {/* Breathing layer — subtle bottom-anchored swell */}
         <TG tpl={breathTpl}>
-          {/* Tail, indigo feathers behind the body, lower right */}
+          {/* Tail — indigo feathers behind the body, lower right */}
           <TG tpl={tailTpl}>
             <path
               d="M140 150 C 168 148, 186 162, 190 184 C 178 178, 166 180, 156 174 Z"
@@ -591,7 +591,7 @@ export function BoloRig({
             />
           </TG>
 
-          {/* Body, plump teal pear (scaleY carries the cheer stretch) */}
+          {/* Body — plump teal pear (scaleY carries the cheer stretch) */}
           <TG tpl={bodyTpl}>
             <ellipse
               cx="100"
@@ -604,7 +604,7 @@ export function BoloRig({
               strokeOpacity="0.22"
             />
             <ellipse cx="100" cy="140" rx="53" ry="55" fill="url(#bolo-sheen)" />
-            {/* Chest scallops, soft darker feather arcs */}
+            {/* Chest scallops — soft darker feather arcs */}
             <g stroke={C.tealDark} strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.4">
               <path d="M84 128 q 8 8 16 0 q 8 8 16 0" />
               <path d="M78 146 q 8 8 15 0 q 7 8 14 0 q 7 8 15 0" />
@@ -612,7 +612,7 @@ export function BoloRig({
             </g>
           </TG>
 
-          {/* Feet, chunky coral three-toe feet (fat overlapping toes on a
+          {/* Feet — chunky coral three-toe feet (fat overlapping toes on a
               rounded pad, like the plush PNG feet) */}
           <g stroke={C.coralShade} strokeWidth="1.8" strokeOpacity="0.35">
             <g fill={C.coral}>
@@ -629,16 +629,16 @@ export function BoloRig({
             </g>
           </g>
 
-          {/* Right wing (mirrored group), folded on the body at rest */}
+          {/* Right wing (mirrored group) — folded on the body at rest */}
           <g transform="translate(200 0) scale(-1 1)">
             <TG tpl={wingRTpl}>
               <Wing />
             </TG>
           </g>
 
-          {/* Head, carries crest, face, eyes, and beak */}
+          {/* Head — carries crest, face, eyes, and beak */}
           <TG tpl={headTpl}>
-            {/* Crest, lush indigo pompadour: fat overlapping curls swooping
+            {/* Crest — lush indigo pompadour: fat overlapping curls swooping
                 up and to the right, matching the PNG tuft */}
             <g fill="url(#bolo-indigo)" stroke={C.indigoShade} strokeWidth="2" strokeOpacity="0.25" strokeLinejoin="round">
               <path d="M90 44 C 78 32, 78 12, 96 5 C 88 17, 90 30, 98 42 Z" />
@@ -651,7 +651,7 @@ export function BoloRig({
             <circle cx="100" cy="78" r="47" fill="url(#bolo-teal)" stroke={C.tealShade} strokeWidth="3" strokeOpacity="0.22" />
             <circle cx="100" cy="78" r="47" fill="url(#bolo-sheen)" />
 
-            {/* Cheeks, rosy blush tucked under the outer eye corners */}
+            {/* Cheeks — rosy blush tucked under the outer eye corners */}
             <ellipse cx="66" cy="95" rx="9" ry="7" fill={C.blush} opacity="0.9" />
             <ellipse cx="134" cy="95" rx="9" ry="7" fill={C.blush} opacity="0.9" />
 
@@ -688,7 +688,7 @@ export function BoloRig({
                     <circle cx={ex - 3.2} cy="75.2" r="3.1" fill="#FFFFFF" />
                     <circle cx={ex + 2.8} cy="83.4" r="1.5" fill="#FFFFFF" opacity="0.9" />
                   </TG>
-                  {/* Eyelid, teal shutter that closes from the top */}
+                  {/* Eyelid — teal shutter that closes from the top */}
                   <TG tpl={ex === 80 ? lidLTpl : lidRTpl}>
                     <ellipse cx={ex} cy="79" rx="14.2" ry="15.2" fill={C.teal} />
                   </TG>
@@ -696,7 +696,7 @@ export function BoloRig({
               ))}
             </TG>
 
-            {/* Beak, upper hook, animated jaw, mouth interior */}
+            {/* Beak — upper hook, animated jaw, mouth interior */}
             <g>
               {/* Mouth interior (revealed as the jaw opens) */}
               <TG tpl={mouthTpl}>
@@ -713,7 +713,7 @@ export function BoloRig({
                   strokeOpacity="0.4"
                 />
               </TG>
-              {/* Upper beak, plump rounded hook, wide between the eyes and
+              {/* Upper beak — plump rounded hook, wide between the eyes and
                   curling to a soft tip above the mouth (not a long droop) */}
               <TG tpl={upperBeakTpl}>
                 <path
@@ -731,7 +731,7 @@ export function BoloRig({
             </g>
           </TG>
 
-          {/* Left wing, in front so it can reach the chin when thinking */}
+          {/* Left wing — in front so it can reach the chin when thinking */}
           <TG tpl={wingLTpl}>
             <Wing />
           </TG>

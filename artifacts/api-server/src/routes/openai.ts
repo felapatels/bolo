@@ -98,16 +98,16 @@ Score with this rubric, weighing three things:
 2. Syllable count and structure: same number of syllables in the same order.
 3. Stress and vowel length: right syllable emphasized, long vowels kept long.
 
-Score bands (be consistent, the same transcript quality must land in the same band every time):
+Score bands (be consistent — the same transcript quality must land in the same band every time):
 - 90-100: all sounds present and in order; at most one tiny vowel-quality slip.
 - 80-89: recognizably the target phrase; one small sound off or one vowel-length/stress slip. 80+ means they nailed it.
 - 60-79: clearly attempting the target; one syllable or a couple of sounds wrong or missing.
 - 40-59: some overlap with the target, but multiple sounds or syllables wrong.
 - 10-39: mostly a different word or phrase.
 - 0-9: unrelated speech or noise.
-For very short targets (1-2 syllables), apply the same bands per-sound, do not fail an attempt over a single ambiguous transcription character, and do not pass an attempt that is a different word.
+For very short targets (1-2 syllables), apply the same bands per-sound — do not fail an attempt over a single ambiguous transcription character, and do not pass an attempt that is a different word.
 
-Within each band, pick a specific score that reflects exactly how close the attempt was, avoid rounding to 5 or 10 unless the attempt truly sits exactly at that boundary. For example, within 80–89 prefer 83 or 87 over always writing 85.
+Within each band, pick a specific score that reflects exactly how close the attempt was — avoid rounding to 5 or 10 unless the attempt truly sits exactly at that boundary. For example, within 80–89 prefer 83 or 87 over always writing 85.
 
 The transcript is your ONLY evidence: you cannot hear the audio itself, so never invent a flaw the transcript does not show. Only point out a specific sound to work on when the transcript itself shows that sound was off, missing, or replaced. If the transcript matches the target, do NOT name a sound to polish or claim their delivery was flawless; celebrate warmly, own the limits of your ears (you judged the sounds, not the accent), and encourage them to keep practicing in general terms.
 
@@ -120,7 +120,7 @@ const router: IRouter = Router();
 // ---------------------------------------------------------------------------
 // Keyed by languageCode; stores the full set of phrase rows for that language
 // so the fast-path wrong-phrase guard can run without a DB round-trip on
-// subsequent cache hits. TTL is 5 minutes, long enough to cover an entire
+// subsequent cache hits. TTL is 5 minutes — long enough to cover an entire
 // practice session and short enough that newly-seeded phrases become visible
 // within a reasonable window.
 //
@@ -200,7 +200,7 @@ export { setSiblingPhrasesInCache as _setSiblingPhrasesForTest };
 // ---------------------------------------------------------------------------
 // Keyed by userId; stores the resolved plan and ttsVoice preference so the
 // POST /openai/tts handler avoids a DB round-trip on every phrase play.
-// TTL is 60 seconds, short enough that a preference change propagates quickly
+// TTL is 60 seconds — short enough that a preference change propagates quickly
 // and long enough to absorb repeated TTS calls in a single practice session.
 // PATCH /account/preferences calls invalidateVoicePreferenceCache(userId)
 // whenever ttsVoice changes so the next TTS call immediately picks up the new
@@ -244,7 +244,7 @@ function evictVoicePrefCache(): void {
     if (entry.expiresAt <= now) voicePrefCache.delete(key);
   }
   if (voicePrefCache.size >= VOICE_PREF_CACHE_MAX) {
-    // Map iteration order is insertion order, first key is the oldest.
+    // Map iteration order is insertion order — first key is the oldest.
     const oldest = voicePrefCache.keys().next().value;
     if (oldest !== undefined) voicePrefCache.delete(oldest);
   }
@@ -252,7 +252,7 @@ function evictVoicePrefCache(): void {
 
 /**
  * Test-only export: direct access to the in-process voice-preference cache.
- * Do not use in production code, import invalidateVoicePreferenceCache instead.
+ * Do not use in production code — import invalidateVoicePreferenceCache instead.
  * @internal
  */
 export { voicePrefCache as _voicePrefCacheForTest };
@@ -275,7 +275,7 @@ type Voice = (typeof VOICES)[number];
 // Re-export so tests and callers can import ttsCacheKey from this module.
 export { ttsCacheKey, legacyTtsCacheKey } from "../lib/ttsCache";
 
-// GET /openai/tts/voices, return the curated voice catalog + the caller's
+// GET /openai/tts/voices — return the curated voice catalog + the caller's
 // current preference (null means Auto / use language default).
 router.get("/openai/tts/voices", async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
@@ -292,7 +292,7 @@ router.get("/openai/tts/voices", async (req: Request, res: Response): Promise<vo
   res.json({ voices: VOICE_CATALOG, current });
 });
 
-// POST /openai/tts, speak a phrase aloud in the selected language.
+// POST /openai/tts — speak a phrase aloud in the selected language.
 router.post("/openai/tts", async (req: Request, res: Response): Promise<void> => {
   const parsed = SynthesizeSpeechBody.safeParse(req.body);
   if (!parsed.success) {
@@ -309,7 +309,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   // Falls back to the default multilingual voice for unmapped codes.
   let elevenLabsVoiceId = getVoiceIdForLanguage(languageCode);
 
-  // When a valid previewVoiceId is supplied, use it directly, this is the
+  // When a valid previewVoiceId is supplied, use it directly — this is the
   // voice-picker audition path. It bypasses the language-voice mapping and the
   // user's saved preference so the learner hears the exact voice they are
   // considering. Voice selection is Plus-only, so non-Plus callers get 402.
@@ -346,7 +346,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
         if (cached && cached.expiresAt > Date.now()) {
           ttsVoice = cached.ttsVoice;
         } else {
-          // Cache miss or stale, evict the stale entry immediately so it
+          // Cache miss or stale — evict the stale entry immediately so it
           // doesn't linger for inactive users who never hit TTS again.
           if (cached) voicePrefCache.delete(userId);
           // Enforce the size cap before inserting the refreshed entry.
@@ -366,7 +366,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
 
         if (ttsVoice && VALID_VOICE_IDS.has(ttsVoice)) {
           // Defer to the canonical resolved plan already computed by
-          // loadEntitlements, this covers family-seat cascade, trial states,
+          // loadEntitlements — this covers family-seat cascade, trial states,
           // and every other edge case without duplicating resolvePlan logic.
           if (resolvedPlan.plan === "plus") {
             elevenLabsVoiceId = ttsVoice;
@@ -429,7 +429,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   // --- eval-time prewarm join (Task 903) ---
   // The pronunciation route fire-and-forgets feedback synthesis the moment
   // the eval response is built; the client's follow-up request for the same
-  // text lands here milliseconds later, long before that synthesis finishes
+  // text lands here milliseconds later — long before that synthesis finishes
   // and its cache row exists. Join the in-flight work instead of starting a
   // duplicate. On prewarm failure, fall through to a fresh synthesis.
   const pendingSynth = getPendingFeedbackSynthesis(cacheKey);
@@ -451,12 +451,12 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
       res.json({ audioBase64: joined.audioBase64, format: joined.format });
       return;
     } catch {
-      // Prewarm synthesis failed, synthesize fresh below as if it never ran.
+      // Prewarm synthesis failed — synthesize fresh below as if it never ran.
     }
   }
 
   // --- gpt-audio path ---
-  // All ElevenLabs code below is fully preserved, set TTS_PROVIDER to
+  // All ElevenLabs code below is fully preserved — set TTS_PROVIDER to
   // "elevenlabs" in lib/ttsConfig.ts to re-activate it with no other changes.
   if (TTS_PROVIDER === "gpt-audio") {
     try {
@@ -557,7 +557,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   // chain. This avoids a wasted round-trip (and its latency + error log) on
   // every request when the monthly allowance is gone.
   if (elevenLabsQuotaMonitor.isExhausted()) {
-    req.log.info({}, "ElevenLabs quota exhausted, using fallback");
+    req.log.info({}, "ElevenLabs quota exhausted — using fallback");
     // Kick off a throttled quota refresh so the cached state can clear once
     // credits are replenished (top-up, new billing cycle). Without this call
     // the monitor would never poll while we're in permanent-fallback mode.
@@ -594,7 +594,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     const audioBase64 = buffer.toString("base64");
 
     // Persist to cache (best-effort; a race between two concurrent requests is
-    // harmless, the second upsert just overwrites with identical data).
+    // harmless — the second upsert just overwrites with identical data).
     db.insert(ttsCacheTable)
       .values({ cacheKey, audioBase64, format: "mp3" })
       .onConflictDoNothing()
@@ -633,12 +633,12 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   } catch (err) {
     // ElevenLabs failed (quota exhausted, outage, missing key, …).
     // Log and nudge the quota monitor, then try two fallbacks in order:
-    //   1. Legacy-cached audio (old voice, zero cost, instant), covers the
+    //   1. Legacy-cached audio (old voice, zero cost, instant) — covers the
     //      transition period while old tts_cache rows still exist.
-    //   2. gpt-audio synthesis, covers phrases with no legacy entry.
+    //   2. gpt-audio synthesis — covers phrases with no legacy entry.
     // Fallback audio is deliberately NOT cached under the new key so the
     // next request retries ElevenLabs once it recovers.
-    req.log.warn({ err }, "ElevenLabs TTS failed, attempting fallbacks");
+    req.log.warn({ err }, "ElevenLabs TTS failed — attempting fallbacks");
     void elevenLabsQuotaMonitor.maybeCheck();
 
     // Fallback 1: legacy-provider cached audio.
@@ -670,7 +670,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   }
 });
 
-// POST /openai/pronunciation, transcribe the child's attempt and score it.
+// POST /openai/pronunciation — transcribe the child's attempt and score it.
 router.post(
   "/openai/pronunciation",
   async (req: Request, res: Response): Promise<void> => {
@@ -690,19 +690,19 @@ router.post(
         : undefined;
 
     // Rule 47: Discard attempts where the recording started under 250 ms after
-    // the phrase finished playing, the learner cannot have said it that fast.
+    // the phrase finished playing — the learner cannot have said it that fast.
     // Prevents tap-spam and pre-tapped recordings from receiving a score.
     if (latencyMs != null && latencyMs < 250) {
       res.status(400).json({
         error: "tap_too_fast",
         message:
-          "Tap Record after you hear the phrase, you tapped too quickly this time.",
+          "Tap Record after you hear the phrase — you tapped too quickly this time.",
       });
       return;
     }
 
-    // When a catalog phrase id is supplied, the phrase's stored text, not the
-    // client-provided target strings, is the authoritative content that gets
+    // When a catalog phrase id is supplied, the phrase's stored text — not the
+    // client-provided target strings — is the authoritative content that gets
     // signed into the evaluation token. This prevents a client from scoring
     // against one phrase but recording the attempt as another.
     let targetNative = parsed.data.targetNative;
@@ -726,7 +726,8 @@ router.post(
       // Evaluation is gated exactly like serving (GET /phrases/:id): the
       // stored text below gets returned to the caller and signed into the
       // evaluation token, so an ungated evaluate would leak content the
-      // serving routes deny. Locked languages keep the id-aware exceptions, // the teaser set while it lasts, plus (free-tier content policy) the
+      // serving routes deny. Locked languages keep the id-aware exceptions —
+      // the teaser set while it lasts, plus (free-tier content policy) the
       // language's first stop, whatever the teaser state; every other locked
       // phrase keeps the byte-identical 402.
       if (
@@ -738,7 +739,7 @@ router.post(
         return;
       }
       // A premium (Plus-only) phrase is never evaluated for a caller without
-      // the extended library, same denial as serving it by id.
+      // the extended library — same denial as serving it by id.
       if (
         phrase.premium &&
         denyLockedFeature(
@@ -808,7 +809,8 @@ router.post(
     }
 
     // Server-authoritative capability gate: for a language where speech
-    // recognition verifiably fails on correct speech, never run STT/scoring, // a score here would be noise presented as judgment. Clients switch to
+    // recognition verifiably fails on correct speech, never run STT/scoring —
+    // a score here would be noise presented as judgment. Clients switch to
     // listen-record-compare mode; this branch is the backstop if one calls
     // anyway. Band 'nocatch' = no XP, no streak break, no mastery penalty.
     if (speechCapability === "unsupported") {
@@ -880,7 +882,7 @@ router.post(
       return;
     }
 
-    // Hint the transcriber with the language only, omitting the target phrase
+    // Hint the transcriber with the language only — omitting the target phrase
     // prevents Whisper from anchoring on the phrase text and transcribing vaguely
     // similar audio as the target, which inflates phonetic similarity scores.
     // The language code passed as the `language` option is sufficient to stabilize
@@ -905,14 +907,15 @@ router.post(
     // Noise production baseline: a derived signal-to-noise number for THIS
     // recording, measured concurrently with the STT passes below so it adds no
     // wall-clock time to the instant-feedback path. Null whenever the clip
-    // could not be measured, the measurement never changes a score and never
+    // could not be measured — the measurement never changes a score and never
     // fails an attempt.
     let snrDb: number | null = null;
     // True when the transcription API rejected the recording as corrupted or
     // in an unsupported format (e.g. a silent WebM the browser emitted with no
     // audio track, or a partial buffer from a cancelled recording). This is a
     // system miss, not a learner error and not an outage, so it degrades to
-    // the same nocatch outcome as an empty transcript instead of a 502, // mirroring the chat route's existing UndecodableAudioError handling.
+    // the same nocatch outcome as an empty transcript instead of a 502 —
+    // mirroring the chat route's existing UndecodableAudioError handling.
     let sttUndecodableAudio = false;
     try {
       // Pass the client-reported mimeType as a fallback hint so very short
@@ -974,7 +977,7 @@ router.post(
         );
         sttUndecodableAudio = true;
         // transcript stays "" so the empty-transcript nocatch block below
-        // handles the response, same shape, distinct cause label.
+        // handles the response — same shape, distinct cause label.
       } else {
         req.log.error({ err }, "Speech-to-text failed");
         res.status(502).json({ error: "Could not understand the recording" });
@@ -1084,7 +1087,7 @@ router.post(
       targetSim.comparable && targetSim.sim === 1 && !sttDisagreement;
 
     // Fast-path guard: short targets (≤ 4 normalized chars) bypass character-level
-    // fast-path scoring. Levenshtein on 2–3 characters is unreliable, a single
+    // fast-path scoring. Levenshtein on 2–3 characters is unreliable — a single
     // char difference can swing sim from 0.50 to 1.0. The LLM's phonemic
     // reasoning is more accurate for 1–2 syllable words.
     //
@@ -1103,8 +1106,8 @@ router.post(
     // similar" and should go through the full LLM evaluation path.
     //
     // Two guards bypass the fast path and fall through to the LLM:
-    //   1. Short targets (isShortTarget above), character-level sim is unreliable.
-    //   2. Wrong-phrase-cap, transcript also matches a sibling phrase at sim ≥ 0.80.
+    //   1. Short targets (isShortTarget above) — character-level sim is unreliable.
+    //   2. Wrong-phrase-cap — transcript also matches a sibling phrase at sim ≥ 0.80.
     if (targetSim.comparable && targetSim.sim >= 0.93 && !isShortTarget) {
       // Wrong-phrase-cap check for the fast path. The standard applyScoreGuards
       // guard only fires when target.sim ≤ 0.5, but a short or phonetically
@@ -1113,8 +1116,8 @@ router.post(
       // the transcript, fall through to the LLM rather than returning a fast pass.
       // Wrong-phrase guard via in-process LRU cache.
       //
-      // Cache hit  (p99 < 1 ms), check siblings entirely in memory; no DB call.
-      // Cache miss, run the DB query synchronously, same as pre-cache behavior,
+      // Cache hit  (p99 < 1 ms) — check siblings entirely in memory; no DB call.
+      // Cache miss — run the DB query synchronously, same as pre-cache behavior,
       //              then populate the cache so subsequent attempts in the same
       //              session (and TTL window) pay no DB cost.
       //
@@ -1131,10 +1134,10 @@ router.post(
         const cachedEntry = getSiblingPhrasesFromCache(languageCode);
         let siblings: Array<{ id: number; nativeScript: string; romanized: string }>;
         if (cachedEntry) {
-          // Cache hit, use the in-memory list; LRU promotion was done by getter.
+          // Cache hit — use the in-memory list; LRU promotion was done by getter.
           siblings = cachedEntry.phrases;
         } else {
-          // Cache miss, fetch synchronously (same as pre-cache behavior).
+          // Cache miss — fetch synchronously (same as pre-cache behavior).
           // Only populate the cache on a successful fetch; a DB error must NOT
           // be cached, or the next request would see a stale empty-list hit for
           // the full TTL window and the guard would be silently disabled.
@@ -1286,7 +1289,7 @@ router.post(
             snrDb,
           }),
         });
-        // Fire-and-forget pilot capture, never delays the response.
+        // Fire-and-forget pilot capture — never delays the response.
         void teeAudioToPilot(rawBuffer, {
           userId,
           languageCode,
@@ -1309,8 +1312,8 @@ router.post(
     try {
       // For attempts that fall through to the LLM path, kick off the
       // sibling-phrases query in parallel with the LLM call. Only fetch
-      // siblings when sim ≤ 0.5, the only range where wrong-phrase-cap can
-      // fire, to avoid unnecessary DB work on partial matches.
+      // siblings when sim ≤ 0.5 — the only range where wrong-phrase-cap can
+      // fire — to avoid unnecessary DB work on partial matches.
       const siblingsPromise: Promise<Array<{ nativeScript: string; romanized: string }>> =
         resolvedPhraseId != null && languageCode && targetSim.comparable && targetSim.sim <= 0.5
           ? db.query.phrasesTable
@@ -1342,7 +1345,7 @@ router.post(
         ],
       });
 
-      // Await both in parallel, whichever resolves first doesn't block the other.
+      // Await both in parallel — whichever resolves first doesn't block the other.
       const [completion, otherPhrases] = await Promise.all([llmPromise, siblingsPromise]);
 
       const _cachedPronTokens = (completion.usage as any)?.prompt_tokens_details?.cached_tokens ?? 0;
@@ -1381,7 +1384,7 @@ router.post(
             score: guarded.score,
             sim: targetSim.comparable ? targetSim.sim : null,
           },
-          "Pronunciation guard fired, LLM score overridden",
+          "Pronunciation guard fired — LLM score overridden",
         );
       }
 
@@ -1416,8 +1419,8 @@ router.post(
           // Russian Cyrillic for a Gujarati phrase), so quoting
           // We heard: "вучит крашна" under copy that says the listener glitched
           // reads as the app mishearing the learner in a language they never
-          // spoke. The other nocatch cause, guard 1b, a LATIN transcript whose
-          // romanized similarity is too low to verify, stays visible: it is
+          // spoke. The other nocatch cause — guard 1b, a LATIN transcript whose
+          // romanized similarity is too low to verify — stays visible: it is
           // readable to the learner and may well be what they actually said.
           // Either way the real transcript rides the signed token, the attempt
           // row and the nocatch diagnostics, so no evidence is lost.
@@ -1497,7 +1500,7 @@ router.post(
         score = HONESTY_SCORE_CAP;
       }
       // Band derives from score only (Spec 0 rule 40) via the five-band config
-      // in scoreBands.ts. Never derive it from `passed`, a trusted LLM `passed`
+      // in scoreBands.ts. Never derive it from `passed` — a trusted LLM `passed`
       // boolean could otherwise produce a full-credit band at a sub-80 score.
       const llmBand: PronunciationBand = bandFromScore(score);
       const llmXp = computePronunciationXp(llmBand, phraseDifficulty);
@@ -1541,7 +1544,7 @@ router.post(
           snrDb,
         }),
       });
-      // Fire-and-forget pilot capture, never delays the response.
+      // Fire-and-forget pilot capture — never delays the response.
       void teeAudioToPilot(rawBuffer, {
         userId,
         languageCode,
@@ -1563,12 +1566,12 @@ router.post(
 // Scaffolding for the calibration-corpus capture sessions; remove together
 // with the web practice page's ?mode=capture flow once the corpus is done.
 
-// GET /pilot-capture/eligibility, whether the caller may use capture mode.
+// GET /pilot-capture/eligibility — whether the caller may use capture mode.
 router.get("/pilot-capture/eligibility", (req: Request, res: Response): void => {
   res.json({ eligible: isPilotCaptureUser((req as AuthedRequest).userId) });
 });
 
-// POST /pilot-capture/discard-last, mark the caller's most recent
+// POST /pilot-capture/discard-last — mark the caller's most recent
 // capture-mode clip discarded in its sidecar (capture mode's "redo").
 router.post(
   "/pilot-capture/discard-last",
@@ -1578,7 +1581,7 @@ router.post(
   },
 );
 
-// POST /openai/generate-phrase, invent a fresh practice phrase with AI.
+// POST /openai/generate-phrase — invent a fresh practice phrase with AI.
 router.post(
   "/openai/generate-phrase",
   async (req: Request, res: Response): Promise<void> => {
@@ -1642,15 +1645,15 @@ function sseWrite(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
-// POST /openai/chat, one turn of a live conversation with Bolo the parrot.
+// POST /openai/chat — one turn of a live conversation with Bolo the parrot.
 // Validates language + weekly time cap *before* any AI work, then transcribes,
 // generates an in-character reply, and synthesizes it to speech.
 //
 // When the client sends `Accept: text/event-stream` the response is an SSE
 // stream with two events:
-//   1. `transcript`, fired immediately after Whisper STT completes (~1 s),
+//   1. `transcript` — fired immediately after Whisper STT completes (~1 s),
 //      so the UI can show "I heard: …" while the LLM+TTS call is in flight.
-//   2. `reply`, fired once the combined LLM+TTS call finishes, carrying the
+//   2. `reply` — fired once the combined LLM+TTS call finishes, carrying the
 //      full reply payload (audio, text, secondsRemaining, etc.).
 //
 // Clients that send `Accept: application/json` (or omit it) receive the
@@ -1780,13 +1783,13 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
   const wantsSSE = (req.headers.accept ?? "").includes("text/event-stream");
   // Chunked voice streaming is opt-in via an extra header on top of SSE:
   // clients that can't play partial MP3s (e.g. mobile, which lacks
-  // MediaSource) would otherwise pay for every chunk twice, once as
+  // MediaSource) would otherwise pay for every chunk twice — once as
   // `audioChunk` events and again inside the final `reply` payload.
   //
   // Two streaming modes:
-  //   "1"  , chunks ride the SSE stream as `audioChunk` events (web, which
+  //   "1"   — chunks ride the SSE stream as `audioChunk` events (web, which
   //           can feed them into MediaSource).
-  //   "url", chunks are teed into a short-lived server-side stream and the
+  //   "url" — chunks are teed into a short-lived server-side stream and the
   //           client gets an `audioStream` event carrying a streamId; the
   //           native player then pulls GET /openai/chat/audio/:streamId as a
   //           progressive audio/mpeg response (mobile, where AVPlayer /
@@ -1805,7 +1808,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
   }
 
   try {
-    // For text-input turns the audio buffer is unused, skip allocation.
+    // For text-input turns the audio buffer is unused — skip allocation.
     const audioBuffer = audioBase64 ? Buffer.from(audioBase64, "base64") : undefined;
 
     // Capture transcript + duration via onTranscript callback so we can flush
@@ -1837,14 +1840,15 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
             sseWrite(res, "transcriptEnglish", { transcriptEnglish });
           }
         },
-        // Flush Bolo's reply text as soon as the LLM returns, before voice
-        // synthesis, so the client can show the bubble while TTS runs. The
+        // Flush Bolo's reply text as soon as the LLM returns — before voice
+        // synthesis — so the client can show the bubble while TTS runs. The
         // final `reply` event keeps its full payload for backward compat.
         onReplyReady: (replyText, replyEnglish, squawkVariant) => {
           if (wantsSSE) {
             sseWrite(res, "replyText", { replyText, replyEnglish, squawkVariant });
             // TTS starts right after this callback, so this is the earliest
-            // useful moment to hand the client its progressive audio URL, // the native player connects and starts pulling chunks as they
+            // useful moment to hand the client its progressive audio URL —
+            // the native player connects and starts pulling chunks as they
             // are synthesized.
             if (audioStream) {
               sseWrite(res, "audioStream", { streamId: audioStream.id });
@@ -2007,7 +2011,7 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
     };
 
     // A turn whose streaming TTS fell back to buffered synthesis never fired
-    // audioDone, tell the progressive reader to bail out so the native
+    // audioDone — tell the progressive reader to bail out so the native
     // player errors (and the client plays the buffered clip) instead of
     // waiting on chunks that will never come. No-op after a complete stream.
     if (audioStream) failChatAudioStream(audioStream);
@@ -2031,12 +2035,12 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
   }
 });
 
-// GET /openai/chat/audio/:streamId, progressive audio for one chat turn.
+// GET /openai/chat/audio/:streamId — progressive audio for one chat turn.
 //
 // Serves the MP3 chunks teed into the in-memory stream registry by a chat
 // turn that opted in with `X-Audio-Stream: url`. The response is chunked
 // audio/mpeg with no Content-Length, which AVPlayer (iOS) and ExoPlayer
-// (Android) treat as a progressive stream, playback starts as soon as
+// (Android) treat as a progressive stream — playback starts as soon as
 // enough initial bytes arrive, well before synthesis finishes.
 //
 // Semantics mirror the SSE-chunk protocol's "audioDone is the commit signal":
@@ -2086,7 +2090,7 @@ router.get(
         await Promise.race([waitForChatAudioChange(stream), closedPromise]);
       }
     } finally {
-      // A failed stream is spent, release it so a retry can't replay a
+      // A failed stream is spent — release it so a retry can't replay a
       // truncated clip. A completed (or still-filling) stream stays
       // registered until the TTL sweep: iOS's AVPlayer routinely requests
       // the same URL more than once (e.g. a probe fetch followed by the
@@ -2097,9 +2101,9 @@ router.get(
   },
 );
 
-// POST /openai/tts-cache/evict, remove stale TTS entries after a phrase correction.
+// POST /openai/tts-cache/evict — remove stale TTS entries after a phrase correction.
 // Accepts a phraseId (evicts all voice variants for that phrase) or a languageCode
-// GET /openai/chat-greeting?languageCode=gu, returns a pre-synthesized Bolo
+// GET /openai/chat-greeting?languageCode=gu — returns a pre-synthesized Bolo
 // welcome message for the given language, to be played immediately when the
 // user finishes their first recording so there is zero silent wait.
 //
@@ -2261,7 +2265,7 @@ router.get(
           squawkVariant: GREETING_SQUAWK_VARIANT,
         });
       } catch (err) {
-        // ElevenLabs failed, fall back to gpt-audio (not cached so the next
+        // ElevenLabs failed — fall back to gpt-audio (not cached so the next
         // request retries ElevenLabs once it recovers).
         req.log.warn(
           { err },
@@ -2287,7 +2291,7 @@ router.get(
         }
       }
     } else {
-      // gpt-audio path, always available.
+      // gpt-audio path — always available.
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const buffer = await textToSpeech(ttsText, greetingIdentity.voice as any, "mp3", languageName);
@@ -2325,7 +2329,7 @@ router.get(
   },
 );
 
-// GET /openai/chacha-lines, Chacha-ji's three fixed spoken lines, in his own
+// GET /openai/chacha-lines — Chacha-ji's three fixed spoken lines, in his own
 // voice, as one response.
 //
 // Read-only and completely separate from POST /journey/chacha-encounters on
@@ -2523,19 +2527,19 @@ router.post(
       // We also generate voiceId-keyed variants (new scheme: language-specific
       // ElevenLabs voice baked into the key) so corrections also flush the
       // per-language-voice entries written by /openai/tts when clients pass
-      // languageCode. Duplicates in keySet are harmless, the DB delete is idempotent.
+      // languageCode. Duplicates in keySet are harmless — the DB delete is idempotent.
       const keySet = new Set<string>();
       for (const p of phrases) {
         const elevenLabsVoiceId = getVoiceIdForLanguage(p.languageCode);
         for (const v of VOICES) {
-          // Old-style keys (no ElevenLabs voiceId in hash), backwards compat
+          // Old-style keys (no ElevenLabs voiceId in hash) — backwards compat
           keySet.add(ttsCacheKey(p.nativeScript, v));
           keySet.add(legacyTtsCacheKey(p.nativeScript, v));
           if (p.languageName) {
             keySet.add(ttsCacheKey(p.nativeScript, v, p.languageName));
             keySet.add(legacyTtsCacheKey(p.nativeScript, v, p.languageName));
           }
-          // New-style keys (ElevenLabs voiceId baked in), cached by /openai/tts
+          // New-style keys (ElevenLabs voiceId baked in) — cached by /openai/tts
           // when clients supply languageCode for language-specific synthesis.
           keySet.add(ttsCacheKey(p.nativeScript, v, undefined, elevenLabsVoiceId));
           if (p.languageName) {
@@ -2557,7 +2561,7 @@ router.post(
   },
 );
 
-// GET /scenarios?lang=xx, which zones have a capstone in this language.
+// GET /scenarios?lang=xx — which zones have a capstone in this language.
 //
 // Exists to kill a duplicated map. Web carried a hand-written
 // scenarioIdForZone() lookup with a comment telling the next person to keep it
@@ -2599,7 +2603,7 @@ router.get(
   },
 );
 
-// GET /scenarios/:id?lang=xx, client-safe scenario metadata.
+// GET /scenarios/:id?lang=xx — client-safe scenario metadata.
 // Returns the public subset of a zone capstone scenario (title, framing copy,
 // target phrases). Steering instructions are never sent. Auth required; no
 // entitlement gate here -- the gate is on POST /openai/chat.

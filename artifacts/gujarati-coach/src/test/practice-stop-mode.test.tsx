@@ -9,7 +9,8 @@ import type { ReactElement } from "react";
 // an actionable message with a retry, never a silent reset.
 //
 // NOTE: The auto/manual stop-mode toggle was removed when hold-to-talk
-// replaced the old mic button. Recording now always uses manual stop, // the learner holds the parrot belly to record and releases to submit.
+// replaced the old mic button. Recording now always uses manual stop —
+// the learner holds the parrot belly to record and releases to submit.
 // ---------------------------------------------------------------------------
 
 const h = vi.hoisted(() => ({
@@ -194,12 +195,12 @@ async function recordAndStop() {
 }
 
 describe("hold-to-talk recording mechanics", () => {
-  test("hold-to-talk always uses manual stop, startRecording is called with no options", async () => {
+  test("hold-to-talk always uses manual stop — startRecording is called with no options", async () => {
     await reachIdle();
     const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
     fireEvent.pointerDown(belly);
     await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
-    // No onSilence callback, recording only ends on pointer release.
+    // No onSilence callback — recording only ends on pointer release.
     expect(h.startRecording).toHaveBeenCalledWith(undefined);
   });
 
@@ -218,10 +219,10 @@ describe("hold-to-talk recording mechanics", () => {
     expect(document.querySelector('[aria-label="Release to submit"]')).toBeNull();
   });
 
-  test("release before startRecording resolves aborts, no attempt, no result card (race condition)", async () => {
+  test("release before startRecording resolves aborts — no attempt, no result card (race condition)", async () => {
     // Capture-session grant-guard fix: a release that lands while the
     // recorder is still starting (permission prompt open, or plain
-    // permission latency) captured NOTHING, the recorder wasn't running.
+    // permission latency) captured NOTHING — the recorder wasn't running.
     // The old behavior finished-and-sent, producing an empty junk attempt
     // (surfacing as a "didn't capture any audio" error card the user never
     // earned). Now the resolve-time hold-confirmation aborts and returns to
@@ -237,10 +238,10 @@ describe("hold-to-talk recording mechanics", () => {
     fireEvent.pointerDown(belly);
     await waitFor(() => expect(h.startRecording).toHaveBeenCalled());
 
-    // pointerUp fires before startRecording resolves, this is the race.
+    // pointerUp fires before startRecording resolves — this is the race.
     fireEvent.pointerUp(belly);
 
-    // startRecording finally resolves, the hold is no longer live, so the
+    // startRecording finally resolves — the hold is no longer live, so the
     // recorder is aborted and no evaluation is ever sent.
     await act(async () => {
       resolveStart();

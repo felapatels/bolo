@@ -13,7 +13,7 @@
  * lifetime should own. The sweep therefore advances a phrase-id cursor a batch
  * at a time and reports where it stopped, so a driver (script locally, HTTP
  * against a deployment) can resume after an interruption without repeating
- * work, and so a deployment instance recycling mid-sweep costs one batch
+ * work — and so a deployment instance recycling mid-sweep costs one batch
  * rather than the whole run.
  *
  * SAFETY
@@ -84,7 +84,7 @@ export type AuditBatchResult = {
   audited: number;
   /** Cached and heard to speak the phrase. */
   verified: number;
-  /** Cached but not comparable, left untouched. */
+  /** Cached but not comparable — left untouched. */
   unverifiable: number;
   /** Why those clips could not be checked, so the blind spot stays visible. */
   unverifiableReasons: Record<string, number>;
@@ -158,8 +158,8 @@ async function speechCapabilityFor(languageCode: string): Promise<SpeechCapabili
  * Listen to a take that has just been served and cached, and drop it if it
  * does not speak its phrase.
  *
- * The playback route cannot afford to verify before responding, a learner is
- * waiting on that audio, so it serves the take and calls this afterwards.
+ * The playback route cannot afford to verify before responding — a learner is
+ * waiting on that audio — so it serves the take and calls this afterwards.
  * The learner who triggered the synthesis may hear one bad clip; nobody after
  * them does, because the row is gone before the next play and the next
  * synthesis goes through the verified path.
@@ -211,7 +211,7 @@ export function verifyServedTakeInBackground(args: {
         coverage: second.coverage,
         heard: second.heard,
       },
-      "[tts-verify] served take did not speak its phrase, cache row dropped",
+      "[tts-verify] served take did not speak its phrase — cache row dropped",
     );
   })().catch((err) => {
     // Verification is a safety net, not a request path: its failure must never
@@ -365,8 +365,8 @@ export async function auditPhraseAudioBatch(
           result.capSkipped++;
           result.writeCapReached = true;
           finding.replacementNote = breakerTripped
-            ? `writes stopped after ${consecutiveWriteFailures} consecutive failures, left for the next run`
-            : `write cap (${maxWrites}) reached, left for the next run`;
+            ? `writes stopped after ${consecutiveWriteFailures} consecutive failures — left for the next run`
+            : `write cap (${maxWrites}) reached — left for the next run`;
         } else {
           writesUsed++;
           let wrote = false;
@@ -385,14 +385,15 @@ export async function auditPhraseAudioBatch(
 
             // An unverified replacement is only an improvement if it carried
             // more of the phrase than the clip it would destroy. Otherwise this
-            // is one unjudged take swapped for another, and the cached clip, // which at least a learner has been hearing, stays.
+            // is one unjudged take swapped for another, and the cached clip —
+            // which at least a learner has been hearing — stays.
             const oldCoverage = second.coverage ?? 0;
             const newCoverage = replacement.verdict.coverage ?? 0;
             if (!replacement.verdict.ok && newCoverage <= oldCoverage) {
               result.unfixable++;
               finding.replacementNote =
                 `no take beat the cached clip after ${replacement.takes} tries ` +
-                `(best ${newCoverage.toFixed(2)} vs cached ${oldCoverage.toFixed(2)}), original kept`;
+                `(best ${newCoverage.toFixed(2)} vs cached ${oldCoverage.toFixed(2)}) — original kept`;
             } else {
               // Copy the condemned take out before destroying it. A failed
               // backup throws, so the row is never overwritten unrecoverably.

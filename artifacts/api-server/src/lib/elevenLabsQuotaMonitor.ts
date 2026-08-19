@@ -8,7 +8,7 @@ import { logger } from "./logger";
 import { sendQuotaAlertEmail } from "./quotaAlertEmail";
 
 // How often the quota may be re-checked. The subscription endpoint is polled
-// at most once per interval, piggybacked on TTS traffic, quiet periods make
+// at most once per interval, piggybacked on TTS traffic — quiet periods make
 // no calls at all.
 const CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -18,7 +18,7 @@ const CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const EXHAUSTED_BUFFER = 500;
 
 // Warn loudly when less than this fraction of the monthly character allowance
-// remains, the free plan's 10k credits can run out mid-month, at which point
+// remains — the free plan's 10k credits can run out mid-month, at which point
 // uncached phrases stop synthesizing via ElevenLabs.
 const WARN_FRACTION = 0.2;
 
@@ -35,7 +35,7 @@ export interface QuotaMonitorDeps {
 
 /**
  * Create a throttled quota checker. Call `maybeCheck()` from the TTS hot path
- * (fire-and-forget), it performs at most one subscription-API call per
+ * (fire-and-forget) — it performs at most one subscription-API call per
  * interval, logs the remaining quota at info level, and escalates to a warning
  * once remaining credits drop below the warn fraction (or hit zero).
  *
@@ -57,13 +57,13 @@ export function createQuotaMonitor(overrides: Partial<QuotaMonitorDeps> = {}) {
   let inFlight = false;
   let lastQuota: ElevenLabsQuota | null = null;
   // Set once the API key proves unable to read the subscription endpoint
-  // (missing user_read permission), from then on we only log in-process
+  // (missing user_read permission) — from then on we only log in-process
   // usage counters instead of retrying a call that will always 401.
   let subscriptionUnreadable = false;
   // Once-per-billing-cycle email dedup. Keyed on the subscription's reset
   // timestamp: a new cycle (different resetUnix) re-arms the alert, as does
   // climbing back above the threshold within a cycle (top-up / plan upgrade).
-  // In-process only, at worst a restart re-sends one email.
+  // In-process only — at worst a restart re-sends one email.
   let alertedResetUnix: number | null = null;
 
   async function maybeCheck(): Promise<void> {
@@ -75,7 +75,7 @@ export function createQuotaMonitor(overrides: Partial<QuotaMonitorDeps> = {}) {
       if (subscriptionUnreadable) {
         deps.log.info(
           { ...deps.fetchUsage() },
-          "ElevenLabs usage since server start (remaining quota unavailable, key lacks user_read)",
+          "ElevenLabs usage since server start (remaining quota unavailable — key lacks user_read)",
         );
         return;
       }
@@ -87,8 +87,8 @@ export function createQuotaMonitor(overrides: Partial<QuotaMonitorDeps> = {}) {
         deps.log.warn(
           fields,
           remaining === 0
-            ? "ElevenLabs quota EXHAUSTED, phrase audio is falling back to gpt-audio until credits reset"
-            : "ElevenLabs quota running low, uncached phrase audio will fall back to gpt-audio when it runs out",
+            ? "ElevenLabs quota EXHAUSTED — phrase audio is falling back to gpt-audio until credits reset"
+            : "ElevenLabs quota running low — uncached phrase audio will fall back to gpt-audio when it runs out",
         );
         // Email the owner once per billing cycle. Send failures are logged
         // inside sendAlert and leave the alert armed so the next check
@@ -100,7 +100,7 @@ export function createQuotaMonitor(overrides: Partial<QuotaMonitorDeps> = {}) {
           } else {
             deps.log.warn(
               fields,
-              "ElevenLabs low-credit alert email was not sent, will retry on the next quota check",
+              "ElevenLabs low-credit alert email was not sent — will retry on the next quota check",
             );
           }
         }

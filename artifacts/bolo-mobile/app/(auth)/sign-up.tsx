@@ -19,7 +19,7 @@ import { AppFonts } from '@/constants/fonts';
 
 // Every Clerk call here checks its result. A returned error or an
 // unexpected status must end in a user-visible message (including the
-// status itself) and a Sentry event, never a silent no-op (July 2026
+// status itself) and a Sentry event — never a silent no-op (July 2026
 // sign-in incident).
 
 export default function SignUpScreen() {
@@ -104,7 +104,7 @@ export default function SignUpScreen() {
       await sendCode('signUp.sendEmailCode');
       return;
     }
-    // Any other state would leave the user stranded on the form, make the
+    // Any other state would leave the user stranded on the form — make the
     // status observable instead.
     handleUnroutableState('signUp.password');
   };
@@ -120,7 +120,7 @@ export default function SignUpScreen() {
       await finalizeSignUp();
       return;
     }
-    // Verified but still not complete, surface the status, don't stall.
+    // Verified but still not complete — surface the status, don't stall.
     handleUnroutableState('signUp.verifyEmailCode');
   };
 
@@ -139,7 +139,7 @@ export default function SignUpScreen() {
   /**
    * Abandon the stuck attempt, then return to the email form with the fields
    * cleared. On failure the user still lands on a usable form, with the
-   * message the helper produced, never a dead button, never a blank screen.
+   * message the helper produced — never a dead button, never a blank screen.
    */
   const handleUseDifferentEmail = async () => {
     if (!awaitingCode) return; // constraint: pre-session code step only
@@ -225,7 +225,7 @@ export default function SignUpScreen() {
   return (
     <AuthShell
       title="Start speaking today"
-      subtitle="Create a free account and find your way back to your family's language, all 22 Indian languages, any age welcome."
+      subtitle="Create a free account and find your way back to your family's language — all 22 Indian languages, any age welcome."
     >
       <Field
         label="Email"

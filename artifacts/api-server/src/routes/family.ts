@@ -1,14 +1,14 @@
 // Family plan management: the owner's seat/invite surface and the member join
 // flow. Billing itself stays on Stripe (checkout + webhook); these routes only
-// manage the group, who owns it, the join code, and who occupies the seats.
+// manage the group — who owns it, the join code, and who occupies the seats.
 //
-// Capacity invariant: a family covers 4 people, the owner plus at most 3 seat
+// Capacity invariant: a family covers 4 people — the owner plus at most 3 seat
 // rows (pending invites count against capacity so an invite can never be
 // stranded without a seat). Enforced inside a transaction with a row lock on
 // the plan so two simultaneous joins can't oversubscribe.
 //
 // Built as a factory (like createAccountRouter) so tests can inject a fake
-// Stripe canceller and a fake email sender, the real Stripe key is LIVE.
+// Stripe canceller and a fake email sender — the real Stripe key is LIVE.
 
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
@@ -103,7 +103,7 @@ export function createFamilyRouter(
 ): IRouter {
   const router: IRouter = Router();
 
-  // GET /family, the caller's family status: owner (full management view),
+  // GET /family — the caller's family status: owner (full management view),
   // member (who's plan they're on), or none.
   router.get("/family", async (req: Request, res: Response): Promise<void> => {
     const { userId } = req as AuthedRequest;
@@ -171,7 +171,7 @@ export function createFamilyRouter(
     res.json({ role: "none" });
   });
 
-  // Loads the caller's plan or 404s, every management route below is
+  // Loads the caller's plan or 404s — every management route below is
   // owner-only.
   async function requireOwnedPlan(req: Request, res: Response) {
     const { userId } = req as AuthedRequest;
@@ -185,7 +185,7 @@ export function createFamilyRouter(
     return plan;
   }
 
-  // POST /family/invites { email, basePath? }, invite someone by email.
+  // POST /family/invites { email, basePath? } — invite someone by email.
   // Consumes a seat (pending) so the invite can never oversubscribe the plan.
   router.post(
     "/family/invites",
@@ -205,7 +205,7 @@ export function createFamilyRouter(
       const owner = await loadUser(userId);
       if ((owner?.email ?? "").toLowerCase() === email) {
         res.status(409).json({
-          error: "That's your own email, you already have the owner's seat.",
+          error: "That's your own email — you already have the owner's seat.",
         });
         return;
       }
@@ -256,7 +256,7 @@ export function createFamilyRouter(
       if (outcome === "full") {
         res.status(409).json({
           error:
-            "Your family plan is full, all 4 seats are taken (including pending invites).",
+            "Your family plan is full — all 4 seats are taken (including pending invites).",
         });
         return;
       }
@@ -286,7 +286,7 @@ export function createFamilyRouter(
     },
   );
 
-  // DELETE /family/invites/:seatId, revoke a pending invite, freeing its seat
+  // DELETE /family/invites/:seatId — revoke a pending invite, freeing its seat
   // and invalidating the emailed link.
   router.delete(
     "/family/invites/:seatId",
@@ -316,7 +316,7 @@ export function createFamilyRouter(
     },
   );
 
-  // DELETE /family/members/:memberUserId, remove a member. Their seat frees
+  // DELETE /family/members/:memberUserId — remove a member. Their seat frees
   // immediately and they drop to Free on their next request; none of their
   // learning data is touched.
   router.delete(
@@ -343,7 +343,7 @@ export function createFamilyRouter(
     },
   );
 
-  // POST /family/leave, a member gives up their own seat voluntarily.
+  // POST /family/leave — a member gives up their own seat voluntarily.
   router.post(
     "/family/leave",
     async (req: Request, res: Response): Promise<void> => {
@@ -365,7 +365,7 @@ export function createFamilyRouter(
     },
   );
 
-  // POST /family/code/regenerate, replace the join code; the old one stops
+  // POST /family/code/regenerate — replace the join code; the old one stops
   // working immediately.
   router.post(
     "/family/code/regenerate",
@@ -381,10 +381,10 @@ export function createFamilyRouter(
     },
   );
 
-  // POST /family/join { code? , inviteToken? }, claim a seat, either via the
+  // POST /family/join { code? , inviteToken? } — claim a seat, either via the
   // shareable join code (occupies a fresh seat) or an emailed invite link
   // (claims that reserved pending seat). If the joiner has their own active
-  // Stripe subscription it is canceled with proration credit, one family,
+  // Stripe subscription it is canceled with proration credit — one family,
   // one subscription.
   router.post(
     "/family/join",
@@ -413,7 +413,7 @@ export function createFamilyRouter(
         if (!seat || seat.status !== "pending") {
           res.status(404).json({
             error:
-              "This invite link is no longer valid, ask for a new invite or use the join code.",
+              "This invite link is no longer valid — ask for a new invite or use the join code.",
           });
           return;
         }
@@ -433,7 +433,7 @@ export function createFamilyRouter(
         return;
       }
       if (plan.ownerUserId === userId) {
-        res.status(409).json({ error: "You own this family plan, you already have full access." });
+        res.status(409).json({ error: "You own this family plan — you already have full access." });
         return;
       }
 
@@ -466,7 +466,7 @@ export function createFamilyRouter(
       }
 
       // Whether the joiner pays for their own Plus via Stripe. If so it gets
-      // canceled with proration credit as part of the join, one plan, one
+      // canceled with proration credit as part of the join — one plan, one
       // bill. The cancel runs INSIDE the seat-claim transaction, after the
       // plan row is locked and the seat is confirmed available, so:
       //  - a full plan / dead invite never cancels anything, and
@@ -488,7 +488,8 @@ export function createFamilyRouter(
             sql`SELECT id FROM family_plans WHERE id = ${plan.id} FOR UPDATE`,
           );
 
-          // Confirm the seat is still claimable while holding the lock, // before touching Stripe.
+          // Confirm the seat is still claimable while holding the lock —
+          // before touching Stripe.
           if (invitedSeatId != null) {
             const [claimed] = await tx
               .update(familySeatsTable)
@@ -549,7 +550,7 @@ export function createFamilyRouter(
         if (err instanceof StripeCancelFailed) {
           res.status(502).json({
             error:
-              "We couldn't close out your existing subscription. Nothing was changed, please try again.",
+              "We couldn't close out your existing subscription. Nothing was changed — please try again.",
           });
           return;
         }
@@ -558,7 +559,7 @@ export function createFamilyRouter(
 
       if (outcome === "full") {
         res.status(409).json({
-          error: "This family plan is full, all 4 seats are taken.",
+          error: "This family plan is full — all 4 seats are taken.",
         });
         return;
       }

@@ -27,12 +27,12 @@ import { recordChatTurn, sumChatSecondsThisWeek } from "../lib/chatLimits";
 // Because OpenAI network calls are unavoidable inside the route handler for a
 // genuine success path, the "success" assertion injects a *tiny* synthetic WAV
 // buffer via a real (non-mocked) route, and only checks gate/usage side
-// effects rather than the AI reply, keeping the test hermetic without
+// effects rather than the AI reply — keeping the test hermetic without
 // faking network I/O at the route level.  The parrotChat.test.ts file covers
 // the turn logic itself with fully injectable deps.
 
 const TEST_USER = "test_chat_gate";
-const FREE_LANG = FREE_LANGUAGE;       // "hi", allowed for Free
+const FREE_LANG = FREE_LANGUAGE;       // "hi" — allowed for Free
 const LOCKED_LANG = "__test_lang_gate_locked"; // not in Free's allowlist
 const ONE_LANG_CHOSEN = "__test_lang_gate_chosen"; // for One Language tier
 
@@ -187,7 +187,7 @@ after(async () => {
 // Bad request
 // ---------------------------------------------------------------------------
 
-test("POST /openai/chat, 400 when neither audioBase64 nor textInput is provided", async () => {
+test("POST /openai/chat — 400 when neither audioBase64 nor textInput is provided", async () => {
   // Supplying only languageCode (without either audio or text) must be rejected
   // before any gate or AI logic runs.
   const { status } = await post("/openai/chat", { languageCode: FREE_LANG });
@@ -198,10 +198,10 @@ test("POST /openai/chat, 400 when neither audioBase64 nor textInput is provided"
 // Text-input path
 // ---------------------------------------------------------------------------
 
-test("POST /openai/chat, textInput accepted without audioBase64 (no 400, transcript echoes text)", async () => {
+test("POST /openai/chat — textInput accepted without audioBase64 (no 400, transcript echoes text)", async () => {
   // The text-input path skips STT and uses the supplied string directly as the
   // transcript. The route must not return 400 (body is valid) or 402 (gate
-  // passes). A 502 is acceptable, AI credentials are not available in the test
+  // passes). A 502 is acceptable — AI credentials are not available in the test
   // environment so the LLM call may fail, but the route must proceed past all
   // validation before hitting the AI layer.
   const TEXT = "Hello Bolo";
@@ -223,7 +223,7 @@ test("POST /openai/chat, textInput accepted without audioBase64 (no 400, transcr
   if (status === 200 && json != null) {
     assert.equal(json.transcript, TEXT,
       "Transcript must echo the supplied textInput verbatim");
-    // secondsRemaining must not have decreased, the text turn adds 0 to the cap.
+    // secondsRemaining must not have decreased — the text turn adds 0 to the cap.
     const remainingAfter = json.secondsRemaining;
     if (typeof remainingAfter === "number") {
       assert.ok(
@@ -234,9 +234,10 @@ test("POST /openai/chat, textInput accepted without audioBase64 (no 400, transcr
   }
 });
 
-test("POST /openai/chat, weekly cap does not decrease after a text-input turn (duration = 0)", async () => {
+test("POST /openai/chat — weekly cap does not decrease after a text-input turn (duration = 0)", async () => {
   // recordChatTurn is called by the route with durationSeconds = 0 for text
-  // turns. Verify that a 0-second entry does not consume any cap budget, // sumChatSecondsThisWeek must return the same total before and after.
+  // turns. Verify that a 0-second entry does not consume any cap budget —
+  // sumChatSecondsThisWeek must return the same total before and after.
   const before = await sumChatSecondsThisWeek(TEST_USER);
   assert.equal(before, 0, "Precondition: no usage recorded yet");
 
@@ -252,7 +253,7 @@ test("POST /openai/chat, weekly cap does not decrease after a text-input turn (d
 // Language gate (Free user)
 // ---------------------------------------------------------------------------
 
-test("POST /openai/chat, 402 language_locked when Free user requests a locked language", async () => {
+test("POST /openai/chat — 402 language_locked when Free user requests a locked language", async () => {
   const { status, json } = await post("/openai/chat", {
     languageCode: LOCKED_LANG,
     audioBase64: makeMinimalWav(),
@@ -262,7 +263,7 @@ test("POST /openai/chat, 402 language_locked when Free user requests a locked la
   assert.equal(json?.reason, "language_locked");
 });
 
-test("POST /openai/chat, language gate passes for Free user on the free language", async () => {
+test("POST /openai/chat — language gate passes for Free user on the free language", async () => {
   // Will proceed past the language gate; may fail at AI step (502) but NOT at 402 language_locked.
   const { status, json } = await post("/openai/chat", {
     languageCode: FREE_LANG,
@@ -280,7 +281,7 @@ test("POST /openai/chat, language gate passes for Free user on the free language
 // Language gate (One Language tier)
 // ---------------------------------------------------------------------------
 
-test("POST /openai/chat, One Language user can access their chosen language", async () => {
+test("POST /openai/chat — One Language user can access their chosen language", async () => {
   await setPlanOneLanguage(ONE_LANG_CHOSEN);
   const { status, json } = await post("/openai/chat", {
     languageCode: ONE_LANG_CHOSEN,
@@ -292,7 +293,7 @@ test("POST /openai/chat, One Language user can access their chosen language", as
   }
 });
 
-test("POST /openai/chat, One Language user is locked out of a different unlocked language", async () => {
+test("POST /openai/chat — One Language user is locked out of a different unlocked language", async () => {
   await setPlanOneLanguage(ONE_LANG_CHOSEN);
   const { status, json } = await post("/openai/chat", {
     languageCode: LOCKED_LANG, // not the chosen language
@@ -306,7 +307,7 @@ test("POST /openai/chat, One Language user is locked out of a different unlocked
 // Weekly time gate (Free user)
 // ---------------------------------------------------------------------------
 
-test("POST /openai/chat, 402 chat_time_limit when Free user has exhausted the weekly cap", async () => {
+test("POST /openai/chat — 402 chat_time_limit when Free user has exhausted the weekly cap", async () => {
   await drainCap();
   const { status, json } = await post("/openai/chat", {
     languageCode: FREE_LANG,
@@ -318,7 +319,7 @@ test("POST /openai/chat, 402 chat_time_limit when Free user has exhausted the we
   assert.equal(json?.requiredPlan, "one_language");
 });
 
-test("POST /openai/chat, time gate passes when Free user is under the cap", async () => {
+test("POST /openai/chat — time gate passes when Free user is under the cap", async () => {
   // Insert 1 second of usage (far under 120 s cap).
   await db.insert(chatTurnsTable).values({
     userId: TEST_USER,
@@ -340,7 +341,7 @@ test("POST /openai/chat, time gate passes when Free user is under the cap", asyn
 // Plus and One Language: time gate never fires
 // ---------------------------------------------------------------------------
 
-test("POST /openai/chat, Plus user is never time-capped regardless of usage", async () => {
+test("POST /openai/chat — Plus user is never time-capped regardless of usage", async () => {
   await setPlanPlus();
   // Simulate massive usage (beyond any cap).
   for (let i = 0; i < 3; i++) {
@@ -360,7 +361,7 @@ test("POST /openai/chat, Plus user is never time-capped regardless of usage", as
   }
 });
 
-test("POST /openai/chat, One Language user is never time-capped", async () => {
+test("POST /openai/chat — One Language user is never time-capped", async () => {
   await setPlanOneLanguage(FREE_LANG); // choose Hindi so language gate passes too
   for (let i = 0; i < 3; i++) {
     await db.insert(chatTurnsTable).values({

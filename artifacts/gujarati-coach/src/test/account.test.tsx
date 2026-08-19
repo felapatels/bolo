@@ -226,7 +226,7 @@ describe("Account settings", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Voice preview button, cache-key isolation
+// Voice preview button — cache-key isolation
 // ---------------------------------------------------------------------------
 // The VoiceCard preview button fetches audio keyed by the selected voice ID.
 // Switching voices must never re-use a cached clip synthesised for a different
@@ -235,7 +235,7 @@ describe("Account settings", () => {
 
 // NOTE: the picker section is currently unmounted in the Account page
 // ({false && …} while the TTS provider is evaluated), so these tests render
-// VoiceCard directly, the component still ships and its cache behaviour
+// VoiceCard directly — the component still ships and its cache behaviour
 // must hold when the picker is re-enabled.
 describe("Voice preview button", () => {
   // George and Brian are the first two entries in VOICE_CATALOG (same order
@@ -277,7 +277,7 @@ describe("Voice preview button", () => {
     h.isPlus = true;
 
     // Patch the prototype so jsdom's HTMLAudioElement.play() doesn't fire a
-    // "not implemented" unhandled rejection, and so we can assert call count.
+    // "not implemented" unhandled rejection — and so we can assert call count.
     playSpy = vi
       .spyOn(HTMLAudioElement.prototype, "play")
       .mockResolvedValue(undefined);
@@ -318,7 +318,7 @@ describe("Voice preview button", () => {
     expect(brianBody.previewVoiceId).toBe(BRIAN_ID);
   });
 
-  test("switching voices always fetches fresh audio, the old voice's cache slot is not reused", async () => {
+  test("switching voices always fetches fresh audio — the old voice's cache slot is not reused", async () => {
     const user = userEvent.setup();
     renderVoiceCards();
 
@@ -328,7 +328,7 @@ describe("Voice preview button", () => {
     await user.click(previewButtons[0]);
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
 
-    // Switch to Brian, his slot is cold, so a new request is required.
+    // Switch to Brian — his slot is cold, so a new request is required.
     fetchSpy.mockClear();
     await user.click(previewButtons[1]);
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
@@ -353,7 +353,7 @@ describe("Voice preview button", () => {
 
     const previewButtons = screen.getAllByLabelText("Play voice sample");
 
-    // Click George's preview button, the fetch will fail with a 502.
+    // Click George's preview button — the fetch will fail with a 502.
     await user.click(previewButtons[0]);
 
     // The card must return to idle ("Play voice sample" label, button enabled)
@@ -367,13 +367,13 @@ describe("Voice preview button", () => {
     expect(playSpy).not.toHaveBeenCalled();
   });
 
-  test("re-playing the same voice is served from the in-memory cache, no duplicate TTS fetch", async () => {
+  test("re-playing the same voice is served from the in-memory cache — no duplicate TTS fetch", async () => {
     const user = userEvent.setup();
     renderVoiceCards();
 
     const previewButtons = screen.getAllByLabelText("Play voice sample");
 
-    // First play, fetches from the network and caches the result.
+    // First play — fetches from the network and caches the result.
     await user.click(previewButtons[0]);
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
     expect(

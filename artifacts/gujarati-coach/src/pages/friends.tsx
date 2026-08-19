@@ -83,14 +83,14 @@ function initialsFor(u: { displayName: string | null }): string {
 
 // An outfit costs 40 Chai and, until now, only the learner who bought it could
 // see it. Friend and leaderboard rows are the one place anybody else does, so
-// a row shows that learner's Bolo wearing what they have on, never their
+// a row shows that learner's Bolo wearing what they have on — never their
 // initials, and never a blank when they own nothing (canonical Bolo then).
 //
 // The numbers below were settled by LOOKING at rendered thumbnails, not by
 // reasoning about them. At the old 40px circle, with the whole 1024 frame
 // contained inside it, a kurta and a sherwani are two coloured smudges. Two
 // changes fix that: the circle grows to 56px, and the frame is cropped to the
-// bird MINUS HER FEET, a 745px window at (125, 55) of the 1024 frame, which
+// bird MINUS HER FEET — a 745px window at (125, 55) of the 1024 frame — which
 // magnifies her ~1.37x inside the same circle.
 //
 // The crop deliberately stops short of the "upper body" the brief suggested:
@@ -105,8 +105,8 @@ const ROW_MASCOT_PX = Math.round(
 const ROW_MASCOT_LEFT = -Math.round((ROW_CROP.x / ROW_CROP.frame) * ROW_MASCOT_PX);
 const ROW_MASCOT_TOP = -Math.round((ROW_CROP.y / ROW_CROP.frame) * ROW_MASCOT_PX);
 
-// One pose on every row: "wave". Front-facing and friendly, and, unlike
-// thumbsup or thinking, where a wing crosses the chest, nothing covers the
+// One pose on every row: "wave". Front-facing and friendly, and — unlike
+// thumbsup or thinking, where a wing crosses the chest — nothing covers the
 // garment. (tryagain is the most neutral stance but wears a worried face,
 // which is not what you want beside a friend's name.)
 const ROW_MASCOT_POSE = "wave" as const;
@@ -181,7 +181,7 @@ export default function Friends() {
   return (
     <div className="min-h-[100dvh] pb-nav lg:pb-12 bg-background">
       <header className="relative mx-auto w-full max-w-5xl pt-6 px-6 pb-4 text-center flex flex-col items-center lg:pt-6">
-        {/* Standard back affordance, same treatment as Account/Subscription. */}
+        {/* Standard back affordance — same treatment as Account/Subscription. */}
         <Link
           href="/account"
           className="absolute left-6 top-6 flex h-10 w-10 items-center justify-center rounded-2xl border border-card-border bg-card text-muted-foreground transition-colors hover:text-foreground"
@@ -265,7 +265,7 @@ function LeaderboardTab() {
 
   const entries = data ?? [];
 
-  // With no friends the board only holds the learner, nudge them to add some.
+  // With no friends the board only holds the learner — nudge them to add some.
   if (entries.length <= 1) {
     return (
       <EmptyState
@@ -451,7 +451,7 @@ function LeaderboardRow({
 // match anywhere on this page any more: you add someone by holding the exact
 // friend code they chose to give you.
 //
-// The code shown here IS the learner's referral code, one code, two jobs. That
+// The code shown here IS the learner's referral code — one code, two jobs. That
 // reuse is only safe because typing a code produces a *pending* request the
 // other learner has to accept; see the note at the accept handler on the
 // server. Nothing on this page may ever create an accepted friendship directly.
@@ -555,7 +555,7 @@ function AddFriend() {
 // The other half of adding a friend: the code the learner hands out. Shown as
 // text (readable down a phone line), as a QR (scannable by the Bolo! app or any
 // camera), copyable, and shareable through the same link builder the referral
-// card uses, so a scan or a tap of the link also earns both sides their Chai.
+// card uses — so a scan or a tap of the link also earns both sides their Chai.
 function YourFriendCode() {
   const { data, isLoading, isError } = useGetReferral();
   const [copied, setCopied] = useState<"code" | "link" | null>(null);

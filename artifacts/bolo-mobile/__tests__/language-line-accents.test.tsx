@@ -1,4 +1,4 @@
-// The language picker wears each language's RAIL LINE ACCENT, the same colour
+// The language picker wears each language's RAIL LINE ACCENT — the same colour
 // that language's boarding pass and journey map use (lib/journeyLines.ts).
 // These tests pin the join: the stub stripe on every tile carries that
 // language's accent, and the SELECTED tile is outlined in its own accent
@@ -18,7 +18,7 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ back: jest.fn(), push: jest.fn(), replace: jest.fn() }),
 }));
 
-// hi (active), gu, ta (locked), three different lines, three different
+// hi (active), gu, ta (locked) — three different lines, three different
 // accents, covering every tile branch.
 const LANGUAGES = [
   {
@@ -139,7 +139,7 @@ describe('language picker line accents', () => {
       );
     }
 
-    // Three languages, three DISTINCT colours, a single shared accent would
+    // Three languages, three DISTINCT colours — a single shared accent would
     // satisfy the loop above while defeating the whole point.
     const accents = new Set(
       ['hi', 'gu', 'ta'].map((c) => JOURNEY_LINES[c].accent),
@@ -180,7 +180,7 @@ describe('language picker line accents', () => {
 
     // Locked Tamil vs unlocked Gujarati: different backgroundColor.
     const tamil = flatten(
-      getByLabelText('Tamil, locked, preview its journey').props.style,
+      getByLabelText('Tamil — locked, preview its journey').props.style,
     );
     const gujarati = flatten(getByLabelText('Gujarati').props.style);
     expect(tamil.backgroundColor).not.toBe(gujarati.backgroundColor);

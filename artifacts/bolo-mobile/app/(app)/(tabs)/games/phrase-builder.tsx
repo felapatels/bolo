@@ -518,7 +518,7 @@ function PlayingScreen({
             </Pressable>
           ))}
           {pState.tiles.length === 0 && pState.status === 'idle' && (
-            <Text style={[styles.emptyHint, { color: colors.mutedForeground }]}>All placed, check!</Text>
+            <Text style={[styles.emptyHint, { color: colors.mutedForeground }]}>All placed — check!</Text>
           )}
         </View>
 
@@ -565,7 +565,7 @@ function DoneScreen({
   const queryClient = useQueryClient();
   const recordSession = useRecordGameSession();
   const [xpEarned, setXpEarned] = useState<number | null>(null);
-  // The score card opens the same sheet as the CTA, tapping the 6/8 is the
+  // The score card opens the same sheet as the CTA — tapping the 6/8 is the
   // affordance most learners reach for first. A perfect run has nothing to
   // review, so neither the card nor the CTA becomes interactive.
   const [reviewOpen, setReviewOpen] = useState(false);

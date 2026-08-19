@@ -34,7 +34,7 @@ interface GameCard {
   type: "native" | "english";
   label: string;
   /** Romanized reading, native cards only. Empty string for scripts with no
-   *  romanization, the card then renders the script alone (mobile parity). */
+   *  romanization — the card then renders the script alone (mobile parity). */
   romanized?: string;
   state: "hidden" | "flipped" | "matched" | "error";
 }
@@ -82,14 +82,14 @@ function cardText(card: GameCard): string {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 /**
- * The face-down card's art. Bolo waving on a tinted face, the SAME back the
+ * The face-down card's art. Bolo waving on a tinted face — the SAME back the
  * mobile game renders (mascot-wave), so a learner switching devices sees one
  * deck. It shipped on web as a lucide `Link2` chain-link glyph at 40% opacity,
  * which read as a broken-image placeholder rather than a designed card back.
  *
  * ONE component, deliberately: the back is the only thing the two platforms
  * have to keep in step by hand, so it must not be inlined at the call site.
- * Canonical mascot rule holds, this is the shipped PNG via <Mascot>, no new
+ * Canonical mascot rule holds — this is the shipped PNG via <Mascot>, no new
  * art. `word-match-card-back` is pinned by test, placeholder can't creep back.
  */
 export function WordMatchCardBack() {
@@ -155,7 +155,8 @@ export function FlipCard({
             !isMatched && !isError && "border-primary/50 bg-primary/10 text-foreground",
           )}
         >
-          {/* Native card: script primary, romanized quieter beneath it, the treatment mobile Word Match has always used, ported here for
+          {/* Native card: script primary, romanized quieter beneath it —
+              the treatment mobile Word Match has always used, ported here for
               parity. A card whose phrase has no romanization (empty string)
               renders the script alone, never an empty line. */}
           <span className="flex flex-col items-center gap-0.5">
@@ -348,7 +349,8 @@ function EndScreen({
       </div>
 
       <div className="grid w-full max-w-sm grid-cols-2 gap-3">
-        {/* A memory game has no correct/total score, every pair is found, so the "misses" are the mismatched guesses made along the way.
+        {/* A memory game has no correct/total score — every pair is found —
+            so the "misses" are the mismatched guesses made along the way.
             The Time card is the headline stat a learner reaches for, so when
             there were mismatches it doubles as the affordance that opens the
             review; a clean run (no mismatches) leaves it a plain card. */}
@@ -433,7 +435,7 @@ function GameBoard({
   // Wrong flip attempts, described in the learner's own terms: the card they
   // turned over first and the card they wrongly paired it with, against the
   // partner it actually belonged to. There is no numeric score in a memory
-  // game, every pair is eventually found, so a "miss" here is a mismatched
+  // game — every pair is eventually found — so a "miss" here is a mismatched
   // guess, the only thing the learner got wrong on the way there.
   const missesRef = useRef<GameMiss[]>([]);
 
@@ -507,7 +509,7 @@ function GameBoard({
     if (allMatched) {
       if (timerRef.current) clearInterval(timerRef.current);
       const total = Math.floor((Date.now() - startRef.current) / 1000);
-      // Collect unique phrase IDs used in the board, all are "correct" since
+      // Collect unique phrase IDs used in the board — all are "correct" since
       // matching is the only way to complete a pair.
       const usedPhraseIds = [...new Set(cards.map(c => c.pairId))];
       // Short delay so the final matched animation is visible
@@ -530,7 +532,7 @@ function GameBoard({
       const next = [...prev, id];
       if (next.length < 2) return next;
 
-      // We have two flipped cards, check for a match
+      // We have two flipped cards — check for a match
       setLocked(true);
       const [aId, bId] = next;
 
@@ -547,8 +549,8 @@ function GameBoard({
           return updated;
         } else {
           // A mismatch: record it framed from the first card the learner
-          // turned over. We name each card the way it appears, the native
-          // card by its reading, the english card by its meaning, and show
+          // turned over. We name each card the way it appears — the native
+          // card by its reading, the english card by its meaning — and show
           // the true partner of the first card as the answer.
           const partner = current.find(
             c => c.pairId === a.pairId && c.id !== a.id,

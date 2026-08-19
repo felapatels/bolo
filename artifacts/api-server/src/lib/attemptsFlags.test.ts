@@ -99,7 +99,7 @@ test("flags = 'latency_missing' when signed token has latencyMs: null", async ()
       latencyMs:    claims.latencyMs ?? null,
       band:         claims.band,
       xpAwarded:    claims.xpAwarded,
-      // This is the expression under test, mirrors learning.ts:1001 exactly.
+      // This is the expression under test — mirrors learning.ts:1001 exactly.
       flags: claims.latencyMs == null ? "latency_missing" : null,
     })
     .returning();
@@ -135,7 +135,7 @@ test("flags is null when latencyMs is a positive integer", async () => {
     feedback:     "Good.",
     band:         "great" as const,
     xpAwarded:    10,
-    latencyMs:    800,   // ← client sent it, guard can fire
+    latencyMs:    800,   // ← client sent it — guard can fire
   };
 
   const [row] = await db

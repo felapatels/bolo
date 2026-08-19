@@ -1,4 +1,4 @@
-// Spec D1b-M: the home boarding-pass hero, a react-native port of the web
+// Spec D1b-M: the home boarding-pass hero — a react-native port of the web
 // home hero (gujarati-coach/src/pages/home.tsx, P1 v2 item 2: "the journey IS
 // the home hero"). A full-width boarding pass in the line's accent, visually
 // continuous with the journey screen's ticket-stub header. Carries live state
@@ -11,7 +11,7 @@
 // Build 31 "boarding pass energy" (web parity, same keyframe fractions and
 // tuning constants as gujarati-coach/src/index.css):
 // - idle breathe (scale 1→1.025, 3.2s), shimmer sweep across the face, and a
-//   soft glow pulse lifting the pass off the page, all sharing one heartbeat;
+//   soft glow pulse lifting the pass off the page — all sharing one heartbeat;
 // - drive-and-settle train with rolling wheels + steam (TrainEngine);
 // - CTA arrow double-pump on its own 2.4s cycle;
 // - progress-aware CTA copy (Start / Resume at Stop N · X to go / Continue);
@@ -63,7 +63,7 @@ const TEAR_DURATION_MS = 600;
 const TEAR_NAV_DELAY_MS = 500; // activation → navigation; never blocked
 // After navigation covers the screen, quietly restore the intact pass so the
 // learner never returns to a torn/empty hero (mobile keeps home mounted
-// under the stack, the web page unmounts instead).
+// under the stack — the web page unmounts instead).
 const TEAR_RESET_MS = 1200;
 // Stub tear travel (web --tear-* variables).
 const TEAR_DISTANCE = 34;
@@ -75,7 +75,7 @@ const TEAR_BODY_ROTATE = -3;
 
 const TORN_EDGE_W = 6;
 
-/** Jagged rip outline for a torn half, the RN analogue of the web's static
+/** Jagged rip outline for a torn half — the RN analogue of the web's static
  *  clip-path polygons (RN has no clip-path; protruding teeth on each half
  *  read as the same imperfect rip once the halves separate). */
 function tornEdgePath(w: number, h: number, side: 'left' | 'right'): string {
@@ -155,7 +155,7 @@ export function JourneyPassCard({
   // Synchronous re-press guard: React state commits too late to swallow a
   // rapid double-tap, so the guard is a ref flipped before any scheduling.
   const tearingRef = React.useRef(false);
-  // Always navigate with the LATEST onPress, the render-time closure can go
+  // Always navigate with the LATEST onPress — the render-time closure can go
   // stale during the 500ms tear delay if the parent rerenders.
   const onPressRef = React.useRef(onPress);
   onPressRef.current = onPress;
@@ -225,7 +225,7 @@ export function JourneyPassCard({
       },
     ],
   }));
-  // Both halves grip at the perforation (16%) before giving way, the web
+  // Both halves grip at the perforation (16%) before giving way — the web
   // stub-tear/body-tear keyframes on the shared tear progress.
   const stubTearStyle = useAnimatedStyle(() => {
     const t = tearProgress.value;
@@ -263,7 +263,7 @@ export function JourneyPassCard({
     };
   });
 
-  // Pass activation: navigation is NEVER blocked, reduced motion (or any
+  // Pass activation: navigation is NEVER blocked — reduced motion (or any
   // animation-path oddity) activates instantly; otherwise the tear plays and
   // navigation fires at the 500ms mark while the tail of the tear finishes
   // under the incoming screen.
@@ -317,7 +317,7 @@ export function JourneyPassCard({
       {/* Soft glow pulse lifting the pass off the page. Sits just inside the
           card footprint so the accent-colored layer stays fully covered by
           the pass face; only its shadow shows. (iOS shadow; opacity-only
-          animation. Android has no transparent-view shadow, device
+          animation. Android has no transparent-view shadow — device
           checklist item.) */}
       {idleOn && (
         <Animated.View
@@ -342,7 +342,7 @@ export function JourneyPassCard({
         }}
         style={[styles.pass, tearing ? styles.passTearing : { backgroundColor: line.accent }]}
       >
-        {/* full-ticket stock, hidden while tearing (halves carry their own) */}
+        {/* full-ticket stock — hidden while tearing (halves carry their own) */}
         {!tearing && <TicketStripes ink="rgba(255,255,255,0.05)" />}
         {/* shimmer sweep across the ticket face, once per heartbeat
             (transform-only band; the pass's overflow hidden clips it) */}
@@ -374,7 +374,7 @@ export function JourneyPassCard({
             <View style={styles.top}>
               <View style={styles.topText}>
                 {/* The brand is native-script ("Bolo Rail" in the learner's own
-                    script), it MUST render with the language font or the Latin
+                    script) — it MUST render with the language font or the Latin
                     UI font shows tofu. Same per-script handling as the picker. */}
                 <Text
                   style={[
@@ -443,7 +443,7 @@ export function JourneyPassCard({
             {tearing && <TornEdge color={line.accent} side="right" />}
           </Animated.View>
           {/* tear-off stub: perforation with notches (edge bites), fare-zone
-              stamp, vertical line name. No floating punch dot, cutout circles
+              stamp, vertical line name. No floating punch dot — cutout circles
               only ever straddle card edges (approved ruling; the web punch hole
               was dropped from the port for the same reason). The perforation
               hides while tearing: the dashed line is replaced by the two
@@ -462,7 +462,7 @@ export function JourneyPassCard({
             ]}
           >
             {/* Fixed slot so the rotated stamp's visual extent is part of the
-                layout, it can't drift over the perforation or the line name.
+                layout — it can't drift over the perforation or the line name.
                 R1: the stamp size derives from the stub width (label + circle
                 scale as a unit), instead of a hardcoded 48 that ignored the
                 column it lives in. */}
@@ -484,7 +484,7 @@ export function JourneyPassCard({
                 14px slot (measured empirically), truncating the name to one
                 glyph. Sized `nameExtent` wide × 14 tall and offset so its center
                 matches the slot's, the 90° rotation makes it fill the slot's
-                vertical strip exactly, on native and web alike. */}
+                vertical strip exactly — on native and web alike. */}
             <View
               testID="stub-line-slot"
               style={styles.stubLineSlot}
@@ -500,7 +500,7 @@ export function JourneyPassCard({
                   styles.stubLine,
                   {
                     // R1: the wordmark is sized to the measured run so it can
-                    // NEVER ellipsize, font fits the extent by construction
+                    // NEVER ellipsize — font fits the extent by construction
                     // (numberOfLines + fixed 8px used to truncate "GUJARAT
                     // EXPRESS" on short cards). Decorative fitting: pinned
                     // against OS font scaling like the stamp.

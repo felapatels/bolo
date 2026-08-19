@@ -5,8 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 
-// Build 37: the wallet sheet's own contract. The wallet had no web test, the
-// mobile port (bolo-mobile/__tests__/chai-wallet.test.tsx) carried them all, // so these pin the three things this build changed on the web side:
+// Build 37: the wallet sheet's own contract. The wallet had no web test — the
+// mobile port (bolo-mobile/__tests__/chai-wallet.test.tsx) carried them all —
+// so these pin the three things this build changed on the web side:
 //   1. The sheet opens on the stall header, with the balance struck across it.
 //   2. Bolo Bazaar is reached by a real button (not a worded link), and the
 //      row copy does not call Bolo a boy.
@@ -246,7 +247,7 @@ describe("streak repair row", () => {
     );
   });
 
-  test("mends with an empty request, the client never names the day", async () => {
+  test("mends with an empty request — the client never names the day", async () => {
     h.repairOffer = eligible;
     const user = userEvent.setup();
     renderRows(<StreakRepairRow />);

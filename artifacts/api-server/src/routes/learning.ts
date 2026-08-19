@@ -27,7 +27,7 @@ import { CreateAttemptBody, AddCategoryPhrasesBody } from "@workspace/api-zod";
 import { z } from "zod";
 
 // ─── Game session schema (validated inline; generated after orval runs) ──────
-// Server computes correctness from the submitted answer, clients never
+// Server computes correctness from the submitted answer — clients never
 // self-report correct/incorrect, closing the client-forgery attack surface.
 const GamePhraseResult = z.object({
   phraseId: z.number().int(),
@@ -178,7 +178,7 @@ import {
 const router: IRouter = Router();
 
 // The user id is derived server-side from the verified Clerk session by the
-// requireAuth middleware, never from client-supplied input.
+// requireAuth middleware — never from client-supplied input.
 function getUserId(req: Request): string {
   return (req as AuthedRequest).userId;
 }
@@ -287,7 +287,7 @@ export async function getOrCreateLessonPhrases(
     const cached = await loadPhrases(existing.id);
     // A cached lesson row with zero phrases is a poisoned entry (e.g. from a
     // past partial write or a since-fixed bug). Don't serve an empty lesson
-    // forever, fall through and try to (re)generate its phrases so a later
+    // forever — fall through and try to (re)generate its phrases so a later
     // open can recover instead of showing a permanently broken screen.
     if (cached.length > 0) return cached;
   }
@@ -307,7 +307,7 @@ export async function getOrCreateLessonPhrases(
   await hooks.beforeGenerate?.();
 
   // If this throws, the AI call failed. It happens BEFORE any DB write below, so
-  // nothing is cached, the caller surfaces a retry-able error and a later open
+  // nothing is cached — the caller surfaces a retry-able error and a later open
   // can succeed. generateLesson also guarantees at least one usable phrase, so a
   // successful return never yields an empty lesson.
   const generated = await generate({
@@ -318,7 +318,7 @@ export async function getOrCreateLessonPhrases(
     topicDescription: category.description,
   });
 
-  // The AI call succeeded (a cost was incurred), record it against the caller's
+  // The AI call succeeded (a cost was incurred) — record it against the caller's
   // allowance before persisting.
   await hooks.afterGenerate?.();
 
@@ -372,7 +372,7 @@ export async function getOrCreateLessonPhrases(
       });
 
     // Another request may have filled this lesson already (or it was never truly
-    // empty), serve those phrases rather than inserting duplicates.
+    // empty) — serve those phrases rather than inserting duplicates.
     const already = await loadTx();
     if (already.length > 0) return already;
 
@@ -406,7 +406,7 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
   }
   const userId = getUserId(req);
 
-  // M1 teaser: a teaser-state caller may browse the topic list, it's how they
+  // M1 teaser: a teaser-state caller may browse the topic list — it's how they
   // reach Greetings. Exhausted callers get the distinguishable 402; tapping
   // any content beyond the teaser phrases still 402s at the phrases fetch.
   const listingAccess = await getLanguageAccess(req, lang);
@@ -442,7 +442,7 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
   // Plus unlocks the premium library; every other tier only sees the starter
   // set. Split each topic's phrases into what this caller can access versus how
   // many premium phrases stay locked, so the counts never advertise or count
-  // content the learner can't open, and clients can surface the upgrade nudge.
+  // content the learner can't open — and clients can surface the upgrade nudge.
   const callerFeatures = featuresForPlan(
     (req as EntitledRequest).resolvedPlan.plan,
   );
@@ -512,7 +512,7 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
   res.json(data);
 });
 
-// GET /categories/:id/phrases/:lang, generated + cached on first request.
+// GET /categories/:id/phrases/:lang — generated + cached on first request.
 router.get(
   "/categories/:id/phrases/:lang",
   async (req: Request, res: Response): Promise<void> => {
@@ -539,7 +539,7 @@ router.get(
       return;
     }
 
-    // Free-tier content policy: a locked language is not a hard wall, its
+    // Free-tier content policy: a locked language is not a hard wall — its
     // FIRST stop (the position-1 Greetings lesson group) serves in full, in
     // the normal per-phrase shape, whatever the teaser state. The M1 teaser
     // remains the accounting model for the 402 payloads (consumed/limit
@@ -607,9 +607,10 @@ router.get(
 
     // Sequential-unlock filtering (runs AFTER every entitlement gate above):
     // only phrases in unlocked lesson groups are served, plus ungrouped rows
-    // (lessonGroupId NULL) and any phrase this learner already attempted, // the retake exemption: a Retake deep-link resolves against this list,
+    // (lessonGroupId NULL) and any phrase this learner already attempted —
+    // the retake exemption: a Retake deep-link resolves against this list,
     // so a previously practiced phrase must stay servable even if its group
-    // is locked. Prior attempts come from the in-hand stats map, the
+    // is locked. Prior attempts come from the in-hand stats map — the
     // exemption costs zero extra queries.
     const { unlockedGroupIds } = await getUnlockedGroupIds(userId, id, lang, {
       stats,
@@ -628,7 +629,7 @@ router.get(
 
     res.json(served.map((p) => serializePhrase(p, stats)));
 
-    // Background replenishment, fire-and-forget AFTER the response so it
+    // Background replenishment — fire-and-forget AFTER the response so it
     // never delays or interrupts the current session. Two independent paths:
     //
     //  Plus: triggers at 60 % engagement (REPLENISH_THRESHOLD), 10-min
@@ -645,7 +646,7 @@ router.get(
     // Engagement is measured against the FULL accessible list, not the
     // unlock-filtered one: locked-group phrases can't be attempted, so
     // top-ups only fire once the learner has worked through everything the
-    // journey has unlocked, never while locked content is still waiting.
+    // journey has unlocked — never while locked content is still waiting.
     const phraseIds = accessible.map((p) => p.id);
     if (shouldReplenish(resolvedPlan.plan, phraseIds, stats)) {
       replenishPhrases({
@@ -675,7 +676,7 @@ router.get(
   },
 );
 
-// GET /categories/:id/sentences/:lang, the topic's Plus-only sentence stage:
+// GET /categories/:id/sentences/:lang — the topic's Plus-only sentence stage:
 // full, natural sentences the learner graduates to after the phrase list. The
 // server is authoritative about the gate: without the "sentences" feature the
 // caller gets a 402 upgrade payload and no sentence text ever leaves the
@@ -714,7 +715,7 @@ router.get(
     if (await denyLockedLanguage(req, res, lang)) return;
 
     // Free-tier content policy: cached sentence rows are premium-filtered
-    // exactly like the phrase list, non-premium sentence rows (Hindi Fare
+    // exactly like the phrase list — non-premium sentence rows (Hindi Fare
     // Zone 1) serve on every plan. The "sentences" feature still gates every
     // premium row and the generation path below, so no premium sentence text
     // ever leaves the server to a caller without the feature.
@@ -779,8 +780,8 @@ router.get(
     )
       return;
 
-    // Build the phrase list first if needed, the sentences are grounded in
-    // the topic's vocabulary, then generate and cache the sentence stage. The
+    // Build the phrase list first if needed — the sentences are grounded in
+    // the topic's vocabulary — then generate and cache the sentence stage. The
     // caller is Plus (the gate above), so no daily-cap bookkeeping applies here.
     try {
       const phrases = await getOrCreateLessonPhrases(lang, id);
@@ -864,7 +865,7 @@ router.get(
   },
 );
 
-// POST /categories/:id/phrases/:lang, generate & append fresh AI phrases to an
+// POST /categories/:id/phrases/:lang — generate & append fresh AI phrases to an
 // existing lesson so motivated learners can keep practicing past the original set.
 router.post(
   "/categories/:id/phrases/:lang",
@@ -1133,7 +1134,7 @@ router.post(
 // How many weak phrases a single review session gathers.
 const REVIEW_SESSION_SIZE = 12;
 
-// GET /review/phrases?lang=xx, the learner's not-yet-mastered phrases for one
+// GET /review/phrases?lang=xx — the learner's not-yet-mastered phrases for one
 // language, ordered by a spaced-repetition schedule so the ones they're about to
 // forget surface first, to power a targeted review session. A phrase qualifies
 // once it has been practiced (has at least one attempt) but its best score is
@@ -1217,7 +1218,7 @@ router.get(
         ),
       );
 
-    // Restore the weakest-first order, the DB does not guarantee it, and drop
+    // Restore the weakest-first order — the DB does not guarantee it — and drop
     // any ids that no longer resolve to a phrase.
     const byId = new Map(rows.map((r) => [r.id, r]));
     const ordered = weakIds
@@ -1247,7 +1248,7 @@ router.get(
       return;
     }
 
-    // Locked languages: id-aware exceptions, the teaser set while the teaser
+    // Locked languages: id-aware exceptions — the teaser set while the teaser
     // lasts, plus (free-tier content policy) any phrase of the language's
     // first stop, whatever the teaser state. Any other locked phrase keeps
     // the 402.
@@ -1261,7 +1262,7 @@ router.get(
     }
 
     // A premium (Plus-only) phrase is never served to a caller without the
-    // extended library, even by direct id, so its text can't leak.
+    // extended library — even by direct id — so its text can't leak.
     if (
       phrase.premium &&
       denyLockedFeature(
@@ -1297,15 +1298,17 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   const userId = getUserId(req);
 
   // The score/feedback/transcript are taken from the server-signed evaluation
-  // token issued by /openai/pronunciation, never from client-asserted values, // so a client cannot fabricate or inflate its own progress.
+  // token issued by /openai/pronunciation — never from client-asserted values —
+  // so a client cannot fabricate or inflate its own progress.
   const claims = verifyEvaluation(parsed.data.evaluationToken);
   if (!claims || claims.userId !== userId) {
     res.status(400).json({ error: "Invalid or expired evaluation" });
     return;
   }
 
-  // Locked languages: attempts are admitted for (a) the M1 teaser exception, // a teaser-state attempt on a taste-set phrase, which is what consumes the
-  // teaser, and (b) the free-tier content policy's first stop: any phrase of
+  // Locked languages: attempts are admitted for (a) the M1 teaser exception —
+  // a teaser-state attempt on a taste-set phrase, which is what consumes the
+  // teaser — and (b) the free-tier content policy's first stop: any phrase of
   // the language's position-1 Greetings group, whatever the teaser state.
   // Both run the full pipeline (FSRS, Elo, XP, badges). Any other locked
   // attempt keeps the 402.
@@ -1406,7 +1409,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   }
 
   // ── Scoring Core v2: prepare FSRS + Elo inputs before the insert ──────────
-  // Score-only derivation per Spec 0 rule 40, never derive band from `passed`.
+  // Score-only derivation per Spec 0 rule 40 — never derive band from `passed`.
   // verifyEvaluation already normalizes legacy three-band names, so this
   // fallback only fires for pre-band tokens (band claim absent entirely).
   const band: PronunciationBand = claims.band ?? bandFromScore(claims.score);
@@ -1446,7 +1449,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   const thetaDelta = isNocatch ? 0 : K_THETA * (outcome - expected);
 
   // FSRS rating and next card state (only when a catalog phrase is attached,
-  // and never for nocatch, a system miss is not evidence about memory).
+  // and never for nocatch — a system miss is not evidence about memory).
   const now = new Date();
   // HOOK 1b: XP multiplier. When the express multiplier is active, effectiveXp
   // doubles xpAwarded server-side. Server authority is deliberate and upward-only.
@@ -1528,7 +1531,8 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   let row: typeof attemptsTable.$inferSelect;
   // Teaser progress reported on the response (teaser-state attempts on
   // taste-set phrases only), computed under the same lock that admitted the
-  // insert. First-stop attempts outside the taste set insert plainly below, // they never consume or report the taste meter.
+  // insert. First-stop attempts outside the taste set insert plainly below —
+  // they never consume or report the taste meter.
   let teaser: { consumed: number; limit: number } | undefined;
   if (langAccess.state === "teaser" && inTeaserSet) {
     // The derived consumption count is raceable on its own: two concurrent
@@ -1576,7 +1580,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
 
   // ── Side effects: xp_ledger + FSRS memory + Elo ability + exposure count ──
   // These are non-critical to the response (failure is logged but never 500s
-  // the caller), fire-and-await in parallel.
+  // the caller) — fire-and-await in parallel.
   const timezone = getUserTimezone(req);
   await Promise.all([
     // XP ledger (idempotent: ON CONFLICT DO NOTHING). Uses effectiveXp so the
@@ -1642,7 +1646,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
           .where(eq(phrasesTable.id, claims.phraseId))
       : Promise.resolve(),
     // HOOK 1c: streak-day earn (1 Chai). Nocatch included for parity with
-    // streak counting, a system miss never costs the learner their daily Chai.
+    // streak counting — a system miss never costs the learner their daily Chai.
     // Hotfix 3S Item 3: the detailed variant reports whether THIS attempt's
     // request inserted the grant, so the response can carry an authoritative
     // per-attempt Chai receipt (client sums them like XP for the session pill).
@@ -1738,7 +1742,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   // for plan-covered languages.
   res.status(201).json({
     ...(teaser ? { teaser } : {}),
-    // Hotfix 3S Item 3: omitted when zero, the receipt pill only renders
+    // Hotfix 3S Item 3: omitted when zero — the receipt pill only renders
     // when something was actually earned.
     ...(attemptChaiEarned > 0 ? { chaiEarned: attemptChaiEarned } : {}),
     id: row.id,
@@ -1756,7 +1760,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   });
 });
 
-// GET /badges?lang=xx, the full catalog annotated with earned/locked status
+// GET /badges?lang=xx — the full catalog annotated with earned/locked status
 // and earned dates for the authenticated user in one language.
 router.get("/badges", async (req: Request, res: Response): Promise<void> => {
   const lang = String(req.query.lang ?? "");
@@ -1868,7 +1872,7 @@ router.get(
         score: row.score,
         passed: row.passed,
         // Legacy stored rows carry three-band names; normalize to the five-band
-        // ladder at read time (exact, legacy bands came from the same score).
+        // ladder at read time (exact — legacy bands came from the same score).
         band: row.band == null ? null : normalizeBand(row.band, row.score),
         feedback: row.feedback,
         createdAt: row.createdAt.toISOString(),
@@ -1955,9 +1959,9 @@ router.get(
           ),
         // THE streak (Task #1081): one computation shared with the repair
         // offer, the repair write and badge evaluation. It also carries the
-        // covered day keys, pauses equipped ahead of a gap and breaks
+        // covered day keys — pauses equipped ahead of a gap and breaks
         // repaired after it, both user-level and generous across every
-        // language, which the SPEAKING streak (untouched by that task) reads
+        // language — which the SPEAKING streak (untouched by that task) reads
         // below rather than fetching a second time on this hot path.
         loadStreakLadder(userId, timezone),
         // How many phrases are due for review RIGHT NOW. Deliberately the same
@@ -1990,8 +1994,8 @@ router.get(
 
     const totalPhrases = phrases.length;
     // Task #1081: the DAY STREAK number comes from THE streak source
-    // (lib/streakDays.ts), all languages, lessons completed or mini-games
-    // played, not from this language's attempt dates. The streak-repair
+    // (lib/streakDays.ts) — all languages, lessons completed or mini-games
+    // played — not from this language's attempt dates. The streak-repair
     // offer reads the very same helper, so the card can no longer promise a
     // number this banner is incapable of showing.
     const metrics = computeProgressMetrics(attempts, streakLadder.currentStreakDays);
@@ -2012,7 +2016,7 @@ router.get(
     ).length;
 
     // Today's XP: sum entries whose local calendar day (in the user's timezone)
-    // matches today. Uses localDayKey(), same bucketing as streak and attemptsToday.
+    // matches today. Uses localDayKey() — same bucketing as streak and attemptsToday.
     const todayXp = recentXpRows
       .filter((r) => localDayKey(r.createdAt, timezone) === today)
       .reduce((sum, r) => sum + r.xp, 0);
@@ -2043,7 +2047,7 @@ router.get(
   },
 );
 
-// GET /progress/analytics?lang=xx, the deeper, Bolo! Plus-only progress view:
+// GET /progress/analytics?lang=xx — the deeper, Bolo! Plus-only progress view:
 // a per-category mastery breakdown, a recent daily-activity trend, and how many
 // phrases are due for review. The basic /progress/summary above stays available
 // on Free (for Hindi); this richer analytics surface is Plus-only.
@@ -2219,7 +2223,7 @@ router.get(
 // Records the results of a mini-game session. XP is awarded at the session
 // level (not per-phrase) so the totals are calibrated relative to a standard
 // pronunciation practice session. The server verifies correctness from the
-// submitted answers, clients never self-report correct/incorrect.
+// submitted answers — clients never self-report correct/incorrect.
 //
 // XP schedule (per completed session):
 //   Word Match      → 15 XP
@@ -2274,7 +2278,7 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   const cap = MAX_RESULTS[game] ?? 40;
   const capped = phraseResults.slice(0, cap);
 
-  // Deduplicate by phraseId, each phrase counts at most once per session.
+  // Deduplicate by phraseId — each phrase counts at most once per session.
   const seen = new Set<number>();
   const deduped = capped.filter((r) => {
     if (seen.has(r.phraseId)) return false;
@@ -2283,7 +2287,7 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   });
 
   // Fetch only the phrases that (a) exist, (b) belong to this language, AND
-  // (c) belong to this category, rejects any phrase IDs the client invented.
+  // (c) belong to this category — rejects any phrase IDs the client invented.
   const phraseIds = deduped.map((r) => r.phraseId);
   const phrases =
     phraseIds.length > 0
@@ -2322,19 +2326,20 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   }
 
   // Count verified correct / total answers for XP + badge evaluation.
-  // Only phrases the server confirmed belong to this language+category count, // any client-invented or wrong-category IDs are silently excluded.
+  // Only phrases the server confirmed belong to this language+category count —
+  // any client-invented or wrong-category IDs are silently excluded.
   let correctCount = 0;
   let totalCount = 0;
   for (const r of deduped) {
     const p = phraseMap.get(r.phraseId);
-    if (!p) continue; // unknown or wrong category, skip
+    if (!p) continue; // unknown or wrong category — skip
     totalCount += 1;
     if (isCorrect(r, p)) correctCount += 1;
   }
 
   // Require at least one server-validated phrase result. A session where no
   // submitted phraseId maps to a real phrase in this language/category is
-  // meaningless (and a potential forgery), reject it before any write.
+  // meaningless (and a potential forgery) — reject it before any write.
   if (totalCount === 0) {
     res.status(422).json({ error: "No valid phrase results for this game session" });
     return;
@@ -2392,7 +2397,7 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   }
 
   // Once-ever Chai grants for signal and closeout contexts. Idempotency comes
-  // from the ledger's unique (user, reason, refId) index, replays are silent
+  // from the ledger's unique (user, reason, refId) index — replays are silent
   // no-ops. Badge evaluation is unaffected regardless of context.
   //
   // Signal polish item 1 (Branch A): grants fire on PASSING sessions only
@@ -2436,7 +2441,7 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
         // The ONE zone-closeout feed emit, gated on the same `granted` the
         // Chai receipt is gated on: it is true only for the call that actually
         // inserted the ledger row, so a replay posts nothing. The three
-        // earn_zone_complete sites deliberately do not emit, they all use bare
+        // earn_zone_complete sites deliberately do not emit — they all use bare
         // grantTokens, which cannot say whether this call or a concurrent one
         // wrote the row, and an emit there would repeat the line.
         await recordActivityEvent({
@@ -2470,14 +2475,14 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
 });
 
 // ── D1a Slice 1: lesson-group read endpoints (additive; data layer only) ──
-// Nothing about how practice works changes, these exist so the journey map
+// Nothing about how practice works changes — these exist so the journey map
 // (D1b) and future sequential gating have data to read.
 
-// GET /categories/:id/lesson-groups/:lang, ordered lesson groups for one
+// GET /categories/:id/lesson-groups/:lang — ordered lesson groups for one
 // (category, language), with a per-user progress summary derived at read time
 // from existing attempt data (no stored counters). unassignedCount surfaces
 // phrases inserted after the grouping backfill (e.g. by the replenisher) that
-// no group claims yet, Slice 2 adds insert-time assignment.
+// no group claims yet — Slice 2 adds insert-time assignment.
 router.get(
   "/categories/:id/lesson-groups/:lang",
   async (req: Request, res: Response): Promise<void> => {
@@ -2497,7 +2502,7 @@ router.get(
       return;
     }
 
-    // Free is limited to Hindi; other languages require Bolo! Plus, with one
+    // Free is limited to Hindi; other languages require Bolo! Plus — with one
     // deliberate product exception (D1b decision 3): this read-only listing is
     // the journey map's paywall showroom. A teaser or exhausted caller gets
     // the full zone/station structure (group counts and statuses only, ZERO
@@ -2514,7 +2519,7 @@ router.get(
     const showroom = access.state === "allowed" ? null : access;
 
     // All group/member/progress reads live in the shared unlock guard module
-    // (lib/lessonGroupAccess.ts), the same code path every phrase-serving
+    // (lib/lessonGroupAccess.ts) — the same code path every phrase-serving
     // route uses, so the journey map can never disagree with what practice
     // actually serves.
     const ctx = await loadGroupUnlockContext(userId, id, lang);
@@ -2534,31 +2539,31 @@ router.get(
         .extendedLibrary;
 
     // D1a Slice 2: sequential unlock, derived at read time. Entitlement
-    // precedence still holds, a showroom caller never reaches the unlock
+    // precedence still holds — a showroom caller never reaches the unlock
     // derivation: every station is forced locked (except, in teaser state,
     // the single free-taste station) and NO completion-latch rows are written
     // for a language the caller's plan doesn't own.
     let teaserGroupId: number | null = null;
     // Stops in THIS zone the learner has bought with Chai (empty for an
-    // allowed caller, there is nothing to buy in a language they own).
+    // allowed caller — there is nothing to buy in a language they own).
     let unlockedStopIds = new Set<number>();
     let derived: ReturnType<typeof deriveGroupStatuses> | null = null;
     if (showroom) {
       // Free-tier content policy: the FIRST stop (position-1 Greetings
       // group, see lib/teaser.ts) is fully playable free, so the showroom
-      // marks it unlocked for BOTH teaser and exhausted callers, every
+      // marks it unlocked for BOTH teaser and exhausted callers — every
       // locked language's map opens at Stop 1 and Stop 2+ stays
       // locked-with-upsell.
       const firstStop = await getFirstStopGroup(lang);
       if (firstStop != null && groups.some((g) => g.id === firstStop.groupId)) {
         teaserGroupId = firstStop.groupId;
-        // This zone hosts the free stop, so it IS the first zone, the only
+        // This zone hosts the free stop, so it IS the first zone — the only
         // zone whose stops Chai can open (lib/stopUnlock.ts). Ownership is
         // read from the ledger, which is why an unlock survives a reinstall.
         unlockedStopIds = await listUnlockedStopIds(userId, lang);
       }
     } else {
-      // Derivation + completion latch live in the shared guard, identical
+      // Derivation + completion latch live in the shared guard — identical
       // to what the phrase-serving routes enforce.
       const { statuses } = await deriveAndLatchUnlock(userId, ctx);
       derived = statuses;
@@ -2619,7 +2624,7 @@ router.get(
         }
         // Chai stop unlocks, showroom only. `chaiUnlocked` is a stop this
         // learner already bought (it opens like the free stop);
-        // `chaiUnlockable` is one they could buy, inside the first zone,
+        // `chaiUnlockable` is one they could buy — inside the first zone,
         // not the free stop, and with at least one non-premium phrase, so
         // the offer can never sell an all-premium station that would serve
         // an empty session. Both are absent everywhere else.
@@ -2629,7 +2634,8 @@ router.get(
           !chaiUnlocked &&
           g.id !== teaserGroupId &&
           // Same two filters the purchase route applies (lib/stopUnlock.ts):
-          // phrase stage only, first-class sentence stops stay All-Access, // and at least one non-premium row to actually serve.
+          // phrase stage only — first-class sentence stops stay All-Access —
+          // and at least one non-premium row to actually serve.
           (stageByGroup.get(g.id) ?? "phrase") === "phrase" &&
           allIds.some((pid) => !premiumIds.has(pid));
         return {
@@ -2681,7 +2687,7 @@ router.get(
               consumed: Math.min(showroom.consumed, TEASER_LIMIT),
               limit: TEASER_LIMIT,
             },
-            // The price is served, never hardcoded in a client, one source
+            // The price is served, never hardcoded in a client — one source
             // of truth for every surface (lib/tokenEconomy.ts). Present only
             // in the first zone, the only place stops are purchasable.
             ...(teaserGroupId != null
@@ -2693,7 +2699,7 @@ router.get(
   },
 );
 
-// GET /lesson-groups/:id/phrases, the ordered phrases of one lesson group, in
+// GET /lesson-groups/:id/phrases — the ordered phrases of one lesson group, in
 // the SAME per-phrase shape as the category-phrases endpoint so a future
 // client can swap scope without a new contract. Premium rows are filtered for
 // callers without extended-library access, exactly like the category endpoint.
@@ -2715,7 +2721,7 @@ router.get(
       return;
     }
 
-    // Free is limited to Hindi; other languages require Bolo! Plus, with the
+    // Free is limited to Hindi; other languages require Bolo! Plus — with the
     // free-tier content policy carve-out the category-phrases route also
     // implements: the language's FIRST stop (the position-1 Greetings group,
     // the one the journey listing marks `teaserStation: true`) serves IN
@@ -2730,7 +2736,8 @@ router.get(
     if (access.state !== "allowed") {
       const firstStop = await getFirstStopGroup(group.languageCode);
       // Chai stop unlock: a stop the learner BOUGHT (a ledger row, see
-      // lib/stopUnlock.ts) serves through this same free-taste branch, // identical premium filter, identical shape, no latch rows written.
+      // lib/stopUnlock.ts) serves through this same free-taste branch —
+      // identical premium filter, identical shape, no latch rows written.
       const boughtStop =
         firstStop?.groupId === id
           ? false
@@ -2782,7 +2789,7 @@ router.get(
     // free-tier content policy: non-premium sentence rows serve on every
     // plan; premium sentence rows stay behind the "sentences" feature. When
     // the whole group is premium and the caller lacks the feature, the 402
-    // stays byte-identical to the old blanket gate, the journey UI's dialog
+    // stays byte-identical to the old blanket gate — the journey UI's dialog
     // gating is convenience, not authority, and a deep link
     // (?group=<sentence group>) hits this route directly.
     const hasSentences = featuresForPlan(resolvedPlan.plan).sentences;
@@ -2801,7 +2808,7 @@ router.get(
 
     const stats = buildPhraseStats(attempts);
 
-    // Sequential-unlock guard, runs AFTER the entitlement 402s above, so
+    // Sequential-unlock guard — runs AFTER the entitlement 402s above, so
     // unlock state never masks a paywall denial. A locked group is denied
     // outright with 403 lesson_group_locked: NOT 402, because upgrading does
     // not unlock a journey group and clients render every 402 as a Plus
@@ -2823,7 +2830,7 @@ router.get(
     }
 
     // Premium access is per-stage: phrase rows key on the extended library,
-    // sentence rows on the "sentences" feature, so premium sentence text can
+    // sentence rows on the "sentences" feature — so premium sentence text can
     // never leak through an extended-library-only combination.
     const accessible = phrases.filter((p) =>
       !p.premium
@@ -2839,7 +2846,7 @@ router.get(
 // ── D1a Slice 2: test-out assessment ──────────────────────────────────────
 // A learner may skip ahead past a locked group by demonstrating
 // mastery-equivalent performance: GET samples up to TESTOUT_SAMPLE_SIZE of the
-// group's phrases (accessible to the caller, premium text is never sent to a
+// group's phrases (accessible to the caller — premium text is never sent to a
 // caller without extended-library access); POST submits the server-signed
 // evaluation tokens for those attempts. Pass = a full-credit band (five-band
 // perfect|great, the frozen legacy 'nailed' score >= 80 boundary) on
@@ -2847,7 +2854,7 @@ router.get(
 // state never grants access that entitlements deny.
 
 // NOTE: the test-out routes are deliberately EXEMPT from the sequential-unlock
-// guard, their entire purpose is to serve a sample from a LOCKED group so a
+// guard — their entire purpose is to serve a sample from a LOCKED group so a
 // learner can skip ahead (the journey map's locked-station dialog). Only the
 // entitlement gates apply here; do not add getUnlockedGroupIds to this path.
 
@@ -2869,7 +2876,7 @@ async function loadTestoutGroup(
     res.status(404).json({ error: "Lesson group not found" });
     return null;
   }
-  // Entitlements evaluate first, before any unlock/test-out logic.
+  // Entitlements evaluate first — before any unlock/test-out logic.
   if (await denyLockedLanguage(req, res, group.languageCode)) return null;
 
   // Chunk 4 cross-zone gate: entitlements above, gate here, THEN the
@@ -2911,7 +2918,7 @@ async function loadTestoutGroup(
   return { groupId: id, phrases: accessible };
 }
 
-// GET /lesson-groups/:id/test-out, a fresh random sample for one assessment.
+// GET /lesson-groups/:id/test-out — a fresh random sample for one assessment.
 // Failing is retryable with a new sample, so no seeding/persistence here; the
 // POST validates membership, not that the exact GET sample was used.
 router.get(
@@ -2954,14 +2961,14 @@ const TestoutBody = z.object({
 
 // Test-out submission throttle: max attempts per user per group per rolling
 // hour, counted from the append-only lesson_group_testouts log (every valid
-// submission is persisted, pass or fail, this is the rate limiting that log
+// submission is persisted, pass or fail — this is the rate limiting that log
 // was designed for). DB-backed like the friends invite cooldown, so it holds
 // across server restarts and replicas, unlike the in-memory rateLimit
 // middleware.
 const TESTOUT_MAX_PER_WINDOW = 3;
 const TESTOUT_WINDOW_MS = 60 * 60 * 1000;
 
-// POST /lesson-groups/:id/test-out, grade a submitted assessment. Every
+// POST /lesson-groups/:id/test-out — grade a submitted assessment. Every
 // attempt must carry the server-signed evaluation token (scores are never
 // client-asserted). Each submission is persisted (pass or fail), and the
 // throttle above reads that log: the 4th submission for the same group within
@@ -3037,7 +3044,7 @@ router.post(
       seen.add(a.phraseId);
       verified++;
       // Test-out pass rule: full-credit attempts only (legacy 'nailed', now
-      // the perfect|great group, same frozen score >= 80 boundary).
+      // the perfect|great group — same frozen score >= 80 boundary).
       if (claims.band !== undefined && isFullCreditBand(claims.band)) fullCredit++;
     }
     if (verified !== sampleSize) {
@@ -3512,7 +3519,7 @@ router.post(
   },
 );
 
-// GET /journey/zone-stamps, lightweight list of zone capstone stamps for the
+// GET /journey/zone-stamps — lightweight list of zone capstone stamps for the
 // caller, used by the journey map to show "Replay the chat" links on zones
 // where the learner has already completed the capstone conversation.
 router.get(
@@ -3541,15 +3548,15 @@ router.get(
   },
 );
 
-// POST /journey/signal-waves, Hotfix 3S Item 1: persist a wave-through so
+// POST /journey/signal-waves — Hotfix 3S Item 1: persist a wave-through so
 // the gate-up state survives devices and reinstalls. The ref is composed
 // server-side to pin the `${languageCode}:${categoryId}:gap-N` convention
 // (identical to the earn_signal_first_clear ledger refId). Idempotent via the
-// (user, ref) unique constraint; rows are never deleted, a later first-clear
+// (user, ref) unique constraint; rows are never deleted — a later first-clear
 // supersedes the wave for display.
 const SignalWaveBody = z.object({
   // Strict grammar: bare 2-3 letter lowercase codes only. This is not just
-  // hygiene, stored refs feed the lesson-groups LIKE prefix scan, so LIKE
+  // hygiene — stored refs feed the lesson-groups LIKE prefix scan, so LIKE
   // metacharacters (% _) must never be able to enter a ref.
   languageCode: z.string().regex(/^[a-z]{2,3}$/),
   categoryId: z.number().int().positive(),
@@ -3591,7 +3598,7 @@ router.post(
   },
 );
 
-// POST /journey/chacha-encounters, the learner has arrived at a Chacha-ji
+// POST /journey/chacha-encounters — the learner has arrived at a Chacha-ji
 // station. One call does the whole encounter: it pours the Chai (idempotent,
 // so a revisit or a double tap pays once), picks the line he says, and prices
 // an offer when this is a third encounter. Nothing here is client-asserted

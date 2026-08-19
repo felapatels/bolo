@@ -7,7 +7,7 @@ import { render, screen, fireEvent } from '@testing-library/react-native';
 // Drives the real practice screen (app/(app)/practice/[id].tsx) to guard the
 // 402 "upgrade_required" branch: a Free learner who hits the daily lesson
 // limit (or a locked language) must land on the full-screen upgrade prompt
-// that routes to the paywall, never the misleading "No phrases to practice
+// that routes to the paywall — never the misleading "No phrases to practice
 // here yet." note. Non-402 failures must keep the retry screen.
 // ---------------------------------------------------------------------------
 
@@ -96,7 +96,7 @@ jest.mock('@/lib/audio', () => ({
 }));
 
 // UpgradeRequiredScreen renders PlusPill from PlusUpsell, which imports the
-// entitlements context (and through it @clerk/expo's native module), stub it.
+// entitlements context (and through it @clerk/expo's native module) — stub it.
 jest.mock('@/contexts/EntitlementsContext', () => ({
   useEntitlements: () => ({ isPlus: false, isOneLanguage: false }),
 }));
@@ -192,7 +192,7 @@ describe('402 upgrade_required on the practice screen', () => {
     expect(screen.getByText('Start 7-day free trial')).toBeOnTheScreen();
     expect(
       screen.getByText(
-        'Cancel anytime, no charge if you cancel before the trial ends.',
+        'Cancel anytime — no charge if you cancel before the trial ends.',
       ),
     ).toBeOnTheScreen();
     expect(screen.queryByText('Unlock with All-Access')).not.toBeOnTheScreen();

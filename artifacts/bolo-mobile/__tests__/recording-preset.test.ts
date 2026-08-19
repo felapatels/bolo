@@ -11,7 +11,7 @@
  * is the known-good rate, restored August 14, 2026.
  *
  * Where the encoder's real ceiling sits between 32 and 96 kbps is unmeasured.
- * Raising this value is a device test, not a config edit, the failure mode is
+ * Raising this value is a device test, not a config edit — the failure mode is
  * a swallowed exception, so nothing in CI or on Expo web will catch it.
  *
  * The other half of this guard is that the value reaches iOS at all, since
@@ -57,7 +57,7 @@ describe('RECORDING_PRESET', () => {
     expect(RECORDING_PRESET.bitRate).toBe(32000);
   });
 
-  test('stays 16 kHz mono, Whisper resamples anyway', () => {
+  test('stays 16 kHz mono — Whisper resamples anyway', () => {
     expect(RECORDING_PRESET.sampleRate).toBe(16000);
     expect(RECORDING_PRESET.numberOfChannels).toBe(1);
     expect(RECORDING_PRESET.ios.sampleRate).toBe(16000);

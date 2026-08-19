@@ -12,16 +12,16 @@ export function BottomNav() {
   const chatActive = location === "/chat";
 
   return (
-    // Floating pill, mirrors the mobile app's tab bar: inset 14px from both
+    // Floating pill — mirrors the mobile app's tab bar: inset 14px from both
     // edges, 32px radius, opaque card background, 1px border all round, soft
     // drop shadow, and lifted off the bottom edge by the safe-area inset with
     // mobile's 14px minimum gap as the floor (see .nav-float in index.css).
     <div className="fixed left-0 right-0 z-40 nav-float bg-card border border-border lg:hidden">
-      {/* Daily XP counter, sits above the nav icons as a thin strip */}
+      {/* Daily XP counter — sits above the nav icons as a thin strip */}
       <div className="max-w-md mx-auto px-5 pt-1.5 pb-0">
         <XpCounter variant="chrome" />
       </div>
-      {/* Icon row, mobile's bar geometry exactly: 74px tall including its
+      {/* Icon row — mobile's bar geometry exactly: 74px tall including its
           6px top / 8px bottom padding, so the 60px slot inside matches. */}
       <div className="flex h-[74px] items-center justify-around px-2 pt-1.5 pb-2 max-w-md mx-auto">
         <Link 
@@ -57,11 +57,11 @@ export function BottomNav() {
           <span className="text-[10px] font-bold tracking-wide">Games</span>
         </Link>
 
-        {/* Centre elevated Bolo parrot button, the hero action, mirroring the
+        {/* Centre elevated Bolo parrot button — the hero action, mirroring the
             mobile tab bar's raised bubble: a 58px circle holding a 44px
             mascot, anchored from the BOTTOM of its slot (like mobile) so its
             lower edge sits 34px below the pill's top edge and ~24px of the
-            circle breaks out above it, mobile's exact relationship to the
+            circle breaks out above it — mobile's exact relationship to the
             bar's visible top edge. Web's extra XP strip pushes the icon row
             26px further down than mobile's, so the label is pinned to the
             shared label line instead of riding directly under the circle.
@@ -82,7 +82,7 @@ export function BottomNav() {
               )}
             >
               {/* Rigged Bolo in calm ambient mode: blinks and breathes, but no
-                  big idle stunts, he's an always-on-screen nav element. */}
+                  big idle stunts — he's an always-on-screen nav element. */}
               <Mascot pose="wave" size={44} ambient="calm" />
             </div>
             {/* Two hard lines, never wrapped: "Bolo Chat" on one line is ~56px
@@ -117,7 +117,7 @@ export function BottomNav() {
           <span className="text-[10px] font-bold tracking-wide">Progress</span>
         </Link>
 
-        {/* Globe language switcher, smaller/muted so it doesn't compete with the four primary tabs */}
+        {/* Globe language switcher — smaller/muted so it doesn't compete with the four primary tabs */}
         <div className="flex flex-col items-center justify-center w-full h-full">
           <LanguagePicker
             trigger={

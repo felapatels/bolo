@@ -1,4 +1,4 @@
-// The Signalman, a react-native-svg TRANSCRIPTION of the web glyph in
+// The Signalman — a react-native-svg TRANSCRIPTION of the web glyph in
 // gujarati-coach/src/components/journey-scenery.tsx (SignalmanGlyph). Same
 // 26×40 viewBox, same shapes in the same paint order, same coordinates, same
 // brand-palette fills. This is not a redesign: if the web glyph changes, this
@@ -11,7 +11,7 @@
 // Follows the Inline-SVG character pattern (docs/CODEBASE-FACTS.md House
 // Patterns) as TrainEngine does: flat brand-palette shapes, no gradients, no
 // raster, whole-glyph motion only. He has no animation because the web glyph
-// has none, do not add per-limb motion.
+// has none — do not add per-limb motion.
 //
 // Decorative only: the encounter's scene header is hidden from assistive tech
 // and this Svg hides itself too, matching its sibling SignalGlyph.
@@ -40,7 +40,7 @@ export function SignalmanGlyph() {
     >
       {/* ground shadow (shared scenery convention: down-light from upper-left) */}
       <Ellipse cx={13} cy={36.2} rx={8} ry={1.9} fill={INK} opacity={0.13} />
-      {/* flag pole, held high, drawn first so the hand overlaps the grip */}
+      {/* flag pole, held high — drawn first so the hand overlaps the grip */}
       <Rect x={21.2} y={2.4} width={1.5} height={17} rx={0.75} fill={SLATE_SHADE} />
       {/* red pennant, pointing back toward the track */}
       <Path d="M22.7 2.8 L22.7 8.8 L15.2 5.8 Z" fill={SIGNAL_RED} />

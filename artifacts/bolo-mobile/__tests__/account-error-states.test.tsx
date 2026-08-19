@@ -1,4 +1,4 @@
-// Task #1089: Settings is the app's only unmasked API failure surface, the
+// Task #1089: Settings is the app's only unmasked API failure surface — the
 // screen App Review saw an error on. Two things must hold forever after:
 //
 // 1. The copy must say WHICH kind of failure it was. A rejected session is a
@@ -144,7 +144,7 @@ describe('Settings load failure', () => {
     // Query string dropped; endpoint, status and reason all visible so a
     // reviewer's screenshot alone identifies the failure.
     expect(
-      screen.getByText('/api/account, HTTP 401 · token-expired'),
+      screen.getByText('/api/account — HTTP 401 · token-expired'),
     ).toBeOnTheScreen();
   });
 
@@ -155,7 +155,7 @@ describe('Settings load failure', () => {
 
     expect(screen.getByText(/check your connection/i)).toBeOnTheScreen();
     expect(screen.queryByText(/confirm your sign-in/i)).toBeNull();
-    expect(screen.getByText('request, no response (network)')).toBeOnTheScreen();
+    expect(screen.getByText('request — no response (network)')).toBeOnTheScreen();
   });
 
   it('says a 500 is our side, not the learner’s', () => {
@@ -164,7 +164,7 @@ describe('Settings load failure', () => {
     render(<AccountScreen />);
 
     expect(screen.getByText(/wobble on our side/i)).toBeOnTheScreen();
-    expect(screen.getByText('/api/account, HTTP 500')).toBeOnTheScreen();
+    expect(screen.getByText('/api/account — HTTP 500')).toBeOnTheScreen();
   });
 
   it('reports the cause to Sentry with status, endpoint and auth reason', () => {
@@ -289,7 +289,7 @@ describe('failed-request breadcrumbs', () => {
 // The api-server's unreadable-token guard answers 401 with its OWN header,
 // `x-bolo-auth-error`, because Clerk never got far enough to classify the
 // token. The two sides are coupled only by that header name, so this pin runs
-// a REAL HTTP response, served exactly as the guard serves it, through the
+// a REAL HTTP response — served exactly as the guard serves it — through the
 // mobile formatter, and fails if either side renames the header.
 describe('a server response the guard produced, read by the mobile formatter', () => {
   let server: any;
@@ -332,7 +332,7 @@ describe('a server response the guard produced, read by the mobile formatter', (
       screen.getByText(/couldn't confirm your sign-in/i),
     ).toBeOnTheScreen();
     expect(
-      screen.getByText('/api/account, HTTP 401 · token-unreadable'),
+      screen.getByText('/api/account — HTTP 401 · token-unreadable'),
     ).toBeOnTheScreen();
 
     const [, options] = (Sentry.captureException as jest.Mock).mock.calls[0];
