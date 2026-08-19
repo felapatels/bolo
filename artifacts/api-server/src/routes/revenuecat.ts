@@ -13,7 +13,7 @@ import {
 import {
   chaiPackCreditFromStoreEvent,
   CHAI_PACKS,
-  NON_SUBSCRIPTION_PURCHASE_EVENT,
+  isConsumablePurchaseEvent,
   creditChaiPackFromStore,
 } from "../lib/chaiPacks";
 import { logger } from "../lib/logger";
@@ -95,12 +95,13 @@ router.post(
       // product_id (a store product whose identifier does not match the server
       // catalog) or app_user_id (an anonymous RevenueCat id, meaning the SDK
       // was never told who the learner is).
-      if (event.type === NON_SUBSCRIPTION_PURCHASE_EVENT) {
+      if (isConsumablePurchaseEvent(event.type)) {
         logger.error(
           {
             productId: event.product_id ?? null,
             appUserId: event.app_user_id ?? null,
             transactionId: event.transaction_id ?? null,
+            eventType: event.type,
             knownProductIds: CHAI_PACKS.map((p) => p.appleProductId),
           },
           "Consumable purchase could not be credited: no matching Chai pack",

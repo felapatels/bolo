@@ -80,6 +80,10 @@ const IGNORED_EVENT_TYPES = new Set([
   "VIRTUAL_CURRENCY_TRANSACTION",
   "TEMPORARY_ENTITLEMENT_GRANT",
   "NON_SUBSCRIPTION_PURCHASE",
+  // The name RevenueCat actually sends for a consumable. Its absence here was
+  // half of the 2026-08-19 bug: the credit path missed it AND this module would
+  // have treated it as an unknown event.
+  "NON_RENEWING_PURCHASE",
 ]);
 
 // Which of our entitlements the event pertains to, or null to ignore it.

@@ -213,7 +213,31 @@ export const CHAI_PACK_IOS_REASON = "purchase_chai_pack_ios" as const;
 export const APPLE_TRANSACTION_REF_PREFIX = "apple_tx:";
 
 /** The RevenueCat event type raised once per consumable purchase. */
+/**
+ * The RevenueCat event types that mean "a consumable was bought".
+ *
+ * NON_RENEWING_PURCHASE is the one RevenueCat actually documents and sends.
+ * This file listened only for NON_SUBSCRIPTION_PURCHASE, which reads like the
+ * right name and is not in their vocabulary at all, so every Chai pack purchase
+ * ever made fell through the webhook: delivered, answered 200, credited
+ * nothing. Found 2026-08-19 from a real sandbox purchase that took the money
+ * and granted no Chai.
+ *
+ * Both are accepted. The wrong one costs nothing to keep and guards against the
+ * possibility that some RevenueCat account or API version does emit it; the
+ * right one is what unblocks every real purchase.
+ */
+export const CONSUMABLE_PURCHASE_EVENTS = [
+  "NON_RENEWING_PURCHASE",
+  "NON_SUBSCRIPTION_PURCHASE",
+] as const;
+
+/** @deprecated Kept so existing imports keep compiling. Prefer the list. */
 export const NON_SUBSCRIPTION_PURCHASE_EVENT = "NON_SUBSCRIPTION_PURCHASE";
+
+export function isConsumablePurchaseEvent(type: string | null | undefined): boolean {
+  return typeof type === "string" && (CONSUMABLE_PURCHASE_EVENTS as readonly string[]).includes(type);
+}
 
 /**
  * The fields of a RevenueCat webhook event this mapper reads. Structural, so
@@ -265,7 +289,7 @@ export type ChaiPackStoreCredit = {
 export function chaiPackCreditFromStoreEvent(
   event: StoreEventLike,
 ): ChaiPackStoreCredit | null {
-  if ((event.type ?? "") !== NON_SUBSCRIPTION_PURCHASE_EVENT) return null;
+  if (!isConsumablePurchaseEvent(event.type)) return null;
 
   const pack = getChaiPackByAppleProductId(event.product_id);
   if (!pack) return null;

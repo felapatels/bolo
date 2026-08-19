@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   chaiPackCreditFromStoreEvent,
   CHAI_PACKS,
-  NON_SUBSCRIPTION_PURCHASE_EVENT,
+  CONSUMABLE_PURCHASE_EVENTS,
 } from "./chaiPacks";
 
 // ---------------------------------------------------------------------------
@@ -19,7 +19,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const good = {
-  type: NON_SUBSCRIPTION_PURCHASE_EVENT,
+  type: "NON_RENEWING_PURCHASE",
   product_id: CHAI_PACKS[0]!.appleProductId,
   app_user_id: "user_2abc",
   transaction_id: "1000000999",
@@ -87,5 +87,31 @@ describe("the four gates a paid purchase must pass", () => {
       CHAI_PACKS.map((p) => p.appleProductId),
       ["bolo_chai_cutting", "bolo_chai_kulhad", "bolo_chai_kettle"],
     );
+  });
+});
+
+describe("THE EVENT NAME THAT COST EVERY PURCHASE", () => {
+  test("NON_RENEWING_PURCHASE credits, because that is what RevenueCat sends", () => {
+    // The bug of 2026-08-19. This file listened only for
+    // NON_SUBSCRIPTION_PURCHASE, which reads like the right name and is not in
+    // RevenueCat's vocabulary at all. Every Chai pack purchase ever made was
+    // delivered, answered 200, and credited nothing.
+    const credit = chaiPackCreditFromStoreEvent({
+      ...good,
+      type: "NON_RENEWING_PURCHASE",
+    });
+    assert.equal(credit?.pack.id, CHAI_PACKS[0]!.id);
+  });
+
+  test("the old name still credits, so nothing that worked stops working", () => {
+    assert.ok(
+      chaiPackCreditFromStoreEvent({ ...good, type: "NON_SUBSCRIPTION_PURCHASE" }),
+    );
+  });
+
+  test("and RevenueCat's real name is FIRST in the list", () => {
+    // Ordering is documentation here: the one they actually send leads, so the
+    // next reader does not repeat the mistake.
+    assert.equal(CONSUMABLE_PURCHASE_EVENTS[0], "NON_RENEWING_PURCHASE");
   });
 });
