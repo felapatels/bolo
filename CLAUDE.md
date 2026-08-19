@@ -122,7 +122,15 @@ command runs.
 
 ## Known open items
 
-- `.easignore` missing; every EAS build ships a 224 MB archive.
+- **`REVENUECAT_API_KEY` on the server is rejected.** Every `/entitlements` call
+  logs `RevenueCat subscriber fetch non-OK, status 401`. Subscription state
+  cannot be read from RevenueCat at all; entitlements are being served from the
+  local mirror alone. Compare the Replit secret against the `replit-server`
+  secret key in RevenueCat. Found 2026-08-19, not yet fixed.
+- The API logger is plain pino with **no Sentry transport**, so `logger.error`
+  reaches stdout and nothing else. A money-losing error is invisible unless
+  somebody opens Replit's deployment logs. This is why the Chai pack failure
+  below went unnoticed for as long as it did.
 - `playCue` is wired at 22 call sites on both platforms; the audio files were never
   authored. Both no-op by design.
 - Mobile splash has no tests; nothing renders `app/_layout.tsx` or
@@ -130,3 +138,26 @@ command runs.
 - Sentry ingests development events into the production stream.
 - One-Language tier is dead (no RevenueCat package, no purchasers) but
   `allowedLanguagesForPlan` still branches on it.
+
+## Chai packs: why they never credited, resolved 2026-08-19
+
+Two independent faults, and BOTH had to be fixed. Worth reading before touching
+the purchase path, because either one alone reproduces the same symptom: Apple
+charges, the app says "Chai on the way", the balance never moves.
+
+1. **The server listened for an event RevenueCat does not send.**
+   `NON_SUBSCRIPTION_PURCHASE` is not in their vocabulary; the consumable event
+   is `NON_RENEWING_PURCHASE`. Both are accepted now, real name first.
+2. **The in-app purchases were incomplete in App Store Connect.** Apple will
+   sell a product whose metadata is unfinished, which is why prices rendered and
+   StoreKit took the money, but RevenueCat cannot validate the transaction, so
+   it records no purchase and sends no webhook. Uploading the review screenshots
+   completed them.
+
+Fault 2 hid fault 1 completely. A purchase at 09:22 failed with the code fix
+already deployed, which is how we know the metadata was load-bearing.
+
+`POST /chai-packs/credited` is READ-ONLY: it selects from the ledger and never
+grants. The webhook is the only thing that can add Chai. If a balance moves
+without a webhook in the log, something is wrong with your reading of the log,
+not with that rule.
