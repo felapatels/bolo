@@ -23,7 +23,7 @@ import { PressableScale } from '@/components/PressableScale';
 import { Mascot } from '@/components/Mascot';
 import { mascotSource } from '@/lib/mascotOutfits';
 import { ChaiGlyph } from '@/components/ChaiStall';
-import { ChaiPackShop } from '@/components/ChaiPackShop';
+import { ChaiPackShop, useChaiPacksSellable } from '@/components/ChaiPackShop';
 import { StallBand } from '@/components/StallBand';
 import {
   ChaiWalletSheet,
@@ -177,6 +177,7 @@ export default function OutfitsScreen() {
   // The chai stall at the bottom of the street opens the wallet a learner
   // already knows, rather than a second balance surface built here.
   const [walletOpen, setWalletOpen] = React.useState(false);
+  const packsSellable = useChaiPacksSellable();
   const [languageInfoOpen, setLanguageInfoOpen] = React.useState(false);
   const [notice, setNotice] = React.useState('');
   const [noticeKey, setNoticeKey] = React.useState(0);
@@ -691,15 +692,20 @@ export default function OutfitsScreen() {
             accessibilityLabel="Open your Chai wallet"
           />
           <View style={styles.chaiCounter}>
-            <View
-              testID="bazaar-chai-badge"
-              style={[styles.chaiBadge, { backgroundColor: colors.primary }]}
-            >
-              <ChaiGlyph size={18} />
-              <Text style={styles.chaiBadgeText}>
-                Top up your Chai to keep shopping
-              </Text>
-            </View>
+            {/* Only when Apple can actually price the packs. The shop hides
+                itself when it cannot, and a badge pointing at that empty space
+                would be worse than no badge. */}
+            {packsSellable ? (
+              <View
+                testID="bazaar-chai-badge"
+                style={[styles.chaiBadge, { backgroundColor: colors.primary }]}
+              >
+                <ChaiGlyph size={18} />
+                <Text style={styles.chaiBadgeText}>
+                  Top up your Chai to keep shopping
+                </Text>
+              </View>
+            ) : null}
             <ChaiPackShop />
             <Pressable
               onPress={() => setWalletOpen(true)}
