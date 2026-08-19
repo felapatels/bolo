@@ -95,7 +95,6 @@
     "expo-camera": "~17.0.10",
     "expo-clipboard": "~8.0.8",
     "expo-crypto": "~15.0.9",
-    "expo-dev-client": "~6.0.21",
     "expo-file-system": "~19.0.23",
     "expo-linear-gradient": "~15.0.8",
     "expo-notifications": "^0.32.17",
