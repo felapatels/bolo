@@ -62,6 +62,27 @@ router.post(
       return;
     }
 
+    // EVERY event, named, before any branching.
+    //
+    // A real purchase on 2026-08-19 answered 200 in two milliseconds and logged
+    // nothing at all: it credited no Chai and it did not trip the
+    // could-not-be-credited error either, which means it never reached the
+    // consumable branch and the type was something nobody had guessed. Two
+    // rounds of diagnosis went into learning that, and both would have been one
+    // round with this line.
+    //
+    // At info, not debug: a webhook is rare, the volume is nothing, and the one
+    // time it matters the log is already there rather than one deploy away.
+    logger.info(
+      {
+        type: event.type,
+        productId: event.product_id ?? null,
+        appUserId: event.app_user_id ?? null,
+        environment: (event as { environment?: string }).environment ?? null,
+      },
+      "RevenueCat webhook received",
+    );
+
     try {
       // Consumables (Chai packs) first, and they RETURN. A consumable is not a
       // subscription: it grants Chai and must not reach any subscription write
