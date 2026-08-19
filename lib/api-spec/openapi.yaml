@@ -2473,6 +2473,89 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /push/register:
+    post:
+      operationId: registerPushToken
+      tags: [account]
+      summary: Register this device for server-sent notifications
+      description: >-
+        Records the caller's Expo push token so the server can reach this
+        device. Distinct from the LOCAL daily reminder, which the app schedules
+        for itself and which needs no server at all.
+
+
+        Called on EVERY cold start, not only the first. Expo may rotate a token
+        at any time and emits no event when it does, so re-asserting on launch
+        is the only reliable way to hold a current address. It also refreshes
+        last_seen_at, which is how a dead install is eventually told apart from
+        a quiet one.
+
+
+        A token is unique across the whole table, not per user: a token
+        identifies an INSTALL, and an install changes hands (a shared family
+        iPad, a phone signed out and back in). Registering therefore MOVES a
+        token to the caller rather than adding a second row, and revives it if
+        it had been disabled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: Expo push token, "ExponentPushToken[...]".
+                platform:
+                  type: string
+                  enum: [ios, android]
+              required: [token, platform]
+      responses:
+        "200":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  registered:
+                    type: boolean
+                required: [registered]
+        "400":
+          description: Not an Expo push token, or missing platform
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: unregisterPushToken
+      tags: [account]
+      summary: Stop pushing to this device
+      description: >-
+        Scoped to the caller's own rows, so knowing a token is not enough to
+        silence someone else's device. A token that is not registered returns
+        the same 204 as one that was removed: whether a given device is
+        registered is not something this endpoint should confirm to a stranger.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+              required: [token]
+      responses:
+        "204":
+          description: No longer registered
+        "400":
+          description: token is required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   schemas:
     Ok:

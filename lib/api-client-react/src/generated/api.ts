@@ -102,6 +102,8 @@ import type {
   ReferralRedeemResult,
   ReferralSummary,
   RegenerateFamilyCode200,
+  RegisterPushToken200,
+  RegisterPushTokenBody,
   ScenarioPublic,
   ScenarioSummary,
   ScriptTraceCharacterProgress,
@@ -122,6 +124,7 @@ import type {
   TokenState,
   TokensSpendInput,
   UnlockStopInput,
+  UnregisterPushTokenBody,
   UpdatePreferencesInput,
   UpdateProfileInput,
   UpgradeRequired,
@@ -6383,5 +6386,153 @@ export const useEquipOutfit = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getEquipOutfitMutationOptions(options));
+    }
+
+export const getRegisterPushTokenUrl = () => {
+
+
+
+
+  return `/api/push/register`
+}
+
+/**
+ * Records the caller's Expo push token so the server can reach this device. Distinct from the LOCAL daily reminder, which the app schedules for itself and which needs no server at all.
+ *
+ * Called on EVERY cold start, not only the first. Expo may rotate a token at any time and emits no event when it does, so re-asserting on launch is the only reliable way to hold a current address. It also refreshes last_seen_at, which is how a dead install is eventually told apart from a quiet one.
+ *
+ * A token is unique across the whole table, not per user: a token identifies an INSTALL, and an install changes hands (a shared family iPad, a phone signed out and back in). Registering therefore MOVES a token to the caller rather than adding a second row, and revives it if it had been disabled.
+ * @summary Register this device for server-sent notifications
+ */
+export const registerPushToken = async (registerPushTokenBody: RegisterPushTokenBody, options?: RequestInit): Promise<RegisterPushToken200> => {
+
+  return customFetch<RegisterPushToken200>(getRegisterPushTokenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(registerPushTokenBody)
+  }
+);}
+
+
+
+
+
+export const getRegisterPushTokenMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerPushToken>>, TError,{data: BodyType<RegisterPushTokenBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerPushToken>>, TError,{data: BodyType<RegisterPushTokenBody>}, TContext> => {
+
+const mutationKey = ['registerPushToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerPushToken>>, {data: BodyType<RegisterPushTokenBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  registerPushToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterPushTokenMutationResult = NonNullable<Awaited<ReturnType<typeof registerPushToken>>>
+    export type RegisterPushTokenMutationBody = BodyType<RegisterPushTokenBody>
+    export type RegisterPushTokenMutationError = ErrorType<Error>
+
+    /**
+ * @summary Register this device for server-sent notifications
+ */
+export const useRegisterPushToken = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerPushToken>>, TError,{data: BodyType<RegisterPushTokenBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerPushToken>>,
+        TError,
+        {data: BodyType<RegisterPushTokenBody>},
+        TContext
+      > => {
+      return useMutation(getRegisterPushTokenMutationOptions(options));
+    }
+
+export const getUnregisterPushTokenUrl = () => {
+
+
+
+
+  return `/api/push/register`
+}
+
+/**
+ * Scoped to the caller's own rows, so knowing a token is not enough to silence someone else's device. A token that is not registered returns the same 204 as one that was removed: whether a given device is registered is not something this endpoint should confirm to a stranger.
+ * @summary Stop pushing to this device
+ */
+export const unregisterPushToken = async (unregisterPushTokenBody: UnregisterPushTokenBody, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getUnregisterPushTokenUrl(),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(unregisterPushTokenBody)
+  }
+);}
+
+
+
+
+
+export const getUnregisterPushTokenMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unregisterPushToken>>, TError,{data: BodyType<UnregisterPushTokenBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unregisterPushToken>>, TError,{data: BodyType<UnregisterPushTokenBody>}, TContext> => {
+
+const mutationKey = ['unregisterPushToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unregisterPushToken>>, {data: BodyType<UnregisterPushTokenBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  unregisterPushToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnregisterPushTokenMutationResult = NonNullable<Awaited<ReturnType<typeof unregisterPushToken>>>
+    export type UnregisterPushTokenMutationBody = BodyType<UnregisterPushTokenBody>
+    export type UnregisterPushTokenMutationError = ErrorType<Error>
+
+    /**
+ * @summary Stop pushing to this device
+ */
+export const useUnregisterPushToken = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unregisterPushToken>>, TError,{data: BodyType<UnregisterPushTokenBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unregisterPushToken>>,
+        TError,
+        {data: BodyType<UnregisterPushTokenBody>},
+        TContext
+      > => {
+      return useMutation(getUnregisterPushTokenMutationOptions(options));
     }
 

@@ -1778,3 +1778,25 @@ export type ListZoneStampsParams = {
 lang: string;
 };
 
+export type RegisterPushTokenBodyPlatform = typeof RegisterPushTokenBodyPlatform[keyof typeof RegisterPushTokenBodyPlatform];
+
+
+export const RegisterPushTokenBodyPlatform = {
+  ios: 'ios',
+  android: 'android',
+} as const;
+
+export type RegisterPushTokenBody = {
+  /** Expo push token, "ExponentPushToken[...]". */
+  token: string;
+  platform: RegisterPushTokenBodyPlatform;
+};
+
+export type RegisterPushToken200 = {
+  registered: boolean;
+};
+
+export type UnregisterPushTokenBody = {
+  token: string;
+};
+

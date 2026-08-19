@@ -1450,9 +1450,16 @@ const styles = StyleSheet.create({
   statsBanner: {
     flexDirection: 'row',
     borderRadius: 18,
-    paddingVertical: 14,
+    paddingTop: 14,
+    // More than the top: the labels are the lowest ink in the card and were
+    // sitting on its edge.
+    paddingBottom: 18,
     paddingHorizontal: 8,
-    alignItems: 'center',
+    // STRETCH, not center. The day-streak cell wraps its number in a ring,
+    // which makes that cell taller than the other three. Centering each cell
+    // independently then dropped its label below theirs and into the padding.
+    // Stretching lets every cell bottom-align its label on one baseline.
+    alignItems: 'stretch',
   },
   statsDivider: {
     width: 1,
@@ -1462,10 +1469,12 @@ const styles = StyleSheet.create({
   gradientStatCell: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: 4,
   },
   gradientStatPress: {
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: 4,
   },
   gradientStatPressed: {

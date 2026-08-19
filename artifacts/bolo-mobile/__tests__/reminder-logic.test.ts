@@ -60,15 +60,43 @@ describe('isWithinQuietHours', () => {
 });
 
 describe('buildReminderCopy', () => {
-  it('gives gentle default copy with no streak', () => {
-    const c = buildReminderCopy(0);
-    expect(c.title).toMatch(/practice/i);
-    expect(c.title).not.toMatch(/streak/i);
+  it('NEVER SCOLDS when there is no streak', () => {
+    // Copy went funny on 2026-08-19. The intent is unchanged and is the whole
+    // point of the branch: a lapsed learner must not be told off. A reminder
+    // that stings is a reminder that gets notifications switched off, and
+    // there is no coming back from that.
+    for (let d = 0; d < 5; d++) {
+      const c = buildReminderCopy(0, 0, new Date(Date.UTC(2026, 7, 19 + d)));
+      expect(c.title).not.toMatch(/streak/i);
+      expect(`${c.title} ${c.body}`).not.toMatch(/fail|lazy|should have|disappoint/i);
+    }
+  });
+
+  it('rotates by day, so the joke does not go stale by Thursday', () => {
+    const seen = new Set<string>();
+    for (let d = 0; d < 5; d++) {
+      seen.add(buildReminderCopy(0, 0, new Date(Date.UTC(2026, 7, 19 + d))).title);
+    }
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it('but the SAME day always gives the same line', () => {
+    // Two reminders in one slot must never disagree, and a random source would
+    // also make every assertion above untestable.
+    const day = new Date(Date.UTC(2026, 7, 19));
+    expect(buildReminderCopy(0, 0, day)).toEqual(buildReminderCopy(0, 0, day));
   });
 
   it('escalates when a real streak is at risk', () => {
-    expect(buildReminderCopy(5).title).toBe('Keep your 5-day streak alive!');
-    expect(buildReminderCopy(1).title).toBe("Don't break the chain");
+    // The NUMBER is the information; the joke around it is decoration. Whatever
+    // line the day picks, the streak length has to survive into the title.
+    for (let d = 0; d < 5; d++) {
+      const at = new Date(Date.UTC(2026, 7, 19 + d));
+      expect(buildReminderCopy(5, 0, at).title).toMatch(/\b5\b|\bday 6\b/i);
+    }
+    // Day one has its own branch: the cliff everybody falls off.
+    expect(buildReminderCopy(1, 0, new Date(Date.UTC(2026, 7, 19))).title.length)
+      .toBeGreaterThan(0);
   });
 
   it('celebrates when today crosses a badge milestone', () => {
@@ -84,20 +112,22 @@ describe('buildReminderCopy, with a due count', () => {
   // learner with no streak and supports the streak for a learner who has one.
 
   it('promotes the task to the title when there is no streak to protect', () => {
-    const c = buildReminderCopy(0, 3);
-    expect(c.title).toBe('3 phrases are ready for you');
+    const c = buildReminderCopy(0, 3, new Date(Date.UTC(2026, 7, 19)));
+    expect(c.title).toBe('3 phrases are asking for you');
     expect(c.title).not.toMatch(/streak/i);
   });
 
   it('says "1 phrase", not "1 phrases"', () => {
-    expect(buildReminderCopy(0, 1).title).toBe('1 phrase is ready for you');
-    expect(buildReminderCopy(5, 1).body).toContain('1 phrase is ready');
-    expect(buildReminderCopy(5, 2).body).toContain('2 phrases are ready');
+    const day = new Date(Date.UTC(2026, 7, 19));
+    expect(buildReminderCopy(0, 1, day).title).toBe('1 phrase is asking for you');
+    expect(buildReminderCopy(5, 1, day).body).toContain('1 phrase is ready');
+    expect(buildReminderCopy(5, 2, day).body).toContain('2 phrases are ready');
   });
 
   it('keeps the streak in the title and puts the task in the body', () => {
-    const c = buildReminderCopy(5, 4);
-    expect(c.title).toBe('Keep your 5-day streak alive!');
+    const c = buildReminderCopy(5, 4, new Date(Date.UTC(2026, 7, 19)));
+    expect(c.title).toMatch(/\b5\b|\bday 6\b/i);
+    // The count is the only part carrying information, so the joke never eats it.
     expect(c.body).toContain('4 phrases are ready for review.');
   });
 

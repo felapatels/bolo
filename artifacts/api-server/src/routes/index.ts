@@ -16,6 +16,7 @@ import phraseReportsRouter from "./phraseReports";
 import tokensRouter from "./tokens";
 import chaiPacksRouter from "./chaiPacks";
 import outfitsRouter from "./outfits";
+import pushRouter from "./push";
 import gamesRouter, { gamesPublicRouter } from "./games";
 import ttsAuditRouter from "./ttsAudit";
 import { requireAuth } from "../middlewares/requireAuth";
@@ -81,6 +82,8 @@ router.use(chaiPacksRouter);
 // open to every authenticated learner (Free included — outfits are bought with
 // Chai, not with a plan).
 router.use(outfitsRouter);
+// Authed: a device may only ever be registered against its own caller.
+router.use(pushRouter);
 router.use(learningRouter);
 router.use(gamesRouter);
 router.use(openaiRouter);

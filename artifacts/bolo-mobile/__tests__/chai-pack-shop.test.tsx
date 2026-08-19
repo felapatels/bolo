@@ -360,3 +360,28 @@ describe('launch recovery, through the provider', () => {
     jest.useRealTimers();
   });
 });
+
+describe('THE STALL SELLS CHAI', () => {
+  // Owner ruling 2026-08-19: the bazaar's chai stall was a sign pointing at the
+  // wallet, which is a strange thing for a stall to be. Someone standing at a
+  // chai stall should be able to buy chai without being sent to another room.
+  const bazaar = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'app', '(app)', 'bazaar.tsx'),
+    'utf8',
+  ) as string;
+
+  it('the street serves the packs itself, not just a link', () => {
+    expect(bazaar).toContain('<ChaiPackShop />');
+  });
+
+  it('and it is the SAME component the wallet renders', () => {
+    // Two copies of a purchase surface is two places for a purchase bug to
+    // hide, which is the note ChaiWallet.tsx already makes about this street.
+    expect(bazaar).toContain("from '@/components/ChaiPackShop'");
+    expect(bazaar).not.toMatch(/purchasePack|Purchases\.purchase/);
+  });
+
+  it('the wallet is still one tap away, for the balance and the ledger', () => {
+    expect(bazaar).toContain('bazaar-open-wallet');
+  });
+});
