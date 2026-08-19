@@ -150,21 +150,24 @@ describe("ONE WORKLET PER ANIMATION, FOR THE APP'S WHOLE LIFETIME", () => {
 });
 
 describe('THE KILL SWITCH is wired through every path', () => {
-  // Build 40 died three times on device inside the Hermes GC with no JS frames.
-  // Reanimated is the leading suspect and two fixes aimed at it did not stop
-  // it, so release builds now register no layout animations at all and the next
-  // crash (or its absence) tells us whether reanimated was ever involved.
+  // The switch exists because build 40 died repeatedly inside the Hermes GC and
+  // reanimated was the leading suspect. Turning it off CLEARED reanimated (the
+  // crashes carried on without it) and removing expo-video stopped them, so it
+  // is back on. The switch stays wired because the next VM-level scare should
+  // cost one edit rather than an afternoon.
   //
-  // Asserted at SOURCE level because jest runs with __DEV__ true: the switch is
-  // on in tests, which is deliberate (the invariants above must keep exercising
-  // real animations) and means a render test could never see the off state.
+  // Asserted at SOURCE level because the value is a compile-time constant: the
+  // switch is on in tests either way, so no render test can tell on from off.
   const src = require('node:fs').readFileSync(
     require('node:path').join(__dirname, '..', 'lib', 'entrance.ts'),
     'utf8',
   ) as string;
 
-  it('is a single constant, so restoring animations is one edit', () => {
-    expect(src).toMatch(/const ENTRANCES_ENABLED = __DEV__;/);
+  // INVERTED 2026-08-19. This pinned __DEV__, the off-in-release state, while
+  // reanimated was under suspicion. The experiment cleared it, so the assertion
+  // now pins the restored value instead of being deleted with the suspicion.
+  it('is a single constant, so toggling animations is one edit', () => {
+    expect(src).toMatch(/const ENTRANCES_ENABLED = true;/);
   });
 
   it.each(['appear<', 'useAppearSkip', 'useAppear<'])(

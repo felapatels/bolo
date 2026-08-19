@@ -17,27 +17,29 @@ import { useReducedMotion } from 'react-native-reanimated';
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 /**
- * THE KILL SWITCH. Entrance animations are off in release builds.
+ * THE KILL SWITCH, back ON. Entrance animations run in release builds again.
  *
- * Build 40 has now died three times on device with EXC_BAD_ACCESS inside the
- * Hermes garbage collector, in HadesGC evacuation and CardTable, with no JS
- * frames. That is heap CORRUPTION, not exhaustion, it survived a device
- * restart, and it is intermittent: the same binary launched cleanly once and
- * crashed on the next cold start.
+ * This was set to __DEV__ on 2026-08-19 as an experiment rather than a fix:
+ * with no layout animations registered in a release build, the next crash, or
+ * its absence, would say whether reanimated was ever involved in the Hermes GC
+ * deaths that cost that whole day.
  *
- * Reanimated is the biggest source of cross-runtime object traffic in this app
- * and therefore the leading suspect, but two fixes aimed at it (rewriting the
- * entrances to carry no opacity, then memoising the worklets) did not stop it.
- * I have guessed twice and been wrong twice.
+ * THE EXPERIMENT RETURNED AND REANIMATED IS EXONERATED. The build carrying this
+ * switch off finished at 19:59 UTC and the app went on dying inside HadesGC at
+ * 20:09 and again at 20:27. Every crash stops dead at 20:44, which is when the
+ * build that removed expo-video finished, and Sentry has recorded none since.
+ * BrandSplash was playing a film from the ROOT layout on every cold start; that
+ * was the bug, and it is gone.
  *
- * So this is an EXPERIMENT with a clear reading, not a fix dressed as one.
- * Off, the app registers no layout animations at all in a release build. If it
- * still crashes, reanimated is exonerated and the search moves elsewhere. If it
- * stops, we know where to look and can reintroduce them carefully.
+ * So this returns to true rather than staying off out of caution. Entrances
+ * were ON in the August 16 build that survived five cold starts out of five,
+ * which makes on the verified configuration and off the novel one.
  *
- * Flip this one constant to restore them. Everything else is wired through it.
+ * The switch itself stays, because it earned its keep: the next VM-level scare
+ * should cost one edit instead of an afternoon. Flip this constant and every
+ * guard below obeys.
  */
-const ENTRANCES_ENABLED = __DEV__;
+const ENTRANCES_ENABLED = true;
 
 /**
  * Wrap every `entering={...}` value with this. Returns the animation as-is in
@@ -114,15 +116,17 @@ type Entering = (values: EntryAnimationsValues) => {
  *
  * These are called from inside a render body (`entering={appearDown(60, 500)}`)
  * at ~100 sites, so an unmemoised factory mints a brand new worklet on every
- * render of every one of them. Reanimated then serialises each new closure
- * across to the UI runtime, and that cross-runtime traffic is where a Hermes
- * heap lives dangerously: build 40 died twice inside HadesGC with
- * KERN_INVALID_ADDRESS in CardTable::updateBoundaries, which is corruption
- * rather than simple exhaustion.
+ * render of every one of them, and reanimated serialises each new closure
+ * across to its UI runtime. The parameters are constants at every call site,
+ * so a cache keyed on them collapses ~100 worklets-per-render down to a fixed
+ * handful for the app's whole lifetime.
  *
- * The parameters are constants at every call site, so a cache keyed on them
- * collapses ~100 worklets-per-render down to a fixed handful for the app's
- * whole lifetime. Found 2026-08-19.
+ * THIS WAS NOT THE CRASH FIX, and the comment that used to claim it was has
+ * been corrected. It was written on 2026-08-19 as the second of three guesses
+ * at build 40's Hermes GC deaths; the real cause was expo-video playing a film
+ * from BrandSplash on every cold start. The memoisation stays on its own
+ * merits, since minting a hundred throwaway worklets per render is waste
+ * whatever the GC thinks of it.
  */
 const CACHE = new Map<string, Entering>();
 
