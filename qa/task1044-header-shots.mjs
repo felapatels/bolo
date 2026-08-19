@@ -1,12 +1,12 @@
-// Task 1044, mobile practice header shots (settings gear + language chip).
+// Task 1044 — mobile practice header shots (settings gear + language chip).
 //
 // Captured from the Expo WEB build (react-native-web renders the same
 // component tree; no device/emulator in this environment). Viewport 412×824
 // @2x per the store screenshot convention. Signs in as a throwaway
 // +clerk_test user via the email-code path (dev instances verify with 424242).
 //
-//   1. practice-header-closed.png, lesson header, menu closed
-//   2. practice-header-menu.png  , the audio settings sheet open
+//   1. practice-header-closed.png — lesson header, menu closed
+//   2. practice-header-menu.png   — the audio settings sheet open
 //
 // Usage:
 //   CHROME_BIN=$(which chromium) node qa/task1044-header-shots.mjs
@@ -112,4 +112,4 @@ await shot("practice-header-menu");
 await browser.close();
 const del = await bapi("DELETE", `/users/${userId}`);
 console.log("clerk user cleanup:", del.status);
-console.log("DONE, 2 shots in", OUT);
+console.log("DONE — 2 shots in", OUT);

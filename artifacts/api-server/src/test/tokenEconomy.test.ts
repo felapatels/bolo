@@ -378,8 +378,8 @@ describe("pausedDayKeys: streak derivation bridges a covered gap", () => {
       d.setUTCDate(d.getUTCDate() - daysAgo);
       return d.toISOString().slice(0, 10);
     };
-    const d1 = utcDay(1); // yesterday, will be marked as covered
-    const d2 = utcDay(2); // two days ago, earned
+    const d1 = utcDay(1); // yesterday — will be marked as covered
+    const d2 = utcDay(2); // two days ago — earned
     const earned = new Set([d2]);
     // Without the cover: the cursor backs from today to d1 (yesterday), which
     // is neither earned nor covered → streak 0.

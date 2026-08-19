@@ -117,7 +117,7 @@ export default function RemindersScreen() {
       const current = await getNotificationPermission();
       setPermission(current);
       if (!current.granted && current.canAskAgain) {
-        // Value explanation *before* the OS prompt, the OS only lets us ask
+        // Value explanation *before* the OS prompt — the OS only lets us ask
         // once, so make it count.
         Alert.alert(
           'Stay on your streak',
@@ -170,7 +170,7 @@ export default function RemindersScreen() {
           <InfoCard
             icon="info"
             tint={colors.mutedForeground}
-            text="Reminders are sent by your phone, so they're available in the installed iOS and Android apps, not in the web preview or Expo Go."
+            text="Reminders are sent by your phone, so they're available in the installed iOS and Android apps — not in the web preview or Expo Go."
           />
         ) : null}
 
@@ -190,7 +190,7 @@ export default function RemindersScreen() {
                 Daily practice reminder
               </Text>
               <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                One nudge a day, only if you haven’t practiced yet.
+                One nudge a day — only if you haven’t practiced yet.
               </Text>
             </View>
             <Switch
@@ -272,7 +272,7 @@ export default function RemindersScreen() {
                         const days = on
                           ? prefs.days.filter((x) => x !== d)
                           : [...prefs.days, d].sort((a, b) => a - b);
-                        // Never allow zero days, that's just "off".
+                        // Never allow zero days — that's just "off".
                         if (days.length === 0) return;
                         apply({ ...prefs, days });
                       }}
@@ -363,7 +363,7 @@ export default function RemindersScreen() {
             <InfoCard
               icon="zap"
               tint={colors.accent}
-              text="Reminders get smarter as your streak grows, we'll warn you when a streak is at risk and cheer when a badge is one practice away."
+              text="Reminders get smarter as your streak grows — we'll warn you when a streak is at risk and cheer when a badge is one practice away."
             />
           </>
         ) : null}

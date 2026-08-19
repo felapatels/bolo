@@ -3,7 +3,7 @@
 //
 // Barge-in: the record button used to be blocked while the coach audio was
 // playing (`blocked = evaluating || coachPlaying`, dimmed + "Listen first"
-// hint). Now `blocked = evaluating` only, holding the button while Bolo is
+// hint). Now `blocked = evaluating` only — holding the button while Bolo is
 // still talking starts recording on the same gesture (startRecording stops
 // the playback), matching web.
 //
@@ -113,7 +113,7 @@ jest.mock('@/lib/audio', () => ({
   ensureRecordingMode: jest.fn(async () => undefined),
   stopAndReadRecording: jest.fn(async () => 'base64audio'),
   // Coach playback that NEVER finishes on its own: onDone is captured so the
-  // test controls when (or whether) playback ends, the barge-in window.
+  // test controls when (or whether) playback ends — the barge-in window.
   playBase64Audio: jest.fn(async (_b: string, _f: string, onDone?: () => void) => {
     mockState.playbackDone = onDone;
     return { stop: jest.fn() };
@@ -210,7 +210,7 @@ const cases = [
   ['review', () => <ReviewScreen />],
 ] as const;
 
-describe.each(cases)('%s screen, barge-in while the coach is talking', (_name, Comp) => {
+describe.each(cases)('%s screen — barge-in while the coach is talking', (_name, Comp) => {
   it('keeps the record button enabled during coach playback and starts recording on hold', async () => {
     render(Comp());
     await waitFor(() =>
@@ -238,7 +238,7 @@ describe.each(cases)('%s screen, barge-in while the coach is talking', (_name, C
   });
 });
 
-describe.each(cases)('%s screen, frame stability under the finger', (_name, Comp) => {
+describe.each(cases)('%s screen — frame stability under the finger', (_name, Comp) => {
   it('waveform + hint live in fixed-height slots and the button keeps an 88x88 footprint', async () => {
     render(Comp());
     await waitFor(() =>

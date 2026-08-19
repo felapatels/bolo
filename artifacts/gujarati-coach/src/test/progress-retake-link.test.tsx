@@ -17,7 +17,7 @@ import { memoryLocation } from "wouter/memory-location";
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// framer-motion: passthrough, exit animations never finish in jsdom, so replace
+// framer-motion: passthrough — exit animations never finish in jsdom, so replace
 // motion.* with plain elements and AnimatePresence with a no-op wrapper.
 // ---------------------------------------------------------------------------
 vi.mock("framer-motion", () => ({
@@ -153,7 +153,7 @@ describe("progress page retake link", () => {
     expect(screen.queryByRole("link", { name: /retake/i })).not.toBeInTheDocument();
   });
 
-  test("renders retake links only for rows that have both ids, mixed list", () => {
+  test("renders retake links only for rows that have both ids — mixed list", () => {
     h.attempts = [
       { ...baseAttempt, id: "a1", english: "hello", categoryId: 10, phraseId: 5 },
       { ...baseAttempt, id: "a2", english: "thank you", categoryId: null, phraseId: 5 },

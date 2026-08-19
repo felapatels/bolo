@@ -1,10 +1,10 @@
-// Task 903, instant band audio, streamed feedback (live-browser verification).
+// Task 903 — instant band audio, streamed feedback (live-browser verification).
 //
 // Drives a real signed-in practice attempt in headless chromium (getUserMedia
 // shimmed with a WebAudio oscillator; see qa/practice-mascot-probe.mjs) and
 // asserts, from an in-page HTMLAudioElement.play() log:
 //   1. a bundled band clip (sounds/bands/<band>.mp3) plays when the result
-//      lands, within a tight window of the pronunciation response, with no
+//      lands — within a tight window of the pronunciation response, with no
 //      TTS round-trip in between;
 //   2. the synthesized feedback sentence (data:audio/... src) plays AFTER the
 //      band clip, not instead of it;
@@ -86,7 +86,7 @@ const INIT = `
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME_BIN, args: ["--no-sandbox"] });
 const results = [];
-const check = (name, ok, detail) => { results.push({ name, ok, detail }); console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? `, ${detail}` : ""}`); };
+const check = (name, ok, detail) => { results.push({ name, ok, detail }); console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`); };
 
 try {
   const ctx = await browser.newContext({ viewport: { width: 430, height: 900 } });
@@ -129,7 +129,7 @@ try {
     console.log("page text:", (await page.evaluate(() => document.body.innerText)).slice(0, 800));
   }
 
-  // A fresh user's first attempt pops the "First Words" badge overlay, 
+  // A fresh user's first attempt pops the "First Words" badge overlay —
   // dismiss it so the result-card buttons are visible.
   const badge = page.getByText(/BADGE UNLOCKED/i).first();
   if (await badge.waitFor({ timeout: 5000 }).then(() => true).catch(() => false)) {
@@ -154,7 +154,7 @@ try {
   console.log("net log:", JSON.stringify(netLog.map((n) => ({ ...n, t: n.t - tRelease })), null, 1));
 
   const bandPlay = audioLog.find((a) => a.src.includes("/sounds/bands/"));
-  // The coach phrase at mount is ALSO a data:audio play, the feedback
+  // The coach phrase at mount is ALSO a data:audio play — the feedback
   // sentence is the data:audio play that comes after the band clip.
   const feedbackPlay = audioLog.find((a) => a.src.startsWith("data:audio/") && bandPlay && a.t > bandPlay.t);
   check("band clip played on result", !!bandPlay, bandPlay?.src);
@@ -170,7 +170,7 @@ try {
   const evalRes = netLog.find((n) => n.url.includes("/openai/pronunciation"));
   if (evalRes && bandPlay) {
     // Convert: audioLog.t is page performance.now(); compare via the result
-    // render wall-clock instead, band play must be within 1.5s of card render.
+    // render wall-clock instead — band play must be within 1.5s of card render.
     const pageNow = await page.evaluate(() => performance.now());
     const bandWallClock = Date.now() - (pageNow - bandPlay.t);
     const delta = bandWallClock - evalRes.t;

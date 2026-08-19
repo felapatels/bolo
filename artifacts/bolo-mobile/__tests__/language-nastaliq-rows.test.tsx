@@ -4,8 +4,8 @@
 // guard against future style changes that accidentally re-introduce clipping.
 //
 // Two snapshot groups are captured:
-//   • light mode , primary colour #6C3FC5, white background
-//   • dark mode  , primary colour #A78BFA, near-black background
+//   • light mode  — primary colour #6C3FC5, white background
+//   • dark mode   — primary colour #A78BFA, near-black background
 //
 // The component under test is the full LanguageModal screen; we drive it with
 // a three-language fixture (one Nastaliq tile, one regular tile, one locked
@@ -25,7 +25,7 @@ const mockState: Record<string, any> = {
 };
 
 // ---------------------------------------------------------------------------
-// Mocks, declared before any imports that depend on them
+// Mocks — declared before any imports that depend on them
 // ---------------------------------------------------------------------------
 
 jest.mock('expo-router', () => ({
@@ -33,9 +33,9 @@ jest.mock('expo-router', () => ({
 }));
 
 // Provide a minimal Language shape for three rows:
-//   hi , Devanagari  (regular row, active)
-//   ur , Nastaliq    (tall-cascade row, unlocked)
-//   ta , Tamil       (locked row)
+//   hi  — Devanagari  (regular row, active)
+//   ur  — Nastaliq    (tall-cascade row, unlocked)
+//   ta  — Tamil       (locked row)
 const LANGUAGES = [
   {
     code: 'hi',
@@ -199,7 +199,7 @@ beforeEach(() => {
   mockState.isLanguageAllowed = (code: string) => code !== 'ta';
 });
 
-describe('LanguageRow Nastaliq rendering, light theme', () => {
+describe('LanguageRow Nastaliq rendering — light theme', () => {
   beforeEach(() => {
     mockState.theme = 'light';
   });
@@ -220,11 +220,11 @@ describe('LanguageRow Nastaliq rendering, light theme', () => {
     expect(getByText('தமிழ்')).toBeTruthy();
     // The locked tile carries the All-Access badge; its accessibility label is
     // the stable contract for "this language needs All-Access".
-    expect(getByLabelText('Tamil, locked, preview its journey')).toBeTruthy();
+    expect(getByLabelText('Tamil — locked, preview its journey')).toBeTruthy();
   });
 });
 
-describe('LanguageRow Nastaliq rendering, dark theme', () => {
+describe('LanguageRow Nastaliq rendering — dark theme', () => {
   beforeEach(() => {
     mockState.theme = 'dark';
   });

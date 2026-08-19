@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// qa/noise-robustness-bench.mjs, Noise Robustness Bench (Task #1028).
+// qa/noise-robustness-bench.mjs — Noise Robustness Bench (Task #1028).
 //
 // Measures what background noise costs a learner, and whether any cleanup
 // chain buys it back, by re-scoring the FROZEN labelled pilot corpus at a
@@ -44,7 +44,7 @@ if (!process.env.__NOISE_BENCH_TSX) {
   const glob = spawnSync("bash", ["-lc", `ls ${ROOT}/node_modules/.pnpm/tsx@*/node_modules/tsx/dist/cli.mjs | head -1`], { encoding: "utf8" });
   const cli = glob.stdout.trim();
   if (!cli) {
-    console.error("tsx cli not found under node_modules/.pnpm, cannot load the real scoring modules");
+    console.error("tsx cli not found under node_modules/.pnpm — cannot load the real scoring modules");
     process.exit(1);
   }
   const r = spawnSync(process.execPath, [cli, fileURLToPath(import.meta.url), ...process.argv.slice(2)], {
@@ -54,7 +54,7 @@ if (!process.env.__NOISE_BENCH_TSX) {
   process.exit(r.status ?? 1);
 }
 
-// Real scoring logic, imported, never reimplemented.
+// Real scoring logic — imported, never reimplemented.
 const {
   compareToTarget,
   chooseConservativeTranscript,
@@ -81,7 +81,7 @@ const { values: args } = parseArgs({
     "rig-check": { type: "boolean", default: false },
     "bitrate-lever": { type: "boolean", default: false },
     control: { type: "boolean", default: false }, // repeat the clean baseline to measure run-to-run STT variance
-    replicate: { type: "string" }, // e.g. "babble:snr20,broadband:snr12", re-run whole cells to test a standout result
+    replicate: { type: "string" }, // e.g. "babble:snr20,broadband:snr12" — re-run whole cells to test a standout result
     limit: { type: "string" },
     clips: { type: "string" }, // run the FULL matrix for the first N sampled clips (cost slice)
     "max-minutes": { type: "string" },
@@ -250,7 +250,7 @@ function selectSample() {
     noiseLadder: LEVELS,
     pipelines: PIPELINES,
     leadSeconds: LEAD_SECONDS,
-    // Clip identity only, user ids stay out of the repo.
+    // Clip identity only — user ids stay out of the repo.
     clips: selected.map((c) => ({
       clipKey: c.clipKey,
       tester: c.tester,
@@ -283,7 +283,7 @@ function selectSample() {
 
 function readSample() {
   if (!existsSync(SAMPLE_PATH)) {
-    console.error("No sample yet, run with --select first.");
+    console.error("No sample yet — run with --select first.");
     process.exit(1);
   }
   return JSON.parse(readFileSync(SAMPLE_PATH, "utf8"));
@@ -415,7 +415,7 @@ function applyPipeline(name, mixedPath, tag) {
 // ── Step 4: bitrate lever ────────────────────────────────────────────────────
 //
 // The mobile recorder writes 16 kHz mono AAC at 32 kbps. A lossy encoder
-// spends its bit budget on whatever is loudest, including the background, so
+// spends its bit budget on whatever is loudest — including the background — so
 // the encode happens BEFORE the noise mix is scored: re-encode the clip at the
 // mobile bitrate vs a higher one, then run the identical ladder.
 
@@ -559,7 +559,7 @@ function plannedRuns(sample, opts) {
   if (opts.control) {
     // Variance control: the SAME clean+passthrough condition, transcribed a
     // second time. Transcription is stochastic, so this measures the noise
-    // FLOOR of every delta in the report, a treatment that moves a cell by
+    // FLOOR of every delta in the report — a treatment that moves a cell by
     // less than this floor has not been shown to do anything.
     for (const clip of sample.clips) {
       runs.push({ clip, level: "clean", pipeline: "passthrough", bitrate: null, experiment: "control" });
@@ -568,7 +568,7 @@ function plannedRuns(sample, opts) {
   }
   if (opts.bitrateLever) {
     // Separate lever: bitrate x a three-rung ladder subset, passthrough only.
-    // Runs the whole sample, a 20-clip slice left the paired SE near ±8, wide
+    // Runs the whole sample — a 20-clip slice left the paired SE near ±8, wide
     // enough to hide any effect worth acting on.
     for (const clip of sample.clips) {
       for (const kbps of [32, 96]) {
@@ -707,11 +707,11 @@ function sd(xs) {
   const m = mean(xs);
   return Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / (xs.length - 1));
 }
-/** Standard error of a paired mean difference, how much of a cell is real. */
+/** Standard error of a paired mean difference — how much of a cell is real. */
 const se = (xs) => (xs.length > 1 ? sd(xs) / Math.sqrt(xs.length) : NaN);
 const signed = (x) => `${x >= 0 ? "+" : ""}${f1(x)}`;
-const pct = (n, d) => (d ? `${((100 * n) / d).toFixed(0)}%` : "-");
-const f1 = (x) => (Number.isFinite(x) ? x.toFixed(1) : "-");
+const pct = (n, d) => (d ? `${((100 * n) / d).toFixed(0)}%` : "—");
+const f1 = (x) => (Number.isFinite(x) ? x.toFixed(1) : "—");
 
 function report() {
   const sample = existsSync(SAMPLE_PATH) ? readSample() : null;
@@ -752,10 +752,10 @@ function report() {
     };
   };
 
-  say(`# Noise robustness bench, results\n`);
+  say(`# Noise robustness bench — results\n`);
   say(`Runs recorded: ${recs.length} (main ${main.length}, bitrate lever ${lever.length}).`);
   if (sample) say(`Sample: ${sample.sampleSize} clips, seed ${sample.seed}, ladder ${sample.noiseLadder.join(" / ")}.`);
-  say(`Score deltas are vs each clip's own clean+passthrough score and are computed over ${QUALITY_LABELS.join("/")} clips only, a wrong_attempt scoring low is the protocol working, not a regression (reported separately).\n`);
+  say(`Score deltas are vs each clip's own clean+passthrough score and are computed over ${QUALITY_LABELS.join("/")} clips only — a wrong_attempt scoring low is the protocol working, not a regression (reported separately).\n`);
 
   for (const noiseType of ["broadband", "babble"]) {
     const rows = main.filter((r) => r.noiseType === noiseType);
@@ -844,7 +844,7 @@ function report() {
   if (replicate.length) {
     say(`## Replication of standout cells (independent re-run)\n`);
     say(`With ~20 cell comparisons at a 2-SE bar, about one false positive is expected. A cell only counts if it survives a repeat.\n`);
-    say(`| Noise | Level | Pipeline | Δ vs passthrough, first run | Δ vs passthrough, replication | holds? |`);
+    say(`| Noise | Level | Pipeline | Δ vs passthrough — first run | Δ vs passthrough — replication | holds? |`);
     say(`|---|---|---|---|---|---|`);
     const cells = [...new Set(replicate.map((r) => `${r.noiseType}:${r.level}`))];
     for (const c of cells) {
@@ -854,7 +854,7 @@ function report() {
         const b = dAt(replicate.filter((r) => r.noiseType === noiseType), level, pipeline);
         if (!Number.isFinite(a.d) || !Number.isFinite(b.d)) continue;
         const sigA = Math.abs(a.d) > 2 * a.se, sigB = Math.abs(b.d) > 2 * b.se;
-        const holds = sigA && sigB && Math.sign(a.d) === Math.sign(b.d) ? "yes" : sigA || sigB ? "no, did not reproduce" : "n/a (neither significant)";
+        const holds = sigA && sigB && Math.sign(a.d) === Math.sign(b.d) ? "yes" : sigA || sigB ? "no — did not reproduce" : "n/a (neither significant)";
         say(`| ${noiseType} | ${level} | ${pipeline} | ${signed(a.d)} ± ${f1(a.se)}${sigA ? " *" : ""} | ${signed(b.d)} ± ${f1(b.se)}${sigB ? " *" : ""} | ${holds} |`);
       }
     }
@@ -881,7 +881,7 @@ function report() {
       const hi = rep.filter((r) => r.bitrate === 96 && QUALITY_LABELS.includes(r.label) && lo.has(r.clipKey));
       const paired = hi.map((r) => r.score - lo.get(r.clipKey).score);
       const nocatchAt = (kbps) => pct(rep.filter((r) => r.bitrate === kbps && r.band === "nocatch").length, rep.filter((r) => r.bitrate === kbps).length);
-      say(`| snr12 (replication) | ${paired.length} |, |, | ${signed(mean(paired))} ± ${f1(se(paired))} | ${nocatchAt(32)} | ${nocatchAt(96)} |`);
+      say(`| snr12 (replication) | ${paired.length} | — | — | ${signed(mean(paired))} ± ${f1(se(paired))} | ${nocatchAt(32)} | ${nocatchAt(96)} |`);
     }
     say("");
   }
@@ -925,7 +925,7 @@ function report() {
           const b = dAt(rep, level, pipeline);
           if (Number.isFinite(b.d)) {
             const held = Math.abs(b.d) > 2 * b.se && Math.sign(b.d) === Math.sign(v.d);
-            note = `, replication ${signed(b.d)} ± ${f1(b.se)}: ${held ? "HOLDS" : "did NOT reproduce"}`;
+            note = ` — replication ${signed(b.d)} ± ${f1(b.se)}: ${held ? "HOLDS" : "did NOT reproduce"}`;
           }
         }
         const line = `${noiseType} ${level} ${pipeline}: ${signed(v.d)} ± ${f1(v.se)}${note}`;

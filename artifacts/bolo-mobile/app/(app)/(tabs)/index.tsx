@@ -106,13 +106,13 @@ function missedDayLabel(day: string | null | undefined): string {
  * the number it was talking about. It is now a bottom sheet that opens only
  * when the learner taps Day Streak, so the promise and the figure it mends are
  * the same object. Built on ChaiWalletSheet's shape
- * (components/ChaiWallet.tsx), an RN Modal over a dismissing backdrop
+ * (components/ChaiWallet.tsx) — an RN Modal over a dismissing backdrop
  * Pressable, which is the house pattern for a Chai spend surface here and the
  * twin of web's bottom Sheet.
  *
  * It never opens by itself, it is dismissible without repairing, and when
  * there is no repairable break the cell it hangs off does not open it at all
- * (see the Day Streak cell below), a permanent "mend your streak" is a daily
+ * (see the Day Streak cell below) — a permanent "mend your streak" is a daily
  * reproach.
  */
 function StreakRepairSheet({
@@ -188,8 +188,8 @@ function StreakRepairSheet({
             </Text>
           </View>
 
-          {/* The number here is the POST-REPAIR streak, what the learner walks
-              away with, not what they have now, and the copy says so. It
+          {/* The number here is the POST-REPAIR streak — what the learner walks
+              away with, not what they have now — and the copy says so. It
               comes from the same server computation the banner climbs
               (lib/streakDays.ts), so the figure sold and the figure shown
               cannot drift. */}
@@ -215,7 +215,7 @@ function StreakRepairSheet({
                   learner holds has to be visible next to what the tap costs.
                   Same glyph + number + unit treatment as the stall band and the
                   wallet balance band. Omitted ENTIRELY when the balance is
-                  unknown, a "-" or a 0 sitting beside a real spend button
+                  unknown — a "-" or a 0 sitting beside a real spend button
                   would be a wrong number, not a placeholder. */}
               {balance !== undefined ? (
                 <View testID="home-repair-balance" style={repairSheetStyles.balance}>
@@ -357,11 +357,11 @@ export default function HomeScreen() {
 
   // Locked-language home (mirrors the web home's banner treatment): a 402
   // upgrade_required summary means the active language isn't on the learner's
-  // plan. Retrying can never succeed, surface the journey showroom and the
+  // plan. Retrying can never succeed — surface the journey showroom and the
   // paywall instead of a degraded zero-stats banner.
   const summaryUpgrade = !summary.data ? asUpgradeRequired(summary.error) : null;
 
-  // Friend-request badge, lives on the top-right Account button now that the
+  // Friend-request badge — lives on the top-right Account button now that the
   // Profile tab slot belongs to the language switcher.
   const { data: incomingRequests } = useListIncomingFriendRequests();
   const pendingFriendRequests = incomingRequests?.length ?? 0;
@@ -389,7 +389,7 @@ export default function HomeScreen() {
   // Eagerly refetch the review-due count whenever the home tab comes back into
   // focus (e.g. after completing a review session).  The review screen already
   // invalidates this query after each attempt, but the background refetch can
-  // lag behind navigation, useFocusEffect closes that window by issuing a
+  // lag behind navigation — useFocusEffect closes that window by issuing a
   // fresh fetch the moment the learner lands back here.
   const queryClient = useQueryClient();
   useFocusEffect(
@@ -497,7 +497,7 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      {/* Daily-goal celebration overlays, mounted on top of all content */}
+      {/* Daily-goal celebration overlays — mounted on top of all content */}
       {showConfetti && <Confetti />}
       <MilestoneToast
         message="Daily goal hit! 🎉"
@@ -614,7 +614,7 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        {/* Stats, genuine three-stop gradient banner (indigo→blue→violet, matches web) */}
+        {/* Stats — genuine three-stop gradient banner (indigo→blue→violet, matches web) */}
         <View style={styles.statsRowWrapper}>
           <LinearGradient
             colors={['#4f46e5', '#3b6fef', '#7c3aed']}
@@ -688,8 +688,8 @@ export default function HomeScreen() {
                 {/* Day Streak stands on its own, exactly as the Chai cell
                     does: it owns the streak-repair popup, and a tappable cell
                     cannot live inside another tappable group. It still reaches
-                    the Progress tab, that is what it does when there is
-                    nothing to mend, so nothing is lost by pulling it out
+                    the Progress tab — that is what it does when there is
+                    nothing to mend — so nothing is lost by pulling it out
                     (Task #1081). Total XP and Mastered remain one target into
                     Progress; Chai stays separate and opens the wallet. */}
                 <GradientStatCell
@@ -763,7 +763,7 @@ export default function HomeScreen() {
 
         {/* Streak repair (Ruling 2), now anchored on the Day Streak cell
             above rather than floating below the banner. It opens only from
-            that tap, never on load, and closes without charging anything. */}
+            that tap — never on load — and closes without charging anything. */}
         <StreakRepairSheet
           visible={streakRepairOpen}
           onClose={() => setStreakRepairOpen(false)}
@@ -771,11 +771,11 @@ export default function HomeScreen() {
           balance={tokensQuery.data?.balance}
         />
 
-        {/* Spec D1b-M: boarding-pass hero, the journey map is the primary
+        {/* Spec D1b-M: boarding-pass hero — the journey map is the primary
             path into practice and the sole continue mechanism. */}
         <Animated.View entering={skipEnter ? undefined : appearDown(200, 500)}>
           {/* Task #1049 (web parity): the pass renders FIRST, with the stall
-              directly beneath it, home's order of intent is practise →
+              directly beneath it — home's order of intent is practise →
               progress → spend, so the primary "start practising" action is
               never pushed below a spend surface. Both still enter together
               inside this one entrance wrapper. */}
@@ -784,7 +784,7 @@ export default function HomeScreen() {
             goldPalette={goldPalette}
           />
           {/* Chai treatment tier 1 (web parity): Chacha-ji's stall, full width
-              at its natural aspect, directly below the pass, the platform the
+              at its natural aspect, directly below the pass — the platform the
               boarding pass has just pulled away from. It enters WITH the pass
               and opens the same wallet sheet the Chai stat cell opens. */}
           {/* The balance is the SAME query the Chai stat cell reads
@@ -1040,7 +1040,7 @@ export default function HomeScreen() {
           </>
         ) : null}
 
-        {/* Privacy policy, App/Play review expects an in-app link learners can
+        {/* Privacy policy — App/Play review expects an in-app link learners can
             reach. Opens the hosted /privacy page in an in-app browser. */}
         {PRIVACY_POLICY_URL ? (
           <Pressable
@@ -1141,7 +1141,7 @@ function DailyQuizCard({
   // a jarring pop-in once the data arrives.
   if (plusReady && quizLoading) return null;
 
-  // Quiz already done today, hide the card so it doesn't clutter the screen.
+  // Quiz already done today — hide the card so it doesn't clutter the screen.
   if (plusReady && quizDone) return null;
 
   // Locked (non-Plus, or entitlements still resolving): teaser that routes
@@ -1352,7 +1352,7 @@ function GradientStatCell({
               stroke="rgba(255,255,255,0.2)"
               strokeWidth={3}
             />
-            {/* Progress arc, rotated so 0% starts at the top */}
+            {/* Progress arc — rotated so 0% starts at the top */}
             <AnimatedCircle
               cx={28}
               cy={28}
@@ -1451,7 +1451,7 @@ const styles = StyleSheet.create({
   stallBand: { marginBottom: 12 },
   statsRowWrapper: { marginBottom: 18 },
   // Two cells now (Task #1081 pulled Day Streak out), so the group is worth
-  // two shares of the row, Day Streak keeps its own one beside it and every
+  // two shares of the row — Day Streak keeps its own one beside it and every
   // cell stays the width it was.
   statsProgressGroup: {
     flex: 2,

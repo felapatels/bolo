@@ -1,5 +1,5 @@
 /**
- * QuickGameShell, Build 35 mobile parity foundation.
+ * QuickGameShell — Build 35 mobile parity foundation.
  *
  * The mobile counterpart of the web quick-game frame
  * (gujarati-coach/src/pages/games/quick-game-frame.tsx). Extracted from the
@@ -25,7 +25,7 @@
  * auto-submit a phantom answer, because only the game knows what "no answer"
  * means for its own mechanic.
  *
- * No quick games are ported in this task, this is the foundation they land
+ * No quick games are ported in this task — this is the foundation they land
  * against.
  */
 import React, {
@@ -94,8 +94,8 @@ const HUB_LAUNCH: QuickLaunch = {
  *
  * The rule that matters: a `signal` context is only constructed when the gap
  * is a valid non-negative integer. A signal launch with a missing or
- * malformed gap is REFUSED and degrades to a plain hub launch, no context,
- * no contextRef, rather than posting a signal the server would reject (the
+ * malformed gap is REFUSED and degrades to a plain hub launch — no context,
+ * no contextRef — rather than posting a signal the server would reject (the
  * server requires contextRef matching ^gap-[0-9]+$ whenever context is
  * signal). `hub` is treated as no context so its payload stays byte-identical
  * to a launch with no params at all.
@@ -144,7 +144,8 @@ export function useQuickLaunch(): QuickLaunch {
 // ─── Round contract ──────────────────────────────────────────────────────────
 
 /**
- * One round's outcome. `correct` drives the shell's live score display only, it is never sent to the server, which recomputes correctness from
+ * One round's outcome. `correct` drives the shell's live score display only —
+ * it is never sent to the server, which recomputes correctness from
  * `selectedPhraseId`.
  */
 export type QuickRoundResult = {
@@ -153,7 +154,7 @@ export type QuickRoundResult = {
   correct: boolean;
   /** What the end screen's miss review shows when this round was wrong. Each
    *  game words its own round (the prompt it showed, the answer the learner
-   *  picked), so the shell never guesses it from the ids, a game whose right
+   *  picked), so the shell never guesses it from the ids — a game whose right
    *  answer is the odd one out would be described backwards. */
   review?: GameMiss;
 };
@@ -161,7 +162,7 @@ export type QuickRoundResult = {
 export type QuickRoundApi = {
   /**
    * ZERO-BASED round index, matching the web frame. Read it directly as
-   * `plan[api.round]`, ported web round code transfers with no off-by-one.
+   * `plan[api.round]` — ported web round code transfers with no off-by-one.
    * The shell's own "Round N of M" display adds the +1, not the game.
    */
   round: number;
@@ -204,7 +205,7 @@ export type QuickGameShellProps = {
    * Per-round clock in seconds. OMIT it (or pass null) for an UNTIMED game:
    * no per-round clock, no timer chip, no 3-2-1 countdown, and `api.timedOut`
    * never becomes true. Mirrors the web frame's contract exactly. Untimed is
-   * a real design choice, not a fallback, Ticket Check's answer reveal rides
+   * a real design choice, not a fallback — Ticket Check's answer reveal rides
    * the continue beat for both outcomes so the learner sets the dwell time.
    */
   secondsPerRound?: number | null;
@@ -214,8 +215,8 @@ export type QuickGameShellProps = {
    * A plain number is fixed at mount and behaves exactly as it always has.
    * A FUNCTION mirrors the web frame's `totalRounds(phrases)` contract: the
    * shell calls it with the fetched pool once that pool clears `def.floor`,
-   * so a game whose length depends on its data, a pairs board capped at
-   * min(6, phrases.length), say, can say so. Without this, such a game has
+   * so a game whose length depends on its data — a pairs board capped at
+   * min(6, phrases.length), say — can say so. Without this, such a game has
    * to hardcode a number, and a category at the floor but under that number
    * builds a board that can never reach the finish condition: no POST, no
    * result screen, and the learner's finished work thrown away.
@@ -225,8 +226,8 @@ export type QuickGameShellProps = {
    * Whether this game speaks target-language audio.
    *
    * Defaults to TRUE, so every existing game keeps the mute toggle with no
-   * edit. A game that declares `false` gets no toggle at all, not disabled,
-   * not dimmed, absent, because a control that cannot affect anything is
+   * edit. A game that declares `false` gets no toggle at all — not disabled,
+   * not dimmed, absent — because a control that cannot affect anything is
    * worse than no control: the learner presses it, nothing changes, and the
    * game reads as broken. Same opt-in shape as `secondsPerRound`: one
    * per-game declaration, the shell decides the chrome.
@@ -284,8 +285,8 @@ export function QuickGameShell({
    * subtree (web does the same with its `gameKey`).
    *
    * `resetRun` clears the shell's own state, but a round that keeps state of
-   * its own, a persistent board like Luggage Match, which holds a matched
-   * set and a first-wrong map for the whole run, would otherwise carry that
+   * its own — a persistent board like Luggage Match, which holds a matched
+   * set and a first-wrong map for the whole run — would otherwise carry that
    * state into the next run: press Play Again and every tag is already
    * matched. Bumping this key unmounts the round and rebuilds it from
    * scratch. Per-round-derived games are unaffected either way.
@@ -294,15 +295,15 @@ export function QuickGameShell({
 
   const resultsRef = useRef<QuickRoundResult[]>([]);
   /**
-   * One submit per round. Cleared by the effect below, that is, only once
-   * React has actually COMMITTED the next round, never synchronously inside
+   * One submit per round. Cleared by the effect below — that is, only once
+   * React has actually COMMITTED the next round — never synchronously inside
    * submitRound. Clearing it inline would reopen the guard within the same
    * tick, so a round that calls submitRound twice in one go (a timeout
    * handler racing a tap, say) would append a second result under the stale
    * round index and corrupt the run that gets posted.
    */
   const submittedRef = useRef(false);
-  /** One POST per run, the single-POST guarantee. */
+  /** One POST per run — the single-POST guarantee. */
   const finishedRef = useRef(false);
 
   const phraseQuery = useListCategoryPhrases(categoryId ?? 0, activeLang, {
@@ -315,8 +316,9 @@ export function QuickGameShell({
   /** The pool exists and is big enough for this game to be playable at all. */
   const poolReady = categoryId !== null && phrases.length >= def.floor;
   /**
-   * THE run length. Everything downstream, progression, the finish
-   * condition, `api.total`, the "Round N of M" display, the end screen, reads this and never the raw prop. A resolver is only called once the
+   * THE run length. Everything downstream — progression, the finish
+   * condition, `api.total`, the "Round N of M" display, the end screen —
+   * reads this and never the raw prop. A resolver is only called once the
    * pool clears the floor (web parity: `phrases.length >= def.floor ?
    * totalRounds(phrases) : 0`), so it never sees a half-loaded list.
    */
@@ -407,7 +409,7 @@ export function QuickGameShell({
               // three ways: the launch must be a SIGNAL one (a closeout or hub
               // run can grant Chai too, and marking on those would clear a
               // crossing nobody played), the ref must parse to a gap, and the
-              // server must have actually granted, this whole branch is
+              // server must have actually granted — this whole branch is
               // inside `chai > 0`. The mark can therefore never outrun the
               // ledger and retire a still-claimable reward.
               const gap =
@@ -503,7 +505,7 @@ export function QuickGameShell({
 
   /**
    * Where a declined/finished run goes. A pinned launch has no picker to fall
-   * back to, the learner came from somewhere specific, so send them back
+   * back to — the learner came from somewhere specific, so send them back
    * there instead of a topic list they never chose from.
    */
   const leaveRun = useCallback(() => {
@@ -638,8 +640,8 @@ export function QuickGameShell({
               </View>
             </View>
 
-            {/* Untimed games render no chip at all, not a frozen or hidden
-                one, so nothing on screen implies a clock that isn't running. */}
+            {/* Untimed games render no chip at all — not a frozen or hidden
+                one — so nothing on screen implies a clock that isn't running. */}
             {timed && secondsLeft !== null && (
               <View style={styles.timerRow}>
                 <View

@@ -27,7 +27,7 @@ const PHRASES: DemoPhrase[] = [
     english: 'How are you?',
     fontFamily: 'Noto Sans Gujarati',
     score: 94,
-    feedback: 'Nailed it, that sounded natural and warm.',
+    feedback: 'Nailed it — that sounded natural and warm.',
     tip: "Keep the 'ch' nice and soft, just like that.",
   },
   {
@@ -36,7 +36,7 @@ const PHRASES: DemoPhrase[] = [
     english: 'Hello',
     fontFamily: 'Noto Sans Devanagari',
     score: 88,
-    feedback: 'Clear and confident, really close!',
+    feedback: 'Clear and confident — really close!',
     tip: "Hold the final 'e' a beat longer next time.",
   },
 ];
@@ -77,7 +77,7 @@ export function SpeakingDemo() {
 
   const phrase = PHRASES[phraseIndex];
 
-  // Only animate while the demo is actually visible, saves work off-screen.
+  // Only animate while the demo is actually visible — saves work off-screen.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -160,7 +160,7 @@ export function SpeakingDemo() {
           </AnimatePresence>
         </div>
 
-        {/* what Bolo! heard, the transcription bubble */}
+        {/* what Bolo! heard — the transcription bubble */}
         <div className="mt-4 min-h-[3.25rem]">
           <AnimatePresence>
             {showHeard && (

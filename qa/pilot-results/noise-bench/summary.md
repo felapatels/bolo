@@ -1,8 +1,8 @@
-# Noise robustness bench, results
+# Noise robustness bench — results
 
 Runs recorded: 2640 (main 1600, bitrate lever 480).
 Sample: 80 clips, seed 1028, ladder clean / snr20 / snr12 / snr6 / snr0.
-Score deltas are vs each clip's own clean+passthrough score and are computed over native/american_accent/subtle_error clips only, a wrong_attempt scoring low is the protocol working, not a regression (reported separately).
+Score deltas are vs each clip's own clean+passthrough score and are computed over native/american_accent/subtle_error clips only — a wrong_attempt scoring low is the protocol working, not a regression (reported separately).
 
 ## Steady broadband room noise
 
@@ -95,13 +95,13 @@ Each cell is paired against passthrough AT THE SAME LEVEL. "significant" = |Δ| 
 
 With ~20 cell comparisons at a 2-SE bar, about one false positive is expected. A cell only counts if it survives a repeat.
 
-| Noise | Level | Pipeline | Δ vs passthrough, first run | Δ vs passthrough, replication | holds? |
+| Noise | Level | Pipeline | Δ vs passthrough — first run | Δ vs passthrough — replication | holds? |
 |---|---|---|---|---|---|
 | babble | snr20 | generic | -3.0 ± 8.3 | +1.9 ± 5.6 | n/a (neither significant) |
-| babble | snr20 | profiled | +15.2 ± 6.1 * | +4.5 ± 4.6 | no, did not reproduce |
-| babble | snr20 | profiled_trim | -0.8 ± 6.8 | -16.0 ± 6.8 * | no, did not reproduce |
+| babble | snr20 | profiled | +15.2 ± 6.1 * | +4.5 ± 4.6 | no — did not reproduce |
+| babble | snr20 | profiled_trim | -0.8 ± 6.8 | -16.0 ± 6.8 * | no — did not reproduce |
 | broadband | snr12 | generic | -8.9 ± 5.5 | -9.0 ± 6.1 | n/a (neither significant) |
-| broadband | snr12 | profiled | -16.3 ± 5.8 * | +1.3 ± 3.8 | no, did not reproduce |
+| broadband | snr12 | profiled | -16.3 ± 5.8 * | +1.3 ± 3.8 | no — did not reproduce |
 | broadband | snr12 | profiled_trim | -30.2 ± 6.7 * | -18.7 ± 6.4 * | yes |
 
 ## Bitrate lever (re-encode before the noise mix, passthrough scoring)
@@ -111,7 +111,7 @@ With ~20 cell comparisons at a 2-SE bar, about one false positive is expected. A
 | clean | 63 | 76.1 | 78.4 | +2.4 ± 2.4 | 4% | 4% |
 | snr12 | 63 | 67.9 | 74.0 | +6.1 ± 3.7 | 15% | 5% |
 | snr6 | 63 | 50.3 | 55.7 | +5.4 ± 5.0 | 19% | 20% |
-| snr12 (replication) | 63 |, |, | +3.1 ± 3.2 | 15% | 10% |
+| snr12 (replication) | 63 | — | — | +3.1 ± 3.2 | 15% | 10% |
 
 ## Added processing time per clip (this sits on a latency-sensitive path)
 
@@ -132,12 +132,12 @@ With ~20 cell comparisons at a 2-SE bar, about one false positive is expected. A
 ## Derived thresholds
 
 Significant HELP (Δ > 2 SE over passthrough at the same level):
-- babble snr20 profiled: +15.2 ± 6.1, replication +4.5 ± 4.6: did NOT reproduce
+- babble snr20 profiled: +15.2 ± 6.1 — replication +4.5 ± 4.6: did NOT reproduce
 
 Significant HARM (Δ < −2 SE):
 - broadband snr20 profiled_trim: -17.3 ± 6.1
-- broadband snr12 profiled: -16.3 ± 5.8, replication +1.3 ± 3.8: did NOT reproduce
-- broadband snr12 profiled_trim: -30.2 ± 6.7, replication -18.7 ± 6.4: HOLDS
+- broadband snr12 profiled: -16.3 ± 5.8 — replication +1.3 ± 3.8: did NOT reproduce
+- broadband snr12 profiled_trim: -30.2 ± 6.7 — replication -18.7 ± 6.4: HOLDS
 - broadband snr6 profiled_trim: -21.7 ± 6.0
 - broadband snr0 profiled_trim: -23.2 ± 6.3
 

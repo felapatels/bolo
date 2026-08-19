@@ -8,7 +8,7 @@
    animation-duration and iteration-count for everything except .animate-spin)
    stops the loop on its own. There is intentionally NO animation-fill-mode
    here: with no fill, a collapsed animation leaves the element on the base
-   styles below, a visible plume at rest, which is the authored static frame.
+   styles below — a visible plume at rest, which is the authored static frame.
    A `forwards`/`both` fill would strand it on the last keyframe instead (and
    would also leave an identity transform behind, which is how animated
    wrappers start acting as containing blocks for fixed children). */

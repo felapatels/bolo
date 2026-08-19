@@ -86,7 +86,7 @@ type Job = {
 };
 
 // Loose de-duplication key so we never append a phrase that repeats one already
-// in the lesson, matched on both the native script and the English gloss.
+// in the lesson — matched on both the native script and the English gloss.
 function nativeKey(p: { nativeScript: string }): string {
   return p.nativeScript.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -178,7 +178,7 @@ async function generateOne(job: Job): Promise<SeedLesson> {
           ...lang,
           topicTitle: "Number words",
           topicDescription:
-            `The number words ${missing.join(", ")}, produce exactly one entry per listed word, ` +
+            `The number words ${missing.join(", ")} — produce exactly one entry per listed word, ` +
             `each entry's "english" being exactly that single English word.`,
           existing: phrases.map((p) => ({
             nativeScript: p.nativeScript,
@@ -367,7 +367,7 @@ async function main() {
         topicDescription: cat.description,
         // Keep the reviewed starter set and only extend it (unless --force asks
         // for a full regeneration from scratch, or the existing content is
-        // unclean, a duplicate/loanword lesson is rebuilt rather than extended).
+        // unclean — a duplicate/loanword lesson is rebuilt rather than extended).
         existing: force ? undefined : existingClean,
       });
     }
@@ -380,7 +380,7 @@ async function main() {
     `Pre-generating lessons: ${jobs.length} to generate, ${alreadyDone}/${totalPairs} already valid.`,
   );
   if (jobs.length === 0) {
-    console.log("Nothing to do, all lessons already generated and valid.");
+    console.log("Nothing to do — all lessons already generated and valid.");
     return;
   }
 

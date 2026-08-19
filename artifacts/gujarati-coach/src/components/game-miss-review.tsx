@@ -10,7 +10,7 @@
 //
 // End screens own the open state, so the score card can open the same dialog
 // (tapping the 6/8 is the affordance most learners reach for first). Games
-// with a perfect run render neither piece, there is nothing to review.
+// with a perfect run render neither piece — there is nothing to review.
 //
 // A miss is described in the learner's own terms, not in ids: the prompt they
 // saw, what they answered, and what the answer was. Games that time out or let
@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 
 export type GameMiss = {
-  /** What the learner was asked, the prompt as it appeared on screen. */
+  /** What the learner was asked — the prompt as it appeared on screen. */
   prompt: string;
   /** Optional second line under the prompt (romanization, native script, a hint). */
   promptSub?: string | null;
@@ -37,7 +37,7 @@ export type GameMiss = {
   correct: string;
   /** Romanized readings for the two lines above, when the value is native
    *  script. Section 10j: script never appears without its reading. Empty or
-   *  null renders nothing, several scripts have no romanization. */
+   *  null renders nothing — several scripts have no romanization. */
   answerSub?: string | null;
   correctSub?: string | null;
   /** Overrides for the two row labels. A game that is not answered in words
@@ -105,7 +105,7 @@ export function MissReviewDialog({
                   <span>
                     <span className="text-muted-foreground">{miss.answerLabel ?? "You said"} </span>
                     <span className="font-semibold">
-                      {miss.answer ?? "nothing, the round ran out"}
+                      {miss.answer ?? "nothing — the round ran out"}
                     </span>
                     {miss.answer && miss.answerSub?.trim() ? (
                       <span className="block text-xs font-medium text-muted-foreground">

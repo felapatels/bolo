@@ -5,7 +5,7 @@
 // Pair them up.
 //
 // This is the first ported game with a PERSISTENT BOARD. The board is built
-// once per run and rounds turn over underneath it, one round per pair, so
+// once per run and rounds turn over underneath it — one round per pair — so
 // there is no per-round advance beat and no per-round re-derivation. The
 // shell keys the round subtree on its run counter, which is what makes a
 // second run start with an empty board instead of a fully matched one.
@@ -80,7 +80,7 @@ function shuffle<T>(items: readonly T[]): T[] {
  * INDEPENDENTLY for each rack.
  *
  * Three shuffles, deliberately. The two rack shuffles are independent, so a
- * tag can land opposite its own twin by coincidence, web accepts that and so
+ * tag can land opposite its own twin by coincidence — web accepts that and so
  * does this port. Nothing carries a correct index: a match is decided by
  * comparing phrase IDS at tap time, never by position.
  */
@@ -115,7 +115,7 @@ function LuggageMatchRound({ phrases, api, activeLanguage }: QuickRoundProps) {
   const shakeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Rounds only ever turn over on a CORRECT pair, so no shake can be pending
-  // when this fires, it is here so an unmount (exit mid-run, Play Again)
+  // when this fires — it is here so an unmount (exit mid-run, Play Again)
   // cannot leave a timer running against a dead component.
   useEffect(() => {
     return () => {
@@ -219,7 +219,7 @@ function LuggageMatchRound({ phrases, api, activeLanguage }: QuickRoundProps) {
                 >
                   {p.nativeScript}
                 </Text>
-                {/* Romanized reading beneath the script, the two-line stack
+                {/* Romanized reading beneath the script — the two-line stack
                     Word Match already uses here. Empty romanized (a script
                     with no romanization) renders nothing at all. */}
                 {p.romanized.trim() !== '' ? (

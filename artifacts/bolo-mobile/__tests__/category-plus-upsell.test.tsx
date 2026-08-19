@@ -12,7 +12,7 @@ import {
 // LockedPhrasesCard upsell wiring is exercised. Data hooks, the router, and the
 // two contexts the screen reads (language + entitlements) are stubbed so each
 // test shapes the exact server response / plan the screen sees. The upsell card
-// itself renders for real, that's what we're guarding.
+// itself renders for real — that's what we're guarding.
 //
 // Prefixed `mock*` so the hoisted jest.mock factories may reference them.
 // ---------------------------------------------------------------------------
@@ -202,7 +202,7 @@ describe('Plus phrase upsell on the topic screen', () => {
   });
 
   test('renders the count the server sends (not a fixed number)', () => {
-    // A different server count must produce a different label, proves the
+    // A different server count must produce a different label — proves the
     // upsell reflects the real reported value.
     mockState.isPlus = false;
     mockState.categories = successQuery([
@@ -289,7 +289,7 @@ describe('402 upgrade_required on the topic screen', () => {
     expect(screen.getByText('Start 7-day free trial')).toBeOnTheScreen();
     expect(
       screen.getByText(
-        'Cancel anytime, no charge if you cancel before the trial ends.',
+        'Cancel anytime — no charge if you cancel before the trial ends.',
       ),
     ).toBeOnTheScreen();
     expect(screen.queryByText('Unlock with All-Access')).not.toBeOnTheScreen();

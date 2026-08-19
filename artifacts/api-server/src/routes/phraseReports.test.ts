@@ -21,13 +21,13 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 // Spec B2 acceptance tests for POST /phrases/:id/report, driven against the
 // real router and live schema:
 //   1. stores a report row with reason and optional note (language_code and
-//      stage derived server-side from the phrase row, never client input);
+//      stage derived server-side from the phrase row — never client input);
 //   2. beyond the cap of 20 stored reports per user per rolling hour, returns
 //      a silent 200 and stores nothing (rolling window, not a fixed bucket);
 //   4. requires authentication (a Clerk-less request 401s via requireAuth).
-// (Acceptance 3, never blocking practice flow, is a client property: the
+// (Acceptance 3 — never blocking practice flow — is a client property: the
 // web/mobile affordances fire-and-forget with an optimistic toast.)
-// All rows use test-only ids and are cleaned up after, see
+// All rows use test-only ids and are cleaned up after — see
 // .agents/memory/api-server-tests.md.
 const U_MAIN = "test_phrasereport_user";
 const U_CAP = "test_phrasereport_cap";
@@ -142,7 +142,7 @@ before(async () => {
   });
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-  // Auth app: the REAL requireAuth behind the real Clerk middleware, an
+  // Auth app: the REAL requireAuth behind the real Clerk middleware — an
   // unauthenticated request must 401 before the router ever runs.
   authApp = express();
   authApp.use(express.json());
@@ -183,7 +183,7 @@ test("unauthenticated report is rejected with 401 (acceptance 4)", async () => {
 });
 
 test("stores a report with reason + note; language_code and stage derived server-side (acceptance 1)", async () => {
-  // The bogus language_code in the body must be ignored, derivation is
+  // The bogus language_code in the body must be ignored — derivation is
   // server-side from the phrase row (Step 0 refinement 1).
   const { status, json } = await report(phraseId, U_MAIN, {
     reason: "translation_wrong",
@@ -238,7 +238,7 @@ test("invalid reason and unknown phrase store nothing", async () => {
 });
 
 test("21st report in a rolling hour returns silent 200 and stores nothing (acceptance 2)", async () => {
-  // Seed 20 in-window rows directly, the cap counts stored rows per user
+  // Seed 20 in-window rows directly — the cap counts stored rows per user
   // across ALL phrases.
   await db.insert(phraseReportsTable).values(
     Array.from({ length: 20 }, () => ({
@@ -252,7 +252,7 @@ test("21st report in a rolling hour returns silent 200 and stores nothing (accep
   );
 
   const over = await report(phraseId, U_CAP, { reason: "translation_wrong" });
-  assert.equal(over.status, 200); // silent, indistinguishable from success
+  assert.equal(over.status, 200); // silent — indistinguishable from success
   assert.deepEqual(over.json, { success: true });
   assert.equal((await reportRows(U_CAP)).length, 20); // nothing stored
 

@@ -11,7 +11,7 @@ import { AppFonts } from '@/constants/fonts';
 /**
  * Full-screen camera sheet for scanning another learner's friend-code QR.
  *
- * Mobile only. Web shows, shares and types codes instead, there is no camera
+ * Mobile only. Web shows, shares and types codes instead — there is no camera
  * scan path a browser can be relied on for.
  *
  * A scan produces exactly the same outcome as typing the code by hand: a
@@ -19,7 +19,7 @@ import { AppFonts } from '@/constants/fonts';
  * way to enter a code, never a shortcut past the accept step.
  *
  * expo-camera is a NATIVE module, so this feature does not exist in any build
- * shipped before it was added, a new store build is required. The camera
+ * shipped before it was added — a new store build is required. The camera
  * permission strings already come from the expo-image-picker plugin, so
  * app.json needed no change (verified with a prebuild dry run).
  */
@@ -99,7 +99,7 @@ export function QrScannerSheet({
             <Feather name="camera-off" size={34} color={colors.mutedForeground} />
             <Text style={[styles.permText, { color: colors.mutedForeground }]}>
               {permission?.canAskAgain === false
-                ? 'Camera access is off for Bolo!. Turn it on in Settings to scan a friend code, or type the code instead.'
+                ? 'Camera access is off for Bolo!. Turn it on in Settings to scan a friend code — or type the code instead.'
                 : 'Bolo! needs your camera to scan a friend code.'}
             </Text>
             {permission?.canAskAgain !== false ? (

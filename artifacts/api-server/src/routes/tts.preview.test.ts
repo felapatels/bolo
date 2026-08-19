@@ -115,7 +115,7 @@ test("One-Language user with previewVoiceId gets 402 upgrade_required", async ()
 
 test("Free user without previewVoiceId is not blocked by the preview gate", async () => {
   await setPlanFree();
-  // Without previewVoiceId the request goes to normal TTS synthesis, it may
+  // Without previewVoiceId the request goes to normal TTS synthesis — it may
   // fail for other reasons (ElevenLabs key, etc.) but must not 402 at the gate.
   const { status } = await postTts({ text: SAMPLE_TEXT, languageCode: "hi" });
   assert.notEqual(status, 402, "previewVoiceId gate must not fire when previewVoiceId is absent");
@@ -125,7 +125,7 @@ test("Plus user with previewVoiceId passes the gate (not 402)", async () => {
   await setPlanPlus();
   // The request will proceed past the gate to TTS synthesis. Since we are not
   // mocking the ElevenLabs/gpt-audio layer, it may succeed or fail at the
-  // network level, but it must not be gated out with 402.
+  // network level — but it must not be gated out with 402.
   const { status } = await postTts({
     text: SAMPLE_TEXT,
     previewVoiceId: VALID_VOICE_ID,
@@ -133,7 +133,7 @@ test("Plus user with previewVoiceId passes the gate (not 402)", async () => {
   assert.notEqual(status, 402, `Plus user must not be blocked by the gate; got ${status}`);
 });
 
-test("Invalid previewVoiceId (not in catalog) is treated as absent, no gate fires", async () => {
+test("Invalid previewVoiceId (not in catalog) is treated as absent — no gate fires", async () => {
   await setPlanFree();
   // An unrecognized ID is silently ignored (falls through to normal TTS path).
   // Should not return 402 from the preview gate.

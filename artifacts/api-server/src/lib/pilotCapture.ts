@@ -5,11 +5,12 @@
  *
  * This is a narrow, temporary precursor of the build-32 voice contribution
  * program (docs/specs/voice-data-program.md §3 and §5).  When
- * PILOT_CAPTURE_USER_IDS is absent or empty the feature is fully inert, no R2 calls are made on any pronunciation attempt.
+ * PILOT_CAPTURE_USER_IDS is absent or empty the feature is fully inert —
+ * no R2 calls are made on any pronunciation attempt.
  *
  * R2 path scheme (pilot-only; build-32 will use voice-contributions/…):
- *   pilot-clips/{languageCode}/{clipId}.m4a   , raw audio bytes
- *   pilot-clips/{languageCode}/{clipId}.json  , JSON sidecar (no band values)
+ *   pilot-clips/{languageCode}/{clipId}.m4a    — raw audio bytes
+ *   pilot-clips/{languageCode}/{clipId}.json   — JSON sidecar (no band values)
  *
  * Failure posture (§5): R2 errors are logged at WARN and swallowed.  The eval
  * response is returned to the client unaffected whether the upload succeeds or
@@ -68,7 +69,7 @@ export function isPilotCaptureUser(userId: string): boolean {
 
 // TEMPORARY (capture mode): the most recent capture-mode sidecar per user,
 // kept in memory so "redo this attempt" can mark it discarded. Single-process
-// dev-only scaffolding, a restart forgets it (acceptable: redo is for
+// dev-only scaffolding — a restart forgets it (acceptable: redo is for
 // immediate fumbles). Only capture-mode uploads are tracked.
 const lastCaptureSidecarByUser = new Map<
   string,
@@ -113,7 +114,7 @@ export async function discardLastCapture(userId: string): Promise<boolean> {
 /**
  * Upload raw audio bytes and a JSON sidecar to R2 for pilot capture.
  *
- * Safe to call unconditionally after every pronunciation attempt, the
+ * Safe to call unconditionally after every pronunciation attempt — the
  * function returns early (with no R2 calls) when:
  *   1. userId is not in the PILOT_CAPTURE_USER_IDS allowlist, OR
  *   2. Any R2 credential env var is absent.
@@ -155,7 +156,7 @@ export async function teeAudioToPilot(
     timestamp: new Date().toISOString(),
   };
   // No band values in the sidecar (band is a display layer with provisional
-  // thresholds; it must not enter the pilot's data, see task spec).
+  // thresholds; it must not enter the pilot's data — see task spec).
 
   // TEMPORARY (capture mode): explicit protocol labels in the sidecar.
   if (capture) {
@@ -192,13 +193,13 @@ export async function teeAudioToPilot(
       `[pilot-capture] uploaded clip ${clipKey} (success #${uploadSuccessCount} this process)`,
     );
   } catch (err) {
-    // Never rethrow, the eval response must be unaffected. But a failed
+    // Never rethrow — the eval response must be unaffected. But a failed
     // upload means a pilot clip is PERMANENTLY LOST, so it is logged at
     // ERROR with a running count: silent loss (e.g. malformed R2
     // credentials failing every upload) must be visible in the logs.
     uploadFailureCount++;
     console.error(
-      `[pilot-capture] R2 upload FAILED, clip ${clipKey} LOST (failure #${uploadFailureCount} this process):`,
+      `[pilot-capture] R2 upload FAILED — clip ${clipKey} LOST (failure #${uploadFailureCount} this process):`,
       err,
     );
   }

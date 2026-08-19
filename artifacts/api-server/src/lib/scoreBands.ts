@@ -1,7 +1,7 @@
 // ── Five-band pronunciation scoring display (Spec: five-band ladder) ─────────
 //
 // THE single config block for band names and thresholds. Bands are a pure
-// DISPLAY layer derived from the server-computed score (0-100), scoring math,
+// DISPLAY layer derived from the server-computed score (0-100) — scoring math,
 // Elo, FSRS, XP amounts, and mastery thresholds are untouched by banding.
 //
 // Ladder, top to bottom:
@@ -11,7 +11,7 @@
 //   almost   score 55-67
 //   retry    score < 55
 //   nocatch  (separate upstream outcome: the SYSTEM failed to capture usable
-//            audio, never derived from score, never a learner error)
+//            audio — never derived from score, never a learner error)
 //
 // TUNING: the perfect/great split moved 93 -> 91 by owner ruling (Aug 2, 2026)
 // so the top band is reachable under HONESTY_SCORE_CAP (92). It remains
@@ -24,13 +24,13 @@
 // Elo outcome, FSRS rating, speaking-streak qualification, test-out pass,
 // session-summary gating) keys on the credit groups below, whose edges are
 // exactly these two values. Moving 80 or 55 WOULD change behavior (XP, Elo,
-// FSRS, streaks, test-out) and requires a scoring review, do not fold them
+// FSRS, streaks, test-out) and requires a scoring review — do not fold them
 // into the display tuning pass.
 export const BAND_THRESHOLDS = {
   perfect: 91,
-  great: 80, // FROZEN, legacy 'nailed' lower edge; equals MASTERY_THRESHOLD
+  great: 80, // FROZEN — legacy 'nailed' lower edge; equals MASTERY_THRESHOLD
   good: 68,
-  almost: 55, // FROZEN, legacy 'close' lower edge
+  almost: 55, // FROZEN — legacy 'close' lower edge
 } as const;
 
 export type PronunciationBand =
@@ -44,7 +44,7 @@ export type PronunciationBand =
 /** A band that was actually scored (everything except the nocatch system miss). */
 export type ScoredBand = Exclude<PronunciationBand, "nocatch">;
 
-/** Ladder order, top to bottom, the display order of the result-card scale. */
+/** Ladder order, top to bottom — the display order of the result-card scale. */
 export const BAND_LADDER: readonly ScoredBand[] = [
   "perfect",
   "great",
@@ -87,9 +87,9 @@ export function isPassingBand(band: PronunciationBand): boolean {
 }
 
 /**
- * "Good or better", perfect | great | good. The earned half of the advance
+ * "Good or better" — perfect | great | good. The earned half of the advance
  * gate (Task #1040): the point at which moving on stops being a mercy and
- * starts being deserved. NOT a frozen credit-group edge, it sits ON the
+ * starts being deserved. NOT a frozen credit-group edge — it sits ON the
  * good/almost split (68), which is still tuning-pending, so it is deliberately
  * expressed against band names rather than a bare score comparison.
  *
@@ -119,7 +119,7 @@ const NEW_BANDS: ReadonlySet<string> = new Set([
  * names, or missing) to the five-band model, given the attempt's score.
  *
  * Because legacy bands were derived from the SAME score field with the same
- * frozen 80/55 boundaries, re-deriving from the score is exact, a legacy
+ * frozen 80/55 boundaries, re-deriving from the score is exact — a legacy
  * 'nailed' row always lands in perfect|great, a legacy 'close' row always in
  * good|almost. `nocatch` passes through untouched (a score of 0 must never
  * turn a system miss into 'retry').

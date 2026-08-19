@@ -10,7 +10,7 @@ import type { ReactElement } from "react";
 // Re-entering a station (`/practice/:zone?group=<id>`) must auto-start at the
 // first phrase whose bestScore is below the 80 credit edge (null = never
 // attempted counts as unmastered), falling back to index 0 when every phrase
-// is at 80+. The phrase SET is unchanged (nothing filtered, the x/y counter
+// is at 80+. The phrase SET is unchanged (nothing filtered — the x/y counter
 // keeps the full length) and back navigation still returns to the journey.
 // Category sessions without ?skipMastered are untouched.
 //
@@ -20,7 +20,7 @@ import type { ReactElement } from "react";
 // NOTE: the session chrome (header, belly button) is already present in the
 // brief "intro" render BEFORE the auto-start effect commits its index jump,
 // so every assertion first settles pending effects (act) and then waits for
-// the expected phrase, never for generic chrome.
+// the expected phrase — never for generic chrome.
 // ---------------------------------------------------------------------------
 
 const h = vi.hoisted(() => ({
@@ -140,16 +140,17 @@ async function expectStartsAt(romanized: string, counter: string) {
 }
 
 describe("practice start position (Task 954: station resume)", () => {
-  test("station resumes at the first phrase below the 80 credit edge, exactly 80 counts as done, set stays unfiltered", async () => {
+  test("station resumes at the first phrase below the 80 credit edge — exactly 80 counts as done, set stays unfiltered", async () => {
     h.groupPhrases = loaded([
       phraseAt(1, 95),
-      phraseAt(2, 80), // boundary: 80 is AT the credit edge, mastered
+      phraseAt(2, 80), // boundary: 80 is AT the credit edge — mastered
       phraseAt(3, 45),
       phraseAt(4, null),
     ]);
     renderPage(<Practice />, "/practice/0?group=7");
 
-    // Starts on phrase 3 (first below 80) as position 3 of the FULL set, mastered phrases are skipped over, never removed.
+    // Starts on phrase 3 (first below 80) as position 3 of the FULL set —
+    // mastered phrases are skipped over, never removed.
     await expectStartsAt("phrase-3", "3/4");
     expect(screen.queryByText("phrase-1")).not.toBeInTheDocument();
   });
@@ -167,7 +168,7 @@ describe("practice start position (Task 954: station resume)", () => {
 
   test("all-mastered station is a deliberate review visit: starts at phrase 1 with the full set", async () => {
     // Pin (not just fallback coverage): re-entering a fully-passed station is
-    // a review session, it must start at phrase 1 and keep every phrase
+    // a review session — it must start at phrase 1 and keep every phrase
     // practiceable (full-length counter), never bounce or skip ahead.
     h.groupPhrases = loaded([
       phraseAt(1, 95),
@@ -219,8 +220,8 @@ describe("practice start position (Task 954: station resume)", () => {
 // runs unconditionally for a station session; completion/tested-out status
 // never short-circuits it (practice consults no status field), and index 0 is
 // the fallback only when the scan finds nothing or no per-phrase data exists.
-// All runs use the journey revisit path from the live repro, the plain
-// `/practice/:zone?group=<id>` StationCard link, which is also the only
+// All runs use the journey revisit path from the live repro — the plain
+// `/practice/:zone?group=<id>` StationCard link — which is also the only
 // route into a station session, so entry-route parity is pinned by the same
 // URL shape every test below uses.
 // ---------------------------------------------------------------------------
@@ -241,7 +242,7 @@ describe("practice start position (completed-station ruling)", () => {
     await expectStartsAt("phrase-3", "3/5");
   });
 
-  test("unmastered at position 0 starts at 0, scan and fallback agree, no off-by-one", async () => {
+  test("unmastered at position 0 starts at 0 — scan and fallback agree, no off-by-one", async () => {
     h.groupPhrases = loaded([
       phraseAt(1, 40),
       phraseAt(2, 95),

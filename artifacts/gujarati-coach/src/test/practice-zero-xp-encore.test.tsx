@@ -7,7 +7,7 @@ import type { ReactElement } from "react";
 // ---------------------------------------------------------------------------
 // Zero-XP encore (owner rule): a phrase that earns NO XP comes back at the END
 // of the session and keeps coming back until it earns something. Three zeros
-// of ANY kind release it, owner-ruled that a nocatch burns a strike too, so a
+// of ANY kind release it — owner-ruled that a nocatch burns a strike too, so a
 // dead mic can never trap the learner in a session that will not end.
 //
 // These tests drive the REAL practice page through full record -> result
@@ -171,7 +171,7 @@ async function holdAndRelease() {
   });
 }
 
-/** The forward slot, always the right-hand button, "Finish" at the end. */
+/** The forward slot — always the right-hand button, "Finish" at the end. */
 function forwardButton(): HTMLButtonElement | null {
   return screen.queryByTestId("advance-button") as HTMLButtonElement | null;
 }
@@ -209,13 +209,14 @@ async function goForward() {
 
 describe("zero-XP encore", () => {
   test("a phrase that earned nothing comes back after the last phrase", async () => {
-    // A: nothing, then half credit (settles the debt), then nothing again, three goes, so the advance gate is open when the learner moves on and
+    // A: nothing, then half credit (settles the debt), then nothing again —
+    // three goes, so the advance gate is open when the learner moves on and
     // A leaves the phrase queued on 2 strikes. B earns XP.
     h.plan = [ZERO, HALF, ZERO, EARNED];
     renderPage(<Practice />);
 
     await attempt();
-    // The card says what is about to happen, the learner should not be
+    // The card says what is about to happen — the learner should not be
     // surprised when the phrase reappears.
     expect(screen.getByTestId("encore-note")).toHaveTextContent(
       "No XP yet, so this one comes back at the end of the session.",
@@ -260,7 +261,7 @@ describe("zero-XP encore", () => {
   });
 
   test("three zeros of any kind release the phrase", async () => {
-    // A: zero, half, zero, then nocatch on the encore, the third zero is a
+    // A: zero, half, zero, then nocatch on the encore — the third zero is a
     // system miss, which the owner ruled still burns a strike.
     h.plan = [ZERO, HALF, ZERO, EARNED, { xp: 0, band: "nocatch" }];
     renderPage(<Practice />);
@@ -278,7 +279,7 @@ describe("zero-XP encore", () => {
     await waitFor(() => expect(screen.getByText("namaste")).toBeInTheDocument());
     await attempt(); // A, strike 3 (nocatch)
     expect(screen.getByTestId("encore-note")).toHaveTextContent(
-      "That's three goes, we'll leave this one for next time.",
+      "That's three goes — we'll leave this one for next time.",
     );
     // Encore carry-over (Task #1040): the phrase comes back with its attempt
     // count, so the advance is live on the first take of the return visit

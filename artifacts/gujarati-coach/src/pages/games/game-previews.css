@@ -426,7 +426,7 @@
 
 /* Locked cards do not idle: their vignette holds a static mid-cycle frame
    (paused at the card's negative --gv-delay phase offset) and plays only
-   while hovered, look-but-locked. */
+   while hovered — look-but-locked. */
 .gv--locked,
 .gv--locked * {
   animation-play-state: paused;

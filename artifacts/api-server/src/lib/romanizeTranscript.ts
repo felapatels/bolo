@@ -11,7 +11,7 @@
 //    stripped to plain ASCII and word-final inherent 'a' is dropped for
 //    schwa-deleting languages.
 //  - Scripts the library cannot handle cleanly return "" (clients then render
-//    no romanized line): Perso-Arabic (ks, sd, ur, unvocalized consonant
+//    no romanized line): Perso-Arabic (ks, sd, ur — unvocalized consonant
 //    skeletons come out as garbage), Ol Chiki (sat) and Meetei Mayek (mni)
 //    (both verified to leave unmapped native glyphs in the output).
 //  - Empty/whitespace transcripts return "".
@@ -23,7 +23,7 @@ import Sanscript from "@indic-transliteration/sanscript";
 
 // Unicode-block → sanscript scheme. Detection is based on the transcript's
 // actual characters (not the language code) so a transcript in an unexpected
-// script can never be transliterated with the wrong table, it just falls
+// script can never be transliterated with the wrong table — it just falls
 // back to "" via the uncovered-script rule.
 const SCRIPT_RANGES: Array<{ start: number; end: number; scheme: string | null }> = [
   { start: 0x0900, end: 0x097f, scheme: "devanagari" },
@@ -38,7 +38,7 @@ const SCRIPT_RANGES: Array<{ start: number; end: number; scheme: string | null }
   { start: 0x0c00, end: 0x0c7f, scheme: "telugu" },
   { start: 0x0c80, end: 0x0cff, scheme: "kannada" },
   { start: 0x0d00, end: 0x0d7f, scheme: "malayalam" },
-  // Uncovered scripts, verified to produce garbage, so they yield "".
+  // Uncovered scripts — verified to produce garbage, so they yield "".
   { start: 0x0600, end: 0x06ff, scheme: null }, // Arabic (Urdu/Sindhi/Kashmiri)
   { start: 0x0750, end: 0x077f, scheme: null }, // Arabic Supplement
   { start: 0xfb50, end: 0xfdff, scheme: null }, // Arabic Presentation Forms-A
@@ -56,8 +56,8 @@ const SCHWA_DELETING_LANGS = new Set([
   "hi", "gu", "mr", "pa", "bn", "as", "mai", "doi", "kok", "brx",
 ]);
 
-// When no (known) language code accompanies the transcript, e.g. eval
-// requests with client-provided targets and no phraseId, fall back to the
+// When no (known) language code accompanies the transcript — e.g. eval
+// requests with client-provided targets and no phraseId — fall back to the
 // script: these scripts are used ONLY by schwa-deleting app languages
 // (Gujarati → gu, Gurmukhi → pa, Bengali → bn/as), so deletion is safe.
 // Devanagari is ambiguous (hi/mr delete, sa/ne keep) and gets no fallback.
@@ -138,7 +138,7 @@ export function romanizeTranscript(
   if (!text) return "";
 
   const scheme = detectScheme(text);
-  if (scheme === "latin") return text; // already Latin, pass through as-is
+  if (scheme === "latin") return text; // already Latin — pass through as-is
   if (scheme === "uncovered" || scheme === "unknown") return "";
 
   let iast: string;

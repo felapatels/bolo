@@ -90,9 +90,9 @@ let server: Server;
 let baseUrl: string;
 
 let teaserIds: number[]; // group 1 positions 1-3 (the taste set)
-let fourthPhraseId: number; // group 1 position 4, first-stop, outside the taste set
+let fourthPhraseId: number; // group 1 position 4 — first-stop, outside the taste set
 let premiumPhraseId: number; // premium row in group 1
-let group2PhraseId: number; // Stop 2, never accessible to a locked caller
+let group2PhraseId: number; // Stop 2 — never accessible to a locked caller
 
 async function postPron(
   phraseId: number,
@@ -115,7 +115,7 @@ async function postPron(
   try {
     json = JSON.parse(text);
   } catch {
-    /* non-JSON body, callers assert on status/text */
+    /* non-JSON body — callers assert on status/text */
   }
   return { status: res.status, json, text };
 }

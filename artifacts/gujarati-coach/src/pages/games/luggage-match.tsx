@@ -113,7 +113,7 @@ function LuggageMatchRound({ phrases, api }: QuickRoundProps) {
             >
               {/* luggage tag hole */}
               <span className="absolute left-1.5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-border bg-background" />
-              {/* Native script primary, romanized beneath it, the same
+              {/* Native script primary, romanized beneath it — the same
                   two-line stack mobile Word Match and the Speed Round card
                   use, so a learner who cannot read the script yet is never
                   guessing. Languages with no romanization (empty string)

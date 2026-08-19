@@ -9,7 +9,7 @@
 // manifest's sniff field (webm vs m4a).
 //
 // Raw results: qa/pilot-results/calibration/results.jsonl (gitignored; clips
-// referenced by R2 key, no audio ever enters the repo). The run is
+// referenced by R2 key — no audio ever enters the repo). The run is
 // RESUME-SAFE: already-scored clip keys are skipped, so the harness can be
 // re-invoked until the corpus is complete (long shells die; see memory).
 //
@@ -18,7 +18,7 @@
 //   node qa/calibrate-promotion-gate.mjs --limit 2   # smoke test
 //   node qa/calibrate-promotion-gate.mjs --report    # analysis only, no calls
 //
-// Acceptance criteria (CALIBRATION RULING, August 2, 2026, supersedes the
+// Acceptance criteria (CALIBRATION RULING, August 2, 2026 — supersedes the
 // round-1 set; per language, monosyllabic targets excluded from all criteria):
 //   BINDING:
 //   - no wrong_attempt median >= 68 (good band), and none promotes (>= 93)
@@ -199,7 +199,7 @@ async function ensemble(b64, format, langName, nat, rom) {
   let settled = await round();
   let ok = settled.flatMap((s) => (s.status === "fulfilled" ? [s.value] : []));
   let errors = settled.flatMap((s) => (s.status === "rejected" ? [String(s.reason?.message ?? s.reason).slice(0, 160)] : []));
-  // One retry round if the ensemble failed (<2 successes), harness
+  // One retry round if the ensemble failed (<2 successes) — harness
   // robustness against transient timeouts, not a re-run of the calibration.
   if (ok.length < 2) {
     settled = await round();
@@ -291,7 +291,7 @@ const GOOD_BAND = 68;
 
 // Monosyllable exclusion (calibration ruling Aug 2, 2026): single-word target
 // with at most one vowel group, e.g. "ha", "na". Excluded from all gate
-// criteria; ALSO a binding v2 design ruling, monosyllables are never
+// criteria; ALSO a binding v2 design ruling — monosyllables are never
 // judge-promoted in production (text-path result stands).
 function isMonosyllabic(rom) {
   const w = String(rom).toLowerCase().replace(/[^a-z\s]/g, "").trim();
@@ -322,7 +322,7 @@ for (const lang of langs) {
   const subtleLow = subtle.filter((r) => r.median < 55);
   const subtleLowPct = subtle.length ? (subtleLow.length / subtle.length) * 100 : 0;
 
-  console.log(`\n── ${LANG_NAMES[lang] ?? lang} (${lang}), gated clips: native ${native.length}, american ${american.length}, subtle ${subtle.length}, wrong ${wrong.length} (monosyllables excluded: ${mono.length})`);
+  console.log(`\n── ${LANG_NAMES[lang] ?? lang} (${lang}) — gated clips: native ${native.length}, american ${american.length}, subtle ${subtle.length}, wrong ${wrong.length} (monosyllables excluded: ${mono.length})`);
   const line = (okFlag, txt) => console.log(`  ${okFlag ? "PASS" : "FAIL"}  ${txt}`);
   line(wrongGood.length === 0, `BINDING no wrong_attempt >= ${GOOD_BAND} (good band) nor promoting (violations: ${wrongGood.length})`);
   line(subtlePromoted.length === 0, `BINDING no subtle_error promotes, medians < ${PROMOTE} (violations: ${subtlePromoted.length})`);

@@ -29,7 +29,7 @@ export const ListLanguagesResponseItem = zod.object({
   "rtl": zod.boolean(),
   "sortOrder": zod.number(),
   "speechCapability": zod.enum(['supported', 'degraded', 'unsupported']).optional().describe('How well speech recognition actually hears this language, verified by a per-language probe. `supported` = full scored practice. `degraded` = scoring runs but unverifiable failures soften to nocatch; clients show a one-time \"feedback is approximate\" notice. `unsupported` = recognition verifiably fails on correct speech; clients switch to listen-record-compare practice with no scored band. Optional for mobile back-compat; treat absence as `supported`.\n'),
-  "communityReviewed": zod.boolean().optional().describe('True when this language\'s lesson content is primarily batch-generated (the C1 rollout set) with community review ongoing clients may show a one-line \"you can flag anything that looks wrong\" note. Derived server-side from the committed rollout data; never hardcode the set client-side. Optional for mobile back-compat; treat absence as false.')
+  "communityReviewed": zod.boolean().optional().describe('True when this language\'s lesson content is primarily batch-generated (the C1 rollout set) with community review ongoing — clients may show a one-line \"you can flag anything that looks wrong\" note. Derived server-side from the committed rollout data; never hardcode the set client-side. Optional for mobile back-compat; treat absence as false.')
 })
 export const ListLanguagesResponse = zod.array(ListLanguagesResponseItem)
 
@@ -82,7 +82,7 @@ export const ListCategoryLessonGroupsResponse = zod.object({
   "teaserStation": zod.boolean().optional().describe('True on the single station that hosts the M1 teaser phrases when the caller views a plan-locked language in teaser mode (the journey map\'s visibly marked \"free taste\" stop). Absent on every other group and in every other access state.'),
   "allTopBand": zod.boolean().optional().describe('True when every phrase in this group has been attempted and the learner\'s best band is \"perfect\" or \"great\" (score >= 80) on all of them. Used to show the gold stamp overlay on the journey map when POLISH_ENABLED is on. Optional\/additive.'),
   "chaiUnlocked": zod.boolean().optional().describe('True when the learner has BOUGHT this stop with Chai in a plan-locked language. The stop opens exactly like the free-taste stop, and because ownership is a ledger row it survives a reinstall. Present only in showroom payloads. Optional\/additive.'),
-  "chaiUnlockable": zod.boolean().optional().describe('True when this stop is offered for Chai: inside the language\'s first zone, not the free stop, not already bought, and holding at least one phrase the caller\'s plan can practise. Absent everywhere else, a station without it can only be opened by All-Access, and the server refuses a purchase attempt on one. Optional\/additive.'),
+  "chaiUnlockable": zod.boolean().optional().describe('True when this stop is offered for Chai: inside the language\'s first zone, not the free stop, not already bought, and holding at least one phrase the caller\'s plan can practise. Absent everywhere else — a station without it can only be opened by All-Access, and the server refuses a purchase attempt on one. Optional\/additive.'),
   "planLocked": zod.boolean().optional().describe('True when the caller\'s plan can see ZERO of this group\'s phrases (every member is premium and the caller lacks extended-library access), so the station is reported locked with a Plus upsell instead of an unlocked stop that would serve an empty practice session. For these callers phraseCount\/attemptedCount\/ masteredCount count only plan-visible phrases. Absent for extended-library callers and in showroom (teaser\/exhausted) payloads. Optional\/additive.')
 })).optional(),
   "unassignedCount": zod.number().optional(),
@@ -98,7 +98,7 @@ export const ListCategoryLessonGroupsResponse = zod.object({
   "rewardChai": zod.number(),
   "waves": zod.array(zod.string()),
   "clears": zod.array(zod.string())
-}).optional().describe('Per-signal server truth for this zone\'s trackside signals, riding the existing journey fetch. `waves` and `clears` are bare gap-N contextRefs scoped to this category (stored server-side as languageCode:categoryId:gap-N). Clears are derived from the ledger-backed first-clear grants; a clear supersedes a wave for display. `rewardChai` is the single-source first-clear amount the server grants (config permits per-line values later), clients must render it, never a hardcoded number.')
+}).optional().describe('Per-signal server truth for this zone\'s trackside signals, riding the existing journey fetch. `waves` and `clears` are bare gap-N contextRefs scoped to this category (stored server-side as languageCode:categoryId:gap-N). Clears are derived from the ledger-backed first-clear grants; a clear supersedes a wave for display. `rewardChai` is the single-source first-clear amount the server grants (config permits per-line values later) — clients must render it, never a hardcoded number.')
 })
 
 
@@ -255,7 +255,7 @@ export const ListLessonGroupPhrasesResponse = zod.array(ListLessonGroupPhrasesRe
 
 
 /**
- * The topic's final step after the phrase list, full, natural sentences that build on the topic's vocabulary. Bolo! Plus only: callers without the sentences feature receive a 402 upgrade payload and no sentence text. Generated + cached on first request for dynamically generated lessons.
+ * The topic's final step after the phrase list — full, natural sentences that build on the topic's vocabulary. Bolo! Plus only: callers without the sentences feature receive a 402 upgrade payload and no sentence text. Generated + cached on first request for dynamically generated lessons.
  * @summary List the topic's Plus-only sentence stage for a language
  */
 export const ListCategorySentencesParams = zod.object({
@@ -467,8 +467,8 @@ export const RecordGameSessionBody = zod.object({
   "categoryId": zod.number().describe('The category the phrases were drawn from. Used for server-side phrase validation.'),
   "phraseResults": zod.array(zod.object({
   "phraseId": zod.number().describe('The database ID of the question phrase.'),
-  "selectedPhraseId": zod.number().nullish().describe('Speed Round, the phraseId of the option the learner tapped. Correct when selectedPhraseId === phraseId.'),
-  "submittedText": zod.string().nullish().describe('Phrase Builder, the assembled word tokens joined by a single space. Correct when it matches the phrase\'s nativeScript exactly.')
+  "selectedPhraseId": zod.number().nullish().describe('Speed Round — the phraseId of the option the learner tapped. Correct when selectedPhraseId === phraseId.'),
+  "submittedText": zod.string().nullish().describe('Phrase Builder — the assembled word tokens joined by a single space. Correct when it matches the phrase\'s nativeScript exactly.')
 }).describe('The learner\'s submitted answer for one game question. The server computes correctness from the answer, depending on game mode. For speed-round: selectedPhraseId must equal phraseId to be correct. For phrase-builder: submittedText must match the phrase\'s nativeScript.')).max(recordGameSessionBodyPhraseResultsMax).describe('One entry per question attempted during the game session. The server determines correctness from the submitted answer; clients never self-report a correct\/incorrect flag.'),
   "context": zod.enum(['hub', 'signal', 'closeout']).optional().describe('Optional origin context. \"signal\" and \"closeout\" trigger a once-ever Chai grant on the first clear. \"hub\" is accepted but grants nothing. Absent behaves identically to today.'),
   "contextRef": zod.string().regex(recordGameSessionBodyContextRefRegExp).optional().describe('Required when context is \"signal\"; forbidden otherwise. Identifies the gap that was cleared, forming part of the idempotency key.')
@@ -661,7 +661,7 @@ export const SetChosenLanguageResponse = zod.object({
 
 
 /**
- * Returns the authenticated learner's profile (name, email, avatar), their notification and learning preferences, and a compact subscription summary, everything the account settings screen renders from.
+ * Returns the authenticated learner's profile (name, email, avatar), their notification and learning preferences, and a compact subscription summary — everything the account settings screen renders from.
  * @summary The caller's profile, preferences, and subscription summary
  */
 export const GetAccountResponse = zod.object({
@@ -682,8 +682,8 @@ export const GetAccountResponse = zod.object({
   "theme": zod.string().describe('Client colour theme (\"system\" | \"light\" | \"dark\").'),
   "timezone": zod.string().nullable().describe('IANA time zone (e.g. \"America\/Los_Angeles\") used to bucket practice into local calendar days for streaks, or null (falls back to UTC).'),
   "hasCompletedTour": zod.boolean().describe('Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users.'),
-  "hasChosenLanguage": zod.boolean().optional().describe('Whether the learner has EXPLICITLY chosen a learning language (the post-sign-up selection step, the home picker, or account settings). Distinct from activeLanguage being non-null, the web client seeds that with a local default on first reconcile. Optional for mobile back-compat; treat absence as false.'),
-  "ttsVoice": zod.string().nullable().describe('The learner\'s global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto, use the per-language default voice.')
+  "hasChosenLanguage": zod.boolean().optional().describe('Whether the learner has EXPLICITLY chosen a learning language (the post-sign-up selection step, the home picker, or account settings). Distinct from activeLanguage being non-null — the web client seeds that with a local default on first reconcile. Optional for mobile back-compat; treat absence as false.'),
+  "ttsVoice": zod.string().nullable().describe('The learner\'s global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto — use the per-language default voice.')
 })
 }),
   "subscription": zod.object({
@@ -739,7 +739,7 @@ export const UpdateAccountPreferencesBody = zod.object({
   "theme": zod.enum(['system', 'light', 'dark']).optional(),
   "timezone": zod.string().nullish(),
   "hasCompletedTour": zod.boolean().optional(),
-  "hasChosenLanguage": zod.boolean().optional().describe('Marks the learner as having explicitly chosen a language. Only `true` is accepted, a choice can\'t be unmade. Sent by explicit picks (selection step, home picker, account settings); the client\'s first-reconcile seed write must never include it.'),
+  "hasChosenLanguage": zod.boolean().optional().describe('Marks the learner as having explicitly chosen a language. Only `true` is accepted — a choice can\'t be unmade. Sent by explicit picks (selection step, home picker, account settings); the client\'s first-reconcile seed write must never include it.'),
   "ttsVoice": zod.string().nullish().describe('Global TTS voice preference (Plus only). Must be a valid voice ID from the voice catalog, or null to reset to Auto.')
 }).describe('Any subset of the notification and learning preferences.')
 
@@ -755,8 +755,8 @@ export const UpdateAccountPreferencesResponse = zod.object({
   "theme": zod.string().describe('Client colour theme (\"system\" | \"light\" | \"dark\").'),
   "timezone": zod.string().nullable().describe('IANA time zone (e.g. \"America\/Los_Angeles\") used to bucket practice into local calendar days for streaks, or null (falls back to UTC).'),
   "hasCompletedTour": zod.boolean().describe('Whether the learner has completed (or explicitly skipped) the onboarding tour. Defaults to false for new and existing users.'),
-  "hasChosenLanguage": zod.boolean().optional().describe('Whether the learner has EXPLICITLY chosen a learning language (the post-sign-up selection step, the home picker, or account settings). Distinct from activeLanguage being non-null, the web client seeds that with a local default on first reconcile. Optional for mobile back-compat; treat absence as false.'),
-  "ttsVoice": zod.string().nullable().describe('The learner\'s global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto, use the per-language default voice.')
+  "hasChosenLanguage": zod.boolean().optional().describe('Whether the learner has EXPLICITLY chosen a learning language (the post-sign-up selection step, the home picker, or account settings). Distinct from activeLanguage being non-null — the web client seeds that with a local default on first reconcile. Optional for mobile back-compat; treat absence as false.'),
+  "ttsVoice": zod.string().nullable().describe('The learner\'s global TTS voice preference (Plus only). When non-null this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null means Auto — use the per-language default voice.')
 })
 })
 })
@@ -786,7 +786,7 @@ export const GetAccountSubscriptionResponse = zod.object({
   "purchasedAt": zod.coerce.date().nullable(),
   "expiresAt": zod.coerce.date().nullable(),
   "periodType": zod.string().nullable(),
-  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\", derived from the dates\/flags.')
+  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\" — derived from the dates\/flags.')
 }).describe('One subscription period from the provider\'s billing history.'))
 }).describe('The full subscription-management snapshot: the server-authoritative tier\/status\/dates and chosen language, plus the softer provider-sourced payment method and billing history (which degrade gracefully).')
 
@@ -815,7 +815,7 @@ export const CancelAccountSubscriptionResponse = zod.object({
   "purchasedAt": zod.coerce.date().nullable(),
   "expiresAt": zod.coerce.date().nullable(),
   "periodType": zod.string().nullable(),
-  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\", derived from the dates\/flags.')
+  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\" — derived from the dates\/flags.')
 }).describe('One subscription period from the provider\'s billing history.'))
 }).describe('The full subscription-management snapshot: the server-authoritative tier\/status\/dates and chosen language, plus the softer provider-sourced payment method and billing history (which degrade gracefully).')
 
@@ -852,7 +852,7 @@ export const PauseAccountSubscriptionResponse = zod.object({
   "purchasedAt": zod.coerce.date().nullable(),
   "expiresAt": zod.coerce.date().nullable(),
   "periodType": zod.string().nullable(),
-  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\", derived from the dates\/flags.')
+  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\" — derived from the dates\/flags.')
 }).describe('One subscription period from the provider\'s billing history.'))
 }).describe('The full subscription-management snapshot: the server-authoritative tier\/status\/dates and chosen language, plus the softer provider-sourced payment method and billing history (which degrade gracefully).')
 
@@ -881,13 +881,13 @@ export const ResumeAccountSubscriptionResponse = zod.object({
   "purchasedAt": zod.coerce.date().nullable(),
   "expiresAt": zod.coerce.date().nullable(),
   "periodType": zod.string().nullable(),
-  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\", derived from the dates\/flags.')
+  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\" — derived from the dates\/flags.')
 }).describe('One subscription period from the provider\'s billing history.'))
 }).describe('The full subscription-management snapshot: the server-authoritative tier\/status\/dates and chosen language, plus the softer provider-sourced payment method and billing history (which degrade gracefully).')
 
 
 /**
- * Lets a learner who changes their mind come back before the pause window closes. Clears the pause and resumes the underlying paid tier immediately, the same outcome as waiting for pauseUntil to elapse naturally, just early. Only applies to a currently-paused subscription; a canceling, active, or expired subscription has nothing to unpause.
+ * Lets a learner who changes their mind come back before the pause window closes. Clears the pause and resumes the underlying paid tier immediately — the same outcome as waiting for pauseUntil to elapse naturally, just early. Only applies to a currently-paused subscription; a canceling, active, or expired subscription has nothing to unpause.
  * @summary Resume a paused subscription early
  */
 export const UnpauseAccountSubscriptionResponse = zod.object({
@@ -910,7 +910,7 @@ export const UnpauseAccountSubscriptionResponse = zod.object({
   "purchasedAt": zod.coerce.date().nullable(),
   "expiresAt": zod.coerce.date().nullable(),
   "periodType": zod.string().nullable(),
-  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\", derived from the dates\/flags.')
+  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\" — derived from the dates\/flags.')
 }).describe('One subscription period from the provider\'s billing history.'))
 }).describe('The full subscription-management snapshot: the server-authoritative tier\/status\/dates and chosen language, plus the softer provider-sourced payment method and billing history (which degrade gracefully).')
 
@@ -939,13 +939,13 @@ export const AcceptRetentionOfferResponse = zod.object({
   "purchasedAt": zod.coerce.date().nullable(),
   "expiresAt": zod.coerce.date().nullable(),
   "periodType": zod.string().nullable(),
-  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\", derived from the dates\/flags.')
+  "status": zod.string().describe('\"active\" | \"expired\" | \"canceled\" — derived from the dates\/flags.')
 }).describe('One subscription period from the provider\'s billing history.'))
 }).describe('The full subscription-management snapshot: the server-authoritative tier\/status\/dates and chosen language, plus the softer provider-sourced payment method and billing history (which degrade gracefully).')
 
 
 /**
- * Matches the code exactly (after uppercase/trim normalization) and creates a PENDING friend request the recipient must accept, never an instant friendship. A learner's friend code is their referral code, which is meant to be broadcast, so the accept step is what keeps a published code from becoming an open friend list. Rejection wording is deliberately uniform: an unknown code, a near-miss, and a code belonging to someone the caller already has a relationship with all return the same 404 and the same message, so the endpoint cannot be probed for which codes are real. Rate limited per account and per IP.
+ * Matches the code exactly (after uppercase/trim normalization) and creates a PENDING friend request the recipient must accept — never an instant friendship. A learner's friend code is their referral code, which is meant to be broadcast, so the accept step is what keeps a published code from becoming an open friend list. Rejection wording is deliberately uniform: an unknown code, a near-miss, and a code belonging to someone the caller already has a relationship with all return the same 404 and the same message, so the endpoint cannot be probed for which codes are real. Rate limited per account and per IP.
  * @summary Send a friend request to the learner who owns a friend code
  */
 export const SendFriendRequestByCodeBody = zod.object({
@@ -1015,7 +1015,7 @@ export const AcceptFriendRequestResponse = zod.object({
   "equippedOutfit": zod.string().nullish().describe('The outfit this learner\'s Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. Carried on the row so friend and leaderboard lists render each learner\'s mascot without a per-row fetch. Optional: older clients that predate outfits on rows simply ignore it.'),
   "equippedAccessory": zod.string().nullish().describe('The head accessory this learner\'s Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed.')
 }).describe('A learner\'s public identity for friends features.')
-}).describe('The result of accepting a request, a now-mutual friendship.')
+}).describe('The result of accepting a request — a now-mutual friendship.')
 
 
 /**
@@ -1122,7 +1122,7 @@ export const GetFriendsFeedResponse = zod.array(GetFriendsFeedResponseItem)
 
 
 /**
- * Returns the caller's per-character tracing progress for the requested Script Trace chapter. Plus-only, non-Plus callers receive a 402.
+ * Returns the caller's per-character tracing progress for the requested Script Trace chapter. Plus-only — non-Plus callers receive a 402.
  * @summary Get Script Trace chapter progress
  */
 export const GetScriptTraceProgressQueryParams = zod.object({
@@ -1140,7 +1140,7 @@ export const GetScriptTraceProgressResponse = zod.array(GetScriptTraceProgressRe
 
 
 /**
- * Saves the result of a single character trace. Upserts so the best score is preserved and the `passed` flag is sticky (never reverted once true). Plus-only, non-Plus callers receive a 402.
+ * Saves the result of a single character trace. Upserts so the best score is preserved and the `passed` flag is sticky (never reverted once true). Plus-only — non-Plus callers receive a 402.
  * @summary Record a Script Trace attempt
  */
 export const recordScriptTraceProgressBodyCharacterIdMax = 30;
@@ -1255,7 +1255,7 @@ export const SubmitContactFormResponse = zod.object({
 
 
 /**
- * Stores a phrase report (reason + optional note) in phrase_reports. language_code and stage are derived server-side from the phrase row, never client-supplied. Fire-and-forget from the client's perspective: beyond the rolling-hour cap (20 stored reports per user) the server returns { success: true } and stores nothing. Duplicate reports for the same phrase are allowed; dedup is a review-time concern.
+ * Stores a phrase report (reason + optional note) in phrase_reports. language_code and stage are derived server-side from the phrase row — never client-supplied. Fire-and-forget from the client's perspective: beyond the rolling-hour cap (20 stored reports per user) the server returns { success: true } and stores nothing. Duplicate reports for the same phrase are allowed; dedup is a review-time concern.
  * @summary Flag a phrase as incorrect (Spec B2)
  */
 export const ReportPhraseParams = zod.object({
@@ -1336,9 +1336,9 @@ export const EvaluatePronunciationBody = zod.object({
 export const EvaluatePronunciationResponse = zod.object({
   "transcript": zod.string(),
   "transcriptRomanized": zod.string().optional().describe('Display-only romanization of `transcript` (deterministic transliteration, card-style ASCII, e.g. \"kem cho\"). A transcript that is already Latin passes through unchanged. Empty (\"\") when the script has no clean romanization (Perso-Arabic, Ol Chiki, Meetei Mayek) or on nocatch\/empty-transcript outcomes. Clients hide the romanized line when this is empty. Optional for older-client compatibility; never stored or used in scoring.'),
-  "score": zod.number().optional().describe('Deprecated, will be removed in a future release once all client builds have updated. Use `band` instead. Omitted when the server stops sending it; clients must treat this field as optional.'),
+  "score": zod.number().optional().describe('Deprecated — will be removed in a future release once all client builds have updated. Use `band` instead. Omitted when the server stops sending it; clients must treat this field as optional.'),
   "band": zod.enum(['nocatch', 'perfect', 'great', 'good', 'almost', 'retry']).describe('Five-band pronunciation ladder value, top to bottom: `perfect` and `great` earn full XP, `good` and `almost` earn half XP, `retry` is below the passing threshold (no XP). `nocatch` = no usable audio detected (no XP); it is a separate system outcome, not a rung on the ladder.'),
-  "xpAwarded": zod.number().describe('XP earned for this attempt. Display only, the signed token is authoritative.'),
+  "xpAwarded": zod.number().describe('XP earned for this attempt. Display only — the signed token is authoritative.'),
   "xpBreakdown": zod.string().nullish().describe('Human-readable explanation of the XP awarded, e.g. \"Full XP\".'),
   "passed": zod.boolean(),
   "feedback": zod.string(),
@@ -1621,7 +1621,7 @@ export const RedeemReferralResponse = zod.object({
 
 
 /**
- * Records that the caller waved through a trackside signal without playing its quick game, so the gate-up state survives devices and reinstalls. Idempotent, replaying the same signal is a silent no-op. The ref is composed server-side as languageCode:categoryId:gap-N, matching the first-clear ledger refId convention; a later clear supersedes the wave for display, so waves are never deleted.
+ * Records that the caller waved through a trackside signal without playing its quick game, so the gate-up state survives devices and reinstalls. Idempotent — replaying the same signal is a silent no-op. The ref is composed server-side as languageCode:categoryId:gap-N, matching the first-clear ledger refId convention; a later clear supersedes the wave for display, so waves are never deleted.
  * @summary Persist a signal wave-through for the caller
  */
 export const recordSignalWaveBodyLanguageCodeRegExp = new RegExp('^[a-z]{2,3}$');
@@ -1633,7 +1633,7 @@ export const recordSignalWaveBodyGapMax = 999;
 export const RecordSignalWaveBody = zod.object({
   "languageCode": zod.string().regex(recordSignalWaveBodyLanguageCodeRegExp),
   "categoryId": zod.number().min(1),
-  "gap": zod.number().min(1).max(recordSignalWaveBodyGapMax).describe('Global gap number N, the signal sits after stop N.')
+  "gap": zod.number().min(1).max(recordSignalWaveBodyGapMax).describe('Global gap number N — the signal sits after stop N.')
 }).describe('Identifies the waved signal. The server composes the stored ref as languageCode:categoryId:gap-N from these fields.')
 
 export const RecordSignalWaveResponse = zod.object({
@@ -1721,7 +1721,7 @@ export const SpendTokensResponse = zod.object({
 
 
 /**
- * Buys 24 hours of First Class, a cosmetic status that renders the learner's own train in gold, plus one complimentary 20-minute Express boost thrown in on boarding. The caller supplies ONLY an idempotency key: the price, the 24 hours and the bundled boost are all server-side. Unlike every other Chai spend this purchase is repeatable, so a repeat call with the SAME key is a free replay (200, charged=false) while a new key is a genuine second purchase that adds another 24 hours to an active expiry. The bundled boost takes the max of its current value and 20 minutes from now, so it never shortens a longer running window and never accumulates. Money and clock conflicts (insufficient_tokens, first_class_horizon) answer 409, matching the other Chai spends; never 402, which is the plan-upgrade envelope.
+ * Buys 24 hours of First Class — a cosmetic status that renders the learner's own train in gold — plus one complimentary 20-minute Express boost thrown in on boarding. The caller supplies ONLY an idempotency key: the price, the 24 hours and the bundled boost are all server-side. Unlike every other Chai spend this purchase is repeatable, so a repeat call with the SAME key is a free replay (200, charged=false) while a new key is a genuine second purchase that adds another 24 hours to an active expiry. The bundled boost takes the max of its current value and 20 minutes from now, so it never shortens a longer running window and never accumulates. Money and clock conflicts (insufficient_tokens, first_class_horizon) answer 409, matching the other Chai spends; never 402, which is the plan-upgrade envelope.
  * @summary Spend Chai on 24 hours of First Class
  */
 export const buyFirstClassBodyRefIdRegExp = new RegExp('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
@@ -1733,7 +1733,7 @@ export const BuyFirstClassBody = zod.object({
 
 export const BuyFirstClassResponse = zod.object({
   "balance": zod.number(),
-  "charged": zod.boolean().describe('False when this call replayed an idempotency key already spent, nothing was deducted and no time was added.'),
+  "charged": zod.boolean().describe('False when this call replayed an idempotency key already spent — nothing was deducted and no time was added.'),
   "cost": zod.number(),
   "firstClassActiveUntil": zod.coerce.date().nullish(),
   "expressMultiplierActiveUntil": zod.coerce.date().nullish().describe('The bundled boost\'s new deadline: max(existing, now + 20 minutes).')
@@ -1741,7 +1741,7 @@ export const BuyFirstClassResponse = zod.object({
 
 
 /**
- * Buys a single station in a language the caller's plan does not include. The caller names only a lesson group id: the language, the price and the ledger idempotency key are all derived server-side, and the purchase is once-ever (a repeat call returns 200 with charged=false and deducts nothing). Only stops inside the language's FIRST zone, the zone that hosts the free-taste stop, are purchasable; anything beyond it answers 402 UpgradeRequired because that is the All-Access boundary. Money and state conflicts (insufficient_tokens, stop_already_free, stop_not_unlockable) answer 409, matching the other Chai spends.
+ * Buys a single station in a language the caller's plan does not include. The caller names only a lesson group id: the language, the price and the ledger idempotency key are all derived server-side, and the purchase is once-ever (a repeat call returns 200 with charged=false and deducts nothing). Only stops inside the language's FIRST zone — the zone that hosts the free-taste stop — are purchasable; anything beyond it answers 402 UpgradeRequired because that is the All-Access boundary. Money and state conflicts (insufficient_tokens, stop_already_free, stop_not_unlockable) answer 409, matching the other Chai spends.
  * @summary Spend Chai to open one stop in a plan-locked language
  */
 export const UnlockStopBody = zod.object({
@@ -1753,13 +1753,13 @@ export const UnlockStopResponse = zod.object({
   "lessonGroupId": zod.number(),
   "languageCode": zod.string(),
   "unlocked": zod.boolean(),
-  "charged": zod.boolean().describe('False when the learner already owned this stop, the call is a no-op that deducts nothing. Clients must not re-render a \"spent\" animation for it.'),
+  "charged": zod.boolean().describe('False when the learner already owned this stop — the call is a no-op that deducts nothing. Clients must not re-render a \"spent\" animation for it.'),
   "cost": zod.number()
 })
 
 
 /**
- * Streak repair is the ratified exception to the delight-only Chai spine: it buys back a streak lost to life happening, never an advantage. A day is repairable only when it is a real hole with practice on the day before it, and only within two local days, so at most one break is ever on offer and repairs cannot be walked backwards through history.
+ * Streak repair is the ratified exception to the delight-only Chai spine: it buys back a streak lost to life happening, never an advantage. A day is repairable only when it is a real hole with practice on the day before it, and only within two local days — so at most one break is ever on offer and repairs cannot be walked backwards through history.
  * @summary Whether a broken streak can be mended, and for how much
  */
 export const GetStreakRepairResponse = zod.object({
@@ -1768,24 +1768,24 @@ export const GetStreakRepairResponse = zod.object({
   "restoresStreakDays": zod.number().describe('The streak the learner would have again once the day is covered, measured on the same ladder the progress summary climbs.'),
   "cost": zod.number(),
   "balance": zod.number()
-}).describe('Whether the learner has a streak break worth mending, and what mending it would cost. `eligible` false means there is nothing to offer, no break, an absence too long to be a slip, or a break older than the repair window, and clients must show nothing at all in that case.')
+}).describe('Whether the learner has a streak break worth mending, and what mending it would cost. `eligible` false means there is nothing to offer — no break, an absence too long to be a slip, or a break older than the repair window — and clients must show nothing at all in that case.')
 
 
 /**
- * Takes no body. The server re-derives which day is repairable, composes the ledger key from it (streak:<YYYY-MM-DD>), and charges STREAK_REPAIR_COST once, a replay answers 200 with charged=false and deducts nothing. Refusals are 409 and never 402: a broken streak is not a plan boundary and must never become an upsell.
+ * Takes no body. The server re-derives which day is repairable, composes the ledger key from it (streak:<YYYY-MM-DD>), and charges STREAK_REPAIR_COST once — a replay answers 200 with charged=false and deducts nothing. Refusals are 409 and never 402: a broken streak is not a plan boundary and must never become an upsell.
  * @summary Spend Chai to mend the day that broke the streak
  */
 export const RepairStreakResponse = zod.object({
   "balance": zod.number(),
   "repairedDay": zod.string(),
   "restoredStreakDays": zod.number(),
-  "charged": zod.boolean().describe('False when this day was already repaired, the call is a no-op that deducts nothing.'),
+  "charged": zod.boolean().describe('False when this day was already repaired — the call is a no-op that deducts nothing.'),
   "cost": zod.number()
 })
 
 
 /**
- * The mobile shop's catalog. Deliberately NOT part of GET /pricing: that endpoint quotes live Stripe prices and fails when Stripe is unreachable, and the iOS shop must not depend on the web payment processor. It also carries no price at all, on iOS the price shown is the StoreKit product's own, so no server number can drift from what Apple charges. The Chai amount is the same catalog the credit path grants from, so the shop cannot advertise a pack size the purchase does not deliver.
+ * The mobile shop's catalog. Deliberately NOT part of GET /pricing: that endpoint quotes live Stripe prices and fails when Stripe is unreachable, and the iOS shop must not depend on the web payment processor. It also carries no price at all — on iOS the price shown is the StoreKit product's own, so no server number can drift from what Apple charges. The Chai amount is the same catalog the credit path grants from, so the shop cannot advertise a pack size the purchase does not deliver.
  * @summary The Chai packs, their Apple product ids and what each grants
  */
 export const GetChaiPacksResponse = zod.object({
@@ -1798,7 +1798,7 @@ export const GetChaiPacksResponse = zod.object({
 
 
 /**
- * A read, expressed as a POST because the input is a list. The app can see which consumables Apple sold it but not whether the server credited them; this answers that and nothing else. It never writes, never states an amount, and can never mint Chai, recovery works by asking the store to re-deliver an uncredited transaction, and double-crediting is prevented by the ledger's refId index rather than by client bookkeeping. Only the caller's own ledger is consulted.
+ * A read, expressed as a POST because the input is a list. The app can see which consumables Apple sold it but not whether the server credited them; this answers that and nothing else. It never writes, never states an amount, and can never mint Chai — recovery works by asking the store to re-deliver an uncredited transaction, and double-crediting is prevented by the ledger's refId index rather than by client bookkeeping. Only the caller's own ledger is consulted.
  * @summary Which of these App Store transactions has the ledger credited
  */
 export const CheckChaiPackCreditsBody = zod.object({
@@ -1815,14 +1815,14 @@ export const CheckChaiPackCreditsResponse = zod.object({
  */
 export const GetOutfitsResponse = zod.object({
   "balance": zod.number(),
-  "equipped": zod.string().nullable().describe('The garment slot, see TokenState.equippedOutfit.'),
+  "equipped": zod.string().nullable().describe('The garment slot — see TokenState.equippedOutfit.'),
   "equippedAccessory": zod.string().nullish().describe('The accessory slot, worn at the same time as the garment.'),
   "outfits": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "tagline": zod.string(),
   "cost": zod.number().describe('Server-authoritative price in Chai, per item rather than one flat price. Clients must render this number, never a hardcoded one.'),
-  "owned": zod.boolean().describe('Bought once, owned forever, derived from the ledger.'),
+  "owned": zod.boolean().describe('Bought once, owned forever — derived from the ledger.'),
   "kind": zod.enum(['garment', 'accessory']).describe('A garment redresses the whole bird; an accessory adds one thing to her. The shop groups its rack by this, so a new kind of stock does not need a client change.'),
   "preview": zod.enum(['full', 'head']).describe('How to crop this item\'s thumbnail. A hat is unreadable in a full-body crop, so accessories ask for the head.')
 }))
@@ -1841,7 +1841,7 @@ export const BuyOutfitResponse = zod.object({
   "balance": zod.number(),
   "outfitId": zod.string(),
   "owned": zod.boolean(),
-  "charged": zod.boolean().describe('False when the learner already owned this outfit, the call is a no-op that deducts nothing and leaves the equipped choice alone.'),
+  "charged": zod.boolean().describe('False when the learner already owned this outfit — the call is a no-op that deducts nothing and leaves the equipped choice alone.'),
   "cost": zod.number(),
   "equipped": zod.string().nullable(),
   "equippedAccessory": zod.string().nullish()
@@ -1849,7 +1849,7 @@ export const BuyOutfitResponse = zod.object({
 
 
 /**
- * Free and instant. Sends an owned outfit id to wear it, or null to unequip. Equipping an outfit the learner does not own answers 409 outfit_not_owned, ownership is never inferred from the equip call.
+ * Free and instant. Sends an owned outfit id to wear it, or null to unequip. Equipping an outfit the learner does not own answers 409 outfit_not_owned — ownership is never inferred from the equip call.
  * @summary Wear an owned outfit, or go back to undressed Bolo
  */
 export const EquipOutfitBody = zod.object({

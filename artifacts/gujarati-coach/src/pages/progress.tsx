@@ -66,7 +66,7 @@ export default function Progress() {
                   {bandLabel(bandFromScore(summary.bestScore))}
                 </span>
               ) : (
-                "-"
+                "—"
               )
             }
             label="Best Attempt"
@@ -81,14 +81,14 @@ export default function Progress() {
         </section>
 
         <div className="grid gap-8 lg:grid-cols-3 lg:items-start">
-          {/* Achievements & analytics, the wide left column on desktop. */}
+          {/* Achievements & analytics — the wide left column on desktop. */}
           <div className="space-y-8 lg:col-span-2">
             <NextBadgeSpotlight lang={activeLang} />
             <BadgesGallery lang={activeLang} />
             <AdvancedAnalytics lang={activeLang} />
           </div>
 
-          {/* Practice history, a dedicated column on desktop. */}
+          {/* Practice history — a dedicated column on desktop. */}
           <section className="lg:col-span-1">
             <h2 className="text-xl font-bold text-foreground mb-4">Practice History</h2>
 

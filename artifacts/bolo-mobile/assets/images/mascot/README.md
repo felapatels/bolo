@@ -1,11 +1,11 @@
-# Bolo! Mascot, Reference Sheet
+# Bolo! Mascot — Reference Sheet
 
-Meet **Bolo the Parrot**, the friendly face of the Bolo! language-learning app.
+Meet **Bolo the Parrot** — the friendly face of the Bolo! language-learning app.
 
 ## Character
 
 - **Who:** A plump, cheerful cartoon parrot. A parrot is the perfect mascot for a
-  "speak-out-loud" app, *bolo* means **speak / say** in Gujarati & Hindi, and the
+  "speak-out-loud" app — *bolo* means **speak / say** in Gujarati & Hindi — and the
   parrot (tota / mitthu) is a warm, familiar, beloved character in Indian culture.
 - **Personality:** Warm, patient, encouraging, and a little playful. Bolo celebrates
   your wins, listens closely while you practice, and gently cheers you back up after a miss.
@@ -22,17 +22,17 @@ Meet **Bolo the Parrot**, the friendly face of the Bolo! language-learning app.
 | App background        | Near-white         | `#F8FAFC` |
 | Text / eyes           | Deep slate         | `#0F172A` |
 
-Energy comes from Bolo's expression and pose, the palette stays calm and modern.
+Energy comes from Bolo's expression and pose — the palette stays calm and modern.
 
 ## Poses & when to use them
 
 | File                  | Pose                    | Emotional moment / use it when…                                            |
 |-----------------------|-------------------------|----------------------------------------------------------------------------|
-| `mascot-wave.png`     | Idle / waving hello     | Greetings, home screen, onboarding, empty states, "welcome back".         |
-| `mascot-cheer.png`    | Cheering / celebrating  | Wins, lesson complete, streak milestone, badge earned, level up.          |
-| `mascot-thumbsup.png` | Encouraging / thumbs-up | A good attempt, correct answer, decent pronunciation score, progress made.|
+| `mascot-wave.png`     | Idle / waving hello     | Greetings — home screen, onboarding, empty states, "welcome back".         |
+| `mascot-cheer.png`    | Cheering / celebrating  | Wins — lesson complete, streak milestone, badge earned, level up.          |
+| `mascot-thumbsup.png` | Encouraging / thumbs-up | A good attempt — correct answer, decent pronunciation score, progress made.|
 | `mascot-thinking.png` | Thinking / listening    | While the learner speaks, a lesson loads, or during a hint/tip.            |
-| `mascot-tryagain.png` | Gentle "try again"      | A miss, wrong answer or low score; keep it kind and motivating, not sad.  |
+| `mascot-tryagain.png` | Gentle "try again"      | A miss — wrong answer or low score; keep it kind and motivating, not sad.  |
 
 ## Asset specs
 
@@ -47,4 +47,5 @@ Identical copies are kept in both apps so each can import locally:
 - **Web:** `artifacts/gujarati-coach/public/mascot/` → reference as `/mascot/<file>` at runtime.
 - **Mobile (Expo):** `artifacts/bolo-mobile/assets/images/mascot/` → `require('.../assets/images/mascot/<file>')`.
 
-> Wiring the mascot into screens and animating it happens in the per-app makeover tasks, this sheet just defines the character and which asset means what.
+> Wiring the mascot into screens and animating it happens in the per-app makeover tasks —
+> this sheet just defines the character and which asset means what.

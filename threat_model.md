@@ -49,7 +49,7 @@ Postgres via Drizzle (`lib/db`): `users`, `categories`, `phrases`,
   from the server-computed pronunciation evaluation).
 - Auth: `middlewares/requireAuth.ts` (Clerk session -> `req.userId`, JIT user
   provisioning); identity is never taken from client input (this closed a
-  prior cross-user `profileId` leak, see existing vulnerability history).
+  prior cross-user `profileId` leak — see existing vulnerability history).
 - Dev-only, ignore for production reachability: `artifacts/mockup-sandbox`
   (canvas prototyping sandbox, `/__mockup` preview path, not part of the
   deployed app).

@@ -1,4 +1,4 @@
-// Spec D1b, Concept 2: "Region chapters"
+// Spec D1b — Concept 2: "Region chapters"
 // The journey is split into named Gujarat regions/chapters. Nodes are grouped
 // per chapter and each chapter ends in a postcard-style checkpoint card.
 
@@ -48,7 +48,7 @@ function LessonRow({ node }: { node: JourneyNode }) {
   return (
     <button
       type="button"
-      aria-label={`${node.title}, ${node.status}`}
+      aria-label={`${node.title} — ${node.status}`}
       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-accent"
       style={
         isCurrent
@@ -145,7 +145,7 @@ function PostcardCheckpoint({
       </div>
       <div className="mt-2 text-[11px] text-black/60 max-w-[230px]">
         {done
-          ? `Chapter complete, you can now handle ${region.tagline.toLowerCase()}.`
+          ? `Chapter complete — you can now handle ${region.tagline.toLowerCase()}.`
           : "Finish every lesson in this chapter to collect this postcard."}
       </div>
       <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/80 text-[10px] font-bold text-black/70">

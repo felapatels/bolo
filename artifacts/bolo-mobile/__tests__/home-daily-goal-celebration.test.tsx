@@ -87,7 +87,8 @@ jest.mock('@/lib/entrance', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
-  // Task #1049: the home referral card reads the learner's code. Idle here, an undefined code hides the card, which is not what these files pin.
+  // Task #1049: the home referral card reads the learner's code. Idle here —
+  // an undefined code hides the card, which is not what these files pin.
   useGetReferral: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   useGetTokens: () => ({ data: { balance: 0, stationPausesEquipped: 0, expressMultiplierActiveUntil: null }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   // The wallet sheet reads the streak-repair offer; no break to mend here.
@@ -219,7 +220,7 @@ jest.mock('@/components/Confetti', () => {
   return { Confetti: () => React.createElement(View, { testID: 'confetti' }) };
 });
 
-// MilestoneToast is intentionally NOT mocked, we test its rendered output.
+// MilestoneToast is intentionally NOT mocked — we test its rendered output.
 
 jest.mock('@/components/NamePromptCard', () => ({
   NamePromptCard: () => null,
@@ -239,7 +240,8 @@ import HomeScreen from '../app/(app)/(tabs)/index';
 
 /**
  * Thin wrapper that conditionally renders its children. Rerendering with
- * `mounted={false}` unmounts the child, and `mounted={true}` remounts it, without calling RNTL's `unmount()` directly (which corrupts shared renderer
+ * `mounted={false}` unmounts the child, and `mounted={true}` remounts it —
+ * without calling RNTL's `unmount()` directly (which corrupts shared renderer
  * state for subsequent tests).
  */
 function MountWrapper({
@@ -276,7 +278,7 @@ function makeAccount(dailyGoal = 10, isLoading = false) {
 
 // ─── tests ───────────────────────────────────────────────────────────────────
 
-describe('HomeScreen, daily-goal celebration', () => {
+describe('HomeScreen — daily-goal celebration', () => {
   beforeEach(async () => {
     jest.useFakeTimers();
     await AsyncStorage.clear();
@@ -323,10 +325,10 @@ describe('HomeScreen, daily-goal celebration', () => {
       rerender(<HomeScreen />);
     });
 
-    // Toast is visible, one celebration fired.
+    // Toast is visible — one celebration fired.
     expect(screen.getByText('Daily goal hit! 🎉')).toBeTruthy();
 
-    // Record one more attempt, now at 11 (still above goal).
+    // Record one more attempt — now at 11 (still above goal).
     mockState.summary = makeSummary(11);
     await act(async () => {
       rerender(<HomeScreen />);
@@ -334,7 +336,7 @@ describe('HomeScreen, daily-goal celebration', () => {
 
     // goalCelebratedRef is true; the effect bails out immediately. The toast
     // element may still be visible (its dismiss timer hasn't expired) but no
-    // *second* celebration fired, toastKey should remain at 1, not become 2.
+    // *second* celebration fired — toastKey should remain at 1, not become 2.
     // We verify this indirectly: the toast text is still the same message (not
     // duplicated), and no second confetti element appeared.
     const toasts = screen.getAllByText('Daily goal hit! 🎉');
@@ -369,7 +371,7 @@ describe('HomeScreen, daily-goal celebration', () => {
     });
 
     // On the fresh mount, prevAttemptsRef starts as null. The first effect run
-    // sets prev=10 and returns early (prev was null), no celebration fires.
+    // sets prev=10 and returns early (prev was null) — no celebration fires.
     expect(screen.queryByText('Daily goal hit! 🎉')).toBeNull();
   });
 
@@ -449,7 +451,7 @@ describe('HomeScreen, daily-goal celebration', () => {
       await Promise.resolve();
     });
 
-    // goalCelebratedRef is now seeded from storage, no toast should appear
+    // goalCelebratedRef is now seeded from storage — no toast should appear
     // even though attemptsToday (10) is at the goal on first render.
     expect(screen.queryByText('Daily goal hit! 🎉')).toBeNull();
   });

@@ -306,7 +306,7 @@ describe('score card retry', () => {
     expect(playBase64Audio).toHaveBeenCalledTimes(2);
   });
 
-  test('retry band puts the emphasis, not the button, on another take', async () => {
+  test('retry band puts the emphasis — not the button — on another take', async () => {
     await recordToResult();
 
     // On a retry-band card the productive default is another take, so the
@@ -378,7 +378,7 @@ describe('constant result-actions layout', () => {
       await scoreBand(band, xp, headline);
 
       expect(slotOrder()).toEqual(['try-again-button', 'advance-button']);
-      // Labels are constant too, no icon-only retry, no Next/Next phrase
+      // Labels are constant too — no icon-only retry, no Next/Next phrase
       // switching between branches. (The band ladder's bottom rung also reads
       // "Try again", so the text query is scoped to the action row.)
       const row = within(screen.getByTestId('result-actions'));
@@ -395,7 +395,7 @@ describe('constant result-actions layout', () => {
       expect(screen.getByTestId('result-actions')).toBeOnTheScreen(),
     );
 
-    // Same two-slot row as everywhere else, it never collapses to a single
+    // Same two-slot row as everywhere else — it never collapses to a single
     // full-width "Record again" button.
     expect(slotOrder()).toEqual(['try-again-button', 'advance-button']);
     expect(

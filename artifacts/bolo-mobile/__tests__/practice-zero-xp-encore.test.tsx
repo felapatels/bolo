@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // ---------------------------------------------------------------------------
 // Zero-XP encore (owner rule, web practice.tsx parity): a phrase that earns NO
 // XP comes back at the END of the session and keeps coming back until it earns
-// something. Three zeros of ANY kind release it, owner-ruled that a nocatch
+// something. Three zeros of ANY kind release it — owner-ruled that a nocatch
 // burns a strike too, so a dead mic can never trap the learner in a session
 // that will not end.
 // ---------------------------------------------------------------------------
@@ -230,7 +230,8 @@ async function anotherGo() {
 
 describe('zero-XP encore', () => {
   test('a phrase that earned nothing comes back after the last phrase', async () => {
-    // A: nothing, then half credit (settles the debt), then nothing again, three goes, so the advance gate is open when the learner moves on and
+    // A: nothing, then half credit (settles the debt), then nothing again —
+    // three goes, so the advance gate is open when the learner moves on and
     // A leaves the phrase queued on 2 strikes. B earns XP.
     mockState.plan = [ZERO, HALF, ZERO, EARNED];
     render(<PracticeScreen />);
@@ -283,7 +284,7 @@ describe('zero-XP encore', () => {
   });
 
   test('three zeros of any kind release the phrase', async () => {
-    // The third zero is a nocatch, a system miss, which the owner ruled
+    // The third zero is a nocatch — a system miss, which the owner ruled
     // still burns a strike so the session can always end.
     mockState.plan = [ZERO, HALF, ZERO, EARNED, NOCATCH];
     render(<PracticeScreen />);
@@ -305,7 +306,7 @@ describe('zero-XP encore', () => {
     await waitFor(() => expect(screen.getByText('નમસ્તે')).toBeOnTheScreen());
     await attempt(); // A, strike 3 (nocatch)
     expect(screen.getByTestId('encore-note')).toHaveTextContent(
-      "That's three goes, we'll leave this one for next time.",
+      "That's three goes — we'll leave this one for next time.",
     );
     // Encore carry-over (Task #1040): the phrase comes back with its attempt
     // count, so the advance is live on the first take of the return visit

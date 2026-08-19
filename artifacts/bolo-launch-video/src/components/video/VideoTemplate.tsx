@@ -92,8 +92,8 @@ export default function VideoTemplate({
     const offsetSec = (SCENE_OFFSETS[baseSceneKey] ?? 0) / 1000;
     try {
       // Only re-anchor when the track has actually drifted (scene jump or a
-      // scene-lock replay). During a normal linear pass, including the
-      // recorded export, the track is already at the right spot, so we leave
+      // scene-lock replay). During a normal linear pass — including the
+      // recorded export — the track is already at the right spot, so we leave
       // it running to avoid an audible gap at each scene boundary.
       if (Math.abs(audio.currentTime - offsetSec) > AUDIO_SEEK_EPSILON_SEC) {
         audio.currentTime = offsetSec;
@@ -140,8 +140,8 @@ export default function VideoTemplate({
       </AnimatePresence>
 
       {/* Timed narration captions so the story lands with sound off. Keyed by
-          currentSceneKey so its timeline restarts on every scene change, the
-          same trigger the audio uses to re-seek, keeping the two in sync. */}
+          currentSceneKey so its timeline restarts on every scene change — the
+          same trigger the audio uses to re-seek — keeping the two in sync. */}
       <SceneCaptions key={currentSceneKey} sceneKey={currentSceneKey} />
     </div>
   );

@@ -1,11 +1,11 @@
 /**
- * HomeSocialStrip (mobile), component unit tests.
+ * HomeSocialStrip (mobile) — component unit tests.
  *
  * Pins four contracts:
- *   1. Empty state  , no friends → invite affordance + share button
- *   2. Loading state, component stays absent
- *   3. Populated state, rank rows visible, "See all" pressable
- *   4. Self outside top 4, rank-5+ learner sees their own row appended
+ *   1. Empty state   — no friends → invite affordance + share button
+ *   2. Loading state — component stays absent
+ *   3. Populated state — rank rows visible, "See all" pressable
+ *   4. Self outside top 4 — rank-5+ learner sees their own row appended
  */
 
 // The component builds a referral link from EXPO_PUBLIC_DOMAIN at module load.
@@ -169,7 +169,7 @@ beforeEach(() => {
 
 // ── tests ─────────────────────────────────────────────────────────────────────
 
-describe('HomeSocialStrip, empty state (no friends)', () => {
+describe('HomeSocialStrip — empty state (no friends)', () => {
   test('renders the invite affordance and share button', () => {
     render(<HomeSocialStrip />);
 
@@ -208,7 +208,7 @@ describe('HomeSocialStrip, empty state (no friends)', () => {
   });
 });
 
-describe('HomeSocialStrip, populated state (has friends)', () => {
+describe('HomeSocialStrip — populated state (has friends)', () => {
   test('shows a rank row for each leaderboard entry', () => {
     mockState.leaderboardData = [SELF, FRIEND_A, FRIEND_B];
     render(<HomeSocialStrip />);
@@ -238,7 +238,7 @@ describe('HomeSocialStrip, populated state (has friends)', () => {
   });
 });
 
-describe('HomeSocialStrip, self outside top 4', () => {
+describe('HomeSocialStrip — self outside top 4', () => {
   test('appends the self entry when learner is ranked 5th', () => {
     const selfRank5 = makeEntry('me', 5, 80, 'Priya', true);
     mockState.leaderboardData = [FRIEND_A, FRIEND_B, FRIEND_C, FRIEND_D, selfRank5];

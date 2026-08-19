@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
 // mascot appears.
 //
 // The shop previews an outfit ON THE LEARNER'S OWN BOLO rather than showing a
-// grid of thumbnails (owner ruling), tap a costume, see the bird wearing it,
+// grid of thumbnails (owner ruling) — tap a costume, see the bird wearing it,
 // then buy it or back out. Prices, ownership and the equipped choice all come
 // from the server; nothing here hardcodes a number.
 //
@@ -50,7 +50,7 @@ import { cn } from "@/lib/utils";
 // a marigold toran strung under it, a hand-painted signboard, and a wooden
 // counter the bird stands behind. The awning and toran are shared dressing
 // (components/india-decor.tsx) and the colours come from the fixed INDIA
-// palette (lib/india-palette.ts), a painted scene, not app chrome, so it
+// palette (lib/india-palette.ts) — a painted scene, not app chrome, so it
 // reads the same in light and dark mode. Only the scene is fixed; every
 // control below it stays on the design system.
 
@@ -62,7 +62,8 @@ export default function OutfitsPage() {
   const equippedAccessory = data?.equippedAccessory ?? null;
   const balance = data?.balance ?? 0;
 
-  // Which item the learner is trying on. Null means "nothing being tried", the bird stands in exactly what she is wearing.
+  // Which item the learner is trying on. Null means "nothing being tried" —
+  // the bird stands in exactly what she is wearing.
   //
   // TWO SLOTS: trying a hat on must not take her outfit off, so the item under
   // consideration only replaces ITS OWN slot and the other slot keeps showing
@@ -129,7 +130,8 @@ export default function OutfitsPage() {
   const rackItems = ownedOnly ? allItems.filter((o) => o.owned) : allItems;
 
   // The changing room. Every costume change draws the curtain, swaps the art
-  // behind it and opens again once the dressed bird has actually decoded, the wait is real (a first-time outfit is a fresh PNG), which is exactly
+  // behind it and opens again once the dressed bird has actually decoded —
+  // the wait is real (a first-time outfit is a fresh PNG), which is exactly
   // why an in-place swap looked like a glitch. The failsafe matters more than
   // the beat: a curtain that never reopens hides the product, so it opens on
   // load, on error, and on a timer regardless.
@@ -162,7 +164,7 @@ export default function OutfitsPage() {
         ),
       );
     };
-    // The base is the slow one, a first-time garment is a fresh PNG, and
+    // The base is the slow one — a first-time garment is a fresh PNG — and
     // the hat overlay is small and usually already cached, so the curtain
     // waits on the garment and lets the overlay ride along.
     const img = new Image();
@@ -397,7 +399,7 @@ export default function OutfitsPage() {
           pictures rather than a list of names: with one bolt of cloth a list
           read fine, but the catalog is growing and a name alone does not tell
           a learner what she is buying. Every card still carries its own two
-          doors, Try On is a free preview, Buy is the till, and the card
+          doors — Try On is a free preview, Buy is the till — and the card
           body previews on click as a convenience. */}
       <div className="mt-4 space-y-5">
         {rackItems.length === 0 ? (
@@ -452,7 +454,7 @@ export default function OutfitsPage() {
             onClick={() => setPreviewed(null)}
             className="w-full rounded-2xl border border-dashed border-card-border p-3 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
           >
-            Back out, show my Bolo as she is
+            Back out — show my Bolo as she is
           </button>
         ) : null}
       </div>

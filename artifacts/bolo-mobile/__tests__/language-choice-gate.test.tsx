@@ -1,5 +1,5 @@
 /**
- * B1 gate removal (product decision, July 30 2026), fresh accounts land
+ * B1 gate removal (product decision, July 30 2026) — fresh accounts land
  * directly on home with the seeded default language (Hindi):
  *
  *  1. A fresh account (hasChosenLanguage=false) is NOT routed to
@@ -9,7 +9,7 @@
  *
  * The /choose-language screen itself remains a normal navigable route (see
  * language-choice-step.test.tsx), and the hasChosenLanguage flag + one-PATCH
- * helper are retained, only the redirect gate is gone.
+ * helper are retained — only the redirect gate is gone.
  *
  * (The guided tour and its auto-launch were removed entirely in Task #906,
  * so this suite no longer asserts anything about tour behavior.)
@@ -130,7 +130,7 @@ const wasRoutedToStep = () =>
 
 // ─── tests ───────────────────────────────────────────────────────────────────
 
-describe('B1 gate removal, fresh accounts land on home', () => {
+describe('B1 gate removal — fresh accounts land on home', () => {
   test('a fresh account is NOT routed to the language step', async () => {
     render(<AppLayout />);
     await act(async () => {});

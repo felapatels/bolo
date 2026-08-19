@@ -17,7 +17,7 @@ const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;
 const OUT = "qa/shots/nav-bolo";
 mkdirSync(OUT, { recursive: true });
 
-// Clerk sign-in tokens are SINGLE-USE, mint one per browser context.
+// Clerk sign-in tokens are SINGLE-USE — mint one per browser context.
 async function signInToken() {
   const res = await fetch("https://api.clerk.com/v1/sign_in_tokens", {
     method: "POST",
@@ -39,7 +39,7 @@ const browser = await chromium.launch({
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
-  console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? "-" + detail : ""}`);
+  console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " — " + detail : ""}`);
   if (!ok) failures++;
 };
 
@@ -86,13 +86,13 @@ async function signedInPage(ctx) {
   await page.screenshot({ path: `${OUT}/02-app-dark.png` });
   await page.evaluate(() => document.documentElement.classList.remove("dark"));
 
-  // Another route, nav persists.
+  // Another route — nav persists.
   await page.goto(`${ORIGIN}/games`, { waitUntil: "networkidle" });
   await page.waitForSelector(NAV_LINK, { timeout: 15000 });
   check("nav Bolo present on /games", (await page.locator(`${NAV_LINK} svg`).count()) >= 1);
   await page.screenshot({ path: `${OUT}/03-games.png` });
 
-  // Chat-active state (tinted ring), nav shows on /chat below lg.
+  // Chat-active state (tinted ring) — nav shows on /chat below lg.
   await page.goto(`${ORIGIN}/chat`, { waitUntil: "networkidle" });
   await page.waitForSelector(NAV_LINK, { timeout: 15000 }).catch(() => {});
   if (await page.locator(NAV_LINK).count()) {
@@ -102,7 +102,7 @@ async function signedInPage(ctx) {
   await ctx.close();
 }
 
-// ── Context 2: reduced motion, still frame, fully visible ─────────────────
+// ── Context 2: reduced motion — still frame, fully visible ─────────────────
 {
   const ctx = await browser.newContext({
     viewport: { width: 402, height: 874 },

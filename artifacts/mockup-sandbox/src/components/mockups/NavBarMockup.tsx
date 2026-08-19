@@ -91,10 +91,10 @@ export default function NavBarMockup() {
         </button>
       </div>
 
-      {/* Phone frame, split into two layers so the parrot can overflow the tab bar top */}
+      {/* Phone frame — split into two layers so the parrot can overflow the tab bar top */}
       <div style={{ width: 375, position: 'relative', boxShadow: phoneShadow, borderRadius: 44, transition: 'box-shadow 0.3s' }}>
 
-        {/* Upper shell: status bar + screen, rounded top, flat bottom, clips content */}
+        {/* Upper shell: status bar + screen — rounded top, flat bottom, clips content */}
         <div style={{ borderRadius: '44px 44px 0 0', overflow: 'hidden', background: screenBg, transition: 'background 0.3s' }}>
           {/* Status bar */}
           <div style={{ height: 44, background: cardBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', transition: 'background 0.3s' }}>
@@ -119,7 +119,7 @@ export default function NavBarMockup() {
           </div>
         </div>
 
-        {/* Tab bar layer, separate div so overflow:visible works for the parrot bubble */}
+        {/* Tab bar layer — separate div so overflow:visible works for the parrot bubble */}
         <div style={{ background: cardBg, borderTop: `1px solid ${borderColor}`, borderRadius: '0 0 44px 44px', height: 88, display: 'flex', alignItems: 'flex-end', paddingBottom: 16, paddingLeft: 4, paddingRight: 4, position: 'relative', overflow: 'visible', transition: 'background 0.3s, border-color 0.3s' }}>
 
           {/* Left tabs: Home, Friends */}
@@ -147,12 +147,12 @@ export default function NavBarMockup() {
             );
           })}
 
-          {/* Bolo, center, elevated */}
+          {/* Bolo — center, elevated */}
           <button
             onClick={() => setActiveTab('bolo')}
             style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', background: 'none', border: 'none', cursor: 'pointer', padding: 0, position: 'relative', height: 56 }}
           >
-            {/* Circular platform, positioned to break 22px above the tab bar top */}
+            {/* Circular platform — positioned to break 22px above the tab bar top */}
             <div style={{
               position: 'absolute',
               bottom: 20,
@@ -217,11 +217,11 @@ export default function NavBarMockup() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
           {[
             ['Tab identities',       'Home (house) · Friends (users + live badge dot) · Bolo (parrot mascot) · Progress (bar-chart-2) · Profile (user)'],
-            ['Parrot elevation',     'Center bubble is 68 px circle, rises ~22 px above the tab bar top edge, visually breaks the bar to signal this is the primary action'],
+            ['Parrot elevation',     'Center bubble is 68 px circle, rises ~22 px above the tab bar top edge — visually breaks the bar to signal this is the primary action'],
             ['Image size',           '52 px mascot image inside the 68 px circle; 2.5 px teal ring always visible; shadow intensifies when tab is active'],
             ['Color tokens',         'Active: #0D9488 (primary teal) · Inactive: #6B7280 (muted gray) · Teal ring on parrot bubble in both modes'],
             ['Profile tab purpose',  'Moves account & settings out of a hamburger drawer so learners reach streak, language choice, and plan in one tap from anywhere'],
-            ['Friends badge',        'Teal dot with white numeral shows pending friend requests, mirrors live mobile behavior; clears when user visits Friends screen'],
+            ['Friends badge',        'Teal dot with white numeral shows pending friend requests — mirrors live mobile behavior; clears when user visits Friends screen'],
           ].map(([label, value]) => (
             <div key={label} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <div style={{ width: 8, height: 8, borderRadius: 4, background: TEAL, marginTop: 5, flexShrink: 0 }} />

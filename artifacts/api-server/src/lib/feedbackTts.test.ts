@@ -15,16 +15,16 @@ import {
 import { phraseTtsCacheKey } from "./ttsCache";
 import { phraseAudioIdentity } from "./ttsConfig";
 
-// Task 903, eval-time fire-and-forget feedback TTS prewarm.
+// Task 903 — eval-time fire-and-forget feedback TTS prewarm.
 //
 // 1. UNIT: feedbackSpokenText matches the exact string both clients build
-//    ([feedback, tip].filter(Boolean).join(" ")), if it drifts, the prewarm
+//    ([feedback, tip].filter(Boolean).join(" ")) — if it drifts, the prewarm
 //    lands in a cache key the client never requests and is pure waste.
 // 2. UNIT: prewarmFeedbackTts registers an in-flight pending entry, writes
 //    the ttsCache row before resolving, dedupes concurrent calls, and clears
 //    the pending map after settling (success and failure alike).
 // 3. INTEGRATION: /openai/tts joins the pending synthesis instead of
-//    starting a duplicate, the client gets the prewarmed audio bytes.
+//    starting a duplicate — the client gets the prewarmed audio bytes.
 //
 // See .agents/memory/api-server-tests.md for shared dev DB conventions.
 
@@ -124,7 +124,7 @@ test("prewarmFeedbackTts: registers pending work, caches the audio, then clears"
   assert.equal(row.audioBase64, result.audioBase64);
 
   // The pending entry is removed once settled (clearing is scheduled on the
-  // same promise, give the microtask queue one turn).
+  // same promise — give the microtask queue one turn).
   await new Promise((r) => setImmediate(r));
   assert.equal(
     getPendingFeedbackSynthesis(cacheKey),
@@ -230,6 +230,6 @@ test("/openai/tts joins an in-flight prewarm instead of synthesizing a duplicate
   assert.equal(
     json.audioBase64,
     "b64_FROM_PREWARM==",
-    "the route must serve the prewarmed audio, a fresh synthesis would return different bytes (or 502 in tests)",
+    "the route must serve the prewarmed audio — a fresh synthesis would return different bytes (or 502 in tests)",
   );
 });

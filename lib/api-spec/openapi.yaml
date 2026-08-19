@@ -313,7 +313,7 @@ paths:
       tags: [learning]
       summary: List the topic's Plus-only sentence stage for a language
       description: >-
-        The topic's final step after the phrase list, full, natural sentences
+        The topic's final step after the phrase list — full, natural sentences
         that build on the topic's vocabulary. Bolo! Plus only: callers without
         the sentences feature receive a 402 upgrade payload and no sentence
         text. Generated + cached on first request for dynamically generated
@@ -736,7 +736,7 @@ paths:
       description: >-
         Returns the authenticated learner's profile (name, email, avatar), their
         notification and learning preferences, and a compact subscription
-        summary, everything the account settings screen renders from.
+        summary — everything the account settings screen renders from.
       responses:
         "200":
           description: The caller's account
@@ -975,7 +975,7 @@ paths:
       description: >-
         Lets a learner who changes their mind come back before the pause
         window closes. Clears the pause and resumes the underlying paid tier
-        immediately, the same outcome as waiting for pauseUntil to elapse
+        immediately — the same outcome as waiting for pauseUntil to elapse
         naturally, just early. Only applies to a currently-paused
         subscription; a canceling, active, or expired subscription has
         nothing to unpause.
@@ -1042,7 +1042,7 @@ paths:
       summary: Send a friend request to the learner who owns a friend code
       description: >-
         Matches the code exactly (after uppercase/trim normalization) and creates
-        a PENDING friend request the recipient must accept, never an instant
+        a PENDING friend request the recipient must accept — never an instant
         friendship. A learner's friend code is their referral code, which is
         meant to be broadcast, so the accept step is what keeps a published code
         from becoming an open friend list. Rejection wording is deliberately
@@ -1229,7 +1229,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "429":
-          description: Rate limit reached, already sent an invite to this address recently
+          description: Rate limit reached — already sent an invite to this address recently
           content:
             application/json:
               schema:
@@ -1311,7 +1311,7 @@ paths:
       summary: Get Script Trace chapter progress
       description: >-
         Returns the caller's per-character tracing progress for the requested
-        Script Trace chapter. Plus-only, non-Plus callers receive a 402.
+        Script Trace chapter. Plus-only — non-Plus callers receive a 402.
       parameters:
         - name: chapter
           in: query
@@ -1347,7 +1347,7 @@ paths:
       description: >-
         Saves the result of a single character trace. Upserts so the best score
         is preserved and the `passed` flag is sticky (never reverted once true).
-        Plus-only, non-Plus callers receive a 402.
+        Plus-only — non-Plus callers receive a 402.
       requestBody:
         required: true
         content:
@@ -1432,7 +1432,7 @@ paths:
               $ref: "#/components/schemas/CompleteDailyQuizInput"
       responses:
         "200":
-          description: Quiz completed, score and XP awarded
+          description: Quiz completed — score and XP awarded
           content:
             application/json:
               schema:
@@ -1493,7 +1493,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "500":
-          description: DB insert failed, message was not saved
+          description: DB insert failed — message was not saved
           content:
             application/json:
               schema:
@@ -1506,7 +1506,7 @@ paths:
       summary: Flag a phrase as incorrect (Spec B2)
       description: >-
         Stores a phrase report (reason + optional note) in phrase_reports.
-        language_code and stage are derived server-side from the phrase row,
+        language_code and stage are derived server-side from the phrase row —
         never client-supplied. Fire-and-forget from the client's perspective:
         beyond the rolling-hour cap (20 stored reports per user) the server
         returns { success: true } and stores nothing. Duplicate reports for
@@ -2117,7 +2117,7 @@ paths:
       description: >-
         Records that the caller waved through a trackside signal without
         playing its quick game, so the gate-up state survives devices and
-        reinstalls. Idempotent, replaying the same signal is a silent no-op.
+        reinstalls. Idempotent — replaying the same signal is a silent no-op.
         The ref is composed server-side as languageCode:categoryId:gap-N,
         matching the first-clear ledger refId convention; a later clear
         supersedes the wave for display, so waves are never deleted.
@@ -2224,8 +2224,8 @@ paths:
       tags: [tokens]
       summary: Spend Chai on 24 hours of First Class
       description: >-
-        Buys 24 hours of First Class, a cosmetic status that renders the
-        learner's own train in gold, plus one complimentary 20-minute Express
+        Buys 24 hours of First Class — a cosmetic status that renders the
+        learner's own train in gold — plus one complimentary 20-minute Express
         boost thrown in on boarding. The caller supplies ONLY an idempotency
         key: the price, the 24 hours and the bundled boost are all server-side.
         Unlike every other Chai spend this purchase is repeatable, so a repeat
@@ -2244,7 +2244,7 @@ paths:
               $ref: "#/components/schemas/FirstClassInput"
       responses:
         "200":
-          description: Bought, or a replay of the same key, charged=false
+          description: Bought, or a replay of the same key — charged=false
           content:
             application/json:
               schema:
@@ -2265,8 +2265,8 @@ paths:
         The caller names only a lesson group id: the language, the price and the
         ledger idempotency key are all derived server-side, and the purchase is
         once-ever (a repeat call returns 200 with charged=false and deducts
-        nothing). Only stops inside the language's FIRST zone, the zone that
-        hosts the free-taste stop, are purchasable; anything beyond it answers
+        nothing). Only stops inside the language's FIRST zone — the zone that
+        hosts the free-taste stop — are purchasable; anything beyond it answers
         402 UpgradeRequired because that is the All-Access boundary. Money and
         state conflicts (insufficient_tokens, stop_already_free,
         stop_not_unlockable) answer 409, matching the other Chai spends.
@@ -2278,13 +2278,13 @@ paths:
               $ref: "#/components/schemas/UnlockStopInput"
       responses:
         "200":
-          description: Stop unlocked (or already owned, charged=false)
+          description: Stop unlocked (or already owned — charged=false)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/StopUnlockResult"
         "402":
-          description: Beyond the first zone, All-Access required
+          description: Beyond the first zone — All-Access required
           content:
             application/json:
               schema:
@@ -2305,7 +2305,7 @@ paths:
         Streak repair is the ratified exception to the delight-only Chai spine:
         it buys back a streak lost to life happening, never an advantage. A day
         is repairable only when it is a real hole with practice on the day
-        before it, and only within two local days, so at most one break is
+        before it, and only within two local days — so at most one break is
         ever on offer and repairs cannot be walked backwards through history.
       responses:
         "200":
@@ -2322,12 +2322,12 @@ paths:
       description: >-
         Takes no body. The server re-derives which day is repairable, composes
         the ledger key from it (streak:<YYYY-MM-DD>), and charges
-        STREAK_REPAIR_COST once, a replay answers 200 with charged=false and
+        STREAK_REPAIR_COST once — a replay answers 200 with charged=false and
         deducts nothing. Refusals are 409 and never 402: a broken streak is not
         a plan boundary and must never become an upsell.
       responses:
         "200":
-          description: Streak mended (or already mended, charged=false)
+          description: Streak mended (or already mended — charged=false)
           content:
             application/json:
               schema:
@@ -2350,7 +2350,7 @@ paths:
         The mobile shop's catalog. Deliberately NOT part of GET /pricing: that
         endpoint quotes live Stripe prices and fails when Stripe is
         unreachable, and the iOS shop must not depend on the web payment
-        processor. It also carries no price at all, on iOS the price shown is
+        processor. It also carries no price at all — on iOS the price shown is
         the StoreKit product's own, so no server number can drift from what
         Apple charges. The Chai amount is the same catalog the credit path
         grants from, so the shop cannot advertise a pack size the purchase does
@@ -2371,7 +2371,7 @@ paths:
         A read, expressed as a POST because the input is a list. The app can
         see which consumables Apple sold it but not whether the server credited
         them; this answers that and nothing else. It never writes, never states
-        an amount, and can never mint Chai, recovery works by asking the store
+        an amount, and can never mint Chai — recovery works by asking the store
         to re-deliver an uncredited transaction, and double-crediting is
         prevented by the ledger's refId index rather than by client
         bookkeeping. Only the caller's own ledger is consulted.
@@ -2421,7 +2421,7 @@ paths:
               $ref: "#/components/schemas/BuyOutfitInput"
       responses:
         "200":
-          description: Bought (or already owned, charged=false)
+          description: Bought (or already owned — charged=false)
           content:
             application/json:
               schema:
@@ -2446,7 +2446,7 @@ paths:
       description: >-
         Free and instant. Sends an owned outfit id to wear it, or null to
         unequip. Equipping an outfit the learner does not own answers 409
-        outfit_not_owned, ownership is never inferred from the equip call.
+        outfit_not_owned — ownership is never inferred from the equip call.
       requestBody:
         required: true
         content:
@@ -2705,7 +2705,7 @@ components:
           description: >-
             Whether the learner has EXPLICITLY chosen a learning language (the
             post-sign-up selection step, the home picker, or account settings).
-            Distinct from activeLanguage being non-null, the web client seeds
+            Distinct from activeLanguage being non-null — the web client seeds
             that with a local default on first reconcile. Optional for mobile
             back-compat; treat absence as false.
         ttsVoice:
@@ -2714,7 +2714,7 @@ components:
           description: >-
             The learner's global TTS voice preference (Plus only). When non-null
             this is an ElevenLabs premade voice ID from the VOICE_CATALOG. Null
-            means Auto, use the per-language default voice.
+            means Auto — use the per-language default voice.
       required:
         - activeLanguage
         - dailyGoal
@@ -2813,7 +2813,7 @@ components:
           nullable: true
         status:
           type: string
-          description: '"active" | "expired" | "canceled", derived from the dates/flags.'
+          description: '"active" | "expired" | "canceled" — derived from the dates/flags.'
       required:
         - productId
         - store
@@ -2954,7 +2954,7 @@ components:
           type: boolean
           description: >-
             Marks the learner as having explicitly chosen a language. Only
-            `true` is accepted, a choice can't be unmade. Sent by explicit
+            `true` is accepted — a choice can't be unmade. Sent by explicit
             picks (selection step, home picker, account settings); the
             client's first-reconcile seed write must never include it.
         ttsVoice:
@@ -3014,7 +3014,7 @@ components:
           description: >-
             True when this language's lesson content is primarily
             batch-generated (the C1 rollout set) with community review ongoing
-            clients may show a one-line "you can flag anything that looks
+            — clients may show a one-line "you can flag anything that looks
             wrong" note. Derived server-side from the committed rollout data;
             never hardcode the set client-side. Optional for mobile
             back-compat; treat absence as false.
@@ -3209,7 +3209,7 @@ components:
             True when this stop is offered for Chai: inside the language's
             first zone, not the free stop, not already bought, and holding at
             least one phrase the caller's plan can practise. Absent everywhere
-            else, a station without it can only be opened by All-Access, and
+            else — a station without it can only be opened by All-Access, and
             the server refuses a purchase attempt on one. Optional/additive.
         planLocked:
           type: boolean
@@ -3326,7 +3326,7 @@ components:
         languageCode:categoryId:gap-N). Clears are derived from the
         ledger-backed first-clear grants; a clear supersedes a wave for
         display. `rewardChai` is the single-source first-clear amount the
-        server grants (config permits per-line values later), clients must
+        server grants (config permits per-line values later) — clients must
         render it, never a hardcoded number.
       properties:
         rewardChai:
@@ -3360,7 +3360,7 @@ components:
           type: integer
           minimum: 1
           maximum: 999
-          description: Global gap number N, the signal sits after stop N.
+          description: Global gap number N — the signal sits after stop N.
       required:
         - languageCode
         - categoryId
@@ -3572,13 +3572,13 @@ components:
           type: integer
           nullable: true
           description: >-
-            Speed Round, the phraseId of the option the learner tapped.
+            Speed Round — the phraseId of the option the learner tapped.
             Correct when selectedPhraseId === phraseId.
         submittedText:
           type: string
           nullable: true
           description: >-
-            Phrase Builder, the assembled word tokens joined by a single space.
+            Phrase Builder — the assembled word tokens joined by a single space.
             Correct when it matches the phrase's nativeScript exactly.
       required:
         - phraseId
@@ -4031,7 +4031,7 @@ components:
         score:
           type: integer
           description: >-
-            Deprecated, will be removed in a future release once all client
+            Deprecated — will be removed in a future release once all client
             builds have updated. Use `band` instead. Omitted when the server
             stops sending it; clients must treat this field as optional.
         band:
@@ -4045,7 +4045,7 @@ components:
             the ladder.
         xpAwarded:
           type: integer
-          description: XP earned for this attempt. Display only, the signed token is authoritative.
+          description: XP earned for this attempt. Display only — the signed token is authoritative.
         xpBreakdown:
           type: string
           nullable: true
@@ -4674,7 +4674,7 @@ components:
 
     AcceptedFriendship:
       type: object
-      description: The result of accepting a request, a now-mutual friendship.
+      description: The result of accepting a request — a now-mutual friendship.
       properties:
         id:
           type: integer
@@ -5106,7 +5106,7 @@ components:
             price. Clients must render this number, never a hardcoded one.
         owned:
           type: boolean
-          description: Bought once, owned forever, derived from the ledger.
+          description: Bought once, owned forever — derived from the ledger.
         kind:
           type: string
           enum: [garment, accessory]
@@ -5128,7 +5128,7 @@ components:
         equipped:
           type: string
           nullable: true
-          description: The garment slot, see TokenState.equippedOutfit.
+          description: The garment slot — see TokenState.equippedOutfit.
         equippedAccessory:
           type: string
           nullable: true
@@ -5157,7 +5157,7 @@ components:
         charged:
           type: boolean
           description: >-
-            False when the learner already owned this outfit, the call is a
+            False when the learner already owned this outfit — the call is a
             no-op that deducts nothing and leaves the equipped choice alone.
         cost: { type: integer }
         equipped:
@@ -5227,7 +5227,7 @@ components:
         charged:
           type: boolean
           description: >-
-            False when this call replayed an idempotency key already spent,
+            False when this call replayed an idempotency key already spent —
             nothing was deducted and no time was added.
         cost: { type: integer }
         firstClassActiveUntil:
@@ -5305,7 +5305,7 @@ components:
         charged:
           type: boolean
           description: >-
-            False when the learner already owned this stop, the call is a
+            False when the learner already owned this stop — the call is a
             no-op that deducts nothing. Clients must not re-render a "spent"
             animation for it.
         cost: { type: integer }
@@ -5314,9 +5314,9 @@ components:
       required: [eligible, missedDay, restoresStreakDays, cost, balance]
       description: >-
         Whether the learner has a streak break worth mending, and what mending
-        it would cost. `eligible` false means there is nothing to offer, no
+        it would cost. `eligible` false means there is nothing to offer — no
         break, an absence too long to be a slip, or a break older than the
-        repair window, and clients must show nothing at all in that case.
+        repair window — and clients must show nothing at all in that case.
       properties:
         eligible: { type: boolean }
         missedDay:
@@ -5340,7 +5340,7 @@ components:
         charged:
           type: boolean
           description: >-
-            False when this day was already repaired, the call is a no-op that
+            False when this day was already repaired — the call is a no-op that
             deducts nothing.
         cost: { type: integer }
     StopUnlockOffer:

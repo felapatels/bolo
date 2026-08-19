@@ -1,11 +1,11 @@
-// Demo-day polish pass (P1 v2), screenshot matrix + presentation assertions.
+// Demo-day polish pass (P1 v2) — screenshot matrix + presentation assertions.
 //
 // Captures the spec's matrix: home (boarding-pass hero), /journey top and
 // mid-scroll (floating nav, train avatar, zone postcards), chat (allowance
 // meter area + hold-to-speak mascot), practice (mascot idle + pressed) at a
 // mobile and a desktop viewport, for the entitled state. Locked/teaser-state
 // journey rendering (grayscale postcards included) is already exercised by
-// qa/journey-map-e2e.mjs's showroom scenarios, run that harness for those.
+// qa/journey-map-e2e.mjs's showroom scenarios — run that harness for those.
 //
 // Usage (same pattern as upgrade-paywall-shots.mjs):
 //   CHROME_BIN=<chromium> E2E_USER_ID=<clerk user id> \
@@ -18,7 +18,7 @@ const ORIGIN = `https://${process.env.REPLIT_DEV_DOMAIN}`;
 const OUT = "qa/shots/demo-polish";
 mkdirSync(OUT, { recursive: true });
 
-// Clerk sign-in tokens are SINGLE-USE, mint one per browser context.
+// Clerk sign-in tokens are SINGLE-USE — mint one per browser context.
 async function signInToken() {
   const res = await fetch("https://api.clerk.com/v1/sign_in_tokens", {
     method: "POST",
@@ -40,7 +40,7 @@ const browser = await chromium.launch({
 
 let failures = 0;
 const check = (name, ok, detail = "") => {
-  console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? "-" + detail : ""}`);
+  console.log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? " — " + detail : ""}`);
   if (!ok) failures++;
 };
 
@@ -82,7 +82,7 @@ for (const vp of VIEWPORTS) {
     const nav = Array.from(document.querySelectorAll("div.fixed.bottom-0")).find(
       (d) => d.textContent.includes("Home") && d.textContent.includes("Games"),
     );
-    // Desktop hides the mobile nav (lg:hidden), that counts as fine there,
+    // Desktop hides the mobile nav (lg:hidden) — that counts as fine there,
     // whether the element is absent or merely display:none.
     if (!nav) return window.innerWidth >= 1024 ? "desktop-hidden" : null;
     if (getComputedStyle(nav).display === "none")

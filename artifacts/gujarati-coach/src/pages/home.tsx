@@ -122,12 +122,12 @@ const TEAR_OVERLAY_CLEANUP_FALLBACK_MS = 900;
 // appended to document.body: each half is cloned in place with a negative
 // animation-delay so its tear keyframes resume exactly where the in-tree
 // copy stopped, then a gust (transform/opacity-only wrapper animation)
-// sweeps each piece away over the incoming journey route, the stub first,
+// sweeps each piece away over the incoming journey route — the stub first,
 // the ticket body a --gust-stagger later, each continuing its own tear
 // trajectory (never morphing toward the journey header ticket). The overlay
 // is deliberately NOT React-owned (a portal would unmount with home), is
 // inert (pointer-events none, aria-hidden), and removes itself when the
-// final gust ends, with a timeout fallback (--tear-overlay-cleanup) for
+// final gust ends — with a timeout fallback (--tear-overlay-cleanup) for
 // environments where animation events never fire (backgrounded tab, jsdom).
 // Any failure here is swallowed by the caller: navigation always proceeds.
 function spawnTearHandoffOverlay(body: HTMLElement, stub: HTMLElement): void {
@@ -233,14 +233,14 @@ function missedDayLabel(day: string | null | undefined): string {
  * grid: a 25 Chai spend surface floating with nothing to tie it to the number
  * it was talking about. It is now a bottom sheet that opens only when the
  * learner taps DAY STREAK, so the promise and the figure it mends are the same
- * object. Built on ChaiWalletSheet's shape (components/chai-wallet.tsx), the
+ * object. Built on ChaiWalletSheet's shape (components/chai-wallet.tsx) — the
  * house pattern for a Chai spend surface, and one mobile can twin with an RN
  * Modal. Deliberately NOT a popover: mobile has no equivalent and the two
  * platforms would fork.
  *
  * It never opens by itself, it is dismissible without repairing, and when
  * there is no repairable break the cell it hangs off does not open it at all
- * (see the DAY STREAK cell below), a permanent "mend your streak" is a daily
+ * (see the DAY STREAK cell below) — a permanent "mend your streak" is a daily
  * reproach.
  */
 function StreakRepairSheet({
@@ -308,8 +308,8 @@ function StreakRepairSheet({
             <Flame className="h-5 w-5 text-amber-600 dark:text-amber-400" aria-hidden />
             Mend your streak
           </SheetTitle>
-          {/* The number here is the POST-REPAIR streak, what the learner
-              walks away with, not what they have now, and the copy says so.
+          {/* The number here is the POST-REPAIR streak — what the learner
+              walks away with, not what they have now — and the copy says so.
               It comes from the same server computation the banner climbs
               (lib/streakDays.ts), so the figure sold and the figure shown
               cannot drift. */}
@@ -331,7 +331,7 @@ function StreakRepairSheet({
                 learner holds has to be visible next to what the tap costs.
                 Same glyph + number + unit treatment as the stall band and the
                 wallet balance band. Omitted ENTIRELY when the balance is
-                unknown, a "-" or a 0 sitting beside a real spend button
+                unknown — a "-" or a 0 sitting beside a real spend button
                 would be a wrong number, not a placeholder. */}
             {balance !== undefined ? (
               <span
@@ -467,7 +467,7 @@ export default function Home() {
         ? "Unlock your next stop with All-Access"
         : "Continue your journey";
   const { isPlus, features, dailyNewLessons } = useEntitlements();
-  // placeholderData: keepPreviousData, when LanguageProvider reconciles the
+  // placeholderData: keepPreviousData — when LanguageProvider reconciles the
   // active language from /account and the key flips, the prior language's
   // data stays visible (transitional only) instead of restarting from a
   // spinner; the refetch then settles on the server's language.
@@ -487,11 +487,12 @@ export default function Home() {
     },
   );
   // A locked-language denial on the summary (402 upgrade_required with reason
-  // language_locked / teaser_exhausted) is a plan boundary, not an error, home renders the showroom/upgrade state for it, never the retry shell.
+  // language_locked / teaser_exhausted) is a plan boundary, not an error —
+  // home renders the showroom/upgrade state for it, never the retry shell.
   const summaryUpgrade = asUpgradeRequired(summaryError);
   const { data: account } = useGetAccount();
   const dailyGoal: number = account?.preferences?.learning.dailyGoal ?? 10;
-  // Toast key, bump to re-fire the milestone toast when the goal is hit.
+  // Toast key — bump to re-fire the milestone toast when the goal is hit.
   const [goalToastKey, setGoalToastKey] = useState<number | null>(null);
   const { data: categories, isLoading: loadingCats } = useListCategories(
     { lang: activeLang },
@@ -523,7 +524,7 @@ export default function Home() {
     },
   );
   const { data: badges } = useListBadges({ lang: activeLang });
-  // The most recently earned badge for the active language, surfaced on the
+  // The most recently earned badge for the active language — surfaced on the
   // home screen so learners get an immediate hit of accomplishment on open.
   const earnedBadges = (badges ?? []).filter((b) => b.earned && b.earnedAt);
   const earnedBadgeCount = earnedBadges.length;
@@ -540,12 +541,12 @@ export default function Home() {
   const showDailyMeter = !isPlus && dailyLimit !== null && dailyRemaining !== null;
   const capReached = showDailyMeter && dailyRemaining === 0;
 
-  // Daily goal celebration, fire once per calendar day when the learner hits
+  // Daily goal celebration — fire once per calendar day when the learner hits
   // their goal, mirroring the AsyncStorage guard on mobile home screen.
   useEffect(() => {
     if (!summary) return;
     // During the language flip `summary` is the PRIOR language's data held as
-    // a placeholder, never fire the goal toast off transitional data.
+    // a placeholder — never fire the goal toast off transitional data.
     if (summaryIsPlaceholder) return;
     if (summary.attemptsToday < dailyGoal) return;
     const today = new Date().toISOString().slice(0, 10);
@@ -559,7 +560,7 @@ export default function Home() {
     webHaptic('success');
   }, [summary, summaryIsPlaceholder, dailyGoal]);
 
-  // First paint blocks on categories only, the page's structural content.
+  // First paint blocks on categories only — the page's structural content.
   // The stats summary fills into a height-reserved banner when it arrives.
   // While categories load, home shows the ticket-and-card skeleton (task 902,
   // replacing the old blocking spinner); on a cold load the brand splash
@@ -573,7 +574,7 @@ export default function Home() {
     );
   }
 
-  // The "review your weakest phrases" surface, shown on desktop in the right
+  // The "review your weakest phrases" surface — shown on desktop in the right
   // rail and on mobile in the single column. Extracted so it can live in either
   // place without duplicating the branching.
   const reviewSection = (
@@ -616,7 +617,7 @@ export default function Home() {
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-bold leading-tight text-muted-foreground">Review your weakest phrases</h3>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Practice a few phrases first, the ones you find tricky will show up here to review.
+              Practice a few phrases first — the ones you find tricky will show up here to review.
             </p>
           </div>
         </div>
@@ -708,7 +709,7 @@ export default function Home() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={springs.smooth} className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             {/* One mascot, sized per breakpoint via JS instead of mounting two
-                CSS-hidden copies, a hidden mascot still animates and burns CPU. */}
+                CSS-hidden copies — a hidden mascot still animates and burns CPU. */}
             <Mascot pose="wave" size={isDesktop ? 92 : 76} className="shrink-0 -ml-1" />
             <div className="min-w-0">
               <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -756,7 +757,7 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* Stats Banner, vibrant, front-and-center progress. The banner is
+        {/* Stats Banner — vibrant, front-and-center progress. The banner is
             ALWAYS rendered: summary no longer blocks first paint, so its late
             arrival must not shift the layout below. The cell row is invisible
             (same DOM, exact height reserved) until data lands, then remounts
@@ -778,8 +779,8 @@ export default function Home() {
           >
             {/* DAY STREAK stands on its own, exactly as the Chai cell does:
                 it owns the streak-repair popup, and a button cannot be nested
-                inside an anchor. It still reaches /progress, that is what it
-                does when there is nothing to mend, so nothing is lost by
+                inside an anchor. It still reaches /progress — that is what it
+                does when there is nothing to mend — so nothing is lost by
                 pulling it out of the link (Task #1081). Total XP and Mastered
                 remain one target into /progress; Chai stays separate and opens
                 the wallet. */}
@@ -809,7 +810,7 @@ export default function Home() {
             />
             {/* Spec D2 speaking streak is still tracked server-side
                 (`speakingStreakDays`), but it no longer earns a permanent
-                tile here, the bar reads as four figures. */}
+                tile here — the bar reads as four figures. */}
             <div className="w-px self-stretch bg-white/25" />
             <Link
               href="/progress"
@@ -834,7 +835,8 @@ export default function Home() {
           </div>
 
           {/* Locked-language 402 (86ae84f restoration): an upgrade_required
-              denial (language_locked / teaser_exhausted) is NOT a failure, it means the active language isn't on the plan. Render the
+              denial (language_locked / teaser_exhausted) is NOT a failure —
+              it means the active language isn't on the plan. Render the
               showroom/upgrade state instead of the error-retry shell: retrying
               can never succeed, but the journey showroom and the paywall can. */}
           {!summary && summaryUpgrade && (
@@ -861,7 +863,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Failure feedback, without this, a failed summary fetch leaves a
+          {/* Failure feedback — without this, a failed summary fetch leaves a
               permanently EMPTY gradient shell (the reserved-height cells above
               stay invisible), which reads as "the stats banner disappeared".
               Overlays the reserved space; stale data (keepPreviousData) still
@@ -882,7 +884,7 @@ export default function Home() {
         <ChaiWalletSheet open={walletOpen} onOpenChange={setWalletOpen} />
         {/* Streak repair (Ruling 2), now anchored on the DAY STREAK cell above
             rather than floating below the banner. It opens only from that tap
-           , never on load, and closes without charging anything. */}
+            — never on load — and closes without charging anything. */}
         <StreakRepairSheet
           open={streakRepairOpen}
           onOpenChange={setStreakRepairOpen}
@@ -897,14 +899,14 @@ export default function Home() {
 
       <main className="mx-auto mt-8 w-full max-w-6xl px-6 lg:px-10">
         <div className="grid gap-8 lg:grid-cols-3">
-          {/* Left / main column, the learning surface */}
+          {/* Left / main column — the learning surface */}
           {/* min-w-0: without it the grid track honors the ticket's intrinsic
               min-content (the nowrap "Next stop: …" line + train + stub sum
               past the viewport) and the whole page scrolls horizontally on
-              phones, truncate can only clip once the track is allowed to
+              phones — truncate can only clip once the track is allowed to
               shrink below min-content. Same on the aside below. */}
           <div className="min-w-0 space-y-8 lg:col-span-2">
-            {/* P1 v2 item 2: the journey IS the home hero, a full-width
+            {/* P1 v2 item 2: the journey IS the home hero — a full-width
                 boarding pass in the line's accent, visually continuous with
                 the /journey ticket-stub header. Carries live state (next stop,
                 Stop N of M, progress at the stop) when the zone queries have
@@ -917,7 +919,7 @@ export default function Home() {
               transition={{ ...springs.gentle, delay: 0.05 }}
             >
               {/* Task #1049: the pass renders FIRST, with Chacha-ji's stall
-                  directly beneath it, home's order of intent is practise →
+                  directly beneath it — home's order of intent is practise →
                   progress → spend, so the primary "start practising" action
                   is never pushed below a spend surface. Both still enter
                   together inside this one entrance wrapper. */}
@@ -1007,7 +1009,7 @@ export default function Home() {
                         </div>
                         {/* First Class: pin the four gold palette CSS vars on a
                             display:contents wrapper so the layout box belongs to
-                            TrainEngine, not the wrapper, the vars cascade into
+                            TrainEngine, not the wrapper — the vars cascade into
                             the SVG fills while the surrounding white heading text
                             (a sibling, not a descendant) reads default tokens. */}
                         <div
@@ -1051,7 +1053,7 @@ export default function Home() {
                         20px circle at x −10..+10 relative to the card, so the
                         root's overflow-hidden clips it to a half-moon bite
                         straddling the outer left edge at the perforation end
-                       , it is NOT a floating interior dot; measured
+                        — it is NOT a floating interior dot; measured
                         STRADDLES-EDGE by qa/task879-shots.mjs). */}
                     <div className="relative" aria-hidden>
                       <div className="absolute -left-2.5 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-background" />
@@ -1085,7 +1087,7 @@ export default function Home() {
                   </div>
                   {/* tear-off stub: perforation with notches (edge bites),
                       fare-zone stamp, vertical line name. No floating punch
-                      dot, cutout circles only ever straddle card edges
+                      dot — cutout circles only ever straddle card edges
                       (approved ruling, ported from the mobile build-28 pass). */}
                   {/* the perforation hides while tearing: the dashed line is
                       replaced by the two jagged torn edges */}
@@ -1126,7 +1128,7 @@ export default function Home() {
               </motion.div>
               </div>
               {/* Chai treatment tier 1: Chacha-ji's stall, full width at its
-                  natural aspect, directly BELOW the pass (Task #1049), the
+                  natural aspect, directly BELOW the pass (Task #1049) — the
                   platform the boarding pass has just pulled away from. It
                   enters WITH the pass (inside this entrance wrapper, outside
                   the breathe wrapper above, which must keep driving the ticket
@@ -1260,7 +1262,7 @@ export default function Home() {
             <div className="hidden lg:block">{recentSection}</div>
           </div>
 
-          {/* Right rail, accomplishments & next actions */}
+          {/* Right rail — accomplishments & next actions */}
           <aside className="min-w-0 space-y-6 lg:col-span-1">
             {latestBadgeSection}
             {reviewSection}
@@ -1275,10 +1277,10 @@ export default function Home() {
             competing with the journey and practice content above. */}
         <AddToHomeScreen />
       </main>
-      {/* Daily goal celebration, mirrors the MilestoneToast on mobile home */}
+      {/* Daily goal celebration — mirrors the MilestoneToast on mobile home */}
       <MilestoneToast message="Daily goal hit! 🎉" toastKey={goalToastKey} />
       {/* Splash exit fade can outlive the skeleton by a beat when data cuts
-          the moment short, keep it mounted (portaled to body) until done. */}
+          the moment short — keep it mounted (portaled to body) until done. */}
       {splash.active && <BrandSplash exiting={splash.exiting} />}
     </div>
   );

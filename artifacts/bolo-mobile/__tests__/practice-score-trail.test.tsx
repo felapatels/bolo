@@ -185,7 +185,7 @@ async function recordAndScore() {
   );
 }
 
-describe('score trail, phrase-index alignment', () => {
+describe('score trail — phrase-index alignment', () => {
   test('dot for phrase 0 shows its score after a first attempt', async () => {
     render(<PracticeScreen />);
     await waitForRecordReady();
@@ -244,7 +244,7 @@ describe('score trail, phrase-index alignment', () => {
     // Dot 0 should now show 82, not 40
     expect(screen.queryByLabelText('Try again')).toBeNull();
     expect(screen.getByLabelText('Great')).toBeOnTheScreen();
-    // Phrase 1 dot must still be unattempted, only one scored dot total
+    // Phrase 1 dot must still be unattempted — only one scored dot total
     expect(screen.queryAllByLabelText(/^(Perfect|Great|Good|Almost|Try again|Didn't catch that)$/)).toHaveLength(1);
   });
 

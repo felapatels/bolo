@@ -3,7 +3,7 @@
 // display-only language chip the practice header does.
 //
 // Task #1046 closed the last gap: review now has its own meaning-audio
-// segment, so the menu carries all THREE items, Phrase, Feedback and
+// segment, so the menu carries all THREE items — Phrase, Feedback and
 // Meaning. The segment's own behaviour is pinned in
 // review-meaning-audio.test.tsx; this file only covers the header.
 //
@@ -236,7 +236,7 @@ describe('review header: settings gear and menu (#1045)', () => {
     expect(screen.getByTestId('lesson-settings-sheet')).toBeOnTheScreen();
   });
 
-  test('the menu carries all three labeled items, Autoplay phrase, Spoken feedback and Speak meaning', async () => {
+  test('the menu carries all three labeled items — Autoplay phrase, Spoken feedback and Speak meaning', async () => {
     await openReview();
     await openMenu();
 
@@ -247,7 +247,7 @@ describe('review header: settings gear and menu (#1045)', () => {
       'settings-item-feedback',
       'settings-item-meaning',
     ]);
-    // Owner-approved wording, verbatim (#1044), not the implementer's to
+    // Owner-approved wording, verbatim (#1044) — not the implementer's to
     // pick. Each label must be the LESSON_AUDIO_LABELS string, so practice and
     // review can never word the same control differently.
     expect(sheet.getByText(LESSON_AUDIO_LABELS.phrase)).toBeOnTheScreen();

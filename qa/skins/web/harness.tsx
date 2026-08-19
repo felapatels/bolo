@@ -1,4 +1,4 @@
-// Task #1117, web mock: train skins on leaderboard friend rows.
+// Task #1117 — web mock: train skins on leaderboard friend rows.
 //
 // MOCK AND MEASUREMENT, NOT A FEATURE. Nothing here is imported by the app,
 // nothing here ships. The file is copied into artifacts/gujarati-coach/src/
@@ -7,14 +7,14 @@
 //
 // Three rules keep the mock honest:
 //  1. The ROW MARKUP is copied verbatim from src/pages/friends.tsx
-//     (LeaderboardRow), same wrapper classes, same rank badge, same name
+//     (LeaderboardRow) — same wrapper classes, same rank badge, same name
 //     column, same XP cluster. Task #1112 is editing that file right now; the
 //     mock copies it, it never edits it.
 //  2. The TRAIN is the real component (@/components/train-svg), recoloured the
 //     way the product already recolours one instance: by pinning the four
 //     theme tokens on a wrapper, exactly as the Chai wallet's art tiles do
 //     (src/components/wallet-art.tsx). No palette prop is invented, and only
-//     the four palette roles change, the white highlights and the headlamp
+//     the four palette roles change — the white highlights and the headlamp
 //     are left alone.
 //  3. The AVATAR is replaced by a labelled placeholder block at 60px, the size
 //     Task #1112 is moving the dressed mascot to. #1112 is not merged, so its
@@ -105,7 +105,7 @@ type Treatment = "a" | "b" | "c";
  * where (if anywhere) the engine goes.
  *
  * Treatment C adds `relative overflow-hidden` to the row and `relative` to the
- * four existing children. Neither changes layout by a pixel, they only fix
+ * four existing children. Neither changes layout by a pixel — they only fix
  * paint order, so the absolutely positioned engine stays BEHIND the text
  * instead of over it. That is what shipping would have to do too.
  */
@@ -324,7 +324,7 @@ function SelfRowGrid() {
           entry={{
             key: `self-${p.id}`,
             rank: 1,
-            name: `You, ${p.id}`,
+            name: `You — ${p.id}`,
             isSelf: true,
             xp: 1840,
             palette: p.id,
@@ -340,7 +340,7 @@ function SelfRowGrid() {
 /**
  * Measurement strip. Same treatment-C row, same engine, same backgrounds, with
  * the row's own content hidden so a pixel sample of the engine reads the
- * ENGINE composited over the row background, not an XP numeral painted on top
+ * ENGINE composited over the row background — not an XP numeral painted on top
  * of it. Every livery appears on both backgrounds that matter: the indigo
  * self-row and bg-card.
  */
@@ -376,14 +376,14 @@ export default function Harness() {
       <Section
         id="reference"
         title="Reference liveries (provisional)"
-        note="Full-size engines for the naming test. Provisional swatches only, not named, not priced, not a shipping set."
+        note="Full-size engines for the naming test. Provisional swatches only — not named, not priced, not a shipping set."
       >
         <References />
       </Section>
 
       <Section
         id="treatment-a"
-        title="Treatment A, mascot and train side by side"
+        title="Treatment A — mascot and train side by side"
         note="Engine 64px wide, in flow, between the 60px mascot placeholder and the name column."
       >
         <Stack treatment="a" />
@@ -391,7 +391,7 @@ export default function Harness() {
 
       <Section
         id="treatment-b"
-        title="Treatment B, mascot only"
+        title="Treatment B — mascot only"
         note="The row as it renders today (with #1112's 60px mascot placeholder). No skin is shown at all."
       >
         <Stack treatment="b" />
@@ -399,7 +399,7 @@ export default function Harness() {
 
       <Section
         id="treatment-c"
-        title={`Treatment C, train in the row background (opacity ${BACKGROUND_TREATMENT_OPACITY})`}
+        title={`Treatment C — train in the row background (opacity ${BACKGROUND_TREATMENT_OPACITY})`}
         note="Engine 88px wide, absolutely positioned at the trailing edge, zero layout width. Row 1 is the caller's indigo self-row carrying the indigo-adjacent skin; the last row has no skin equipped."
       >
         <Stack treatment="c" />
@@ -407,7 +407,7 @@ export default function Harness() {
 
       <Section
         id="grid"
-        title="Treatment C, every livery on the indigo self-row"
+        title="Treatment C — every livery on the indigo self-row"
         note="What all four provisional liveries look like on the caller's own indigo row."
       >
         <SelfRowGrid />

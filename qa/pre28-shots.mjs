@@ -1,9 +1,9 @@
 // Pre-build-28 mobile polish screenshots, captured from the Expo WEB build
 // (react-native-web renders the same tree; no device here). Viewport 412×824 @2x.
 //
-//   1. nav-home.png    , home with the new floating pill tab bar + language tab
-//   2. picker.png      , redesigned 2-col language picker (crown = locked)
-//   3. locked-home.png , locked-language home showroom banner (Gujarati)
+//   1. nav-home.png     — home with the new floating pill tab bar + language tab
+//   2. picker.png       — redesigned 2-col language picker (crown = locked)
+//   3. locked-home.png  — locked-language home showroom banner (Gujarati)
 //
 // Usage: CHROME_BIN=$(which chromium) node qa/pre28-shots.mjs
 import { chromium } from "playwright-core";
@@ -89,10 +89,10 @@ await shot("picker");
 console.log("shot 2: picker");
 
 // ── 3. Locked-language home showroom (Gujarati is locked for this account) ──
-await page.getByLabel("Gujarati, locked, preview its journey").first().click();
+await page.getByLabel("Gujarati — locked, preview its journey").first().click();
 await page.waitForTimeout(4000); // lands on the journey showroom
 await dumpText("after-gujarati-tap");
-// The journey screen lives outside the tab navigator, go home directly.
+// The journey screen lives outside the tab navigator — go home directly.
 await page.goto(ORIGIN, { waitUntil: "networkidle", timeout: 120000 });
 await page.waitForTimeout(4000);
 await page.getByText("waiting to be unlocked").first().waitFor({ timeout: 30000 })

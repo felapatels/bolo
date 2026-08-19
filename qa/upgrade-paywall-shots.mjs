@@ -16,7 +16,7 @@ if (!USER_ID || !ORIGIN || !CLERK_SECRET) throw new Error("missing env");
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 const check = (name, ok, detail = "") =>
-  log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? `, ${detail}` : ""}`);
+  log(`${ok ? "PASS" : "FAIL"} ${name}${detail ? ` — ${detail}` : ""}`);
 
 async function mintTicket(userId) {
   const res = await fetch("https://api.clerk.com/v1/sign_in_tokens", {
@@ -69,7 +69,7 @@ async function main() {
   check("no stale $71.99", !annualBody.includes("$71.99"));
   await page.screenshot({ path: "qa/shots/upgrade-mobile-annual.png", fullPage: true });
 
-  // Desktop width, the 3-column grid where the Family card overlap lived.
+  // Desktop width — the 3-column grid where the Family card overlap lived.
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.waitForTimeout(400);
   await page.screenshot({ path: "qa/shots/upgrade-desktop-annual.png", fullPage: true });

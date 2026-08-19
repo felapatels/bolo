@@ -21,7 +21,8 @@ function errorMessage(err: unknown, fallback: string): string {
 }
 
 // The page an emailed invite link lands on (?invite=<token>), and the manual
-// join-code entry surface. On success it explains exactly what happened, including that any previous personal subscription was closed out with a
+// join-code entry surface. On success it explains exactly what happened —
+// including that any previous personal subscription was closed out with a
 // prorated credit.
 export default function FamilyJoin() {
   const search = useSearch();
@@ -70,12 +71,12 @@ export default function FamilyJoin() {
           </h1>
           <p className="mt-3 text-sm font-medium text-muted-foreground">
             {joined.active
-              ? "You now have full All-Access, every language, the complete phrase library, review, and analytics. Your progress stays completely your own."
+              ? "You now have full All-Access — every language, the complete phrase library, review, and analytics. Your progress stays completely your own."
               : "Your seat is saved. The family subscription isn't active right now, so All-Access will unlock as soon as it resumes."}
           </p>
           {joined.previousSubscriptionCanceled && (
             <p className="mt-3 rounded-xl bg-primary/5 px-3 py-2.5 text-sm font-semibold text-foreground">
-              Your own subscription has ended, you're covered by the family
+              Your own subscription has ended — you're covered by the family
               plan now, and the unused time was credited back to your card. No
               double billing.
             </p>

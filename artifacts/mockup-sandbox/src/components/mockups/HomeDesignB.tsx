@@ -192,7 +192,7 @@ function StatStrip() {
             </div>
             <span style={{ fontSize: 10, color: MUTED_TXT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{s.label}</span>
           </div>
-          {/* Divider, between items, not after last */}
+          {/* Divider — between items, not after last */}
           {i < stats.length - 1 && (
             <div style={{ width: 1, height: 32, background: DIVIDER, flexShrink: 0 }} />
           )}
@@ -322,7 +322,7 @@ function HomeScreenB() {
       paddingBottom: 80,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     }}>
-      {/* Header, more breathing room */}
+      {/* Header — more breathing room */}
       <div style={{ padding: '30px 24px 0' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
           <div>
@@ -373,7 +373,7 @@ function HomeScreenB() {
         </div>
       </div>
 
-      {/* Review row, minimal ghost */}
+      {/* Review row — minimal ghost */}
       <div style={{ padding: '16px 24px 0' }}>
         <div style={{
           border: `1.5px solid ${TEAL}`,
@@ -417,9 +417,9 @@ function HomeScreenB() {
 
 function WhatChangedB() {
   const items = [
-    { emoji: '📏', text: 'Stat banner replaced with a slim inline strip, icon + number + label on a plain white background, separated by hairline dividers. No card, no shadow.' },
-    { emoji: '💊', text: '"Start Daily Practice" becomes a centered gradient pill button, auto-width, not full-bleed. It anchors the eye without dominating the screen.' },
-    { emoji: '🧘', text: 'Header gets extra vertical breathing room; the topic grid starts higher. Overall feel is minimal, editorial, grown-up, less gamified.' },
+    { emoji: '📏', text: 'Stat banner replaced with a slim inline strip — icon + number + label on a plain white background, separated by hairline dividers. No card, no shadow.' },
+    { emoji: '💊', text: '"Start Daily Practice" becomes a centered gradient pill button — auto-width, not full-bleed. It anchors the eye without dominating the screen.' },
+    { emoji: '🧘', text: 'Header gets extra vertical breathing room; the topic grid starts higher. Overall feel is minimal, editorial, grown-up — less gamified.' },
   ];
   return (
     <div style={{
@@ -472,7 +472,7 @@ export default function HomeDesignB() {
           marginBottom: 8,
         }}>Option B · Minimal Clean</div>
         <div style={{ fontSize: 22, fontWeight: 900, color: '#1A1A2E' }}>Inline stat strip + pill CTA</div>
-        <div style={{ fontSize: 14, color: MUTED_TXT, marginTop: 4 }}>Minimal, editorial, grown-up, less gamified</div>
+        <div style={{ fontSize: 14, color: MUTED_TXT, marginTop: 4 }}>Minimal, editorial, grown-up — less gamified</div>
       </div>
 
       <PhoneFrame>

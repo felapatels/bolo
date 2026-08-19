@@ -8,12 +8,12 @@ auth, audio flow, and RevenueCat detail.
 
 pnpm monorepo. Workspaces: `artifacts/*`, `lib/*`, `lib/integrations/*`, `scripts`.
 
-- `artifacts/gujarati-coach`, web app (React, Vite, Wouter, Clerk)
-- `artifacts/bolo-mobile`, iOS/Android (Expo SDK 54, expo-router)
-- `artifacts/api-server`, API (Express 5, Drizzle, Postgres)
-- `lib/api-spec`-`openapi.yaml`; `pnpm --filter @workspace/api-spec run codegen`
+- `artifacts/gujarati-coach` — web app (React, Vite, Wouter, Clerk)
+- `artifacts/bolo-mobile` — iOS/Android (Expo SDK 54, expo-router)
+- `artifacts/api-server` — API (Express 5, Drizzle, Postgres)
+- `lib/api-spec` — `openapi.yaml`; `pnpm --filter @workspace/api-spec run codegen`
   regenerates `lib/api-client-react` (orval) and `lib/api-zod`
-- `lib/db`, Drizzle schema, migrations, seed
+- `lib/db` — Drizzle schema, migrations, seed
 - `lib/referral-link`, `lib/train-class`, `lib/integrations-openai-ai-{react,server}`
 
 Database lives in Replit; `DATABASE_URL` in `.env` points at it. Dev and prod are
@@ -21,9 +21,9 @@ out of sync. Assume nothing about parity.
 
 ## Typecheck
 
-- `pnpm run typecheck:libs`-`tsc --build` over the `lib/*` project references.
+- `pnpm run typecheck:libs` — `tsc --build` over the `lib/*` project references.
   **A fresh clone must run this first**; nothing else compiles until `lib/*` is built.
-- `pnpm run typecheck`, runs `typecheck:libs`, then each artifact's own `typecheck`.
+- `pnpm run typecheck` — runs `typecheck:libs`, then each artifact's own `typecheck`.
 
 ## Running locally
 

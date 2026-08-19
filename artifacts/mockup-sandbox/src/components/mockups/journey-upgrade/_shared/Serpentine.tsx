@@ -1,6 +1,6 @@
 // Serpentine-track journey map renderer. Stop cards, badges, lock states and
 // the parked-train current-stop marker are copied 1:1 from
-// artifacts/gujarati-coach/src/pages/journey.tsx, only the path geometry and
+// artifacts/gujarati-coach/src/pages/journey.tsx — only the path geometry and
 // the connector art (railway track) differ, per the Task 3 spec.
 import { Lock, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -100,7 +100,7 @@ function StopCard({ station, color }: { station: MockStation; color: string }) {
         {station.stage === "sentence" && (
           <span
             className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-secondary shrink-0"
-            title="First-class sentence stop, All-Access"
+            title="First-class sentence stop — All-Access"
           >
             <Sparkles className="w-2.5 h-2.5" />
             All-Access
@@ -396,7 +396,7 @@ export function SerpentineMap({ config }: { config: SerpentineConfig }) {
           className="absolute text-xs font-bold text-muted-foreground"
           style={{ left: pts[pts.length - 1]!.x + 24, right: 12, top: termY, transform: "translateY(-50%)" }}
         >
-          Terminus: Dwarka, the festival finale awaits
+          Terminus: Dwarka — the festival finale awaits
         </div>
       </div>
 

@@ -56,7 +56,7 @@ import { AppFonts } from '@/constants/fonts';
 //
 // Outfits are a Chai sink: bought once, owned forever, worn everywhere the
 // mascot appears. The shop previews a costume ON THE LEARNER'S OWN BOLO rather
-// than showing a grid of thumbnails, tap it, see the bird wearing it, then buy
+// than showing a grid of thumbnails — tap it, see the bird wearing it, then buy
 // it or back out. Prices, ownership and the equipped choice all come from the
 // server; nothing here hardcodes a number.
 //
@@ -64,7 +64,7 @@ import { AppFonts } from '@/constants/fonts';
 // marigold toran strung under it, a hand-painted signboard, and a timber
 // counter the bird stands behind. The awning and toran are shared dressing
 // (components/IndiaDecor.tsx) and the colours come from the fixed INDIA
-// palette (constants/india.ts), a painted scene, so it reads the same in
+// palette (constants/india.ts) — a painted scene, so it reads the same in
 // light and dark mode. Only the scene is fixed; every control stays on the
 // design system.
 
@@ -110,7 +110,7 @@ const HEAD_Y = 0.26;
 const HEAD_ZOOM = 2.3;
 
 /**
- * The item, worn, in a square box, the picture IS the item on Bolo, drawn
+ * The item, worn, in a square box — the picture IS the item on Bolo, drawn
  * from the same pose files the shop already ships, so a card can never
  * advertise something different from what the learner gets (and a new item
  * costs zero extra assets).
@@ -225,7 +225,7 @@ export default function OutfitsScreen() {
   const rackItems = ownedOnly ? allItems.filter((o) => o.owned) : allItems;
 
   // The changing room. Every costume change draws the curtain, swaps the art
-  // behind it and opens again, an in-place swap read as a glitch. Outfit art
+  // behind it and opens again — an in-place swap read as a glitch. Outfit art
   // is bundled here rather than fetched, so the wait is a dressing beat, not
   // a load; the timer is still cleared on unmount so the curtain cannot be
   // left shut over the product.
@@ -509,8 +509,8 @@ export default function OutfitsScreen() {
         {/* The rack. Stock is grouped by what it is and laid out as a grid of
             square pictures rather than a list of names: the catalog is growing
             and a name alone does not tell a learner what she is buying. Every
-            card still carries its own two doors, Try On is a free preview,
-            Buy Now is the till, and the card body previews on press as a
+            card still carries its own two doors — Try On is a free preview,
+            Buy Now is the till — and the card body previews on press as a
             convenience. */}
         {rackItems.length === 0 ? (
           <Text
@@ -650,7 +650,7 @@ export default function OutfitsScreen() {
             style={[styles.cancelBtn, { borderColor: colors.border }]}
           >
             <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>
-              Back out, show my Bolo as she is
+              Back out — show my Bolo as she is
             </Text>
           </Pressable>
         ) : null}

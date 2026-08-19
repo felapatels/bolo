@@ -1,4 +1,4 @@
-// Chai packs, the only way to buy Chai with money, on BOTH platforms.
+// Chai packs — the only way to buy Chai with money, on BOTH platforms.
 //
 // One catalog, two tills. Web sells the packs through Stripe Checkout; iOS
 // sells the SAME packs as StoreKit consumables through RevenueCat (Apple
@@ -8,13 +8,13 @@
 //
 // The catalog is the single source of truth for what a pack contains and what
 // it seeds in Stripe. Three rules keep it honest:
-//   1. Nothing inlines a pack amount or price at a call site, the credit path
+//   1. Nothing inlines a pack amount or price at a call site — the credit path
 //      reads `chai` off this catalog by pack id, so a tampered client cannot
 //      ask for more Chai than the pack holds.
 //   2. `cents` exists to SEED Stripe (scripts/seedStripeProducts.ts) and to
 //      keep the ladder written down in one place. What a learner is shown and
 //      charged is the live Stripe price behind the configured price id, read
-//      through the pricing catalog, never this number. On iOS the displayed
+//      through the pricing catalog — never this number. On iOS the displayed
 //      price comes from the StoreKit product itself, so `cents` never reaches
 //      the phone at all.
 //   3. `appleProductId` is the ONLY mapping between an Apple SKU and a pack.
@@ -50,7 +50,7 @@ export const CHAI_PACKS: readonly ChaiPack[] = [
     id: "small",
     chai: 25,
     cents: 199,
-    productName: "Bolo! Chai, 25",
+    productName: "Bolo! Chai — 25",
     description: "25 Chai for the Bolo! wallet.",
     appleProductId: "bolo_chai_cutting",
   },
@@ -58,7 +58,7 @@ export const CHAI_PACKS: readonly ChaiPack[] = [
     id: "medium",
     chai: 75,
     cents: 499,
-    productName: "Bolo! Chai, 75",
+    productName: "Bolo! Chai — 75",
     description: "75 Chai for the Bolo! wallet.",
     appleProductId: "bolo_chai_kulhad",
   },
@@ -66,7 +66,7 @@ export const CHAI_PACKS: readonly ChaiPack[] = [
     id: "large",
     chai: 200,
     cents: 999,
-    productName: "Bolo! Chai, 200",
+    productName: "Bolo! Chai — 200",
     description: "200 Chai for the Bolo! wallet.",
     appleProductId: "bolo_chai_kettle",
   },
@@ -90,7 +90,7 @@ export function getChaiPackByAppleProductId(
 export const CHAI_PACK_REASON = "purchase_chai_pack" as const;
 
 // Marks a Checkout Session as ours. The webhook sees every event on the
-// account, subscriptions included, so the credit path must be able to tell a
+// account — subscriptions included — so the credit path must be able to tell a
 // pack purchase apart from anything else that completes a session.
 export const CHAI_PACK_SESSION_KIND = "chai_pack";
 
@@ -103,7 +103,7 @@ export const CHAI_PACK_SESSION_KIND = "chai_pack";
  *   - the session is one of ours (`kind`), so a subscription session never
  *     credits Chai;
  *   - it is in payment mode, so a subscription session cannot credit Chai;
- *   - it is actually PAID, a session can complete unpaid (async payment
+ *   - it is actually PAID — a session can complete unpaid (async payment
  *     methods settle later, and Stripe then raises
  *     `checkout.session.async_payment_succeeded`, which the webhook handles
  *     through this same mapper), and an unpaid session must never mint Chai;
@@ -115,7 +115,7 @@ export const CHAI_PACK_SESSION_KIND = "chai_pack";
 export type ChaiPackCredit = {
   userId: string;
   pack: ChaiPack;
-  // Stripe's transaction id, the ledger refId, and the whole idempotency
+  // Stripe's transaction id — the ledger refId, and the whole idempotency
   // story. See `creditChaiPack`.
   transactionId: string;
 };
@@ -144,8 +144,8 @@ export function chaiPackCreditFromSession(
   if (!pack || !userId) return null;
 
   // The PaymentIntent id IS the transaction, and it is identical on every
-  // event Stripe raises for this payment. REQUIRING it, rather than falling
-  // back to the session id, is what keeps the credit idempotent ACROSS event
+  // event Stripe raises for this payment. REQUIRING it — rather than falling
+  // back to the session id — is what keeps the credit idempotent ACROSS event
   // types: `completed` and `async_payment_succeeded` both arrive for a slow
   // payment method, and two deliveries that disagreed about which id to use
   // would write two ledger rows and credit the pack twice. A payment-mode
@@ -206,7 +206,7 @@ export const CHAI_PACK_IOS_REASON = "purchase_chai_pack_ios" as const;
  * Prefix on the Apple transaction id in the ledger refId.
  *
  * The prefix is not what makes the row unique (the reason already separates
- * the tills), it makes the row READABLE. A support question six months from
+ * the tills) — it makes the row READABLE. A support question six months from
  * now is answered by looking at the refId and knowing instantly which store it
  * came from and what to paste into that store's dashboard.
  */
@@ -248,7 +248,7 @@ export type StoreEventLike = {
   app_user_id?: string | null;
   product_id?: string | null;
   transaction_id?: string | null;
-  // Present on consumable events; deliberately NOT used as the refId, see
+  // Present on consumable events; deliberately NOT used as the refId — see
   // `chaiPackCreditFromStoreEvent`.
   original_transaction_id?: string | null;
 };
@@ -277,7 +277,7 @@ export type ChaiPackStoreCredit = {
  * The refId is the TRANSACTION id, never the ORIGINAL transaction id. Apple
  * reuses the original id across every purchase of the same product, so keying
  * on it would make a learner's second kettle of Chai collide with their first
- * and silently credit nothing, the ledger index would eat a real payment.
+ * and silently credit nothing — the ledger index would eat a real payment.
  * The transaction id is unique per purchase, which is exactly the shape the
  * index needs: distinct purchases write distinct rows, and a replay of ONE
  * purchase carries the same id and writes nothing.
@@ -339,7 +339,7 @@ export async function creditChaiPackFromStore(
  *
  * Used by the recovery READ (`POST /chai-packs/credited`), which turns the
  * transaction ids the app can see into the keys the ledger is indexed by. The
- * app never composes this itself, it only ever sends the store's own ids.
+ * app never composes this itself — it only ever sends the store's own ids.
  */
 export function appleRefIdFor(transactionId: string): string {
   return `${APPLE_TRANSACTION_REF_PREFIX}${transactionId}`;

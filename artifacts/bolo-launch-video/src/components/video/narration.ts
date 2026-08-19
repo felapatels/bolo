@@ -4,7 +4,7 @@
 // caption strings and, opaquely, inside the generated public/audio/vo_*.mp3
 // clips. Nothing stored the script as editable source, so re-recording a line
 // with different wording would silently leave the caption out of sync with what
-// viewers actually hear, worse for accessibility than no caption at all.
+// viewers actually hear — worse for accessibility than no caption at all.
 //
 // This module is that missing source of truth. Each scene's narration is an
 // ordered list of segments (the exact words, split for caption pacing) plus a
@@ -81,7 +81,7 @@ export const SCENE_NARRATION: Record<string, SceneNarration> = {
   },
   outro: {
     segments: [
-      { text: 'Bolo, find your voice and get back to your roots.', at: 0 },
+      { text: 'Bolo — find your voice and get back to your roots.', at: 0 },
       { text: 'Download today.', at: 3400 },
     ],
     hideAt: 4700,

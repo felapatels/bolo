@@ -258,7 +258,7 @@ test("an unknown outfit cannot be bought or worn", async () => {
 
 // The shop's entire price list, written out by id. A catalog row is the only
 // place a price lives, which is what makes a typo there a real mischarge with
-// nothing to contradict it, the row would simply be believed. Pinning the
+// nothing to contradict it — the row would simply be believed. Pinning the
 // list here means changing a price is a deliberate edit in two places, and
 // changing it in one is a failing test rather than a surprise on someone's
 // balance. Every new item must appear here; the test refuses stock it has no
@@ -308,7 +308,7 @@ test("every item in the shop has its art, and both clients know about it", () =>
   // and then dresses the learner in nothing: art resolution falls back to
   // canonical Bolo by design, SILENTLY, after they have paid. That fallback is
   // right for an old client meeting a new server, and wrong as a shipping
-  // state, which is why stock is checked against art here, on the side that
+  // state — which is why stock is checked against art here, on the side that
   // decides what is for sale. The map entry is as much a part of shipping an
   // item as the file: art no map points at is art nobody wears.
   const root = new URL("../../../../", import.meta.url).pathname;
@@ -379,11 +379,11 @@ test("buying an accessory debits the accessory price", async () => {
   assert.equal(rows[0]!.delta, -ACCESSORY_COST);
 });
 
-test("the service prices the item itself, no caller can pass the wrong price", async () => {
+test("the service prices the item itself — no caller can pass the wrong price", async () => {
   // Called DIRECTLY, not over HTTP: the route is not the only way in, so the
   // price cannot live at the route. `buyOutfit` takes no cost, so there is no
   // way to pair this id with the garment's price. The tin here holds one Chai
-  // more than the accessory costs and well under a garment, an overcharge
+  // more than the accessory costs and well under a garment — an overcharge
   // does not just book the wrong number, it refuses the sale outright.
   const before = await balanceOf(DIRECT_USER_ID);
   assert.ok(before < OUTFIT_COST);
@@ -497,7 +497,7 @@ test("a hat and a garment are worn at the same time, each in its own slot", asyn
   assert.equal(offHat.json.equippedAccessory, null);
 
   // A slot-less "take it off" is the old client's payload and still means
-  // everything comes off, that is the only reason it is allowed to.
+  // everything comes off — that is the only reason it is allowed to.
   const offAll = await post("/outfits/equip", { outfitId: null }, BOTH_USER_ID);
   assert.equal(offAll.json.equipped, null);
   assert.equal(offAll.json.equippedAccessory, null);
@@ -505,7 +505,7 @@ test("a hat and a garment are worn at the same time, each in its own slot", asyn
 
 test("the catalog decides the slot, not the caller", async () => {
   // A client that names the WRONG slot must not be able to write a hat into
-  // the garment column (or vice versa), that would let it strip a garment it
+  // the garment column (or vice versa) — that would let it strip a garment it
   // was never asked to touch, and render the hat as a whole-bird costume.
   await post("/outfits/buy", { outfitId: ACCESSORY.id }, BOTH_USER_ID);
   await post("/outfits/equip", { outfitId: OUTFIT_ID }, BOTH_USER_ID);
@@ -535,7 +535,7 @@ test("an outfit nobody bought cannot be worn", async () => {
 // ── Ownership is server state, not client state ─────────────────────────────
 
 test("a fresh client with no local state still sees the outfit owned and worn", async () => {
-  // A brand-new HTTP client carrying nothing but the user id, the reinstall
+  // A brand-new HTTP client carrying nothing but the user id — the reinstall
   // case. Ownership is a ledger row, so the wardrobe looks identical.
   const res = await fetch(`${baseUrl}/outfits`, {
     headers: { "x-test-user": TEST_USER_ID },

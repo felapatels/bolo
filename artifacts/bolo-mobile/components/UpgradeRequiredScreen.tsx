@@ -15,7 +15,7 @@ import { AppFonts } from '@/constants/fonts';
  * Full-screen upgrade prompt shown when a lesson request comes back HTTP 402
  * (daily free-lesson limit reached, or a locked language). Mirrors the web
  * app's UpgradeScreen: a clear headline, the server's own denial message, and
- * a CTA into the paywall, instead of a dead-end note or a misleading retry.
+ * a CTA into the paywall — instead of a dead-end note or a misleading retry.
  */
 export function UpgradeRequiredScreen({
   title,
@@ -85,7 +85,7 @@ export function UpgradeRequiredScreen({
           />
           {showTrial && (
             <Text style={[styles.trialNote, { color: colors.mutedForeground }]}>
-              Cancel anytime, no charge if you cancel before the trial ends.
+              Cancel anytime — no charge if you cancel before the trial ends.
             </Text>
           )}
           <Pressable

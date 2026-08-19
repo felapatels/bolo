@@ -1,4 +1,4 @@
-# On-device Plus purchase test, pre-App Store checklist
+# On-device Plus purchase test — pre-App Store checklist
 
 RevenueCat is fully provisioned for this project (`projad047e4e`). All products,
 entitlements (`plus`, `one_language`), and the `default` + `one_language`
@@ -7,7 +7,7 @@ What remains is the live store test that only a real device can run.
 
 ## One-time setup left for you (dashboard + stores)
 
-1. **RevenueCat webhook**, Dashboard → Project *Bolo!* → Integrations →
+1. **RevenueCat webhook** — Dashboard → Project *Bolo!* → Integrations →
    Webhooks → **+ New**:
    - URL: `https://bolo-india.app/api/revenuecat/webhook`
    - Authorization header value: the exact `REVENUECAT_WEBHOOK_AUTH` secret you
@@ -18,7 +18,7 @@ What remains is the live store test that only a real device can run.
    - Create auto-renewable subscriptions `bolo_plus_monthly`, `bolo_plus_annual`,
      `bolo_one_language_monthly`, `bolo_one_language_annual`.
    - Set real prices. ⚠ The annual prices in RevenueCat's Test Store
-     ($59.99 / $49.99) are placeholders, confirm real annual pricing first.
+     ($59.99 / $49.99) are placeholders — confirm real annual pricing first.
    - Add a **7-day free trial** introductory offer to the two Plus products
      (the paywall reads the trial label from store metadata automatically).
    - Upload the App Store Connect API key / shared secret in RevenueCat's
@@ -28,7 +28,8 @@ What remains is the live store test that only a real device can run.
    with base plans `monthly` / `annual`, connect Play service credentials in
    RevenueCat's Android app settings (`app4e3347bece`), and add your Gmail as a
    license tester.
-5. Build & install via TestFlight / internal testing track (EAS build, sandbox purchases don't work in Expo Go; Expo Go uses the Test Store key).
+5. Build & install via TestFlight / internal testing track (EAS build —
+   sandbox purchases don't work in Expo Go; Expo Go uses the Test Store key).
 
 ## Device test script (iOS sandbox; repeat the purchase steps on Android)
 
@@ -42,7 +43,7 @@ Sandbox Account). Use a **fresh Free account** in the app.
 
 ### 2. Cancel path
 - [ ] Start a monthly purchase, then cancel on the system sheet.
-- [ ] App returns to the paywall cleanly, no error banner, no spinner stuck.
+- [ ] App returns to the paywall cleanly — no error banner, no spinner stuck.
 
 ### 3. Monthly purchase → unlock (no manual reload)
 - [ ] Buy **Plus monthly**; complete the sandbox payment sheet.
@@ -69,7 +70,7 @@ Sandbox Account). Use a **fresh Free account** in the app.
 - Purchase succeeds but app stays Free → check the webhook: RevenueCat
   dashboard → Webhooks → event log (look for non-200s), and production server
   logs. The reconcile-on-read backstop should still flip the account within one
-  entitlements fetch, if it doesn't, verify `REVENUECAT_PROJECT_ID` is set in
+  entitlements fetch — if it doesn't, verify `REVENUECAT_PROJECT_ID` is set in
   production.
 - No offerings / empty paywall → the store products aren't approved/active yet,
   or the bundle id of the build doesn't match `com.bolo.mobile`.

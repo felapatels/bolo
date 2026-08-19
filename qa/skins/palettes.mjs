@@ -1,4 +1,4 @@
-// Task #1117, PROVISIONAL train-skin palettes for the friend-row mock.
+// Task #1117 — PROVISIONAL train-skin palettes for the friend-row mock.
 //
 // These are NOT the shipping set. The owner still owes four skin names and
 // their palettes; nothing here is named, priced, or proposed. They exist only
@@ -20,7 +20,7 @@
 export const PALETTES = [
   {
     id: "P1",
-    label: "P1, copper (provisional)",
+    label: "P1 — copper (provisional)",
     chassis: "#3F2A12",
     body: "#B45309",
     trim: "#F59E0B",
@@ -28,7 +28,7 @@ export const PALETTES = [
   },
   {
     id: "P2",
-    label: "P2, forest (provisional)",
+    label: "P2 — forest (provisional)",
     chassis: "#14251A",
     body: "#15803D",
     trim: "#86EFAC",
@@ -36,7 +36,7 @@ export const PALETTES = [
   },
   {
     id: "P3",
-    label: "P3, indigo-adjacent (provisional, the hard case)",
+    label: "P3 — indigo-adjacent (provisional, the hard case)",
     chassis: "#1E1B4B",
     body: "#5B54EA",
     trim: "#818CF8",
@@ -44,7 +44,7 @@ export const PALETTES = [
   },
   {
     id: "P4",
-    label: "P4, rose (provisional)",
+    label: "P4 — rose (provisional)",
     chassis: "#3F0A1B",
     body: "#BE123C",
     trim: "#FDA4AF",
@@ -55,7 +55,7 @@ export const PALETTES = [
 /**
  * Opacity of the background-treatment engine. Chosen ONCE, before any
  * measurement, from the existing decorative-wash precedent in the Chai wallet
- * (row washes run 0x1A–0x2E, i.e. 10–18%, this sits just above them because
+ * (row washes run 0x1A–0x2E, i.e. 10–18% — this sits just above them because
  * the engine is line-art rather than a flat wash). It is a fixed input to the
  * experiment: raising it to rescue a failing reading is explicitly barred.
  */
@@ -78,7 +78,7 @@ export const ENGINE_BOX = {
  * highlights, the eye and the headlamp.
  *
  * `steam` has no entry: the steam puffs rest at opacity 0, so in a parked
- * engine, which is what a leaderboard row would render, only three of the
+ * engine — which is what a leaderboard row would render — only three of the
  * four palette roles are visible at all.
  */
 export const ROLE_SAMPLES = {

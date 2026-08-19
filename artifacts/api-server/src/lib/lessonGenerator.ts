@@ -45,7 +45,7 @@ export async function generateLesson(
       {
         role: "user",
         content: `Target language: ${req.languageName} (native name: ${req.nativeName}), written in the ${req.script} script.
-Topic: "${req.topicTitle}", ${req.topicDescription}
+Topic: "${req.topicTitle}" — ${req.topicDescription}
 
 Produce exactly ${phraseCount} entries for this topic in ${req.languageName}.
 
@@ -54,7 +54,7 @@ Reply as JSON with this exact shape:
   "titleNative": "<the topic name '${req.topicTitle}' written in ${req.languageName}'s native ${req.script} script>",
   "phrases": [
     {
-      "nativeScript": "<the word/phrase in ${req.languageName} using the ${req.script} script, never English letters>",
+      "nativeScript": "<the word/phrase in ${req.languageName} using the ${req.script} script — never English letters>",
       "romanized": "<simple English-letter pronunciation>",
       "english": "<the English meaning>",
       "difficulty": <integer 1-3, 1=easiest>
@@ -112,7 +112,7 @@ export type SentencesRequest = LessonRequest & {
   // called once per completed API call. Runtime callers omit it.
   onUsage?: (usage: { promptTokens: number; completionTokens: number }) => void;
   // Optional model override (offline C1 rollout experiment: full-size model
-  // for low-resource languages). Runtime callers omit it, default stays mini.
+  // for low-resource languages). Runtime callers omit it — default stays mini.
   model?: string;
 };
 
@@ -142,12 +142,12 @@ export async function generateSentences(
   // few-shot examples inject only for Gujarati (parameterized so other
   // languages are not polluted with Gujarati script).
   const grammarRules =
-    `- GRAMMAR: Use the natural experiencer (dative) subject construction where the language requires it, verbs of wanting, needing, liking, and feeling take the oblique/dative subject, never a nominative subject. Ensure participle gender/number agreement, and never mix dative and nominative marking in one clause.` +
+    `- GRAMMAR: Use the natural experiencer (dative) subject construction where the language requires it — verbs of wanting, needing, liking, and feeling take the oblique/dative subject, never a nominative subject. Ensure participle gender/number agreement, and never mix dative and nominative marking in one clause.` +
     (req.languageName === "Gujarati"
       ? `
-- CORRECT: મારે પાણી પીવું છે., WRONG: હું પાણી પીવું છે.
-- CORRECT: મને આ પુસ્તક ગમે છે., WRONG: હું આ પુસ્તક ગમે છે.
-- CORRECT: મને ઠંડી લાગે છે., WRONG: હું ઠંડી લાગે છે.`
+- CORRECT: મારે પાણી પીવું છે. — WRONG: હું પાણી પીવું છે.
+- CORRECT: મને આ પુસ્તક ગમે છે. — WRONG: હું આ પુસ્તક ગમે છે.
+- CORRECT: મને ઠંડી લાગે છે. — WRONG: હું ઠંડી લાગે છે.`
       : "");
 
   const completion = await openai.chat.completions.create({
@@ -158,12 +158,12 @@ export async function generateSentences(
       {
         role: "system",
         content:
-          "You create beginner language-learning content for children and new learners. You are given a target language, a topic, and the short words/phrases the learner has already studied for that topic. Produce COMPLETE, natural, everyday sentences (a full clause with a verb, not single words or fragments) that reuse and build on that vocabulary, so the learner graduates from short phrases to real spoken sentences. Keep sentences short enough for a beginner to say aloud (roughly 4-9 words), natural, kid-appropriate, and genuinely useful in daily life. Every sentence must be written correctly in the target language's own native script. Do not use emojis. Reply ONLY as JSON.",
+          "You create beginner language-learning content for children and new learners. You are given a target language, a topic, and the short words/phrases the learner has already studied for that topic. Produce COMPLETE, natural, everyday sentences (a full clause with a verb — not single words or fragments) that reuse and build on that vocabulary, so the learner graduates from short phrases to real spoken sentences. Keep sentences short enough for a beginner to say aloud (roughly 4-9 words), natural, kid-appropriate, and genuinely useful in daily life. Every sentence must be written correctly in the target language's own native script. Do not use emojis. Reply ONLY as JSON.",
       },
       {
         role: "user",
         content: `Target language: ${req.languageName} (native name: ${req.nativeName}), written in the ${req.script} script.
-Topic: "${req.topicTitle}", ${req.topicDescription}
+Topic: "${req.topicTitle}" — ${req.topicDescription}
 
 The learner has already studied this topic vocabulary (build your sentences around these words where natural):
 ${vocabList}
@@ -177,7 +177,7 @@ Reply as JSON with this exact shape:
 {
   "phrases": [
     {
-      "nativeScript": "<the complete sentence in ${req.languageName} using the ${req.script} script, never English letters>",
+      "nativeScript": "<the complete sentence in ${req.languageName} using the ${req.script} script — never English letters>",
       "romanized": "<simple English-letter pronunciation>",
       "english": "<the English meaning>",
       "difficulty": <integer 1-3, 1=easiest>
@@ -186,7 +186,7 @@ Reply as JSON with this exact shape:
 }
 
 Rules:
-- Every entry MUST be a complete, natural sentence with a verb, never a single word or fragment.
+- Every entry MUST be a complete, natural sentence with a verb — never a single word or fragment.
 - "nativeScript" MUST be in the ${req.script} script, correct for ${req.languageName}. Never leave it in English.
 ${grammarRules}
 - Order entries from easiest to hardest.
@@ -257,7 +257,7 @@ export async function generateAdditionalPhrases(
       {
         role: "user",
         content: `Target language: ${req.languageName} (native name: ${req.nativeName}), written in the ${req.script} script.
-Topic: "${req.topicTitle}", ${req.topicDescription}
+Topic: "${req.topicTitle}" — ${req.topicDescription}
 
 The learner already has these phrases (do NOT repeat or closely paraphrase any of them):
 ${avoidList}
@@ -268,7 +268,7 @@ Reply as JSON with this exact shape:
 {
   "phrases": [
     {
-      "nativeScript": "<the word/phrase in ${req.languageName} using the ${req.script} script, never English letters>",
+      "nativeScript": "<the word/phrase in ${req.languageName} using the ${req.script} script — never English letters>",
       "romanized": "<simple English-letter pronunciation>",
       "english": "<the English meaning>",
       "difficulty": <integer 1-3, 1=easiest>
@@ -278,7 +278,7 @@ Reply as JSON with this exact shape:
 
 Rules:
 - "nativeScript" MUST be in the ${req.script} script, correct for ${req.languageName}. Never leave it in English.
-- Always use ${req.languageName}'s own native word, NEVER an English word transliterated into the native script (e.g. never "नर्वस" for "nervous" or "बोर" for "bored").
+- Always use ${req.languageName}'s own native word — NEVER an English word transliterated into the native script (e.g. never "नर्वस" for "nervous" or "बोर" for "bored").
 - Every entry must be different from the existing phrases listed above.
 - Return exactly ${count} phrases.`,
       },

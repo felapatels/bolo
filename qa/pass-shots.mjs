@@ -1,9 +1,9 @@
 // Boarding-pass fixes verification (Expo WEB build, 412×824 @2x):
-//   1. pass-home-hi.png     , home hero pass, Hindi: Devanagari "बोलो रेल" in
+//   1. pass-home-hi.png      — home hero pass, Hindi: Devanagari "बोलो रेल" in
 //                              the eyebrow, stamp centered in the stub, clear
 //                              of perforation + vertical line name
-//   2. pass-journey-hi.png  , journey header ticket, same checks
-//   3. pass-home-gu.png     , home pass on Gujarati (locked showroom):
+//   2. pass-journey-hi.png   — journey header ticket, same checks
+//   3. pass-home-gu.png      — home pass on Gujarati (locked showroom):
 //                              Gujarati "બોલો રેલ" + long "GUJARAT EXPRESS"
 //                              vertical name not colliding
 //
@@ -90,12 +90,12 @@ await shot("pass-journey-hi");
 console.log("shot 2: pass-journey-hi");
 
 // ── 3. Home pass on Gujarati (locked showroom; long line name) ─────────────
-// Journey screen has no tab bar, go home directly, then switch language.
+// Journey screen has no tab bar — go home directly, then switch language.
 await page.goto(ORIGIN, { waitUntil: "networkidle", timeout: 120000 });
 await page.waitForTimeout(4000);
 await langTab.first().click();
 await page.waitForTimeout(2000);
-await page.getByLabel("Gujarati, locked, preview its journey").first().click();
+await page.getByLabel("Gujarati — locked, preview its journey").first().click();
 await page.waitForTimeout(4000); // lands on the journey showroom
 await page.goto(ORIGIN, { waitUntil: "networkidle", timeout: 120000 });
 await page.waitForTimeout(4000);

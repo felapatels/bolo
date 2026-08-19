@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`LanguageRow Nastaliq rendering, dark theme renders the full language list including the Nastaliq row 1`] = `
+exports[`LanguageRow Nastaliq rendering — dark theme renders the full language list including the Nastaliq row 1`] = `
 <View
   testID="screen"
 >
@@ -53,7 +53,7 @@ exports[`LanguageRow Nastaliq rendering, dark theme renders the full language li
           ]
         }
       >
-        Locked languages need All-Access, tap one to preview its journey.
+        Locked languages need All-Access — tap one to preview its journey.
       </Text>
     </View>
     <View
@@ -431,7 +431,7 @@ exports[`LanguageRow Nastaliq rendering, dark theme renders the full language li
           }
         >
           <View
-            accessibilityLabel="Tamil, locked, preview its journey"
+            accessibilityLabel="Tamil — locked, preview its journey"
             accessibilityRole="button"
             accessibilityState={
               {
@@ -639,7 +639,7 @@ exports[`LanguageRow Nastaliq rendering, dark theme renders the full language li
 </View>
 `;
 
-exports[`LanguageRow Nastaliq rendering, light theme renders the full language list including the Nastaliq row 1`] = `
+exports[`LanguageRow Nastaliq rendering — light theme renders the full language list including the Nastaliq row 1`] = `
 <View
   testID="screen"
 >
@@ -692,7 +692,7 @@ exports[`LanguageRow Nastaliq rendering, light theme renders the full language l
           ]
         }
       >
-        Locked languages need All-Access, tap one to preview its journey.
+        Locked languages need All-Access — tap one to preview its journey.
       </Text>
     </View>
     <View
@@ -1070,7 +1070,7 @@ exports[`LanguageRow Nastaliq rendering, light theme renders the full language l
           }
         >
           <View
-            accessibilityLabel="Tamil, locked, preview its journey"
+            accessibilityLabel="Tamil — locked, preview its journey"
             accessibilityRole="button"
             accessibilityState={
               {

@@ -82,7 +82,7 @@ const SQUAWK_ASSETS = [
 ];
 
 /**
- * Play a squawk as a fire-and-forget intro chirp, it overlaps naturally with
+ * Play a squawk as a fire-and-forget intro chirp — it overlaps naturally with
  * the start of Bolo's speech rather than blocking it.
  */
 function playSquawk(variant: 0 | 1 | 2): void {
@@ -120,7 +120,7 @@ type ChatMessage = {
   text: string;
   /** English translation of the parrot's reply, shown in small italic text below */
   englishText?: string;
-  /** True while waiting for the transcript, renders as a greyed sending bubble */
+  /** True while waiting for the transcript — renders as a greyed sending bubble */
   pending?: boolean;
   /**
    * Word-by-word typewriter reveal for parrot bubbles.
@@ -146,7 +146,7 @@ function getStatusLabel(
   if (phase === 'recording') return 'Listening… release to send';
   if (phase === 'processing') return PROCESSING_STEP_LABELS[processingStep];
   if (phase === 'playing') return 'Bolo is speaking…';
-  if (phase === 'error') return 'Something went wrong, hold to retry';
+  if (phase === 'error') return 'Something went wrong — hold to retry';
   return '';
 }
 
@@ -163,7 +163,7 @@ export default function ChatScreen() {
   const { activeLang, languages } = useLanguage();
   const { isPlus, isOneLanguage, isLanguageAllowed } = useEntitlements();
 
-  // Per-session language state, does NOT change the learner's global active language.
+  // Per-session language state — does NOT change the learner's global active language.
   const [chatLang, setChatLang] = React.useState<string>(activeLang);
 
   // Derived from the language list for display.
@@ -251,7 +251,7 @@ export default function ChatScreen() {
   // If the language is unlocked after a purchase, the screen re-evaluates.
   const [upgradeRequired, setUpgradeRequired] = React.useState(false);
 
-  // First-time hold-to-speak hint, shown until the learner presses or it
+  // First-time hold-to-speak hint — shown until the learner presses or it
   // auto-dismisses. `null` means "not yet loaded from storage".
   const [holdHintSeen, setHoldHintSeen] = React.useState<boolean | null>(null);
   const holdHintTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -295,11 +295,12 @@ export default function ChatScreen() {
   // text turns don't interfere with each other's guard state.
   const textSendingRef = React.useRef(false);
   // True once the early `replyText` SSE event has shown Bolo's bubble for the
-  // current turn, the word-reveal animation is skipped in that case, since
+  // current turn — the word-reveal animation is skipped in that case, since
   // the learner has already been reading the full text during synthesis.
   const earlyReplyShownRef = React.useRef(false);
   // Incremented each time a new turn starts. handleStopRecording captures its
-  // own snapshot and only applies the result if the counter still matches, prevents a stale older response from overwriting a newer one when the user
+  // own snapshot and only applies the result if the counter still matches —
+  // prevents a stale older response from overwriting a newer one when the user
   // cancels mid-flight and immediately starts again.
   const activeTurnRef = React.useRef(0);
 
@@ -510,7 +511,7 @@ export default function ChatScreen() {
   }, [messages]);
 
   // ── Web virtual-keyboard inset (tablet / hybrid browsers) ──────────────
-  // KeyboardAvoidingView has no effect on web, React Native Web renders it
+  // KeyboardAvoidingView has no effect on web — React Native Web renders it
   // as a plain View. Instead we track how much the visual viewport shrinks
   // when the soft keyboard opens (that delta IS the keyboard height) and
   // apply it as paddingBottom on the wrapper so the input row is never
@@ -558,7 +559,7 @@ export default function ChatScreen() {
     }
 
     if (wasPlaying) {
-      // Learner interrupted Bolo mid-reply, stop the audio immediately and
+      // Learner interrupted Bolo mid-reply — stop the audio immediately and
       // proceed straight into recording without waiting for the player to finish.
       // This handles both deliberate interruptions and stuck 'playing' states
       // (e.g. when the audio player's didJustFinish event never fires).
@@ -667,14 +668,14 @@ export default function ChatScreen() {
       return;
     }
     finishingRef.current = true;
-    // Capture this turn's ID before any await, only apply the result if the
+    // Capture this turn's ID before any await — only apply the result if the
     // ID still matches when the server responds.
     const myTurn = ++activeTurnRef.current;
     earlyReplyShownRef.current = false;
 
     // First-turn greeting: if the greeting is prefetched and no messages exist
     // yet, show and speak it immediately while the real API call runs in the
-    // background, eliminating the 2–3 s silent wait on the first press.
+    // background — eliminating the 2–3 s silent wait on the first press.
     const isFirstTurn = messages.length === 0;
     const greeting = greetingRef.current;
     const useGreeting = isFirstTurn && greeting !== null;
@@ -721,7 +722,7 @@ export default function ChatScreen() {
           pendingPlay();
           pendingPlay = null;
         } else {
-          // Real reply still in flight, show brief wait indicator.
+          // Real reply still in flight — show brief wait indicator.
           setPhase('processing');
           setProcessingStep('voicing');
         }
@@ -835,7 +836,7 @@ export default function ChatScreen() {
         if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
         setPhase('error');
         setErrorMsg(
-          "Bolo flew out for a mango lassi 🥭, check your connection and try again!",
+          "Bolo flew out for a mango lassi 🥭 — check your connection and try again!",
         );
         return;
       }
@@ -872,11 +873,11 @@ export default function ChatScreen() {
 
         setPhase('error');
         if (gHttpStatus === 502) {
-          setErrorMsg("Bolo couldn't catch that 🦜, give it another try!");
+          setErrorMsg("Bolo couldn't catch that 🦜 — give it another try!");
         } else if (gHttpStatus === 429) {
           setErrorMsg('Slow down a bit! Wait a moment and try again.');
         } else {
-          setErrorMsg('Bolo ran into a snag, hold to try again!');
+          setErrorMsg('Bolo ran into a snag — hold to try again!');
         }
         return;
       }
@@ -989,7 +990,7 @@ export default function ChatScreen() {
 
       // SSE streaming via XMLHttpRequest. React Native / Hermes has no
       // ReadableStream support (res.body.getReader() crashes), but XHR's
-      // onprogress fires as chunks land, giving us the same progressive
+      // onprogress fires as chunks land — giving us the same progressive
       // transcript-first UX that the web gets via EventSource.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let replyPayload: any = null;
@@ -1002,7 +1003,7 @@ export default function ChatScreen() {
       // Instead the server exposes each turn's voice as a progressive HTTP
       // audio stream (opt-in via `X-Audio-Stream: url`): an `audioStream`
       // SSE event carries a streamId, and AVPlayer/ExoPlayer pull the chunked
-      // audio/mpeg response natively, playback starts as soon as the first
+      // audio/mpeg response natively — playback starts as soon as the first
       // synthesized bytes land, before the full clip exists.
       const wantsStreamingVoice = Platform.OS !== 'web';
       let streamStarted = false;       // player launch attempted this turn
@@ -1019,7 +1020,7 @@ export default function ChatScreen() {
         try {
           if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
           // Squawk first (fire-and-forget intro), same ordering as the
-          // buffered path, it overlaps the start of speech.
+          // buffered path — it overlaps the start of speech.
           if (turnSquawkVariant !== null && !squawkPlayed) {
             squawkPlayed = true;
             playSquawk(turnSquawkVariant);
@@ -1050,7 +1051,7 @@ export default function ChatScreen() {
             playbackRef.current = handle;
           }
         } catch {
-          // Launch failed, the buffered clip from the `reply` event takes over.
+          // Launch failed — the buffered clip from the `reply` event takes over.
           streamFailed = true;
         }
       };
@@ -1059,7 +1060,7 @@ export default function ChatScreen() {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', chatUrl);
         xhr.setRequestHeader('Content-Type', 'application/json');
-        // Request SSE, the server streams transcript first, then reply.
+        // Request SSE — the server streams transcript first, then reply.
         xhr.setRequestHeader('Accept', 'text/event-stream');
         // Ask for a progressive per-turn audio URL (native players only).
         if (wantsStreamingVoice) xhr.setRequestHeader('X-Audio-Stream', 'url');
@@ -1088,7 +1089,7 @@ export default function ChatScreen() {
             if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
 
             if (eventType === 'transcript') {
-              // Transcript arrives ~1–2 s before the reply, fill the pending
+              // Transcript arrives ~1–2 s before the reply — fill the pending
               // bubble immediately so learners see what Bolo heard right away.
               const transcriptText = (parsed.transcript as string) ?? '';
               hapticMedium();
@@ -1102,7 +1103,7 @@ export default function ChatScreen() {
               });
               setProcessingStep('replying');
             } else if (eventType === 'transcriptEnglish') {
-              // Fires right after LLM returns, before TTS, attach the English
+              // Fires right after LLM returns, before TTS — attach the English
               // subtitle to the learner bubble immediately rather than waiting
               // for the full reply payload.
               const eng = (parsed.transcriptEnglish as string) ?? '';
@@ -1116,7 +1117,7 @@ export default function ChatScreen() {
                 );
               }
             } else if (eventType === 'replyText') {
-              // Early reply-text event, fires as soon as the LLM returns,
+              // Early reply-text event — fires as soon as the LLM returns,
               // before voice synthesis. Show Bolo's bubble immediately so
               // the learner can start reading while the audio is in flight.
               const earlyText = (parsed.replyText as string) ?? '';
@@ -1140,7 +1141,8 @@ export default function ChatScreen() {
               }
               setProcessingStep('voicing');
             } else if (eventType === 'audioStream') {
-              // Server minted a progressive audio stream for this turn, start the native player now; first chunks land ~300 ms later.
+              // Server minted a progressive audio stream for this turn —
+              // start the native player now; first chunks land ~300 ms later.
               const streamId = (parsed.streamId as string) ?? '';
               if (streamId && wantsStreamingVoice && !streamStarted) {
                 streamPromise = startStreamingVoice(streamId);
@@ -1205,7 +1207,7 @@ export default function ChatScreen() {
       if (!replyPayload) throw new Error('No reply received');
 
       // If the learner left the Chat tab while the request was in flight, drop
-      // the response silently, never start reply audio on another tab.
+      // the response silently — never start reply audio on another tab.
       if (!isFocusedRef.current) {
         finishingRef.current = false;
         return;
@@ -1230,7 +1232,7 @@ export default function ChatScreen() {
         payload.tokensEarned as number | undefined,
       );
 
-      // A newer turn started or user left, drop stale result.
+      // A newer turn started or user left — drop stale result.
       if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
 
       // The transcript bubble was already filled by the SSE transcript event.
@@ -1240,7 +1242,7 @@ export default function ChatScreen() {
       const replyWords = replyText.split(/\s+/).filter(Boolean);
       const isReducedMotion = await AccessibilityInfo.isReduceMotionEnabled();
       // Skip the typewriter reveal when the early replyText bubble was already
-      // shown, the learner has been reading the full text during synthesis.
+      // shown — the learner has been reading the full text during synthesis.
       const shouldAnimate =
         !isReducedMotion && replyWords.length > 1 && !earlyReplyShownRef.current;
 
@@ -1367,7 +1369,7 @@ export default function ChatScreen() {
         setPhase(streamFinishedPlaying ? 'idle' : 'playing');
       } else {
         if (streamHandle !== null) {
-          // Partial/untrusted stream, cut it before the buffered replay.
+          // Partial/untrusted stream — cut it before the buffered replay.
           (streamHandle as PlaybackHandle).stop();
           streamHandle = null;
           playbackRef.current = null;
@@ -1375,7 +1377,7 @@ export default function ChatScreen() {
         setPhase('playing');
         if (!streamStarted) hapticHeavy();
 
-        // Play the squawk as a fire-and-forget intro, don't await its full
+        // Play the squawk as a fire-and-forget intro — don't await its full
         // duration before starting Bolo's voice reply. The squawk acts as a
         // brief "I'm here!" chirp that overlaps naturally with the start of
         // speech, rather than a blocker adding 1–1.5 s of silence. Skipped if
@@ -1399,7 +1401,7 @@ export default function ChatScreen() {
         }
       }
     } catch (err) {
-      // A newer turn started while this one was in flight, drop this error
+      // A newer turn started while this one was in flight — drop this error
       // silently so it doesn't disrupt the active turn's UI state.
       // Only release finishingRef when this is still the active turn; releasing
       // it from a stale turn would allow a third concurrent invocation to start.
@@ -1412,7 +1414,7 @@ export default function ChatScreen() {
       // surface errors or navigate while another tab is active.
       if (!isFocusedRef.current) return;
 
-      // 402 upgrade_required, language locked or weekly cap hit
+      // 402 upgrade_required — language locked or weekly cap hit
       const upgrade = asUpgradeRequired(err);
       if (upgrade) {
         const isCap = upgrade.reason === 'weekly_cap_exceeded';
@@ -1430,16 +1432,16 @@ export default function ChatScreen() {
       setPhase('error');
       if (err instanceof ApiError) {
         if ((err as { status?: number }).status === 502) {
-          setErrorMsg("Bolo couldn't catch that 🦜, give it another try!");
+          setErrorMsg("Bolo couldn't catch that 🦜 — give it another try!");
         } else if ((err as { status?: number }).status === 429) {
           setErrorMsg('Slow down a bit! Wait a moment and try again.');
         } else {
-          setErrorMsg('Bolo ran into a snag, hold to try again!');
+          setErrorMsg('Bolo ran into a snag — hold to try again!');
         }
       } else if (err instanceof TypeError) {
-        setErrorMsg("Bolo flew out for a mango lassi 🥭, check your connection and try again!");
+        setErrorMsg("Bolo flew out for a mango lassi 🥭 — check your connection and try again!");
       } else {
-        setErrorMsg('Bolo ran into a snag, hold to try again!');
+        setErrorMsg('Bolo ran into a snag — hold to try again!');
       }
     }
   };
@@ -1469,7 +1471,7 @@ export default function ChatScreen() {
     setTextInputValue('');
     setErrorMsg(null);
 
-    // Show the learner's bubble immediately, transcript is already known.
+    // Show the learner's bubble immediately — transcript is already known.
     setPhase('processing');
     setProcessingStep('replying');
     setMessages((prev) => [
@@ -1649,14 +1651,14 @@ export default function ChatScreen() {
       setPhase('error');
       if (err instanceof ApiError) {
         if ((err as { status?: number }).status === 502) {
-          setErrorMsg("Bolo couldn't process that 🦜, give it another try!");
+          setErrorMsg("Bolo couldn't process that 🦜 — give it another try!");
         } else {
-          setErrorMsg('Bolo ran into a snag, try again!');
+          setErrorMsg('Bolo ran into a snag — try again!');
         }
       } else if (err instanceof TypeError) {
-        setErrorMsg("Bolo flew out for a mango lassi 🥭, check your connection and try again!");
+        setErrorMsg("Bolo flew out for a mango lassi 🥭 — check your connection and try again!");
       } else {
-        setErrorMsg('Bolo ran into a snag, try again!');
+        setErrorMsg('Bolo ran into a snag — try again!');
       }
     } finally {
       textSendingRef.current = false;
@@ -1755,7 +1757,7 @@ export default function ChatScreen() {
 
   return (
     <Screen>
-      {/* Header, no back button: the screen now lives in the tab bar */}
+      {/* Header — no back button: the screen now lives in the tab bar */}
       <View style={styles.header}>
         <View style={styles.headerCenter}>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>
@@ -1792,7 +1794,7 @@ export default function ChatScreen() {
         </View>
       ) : null}
 
-      {/* Language pill, tap to switch chat language */}
+      {/* Language pill — tap to switch chat language */}
       <View style={styles.langPillRow}>
         <Pressable
           onPress={() => setPickerOpen(true)}
@@ -1810,7 +1812,7 @@ export default function ChatScreen() {
         </Pressable>
       </View>
 
-      {/* Persistent bilingual hint, always visible so beginners know they
+      {/* Persistent bilingual hint — always visible so beginners know they
           don't have to speak only in the target language. Plain text (no
           entering animation) so it never shifts layout across chat states. */}
       <Text style={[styles.bilingualHint, { color: colors.mutedForeground }]}>
@@ -1834,20 +1836,20 @@ export default function ChatScreen() {
           />
           <Text style={[styles.timeLabel, { color: colors.mutedForeground }]}>
             {capExhausted
-              ? 'Weekly chat time used, upgrade for unlimited'
+              ? 'Weekly chat time used — upgrade for unlimited'
               : `⏱ ${formatSeconds(secondsRemaining!)} of 2:00 left this week`}
           </Text>
         </Animated.View>
       )}
 
-      {/* Mascot area, hold the bird to speak, release to send */}
+      {/* Mascot area — hold the bird to speak, release to send */}
       <Pressable
         onPressIn={() => {
           isPressingRef.current = true;
           // Dismiss the hold-hint on first interaction.
           dismissHoldHint();
           // 'playing' included since #890: holding Bolo himself now barges in
-          // exactly like the nav bird, handleStartRecording stops playback,
+          // exactly like the nav bird — handleStartRecording stops playback,
           // orphans the in-flight turn, and records on the same gesture.
           if (phase === 'idle' || phase === 'error' || phase === 'processing' || phase === 'playing')
             void handleStartRecording();
@@ -1856,7 +1858,7 @@ export default function ChatScreen() {
           isPressingRef.current = false;
           // If recording is already live, stop immediately.
           // If startup is still in flight (phase still idle/error), the ref
-          // flip above is enough, handleStartRecording reads it after startup
+          // flip above is enough — handleStartRecording reads it after startup
           // completes and calls handleStopRecording itself.
           if (phase === 'recording') void handleStopRecording();
         }}
@@ -1879,7 +1881,7 @@ export default function ChatScreen() {
           {getStatusLabel(phase, processingStep, messages.length > 0)}
         </Animated.Text>
 
-        {/* Instructional hint, always visible until the first exchange so
+        {/* Instructional hint — always visible until the first exchange so
             learners can't miss it, regardless of their AsyncStorage state. */}
         {messages.length === 0 && (
           <Animated.View
@@ -1893,7 +1895,7 @@ export default function ChatScreen() {
           </Animated.View>
         )}
 
-        {/* Skip button, only shown while Bolo is speaking */}
+        {/* Skip button — only shown while Bolo is speaking */}
         {phase === 'playing' && (
           <Animated.View entering={appear(appearDown(0, 200))} style={{ marginTop: 8 }}>
             <PressableScale
@@ -1913,7 +1915,7 @@ export default function ChatScreen() {
         )}
       </Pressable>
 
-      {/* Tip card, shown while Bolo is processing a reply */}
+      {/* Tip card — shown while Bolo is processing a reply */}
       {phase === 'processing' && <TipCard />}
 
       {/* KeyboardAvoidingView wraps the transcript + input row so the text
@@ -1934,7 +1936,7 @@ export default function ChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
 
-      {/* Static greeting bubble, shown before the first exchange, client-side only, never sent to the API */}
+      {/* Static greeting bubble — shown before the first exchange, client-side only, never sent to the API */}
       {messages.length === 0 && (
         <Animated.View
           entering={appear(appearUp(200, 320))}
@@ -2088,7 +2090,7 @@ export default function ChatScreen() {
         </View>
       ) : null}
 
-      {/* Text input row, keyboard fallback for when speaking isn't convenient */}
+      {/* Text input row — keyboard fallback for when speaking isn't convenient */}
       <View style={[styles.textInputRow, { borderTopColor: colors.border }]}>
         <TextInput
           value={textInputValue}
@@ -2185,7 +2187,7 @@ export default function ChatScreen() {
                           : colors.border,
                       },
                     ]}
-                    accessibilityLabel={`${lang.name}${locked ? ', locked, upgrade to unlock' : selected ? ', selected' : ''}`}
+                    accessibilityLabel={`${lang.name}${locked ? ', locked — upgrade to unlock' : selected ? ', selected' : ''}`}
                   >
                     <View style={styles.langRowLeft}>
                       <Text
@@ -2398,7 +2400,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginHorizontal: 20,
-    // Bottom-most element when shown, keep it clear of the raised parrot.
+    // Bottom-most element when shown — keep it clear of the raised parrot.
     marginBottom: RAISED_PARROT_CLEARANCE,
     padding: 12,
     borderRadius: 12,

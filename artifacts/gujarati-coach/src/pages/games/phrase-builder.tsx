@@ -454,7 +454,7 @@ function PlayingScreen({
           <div className="rounded-xl bg-red-50 px-4 py-3 dark:bg-red-950/30">
             <div className="flex items-center gap-2 text-red-700">
               <X className="h-5 w-5 shrink-0" />
-              <p className="font-semibold">Not quite, correct order:</p>
+              <p className="font-semibold">Not quite — correct order:</p>
             </div>
             <p className="mt-1 text-sm font-semibold text-red-700" style={nativeText.style} dir={nativeText.dir}>
               {phrase?.nativeScript}
@@ -482,7 +482,7 @@ function PlayingScreen({
               </button>
             ))}
             {pState.tiles.length === 0 && pState.status === "idle" && (
-              <p className="text-sm text-muted-foreground italic">All placed, check your answer!</p>
+              <p className="text-sm text-muted-foreground italic">All placed — check your answer!</p>
             )}
           </div>
         </div>

@@ -176,7 +176,7 @@ function parseSvgPath(d: string, samples = 80): Point[] {
 // ── Interior coverage scoring ─────────────────────────────────────────────────
 //
 // The old Chamfer metric compared user strokes against the *outline* of the
-// filled glyph.  Font outlines are the PERIMETER of a filled shape, a stroke
+// filled glyph.  Font outlines are the PERIMETER of a filled shape — a stroke
 // drawn naturally through the centre of a letter has high distance to the
 // outline and therefore a low (wrong) score.
 //
@@ -259,12 +259,13 @@ const COVERAGE_TOLERANCE = 9;
  * Accuracy score (0-100) = coverage × precision.
  *
  * Coverage: fraction of interior reference points reached by at least one
- * user stroke point within COVERAGE_TOLERANCE, did they draw the whole
+ * user stroke point within COVERAGE_TOLERANCE — did they draw the whole
  * character?
  *
  * Precision: fraction of the drawn ink that lands on (or near) the character,
  * judged with a looser tolerance so honest wobble along the glyph edge is not
- * punished. Long tails and scribbles outside the shape pull the score down, a sloppy trace can still pass, but it no longer reads as a perfect 100%.
+ * punished. Long tails and scribbles outside the shape pull the score down —
+ * a sloppy trace can still pass, but it no longer reads as a perfect 100%.
  */
 function scoreCoverage(strokes: Point[][], referencePoints: Point[]): number {
   if (referencePoints.length === 0 || strokes.length === 0) return 0;
@@ -342,16 +343,16 @@ const ANIM_DURATION_MS = 2200;
 // ── Pen-stroke skeleton extraction (demo animation) ───────────────────────────
 //
 // To demonstrate HOW to write a character the animation must follow pen
-// strokes down the MIDDLE of each limb, not the glyph outline (that is the
+// strokes down the MIDDLE of each limb — not the glyph outline (that is the
 // perimeter of the filled shape, so tracing it draws around the outside of
 // the letter) and not scan lines. This is the standard handwriting-animation
 // pipeline used by font-to-handwriting tools (Tegaki, MakeMeAHanzi):
 //
-//   1. Rasterize  , fill the glyph interior into a small binary bitmap
-//   2. Skeletonize, Zhang-Suen thinning erodes it to a 1-px centerline
-//   3. Trace      , walk skeleton pixels into polylines, split at junctions
-//   4. Simplify   , prune tiny spurs, Ramer-Douglas-Peucker smoothing
-//   5. Order      , top-left stroke first, then nearest-next; orient each
+//   1. Rasterize   — fill the glyph interior into a small binary bitmap
+//   2. Skeletonize — Zhang-Suen thinning erodes it to a 1-px centerline
+//   3. Trace       — walk skeleton pixels into polylines, split at junctions
+//   4. Simplify    — prune tiny spurs, Ramer-Douglas-Peucker smoothing
+//   5. Order       — top-left stroke first, then nearest-next; orient each
 //                    stroke to start where a pen naturally would
 //
 // The output is the letter's actual "pen paths", animated stroke by stroke.
@@ -361,7 +362,7 @@ const SKEL_RES = 64; // base bitmap resolution across the 0-100 glyph space
 /**
  * Bitmap resolution for a glyph: single letters thin cleanly at 64, but
  * multi-glyph words and multi-line sentences pack many small features into
- * the same 0-100 box, at 64px their limbs collapse below the thinning
+ * the same 0-100 box — at 64px their limbs collapse below the thinning
  * resolution and the skeleton (demo animation + coverage of honest traces)
  * loses chunks. Scale resolution with contour count.
  */
@@ -644,7 +645,8 @@ function extractStrokes(guideD: string): Point[][] {
   );
   // Join segments that continue smoothly through junctions into long strokes.
   // Merging runs BEFORE spur pruning: the short fragments the thinning step
-  // leaves at junction clusters are the bridges between collinear limbs, pruning them first would leave gaps too wide to merge across.
+  // leaves at junction clusters are the bridges between collinear limbs —
+  // pruning them first would leave gaps too wide to merge across.
   lines = mergeCollinearStrokes(lines);
   // Prune leftover tiny spurs (thinning artifacts) unless they are all we have
   const substantial = lines.filter((l) => polylineLength(l) >= 6);
@@ -737,7 +739,7 @@ type PenTipStroke = {
 /**
  * One demo pen stroke revealed by animating strokeDashoffset from the full
  * path length down to 0 across the stroke's [start, end] time window. A
- * single shared progress value drives every stroke ON THE UI THREAD, the
+ * single shared progress value drives every stroke ON THE UI THREAD — the
  * old rAF + setState driver re-rendered the whole SVG tree over the bridge
  * every frame, which is what made the demo choppy.
  *
@@ -961,13 +963,14 @@ function TraceCanvas({
 
   // ── Stroke-order animation state ──
   // Pen-mode (glyph guide) demos run on the UI thread via a Reanimated shared
-  // value, no per-frame React re-renders. Text-mode fallback keeps the rAF
+  // value — no per-frame React re-renders. Text-mode fallback keeps the rAF
   // driver. `penAnimVisible` mounts the animated stroke layer; `isAnimating`
   // covers both drivers for the hint text and the Watch-again button.
   const animFrameRef = useRef<number | null>(null);
   const animStartRef = useRef<number | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Text-mode reveal runs on the UI thread via a Reanimated shared value, same pattern as pen-mode, avoids per-frame React re-renders over the bridge.
+  // Text-mode reveal runs on the UI thread via a Reanimated shared value —
+  // same pattern as pen-mode, avoids per-frame React re-renders over the bridge.
   const textRevealProgress = useSharedValue(0);
   const [textAnimVisible, setTextAnimVisible] = useState(false);
   const [penAnimVisible, setPenAnimVisible] = useState(true);
@@ -1010,7 +1013,7 @@ function TraceCanvas({
   );
 
   // Animated props for the text-mode reveal: clip-path rect grows left-to-right,
-  // cursor dot tracks its leading edge, both driven on the UI thread.
+  // cursor dot tracks its leading edge — both driven on the UI thread.
   const textRevealRectProps = useAnimatedProps(() => {
     const frac = Math.min(textRevealProgress.value / 0.85, 1);
     return { width: frac * CANVAS_SIZE };
@@ -1052,7 +1055,7 @@ function TraceCanvas({
     cancelAnimation(textRevealProgress);
 
     // Longer items (words/sentences have many strokes) get proportionally more
-    // demo time, capped at 3×, so the pen isn't absurdly fast on phrases.
+    // demo time — capped at 3× — so the pen isn't absurdly fast on phrases.
     const lengthFactor = Math.min(3, Math.max(1, penStrokes.length / 6));
     const duration = (ANIM_DURATION_MS * lengthFactor) / animSpeedRef.current;
 
@@ -1122,7 +1125,7 @@ function TraceCanvas({
   const pan = Gesture.Pan()
     .runOnJS(true)
     .onBegin((e) => {
-      // Cancel any pending score debounce, user is adding another stroke.
+      // Cancel any pending score debounce — user is adding another stroke.
       if (scoreTimerRef.current !== null) {
         clearTimeout(scoreTimerRef.current);
         scoreTimerRef.current = null;
@@ -1177,7 +1180,7 @@ function TraceCanvas({
 
       // Debounce: score the full accumulated drawing 1.2 s after the last lift.
       // If the user touches down again before the timer fires, onBegin cancels
-      // it, so the score only triggers when they're genuinely done drawing.
+      // it — so the score only triggers when they're genuinely done drawing.
       // Text-mode characters use the same coverage scoring (no more auto-pass).
       scoreTimerRef.current = setTimeout(() => {
         scoreTimerRef.current = null;
@@ -1277,7 +1280,7 @@ function TraceCanvas({
             )}
 
             {/* Pen-stroke writing animation: the pen draws each centerline
-                stroke in sequence, completed strokes stay visible, the active
+                stroke in sequence — completed strokes stay visible, the active
                 stroke draws on progressively (dash reveal) with a pen dot at
                 its tip, exactly how the letter is written by hand. All strokes
                 mount once; a single shared value animates them on the UI
@@ -1309,7 +1312,7 @@ function TraceCanvas({
             )}
 
             {/* Text-mode "writing" animation: progressive left-to-right clip reveal
-                driven by a Reanimated shared value on the UI thread, same pattern
+                driven by a Reanimated shared value on the UI thread — same pattern
                 as pen-mode; avoids per-frame React re-renders that made it choppy. */}
             {textAnimVisible && !character.guide && (
               <>
@@ -1337,7 +1340,7 @@ function TraceCanvas({
                 >
                   {character.char}
                 </SvgText>
-                {/* Cursor dot at the leading edge, hidden at t=0 and after full reveal */}
+                {/* Cursor dot at the leading edge — hidden at t=0 and after full reveal */}
                 <AnimatedSvgCircle
                   cx={-100}
                   cy={CANVAS_SIZE * 0.42}
@@ -1352,7 +1355,7 @@ function TraceCanvas({
             {/* Start indicator: green dot at the approximate writing start.
                 Shown after animation ends, disappears once the user draws. */}
             {(penMode ? !penAnimVisible : !textAnimVisible) && character.guide && guidePoints.length > 0 && !drawnPath && (() => {
-              // Start of the first pen stroke, exactly where the writing demo
+              // Start of the first pen stroke — exactly where the writing demo
               // begins. Falls back to the topmost outline point for degenerate
               // glyphs (most Indian scripts begin at the top of the character).
               const startPt = penStrokes.length > 0
@@ -1386,7 +1389,7 @@ function TraceCanvas({
             ) : null}
 
             {/* Missed-region dots: amber circles on uncovered interior points
-                after a failed attempt, shows exactly where to focus next. */}
+                after a failed attempt — shows exactly where to focus next. */}
             {failedPoints && failedPoints.map((pt, i) => (
               <SvgCircle
                 key={`fp-${i}`}
@@ -1449,7 +1452,7 @@ function TraceCanvas({
         </TouchableOpacity>
       </View>
 
-      {/* Live coverage feedback, shown while drawing and after scoring */}
+      {/* Live coverage feedback — shown while drawing and after scoring */}
       {liveCoverage !== null && (
         <Text style={[styles.traceHint, {
           color: liveCoverage >= PASS_THRESHOLD ? '#22c55e' : colors.mutedForeground,
@@ -1509,7 +1512,7 @@ function TraceSession({
       }
       if (passed && character) {
         setPassedSet((prev) => new Set([...prev, character.id]));
-        // Persist via the generated API client, it uses customFetch which
+        // Persist via the generated API client — it uses customFetch which
         // applies the configured base URL and auth token automatically, so this
         // works both on web and native without a hard-coded '/api' prefix.
         recordScriptTraceProgress({
@@ -1545,7 +1548,7 @@ function TraceSession({
     const total = chapter.characters.length;
     const passed = passedSet.size;
     // Tracing has no wrong "answer", so a miss here is a character that never
-    // reached the pass mark, worded with its own labels rather than the
+    // reached the pass mark — worded with its own labels rather than the
     // "You said / Answer" framing the answer games use.
     const misses: GameMiss[] = chapter.characters
       .filter((c) => !passedSet.has(c.id))
@@ -1567,7 +1570,7 @@ function TraceSession({
         <Text style={[styles.doneTitle, { color: colors.foreground }]}>
           Chapter Complete!
         </Text>
-        {/* The tally itself opens the review, it is what a learner reaches
+        {/* The tally itself opens the review — it is what a learner reaches
             for when they want to know WHICH characters did not pass. */}
         <Pressable
           testID="script-trace-score-card"
@@ -1696,7 +1699,7 @@ function TraceSession({
               { color: result.passed ? colors.primary : '#f59e0b' },
             ]}
           >
-            {result.passed ? 'Great trace!' : 'Keep trying!'}, {result.score}%
+            {result.passed ? 'Great trace!' : 'Keep trying!'} — {result.score}%
           </Text>
           <View style={styles.resultButtons}>
             {!result.passed && (

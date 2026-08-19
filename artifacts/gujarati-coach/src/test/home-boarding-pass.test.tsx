@@ -175,7 +175,7 @@ beforeEach(() => {
 afterEach(() => {
   // Task #905 hygiene: any test that lets the tear reach navigation spawns
   // the body-level hand-off overlay, whose removal in jsdom is time-based
-  // (real ~900ms fallback timer, no animation events fire here). Purge it
+  // (real ~900ms fallback timer — no animation events fire here). Purge it
   // after EVERY test so no test inherits a stale clone: the clones duplicate
   // the pass copy, which breaks getByText in later tests. The overlay's own
   // remove() is idempotent, so the timer firing later is harmless.
@@ -339,7 +339,7 @@ describe("home boarding pass tear hand-off overlay (task 905)", () => {
   test("both halves hand off to the overlay at navigation; only the final gust animationend removes it (no orphaned node)", async () => {
     const { history } = renderHome();
     await userEvent.setup().click(getPass());
-    // Nothing is spawned at activation, the hand-off happens in the same
+    // Nothing is spawned at activation — the hand-off happens in the same
     // beat as the delayed navigation.
     expect(overlay()).toBeNull();
     await waitFor(() => expect(history).toContain("/journey"));
@@ -431,7 +431,7 @@ describe("home boarding pass tear SFX + haptic (task 978)", () => {
   });
 
   // Build 35: Sound effects off suppresses the tear SFX but never blocks navigation.
-  test("Sound effects off, playTearSfx is suppressed", async () => {
+  test("Sound effects off — playTearSfx is suppressed", async () => {
     localStorage.setItem("bolo.soundEffects", "off");
     try {
       renderHome();

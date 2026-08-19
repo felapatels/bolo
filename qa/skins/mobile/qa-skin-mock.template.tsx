@@ -1,4 +1,4 @@
-// Task #1117, MOBILE mock: train skins on leaderboard friend rows.
+// Task #1117 — MOBILE mock: train skins on leaderboard friend rows.
 //
 // MOCK AND MEASUREMENT, NOT A FEATURE. This file is a TEMPLATE. The probe
 // (qa/task1117-mobile-skin-mock.mjs) writes it into
@@ -11,11 +11,11 @@
 //
 // Three rules keep the mock honest, same as the web harness:
 //  1. The ROW MARKUP is copied verbatim from
-//     app/(app)/(tabs)/friends.tsx LeaderboardRow, same lbRow/rankBadge/
+//     app/(app)/(tabs)/friends.tsx LeaderboardRow — same lbRow/rankBadge/
 //     lbName/lbSub styles, same trailing Feather "zap". Task #1112 is editing
 //     that file right now; this copies it, it never edits it.
 //  2. The TRAIN is the real component (@/components/journey/TrainEngine),
-//     recoloured through its own existing `palette` prop, the mechanism the
+//     recoloured through its own existing `palette` prop — the mechanism the
 //     Chai wallet's art tiles already use. Only the four palette roles change:
 //     the white highlights are untouched, and the headlamp `tint` follows the
 //     row's text colour, which is what web's currentColor does.
@@ -282,7 +282,7 @@ export default function QaSkinMock() {
       <Section
         id="reference"
         title="Reference liveries (provisional)"
-        note="Full-size engines for the naming test. Provisional swatches only, not named, not priced, not a shipping set."
+        note="Full-size engines for the naming test. Provisional swatches only — not named, not priced, not a shipping set."
       >
         {DATA.palettes.map((p) => (
           <View
@@ -307,7 +307,7 @@ export default function QaSkinMock() {
 
       <Section
         id="treatment-a"
-        title="Treatment A, mascot and train side by side"
+        title="Treatment A — mascot and train side by side"
         note="Engine 64px wide, in flow, between the 60px mascot placeholder and the name column."
       >
         {DATA.rows.map((r) => (
@@ -317,7 +317,7 @@ export default function QaSkinMock() {
 
       <Section
         id="treatment-b"
-        title="Treatment B, mascot only"
+        title="Treatment B — mascot only"
         note="The row as it renders today (with #1112's 60px mascot placeholder). No skin is shown at all."
       >
         {DATA.rows.map((r) => (
@@ -327,7 +327,7 @@ export default function QaSkinMock() {
 
       <Section
         id="treatment-c"
-        title={`Treatment C, train in the row background (opacity ${DATA.opacity})`}
+        title={`Treatment C — train in the row background (opacity ${DATA.opacity})`}
         note="Engine 88px wide, absolutely positioned at the trailing edge, zero layout width. Row 1 is the caller's indigo self-row carrying the indigo-adjacent skin; the last row has no skin equipped."
       >
         {DATA.rows.map((r) => (
@@ -337,7 +337,7 @@ export default function QaSkinMock() {
 
       <Section
         id="grid"
-        title="Treatment C, every livery on the indigo self-row"
+        title="Treatment C — every livery on the indigo self-row"
         note="What all four provisional liveries look like on the caller's own indigo row."
       >
         {DATA.palettes.map((p) => (
@@ -346,7 +346,7 @@ export default function QaSkinMock() {
             entry={{
               key: `self-${p.id}`,
               rank: 1,
-              name: `You, ${p.id}`,
+              name: `You — ${p.id}`,
               isSelf: true,
               xp: 1840,
               palette: p.id,

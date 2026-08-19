@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Creates the Bolo! Plus product + monthly/annual prices in Stripe (idempotent
-//, safe to re-run). Prints the price ids to set as STRIPE_PLUS_MONTHLY_PRICE_ID
+// — safe to re-run). Prints the price ids to set as STRIPE_PLUS_MONTHLY_PRICE_ID
 // / STRIPE_PLUS_ANNUAL_PRICE_ID so /stripe/checkout can look them up.
 //
 // Usage (from repo root):
@@ -10,7 +10,7 @@ import { getUncachableStripeClient } from "../src/lib/stripeClient";
 import { CHAI_PACKS } from "../src/lib/chaiPacks";
 
 const PRODUCT_NAME = "Bolo! Plus";
-// All-Access (Plus) pricing, matches the store (mobile) pricing ladder. These
+// All-Access (Plus) pricing — matches the store (mobile) pricing ladder. These
 // constants only seed a NEW Stripe account: the live amounts are whatever the
 // configured price ids hold, and clients render those via GET /pricing. If the
 // prices are changed in Stripe, update these too so a re-run cannot create a
@@ -141,7 +141,7 @@ async function main(): Promise<void> {
     (await stripe.products.create({
       name: FAMILY_PRODUCT_NAME,
       description:
-        "Full Plus access for up to 4 people, all 22 official Indian languages, unlimited lessons, review, and analytics for the whole family.",
+        "Full Plus access for up to 4 people — all 22 official Indian languages, unlimited lessons, review, and analytics for the whole family.",
     }));
   console.log(`Product: ${familyProduct.name} (${familyProduct.id})`);
   const familyMonthlyPriceId = await findOrCreatePrice(

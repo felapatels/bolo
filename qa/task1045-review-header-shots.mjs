@@ -1,13 +1,13 @@
-// Task #1045, mobile review header parity shots (gear + two-item menu +
+// Task #1045 — mobile review header parity shots (gear + two-item menu +
 // language chip), captured from the Expo WEB build (react-native-web renders
 // the same component tree; there is no device/emulator here). Viewport
 // 412×824 @2x, the store-screenshot convention.
 //
 // Signs in as a throwaway +clerk_test user (dev instances verify with 424242),
-// then shims ONLY the review-queue response so the screen has a phrase due, 
+// then shims ONLY the review-queue response so the screen has a phrase due —
 // a fresh account has nothing scheduled. Everything else hits the real API.
-//   1. header-closed.png, review header, menu closed
-//   2. header-menu.png  , the two-item audio menu open
+//   1. header-closed.png — review header, menu closed
+//   2. header-menu.png   — the two-item audio menu open
 //
 // Usage:
 //   CHROME_BIN=$(which chromium) node qa/task1045-review-header-shots.mjs
@@ -115,4 +115,4 @@ console.log("menu open");
 await shot("header-menu");
 
 await browser.close();
-console.log("DONE, 2 shots in", OUT);
+console.log("DONE — 2 shots in", OUT);

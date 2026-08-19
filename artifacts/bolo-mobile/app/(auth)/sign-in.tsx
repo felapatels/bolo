@@ -17,14 +17,14 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
 // Sign-in supports the factors the account ACTUALLY has, discovered from
-// Clerk's sign-in response, never assumed:
+// Clerk's sign-in response — never assumed:
 // - password (accounts created with one),
 // - email code (web sign-ups are passwordless; without this path those users
 //   cannot sign in on mobile at all),
 // - Apple / Google SSO.
 //
 // July 2026 production incident: `signIn.password()` is a ONE-SHOT create
-// call in this SDK, there is no separate attemptFirstFactor. The old code
+// call in this SDK — there is no separate attemptFirstFactor. The old code
 // assumed it either throws or completes; any other status fell through with
 // no UI change and no Sentry event. Every branch below therefore ends in
 // exactly one of: navigation, a user-visible error (including the Clerk
@@ -44,7 +44,7 @@ export default function SignInScreen() {
   // Which verification path the code step is serving. 'firstFactor' is the
   // passwordless email-code sign-in (signIn.emailCode.*); 'clientTrust' is
   // the new-device second factor Clerk requires at status
-  // 'needs_client_trust' (signIn.mfa.*, a DIFFERENT API surface). The step
+  // 'needs_client_trust' (signIn.mfa.* — a DIFFERENT API surface). The step
   // UI is shared; only the send/verify calls differ.
   const [verifyPath, setVerifyPath] = React.useState<
     'firstFactor' | 'clientTrust'
@@ -59,18 +59,18 @@ export default function SignInScreen() {
   const busy = fetchStatus === 'fetching';
   const finishNavigate = () => router.replace('/(app)/(tabs)');
 
-  /** Strategy names only, factor objects carry PII (safeIdentifier). */
+  /** Strategy names only — factor objects carry PII (safeIdentifier). */
   const factorStrategies = (): string[] =>
     (signIn.supportedFirstFactors ?? []).map((f) => f.strategy);
 
-  /** Second-factor strategy names only, same PII rule as above. */
+  /** Second-factor strategy names only — same PII rule as above. */
   const secondFactorStrategies = (): string[] =>
     (signIn.supportedSecondFactors ?? []).map((f) => f.strategy);
 
   const finalizeSession = async (context: string): Promise<void> => {
     try {
       // finalize both returns { error } and can throw (e.g. no created
-      // session), cover both so neither path is silent.
+      // session) — cover both so neither path is silent.
       const { error } = await signIn.finalize({ navigate: finishNavigate });
       if (error) {
         reportAuthError(`${context}.finalize`, error);
@@ -95,11 +95,12 @@ export default function SignInScreen() {
     const status = signIn.status ?? 'unknown';
     const strategies = factorStrategies();
     if (status === 'needs_first_factor' && strategies.includes('email_code')) {
-      // Route to the factor the account actually supports, but keep the
+      // Route to the factor the account actually supports — but keep the
       // encountered status + factors observable in the on-screen copy.
       const detail = `status: ${status}; available sign-in methods: ${strategies.join(', ')}`;
       if (strategies.includes('password')) {
-        // A password-holding account should have completed in one shot, this is the production-incident shape, so it also goes to Sentry.
+        // A password-holding account should have completed in one shot —
+        // this is the production-incident shape, so it also goes to Sentry.
         reportAuthIncompleteState(context, status, strategies);
         await sendCodeAndShowStep(
           `Password sign-in did not complete (${detail}), so we emailed you a sign-in code instead.`,
@@ -108,7 +109,7 @@ export default function SignInScreen() {
       } else {
         // Genuinely passwordless account: expected routing, no Sentry noise.
         await sendCodeAndShowStep(
-          `This account signs in with an emailed code (${detail}), we just sent you one.`,
+          `This account signs in with an emailed code (${detail}) — we just sent you one.`,
           context,
         );
       }
@@ -125,7 +126,7 @@ export default function SignInScreen() {
         return;
       }
       // No email_code second factor: surface the status + offered
-      // second-factor strategies (strings only, factor objects carry PII).
+      // second-factor strategies (strings only — factor objects carry PII).
       setFormError(incompleteStateMessage(status, secondStrategies));
       reportAuthIncompleteState(context, status, secondStrategies);
       return;

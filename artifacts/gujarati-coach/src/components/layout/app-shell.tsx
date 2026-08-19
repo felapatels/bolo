@@ -27,7 +27,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="lg:pl-64">
         <PageTransition key={location}>{children}</PageTransition>
       </div>
-      {/* Mobile bottom nav, mounted ONCE here, deliberately OUTSIDE the
+      {/* Mobile bottom nav — mounted ONCE here, deliberately OUTSIDE the
           transform-animated PageTransition subtree. Any animated ancestor
           (framer transform mid-transition, or a CSS animation that fills
           forwards) becomes a containing block and turns the nav's

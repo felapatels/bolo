@@ -89,7 +89,7 @@ const webSampleCache: Record<string, string> = {};
 // Track whichever HTMLAudioElement is currently playing a sample so we can
 // stop it before starting a new one.
 let currentSampleAudio: HTMLAudioElement | null = null;
-// The state-reset fn for whichever VoiceCard is currently playing, called
+// The state-reset fn for whichever VoiceCard is currently playing — called
 // when another card starts so the previous card's icon reverts to Play.
 let currentCardReset: (() => void) | null = null;
 
@@ -102,18 +102,18 @@ export function _clearVoiceSampleCache() {
 // day). The backend accepts any integer 1–100; these are the sensible rungs.
 const DAILY_GOAL_OPTIONS = [3, 5, 10, 15, 20, 30];
 
-// Curated voice catalog, matches the server's VOICE_CATALOG exactly.
+// Curated voice catalog — matches the server's VOICE_CATALOG exactly.
 // Inlined client-side so there's no extra network request for a static list.
 const VOICE_CATALOG: VoiceCatalogEntry[] = [
   { id: "JBFqnCBsd6RMkjVDRZzb", name: "George", gender: "male", description: "Warm British male with a calm, trustworthy tone." },
-  { id: "nPczCjzI2devNBz1zQrb", name: "Brian", gender: "male", description: "Deep, resonant American male, great for North Indian languages." },
+  { id: "nPczCjzI2devNBz1zQrb", name: "Brian", gender: "male", description: "Deep, resonant American male — great for North Indian languages." },
   { id: "cjVigY5qzO86Huf0OWal", name: "Eric", gender: "male", description: "Friendly, clear American male with a bright, energetic style." },
   { id: "IKne3meq5aSn9XLyUdCD", name: "Charlie", gender: "male", description: "Upbeat, natural male voice with lively prosody." },
   { id: "pqHfZKP75CvOlQylNhV4", name: "Bill", gender: "male", description: "Strong, narrative male with commanding presence." },
   { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", gender: "male", description: "Authoritative British male with a measured, formal delivery." },
   { id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice", gender: "female", description: "Confident British female with a clear, professional tone." },
   { id: "XB0fDUnXU5powFXDhCwa", name: "Charlotte", gender: "female", description: "Warm, expressive female voice with a Swedish lilt." },
-  { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura", gender: "female", description: "Bright, upbeat female voice, cheerful and encouraging." },
+  { id: "FGY2WhTYpPnrIDTdsKH5", name: "Laura", gender: "female", description: "Bright, upbeat female voice — cheerful and encouraging." },
   { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "female", description: "Gentle, articulate American female with natural warmth." },
 ];
 
@@ -215,7 +215,7 @@ export default function Account() {
   }
 
   // Device-local preference: whether sound effects (audio cues) play during
-  // practice. Default on. Lives in localStorage, same pattern as the above.
+  // practice. Default on. Lives in localStorage — same pattern as the above.
   const [soundOn, setSoundOn] = useState(loadSoundPref);
   function handleChangeSoundOn(enabled: boolean) {
     setSoundOn(enabled);
@@ -251,7 +251,7 @@ export default function Account() {
     handleChangeSilentMode(mode === "tap");
   }
 
-  // Profile form, seeded from the account snapshot once it loads.
+  // Profile form — seeded from the account snapshot once it loads.
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
 
@@ -323,7 +323,7 @@ export default function Account() {
     // syncs across devices.
     setActiveLang(code);
     track(ANALYTICS_EVENTS.LANGUAGE_SELECTED, { language: code });
-    // An explicit pick anywhere is a choice, retire the selection step (B1).
+    // An explicit pick anywhere is a choice — retire the selection step (B1).
     void savePreferences({ activeLanguage: code, hasChosenLanguage: true });
   }
 
@@ -450,7 +450,7 @@ export default function Account() {
                 <p className="font-black text-foreground">{subPlanLabel}</p>
                 <p className="truncate text-sm text-muted-foreground">
                   {isPaused
-                    ? "Paused, resumes automatically"
+                    ? "Paused — resumes automatically"
                     : isOneLanguage && chosenLangName
                       ? `Hindi + ${chosenLangName}`
                       : "Manage plan, billing & cancellation"}
@@ -498,7 +498,7 @@ export default function Account() {
             <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
           </button>
           <p className="text-xs text-muted-foreground">
-            Changes are verified securely, we'll send a code to confirm a new email.
+            Changes are verified securely — we'll send a code to confirm a new email.
           </p>
         </Section>
 
@@ -584,7 +584,7 @@ export default function Account() {
             </Select>
           </div>
 
-          {/* Daily goal, hidden. XP already carries daily progress, and a
+          {/* Daily goal — hidden. XP already carries daily progress, and a
               configurable attempts target on top of it was a second number
               doing a similar job. The value still drives the goal celebration
               and the home ticket stat; only the control is gone. Re-enable by
@@ -661,7 +661,7 @@ export default function Account() {
             </div>
           </div>
 
-          {/* Voice picker, temporarily disabled while TTS provider is being
+          {/* Voice picker — temporarily disabled while TTS provider is being
               evaluated. Re-enable by removing the {false && …} wrapper below. */}
           {false && (
           <div className="space-y-3">
@@ -710,7 +710,7 @@ export default function Account() {
 
         </Section>
 
-        {/* Audio, every sound setting in one place. They were spread
+        {/* Audio — every sound setting in one place. They were spread
             through Learning with Theme and Timezone between them.
             Coach voice leads because the three below it are all
             narrower cases of it. */}
@@ -857,7 +857,7 @@ export default function Account() {
             <div className="min-w-0">
               <p className="font-semibold text-foreground">Contact Us</p>
               <p className="truncate text-sm text-muted-foreground">
-                Send us a message, we reply within a business day.
+                Send us a message — we reply within a business day.
               </p>
             </div>
             <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -924,7 +924,7 @@ export default function Account() {
 }
 
 /**
- * @internal Exported for tests only, the picker section in
+ * @internal Exported for tests only — the picker section in
  * Account is temporarily unmounted while the TTS provider is being evaluated,
  * but the card's preview/cache behaviour stays covered by direct render tests.
  */
@@ -962,7 +962,7 @@ export function VoiceCard({
       currentCardReset = null;
     }
 
-    // If this card was already playing the toggle-off is complete, bail.
+    // If this card was already playing the toggle-off is complete — bail.
     if (sampleState === "playing") return;
 
     setSampleState("loading");
@@ -1046,7 +1046,7 @@ export function VoiceCard({
         </div>
       </button>
 
-      {/* Play sample button, only for named voices (Auto has no specific ID) */}
+      {/* Play sample button — only for named voices (Auto has no specific ID) */}
       {id && !locked && (
         <button
           type="button"

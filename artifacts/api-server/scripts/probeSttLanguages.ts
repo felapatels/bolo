@@ -5,7 +5,7 @@
  * For each probed language, this script:
  *   1. Picks a real seeded starter phrase.
  *   2. Synthesizes "correct" speech for it through the app's own TTS route
- *      (POST /openai/tts, same audio a learner hears and imitates).
+ *      (POST /openai/tts — same audio a learner hears and imitates).
  *   3. Feeds that audio through the REAL pronunciation pipeline
  *      (POST /openai/pronunciation with phraseId), exactly as the apps do.
  *   4. Reports the raw transcript, phonetic similarity, score, and band.
@@ -68,7 +68,7 @@ async function main() {
       console.log(`${code}: MISSING language or phrase row, skipping`);
       continue;
     }
-    console.log(`\n=== ${code} (${lang.name}), phrase #${phrase.id}`);
+    console.log(`\n=== ${code} (${lang.name}) — phrase #${phrase.id}`);
     console.log(`target: ${phrase.nativeScript} | ${phrase.romanized} | "${phrase.english}"`);
 
     // 1) Synthesize "correct" speech via the app's own TTS path.
