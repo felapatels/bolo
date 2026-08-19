@@ -91,3 +91,35 @@ describe('THE SHEET STILL NAMES EARNING', () => {
     expect(src).toContain("'You need 1 more Chai'");
   });
 });
+
+describe('NOTHING ADVERTISES A COUNTER WITH NOBODY BEHIND IT', () => {
+  // CHAI_PACKS_LIVE is on, but the Chai packs are not approved by Apple yet:
+  // they were feature-flagged off, so they never rode with the 1.0 submission
+  // and cannot be approved until they accompany a version. ChaiPackShop already
+  // hides itself when Apple prices nothing, which is what makes the flag safe
+  // to leave on. Everything rendered AROUND it has to ask the same question.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const read = (...p: string[]) =>
+    fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8') as string;
+
+  it('the bazaar badge is gated on the store having stock', () => {
+    const src = read('app', '(app)', 'bazaar.tsx');
+    expect(src).toContain('useChaiPacksSellable');
+    expect(src).toContain('packsSellable ?');
+  });
+
+  it('the shortfall sheet does not open with nothing to sell', () => {
+    // A popup that names a problem and then offers no way out is worse than
+    // the plain notice it replaced.
+    const src = read('components', 'ChaiShortfallSheet.tsx');
+    expect(src).toContain('&& sellable');
+  });
+
+  it('and the hook reads the SAME source as the shop, so they cannot disagree', () => {
+    const src = read('components', 'ChaiPackShop.tsx');
+    const hook = src.slice(src.indexOf('export function useChaiPacksSellable'));
+    expect(hook).toContain('usePurchasesOptional()');
+    expect(hook).toContain('Purchases.getProducts');
+  });
+});

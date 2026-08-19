@@ -14,7 +14,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { AppFonts } from '@/constants/fonts';
 import { useColors } from '@/hooks/useColors';
-import { ChaiPackShop } from '@/components/ChaiPackShop';
+import { ChaiPackShop, useChaiPacksSellable } from '@/components/ChaiPackShop';
 import { ChaiGlyph } from '@/components/ChaiStall';
 
 export function ChaiShortfallSheet({
@@ -29,7 +29,10 @@ export function ChaiShortfallSheet({
   onClose: () => void;
 }) {
   const colors = useColors();
-  const open = needed !== null && needed > 0;
+  const sellable = useChaiPacksSellable();
+  // With nothing on sale the sheet has no way out to offer, and would be a
+  // popup that states a problem and then shrugs. The plain notice is better.
+  const open = needed !== null && needed > 0 && sellable;
 
   return (
     <Modal

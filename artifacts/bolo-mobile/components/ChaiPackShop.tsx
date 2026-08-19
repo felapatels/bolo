@@ -64,6 +64,48 @@ type PackTile = {
  * price a single pack — a shop with no prices is worse than no shop, and no
  * money string is ever invented client-side.
  */
+/**
+ * Whether the store can actually sell anything right now.
+ *
+ * The shop hides itself when Apple prices nothing, which is correct and is what
+ * makes CHAI_PACKS_LIVE safe to leave on before the products are approved. But
+ * anything rendered AROUND the shop has to ask the same question, or it ends up
+ * advertising a counter with nobody behind it: a badge saying "top up to keep
+ * shopping" above an empty space, or a shortfall sheet offering packs that are
+ * not there.
+ *
+ * Added 2026-08-19, the same day the bazaar grew both of those.
+ */
+export function useChaiPacksSellable(live = CHAI_PACKS_LIVE): boolean {
+  const purchases = usePurchasesOptional();
+  // Same source and same stable identity as the component below, so the hook
+  // and the shop can never disagree about whether there is anything to sell.
+  const chaiPacks = purchases?.chaiPacks;
+  const [sellable, setSellable] = useState(false);
+  useEffect(() => {
+    if (!live || !chaiPacks || chaiPacks.length === 0) {
+      setSellable(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const products = await Purchases.getProducts(
+          chaiPacks.map((pack: { appleProductId: string }) => pack.appleProductId),
+        );
+        if (!cancelled) setSellable(products.length > 0);
+      } catch {
+        // An unreachable store sells nothing, which is the safe reading.
+        if (!cancelled) setSellable(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [live, chaiPacks]);
+  return sellable;
+}
+
 export function ChaiPackShop({ live = CHAI_PACKS_LIVE }: { live?: boolean }) {
   const colors = useColors();
   const queryClient = useQueryClient();
