@@ -138,10 +138,14 @@ command runs.
   `revenuecatClient.ts` now calls v1 directly with `REVENUECAT_SECRET_API_KEY`,
   which is one fewer thread tying this codebase to Replit. The connector remains
   as a fallback and still 401s where no key is set.
-- The API logger is plain pino with **no Sentry transport**, so `logger.error`
-  reaches stdout and nothing else. A money-losing error is invisible unless
-  somebody opens Replit's deployment logs. This is why the Chai pack failure
-  below went unnoticed for as long as it did.
+- ~~The API logger has no Sentry transport.~~ **Fixed 2026-08-19.** `logger`
+  now forwards **warn and above** to Sentry. Warn is included on purpose: the
+  RevenueCat 401 that hid for a month logged at warn, so forwarding only errors
+  would have left the more expensive of the two bugs invisible. An `err` on the
+  log is reported as an exception (grouped by stack), everything else as a
+  message keyed on the log line (grouped by the line, not by whichever field
+  varies). No DSN means every call is a no-op, so local and test behaviour is
+  unchanged.
 - `playCue` is wired at 22 call sites on both platforms; the audio files were never
   authored. Both no-op by design.
 - Mobile splash has no tests; nothing renders `app/_layout.tsx` or
