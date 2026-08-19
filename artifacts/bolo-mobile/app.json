@@ -83,8 +83,7 @@
             }
           }
         }
-      ],
-      "expo-video"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

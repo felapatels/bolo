@@ -229,26 +229,10 @@ jest.mock('react-native-purchases', () => ({
   LOG_LEVEL: { WARN: 'warn', ERROR: 'error' },
 }));
 
-// expo-video is a NATIVE module, pulled in when commit 918509d8 put
-// BazaarWelcome at the top of the bazaar screen. Without a bridge it throws on
-// import, so every suite that renders that screen failed to load at all. The
-// player is inert and the view is a plain View; __tests__/bazaar-welcome.test
-// .tsx declares its own mock for this path to assert on play/pause, which
-// takes precedence over this one.
-jest.mock('expo-video', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  return {
-    __esModule: true,
-    useVideoPlayer: (_source, setup) => {
-      const player = { play: jest.fn(), pause: jest.fn(), muted: false, loop: false };
-      if (typeof setup === 'function') setup(player);
-      return player;
-    },
-    VideoView: (props) => React.createElement(View, props),
-  };
-});
-
+// expo-video was REMOVED on 2026-08-19 for the crash bisect. It is no longer a
+// dependency, so mocking it here throws "Cannot find module" and takes all 114
+// suites down with it. Left as a comment rather than deleted, because the mock
+// goes straight back if the module returns: an inert player and a plain View.
 // expo-audio is the other half of the same problem: BazaarWelcome imports it
 // on the line after expo-video, so mocking only the video left outfits.test
 // .tsx still failing to load. Every recorder-driven suite (practice, quiz,

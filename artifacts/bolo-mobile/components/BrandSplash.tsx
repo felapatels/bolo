@@ -20,9 +20,16 @@
 import React, { Component, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Image, StyleSheet } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
-import { VideoView, useVideoPlayer } from 'expo-video';
+// expo-video REMOVED for the crash bisect, 2026-08-19. This component mounts at
+// the ROOT layout and plays a film on EVERY cold start, which is precisely when
+// the app dies inside the Hermes GC with no JS frames. The owner's first
+// description of the crash was the Bolo bird still appearing and then the app
+// going away: that still is SPLASH_POSTER, and the film is what came next.
+//
+// The poster path already existed for Reduce Motion, so the splash still shows
+// and still holds for the same duration. It simply does not move. Restore by
+// reinstating this import, the player, and the VideoView branch.
 import {
-  SPLASH_FILM,
   SPLASH_POSTER,
   SPLASH_FULL_PLAY_MS,
   SPLASH_MIN_HOLD_MS,
@@ -69,11 +76,6 @@ function BrandSplashFilm() {
 
   // Muted, no loop, plays as soon as it is ready. Reduced motion never
   // creates a source, so the film is not decoded at all in that mode.
-  const player = useVideoPlayer(reduceMotion ? null : SPLASH_FILM, (p) => {
-    p.muted = true;
-    p.loop = false;
-    p.play();
-  });
 
   useEffect(() => {
     coldStartConsumed = true;
@@ -151,28 +153,12 @@ function BrandSplashFilm() {
       importantForAccessibility="no-hide-descendants"
       style={[StyleSheet.absoluteFill, styles.overlay, { opacity }]}
     >
-      {reduceMotion ? (
-        <Image
-          testID="splash-still"
-          source={SPLASH_POSTER}
-          style={styles.layer}
-          resizeMode="cover"
-        />
-      ) : (
-        <>
-          {/* expo-video has no poster prop, so the still is a plain
-              underlay: the film paints over it the moment its first
-              frame decodes, and until then the overlay is never empty. */}
-          <Image source={SPLASH_POSTER} style={styles.layer} resizeMode="cover" />
-          <VideoView
-            testID="splash-film"
-            player={player}
-            style={styles.layer}
-            nativeControls={false}
-            contentFit="cover"
-          />
-        </>
-      )}
+      <Image
+        testID="splash-still"
+        source={SPLASH_POSTER}
+        style={styles.layer}
+        resizeMode="cover"
+      />
     </Animated.View>
   );
 }
