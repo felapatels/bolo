@@ -12,6 +12,8 @@ import {
 } from "../lib/revenuecatReconcile";
 import {
   chaiPackCreditFromStoreEvent,
+  CHAI_PACKS,
+  NON_SUBSCRIPTION_PURCHASE_EVENT,
   creditChaiPackFromStore,
 } from "../lib/chaiPacks";
 import { logger } from "../lib/logger";
@@ -81,6 +83,28 @@ router.post(
         );
         res.status(200).json({ received: true });
         return;
+      }
+
+      // MONEY TAKEN, NOTHING GRANTED. A purchase event that reaches here failed
+      // one of the four gates in chaiPackCreditFromStoreEvent, and until
+      // 2026-08-19 it fell through this file without a word: RevenueCat saw a
+      // 200, the app showed "chai is on your way", and the balance never moved.
+      // A learner paid and got nothing, and nothing anywhere said so.
+      //
+      // Logged at ERROR with the two fields that name the cause. Almost always
+      // product_id (a store product whose identifier does not match the server
+      // catalog) or app_user_id (an anonymous RevenueCat id, meaning the SDK
+      // was never told who the learner is).
+      if (event.type === NON_SUBSCRIPTION_PURCHASE_EVENT) {
+        logger.error(
+          {
+            productId: event.product_id ?? null,
+            appUserId: event.app_user_id ?? null,
+            transactionId: event.transaction_id ?? null,
+            knownProductIds: CHAI_PACKS.map((p) => p.appleProductId),
+          },
+          "Consumable purchase could not be credited: no matching Chai pack",
+        );
       }
 
       if (event.type === "TRANSFER") {
