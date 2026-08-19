@@ -1863,3 +1863,32 @@ export const EquipOutfitResponse = zod.object({
 })
 
 
+/**
+ * Records the caller's Expo push token so the server can reach this device. Distinct from the LOCAL daily reminder, which the app schedules for itself and which needs no server at all.
+ *
+ * Called on EVERY cold start, not only the first. Expo may rotate a token at any time and emits no event when it does, so re-asserting on launch is the only reliable way to hold a current address. It also refreshes last_seen_at, which is how a dead install is eventually told apart from a quiet one.
+ *
+ * A token is unique across the whole table, not per user: a token identifies an INSTALL, and an install changes hands (a shared family iPad, a phone signed out and back in). Registering therefore MOVES a token to the caller rather than adding a second row, and revives it if it had been disabled.
+ * @summary Register this device for server-sent notifications
+ */
+export const RegisterPushTokenBody = zod.object({
+  "token": zod.string().describe('Expo push token, \"ExponentPushToken[...]\".'),
+  "platform": zod.enum(['ios', 'android'])
+})
+
+export const RegisterPushTokenResponse = zod.object({
+  "registered": zod.boolean()
+})
+
+
+/**
+ * Scoped to the caller's own rows, so knowing a token is not enough to silence someone else's device. A token that is not registered returns the same 204 as one that was removed: whether a given device is registered is not something this endpoint should confirm to a stranger.
+ * @summary Stop pushing to this device
+ */
+export const UnregisterPushTokenBody = zod.object({
+  "token": zod.string()
+})
+
+export const UnregisterPushTokenResponse = zod.void()
+
+

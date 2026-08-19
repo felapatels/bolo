@@ -23,6 +23,7 @@ import { PressableScale } from '@/components/PressableScale';
 import { Mascot } from '@/components/Mascot';
 import { mascotSource } from '@/lib/mascotOutfits';
 import { ChaiGlyph } from '@/components/ChaiStall';
+import { ChaiPackShop } from '@/components/ChaiPackShop';
 import { StallBand } from '@/components/StallBand';
 import {
   ChaiWalletSheet,
@@ -672,14 +673,40 @@ export default function OutfitsScreen() {
           <ExpressMultiplierRow onNotice={showNotice} />
         </View>
 
-        {/* STALL 4 - THE CHAI STALL. One door, into the wallet the rest of the
-            app already opens; the balance and the packs live there. */}
+        {/* STALL 4 - THE CHAI STALL. Two doors, not one.
+            Owner ruling 2026-08-19: the stall was a sign pointing at the
+            wallet, which is a strange thing for a stall to be. A learner
+            standing at a chai stall with money in their hand should be able to
+            buy chai, not be sent to a different room to do it. So the packs are
+            served HERE, and the band still opens the wallet for the balance,
+            the ledger and everything else that lives there.
+
+            THE SHOP IS THE SAME COMPONENT the wallet renders, per the note in
+            ChaiWallet.tsx: two copies of a purchase surface is two places for a
+            purchase bug to hide. */}
         <View style={styles.stall}>
           <StallBand
             stall="chai"
             onPress={() => setWalletOpen(true)}
             accessibilityLabel="Open your Chai wallet"
           />
+          <View style={styles.chaiCounter}>
+            <ChaiPackShop />
+            <Pressable
+              onPress={() => setWalletOpen(true)}
+              testID="bazaar-open-wallet"
+              accessibilityRole="button"
+              accessibilityLabel="Open your Chai wallet"
+              style={({ pressed }) => [
+                styles.walletLink,
+                pressed && styles.walletLinkPressed,
+              ]}
+            >
+              <Text style={[styles.walletLinkText, { color: colors.primary }]}>
+                Open the wallet
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </ScrollView>
 
@@ -759,6 +786,12 @@ const styles = StyleSheet.create({
   street: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE },
   // A stall below the first: its band, then its goods.
   stall: { marginTop: 28, gap: 12 },
+  // The counter under the chai band: the packs sit here so buying is one tap
+  // from the street rather than a trip through the wallet.
+  chaiCounter: { gap: 8 },
+  walletLink: { alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 12 },
+  walletLinkPressed: { opacity: 0.6 },
+  walletLinkText: { fontFamily: AppFonts.bold, fontSize: 13 },
   primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',

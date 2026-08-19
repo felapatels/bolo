@@ -96,48 +96,148 @@ function duePhrase(dueCount: number): string | null {
  * server response that omits it, degrades to the previous behaviour rather
  * than to a wrong number.
  */
+/**
+ * THE VOICE. Bolo is a parrot on an Indian railway line, and the notifications
+ * sound like it: chai going cold, a train that will absolutely wait for you, a
+ * bird with feelings about being ignored. Warm and a bit pathetic, never
+ * scolding. A reminder that makes someone feel told off is a reminder that
+ * gets notifications turned off, and there is no coming back from that.
+ *
+ * Owner ruling 2026-08-19: funny, in the Duolingo register.
+ *
+ * VARIETY IS DETERMINISTIC, not random. The same day always yields the same
+ * line, so a learner never gets two different reminders for one slot, and the
+ * tests can assert on copy without stubbing a random source. Rotating by day
+ * is what stops the joke going stale by Thursday.
+ */
+type Line = { title: string; body: string };
+
+/** A streak worth protecting. The loss framing, played for laughs. */
+const STREAK_LINES: ((days: number) => Line)[] = [
+  (d) => ({
+    title: `Your ${d}-day streak is watching the door`,
+    body: 'It has not said anything. That is how you know it is upset.',
+  }),
+  (d) => ({
+    title: `Chacha-ji poured ${d} cups in a row`,
+    body: 'He is being very polite about today.',
+  }),
+  (d) => ({
+    title: `${d} days. Bolo has told everyone.`,
+    body: 'Do not make a liar out of a small bird.',
+  }),
+  (d) => ({
+    title: `The ${d}-day streak has trust issues`,
+    body: 'Two minutes and it stops bringing this up.',
+  }),
+  (d) => ({
+    title: `Day ${d + 1} is right there`,
+    body: 'The train is at the platform. It will wait. It always waits.',
+  }),
+];
+
+/** Day one done, day two pending: the cliff everybody falls off. */
+const DAY_TWO_LINES: Line[] = [
+  {
+    title: 'Day two is the hard one',
+    body: 'Everyone knows it. Bolo especially knows it.',
+  },
+  {
+    title: 'You started something yesterday',
+    body: 'This is the part where most people stop. Rude, honestly.',
+  },
+  {
+    title: 'One day is a mood. Two is a habit.',
+    body: 'Bolo is choosing to believe in the habit.',
+  },
+];
+
+/** No streak at all: lapsed, or brand new. Never scold, always invite. */
+const COLD_LINES: Line[] = [
+  {
+    title: 'Bolo is fine',
+    body: 'Bolo is FINE. Bolo just thought today might be the day.',
+  },
+  {
+    title: 'Your chai has gone cold twice now',
+    body: 'Chacha-ji has stopped asking. He just looks at the cup.',
+  },
+  {
+    title: 'A parrot has been practising your name',
+    body: 'Come and hear how badly it is going.',
+  },
+  {
+    title: 'The train has not left',
+    body: 'It is an Indian train. It was never going to leave without you.',
+  },
+  {
+    title: 'Two minutes',
+    body: 'That is the whole pitch. Bolo workshopped it for hours.',
+  },
+];
+
+/** Stable per calendar day, so one slot never yields two different lines. */
+function dayIndex(now: Date, length: number): number {
+  const days = Math.floor(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86_400_000,
+  );
+  return ((days % length) + length) % length;
+}
+
+/**
+ * Notification copy tailored to the learner's current streak AND to what is
+ * actually waiting for them. Escalates when a real streak is at risk and
+ * celebrates when today's practice would cross a badge-unlocking milestone.
+ *
+ * WHY THE DUE COUNT IS HERE: a streak is a loss to avoid, which works only once
+ * a learner has one worth protecting. A due count is a task with a visible end,
+ * which works from day one. The jokes never replace it: the number is the only
+ * part of the message carrying information, so it always survives.
+ */
 export function buildReminderCopy(
   streakDays: number,
   dueCount = 0,
+  now: Date = new Date(),
 ): ReminderCopy {
   const due = duePhrase(dueCount);
+
+  // A badge one practice away is real news. News beats a joke, so this branch
+  // stays plain and just gets a lighter tail.
   const next = streakDays + 1;
   const milestone = STREAK_MILESTONES.find((m) => m.days === next);
   if (milestone && streakDays > 0) {
     return {
-      title: `Your "${milestone.badge}" badge is one practice away!`,
+      title: `One practice from the "${milestone.badge}" badge`,
       body: due
-        ? `${due} Practice now to hit a ${milestone.days}-day streak and earn it.`
-        : `Practice now to hit a ${milestone.days}-day streak and earn it.`,
+        ? `${due} Hit ${milestone.days} days today and it is yours.`
+        : `Hit ${milestone.days} days today and it is yours.`,
     };
   }
+
   if (streakDays >= 2) {
-    return {
-      title: `Keep your ${streakDays}-day streak alive!`,
-      body: due
-        ? `${due} A few minutes today keeps the streak going.`
-        : 'A few minutes of practice today keeps it going.',
-    };
+    const line = STREAK_LINES[dayIndex(now, STREAK_LINES.length)]!(streakDays);
+    return { title: line.title, body: due ? `${due} ${line.body}` : line.body };
   }
+
   if (streakDays === 1) {
-    return {
-      title: "Don't break the chain",
-      body: due
-        ? `${due} Practice today to keep the streak you started yesterday.`
-        : 'You started a streak yesterday — practice today to keep it.',
-    };
+    const line = DAY_TWO_LINES[dayIndex(now, DAY_TWO_LINES.length)]!;
+    return { title: line.title, body: due ? `${due} ${line.body}` : line.body };
   }
-  // No streak to protect. The task IS the hook.
+
+  // No streak to protect. If something is actually due, LEAD with the number:
+  // a concrete task beats a bit when there is nothing else to lose.
   if (due) {
     return {
-      title: dueCount === 1 ? '1 phrase is ready for you' : `${dueCount} phrases are ready for you`,
-      body: 'A few minutes of review is all it takes.',
+      title:
+        dueCount === 1
+          ? '1 phrase is asking for you'
+          : `${dueCount} phrases are asking for you`,
+      body: 'They will not ask again until tomorrow. They are polite like that.',
     };
   }
-  return {
-    title: 'Time to practice with Bolo!',
-    body: 'A few minutes a day builds fluency.',
-  };
+
+  const line = COLD_LINES[dayIndex(now, COLD_LINES.length)]!;
+  return line;
 }
 
 /**
