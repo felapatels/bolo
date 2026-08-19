@@ -79,3 +79,17 @@ qa/tts-audit-prod-gu-clips/
 # Templates carry no secrets and must stay committed. Covers the root and
 # artifacts/bolo-mobile/.env.production.example alike.
 !.env*.example
+
+# Signing and API private keys. The repo is PUBLIC, and every one of these is a
+# credential that grants real access: a .p8 App Store Connect key can read and
+# change the App Store listing, and a .p12 can sign builds as you. Apple hands
+# a .p8 over exactly ONCE, so the copy on disk is the only copy, and the
+# temptation to "just keep it with the project" is exactly how it gets pushed.
+# Keep them in a password manager instead. Added 2026-08-19.
+*.p8
+*.p12
+*.pem
+*.key
+*.mobileprovision
+*.cer
+*.certSigningRequest
