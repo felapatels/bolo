@@ -122,11 +122,13 @@ command runs.
 
 ## Known open items
 
-- **`REVENUECAT_API_KEY` on the server is rejected.** Every `/entitlements` call
-  logs `RevenueCat subscriber fetch non-OK, status 401`. Subscription state
-  cannot be read from RevenueCat at all; entitlements are being served from the
-  local mirror alone. Compare the Replit secret against the `replit-server`
-  secret key in RevenueCat. Found 2026-08-19, not yet fixed.
+- ~~RevenueCat reconcile-on-read returns 401.~~ **Fixed 2026-08-19.** The cause
+  was never a wrong key: Replit's RevenueCat connector issues a **v2-scoped**
+  token, so the `/v1/subscribers` call through it always 401'd (documented in
+  `docs/CODEBASE-FACTS.md` on 2026-07-29 and unfixed for a month).
+  `revenuecatClient.ts` now calls v1 directly with `REVENUECAT_SECRET_API_KEY`,
+  which is one fewer thread tying this codebase to Replit. The connector remains
+  as a fallback and still 401s where no key is set.
 - The API logger is plain pino with **no Sentry transport**, so `logger.error`
   reaches stdout and nothing else. A money-losing error is invisible unless
   somebody opens Replit's deployment logs. This is why the Chai pack failure
