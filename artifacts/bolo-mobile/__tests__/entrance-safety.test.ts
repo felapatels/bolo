@@ -148,3 +148,44 @@ describe("ONE WORKLET PER ANIMATION, FOR THE APP'S WHOLE LIFETIME", () => {
     expect(first).not.toHaveProperty('opacity');
   });
 });
+
+describe('THE KILL SWITCH is wired through every path', () => {
+  // Build 40 died three times on device inside the Hermes GC with no JS frames.
+  // Reanimated is the leading suspect and two fixes aimed at it did not stop
+  // it, so release builds now register no layout animations at all and the next
+  // crash (or its absence) tells us whether reanimated was ever involved.
+  //
+  // Asserted at SOURCE level because jest runs with __DEV__ true: the switch is
+  // on in tests, which is deliberate (the invariants above must keep exercising
+  // real animations) and means a render test could never see the off state.
+  const src = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'lib', 'entrance.ts'),
+    'utf8',
+  ) as string;
+
+  it('is a single constant, so restoring animations is one edit', () => {
+    expect(src).toMatch(/const ENTRANCES_ENABLED = __DEV__;/);
+  });
+
+  it.each(['appear<', 'useAppearSkip', 'useAppear<'])(
+    'the %s guard consults it',
+    (fn) => {
+      const body = src.slice(src.indexOf(`export function ${fn}`));
+      expect(body.slice(0, 400)).toContain('ENTRANCES_ENABLED');
+    },
+  );
+
+  it('and each factory refuses independently, so a missed guard still yields nothing', () => {
+    for (const fn of ['appearDown', 'appearUp', 'appearZoom']) {
+      const body = src.slice(src.indexOf(`export function ${fn}`));
+      expect(body.slice(0, 300)).toContain('if (!ENTRANCES_ENABLED) return NO_ENTRANCE;');
+    }
+  });
+
+  it('the disabled entrance sets no opacity either', () => {
+    // Even the no-op must obey the rule that started all this: an entrance may
+    // never be the reason content is invisible.
+    const noop = src.slice(src.indexOf('const NO_ENTRANCE'), src.indexOf('const NO_ENTRANCE') + 220);
+    expect(noop).not.toContain('opacity');
+  });
+});

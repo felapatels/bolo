@@ -17,11 +17,34 @@ import { useReducedMotion } from 'react-native-reanimated';
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 /**
+ * THE KILL SWITCH. Entrance animations are off in release builds.
+ *
+ * Build 40 has now died three times on device with EXC_BAD_ACCESS inside the
+ * Hermes garbage collector, in HadesGC evacuation and CardTable, with no JS
+ * frames. That is heap CORRUPTION, not exhaustion, it survived a device
+ * restart, and it is intermittent: the same binary launched cleanly once and
+ * crashed on the next cold start.
+ *
+ * Reanimated is the biggest source of cross-runtime object traffic in this app
+ * and therefore the leading suspect, but two fixes aimed at it (rewriting the
+ * entrances to carry no opacity, then memoising the worklets) did not stop it.
+ * I have guessed twice and been wrong twice.
+ *
+ * So this is an EXPERIMENT with a clear reading, not a fix dressed as one.
+ * Off, the app registers no layout animations at all in a release build. If it
+ * still crashes, reanimated is exonerated and the search moves elsewhere. If it
+ * stops, we know where to look and can reintroduce them carefully.
+ *
+ * Flip this one constant to restore them. Everything else is wired through it.
+ */
+const ENTRANCES_ENABLED = __DEV__;
+
+/**
  * Wrap every `entering={...}` value with this. Returns the animation as-is in
  * real builds, and `undefined` (no entrance animation) inside Expo Go.
  */
 export function appear<T>(animation: T): T | undefined {
-  return isExpoGo ? undefined : animation;
+  return isExpoGo || !ENTRANCES_ENABLED ? undefined : animation;
 }
 
 /**
@@ -35,7 +58,7 @@ export function appear<T>(animation: T): T | undefined {
  */
 export function useAppear<T>(animation: T): T | undefined {
   const reducedMotion = useReducedMotion();
-  return isExpoGo || reducedMotion ? undefined : animation;
+  return isExpoGo || reducedMotion || !ENTRANCES_ENABLED ? undefined : animation;
 }
 
 /**
@@ -53,7 +76,7 @@ export function useAppear<T>(animation: T): T | undefined {
  */
 export function useAppearSkip(): boolean {
   const reducedMotion = useReducedMotion();
-  return isExpoGo || reducedMotion;
+  return isExpoGo || reducedMotion || !ENTRANCES_ENABLED;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,6 +126,12 @@ type Entering = (values: EntryAnimationsValues) => {
  */
 const CACHE = new Map<string, Entering>();
 
+/** A single shared no-op, so the disabled path allocates nothing at all. */
+const NO_ENTRANCE: Entering = () => {
+  'worklet';
+  return { initialValues: {}, animations: {} };
+};
+
 function memo(key: string, make: () => Entering): Entering {
   const hit = CACHE.get(key);
   if (hit) return hit;
@@ -127,16 +156,22 @@ function slide(from: number, delay: number, duration: number): Entering {
 
 /** Rises into place. The replacement for FadeInDown. */
 export function appearDown(delay = 0, duration = DEFAULT_MS): Entering {
+  // Belt and braces: a call site that forgets the guard still gets nothing.
+  if (!ENTRANCES_ENABLED) return NO_ENTRANCE;
   return memo(`d${delay}:${duration}`, () => slide(TRAVEL, delay, duration));
 }
 
 /** Settles down into place. The replacement for FadeInUp. */
 export function appearUp(delay = 0, duration = DEFAULT_MS): Entering {
+  // Belt and braces: a call site that forgets the guard still gets nothing.
+  if (!ENTRANCES_ENABLED) return NO_ENTRANCE;
   return memo(`u${delay}:${duration}`, () => slide(-TRAVEL, delay, duration));
 }
 
 /** Grows into place. The replacement for ZoomIn. */
 export function appearZoom(delay = 0, duration = DEFAULT_MS): Entering {
+  // Belt and braces: a call site that forgets the guard still gets nothing.
+  if (!ENTRANCES_ENABLED) return NO_ENTRANCE;
   return memo(`z${delay}:${duration}`, () => zoom(delay, duration));
 }
 
