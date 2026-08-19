@@ -9,7 +9,8 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { appearPlain } from '@/lib/entrance';
 import { Redirect, useRouter } from 'expo-router';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
@@ -473,7 +474,7 @@ export function ResultsScreen({
   };
 
   return (
-    <Animated.View entering={FadeIn.duration(400)} style={s.centered}>
+    <Animated.View entering={appearPlain()} style={s.centered}>
       <Mascot pose={perfect ? 'cheer' : score >= 3 ? 'thumbsup' : 'tryagain'} size={110} />
 
       <Text style={[s.resultsTitle, { color: colors.foreground }]}>
@@ -576,7 +577,7 @@ export function AlreadyDoneScreen({
   };
 
   return (
-    <Animated.View entering={FadeIn.duration(400)} style={s.centered}>
+    <Animated.View entering={appearPlain()} style={s.centered}>
       <Mascot pose={score === total ? 'cheer' : 'thumbsup'} size={100} />
 
       <Text style={[s.resultsTitle, { color: colors.foreground }]}>Already played today!</Text>

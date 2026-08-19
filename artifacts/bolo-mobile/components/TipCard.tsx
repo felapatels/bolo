@@ -1,10 +1,10 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeOut } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
-import { useAppearSkip } from '@/lib/entrance';
+import { appearPlain, useAppearSkip } from '@/lib/entrance';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const indiaFacts = require('@/data/indiaFacts.json') as string[];
 
@@ -34,7 +34,7 @@ export function TipCard() {
   return (
     <Animated.View
       key={idx}
-      entering={skipEnter ? undefined : FadeIn.duration(350)}
+      entering={skipEnter ? undefined : appearPlain()}
       exiting={skipEnter ? undefined : FadeOut.duration(250)}
       style={[
         styles.card,

@@ -18,8 +18,8 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useGetScenario } from '@workspace/api-client-react';
 import { useAudioRecorder, useAudioRecorderState, createAudioPlayer } from 'expo-audio';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { appear } from '@/lib/entrance';
+import Animated from 'react-native-reanimated';
+import { appear, appearDown, appearUp } from '@/lib/entrance';
 import {
   getChatTurnUrl,
   getConfiguredBaseUrl,
@@ -1822,7 +1822,7 @@ export default function ChatScreen() {
       {/* Free-tier time remaining bar */}
       {showTimeIndicator && (
         <Animated.View
-          entering={appear(FadeInDown.duration(300))}
+          entering={appear(appearDown(0, 300))}
           style={[styles.timeBar, { backgroundColor: colors.muted }]}
         >
           <View
@@ -1875,7 +1875,7 @@ export default function ChatScreen() {
         {/* Status label under the mascot */}
         <Animated.Text
           key={phase === 'processing' ? `processing-${processingStep}` : phase}
-          entering={appear(FadeInDown.duration(250))}
+          entering={appear(appearDown(0, 250))}
           style={[styles.statusLabel, { color: colors.mutedForeground }]}
         >
           {getStatusLabel(phase, processingStep, messages.length > 0)}
@@ -1885,7 +1885,7 @@ export default function ChatScreen() {
             learners can't miss it, regardless of their AsyncStorage state. */}
         {messages.length === 0 && (
           <Animated.View
-            entering={appear(FadeInDown.duration(320))}
+            entering={appear(appearDown(0, 320))}
             style={[styles.holdHint, { backgroundColor: colors.primary }]}
           >
             <Feather name="mic" size={13} color={colors.primaryForeground ?? '#fff'} />
@@ -1897,7 +1897,7 @@ export default function ChatScreen() {
 
         {/* Skip button — only shown while Bolo is speaking */}
         {phase === 'playing' && (
-          <Animated.View entering={appear(FadeInDown.duration(200))} style={{ marginTop: 8 }}>
+          <Animated.View entering={appear(appearDown(0, 200))} style={{ marginTop: 8 }}>
             <PressableScale
               onPress={(e) => {
                 e.stopPropagation?.();
@@ -1939,7 +1939,7 @@ export default function ChatScreen() {
       {/* Static greeting bubble — shown before the first exchange, client-side only, never sent to the API */}
       {messages.length === 0 && (
         <Animated.View
-          entering={appear(FadeInUp.duration(320).delay(200))}
+          entering={appear(appearUp(200, 320))}
           style={[
             styles.bubble,
             styles.bubbleParrot,
@@ -2008,7 +2008,7 @@ export default function ChatScreen() {
             return (
               <Animated.View
                 key={i}
-                entering={appear(FadeInUp.duration(280).delay(40))}
+                entering={appear(appearUp(40, 280))}
                 style={[
                   styles.bubble,
                   msg.role === 'learner'
@@ -2044,7 +2044,7 @@ export default function ChatScreen() {
       {/* Error message */}
       {phase === 'error' && errorMsg && (
         <Animated.View
-          entering={appear(FadeInDown.duration(280))}
+          entering={appear(appearDown(0, 280))}
           style={[styles.errorBox, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
           <Feather name="alert-circle" size={16} color={colors.destructive ?? '#EF4444'} />

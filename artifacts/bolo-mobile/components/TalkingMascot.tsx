@@ -9,8 +9,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { appear } from '@/lib/entrance';
-import { ZoomIn } from 'react-native-reanimated';
+import { appear, appearZoom } from '@/lib/entrance';
 import { useColors } from '@/hooks/useColors';
 import { accessoryOverlaySource, mascotSource } from '@/lib/mascotOutfits';
 import { useEquippedOutfit } from '@/contexts/OutfitContext';
@@ -153,7 +152,7 @@ export function TalkingMascot({
 
   const entrance =
     !reduceMotion
-      ? ZoomIn.springify().damping(12).stiffness(130).mass(0.6).delay(30)
+      ? appearZoom(30)
       : undefined;
 
   const imageMotionStyle =

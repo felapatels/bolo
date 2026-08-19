@@ -8,7 +8,8 @@ import {
   Switch,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeOut } from 'react-native-reanimated';
+import { appearPlain, appearZoom } from '@/lib/entrance';
 import { Redirect, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -454,7 +455,7 @@ function PlayingScreen({
       {comboBurst ? (
         <Animated.Text
           key={comboBurstKey}
-          entering={ZoomIn.springify().damping(8).stiffness(200)}
+          entering={appearZoom(0)}
           style={styles.comboBurstText}
           pointerEvents="none"
         >
@@ -469,7 +470,7 @@ function PlayingScreen({
         </Text>
         <Animated.Text
           key={currentIndex}
-          entering={FadeIn.duration(200)}
+          entering={appearPlain()}
           style={[styles.phraseText, { color: colors.foreground }, nativeStyle]}
         >
           {phrase.nativeScript}

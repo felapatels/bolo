@@ -10,8 +10,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { hapticNotify } from '@/lib/haptics';
-import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
-import { appear, useAppearSkip } from '@/lib/entrance';
+import Animated from 'react-native-reanimated';
+import { appear, appearDown, appearPlain, appearZoom, useAppearSkip } from '@/lib/entrance';
 import type { EarnedBadge } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -57,12 +57,12 @@ export function BadgeUnlock({
       >
         <Confetti />
 
-        <Animated.View entering={appear(ZoomIn.springify().damping(12))}>
+        <Animated.View entering={appear(appearZoom(0))}>
           <Mascot pose="cheer" size={132} motion="bounce" />
         </Animated.View>
 
         <Animated.Text
-          entering={skipEnter ? undefined : FadeInDown.duration(400)}
+          entering={skipEnter ? undefined : appearDown(0, 400)}
           style={[styles.kicker, { color: colors.secondary }]}
         >
           {badges.length > 1 ? 'Badges unlocked!' : 'Badge unlocked!'}
@@ -72,7 +72,7 @@ export function BadgeUnlock({
           {badges.map((badge, i) => (
             <Animated.View
               key={badge.key}
-              entering={skipEnter ? undefined : ZoomIn.delay(150 + i * 160).springify().damping(14)}
+              entering={skipEnter ? undefined : appearZoom(150 + i * 160)}
               style={[
                 styles.card,
                 { backgroundColor: colors.card, borderColor: colors.border },
@@ -98,7 +98,7 @@ export function BadgeUnlock({
         </View>
 
         <Animated.View
-          entering={skipEnter ? undefined : FadeIn.delay(400 + badges.length * 160)}
+          entering={skipEnter ? undefined : appearPlain()}
           style={styles.actions}
         >
           <Pressable

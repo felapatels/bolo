@@ -25,10 +25,7 @@ import { useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import Animated, {
-  FadeIn,
-  FadeInDown,
   FadeOutUp,
-  ZoomIn,
   interpolateColor,
   useAnimatedProps,
   useAnimatedStyle,
@@ -53,7 +50,7 @@ import {
 import { ResultActions } from '@/components/ResultActions';
 import { XpCounter } from '@/components/XpCounter';
 import { EmptyState } from '@/components/EmptyState';
-import { appear, useAppearSkip } from '@/lib/entrance';
+import { appear, appearDown, appearPlain, appearZoom, useAppearSkip } from '@/lib/entrance';
 import {
   useListReviewPhrases,
   getListReviewPhrasesQueryKey,
@@ -1399,11 +1396,11 @@ export default function ReviewScreen() {
       <Screen>
         <ReviewHeader onClose={() => router.replace('/(app)/(tabs)')} label="All done!" />
         <View style={styles.summaryWrap}>
-          <Animated.View entering={appear(ZoomIn.springify().damping(12))}>
+          <Animated.View entering={appear(appearZoom(0))}>
             <Mascot pose="cheer" size={168} motion="bounce" />
           </Animated.View>
           <Animated.Text
-            entering={skipEnter ? undefined : FadeInDown.delay(120).springify()}
+            entering={skipEnter ? undefined : appearDown(120)}
             style={[
               styles.summaryTitle,
               isPerfect ? { color: '#D97706' } : { color: colors.foreground },
@@ -1418,14 +1415,14 @@ export default function ReviewScreen() {
                   : 'Great effort!'}
           </Animated.Text>
           <Animated.Text
-            entering={skipEnter ? undefined : FadeInDown.delay(240).springify()}
+            entering={skipEnter ? undefined : appearDown(240)}
             style={[styles.summarySub, { color: colors.mutedForeground }]}
           >
             You reviewed {reviewedCount} {reviewedCount === 1 ? 'phrase' : 'phrases'}.
           </Animated.Text>
           {totalXp > 0 && (
             <Animated.View
-              entering={skipEnter ? undefined : FadeInDown.delay(360).springify()}
+              entering={skipEnter ? undefined : appearDown(360)}
               style={[styles.xpChip, { backgroundColor: `${'#7C3AED'}18`, borderColor: '#7C3AED' }]}
             >
               <CountUpText
@@ -1449,7 +1446,7 @@ export default function ReviewScreen() {
           )}
           {xpExpanded && (
             <Animated.View
-              entering={FadeIn.duration(180)}
+              entering={appearPlain()}
               style={[styles.xpBreakdownCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
               {list.map((phrase, i) => {
@@ -1558,7 +1555,7 @@ export default function ReviewScreen() {
 
         <Animated.View
           key={phrase.id}
-          entering={skipEnter ? undefined : FadeIn.duration(220)}
+          entering={skipEnter ? undefined : appearPlain()}
           exiting={FadeOutUp.duration(200)}
           style={[styles.phraseCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
@@ -1627,7 +1624,7 @@ export default function ReviewScreen() {
             score, no XP — supportive ear-training copy only. */}
         {phase === 'compare' ? (
           <Animated.View
-            entering={FadeIn.duration(200)}
+            entering={appearPlain()}
             testID="compare-card"
             style={[styles.resultCard, { backgroundColor: colors.card, borderColor: colors.border }]}
           >
@@ -1698,7 +1695,7 @@ export default function ReviewScreen() {
         {phase === 'result' && result ? (
           <Animated.View
             ref={resultCardRef}
-            entering={FadeIn.duration(200)}
+            entering={appearPlain()}
             style={[
               styles.resultCard,
               {

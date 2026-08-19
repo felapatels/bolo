@@ -1,8 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { appear, useAppearSkip } from '@/lib/entrance';
+import Animated from 'react-native-reanimated';
+import { appear, appearDown, useAppearSkip } from '@/lib/entrance';
 import { Screen } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { PressableScale } from '@/components/PressableScale';
@@ -51,30 +51,30 @@ export function UpgradeRequiredScreen({
       </View>
 
       <View style={styles.body}>
-        <Animated.View entering={appear(FadeInDown.duration(450))}>
+        <Animated.View entering={appear(appearDown(0, 450))}>
           <Mascot pose="wave" size={140} motion="float" />
         </Animated.View>
         <Animated.View
-          entering={skipEnter ? undefined : FadeInDown.duration(450).delay(60)}
+          entering={skipEnter ? undefined : appearDown(60, 450)}
           style={styles.pillRow}
         >
           <PlusPill />
         </Animated.View>
         <Animated.Text
-          entering={skipEnter ? undefined : FadeInDown.duration(450).delay(80)}
+          entering={skipEnter ? undefined : appearDown(80, 450)}
           style={[styles.title, { color: colors.foreground }]}
         >
           {title}
         </Animated.Text>
         <Animated.Text
-          entering={skipEnter ? undefined : FadeInDown.duration(450).delay(140)}
+          entering={skipEnter ? undefined : appearDown(140, 450)}
           style={[styles.message, { color: colors.mutedForeground }]}
         >
           {message}
         </Animated.Text>
 
         <Animated.View
-          entering={skipEnter ? undefined : FadeInDown.duration(450).delay(200)}
+          entering={skipEnter ? undefined : appearDown(200, 450)}
           style={styles.actions}
         >
           <ChunkyButton

@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
-import { useAppearSkip } from '@/lib/entrance';
+import Animated from 'react-native-reanimated';
+import { appearDown, appearZoom, useAppearSkip } from '@/lib/entrance';
 import { Mascot, type MascotPose } from '@/components/Mascot';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -28,21 +28,21 @@ export function EmptyState({ title, body, mascotPose }: EmptyStateProps) {
     <View style={styles.wrap}>
       {mascotPose ? (
         <Animated.View
-          entering={skipEnter ? undefined : ZoomIn.springify().damping(14)}
+          entering={skipEnter ? undefined : appearZoom(0)}
           style={styles.mascot}
         >
           <Mascot pose={mascotPose} size={92} motion="float" />
         </Animated.View>
       ) : null}
       <Animated.Text
-        entering={skipEnter ? undefined : FadeInDown.duration(350).delay(80)}
+        entering={skipEnter ? undefined : appearDown(80, 350)}
         style={[styles.title, { color: colors.foreground }]}
       >
         {title}
       </Animated.Text>
       {body ? (
         <Animated.Text
-          entering={skipEnter ? undefined : FadeInDown.duration(350).delay(160)}
+          entering={skipEnter ? undefined : appearDown(160, 350)}
           style={[styles.body, { color: colors.mutedForeground }]}
         >
           {body}

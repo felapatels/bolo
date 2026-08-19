@@ -85,6 +85,12 @@ jest.mock('react-native-svg', () => {
 });
 
 jest.mock('@/lib/entrance', () => ({
+  // The safe entrances (lib/entrance.ts). No-ops here: these suites pin
+  // content, and an entrance that returns undefined renders it at rest.
+  appearDown: () => undefined,
+  appearUp: () => undefined,
+  appearZoom: () => undefined,
+  appearPlain: () => undefined,
   appear: (v: unknown) => v,
   useAppearSkip: () => true,
 }));

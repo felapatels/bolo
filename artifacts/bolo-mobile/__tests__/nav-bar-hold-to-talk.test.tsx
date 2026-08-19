@@ -298,7 +298,15 @@ jest.mock('@/components/Screen', () => {
   };
 });
 
-jest.mock('@/lib/entrance', () => ({ appear: (b: unknown) => b }));
+jest.mock('@/lib/entrance', () => ({
+  appear: (b: unknown) => b,
+  // The safe entrances (lib/entrance.ts). No-ops here: this suite pins the
+  // status label's text, and an entrance returning undefined renders it at rest.
+  appearDown: () => undefined,
+  appearUp: () => undefined,
+  appearZoom: () => undefined,
+  appearPlain: () => undefined,
+}));
 
 jest.mock('@/lib/settings', () => ({
   loadChatHoldHintSeen: jest.fn(async () => true),

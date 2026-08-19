@@ -18,10 +18,7 @@ import { useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import Animated, {
-  FadeIn,
-  FadeInDown,
   FadeOutUp,
-  ZoomIn,
   interpolateColor,
   useAnimatedProps,
   useAnimatedStyle,
@@ -47,7 +44,7 @@ import {
 import { ResultActions } from '@/components/ResultActions';
 import { ExpressOfferMoment } from '@/components/ExpressOfferMoment';
 import { XpCounter } from '@/components/XpCounter';
-import { appear, useAppearSkip } from '@/lib/entrance';
+import { appear, appearDown, appearPlain, appearZoom, useAppearSkip } from '@/lib/entrance';
 import { playBandClip, type BandClipHandle } from '@/lib/band-audio';
 import {
   useListCategoryPhrases,
@@ -381,7 +378,7 @@ function SummaryRingRow({
       {/* Inline feedback panel for the tapped phrase */}
       {selected && (
         <Animated.View
-          entering={FadeIn.duration(180)}
+          entering={appearPlain()}
           style={[styles.summaryFeedbackCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
           <Text style={[styles.summaryFeedbackTitle, { color: colors.foreground }]}>
@@ -1982,7 +1979,7 @@ export default function PracticeScreen() {
             </>
           ) : outcome?.passed ? (
             <>
-              <Animated.View entering={appear(ZoomIn.springify().damping(12))}>
+              <Animated.View entering={appear(appearZoom(0))}>
                 <Mascot pose="cheer" size={168} motion="bounce" />
               </Animated.View>
               <View style={styles.testoutStamp} aria-hidden>
@@ -2054,11 +2051,11 @@ export default function PracticeScreen() {
       <Screen>
         <PracticeHeader onClose={() => router.back()} label="All done!" />
         <View style={styles.summaryWrap}>
-          <Animated.View entering={appear(ZoomIn.springify().damping(12))}>
+          <Animated.View entering={appear(appearZoom(0))}>
             <Mascot pose="cheer" size={168} motion="bounce" />
           </Animated.View>
           <Animated.Text
-            entering={skipEnter ? undefined : FadeInDown.delay(120).springify()}
+            entering={skipEnter ? undefined : appearDown(120)}
             style={[
               styles.summaryTitle,
               isPerfect ? { color: '#D97706' } : { color: colors.foreground },
@@ -2073,7 +2070,7 @@ export default function PracticeScreen() {
                   : 'Great effort!'}
           </Animated.Text>
           <Animated.Text
-            entering={skipEnter ? undefined : FadeInDown.delay(240).springify()}
+            entering={skipEnter ? undefined : appearDown(240)}
             style={[styles.summarySub, { color: colors.mutedForeground }]}
           >
             You practiced {practicedCount}{' '}
@@ -2088,7 +2085,7 @@ export default function PracticeScreen() {
           {/* Band trail — lets learners review each phrase's result at a glance */}
           {Object.keys(bands).length > 0 && (
             <Animated.View
-              entering={skipEnter ? undefined : FadeInDown.delay(360).springify()}
+              entering={skipEnter ? undefined : appearDown(360)}
               style={styles.summaryTrailWrap}
             >
               <Text style={[styles.summaryTrailLabel, { color: colors.mutedForeground }]}>
@@ -2105,7 +2102,7 @@ export default function PracticeScreen() {
           {/* XP earned chip */}
           {totalXp > 0 && (
             <Animated.View
-              entering={skipEnter ? undefined : FadeInDown.delay(480).springify()}
+              entering={skipEnter ? undefined : appearDown(480)}
               style={[
                 styles.xpChip,
                 { backgroundColor: `${'#7C3AED'}18`, borderColor: '#7C3AED' },
@@ -2124,7 +2121,7 @@ export default function PracticeScreen() {
               Chai (chaiEarned summed from attempt responses). */}
           {sessionChai > 0 && (
             <Animated.View
-              entering={skipEnter ? undefined : FadeInDown.delay(540).springify()}
+              entering={skipEnter ? undefined : appearDown(540)}
               testID="session-chai-pill"
               style={[
                 styles.xpChip,
@@ -2154,7 +2151,7 @@ export default function PracticeScreen() {
           )}
           {xpExpanded && (
             <Animated.View
-              entering={FadeIn.duration(180)}
+              entering={appearPlain()}
               style={[styles.xpBreakdownCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
               {list.map((phrase, i) => {
@@ -2372,7 +2369,7 @@ export default function PracticeScreen() {
         {/* Phrase card — keyed so entering/exiting fires on phrase change */}
         <Animated.View
           key={phrase.id}
-          entering={skipEnter ? undefined : FadeIn.duration(220)}
+          entering={skipEnter ? undefined : appearPlain()}
           exiting={FadeOutUp.duration(200)}
           style={[
             styles.phraseCard,
@@ -2459,7 +2456,7 @@ export default function PracticeScreen() {
             score, no XP — supportive ear-training copy only. */}
         {phase === 'compare' ? (
           <Animated.View
-            entering={FadeIn.duration(200)}
+            entering={appearPlain()}
             testID="compare-card"
             style={[
               styles.resultCard,
@@ -2549,7 +2546,7 @@ export default function PracticeScreen() {
         {phase === 'result' && result ? (
           <Animated.View
             ref={resultCardRef}
-            entering={FadeIn.duration(200)}
+            entering={appearPlain()}
             style={[
               styles.resultCard,
               {

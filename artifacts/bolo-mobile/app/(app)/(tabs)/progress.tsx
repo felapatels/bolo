@@ -12,10 +12,9 @@ import { Feather } from '@expo/vector-icons';
 import { GlobeButton } from '@/components/GlobeButton';
 import { useRouter } from 'expo-router';
 import Animated, {
-  FadeInDown,
   useReducedMotion,
 } from 'react-native-reanimated';
-import { appear, useAppearSkip } from '@/lib/entrance';
+import { appear, appearDown, useAppearSkip } from '@/lib/entrance';
 import {
   useGetProgressSummary,
   useListRecentAttempts,
@@ -87,7 +86,7 @@ export default function ProgressScreen() {
           />
         }
       >
-        <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500)} style={styles.head}>
+        <Animated.View entering={skipEnter ? undefined : appearDown(0, 500)} style={styles.head}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.h1, { color: colors.foreground }]}>
               Your progress
@@ -158,7 +157,7 @@ export default function ProgressScreen() {
 
             {/* Overall mastery */}
             <Animated.View
-              entering={skipEnter ? undefined : FadeInDown.duration(500).delay(240)}
+              entering={skipEnter ? undefined : appearDown(240, 500)}
               style={[
                 styles.masteryCard,
                 { backgroundColor: colors.card, borderColor: colors.border },
@@ -181,7 +180,7 @@ export default function ProgressScreen() {
             </Animated.View>
 
             {/* Badges entry */}
-            <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(300)}>
+            <Animated.View entering={skipEnter ? undefined : appearDown(300, 500)}>
               <PressableScale
                 onPress={() => router.push('/(app)/badges')}
                 style={[
@@ -225,7 +224,7 @@ export default function ProgressScreen() {
             {/* Advanced analytics: a live entry for Plus learners, a locked
                 teaser (routing to the paywall) for everyone else. */}
             {isPlus ? (
-              <Animated.View entering={skipEnter ? undefined : FadeInDown.duration(500).delay(340)}>
+              <Animated.View entering={skipEnter ? undefined : appearDown(340, 500)}>
                 <PressableScale
                   onPress={() => router.push('/(app)/analytics')}
                   style={[
@@ -361,7 +360,7 @@ export default function ProgressScreen() {
                 return (
                   <Animated.View
                     key={a.id}
-                    entering={skipEnter ? undefined : FadeInDown.duration(360).delay(Math.min(i, 8) * 45)}
+                    entering={skipEnter ? undefined : appearDown(Math.min(i, 8) * 45, 360)}
                   >
                     {canRetake ? (
                       <PressableScale
@@ -505,11 +504,7 @@ function Stat({
   // permanently transparent. Reduced-motion users get the static resting card.
   const entrance = reduceMotion
     ? undefined
-    : FadeInDown.springify()
-        .damping(12)
-        .stiffness(160)
-        .mass(0.6)
-        .delay(index * 60);
+    : appearDown(index * 60);
 
   return (
     <Animated.View

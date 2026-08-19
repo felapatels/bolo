@@ -12,8 +12,8 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Feather } from '@expo/vector-icons';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
-import { useAppearSkip } from '@/lib/entrance';
+import Animated from 'react-native-reanimated';
+import { appearDown, appearZoom, useAppearSkip } from '@/lib/entrance';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useSendFriendRequestByCode,
@@ -95,7 +95,7 @@ export default function FriendsScreen() {
   return (
     <Screen>
       <Animated.View
-        entering={skipEnter ? undefined : FadeInDown.duration(500)}
+        entering={skipEnter ? undefined : appearDown(0, 500)}
         style={styles.head}
         onTouchStart={onActivity}
       >
@@ -902,18 +902,18 @@ function EmptyFriends() {
   return (
     <View style={styles.emptyState}>
       <Animated.View
-        entering={skipEnter ? undefined : ZoomIn.springify().damping(14)}
+        entering={skipEnter ? undefined : appearZoom(0)}
       >
         <Mascot pose="thinking" size={92} motion="float" />
       </Animated.View>
       <Animated.Text
-        entering={skipEnter ? undefined : FadeInDown.duration(350).delay(80)}
+        entering={skipEnter ? undefined : appearDown(80, 350)}
         style={[styles.emptyTitle, { color: colors.foreground }]}
       >
         No friends yet
       </Animated.Text>
       <Animated.Text
-        entering={skipEnter ? undefined : FadeInDown.duration(350).delay(160)}
+        entering={skipEnter ? undefined : appearDown(160, 350)}
         style={[styles.emptyText, { color: colors.mutedForeground }]}
       >
         Add a friend by their code above — or share yours and let them add you.
@@ -964,7 +964,7 @@ function LeaderboardTab() {
           {rows.map((entry, i) => (
             <Animated.View
               key={entry.userId}
-              entering={skipEnter ? undefined : FadeInDown.duration(360).delay(Math.min(i, 8) * 45)}
+              entering={skipEnter ? undefined : appearDown(Math.min(i, 8) * 45, 360)}
             >
               <LeaderboardRow entry={entry} />
             </Animated.View>
@@ -1072,18 +1072,18 @@ function EmptyLeaderboard() {
   return (
     <View style={styles.emptyState}>
       <Animated.View
-        entering={skipEnter ? undefined : ZoomIn.springify().damping(14)}
+        entering={skipEnter ? undefined : appearZoom(0)}
       >
         <Mascot pose="cheer" size={92} motion="float" />
       </Animated.View>
       <Animated.Text
-        entering={skipEnter ? undefined : FadeInDown.duration(350).delay(80)}
+        entering={skipEnter ? undefined : appearDown(80, 350)}
         style={[styles.emptyTitle, { color: colors.foreground }]}
       >
         Nothing to rank yet
       </Animated.Text>
       <Animated.Text
-        entering={skipEnter ? undefined : FadeInDown.duration(350).delay(160)}
+        entering={skipEnter ? undefined : appearDown(160, 350)}
         style={[styles.emptyText, { color: colors.mutedForeground }]}
       >
         Add friends and keep practicing — your XP across every language decides

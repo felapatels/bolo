@@ -7,7 +7,8 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeOut } from 'react-native-reanimated';
+import { appearPlain } from '@/lib/entrance';
 import { Redirect, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -479,13 +480,13 @@ function PlayingScreen({
 
         {/* Feedback */}
         {pState.status === 'correct' && (
-          <Animated.View entering={FadeIn.duration(200)} style={[styles.feedbackBox, { backgroundColor: '#D1FAE5' }]}>
+          <Animated.View entering={appearPlain()} style={[styles.feedbackBox, { backgroundColor: '#D1FAE5' }]}>
             <Feather name="check-circle" size={18} color="#065F46" />
             <Text style={[styles.feedbackText, { color: '#065F46' }]}>Correct!</Text>
           </Animated.View>
         )}
         {pState.status === 'wrong' && (
-          <Animated.View entering={FadeIn.duration(200)} style={[styles.feedbackBox, { backgroundColor: '#FEE2E2' }]}>
+          <Animated.View entering={appearPlain()} style={[styles.feedbackBox, { backgroundColor: '#FEE2E2' }]}>
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                 <Feather name="x-circle" size={18} color="#991B1B" />

@@ -1,14 +1,13 @@
 import React from 'react';
 import { Animated as RNAnimated, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  FadeInDown,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { useAppearSkip } from '@/lib/entrance';
+import { appearDown, useAppearSkip } from '@/lib/entrance';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useListBadges } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
@@ -80,7 +79,7 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
   if (!nearest) {
     return (
       <Animated.View
-        entering={skipEnter ? undefined : FadeInDown.duration(400)}
+        entering={skipEnter ? undefined : appearDown(0, 400)}
         style={[
           styles.card,
           styles.allEarned,
@@ -114,7 +113,7 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
 
   return (
     <Animated.View
-      entering={skipEnter ? undefined : FadeInDown.duration(400)}
+      entering={skipEnter ? undefined : appearDown(0, 400)}
       style={[
         styles.card,
         {
