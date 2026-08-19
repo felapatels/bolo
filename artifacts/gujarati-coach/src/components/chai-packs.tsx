@@ -28,7 +28,10 @@ import { beginChaiPackCheckout } from "@/lib/billing";
  * the Stripe session, the webhook credit, the ledger write, or the pack
  * catalog; all of those stay live and exercised while this is false.
  */
-export const CHAI_PACKS_LIVE = false;
+// LIT on 2026-08-18, at the owner's word. It was held dark while the packs
+// went through review; the surface, the Stripe path, the webhook credit and
+// the ledger write have all been exercised behind it since.
+export const CHAI_PACKS_LIVE = true;
 
 // Warm register, and each line is honest about what happened.
 export const PACK_COPY = {

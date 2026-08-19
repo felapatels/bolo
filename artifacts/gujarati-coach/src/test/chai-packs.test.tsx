@@ -57,8 +57,12 @@ afterEach(() => {
 });
 
 describe("the flag", () => {
-  test("ships off, so the shop is dark by default", () => {
-    expect(CHAI_PACKS_LIVE).toBe(false);
+  test("ships LIT, so the shop is on by default", () => {
+    // INVERTED on 2026-08-18. Was false: the packs shipped dark through review
+    // while the paths behind them were exercised. The owner lit them for the
+    // next submission build. The both-states coverage below is unchanged, so
+    // the dark path is still tested via the `live` prop.
+    expect(CHAI_PACKS_LIVE).toBe(true);
   });
 
   test("renders nothing at all while it is off", () => {
