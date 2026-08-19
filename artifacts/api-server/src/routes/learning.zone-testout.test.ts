@@ -461,7 +461,7 @@ after(async () => {
 // ── Test 1: Zone GET samples one phrase per station ────────────────────────
 
 test("zone GET samples one phrase per station; sampleSize = station count when under cap", async () => {
-  // 3 stations: g1 (phrase), g2 (phrase), g3 (sentence — Free tier can't see it)
+  // 3 stations: g1 (phrase), g2 (phrase), g3 (sentence, Free tier can't see it)
   // Plus user sees all 3 stations; sampleSize = 3 (under cap of 10)
   const { status, json } = await api(
     `/zones/${catId}/test-out/${encodeURIComponent(LANG)}`,
@@ -820,7 +820,7 @@ test("dormancy: stop-level test-out behavior is byte-identical with flag off", a
   assert.equal(status, 200);
 });
 
-// ── Tests 10-11: Flag on — gate enforces zone order ────────────────────────
+// ── Tests 10-11: Flag on, gate enforces zone order ────────────────────────
 
 test("flag on: zone 2 groups all locked while zone 1 is incomplete", async () => {
   __setCrossZoneGateForTests(true);
@@ -917,9 +917,9 @@ test("flag on: zone 1 (first in sortOrder among test categories) is always eligi
   // The real "zone 1" test: use a category with no predecessor at all.
   // Since we can't control all sortOrders, test the gate logic directly via the API:
   // Any zone test-out for cat1Id requires catId to be complete (our fixture predecessor).
-  // Let's verify zone 1 (catId, sortOrder 9500) — its predecessor in production data is whatever
+  // Let's verify zone 1 (catId, sortOrder 9500), its predecessor in production data is whatever
   // has sortOrder < 9500. We can't control that, so instead verify the route works (if it 403s,
-  // it's because a prod category is incomplete — that's not this test's failure).
+  // it's because a prod category is incomplete, that's not this test's failure).
   //
   // More reliable: test via zoneGateAllows function directly for "no predecessor" case.
   // The endpoint test is: for catId (sortOrder 9500), predecessor is the real production zone
@@ -969,7 +969,7 @@ test("flag on: lesson-group listing for a gated zone writes no latch rows when u
   __setCrossZoneGateForTests(true);
   // U_GATE is Plus (can access LANG). The gate makes cat2 locked because cat1
   // is incomplete. The listing route runs deriveAndLatchUnlock, but with no
-  // completed groups nothing gets latched — the latch is append-only for new
+  // completed groups nothing gets latched, the latch is append-only for new
   // completions only. This verifies the CALLER CONTRACT: a gate-locked zone
   // never emits spurious latch rows.
   const before = await db

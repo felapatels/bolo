@@ -9,12 +9,12 @@
 //
 // Two things live here:
 //
-//   stages   DEVICE scoped  — AsyncStorage, hydrated. Pure DISPLAY state:
+//   stages   DEVICE scoped , AsyncStorage, hydrated. Pure DISPLAY state:
 //                             where each zone sits in the celebration, never
 //                             a record of what was paid. The ledger's
 //                             once-ever `earn_closeout_first` refId is the
 //                             real idempotency boundary for the Chai.
-//   grants   SESSION scoped — in-memory only. "The server actually granted
+//   grants   SESSION scoped, in-memory only. "The server actually granted
 //                             closeout Chai for this zone on this run", which
 //                             is the ONLY thing allowed to put a "+2 Chai"
 //                             claim on screen. It is deliberately not
@@ -77,7 +77,7 @@ async function persist(lang: string): Promise<void> {
     // Read-modify-write, never blind-write. A stage written before this
     // language finished hydrating would otherwise persist ONLY what this
     // session happens to know and wipe every zone already closed out on
-    // disk — the one way this display state could resurrect a celebration.
+    // disk, the one way this display state could resurrect a celebration.
     const stored = parseStages(await AsyncStorage.getItem(closeoutStorageKey(lang))) ?? {};
     const merged: CloseoutStages = { ...stored, ...entry.stages };
     // The live entry stays authoritative for anything written meanwhile.
@@ -124,7 +124,7 @@ export function readCloseoutStages(lang: string): CloseoutStages {
 }
 
 /** True on first sight of the feature for this language. Only meaningful once
- *  hydrated — gate every use of it on {@link isCloseoutHydrated}. */
+ *  hydrated, gate every use of it on {@link isCloseoutHydrated}. */
 export function closeoutStateUnseeded(lang: string): boolean {
   return cache.get(lang)?.seeded !== true;
 }
@@ -179,7 +179,7 @@ export function closeoutGrantedChai(lang: string, zoneId: number): number | null
  * soft stop suppresses itself on (web parity), so the two never race for the
  * screen. Unseeded counts as owed: the first-sight seeding pass has not run
  * yet, so nothing can be said about which zones are closed out. Nothing is
- * owed before hydration — an empty cache is not evidence of an open zone.
+ * owed before hydration, an empty cache is not evidence of an open zone.
  */
 export function closeoutOwed(
   memory: { hydrated: boolean; unseeded: boolean; stages: CloseoutStages },

@@ -9,7 +9,7 @@ import {
 
 // The Free weekly chat-time ceiling is counted over the UTC calendar week
 // (Monday 00:00 UTC start), mirroring the UTC-day boundary lessonLimits uses
-// for the daily cap — deterministic and consistent with "resets Monday".
+// for the daily cap, deterministic and consistent with "resets Monday".
 export function startOfUtcWeek(now: Date = new Date()): Date {
   const dayOfWeek = now.getUTCDay(); // 0 = Sunday ... 6 = Saturday
   const daysSinceMonday = (dayOfWeek + 6) % 7;
@@ -38,8 +38,7 @@ export async function sumChatSecondsThisWeek(
 }
 
 // Logs a completed conversational turn against the user's weekly allowance.
-// `durationSeconds` must be computed server-side from the submitted audio —
-// never trust a client-supplied value.
+// `durationSeconds` must be computed server-side from the submitted audio, // never trust a client-supplied value.
 export async function recordChatTurn(
   userId: string,
   languageCode: string,

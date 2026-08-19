@@ -2,13 +2,13 @@
  * Instant band call-outs (Task 903).
  *
  * The moment a practice result lands, Bolo speaks the band name from a
- * static pre-bundled clip — no TTS round-trip. The six clips (five ladder
+ * static pre-bundled clip, no TTS round-trip. The six clips (five ladder
  * bands + the neutral nocatch line) live under `public/sounds/bands/` and
  * were generated with the same voice as the spoken-feedback path (nova) so
  * the call-out and the feedback sentence sound like one speaker.
  *
  * Gating: callers gate on the spoken-feedback preference (these clips are
- * Bolo's VOICE, not a sound-effect cue) — deliberately NOT on the Spec 1a
+ * Bolo's VOICE, not a sound-effect cue), deliberately NOT on the Spec 1a
  * sound-effects preference used by playCue.
  */
 import type { Band } from "@/components/ui/band-pill";
@@ -50,14 +50,14 @@ export function preloadBandClips(): void {
 }
 
 export type BandClipHandle = {
-  /** Resolves when the clip finishes (or errors/is stopped) — never rejects. */
+  /** Resolves when the clip finishes (or errors/is stopped), never rejects. */
   finished: Promise<void>;
   stop: () => void;
 };
 
 /**
  * Play the band clip for a result. Returns a handle immediately; returns
- * null when playback could not even start. Never throws — a missing clip
+ * null when playback could not even start. Never throws, a missing clip
  * must not disturb the result card.
  */
 export function playBandClip(band: Band): BandClipHandle | null {

@@ -1,5 +1,5 @@
 // D1a Slice 1: partition each (language, category)'s phrases into lesson
-// groups ("stations" for the journey map). Data layer only — nothing serves
+// groups ("stations" for the journey map). Data layer only, nothing serves
 // gameplay from these yet.
 //
 // Idempotency guarantee: a (language, category) pair is skipped when ANY
@@ -16,7 +16,7 @@
 //  - stage blocks stay intact: phrase-stage and sentence-stage are partitioned
 //    separately, never interleaved in one group; group positions number the
 //    phrase-stage groups first, then sentence-stage.
-//  - within a stage block, order is (sort_order, id) — the approved
+//  - within a stage block, order is (sort_order, id), the approved
 //    deterministic tiebreak for duplicate sort_order values.
 //  - chunks of 10; a final chunk of 4 or fewer merges into the previous group
 //    of the same stage block (sizes 8-14, target 10). A stage block with no

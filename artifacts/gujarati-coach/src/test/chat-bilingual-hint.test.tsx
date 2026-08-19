@@ -11,7 +11,7 @@ import { memoryLocation } from "wouter/memory-location";
 // Assertions:
 //   1. Hint is visible when messages = 0
 //   2. Hint STAYS visible after the first message is added (pending learner
-//      bubble) — it is persistent, unlike the old empty-state tip
+//      bubble), it is persistent, unlike the old empty-state tip
 //   3. Switching the language via the picker updates the language name in hint
 // ---------------------------------------------------------------------------
 
@@ -128,7 +128,7 @@ vi.mock("@workspace/api-client-react", async () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// UI components that aren't under test — stub so we don't pull in their deps.
+// UI components that aren't under test, stub so we don't pull in their deps.
 // ---------------------------------------------------------------------------
 vi.mock("@/components/mascot", () => ({
   Mascot: () => <div data-testid="mascot" />,
@@ -188,7 +188,7 @@ beforeEach(() => {
   // startRecording resolves immediately (so the component moves to "recording").
   h.startRecording.mockResolvedValue(undefined);
 
-  // stopRecording hangs by default — we only need the pending-message state
+  // stopRecording hangs by default, we only need the pending-message state
   // that's set *before* the first await in finishRecording.
   h.stopRecording.mockReturnValue(new Promise(() => {}));
 
@@ -218,7 +218,7 @@ beforeEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("bilingual hint — visibility", () => {
+describe("bilingual hint, visibility", () => {
   test("hint is visible before any message is sent", () => {
     renderChat();
 
@@ -266,7 +266,7 @@ describe("bilingual hint — visibility", () => {
   });
 });
 
-describe("bilingual hint — language picker", () => {
+describe("bilingual hint, language picker", () => {
   test("switching language in the picker updates the language name in the hint", async () => {
     renderChat();
 

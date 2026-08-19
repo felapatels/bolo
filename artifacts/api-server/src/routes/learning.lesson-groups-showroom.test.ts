@@ -306,7 +306,7 @@ function assertNoPhraseContent(group: Record<string, unknown>): void {
   for (const key of Object.keys(group)) {
     assert.ok(
       allowed.has(key),
-      `unexpected key "${key}" on a showroom group — counts and statuses only`,
+      `unexpected key "${key}" on a showroom group, counts and statuses only`,
     );
   }
 }
@@ -405,7 +405,7 @@ test("showroom spans every category of the locked language; the teaser mark stay
 
 test("exhausted caller: first stop stays open and marked, the rest locked, no latch rows written", async () => {
   // Master ALL of g1 directly in the attempts table: consumes all 3 teaser
-  // slots AND puts g1 at 100% mastery — the first stop keeps serving under
+  // slots AND puts g1 at 100% mastery, the first stop keeps serving under
   // the free-tier content policy, but nothing past it unlocks and nothing
   // must be latched as completed for a plan-locked language.
   for (const pid of g1PhraseIds) {
@@ -495,7 +495,7 @@ test("allowed (Plus) caller keeps the original contract with stage, and latching
 // Free-tier content policy: non-premium sentence rows serve on every plan;
 // premium sentence rows stay behind the "sentences" feature, and when the
 // whole group is premium the caller gets the same 402 feature_locked as
-// /categories/:id/sentences/:lang — never client gating, zero premium text
+// /categories/:id/sentences/:lang, never client gating, zero premium text
 // leaks. The fixture lives on the REAL free-allowed language so the language
 // gate passes and only the sentence gate can deny.
 

@@ -90,7 +90,7 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
   useEntitlements: () => ({ isPlus: true, isOneLanguage: false }),
 }));
 
-// Manipuri (mni) — unsupported recognition.
+// Manipuri (mni), unsupported recognition.
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({
     activeLang: 'mni',
@@ -175,7 +175,7 @@ async function recordOnce() {
   });
 }
 
-describe('Unsupported language — listen-record-compare mode', () => {
+describe('Unsupported language, listen-record-compare mode', () => {
   test('recording never sends an evaluation request', async () => {
     await renderReady();
     await recordOnce();
@@ -235,7 +235,7 @@ describe('Unsupported language — listen-record-compare mode', () => {
     await waitFor(() =>
       expect(screen.getByTestId('compare-card')).toBeOnTheScreen(),
     );
-    // Single-phrase session — Next finishes it.
+    // Single-phrase session, Next finishes it.
     await act(async () => {
       fireEvent.press(screen.getByText('Finish'));
     });

@@ -10,7 +10,7 @@ export type { Band };
  * Pill that renders a pronunciation quality band label.
  * Visual weight matches the existing XP chip in the session summary.
  * Colors follow the five-band ladder gradient in lib/ui.ts (nocatch renders
- * neutral — a system miss is never presented negatively, Spec 1 rule 16).
+ * neutral, a system miss is never presented negatively, Spec 1 rule 16).
  */
 export function BandPill({ band }: { band: Band }) {
   const colors = useColors();

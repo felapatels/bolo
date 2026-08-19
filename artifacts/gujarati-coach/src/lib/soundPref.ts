@@ -1,5 +1,5 @@
 /**
- * Sound effects preference — whether in-session audio feedback cues play.
+ * Sound effects preference, whether in-session audio feedback cues play.
  * Defaults to on. Persists per browser via localStorage (same pattern as
  * lib/silent-mode.ts). Client-local only; not synced to the account.
  */

@@ -8,7 +8,7 @@
 // poisons the production flows: OAuth callbacks fail with
 // err_code=authorization_invalid and email/password sign-ups hang silently.
 //
-// PRIMARY GATE — detect, then purge. We only purge when a cookie that can
+// PRIMARY GATE, detect, then purge. We only purge when a cookie that can
 // ONLY come from the dev era is visible. Distinguishers:
 //   - __client:        the real production __client is HttpOnly and scoped to
 //                      clerk.bolo-india.app, so it is invisible to
@@ -35,7 +35,7 @@ const PURGE_MATCHERS = [
   /^__session$/,
 ] as const;
 
-// SECONDARY GATE (belt and braces): a first-party marker COOKIE — not
+// SECONDARY GATE (belt and braces): a first-party marker COOKIE, not
 // localStorage, which privacy extensions can silently make non-persistent
 // (setItem "succeeds" but nothing survives a reload, which previously made
 // the purge fire on every load and destroy fresh sessions).
@@ -72,7 +72,7 @@ export function cleanupStaleDevClerkCookies(prodDomain: string): void {
   if (!hasDevRelics) return;
   if (hasMarker()) return;
 
-  // TERTIARY GATE — write-probe before any destructive delete. Write the
+  // TERTIARY GATE, write-probe before any destructive delete. Write the
   // marker FIRST and read it back. If it doesn't stick (extension blocks or
   // virtualizes cookie writes), our deletions would likely be blocked too and
   // we would have no persistent guard, so abort without touching anything.

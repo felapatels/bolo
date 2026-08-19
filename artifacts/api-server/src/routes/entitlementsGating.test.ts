@@ -27,7 +27,7 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 // Drives the real entitlement gates end to end through the actual Express
 // routers, behind a stub that injects req.userId exactly like requireAuth does,
 // followed by the genuine loadEntitlements middleware. This proves the whole
-// chain — user row → resolved plan → per-route gate → 402 payload — rather than
+// chain, user row → resolved plan → per-route gate → 402 payload, rather than
 // any single helper. Plan is switched by writing the user's subscription fields
 // (the same columns a real payment webhook would set) between requests.
 //
@@ -295,7 +295,7 @@ after(async () => {
   await db.delete(badgesTable).where(eq(badgesTable.userId, TEST_USER_ID));
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
   await db.delete(gameSessionsTable).where(eq(gameSessionsTable.userId, TEST_USER_ID));
-  // xp_ledger rows reference users(id) — delete before the user row to avoid FK violation.
+  // xp_ledger rows reference users(id), delete before the user row to avoid FK violation.
   // Game-session success tests write to xp_ledger via the real route.
   await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, TEST_USER_ID));
   await db

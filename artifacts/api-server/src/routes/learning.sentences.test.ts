@@ -22,7 +22,7 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 // GET /categories/:id/sentences/:lang behind the "sentences" plan feature.
 // These tests pin the contract both ways:
 //   - the gate: free callers get a 402 feature_locked payload, Plus callers
-//     get the sentences (server-authoritative — no sentence text leaks pre-402)
+//     get the sentences (server-authoritative, no sentence text leaks pre-402)
 //   - the split: sentence rows never bleed into the phrase endpoints or the
 //     /categories phrase counts, while sentenceCount/sentencesLocked do show up
 //     on the listing for both tiers.
@@ -205,7 +205,7 @@ test("free caller gets 402 feature_locked when every cached sentence is premium"
 });
 
 test("free caller gets non-premium cached sentences; premium rows never ride along", async () => {
-  // The two seeded sentence rows are premium — that is the byte-identical
+  // The two seeded sentence rows are premium, that is the byte-identical
   // 402 pinned above. Add a free sentence row (free-tier content policy:
   // Hindi Fare Zone 1 sentence stops are non-premium): the same caller now
   // gets exactly that row, with no premium text leaking.

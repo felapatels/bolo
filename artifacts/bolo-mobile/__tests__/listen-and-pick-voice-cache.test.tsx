@@ -13,10 +13,10 @@ import {
 // stale cached clip.
 //
 // Scenario:
-//  1. Learner picks a topic — GameRound mounts and auto-plays phrase audio,
+//  1. Learner picks a topic, GameRound mounts and auto-plays phrase audio,
 //     caching it under key "<phraseId>:voice-A".
 //  2. Learner goes to Account → Voice and switches to "voice-B".
-//  3. Learner taps the play button — the key is now "<phraseId>:voice-B",
+//  3. Learner taps the play button, the key is now "<phraseId>:voice-B",
 //     which is absent from the cache, so synthesis fires again.
 // ---------------------------------------------------------------------------
 
@@ -133,7 +133,7 @@ jest.mock('@/constants/fonts', () => ({
 // Imported after mocks.
 import ListenAndPickScreen from '@/app/(app)/(tabs)/games/listen-and-pick';
 
-// Four phrases — the minimum for choiceCount=4 (one correct + 3 distractors).
+// Four phrases, the minimum for choiceCount=4 (one correct + 3 distractors).
 const PHRASES = [
   { id: 10, nativeScript: 'ઘ૧', romanized: 'gha1', english: 'word one', stage: 'word' },
   { id: 11, nativeScript: 'ઘ૨', romanized: 'gha2', english: 'word two', stage: 'word' },
@@ -173,7 +173,7 @@ describe('listen-and-pick audio cache keyed by voice ID', () => {
 
     const callCountAfterAutoPlay = mockState.synth.mock.calls.length;
 
-    // Tap replay — same voice, same phrase → cache hit → no new synthesis.
+    // Tap replay, same voice, same phrase → cache hit → no new synthesis.
     await act(async () => {
       fireEvent.press(screen.getByTestId('listen-and-pick-play-btn'));
     });
@@ -189,11 +189,11 @@ describe('listen-and-pick audio cache keyed by voice ID', () => {
 
     const callCountAfterAutoPlay = mockState.synth.mock.calls.length;
 
-    // Switch to voice-B — this changes ttsVoice, busting the voice-A cache entries.
+    // Switch to voice-B, this changes ttsVoice, busting the voice-A cache entries.
     mockState.account = makeAccount('voice-B');
     rerender(<ListenAndPickScreen />);
 
-    // Tap play — key is now "<phraseId>:voice-B", cache miss → fresh synthesis.
+    // Tap play, key is now "<phraseId>:voice-B", cache miss → fresh synthesis.
     await act(async () => {
       fireEvent.press(screen.getByTestId('listen-and-pick-play-btn'));
     });
@@ -209,7 +209,7 @@ describe('listen-and-pick audio cache keyed by voice ID', () => {
 
     const callCountAfterAutoPlay = mockState.synth.mock.calls.length;
 
-    // Replay — same null/Auto key → cache hit → no new synthesis.
+    // Replay, same null/Auto key → cache hit → no new synthesis.
     await act(async () => {
       fireEvent.press(screen.getByTestId('listen-and-pick-play-btn'));
     });
@@ -225,7 +225,7 @@ describe('listen-and-pick audio cache keyed by voice ID', () => {
 // answer: matching Latin letters to the sounds just played wins every round
 // without reading the script or knowing the word. Choices now carry the
 // script and its MEANING, never the reading. (The always-visible romanization
-// ruling still holds on reading surfaces — this game is the exception.)
+// ruling still holds on reading surfaces, this game is the exception.)
 
 describe('choice cards: script + meaning, never the reading', () => {
   test('every choice shows its English meaning under the script', async () => {

@@ -137,7 +137,7 @@ describe("language-context default language", () => {
 describe("language-context plan-locked languages", () => {
   test("new user stays on 'hi' when allowedLanguages includes 'hi'", async () => {
     h.isSignedIn = true;
-    // Server allowedLanguages includes "hi" — no redirect should happen
+    // Server allowedLanguages includes "hi", no redirect should happen
     h.entitlementsData = { allowedLanguages: ["hi", "gu"] };
     // Account has no saved language (new user)
     h.accountData = {

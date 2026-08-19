@@ -1,9 +1,9 @@
-// Spec D1b-M: the 22 themed rail lines of the journey map — a verbatim port of
+// Spec D1b-M: the 22 themed rail lines of the journey map, a verbatim port of
 // the web table (gujarati-coach/src/lib/journeyLines.ts), which is the source
 // of truth. Structured content, never hardcoded in components. Each language
 // renders as one line; the six zones map positionally onto the six categories
 // in DB sort_order. The id joins in JOURNEY_ZONES are authoritative; its title
-// strings are a loading-state fallback only — live zone titles come from the
+// strings are a loading-state fallback only, live zone titles come from the
 // categories listing the journey screen already fetches (Task #906), so a
 // server-side rename needs no app release. Zone geographic names are
 // category-independent: Z1-Z6 columns
@@ -149,7 +149,7 @@ export const JOURNEY_LINES: Record<string, JourneyLine> = {
 /**
  * "Bolo Rail" transliterated into each language's own script, for the
  * boarding-pass eyebrow ("BOARDING PASS · बोलो रेल"). Must be rendered with
- * the language's native font (nativeTextStyle) — the Latin UI font has no
+ * the language's native font (nativeTextStyle), the Latin UI font has no
  * glyphs for these scripts and renders tofu. Languages whose scripts we can't
  * confidently transliterate (Santali/Ol Chiki, Manipuri/Meetei Mayek) are
  * deliberately absent: a readable Latin fallback beats a wrong glyph sequence.
@@ -179,7 +179,7 @@ const RAIL_BRAND: Record<string, string> = {
 
 /**
  * The boarding-pass brand for a language: its native-script "Bolo Rail" when
- * we have one (`native: true` — render with nativeTextStyle), otherwise the
+ * we have one (`native: true`, render with nativeTextStyle), otherwise the
  * Latin brand in the eyebrow's own font.
  */
 export function getRailBrand(code: string): { text: string; native: boolean } {

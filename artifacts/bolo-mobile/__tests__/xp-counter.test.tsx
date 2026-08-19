@@ -1,5 +1,5 @@
 /**
- * Mobile XP strip component tests — the three visual states of the daily train
+ * Mobile XP strip component tests, the three visual states of the daily train
  * class ladder.
  *
  * Deliberately mirrors artifacts/gujarati-coach/src/test/xp-counter.test.tsx
@@ -61,7 +61,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('XpCounter — below the first rung (no class yet)', () => {
+describe('XpCounter, below the first rung (no class yet)', () => {
   it('fills toward Local and names no class', () => {
     state.todayXp = 40;
     render(<XpCounter variant="chrome" />);
@@ -78,7 +78,7 @@ describe('XpCounter — below the first rung (no class yet)', () => {
   });
 });
 
-describe('XpCounter — mid-ladder (a class in hand)', () => {
+describe('XpCounter, mid-ladder (a class in hand)', () => {
   it('shows the held class beside the next rung', () => {
     state.todayXp = 254;
     render(<XpCounter variant="chrome" />);
@@ -105,7 +105,7 @@ describe('XpCounter — mid-ladder (a class in hand)', () => {
   });
 });
 
-describe('XpCounter — top of the ladder', () => {
+describe('XpCounter, top of the ladder', () => {
   it('renders the class name alone: no bar, no fraction', () => {
     state.todayXp = 900;
     render(<XpCounter variant="chrome" />);
@@ -114,12 +114,12 @@ describe('XpCounter — top of the ladder', () => {
     expect(screen.queryByTestId('xp-meter-bar')).toBeNull();
     expect(screen.queryByText('XP')).toBeNull();
     expect(
-      screen.getByLabelText('Shatabdi class — 900 XP today, top class reached'),
+      screen.getByLabelText('Shatabdi class, 900 XP today, top class reached'),
     ).toBeOnTheScreen();
   });
 });
 
-describe('XpCounter — compact session variant', () => {
+describe('XpCounter, compact session variant', () => {
   it('carries the held class mid-ladder', () => {
     state.todayXp = 254;
     render(<XpCounter variant="session" />);

@@ -29,7 +29,7 @@ const contactBodySchema = z.object({
     .max(2000, "Message must be 2000 characters or fewer"),
 });
 
-// 3 submissions per user/IP per 10 minutes — the 4th gets a 429.
+// 3 submissions per user/IP per 10 minutes, the 4th gets a 429.
 const contactRateLimit = createRateLimit({
   windowMs: 10 * 60 * 1000,
   max: 3,
@@ -53,7 +53,7 @@ router.post(
     // the public /privacy and /terms pages can reach the form. clerkMiddleware
     // runs app-wide, so getAuth() still surfaces the caller id when a session
     // is present; ensureLocalUser keeps the userId FK satisfiable. Attribution
-    // is best-effort — never block a contact message on it.
+    // is best-effort, never block a contact message on it.
     let userId: string | null = null;
     try {
       userId = getAuth(req)?.userId ?? null;
@@ -62,7 +62,7 @@ router.post(
       userId = null;
     }
 
-    // Insert the row first — if this fails we propagate a 500 so the client
+    // Insert the row first, if this fails we propagate a 500 so the client
     // knows the message was NOT saved.
     let submissionId: number;
     let createdAt: Date;
@@ -95,7 +95,7 @@ router.post(
     });
 
     if (emailSent) {
-      // Best-effort flag update — don't fail the request if this write errors.
+      // Best-effort flag update, don't fail the request if this write errors.
       try {
         await db
           .update(contactSubmissionsTable)

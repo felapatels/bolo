@@ -33,7 +33,7 @@ export function GoldChip({
 }
 
 /**
- * First Class, on a friend's row. Renders only while the window is open — the
+ * First Class, on a friend's row. Renders only while the window is open, the
  * server sends a boolean and never an expiry, so there is nothing to count down.
  */
 export function FirstClassChip() {

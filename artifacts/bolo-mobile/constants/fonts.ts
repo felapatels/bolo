@@ -98,7 +98,7 @@ export const fontMap = {
   NotoNaskhArabic_700Bold,
 };
 
-/** UI (Latin) font — Inter (Calm & Modern theme). */
+/** UI (Latin) font, Inter (Calm & Modern theme). */
 export const AppFonts = {
   regular: 'Inter_400Regular',
   semibold: 'Inter_600SemiBold',

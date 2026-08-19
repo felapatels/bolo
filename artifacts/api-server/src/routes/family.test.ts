@@ -18,7 +18,7 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // Drives the family-plan surface end to end through the real router + real
 // loadEntitlements (so the member entitlement cascade is exercised for real).
-// Stripe cancellation and invite email are injected fakes — the configured
+// Stripe cancellation and invite email are injected fakes, the configured
 // Stripe key is LIVE, so no test may ever reach Stripe.
 
 const OWNER = "test_family_owner";
@@ -355,7 +355,7 @@ test("owner lapse cascades members to Free with no writes; recovery restores Plu
   let ent = await get("/entitlements");
   assert.equal(ent.json.plan, "free");
 
-  // Owner pays again — members bounce back automatically.
+  // Owner pays again, members bounce back automatically.
   await db
     .update(usersTable)
     .set({

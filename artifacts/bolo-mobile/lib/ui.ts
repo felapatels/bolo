@@ -31,7 +31,7 @@ export function categoryIcon(iconName: string): FeatherName {
 export type Band = 'nocatch' | 'perfect' | 'great' | 'good' | 'almost' | 'retry';
 export type ScoredBand = Exclude<Band, 'nocatch'>;
 
-/** Ladder order, top to bottom — the display order of the result-card scale. */
+/** Ladder order, top to bottom, the display order of the result-card scale. */
 export const BAND_LADDER: readonly ScoredBand[] = [
   'perfect',
   'great',
@@ -77,7 +77,7 @@ export function bandFromScore(score: number): ScoredBand {
   return 'retry';
 }
 
-// Behavioral credit groups (frozen legacy boundaries — mirror the server's
+// Behavioral credit groups (frozen legacy boundaries, mirror the server's
 // scoreBands.ts groups so celebration/XP gating stays byte-identical):
 // full credit = legacy 'nailed' (score >= 80), half credit = legacy 'close'.
 export function isFullCreditBand(band: Band): boolean {
@@ -88,7 +88,7 @@ export function isHalfCreditBand(band: Band): boolean {
   return band === 'good' || band === 'almost';
 }
 
-/** Any passing band (legacy nailed|close) — streaks, XP arc, summary gating. */
+/** Any passing band (legacy nailed|close), streaks, XP arc, summary gating. */
 export function isPassingBand(band: Band): boolean {
   return isFullCreditBand(band) || isHalfCreditBand(band);
 }
@@ -111,7 +111,7 @@ export type PhraseTally = { attempts: number; zeroStrikes: number };
  *  different thing. */
 export const ADVANCE_ATTEMPT_LIMIT = 3;
 
-/** "Good or better" — the earned half of the advance gate. */
+/** "Good or better", the earned half of the advance gate. */
 export function isGoodOrBetterBand(band: Band): boolean {
   return isFullCreditBand(band) || band === 'good';
 }

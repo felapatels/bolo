@@ -25,7 +25,7 @@ import {
 } from "@workspace/db/seed-data";
 
 // Guards the frozen seed content the seeder ships to every learner. A future
-// edit to curatedLessons.json — or to the validator — could silently
+// edit to curatedLessons.json, or to the validator, could silently
 // reintroduce an empty or malformed lesson, and nobody would notice until a
 // learner opened a blank lesson. These tests fail first instead.
 //
@@ -73,7 +73,7 @@ test("frozen data covers every non-Gujarati language × every category", () => {
 
   // The shared seeder gate agrees: nothing malformed and nothing missing.
   // Validate the MERGED view (base file + C1 rollout top-ups), matching the
-  // startup seeder — the language-aware sentence counts expect the merge.
+  // startup seeder, the language-aware sentence counts expect the merge.
   const { errors, missing } = validateCuratedLessons(
     curatedLessonsWithC1(curated),
   );
@@ -156,8 +156,8 @@ test("a malformed or empty frozen lesson makes the seed refuse to run", () => {
   };
 
   // validateSeedLesson is the exact gate the seeder runs before inserting a
-  // lesson (see seed.ts). Each of these malformations must be rejected — a
-  // returned error string, never null — so the seeder throws instead of
+  // lesson (see seed.ts). Each of these malformations must be rejected, a
+  // returned error string, never null, so the seeder throws instead of
   // writing a blank or broken lesson.
   const badLessons: Array<[string, SeedLesson | undefined]> = [
     ["missing lesson", undefined],
@@ -230,7 +230,7 @@ test("a malformed or empty frozen lesson makes the seed refuse to run", () => {
 });
 
 // The hand-curated Gujarati lessons live in code (GUJARATI_LESSONS), not in the
-// frozen JSON, and are the very first lessons every new learner sees — Gujarati
+// frozen JSON, and are the very first lessons every new learner sees, Gujarati
 // is the default language. A bad edit there (dropped topic, blank phrase,
 // out-of-range difficulty) would ship silently and greet a learner with a blank
 // or malformed starter lesson. These tests fail first instead.
@@ -313,8 +313,7 @@ const allSeedLessons: Array<[string, SeedLesson]> = [
 // approved once holds in both places and the two can never drift.
 
 // The generator runs this exact same checkLessonQuality rule set before it
-// writes curatedLessons.json, so a bad batch is rejected at generation time —
-// not just here, after the fact. Sharing the helper keeps the two from drifting.
+// writes curatedLessons.json, so a bad batch is rejected at generation time, // not just here, after the fact. Sharing the helper keeps the two from drifting.
 test("no lesson repeats the same phrase or types a loanword in native script", () => {
   const failures: string[] = [];
 
@@ -335,7 +334,7 @@ test("no lesson repeats the same phrase or types a loanword in native script", (
 test("validateCuratedLessons flags a lesson with a duplicated phrase", () => {
   const doctored = JSON.parse(JSON.stringify(curated)) as CuratedLessonsFile;
   const lesson = doctored[generatedLanguageCodes[0]][CATEGORIES[0].slug];
-  // Overwrite the last phrase with a copy of the first — same shape and count,
+  // Overwrite the last phrase with a copy of the first, same shape and count,
   // so only the content-quality gate can catch it.
   lesson.phrases[lesson.phrases.length - 1] = { ...lesson.phrases[0] };
 
@@ -355,13 +354,13 @@ test("validateCuratedLessons flags a lesson with a duplicated phrase", () => {
 //
 // The Latin-in-native check above only catches an English word that still has
 // Latin letters/digits in it. The far more common defect is an English word
-// *transliterated* into the correct native script — "नर्वस"/nervas for
-// "nervous", "बोर"/bor for "bored" — which is written entirely in the right
+// *transliterated* into the correct native script, "नर्वस"/nervas for
+// "nervous", "बोर"/bor for "bored", which is written entirely in the right
 // script and sails past that check, yet teaches a learner the English word
 // dressed up in native letters instead of the language's own term.
 //
 // We catch these with a curated blocklist of glosses that a language app must
-// teach with a *native* word (abstract feelings, everyday concepts — never a
+// teach with a *native* word (abstract feelings, everyday concepts, never a
 // borrowed English label), confirmed by a phonetic match between the phrase's
 // romanization and that gloss. The blocklist keeps the check precise: genuine,
 // naturalized loanwords a learner really says (plate, glass, fork, menu) and
@@ -381,7 +380,7 @@ test("validateCuratedLessons flags a lesson with a duplicated phrase", () => {
 // never be taught the English word for a basic feeling or relation).
 const LOANWORD_GLOSS_BLOCKLIST = new Set(
   [
-    // feelings — every Indian language has native words for basic emotions
+    // feelings, every Indian language has native words for basic emotions
     "nervous",
     "bored",
     "happy",
@@ -404,7 +403,7 @@ const LOANWORD_GLOSS_BLOCKLIST = new Set(
     "jealous",
     "disappointed",
     "relieved",
-    // greetings & manners — "hello"/"bye"/"sorry" typed in native script are
+    // greetings & manners, "hello"/"bye"/"sorry" typed in native script are
     // the most common lazy borrowings a regeneration reintroduces
     "goodbye",
     "hello",
@@ -419,7 +418,7 @@ const LOANWORD_GLOSS_BLOCKLIST = new Set(
     "morning",
     "night",
     "evening",
-    // family — kinship terms are core native vocabulary everywhere
+    // family, kinship terms are core native vocabulary everywhere
     "aunt",
     "uncle",
     "mother",
@@ -437,7 +436,7 @@ const LOANWORD_GLOSS_BLOCKLIST = new Set(
     "daughter",
     "family",
     "baby",
-    // everyday verbs — basic actions must never be taught as English words
+    // everyday verbs, basic actions must never be taught as English words
     "come",
     "go",
     "stop",
@@ -463,17 +462,17 @@ const LOANWORD_GLOSS_BLOCKLIST = new Set(
 // Keep empty unless a real linguistic reason forces it, and leave a comment.
 const LOANWORD_ALLOWLIST: Record<string, string[]> = {
   // "बिरागो" (birago) is a genuine native Bodo word for "bored", not English
-  // "bored" transliterated — it follows the same native adjectival pattern as
+  // "bored" transliterated, it follows the same native adjectival pattern as
   // its neighbours in this lesson ("उरागो"/urago = sad, "अलागो"/alago = lonely,
   // "लाजो"/lajo = shy). Its consonant skeleton (brg) only coincidentally
   // resembles "bored" (brd); a real transliteration would be "बोर"/"बोर्ड".
   "brx/feelings": ["बिरागो"],
-  // "ਭਰਾ" (bharaa) is the genuine native Punjabi word for "brother" — an
+  // "ਭਰਾ" (bharaa) is the genuine native Punjabi word for "brother", an
   // Indo-Aryan cognate of Sanskrit "भ्रातृ"/bhrātṛ. Its consonant skeleton
   // (bhr) resembles English "brother" (brthr) only because both descend from
   // the same Proto-Indo-European root, not because it was borrowed.
   "pa/family": ["ਭਰਾ"],
-  // "सूनुः" (sūnuḥ) is the classical Sanskrit word for "son" — again a shared
+  // "सूनुः" (sūnuḥ) is the classical Sanskrit word for "son", again a shared
   // Proto-Indo-European inheritance (cf. English "son", German "Sohn"), not an
   // English loanword.
   "sa/family": ["सूनुः"],
@@ -482,12 +481,12 @@ const LOANWORD_ALLOWLIST: Record<string, string[]> = {
   // coincidentally resembles the "brother" token in its gloss.
   "bn/family": ["ভাশুর"],
   // "माहेर" (maher) is the genuine Marathi word for a married woman's natal
-  // home ("mother's home"); it is not English "mother" transliterated — a real
+  // home ("mother's home"); it is not English "mother" transliterated, a real
   // transliteration would be "मदर".
   "mr/family": ["माहेर"],
 };
 
-// Levenshtein distance — the edit distance used for the phonetic ratio below.
+// Levenshtein distance, the edit distance used for the phonetic ratio below.
 function editDistance(a: string, b: string): number {
   const m = a.length;
   const n = b.length;
@@ -506,7 +505,7 @@ function editDistance(a: string, b: string): number {
   return dp[m][n];
 }
 
-// Keep only ASCII letters, lowercased — the comparable phonetic core.
+// Keep only ASCII letters, lowercased, the comparable phonetic core.
 const letters = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
 // Drop vowels too: a consonant skeleton, which stays stable across the vowel
 // drift transliteration introduces ("nervous" → "narvas" both reduce to "nrvs").
@@ -514,14 +513,13 @@ const consonants = (s: string) => letters(s).replace(/[aeiou]/g, "");
 const similarity = (a: string, b: string) =>
   a === "" && b === "" ? 1 : 1 - editDistance(a, b) / Math.max(a.length, b.length);
 
-// True when `romanized` sounds like the English `gloss` — i.e. the native-script
+// True when `romanized` sounds like the English `gloss`, i.e. the native-script
 // phrase is really that English word transliterated, not a native translation.
 function romanizationSoundsLike(romanized: string, gloss: string): boolean {
   const r = letters(romanized);
   const g = letters(gloss);
   if (r === "" || g === "") return false;
-  // Either the full forms are close, or their consonant skeletons match well —
-  // the latter survives the vowel changes transliteration adds.
+  // Either the full forms are close, or their consonant skeletons match well, // the latter survives the vowel changes transliteration adds.
   return similarity(r, g) >= 0.55 || similarity(consonants(romanized), consonants(gloss)) >= 0.6;
 }
 
@@ -542,7 +540,7 @@ test("no native script value is a transliterated English loanword (e.g. नर�
           romanizationSoundsLike(p.romanized, token)
         ) {
           failures.push(
-            `${label}: phrase ${i} nativeScript "${native}" (romanized "${p.romanized}") is the English loanword "${token}" transliterated — use the native word`,
+            `${label}: phrase ${i} nativeScript "${native}" (romanized "${p.romanized}") is the English loanword "${token}" transliterated, use the native word`,
           );
           break;
         }
@@ -563,7 +561,7 @@ test("no native script value is a transliterated English loanword (e.g. नर�
 // The check above only fires when the phrase's *English gloss* is itself on
 // LOANWORD_GLOSS_BLOCKLIST. That misses a loanword filed under the wrong
 // label entirely: Bodo once taught "সোরি"/sori (English "sorry" in
-// Devanagari-adjacent script) glossed "thanks" — the gloss-matching guard
+// Devanagari-adjacent script) glossed "thanks", the gloss-matching guard
 // never looked at it because the label said "thanks", not "sorry". A human
 // review caught it by ear and it was replaced with the genuine Bodo term
 // ("সাবায়খর"/sabaikhor), but nothing stopped a regeneration from
@@ -571,7 +569,7 @@ test("no native script value is a transliterated English loanword (e.g. नर�
 //
 // This guard ignores the gloss entirely and instead checks every phrase's
 // *romanization* against a small, fixed lexicon of extremely common English
-// courtesy/greeting words — the ones a lazy transliteration reaches for
+// courtesy/greeting words, the ones a lazy transliteration reaches for
 // regardless of what the phrase is nominally about. If a romanization sounds
 // like one of these words, the phrase is flagged, whatever its English label
 // says.
@@ -582,7 +580,7 @@ test("no native script value is a transliterated English loanword (e.g. नर�
 // mislabeled loanword is likely to surface no matter which topic it landed
 // in), and unlikely to collide with genuine native vocabulary once compared
 // via the same lenient phonetic match used above. Grow this list only for
-// another confirmed instance of the same defect — it is not meant to
+// another confirmed instance of the same defect, it is not meant to
 // replace the gloss-matched blocklist above, only to catch what a wrong
 // label hides from it.
 const COMMON_ENGLISH_LOANWORD_LEXICON = [
@@ -622,11 +620,11 @@ function romanizationIsCloseTranscriptionOf(romanized: string, word: string): bo
 // sounds like one of the lexicon words above once compared letter-for-letter
 // with no gloss to narrow the search. Kept separate from LOANWORD_ALLOWLIST
 // because a phrase can be cleared for its own gloss match yet still need a
-// separate note here (different lexicon word, same phrase) — in practice the
+// separate note here (different lexicon word, same phrase), in practice the
 // two lists currently agree, but they guard different checks and should not
 // be assumed to stay in lockstep.
 const GLOSS_AGNOSTIC_LOANWORD_ALLOWLIST: Record<string, string[]> = {
-  // "thanda"/"thand"/"thanda" family — the ordinary native word for "cold" in
+  // "thanda"/"thand"/"thanda" family, the ordinary native word for "cold" in
   // Assamese, Hindi, Konkani, Punjabi, and Urdu (all descend from the same
   // Indo-Aryan root). Its consonant-and-vowel shape only coincidentally
   // resembles "thanks"; a real transliteration of "thanks" would be
@@ -634,7 +632,7 @@ const GLOSS_AGNOSTIC_LOANWORD_ALLOWLIST: Record<string, string[]> = {
   "as/food": ["ঠাণ্ডা"],
   "hi/food": ["ठंडा"],
   "pa/feelings": ["ਠੰਡਾ"],
-  // "eklo"/"eklo" — the genuine Bodo/Nepali word for "alone"/"lonely"
+  // "eklo"/"eklo", the genuine Bodo/Nepali word for "alone"/"lonely"
   // (cognate with Hindi "akela"), not "hello" transliterated.
   "brx/feelings": ["एकलो"],
   "ne/feelings": ["एक्लो"],
@@ -645,19 +643,19 @@ const GLOSS_AGNOSTIC_LOANWORD_ALLOWLIST: Record<string, string[]> = {
   // elli/illi/alli question-word family), not "hello" transliterated.
   "kn/everyday": ["ಎಲ್ಲಿ"],
   // "ये"/"ye" is the plain imperative "come" in Konkani, Manipuri, and
-  // Marathi — a single short syllable that only coincidentally matches "bye".
+  // Marathi, a single short syllable that only coincidentally matches "bye".
   "kok/everyday": ["ये"],
   "mni/everyday": ["ꯌꯦ"],
   "mr/everyday": ["ये"],
   // "सोयरो"/soyro is the genuine Konkani kinship term for an in-law, sharing
   // only a coincidental "soy-" onset with "sorry".
   "kok/family": ["सोयरो"],
-  // "थंड"/"पेलो" — "cold" (see the thanda cluster above) and the ordinary
-  // Konkani word for a drinking glass (not "hello" transliterated — a real
+  // "थंड"/"पेलो"-"cold" (see the thanda cluster above) and the ordinary
+  // Konkani word for a drinking glass (not "hello" transliterated, a real
   // transliteration would be "हेलो") both land in Konkani's food lesson.
   "kok/food": ["पेलो", "थंड"],
   // "प्लेट"/"پلیٹ"/"پليٽ" ("plate") is a naturalized loanword for the
-  // household object across Gujarati, Kashmiri, Sindhi, and Urdu — exactly
+  // household object across Gujarati, Kashmiri, Sindhi, and Urdu, exactly
   // the kind of everyday borrowed noun this guard is meant to leave alone
   // (unlike a courtesy word like "please" it labels no other language's
   // concept).
@@ -669,10 +667,10 @@ const GLOSS_AGNOSTIC_LOANWORD_ALLOWLIST: Record<string, string[]> = {
   "mai/everyday": ["अहाँक"],
   "mai/family": ["अहाँक"],
   // "सोह्र"/"سورهه" (sohra/sorah) are the genuine Nepali and Sindhi numerals
-  // for "sixteen" — a coincidental "sor-" onset, not "sorry" transliterated.
+  // for "sixteen", a coincidental "sor-" onset, not "sorry" transliterated.
   "ne/numbers": ["सोह्र"],
   "sd/numbers": ["سورهه"],
-  // "બે"/be is simply the Gujarati numeral "two" — a single short syllable
+  // "બે"/be is simply the Gujarati numeral "two", a single short syllable
   // that only coincidentally matches "bye".
   "gu/numbers": ["બે"],
   // "சோர்வு"/sorvu ("tiredness") and "சோறு"/sooru ("cooked rice") are core,
@@ -704,7 +702,7 @@ function findGlossAgnosticLoanwords(
     for (const word of COMMON_ENGLISH_LOANWORD_LEXICON) {
       if (romanizationIsCloseTranscriptionOf(p.romanized, word)) {
         failures.push(
-          `${label}: phrase ${i} nativeScript "${native}" (romanized "${p.romanized}", glossed "${p.english}") sounds like the English word "${word}" transliterated — use the native word regardless of its label`,
+          `${label}: phrase ${i} nativeScript "${native}" (romanized "${p.romanized}", glossed "${p.english}") sounds like the English word "${word}" transliterated, use the native word regardless of its label`,
         );
         break;
       }
@@ -740,7 +738,7 @@ test("gloss-agnostic guard catches a transliterated loanword mislabeled with an 
   };
   assert.equal(findGlossAgnosticLoanwords("test/mislabeled", mislabeled).length, 1);
 
-  // The fix — the genuine native word, correctly glossed — must not trip it.
+  // The fix, the genuine native word, correctly glossed, must not trip it.
   const fixed: SeedLesson = {
     titleNative: "test",
     phrases: [
@@ -749,8 +747,7 @@ test("gloss-agnostic guard catches a transliterated loanword mislabeled with an 
   };
   assert.equal(findGlossAgnosticLoanwords("test/fixed", fixed).length, 0);
 
-  // A correct native translation of "sorry" itself must also be left alone —
-  // the guard should only fire when the romanization actually sounds like
+  // A correct native translation of "sorry" itself must also be left alone, // the guard should only fire when the romanization actually sounds like
   // the English word, not merely because the topic is apologetic.
   const correct: SeedLesson = {
     titleNative: "test",

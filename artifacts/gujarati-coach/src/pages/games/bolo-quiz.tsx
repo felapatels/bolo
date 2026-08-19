@@ -23,7 +23,7 @@ import {
   type OrderWordsQuestion,
 } from "@workspace/api-client-react";
 
-/** Mirror of the server-side isCorrectAnswer — used for instant local score display. */
+/** Mirror of the server-side isCorrectAnswer, used for instant local score display. */
 function localIsCorrect(q: QuizQuestion, ans: string | null): boolean {
   if (ans == null) return false;
   if (q.type === "mcq_translation") return ans === q.correctEnglish;
@@ -47,7 +47,7 @@ function questionMiss(q: QuizQuestion, ans: string | null): GameMiss {
     };
   }
   if (q.type === "listen_identify") {
-    // The prompt was audio only — nothing was on screen to quote, so name the
+    // The prompt was audio only, nothing was on screen to quote, so name the
     // task and let the answer/correct lines carry the script.
     return {
       prompt: "The phrase you heard",
@@ -749,7 +749,7 @@ export default function BoloQuizPage() {
     const nextIndex = currentIndex + 1;
 
     if (nextIndex >= questions.length) {
-      // Quiz finished — compute local score for instant display, then submit
+      // Quiz finished, compute local score for instant display, then submit
       // strings to the server for authoritative storage.
       const finalAnswers = [...answers];
       const score = finalAnswers.reduce<number>((acc, ans, i) => {

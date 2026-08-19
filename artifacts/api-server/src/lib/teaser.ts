@@ -13,7 +13,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 // Greetings lesson group of any locked language, with the full pipeline
 // (TTS, speaking, scoring, XP, attempts). Consumption is DERIVED from the
 // append-only attempts table (distinct teaser phrase ids attempted), never
-// stored — per the "derive, do not store" convention. Lifetime per
+// stored, per the "derive, do not store" convention. Lifetime per
 // (user, language).
 // ---------------------------------------------------------------------------
 
@@ -45,7 +45,7 @@ async function getGreetingsCategoryId(): Promise<number | null> {
 // The canonical teaser set for a language: the first TEASER_LIMIT phrase-stage
 // phrases, by position, of the first (lowest-position) Greetings lesson group.
 // Returns [] when the language has no Greetings group (should not happen for
-// seeded languages) — [] means "no teaser", i.e. plain locked behavior.
+// seeded languages), [] means "no teaser", i.e. plain locked behavior.
 export async function getTeaserPhraseIds(lang: string): Promise<number[]> {
   const cached = teaserIdsCache.get(lang);
   if (cached) return cached;
@@ -89,7 +89,7 @@ export async function getTeaserPhraseIds(lang: string): Promise<number[]> {
 
 // ---------------------------------------------------------------------------
 // Free-tier content policy (owner ruling, Aug 2026): every language's FIRST
-// stop — the position-1 Greetings lesson group — is fully playable free, even
+// stop, the position-1 Greetings lesson group, is fully playable free, even
 // while the language itself is plan-locked. The teaser above remains the
 // accounting model for the 402 payloads (consumed/limit meters); this is the
 // serving carve-out's membership source. Same frozen-content reasoning as the
@@ -159,8 +159,7 @@ export async function countTeaserConsumed(
   return (await listTeaserConsumedIds(db, userId, lang, teaserPhraseIds)).length;
 }
 
-// The distinct teaser phrase ids this user has attempted, via any executor —
-// pass a transaction so the read participates in the caller's serialization
+// The distinct teaser phrase ids this user has attempted, via any executor, // pass a transaction so the read participates in the caller's serialization
 // (POST /attempts holds an advisory lock across recount + insert so concurrent
 // submissions can't overshoot the limit).
 export async function listTeaserConsumedIds(

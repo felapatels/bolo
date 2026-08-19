@@ -2,8 +2,8 @@
  * Noise production baseline: the signal-to-noise measurement itself.
  *
  * The measurement is observation-only, so the bar it has to clear is (a) it
- * ranks a quiet room above a noisy one, and (b) no clip shape — silence, all
- * speech, a fragment, or bytes that aren't audio at all — can turn into an
+ * ranks a quiet room above a noisy one, and (b) no clip shape, silence, all
+ * speech, a fragment, or bytes that aren't audio at all, can turn into an
  * error, because an error here would cost a learner their attempt.
  */
 

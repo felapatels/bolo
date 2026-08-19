@@ -82,7 +82,7 @@ const LATEST_PARAMS: GetFriendsFeedParams = { limit: 1 };
  *
  * ONE event, not a feed: home is a launchpad, and the whole point of the line
  * is to be a door to the Feed tab rather than a second copy of it. It fetches
- * limit=1 for the same reason — a card that shows one line has no business
+ * limit=1 for the same reason, a card that shows one line has no business
  * pulling twenty.
  *
  * Absent while loading, on error, and when there is nothing to say. Never a
@@ -125,11 +125,11 @@ function LatestFriendMoment() {
 // ── exported component ────────────────────────────────────────────────────────
 
 /**
- * HomeSocialStrip — the single social card on home.
+ * HomeSocialStrip, the single social card on home.
  *
  * Two states:
- *  • Friends present  — shows learner's rank and up to 4 leaderboard rows.
- *  • No friends yet   — shows the referral invite affordance (share + copy).
+ *  • Friends present , shows learner's rank and up to 4 leaderboard rows.
+ *  • No friends yet  , shows the referral invite affordance (share + copy).
  *
  * Replaces HomeReferralCard: one invite affordance on home, never two.
  *
@@ -145,7 +145,7 @@ export function HomeSocialStrip() {
   const leaderboard = useGetFriendsLeaderboard();
   const referral = useGetReferral();
 
-  // Stay absent while loading or on error — quiet on home.
+  // Stay absent while loading or on error, quiet on home.
   if (leaderboard.isLoading) return null;
   if (leaderboard.isError) return null;
 
@@ -177,7 +177,7 @@ export function HomeSocialStrip() {
       transition={{ ...springs.gentle, delay: 0.12 }}
       className="mb-6 rounded-3xl border border-card-border bg-card p-5 shadow-[0_4px_0_rgba(0,0,0,0.08)]"
     >
-      {/* Header row — always present */}
+      {/* Header row, always present */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-primary" />

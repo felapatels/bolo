@@ -244,7 +244,7 @@ describe("test-out run mechanics", () => {
     await recordAndStop();
     expect(h.createAttempt).not.toHaveBeenCalled();
     // One take per phrase is a server-side batch rule, so the retry slot is
-    // inactive — but it is still THERE, in its usual place (Task #1040): the
+    // inactive, but it is still THERE, in its usual place (Task #1040): the
     // row never collapses to a single full-width button.
     expect(screen.getByTestId("try-again-button")).toBeDisabled();
     expect(screen.getByTestId("try-again-button")).toHaveAttribute("aria-disabled", "true");
@@ -271,7 +271,7 @@ describe("test-out run mechanics", () => {
       fireEvent.pointerUp(releaseTarget);
     });
     await waitFor(() => expect(h.evaluate).toHaveBeenCalled());
-    // Order and labels are constant even here (Task #1040) — the band pill
+    // Order and labels are constant even here (Task #1040), the band pill
     // also reads "Try again", so address the CONTROLS by testID.
     const retry = screen.getByTestId("try-again-button");
     const advance = screen.getByTestId("advance-button");

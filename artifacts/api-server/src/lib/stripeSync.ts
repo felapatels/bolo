@@ -4,8 +4,8 @@
 // Express and the database so it can be unit-tested in isolation, mirroring
 // the RevenueCat translation layer in revenuecatSync.ts.
 //
-// Stripe web checkout only sells all-access Bolo! Plus (see upgrade.tsx) — the
-// middle One-Language tier remains RevenueCat/mobile-only — so every apply here
+// Stripe web checkout only sells all-access Bolo! Plus (see upgrade.tsx), the
+// middle One-Language tier remains RevenueCat/mobile-only, so every apply here
 // targets `tier: "plus"`.
 //
 // The subscription is tagged with `metadata.userId` at checkout time
@@ -44,7 +44,7 @@ function currentPeriodEnd(sub: Stripe.Subscription): Date | null {
 // Translates a `customer.subscription.created` / `.updated` event's
 // subscription object into the columns to write, or null when the event isn't
 // attributable to a user (no metadata) or isn't yet an actionable state
-// ("incomplete" — the first payment hasn't succeeded yet — or "paused").
+// ("incomplete", the first payment hasn't succeeded yet, or "paused").
 // Which paid tier a subscription represents. Checkout (and the in-place
 // Plus→Family upgrade) stamp `metadata.plan: "family"` on family
 // subscriptions; anything else is regular all-access Plus.
@@ -74,7 +74,7 @@ export function applyFromStripeSubscription(
     case "active":
     case "past_due":
     case "unpaid":
-      // Access continues until the paid period genuinely ends — resolvePlan
+      // Access continues until the paid period genuinely ends, resolvePlan
       // downgrades automatically once currentPeriodEnd lapses, so a
       // cancel-at-period-end or a payment retry window still reads as Plus
       // until then.
@@ -103,7 +103,7 @@ export function applyFromStripeSubscription(
   }
 }
 
-// Translates a `customer.subscription.deleted` event — the subscription's
+// Translates a `customer.subscription.deleted` event, the subscription's
 // paid access has definitively ended (as opposed to `cancel_at_period_end`,
 // which is a plain "updated" event that keeps access until the period ends).
 export function applyFromStripeDeletion(

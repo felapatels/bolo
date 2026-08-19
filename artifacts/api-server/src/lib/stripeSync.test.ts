@@ -7,7 +7,7 @@ import {
 } from "./stripeSync";
 
 // Pure translation-layer tests: a Stripe Subscription object in, the columns we
-// write out. No network, no database — mirrors revenuecat.test.ts's coverage of
+// write out. No network, no database, mirrors revenuecat.test.ts's coverage of
 // applyFromEvent. The entitlement math that consumes these columns is proven
 // separately in the entitlements tests.
 

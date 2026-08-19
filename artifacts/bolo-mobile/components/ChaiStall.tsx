@@ -1,4 +1,4 @@
-// Chacha-ji's Chai Stall — mobile twin of the web treatment
+// Chacha-ji's Chai Stall, mobile twin of the web treatment
 // (artifacts/gujarati-coach/src/components/chai-stall.tsx). Owner ruling 4:
 // same asset, same loop, same layer map on both platforms, built once.
 //
@@ -7,7 +7,7 @@
 // track, directly below the boarding pass (Task #1049) so the pass reads as
 // standing in front of the stall. It carries one slow ambient steam plume over
 // the kettle,
-// and tapping it opens the Chai wallet sheet — the same sheet the Chai stat
+// and tapping it opens the Chai wallet sheet, the same sheet the Chai stat
 // cell opens, never a second wallet surface. (It shipped at wallet-vignette
 // scale, 56px and right-aligned; at that size a detailed scene read as a stray
 // thumbnail rather than a place. Owner correction, Aug 6.)
@@ -16,7 +16,7 @@
 // button with an accessible label. Without one it keeps the old atmospheric
 // treatment (hidden from the a11y tree, not pressable). The scene View stays
 // out of the a11y tree EITHER WAY, so the Pressable is the single node a
-// screen reader lands on — the overlay text below never splits it in two.
+// screen reader lands on, the overlay text below never splits it in two.
 //
 // The band NAMES ITSELF and shows the live balance in a top-right column,
 // so it reads as a wallet surface rather than scenery (same strings and
@@ -25,12 +25,12 @@
 // across the right half (the home bottom-fade / pass-shimmer pattern) plus
 // white text with the textShadow treatment speed-round already uses over
 // art. The scrim covers the whole right half, so the column never depends
-// on the art happening to be dark under it. The balance is the caller's — this
+// on the art happening to be dark under it. The balance is the caller's, this
 // component never queries or caches one, because spends are
 // server-authoritative and every surface refetches on change.
 //
 // TIER 2, the GLYPH: the kulhad (clay chai cup) replaces the Feather coffee
-// icon at every spot showing a Chai amount — stat cell, wallet rows, earn
+// icon at every spot showing a Chai amount, stat cell, wallet rows, earn
 // chips. Feather 'coffee' survives ONLY in lib/ui.ts, where it is the
 // food-topic category icon rather than a currency mark.
 //
@@ -67,7 +67,7 @@ export const STALL_ASSETS = {
   /** Isolated steam plume, layered over the kettle in the scene. */
   steam: require('../assets/images/stall/steam.png') as number,
   /**
-   * Chacha-ji himself, isolated on transparency — the existing greeting figure,
+   * Chacha-ji himself, isolated on transparency, the existing greeting figure,
    * trimmed to its bounding box. A LAYER, never painted into stall.png: the
    * banked pour-on-earn moment has to be able to animate him.
    */
@@ -90,7 +90,7 @@ const BOTTOM_CROP = 0.12;
 const VISIBLE_ASPECT = 1024 / (572 * (1 - BOTTOM_CROP));
 
 /**
- * Where the plume sits, in fractions of the SCENE box — the same three
+ * Where the plume sits, in fractions of the SCENE box, the same three
  * numbers as the web KETTLE map. If the scene art moves the kettle, update
  * both files together.
  */
@@ -105,7 +105,7 @@ const KETTLE = { left: 0.21, bottom: 0.46, width: 0.12 } as const;
  * b≈17 (its base, with the grass tufts, traced by scanning stall.png for the
  * pole's dark span row by row), and that is the ground line for the open dirt
  * beside the stall. His soles sit on it. Two earlier passes chose a bottom by
- * eye and he floated. `left` clears the pole entirely — the pole leans between
+ * eye and he floated. `left` clears the pole entirely, the pole leans between
  * x45.2% (base) and x48.3% (upper), so 48.5% puts his whole silhouette to its
  * right. Verified by compositing the real art and zooming into the soles and
  * the pole at native scale.
@@ -141,7 +141,7 @@ export function steamLoop(reduceMotion: boolean): {
 
 /**
  * The kulhad glyph. A drop-in replacement for
- * `<Feather name="coffee" size={n} />`: pass the same size. Decorative — every
+ * `<Feather name="coffee" size={n} />`: pass the same size. Decorative, every
  * site that uses it already writes the amount and the word "Chai" in text.
  */
 export function ChaiGlyph({
@@ -167,8 +167,7 @@ export function ChaiGlyph({
 
 /**
  * The stall scene. Fills its parent's width and takes its height from the
- * scene's aspect, so the KETTLE fractions land on the kettle at any width —
- * they are fractions OF THAT BOX, and the box never changes shape.
+ * scene's aspect, so the KETTLE fractions land on the kettle at any width, * they are fractions OF THAT BOX, and the box never changes shape.
  *
  * The plume's pixel placement needs real numbers, so the box reports its size
  * via onLayout rather than the caller declaring a height. Until the first
@@ -274,7 +273,7 @@ export function ChaiStallVignette({
             the man at the stall, not a control. Not pressable, and the whole
             scene is already out of the a11y tree, so no node is added. */}
         {/* A View carries the placement and the pointerEvents rule (Image takes
-            no pointerEvents prop) — the scene above is already unpressable, and
+            no pointerEvents prop), the scene above is already unpressable, and
             this states the same rule on the layer itself. */}
         <View
           testID="chai-stall-chachaji"

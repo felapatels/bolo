@@ -4,7 +4,7 @@
  * The queue lives at MODULE SCOPE for two reasons:
  *
  *   1. Sequencing. His three lines land from separate events (dialog open,
- *      arrival response, close) and must never overlap — a line waits for the
+ *      arrival response, close) and must never overlap, a line waits for the
  *      previous one to finish rather than talking over it.
  *   2. Lifetime. The farewell is queued as the dialog is closing and the route
  *      is changing, so nothing owned by the dialog can be what plays it.
@@ -52,7 +52,7 @@ function playOnce(clip: ChachaClip): Promise<void> {
  * Queue one of his lines behind whatever is already speaking.
  *
  * `onStart` fires when this line actually begins (its turn in the queue), and
- * `onEnd` when it finishes or fails — that pair is what drives the on-screen
+ * `onEnd` when it finishes or fails, that pair is what drives the on-screen
  * caption, so the text and the voice stay in step.
  */
 export function speakChachaLine(

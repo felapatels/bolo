@@ -388,7 +388,7 @@ test("Free path fires the generator exactly once when engagement >= 80 % and bel
 // Confirms the ceiling guard prevents the generator from firing when the topic
 // already holds FREE_PHRASE_CEILING phrases, even with 90 %+ engagement.
 // This proves shouldReplenishFree's ceiling check is correctly wired in the
-// route — not merely tested in unit tests.
+// route, not merely tested in unit tests.
 test("Free path does NOT fire the generator when phrase count is at FREE_PHRASE_CEILING", async () => {
   // Exactly at the ceiling; 90 % engaged to rule out an engagement false negative.
   const ids = await resetPhrases(FREE_PHRASE_CEILING);

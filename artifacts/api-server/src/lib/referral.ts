@@ -19,12 +19,12 @@ import {
 // Unambiguous alphabet per owner spec: uppercase, no 0/O/1/I.
 // 32 symbols × 6 places = 32^6 ≈ 1.07e9 codes.
 //
-// SAFETY NOTE — this same code is the learner's FRIEND code. It is deliberately
+// SAFETY NOTE, this same code is the learner's FRIEND code. It is deliberately
 // reused rather than minting a second one, and that reuse is only safe because
 // every code-initiated add lands as a *pending* friend request the recipient
 // must accept (POST /friends/requests/by-code → status "pending"; see the
 // accept handler in routes/friends.ts). Referral codes are meant to be
-// broadcast — flyers, WhatsApp groups, events — so if the accept step is ever
+// broadcast, flyers, WhatsApp groups, events, so if the accept step is ever
 // removed, every place a learner has posted their code silently becomes an
 // open friend list. The ONE exception is referral redemption below, which
 // auto-friends with no accept step because redeeming someone's link is already
@@ -136,7 +136,7 @@ export async function redeemReferralCode(
   if (inserted.length === 0) return { kind: "already_redeemed" };
 
   // Auto-friend: redeeming a link makes the two learners friends immediately,
-  // with no accept step (the single exception to the accept gate — see the
+  // with no accept step (the single exception to the accept gate, see the
   // note on REFERRAL_CODE_ALPHABET above). Idempotent and direction-safe via
   // ensureAcceptedFriendship, because the friendships unique index only covers
   // one ordered pair and would not stop a reverse duplicate.

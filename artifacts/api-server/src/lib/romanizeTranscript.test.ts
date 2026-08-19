@@ -1,5 +1,5 @@
 // Unit tests for the deterministic display-only transcript romanization
-// (Task 907). Pure text transformation — no DB, no HTTP, no LLM.
+// (Task 907). Pure text transformation, no DB, no HTTP, no LLM.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
@@ -70,7 +70,7 @@ describe("romanizeTranscript", () => {
     // only to schwa-deleting app languages, so card style still applies.
     assert.equal(romanizeTranscript("કેમ છો", ""), "kem cho");
     assert.equal(romanizeTranscript("ਸਤ ਸ੍ਰੀ ਅਕਾਲ", undefined), "sat sri akal");
-    // Devanagari is ambiguous (sa/ne keep the vowel) — no fallback deletion.
+    // Devanagari is ambiguous (sa/ne keep the vowel), no fallback deletion.
     assert.equal(romanizeTranscript("नमस्कार", ""), "namaskara");
   });
 });

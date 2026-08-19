@@ -44,7 +44,7 @@ const inviteRateLimit = createRateLimit({
 });
 
 // The user id is derived server-side from the verified Clerk session by the
-// requireAuth middleware — never from client-supplied input.
+// requireAuth middleware, never from client-supplied input.
 function getUserId(req: Request): string {
   return (req as AuthedRequest).userId;
 }
@@ -60,7 +60,7 @@ interface UserSummary {
   // mascot dressed. An outfit is bought with Chai and was previously visible
   // only to its owner (the self-only GET /tokens); friend and leaderboard rows
   // are the one place anybody else sees it. Null in either slot means the
-  // canonical undressed bird — never a blank or a fallback initial.
+  // canonical undressed bird, never a blank or a fallback initial.
   equippedOutfit: string | null;
   equippedAccessory: string | null;
   // Whether this learner's First Class window is open RIGHT NOW. A boolean,
@@ -121,7 +121,7 @@ async function loadUserSummaries(
   return new Map(rows.map((r) => [r.id, toSummary(r)]));
 }
 
-/** The summary for a user we could not load — identity unknown, bird undressed. */
+/** The summary for a user we could not load, identity unknown, bird undressed. */
 function unknownSummary(id: string): UserSummary {
   return {
     id,
@@ -178,7 +178,7 @@ function retryAfterSeconds(oldest: Date): number {
 const FRIEND_CODE_RATE_LIMIT_MESSAGE =
   "Too many code attempts. Please try again later.";
 
-// POST /friends/requests/by-code — send a friend request to the learner who
+// POST /friends/requests/by-code, send a friend request to the learner who
 // owns the given friend code.
 //
 // This ALWAYS creates a *pending* request, never an instant friendship, and
@@ -240,7 +240,7 @@ router.post(
     }
 
     // Authoritative recheck + log insert inside a transaction, serialised by
-    // two advisory locks (account axis, then IP axis — always in that order, so
+    // two advisory locks (account axis, then IP axis, always in that order, so
     // concurrent callers can never deadlock against each other). Without this,
     // a burst of parallel guesses would all pass the SELECT above.
     let limited: number | null = null;
@@ -285,7 +285,7 @@ router.post(
       return;
     }
 
-    // Exact match only — no prefix, fuzzy or "did you mean" matching, ever.
+    // Exact match only, no prefix, fuzzy or "did you mean" matching, ever.
     const [owner] = await db
       .select({
         id: usersTable.id,
@@ -322,7 +322,7 @@ router.post(
   },
 );
 
-// GET /friends/requests/incoming — pending requests awaiting the caller's
+// GET /friends/requests/incoming, pending requests awaiting the caller's
 // response, each annotated with the requester's identity.
 router.get(
   "/friends/requests/incoming",
@@ -349,7 +349,7 @@ router.get(
   },
 );
 
-// GET /friends/requests/outgoing — the caller's pending requests still waiting
+// GET /friends/requests/outgoing, the caller's pending requests still waiting
 // on the other learner, each annotated with the addressee's identity.
 router.get(
   "/friends/requests/outgoing",
@@ -394,12 +394,12 @@ async function loadIncomingPending(requestId: number, userId: string) {
   return row ?? null;
 }
 
-// POST /friends/requests/:id/accept — the addressee accepts a pending request,
+// POST /friends/requests/:id/accept, the addressee accepts a pending request,
 // turning it into a mutual accepted friendship.
 //
 // LOAD-BEARING. Do not remove this step, and do not add a path that creates an
 // "accepted" friendship straight from a code. A learner's friend code IS their
-// referral code, and referral codes are designed to be broadcast — printed on
+// referral code, and referral codes are designed to be broadcast, printed on
 // flyers, pasted into WhatsApp groups, read out at events. Reusing one code for
 // both jobs is only safe because everything a code can do on its own is put a
 // *pending* request in front of the recipient, who decides. Delete this gate
@@ -434,7 +434,7 @@ router.post(
   },
 );
 
-// POST /friends/requests/:id/decline — the addressee declines a pending
+// POST /friends/requests/:id/decline, the addressee declines a pending
 // request, removing it entirely so it can be re-sent later.
 router.post(
   "/friends/requests/:id/decline",
@@ -451,7 +451,7 @@ router.post(
   },
 );
 
-// GET /friends — the caller's accepted friends (read from both sides of the
+// GET /friends, the caller's accepted friends (read from both sides of the
 // stored directional row), each with their identity.
 router.get("/friends", async (req: Request, res: Response): Promise<void> => {
   const userId = getUserId(req);
@@ -480,7 +480,7 @@ router.get("/friends", async (req: Request, res: Response): Promise<void> => {
   );
 });
 
-// DELETE /friends/:userId — remove an accepted friendship (from either side).
+// DELETE /friends/:userId, remove an accepted friendship (from either side).
 router.delete("/friends/:userId", async (req: Request, res: Response): Promise<void> => {
   const userId = getUserId(req);
   const friendId = String(req.params.userId);
@@ -493,10 +493,10 @@ router.delete("/friends/:userId", async (req: Request, res: Response): Promise<v
   res.status(204).end();
 });
 
-// POST /friends/invite — send a "download Bolo!" referral email to an email
+// POST /friends/invite, send a "download Bolo!" referral email to an email
 // address that doesn't belong to any existing learner. Enforces two layers of
 // rate limiting:
-//   1. A coarse per-user in-memory sliding window (5 invites / 15 min) — the
+//   1. A coarse per-user in-memory sliding window (5 invites / 15 min), the
 //      middleware above guards this.
 //   2. A per-(caller, recipient) 24-hour cooldown checked against `lastSentAt`
 //      in the `friend_invites` table so the guard survives a server restart.
@@ -517,7 +517,7 @@ router.post(
       return;
     }
 
-    // Basic format sanity check — full validation lives on the client.
+    // Basic format sanity check, full validation lives on the client.
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       res.status(400).json({ error: "Invalid email address" });
       return;
@@ -574,7 +574,7 @@ router.post(
       .limit(1);
     const inviterName = callerRow?.displayName?.trim() || "Fellow learner";
 
-    // Send the invite email. Fail fast — the DB row is only written after a
+    // Send the invite email. Fail fast, the DB row is only written after a
     // successful send so stale rows never block the cooldown window.
     await sendFriendInviteEmail({ inviterName, toEmail: email });
 
@@ -661,7 +661,7 @@ function utcWeekStart(now: Date): Date {
   return midnight;
 }
 
-// GET /friends/leaderboard — the caller plus their accepted friends, ranked by
+// GET /friends/leaderboard, the caller plus their accepted friends, ranked by
 // XP, highest first. The caller's own entry is flagged with `isSelf` so clients
 // can highlight their position.
 //
@@ -808,7 +808,7 @@ function parseFeedLimit(raw: unknown): number {
   return Math.min(n, FEED_MAX_LIMIT);
 }
 
-// GET /friends/feed — what the caller's accepted friends have been doing,
+// GET /friends/feed, what the caller's accepted friends have been doing,
 // newest first.
 //
 // FRIENDS ONLY, and never the caller. The gate is the friend-id set resolved

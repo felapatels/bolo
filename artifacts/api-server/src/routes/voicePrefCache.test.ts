@@ -21,17 +21,17 @@ import type { AccountIdentity } from "../lib/accountIdentity";
 // without waiting for the TTL to expire.
 //
 // These tests verify:
-//   1. Cache hit path — after the first TTS call populates the cache, a second
+//   1. Cache hit path, after the first TTS call populates the cache, a second
 //      call within the TTL window uses the cached value rather than re-querying
 //      the DB (proven by updating the DB between calls and confirming the old
 //      cached voice is still in the cache entry).
-//   2. Invalidation path — PATCH /account/preferences with a new ttsVoice
+//   2. Invalidation path, PATCH /account/preferences with a new ttsVoice
 //      removes the cache entry so the subsequent TTS call reads the updated
 //      value from the DB immediately.
 //
 // The tests drive real Express routes against the live DB (matching the
 // api-server test convention). ElevenLabs synthesis is expected to fail in the
-// test environment; that is intentional — the cache population logic runs
+// test environment; that is intentional, the cache population logic runs
 // before synthesis, so the cache state is deterministic even when TTS itself
 // returns a 502.
 // ---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ let app: Express;
 let server: Server;
 let baseUrl: string;
 
-// Minimal stub identity — PATCH /account/preferences only needs the DB write
+// Minimal stub identity, PATCH /account/preferences only needs the DB write
 // path (no Clerk calls for ttsVoice updates), so a no-op stub is sufficient.
 const stubIdentity: AccountIdentity = {
   async updateProfile() {},
@@ -206,11 +206,11 @@ test("POST /openai/tts uses cached voice and does not re-read from DB", async ()
   assert.ok(firstEntry !== undefined, "Cache should be warm after first TTS call");
   assert.equal(firstEntry.ttsVoice, VOICE_A);
 
-  // Now change the DB directly — bypassing the PATCH route so the cache is
+  // Now change the DB directly, bypassing the PATCH route so the cache is
   // NOT invalidated. This simulates "two TTS calls within the TTL window".
   await setDbTtsVoice(VOICE_B);
 
-  // Second TTS call — should be a cache hit (VOICE_A), not a DB read (VOICE_B).
+  // Second TTS call, should be a cache hit (VOICE_A), not a DB read (VOICE_B).
   await postTts();
 
   const secondEntry = _voicePrefCacheForTest.get(TEST_USER);
@@ -241,7 +241,7 @@ test("PATCH /account/preferences with ttsVoice invalidates the cache", async () 
     "Cache should be warm before PATCH",
   );
 
-  // PATCH to VOICE_B — this should call invalidateVoicePreferenceCache and
+  // PATCH to VOICE_B, this should call invalidateVoicePreferenceCache and
   // clear the entry.
   const { status } = await patchPreferences({ ttsVoice: VOICE_B });
   assert.equal(
@@ -267,7 +267,7 @@ test("after PATCH ttsVoice the next TTS call picks up the new voice from DB", as
     "Cache should hold VOICE_A before PATCH",
   );
 
-  // PATCH to VOICE_B — invalidates cache and writes VOICE_B to DB.
+  // PATCH to VOICE_B, invalidates cache and writes VOICE_B to DB.
   await patchPreferences({ ttsVoice: VOICE_B });
 
   // Cache should now be empty.

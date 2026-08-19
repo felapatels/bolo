@@ -144,7 +144,7 @@ describe("redeem attribution", () => {
     assert.strictEqual(ledger.length, 0, "redeem grants no Chai to either side");
 
     // Task #1111: redeeming a link ALSO makes the two learners friends, with no
-    // accept step. This is the single exception to the accept gate — redeeming
+    // accept step. This is the single exception to the accept gate, redeeming
     // someone's link is already an explicit act by both parties.
     const friendship = await findFriendshipBetween(REFERRER_ID, REFEREE_ID);
     assert.ok(friendship, "redemption leaves the two learners connected");

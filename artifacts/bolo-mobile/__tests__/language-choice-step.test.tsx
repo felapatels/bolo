@@ -1,5 +1,5 @@
 /**
- * B1 parity — the full-screen choose-language step and the picker modal flag:
+ * B1 parity, the full-screen choose-language step and the picker modal flag:
  *
  *  • The step lists every language with NO lock badging (no PlusPill), shows
  *    the listening-only badge only for speechCapability === 'unsupported',

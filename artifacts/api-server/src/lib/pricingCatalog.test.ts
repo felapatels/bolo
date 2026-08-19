@@ -18,7 +18,7 @@ const KEYS = [
   "STRIPE_FAMILY_MONTHLY_PRICE_ID",
   "STRIPE_FAMILY_ANNUAL_PRICE_ID",
   // Chai packs are configured in this environment, so they must be saved AND
-  // cleared per test — otherwise the ambient ids leak in and the fetcher is
+  // cleared per test, otherwise the ambient ids leak in and the fetcher is
   // asked for prices these tests never stubbed.
   "STRIPE_CHAI_PACK_SMALL_PRICE_ID",
   "STRIPE_CHAI_PACK_MEDIUM_PRICE_ID",

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 /**
- * MilestoneToast — a brief, non-blocking pill that slides up from the bottom
+ * MilestoneToast, a brief, non-blocking pill that slides up from the bottom
  * of its containing element, displays for ~1.5 s, then exits automatically.
  *
  * Accepts a `message` (what to show) and a `toastKey` (changing it re-triggers

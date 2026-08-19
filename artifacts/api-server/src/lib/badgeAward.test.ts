@@ -13,9 +13,9 @@ import { awardNewlyEarnedBadges } from "./badgeAward";
 import type { ExtendedProgressMetrics } from "./badges";
 import { ensureUsersColumns } from "./testDbCompat";
 
-// These tests exercise the real award path — the code-defined badge catalog plus
+// These tests exercise the real award path, the code-defined badge catalog plus
 // the badges table's unique (user_id, language_code, badge_key) constraint +
-// onConflictDoNothing — that together enforce two invariants:
+// onConflictDoNothing, that together enforce two invariants:
 //   1. a badge is awarded at most once per (user, language); and
 //   2. badges never leak across languages.
 //
@@ -161,7 +161,7 @@ test("re-meeting the same criteria never re-awards or re-celebrates", async () =
   });
   assert.deepEqual(third.map((b) => b.key), ["perfect_100"]); // only the newly-crossed one
 
-  // Stored exactly once per key — no duplicates.
+  // Stored exactly once per key, no duplicates.
   assert.deepEqual(await storedBadgeKeys(LANG_A), [
     "first_phrase",
     "mastery_1",

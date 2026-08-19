@@ -376,9 +376,8 @@ describe("the practised language is always on screen", () => {
 // ---------------------------------------------------------------------------
 // Silent-game declaration (Aug 12, 2026, reported from a phone: Ticket Check
 // showed a speaker button over a game that never makes a sound). Web now has
-// mobile's `usesAudio` opt-out. It defaults to TRUE, which is the trap — a
-// silent game that predates the prop keeps a live mute control over silence —
-// so every silent game must declare it and be pinned here.
+// mobile's `usesAudio` opt-out. It defaults to TRUE, which is the trap, a
+// silent game that predates the prop keeps a live mute control over silence, // so every silent game must declare it and be pinned here.
 // ---------------------------------------------------------------------------
 describe("silent games hide the mute control", () => {
   test("a game that speaks keeps its mute button (the default)", () => {

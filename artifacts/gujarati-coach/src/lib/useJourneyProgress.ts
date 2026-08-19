@@ -1,7 +1,7 @@
 // Journey progress for surfaces OUTSIDE /journey (the home boarding-pass
 // hero). Reuses the exact six per-zone lesson-group queries the journey page
-// fires — react-query dedupes/caches them, so home warms the map and vice
-// versa — and mirrors its station ordering + current-stop rules. Read-only
+// fires, react-query dedupes/caches them, so home warms the map and vice
+// versa, and mirrors its station ordering + current-stop rules. Read-only
 // presentation data: every failure mode (plain-locked 402, network error,
 // still loading) degrades to `current: null` and the caller falls back to
 // generic copy. Never throws, never gates anything.
@@ -39,7 +39,7 @@ export interface JourneyProgress {
   /**
    * True when no boardable stop exists but the line continues into stops the
    * caller's plan cannot see (planLocked groups). The boarding pass renders
-   * an upgrade nudge instead of the generic "continue" copy — the honest
+   * an upgrade nudge instead of the generic "continue" copy, the honest
    * reading of "nothing to board".
    */
   planBlocked: boolean;
@@ -76,7 +76,7 @@ export function useJourneyProgress(
       // S2 map honesty: a planLocked group has ZERO phrases the caller's plan
       // can practice (the server already reports it status "locked"); it can
       // never be the boarding-pass target. Free-tier content policy: sentence
-      // stops are no longer skipped by stage — Hindi Fare Zone 1's sentence
+      // stops are no longer skipped by stage, Hindi Fare Zone 1's sentence
       // stops serve free, so planLocked is the single plan authority here.
       if (g.planLocked === true) {
         anyPlanGated = true;

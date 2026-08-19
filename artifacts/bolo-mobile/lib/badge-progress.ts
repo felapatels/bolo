@@ -1,7 +1,7 @@
 import type { Badge } from '@workspace/api-client-react';
 
 // A locked badge is "close" when the learner is at least this far toward it, so
-// we can highlight the goals within realistic reach — mirrors the web gallery.
+// we can highlight the goals within realistic reach, mirrors the web gallery.
 export const NEAR_THRESHOLD = 0.6;
 
 // How far the learner is toward unlocking a badge, clamped to [0, 1].

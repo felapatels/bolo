@@ -2,7 +2,7 @@
  * Count-up number reveal for session summaries (Spec 1 v3 §4.4).
  *
  * Animates from 0 to `value` on the UI thread (Reanimated + animated
- * TextInput props — the ReText pattern). ≤700ms. Reduced motion renders the
+ * TextInput props, the ReText pattern). ≤700ms. Reduced motion renders the
  * final value instantly.
  *
  * Layout stability: tabular figures keep digits equal-width, and a hidden

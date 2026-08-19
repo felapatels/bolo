@@ -7,8 +7,8 @@ import { GAME_AUDIO_PREF_KEY } from "@/lib/gameAudioPref";
 // ---------------------------------------------------------------------------
 // Express Listening: the clip IS the prompt (the four choices render native
 // script only), so this file guards the two things that make the audio path
-// trustworthy — a late clip never plays over the round that replaced it, and
-// a voice change never replays the old voice — plus the entry gate that keeps
+// trustworthy, a late clip never plays over the round that replaced it, and
+// a voice change never replays the old voice, plus the entry gate that keeps
 // the game from starting with sound off. The existing round behaviour
 // (autoplay, replay, both advance beats, timeout scoring) is pinned alongside
 // so the audio work cannot quietly change how the game plays.
@@ -160,7 +160,7 @@ async function runCountdown() {
 }
 
 /** The frame's round clock chains one setTimeout per second, and each next
- *  timeout is only scheduled after React commits the tick — so the seconds
+ *  timeout is only scheduled after React commits the tick, so the seconds
  *  have to be advanced one act() at a time, not in a single jump. */
 async function tickSeconds(seconds: number) {
   for (let i = 0; i < seconds; i++) {
@@ -170,8 +170,8 @@ async function tickSeconds(seconds: number) {
   }
 }
 
-/** A choice renders TWO lines now — the native script and, under the owner's
- *  always-visible romanization ruling, its romanized reading — so a choice is
+/** A choice renders TWO lines now, the native script and, under the owner's
+ *  always-visible romanization ruling, its romanized reading, so a choice is
  *  identified by its FIRST line, not by the button's whole text content. */
 const nativeLabel = (b: Element) => (b.querySelector("span")?.textContent ?? "").trim();
 

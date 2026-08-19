@@ -5,7 +5,7 @@ import { bandFromScore, normalizeBand } from "./scoreBands";
 
 // The authoritative evaluation the server computed for a single spoken attempt.
 // It is signed by the server at pronunciation time and later replayed, verbatim,
-// when the client records the attempt — so the stored score/feedback can never
+// when the client records the attempt, so the stored score/feedback can never
 // be forged or inflated by the client.
 export interface EvaluationClaims {
   userId: string;
@@ -48,7 +48,7 @@ export interface EvaluationClaims {
   // no extra transcript content travels with it.
   snrDb?: number | null;
   // Why the attempt failed to score, when the band is 'nocatch'. The cause
-  // LABEL alone — the transcript-bearing nocatch diagnostic sidecars stay on
+  // LABEL alone, the transcript-bearing nocatch diagnostic sidecars stay on
   // their pilot allowlist.
   nocatchCause?: NocatchCause;
   // ── Scoring v2 groundwork ──
@@ -72,7 +72,7 @@ const TOKEN_TTL_MS = 15 * 60 * 1000;
 // S1 global honesty cap: until audio-aware scoring v2 exists, no
 // transcript-scored attempt may exceed this score (or band 'perfect').
 // Exported so the scoring paths in openai.ts cap against the SAME constant
-// this module clamps against — they can never drift apart.
+// this module clamps against, they can never drift apart.
 export const HONESTY_SCORE_CAP = 92;
 
 function getSigningKey(): string {
@@ -149,8 +149,7 @@ export function verifyEvaluation(token: string): EvaluationClaims | null {
   // Back-compat: tokens issued before the v2 upgrade won't have band/xpAwarded,
   // and tokens signed just before the five-band deploy carry legacy three-band
   // names (they stay valid for TOKEN_TTL_MS across the deploy). normalizeBand
-  // maps legacy/missing values via score-only derivation (Spec 0 rule 40 —
-  // never derive band from `passed`) and passes nocatch through untouched.
+  // maps legacy/missing values via score-only derivation (Spec 0 rule 40, // never derive band from `passed`) and passes nocatch through untouched.
   const safeband: PronunciationBand = normalizeBand(
     claims.band as string | undefined,
     claims.score,

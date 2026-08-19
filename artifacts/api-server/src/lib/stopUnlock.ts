@@ -8,27 +8,27 @@ import { getFirstStopGroup } from "./teaser";
 // A learner may spend Chai to open ONE stop at a time in a language their plan
 // does not include. Three rules make this safe to sell:
 //
-//   1. CAP — only stops inside the language's FIRST ZONE are purchasable. The
+//   1. CAP, only stops inside the language's FIRST ZONE are purchasable. The
 //      boundary is not invented here: it is the zone that already hosts the
 //      free-taste carve-out (lib/teaser.ts getFirstStopGroup, the position-1
 //      Greetings group). Everything past that zone needs All-Access and no
 //      amount of Chai opens it.
-//   2. ONCE-EVER — the purchase IS the ledger row. refId encodes language and
+//   2. ONCE-EVER, the purchase IS the ledger row. refId encodes language and
 //      stop, so the ledger's unique (user, reason, ref) index makes a replay a
 //      no-op that charges nothing and grants nothing.
-//   3. SERVER-AUTHORITATIVE — the refId is composed here from the group row's
+//   3. SERVER-AUTHORITATIVE, the refId is composed here from the group row's
 //      own languageCode, never from anything the client sends, and never from
 //      the Date.now() fallback POST /tokens/spend uses for its optional
 //      client-supplied key (that fallback is a fresh key every call, i.e. not
 //      an idempotency key at all).
 //
 // Ownership is DERIVED from the ledger, so an unlock outlives a reinstall, a
-// new device, and a cleared cache — there is no device-side unlock state.
+// new device, and a cleared cache, there is no device-side unlock state.
 // ---------------------------------------------------------------------------
 
 export const STOP_UNLOCK_REASON = "spend_stop_unlock" as const;
 
-/** `stop:<languageCode>:<lessonGroupId>` — unique per learner, language and stop. */
+/** `stop:<languageCode>:<lessonGroupId>`, unique per learner, language and stop. */
 export function stopUnlockRefId(languageCode: string, lessonGroupId: number): string {
   return `stop:${languageCode}:${lessonGroupId}`;
 }

@@ -4,7 +4,7 @@
  * Three things have to hold:
  *  1. A scored attempt's signed token carries the derived SNR measurement.
  *  2. If the measurement fails, the learner's result is byte-identical to the
- *     run where it succeeded — scoring never depends on it.
+ *     run where it succeeded, scoring never depends on it.
  *  3. An attempt that fails to score carries its cause label for EVERY learner
  *     (the label only; the transcript-bearing sidecars stay on their allowlist,
  *     and this test user is not on it).

@@ -6,7 +6,7 @@ import { setAuthTokenGetter } from '@workspace/api-client-react';
  * Registers a fresh Clerk session token getter for every API request.
  *
  * A ref holds the latest `getToken` identity so the module-level registration
- * is a single stable closure that never goes stale — no need to re-register
+ * is a single stable closure that never goes stale, no need to re-register
  * when Clerk internally rotates the function reference across renders.
  *
  * This component is placed as the FIRST child inside <ClerkProvider>, before
@@ -14,7 +14,7 @@ import { setAuthTokenGetter } from '@workspace/api-client-react';
  * setAuthTokenGetter call below runs before QueryClientProvider (and therefore
  * before any child query hook) renders. Effects fire after the full render
  * pass, so by the time any useQuery schedules a fetch the getter is already
- * registered — the startup race is closed without gating or suspense.
+ * registered, the startup race is closed without gating or suspense.
  *
  * Renders nothing; exists only for its side effects.
  */

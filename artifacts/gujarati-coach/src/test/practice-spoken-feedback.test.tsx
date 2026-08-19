@@ -6,7 +6,7 @@ import type { ReactElement } from "react";
 
 // ---------------------------------------------------------------------------
 // Guards the spoken-feedback read-aloud: when a score lands, the coach's
-// feedback + tip are synthesized and played — unless the "Spoken feedback"
+// feedback + tip are synthesized and played, unless the "Spoken feedback"
 // preference (bolo.spokenFeedback) is off, in which case only the
 // target-phrase playback happens.
 // ---------------------------------------------------------------------------
@@ -204,7 +204,7 @@ describe("spoken feedback after scoring", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    // In silent mode, no coach playback happens either — synth should be
+    // In silent mode, no coach playback happens either, synth should be
     // called 0 times total.
     expect(h.synth).toHaveBeenCalledTimes(0);
   });

@@ -10,7 +10,7 @@ import { AppFonts } from '@/constants/fonts';
 import { badgeIcon } from '@/lib/badge-icons';
 
 // A locked badge is "close" when the learner is at least this far toward it, so
-// we can highlight the goals within realistic reach — mirrors the web gallery.
+// we can highlight the goals within realistic reach, mirrors the web gallery.
 const NEAR_THRESHOLD = 0.6;
 
 function progressRatio(badge: Badge): number {
@@ -42,7 +42,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
   const earnedCount = badges?.filter((b) => b.earned).length ?? 0;
   const total = badges?.length ?? 0;
 
-  // The highest progress ratio among still-locked badges — used to emphasize the
+  // The highest progress ratio among still-locked badges, used to emphasize the
   // goal the learner is closest to unlocking.
   const nearestRatio = badges
     ? badges

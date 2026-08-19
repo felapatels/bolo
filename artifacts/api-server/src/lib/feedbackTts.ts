@@ -1,25 +1,25 @@
 /**
  * Eval-time fire-and-forget pre-synthesis of the spoken feedback sentence
- * (Task 903 — "instant band audio, streamed feedback").
+ * (Task 903, "instant band audio, streamed feedback").
  *
  * After a pronunciation evaluation, both clients POST the feedback+tip text
  * to /openai/tts within milliseconds of receiving the eval response. The text
  * is unique per attempt, so the ttsCache never hits and the client always
  * paid the full synthesis wait. This module lets the pronunciation route kick
- * synthesis the moment the feedback text exists — one client round-trip
+ * synthesis the moment the feedback text exists, one client round-trip
  * BEFORE the client's own request arrives.
  *
  * A plain cache-warm would not help: the client's fetch lands long before
  * synthesis finishes, misses the cache, and would synthesize a duplicate. So
  * the prewarm also registers its in-flight promise in a pending map that
- * /openai/tts joins after a cache miss — no duplicate synthesis, and the
+ * /openai/tts joins after a cache miss, no duplicate synthesis, and the
  * route resolves as soon as the earlier-started synthesis completes.
  *
  * Provider caveat: for ElevenLabs the /openai/tts synthesis voice can be a
  * per-user Plus preference resolved inside the route, so the eval handler
  * cannot reliably predict the client's cache key. The prewarm is therefore a
  * no-op when TTS_PROVIDER === "elevenlabs" (clients just synthesize as
- * before — nothing breaks, nothing is duplicated).
+ * before, nothing breaks, nothing is duplicated).
  */
 import { db, ttsCacheTable } from "@workspace/db";
 import { openai, textToSpeech } from "@workspace/integrations-openai-ai-server/audio";
@@ -89,7 +89,7 @@ export function pendingFeedbackSynthesisCount(): number {
 }
 
 /**
- * Default synthesis — mirrors exactly what /openai/tts does for the current
+ * Default synthesis, mirrors exactly what /openai/tts does for the current
  * non-ElevenLabs provider (fixed voice, no per-user overrides), so the
  * prewarm and the route land in the same cache-key namespace with the same
  * audio.
@@ -123,14 +123,13 @@ export function prewarmFeedbackTts(
 ): void {
   try {
     // Per-user ElevenLabs voice prefs make the client's cache key
-    // unpredictable from here — skip; the client path is unchanged.
+    // unpredictable from here, skip; the client path is unchanged.
     if (TTS_PROVIDER === "elevenlabs") return;
     const text = feedbackSpokenText(feedback, tip);
     if (!text) return;
 
     const identity = phraseAudioIdentity(undefined);
-    // Clients send neither languageName nor languageCode for feedback text —
-    // the language slot is the empty string, matching /openai/tts.
+    // Clients send neither languageName nor languageCode for feedback text, // the language slot is the empty string, matching /openai/tts.
     const cacheKey = phraseTtsCacheKey(
       text,
       identity.provider,

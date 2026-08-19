@@ -3,9 +3,9 @@ import * as Haptics from 'expo-haptics';
 
 /**
  * Single home for tap feedback so every touchpoint feels consistent:
- * - light  — navigation/selection taps (cards, rows, tabs, toggles, links)
- * - medium — primary/confirming actions (matches the ChunkyButton feel)
- * - heavy  — rare celebratory pulses (e.g. a 90+ pronunciation score)
+ * - light , navigation/selection taps (cards, rows, tabs, toggles, links)
+ * - medium, primary/confirming actions (matches the ChunkyButton feel)
+ * - heavy , rare celebratory pulses (e.g. a 90+ pronunciation score)
  *
  * All calls are fire-and-forget and no-op on web, where expo-haptics has no
  * effect. Screens should use these (or `HapticPressable`/`PressableScale`)
@@ -19,7 +19,7 @@ function impact(style: Haptics.ImpactFeedbackStyle) {
   try {
     Promise.resolve(Haptics.impactAsync(style)).catch(() => {});
   } catch {
-    // Ignore — feedback is a nicety, never a failure path.
+    // Ignore, feedback is a nicety, never a failure path.
   }
 }
 
@@ -40,7 +40,7 @@ export function hapticNotify(type: Haptics.NotificationFeedbackType) {
   try {
     Promise.resolve(Haptics.notificationAsync(type)).catch(() => {});
   } catch {
-    // Ignore — feedback is a nicety, never a failure path.
+    // Ignore, feedback is a nicety, never a failure path.
   }
 }
 

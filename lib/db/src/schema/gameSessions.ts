@@ -15,7 +15,7 @@ import { languagesTable } from "./languages";
 // `game` is one of: 'word-match', 'speed-round', 'listen-and-pick',
 // 'phrase-builder', 'daily-quiz', 'script-trace'.
 //
-// `context` is optional per-game metadata — for 'script-trace' it holds the
+// `context` is optional per-game metadata, for 'script-trace' it holds the
 // chapter id (e.g. "gujarati-vowels") so chapter-level badge conditions can
 // be evaluated without re-querying the scriptTraceProgress table.
 export const gameSessionsTable = pgTable("game_sessions", {

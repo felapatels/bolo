@@ -82,7 +82,7 @@ router.get("/tokens", async (req: Request, res: Response): Promise<void> => {
   });
 });
 
-// GET /tokens/history — the caller's last 10 ledger rows, newest first.
+// GET /tokens/history, the caller's last 10 ledger rows, newest first.
 //
 // The caller's own rows and nothing else: the userId comes from the auth
 // middleware, never from the request.
@@ -164,7 +164,7 @@ router.post(
   },
 );
 
-// POST /tokens/first-class — buy 24 hours of gold-train status.
+// POST /tokens/first-class, buy 24 hours of gold-train status.
 //
 // The one Chai spend whose refId comes from the client, because it is the one
 // that is REPEATABLE: every other sink is identified by the thing it buys, so
@@ -180,9 +180,9 @@ router.post(
 // boost are all server-side.
 //
 // Status register:
-//   200 — bought, or a replay of a spent key (`charged: false`, nothing
+//   200, bought, or a replay of a spent key (`charged: false`, nothing
 //         deducted and no time added).
-//   409 — money and clock conflicts only (insufficient_tokens,
+//   409, money and clock conflicts only (insufficient_tokens,
 //         first_class_horizon). NEVER 402: that is the UpgradeRequired
 //         envelope codebase-wide and clients render it as the Plus paywall.
 router.post(
@@ -224,20 +224,20 @@ router.post(
   },
 );
 
-// POST /tokens/unlock-stop — buy one stop in a plan-locked language.
+// POST /tokens/unlock-stop, buy one stop in a plan-locked language.
 //
 // Everything that decides WHAT is being bought is server-side: the client
 // names a lesson group id and nothing else. The language comes from the group
 // row, the cap from lib/stopUnlock.ts, and the ledger refId is composed from
-// both — so there is no client-supplied idempotency key here and no
+// both, so there is no client-supplied idempotency key here and no
 // Date.now() fallback (see POST /tokens/spend above for why that matters).
 //
 // Status register:
-//   200 — bought, or already owned (`charged: false`, nothing deducted).
-//   402 — the stop lies beyond the first zone: that is the All-Access
+//   200, bought, or already owned (`charged: false`, nothing deducted).
+//   402, the stop lies beyond the first zone: that is the All-Access
 //         boundary, not a spend rejection, so it uses the same
 //         UpgradeRequired envelope every other locked-language denial sends.
-//   409 — money/state conflicts only (insufficient balance, nothing to buy),
+//   409, money/state conflicts only (insufficient balance, nothing to buy),
 //         matching the existing Chai copy register.
 router.post(
   "/tokens/unlock-stop",
@@ -313,7 +313,7 @@ router.post(
 //
 // The ratified exception to the delight-only spine (owner ruling, Aug 7 2026):
 // this sink buys back a streak lost to life happening. It is protection, never
-// advantage — see lib/streakRepair.ts for the eligibility rules that keep it
+// advantage, see lib/streakRepair.ts for the eligibility rules that keep it
 // so, and why the window is two days.
 //
 // Nothing about WHAT is bought comes from the client: there is no body at all.
@@ -322,7 +322,7 @@ router.post(
 // no Date.now() fallback (see POST /tokens/spend above for why that matters).
 //
 // Status register, matching the outfit sink: 200 for a repair or a replay
-// (`charged: false`), 409 for every refusal. Never 402 — a broken streak is
+// (`charged: false`), 409 for every refusal. Never 402, a broken streak is
 // not a plan boundary, and a learner must never be upsold over one.
 
 /** Eligibility as the clients need it: an offer, or nothing to offer. */
@@ -335,7 +335,7 @@ async function readStreakRepairOffer(req: Request): Promise<{
   const userId = getUserId(req);
   const timeZone = (req as EntitledRequest).userTimezone;
   // Task #1081: the day set this offer is priced on is THE day set the home
-  // banner climbs — lessons completed or mini-games played, any language,
+  // banner climbs, lessons completed or mini-games played, any language,
   // from lib/streakDays.ts. Previously this scanned bare attempts in every
   // language while the banner scanned them in one, which is how a 25 Chai
   // card came to promise a 4-day streak to a learner whose banner then read
@@ -361,7 +361,7 @@ async function readStreakRepairOffer(req: Request): Promise<{
       };
 }
 
-// GET /tokens/streak-repair — is there a break worth offering to mend?
+// GET /tokens/streak-repair, is there a break worth offering to mend?
 router.get(
   "/tokens/streak-repair",
   async (req: Request, res: Response): Promise<void> => {
@@ -377,7 +377,7 @@ router.get(
   },
 );
 
-// POST /tokens/repair-streak — mend it.
+// POST /tokens/repair-streak, mend it.
 router.post(
   "/tokens/repair-streak",
   async (req: Request, res: Response): Promise<void> => {
@@ -386,7 +386,7 @@ router.post(
     if (!offer.eligible || !offer.missedDay) {
       // Refused before any money moves. The refusal names WHICH rule turned
       // it down so the clients never have to guess, but no client may offer a
-      // repair on the strength of one — eligibility is re-derived here.
+      // repair on the strength of one, eligibility is re-derived here.
       res.status(409).json({
         error:
           offer.refusal === "window_expired"
@@ -402,8 +402,8 @@ router.post(
       // The delivered number is re-derived AFTER the cover is written, from
       // the same source the banner reads (lib/streakDays.ts). The offer's
       // figure was a hypothetical computed before the debit; returning it
-      // here would let anything that landed in between — a lesson finished in
-      // another tab, midnight — put the receipt and the banner at odds on a
+      // here would let anything that landed in between, a lesson finished in
+      // another tab, midnight, put the receipt and the banner at odds on a
       // paid surface. This is the number the learner will see.
       const ladder = await loadStreakLadder(
         userId,

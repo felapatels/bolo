@@ -74,7 +74,7 @@ function AnalyticsPanel({ lang }: { lang: string }) {
                         </span>
                         <span className="shrink-0 text-xs font-bold text-muted-foreground">
                           {cat.masteredCount}/{cat.phraseCount}
-                          {/* Band word instead of a raw average score — same
+                          {/* Band word instead of a raw average score, same
                               canonical thresholds as everywhere else. */}
                           {cat.averageScore > 0 && (
                             <span

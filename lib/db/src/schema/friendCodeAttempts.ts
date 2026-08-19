@@ -3,7 +3,7 @@ import { usersTable } from "./users";
 
 // Append-only log of friend-code lookups (POST /friends/requests/by-code).
 // This log IS the rate-limit source, the same way zone_testouts is for zone
-// test-outs — a DB-backed window rather than the in-memory middleware, because
+// test-outs, a DB-backed window rather than the in-memory middleware, because
 // a code-guessing surface must stay bounded across instances and restarts.
 //
 // Two axes are logged on every row so both can be counted from one insert:

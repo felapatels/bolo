@@ -1,6 +1,6 @@
 // The code-defined badge catalog. Badges are durable per-language achievements
 // evaluated against a learner's current progress metrics. This is the single
-// source of truth for what badges exist and how they unlock — the database only
+// source of truth for what badges exist and how they unlock, the database only
 // stores which badges a (user, language) has already earned, keyed by `key`.
 // Keys are stable identifiers and must never change once shipped, or previously
 // earned badges would be orphaned.

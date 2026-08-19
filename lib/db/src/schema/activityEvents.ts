@@ -23,8 +23,8 @@ import { usersTable } from "./users";
 // must never fail the action they describe.
 //
 // type values:
-//   'equip_outfit'    — a garment was put on;   ref_id = the outfit id
-//   'equip_accessory' — an accessory was put on; ref_id = the accessory id
+//   'equip_outfit'   , a garment was put on;   ref_id = the outfit id
+//   'equip_accessory', an accessory was put on; ref_id = the accessory id
 export const activityEventsTable = pgTable(
   "activity_events",
   {

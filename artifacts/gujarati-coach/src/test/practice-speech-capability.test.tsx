@@ -10,7 +10,7 @@ import type { ReactElement } from "react";
 //      no evaluation request is ever sent, and the compare stage appears.
 //   2. "degraded" languages show a one-time "feedback is approximate" notice,
 //      persisted per language code so it never reappears.
-//   3. "supported" (default) behaviour is unchanged — the evaluation runs.
+//   3. "supported" (default) behaviour is unchanged, the evaluation runs.
 // ---------------------------------------------------------------------------
 
 const h = vi.hoisted(() => ({
@@ -258,7 +258,7 @@ describe("degraded language: one-time approximate-feedback notice", () => {
     );
     expect(notice).toBeInTheDocument();
 
-    // Dismiss it — the seen flag persists per language code.
+    // Dismiss it, the seen flag persists per language code.
     fireEvent.click(screen.getByRole("button", { name: /Dismiss notice/i }));
     await waitFor(() =>
       expect(

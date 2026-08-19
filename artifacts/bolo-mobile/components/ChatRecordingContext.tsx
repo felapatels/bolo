@@ -5,7 +5,7 @@
  *
  * Design: ref-based so callers (BoloTabButton) don't re-render on every phase
  * change. The only state (`isRecording`) is a boolean that flips only at the
- * recording boundary — the minimal surface that must cause a UI update (for the
+ * recording boundary, the minimal surface that must cause a UI update (for the
  * accessibility label).
  */
 import React from 'react';
@@ -15,7 +15,7 @@ type ChatRecordingContextValue = {
   startRecordingRef: React.MutableRefObject<(() => void) | null>;
   /** Ref to the latest stop-recording wrapper registered by chat.tsx. */
   stopRecordingRef: React.MutableRefObject<(() => void) | null>;
-  /** Ref to the current chat phase — readable without subscribing. */
+  /** Ref to the current chat phase, readable without subscribing. */
   phaseRef: React.MutableRefObject<string>;
   /**
    * True only while the mic is live. The single piece of state that drives a
@@ -74,7 +74,7 @@ export function ChatRecordingProvider({ children }: { children: React.ReactNode 
 
 // Stable no-op fallback used when ChatScreen is rendered outside the provider
 // (e.g. in unit tests that mount chat.tsx directly).  The nav-bar hold-to-talk
-// feature simply does nothing in that environment, which is correct — no tab
+// feature simply does nothing in that environment, which is correct, no tab
 // bar exists in isolation.
 const NOOP = () => {};
 const NO_OP_REFS = {

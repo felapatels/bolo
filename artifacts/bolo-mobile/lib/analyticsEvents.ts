@@ -1,5 +1,5 @@
 // The deliberate, complete set of product analytics events for the mobile
-// app. Do not add events ad hoc — extend this file (and its web twin,
+// app. Do not add events ad hoc, extend this file (and its web twin,
 // artifacts/gujarati-coach/src/lib/analyticsEvents.ts) so the set stays
 // reviewed.
 //

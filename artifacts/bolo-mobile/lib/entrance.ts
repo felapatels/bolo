@@ -3,13 +3,13 @@
 // In Expo Go, reanimated entrance animations can silently never run: the view
 // is mounted at the animation's initial state (opacity 0 / offset) and stays
 // there forever, leaving whole screens invisible. Entrance animations are a
-// progressive enhancement — visibility must never depend on them — so inside
+// progressive enhancement, visibility must never depend on them, so inside
 // Expo Go we drop them entirely (views render directly in their resting
 // state). Development and production builds keep the full animations.
 //
 // When the user has enabled Reduce Motion in their system accessibility
 // settings, we also drop entering animations to guarantee text is never left
-// at opacity 0 / offset — the animation's initial state — by a skipped
+// at opacity 0 / offset, the animation's initial state, by a skipped
 // animation pass.
 import Constants from 'expo-constants';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -39,7 +39,7 @@ export function useAppear<T>(animation: T): T | undefined {
 }
 
 /**
- * Returns `true` when entrance animations should be suppressed — either
+ * Returns `true` when entrance animations should be suppressed, either
  * because we're running in Expo Go or because the user has enabled Reduce
  * Motion. Use this as a boolean guard in places where the animation value
  * can't be passed to `useAppear` directly (e.g. inside `.map()` callbacks

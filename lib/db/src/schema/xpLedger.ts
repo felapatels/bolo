@@ -15,14 +15,14 @@ import { languagesTable } from "./languages";
 // attempt.score.
 //
 // Idempotency: the unique constraint on (user_id, source, ref_id) means any
-// event can be re-written with ON CONFLICT DO NOTHING — both the live write
+// event can be re-written with ON CONFLICT DO NOTHING, both the live write
 // path and the backfill are safe to re-run.
 //
 // source values:
-//   'attempt'      — one scored pronunciation attempt; ref_id = attempt.id (string)
-//   'game_session' — one completed game/script-trace session; ref_id = game_session.id
-//   'daily_quiz'   — one daily quiz completion; ref_id = quiz_completion.id
-//   'bootstrap'    — legacy lump-sum entry from the backfill;
+//   'attempt'     , one scored pronunciation attempt; ref_id = attempt.id (string)
+//   'game_session', one completed game/script-trace session; ref_id = game_session.id
+//   'daily_quiz'  , one daily quiz completion; ref_id = quiz_completion.id
+//   'bootstrap'   , legacy lump-sum entry from the backfill;
 //                    ref_id = 'legacy-<languageCode>'
 export const xpLedgerTable = pgTable(
   "xp_ledger",

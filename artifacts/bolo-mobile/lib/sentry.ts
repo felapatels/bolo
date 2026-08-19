@@ -36,7 +36,7 @@ const SENSITIVE_KEYS = new Set([
 
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
 
-// Depth guard. This is a runaway/cycle backstop ONLY — it must never be
+// Depth guard. This is a runaway/cycle backstop ONLY, it must never be
 // shallow enough to reach the parts of a Sentry event we need to read.
 //
 // Trap (cost a full debugging session, Aug 2026): the guard used to be
@@ -45,7 +45,7 @@ const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
 //   → frames(5) → frames[n](6) → filename/function/lineno(7)
 // so EVERY frame field shipped as the literal string '[depth-limit]' and
 // every trace in Sentry was unreadable. The frames were being destroyed
-// here, in our own beforeSend — not lost to missing source maps.
+// here, in our own beforeSend, not lost to missing source maps.
 //
 // Cycles are handled by `seen` (Sentry events can hold repeated references),
 // so the depth number no longer has to be small to be safe.

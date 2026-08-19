@@ -133,7 +133,7 @@ function subscriptionSummary(user: User, resolved: ResolvedPlan) {
 }
 
 // True when the user has a subscription worth managing (paid tier or a live/
-// canceled status) — used to reject cancel/pause/retention for plain Free users.
+// canceled status), used to reject cancel/pause/retention for plain Free users.
 function hasManageableSubscription(user: User): boolean {
   if (user.tier !== "free") return true;
   const s = user.subscriptionStatus;
@@ -146,7 +146,7 @@ export function createAccountRouter(
   const router: IRouter = Router();
   const { identity } = deps;
 
-  // GET /account — the caller's profile, preferences, and a subscription
+  // GET /account, the caller's profile, preferences, and a subscription
   // summary in one payload the settings screen renders from.
   router.get("/account", async (req: Request, res: Response): Promise<void> => {
     const id = userId(req);
@@ -162,7 +162,7 @@ export function createAccountRouter(
     });
   });
 
-  // PATCH /account/profile — update the display name (mirrored to Clerk, the
+  // PATCH /account/profile, update the display name (mirrored to Clerk, the
   // identity source of truth) and/or the avatar reference (mirror only). Only
   // the fields present in the body are changed.
   router.patch(
@@ -218,14 +218,14 @@ export function createAccountRouter(
     },
   );
 
-  // POST /account/email — change the primary email. Clerk owns the email, so we
+  // POST /account/email, change the primary email. Clerk owns the email, so we
   // change it there (verified + primary) and mirror it locally.
   router.post(
     "/account/email",
     async (req: Request, res: Response): Promise<void> => {
       const id = userId(req);
       const email = String((req.body ?? {}).email ?? "").trim();
-      // Deliberately lightweight validation — Clerk does the authoritative
+      // Deliberately lightweight validation, Clerk does the authoritative
       // format/uniqueness checks and rejects a bad address.
       if (!email || !email.includes("@")) {
         res.status(400).json({ error: "A valid email is required" });
@@ -248,7 +248,7 @@ export function createAccountRouter(
     },
   );
 
-  // POST /account/password — set a new password. Clerk owns credentials; we
+  // POST /account/password, set a new password. Clerk owns credentials; we
   // never store a password locally.
   router.post(
     "/account/password",
@@ -272,7 +272,7 @@ export function createAccountRouter(
     },
   );
 
-  // PATCH /account/preferences — update notification and/or learning
+  // PATCH /account/preferences, update notification and/or learning
   // preferences. The local mirror is authoritative for these. Only provided
   // fields change; each is validated.
   router.patch(
@@ -356,7 +356,7 @@ export function createAccountRouter(
         set.hasCompletedTour = body.hasCompletedTour;
       }
 
-      // Explicit language choice — sent by the selection step, the home
+      // Explicit language choice, sent by the selection step, the home
       // picker, or account settings alongside an activeLanguage write. Only
       // `true` is accepted: a choice can't be unmade via the API, and the
       // client's first-reconcile seed write never includes this field.
@@ -376,7 +376,7 @@ export function createAccountRouter(
             return;
           }
           // Plus gate: only Plus learners may set a custom voice (family
-          // members resolve to "plus"; one_language is excluded — the voice
+          // members resolve to "plus"; one_language is excluded, the voice
           // pref would have no effect there).
           const resolved = (req as EntitledRequest).resolvedPlan;
           if (resolved.plan !== "plus") {
@@ -408,7 +408,7 @@ export function createAccountRouter(
     },
   );
 
-  // DELETE /account — permanently delete the learner. Clerk is removed first (so
+  // DELETE /account, permanently delete the learner. Clerk is removed first (so
   // the identity can no longer authenticate); only then are the local rows
   // purged, in FK-safe order, so nothing is orphaned. A missing Clerk user is
   // tolerated (idempotent).
@@ -428,7 +428,7 @@ export function createAccountRouter(
       // user from either side.
       //
       // Family relations first: a member's seat simply disappears; an owner's
-      // plan is dissolved (seats + plan) — members lose derived access
+      // plan is dissolved (seats + plan), members lose derived access
       // automatically because entitlements resolve through the (now gone)
       // owner. The Stripe subscription, if any, dies with the customer via
       // the deletion webhook.
@@ -510,7 +510,7 @@ export function createAccountRouter(
     },
   );
 
-  // GET /account/subscription — the full management snapshot: tier/status/dates,
+  // GET /account/subscription, the full management snapshot: tier/status/dates,
   // chosen language, payment-method summary, and billing history. Softer fields
   // are pulled from RevenueCat where available and degrade gracefully.
   router.get(
@@ -526,7 +526,7 @@ export function createAccountRouter(
     },
   );
 
-  // POST /account/subscription/cancel — cancel the subscription. Access
+  // POST /account/subscription/cancel, cancel the subscription. Access
   // continues until the current period ends (the resolver keeps a "canceled"
   // paid tier live until `currentPeriodEnd` lapses). Canceling clears any pause.
   router.post(
@@ -551,7 +551,7 @@ export function createAccountRouter(
     },
   );
 
-  // POST /account/subscription/pause — pause the subscription for a bounded
+  // POST /account/subscription/pause, pause the subscription for a bounded
   // window (1–3 months). While paused the resolver suspends paid access but does
   // NOT expire the subscription; it resumes when the window closes.
   router.post(
@@ -566,7 +566,7 @@ export function createAccountRouter(
 
       const now = new Date();
       const resolved = (req as EntitledRequest).resolvedPlan;
-      // An already-paused subscription is a conflict — check this before the
+      // An already-paused subscription is a conflict, check this before the
       // free-plan guard, since a paused plan itself resolves to "free".
       if (user.subscriptionStatus === "paused") {
         res.status(409).json({ error: "Subscription is already paused" });
@@ -607,7 +607,7 @@ export function createAccountRouter(
     },
   );
 
-  // POST /account/subscription/resume — plain reactivation: clear a pending
+  // POST /account/subscription/resume, plain reactivation: clear a pending
   // cancel (status canceled → active) with no discount, no period extension,
   // and no retention-offer bookkeeping. Idempotent for an already-active paid
   // plan, and repeatable (cancel → resume → cancel → resume works forever).
@@ -641,16 +641,16 @@ export function createAccountRouter(
         res.json(await buildSubscriptionDetails(updated));
         return;
       }
-      // Already active — idempotent no-op.
+      // Already active, idempotent no-op.
       res.json(await buildSubscriptionDetails(user));
     },
   );
 
-  // POST /account/subscription/unpause — let a learner who changes their mind
+  // POST /account/subscription/unpause, let a learner who changes their mind
   // come back early instead of waiting out the pause window. Clears the pause
   // and resumes the underlying paid tier immediately (mirrors what naturally
   // happens once pauseUntil elapses on its own). Guarded to only apply to a
-  // currently-paused subscription — a canceling/active/expired subscription
+  // currently-paused subscription, a canceling/active/expired subscription
   // has nothing to unpause and is rejected.
   router.post(
     "/account/subscription/unpause",
@@ -675,7 +675,7 @@ export function createAccountRouter(
     },
   );
 
-  // POST /account/subscription/retention — accept the one-time discounted
+  // POST /account/subscription/retention, accept the one-time discounted
   // 3-month retention offer. Resumes/keeps the paid tier (clearing a pending
   // cancel or pause), extends the period by 3 months, and records the accepted
   // offer so it's reflected in the entitlement state even without a native

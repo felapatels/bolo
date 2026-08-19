@@ -214,7 +214,7 @@ test("a TRANSFER downgrades the losing app_user_id", async () => {
 // --- App Store consumables (Chai packs) ------------------------------------
 //
 // A consumable is a purchase that grants Chai and NOTHING else. These run the
-// whole path — the real webhook, the real catalog, the real ledger — because
+// whole path, the real webhook, the real catalog, the real ledger, because
 // the two things that can go wrong here both cost real money: crediting a
 // repeat purchase once, and letting a Chai purchase touch a subscription.
 
@@ -272,7 +272,7 @@ test("a consumable purchase credits the pack's Chai", async () => {
 test("GUARD: buying the same pack twice credits twice", async () => {
   // Two payments, two credits. This is the assertion that stops a later
   // refactor folding consumables into the subscription-shaped "a repeat
-  // delivery is always a replay" assumption — which would silently eat a
+  // delivery is always a replay" assumption, which would silently eat a
   // learner's second purchase.
   const before = await balance();
   await postEvent(consumable("2000000000201"));
@@ -301,8 +301,8 @@ test("a consumable moves no subscription state for a FREE learner", async () => 
 });
 
 test("a consumable moves no subscription state for a PAID learner", async () => {
-  // The dangerous direction is the other one — a consumable must not grant or
-  // extend — but a paid learner must also come out the far side unchanged: no
+  // The dangerous direction is the other one, a consumable must not grant or
+  // extend, but a paid learner must also come out the far side unchanged: no
   // period shortened, no status rewritten, no entitlement lost.
   await postEvent({
     type: "INITIAL_PURCHASE",

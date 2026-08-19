@@ -21,7 +21,7 @@ function sameInstant(a: Date | null, b: Date | null): boolean {
 // needed), stamping the provider so we know this row is billing-managed. Returns
 // whether anything actually changed. Guarded so an unmanaged row (e.g. one set
 // by the dev-override test tool) is only clobbered once RevenueCat has real
-// state for it — a Free/none pull for a user RevenueCat never managed is a
+// state for it, a Free/none pull for a user RevenueCat never managed is a
 // no-op.
 export async function applyRevenueCatState(
   apply: RevenueCatApply,
@@ -37,7 +37,7 @@ export async function applyRevenueCatState(
 
   const isNoop = apply.tier === "free" && apply.subscriptionStatus === "none";
   if (isNoop && current && current.subscriptionProvider !== PROVIDER) {
-    // RevenueCat has no record for a user it never managed — don't overwrite a
+    // RevenueCat has no record for a user it never managed, don't overwrite a
     // manually/otherwise-set row with an empty Free state.
     return false;
   }

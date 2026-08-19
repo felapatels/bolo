@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  * These primitives mirror the feel of the launch video (see
  * `bolo-launch-video/src/lib/video/animations.ts`): snappy, springy, playful
  * motion that stays brand-consistent across the app. Every primitive here is
- * built to honor the OS "reduce motion" setting — the hooks/components collapse
+ * built to honor the OS "reduce motion" setting, the hooks/components collapse
  * to a still frame when `useReducedMotion()` is true, so nothing ever bobs,
  * pulses, or springs for visitors who asked us not to.
  *
@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
  */
 
 // ---------------------------------------------------------------------------
-// Spring presets — the core of the app's motion language.
+// Spring presets, the core of the app's motion language.
 // ---------------------------------------------------------------------------
 
 /**
@@ -86,7 +86,7 @@ export const DEPTH_2_5D = {
    * Rail-bed thickness: the sleeper-tie stroke is duplicated once per segment,
    * offset down by this many SVG px in ink at low opacity, so every tie shows
    * an underside edge and the track reads as a raised bed. The rail path
-   * geometry (`d`) itself is untouched — the comet samples the same beziers.
+   * geometry (`d`) itself is untouched, the comet samples the same beziers.
    */
   railBedDy: 2.5,
   railBedOpacity: 0.18,
@@ -109,7 +109,7 @@ export const DEPTH_2_5D = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Entrance / idle helpers — return props you can spread onto a motion element.
+// Entrance / idle helpers, return props you can spread onto a motion element.
 // ---------------------------------------------------------------------------
 
 /**
@@ -154,7 +154,7 @@ export function floatIdle(
 }
 
 // ---------------------------------------------------------------------------
-// Funny idle variants — played when the screen sits untouched for 10 s.
+// Funny idle variants, played when the screen sits untouched for 10 s.
 // ---------------------------------------------------------------------------
 
 /**
@@ -162,7 +162,7 @@ export function floatIdle(
  * `motion.img`. They are intentionally one-shot (no `repeat: Infinity`) so
  * Bolo snaps back to the normal float after each performance.
  *
- * All entries collapse to `undefined` when `reduceMotion` is true — callers
+ * All entries collapse to `undefined` when `reduceMotion` is true, callers
  * must check for that before indexing this array.
  */
 export interface FunnyIdleVariant {
@@ -170,7 +170,7 @@ export interface FunnyIdleVariant {
   transition: Transition;
   /**
    * Optional body-part effect the mascot rig plays alongside the whole-body
-   * move — real wing flaps on the jump, spread wings on the spin, a quick
+   * move, real wing flaps on the jump, spread wings on the spin, a quick
    * flutter on the shimmy. Ignored by non-rig consumers.
    */
   rig?: "flap" | "spread" | "flutter";
@@ -179,36 +179,36 @@ export interface FunnyIdleVariant {
 export function funnyIdleVariants(reduceMotion: boolean | null): FunnyIdleVariant[] {
   if (reduceMotion) return [];
   return [
-    // 1. Spin — full 360° rotation, wings spread like a pirouette
+    // 1. Spin, full 360° rotation, wings spread like a pirouette
     {
       animate: { rotate: [0, 360] },
       transition: { duration: 0.6, ease: [0.34, 1.56, 0.64, 1] },
       rig: "spread",
     },
-    // 2. Peek left-right — like a curious bird peering around
+    // 2. Peek left-right, like a curious bird peering around
     {
       animate: { rotate: [0, -20, 20, -20, 20, 0] },
       transition: { duration: 1.2, ease: "easeInOut" },
     },
-    // 3. Sneeze-scale — quick puff then settle, feathers ruffling
+    // 3. Sneeze-scale, quick puff then settle, feathers ruffling
     {
       animate: { scale: [1, 1.3, 0.85, 1.1, 1] },
       transition: { duration: 0.5, ease: "easeOut" },
       rig: "flutter",
     },
-    // 4. Jump — bouncy hop with real wing flaps powering it
+    // 4. Jump, bouncy hop with real wing flaps powering it
     {
       animate: { y: [0, -24, 0, -12, 0] },
       transition: { duration: 0.7, ease: [0.34, 1.56, 0.64, 1] },
       rig: "flap",
     },
-    // 5. Dizzy spiral — wobble with a subtle float, wings out for balance
+    // 5. Dizzy spiral, wobble with a subtle float, wings out for balance
     {
       animate: { rotate: [0, -15, 15, -15, 0], y: [0, -8, 0] },
       transition: { duration: 1, ease: "easeInOut" },
       rig: "spread",
     },
-    // 6. Excited shimmy — rapid tiny shakes side to side
+    // 6. Excited shimmy, rapid tiny shakes side to side
     {
       animate: { x: [0, -6, 6, -6, 6, -4, 4, 0] },
       transition: { duration: 0.6, ease: "easeInOut" },
@@ -218,7 +218,7 @@ export function funnyIdleVariants(reduceMotion: boolean | null): FunnyIdleVarian
 }
 
 // ---------------------------------------------------------------------------
-// PageTransition — shared enter transition for routed page content.
+// PageTransition, shared enter transition for routed page content.
 // ---------------------------------------------------------------------------
 
 /**
@@ -252,7 +252,7 @@ export function PageTransition({
 }
 
 // ---------------------------------------------------------------------------
-// FloatingTag — a softly bobbing pill, used for language tags in the shell.
+// FloatingTag, a softly bobbing pill, used for language tags in the shell.
 // ---------------------------------------------------------------------------
 
 export function FloatingTag({
@@ -268,7 +268,7 @@ export function FloatingTag({
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
-  /** Text direction — forward `"rtl"` for right-to-left scripts (e.g. Urdu). */
+  /** Text direction, forward `"rtl"` for right-to-left scripts (e.g. Urdu). */
   dir?: "ltr" | "rtl";
   delay?: number;
   distance?: number;
@@ -314,7 +314,7 @@ export function FloatingTag({
 }
 
 // ---------------------------------------------------------------------------
-// SoundWavePulse — animated equalizer bars, echoing the "speak out loud" theme.
+// SoundWavePulse, animated equalizer bars, echoing the "speak out loud" theme.
 // ---------------------------------------------------------------------------
 
 const WAVE_HEIGHTS = [0.45, 0.8, 1, 0.65, 0.9, 0.5];
@@ -374,7 +374,7 @@ export function SoundWavePulse({
   );
 
   // Live-driven mode (Spec D2): bar heights bind to the amplitude
-  // MotionValue via useTransform — updates bypass React state entirely.
+  // MotionValue via useTransform, updates bypass React state entirely.
   // Under reduced motion the amplitude-driven branch below is NOT used;
   // callers render their own static level indicator (the waveform must not
   // dance, but mic-is-working feedback must not disappear either).

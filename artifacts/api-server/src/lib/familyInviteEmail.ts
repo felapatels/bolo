@@ -2,7 +2,7 @@ import { ReplitConnectors } from "@replit/connectors-sdk";
 
 // Sends a "join my Bolo! family plan" email with the personal invite link.
 // Mirrors inviteEmail.ts (Resend connector, same visual template), but the CTA
-// is the web join link — family plans are web-managed, not App Store installs.
+// is the web join link, family plans are web-managed, not App Store installs.
 
 const connectors = new ReplitConnectors();
 
@@ -13,14 +13,14 @@ function requireFromEmail(): string {
   const from = process.env.INVITE_FROM_EMAIL;
   if (!from) {
     throw new Error(
-      "INVITE_FROM_EMAIL is not set — family invite emails cannot be sent. Set it to the verified sender address (e.g. hello@bolo-india.app).",
+      "INVITE_FROM_EMAIL is not set, family invite emails cannot be sent. Set it to the verified sender address (e.g. hello@bolo-india.app).",
     );
   }
   return from;
 }
 const APP_NAME = "Bolo!";
 
-// Mascot image for the email header — hosted on the production web app so it
+// Mascot image for the email header, hosted on the production web app so it
 // renders in all email clients (Gmail strips base64 data URIs).
 const MASCOT_IMG_URL = "https://bolo-india.app/mascot/mascot-wave.png";
 
@@ -38,7 +38,7 @@ function buildHtml(inviterName: string, joinUrl: string): string {
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#FFFBF5;font-family:system-ui,sans-serif;">
   <!-- Preheader: hidden preview text (must stay invisible in the body) -->
-  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${escapeHtml(inviterName)} shared their ${APP_NAME} family plan with you — full Plus access, free.&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${escapeHtml(inviterName)} shared their ${APP_NAME} family plan with you, full Plus access, free.&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#FFFBF5;padding:40px 16px;">
     <tr><td align="center">
       <table width="540" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #E8E0D4;max-width:540px;width:100%;">
@@ -55,10 +55,10 @@ function buildHtml(inviterName: string, joinUrl: string): string {
               Hey there! 👋
             </p>
             <p style="margin:0 0 18px;font-size:16px;color:#3D3D3D;line-height:1.6;">
-              <strong>${escapeHtml(inviterName)}</strong> invited you to their <strong>${APP_NAME} family plan</strong> — you get full Plus access (all 22 official Indian languages, unlimited lessons, review & analytics) at no cost to you.
+              <strong>${escapeHtml(inviterName)}</strong> invited you to their <strong>${APP_NAME} family plan</strong>, you get full Plus access (all 22 official Indian languages, unlimited lessons, review & analytics) at no cost to you.
             </p>
             <p style="margin:0 0 28px;font-size:16px;color:#3D3D3D;line-height:1.6;">
-              Your progress and streaks stay completely your own — only the plan is shared.
+              Your progress and streaks stay completely your own, only the plan is shared.
             </p>
             <table cellpadding="0" cellspacing="0" width="100%">
               <tr>
@@ -95,9 +95,9 @@ function buildText(inviterName: string, joinUrl: string): string {
   return [
     `Hey there!`,
     ``,
-    `${inviterName} invited you to their ${APP_NAME} family plan — full Plus access (all 22 official Indian languages, unlimited lessons, review & analytics) at no cost to you.`,
+    `${inviterName} invited you to their ${APP_NAME} family plan, full Plus access (all 22 official Indian languages, unlimited lessons, review & analytics) at no cost to you.`,
     ``,
-    `Your progress and streaks stay completely your own — only the plan is shared.`,
+    `Your progress and streaks stay completely your own, only the plan is shared.`,
     ``,
     `Accept your seat:`,
     joinUrl,

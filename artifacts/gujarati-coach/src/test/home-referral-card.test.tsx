@@ -5,7 +5,7 @@ import {
   buildReferralLink,
 } from "@workspace/referral-link";
 
-// Task #1049 — the compact referral card at the bottom of home.
+// Task #1049, the compact referral card at the bottom of home.
 //
 // It is deliberately NOT the settings card: no raw code, no URL text, no
 // Joined / Pending / Chai earned row, no Copy link button. One button, which
@@ -119,7 +119,7 @@ describe("referral link module", () => {
         import.meta.env.BASE_URL || "/",
       ),
     );
-    // The same call mobile makes with https://<EXPO_PUBLIC_DOMAIN> — pinned on
+    // The same call mobile makes with https://<EXPO_PUBLIC_DOMAIN>, pinned on
     // the mobile side in __tests__/home-referral-card.test.tsx.
     expect(buildReferralLink("https://bolo.example.com", "k7xm2p")).toBe(
       "https://bolo.example.com/join/K7XM2P",

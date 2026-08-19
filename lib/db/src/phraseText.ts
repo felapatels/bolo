@@ -19,7 +19,7 @@ export function normalizePhraseText(nativeScript: string): string {
 // lives on this table and means something entirely different).
 export const PHRASE_TEXT_UNIQUE_INDEX = "phrases_topic_stage_text_unique";
 
-// True when `err` is a Postgres unique violation raised by that index — i.e.
+// True when `err` is a Postgres unique violation raised by that index, i.e.
 // "this topic already holds this phrase", which is an expected outcome of
 // asking a language model for more phrases, not a fault.
 export function isDuplicatePhraseTextError(err: unknown): boolean {

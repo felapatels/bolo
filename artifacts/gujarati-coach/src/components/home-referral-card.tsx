@@ -6,7 +6,7 @@ import { copyReferralLink, shareReferralLink } from "@/lib/referral-share";
 // Task #1049: the referral entry point on home. Deliberately the COMPACT twin
 // of the settings card (components/referral-card.tsx): gift icon, headline,
 // one line of copy, one button. It never shows the raw code, the URL text,
-// the Joined / Pending / Chai earned row or a Copy link button — those stay on
+// the Joined / Pending / Chai earned row or a Copy link button, those stay on
 // the settings surface, which is where a learner goes to inspect their invite,
 // not to send one.
 //
@@ -14,7 +14,7 @@ import { copyReferralLink, shareReferralLink } from "@/lib/referral-share";
 // it sits at the bottom of the page without competing with the boarding pass.
 //
 // The Chai number is REFERRAL_REWARD_CHAI (from @workspace/referral-link,
-// contract-tested against the server's reward constants) — never a literal,
+// contract-tested against the server's reward constants), never a literal,
 // so home cannot advertise an amount the ledger does not pay.
 
 export function HomeReferralCard() {
@@ -56,7 +56,7 @@ export function HomeReferralCard() {
             void shareReferralLink(link, async () => {
               // No share sheet at all (desktop Firefox, older Chrome): drop
               // the link on the clipboard rather than the button doing
-              // nothing. Home stays quiet about it — the settings card is
+              // nothing. Home stays quiet about it, the settings card is
               // where "Copied!" and the visible link live.
               await copyReferralLink(link);
             })

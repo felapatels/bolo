@@ -20,7 +20,7 @@ import { TTS_PROVIDER, BOLO_CHAT_TTS_INSTRUCTIONS, BOLO_CHAT_TTS_INSTRUCTIONS_DI
 import type { ResolvedScenario } from "./scenarios";
 
 // A single prior turn of the conversation, supplied by the client as a short
-// rolling context window (no server-side chat history is persisted — see the
+// rolling context window (no server-side chat history is persisted, see the
 // task brief's "out of scope").
 export interface ChatHistoryTurn {
   role: "learner" | "parrot";
@@ -50,7 +50,7 @@ export interface ParrotTurnInput {
    */
   onTranscript?: (transcript: string, durationSeconds: number) => void;
   /**
-   * Optional callback fired immediately after the LLM returns — before the TTS
+   * Optional callback fired immediately after the LLM returns, before the TTS
    * call starts. Used by the SSE route to flush the English translation of the
    * learner's speech to the client early, so the subtitle appears in sync with
    * the transcript bubble rather than waiting for audio synthesis to finish.
@@ -75,7 +75,7 @@ export interface ParrotTurnInput {
    */
   seedNativeWords?: string[];
   /**
-   * Optional callback fired as soon as the reply LLM returns — before voice
+   * Optional callback fired as soon as the reply LLM returns, before voice
    * synthesis starts. Carries Bolo's reply text (with squawk tokens, as shown
    * in the UI transcript), its English gloss, and the squawk SFX variant.
    * Used by the SSE route to flush a `replyText` event so the client can show
@@ -97,7 +97,7 @@ export interface ParrotTurnInput {
   onAudioChunk?: (base64Chunk: string) => void;
   /**
    * Optional callback fired once after streaming synthesis completes
-   * successfully — i.e. every chunk has been emitted and together they form
+   * successfully, i.e. every chunk has been emitted and together they form
    * the complete clip. NOT fired when streaming failed and the turn fell back
    * to buffered synthesis; clients treat its absence as "use the full clip
    * from the final reply payload instead".
@@ -118,7 +118,7 @@ export interface ParrotTurnInput {
   /**
    * MIME type of the recorded audio as reported by the client (e.g.
    * "audio/webm;codecs=opus"). Used as a fallback hint in ensureCompatibleFormat
-   * when magic-byte detection fails — short recordings whose container headers
+   * when magic-byte detection fails, short recordings whose container headers
    * are incomplete are passed directly to Whisper instead of through ffmpeg,
    * which would crash with "Invalid data found when processing input".
    */
@@ -148,12 +148,11 @@ export interface ParrotTurnResult {
   replyAudio: Buffer;
   audioFormat: "mp3";
   // Which SFX variant (0-2) the client should play before the TTS audio, or
-  // null when the reply has no bird-sound tokens. Three files — squawk_a,
-  // squawk_b, squawk_c — are bundled in both web and mobile so the sound
+  // null when the reply has no bird-sound tokens. Three files, squawk_a,
+  // squawk_b, squawk_c, are bundled in both web and mobile so the sound
   // rotates each turn instead of repeating.
   squawkVariant: 0 | 1 | 2 | null;
-  // Server-measured duration of the learner's submitted audio, in seconds —
-  // what actually gets charged against the weekly chat-time cap.
+  // Server-measured duration of the learner's submitted audio, in seconds, // what actually gets charged against the weekly chat-time cap.
   durationSeconds: number;
 }
 
@@ -167,7 +166,7 @@ export interface NoSpeechResult {
 }
 
 // ALL bird-sound tokens the LLM may insert. Stripped from TTS so the voice
-// never pronounces them — the client plays a real parrot SFX instead.
+// never pronounces them, the client plays a real parrot SFX instead.
 const SQUAWK_RE =
   /\b(Squawk!?|Squawkity!?|Bawk( bawk)?!?|Awk!?|Eeek!?|Tweet!?|Chirp!?|Screech!?|Caw!?|Squee!?)\s*/gi;
 
@@ -178,9 +177,9 @@ function extractSquawks(text: string): { cleaned: string; squawkVariant: 0 | 1 |
   const stripped = text.replace(SQUAWK_RE, "");
   const cleaned = stripped
     // Remove orphaned commas/dashes left behind by a mid-sentence squawk
-    // (e.g. "one more time, !" → "one more time!"; "Go, — try!" → "Go, try!")
+    // (e.g. "one more time, !" → "one more time!"; "Go,, try!" → "Go, try!")
     .replace(/,\s*([!?.])/g, "$1")
-    .replace(/,\s*—\s*/g, " ")
+    .replace(/,\s*-\s*/g, " ")
     // Collapse multiple spaces
     .replace(/\s{2,}/g, " ")
     .trim();
@@ -214,7 +213,7 @@ function findSquawkTokens(text: string, re: RegExp = SQUAWK_RE): string[] {
 // - Reply has no squawk → strip any squawks from the English.
 // - Reply has a squawk but the English doesn't → mirror the reply's squawk
 //   at the same position (start when the reply starts with it, else end).
-// - An empty English stays empty — the client hides the caption entirely,
+// - An empty English stays empty, the client hides the caption entirely,
 //   and injecting a bare "Squawk!" would falsely present it as a translation.
 export function normalizeSquawkConsistency(replyText: string, english: string): string {
   const replySquawks = findSquawkTokens(replyText);
@@ -225,7 +224,7 @@ export function normalizeSquawkConsistency(replyText: string, english: string): 
     const stripped = english
       .replace(SQUAWK_STRICT_RE, "")
       .replace(/,\s*([!?.])/g, "$1")
-      .replace(/,\s*—\s*/g, " ")
+      .replace(/,\s*-\s*/g, " ")
       .replace(/\s{2,}/g, " ")
       .trim();
     return stripped;
@@ -248,7 +247,7 @@ export function normalizeSquawkConsistency(replyText: string, english: string): 
 // ---------------------------------------------------------------------------
 // Static, per-language rendering rules for all 22 official (Eighth Schedule)
 // Indian languages. Every fact below is read verbatim from
-// lib/db/src/seedData.ts — the single source of truth for language codes,
+// lib/db/src/seedData.ts, the single source of truth for language codes,
 // English names, native names, and script assignments in this repository.
 // No language name, script assignment, or native-script text is invented or
 // supplied from general knowledge.
@@ -256,7 +255,7 @@ export function normalizeSquawkConsistency(replyText: string, english: string): 
 // interpolation; it is byte-identical on every request.
 // ---------------------------------------------------------------------------
 const LANGUAGE_RULES_PROMPT =
-  `Language Script Rules — all 22 official Indian languages. Find the active language (from the user message's "Language:" line) and follow its instruction exactly.
+  `Language Script Rules, all 22 official Indian languages. Find the active language (from the user message's "Language:" line) and follow its instruction exactly.
 
 - Assamese (অসমীয়া) [Bengali-Assamese script]: Reply in Bengali-Assamese script; never romanize.
 - Bengali (বাংলা) [Bengali script]: Reply in Bengali script; never romanize.
@@ -300,14 +299,14 @@ Personality:
 - You are playful and a little cheeky, like a pet parrot who's everyone's favorite troublemaker.
 
 Rules:
-- The learner may speak to you in English OR in the target language — both are welcome. Always reply in the target language (its own native script). If the learner used English, that is fine; still reply in the target language.
-- Keep every reply SHORT — one or two brief sentences at most. This is spoken, real-time conversation, not an essay.
-- You can chat about ANYTHING friendly: the learner's day, food, animals, sports, weather, hobbies, travel, music, family — any normal everyday topic is fair game. Practice real conversation, not just drills.
-- If the learner asks a meta/teaching question — e.g. "how do you say water in the target language?", "what does X mean?", "translate Y" — answer it directly and helpfully in character: give the target language word/phrase (plus a quick, tiny gloss if useful), then keep the conversation going.
+- The learner may speak to you in English OR in the target language, both are welcome. Always reply in the target language (its own native script). If the learner used English, that is fine; still reply in the target language.
+- Keep every reply SHORT, one or two brief sentences at most. This is spoken, real-time conversation, not an essay.
+- You can chat about ANYTHING friendly: the learner's day, food, animals, sports, weather, hobbies, travel, music, family, any normal everyday topic is fair game. Practice real conversation, not just drills.
+- If the learner asks a meta/teaching question, e.g. "how do you say water in the target language?", "what does X mean?", "translate Y", answer it directly and helpfully in character: give the target language word/phrase (plus a quick, tiny gloss if useful), then keep the conversation going.
 - If you can't make out what the learner said, warmly ask them to repeat it, in the target language.
-- If the learner asks whether you are a boy or a girl (or anything about your gender), never pick one. Answer playfully that you are a bird, and that they can dress you however they like from the Bolo Bazaar — for example "I'm a bird! Dress me however you want from the Bolo Bazaar!" Say it in the target language, in your own words, and keep the conversation going. Every learner should be able to picture their own Bolo.
-- Never use emojis or special symbols — replies are spoken aloud.
-- Never repeat the learner's utterance back verbatim or near-verbatim as your reply. That is not a response, it is an echo. Every reply must advance the conversation: answer what was asked, react to what was said, build on it, or ask a follow-up question. The only permitted exception is when you are explicitly correcting the learner's pronunciation or grammar — and in that case your reply must also include the correction or explanation. A bare repeat is never acceptable.
+- If the learner asks whether you are a boy or a girl (or anything about your gender), never pick one. Answer playfully that you are a bird, and that they can dress you however they like from the Bolo Bazaar, for example "I'm a bird! Dress me however you want from the Bolo Bazaar!" Say it in the target language, in your own words, and keep the conversation going. Every learner should be able to picture their own Bolo.
+- Never use emojis or special symbols, replies are spoken aloud.
+- Never repeat the learner's utterance back verbatim or near-verbatim as your reply. That is not a response, it is an echo. Every reply must advance the conversation: answer what was asked, react to what was said, build on it, or ask a follow-up question. The only permitted exception is when you are explicitly correcting the learner's pronunciation or grammar, and in that case your reply must also include the correction or explanation. A bare repeat is never acceptable.
 
 Youth-safe guardrails:
 Bolo talks to learners of ALL ages, including young children. You must NEVER engage with:
@@ -320,24 +319,24 @@ Bolo talks to learners of ALL ages, including young children. You must NEVER eng
 If the message touches any of the above, do NOT engage with the topic. Instead deflect immediately in character (pick one, vary them):
 - "Pretty bird doesn't talk about that! Let's chat about something fun in the target language instead!"
 - "That's not in Bolo's nest! Tell me something happy in the target language!"
-- "Ruffles feathers — nope, not going there! What's your favorite food? Say it in the target language!"
+- "Ruffles feathers, nope, not going there! What's your favorite food? Say it in the target language!"
 After the deflection, steer back to a friendly, everyday topic.
 
 Output format:
 Always respond with a JSON object with exactly three fields IN THIS ORDER:
 - "reply": YOUR response in the target language native script (following all rules above).
-- "english": the English translation of YOUR OWN reply — what YOU (Bolo) just said, translated into English, clause for clause, keeping EVERY sentence and clause (greetings, thanks, questions), with nothing omitted and nothing added. This is a subtitle of your reply, not a summary and not a translation of the learner's words.
-- "transcript_english": the English translation of WHAT THE LEARNER JUST SAID — their words, not yours; every clause, nothing omitted, nothing added; use an empty string if the learner spoke in English or if their speech was unclear/silent.
+- "english": the English translation of YOUR OWN reply, what YOU (Bolo) just said, translated into English, clause for clause, keeping EVERY sentence and clause (greetings, thanks, questions), with nothing omitted and nothing added. This is a subtitle of your reply, not a summary and not a translation of the learner's words.
+- "transcript_english": the English translation of WHAT THE LEARNER JUST SAID, their words, not yours; every clause, nothing omitted, nothing added; use an empty string if the learner spoke in English or if their speech was unclear/silent.
 
-Field ownership rules — read carefully:
-- "english" contains YOUR words in English. It must never contain a translation of the learner's utterance. That is what "transcript_english" is for. Confusing these two fields is the single most common error — do not make it.
+Field ownership rules, read carefully:
+- "english" contains YOUR words in English. It must never contain a translation of the learner's utterance. That is what "transcript_english" is for. Confusing these two fields is the single most common error, do not make it.
 - "transcript_english" contains THE LEARNER'S words in English. It must never contain your reply.
-- Before returning, verify: does "english" read as a translation of "reply"? If not, you have the fields wrong — fix them before outputting.
+- Before returning, verify: does "english" read as a translation of "reply"? If not, you have the fields wrong, fix them before outputting.
 
 Always write "reply" first; "english" is the translation of "reply" and must be written after it.
 Do not include any text outside the JSON object.
 
-Language identification: the user message begins with "Language: <name>". Find that language in the Language Script Rules section below and follow its rendering instruction exactly — reply in the specified native script, never romanize.
+Language identification: the user message begins with "Language: <name>". Find that language in the Language Script Rules section below and follow its rendering instruction exactly, reply in the specified native script, never romanize.
 
 ${LANGUAGE_RULES_PROMPT}`;
 
@@ -354,7 +353,7 @@ const BOLO_CHAT_CACHE_KEY = "bolo-chat-persona-v5";
 // Block truncation for chat history
 // ---------------------------------------------------------------------------
 // Keeps history until it exceeds MAX_HISTORY_TURNS, then drops the oldest
-// BLOCK_DROP_COUNT turns at once — holding the prefix boundary steady for
+// BLOCK_DROP_COUNT turns at once, holding the prefix boundary steady for
 // the next BLOCK_DROP_COUNT turns. A sliding window (drop 1 per turn) would
 // change the message prefix on every call and defeat prompt caching.
 // ---------------------------------------------------------------------------
@@ -404,10 +403,10 @@ export interface ParrotChatDeps {
 
 // Voice constant for the gpt-audio model. Declared at module scope so it can
 // be replaced by name without touching the function body. Must not be merged
-// with BOLO_MINI_TTS_VOICE — the two models have different voice sets.
+// with BOLO_MINI_TTS_VOICE, the two models have different voice sets.
 const BOLO_GPT_AUDIO_VOICE = "shimmer";
 
-// Custom TTS for Bolo — uses gpt-audio via chat completions (the Replit AI
+// Custom TTS for Bolo, uses gpt-audio via chat completions (the Replit AI
 // integrations proxy only supports /v1/chat/completions, not /v1/audio/speech).
 // _languageCode is accepted for API symmetry with boloTTSElevenLabs but not
 // used here (gpt-audio uses the languageName hint instead).
@@ -425,7 +424,7 @@ async function boloTTS(text: string, languageName: string, _languageCode: string
           role: "system",
           content:
             "You are a text-to-speech reader. " +
-            "Speak with a bright, high-pitched, bubbly, cheerful, energetic voice — warm and playful. " +
+            "Speak with a bright, high-pitched, bubbly, cheerful, energetic voice, warm and playful. " +
             "Read the text EXACTLY as written, word for word. " +
             "Do NOT add, change, or omit any words, sounds, or exclamations." +
             langHint,
@@ -534,10 +533,10 @@ async function boloTTSMiniStream(
 }
 
 // ElevenLabs voice + model for Bolo's live chat replies.
-// Voice: "Laura" (premade, FGY2WhTYpPnrIDTdsKH5) — bright, upbeat, bubbly
+// Voice: "Laura" (premade, FGY2WhTYpPnrIDTdsKH5), bright, upbeat, bubbly
 // female; consistent with the phrase-practice voice so learners hear the same
 // familiar voice throughout the app.
-// Model: eleven_multilingual_v2 — required for correct Gujarati (and other
+// Model: eleven_multilingual_v2, required for correct Gujarati (and other
 // Indic script) phoneme rendering. eleven_flash_v2_5 only supports a small
 // set of European + Hindi/Arabic languages; Gujarati sent to the flash model
 // returns distorted, garbled audio. Multilingual_v2 adds ~1–2 s synthesis
@@ -563,14 +562,14 @@ async function boloTTSElevenLabs(text: string, languageName: string, languageCod
 // month" against "recover the premium voice promptly once credits refresh".
 const QUOTA_COOLDOWN_MS = 15 * 60 * 1000;
 
-// Optional knobs for makeSynthesizeWithFallback — injectable for unit tests.
+// Optional knobs for makeSynthesizeWithFallback, injectable for unit tests.
 export interface SynthesizeFallbackOptions {
   /** Returns true when an error means the primary's quota is exhausted. */
   isQuotaError?: (err: unknown) => boolean;
   /**
    * Returns true when the quota monitor's cached state shows credits are
    * exhausted. When provided (and returns true), the primary is skipped
-   * proactively — no API call is made, and the cool-down is seeded so
+   * proactively, no API call is made, and the cool-down is seeded so
    * subsequent calls also skip until the cool-down elapses.
    * Defaults to `elevenLabsQuotaMonitor.isExhausted`.
    */
@@ -588,7 +587,7 @@ export interface SynthesizeFallbackOptions {
 // Quota-exhaustion errors additionally trip a cool-down: for `cooldownMs`
 // after such an error, calls skip the primary entirely (no doomed API call,
 // no added latency) and go straight to the fallback. Once the cool-down
-// elapses, the next call re-probes the primary — success clears the state,
+// elapses, the next call re-probes the primary, success clears the state,
 // another quota error re-arms it. Non-quota failures (transient 5xx,
 // network) never trip the cool-down. Exported for unit tests.
 export function makeSynthesizeWithFallback(
@@ -607,20 +606,20 @@ export function makeSynthesizeWithFallback(
   let skipPrimaryUntil: number | null = null;
   // True when the active cooldown was seeded proactively from the monitor's
   // cached state (isExhausted) rather than from a live quota-error response.
-  // Once that cooldown expires we always let one real probe through — even if
-  // the cache still shows exhausted — so credits that were replenished between
+  // Once that cooldown expires we always let one real probe through, even if
+  // the cache still shows exhausted, so credits that were replenished between
   // polls are discovered without waiting for a server restart.
   let proactiveCooldownActive = false;
 
   return async (text, languageName, languageCode) => {
     if (skipPrimaryUntil !== null && now() < skipPrimaryUntil) {
-      // Cool-down active — go straight to the fallback voice.
+      // Cool-down active, go straight to the fallback voice.
       return fallback(text, languageName, languageCode);
     }
 
     // Cooldown has just expired (or never started). If it was a proactive one,
     // clear the flag and fall through to the real probe regardless of what the
-    // (possibly stale) cached quota says — the probe result is authoritative.
+    // (possibly stale) cached quota says, the probe result is authoritative.
     if (proactiveCooldownActive) {
       proactiveCooldownActive = false;
       // Fall through to try ElevenLabs.
@@ -631,7 +630,7 @@ export function makeSynthesizeWithFallback(
       skipPrimaryUntil = now() + cooldownMs;
       proactiveCooldownActive = true;
       console.info(
-        `[parrotChat] ElevenLabs quota exhausted (monitor cache) — skipping primary for ${Math.round(cooldownMs / 60000)} min, using gpt-audio`,
+        `[parrotChat] ElevenLabs quota exhausted (monitor cache), skipping primary for ${Math.round(cooldownMs / 60000)} min, using gpt-audio`,
       );
       return fallback(text, languageName, languageCode);
     }
@@ -645,10 +644,10 @@ export function makeSynthesizeWithFallback(
     } catch (err) {
       if (isQuotaError(err)) {
         skipPrimaryUntil = now() + cooldownMs;
-        // Reactive cooldown — proactiveCooldownActive stays false so the next
+        // Reactive cooldown, proactiveCooldownActive stays false so the next
         // re-probe also gets a real attempt (credits may have been replenished).
         console.warn(
-          `[parrotChat] primary TTS quota exhausted — skipping it for ${Math.round(cooldownMs / 60000)} min, using gpt-audio:`,
+          `[parrotChat] primary TTS quota exhausted, skipping it for ${Math.round(cooldownMs / 60000)} min, using gpt-audio:`,
           err instanceof Error ? err.message : err,
         );
       } else {
@@ -717,7 +716,7 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
     }
     return {
       text: parsed.reply.trim(),
-      // Do not fall back to the target-language text — an empty string is
+      // Do not fall back to the target-language text, an empty string is
       // the correct signal that no English translation was produced, and the
       // client hides the caption when the value is empty.
       english: parsed.english?.trim() ?? "",
@@ -752,7 +751,7 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
           )
         : boloTTS,
 
-  // Streaming synthesis — populated for ElevenLabs and gpt-4o-mini-tts.
+  // Streaming synthesis, populated for ElevenLabs and gpt-4o-mini-tts.
   // Omitted for gpt-audio (that path goes through chat completions and has no
   // streaming speech API) so runParrotTurn falls through to the buffered
   // synthesize path on every gpt-audio turn.
@@ -814,7 +813,7 @@ function validateTranscript(
 
   // 4. Substantial word overlap: ≥50 % of the hint's words appear in the
   //    transcript. Only applied when:
-  //    (a) the transcript is at least 8 words long — short legitimate answers
+  //    (a) the transcript is at least 8 words long, short legitimate answers
   //        (e.g. "haan") score 100 % overlap by design and must not be rejected;
   //    (b) the transcript contains the literal phrase "or English." (case-insensitive),
   //        which is distinctive to the hint prefix and will never appear in learner speech.
@@ -865,13 +864,13 @@ Personality:
 - You are playful and a little cheeky, like a pet parrot who's everyone's favorite troublemaker.
 
 Rules:
-- The learner may speak to you in English OR in ${languageName} — both are welcome. Always reply in ${languageName} (its own native script). If the learner used English, that is fine; still reply in ${languageName}.
-- Keep every reply SHORT — one or two brief sentences at most. This is spoken, real-time conversation, not an essay.
-- You can chat about ANYTHING friendly: the learner's day, food, animals, sports, weather, hobbies, travel, music, family — any normal everyday topic is fair game. Practice real conversation, not just drills.
-- If the learner asks a meta/teaching question — e.g. "how do you say water in ${languageName}?", "what does X mean?", "translate Y" — answer it directly and helpfully in character: give the ${languageName} word/phrase (plus a quick, tiny gloss if useful), then keep the conversation going.
+- The learner may speak to you in English OR in ${languageName}, both are welcome. Always reply in ${languageName} (its own native script). If the learner used English, that is fine; still reply in ${languageName}.
+- Keep every reply SHORT, one or two brief sentences at most. This is spoken, real-time conversation, not an essay.
+- You can chat about ANYTHING friendly: the learner's day, food, animals, sports, weather, hobbies, travel, music, family, any normal everyday topic is fair game. Practice real conversation, not just drills.
+- If the learner asks a meta/teaching question, e.g. "how do you say water in ${languageName}?", "what does X mean?", "translate Y", answer it directly and helpfully in character: give the ${languageName} word/phrase (plus a quick, tiny gloss if useful), then keep the conversation going.
 - If you can't make out what the learner said, warmly ask them to repeat it, in ${languageName}.
-- If the learner asks whether you are a boy or a girl (or anything about your gender), never pick one. Answer playfully that you are a bird, and that they can dress you however they like from the Bolo Bazaar — for example "I'm a bird! Dress me however you want from the Bolo Bazaar!" Say it in ${languageName}, in your own words, and keep the conversation going. Every learner should be able to picture their own Bolo.
-- Never use emojis or special symbols — replies are spoken aloud.
+- If the learner asks whether you are a boy or a girl (or anything about your gender), never pick one. Answer playfully that you are a bird, and that they can dress you however they like from the Bolo Bazaar, for example "I'm a bird! Dress me however you want from the Bolo Bazaar!" Say it in ${languageName}, in your own words, and keep the conversation going. Every learner should be able to picture their own Bolo.
+- Never use emojis or special symbols, replies are spoken aloud.
 
 Youth-safe guardrails:
 Bolo talks to learners of ALL ages, including young children. You must NEVER engage with:
@@ -884,14 +883,14 @@ Bolo talks to learners of ALL ages, including young children. You must NEVER eng
 If the message touches any of the above, do NOT engage with the topic. Instead deflect immediately in character (pick one, vary them):
 - "Pretty bird doesn't talk about that! Let's chat about something fun in ${languageName} instead!"
 - "That's not in Bolo's nest! Tell me something happy in ${languageName}!"
-- "Ruffles feathers — nope, not going there! What's your favorite food? Say it in ${languageName}!"
+- "Ruffles feathers, nope, not going there! What's your favorite food? Say it in ${languageName}!"
 After the deflection, steer back to a friendly, everyday topic.
 
 Output format:
 Always respond with a JSON object with exactly three fields IN THIS ORDER:
 - "reply": your response in ${languageName} native script (following all rules above)
-- "english": a complete, faithful English translation of YOUR reply — translate it clause for clause, keeping EVERY sentence and clause (greetings, thanks, questions), with nothing omitted and nothing added. This is a subtitle, not a summary.
-- "transcript_english": a complete, faithful English translation of what the learner just said — every clause, nothing omitted, nothing added; use an empty string if the learner spoke in English or if their speech was unclear/silent
+- "english": a complete, faithful English translation of YOUR reply, translate it clause for clause, keeping EVERY sentence and clause (greetings, thanks, questions), with nothing omitted and nothing added. This is a subtitle, not a summary.
+- "transcript_english": a complete, faithful English translation of what the learner just said, every clause, nothing omitted, nothing added; use an empty string if the learner spoke in English or if their speech was unclear/silent
 Always write "reply" first; "english" is the translation of "reply" and must be written after it.
 Do not include any text outside the JSON object.`;
 }
@@ -916,7 +915,7 @@ export function buildUserPrompt(
     .map((h) => `${h.role === "learner" ? "Learner" : "Bolo"}: ${h.text}`)
     .join("\n");
   const said = isEffectivelyEmpty(transcript)
-    ? "(The learner's speech was unclear or silent — you couldn't make out any words.)"
+    ? "(The learner's speech was unclear or silent, you couldn't make out any words.)"
     : transcript;
   // Spec: scenario block is injected AFTER Language: and BEFORE History: so
   // the static system prompt prefix remains byte-identical (preserving
@@ -938,7 +937,7 @@ const TTS_MAX_CHARS = 600;
 
 // Runs one full conversational turn: transcribe → (onTranscript callback) →
 // combined LLM+TTS reply. Callers are responsible for gating (language/time
-// caps) before calling this, and for recording usage afterwards — this
+// caps) before calling this, and for recording usage afterwards, this
 // function does no database work and computes only what it needs to reply.
 export async function runParrotTurn(
   input: ParrotTurnInput,
@@ -973,7 +972,7 @@ export async function runParrotTurn(
     );
 
     // When the client supplies its own duration measurement we skip the WAV
-    // conversion step that exists solely for duration measurement — saving
+    // conversion step that exists solely for duration measurement, saving
     // ~200–400 ms of ffmpeg overhead per turn. Fall back to the server-side
     // measurement (parallel WAV conversion) when the field is absent.
     const transcribeStart = Date.now();
@@ -1020,7 +1019,7 @@ export async function runParrotTurn(
   }
 
   // LLM call: returns the in-language reply, its English gloss, and an
-  // English translation of what the learner said — all in one JSON response.
+  // English translation of what the learner said, all in one JSON response.
   // Block-truncate history before building the prompt so the prefix stays
   // stable across consecutive turns within a conversation block.
   const effectiveHistory = applyBlockTruncation(input.history);
@@ -1042,7 +1041,7 @@ export async function runParrotTurn(
   const rawText = rawReplyText.trim() || "Say that again?";
 
   // Strip ALL bird-sound tokens before synthesis so the voice never says them
-  // aloud — the client plays a real parrot SFX instead.
+  // aloud, the client plays a real parrot SFX instead.
   const { cleaned: ttsText, squawkVariant } = extractSquawks(rawText);
 
   // Server-side consistency guard: the English subtitle must agree with the
@@ -1054,8 +1053,8 @@ export async function runParrotTurn(
   input.onReplyReady?.(rawText, replyEnglish, squawkVariant);
 
   // Synthesis length guard: refuse to synthesize a runaway reply. Applied to
-  // the post-squawk-stripped, post-trimmed string — exactly the string that
-  // would be billed — so audio cost is bounded even when the model misbehaves.
+  // the post-squawk-stripped, post-trimmed string, exactly the string that
+  // would be billed, so audio cost is bounded even when the model misbehaves.
   // Must sit before the synthesis call so a runaway reply is never submitted.
   if (ttsText.length > TTS_MAX_CHARS) {
     console.error(`[reply] synthesis guard chars=${ttsText.length} limit=${TTS_MAX_CHARS}`);
@@ -1066,7 +1065,7 @@ export async function runParrotTurn(
   // When the caller wants streaming audio (SSE clients) and the deps provide
   // a streaming synthesizer, chunks are forwarded as they arrive so playback
   // can start before the clip is finished. Any streaming failure falls back
-  // to the buffered synthesizer — the client then simply plays the full clip
+  // to the buffered synthesizer, the client then simply plays the full clip
   // from the final reply payload (onAudioDone is only fired on a complete,
   // successful stream).
   const ttsStart = Date.now();
@@ -1107,7 +1106,7 @@ export async function runParrotTurn(
     transcriptEnglish: transcriptEnglish.trim(),
     replyText: rawText,   // full text with squawk tokens for the UI transcript
     // Empty string when the LLM omitted the English translation (e.g. truncated
-    // JSON) — the client skips the caption rather than showing target-language
+    // JSON), the client skips the caption rather than showing target-language
     // text as if it were English.
     replyEnglish,
     replyAudio,

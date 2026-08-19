@@ -11,7 +11,7 @@ import { logger } from "./logger";
 // derives by index into a policy-covered group.
 //
 //   1) The whole Hindi Fare Zone 1 (every Greetings lesson group, phrase AND
-//      sentence stage) serves free — the paywall lands at Zone 2.
+//      sentence stage) serves free, the paywall lands at Zone 2.
 //   2) Every language's FIRST stop (position-1 Greetings group) is fully
 //      free, so every journey starts playable.
 export async function reconcileFreeTierContentPolicy(): Promise<void> {

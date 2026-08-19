@@ -175,7 +175,7 @@ export function buildPackOffers(catalog: PricingCatalog): PackOffer[] {
 
 export type UsePricingResult = {
   pricing: TierPricing | null;
-  // Empty until the catalog loads, and empty when no pack is priced — the
+  // Empty until the catalog loads, and empty when no pack is priced, the
   // shop renders nothing rather than an invented amount.
   packs: PackOffer[];
   isLoading: boolean;

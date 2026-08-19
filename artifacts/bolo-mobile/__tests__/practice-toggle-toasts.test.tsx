@@ -337,7 +337,7 @@ describe('the audio settings gear', () => {
     await renderReady();
     await openSettings();
 
-    // Labels are the whole point of the menu — the toggles this replaced were
+    // Labels are the whole point of the menu, the toggles this replaced were
     // icon-only. Defaults: phrase audio on, feedback on, meaning on.
     expect(screen.getByTestId('setting-phrase-audio')).toHaveTextContent(
       /^Autoplay phraseOn$/,

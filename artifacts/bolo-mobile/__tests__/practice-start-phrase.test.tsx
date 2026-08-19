@@ -137,7 +137,7 @@ jest.mock('@/components/Screen', () => {
   };
 });
 
-// Rendering-heavy celebration components aren't under test — keep them inert.
+// Rendering-heavy celebration components aren't under test, keep them inert.
 jest.mock('@/components/Mascot', () => {
   const { View } = require('react-native');
   return { Mascot: (props: object) => <View {...props} /> };
@@ -226,7 +226,7 @@ describe('practice deep link via ?phrase=', () => {
   });
 
   test('starting phrase applies once the list finishes loading', () => {
-    // First render happens while phrases are still loading — the deep link
+    // First render happens while phrases are still loading, the deep link
     // must still land on the tapped phrase once data arrives.
     mockState.params = { id: '5', phrase: '12' };
     mockState.phrases = {
@@ -253,7 +253,7 @@ describe('practice deep link via ?phrase=', () => {
 
     // Simulate a refetch delivering a fresh array reference (e.g. after an
     // attempt invalidates the phrases query). The start param must not
-    // re-apply — even though the effect re-runs with a new list.
+    // re-apply, even though the effect re-runs with a new list.
     mockState.phrases = successQuery(PHRASES.map((p) => ({ ...p })));
     view.rerender(<PracticeScreen />);
 

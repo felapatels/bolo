@@ -118,7 +118,7 @@ export async function writeDailyQuizXp(
 }
 
 // Writes one xp_ledger row for a zone capstone conversation. Idempotent via
-// the stamp id as refId — replaying the capstone never double-awards XP.
+// the stamp id as refId, replaying the capstone never double-awards XP.
 export async function writeZoneCapstoneXp(
   userId: string,
   languageCode: string,

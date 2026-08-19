@@ -1,6 +1,6 @@
 // Curated "fun fact about India" dataset shown by FunFactLoader while the
-// app waits on a network call. Facts are static bundled JSON — no network
-// fetch — so they render instantly and work offline (mirrors how other
+// app waits on a network call. Facts are static bundled JSON, no network
+// fetch, so they render instantly and work offline (mirrors how other
 // curated content ships in this app; see memory: "Pre-curated lessons").
 import indiaFacts from '@/data/indiaFacts.json';
 

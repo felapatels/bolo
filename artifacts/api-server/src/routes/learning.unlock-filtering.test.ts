@@ -27,13 +27,13 @@ import { __resetTeaserCacheForTests, TEASER_LIMIT } from "../lib/teaser";
 //   - category GET serves only unlocked-group phrases, plus NULL-group rows
 //     and previously attempted phrases (the retake exemption);
 //   - /lesson-groups/:id/phrases denies a locked group with
-//     403 { error: "lesson_group_locked" } — never 402 (not a paywall);
+//     403 { error: "lesson_group_locked" }, never 402 (not a paywall);
 //   - entitlement 402s always run BEFORE unlock state;
 //   - review/SRS is untouched (attempted-only by construction);
-//   - test-out stays EXEMPT — it exists to sample locked groups;
+//   - test-out stays EXEMPT, it exists to sample locked groups;
 //   - the sentence route applies the same filter (sentence groups are groups);
 //   - the completion latch fires from phrase routes too (shared guard).
-// All rows use test-only ids and are cleaned up after — see
+// All rows use test-only ids and are cleaned up after, see
 // .agents/memory/api-server-tests.md.
 const U_PLUS = "test_unlockf_plus"; // progression: completes g1, then g2
 const U_RETAKE = "test_unlockf_retake"; // attempted one locked phrase only
@@ -317,7 +317,7 @@ test("journey listing agrees with the phrase filter (shared guard)", async () =>
   assert.equal(json.unassignedCount, 1); // the "loose" phrase
 });
 
-// (c): retake exemption — a previously attempted phrase from a LOCKED group
+// (c): retake exemption, a previously attempted phrase from a LOCKED group
 // stays servable to that user; its untouched sibling does not.
 test("retake exemption keeps an attempted locked-group phrase servable", async () => {
   await seedAttempt(U_RETAKE, g2Phrases[0]!, 60);
@@ -361,7 +361,7 @@ test("test-out GET still serves a locked group's sample", async () => {
   assert.ok(Array.isArray(json.phrases) && json.phrases.length > 0);
 });
 
-// (e): review is untouched — an attempted, due, locked-group phrase surfaces.
+// (e): review is untouched, an attempted, due, locked-group phrase surfaces.
 test("review queue still serves a due phrase from a locked group", async () => {
   await seedAttempt(U_REVIEW, g2Phrases[0]!, 60);
   await db.insert(userItemMemoryTable).values({
@@ -433,7 +433,7 @@ test("sentence stage honors group unlock", async () => {
 });
 
 // (g) Concurrency: parallel requests that each observe the same fresh
-// completion must produce exactly ONE latch row and zero errors — the
+// completion must produce exactly ONE latch row and zero errors, the
 // (user_id, lesson_group_id) PK + onConflictDoUpdate upsert in
 // deriveAndLatchUnlock is the invariant under test.
 test("concurrent derives latch a completed group exactly once", async () => {
@@ -455,7 +455,7 @@ test("concurrent derives latch a completed group exactly once", async () => {
   assert.equal(rows[0]!.status, "completed");
 });
 
-// (h) Caller contract: a teaser/showroom caller must NEVER be latched — the
+// (h) Caller contract: a teaser/showroom caller must NEVER be latched, the
 // completion latch may not be written for a language the caller's plan
 // doesn't own. Non-vacuous by construction: U_TEASER's attempts WOULD derive
 // g1 completed, so if either showroom surface ever ran deriveAndLatchUnlock,

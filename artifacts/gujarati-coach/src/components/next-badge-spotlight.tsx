@@ -33,7 +33,7 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
           You've unlocked them all!
         </h2>
         <p className="mt-1 text-sm font-medium text-muted-foreground">
-          Keep practicing to stay sharp — new goals await.
+          Keep practicing to stay sharp, new goals await.
         </p>
       </motion.section>
     );

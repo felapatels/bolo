@@ -11,14 +11,14 @@ import { useColors } from '@/hooks/useColors';
 
 /**
  * Live-input waveform (Spec D2). A row of vertical bars whose heights track
- * the microphone's real amplitude while recording — not an oscilloscope, not
+ * the microphone's real amplitude while recording, not an oscilloscope, not
  * a spectrum, and never a canned loop pretending to be the learner's voice.
  *
  * The amplitude arrives as a Reanimated SharedValue (0..1, mapped from the
  * recorder's dBFS metering by meteringToAmplitude in lib/audio.ts) so bar
  * heights update on the UI thread without any React re-render per frame.
  *
- * Reduced motion: renders a static segment-level indicator instead — the
+ * Reduced motion: renders a static segment-level indicator instead, the
  * "is my mic working" feedback stays, the dancing does not. The `level`
  * prop (plain 0..1 number, updated at the metering poll rate through React
  * state) drives it; that is a slow information display, not an animation.

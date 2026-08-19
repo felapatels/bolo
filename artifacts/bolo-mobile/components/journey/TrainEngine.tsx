@@ -1,11 +1,11 @@
-// Characterful side-profile steam engine — a react-native-svg port of the web
+// Characterful side-profile steam engine, a react-native-svg port of the web
 // component (gujarati-coach/src/components/train-svg.tsx). Multi-color brand
 // character (indigo body, teal trim, slate chassis) with spoked wheels and
-// steam puffs, matching the web art exactly. Faces right — the direction of
+// steam puffs, matching the web art exactly. Faces right, the direction of
 // travel down the line.
 //
 // Motion (web parity, same keyframe fractions as index.css):
-// - motion="drive": home-ticket drive-and-settle on a 4s cycle — the engine
+// - motion="drive": home-ticket drive-and-settle on a 4s cycle, the engine
 //   noses forward 7px, recoils −1.5px, settles; wheels roll through the
 //   drive; steam puffs pop at the settle.
 // - motion="bob": journey rail-marker bounce on a 2.2s cycle with the same
@@ -19,7 +19,7 @@
 // positioned with numeric dimensions (TicketParts sizing contract: nothing
 // percentage-sized, absolute children can never grow the card) and carries
 // 14 viewBox units of steam headroom above the body, drawn upward out of the
-// layout box — RN views don't clip children, matching the web svg's
+// layout box, RN views don't clip children, matching the web svg's
 // `overflow: visible`.
 import React from 'react';
 import { View } from 'react-native';
@@ -144,7 +144,7 @@ export function TrainEngine({
   motion = 'none',
   palette,
 }: {
-  /** Headlamp tint — the one surface-tinted part (web: currentColor).
+  /** Headlamp tint, the one surface-tinted part (web: currentColor).
    *  White on the accent ticket, line accent inside the marker pill. */
   tint: string;
   width?: number;
@@ -166,7 +166,7 @@ export function TrainEngine({
   const progress = useLoopProgress(cycleMs, animated);
 
   // Whole-engine travel: drive-and-settle (home ticket) or bob (rail
-  // marker). Transform-only — never layout props (Expo Go New Arch crash).
+  // marker). Transform-only, never layout props (Expo Go New Arch crash).
   const wrapperStyle = useAnimatedStyle(() => {
     if (!animated) return { transform: [{ translateX: 0 }, { translateY: 0 }] };
     if (motion === 'drive') {

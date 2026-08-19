@@ -2,14 +2,14 @@
 // what they paid for (lib/chaiPurchase.ts).
 //
 // The store and the server are injected here, which is the point of the
-// module existing at all — these paths must be provable without a device.
+// module existing at all, these paths must be provable without a device.
 //
 // What is pinned:
 //   1. Only OUR consumables are considered, and each one only once.
 //   2. A purchase is "done" when the SERVER says the transaction is credited,
 //      never when the store call resolved.
 //   3. THE FULL ARC: Apple charges, the credit does not land, and the next
-//      launch recovers it — with no second charge, and with the client never
+//      launch recovers it, with no second charge, and with the client never
 //      once stating an amount.
 //   4. The client cannot double-credit, because it never credits at all: it
 //      asks the store to re-deliver and the ledger's refId index decides.
@@ -136,7 +136,7 @@ describe('launch recovery', () => {
   });
 
   it('THE ARC: Apple charged, the credit failed, the next launch recovers it', async () => {
-    // Launch 1 — the purchase goes through at Apple and the webhook never
+    // Launch 1, the purchase goes through at Apple and the webhook never
     // credits it. The learner is out of pocket with nothing to show.
     const isCreditedLaunchOne = jest.fn(async () => [] as string[]);
     const boughtButUncredited = await waitForCredit('600', isCreditedLaunchOne, {
@@ -145,7 +145,7 @@ describe('launch recovery', () => {
     });
     expect(boughtButUncredited).toBe(false);
 
-    // Launch 2 — the app reads the same transaction from the store, learns
+    // Launch 2, the app reads the same transaction from the store, learns
     // the server still has no row for it, and asks the store to re-deliver.
     // The credit lands on the replay.
     let creditLanded = false;
@@ -176,7 +176,7 @@ describe('launch recovery', () => {
 
   it('an already-credited transaction is never credited twice', async () => {
     // The recovery run for a customer whose purchase DID credit. It asks,
-    // hears yes, and stops — and even if it had replayed, the server's refId
+    // hears yes, and stops, and even if it had replayed, the server's refId
     // index is what refuses the second row. The client keeps no books.
     const replay = jest.fn(async () => {});
     const result = await recoverUncreditedPurchases({

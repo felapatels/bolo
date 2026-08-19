@@ -7,21 +7,21 @@
 //   pnpm --filter @workspace/scripts exec tsx src/seedRevenueCat.ts
 //
 // It talks to the RevenueCat REST v2 API through the Replit connector proxy, so
-// auth is injected automatically — no RevenueCat API key is handled here. A
+// auth is injected automatically, no RevenueCat API key is handled here. A
 // 7-day free trial is configured per-store in App Store Connect / Google Play
 // (the Test Store can't model trials); the client reads the trial from the
 // product metadata automatically once it's set there.
 //
 // Two tiers are provisioned:
-//   • all-access "Bolo! Plus"  — $9.99/mo, unlocks every language.
-//   • "Bolo! One Language"     — $6.99/mo, unlocks a single chosen language.
+//   • all-access "Bolo! Plus" , $9.99/mo, unlocks every language.
+//   • "Bolo! One Language"    , $6.99/mo, unlocks a single chosen language.
 // Each is a distinct RevenueCat entitlement with its own monthly + annual
 // products, all attached to the same "default" offering.
 
 import { ReplitConnectors } from "@replit/connectors-sdk";
 
 // ---------------------------------------------------------------------------
-// Configuration — the entitlement ids must match what the API server reads
+// Configuration, the entitlement ids must match what the API server reads
 // (REVENUECAT_ENTITLEMENT_ID → all-access, defaults to "plus";
 // REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID → middle tier, defaults to
 // "one_language"). Store identifiers must match what you create in App Store
@@ -59,7 +59,7 @@ const OFFERING_DISPLAY_NAME = "Bolo!";
 // App Store Connect / Google Play, not here.
 //
 // Monthly prices below are the intended launch prices. The ANNUAL prices are
-// PLACEHOLDERS — confirm the real annual pricing before a production run (and
+// PLACEHOLDERS, confirm the real annual pricing before a production run (and
 // set it in App Store Connect / Google Play; the Test Store price is only for
 // local testing). See the placeholder warning in the wiring log at the end.
 const PLUS_MONTHLY_PRICE_MICROS = 9_990_000; // $9.99 / month
@@ -111,7 +111,7 @@ const PRODUCTS: ProductSpec[] = [
     tier: "plus",
     key: "monthly",
     displayName: "Bolo! Plus (Monthly)",
-    userFacingTitle: "Bolo! Plus — Monthly",
+    userFacingTitle: "Bolo! Plus, Monthly",
     duration: "P1M",
     priceMicros: PLUS_MONTHLY_PRICE_MICROS,
     priceIsPlaceholder: false,
@@ -125,7 +125,7 @@ const PRODUCTS: ProductSpec[] = [
     tier: "plus",
     key: "annual",
     displayName: "Bolo! Plus (Annual)",
-    userFacingTitle: "Bolo! Plus — Annual",
+    userFacingTitle: "Bolo! Plus, Annual",
     duration: "P1Y",
     priceMicros: PLUS_ANNUAL_PRICE_MICROS_PLACEHOLDER,
     priceIsPlaceholder: true,
@@ -139,7 +139,7 @@ const PRODUCTS: ProductSpec[] = [
     tier: "one_language",
     key: "monthly",
     displayName: "Bolo! One Language (Monthly)",
-    userFacingTitle: "Bolo! One Language — Monthly",
+    userFacingTitle: "Bolo! One Language, Monthly",
     duration: "P1M",
     priceMicros: ONE_LANGUAGE_MONTHLY_PRICE_MICROS,
     priceIsPlaceholder: false,
@@ -153,7 +153,7 @@ const PRODUCTS: ProductSpec[] = [
     tier: "one_language",
     key: "annual",
     displayName: "Bolo! One Language (Annual)",
-    userFacingTitle: "Bolo! One Language — Annual",
+    userFacingTitle: "Bolo! One Language, Annual",
     duration: "P1Y",
     priceMicros: ONE_LANGUAGE_ANNUAL_PRICE_MICROS_PLACEHOLDER,
     priceIsPlaceholder: true,
@@ -211,7 +211,7 @@ async function main(): Promise<void> {
     { test: string; app: string; play: string }
   >();
 
-  // 1) Project — created in the RevenueCat dashboard on connect. Use the
+  // 1) Project, created in the RevenueCat dashboard on connect. Use the
   //    configured id, else the first project.
   let projectId = process.env.REVENUECAT_PROJECT_ID?.trim();
   if (!projectId) {
@@ -225,7 +225,7 @@ async function main(): Promise<void> {
     console.log(`Using project: ${projects[0].name} (${projectId})`);
   }
 
-  // 2) Apps — every project starts with a Test Store app; create the App Store
+  // 2) Apps, every project starts with a Test Store app; create the App Store
   //    and Play Store apps if missing.
   const apps = await listAll(`/v2/projects/${projectId}/apps`);
   const testApp = apps.find((a) => a.type === "test_store");
@@ -250,7 +250,7 @@ async function main(): Promise<void> {
     console.log(`Created Play Store app: ${playStoreApp.id}`);
   }
 
-  // 3) Products — one per store per plan.
+  // 3) Products, one per store per plan.
   const existingProducts = await listAll(`/v2/projects/${projectId}/products`);
   const findProduct = (storeId: string, appId: string) =>
     existingProducts.find(
@@ -316,7 +316,7 @@ async function main(): Promise<void> {
       .push(testProduct.id, appProduct.id, playProduct.id);
   }
 
-  // 4) Entitlements — each tier's access level, unlocking only its products.
+  // 4) Entitlements, each tier's access level, unlocking only its products.
   const entitlements = await listAll(`/v2/projects/${projectId}/entitlements`);
   for (const entSpec of ENTITLEMENTS) {
     let entitlement = entitlements.find(
@@ -340,7 +340,7 @@ async function main(): Promise<void> {
     );
   }
 
-  // 5) Offering + packages — what the client shows on the paywall. Both tiers
+  // 5) Offering + packages, what the client shows on the paywall. Both tiers
   //    share the one "default" offering; each product spec has its own package.
   const offerings = await listAll(`/v2/projects/${projectId}/offerings`);
   let offering = offerings.find((o) => o.lookup_key === OFFERING_ID);
@@ -408,7 +408,7 @@ async function main(): Promise<void> {
     const price = (spec.priceMicros / 1_000_000).toFixed(2);
     const flag = spec.priceIsPlaceholder ? "  ⚠ PLACEHOLDER PRICE" : "";
     console.log(
-      `  [${spec.tier}] ${spec.key}: test=${spec.testId} app=${spec.appStoreId} play=${spec.playStoreId} — $${price}/${spec.duration === "P1M" ? "mo" : "yr"}${flag}`,
+      `  [${spec.tier}] ${spec.key}: test=${spec.testId} app=${spec.appStoreId} play=${spec.playStoreId}, $${price}/${spec.duration === "P1M" ? "mo" : "yr"}${flag}`,
     );
   }
   console.log("--------------------");

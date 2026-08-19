@@ -8,7 +8,7 @@ import { memoryLocation } from "wouter/memory-location";
 // Regression test for the Phrase Builder result math: correctCount is
 // incremented in handleCheck, so the final handleNext must NOT add another +1
 // for the last phrase. A perfect round must show exactly N/N and 100%
-// accuracy — never more.
+// accuracy, never more.
 // ---------------------------------------------------------------------------
 
 const PHRASES = [

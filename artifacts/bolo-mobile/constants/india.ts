@@ -1,9 +1,9 @@
 // The bazaar palette: FIXED scene colours, deliberately not theme tokens.
-// Mobile twin of artifacts/gujarati-coach/src/lib/india-palette.ts — keep the
+// Mobile twin of artifacts/gujarati-coach/src/lib/india-palette.ts, keep the
 // two in step.
 //
-// Every surface that paints a piece of India — the Bolo Bazaar storefront, the
-// Chai wallet's art tiles — draws from this one list so the app's warm
+// Every surface that paints a piece of India, the Bolo Bazaar storefront, the
+// Chai wallet's art tiles, draws from this one list so the app's warm
 // register stays consistent instead of each screen inventing its own saffron.
 // These colours do NOT flip with the theme: like the chai stall's art, they
 // are a painted scene and must read the same in light and dark mode. Controls,
@@ -18,7 +18,7 @@ export const INDIA = {
   cloth: '#FFF7EA',
   /** Signboard enamel: the deep green of an old shop board. */
   board: '#14503F',
-  /** The shadow under that green — spend buttons press into it. */
+  /** The shadow under that green, spend buttons press into it. */
   boardDeep: '#0C3428',
   /** Marigold: torans, board edging, price flags, festival dots. */
   gold: '#F0A32B',

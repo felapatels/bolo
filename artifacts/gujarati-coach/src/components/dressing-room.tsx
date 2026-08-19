@@ -1,21 +1,21 @@
 // The Bolo Bazaar changing room: a curtained booth the bird steps into.
 //
 // WHY IT EXISTS: swapping the mascot art in place made a costume change read
-// as a glitch — the old bird blinked out and a new one blinked in. A shop
+// as a glitch, the old bird blinked out and a new one blinked in. A shop
 // solves this with a curtain, so the shop does: the panels draw shut, the art
 // is swapped behind them, and they open on the dressed bird.
 //
 // TWO RULES THIS COMPONENT EXISTS TO KEEP:
 //  1. The curtains NEVER leave. Open means tied back at the posts, not slid
-//     off-stage — a booth with no cloth in it stops reading as a booth, and
+//     off-stage, a booth with no cloth in it stops reading as a booth, and
 //     the change then looks like two red rectangles flying in from nowhere.
 //  2. `closed` is caller state, never an animation-end callback. The caller
 //     always flips it back (on load, on error, on a timer), so the curtain
 //     cannot stick shut over the product.
 //
-// The booth itself is scenery on the fixed INDIA palette — timber frame and
+// The booth itself is scenery on the fixed INDIA palette, timber frame and
 // posts, a plaster back wall lit by a warm ceiling glow, a velvet pelmet with
-// a scalloped hem, and a timber floor — so it reads the same in both themes.
+// a scalloped hem, and a timber floor, so it reads the same in both themes.
 import type { ReactNode } from "react";
 import { INDIA } from "@/lib/india-palette";
 import { cn } from "@/lib/utils";
@@ -47,7 +47,7 @@ export function DressingRoom({
   className?: string;
 }) {
   // Panels are always PANEL_WIDTH wide and slide within the booth, so the
-  // cloth is on screen in both states — open just parks most of it behind the
+  // cloth is on screen in both states, open just parks most of it behind the
   // post. Transform (not width) so the pleats do not squash while moving.
   const shift = PANEL_WIDTH - TIED_BACK;
   const panel = {
@@ -134,7 +134,7 @@ export function DressingRoom({
 
         {/* The pelmet: a velvet valance with a scalloped hem, hiding the rail.
             One cloth masked into half-rounds, the same construction as the
-            shop awning — a separate row of tabs never lines up. */}
+            shop awning, a separate row of tabs never lines up. */}
         <div
           className="absolute inset-x-0 top-0"
           style={{

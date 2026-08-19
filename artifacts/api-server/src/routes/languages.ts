@@ -6,12 +6,12 @@ import { asc, notLike } from "drizzle-orm";
 const router: IRouter = Router();
 
 // Languages whose sentence content is primarily batch-generated (the C1
-// rollout set). Derived from the committed rollout data — never a hardcoded
-// list — so clients can show a "community review is ongoing" note without
+// rollout set). Derived from the committed rollout data, never a hardcoded
+// list, so clients can show a "community review is ongoing" note without
 // shipping their own copy of the set.
 const generatedContentLanguages = new Set(c1RolloutLanguageCodes());
 
-// GET /languages — public reference data: the supported learning languages,
+// GET /languages, public reference data: the supported learning languages,
 // used by the client language picker (no auth or user scoping needed).
 router.get("/languages", async (_req: Request, res: Response): Promise<void> => {
   const rows = await db

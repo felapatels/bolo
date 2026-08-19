@@ -14,7 +14,7 @@ import {
   listOwnedOutfits,
 } from "../lib/outfits";
 
-// Outfits for Bolo — a Chai sink, bought once and owned forever.
+// Outfits for Bolo, a Chai sink, bought once and owned forever.
 //
 // These live on their own routes rather than POST /tokens/spend because that
 // route mints `${item}:${userId}:${Date.now()}` when the client omits refId,
@@ -23,7 +23,7 @@ import {
 //
 // Status register matches the rest of the Chai surfaces: 409 for money and
 // state conflicts, 404 for an unknown outfit, and never 402 (reserved
-// codebase-wide for the UpgradeRequired envelope — outfits are not a plan
+// codebase-wide for the UpgradeRequired envelope, outfits are not a plan
 // boundary; a Free learner with 25 Chai may buy one).
 const router: IRouter = Router();
 
@@ -96,7 +96,7 @@ router.post(
   },
 );
 
-// POST /outfits/equip — free, instant, and reversible with a null id.
+// POST /outfits/equip, free, instant, and reversible with a null id.
 router.post(
   "/outfits/equip",
   async (req: Request, res: Response): Promise<void> => {

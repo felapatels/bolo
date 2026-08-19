@@ -7,7 +7,7 @@ import {
 } from '@workspace/api-client-react';
 
 // Session-scoped "skip for now" marker for the first-time language-selection
-// step (B1 parity with web). Deliberately an in-memory module flag — NOT
+// step (B1 parity with web). Deliberately an in-memory module flag, NOT
 // AsyncStorage: skipping must not loop within one app session, but the step
 // returns on the next cold start. Only an explicit choice (server-side
 // hasChosenLanguage) retires it for good.
@@ -49,7 +49,7 @@ export function useLanguageStepSkipped(): boolean {
 
 // An EXPLICIT language pick (the selection step or the language picker modal):
 // persists activeLanguage AND marks hasChosenLanguage server-side in one
-// PATCH, then merges the response into the account cache — no second refetch,
+// PATCH, then merges the response into the account cache, no second refetch,
 // so LanguageProvider's single-settle reconcile stays single. The provider's
 // own seed/correction writes deliberately do NOT go through here: seeding a
 // default is not a choice.

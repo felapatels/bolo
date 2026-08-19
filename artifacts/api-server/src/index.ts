@@ -25,14 +25,14 @@ if (Number.isNaN(port) || port <= 0) {
 
 // Startup pipeline, run AFTER the port opens (see listen below). The order
 // inside the pipeline is load-bearing and must not change:
-//   1. runStartupSeed — seed missing content (idempotent, advisory-locked).
-//   2. runBackfillScoringV2 — populate xp_ledger / user_item_memory /
+//   1. runStartupSeed, seed missing content (idempotent, advisory-locked).
+//   2. runBackfillScoringV2, populate xp_ledger / user_item_memory /
 //      user_ability from history. Idempotent (ON CONFLICT DO NOTHING).
 //      Throws if the FSRS mastered-count drop exceeds 30 %.
-//   3. ensureLessonGroupScopeTriggers — trigger fallback (July 29, 2026):
+//   3. ensureLessonGroupScopeTriggers, trigger fallback (July 29, 2026):
 //      scope triggers must be installed BEFORE any lesson-group assignment
 //      writes so enforcement exists before assignments happen.
-//   4. runBackfillLessonGroups — partition phrases into lesson groups.
+//   4. runBackfillLessonGroups, partition phrases into lesson groups.
 //      Idempotent and advisory-locked; already-grouped pairs are skipped.
 //
 // Why listen-first: publishing waits ~60 s for the port to open, and a

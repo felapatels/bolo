@@ -31,12 +31,12 @@ export function sendUpgradeRequired(
 // M1 three-state language access: allowed (plan covers the language), teaser
 // (locked, fewer than TEASER_LIMIT distinct teaser phrases attempted), or
 // exhausted (locked, all teaser phrases attempted). The attempts query runs
-// ONLY on the locked branch — allowed languages keep their existing
+// ONLY on the locked branch, allowed languages keep their existing
 // synchronous cost.
 // ---------------------------------------------------------------------------
 export type LanguageAccess =
   | { state: "allowed" }
-  // A locked language with no teaser set (no Greetings group 1 — e.g. test
+  // A locked language with no teaser set (no Greetings group 1, e.g. test
   // fixtures): plain standard-locked behavior, no teaser progress reported.
   | { state: "locked" }
   | { state: "teaser" | "exhausted"; consumed: number; teaserPhraseIds: number[] };
@@ -100,12 +100,12 @@ export function sendLockedLanguageDenial(
 // If the caller's plan can't access `lang`, sends the 402 and returns true so
 // the handler can `if (await denyLockedLanguage(...)) return;` and stop.
 // Teaser exception: when `teaserPhraseId` names a phrase inside the caller's
-// teaser set and the teaser isn't exhausted, access is granted — this is how
+// teaser set and the teaser isn't exhausted, access is granted, this is how
 // the phrase-scoped routes (GET /phrases/:id, POST /attempts) let exactly the
 // TEASER_LIMIT canonical phrases through with the full pipeline.
 // First-stop exception (free-tier content policy): when `firstStopPhraseId`
 // or `firstStopGroupId` names a resource inside the language's position-1
-// Greetings group, access is granted whatever the teaser state — every
+// Greetings group, access is granted whatever the teaser state, every
 // language's FIRST stop is fully playable free. Everything past Stop 1 keeps
 // the 402.
 export async function denyLockedLanguage(

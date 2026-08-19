@@ -6,8 +6,7 @@ import { playBase64Audio } from '@/lib/audio';
  *
  * His three lines arrive from three unrelated events (dialog open, arrival
  * response, dismissal), so without a queue the gift would talk over the
- * greeting. These pin the ordering contract and the fail-silent behaviour —
- * this is flavour dialogue, so every failure path releases the queue rather
+ * greeting. These pin the ordering contract and the fail-silent behaviour, * this is flavour dialogue, so every failure path releases the queue rather
  * than stalling the lines behind it.
  */
 

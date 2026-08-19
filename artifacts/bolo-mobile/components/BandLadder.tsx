@@ -7,7 +7,7 @@ import { BAND_LABEL, BAND_LADDER, bandColor, type Band } from '@/lib/ui';
 /**
  * Five-band result ladder: every band label rendered top to bottom with the
  * achieved band highlighted (filled with its brand color) and the rest muted.
- * Labels only — never a raw numeric score (ex-#874 rule). Renders nothing for
+ * Labels only, never a raw numeric score (ex-#874 rule). Renders nothing for
  * `nocatch`: a system miss is not a rung on the ladder (Spec 1 rule 16).
  */
 export function BandLadder({ band }: { band: Band }) {

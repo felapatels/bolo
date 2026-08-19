@@ -8,7 +8,7 @@ import { ANALYTICS_EVENTS, type AnalyticsEvent } from './analyticsEvents';
 //
 // Payload policy (enforced by convention + review): NO phrase content,
 // transcripts, audio, or user email. User id and language code are fine.
-// Autocapture is OFF — analyticsEvents.ts is the complete, deliberate list.
+// Autocapture is OFF, analyticsEvents.ts is the complete, deliberate list.
 
 const key = process.env.EXPO_PUBLIC_POSTHOG_KEY;
 const host = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
@@ -24,7 +24,7 @@ export function initAnalytics(): void {
   });
 }
 
-/** Identify by Clerk user id only — never email or name. */
+/** Identify by Clerk user id only, never email or name. */
 export function identifyUser(userId: string | null): void {
   if (!client) return;
   if (userId) client.identify(userId);

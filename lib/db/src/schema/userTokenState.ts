@@ -18,7 +18,7 @@ export const userTokenStateTable = pgTable("user_token_state", {
     withTimezone: true,
   }),
   // First Class (Chai sink, Aug 13 2026): an absolute deadline, exactly like
-  // express_multiplier_expires_at above and for the same reasons — the status
+  // express_multiplier_expires_at above and for the same reasons, the status
   // is a wall-clock window written at spend time, so nothing has to expire it
   // and a stale client cannot extend it. Deliberately a second column rather
   // than a generic status table: the express precedent is the shape this
@@ -29,14 +29,13 @@ export const userTokenStateTable = pgTable("user_token_state", {
   }),
   lastAllowanceMonth: text("last_allowance_month"),
   // Outfits (Chai sink, Aug 6 2026): the outfit this learner's Bolo is
-  // wearing, or NULL for canonical undressed Bolo. Ownership is NOT here —
-  // that is the ledger row (see api-server/src/lib/outfits.ts). This column
+  // wearing, or NULL for canonical undressed Bolo. Ownership is NOT here, // that is the ledger row (see api-server/src/lib/outfits.ts). This column
   // is only the choice, so equipping is free and instant and unequipping is
   // a write of NULL that loses nothing.
   equippedOutfit: text("equipped_outfit"),
   // Two slots, not one (owner ruling, Aug 8 2026): she wears a hat AND an
   // outfit at the same time. A garment covers her belly and an accessory sits
-  // on her head, so they never contend for the same pixels — but they do need
+  // on her head, so they never contend for the same pixels, but they do need
   // separate columns, because a single "equipped" value can only ever hold one
   // of them and equipping either would silently take the other off.
   equippedAccessory: text("equipped_accessory"),

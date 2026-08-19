@@ -252,7 +252,7 @@ test("chatTimeCapDenial never denies Plus regardless of usage", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// DB: week rollover — usage from last week does NOT count this week
+// DB: week rollover, usage from last week does NOT count this week
 // ---------------------------------------------------------------------------
 
 test("usage resets when the week rolls over", async () => {

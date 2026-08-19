@@ -5,7 +5,7 @@ import { ReplitConnectors } from "@replit/connectors-sdk";
 // stored in application secrets.
 //
 // The FROM address MUST be configured via INVITE_FROM_EMAIL (e.g.
-// hello@bolo-india.app — the bolo-india.app domain is verified with Resend).
+// hello@bolo-india.app, the bolo-india.app domain is verified with Resend).
 // There is deliberately no hardcoded fallback: a missing value fails loudly
 // at send time instead of silently sending from the wrong address.
 
@@ -13,11 +13,11 @@ const connectors = new ReplitConnectors();
 
 // Invite CTA destination. The iOS App Store listing is not live yet, so the
 // CTA points at the web app; at iOS launch, flip INVITE_CTA_URL to the App
-// Store link — no code change needed. The default is the always-safe web URL.
+// Store link, no code change needed. The default is the always-safe web URL.
 const INVITE_CTA_URL =
   process.env.INVITE_CTA_URL ?? "https://bolo-india.app";
 
-// Mascot image for the email header — hosted on the production web app so it
+// Mascot image for the email header, hosted on the production web app so it
 // renders in all email clients (Gmail strips base64 data URIs).
 const MASCOT_IMG_URL = "https://bolo-india.app/mascot/mascot-wave.png";
 
@@ -25,7 +25,7 @@ function requireFromEmail(): string {
   const from = process.env.INVITE_FROM_EMAIL;
   if (!from) {
     throw new Error(
-      "INVITE_FROM_EMAIL is not set — invite emails cannot be sent. Set it to the verified sender address (e.g. hello@bolo-india.app).",
+      "INVITE_FROM_EMAIL is not set, invite emails cannot be sent. Set it to the verified sender address (e.g. hello@bolo-india.app).",
     );
   }
   return from;
@@ -60,7 +60,7 @@ function buildHtml(inviterName: string, ctaUrl: string): string {
               Hey there! 👋
             </p>
             <p style="margin:0 0 18px;font-size:16px;color:#3D3D3D;line-height:1.6;">
-              <strong>${escapeHtml(inviterName)}</strong> wants to practice Indian languages with you on <strong>${APP_NAME}</strong> — an app that teaches you Hindi, Gujarati, Bengali, Tamil, and more through real conversation.
+              <strong>${escapeHtml(inviterName)}</strong> wants to practice Indian languages with you on <strong>${APP_NAME}</strong>, an app that teaches you Hindi, Gujarati, Bengali, Tamil, and more through real conversation.
             </p>
             <p style="margin:0 0 28px;font-size:16px;color:#3D3D3D;line-height:1.6;">
               Learn together, challenge each other on the leaderboard, and actually start speaking a new language.
@@ -106,7 +106,7 @@ function buildText(inviterName: string, ctaUrl: string): string {
   return [
     `Hey there!`,
     ``,
-    `${inviterName} wants to practice Indian languages with you on ${APP_NAME} — an app that teaches you Hindi, Gujarati, Bengali, Tamil, and more through real conversation.`,
+    `${inviterName} wants to practice Indian languages with you on ${APP_NAME}, an app that teaches you Hindi, Gujarati, Bengali, Tamil, and more through real conversation.`,
     ``,
     `Learn together, challenge each other on the leaderboard, and actually start speaking a new language.`,
     ``,

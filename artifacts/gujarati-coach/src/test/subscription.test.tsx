@@ -286,7 +286,7 @@ describe("Subscription management", () => {
         <Subscription />
       </Router>,
     );
-    // Nothing manageable — the management surface never renders.
+    // Nothing manageable, the management surface never renders.
     expect(screen.queryByText("Billing history")).not.toBeInTheDocument();
     expect(screen.queryByText("Subscription paused")).not.toBeInTheDocument();
   });
@@ -302,7 +302,7 @@ describe("Subscription management", () => {
 
     await user.click(screen.getByRole("button", { name: /Cancel subscription/i }));
 
-    // Cancellation must be provider-authoritative — Stripe's portal, never the
+    // Cancellation must be provider-authoritative, Stripe's portal, never the
     // DB-only /account/subscription/cancel endpoint (which would leave Stripe
     // charging).
     await waitFor(() => expect(h.cancelPlus).toHaveBeenCalled());
@@ -395,7 +395,7 @@ describe("Subscription management", () => {
       isLoading: false,
     };
     renderPage();
-    // Members have nothing to bill here — no management surface renders.
+    // Members have nothing to bill here, no management surface renders.
     expect(screen.queryByText("Billing history")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /Cancel subscription/i }),

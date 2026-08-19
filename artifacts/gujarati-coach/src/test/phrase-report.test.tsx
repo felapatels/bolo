@@ -42,7 +42,7 @@ describe("PhraseReportButton", () => {
     expect(toastSpy).toHaveBeenCalledWith({
       description: "Thanks, we'll check it",
     });
-    // Popover closed after submit — reasons no longer rendered.
+    // Popover closed after submit, reasons no longer rendered.
     expect(screen.queryByText("Translation wrong")).toBeNull();
   });
 

@@ -1,8 +1,8 @@
-// Journey map scenery — react-native-svg port of the web pieces
+// Journey map scenery, react-native-svg port of the web pieces
 // (gujarati-coach/src/components/journey-scenery.tsx): per-zone landmark
 // vistas for the fare-zone postcards, small trackside doodads along the
 // serpentine rail, and festival bunting for the terminus. Everything is
-// hand-coded SVG in the brand palette plus the active line's accent — no
+// hand-coded SVG in the brand palette plus the active line's accent, no
 // raster artwork, nothing generated.
 //
 // The six vistas are keyed by ZONE INDEX (the six categories are fixed across
@@ -137,7 +137,7 @@ function Ground({ a }: { a: string }) {
   return <Rect x={0} y={54.5} width={240} height={1.5} fill={a} opacity={0.5} />;
 }
 
-/** Zone 1 — Greetings & Manners: a welcoming city gateway arch. */
+/** Zone 1, Greetings & Manners: a welcoming city gateway arch. */
 function GatewayScene({ a, p }: { a: string; p: Palette }) {
   return (
     <G>
@@ -157,7 +157,7 @@ function GatewayScene({ a, p }: { a: string; p: Palette }) {
   );
 }
 
-/** Zone 2 — Family: a huddle of little homes with a shade tree. */
+/** Zone 2, Family: a huddle of little homes with a shade tree. */
 function HomesScene({ a, p }: { a: string; p: Palette }) {
   return (
     <G>
@@ -179,7 +179,7 @@ function HomesScene({ a, p }: { a: string; p: Palette }) {
   );
 }
 
-/** Zone 3 — Numbers 1-10: the town clock tower. */
+/** Zone 3, Numbers 1-10: the town clock tower. */
 function ClockTowerScene({ a, p }: { a: string; p: Palette }) {
   return (
     <G>
@@ -202,7 +202,7 @@ function ClockTowerScene({ a, p }: { a: string; p: Palette }) {
   );
 }
 
-/** Zone 4 — Food & Eating: the chai stall, steam rising. */
+/** Zone 4, Food & Eating: the chai stall, steam rising. */
 function ChaiStallScene({ a, p }: { a: string; p: Palette }) {
   const stripes = [0, 1, 2, 3, 4, 5];
   return (
@@ -233,7 +233,7 @@ function ChaiStallScene({ a, p }: { a: string; p: Palette }) {
   );
 }
 
-/** Zone 5 — Everyday Words: bazaar stalls under a pennant string. */
+/** Zone 5, Everyday Words: bazaar stalls under a pennant string. */
 function BazaarScene({ a, p }: { a: string; p: Palette }) {
   const stall = (x: number, canopy: string) => (
     <G key={x}>
@@ -267,7 +267,7 @@ function BazaarScene({ a, p }: { a: string; p: Palette }) {
   );
 }
 
-/** Zone 6 — Feelings, the festival-city finale: palace domes and fireworks. */
+/** Zone 6, Feelings, the festival-city finale: palace domes and fireworks. */
 function FestivalScene({ a, p }: { a: string; p: Palette }) {
   return (
     <G>

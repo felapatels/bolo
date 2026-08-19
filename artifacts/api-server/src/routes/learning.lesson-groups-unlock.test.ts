@@ -36,7 +36,7 @@ import {
 // evaluate BEFORE any unlock logic (a Free caller on a Plus language gets 402,
 // never unlock state); test-out requires server-signed evaluation tokens and
 // persists every submission. All rows use test-only ids and are cleaned up
-// after — see .agents/memory/api-server-tests.md.
+// after, see .agents/memory/api-server-tests.md.
 const PLUS_USER = "test_lg_unlock_plus";
 const FRESH_USER = "test_lg_unlock_fresh";
 const FREE_USER = "test_lg_unlock_free";
@@ -424,7 +424,7 @@ test("passing test-out persists tested_out and unlocks the next group", async ()
   const statuses = await groupStatuses(FRESH_USER);
   assert.equal(statuses.get(g2Id), "tested_out");
   assert.equal(statuses.get(g3Id), "unlocked"); // sequential unlock advanced
-  // g1 stays as it was — never re-locked by anything above.
+  // g1 stays as it was, never re-locked by anything above.
   assert.equal(statuses.get(g1Id), "unlocked");
 });
 
@@ -766,7 +766,7 @@ test("test-out throttle: the 4th submission within the hour gets 429", async () 
   const fourth = await submit();
   assert.equal(fourth.status, 429);
 
-  // The throttled submission was NOT logged — only the 3 in-window rows exist.
+  // The throttled submission was NOT logged, only the 3 in-window rows exist.
   const logged = await db
     .select()
     .from(lessonGroupTestoutsTable)
@@ -776,8 +776,7 @@ test("test-out throttle: the 4th submission within the hour gets 429", async () 
 
 test("test-out throttle 429 shape: Retry-After header + retryAfterSeconds body", async () => {
   // Still saturated from the previous test (3 in-window submissions). The
-  // throttle fires before token verification, so a minimal body suffices —
-  // and proves a rate-limited caller learns nothing about sample validity.
+  // throttle fires before token verification, so a minimal body suffices, // and proves a rate-limited caller learns nothing about sample validity.
   const res = await fetch(`${baseUrl}/lesson-groups/${g2Id}/test-out`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-test-user": THROTTLE_USER },
@@ -788,7 +787,7 @@ test("test-out throttle 429 shape: Retry-After header + retryAfterSeconds body",
   assert.equal(res.status, 429);
 
   // Retry-After header: integer seconds until the oldest in-window submission
-  // (10 min ago) ages out of the rolling hour — so ~50 min, never more than 60.
+  // (10 min ago) ages out of the rolling hour, so ~50 min, never more than 60.
   const retryAfter = Number(res.headers.get("retry-after"));
   assert.ok(Number.isInteger(retryAfter), "Retry-After must be integer seconds");
   assert.ok(retryAfter >= 1 && retryAfter <= 3600, `Retry-After in (0, 1h]: ${retryAfter}`);

@@ -5,7 +5,7 @@ import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
 
 // ---------------------------------------------------------------------------
-// Task 903 — instant band call-outs on the practice result card.
+// Task 903, instant band call-outs on the practice result card.
 //
 // The moment a result lands, Bolo speaks the band name from a pre-bundled
 // clip (public/sounds/bands/<band>.mp3) with zero synthesis wait; the full
@@ -119,7 +119,7 @@ class FakeAudio {
 vi.stubGlobal("Audio", FakeAudio);
 
 /** Band clips that actually PLAYED (preloadBandClips creates silent,
- * never-played instances on the first record gesture — exclude those). */
+ * never-played instances on the first record gesture, exclude those). */
 function playedBandClips(): FakeAudio[] {
   return audioInstances.filter(
     (a) => a.src.includes("sounds/bands/") && a.play.mock.calls.length > 0,
@@ -273,7 +273,7 @@ describe("instant band audio on results", () => {
   // coachVoiceRef is initialized synchronously from localStorage so the
   // disabled state is set on first render, no waiting required. Task 1044
   // moved the control from a header pill into the settings gear menu, so it
-  // is read there now — the rule itself is unchanged.
+  // is read there now, the rule itself is unchanged.
   async function meaningMenuItem() {
     await act(async () => {
       fireEvent.pointerDown(
@@ -301,7 +301,7 @@ describe("instant band audio on results", () => {
     await reachIdle();
     await recordAndRelease();
 
-    // Result card renders normally — never blocked on audio.
+    // Result card renders normally, never blocked on audio.
     await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument());
     await waitFor(() => expect(playedBandClips()).toHaveLength(1));
 

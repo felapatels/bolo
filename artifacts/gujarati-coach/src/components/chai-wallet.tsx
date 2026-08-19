@@ -53,18 +53,17 @@ import { cn } from "@/lib/utils";
 const STATION_PAUSE_COST = 10;
 const EXPRESS_MULTIPLIER_COST = 10;
 const STATION_PAUSE_MAX_EQUIPPED = 2;
-// Mirror of tokenEconomy.ts — server is authoritative.
+// Mirror of tokenEconomy.ts, server is authoritative.
 const FIRST_CLASS_COST = 25;
 
-// The wallet opens on Chacha-ji's stall itself — the painted scene, with the
+// The wallet opens on Chacha-ji's stall itself, the painted scene, with the
 // balance struck across it. (The home band still composites the layered art;
 // this is a single flattened still, used only as a header.)
 const HEADER_SRC = `${import.meta.env.BASE_URL}stall/wallet-header.jpg`;
 
 // Spend buttons are bazaar green, not app indigo: the kulhad glyph is
 // terracotta, which muddied against indigo and pops against the signboard
-// enamel. Fixed scene colours (lib/india-palette.ts) with cream lettering —
-// contrast holds in both themes.
+// enamel. Fixed scene colours (lib/india-palette.ts) with cream lettering, // contrast holds in both themes.
 const SPEND_BTN_CLASS =
   "inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-black transition-all active:translate-y-1 active:shadow-none disabled:opacity-50";
 // Enamel, not flat paint: a lit top edge fading into the board green, over the
@@ -149,7 +148,7 @@ export function useExpressCountdown(
  * Live human-readable countdown until a deadline, or null when inactive.
  * For sub-hour deadlines: "mm:ss". For longer: "Xhr Ymin" or "Xd Xhr".
  * Recomputes from the wall clock so a returning tab reads immediately correctly.
- * Schedules one cache invalidation at expiry — same pattern as Express.
+ * Schedules one cache invalidation at expiry, same pattern as Express.
  */
 export function useFirstClassCountdown(
   activeUntil: string | null | undefined,
@@ -246,7 +245,7 @@ function useFirstClassBuy() {
  * When ACTIVE: shows remaining time and "running" badge, no buy button. The
  * key prop on the parent flips this component out when the status becomes
  * inactive, which remounts useFirstClassBuy and generates a fresh UUID for
- * the next purchase — the same UUID on a second tap is the free replay,
+ * the next purchase, the same UUID on a second tap is the free replay,
  * not a second charge.
  *
  * When INACTIVE: shows price + buy button. The boost line makes clear it is
@@ -353,7 +352,7 @@ function missedDayLabel(dayKey: string): string {
 
 /**
  * Streak repair: shown ONLY when the server says there is a real break inside
- * the window, and silent otherwise — no greyed-out row, no "you could have",
+ * the window, and silent otherwise, no greyed-out row, no "you could have",
  * nothing to notice on a day the learner did nothing wrong. Eligibility is
  * never inferred here; the button posts an empty body and the server picks the
  * day it is willing to sell.

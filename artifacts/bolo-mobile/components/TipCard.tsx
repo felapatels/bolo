@@ -14,7 +14,7 @@ const ROTATE_INTERVAL_MS = 4000;
  * Rotating tip card shown while Bolo is processing a reply.
  * Cycles through India fun facts every 4 s with a fade transition.
  * Under prefers-reduced-motion or Expo Go the card appears instantly
- * and never rotates — content is always visible.
+ * and never rotates, content is always visible.
  */
 export function TipCard() {
   const colors = useColors();

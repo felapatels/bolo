@@ -4,7 +4,7 @@
 //
 //  1. A userId that is NOT in the allowlist → S3 send is never called.  This
 //     is the safety property: the tee is inert for everyone who is not listed.
-//     NOTE: deliberately does NOT assert pilotCaptureUserIds.size === 0 — in
+//     NOTE: deliberately does NOT assert pilotCaptureUserIds.size === 0, in
 //     this workspace PILOT_CAPTURE_USER_IDS is set via .replit, so the set may
 //     be pre-populated at module init and a size assertion would test the
 //     ambient environment rather than the behaviour. The test guarantees the

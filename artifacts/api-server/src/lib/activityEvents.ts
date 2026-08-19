@@ -64,7 +64,7 @@ export async function recordActivityEvent(input: {
   // sweep: a per-user delete rides the (user_id, created_at) index the feed
   // read already needs, and a writer must not do unbounded work on behalf of
   // learners who are not here. Failures are swallowed exactly like the insert
-  // above — an untrimmed row is harmless, a 500 for it is not.
+  // above, an untrimmed row is harmless, a 500 for it is not.
   try {
     const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
     await db

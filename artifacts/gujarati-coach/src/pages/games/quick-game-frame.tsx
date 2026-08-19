@@ -94,7 +94,7 @@ export type QuickRoundResult = {
   correct: boolean;
   /** What to show on the end screen's miss review when this round was wrong.
    *  Each game words its own round (the prompt it showed, the answer the
-   *  learner picked), so the frame never guesses it from the ids — a game
+   *  learner picked), so the frame never guesses it from the ids, a game
    *  whose right answer is the odd one out would be described backwards. */
   review?: GameMiss;
 };
@@ -323,7 +323,7 @@ export function QuickGameShell({
   /** Declare that this game speaks NOTHING, so the header's mute control is
    *  removed entirely (mobile's QuickGameShell prop of the same name).
    *  Defaults to true, which is the trap: a silent game that predates this
-   *  prop keeps a live speaker button over silence — reported on Ticket Check.
+   *  prop keeps a live speaker button over silence, reported on Ticket Check.
    *  Every game passed to this shell must state it deliberately. */
   usesAudio?: boolean;
   /** Rounds for a given phrase pool (pairs count for Luggage Match). */

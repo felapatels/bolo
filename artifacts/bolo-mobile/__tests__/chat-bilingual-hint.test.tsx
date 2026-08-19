@@ -13,11 +13,11 @@ import {
 //
 //   - "You can respond in English or <Language>" is visible in the rendered
 //     tree before the learner has said anything (messages === []).
-//   - The hint STAYS visible once the first recording attempt begins — it is
+//   - The hint STAYS visible once the first recording attempt begins, it is
 //     persistent, unlike the old empty-state tip that disappeared when the
 //     pending learner bubble made messages.length > 0.
 //
-// Interaction under test — a REAL hold-and-release on the Bolo mascot
+// Interaction under test, a REAL hold-and-release on the Bolo mascot
 // (R6, 32.1: a quick tap or a release-during-startup now aborts and discards
 // instead of submitting, so the hint test must hold through startup and
 // release only after the minimum recording duration):
@@ -256,7 +256,7 @@ describe('bilingual hint on the Bolo chat screen', () => {
       fireEvent(screen.getByRole('button', { name: 'Hold to speak' }), 'pressIn');
     });
 
-    // Release after a hold longer than the minimum duration — the stop path
+    // Release after a hold longer than the minimum duration, the stop path
     // submits, synchronously adding the pending learner bubble (setMessages)
     // before any further awaits, making messages.length === 1.
     now += 500;

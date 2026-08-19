@@ -1,6 +1,6 @@
 // Server-side feature flags derived from environment variables.
 // All flags default to OFF. Toggling a flag requires a server restart.
-// No scoring-v2 or other feature coupling in code — the coupling is ops
+// No scoring-v2 or other feature coupling in code, the coupling is ops
 // discipline only (deploy the flag alongside the feature it gates).
 
 /**

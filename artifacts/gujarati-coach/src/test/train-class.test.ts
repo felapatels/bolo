@@ -9,8 +9,8 @@
  * The overflow guarantee is the whole point of the change. The old strip
  * divided today's XP by `dailyGoal` (an ATTEMPTS target) and read "254/10 XP"
  * with the bar clamped full. The sweep below asserts the replacement makes
- * that impossible BY CONSTRUCTION — `target` is always the first rung strictly
- * above `xp` — rather than by a clamp that would hide a future regression.
+ * that impossible BY CONSTRUCTION, `target` is always the first rung strictly
+ * above `xp`, rather than by a clamp that would hide a future regression.
  */
 import { describe, test, expect } from "vitest";
 import {
@@ -40,7 +40,7 @@ describe("TRAIN_CLASS_LADDER", () => {
   });
 });
 
-describe("dailyTrainClassMeter — below the first rung", () => {
+describe("dailyTrainClassMeter, below the first rung", () => {
   test("zero fills toward Local and names no class", () => {
     const m = dailyTrainClassMeter(0);
     expect(m).toEqual({
@@ -67,7 +67,7 @@ describe("dailyTrainClassMeter — below the first rung", () => {
   });
 });
 
-describe("dailyTrainClassMeter — exactly on each rung", () => {
+describe("dailyTrainClassMeter, exactly on each rung", () => {
   test.each([
     [100, "Local", 200],
     [200, "Superfast", 400],
@@ -92,7 +92,7 @@ describe("dailyTrainClassMeter — exactly on each rung", () => {
   });
 });
 
-describe("dailyTrainClassMeter — between rungs", () => {
+describe("dailyTrainClassMeter, between rungs", () => {
   test.each([
     [150, "Local", 200],
     [254, "Superfast", 400],
@@ -114,7 +114,7 @@ describe("dailyTrainClassMeter — between rungs", () => {
   });
 });
 
-describe("dailyTrainClassMeter — at and above the top", () => {
+describe("dailyTrainClassMeter, at and above the top", () => {
   test.each([800, 801, 1200, 99_999])("%i is the top class alone", (xp) => {
     const m = dailyTrainClassMeter(xp);
     expect(m.atTop).toBe(true);
@@ -124,7 +124,7 @@ describe("dailyTrainClassMeter — at and above the top", () => {
   });
 });
 
-describe("dailyTrainClassMeter — overflow is impossible by construction", () => {
+describe("dailyTrainClassMeter, overflow is impossible by construction", () => {
   test("the numerator never exceeds the denominator across a full sweep", () => {
     for (let xp = 0; xp <= 1000; xp++) {
       const m = dailyTrainClassMeter(xp);
@@ -149,7 +149,7 @@ describe("dailyTrainClassMeter — overflow is impossible by construction", () =
   });
 });
 
-describe("dailyTrainClassMeter — defensive normalization", () => {
+describe("dailyTrainClassMeter, defensive normalization", () => {
   test.each([
     [-1, 0],
     [-500, 0],
@@ -213,7 +213,7 @@ describe("msUntilNextLocalDay", () => {
   test("spring forward: the 23-hour local day is 23 hours", () => {
     // US DST begins 2026-03-08, 02:00 EST -> 03:00 EDT.
     // 05:30Z is 00:30 EST on that day; the next local midnight is
-    // 2026-03-09T00:00 EDT = 04:00Z, so 22h30m remain — not 23h30m.
+    // 2026-03-09T00:00 EDT = 04:00Z, so 22h30m remain, not 23h30m.
     const now = new Date("2026-03-08T05:30:00.000Z");
     expect(msUntilNextLocalDay("America/New_York", now)).toBe(
       22.5 * 3600 * 1000,
@@ -223,7 +223,7 @@ describe("msUntilNextLocalDay", () => {
   test("fall back: the 25-hour local day is 25 hours", () => {
     // US DST ends 2026-11-01, 02:00 EDT -> 01:00 EST.
     // 04:30Z is 00:30 EDT on that day; the next local midnight is
-    // 2026-11-02T00:00 EST = 05:00Z, so 24h30m remain — not 23h30m.
+    // 2026-11-02T00:00 EST = 05:00Z, so 24h30m remain, not 23h30m.
     const now = new Date("2026-11-01T04:30:00.000Z");
     expect(msUntilNextLocalDay("America/New_York", now)).toBe(
       24.5 * 3600 * 1000,

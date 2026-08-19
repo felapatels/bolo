@@ -1,4 +1,4 @@
-// Verifies that FunFactLoader always renders its fact text visibly — both in
+// Verifies that FunFactLoader always renders its fact text visibly, both in
 // the normal case and when the user has Reduce Motion enabled in their system
 // accessibility settings. The animation is a progressive enhancement; the text
 // must never be invisible because an entrance animation was skipped.

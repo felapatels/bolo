@@ -127,7 +127,7 @@ test("setSiblings: evicts the least-recently-used entry when at capacity", () =>
   // Access lang-0 so it is promoted to MRU (no longer the LRU).
   getSiblings("lang-0");
 
-  // Insert one more entry — must evict the new LRU (lang-1, since lang-0 was promoted).
+  // Insert one more entry, must evict the new LRU (lang-1, since lang-0 was promoted).
   setSiblings("lang-overflow", { phrases: [makeRow(999)], expiresAt: ttl });
   assert.equal(siblingCache.size, MAX, "size must remain at cap after overflow insert");
 
@@ -152,7 +152,7 @@ test("cache is not populated when a DB error occurs (no setSiblings called on er
   // is only called on a successful fetch. We simulate the failure path by
   // confirming the cache is empty both before and after a simulated error, then
   // manually showing that if setSiblings IS called after an error the data would
-  // be wrong — proving the guard relies on the caller to only invoke it on success.
+  // be wrong, proving the guard relies on the caller to only invoke it on success.
   siblingCache.clear();
 
   // Simulate: DB throws, so the catch branch runs → setSiblings is NOT called.
@@ -184,7 +184,7 @@ test("setSiblings: refreshing an existing key updates TTL and promotes to MRU", 
   setSiblings("mr", { phrases: [makeRow(1)], expiresAt: ttl });
   setSiblings("bn", { phrases: [makeRow(2)], expiresAt: ttl });
 
-  // Refresh "mr" with a new TTL — it should move to tail (MRU).
+  // Refresh "mr" with a new TTL, it should move to tail (MRU).
   const newTtl = futureMs(120_000);
   setSiblings("mr", { phrases: [makeRow(1), makeRow(3)], expiresAt: newTtl });
 

@@ -23,7 +23,7 @@ export function FriendQr({
       className={className}
       data-testid="friend-qr"
       // What the square actually encodes. A rendered QR is opaque to a test (and
-      // to anyone debugging in devtools), so the payload is exposed here — it is
+      // to anyone debugging in devtools), so the payload is exposed here, it is
       // the same string any scanner reads off the image, so nothing is leaked.
       data-value={value}
       // The code is already on screen as text next to this; the square is a
@@ -38,7 +38,7 @@ export function FriendQr({
         // a dark-mode QR rendered in brand teal is measurably harder to read.
         bgColor="#ffffff"
         fgColor="#000000"
-        // Medium error correction — enough redundancy for a phone screen photo
+        // Medium error correction, enough redundancy for a phone screen photo
         // or a slightly creased printout without inflating the module count.
         level="M"
         marginSize={2}

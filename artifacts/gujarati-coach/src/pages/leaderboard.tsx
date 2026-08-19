@@ -1,5 +1,5 @@
 /**
- * The board — the friends leaderboard on a surface of its own.
+ * The board, the friends leaderboard on a surface of its own.
  *
  * /friends stays what it always was: management (add by code, requests, remove).
  * Standing is a different thing you come to look at, so it gets its own route

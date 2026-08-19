@@ -322,7 +322,7 @@ describe('test-out run mechanics', () => {
     await recordCurrentPhrase();
     expect(mockState.createAttempt).not.toHaveBeenCalled();
     // One take per phrase is a server-side batch rule, so the retry slot is
-    // inactive — but it still sits in its usual place (Task #1040): the row
+    // inactive, but it still sits in its usual place (Task #1040): the row
     // never collapses to a single full-width button.
     expect(screen.queryByTestId('retry-button')).toBeNull();
     expect(screen.getByTestId('try-again-button')).toBeDisabled();

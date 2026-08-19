@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 // ---------------------------------------------------------------------------
 // The language-selection step (/choose-language), post-B1-gate removal.
 // The B1 redirect gate was removed by product decision (July 30 2026): fresh
-// accounts land directly on home with the seeded default (Hindi) — there is
+// accounts land directly on home with the seeded default (Hindi), there is
 // no LanguageChoiceGate and no redirect. The step remains a normal navigable
 // route with its original behavior:
 //   - it confirms with ONE write (activeLanguage + hasChosenLanguage), routes
@@ -114,8 +114,7 @@ function accountWith(overrides: Partial<Record<string, unknown>> = {}) {
         theme: "system",
         // Matches the DEVICE timezone (resolved exactly the way the provider
         // does) so the provider's timezone auto-report never fires a
-        // preferences write these tests would misattribute to the step —
-        // robust in any test-runner TZ, unlike hardcoding "UTC".
+        // preferences write these tests would misattribute to the step, // robust in any test-runner TZ, unlike hardcoding "UTC".
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         hasChosenLanguage: false,
         ...overrides,
@@ -202,7 +201,7 @@ describe("choose-language step", () => {
     expect(h.navigate).toHaveBeenCalledWith("/journey");
   });
 
-  test("skip sets only a session marker — never a server write", () => {
+  test("skip sets only a session marker, never a server write", () => {
     renderStep();
     fireEvent.click(screen.getByTestId("skip-language-step"));
 
@@ -239,7 +238,7 @@ describe("B1 gate removal", () => {
   test("the LanguageChoiceGate component no longer exists", () => {
     // A fresh account (hasChosenLanguage=false) lands directly on home with
     // the seeded default language; /app renders without any gate wrapper.
-    // import.meta.glob resolves at transform time — resurrecting the file
+    // import.meta.glob resolves at transform time, resurrecting the file
     // breaks this pin. (The guided tour and its auto-launcher were removed
     // entirely in Task #906; fresh accounts simply land on home.)
     const matches = import.meta.glob("../components/language-choice-gate.tsx");

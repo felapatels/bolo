@@ -5,7 +5,7 @@
  * reusing the existing Script Trace script-family mapping (LANG_CHAPTER_IDS)
  * and chapter data. This module defines NO mapping of its own.
  *
- * Returns [] when no glyph set is available — callers fall back to shape
+ * Returns [] when no glyph set is available, callers fall back to shape
  * confetti.
  */
 import {
@@ -24,7 +24,7 @@ export function glyphsForLanguage(languageCode: string): string[] {
     if (!chapterIds.includes(chapter.id) || chapter.stage !== "alphabet") continue;
     for (const character of chapter.characters) {
       const glyph = character.char.trim();
-      // Single letterforms only — confetti is glanced at, not read.
+      // Single letterforms only, confetti is glanced at, not read.
       if (glyph.length >= 1 && glyph.length <= 2) glyphs.add(glyph);
       if (glyphs.size >= MAX_GLYPHS) return [...glyphs];
     }

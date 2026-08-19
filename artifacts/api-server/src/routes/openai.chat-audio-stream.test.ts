@@ -12,7 +12,7 @@ import {
   failChatAudioStream,
 } from "../lib/chatAudioStreams";
 
-// Route-level tests for GET /openai/chat/audio/:streamId — the progressive
+// Route-level tests for GET /openai/chat/audio/:streamId, the progressive
 // per-turn voice stream that lets mobile players start Bolo's reply before
 // synthesis finishes. The stream registry is fed directly (no AI calls).
 
@@ -102,8 +102,7 @@ test("failed stream aborts the connection instead of ending cleanly", async () =
   await new Promise((r) => setTimeout(r, 50));
   failChatAudioStream(stream);
 
-  // The socket is destroyed mid-body, so reading the body must reject —
-  // a native player sees an error, never a "finished" truncated clip.
+  // The socket is destroyed mid-body, so reading the body must reject, // a native player sees an error, never a "finished" truncated clip.
   await assert.rejects(async () => {
     const res = await resPromise;
     await res.arrayBuffer();

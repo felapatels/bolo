@@ -30,13 +30,13 @@ test("bandFromScore boundary edges at every threshold", () => {
   assert.strictEqual(bandFromScore(100), "perfect");
   assert.strictEqual(bandFromScore(BAND_THRESHOLDS.perfect), "perfect");
   assert.strictEqual(bandFromScore(BAND_THRESHOLDS.perfect - 1), "great");
-  // great edge (80 — FROZEN legacy 'nailed' boundary)
+  // great edge (80, FROZEN legacy 'nailed' boundary)
   assert.strictEqual(bandFromScore(BAND_THRESHOLDS.great), "great");
   assert.strictEqual(bandFromScore(BAND_THRESHOLDS.great - 1), "good");
   // good edge (68)
   assert.strictEqual(bandFromScore(BAND_THRESHOLDS.good), "good");
   assert.strictEqual(bandFromScore(BAND_THRESHOLDS.good - 1), "almost");
-  // almost edge (55 — FROZEN legacy 'close' boundary)
+  // almost edge (55, FROZEN legacy 'close' boundary)
   assert.strictEqual(bandFromScore(BAND_THRESHOLDS.almost), "almost");
   assert.strictEqual(bandFromScore(BAND_THRESHOLDS.almost - 1), "retry");
   assert.strictEqual(bandFromScore(0), "retry");

@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 // B1: the full-screen language-selection step a first-time account sees before
-// home. Shows all 22 languages with no free/locked marking — the choice is
+// home. Shows all 22 languages with no free/locked marking, the choice is
 // aspirational; gating happens downstream (a locked pick lands in the journey
 // showroom, exactly like the home picker). Confirming writes activeLanguage +
 // hasChosenLanguage server-side so the step never returns; skipping only sets
@@ -55,7 +55,7 @@ export default function ChooseLanguage() {
     choose(code, {
       onSuccess: () => {
         navigatingRef.current = true;
-        // Reflect the pick in the running app immediately — the provider's
+        // Reflect the pick in the running app immediately, the provider's
         // one-time reconcile has already settled, so it won't adopt it for us.
         setActiveLang(code);
         // A locked pick is welcome (aspirational): it lands in the existing
@@ -151,7 +151,7 @@ function LanguageTile({
   // Speech-capability honesty: only verifiably unsupported languages carry the
   // listening-and-reading badge. Degraded languages practice with scoring (the
   // in-practice "feedback is approximate" notice covers the nuance), so they
-  // render like supported ones here — support is the default expectation.
+  // render like supported ones here, support is the default expectation.
   const listeningOnly = speechCapabilityOf(lang) === "unsupported";
 
   return (
@@ -170,8 +170,7 @@ function LanguageTile({
       <span
         className={cn(
           "block text-2xl font-bold text-foreground",
-          // Nastaliq glyphs (Kashmiri, Urdu, Sindhi) cascade vertically —
-          // clipping truncation would cut them off.
+          // Nastaliq glyphs (Kashmiri, Urdu, Sindhi) cascade vertically, // clipping truncation would cut them off.
           native.isNastaliq ? "overflow-visible" : "leading-tight truncate",
         )}
         style={native.style}

@@ -6,14 +6,14 @@
 //
 //  - The TRAIN is the canonical engine (components/journey/TrainEngine.tsx),
 //    never a new drawing. Its ironwork normally reads theme tokens, so each
-//    tile passes a FIXED palette — the tiles are painted scenes on fixed
+//    tile passes a FIXED palette, the tiles are painted scenes on fixed
 //    backgrounds and must not flip with the theme.
 //  - BOLO is the canonical mascot component, so the bird in the bazaar tile is
 //    wearing whatever the learner bought, and the whole-image motion rule
 //    holds automatically.
 //  - MOTION comes from those components' own reduced-motion-aware loops
 //    (bob / drive), so a learner with Reduce Motion on gets a clean parked
-//    frame. Nothing here animates layout — transforms and opacity only.
+//    frame. Nothing here animates layout, transforms and opacity only.
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -73,7 +73,7 @@ function Tile({
 
 /**
  * Station Pause: the engine standing at a platform under a signal, steam
- * ticking over. It is waiting for you — which is what a pause buys.
+ * ticking over. It is waiting for you, which is what a pause buys.
  */
 export function StationPauseTile() {
   return (
@@ -99,8 +99,8 @@ export function StationPauseTile() {
 
 /**
  * Streak repair: a gap in the rail with a fishplate bolted across it. The
- * missing sleeper stays missing — the day was lost and the picture does not
- * pretend otherwise — but the line runs through, which is what the repair
+ * missing sleeper stays missing, the day was lost and the picture does not
+ * pretend otherwise, but the line runs through, which is what the repair
  * buys. Web twin: StreakMendTile in components/wallet-art.tsx.
  */
 export function StreakMendTile() {
@@ -119,7 +119,7 @@ export function StreakMendTile() {
 }
 
 /**
- * Bolo Bazaar: a stall front — striped awning, a marigold, and the learner's
+ * Bolo Bazaar: a stall front, striped awning, a marigold, and the learner's
  * own bird standing under it in whatever he currently owns.
  */
 export function BazaarTile() {
@@ -142,7 +142,7 @@ export function BazaarTile() {
 }
 
 /**
- * Unlock a language: a junction signpost — two enamel name-boards pointing
+ * Unlock a language: a junction signpost, two enamel name-boards pointing
  * different ways, one of them still padlocked. It is the picture of a stop you
  * have not bought yet.
  */
@@ -169,7 +169,7 @@ export function LanguagesTile() {
 }
 
 /**
- * Express Multiplier: the same engine, but running — speed streaks behind it
+ * Express Multiplier: the same engine, but running, speed streaks behind it
  * and a 2× flag in the corner.
  */
 export function ExpressTile({ running = false }: { running?: boolean }) {

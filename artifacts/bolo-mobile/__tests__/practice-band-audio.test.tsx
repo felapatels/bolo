@@ -9,7 +9,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
-// Task 903 — instant band call-outs on the practice result card (mobile).
+// Task 903, instant band call-outs on the practice result card (mobile).
 //
 // When a result lands, Bolo speaks the band name from a bundled clip with
 // zero synthesis wait; the full feedback sentence follows after the clip.
@@ -228,8 +228,7 @@ describe('instant band audio on results', () => {
     expect(mockState.bandClips).toEqual(['great']);
 
     // The full feedback sentence follows (synth #2 is the feedback readout;
-    // playback #2 goes through playBase64Audio after the clip finishes —
-    // playback #1 was the coach phrase at mount).
+    // playback #2 goes through playBase64Audio after the clip finishes, // playback #1 was the coach phrase at mount).
     await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(playBase64Audio).toHaveBeenCalledTimes(2));
   });
@@ -261,7 +260,7 @@ describe('instant band audio on results', () => {
       await Promise.resolve();
     });
     expect(playBandClip).not.toHaveBeenCalled();
-    // Only the target-phrase synthesis happened — no feedback readout.
+    // Only the target-phrase synthesis happened, no feedback readout.
     expect(mockState.synth).toHaveBeenCalledTimes(1);
   });
 
@@ -276,7 +275,7 @@ describe('instant band audio on results', () => {
     await renderReady();
     await recordAndRelease();
 
-    // Result card renders normally — never blocked on audio.
+    // Result card renders normally, never blocked on audio.
     await waitFor(() => expect(screen.getByText('Goated 🐐')).toBeOnTheScreen());
     await waitFor(() => expect(playBandClip).toHaveBeenCalledWith('great'));
 

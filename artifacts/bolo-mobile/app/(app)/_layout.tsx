@@ -17,7 +17,7 @@ export default function AppLayout() {
 
   // Attach the Clerk bearer token to every API request. Set during render (not
   // only in an effect) so it's in place before child screens fire their first
-  // queries — mobile has no cookie jar, so a missing token means a 401.
+  // queries, mobile has no cookie jar, so a missing token means a 401.
   setAuthTokenGetter(() => getToken());
   useEffect(() => {
     setAuthTokenGetter(() => getToken());

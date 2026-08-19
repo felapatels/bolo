@@ -11,7 +11,7 @@ import {
 } from '@/components/ChaiStall';
 
 // ---------------------------------------------------------------------------
-// Chacha-ji's Chai Stall, mobile side — the twin of the web suite in
+// Chacha-ji's Chai Stall, mobile side, the twin of the web suite in
 // artifacts/gujarati-coach/src/test/chai-stall.test.tsx (owner ruling 4: same
 // asset, same loop, same layer map, built once).
 //
@@ -76,7 +76,7 @@ describe('chai stall scene', () => {
   });
 
   test('is a full-width band at the scene aspect', () => {
-    // Owner correction (Aug 6): the stall is a SCENE, not an icon — it fills
+    // Owner correction (Aug 6): the stall is a SCENE, not an icon, it fills
     // the column at the art's own aspect instead of the 56px wallet-vignette
     // scale it shipped at. Yoga derives the height from the measured width.
     render(<ChaiStallVignette />);
@@ -96,7 +96,7 @@ describe('chai stall scene', () => {
   test('the kettle map still lands on the kettle at full width', () => {
     // Verified rather than assumed: feed the band a real full-width layout
     // and check the plume's resolved pixels are exactly the KETTLE fractions
-    // of THAT box (left 21%, bottom 46%, width 12%) — the same three numbers
+    // of THAT box (left 21%, bottom 46%, width 12%), the same three numbers
     // as web, and scale-free because the aspect box never changes shape.
     render(<ChaiStallVignette />);
     const width = 390 - 40; // a phone viewport minus the home screen's padding
@@ -153,7 +153,7 @@ describe('chai stall scene', () => {
 
   test('names itself and shows the balance it is given', () => {
     // The band is a wallet surface, not scenery: it says whose stall it is and
-    // what the learner has. The balance is a PROP — the component never runs
+    // what the learner has. The balance is a PROP, the component never runs
     // its own query, so it cannot drift from the stat cell or the wallet.
     render(<ChaiStallVignette balance={12} />);
     expect(screen.getByTestId('chai-stall-title', HIDDEN)).toHaveTextContent(
@@ -247,7 +247,7 @@ describe('chai stall scene', () => {
   test('the steam loop stops under reduced motion, still visible', () => {
     // The contract lives in a plain function so the ruling is testable
     // without reaching through Reanimated's worklets: reduced motion holds
-    // the plume on its rest frame, and that frame is a VISIBLE plume — the
+    // the plume on its rest frame, and that frame is a VISIBLE plume, the
     // vignette never degrades to a blank layer.
     expect(steamLoop(true).animate).toBe(false);
     expect(steamLoop(false).animate).toBe(true);
@@ -276,7 +276,7 @@ describe('chai glyph census (mobile)', () => {
     for (const file of Object.keys(GLYPH_SITES)) {
       // Comments are stripped first: ChaiStall.tsx is itself a census site
       // now, and the ChaiGlyph docstring quotes the very element it replaced
-      // (`<Feather name="coffee" …>`). Prose must not satisfy — or trip — a
+      // (`<Feather name="coffee" …>`). Prose must not satisfy, or trip, a
       // check on what the file actually renders.
       const src = read(file)
         .replace(/\/\*[\s\S]*?\*\//g, '')

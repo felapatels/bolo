@@ -1,4 +1,4 @@
-// Plan & entitlement configuration — the single source of truth for what the
+// Plan & entitlement configuration, the single source of truth for what the
 // Free tier vs Bolo! Plus can access. This module is pure (no database, no
 // Express) so it can be unit-tested in isolation and imported anywhere. The
 // live, per-user daily-lesson counts are layered on by the DB-touching
@@ -13,12 +13,12 @@ export type SubscriptionStatus =
   | "expired"
   | "canceled"
   // A subscription paused for a bounded window: access is suspended (resolves to
-  // Free) while the pause is open, but it is NOT expired — it resumes to its
+  // Free) while the pause is open, but it is NOT expired, it resumes to its
   // underlying tier once the pause window closes.
   | "paused";
 
 // ---------------------------------------------------------------------------
-// Tier policy (see task brief) — change these to change the policy everywhere.
+// Tier policy (see task brief), change these to change the policy everywhere.
 // ---------------------------------------------------------------------------
 
 // Free is limited to a single language: Hindi.
@@ -81,10 +81,10 @@ export interface ResolvedPlan {
   status: SubscriptionStatus;
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
-  // Only set (non-null) when `plan` is "one_language" — the language the
+  // Only set (non-null) when `plan` is "one_language", the language the
   // subscriber unlocked on top of free Hindi.
   chosenLanguage: string | null;
-  // Set (non-null) only while the subscription is actively paused — the instant
+  // Set (non-null) only while the subscription is actively paused, the instant
   // the (suspended) subscription resumes. Null in every other state.
   pauseUntil: Date | null;
 }
@@ -92,13 +92,13 @@ export interface ResolvedPlan {
 // Resolves the user's *effective* plan from their stored subscription fields.
 // Rules, in order:
 //   - An active trial (status "trialing" and trialEndsAt still in the future)
-//     always counts as Plus — the 7-day trial applies to all-access only.
+//     always counts as Plus, the 7-day trial applies to all-access only.
 //   - A "plus" tier counts as Plus unless its paid period has lapsed
 //     (currentPeriodEnd in the past), in which case it reads as expired/Free.
 //   - A "one_language" tier counts as One Language (carrying its chosen
 //     language) unless its paid period has lapsed, in which case it reads as
 //     expired/Free.
-//   - Otherwise Free — a trial that has since lapsed surfaces as "expired".
+//   - Otherwise Free, a trial that has since lapsed surfaces as "expired".
 export function resolvePlan(
   state: SubscriptionState,
   now: Date = new Date(),
@@ -107,7 +107,7 @@ export function resolvePlan(
   const rawStatus = (state.subscriptionStatus ?? "none") as SubscriptionStatus;
 
   // Paused subscriptions come first. While the pause window is open the
-  // subscription is suspended — the learner gets no paid access (resolves to
+  // subscription is suspended, the learner gets no paid access (resolves to
   // Free) but is NOT expired, so it will resume. Without this branch a paused
   // "plus" row within its paid period would fall through and wrongly grant full
   // Plus access. Once the window has elapsed we drop the paused status and
@@ -152,7 +152,7 @@ export function resolvePlan(
   // The Family tier is the owner's side of the $19.99/mo family plan. For
   // entitlement purposes the owner is simply a Plus subscriber (the plan
   // resolves to "plus" so every existing gate and client keeps working);
-  // family-ness — seats, invites, the join code — is surfaced separately via
+  // family-ness, seats, invites, the join code, is surfaced separately via
   // the /family endpoints. Members are resolved through the owner's row by
   // the family cascade in loadEntitlements, not here.
   if (state.tier === "plus" || state.tier === "family") {
@@ -303,7 +303,7 @@ export type UpgradeReason =
   | "phrase_ceiling"
   // M1 teaser: the caller used up their 3 free teaser phrases in this locked
   // language. Distinguishable from a plain lock so clients can render "you
-  // tried it — here is what you unlock" instead of a generic paywall.
+  // tried it, here is what you unlock" instead of a generic paywall.
   | "teaser_exhausted";
 
 export interface UpgradeRequiredPayload {
@@ -389,7 +389,7 @@ export interface Entitlements {
   limits: {
     dailyNewLessons: DailyLessonAllowance;
     // The Bolo Parrot conversational chat time allowance. Chat language
-    // access is not surfaced separately here — it follows `allowedLanguages`
+    // access is not surfaced separately here, it follows `allowedLanguages`
     // above, the same plan-based allowlist used everywhere else.
     weeklyChatSeconds: WeeklyChatAllowance;
   };

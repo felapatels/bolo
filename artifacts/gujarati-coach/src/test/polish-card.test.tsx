@@ -4,7 +4,7 @@
  * POLISH_ENABLED is on and at least one phrase scored below Great.
  *
  * The Polish card is rendered inside practice.tsx's summary state as a
- * conditional block — this test file exercises the isolation of that card's
+ * conditional block, this test file exercises the isolation of that card's
  * logic by mounting a thin wrapper that simulates the relevant props.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Inline minimal PolishCard component (matches the implementation block in
-// practice.tsx exactly — band logic, CTA href, Skip behaviour).
+// practice.tsx exactly, band logic, CTA href, Skip behaviour).
 // ---------------------------------------------------------------------------
 
 type Band = "perfect" | "great" | "good" | "almost" | "retry";

@@ -30,7 +30,7 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 //
 // All rows are scoped to a throwaway user id + test-only language code and
 // category slugs (kept distinct from the other route suites so they can share
-// the live Postgres without colliding) and cleaned up after — see
+// the live Postgres without colliding) and cleaned up after, see
 // .agents/memory/api-server-tests.md.
 const TEST_USER_ID = "test_categories_route";
 const LANG = "__test_lang_categories";
@@ -273,7 +273,7 @@ before(async () => {
   await seedAttempt(catAPhrases[2].id, LANG, 50); // c -> not mastered
   // Category B attempts (our language).
   await seedAttempt(catBPhrases[0].id, LANG, 70); // d -> not mastered
-  // A mastered attempt in the OTHER language on category A — must be excluded
+  // A mastered attempt in the OTHER language on category A, must be excluded
   // from LANG's roll-up.
   await seedAttempt(otherLangPhrase.id, OTHER_LANG, 100);
 
@@ -322,7 +322,7 @@ test("GET /categories rolls up phraseCount, masteredCount, and titleNative per t
   assert.equal(status, 200);
   assert.ok(Array.isArray(json));
 
-  // Scope assertions to our two fixture categories — the endpoint returns every
+  // Scope assertions to our two fixture categories, the endpoint returns every
   // category in the DB, so we look ours up by id rather than asserting length.
   const byId = new Map<number, any>(json.map((c: any) => [c.id, c]));
 

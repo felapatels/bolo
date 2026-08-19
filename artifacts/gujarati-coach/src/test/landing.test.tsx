@@ -195,7 +195,7 @@ describe("Landing page", () => {
       screen.getByText(/Watch the speak-out-loud loop in action/i),
     ).toBeInTheDocument();
     // The demo renders its first scripted phrase (native + romanized) and the
-    // opening caption — proof the component and its motion primitives mounted.
+    // opening caption, proof the component and its motion primitives mounted.
     expect(screen.getByText("કેમ છો?")).toBeInTheDocument();
     expect(screen.getByText(/Kem cho\?/i)).toBeInTheDocument();
     expect(screen.getByText(/Hear it first/i)).toBeInTheDocument();

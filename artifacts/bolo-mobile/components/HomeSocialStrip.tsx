@@ -1,9 +1,9 @@
 /**
- * HomeSocialStrip — the single social card on mobile home.
+ * HomeSocialStrip, the single social card on mobile home.
  *
  * Mirrors web's home-social-strip.tsx. Two states:
- *   • Friends present  — learner's rank + up to 4 leaderboard rows.
- *   • No friends yet   — referral invite affordance (share behaviour intact).
+ *   • Friends present , learner's rank + up to 4 leaderboard rows.
+ *   • No friends yet  , referral invite affordance (share behaviour intact).
  *
  * Replaces HomeReferralCard so there is exactly one invite affordance on home.
  * Links through to the Friends tab for both states.
@@ -96,7 +96,7 @@ const LATEST_PARAMS: GetFriendsFeedParams = { limit: 1 };
  *
  * ONE event, not a feed: home is a launchpad, and the point of the line is to
  * be a door to the Feed tab rather than a second copy of it. It fetches limit=1
- * for the same reason — a card that shows one line has no business pulling
+ * for the same reason, a card that shows one line has no business pulling
  * twenty.
  *
  * Absent while loading, on error, and when there is nothing to say. Never a
@@ -205,7 +205,7 @@ export function HomeSocialStrip() {
         url: link,
       });
     } catch {
-      // dismissed or unavailable — no-op.
+      // dismissed or unavailable, no-op.
     }
   };
 

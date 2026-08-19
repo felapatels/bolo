@@ -5,7 +5,7 @@ import { memoryLocation } from "wouter/memory-location";
 
 // ---------------------------------------------------------------------------
 // Owner ruling: any game surface showing native script must ALSO show its
-// romanized form, ALWAYS VISIBLE during play — not on reveal, not gated. A
+// romanized form, ALWAYS VISIBLE during play, not on reveal, not gated. A
 // learner who cannot read the script yet is otherwise guessing at shapes.
 //
 // This file pins the ruling on every web surface that was missing the line:
@@ -15,7 +15,7 @@ import { memoryLocation } from "wouter/memory-location";
 //
 //   1. the romanized reading renders during play, straight off phrase.romanized
 //      (no transliteration engine ships to the client), and
-//   2. a phrase with NO romanization (empty string — several scripts have
+//   2. a phrase with NO romanization (empty string, several scripts have
 //      none) degrades to the script alone: no empty line, no placeholder.
 //
 // Ticket Check, Speed Round hard mode and the Phrase Builder tiles are
@@ -167,7 +167,7 @@ afterEach(() => {
 
 /**
  * Luggage Match shuffles the topic pool and plays only the first six phrases,
- * so WHICH tags are on the board is random per run — naming a phrase (n1) is
+ * so WHICH tags are on the board is random per run, naming a phrase (n1) is
  * a one-in-four flake. Assert over whatever the board dealt instead: every
  * native tag on it, and its own reading.
  */
@@ -274,8 +274,7 @@ describe("Listen & Pick choices", () => {
     await act(async () => {
       fireEvent.click(screen.getByText("Greetings"));
     });
-    // Fake timers are running, so the round is settled by advancing them —
-    // waitFor would sit on a clock nothing is turning.
+    // Fake timers are running, so the round is settled by advancing them, // waitFor would sit on a clock nothing is turning.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(50);
     });

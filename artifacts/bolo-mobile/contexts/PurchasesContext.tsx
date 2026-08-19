@@ -34,8 +34,7 @@ export const PLUS_ENTITLEMENT_ID =
   process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() || 'plus';
 
 /**
- * The RevenueCat entitlement id for the middle "One Language" ($6.99) tier —
- * matches the server's REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID.
+ * The RevenueCat entitlement id for the middle "One Language" ($6.99) tier, * matches the server's REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID.
  */
 export const ONE_LANGUAGE_ENTITLEMENT_ID =
   process.env.EXPO_PUBLIC_REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID?.trim() ||
@@ -96,7 +95,7 @@ export type PurchaseOutcome = 'success' | 'cancelled' | 'error';
 /**
  * A Chai pack purchase has a fourth outcome the subscription flow does not.
  * Apple can charge and the credit can still be in flight (or lost) when we
- * stop waiting — the money is real, the Chai has not landed yet, and saying
+ * stop waiting, the money is real, the Chai has not landed yet, and saying
  * either "done" or "failed" would be a lie. `pending` is that state; launch
  * recovery picks it up.
  */
@@ -149,8 +148,7 @@ type PurchasesContextValue = {
   /**
    * The Chai packs, straight from the server catalog: pack id, Apple product
    * id, and the Chai the ledger will credit. Empty until it loads (and if it
-   * never loads, the shop simply does not appear). The PRICE is not in here —
-   * that comes from the StoreKit product, so what the learner reads is what
+   * never loads, the shop simply does not appear). The PRICE is not in here, * that comes from the StoreKit product, so what the learner reads is what
    * Apple charges.
    */
   chaiPacks: ChaiPackCatalogEntry[];
@@ -193,7 +191,7 @@ export function PurchasesProvider({
     // Which account the STORE is actually bound to right now. `isConfigured`
     // is not that: it stays true across an account switch while the async
     // `logIn` is still in flight, and every Chai path must refuse to act in
-    // that window — the store would answer for the previous customer while
+    // that window, the store would answer for the previous customer while
     // the server answers for the new one.
     setConfiguredFor(alreadyBound ? userId : null);
     if (!apiKey || !userId) {
@@ -255,7 +253,7 @@ export function PurchasesProvider({
         const info = await Purchases.getCustomerInfo();
         if (!cancelled) setCustomerInfo(info);
       } catch {
-        // Best effort — server entitlements remain the source of truth.
+        // Best effort, server entitlements remain the source of truth.
       }
     })();
     return () => {
@@ -384,7 +382,7 @@ export function PurchasesProvider({
   );
 
   // Launch recovery. A purchase Apple charged for that we failed to credit is
-  // replayed here — read the customer's consumables, ask which are credited,
+  // replayed here, read the customer's consumables, ask which are credited,
   // re-deliver the rest. Double-crediting is stopped by the ledger's refId
   // index, not by anything remembered on this device.
   useEffect(() => {
@@ -407,8 +405,8 @@ export function PurchasesProvider({
         },
         // Re-posts the receipt so RevenueCat re-delivers the transaction to
         // our webhook. Deliberately NOT the SDK-wide "purchases are completed
-        // by my app" mode, which would change how subscriptions — a money
-        // path that works — are finished.
+        // by my app" mode, which would change how subscriptions, a money
+        // path that works, are finished.
         replay: async () => {
           stopIfStale();
           await Purchases.syncPurchases();

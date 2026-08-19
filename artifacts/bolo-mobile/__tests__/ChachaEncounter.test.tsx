@@ -8,7 +8,7 @@ import type { ChachaEncounterResult } from '@workspace/api-client-react';
 
 // Chacha-ji's stall is read only: the phrase is shown and spoken, never
 // scored. These pin the placement rule, the contract copy word for word, and
-// the one thing that must never fire twice — the celebration, which belongs to
+// the one thing that must never fire twice, the celebration, which belongs to
 // the call that actually paid the Chai.
 
 // Task #1095: his three spoken lines. The mock is a FULL replacement, so every

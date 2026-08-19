@@ -1,7 +1,7 @@
 // Spec D1b-M acceptance: practice-level 403 handling. When practice is opened
 // scoped to a journey stop (?group=) and the lesson-group phrases endpoint
 // answers 403 lesson_group_locked (stale map, shared deep link), the screen
-// must show the locked-stop card with a way back to the map — never the
+// must show the locked-stop card with a way back to the map, never the
 // generic retry/error screen. Any other failure keeps the retry screen.
 // Mirrors the practice-upgrade-required harness: drives the REAL practice
 // screen with the API hooks mocked.
@@ -46,8 +46,7 @@ jest.mock('@workspace/api-client-react', () => ({
       this.data = data;
     }
   },
-  // Category phrase/sentence queries are disabled when ?group= is present —
-  // return healthy data so the test proves the group query drives the screen.
+  // Category phrase/sentence queries are disabled when ?group= is present, // return healthy data so the test proves the group query drives the screen.
   useListCategoryPhrases: () => ({
     data: [],
     isLoading: false,
@@ -200,7 +199,7 @@ describe('practice ?group= 403 handling', () => {
     mockState.groupPhrases = errorQuery(apiError(403, { error: 'forbidden' }));
     render(<PracticeScreen />);
 
-    // Same status code, different body — must stay on the error screen.
+    // Same status code, different body, must stay on the error screen.
     expect(screen.getByText('lesson-error')).toBeOnTheScreen();
     expect(screen.queryByText('This stop is still locked')).toBeNull();
   });

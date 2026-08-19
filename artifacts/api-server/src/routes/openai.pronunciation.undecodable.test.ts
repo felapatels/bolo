@@ -3,8 +3,8 @@
  *
  * Two directions have to hold:
  *  1. When the transcription step raises the dedicated UndecodableAudioError,
- *     the response is the ordinary nocatch — signed token, zero score, the
- *     new distinct cause label, no-fault copy — not a 502.
+ *     the response is the ordinary nocatch, signed token, zero score, the
+ *     new distinct cause label, no-fault copy, not a 502.
  *  2. When it raises ANY other error (a service outage, a rate limit), the
  *     route still answers the loud 502 it does today. This is the pin that
  *     stops a later refactor from over-widening the catch.

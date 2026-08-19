@@ -90,7 +90,7 @@ jest.mock('@/components/Screen', () => {
 });
 jest.mock('@/components/Mascot', () => ({ Mascot: () => null }));
 
-// SSO buttons pull in Clerk useSSO + native browser modules — irrelevant here.
+// SSO buttons pull in Clerk useSSO + native browser modules, irrelevant here.
 jest.mock('@/components/AppleAuthButton', () => ({
   AppleAuthButton: () => null,
 }));
@@ -212,7 +212,7 @@ describe('needs_client_trust without an email_code second factor', () => {
     await submitPassword();
 
     // Diagnostic copy carries the exact status and the second-factor
-    // strategies Clerk offered — never a generic message.
+    // strategies Clerk offered, never a generic message.
     const alert = await screen.findByText(/needs_client_trust/);
     expect(alert).toBeOnTheScreen();
     expect(alert.props.children).toContain('phone_code');

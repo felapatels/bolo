@@ -55,7 +55,7 @@ export interface TokenStateRow {
  * The slot is a property of the ITEM, read from the catalog, never taken from
  * a client: otherwise a request could ask for a turban to be worn as a garment
  * and silently strip whatever she has on. Writing one slot never touches the
- * other, which is the whole point — a hat and an outfit at the same time.
+ * other, which is the whole point, a hat and an outfit at the same time.
  */
 function slotSet(kind: OutfitKind, value: OutfitId | null) {
   return kind === "accessory"
@@ -221,7 +221,7 @@ export async function unlockStop(
   const refId = stopUnlockRefId(languageCode, lessonGroupId);
   return db.transaction(async (tx) => {
     const state = await ensureState(tx, userId);
-    // Owned already? Return before the balance check — a replay must never be
+    // Owned already? Return before the balance check, a replay must never be
     // refused for funds the learner does not need to spend again.
     // (Read before the row lock: an already-owned stop needs no money at all.)
     const [owned] = await tx
@@ -240,7 +240,7 @@ export async function unlockStop(
     // Money path: take the row lock BEFORE reading the balance we spend
     // against. Two purchases of DIFFERENT stops are not deduplicated by the
     // ledger's unique index, so without this both could read the same balance
-    // and each subtract its cost — 50 Chai buying two stops and going
+    // and each subtract its cost, 50 Chai buying two stops and going
     // negative. The lock serializes them: the loser re-reads the debited
     // balance and is refused for funds.
     const [locked] = await tx
@@ -284,7 +284,7 @@ export async function unlockStop(
  * the ledger row IS the ownership (refId outfit:<id>), so a replay charges
  * nothing, and the balance is read under a row lock so two purchases of
  * DIFFERENT outfits cannot both spend the same Chai. A purchase that charges
- * also equips — buying an outfit is the act of putting it on — while a replay
+ * also equips, buying an outfit is the act of putting it on, while a replay
  * leaves the learner's current choice alone.
  */
 export async function buyOutfit(
@@ -292,8 +292,7 @@ export async function buyOutfit(
   outfitId: OutfitId,
 ): Promise<{ state: TokenStateRow; charged: boolean }> {
   const refId = outfitRefId(outfitId);
-  // The shop is not one flat price — an accessory costs less than a garment —
-  // so the price is READ FROM THE CATALOG HERE, keyed by the same id being
+  // The shop is not one flat price, an accessory costs less than a garment, // so the price is READ FROM THE CATALOG HERE, keyed by the same id being
   // bought. It is deliberately not a parameter: a cost argument (even a
   // defaulted one) lets a caller pair an id with the wrong price, which for a
   // 10-Chai accessory means silently charging 25. Nothing client-supplied
@@ -308,7 +307,7 @@ export async function buyOutfit(
     // serialises. Reading ownership before the lock is a real defect, not a
     // style choice: a second request for the SAME outfit that read "not owned"
     // and then waited on the lock would wake up to a tin the winner already
-    // debited and be refused for insufficient Chai — a 409 for something the
+    // debited and be refused for insufficient Chai, a 409 for something the
     // learner now owns, instead of the free replay.
     const [locked] = await tx
       .select()
@@ -369,7 +368,7 @@ export async function buyOutfit(
  * has to be: every other sink is identified by the thing it buys (an outfit
  * id, a day key, a lesson group), so a repeat is by definition the same
  * purchase. First Class is repeatable, so the identity of a purchase is the
- * key the client armed its button with — the same key on a double-tap or a
+ * key the client armed its button with, the same key on a double-tap or a
  * retry, a fresh key on a deliberate second buy. The ledger's unique
  * (user, reason, ref) index is what actually enforces "charge at most once
  * per key"; the pre-read below is only a fast path. NOTE the absence of a
@@ -474,7 +473,7 @@ export async function buyFirstClass(
 
 /**
  * Wear an owned item in its own slot, or pass null to take something off.
- * Free, so there is no ledger row here — only the choice column. Ownership is
+ * Free, so there is no ledger row here, only the choice column. Ownership is
  * checked inside the same transaction: an equip may never confer what a
  * purchase did not.
  *
@@ -691,7 +690,7 @@ export async function consumePausesForGap(
 }
 
 /**
- * The owner's manual compensating row — and the ZERO FLOOR.
+ * The owner's manual compensating row, and the ZERO FLOOR.
  *
  * Ruling Aug 11, 2026: a Stripe refund does NOT claw Chai back automatically.
  * Money and Chai part company the moment the pack is credited, because the
@@ -703,7 +702,7 @@ export async function consumePausesForGap(
  * app compares against `balance`, and a negative balance would quietly break
  * all of them (a learner "owing" Chai could never earn their way back to a
  * spend). So a reversal larger than the balance takes the balance to zero and
- * stops. The ledger still records the full delta the owner asked for — the row
+ * stops. The ledger still records the full delta the owner asked for, the row
  * is the audit trail; `balanceAfter` and the state row record what actually
  * happened.
  *
@@ -712,13 +711,12 @@ export async function consumePausesForGap(
  *
  * SCOPE OF THE FLOOR, honestly stated: this function cannot take a balance
  * below zero, and no spend path can either (they all refuse when the balance
- * is under the cost). What it does NOT do is serialise the other writers —
- * `grantTokensDetailed` and `spendTokens` update the balance with an atomic
+ * is under the cost). What it does NOT do is serialise the other writers, * `grantTokensDetailed` and `spendTokens` update the balance with an atomic
  * SQL expression but do not lock the state row first, so a spend that read a
  * positive balance concurrently with a large reversal can still land after it.
  * That is a pre-existing property of every sink in the app, not something this
  * reversal path introduced, and fixing it means putting every writer behind
- * the same lock (or a CHECK constraint) — see the debt row in
+ * the same lock (or a CHECK constraint), see the debt row in
  * docs/CODEBASE-FACTS.md. Reversals are a rare, deliberate console act, so the
  * exposure is a learner spending at the exact moment of a manual correction.
  */
@@ -766,7 +764,7 @@ export async function getOrCreateTokenState(
 /**
  * Every day the learner has covered, for streak derivation: pauses consumed
  * ahead of time (refId is the bare date) and breaks repaired after the fact
- * (refId is `streak:<date>`). ONE accessor deliberately — a second one that
+ * (refId is `streak:<date>`). ONE accessor deliberately, a second one that
  * returned only pauses would silently un-repair a paid-for streak wherever it
  * was called, so there is no wrong function to reach for.
  */

@@ -5,7 +5,7 @@
  * lib/chachaVoice.ts beat for beat:
  *
  *   1. Sequencing. His three lines land from separate events (dialog open,
- *      arrival response, dismissal) and must never overlap — a line waits for
+ *      arrival response, dismissal) and must never overlap, a line waits for
  *      the previous one to finish rather than talking over it.
  *   2. Lifetime. The farewell is queued as the modal is being dismissed, so it
  *      cannot ride the dialog's own player: that one is torn down by the
@@ -61,7 +61,7 @@ function playOnce(clip: ChachaClip): Promise<void> {
  * Queue one of his lines behind whatever is already speaking.
  *
  * `onStart` fires when this line actually begins (its turn in the queue), and
- * `onEnd` when it finishes or fails — that pair is what drives the on-screen
+ * `onEnd` when it finishes or fails, that pair is what drives the on-screen
  * caption, so the text and the voice stay in step.
  */
 export function speakChachaLine(

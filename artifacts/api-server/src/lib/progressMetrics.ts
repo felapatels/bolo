@@ -1,6 +1,6 @@
 // Pure per-language progress math shared by the progress summary and badge
 // evaluation. Kept free of any database or Express dependency so it can be
-// unit-tested in isolation — the DB-touching award path lives elsewhere.
+// unit-tested in isolation, the DB-touching award path lives elsewhere.
 import type { ProgressMetrics, ExtendedProgressMetrics } from "./badges";
 
 export const MASTERY_THRESHOLD = 80;
@@ -68,7 +68,7 @@ export type ReviewSchedule = {
 // For each phrase we replay its attempts in chronological order, promoting one
 // Leitner rung on each passing attempt and resetting to rung 0 on a miss, then
 // derive when the phrase is next due from its most recent attempt time. Attempts
-// not tied to a phrase are ignored. This is pure scheduling math — it never
+// not tied to a phrase are ignored. This is pure scheduling math, it never
 // changes how scores or mastery are computed.
 export function buildReviewSchedule(
   attempts: { phraseId: number | null; score: number; createdAt: Date }[],
@@ -102,7 +102,7 @@ export function buildReviewSchedule(
 // IANA time zone (or UTC when no zone is provided). This is the single day
 // boundary used by streaks and the "today" counters, so an evening attempt in
 // e.g. America/Los_Angeles stays on the learner's local day rather than
-// rolling onto the next UTC day. Throws on an invalid zone — timezone values
+// rolling onto the next UTC day. Throws on an invalid zone, timezone values
 // are validated where they are written, so a bad one here is a bug, not
 // something to silently paper over with UTC.
 export function localDayKey(d: Date, timeZone?: string | null): string {
@@ -148,7 +148,7 @@ export function computeStreakDays(
 // a second climb of the same ladder: a repair that claims to restore N days
 // and a summary that then reports something else would be a lie told with the
 // learner's Chai. A covered day (pause or repair) counts exactly as a
-// practiced one — that is what buying a cover means.
+// practiced one, that is what buying a cover means.
 export function streakFromDayKeys(
   dayKeys: Set<string>,
   coveredDayKeys?: Set<string>,
@@ -170,9 +170,9 @@ export function streakFromDayKeys(
 // Speaking streak (Spec D2): consecutive calendar days, in the learner's IANA
 // timezone, each containing at least one attempt whose band qualifies as
 // passing (five-band perfect/great/good/almost, i.e. the legacy nailed|close
-// set — stored rows written before the five-band rollout keep the legacy
+// set, stored rows written before the five-band rollout keep the legacy
 // names, so both generations are accepted). Bands 'retry' and 'nocatch' never
-// qualify a day — a day of failed attempts does not count, and a day where the
+// qualify a day, a day of failed attempts does not count, and a day where the
 // microphone never worked does not count. Derived from attempts at query time
 // (never stored), and reuses computeStreakDays so the date bucketing and the
 // mid-day fallback (a day with no qualifying attempt yet anchors to yesterday)
@@ -257,7 +257,7 @@ export function computeProgressMetrics(
   // Include all attempt scores in XP and bestScore. Phantom streak-only
   // attempts inserted by game sessions have score=0 and phraseId=null; they
   // never inflate XP (0 added) or bestScore (max doesn't decrease), so no
-  // special filter is needed here — the math works out naturally.
+  // special filter is needed here, the math works out naturally.
   const scores = attempts.map((a) => a.score);
   return {
     totalAttempts: attempts.length,

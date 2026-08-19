@@ -2,7 +2,7 @@ import { scrubEvent } from '@/lib/sentry';
 
 // The PII scrubber runs in beforeSend on every Sentry event. It has to strip
 // sensitive values WITHOUT destroying the parts of the event that make an
-// error debuggable — the depth guard used to sit at 6, which is exactly one
+// error debuggable, the depth guard used to sit at 6, which is exactly one
 // level above a stack frame's own fields, so every trace arrived as
 // '[depth-limit]' and told us nothing.
 function errorEvent() {

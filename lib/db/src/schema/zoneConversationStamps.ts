@@ -10,7 +10,7 @@ import { usersTable } from "./users";
 
 // Idempotent record of a learner completing a zone capstone conversation with
 // Bolo. One row per (user, language, zone_index). The unique constraint makes
-// ON CONFLICT DO NOTHING the correct write strategy — replaying the capstone
+// ON CONFLICT DO NOTHING the correct write strategy, replaying the capstone
 // never double-awards XP.
 export const zoneConversationStampsTable = pgTable(
   "zone_conversation_stamps",

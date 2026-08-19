@@ -11,7 +11,7 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
 /**
- * Shown when lesson generation fails (the phrases fetch errors out — e.g. the
+ * Shown when lesson generation fails (the phrases fetch errors out, e.g. the
  * API returns a retry-able 502 because AI generation failed and nothing broken
  * was cached). Gives the learner a clear "try again" affordance instead of a
  * stuck spinner or empty screen, mirroring the web experience.
@@ -61,7 +61,7 @@ export function LessonError({
           style={[styles.message, { color: colors.mutedForeground }]}
         >
           {message ??
-            "The lesson didn't come through — give it another try and Bolo will whip up something fresh!"}
+            "The lesson didn't come through, give it another try and Bolo will whip up something fresh!"}
         </Animated.Text>
 
         <Animated.View

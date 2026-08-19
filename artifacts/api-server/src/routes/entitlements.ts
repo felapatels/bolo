@@ -59,7 +59,7 @@ async function freshResolvedPlan(userId: string) {
   return resolvePlanWithFamily(user);
 }
 
-// GET /entitlements — the caller's current plan, unlocked features, and limits.
+// GET /entitlements, the caller's current plan, unlocked features, and limits.
 // Clients hit this on login and to render the paywall, so it's also the natural
 // place to reconcile against RevenueCat: if a purchase/expiry webhook was ever
 // missed, a lightweight (cooldown-throttled, best-effort) pull heals the stored
@@ -75,13 +75,13 @@ router.get("/entitlements", async (req: Request, res: Response): Promise<void> =
   res.json(await loadSnapshot(req));
 });
 
-// POST /entitlements/dev-override — developer-only tier switch for testing the
+// POST /entitlements/dev-override, developer-only tier switch for testing the
 // three-tier model end to end without a payment provider. Flips the caller's
 // plan between Free, One Language ($6.99), all-access Plus, and a 7-day Plus
 // trial, then returns the fresh snapshot. For "one_language", a `chosenLanguage`
 // must be supplied (the language unlocked on top of free Hindi).
 //
-// Hard-disabled in production (returns 404 so it isn't even discoverable) — it
+// Hard-disabled in production (returns 404 so it isn't even discoverable), it
 // is a test affordance, never a real upgrade path. Real upgrades will come from
 // the separate payments task.
 const DEV_PLANS = ["free", "one_language", "plus", "trial"] as const;
@@ -210,7 +210,7 @@ router.post(
   },
 );
 
-// POST /entitlements/chosen-language — records the single language a One-Language
+// POST /entitlements/chosen-language, records the single language a One-Language
 // subscriber unlocked (captured at purchase). Once set while on the middle tier
 // the choice is LOCKED: changing it is rejected (409) and only upgrading to
 // all-access frees it. Choosing Hindi (the free language) or an unknown language

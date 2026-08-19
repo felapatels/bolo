@@ -7,13 +7,13 @@ import { render, screen, fireEvent, act } from '@testing-library/react-native';
 // Three things are under test and they fail in different ways:
 //
 //  1. the PLANNER, which is pure and testable without rendering. Its silent
-//     failure mode is a claim that disagrees with its own answer key — a
+//     failure mode is a claim that disagrees with its own answer key, a
 //     "false" round whose shown meaning is actually the phrase's real one, or
 //     a decoy that IS the anchor. Either teaches the learner the wrong thing
 //     and posts a selectedPhraseId the server scores differently.
 //
 //  2. the JUDGEMENT round riding the shell: a right and a wrong call must each
-//     submit the id web submits, after the auto-advance flash — this game has
+//     submit the id web submits, after the auto-advance flash, this game has
 //     no continue beat.
 //
 //  3. the TIMEOUT path: the shell flags expiry but deliberately submits
@@ -175,7 +175,7 @@ const PHRASES = [
   { id: 14, nativeScript: 'ચ', romanized: 'cha', english: 'five' },
 ] as any[];
 
-/** Exactly the game's floor (2) — the shortest pool it ever has to cycle. */
+/** Exactly the game's floor (2), the shortest pool it ever has to cycle. */
 const FLOOR_PHRASES = PHRASES.slice(0, 2);
 
 function successQuery(data: unknown) {
@@ -266,7 +266,7 @@ describe('buildPlan', () => {
   });
 
   test('the cursor walks the pool before reshuffling, so anchors spread evenly', () => {
-    // Five phrases over ten rounds must be each phrase TWICE — once per pass.
+    // Five phrases over ten rounds must be each phrase TWICE, once per pass.
     // Picking a random anchor per round would repeat some and drop others.
     for (let run = 0; run < 50; run++) {
       const anchors = buildPlan(PHRASES, ROUNDS).map((q: LightsQuestion) => q.phrase.id);
@@ -302,7 +302,7 @@ describe('buildPlan', () => {
  * 0.99 does two things at once: Fisher-Yates leaves every pool in its original
  * order (floor(0.99 * (i + 1)) === i for these sizes), and the coin lands
  * FALSE every round. So round n claims PHRASES[n % 5] means the first other
- * phrase in the list — a known anchor, a known decoy, and a known right
+ * phrase in the list, a known anchor, a known decoy, and a known right
  * answer ("False") without reaching into the component's plan.
  */
 function pinRandom() {
@@ -398,7 +398,7 @@ describe('Signal Lights round', () => {
 
     fireEvent.press(screen.getByTestId('signal-lights-false')); // the true answer here
 
-    // Auto-advance, not a continue beat — but only after the feedback flash.
+    // Auto-advance, not a continue beat, but only after the feedback flash.
     expect(screen.getByText('Round 1 of 10')).toBeTruthy();
     expect(screen.queryByTestId('signal-lights-correction')).toBeNull();
 
@@ -456,7 +456,7 @@ describe('Signal Lights round', () => {
     await flushFeedback();
     expect(screen.getByText('Round 2 of 10')).toBeTruthy();
     expect(screen.getByText('✓ 0 correct')).toBeTruthy();
-    // The fresh round has a fresh clock — the run really moved on.
+    // The fresh round has a fresh clock, the run really moved on.
     expect(screen.getByTestId('quick-timer')).toHaveTextContent('4s');
 
     for (let r = 1; r < ROUNDS; r++) {

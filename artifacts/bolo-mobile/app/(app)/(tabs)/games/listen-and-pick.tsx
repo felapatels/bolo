@@ -266,7 +266,7 @@ function GameRound({
 
   // Read the learner's TTS voice preference so the audio cache key can
   // include the voice ID. Without this, switching voices mid-session still
-  // plays the old cached clip. Stale data is fine here — the account query
+  // plays the old cached clip. Stale data is fine here, the account query
   // is almost always pre-fetched by an ancestor; we just need ttsVoice.
   const accountQuery = useGetAccount();
   const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
@@ -285,13 +285,13 @@ function GameRound({
 
   const playbackRef = useRef<PlaybackHandle | null>(null);
   // Cache key is `${phrase.id}:${ttsVoice}` so a mid-session voice change
-  // busts stale entries — the new voice is fetched fresh automatically.
+  // busts stale entries, the new voice is fetched fresh automatically.
   const audioCache = useRef(new Map<string, { audioBase64: string; format: string }>());
   const phraseResultsRef = useRef<PhraseResult[]>([]);
   // Wrong picks, described the way the round was played: the phrase that was
   // spoken (named by its meaning + reading, since the clip has no on-screen
   // prompt), the choice the learner tapped, and the one they should have
-  // tapped — both shown by their native script, to match what was on screen.
+  // tapped, both shown by their native script, to match what was on screen.
   const missesRef = useRef<GameMiss[]>([]);
   // Track the current question index in a ref so the async playback callback
   // can detect if we've already moved on (unmounted/advanced).

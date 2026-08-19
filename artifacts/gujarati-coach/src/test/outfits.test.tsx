@@ -430,7 +430,7 @@ describe("the rack shows stock as pictures, grouped by what it is", () => {
 
     fireEvent.click(screen.getByTestId("outfit-buynow-pagdi"));
     expect(mockState.buyCalls).toEqual([{ data: { outfitId: "pagdi" } }]);
-    // Buying previews what was just bought, so the curtain opens on it — a
+    // Buying previews what was just bought, so the curtain opens on it, a
     // hat lands on the head slot, which is why the garment slot is untouched.
     expect(previewAccessory()).toBe("pagdi");
   });

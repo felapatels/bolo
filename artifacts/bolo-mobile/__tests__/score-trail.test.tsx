@@ -14,11 +14,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Guards the score-trail dots above the practice progress bar.
 //
 // Each phrase attempt is represented by a colored dot:
-//   green  (colors.success)     — band 'great' (score ≥ 80)
-//   amber  (colors.gold)        — band 'good'  (score 55–79)
-//   red    (colors.destructive) — band 'retry'/'nocatch' (score < 55)
-//   muted primary               — current, unattempted phrase
-//   muted                       — future, unattempted phrase
+//   green  (colors.success)    , band 'great' (score ≥ 80)
+//   amber  (colors.gold)       , band 'good'  (score 55–79)
+//   red    (colors.destructive), band 'retry'/'nocatch' (score < 55)
+//   muted primary              , current, unattempted phrase
+//   muted                      , future, unattempted phrase
 //
 // Tapping a scored dot shows a tooltip: "Phrase N: score / 100".
 // ---------------------------------------------------------------------------
@@ -307,10 +307,10 @@ describe('ScoreTrail dot colors', () => {
     render(<PracticeScreen />);
     await waitForRecordReady();
 
-    // Dot 0 is the current unattempted phrase — gets muted-primary tint.
+    // Dot 0 is the current unattempted phrase, gets muted-primary tint.
     expect(getDotColor(0)).toBe(`${COLORS.primary}70`);
 
-    // Dots 1 and 2 are future unattempted phrases — plain muted color.
+    // Dots 1 and 2 are future unattempted phrases, plain muted color.
     expect(getDotColor(1)).toBe(COLORS.muted);
     expect(getDotColor(2)).toBe(COLORS.muted);
   });
@@ -503,7 +503,7 @@ describe('ScoreTrail dot colors', () => {
     await waitForRecordReady();
     await doAttempt();
 
-    // Retry overwrites the same slot — should now be green, not a new dot
+    // Retry overwrites the same slot, should now be green, not a new dot
     expect(getDotColor(0)).toBe(COLORS.accent);
     // There's still only one scored dot for phrase index 0
     expect(screen.getByLabelText('Great')).toBeOnTheScreen();
@@ -617,7 +617,7 @@ describe('ScoreTrail dot colors', () => {
     await waitForRecordReady();
     await doAttempt();
 
-    // Dot 0 is now scored — tap it
+    // Dot 0 is now scored, tap it
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Great'));
     });

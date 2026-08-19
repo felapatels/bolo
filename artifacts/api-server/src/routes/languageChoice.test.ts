@@ -14,16 +14,16 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 // Spec B1 acceptance tests for the explicit language-choice signal, driven
 // against the real routers + genuine loadEntitlements middleware:
 //   1. a fresh account exposes hasChosenLanguage=false on GET /account;
-//   2. a seed-style write (activeLanguage only — what the web client's
+//   2. a seed-style write (activeLanguage only, what the web client's
 //      first-reconcile push sends) does NOT flip the flag: having a language
 //      seeded is not the same as having chosen one;
 //   3. an explicit pick (activeLanguage + hasChosenLanguage:true) sets it,
 //      and it sticks on subsequent reads;
 //   4. the flag is one-way: hasChosenLanguage:false is a 400, never a write;
 //   5. GET /languages derives communityReviewed server-side from the C1
-//      rollout data — true for rollout languages (hi), false for the
+//      rollout data, true for rollout languages (hi), false for the
 //      curated pilot (gu) and withdrawn languages (kok), exactly 16 total.
-// Test rows use test-only ids and are cleaned up after — see
+// Test rows use test-only ids and are cleaned up after, see
 // .agents/memory/api-server-tests.md.
 const TEST_USER = "test_langchoice_user";
 const TEST_LANG = "__test_langchoice_lang";
@@ -158,7 +158,7 @@ test("GET /languages derives communityReviewed from the C1 rollout set", async (
   assert.equal(byCode.get("hi")?.communityReviewed, true);
   // Gujarati is the curated pilot, not batch-generated rollout content.
   assert.equal(byCode.get("gu")?.communityReviewed, false);
-  // Withdrawn from the C1 rollout — must not be flagged.
+  // Withdrawn from the C1 rollout, must not be flagged.
   assert.equal(byCode.get("kok")?.communityReviewed, false);
   // Exactly the 16 shipped rollout languages (test-only rows are never in the
   // committed rollout data, so this count is stable even mid-suite).

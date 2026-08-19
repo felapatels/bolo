@@ -19,14 +19,14 @@ import { cn } from "@/lib/utils";
  * It used to divide today's XP by `dailyGoal`, which is an ATTEMPTS target, so
  * it read things like "254/10 XP" with the bar clamped full. The denominator
  * now comes from the shared ladder in @workspace/train-class, which is the ONE
- * place any of these numbers are derived — nothing here re-derives a class, a
+ * place any of these numbers are derived, nothing here re-derives a class, a
  * denominator or a fill from the raw XP. `dailyGoal` is untouched and still
  * correct on its other surfaces (the home attempts line, the Day Streak arc,
  * the MilestoneToast).
  *
- * variant="chrome"  — shown in nav bars (BottomNav, DesktopNav). Slightly
+ * variant="chrome" , shown in nav bars (BottomNav, DesktopNav). Slightly
  *                     larger; fills available width.
- * variant="session" — shown inside the practice/review page header. Compact;
+ * variant="session", shown inside the practice/review page header. Compact;
  *                     fixed narrow width so it doesn't crowd other controls.
  *
  * Registers its DOM element with xpCounterRef so Spec 1's arc animation can
@@ -85,7 +85,7 @@ export function XpCounter({ variant }: { variant: "chrome" | "session" }) {
   const held = meter.heldClass !== null;
 
   const label = meter.atTop
-    ? `${meter.heldClass} class — ${meter.xp} XP today, top class reached`
+    ? `${meter.heldClass} class, ${meter.xp} XP today, top class reached`
     : meter.heldClass
       ? `${meter.xp} of ${meter.target} XP today, ${meter.heldClass} class`
       : `${meter.xp} of ${meter.target} XP today`;
@@ -133,7 +133,7 @@ export function XpCounter({ variant }: { variant: "chrome" | "session" }) {
     >
       {meter.atTop ? (
         // Top of the ladder: nothing further to fill, so the class name stands
-        // alone — no bar, no fraction.
+        // alone, no bar, no fraction.
         classBadge(false)
       ) : (
         <>

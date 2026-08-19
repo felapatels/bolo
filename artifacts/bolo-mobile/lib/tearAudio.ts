@@ -43,7 +43,7 @@ export function preloadTearAudio(): void {
 
 /**
  * Play the tear clip. Fire-and-forget: returns immediately, never throws.
- * Silent when the player is not ready — a load-then-play would lag the tap,
+ * Silent when the player is not ready, a load-then-play would lag the tap,
  * so silence is the fallback.
  */
 export function playTearSfx(): void {

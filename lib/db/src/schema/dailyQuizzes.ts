@@ -83,7 +83,7 @@ export type DailyQuiz = typeof dailyQuizzesTable.$inferSelect;
 // ---------------------------------------------------------------------------
 
 // One row per (user, language, quizDate). The unique constraint enforces a
-// single submission per user per day per language — retries are rejected.
+// single submission per user per day per language, retries are rejected.
 // `answers` records which option the learner selected for each question (index
 // into the presented choices), so we can display the result later without
 // re-running scoring logic on the client.

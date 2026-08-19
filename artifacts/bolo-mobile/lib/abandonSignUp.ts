@@ -2,7 +2,7 @@ import { authErrorMessage, reportAuthError } from '@/lib/authErrors';
 
 // Escape hatch for a pending Clerk sign-up attempt (iOS build 34 incident: a
 // learner typed the wrong email, reached the code screen, and could not get
-// out — force-quit, reinstall, and sign-out all returned to the same screen).
+// out, force-quit, reinstall, and sign-out all returned to the same screen).
 //
 // WHY THE ATTEMPT SURVIVES EVERYTHING: the pending sign-up lives on the
 // server-side Clerk Client, and the credential that re-attaches the app to
@@ -17,7 +17,7 @@ import { authErrorMessage, reportAuthError } from '@/lib/authErrors';
 //
 // SAFETY: destroy() also drops sessions and any in-flight sign-in, so calling
 // it from an authenticated surface would be a silent sign-out. This helper
-// refuses to run when a session exists — see the guard below. That refusal is
+// refuses to run when a session exists, see the guard below. That refusal is
 // a backstop; callers must still gate the control to the pre-session sign-up
 // verification step.
 

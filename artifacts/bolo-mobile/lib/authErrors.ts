@@ -1,14 +1,14 @@
 import { Sentry, sentryEnabled } from '@/lib/sentry';
 
 // Shared error handling for the auth screens. Two hard rules (production
-// incident, July 2026 — silent sign-in failure with nothing in Sentry):
+// incident, July 2026, silent sign-in failure with nothing in Sentry):
 //
 // 1. NO SILENT FAILURES: every auth operation that errors or stops at a
 //    non-complete status must produce a user-visible message AND (unless it
 //    is an expected user-input mistake) a Sentry event.
 // 2. OBSERVABILITY OVER GENERIC COPY: when a flow stops at an unexpected
 //    status, the status and the factors Clerk offered must appear both in
-//    the user-visible copy and in the Sentry event — never hidden behind a
+//    the user-visible copy and in the Sentry event, never hidden behind a
 //    generic "something went wrong".
 //
 // PII: never pass email addresses, passwords, or codes into these helpers.
@@ -19,7 +19,7 @@ import { Sentry, sentryEnabled } from '@/lib/sentry';
 /**
  * Clerk error codes that represent expected user-input mistakes (bad
  * credential/code/format entered by the user). These are shown to the user
- * but NOT reported to Sentry — a wrong password is not an exception.
+ * but NOT reported to Sentry, a wrong password is not an exception.
  * Deliberately narrow: operational/auth-state failures (rate limits,
  * session conflicts, nil params) are NOT here and DO reach Sentry.
  */
@@ -112,7 +112,7 @@ export class AuthIncompleteStateError extends Error {
 
 /**
  * Report a flow that returned success but did not reach status 'complete'
- * and could not be routed to a supported factor. Always reported — this is
+ * and could not be routed to a supported factor. Always reported, this is
  * the exact shape of the July 2026 silent-failure incident.
  */
 export function reportAuthIncompleteState(
@@ -149,5 +149,5 @@ export function incompleteStateMessage(
     factorStrategies.length > 0
       ? `available sign-in methods: ${factorStrategies.join(', ')}`
       : 'no sign-in methods offered';
-  return `Sign-in did not complete (status: ${status}; ${factors}). Please try again — if this keeps happening, contact support and mention this message.`;
+  return `Sign-in did not complete (status: ${status}; ${factors}). Please try again, if this keeps happening, contact support and mention this message.`;
 }

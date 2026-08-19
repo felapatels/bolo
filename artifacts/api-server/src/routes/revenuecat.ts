@@ -28,10 +28,10 @@ function secretMatches(provided: string, expected: string): boolean {
   return timingSafeEqual(a, b);
 }
 
-// POST /revenuecat/webhook — RevenueCat calls this whenever a subscription is
+// POST /revenuecat/webhook, RevenueCat calls this whenever a subscription is
 // purchased, renewed, trialed, canceled, refunded, transferred, or expires. We
 // translate the event into the user's subscription columns so the server's
-// entitlement state always mirrors real billing — the server, not the client,
+// entitlement state always mirrors real billing, the server, not the client,
 // decides who is Plus.
 //
 // This route is intentionally public (RevenueCat is not a Clerk user) and is
@@ -141,7 +141,7 @@ router.post(
       } else {
         const apply = applyFromEvent(event);
         // A null apply is a deliberately ignored event (unrelated entitlement,
-        // non-state event) — acknowledge so RevenueCat stops retrying.
+        // non-state event), acknowledge so RevenueCat stops retrying.
         if (apply) await applyRevenueCatState(apply);
       }
     } catch (err) {

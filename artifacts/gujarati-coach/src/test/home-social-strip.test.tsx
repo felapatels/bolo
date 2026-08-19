@@ -1,11 +1,11 @@
 /**
- * HomeSocialStrip — component unit tests.
+ * HomeSocialStrip, component unit tests.
  *
  * Pins four contracts:
- *   1. Empty state   — no friends → invite affordance, share button, "Add friends" link
- *   2. Loading state — component stays absent (no layout shift)
+ *   1. Empty state  , no friends → invite affordance, share button, "Add friends" link
+ *   2. Loading state, component stays absent (no layout shift)
  *   3. Populated state, friends present: rank rows, "See all" link to /leaderboard
- *   4. Self outside top 4 — rank-5+ learner sees their own row appended below the top 4
+ *   4. Self outside top 4, rank-5+ learner sees their own row appended below the top 4
  */
 import React from "react";
 import { describe, test, expect, vi, beforeEach } from "vitest";
@@ -96,14 +96,14 @@ vi.mock("@/lib/referral-share", () => ({
   copyReferralLink: vi.fn(),
 }));
 
-// Lucide icons — render as plain spans so assertions aren't about SVGs.
+// Lucide icons, render as plain spans so assertions aren't about SVGs.
 vi.mock("lucide-react", () => ({
   Users: () => React.createElement("span", { "data-icon": "users" }),
   Crown: () => React.createElement("span", { "data-icon": "crown" }),
   Gift: () => React.createElement("span", { "data-icon": "gift" }),
 }));
 
-// cn is a pure utility — use the real one (or a passthrough).
+// cn is a pure utility, use the real one (or a passthrough).
 vi.mock("@/lib/utils", () => ({
   cn: (...classes: unknown[]) =>
     classes.filter(Boolean).join(" "),
@@ -152,7 +152,7 @@ beforeEach(() => {
 
 // ── tests ─────────────────────────────────────────────────────────────────────
 
-describe("HomeSocialStrip — empty state (no friends)", () => {
+describe("HomeSocialStrip, empty state (no friends)", () => {
   test("shows the invite affordance and share button", () => {
     h.leaderboardData = [];
     render(<HomeSocialStrip />);
@@ -202,7 +202,7 @@ describe("HomeSocialStrip — empty state (no friends)", () => {
   });
 });
 
-describe("HomeSocialStrip — populated state (has friends)", () => {
+describe("HomeSocialStrip, populated state (has friends)", () => {
   test("shows rank rows for the leaderboard entries", () => {
     h.leaderboardData = [SELF, FRIEND_A, FRIEND_B];
     render(<HomeSocialStrip />);
@@ -238,7 +238,7 @@ describe("HomeSocialStrip — populated state (has friends)", () => {
   });
 });
 
-describe("HomeSocialStrip — self outside top 4", () => {
+describe("HomeSocialStrip, self outside top 4", () => {
   test("appends the self entry even when the learner ranks 5th", () => {
     // Entries sorted by rank; learner is rank 5.
     const selfRank5 = makeEntry("me", 5, 80, "Priya", true);
@@ -260,7 +260,7 @@ describe("HomeSocialStrip — self outside top 4", () => {
     h.leaderboardData = [SELF, FRIEND_A, FRIEND_B, FRIEND_C, FRIEND_D];
     render(<HomeSocialStrip />);
 
-    // 'Priya (You)' should appear exactly once — not deduplicated into two rows.
+    // 'Priya (You)' should appear exactly once, not deduplicated into two rows.
     const selfRows = screen.getAllByText(/\(You\)/);
     expect(selfRows).toHaveLength(1);
   });

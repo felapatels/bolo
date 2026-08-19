@@ -52,13 +52,13 @@ export function gameSessionPassed(correctCount: number, totalCount: number): boo
 }
 
 // Chai sink (owner ruling, Aug 6 2026): a Free learner may buy a single stop
-// in a language they have NOT purchased. Deliberately expensive — this is a
+// in a language they have NOT purchased. Deliberately expensive, this is a
 // taste of a locked line, not a way around All-Access. Capped to the first
 // zone (see lib/stopUnlock.ts); nothing beyond it is purchasable at any price.
 export const STOP_UNLOCK_COST = 50;
 
 // Chai sink (owner ruling, Aug 6 2026): outfits for Bolo. Bought once, owned
-// forever — permanent, not seasonal — and worn on every surface the mascot
+// forever, permanent, not seasonal, and worn on every surface the mascot
 // appears on. The catalog itself lives in lib/outfits.ts; only the price is
 // economy tuning.
 export const OUTFIT_COST = 25;
@@ -66,13 +66,13 @@ export const OUTFIT_COST = 25;
 // Accessories (pagdi, cap, muffler, garland...) are a lighter sink than a full
 // garment: one thing added to the bird rather than a whole redress, so they
 // price at a fraction of one. Per-item cost is carried on the catalog row and
-// charged from there — OUTFIT_COST is no longer the only price in the shop.
+// charged from there, OUTFIT_COST is no longer the only price in the shop.
 export const ACCESSORY_COST = 10;
 
 // The top of the rack: wedding-grade garments (sherwani, Banarasi saree) that
 // are meant to be saved for rather than picked up. Priced above a standard
 // garment so the shop is a ladder instead of one flat price. Like every other
-// item, what a learner is actually charged is read off the catalog row — this
+// item, what a learner is actually charged is read off the catalog row, this
 // is only the tuning value that row points at.
 export const PREMIUM_OUTFIT_COST = 40;
 
@@ -83,7 +83,7 @@ export const EXPRESS_MULTIPLIER_MINUTES = 20;
 export const EXPRESS_MULTIPLIER_FACTOR = 2;
 
 // First Class (owner ruling, Aug 13 2026): 24 hours of gold-train status, the
-// first repeatable cosmetic sink — outfits stop at their catalog ceiling and
+// first repeatable cosmetic sink, outfits stop at their catalog ceiling and
 // then the economy ends, while this one has none.
 //
 // COSMETIC OR NOTHING. The friends leaderboard ranks on XP, so a purchasable
@@ -106,7 +106,7 @@ export const FIRST_CLASS_HORIZON_DAYS = 30;
 export const TESTOUT_RETRY_COST = 15;
 
 // Chai sink (owner ruling, Aug 7 2026): streak repair. The ratified exception
-// to the delight-only spine — this one buys back something lost to life
+// to the delight-only spine, this one buys back something lost to life
 // happening, never an advantage. Price unchanged from the Aug 2 ruling that
 // defined it; the eligibility rules that keep it protection rather than a way
 // to rewrite history live in lib/streakRepair.ts.
@@ -141,7 +141,7 @@ export type TokenReason =
   // ledger's unique index is (userId, reason, refId), so the two stores'
   // transaction-id spaces can never collide.
   | "purchase_chai_pack_ios"
-  // The owner's manual compensating row — the only sanctioned way to reverse
+  // The owner's manual compensating row, the only sanctioned way to reverse
   // a credit, since a Stripe refund never claws back Chai automatically.
   | "adjust_manual";
 

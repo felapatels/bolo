@@ -23,7 +23,7 @@ import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { signEvaluation } from "../lib/evaluationToken";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
-// This exercises the real POST /attempts route handler end to end — token
+// This exercises the real POST /attempts route handler end to end, token
 // verification, the attempt insert, per-language metric computation, and badge
 // awarding are all wired together in one handler, and none of that is covered by
 // the pure-unit tests around its helpers. Driving it through the actual Express
@@ -340,7 +340,7 @@ after(async () => {
 test("records an attempt and persists progress + newly-earned badges", async () => {
   // A perfect first attempt on a phrase satisfies three catalog badges at once:
   // first_phrase (>=1 attempt), mastery_1 (a mastered phrase), and perfect_100
-  // (a best score of 100) — a good check that metrics feed badge awarding.
+  // (a best score of 100), a good check that metrics feed badge awarding.
   // audioJudged: since #998, verifyEvaluation clamps transcript-scored tokens
   // above HONESTY_SCORE_CAP (92) to 92 (band re-derived from the capped
   // score); an audio-judged token is the
@@ -448,7 +448,7 @@ test("a nocatch attempt persists for analytics but applies NO learning penalties
   // Band 'nocatch' = the system failed to capture usable audio (silence,
   // recognizer script mismatch, or an unsupported-recognition language). The
   // learner must not be penalized: no Elo movement, no FSRS memory write, no
-  // phrase exposure bump — but the row itself is stored for analytics.
+  // phrase exposure bump, but the row itself is stored for analytics.
   const [phraseBefore] = await db
     .select({ exposureCount: phrasesTable.exposureCount })
     .from(phrasesTable)
@@ -531,7 +531,7 @@ test("a second attempt persists but re-awards no already-earned badge", async ()
   assert.deepEqual(second.json.newlyEarnedBadges, []);
 
   assert.equal((await storedAttempts()).length, 2);
-  // Still stored exactly once each — no duplicates.
+  // Still stored exactly once each, no duplicates.
   assert.deepEqual(await storedBadgeKeys(), [
     "first_phrase",
     "mastery_1",
@@ -575,7 +575,7 @@ test("rejects a token minted for another user", async () => {
 
 test("review returns practiced-but-unmastered phrases, weakest first", async () => {
   // weak-high has a higher best score than weak-low; mastered clears the
-  // threshold and unpracticed has no attempts — only the two weak ones should
+  // threshold and unpracticed has no attempts, only the two weak ones should
   // come back, ordered weakest (lowest best score) first.
   await seedAttempt(phrase.weakHigh, 40);
   await seedAttempt(phrase.weakHigh, 70); // best 70, still < 80
@@ -639,7 +639,7 @@ test("review breaks ties between equally-due phrases weakest-first", async () =>
   await seedAttemptAt(phrase.weakLow, 30, sameTime); // best 30
 
   // Seed FSRS memory. Give weakLow a 1-second earlier dueAt so the dueAt-asc
-  // ordering is deterministic — weakLow leads, matching the "weakest first" expectation.
+  // ordering is deterministic, weakLow leads, matching the "weakest first" expectation.
   await db.insert(userItemMemoryTable).values([
     { userId: TEST_USER_ID, phraseId: phrase.weakLow, reps: 1, stability: 1, dueAt: new Date(sameTime.getTime() - 1000) },
     { userId: TEST_USER_ID, phraseId: phrase.weakHigh, reps: 1, stability: 1, dueAt: sameTime },

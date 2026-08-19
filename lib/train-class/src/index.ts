@@ -1,4 +1,4 @@
-// The daily XP train-class ladder — THE one place today's XP is turned into
+// The daily XP train-class ladder, THE one place today's XP is turned into
 // something a screen can render.
 //
 // WHY THIS PACKAGE EXISTS
@@ -46,9 +46,9 @@ export interface TrainClassRung {
  * is why the top rung sits well clear of a typical strong day.
  *
  * "Express" is deliberately ABSENT by owner ruling. It already means five
- * other things in this product — the XP multiplier, the express stamp, the
+ * other things in this product, the XP multiplier, the express stamp, the
  * express test-out, the Express Listening mini-game, and three journey line
- * names — so Superfast takes the 200 rung instead.
+ * names, so Superfast takes the 200 rung instead.
  */
 export const TRAIN_CLASS_LADDER: readonly TrainClassRung[] = [
   { xp: 100, name: "Local" },
@@ -68,8 +68,8 @@ export interface DailyTrainClassMeter {
    */
   target: number | null;
   /**
-   * The class the learner currently HOLDS — the highest rung they have
-   * reached — or null below the first rung, where no class is named yet.
+   * The class the learner currently HOLDS, the highest rung they have
+   * reached, or null below the first rung, where no class is named yet.
    */
   heldClass: string | null;
   /** Bar fill, 0..1. Matches the visible fraction exactly: `xp / target`. */
@@ -86,7 +86,7 @@ export interface DailyTrainClassMeter {
  * clamp: `target` is the first rung STRICTLY above `xp`, so `xp < target`
  * always holds whenever `target` is non-null, and when no such rung exists
  * `target` is null and no fraction is rendered at all. There is deliberately no
- * `Math.min` on `fill` — a clamp there would let a future overflow bug hide
+ * `Math.min` on `fill`, a clamp there would let a future overflow bug hide
  * itself, which is exactly the failure this replaces.
  */
 export function dailyTrainClassMeter(todayXp: number): DailyTrainClassMeter {
@@ -126,7 +126,7 @@ const DAY_MS = 86_400_000;
  *
  * KNOWN, DELIBERATE DIVERGENCE when nothing is stored: the server buckets in
  * UTC, this falls back to the device zone first. It is specified that way, and
- * the window is transient — clients auto-report their device zone on reconcile,
+ * the window is transient, clients auto-report their device zone on reconcile,
  * so a stored zone exists within moments of the first app open. The cost while
  * it is absent is only that the client refetches at its own midnight instead of
  * UTC's; the number it then displays still comes from the server, so the two
@@ -175,7 +175,7 @@ function zoneOffsetMs(instant: number, zone: string): number {
 }
 
 /**
- * How long until the learner's next local day boundary, in milliseconds — what
+ * How long until the learner's next local day boundary, in milliseconds, what
  * a client schedules its "reset the strip" timer on.
  *
  * This finds the INSTANT of the next local midnight, rather than subtracting

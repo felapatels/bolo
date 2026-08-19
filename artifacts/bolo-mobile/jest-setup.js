@@ -136,7 +136,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
-// expo-linear-gradient renders a View in tests — the gradient is a visual
+// expo-linear-gradient renders a View in tests, the gradient is a visual
 // enhancement that doesn't need to be exercised in unit tests.
 jest.mock('expo-linear-gradient', () => {
   const React = require('react');
@@ -169,7 +169,7 @@ jest.mock('posthog-react-native', () => {
   };
 });
 
-// expo-camera is a NATIVE module (added for friend-code QR scanning) — under
+// expo-camera is a NATIVE module (added for friend-code QR scanning), under
 // Jest it has no bridge, so the viewfinder renders as an inert View and the
 // permission hook reports granted. Tests that care about the denied state
 // override this per-file.

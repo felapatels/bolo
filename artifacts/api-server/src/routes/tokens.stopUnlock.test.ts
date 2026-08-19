@@ -28,7 +28,7 @@ import { STOP_UNLOCK_COST } from "../lib/tokenEconomy";
 
 // Chai stop unlocks (owner ruling, Aug 6 2026). A Free learner may buy ONE
 // stop at a time in a language their plan does not include, capped to the
-// first zone — the zone that already hosts the free-taste stop. This suite
+// first zone, the zone that already hosts the free-taste stop. This suite
 // pins the money and the cap:
 //   - happy path charges exactly once and opens the stop,
 //   - a replayed purchase grants nothing and charges nothing,
@@ -50,11 +50,11 @@ let baseUrl: string;
 let greetingsId: number;
 let createdGreetings = false;
 let otherCategoryId: number;
-let freeStopId: number; // Greetings position 1 — free for everyone
-let paidStopId: number; // Greetings position 2 — the purchasable stop
-let premiumOnlyStopId: number; // Greetings position 3 — all-premium, unsellable
-let secondPaidStopId: number; // Greetings position 4 — a second purchasable stop
-let outsideZoneStopId: number; // another zone entirely — All-Access territory
+let freeStopId: number; // Greetings position 1, free for everyone
+let paidStopId: number; // Greetings position 2, the purchasable stop
+let premiumOnlyStopId: number; // Greetings position 3, all-premium, unsellable
+let secondPaidStopId: number; // Greetings position 4, a second purchasable stop
+let outsideZoneStopId: number; // another zone entirely, All-Access territory
 
 async function post(
   path: string,
@@ -262,7 +262,7 @@ before(async () => {
     mkPhrase("p1", greetingsLesson!.id, greetingsId, paidStopId, 1),
     mkPhrase("p2", greetingsLesson!.id, greetingsId, paidStopId, 2),
     // Every member is Plus-library, so there is nothing a Free learner could
-    // practise here — the offer must never appear and a purchase must fail.
+    // practise here, the offer must never appear and a purchase must fail.
     mkPhrase("x1", greetingsLesson!.id, greetingsId, premiumOnlyStopId, 1, true),
     mkPhrase("q1", greetingsLesson!.id, greetingsId, secondPaidStopId, 1),
     mkPhrase("o1", otherLesson!.id, otherCategoryId, outsideZoneStopId, 1),
@@ -517,7 +517,7 @@ test("concurrent purchases of two DIFFERENT stops can never overdraw the tin", a
 // ── Reinstall survival ──────────────────────────────────────────────────────
 
 test("the unlock survives a fresh client: ownership is read from the ledger alone", async () => {
-  // A reinstalled app carries no local state whatsoever — it just asks the
+  // A reinstalled app carries no local state whatsoever, it just asks the
   // server again. Same user, brand-new connections, nothing cached client
   // side: the stop must still be open and marked as bought.
   const map = await get(

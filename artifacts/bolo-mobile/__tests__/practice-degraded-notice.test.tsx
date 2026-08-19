@@ -99,7 +99,7 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
   useEntitlements: () => ({ isPlus: true, isOneLanguage: false }),
 }));
 
-// Kashmiri (ks) — degraded recognition.
+// Kashmiri (ks), degraded recognition.
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({
     activeLang: 'ks',
@@ -179,7 +179,7 @@ async function renderReady() {
   );
 }
 
-describe('Degraded language — one-time approximate-feedback notice', () => {
+describe('Degraded language, one-time approximate-feedback notice', () => {
   test('notice shows the first time and names the language', async () => {
     await renderReady();
     await waitFor(() =>

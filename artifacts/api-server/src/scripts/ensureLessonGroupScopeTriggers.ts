@@ -1,5 +1,5 @@
 // Startup guard: guaranteed delivery of the lesson-group scope triggers
-// (the fallback for the dropped phrases_lesson_group_scope_fk — see
+// (the fallback for the dropped phrases_lesson_group_scope_fk, see
 // docs/trigger-fallback-lesson-group-scope.md and migration 0030).
 //
 // Rationale: the publish schema sync diffs tables/constraints and it is
@@ -12,8 +12,7 @@
 // first prod boot after publish has enforcement in place before any
 // assignment write happens.
 //
-// Logs distinctly on both paths — "created" vs "already present (no-op)" —
-// so the first prod boot's logs prove delivery either way.
+// Logs distinctly on both paths, "created" vs "already present (no-op)", // so the first prod boot's logs prove delivery either way.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,7 +25,7 @@ const TRIGGERS = [
 ] as const;
 
 // The DDL is read from the committed migration file so the guard can never
-// drift from migration 0030 — single source of truth. esbuild bundles the
+// drift from migration 0030, single source of truth. esbuild bundles the
 // api-server, so the SQL is inlined at build time via a static require of the
 // text; we read it relative to the repo layout in dev and embed a fallback
 // copy resolution for the bundle.

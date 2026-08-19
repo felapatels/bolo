@@ -1,4 +1,4 @@
-// Chai packs on iOS — buying Chai with money, through Apple.
+// Chai packs on iOS, buying Chai with money, through Apple.
 //
 // Everything visible here is DARK until the flag below is flipped, exactly as
 // the web shop is (artifacts/gujarati-coach/src/components/chai-packs.tsx).
@@ -37,7 +37,7 @@ import { INDIA } from '@/constants/india';
 // the shop is the worst of both.
 export const CHAI_PACKS_LIVE = true;
 
-// Web's register, word for word where the words still fit — a learner who
+// Web's register, word for word where the words still fit, a learner who
 // uses both should not meet two different shops.
 export const PACK_COPY = {
   title: 'Out of Chai?',
@@ -61,7 +61,7 @@ type PackTile = {
  * The pack shop, as a section inside the wallet sheet.
  *
  * Renders NOTHING when the flag is off, and nothing when the store could not
- * price a single pack — a shop with no prices is worse than no shop, and no
+ * price a single pack, a shop with no prices is worse than no shop, and no
  * money string is ever invented client-side.
  */
 /**

@@ -1,6 +1,6 @@
 // Guards that the quiz StreakBadge renders the flame + count when streak >= 1,
 // stays hidden when streak is 0, and that ResultsScreen / AlreadyDoneScreen
-// thread the quizStreak prop through to the badge correctly — both via direct
+// thread the quizStreak prop through to the badge correctly, both via direct
 // component rendering and via the full BoloQuizScreen quiz-completion flow.
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
@@ -56,7 +56,7 @@ jest.mock('@/components/Mascot', () => {
 });
 
 // Screen and ChunkyButton are only used by the main BoloQuizScreen, not the
-// sub-components under test — stub them lightly.
+// sub-components under test, stub them lightly.
 jest.mock('@/components/Screen', () => {
   const React = require('react');
   const { ScrollView } = require('react-native');
@@ -133,7 +133,7 @@ function quizQuery(data: object) {
   return { data, isLoading: false };
 }
 
-// ─── StreakBadge — unit tests ──────────────────────────────────────────────────
+// ─── StreakBadge, unit tests ──────────────────────────────────────────────────
 describe('StreakBadge', () => {
   test('renders the flame emoji and day count when streak is 1', () => {
     render(<StreakBadge streak={1} colors={COLORS} />);
@@ -159,7 +159,7 @@ describe('StreakBadge', () => {
   });
 });
 
-// ─── ResultsScreen — unit tests ───────────────────────────────────────────────
+// ─── ResultsScreen, unit tests ───────────────────────────────────────────────
 describe('ResultsScreen', () => {
   const baseProps = {
     score: 4,
@@ -187,7 +187,7 @@ describe('ResultsScreen', () => {
   });
 });
 
-// ─── AlreadyDoneScreen — unit tests ───────────────────────────────────────────
+// ─── AlreadyDoneScreen, unit tests ───────────────────────────────────────────
 describe('AlreadyDoneScreen', () => {
   const baseProps = {
     score: 3,
@@ -214,7 +214,7 @@ describe('AlreadyDoneScreen', () => {
   });
 });
 
-// ─── BoloQuizScreen integration — streak badge via full quiz flow ──────────────
+// ─── BoloQuizScreen integration, streak badge via full quiz flow ──────────────
 
 describe('AlreadyDoneScreen streak badge (via BoloQuizScreen)', () => {
   it('shows the flame badge with the correct day count when quizStreak >= 1', async () => {

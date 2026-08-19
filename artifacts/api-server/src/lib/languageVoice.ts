@@ -4,19 +4,19 @@
  * Every voice ID here is a free-tier ElevenLabs "premade" voice, meaning it
  * is available on every plan (unlike library/cloned voices that require a paid
  * subscription). All voices are used with eleven_multilingual_v2, which handles
- * the actual phoneme rendering for each script — the voice choice governs
+ * the actual phoneme rendering for each script, the voice choice governs
  * timbre, prosody, and resonance rather than the language itself.
  *
  * Voice selection rationale:
  *
  * All languages (Auto default):
- *   "Laura" (FGY2WhTYpPnrIDTdsKH5) — bright, upbeat female voice; cheerful
+ *   "Laura" (FGY2WhTYpPnrIDTdsKH5), bright, upbeat female voice; cheerful
  *   and encouraging. Used as the universal Auto default across all supported
  *   language families. eleven_multilingual_v2 handles phoneme rendering for
  *   each script, so Laura's timbre and prosody carry well across all languages.
  *
  * Default (unmapped languages):
- *   "Laura" (FGY2WhTYpPnrIDTdsKH5) — same bubbly female default applies to
+ *   "Laura" (FGY2WhTYpPnrIDTdsKH5), same bubbly female default applies to
  *   any language code not explicitly listed in the map below.
  */
 
@@ -42,7 +42,7 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
     id: "nPczCjzI2devNBz1zQrb",
     name: "Brian",
     gender: "male",
-    description: "Deep, resonant American male — great for North Indian languages.",
+    description: "Deep, resonant American male, great for North Indian languages.",
   },
   {
     id: "cjVigY5qzO86Huf0OWal",
@@ -84,7 +84,7 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
     id: "FGY2WhTYpPnrIDTdsKH5",
     name: "Laura",
     gender: "female",
-    description: "Bright, upbeat female voice — cheerful and encouraging.",
+    description: "Bright, upbeat female voice, cheerful and encouraging.",
   },
   {
     id: "EXAVITQu4vr4xnSDxMaL",
@@ -162,7 +162,7 @@ export function getVoiceIdForLanguage(languageCode?: string): string {
  * model still applies a meaningful phoneme set rather than falling back to
  * pure auto-detection from Unicode script.
  *
- * `undefined` entries are deliberately absent — callers receive `undefined`
+ * `undefined` entries are deliberately absent, callers receive `undefined`
  * from `getLanguageIdForCode` for truly unsupported codes and should omit
  * `language_id` from the request body rather than sending a wrong value.
  */
@@ -198,11 +198,11 @@ export const LANGUAGE_ID_MAP: Record<string, string> = {
   doi: "hi",
   mai: "hi",
   bho: "hi",
-  // Manipuri (Meitei) — no direct Tibeto-Burman support; Bengali is the
+  // Manipuri (Meitei), no direct Tibeto-Burman support; Bengali is the
   // closest supported language in ElevenLabs' multilingual model.
   mni: "bn",
   // Santali (Austroasiatic / Ol Chiki script) has no close match among
-  // ElevenLabs' supported languages — intentionally omitted so callers
+  // ElevenLabs' supported languages, intentionally omitted so callers
   // receive undefined and skip language_id rather than sending a wrong value.
 };
 

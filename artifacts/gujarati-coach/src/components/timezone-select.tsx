@@ -16,8 +16,8 @@ import {
 import { cn } from "@/lib/utils";
 
 // CLDR/ICU still emits deprecated ids for some zones (Asia/Calcutta, not
-// Asia/Kolkata). We display and save the modern IANA name — both spellings
-// are valid `Intl` time zones — and keep the legacy id attached as a search
+// Asia/Kolkata). We display and save the modern IANA name, both spellings
+// are valid `Intl` time zones, and keep the legacy id attached as a search
 // keyword so either name finds the zone.
 const MODERN_ID: Record<string, string> = {
   "Asia/Calcutta": "Asia/Kolkata",

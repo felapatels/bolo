@@ -35,7 +35,7 @@ export default function ChangeEmailScreen() {
   const [busy, setBusy] = React.useState(false);
   const pending = React.useRef<PendingEmail | null>(null);
 
-  const currentEmail = user?.primaryEmailAddress?.emailAddress ?? '—';
+  const currentEmail = user?.primaryEmailAddress?.emailAddress ?? '-';
 
   const sendCode = async () => {
     const trimmed = email.trim().toLowerCase();

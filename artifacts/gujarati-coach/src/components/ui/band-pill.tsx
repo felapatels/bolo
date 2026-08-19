@@ -1,16 +1,16 @@
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
-// Five-band pronunciation ladder (display layer only — thresholds mirror the
+// Five-band pronunciation ladder (display layer only, thresholds mirror the
 // server config in api-server/src/lib/scoreBands.ts, pinned by the
 // sharedConstants contract tests). `nocatch` is a separate system outcome,
 // not a rung on the ladder.
 export type Band = "nocatch" | "perfect" | "great" | "good" | "almost" | "retry";
 
-/** A band that was actually scored — the five rungs of the ladder. */
+/** A band that was actually scored, the five rungs of the ladder. */
 export type ScoredBand = Exclude<Band, "nocatch">;
 
-/** Ladder order, top to bottom — the display order of the result-card scale. */
+/** Ladder order, top to bottom, the display order of the result-card scale. */
 export const BAND_LADDER: readonly ScoredBand[] = [
   "perfect",
   "great",
@@ -28,7 +28,7 @@ const BAND_LABEL: Record<Band, string> = {
   nocatch: "Didn't catch that",
 };
 
-/** Human label for a band — for surfaces that render band text without the pill. */
+/** Human label for a band, for surfaces that render band text without the pill. */
 export function bandLabel(band: Band): string {
   return BAND_LABEL[band];
 }
@@ -38,7 +38,7 @@ export function bandLabel(band: Band): string {
  * five-band thresholds (>=91 perfect, >=80 great, >=68 good, >=55 almost,
  * <55 retry; 91 set by owner ruling Aug 2026, 68 TUNING PENDING, 80/55 frozen legacy
  * boundaries). Only for rows recorded before the server started persisting
- * `band` — when the API provides a band, always prefer it (it can also encode
+ * `band`, when the API provides a band, always prefer it (it can also encode
  * `nocatch`, which a score alone can't).
  */
 /**
@@ -68,8 +68,7 @@ export function bandFromScore(score: number): ScoredBand {
   return "retry";
 }
 
-// Text color classes for surfaces that tint a band word without the pill —
-// same ladder gradient as the pill/ladder treatments.
+// Text color classes for surfaces that tint a band word without the pill, // same ladder gradient as the pill/ladder treatments.
 const BAND_TEXT_CLASS: Record<Band, string> = {
   perfect: "text-success",
   great: "text-[hsl(var(--accent))]",
@@ -83,7 +82,7 @@ export function bandTextClass(band: Band): string {
   return BAND_TEXT_CLASS[band];
 }
 
-// Behavioral credit groups (frozen legacy boundaries — mirror the server's
+// Behavioral credit groups (frozen legacy boundaries, mirror the server's
 // scoreBands.ts groups so celebration/XP gating stays byte-identical):
 // full credit = legacy 'nailed' (score >= 80), half credit = legacy 'close'.
 export function isFullCreditBand(band: Band): boolean {
@@ -94,7 +93,7 @@ export function isHalfCreditBand(band: Band): boolean {
   return band === "good" || band === "almost";
 }
 
-/** Any passing band (legacy nailed|close) — streaks, XP arc, summary gating. */
+/** Any passing band (legacy nailed|close), streaks, XP arc, summary gating. */
 export function isPassingBand(band: Band): boolean {
   return isFullCreditBand(band) || isHalfCreditBand(band);
 }

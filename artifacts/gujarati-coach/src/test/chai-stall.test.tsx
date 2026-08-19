@@ -118,7 +118,7 @@ describe("chai stall scene", () => {
   });
 
   test("is a full-width band whose kettle map survives the new scale", () => {
-    // Owner correction (Aug 6): the stall is a SCENE, not an icon — it fills
+    // Owner correction (Aug 6): the stall is a SCENE, not an icon, it fills
     // the column, cropped 12% at the bottom (BOTTOM_CROP), while the scene
     // layer inside it holds the art's own 1024/572. The kettle map is
     // unaffected BY CONSTRUCTION: the plume offsets are percentages of the
@@ -145,7 +145,7 @@ describe("chai stall scene", () => {
 
   test("names itself and shows the balance it is given", () => {
     // The band is a wallet surface, not scenery: it says whose stall it is and
-    // what the learner has. The balance is a PROP — the component never runs
+    // what the learner has. The balance is a PROP, the component never runs
     // its own query, so it cannot drift from the stat cell or the wallet.
     render(<ChaiStallVignette balance={12} />);
     expect(screen.getByTestId("chai-stall-title")).toHaveTextContent(
@@ -234,7 +234,7 @@ describe("chai stall scene", () => {
     // jsdom applies no stylesheets, so the reduced-motion contract is pinned
     // at the source: ONE looping CSS animation (which the global
     // prefers-reduced-motion rule in index.css collapses), a base opacity
-    // that keeps the plume visible once collapsed, and NO fill-mode — with
+    // that keeps the plume visible once collapsed, and NO fill-mode, with
     // `forwards`/`both` the collapsed animation would strand the plume on its
     // last keyframe instead of its resting frame.
     // Comments are stripped first: the file EXPLAINS why there is no
@@ -272,7 +272,7 @@ describe("chai glyph census (web)", () => {
     for (const file of Object.keys(GLYPH_SITES)) {
       // The word also appears in prose ("the wallet's kulhad glyph…"), so the
       // check is for the icon itself: a lucide import or a rendered element.
-      // Comments are stripped first — chai-stall.tsx is itself a census site
+      // Comments are stripped first, chai-stall.tsx is itself a census site
       // now, and the ChaiGlyph docstring quotes the very element it replaced
       // (`<Coffee className="h-4 w-4" />`). Prose must not satisfy, or trip,
       // a check on what the file actually renders.

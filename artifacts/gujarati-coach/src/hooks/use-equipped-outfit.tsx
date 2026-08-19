@@ -6,10 +6,10 @@ import { getGetTokensQueryKey, useGetTokens } from "@workspace/api-client-react"
 //
 // TWO SLOTS (owner ruling, Aug 8 2026): a garment on her belly and an
 // accessory on her head, worn at the same time. They are separate because
-// either can be taken off without disturbing the other — a single "equipped"
+// either can be taken off without disturbing the other, a single "equipped"
 // value would make putting a hat on silently strip the outfit.
 //
-// It rides GET /tokens — the wallet query the app already runs — so equipping
+// It rides GET /tokens, the wallet query the app already runs, so equipping
 // updates every surface as soon as that query is invalidated, and no screen
 // needs an outfit fetch of its own.
 //

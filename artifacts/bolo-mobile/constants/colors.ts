@@ -1,9 +1,8 @@
 /**
- * Semantic design tokens for the Bolo! mobile app — "Calm & Modern" theme.
+ * Semantic design tokens for the Bolo! mobile app, "Calm & Modern" theme.
  *
  * A calm, modern palette built on indigo (primary), teal (accent) and slate
- * neutrals. Energy in the app comes from motion, the mascot and celebrations —
- * not from clashing bright colors. The token names are shared with the sibling
+ * neutrals. Energy in the app comes from motion, the mascot and celebrations, * not from clashing bright colors. The token names are shared with the sibling
  * web artifact so both apps express the same Bolo! identity.
  */
 
@@ -21,7 +20,7 @@ const colors = {
 
     primary: '#4F46E5', // indigo-600
     primaryForeground: '#FFFFFF',
-    primaryShadow: '#4338CA', // indigo-700 — chunky button underlay
+    primaryShadow: '#4338CA', // indigo-700, chunky button underlay
 
     secondary: '#0D9488', // teal-600
     secondaryForeground: '#FFFFFF',
@@ -29,7 +28,7 @@ const colors = {
     muted: '#F1F5F9', // slate-100
     mutedForeground: '#64748B', // slate-500
 
-    accent: '#14B8A6', // teal-500 — brighter accent for motion
+    accent: '#14B8A6', // teal-500, brighter accent for motion
     accentForeground: '#052E2B',
 
     destructive: '#EF4444', // red-500
@@ -42,7 +41,7 @@ const colors = {
     // value the design already has rather than inventing one. 2026-08-18.
     successForeground: '#052E1F',
 
-    gold: '#F59E0B', // amber-500 — XP / star / Plus highlight
+    gold: '#F59E0B', // amber-500, XP / star / Plus highlight
 
     border: '#E2E8F0',
     input: '#E2E8F0',
@@ -59,7 +58,7 @@ const colors = {
     cardForeground: '#F8FAFC',
     cardBorder: '#334155', // slate-700
 
-    primary: '#6366F1', // indigo-500 — brighter on dark
+    primary: '#6366F1', // indigo-500, brighter on dark
     primaryForeground: '#FFFFFF',
     primaryShadow: '#4338CA',
 

@@ -11,8 +11,7 @@ import type { ReactElement } from "react";
 // re-recording.
 //
 // NOTE: The old auto-stop / onSilence pattern was removed when hold-to-talk
-// replaced the mic button. Recording now always uses manual stop —
-// pointerDown on the belly starts recording, pointerUp ends it.
+// replaced the mic button. Recording now always uses manual stop, // pointerDown on the belly starts recording, pointerUp ends it.
 // ---------------------------------------------------------------------------
 
 const h = vi.hoisted(() => ({
@@ -172,7 +171,7 @@ const coachCalls = () =>
     (c) => (c[0] as any)?.data?.text === phrase.nativeScript,
   ).length;
 
-/** The belly-zone button — aria-label reflects current recording state. */
+/** The belly-zone button, aria-label reflects current recording state. */
 function bellyButton(): HTMLButtonElement {
   return (
     document.querySelector('[aria-label="Hold to speak"]') ??
@@ -308,7 +307,7 @@ describe("web practice retry", () => {
   });
 
   test("retry band flips the CTA emphasis: Try again primary, Next phrase secondary", async () => {
-    // Emphasis — and ONLY emphasis — moves with the band: on band "retry"
+    // Emphasis, and ONLY emphasis, moves with the band: on band "retry"
     // another take is the productive default, so "Try again" carries the
     // filled primary treatment and "Next phrase" drops to the bordered
     // secondary. Their positions do not move (see the order pins below).
@@ -372,7 +371,7 @@ describe("constant result-actions layout", () => {
     await holdAndRelease();
     await waitFor(() => expect(screen.getByTestId("result-actions")).toBeInTheDocument());
 
-    // Same two-slot row as everywhere else — it never collapses to a single
+    // Same two-slot row as everywhere else, it never collapses to a single
     // full-width button.
     expectRetryBeforeAdvance();
     expect(tryAgainSlot()).toHaveAccessibleName("Try again");
@@ -414,7 +413,7 @@ describe("advance gate", () => {
     await anotherGo(); // attempt 2
     expect(advanceSlot()).toBeDisabled();
 
-    await anotherGo(); // attempt 3 — enough goes, whatever the score
+    await anotherGo(); // attempt 3, enough goes, whatever the score
     expect(advanceSlot()).toBeEnabled();
   });
 
@@ -446,7 +445,7 @@ describe("web practice silent mode", () => {
     renderPage(<Practice />);
 
     // In silent mode the component skips playing_coach and goes straight to
-    // idle — "Hold to speak" appears without any synth call.
+    // idle, "Hold to speak" appears without any synth call.
     await waitFor(() =>
       expect(document.querySelector('[aria-label="Hold to speak"]')).not.toBeNull(),
     );

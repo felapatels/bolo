@@ -426,7 +426,7 @@ describe("zone signposts + line facts (Chunk 6B story 5)", () => {
 // Chacha-ji's stall as a permanent map LANDMARK. Two rules are load-bearing:
 // (1) it stands at EVERY encounter station, ahead of the learner and behind,
 //     seated in the gap after that stop; and
-// (2) RENDERING IS NOT TRIGGERING — drawing the stall must never record an
+// (2) RENDERING IS NOT TRIGGERING, drawing the stall must never record an
 //     encounter, mint Chai, or mark a stop seen. Only arrival does that.
 describe("Chacha-ji stall landmark", () => {
   function stalls(container: HTMLElement) {

@@ -12,11 +12,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // ---------------------------------------------------------------------------
 // Guards the celebration moments added to the mobile practice screen:
 //
-//  1. Hot-streak toast — scoring ≥ 70 three times in a row sets the
+//  1. Hot-streak toast, scoring ≥ 70 three times in a row sets the
 //     MilestoneToast message to "🔥 3 in a row!" and bumps toastKey.
-//  2. Perfect session — when every phrase in a session scores ≥ 80 the done
+//  2. Perfect session, when every phrase in a session scores ≥ 80 the done
 //     screen shows "PERFECT SESSION! 🏆" and fires the gold Confetti variant.
-//  3. XP chip formula — the chip value matches Math.round(avg / 10) * count
+//  3. XP chip formula, the chip value matches Math.round(avg / 10) * count
 //     and is capped at 50.
 // ---------------------------------------------------------------------------
 
@@ -163,7 +163,7 @@ jest.mock('@/components/Confetti', () => {
   };
 });
 
-// MilestoneToast is kept real — we verify the message text is in the tree.
+// MilestoneToast is kept real, we verify the message text is in the tree.
 
 jest.mock('@/components/BadgeUnlock', () => {
   const { View } = require('react-native');
@@ -220,7 +220,7 @@ jest.mock('@/lib/entrance', () => ({
 import PracticeScreen from '@/app/(app)/practice/[id]';
 
 // ---------------------------------------------------------------------------
-// Shared phrases — six distinct phrases so tests can drive multi-phrase sessions.
+// Shared phrases, six distinct phrases so tests can drive multi-phrase sessions.
 // ---------------------------------------------------------------------------
 const PHRASES = [
   { id: 1, nativeScript: 'ક', romanized: 'ka', english: 'ka-en' },
@@ -278,9 +278,9 @@ beforeEach(async () => {
 // ("Next phrase" or "Finish" if it's the last one).
 // ---------------------------------------------------------------------------
 async function doRecordCycle(options: {
-  /** true if this is the last phrase in the list — presses "Finish" instead of "Next phrase". */
+  /** true if this is the last phrase in the list, presses "Finish" instead of "Next phrase". */
   last?: boolean;
-  /** Which result label to wait for — used to tell when the result card is shown. */
+  /** Which result label to wait for, used to tell when the result card is shown. */
   resultLabel?: string;
 }) {
   const { last = false, resultLabel } = options;
@@ -301,7 +301,7 @@ async function doRecordCycle(options: {
     fireEvent(screen.getByTestId('record-button'), 'pressOut');
   });
 
-  // Wait for the result card — either by a known label or fall back to a grade label.
+  // Wait for the result card, either by a known label or fall back to a grade label.
   if (resultLabel) {
     await waitFor(() => expect(screen.getByText(resultLabel)).toBeOnTheScreen());
   } else {
@@ -336,13 +336,13 @@ describe('hot-streak milestone toast', () => {
 
     render(<PracticeScreen />);
 
-    // Cycle 1 — score 75 (1 in a row, no toast yet)
+    // Cycle 1, score 75 (1 in a row, no toast yet)
     await doRecordCycle({ resultLabel: 'Goated 🐐' });
 
-    // Cycle 2 — score 80 (2 in a row, no toast yet)
+    // Cycle 2, score 80 (2 in a row, no toast yet)
     await doRecordCycle({ resultLabel: 'Goated 🐐' });
 
-    // Cycle 3 — score 70 (3 in a row — toast fires)
+    // Cycle 3, score 70 (3 in a row, toast fires)
     // Don't advance past the result so we can read the toast while the result
     // card is still on screen.
     await waitFor(() =>
@@ -361,7 +361,7 @@ describe('hot-streak milestone toast', () => {
       expect(screen.getByText('Goated 🐐')).toBeOnTheScreen(),
     );
 
-    // MilestoneToast always mounts its Text node — after toastMessage is set
+    // MilestoneToast always mounts its Text node, after toastMessage is set
     // (and toastKey bumped) it will contain the streak message.
     expect(screen.getByText('🔥 3 in a row!')).toBeOnTheScreen();
   });
@@ -370,7 +370,7 @@ describe('hot-streak milestone toast', () => {
     mockState.evaluateQueue = [
       { score: 75, passed: true, band: 'great', xpAwarded: 8 },
       { score: 80, passed: true, band: 'great', xpAwarded: 8 },
-      // Miss breaks the streak — count resets.
+      // Miss breaks the streak, count resets.
       { score: 40, passed: false, band: 'retry', xpAwarded: 0 },
     ];
 
@@ -379,7 +379,7 @@ describe('hot-streak milestone toast', () => {
     await doRecordCycle({ resultLabel: 'Goated 🐐' });
     await doRecordCycle({ resultLabel: 'Goated 🐐' });
 
-    // Third attempt — low score.
+    // Third attempt, low score.
     await waitFor(() =>
       expect(screen.getByTestId('record-button')).not.toBeDisabled(),
     );
@@ -405,7 +405,7 @@ describe('perfect-session detection', () => {
   test('shows "PERFECT SESSION! 🏆" and fires gold confetti when all scores ≥ 80', async () => {
     // Use the first 3 phrases only so the session is short.
     mockState.phrases = successQuery(PHRASES.slice(0, 3));
-    // Keep scores below 90 — a score ≥ 90 schedules a real 140 ms setTimeout
+    // Keep scores below 90, a score ≥ 90 schedules a real 140 ms setTimeout
     // for hapticHeavy that would fire after Jest tears down the environment.
     mockState.evaluateQueue = [
       { score: 88, passed: true, band: 'great', xpAwarded: 8 },
@@ -417,7 +417,7 @@ describe('perfect-session detection', () => {
 
     await doRecordCycle({ resultLabel: 'Goated 🐐' });
     await doRecordCycle({ resultLabel: 'Goated 🐐' });
-    // Last phrase — press "Finish".
+    // Last phrase, press "Finish".
     await waitFor(() =>
       expect(screen.getByTestId('record-button')).not.toBeDisabled(),
     );
@@ -435,7 +435,7 @@ describe('perfect-session detection', () => {
     );
     await act(async () => { fireEvent.press(screen.getByText('Finish')); });
 
-    // Done screen — perfect session title and gold confetti variant.
+    // Done screen, perfect session title and gold confetti variant.
     await waitFor(() =>
       expect(screen.getByText('PERFECT SESSION! 🏆')).toBeOnTheScreen(),
     );
@@ -520,7 +520,7 @@ describe('XP chip', () => {
 
   test('sums server-awarded XP over a full 6-phrase session (no client cap)', async () => {
     // Spec 1a: the old client-side Math.round(avg/10)*count formula and its 50
-    // cap are gone — the chip sums server xpAwarded. 6 × 8 → "+48 XP".
+    // cap are gone, the chip sums server xpAwarded. 6 × 8 → "+48 XP".
     // Score kept below 90 to avoid a real 140 ms hapticHeavy setTimeout that
     // would fire after Jest tears down the environment.
     mockState.phrases = successQuery(PHRASES); // all 6
@@ -532,7 +532,7 @@ describe('XP chip', () => {
     for (let i = 0; i < 5; i++) {
       await doRecordCycle({ resultLabel: 'Goated 🐐' });
     }
-    // Last phrase — "Finish".
+    // Last phrase, "Finish".
     await waitFor(() =>
       expect(screen.getByTestId('record-button')).not.toBeDisabled(),
     );

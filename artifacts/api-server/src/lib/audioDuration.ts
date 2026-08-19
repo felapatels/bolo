@@ -1,4 +1,4 @@
-// Server-side audio duration measurement — used to record how much of the
+// Server-side audio duration measurement, used to record how much of the
 // weekly Bolo Parrot chat-time cap a turn actually consumes, rather than
 // trusting a client-supplied duration.
 

@@ -1,11 +1,10 @@
 // Refusal copy for Chai spends, shared by every surface that can spend.
 //
-// The server answers a refused spend with 409 and a machine code (never 402 —
-// that envelope is the Plus paywall). Each code has one sentence here, so the
+// The server answers a refused spend with 409 and a machine code (never 402, // that envelope is the Plus paywall). Each code has one sentence here, so the
 // wallet and the home banner cannot drift apart, and so a learner is never
 // told to "try again" when trying again cannot work.
 //
-// Web twin: artifacts/gujarati-coach/src/lib/chai-errors.ts — word for word.
+// Web twin: artifacts/gujarati-coach/src/lib/chai-errors.ts, word for word.
 import { ApiError } from '@workspace/api-client-react';
 
 type SpendRefusal = {
@@ -27,7 +26,7 @@ function refusal(error: unknown): SpendRefusal {
  *
  * The empty-pocket case names the gap and points at practice, because that is
  * the only way to earn Chai today. When in-app Chai purchases land, this is
- * the branch that grows a "Get Chai" action into the purchase screen — the
+ * the branch that grows a "Get Chai" action into the purchase screen, the
  * balance and cost it already carries are what that screen needs.
  */
 export function repairErrorMessage(error: unknown): string {

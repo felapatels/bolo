@@ -151,7 +151,7 @@ describe('PaywallScreen trial banner', () => {
   });
 
   test('does not show the trial banner when no reason param is present', () => {
-    // mockParams is empty — no reason key.
+    // mockParams is empty, no reason key.
 
     render(<PaywallScreen />);
 

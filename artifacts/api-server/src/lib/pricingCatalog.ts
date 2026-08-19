@@ -39,7 +39,7 @@ export type PriceAmount = {
 
 // One-time Chai pack, priced the same way a plan is: the amount is whatever
 // the Stripe price behind the configured id holds, plus the Chai the pack
-// credits (which is OURS, not Stripe's — the ledger reads it from the catalog,
+// credits (which is OURS, not Stripe's, the ledger reads it from the catalog,
 // and the shop shows the same number so the two can never disagree).
 export type PackPrice = PriceAmount & { chai: number };
 
@@ -108,7 +108,7 @@ export async function buildPricingCatalog(
 
   // Chai packs, priced from Stripe exactly like a plan. A pack whose price id
   // is unset is skipped (the shop shows fewer packs); a configured id Stripe
-  // cannot price is an error for the same reason a plan's is — a real charge
+  // cannot price is an error for the same reason a plan's is, a real charge
   // exists behind it.
   for (const pack of CHAI_PACKS) {
     const priceId = getChaiPackPriceId(pack.id);

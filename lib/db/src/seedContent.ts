@@ -7,7 +7,7 @@ import {
 } from "./index";
 import { eq, and } from "drizzle-orm";
 // Imported statically (not read from disk at runtime) so the lessons survive
-// bundling — the api-server ships as a single esbuild bundle where
+// bundling, the api-server ships as a single esbuild bundle where
 // import.meta.url-relative file reads silently miss, which would leave a
 // fresh production database with only Gujarati content.
 import curatedLessonsJson from "./data/curatedLessons.json";
@@ -82,7 +82,7 @@ async function topUpLesson(
       .map((p) => phraseKey(p.nativeScript, p.english)),
   );
 
-  // A second, narrower key on the native script alone — the one
+  // A second, narrower key on the native script alone, the one
   // `phrases_topic_stage_text_unique` enforces. The key above includes the
   // English gloss, so CORRECTING a gloss in the curated library used to make
   // this top-up insert a second row for a phrase the topic already held; that

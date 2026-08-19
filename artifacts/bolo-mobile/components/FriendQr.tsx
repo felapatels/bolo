@@ -9,7 +9,7 @@ import { View } from 'react-native';
  * to type. The in-app scanner understands both shapes (see `parseReferralScan`
  * in @workspace/referral-link).
  *
- * Pure JS on top of react-native-svg, which the app already ships — no native
+ * Pure JS on top of react-native-svg, which the app already ships, no native
  * module, so this renders in every existing build.
  */
 export function FriendQr({ value, size = 148 }: { value: string; size?: number }) {

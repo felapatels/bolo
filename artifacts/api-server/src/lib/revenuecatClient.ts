@@ -1,6 +1,6 @@
 // Thin wrapper around the Replit RevenueCat connector. The connector injects and
 // refreshes OAuth credentials automatically; we only ever proxy REST calls
-// through it. Never cache the client — tokens expire — so a fresh instance is
+// through it. Never cache the client, tokens expire, so a fresh instance is
 // created per call.
 //
 // Every call here is best-effort: if the connector isn't set up yet, or the
@@ -25,7 +25,7 @@ export async function fetchSubscriber(
 ): Promise<RevenueCatSubscriber | null> {
   // Reconcile-on-read is only meaningful once RevenueCat is actually set up.
   // REVENUECAT_PROJECT_ID is written when the seed script runs, so we treat it
-  // as the "RevenueCat is live" switch — until then, skip the live pull entirely
+  // as the "RevenueCat is live" switch, until then, skip the live pull entirely
   // (no network call) and rely on webhook-driven state.
   if (!process.env.REVENUECAT_PROJECT_ID?.trim()) return null;
 
@@ -45,7 +45,7 @@ export async function fetchSubscriber(
     );
 
     // RevenueCat returns 404 for an app-user id it has never seen. That is a
-    // definitive "no subscription", not an error — represent it as an empty
+    // definitive "no subscription", not an error, represent it as an empty
     // subscriber so the caller resolves the user to Free.
     if (res.status === 404) return {};
 

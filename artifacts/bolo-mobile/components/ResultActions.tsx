@@ -9,7 +9,7 @@ import { AppFonts } from '@/constants/fonts';
  * The constant two-slot result-actions row (Task #1040, owner-ruled).
  *
  * "Try again" is ALWAYS the left slot and "Next phrase"/"Finish" ALWAYS the
- * right one — every band, every state, both platforms — with labels that
+ * right one, every band, every state, both platforms, with labels that
  * never change between outcomes. Only the EMPHASIS moves: after a weak take
  * the retry carries the filled chunky treatment, after a good one the advance
  * does. The two used to swap places between bands, so the learner tapped the

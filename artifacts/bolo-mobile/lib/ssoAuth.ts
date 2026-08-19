@@ -12,7 +12,7 @@ import { reportAuthIncompleteState, reportAuthError } from '@/lib/authErrors';
 //    the installed dist: it reloads the sign-in with the rotating token nonce,
 //    transfers when transferable, and returns
 //    `signUp.createdSessionId ?? signIn.createdSessionId`). So the bug was
-//    never a missing call — it was that when the transfer came back
+//    never a missing call, it was that when the transfer came back
 //    incomplete, the app read only `signIn.status` ('needs_identifier'),
 //    showed that, and threw away the sign-up resource that says WHY. We now
 //    read the sign-up, report its missing fields, and only make the transfer
@@ -225,7 +225,7 @@ export async function completeSsoFlow(args: {
 
   // 5. The handshake succeeded and a session that did not exist before it now
   //    does: adopt it rather than stranding the user in front of an error
-  //    while a live session sits on the client. New sessions only — a session
+  //    while a live session sits on the client. New sessions only, a session
   //    that predates this attempt could belong to someone else on the device.
   const fresh = (client?.sessions ?? []).find(
     (s) => s.status === 'active' && !preExistingSessionIds.has(s.id),

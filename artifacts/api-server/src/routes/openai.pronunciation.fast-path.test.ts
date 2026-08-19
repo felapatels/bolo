@@ -11,7 +11,7 @@
 //     LLM + guardrail path?
 //  3. Can a transcript simultaneously match the target at ≥ 0.93 AND match a
 //     different phrase at ≥ 0.93 (the edge case)? If so, the fast-path fires
-//     and returns passed=true — by design, since near-match-floor would anyway.
+//     and returns passed=true, by design, since near-match-floor would anyway.
 //
 // Parts A and B cover the three cases at the unit level (compareToTarget only,
 // no HTTP). Part C covers cases 1 and 2 through the real Express route with the
@@ -180,14 +180,14 @@ async function postPronunciation(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Part A — Pure unit tests: compareToTarget edge case
+// Part A, Pure unit tests: compareToTarget edge case
 //
 // These prove that the edge case is real and explain why the fast-path design
 // (no wrong-phrase-cap) is safe: near-match-floor would override anyway.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 test("compareToTarget: near-exact match lands at sim ≥ 0.93 (fast-path condition is met)", () => {
-  // "kem cho" is a slight romanisation variant of "kem chho" — folds to the
+  // "kem cho" is a slight romanisation variant of "kem chho", folds to the
   // same phonetic key after normalizeLatin, so sim should approach 1.0.
   const cmp = compareToTarget("kem cho", "કેમ છો", "kem chho");
   assert.ok(cmp.comparable, "should be comparable (Latin transcript vs Latin target)");
@@ -199,7 +199,7 @@ test("compareToTarget: near-exact match lands at sim ≥ 0.93 (fast-path conditi
 
 test("compareToTarget: partial match lands below sim 0.93 (fast-path condition NOT met)", () => {
   // "kem" is clearly an attempt at "kem chho" but is missing the second
-  // syllable — should be comparable but below the fast-path threshold.
+  // syllable, should be comparable but below the fast-path threshold.
   const cmp = compareToTarget("kem", "કેમ છો", "kem chho");
   assert.ok(cmp.comparable, "should be comparable");
   assert.ok(
@@ -218,7 +218,7 @@ test("compareToTarget edge case: transcript can simultaneously match target AND 
   // against both the target and a sibling. This is the scenario the task
   // description flags: "phonetically matches a different phrase while also
   // matching the target at ≥ 0.85". On the fast-path the wrong-phrase-cap is
-  // intentionally skipped — the near-match-floor would override it anyway.
+  // intentionally skipped, the near-match-floor would override it anyway.
   const target = { native: "ā", romanized: "aa" };
   const sibling = { nativeScript: "â", romanized: "a" };
 
@@ -234,7 +234,7 @@ test("compareToTarget edge case: transcript can simultaneously match target AND 
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Part B — Pure unit tests: threshold boundary
+// Part B, Pure unit tests: threshold boundary
 // ═══════════════════════════════════════════════════════════════════════════════
 
 test("compareToTarget: exact-same string gives sim = 1.0", () => {
@@ -250,7 +250,7 @@ test("compareToTarget: completely unrelated transcript gives low sim", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Part C — Route integration tests (mocked audio module)
+// Part C, Route integration tests (mocked audio module)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 test("fast-path: sim ≥ 0.93 → passed=true, no LLM call", async () => {
@@ -273,7 +273,7 @@ test("fast-path: sim ≥ 0.93 → passed=true, no LLM call", async () => {
 });
 
 test("fast-path: clearly wrong word does not pass (score < 80, passed=false)", async () => {
-  // "hello world" is entirely unrelated to "kem chho" — sim is far below 0.93
+  // "hello world" is entirely unrelated to "kem chho", sim is far below 0.93
   // so the fast-path must not fire; the LLM mock returns LLM_SCORE=55 < 80
   // and the partial-match-cap guard ensures score stays below 80.
   stubbedTranscript = "hello world";
@@ -324,7 +324,7 @@ test("fast-path: scores are monotonic across the 0.93 threshold boundary", async
 });
 
 test("partial-match (sim 0.50–0.84): LLM path is reached", async () => {
-  // "kem" is clearly an attempt at "kem chho" but only partial — should fall
+  // "kem" is clearly an attempt at "kem chho" but only partial, should fall
   // below the 0.85 threshold so the route calls the LLM.
   stubbedTranscript = "kem";
   llmCallCount = 0;
@@ -376,10 +376,10 @@ test("empty transcript: route returns passed=false, no LLM call", async () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Part D — Accuracy regression tests for the four fast-path fixes
+// Part D, Accuracy regression tests for the four fast-path fixes
 // ═══════════════════════════════════════════════════════════════════════════════
 
-test("fix #2 — short target (≤ 4 normalized chars) always routes through the LLM, not the fast path", async () => {
+test("fix #2, short target (≤ 4 normalized chars) always routes through the LLM, not the fast path", async () => {
   // "ha" normalises to 2 chars (well under the 4-char guard). Even though
   // sim("ha","ha")=1.0 ≥ 0.93, the fast path must be skipped so the LLM's
   // phonemic reasoning handles the ambiguous short word.
@@ -390,16 +390,16 @@ test("fix #2 — short target (≤ 4 normalized chars) always routes through the
   const { status, json } = await postPronunciation("há", "ha");
 
   assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
-  // The fast path must be bypassed — confirmed by the LLM being called.
+  // The fast path must be bypassed, confirmed by the LLM being called.
   assert.ok(llmCallCount >= 1, "short target must call the LLM, not take the fast path");
   // The LLM mock returns LLM_SCORE=55, but because sim("ha","ha")=1.0 ≥ 0.90,
   // the near-match-floor guard correctly rescues the score to 100 and passes
-  // the learner — they DID say the word correctly. The key proof is that the
+  // the learner, they DID say the word correctly. The key proof is that the
   // LLM was called at all (fast path bypassed), not that it failed.
   assert.ok(json.passed === true, "near-match-floor rescues a correct short-word attempt even after LLM path");
 });
 
-test("fix #2 — multi-syllable target (> 4 normalized chars) still uses the fast path when sim ≥ 0.93", async () => {
+test("fix #2, multi-syllable target (> 4 normalized chars) still uses the fast path when sim ≥ 0.93", async () => {
   // Confirm the short-phrase guard doesn't accidentally block normal phrases.
   // "kem chho" normalises to "kemcho" (6 chars > 4) so fast path fires normally.
   stubbedTranscript = "kem cho"; // sim=1.0 ≥ 0.93
@@ -412,7 +412,7 @@ test("fix #2 — multi-syllable target (> 4 normalized chars) still uses the fas
   assert.equal(json.passed, true, "fast path must return passed=true");
 });
 
-test("fix #2 — native-script STT transcript for a long target still triggers the fast path (not blocked by short guard)", async () => {
+test("fix #2, native-script STT transcript for a long target still triggers the fast path (not blocked by short guard)", async () => {
   // Regression test for a subtle bug: if isShortTarget were based on
   // normalizeLatin(transcript), a native-script transcript (Gujarati/Hindi/etc.)
   // would return an empty string (length 0), making the guard always true and
@@ -430,7 +430,7 @@ test("fix #2 — native-script STT transcript for a long target still triggers t
 
   assert.equal(status, 200, `expected 200, got ${status}: ${JSON.stringify(json)}`);
   assert.equal(llmCallCount, 0,
-    "native-script transcript for a long target must still use fast path — " +
+    "native-script transcript for a long target must still use fast path, " +
     "short guard must not fire just because normalizeLatin(nativeTranscript) is empty");
   assert.equal(json.passed, true, "native-script exact match must pass via fast path");
   // Task 907: a covered native script (Gujarati) is transliterated to card
@@ -439,7 +439,7 @@ test("fix #2 — native-script STT transcript for a long target still triggers t
     "Gujarati transcript must romanize to card-style ASCII");
 });
 
-test("S1 dual-pass — disagreeing passes score the transcript FARTHER from the target (no toward-target tie-break)", async () => {
+test("S1 dual-pass, disagreeing passes score the transcript FARTHER from the target (no toward-target tie-break)", async () => {
   // The mini pass hears "hello world" (sim far below the target) while the
   // high-quality pass hears "kem cho" (sim = 1.0). Pre-S1, the toward-target
   // tie-break preferred "kem cho" and fast-passed the attempt. The S1 honesty
@@ -460,7 +460,7 @@ test("S1 dual-pass — disagreeing passes score the transcript FARTHER from the 
   assert.ok(llmCallCount >= 1, "the farther transcript must go down the LLM path");
 });
 
-test("S1 dual-pass — both STT passes run on every scored attempt, even a strong first pass", async () => {
+test("S1 dual-pass, both STT passes run on every scored attempt, even a strong first pass", async () => {
   // Pre-S1, the high-quality pass only ran when the first pass looked weak.
   // Now both passes run unconditionally so the scored transcript can never be
   // a single pass's fabrication.
@@ -474,13 +474,13 @@ test("S1 dual-pass — both STT passes run on every scored attempt, even a stron
     `expected exactly 2 STT calls on a strong attempt, got ${sttCallCount}`);
 });
 
-test("fix #4 — near-match-floor preserves LLM passed=false when score is above floor but LLM signals a problem", async () => {
+test("fix #4, near-match-floor preserves LLM passed=false when score is above floor but LLM signals a problem", async () => {
   // applyScoreGuards unit test: when target.sim ≥ 0.90 and score is already
   // at or above the floor, the guard must return passed = score >= 80 (the
   // LLM's own score determines pass), not unconditionally passed=true.
   //
   // Scenario: sim ≈ 0.91 → floor ≈ 82. LLM gave score=91 but passed=false
-  // (unusual, but valid — the LLM may signal tonal ambiguity). With the fix,
+  // (unusual, but valid, the LLM may signal tonal ambiguity). With the fix,
   // score=91 ≥ 80 → passed=true. The LLM's passed field is overridden by the
   // score math, which is correct: 91 genuinely is a pass.
   const { applyScoreGuards } = await import("../lib/pronunciationGuards");
@@ -497,7 +497,7 @@ test("fix #4 — near-match-floor preserves LLM passed=false when score is above
   assert.equal(a.passed, true, "score=91 ≥ 80 → must pass regardless of LLM's passed field");
   assert.equal(a.guard, undefined, "no guard fires when score is already above floor");
 
-  // Case B: score above floor but below 80 — impossible in practice (floor is
+  // Case B: score above floor but below 80, impossible in practice (floor is
   // always ≥ 80), so we just confirm the floor-rescue still works.
   const b = applyScoreGuards({
     score: 55,
@@ -511,7 +511,7 @@ test("fix #4 — near-match-floor preserves LLM passed=false when score is above
   assert.equal(b.score, 100);
 });
 
-test("fix #1 — wrong-but-similar phrase scenario: compareToTarget confirms both high target-sim and high sibling-sim are reachable", async () => {
+test("fix #1, wrong-but-similar phrase scenario: compareToTarget confirms both high target-sim and high sibling-sim are reachable", async () => {
   // This is a unit-level proof that the wrong-phrase-cap scenario the fast path
   // now guards against is real and reachable. A very short transcript ("na")
   // gives sim=1.0 against a target romanized "na" AND sim=1.0 against a sibling
@@ -533,11 +533,11 @@ test("fix #1 — wrong-but-similar phrase scenario: compareToTarget confirms bot
   assert.ok(targetSim.comparable && targetSim.sim >= 0.93,
     `target sim must be ≥ 0.93, got ${targetSim.sim} (comparable=${targetSim.comparable})`);
   assert.ok(siblingNaSim.comparable && siblingNaSim.sim >= 0.93,
-    `sibling sim must be ≥ 0.93, got ${siblingNaSim.sim} — confirms fast-path guard is necessary`);
+    `sibling sim must be ≥ 0.93, got ${siblingNaSim.sim}, confirms fast-path guard is necessary`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Part E — DB-backed wrong-phrase-cap integration test
+// Part E, DB-backed wrong-phrase-cap integration test
 //
 // When phraseId IS provided the route fetches sibling phrases from the DB and
 // checks whether the transcript matches any of them at sim ≥ 0.80. If so, it
@@ -642,7 +642,7 @@ describe("wrong-phrase-cap (DB-backed path): phraseId triggers sibling fetch", (
       body: JSON.stringify({
         phraseId: targetPhraseId,
         // targetNative/Romanized/English are required by the schema even when
-        // phraseId is supplied — the server overwrites them from the DB anyway.
+        // phraseId is supplied, the server overwrites them from the DB anyway.
         targetNative: "કેમ છો",
         targetRomanized: "kem chho",
         targetEnglish: "How are you",
@@ -653,7 +653,7 @@ describe("wrong-phrase-cap (DB-backed path): phraseId triggers sibling fetch", (
     const json = await res.json().catch(() => null) as any;
 
     assert.equal(res.status, 200, `expected 200, got ${res.status}: ${JSON.stringify(json)}`);
-    // The wrong-phrase-cap must have fired — the LLM must have been called.
+    // The wrong-phrase-cap must have fired, the LLM must have been called.
     // llmCallCount=0 would mean the fast-path returned passed=true without ever
     // checking the sibling phrases, which is the regression we are guarding against.
     assert.ok(

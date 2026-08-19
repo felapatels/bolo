@@ -1,10 +1,10 @@
 // Build 31 item 1: TrainEngine is now the multicolor brand character (web
-// train-svg.tsx parity) — indigo body, teal trim, slate chassis, tinted
-// headlamp — instead of a single-color silhouette. jest can't see pixels,
+// train-svg.tsx parity), indigo body, teal trim, slate chassis, tinted
+// headlamp, instead of a single-color silhouette. jest can't see pixels,
 // but it can pin the contract: every palette role appears in the rendered
 // tree, the headlamp is the ONLY tint-colored surface, and the wrapper keeps
 // the caller's layout box (width x height) with the Svg absolutely
-// positioned + numerically sized (TicketParts sizing contract — the build-28
+// positioned + numerically sized (TicketParts sizing contract, the build-28
 // full-screen regression must stay impossible).
 
 import React from 'react';
@@ -73,7 +73,7 @@ describe('TrainEngine multicolor art', () => {
     expect(wrap.width).toBe(56);
     expect(wrap.height).toBe(37);
 
-    // No percentage sizing anywhere in the rendered tree — the rn-svg
+    // No percentage sizing anywhere in the rendered tree, the rn-svg
     // percentage-height Yoga inflation (build 28) must stay impossible.
     expect(JSON.stringify(screen.toJSON())).not.toContain('"%');
   });

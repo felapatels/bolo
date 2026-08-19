@@ -7,10 +7,10 @@ import {
 // Streak repair eligibility (owner ruling, Aug 7 2026).
 //
 // This codebase stores no streak. `currentStreakDays` is derived on every read
-// from the days the learner EARNED — completed a lesson or played a mini-game,
-// in any language (lib/streakDays.ts) — and a
+// from the days the learner EARNED, completed a lesson or played a mini-game,
+// in any language (lib/streakDays.ts), and a
 // station pause "covers" a missed day so the ladder climbs straight through
-// it. A break therefore destroys no data — it destroys CONTIGUITY, one empty
+// it. A break therefore destroys no data, it destroys CONTIGUITY, one empty
 // day between two real runs. So a repair writes no number: it buys the same
 // kind of cover a pause buys, after the fact, for one specific day.
 //
@@ -23,7 +23,7 @@ import {
 // A day is repairable when:
 //   1. it has no practice and no existing cover (it is a real hole),
 //   2. the day BEFORE it has practice or a cover (there is a run to reconnect
-//      — otherwise the learner was simply away, which is not a slip), and
+//     , otherwise the learner was simply away, which is not a slip), and
 //   3. it lies within STREAK_REPAIR_WINDOW_DAYS of today.
 // Scanning backwards from yesterday, the first hole is the only candidate, and
 // every day above it is covered by construction. At a two-day window that
@@ -38,8 +38,8 @@ import {
 // streak at once (routes/learning.ts HOOK 6). A day earned in any language is
 // not a day lost, so there is nothing to sell.
 //
-// Task #1081: "activity" here is now exactly what the banner counts — a lesson
-// completed or a mini-game played — read from the one source in
+// Task #1081: "activity" here is now exactly what the banner counts, a lesson
+// completed or a mini-game played, read from the one source in
 // lib/streakDays.ts. A day of bare attempts that finished nothing is a hole in
 // BOTH, so the offer and the banner cannot disagree about whether it exists.
 export const STREAK_REPAIR_WINDOW_DAYS = 2;
@@ -53,7 +53,7 @@ export const STREAK_REPAIR_REASON = "spend_streak_repair" as const;
 /**
  * The ledger key for one repair: the user is the row's user_id and the day is
  * the ref, so the unique (user, reason, ref) index makes a replay free. There
- * is no client-supplied component — the caller never names the day.
+ * is no client-supplied component, the caller never names the day.
  */
 export function streakRepairRefId(dayKey: string): string {
   return `streak:${dayKey}`;
@@ -113,7 +113,7 @@ export function findRepairableBreak(
   return { ok: true, dayKey: hole, restoresStreakDays };
 }
 
-// The earned-day scan that used to live here (loadPracticeDayKeys — any
+// The earned-day scan that used to live here (loadPracticeDayKeys, any
 // attempt, any language) was HALF THE DEFECT this file's offer was built on:
 // the banner counted attempt days in the active language while this counted
 // them in all of them, so the card could promise a number the banner could

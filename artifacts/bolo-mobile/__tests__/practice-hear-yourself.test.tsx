@@ -9,7 +9,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ---------------------------------------------------------------------------
-// "Hear yourself" — after a scored attempt the result card shows a button
+// "Hear yourself", after a scored attempt the result card shows a button
 // that plays the learner's own recording back to them. It is always available
 // (not gated by the spoken-feedback mute preference) and works independently
 // of coach audio.
@@ -87,7 +87,7 @@ jest.mock('expo-audio', () => ({
   useAudioRecorderState: () => ({}),
 }));
 
-// Default audio mock — onDone fires immediately so coach/feedback playback
+// Default audio mock, onDone fires immediately so coach/feedback playback
 // resolves cleanly. Individual tests override this for self-playback tests
 // where we need to control when onDone fires.
 jest.mock('@/lib/audio', () => ({
@@ -232,7 +232,7 @@ describe('Hear yourself button', () => {
     await renderReady();
     await recordAndScore();
 
-    // Install the deferred mock AFTER scoring — only the self-play tap will
+    // Install the deferred mock AFTER scoring, only the self-play tap will
     // receive it, so stopFn belongs exclusively to the self-play handle.
     const stopFn = jest.fn();
     let capturedOnDone: (() => void) | undefined;
@@ -277,14 +277,14 @@ describe('Hear yourself button', () => {
     );
     (playBase64Audio as jest.Mock).mockClear();
 
-    // First tap — start playback.
+    // First tap, start playback.
     await act(async () => {
       fireEvent.press(screen.getByTestId('hear-yourself-button'));
     });
 
     expect(playBase64Audio).toHaveBeenCalledTimes(1);
 
-    // Second tap — should stop.
+    // Second tap, should stop.
     await act(async () => {
       fireEvent.press(screen.getByTestId('hear-yourself-button'));
     });

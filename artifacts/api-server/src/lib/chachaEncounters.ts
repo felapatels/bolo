@@ -191,8 +191,8 @@ export async function selectSpokenPhrase(opts: {
     english: phrasesTable.english,
   };
 
-  // Pool A: mastered. Mastery is the house definition — best attempt score at
-  // or above the threshold — read straight off attempts rather than re-derived.
+  // Pool A: mastered. Mastery is the house definition, best attempt score at
+  // or above the threshold, read straight off attempts rather than re-derived.
   const [mastered] = await db
     .select(columns)
     .from(phrasesTable)
@@ -255,7 +255,7 @@ export async function selectSpokenPhrase(opts: {
  *
  * Both filters are hard: never something already owned, never something the
  * balance cannot cover. When nothing qualifies he simply has nothing to sell
- * today — that is an ordinary encounter, not an error. Cheapest-first keeps
+ * today, that is an ordinary encounter, not an error. Cheapest-first keeps
  * the offer reachable rather than aspirational.
  */
 export function selectOffer(
@@ -287,7 +287,7 @@ export class UnknownStationError extends Error {
 /**
  * The learner has not got this far yet. Where he stands is arithmetic, so a
  * caller could otherwise post every qualifying index in every seeded language
- * and collect the chai without ever practising — including in a language their
+ * and collect the chai without ever practising, including in a language their
  * plan has not opened, whose later stops are unreachable for exactly that
  * reason. Reach is read from the same unlock derivation the phrase-serving
  * routes use, so it cannot disagree with what the map lets them board.

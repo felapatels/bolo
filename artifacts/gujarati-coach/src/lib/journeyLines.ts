@@ -1,14 +1,14 @@
-// Spec D1b: the 22 themed rail lines of the journey map — structured content,
+// Spec D1b: the 22 themed rail lines of the journey map, structured content,
 // never hardcoded in components (acceptance 9). Each language renders as one
 // line; the six zones map positionally onto the six categories in DB
 // sort_order. The id joins in JOURNEY_ZONES are authoritative; its title
-// strings are a loading-state fallback only — live zone titles come from the
+// strings are a loading-state fallback only, live zone titles come from the
 // categories listing the journey clients already fetch (Task #906), so a
 // server-side rename needs no client release. Zone geographic names are
 // category-independent:
 // Z1-Z6 columns of the approved naming table apply in category order, the
 // zone's name appears on its sign/postcard, and inner stations are numbered
-// ("Stop N of M" — decision 4). Labels are English-only for v1 (decision 6);
+// ("Stop N of M", decision 4). Labels are English-only for v1 (decision 6);
 // the single Gujarati accent string "બોલો રેલ" lives on the boarding-pass
 // header, nowhere else.
 
@@ -94,7 +94,7 @@ export interface JourneyLine {
    * to stay in the region the line already travels.
    *
    * Geography rather than language content, which is why it could be authored
-   * here at all — but a local eye should still check them before they ship.
+   * here at all, but a local eye should still check them before they ship.
    */
   zones2: readonly [string, string, string, string, string, string];
 }

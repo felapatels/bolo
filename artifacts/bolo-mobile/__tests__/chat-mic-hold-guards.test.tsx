@@ -5,16 +5,16 @@ import { render, screen, fireEvent, act } from '@testing-library/react-native';
 // R6 (32.1): the four-legged mic-hold guards on the Bolo chat screen
 // (app/(app)/(tabs)/chat.tsx):
 //
-//   1. Positive hold confirmation — a permission grant (or any startup await
+//   1. Positive hold confirmation, a permission grant (or any startup await
 //      resolving) with no live press must NEVER start a recording. The screen
 //      tears down to idle without touching the recorder.
-//   2. Abort, never stop-and-submit — a release that lands before the
+//   2. Abort, never stop-and-submit, a release that lands before the
 //      minimum recording duration discards the clip instead of submitting a
 //      garbage turn.
 //   3. (covered in code, not directly testable through events) playback is
 //      re-stopped immediately before record().
 //   4. The idle pre-warm must never be the thing that prompts for mic
-//      permission — it only runs when permission is already granted.
+//      permission, it only runs when permission is already granted.
 // ---------------------------------------------------------------------------
 
 /** Deferred promise helper so tests control exactly when startup resolves. */

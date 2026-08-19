@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  *
  * Written for the practice result card, where the coach's spoken feedback runs
  * to seven or eight lines on a phone and pushes the action buttons below the
- * fold — the learner had to scroll to reach "Next" after every single attempt.
+ * fold, the learner had to scroll to reach "Next" after every single attempt.
  * The words are worth reading, so they are clamped rather than shortened.
  *
  * The toggle only appears when the text actually overflows, measured after

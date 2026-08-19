@@ -17,7 +17,7 @@ import {
 //   unique (user, reason, ref) index makes a purchase once-ever and a replay
 //   free. Nothing device-side; a reinstall changes nothing.
 //
-//   WHAT IS WORN is user_token_state.equipped_outfit — a mutable choice, so it
+//   WHAT IS WORN is user_token_state.equipped_outfit, a mutable choice, so it
 //   cannot live in an append-only ledger. Equipping an owned outfit costs
 //   nothing and unequipping is a write of NULL.
 //
@@ -42,7 +42,7 @@ export type OutfitId = (typeof OUTFIT_IDS)[number];
 
 /**
  * A garment redresses the whole bird; an accessory adds one thing to her.
- * The distinction is not decoration — it sets the price band and tells the
+ * The distinction is not decoration, it sets the price band and tells the
  * shop how to frame the item's thumbnail (a hat is unreadable in a full-body
  * crop). Clients group the rack by this, so a new section costs nothing.
  */
@@ -145,11 +145,11 @@ export function getOutfit(id: string): OutfitCatalogEntry | null {
   return OUTFIT_CATALOG.find((o) => o.id === id) ?? null;
 }
 
-/** `outfit:<id>` — composed server-side; never accepted from a client. */
+/** `outfit:<id>`, composed server-side; never accepted from a client. */
 /**
  * The price of an item, from the catalog and nowhere else. There is exactly
  * one answer to "what does this cost", so no caller can pair an id with a
- * price that disagrees with it — the reason this exists rather than a cost
+ * price that disagrees with it, the reason this exists rather than a cost
  * argument threaded through the money path.
  */
 export function outfitCost(outfitId: OutfitId): number {

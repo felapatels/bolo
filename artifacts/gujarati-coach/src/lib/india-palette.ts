@@ -1,7 +1,7 @@
 // The bazaar palette: FIXED scene colours, deliberately not design tokens.
 //
-// Every surface that paints a piece of India — the Bolo Bazaar storefront, the
-// Chai wallet's art tiles, the chai stall band — draws from this one list so
+// Every surface that paints a piece of India, the Bolo Bazaar storefront, the
+// Chai wallet's art tiles, the chai stall band, draws from this one list so
 // the app's warm register stays consistent instead of each screen inventing
 // its own saffron. These colours do NOT flip with the theme: like the chai
 // stall's art, they are a painted scene and must read the same in light and
@@ -12,8 +12,8 @@ import type { CSSProperties } from "react";
 /**
  * First Class gold engine: four CSS-var pins, applied on a wrapper around the
  * TrainEngine only. Distinct from INDIA.gold / ExpressTile which uses #F0A32B
- * with navy chassis + teal trim. This palette is all-gold — a monochrome
- * burnished engine — so it reads as a different object on a screen showing both.
+ * with navy chassis + teal trim. This palette is all-gold, a monochrome
+ * burnished engine, so it reads as a different object on a screen showing both.
  *
  * Apply with `className="contents"` so the wrapper is invisible to layout.
  */
@@ -33,7 +33,7 @@ export const INDIA = {
   cloth: "#FFF7EA",
   /** Signboard enamel: the deep green of an old shop board. */
   board: "#14503F",
-  /** The shadow under that green — spend buttons press into it. */
+  /** The shadow under that green, spend buttons press into it. */
   boardDeep: "#0C3428",
   /** Marigold: torans, board edging, price flags, festival dots. */
   gold: "#F0A32B",

@@ -4,7 +4,7 @@
 //   1. A history row with valid categoryId + phraseId shows the retake icon and
 //      calls router.push with the correct URL when tapped.
 //   2. A history row with null categoryId or null phraseId renders as a plain
-//      (non-pressable) View — no retake icon and no onPress handler fires.
+//      (non-pressable) View, no retake icon and no onPress handler fires.
 
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
@@ -309,7 +309,7 @@ describe('progress stat grid', () => {
       totalAttempts: 31,
       bestScore: 92,
       currentStreakDays: 3,
-      // Still on the payload — the display is what was removed.
+      // Still on the payload, the display is what was removed.
       speakingStreakDays: 2,
     };
 

@@ -1,7 +1,6 @@
 // Shared bazaar dressing: the awning and the toran.
 //
-// Both are pure decoration — no state, no interaction, always aria-hidden —
-// and both draw from the fixed INDIA palette rather than theme tokens (see
+// Both are pure decoration, no state, no interaction, always aria-hidden, // and both draw from the fixed INDIA palette rather than theme tokens (see
 // lib/india-palette.ts for why). The Bolo Bazaar storefront and the Chai
 // wallet share them so a stall looks like a stall wherever it appears.
 import { INDIA } from "@/lib/india-palette";
@@ -15,7 +14,7 @@ export const AWNING_STRIPES = `repeating-linear-gradient(90deg, ${INDIA.stripe} 
  * ONE painted cloth, not a band plus a row of tabs: the stripes and the
  * scallops are the same background, and the hem is carved out of it with a
  * repeating circular mask. Tiling the mask at the stripe width is what keeps
- * every scallop centred on its own stripe — the earlier version laid an
+ * every scallop centred on its own stripe, the earlier version laid an
  * independent flex row of rounded blocks under the band, so the two grids
  * drifted apart and the hem read as loose red squares.
  */

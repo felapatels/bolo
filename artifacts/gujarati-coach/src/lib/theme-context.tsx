@@ -11,7 +11,7 @@ import { useGetAccount, getGetAccountQueryKey } from "@workspace/api-client-reac
 // The colour theme the learner picks in Account settings. "system" follows the
 // OS preference; "light"/"dark" force it. The choice is applied by toggling the
 // `.dark` class on <html> (the stylesheet keys every colour token off it) and is
-// persisted server-side so it follows the learner across devices — with a
+// persisted server-side so it follows the learner across devices, with a
 // localStorage cache so the correct theme paints immediately on load (no flash)
 // and works for signed-out visitors too.
 
@@ -79,7 +79,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverTheme]);
 
-  // Apply on every change, and — while on "system" — keep in sync with the OS.
+  // Apply on every change, and, while on "system", keep in sync with the OS.
   useEffect(() => {
     applyTheme(theme);
     if (theme !== "system") return;

@@ -118,7 +118,7 @@ test("a consumable purchase grants no subscription, even naming our entitlement"
   // The dashboard-misconfigured case: someone attaches the all-access
   // entitlement to the Chai pack product, so the consumable event arrives
   // naming it. The event TYPE is ignored for subscription purposes, so the
-  // guard still holds — belt (type) and braces (named entitlement).
+  // guard still holds, belt (type) and braces (named entitlement).
   const apply = applyFromEvent(
     event({
       type: "NON_SUBSCRIPTION_PURCHASE",

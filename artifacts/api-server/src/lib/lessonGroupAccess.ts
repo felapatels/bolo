@@ -1,4 +1,4 @@
-// Server-side sequential-unlock guard for lesson groups — the ONE code path
+// Server-side sequential-unlock guard for lesson groups, the ONE code path
 // shared by the journey listing and every phrase-serving route, so the map
 // can never disagree with what practice actually serves.
 //
@@ -11,13 +11,12 @@
 //
 // CALLER CONTRACT: every entitlement gate (locked language 402, sentence
 // feature 402, premium filtering) runs BEFORE this guard. This module assumes
-// the caller is allowed to see the language at all — in particular it must
+// the caller is allowed to see the language at all, in particular it must
 // never run for a showroom/teaser caller, because the completion latch must
 // never be written for a language the caller's plan doesn't own.
 //
 // The per-phrase serve rule is isPhraseServable():
-//   group unlocked ∨ lessonGroupId NULL ∨ prior attempt (retake exemption —
-//   a Retake deep-link resolves against the category list, so a phrase the
+//   group unlocked ∨ lessonGroupId NULL ∨ prior attempt (retake exemption, //   a Retake deep-link resolves against the category list, so a phrase the
 //   learner already practiced must stay servable even from a locked group).
 import {
   db,
@@ -290,7 +289,7 @@ export async function zoneGateAllows(
  * Derives every group's unlock status and latches newly observed completions.
  * Latch rationale: replenishment grows a group's denominator with fresh
  * phrases, which could dilute a completed ratio below the threshold and
- * re-lock the successor — so `completed` is persisted the first time it is
+ * re-lock the successor, so `completed` is persisted the first time it is
  * observed. Idempotent write-through; 'completed' outranks 'tested_out'.
  */
 export async function deriveAndLatchUnlock(
@@ -397,7 +396,7 @@ export async function deriveAndLatchUnlock(
 
 /**
  * The one-call guard for phrase-serving routes: unlocked group ids for
- * (user, category, language), reading latch + live derivation — the same
+ * (user, category, language), reading latch + live derivation, the same
  * logic as the journey route.
  */
 export async function getUnlockedGroupIds(

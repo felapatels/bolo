@@ -152,7 +152,7 @@ type GameGroup = {
  */
 const GAME_GROUPS: GameGroup[] = [
   // Vocabulary leads so Luggage Match (first card of this group) appears in
-  // the top-left slot — matching the mobile hub's ordering.
+  // the top-left slot, matching the mobile hub's ordering.
   {
     id: "vocabulary",
     title: "Vocabulary",
@@ -207,11 +207,11 @@ function resolveFeaturedGame(): GameDef | undefined {
  * (marigold, kumkum, peacock, jamun, terracotta, rani pink), so the hub reads
  * as a bazaar wall of boards rather than a grid of white cards. Because the
  * tile carries the color, all card text is cream/white and the badges sit on
- * a scrim — the design system's foreground tokens are deliberately not used
+ * a scrim, the design system's foreground tokens are deliberately not used
  * INSIDE a tile (they would vanish on these backgrounds), exactly as the chai
  * stall and Bolo Bazaar pin their painted colors.
  *
- * Gated cards render in FULL COLOR — the All-Access badge and lock chip carry
+ * Gated cards render in FULL COLOR, the All-Access badge and lock chip carry
  * the gate, never a gray or washed-out tile.
  */
 type GameColor = {
@@ -267,7 +267,7 @@ function boardStyle(c: GameColor): CSSProperties {
 /**
  * The vignettes (game-previews.css) are authored against the LIGHT theme
  * tokens. They now sit on a cream medallion inside a saturated board, so the
- * tokens are pinned here rather than inherited — otherwise dark mode would
+ * tokens are pinned here rather than inherited, otherwise dark mode would
  * paint dark-theme shapes onto a cream tile.
  */
 const MEDALLION_INK: CSSProperties = {
@@ -292,7 +292,7 @@ export default function GamesPage() {
   const plusReady = isPlus === true && !isLoading;
   // Task 986 step-in: the card being navigated into scales slightly toward
   // the viewer while the route transitions. State only ever selects the
-  // animate target — navigation itself is the Link's default behavior and is
+  // animate target, navigation itself is the Link's default behavior and is
   // never delayed or intercepted.
   const [enteredId, setEnteredId] = useState<string | null>(null);
   const featuredGame = resolveFeaturedGame();
@@ -310,7 +310,7 @@ export default function GamesPage() {
             <p className="text-sm text-muted-foreground">Play your way to fluency</p>
           </div>
           <div className="ml-auto">
-            {/* Task 986: Bolo reacts to the hub opening — one whole-image
+            {/* Task 986: Bolo reacts to the hub opening, one whole-image
                 bounce timed to the cascade start, once per mount, never
                 looping (canonical mascot rule: whole-image transforms only).
                 Reduced motion renders the mascot perfectly still. */}
@@ -325,7 +325,7 @@ export default function GamesPage() {
       </div>
 
       <div className="mx-auto max-w-2xl space-y-7 px-4 pt-6 lg:px-6">
-        {/* Featured slot — one promoted card above the catalog. Its content
+        {/* Featured slot, one promoted card above the catalog. Its content
             comes from FEATURED_SLOT, never from hard-coded JSX. */}
         {featuredGame && (
           <FeaturedCard
@@ -361,8 +361,7 @@ export default function GamesPage() {
                   const entered = enteredId === game.id;
                   const Card = (
                     <motion.div
-                      // Staggered entrance cascade (task 986: pronounced —
-                      // larger rise, scale from 0.9, springs.poppy overshoot).
+                      // Staggered entrance cascade (task 986: pronounced, // larger rise, scale from 0.9, springs.poppy overshoot).
                       // Cards stay interactive throughout (no pointer-events
                       // gate). Under reduced motion this collapses to an
                       // instant fade and the gesture transforms are dropped.
@@ -573,7 +572,7 @@ function GameCard({
       data-testid={`game-card-${game.id}`}
     >
       {/* Preview medallion + badge row. Gated cards keep FULL-COLOR art and a
-          live ambient loop — the All-Access badge and lock chip carry the
+          live ambient loop, the All-Access badge and lock chip carry the
           gate, so nothing here is grayed out or paused. */}
       <div className="relative flex items-start justify-between gap-2">
         <div

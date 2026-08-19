@@ -3,7 +3,7 @@
  *
  * The race: stopRecording's onstop fires a background getUserMedia prewarm;
  * if startRecording begins before that promise resolves, it claims streamRef,
- * then the stale prewarm overwrites streamRef — and the next releaseStream
+ * then the stale prewarm overwrites streamRef, and the next releaseStream
  * stops the wrong stream, leaving the active recorder's tracks live (mic leak).
  *
  * The fix: always stop recorder.stream tracks directly on stop (not streamRef),
@@ -15,7 +15,7 @@ import { renderHook, act } from "@testing-library/react";
 import { useVoiceRecorder } from "@workspace/integrations-openai-ai-react";
 
 // ---------------------------------------------------------------------------
-// Fake track — tracks stop() calls and readyState
+// Fake track, tracks stop() calls and readyState
 // ---------------------------------------------------------------------------
 function makeFakeTrack(id = "t"): {
   id: string;
@@ -154,7 +154,7 @@ describe("useVoiceRecorder – stream ownership on rapid stop/start cycles", () 
 
   test("stale prewarm stream is discarded when second recording starts first", async () => {
     // prewarmStream resolves *after* the second startRecording has already
-    // acquired lateStream — so the stale prewarm must discard its own tracks.
+    // acquired lateStream, so the stale prewarm must discard its own tracks.
     let resolvePrewarm!: (s: MediaStream) => void;
     const { stream: earlyStream } = makeFakeStream("early");
     const { stream: prewarmStream, tracks: prewarmTracks } = makeFakeStream("prewarm");
@@ -165,7 +165,7 @@ describe("useVoiceRecorder – stream ownership on rapid stop/start cycles", () 
       callIndex++;
       if (callIndex === 1) return earlyStream;
       if (callIndex === 2) {
-        // The prewarm that fires after the first stop — resolve it late.
+        // The prewarm that fires after the first stop, resolve it late.
         return new Promise<MediaStream>((res) => {
           resolvePrewarm = () => res(prewarmStream);
         });

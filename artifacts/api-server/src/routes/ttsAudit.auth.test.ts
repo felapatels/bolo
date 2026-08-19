@@ -2,7 +2,7 @@
  * The audit endpoint deletes and re-synthesizes cached audio for the whole
  * catalog, and it lives in the router's PUBLIC section (an operator driving it
  * has no user session). Its shared secret is therefore the only thing standing
- * between the internet and a bulk rewrite of every clip — these tests pin that
+ * between the internet and a bulk rewrite of every clip, these tests pin that
  * it fails closed in every direction, and that nothing expensive runs before
  * the check.
  */

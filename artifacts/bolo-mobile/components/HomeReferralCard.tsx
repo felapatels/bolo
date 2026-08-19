@@ -1,4 +1,4 @@
-// Task #1049: the referral entry point on mobile home — the twin of web's
+// Task #1049: the referral entry point on mobile home, the twin of web's
 // components/home-referral-card.tsx. Compact by design: gift icon, headline,
 // one line of copy, one button that opens the native share sheet with the
 // learner's referral link. It never shows the raw code, the URL text, the
@@ -7,7 +7,7 @@
 //
 // The link comes from lib/referral (which builds it through the one shared
 // @workspace/referral-link module the web app uses), and the Chai figure is
-// that module's REFERRAL_REWARD_CHAI — contract-tested against the server's
+// that module's REFERRAL_REWARD_CHAI, contract-tested against the server's
 // reward constants, never a literal.
 import React from 'react';
 import { Share, StyleSheet, Text, View } from 'react-native';
@@ -39,7 +39,7 @@ export function HomeReferralCard() {
         url: link,
       });
     } catch {
-      // The learner dismissed the sheet or sharing is unavailable — no-op.
+      // The learner dismissed the sheet or sharing is unavailable, no-op.
     }
   };
 

@@ -6,7 +6,7 @@ import { ANALYTICS_EVENTS, type AnalyticsEvent } from "./analyticsEvents";
 //
 // Payload policy (enforced by convention + review): NO phrase content,
 // transcripts, audio, or user email. User id and language code are fine.
-// Autocapture and automatic pageviews are OFF — the event set in
+// Autocapture and automatic pageviews are OFF, the event set in
 // analyticsEvents.ts is the complete, deliberate list.
 
 // Committed production fallback: a PostHog project key is public and
@@ -37,7 +37,7 @@ export function initAnalytics(): void {
   initialized = true;
 }
 
-/** Identify by Clerk user id only — never email or name. */
+/** Identify by Clerk user id only, never email or name. */
 export function identifyUser(userId: string | null): void {
   if (!initialized) return;
   if (userId) posthog.identify(userId);

@@ -23,8 +23,8 @@ import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { BADGE_CATALOG } from "../lib/badges";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
-// The read endpoints learners actually look at — the badge wall (GET /badges)
-// and the progress summary (GET /progress/summary) — assemble earned/locked
+// The read endpoints learners actually look at, the badge wall (GET /badges)
+// and the progress summary (GET /progress/summary), assemble earned/locked
 // badge status, earned dates, XP, streak, mastery counts, and averages from a
 // learner's stored attempts and badge rows. A regression in how those numbers
 // are stitched together would quietly show learners the wrong progress with
@@ -34,7 +34,7 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 //
 // All rows are scoped to a throwaway user id + a test-only language code (kept
 // distinct from the other route suites so they can share the live Postgres
-// without colliding) and cleaned up after — see .agents/memory/api-server-tests.md.
+// without colliding) and cleaned up after, see .agents/memory/api-server-tests.md.
 const TEST_USER_ID = "test_progress_route";
 const LANG = "__test_lang_progress";
 const CATEGORY_SLUG = "__test_cat_progress";
@@ -280,7 +280,7 @@ before(async () => {
   //   unpracticed:  no attempts
   // => totalAttempts 6, phrasesPracticed 4, phrasesMastered 2, bestScore 100,
   //    xp 380, averageScore round(380/6)=63, streak 1, attemptsToday 6.
-  // The streak is 1 because a and b — the whole of station 1 — both clear the
+  // The streak is 1 because a and b, the whole of station 1, both clear the
   // item rule today (100, and best-of-day 90); c and d belong to no station,
   // so their attempts contribute nothing to it.
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
@@ -335,7 +335,7 @@ before(async () => {
 after(async () => {
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
   await db.delete(badgesTable).where(eq(badgesTable.userId, TEST_USER_ID));
-  // xp_ledger references users and languages — delete before those tables.
+  // xp_ledger references users and languages, delete before those tables.
   await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, TEST_USER_ID));
   await new Promise<void>((resolve, reject) =>
     server.close((err) => (err ? reject(err) : resolve())),
@@ -379,7 +379,7 @@ test("GET /badges annotates the full catalog with earned status, dates, and live
     assert.equal(b.earnedAt, EARNED_AT.toISOString(), `${key} earnedAt`);
   }
 
-  // Everything else is locked with no earned date — even badges the current
+  // Everything else is locked with no earned date, even badges the current
   // metrics would satisfy (e.g. the user has attempts but hasn't been awarded
   // phrases_10). Earned status is driven by the stored rows, not live metrics.
   for (const def of BADGE_CATALOG) {

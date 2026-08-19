@@ -82,7 +82,7 @@ beforeEach(() => {
 // Phrase Builder
 // ---------------------------------------------------------------------------
 
-describe("Phrase Builder setup screen — plan label", () => {
+describe("Phrase Builder setup screen, plan label", () => {
   test('shows "All-Access" when the learner is subscribed', () => {
     h.isPlus = true;
     renderPage(<PhraseBuilderPage />);
@@ -93,7 +93,7 @@ describe("Phrase Builder setup screen — plan label", () => {
 
   test('shows "Free" during the loading window before entitlements resolve', () => {
     // isLoading=true keeps the root page from redirecting to /upgrade so the
-    // setup screen stays mounted — this is the flash window the task guards.
+    // setup screen stays mounted, this is the flash window the task guards.
     h.isPlus = false;
     h.isLoading = true;
     renderPage(<PhraseBuilderPage />);
@@ -107,7 +107,7 @@ describe("Phrase Builder setup screen — plan label", () => {
 // Speed Round
 // ---------------------------------------------------------------------------
 
-describe("Speed Round setup screen — plan label", () => {
+describe("Speed Round setup screen, plan label", () => {
   test('shows "All-Access" when the learner is subscribed', () => {
     h.isPlus = true;
     renderPage(<SpeedRoundPage />);

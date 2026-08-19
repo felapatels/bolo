@@ -5,15 +5,14 @@
 // time would either suspend the map or flash every signal through a wrong
 // state on the way to the right one. So the split here is:
 //
-//   waves      SESSION scoped  — in-memory only, per language
-//   stop-seen  SESSION scoped  — in-memory only, per language
-//   cleared    DEVICE  scoped  — AsyncStorage, HYDRATED once into an
+//   waves      SESSION scoped , in-memory only, per language
+//   stop-seen  SESSION scoped , in-memory only, per language
+//   cleared    DEVICE  scoped , AsyncStorage, HYDRATED once into an
 //                                in-memory cache that render reads
 //
 // "Session" on mobile is the app process: an in-memory Set dies with the
 // app exactly as sessionStorage dies with the tab, so the semantics match
-// web without touching disk. Waving is never shamed and never permanent —
-// an unclaimed first-clear Chai grant must stay claimable on a later run.
+// web without touching disk. Waving is never shamed and never permanent, // an unclaimed first-clear Chai grant must stay claimable on a later run.
 //
 // Every read below is synchronous and cheap, so the map can call them
 // during render; the only async work is hydration and the cleared write.
@@ -63,7 +62,7 @@ export async function hydrateClearedSignals(lang: string): Promise<void> {
     if (live) for (const gap of live) stored.add(gap);
     clearedCache.set(lang, stored);
   } catch {
-    // Unreadable storage still counts as hydrated — an empty set only
+    // Unreadable storage still counts as hydrated, an empty set only
     // re-offers an encounter the server will decline to pay twice.
     if (!clearedCache.has(lang)) clearedCache.set(lang, new Set());
   }

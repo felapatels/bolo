@@ -25,8 +25,8 @@ import GamesPage from "@/pages/games/index";
 
 /**
  * The curated shelves, in the exact order the hub must render them.
- * Vocabulary leads so Luggage Match — the hero, and the first card of that
- * group — takes the top-left slot, matching the mobile hub's ordering.
+ * Vocabulary leads so Luggage Match, the hero, and the first card of that
+ * group, takes the top-left slot, matching the mobile hub's ordering.
  */
 const GROUPS: Array<{ id: string; title: string; gameIds: string[] }> = [
   {

@@ -24,7 +24,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => {
-  // Stable references — new arrays on every call would trigger the
+  // Stable references, new arrays on every call would trigger the
   // useEffect([allPhrases]) shuffle on every render, causing an infinite loop.
   const CATS = [{ id: 42, title: 'Greetings', slug: 'greetings' }];
   const PHS = [{ id: 1, nativeScript: 'ક', romanized: 'ka', english: 'ka-en' }];
@@ -143,12 +143,12 @@ describe('combo burst overlay', () => {
     render(<SpeedRoundScreen />);
     act(() => { startGame(); });
 
-    // Two correct answers — streak=2, no milestone yet.
+    // Two correct answers, streak=2, no milestone yet.
     pressCorrect();
     pressCorrect();
     expect(screen.queryByText('HOT STREAK 🔥')).toBeNull();
 
-    // Third correct answer — streak=3, milestone fires.
+    // Third correct answer, streak=3, milestone fires.
     fireEvent.press(screen.getByText('ka-en'));
     expect(screen.getByText('HOT STREAK 🔥')).toBeOnTheScreen();
   });
@@ -160,7 +160,7 @@ describe('combo burst overlay', () => {
     // Build to 4 (past the streak=3 milestone so the overlay has already fired).
     for (let i = 0; i < 4; i++) pressCorrect();
 
-    // Fifth correct — streak=5.
+    // Fifth correct, streak=5.
     fireEvent.press(screen.getByText('ka-en'));
     expect(screen.getByText('ON FIRE ⚡')).toBeOnTheScreen();
   });
@@ -171,7 +171,7 @@ describe('combo burst overlay', () => {
 
     for (let i = 0; i < 9; i++) pressCorrect();
 
-    // Tenth correct — streak=10.
+    // Tenth correct, streak=10.
     fireEvent.press(screen.getByText('ka-en'));
     expect(screen.getByText('UNSTOPPABLE 💥')).toBeOnTheScreen();
   });
@@ -207,7 +207,7 @@ describe('combo burst overlay', () => {
     // Burst is still showing.
     expect(screen.getByText('HOT STREAK 🔥')).toBeOnTheScreen();
 
-    // Streak=4 (non-milestone) — burst stays but timer keeps running.
+    // Streak=4 (non-milestone), burst stays but timer keeps running.
     pressCorrect();
 
     // Streak=5 → "ON FIRE ⚡" replaces the previous burst; timer resets.
@@ -215,7 +215,7 @@ describe('combo burst overlay', () => {
     expect(screen.getByText('ON FIRE ⚡')).toBeOnTheScreen();
     expect(screen.queryByText('HOT STREAK 🔥')).toBeNull();
 
-    // Advance another 600 ms — original timer would have expired but the
+    // Advance another 600 ms, original timer would have expired but the
     // reset means the new burst is still within its 1 200 ms window.
     act(() => { jest.advanceTimersByTime(600); });
     expect(screen.getByText('ON FIRE ⚡')).toBeOnTheScreen();

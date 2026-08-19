@@ -41,7 +41,7 @@ import { localDayKey, previousDayKey } from "../lib/progressMetrics";
 //   - the day is chosen by the SERVER (empty request body, server-composed
 //     ledger key), so nothing about what is bought comes from the client,
 //   - a replay charges nothing, an empty tin is refused in the 409 Chai copy
-//     register, and refusals are never 402 — a broken streak is not a plan
+//     register, and refusals are never 402, a broken streak is not a plan
 //     boundary and must never become an upsell,
 //   - eligibility is re-derived on the write path, so a client that offers a
 //     repair it should not have still cannot buy one,
@@ -50,8 +50,8 @@ import { localDayKey, previousDayKey } from "../lib/progressMetrics";
 //
 // Task #1081 added the thing this surface most needed: PROMISE EQUALS
 // DELIVERY. The offer used to be priced on a different expression from the one
-// the home banner climbed — bare attempts in ALL languages here, bare attempts
-// in the ACTIVE language there — so the card could sell a 4-day streak to a
+// the home banner climbed, bare attempts in ALL languages here, bare attempts
+// in the ACTIVE language there, so the card could sell a 4-day streak to a
 // learner whose banner then read 1. Both now read lib/streakDays.ts, and the
 // multi-language test below is the shape that failed: completions spread
 // across two languages, asserting the promised number, the repair result and
@@ -105,7 +105,7 @@ let server: Server;
 let baseUrl: string;
 
 let categoryId: number;
-/** LANG_A station: two free items — the whole lesson a learner must clear. */
+/** LANG_A station: two free items, the whole lesson a learner must clear. */
 let groupA: { id: number; phraseIds: number[] };
 /** LANG_B station: two free items, so a completion can land in language B. */
 let groupB: { id: number; phraseIds: number[] };
@@ -117,7 +117,7 @@ function atNoon(dayKey: string): Date {
 }
 
 /**
- * Clears every item of a lesson group on one day — a lesson COMPLETED, which
+ * Clears every item of a lesson group on one day, a lesson COMPLETED, which
  * is what a streak day now means. Score 90 clears the item rule on the first
  * take (good or better), matching what the learner saw on the advance gate.
  */
@@ -148,7 +148,7 @@ async function completeLesson(
 /**
  * Attempts that finish nothing: one item of a two-item station, scored below
  * the good band and well short of the three-take pass. Under the ruling this
- * anchors no day — which is precisely what the bare-attempts test proves.
+ * anchors no day, which is precisely what the bare-attempts test proves.
  */
 async function bareAttempts(
   userId: string,
@@ -373,7 +373,7 @@ before(async () => {
   await completeLesson(MULTI_USER_ID, LANG_A, groupA.phraseIds, [D2]);
   await completeLesson(MULTI_USER_ID, LANG_B, groupB.phraseIds, [TODAY]);
 
-  // Mini-games only — no lesson ever finished. The clause has to stand on the
+  // Mini-games only, no lesson ever finished. The clause has to stand on the
   // game_sessions rows alone, because the phantom attempts beside them no
   // longer anchor anything.
   await playGame(GAME_USER_ID, LANG_A, [D2, TODAY]);
@@ -540,7 +540,7 @@ test("a day of bare attempts that finished no lesson is still a hole worth mendi
 });
 
 test("a mini-game played anchors the day, read from game_sessions not the phantom attempt", async () => {
-  // GAME_USER_ID has finished no lesson at all — only game sessions. The
+  // GAME_USER_ID has finished no lesson at all, only game sessions. The
   // phantom streak-only attempts that normally sit beside them are deliberately
   // absent from this fixture, because they are attempts and attempts no longer
   // count: the clause has to stand on the real rows.
@@ -563,7 +563,7 @@ test("a mini-game played anchors the day, read from game_sessions not the phanto
 
 test("a Free learner completes a station by clearing the items they were offered", async () => {
   // The station's second item is Plus-only. Requiring it would make the day
-  // structurally unearnable for a Free learner — the streak would silently
+  // structurally unearnable for a Free learner, the streak would silently
   // become a paid feature.
   const { earnedDayKeys, currentStreakDays } = await loadStreakLadder(FREE_USER_ID, null);
   assert.equal(earnedDayKeys.has(D2), true);
@@ -604,7 +604,7 @@ test("multi-language learner: the promise, the repair and the banner are one num
   const promised = offer.json.restoresStreakDays as number;
   assert.equal(promised, 3, "cover yesterday and both real days join up");
 
-  // Before the repair the banner reads today alone, in EITHER language — the
+  // Before the repair the banner reads today alone, in EITHER language, the
   // streak is user-level now, so the active language cannot change it.
   assert.equal(await bannerStreak(MULTI_USER_ID, LANG_A), 1);
   assert.equal(await bannerStreak(MULTI_USER_ID, LANG_B), 1);
@@ -642,7 +642,7 @@ test("repairing covers the day, charges once, and the streak re-derives", async 
   assert.equal(rows[0]!.delta, -STREAK_REPAIR_COST);
 
   // The point of the whole feature: no number was written anywhere. The streak
-  // is still derived, and it now climbs through the covered day — read back
+  // is still derived, and it now climbs through the covered day, read back
   // through THE source, the same one the offer was priced on.
   const covered = await listCoveredDayKeys(TEST_USER_ID);
   assert.ok(covered.has(D1), "the repaired day must read back as covered");
@@ -678,8 +678,7 @@ test("an empty tin is refused as 409, never as a paywall", async () => {
 });
 
 test("a client that asks anyway cannot buy a repair it was not offered", async () => {
-  // The write path re-derives eligibility rather than trusting the caller —
-  // there is no day in the request to forge in the first place.
+  // The write path re-derives eligibility rather than trusting the caller, // there is no day in the request to forge in the first place.
   const away = await post("/tokens/repair-streak", AWAY_USER_ID);
   assert.equal(away.status, 409);
   assert.equal(away.json.error, "break_too_long");
@@ -748,7 +747,7 @@ test("the repair that loses the race replays instead of being refused", async ()
 
 test("witness: reading the existing repair BEFORE the lock is what breaks", async () => {
   // The regression this ordering guards against, carried inline so the test
-  // above cannot quietly stop discriminating. Same race, same data — the only
+  // above cannot quietly stop discriminating. Same race, same data, the only
   // difference is that the existing-repair read happens before the money row
   // is taken, so the loser wakes with a stale "not yet repaired" and refuses a
   // day the learner has already paid for.

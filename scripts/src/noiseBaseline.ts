@@ -7,7 +7,7 @@
  * on one platform (iOS especially), or in one language.
  *
  * It reads ONLY the attempts table, and only derived values already stored
- * there — no audio, no recordings, no diagnostic sidecars. The
+ * there, no audio, no recordings, no diagnostic sidecars. The
  * transcript-bearing nocatch diagnostics stay on their pilot allowlist and are
  * not touched by this report.
  *
@@ -111,7 +111,7 @@ function num(v: unknown): number {
 }
 
 function dbOrDash(v: unknown): string {
-  return v == null ? "—" : `${Number(v).toFixed(1)}`;
+  return v == null ? "-" : `${Number(v).toFixed(1)}`;
 }
 
 async function q<T = Record<string, unknown>>(sql: string): Promise<T[]> {
@@ -122,7 +122,7 @@ async function q<T = Record<string, unknown>>(sql: string): Promise<T[]> {
 // ── Report ───────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  console.log(`\nBolo! noise production baseline — last ${DAYS} days`);
+  console.log(`\nBolo! noise production baseline, last ${DAYS} days`);
   console.log(
     "Derived measurements only (band, cause label, SNR estimate). No audio, no sidecars.",
   );
@@ -148,8 +148,8 @@ async function main(): Promise<void> {
     [
       ["spoken attempts", String(attempts)],
       ["distinct learners", String(num(overview?.learners))],
-      ["first attempt", overview?.first_at ? String(overview.first_at) : "—"],
-      ["last attempt", overview?.last_at ? String(overview.last_at) : "—"],
+      ["first attempt", overview?.first_at ? String(overview.first_at) : "-"],
+      ["last attempt", overview?.last_at ? String(overview.last_at) : "-"],
       [
         "with a band recorded",
         `${num(overview?.with_band)} (${pct(num(overview?.with_band), attempts)})`,
@@ -165,7 +165,7 @@ async function main(): Promise<void> {
     ],
   );
   if (attempts === 0) {
-    console.log("\nNo spoken attempts in this window — nothing to size.\n");
+    console.log("\nNo spoken attempts in this window, nothing to size.\n");
     return;
   }
   if (num(overview?.with_snr) === 0) {
@@ -208,7 +208,7 @@ async function main(): Promise<void> {
 
   // 3. Why they failed.
   const causes = await q(`${SPOKEN}
-    SELECT COALESCE(nocatch_cause, '(not recorded — predates instrumentation)') AS cause,
+    SELECT COALESCE(nocatch_cause, '(not recorded, predates instrumentation)') AS cause,
            count(*) AS n
     FROM spoken
     WHERE ${FAILED}
@@ -278,7 +278,7 @@ async function main(): Promise<void> {
     ]),
   );
 
-  // 6. Platform — the question iOS raises specifically.
+  // 6. Platform, the question iOS raises specifically.
   const byPlatform = await q(`${SPOKEN}
     SELECT ${PLATFORM} AS platform,
            count(*)                                                   AS n,

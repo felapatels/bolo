@@ -1,7 +1,7 @@
 // Build 35 mobile parity: the mobile quick-game roster, the counterpart of
 // the web roster in gujarati-coach/src/lib/quick-games.ts.
 //
-// This module is DATA ONLY. No quick games are ported yet — the roster ships
+// This module is DATA ONLY. No quick games are ported yet, the roster ships
 // with the shell so the games can land against a fixed contract instead of
 // each one re-deciding its own floor, title and server mapping.
 //

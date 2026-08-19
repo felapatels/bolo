@@ -6,7 +6,7 @@ import { reconcileFreeTierContentPolicy } from "./freeTierContentPolicy";
 // Free-tier content policy data invariants, pinned against the live dev
 // database this suite shares (see .agents/memory/api-server-tests.md). The
 // reconciliation runs at every api-server boot and must be idempotent, so
-// the database has to satisfy both owner rulings already — and running it
+// the database has to satisfy both owner rulings already, and running it
 // again must leave them intact. Test-scoped languages (double-underscore
 // prefix) are excluded on both sides: other suites deliberately provision
 // premium rows in position-1 Greetings groups, and neither the reconciler
@@ -19,7 +19,7 @@ after(async () => {
 test("reconciliation is idempotent and both policy invariants hold", async () => {
   await reconcileFreeTierContentPolicy();
 
-  // Ruling 1: every Hindi Greetings (Fare Zone 1) row serves free — phrase
+  // Ruling 1: every Hindi Greetings (Fare Zone 1) row serves free, phrase
   // AND sentence stage. The paywall lands at Zone 2.
   const hi = await pool.query(`
     SELECT count(*)::int AS n

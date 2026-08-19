@@ -36,7 +36,7 @@ export function SkeletonCard({
 
   useEffect(() => {
     if (reduceMotion) {
-      // Static placeholder — no shimmer for reduced-motion users.
+      // Static placeholder, no shimmer for reduced-motion users.
       tx.value = -windowWidth;
       return;
     }

@@ -9,7 +9,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 // What is pinned here:
 //   1. The shop is DARK by default, exactly as web's is, while every layer
 //      beneath it runs.
-//   2. Lit, it shows the server's Chai amounts and the STORE's prices — no
+//   2. Lit, it shows the server's Chai amounts and the STORE's prices, no
 //      money string comes from our server.
 //   3. A purchase reports success only when the SERVER says the transaction
 //      is credited; a charge whose credit has not landed reports `pending`
@@ -246,7 +246,7 @@ describe('buying a pack', () => {
       await jest.advanceTimersByTimeAsync(30_000);
     });
 
-    // Not 'success' — a consumable grants no entitlement, so the only honest
+    // Not 'success', a consumable grants no entitlement, so the only honest
     // answer while the ledger is silent is "we do not know yet".
     expect(screen.getByTestId('probe-outcome')).toHaveTextContent('pending');
     jest.useRealTimers();
@@ -305,7 +305,7 @@ describe('launch recovery, through the provider', () => {
   it('does not act on the previous account while the store is still switching', async () => {
     // Found in review: `isConfigured` stays true across an account switch
     // while `logIn` is in flight, so the store answers for the OLD customer
-    // while the server answers for the NEW one — and replaying then can land
+    // while the server answers for the NEW one, and replaying then can land
     // a purchase on the wrong ledger. Recovery waits for the binding.
     mockPurchases.getCustomerInfo.mockResolvedValue(
       customerWith([{ id: 'tx_previous_owner', product: 'bolo_chai_cutting' }]) as any,

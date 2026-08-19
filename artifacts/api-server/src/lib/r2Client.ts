@@ -19,7 +19,7 @@ let _client: S3Client | undefined;
  * four required environment variables (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
  * R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME) is absent or empty.
  *
- * The client is lazily constructed and cached — subsequent calls return the
+ * The client is lazily constructed and cached, subsequent calls return the
  * same instance.  Do NOT cache a null return: re-evaluate on every call so
  * that credentials injected after startup (e.g. in test setup) are picked up.
  */
@@ -41,7 +41,7 @@ export function getR2Client(): S3Client | null {
     // Cloudflare R2 rejects the AWS SDK's automatic CRC32 trailing checksum
     // on binary bodies with InvalidArgument (400). WHEN_REQUIRED restricts
     // checksum injection to operations that mandate it, which PutObject does
-    // not — without this, every real-sized clip upload fails while small
+    // not, without this, every real-sized clip upload fails while small
     // string-body probes pass.
     requestChecksumCalculation: "WHEN_REQUIRED",
   });

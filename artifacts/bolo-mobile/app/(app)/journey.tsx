@@ -1,5 +1,5 @@
 // Spec D1b-M: the journey map, ported from the shipped web page
-// (gujarati-coach/src/pages/journey.tsx — the source of truth; this is a
+// (gujarati-coach/src/pages/journey.tsx, the source of truth; this is a
 // translation, not a redesign). One themed rail line per language (structured
 // content in lib/journeyLines.ts), six fare zones in authoritative category
 // order, one station per lesson group (phrase-stage stops before
@@ -9,7 +9,7 @@
 // station. tested_out = express stamp, sentence stage = first-class diamond +
 // All-Access chip, locked showroom zones = grayscale postcards.
 //
-// The rail is the web's PRONOUNCED serpentine railway track — stations
+// The rail is the web's PRONOUNCED serpentine railway track, stations
 // alternate left/right, twin rails with sleeper ties curve between them,
 // completed segments solid, locked segments faded and dashed. Rendering
 // approach (approved): react-native-svg with the web's exact path geometry,
@@ -100,7 +100,7 @@ import { hapticLight } from '@/lib/haptics';
 
 const GRAY = SCENERY_GRAY; // rail/marker color for locked showroom zones
 
-// Serpentine layout rhythm — identical to the web map (which is itself
+// Serpentine layout rhythm, identical to the web map (which is itself
 // mobile-width, max 390px).
 const MAP_MAX_W = 390;
 // Task 1082 item 2: web parity. The station card was slimmed (tighter padding
@@ -114,7 +114,7 @@ const PC_H = 152; // vertical rhythm per fare-zone postcard (incl. picture side)
 const TERM_H = 92; // terminus row
 // Chacha-ji's halt (web parity): a scenery-only row inserted after every
 // encounter station so his stall has a lane on the RIGHT of the track. It is
-// NOT a stop — no number, no marker, no card, nothing tappable, and it never
+// NOT a stop, no number, no marker, no card, nothing tappable, and it never
 // enters the station list, so stop numbering and the station count are
 // untouched. It only lengthens the map.
 const HALT_H = 74;
@@ -170,7 +170,7 @@ function isStatusAccessible(status: LessonGroupSummary['status']): boolean {
   );
 }
 
-/** Station signboard silhouette shown beside the current stop's name — the
+/** Station signboard silhouette shown beside the current stop's name, the
  *  rn-svg port of the web StationSignGlyph (journey.tsx). */
 function StationSignGlyph({ color }: { color: string }) {
   return (
@@ -500,7 +500,7 @@ export default function JourneyScreen() {
     ],
   }));
   // Web --station-surface (index.css): warm off-white in light mode, deep
-  // navy in dark — the current stop's signboard card stock. Resolved the
+  // navy in dark, the current stop's signboard card stock. Resolved the
   // same way useColors picks its palette.
   const systemScheme = useColorScheme();
   const themePref = useThemePrefValue();
@@ -796,7 +796,7 @@ export default function JourneyScreen() {
   }
   // Closeout suppression, direction one (web parity): the signal soft stop
   // holds while a celebration is owed, so the two never race for the screen.
-  // Unseeded counts as owed — the seeding pass has not run yet.
+  // Unseeded counts as owed, the seeding pass has not run yet.
   const closeoutPending =
     !showroom && closeoutOwed(closeoutMemory, zones.map((z) => z.zoneAllDone));
 
@@ -927,7 +927,7 @@ export default function JourneyScreen() {
     currentId != null ? allStations.findIndex((s) => s.id === currentId) : -1;
   // Task 1082 item 1: the boarding pass used to read "{doneCount}/{totalCount}
   // stations", so the number in the current-station slot was actually the
-  // COUNT OF FINISHED STOPS — it said 2 while the map highlighted stop 1. Both
+  // COUNT OF FINISHED STOPS, it said 2 while the map highlighted stop 1. Both
   // numbers now come off `allStations`, the one flattened list the map, the
   // server payload and the Chacha encounter logic already share: the total is
   // its length and the stop number is the very index the encounter check uses,
@@ -941,7 +941,7 @@ export default function JourneyScreen() {
   // Item 4: y of the current stop inside the map column, off the same
   // serpentine points the markers are drawn from. The map's own offset inside
   // the scroll content is only known once it has been laid out, which is also
-  // the earliest moment the scroll view can be told to move — so the jump
+  // the earliest moment the scroll view can be told to move, so the jump
   // rides that layout pass rather than an effect that would fire too early.
   const currentStopY =
     currentGlobalIdx >= 0 ? stationPts[currentGlobalIdx]?.y ?? null : null;
@@ -1106,7 +1106,7 @@ export default function JourneyScreen() {
 
   return (
     <Screen padTop={false}>
-      {/* Boarding-pass header — full-ticket treatment */}
+      {/* Boarding-pass header, full-ticket treatment */}
       <View
         testID="journey-header"
         style={[
@@ -1386,7 +1386,7 @@ export default function JourneyScreen() {
                         </View>
                       </View>
                       {/* Zone test-out affordance (web parity:
-                          link-zone-test-out-{i}) — present only when the zone
+                          link-zone-test-out-{i}), present only when the zone
                           is gate-locked; dormant pre-flip by construction. */}
                       {zoneGateLocked && (
                         <Pressable
@@ -1442,7 +1442,7 @@ export default function JourneyScreen() {
               side === 'right' ? mapW - 16 - (p.x + 28) : p.x - 28 - 16;
             const stopLabel = `Stop ${s.stopNumber} of ${s.stopCount}`;
             // Free-tier content policy: sentence stops gate by the server's
-            // planLocked flag (all-premium groups), not by stage — Hindi
+            // planLocked flag (all-premium groups), not by stage, Hindi
             // Fare Zone 1's sentence stops serve free. A planLocked sentence
             // stop keeps the first-class upsell sheet.
             const sentenceGated =
@@ -1561,7 +1561,7 @@ export default function JourneyScreen() {
                           {stopLabel}
                         </Text>
                         {/* Entitlement chip only where the server actually serves
-                            the stop plan-locked — on stops the caller can ride free
+                            the stop plan-locked, on stops the caller can ride free
                             (Hindi Zone 1 carve-out) or already owns (Plus/Family),
                             the badge is noise. Mirrors the web condition. */}
                         {s.stage === 'sentence' && s.planLocked === true && (
@@ -1725,7 +1725,7 @@ export default function JourneyScreen() {
       </Animated.ScrollView>
 
       {/* Lock dialogs: entitlement locks and progression locks read
-          differently — a true mirror of the shipped web dialogs, including
+          differently, a true mirror of the shipped web dialogs, including
           the progression dialog's Express test-out action. */}
       <Modal
         visible={lock !== null}
@@ -1871,8 +1871,7 @@ export default function JourneyScreen() {
                     ? `All ${teaserProgress?.limit ?? 3} free phrases on the ${line.lineName} are used. Unlock ${languageName} to keep riding.`
                     : `Your free taste covers the marked station (${teaserProgress?.consumed ?? 0}/${teaserProgress?.limit ?? 3} tried). Unlock ${languageName} to board every stop.`}
                 </Text>
-                {/* Chai stop unlock: offered ONLY where the server says so —
-                    inside the first fare zone of a line the learner hasn't
+                {/* Chai stop unlock: offered ONLY where the server says so, inside the first fare zone of a line the learner hasn't
                     bought. Once opened, the stop stays open for good (the
                     purchase is a ledger row, not device state). Everything
                     further down the line is All-Access territory, and the
@@ -2053,7 +2052,7 @@ const styles = StyleSheet.create({
   headerTicketRow: { flexDirection: 'row', alignItems: 'stretch' },
   headerTicketBody: { flex: 1, minWidth: 0, paddingHorizontal: 14, paddingVertical: 9 },
   ticketEyebrow: { fontFamily: AppFonts.bold, fontSize: 9, letterSpacing: 1.5 },
-  // Nastaliq cascades above/below the baseline — keep the one-line brand
+  // Nastaliq cascades above/below the baseline, keep the one-line brand
   // from clipping.
   ticketEyebrowTall: { lineHeight: 22 },
   ticketEyebrowNative: { fontSize: 10, letterSpacing: 0 },

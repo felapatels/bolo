@@ -1,5 +1,5 @@
 // Full-ticket boarding-pass fittings (Task 3 journey visual upgrade, approved
-// variant "full-ticket"). Pure CSS in brand colors only — no artwork. Shared
+// variant "full-ticket"). Pure CSS in brand colors only, no artwork. Shared
 // by the home hero pass and the /journey map-header pass.
 
 /** Diagonal ticket-stock stripes (CSS gradient only). `ink` is the stripe

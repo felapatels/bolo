@@ -33,7 +33,7 @@ jest.mock('@workspace/api-client-react', () => ({
   getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
 }));
 
-// A minimal but realistic all-access package — the shape the component reads
+// A minimal but realistic all-access package, the shape the component reads
 // (product.priceString/currencyCode/price, no introPrice so no trial).
 const allAccessMonthlyPkg = {
   identifier: 'all_access_monthly',
@@ -234,7 +234,7 @@ describe('PaywallScreen tier resolution (no one_language offering)', () => {
     render(<PaywallScreen />);
 
     // Prices exist with no introPrice, so trialLabel is null and the CTA
-    // reads "Subscribe" — assert on whichever title actually rendered.
+    // reads "Subscribe", assert on whichever title actually rendered.
     const cta =
       screen.queryByLabelText('Subscribe') ??
       screen.queryByLabelText('Start free trial');
@@ -250,7 +250,7 @@ describe('PaywallScreen tier resolution (no one_language offering)', () => {
     render(<PaywallScreen />);
 
     // With hasOfferings false, the CTA and its packages aren't rendered at
-    // all — the "not available in this build" fallback shows instead, which
+    // all, the "not available in this build" fallback shows instead, which
     // is itself a safe (non-tappable-and-inert) state.
     expect(
       screen.getByText('Subscriptions aren’t available in this build yet. Check back soon.'),
@@ -270,7 +270,7 @@ describe('PaywallScreen tier resolution (one_language offering IS configured)', 
 
     render(<PaywallScreen />);
 
-    // Purchasable in both tiers + a deep link — the harmless preselection
+    // Purchasable in both tiers + a deep link, the harmless preselection
     // documented in the fix is preserved. "One Language" renders in more
     // than one place (brand header + tier card), so assert at least one.
     expect(screen.getAllByText('One Language').length).toBeGreaterThan(0);

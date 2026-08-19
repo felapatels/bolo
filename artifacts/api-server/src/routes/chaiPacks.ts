@@ -10,7 +10,7 @@
 // Why this is not part of GET /pricing: that endpoint quotes live Stripe
 // prices and 503s when Stripe is unreachable, which would make the iOS shop
 // depend on the web payment processor for something Apple is charging for. It
-// also has no business telling an iPhone a price — on iOS the price a learner
+// also has no business telling an iPhone a price, on iOS the price a learner
 // sees comes from the StoreKit product itself, so no server number can drift
 // from what Apple charges. Accordingly this response carries NO price at all.
 //
@@ -37,7 +37,7 @@ const router: IRouter = Router();
 // turn one request into an unbounded query.
 const MAX_TRANSACTION_IDS = 100;
 
-// GET /chai-packs — the catalog, without prices.
+// GET /chai-packs, the catalog, without prices.
 router.get("/chai-packs", (_req: Request, res: Response): void => {
   res.json({
     packs: CHAI_PACKS.map((pack) => ({
@@ -48,7 +48,7 @@ router.get("/chai-packs", (_req: Request, res: Response): void => {
   });
 });
 
-// POST /chai-packs/credited — which of these transactions are already
+// POST /chai-packs/credited, which of these transactions are already
 // credited. A read; it is a POST only because the input is a list.
 router.post(
   "/chai-packs/credited",

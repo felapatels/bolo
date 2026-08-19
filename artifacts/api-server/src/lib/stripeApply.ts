@@ -21,8 +21,8 @@ export async function applyStripeState(apply: StripeApply): Promise<void> {
       currentPeriodEnd: apply.currentPeriodEnd,
       subscriptionProvider: PROVIDER,
       subscriptionProviderId: apply.subscriptionProviderId,
-      // Stripe web checkout only sells all-access Plus — never the middle
-      // One-Language tier — so any chosen-language lock from a prior
+      // Stripe web checkout only sells all-access Plus, never the middle
+      // One-Language tier, so any chosen-language lock from a prior
       // RevenueCat one_language subscription is cleared once Stripe becomes
       // the active provider.
       chosenLanguage: null,
@@ -31,7 +31,7 @@ export async function applyStripeState(apply: StripeApply): Promise<void> {
 
   // The first time a Family subscription becomes live, materialize the group
   // itself (plan row + join code). Kept across lapses so a payment hiccup
-  // doesn't dissolve the family — the entitlement cascade already stops
+  // doesn't dissolve the family, the entitlement cascade already stops
   // granting members Plus while the owner's row isn't live.
   if (apply.tier === "family") {
     await ensureFamilyPlan(apply.userId);

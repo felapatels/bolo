@@ -4,14 +4,14 @@
  * The audit has to run where the cache lives: a deployment's tts_cache holds
  * different takes from the development one, so the clips learners actually
  * hear can only be swept from inside that deployment. This endpoint is the
- * handle for that — a driver calls it repeatedly with a cursor until the
+ * handle for that, a driver calls it repeatedly with a cursor until the
  * catalog is exhausted.
  *
  * Authorization follows the existing cron/internal convention (see the
  * daily-quiz generator): a shared secret in a header, checked before anything
  * expensive happens, failing closed when the secret is not configured. It is
  * mounted in the public section because an operator driving it has no user
- * session — the secret is the entire authorization story, so it must never be
+ * session, the secret is the entire authorization story, so it must never be
  * omitted or defaulted.
  */
 import { Router, type IRouter, type Request, type Response } from "express";

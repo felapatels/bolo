@@ -5,12 +5,12 @@
  * mobile also fires on web at the exact same moment.
  *
  * No-ops silently on browsers that don't support the Vibration API (iOS Safari,
- * most desktop browsers) — haptics are a nicety, never a failure path.
+ * most desktop browsers), haptics are a nicety, never a failure path.
  */
 
 export type WebHapticType = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error';
 
-/** Vibration patterns in milliseconds — single values are one-shot, arrays alternate on/off. */
+/** Vibration patterns in milliseconds, single values are one-shot, arrays alternate on/off. */
 const PATTERNS: Record<WebHapticType, number | number[]> = {
   light: 10,
   medium: 20,
@@ -25,6 +25,6 @@ export function webHaptic(type: WebHapticType): void {
   try {
     navigator.vibrate(PATTERNS[type]);
   } catch {
-    // Ignore — feedback is a nicety, never a failure path.
+    // Ignore, feedback is a nicety, never a failure path.
   }
 }

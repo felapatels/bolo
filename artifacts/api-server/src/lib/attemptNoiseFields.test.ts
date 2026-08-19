@@ -1,9 +1,8 @@
 /**
  * Noise production baseline: the two new attempt fields, end of the pipe.
  *
- * Covers the compatibility promise — a token signed before this change carries
- * neither field and must still record an attempt (both columns simply null) —
- * and the platform tag that rides the existing flags column so the report can
+ * Covers the compatibility promise, a token signed before this change carries
+ * neither field and must still record an attempt (both columns simply null), * and the platform tag that rides the existing flags column so the report can
  * answer "is this an iOS problem?".
  */
 

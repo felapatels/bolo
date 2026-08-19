@@ -3,7 +3,7 @@
 // Each round boards three phrases from the chosen topic plus ONE stray that
 // wandered in from another topic; the learner spots the stray.
 //
-// The stray's id is NEVER submitted — it belongs to a different category and
+// The stray's id is NEVER submitted, it belongs to a different category and
 // would fail the server's in-category validation. Every round is scored
 // through a unique in-category ANCHOR instead, riding the frozen
 // listen-and-pick model: a correct spot submits the anchor matched to itself,
@@ -62,7 +62,7 @@ export type PlatformQuestion = {
  * Local Fisher-Yates. The planner owns its own shuffle rather than reaching
  * into the shell: shuffling is a game concern, and keeping it here is what
  * lets buildPlan stay pure and testable without rendering anything.
- * Returns a new array — the caller's lists are never mutated.
+ * Returns a new array, the caller's lists are never mutated.
  */
 function shuffle<T>(items: readonly T[]): T[] {
   const out = items.slice();
@@ -84,7 +84,7 @@ function shuffle<T>(items: readonly T[]): T[] {
  * Nothing carries a correct INDEX: the stray is stored as a phrase and the
  * tile position is re-derived at render from `options`. Tracking an index
  * across a shuffle is how these planners rot into marking the wrong tile
- * correct — silent, and it teaches the wrong answer.
+ * correct, silent, and it teaches the wrong answer.
  */
 export function buildPlan(
   locals: Phrase[],
@@ -208,7 +208,7 @@ function WrongPlatformRound({ phrases, api, activeLang, activeLanguage }: QuickR
       selectedPhraseId: wrongId,
       correct: false,
       // The round asks which card came from another topic, so the review has
-      // to name the stray — the anchor the round is SCORED through would read
+      // to name the stray, the anchor the round is SCORED through would read
       // as the wrong answer entirely.
       review: {
         prompt: 'Which one boarded at the wrong platform?',

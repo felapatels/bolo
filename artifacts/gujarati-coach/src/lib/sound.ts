@@ -24,7 +24,7 @@ export function playCue(name: CueName): void {
     const base: string = import.meta.env.BASE_URL ?? "/";
     const audio = new Audio(`${base}sounds/cues/${CUE_FILES[name]}`);
     audio.volume = 0.6;
-    // Missing file or autoplay restriction: swallow both — cues are optional.
+    // Missing file or autoplay restriction: swallow both, cues are optional.
     audio.onerror = () => {};
     void audio.play().catch(() => {});
   } catch {

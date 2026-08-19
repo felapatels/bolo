@@ -56,7 +56,7 @@ function renderPage() {
   );
 }
 
-// A minimal MCQ question that always has "Hello" as the correct answer — it
+// A minimal MCQ question that always has "Hello" as the correct answer, it
 // will always appear in the rendered choices regardless of shuffle order.
 const ONE_MCQ_QUESTION = [
   {
@@ -190,7 +190,7 @@ describe("Quiz streak badge – ResultsScreen", () => {
   });
 
   test("hides the badge before the completion mutation resolves (streak defaults to 0)", async () => {
-    // completeMutateAsync never resolves — badge must stay hidden.
+    // completeMutateAsync never resolves, badge must stay hidden.
     h.quizData = { completed: false, questions: ONE_MCQ_QUESTION };
     h.completeMutateAsync.mockReturnValue(new Promise(() => {}));
 

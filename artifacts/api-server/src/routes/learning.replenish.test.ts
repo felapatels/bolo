@@ -201,7 +201,7 @@ test("shouldReplenish never fires for Free or One Language", () => {
 // ---------------------------------------------------------------------------
 
 test("shouldReplenishFree fires for Free user below ceiling at 80 % engagement", () => {
-  // 8 phrases, 7 engaged (87.5 %) — below FREE_PHRASE_CEILING, should fire.
+  // 8 phrases, 7 engaged (87.5 %), below FREE_PHRASE_CEILING, should fire.
   const ids = Array.from({ length: 8 }, (_, i) => i + 1);
   assert.equal(shouldReplenishFree("free", ids, makeStats(ids, 7)), true);
   // One Language also benefits.
@@ -219,12 +219,12 @@ test("shouldReplenishFree stays quiet for Free user below 80 % engagement", () =
 });
 
 test("shouldReplenishFree stays quiet when phrase count is at or above the ceiling", () => {
-  // At exactly FREE_PHRASE_CEILING — the ceiling guard must prevent a trigger.
+  // At exactly FREE_PHRASE_CEILING, the ceiling guard must prevent a trigger.
   const ids = Array.from({ length: FREE_PHRASE_CEILING }, (_, i) => i + 1);
   const stats = makeStats(ids, ids.length); // 100 % engaged
   assert.equal(shouldReplenishFree("free", ids, stats), false);
 
-  // One above the ceiling — also must not fire.
+  // One above the ceiling, also must not fire.
   const above = Array.from({ length: FREE_PHRASE_CEILING + 1 }, (_, i) => i + 1);
   assert.equal(
     shouldReplenishFree("free", above, makeStats(above, above.length)),
@@ -354,7 +354,7 @@ test("a duplicates-only generation adds nothing (mastered-everything path)", asy
 
 test("a zero-add run starts the cooldown: repeated fetch triggers don't re-generate", async () => {
   await resetLessonPhrases();
-  // First run: the model only echoes existing phrases — nothing inserted, but
+  // First run: the model only echoes existing phrases, nothing inserted, but
   // the attempt is recorded.
   const dupGen = makeGenerator([
     { nativeScript: "eka", romanized: "eka", english: "one", difficulty: 1 },
@@ -371,7 +371,7 @@ test("a zero-add run starts the cooldown: repeated fetch triggers don't re-gener
   assert.equal(dupGen.calls(), 1);
 
   // Every subsequent trigger inside the cooldown window (the clients poll the
-  // list every 30s) must skip the AI entirely — sequentially, not just while
+  // list every 30s) must skip the AI entirely, sequentially, not just while
   // overlapping.
   const laterGen = makeGenerator([
     { nativeScript: "nav", romanized: "nav", english: "nine", difficulty: 2 },
@@ -469,7 +469,7 @@ test("Free background replenishment does NOT reduce countLessonGenerationsToday"
   assert.equal(added, 1, "phrase should be added");
   assert.equal(gen.calls(), 1, "AI was called");
 
-  // The daily cap counter must still be zero — the replenishment must not
+  // The daily cap counter must still be zero, the replenishment must not
   // consume any of the learner's 3 daily new-lesson slots.
   assert.equal(
     await countLessonGenerationsToday(USER),

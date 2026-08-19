@@ -42,12 +42,12 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
 /**
- * The board — the friends leaderboard on a screen of its own (mobile twin of
+ * The board, the friends leaderboard on a screen of its own (mobile twin of
  * gujarati-coach/src/pages/leaderboard.tsx).
  *
  * The Friends tab stays what it was: management (add by code, requests, remove).
  * Standing is a different thing you come to look at, so it gets its own stack
- * screen, outside (tabs) and therefore absent from the bar — the same shape as
+ * screen, outside (tabs) and therefore absent from the bar, the same shape as
  * journey.tsx. Home links straight here.
  *
  * Two tabs today, Weekly XP and Streak. Both read the SAME payload: a streak

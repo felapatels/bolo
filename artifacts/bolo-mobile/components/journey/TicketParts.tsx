@@ -1,4 +1,4 @@
-// Full-ticket boarding-pass fittings — react-native ports of the web pieces
+// Full-ticket boarding-pass fittings, react-native ports of the web pieces
 // (gujarati-coach/src/components/ticket.tsx). Brand colors only, no artwork.
 // Shared by the home hero pass and the journey map-header pass.
 import React from 'react';
@@ -16,7 +16,7 @@ let stripeSeq = 0;
 // shipped in build 28: home hero + journey header both went full-viewport on
 // a real iPhone while Expo web looked perfect). Every Svg here now renders
 // only AFTER an onLayout measure, with numeric dimensions, inside an
-// absolutely-positioned wrapper — absolute children can never grow the card.
+// absolutely-positioned wrapper, absolute children can never grow the card.
 
 /** Diagonal ticket-stock stripes. The web version is a repeating CSS
  *  gradient; here an SVG pattern of rotated bars does the same job. `ink` is
@@ -86,7 +86,7 @@ export function stampSizeForExtent(extent: number): number {
 // on spaces (no numberOfLines, so truncation is impossible). 0.7em per
 // uppercase extrabold character is a conservative advance estimate; the
 // floor keeps degenerate names from vanishing entirely.
-// R1: the budget is 0.72 of the diameter, not 0.84 — the name sits BELOW the
+// R1: the budget is 0.72 of the diameter, not 0.84, the name sits BELOW the
 // zone numeral, where the circle's chord is far narrower than the equator.
 // The 0.84 budget let "AHMEDABAD" graze the lower arc and wrap mid-word.
 export function stampNameFontSize(name: string, size: number): number {
@@ -105,7 +105,7 @@ export function stampNameFontSize(name: string, size: number): number {
  *  placed. The old fixed 7px FARE ZONE label was wider than the chord near
  *  the top arc of a 48px ring, colliding with the dashed border. The stamp
  *  is a decorative ticket fitting (the zone name also appears in the pass
- *  subtitle), so its type is pinned against OS font scaling — accessibility
+ *  subtitle), so its type is pinned against OS font scaling, accessibility
  *  text sizes must never re-introduce the collision. */
 export function ZoneStamp({
   ink,

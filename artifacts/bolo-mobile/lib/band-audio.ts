@@ -2,13 +2,13 @@
  * Instant band call-outs (Task 903).
  *
  * The moment a practice result lands, Bolo speaks the band name from a
- * static bundled clip — no TTS round-trip, no network. The six clips (five
+ * static bundled clip, no TTS round-trip, no network. The six clips (five
  * ladder bands + the neutral nocatch line) live in `assets/sounds/bands/`
  * and were generated with the same voice as the spoken-feedback path (nova)
  * so the call-out and the feedback sentence sound like one speaker.
  *
  * These clips are Bolo's VOICE, not a sound-effect cue: playback goes
- * through playAssetAudio (coach-audio session handling — iOS earpiece-mode
+ * through playAssetAudio (coach-audio session handling, iOS earpiece-mode
  * flip, plays in silent mode) and callers gate on the spoken-feedback
  * preference, deliberately NOT on the Spec 1a sound-effects preference used
  * by playCue.
@@ -33,14 +33,14 @@ const BAND_CLIP_SOURCES: Record<Band, number> = {
 };
 
 export type BandClipHandle = {
-  /** Resolves when the clip finishes (or fails/is stopped) — never rejects. */
+  /** Resolves when the clip finishes (or fails/is stopped), never rejects. */
   finished: Promise<void>;
   stop: () => void;
 };
 
 /**
  * Play the band clip for a result. Returns a handle immediately; returns
- * null when playback could not even start. Never throws — a missing clip
+ * null when playback could not even start. Never throws, a missing clip
  * must not disturb the result card.
  */
 export function playBandClip(band: Band): BandClipHandle | null {
@@ -54,7 +54,7 @@ export function playBandClip(band: Band): BandClipHandle | null {
     void playAssetAudio(BAND_CLIP_SOURCES[band], () => done())
       .then((h) => {
         handle = h;
-        // stop() raced ahead of the async start — honor it.
+        // stop() raced ahead of the async start, honor it.
         if (stopped) {
           h.stop();
           done();

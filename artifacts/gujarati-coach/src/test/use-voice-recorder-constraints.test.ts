@@ -3,7 +3,7 @@
  *
  * The defect this pins: `getUserMedia({ audio: true })` lets the browser pick,
  * and browsers enable noise suppression and automatic gain control by default.
- * Both damage pronunciation scoring — suppression smears aspiration and
+ * Both damage pronunciation scoring, suppression smears aspiration and
  * fricatives, AGC lifts the room tone the server profiles from the silent
  * opening of each hold-to-talk clip. Echo cancellation stays ON so the coach's
  * voice through the speakers is subtracted during barge-in.

@@ -26,7 +26,7 @@ import { loadEntitlements } from "../middlewares/loadEntitlements";
 // assembly (rolling attempts up per topic, bucketing them by UTC day, and
 // running the Leitner schedule to see what's due) is the most complex in the
 // learning router, and unlike the badge wall and progress summary it had no
-// route-level test — so a regression in any of those three would quietly show
+// route-level test, so a regression in any of those three would quietly show
 // Plus learners wrong analytics with nothing to catch it. This drives the real
 // handler through the Express router behind the same stub-auth + loadEntitlements
 // setup the other route suites use, so a bad bucket, a broken day series, or a
@@ -35,7 +35,7 @@ import { loadEntitlements } from "../middlewares/loadEntitlements";
 //
 // All rows are scoped to a throwaway user id + a test-only language code (kept
 // distinct from the other route suites so they can share the live Postgres
-// without colliding) and cleaned up after — see .agents/memory/api-server-tests.md.
+// without colliding) and cleaned up after, see .agents/memory/api-server-tests.md.
 const TEST_USER_ID = "test_analytics_route";
 const LANG = "__test_lang_analytics";
 const CATEGORY_A_SLUG = "__test_cat_analytics_a";
@@ -195,7 +195,7 @@ before(async () => {
     );
   `);
   // Dev DB can lag migrations; make sure users has every current column
-  // (shared shim — see ../lib/testDbCompat).
+  // (shared shim, see ../lib/testDbCompat).
   await ensureUsersColumns();
 
   await db
@@ -348,7 +348,7 @@ before(async () => {
 
   // Seed FSRS memory: the analytics route counts reviewDueCount from userItemMemoryTable.
   // a2 and b2 are unmastered and due now; a1/b1 are mastered (no memory row needed);
-  // b3 passed at level 1 so it's scheduled for tomorrow (not due) — no memory row.
+  // b3 passed at level 1 so it's scheduled for tomorrow (not due), no memory row.
   await db.insert(userItemMemoryTable).values([
     { userId: TEST_USER_ID, phraseId: p.a2, reps: 1, stability: 1, dueAt: dayT5 },
     { userId: TEST_USER_ID, phraseId: p.b2, reps: 1, stability: 1, dueAt: dayT },
@@ -383,7 +383,7 @@ after(async () => {
   }
   try {
     await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
-    // xp_ledger and user_item_memory reference users + phrases — delete before those tables.
+    // xp_ledger and user_item_memory reference users + phrases, delete before those tables.
     await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, TEST_USER_ID));
     await db.delete(userItemMemoryTable).where(eq(userItemMemoryTable.userId, TEST_USER_ID));
     // FK order: phrases → lessons → categories, then the language + user.

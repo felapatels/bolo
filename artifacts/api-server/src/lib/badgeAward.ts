@@ -3,7 +3,7 @@
 // without duplicating the logic they protect.
 //
 // Two invariants live here:
-//  1. A badge is awarded at most once per (user, language) — enforced by the
+//  1. A badge is awarded at most once per (user, language), enforced by the
 //     unique (user_id, language_code, badge_key) constraint combined with
 //     `onConflictDoNothing().returning()`, so only rows actually inserted come
 //     back. Re-meeting a criterion therefore never re-awards or re-celebrates.
@@ -175,7 +175,7 @@ export async function loadExtendedMetrics(
 
       // Count of distinct script-trace chapters completed (all chars passed).
       // "Completed" means a game_session row with game='script-trace' exists
-      // for this language — inserted only when all chars in that chapter pass.
+      // for this language, inserted only when all chars in that chapter pass.
       db
         .select({ context: gameSessionsTable.context })
         .from(gameSessionsTable)
@@ -212,7 +212,7 @@ export async function loadExtendedMetrics(
   // Task #1081: the streak comes from THE streak source, not from this
   // function's per-language attempt rows. Streak badges are still awarded
   // per-language (invariant 2 above), but the number they are measured
-  // against is the user-level one the home banner shows — a learner whose
+  // against is the user-level one the home banner shows, a learner whose
   // banner reads 7 must not find their "7-day streak" badge still unearned.
   const { currentStreakDays } = await loadStreakLadder(userId, timeZone);
   return computeExtendedProgressMetrics(

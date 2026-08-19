@@ -48,7 +48,7 @@ describe("Chacha-ji's lines", () => {
     // artifact, and editing it changes the voice the owner signed off on.
     assert.match(
       CHACHA_TTS_INSTRUCTIONS,
-      /Tone: Affectionate and welcoming, never rushed — the ease of someone who has poured this same cup a thousand times\./,
+      /Tone: Affectionate and welcoming, never rushed, the ease of someone who has poured this same cup a thousand times\./,
     );
     assert.ok(CHACHA_TTS_INSTRUCTIONS.startsWith("Personality/affect: "));
     // The digest is what rotates the cache when the direction changes; if this

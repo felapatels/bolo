@@ -48,7 +48,7 @@ type ChatMessage = {
   role: "learner" | "parrot";
   text: string;
   englishText?: string;
-  /** True while we're waiting for the transcript — renders as a greyed sending bubble */
+  /** True while we're waiting for the transcript, renders as a greyed sending bubble */
   pending?: boolean;
   /** True when the turn errored after the transcript arrived. Shows a retry control. */
   failed?: boolean;
@@ -97,12 +97,12 @@ export default function ChatPage() {
   const recorder = useVoiceRecorder();
   const prefersReducedMotion = useReducedMotion();
 
-  // Per-session chat language — does NOT change the global active language.
+  // Per-session chat language, does NOT change the global active language.
   // Declared BEFORE the scenario query, which now depends on it.
   const [chatLang, setChatLang] = useState<string>(activeLang);
   const chatLanguage = languages.find((l) => l.code === chatLang);
 
-  // Scenario metadata (title, framing copy, target phrases) — fetched only
+  // Scenario metadata (title, framing copy, target phrases), fetched only
   // when a scenarioId is present in the URL. Steering instructions are
   // server-only; this endpoint returns the client-safe subset.
   //
@@ -147,16 +147,16 @@ export default function ChatPage() {
   // text turns don't interfere with each other's guard state.
   const textSendingRef = useRef(false);
   // True once the early `replyText` SSE event has shown Bolo's bubble for the
-  // current turn — the word-reveal animation is skipped in that case, since
+  // current turn, the word-reveal animation is skipped in that case, since
   // the learner has already been reading the full text during synthesis.
   const earlyReplyShownRef = useRef(false);
   // Incremented each time a new turn starts. finishRecording captures its own
   // snapshot at invocation time and only applies the result if the counter
-  // still matches — this prevents a stale older response from overwriting a
+  // still matches, this prevents a stale older response from overwriting a
   // newer one when the user cancels mid-flight and immediately starts again.
   const activeTurnRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
-  // AbortController for the in-flight chat fetch — aborted at the start of
+  // AbortController for the in-flight chat fetch, aborted at the start of
   // each new turn and on unmount so stale connections drop immediately.
   const abortControllerRef = useRef<AbortController | null>(null);
   // The audio blob from the most recent recording, retained so a failed turn
@@ -210,11 +210,11 @@ export default function ChatPage() {
   const greetingRef = useRef<GreetingData | null>(null);
 
   // ── iOS/WebKit audio unlock ─────────────────────────────────────────────
-  // Every iPhone browser (Safari, Chrome, Firefox — all share WebKit) only
+  // Every iPhone browser (Safari, Chrome, Firefox, all share WebKit) only
   // allows .play() on an <audio> element that has previously started playing
   // inside a real user gesture. Bolo's reply audio starts seconds AFTER the
   // tap (once STT→LLM→TTS finishes), so a fresh `new Audio()` created at that
-  // point is silently blocked (NotAllowedError) — captions appear, no voice.
+  // point is silently blocked (NotAllowedError), captions appear, no voice.
   // Fix: keep two persistent elements (voice + squawk SFX), "bless" them by
   // playing a 50 ms silent clip during the gesture that starts a turn, and
   // route every later playback through the blessed elements.
@@ -235,7 +235,7 @@ export default function ChatPage() {
       try {
         el.pause();
       } catch {
-        // Detached or disposed element — ignore.
+        // Detached or disposed element, ignore.
       }
       el.onended = null;
       el.onerror = null;
@@ -261,7 +261,7 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Warm up the mic on mount — but only when permission is already granted,
+  // Warm up the mic on mount, but only when permission is already granted,
   // so first-time users never see a permission prompt on page load. Their
   // prompt fires on the first record press instead.
   useEffect(() => {
@@ -293,7 +293,7 @@ export default function ChatPage() {
       el.onplay = null;
       el.currentTime = 0;
     } catch {
-      // Detached or already-disposed element — ignore.
+      // Detached or already-disposed element, ignore.
     }
     playbackRef.current = null;
   }, []);
@@ -365,7 +365,7 @@ export default function ChatPage() {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    // Capture this turn's ID before any await — only apply the result if the
+    // Capture this turn's ID before any await, only apply the result if the
     // ID still matches when the server responds.
     const myTurn = ++activeTurnRef.current;
     earlyReplyShownRef.current = false;
@@ -379,7 +379,7 @@ export default function ChatPage() {
 
     // First-turn greeting: if the greeting is prefetched and this is the very
     // first turn, show and speak it immediately while the real API call runs
-    // in the background — eliminating the 2–3 s blank wait.
+    // in the background, eliminating the 2–3 s blank wait.
     const isFirstTurn = messages.length === 0;
     const greeting = greetingRef.current;
     const useGreeting = isFirstTurn && greeting !== null;
@@ -492,7 +492,7 @@ export default function ChatPage() {
     };
 
     // Kick off audible playback of the streaming element, preceded by the
-    // squawk SFX when Bolo's reply included a squawk token — same ordering as
+    // squawk SFX when Bolo's reply included a squawk token, same ordering as
     // the buffered path.
     const startStreamPlayback = (s: StreamPlayer) => {
       if (s.started || s.failed) return;
@@ -551,14 +551,14 @@ export default function ChatPage() {
         }
 
         // Duration gate: wall-clock elapsed time supplied by the recorder.
-        // Threshold = 0.25 s — wall-clock includes button-press/release overhead
+        // Threshold = 0.25 s, wall-clock includes button-press/release overhead
         // that decoded audio length does not, and a single short word ("haan",
         // "ek") can be under 400 ms of speech. The value is always finite so the
         // gate always evaluates; no skip-on-Infinity behaviour needed.
         if (wallClockDuration < 0.25) {
           console.log(`[stt] skipped reason=too_short duration=${wallClockDuration.toFixed(3)}s`);
           setMessages((prev) => prev.filter((m) => !m.pending));
-          setErrorMsg("Didn't catch that — hold the button a little longer and try again.");
+          setErrorMsg("Didn't catch that, hold the button a little longer and try again.");
           setPhase("idle");
           finishingRef.current = false;
           return;
@@ -570,7 +570,7 @@ export default function ChatPage() {
         if (blob.size < 2048) {
           console.log(`[stt] skipped reason=too_small size=${blob.size}`);
           setMessages((prev) => prev.filter((m) => !m.pending));
-          setErrorMsg("Didn't catch that — hold the button a little longer and try again.");
+          setErrorMsg("Didn't catch that, hold the button a little longer and try again.");
           setPhase("idle");
           finishingRef.current = false;
           return;
@@ -593,7 +593,7 @@ export default function ChatPage() {
       // the 2–3 s blank wait while STT→LLM→TTS completes. The real API call
       // runs concurrently; its reply queues to play the moment the greeting ends.
       if (useGreeting) {
-        // Inject the greeting bubble instantly — no spinner.
+        // Inject the greeting bubble instantly, no spinner.
         setPhase("playing");
         earlyReplyShownRef.current = true; // skip word-reveal on real reply
         setMessages([{
@@ -613,7 +613,7 @@ export default function ChatPage() {
             pendingPlay();
             pendingPlay = null;
           } else {
-            // Real reply still in flight — show brief wait indicator.
+            // Real reply still in flight, show brief wait indicator.
             setPhase("processing");
             setProcessingStep("voicing");
           }
@@ -652,7 +652,7 @@ export default function ChatPage() {
           }
         }
 
-        // Fire the real API call (no streaming audio — we just need the reply).
+        // Fire the real API call (no streaming audio, we just need the reply).
         const chatUrl = getChatTurnUrl();
         const gRes = await fetch(chatUrl, {
           method: "POST",
@@ -706,13 +706,13 @@ export default function ChatPage() {
               transcriptForCatch = t;
               setMessages((prev) => [...prev, { role: "learner", text: t }]);
             } else if (evtName === "reply") {
-              // Server rejected transcript — no parrot reply. Let the greeting
+              // Server rejected transcript, no parrot reply. Let the greeting
               // audio finish naturally, then return to idle with a retry message.
               if (gPayload.noSpeech) {
                 const handleNoSpeech = () => {
                   if (activeTurnRef.current === myTurn) {
                     setPhase("idle");
-                    setErrorMsg("I didn't catch that — please try again!");
+                    setErrorMsg("I didn't catch that, please try again!");
                   }
                 };
                 if (greetingEnded) {
@@ -798,7 +798,7 @@ export default function ChatPage() {
               }
               break gOuter;
             } else if (evtName === "error") {
-              // Real reply failed — greeting already plays; just let it end.
+              // Real reply failed, greeting already plays; just let it end.
               break gOuter;
             }
           }
@@ -816,15 +816,15 @@ export default function ChatPage() {
         .map((m) => ({ role: m.role === "parrot" ? "parrot" : "learner", text: m.text }));
 
       // POST with Accept: text/event-stream to get the two-event SSE stream:
-      //   1. `transcript` — fires after Whisper STT (~1 s), shows learner bubble early.
-      //   2. `reply`      — fires after LLM+TTS, carries audio + parrot text.
+      //   1. `transcript`, fires after Whisper STT (~1 s), shows learner bubble early.
+      //   2. `reply`     , fires after LLM+TTS, carries audio + parrot text.
       const chatUrl = getChatTurnUrl();
       const res = await fetch(chatUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept": "text/event-stream",
-          // Opt in to chunked voice streaming (audioChunk SSE events) — only
+          // Opt in to chunked voice streaming (audioChunk SSE events), only
           // requested when this browser can actually play a partial MP3 via
           // MediaSource, so unsupported browsers don't download audio twice.
           ...(typeof MediaSource !== "undefined" && MediaSource.isTypeSupported("audio/mpeg")
@@ -871,7 +871,7 @@ export default function ChatPage() {
 
           if (eventName === "transcript") {
             const transcriptText = (payload.transcript as string) ?? "";
-            // A newer turn started while this one was in flight — drop stale result.
+            // A newer turn started while this one was in flight, drop stale result.
             if (activeTurnRef.current !== myTurn) {
               reader.cancel().catch(() => {});
               return;
@@ -893,7 +893,7 @@ export default function ChatPage() {
             setProcessingStep("replying");
 
           } else if (eventName === "replyText") {
-            // Early reply-text event — fires as soon as the LLM returns,
+            // Early reply-text event, fires as soon as the LLM returns,
             // before voice synthesis. Show Bolo's bubble immediately (greyed
             // "pending" style) so the learner can start reading while the
             // audio is still being synthesized.
@@ -917,7 +917,7 @@ export default function ChatPage() {
             }
             setProcessingStep("voicing");
             // Prepare the streaming voice player now that the squawk variant
-            // is known — audio chunks will start arriving next.
+            // is known, audio chunks will start arriving next.
             const variant = (payload.squawkVariant ?? null) as 0 | 1 | 2 | null;
             stream = createStreamPlayer(variant);
 
@@ -930,7 +930,7 @@ export default function ChatPage() {
             if (stream && !stream.failed) {
               try {
                 streamPushChunk(stream, base64ToBytes((payload.chunk as string) ?? ""));
-                // Begin playback on the first chunk — the rest keep buffering
+                // Begin playback on the first chunk, the rest keep buffering
                 // while the clip is already audible.
                 startStreamPlayback(stream);
               } catch {
@@ -945,7 +945,7 @@ export default function ChatPage() {
             }
 
           } else if (eventName === "reply") {
-            // A newer turn started while LLM+TTS was in flight — drop stale result.
+            // A newer turn started while LLM+TTS was in flight, drop stale result.
             if (activeTurnRef.current !== myTurn) {
               teardownStream();
               reader.cancel().catch(() => {});
@@ -957,7 +957,7 @@ export default function ChatPage() {
             if (payload.noSpeech) {
               teardownStream();
               setMessages((prev) => prev.filter((m) => !m.pending));
-              setErrorMsg("I didn't catch that — please try again!");
+              setErrorMsg("I didn't catch that, please try again!");
               setPhase("idle");
               break outer;
             }
@@ -981,14 +981,14 @@ export default function ChatPage() {
 
             const replyWords = replyText.split(/\s+/).filter(Boolean);
             // Skip the typewriter reveal when the early replyText bubble was
-            // already shown — the learner has been reading the full text.
+            // already shown, the learner has been reading the full text.
             const shouldAnimate =
               !prefersReducedMotion && replyWords.length > 1 && !earlyReplyShownRef.current;
 
             setMessages((prev) => {
               const updated = [...prev];
               // Back-fill the English gloss on the learner bubble we already showed
-              // on the transcript event — transcriptEnglish only comes from the LLM.
+              // on the transcript event, transcriptEnglish only comes from the LLM.
               for (let i = updated.length - 1; i >= 0; i--) {
                 if (updated[i].role === "learner") {
                   if (transcriptEnglish && transcriptEnglish !== updated[i].text) {
@@ -1022,7 +1022,7 @@ export default function ChatPage() {
               setSecondsRemaining(null);
             }
 
-            // Let React render the parrot bubble before audio starts — learners
+            // Let React render the parrot bubble before audio starts, learners
             // reading scripts like Devanagari or Nastaliq get a half-beat to
             // find their place before the audio begins.
             await new Promise<void>((resolve) => setTimeout(resolve, 80));
@@ -1065,7 +1065,7 @@ export default function ChatPage() {
                   revealed++;
                   if (revealed >= replyWords.length) {
                     clearWordReveal();
-                    // Animation complete — drop revealedWordCount so the full
+                    // Animation complete, drop revealedWordCount so the full
                     // text renders without special handling.
                     setMessages((prev) =>
                       prev.map((m) =>
@@ -1088,7 +1088,7 @@ export default function ChatPage() {
               });
             }
 
-            // A newer turn may have started during the await — drop stale result.
+            // A newer turn may have started during the await, drop stale result.
             if (activeTurnRef.current !== myTurn) {
               teardownStream();
               reader.cancel().catch(() => {});
@@ -1097,14 +1097,14 @@ export default function ChatPage() {
 
             // If the streaming player handled this turn's voice (all chunks
             // received and playing/played), don't start a second playback of
-            // the full clip — just keep the phase coherent with where the
+            // the full clip, just keep the phase coherent with where the
             // streamed audio actually is.
             if (stream && stream.started && stream.done && !stream.failed) {
               setPhase(stream.ended ? "idle" : "playing");
               break outer; // reply is the final event
             }
             // Streaming unsupported, failed, or the server fell back to
-            // buffered synthesis — discard any partial stream and play the
+            // buffered synthesis, discard any partial stream and play the
             // complete clip exactly as before.
             teardownStream();
 
@@ -1174,14 +1174,14 @@ export default function ChatPage() {
         });
       };
 
-      // A newer turn started — drop this error silently.
+      // A newer turn started, drop this error silently.
       if (activeTurnRef.current !== myTurn) {
         resolvePendingBubble();
         finishingRef.current = false;
         return;
       }
 
-      // Intentional abort (new turn started or component unmounted) — silent.
+      // Intentional abort (new turn started or component unmounted), silent.
       if (isAbort) {
         resolvePendingBubble();
         setPhase("idle");
@@ -1249,9 +1249,9 @@ export default function ChatPage() {
   // re-recording. The failed bubble is restored to pending in-place so the
   // conversation order is preserved.
   const handleRetry = useCallback((messageIndex: number) => {
-    unlockAudioPlayback(); // retry click is a gesture — bless audio elements
+    unlockAudioPlayback(); // retry click is a gesture, bless audio elements
     const blob = currentBlobRef.current;
-    if (!blob) return; // no blob available — user must re-record
+    if (!blob) return; // no blob available, user must re-record
     retryBlobRef.current = blob;
     setMessages((prev) => prev.map((m, i) =>
       i === messageIndex ? { ...m, failed: undefined, pending: true, text: "" } : m,
@@ -1284,7 +1284,7 @@ export default function ChatPage() {
       });
       // Positive hold-confirmation: a permission grant by itself must never
       // start a recording. Continue only if the exact pointer that started
-      // this press is verifiably still held — otherwise (released while the
+      // this press is verifiably still held, otherwise (released while the
       // prompt was open, release swallowed by the prompt stealing focus, or
       // no live press at all) discard, release the mic, stay idle.
       if (holdPointerId === null || activeHoldPointerRef.current !== holdPointerId) {
@@ -1307,7 +1307,7 @@ export default function ChatPage() {
 
   // Send a typed message as a chat turn, bypassing audio recording entirely.
   const sendTextTurn = useCallback(async () => {
-    // Called synchronously from the Send click / Enter keydown — bless the
+    // Called synchronously from the Send click / Enter keydown, bless the
     // pooled audio elements while gesture context is still live (iOS/WebKit).
     unlockAudioPlayback();
     const text = textInputValue.trim();
@@ -1334,7 +1334,7 @@ export default function ChatPage() {
     setErrorMsg(null);
     setTextInputValue("");
 
-    // Show the learner bubble immediately — no "Sending…" pending state needed
+    // Show the learner bubble immediately, no "Sending…" pending state needed
     // for text (the transcript is already known).
     // Web haptic mirrors hapticMedium() fired on voice/text message send.
     webHaptic('medium');
@@ -1394,7 +1394,7 @@ export default function ChatPage() {
           const payload = JSON.parse(dataStr) as any;
 
           if (eventName === "transcript") {
-            // Server echoes back our text — bubble already shown, skip.
+            // Server echoes back our text, bubble already shown, skip.
           } else if (eventName === "replyText") {
             const earlyText = (payload.replyText as string) ?? "";
             const earlyEnglish = (payload.replyEnglish as string) ?? "";
@@ -1527,8 +1527,7 @@ export default function ChatPage() {
   }, [textInputValue, phase, chatLang, messages, clearWordReveal, setLocation, stopCurrentPlayback, acquireAudio, unlockAudioPlayback]);
 
   const handleMicPointerDown = useCallback((e: React.PointerEvent) => {
-    // Bless the pooled audio elements while we're inside a real gesture —
-    // required on iOS/WebKit for the reply audio that plays seconds later.
+    // Bless the pooled audio elements while we're inside a real gesture, // required on iOS/WebKit for the reply audio that plays seconds later.
     unlockAudioPlayback();
     if (capExhausted) return;
     e.preventDefault(); // suppress context menu on long-press
@@ -1702,7 +1701,7 @@ export default function ChatPage() {
         </Dialog>
       </div>
 
-      {/* Persistent bilingual hint — always visible so beginners know they
+      {/* Persistent bilingual hint, always visible so beginners know they
           don't have to speak only in the target language. Plain text (no
           animation wrapper) so it never shifts layout across chat states. */}
       <p className="px-4 pb-3 text-center text-xs text-muted-foreground">
@@ -1788,7 +1787,7 @@ export default function ChatPage() {
         </motion.div>
       )}
 
-      {/* Mascot — hold to speak, release to send */}
+      {/* Mascot, hold to speak, release to send */}
       <button
         type="button"
         onPointerDown={handleMicPointerDown}
@@ -1801,7 +1800,7 @@ export default function ChatPage() {
       >
         {/* Idle pulsing ring + pressed-state scale wrapper */}
         <div className="relative flex items-center justify-center">
-          {/* Idle invitation ring — reduced-motion aware */}
+          {/* Idle invitation ring, reduced-motion aware */}
           {!prefersReducedMotion && !capExhausted && (
             <motion.div
               className="absolute inset-0 rounded-full pointer-events-none"
@@ -1825,7 +1824,7 @@ export default function ChatPage() {
               aria-hidden="true"
             />
           )}
-          {/* Pressed-state scale — plain CSS transform, no stacked motion.div */}
+          {/* Pressed-state scale, plain CSS transform, no stacked motion.div */}
           <div
             className={cn(
               "transition-transform duration-100",
@@ -1872,7 +1871,7 @@ export default function ChatPage() {
         </AnimatePresence>
       </button>
 
-      {/* Tip card — shown while Bolo is processing a reply */}
+      {/* Tip card, shown while Bolo is processing a reply */}
       <AnimatePresence>
         {phase === "processing" && (
           <motion.div
@@ -1892,7 +1891,7 @@ export default function ChatPage() {
         className="flex-1 overflow-y-auto px-4 py-2"
       >
         <div className="mx-auto flex max-w-lg flex-col gap-2 pb-4">
-          {/* Static greeting bubble — shown before the first exchange, never sent to the API */}
+          {/* Static greeting bubble, shown before the first exchange, never sent to the API */}
           <AnimatePresence>
             {messages.length === 0 && (
               <>
@@ -2032,7 +2031,7 @@ export default function ChatPage() {
         )}
       </AnimatePresence>
 
-      {/* Controls — text input + mic button side by side */}
+      {/* Controls, text input + mic button side by side */}
       <div className="flex items-center gap-2 px-4 pb-10 pt-2">
         {/* Text input */}
         <input
@@ -2081,7 +2080,7 @@ export default function ChatPage() {
           )}
         </button>
 
-        {/* Send button — visible when there's typed text */}
+        {/* Send button, visible when there's typed text */}
         <AnimatePresence>
           {textInputValue.trim() && (
             <motion.button

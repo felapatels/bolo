@@ -8,7 +8,7 @@ import {
   type UpgradeRequired,
 } from "@workspace/api-client-react";
 
-// The client never decides tiers on its own — everything here is derived from
+// The client never decides tiers on its own, everything here is derived from
 // the server's GET /entitlements snapshot. Components read this hook to know the
 // current plan, which features are unlocked, and how much daily allowance is
 // left, so the "locked-but-visible" UI stays in lockstep with the server.
@@ -156,7 +156,7 @@ export function asAppendRefusal(err: unknown): AppendRefusal | null {
 }
 
 // Builds a deep link into the paywall that preselects a plan card. Web sells
-// All-Access ("plus") and Family — the One Language tier stays mobile-only, so
+// All-Access ("plus") and Family, the One Language tier stays mobile-only, so
 // every locked surface points at All-Access. See upgrade.tsx for how the
 // params are read back.
 export function upgradeHref(opts?: {
@@ -174,7 +174,7 @@ export function upgradeHref(opts?: {
 
 // Derives the paywall deep link from a server 402 body. The server may report
 // `requiredPlan: "one_language"` (the cheapest unlocking tier ON MOBILE), but
-// web doesn't sell that tier — every denial lands on the All-Access card.
+// web doesn't sell that tier, every denial lands on the All-Access card.
 export function upgradeHrefForDenial(
   upgrade: UpgradeRequired,
   _lang?: string | null,

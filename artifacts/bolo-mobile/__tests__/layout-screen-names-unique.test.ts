@@ -2,7 +2,7 @@
  * Router-level merge fallout guard.
  *
  * expo-router crashes on mount with "Screen names must be unique" when a
- * layout registers the same screen twice — exactly what a rebase once did to
+ * layout registers the same screen twice, exactly what a rebase once did to
  * app/(app)/_layout.tsx (duplicate "phrasebook" entry). Component tests never
  * mount the real layouts, so the suite stayed green while the app crashed.
  *
@@ -40,7 +40,7 @@ describe('every _layout registers unique screen names', () => {
     (_rel, file) => {
       const src = fs.readFileSync(file as string, 'utf8');
 
-      // name-first form: <Stack.Screen name="x" — the codebase convention.
+      // name-first form: <Stack.Screen name="x", the codebase convention.
       const names = [...src.matchAll(/<\w+\.Screen\s+name="([^"]+)"/g)].map(
         (m) => m[1],
       );

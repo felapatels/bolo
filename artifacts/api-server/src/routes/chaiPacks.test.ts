@@ -21,8 +21,7 @@ import { ensureUsersColumns } from "../lib/testDbCompat";
 //   POST /chai-packs/credited  the recovery READ: which of these Apple
 //                              transaction ids has the ledger credited?
 //
-// The catalog test matters because a second copy of the amounts anywhere —
-// including in this response — is exactly what the one-catalog rule forbids;
+// The catalog test matters because a second copy of the amounts anywhere, // including in this response, is exactly what the one-catalog rule forbids;
 // the assertion is written against CHAI_PACKS rather than against literals so
 // it cannot become that second copy.
 //

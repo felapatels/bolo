@@ -3,7 +3,7 @@
 // Why this exists: tests that call mock.module("@workspace/db", ...) used to
 // hand-roll their namedExports list. A single missing name fails the WHOLE
 // test file at ESM link time (not at an assertion) as soon as any transitive
-// import references it — and the hand-rolled lists silently drift every time
+// import references it, and the hand-rolled lists silently drift every time
 // the schema barrel gains an export.
 //
 // The `satisfies DbValueExports` clause below is the drift guard:
@@ -22,7 +22,7 @@
 //     }),
 //   });
 //
-// Tables are inert `{}` sentinels — they are only ever passed as arguments to
+// Tables are inert `{}` sentinels, they are only ever passed as arguments to
 // drizzle helpers by code under test. `db` defaults to a throwing proxy so a
 // test that forgets to override it fails with a descriptive message instead
 // of silently returning undefined rows.
@@ -62,7 +62,7 @@ export function createDbMockExports(
     db: throwingDb(),
     pool: { end: async () => {}, query: async () => ({ rows: [] }) },
 
-    // Tables — inert sentinels, must track the schema barrel exactly.
+    // Tables, inert sentinels, must track the schema barrel exactly.
     activityEventsTable: {},
     attemptsTable: {},
     badgesTable: {},

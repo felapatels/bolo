@@ -1,7 +1,6 @@
 // Assembles the subscription-management snapshot the account UI reads: the
 // current tier/status, the relevant dates, the chosen language (middle tier), a
-// best-effort payment-method summary, and billing/invoice history. The server —
-// not the client — is authoritative for tier/status, so those come from the
+// best-effort payment-method summary, and billing/invoice history. The server, // not the client, is authoritative for tier/status, so those come from the
 // resolved plan; the softer fields (payment method, invoice history) are pulled
 // from RevenueCat where available and degrade gracefully to null/empty when the
 // provider isn't configured or doesn't expose them.
@@ -25,7 +24,7 @@ export interface BillingHistoryEntry {
   purchasedAt: string | null;
   expiresAt: string | null;
   periodType: string | null;
-  // "active" | "expired" | "canceled" — derived from the stored dates/flags.
+  // "active" | "expired" | "canceled", derived from the stored dates/flags.
   status: string;
 }
 
@@ -100,7 +99,7 @@ function paymentMethodFromSubscriber(
 // Builds the full subscription-details snapshot for a user. Reads tier/status
 // from the resolved plan (authoritative) and, when RevenueCat is configured and
 // reachable, enriches with payment method + billing history. A missing/failed
-// provider pull simply omits those softer fields — the core plan state still
+// provider pull simply omits those softer fields, the core plan state still
 // comes back.
 export async function buildSubscriptionDetails(
   user: User,

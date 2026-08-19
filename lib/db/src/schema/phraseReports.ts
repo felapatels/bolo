@@ -17,7 +17,7 @@ export const PHRASE_REPORT_REASONS = [
 export type PhraseReportReason = (typeof PHRASE_REPORT_REASONS)[number];
 
 // One row per learner report that a phrase is incorrect (Spec B2). Append-only;
-// duplicates (same user, same phrase) are allowed by design — dedup is a
+// duplicates (same user, same phrase) are allowed by design, dedup is a
 // review-time concern. `languageCode` and `stage` are derived server-side from
 // the phrase row at write time (never client-supplied) so reports stay
 // joinable against provenance (phrases.source) and stage even if the phrase

@@ -9,18 +9,18 @@ import { AppFonts } from '@/constants/fonts';
  * LABELED items, plus the display-only language chip that sits beside it.
  *
  * Built on the house modal-as-bottom-sheet pattern (same construction as the
- * chat language picker and the phrase report sheet) — there is no menu/popover
+ * chat language picker and the phrase report sheet), there is no menu/popover
  * primitive in this app and no bottom-sheet dependency. `onRequestClose` is
  * what gives the Android back gesture; the backdrop Pressable gives
  * outside-tap; each item closes the sheet on select.
  *
  * The items themselves are supplied by the screen so each one keeps its own
- * existing state and preference key — this component never holds a copy.
+ * existing state and preference key, this component never holds a copy.
  */
 
 /**
  * OWNER-APPROVED item wording, verbatim (#1044). These strings are not the
- * implementer's to pick — both lesson screens read them from here so the two
+ * implementer's to pick, both lesson screens read them from here so the two
  * can never word the same control differently. All three items are real on
  * both screens: review gained its own meaning-audio segment in #1046, so it
  * no longer omits `meaning`.
@@ -34,7 +34,7 @@ export const LESSON_AUDIO_LABELS = {
 export type LessonSettingsItem = {
   /** Stable id; also drives the item testID (`settings-item-<key>`). */
   key: string;
-  /** The visible text label — use LESSON_AUDIO_LABELS, never a fresh string. */
+  /** The visible text label, use LESSON_AUDIO_LABELS, never a fresh string. */
   label: string;
   /** One line naming what the item does in its CURRENT state. */
   description: string;
@@ -82,7 +82,7 @@ export function LessonSettingsMenu({ items }: { items: LessonSettingsItem[] }) {
             ]}
           >
             <View style={[styles.handleBar, { backgroundColor: colors.border }]} />
-            {/* Title only — owner ruling: no subtitle under it. */}
+            {/* Title only, owner ruling: no subtitle under it. */}
             <Text style={[styles.title, { color: colors.foreground }]}>Audio</Text>
 
             {items.map((item) => (
@@ -147,7 +147,7 @@ export function LessonSettingsMenu({ items }: { items: LessonSettingsItem[] }) {
 
 /**
  * Display-only language code beside the gear. Inert by ruling: no press
- * handler, no button role, not focusable — the language cannot be changed
+ * handler, no button role, not focusable, the language cannot be changed
  * mid-lesson. The slot is sized for THREE characters so switching between a
  * two- and three-letter code (`sat`, `mni`, …) never reflows the header, and
  * the code is never truncated (`sat` shortened to `SA` would read as Sanskrit).

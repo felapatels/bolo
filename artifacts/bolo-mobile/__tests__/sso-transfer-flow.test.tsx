@@ -5,7 +5,7 @@
  * Build 34 was rejected by App Review after an OAuth attempt that ended
  * signed out. The production evidence behind these tests:
  *
- *  - A Sentry AuthIncompleteStateError at status 'needs_identifier' — Clerk's
+ *  - A Sentry AuthIncompleteStateError at status 'needs_identifier', Clerk's
  *    way of saying "this person has no account, transfer the sign-in into a
  *    sign-up". The app had no transfer call at all, so a first-time OAuth
  *    user could never get in. No oauth_google account has ever been created

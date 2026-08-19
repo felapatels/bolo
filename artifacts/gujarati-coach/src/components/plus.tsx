@@ -140,7 +140,7 @@ export function UpgradeScreen({
           </Link>
           {showTrial && (
             <p className="text-xs font-medium text-muted-foreground -mt-1">
-              Cancel anytime — no charge if you cancel before the trial ends.
+              Cancel anytime, no charge if you cancel before the trial ends.
             </p>
           )}
           <Link

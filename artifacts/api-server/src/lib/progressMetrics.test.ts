@@ -15,7 +15,7 @@ import {
 // These tests pin down the pure per-language progress math that feeds both the
 // progress summary UI and badge evaluation. A refactor that quietly changes how
 // XP, mastery, best score, distinct phrases, or the streak are computed would
-// show learners wrong numbers — these assertions fail first instead.
+// show learners wrong numbers, these assertions fail first instead.
 
 // A fixed reference "today" in UTC used to build attempt dates deterministically,
 // independent of when the suite runs.
@@ -63,7 +63,7 @@ test("best score aggregates the max across multiple attempts on one phrase", () 
 });
 
 test("a phrase masters once its best attempt clears the threshold even if later attempts dip", () => {
-  // A high attempt followed by a low one must stay mastered — mastery tracks the
+  // A high attempt followed by a low one must stay mastered, mastery tracks the
   // best score, never the most recent.
   const stats = buildPhraseStats([
     { phraseId: 7, score: 90 },
@@ -131,7 +131,7 @@ test("streak counts consecutive days ending today", () => {
 });
 
 test("streak is anchored on yesterday when nothing was practiced today", () => {
-  // No attempt today, but a run ending yesterday still counts — the streak is
+  // No attempt today, but a run ending yesterday still counts, the streak is
   // alive until today's UTC day fully elapses.
   const streak = computeStreakDays([utcDaysAgo(1), utcDaysAgo(2)]);
   assert.equal(streak, 2);
@@ -186,7 +186,7 @@ function todayLocalAt(hour: number, localDaysAgo = 0): Date {
 }
 
 test("evening attempts in a negative-offset zone count on the learner's local days", () => {
-  // 9pm local in UTC-10 is 7am the *next* day in UTC — pure UTC bucketing would
+  // 9pm local in UTC-10 is 7am the *next* day in UTC, pure UTC bucketing would
   // shift each of these onto the wrong day. Three consecutive local evenings
   // must read as a 3-day streak in the learner's zone.
   const attempts = [
@@ -199,7 +199,7 @@ test("evening attempts in a negative-offset zone count on the learner's local da
 
 test("attempts straddling a UTC day boundary within one local day dedupe to a single streak day", () => {
   // 1pm local = 23:00Z same UTC day; 9pm local = 07:00Z next UTC day. UTC
-  // bucketing would see two days — locally it is one.
+  // bucketing would see two days, locally it is one.
   const attempts = [todayLocalAt(13, 0), todayLocalAt(21, 0)];
   assert.equal(computeStreakDays(attempts, NEG_ZONE), 1);
 });
@@ -209,7 +209,7 @@ test("zone-aware streak still anchors on local yesterday when today is untouched
   assert.equal(computeStreakDays(attempts, NEG_ZONE), 2);
 });
 
-// Task #1081: computeProgressMetrics no longer derives the streak at all — it
+// Task #1081: computeProgressMetrics no longer derives the streak at all, it
 // carries the one the caller was handed by lib/streakDays.ts, which is what
 // makes the banner and the 25 Chai repair card structurally incapable of
 // disagreeing. The zone-threading this test used to guard now lives on
@@ -322,7 +322,7 @@ test("scheduling ignores attempts with no phrase id", () => {
 // streak exactly (same localDayKey + mid-day fallback).
 
 test("speaking streak counts only days with a passing attempt (legacy stored bands)", () => {
-  // Legacy 'nailed'/'close' rows persist in the attempts table — they must
+  // Legacy 'nailed'/'close' rows persist in the attempts table, they must
   // keep qualifying days after the five-band migration (read-time compat).
   const streak = computeSpeakingStreakDays([
     { createdAt: todayAt(9), band: "nailed" },
@@ -343,7 +343,7 @@ test("all four passing five-band names qualify a speaking-streak day", () => {
 });
 
 test("retry and nocatch attempts never qualify a speaking-streak day", () => {
-  // Yesterday only has retry/nocatch attempts — the run breaks there.
+  // Yesterday only has retry/nocatch attempts, the run breaks there.
   const streak = computeSpeakingStreakDays([
     { createdAt: todayAt(9), band: "nailed" },
     { createdAt: utcDaysAgo(1), band: "retry" },
@@ -370,8 +370,7 @@ test("speaking streak anchors on yesterday when today has no qualifying attempt 
 
 test("speaking streak matches general streak bucketing for a Pacific/Auckland learner", () => {
   // Parity requirement: for a learner whose attempts all qualify, the
-  // speaking streak must equal the general streak in the same zone —
-  // including positive-offset zones where local evenings sit on the
+  // speaking streak must equal the general streak in the same zone, // including positive-offset zones where local evenings sit on the
   // previous UTC day.
   const AKL = "Pacific/Auckland";
   const key = localDayKey(new Date(), AKL);

@@ -22,7 +22,7 @@ import { eq, inArray } from "drizzle-orm";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
-// One topic never holds the same phrase twice — enforced by the database, not
+// One topic never holds the same phrase twice, enforced by the database, not
 // only by the application guard. This suite covers three things:
 //
 //   1. the index itself: a normalized-text duplicate is rejected even when the
@@ -231,8 +231,7 @@ before(async () => {
   app.use(express.json());
   app.use((req, _res, next) => {
     (req as unknown as { userId: string }).userId = TEST_USER_ID;
-    // The real app mounts pino-http, so routes may log on their error paths —
-    // and this suite deliberately drives one of those paths.
+    // The real app mounts pino-http, so routes may log on their error paths, // and this suite deliberately drives one of those paths.
     (req as unknown as { log: unknown }).log = {
       info: () => {},
       warn: () => {},
@@ -375,8 +374,8 @@ test("the same text is still allowed in another topic and in the other stage", a
 
 // ── The append paths against it ─────────────────────────────────────────────
 
-// A racing writer inserts the phrase while the model is generating — after the
-// route took its de-duplication snapshot — so only the database can catch it.
+// A racing writer inserts the phrase while the model is generating, after the
+// route took its de-duplication snapshot, so only the database can catch it.
 // The learner tapped "Add more phrases" deliberately: they get an honest empty
 // list, not an error.
 test("the manual append path answers with an empty list when the constraint fires", async () => {

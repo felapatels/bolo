@@ -1,18 +1,17 @@
 // D1a Slice 2: sequential lesson-group unlock derivation.
 //
-// Unlock state is DERIVED at read time from real signals — no stored counters:
+// Unlock state is DERIVED at read time from real signals, no stored counters:
 //   - completed: >= COMPLETION_RATIO of the group's phrases have
 //     bestScore >= MASTERY_THRESHOLD (the attempts-based mastery signal that
 //     already drives masteredCount on the read endpoints; per decision (a),
 //     NOT the FSRS stability signal, which stays the review scheduler).
-//   - tested_out: the only persisted state (lesson_group_progress rows) —
-//     the learner passed the test-out assessment for the group.
+//   - tested_out: the only persisted state (lesson_group_progress rows), //     the learner passed the test-out assessment for the group.
 //   - unlocked: first group by position, or previous group completed or
 //     tested out. in_progress: unlocked with at least one attempted phrase.
 //   - locked: everything else.
 //
 // Monotonicity ("never re-locks"): bestScore only rises and tested_out rows
-// are never deleted — but the group DENOMINATOR can grow (the replenisher
+// are never deleted, but the group DENOMINATOR can grow (the replenisher
 // appends fresh phrases to the last under-cap phrase group), which would
 // dilute a completed group's ratio below the threshold. So `completed` is
 // LATCHED: the read endpoint persists a lesson_group_progress row the first

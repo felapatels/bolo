@@ -16,14 +16,13 @@ import { phrasesTable } from "./phrases";
 // `due_at` drives the review-queue ordering: phrases past their due date
 // surface first. `stability` (days) is the FSRS forgetting-curve half-life;
 // once stability ≥ 21 days the phrase is considered "mastered" for the
-// purposes of the FSRS-based masteredCount definition (not yet active —
-// validated by the backfill before the categories route flips to it).
+// purposes of the FSRS-based masteredCount definition (not yet active, // validated by the backfill before the categories route flips to it).
 //
 // `state` mirrors the FSRS State enum as a string:
-//   'new'        — never rated (default)
-//   'learning'   — within learning steps
-//   'review'     — scheduled review intervals
-//   'relearning' — lapsed review card
+//   'new'       , never rated (default)
+//   'learning'  , within learning steps
+//   'review'    , scheduled review intervals
+//   'relearning', lapsed review card
 export const userItemMemoryTable = pgTable(
   "user_item_memory",
   {
@@ -37,7 +36,7 @@ export const userItemMemoryTable = pgTable(
     // FSRS card parameters.
     stability: real("stability").notNull().default(0),
     difficulty: real("difficulty").notNull().default(5),
-    // FSRS state string — see above.
+    // FSRS state string, see above.
     state: text("state").notNull().default("new"),
     reps: integer("reps").notNull().default(0),
     lapses: integer("lapses").notNull().default(0),

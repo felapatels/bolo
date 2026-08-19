@@ -7,8 +7,8 @@
  * listen to a take before it is allowed into the cache, and to spend another
  * take when the first one is demonstrably incomplete.
  *
- * Every writer of phrase audio — the startup pre-warm, the audit's replacement
- * pass — goes through synthesizeVerifiedPhraseAudio so no path can quietly
+ * Every writer of phrase audio, the startup pre-warm, the audit's replacement
+ * pass, goes through synthesizeVerifiedPhraseAudio so no path can quietly
  * cache an unheard take. The live playback route is the deliberate exception:
  * a learner is waiting on that response, so it serves its take immediately and
  * verifies afterwards, dropping the cache row if the take turns out bad.
@@ -82,8 +82,8 @@ export type VerifiedSynthesis = {
 /**
  * Synthesize a phrase and keep going until a take demonstrably speaks it.
  *
- * Returns the first take that verifies. If every take fails — a phrase the
- * recognizer simply cannot read back, or a genuine provider problem — the take
+ * Returns the first take that verifies. If every take fails, a phrase the
+ * recognizer simply cannot read back, or a genuine provider problem, the take
  * that carried the most of the phrase is returned with its failing verdict, so
  * the caller can still give the learner audio rather than silence while
  * knowing it is unverified.

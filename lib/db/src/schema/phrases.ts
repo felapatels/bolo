@@ -83,7 +83,7 @@ export const phrasesTable = pgTable("phrases", {
   ),
   // One topic never holds the same phrase twice. The key is the NORMALIZED
   // native script (trimmed, lower-cased, internal whitespace collapsed), which
-  // is the SQL twin of `normalizePhraseText` in lib/db/src/phraseText.ts — the
+  // is the SQL twin of `normalizePhraseText` in lib/db/src/phraseText.ts, the
   // comparison every writer already makes in application code. Indexing the
   // raw column instead would let a case- or spacing-variant through, which is
   // exactly what a writer that skipped the application guard would produce.
@@ -97,12 +97,12 @@ export const phrasesTable = pgTable("phrases", {
     table.stage,
     sql`lower(regexp_replace(btrim(${table.nativeScript}), '\\s+', ' ', 'g'))`,
   ),
-  // D1a Slice 2 hardening — TRIGGER FALLBACK (July 29, 2026): the composite
+  // D1a Slice 2 hardening, TRIGGER FALLBACK (July 29, 2026): the composite
   // scope FK `phrases_lesson_group_scope_fk` was removed from the declarative
   // schema (migration 0029) because the publish diff engine emits it before
   // the unique constraint it references and fails (support ticket open). The
-  // SAME invariant — a phrase's lesson group must agree with the phrase's
-  // (language, category); NULL lesson_group_id unconstrained — is now enforced
+  // SAME invariant, a phrase's lesson group must agree with the phrase's
+  // (language, category); NULL lesson_group_id unconstrained, is now enforced
   // by triggers (migration 0030 + an idempotent api-server startup guard).
   // See docs/trigger-fallback-lesson-group-scope.md, including the procedure
   // for restoring the declarative FK if the engine bug is fixed.

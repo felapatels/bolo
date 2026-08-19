@@ -4,7 +4,7 @@
 // Express and the database so it can be unit-tested in isolation and reused by
 // both the webhook (push) and the reconcile-on-read path (pull).
 //
-// The server — never the client — decides who is Plus: these mappers are the
+// The server, never the client, decides who is Plus: these mappers are the
 // single place that turns "what RevenueCat says about billing" into "what plan
 // the user gets".
 
@@ -24,7 +24,7 @@ export const ONE_LANGUAGE_ENTITLEMENT_ID =
 // The concrete subscription columns we write for a user, plus the user id the
 // change applies to. `subscriptionProviderId` records RevenueCat's stable
 // original app-user id for bookkeeping. Note: `chosenLanguage` is deliberately
-// NOT written here — the billing sync preserves whatever the subscriber chose,
+// NOT written here, the billing sync preserves whatever the subscriber chose,
 // which is captured separately at purchase.
 export interface RevenueCatApply {
   userId: string;
@@ -53,7 +53,7 @@ export interface RevenueCatEvent {
   transferred_from?: string[] | null;
   transferred_to?: string[] | null;
   // Present on store purchase events. Read ONLY by the consumable (Chai pack)
-  // credit path in lib/chaiPacks.ts — nothing in this module may use them to
+  // credit path in lib/chaiPacks.ts, nothing in this module may use them to
   // decide a subscription.
   product_id?: string | null;
   transaction_id?: string | null;
@@ -66,7 +66,7 @@ export interface RevenueCatWebhookBody {
   api_version?: string;
 }
 
-// Event types that never change entitlement state — safely acknowledged as
+// Event types that never change entitlement state, safely acknowledged as
 // no-ops so RevenueCat doesn't retry them.
 //
 // NON_SUBSCRIPTION_PURCHASE is a consumable (a Chai pack). It carries no
@@ -91,8 +91,8 @@ const IGNORED_EVENT_TYPES = new Set([
 //
 // An event that names NO entitlement grants nothing. This used to assume
 // all-access ("backwards compatible with the original single-entitlement
-// app"), which meant any entitlement-less event — a consumable purchase, a new
-// RevenueCat event type we have never seen, a misconfigured dashboard — handed
+// app"), which meant any entitlement-less event, a consumable purchase, a new
+// RevenueCat event type we have never seen, a misconfigured dashboard, handed
 // out a free Plus subscription. A subscription is now only ever granted by an
 // event that says, in so many words, which subscription it is about. The
 // consumable event type is ALSO ignored above, so the guard holds twice over:
@@ -154,7 +154,7 @@ export function applyFromEvent(
   // middle tier is treated as a plain active period.
   const isTrial =
     tier === "plus" && (event.period_type ?? "").toUpperCase() === "TRIAL";
-  // CANCELLATION only turns off auto-renew — access continues until the period
+  // CANCELLATION only turns off auto-renew, access continues until the period
   // (or trial) ends, so we keep the paid tier and let the date drive expiry.
   const status: SubscriptionStatus = isTrial
     ? "trialing"

@@ -15,7 +15,7 @@ import { AppFonts } from '@/constants/fonts';
 WebBrowser.maybeCompleteAuthSession();
 
 /**
- * Sign in with Apple, via Clerk's oauth_apple SSO strategy — the same flow
+ * Sign in with Apple, via Clerk's oauth_apple SSO strategy, the same flow
  * shape as GoogleAuthButton.
  *
  * Rendered on iOS ONLY (App Store Review Guideline 4.8 requires Apple sign-in
@@ -23,7 +23,7 @@ WebBrowser.maybeCompleteAuthSession();
  * its own bottom spacing, so non-iOS layouts are byte-identical to before.
  *
  * The visual control is Apple's own AppleAuthenticationButton from
- * expo-apple-authentication — Apple's supplied artwork, wording ("Continue
+ * expo-apple-authentication, Apple's supplied artwork, wording ("Continue
  * with Apple"), and sanctioned black/white appearances, which is what App
  * Review checks. Corner radius matches the app's other auth buttons (HIG
  * permits custom corner radius on the supplied button).

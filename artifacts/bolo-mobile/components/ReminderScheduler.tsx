@@ -25,7 +25,7 @@ export function ReminderScheduler() {
   // Register the foreground notification handler inside useEffect instead of
   // at module load time. Calling Notifications.setNotificationHandler() at
   // module level (before React initialises) triggers a silent native crash on
-  // physical iOS devices running Expo Go with New Architecture — the
+  // physical iOS devices running Expo Go with New Architecture, the
   // expo-notifications Turbo Module isn't fully bound yet at that point. Moving
   // it here means the call happens after the JS runtime and native bridge are
   // both fully ready.

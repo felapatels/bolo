@@ -84,7 +84,7 @@ async function ensureAndroidChannel(): Promise<void> {
 /**
  * Rebuilds the device's scheduled reminders from the stored preferences and
  * the learner's current progress. Called on app open, on foreground, and after
- * any preference change — local notifications can't check "did they practice?"
+ * any preference change, local notifications can't check "did they practice?"
  * at fire time, so we re-derive the schedule whenever fresh data is available:
  * today's slot is dropped once the learner has practiced, and the copy is
  * rebuilt from the current streak.

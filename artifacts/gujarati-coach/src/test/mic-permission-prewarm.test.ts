@@ -7,7 +7,7 @@ import { prewarmMicIfGranted } from "@/lib/micPermission";
 //
 // Repro that motivated the change: a learner opens practice with the mic still
 // blocked, turns it on from the browser's site settings, and keeps pressing.
-// The screen had only prewarmed at mount, so it stayed cold — every press paid
+// The screen had only prewarmed at mount, so it stayed cold, every press paid
 // a full device acquisition, finished after the click released, and was
 // discarded by the hold guard. The bird looked dead until the page reloaded.
 // ---------------------------------------------------------------------------

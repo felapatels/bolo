@@ -9,7 +9,7 @@ import type { MascotPose } from '@/components/Mascot';
 //
 // Every path is a literal require() because Metro resolves assets at build
 // time; a composed path silently ships nothing. A pose an outfit does not
-// ship falls back to the canonical asset — a missing file must never blank
+// ship falls back to the canonical asset, a missing file must never blank
 // the bird.
 export const CANONICAL_POSE_SOURCES: Record<MascotPose, number> = {
   wave: require('../assets/images/mascot/mascot-wave.png'),
@@ -32,7 +32,7 @@ export const OUTFIT_POSE_SOURCES: Record<
   },
   // The generated garments (web twin: src/lib/mascot-outfits.ts). Cloth
   // composited over her belly with her own wings and feet restacked in front,
-  // by scripts/gen-mascot-outfits.mjs — never a redrawn bird.
+  // by scripts/gen-mascot-outfits.mjs, never a redrawn bird.
   kediyu: {
     wave: require('../assets/images/mascot/outfits/kediyu/mascot-wave.png'),
     cheer: require('../assets/images/mascot/outfits/kediyu/mascot-cheer.png'),
@@ -136,8 +136,7 @@ export const ACCESSORY_OVERLAY_SOURCES: Record<
 };
 
 /**
- * The overlay layer for an accessory, or null when there is nothing to stack —
- * no accessory, an unknown id, or a pose it has not shipped. Null means "draw
+ * The overlay layer for an accessory, or null when there is nothing to stack, * no accessory, an unknown id, or a pose it has not shipped. Null means "draw
  * only the base", so a missing overlay costs the hat rather than the bird.
  */
 export function accessoryOverlaySource(

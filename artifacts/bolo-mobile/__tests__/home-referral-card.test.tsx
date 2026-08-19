@@ -2,11 +2,11 @@ import React from 'react';
 import { Share } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 
-// Task #1049 — the mobile home referral card.
+// Task #1049, the mobile home referral card.
 //
 // Mobile has no other referral surface: this card is the whole of it, so what
 // it may and may not show matters. It is the COMPACT twin of the web settings
-// card — headline, one line, one button — and must never leak the raw code,
+// card, headline, one line, one button, and must never leak the raw code,
 // the URL text or the Joined / Pending / Chai earned row.
 //
 // The link is built by @workspace/referral-link (the one module web builds its
@@ -92,8 +92,7 @@ describe('home referral card', () => {
 describe('referral link module', () => {
   test('mobile resolves the same link web does for the same code', () => {
     // Web calls buildReferralLink with window.location.origin; mobile calls it
-    // with https://<EXPO_PUBLIC_DOMAIN>. Same module, same origin, same link —
-    // there is no second place in the repo that assembles a /join/ URL.
+    // with https://<EXPO_PUBLIC_DOMAIN>. Same module, same origin, same link, // there is no second place in the repo that assembles a /join/ URL.
     expect(referralLinkFor('k7xm2p')).toBe(
       buildReferralLink('https://bolo.example.com', 'k7xm2p'),
     );

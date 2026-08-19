@@ -4,7 +4,7 @@
 // `/join/<code>` URL was assembled inside the web app (src/lib/referral-code.ts)
 // and mobile had no referral surface at all. Rather than let a second builder
 // appear, the path, the code normalization and the reward amount live here and
-// both clients call in — the same precedent as bolo-mobile's lib/legal.ts,
+// both clients call in, the same precedent as bolo-mobile's lib/legal.ts,
 // where the caller supplies the origin and the module owns the path.
 //
 // This package intentionally ships its TypeScript source (see package.json
@@ -17,7 +17,7 @@
  *
  * Mirrors REFERRAL_REWARD_REFERRER_CHAI / REFERRAL_REWARD_REFEREE_CHAI in
  * artifacts/api-server/src/lib/tokenEconomy.ts, which grants each side the
- * same amount. The ledger is authoritative — this constant exists so no client
+ * same amount. The ledger is authoritative, this constant exists so no client
  * surface can advertise a number the system does not actually pay, and a
  * contract test (artifacts/gujarati-coach/src/test/sharedConstants.contract.test.ts)
  * fails the moment the server constants move without this one following.
@@ -34,7 +34,7 @@ export function normalizeReferralCode(raw: string): string {
 
 /**
  * The in-app path a referral link lands on, relative to the app root (no base
- * path, no origin) — what a client router navigates to.
+ * path, no origin), what a client router navigates to.
  */
 export function referralJoinPath(code: string): string {
   return `/join/${encodeURIComponent(normalizeReferralCode(code))}`;
@@ -47,7 +47,7 @@ export function referralJoinPath(code: string): string {
  * phone camera opens the app rather than showing six letters to retype, but a
  * scanner should also cope with a hand-made QR that holds only the code. So:
  * take the last path segment of anything that parses as a join link, otherwise
- * treat the payload as a bare code — and in both cases require it to look like
+ * treat the payload as a bare code, and in both cases require it to look like
  * a code before handing it on, so a scan of an unrelated QR fails here rather
  * than becoming a wasted (and rate-limited) friend-request attempt.
  *
@@ -66,7 +66,7 @@ export function parseReferralScan(raw: string): string | null {
       candidate = joinMatch[1]!;
     }
   } else if (/[/:?#]/.test(text)) {
-    // A URL that is not a join link — someone else's QR, not ours.
+    // A URL that is not a join link, someone else's QR, not ours.
     return null;
   }
 

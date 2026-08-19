@@ -29,18 +29,18 @@ import Landing from '@/pages/landing';
 import Home from '@/pages/home';
 
 // Route-level code splitting: only Landing and Home load eagerly (they are
-// the two entry pages). Everything else is fetched on navigation — without
+// the two entry pages). Everything else is fetched on navigation, without
 // this, opening the logged-in home pulled in every page (chat, practice,
 // all six games…), ~190 dev-server requests, which made the dev preview
 // crawl on phones and bloats the production entry chunk.
 //
 // lazyRoute = React.lazy plus two things lazy alone can't do:
-// 1. `.preload()` — lets IdleRoutePrefetch warm the chunk in the background.
+// 1. `.preload()`, lets IdleRoutePrefetch warm the chunk in the background.
 // 2. Once the module is loaded, the wrapper renders the real component
 //    DIRECTLY, bypassing Suspense. This matters because wouter's location
 //    updates are sync external-store updates that React cannot transition,
 //    so even an already-fulfilled lazy() promise commits the RouteLoading
-//    fallback for a frame — a visible spinner blink on every navigation.
+//    fallback for a frame, a visible spinner blink on every navigation.
 type RouteModule<P> = { default: ComponentType<P> };
 function lazyRoute<P extends object>(loader: () => Promise<RouteModule<P>>) {
   let resolved: ComponentType<P> | null = null;
@@ -146,7 +146,7 @@ const PREFETCH_ORDER = [
 // - starts ~3s after mount (well past first paint and the home data fetches)
 // - loads chunks SEQUENTIALLY, so it never floods a slow phone connection
 // - skips entirely when the user asked to save data
-// Failures are ignored — the route will simply load on demand as before.
+// Failures are ignored, the route will simply load on demand as before.
 function IdleRoutePrefetch() {
   useEffect(() => {
     const connection = (navigator as { connection?: { saveData?: boolean } }).connection;
@@ -181,7 +181,7 @@ function RouteLoading() {
 // Clerk publishable key resolution.
 //
 // Trap (hit in production, July 2026): the Vite deployment build bakes whatever
-// VITE_CLERK_PUBLISHABLE_KEY it sees at build time — and the Replit deployment
+// VITE_CLERK_PUBLISHABLE_KEY it sees at build time, and the Replit deployment
 // build saw the workspace pk_test secret, not the production env var. Worse,
 // publishableKeyFromHost returns a DEV fallback key unconditionally, so host
 // derivation never ran and bolo-india.app served the dev Clerk instance.
@@ -201,13 +201,13 @@ const clerkPubKey = isProdClerkHost
       import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
     );
 
-// REQUIRED — copy verbatim. Empty in dev, auto-set in prod. Do NOT gate on env.
+// REQUIRED, copy verbatim. Empty in dev, auto-set in prod. Do NOT gate on env.
 const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 // Clerk passes full paths to routerPush/routerReplace, but wouter's
-// setLocation prepends the base — strip it to avoid doubling.
+// setLocation prepends the base, strip it to avoid doubling.
 function stripBase(path: string): string {
   return basePath && path.startsWith(basePath)
     ? path.slice(basePath.length) || '/'

@@ -17,7 +17,7 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
-// The origin real learners are browsing from — used to build the checkout /
+// The origin real learners are browsing from, used to build the checkout /
 // portal return URLs. Prefers the production custom domain(s), then the dev
 // domain; both are Replit-managed and never user-controlled input, so this is
 // safe to use unauthenticated-request-adjacent (it's never taken from the
@@ -36,7 +36,7 @@ function frontendOrigin(req: Request): string {
   if (domains.length === 0) {
     throw new Error("No REPLIT_DOMAINS/REPLIT_DEV_DOMAIN configured");
   }
-  // Prefer the domain the learner is actually browsing from — otherwise Stripe
+  // Prefer the domain the learner is actually browsing from, otherwise Stripe
   // returns them to a sibling domain (e.g. the *.replit.app twin of a custom
   // domain) where their auth session cookie doesn't exist and they land
   // signed-out. Only honored when it matches our own Replit-managed domain
@@ -47,7 +47,7 @@ function frontendOrigin(req: Request): string {
       try {
         return new URL(header).hostname;
       } catch {
-        /* malformed header — ignore */
+        /* malformed header, ignore */
       }
     }
     return undefined;
@@ -61,7 +61,7 @@ function frontendOrigin(req: Request): string {
 // so Stripe's return URLs must include it. The client sends its own
 // `import.meta.env.BASE_URL`; we only ever accept a same-origin relative path
 // segment (never a full URL), which closes any open-redirect via a spoofed
-// value — the origin is always our own Replit domain.
+// value, the origin is always our own Replit domain.
 function returnUrl(req: Request, rawBasePath: unknown, pathAndQuery: string): string {
   let base = typeof rawBasePath === "string" ? rawBasePath.trim() : "/";
   // Reject anything that isn't a simple absolute path segment.
@@ -72,7 +72,7 @@ function returnUrl(req: Request, rawBasePath: unknown, pathAndQuery: string): st
   return `${frontendOrigin(req)}${base}${pathAndQuery.replace(/^\//, "")}`;
 }
 
-// POST /stripe/checkout — starts real Bolo! Plus checkout. Creates (and
+// POST /stripe/checkout, starts real Bolo! Plus checkout. Creates (and
 // persists) a Stripe customer for the caller on first use, then a Checkout
 // Session for the requested interval. `withTrial` begins the 7-day free
 // trial; otherwise the subscription activates (and charges) immediately.
@@ -112,7 +112,7 @@ router.post(
 
       // Plus → Family upgrade for an existing Stripe subscriber: swap the
       // price on the SAME subscription (with proration) instead of creating a
-      // second one — the learner must never be double-billed. Applied locally
+      // second one, the learner must never be double-billed. Applied locally
       // right away from Stripe's response; the "updated" webhook confirms.
       if (
         plan === "family" &&
@@ -128,7 +128,7 @@ router.post(
           user.subscriptionProviderId,
         );
         // A delinquent-but-live subscription (past_due/unpaid/incomplete/
-        // paused) must never fall through to Checkout — that would create a
+        // paused) must never fall through to Checkout, that would create a
         // SECOND subscription. The learner has to fix billing in the Stripe
         // portal first.
         if (
@@ -146,7 +146,7 @@ router.post(
         if (current.status === "active" || current.status === "trialing") {
           // Keep the learner's billing cadence: an annual All-Access sub
           // upgrades onto the annual Family price, monthly onto monthly. The
-          // client-sent interval is ignored here — it only shapes FRESH
+          // client-sent interval is ignored here, it only shapes FRESH
           // checkouts below.
           const currentInterval = intervalFromStripeRecurring(
             current.items.data[0]?.price?.recurring?.interval,
@@ -188,8 +188,7 @@ router.post(
         mode: "subscription",
         line_items: [{ price: priceId, quantity: 1 }],
         // Tag the subscription with the Clerk user id so every subsequent
-        // webhook event (created/updated/deleted) is directly attributable —
-        // see stripeSync.ts.
+        // webhook event (created/updated/deleted) is directly attributable, // see stripeSync.ts.
         subscription_data: {
           // `plan` lets the webhook distinguish Family from Plus (stripeSync).
           metadata: { userId, plan },
@@ -212,14 +211,14 @@ router.post(
   },
 );
 
-// POST /stripe/chai-checkout — buys a one-time Chai pack (WEB ONLY).
+// POST /stripe/chai-checkout, buys a one-time Chai pack (WEB ONLY).
 //
 // Reuses the subscription plumbing wholesale: same Stripe client, same router
 // and auth, same customer record, same return-URL builder. The only real
 // difference is `mode: "payment"`.
 //
 // The client names a PACK ID and nothing else. Everything that decides what is
-// being sold — the price and, later, how much Chai is credited — is resolved
+// being sold, the price and, later, how much Chai is credited, is resolved
 // server-side from the catalog, and the metadata that the webhook reads back
 // is written HERE, so a client cannot ask for more Chai than it paid for.
 //
@@ -296,7 +295,7 @@ router.post(
   },
 );
 
-// POST /stripe/portal — opens Stripe's hosted billing portal so a subscriber
+// POST /stripe/portal, opens Stripe's hosted billing portal so a subscriber
 // can manage or cancel their real subscription. Requires a prior checkout
 // (there is no customer to manage otherwise).
 router.post(

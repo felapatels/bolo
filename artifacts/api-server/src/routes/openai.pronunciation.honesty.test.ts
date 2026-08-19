@@ -133,7 +133,7 @@ async function postPronunciation(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Part A — chooseConservativeTranscript unit tests
+// Part A, chooseConservativeTranscript unit tests
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const TARGET = { targetNative: "નમસ્તે", targetRomanized: "namaste" };
@@ -250,7 +250,7 @@ test("both passes empty: bothEmpty, no disagreement", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Part B — Route integration tests
+// Part B, Route integration tests
 // ═══════════════════════════════════════════════════════════════════════════════
 
 test("honesty cap: transcript equals target with agreeing passes → score 92, band 'perfect' at the 91 threshold (Namasto pin)", async () => {
@@ -385,7 +385,7 @@ test("recognizer drift to a foreign script: nocatch withholds the transcript fro
   // Field report (Aug 10, 2026): a Gujarati attempt came back transcribed in
   // Russian Cyrillic. The transcribe model treats the `language` option as a
   // soft hint and can drift on short clips, so the script-mismatch guard
-  // correctly resolved it to nocatch — but the card still printed
+  // correctly resolved it to nocatch, but the card still printed
   // We heard: "вучит крашна" beside copy saying the listener glitched.
   // The drifted text must not reach the client; the evidence must survive on
   // the signed token (and from there the attempt row and the diagnostics).

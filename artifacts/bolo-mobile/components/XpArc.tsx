@@ -93,7 +93,7 @@ export function XpArc({
     const t = progress.value;
     const dx = delta?.dx ?? 0;
     const dy = delta?.dy ?? 0;
-    // Quadratic bezier through a raised midpoint — arc, transform-only.
+    // Quadratic bezier through a raised midpoint, arc, transform-only.
     const midX = dx * 0.5 + (dx >= 0 ? 40 : -40);
     const midY = Math.min(0, dy) * 0.5 - 56;
     const inv = 1 - t;

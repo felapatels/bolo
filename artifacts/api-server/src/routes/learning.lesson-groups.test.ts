@@ -26,7 +26,7 @@ import { partitionIds } from "../scripts/backfillLessonGroups";
 // premium filtering on the phrases endpoint, and the unassignedCount field
 // that surfaces phrases the grouping backfill hasn't claimed (replenished
 // rows stay unassigned until Slice 2). All rows are scoped to test-only ids
-// and cleaned up after — see .agents/memory/api-server-tests.md.
+// and cleaned up after, see .agents/memory/api-server-tests.md.
 const TEST_USER_ID = "test_lesson_groups_route";
 const LANG = "__test_lang_lesson_groups";
 const CATEGORY_SLUG = "__test_cat_lesson_groups";

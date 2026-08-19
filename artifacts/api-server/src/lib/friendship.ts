@@ -4,8 +4,7 @@ import { and, eq, or } from "drizzle-orm";
 // Shared social-graph helpers. A friendship is ONE directional row
 // (requesterId → addresseeId) plus a status, so every "do these two already
 // have a relationship?" question has to look in both directions. The database
-// unique constraint only covers the ordered pair (requesterId, addresseeId) —
-// it will happily accept a reverse duplicate — so this check is the only thing
+// unique constraint only covers the ordered pair (requesterId, addresseeId), // it will happily accept a reverse duplicate, so this check is the only thing
 // standing between the graph and A→B / B→A double rows.
 
 export type FriendshipRow = typeof friendshipsTable.$inferSelect;
@@ -46,7 +45,7 @@ export type EnsureFriendshipResult =
  * the rule that every code-initiated add must be accepted by the recipient:
  * redeeming someone's referral link is an explicit act by both parties (one
  * published the link, the other chose to join through it). Nothing else may
- * call this — a code typed into "add a friend" must create a pending request.
+ * call this, a code typed into "add a friend" must create a pending request.
  *
  * A pending row in either direction is promoted rather than left alone, so the
  * pair never ends up "redeemed but still waiting"; the reverse-direction check

@@ -5,7 +5,7 @@ import type { QueryClient } from "@tanstack/react-query";
 // All checkout on web is real Stripe: `beginAllAccessCheckout`,
 // `beginFamilyCheckout`, and `cancelPlus` create a Stripe session server-side
 // and then hand the browser off to Stripe's hosted pages via a full-page
-// redirect — so they never resolve on success (the tab navigates away). Stripe
+// redirect, so they never resolve on success (the tab navigates away). Stripe
 // returns the learner to /upgrade?checkout=success|cancel; the upgrade page
 // picks that up and calls `refreshAfterBilling` to re-pull entitlements so the
 // app unlocks.
@@ -13,7 +13,7 @@ import type { QueryClient } from "@tanstack/react-query";
 // The "One Language" tier is NOT sold on web (it stays RevenueCat/mobile-only);
 // web sells All-Access and Family.
 
-// The billing interval — selects the monthly vs annual Stripe price.
+// The billing interval, selects the monthly vs annual Stripe price.
 export type PlusInterval = "monthly" | "annual";
 
 // The artifact base path (e.g. "/gujarati-coach/") so Stripe's return URLs land
@@ -40,7 +40,7 @@ async function postForRedirectUrl(
       const data = (await res.json()) as { error?: string };
       if (data?.error) message = data.error;
     } catch {
-      // Non-JSON error body — keep the generic message.
+      // Non-JSON error body, keep the generic message.
     }
     throw new Error(message);
   }
@@ -62,7 +62,7 @@ export async function refreshAfterBilling(
 // Start the top "All-Access" (Plus) tier via real Stripe Checkout. `withTrial`
 // begins the 7-day free trial (used for new subscribers); pass false when an
 // existing subscriber upgrades and shouldn't get a fresh trial. Redirects the
-// browser to Stripe — does not return on success.
+// browser to Stripe, does not return on success.
 export async function beginAllAccessCheckout(
   withTrial: boolean,
   interval: PlusInterval,
@@ -96,7 +96,7 @@ export async function beginFamilyCheckout(
       const data = (await res.json()) as { error?: string };
       if (data?.error) message = data.error;
     } catch {
-      // Non-JSON error body — keep the generic message.
+      // Non-JSON error body, keep the generic message.
     }
     throw new Error(message);
   }
@@ -112,7 +112,7 @@ export async function beginFamilyCheckout(
 
 // Buy a one-time Chai pack (web only). Same hosted-Stripe hand-off as the
 // subscription paths: this redirects and does not return on success. The
-// client names the pack and nothing else — the price, the Chai, and the credit
+// client names the pack and nothing else, the price, the Chai, and the credit
 // are all server-side, and Stripe's webhook is what actually credits the
 // wallet, so closing the tab mid-purchase still delivers the Chai.
 export async function beginChaiPackCheckout(packId: string): Promise<void> {
@@ -121,7 +121,7 @@ export async function beginChaiPackCheckout(packId: string): Promise<void> {
 }
 
 // Open Stripe's hosted billing portal to manage/cancel the subscription.
-// Redirects the browser — does not return on success.
+// Redirects the browser, does not return on success.
 export async function cancelPlus(): Promise<void> {
   const url = await postForRedirectUrl("/api/stripe/portal", {});
   window.location.href = url;

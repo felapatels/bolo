@@ -4,13 +4,13 @@ import { Platform } from 'react-native';
 
 // ---------------------------------------------------------------------------
 // Guards the web virtual-keyboard inset on the Bolo chat screen.
-// (artifacts/bolo-mobile/app/(app)/(tabs)/chat.tsx — webKeyboardInset state
+// (artifacts/bolo-mobile/app/(app)/(tabs)/chat.tsx, webKeyboardInset state
 //  + visualViewport effect at lines ~407-435, applied at lines ~1638-1648)
 //
 // Three scenarios are covered:
-//  1. iPad Safari viewport (1024×1366) — 320 px keyboard → paddingBottom 320
-//  2. Android Chrome tablet viewport (800×1280) — 280 px keyboard → paddingBottom 280
-//  3. Desktop regression — no keyboard event → paddingBottom stays 0
+//  1. iPad Safari viewport (1024×1366), 320 px keyboard → paddingBottom 320
+//  2. Android Chrome tablet viewport (800×1280), 280 px keyboard → paddingBottom 280
+//  3. Desktop regression, no keyboard event → paddingBottom stays 0
 //
 // Strategy
 // --------
@@ -239,7 +239,7 @@ function installFakeViewport(innerHeight: number, initialVVHeight: number) {
 
   // Install on global so the component's `window.visualViewport` picks it up.
   // `innerHeight` represents the physical screen height and never changes when
-  // the keyboard opens — only visualViewport.height shrinks.
+  // the keyboard opens, only visualViewport.height shrinks.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (global as any).window = { innerHeight, visualViewport: vv };
 
@@ -260,7 +260,7 @@ afterEach(() => {
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
-describe('web virtual-keyboard inset — chat input stays above keyboard', () => {
+describe('web virtual-keyboard inset, chat input stays above keyboard', () => {
 
   // ── 1. iPad Safari ───────────────────────────────────────────────────────
   test('iPad Safari: paddingBottom equals keyboard height when keyboard opens', async () => {
@@ -271,7 +271,7 @@ describe('web virtual-keyboard inset — chat input stays above keyboard', () =>
 
     const { fireResize, setVVHeight } = installFakeViewport(
       INNER_HEIGHT,
-      INNER_HEIGHT, // full height initially — no keyboard
+      INNER_HEIGHT, // full height initially, no keyboard
     );
 
     render(<ChatScreen />);
@@ -334,7 +334,7 @@ describe('web virtual-keyboard inset — chat input stays above keyboard', () =>
     expect(wrapper).not.toHaveStyle({ paddingBottom: KEYBOARD_HEIGHT });
   });
 
-  // ── 3. Desktop regression — inset must stay 0 ───────────────────────────
+  // ── 3. Desktop regression, inset must stay 0 ───────────────────────────
   test('Desktop: no inset applied when visualViewport never shrinks', async () => {
     // Standard desktop: 1280 × 800. No soft keyboard ever fires a resize event.
     const INNER_HEIGHT = 800;

@@ -482,7 +482,7 @@ describe("signal glyph", () => {
       ]) {
         expect(q(container, part)).not.toBeNull();
       }
-      // The raised arm is the same drawing, rotated about the pivot — never a
+      // The raised arm is the same drawing, rotated about the pivot, never a
       // second shape.
       const up = q(container, "signal-arm-up");
       if (up) expect(up.getAttribute("transform")).toBe("rotate(75 16.4 22.4)");

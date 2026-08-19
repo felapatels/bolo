@@ -279,7 +279,7 @@ describe("chat error banner", () => {
     // stopRecording also hangs on the second attempt so the turn stays in-flight.
     h.stopRecording.mockReturnValue(new Promise(() => {}));
 
-    // Act: tap mic button while in error state — this calls startRecording which
+    // Act: tap mic button while in error state, this calls startRecording which
     // calls setErrorMsg(null) synchronously before the next await.
     await act(async () => {
       fireEvent.pointerDown(micButton());

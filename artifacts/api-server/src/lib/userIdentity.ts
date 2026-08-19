@@ -63,7 +63,7 @@ async function fetchClerkIdentity(userId: string): Promise<ClerkIdentity | null>
 // display name + email are populated from Clerk. The row is upserted (a no-op
 // update forces RETURNING even on conflict) so we learn the currently-stored
 // identity in a single round-trip, and Clerk is only consulted when a column is
-// still missing — covering both brand-new users and older rows created before
+// still missing, covering both brand-new users and older rows created before
 // identity capture existed (graceful backfill).
 export async function ensureLocalUser(userId: string): Promise<void> {
   const [row] = await db
@@ -80,7 +80,7 @@ export async function ensureLocalUser(userId: string): Promise<void> {
   const identity = await fetchClerkIdentity(userId);
   if (!identity) return;
 
-  // Only fill in blanks — never clobber a value already stored (e.g. if a user
+  // Only fill in blanks, never clobber a value already stored (e.g. if a user
   // later removes their name from Clerk).
   const email = row?.email ?? identity.email;
   const displayName = row?.displayName ?? identity.displayName;
@@ -145,7 +145,7 @@ async function consumePendingInvites(
       .limit(1);
 
     if (!existing) {
-      // Insert ignoring conflicts — the unique constraint on (requester,
+      // Insert ignoring conflicts, the unique constraint on (requester,
       // addressee) makes this safe to retry.
       await db
         .insert(friendshipsTable)

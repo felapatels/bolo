@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 
 // One bolt of cloth on the bazaar's rack.
 //
-// The rack is built to GROW. Everything a card needs — its price, whether it
-// is a garment or an accessory, and how to frame its picture — rides on the
+// The rack is built to GROW. Everything a card needs, its price, whether it
+// is a garment or an accessory, and how to frame its picture, rides on the
 // catalog row from the server, so stocking a new item is a server entry plus
 // five pose files. No client learns its name.
 //
@@ -22,9 +22,9 @@ export type RackOutfit = {
   tagline: string;
   cost: number;
   owned: boolean;
-  /** "garment" | "accessory" — older payloads may omit it. */
+  /** "garment" | "accessory", older payloads may omit it. */
   kind?: string | null;
-  /** "full" | "head" — how to crop the thumbnail. */
+  /** "full" | "head", how to crop the thumbnail. */
   preview?: string | null;
 };
 
@@ -37,7 +37,7 @@ export const RACK_SECTIONS: ReadonlyArray<{ kind: string; label: string }> = [
 /**
  * Group the catalog into the sections above. An item whose kind the client
  * does not recognise (a newer server, an older app) is not dropped on the
- * floor — it falls into the first section, so unknown stock is still
+ * floor, it falls into the first section, so unknown stock is still
  * shoppable.
  */
 export function groupOutfits<T extends RackOutfit>(
@@ -55,7 +55,7 @@ export function groupOutfits<T extends RackOutfit>(
 
 /**
  * The item, worn, cropped to where it actually is. A pagdi in a full-body
- * crop is a few unreadable pixels, so accessories zoom to the head — the
+ * crop is a few unreadable pixels, so accessories zoom to the head, the
  * catalog says which, because only the catalog knows what the item is.
  */
 export function OutfitThumb({

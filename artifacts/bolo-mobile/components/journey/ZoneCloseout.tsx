@@ -3,7 +3,7 @@
 //
 // Beat 1 is the RESULT: confetti, a cheering Bolo, and a closeout game CTA
 // (Plus riders get Speed Round, free riders get Ticket Check pinned to the
-// zone's topic — the mobile stand-in for web's Express Listening, which was
+// zone's topic, the mobile stand-in for web's Express Listening, which was
 // descoped from this platform's roster).
 // Beat 2 is the PAYOFF: Chacha-ji's Chai, with a door into the wallet.
 //
@@ -16,7 +16,7 @@
 //
 // Nothing here gates: every action, including dismissing, moves the state
 // machine forward and never blocks the map. The stage machine is pure display
-// state (see lib/closeoutMemory.ts) — the Chai itself is protected by the
+// state (see lib/closeoutMemory.ts), the Chai itself is protected by the
 // ledger's once-ever `earn_closeout_first` refId, not by anything on device.
 
 import React, { useEffect, useState } from 'react';
@@ -32,7 +32,7 @@ import { type CloseoutMemory } from '@/lib/closeoutMemory';
 
 export type CloseoutZone = {
   zoneIndex: number;
-  /** Category id — the closeout game's `cat` and the grant's zone identity. */
+  /** Category id, the closeout game's `cat` and the grant's zone identity. */
   zoneId: number;
   geoName: string;
   title: string;

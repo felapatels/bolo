@@ -13,7 +13,7 @@ import type { ReactElement } from "react";
 // the session milestones use.
 //
 // Guards: the exact copy in both directions for all three toggles, and that a
-// second tap REPLACES the pill rather than stacking a second one — the three
+// second tap REPLACES the pill rather than stacking a second one, the three
 // sit together and get tapped in quick succession.
 // ---------------------------------------------------------------------------
 
@@ -151,7 +151,7 @@ async function reachIdle() {
 
 /**
  * Task 1044: the three pills moved behind a settings gear. Radix opens its
- * menu on pointerdown, not click, and closes it on select — so every item
+ * menu on pointerdown, not click, and closes it on select, so every item
  * press is open-then-click.
  */
 async function openMenu() {
@@ -172,7 +172,7 @@ function toggle(name: "Autoplay phrase" | "Spoken feedback" | "Speak meaning") {
  *
  * ORDER MATTERS. The toast self-dismisses after 1800ms of REAL time, and
  * MilestoneToast uses `AnimatePresence mode="wait"`, so a replacing toast is
- * only in the DOM after the previous one's exit animation finishes — it can
+ * only in the DOM after the previous one's exit animation finishes, it can
  * be neither read synchronously nor waited for at leisure. The toast
  * assertion therefore sits immediately after the click, and the wait for the
  * Radix menu to finish closing comes AFTER it. With the close-wait in between

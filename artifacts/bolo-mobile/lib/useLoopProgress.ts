@@ -15,7 +15,7 @@ import {
  * gujarati-coach/src/index.css "Boarding pass and journey CTA idle motion").
  *
  * While `enabled` is false the value rests at 0, which every caller treats
- * as the identity frame — the reduced-motion static frame comes for free.
+ * as the identity frame, the reduced-motion static frame comes for free.
  */
 export function useLoopProgress(cycleMs: number, enabled: boolean): SharedValue<number> {
   const progress = useSharedValue(0);

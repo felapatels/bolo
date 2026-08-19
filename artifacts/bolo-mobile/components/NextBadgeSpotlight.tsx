@@ -47,7 +47,7 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
     badges && badges.length > 0 ? findNearestLockedBadge(badges) : null;
   const ratio = nearest ? progressRatio(nearest) : 0;
 
-  // Progress bar spring: width is a layout prop — must use RNAnimated (not
+  // Progress bar spring: width is a layout prop, must use RNAnimated (not
   // Reanimated useAnimatedStyle) to avoid the New Architecture layout-prop
   // crash. Matches TopicBar physics (stiffness 120, damping 14).
   // Hooks are declared unconditionally here, before any early returns.
@@ -105,7 +105,7 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
           You've unlocked them all!
         </Text>
         <Text style={[styles.allEarnedSub, { color: colors.mutedForeground }]}>
-          Keep practicing to stay sharp — new goals await.
+          Keep practicing to stay sharp, new goals await.
         </Text>
       </Animated.View>
     );

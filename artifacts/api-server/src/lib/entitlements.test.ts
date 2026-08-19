@@ -10,7 +10,7 @@ import {
   type SubscriptionState,
 } from "./entitlements";
 
-// Pure-unit coverage of the plan resolver and entitlements assembly — the
+// Pure-unit coverage of the plan resolver and entitlements assembly, the
 // single source of truth for who gets what. No DB or Express involved, so the
 // trial/expiry rules are pinned deterministically here rather than inferred from
 // the route tests.

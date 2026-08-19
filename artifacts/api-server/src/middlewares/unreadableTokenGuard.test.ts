@@ -10,7 +10,7 @@
  *
  * The pins below cut BOTH ways. The three channels a throw can arrive through
  * (synchronous, `next(err)`, rejected promise) must all become 401 when the
- * error is about the presented token — and an unhealthy verifier (missing
+ * error is about the presented token, and an unhealthy verifier (missing
  * JWKS, bad secret key, network fault) must still reach express's error
  * handler as a 500, so an outage is never laundered into "your sign-in
  * failed".
@@ -126,7 +126,7 @@ test("a decode failure delivered via next(err) yields 401", async () => {
 });
 
 test("a decode failure delivered as a rejected promise yields 401", async () => {
-  // The guard is now what express sees, so it — not express — has to catch the
+  // The guard is now what express sees, so it, not express, has to catch the
   // rejection. Without the .catch this request 500s (or worse, hangs).
   channel = "reject";
   failure = new SyntaxError("Unexpected end of data");
@@ -153,7 +153,7 @@ test("Clerk's own token-shaped reasons pass through as the reported reason", asy
 
 test("an unhealthy verifier is NOT laundered into a 401", async () => {
   channel = "throw";
-  // These say our configuration or Clerk's key endpoint is broken — telling a
+  // These say our configuration or Clerk's key endpoint is broken, telling a
   // learner to sign in again would be a lie, and would hide the incident.
   for (const reason of [
     "jwk-remote-failed-to-load",

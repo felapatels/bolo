@@ -13,7 +13,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react-native';
 //  2. the SCORING MODEL is indirect: the stray's id must NEVER be submitted
 //     (it fails the server's in-category validation), so every round is scored
 //     through an in-category anchor, and a wrong pick must map to an
-//     in-category id that DIFFERS from that anchor — including the case where
+//     in-category id that DIFFERS from that anchor, including the case where
 //     the learner taps the anchor's own tile, which would otherwise score a
 //     miss as a hit.
 //
@@ -21,7 +21,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react-native';
 //     auto-advances at 700ms, a miss waits on "Tap to continue". Unifying them
 //     silently changes how long a learner sees the answer.
 //
-//  4. the game is UNTIMED. No clock exists, so nothing can time out — pinned
+//  4. the game is UNTIMED. No clock exists, so nothing can time out, pinned
 //     rather than assumed, because the shell offers a clock and a future edit
 //     could switch one on without anyone noticing.
 // ---------------------------------------------------------------------------

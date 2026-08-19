@@ -6,9 +6,9 @@ import { Mascot } from "@/components/mascot";
 // The evaluating state.
 //
 // Practice used to float a Loader2 throbber over the mascot's belly and dim
-// him to 0.55 behind it. Both are gone: Bolo plays the state himself — he
+// him to 0.55 behind it. Both are gone: Bolo plays the state himself, he
 // zooms out small and spins in place while the score comes back, then zooms
-// back in — through the existing whole-image activity layer
+// back in, through the existing whole-image activity layer
 // (`activity="evaluating"`), so no second animation stack and no new artwork.
 // The shrink is a class on an in-flow wrapper rather than a framer value, so
 // it holds when animations are turned off, and the class carries
@@ -75,7 +75,7 @@ describe("mascot evaluating state", () => {
     const { container } = render(<Mascot pose="thinking" activity="evaluating" />);
 
     // The small size is CSS, not a framer transform, so a learner with
-    // animations off still sees a bird who has zoomed away to work — a
+    // animations off still sees a bird who has zoomed away to work, a
     // distinct state rather than an empty or frozen full-size one. (A slow
     // opacity breathe carries the "still working" beat; the spin stays off.)
     const shrunk = container.querySelector('[data-testid="mascot-working"]');

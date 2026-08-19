@@ -19,7 +19,7 @@ export function BadgesGallery({ lang }: { lang: string }) {
   const earnedCount = badges?.filter((b) => b.earned).length ?? 0;
   const total = badges?.length ?? 0;
 
-  // The highest progress ratio among still-locked badges — used to emphasize the
+  // The highest progress ratio among still-locked badges, used to emphasize the
   // goal(s) the learner is closest to unlocking.
   const nearestRatio = badges
     ? badges

@@ -10,7 +10,7 @@
  * them an attempt.
  *
  * What this is NOT: it retains nothing. No audio, no transcript, no new
- * category of data — only a single derived number per attempt. The voice
+ * category of data, only a single derived number per attempt. The voice
  * contribution program spec (docs/specs/voice-data-program.md) governs RAW
  * RECORDINGS (consent, retention, deletion, access to audio); it is silent on
  * derived measurements, and this module keeps no bytes to be governed.
@@ -36,7 +36,7 @@ const LEAD_WINDOW_MS = 300;
 const LEAD_MAX_FRACTION = 0.4;
 /** Below two frames there is no opening to compare against anything. */
 const MIN_FRAMES = 2;
-/** One 16-bit LSB — the quietest thing that is not digital silence. */
+/** One 16-bit LSB, the quietest thing that is not digital silence. */
 const AMPLITUDE_EPSILON = 1;
 /** Reported values are clamped into this range so outliers stay analysable. */
 const SNR_MIN_DB = -20;
@@ -185,7 +185,7 @@ export function snrDbFromWav(wav: Buffer): number | null {
  * `converted`/`format` are the pronunciation route's existing
  * `ensureCompatibleFormat` output: when that already produced WAV the decode is
  * free, and otherwise the same ffmpeg helper the pipeline already ships turns
- * the container into PCM. Never throws — every failure resolves to null so the
+ * the container into PCM. Never throws, every failure resolves to null so the
  * attempt scores and records exactly as it would without this measurement.
  */
 export async function measureAttemptSnrDb(

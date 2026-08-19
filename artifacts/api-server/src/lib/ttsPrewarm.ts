@@ -47,8 +47,7 @@ const PRIORITY_LANGUAGE_CODE = "hi";
  * ~58k characters, so re-synthesizing everything at once would blow the
  * monthly quota several times over. Instead each pre-warm run spends at most
  * this many characters, in priority order (Gujarati starter phrases first),
- * and the rest of the catalog fills in lazily on playback and on later runs —
- * batching the backlog over subsequent months. Old-provider audio remains in
+ * and the rest of the catalog fills in lazily on playback and on later runs, * batching the backlog over subsequent months. Old-provider audio remains in
  * the cache under legacy keys as a fallback, so a learner never gets silence
  * while a phrase is still waiting for its refresh.
  *
@@ -69,7 +68,7 @@ type PhraseWithLanguageName = {
   romanized: string;
   languageCode: string;
   premium: boolean;
-  languageName: string;    // display name, e.g. "Gujarati" — matches what clients send
+  languageName: string;    // display name, e.g. "Gujarati", matches what clients send
   elevenLabsVoiceId: string; // resolved per-language voice ID for synthesis + cache key
   languageId: string | undefined; // ElevenLabs language_id for phoneme selection, or undefined
   speechCapability: "supported" | "degraded" | "unsupported" | null;
@@ -128,17 +127,16 @@ async function loadPhrasesInPriorityOrder(): Promise<PhraseWithLanguageName[]> {
       // Fall back to empty string if for some reason the language row is missing;
       // that matches how the route behaves when languageName is omitted.
       languageName: nameByCode.get(p.languageCode) ?? "",
-      // Languages the recognizer cannot hear skip verification entirely — a
+      // Languages the recognizer cannot hear skip verification entirely, a
       // failing verdict there would only burn retries on good audio.
       speechCapability:
         (capabilityByCode.get(p.languageCode) as PhraseWithLanguageName["speechCapability"]) ??
         null,
       // Resolve the per-language ElevenLabs voice ID so both the cache key and
-      // the synthesis call use the same voice — matching what /openai/tts does
+      // the synthesis call use the same voice, matching what /openai/tts does
       // at runtime when a client passes languageCode.
       elevenLabsVoiceId: getVoiceIdForLanguage(p.languageCode),
-      // Resolve the ElevenLabs language_id for correct phoneme selection —
-      // undefined for unsupported codes (the API falls back to auto-detection).
+      // Resolve the ElevenLabs language_id for correct phoneme selection, // undefined for unsupported codes (the API falls back to auto-detection).
       languageId: getLanguageIdForCode(p.languageCode),
     }));
 }
@@ -148,7 +146,7 @@ async function loadPhrasesInPriorityOrder(): Promise<PhraseWithLanguageName[]> {
  *
  * Cache keys are provider-versioned and computed with the language's display
  * name (e.g. "Gujarati"), matching exactly what the runtime /openai/tts route
- * produces — so pre-warmed entries are always hit on first playback, and
+ * produces, so pre-warmed entries are always hit on first playback, and
  * audio cached by the previous TTS provider (legacy key scheme) is never
  * counted as warm.
  *
@@ -259,7 +257,7 @@ export function scheduleTtsPrewarm(): void {
         batch,
         CONCURRENCY,
         async ({ phrase, key, identity }) => {
-          // ElevenLabs quota guard — only consulted when the configured
+          // ElevenLabs quota guard, only consulted when the configured
           // provider is ElevenLabs. Other providers do not use this flag.
           if (TTS_PROVIDER === "elevenlabs" && quotaExhausted) {
             skipped++;
@@ -280,7 +278,7 @@ export function scheduleTtsPrewarm(): void {
           try {
             // Nothing enters the cache unheard: synthesis retries a take that
             // demonstrably drops part of the phrase. Pre-warm is the right
-            // place to spend that time — no learner is waiting on it.
+            // place to spend that time, no learner is waiting on it.
             const { audio, verdict, takes } = await synthesizeVerifiedPhraseAudio({
               nativeScript: phrase.nativeScript,
               romanized: phrase.romanized,
@@ -292,8 +290,8 @@ export function scheduleTtsPrewarm(): void {
             });
 
             if (!verdict.ok) {
-              // Every take fell short. Cache the best one anyway — audio a
-              // learner can hear beats silence — but leave a trail so the
+              // Every take fell short. Cache the best one anyway, audio a
+              // learner can hear beats silence, but leave a trail so the
               // audit can pick the phrase up.
               logger.warn(
                 {
@@ -327,7 +325,7 @@ export function scheduleTtsPrewarm(): void {
               quotaExhausted = true;
               logger.warn(
                 { err },
-                "TTS pre-warm: ElevenLabs quota exhausted — skipping all remaining phrases (they will be cached on demand once credits refresh)",
+                "TTS pre-warm: ElevenLabs quota exhausted, skipping all remaining phrases (they will be cached on demand once credits refresh)",
               );
             }
             throw err; // re-throw so pool() counts consecutive failures
@@ -364,13 +362,13 @@ export function scheduleTtsPrewarm(): void {
       await warmChachaLines();
     } catch (err) {
       // Top-level catch: something unexpected (e.g. DB down at startup).
-      // Log and swallow — pre-warm is best-effort, never critical.
+      // Log and swallow, pre-warm is best-effort, never critical.
       logger.warn({ err }, "TTS pre-warm: unexpected error, skipping warm-up");
     }
   })();
 }
 
-/** Injectable dependencies for warmGreetings — real implementations are the defaults. */
+/** Injectable dependencies for warmGreetings, real implementations are the defaults. */
 export type WarmGreetingsDeps = {
   /** Returns all language rows to warm greetings for. */
   getLanguages: () => Promise<{ code: string; name: string }[]>;
@@ -476,7 +474,7 @@ export async function warmGreetings(
       // all languages but we still call through the resolver to stay consistent.
       const greetingIdentity = {
         ...phraseAudioIdentity(lang.code),
-        // Greetings are conversational — use chat instructions, not phrase ones.
+        // Greetings are conversational, use chat instructions, not phrase ones.
         instructions: BOLO_CHAT_TTS_INSTRUCTIONS,
       };
 
@@ -525,7 +523,7 @@ export async function warmGreetings(
   }
 }
 
-/** Injectable dependencies for warmChachaLines — real implementations are the defaults. */
+/** Injectable dependencies for warmChachaLines, real implementations are the defaults. */
 export type WarmChachaLinesDeps = {
   /** Returns a cached row if this line is already stored, or undefined. */
   findCached: (cacheKey: string) => Promise<{ cacheKey: string } | undefined>;
@@ -540,7 +538,7 @@ export type WarmChachaLinesDeps = {
 };
 
 /**
- * Synthesizes Chacha's line with HIS identity — never the phrase or chat one.
+ * Synthesizes Chacha's line with HIS identity, never the phrase or chat one.
  * Kept beside the deps rather than inline so the route and the prewarm cannot
  * drift on model, voice, instructions or format.
  */
@@ -575,7 +573,7 @@ const defaultWarmChachaLinesDeps: WarmChachaLinesDeps = {
 /**
  * Pre-synthesizes Chacha-ji's three fixed lines so the stall never waits on
  * synthesis. Runs after the greeting prewarm, on the same background
- * fire-and-forget path — a failure here (or a missing API key) is logged and
+ * fire-and-forget path, a failure here (or a missing API key) is logged and
  * swallowed, never propagated to boot.
  *
  * Deliberately does NOT run through synthesizeVerifiedPhraseAudio: the

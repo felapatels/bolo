@@ -38,7 +38,7 @@ initSentry();
 initAnalytics();
 // Every non-2xx API response leaves a breadcrumb (endpoint + status + Clerk's
 // auth reason), so a visible error arrives in Sentry with the request sequence
-// that led to it — the evidence that was missing when App Review rejected
+// that led to it, the evidence that was missing when App Review rejected
 // build 34 over a Settings error nobody could attribute to a status code.
 installApiFailureBreadcrumbs();
 

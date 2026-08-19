@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 //
 // The Resend SDK is replaced by a module mock so no network calls are made.
 // The singleton inside resendClient.ts is created on the first send call and
-// reused for the file — the shared capturedCalls array records every send call.
+// reused for the file, the shared capturedCalls array records every send call.
 
 // ─── Shared mock state ────────────────────────────────────────────────────────
 

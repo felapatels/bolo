@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
  *
  * This module is deliberately self-contained. It must NOT call
  * phraseAudioIdentity() and must not read the phrase or chat voice constants
- * in ttsConfig.ts — Chacha has his own voice, and coupling him to the phrase
+ * in ttsConfig.ts, Chacha has his own voice, and coupling him to the phrase
  * or chat identity would re-voice him whenever those change (or re-voice them
  * whenever he changes). The greeting-audio identity in greetingStrings.ts is
  * the pattern this follows; the phrase identity is not.
@@ -54,7 +54,7 @@ export const CHACHA_TTS_MODEL = "gpt-4o-mini-tts";
 
 /**
  * Chacha's voice. A male voice, distinct from the coach voice (nova) that
- * reads phrase and meaning audio — he is a character, not the coach.
+ * reads phrase and meaning audio, he is a character, not the coach.
  * Deliberately NOT PHRASE_AUDIO_DEFAULT_VOICE or BOLO_MINI_TTS_VOICE.
  */
 export const CHACHA_TTS_VOICE = "echo";
@@ -77,7 +77,7 @@ export const CHACHA_TTS_INSTRUCTIONS = `Personality/affect: a warm, unhurried ol
 
 Voice: Older male, warm and lightly gravelly, relaxed and grandfatherly, with a natural Indian accent.
 
-Tone: Affectionate and welcoming, never rushed — the ease of someone who has poured this same cup a thousand times.
+Tone: Affectionate and welcoming, never rushed, the ease of someone who has poured this same cup a thousand times.
 
 Dialect: Everyday Hinglish of an Indian street vendor; familiar, informal address.
 

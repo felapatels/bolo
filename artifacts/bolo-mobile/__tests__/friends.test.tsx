@@ -1,5 +1,5 @@
 // The learner's own friend code is shown as a shareable /join/<code> link and
-// QR, built by @workspace/referral-link from EXPO_PUBLIC_DOMAIN — which
+// QR, built by @workspace/referral-link from EXPO_PUBLIC_DOMAIN, which
 // lib/referral reads ONCE at module load. Hence the assignment before any
 // import that reaches it (same pattern as home-referral-card.test.tsx).
 process.env.EXPO_PUBLIC_DOMAIN = 'bolo.example.com';
@@ -253,7 +253,7 @@ function openLeaderboard() {
   fireEvent.press(screen.getByRole('button', { name: 'Leaderboard' }));
 }
 
-// Type a friend code and submit it. Adding a friend is code-only now — there is
+// Type a friend code and submit it. Adding a friend is code-only now, there is
 // no lookup by email, name or partial match anywhere on this screen.
 function submitCode(code: string) {
   fireEvent.changeText(screen.getByLabelText('Friend code'), code);
@@ -319,7 +319,7 @@ describe('Leaderboard', () => {
     ).toEqual([
       'mascot-outfit-kurta',
       'mascot-outfit-sherwani',
-      // The learner who owns nothing gets canonical Bolo — an EXPLICIT null,
+      // The learner who owns nothing gets canonical Bolo, an EXPLICIT null,
       // not an inherited fallback that would paint them in the viewer's
       // clothes ('mascot-outfit-inherited' is what that failure looks like).
       'mascot-outfit-none',

@@ -254,7 +254,7 @@ describe('silence auto-stop (safety net)', () => {
     const now = Date.now();
     const dateSpy = jest.spyOn(Date, 'now');
     dateSpy.mockReturnValue(now);
-    // Speak first — auto-stop only arms once it has heard something.
+    // Speak first, auto-stop only arms once it has heard something.
     await act(async () => {
       mockState.setRecorderState({ metering: -20 });
     });
@@ -330,7 +330,7 @@ describe('scoring failure handling', () => {
     );
     expect(
       screen.getByText(
-        "Heads up — this attempt couldn't be saved to your progress.",
+        "Heads up, this attempt couldn't be saved to your progress.",
       ),
     ).toBeOnTheScreen();
   });

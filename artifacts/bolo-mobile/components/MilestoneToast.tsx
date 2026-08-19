@@ -33,7 +33,7 @@ const DISPLAY_MS = 2000;
  * The toast is pointer-event-none so it never blocks touches.
  *
  * When `toastKey` changes (and message is non-empty), a fresh animation cycle fires.
- * Respects `useReducedMotion` — falls back to a fade-only animation.
+ * Respects `useReducedMotion`, falls back to a fade-only animation.
  */
 export function MilestoneToast({
   message,

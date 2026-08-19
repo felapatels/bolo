@@ -14,8 +14,7 @@ import {
 // Background: POST /openai/pronunciation uses phraseId to look up the phrase's
 // languageCode and anchor Whisper's transcription to the correct language.
 // Without phraseId the language hint is absent and a phonetically identical
-// short word — e.g. "na", which is a valid word in both Gujarati and Hindi —
-// can silently pass in the wrong language.
+// short word, e.g. "na", which is a valid word in both Gujarati and Hindi, // can silently pass in the wrong language.
 // ---------------------------------------------------------------------------
 
 const mockState: Record<string, any> = {};
@@ -158,7 +157,7 @@ import PracticeScreen from '@/app/(app)/practice/[id]';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 // "na" is the canonical cross-language homophone: it is a valid word in
-// Gujarati ("ná" / ná — meaning "no") and Hindi ("ना" / na — also "no").
+// Gujarati ("ná" / ná, meaning "no") and Hindi ("ना" / na, also "no").
 // The only reliable disambiguator in the transcription pipeline is the STT
 // language hint derived from phrase.languageCode, which the server can only
 // populate when the client sends phraseId.
@@ -263,7 +262,7 @@ describe('practice pronunciation request includes phraseId', () => {
 
   test('phraseId matches the phrase being practiced, not a different phrase', async () => {
     // Confirm the phraseId carried in the request matches the currently
-    // displayed phrase — important so a mid-session language-hint mismatch
+    // displayed phrase, important so a mid-session language-hint mismatch
     // can never cause a homophone in a different phrase to pass.
     await recordToResult();
 
@@ -298,7 +297,7 @@ describe('practice pronunciation request includes phraseId', () => {
   test('phraseId updates to the second phrase after advancing past the first', async () => {
     // Drive phrase 1 all the way through its record→result cycle, advance to
     // phrase 2, then record phrase 2 and confirm the second evaluate call
-    // carries FILLER_PHRASE.id — not a stale copy of NA_PHRASE.id.
+    // carries FILLER_PHRASE.id, not a stale copy of NA_PHRASE.id.
     //
     // This catches the bug where currentPhrase is captured once at session
     // start: Whisper's language hint would silently reference "na" (phrase 1)

@@ -178,7 +178,7 @@ describe("ChachaEncounterDialog", () => {
 /**
  * Task #1095: Chacha-ji speaks his own three lines at the stall.
  *
- * These pin the ENCOUNTER CONTRACT — which line speaks at which moment, and
+ * These pin the ENCOUNTER CONTRACT, which line speaks at which moment, and
  * what stays silent. His lines are flavour dialogue: nothing here is scored,
  * recorded or graded, and the phrase card is untouched by all of it.
  */

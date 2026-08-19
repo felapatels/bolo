@@ -257,8 +257,8 @@ function PlayingScreen({
   const [stats, setStats] = useState<QuestionStats>({ correct: 0, total: 0, streak: 0, bestStreak: 0, points: 0 });
   // A miss here is a phrase whose translation the learner tapped wrong: the
   // native-script prompt they saw, the option they chose, and the right
-  // translation. Wording follows the mode — English options normally, native
-  // script in hard mode — so the review reads exactly as the round played.
+  // translation. Wording follows the mode, English options normally, native
+  // script in hard mode, so the review reads exactly as the round played.
   const [misses, setMisses] = useState<GameMiss[]>([]);
   const [started, setStarted] = useState(false);
 
@@ -452,7 +452,7 @@ function PlayingScreen({
         </div>
       </div>
 
-      {/* Combo burst overlay — springs in when streak hits 3, 5, or 10 */}
+      {/* Combo burst overlay, springs in when streak hits 3, 5, or 10 */}
       <AnimatePresence>
         {comboBurst && (
           <motion.div

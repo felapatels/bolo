@@ -5,7 +5,7 @@ import { mascotEntrance, floatIdle } from "@/lib/motion";
 import { accessoryOverlaySrc, mascotAssetSrc } from "@/lib/mascot-outfits";
 import { useEquippedOutfit } from "@/hooks/use-equipped-outfit";
 
-// Bolo the Parrot — the friendly face of the app. Each pose maps to a mood so
+// Bolo the Parrot, the friendly face of the app. Each pose maps to a mood so
 // screens can show the right reaction for the moment. See public/mascot/README.md.
 //
 // CANONICAL ART RULE (July 29, 2026, owner decision): the ONLY permitted
@@ -14,12 +14,11 @@ import { useEquippedOutfit } from "@/hooks/use-equipped-outfit";
 // poses). No part-level rigging, no eye tracking, no blinking, and no new
 // Bolo artwork by any means (drawing, SVG, AI generation, tracing).
 // bolo-rig.tsx is a non-canonical hand-drawn approximation kept on disk for
-// reference only — do not render it in the app.
+// reference only, do not render it in the app.
 export type MascotPose = "wave" | "cheer" | "thumbsup" | "thinking" | "tryagain";
 
 /** Reactive mode: "talking" while Bolo's voice plays, "listening" while the
- * learner records, "evaluating" while something is being worked out for them —
- * he zooms out small and spins in place, then zooms back in when the answer
+ * learner records, "evaluating" while something is being worked out for them, * he zooms out small and spins in place, then zooms back in when the answer
  * lands. Whole-image motion only (pulse / lean / shrink / spin), so the
  * canonical art rule holds. */
 export type MascotActivity = "talking" | "listening" | "evaluating";
@@ -38,7 +37,7 @@ type AmbientLevel = "full" | "calm";
 
 /**
  * Pauses ambient animation when it can't be seen: element scrolled off-screen
- * (IntersectionObserver) or tab hidden (visibilitychange). Perf guard — idle
+ * (IntersectionObserver) or tab hidden (visibilitychange). Perf guard, idle
  * springs kept burning CPU on phones when several mascots were mounted.
  */
 function useAnimationVisible(ref: RefObject<HTMLElement | null>): boolean {
@@ -98,7 +97,7 @@ export function Mascot({
    */
   outfit?: string | null;
   /**
-   * Force an accessory instead of the learner's equipped one — the head slot's
+   * Force an accessory instead of the learner's equipped one, the head slot's
    * twin of `outfit`, so the shop can preview a hat over whatever garment is
    * already on the bird. Pass null for bare-headed.
    */
@@ -137,7 +136,7 @@ export function Mascot({
   // The shrink itself is a CSS class on an in-flow wrapper, not a framer value:
   // it must hold with animations off, and the mascot's fill chain has no
   // definite ancestor height, so the wrapper stays in flow (see the crossfade
-  // note below — an absolute box collapses the whole parrot zone). The class
+  // note below, an absolute box collapses the whole parrot zone). The class
   // carries `transition-transform`, so adding and dropping it IS the zoom out
   // and the zoom back in; the spin below rides on top.
   const working = activity === "evaluating";
@@ -157,7 +156,7 @@ export function Mascot({
     : activity === "evaluating"
       ? {
           // Continuous spin while he is shrunk. The shrink lives on the wrapper
-          // class below, so this layer is pure rotation — a small bird turning
+          // class below, so this layer is pure rotation, a small bird turning
           // in place. Linear, because an eased spin reads as a stutter.
           animate: { rotate: 360 },
           transition: { duration: 1.4, repeat: Infinity, ease: "linear" as const },

@@ -17,8 +17,7 @@ import { hapticLight } from '@/lib/haptics';
 import type { Language } from '@workspace/api-client-react';
 
 // B1 parity: the full-screen language-selection step a first-time account sees
-// before the home tabs. Shows all 22 languages with NO free/locked marking —
-// the choice is aspirational; gating happens downstream exactly as it does for
+// before the home tabs. Shows all 22 languages with NO free/locked marking, // the choice is aspirational; gating happens downstream exactly as it does for
 // any locked language today. Confirming writes activeLanguage +
 // hasChosenLanguage server-side in one PATCH so the step never returns;
 // skipping only sets the in-memory session marker so it comes back next launch.
@@ -36,7 +35,7 @@ export default function ChooseLanguageScreen() {
     setPendingCode(code);
     choose(code, {
       onSuccess: () => {
-        // Reflect the pick in the running app immediately — the provider's
+        // Reflect the pick in the running app immediately, the provider's
         // one-time reconcile has already settled, so it won't adopt it for us.
         adoptLanguageLocally(code);
         track(ANALYTICS_EVENTS.LANGUAGE_SELECTED, { language: code });

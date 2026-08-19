@@ -15,7 +15,7 @@
  * Requirements:
  *   - DATABASE_URL must be set (used by the db module at import time).
  *   - SESSION_SECRET must be set (used by evaluationToken at import time).
- *   Neither requirement is unusual — the full api-server suite needs both.
+ *   Neither requirement is unusual, the full api-server suite needs both.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -34,7 +34,7 @@ test("app module imports cleanly and exports an express Application", async () =
 
 test("openai route module imports cleanly and exports a Router", async () => {
   // Direct import of the most complex (and historically scramble-prone) route.
-  // Any parse-level corruption — dangling else, mismatched braces — throws here.
+  // Any parse-level corruption, dangling else, mismatched braces, throws here.
   const { default: router } = await import("../routes/openai.js");
   assert.ok(router, "openai router must be defined");
   assert.strictEqual(

@@ -12,7 +12,7 @@ import { computeQuizStreak } from "./games";
 import { localDayKey } from "../lib/progressMetrics";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
-// Unit tests for computeQuizStreak — covers every edge case that matters for
+// Unit tests for computeQuizStreak, covers every edge case that matters for
 // the retention mechanic: single-day streaks, multi-day runs through month/year
 // boundaries, gap detection, and the "today vs yesterday" live-streak rules.
 //
@@ -189,7 +189,7 @@ test("counts only the unbroken tail when there is an internal gap", async () => 
 });
 
 test("a gap of exactly two days (skip one day) breaks the streak", async () => {
-  // Most-recent is yesterday, but day before yesterday is missing — gap of
+  // Most-recent is yesterday, but day before yesterday is missing, gap of
   // exactly two days between the two entries.
   await seedCompletion(daysAgoUtc(1));
   // gap: daysAgoUtc(2) skipped
@@ -205,7 +205,7 @@ test("a gap of exactly two days (skip one day) breaks the streak", async () => {
 test("counts correctly across a month boundary", async () => {
   // Build a consecutive run from Jan 31 → Feb 1 (or equivalent) by using
   // real UTC dates derived from today. We don't need to hit a specific
-  // calendar month — consecutive UTC dates always work correctly regardless
+  // calendar month, consecutive UTC dates always work correctly regardless
   // of month. We use a long-enough run to prove the off-by-one is absent.
   const dates: string[] = [];
   for (let i = 0; i < 7; i++) {
@@ -224,20 +224,20 @@ test("duplicate completions for the same day do not double-count", async () => {
   // The unique constraint will silently drop the second insert via
   // onConflictDoNothing, so the streak should still be 1 and not 2.
   await seedCompletion(daysAgoUtc(0));
-  await seedCompletion(daysAgoUtc(0)); // duplicate — swallowed
+  await seedCompletion(daysAgoUtc(0)); // duplicate, swallowed
   const streak = await computeQuizStreak(TEST_USER_ID, LANG, null);
   assert.equal(streak, 1);
 });
 
 // ---------------------------------------------------------------------------
-// Non-UTC timezone — exercises the localDayKey path with a real IANA zone.
+// Non-UTC timezone, exercises the localDayKey path with a real IANA zone.
 // Pacific/Auckland is UTC+12/13, well ahead of UTC, which maximises the chance
 // that "today" differs between the two timezones in CI environments that run
 // close to the UTC midnight boundary.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Non-UTC timezone — deterministic frozen-clock test
+// Non-UTC timezone, deterministic frozen-clock test
 // ---------------------------------------------------------------------------
 
 test("localDayKey converts a UTC instant to the correct Auckland calendar date", () => {
@@ -257,7 +257,7 @@ test("localDayKey converts a UTC instant to the correct Auckland calendar date",
 });
 
 test("streak uses the learner's local date, not UTC, when a timezone is given", async () => {
-  // Frozen instant: 2026-03-10T12:00:00Z — UTC date is 2026-03-10,
+  // Frozen instant: 2026-03-10T12:00:00Z, UTC date is 2026-03-10,
   // Auckland date is 2026-03-11.  Seed exactly one completion on the
   // Auckland date.  With the Auckland timezone the streak is 1 (today
   // matches); with UTC the streak is 0 (no completion on 2026-03-10 and

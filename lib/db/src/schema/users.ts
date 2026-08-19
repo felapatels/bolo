@@ -9,7 +9,7 @@ import { pgTable, text, timestamp, boolean, integer, date, uniqueIndex } from "d
 // (e.g. an active trial counts as Plus, a lapsed period reads as expired). The
 // provider reference columns are filled in by the RevenueCat sync. The
 // entitlement gating reads `tier`, `subscriptionStatus`, `trialEndsAt`,
-// `currentPeriodEnd`, and — for the middle tier — `chosenLanguage`.
+// `currentPeriodEnd`, and, for the middle tier, `chosenLanguage`.
 export const usersTable = pgTable("users", {
   id: text("id").primaryKey(), // Clerk user id (e.g. "user_...")
   email: text("email"),
@@ -39,7 +39,7 @@ export const usersTable = pgTable("users", {
   subscriptionProviderId: text("subscription_provider_id"),
   // Subscription-management state (set by the account/subscription endpoints).
   // While `subscriptionStatus` is "paused" and `pauseUntil` is in the future the
-  // subscription is suspended (no paid access) but NOT expired — it resumes to
+  // subscription is suspended (no paid access) but NOT expired, it resumes to
   // its underlying tier once the pause window closes. Null when not paused.
   pauseUntil: timestamp("pause_until", { withTimezone: true }),
   // When the learner accepted the 3-month discounted retention offer (one-time).
@@ -51,7 +51,7 @@ export const usersTable = pgTable("users", {
   // ---- Learner preferences (the local mirror is authoritative for these) ----
   // Notification preferences. `dailyReminderEnabled` toggles the daily streak
   // reminder; `dailyReminderTime` is the preferred local send time as "HH:MM"
-  // (24h). Delivery/scheduling itself is a separate task — this only stores it.
+  // (24h). Delivery/scheduling itself is a separate task, this only stores it.
   dailyReminderEnabled: boolean("daily_reminder_enabled")
     .notNull()
     .default(false),
@@ -80,7 +80,7 @@ export const usersTable = pgTable("users", {
   hasChosenLanguage: boolean("has_chosen_language").notNull().default(false),
   // Global TTS voice preference (Plus only). When non-null this is an
   // ElevenLabs premade voice ID chosen from the VOICE_CATALOG. Null means
-  // "auto" — use the per-language default from LANGUAGE_VOICE_MAP.
+  // "auto", use the per-language default from LANGUAGE_VOICE_MAP.
   ttsVoice: text("tts_voice"),
   // Stripe customer id, created on first checkout so a returning learner reuses
   // the same customer (and so the billing portal has someone to open for).
@@ -100,7 +100,7 @@ export const usersTable = pgTable("users", {
   // GET /referral (JIT, like the users row itself). Null until first fetched;
   // Postgres unique indexes ignore NULLs, so unminted users coexist fine.
   //
-  // SAFETY NOTE — this column is ALSO the learner's friend code (Task "Add
+  // SAFETY NOTE, this column is ALSO the learner's friend code (Task "Add
   // friends by code and QR"). One code, two uses. That reuse is only safe
   // because every code-initiated add lands as a *pending* friend request the
   // recipient must accept: referral codes are designed to be broadcast (flyers,

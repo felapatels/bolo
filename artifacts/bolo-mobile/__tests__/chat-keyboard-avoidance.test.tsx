@@ -17,16 +17,16 @@ import {
 // Guards KeyboardAvoidingView keyboard-avoidance behaviour in the chat screen
 // (app/(app)/(tabs)/chat.tsx):
 //
-//  1. iOS — behavior="padding" so the KAV shifts content up by the keyboard
+//  1. iOS, behavior="padding" so the KAV shifts content up by the keyboard
 //     height, keeping the text input fully visible above the keyboard.
-//  2. Android — behavior="height" (RN's recommended mode on Android).
+//  2. Android, behavior="height" (RN's recommended mode on Android).
 //  3. The text input row is always rendered inside the KeyboardAvoidingView,
 //     not below it, so it moves with the KAV on both platforms.
 //  4. The transcript ScrollView is inside the KAV (gains flex:1) when
 //     messages exist so it shrinks correctly rather than going off-screen.
 //  5. All of the above hold on small-screen viewport sizes:
-//       • iPhone SE — 375 × 667 pt
-//       • Pixel 5  —  393 × 851 dp
+//       • iPhone SE, 375 × 667 pt
+//       • Pixel 5 ,  393 × 851 dp
 //     These are the smallest production devices listed in the task spec.
 //  6. No crash or unhandled state when the OS fires keyboardDidShow /
 //     keyboardWillShow events (as it does on a real device when the learner
@@ -239,7 +239,7 @@ import ChatScreen from '@/app/(app)/(tabs)/chat';
 /** Return the single KeyboardAvoidingView rendered by ChatScreen. */
 function getKAV() {
   const instances = screen.UNSAFE_getAllByType(KeyboardAvoidingView);
-  // There should be exactly one — the one wrapping the transcript + input row.
+  // There should be exactly one, the one wrapping the transcript + input row.
   expect(instances.length).toBeGreaterThanOrEqual(1);
   return instances[0];
 }
@@ -319,7 +319,7 @@ describe('text input row is inside the KeyboardAvoidingView', () => {
 
     const kav = getKAV();
 
-    // within(kav) scopes queries to KAV's subtree — if the input is NOT inside
+    // within(kav) scopes queries to KAV's subtree, if the input is NOT inside
     // the KAV, within() throws, making the containment explicit.
     const { getByPlaceholderText } = within(kav);
     expect(getByPlaceholderText('Type a message…')).toBeTruthy();

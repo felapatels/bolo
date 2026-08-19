@@ -50,7 +50,7 @@ router.use(ttsAuditRouter);
 // Everything below requires an authenticated user. loadEntitlements resolves the
 // caller's effective plan onto the request so every gated route reads it from a
 // single place.
-// Contact Us form submissions — public: the web /privacy and /terms pages link
+// Contact Us form submissions, public: the web /privacy and /terms pages link
 // signed-out visitors straight to the form; the route attributes signed-in
 // callers itself via getAuth (clerkMiddleware runs app-wide).
 router.use(contactRouter);
@@ -71,7 +71,7 @@ router.use(phraseReportsRouter);
 // Real Stripe checkout / billing-portal session creation for the web paywall.
 router.use(stripeRouter);
 // Family plan management (seats, invites, join). Available to every
-// authenticated learner — joining must work for Free users.
+// authenticated learner, joining must work for Free users.
 router.use(familyRouter);
 router.use(tokensRouter);
 // The Chai pack catalog the mobile app reads (pack id, Apple product id, Chai
@@ -79,7 +79,7 @@ router.use(tokensRouter);
 // ledger already credited. No prices: iOS reads those from StoreKit.
 router.use(chaiPacksRouter);
 // Bolo's outfits: a Chai sink, so it sits with the other token surfaces and is
-// open to every authenticated learner (Free included — outfits are bought with
+// open to every authenticated learner (Free included, outfits are bought with
 // Chai, not with a plan).
 router.use(outfitsRouter);
 // Authed: a device may only ever be registered against its own caller.

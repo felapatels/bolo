@@ -2,12 +2,12 @@
 // artifacts/gujarati-coach/src/components/dressing-room.tsx).
 //
 // WHY IT EXISTS: swapping the mascot art in place made a costume change read
-// as a glitch — the old bird blinked out and a new one blinked in. A shop
+// as a glitch, the old bird blinked out and a new one blinked in. A shop
 // solves this with a curtain, so the shop does.
 //
 // TWO RULES THIS COMPONENT EXISTS TO KEEP:
 //  1. The curtains NEVER leave. Open means tied back at the posts, not slid
-//     off-stage — a booth with no cloth in it stops reading as a booth.
+//     off-stage, a booth with no cloth in it stops reading as a booth.
 //  2. `closed` is caller state, never an animation-end callback, so the
 //     curtain cannot stick shut over the product.
 //

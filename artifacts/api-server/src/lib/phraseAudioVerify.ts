@@ -4,20 +4,20 @@
  * WHY THIS EXISTS
  * ───────────────
  * Phrase audio is synthesized once and cached forever under a content-addressed
- * key, so a single bad take is not a transient glitch — it becomes the permanent
+ * key, so a single bad take is not a transient glitch, it becomes the permanent
  * voice of that phrase for every learner. A field report on 2026-08-10 caught
  * exactly that: the cached production clip for "સાચવીને જજો" spoke only
  * "saachvine" and never said "જજો", and had been doing so since it was
  * synthesized two weeks earlier.
  *
  * That failure is invisible to every cheap heuristic. The truncated take ran
- * 2.45s against a healthy 2.62s — the model simply said one word slowly — so
+ * 2.45s against a healthy 2.62s, the model simply said one word slowly, so
  * duration, byte size, and bytes-per-character all look perfectly normal. The
  * only way to know a clip says the phrase is to listen to it.
  *
  * So we listen: transcribe the clip and check that what came back is as long,
  * phonetically, as the phrase it is supposed to speak. This deliberately does
- * NOT try to check pronunciation quality or exact wording — recognizers drift
+ * NOT try to check pronunciation quality or exact wording, recognizers drift
  * across scripts (the same recognizer has returned Cyrillic for Gujarati), and
  * a strict word match would reject good audio. Dropped content is what we can
  * detect robustly, and dropped content is the bug.
@@ -52,8 +52,7 @@ export const MIN_COVERAGE = 0.7;
 export const MAX_COVERAGE = 2.2;
 
 /**
- * Phrases shorter than this many normalized letters are not length-checkable —
- * a single recognizer quirk swings the ratio past any threshold. They are
+ * Phrases shorter than this many normalized letters are not length-checkable, * a single recognizer quirk swings the ratio past any threshold. They are
  * reported unverifiable rather than risked.
  */
 export const MIN_CHECKABLE_LENGTH = 6;
@@ -88,9 +87,8 @@ export type SpeechCapability = "supported" | "degraded" | "unsupported";
 
 /**
  * Verification borrows the recognizer, so it inherits the recognizer's blind
- * spots. For languages the per-language probe already found it cannot hear —
- * Santali comes back as an empty transcript every time, Manipuri as unrelated
- * Latin — a failing verdict says nothing about the audio. Those languages are
+ * spots. For languages the per-language probe already found it cannot hear, * Santali comes back as an empty transcript every time, Manipuri as unrelated
+ * Latin, a failing verdict says nothing about the audio. Those languages are
  * reported unverifiable up front, before a pointless API call.
  */
 export function isSpeechVerifiable(capability: SpeechCapability | null | undefined): boolean {
@@ -103,7 +101,7 @@ const defaultTranscribe: TranscribeFn = (audio, format, languageCode) =>
 /**
  * The phrase reduced to comparable Latin letters.
  *
- * Prefers the phrase's own `romanized` column — it is authored alongside the
+ * Prefers the phrase's own `romanized` column, it is authored alongside the
  * native text and is already Latin. Falls back to transliterating the native
  * script for rows that have no romanization.
  */

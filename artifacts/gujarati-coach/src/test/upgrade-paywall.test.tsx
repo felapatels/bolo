@@ -6,7 +6,7 @@ import { FREE_ENTITLEMENTS } from "./fixtures";
 
 // The paywall reads the locked surface's intent from the query string
 // (?plan=plus or ?plan=family) and preselects the matching plan card. The
-// One Language tier is no longer sold on web — legacy ?plan=one_language
+// One Language tier is no longer sold on web, legacy ?plan=one_language
 // links must land on the All-Access card instead of erroring.
 
 const h = vi.hoisted(() => ({

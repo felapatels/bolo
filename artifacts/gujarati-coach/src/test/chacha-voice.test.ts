@@ -7,7 +7,7 @@ import { getChachaAudioElement, __resetBlessedAudioElementsForTests } from "@/li
  *
  * His three lines arrive from three unrelated events (dialog open, arrival
  * response, close), so without a queue the gift would talk over the greeting.
- * These pin the ordering contract and the fail-silent behaviour — this is
+ * These pin the ordering contract and the fail-silent behaviour, this is
  * flavour dialogue, so every failure path resolves the queue rather than
  * stalling the lines behind it.
  */

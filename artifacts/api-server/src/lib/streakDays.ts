@@ -6,7 +6,7 @@
 // different expressions: the banner counted attempt days in the ACTIVE
 // LANGUAGE, the repair offer scanned attempt days in ALL languages. The card
 // could therefore promise a number the banner was structurally incapable of
-// showing — it said 4 while the banner delivered 1 and 2 — and it charged 25
+// showing, it said 4 while the banner delivered 1 and 2, and it charged 25
 // Chai for that promise. Two expressions that can disagree is the defect. It
 // is not fixed by aligning two copies, so there is exactly one here and every
 // caller reads it.
@@ -15,14 +15,14 @@
 // A streak day is a day on which the learner either COMPLETED A LESSON or
 // PLAYED A MINI-GAME, in ANY language. Bare attempts no longer count a day:
 // showing up and recording a few takes without finishing anything is not the
-// thing the streak is meant to reward. Mini-games do count — a learner who
+// thing the streak is meant to reward. Mini-games do count, a learner who
 // played one showed up and practised.
 //
 // "Completed a lesson" is the EXISTING completion rule, not a new concept:
 // every accessible item of the lesson group cleared the advance gate (good
 // band or better, or three takes) within that one local day. The 80%-mastered
 // ratio in lessonGroupUnlock.ts is a different rule for a different job (which
-// station unlocks next) and is deliberately NOT used here — it does not match
+// station unlocks next) and is deliberately NOT used here, it does not match
 // the ruling's wording.
 //
 // DERIVED, NEVER STORED
@@ -30,7 +30,7 @@
 // latch written when a read endpoint OBSERVES completion, so its timestamp is
 // the observation day, not the practice day. Completion days are therefore
 // derived from attempts resolved to their lesson group. Deriving it that way
-// also means the entry point does not matter — a station session and a
+// also means the entry point does not matter, a station session and a
 // topic-wide session both land on the same group.
 import {
   db,
@@ -66,8 +66,7 @@ const HORIZON_DAYS = STREAK_SCAN_DAYS + 3;
 /**
  * Takes on one item after which the advance gate opens whatever the band: a
  * dead mic or a brutally hard phrase must never strand the learner, and must
- * not silently cost them the day either. The client twins this exactly —
- * ADVANCE_ATTEMPT_LIMIT in web `pages/practice.tsx` and mobile `lib/ui.ts`.
+ * not silently cost them the day either. The client twins this exactly, * ADVANCE_ATTEMPT_LIMIT in web `pages/practice.tsx` and mobile `lib/ui.ts`.
  */
 export const STREAK_ITEM_ATTEMPT_LIMIT = 3;
 
@@ -94,7 +93,7 @@ export const STREAK_ITEM_ATTEMPT_LIMIT = 3;
  * Band comes from the score (scoreBands.bandFromScore), never from the stored
  * `band` column: that column is nullable on rows predating the five-band
  * rollout and carries legacy names on older ones, and legacy 'close' straddles
- * good and almost — it cannot answer "good or better" at all.
+ * good and almost, it cannot answer "good or better" at all.
  */
 export function isStreakItemCleared(
   bestScore: number,
@@ -112,7 +111,7 @@ export interface StreakDayInputs {
   groupByPhraseId: Map<number, number>;
   /**
    * The items of each touched lesson group that this learner may actually be
-   * served — premium rows only for the extended library, sentence groups only
+   * served, premium rows only for the extended library, sentence groups only
    * for a plan that owns the sentence stage. A Free learner completes a
    * station by clearing the starter items, which is the only set they were
    * ever offered; requiring the locked ones would make completion impossible
@@ -125,7 +124,7 @@ export interface StreakDayInputs {
    * `game_sessions` rather than the phantom streak-only attempts that sit
    * beside them: those are attempts, attempts no longer count a day, and that
    * mechanism stops working under this definition. Every write path inserts
-   * one of these rows, so the substitution is complete — including
+   * one of these rows, so the substitution is complete, including
    * script-trace, which writes both the session row and the phantom ONLY on
    * the first completion of a chapter. A chapter replay anchored no day before
    * this change and anchors none after it; that asymmetry is carried over
@@ -133,7 +132,7 @@ export interface StreakDayInputs {
    */
   gameSessionDates: Date[];
   /**
-   * When every PASSED test-out happened — station-level and zone-level alike.
+   * When every PASSED test-out happened, station-level and zone-level alike.
    * A test-out is the other existing way a station is cleared, so a day the
    * learner cleared one is a day they completed a lesson. Taken from the
    * append-only submission logs, whose timestamps ARE the practice moment
@@ -222,8 +221,7 @@ export interface StreakLadder {
  * streak-repair offer and the repair write itself.
  *
  * Reuses the existing ladder climb (progressMetrics.streakFromDayKeys) and the
- * existing covered-day accessor (tokenService.listCoveredDayKeys) untouched —
- * a covered day counts exactly as an earned one, which is what buying a cover
+ * existing covered-day accessor (tokenService.listCoveredDayKeys) untouched, * a covered day counts exactly as an earned one, which is what buying a cover
  * means.
  */
 export async function loadStreakLadder(

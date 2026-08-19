@@ -9,7 +9,7 @@
 // .agents/memory/stripe-connector-broken.md for the full diagnosis.
 //
 // Unlike the RevenueCat connector (best-effort, degrades to null), Stripe
-// checkout/portal/webhook calls are the primary path for real money — callers
+// checkout/portal/webhook calls are the primary path for real money, callers
 // should let failures here propagate (502/500) rather than silently no-op.
 
 import Stripe from "stripe";

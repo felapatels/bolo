@@ -17,7 +17,7 @@ import type { ReactElement } from "react";
 // already-Latin transcript).
 //
 // Release is observed by WINDOW-level listeners installed at hold start
-// (positive hold-confirmation, chat's Task 848 pattern) — pointerUp events in
+// (positive hold-confirmation, chat's Task 848 pattern), pointerUp events in
 // these tests bubble from the button to window.
 // ---------------------------------------------------------------------------
 
@@ -233,7 +233,7 @@ describe("barge-in during example playback", () => {
     const coachClip = audioInstances[0];
     expect(coachClip.pause).not.toHaveBeenCalled();
 
-    // The hold zone is mounted DURING playback (Task 907) — hold it.
+    // The hold zone is mounted DURING playback (Task 907), hold it.
     const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
     expect(belly).not.toBeNull();
     fireEvent.pointerDown(belly);
@@ -284,7 +284,7 @@ describe("barge-in on the result card", () => {
     await waitFor(() => expect(audioInstances.length).toBeGreaterThanOrEqual(2));
     const feedbackClip = audioInstances[audioInstances.length - 1];
 
-    // The hold zone stays mounted on the result card — hold it immediately.
+    // The hold zone stays mounted on the result card, hold it immediately.
     const belly = document.querySelector('[aria-label="Hold to speak"]') as HTMLButtonElement;
     expect(belly).not.toBeNull();
     fireEvent.pointerDown(belly);
@@ -341,7 +341,7 @@ describe("We heard transcript on the result card", () => {
     });
     await driveToResult();
     expect(screen.getByText('We heard: "kem cho"')).toBeInTheDocument();
-    // Exactly one quoted rendering — the raw line, no duplicate romanized line.
+    // Exactly one quoted rendering, the raw line, no duplicate romanized line.
     expect(screen.queryByText('"kem cho"')).not.toBeInTheDocument();
   });
 });
@@ -404,7 +404,7 @@ describe("result card: the action row stays reachable", () => {
       expect(feedback.style.getPropertyValue("-webkit-line-clamp")).toBe("4");
       expect(feedback).not.toHaveAttribute("data-expanded");
 
-      // Nothing is lost — the full text is one tap away, and it collapses again.
+      // Nothing is lost, the full text is one tap away, and it collapses again.
       fireEvent.click(screen.getByTestId("result-feedback-toggle"));
       expect(feedback).toHaveAttribute("data-expanded", "true");
       expect(feedback.style.getPropertyValue("-webkit-line-clamp")).toBe("");

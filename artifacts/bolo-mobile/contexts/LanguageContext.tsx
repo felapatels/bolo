@@ -34,7 +34,7 @@ type LanguageContextValue = {
    */
   speechCapability: LanguageSpeechCapability;
   /**
-   * The learner's STORED IANA time zone, as the account carries it — null
+   * The learner's STORED IANA time zone, as the account carries it, null
    * until the account loads, or when it has never been recorded.
    *
    * Exposed here because this provider already holds the account query, so
@@ -49,7 +49,7 @@ type LanguageContextValue = {
    * Update only the local mirror (in-memory + AsyncStorage), without a server
    * write. For call sites that persist the choice themselves via the explicit
    * language-choice helper (which PATCHes activeLanguage + hasChosenLanguage
-   * in one write) — going through setActiveLang too would double-PATCH.
+   * in one write), going through setActiveLang too would double-PATCH.
    */
   adoptLanguageLocally: (code: string) => void;
   isLoading: boolean;
@@ -62,7 +62,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const languages = useMemo(() => data ?? [], [data]);
 
   // Which languages the caller's plan actually unlocks. Used so we never default
-  // to — or get stuck on — a locked language (which would make gated screens
+  // to, or get stuck on, a locked language (which would make gated screens
   // 402 / render empty) after a downgrade.
   const { allowedLanguages, isPlus } = useEntitlements();
 
@@ -99,8 +99,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Persist the choice to the backend so it follows the learner to their other
-  // devices. Failure is non-fatal — the local mirror still drives this session —
-  // so we swallow it rather than surface an error for a background sync.
+  // devices. Failure is non-fatal, the local mirror still drives this session, // so we swallow it rather than surface an error for a background sync.
   const pushRemote = (code: string) => {
     updatePrefs.mutate(
       { data: { activeLanguage: code } },
@@ -120,7 +119,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   };
 
   // Update just the local mirror (in-memory + AsyncStorage) without touching the
-  // server — used when adopting the server's own value during reconciliation.
+  // server, used when adopting the server's own value during reconciliation.
   const applyLocal = (code: string) => {
     setActiveLangState(code);
     AsyncStorage.setItem(STORAGE_KEY, code).catch(() => {});
@@ -153,7 +152,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         updatePrefs.mutate({ data: { timezone: deviceTz } }, { onError: () => {} });
       }
     } catch {
-      // Intl zone lookup unavailable — leave the server value untouched.
+      // Intl zone lookup unavailable, leave the server value untouched.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, account.data]);
@@ -165,7 +164,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // Deliberately NOT corrected here: a supported-but-locked language (free
   // caller). The journey-map showroom (Spec D1b-M, mirroring the web ruling
   // that removed the same auto-revert) requires a locked adoption from the
-  // picker to survive — routes that need entitlement handle their own 402/403
+  // picker to survive, routes that need entitlement handle their own 402/403
   // states (UpgradeRequiredScreen, showroom rendering) instead of a global
   // guard silently flipping the language back.
   useEffect(() => {

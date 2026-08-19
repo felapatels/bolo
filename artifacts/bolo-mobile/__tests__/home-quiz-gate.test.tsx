@@ -86,8 +86,7 @@ jest.mock('@/lib/entrance', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
-  // Task #1049: the home referral card reads the learner's code. Idle here —
-  // an undefined code hides the card, which is not what these files pin.
+  // Task #1049: the home referral card reads the learner's code. Idle here, // an undefined code hides the card, which is not what these files pin.
   useGetReferral: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   // Stand-in for the real error class: the repair-refusal copy branches on
   // `instanceof ApiError`, so the tests have to throw the mocked module's own
@@ -269,7 +268,7 @@ beforeEach(() => {
   mockState.quiz = { data: undefined, isLoading: false };
   mockState.entitlements = { isPlus: false, isLoading: false, dailyNewLessons: null };
   mockState.tokens = { balance: 12, stationPausesEquipped: 0, expressMultiplierActiveUntil: null };
-  // Default: no repairable break — the popup can't be opened at all.
+  // Default: no repairable break, the popup can't be opened at all.
   mockState.repairOffer = { eligible: false, missedDay: null, restoresStreakDays: 0, cost: 25, balance: 0 };
   mockState.repairFn = jest.fn();
   mockState.repairHandlers = undefined;
@@ -507,7 +506,7 @@ describe('HomeScreen - Chai stat cell (34B)', () => {
   });
 
   // The band names itself and shows the balance, so it has to read from the
-  // screen's ONE token query — a second source could drift from the stat cell
+  // screen's ONE token query, a second source could drift from the stat cell
   // and from the wallet after a spend.
   it('shows the same balance on the stall band as on the Chai cell', () => {
     mockState.entitlements = { isPlus: false, isLoading: false, dailyNewLessons: null };
@@ -521,7 +520,7 @@ describe('HomeScreen - Chai stat cell (34B)', () => {
       screen.getByTestId('chai-stall-balance', { includeHiddenElements: true }),
     ).toHaveTextContent('12');
     // The cell's own text is "12Chai" (value + label), so this is a contains
-    // check — toHaveTextContent is exact for strings.
+    // check, toHaveTextContent is exact for strings.
     expect(screen.getByTestId('stat-chai')).toHaveTextContent(/12/);
   });
 
@@ -552,7 +551,7 @@ describe('HomeScreen - Chai stat cell (34B)', () => {
   });
 
   // Owner correction (Aug 6): the stall band, now below the boarding pass, is
-  // a second door into the SAME wallet sheet — no new wallet surface.
+  // a second door into the SAME wallet sheet, no new wallet surface.
   it('opens the same wallet sheet from the stall band', () => {
     mockState.entitlements = { isPlus: false, isLoading: false, dailyNewLessons: null };
     mockState.quiz = { data: undefined, isLoading: false };

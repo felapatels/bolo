@@ -6,7 +6,7 @@
 //
 // Seeded on the REAL free language (Hindi) under a test-only category so a
 // Free caller exercises the allowed path, not the language-gate showroom.
-// All rows are scoped to test-only ids and cleaned up by category id — never
+// All rows are scoped to test-only ids and cleaned up by category id, never
 // by languageCode, which would delete real Hindi content in the shared dev
 // Postgres. See .agents/memory/api-server-tests.md.
 import { test, before, after } from "node:test";
@@ -173,7 +173,7 @@ after(async () => {
     );
   }
   // FK order: phrases -> lesson_groups + lessons -> categories -> users.
-  // Scoped by categoryId — LANG is the real Hindi row and must survive.
+  // Scoped by categoryId, LANG is the real Hindi row and must survive.
   await db.delete(phrasesTable).where(eq(phrasesTable.categoryId, categoryId));
   await db
     .delete(lessonGroupsTable)
@@ -213,8 +213,7 @@ test("Free caller: an all-premium group reports planLocked with zero plan-visibl
 test("Free caller: the listing agrees with what the phrases endpoint serves", async () => {
   currentUserId = FREE_USER_ID;
   // The planLocked group's phrases endpoint returns no rows for this caller
-  // (premium filter). The listing must never render such a stop boardable —
-  // that is the exact D1 defect this pins.
+  // (premium filter). The listing must never render such a stop boardable, // that is the exact D1 defect this pins.
   const { status, json } = await getJson(`/lesson-groups/${groupFreeId}/phrases`);
   assert.equal(status, 200);
   assert.equal(json.length, 2, "the boardable group serves exactly its plan-visible phrases");

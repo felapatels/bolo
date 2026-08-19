@@ -122,7 +122,7 @@ function WrongPlatformRound({ phrases, api, activeLang }: QuickRoundProps) {
       selectedPhraseId: wrongId,
       correct: false,
       // The round asks which card came from another topic, so the review has
-      // to name the stray — the anchor the round is SCORED through would read
+      // to name the stray, the anchor the round is SCORED through would read
       // as the wrong answer entirely.
       review: {
         prompt: "Which one boarded at the wrong platform?",

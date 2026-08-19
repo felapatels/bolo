@@ -74,8 +74,7 @@ export function isQuotaExhaustedError(err: unknown): boolean {
  * burst rates low enough for free-tier ElevenLabs keys.
  *
  * Individual failures are caught and re-thrown so the caller's `worker` can
- * handle them (e.g. update counters), but they never abort the whole run —
- * unless `maxConsecutiveFailures` is exceeded, at which point the queue is
+ * handle them (e.g. update counters), but they never abort the whole run, * unless `maxConsecutiveFailures` is exceeded, at which point the queue is
  * drained and the pool returns early.
  *
  * @param items - Work items to process.

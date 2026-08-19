@@ -83,13 +83,13 @@ app.use(
         return;
       }
       // Untrusted origin: respond without CORS headers so the browser blocks
-      // the cross-origin read. Do not throw — that would 500 the request.
+      // the cross-origin read. Do not throw, that would 500 the request.
       callback(null, false);
     },
   }),
 );
 // Stripe webhook signature verification needs the raw body, so this route is
-// registered with express.raw() BEFORE the JSON body parser below — exactly
+// registered with express.raw() BEFORE the JSON body parser below, exactly
 // like the Clerk proxy above.
 app.post(
   "/api/stripe/webhook",

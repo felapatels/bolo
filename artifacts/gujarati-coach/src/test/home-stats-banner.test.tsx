@@ -56,7 +56,7 @@ vi.mock("@/lib/language-context", () => ({
 }));
 
 // The language picker persists explicit picks (B1): it pulls the preferences
-// mutation + query client, which this suite never asserts on — stub them.
+// mutation + query client, which this suite never asserts on, stub them.
 vi.mock("@tanstack/react-query", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   useQueryClient: () => ({
@@ -137,7 +137,7 @@ function lastPath(): string | undefined {
 }
 
 /**
- * Task #1081: the repair offer is no longer an inline card on load — it is a
+ * Task #1081: the repair offer is no longer an inline card on load, it is a
  * popup anchored on the DAY STREAK cell. Every offer assertion therefore has
  * to open it the way a learner does.
  */
@@ -384,7 +384,7 @@ describe("home stats banner", () => {
     expect(row.className).not.toMatch(/\binvisible\b/);
     expect(within(row).getByText("120")).toBeInTheDocument();
     expect(within(row).getByText("8")).toBeInTheDocument();
-    // Task #1057: the bar is four tiles — Day Streak, Total XP, Mastered,
+    // Task #1057: the bar is four tiles, Day Streak, Total XP, Mastered,
     // Chai. Speaking streak is still tracked server-side, but it no longer
     // earns a permanent tile here.
     for (const label of ["Day Streak", "Total XP", "Mastered", "Chai"]) {
@@ -413,7 +413,7 @@ describe("home stats banner", () => {
     // Tappable cell contract: a real button element with a trailing chevron
     // affordance next to the label. Total XP and Mastered stay plain divs.
     // Task #1081: DAY STREAK is a button too now, but with no repair waiting
-    // (h.repairOffer is undefined here) it wears no chevron — the chevron is
+    // (h.repairOffer is undefined here) it wears no chevron, the chevron is
     // the popup's affordance, and without one the cell just goes to progress
     // like the two beside it.
     expect(cell.tagName).toBe("BUTTON");
@@ -436,7 +436,7 @@ describe("home stats banner", () => {
   });
 
   // Build 37 made the figures left of Chai one link into /progress. Task
-  // #1081 pulled DAY STREAK back out of it — it owns the repair popup now, and
+  // #1081 pulled DAY STREAK back out of it, it owns the repair popup now, and
   // a button cannot be nested inside an anchor. Total XP and Mastered are
   // still one link, and Chai is still outside it.
   test("Total XP and Mastered are one link to /progress, with no button inside it", () => {
@@ -505,7 +505,7 @@ describe("home stats banner", () => {
   });
 
   // 86ae84f restoration: a locked-language 402 is a plan boundary, not an
-  // outage — home must render the showroom/upgrade state, never the
+  // outage, home must render the showroom/upgrade state, never the
   // error-retry shell (retrying a 402 can never succeed).
   test("locked-language 402 renders the showroom/upgrade state, not the retry shell", () => {
     h.summaryIsError = true;

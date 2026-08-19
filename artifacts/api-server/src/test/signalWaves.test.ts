@@ -107,7 +107,7 @@ describe("signal wave persistence", () => {
   });
 
   it("zod body: LIKE metacharacters and off-grammar codes can never enter a ref", () => {
-    // Stored refs feed the lesson-groups LIKE prefix scan — '%' and '_'
+    // Stored refs feed the lesson-groups LIKE prefix scan, '%' and '_'
     // must be rejected at the boundary, along with anything that is not a
     // bare 2-3 letter lowercase code.
     for (const bad of ["%", "_", "hi%", "h_", "HI", "hindi", "h", "hi:1", "hi "]) {

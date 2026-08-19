@@ -8,19 +8,19 @@ import { randomBytes } from "node:crypto";
 // HTTP audio natively. So the chat route can register a short-lived stream
 // here, tee the ElevenLabs TTS chunks into it, and let the mobile player
 // consume it via GET /openai/chat/audio/:streamId as a chunked audio/mpeg
-// response — playback starts as soon as the first chunks land, before
+// response, playback starts as soon as the first chunks land, before
 // synthesis finishes.
 //
 // Streams are strictly single-turn and short-lived: they are created when a
 // chat turn opts in (X-Audio-Stream: url), served to any number of GETs while
 // alive (iOS's AVPlayer fetches the same URL more than once), and swept after
 // a TTL so an abandoned stream never leaks memory. This registry
-// is process-local by design — the GET always lands on the same process that
+// is process-local by design, the GET always lands on the same process that
 // ran the POST because the audio URL is minted by that very response.
 
 export type ChatAudioStream = {
   id: string;
-  /** Owner — the GET endpoint refuses to serve any other user. */
+  /** Owner, the GET endpoint refuses to serve any other user. */
   userId: string;
   chunks: Buffer[];
   /** True once the full clip streamed successfully (server-side audioDone). */
@@ -85,7 +85,7 @@ export function appendChatAudioChunk(s: ChatAudioStream, chunk: Buffer): void {
   notify(s);
 }
 
-/** Mark the stream complete — every chunk of the clip has been appended. */
+/** Mark the stream complete, every chunk of the clip has been appended. */
 export function completeChatAudioStream(s: ChatAudioStream): void {
   if (s.failed) return;
   s.done = true;

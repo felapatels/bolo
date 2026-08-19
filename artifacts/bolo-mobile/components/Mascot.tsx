@@ -16,7 +16,7 @@ import { accessoryOverlaySource, mascotSource } from '@/lib/mascotOutfits';
 import { useEquippedOutfit } from '@/contexts/OutfitContext';
 
 /**
- * Bolo the Parrot — the friendly face of the app. Renders one of the five
+ * Bolo the Parrot, the friendly face of the app. Renders one of the five
  * mascot poses and gives it life with tasteful, reduced-motion-aware motion.
  *
  * Visibility is never gated on animation: the mascot always renders at full
@@ -27,8 +27,8 @@ import { useEquippedOutfit } from '@/contexts/OutfitContext';
  *
  * Poses (see assets/images/mascot/README.md):
  * - wave:     greetings, home, empty states, welcome back
- * - cheer:    wins — lesson complete, streak milestone, badge earned
- * - thumbsup: a good attempt — correct answer, decent score
+ * - cheer:    wins, lesson complete, streak milestone, badge earned
+ * - thumbsup: a good attempt, correct answer, decent score
  * - thinking: listening / loading / hints
  * - tryagain: a gentle "try again" after a miss
  */
@@ -56,7 +56,7 @@ const WORKING_SCALE = 0.45;
 // outfits exist.
 
 // ---------------------------------------------------------------------------
-// Funny idle sequences — at least 5 one-shot animations that fire when isIdle
+// Funny idle sequences, at least 5 one-shot animations that fire when isIdle
 // becomes true. Each function drives the three shared values (translateY,
 // rotate, scale) by returning a single withSequence (or similar) result.
 // ---------------------------------------------------------------------------
@@ -111,7 +111,7 @@ export function Mascot({
    */
   outfit?: string | null;
   /**
-   * Force an accessory instead of the learner's equipped one — the head slot's
+   * Force an accessory instead of the learner's equipped one, the head slot's
    * twin of `outfit`, so the shop can preview a hat over whatever garment is
    * already on the bird. Pass null for bare-headed.
    */
@@ -143,7 +143,7 @@ export function Mascot({
   // Track previous isIdle to detect rising edge.
   const prevIsIdle = React.useRef(false);
 
-  // Idle loop (float / bounce / sway) — skipped when reduced motion is on.
+  // Idle loop (float / bounce / sway), skipped when reduced motion is on.
   React.useEffect(() => {
     if (reduceMotion || motion === 'none') {
       loop.value = 0;
@@ -177,7 +177,7 @@ export function Mascot({
     );
   }, [working, reduceMotion, zoom]);
 
-  // The spin itself — one revolution every 1.4s for as long as he is away
+  // The spin itself, one revolution every 1.4s for as long as he is away
   // working, then a quick unwind so he faces front again as he zooms back in.
   React.useEffect(() => {
     if (reduceMotion) {
@@ -191,7 +191,7 @@ export function Mascot({
 
   // Reduced motion gets neither the zoom nor the spin, and a bird sitting small
   // and still does not read as "working". A slow opacity breathe carries that
-  // instead — no movement, so it stays motion-safe. It has to opt out of the
+  // instead, no movement, so it stays motion-safe. It has to opt out of the
   // system reduced-motion switch explicitly or reanimated snaps it straight to
   // the end value and leaves the mascot dimmed.
   React.useEffect(() => {
@@ -220,7 +220,7 @@ export function Mascot({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pose]);
 
-  // Celebrate bounce — fires a quick scale-pop when celebrateBounce increments.
+  // Celebrate bounce, fires a quick scale-pop when celebrateBounce increments.
   const prevCelebrateBounce = React.useRef(0);
   React.useEffect(() => {
     if (reduceMotion) return;
@@ -235,7 +235,7 @@ export function Mascot({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [celebrateBounce, reduceMotion]);
 
-  // Funny idle — fire a random one-shot sequence when isIdle becomes true.
+  // Funny idle, fire a random one-shot sequence when isIdle becomes true.
   React.useEffect(() => {
     if (reduceMotion) return;
 
@@ -255,7 +255,7 @@ export function Mascot({
     const idx = randomFunnyIndex();
 
     if (idx === 0) {
-      // Spin — full 360° then back to 0
+      // Spin, full 360° then back to 0
       funnyRotate.value = withSequence(
         withTiming(360, { duration: 500, easing: Easing.out(Easing.back(1.2)) }),
         withTiming(0, { duration: 1 }),
@@ -270,7 +270,7 @@ export function Mascot({
         withTiming(0, { duration: 200 }),
       );
     } else if (idx === 2) {
-      // Sneeze-scale — puff then settle
+      // Sneeze-scale, puff then settle
       funnyScale.value = withSequence(
         withSpring(1.3, { damping: 6, stiffness: 260 }),
         withTiming(0.85, { duration: 100 }),
@@ -278,7 +278,7 @@ export function Mascot({
         withTiming(1, { duration: 150 }),
       );
     } else if (idx === 3) {
-      // Jump — bouncy hop with afterbounce
+      // Jump, bouncy hop with afterbounce
       funnyY.value = withSequence(
         withSpring(-24, { damping: 6, stiffness: 300 }),
         withSpring(0, { damping: 8, stiffness: 220 }),
@@ -286,7 +286,7 @@ export function Mascot({
         withSpring(0, { damping: 10, stiffness: 200 }),
       );
     } else {
-      // Dizzy spiral — wobble + float
+      // Dizzy spiral, wobble + float
       funnyRotate.value = withSequence(
         withTiming(-15, { duration: 200 }),
         withTiming(15, { duration: 260 }),
@@ -329,7 +329,7 @@ export function Mascot({
     };
   });
 
-  // Entrance "pop" — a progressive enhancement implemented as a reanimated
+  // Entrance "pop", a progressive enhancement implemented as a reanimated
   // layout animation. If it never commits, the view is simply shown at rest
   // (fully visible) rather than staying transparent. Re-keyed on pose so the pop
   // replays on pose changes, matching the previous lively reaction.
@@ -386,6 +386,6 @@ export function Mascot({
 const styles = StyleSheet.create({
   img: {},
   overlay: { position: 'absolute', top: 0, left: 0 },
-  /** The shrink itself — a plain transform, so it holds with animations off. */
+  /** The shrink itself, a plain transform, so it holds with animations off. */
   working: { transform: [{ scale: WORKING_SCALE }] },
 });

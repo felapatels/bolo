@@ -17,11 +17,11 @@ const WEB_DOMAIN = process.env.EXPO_PUBLIC_DOMAIN;
 // picked up the wrong host, or none at all, would ship links that disagree
 // with the filed URLs or lead nowhere. That is the rejection we are answering,
 // so these two are hardcoded literals on purpose: no env var can move them.
-// They are the exact, owner-verified URLs — do not shorten them, redirect
+// They are the exact, owner-verified URLs, do not shorten them, redirect
 // them, or rebuild them from a domain constant.
 
 /**
- * Apple's Standard EULA — the Terms of Use this app actually subscribes under,
+ * Apple's Standard EULA, the Terms of Use this app actually subscribes under,
  * which is why this is not the app's own `/terms` marketing page.
  * Literal by design; must not depend on any build-time env var.
  */

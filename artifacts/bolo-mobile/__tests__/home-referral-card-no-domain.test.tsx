@@ -1,11 +1,11 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
-// Task #1049 — graceful absence.
+// Task #1049, graceful absence.
 //
 // Referral links point at the hosted WEB app. With no EXPO_PUBLIC_DOMAIN there
 // is nothing to point at, so home must show no card at all rather than a
-// button that shares a broken or empty link — the same rule the Privacy Policy
+// button that shares a broken or empty link, the same rule the Privacy Policy
 // link on this screen already follows.
 //
 // This lives in its own file because lib/referral reads the env var once at
@@ -14,7 +14,7 @@ import { render, screen } from '@testing-library/react-native';
 delete process.env.EXPO_PUBLIC_DOMAIN;
 
 jest.mock('@workspace/api-client-react', () => ({
-  // A perfectly healthy referral query — the ONLY thing missing is the domain.
+  // A perfectly healthy referral query, the ONLY thing missing is the domain.
   useGetReferral: () => ({
     data: { code: 'K7XM2P', pendingCount: 2, activatedCount: 3, chaiEarned: 75 },
     isLoading: false,

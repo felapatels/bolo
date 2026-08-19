@@ -10,7 +10,7 @@ import { lessonGroupsTable } from "./lessonGroups";
 // convention): a group is completed when >= 80% of its phrases have
 // bestScore >= 80 (the attempts-based mastery signal), and unlocked when the
 // previous group by position is completed or tested out. Only state that
-// cannot be derived from attempts is persisted here — today that is
+// cannot be derived from attempts is persisted here, today that is
 // `tested_out` (the learner skipped ahead by passing a test-out assessment).
 // The status column nevertheless accepts the full vocabulary
 // (locked | unlocked | in_progress | completed | tested_out) so future slices
@@ -20,8 +20,7 @@ import { lessonGroupsTable } from "./lessonGroups";
 // shifts (sentence groups moving up to make room for a new phrase-stage
 // group) can never orphan or misattribute progress.
 //
-// Convention: composite PK (user_id, ref_id) — one row per (user, group) —
-// matching user_item_memory's one-row-per-pair model.
+// Convention: composite PK (user_id, ref_id), one row per (user, group), // matching user_item_memory's one-row-per-pair model.
 export const lessonGroupProgressTable = pgTable(
   "lesson_group_progress",
   {

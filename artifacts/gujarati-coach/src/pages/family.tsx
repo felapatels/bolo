@@ -142,7 +142,7 @@ function OwnerView({ family }: { family: FamilyStatus }) {
     setNotice(null);
     try {
       await regenerate.mutateAsync();
-      setNotice("New join code generated — the old one no longer works.");
+      setNotice("New join code generated, the old one no longer works.");
       await refresh();
     } catch (err) {
       setError(errorMessage(err, "Couldn't generate a new code."));
@@ -156,7 +156,7 @@ function OwnerView({ family }: { family: FamilyStatus }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard unavailable — the code is still visible to copy by hand.
+      // Clipboard unavailable, the code is still visible to copy by hand.
     }
   }
 
@@ -306,7 +306,7 @@ function OwnerView({ family }: { family: FamilyStatus }) {
         </form>
         {openSeats === 0 && (
           <p className="mt-2 text-xs font-semibold text-amber-700">
-            Your family plan is full — all {capacity} seats are taken (including
+            Your family plan is full, all {capacity} seats are taken (including
             pending invites).
           </p>
         )}
@@ -439,7 +439,7 @@ function MemberView({ family }: { family: FamilyStatus }) {
           </div>
         </div>
         <p className="mt-4 text-sm font-medium text-muted-foreground">
-          You have full All-Access through this plan — every language, the
+          You have full All-Access through this plan, every language, the
           complete phrase library, review, and analytics. Your progress and streaks
           are completely your own; only the plan is shared. Billing is handled
           by {family.ownerName ?? "the plan owner"}, so there's nothing for you

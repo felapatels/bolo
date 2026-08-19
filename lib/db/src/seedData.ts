@@ -26,12 +26,12 @@ export type SeedLanguage = {
   /**
    * Verified speech-recognition capability (see languages schema). Defaults to
    * "supported" when omitted. Verdicts come from the July 28, 2026 probe
-   * (artifacts/api-server/scripts/probeSttLanguages.ts) — TTS-generated correct
+   * (artifacts/api-server/scripts/probeSttLanguages.ts), TTS-generated correct
    * speech through the real pronunciation pipeline:
-   *  - ks  degraded    — correct speech scored 74/close.
-   *  - sat degraded    — recognizer flips Ol Chiki to Latin transliteration.
-   *  - mni unsupported — correct speech transcribed as Bengali gibberish (2/retry).
-   *  - brx unsupported — correct speech scored 38/retry.
+   *  - ks  degraded   , correct speech scored 74/close.
+   *  - sat degraded   , recognizer flips Ol Chiki to Latin transliteration.
+   *  - mni unsupported, correct speech transcribed as Bengali gibberish (2/retry).
+   *  - brx unsupported, correct speech scored 38/retry.
    */
   speechCapability?: "supported" | "degraded" | "unsupported";
 };
@@ -127,7 +127,7 @@ export const CURATED_CATEGORIES: SeedCategory[] = CATEGORIES.filter(
   (c) => !UNCURATED_CATEGORY_SLUGS.has(c.slug),
 );
 
-// The "starter" set every learner — including Free — sees for a topic. This is
+// The "starter" set every learner, including Free, sees for a topic. This is
 // the tier boundary: the first `starterPhraseCount(slug)` phrases of a curated
 // lesson are free/starter and everything past them is Plus-only ("premium").
 // Holding this at its historical value keeps the Free (Hindi) library unchanged.
@@ -135,7 +135,7 @@ export const PHRASES_PER_LESSON = 8;
 
 // Most topics start with exactly PHRASES_PER_LESSON phrases, but a few teach a
 // fixed sequence of a different length. "Numbers 1-10" must teach all ten
-// numbers in order (matching the hand-curated Gujarati lesson) — a learner
+// numbers in order (matching the hand-curated Gujarati lesson), a learner
 // picking that topic should never get a gap-free count that stops at eight.
 // Keyed by category slug; any slug not listed here uses PHRASES_PER_LESSON.
 export const CATEGORY_PHRASE_COUNTS: Record<string, number> = {
@@ -203,7 +203,7 @@ export const SENTENCES_PER_LESSON = 8;
 // have. Every language carries the frozen base (SENTENCES_PER_LESSON) plus its
 // committed batch-generated C1 top-ups: Gujarati's live in the pilot file,
 // every other language's in the rollout file. Pass the language code where the
-// language matters — omitting it yields the bare base count.
+// language matters, omitting it yields the bare base count.
 export function sentenceCount(
   categorySlug: string,
   languageCode?: string,
@@ -231,7 +231,7 @@ export function curatedSentencesC1(): Record<string, SeedPhrase[]> {
   return curatedSentencesC1Json as Record<string, SeedPhrase[]>;
 }
 
-// Language codes shipped in the C1 rollout — languages whose sentence content
+// Language codes shipped in the C1 rollout, languages whose sentence content
 // is primarily batch-generated (community review ongoing). The /languages
 // endpoint derives its optional `communityReviewed` flag from this set so
 // clients never hardcode a list. Gujarati (the curated flagship) is excluded
@@ -660,7 +660,7 @@ export type CuratedLessonsFile = Record<string, Record<string, SeedLesson>>;
 // non-empty string fields and an integer difficulty within [1, 3], and never
 // zero phrases. Returns an error string, or null when the lesson is valid.
 //
-// `exactCount` enforces an exact phrase count — pass the category's
+// `exactCount` enforces an exact phrase count, pass the category's
 // extendedPhraseCount for the pre-generated lessons, which must each hold the
 // full starter+premium library their topic teaches. Leave it undefined to only
 // require at least one phrase.
@@ -734,7 +734,7 @@ export function validateSeedSentences(
 // seed test (so the two can't drift).
 // ---------------------------------------------------------------------------
 
-// True when a native-script value contains Latin letters or ASCII digits — a
+// True when a native-script value contains Latin letters or ASCII digits, a
 // strong signal of an English loanword typed in the wrong script or a
 // copy-paste slip. nativeScript should be entirely in the language's own script.
 export function nativeScriptHasLatinOrDigit(nativeScript: string): boolean {
@@ -873,7 +873,7 @@ export function validateCuratedLessons(
       )) {
         errors.push(`${lang.code}/${cat.slug} (sentences): ${issue}`);
       }
-      // Shape is fine — now reject well-formed-but-broken content: a lesson
+      // Shape is fine, now reject well-formed-but-broken content: a lesson
       // that repeats a phrase (two entries both meaning "happy") or types an
       // English word in native script. A bad regeneration must not ship.
       for (const issue of checkLessonQuality(

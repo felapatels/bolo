@@ -249,7 +249,7 @@ describe("mapping a Checkout Session to a credit", () => {
   it("refuses a session with no PaymentIntent rather than keying on the session id", () => {
     // The two events for a slow payment method (completed, then
     // async_payment_succeeded) share a PaymentIntent but not a preference for
-    // which id to use — keying on anything else risks two ledger rows for one
+    // which id to use, keying on anything else risks two ledger rows for one
     // payment, i.e. crediting the pack twice. And a payment-mode session with
     // no intent has not been paid for anyway.
     assert.strictEqual(
@@ -308,7 +308,7 @@ describe("crediting a purchase", () => {
   });
 
   it("credits an abandoned tab: the webhook alone completes the purchase", async () => {
-    // Nothing in this path involves the browser — this IS the whole flow for a
+    // Nothing in this path involves the browser, this IS the whole flow for a
     // learner who closed the tab the instant Stripe took the money.
     const credit = chaiPackCreditFromSession(
       session({

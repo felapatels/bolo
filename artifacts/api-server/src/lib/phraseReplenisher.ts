@@ -1,7 +1,7 @@
 // Background phrase replenishment for Plus learners: when a learner is
 // approaching the end of a topic's phrase set, the server proactively
 // generates a few more phrases so fresh content is already waiting the next
-// time the list is fetched — no manual "Add more phrases" tap needed.
+// time the list is fetched, no manual "Add more phrases" tap needed.
 //
 // This module owns two things:
 //   - the pure trigger decision (`shouldReplenish`), so the threshold and the
@@ -97,8 +97,7 @@ export function phraseKey(nativeScript: string): string {
 
 // Pure trigger decision: should a fetch of this topic's phrase list kick off
 // background replenishment for this caller?
-//   - Only Plus (the extended-library plan) ever replenishes via this path —
-//     Free and One Language use shouldReplenishFree instead.
+//   - Only Plus (the extended-library plan) ever replenishes via this path, //     Free and One Language use shouldReplenishFree instead.
 //   - The learner must have engaged (attempted or mastered) at least
 //     REPLENISH_THRESHOLD of the phrases they can see.
 export function shouldReplenish(
@@ -224,7 +223,7 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
           ),
       }),
     ]);
-    // Replenishment only tops up an existing lesson — it never creates one.
+    // Replenishment only tops up an existing lesson, it never creates one.
     if (!language || !category || !lesson) return 0;
 
     // Cooldown: if a background replenishment (even one that only produced
@@ -298,7 +297,7 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
       count: requested,
     });
 
-    // A real AI generation happened — record it in the existing generation
+    // A real AI generation happened, record it in the existing generation
     // tracking. Background top-ups use kind='replenishment' so they are never
     // counted toward the Free daily new-lesson cap.
     const generationKind = opts.generationKind ?? "replenishment";
@@ -327,8 +326,8 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
     // is below the size cap; overflow creates a new phrase-stage group at
     // (last phrase-stage position + 1), shifting any sentence-stage groups up
     // by one so the Slice 1 invariants hold: stage blocks stay pure and
-    // phrase-stage groups keep the lower positions. Everything — the shift,
-    // new groups, and the phrase inserts — happens in ONE transaction, so a
+    // phrase-stage groups keep the lower positions. Everything, the shift,
+    // new groups, and the phrase inserts, happens in ONE transaction, so a
     // concurrent unlock-state read can never observe a mid-shift ordering
     // (MVCC: readers see the pre-transaction snapshot until commit). Progress
     // is keyed by group ID, never position, so shifts cannot orphan it.
@@ -339,7 +338,7 @@ async function doReplenish(opts: ReplenishOptions): Promise<number> {
     // plan the same group positions. The unique
     // constraints then roll back one transaction; we retry once against the
     // fresh state, and as a last resort insert the phrases UNASSIGNED
-    // (legal — nullable, surfaces in unassignedCount) rather than crash a
+    // (legal, nullable, surfaces in unassignedCount) rather than crash a
     // background job or duplicate a position.
     const insertAssigned = () => db.transaction(async (tx) => {
       const groupRows = await tx

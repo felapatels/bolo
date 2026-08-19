@@ -1,4 +1,4 @@
-// Build 35 mobile parity — trackside signals: the seating contract, the game
+// Build 35 mobile parity, trackside signals: the seating contract, the game
 // rotation, the four glyph states, the encounter dialog's reward-chip rule,
 // and the hydrating memory layer.
 //
@@ -237,7 +237,7 @@ describe('signal encounter dialog', () => {
     );
 
     // The whole scene header is hidden from assistive tech, so the glyph is
-    // only reachable with hidden elements included — which is the assertion:
+    // only reachable with hidden elements included, which is the assertion:
     // a screen reader is never read a decorative scene.
     const deep = { includeHiddenElements: true };
     const scene = screen.getByTestId('signal-scene', deep);
@@ -266,7 +266,7 @@ describe('signal encounter dialog', () => {
     );
     // The server will not pay a second time, so the chip must not imply it.
     expect(screen.queryByTestId('signal-chai-chip')).toBeNull();
-    // Nothing left to wave past either — the gate is already up.
+    // Nothing left to wave past either, the gate is already up.
     expect(screen.queryByTestId('signal-wave-through')).toBeNull();
     // Still replayable for its own sake.
     expect(screen.getByTestId('signal-play-game')).toBeOnTheScreen();
@@ -348,7 +348,7 @@ describe('signal memory', () => {
     await Promise.all([hydrateClearedSignals('gu'), hydrateSignalStopSeen('gu')]);
     expect(isSignalCleared('gu', 3)).toBe(true); // device scoped, restored
     // A signal that already offered itself never auto-opens again, even on a
-    // fresh launch — the learner taps it when they want it.
+    // fresh launch, the learner taps it when they want it.
     expect(isSignalStopSeen('gu', 2)).toBe(true);
     expect(isSignalWaved('gu', 1)).toBe(false);
   });

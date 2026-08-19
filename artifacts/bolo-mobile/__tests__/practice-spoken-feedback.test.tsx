@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // ---------------------------------------------------------------------------
 // Guards the spoken-feedback read-aloud: when a score lands, the coach's
 // feedback + tip are spoken immediately via the device speech engine
-// (expo-speech) — unless the device-local "Spoken feedback" preference is
+// (expo-speech), unless the device-local "Spoken feedback" preference is
 // off, in which case nothing is spoken (target-phrase playback is unaffected
 // either way). The result card also has a quick mute toggle that silences
 // mid-readout and persists the preference.
@@ -239,7 +239,7 @@ describe('spoken feedback after scoring', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Task 1044: spoken feedback now has two doors — the result-card mute (a
+// Task 1044: spoken feedback now has two doors, the result-card mute (a
 // moment-of-playback control, unchanged) and the header settings menu. They
 // are two entry points onto ONE state; neither holds its own copy. These
 // tests drive each door and read the other.
@@ -277,8 +277,7 @@ describe('one shared spoken-feedback state, two entry points', () => {
       fireEvent.press(screen.getByTestId('setting-spoken-feedback'));
     });
 
-    // The result-card control — untouched by this task and still on the card —
-    // now shows the muted affordance without any state of its own.
+    // The result-card control, untouched by this task and still on the card, // now shows the muted affordance without any state of its own.
     await waitFor(() => expect(resultCardMuted()).toBe(true));
     await waitFor(async () =>
       expect(await AsyncStorage.getItem('bolo.spokenFeedback')).toBe('off'),

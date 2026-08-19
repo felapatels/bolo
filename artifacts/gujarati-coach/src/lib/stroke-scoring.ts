@@ -3,7 +3,7 @@
 // WHY THIS EXISTS. The shipped game scores AREA COVERAGE of a glyph's filled
 // outline (games/script-trace.tsx, scoreCoverage): cover 40% of the interior
 // and you pass. It cannot do better, because its guide data is a font OUTLINE
-// extracted from Noto — the boundary of the ink, not the path of the pen. With
+// extracted from Noto, the boundary of the ink, not the path of the pen. With
 // no real strokes there is no order, no direction, and no lift to check, so a
 // scribble back and forth across the glyph passes.
 //

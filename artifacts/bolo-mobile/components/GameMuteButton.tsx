@@ -40,7 +40,7 @@ export function useGameAudio(): { soundOn: boolean; toggle: () => void } {
  *
  * `active` is the audio-active treatment (web parity): while a clip is
  * actually sounding the button lights up green, so the learner can see which
- * control owns the noise they're hearing. Purely visual and opt-in — callers
+ * control owns the noise they're hearing. Purely visual and opt-in, callers
  * that don't track playback simply omit it and get the previous behaviour.
  */
 export function GameMuteButton({

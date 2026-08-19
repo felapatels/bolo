@@ -119,8 +119,7 @@ async function seedXp(
   });
 }
 
-// Dresses a learner's Bolo. Equipping is a column write, not a ledger row —
-// see api-server/src/lib/outfits.ts — so the test does not need to buy first.
+// Dresses a learner's Bolo. Equipping is a column write, not a ledger row, // see api-server/src/lib/outfits.ts, so the test does not need to buy first.
 async function equipMascot(
   userId: string,
   outfit: string | null,
@@ -149,7 +148,7 @@ async function makeFriends(a: string, b: string): Promise<void> {
 async function clearSocialRows(): Promise<void> {
   // Every code attempt in this suite is made by one of the test users, so
   // clearing by user id resets BOTH rate-limit axes (per account and per IP)
-  // between tests — otherwise the tenth test inherits the ninth's budget.
+  // between tests, otherwise the tenth test inherits the ninth's budget.
   await db
     .delete(friendCodeAttemptsTable)
     .where(inArray(friendCodeAttemptsTable.userId, ALL_USERS));
@@ -337,7 +336,7 @@ after(async () => {
 
 test("there is no way to look a learner up by email", async () => {
   // Task #1111 retired the email-search endpoint and the email-addressed
-  // request. Nothing in the product may find a learner by address again — if
+  // request. Nothing in the product may find a learner by address again, if
   // either route comes back, this fails.
   actAs(USER_A);
   const search = await api("GET", `/friends/search?email=${EMAIL[USER_B]}`);
@@ -460,7 +459,7 @@ test("code entry is rate limited per account", async () => {
   assert.equal(limited.status, 429);
   assert.ok(limited.json.retryAfterSeconds > 0);
 
-  // The budget is spent even on a code that WOULD have worked — otherwise a
+  // The budget is spent even on a code that WOULD have worked, otherwise a
   // guesser refills it by interleaving a known-good code.
   const real = await api("POST", "/friends/requests/by-code", {
     code: CODE[USER_B],
@@ -691,14 +690,14 @@ test("a tie on XP and streak is broken by who reached the total first", async ()
 //
 // An outfit is bought with Chai and was, until now, visible only to its owner
 // (the self-only GET /tokens). Friend rows and leaderboard rows are the one
-// place anybody else sees it, so both payloads must carry it — and carry it
+// place anybody else sees it, so both payloads must carry it, and carry it
 // themselves, because a row that fetched its own outfit would turn a
 // twenty-friend list into twenty-one requests.
 // ---------------------------------------------------------------------------
 
 test("the friends list carries each friend's equipped outfit and accessory", async () => {
   await equipMascot(USER_B, "kurta", "pagdi");
-  // USER_C has no user_token_state row at all — the learner who never opened
+  // USER_C has no user_token_state row at all, the learner who never opened
   // the Chai stall. They must come back undressed, not missing.
   await makeFriends(USER_A, USER_B);
   await makeFriends(USER_A, USER_C);
@@ -752,7 +751,7 @@ test("invite sends to an unknown email and returns { sent, sendCount }", async (
 
 test("invite rejects if the email already belongs to a learner", async () => {
   actAs(USER_A);
-  // USER_B is a known learner — should return 400.
+  // USER_B is a known learner, should return 400.
   const { status, json } = await api("POST", "/friends/invite", {
     email: EMAIL[USER_B],
   });

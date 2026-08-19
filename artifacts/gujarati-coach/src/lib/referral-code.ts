@@ -41,7 +41,7 @@ type StoredCode = { code: string; savedAt: number; attemptedAt?: number };
 /**
  * The shareable link for a code, from this browser's origin and the artifact
  * base path. The URL itself is shaped by @workspace/referral-link, which
- * mobile calls with its own origin — one builder, one link.
+ * mobile calls with its own origin, one builder, one link.
  */
 export function referralLink(code: string): string {
   return buildReferralLink(

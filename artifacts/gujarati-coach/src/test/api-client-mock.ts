@@ -8,14 +8,14 @@
 //
 // This base derives its export surface from the REAL module at runtime
 // (vi.importActual), so a hook added to the generated client exists here
-// automatically — no per-file patching pass ever again:
+// automatically, no per-file patching pass ever again:
 //   - get*QueryKey exports  -> stable key fns  (() => [name])
 //   - use* exports          -> idle hook stubs (idleHook(): no data, no error,
 //                              inert mutate/mutateAsync/refetch)
 //   - everything else       -> the real export (ApiError, getChatTurnUrl,
 //                              setBaseUrl, schema constants, ...)
 //
-// Usage — spread it FIRST so per-file overrides win:
+// Usage, spread it FIRST so per-file overrides win:
 //
 //   vi.mock("@workspace/api-client-react", async () => ({
 //     ...(await (await import("./api-client-mock")).baseApiClientMock()),

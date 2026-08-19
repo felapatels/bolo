@@ -1,5 +1,5 @@
 /**
- * Acceptance item 5 — web app.
+ * Acceptance item 5, web app.
  *
  * Confirms the practice screen renders correctly when the evaluate response
  * carries NO score field. This is the test that de-risks removing score from
@@ -8,7 +8,7 @@
  * The test verifies:
  *   1. No JavaScript/React error is thrown during the result-card render.
  *   2. The BandPill (or its accessible label) is present in the DOM.
- *   3. The old "Score: N" element is absent — no stale score UI is shown.
+ *   3. The old "Score: N" element is absent, no stale score UI is shown.
  */
 
 import { describe, test, expect, beforeEach, vi } from "vitest";
@@ -160,9 +160,9 @@ async function triggerRecording() {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe("acceptance item 5 — score absent from evaluate response", () => {
+describe("acceptance item 5, score absent from evaluate response", () => {
   test("renders the result card without crashing when score is omitted (nailed band)", async () => {
-    // Evaluate returns band/xpAwarded but NO score field — the shape the
+    // Evaluate returns band/xpAwarded but NO score field, the shape the
     // server will eventually send once score is fully removed.
     h.evaluate.mockResolvedValueOnce({
       band: "great",

@@ -21,7 +21,7 @@ export const GREETING_CACHE_KEY_VERSION = "v7";
  * in effect so that any configuration change (provider switch, voice change,
  * or instructions edit) automatically orphans old entries and forces fresh
  * synthesis. The instructionsDigest must be BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST
- * from ttsConfig — never the phrase digest — because greetings are
+ * from ttsConfig, never the phrase digest, because greetings are
  * conversational, not pronunciation-reference audio.
  *
  * Both the /openai/chat-greeting route and warmGreetings() MUST call this

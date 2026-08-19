@@ -1,7 +1,7 @@
 /**
  * Tests for the audio-toggle split (Build 35):
- *   bolo.soundEffects  — UI cues (correct/wrong beeps, squawk SFX)
- *   bolo.coachVoice    — all Bolo speech (phrase audio, meaning, feedback, chat)
+ *   bolo.soundEffects , UI cues (correct/wrong beeps, squawk SFX)
+ *   bolo.coachVoice   , all Bolo speech (phrase audio, meaning, feedback, chat)
  *
  * Covers: migration behaviour, save+load round-trip. The settings-surface render
  * (both rows visible) and consumer gates (coachVoiceRef in practice/chat) are
@@ -15,7 +15,7 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-describe('loadCoachVoicePref — migration from legacy soundEffects key', () => {
+describe('loadCoachVoicePref, migration from legacy soundEffects key', () => {
   it('returns true (default on) when neither key is stored', () => {
     expect(loadCoachVoicePref()).toBe(true);
   });
@@ -31,7 +31,7 @@ describe('loadCoachVoicePref — migration from legacy soundEffects key', () => 
   });
 
   it('own key takes precedence over the legacy soundEffects value', () => {
-    // Legacy says "off" — but user explicitly set coachVoice to "on".
+    // Legacy says "off", but user explicitly set coachVoice to "on".
     localStorage.setItem(SOUND_PREF_KEY, 'off');
     localStorage.setItem(COACH_VOICE_PREF_KEY, 'on');
     expect(loadCoachVoicePref()).toBe(true);

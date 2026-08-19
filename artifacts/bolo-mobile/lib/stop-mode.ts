@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * How a practice recording ends. Mirrors the web app's toggle:
  *  - 'manual': recording only ends when the learner taps stop (the mobile
- *    default — it's the long-standing behavior on this platform).
+ *    default, it's the long-standing behavior on this platform).
  *  - 'auto': recording also ends on its own after a stretch of silence; the
  *    stop button stays available as an override.
  *

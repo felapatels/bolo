@@ -65,7 +65,7 @@ function RowWash({ color }: { color: string }) {
   );
 }
 
-// The wallet opens on Chacha-ji's stall itself — the painted scene, with the
+// The wallet opens on Chacha-ji's stall itself, the painted scene, with the
 // balance struck across it. (The home band still composites the layered art;
 // this is a single flattened still, used only as a header.)
 const HEADER_IMAGE = require('../assets/images/stall/wallet-header.jpg') as number;
@@ -262,7 +262,7 @@ function missedDayLabel(dayKey: string): string {
 
 /**
  * Streak repair row: shown ONLY when the server says there is a real break
- * inside the window, and silent otherwise — no greyed-out row and no "you
+ * inside the window, and silent otherwise, no greyed-out row and no "you
  * could have" on a day the learner did nothing wrong. Eligibility is never
  * inferred here; the button posts an empty body and the server picks the day
  * it is willing to sell. Web twin: StreakRepairRow in chai-wallet.tsx.
@@ -335,7 +335,7 @@ export function StreakRepairRow({ onNotice }: { onNotice: (message: string) => v
   );
 }
 
-// Mirror of tokenEconomy.ts — server is authoritative.
+// Mirror of tokenEconomy.ts, server is authoritative.
 const FIRST_CLASS_COST = 25;
 
 /** Gold palette applied when the learner holds First Class. Approved Aug 2026. */
@@ -920,7 +920,7 @@ export function ChaiWalletSheet({
             </View>
 
             {/* Buying Chai with money, through Apple. Dark until
-                CHAI_PACKS_LIVE flips — exactly as the web shop is — while the
+                CHAI_PACKS_LIVE flips, exactly as the web shop is, while the
                 catalog, the StoreKit purchase, the webhook credit and the
                 launch recovery underneath it all stay live and tested. */}
             <ChaiPackShop />

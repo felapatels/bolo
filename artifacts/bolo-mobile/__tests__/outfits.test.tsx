@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 
 // ---------------------------------------------------------------------------
-// Bolo's outfits, mobile side — twin of
+// Bolo's outfits, mobile side, twin of
 // artifacts/gujarati-coach/src/test/outfits.test.tsx.
 //
 // Outfits are a Chai sink: bought once, owned forever, worn on every mascot

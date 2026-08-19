@@ -40,7 +40,7 @@ function BuildingMessage({ languageName }: { languageName?: string }) {
   );
 }
 
-// Skeleton for the category detail page — mirrors its real layout so the shell
+// Skeleton for the category detail page, mirrors its real layout so the shell
 // stays put and only the content fills in.
 export function CategoryLessonSkeleton({
   languageName,

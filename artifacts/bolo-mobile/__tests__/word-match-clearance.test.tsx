@@ -191,14 +191,14 @@ describe('word-match board tab-bar clearance', () => {
 });
 
 // Build 36 item 4: the in-game cards (not the hub tiles, which are already
-// square) were stretched by that flex:1 grid — the row height was the board
+// square) were stretched by that flex:1 grid, the row height was the board
 // height divided by the row count, which on a phone gave slender ~84x134
 // tiles, and worse at three rows. Cards are capped at square now and the
 // leftover board height sits around the rows instead of inside them.
 describe('word-match card shape', () => {
   test('cards are never taller than they are wide', async () => {
     render(<WordMatchScreen />);
-    // Easy: 4 columns x 3 rows in a 400x600 board — the tallest stretch case.
+    // Easy: 4 columns x 3 rows in a 400x600 board, the tallest stretch case.
     await enterGameBoard();
 
     // Cards are one per face: `<phraseId>-n` (native) and `-e` (english).

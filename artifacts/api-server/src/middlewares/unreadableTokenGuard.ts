@@ -4,7 +4,7 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
  * A BAD TOKEN IS AN AUTH FAILURE; A BROKEN AUTH SERVICE IS NOT.
  *
  * Clerk's verifier answers most bad tokens with a signed-out state, but a few
- * shapes make it THROW — notably a Bearer whose signature segment is not valid
+ * shapes make it THROW, notably a Bearer whose signature segment is not valid
  * base64url, which surfaces as `SyntaxError: Unexpected end of data` from
  * `decodeJwt`. That rejection reached the global error handler, so a request
  * carrying a corrupt token was answered 500: indistinguishable, from the
@@ -14,8 +14,8 @@ import type { NextFunction, Request, RequestHandler, Response } from "express";
  *
  * The translation is deliberately NARROW. Only a throw that is *about the
  * presented token* becomes a 401; anything that indicates the verification
- * service itself is unhealthy — a missing or unloadable JWKS, a bad secret
- * key, a network fault, an unexpected internal error — is re-thrown to
+ * service itself is unhealthy, a missing or unloadable JWKS, a bad secret
+ * key, a network fault, an unexpected internal error, is re-thrown to
  * express so it stays a 500 and reaches Sentry. Mislabelling an outage as
  * "your sign-in failed" would send every learner to the sign-in screen and
  * hide the incident.
@@ -120,7 +120,7 @@ export function guardUnreadableToken(clerk: RequestHandler): RequestHandler {
       return;
     }
     // The middleware is async, and express only auto-forwards a rejection it
-    // can see — this wrapper is what express sees now, so it has to catch.
+    // can see, this wrapper is what express sees now, so it has to catch.
     if (
       result &&
       typeof (result as Promise<void>).then === "function" &&

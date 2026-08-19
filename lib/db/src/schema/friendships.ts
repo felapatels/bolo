@@ -14,8 +14,8 @@ import { usersTable } from "./users";
 // A friendship is modelled as a single directional row from the learner who
 // sent the request (`requesterId`) to the learner who received it
 // (`addresseeId`), plus a `status`:
-//   - "pending"  — a request that is waiting on the addressee to accept/decline.
-//   - "accepted" — a mutual friendship. It is stored once (keeping the original
+//   - "pending" , a request that is waiting on the addressee to accept/decline.
+//   - "accepted", a mutual friendship. It is stored once (keeping the original
 //                  requester/addressee direction) but read from both sides, so
 //                  each learner sees the other in their friends list.
 //

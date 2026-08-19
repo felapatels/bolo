@@ -56,7 +56,7 @@ vi.mock("@/lib/language-context", () => ({
 }));
 
 // The language picker persists explicit picks (B1): it pulls the preferences
-// mutation + query client, which this suite never asserts on — stub them.
+// mutation + query client, which this suite never asserts on, stub them.
 vi.mock("@tanstack/react-query", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   useQueryClient: () => ({
@@ -154,7 +154,7 @@ describe("Language picker gating", () => {
 
     // A locked tap opens that language's journey map in showroom mode (a
     // browsable teaser with its own upgrade path), so the language becomes
-    // active and the learner lands on /journey — not straight on the paywall.
+    // active and the learner lands on /journey, not straight on the paywall.
     expect(h.setActiveLang).toHaveBeenCalledWith("hi");
     expect(currentPath(history)).toBe("/journey");
   });

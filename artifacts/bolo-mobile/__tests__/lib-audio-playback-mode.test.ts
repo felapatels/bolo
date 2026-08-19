@@ -1,13 +1,13 @@
 /**
  * Guards lib/audio's iOS playback/recording session machinery:
  *
- *  1. Mode-flip ordering — every playback flips to playback-only mode BEFORE
+ *  1. Mode-flip ordering, every playback flips to playback-only mode BEFORE
  *     play() and restores recording mode when the clip finishes.
- *  2. The playbackModeToken race — a stale playback's deferred restore must
+ *  2. The playbackModeToken race, a stale playback's deferred restore must
  *     never override a newer playback's mode claim, while a stopped playback
  *     that is still the latest claim DOES restore recording mode (the
  *     barge-in path: that restore IS the new recording's mode).
- *  3. keepAudioSessionActive — every player is created with the option so a
+ *  3. keepAudioSessionActive, every player is created with the option so a
  *     finishing/paused clip can never trigger expo-audio's automatic
  *     AVAudioSession deactivation while another clip is still buffering
  *     (the build 29 "replies quieter than the greeting" seam).
@@ -211,7 +211,7 @@ describe('prepare during playback (builds 35/36 "Could not start recording")', (
     ]);
 
     // The witness: under the old code this log was
-    // ['mode:playback', 'play', 'prepare', 'record'] — record() against a
+    // ['mode:playback', 'play', 'prepare', 'record'], record() against a
     // playback-only session, which is the device-reported failure.
     expect(mockOpLog.indexOf('record')).toBeGreaterThan(
       mockOpLog.lastIndexOf('mode:recording'),
@@ -225,7 +225,7 @@ describe('activateSfxPlaybackRoute (34B tear SFX reroute)', () => {
     expect(mockOpLog).toEqual(['mode:playback']);
 
     await flush();
-    // One-way flip: nothing schedules a recording-mode restore — the next
+    // One-way flip: nothing schedules a recording-mode restore, the next
     // recorder prepare re-asserts it.
     expect(mockOpLog).toEqual(['mode:playback']);
   });

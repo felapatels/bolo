@@ -9,12 +9,11 @@ import {
 import { usersTable } from "./users";
 
 // The Family plan ($19.99/mo): one Stripe subscription, owned by a single
-// learner, covering up to 4 people total — the owner plus up to 3 seats.
+// learner, covering up to 4 people total, the owner plus up to 3 seats.
 //
 // Billing state does NOT live here: the owner's `users` row stays the single
 // source of truth (tier "family", written by the Stripe webhook exactly like
-// Plus). This table records the group itself — who owns it and the join code —
-// and `family_seats` records who occupies the seats. Entitlement resolution
+// Plus). This table records the group itself, who owns it and the join code, // and `family_seats` records who occupies the seats. Entitlement resolution
 // reads the owner's row through the seat, so when the subscription lapses every
 // member automatically resolves back to Free with no cascade writes.
 //
@@ -36,7 +35,7 @@ export const familyPlansTable = pgTable("family_plans", {
     .defaultNow(),
 });
 
-// A seat on a family plan — either a pending email invite or an active member.
+// A seat on a family plan, either a pending email invite or an active member.
 // The owner occupies the implicit 4th seat and never has a row here, so the
 // capacity invariant is: at most 3 rows (pending + active) per plan.
 export const familySeatsTable = pgTable(
@@ -47,7 +46,7 @@ export const familySeatsTable = pgTable(
       .notNull()
       .references(() => familyPlansTable.id),
     // "pending" (an email invite not yet accepted) or "active" (an occupied
-    // seat). Revoking an invite or removing a member DELETES the row — a freed
+    // seat). Revoking an invite or removing a member DELETES the row, a freed
     // seat leaves no residue.
     status: text("status").notNull(),
     // The invited address (lower-cased), set for email invites. Null for seats

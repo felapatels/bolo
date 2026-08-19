@@ -18,8 +18,8 @@ export const TTS_PROVIDER_VERSION = "elevenlabs:v3:eleven_multilingual_v2:langid
  *
  * @param elevenLabsVoiceId - The resolved ElevenLabs voice ID used for
  *   synthesis (e.g. "nPczCjzI2devNBz1zQrb" for Brian). Including this ensures
- *   that two requests for the same text in different languages — which map to
- *   different ElevenLabs voices — never collide on the same cache entry and
+ *   that two requests for the same text in different languages, which map to
+ *   different ElevenLabs voices, never collide on the same cache entry and
  *   serve audio synthesized with the wrong voice.
  */
 export function ttsCacheKey(
@@ -67,7 +67,7 @@ const PHRASE_KEY_SCHEME = `phrase:v2:${BOLO_PHRASE_TTS_INSTRUCTIONS_DIGEST}`;
  * Used by both the phrase prewarm (ttsPrewarm.ts) and the /openai/tts
  * playback route to ensure writes and reads always target the same namespace.
  * Both sides MUST derive provider, model, and voice exclusively from
- * phraseAudioIdentity() in ttsConfig.ts — never hardcoded — so the inputs
+ * phraseAudioIdentity() in ttsConfig.ts, never hardcoded, so the inputs
  * to this function are always identical on both sides for the same phrase
  * under the same configuration.
  *

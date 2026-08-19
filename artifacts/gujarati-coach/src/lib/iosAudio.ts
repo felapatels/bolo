@@ -65,7 +65,7 @@ export function getFeedbackAudioElement(): HTMLAudioElement {
  * sharing an element would cut one off mid-word.
  *
  * Module scope is also what lets his farewell finish after the dialog has
- * closed and the route has changed — an element owned by the dialog would be
+ * closed and the route has changed, an element owned by the dialog would be
  * torn down with it.
  */
 export function getChachaAudioElement(): HTMLAudioElement {

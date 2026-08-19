@@ -1,12 +1,12 @@
 // Build 35 mobile parity, second quick game: Signal Lights (true-or-false
 // lightning round, floor 2).
 //
-// A phrase flashes up with a CLAIMED meaning; the learner calls it — green
-// light for true, red light for false — before the signal changes. Judgement
+// A phrase flashes up with a CLAIMED meaning; the learner calls it, green
+// light for true, red light for false, before the signal changes. Judgement
 // game riding the frozen listen-and-pick correctness model: a "true" call on a
 // true pairing (and a "false" call on a false one) submits the phrase's own id,
 // and a wrong call submits the DECOY's id, so the server recomputes the same
-// result web does. The server game id is declared on the roster entry — this
+// result web does. The server game id is declared on the roster entry, this
 // file adds none and touches no server file.
 //
 // Ported from the web game (gujarati-coach/src/pages/games/signal-lights.tsx),
@@ -67,7 +67,7 @@ export type LightsQuestion = {
  * Local Fisher-Yates. The planner owns its own shuffle rather than reaching
  * into the shell: shuffling is a game concern, and keeping it here is what
  * lets buildPlan stay pure and testable without rendering anything.
- * Returns a new array — the caller's phrase list is never mutated.
+ * Returns a new array, the caller's phrase list is never mutated.
  */
 function shuffle<T>(items: readonly T[]): T[] {
   const out = items.slice();
@@ -198,7 +198,7 @@ function SignalLightsRound({
 
   /**
    * The pending feedback-flash timer. Held in a ref purely so it can be
-   * cleared when the round changes or the game unmounts — a fired-after-teardown
+   * cleared when the round changes or the game unmounts, a fired-after-teardown
    * submit is harmless (the shell's per-round guard drops it) but it would log
    * a state update on an unmounted tree.
    */
@@ -259,7 +259,7 @@ function SignalLightsRound({
   useEffect(() => stopAudio, [stopAudio]);
 
   // Timeout counts as a wrong judgement: brief flash, then submit the miss.
-  // Web parity — the shell deliberately does not auto-submit for the game,
+  // Web parity, the shell deliberately does not auto-submit for the game,
   // so without this the run would stall on a silent expired round.
   useEffect(() => {
     if (!api.timedOut) return;

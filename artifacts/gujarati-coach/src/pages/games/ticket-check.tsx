@@ -1,7 +1,7 @@
 // Chunk 6B quick game: Ticket Check (script match, floor 4).
 // A ticket shows the English meaning ALONE; the learner punches the matching
 // native-script ticket. The romanized reading lives under the script on the
-// answers, never on the question — printing it on the prompt handed over the
+// answers, never on the question, printing it on the prompt handed over the
 // pronunciation the learner is here to recognise. Selection game riding the
 // frozen listen-and-pick correctness model (selectedPhraseId === phraseId).
 
@@ -95,7 +95,7 @@ function TicketCheckRound({ phrases, api }: QuickRoundProps) {
                 {choice.nativeScript}
               </span>
               {/* Every answer carries its own reading under the script, from
-                  the first look — the pairing IS the lesson, and hiding it
+                  the first look, the pairing IS the lesson, and hiding it
                   until after the pick made the choice a guess. Languages
                   without romanization render no empty slot. */}
               {choice.romanized.trim() !== "" && (
@@ -160,7 +160,7 @@ export default function TicketCheckPage() {
       def={def}
       instruction="Punch the ticket that matches the script"
       // SILENT: the round is a script-to-script read, nothing is ever spoken.
-      // Reported from a phone — the header showed a speaker button over a game
+      // Reported from a phone, the header showed a speaker button over a game
       // that has no sound to mute.
       usesAudio={false}
       totalRounds={() => ROUNDS}

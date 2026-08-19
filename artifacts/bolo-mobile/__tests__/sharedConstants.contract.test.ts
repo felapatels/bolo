@@ -1,5 +1,5 @@
 /**
- * Shared-constant contract test — mobile (Jest).
+ * Shared-constant contract test, mobile (Jest).
  *
  * The values below must stay in sync with the server constants in
  * artifacts/api-server/src/lib/progressMetrics.ts and entitlements.ts.
@@ -24,7 +24,7 @@ const MASTERY_THRESHOLD = 80;
 const REVIEW_PASS_THRESHOLD = 60;
 const FREE_WEEKLY_CHAT_SECONDS_CAP = 120;
 
-// Five-band thresholds — must match artifacts/api-server/src/lib/scoreBands.ts
+// Five-band thresholds, must match artifacts/api-server/src/lib/scoreBands.ts
 // (BAND_THRESHOLDS). 80/55 are FROZEN legacy behavioral boundaries; 91 was set
 // by owner ruling (Aug 2, 2026); 68 is a TUNING PENDING display split.
 const BAND_THRESHOLDS = { perfect: 91, great: 80, good: 68, almost: 55 };

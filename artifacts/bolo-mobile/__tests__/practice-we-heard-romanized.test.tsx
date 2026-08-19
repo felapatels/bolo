@@ -246,7 +246,7 @@ describe('We heard romanized transcript', () => {
     );
     await recordThrough('Mid 😐');
     expect(screen.getByText('We heard: "kem cho"')).toBeOnTheScreen();
-    // Only the raw line renders — no duplicate quoted romanized line.
+    // Only the raw line renders, no duplicate quoted romanized line.
     expect(screen.queryByText('"kem cho"')).toBeNull();
   });
 });

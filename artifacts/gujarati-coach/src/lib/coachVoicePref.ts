@@ -1,5 +1,5 @@
 /**
- * Coach voice preference — whether Bolo's synthesized and bundled speech
+ * Coach voice preference, whether Bolo's synthesized and bundled speech
  * plays (phrase audio, meaning audio, feedback read-aloud, band call-outs,
  * chat replies, and greeting). Defaults to on. Persists per browser via
  * localStorage (same pattern as lib/soundPref.ts). Client-local only; not

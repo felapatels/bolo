@@ -1,5 +1,5 @@
 // The deliberate, complete set of product analytics events for the web app.
-// Do not add events ad hoc — extend this file (and its mobile twin,
+// Do not add events ad hoc, extend this file (and its mobile twin,
 // artifacts/bolo-mobile/lib/analyticsEvents.ts) so the set stays reviewed.
 //
 // Payload policy: NO phrase content, transcripts, audio, or user email in any

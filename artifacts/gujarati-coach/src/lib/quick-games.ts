@@ -187,7 +187,7 @@ export function markSignalWaved(lang: string, gap: number): void {
 }
 
 /** The encounter dialog auto-opens ONCE per signal, ever, on this device
- *  (localStorage, like clears — not sessionStorage like waves). A learner
+ *  (localStorage, like clears, not sessionStorage like waves). A learner
  *  whose journey resumes at a signal was otherwise met by the same dialog on
  *  every single sign-in; after the first offer the signal is theirs to tap. */
 const stopSeenKey = (lang: string) => `bolo-signal-stop-shown:${lang}`;

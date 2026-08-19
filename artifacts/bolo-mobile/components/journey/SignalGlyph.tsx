@@ -1,7 +1,7 @@
 // Build 35 mobile parity: the trackside crossing signal, ported from the web
 // glyph in gujarati-coach/src/components/journey-scenery.tsx.
 //
-// RATIFIED STATE MODEL — read before editing. There is ONE geometry here and
+// RATIFIED STATE MODEL, read before editing. There is ONE geometry here and
 // four states, and the states differ in exactly two things:
 //
 //   upcoming  bar DOWN, lamp RED     (crossing ahead, not yet reachable)
@@ -16,7 +16,7 @@
 //
 // The arm semantics are OURS, not the real world's: here the bar is DOWN while
 // the crossing still owes you something and UP once it does not. Reference art
-// showing the opposite (up on green) has been ruled against — do not "fix" it.
+// showing the opposite (up on green) has been ruled against, do not "fix" it.
 //
 // Every coordinate below is shared verbatim with the web glyph; the two files
 // are the same drawing in two renderers, so any edit has to land in both.

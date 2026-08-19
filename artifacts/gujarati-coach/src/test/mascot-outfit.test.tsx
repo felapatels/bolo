@@ -8,7 +8,7 @@ import { CANONICAL_POSE_FILES, MASCOT_BASE } from "@/lib/mascot-outfits";
 //
 // Every surface renders <Mascot pose=...> and nothing else, so the outfit has
 // to reach the art through the component itself: the equipped value comes from
-// context (null outside the provider — signed-out chrome must never look
+// context (null outside the provider, signed-out chrome must never look
 // broken), and the optional `outfit` prop is the shop's preview override.
 // ---------------------------------------------------------------------------
 

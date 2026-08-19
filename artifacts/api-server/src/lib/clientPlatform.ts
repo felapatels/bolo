@@ -5,7 +5,7 @@
  * iOS is where the fewest capture fixes are available. Nothing in the codebase
  * recorded a platform before, and the plan explicitly rules out client changes,
  * so this derives it server-side from the User-Agent that the client already
- * sends on every request — the SAME device that produced the recording, a few
+ * sends on every request, the SAME device that produced the recording, a few
  * seconds later.
  *
  * The value is written as a tag inside the attempts row's existing `flags`

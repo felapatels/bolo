@@ -3,7 +3,7 @@
 // Wraps ts-fsrs v5 to provide a stable, opinionated interface used by the
 // attempt write path and the backfill. `enable_short_term` is disabled so
 // cards jump straight to multi-day review intervals after the first Good/Easy
-// rating — there are no in-session micro-steps to track.
+// rating, there are no in-session micro-steps to track.
 //
 // Rating → score band mapping (five-band display, legacy credit groups frozen):
 //   perfect/great (score ≥ 80, legacy 'nailed') → Good (3) or Easy (4) at ≥ 91

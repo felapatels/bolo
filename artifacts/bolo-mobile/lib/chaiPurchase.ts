@@ -14,8 +14,7 @@
  *      Chai itself is credited by the RevenueCat webhook from the server's own
  *      catalog.
  *
- *   2. A purchase "succeeded" when the SERVER shows the transaction credited —
- *      not when the store call resolved. A consumable grants no entitlement,
+ *   2. A purchase "succeeded" when the SERVER shows the transaction credited, *      not when the store call resolved. A consumable grants no entitlement,
  *      so the subscription flow's "did an entitlement appear?" test reports a
  *      perfectly good pack purchase as a failure.
  *
@@ -33,7 +32,7 @@
  * The rejected alternative, for the record: taking over purchase completion
  * app-side (RevenueCat's "purchases are completed by my app") would let us
  * hold a transaction open until the credit lands, but it changes how EVERY
- * purchase — including the subscriptions that work today — is finished. That
+ * purchase, including the subscriptions that work today, is finished. That
  * is the wrong trade on a money path that is not broken.
  */
 
@@ -103,7 +102,7 @@ export function consumableTransactions(
  *
  * This is the success signal for a purchase. It polls rather than trusting the
  * store call because the credit arrives out-of-band, over RevenueCat's webhook
- * — there is a real beat between Apple taking the money and the Chai landing,
+ *, there is a real beat between Apple taking the money and the Chai landing,
  * and the copy the learner sees must not pretend otherwise.
  */
 export async function waitForCredit(
@@ -138,7 +137,7 @@ export type RecoveryResult = {
   seen: string[];
   /** Of those, the ones the server had not credited when we looked. */
   uncredited: string[];
-  /** The ones still uncredited after the replays (nothing was lost — the next
+  /** The ones still uncredited after the replays (nothing was lost, the next
    *  launch tries again). */
   stillUncredited: string[];
   /** Whether the store was asked to re-deliver at all. */

@@ -1,6 +1,6 @@
 // Account-identity adapter. Clerk is the source of truth for a learner's
 // identity fields (name, email, password) and their very existence, so all
-// mutations to those go through Clerk — never the local mirror alone. This
+// mutations to those go through Clerk, never the local mirror alone. This
 // module wraps the Clerk backend SDK behind a small interface so:
 //   1. the routes depend on an abstraction rather than the SDK directly, and
 //   2. tests can inject a fake implementation (Node's test runner has no module
@@ -98,7 +98,7 @@ export const clerkAccountIdentity: AccountIdentity = {
       await clerkClient.users.deleteUser(userId);
     } catch (err) {
       if (statusOf(err) === 404) {
-        // Already gone — nothing to delete. Idempotent by design.
+        // Already gone, nothing to delete. Idempotent by design.
         logger.info({ userId }, "Clerk user already absent on delete");
         return;
       }

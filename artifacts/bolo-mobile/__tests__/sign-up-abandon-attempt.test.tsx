@@ -9,7 +9,7 @@
  *  1. "Use a different email" destroys the Clerk client (the only call that
  *     resets the pending sign-up) and returns to the email form, cleared.
  *  2. A failed abandon still lands the user on a usable form, with the
- *     message surfaced and a Sentry report — never a dead button, never a
+ *     message surfaced and a Sentry report, never a dead button, never a
  *     blank screen.
  *  3. "Back" escapes without touching Clerk state.
  *  4. Neither control exists outside the code step, and the helper refuses to

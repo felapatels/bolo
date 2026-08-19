@@ -212,7 +212,7 @@ export function Confetti({
     [variant, glyphMode],
   );
 
-  // Spec 1 rule 25: reduced motion renders no confetti at all — the summary
+  // Spec 1 rule 25: reduced motion renders no confetti at all, the summary
   // copy carries the celebration.
   if (reduceMotion) return null;
 

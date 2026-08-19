@@ -156,7 +156,7 @@ const PHRASES = [
   { id: 14, nativeScript: 'ચ', romanized: 'cha', english: 'five' },
 ] as any[];
 
-/** Exactly the game's floor — the shortest pool it ever has to cycle. */
+/** Exactly the game's floor, the shortest pool it ever has to cycle. */
 const FLOOR_PHRASES = PHRASES.slice(0, 4);
 
 function successQuery(data: unknown) {
@@ -236,7 +236,7 @@ describe('buildPlan', () => {
   });
 
   test('the cursor walks the pool before reshuffling, so anchors spread evenly', () => {
-    // Four phrases over eight rounds must be each phrase TWICE — once per
+    // Four phrases over eight rounds must be each phrase TWICE, once per
     // pass. Picking a random anchor per round would repeat some and drop
     // others, which is exactly the bug the cursor exists to prevent.
     for (let run = 0; run < 50; run++) {

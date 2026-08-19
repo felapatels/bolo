@@ -1,4 +1,4 @@
-// Chai packs — buying Chai with money, on WEB ONLY.
+// Chai packs, buying Chai with money, on WEB ONLY.
 //
 // Everything visible here is DARK until the flag below is flipped. The plumbing
 // underneath it is not: the checkout route, the Stripe session, and the
@@ -7,8 +7,8 @@
 //
 // iOS sells the SAME packs as StoreKit consumables (see
 // artifacts/bolo-mobile/components/ChaiPackShop.tsx), also dark, reading the
-// same server catalog. Nothing on THIS surface — the Stripe checkout, its
-// prices, this component — may be mentioned or linked in the mobile app.
+// same server catalog. Nothing on THIS surface, the Stripe checkout, its
+// prices, this component, may be mentioned or linked in the mobile app.
 
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,7 +23,7 @@ import { beginChaiPackCheckout } from "@/lib/billing";
  * plain exported constant, overridable per-render by the `live` prop so tests
  * can exercise both states.
  *
- * What it gates: the pack shop SURFACE only — the section inside the Chai
+ * What it gates: the pack shop SURFACE only, the section inside the Chai
  * wallet and nothing else. It does not gate `POST /api/stripe/chai-checkout`,
  * the Stripe session, the webhook credit, the ledger write, or the pack
  * catalog; all of those stay live and exercised while this is false.
@@ -60,7 +60,7 @@ const RETURN_REFETCH_MS = [0, 2000, 5000];
  * gated: a purchase that was in flight when the flag flipped off must still be
  * acknowledged, and the param cannot appear otherwise.
  *
- * It never asserts the Chai has arrived — the webhook is the only thing that
+ * It never asserts the Chai has arrived, the webhook is the only thing that
  * credits, so the copy promises "in a moment" and the refetches go looking.
  */
 export function ChaiPurchaseReturn() {
@@ -154,7 +154,7 @@ function PackCard({
  * The pack shop, as a section inside the wallet sheet.
  *
  * Renders NOTHING when the flag is off, and nothing when the server could not
- * price a single pack — a shop with no prices is worse than no shop, and the
+ * price a single pack, a shop with no prices is worse than no shop, and the
  * house rule is that no money string is ever invented client-side.
  */
 export function ChaiPackShop({

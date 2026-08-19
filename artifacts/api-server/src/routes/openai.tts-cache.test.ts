@@ -12,15 +12,15 @@ import { DEFAULT_MULTILINGUAL_VOICE_ID } from "../lib/languageVoice";
 
 // Exercises two things:
 //
-// 1. UNIT: ttsCacheKey is a pure content-hash — changing any synthesis input
+// 1. UNIT: ttsCacheKey is a pure content-hash, changing any synthesis input
 //    produces a different key. This is the fundamental guarantee: after a
 //    native-speaker correction changes a phrase's text, the old cached audio
 //    can never be returned by a new request for the corrected text.
 //
 // 2. INTEGRATION: end-to-end through the real Express router + live DB, with
 //    TTS cache entries pre-seeded so no OpenAI call is needed. The suite seeds
-//    two entries — one keyed to the original phrase text, one to the corrected
-//    text — and confirms each request returns its own distinct audio (the old
+//    two entries, one keyed to the original phrase text, one to the corrected
+//    text, and confirms each request returns its own distinct audio (the old
 //    entry is never served for the corrected text, and vice versa).
 //
 // 3. EVICTION: POST /openai/tts-cache/evict deletes all voice-variant cache
@@ -62,7 +62,7 @@ async function postJson(
 }
 
 before(async () => {
-  // Ensure tts_cache table exists — it may not have been migrated into the
+  // Ensure tts_cache table exists, it may not have been migrated into the
   // shared dev DB yet (follows the same self-provisioning pattern as other
   // route test suites; see api-server-tests memory note).
   await pool.query(`
@@ -163,7 +163,7 @@ before(async () => {
   phraseId = phraseRow.rows[0].id;
 
   // Mount the openai router. The rate-limit and auth middleware don't apply to
-  // tts-cache/evict (no auth required — it's admin-only by convention, not by
+  // tts-cache/evict (no auth required, it's admin-only by convention, not by
   // middleware in this test mount). The /tts endpoint needs pino-style req.log.
   app = express();
   app.use(express.json());
@@ -185,7 +185,7 @@ before(async () => {
 });
 
 after(async () => {
-  // Clean up all test-seeded TTS cache entries — both hinted and unhinted forms
+  // Clean up all test-seeded TTS cache entries, both hinted and unhinted forms
   // for every voice so the shared dev DB stays clean for other suites.
   // Also clean up new-style voiceId-keyed entries (DEFAULT_MULTILINGUAL_VOICE_ID
   // since TEST_LANG is not in LANGUAGE_VOICE_MAP).
@@ -308,7 +308,7 @@ test("TTS cache hit: returns pre-seeded audio for the original phrase text", asy
 
 test("TTS cache miss: corrected phrase text does NOT serve old audio", async () => {
   // At this point only the OLD_TEXT cache entry exists. A request for the
-  // corrected text must get a cache miss (different key) — it will attempt
+  // corrected text must get a cache miss (different key), it will attempt
   // OpenAI synthesis, which is unavailable in the test environment, so we
   // expect a 502. The important assertion is that the old audio is not returned.
   const { status, json } = await postJson("/openai/tts", {
@@ -317,7 +317,7 @@ test("TTS cache miss: corrected phrase text does NOT serve old audio", async () 
   });
 
   // 502 = reached synthesis (cache miss confirmed). 200 with OLD_AUDIO would
-  // mean stale audio was served — that's the bug we're guarding against.
+  // mean stale audio was served, that's the bug we're guarding against.
   assert.notEqual(
     json?.audioBase64,
     OLD_AUDIO,
@@ -371,7 +371,7 @@ test("TTS fallback: serves legacy-provider audio when synthesis is unavailable",
   // With the current TTS provider (gpt-4o-mini-tts), the ElevenLabs key has no
   // effect on the synthesis path. This test verifies that a cache entry seeded
   // under the current-provider key is returned on a cache hit, preventing any
-  // synthesis call — the same correctness guarantee as the original legacy test,
+  // synthesis call, the same correctness guarantee as the original legacy test,
   // now pinned to the active provider's key scheme.
   const FALLBACK_TEXT = `${NEW_TEXT}_fallback`;
   const LEGACY_AUDIO = "b64_LEGACY_AUDIO==";
@@ -400,7 +400,7 @@ test("TTS fallback: serves legacy-provider audio when synthesis is unavailable",
 
 test("TTS fallback: gpt-audio handles phrases with no legacy cache when ElevenLabs is unavailable", async () => {
   // Tier 1 (ElevenLabs) fails, Tier 2 (legacy cache) misses, Tier 3 (gpt-audio) succeeds.
-  // The 502 path only fires when all three tiers fail — not easily reproducible in tests
+  // The 502 path only fires when all three tiers fail, not easily reproducible in tests
   // without mocking the gpt-audio client. This test confirms the 3-tier chain returns
   // audio (200) rather than an error when gpt-audio is available.
   const savedKey = process.env.ELEVENLABS_API_KEY;
@@ -443,7 +443,7 @@ test("POST /openai/tts-cache/evict: evicts unhinted and language-hinted keys for
   // The language row for TEST_LANG has name "Test TTS Lang" (seeded in before()).
 
   // Seed one unhinted and one hinted cache entry per voice to simulate entries
-  // written with and without a languageName hint — the eviction must remove both.
+  // written with and without a languageName hint, the eviction must remove both.
   for (const v of voices) {
     await db
       .insert(ttsCacheTable)

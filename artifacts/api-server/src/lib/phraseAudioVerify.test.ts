@@ -1,9 +1,9 @@
 /**
  * Verifier decision table.
  *
- * The recognizer is injected, so these tests pin the JUDGEMENT — which
+ * The recognizer is injected, so these tests pin the JUDGEMENT, which
  * transcripts count as a clip that dropped content and which ambiguous cases
- * must fail open — without spending API calls.
+ * must fail open, without spending API calls.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -43,7 +43,7 @@ test("the reported clip fails: the recognizer hears only the first word", async 
 
 test("a healthy take of the same phrase passes, even transcribed into another Indic script", async () => {
   // A real recognizer read of the good take: Gurmukhi, not Gujarati, and split
-  // differently — still clearly the whole phrase.
+  // differently, still clearly the whole phrase.
   const verdict = await verifyPhraseAudio({
     audio: AUDIO,
     ...PHRASE,

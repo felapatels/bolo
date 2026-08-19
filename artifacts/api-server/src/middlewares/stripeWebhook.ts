@@ -1,5 +1,5 @@
 // Handles POST /api/stripe/webhook. Mounted directly on `app` (not the router)
-// BEFORE express.json() — Stripe signature verification needs the raw request
+// BEFORE express.json(), Stripe signature verification needs the raw request
 // body, exactly like the Clerk proxy earlier in the chain.
 //
 // This route is public (Stripe is not a Clerk user) and authenticates itself
@@ -68,13 +68,12 @@ export async function stripeWebhookHandler(
       // One-time Chai pack (web). THE ONLY path that credits bought Chai: the
       // client never mints any. Idempotent by Stripe transaction id, so a
       // replay, a retry after the 500 below, or an out-of-order delivery all
-      // credit exactly once — and a learner who closed the tab mid-purchase is
+      // credit exactly once, and a learner who closed the tab mid-purchase is
       // credited anyway, because nothing here needs the browser.
       // ...and the second delivery for a slow payment method. A session can
       // COMPLETE unpaid (bank debits and some wallets settle afterwards);
       // Stripe then raises this once the money actually lands. Both events
-      // carry the same PaymentIntent, so handling both credits exactly once —
-      // and omitting this one would charge that learner and credit nothing.
+      // carry the same PaymentIntent, so handling both credits exactly once, // and omitting this one would charge that learner and credit nothing.
       case "checkout.session.async_payment_succeeded":
       case "checkout.session.completed": {
         const credit = chaiPackCreditFromSession(

@@ -1,10 +1,10 @@
-// Chacha-ji's Chai Stall — the two-tier Chai treatment.
+// Chacha-ji's Chai Stall, the two-tier Chai treatment.
 //
 // TIER 1, the SCENE: a FULL-WIDTH band on home, the art's 1024/572 scene
 // cropped 12% at the bottom (BOTTOM_CROP) to drop the platform edge and
 // track, sitting directly below the boarding pass (Task #1049) so the pass
 // reads as standing in front of the stall. It carries one slow ambient steam
-// plume over the kettle, and tapping it opens the Chai wallet — the same sheet
+// plume over the kettle, and tapping it opens the Chai wallet, the same sheet
 // the Chai stat cell opens, never a second wallet surface. (It shipped at
 // wallet-vignette scale, 56px and right-aligned; at that size a detailed scene
 // read as a stray thumbnail rather than a place. Owner correction, Aug 6.)
@@ -22,12 +22,11 @@
 // home). The scrim covers the whole right half, so the text does not depend
 // on the art happening to be dark under it.
 // The overlay is pointer-events-none: the band keeps exactly ONE tap target,
-// and the balance it shows is the caller's — the component never queries or
+// and the balance it shows is the caller's, the component never queries or
 // caches a balance, because the spend contract is server-authoritative.
 //
 // TIER 2, the GLYPH: the kulhad (clay chai cup) is Chai's inline mark. It
-// replaces the lucide Coffee icon at every spot that shows a Chai amount —
-// stat cell, wallet rows, earn chips. The Coffee icon survives ONLY in
+// replaces the lucide Coffee icon at every spot that shows a Chai amount, // stat cell, wallet rows, earn chips. The Coffee icon survives ONLY in
 // lib/category-icons.tsx, where it is the food-topic icon and not a currency
 // mark at all.
 //
@@ -41,7 +40,7 @@
 //
 // MOTION is pure CSS (chai-stall.css), exactly like game-previews.css, so the
 // global prefers-reduced-motion rule in index.css collapses the loop and the
-// plume settles onto its authored base frame — visible steam, no movement.
+// plume settles onto its authored base frame, visible steam, no movement.
 // Never a blank layer.
 import { cn } from "@/lib/utils";
 import "./chai-stall.css";
@@ -55,7 +54,7 @@ export const STALL_ASSETS = {
   /** Isolated steam plume, layered over the kettle in the scene. */
   steam: `${import.meta.env.BASE_URL}stall/steam.png`,
   /**
-   * Chacha-ji himself, isolated on transparency — the existing greeting figure,
+   * Chacha-ji himself, isolated on transparency, the existing greeting figure,
    * trimmed to its bounding box. A LAYER, never painted into stall.png: the
    * banked pour-on-earn moment has to be able to animate him.
    */
@@ -74,7 +73,7 @@ const VISIBLE_H = SCENE_H * (1 - BOTTOM_CROP);
  * Where the plume sits, in fractions of the SCENE box (the kettle sits on the
  * burner at the left end of the counter, spout at ~29% across). If the scene
  * art moves the kettle, update these three values alongside the STALL_ASSETS
- * path — same contract as brand-splash's WINDOW map.
+ * path, same contract as brand-splash's WINDOW map.
  */
 const KETTLE = {
   left: "21%",
@@ -93,7 +92,7 @@ const KETTLE = {
  * beside the stall. His soles sit on it. Two earlier passes chose a bottom by
  * eye and he floated: out on the dirt at 13.5% he read too small, and behind
  * the counter at bottom 37.5% his feet landed partway up the dirt with nothing
- * under them. `left` clears the pole entirely — the pole leans between x45.2%
+ * under them. `left` clears the pole entirely, the pole leans between x45.2%
  * (base) and x48.3% (upper), so 48.5% puts his whole silhouette to its right.
  * Verified by compositing the real art and zooming into the soles and the pole
  * at native scale, the same method used for the plume.
@@ -109,7 +108,7 @@ export const STALL_TITLE = "Chacha-ji's Chai Stall";
 
 /**
  * The kulhad glyph. A drop-in replacement for `<Coffee className="h-4 w-4" />`:
- * pass the same sizing classes. Decorative — every site that uses it already
+ * pass the same sizing classes. Decorative, every site that uses it already
  * writes the amount and the word "Chai" in text.
  */
 export function ChaiGlyph({ className }: { className?: string }) {
@@ -127,7 +126,7 @@ export function ChaiGlyph({ className }: { className?: string }) {
 /**
  * The stall scene. Fills its container's width and takes its height from the
  * scene's own aspect box, so the KETTLE fractions land on the kettle at any
- * width — they are fractions OF THAT BOX, and the box never changes shape.
+ * width, they are fractions OF THAT BOX, and the box never changes shape.
  *
  * Pass `onClick` to make the scene a door into the wallet; `label` is the
  * accessible name for that button.

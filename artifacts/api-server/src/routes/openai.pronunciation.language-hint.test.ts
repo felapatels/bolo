@@ -9,7 +9,7 @@
 //   };
 //
 // When a phraseId is supplied the server fetches the phrase from the DB and
-// uses phrase.languageCode — the client cannot forge it.  When no phraseId is
+// uses phrase.languageCode, the client cannot forge it.  When no phraseId is
 // supplied the route pins the session language server-side from the user's
 // active language (recognizer language pinning); only a user with no recorded
 // active language falls back to the empty languageCode, omitting the
@@ -200,7 +200,7 @@ before(async () => {
     (_req as any).userId = "test_lang_hint_user";
     // Plus, so the pronunciation entitlement gate resolves "allowed" without
     // touching the (mocked-out) teaser/first-stop DB lookups. This suite
-    // exercises STT language hints, not gating — the gate has its own suite
+    // exercises STT language hints, not gating, the gate has its own suite
     // (openai.pronunciation.gating.test.ts).
     (_req as any).resolvedPlan = { plan: "plus", chosenLanguage: null };
     next();
@@ -340,8 +340,8 @@ test("STT hint omits language key when no phraseId is supplied AND the user has 
 test("STT hint language code is consistent for cross-language homophone 'na': Gujarati vs Hindi", async () => {
   // 'na' romanizes identically in Gujarati and Hindi.  The only reliable
   // disambiguator is the STT language hint derived from phrase.languageCode.
-  // This test confirms that two otherwise-identical requests — one for a
-  // Gujarati phrase and one for a Hindi phrase — produce different language
+  // This test confirms that two otherwise-identical requests, one for a
+  // Gujarati phrase and one for a Hindi phrase, produce different language
   // hints and therefore steer Whisper toward the correct script.
 
   // --- Gujarati attempt ---
@@ -374,7 +374,7 @@ test("STT hint language code is consistent for cross-language homophone 'na': Gu
 test("STT language hint is present on the high-quality retry pass when the first transcript is empty", async () => {
   // When the fast-pass transcript is empty, the route fires a second
   // speechToText call with { highQuality: true }.  The language hint must be
-  // included in that retry call too — a refactor that rebuilds sttOptions
+  // included in that retry call too, a refactor that rebuilds sttOptions
   // before the retry would silently drop the anchor.
   //
   // Simulate: first call returns "" (empty), retry returns a recognisable word.
@@ -420,7 +420,7 @@ test("STT language hint is present on the high-quality retry pass when the first
 
 test("STT language hint is present on the high-quality retry pass when the first transcript has low similarity", async () => {
   // The retry is also triggered when compareToTarget returns comparable=true
-  // and sim ≤ 0.25 — i.e. the fast-pass transcript is wildly unlike the target.
+  // and sim ≤ 0.25, i.e. the fast-pass transcript is wildly unlike the target.
   // A completely unrelated word like "xyz" relative to target "ná"/"na" should
   // satisfy that condition.  Both STT calls must still carry the language hint.
   //
@@ -472,7 +472,7 @@ test("STT prompt uses DB-derived language name even when client sends a mismatch
   // The client sends languageName="Hindi" but the phrase belongs to Gujarati
   // (languageCode: "gu").  The server must look up the language name from
   // languagesTable using the phrase's languageCode and use "Gujarati" in the
-  // STT prompt — not the client-supplied "Hindi".  This prevents a mismatched
+  // STT prompt, not the client-supplied "Hindi".  This prevents a mismatched
   // client value from weakening Whisper's language anchor.
   stubbedTranscript = "na";
   stubbedTranscriptSequence = null;

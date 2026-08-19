@@ -11,7 +11,7 @@ import { memoryLocation } from "wouter/memory-location";
 //      when the Permissions API reports "granted".
 //   2. Typing is available before grant and while a grant is pending.
 //   3. Released-before-start guard: a permission grant that resolves after
-//      the pointer went up must never start a recording — the recorder is
+//      the pointer went up must never start a recording, the recorder is
 //      aborted and the page stays idle (typing stays available).
 // ---------------------------------------------------------------------------
 
@@ -211,7 +211,7 @@ describe("chat mic permission & released-before-start guard", () => {
     // Before any interaction: typing available.
     expect(textInput().disabled).toBe(false);
 
-    // Press record — permission prompt "opens" (startRecording pending).
+    // Press record, permission prompt "opens" (startRecording pending).
     await act(async () => {
       fireEvent.pointerDown(micButton());
     });
@@ -256,7 +256,7 @@ describe("chat mic permission & released-before-start guard", () => {
       fireEvent.pointerUp(window);
     });
 
-    // The grant lands later ("Allow" clicked) — no recording may start.
+    // The grant lands later ("Allow" clicked), no recording may start.
     await act(async () => {
       resolveGrant();
     });
@@ -317,7 +317,7 @@ describe("chat mic permission & released-before-start guard", () => {
     await act(async () => {
       fireEvent.pointerDown(micButton());
     });
-    // Grant lands while the finger is still down — recording continues.
+    // Grant lands while the finger is still down, recording continues.
     await act(async () => {
       resolveGrant();
     });

@@ -29,7 +29,7 @@ export function FunFactLoader({ size = 'large', color, style }: Props) {
   // loading state, so the fact should stay put rather than shuffle mid-wait.
   const [fact] = React.useState(() => pickFunFact());
   // Drop the entrance animation in Expo Go and when the user has Reduce Motion
-  // enabled — both cases leave views stuck at the animation's initial state
+  // enabled, both cases leave views stuck at the animation's initial state
   // (opacity 0), so we fall back to rendering the text directly in place.
   const factEntering = useAppear(appearDown(150, 450));
 

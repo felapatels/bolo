@@ -14,10 +14,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // rather than playing back the old cached clip.
 //
 // Scenario:
-//  1. Learner opens a practice session — coach audio for phrase 1 is fetched
+//  1. Learner opens a practice session, coach audio for phrase 1 is fetched
 //     and cached under key "1:voice-A".
 //  2. Learner goes to Settings → Voice and switches to "voice-B".
-//  3. Learner taps the listen button again on the same phrase — the key is
+//  3. Learner taps the listen button again on the same phrase, the key is
 //     now "1:voice-B" which is not in the cache, so synthesis fires again.
 // ---------------------------------------------------------------------------
 
@@ -193,7 +193,7 @@ describe('audio cache keyed by voice ID', () => {
     );
     expect(mockState.synth).toHaveBeenCalledTimes(1);
 
-    // Tap the listen button again — still voice-A, cache hit, no new synth.
+    // Tap the listen button again, still voice-A, cache hit, no new synth.
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Listen to coach'));
     });
@@ -206,7 +206,7 @@ describe('audio cache keyed by voice ID', () => {
     mockState.account = makeAccount('voice-B');
     rerender(<PracticeScreen />);
 
-    // Tap the listen button — key is now "1:voice-B", cache miss → new synth.
+    // Tap the listen button, key is now "1:voice-B", cache miss → new synth.
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Listen to coach'));
     });
@@ -222,7 +222,7 @@ describe('audio cache keyed by voice ID', () => {
     // First play synthesized once.
     expect(mockState.synth).toHaveBeenCalledTimes(1);
 
-    // Tap listen three more times — same voice, same phrase: always a cache hit.
+    // Tap listen three more times, same voice, same phrase: always a cache hit.
     for (let i = 0; i < 3; i++) {
       await act(async () => {
         fireEvent.press(screen.getByLabelText('Listen to coach'));
@@ -231,7 +231,7 @@ describe('audio cache keyed by voice ID', () => {
         expect(screen.getByTestId('record-button')).not.toBeDisabled(),
       );
     }
-    // Synth count stays at 1 — all replays served from cache.
+    // Synth count stays at 1, all replays served from cache.
     expect(mockState.synth).toHaveBeenCalledTimes(1);
   });
 
@@ -244,7 +244,7 @@ describe('audio cache keyed by voice ID', () => {
     );
     expect(mockState.synth).toHaveBeenCalledTimes(1);
 
-    // Replay — same Auto key, cache hit.
+    // Replay, same Auto key, cache hit.
     await act(async () => {
       fireEvent.press(screen.getByLabelText('Listen to coach'));
     });

@@ -2,7 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { ApiError } from "@workspace/api-client-react";
 
 /**
- * Never retry ANY 4xx — a client error is deterministic: the same request
+ * Never retry ANY 4xx, a client error is deterministic: the same request
  * cannot succeed without something else changing first (credentials, plan,
  * input), so retrying only delays settling. In particular a locked-language
  * 402 on /progress/summary must reach the UI immediately so home can render

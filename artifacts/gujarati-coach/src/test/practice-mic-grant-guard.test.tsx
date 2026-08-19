@@ -194,7 +194,7 @@ describe("practice mic grant guard", () => {
     // ...and the mic is re-warmed straight after the abort. Without this the
     // stream the grant produced is thrown away and never replaced, so every
     // later press re-acquires the device, outlives a normal click, and gets
-    // discarded by this same guard — the bird goes dead until a reload.
+    // discarded by this same guard, the bird goes dead until a reload.
     await waitFor(() => expect(h.prepare).toHaveBeenCalled());
     // The discarded press is explained rather than silently swallowed.
     expect(

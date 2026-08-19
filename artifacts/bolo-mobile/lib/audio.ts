@@ -58,7 +58,7 @@ export const SILENCE_THRESHOLD_DB = -45;
 // than 1.6s, which was cutting words off mid-attempt on real devices.
 export const SILENCE_DURATION_MS = 2000;
 /**
- * Real devices rarely sit below a fixed dBFS floor — room tone on a phone
+ * Real devices rarely sit below a fixed dBFS floor, room tone on a phone
  * mic is often -40..-30 dBFS, which would keep resetting a fixed -45
  * countdown forever. So auto-stop is adaptive: it arms only once actual
  * speech is heard (a peak above SPEECH_MIN_DB) and then treats anything
@@ -76,14 +76,14 @@ export const SILENCE_DROP_DB = 14;
  * Maps recorder metering (dBFS, negative, 0 = full scale) to a normalized
  * 0..1 amplitude for visualization (Spec D2). Roughly -50 dBFS (quiet room)
  * maps to 0 and 0 dBFS (full scale) to 1, clamped at both ends. Visual
- * mapping only — silence auto-stop keeps using raw dBFS thresholds above.
+ * mapping only, silence auto-stop keeps using raw dBFS thresholds above.
  */
 export function meteringToAmplitude(db: number): number {
   return Math.min(1, Math.max(0, (db + 50) / 50));
 }
 
 // iOS routes playback to the quiet earpiece (receiver) whenever the audio
-// session category is `playAndRecord` — expo-audio never adds the
+// session category is `playAndRecord`, expo-audio never adds the
 // `defaultToSpeaker` option and exposes no iOS routing control. Since the
 // practice screen keeps recording mode warm for the whole session (so the
 // record tap doesn't clip the first syllable), coach playback would come out
@@ -91,7 +91,7 @@ export function meteringToAmplitude(db: number): number {
 // the duration of coach playback and restore recording mode the moment it
 // ends. All session operations are serialized through one queue so a
 // recorder warm-up prepare (which natively re-asserts `playAndRecord`) can't
-// interleave with — and undo — a mode flip.
+// interleave with, and undo, a mode flip.
 const RECORDING_MODE = { allowsRecording: true, playsInSilentMode: true };
 const PLAYBACK_MODE = { allowsRecording: false, playsInSilentMode: true };
 
@@ -108,14 +108,14 @@ function enqueueSessionOp<T>(fn: () => Promise<T>): Promise<T> {
 /** True once the recording session has been configured (mic permission granted). */
 let recordingSessionActive = false;
 /**
- * The mode the native session was last successfully switched TO — a record of
+ * The mode the native session was last successfully switched TO, a record of
  * what has been APPLIED, never of what is merely intended.
  *
  * It used to track "which mode the last enqueued flip targets", written
  * synchronously ahead of the op. Two ways that diverged from the device, both
  * ending in a dead microphone behind "Could not start recording":
  *   1. `prepareRecorderInSession` set it true while enqueueing only a
- *      prepare — no mode set at all — so a prepare landing after a playback
+ *      prepare, no mode set at all, so a prepare landing after a playback
  *      flip left the flag claiming recording mode over a playback-only
  *      session, and the deferred restore then skipped its re-assert.
  *   2. A `setAudioModeAsync` that REJECTED left the optimistic true behind
@@ -238,7 +238,7 @@ async function applyRecordingMode(): Promise<void> {
   try {
     await setAudioModeAsync(RECORDING_MODE);
   } catch (err) {
-    // The set failed, so the native mode is unknown — the flag must not claim
+    // The set failed, so the native mode is unknown, the flag must not claim
     // recording. False is the recoverable value: the next prepare re-asserts.
     modeIsRecording = false;
     noteAudioSessionOp('mode:recording failed');
@@ -305,12 +305,12 @@ export function prepareRecorderInSession(
  * Await this on every record path.
  *
  * The re-assert is UNCONDITIONAL for a warm session. It used to be skipped
- * when `modeIsRecording` was already true, which meant any stale true — a
- * failed set, or a prepare that claimed the mode without setting it — made
+ * when `modeIsRecording` was already true, which meant any stale true, a
+ * failed set, or a prepare that claimed the mode without setting it, made
  * this a no-op forever and record() ran against a playback-only session. The
  * skip saved one category switch on a path that already awaits the queue; it
  * cost the microphone. Note this is not what protects a newer playback's mode
- * claim from a stale restore — the playbackModeToken check in each
+ * claim from a stale restore, the playbackModeToken check in each
  * restoreMode is, and it is unchanged.
  */
 export function ensureRecordingMode(): Promise<void> {
@@ -341,7 +341,7 @@ function activatePlaybackMode(): Promise<void> {
  * every other flip so a recorder prepare can't interleave with it. The flip
  * claims the playback-mode token so an older playback's deferred
  * recording-mode restore can't land after it and re-route the SFX mid-clip.
- * Nothing restores recording mode here — the next recorder prepare
+ * Nothing restores recording mode here, the next recorder prepare
  * re-asserts it. No-op (but still serialized) off iOS, when the session was
  * never configured for recording, or when the session is already
  * playback-only.
@@ -398,7 +398,7 @@ export type PlaybackHandle = { stop: () => void };
 // Monotonic token guarding the iOS playback/record mode flips. When playback
 // A is stopped right as playback B starts (e.g. a partial voice stream being
 // cut over to the buffered clip), A's deferred `ensureRecordingMode()` must
-// not land AFTER B's `activatePlaybackMode()` — that re-routes B's audio to
+// not land AFTER B's `activatePlaybackMode()`, that re-routes B's audio to
 // the earpiece at near-zero volume. Each new playback claims a token; a
 // restore only runs if no newer playback has claimed the mode since.
 let playbackModeToken = 0;
@@ -406,8 +406,7 @@ let playbackModeToken = 0;
 /**
  * Play a progressive (still-being-synthesized) audio stream from a URL.
  * Native only: AVPlayer (iOS) and ExoPlayer (Android) handle chunked HTTP
- * audio natively, so playback starts as soon as enough initial bytes arrive —
- * callers on web should use the buffered path instead.
+ * audio natively, so playback starts as soon as enough initial bytes arrive, * callers on web should use the buffered path instead.
  *
  * Reuses the same iOS earpiece-routing mode flip as playBase64Audio: while
  * the mic session is warm, playback must run in playback-only mode or it
@@ -424,15 +423,14 @@ export async function playStreamingAudio(
     try {
       await activatePlaybackMode();
     } catch (err) {
-      // If the flip fails, still play — quiet audio beats no audio. The
+      // If the flip fails, still play, quiet audio beats no audio. The
       // failure is no longer silent: a session left in recording mode is a
       // candidate cause of the record() that fails after the clip.
       reportAudioSessionFailure('flip_playback', err);
     }
   }
   const restoreMode = () => {
-    // Skip the restore if a newer playback has claimed the mode since —
-    // otherwise this stale restore re-routes it to the earpiece. Both skips
+    // Skip the restore if a newer playback has claimed the mode since, // otherwise this stale restore re-routes it to the earpiece. Both skips
     // breadcrumb: a restore that never runs leaves the session in playback
     // mode, and nothing downstream says so until record() fails.
     if (!needsModeFlip) {
@@ -494,8 +492,8 @@ export async function playStreamingAudio(
 
 /**
  * Play a bundled audio asset (static require() source) as COACH VOICE audio.
- * Same session handling as playBase64Audio — iOS earpiece-mode flip while the
- * mic session is warm, keepAudioSessionActive, playback-token guard — but
+ * Same session handling as playBase64Audio, iOS earpiece-mode flip while the
+ * mic session is warm, keepAudioSessionActive, playback-token guard, but
  * skips the temp-file write since the asset is already local. Used for the
  * instant band call-out clips (Task 903).
  */
@@ -509,7 +507,7 @@ export async function playAssetAudio(
     try {
       await activatePlaybackMode();
     } catch (err) {
-      // If the flip fails, still play — quiet audio beats no audio. The
+      // If the flip fails, still play, quiet audio beats no audio. The
       // failure is no longer silent: a session left in recording mode is a
       // candidate cause of the record() that fails after the clip.
       reportAudioSessionFailure('flip_playback', err);
@@ -589,15 +587,14 @@ export async function playBase64Audio(
     try {
       await activatePlaybackMode();
     } catch (err) {
-      // If the flip fails, still play — quiet audio beats no audio. The
+      // If the flip fails, still play, quiet audio beats no audio. The
       // failure is no longer silent: a session left in recording mode is a
       // candidate cause of the record() that fails after the clip.
       reportAudioSessionFailure('flip_playback', err);
     }
   }
   const restoreMode = () => {
-    // Skip the restore if a newer playback has claimed the mode since —
-    // otherwise this stale restore re-routes it to the earpiece. Both skips
+    // Skip the restore if a newer playback has claimed the mode since, // otherwise this stale restore re-routes it to the earpiece. Both skips
     // breadcrumb: a restore that never runs leaves the session in playback
     // mode, and nothing downstream says so until record() fails.
     if (!needsModeFlip) {

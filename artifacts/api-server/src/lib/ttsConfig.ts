@@ -7,7 +7,7 @@ import { getVoiceIdForLanguage } from "./languageVoice";
  * Set TTS_PROVIDER to one of the three supported values:
  *
  *   'gpt-audio'       → all voice synthesis uses gpt-audio via chat completions
- *                       (current default — no behaviour change).
+ *                       (current default, no behaviour change).
  *
  *   'gpt-4o-mini-tts' → uses the dedicated speech endpoint (gpt-4o-mini-tts),
  *                       with gpt-audio as an automatic fallback. Audio output
@@ -61,7 +61,7 @@ Features: Uses motivational phrases, cheerful exclamations, and an energetic rhy
  * Incorporated into the phrase TTS cache key via BOLO_PHRASE_TTS_INSTRUCTIONS_DIGEST
  * so a change here automatically orphans old cache entries rather than serving
  * stale audio. Revisit this constant independently from BOLO_CHAT_TTS_INSTRUCTIONS
- * once phrase audio with these instructions has been evaluated — exaggerated emphasis
+ * once phrase audio with these instructions has been evaluated, exaggerated emphasis
  * and pep-talk rhythm may work against pronunciation-reference use.
  */
 export const BOLO_PHRASE_TTS_INSTRUCTIONS = `Personality/affect: a high-energy cheerleader helping with administrative tasks
@@ -114,7 +114,7 @@ const PHRASE_ELEVENLABS_MODEL = "eleven_multilingual_v2";
 export type PhraseAudioIdentity = {
   provider: TtsProvider;
   model: string;
-  /** Resolved synthesis voice — per-language for ElevenLabs, fixed for other providers. */
+  /** Resolved synthesis voice, per-language for ElevenLabs, fixed for other providers. */
   voice: string;
   /**
    * Delivery instructions applicable to phrase audio synthesis for this provider.
@@ -133,7 +133,7 @@ export type PhraseAudioIdentity = {
  * TTS_PROVIDER. Both the phrase prewarm (ttsPrewarm.ts) and the playback
  * route (/openai/tts) MUST call this function and derive their cache key and
  * synthesis parameters exclusively from it. This is what keeps the two sides
- * in the same key namespace — if either side derives these values
+ * in the same key namespace, if either side derives these values
  * independently they will silently diverge again.
  *
  * For ElevenLabs the voice is resolved per language so cache entries for

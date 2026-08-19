@@ -15,7 +15,7 @@ export function useIdleTimer(seconds: number): boolean {
     const ms = seconds * 1000;
 
     function reset() {
-      // Always reset — no stale-closure conditional. React bails on re-render
+      // Always reset, no stale-closure conditional. React bails on re-render
       // when the value was already false, so this is safe to call every time.
       setIsIdle(false);
       if (timerRef.current !== null) clearTimeout(timerRef.current);

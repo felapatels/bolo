@@ -4,7 +4,7 @@
  * These tests exercise the most critical invariant of the script: quota
  * exhaustion must NOT arm the circuit breaker.  If quota errors were counted
  * as consecutive failures, the pool would circuit-break after 5 exhausted
- * items, skip the replenishment-wait path, and exit early — leaving most
+ * items, skip the replenishment-wait path, and exit early, leaving most
  * phrases uncached even though a wait+resume would have succeeded.
  *
  * Because the script imports from the live DB and ElevenLabs SDK, we test the
@@ -18,7 +18,7 @@ import assert from "node:assert/strict";
 import { pool, CONCURRENCY, PACING_MS, MAX_CONSECUTIVE_FAILURES, isQuotaExhaustedError } from "./ttsUtils";
 
 // ---------------------------------------------------------------------------
-// isQuotaExhaustedError — error classification
+// isQuotaExhaustedError, error classification
 // ---------------------------------------------------------------------------
 
 describe("isQuotaExhaustedError", () => {
@@ -73,7 +73,7 @@ describe("synthesizePass pattern: quota exhaustion does not trip the circuit bre
         // when quota is already flagged, return without throwing.
         if (quotaExhausted) return;
 
-        // Simulate detecting a quota-exhaustion API error — flag and return,
+        // Simulate detecting a quota-exhaustion API error, flag and return,
         // do NOT throw.
         quotaExhausted = true;
         return; // no throw → consecutive-failure counter stays at zero
@@ -103,7 +103,7 @@ describe("synthesizePass pattern: quota exhaustion does not trip the circuit bre
       items,
       CONCURRENCY,
       async (_item) => {
-        // Genuine transient failure — always throw.
+        // Genuine transient failure, always throw.
         throw new Error("network timeout");
       },
       PACING_MS,

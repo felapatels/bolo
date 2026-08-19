@@ -10,18 +10,18 @@ import {
 // ---------------------------------------------------------------------------
 // Guards the nav-bar hold-to-talk integration:
 //
-//  1. ChatRecordingContext — register() wires the start/stop refs; notifyPhase()
+//  1. ChatRecordingContext, register() wires the start/stop refs; notifyPhase()
 //     keeps isRecording and phaseRef in sync.
-//  2. BoloTabButton accessibility label — reads 'Release to send' while
+//  2. BoloTabButton accessibility label, reads 'Release to send' while
 //     recording, 'Bolo' otherwise.
-//  3. BoloTabButton pressIn/pressOut — call the registered start/stop
+//  3. BoloTabButton pressIn/pressOut, call the registered start/stop
 //     wrappers when the chat tab is already focused.
-//  4. BoloTabButton onPress no-op — navigation is suppressed when the chat
+//  4. BoloTabButton onPress no-op, navigation is suppressed when the chat
 //     tab is already focused (the press gesture drives recording, not nav).
-//  5. On-screen mascot Pressable — accessibilityLabel independently reflects
+//  5. On-screen mascot Pressable, accessibilityLabel independently reflects
 //     the current recording phase ('Hold to speak' / 'Release to send') and
 //     pressIn starts recording through its own path, not the nav refs.
-//  6. Barge-in — holding during phase 'playing' stops the streaming playback,
+//  6. Barge-in, holding during phase 'playing' stops the streaming playback,
 //     orphans the in-flight SSE turn, and transitions into recording.
 //
 // IMPORTANT prop-shape note (build 29 regression): the installed
@@ -167,7 +167,7 @@ jest.mock('expo-router', () => {
   // This import runs inside the factory so it happens after all mocks are set.
   const { useChatRecording } = require('@/components/ChatRecordingContext');
 
-  // SetupHelper — rendered inside Tabs so it has access to the provider.
+  // SetupHelper, rendered inside Tabs so it has access to the provider.
   // Exposes context callbacks to the test via mockState.
   function SetupHelper() {
     const ctx = useChatRecording();
@@ -393,14 +393,14 @@ beforeEach(() => {
 });
 
 // ===========================================================================
-// 1. ChatRecordingContext — provider API
+// 1. ChatRecordingContext, provider API
 // ===========================================================================
 
 import { Pressable, Text as RNText } from 'react-native';
 
 describe('ChatRecordingContext', () => {
   // Helper that surfaces isRecording as a plain text node and exposes
-  // Pressable buttons to drive the context — all using React Native
+  // Pressable buttons to drive the context, all using React Native
   // components so RNTL can query and interact with them correctly.
   function ContextHarness({
     onMount,
@@ -532,7 +532,7 @@ describe('ChatRecordingContext', () => {
       </ChatRecordingProvider>,
     );
 
-    // onMount fires in useEffect — wait for it.
+    // onMount fires in useEffect, wait for it.
     await waitFor(() => expect(capturedCtx).not.toBeNull());
     expect(capturedCtx!.phaseRef.current).toBe('idle');
 
@@ -558,7 +558,7 @@ describe('ChatRecordingContext', () => {
 });
 
 // ===========================================================================
-// 2. BoloTabButton — accessibility label
+// 2. BoloTabButton, accessibility label
 // ===========================================================================
 
 describe('BoloTabButton accessibility label', () => {
@@ -608,7 +608,7 @@ describe('BoloTabButton accessibility label', () => {
 });
 
 // ===========================================================================
-// 3. BoloTabButton — pressIn/pressOut call registered refs when focused
+// 3. BoloTabButton, pressIn/pressOut call registered refs when focused
 // ===========================================================================
 
 describe('BoloTabButton hold-to-talk gesture when focused', () => {
@@ -678,7 +678,7 @@ describe('BoloTabButton hold-to-talk gesture when focused', () => {
 });
 
 // ===========================================================================
-// 4. BoloTabButton — onPress is suppressed when the chat tab is focused
+// 4. BoloTabButton, onPress is suppressed when the chat tab is focused
 // ===========================================================================
 
 describe('BoloTabButton onPress navigation suppression', () => {
@@ -714,14 +714,14 @@ describe('BoloTabButton onPress navigation suppression', () => {
       fireEvent.press(boloButton!);
     });
 
-    // When focused the onPress prop must NOT be called — the button handles the
+    // When focused the onPress prop must NOT be called, the button handles the
     // gesture as a hold-to-talk trigger via pressIn/pressOut instead.
     expect(onPress).not.toHaveBeenCalled();
   });
 });
 
 // ===========================================================================
-// 5. On-screen mascot Pressable — independent recording control
+// 5. On-screen mascot Pressable, independent recording control
 // ===========================================================================
 
 describe('On-screen mascot Pressable', () => {
@@ -753,7 +753,7 @@ describe('On-screen mascot Pressable', () => {
     });
 
     // The on-screen mascot goes through handleStartRecording which calls
-    // prepareRecordingSession — confirming it drives recording directly rather
+    // prepareRecordingSession, confirming it drives recording directly rather
     // than delegating to the context's registered nav-bar wrappers.
     await waitFor(() =>
       expect(mockState.prepareRecordingSession).toHaveBeenCalled(),
@@ -784,7 +784,7 @@ describe('On-screen mascot Pressable', () => {
 });
 
 // ===========================================================================
-// 6. Barge-in — holding during phase 'playing' interrupts the reply
+// 6. Barge-in, holding during phase 'playing' interrupts the reply
 //
 // Drives a full voice turn through the mocked XHR SSE channel up to the
 // progressive-streaming 'playing' phase, then invokes the nav-registered
@@ -889,7 +889,7 @@ describe('Barge-in during playing via the registered start wrapper', () => {
   });
 
   // Build 31 (#890): holding the ON-SCREEN mascot during 'playing' barges in
-  // exactly like the nav bird — the old pressIn gate only fired for
+  // exactly like the nav bird, the old pressIn gate only fired for
   // idle/error/processing, so holding Bolo himself while he was talking did
   // nothing and learners had to find the little skip button instead.
   test('holding the on-screen mascot during playing barges in like the nav bird', async () => {

@@ -1,8 +1,8 @@
 // Shared bazaar dressing: the awning and the toran. Mobile twin of
 // artifacts/gujarati-coach/src/components/india-decor.tsx.
 //
-// Both are pure decoration — no state, no interaction, always hidden from
-// assistive tech — and both draw from the fixed INDIA palette rather than
+// Both are pure decoration, no state, no interaction, always hidden from
+// assistive tech, and both draw from the fixed INDIA palette rather than
 // theme tokens (see constants/india.ts for why). The Bolo Bazaar storefront
 // and the Chai wallet share them so a stall looks like a stall wherever it
 // appears.
@@ -15,7 +15,7 @@ import { INDIA } from '@/constants/india';
  *
  * ONE cloth, not a band plus a row of tabs: every scallop is exactly one
  * stripe wide and sits under its own stripe, so the two never drift apart.
- * Cells are a fixed width and the row clips the overflow — flex cells would
+ * Cells are a fixed width and the row clips the overflow, flex cells would
  * make the scallop radius (which must be half the cell) unknowable up front.
  */
 export function Awning({

@@ -18,7 +18,7 @@ import { PRICING_CATALOG } from "./fixtures";
 
 // Chai packs ship DARK: the shop surface is behind CHAI_PACKS_LIVE while the
 // plumbing under it (pricing, checkout call, the server's webhook credit) is
-// live. These tests pin both halves of that — flag off shows nothing AND the
+// live. These tests pin both halves of that, flag off shows nothing AND the
 // machinery still works, so flipping the flag is a display change rather than
 // the first run of untried code.
 
@@ -114,7 +114,7 @@ describe("the shop, with the flag on", () => {
 
     await user.click(screen.getByTestId("chai-pack-medium"));
 
-    // The client names a pack id and nothing else — no price, no Chai amount.
+    // The client names a pack id and nothing else, no price, no Chai amount.
     expect(beginChaiPackCheckout).toHaveBeenCalledWith("medium");
     expect(beginChaiPackCheckout).toHaveBeenCalledTimes(1);
   });

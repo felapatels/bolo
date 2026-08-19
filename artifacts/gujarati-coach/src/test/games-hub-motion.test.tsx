@@ -102,7 +102,7 @@ describe("Games hub energy model", () => {
     }
   });
 
-  test("free user: gated cards still animate — no vignette is gv--locked", () => {
+  test("free user: gated cards still animate, no vignette is gv--locked", () => {
     renderPage();
     for (const id of VIGNETTE_IDS) {
       expect(

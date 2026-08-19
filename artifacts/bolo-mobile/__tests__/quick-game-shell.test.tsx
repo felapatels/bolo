@@ -581,10 +581,10 @@ describe('round progression', () => {
       renderShell({ secondsPerRound: null });
       await act(async () => {});
 
-      // Straight into the first round — no 3-2-1 to sit through.
+      // Straight into the first round, no 3-2-1 to sit through.
       expect(screen.queryByTestId('quick-countdown')).toBeNull();
       expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
-      // No chip at all — not a frozen one, not a hidden one.
+      // No chip at all, not a frozen one, not a hidden one.
       expect(screen.queryByTestId('quick-timer')).toBeNull();
       expect(screen.getByTestId('timed-out')).toHaveTextContent('no');
 
@@ -761,7 +761,7 @@ describe('end-of-run persistence', () => {
     fireEvent.press(screen.getByTestId('answer-correct'));
     fireEvent.press(screen.getByTestId('answer-correct'));
 
-    // Three separate taps, three separate rounds — the guard is per-round,
+    // Three separate taps, three separate rounds, the guard is per-round,
     // not a one-shot for the whole run.
     expect(screen.getByTestId('round-label')).toHaveTextContent('round-3-of-5');
     expect(screen.getByText('✓ 3 correct')).toBeTruthy();
@@ -993,8 +993,8 @@ describe('signal cleared mark', () => {
 //
 // `roundsPerRun` may be a number (fixed at mount) or a resolver called with
 // the fetched pool, mirroring the web frame's totalRounds(phrases). Games
-// whose length depends on their data — a pairs board capped at
-// min(6, phrases.length) — could not be expressed by a number without
+// whose length depends on their data, a pairs board capped at
+// min(6, phrases.length), could not be expressed by a number without
 // risking a run that can never reach its finish condition.
 
 describe('resolved run length', () => {
@@ -1098,9 +1098,8 @@ describe('resolved run length', () => {
 
 // ─── Run key: the round subtree is remounted between runs ────────────────────
 //
-// `resetRun` clears the SHELL's state. A round that keeps state of its own —
-// a persistent board like Luggage Match, which holds a matched set and a
-// first-wrong map for a whole run — kept that state across Play Again until
+// `resetRun` clears the SHELL's state. A round that keeps state of its own, // a persistent board like Luggage Match, which holds a matched set and a
+// first-wrong map for a whole run, kept that state across Play Again until
 // the shell gained a run key, so a second run opened with every tag already
 // matched. Web has always done this (its `gameKey`); mobile did not.
 //

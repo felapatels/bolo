@@ -141,7 +141,7 @@ describe('playTearSfx', () => {
 
 // 34B item 4: while the mic session is warm, iOS routes playback to the
 // earpiece; the tear must flip to playback-only mode (speaker) first, inside
-// the fire-and-forget chain — before play, but never gating the animation.
+// the fire-and-forget chain, before play, but never gating the animation.
 describe('speaker reroute (34B)', () => {
   it('runs the playback-only route flip before playing', async () => {
     let resolveRoute!: () => void;

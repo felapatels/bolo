@@ -47,9 +47,9 @@ export const TAB_BAR_CLEARANCE = Platform.OS === 'web' ? 124 : 132;
 /**
  * Extra bottom clearance for tab-screen content whose LAST element sits flush
  * against the tab bar (e.g. the chat greeting bubble / newest message). The
- * raised Bolo parrot button pokes above the tab bar's top edge — its circle
+ * raised Bolo parrot button pokes above the tab bar's top edge, its circle
  * nearly reaches the top of the bar, and the idle float (-4), focus scale pop
- * (×1.25) and 22px top hit-slop all extend above it — so bottom-flush content
+ * (×1.25) and 22px top hit-slop all extend above it, so bottom-flush content
  * needs this much room to stay fully visible and tappable.
  */
 export const RAISED_PARROT_CLEARANCE = 56;

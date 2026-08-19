@@ -224,7 +224,7 @@ export default function AccountScreen() {
 
   // The settings load is the app's ONLY unmasked API failure (home and the
   // tabs fall back silently), so when it fails the cause has to reach Sentry
-  // with its status, endpoint and Clerk auth reason — not just a friendly line
+  // with its status, endpoint and Clerk auth reason, not just a friendly line
   // on screen. Keyed on the error object so one failure reports once.
   React.useEffect(() => {
     if (account.isError) reportApiFailure('account.load', account.error);
@@ -399,7 +399,7 @@ export default function AccountScreen() {
 
   const avatarUrl = user?.imageUrl ?? account.data?.profile.avatarUrl ?? null;
   const email =
-    user?.primaryEmailAddress?.emailAddress ?? account.data?.profile.email ?? '—';
+    user?.primaryEmailAddress?.emailAddress ?? account.data?.profile.email ?? '-';
   const nameChanged =
     name.trim().length > 0 && name.trim() !== (account.data?.profile.displayName ?? '');
 
@@ -428,7 +428,7 @@ export default function AccountScreen() {
           {/* Deliberately visible: the failing endpoint + status (and Clerk's
               reason on a 401). This screen is the only one that surfaces an API
               failure instead of falling back silently, so its screenshot has to
-              be diagnostic on its own — App Review's build 34 rejection was
+              be diagnostic on its own, App Review's build 34 rejection was
               unactionable precisely because this line did not exist. */}
           <Text style={[styles.stateDetail, { color: colors.mutedForeground }]}>
             {apiFailureDetail(account.error)}
@@ -549,7 +549,7 @@ export default function AccountScreen() {
               value={activeLanguage?.name ?? '…'}
               onPress={() => router.push('/(app)/language')}
             />
-            {/* Daily goal — hidden. XP already carries daily progress, and
+            {/* Daily goal, hidden. XP already carries daily progress, and
                 a configurable attempts target on top of it was a second
                 number doing a similar job. The value still drives the goal
                 celebration and the home arc; only the control is gone.
@@ -587,7 +587,7 @@ export default function AccountScreen() {
                 }}
               />
             </View>
-            {/* Voice row — temporarily disabled while TTS provider is being
+            {/* Voice row, temporarily disabled while TTS provider is being
                 evaluated. Re-enable by removing the {false && …} wrapper. */}
             {false && (<><Divider />
             <NavRow
@@ -608,7 +608,7 @@ export default function AccountScreen() {
             />
           </View>
 
-          {/* Audio — every sound setting in one place. They were spread
+          {/* Audio, every sound setting in one place. They were spread
               across the Learning card with Theme, Voice and Timezone
               between them, so a learner hunting for one had to read the
               whole list. Coach voice leads because the three below it

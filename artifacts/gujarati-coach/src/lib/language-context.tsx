@@ -27,7 +27,7 @@ type LanguageContextValue = {
   activeLang: string;
   activeLanguage: Language | undefined;
   /**
-   * The learner's STORED IANA time zone, as the account carries it — null
+   * The learner's STORED IANA time zone, as the account carries it, null
    * until the account loads, or when it has never been recorded.
    *
    * Exposed here because this provider already holds the account query, so
@@ -52,7 +52,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // The learner's account carries the authoritative, cross-device copy of the
   // active language (persisted through PATCH /account/preferences via the account
   // page). We mirror it locally in localStorage so the choice applies instantly,
-  // then reconcile the two once the account loads — so a language picked on
+  // then reconcile the two once the account loads, so a language picked on
   // another device follows the learner here.
   const account = useGetAccount({
     // Only signed-in callers have an account; skip on public routes (landing
@@ -72,7 +72,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   });
 
   // Update just the local mirror (in-memory + localStorage) without touching the
-  // server — used both for direct selections (the account page owns the remote
+  // server, used both for direct selections (the account page owns the remote
   // push) and when adopting the server's own value during reconciliation.
   const setActiveLang = (code: string) => {
     setActiveLangState(code);
@@ -110,7 +110,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // saved on another device wins here; if the account has never recorded one,
   // seed it from the local choice so future devices inherit it. The localStorage
   // read above is synchronous, so `activeLang` already holds the stored value by
-  // the time this runs — no need to gate on a separate hydration flag.
+  // the time this runs, no need to gate on a separate hydration flag.
   useEffect(() => {
     if (reconciled.current || !account.data) return;
     reconciled.current = true;
@@ -130,7 +130,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         updatePrefs.mutate({ data: { timezone: deviceTz } }, { onError: () => {} });
       }
     } catch {
-      // Intl unavailable — leave the server value untouched.
+      // Intl unavailable, leave the server value untouched.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account.data]);
@@ -210,7 +210,7 @@ function isNastaliqFont(fontFamily: string | undefined): boolean {
 export function nativeTextProps(language: Language | undefined): {
   style: CSSProperties;
   dir: "rtl" | "ltr";
-  /** True for Kashmiri, Urdu, Sindhi — Nastaliq glyphs need extra vertical room. */
+  /** True for Kashmiri, Urdu, Sindhi, Nastaliq glyphs need extra vertical room. */
   isNastaliq: boolean;
 } {
   const nastaliq = isNastaliqFont(language?.fontFamily);

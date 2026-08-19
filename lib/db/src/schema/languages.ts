@@ -17,12 +17,12 @@ export const languagesTable = pgTable("languages", {
   sortOrder: integer("sort_order").notNull().default(0),
   // How well speech recognition actually hears this language, verified by the
   // per-language probe (artifacts/api-server/scripts/probeSttLanguages.ts):
-  //  - 'supported'   — transcription verified working; full scored practice.
-  //  - 'degraded'    — transcription partially works (wrong-script flips, weak
+  //  - 'supported'  , transcription verified working; full scored practice.
+  //  - 'degraded'   , transcription partially works (wrong-script flips, weak
   //                    accuracy); scoring runs but failures from unverifiable
   //                    transcripts soften to nocatch, and clients show a
   //                    one-time "feedback is approximate" notice.
-  //  - 'unsupported' — transcription verifiably fails on correct speech;
+  //  - 'unsupported', transcription verifiably fails on correct speech;
   //                    clients switch to listen-record-compare (no scored
   //                    band), and the server never scores an attempt.
   // Server-authoritative; seeded from probe verdicts in seedData.ts.

@@ -3,7 +3,7 @@
 //
 // Design: billing state lives ONLY on the owner's user row (written by the
 // Stripe webhook, tier "family"). Members carry no subscription columns of
-// their own — occupying an active seat simply reroutes entitlement resolution
+// their own, occupying an active seat simply reroutes entitlement resolution
 // through the owner. So when the owner cancels, pauses, or a payment fails,
 // every member automatically drops to Free on their next request with zero
 // cascade writes, and recovers just as automatically when the owner does.
@@ -29,7 +29,7 @@ export function generateInviteToken(): string {
 }
 
 // Ensures a family_plans row exists for an owner whose Family subscription is
-// (or has become) active. Idempotent — renewals and repeat webhooks no-op.
+// (or has become) active. Idempotent, renewals and repeat webhooks no-op.
 export async function ensureFamilyPlan(ownerUserId: string): Promise<void> {
   await db
     .insert(familyPlansTable)
@@ -40,7 +40,7 @@ export async function ensureFamilyPlan(ownerUserId: string): Promise<void> {
 // If `userId` occupies an ACTIVE family seat, resolve the plan the family
 // grants them: the owner's resolved state, but only when the owner currently
 // resolves to Plus (an owner whose subscription lapsed/paused/canceled grants
-// nothing — that's the cascade to Free). Returns null when the user has no
+// nothing, that's the cascade to Free). Returns null when the user has no
 // seat or the family grants nothing right now.
 export async function familyGrantedPlan(
   userId: string,
@@ -78,7 +78,7 @@ export async function familyGrantedPlan(
   if (ownerResolved.plan !== "plus") return null;
 
   // The member gets Plus for as long as the owner's paid period runs. Their
-  // own trial/pause fields stay untouched — this grant is derived, not stored.
+  // own trial/pause fields stay untouched, this grant is derived, not stored.
   return {
     plan: "plus",
     status: ownerResolved.status,
@@ -90,7 +90,7 @@ export async function familyGrantedPlan(
 }
 
 // Resolves a user's effective plan including the family cascade: their own
-// subscription first, and — only when that resolves to Free — any Plus granted
+// subscription first, and, only when that resolves to Free, any Plus granted
 // through an active family seat. Used by loadEntitlements and the fresh
 // resolution in GET /entitlements so every surface agrees.
 export async function resolvePlanWithFamily(

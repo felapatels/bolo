@@ -8,7 +8,7 @@ import type { MascotPose } from "@/components/mascot";
 //
 // Resolution is pose + equipped outfit, in one place, so every surface that
 // renders <Mascot> inherits the dressed art without knowing outfits exist.
-// A pose an outfit does not ship falls back to the canonical file — a missing
+// A pose an outfit does not ship falls back to the canonical file, a missing
 // asset must never blank the bird.
 export const MASCOT_BASE = `${import.meta.env.BASE_URL}mascot/`;
 
@@ -79,7 +79,7 @@ export const OUTFIT_POSE_FILES: Record<
   // An accessory ships the same five whole-image poses as a garment, so
   // nothing downstream has to know the difference. The art is the untouched
   // canonical PNG with the accessory composited over it at a per-pose anchor
-  // and rotation — Bolo's own pixels are never redrawn. This whole-bird set is
+  // and rotation, Bolo's own pixels are never redrawn. This whole-bird set is
   // what a single-layer surface (the shop thumbnail) uses; wearing an
   // accessory WITH a garment goes through the overlay map below instead.
   pagdi: {
@@ -101,8 +101,7 @@ export const OUTFIT_POSE_FILES: Record<
 /**
  * The accessory ALONE, transparent, in the same 1024 frame as every pose.
  *
- * This is what makes a hat and an outfit wearable at once. The alternative —
- * one baked PNG per garment×accessory pair — multiplies with the catalog and
+ * This is what makes a hat and an outfit wearable at once. The alternative, * one baked PNG per garment×accessory pair, multiplies with the catalog and
  * would need regenerating every time either side gains an item. Stacking two
  * layers needs no new art when a garment ships, because the hat does not know
  * or care what she is wearing below it.
@@ -146,8 +145,7 @@ export function mascotAssetSrc(
 }
 
 /**
- * The overlay layer for an accessory, or null when there is nothing to stack —
- * no accessory, an unknown id, or a pose this accessory has not shipped. Null
+ * The overlay layer for an accessory, or null when there is nothing to stack, * no accessory, an unknown id, or a pose this accessory has not shipped. Null
  * means "draw only the base", so a missing overlay quietly costs the hat
  * rather than blanking the bird.
  */

@@ -8,7 +8,7 @@ import type { ReactElement } from "react";
 // source the Phrasebook uses), with the embedded JOURNEY_ZONES titles as a
 // loading-state fallback only. Pins the behavior contract:
 // (1) a server-side category rename shows up on the map without a client
-//     release — and is NOT a hard-stop error anymore;
+//     release, and is NOT a hard-stop error anymore;
 // (2) while the categories listing has no data, the fallback titles render;
 // (3) the id joins stay authoritative (titles resolve by id, not position).
 const h = vi.hoisted(() => ({
@@ -138,7 +138,7 @@ describe("journey zone titles from categories (task 906)", () => {
   });
 
   test("titles resolve by id, not by array position", () => {
-    // Reverse the listing order — titles must still land on the right zones.
+    // Reverse the listing order, titles must still land on the right zones.
     h.cats = [...JOURNEY_ZONES].reverse().map((z) => cat(z.id, `Live ${z.title}`));
     renderJourney();
     expect(screen.getAllByText(/Live Greetings & Manners/).length).toBeGreaterThan(0);
@@ -147,7 +147,7 @@ describe("journey zone titles from categories (task 906)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Task 1082 — journey map UX polish.
+// Task 1082, journey map UX polish.
 // ---------------------------------------------------------------------------
 
 /** A lesson group as the zone endpoint serves it. */
@@ -361,7 +361,7 @@ describe("boarding-pass header numbers (task 1082 item 1)", () => {
 describe("current-stop card (task 1082 item 2)", () => {
   test('carries no "Bolo is waiting here", in either current state', () => {
     // Bolo herself stands beside the card, so the fragment only ever said in
-    // words what the mascot says in the art — and it was what wrapped the
+    // words what the mascot says in the art, and it was what wrapped the
     // status line at narrow widths.
     for (const [status, copy] of [
       ["unlocked", /Now boarding/],
