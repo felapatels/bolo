@@ -175,7 +175,28 @@ export function useFirstClassCountdown(
   return `${mm}:${ss}`;
 }
 
-/** Exact 409 copy per spend rejection; rejections are never paywall moments. */
+/**
+ * How short a rejected spend was, or null when the rejection was about
+ * something else. Owner ruling 2026-08-19: a learner who cannot afford
+ * something should be told HOW MUCH they are short and offered the packs right
+ * there, rather than being sent away to work it out.
+ *
+ * The note below used to read "rejections are never paywall moments", and the
+ * spirit of it survives: the sheet this feeds leads with the number, offers the
+ * packs, and still says earning is the main road. What changed is that the
+ * answer to "how do I get more" now appears at the moment the question does.
+ */
+export function shortfallFromSpendError(error: unknown): number | null {
+  if (!(error instanceof ApiError) || error.status !== 409) return null;
+  const data = error.data as { error?: string; balance?: number; cost?: number } | null;
+  if (data?.error !== 'insufficient_tokens') return null;
+  const short = (data.cost ?? 0) - (data.balance ?? 0);
+  // A non-positive shortfall means the server rejected for a reason it did not
+  // name; offering to sell nothing would be worse than the plain notice.
+  return short > 0 ? short : null;
+}
+
+/** Exact 409 copy per spend rejection. */
 export function spendErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.status === 409) {
     const data = error.data as
@@ -191,13 +212,16 @@ export function spendErrorMessage(error: unknown): string {
       return 'An Express Multiplier is already running.';
     }
     if (data?.error === 'first_class_horizon') {
-      return 'Your First Class window already reaches past 30 days out. That is the clock ceiling, not a booking limit — come back before it closes up.';
+      return 'Your First Class window already reaches past 30 days out. That is the clock ceiling, not a booking limit, so come back before it closes up.';
     }
   }
   return 'That spend did not go through. Try again in a moment.';
 }
 
-function useFirstClassBuy(onNotice: (msg: string) => void) {
+function useFirstClassBuy(
+  onNotice: (msg: string) => void,
+  onShortfall?: (needed: number) => void,
+) {
   const queryClient = useQueryClient();
   // UUID generated on hook mount; reused on retry, fresh on remount (the key
   // prop flips the row when the status changes, guaranteeing a new key for a
@@ -211,7 +235,11 @@ function useFirstClassBuy(onNotice: (msg: string) => void) {
   const mutation = useBuyFirstClass({
     mutation: {
       onError: (error: unknown) => {
-        onNotice(spendErrorMessage(error));
+        // A shortfall is the one rejection with an obvious next step, so it
+        // gets the sheet rather than a line of text that ends the interaction.
+        const short = shortfallFromSpendError(error);
+        if (short !== null && onShortfall) onShortfall(short);
+        else onNotice(spendErrorMessage(error));
       },
       onSettled: () => {
         queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
@@ -399,12 +427,19 @@ function FirstClassRow({
  * success stays silent, and settle (success and rejection both) refreshes
  * token state from the server truth.
  */
-export function useSpendWithNotice(onNotice: (message: string) => void) {
+export function useSpendWithNotice(
+  onNotice: (message: string) => void,
+  onShortfall?: (needed: number) => void,
+) {
   const queryClient = useQueryClient();
   return useSpendTokens({
     mutation: {
       onError: (error: unknown) => {
-        onNotice(spendErrorMessage(error));
+        // A shortfall is the one rejection with an obvious next step, so it
+        // gets the sheet rather than a line of text that ends the interaction.
+        const short = shortfallFromSpendError(error);
+        if (short !== null && onShortfall) onShortfall(short);
+        else onNotice(spendErrorMessage(error));
       },
       onSettled: () => {
         // Success and rejection both refresh from the server truth.

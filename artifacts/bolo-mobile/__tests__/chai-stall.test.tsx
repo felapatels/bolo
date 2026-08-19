@@ -50,10 +50,10 @@ const GLYPH_SITES: Record<string, number> = {
   'components/journey/SignalEncounter.tsx': 1, // signal-chai-chip
   'app/(app)/practice/[id].tsx': 1, // session-chai-pill
   'components/journey/ZoneCloseout.tsx': 1, // closeout payoff chip
-  'app/(app)/bazaar.tsx': 3, // wardrobe balance, action-bar Buy, row Buy Now. The thumbnail price pill went with the card-to-row rebuild (5414ef9)
+  'app/(app)/bazaar.tsx': 4, // wardrobe balance, action-bar Buy, row Buy Now, and the chai stall's top-up badge (2026-08-19). The thumbnail price pill went with the card-to-row rebuild (5414ef9)
 };
 
-const MOBILE_GLYPH_COUNT = 13;
+const MOBILE_GLYPH_COUNT = 14;
 
 describe('chai glyph', () => {
   test('renders the delivered kulhad art at the caller size', () => {

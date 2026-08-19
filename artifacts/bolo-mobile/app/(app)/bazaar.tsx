@@ -691,6 +691,15 @@ export default function OutfitsScreen() {
             accessibilityLabel="Open your Chai wallet"
           />
           <View style={styles.chaiCounter}>
+            <View
+              testID="bazaar-chai-badge"
+              style={[styles.chaiBadge, { backgroundColor: colors.primary }]}
+            >
+              <ChaiGlyph size={18} />
+              <Text style={styles.chaiBadgeText}>
+                Top up your Chai to keep shopping
+              </Text>
+            </View>
             <ChaiPackShop />
             <Pressable
               onPress={() => setWalletOpen(true)}
@@ -789,6 +798,18 @@ const styles = StyleSheet.create({
   // The counter under the chai band: the packs sit here so buying is one tap
   // from the street rather than a trip through the wallet.
   chaiCounter: { gap: 8 },
+  chaiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 999,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+  },
+  // White on the indigo fill, which clears contrast in both palettes because
+  // the fill is a brand colour rather than a theme surface.
+  chaiBadgeText: { fontFamily: AppFonts.extrabold, fontSize: 13, color: '#FFFFFF' },
   walletLink: { alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 12 },
   walletLinkPressed: { opacity: 0.6 },
   walletLinkText: { fontFamily: AppFonts.bold, fontSize: 13 },
