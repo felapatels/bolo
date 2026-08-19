@@ -32,7 +32,10 @@ import { INDIA } from '@/constants/india';
  * the launch recovery; all of those stay live and exercised while this is
  * false.
  */
-export const CHAI_PACKS_LIVE = false;
+// LIT on 2026-08-18, at the owner's word, in the same breath as web's. The
+// twins must flip together: one platform selling Chai while the other hides
+// the shop is the worst of both.
+export const CHAI_PACKS_LIVE = true;
 
 // Web's register, word for word where the words still fit — a learner who
 // uses both should not meet two different shops.

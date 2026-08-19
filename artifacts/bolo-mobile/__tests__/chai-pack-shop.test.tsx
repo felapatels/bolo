@@ -166,9 +166,20 @@ beforeEach(() => {
 });
 
 describe('the shop surface', () => {
-  it('ships dark: the flag is off and the section renders nothing', async () => {
-    expect(CHAI_PACKS_LIVE).toBe(false);
+  it('ships LIT: the flag is on, and the default render shows the shop', async () => {
+    // INVERTED on 2026-08-18, with web's. Was: the flag is off and the section
+    // renders nothing. The packs shipped dark through review while the paths
+    // behind them were exercised; the owner lit them for the next submission
+    // build. The DARK path moved to its own case below, since it can no longer
+    // be reached by rendering the default.
+    expect(CHAI_PACKS_LIVE).toBe(true);
     render(withProvider(<ChaiPackShop />));
+    await act(async () => {});
+    expect(screen.queryByTestId('chai-pack-shop')).not.toBeNull();
+  });
+
+  it('the dark path still renders nothing, via the prop', async () => {
+    render(withProvider(<ChaiPackShop live={false} />));
     await act(async () => {});
     expect(screen.queryByTestId('chai-pack-shop')).toBeNull();
   });
