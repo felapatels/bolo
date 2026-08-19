@@ -546,13 +546,35 @@ describe("Friends list", () => {
     email: "kabir@example.com",
   };
 
-  test("shows the empty prompt when the learner has no friends", async () => {
+  test("THE EMPTY STATE SELLS THE BOARD, not the mechanism", async () => {
+    // It used to say "No friends yet. Ask a friend for their code." That
+    // explains HOW and never WHY, and nobody adds friends in order to add
+    // friends. The pitch is now the leaderboard itself, with the learner at
+    // rank one and two empty seats. Owner ruling 2026-08-19, chosen over
+    // asking for the contacts permission. Mobile twin pins the same thing.
     h.friends = successQuery([]);
     const user = userEvent.setup();
     renderFriends(<Friends />);
     await openFriendsTab(user);
 
-    expect(screen.getByText("No friends yet")).toBeInTheDocument();
+    expect(screen.getByText("You are winning")).toBeInTheDocument();
+    expect(screen.getByTestId("friends-ghost-leaderboard")).toBeInTheDocument();
+    // Two empty seats, so it reads as a board rather than a single row.
+    expect(screen.getByTestId("friends-ghost-seat-2")).toBeInTheDocument();
+    expect(screen.getByTestId("friends-ghost-seat-3")).toBeInTheDocument();
+  });
+
+  test("the ghost seats are BARS, never invented names", async () => {
+    // A placeholder that reads as a real person is a lie about who is on the
+    // board, and the funniest possible thing to screenshot.
+    h.friends = successQuery([]);
+    const user = userEvent.setup();
+    renderFriends(<Friends />);
+    await openFriendsTab(user);
+
+    for (const fake of ["Friend", "Someone", "Player 2", "Invite"]) {
+      expect(screen.queryByText(fake)).toBeNull();
+    }
   });
 
   test("a friend row shows their mascot in their outfit, not their initials", async () => {

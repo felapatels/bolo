@@ -560,7 +560,7 @@ describe('HomeScreen - Chai stat cell (34B)', () => {
 
     expect(screen.queryByTestId('chai-wallet-sheet')).toBeNull();
     fireEvent.press(
-      screen.getByLabelText("Chacha-ji's Chai stall — open your Chai wallet"),
+      screen.getByLabelText("Chacha-ji's Chai stall, open your Chai wallet"),
     );
     expect(screen.getByTestId('chai-wallet-sheet')).toBeOnTheScreen();
     expect(screen.getByText('Chai Wallet')).toBeOnTheScreen();

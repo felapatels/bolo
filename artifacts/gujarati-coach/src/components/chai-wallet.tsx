@@ -213,7 +213,7 @@ function spendErrorMessage(error: unknown): string {
       return "An Express Multiplier is already running.";
     }
     if (data?.error === "first_class_horizon") {
-      return "Your First Class window already reaches past 30 days out. That is the clock ceiling, not a booking limit — come back before it closes up.";
+      return "Your First Class window already reaches past 30 days out. That is the clock ceiling, not a booking limit, so come back before it closes up.";
     }
   }
   return "That spend did not go through. Try again in a moment.";

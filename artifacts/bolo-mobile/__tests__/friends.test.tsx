@@ -616,11 +616,36 @@ describe('Friends list', () => {
     email: 'kabir@example.com',
   };
 
-  test('shows the empty prompt when the learner has no friends', () => {
+  test('THE EMPTY STATE SELLS THE BOARD, not the mechanism', () => {
+    // It used to say "No friends yet. Add a friend by their code above." That
+    // explains HOW and never WHY, and nobody adds friends in order to add
+    // friends. The pitch is now the leaderboard itself, with the learner at
+    // rank one and two empty seats. Owner ruling 2026-08-19, chosen over
+    // asking for the contacts permission.
     mockState.friends = successQuery([]);
     render(<FriendsScreen />);
 
-    expect(screen.getByText('No friends yet')).toBeOnTheScreen();
+    expect(screen.getByText('You are winning')).toBeOnTheScreen();
+    expect(screen.getByTestId('friends-ghost-leaderboard')).toBeOnTheScreen();
+    // Two empty seats, so the board reads as a board rather than a single row.
+    expect(screen.getByTestId('friends-ghost-seat-2')).toBeOnTheScreen();
+    expect(screen.getByTestId('friends-ghost-seat-3')).toBeOnTheScreen();
+    // The how is still there, underneath the why.
+    expect(
+      screen.getByText(
+        'Add a friend by their code above, or share yours and let them add you.',
+      ),
+    ).toBeOnTheScreen();
+  });
+
+  test('the ghost seats are BARS, never invented names', () => {
+    // A placeholder that reads as a real person is a lie about who is on the
+    // board, and the funniest possible thing to screenshot.
+    mockState.friends = successQuery([]);
+    render(<FriendsScreen />);
+    for (const fake of ['Friend', 'Someone', 'Player 2', 'Invite']) {
+      expect(screen.queryByText(fake)).toBeNull();
+    }
   });
 
   test('a friend row shows their mascot in their outfit, not their initials', () => {

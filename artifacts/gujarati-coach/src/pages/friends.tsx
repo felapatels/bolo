@@ -298,6 +298,75 @@ function rankStyles(rank: number) {
   }
 }
 
+/**
+ * The board, before there is anyone on it.
+ *
+ * The empty state used to explain the MECHANISM ("ask a friend for their
+ * code") and never the reward. Nobody adds friends in order to add friends;
+ * they add friends to beat them, and the leaderboard was invisible until you
+ * already had someone on it. So the pitch is now the thing itself: the learner
+ * at rank one, with two empty seats.
+ *
+ * The self row is REAL, from the same leaderboard query the populated tab uses,
+ * which already returns the learner alone when they have no friends. A fake
+ * number here would be a lie about the learner's own XP.
+ *
+ * Mobile twin: friends.tsx's GhostLeaderboard. Owner ruling 2026-08-19, chosen
+ * over asking for the contacts permission.
+ */
+function GhostLeaderboard() {
+  const { data } = useGetFriendsLeaderboard();
+  const self = (data ?? []).find((r) => r.isSelf);
+
+  return (
+    <div data-testid="friends-ghost-leaderboard" className="space-y-3">
+      <p className="text-center text-lg font-black text-foreground">
+        You are winning
+      </p>
+      <p className="text-center text-sm text-muted-foreground">
+        Nobody has turned up to challenge you yet.
+      </p>
+
+      <div className="flex items-center gap-3 rounded-2xl border border-primary bg-primary p-3 text-primary-foreground shadow-sm">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 font-black">
+          1
+        </div>
+        {self ? <MascotAvatar user={self} /> : null}
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-bold leading-tight">You</p>
+          <p className="text-xs text-primary-foreground/75">
+            {(self?.xp ?? 0).toLocaleString()} XP
+          </p>
+        </div>
+      </div>
+
+      {/* Two empty seats. Bars rather than invented names: a placeholder that
+          reads as a real person is a lie about who is on the board. */}
+      {[2, 3].map((rank) => (
+        <div
+          key={rank}
+          data-testid={`friends-ghost-seat-${rank}`}
+          className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-3 opacity-55 shadow-sm"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted font-black text-muted-foreground">
+            {rank}
+          </div>
+          <div className="h-10 w-10 shrink-0 rounded-full bg-muted" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="h-2.5 w-1/2 rounded-full bg-muted" />
+            <div className="h-2.5 w-1/4 rounded-full bg-muted" />
+          </div>
+        </div>
+      ))}
+
+      <p className="pt-1 text-center text-sm text-muted-foreground">
+        Ask a friend for their code and add them above, or share yours and let
+        them add you.
+      </p>
+    </div>
+  );
+}
+
 function LeaderboardRow({
   entry,
   index,
@@ -770,11 +839,7 @@ function FriendsList() {
       </h2>
 
       {friends.length === 0 ? (
-        <EmptyState
-          pose="wave"
-          title="No friends yet"
-          body="Ask a friend for their friend code and add them above — or share yours and let them add you."
-        />
+        <GhostLeaderboard />
       ) : (
         <div className="space-y-3">
           {friends.map((friend) => (
