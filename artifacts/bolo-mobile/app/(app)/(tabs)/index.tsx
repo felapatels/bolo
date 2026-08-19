@@ -629,7 +629,7 @@ export default function HomeScreen() {
               <View style={styles.lockedStats}>
                 <Text style={styles.lockedStatsText}>
                   {summaryUpgrade.reason === 'teaser_exhausted'
-                    ? `You've had your free taste of ${activeLanguage?.name ?? 'this language'} — unlock it to keep going.`
+                    ? `You've had your free taste of ${activeLanguage?.name ?? 'this language'}. Unlock it to keep going.`
                     : `${activeLanguage?.name ?? 'This language'} is waiting to be unlocked.`}
                 </Text>
                 <View style={styles.lockedStatsRow}>
@@ -794,7 +794,7 @@ export default function HomeScreen() {
           <ChaiStallVignette
             style={styles.stallBand}
             balance={tokensQuery.data?.balance}
-            accessibilityLabel="Chacha-ji's Chai stall — open your Chai wallet"
+            accessibilityLabel="Chacha-ji's Chai stall, open your Chai wallet"
             onPress={() => {
               hapticLight();
               setWalletOpen(true);
@@ -1233,8 +1233,8 @@ function DailyCapNote({
         </Text>
         <Text style={[styles.capSub, { color: colors.mutedForeground }]}>
           {done
-            ? 'Come back tomorrow — or unlock every language and lesson with All-Access.'
-            : 'New lessons refresh each day — All-Access removes the cap.'}
+            ? 'Come back tomorrow, or unlock every language and lesson with All-Access.'
+            : 'New lessons refresh each day. All-Access removes the cap.'}
         </Text>
       </View>
       {done ? (

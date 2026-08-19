@@ -894,6 +894,77 @@ function YourFriendCode() {
   );
 }
 
+/**
+ * The board, before there is anyone on it.
+ *
+ * The empty state used to explain the MECHANISM ("add a friend by their code")
+ * and never the reward. Nobody adds friends in order to add friends; they add
+ * friends to beat them, and the leaderboard was invisible until you already had
+ * someone on it. So the pitch is now the thing itself: the learner sitting at
+ * rank one on a board with two empty seats.
+ *
+ * The self row is REAL, pulled from the same leaderboard query the populated
+ * tab uses, which already returns the learner alone when they have no friends.
+ * A fake number here would be a lie the app tells about the learner's own XP.
+ *
+ * Owner ruling 2026-08-19, chosen over asking for the contacts permission.
+ */
+function GhostLeaderboard() {
+  const colors = useColors();
+  const leaderboard = useGetFriendsLeaderboard();
+  const self = (leaderboard.data ?? []).find((r) => r.isSelf);
+
+  return (
+    <View testID="friends-ghost-leaderboard" style={styles.ghostBoard}>
+      <View
+        style={[
+          styles.lbRow,
+          { backgroundColor: colors.primary, borderColor: colors.primary },
+        ]}
+      >
+        <View
+          style={[styles.rankBadge, { backgroundColor: 'rgba(255,255,255,0.22)' }]}
+        >
+          <Text style={[styles.rankText, { color: colors.primaryForeground }]}>1</Text>
+        </View>
+        {self ? <MascotAvatar user={self} onPrimary /> : null}
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.lbName, { color: colors.primaryForeground }]}>You</Text>
+          <Text style={[styles.lbSub, { color: 'rgba(255,255,255,0.75)' }]}>
+            {(self?.xp ?? 0).toLocaleString()} XP
+          </Text>
+        </View>
+        <Feather name="zap" size={20} color={colors.primaryForeground} />
+      </View>
+
+      {/* Two empty seats. Bars rather than fake names: a placeholder that reads
+          as a real person is a lie, and it would also be the funniest possible
+          thing to screenshot. */}
+      {[2, 3].map((rank) => (
+        <View
+          key={rank}
+          testID={`friends-ghost-seat-${rank}`}
+          style={[
+            styles.lbRow,
+            { backgroundColor: colors.card, borderColor: colors.border, opacity: 0.55 },
+          ]}
+        >
+          <View style={[styles.rankBadge, { backgroundColor: colors.muted }]}>
+            <Text style={[styles.rankText, { color: colors.mutedForeground }]}>
+              {rank}
+            </Text>
+          </View>
+          <View style={[styles.ghostAvatar, { backgroundColor: colors.muted }]} />
+          <View style={{ flex: 1, gap: 6 }}>
+            <View style={[styles.ghostBar, { backgroundColor: colors.muted, width: '55%' }]} />
+            <View style={[styles.ghostBar, { backgroundColor: colors.muted, width: '30%' }]} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function EmptyFriends() {
   const colors = useColors();
   // Gentle entrance (mount-only, so it never replays on re-renders); the
@@ -901,22 +972,34 @@ function EmptyFriends() {
   const skipEnter = useAppearSkip();
   return (
     <View style={styles.emptyState}>
-      <Animated.View
-        entering={skipEnter ? undefined : appearZoom(0)}
-      >
+      <Animated.View entering={skipEnter ? undefined : appearZoom(0)}>
         <Mascot pose="thinking" size={92} motion="float" />
       </Animated.View>
       <Animated.Text
         entering={skipEnter ? undefined : appearDown(80, 350)}
         style={[styles.emptyTitle, { color: colors.foreground }]}
       >
-        No friends yet
+        You are winning
       </Animated.Text>
       <Animated.Text
         entering={skipEnter ? undefined : appearDown(160, 350)}
         style={[styles.emptyText, { color: colors.mutedForeground }]}
       >
-        Add a friend by their code above — or share yours and let them add you.
+        Nobody has turned up to challenge you yet.
+      </Animated.Text>
+
+      <Animated.View
+        entering={skipEnter ? undefined : appearDown(240, 350)}
+        style={styles.ghostBoardWrap}
+      >
+        <GhostLeaderboard />
+      </Animated.View>
+
+      <Animated.Text
+        entering={skipEnter ? undefined : appearDown(320, 350)}
+        style={[styles.emptyText, { color: colors.mutedForeground }]}
+      >
+        Add a friend by their code above, or share yours and let them add you.
       </Animated.Text>
     </View>
   );
@@ -1393,6 +1476,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: { fontFamily: AppFonts.extrabold, fontSize: 15 },
+  ghostBoardWrap: { alignSelf: 'stretch', marginTop: 6 },
+  ghostBoard: { gap: 10 },
+  ghostAvatar: { width: 40, height: 40, borderRadius: 20 },
+  ghostBar: { height: 10, borderRadius: 5 },
   emptyState: {
     alignItems: 'center',
     gap: 10,

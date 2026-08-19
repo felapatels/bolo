@@ -843,7 +843,7 @@ export default function Home() {
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 p-4 text-center">
               <p className="text-sm font-bold text-white/90">
                 {summaryUpgrade.reason === "teaser_exhausted"
-                  ? `You've had your free taste of ${activeLanguage?.name ?? "this language"} — unlock it to keep going.`
+                  ? `You've had your free taste of ${activeLanguage?.name ?? "this language"}. Unlock it to keep going.`
                   : `${activeLanguage?.name ?? "This language"} is waiting to be unlocked.`}
               </p>
               <div className="flex items-center gap-2">
@@ -1140,7 +1140,7 @@ export default function Home() {
                   on change, so the band can never drift from the wallet. */}
               <ChaiStallVignette
                 className="mt-3"
-                label="Chacha-ji's Chai stall — open your Chai wallet"
+                label="Chacha-ji's Chai stall, open your Chai wallet"
                 onClick={() => setWalletOpen(true)}
                 balance={tokensQuery.data?.balance}
               />
@@ -1237,7 +1237,7 @@ export default function Home() {
                   <UpgradeCard
                     icon={<Zap className="h-6 w-6" fill="currentColor" />}
                     title="You've finished today's free lessons"
-                    description="Come back tomorrow for more — or unlock every language and feature with All-Access."
+                    description="Come back tomorrow for more, or unlock every language and feature with All-Access."
                     cta="Get All-Access"
                     href={upgradeHref({ plan: "plus", reason: "daily_lesson_limit" })}
                   />
