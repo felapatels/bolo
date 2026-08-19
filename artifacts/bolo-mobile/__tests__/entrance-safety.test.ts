@@ -109,3 +109,42 @@ describe('THE FADE PRESETS ARE GONE FROM THE APP', () => {
     expect(offenders.map((f) => f.replace(ROOT, ''))).toEqual([]);
   });
 });
+
+describe("ONE WORKLET PER ANIMATION, FOR THE APP'S WHOLE LIFETIME", () => {
+  // These are called from inside render bodies at ~100 sites. Unmemoised, that
+  // is a new worklet per render per site, each serialised across to
+  // reanimated's UI runtime. Build 40 died twice inside HadesGC with
+  // KERN_INVALID_ADDRESS in CardTable::updateBoundaries, which is heap
+  // CORRUPTION rather than exhaustion, and cross-runtime traffic is where that
+  // comes from.
+  it.each(Object.keys(MOVERS))('%s returns the SAME object for the same args', (name) => {
+    const make = MOVERS[name as keyof typeof MOVERS];
+    expect(make(60, 500)).toBe(make(60, 500));
+    expect(make()).toBe(make());
+  });
+
+  it('different args are still different animations', () => {
+    // Memoising must not collapse two call sites into one shared animation, or
+    // the stagger disappears and every block enters at once.
+    expect(appearDown(0, 500)).not.toBe(appearDown(60, 500));
+    expect(appearDown(60, 500)).not.toBe(appearDown(60, 350));
+  });
+
+  it('and the three kinds never collide in the cache', () => {
+    expect(appearDown(0, 500)).not.toBe(appearUp(0, 500));
+    expect(appearDown(0, 500)).not.toBe(appearZoom(0, 500));
+    expect(appearUp(0, 500)).not.toBe(appearZoom(0, 500));
+  });
+
+  it('a memoised worklet still describes the same motion', () => {
+    // Caching the object must not cache a STALE descriptor.
+    const first = appearDown(0)({} as never).initialValues as {
+      transform: { translateY: number }[];
+    };
+    const second = appearDown(0)({} as never).initialValues as {
+      transform: { translateY: number }[];
+    };
+    expect(first.transform[0]!.translateY).toBe(second.transform[0]!.translateY);
+    expect(first).not.toHaveProperty('opacity');
+  });
+});

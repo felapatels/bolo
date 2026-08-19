@@ -86,6 +86,31 @@ type Entering = (values: EntryAnimationsValues) => {
   animations: Record<string, unknown>;
 };
 
+/**
+ * EVERY UNIQUE ANIMATION IS BUILT ONCE, EVER.
+ *
+ * These are called from inside a render body (`entering={appearDown(60, 500)}`)
+ * at ~100 sites, so an unmemoised factory mints a brand new worklet on every
+ * render of every one of them. Reanimated then serialises each new closure
+ * across to the UI runtime, and that cross-runtime traffic is where a Hermes
+ * heap lives dangerously: build 40 died twice inside HadesGC with
+ * KERN_INVALID_ADDRESS in CardTable::updateBoundaries, which is corruption
+ * rather than simple exhaustion.
+ *
+ * The parameters are constants at every call site, so a cache keyed on them
+ * collapses ~100 worklets-per-render down to a fixed handful for the app's
+ * whole lifetime. Found 2026-08-19.
+ */
+const CACHE = new Map<string, Entering>();
+
+function memo(key: string, make: () => Entering): Entering {
+  const hit = CACHE.get(key);
+  if (hit) return hit;
+  const made = make();
+  CACHE.set(key, made);
+  return made;
+}
+
 function slide(from: number, delay: number, duration: number): Entering {
   return () => {
     'worklet';
@@ -102,16 +127,20 @@ function slide(from: number, delay: number, duration: number): Entering {
 
 /** Rises into place. The replacement for FadeInDown. */
 export function appearDown(delay = 0, duration = DEFAULT_MS): Entering {
-  return slide(TRAVEL, delay, duration);
+  return memo(`d${delay}:${duration}`, () => slide(TRAVEL, delay, duration));
 }
 
 /** Settles down into place. The replacement for FadeInUp. */
 export function appearUp(delay = 0, duration = DEFAULT_MS): Entering {
-  return slide(-TRAVEL, delay, duration);
+  return memo(`u${delay}:${duration}`, () => slide(-TRAVEL, delay, duration));
 }
 
 /** Grows into place. The replacement for ZoomIn. */
 export function appearZoom(delay = 0, duration = DEFAULT_MS): Entering {
+  return memo(`z${delay}:${duration}`, () => zoom(delay, duration));
+}
+
+function zoom(delay: number, duration: number): Entering {
   return () => {
     'worklet';
     return {
