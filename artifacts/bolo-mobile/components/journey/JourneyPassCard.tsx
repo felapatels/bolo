@@ -72,6 +72,22 @@ const TEAR_ROTATE = 16;
 const TEAR_BODY_DISTANCE = -18;
 const TEAR_BODY_DROP = 2;
 const TEAR_BODY_ROTATE = -3;
+/**
+ * THE CURL. A torn stub does not slide away flat, it peels: the free edge lifts
+ * off the page first and the paper rolls back on itself.
+ *
+ * Faked with a perspective rotateY about the stub's LEFT edge, which is the
+ * perforation, so the far edge swings toward the viewer exactly the way a
+ * gripped corner does. The skew is the paper flexing rather than folding; a
+ * rotateY on its own reads as a rigid card turning.
+ *
+ * PERSPECTIVE MUST BE FIRST in a transform array or rotateY renders as a flat
+ * horizontal squash with no depth at all, which looks like a bug rather than a
+ * curl. That is the entire reason this is a named constant and not a literal.
+ */
+const TEAR_PERSPECTIVE = 600;
+const TEAR_CURL_DEG = -42;
+const TEAR_CURL_SKEW_DEG = 4;
 
 const TORN_EDGE_W = 6;
 
@@ -232,6 +248,8 @@ export function JourneyPassCard({
     return {
       opacity: interpolate(t, [0, 0.8, 1], [1, 1, 0]),
       transform: [
+        // FIRST, always. See TEAR_PERSPECTIVE.
+        { perspective: TEAR_PERSPECTIVE },
         {
           translateX: interpolate(
             t,
@@ -247,6 +265,24 @@ export function JourneyPassCard({
             t,
             [0, 0.16, 0.45, 1],
             [0, -2.5, TEAR_ROTATE * 0.55, TEAR_ROTATE],
+          )}deg`,
+        },
+        // The peel. Nothing until the perforation gives at 16%, then the free
+        // edge lifts and keeps lifting as the stub sails off.
+        {
+          rotateY: `${interpolate(
+            t,
+            [0, 0.16, 0.45, 1],
+            [0, 0, TEAR_CURL_DEG * 0.4, TEAR_CURL_DEG],
+          )}deg`,
+        },
+        // Paper flexing. Peaks mid-tear and eases off, because a stub that is
+        // fully airborne is no longer being pulled against anything.
+        {
+          skewY: `${interpolate(
+            t,
+            [0, 0.16, 0.45, 1],
+            [0, 0, TEAR_CURL_SKEW_DEG, TEAR_CURL_SKEW_DEG * 0.5],
           )}deg`,
         },
       ],
@@ -622,6 +658,10 @@ const styles = StyleSheet.create({
   stubTearing: {
     borderTopRightRadius: 24,
     borderBottomRightRadius: 24,
+    // The stub hinges at the perforation, which is its LEFT edge. Without this
+    // the rotateY pivots about the stub's centre and it reads as a card
+    // spinning in place rather than paper peeling away from a tear.
+    transformOrigin: 'left center',
   },
   tornEdge: {
     position: 'absolute',

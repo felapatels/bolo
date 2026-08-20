@@ -21,8 +21,16 @@ import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { activateSfxPlaybackRoute } from './audio';
 import { loadSoundPref } from './soundPref';
 
-/** Playback gain, matching the web port of the recorded asset (0.40). */
-export const TEAR_SFX_GAIN = 0.4;
+/**
+ * Playback gain. Dropped from 0.40 to 0.28 on 2026-08-20: the owner called it
+ * slightly too loud on device, which is the only place this can be judged.
+ *
+ * WEB IS DELIBERATELY NOT FOLLOWING. gujarati-coach/src/lib/tearAudio.ts stays
+ * at 0.40 because the same clip through laptop speakers at arm's length is not
+ * the same clip through a phone held at reading distance. This is the one
+ * constant in the twin pair where matching the platforms would be the bug.
+ */
+export const TEAR_SFX_GAIN = 0.28;
 
 let player: AudioPlayer | null = null;
 
