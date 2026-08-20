@@ -30,6 +30,16 @@
       "ios": {
         "resourceClass": "default"
       }
+    },
+    "preview-noenv": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "autoIncrement": true
     }
   },
   "submit": {
