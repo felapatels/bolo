@@ -42,6 +42,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 import {
   SPLASH_FILM,
   SPLASH_POSTER,
+  SPLASH_SHORT_START_S,
   SPLASH_MOTION_ENABLED,
   SPLASH_FULL_PLAY_MS,
   SPLASH_MIN_HOLD_MS,
@@ -96,8 +97,28 @@ function BrandSplashFilm() {
   const player = useVideoPlayer(moving ? SPLASH_FILM : null, (p) => {
     p.muted = true;
     p.loop = false;
+    // READY is assumed until AsyncStorage says otherwise, so open on the beat
+    // where Bolo is already in shot rather than on the empty sky before it.
+    p.currentTime = SPLASH_SHORT_START_S;
     p.play();
   });
+
+  /**
+   * FULL came back true, so rewind and play the film whole.
+   *
+   * This runs a tick after mount because the day stamp cannot be read
+   * synchronously, which is the same reason the player opens in short mode by
+   * default. The rewind is invisible: it lands within a frame or two of the
+   * first paint, and the poster is underneath the whole time.
+   */
+  useEffect(() => {
+    if (!moving || !full) return;
+    try {
+      player.currentTime = 0;
+    } catch {
+      /* player already released; the film is ending anyway */
+    }
+  }, [moving, full, player]);
 
   // Muted, no loop, plays as soon as it is ready. Reduced motion never
   // creates a source, so the film is not decoded at all in that mode.
@@ -202,10 +223,12 @@ function BrandSplashFilm() {
 }
 
 const styles = StyleSheet.create({
-  // The film opens on a near-white plate, so any other colour flashes at
-  // reveal. zIndex + elevation put the overlay above everything.
+  // The 2026-08-20 film opens on the BAZAAR, not on the near-white plate the
+  // old one used, so the ground is a warm mid-tone sampled from its first
+  // frame. White here would flash at the edges of any frame the poster does
+  // not cover. zIndex + elevation put the overlay above everything.
   overlay: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#8E6A59',
     zIndex: 9999,
     elevation: 9999,
   },
