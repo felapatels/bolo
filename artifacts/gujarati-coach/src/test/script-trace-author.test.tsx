@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import ScriptTraceAuthor from "@/pages/games/script-trace-author";
-import { scoreGlyph, type AuthoredGlyph } from "@/lib/stroke-scoring";
+import { scoreGlyph, type AuthoredGlyph } from "@workspace/script-trace";
 
 // ---------------------------------------------------------------------------
 // The authoring tool is the unblock for stroke-based tracing: someone who

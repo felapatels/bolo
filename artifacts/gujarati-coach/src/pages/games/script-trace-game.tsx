@@ -31,8 +31,8 @@ import {
   PASS_SCORE,
   type StrokePoint,
   type TraceFault,
-} from "@/lib/stroke-scoring";
-import { glyphsForLanguage, scriptFor, SCRIPT_NAMES } from "@/lib/scripts";
+} from "@workspace/script-trace";
+import { glyphsForLanguage, scriptFor, SCRIPT_NAMES } from "@workspace/script-trace";
 import {
   itemsForLevel,
   levelLadder,
@@ -41,7 +41,7 @@ import {
   type TraceItem,
   type TraceLevel,
   type TraceSource,
-} from "@/lib/trace-levels";
+} from "@workspace/script-trace";
 
 const BOX = 100;
 /** Items per run. Short enough to finish standing up. */

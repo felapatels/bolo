@@ -6,7 +6,7 @@ import {
   extractStrokes,
   PASS_THRESHOLD,
 } from "@/pages/games/script-trace";
-import { SCRIPT_TRACE_CHAPTERS } from "@/data/script-trace-chapters";
+import { SCRIPT_TRACE_CHAPTERS } from "@workspace/script-trace";
 
 // ---------------------------------------------------------------------------
 // Guides are font-accurate glyph outlines (filled shapes, multiple contours).

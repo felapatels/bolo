@@ -11,8 +11,8 @@
 // twelve scripts looked impossible. This table is the arithmetic that makes
 // the honest version tractable instead.
 
-import type { AuthoredGlyph } from "@/lib/stroke-scoring";
-import { DEVANAGARI_PROTOTYPE_GLYPHS } from "@/data/devanagari-strokes";
+import type { AuthoredGlyph } from "./stroke-scoring";
+import { DEVANAGARI_PROTOTYPE_GLYPHS } from "./devanagari-strokes";
 
 export type ScriptId =
   | "devanagari"

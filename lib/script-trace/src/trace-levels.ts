@@ -13,7 +13,7 @@
 // composes, and says so plainly when the answer is "not enough", which is the
 // same shape as traceReadyFor() and journeyIsReady().
 
-import type { AuthoredGlyph } from "@/lib/stroke-scoring";
+import type { AuthoredGlyph } from "./stroke-scoring";
 
 export type TraceLevel = "letters" | "words" | "sentences";
 

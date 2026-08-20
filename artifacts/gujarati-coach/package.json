@@ -57,6 +57,7 @@
     "@workspace/api-client-react": "workspace:*",
     "@workspace/integrations-openai-ai-react": "workspace:*",
     "@workspace/referral-link": "workspace:*",
+    "@workspace/script-trace": "workspace:*",
     "@workspace/train-class": "workspace:*",
     "archiver": "^8.0.0",
     "class-variance-authority": "catalog:",

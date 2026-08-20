@@ -1,7 +1,7 @@
 // Generate font-accurate glyph outline guides for the Script Trace game.
 //
 // Reads the current chapter data (ids, chars, labels, titles, stages) from
-// artifacts/gujarati-coach/src/data/script-trace-chapters.ts, then fills in a
+// lib/script-trace/src/chapters.ts, then fills in a
 // `guide` outline for every character that doesn't have one yet:
 //
 //   - Existing non-empty guides are kept verbatim (byte-for-byte).
@@ -29,7 +29,7 @@ import {
   SCRIPT_TRACE_CHAPTERS,
   type TraceChapter,
   type TraceCharacter,
-} from "../../artifacts/gujarati-coach/src/data/script-trace-chapters";
+} from "@workspace/script-trace";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const FONT_DIR = resolve(ROOT, "artifacts/bolo-mobile/assets/store/fonts");
@@ -436,10 +436,8 @@ const HEADER = `// Stroke guide data for the Script Trace game.
 //   guide     — SVG path data (viewBox 0 0 100 100) or "" for text-mode
 `;
 
-const MOBILE_NOTE =
-  "// Mobile copy — kept in sync with artifacts/gujarati-coach/src/data/script-trace-chapters.ts.\n";
 
-function renderFile(chapters: TraceChapter[], mobile: boolean): string {
+function renderFile(chapters: TraceChapter[]): string {
   const charBlock = (chars: TraceCharacter[]): string =>
     chars
       .map(
@@ -455,7 +453,7 @@ function renderFile(chapters: TraceChapter[], mobile: boolean): string {
     )
     .join("\n");
 
-  return `${HEADER}${mobile ? MOBILE_NOTE : ""}
+  return `${HEADER}
 export type ChapterStage = 'alphabet' | 'words' | 'sentences' | 'full-sentences';
 
 export type TraceCharacter = {
@@ -481,13 +479,14 @@ ${chapterBlock}
 
 const { chapters, generated, kept, stats } = buildChapters();
 
-const webPath = resolve(ROOT, "artifacts/gujarati-coach/src/data/script-trace-chapters.ts");
-const mobilePath = resolve(ROOT, "artifacts/bolo-mobile/lib/game-data/script-trace-chapters.ts");
-writeFileSync(webPath, renderFile(chapters, false));
-writeFileSync(mobilePath, renderFile(chapters, true));
+// ONE FILE NOW. This used to write the web copy and a mobile copy with an extra
+// header comment, and scripts/src/checkScriptTraceSync.ts existed solely to
+// police the two against drift. Both copies moved into @workspace/script-trace
+// on 2026-08-20, so there is one file, no header, and nothing to keep in sync.
+const chaptersPath = resolve(ROOT, "lib/script-trace/src/chapters.ts");
+writeFileSync(chaptersPath, renderFile(chapters));
 
-console.log(`Wrote ${webPath}`);
-console.log(`Wrote ${mobilePath}`);
+console.log(`Wrote ${chaptersPath}`);
 console.log(`Kept ${kept} existing guides, generated ${generated} new ones.`);
 const totalBytes = stats.reduce((s, x) => s + x.bytes, 0);
 console.log(`Generated guide data: ${(totalBytes / 1024).toFixed(0)} KB total.`);
