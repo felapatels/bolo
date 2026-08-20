@@ -46,7 +46,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  */
 export const SPLASH_FILM = require('../assets/splash/welcome-bolo.mp4') as number;
 
-export const SPLASH_POSTER = require('../assets/splash/welcome-bolo-poster.png') as number;
+export const SPLASH_POSTER = require('../assets/splash/welcome-bolo-poster.jpg') as number;
 
 /**
  * THE GREETING WAVE, as twelve JPEG frames swapped through react-native's own
@@ -117,8 +117,9 @@ export const SPLASH_WAVE_FPS = 12;
  */
 export const SPLASH_MOTION_ENABLED = true;
 
-/** Film length, 5.067s. The full-play timer must OUTLAST it or the last
- *  frame is cut. Move this if the film is ever swapped for a longer one. */
+/** Film length is 5.042s as of the 2026-08-20 re-shoot. The full-play timer
+ *  must OUTLAST it or the last frame is cut, and 5100 still does. Move this if
+ *  the film is ever swapped for a longer one. */
 export const SPLASH_FULL_PLAY_MS = 5100;
 export const SPLASH_MIN_HOLD_MS = 1500;
 export const SPLASH_MAX_HOLD_MS = 8000;
