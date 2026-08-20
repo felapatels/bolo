@@ -160,17 +160,17 @@ describe('THE GREETING WAVE, and what it falls back to', () => {
   });
 });
 
-describe('THE SWITCH IS OFF, and that is a finding rather than a default', () => {
+describe('THE SWITCH IS ON, now that the launch path is not crashing', () => {
   const src = readFileSync(join(ROOT, 'lib/splashFilm.ts'), 'utf8');
 
-  // INVERTED. This pinned `true` for one build. That build swapped twelve
-  // frames a second through the SAME Image component the poster build had just
-  // survived ten launches on, added no library at all, and crashed nine times
-  // out of ten. Churn on the launch path is what the underlying Hermes bug
-  // reacts to, so the switch is off until that bug is fixed rather than until
-  // someone finds a fourth renderer.
-  it('SPLASH_MOTION_ENABLED is false', () => {
-    expect(src).toMatch(/export const SPLASH_MOTION_ENABLED = false;/);
+  // INVERTED AGAIN, and this time with the confound removed. It pinned `false`
+  // because the wave crashed 9 of 10 on worklets 0.5.1 -- but so did the
+  // runtime-identical revert with the wave switched OFF, which means that
+  // measurement was reading the worklets bug and not the wave. On 0.8.3 the
+  // launch path survives 10 cold starts of 10, so the question is being asked
+  // under conditions where the answer means something for the first time.
+  it('SPLASH_MOTION_ENABLED is true', () => {
+    expect(src).toMatch(/export const SPLASH_MOTION_ENABLED = true;/);
   });
 
   it('and the wave frames survive on disk for the day it can be turned back on', () => {
