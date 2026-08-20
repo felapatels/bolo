@@ -11,6 +11,7 @@ import { ClerkLoaded, ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { setBaseUrl, ApiError } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- EXPERIMENT A: kept so the revert is one line.
 import { BrandSplash } from '@/components/BrandSplash';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { fontMap } from '@/constants/fonts';
@@ -128,7 +129,15 @@ function RootLayout() {
                 {/* The boot film, over the Stack. The native splash still
                     runs first and still hides on fonts; this picks up from
                     there and covers Clerk plus both redirect hops. */}
-                <BrandSplash />
+                {/* EXPERIMENT A, 2026-08-19. NOT A FIX, and not to be merged.
+                    BrandSplash is the last untested suspect for the launch
+                    crash: created 08-16 17:02, fifteen minutes after expo-video
+                    at 16:47, and the last production build that ever launched
+                    clean predates both by six hours. Every experiment so far
+                    changed what renders INSIDE it. None removed the component.
+                    It mounts HERE, at the root, reads AsyncStorage and sets four
+                    timers on every cold start.
+                    <BrandSplash /> */}
               </GestureHandlerRootView>
             </QueryClientProvider>
           </ErrorBoundary>
