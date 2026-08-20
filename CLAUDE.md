@@ -128,9 +128,18 @@ command runs.
   `EXC_BAD_ACCESS` inside the Hermes GC and no JS frames. The trap is that it is
   not only the bazaar film: `BrandSplash` imports it too and mounts at
   `app/_layout.tsx`, the ROOT, so a film decodes on EVERY cold start. Both
-  surfaces now show their poster instead, a path that already existed for Reduce
-  Motion. The `.mp4` assets are still in the repo. Bringing the films back means
-  a newer expo-video, a different library, or keeping video off the launch path.
+  surfaces showed their poster instead, a path that already existed for Reduce
+  Motion.
+  **The splash film is back as of 2026-08-19, as an animated WebP through
+  `expo-image`.** That is the image pipeline, not AVFoundation: no `AVPlayer`,
+  no VideoToolbox, none of the JSI machinery that broke us. Same film at
+  720x1600 and 24fps, 2.3MB, which is SMALLER than the 2.8MB mp4 it replaces.
+  `SPLASH_MOTION_ENABLED` in `lib/splashFilm.ts` drops it back to the still in
+  one edit, and that file carries the ffmpeg and img2webp recipe.
+  **The bazaar welcome still shows its poster** and would take the same
+  treatment. Neither `.mp4` is required by any code now, so neither is bundled;
+  both files stay on disk as the source for re-encoding. **expo-video itself
+  remains banned from the launch path.**
 - ~~RevenueCat reconcile-on-read returns 401.~~ **Fixed 2026-08-19.** The cause
   was never a wrong key: Replit's RevenueCat connector issues a **v2-scoped**
   token, so the `/v1/subscribers` call through it always 401'd (documented in
@@ -148,8 +157,10 @@ command runs.
   unchanged.
 - `playCue` is wired at 22 call sites on both platforms; the audio files were never
   authored. Both no-op by design.
-- Mobile splash has no tests; nothing renders `app/_layout.tsx` or
-  `(tabs)/index.tsx`. (Bazaar welcome now has tests on both platforms.)
+- Nothing renders `app/_layout.tsx` or `(tabs)/index.tsx`. (`BrandSplash` and
+  bazaar welcome now have tests; note that any splash query needs
+  `includeHiddenElements: true`, since the overlay hides itself from the
+  accessibility tree on purpose.)
 - Sentry ingests development events into the production stream.
 - One-Language tier is dead (no RevenueCat package, no purchasers) but
   `allowedLanguagesForPlan` still branches on it.

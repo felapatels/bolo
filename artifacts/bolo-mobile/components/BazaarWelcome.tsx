@@ -36,7 +36,10 @@ import { activateSfxPlaybackRoute } from '@/lib/audio';
 import { AppFonts } from '@/constants/fonts';
 
 /** Metro static requires, the house pattern (lib/tearAudio.ts, ChaiStall). */
-const WELCOME_FILM = require('../assets/images/bazaar/welcome.mp4') as number;
+// The welcome film's require() lived here until 2026-08-19. It was left behind
+// when expo-video came out, declared and referenced by nothing, which still
+// bundled 1.2MB of mp4 into every install. Removed with the splash film's own
+// mp4 for the same reason. The asset stays on disk.
 const WELCOME_STILL = require('../assets/images/bazaar/keyart.png') as number;
 const WELCOME_VOICE = require('../assets/images/bazaar/chacha-welcome.mp3') as number;
 
