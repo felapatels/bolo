@@ -141,6 +141,36 @@ command runs.
   NOT test this, since the worklets runtime still starts), `@sentry/react-native`
   initialising early on the launch path, and Hermes itself on RN 0.81.5 with the
   New Architecture.
+- **THE SPLASH CANNOT MOVE UNTIL THE HERMES CRASH IS FIXED. It is allocation
+  pressure at launch, not any particular renderer, and three attempts proved
+  it.** The crash rate tracks how much work the ROOT layout does in the first
+  second, not which library does it:
+
+  | build | splash does | launches | crashes |
+  |---|---|---|---|
+  | `bd817370` | poster, react-native `Image` | 10 | **0** |
+  | `a9b11df4` | 12 frames swapped at 12fps | 10 | **9** |
+  | `c56157f0` | `expo-image`, animated WebP | 5 | **5** |
+  | `0f349d37` | `expo-image`, poster only | 5 | **5** |
+
+  Row 2 is the one that settles it: **no new library at all**, the same `Image`
+  the poster build had just survived ten launches on, only twelve decodes and
+  twelve re-renders a second added to launch. **Do not try a fourth renderer.**
+  Fix the GC bug, then turn `SPLASH_MOTION_ENABLED` back on. The wave frames
+  (`assets/splash/wave/`, 364KB, unreferenced while the switch is false) are
+  ready for that day.
+- **UNTESTED SUSPECT, and the cheapest one left: `BrandSplash` ITSELF.**
+  `components/BrandSplash.tsx` was created 2026-08-16 at 17:02; `expo-video` was
+  added at 16:47 the same day; the last production build that ever launched
+  clean is `36a3a7a3` at 10:41, six hours before both. **Every experiment on
+  2026-08-19 changed what renders INSIDE BrandSplash and none removed the
+  component**, so the two arrived as one variable and were never separated. It
+  mounts at the ROOT, reads AsyncStorage and sets four timers on every cold
+  start. Test it by not mounting it in `app/_layout.tsx`: one line.
+  Note the TestFlight build 40 has no `BrandSplash` and no `expo-video` at all;
+  what it shows is the NATIVE iOS launch screen (`mascot-wave.png` on
+  `#F8FAFC`), which is why it looks flawless. There is no video splash there to
+  compare against.
 - **`expo-image` MUST NOT be imported anywhere in the mobile app. It crashed
   five cold starts out of five, twice.** This is the one clean bisect result of
   2026-08-19. Three builds, same app, one import apart:

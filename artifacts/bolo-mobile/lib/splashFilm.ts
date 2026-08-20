@@ -85,15 +85,31 @@ export const SPLASH_WAVE: number[] = [
 export const SPLASH_WAVE_FPS = 12;
 
 /**
- * THE KILL SWITCH, the same shape as the one in lib/entrance.ts.
+ * THE KILL SWITCH, OFF. Three attempts at motion here, three failures, and the
+ * third is the one that explains the other two.
  *
- * Two attempts at motion here have already cost a day, so this exists before
- * the feature does. False renders SPLASH_POSTER and touches nothing else: the
- * still path stays byte-identical to the build that went ten cold starts for
- * ten, which is the point of adding the motion beside it rather than instead
- * of it.
+ *   bd817370  poster, react-native Image        10 launches,  0 crashes
+ *   a9b11df4  12 frames swapped at 12fps         10 launches,  9 crashes
+ *   c56157f0  expo-image, animated WebP           5 launches,  5 crashes
+ *   0f349d37  expo-image, poster only             5 launches,  5 crashes
+ *
+ * The wave used NO new library. Same Image component, same bundle, same screen.
+ * The only thing it added was CHURN: twelve decodes and twelve re-renders a
+ * second, at the root layout, during launch. That took a crash rate of about
+ * one in twenty to nine in ten.
+ *
+ * So the pattern is not "which renderer". It is ALLOCATION PRESSURE EARLY IN
+ * LAUNCH. The underlying Hermes GC bug fires under churn, and every one of these
+ * attempts was a different way of adding churn to the first second of the app.
+ *
+ * WHICH MEANS NO SPLASH ANIMATION CAN WORK UNTIL THAT BUG IS FIXED, and trying
+ * a fourth renderer is wasted effort. See CLAUDE.md for the crash itself.
+ *
+ * SPLASH_WAVE and its frames stay in the tree, unreferenced when this is false.
+ * They cost 364KB on disk and nothing in the bundle, and they are ready the day
+ * the launch path can carry them.
  */
-export const SPLASH_MOTION_ENABLED = true;
+export const SPLASH_MOTION_ENABLED = false;
 
 /** Film length, 5.067s. The full-play timer must OUTLAST it or the last
  *  frame is cut. Move this if the film is ever swapped for a longer one. */
