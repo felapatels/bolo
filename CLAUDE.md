@@ -122,88 +122,65 @@ command runs.
 
 ## Known open items
 
-- **THE LAUNCH CRASH IS NOT FIXED. Removing `expo-video` did not fix it, and
-  anyone who reads otherwise in an older commit message is reading a mistake.**
-  The fault is `EXC_BAD_ACCESS`, `KERN_INVALID_ADDRESS at 0x2000`, on
-  `com.facebook.react.runtime.JavaScript`, inside `CardTable::updateBoundaries`
-  under `HadesGC::scanDirtyCards`. Intermittent, roughly one cold start in six,
-  and it fires 200ms to 600ms after launch, which is module-init time rather
-  than anything a screen does.
-  **Use the device's crash reports as the oracle, NEVER Sentry.** Sentry stopped
-  delivering these on 2026-08-19 at 16:28 EDT while the phone kept recording
-  them, and reading that silence as success is exactly how this got declared
-  fixed three times in one day. iOS Settings > Privacy & Security > Analytics &
-  Improvements > Analytics Data, entries named `BoloMobile-<date>`.
-  **Five clean launches proves nothing** at a one-in-six rate: it happens by
-  luck 40% of the time. Every wrong call that day came from a 5-of-5 sample.
-  Live suspects, none eliminated: `react-native-worklets` 0.5.1 with reanimated
-  4.1.1 starting a second Hermes runtime (turning entrance animations off did
-  NOT test this, since the worklets runtime still starts), `@sentry/react-native`
-  initialising early on the launch path, and Hermes itself on RN 0.81.5 with the
-  New Architecture.
-- **THE DEVICE IS AN UNCONTROLLED VARIABLE, AND EVERY CONCLUSION DRAWN FROM A
-  SINGLE 5 OR 10 LAUNCH SAMPLE ON 2026-08-19 IS SUSPECT, INCLUDING MINE.**
-  `bd817370` went **0 crashes in 10** at roughly 21:00. `350af74e`, which is
-  RUNTIME-IDENTICAL to it (`SPLASH_MOTION_ENABLED` false means the interval
-  returns immediately and the same poster renders through the same
-  react-native `Image`; the only additions are twelve dead `require()`s that
-  produce asset ids and decode nothing), went **9 crashes in 10** about an hour
-  later.
-  Same code. Opposite result. **Something other than the bundle changed**, most
-  likely accumulated memory pressure on the phone over an evening of installs,
-  and it was never held constant. Anything that reads as a clean A/B in the
-  commits from that night was measured against a drifting baseline.
-  **Before comparing two builds, reboot the phone, and re-run the previous
-  build to re-establish the baseline.** An A/B where B is measured an hour after
-  A is not an A/B.
-  The one comparison that still looks structurally sound is `expo-image`: two
-  crashing builds (5/5 and 5/5) sandwiched between two clean ones (5/5 and
-  10/10), which drift alone does not produce easily. Treat even that as strong
-  suspicion rather than proof.
-- **`SPLASH_MOTION_ENABLED` in `lib/splashFilm.ts` is false and the splash is a
-  still.** Three attempts at motion all failed: `expo-video`, `expo-image` with
-  an animated WebP, and a twelve-frame sequence through react-native's own
-  `Image`. The last of those added no library at all, which is why "allocation
-  pressure at launch" looked like the answer, but the revert scoring the same
-  9-in-10 removed that comparison's footing. **What is actually known is that
-  the splash does not reliably move, not why.**
-  The wave frames (`assets/splash/wave/`, 364KB, 12 JPEGs at 640px) and the
-  ffmpeg recipe stay in the tree unreferenced, ready for the day this is
-  understood. `expo-video` stays banned from the launch path regardless.
-- **UNTESTED SUSPECT, and the cheapest one left: `BrandSplash` ITSELF.**
-  `components/BrandSplash.tsx` was created 2026-08-16 at 17:02; `expo-video` was
-  added at 16:47 the same day; the last production build that ever launched
-  clean is `36a3a7a3` at 10:41, six hours before both. **Every experiment on
-  2026-08-19 changed what renders INSIDE BrandSplash and none removed the
-  component**, so the two arrived as one variable and were never separated. It
-  mounts at the ROOT, reads AsyncStorage and sets four timers on every cold
-  start. Test it by not mounting it in `app/_layout.tsx`: one line.
-  Note the TestFlight build 40 has no `BrandSplash` and no `expo-video` at all;
-  what it shows is the NATIVE iOS launch screen (`mascot-wave.png` on
-  `#F8FAFC`), which is why it looks flawless. There is no video splash there to
-  compare against.
+- ~~The launch crash.~~ **Fixed 2026-08-20: `react-native-worklets` 0.5.1 to
+  0.8.3.** `EXC_BAD_ACCESS` on `com.facebook.react.runtime.JavaScript` inside
+  HadesGC evacuation, 200ms to 600ms after launch, presenting as either
+  `KERN_INVALID_ADDRESS at 0x2000` in `CardTable::updateBoundaries` or
+  `EXC_ARM_DA_ALIGN` in `BaseVisitor::visitArray`. Reanimated runs a second
+  Hermes runtime through worklets; the upstream tracker carries live issues of
+  this exact shape on iOS with the New Architecture.
+  **We were on the FLOOR of the supported range.** Expo SDK 54 pins worklets
+  0.5.1 and reanimated 4.1.7 accepts 0.5 through 0.8, so three minor versions of
+  fixes sat above us with nothing flagging it. `pnpm run typecheck` and every
+  suite passed the whole time. **When a native crash has no JS frames, check
+  whether an Expo-pinned native module is behind its own peer range.**
+- **THE METHOD THAT FOUND IT, after three wrong calls in one day. Reuse it.**
+  1. **Read the device, never Sentry.** Sentry silently stopped delivering these
+     at 16:28 on 2026-08-19 while the phone kept writing them, and reading that
+     silence as success is how the crash was declared fixed three times.
+     Settings > Privacy & Security > Analytics & Improvements > Analytics Data,
+     entries named `BoloMobile-<date>`. **Check the timestamp against the build
+     time before believing it**, twice a stale report was read as fresh.
+  2. **Give every build its own number.** Twelve builds on 2026-08-19 all shipped
+     as `1.0.0 (40)`, so no result could be tied to a bundle. `autoIncrement` is
+     on for the preview profile now. Confirm the number in Settings before
+     counting anything.
+  3. **Ten launches, never five.** At one in six, five clean happens by luck 40%
+     of the time. Every wrong call came from a 5-of-5 sample.
+  4. **One variable per build, and re-run the baseline in the same session.**
+  5. **Name the confound before celebrating.** Build 44 passed 10/10 with TWO
+     changes in it, the version bump and the owner having let the install sit a
+     few minutes. Re-testing 43 with the same wait is what turned a guess into a
+     result.
 - **`expo-image` MUST NOT be imported anywhere in the mobile app. It crashed
-  five cold starts out of five, twice.** This is the one clean bisect result of
-  2026-08-19. Three builds, same app, one import apart:
-  `d429f289` react-native `Image` + still poster, 5 launches 0 crashes;
-  `c56157f0` `expo-image` + animated WebP, 5 launches 5 crashes;
-  `0f349d37` `expo-image` + the SAME still poster, 5 launches 5 crashes.
-  The film was never the variable. **The `Image` component was**, and the second
-  of those builds proves it, since the animation was already switched off.
-  `app/(app)/account/index.tsx` had already worked around the same package for
-  its avatar; that comment predates this and was the corroboration.
-  Guarded by a census in `__tests__/splash-film.test.tsx`. `expo-image-picker`
-  is a different package and is fine.
-- **No moving image has ever survived the launch path. Both films are off.**
-  `expo-video` was removed because `BrandSplash` mounts at `app/_layout.tsx`,
-  the ROOT, so it decoded a film on EVERY cold start. Still banned there, now on
-  principle rather than as the crash's cause. The splash and the bazaar welcome
-  both show their poster through react-native's own `Image`.
-  `assets/splash/welcome-bolo.webp` stays on disk **unreferenced**: the encode
-  was the fiddly part and the asset was never at fault. The recipe is in
-  `lib/splashFilm.ts`, and `img2webp` defaults to LOSSLESS, which makes that
-  same film 4.7MB instead of 2.3MB. Neither `.mp4` is required by any code, so
-  neither is bundled; both stay on disk as re-encode sources.
+  five cold starts out of five, twice**, including a build where it rendered
+  nothing but a still poster. That ban is the one splash-renderer verdict that
+  stands on its own evidence. Guarded by a census in
+  `__tests__/splash-film.test.tsx`. `expo-image-picker` is a different package
+  and is fine. `app/(app)/account/index.tsx` had already worked around
+  expo-image for its avatar, which was corroboration nobody grepped for.
+- ~~expo-video crashes the app.~~ **That ban was never earned, and was lifted
+  2026-08-20.** expo-video was the FIRST thing removed on 2026-08-19 and the
+  crash carried straight on without it; the 18:40 device report that night is
+  the same fault on a build with no expo-video in it. Suspicion hardened into a
+  rule in this file and a test asserting it. **The splash now plays the original
+  `welcome-bolo.mp4` at 1080x2400, untouched, through expo-video from the root
+  layout: 10 cold starts for 10.** `SPLASH_MOTION_ENABLED` in
+  `lib/splashFilm.ts` is the kill switch and is **true**.
+  Every other splash verdict from that day was contaminated the same way, since
+  all of them were measured on worklets 0.5.1. The one exception is expo-image
+  above, whose evidence was self-contained.
+- **The fallback, already proven: `assets/splash/wave/`.** Twelve JPEGs at
+  640px, 364KB, ping-ponged through react-native's own `Image`. Shipped as build
+  47 and went 10 cold starts for 10. Kept on disk unreferenced with its ffmpeg
+  recipe in `lib/splashFilm.ts`. A full-resolution frame sequence of the WHOLE
+  film is not viable and was measured rather than guessed: 122 frames at
+  1080x2400 is 11.7MB bundled and 1.2GB of decoded pixels. That is why the film
+  is an mp4 and not frames.
+- **The bazaar welcome still shows its poster.** `components/BazaarWelcome.tsx`
+  lost its film in the same panic and has not been given it back. It is off the
+  launch path, so it was never urgent, but the reason it was removed is now
+  known to be wrong.
 - ~~RevenueCat reconcile-on-read returns 401.~~ **Fixed 2026-08-19.** The cause
   was never a wrong key: Replit's RevenueCat connector issues a **v2-scoped**
   token, so the `/v1/subscribers` call through it always 401'd (documented in
