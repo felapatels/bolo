@@ -1,8 +1,9 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, act } from '@testing-library/react-native';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { BrandSplash, __resetBrandSplashForTests } from '@/components/BrandSplash';
+import { SPLASH_WAVE, SPLASH_WAVE_FPS } from '@/lib/splashFilm';
 
 // jest-setup.js mocks reanimated globally with useReducedMotion: () => false.
 // This file flips it per test, so the mutable flag lives INSIDE the factory:
@@ -34,6 +35,9 @@ const { __motion } = jest.requireMock('react-native-reanimated') as {
 // ---------------------------------------------------------------------------
 
 const ROOT = join(__dirname, '..');
+
+beforeEach(() => jest.useFakeTimers());
+afterEach(() => jest.useRealTimers());
 
 function sourceFiles(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -95,7 +99,7 @@ describe('the WebP survives on disk but reaches no bundle', () => {
   });
 });
 
-describe('THE SPLASH IS A STILL, in every motion mode', () => {
+describe('THE GREETING WAVE, and what it falls back to', () => {
   // includeHiddenElements is REQUIRED and is not a workaround. The overlay sets
   // accessibilityElementsHidden and importantForAccessibility="no-hide-
   // descendants" on purpose, because a splash must never be announced to a
@@ -108,16 +112,47 @@ describe('THE SPLASH IS A STILL, in every motion mode', () => {
     __motion.reduce = false;
   });
 
-  it.each([false, true])('renders the poster with reduceMotion=%s', (reduce) => {
-    __motion.reduce = reduce;
+  it('plays the frame sequence when motion is allowed', () => {
     render(<BrandSplash />);
-    expect(q('splash-still')).not.toBeNull();
+    expect(q('splash-wave')).not.toBeNull();
+    expect(q('splash-still')).toBeNull();
   });
 
-  it('and covers the screen, so the poster is never corner-cropped', () => {
+  it('REDUCE MOTION GETS THE POSTER, and no wave frame is referenced at all', () => {
+    // The distinction is the safety argument: the fallback must never be a
+    // decoded animation with a still laid over it, or the kill switch would be
+    // cosmetic and would not have saved anything.
+    __motion.reduce = true;
+    render(<BrandSplash />);
+    expect(q('splash-still')).not.toBeNull();
+    expect(q('splash-wave')).toBeNull();
+  });
+
+  it('starts on the first frame, so the opening pose is never mid-wave', () => {
+    render(<BrandSplash />);
+    expect(q('splash-wave')?.props.source).toBe(SPLASH_WAVE[0]);
+  });
+
+  it('advances, and ping-pongs rather than snapping back to the start', () => {
+    // A plain wrap would jump from the end pose to the opening pose once per
+    // cycle. Walking past the end and checking it comes back down is the only
+    // way to see the difference from outside.
+    render(<BrandSplash />);
+    const seen: number[] = [];
+    for (let i = 0; i < SPLASH_WAVE.length + 4; i++) {
+      act(() => { jest.advanceTimersByTime(Math.round(1000 / SPLASH_WAVE_FPS)); });
+      seen.push(SPLASH_WAVE.indexOf(q('splash-wave')!.props.source));
+    }
+    expect(Math.max(...seen)).toBe(SPLASH_WAVE.length - 1);
+    // After the peak it must come DOWN, not reset to 0.
+    const peak = seen.indexOf(SPLASH_WAVE.length - 1);
+    expect(seen[peak + 1]).toBe(SPLASH_WAVE.length - 2);
+  });
+
+  it('and covers the screen, so nothing is corner-cropped', () => {
     // A bare absoluteFill Image lays out at its intrinsic size on iOS, which is
     // why the style carries explicit 100% and why resizeMode is asserted here.
     render(<BrandSplash />);
-    expect(q('splash-still')?.props.resizeMode).toBe('cover');
+    expect(q('splash-wave')?.props.resizeMode).toBe('cover');
   });
 });
