@@ -83,7 +83,26 @@ const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
 export const sentryEnabled = Boolean(dsn);
 
+/**
+ * EXPERIMENT B, 2026-08-19. NOT A FIX, and not to be merged.
+ *
+ * Sentry is the earliest thing this app does: initSentry() is called at MODULE
+ * SCOPE in app/_layout.tsx, before any component renders, and the launch crash
+ * fires 200ms to 600ms in. Sentry.init is also what installs the native crash
+ * handler, so this is the one suspect that could plausibly both CAUSE the crash
+ * and explain why Sentry silently stopped delivering these crashes at 16:28
+ * while the phone kept recording them.
+ *
+ * With this true, no native handler is installed and no JS instrumentation
+ * runs. The device's Analytics Data is the oracle for this experiment anyway,
+ * so losing Sentry reporting costs nothing we were relying on.
+ *
+ * Delete this constant and the guard below to revert.
+ */
+const EXPERIMENT_B_SENTRY_OFF = true;
+
 export function initSentry(): void {
+  if (EXPERIMENT_B_SENTRY_OFF) return;
   if (!dsn) return;
   Sentry.init({
     dsn,

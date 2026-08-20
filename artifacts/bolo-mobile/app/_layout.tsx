@@ -139,4 +139,7 @@ function RootLayout() {
   );
 }
 
-export default Sentry.wrap(RootLayout);
+// EXPERIMENT B: unwrapped. Sentry.wrap installs a React error boundary and
+// profiling instrumentation around the whole tree, so leaving it on would keep
+// half the suspect in the build. Restore with Sentry.wrap(RootLayout).
+export default RootLayout;
