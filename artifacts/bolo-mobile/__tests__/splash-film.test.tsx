@@ -94,8 +94,12 @@ describe('the splash assets are what the component thinks they are', () => {
 describe('THE KILL SWITCH, pinned at source like lib/entrance.ts', () => {
   const src = readFileSync(join(ROOT, 'lib/splashFilm.ts'), 'utf8');
 
-  it('is a single constant, so falling back to the still is one edit', () => {
-    expect(src).toMatch(/export const SPLASH_MOTION_ENABLED = true;/);
+  // INVERTED 2026-08-19, hours after it was written. This pinned `true` while
+  // the animated WebP was believed safe. It crashed five cold starts out of
+  // five, so the constant is false and the assertion pins that instead of being
+  // deleted along with the belief.
+  it('is a single constant, and it is OFF after the 5-of-5 crash', () => {
+    expect(src).toMatch(/export const SPLASH_MOTION_ENABLED = false;/);
   });
 
   it('no longer exports SPLASH_FILM, so the mp4 path cannot be half-restored', () => {
@@ -103,44 +107,43 @@ describe('THE KILL SWITCH, pinned at source like lib/entrance.ts', () => {
   });
 });
 
-describe('REDUCE MOTION REACHES THE DECODER, it does not just hide a frame', () => {
-  // includeHiddenElements is REQUIRED here and is not a workaround. The overlay
-  // sets accessibilityElementsHidden and importantForAccessibility="no-hide-
+describe('THE SWITCH REACHES THE DECODER, it does not merely cover a frame', () => {
+  // INVERTED 2026-08-19, hours after it was written. This block asserted that
+  // the film played whenever motion was allowed. It crashed five cold starts
+  // out of five, so SPLASH_MOTION_ENABLED is false and the still is what
+  // renders in every mode.
+  //
+  // The invariant being pinned did not change and is the entire safety
+  // argument: the animated source is NEVER HANDED OVER, rather than being
+  // decoded and then hidden behind the poster. If it were merely covered, the
+  // kill switch would be cosmetic and would not have saved the launch.
+  //
+  // includeHiddenElements is REQUIRED and is not a workaround. The overlay sets
+  // accessibilityElementsHidden and importantForAccessibility="no-hide-
   // descendants" on purpose, because a splash must never be announced to a
   // screen reader, and RNTL's queries skip hidden subtrees by default. Without
-  // this, every query returns null and the tests pass vacuously in the one
-  // direction that matters least.
+  // it every query returns null and these pass vacuously.
   const q = (id: string) => screen.queryByTestId(id, { includeHiddenElements: true });
 
-  // The distinction is the entire safety argument. If the still were merely
-  // painted over a decoded animation, Reduce Motion and the kill switch would
-  // both be cosmetic and neither would help if the launch path went bad again.
   beforeEach(() => {
     __resetBrandSplashForTests();
     __motion.reduce = false;
   });
 
-  it('plays the film when motion is allowed', () => {
-    render(<BrandSplash />);
-    expect(q('splash-film')).not.toBeNull();
-    expect(q('splash-still')).toBeNull();
-  });
-
-  it('hands the decoder the STILL when Reduce Motion is on', () => {
-    __motion.reduce = true;
-    render(<BrandSplash />);
-    expect(q('splash-still')).not.toBeNull();
-    expect(q('splash-film')).toBeNull();
-  });
-
   it.each([false, true])(
-    'carries the still as placeholder with reduceMotion=%s, so nothing paints empty',
+    'renders the STILL with reduceMotion=%s, because the switch is off',
     (reduce) => {
-      // The overlay's ground is the film's opening plate; drop the placeholder
-      // and a cold start flashes white before the first frame decodes.
       __motion.reduce = reduce;
       render(<BrandSplash />);
-      expect(q(reduce ? 'splash-still' : 'splash-film')?.props.placeholder).toBeDefined();
+      expect(q('splash-still')).not.toBeNull();
+      expect(q('splash-film')).toBeNull();
     },
   );
+
+  it('carries the still as its placeholder too, so nothing paints empty', () => {
+    // The overlay's ground is the film's opening plate; drop the placeholder
+    // and a cold start flashes white before anything decodes.
+    render(<BrandSplash />);
+    expect(q('splash-still')?.props.placeholder).toBeDefined();
+  });
 });

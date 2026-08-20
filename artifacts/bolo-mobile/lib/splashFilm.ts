@@ -35,15 +35,25 @@ export const SPLASH_MOTION = require('../assets/splash/welcome-bolo.webp') as nu
 export const SPLASH_POSTER = require('../assets/splash/welcome-bolo-poster.png') as number;
 
 /**
- * THE KILL SWITCH, the same shape as lib/entrance.ts and for the same reason.
+ * THE KILL SWITCH, and it is OFF because the film failed worse than the video.
  *
- * This puts decode work back on the launch path, which is exactly where a whole
- * day was just lost. The mechanism is different enough to be worth doing, but
- * "different mechanism" is an argument, not evidence. If cold starts start
- * failing again, flip this to false and the splash falls back to the still it
- * has been showing since the crash fix, with no other edit anywhere.
+ * The animated WebP crashed FIVE cold starts out of FIVE on device, 2026-08-19.
+ * That is not a regression to the old bug, it is worse than it: expo-video was
+ * intermittent at three or four in five, and this was total.
+ *
+ * I argued that expo-image's pipeline was a different enough mechanism to be
+ * safe. That was an argument and not evidence, which is exactly the caveat
+ * written into this comment's first version, and the device settled it in the
+ * time it takes to launch an app five times.
+ *
+ * So the splash is the still again, which is the state that launched clean 5/5
+ * twice today. SPLASH_MOTION and the .webp stay in the tree deliberately: the
+ * asset is correct and the encode recipe above is worth keeping, and whoever
+ * picks this up next should start from a working file rather than re-deriving
+ * it. What is NOT settled is why a 122-frame 720x1600 animation kills this app
+ * at launch, and nobody should flip this back to true without that answer.
  */
-export const SPLASH_MOTION_ENABLED = true;
+export const SPLASH_MOTION_ENABLED = false;
 
 /** Film length, 5.067s. The full-play timer must OUTLAST it or the last
  *  frame is cut. Move this if the film is ever swapped for a longer one. */
