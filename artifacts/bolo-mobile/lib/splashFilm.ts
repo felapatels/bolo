@@ -121,6 +121,23 @@ export const SPLASH_MOTION_ENABLED = true;
  *  must OUTLAST it or the last frame is cut, and 5100 still does. Move this if
  *  the film is ever swapped for a longer one. */
 export const SPLASH_FULL_PLAY_MS = 5100;
+/**
+ * WHERE THE SHORT SPLASH STARTS, and why it is not zero.
+ *
+ * Bolo does not enter the frame until about 1.8s and does not land until about
+ * 3.9s. SPLASH_MIN_HOLD_MS is 1500, so a READY-mode launch that played from the
+ * beginning would show the one stretch of this film with no bird in it: Chacha
+ * -ji waving at an empty sky. Every launch except the day's first looked like
+ * the mascot had been cut out of his own splash.
+ *
+ * So the short mode OPENS ON THE BEAT WHERE BOLO IS ALREADY IN SHOT. From 2.6s
+ * the minimum hold runs to 4.1s, which covers the descent and the landing at
+ * 3.9s with room to spare. A slower launch simply holds longer on him perched.
+ *
+ * The day's first cold start still rewinds to 0 and plays the whole thing.
+ */
+export const SPLASH_SHORT_START_S = 2.6;
+
 export const SPLASH_MIN_HOLD_MS = 1500;
 export const SPLASH_MAX_HOLD_MS = 8000;
 export const SPLASH_EXIT_MS = 260;
