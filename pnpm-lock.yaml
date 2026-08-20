@@ -481,6 +481,9 @@ importers:
       '@workspace/referral-link':
         specifier: workspace:*
         version: link:../../lib/referral-link
+      '@workspace/script-trace':
+        specifier: workspace:*
+        version: link:../../lib/script-trace
       '@workspace/train-class':
         specifier: workspace:*
         version: link:../../lib/train-class
@@ -806,6 +809,9 @@ importers:
       '@workspace/referral-link':
         specifier: workspace:*
         version: link:../../lib/referral-link
+      '@workspace/script-trace':
+        specifier: workspace:*
+        version: link:../../lib/script-trace
       '@workspace/train-class':
         specifier: workspace:*
         version: link:../../lib/train-class
@@ -1147,6 +1153,8 @@ importers:
 
   lib/referral-link: {}
 
+  lib/script-trace: {}
+
   lib/train-class:
     dependencies:
       '@tanstack/react-query':
@@ -1164,6 +1172,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../lib/db
+      '@workspace/script-trace':
+        specifier: workspace:*
+        version: link:../lib/script-trace
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

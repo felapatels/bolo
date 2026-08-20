@@ -10,7 +10,7 @@ import {
   traceReadyFor,
   playableScripts,
   unlockOrder,
-} from "@/lib/scripts";
+} from "@workspace/script-trace";
 import { JOURNEY_LINES } from "@/lib/journeyLines";
 
 // ---------------------------------------------------------------------------

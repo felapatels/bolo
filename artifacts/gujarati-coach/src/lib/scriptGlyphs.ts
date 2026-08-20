@@ -11,7 +11,7 @@
 import {
   LANG_CHAPTER_IDS,
   SCRIPT_TRACE_CHAPTERS,
-} from "@/data/script-trace-chapters";
+} from "@workspace/script-trace";
 
 const MAX_GLYPHS = 12;
 
