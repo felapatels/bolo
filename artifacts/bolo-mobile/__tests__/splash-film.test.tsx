@@ -3,6 +3,11 @@ import { render, screen } from '@testing-library/react-native';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { BrandSplash, __resetBrandSplashForTests } from '@/components/BrandSplash';
+import {
+  SPLASH_SHORT_START_S,
+  SPLASH_MIN_HOLD_MS,
+  SPLASH_FULL_PLAY_MS,
+} from '@/lib/splashFilm';
 
 // jest-setup.js mocks reanimated globally with useReducedMotion: () => false.
 // This file flips it per test, so the mutable flag lives INSIDE the factory:
@@ -164,5 +169,45 @@ describe('THE SWITCH IS ON', () => {
     // in build 47 and went 10 cold starts for 10. If the film fails, this is
     // what it falls back to, and it is already proven.
     expect(existsSync(join(ROOT, 'assets/splash/wave/01.jpg'))).toBe(true);
+  });
+});
+
+describe('THE SHORT SPLASH MUST CONTAIN THE MASCOT', () => {
+  // Shipped as build 50 and caught on device: SPLASH_MIN_HOLD_MS is 1500 and
+  // Bolo does not enter the frame until ~1.8s, so every launch except the day's
+  // first showed Chacha-ji waving at an empty sky. The film was fine. The
+  // WINDOW was wrong.
+  //
+  // These pin the window against the film's actual beats. If the film is ever
+  // re-cut, the numbers below move and these fail loudly rather than shipping
+  // another splash with the mascot edited out of it.
+  const BOLO_ENTERS_S = 1.8;
+  const BOLO_LANDS_S = 3.9;
+  const FILM_LENGTH_S = 5.042;
+
+  it('opens AFTER Bolo has entered the frame', () => {
+    expect(SPLASH_SHORT_START_S).toBeGreaterThan(BOLO_ENTERS_S);
+  });
+
+  it('and holds long enough to reach the landing', () => {
+    const endsAt = SPLASH_SHORT_START_S + SPLASH_MIN_HOLD_MS / 1000;
+    expect(endsAt).toBeGreaterThan(BOLO_LANDS_S);
+  });
+
+  it('without running past the end of the film', () => {
+    expect(SPLASH_SHORT_START_S).toBeLessThan(FILM_LENGTH_S);
+  });
+
+  it('and the FULL timer still outlasts the whole film, so the last frame is not cut', () => {
+    expect(SPLASH_FULL_PLAY_MS / 1000).toBeGreaterThan(FILM_LENGTH_S);
+  });
+
+  it('the seek is wired at BOTH ends: short opens late, FULL rewinds to zero', () => {
+    // Asserted at source because the expo-video double has no timeline to
+    // inspect: a player mock that accepted currentTime and did nothing would
+    // let a broken seek pass a render test.
+    const src = readFileSync(join(ROOT, 'components/BrandSplash.tsx'), 'utf8');
+    expect(src).toContain('p.currentTime = SPLASH_SHORT_START_S;');
+    expect(src).toContain('player.currentTime = 0;');
   });
 });
