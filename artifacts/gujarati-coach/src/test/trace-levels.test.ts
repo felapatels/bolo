@@ -9,8 +9,8 @@ import {
   levelLadder,
   LEVEL_FLOOR,
   TRACE_LEVELS,
-} from "@/lib/trace-levels";
-import type { AuthoredGlyph } from "@/lib/stroke-scoring";
+} from "@workspace/script-trace";
+import type { AuthoredGlyph } from "@workspace/script-trace";
 
 // ---------------------------------------------------------------------------
 // The claim this module makes is an economic one: the words and sentences

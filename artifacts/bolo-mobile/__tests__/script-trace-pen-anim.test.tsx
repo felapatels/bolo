@@ -87,7 +87,7 @@ jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ activeLang: 'gu', activeLanguage: { name: 'Gujarati' } }),
 }));
 
-jest.mock('@/lib/game-data/script-trace-chapters', () => ({
+jest.mock('@workspace/script-trace', () => ({
   SCRIPT_TRACE_CHAPTERS: [],
 }));
 

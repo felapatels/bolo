@@ -19,7 +19,7 @@
 // Coordinates are in the same 0 0 100 100 box the generated guides use, so a
 // glyph can be swapped between systems without rescaling anything.
 
-import type { AuthoredGlyph } from "@/lib/stroke-scoring";
+import type { AuthoredGlyph } from "./stroke-scoring";
 
 /** The head-line, shared by every full-width Devanagari letter. Always last. */
 const SHIROREKHA: { x: number; y: number }[] = [

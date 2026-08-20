@@ -17,6 +17,7 @@
     "tsx": "catalog:"
   },
   "dependencies": {
+    "@workspace/script-trace": "workspace:*",
     "@replit/connectors-sdk": "^0.4.1",
     "@workspace/db": "workspace:*"
   }

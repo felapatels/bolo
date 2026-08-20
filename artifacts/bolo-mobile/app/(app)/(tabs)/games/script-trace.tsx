@@ -39,7 +39,7 @@ import {
   type TraceChapter,
   type TraceCharacter,
   type ChapterStage,
-} from '@/lib/game-data/script-trace-chapters';
+} from '@workspace/script-trace';
 import Svg, {
   Path as SvgPath,
   Text as SvgText,

@@ -6,11 +6,11 @@ import {
   strokesUpTo,
   PASS_SCORE,
   type AuthoredGlyph,
-} from "@/lib/stroke-scoring";
+} from "@workspace/script-trace";
 import {
   DEVANAGARI_PROTOTYPE_GLYPHS,
   perfectTraceOf,
-} from "@/data/devanagari-strokes";
+} from "@workspace/script-trace";
 import { scoreCoverage, getInteriorPoints, PASS_THRESHOLD } from "@/pages/games/script-trace";
 
 // ---------------------------------------------------------------------------

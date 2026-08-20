@@ -49,8 +49,8 @@ vi.mock("@workspace/api-client-react", () => ({
   getListCategoryPhrasesQueryKey: () => ["phrases"],
 }));
 
-vi.mock("@/lib/scripts", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/scripts")>("@/lib/scripts");
+vi.mock("@workspace/script-trace", async () => {
+  const actual = await vi.importActual<typeof import("@workspace/script-trace")>("@workspace/script-trace");
   return { ...actual, glyphsForLanguage: () => h.glyphs };
 });
 
