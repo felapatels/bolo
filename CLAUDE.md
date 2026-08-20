@@ -141,24 +141,35 @@ command runs.
   NOT test this, since the worklets runtime still starts), `@sentry/react-native`
   initialising early on the launch path, and Hermes itself on RN 0.81.5 with the
   New Architecture.
-- **THE SPLASH CANNOT MOVE UNTIL THE HERMES CRASH IS FIXED. It is allocation
-  pressure at launch, not any particular renderer, and three attempts proved
-  it.** The crash rate tracks how much work the ROOT layout does in the first
-  second, not which library does it:
-
-  | build | splash does | launches | crashes |
-  |---|---|---|---|
-  | `bd817370` | poster, react-native `Image` | 10 | **0** |
-  | `a9b11df4` | 12 frames swapped at 12fps | 10 | **9** |
-  | `c56157f0` | `expo-image`, animated WebP | 5 | **5** |
-  | `0f349d37` | `expo-image`, poster only | 5 | **5** |
-
-  Row 2 is the one that settles it: **no new library at all**, the same `Image`
-  the poster build had just survived ten launches on, only twelve decodes and
-  twelve re-renders a second added to launch. **Do not try a fourth renderer.**
-  Fix the GC bug, then turn `SPLASH_MOTION_ENABLED` back on. The wave frames
-  (`assets/splash/wave/`, 364KB, unreferenced while the switch is false) are
-  ready for that day.
+- **THE DEVICE IS AN UNCONTROLLED VARIABLE, AND EVERY CONCLUSION DRAWN FROM A
+  SINGLE 5 OR 10 LAUNCH SAMPLE ON 2026-08-19 IS SUSPECT, INCLUDING MINE.**
+  `bd817370` went **0 crashes in 10** at roughly 21:00. `350af74e`, which is
+  RUNTIME-IDENTICAL to it (`SPLASH_MOTION_ENABLED` false means the interval
+  returns immediately and the same poster renders through the same
+  react-native `Image`; the only additions are twelve dead `require()`s that
+  produce asset ids and decode nothing), went **9 crashes in 10** about an hour
+  later.
+  Same code. Opposite result. **Something other than the bundle changed**, most
+  likely accumulated memory pressure on the phone over an evening of installs,
+  and it was never held constant. Anything that reads as a clean A/B in the
+  commits from that night was measured against a drifting baseline.
+  **Before comparing two builds, reboot the phone, and re-run the previous
+  build to re-establish the baseline.** An A/B where B is measured an hour after
+  A is not an A/B.
+  The one comparison that still looks structurally sound is `expo-image`: two
+  crashing builds (5/5 and 5/5) sandwiched between two clean ones (5/5 and
+  10/10), which drift alone does not produce easily. Treat even that as strong
+  suspicion rather than proof.
+- **`SPLASH_MOTION_ENABLED` in `lib/splashFilm.ts` is false and the splash is a
+  still.** Three attempts at motion all failed: `expo-video`, `expo-image` with
+  an animated WebP, and a twelve-frame sequence through react-native's own
+  `Image`. The last of those added no library at all, which is why "allocation
+  pressure at launch" looked like the answer, but the revert scoring the same
+  9-in-10 removed that comparison's footing. **What is actually known is that
+  the splash does not reliably move, not why.**
+  The wave frames (`assets/splash/wave/`, 364KB, 12 JPEGs at 640px) and the
+  ffmpeg recipe stay in the tree unreferenced, ready for the day this is
+  understood. `expo-video` stays banned from the launch path regardless.
 - **UNTESTED SUSPECT, and the cheapest one left: `BrandSplash` ITSELF.**
   `components/BrandSplash.tsx` was created 2026-08-16 at 17:02; `expo-video` was
   added at 16:47 the same day; the last production build that ever launched
