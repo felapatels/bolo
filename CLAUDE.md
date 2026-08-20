@@ -122,29 +122,36 @@ command runs.
 
 ## Known open items
 
-- **`expo-video` crashes the app at launch. Do not reinstate it without a plan.**
-  Confirmed by bisect 2026-08-19: the Aug 16 build (no expo-video) survives 5
-  cold starts of 5; every build carrying it crashes 3 or 4 times out of 5, with
-  `EXC_BAD_ACCESS` inside the Hermes GC and no JS frames. The trap is that it is
-  not only the bazaar film: `BrandSplash` imports it too and mounts at
-  `app/_layout.tsx`, the ROOT, so a film decodes on EVERY cold start. Both
-  surfaces showed their poster instead, a path that already existed for Reduce
-  Motion.
-  **An animated WebP through `expo-image` was tried on 2026-08-19 and FAILED
-  WORSE THAN THE VIDEO: five cold starts out of five.** expo-video was
-  intermittent at three or four in five; this was total. The reasoning was that
-  the image pipeline is not AVFoundation, which is true and was still not
-  enough. `SPLASH_MOTION_ENABLED` in `lib/splashFilm.ts` is now **false** and
-  the splash is the still, the state that launched 5/5 clean twice that day.
-  The `.webp` and the ffmpeg/img2webp recipe stay in the tree on purpose, since
-  the asset is correct and worth starting from. **Nobody should flip that
-  switch back without first explaining why a 122-frame 720x1600 animation kills
-  this app at launch.** No moving image of any kind has yet survived the
-  launch path.
-  **The bazaar welcome still shows its poster** and would take the same
-  treatment. Neither `.mp4` is required by any code now, so neither is bundled;
-  both files stay on disk as the source for re-encoding. **expo-video itself
-  remains banned from the launch path.**
+- **THE LAUNCH CRASH IS NOT FIXED. Removing `expo-video` did not fix it, and
+  anyone who reads otherwise in an older commit message is reading a mistake.**
+  The fault is `EXC_BAD_ACCESS`, `KERN_INVALID_ADDRESS at 0x2000`, on
+  `com.facebook.react.runtime.JavaScript`, inside `CardTable::updateBoundaries`
+  under `HadesGC::scanDirtyCards`. Intermittent, roughly one cold start in six,
+  and it fires 200ms to 600ms after launch, which is module-init time rather
+  than anything a screen does.
+  **Use the device's crash reports as the oracle, NEVER Sentry.** Sentry stopped
+  delivering these on 2026-08-19 at 16:28 EDT while the phone kept recording
+  them, and reading that silence as success is exactly how this got declared
+  fixed three times in one day. iOS Settings > Privacy & Security > Analytics &
+  Improvements > Analytics Data, entries named `BoloMobile-<date>`.
+  **Five clean launches proves nothing** at a one-in-six rate: it happens by
+  luck 40% of the time. Every wrong call that day came from a 5-of-5 sample.
+  Live suspects, none eliminated: `react-native-worklets` 0.5.1 with reanimated
+  4.1.1 starting a second Hermes runtime (turning entrance animations off did
+  NOT test this, since the worklets runtime still starts), `@sentry/react-native`
+  initialising early on the launch path, and Hermes itself on RN 0.81.5 with the
+  New Architecture.
+- **No moving image has ever survived the launch path. Both films are off.**
+  `expo-video` was removed because `BrandSplash` mounts at `app/_layout.tsx`,
+  the ROOT, so it decoded a film on EVERY cold start. It is still banned there,
+  on the general principle rather than as the crash's cause.
+  An animated WebP through `expo-image` was then tried and **failed 5 cold
+  starts out of 5, leaving NO crash report and no jetsam entry**, which is still
+  unexplained. `SPLASH_MOTION_ENABLED` in `lib/splashFilm.ts` is **false**.
+  The `.webp`, `SPLASH_MOTION` and the ffmpeg/img2webp recipe stay in the tree
+  on purpose: the asset is correct and the encode was the fiddly part. The
+  bazaar welcome shows its poster too. Neither `.mp4` is required by any code,
+  so neither is bundled; both stay on disk as re-encode sources.
 - ~~RevenueCat reconcile-on-read returns 401.~~ **Fixed 2026-08-19.** The cause
   was never a wrong key: Replit's RevenueCat connector issues a **v2-scoped**
   token, so the `/v1/subscribers` call through it always 401'd (documented in
