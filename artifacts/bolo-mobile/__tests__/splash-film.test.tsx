@@ -67,12 +67,22 @@ describe('THE LAUNCH PATH BANS expo-image, AND ONLY expo-image', () => {
   // evidence. The real cause was react-native-worklets 0.5.1, which crashed
   // this app thirty launches out of thirty. The film is back, and the
   // assertions now pin exactly where it is allowed to live.
-  it('the film is required in one place only, lib/splashFilm.ts', () => {
-    expect(importers(/require\([^)]*\.(mp4|mov)['"]\)/)).toEqual(['/lib/splashFilm.ts']);
+  // Two films now, and the census names both rather than counting them: the
+  // splash's, at the ROOT layout, and the bazaar greeting's, which is not on
+  // the launch path at all. A THIRD require appearing here should fail this
+  // test and make somebody explain it, which is the whole point of a census.
+  it('films are required in exactly two known places', () => {
+    expect(importers(/require\([^)]*\.(mp4|mov)['"]\)/).sort()).toEqual([
+      '/components/BazaarWelcome.tsx',
+      '/lib/splashFilm.ts',
+    ]);
   });
 
-  it('and expo-video is imported by BrandSplash and nothing else', () => {
-    expect(importers(/from ['"]expo-video['"]/)).toEqual(['/components/BrandSplash.tsx']);
+  it('and expo-video is imported by exactly those two components', () => {
+    expect(importers(/from ['"]expo-video['"]/).sort()).toEqual([
+      '/components/BazaarWelcome.tsx',
+      '/components/BrandSplash.tsx',
+    ]);
   });
 
   it('NOTHING IMPORTS expo-image, which is the one that crashed 5 of 5', () => {
