@@ -22,7 +22,6 @@ import Animated, {
   interpolateColor,
   useAnimatedProps,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withSequence,
@@ -102,7 +101,7 @@ import {
   type PlaybackHandle,
 } from '@/lib/audio';
 import { Waveform } from '@/components/Waveform';
-import { prefersReducedMotion } from '@/lib/motionPrefs';
+import { prefersReducedMotion, useReducedMotion } from '@/lib/motionPrefs';
 import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, saveSilentMode, loadApproxNoticeSeen, saveApproxNoticeSeen } from '@/lib/settings';
 import { loadMeaningAudio, saveMeaningAudio, meaningSpeechText } from '@/lib/meaning-audio';
 import { loadCoachVoicePref } from '@/lib/coachVoicePref';
@@ -3004,7 +3003,6 @@ function PracticeHeader({
     </View>
   );
 }
-
 
 function RecordButton({
   phase,

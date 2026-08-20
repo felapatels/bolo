@@ -97,6 +97,7 @@ jest.mock('@/lib/soundPref', () => ({
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
 import { playTearSfx } from '@/lib/tearAudio';
 import { loadSoundPref } from '@/lib/soundPref';
+import * as motionPrefs from '@/lib/motionPrefs';
 
 const CURRENT = {
   geoName: 'New Delhi',
@@ -248,7 +249,7 @@ describe('stub tear-off activation', () => {
 
   it('reduced motion activates instantly with no tear', () => {
     const reanimated = require('react-native-reanimated');
-    const spy = jest.spyOn(reanimated, 'useReducedMotion').mockReturnValue(true);
+    const spy = jest.spyOn(motionPrefs, 'useReducedMotion').mockReturnValue(true);
     try {
       const onPress = jest.fn();
       render(<JourneyPassCard onPress={onPress} />);

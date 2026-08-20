@@ -3,12 +3,12 @@ import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 const { width, height } = Dimensions.get('window');
 

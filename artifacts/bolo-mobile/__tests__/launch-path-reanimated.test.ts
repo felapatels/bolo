@@ -25,6 +25,16 @@ import { join } from 'node:path';
 const ROOT = join(__dirname, '..');
 const REANIMATED_IMPORT = /from ['"]react-native-reanimated['"]/;
 
+function walk(dir: string, out: string[] = []): string[] {
+  for (const e of readdirSync(dir)) {
+    if (e === 'node_modules' || e.startsWith('.')) continue;
+    const full = join(dir, e);
+    if (statSync(full).isDirectory()) walk(full, out);
+    else if (/\.tsx?$/.test(e)) out.push(full);
+  }
+  return out;
+}
+
 function codeLines(file: string): string {
   return readFileSync(file, 'utf8')
     .split('\n')
@@ -50,12 +60,28 @@ describe('HIGH-MULTIPLICITY COMPONENTS STAY OFF REANIMATED', () => {
     expect(src).toContain('useNativeDriver: true');
   });
 
-  it('and reads Reduce Motion without a worklet subscription', () => {
-    // reanimated's useReducedMotion costs a runtime subscription per call site,
-    // which for this component means one per tappable surface.
+  it('and reads Reduce Motion from the OS, not from reanimated', () => {
+    // Two reasons, and the second one is the bigger. reanimated's
+    // useReducedMotion costs a worklet-runtime subscription per call site,
+    // which here is one per tappable surface. And it answers from reanimated's
+    // own native module, returning TRUE when that module has not initialised,
+    // which flattened the entire app for two builds while the owner had the
+    // setting switched off. lib/motionPrefs reads AccessibilityInfo directly.
     const src = readFileSync(join(ROOT, 'components/PressableScale.tsx'), 'utf8');
-    expect(src).toContain('useReducedMotionRN');
-    expect(src).not.toMatch(/import[^;]*useReducedMotion[^R][^;]*react-native-reanimated/s);
+    expect(src).toContain("from '@/lib/motionPrefs'");
+  });
+
+  it('AND NOTHING IN THE APP reads Reduce Motion through reanimated', () => {
+    // The whole-app version of the rule above. One wrong answer from that hook
+    // turns off every animation at once, silently, with nothing logged.
+    const offenders = ['app', 'components', 'lib'].flatMap((d) => walk(join(ROOT, d)))
+      .filter((f) => {
+        const code = codeLines(f);
+        return /useReducedMotion/.test(code) && /react-native-reanimated/.test(code)
+          && new RegExp("useReducedMotion[^}]*\\}\\s*from\\s*'react-native-reanimated'", 's').test(code);
+      })
+      .map((f) => f.replace(ROOT, ''));
+    expect(offenders).toEqual([]);
   });
 });
 

@@ -214,6 +214,7 @@ jest.mock('@workspace/api-client-react', () => ({
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import JourneyScreen from '@/app/(app)/journey';
 import { resetSignalMemory } from '@/lib/signalMemory';
+import * as motionPrefs from '@/lib/motionPrefs';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -445,7 +446,7 @@ describe('journey map — scroll to the current stop on open (Task 1082 item 4)'
 
   it('jumps instead of animating under reduced motion', () => {
     const reanimated = require('react-native-reanimated');
-    const spy = jest.spyOn(reanimated, 'useReducedMotion').mockReturnValue(true);
+    const spy = jest.spyOn(motionPrefs, 'useReducedMotion').mockReturnValue(true);
     try {
       deepIntoTheLine();
       render(<JourneyScreen />);
@@ -796,7 +797,7 @@ describe('journey map — build 31 signboard dressing + rail pulse', () => {
 
   it('drops the pulse and glow under reduced motion but keeps the static dressing', () => {
     const reanimated = require('react-native-reanimated');
-    const spy = jest.spyOn(reanimated, 'useReducedMotion').mockReturnValue(true);
+    const spy = jest.spyOn(motionPrefs, 'useReducedMotion').mockReturnValue(true);
     try {
       threeStopZone();
       render(<JourneyScreen />);

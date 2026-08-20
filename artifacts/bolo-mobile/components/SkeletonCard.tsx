@@ -4,12 +4,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 interface SkeletonCardProps {
   width?: number | `${number}%`;

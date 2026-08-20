@@ -39,7 +39,6 @@ import { Feather } from '@expo/vector-icons';
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withDelay,
   withSequence,
@@ -57,6 +56,7 @@ import { hapticTap } from '@/lib/haptics';
 import { Mascot } from '@/components/Mascot';
 import { GlobeButton } from '@/components/GlobeButton';
 import { GamePreview, type VignetteInk } from '@/components/games/GamePreview';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 

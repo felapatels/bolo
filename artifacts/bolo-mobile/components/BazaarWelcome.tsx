@@ -24,7 +24,7 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useReducedMotion } from 'react-native-reanimated';
+
 // RESTORED 2026-08-20. This import was ripped out on 2026-08-19 because
 // expo-video was the leading suspect for the launch crash. It was innocent: the
 // cause was react-native-worklets 0.5.1, thirty crashes in thirty launches, and
@@ -38,6 +38,7 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { activateSfxPlaybackRoute } from '@/lib/audio';
 import { AppFonts } from '@/constants/fonts';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 /** Metro static requires, the house pattern (lib/tearAudio.ts, ChaiStall). */
 const WELCOME_FILM = require('../assets/images/bazaar/welcome.mp4') as number;

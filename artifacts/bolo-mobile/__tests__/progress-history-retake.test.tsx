@@ -154,6 +154,7 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+
 jest.mock('@/hooks/useIdleTimer', () => ({
   useIdleTimer: () => ({ isIdle: false, onActivity: jest.fn() }),
 }));

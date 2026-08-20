@@ -5,7 +5,6 @@ import Animated, {
   Easing,
   cancelAnimation,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withSequence,
@@ -35,6 +34,7 @@ import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ChatRecordingProvider, useChatRecording } from '@/components/ChatRecordingContext';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 // ---------------------------------------------------------------------------
 // Mascot pose assets + type

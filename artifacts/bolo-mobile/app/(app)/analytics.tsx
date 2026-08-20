@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useReducedMotion } from 'react-native-reanimated';
+
 import {
   useGetProgressAnalytics,
   getGetProgressAnalyticsQueryKey,
@@ -27,6 +27,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 // The deep, Plus-only progress view: per-topic mastery, average scores, review
 // backlog, and a recent-activity trend. The Progress tab only routes Plus

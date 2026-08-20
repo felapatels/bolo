@@ -2,7 +2,6 @@ import React from 'react';
 import { Animated as RNAnimated, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -14,6 +13,7 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { badgeIcon } from '@/lib/badge-icons';
 import { findNearestLockedBadge, progressRatio } from '@/lib/badge-progress';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 /**
  * A prominent "next goal" card at the top of the badges area that calls out the

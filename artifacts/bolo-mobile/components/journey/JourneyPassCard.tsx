@@ -28,7 +28,6 @@ import Animated, {
   Easing,
   interpolate,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -50,6 +49,7 @@ import {
 } from '@/components/journey/TicketParts';
 import { playTearSfx } from '@/lib/tearAudio';
 import { loadSoundPref } from '@/lib/soundPref';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 // Web tuning constants (index.css :root block + PASS_PRESS_* in home.tsx).
 const PASS_CYCLE_MS = 3200; // breathe + shimmer + glow share one heartbeat

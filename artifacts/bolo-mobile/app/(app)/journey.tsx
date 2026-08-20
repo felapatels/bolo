@@ -36,7 +36,6 @@ import Animated, {
   useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -97,6 +96,7 @@ import { useThemePrefValue } from '@/contexts/ThemeContext';
 import { useLoopProgress } from '@/lib/useLoopProgress';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 const GRAY = SCENERY_GRAY; // rail/marker color for locked showroom zones
 
@@ -456,7 +456,6 @@ function ChachaSoftStop({
   }, [station, blocked, hydrated, isSeen, onOpen]);
   return null;
 }
-
 
 export default function JourneyScreen() {
   const colors = useColors();

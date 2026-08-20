@@ -4,10 +4,10 @@ import Animated, {
   FadeOut,
   SlideInUp,
   SlideOutUp,
-  useReducedMotion,
 } from 'react-native-reanimated';
 import { appearPlain } from '@/lib/entrance';
 import { AppFonts } from '@/constants/fonts';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 interface MilestoneToastProps {
   /** Message to display. */

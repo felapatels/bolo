@@ -52,11 +52,11 @@ import { AppFonts } from '@/constants/fonts';
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 /** Asset map: the mobile twin of web's STALL_ASSETS path registry. */
 export const STALL_ASSETS = {

@@ -22,10 +22,10 @@ import {
 import Animated, {
   Easing,
   useAnimatedProps,
-  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 

@@ -20,7 +20,7 @@
 import React, { Component, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Image, StyleSheet } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { useReducedMotion } from 'react-native-reanimated';
+
 // THE SPLASH IS A STILL, RENDERED BY REACT NATIVE'S OWN Image, AND BOTH HALVES
 // OF THAT ARE LOAD-BEARING. Do not casually change either one.
 //
@@ -52,6 +52,7 @@ import {
   markFullPlayed,
 } from '@/lib/splashFilm';
 import { useHomeReady } from '@/lib/splashReady';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 /**
  * Play-once latch for this launch, web's exact pattern. Consumed in a

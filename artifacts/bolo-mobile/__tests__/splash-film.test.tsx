@@ -18,6 +18,7 @@ jest.mock('react-native-reanimated', () => {
   return { __esModule: true, __motion: motion, useReducedMotion: () => motion.reduce };
 });
 
+
 jest.mock('@/lib/splashReady', () => ({ __esModule: true, useHomeReady: () => false }));
 
 const { __motion } = jest.requireMock('react-native-reanimated') as {

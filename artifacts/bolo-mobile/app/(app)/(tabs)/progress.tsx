@@ -11,9 +11,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { GlobeButton } from '@/components/GlobeButton';
 import { useRouter } from 'expo-router';
-import Animated, {
-  useReducedMotion,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { appear, appearDown, useAppearSkip } from '@/lib/entrance';
 import {
   useGetProgressSummary,
@@ -32,6 +30,7 @@ import { LockedFeatureCard } from '@/components/PlusUpsell';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { scoreColor } from '@/lib/ui';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 export default function ProgressScreen() {
   const colors = useColors();

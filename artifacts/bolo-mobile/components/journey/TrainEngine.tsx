@@ -27,11 +27,11 @@ import Animated, {
   interpolate,
   useAnimatedProps,
   useAnimatedStyle,
-  useReducedMotion,
 } from 'react-native-reanimated';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 import { useColors } from '@/hooks/useColors';
 import { useLoopProgress } from '@/lib/useLoopProgress';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 const AnimatedG = Animated.createAnimatedComponent(G);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);

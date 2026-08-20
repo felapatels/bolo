@@ -67,6 +67,7 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+
 jest.mock('@/lib/funFacts', () => ({
   pickFunFact: () => mockFlags.fact,
 }));

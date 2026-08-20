@@ -34,11 +34,11 @@ import { AppFonts } from '@/constants/fonts';
 import { registerXpCounter, registerXpCounterPop } from '@/lib/xpCounterRef';
 import Animated, {
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withSequence,
   withSpring,
 } from 'react-native-reanimated';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 export function XpCounter({ variant }: { variant: 'chrome' | 'session' }) {
   const { activeLang, timezone } = useLanguage();

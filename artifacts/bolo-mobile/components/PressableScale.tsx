@@ -1,7 +1,7 @@
 import React from 'react';
 import { Animated, Pressable, type PressableProps, type ViewStyle } from 'react-native';
 import { hapticTap, type HapticStrength } from '@/lib/haptics';
-import { useReducedMotionRN } from '@/lib/reducedMotion';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -48,7 +48,7 @@ export function PressableScale({
   scaleTo?: number;
   haptic?: HapticStrength;
 }) {
-  const reduceMotion = useReducedMotionRN();
+  const reduceMotion = useReducedMotion();
   const scale = React.useRef(new Animated.Value(1)).current;
 
   const to = (value: number, duration: number) => {

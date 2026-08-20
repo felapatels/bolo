@@ -12,7 +12,6 @@
 // at opacity 0 / offset — the animation's initial state — by a skipped
 // animation pass.
 import Constants from 'expo-constants';
-import { useReducedMotion } from 'react-native-reanimated';
 
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
@@ -101,6 +100,7 @@ export function useAppearSkip(): boolean {
 // its resting place, fully readable, and nobody ever notices. That is a
 // progressive enhancement; the fade was not.
 import { withDelay, withTiming, type EntryAnimationsValues } from 'react-native-reanimated';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 const DEFAULT_MS = 500;
 /** Far enough to read as motion, near enough that a stalled one looks fine. */

@@ -81,6 +81,7 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { __player: film } = require('expo-video');
 // eslint-disable-next-line @typescript-eslint/no-require-imports

@@ -3,7 +3,6 @@ import { Image, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withSequence,
@@ -14,6 +13,7 @@ import { useColors } from '@/hooks/useColors';
 import { accessoryOverlaySource, mascotSource } from '@/lib/mascotOutfits';
 import { useEquippedOutfit } from '@/contexts/OutfitContext';
 import type { MascotPose } from '@/components/Mascot';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 export type TalkingMascotMode = 'idle' | 'listening' | 'talking' | 'thinking';
 

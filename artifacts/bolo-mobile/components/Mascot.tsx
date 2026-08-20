@@ -4,7 +4,6 @@ import Animated, {
   Easing,
   ReduceMotion,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withSequence,
@@ -14,6 +13,7 @@ import Animated, {
 import { appear, appearZoom } from '@/lib/entrance';
 import { accessoryOverlaySource, mascotSource } from '@/lib/mascotOutfits';
 import { useEquippedOutfit } from '@/contexts/OutfitContext';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 /**
  * Bolo the Parrot — the friendly face of the app. Renders one of the five

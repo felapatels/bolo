@@ -16,7 +16,6 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import Animated, {
   useAnimatedProps,
-  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -65,6 +64,7 @@ import { ChaiGlyph, ChaiStallVignette } from '@/components/ChaiStall';
 import { HomeSocialStrip } from '@/components/HomeSocialStrip';
 import { preloadTearAudio } from '@/lib/tearAudio';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 /** AsyncStorage key recording that the daily-goal celebration already fired. */
 function goalCelebratedStorageKey(lang: string, date: string): string {
@@ -1077,7 +1077,6 @@ export default function HomeScreen() {
     </Screen>
   );
 }
-
 
 /** Compact pill card nudging the learner to review phrases that are due. */
 function ReviewBadge({

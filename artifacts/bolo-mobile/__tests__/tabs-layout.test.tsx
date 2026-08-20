@@ -124,6 +124,7 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+
 // Expo Router's <Tabs> needs a full navigation context we don't want to stand
 // up here.  Replace it with a lightweight stand-in that:
 //

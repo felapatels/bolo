@@ -3,11 +3,11 @@ import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 /**
  * Live-input waveform (Spec D2). A row of vertical bars whose heights track

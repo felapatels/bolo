@@ -16,13 +16,13 @@ import Animated, {
   interpolate,
   runOnJS,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 import { measureXpCounter, popXpCounter } from '@/lib/xpCounterRef';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
+import { useReducedMotion } from '@/lib/motionPrefs';
 
 const DURATION_MS = 550;
 

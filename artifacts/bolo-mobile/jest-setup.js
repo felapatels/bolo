@@ -277,3 +277,25 @@ jest.mock('expo-video', () => {
     VideoView: (props) => React.createElement(View, props),
   };
 });
+
+// Reduce Motion moved OFF reanimated on 2026-08-20. reanimated answers from its
+// own native module and returns TRUE when that module has not initialised,
+// which silently flattened every animation in the app for two builds while the
+// owner had the setting switched off. lib/motionPrefs reads AccessibilityInfo
+// directly, so components no longer ask an animation library about an OS
+// preference.
+//
+// This double DELEGATES to whatever react-native-reanimated mock is in force,
+// rather than carrying its own flag. Eleven suites already control Reduce
+// Motion through that mock, each with its own shape: a constant, a mockFlags
+// object, a mutable __motion. Delegating means every one of them keeps working
+// unchanged and a test still flips exactly one thing.
+jest.mock('@/lib/motionPrefs', () => {
+  const rea = jest.requireMock('react-native-reanimated');
+  const read = () => Boolean(rea.useReducedMotion && rea.useReducedMotion());
+  return {
+    __esModule: true,
+    useReducedMotion: read,
+    prefersReducedMotion: read,
+  };
+});

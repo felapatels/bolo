@@ -150,6 +150,7 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
+
 jest.mock('@/lib/haptics', () => ({
   hapticLight: jest.fn(),
   hapticMedium: jest.fn(),
