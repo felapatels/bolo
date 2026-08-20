@@ -1,9 +1,8 @@
 import React from 'react';
-import { render, screen, act } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { BrandSplash, __resetBrandSplashForTests } from '@/components/BrandSplash';
-import { SPLASH_WAVE, SPLASH_WAVE_FPS, SPLASH_MOTION_ENABLED } from '@/lib/splashFilm';
 
 // jest-setup.js mocks reanimated globally with useReducedMotion: () => false.
 // This file flips it per test, so the mutable flag lives INSIDE the factory:
@@ -35,9 +34,6 @@ const { __motion } = jest.requireMock('react-native-reanimated') as {
 // ---------------------------------------------------------------------------
 
 const ROOT = join(__dirname, '..');
-
-beforeEach(() => jest.useFakeTimers());
-afterEach(() => jest.useRealTimers());
 
 function sourceFiles(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -99,81 +95,29 @@ describe('the WebP survives on disk but reaches no bundle', () => {
   });
 });
 
-describe('THE GREETING WAVE, and what it falls back to', () => {
-  // These follow SPLASH_MOTION_ENABLED rather than hard-coding it, deliberately.
-  // The switch has been flipped twice in one evening and each flip rewrote the
-  // assertions, which is churn that teaches nothing. What is worth pinning is
-  // the RELATIONSHIP: the switch and Reduce Motion each decide which source is
-  // handed over, and the fallback is never a decoded animation with a still
-  // laid over it. The switch's actual value is pinned once, at source level, in
-  // the block below, where a change to it is a deliberate edit with a reason.
-  //
+describe('THE SPLASH IS A STILL, in every motion mode', () => {
   // includeHiddenElements is REQUIRED and is not a workaround. The overlay sets
   // accessibilityElementsHidden and importantForAccessibility="no-hide-
   // descendants" on purpose, because a splash must never be announced to a
   // screen reader, and RNTL's queries skip hidden subtrees by default. Without
   // it every query below returns null and the suite passes vacuously.
   const q = (id: string) => screen.queryByTestId(id, { includeHiddenElements: true });
-  const MOVING = SPLASH_MOTION_ENABLED ? 'splash-wave' : 'splash-still';
 
   beforeEach(() => {
     __resetBrandSplashForTests();
     __motion.reduce = false;
   });
 
-  it(`renders ${SPLASH_MOTION_ENABLED ? 'the wave' : 'the poster'} when motion is allowed`, () => {
-    render(<BrandSplash />);
-    expect(q(MOVING)).not.toBeNull();
-  });
-
-  it('REDUCE MOTION GETS THE POSTER, and no wave frame is referenced at all', () => {
-    __motion.reduce = true;
+  it.each([false, true])('renders the poster with reduceMotion=%s', (reduce) => {
+    __motion.reduce = reduce;
     render(<BrandSplash />);
     expect(q('splash-still')).not.toBeNull();
-    expect(q('splash-wave')).toBeNull();
   });
 
-  it('covers the screen, so nothing is corner-cropped', () => {
+  it('and covers the screen, so the poster is never corner-cropped', () => {
     // A bare absoluteFill Image lays out at its intrinsic size on iOS, which is
     // why the style carries explicit 100% and why resizeMode is asserted here.
     render(<BrandSplash />);
-    expect(q(MOVING)?.props.resizeMode).toBe('cover');
-  });
-
-  (SPLASH_MOTION_ENABLED ? describe : describe.skip)('while the wave is on', () => {
-    it('starts on the first frame, so the opening pose is never mid-wave', () => {
-      render(<BrandSplash />);
-      expect(q('splash-wave')?.props.source).toBe(SPLASH_WAVE[0]);
-    });
-
-    it('ping-pongs rather than snapping back to the start', () => {
-      render(<BrandSplash />);
-      const seen: number[] = [];
-      for (let i = 0; i < SPLASH_WAVE.length + 4; i++) {
-        act(() => { jest.advanceTimersByTime(Math.round(1000 / SPLASH_WAVE_FPS)); });
-        seen.push(SPLASH_WAVE.indexOf(q('splash-wave')!.props.source));
-      }
-      expect(Math.max(...seen)).toBe(SPLASH_WAVE.length - 1);
-      const peak = seen.indexOf(SPLASH_WAVE.length - 1);
-      expect(seen[peak + 1]).toBe(SPLASH_WAVE.length - 2);
-    });
-  });
-});
-
-describe('THE SWITCH IS OFF, and that is a finding rather than a default', () => {
-  const src = readFileSync(join(ROOT, 'lib/splashFilm.ts'), 'utf8');
-
-  // INVERTED. This pinned `true` for one build. That build swapped twelve
-  // frames a second through the SAME Image component the poster build had just
-  // survived ten launches on, added no library at all, and crashed nine times
-  // out of ten. Churn on the launch path is what the underlying Hermes bug
-  // reacts to, so the switch is off until that bug is fixed rather than until
-  // someone finds a fourth renderer.
-  it('SPLASH_MOTION_ENABLED is false', () => {
-    expect(src).toMatch(/export const SPLASH_MOTION_ENABLED = false;/);
-  });
-
-  it('and the wave frames survive on disk for the day it can be turned back on', () => {
-    expect(SPLASH_WAVE).toHaveLength(12);
+    expect(q('splash-still')?.props.resizeMode).toBe('cover');
   });
 });
