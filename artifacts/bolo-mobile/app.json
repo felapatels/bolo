@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "bolo-mobile",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/mascot/mascot-wave.png",
       "resizeMode": "contain",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.bolo.mobile",
-      "buildNumber": "53",
+      "buildNumber": "54",
       "supportsTablet": false,
       "icon": "./assets/images/icon.png",
       "infoPlist": {

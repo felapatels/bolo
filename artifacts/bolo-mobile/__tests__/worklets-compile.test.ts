@@ -29,7 +29,7 @@ const ROOT = join(__dirname, '..');
  * Getting this wrong makes the plugin throw ENOENT, which looks exactly like
  * "worklets are not compiling" and sent me chasing a phantom once already.
  */
-function compile(src: string): string {
+function compile(src: string, caller?: Record<string, unknown>): string {
   const probe = join(ROOT, 'lib', '__worklet-probe.generated.ts');
   writeFileSync(probe, src);
   try {
@@ -39,6 +39,7 @@ function compile(src: string): string {
       root: ROOT,
       babelrc: false,
       configFile: join(ROOT, 'babel.config.js'),
+      ...(caller ? { caller: caller as never } : {}),
     });
     return out?.code ?? '';
   } finally {
@@ -102,5 +103,29 @@ describe('WORKLETS ACTUALLY COMPILE', () => {
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
     expect(deps['react-native-reanimated']).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+});
+
+describe('AND IT COMPILES UNDER METRO, not just under a bare babel call', () => {
+  // Babel presets branch on api.caller(). A transform that works with no caller
+  // proves nothing about the real build, where Metro passes a caller naming
+  // itself, the platform, and whether this is a dev bundle. Build 54 shipped
+  // with worklets that compiled in this suite and animations that were dead on
+  // the device, which is exactly the gap a caller-less test leaves open.
+  const WORKLET = `
+    export function slide() {
+      return () => {
+        'worklet';
+        return { transform: [{ translateY: 4 }] };
+      };
+    }
+  `;
+
+  it.each([
+    ['production ios bundle', { name: 'metro', platform: 'ios', isDev: false, isServer: false }],
+    ['dev ios bundle', { name: 'metro', platform: 'ios', isDev: true, isServer: false }],
+    ['production android bundle', { name: 'metro', platform: 'android', isDev: false, isServer: false }],
+  ])('compiles worklets in a %s', (_label, caller) => {
+    expect(compile(WORKLET, caller as Record<string, unknown>)).toMatch(WORKLET_MARKERS);
   });
 });
