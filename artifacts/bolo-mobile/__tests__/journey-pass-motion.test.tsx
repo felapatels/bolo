@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 // Build 31 items 2 + 3: the home boarding pass gains progress-aware CTA copy
 // and the stub tear-off activation. Pinned here:
 //   - CTA 3-state copy (Start / Resume at Stop N · X to go / Continue), with
@@ -300,5 +302,55 @@ describe('stub tear-off activation', () => {
       fireEvent.press(screen.getByTestId('journey-pass-card'));
     });
     expect(playTearSfx).not.toHaveBeenCalled();
+  });
+});
+
+describe('THE CURL: the stub peels rather than sliding away flat', () => {
+  // Added 2026-08-20. A torn stub lifts its free edge and rolls back on itself;
+  // the original tear only translated and rotated in the plane, which reads as
+  // a card sliding rather than paper tearing.
+  const src = readFileSync(
+    join(__dirname, '..', 'components', 'journey', 'JourneyPassCard.tsx'),
+    'utf8',
+  );
+
+  it('PERSPECTIVE IS THE FIRST ENTRY in the stub transform', () => {
+    // This is the whole trick and it is silently wrong if reordered: without a
+    // perspective ahead of it, React Native renders rotateY as a flat
+    // horizontal squash with no depth, which looks like a rendering bug rather
+    // than a curl. A reviewer tidying the array alphabetically would break it.
+    const block = src.slice(src.indexOf('const stubTearStyle'));
+    const transform = block.slice(block.indexOf('transform: ['));
+    const first = transform.slice(0, transform.indexOf('},'));
+    expect(first).toContain('perspective: TEAR_PERSPECTIVE');
+  });
+
+  it('hinges at the perforation, not the stub centre', () => {
+    // rotateY about the middle spins the stub in place. It has to pivot on the
+    // edge it is being torn from.
+    const start = src.indexOf('stubTearing: {');
+    const block = src.slice(start, src.indexOf('\n  },', start));
+    expect(block).toContain("transformOrigin: 'left center'");
+  });
+
+  it('and the origin sits on the SAME view as the animated transform', () => {
+    // A transformOrigin on a different view than the one carrying the
+    // transform is inert, and silently so. These two must appear in one style
+    // array or the curl pivots from the centre with nothing to show for it.
+    const applied = src.slice(src.indexOf('stubTearStyle,'));
+    expect(applied.slice(0, 200)).toContain('styles.stubTearing');
+  });
+
+  it('does not start curling before the perforation gives at 16%', () => {
+    // The two halves grip first. A curl that begins at t=0 makes the stub look
+    // loose before anything has torn.
+    const block = src.slice(src.indexOf('rotateY:'));
+    expect(block.slice(0, 200)).toContain('[0, 0,');
+  });
+
+  it('and the body half stays flat, because only the free piece peels', () => {
+    const block = src.slice(src.indexOf('const bodyTearStyle'));
+    const transform = block.slice(0, block.indexOf('};'));
+    expect(transform).not.toContain('rotateY');
   });
 });

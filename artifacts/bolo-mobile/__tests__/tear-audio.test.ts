@@ -65,7 +65,10 @@ describe('preloadTearAudio', () => {
     mod.preloadTearAudio();
     expect(mockCreateAudioPlayer).toHaveBeenCalledTimes(1);
     expect(player.volume).toBe(mod.TEAR_SFX_GAIN);
-    expect(mod.TEAR_SFX_GAIN).toBe(0.4);
+    // Lowered from 0.4 on 2026-08-20: too loud on device, which is the only
+    // place a gain can be judged. Web stays at 0.4 on purpose; a phone at
+    // reading distance is not a laptop at arm's length.
+    expect(mod.TEAR_SFX_GAIN).toBe(0.28);
   });
 
   it('a create failure is silent and leaves playback disabled', async () => {
