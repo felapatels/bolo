@@ -198,35 +198,37 @@ describe('THE KILL SWITCH is wired through every path', () => {
   });
 });
 
-describe('THE ENTRANCE DECISION IS LATCHED AT MOUNT', () => {
+describe('THE ENTRANCE DECISION IS NOT LATCHED, and that is deliberate again', () => {
   const src = require('node:fs').readFileSync(
     require('node:path').join(__dirname, '..', 'lib', 'entrance.ts'),
     'utf8',
   ) as string;
 
-  // lib/motionPrefs holds a launch quiet window: for the first 1800ms it
-  // reports reduced motion whatever the OS says, so nothing animates while the
-  // app is inside the window where animating crashes it. That value FLIPS
-  // mid-life on every single launch.
+  // REVERTED 2026-08-20, same day it was added. The latch existed only because
+  // lib/motionPrefs held a launch quiet window that made reduced motion flip
+  // from true to false 1800ms into every launch, and handing a mounted view a
+  // new `entering` prop at that moment applied the animation's initial offset
+  // and displaced content. That window has been removed: it was suppressing
+  // every animation in the app to prevent a crash that turned out to be an
+  // artifact of ad-hoc internal builds, not of animating.
   //
-  // Handing a view a new `entering` prop after it is already on screen makes
-  // reanimated apply that animation's initialValues to it, offsetting content
-  // that was rendering correctly a frame earlier, and the animation never runs
-  // because the mount it belonged to is long past. Build 58 showed exactly
-  // that: the boarding pass and the Chai stall vanished from home at 1800ms.
-  it('useAppearSkip holds its first answer with a ref', () => {
+  // With reduced motion no longer flipping mid-life, latching would only hide
+  // a genuine OS preference change from a mounted screen. So the hook answers
+  // honestly again, and this pins that rather than deleting the reasoning.
+  it('useAppearSkip reads the current preference, with no ref', () => {
     const body = src.slice(src.indexOf('export function useAppearSkip'));
     const fn = body.slice(0, body.indexOf('\n}'));
-    expect(fn).toContain('React.useRef');
-    expect(fn).toContain('latched.current');
+    expect(fn).not.toContain('useRef');
+    expect(fn).toContain('useReducedMotion()');
   });
 
-  it('and returns the ref, never the freshly computed value', () => {
-    // Returning `skip` would reintroduce the bug while looking like it was
-    // fixed, since the ref would be sitting right there unused.
-    const body = src.slice(src.indexOf('export function useAppearSkip'));
-    const fn = body.slice(0, body.indexOf('\n}'));
-    expect(fn).toMatch(/return latched\.current;/);
-    expect(fn).not.toMatch(/return skip;/);
+  it('and lib/motionPrefs holds no launch window any more', () => {
+    // The window is gone. If it ever comes back, it needs the latch back with
+    // it, and this failing is how that gets remembered.
+    const prefs = require('node:fs').readFileSync(
+      require('node:path').join(__dirname, '..', 'lib', 'motionPrefs.ts'),
+      'utf8',
+    ) as string;
+    expect(prefs).not.toContain('LAUNCH_QUIET_MS');
   });
 });
