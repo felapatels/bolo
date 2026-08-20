@@ -36,6 +36,16 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+/**
+ * THE FILM, UNTOUCHED. The original 1080x2400 encode at 60fps, no re-encode and
+ * no downscale, because a video decoder streams frames instead of holding them
+ * and so has none of the memory ceiling a frame sequence does. Measured: the
+ * same film as a full-resolution JPEG sequence is 11.7MB bundled and over a
+ * GIGABYTE of decoded pixels at 24fps. That is not a tuning problem, it is the
+ * wrong mechanism.
+ */
+export const SPLASH_FILM = require('../assets/splash/welcome-bolo.mp4') as number;
+
 export const SPLASH_POSTER = require('../assets/splash/welcome-bolo-poster.png') as number;
 
 /**
