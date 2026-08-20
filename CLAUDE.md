@@ -14,6 +14,11 @@ pnpm monorepo. Workspaces: `artifacts/*`, `lib/*`, `lib/integrations/*`, `script
 - `lib/api-spec` — `openapi.yaml`; `pnpm --filter @workspace/api-spec run codegen`
   regenerates `lib/api-client-react` (orval) and `lib/api-zod`
 - `lib/db` — Drizzle schema, migrations, seed
+- `lib/script-trace` — **the stroke engine**: scoring, levels, script definitions
+  and the authored chapter data. Pure, no React and no DOM, consumed by web,
+  mobile and `scripts`. Extracted 2026-08-20 from the web artifact, which had a
+  4803-line hand-maintained duplicate in mobile and a script whose only job was
+  to police the two for drift.
 - `lib/referral-link`, `lib/train-class`, `lib/integrations-openai-ai-{react,server}`
 
 Database lives in Replit; `DATABASE_URL` in `.env` points at it. Dev and prod are

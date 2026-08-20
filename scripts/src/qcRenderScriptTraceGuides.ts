@@ -3,7 +3,7 @@
 // Then screenshot /tmp/qc-guides.html with headless chromium.
 
 import { writeFileSync } from "node:fs";
-import { SCRIPT_TRACE_CHAPTERS } from "../../artifacts/gujarati-coach/src/data/script-trace-chapters";
+import { SCRIPT_TRACE_CHAPTERS } from "@workspace/script-trace";
 
 /** chapterId → character ids to sample ("*" = first item). */
 const SAMPLES: [chapter: string, ids: string[]][] = [

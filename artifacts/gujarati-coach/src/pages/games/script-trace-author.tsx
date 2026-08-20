@@ -19,8 +19,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { AlertTriangle, ArrowLeft, Check, Copy, Eraser, Play, Trash2, Undo2 } from "lucide-react";
-import { strokesUpTo, type AuthoredGlyph, type GlyphExample, type StrokePoint } from "@/lib/stroke-scoring";
-import { SCRIPT_NAMES, SCRIPT_ORDER_TIP, type ScriptId } from "@/lib/scripts";
+import { strokesUpTo, type AuthoredGlyph, type GlyphExample, type StrokePoint } from "@workspace/script-trace";
+import { SCRIPT_NAMES, SCRIPT_ORDER_TIP, type ScriptId } from "@workspace/script-trace";
 
 const BOX = 100;
 

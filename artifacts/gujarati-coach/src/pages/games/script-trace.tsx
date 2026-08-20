@@ -17,7 +17,7 @@ import {
   type TraceChapter,
   type TraceCharacter,
   type ChapterStage,
-} from "@/data/script-trace-chapters";
+} from "@workspace/script-trace";
 
 // ── Accuracy scoring ─────────────────────────────────────────────────────────
 

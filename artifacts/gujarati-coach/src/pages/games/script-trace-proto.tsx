@@ -19,8 +19,8 @@ import {
   PASS_SCORE,
   type StrokePoint,
   type TraceResult,
-} from "@/lib/stroke-scoring";
-import { DEVANAGARI_PROTOTYPE_GLYPHS } from "@/data/devanagari-strokes";
+} from "@workspace/script-trace";
+import { DEVANAGARI_PROTOTYPE_GLYPHS } from "@workspace/script-trace";
 
 /** The drawing surface is square and shares the glyph's 0-100 coordinate box,
  *  so a pointer position converts by a single divide. */

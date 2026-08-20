@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import ScriptTraceProto from "@/pages/games/script-trace-proto";
-import { DEVANAGARI_PROTOTYPE_GLYPHS } from "@/data/devanagari-strokes";
+import { DEVANAGARI_PROTOTYPE_GLYPHS } from "@workspace/script-trace";
 
 // ---------------------------------------------------------------------------
 // The sandbox shipped without a single test of the DRAWING, and was reported
