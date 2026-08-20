@@ -202,10 +202,12 @@ function BrandSplashFilm() {
 }
 
 const styles = StyleSheet.create({
-  // The film opens on a near-white plate, so any other colour flashes at
-  // reveal. zIndex + elevation put the overlay above everything.
+  // The 2026-08-20 film opens on the BAZAAR, not on the near-white plate the
+  // old one used, so the ground is a warm mid-tone sampled from its first
+  // frame. White here would flash at the edges of any frame the poster does
+  // not cover. zIndex + elevation put the overlay above everything.
   overlay: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#8E6A59',
     zIndex: 9999,
     elevation: 9999,
   },
