@@ -18,21 +18,27 @@
  * Any failure renders null and the app boots normally (boundary below).
  */
 import React, { Component, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, StyleSheet } from 'react-native';
-import { Image } from 'expo-image';
+import { Animated, Image, StyleSheet } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
-// THE FILM IS BACK, THROUGH A DIFFERENT DOOR. expo-video was removed on
-// 2026-08-19 because this component mounts at the ROOT layout, so it decoded a
-// film on EVERY cold start, which is exactly when the app died inside the
-// Hermes GC. Fifteen crashes that day, all of them ending the moment it left.
+// THE SPLASH IS A STILL, RENDERED BY REACT NATIVE'S OWN Image, AND BOTH HALVES
+// OF THAT ARE LOAD-BEARING. Do not casually change either one.
 //
-// What plays now is an animated WebP through expo-image, which is the image
-// pipeline rather than AVFoundation: no AVPlayer, no VideoToolbox, and none of
-// the JSI machinery that broke us. See lib/splashFilm.ts for the encode recipe
-// and for SPLASH_MOTION_ENABLED, which drops straight back to the still.
+// expo-video went first: this component mounts at the ROOT layout, so it
+// decoded a film on EVERY cold start. Removing it did NOT stop the crash, which
+// is recorded in CLAUDE.md because an older commit message says otherwise.
+//
+// expo-image went second, and that one IS a clean result. Three builds, same
+// app, one line apart:
+//   d429f289  react-native Image, still poster      5 cold starts, 0 crashes
+//   c56157f0  expo-image, animated WebP             5 cold starts, 5 crashes
+//   0f349d37  expo-image, same still poster         5 cold starts, 5 crashes
+// The film was never the variable. Swapping the Image component was. Whatever
+// expo-image does on this SDK, it does not survive the root layout here, and
+// it is now imported by nothing in the app.
+//
+// The poster path already existed for Reduce Motion, so the splash still shows
+// and still holds for the same duration. It simply does not move.
 import {
-  SPLASH_MOTION,
-  SPLASH_MOTION_ENABLED,
   SPLASH_POSTER,
   SPLASH_FULL_PLAY_MS,
   SPLASH_MIN_HOLD_MS,
@@ -77,10 +83,8 @@ function BrandSplashFilm() {
   const mountedAt = useRef(Date.now());
   const opacity = useRef(new Animated.Value(1)).current;
 
-  // Reduced motion (and the kill switch) point `source` at the still, so the
-  // animated file is never handed to the decoder at all in those modes rather
-  // than being decoded and then hidden.
-  const moving = SPLASH_MOTION_ENABLED && !reduceMotion;
+  // Muted, no loop, plays as soon as it is ready. Reduced motion never
+  // creates a source, so the film is not decoded at all in that mode.
 
   useEffect(() => {
     coldStartConsumed = true;
@@ -159,17 +163,10 @@ function BrandSplashFilm() {
       style={[StyleSheet.absoluteFill, styles.overlay, { opacity }]}
     >
       <Image
-        testID={moving ? 'splash-film' : 'splash-still'}
-        source={moving ? SPLASH_MOTION : SPLASH_POSTER}
-        // The still is the film's first frame, so it stands in for nothing:
-        // it paints instantly while the animation decodes, and the swap is
-        // invisible. transition 0 because a cross-fade between a frame and
-        // the same frame is just a flicker.
-        placeholder={SPLASH_POSTER}
-        placeholderContentFit="cover"
-        contentFit="cover"
-        transition={0}
+        testID="splash-still"
+        source={SPLASH_POSTER}
         style={styles.layer}
+        resizeMode="cover"
       />
     </Animated.View>
   );
@@ -184,8 +181,8 @@ const styles = StyleSheet.create({
     elevation: 9999,
   },
   // Explicit 100% alongside absoluteFill: a bare absoluteFill Image lays
-  // out at its intrinsic size on iOS, which corner-crops the frame and
-  // makes contentFit inert.
+  // out at its intrinsic size on iOS, which corner-crops the still and
+  // makes resizeMode inert.
   layer: {
     ...StyleSheet.absoluteFillObject,
     width: '100%',

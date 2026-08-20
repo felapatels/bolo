@@ -1,13 +1,13 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { BrandSplash, __resetBrandSplashForTests } from '@/components/BrandSplash';
 
-// Same idiom as bazaar-welcome.test.tsx: jest.mock is hoisted above every const
-// in the file, so the mutable flag lives INSIDE the factory and comes back out
-// on a __ property. jest-setup.js mocks reanimated globally with
-// useReducedMotion: () => false; this file needs to flip it per test.
+// jest-setup.js mocks reanimated globally with useReducedMotion: () => false.
+// This file flips it per test, so the mutable flag lives INSIDE the factory:
+// jest.mock is hoisted above every const here. Same idiom as
+// bazaar-welcome.test.tsx.
 jest.mock('react-native-reanimated', () => {
   const motion = { reduce: false };
   return { __esModule: true, __motion: motion, useReducedMotion: () => motion.reduce };
@@ -15,25 +15,22 @@ jest.mock('react-native-reanimated', () => {
 
 jest.mock('@/lib/splashReady', () => ({ __esModule: true, useHomeReady: () => false }));
 
-// BrandSplash is the ONLY file in the app that imports expo-image, so there is
-// no global double to reuse. A View passes testID straight through, which is
-// all these tests read: the component picks the testID from the same boolean
-// that picks the source, so the id IS the evidence of which one was handed to
-// the decoder.
-jest.mock('expo-image', () => ({ __esModule: true, Image: require('react-native').View }));
-
 const { __motion } = jest.requireMock('react-native-reanimated') as {
   __motion: { reduce: boolean };
 };
 
 // ---------------------------------------------------------------------------
-// The splash had NO tests, which is how a film ended up decoding at the root
-// layout on every cold start and killing the app three or four launches out of
-// five (2026-08-19, fifteen crashes). These do not try to prove the animation
-// looks right, which no test can. They pin the two things that actually cost
-// the day: that nothing requires a video on any path, and that Reduce Motion
-// and the kill switch both really reach the decoder rather than merely hiding
-// a decoded frame.
+// The splash had NO tests, which is how two different renderers reached the
+// ROOT layout and killed the app before anyone could see why. These do not try
+// to prove the splash looks right, which no test can. They pin the census: what
+// is allowed to render on the launch path, and what is not.
+//
+// The history, because it is the reason every rule below exists. Three builds,
+// same app, one import apart:
+//   d429f289  react-native Image, still poster   5 launches, 0 crashes
+//   c56157f0  expo-image, animated WebP          5 launches, 5 crashes
+//   0f349d37  expo-image, same still poster      5 launches, 5 crashes
+// The film was never the variable. The Image component was.
 // ---------------------------------------------------------------------------
 
 const ROOT = join(__dirname, '..');
@@ -48,81 +45,62 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-describe('NOTHING REQUIRES A VIDEO, on any path', () => {
-  // The strongest guard available here, and the cheapest. expo-video is gone,
-  // but a require() of an .mp4 is what put a decoder on the launch path in the
-  // first place, and a second one would arrive the same quiet way: bundled,
-  // unmentioned, and only visible as an intermittent crash on a real device.
-  const files = ['app', 'components', 'lib'].flatMap((d) => sourceFiles(join(ROOT, d)));
+const APP_SOURCES = ['app', 'components', 'lib'].flatMap((d) => sourceFiles(join(ROOT, d)));
 
-  it('finds no .mp4 or .mov require anywhere in app, components or lib', () => {
-    const offenders = files.filter((f) => /require\([^)]*\.(mp4|mov)['"]\)/.test(readFileSync(f, 'utf8')));
-    expect(offenders.map((f) => f.replace(ROOT, ''))).toEqual([]);
+/** Files whose CODE matches, ignoring comments, which discuss both bans at length. */
+function importers(pattern: RegExp): string[] {
+  return APP_SOURCES.filter((f) =>
+    readFileSync(f, 'utf8')
+      .split('\n')
+      .some((line) => !/^\s*(\/\/|\*|\/\*)/.test(line) && pattern.test(line)),
+  ).map((f) => f.replace(ROOT, ''));
+}
+
+describe('THE LAUNCH PATH RENDERS NO VIDEO AND NO expo-image', () => {
+  // Both bans are empirical, not stylistic, and both were paid for on device.
+  // A third renderer would arrive the same quiet way the first two did:
+  // bundled, unmentioned, and visible only as a crash on a real phone.
+
+  it('nothing requires an .mp4 or .mov', () => {
+    expect(importers(/require\([^)]*\.(mp4|mov)['"]\)/)).toEqual([]);
   });
 
-  it('finds no import of expo-video', () => {
-    const offenders = files.filter((f) => /from ['"]expo-video['"]/.test(readFileSync(f, 'utf8')));
-    expect(offenders.map((f) => f.replace(ROOT, ''))).toEqual([]);
+  it('nothing imports expo-video', () => {
+    expect(importers(/from ['"]expo-video['"]/)).toEqual([]);
   });
 
-  it('and expo-video is not a dependency', () => {
+  it('NOTHING IMPORTS expo-image, which is the one that crashed 5 of 5', () => {
+    // expo-image-picker is a different package and is allowed; the boundary is
+    // an exact module specifier, not a prefix.
+    expect(importers(/from ['"]expo-image['"]/)).toEqual([]);
+  });
+
+  it('and neither is a dependency that autolinks a decoder we do not use', () => {
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
     expect({ ...pkg.dependencies, ...pkg.devDependencies }['expo-video']).toBeUndefined();
   });
 });
 
-describe('the splash assets are what the component thinks they are', () => {
-  it('the film is an ANIMATED webp, not a still with the wrong suffix', () => {
-    // A single-frame webp would render as a frozen splash that nobody notices
-    // is broken until someone asks why the bird stopped moving.
-    const bytes = readFileSync(join(ROOT, 'assets/splash/welcome-bolo.webp'));
-    expect(bytes.subarray(0, 4).toString()).toBe('RIFF');
-    expect(bytes.subarray(8, 12).toString()).toBe('WEBP');
-    expect(bytes.includes(Buffer.from('ANIM'))).toBe(true);
-    // ANMF is one chunk per frame. A real film has plenty.
-    expect(bytes.toString('binary').split('ANMF').length - 1).toBeGreaterThan(30);
+describe('the WebP survives on disk but reaches no bundle', () => {
+  it('the encoded film is still there for whoever finds a renderer', () => {
+    // Kept deliberately: the encode was the fiddly part of that attempt and the
+    // asset itself was never at fault. lib/splashFilm.ts carries the recipe.
+    expect(existsSync(join(ROOT, 'assets/splash/welcome-bolo.webp'))).toBe(true);
   });
 
-  it('and it is not larger than the mp4 it replaced', () => {
-    // The whole trade was "same film, different decoder, no size penalty". If a
-    // re-encode ever breaks that, it should fail here rather than in an install.
-    const webp = statSync(join(ROOT, 'assets/splash/welcome-bolo.webp')).size;
-    expect(webp).toBeLessThan(statSync(join(ROOT, 'assets/splash/welcome-bolo.mp4')).size);
+  it('but nothing requires it, so Metro does not ship it', () => {
+    // A module-scope require bundles an asset whether or not anything reads it.
+    // That is how 4MB of unplayable mp4 rode along in every install for a day.
+    expect(importers(/require\([^)]*welcome-bolo\.webp['"]\)/)).toEqual([]);
   });
 });
 
-describe('THE KILL SWITCH, pinned at source like lib/entrance.ts', () => {
-  const src = readFileSync(join(ROOT, 'lib/splashFilm.ts'), 'utf8');
-
-  // INVERTED 2026-08-19, hours after it was written. This pinned `true` while
-  // the animated WebP was believed safe. It crashed five cold starts out of
-  // five, so the constant is false and the assertion pins that instead of being
-  // deleted along with the belief.
-  it('is a single constant, and it is OFF after the 5-of-5 crash', () => {
-    expect(src).toMatch(/export const SPLASH_MOTION_ENABLED = false;/);
-  });
-
-  it('no longer exports SPLASH_FILM, so the mp4 path cannot be half-restored', () => {
-    expect(src).not.toContain('SPLASH_FILM');
-  });
-});
-
-describe('THE SWITCH REACHES THE DECODER, it does not merely cover a frame', () => {
-  // INVERTED 2026-08-19, hours after it was written. This block asserted that
-  // the film played whenever motion was allowed. It crashed five cold starts
-  // out of five, so SPLASH_MOTION_ENABLED is false and the still is what
-  // renders in every mode.
-  //
-  // The invariant being pinned did not change and is the entire safety
-  // argument: the animated source is NEVER HANDED OVER, rather than being
-  // decoded and then hidden behind the poster. If it were merely covered, the
-  // kill switch would be cosmetic and would not have saved the launch.
-  //
+describe('THE SPLASH IS A STILL, in every motion mode', () => {
   // includeHiddenElements is REQUIRED and is not a workaround. The overlay sets
   // accessibilityElementsHidden and importantForAccessibility="no-hide-
   // descendants" on purpose, because a splash must never be announced to a
   // screen reader, and RNTL's queries skip hidden subtrees by default. Without
-  // it every query returns null and these pass vacuously.
+  // it every query below returns null and the suite passes vacuously.
   const q = (id: string) => screen.queryByTestId(id, { includeHiddenElements: true });
 
   beforeEach(() => {
@@ -130,20 +108,16 @@ describe('THE SWITCH REACHES THE DECODER, it does not merely cover a frame', () 
     __motion.reduce = false;
   });
 
-  it.each([false, true])(
-    'renders the STILL with reduceMotion=%s, because the switch is off',
-    (reduce) => {
-      __motion.reduce = reduce;
-      render(<BrandSplash />);
-      expect(q('splash-still')).not.toBeNull();
-      expect(q('splash-film')).toBeNull();
-    },
-  );
-
-  it('carries the still as its placeholder too, so nothing paints empty', () => {
-    // The overlay's ground is the film's opening plate; drop the placeholder
-    // and a cold start flashes white before anything decodes.
+  it.each([false, true])('renders the poster with reduceMotion=%s', (reduce) => {
+    __motion.reduce = reduce;
     render(<BrandSplash />);
-    expect(q('splash-still')?.props.placeholder).toBeDefined();
+    expect(q('splash-still')).not.toBeNull();
+  });
+
+  it('and covers the screen, so the poster is never corner-cropped', () => {
+    // A bare absoluteFill Image lays out at its intrinsic size on iOS, which is
+    // why the style carries explicit 100% and why resizeMode is asserted here.
+    render(<BrandSplash />);
+    expect(q('splash-still')?.props.resizeMode).toBe('cover');
   });
 });
