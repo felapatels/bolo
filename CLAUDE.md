@@ -141,17 +141,28 @@ command runs.
   NOT test this, since the worklets runtime still starts), `@sentry/react-native`
   initialising early on the launch path, and Hermes itself on RN 0.81.5 with the
   New Architecture.
+- **`expo-image` MUST NOT be imported anywhere in the mobile app. It crashed
+  five cold starts out of five, twice.** This is the one clean bisect result of
+  2026-08-19. Three builds, same app, one import apart:
+  `d429f289` react-native `Image` + still poster, 5 launches 0 crashes;
+  `c56157f0` `expo-image` + animated WebP, 5 launches 5 crashes;
+  `0f349d37` `expo-image` + the SAME still poster, 5 launches 5 crashes.
+  The film was never the variable. **The `Image` component was**, and the second
+  of those builds proves it, since the animation was already switched off.
+  `app/(app)/account/index.tsx` had already worked around the same package for
+  its avatar; that comment predates this and was the corroboration.
+  Guarded by a census in `__tests__/splash-film.test.tsx`. `expo-image-picker`
+  is a different package and is fine.
 - **No moving image has ever survived the launch path. Both films are off.**
   `expo-video` was removed because `BrandSplash` mounts at `app/_layout.tsx`,
-  the ROOT, so it decoded a film on EVERY cold start. It is still banned there,
-  on the general principle rather than as the crash's cause.
-  An animated WebP through `expo-image` was then tried and **failed 5 cold
-  starts out of 5, leaving NO crash report and no jetsam entry**, which is still
-  unexplained. `SPLASH_MOTION_ENABLED` in `lib/splashFilm.ts` is **false**.
-  The `.webp`, `SPLASH_MOTION` and the ffmpeg/img2webp recipe stay in the tree
-  on purpose: the asset is correct and the encode was the fiddly part. The
-  bazaar welcome shows its poster too. Neither `.mp4` is required by any code,
-  so neither is bundled; both stay on disk as re-encode sources.
+  the ROOT, so it decoded a film on EVERY cold start. Still banned there, now on
+  principle rather than as the crash's cause. The splash and the bazaar welcome
+  both show their poster through react-native's own `Image`.
+  `assets/splash/welcome-bolo.webp` stays on disk **unreferenced**: the encode
+  was the fiddly part and the asset was never at fault. The recipe is in
+  `lib/splashFilm.ts`, and `img2webp` defaults to LOSSLESS, which makes that
+  same film 4.7MB instead of 2.3MB. Neither `.mp4` is required by any code, so
+  neither is bundled; both stay on disk as re-encode sources.
 - ~~RevenueCat reconcile-on-read returns 401.~~ **Fixed 2026-08-19.** The cause
   was never a wrong key: Replit's RevenueCat connector issues a **v2-scoped**
   token, so the `/v1/subscribers` call through it always 401'd (documented in

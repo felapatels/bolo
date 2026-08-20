@@ -1,29 +1,34 @@
 /**
- * The boot film and its still.
+ * The boot still.
  *
  * ONE require() per asset, following lib/tearAudio.ts: Metro resolves static
- * requires at bundle time, so swapping the film is editing the paths below and
+ * requires at bundle time, so swapping it is editing the path below and
  * rebuilding. There is no runtime path to change.
  *
- * THE FILM IS AN ANIMATED WEBP, NOT AN MP4, AND THAT IS THE ENTIRE POINT.
+ * THERE IS NO FILM HERE ANY MORE, AND TWO ATTEMPTS ARE WHY.
+ *
  * The mp4 was played by expo-video from BrandSplash, which mounts at the ROOT
- * layout, so a film was decoded on EVERY cold start and the app died inside the
- * Hermes GC three or four launches out of five. Fifteen crashes on 2026-08-19,
- * every one of them stopping the moment expo-video came out.
+ * layout, so a film decoded on EVERY cold start. Removing it did not stop the
+ * launch crash; see CLAUDE.md, because an older commit message claims it did.
  *
- * An animated WebP goes through expo-image's image pipeline instead. No
- * AVPlayer, no VideoToolbox, none of the JSI machinery that broke us. It is the
- * same film at 720x1600 and 24fps, and at 2.3MB it is SMALLER than the 2.8MB
- * mp4 it replaces, which is no longer required and so no longer bundled.
+ * Then the same film was encoded as an animated WebP and played through
+ * expo-image. That failed five cold starts out of five, and so did the very
+ * next build with the animation switched OFF and expo-image rendering nothing
+ * but this poster. One line apart from a build that had just gone 5 for 5:
  *
- * Regenerate it from the mp4 with ffmpeg and img2webp:
+ *   d429f289  react-native Image, still poster   5 launches, 0 crashes
+ *   c56157f0  expo-image, animated WebP          5 launches, 5 crashes
+ *   0f349d37  expo-image, same still poster      5 launches, 5 crashes
+ *
+ * So the FILM was never the variable and the encode was never the problem. The
+ * Image component was. expo-image is no longer imported anywhere in this app.
+ *
+ * assets/splash/welcome-bolo.webp stays on disk unreferenced, because the
+ * encode was the fiddly part and is worth keeping for whoever finds a renderer
+ * that survives this launch path. img2webp defaults to LOSSLESS, which turns
+ * this film into 4.7MB rather than 2.3MB, so -lossy is load-bearing:
  *   ffmpeg -i welcome-bolo.mp4 -vf "fps=24,scale=720:-2:flags=lanczos" f/%04d.png
  *   img2webp -loop 0 -kmin 9 -kmax 30 -d 41 -lossy -q 70 -m 6 f/*.png -o welcome-bolo.webp
- * The -lossy flag is load-bearing: img2webp defaults to LOSSLESS, which turns
- * this same film into 4.7MB without warning you.
- *
- * The still is BOTH the reduced-motion frame and the film's placeholder, so the
- * overlay never paints empty before the first frame decodes.
  *
  * The web twin is gujarati-coach/src/components/brand-splash.tsx. It still
  * plays the mp4 through a <video> tag and is deliberately untouched: there is
@@ -31,29 +36,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const SPLASH_MOTION = require('../assets/splash/welcome-bolo.webp') as number;
 export const SPLASH_POSTER = require('../assets/splash/welcome-bolo-poster.png') as number;
-
-/**
- * THE KILL SWITCH, and it is OFF because the film failed worse than the video.
- *
- * The animated WebP crashed FIVE cold starts out of FIVE on device, 2026-08-19.
- * That is not a regression to the old bug, it is worse than it: expo-video was
- * intermittent at three or four in five, and this was total.
- *
- * I argued that expo-image's pipeline was a different enough mechanism to be
- * safe. That was an argument and not evidence, which is exactly the caveat
- * written into this comment's first version, and the device settled it in the
- * time it takes to launch an app five times.
- *
- * So the splash is the still again, which is the state that launched clean 5/5
- * twice today. SPLASH_MOTION and the .webp stay in the tree deliberately: the
- * asset is correct and the encode recipe above is worth keeping, and whoever
- * picks this up next should start from a working file rather than re-deriving
- * it. What is NOT settled is why a 122-frame 720x1600 animation kills this app
- * at launch, and nobody should flip this back to true without that answer.
- */
-export const SPLASH_MOTION_ENABLED = false;
 
 /** Film length, 5.067s. The full-play timer must OUTLAST it or the last
  *  frame is cut. Move this if the film is ever swapped for a longer one. */
