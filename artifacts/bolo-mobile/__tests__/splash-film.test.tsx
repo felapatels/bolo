@@ -1,9 +1,8 @@
 import React from 'react';
-import { render, screen, act } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { BrandSplash, __resetBrandSplashForTests } from '@/components/BrandSplash';
-import { SPLASH_WAVE, SPLASH_WAVE_FPS, SPLASH_MOTION_ENABLED } from '@/lib/splashFilm';
 
 // jest-setup.js mocks reanimated globally with useReducedMotion: () => false.
 // This file flips it per test, so the mutable flag lives INSIDE the factory:
@@ -36,9 +35,6 @@ const { __motion } = jest.requireMock('react-native-reanimated') as {
 
 const ROOT = join(__dirname, '..');
 
-beforeEach(() => jest.useFakeTimers());
-afterEach(() => jest.useRealTimers());
-
 function sourceFiles(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     if (entry === 'node_modules' || entry === '__tests__' || entry.startsWith('.')) continue;
@@ -60,17 +56,23 @@ function importers(pattern: RegExp): string[] {
   ).map((f) => f.replace(ROOT, ''));
 }
 
-describe('THE LAUNCH PATH RENDERS NO VIDEO AND NO expo-image', () => {
+describe('THE LAUNCH PATH BANS expo-image, AND ONLY expo-image', () => {
   // Both bans are empirical, not stylistic, and both were paid for on device.
   // A third renderer would arrive the same quiet way the first two did:
   // bundled, unmentioned, and visible only as a crash on a real phone.
 
-  it('nothing requires an .mp4 or .mov', () => {
-    expect(importers(/require\([^)]*\.(mp4|mov)['"]\)/)).toEqual([]);
+  // INVERTED 2026-08-20. These banned expo-video and every .mp4 require. That
+  // ban was NEVER EARNED: expo-video was the first thing removed on 2026-08-19
+  // and the crash carried on without it, so it was suspicion standing in for
+  // evidence. The real cause was react-native-worklets 0.5.1, which crashed
+  // this app thirty launches out of thirty. The film is back, and the
+  // assertions now pin exactly where it is allowed to live.
+  it('the film is required in one place only, lib/splashFilm.ts', () => {
+    expect(importers(/require\([^)]*\.(mp4|mov)['"]\)/)).toEqual(['/lib/splashFilm.ts']);
   });
 
-  it('nothing imports expo-video', () => {
-    expect(importers(/from ['"]expo-video['"]/)).toEqual([]);
+  it('and expo-video is imported by BrandSplash and nothing else', () => {
+    expect(importers(/from ['"]expo-video['"]/)).toEqual(['/components/BrandSplash.tsx']);
   });
 
   it('NOTHING IMPORTS expo-image, which is the one that crashed 5 of 5', () => {
@@ -79,9 +81,12 @@ describe('THE LAUNCH PATH RENDERS NO VIDEO AND NO expo-image', () => {
     expect(importers(/from ['"]expo-image['"]/)).toEqual([]);
   });
 
-  it('and neither is a dependency that autolinks a decoder we do not use', () => {
+  it('expo-image is still banned, and that one WAS earned', () => {
+    // 5 crashes in 5, twice, including a build where it rendered nothing but a
+    // still. That result stands on its own evidence, unlike expo-video's did.
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-    expect({ ...pkg.dependencies, ...pkg.devDependencies }['expo-video']).toBeUndefined();
+    expect(importers(/from ['"]expo-image['"]/)).toEqual([]);
+    expect(pkg.dependencies['expo-video']).toBe('~3.0.16');
   });
 });
 
@@ -99,81 +104,55 @@ describe('the WebP survives on disk but reaches no bundle', () => {
   });
 });
 
-describe('THE GREETING WAVE, and what it falls back to', () => {
-  // These follow SPLASH_MOTION_ENABLED rather than hard-coding it, deliberately.
-  // The switch has been flipped twice in one evening and each flip rewrote the
-  // assertions, which is churn that teaches nothing. What is worth pinning is
-  // the RELATIONSHIP: the switch and Reduce Motion each decide which source is
-  // handed over, and the fallback is never a decoded animation with a still
-  // laid over it. The switch's actual value is pinned once, at source level, in
-  // the block below, where a change to it is a deliberate edit with a reason.
-  //
+describe('THE FILM, and what it falls back to', () => {
   // includeHiddenElements is REQUIRED and is not a workaround. The overlay sets
   // accessibilityElementsHidden and importantForAccessibility="no-hide-
   // descendants" on purpose, because a splash must never be announced to a
   // screen reader, and RNTL's queries skip hidden subtrees by default. Without
   // it every query below returns null and the suite passes vacuously.
   const q = (id: string) => screen.queryByTestId(id, { includeHiddenElements: true });
-  const MOVING = SPLASH_MOTION_ENABLED ? 'splash-wave' : 'splash-still';
 
   beforeEach(() => {
     __resetBrandSplashForTests();
     __motion.reduce = false;
   });
 
-  it(`renders ${SPLASH_MOTION_ENABLED ? 'the wave' : 'the poster'} when motion is allowed`, () => {
+  it('mounts the film when motion is allowed', () => {
     render(<BrandSplash />);
-    expect(q(MOVING)).not.toBeNull();
+    expect(q('splash-film')).not.toBeNull();
   });
 
-  it('REDUCE MOTION GETS THE POSTER, and no wave frame is referenced at all', () => {
+  it('REDUCE MOTION MOUNTS NO VideoView AT ALL', () => {
+    // The distinction is the safety argument: the fallback must never be a
+    // decoded film with a still laid over it, or the guard would be cosmetic.
     __motion.reduce = true;
     render(<BrandSplash />);
+    expect(q('splash-film')).toBeNull();
     expect(q('splash-still')).not.toBeNull();
-    expect(q('splash-wave')).toBeNull();
   });
 
-  it('covers the screen, so nothing is corner-cropped', () => {
-    // A bare absoluteFill Image lays out at its intrinsic size on iOS, which is
-    // why the style carries explicit 100% and why resizeMode is asserted here.
+  it('keeps the still underneath in BOTH modes, so nothing paints empty', () => {
+    // expo-video has no poster prop. The still is a plain underlay and the film
+    // paints over it once its first frame decodes.
     render(<BrandSplash />);
-    expect(q(MOVING)?.props.resizeMode).toBe('cover');
+    expect(q('splash-still')).not.toBeNull();
   });
 
-  (SPLASH_MOTION_ENABLED ? describe : describe.skip)('while the wave is on', () => {
-    it('starts on the first frame, so the opening pose is never mid-wave', () => {
-      render(<BrandSplash />);
-      expect(q('splash-wave')?.props.source).toBe(SPLASH_WAVE[0]);
-    });
-
-    it('ping-pongs rather than snapping back to the start', () => {
-      render(<BrandSplash />);
-      const seen: number[] = [];
-      for (let i = 0; i < SPLASH_WAVE.length + 4; i++) {
-        act(() => { jest.advanceTimersByTime(Math.round(1000 / SPLASH_WAVE_FPS)); });
-        seen.push(SPLASH_WAVE.indexOf(q('splash-wave')!.props.source));
-      }
-      expect(Math.max(...seen)).toBe(SPLASH_WAVE.length - 1);
-      const peak = seen.indexOf(SPLASH_WAVE.length - 1);
-      expect(seen[peak + 1]).toBe(SPLASH_WAVE.length - 2);
-    });
+  it('and the still covers the screen rather than corner-cropping', () => {
+    render(<BrandSplash />);
+    expect(q('splash-still')?.props.resizeMode).toBe('cover');
   });
 });
 
-describe('THE SWITCH IS ON, now that the launch path is not crashing', () => {
+describe('THE SWITCH IS ON', () => {
   const src = readFileSync(join(ROOT, 'lib/splashFilm.ts'), 'utf8');
-
-  // INVERTED AGAIN, and this time with the confound removed. It pinned `false`
-  // because the wave crashed 9 of 10 on worklets 0.5.1 -- but so did the
-  // runtime-identical revert with the wave switched OFF, which means that
-  // measurement was reading the worklets bug and not the wave. On 0.8.3 the
-  // launch path survives 10 cold starts of 10, so the question is being asked
-  // under conditions where the answer means something for the first time.
   it('SPLASH_MOTION_ENABLED is true', () => {
     expect(src).toMatch(/export const SPLASH_MOTION_ENABLED = true;/);
   });
-
-  it('and the wave frames survive on disk for the day it can be turned back on', () => {
-    expect(SPLASH_WAVE).toHaveLength(12);
+  it('and the wave frames stay on disk as the measured fallback', () => {
+    // 908KB at full resolution, 42MB decoded at the 640px encode that shipped
+    // in build 47 and went 10 cold starts for 10. If the film fails, this is
+    // what it falls back to, and it is already proven.
+    expect(existsSync(join(ROOT, 'assets/splash/wave/01.jpg'))).toBe(true);
   });
 });

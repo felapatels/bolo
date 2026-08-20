@@ -19,6 +19,7 @@
  */
 import React, { Component, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Image, StyleSheet } from 'react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { useReducedMotion } from 'react-native-reanimated';
 // THE SPLASH IS A STILL, RENDERED BY REACT NATIVE'S OWN Image, AND BOTH HALVES
 // OF THAT ARE LOAD-BEARING. Do not casually change either one.
@@ -39,9 +40,8 @@ import { useReducedMotion } from 'react-native-reanimated';
 // The poster path already existed for Reduce Motion, so the splash still shows
 // and still holds for the same duration. It simply does not move.
 import {
+  SPLASH_FILM,
   SPLASH_POSTER,
-  SPLASH_WAVE,
-  SPLASH_WAVE_FPS,
   SPLASH_MOTION_ENABLED,
   SPLASH_FULL_PLAY_MS,
   SPLASH_MIN_HOLD_MS,
@@ -87,28 +87,17 @@ function BrandSplashFilm() {
   const opacity = useRef(new Animated.Value(1)).current;
 
   /**
-   * The greeting wave. Reduced motion and the kill switch both fall back to the
-   * poster, and in those modes no frame beyond the first is ever referenced, so
-   * nothing else is decoded rather than being decoded and then covered.
+   * THE FILM. Muted, no loop, plays as soon as it is ready.
+   *
+   * Reduce Motion and the kill switch pass a null source, so the film is never
+   * handed to the decoder in those modes rather than being decoded and covered.
    */
   const moving = SPLASH_MOTION_ENABLED && !reduceMotion;
-  const [frame, setFrame] = useState(0);
-
-  useEffect(() => {
-    if (!moving || phase !== 'playing') return;
-    // PING-PONG, so the loop is seamless whatever the source cycle was: run to
-    // the last frame, then back to the first, forever. A plain wrap would snap
-    // from the end pose to the start pose once a cycle.
-    let i = 0;
-    let step = 1;
-    const id = setInterval(() => {
-      i += step;
-      if (i >= SPLASH_WAVE.length - 1) step = -1;
-      else if (i <= 0) step = 1;
-      setFrame(i);
-    }, Math.round(1000 / SPLASH_WAVE_FPS));
-    return () => clearInterval(id);
-  }, [moving, phase]);
+  const player = useVideoPlayer(moving ? SPLASH_FILM : null, (p) => {
+    p.muted = true;
+    p.loop = false;
+    p.play();
+  });
 
   // Muted, no loop, plays as soon as it is ready. Reduced motion never
   // creates a source, so the film is not decoded at all in that mode.
@@ -189,15 +178,25 @@ function BrandSplashFilm() {
       importantForAccessibility="no-hide-descendants"
       style={[StyleSheet.absoluteFill, styles.overlay, { opacity }]}
     >
+      {/* expo-video has no poster prop, so the still is a plain underlay: the
+          film paints over it the moment its first frame decodes, and until then
+          the overlay is never empty. In the still modes the underlay IS the
+          splash and no VideoView is mounted at all. */}
       <Image
-        testID={moving ? 'splash-wave' : 'splash-still'}
-        source={moving ? SPLASH_WAVE[frame] : SPLASH_POSTER}
+        testID="splash-still"
+        source={SPLASH_POSTER}
         style={styles.layer}
         resizeMode="cover"
-        // The frames are one continuous shot on one plate, so a fade between
-        // them would read as a stutter rather than a blend.
-        fadeDuration={0}
       />
+      {moving ? (
+        <VideoView
+          testID="splash-film"
+          player={player}
+          style={styles.layer}
+          nativeControls={false}
+          contentFit="cover"
+        />
+      ) : null}
     </Animated.View>
   );
 }
