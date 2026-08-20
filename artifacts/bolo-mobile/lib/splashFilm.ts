@@ -1,20 +1,49 @@
 /**
  * The boot film and its still.
  *
- * ONE require() per asset, following lib/tearAudio.ts: Metro resolves
- * static requires at bundle time, so swapping the film is editing the
- * two paths below and rebuilding. There is no runtime path to change.
+ * ONE require() per asset, following lib/tearAudio.ts: Metro resolves static
+ * requires at bundle time, so swapping the film is editing the paths below and
+ * rebuilding. There is no runtime path to change.
  *
- * The still is BOTH the reduced-motion frame and the video's poster,
- * so the overlay never paints empty before the first frame decodes.
+ * THE FILM IS AN ANIMATED WEBP, NOT AN MP4, AND THAT IS THE ENTIRE POINT.
+ * The mp4 was played by expo-video from BrandSplash, which mounts at the ROOT
+ * layout, so a film was decoded on EVERY cold start and the app died inside the
+ * Hermes GC three or four launches out of five. Fifteen crashes on 2026-08-19,
+ * every one of them stopping the moment expo-video came out.
  *
- * The web twin is gujarati-coach/src/components/brand-splash.tsx and
- * the two assets are byte-identical copies of its portrait pair.
+ * An animated WebP goes through expo-image's image pipeline instead. No
+ * AVPlayer, no VideoToolbox, none of the JSI machinery that broke us. It is the
+ * same film at 720x1600 and 24fps, and at 2.3MB it is SMALLER than the 2.8MB
+ * mp4 it replaces, which is no longer required and so no longer bundled.
+ *
+ * Regenerate it from the mp4 with ffmpeg and img2webp:
+ *   ffmpeg -i welcome-bolo.mp4 -vf "fps=24,scale=720:-2:flags=lanczos" f/%04d.png
+ *   img2webp -loop 0 -kmin 9 -kmax 30 -d 41 -lossy -q 70 -m 6 f/*.png -o welcome-bolo.webp
+ * The -lossy flag is load-bearing: img2webp defaults to LOSSLESS, which turns
+ * this same film into 4.7MB without warning you.
+ *
+ * The still is BOTH the reduced-motion frame and the film's placeholder, so the
+ * overlay never paints empty before the first frame decodes.
+ *
+ * The web twin is gujarati-coach/src/components/brand-splash.tsx. It still
+ * plays the mp4 through a <video> tag and is deliberately untouched: there is
+ * no Hermes on web and nothing there ever crashed.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const SPLASH_FILM = require('../assets/splash/welcome-bolo.mp4') as number;
+export const SPLASH_MOTION = require('../assets/splash/welcome-bolo.webp') as number;
 export const SPLASH_POSTER = require('../assets/splash/welcome-bolo-poster.png') as number;
+
+/**
+ * THE KILL SWITCH, the same shape as lib/entrance.ts and for the same reason.
+ *
+ * This puts decode work back on the launch path, which is exactly where a whole
+ * day was just lost. The mechanism is different enough to be worth doing, but
+ * "different mechanism" is an argument, not evidence. If cold starts start
+ * failing again, flip this to false and the splash falls back to the still it
+ * has been showing since the crash fix, with no other edit anywhere.
+ */
+export const SPLASH_MOTION_ENABLED = true;
 
 /** Film length, 5.067s. The full-play timer must OUTLAST it or the last
  *  frame is cut. Move this if the film is ever swapped for a longer one. */
