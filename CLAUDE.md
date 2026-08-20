@@ -130,12 +130,17 @@ command runs.
   `app/_layout.tsx`, the ROOT, so a film decodes on EVERY cold start. Both
   surfaces showed their poster instead, a path that already existed for Reduce
   Motion.
-  **The splash film is back as of 2026-08-19, as an animated WebP through
-  `expo-image`.** That is the image pipeline, not AVFoundation: no `AVPlayer`,
-  no VideoToolbox, none of the JSI machinery that broke us. Same film at
-  720x1600 and 24fps, 2.3MB, which is SMALLER than the 2.8MB mp4 it replaces.
-  `SPLASH_MOTION_ENABLED` in `lib/splashFilm.ts` drops it back to the still in
-  one edit, and that file carries the ffmpeg and img2webp recipe.
+  **An animated WebP through `expo-image` was tried on 2026-08-19 and FAILED
+  WORSE THAN THE VIDEO: five cold starts out of five.** expo-video was
+  intermittent at three or four in five; this was total. The reasoning was that
+  the image pipeline is not AVFoundation, which is true and was still not
+  enough. `SPLASH_MOTION_ENABLED` in `lib/splashFilm.ts` is now **false** and
+  the splash is the still, the state that launched 5/5 clean twice that day.
+  The `.webp` and the ffmpeg/img2webp recipe stay in the tree on purpose, since
+  the asset is correct and worth starting from. **Nobody should flip that
+  switch back without first explaining why a 122-frame 720x1600 animation kills
+  this app at launch.** No moving image of any kind has yet survived the
+  launch path.
   **The bazaar welcome still shows its poster** and would take the same
   treatment. Neither `.mp4` is required by any code now, so neither is bundled;
   both files stay on disk as the source for re-encoding. **expo-video itself
