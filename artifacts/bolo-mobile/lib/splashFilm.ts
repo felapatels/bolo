@@ -38,6 +38,63 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const SPLASH_POSTER = require('../assets/splash/welcome-bolo-poster.png') as number;
 
+/**
+ * THE GREETING WAVE, as twelve JPEG frames swapped through react-native's own
+ * `Image`. No new package, no new native module, no decoder we do not already
+ * trust, because that trust is the only thing left standing after 2026-08-19.
+ *
+ * WHY FRAMES AND NOT A FILM. Two renderers have now killed this app from the
+ * ROOT layout: expo-video, and expo-image, the latter proven by a build that
+ * crashed 5 of 5 while rendering nothing but a STILL. What survived ten
+ * consecutive cold starts is `Image` from react-native, so that is the only
+ * thing the launch path is allowed to use, and a frame sequence is the only way
+ * to move a picture through it.
+ *
+ * WHY ONLY THE WAVE. The film has two acts: the bird greets you on a near-white
+ * plate for a second, then flies off into the bazaar. Only the first act is a
+ * splash. The rest ends mid-flight, and holding a mid-flight frame for the
+ * remaining 3.6s of a FULL play looks like a stall rather than a finish. These
+ * twelve frames are the window where the "Welcome to BOLO!" bubble is up.
+ *
+ * PING-PONGED, so it loops seamlessly whatever the source cycle was: forward to
+ * the last frame, back to the first, forever. 22 steps at 12fps is a 1.83s
+ * cycle, which fits inside SPLASH_MIN_HOLD_MS and repeats cleanly beyond it.
+ *
+ * THE BUDGET, measured rather than hoped: 640px wide, q5 JPEG, 364KB for all
+ * twelve, which is LESS than the 472KB poster beside them. Worst case if every
+ * frame is held decoded at once is about 42MB.
+ *
+ *   ffmpeg -t 1.0 -i welcome-bolo.mp4 -vf "fps=12,scale=640:-2:flags=lanczos" -q:v 5 wave/%02d.jpg
+ */
+export const SPLASH_WAVE: number[] = [
+  require('../assets/splash/wave/01.jpg'),
+  require('../assets/splash/wave/02.jpg'),
+  require('../assets/splash/wave/03.jpg'),
+  require('../assets/splash/wave/04.jpg'),
+  require('../assets/splash/wave/05.jpg'),
+  require('../assets/splash/wave/06.jpg'),
+  require('../assets/splash/wave/07.jpg'),
+  require('../assets/splash/wave/08.jpg'),
+  require('../assets/splash/wave/09.jpg'),
+  require('../assets/splash/wave/10.jpg'),
+  require('../assets/splash/wave/11.jpg'),
+  require('../assets/splash/wave/12.jpg'),
+];
+
+/** 22 ping-pong steps at this rate is a 1.83s cycle. */
+export const SPLASH_WAVE_FPS = 12;
+
+/**
+ * THE KILL SWITCH, the same shape as the one in lib/entrance.ts.
+ *
+ * Two attempts at motion here have already cost a day, so this exists before
+ * the feature does. False renders SPLASH_POSTER and touches nothing else: the
+ * still path stays byte-identical to the build that went ten cold starts for
+ * ten, which is the point of adding the motion beside it rather than instead
+ * of it.
+ */
+export const SPLASH_MOTION_ENABLED = true;
+
 /** Film length, 5.067s. The full-play timer must OUTLAST it or the last
  *  frame is cut. Move this if the film is ever swapped for a longer one. */
 export const SPLASH_FULL_PLAY_MS = 5100;

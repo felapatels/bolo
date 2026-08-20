@@ -40,6 +40,9 @@ import { useReducedMotion } from 'react-native-reanimated';
 // and still holds for the same duration. It simply does not move.
 import {
   SPLASH_POSTER,
+  SPLASH_WAVE,
+  SPLASH_WAVE_FPS,
+  SPLASH_MOTION_ENABLED,
   SPLASH_FULL_PLAY_MS,
   SPLASH_MIN_HOLD_MS,
   SPLASH_MAX_HOLD_MS,
@@ -82,6 +85,30 @@ function BrandSplashFilm() {
   const reduceMotion = useReducedMotion();
   const mountedAt = useRef(Date.now());
   const opacity = useRef(new Animated.Value(1)).current;
+
+  /**
+   * The greeting wave. Reduced motion and the kill switch both fall back to the
+   * poster, and in those modes no frame beyond the first is ever referenced, so
+   * nothing else is decoded rather than being decoded and then covered.
+   */
+  const moving = SPLASH_MOTION_ENABLED && !reduceMotion;
+  const [frame, setFrame] = useState(0);
+
+  useEffect(() => {
+    if (!moving || phase !== 'playing') return;
+    // PING-PONG, so the loop is seamless whatever the source cycle was: run to
+    // the last frame, then back to the first, forever. A plain wrap would snap
+    // from the end pose to the start pose once a cycle.
+    let i = 0;
+    let step = 1;
+    const id = setInterval(() => {
+      i += step;
+      if (i >= SPLASH_WAVE.length - 1) step = -1;
+      else if (i <= 0) step = 1;
+      setFrame(i);
+    }, Math.round(1000 / SPLASH_WAVE_FPS));
+    return () => clearInterval(id);
+  }, [moving, phase]);
 
   // Muted, no loop, plays as soon as it is ready. Reduced motion never
   // creates a source, so the film is not decoded at all in that mode.
@@ -163,10 +190,13 @@ function BrandSplashFilm() {
       style={[StyleSheet.absoluteFill, styles.overlay, { opacity }]}
     >
       <Image
-        testID="splash-still"
-        source={SPLASH_POSTER}
+        testID={moving ? 'splash-wave' : 'splash-still'}
+        source={moving ? SPLASH_WAVE[frame] : SPLASH_POSTER}
         style={styles.layer}
         resizeMode="cover"
+        // The frames are one continuous shot on one plate, so a fade between
+        // them would read as a stutter rather than a blend.
+        fadeDuration={0}
       />
     </Animated.View>
   );
