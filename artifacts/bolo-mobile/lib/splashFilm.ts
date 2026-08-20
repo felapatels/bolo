@@ -85,31 +85,27 @@ export const SPLASH_WAVE: number[] = [
 export const SPLASH_WAVE_FPS = 12;
 
 /**
- * THE KILL SWITCH, OFF. Three attempts at motion here, three failures, and the
- * third is the one that explains the other two.
+ * THE KILL SWITCH, BACK ON, because the three failures that turned it off were
+ * all measured on a launch path that was crashing anyway.
  *
- *   bd817370  poster, react-native Image        10 launches,  0 crashes
- *   a9b11df4  12 frames swapped at 12fps         10 launches,  9 crashes
- *   c56157f0  expo-image, animated WebP           5 launches,  5 crashes
- *   0f349d37  expo-image, poster only             5 launches,  5 crashes
+ * Every attempt at motion here was made on react-native-worklets 0.5.1, which
+ * has since been proven to crash this app on launch THIRTY times out of THIRTY.
+ * That includes the wave itself: a9b11df4 scored 9 in 10, and 350af74e, which is
+ * runtime-identical to it with the switch OFF, scored the same 9 in 10. The
+ * wave was never the variable. Nothing on that launch path was.
  *
- * The wave used NO new library. Same Image component, same bundle, same screen.
- * The only thing it added was CHURN: twelve decodes and twelve re-renders a
- * second, at the root layout, during launch. That took a crash rate of about
- * one in twenty to nine in ten.
+ * On 0.8.3 the same binary lineage goes 10 cold starts for 10. So the question
+ * "can the splash move" has never actually been asked under conditions where
+ * the answer could be trusted, and this build asks it.
  *
- * So the pattern is not "which renderer". It is ALLOCATION PRESSURE EARLY IN
- * LAUNCH. The underlying Hermes GC bug fires under churn, and every one of these
- * attempts was a different way of adding churn to the first second of the app.
+ * The frames are unchanged from a9b11df4: twelve JPEGs at 640px, 364KB total,
+ * which is less than the 472KB poster they sit beside, ping-ponged at 12fps
+ * through react-native's own Image. No new library, no new native module.
  *
- * WHICH MEANS NO SPLASH ANIMATION CAN WORK UNTIL THAT BUG IS FIXED, and trying
- * a fourth renderer is wasted effort. See CLAUDE.md for the crash itself.
- *
- * SPLASH_WAVE and its frames stay in the tree, unreferenced when this is false.
- * They cost 364KB on disk and nothing in the bundle, and they are ready the day
- * the launch path can carry them.
+ * If this crashes, the switch goes back to false and the wave frames stay on
+ * disk. If it does not, the splash moves for the first time since 2026-08-16.
  */
-export const SPLASH_MOTION_ENABLED = false;
+export const SPLASH_MOTION_ENABLED = true;
 
 /** Film length, 5.067s. The full-play timer must OUTLAST it or the last
  *  frame is cut. Move this if the film is ever swapped for a longer one. */
