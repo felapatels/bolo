@@ -170,13 +170,18 @@ describe('THE KILL SWITCH is wired through every path', () => {
     expect(src).toMatch(/const ENTRANCES_ENABLED = true;/);
   });
 
-  it.each(['appear<', 'useAppearSkip', 'useAppear<'])(
-    'the %s guard consults it',
-    (fn) => {
-      const body = src.slice(src.indexOf(`export function ${fn}`));
-      expect(body.slice(0, 400)).toContain('ENTRANCES_ENABLED');
-    },
-  );
+  it.each(['appear<', 'useAppearSkip'])('the %s guard consults it', (fn) => {
+    const body = src.slice(src.indexOf(`export function ${fn}`));
+    expect(body.slice(0, 400)).toContain('ENTRANCES_ENABLED');
+  });
+
+  // INVERTED. useAppear used to name the switch itself. It now DELEGATES to
+  // useAppearSkip, because that hook latches its answer at first render and two
+  // hooks deciding the same thing independently is how they drift apart.
+  it('useAppear< delegates to useAppearSkip rather than deciding again', () => {
+    const body = src.slice(src.indexOf('export function useAppear<'));
+    expect(body.slice(0, 200)).toContain('useAppearSkip()');
+  });
 
   it('and each factory refuses independently, so a missed guard still yields nothing', () => {
     for (const fn of ['appearDown', 'appearUp', 'appearZoom']) {
@@ -190,5 +195,38 @@ describe('THE KILL SWITCH is wired through every path', () => {
     // never be the reason content is invisible.
     const noop = src.slice(src.indexOf('const NO_ENTRANCE'), src.indexOf('const NO_ENTRANCE') + 220);
     expect(noop).not.toContain('opacity');
+  });
+});
+
+describe('THE ENTRANCE DECISION IS LATCHED AT MOUNT', () => {
+  const src = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'lib', 'entrance.ts'),
+    'utf8',
+  ) as string;
+
+  // lib/motionPrefs holds a launch quiet window: for the first 1800ms it
+  // reports reduced motion whatever the OS says, so nothing animates while the
+  // app is inside the window where animating crashes it. That value FLIPS
+  // mid-life on every single launch.
+  //
+  // Handing a view a new `entering` prop after it is already on screen makes
+  // reanimated apply that animation's initialValues to it, offsetting content
+  // that was rendering correctly a frame earlier, and the animation never runs
+  // because the mount it belonged to is long past. Build 58 showed exactly
+  // that: the boarding pass and the Chai stall vanished from home at 1800ms.
+  it('useAppearSkip holds its first answer with a ref', () => {
+    const body = src.slice(src.indexOf('export function useAppearSkip'));
+    const fn = body.slice(0, body.indexOf('\n}'));
+    expect(fn).toContain('React.useRef');
+    expect(fn).toContain('latched.current');
+  });
+
+  it('and returns the ref, never the freshly computed value', () => {
+    // Returning `skip` would reintroduce the bug while looking like it was
+    // fixed, since the ref would be sitting right there unused.
+    const body = src.slice(src.indexOf('export function useAppearSkip'));
+    const fn = body.slice(0, body.indexOf('\n}'));
+    expect(fn).toMatch(/return latched\.current;/);
+    expect(fn).not.toMatch(/return skip;/);
   });
 });

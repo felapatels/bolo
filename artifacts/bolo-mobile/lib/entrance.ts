@@ -11,6 +11,7 @@
 // settings, we also drop entering animations to guarantee text is never left
 // at opacity 0 / offset — the animation's initial state — by a skipped
 // animation pass.
+import React from 'react';
 import Constants from 'expo-constants';
 
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
@@ -58,8 +59,7 @@ export function appear<T>(animation: T): T | undefined {
  * animation preference (e.g. FunFactLoader fact text, important labels).
  */
 export function useAppear<T>(animation: T): T | undefined {
-  const reducedMotion = useReducedMotion();
-  return isExpoGo || reducedMotion || !ENTRANCES_ENABLED ? undefined : animation;
+  return useAppearSkip() ? undefined : animation;
 }
 
 /**
@@ -77,7 +77,31 @@ export function useAppear<T>(animation: T): T | undefined {
  */
 export function useAppearSkip(): boolean {
   const reducedMotion = useReducedMotion();
-  return isExpoGo || reducedMotion || !ENTRANCES_ENABLED;
+  const skip = isExpoGo || reducedMotion || !ENTRANCES_ENABLED;
+
+  /**
+   * LATCHED AT FIRST RENDER, and this is load-bearing rather than an
+   * optimisation.
+   *
+   * lib/motionPrefs holds a launch quiet window: for the first 1800ms it
+   * reports reduced motion whatever the OS says, so nothing animates while the
+   * app is in the window where animating crashes it. That means this value
+   * FLIPS mid-life, from true to false, on every launch.
+   *
+   * An entering animation must never be re-decided after mount. Handing a view
+   * a brand new `entering` prop once it is already on screen makes reanimated
+   * apply that animation's initialValues to it, which offsets content that was
+   * rendering correctly a frame earlier, and the animation never runs because
+   * the mount it belonged to is long past. Build 58 showed exactly that: the
+   * boarding pass and the Chai stall disappeared from home at the 1800ms mark.
+   *
+   * So whatever this answers on the first render, it answers forever. A screen
+   * mounted inside the quiet window simply gets no entrance, which is the
+   * correct outcome and invisible in any case, because the splash is still
+   * covering it.
+   */
+  const latched = React.useRef(skip);
+  return latched.current;
 }
 
 // ---------------------------------------------------------------------------
