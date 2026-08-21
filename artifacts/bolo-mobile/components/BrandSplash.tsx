@@ -1,9 +1,26 @@
 /**
+ * THIS COMPONENT IS NOT MOUNTED, AND MOUNTING IT AT THE ROOT BREAKS THE
+ * APP. Kept on disk the same way assets/splash/wave/ is: the work in it
+ * is sound and it may yet ship from inside a SCREEN. It must never go
+ * back into app/_layout.tsx. __tests__/splash-film.test.tsx enforces that.
+ *
+ * Why: a full-screen JS view at the ROOT freezes every reanimated
+ * animation for the life of the app in RELEASE builds. Five store builds
+ * of the same commit, one variable apart:
+ *   150  RN Animated, useNativeDriver true     app frozen
+ *   170  reanimated                            the splash froze instead
+ *   180  RN Animated, useNativeDriver false    app frozen
+ *   190  a bare static View, nothing else      app frozen
+ *   160  not mounted                           everything animates
+ * So it is not the driver, not the library, and not anything this file
+ * DOES. It is that the overlay exists at the root at all. The boot is
+ * covered by the native splash now, held from app/_layout.tsx.
+ *
+ * Everything below this line is the original component, unchanged.
+ *
  * The boot film overlay. Mobile twin of web's brand-splash.tsx.
  *
- * Mounted at the ROOT, not inside home, because the wait it covers is
- * Clerk resolving plus two redirect hops that happen above home in the
- * tree. It sits over the Stack as a pointer-events-none layer and never
+ * It sits over the Stack as a pointer-events-none layer and never
  * gates, delays or blocks anything below it: every screen mounts and
  * fetches exactly as it would with no splash present.
  *
