@@ -157,7 +157,7 @@ function LanguagePage({ lang }: { lang: LanguagePageEntry }) {
               Say your first {lang.name} phrase today
             </h2>
             <p className="text-background/70 font-medium mb-6">
-              Free to start, no card required. Kids and grown-ups welcome.
+              Free to start, no card required. All ages welcome.
             </p>
             <Link
               href="/sign-up"

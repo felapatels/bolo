@@ -280,8 +280,8 @@ export default function Landing({
               22 South Asian languages, taught out loud. Say every phrase and
               get coached on the spot, chat with Bolo the parrot, ride a
               journey map, play the games arcade, and let spaced review bring
-              each phrase back right before you'd forget it. For kids and
-              grown-ups finding their way back home.
+              each phrase back right before you'd forget it. For every
+              generation finding its way back home.
             </motion.p>
 
             <motion.div
@@ -491,7 +491,7 @@ export default function Landing({
           </div>
         </section>
 
-        {/* For families: heritage recovery for kids and adults. */}
+        {/* For families: heritage recovery across generations. */}
         <section ref={familiesRef} className="py-12" aria-labelledby="families-heading">
           <Reveal>
             <div className="glass-card rounded-3xl p-7 sm:p-10 max-w-4xl mx-auto">
@@ -504,9 +504,9 @@ export default function Landing({
                     Built for the whole family
                   </h2>
                   <p className="text-muted-foreground font-medium text-lg">
-                    Kids hearing their grandparents' language for the first
-                    time, and grown-ups finding their way back to it: Bolo!
-                    meets everyone where they are. The{' '}
+                    Hearing your grandparents' language for the first time,
+                    or finding your way back to it: Bolo! meets everyone
+                    where they are. The{' '}
                     <span className="font-bold text-foreground">Family plan</span>{' '}
                     covers up to {FAMILY_SEATS} people on one bill, and each
                     person's progress stays their own. Curious how we handle
