@@ -1468,7 +1468,9 @@ const styles = StyleSheet.create({
   statsBanner: {
     flexDirection: 'row',
     borderRadius: 18,
-    paddingTop: 14,
+    // 8, not 14. The icons are the topmost ink in the card and 14 read as a
+    // dead band above them on device.
+    paddingTop: 8,
     // More than the top: the labels are the lowest ink in the card.
     paddingBottom: 16,
     paddingHorizontal: 6,
