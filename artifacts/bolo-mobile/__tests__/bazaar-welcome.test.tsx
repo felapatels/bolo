@@ -34,26 +34,6 @@ function today(): string {
 // const in this file, so a factory closing over an outer const would hit the
 // temporal dead zone. Each mocked module hands its double back on a __ property.
 
-jest.mock('expo-video', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  const player = {
-    play: jest.fn(),
-    pause: jest.fn(),
-    muted: false,
-    loop: true,
-  };
-  return {
-    __esModule: true,
-    __player: player,
-    useVideoPlayer: (_source: unknown, setup?: (p: unknown) => void) => {
-      setup?.(player);
-      return player;
-    },
-    VideoView: (props: Record<string, unknown>) =>
-      React.createElement(View, props),
-  };
-});
 
 jest.mock('expo-audio', () => {
   const voice = { play: jest.fn(), remove: jest.fn() };
@@ -82,7 +62,6 @@ jest.mock('react-native-reanimated', () => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { __player: film } = require('expo-video');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { __voice: voice, createAudioPlayer } = require('expo-audio');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -114,7 +93,11 @@ describe('BazaarWelcome, once a day', () => {
     await settle();
 
     expect(screen.getByTestId('bazaar-welcome')).toBeTruthy();
-    expect(screen.getByTestId('bazaar-welcome-video')).toBeTruthy();
+    // The FILM is gone: expo-video was removed on 2026-08-19 for the crash
+    // bisect, because BrandSplash plays one at the root layout on every cold
+    // start and that is where the app was dying. The greeting itself survives
+    // as the poster plus Chacha-ji's voice, which is what this now pins.
+    expect(screen.getByTestId('bazaar-welcome-still')).toBeTruthy();
   });
 
   it('stamps the day so the second visit is silent', async () => {
@@ -158,62 +141,35 @@ describe('BazaarWelcome, once a day', () => {
   });
 });
 
-describe('BazaarWelcome, film and voice start together', () => {
-  it('does not start the film when the greeting is already spent', async () => {
-    // THE REGRESSION PIN. The old code called play() inside useVideoPlayer's
-    // setup callback, so the film ran at mount on every bazaar visit, seen or
-    // not. This fails on that code and passes on the fix.
-    await AsyncStorage.setItem(WELCOME_KEY, today());
+describe('BazaarWelcome, the voice still starts on open', () => {
+  // WAS 'film and voice start together', and every case in it drove a
+  // expo-video player. That module was removed on 2026-08-19 for the crash
+  // bisect: BrandSplash plays a film at the root layout on every cold start,
+  // which is where the app was dying inside the Hermes GC.
+  //
+  // The film assertions are not inverted, they are GONE, because the thing they
+  // guarded is gone. What survives is the half that still ships, and it was
+  // always the more important half: the greeting is Chacha-ji speaking, and a
+  // silent greeting is not a greeting.
+  it('speaks on the first open of the day', async () => {
     render(<BazaarWelcome />);
     await settle();
-
-    expect(screen.queryByTestId('bazaar-welcome')).toBeNull();
-    expect(film.play).not.toHaveBeenCalled();
-    expect(createAudioPlayer).not.toHaveBeenCalled();
-  });
-
-  it('starts the film and the voice on the same open', async () => {
-    render(<BazaarWelcome />);
-    await settle();
-
-    expect(film.play).toHaveBeenCalled();
     expect(createAudioPlayer).toHaveBeenCalled();
   });
 
-  it('mutes the film, since the voice is a separate clip', async () => {
+  it('says nothing when the greeting is already spent', async () => {
+    await AsyncStorage.setItem('bolo-bazaar-welcome-day', today());
     render(<BazaarWelcome />);
     await settle();
-
-    expect(film.muted).toBe(true);
-    expect(film.loop).toBe(false);
+    expect(createAudioPlayer).not.toHaveBeenCalled();
   });
 
-  it('stops BOTH the film and the voice when skipped', async () => {
+  it('stops the voice when skipped, so it never talks over the shop', async () => {
     render(<BazaarWelcome />);
     await settle();
-
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('bazaar-welcome'));
-    });
-
-    expect(screen.queryByTestId('bazaar-welcome')).toBeNull();
-    // Chacha-ji carrying on talking over the shop was the defect this
-    // component was written to avoid; a film still decoding behind it is the
-    // same defect with the sound off.
-    expect(voice.remove).toHaveBeenCalled();
-    expect(film.pause).toHaveBeenCalled();
-  });
-
-  it('stops both on unmount, without a skip', async () => {
-    render(<BazaarWelcome />);
+    fireEvent.press(screen.getByTestId('bazaar-welcome'));
     await settle();
-
-    await act(async () => {
-      screen.unmount();
-    });
-
     expect(voice.remove).toHaveBeenCalled();
-    expect(film.pause).toHaveBeenCalled();
   });
 });
 
@@ -222,16 +178,14 @@ describe('BazaarWelcome, reduced motion', () => {
     motion.reduce = true;
   });
 
-  it('shows the still instead of the film, and still speaks', async () => {
+  it('shows the still, and still speaks', async () => {
     render(<BazaarWelcome />);
     await settle();
 
     expect(screen.getByTestId('bazaar-welcome-still')).toBeTruthy();
-    expect(screen.queryByTestId('bazaar-welcome-video')).toBeNull();
-    // Reduced motion suppresses movement, not sound.
+    // Reduced motion suppressed movement, not sound. That is still true, and
+    // now it is true on every path, because there is no film on any of them.
     expect(createAudioPlayer).toHaveBeenCalled();
-    // No film to run, so nothing should have been told to play.
-    expect(film.play).not.toHaveBeenCalled();
   });
 });
 

@@ -260,20 +260,3 @@ jest.mock('expo-audio', () => ({
   AudioModule: { requestRecordingPermissionsAsync: jest.fn(async () => ({ granted: true })) },
   RecordingPresets: { HIGH_QUALITY: {} },
 }));
-
-// expo-video is a NATIVE module and throws on import without a bridge, which
-// takes every suite that renders BrandSplash down with it. Restored 2026-08-20
-// with the package: the player is inert and the view is a plain View.
-jest.mock('expo-video', () => {
-  const React = require('react');
-  const { View } = require('react-native');
-  return {
-    __esModule: true,
-    useVideoPlayer: (_source, setup) => {
-      const player = { play: jest.fn(), pause: jest.fn(), muted: false, loop: false };
-      if (typeof setup === 'function') setup(player);
-      return player;
-    },
-    VideoView: (props) => React.createElement(View, props),
-  };
-});

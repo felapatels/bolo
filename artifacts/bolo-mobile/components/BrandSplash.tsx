@@ -19,7 +19,6 @@
  */
 import React, { Component, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Image, StyleSheet } from 'react-native';
-import { VideoView, useVideoPlayer } from 'expo-video';
 import { useReducedMotion } from 'react-native-reanimated';
 // THE SPLASH IS A STILL, RENDERED BY REACT NATIVE'S OWN Image, AND BOTH HALVES
 // OF THAT ARE LOAD-BEARING. Do not casually change either one.
@@ -40,10 +39,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 // The poster path already existed for Reduce Motion, so the splash still shows
 // and still holds for the same duration. It simply does not move.
 import {
-  SPLASH_FILM,
   SPLASH_POSTER,
-  SPLASH_SHORT_START_S,
-  SPLASH_MOTION_ENABLED,
   SPLASH_FULL_PLAY_MS,
   SPLASH_MIN_HOLD_MS,
   SPLASH_MAX_HOLD_MS,
@@ -86,39 +82,6 @@ function BrandSplashFilm() {
   const reduceMotion = useReducedMotion();
   const mountedAt = useRef(Date.now());
   const opacity = useRef(new Animated.Value(1)).current;
-
-  /**
-   * THE FILM. Muted, no loop, plays as soon as it is ready.
-   *
-   * Reduce Motion and the kill switch pass a null source, so the film is never
-   * handed to the decoder in those modes rather than being decoded and covered.
-   */
-  const moving = SPLASH_MOTION_ENABLED && !reduceMotion;
-  const player = useVideoPlayer(moving ? SPLASH_FILM : null, (p) => {
-    p.muted = true;
-    p.loop = false;
-    // READY is assumed until AsyncStorage says otherwise, so open on the beat
-    // where Bolo is already in shot rather than on the empty sky before it.
-    p.currentTime = SPLASH_SHORT_START_S;
-    p.play();
-  });
-
-  /**
-   * FULL came back true, so rewind and play the film whole.
-   *
-   * This runs a tick after mount because the day stamp cannot be read
-   * synchronously, which is the same reason the player opens in short mode by
-   * default. The rewind is invisible: it lands within a frame or two of the
-   * first paint, and the poster is underneath the whole time.
-   */
-  useEffect(() => {
-    if (!moving || !full) return;
-    try {
-      player.currentTime = 0;
-    } catch {
-      /* player already released; the film is ending anyway */
-    }
-  }, [moving, full, player]);
 
   // Muted, no loop, plays as soon as it is ready. Reduced motion never
   // creates a source, so the film is not decoded at all in that mode.
@@ -199,36 +162,21 @@ function BrandSplashFilm() {
       importantForAccessibility="no-hide-descendants"
       style={[StyleSheet.absoluteFill, styles.overlay, { opacity }]}
     >
-      {/* expo-video has no poster prop, so the still is a plain underlay: the
-          film paints over it the moment its first frame decodes, and until then
-          the overlay is never empty. In the still modes the underlay IS the
-          splash and no VideoView is mounted at all. */}
       <Image
         testID="splash-still"
         source={SPLASH_POSTER}
         style={styles.layer}
         resizeMode="cover"
       />
-      {moving ? (
-        <VideoView
-          testID="splash-film"
-          player={player}
-          style={styles.layer}
-          nativeControls={false}
-          contentFit="cover"
-        />
-      ) : null}
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  // The 2026-08-20 film opens on the BAZAAR, not on the near-white plate the
-  // old one used, so the ground is a warm mid-tone sampled from its first
-  // frame. White here would flash at the edges of any frame the poster does
-  // not cover. zIndex + elevation put the overlay above everything.
+  // The film opens on a near-white plate, so any other colour flashes at
+  // reveal. zIndex + elevation put the overlay above everything.
   overlay: {
-    backgroundColor: '#8E6A59',
+    backgroundColor: '#FFFFFF',
     zIndex: 9999,
     elevation: 9999,
   },

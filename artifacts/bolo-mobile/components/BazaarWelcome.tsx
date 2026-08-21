@@ -25,22 +25,21 @@ import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useReducedMotion } from 'react-native-reanimated';
-// RESTORED 2026-08-20. This import was ripped out on 2026-08-19 because
-// expo-video was the leading suspect for the launch crash. It was innocent: the
-// cause was react-native-worklets 0.5.1, thirty crashes in thirty launches, and
-// the crash carried on for hours after expo-video was gone. The splash's own
-// film is back and verified at 10 cold starts for 10; this is the same
-// treatment for the greeting, which is not even on the launch path.
-//
-// Web's twin, gujarati-coach/src/components/bazaar-welcome.tsx, never lost its
-// <video> and has been the odd one out for a day. This restores parity.
-import { VideoView, useVideoPlayer } from 'expo-video';
+// expo-video is REMOVED for the crash bisect (2026-08-19). It is the last
+// native module that entered the range between the build that works and the
+// builds that do not, and the app dies at launch inside the Hermes GC with no
+// JS frames. The welcome keeps its still frame and Chacha-ji's voice, which is
+// the path Reduce Motion already used, so the greeting still happens; it just
+// does not move. Restore by reinstating this import and the VideoView branch.
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { activateSfxPlaybackRoute } from '@/lib/audio';
 import { AppFonts } from '@/constants/fonts';
 
 /** Metro static requires, the house pattern (lib/tearAudio.ts, ChaiStall). */
-const WELCOME_FILM = require('../assets/images/bazaar/welcome.mp4') as number;
+// The welcome film's require() lived here until 2026-08-19. It was left behind
+// when expo-video came out, declared and referenced by nothing, which still
+// bundled 1.2MB of mp4 into every install. Removed with the splash film's own
+// mp4 for the same reason. The asset stays on disk.
 const WELCOME_STILL = require('../assets/images/bazaar/keyart.png') as number;
 const WELCOME_VOICE = require('../assets/images/bazaar/chacha-welcome.mp3') as number;
 
@@ -93,13 +92,6 @@ export function BazaarWelcome() {
   // were ahead of his voice by the length of that read, and the opening frames
   // were never seen at all. Web has no such gap because localStorage is
   // synchronous and its <video autoPlay> mounts only once open.
-  const player = useVideoPlayer(
-    reduceMotion ? null : WELCOME_FILM,
-    (p) => {
-      p.muted = true;
-      p.loop = false;
-    },
-  );
 
   // Decide once, at mount. AsyncStorage cannot be read synchronously, so the
   // overlay is absent for a frame or two rather than appearing and vanishing.
@@ -135,7 +127,7 @@ export function BazaarWelcome() {
     // whole point of starting playback here rather than at mount.
     if (!reduceMotion) {
       try {
-        player.play();
+        /* film removed for the bisect; the voice below still plays */
       } catch {
         /* a silent still is still a greeting */
       }
@@ -173,21 +165,12 @@ export function BazaarWelcome() {
       // that keeps decoding behind the shop is the same defect as one that
       // keeps talking.
       try {
-        player.pause();
-      } catch {
-        /* already released */
-      }
-      try {
         voiceRef.current?.remove();
       } catch {
         /* already released */
       }
       voiceRef.current = null;
     };
-    // `player` is intentionally absent: useVideoPlayer only rebuilds it when
-    // its source changes, and the source depends solely on reduceMotion, which
-    // is already a dependency. Adding it would restart the voice on any
-    // incidental identity change.
   }, [open, reduceMotion]);
 
   if (open !== true) return null;
@@ -200,22 +183,12 @@ export function BazaarWelcome() {
       onPress={() => setOpen(false)}
       style={styles.overlay}
     >
-      {reduceMotion ? (
-        <Image
-          testID="bazaar-welcome-still"
-          source={WELCOME_STILL}
-          style={styles.media}
-          resizeMode="contain"
-        />
-      ) : (
-        <VideoView
-          testID="bazaar-welcome-video"
-          player={player}
-          style={styles.media}
-          nativeControls={false}
-          contentFit="contain"
-        />
-      )}
+      <Image
+        testID="bazaar-welcome-still"
+        source={WELCOME_STILL}
+        style={styles.media}
+        resizeMode="contain"
+      />
       <View pointerEvents="none" style={styles.hintWrap}>
         <Text style={styles.hint}>Tap to skip</Text>
       </View>
