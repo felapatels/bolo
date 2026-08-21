@@ -540,6 +540,21 @@ function ChaiStallTrackside({ p }: { p: SceneryPalette }) {
         height={32.3}
         preserveAspectRatio="xMidYMax meet"
       />
+      {/* Roadside signpost, same idea as the one on the home stall card: the
+          stall needs to read as somewhere you can GO, not just scenery. Board
+          leans slightly and its arrow points back at the counter. Drawn last so
+          it sits in front of everything. */}
+      <G testID="chacha-stall-sign">
+        <Rect x={21.4} y={-14} width={1.8} height={14} fill={p.trunkShade} />
+        <Rect x={19} y={-15.6} width={6.6} height={1.6} rx={0.8} fill={p.trunkShade} />
+        <G transform="rotate(-5 24 -19)">
+          <Rect x={17.6} y={-23} width={13} height={7.4} rx={1} fill={p.amberShade} />
+          <Rect x={18.4} y={-22.2} width={11.4} height={5.8} rx={0.7} fill={p.amber} />
+          {/* left-pointing arrow, back toward the counter */}
+          <Path d="M20.6 -19.3 l2.6 -1.9 v3.8 Z" fill={p.trunkShade} />
+          <Rect x={23.6} y={-19.9} width={5} height={1.3} rx={0.65} fill={p.trunkShade} />
+        </G>
+      </G>
     </G>
   );
 }
