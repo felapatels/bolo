@@ -1468,10 +1468,10 @@ const styles = StyleSheet.create({
   statsBanner: {
     flexDirection: 'row',
     borderRadius: 18,
-    // SYMMETRIC, and that is the point. It was 14/16, which read as a dead band
-    // above the icons; dropping the top to 8 fixed that and broke the balance
-    // instead, so the block sat high. 12/12 is tighter than the original AND
-    // optically centred, which is what was actually being asked for both times.
+    // Symmetric, and honest now that statLabelBand is tall enough to hold its
+    // own text. The bands total 28 + 56 + 20 = 104, so at 12/12 the card is
+    // 128pt against the original 130 -- tighter than it started AND centred,
+    // with nothing relying on padding to hide an overflow.
     paddingTop: 12,
     paddingBottom: 12,
     paddingHorizontal: 6,
@@ -1496,7 +1496,12 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   statLabelBand: {
-    height: 16,
+    // 20, not 16. THIS was the clipping, not the card padding. The band is a
+    // fixed height and its uppercase letter-spaced label overflowed it; 16pt of
+    // bottom padding on the card was quietly absorbing the overflow, so
+    // tightening the padding exposed a bug that was always there. Sized to the
+    // text now, so the padding is free to be whatever looks right.
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'stretch',
