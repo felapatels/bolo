@@ -127,6 +127,21 @@ command runs.
 
 ## Known open items
 
+- **1.0.0 IS RELEASED ON THE APP STORE as of 2026-08-21, so it is CLOSED. Every
+  iOS submission from now on needs `expo.version` BUMPED, not just
+  `ios.buildNumber`.** Build 210 was rejected at upload for exactly this, with two
+  errors that are the same fact twice: **90062**, `CFBundleShortVersionString`
+  must be higher than the approved 1.0.0, and **90186**, "the train version
+  '1.0.0' is closed for new build submissions". **90186 means TestFlight is closed
+  for that train too, so this blocks internal testing, not just release.** The
+  version is a compile-time value, so a rejected binary cannot be resubmitted, it
+  has to be rebuilt. Currently `1.0.1`.
+
+  **Also confirmed 2026-08-21: EAS `autoIncrement` with `appVersionSource: local`
+  WRITES THE INCREMENTED NUMBER BACK INTO `app.json`.** It left `201` and then
+  `210` in the working tree after each build. So the number you commit is one less
+  than the build you get, and the tree is dirty afterwards.
+
 - ~~The launch crash.~~ **Fixed 2026-08-20. It was `expo-video` on the launch
   path, plus `react-native-worklets` being off Expo SDK 54's pinned 0.5.1.**
   Remove both and a store build launches 10 cold starts for 10 (build 150).
