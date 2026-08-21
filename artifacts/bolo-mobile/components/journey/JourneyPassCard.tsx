@@ -40,7 +40,7 @@ import { useLoopProgress } from '@/lib/useLoopProgress';
 // Reanimated's frame driver is dead in release builds (CLAUDE.md, THE ANIMATION
 // BUG), so the two CONTINUOUS effects on this card run on react-native's own
 // Animated instead. Everything else here is left exactly as it was.
-import { BreatheView, NudgeView, PulseView } from '@/components/StateMotion';
+import { BreatheView, NudgeView, PulseView, SweepView } from '@/components/StateMotion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
@@ -365,10 +365,13 @@ export function JourneyPassCard({
         {/* shimmer sweep across the ticket face, once per heartbeat
             (transform-only band; the pass's overflow hidden clips it) */}
         {idleOn && passW > 0 && (
-          <Animated.View
+          <SweepView
             pointerEvents="none"
             testID="pass-shimmer"
-            style={[styles.shimmer, { width: passW / 3 }, shimmerStyle]}
+            style={[styles.shimmer, { width: passW / 3 }]}
+            width={passW / 3}
+            cycleMs={PASS_CYCLE_MS}
+            enabled={idleOn}
           >
             <LinearGradient
               colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.25)', 'rgba(255,255,255,0)']}
@@ -376,7 +379,7 @@ export function JourneyPassCard({
               end={{ x: 1, y: 0.5 }}
               style={styles.shimmerFill}
             />
-          </Animated.View>
+          </SweepView>
         )}
         <View style={styles.row}>
           {/* main body (recoils away leftward while the stub tears off; while
