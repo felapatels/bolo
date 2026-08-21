@@ -320,20 +320,19 @@ export function JourneyPassCard({
         : 'Continue your journey';
 
   return (
-    <BreatheView style={styles.wrap} scale={PASS_BREATHE_SCALE} cycleMs={PASS_CYCLE_MS} enabled={idleOn}>
-      {/* FIRST-RUN CALL TO ACTION. The pass is where a learner starts and the
-          card alone did not say so: it reads "Resume", which is wrong for
-          someone who has never begun. Shown only while doneCount is 0, so it
-          disappears the moment the first stop is completed and needs no stored
-          flag to do it. */}
+    <>
+      {/* OUTSIDE the pass wrapper on purpose. styles.glow is absolutely
+          positioned to fill styles.wrap, so anything added inside it stretches
+          the green halo up behind the cue. This sits above the card entirely. */}
       {firstRun ? (
         <NudgeView cycleMs={900} distance={5} enabled={idleOn}>
           <View style={styles.startCue} pointerEvents="none">
             <Text style={styles.startCueText}>START HERE</Text>
-            <Feather name="chevron-down" size={16} color={colors.primaryForeground} />
+            <Feather name="chevron-down" size={16} color="#FFFFFF" />
           </View>
         </NudgeView>
       ) : null}
+    <BreatheView style={styles.wrap} scale={PASS_BREATHE_SCALE} cycleMs={PASS_CYCLE_MS} enabled={idleOn}>
       {/* Soft glow pulse lifting the pass off the page. Sits just inside the
           card footprint so the accent-colored layer stays fully covered by
           the pass face; only its shadow shows. (iOS shadow; opacity-only
@@ -542,6 +541,7 @@ export function JourneyPassCard({
         </View>
       </PressableScale>
     </BreatheView>
+    </>
   );
 }
 
