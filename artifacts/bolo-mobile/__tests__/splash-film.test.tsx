@@ -8,9 +8,27 @@ import { BrandSplash, __resetBrandSplashForTests } from '@/components/BrandSplas
 // This file flips it per test, so the mutable flag lives INSIDE the factory:
 // jest.mock is hoisted above every const here. Same idiom as
 // bazaar-welcome.test.tsx.
+// BrandSplash moved onto reanimated on 2026-08-20, so this double has to carry
+// the pieces it now uses. The fade is asserted by behaviour elsewhere; here the
+// shared value is a plain box and withTiming resolves immediately, because what
+// these tests care about is WHICH SOURCE reaches the decoder, not the easing.
 jest.mock('react-native-reanimated', () => {
+  const React = require('react');
+  const { View } = require('react-native');
   const motion = { reduce: false };
-  return { __esModule: true, __motion: motion, useReducedMotion: () => motion.reduce };
+  return {
+    __esModule: true,
+    __motion: motion,
+    default: { View: (props: Record<string, unknown>) => React.createElement(View, props) },
+    useReducedMotion: () => motion.reduce,
+    useSharedValue: (v: unknown) => ({ value: v }),
+    useAnimatedStyle: (fn: () => unknown) => fn(),
+    withTiming: (to: unknown, _cfg?: unknown, cb?: (f: boolean) => void) => {
+      cb?.(true);
+      return to;
+    },
+    runOnJS: (fn: (...a: unknown[]) => unknown) => fn,
+  };
 });
 
 jest.mock('@/lib/splashReady', () => ({ __esModule: true, useHomeReady: () => false }));
@@ -119,5 +137,43 @@ describe('THE SPLASH IS A STILL, in every motion mode', () => {
     // why the style carries explicit 100% and why resizeMode is asserted here.
     render(<BrandSplash />);
     expect(q('splash-still')?.props.resizeMode).toBe('cover');
+  });
+});
+
+describe('THE SPLASH USES ONE ANIMATION SYSTEM, and it is reanimated', () => {
+  // THE BUG THIS PREVENTS, in full, because it cost two days and nothing else
+  // would have caught it.
+  //
+  // BrandSplash used react-native's own Animated with useNativeDriver on a
+  // full-screen view at the ROOT layout, zIndex 9999, wrapping the entire app.
+  // It was the ONLY component in the app doing so; everything else animates
+  // through reanimated. Two native animation systems, with react-native's
+  // sitting on top of the whole tree, and on the New Architecture reanimated's
+  // view updates below it never applied. Every animation in every RELEASE build
+  // was frozen from the day this component was created.
+  //
+  // It was invisible to everything: install, typecheck, 1120 tests and dev
+  // builds were all green, because dev builds animate fine. It took two store
+  // builds differing only in whether this component was mounted.
+  const src = readFileSync(join(ROOT, 'components/BrandSplash.tsx'), 'utf8');
+
+  it("does not import react-native's Animated", () => {
+    const rnImport = /import\s*\{([^}]*)\}\s*from\s*'react-native'/.exec(src)?.[1] ?? '';
+    expect(rnImport).not.toMatch(/\bAnimated\b/);
+  });
+
+  it('animates through reanimated instead', () => {
+    expect(src).toMatch(/import Animated[^;]*from 'react-native-reanimated'/s);
+    expect(src).toContain('useSharedValue');
+    expect(src).toContain('useAnimatedStyle');
+  });
+
+  it('and nothing else at the root layout uses react-native Animated either', () => {
+    // The root is where this matters: an animated node there wraps everything
+    // below it. Elsewhere in the tree the two systems coexist fine, which is
+    // why PressableScale is not covered by this.
+    const layout = readFileSync(join(ROOT, 'app/_layout.tsx'), 'utf8');
+    const rnImport = /import\s*\{([^}]*)\}\s*from\s*'react-native'/.exec(layout)?.[1] ?? '';
+    expect(rnImport).not.toMatch(/\bAnimated\b/);
   });
 });

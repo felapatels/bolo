@@ -18,8 +18,29 @@
  * Any failure renders null and the app boots normally (boundary below).
  */
 import React, { Component, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Image, StyleSheet } from 'react-native';
-import { useReducedMotion } from 'react-native-reanimated';
+import { Image, StyleSheet } from 'react-native';
+// REANIMATED, NOT REACT NATIVE'S Animated, AND THAT IS THE WHOLE FIX.
+//
+// This component used react-native's own Animated with useNativeDriver on a
+// full-screen view at the ROOT layout, zIndex 9999, wrapping the entire app. It
+// was the only component in the app doing so; everything else animates through
+// reanimated. Two native animation systems, with RN's sitting on top of the
+// whole tree, and on the New Architecture reanimated's view updates below it
+// simply never applied: every animation in every release build was frozen from
+// 2026-08-16, when this component was created, until now.
+//
+// Proven by removing it. Build 150, identical but for this component being
+// mounted, launched 10 for 10 and did not animate. Build 160, with it not
+// mounted, animates. Both store builds, same commit otherwise.
+//
+// Do not reintroduce react-native's Animated here. One system.
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 // THE SPLASH IS A STILL, RENDERED BY REACT NATIVE'S OWN Image, AND BOTH HALVES
 // OF THAT ARE LOAD-BEARING. Do not casually change either one.
 //
@@ -81,7 +102,7 @@ function BrandSplashFilm() {
   const homeReady = useHomeReady();
   const reduceMotion = useReducedMotion();
   const mountedAt = useRef(Date.now());
-  const opacity = useRef(new Animated.Value(1)).current;
+  const opacity = useSharedValue(1);
 
   // Muted, no loop, plays as soon as it is ready. Reduced motion never
   // creates a source, so the film is not decoded at all in that mode.
@@ -143,14 +164,16 @@ function BrandSplashFilm() {
 
   useEffect(() => {
     if (phase !== 'exiting') return;
-    const anim = Animated.timing(opacity, {
-      toValue: 0,
-      duration: reduceMotion ? 0 : SPLASH_EXIT_MS,
-      useNativeDriver: true,
-    });
-    anim.start(() => setPhase('done'));
-    return () => anim.stop();
+    opacity.value = withTiming(
+      0,
+      { duration: reduceMotion ? 0 : SPLASH_EXIT_MS },
+      (finished) => {
+        if (finished) runOnJS(setPhase)('done');
+      },
+    );
   }, [phase, reduceMotion, opacity]);
+
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   if (phase === 'done') return null;
 
@@ -160,7 +183,7 @@ function BrandSplashFilm() {
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[StyleSheet.absoluteFill, styles.overlay, { opacity }]}
+      style={[StyleSheet.absoluteFill, styles.overlay, fadeStyle]}
     >
       <Image
         testID="splash-still"
