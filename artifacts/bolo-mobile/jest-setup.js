@@ -71,6 +71,11 @@ jest.mock('react-native-reanimated', () => {
     useSharedValue: (v) => ({ value: v }),
     useAnimatedStyle: () => ({}),
     useReducedMotion: () => false,
+    // Added for components/AnimDiag.tsx. The real hook schedules a worklet on
+    // the UI thread every frame; under jest there is no UI thread, so it is a
+    // no-op. Kept in the shared mock rather than guarded at the call site,
+    // because a diagnostic that behaves differently under test is worthless.
+    useFrameCallback: () => ({ setActive: () => {}, isActive: false }),
     // A real ref, not a fresh throwaway object: the journey map's
     // scroll-to-current-stop drives the scroll view through this ref, and a
     // stand-in that never attaches would leave that behaviour untestable and
