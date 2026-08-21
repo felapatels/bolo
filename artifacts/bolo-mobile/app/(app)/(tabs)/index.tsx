@@ -1398,7 +1398,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 8,
+    // No marginTop: Screen already pads by insets.top, which on a Dynamic
+    // Island phone is ~62pt. Another 8 on top of that read as a dead band
+    // above the greeting.
+    marginTop: 0,
     marginBottom: 18,
   },
   hello: { fontFamily: AppFonts.regular, fontSize: 15 },
@@ -1415,7 +1418,11 @@ const styles = StyleSheet.create({
   langRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 18,
+    // 26, not the page's usual 18, and deliberately so. The gradient stats
+    // banner below is a saturated full-bleed block; against the white language
+    // card an 18pt gap reads as no gap at all. The extra 8 is exactly what
+    // comes off topRow above, so the page length is unchanged.
+    marginBottom: 26,
   },
   langPill: {
     flexDirection: 'row',
