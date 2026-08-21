@@ -40,7 +40,7 @@ import { useLoopProgress } from '@/lib/useLoopProgress';
 // Reanimated's frame driver is dead in release builds (CLAUDE.md, THE ANIMATION
 // BUG), so the two CONTINUOUS effects on this card run on react-native's own
 // Animated instead. Everything else here is left exactly as it was.
-import { BreatheView, PulseView } from '@/components/StateMotion';
+import { BreatheView, NudgeView, PulseView } from '@/components/StateMotion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
@@ -180,6 +180,9 @@ export function JourneyPassCard({
   };
 
   const idleOn = !reduceMotion && !tearing;
+  // Never completed a stop. Derived, not stored: it clears itself the moment the
+  // first stop lands, and there is no flag to go stale or to reset on reinstall.
+  const firstRun = !journey.isLoading && journey.doneCount === 0;
   const heartbeat = useLoopProgress(PASS_CYCLE_MS, idleOn);
   const arrowLoop = useLoopProgress(ARROW_CYCLE_MS, idleOn);
 
@@ -318,6 +321,19 @@ export function JourneyPassCard({
 
   return (
     <BreatheView style={styles.wrap} scale={PASS_BREATHE_SCALE} cycleMs={PASS_CYCLE_MS} enabled={idleOn}>
+      {/* FIRST-RUN CALL TO ACTION. The pass is where a learner starts and the
+          card alone did not say so: it reads "Resume", which is wrong for
+          someone who has never begun. Shown only while doneCount is 0, so it
+          disappears the moment the first stop is completed and needs no stored
+          flag to do it. */}
+      {firstRun ? (
+        <NudgeView cycleMs={900} distance={5} enabled={idleOn}>
+          <View style={styles.startCue} pointerEvents="none">
+            <Text style={styles.startCueText}>START HERE</Text>
+            <Feather name="chevron-down" size={16} color={colors.primaryForeground} />
+          </View>
+        </NudgeView>
+      ) : null}
       {/* Soft glow pulse lifting the pass off the page. Sits just inside the
           card footprint so the accent-colored layer stays fully covered by
           the pass face; only its shadow shows. (iOS shadow; opacity-only
@@ -569,6 +585,23 @@ export function fitStubWordmark(
 }
 
 const styles = StyleSheet.create({
+  startCue: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginBottom: 8,
+    backgroundColor: '#4f46e5',
+  },
+  startCueText: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 12,
+    letterSpacing: 0.8,
+    color: '#FFFFFF',
+  },
   // Breathe wrapper carries the outer spacing so the glow overlay's inset
   // coordinates match the pass face exactly.
   wrap: { position: 'relative', marginBottom: 12 },
