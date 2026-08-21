@@ -146,7 +146,19 @@ function BrandSplashFilm() {
     const anim = Animated.timing(opacity, {
       toValue: 0,
       duration: reduceMotion ? 0 : SPLASH_EXIT_MS,
-      useNativeDriver: true,
+      // useNativeDriver FALSE, deliberately, and this is the experiment.
+      //
+      // With it true, this creates a native animated node on a full-screen view
+      // at the ROOT layout and then tears it down when the splash unmounts. On
+      // the New Architecture react-native's native animated driver and
+      // reanimated both hook the same Fabric commit pipeline, and build 150
+      // showed the app animating NOTHING for the rest of the session after this
+      // fade had run and unmounted. Build 160, identical but with this
+      // component not mounted at all, animates perfectly.
+      //
+      // False keeps the fade on the JS thread. It is 260ms on one opacity, so
+      // the cost is nothing, and it creates no native node to leave behind.
+      useNativeDriver: false,
     });
     anim.start(() => setPhase('done'));
     return () => anim.stop();
