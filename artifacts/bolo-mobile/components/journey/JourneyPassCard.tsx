@@ -37,6 +37,11 @@ import { PressableScale } from '@/components/PressableScale';
 import { getJourneyLine, getRailBrand } from '@/lib/journeyLines';
 import { useJourneyProgress } from '@/lib/useJourneyProgress';
 import { useLoopProgress } from '@/lib/useLoopProgress';
+// Reanimated's frame driver is dead in release builds (CLAUDE.md, THE ANIMATION
+// BUG), so the two CONTINUOUS effects on this card run on react-native's own
+// Animated instead. Everything else here is left exactly as it was.
+import { Animated as RNAnimated } from 'react-native';
+import { useLoopProgressRN } from '@/lib/useLoopProgressRN';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
@@ -177,6 +182,18 @@ export function JourneyPassCard({
 
   const idleOn = !reduceMotion && !tearing;
   const heartbeat = useLoopProgress(PASS_CYCLE_MS, idleOn);
+  // The same heartbeat on a driver that actually ticks. Only breathe and glow
+  // read it; shimmer and the tear animations still use the reanimated one and
+  // come back on their own when the driver is fixed upstream.
+  const heartbeatRN = useLoopProgressRN(PASS_CYCLE_MS, idleOn);
+  const breatheScaleRN = heartbeatRN.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, PASS_BREATHE_SCALE, 1],
+  });
+  const glowOpacityRN = heartbeatRN.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [PASS_GLOW_MIN, PASS_GLOW_MAX, PASS_GLOW_MIN],
+  });
   const arrowLoop = useLoopProgress(ARROW_CYCLE_MS, idleOn);
 
   const breatheStyle = useAnimatedStyle(() => ({
@@ -313,20 +330,22 @@ export function JourneyPassCard({
         : 'Continue your journey';
 
   return (
-    <Animated.View style={[styles.wrap, breatheStyle]}>
+    <RNAnimated.View
+      style={[styles.wrap, idleOn ? { transform: [{ scale: breatheScaleRN }] } : null]}
+    >
       {/* Soft glow pulse lifting the pass off the page. Sits just inside the
           card footprint so the accent-colored layer stays fully covered by
           the pass face; only its shadow shows. (iOS shadow; opacity-only
           animation. Android has no transparent-view shadow — device
           checklist item.) */}
       {idleOn && (
-        <Animated.View
+        <RNAnimated.View
           pointerEvents="none"
           testID="pass-glow"
           style={[
             styles.glow,
             { backgroundColor: line.accent, shadowColor: line.accent },
-            glowStyle,
+            { opacity: glowOpacityRN },
           ]}
         />
       )}
@@ -522,7 +541,7 @@ export function JourneyPassCard({
           </Animated.View>
         </View>
       </PressableScale>
-    </Animated.View>
+    </RNAnimated.View>
   );
 }
 
