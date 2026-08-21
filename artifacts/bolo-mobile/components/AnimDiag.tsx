@@ -98,6 +98,30 @@ export function AnimDiag() {
     return () => clearInterval(id);
   }, [frames]);
 
+  // ---- THE ONE THAT DECIDES THE FIX ----
+  // A shared value stepped from a plain JS timer, with no withTiming and no
+  // withRepeat anywhere near it. Those two are what the dead frame driver
+  // powers. Shared-value assignment and the useAnimatedStyle recomputation that
+  // follows are a different path, and nothing has ever tested it alone.
+  //
+  //   moves -> the pipeline is intact and only the driver is dead, so replacing
+  //            withTiming/withRepeat with JS-driven stepping fixes every
+  //            animation in the app from one small module.
+  //   still -> the whole shared-value pipeline is dead and porting to RN
+  //            Animated is the only option left.
+  const jsDriven = useSharedValue(0);
+  useEffect(() => {
+    if (IS_TEST) return;
+    let t = 0;
+    const id = setInterval(() => {
+      t = (t + 1) % 40;
+      // Plain assignment from the JS thread. No animation helper involved.
+      jsDriven.value = t < 20 ? t / 20 : (40 - t) / 20;
+    }, 50);
+    return () => clearInterval(id);
+  }, [jsDriven]);
+  const jsBar = useAnimatedStyle(() => ({ width: 20 + jsDriven.value * 140 }));
+
   // ---- runOnJS: can the UI thread call back into JS ----
   const [jsHits, setJsHits] = useState(0);
   const bumped = useRef(0);
@@ -164,8 +188,10 @@ export function AnimDiag() {
       <Text style={styles.line}>
         reduceMotion os={String(osRM)} rea={String(reaRM)}
       </Text>
-      <Text style={styles.line}>reanimated {reanimatedVersion()} — bar should pulse:</Text>
+      <Text style={styles.line}>reanimated {reanimatedVersion()} withTiming:</Text>
       <Animated.View style={[styles.bar, styles.reaBar, reaBar]} />
+      <Text style={styles.line}>JS-DRIVEN shared value (the one that matters):</Text>
+      <Animated.View style={[styles.bar, styles.jsBar, jsBar]} />
       <Text style={styles.line}>RN Animated — bar should pulse:</Text>
       <RNAnimated.View style={[styles.bar, styles.rnBar, { width: rnWidth }]} />
     </View>
@@ -189,6 +215,7 @@ const styles = StyleSheet.create({
   bad: { color: '#FF6B6B' },
   bar: { height: 10, marginTop: 4, borderRadius: 5 },
   reaBar: { backgroundColor: '#3FBFB2' },
+  jsBar: { backgroundColor: '#C084FC' },
   rnBar: { backgroundColor: '#F2B544' },
 });
 
