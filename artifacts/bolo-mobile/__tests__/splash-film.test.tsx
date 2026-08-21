@@ -94,14 +94,18 @@ describe('THE ROOT LAYOUT MOUNTS NO FULL-SCREEN JS OVERLAY', () => {
 
   const layout = readFileSync(join(ROOT, 'app/_layout.tsx'), 'utf8');
 
-  it('nothing under app/ imports BrandSplash', () => {
+  it('NOTHING UNDER app/ RENDERS BrandSplash', () => {
+    // The guard is on the MOUNT, not the import. app/_layout.tsx keeps the
+    // import on purpose: build 160, the one that animates 10 for 10, carried
+    // it with the component unmounted, and Metro does not tree-shake, so the
+    // module is bundled either way. Dropping the import would quietly make
+    // this a different build from the one that was actually measured.
     const appFiles = sourceFiles(join(ROOT, 'app')).filter((f) =>
       readFileSync(f, 'utf8')
         .split('\n')
         .some(
           (line) =>
-            !/^\s*(\/\/|\*|\/\*)/.test(line) &&
-            /from ['"]@\/components\/BrandSplash['"]/.test(line),
+            !/^\s*(\/\/|\*|\/\*)/.test(line) && /<BrandSplash[\s/>]/.test(line),
         ),
     );
     expect(appFiles.map((f) => f.replace(ROOT, ''))).toEqual([]);
@@ -117,7 +121,7 @@ describe('THE ROOT LAYOUT MOUNTS NO FULL-SCREEN JS OVERLAY', () => {
   });
 });
 
-describe('the native splash is what covers the boot now', () => {
+describe('THE NATIVE SPLASH MUST GET OUT OF THE WAY EARLY', () => {
   const layout = readFileSync(join(ROOT, 'app/_layout.tsx'), 'utf8');
 
   it('holds the native splash at module load', () => {
@@ -128,10 +132,21 @@ describe('the native splash is what covers the boot now', () => {
     expect(layout).toMatch(/SplashScreen\.hideAsync\(\)/);
   });
 
-  it('with a failsafe, because the release path sits inside <ClerkLoaded>', () => {
-    // A Clerk that never resolves would otherwise hold the splash forever,
-    // which is a worse failure than the blank screen it replaced.
-    expect(layout).toMatch(/MAX_HOLD_MS/);
+  it('AND RELEASES IT ON FONTS, WHICH IS EARLY, AND MUST STAY THAT WAY', () => {
+    // Build 201 is why this is a test. It held the splash until Clerk resolved
+    // plus 1500ms, mounted no JS overlay at all, and froze every animation
+    // exactly like the overlay builds. Dependency sets were identical and the
+    // hold was the only functional difference from the build that animates.
+    expect(layout).toMatch(/fontsLoaded \|\| fontError/);
+  });
+
+  it('and holds it no longer than that, on a timer or otherwise', () => {
+    const code = layout
+      .split('\n')
+      .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+      .join('\n');
+    expect(code).not.toMatch(/setTimeout/);
+    expect(code).not.toMatch(/HOLD_MS/);
   });
 });
 

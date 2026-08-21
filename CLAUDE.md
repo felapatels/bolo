@@ -189,42 +189,50 @@ command runs.
      replaced about seven bisect builds and ended five wrong theories at once.
      `components/AnimDiag.tsx` on the `diag/*` branches is the pattern.
 
-- **THE ANIMATION BUG. Cause found 2026-08-21, fix UNVERIFIED until a store
-  build says otherwise. A full-screen JS view mounted at the ROOT freezes every
-  reanimated animation for the life of the app in RELEASE builds.** Not the
-  animation, not the library, not anything the component does. Five store builds
-  of the same commit, one variable apart:
+  10. **APPLY RULE 4 TO YOUR OWN BUILDS, NOT JUST TO OLD ONES.** Build 201 was a
+     fix that failed, and one `git diff` against build 160, the last build known
+     to animate, showed identical dependency sets and exactly one functional
+     change. That diff took a minute and named the cause outright. It should be
+     the FIRST thing done when a fix does not work, not the last.
 
-  | build | the root overlay | result |
+- **THE ANIMATION BUG. ANYTHING THAT COVERS THE SCREEN WHILE THE APP MOUNTS
+  FREEZES EVERY REANIMATED ANIMATION FOR THE LIFE OF THE APP, in RELEASE
+  builds.** It does not matter whether the cover is a React view or the native
+  splash screen. Six store builds of the same commit, one variable apart:
+
+  | build | what covered the screen at mount | result |
   |---|---|---|
-  | 150 | RN `Animated`, `useNativeDriver: true` | app frozen |
-  | 170 | reanimated | the SPLASH froze instead |
-  | 180 | RN `Animated`, `useNativeDriver: false` | app frozen |
-  | 190 | **a bare static `View`, nothing else at all** | **app frozen** |
-  | 160 | **not mounted** | **everything animates** |
+  | 150 | JS overlay, RN `Animated`, native driver on | app frozen |
+  | 170 | JS overlay, reanimated | the SPLASH froze instead |
+  | 180 | JS overlay, RN `Animated`, native driver off | app frozen |
+  | 190 | JS overlay, **a bare static `View`, nothing else** | app frozen |
+  | 201 | **NO JS overlay. The NATIVE splash, held past Clerk** | **app frozen** |
+  | 160 | **nothing. Native splash hides on fonts** | **everything animates** |
 
-  **Build 190 is the one that settled it.** `BrandSplash` stripped to a coloured
-  rectangle: no `Animated` of either kind, no `Image`, no AsyncStorage, no error
-  boundary, one timer. Still frozen. So every remaining suspect inside the
-  component was cleared at once, and the answer is the overlay itself.
+  **An earlier version of this entry said the cause was a JS overlay at the root
+  and that holding the native splash was the fix. Build 201 disproved it.** 201
+  mounted no JS overlay at all and froze exactly like the overlay builds.
+  Dependency sets between 160 and 201 were **identical**, and the splash hold was
+  the **only** functional difference in `app/_layout.tsx`. That diff is what
+  identified it, which is measurement rule 4 applied to our own build.
 
-  **The fix, on `fix/native-splash-hold` as build 200: hold the NATIVE splash
-  through the whole boot and mount no JS overlay at all.** `expo-splash-screen`
-  was already a dependency and already wired; it now holds past fonts, Clerk and
-  both redirect hops instead of releasing on fonts. The native splash is a native
-  view rather than a node in the React tree, which is why it cannot reproduce
-  this. Release path is `SplashGate` inside `<ClerkLoaded>`, with an 8s failsafe
-  in `RootLayout` because a Clerk that never resolves would otherwise hold the
-  splash forever.
+  **THE SHIP SHAPE, and it is build 160's, restored verbatim: the native splash
+  hides on `fontsLoaded || fontError` and nothing else covers the boot.** Do not
+  hold it longer, on a timer or otherwise. `__tests__/splash-film.test.tsx` fails
+  if anything renders `<BrandSplash>` under `app/`, if the layout gains a
+  `setTimeout`, or if the release stops keying on fonts. Every one of those guards
+  was checked by breaking it deliberately and watching the test fail.
 
-  **`components/BrandSplash.tsx` is kept on disk, unreferenced and unmounted**,
-  the same way `assets/splash/wave/` is. It may yet ship from inside a SCREEN,
-  which is the one shape never tried. It must never go back into
-  `app/_layout.tsx`: `__tests__/splash-film.test.tsx` fails if it does, and that
-  guard was checked by putting the overlay back and watching it fail.
+  **The cost is a brief uncovered gap** while Clerk resolves and the two redirect
+  hops run. **That gap is the price of a working app, and it is worth paying.**
+  There is no boot film any more. `components/BrandSplash.tsx` stays on disk,
+  unreferenced except for a deliberate unused import in the layout that is kept
+  so this build remains the thing that was measured.
 
-  **`ship/build40-config` with BrandSplash unmounted remains the known-good
-  fallback: 10 launches for 10, everything animating.**
+  **`app/_layout.tsx` keeps that unused `BrandSplash` import on purpose.** Build
+  160 carried it, Metro does not tree-shake, so the module is bundled and
+  evaluated either way. Removing it would silently make the build stop being the
+  one with the 10-for-10 result behind it.
 
 - **`expo-image` MUST NOT be imported anywhere in the mobile app. It crashed
   five cold starts out of five, twice**, including a build where it rendered

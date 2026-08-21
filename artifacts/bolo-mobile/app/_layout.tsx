@@ -11,6 +11,14 @@ import { ClerkLoaded, ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { setBaseUrl, ApiError } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+// DELIBERATELY UNUSED, AND DELIBERATELY STILL HERE. Build 160 is the build
+// that animates 10 for 10, and it carried this import with the component
+// unmounted. Metro does not tree-shake, so the module is bundled and evaluated
+// either way. Removing it would make this build stop being the thing that was
+// measured, for a tidiness that is worth nothing. Nothing may RENDER it:
+// __tests__/splash-film.test.tsx fails if anything does.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { BrandSplash } from '@/components/BrandSplash';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { fontMap } from '@/constants/fonts';
 import { useColors } from '@/hooks/useColors';
@@ -27,40 +35,8 @@ if (domain) setBaseUrl(`https://${domain}`);
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 const proxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
-// Deliberately NOT imported from lib/splashFilm.ts. That module requires the
-// poster JPEG at module scope, and a module-scope require bundles the asset
-// whether or not anything reads it. Nothing on the launch path imports that
-// module any more and it should stay that way. The numbers match its
-// SPLASH_MIN_HOLD_MS / SPLASH_MAX_HOLD_MS / SPLASH_EXIT_MS.
-const MIN_HOLD_MS = 1500;
-const MAX_HOLD_MS = 8000;
-const FADE_MS = 260;
-
-// THE NATIVE SPLASH IS THE ONLY BOOT COVER, AND THAT IS NOT A STYLE CHOICE.
-// A full-screen JS view mounted at the ROOT freezes every reanimated animation
-// for the life of the app in RELEASE builds. Five store builds of the same
-// commit say so, including build 190, which stripped the overlay to a bare
-// static View with no animation, no image and no storage read and froze the app
-// anyway. The overlay itself is the fault, not anything it does. The native
-// splash cannot reproduce it because it is a native view, not a node in the
-// React tree. See CLAUDE.md, THE ANIMATION BUG.
-//
-// So it holds through the whole boot now: fonts, Clerk resolving, and both
-// redirect hops, which is the wait components/BrandSplash.tsx used to cover.
+// Prevent the splash screen from auto-hiding before fonts finish loading.
 SplashScreen.preventAutoHideAsync();
-// Fades out rather than cutting, which is what the overlay's exit used to do.
-SplashScreen.setOptions({ duration: FADE_MS, fade: true });
-
-// Stamped at module load, the closest thing JS has to "when the app started".
-const bootAt = Date.now();
-let splashHidden = false;
-
-/** Idempotent: two callers race here by design, whichever arrives first wins. */
-function hideNativeSplash(): void {
-  if (splashHidden) return;
-  splashHidden = true;
-  void SplashScreen.hideAsync().catch(() => {});
-}
 
 // Both are no-ops unless their env keys (EXPO_PUBLIC_SENTRY_DSN /
 // EXPO_PUBLIC_POSTHOG_KEY) are present. Initialize at module load so early
@@ -94,28 +70,6 @@ function AnalyticsIdentitySync() {
 }
 
 /**
- * Releases the native splash. Rendered INSIDE <ClerkLoaded>, so mounting is
- * itself the signal that Clerk has resolved; the timer only stops the splash
- * blinking away on a fast start.
- *
- * IT RENDERS null AND MUST KEEP RENDERING null. The moment this returns a view
- * it becomes the bug it replaced.
- */
-function SplashGate() {
-  useEffect(() => {
-    const remaining = MIN_HOLD_MS - (Date.now() - bootAt);
-    if (remaining <= 0) {
-      hideNativeSplash();
-      return;
-    }
-    const t = setTimeout(hideNativeSplash, remaining);
-    return () => clearTimeout(t);
-  }, []);
-
-  return null;
-}
-
-/**
  * Never retry ANY 4xx - a client error is deterministic: the same request
  * cannot succeed without something else changing first (credentials, plan,
  * input), so retrying only delays settling. Mirrors the web queryClient
@@ -144,16 +98,11 @@ function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontMap);
   const colors = useColors();
 
-  // Failsafe, and load-bearing: SplashGate sits inside <ClerkLoaded>, so a Clerk
-  // that never resolves would leave the native splash up forever. Fonts are no
-  // longer the release signal, they are just one of the things being waited on.
   useEffect(() => {
-    const t = setTimeout(
-      hideNativeSplash,
-      Math.max(0, MAX_HOLD_MS - (Date.now() - bootAt)),
-    );
-    return () => clearTimeout(t);
-  }, []);
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) return null;
 
@@ -166,7 +115,6 @@ function RootLayout() {
       >
         <ClerkLoaded>
         <AnalyticsIdentitySync />
-        <SplashGate />
         <SafeAreaProvider>
           <ErrorBoundary>
             <QueryClientProvider client={queryClient}>
@@ -184,6 +132,25 @@ function RootLayout() {
                     <Stack.Screen name="(app)" />
                   </Stack>
                 </KeyboardProvider>
+                {/* The boot film, over the Stack. The native splash still
+                    runs first and still hides on fonts; this picks up from
+                    there and covers Clerk plus both redirect hops. */}
+                {/* NOTHING MOUNTS HERE, AND NOTHING COVERS THE SCREEN
+                    WHILE THE APP MOUNTS. Both halves matter, and the second
+                    one cost build 201 to learn.
+
+                    The native splash hides on FONTS, which is early, before
+                    home mounts. Do not hold it longer. Build 201 held it
+                    until Clerk resolved plus 1500ms, mounted no JS overlay at
+                    all, and froze every animation exactly like the overlay
+                    builds did. Identical dependency sets, and the splash hold
+                    was the ONLY functional difference from this file.
+
+                    So the rule is not "no JS overlay at the root". It is that
+                    reanimated animations which mount while the screen is
+                    covered never start, and it does not matter whether the
+                    thing covering it is a React view or the native splash.
+                    See CLAUDE.md, THE ANIMATION BUG. */}
               </GestureHandlerRootView>
             </QueryClientProvider>
           </ErrorBoundary>
