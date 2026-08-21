@@ -127,36 +127,88 @@ command runs.
 
 ## Known open items
 
-- ~~The launch crash.~~ **Fixed 2026-08-20: `react-native-worklets` 0.5.1 to
-  0.8.3.** `EXC_BAD_ACCESS` on `com.facebook.react.runtime.JavaScript` inside
-  HadesGC evacuation, 200ms to 600ms after launch, presenting as either
+- ~~The launch crash.~~ **Fixed 2026-08-20. It was `expo-video` on the launch
+  path, plus `react-native-worklets` being off Expo SDK 54's pinned 0.5.1.**
+  Remove both and a store build launches 10 cold starts for 10 (build 150).
+  The fault is `EXC_BAD_ACCESS` on `com.facebook.react.runtime.JavaScript`
+  inside HadesGC evacuation, 200ms to 600ms in, appearing as either
   `KERN_INVALID_ADDRESS at 0x2000` in `CardTable::updateBoundaries` or
-  `EXC_ARM_DA_ALIGN` in `BaseVisitor::visitArray`. Reanimated runs a second
-  Hermes runtime through worklets; the upstream tracker carries live issues of
-  this exact shape on iOS with the New Architecture.
-  **We were on the FLOOR of the supported range.** Expo SDK 54 pins worklets
-  0.5.1 and reanimated 4.1.7 accepts 0.5 through 0.8, so three minor versions of
-  fixes sat above us with nothing flagging it. `pnpm run typecheck` and every
-  suite passed the whole time. **When a native crash has no JS frames, check
-  whether an Expo-pinned native module is behind its own peer range.**
-- **THE METHOD THAT FOUND IT, after three wrong calls in one day. Reuse it.**
-  1. **Read the device, never Sentry.** Sentry silently stopped delivering these
-     at 16:28 on 2026-08-19 while the phone kept writing them, and reading that
-     silence as success is how the crash was declared fixed three times.
-     Settings > Privacy & Security > Analytics & Improvements > Analytics Data,
-     entries named `BoloMobile-<date>`. **Check the timestamp against the build
-     time before believing it**, twice a stale report was read as fresh.
-  2. **Give every build its own number.** Twelve builds on 2026-08-19 all shipped
-     as `1.0.0 (40)`, so no result could be tied to a bundle. `autoIncrement` is
-     on for the preview profile now. Confirm the number in Settings before
-     counting anything.
-  3. **Ten launches, never five.** At one in six, five clean happens by luck 40%
-     of the time. Every wrong call came from a 5-of-5 sample.
-  4. **One variable per build, and re-run the baseline in the same session.**
-  5. **Name the confound before celebrating.** Build 44 passed 10/10 with TWO
-     changes in it, the version bump and the owner having let the install sit a
-     few minutes. Re-testing 43 with the same wait is what turned a guess into a
-     result.
+  `EXC_ARM_DA_ALIGN` in `BaseVisitor::visitArray`. The JS trigger is arbitrary
+  (an object spread one time, a plain property write another) because the heap
+  is ALREADY corrupt when the collector runs. The GC is the detector, not the
+  cause.
+  **An earlier entry here claimed worklets 0.8.3 was the fix. It was not.** It
+  "fixed" the crash by breaking reanimated so completely that nothing animated,
+  and with no worklets running there was nothing to corrupt the heap. Pairing it
+  with a matching reanimated brought the crash straight back.
+
+- **THE MEASUREMENT RULES. Nineteen builds were wasted before these were known.
+  Read this section before touching a native-level bug in this app.**
+
+  1. **AD-HOC BUILDS CRASH 10 OUT OF 10 NO MATTER WHAT IS IN THEM. They are
+     worthless as evidence.** `distribution: "internal"`, which is every QR /
+     preview build, crashes every launch on code that a store build of the SAME
+     COMMIT runs perfectly. Proven: `36a3a7a3` as a store build is 10/10 clean;
+     the identical commit as an ad-hoc build crashes every time. **Only store
+     builds through TestFlight tell the truth.** Roughly fifteen builds of this
+     investigation measured nothing but this artefact.
+  2. **DEV BUILDS ANIMATE WHEN RELEASE BUILDS DO NOT.** A development build with
+     Metro, even serving `--no-dev --minify` production JS, animates perfectly
+     on code where the release build is completely frozen. So local checks, fast
+     refresh and every green suite can all say the app is fine while it is not.
+     **A dev build can never clear an animation bug.**
+  3. **CLEARING A SUSPECT MEANS MEASURING THE SYMPTOM YOU CARE ABOUT.** This is
+     the single most expensive mistake made here, and it was made twice.
+     `expo-video` and `BrandSplash` were both "cleared" by removing them and
+     observing that the crash continued. Nobody looked at whether the ANIMATIONS
+     came back. `expo-video` turned out to be half the crash; `BrandSplash`
+     turned out to be the whole animation bug. **Two symptoms were treated as
+     one thing for two days.**
+  4. **DIFF THE LOCKFILE FOR NATIVE PACKAGES between a build that works and one
+     that does not.** This was the measurement that cracked it and it was
+     available on day one. Between build 40 and `main` exactly one package
+     shipping native code differed: `expo-video`. Everything else was noise.
+  5. **Read the device's crash reports, never Sentry.** Sentry silently stopped
+     delivering these at 16:28 on 2026-08-19 while the phone kept writing them,
+     and reading that silence as success is how the crash got declared fixed
+     three separate times. Settings > Privacy & Security > Analytics &
+     Improvements > Analytics Data, entries named `BoloMobile-<date>`. **Check
+     the timestamp against the build time**; a seven-hour-old report was twice
+     read as fresh.
+  6. **Ten launches, never five.** Five clean happens by luck 40% of the time at
+     a one-in-six rate. Every wrong call came from a 5-of-5 sample.
+  7. **Every build needs a UNIQUE number, and confirm it in Settings before
+     counting.** Two branches each autoIncrementing from their own base both
+     produced `1.0.0 (61)`; iOS could not tell them apart and one whole result
+     was void. Set `ios.buildNumber` explicitly and far clear of everything.
+  8. **Reboot the phone and re-run the PREVIOUS build before comparing.** An A/B
+     measured an hour apart on a phone that has taken a dozen installs is not an
+     A/B. Two contradictory results came from this.
+  9. **Put the unknown on the screen instead of inferring it.** One diagnostic
+     banner showing the two Reduce Motion values and an UNGATED animated bar
+     replaced about seven bisect builds and ended five wrong theories at once.
+     `components/AnimDiag.tsx` on the `diag/*` branches is the pattern.
+
+- **THE ANIMATION BUG, still open at time of writing: `components/BrandSplash.tsx`
+  freezes every reanimated animation in RELEASE builds.** Its mere presence, not
+  what it does. Four store builds of the same commit:
+
+  | build | the overlay | result |
+  |---|---|---|
+  | 150 | RN `Animated`, `useNativeDriver: true` | app frozen |
+  | 170 | reanimated | the SPLASH froze instead |
+  | 180 | RN `Animated`, `useNativeDriver: false` | app frozen |
+  | 160 | **not mounted** | **everything animates** |
+
+  So the animation driver is cleared, and the library choice is cleared. It is a
+  full-screen `absoluteFill` view at `zIndex 9999` mounted at the ROOT in
+  `app/_layout.tsx`, on the first frame, that unmounts a second later. Remaining
+  suspects are the full-screen `Image`, the AsyncStorage read on the first
+  frame, the four timers, and the class error boundary.
+  **`ship/build40-config` with BrandSplash unmounted is the known-good shape:
+  10 launches for 10, everything animating.** The native iOS launch screen
+  (`mascot-wave.png` on `#F8FAFC`) covers the boot on its own.
+
 - **`expo-image` MUST NOT be imported anywhere in the mobile app. It crashed
   five cold starts out of five, twice**, including a build where it rendered
   nothing but a still poster. That ban is the one splash-renderer verdict that
