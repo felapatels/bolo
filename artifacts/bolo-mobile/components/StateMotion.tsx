@@ -26,6 +26,18 @@
 import React from 'react';
 import { View, type ViewStyle } from 'react-native';
 
+/**
+ * MASTER KILL SWITCH. Flip to false to ship with no state-driven motion at all.
+ *
+ * It exists because the crash in this app is Hermes heap corruption DETECTED BY
+ * THE GARBAGE COLLECTOR, so the crash rate scales with how often the collector
+ * runs, and these components allocate on every step. Build 150 on this lineage
+ * was 10 cold starts for 10 before any of this existed; build 290, with it, was
+ * 8 for 10. That may be coincidence at these sample sizes, and this switch is
+ * how we find out without reverting anything.
+ */
+export const STATE_MOTION_ENABLED = false;
+
 /** ~20fps. Enough for a float or a glow, cheap enough to re-render a leaf. */
 const STEP_MS = 50;
 
@@ -41,7 +53,7 @@ export function useStepProgress(cycleMs: number, enabled: boolean): number {
   React.useEffect(() => {
     // Real timers outlive jest teardown and fail suites at the suite level.
     if (process.env.NODE_ENV === 'test') return;
-    if (!enabled) {
+    if (!STATE_MOTION_ENABLED || !enabled) {
       setI(0);
       return;
     }
@@ -71,7 +83,8 @@ export function PulseView({
   testID?: string;
 }) {
   const t = useStepProgress(cycleMs, enabled);
-  const opacity = enabled ? min + (max - min) * t : max;
+  const on = STATE_MOTION_ENABLED && enabled;
+  const opacity = on ? min + (max - min) * t : max;
   return <View {...rest} style={[style as ViewStyle, { opacity }]} />;
 }
 
@@ -91,7 +104,7 @@ export function FloatView({
   children: React.ReactNode;
 }) {
   const t = useStepProgress(cycleMs, enabled);
-  if (!enabled) return <>{children}</>;
+  if (!STATE_MOTION_ENABLED || !enabled) return <>{children}</>;
   return (
     <View style={{ transform: [{ translateY: -amplitude * t }] }}>
       {children}
@@ -114,7 +127,7 @@ export function BreatheView({
   children: React.ReactNode;
 }) {
   const t = useStepProgress(cycleMs, enabled);
-  const s = enabled ? 1 + (scale - 1) * t : 1;
+  const s = STATE_MOTION_ENABLED && enabled ? 1 + (scale - 1) * t : 1;
   return (
     <View style={[style as ViewStyle, { transform: [{ scale: s }] }]}>
       {children}
