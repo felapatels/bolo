@@ -4,8 +4,7 @@ import { Image, StyleSheet, View, type ImageStyle, type StyleProp } from 'react-
 // BUG), so the IDLE LOOP -- the only continuous motion here -- runs on
 // react-native's own Animated. Everything below is untouched and comes back on
 // its own when the driver is fixed upstream.
-import { Animated as RNAnimated } from 'react-native';
-import { useLoopProgressRN } from '@/lib/useLoopProgressRN';
+import { FloatView } from '@/components/StateMotion';
 import Animated, {
   Easing,
   ReduceMotion,
@@ -163,28 +162,13 @@ export function Mascot({
     );
   }, [motion, reduceMotion, loop]);
 
-  // The same idle loop on a driver that ticks. Mirrors the maths above: float
-  // and bounce lift the mascot, sway rocks it. The reanimated version keeps
-  // running alongside and contributes nothing while its driver is dead.
-  const idleOnRN = !reduceMotion && motion !== 'none';
-  const idleCycleMs = motion === 'bounce' ? 1300 : motion === 'sway' ? 2800 : 4400;
-  const idleRN = useLoopProgressRN(idleCycleMs, idleOnRN);
-  const idleLiftRN = idleRN.interpolate({
-    inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange:
-      motion === 'bounce'
-        ? [0, -10, 0, -10, 0]
-        : motion === 'float'
-          ? [0, -6, 0, -6, 0]
-          : [0, 0, 0, 0, 0],
-  });
-  const idleRockRN = idleRN.interpolate({
-    inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange:
-      motion === 'sway'
-        ? ['-3deg', '0deg', '3deg', '0deg', '-3deg']
-        : ['0deg', '0deg', '0deg', '0deg', '0deg'],
-  });
+  // The idle loop again, on React state, which is the only thing that moves a
+  // view in release builds here. The reanimated version above keeps running and
+  // contributes nothing while its driver is dead.
+  const idleOnRN = !reduceMotion && motion !== 'none' && motion !== 'sway';
+  const idleCycleMs = motion === 'bounce' ? 1300 : 4400;
+  const idleAmplitude = motion === 'bounce' ? 10 : 6;
+
 
   // Zoom out into the working state and back in when it ends. The plain style
   // has already snapped him to WORKING_SCALE by the time this runs, so the
@@ -398,13 +382,7 @@ export function Mascot({
   );
 
   return (
-    <RNAnimated.View
-      style={
-        idleOnRN
-          ? { transform: [{ translateY: idleLiftRN }, { rotate: idleRockRN }] }
-          : undefined
-      }
-    >
+    <FloatView amplitude={idleAmplitude} cycleMs={idleCycleMs} enabled={idleOnRN}>
     <Animated.View key={pose} entering={appear(entrance)}>
       <Animated.View style={animatedStyle}>
         {working ? (
@@ -416,7 +394,7 @@ export function Mascot({
         )}
       </Animated.View>
     </Animated.View>
-    </RNAnimated.View>
+    </FloatView>
   );
 }
 
