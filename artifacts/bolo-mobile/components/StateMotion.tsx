@@ -161,6 +161,52 @@ export function BreatheView({
 }
 
 /**
+ * A band that sweeps across its parent and then rests off-face until the next
+ * cycle. Used for the ticket shimmer, which travels over the first `travelFrac`
+ * of the heartbeat and waits out the rest.
+ */
+export function SweepView({
+  width,
+  cycleMs,
+  travelFrac = 0.45,
+  skewDeg = -14,
+  enabled = true,
+  style,
+  children,
+  ...rest
+}: {
+  width: number;
+  cycleMs: number;
+  travelFrac?: number;
+  skewDeg?: number;
+  enabled?: boolean;
+  style?: ViewStyle | ViewStyle[];
+  children?: React.ReactNode;
+  pointerEvents?: 'none' | 'auto';
+  testID?: string;
+}) {
+  const steps = stepsFor(cycleMs);
+  const i = useStepIndex(steps, enabled && width > 0);
+  const table = React.useMemo(() => {
+    const from = -1.5 * width;
+    const to = 4.5 * width;
+    const travelSteps = Math.max(1, Math.round(steps * travelFrac));
+    return Array.from({ length: steps }, (_, n) => {
+      const p = n < travelSteps ? n / travelSteps : 1;
+      return {
+        transform: [{ translateX: from + (to - from) * p }, { skewX: `${skewDeg}deg` }],
+      };
+    });
+  }, [steps, width, travelFrac, skewDeg]);
+  const on = STATE_MOTION_ENABLED && enabled && width > 0;
+  return (
+    <View {...rest} style={[style as ViewStyle, on ? table[i] : { opacity: 0 }]}>
+      {children}
+    </View>
+  );
+}
+
+/**
  * A downward nudge for a call to action: bobs a few points and back. Same table
  * trick, exported separately so the intent reads at the call site.
  */

@@ -1468,11 +1468,12 @@ const styles = StyleSheet.create({
   statsBanner: {
     flexDirection: 'row',
     borderRadius: 18,
-    // 8, not 14. The icons are the topmost ink in the card and 14 read as a
-    // dead band above them on device.
-    paddingTop: 8,
-    // More than the top: the labels are the lowest ink in the card.
-    paddingBottom: 16,
+    // SYMMETRIC, and that is the point. It was 14/16, which read as a dead band
+    // above the icons; dropping the top to 8 fixed that and broke the balance
+    // instead, so the block sat high. 12/12 is tighter than the original AND
+    // optically centred, which is what was actually being asked for both times.
+    paddingTop: 12,
+    paddingBottom: 12,
     paddingHorizontal: 6,
     // Stretch, so every cell is the full height of the row and its three bands
     // line up with its neighbours' by construction rather than by luck.

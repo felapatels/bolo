@@ -1130,9 +1130,12 @@ export default function JourneyScreen() {
         </Pressable>
         <View
           testID="journey-header-ticket"
-          style={[styles.headerTicket, { borderColor: colors.border, backgroundColor: colors.card }]}
+          // FULL COLOUR, matching the home screen pass. This was colors.card
+          // with a 3% accent wash, which read as a pale outline beside the vivid
+          // card on home and did not look like the same object.
+          style={[styles.headerTicket, { borderColor: '#FFFFFF66', backgroundColor: line.accent }]}
         >
-          <TicketStripes ink={`${line.accent}08`} />
+          <TicketStripes ink="#FFFFFF1A" />
           <View style={styles.headerTicketRow}>
             <View style={styles.headerTicketBody}>
               {/* Native-script brand must use the language font (Latin UI
@@ -1140,7 +1143,7 @@ export default function JourneyScreen() {
               <Text
                 style={[
                   styles.ticketEyebrow,
-                  { color: colors.mutedForeground },
+                  { color: '#FFFFFFCC' },
                   railBrand.native && isTallCascadingScript(activeLanguage)
                     ? styles.ticketEyebrowTall
                     : null,
@@ -1157,18 +1160,18 @@ export default function JourneyScreen() {
                   {railBrand.text}
                 </Text>
               </Text>
-              <Text numberOfLines={1} style={[styles.ticketLine, { color: colors.foreground }]}>
+              <Text numberOfLines={1} style={[styles.ticketLine, { color: '#FFFFFF' }]}>
                 {line.lineName}
               </Text>
               {/* Item 1: this line carries the number the whole item is about,
                   so it wraps instead of clipping to one line. On a 320pt
                   screen the route alone fills the ticket, and numberOfLines=1
                   cut the stop count off the end entirely. */}
-              <Text numberOfLines={2} style={[styles.ticketRoute, { color: colors.mutedForeground }]}>
+              <Text numberOfLines={2} style={[styles.ticketRoute, { color: '#FFFFFFDD' }]}>
                 {line.zones[0]} → {line.zones[5]} · {headerStations}
               </Text>
               {access === 'teaser' && teaserProgress && (
-                <Text style={[styles.ticketTeaser, { color: line.accent }]}>
+                <Text style={[styles.ticketTeaser, { color: '#FFFFFF' }]}>
                   Free taste {teaserProgress.consumed}/{teaserProgress.limit}
                 </Text>
               )}
