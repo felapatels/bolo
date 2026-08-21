@@ -28,6 +28,10 @@ export function useLoopProgressRN(
   const progress = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
+    // On the JS driver this schedules real rAF work, which outlives jest's
+    // teardown and fails suites at the suite level. Components still mount and
+    // render under test; only the clock stops.
+    if (process.env.NODE_ENV === 'test') return;
     if (!enabled) {
       progress.setValue(0);
       return;
@@ -38,10 +42,16 @@ export function useLoopProgressRN(
         toValue: 1,
         duration: cycleMs,
         easing: Easing.linear,
-        // Every consumer of this drives opacity or transform only, both of
-        // which the native driver supports. Keeping it on the UI thread means
-        // a busy JS thread cannot stutter the idle motion.
-        useNativeDriver: true,
+        // FALSE, AND THAT IS THE WHOLE POINT. Build 270 shipped this as `true`
+        // and every ported animation came out dead flat, while the diagnostic's
+        // own amber bar kept pulsing beside it on `false`. So the fault is not
+        // reanimated specifically: ANYTHING driven per-frame from the native
+        // side is dead in release builds of this app, which is also why
+        // reanimated 4's frame loop never starts, since on the New Architecture
+        // it drives from native too. JS-thread animation is the only thing that
+        // ticks here. The cost is that a busy JS thread can stutter the idle
+        // motion, which is a fair price for it running at all.
+        useNativeDriver: false,
       }),
     );
     loop.start();

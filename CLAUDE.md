@@ -220,6 +220,18 @@ command runs.
      commit `Podfile.lock`, pin the builder `image` in `eas.json`. **Nineteen
      builds were spent before anyone checked this.**
 
+- **THE NATIVE ANIMATION DRIVER IS DEAD, NOT JUST REANIMATED. Established on
+  device 2026-08-21 by build 270.** A ported animation using react-native's own
+  `Animated` with **`useNativeDriver: true`** came out **dead flat**, while the
+  diagnostic's own bar on **`useNativeDriver: false`** kept pulsing beside it in
+  the same build. **So anything driven per-frame from the NATIVE side does not
+  tick in release builds of this app.** That is also why reanimated 4's frame
+  loop never starts: on the New Architecture it drives from native too.
+  **`useNativeDriver: false` is the only thing that animates here.** Every RN
+  `Animated` port in this codebase must pass `false`, and the cost is that a busy
+  JS thread can stutter idle motion, which is a fair price for it running at all.
+  See `lib/useLoopProgressRN.ts`.
+
 - **THE ANIMATION BUG. THE CAUSE IS NOT IN THIS REPO. Two builds of
   byte-identical source produce different bundles, and the bundle predicts the
   symptom perfectly.** Measured 2026-08-21 across seven store builds:
