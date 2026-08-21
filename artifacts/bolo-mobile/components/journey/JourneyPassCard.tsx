@@ -40,7 +40,14 @@ import { useLoopProgress } from '@/lib/useLoopProgress';
 // Reanimated's frame driver is dead in release builds (CLAUDE.md, THE ANIMATION
 // BUG), so the two CONTINUOUS effects on this card run on react-native's own
 // Animated instead. Everything else here is left exactly as it was.
-import { BreatheView, NudgeView, PulseView, SweepView } from '@/components/StateMotion';
+import {
+  BreatheView,
+  interpolateAt,
+  NudgeView,
+  PulseView,
+  SweepView,
+  useOneShot,
+} from '@/components/StateMotion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
@@ -155,7 +162,11 @@ export function JourneyPassCard({
   const [passW, setPassW] = React.useState(0);
 
   const [tearing, setTearing] = React.useState(false);
-  const tearProgress = useSharedValue(0);
+  // The tear runs on the one-shot state driver, not reanimated, for the same
+  // reason everything else here does: reanimated's frame driver never starts in
+  // release builds. Faster steps than the idle loops because a 600ms tear at
+  // 8fps would stutter; the GC cost is ~18 ticks, once, only on a real tap.
+  const tear = useOneShot(TEAR_DURATION_MS);
   // Synchronous re-press guard: React state commits too late to swallow a
   // rapid double-tap, so the guard is a ref flipped before any scheduling.
   const tearingRef = React.useRef(false);
@@ -234,41 +245,36 @@ export function JourneyPassCard({
   }));
   // Both halves grip at the perforation (16%) before giving way — the web
   // stub-tear/body-tear keyframes on the shared tear progress.
-  const stubTearStyle = useAnimatedStyle(() => {
-    const t = tearProgress.value;
-    return {
-      opacity: interpolate(t, [0, 0.8, 1], [1, 1, 0]),
-      transform: [
-        {
-          translateX: interpolate(
-            t,
-            [0, 0.16, 0.45, 1],
-            [0, 1.5, TEAR_DISTANCE * 0.35, TEAR_DISTANCE],
-          ),
-        },
-        {
-          translateY: interpolate(t, [0, 0.16, 0.45, 1], [0, 0, TEAR_DROP * 0.25, TEAR_DROP]),
-        },
-        {
-          rotate: `${interpolate(
-            t,
-            [0, 0.16, 0.45, 1],
-            [0, -2.5, TEAR_ROTATE * 0.55, TEAR_ROTATE],
-          )}deg`,
-        },
-      ],
-    };
-  });
-  const bodyTearStyle = useAnimatedStyle(() => {
-    const t = tearProgress.value;
-    return {
-      transform: [
-        { translateX: interpolate(t, [0, 0.16, 1], [0, 1, TEAR_BODY_DISTANCE]) },
-        { translateY: interpolate(t, [0, 0.16, 1], [0, 0, TEAR_BODY_DROP]) },
-        { rotate: `${interpolate(t, [0, 0.16, 1], [0, 0.6, TEAR_BODY_ROTATE])}deg` },
-      ],
-    };
-  });
+  // Both halves grip at the perforation (16%) before giving way, exactly as the
+  // reanimated version did. Built once per mount; the tick only moves an index.
+  const tearTables = React.useMemo(() => {
+    const n = tear.steps;
+    const stub = [];
+    const body = [];
+    for (let k = 0; k < n; k++) {
+      const t = n <= 1 ? 1 : k / (n - 1);
+      stub.push({
+        opacity: interpolateAt(t, [0, 0.8, 1], [1, 1, 0]),
+        transform: [
+          { translateX: interpolateAt(t, [0, 0.16, 0.45, 1], [0, 1.5, TEAR_DISTANCE * 0.35, TEAR_DISTANCE]) },
+          { translateY: interpolateAt(t, [0, 0.16, 0.45, 1], [0, 0, TEAR_DROP * 0.25, TEAR_DROP]) },
+          { rotate: `${interpolateAt(t, [0, 0.16, 0.45, 1], [0, -2.5, TEAR_ROTATE * 0.55, TEAR_ROTATE])}deg` },
+        ],
+      });
+      body.push({
+        transform: [
+          { translateX: interpolateAt(t, [0, 0.16, 1], [0, 1, TEAR_BODY_DISTANCE]) },
+          { translateY: interpolateAt(t, [0, 0.16, 1], [0, 0, TEAR_BODY_DROP]) },
+          { rotate: `${interpolateAt(t, [0, 0.16, 1], [0, 0.6, TEAR_BODY_ROTATE])}deg` },
+        ],
+      });
+    }
+    return { stub, body };
+  }, [tear.steps]);
+
+  // Idle renders nothing extra; mid-tear indexes the table.
+  const stubTearStyle = tear.running ? tearTables.stub[tear.index] : undefined;
+  const bodyTearStyle = tear.running ? tearTables.body[tear.index] : undefined;
 
   // Pass activation: navigation is NEVER blocked — reduced motion (or any
   // animation-path oddity) activates instantly; otherwise the tear plays and
@@ -287,16 +293,12 @@ export function JourneyPassCard({
     loadSoundPref().then(on => { if (on) playTearSfx(); });
     tearingRef.current = true;
     setTearing(true);
-    tearProgress.value = 0;
-    tearProgress.value = withTiming(1, {
-      duration: TEAR_DURATION_MS,
-      easing: Easing.bezier(0.3, 0.1, 0.6, 1),
-    });
+    tear.start();
     schedule(() => onPressRef.current(), TEAR_NAV_DELAY_MS);
     schedule(() => {
       tearingRef.current = false;
       setTearing(false);
-      tearProgress.value = 0;
+      tear.reset();
     }, TEAR_RESET_MS);
   };
 

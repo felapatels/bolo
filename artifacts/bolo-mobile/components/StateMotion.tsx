@@ -76,6 +76,72 @@ function triangle(i: number, steps: number): number {
   return i <= half ? i / half : (steps - i) / half;
 }
 
+/**
+ * Reanimated's `interpolate` for a multi-point range, in plain arithmetic.
+ * Only ever called while building a table, never per tick.
+ */
+export function interpolateAt(t: number, input: number[], output: number[]): number {
+  if (t <= input[0]) return output[0];
+  const last = input.length - 1;
+  if (t >= input[last]) return output[last];
+  for (let i = 0; i < last; i++) {
+    const a = input[i];
+    const b = input[i + 1];
+    if (t >= a && t <= b) {
+      const span = b - a;
+      const p = span === 0 ? 0 : (t - a) / span;
+      return output[i] + (output[i + 1] - output[i]) * p;
+    }
+  }
+  return output[last];
+}
+
+/**
+ * A ONE-SHOT 0 -> 1 ramp, for animations fired by a tap rather than looping.
+ *
+ * Faster than the idle loops on purpose. A tear is over in well under a second,
+ * so 8fps would read as a stutter. The GC exposure is still tiny: about twenty
+ * ticks, once, only when the learner actually taps something. That is nothing
+ * next to a loop running forever, which is what actually moved the crash rate.
+ *
+ * Returns the step INDEX so callers can index a precomputed table, plus the
+ * total step count so they can build one.
+ */
+export function useOneShot(durationMs: number, stepMs = 33) {
+  const steps = Math.max(2, Math.round(durationMs / stepMs));
+  const [i, setI] = React.useState(-1); // -1 = idle, not started
+  const timer = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stop = React.useCallback(() => {
+    if (timer.current) clearInterval(timer.current);
+    timer.current = null;
+  }, []);
+
+  const start = React.useCallback(() => {
+    if (process.env.NODE_ENV === 'test') return;
+    stop();
+    setI(0);
+    timer.current = setInterval(() => {
+      setI((n) => {
+        if (n >= steps - 1) {
+          stop();
+          return steps - 1;
+        }
+        return n + 1;
+      });
+    }, stepMs);
+  }, [steps, stepMs, stop]);
+
+  const reset = React.useCallback(() => {
+    stop();
+    setI(-1);
+  }, [stop]);
+
+  React.useEffect(() => stop, [stop]);
+
+  return { index: i, steps, running: i >= 0, start, reset };
+}
+
 /** Pulses opacity between `min` and `max`. */
 export function PulseView({
   style,
