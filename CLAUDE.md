@@ -209,45 +209,65 @@ command runs.
      to animate, showed identical dependency sets and exactly one functional
      change. That diff took a minute and named the cause outright. It should be
      the FIRST thing done when a fix does not work, not the last.
+  11. **CHECK THE ARTEFACT, NOT JUST THE SOURCE.** Every finished EAS build stays
+     downloadable for 30 days. Comparing two `.ipa` files directly — `Info.plist`
+     for the toolchain, the zip manifest for the contents, the Hermes header for
+     the bundle — took twenty minutes and produced the first hard fact of the
+     whole investigation. **It should have come before any bisect build.**
+  12. **A BUILD THAT IS NOT REPRODUCIBLE CANNOT BE BISECTED.** If two builds of
+     one commit can differ, every A/B result is uninterpretable and every hour
+     spent on one is wasted. Establish reproducibility FIRST: commit `ios/`,
+     commit `Podfile.lock`, pin the builder `image` in `eas.json`. **Nineteen
+     builds were spent before anyone checked this.**
 
-- **THE ANIMATION BUG. ANYTHING THAT COVERS THE SCREEN WHILE THE APP MOUNTS
-  FREEZES EVERY REANIMATED ANIMATION FOR THE LIFE OF THE APP, in RELEASE
-  builds.** It does not matter whether the cover is a React view or the native
-  splash screen. Six store builds of the same commit, one variable apart:
+- **THE ANIMATION BUG. THE CAUSE IS NOT IN THIS REPO. Two builds of
+  byte-identical source produce different bundles, and the bundle predicts the
+  symptom perfectly.** Measured 2026-08-21 across seven store builds:
 
-  | build | what covered the screen at mount | result |
-  |---|---|---|
-  | 150 | JS overlay, RN `Animated`, native driver on | app frozen |
-  | 170 | JS overlay, reanimated | the SPLASH froze instead |
-  | 180 | JS overlay, RN `Animated`, native driver off | app frozen |
-  | 190 | JS overlay, **a bare static `View`, nothing else** | app frozen |
-  | 201 | **NO JS overlay. The NATIVE splash, held past Clerk** | **app frozen** |
-  | 160 | **nothing. Native splash hides on fonts** | **everything animates** |
+  | build | verdict | bytes | functions |
+  |---|---|---|---|
+  | **160** | **ANIMATES** | **8,886,780** | **44,080** |
+  | 150 | frozen | 9,525,032 | 52,918 |
+  | 170 | frozen | 9,526,224 | 52,920 |
+  | 180 | frozen | 9,525,032 | 52,918 |
+  | 190 | frozen | 9,523,200 | 52,899 |
+  | 201 | frozen | 9,521,108 | 52,878 |
+  | 220 | frozen | 9,520,604 | 52,872 |
 
-  **An earlier version of this entry said the cause was a JS overlay at the root
-  and that holding the native splash was the fix. Build 201 disproved it.** 201
-  mounted no JS overlay at all and froze exactly like the overlay builds.
-  Dependency sets between 160 and 201 were **identical**, and the splash hold was
-  the **only** functional difference in `app/_layout.tsx`. That diff is what
-  identified it, which is measurement rule 4 applied to our own build.
+  **Six frozen builds cluster at ~52,900 functions. The one animating build has
+  44,080. Nothing lands in between.** String and identifier counts are
+  near-identical across all seven (62,545 to 62,575 strings; 34,257 to 34,271
+  identifiers), so it is **the same JavaScript compiled two different ways**.
+  Builds 160 and 220 differ only in comments, `"1.0.0"` to `"1.0.1"`, and the
+  build number — verified with a full unfiltered diff of the entire repo — and
+  still came out 8,792 functions apart.
 
-  **THE SHIP SHAPE, and it is build 160's, restored verbatim: the native splash
-  hides on `fontsLoaded || fontError` and nothing else covers the boot.** Do not
-  hold it longer, on a timer or otherwise. `__tests__/splash-film.test.tsx` fails
-  if anything renders `<BrandSplash>` under `app/`, if the layout gains a
-  `setTimeout`, or if the release stops keying on fonts. Every one of those guards
-  was checked by breaking it deliberately and watching the test fail.
+  **RULED OUT BY MEASUREMENT, not by argument.** `expo-video`, worklets, the
+  animation driver, the library choice, `BrandSplash`, the native splash hold,
+  Reduce Motion, Low Power Mode, a reboot, Xcode version (both 17A324), SDK
+  (both 23A339), build machine (both 24G90), the lockfile (byte-identical),
+  **React Compiler** (toggling it locally moves the count by six), and the
+  **Hermes `-O` flag** (no effect on function count at all).
 
-  **The cost is a brief uncovered gap** while Clerk resolves and the two redirect
-  hops run. **That gap is the price of a working app, and it is worth paying.**
-  There is no boot film any more. `components/BrandSplash.tsx` stays on disk,
-  unreferenced except for a deliberate unused import in the layout that is kept
-  so this build remains the thing that was measured.
+  **WHAT IS NOT KNOWN: why EAS emits the bigger bundle.** A local
+  `expo export:embed` on this same source produces ~43,000 functions, the healthy
+  shape, so the divergence happens **on the EAS builder** and could not be
+  reproduced on a Mac. **Every prior theory in this file about WHY the app froze
+  was wrong**, including two of mine, because they were all built on comparing
+  builds that were never comparable.
 
-  **`app/_layout.tsx` keeps that unused `BrandSplash` import on purpose.** Build
-  160 carried it, Metro does not tree-shake, so the module is bundled and
-  evaluated either way. Removing it would silently make the build stop being the
-  one with the 10-for-10 result behind it.
+  **THE ROOT PROBLEM IS THAT YOUR BUILDS ARE NOT REPRODUCIBLE.** No `ios/`
+  committed, so `expo prebuild` regenerates the native project every build; no
+  `Podfile.lock` committed, so CocoaPods re-resolves every build; no `image`
+  pinned in any `eas.json` profile, so the toolchain can move under you. **Two
+  builds of one commit were never guaranteed to be the same app, which is why a
+  week of one-variable-at-a-time bisecting produced nothing.** Fixing that is the
+  actual work.
+
+  **PRE-FLIGHT CHECK, use it before spending an install:**
+  `node --experimental-strip-types scripts/checkBundleHealth.ts <ipa-url-or-path>`
+  reads the Hermes header and tells you HEALTHY or POISONED in about a minute.
+  **A poisoned build should be rebuilt, not installed.**
 
 - **`expo-image` MUST NOT be imported anywhere in the mobile app. It crashed
   five cold starts out of five, twice**, including a build where it rendered
