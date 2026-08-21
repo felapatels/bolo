@@ -81,6 +81,60 @@ describe('THE LAUNCH PATH RENDERS NO VIDEO AND NO expo-image', () => {
   });
 });
 
+describe('THE ROOT LAYOUT MOUNTS NO FULL-SCREEN JS OVERLAY', () => {
+  // The most expensive bug of this app's life, and the only guard against it
+  // coming back is this test. A full-screen JS view at the ROOT freezes every
+  // reanimated animation for the life of the app in RELEASE builds, and no dev
+  // build, local check or green suite can show it: dev builds animate while the
+  // release build of the same commit is frozen. Five store builds established
+  // it (150, 170, 180, 190 frozen; 160, not mounted, animating).
+  //
+  // components/BrandSplash.tsx is kept on disk on purpose. This test is what
+  // makes keeping it safe.
+
+  const layout = readFileSync(join(ROOT, 'app/_layout.tsx'), 'utf8');
+
+  it('nothing under app/ imports BrandSplash', () => {
+    const appFiles = sourceFiles(join(ROOT, 'app')).filter((f) =>
+      readFileSync(f, 'utf8')
+        .split('\n')
+        .some(
+          (line) =>
+            !/^\s*(\/\/|\*|\/\*)/.test(line) &&
+            /from ['"]@\/components\/BrandSplash['"]/.test(line),
+        ),
+    );
+    expect(appFiles.map((f) => f.replace(ROOT, ''))).toEqual([]);
+  });
+
+  it('and the root layout renders no absoluteFill of its own', () => {
+    const code = layout
+      .split('\n')
+      .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
+      .join('\n');
+    expect(code).not.toMatch(/absoluteFill/);
+    expect(code).not.toMatch(/StyleSheet\.create/);
+  });
+});
+
+describe('the native splash is what covers the boot now', () => {
+  const layout = readFileSync(join(ROOT, 'app/_layout.tsx'), 'utf8');
+
+  it('holds the native splash at module load', () => {
+    expect(layout).toMatch(/SplashScreen\.preventAutoHideAsync\(\)/);
+  });
+
+  it('and releases it, or the app never gets past the splash', () => {
+    expect(layout).toMatch(/SplashScreen\.hideAsync\(\)/);
+  });
+
+  it('with a failsafe, because the release path sits inside <ClerkLoaded>', () => {
+    // A Clerk that never resolves would otherwise hold the splash forever,
+    // which is a worse failure than the blank screen it replaced.
+    expect(layout).toMatch(/MAX_HOLD_MS/);
+  });
+});
+
 describe('the WebP survives on disk but reaches no bundle', () => {
   it('the encoded film is still there for whoever finds a renderer', () => {
     // Kept deliberately: the encode was the fiddly part of that attempt and the

@@ -189,25 +189,42 @@ command runs.
      replaced about seven bisect builds and ended five wrong theories at once.
      `components/AnimDiag.tsx` on the `diag/*` branches is the pattern.
 
-- **THE ANIMATION BUG, still open at time of writing: `components/BrandSplash.tsx`
-  freezes every reanimated animation in RELEASE builds.** Its mere presence, not
-  what it does. Four store builds of the same commit:
+- **THE ANIMATION BUG. Cause found 2026-08-21, fix UNVERIFIED until a store
+  build says otherwise. A full-screen JS view mounted at the ROOT freezes every
+  reanimated animation for the life of the app in RELEASE builds.** Not the
+  animation, not the library, not anything the component does. Five store builds
+  of the same commit, one variable apart:
 
-  | build | the overlay | result |
+  | build | the root overlay | result |
   |---|---|---|
   | 150 | RN `Animated`, `useNativeDriver: true` | app frozen |
   | 170 | reanimated | the SPLASH froze instead |
   | 180 | RN `Animated`, `useNativeDriver: false` | app frozen |
+  | 190 | **a bare static `View`, nothing else at all** | **app frozen** |
   | 160 | **not mounted** | **everything animates** |
 
-  So the animation driver is cleared, and the library choice is cleared. It is a
-  full-screen `absoluteFill` view at `zIndex 9999` mounted at the ROOT in
-  `app/_layout.tsx`, on the first frame, that unmounts a second later. Remaining
-  suspects are the full-screen `Image`, the AsyncStorage read on the first
-  frame, the four timers, and the class error boundary.
-  **`ship/build40-config` with BrandSplash unmounted is the known-good shape:
-  10 launches for 10, everything animating.** The native iOS launch screen
-  (`mascot-wave.png` on `#F8FAFC`) covers the boot on its own.
+  **Build 190 is the one that settled it.** `BrandSplash` stripped to a coloured
+  rectangle: no `Animated` of either kind, no `Image`, no AsyncStorage, no error
+  boundary, one timer. Still frozen. So every remaining suspect inside the
+  component was cleared at once, and the answer is the overlay itself.
+
+  **The fix, on `fix/native-splash-hold` as build 200: hold the NATIVE splash
+  through the whole boot and mount no JS overlay at all.** `expo-splash-screen`
+  was already a dependency and already wired; it now holds past fonts, Clerk and
+  both redirect hops instead of releasing on fonts. The native splash is a native
+  view rather than a node in the React tree, which is why it cannot reproduce
+  this. Release path is `SplashGate` inside `<ClerkLoaded>`, with an 8s failsafe
+  in `RootLayout` because a Clerk that never resolves would otherwise hold the
+  splash forever.
+
+  **`components/BrandSplash.tsx` is kept on disk, unreferenced and unmounted**,
+  the same way `assets/splash/wave/` is. It may yet ship from inside a SCREEN,
+  which is the one shape never tried. It must never go back into
+  `app/_layout.tsx`: `__tests__/splash-film.test.tsx` fails if it does, and that
+  guard was checked by putting the overlay back and watching it fail.
+
+  **`ship/build40-config` with BrandSplash unmounted remains the known-good
+  fallback: 10 launches for 10, everything animating.**
 
 - **`expo-image` MUST NOT be imported anywhere in the mobile app. It crashed
   five cold starts out of five, twice**, including a build where it rendered
