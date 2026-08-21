@@ -17,42 +17,34 @@
  *
  * Any failure renders null and the app boots normally (boundary below).
  */
-import React, { Component, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Image, StyleSheet } from 'react-native';
-import { useReducedMotion } from 'react-native-reanimated';
-// THE SPLASH IS A STILL, RENDERED BY REACT NATIVE'S OWN Image, AND BOTH HALVES
-// OF THAT ARE LOAD-BEARING. Do not casually change either one.
-//
-// expo-video went first: this component mounts at the ROOT layout, so it
-// decoded a film on EVERY cold start. Removing it did NOT stop the crash, which
-// is recorded in CLAUDE.md because an older commit message says otherwise.
-//
-// expo-image went second, and that one IS a clean result. Three builds, same
-// app, one line apart:
-//   d429f289  react-native Image, still poster      5 cold starts, 0 crashes
-//   c56157f0  expo-image, animated WebP             5 cold starts, 5 crashes
-//   0f349d37  expo-image, same still poster         5 cold starts, 5 crashes
-// The film was never the variable. Swapping the Image component was. Whatever
-// expo-image does on this SDK, it does not survive the root layout here, and
-// it is now imported by nothing in the app.
-//
-// The poster path already existed for Reduce Motion, so the splash still shows
-// and still holds for the same duration. It simply does not move.
-import {
-  SPLASH_POSTER,
-  SPLASH_FULL_PLAY_MS,
-  SPLASH_MIN_HOLD_MS,
-  SPLASH_MAX_HOLD_MS,
-  SPLASH_EXIT_MS,
-  isFirstColdStartToday,
-  markFullPlayed,
-} from '@/lib/splashFilm';
-import { useHomeReady } from '@/lib/splashReady';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { SPLASH_MIN_HOLD_MS } from '@/lib/splashFilm';
 
 /**
- * Play-once latch for this launch, web's exact pattern. Consumed in a
- * mount effect AFTER the phase initializer has read it, so a second
- * mount inside one launch shows nothing.
+ * DIAGNOSTIC STUB, 2026-08-20. Not the real component. Do not merge.
+ *
+ * Everything BrandSplash did is gone except the one thing it cannot avoid
+ * being: a full-screen view at the ROOT layout that mounts on the first frame
+ * and unmounts a moment later. No Animated of either kind, no Image, no
+ * AsyncStorage, no error boundary, one timer.
+ *
+ * WHAT THIS SPLITS. Four store builds so far:
+ *   150  overlay + RN Animated, useNativeDriver true    app frozen
+ *   170  overlay + reanimated                           splash frozen
+ *   180  overlay + RN Animated, useNativeDriver false   app frozen
+ *   160  NO overlay                                     everything animates
+ *
+ * The animation driver is cleared: false behaved exactly like true. So either
+ * the overlay's mere existence is the problem, or something else inside the
+ * real component is.
+ *
+ *   app animates  -> the overlay is fine and the cause is something the real
+ *                    component does: the Image, the AsyncStorage read, the four
+ *                    timers, or the error boundary.
+ *   app frozen    -> a full-screen root overlay that mounts and unmounts is
+ *                    itself incompatible with reanimated here, and the fix is
+ *                    architectural rather than a setting.
  */
 let coldStartConsumed = false;
 
@@ -60,160 +52,28 @@ export function __resetBrandSplashForTests(): void {
   coldStartConsumed = false;
 }
 
-type SplashPhase = 'playing' | 'exiting' | 'done';
+export function BrandSplash() {
+  const [visible, setVisible] = React.useState(() => !coldStartConsumed);
 
-function BrandSplashFilm() {
-  // Read the latch once, at mount, before the effect below consumes it.
-  const [phase, setPhase] = useState<SplashPhase>(() =>
-    coldStartConsumed ? 'done' : 'playing',
-  );
-  /**
-   * FULL mode. Web decides this synchronously from localStorage inside
-   * the phase initializer; AsyncStorage cannot be read synchronously, so
-   * here the decision lands one tick later. Until it resolves the film
-   * is already on screen and READY is assumed, and FULL flips on only if
-   * the answer comes back true while the phase is still playing. The
-   * cost of the difference is bounded: the worst case is a first-of-day
-   * launch whose ready signal beats the storage read, which releases
-   * early rather than playing through.
-   */
-  const [full, setFull] = useState(false);
-  const homeReady = useHomeReady();
-  const reduceMotion = useReducedMotion();
-  const mountedAt = useRef(Date.now());
-  const opacity = useRef(new Animated.Value(1)).current;
-
-  // Muted, no loop, plays as soon as it is ready. Reduced motion never
-  // creates a source, so the film is not decoded at all in that mode.
-
-  useEffect(() => {
+  React.useEffect(() => {
     coldStartConsumed = true;
+    const t = setTimeout(() => setVisible(false), SPLASH_MIN_HOLD_MS);
+    return () => clearTimeout(t);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const first = await isFirstColdStartToday();
-      if (cancelled || !first) return;
-      // Stamped when FULL STARTS, not when it ends: a launch killed
-      // mid-film has still spent the day's full play.
-      //
-      // In PLAIN STATEMENT POSITION, never inside the setFull updater.
-      // React updaters must be pure: React may discard an invocation
-      // (unmount, thrown-away render) or run it twice, so a write in
-      // there fires unpredictably. Every other AsyncStorage write in
-      // this app sits in statement position, including the daily-goal
-      // stamp in (tabs)/index.tsx, and every one of them is reliable.
-      //
-      // Awaited, so FULL mode does not engage until the stamp is
-      // durable. The film is already on screen either way, so the wait
-      // costs the learner nothing.
-      await markFullPlayed();
-      if (cancelled) return;
-      setFull(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // FULL: fixed timer, ready signal ignored.
-  useEffect(() => {
-    if (phase !== 'playing' || !full) return;
-    const t = setTimeout(() => setPhase('exiting'), SPLASH_FULL_PLAY_MS);
-    return () => clearTimeout(t);
-  }, [phase, full]);
-
-  // READY: the later of the ready signal and the minimum hold, so an
-  // instantly-settling signal cannot blink the film away.
-  useEffect(() => {
-    if (phase !== 'playing' || full || !homeReady) return;
-    const remaining = SPLASH_MIN_HOLD_MS - (Date.now() - mountedAt.current);
-    const t = setTimeout(() => setPhase('exiting'), Math.max(0, remaining));
-    return () => clearTimeout(t);
-  }, [phase, full, homeReady]);
-
-  // Failsafe cap, both modes.
-  useEffect(() => {
-    if (phase !== 'playing') return;
-    const remaining = SPLASH_MAX_HOLD_MS - (Date.now() - mountedAt.current);
-    const t = setTimeout(() => setPhase('exiting'), Math.max(0, remaining));
-    return () => clearTimeout(t);
-  }, [phase]);
-
-  useEffect(() => {
-    if (phase !== 'exiting') return;
-    const anim = Animated.timing(opacity, {
-      toValue: 0,
-      duration: reduceMotion ? 0 : SPLASH_EXIT_MS,
-      useNativeDriver: true,
-    });
-    anim.start(() => setPhase('done'));
-    return () => anim.stop();
-  }, [phase, reduceMotion, opacity]);
-
-  if (phase === 'done') return null;
+  if (!visible) return null;
 
   return (
-    <Animated.View
+    <View
       testID="brand-splash"
       pointerEvents="none"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      style={[StyleSheet.absoluteFill, styles.overlay, { opacity }]}
-    >
-      <Image
-        testID="splash-still"
-        source={SPLASH_POSTER}
-        style={styles.layer}
-        resizeMode="cover"
-      />
-    </Animated.View>
+      style={[StyleSheet.absoluteFill, styles.overlay]}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  // The film opens on a near-white plate, so any other colour flashes at
-  // reveal. zIndex + elevation put the overlay above everything.
-  overlay: {
-    backgroundColor: '#FFFFFF',
-    zIndex: 9999,
-    elevation: 9999,
-  },
-  // Explicit 100% alongside absoluteFill: a bare absoluteFill Image lays
-  // out at its intrinsic size on iOS, which corner-crops the still and
-  // makes resizeMode inert.
-  layer: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-  },
+  overlay: { backgroundColor: '#F8FAFC', zIndex: 9999, elevation: 9999 },
 });
-
-/**
- * A splash that throws must not take the app with it: render null and
- * let the boot continue. Same contract as web's SplashErrorBoundary,
- * and deliberately NOT components/ErrorBoundary, whose fallback shows a
- * full-screen error UI.
- */
-class SplashErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-
-  render() {
-    return this.state.failed ? null : this.props.children;
-  }
-}
-
-export function BrandSplash() {
-  return (
-    <SplashErrorBoundary>
-      <BrandSplashFilm />
-    </SplashErrorBoundary>
-  );
-}
 
 export default BrandSplash;
