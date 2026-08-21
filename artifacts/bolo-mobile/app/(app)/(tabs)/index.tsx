@@ -24,8 +24,6 @@ import Svg, { Circle } from 'react-native-svg';
 import { appear, appearDown, useAppearSkip } from '@/lib/entrance';
 import { markHomeReady } from '@/lib/splashReady';
 import { XpCounter } from '@/components/XpCounter';
-// TEMPORARY DIAGNOSTIC — remove with the component.
-import { AnimDiag } from '@/components/AnimDiag';
 import {
   useListCategories,
   useGetProgressSummary,
@@ -520,9 +518,6 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* TEMPORARY DIAGNOSTIC — remove with components/AnimDiag.tsx */}
-        <AnimDiag />
-
         {/* Greeting + mascot */}
         <Animated.View entering={skipEnter ? undefined : appearDown(0, 500)} style={styles.topRow}>
           <View style={{ flex: 1 }}>
