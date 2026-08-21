@@ -128,7 +128,17 @@ function RootLayout() {
                 {/* The boot film, over the Stack. The native splash still
                     runs first and still hides on fonts; this picks up from
                     there and covers Clerk plus both redirect hops. */}
-                <BrandSplash />
+                {/* EXPERIMENT, 2026-08-20. NOT a fix and not to be merged.
+                    Build 150 launches 10 for 10 and does not animate. Build 40
+                    launches 10 for 10 AND animates, and the one structural
+                    difference is that BrandSplash did not exist yet: it was
+                    created at c93fa4d8, after 36a3a7a3.
+                    It mounts HERE, at the root, renders a full-screen
+                    Animated.View at zIndex 9999 over the entire app and holds
+                    four timers. It was "cleared" in build 42, but that build
+                    was ad-hoc, crashed 10 out of 10, and only crashes were
+                    counted. The animations were never looked at.
+                    <BrandSplash /> */}
               </GestureHandlerRootView>
             </QueryClientProvider>
           </ErrorBoundary>
