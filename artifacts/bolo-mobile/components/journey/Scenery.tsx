@@ -545,14 +545,16 @@ function ChaiStallTrackside({ p }: { p: SceneryPalette }) {
           leans slightly and its arrow points back at the counter. Drawn last so
           it sits in front of everything. */}
       <G testID="chacha-stall-sign">
-        <Rect x={21.4} y={-14} width={1.8} height={14} fill={p.trunkShade} />
-        <Rect x={19} y={-15.6} width={6.6} height={1.6} rx={0.8} fill={p.trunkShade} />
-        <G transform="rotate(-5 24 -19)">
-          <Rect x={17.6} y={-23} width={13} height={7.4} rx={1} fill={p.amberShade} />
-          <Rect x={18.4} y={-22.2} width={11.4} height={5.8} rx={0.7} fill={p.amber} />
+        {/* Scaled up from the first pass: at sprite size the original board was
+            a smudge. Now it reads as a sign from a thumb's distance. */}
+        <Rect x={22.4} y={-20} width={2.8} height={20} fill={p.trunkShade} />
+        <Rect x={19.4} y={-22.4} width={9} height={2.4} rx={1.2} fill={p.trunkShade} />
+        <G transform="rotate(-5 26 -28)">
+          <Rect x={16.5} y={-33} width={20} height={11} rx={1.6} fill={p.trunkShade} />
+          <Rect x={17.7} y={-31.8} width={17.6} height={8.6} rx={1.1} fill={p.amber} />
           {/* left-pointing arrow, back toward the counter */}
-          <Path d="M20.6 -19.3 l2.6 -1.9 v3.8 Z" fill={p.trunkShade} />
-          <Rect x={23.6} y={-19.9} width={5} height={1.3} rx={0.65} fill={p.trunkShade} />
+          <Path d="M21 -27.5 l4 -3 v6 Z" fill={p.trunkShade} />
+          <Rect x={25.5} y={-28.5} width={8} height={2} rx={1} fill={p.trunkShade} />
         </G>
       </G>
     </G>
