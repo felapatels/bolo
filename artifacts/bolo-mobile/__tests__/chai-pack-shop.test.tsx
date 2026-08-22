@@ -27,11 +27,24 @@ const mockPurchases = {
     entitlements: { active: {} },
     nonSubscriptionTransactions: [] as any[],
   })),
-  getProducts: jest.fn(async (ids: string[]) =>
-    ids.map((identifier) => ({
-      identifier,
-      priceString: identifier === 'bolo_chai_cutting' ? '$1.99' : '$4.99',
-    })),
+  PRODUCT_CATEGORY: {
+    SUBSCRIPTION: 'SUBSCRIPTION',
+    NON_SUBSCRIPTION: 'NON_SUBSCRIPTION',
+  },
+  // Mirrors Google Play, where subscriptions and one-time products live in
+  // two separate catalogues: asking the wrong one returns NOTHING rather than
+  // erroring. getProducts defaults to SUBSCRIPTION, so before 2026-08-22 the
+  // app asked the subscription catalogue for chai packs and the Android shop
+  // hid itself on every build. iOS never noticed because StoreKit has one
+  // catalogue. Returning [] for the wrong category is what makes these tests
+  // guard the fix instead of merely tolerating it.
+  getProducts: jest.fn(async (ids: string[], type?: string) =>
+    type === 'NON_SUBSCRIPTION'
+      ? ids.map((identifier) => ({
+          identifier,
+          priceString: identifier === 'bolo_chai_cutting' ? '$1.99' : '$4.99',
+        }))
+      : [],
   ),
   purchaseStoreProduct: jest.fn(),
   purchasePackage: jest.fn(),
@@ -156,11 +169,17 @@ beforeEach(() => {
   mockPurchases.logIn.mockResolvedValue({} as any);
   mockPurchases.syncPurchases.mockResolvedValue(undefined);
   mockPurchases.getCustomerInfo.mockResolvedValue(customerWith([]) as any);
-  mockPurchases.getProducts.mockImplementation(async (ids: string[]) =>
-    ids.map((identifier) => ({
-      identifier,
-      priceString: identifier === 'bolo_chai_cutting' ? '$1.99' : '$4.99',
-    })),
+  // Same split-catalogue behaviour as the module mock above: the wrong
+  // category returns nothing. This override runs for every test, so without
+  // it here the guard would exist only on paper.
+  mockPurchases.getProducts.mockImplementation(
+    async (ids: string[], type?: string) =>
+      type === 'NON_SUBSCRIPTION'
+        ? ids.map((identifier) => ({
+            identifier,
+            priceString: identifier === 'bolo_chai_cutting' ? '$1.99' : '$4.99',
+          }))
+        : [],
   );
   process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY = 'test_key';
 });

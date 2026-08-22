@@ -92,6 +92,14 @@ export function useChaiPacksSellable(live = CHAI_PACKS_LIVE): boolean {
       try {
         const products = await Purchases.getProducts(
           chaiPacks.map((pack: { appleProductId: string }) => pack.appleProductId),
+          // NON_SUBSCRIPTION is load-bearing on Android and ignored on iOS.
+          // getProducts defaults to SUBSCRIPTION (see the SDK's own JSDoc and
+          // `type = PRODUCT_CATEGORY.SUBSCRIPTION` in its implementation), and
+          // Google Play keeps subscriptions and one-time products in two
+          // separate catalogues. Asking the subscription catalogue for a chai
+          // pack returns nothing, so the shop hid itself on every Android
+          // build. StoreKit has one catalogue, which is why iOS never noticed.
+          Purchases.PRODUCT_CATEGORY.NON_SUBSCRIPTION,
         );
         if (!cancelled) setSellable(products.length > 0);
       } catch {
@@ -124,6 +132,9 @@ export function ChaiPackShop({ live = CHAI_PACKS_LIVE }: { live?: boolean }) {
       try {
         const products = await Purchases.getProducts(
           chaiPacks.map((pack) => pack.appleProductId),
+          // See useChaiPacksSellable above: without this Android returns no
+          // products and the shop renders empty.
+          Purchases.PRODUCT_CATEGORY.NON_SUBSCRIPTION,
         );
         if (cancelled) return;
         const priced: PackTile[] = [];

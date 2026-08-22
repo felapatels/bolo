@@ -347,7 +347,15 @@ export function PurchasesProvider({
       if (!userId || configuredFor !== userId) return 'error';
       setIsBuyingChai(true);
       try {
-        const [product] = await Purchases.getProducts([appleProductId]);
+        // NON_SUBSCRIPTION for the same reason as ChaiPackShop: getProducts
+        // defaults to the subscription catalogue, and on Google Play a chai
+        // pack is not in it. Without this the lookup returns nothing and a
+        // perfectly good purchase attempt reports 'error' before Play is ever
+        // asked. Ignored on iOS, where StoreKit has one catalogue.
+        const [product] = await Purchases.getProducts(
+          [appleProductId],
+          Purchases.PRODUCT_CATEGORY.NON_SUBSCRIPTION,
+        );
         if (!product) return 'error';
         const { customerInfo: info } = await Purchases.purchaseStoreProduct(
           product,
