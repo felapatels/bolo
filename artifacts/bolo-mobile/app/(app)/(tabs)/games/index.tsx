@@ -155,7 +155,10 @@ const GAMES: GameDef[] = [
     description: 'Spot the phrase that does not belong on this platform.',
     difficulty: 'Intermediate',
     plusOnly: false,
-    icon: 'alert-triangle',
+    // Not 'alert-triangle': a warning triangle reads as "this tile is broken"
+    // in a grid of games. The crosshair says pick the odd one out, and it is
+    // the only ring-shaped glyph in the hub, so it stays distinct.
+    icon: 'crosshair',
   },
 ];
 

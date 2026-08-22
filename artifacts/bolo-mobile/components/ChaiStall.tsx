@@ -328,18 +328,6 @@ export function ChaiStallVignette({
       />
       {/* Quiet on purpose: white on the scrim, no accent fill, so it does not
           compete with the orange boarding pass directly above. */}
-      {/* A roadside signpost pointing at the stall. The scene alone did not
-          read as somewhere you could GO, so this is the wayfinding: a painted
-          board on a post, leaning the way a real one does. Built from Views
-          rather than art so it recolours with the theme and costs no asset. */}
-      <View pointerEvents="none" style={styles.signpost}>
-        <View style={styles.signBoard}>
-          <Text style={styles.signText}>CHAI</Text>
-          <View style={styles.signArrow} />
-        </View>
-        <View style={styles.signPost} />
-        <View style={styles.signBase} />
-      </View>
       <View pointerEvents="none" style={styles.overlayColumn}>
         <Text testID="chai-stall-title" style={styles.title}>
           {STALL_TITLE}
@@ -371,58 +359,10 @@ export function ChaiStallVignette({
 }
 
 const styles = StyleSheet.create({
-  // ---- roadside signpost ----
-  signpost: {
-    position: 'absolute',
-    left: 12,
-    bottom: 8,
-    alignItems: 'center',
-  },
-  // Scaled up roughly 1.6x from the first pass: at the original size the word
-  // was there but unreadable on a phone, which defeats the point of a sign.
-  signBoard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingLeft: 14,
-    paddingRight: 10,
-    paddingVertical: 8,
-    borderRadius: 4,
-    backgroundColor: '#8B5A2B',
-    borderWidth: 2,
-    borderColor: '#5C3A1A',
-    // A real one never hangs perfectly square.
-    transform: [{ rotate: '-4deg' }],
-  },
-  signText: {
-    fontFamily: AppFonts.extrabold,
-    fontSize: 16,
-    letterSpacing: 1.4,
-    color: '#FFF3E0',
-  },
-  // A right-pointing triangle made from borders: no asset, no SVG.
-  signArrow: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 7,
-    borderBottomWidth: 7,
-    borderLeftWidth: 11,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#FFF3E0',
-  },
-  signPost: {
-    width: 7,
-    height: 34,
-    marginTop: -2,
-    backgroundColor: '#5C3A1A',
-  },
-  signBase: {
-    width: 22,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#4A2E14',
-  },
+  // The roadside signpost that used to sit here is gone: it covered the stall
+  // art it was meant to point at. The journey map keeps its own signpost
+  // (components/journey/Scenery.tsx, testID chacha-stall-sign), where there is
+  // room for it and it is doing real wayfinding.
   vignette: {
     // Full-width band at the scene's own aspect: Yoga derives the height from
     // the measured width, which is what keeps the KETTLE fractions true.

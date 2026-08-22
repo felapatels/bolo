@@ -1,12 +1,19 @@
 // Tests that the STT language-code hint is built correctly from the phrase's
 // languageCode field.
 //
-// Background: POST /openai/pronunciation constructs sttOptions as:
+// Background: POST /openai/pronunciation builds sttOptions through
+// `buildSttOptions` in lib/sttLanguage.ts, which returns an ISO-639-1
+// `language` (omitted when the Bolo code has no two-letter equivalent) and a
+// `prompt` that is the language's own name in its OWN script, taken from
+// languages.native_name.
 //
-//   const sttOptions = {
-//     ...(languageCode ? { language: languageCode } : {}),
-//     prompt: `A language learner is speaking ${language}. Transcribe exactly what they say.`,
-//   };
+// The prompt used to be English prose naming the language, and these tests
+// pinned that. It was the cause of the Aug 21 2026 drift: the prompt is
+// prior-context text, OpenAI's own doc says it "should match the audio
+// language", and English context in front of a Devanagari clip beat the
+// advisory `language` field. Hindi धन्यवाद came back "Köszönöm" (Hungarian)
+// and "Děkuji" (Czech). Every prompt assertion below is INVERTED on purpose:
+// the prompt must now be native script, and must never carry client free-text.
 //
 // When a phraseId is supplied the server fetches the phrase from the DB and
 // uses phrase.languageCode — the client cannot forge it.  When no phraseId is
@@ -68,11 +75,14 @@ let stubPhrase: StubPhrase | null = {
 interface StubLanguage {
   code: string;
   name: string;
+  // The script anchor the route now sends as the STT prompt.
+  nativeName: string;
 }
 
 let stubLanguage: StubLanguage | null = {
   code: "gu",
   name: "Gujarati",
+  nativeName: "ગુજરાતી",
 };
 
 // ─── Stub user returned by the DB mock ────────────────────────────────────────
@@ -255,7 +265,7 @@ test("STT hint includes language code when phrase has languageCode='gu'", async 
     english: "no",
     languageCode: "gu",
   };
-  stubLanguage = { code: "gu", name: "Gujarati" };
+  stubLanguage = { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" };
 
   const { status, json } = await postPronunciation({ phraseId: 42 });
 
@@ -272,9 +282,13 @@ test("STT hint includes language code when phrase has languageCode='gu'", async 
       "gu",
       `sttOptions.language must be "gu", got ${JSON.stringify(opts)}`,
     );
-    assert.ok(
-      typeof opts.prompt === "string" && opts.prompt.includes("Gujarati"),
-      `sttOptions.prompt must mention the language name, got ${JSON.stringify(opts.prompt)}`,
+    // INVERTED (Aug 21, 2026): the prompt was the English name and is now the
+    // native-script one. English prose in the prompt is what let the decoder
+    // out of the target script in the first place.
+    assert.equal(
+      opts.prompt,
+      "ગુજરાતી",
+      `sttOptions.prompt must be the native-script anchor, got ${JSON.stringify(opts.prompt)}`,
     );
   }
 });
@@ -290,7 +304,7 @@ test("STT hint includes language code 'hi' for a Hindi phrase", async () => {
     english: "no",
     languageCode: "hi",
   };
-  stubLanguage = { code: "hi", name: "Hindi" };
+  stubLanguage = { code: "hi", name: "Hindi", nativeName: "हिन्दी" };
 
   const { status } = await postPronunciation({ phraseId: 99, languageName: "Hindi" });
 
@@ -331,9 +345,13 @@ test("STT hint omits language key when no phraseId is supplied AND the user has 
     undefined,
     `sttOptions.language must be absent when languageCode is empty, got ${JSON.stringify(firstOpts)}`,
   );
-  assert.ok(
-    typeof firstOpts.prompt === "string",
-    "sttOptions.prompt must still be present",
+  // INVERTED (Aug 21, 2026): with no resolved language there is no native
+  // name to anchor with, and the old English fallback prompt was worse than
+  // nothing. An unpinned request now sends no prompt at all.
+  assert.equal(
+    firstOpts.prompt,
+    undefined,
+    `sttOptions.prompt must be absent when no language is resolved, got ${JSON.stringify(firstOpts.prompt)}`,
   );
 });
 
@@ -349,7 +367,7 @@ test("STT hint language code is consistent for cross-language homophone 'na': Gu
   stubbedTranscriptSequence = null;
   capturedSttOptions = [];
   stubPhrase = { id: 1, nativeScript: "ná", romanized: "na", english: "no", languageCode: "gu" };
-  stubLanguage = { code: "gu", name: "Gujarati" };
+  stubLanguage = { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" };
   await postPronunciation({ phraseId: 1, languageName: "Gujarati" });
   const gujaratiLang = capturedSttOptions[0]?.language;
 
@@ -358,7 +376,7 @@ test("STT hint language code is consistent for cross-language homophone 'na': Gu
   stubbedTranscriptSequence = null;
   capturedSttOptions = [];
   stubPhrase = { id: 2, nativeScript: "ना", romanized: "na", english: "no", languageCode: "hi" };
-  stubLanguage = { code: "hi", name: "Hindi" };
+  stubLanguage = { code: "hi", name: "Hindi", nativeName: "हिन्दी" };
   await postPronunciation({ phraseId: 2, languageName: "Hindi" });
   const hindiLang = capturedSttOptions[0]?.language;
 
@@ -387,7 +405,7 @@ test("STT language hint is present on the high-quality retry pass when the first
     english: "no",
     languageCode: "gu",
   };
-  stubLanguage = { code: "gu", name: "Gujarati" };
+  stubLanguage = { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" };
 
   const { status, json } = await postPronunciation({ phraseId: 42 });
 
@@ -435,7 +453,7 @@ test("STT language hint is present on the high-quality retry pass when the first
     english: "no",
     languageCode: "gu",
   };
-  stubLanguage = { code: "gu", name: "Gujarati" };
+  stubLanguage = { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" };
 
   const { status, json } = await postPronunciation({ phraseId: 42 });
 
@@ -485,7 +503,7 @@ test("STT prompt uses DB-derived language name even when client sends a mismatch
     languageCode: "gu",
   };
   // DB returns the canonical Gujarati record regardless of what the client said.
-  stubLanguage = { code: "gu", name: "Gujarati" };
+  stubLanguage = { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" };
 
   const { status, json } = await postPronunciation({
     phraseId: 42,
@@ -496,13 +514,18 @@ test("STT prompt uses DB-derived language name even when client sends a mismatch
   assert.ok(capturedSttOptions.length >= 1, "speechToText must have been called");
 
   for (const [i, opts] of capturedSttOptions.entries()) {
-    assert.ok(
-      typeof opts.prompt === "string" && opts.prompt.includes("Gujarati"),
-      `call #${i + 1}: prompt must mention "Gujarati" (DB-derived), got ${JSON.stringify(opts.prompt)}`,
+    // INVERTED (Aug 21, 2026) and strengthened: the DB-derived value is now
+    // the native name, and the anchor must contain no Latin at all. That
+    // subsumes the old "must not say Hindi" check: no client free-text of
+    // any kind can reach the recognizer.
+    assert.equal(
+      opts.prompt,
+      "ગુજરાતી",
+      `call #${i + 1}: prompt must be the DB-derived native-script anchor, got ${JSON.stringify(opts.prompt)}`,
     );
     assert.ok(
-      typeof opts.prompt !== "string" || !opts.prompt.includes("Hindi"),
-      `call #${i + 1}: prompt must NOT mention "Hindi" (the mismatched client value), got ${JSON.stringify(opts.prompt)}`,
+      !/[a-zA-Z]/.test(String(opts.prompt ?? "")),
+      `call #${i + 1}: prompt must carry no Latin letters, got ${JSON.stringify(opts.prompt)}`,
     );
     assert.equal(
       opts.language,
@@ -512,10 +535,14 @@ test("STT prompt uses DB-derived language name even when client sends a mismatch
   }
 });
 
-test("STT prompt falls back to client-supplied languageName when DB has no record for the phrase's language", async () => {
-  // When languagesTable.findFirst returns undefined (no row for the phrase's
-  // languageCode), the route must fall back to the client-supplied languageName
-  // rather than emitting the generic "the target language" placeholder.
+test("STT prompt is omitted, never client-supplied, when DB has no record for the phrase's language", async () => {
+  // INVERTED (Aug 21, 2026). This test used to pin the opposite: with no
+  // language row the route fell back to the CLIENT's languageName in the
+  // prompt. That is the one path where client free-text reached the
+  // recognizer, and it reached it as English prose, which is the drift cause.
+  // There is now no fallback: no native name means no prompt. The pin does
+  // not disappear with it, because `language` comes from the PHRASE row and
+  // not the language row, so it is still sent.
   // Scenario: client sends languageName="Gujarati", phrase.languageCode="gu",
   // DB has no matching language row (stubLanguage = null).
   stubbedTranscript = "na";
@@ -540,18 +567,21 @@ test("STT prompt falls back to client-supplied languageName when DB has no recor
   assert.ok(capturedSttOptions.length >= 1, "speechToText must have been called at least once");
 
   for (const [i, opts] of capturedSttOptions.entries()) {
-    assert.ok(
-      typeof opts.prompt === "string" && opts.prompt.includes("Gujarati"),
-      `call #${i + 1}: prompt must mention the client-supplied "Gujarati" when DB has no language row, got ${JSON.stringify(opts.prompt)}`,
+    assert.equal(
+      opts.prompt,
+      undefined,
+      `call #${i + 1}: prompt must be absent when the DB has no language row, got ${JSON.stringify(opts.prompt)}`,
     );
-    assert.ok(
-      typeof opts.prompt !== "string" || !opts.prompt.includes("the target language"),
-      `call #${i + 1}: prompt must NOT fall back to generic "the target language" placeholder, got ${JSON.stringify(opts.prompt)}`,
+    // The language pin survives the missing row: it comes from the phrase.
+    assert.equal(
+      opts.language,
+      "gu",
+      `call #${i + 1}: sttOptions.language must still be "gu" from the phrase row, got ${JSON.stringify(opts.language)}`,
     );
   }
 
   // Reset so subsequent tests use the default stub.
-  stubLanguage = { code: "gu", name: "Gujarati" };
+  stubLanguage = { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" };
 });
 
 test("both STT passes fire even when the first-pass transcript is already strong (S1 dual-pass)", async () => {
@@ -571,7 +601,7 @@ test("both STT passes fire even when the first-pass transcript is already strong
     english: "no",
     languageCode: "gu",
   };
-  stubLanguage = { code: "gu", name: "Gujarati" };
+  stubLanguage = { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" };
 
   const { status, json } = await postPronunciation({ phraseId: 42 });
 
@@ -591,9 +621,10 @@ test("both STT passes fire even when the first-pass transcript is already strong
   );
   for (const [i, opts] of capturedSttOptions.entries()) {
     assert.equal(opts.language, "gu", `call #${i + 1} must carry the language hint`);
-    assert.ok(
-      typeof opts.prompt === "string" && opts.prompt.includes("Gujarati"),
-      `call #${i + 1}: prompt must name the language, got ${JSON.stringify(opts.prompt)}`,
+    assert.equal(
+      opts.prompt,
+      "ગુજરાતી",
+      `call #${i + 1}: prompt must be the native-script anchor, got ${JSON.stringify(opts.prompt)}`,
     );
   }
 });
@@ -604,12 +635,13 @@ test("no phraseId: STT hint pins to the user's active language, overriding clien
   // language, never from the client-supplied languageName. The stub user is
   // active in Hindi while the client claims "Gujarati"; every STT pass must
   // carry language "hi" and the prompt must name Hindi (from the DB language
-  // row), proving the free-text value cannot mislead the transcriber.
+  // row's native name), proving the free-text value cannot mislead the
+  // transcriber.
   stubbedTranscript = "na";
   stubbedTranscriptSequence = null;
   capturedSttOptions = [];
   stubUser = { activeLanguage: "hi" };
-  stubLanguage = { code: "hi", name: "Hindi" };
+  stubLanguage = { code: "hi", name: "Hindi", nativeName: "हिन्दी" };
 
   const { status, json } = await postPronunciation({
     // No phraseId: client supplies the target strings directly, and lies
@@ -632,21 +664,23 @@ test("no phraseId: STT hint pins to the user's active language, overriding clien
       "hi",
       `call #${i + 1} must carry the pinned active-language hint "hi", got ${JSON.stringify(opts)}`,
     );
-    assert.ok(
-      typeof opts.prompt === "string" && opts.prompt.includes("Hindi"),
-      `call #${i + 1}: prompt must name the DB language (Hindi), not the client free-text, got ${JSON.stringify(opts.prompt)}`,
+    assert.equal(
+      opts.prompt,
+      "हिन्दी",
+      `call #${i + 1}: prompt must be the DB language's native-script anchor, not the client free-text, got ${JSON.stringify(opts.prompt)}`,
     );
   }
 
   // Reset so subsequent tests keep the legacy no-active-language default.
   stubUser = null;
-  stubLanguage = { code: "gu", name: "Gujarati" };
+  stubLanguage = { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" };
 });
 
 test("no phraseId: a user whose active language row has no activeLanguage value stays on auto-detect", async () => {
   // Fail-open pinning: the users row exists but activeLanguage is null (e.g.
   // a fresh account before the first reconcile). languageCode must stay
-  // empty: no `language` key, prompt falls back to the client-supplied name.
+  // empty, so neither a `language` key nor a prompt is sent and the
+  // recognizer auto-detects, which is the documented fail-open.
   stubbedTranscript = "na";
   stubbedTranscriptSequence = null;
   capturedSttOptions = [];

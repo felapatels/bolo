@@ -30,6 +30,7 @@
  * positively show is missing content is failed.
  */
 import { speechToText } from "@workspace/integrations-openai-ai-server/audio";
+import { sttLanguageCode } from "./sttLanguage";
 import { normalizeLatin, isEffectivelyEmpty } from "./pronunciationGuards";
 import { romanizeTranscript } from "./romanizeTranscript";
 
@@ -97,8 +98,13 @@ export function isSpeechVerifiable(capability: SpeechCapability | null | undefin
   return (capability ?? "supported") === "supported";
 }
 
-const defaultTranscribe: TranscribeFn = (audio, format, languageCode) =>
-  speechToText(audio, format, { language: languageCode });
+// Through sttLanguageCode so a code with no ISO-639-1 equivalent (kok, mai,
+// doi are all `supported` and all three-letter) is omitted rather than sent
+// and rejected, which used to drop the pin silently on the retry.
+const defaultTranscribe: TranscribeFn = (audio, format, languageCode) => {
+  const iso = sttLanguageCode(languageCode);
+  return speechToText(audio, format, iso ? { language: iso } : {});
+};
 
 /**
  * The phrase reduced to comparable Latin letters.

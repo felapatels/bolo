@@ -80,7 +80,23 @@ function todayDateString(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-const ARC_RADIUS = 24;
+// The streak ring, sized to the band it lives in rather than to the number it
+// wraps. It used to be r=24 stroke 3 inside a 56x56 box, and a 56px box in a
+// 40px band overflows 8px at each end: the ring's outer edge sat 5.5px ABOVE
+// statValueBand, which ate the whole 4px of slack under the zap glyph and
+// touched it. Four earlier attempts moved card padding, and padding was never
+// what set this. Outer edge is now ARC_RADIUS + ARC_STROKE/2 = 19, inside the
+// band's 20px half-height, so the ring cannot leave its band again.
+//
+// The stroke thinned with the ring rather than staying at 3. Two constraints
+// meet inside 40px and both are tight: the outer edge has to clear the band,
+// and the inner edge has to clear a 26pt two-digit streak, whose ink corners
+// sit about 16.5px out from the centre. r=18 stroke=2 leaves 1px at the
+// outside and about 0.5px at the inside. A 3pt stroke satisfies neither.
+const ARC_BOX = 40;
+const ARC_RADIUS = 18;
+const ARC_STROKE = 2;
+const ARC_CENTER = ARC_BOX / 2;
 const ARC_CIRCUMFERENCE = 2 * Math.PI * ARC_RADIUS;
 
 /** Time-of-day greeting to make the mascot's welcome feel personal. */
@@ -1338,33 +1354,33 @@ function GradientStatCell({
       ) : showArc ? (
         <View style={styles.arcValueWrap}>
           <Svg
-            width={56}
-            height={56}
+            width={ARC_BOX}
+            height={ARC_BOX}
             style={StyleSheet.absoluteFillObject}
-            viewBox="0 0 56 56"
+            viewBox={`0 0 ${ARC_BOX} ${ARC_BOX}`}
           >
             {/* Track */}
             <Circle
-              cx={28}
-              cy={28}
+              cx={ARC_CENTER}
+              cy={ARC_CENTER}
               r={ARC_RADIUS}
               fill="none"
               stroke="rgba(255,255,255,0.2)"
-              strokeWidth={3}
+              strokeWidth={ARC_STROKE}
             />
             {/* Progress arc — rotated so 0% starts at the top */}
             <AnimatedCircle
-              cx={28}
-              cy={28}
+              cx={ARC_CENTER}
+              cy={ARC_CENTER}
               r={ARC_RADIUS}
               fill="none"
               stroke="rgba(255,255,255,0.85)"
-              strokeWidth={3}
+              strokeWidth={ARC_STROKE}
               strokeDasharray={ARC_CIRCUMFERENCE}
               strokeLinecap="round"
               rotation={-90}
-              originX={28}
-              originY={28}
+              originX={ARC_CENTER}
+              originY={ARC_CENTER}
               animatedProps={animatedArcProps}
             />
           </Svg>
@@ -1753,8 +1769,10 @@ const styles = StyleSheet.create({
 
   // Streak arc value wrapper
   arcValueWrap: {
-    width: 56,
-    height: 56,
+    // Exactly statValueBand's height. At 56 this box overflowed its band by
+    // 8px at each end and carried the ring out with it.
+    width: ARC_BOX,
+    height: ARC_BOX,
     alignItems: 'center',
     justifyContent: 'center',
   },

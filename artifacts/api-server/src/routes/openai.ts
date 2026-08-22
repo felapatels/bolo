@@ -35,6 +35,7 @@ import {
   normalizeLatin,
   simToScore,
 } from "../lib/pronunciationGuards";
+import { buildSttOptions, discardAnchorEcho } from "../lib/sttLanguage";
 import { writeNocatchDiagnostic, type NocatchCause } from "../lib/nocatchDiagnostics";
 import { measureAttemptSnrDb } from "../lib/audioNoise";
 import { denyLockedFeature, denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
@@ -783,11 +784,19 @@ router.post(
     }
 
     // Whenever a languageCode is pinned (from the phrase row, or from the
-    // user's active language above), look up the canonical language name from
-    // the DB so a client-provided languageName cannot mislead Whisper with a
-    // mismatched language (e.g. "Hindi" for a Gujarati phrase).  Falls back to
-    // the client-supplied value when the language record is not found.
+    // user's active language above), look up the canonical language record so
+    // a client-provided languageName cannot stand in for it (e.g. "Hindi" for
+    // a Gujarati phrase).
+    //
+    // Two names come out of that row and they are used for different things.
+    // `language` is the ENGLISH name and never reaches the recognizer any
+    // more: it is for learner-facing copy and the evaluation rubric, so it
+    // keeps falling back to the client value when there is no language row.
+    // `languageNativeName` is the language's own name in its own script
+    // (हिन्दी, ગુજરાતી) and is the recognizer's script anchor, so it has NO
+    // client fallback at all. See lib/sttLanguage.ts.
     let language = languageName?.trim() || "the target language";
+    let languageNativeName = "";
     let speechCapability: string = "supported";
     if (languageCode) {
       try {
@@ -796,6 +805,9 @@ router.post(
         });
         if (langRow?.name) {
           language = langRow.name;
+        }
+        if (langRow?.nativeName) {
+          languageNativeName = langRow.nativeName;
         }
         if (langRow?.speechCapability) {
           speechCapability = langRow.speechCapability;
@@ -882,15 +894,19 @@ router.post(
       return;
     }
 
-    // Hint the transcriber with the language only — omitting the target phrase
-    // prevents Whisper from anchoring on the phrase text and transcribing vaguely
-    // similar audio as the target, which inflates phonetic similarity scores.
-    // The language code passed as the `language` option is sufficient to stabilize
-    // transcription for supported languages.
-    const sttOptions = {
-      ...(languageCode ? { language: languageCode } : {}),
-      prompt: `A language learner is speaking ${language}. Transcribe exactly what they say.`,
-    };
+    // Pin the recognizer to the language being practised. The target phrase
+    // stays OUT of this: naming it would let the recognizer be talked into
+    // hearing it, which inflates phonetic similarity on audio that only
+    // vaguely resembles the target.
+    //
+    // The prompt used to be English prose naming the language, and that was
+    // the bug. The prompt is prior-context text, not an instruction, and
+    // English context in front of a one-second Devanagari clip outweighs the
+    // advisory `language` field: Hindi धन्यवाद came back "Köszönöm" and
+    // "Děkuji". It is now the language's own name in its own script, and
+    // three-letter codes the API rejects are no longer sent at all. See
+    // lib/sttLanguage.ts for the full reasoning.
+    const sttOptions = buildSttOptions({ languageCode, languageNativeName });
 
     const rawBuffer = Buffer.from(audioBase64, "base64");
     let transcript = "";
@@ -938,8 +954,16 @@ router.post(
         measureAttemptSnrDb(buffer, format).catch(() => null),
       ]);
       snrDb = measuredSnrDb;
-      sttTranscriptMini = miniRaw.trim();
-      sttTranscriptHq = hqRaw.trim();
+      // Whisper hands its own prompt back as the transcript when the clip
+      // holds no speech (parrotChat.ts guards the chat path against the same
+      // thing). It mattered less while the prompt was English prose, because
+      // an English transcript hit script-mismatch-nocatch and resolved to a
+      // system miss. The native-script anchor would echo in the TARGET script,
+      // read as a real attempt, and be scored as the learner saying the wrong
+      // word, so the echo is discarded here and falls through to the existing
+      // empty-transcript nocatch.
+      sttTranscriptMini = discardAnchorEcho(miniRaw.trim(), sttOptions.prompt);
+      sttTranscriptHq = discardAnchorEcho(hqRaw.trim(), sttOptions.prompt);
       const choice = chooseConservativeTranscript({
         mini: sttTranscriptMini,
         hq: sttTranscriptHq,
