@@ -24,7 +24,7 @@
     },
     "android": {
       "package": "com.bolo.mobile",
-      "versionCode": 5,
+      "versionCode": 419,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#fffdf0"
