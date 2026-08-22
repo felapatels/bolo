@@ -8,7 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkLoaded, ClerkProvider } from '@clerk/expo';
-import { tokenCache } from '@clerk/expo/token-cache';
+import { clerkTokenCache } from '@/lib/clerkTokenCache';
 import { setBaseUrl, ApiError } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { BrandSplash } from '@/components/BrandSplash';
@@ -103,7 +103,7 @@ function RootLayout() {
     <ThemeProvider>
       <ClerkProvider
         publishableKey={publishableKey}
-        tokenCache={tokenCache}
+        tokenCache={clerkTokenCache}
         proxyUrl={proxyUrl}
       >
         <ClerkLoaded>

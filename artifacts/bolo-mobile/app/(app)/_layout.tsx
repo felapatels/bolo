@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { useAuth } from '@clerk/expo';
 import { Redirect, Stack } from 'expo-router';
 import { setAuthTokenGetter } from '@workspace/api-client-react';
+import { reportSessionVanished } from '@/lib/authErrors';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { ReminderScheduler } from '@/components/ReminderScheduler';
 import { Mascot } from '@/components/Mascot';
@@ -12,7 +13,7 @@ import { EquippedOutfitProvider } from '@/contexts/OutfitContext';
 import { useColors } from '@/hooks/useColors';
 
 export default function AppLayout() {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, sessionId, getToken } = useAuth();
   const colors = useColors();
 
   // Attach the Clerk bearer token to every API request. Set during render (not
@@ -22,6 +23,48 @@ export default function AppLayout() {
   useEffect(() => {
     setAuthTokenGetter(() => getToken());
   }, [getToken]);
+
+  // DIAGNOSTIC, 2026-08-22: report a session that disappears on its own.
+  //
+  // The redirect below is the app obeying Clerk, not the app signing anyone
+  // out; nothing here calls signOut. On Android the session has been going
+  // away ~30s after sign-in inside a live process, and until now that left no
+  // trace anywhere. lib/clerkTokenCache.ts catches the SecureStore case
+  // earlier and more precisely; this fires whatever the cause, so the ABSENCE
+  // of a token-cache event next to this one is itself the finding.
+  const wasSignedInRef = useRef(false);
+  const lastSessionIdRef = useRef<string | null>(null);
+  const signedInAtRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (isSignedIn) {
+      wasSignedInRef.current = true;
+      lastSessionIdRef.current = sessionId ?? null;
+      signedInAtRef.current ??= Date.now();
+      return;
+    }
+    if (!wasSignedInRef.current) return;
+    wasSignedInRef.current = false;
+    const heldForMs =
+      signedInAtRef.current === null ? null : Date.now() - signedInAtRef.current;
+    signedInAtRef.current = null;
+    // Ask for a token AFTER the session is gone. "present" would mean the
+    // token store is fine and only the client's view of it broke, which
+    // points at the JS/native sync rather than at storage.
+    void (async () => {
+      let tokenAfter: 'present' | 'absent' | 'threw' = 'absent';
+      try {
+        tokenAfter = (await getToken()) ? 'present' : 'absent';
+      } catch {
+        tokenAfter = 'threw';
+      }
+      reportSessionVanished(`held ${heldForMs ?? 'unknown'}ms, token ${tokenAfter}`, {
+        lastSessionId: lastSessionIdRef.current,
+        heldForMs,
+        tokenAfter,
+      });
+    })();
+  }, [isLoaded, isSignedIn, sessionId, getToken]);
 
   if (!isLoaded) {
     return (

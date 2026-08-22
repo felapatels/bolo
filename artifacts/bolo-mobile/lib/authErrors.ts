@@ -151,3 +151,41 @@ export function incompleteStateMessage(
       : 'no sign-in methods offered';
   return `Sign-in did not complete (status: ${status}; ${factors}). Please try again — if this keeps happening, contact support and mention this message.`;
 }
+
+/**
+ * Error type for a session that disappeared while the app was running.
+ * Distinct from every other type in this file: nothing failed and nobody
+ * pressed anything. Clerk simply stopped reporting a session.
+ */
+export class SessionVanishedError extends Error {
+  constructor(detail: string) {
+    super(`Session vanished while the app was running (${detail})`);
+    this.name = 'SessionVanishedError';
+  }
+}
+
+/**
+ * Report `isSignedIn` going true -> false without a sign-out.
+ *
+ * DIAGNOSTIC, added 2026-08-22 for the Android sign-out: a session that
+ * disappears roughly 30 seconds after signing in, inside a live process, with
+ * no crash and no server-side revocation in Clerk's own logs.
+ *
+ * This is the backstop. `lib/clerkTokenCache.ts` is the primary instrument and
+ * fires earlier, at the SecureStore failure itself. If this event arrives with
+ * no token-cache event alongside it, the token store was NOT the cause and the
+ * suspect moves to the JS/native client sync in @clerk/expo 3.7.4.
+ *
+ * PII: session ids are opaque Clerk identifiers, not user data. Never pass a
+ * token, an email or a user id in `extra`.
+ */
+export function reportSessionVanished(
+  detail: string,
+  extra?: Record<string, unknown>,
+): void {
+  if (!sentryEnabled) return;
+  Sentry.captureException(new SessionVanishedError(detail), {
+    tags: { authContext: 'session.vanished' },
+    extra: { authContext: 'session.vanished', ...extra },
+  });
+}
