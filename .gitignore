@@ -93,3 +93,22 @@ qa/tts-audit-prod-gu-clips/
 *.mobileprovision
 *.cer
 *.certSigningRequest
+
+# Google Cloud service account keys. These arrive as JSON, so no extension rule
+# can catch them the way *.p8 does without also ignoring package.json and the
+# fifteen hundred other JSON files in this repo. Listed below are the shapes
+# Google actually emits: the older api-NNNN-NNNN-XXXX.json from the Play
+# credentials flow, and the newer PROJECT-KEYID.json from Cloud console. Either
+# one grants publishing and financial access to the Play listing, and this repo
+# is PUBLIC. Keep the real file outside the repo and delete it after upload.
+# Added 2026-08-22 while connecting RevenueCat to Google Play.
+api-*.json
+bolo-503815-*.json
+gcp-*.json
+play-*.json
+*service-account*.json
+*-key.json
+
+# Campaign zips are rebuildable from campaign-duo/ by gen-duo-campaign.mjs.
+# The PNGs are committed (same as covers/); the 13MB archive of them is not.
+artifacts/bolo-social-clips/*.zip
