@@ -57,10 +57,39 @@ function report(
   });
 }
 
+/**
+ * Every cache operation leaves a breadcrumb, so the SessionVanishedError that
+ * fires a moment later carries the exact sequence that preceded it.
+ *
+ * This is the second pass, 2026-08-22. The first only reported FAILURES, and
+ * build 422 proved nothing failed: session.vanished fired with no token-cache
+ * event beside it. So the remaining question is not "did storage break" but
+ * "was the token deliberately cleared, or did the client stop reporting a
+ * session while the token sat there untouched", and only a trail of
+ * successful calls can tell those apart.
+ *
+ * Token VALUES never appear here. Presence and byte length only.
+ */
+function crumb(
+  operation: 'getToken' | 'saveToken' | 'clearToken',
+  key: string,
+  data?: Record<string, unknown>,
+): void {
+  if (!sentryEnabled) return;
+  Sentry.addBreadcrumb({
+    category: 'clerk.tokenCache',
+    level: operation === 'clearToken' ? 'warning' : 'info',
+    message: `${operation} ${key}`,
+    data: { tokenCacheOp: operation, tokenCacheKey: key, ...data },
+  });
+}
+
 export const clerkTokenCache = {
   async getToken(key: string): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(key, SECURE_STORE_OPTS);
+      const value = await SecureStore.getItemAsync(key, SECURE_STORE_OPTS);
+      crumb('getToken', key, { result: value ? 'hit' : 'miss' });
+      return value;
     } catch (err) {
       // Report BEFORE the delete, because the delete is what makes this
       // permanent and unreadable afterwards.
@@ -84,6 +113,7 @@ export const clerkTokenCache = {
         : token.length;
     try {
       await SecureStore.setItemAsync(key, token, SECURE_STORE_OPTS);
+      crumb('saveToken', key, { tokenBytes: bytes });
     } catch (err) {
       report('saveToken', key, err, {
         tokenBytes: bytes,
@@ -97,6 +127,9 @@ export const clerkTokenCache = {
   },
 
   async clearToken(key: string): Promise<void> {
+    // Unconditional and BEFORE the delete. If Clerk is wiping its own token
+    // 43 seconds into a session, this is the line that says so.
+    crumb('clearToken', key);
     try {
       await SecureStore.deleteItemAsync(key, SECURE_STORE_OPTS);
     } catch (err) {
