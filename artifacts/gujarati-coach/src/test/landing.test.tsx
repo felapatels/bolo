@@ -76,9 +76,12 @@ describe("store badges (platform-following)", () => {
   const ANDROID_UA =
     "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36";
 
-  test("pre-release default: iOS user agents see a muted unlinked badge with the coming-soon caption, nothing tracked", () => {
+  test("pre-release state: iOS user agents see a muted unlinked badge with the coming-soon caption, nothing tracked", () => {
     setUserAgent(IPHONE_UA);
-    renderAt(<Landing />);
+    // Injected, not inherited. APP_STORE_LIVE went true on 2026-08-22 and this
+    // test read the shipping const, so launch day broke a test about the
+    // pre-release rendering. Both states are now stated outright.
+    renderAt(<Landing appStoreLive={false} />);
 
     expect(screen.getByAltText("Download on the App Store")).toBeInTheDocument();
     expect(screen.getByText("Coming soon to the App Store")).toBeInTheDocument();
@@ -110,9 +113,11 @@ describe("store badges (platform-following)", () => {
     });
   });
 
-  test("pre-release default: Android user agents see a muted unlinked Play badge with the coming-soon caption, nothing tracked", () => {
+  test("pre-release state: Android user agents see a muted unlinked Play badge with the coming-soon caption, nothing tracked", () => {
     setUserAgent(ANDROID_UA);
-    renderAt(<Landing />);
+    // Injected for the same reason as the iOS case above, so flipping
+    // PLAY_STORE_LIVE does not break a test about the pre-release rendering.
+    renderAt(<Landing playStoreLive={false} />);
 
     expect(screen.getByAltText("Get it on Google Play")).toBeInTheDocument();
     expect(screen.getByText("Coming soon to Google Play")).toBeInTheDocument();
