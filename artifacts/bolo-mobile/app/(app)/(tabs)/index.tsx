@@ -80,10 +80,7 @@ function todayDateString(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// 19, not 24. The arc lives inside statValueBand, and when that band came down
-// to fit a thinner card the 56pt circle overflowed it and collided with the icon
-// above. Sized to its band now rather than the band being sized to it.
-const ARC_RADIUS = 19;
+const ARC_RADIUS = 24;
 const ARC_CIRCUMFERENCE = 2 * Math.PI * ARC_RADIUS;
 
 /** Time-of-day greeting to make the mascot's welcome feel personal. */
@@ -1341,15 +1338,15 @@ function GradientStatCell({
       ) : showArc ? (
         <View style={styles.arcValueWrap}>
           <Svg
-            width={46}
-            height={46}
+            width={56}
+            height={56}
             style={StyleSheet.absoluteFillObject}
-            viewBox="0 0 46 46"
+            viewBox="0 0 56 56"
           >
             {/* Track */}
             <Circle
-              cx={23}
-              cy={23}
+              cx={28}
+              cy={28}
               r={ARC_RADIUS}
               fill="none"
               stroke="rgba(255,255,255,0.2)"
@@ -1357,8 +1354,8 @@ function GradientStatCell({
             />
             {/* Progress arc — rotated so 0% starts at the top */}
             <AnimatedCircle
-              cx={23}
-              cy={23}
+              cx={28}
+              cy={28}
               r={ARC_RADIUS}
               fill="none"
               stroke="rgba(255,255,255,0.85)"
@@ -1366,8 +1363,8 @@ function GradientStatCell({
               strokeDasharray={ARC_CIRCUMFERENCE}
               strokeLinecap="round"
               rotation={-90}
-              originX={23}
-              originY={23}
+              originX={28}
+              originY={28}
               animatedProps={animatedArcProps}
             />
           </Svg>
@@ -1476,10 +1473,7 @@ const styles = StyleSheet.create({
     // edge, so the bottom carries 15 against the top's 11. The card comes out at
     // 114pt against 128 before and 130 originally -- noticeably thinner, with
     // MORE clearance under the labels rather than less.
-    // Top is deliberately thin: the whole block was asked to sit higher, and
-    // taking it out of the top does that without touching the label clearance
-    // at the bottom, which was the other complaint.
-    paddingTop: 6,
+    paddingTop: 11,
     paddingBottom: 15,
     paddingHorizontal: 6,
     // Stretch, so every cell is the full height of the row and its three bands
@@ -1497,11 +1491,11 @@ const styles = StyleSheet.create({
   // each row: a 26px kulhad, the 56px streak arc, and one line of label.
   statIconBand: { height: 28, justifyContent: 'center', alignItems: 'center' },
   statValueBand: {
-    // 46: the streak arc is the tallest thing in here and it is 46 across, so
-    // this is sized to IT rather than to the text. At 40 the arc overflowed and
-    // touched the icon above it, which is what "the icon touches the circle"
-    // was. The arc came down from 56 to 46 to make this possible at all.
-    height: 46,
+    // 40, not 56. The value is 26pt on a 30pt line, so 56 was 26 points of dead
+    // air wrapped around it and the single biggest contributor to how thick this
+    // card reads. 40 gives the line 5 points of clearance top and bottom, which
+    // is plenty, and takes 16 points straight off the card's height.
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'stretch',
@@ -1759,8 +1753,8 @@ const styles = StyleSheet.create({
 
   // Streak arc value wrapper
   arcValueWrap: {
-    width: 46,
-    height: 46,
+    width: 56,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
   },
