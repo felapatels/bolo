@@ -234,10 +234,36 @@ jest.mock('react-native-purchases', () => ({
   LOG_LEVEL: { WARN: 'warn', ERROR: 'error' },
 }));
 
-// expo-video was REMOVED on 2026-08-19 for the crash bisect. It is no longer a
-// dependency, so mocking it here throws "Cannot find module" and takes all 114
-// suites down with it. Left as a comment rather than deleted, because the mock
-// goes straight back if the module returns: an inert player and a plain View.
+// expo-video is BACK (2026-08-21), so the mock this comment promised is back
+// with it: an inert player and a plain View. It is a native module with no jest
+// implementation, and BrandSplash plus BazaarWelcome both import it at module
+// scope, so without this any suite that touches either dies at import time
+// rather than failing an assertion.
+jest.mock('expo-video', () => {
+  const React = require('react');
+  const RN = require('react-native');
+  return {
+    __esModule: true,
+    useVideoPlayer: (_source, setup) => {
+      const player = {
+        play: jest.fn(),
+        pause: jest.fn(),
+        replace: jest.fn(),
+        loop: false,
+        muted: true,
+        currentTime: 0,
+        addListener: jest.fn(() => ({ remove: jest.fn() })),
+      };
+      if (typeof setup === 'function') setup(player);
+      return player;
+    },
+    VideoView: React.forwardRef(function VideoViewMock(props, ref) {
+      const { player, contentFit, nativeControls, ...rest } = props;
+      return React.createElement(RN.View, { ...rest, ref });
+    }),
+  };
+});
+
 // expo-audio is the other half of the same problem: BazaarWelcome imports it
 // on the line after expo-video, so mocking only the video left outfits.test
 // .tsx still failing to load. Every recorder-driven suite (practice, quiz,

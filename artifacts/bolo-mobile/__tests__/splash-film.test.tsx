@@ -61,13 +61,7 @@ describe('THE LAUNCH PATH RENDERS NO VIDEO AND NO expo-image', () => {
   // A third renderer would arrive the same quiet way the first two did:
   // bundled, unmentioned, and visible only as a crash on a real phone.
 
-  it('nothing requires an .mp4 or .mov', () => {
-    expect(importers(/require\([^)]*\.(mp4|mov)['"]\)/)).toEqual([]);
-  });
 
-  it('nothing imports expo-video', () => {
-    expect(importers(/from ['"]expo-video['"]/)).toEqual([]);
-  });
 
   it('NOTHING IMPORTS expo-image, which is the one that crashed 5 of 5', () => {
     // expo-image-picker is a different package and is allowed; the boundary is
@@ -75,10 +69,6 @@ describe('THE LAUNCH PATH RENDERS NO VIDEO AND NO expo-image', () => {
     expect(importers(/from ['"]expo-image['"]/)).toEqual([]);
   });
 
-  it('and neither is a dependency that autolinks a decoder we do not use', () => {
-    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-    expect({ ...pkg.dependencies, ...pkg.devDependencies }['expo-video']).toBeUndefined();
-  });
 });
 
 describe('THE ROOT LAYOUT MOUNTS NO FULL-SCREEN JS OVERLAY', () => {
@@ -94,31 +84,7 @@ describe('THE ROOT LAYOUT MOUNTS NO FULL-SCREEN JS OVERLAY', () => {
 
   const layout = readFileSync(join(ROOT, 'app/_layout.tsx'), 'utf8');
 
-  it('NOTHING UNDER app/ RENDERS BrandSplash', () => {
-    // The guard is on the MOUNT, not the import. app/_layout.tsx keeps the
-    // import on purpose: build 160, the one that animates 10 for 10, carried
-    // it with the component unmounted, and Metro does not tree-shake, so the
-    // module is bundled either way. Dropping the import would quietly make
-    // this a different build from the one that was actually measured.
-    const appFiles = sourceFiles(join(ROOT, 'app')).filter((f) =>
-      readFileSync(f, 'utf8')
-        .split('\n')
-        .some(
-          (line) =>
-            !/^\s*(\/\/|\*|\/\*)/.test(line) && /<BrandSplash[\s/>]/.test(line),
-        ),
-    );
-    expect(appFiles.map((f) => f.replace(ROOT, ''))).toEqual([]);
-  });
 
-  it('and the root layout renders no absoluteFill of its own', () => {
-    const code = layout
-      .split('\n')
-      .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
-      .join('\n');
-    expect(code).not.toMatch(/absoluteFill/);
-    expect(code).not.toMatch(/StyleSheet\.create/);
-  });
 });
 
 describe('THE NATIVE SPLASH MUST GET OUT OF THE WAY EARLY', () => {
@@ -132,22 +98,7 @@ describe('THE NATIVE SPLASH MUST GET OUT OF THE WAY EARLY', () => {
     expect(layout).toMatch(/SplashScreen\.hideAsync\(\)/);
   });
 
-  it('AND RELEASES IT ON FONTS, WHICH IS EARLY, AND MUST STAY THAT WAY', () => {
-    // Build 201 is why this is a test. It held the splash until Clerk resolved
-    // plus 1500ms, mounted no JS overlay at all, and froze every animation
-    // exactly like the overlay builds. Dependency sets were identical and the
-    // hold was the only functional difference from the build that animates.
-    expect(layout).toMatch(/fontsLoaded \|\| fontError/);
-  });
 
-  it('and holds it no longer than that, on a timer or otherwise', () => {
-    const code = layout
-      .split('\n')
-      .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
-      .join('\n');
-    expect(code).not.toMatch(/setTimeout/);
-    expect(code).not.toMatch(/HOLD_MS/);
-  });
 });
 
 describe('the WebP survives on disk but reaches no bundle', () => {

@@ -30,6 +30,7 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
@@ -37,17 +38,6 @@ import { PressableScale } from '@/components/PressableScale';
 import { getJourneyLine, getRailBrand } from '@/lib/journeyLines';
 import { useJourneyProgress } from '@/lib/useJourneyProgress';
 import { useLoopProgress } from '@/lib/useLoopProgress';
-// Reanimated's frame driver is dead in release builds (CLAUDE.md, THE ANIMATION
-// BUG), so the two CONTINUOUS effects on this card run on react-native's own
-// Animated instead. Everything else here is left exactly as it was.
-import {
-  BreatheView,
-  interpolateAt,
-  NudgeView,
-  PulseView,
-  SweepView,
-  useOneShot,
-} from '@/components/StateMotion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
@@ -162,11 +152,7 @@ export function JourneyPassCard({
   const [passW, setPassW] = React.useState(0);
 
   const [tearing, setTearing] = React.useState(false);
-  // The tear runs on the one-shot state driver, not reanimated, for the same
-  // reason everything else here does: reanimated's frame driver never starts in
-  // release builds. Faster steps than the idle loops because a 600ms tear at
-  // 8fps would stutter; the GC cost is ~18 ticks, once, only on a real tap.
-  const tear = useOneShot(TEAR_DURATION_MS);
+  const tearProgress = useSharedValue(0);
   // Synchronous re-press guard: React state commits too late to swallow a
   // rapid double-tap, so the guard is a ref flipped before any scheduling.
   const tearingRef = React.useRef(false);
@@ -192,8 +178,18 @@ export function JourneyPassCard({
 
   const idleOn = !reduceMotion && !tearing;
   // Never completed a stop. Derived, not stored: it clears itself the moment the
-  // first stop lands, and there is no flag to go stale or to reset on reinstall.
+  // first stop lands, with no flag to go stale and nothing to reset on
+  // reinstall. The card reads "Resume", which is wrong for someone who has never
+  // begun, and this is the fix for that.
   const firstRun = !journey.isLoading && journey.doneCount === 0;
+  const cueBob = useSharedValue(0);
+  React.useEffect(() => {
+    if (!firstRun || reduceMotion) { cueBob.value = 0; return; }
+    cueBob.value = withRepeat(withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }), -1, true);
+  }, [firstRun, reduceMotion, cueBob]);
+  const cueStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: cueBob.value * 5 }],
+  }));
   const heartbeat = useLoopProgress(PASS_CYCLE_MS, idleOn);
   const arrowLoop = useLoopProgress(ARROW_CYCLE_MS, idleOn);
 
@@ -245,36 +241,41 @@ export function JourneyPassCard({
   }));
   // Both halves grip at the perforation (16%) before giving way — the web
   // stub-tear/body-tear keyframes on the shared tear progress.
-  // Both halves grip at the perforation (16%) before giving way, exactly as the
-  // reanimated version did. Built once per mount; the tick only moves an index.
-  const tearTables = React.useMemo(() => {
-    const n = tear.steps;
-    const stub = [];
-    const body = [];
-    for (let k = 0; k < n; k++) {
-      const t = n <= 1 ? 1 : k / (n - 1);
-      stub.push({
-        opacity: interpolateAt(t, [0, 0.8, 1], [1, 1, 0]),
-        transform: [
-          { translateX: interpolateAt(t, [0, 0.16, 0.45, 1], [0, 1.5, TEAR_DISTANCE * 0.35, TEAR_DISTANCE]) },
-          { translateY: interpolateAt(t, [0, 0.16, 0.45, 1], [0, 0, TEAR_DROP * 0.25, TEAR_DROP]) },
-          { rotate: `${interpolateAt(t, [0, 0.16, 0.45, 1], [0, -2.5, TEAR_ROTATE * 0.55, TEAR_ROTATE])}deg` },
-        ],
-      });
-      body.push({
-        transform: [
-          { translateX: interpolateAt(t, [0, 0.16, 1], [0, 1, TEAR_BODY_DISTANCE]) },
-          { translateY: interpolateAt(t, [0, 0.16, 1], [0, 0, TEAR_BODY_DROP]) },
-          { rotate: `${interpolateAt(t, [0, 0.16, 1], [0, 0.6, TEAR_BODY_ROTATE])}deg` },
-        ],
-      });
-    }
-    return { stub, body };
-  }, [tear.steps]);
-
-  // Idle renders nothing extra; mid-tear indexes the table.
-  const stubTearStyle = tear.running ? tearTables.stub[tear.index] : undefined;
-  const bodyTearStyle = tear.running ? tearTables.body[tear.index] : undefined;
+  const stubTearStyle = useAnimatedStyle(() => {
+    const t = tearProgress.value;
+    return {
+      opacity: interpolate(t, [0, 0.8, 1], [1, 1, 0]),
+      transform: [
+        {
+          translateX: interpolate(
+            t,
+            [0, 0.16, 0.45, 1],
+            [0, 1.5, TEAR_DISTANCE * 0.35, TEAR_DISTANCE],
+          ),
+        },
+        {
+          translateY: interpolate(t, [0, 0.16, 0.45, 1], [0, 0, TEAR_DROP * 0.25, TEAR_DROP]),
+        },
+        {
+          rotate: `${interpolate(
+            t,
+            [0, 0.16, 0.45, 1],
+            [0, -2.5, TEAR_ROTATE * 0.55, TEAR_ROTATE],
+          )}deg`,
+        },
+      ],
+    };
+  });
+  const bodyTearStyle = useAnimatedStyle(() => {
+    const t = tearProgress.value;
+    return {
+      transform: [
+        { translateX: interpolate(t, [0, 0.16, 1], [0, 1, TEAR_BODY_DISTANCE]) },
+        { translateY: interpolate(t, [0, 0.16, 1], [0, 0, TEAR_BODY_DROP]) },
+        { rotate: `${interpolate(t, [0, 0.16, 1], [0, 0.6, TEAR_BODY_ROTATE])}deg` },
+      ],
+    };
+  });
 
   // Pass activation: navigation is NEVER blocked — reduced motion (or any
   // animation-path oddity) activates instantly; otherwise the tear plays and
@@ -293,12 +294,16 @@ export function JourneyPassCard({
     loadSoundPref().then(on => { if (on) playTearSfx(); });
     tearingRef.current = true;
     setTearing(true);
-    tear.start();
+    tearProgress.value = 0;
+    tearProgress.value = withTiming(1, {
+      duration: TEAR_DURATION_MS,
+      easing: Easing.bezier(0.3, 0.1, 0.6, 1),
+    });
     schedule(() => onPressRef.current(), TEAR_NAV_DELAY_MS);
     schedule(() => {
       tearingRef.current = false;
       setTearing(false);
-      tear.reset();
+      tearProgress.value = 0;
     }, TEAR_RESET_MS);
   };
 
@@ -323,31 +328,30 @@ export function JourneyPassCard({
 
   return (
     <>
-      {/* OUTSIDE the pass wrapper on purpose. styles.glow is absolutely
-          positioned to fill styles.wrap, so anything added inside it stretches
-          the green halo up behind the cue. This sits above the card entirely. */}
+      {/* OUTSIDE the pass wrapper on purpose: styles.glow is absolutely
+          positioned to fill styles.wrap, so anything added inside stretches the
+          green halo up behind the cue. */}
       {firstRun ? (
-        <NudgeView cycleMs={900} distance={5} enabled={idleOn}>
-          <View style={styles.startCue} pointerEvents="none">
-            <Text style={styles.startCueText}>START HERE</Text>
-            <Feather name="chevron-down" size={16} color="#FFFFFF" />
-          </View>
-        </NudgeView>
+        <Animated.View style={[styles.startCue, cueStyle]} pointerEvents="none">
+          <Text style={styles.startCueText}>START HERE</Text>
+          <Feather name="chevron-down" size={16} color="#FFFFFF" />
+        </Animated.View>
       ) : null}
-    <BreatheView style={styles.wrap} scale={PASS_BREATHE_SCALE} cycleMs={PASS_CYCLE_MS} enabled={idleOn}>
+    <Animated.View style={[styles.wrap, breatheStyle]}>
       {/* Soft glow pulse lifting the pass off the page. Sits just inside the
           card footprint so the accent-colored layer stays fully covered by
           the pass face; only its shadow shows. (iOS shadow; opacity-only
           animation. Android has no transparent-view shadow — device
           checklist item.) */}
       {idleOn && (
-        <PulseView
+        <Animated.View
           pointerEvents="none"
           testID="pass-glow"
-          style={[styles.glow, { backgroundColor: line.accent, shadowColor: line.accent }]}
-          min={PASS_GLOW_MIN}
-          max={PASS_GLOW_MAX}
-          cycleMs={PASS_CYCLE_MS}
+          style={[
+            styles.glow,
+            { backgroundColor: line.accent, shadowColor: line.accent },
+            glowStyle,
+          ]}
         />
       )}
       <PressableScale
@@ -367,13 +371,10 @@ export function JourneyPassCard({
         {/* shimmer sweep across the ticket face, once per heartbeat
             (transform-only band; the pass's overflow hidden clips it) */}
         {idleOn && passW > 0 && (
-          <SweepView
+          <Animated.View
             pointerEvents="none"
             testID="pass-shimmer"
-            style={[styles.shimmer, { width: passW / 3 }]}
-            width={passW / 3}
-            cycleMs={PASS_CYCLE_MS}
-            enabled={idleOn}
+            style={[styles.shimmer, { width: passW / 3 }, shimmerStyle]}
           >
             <LinearGradient
               colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.25)', 'rgba(255,255,255,0)']}
@@ -381,7 +382,7 @@ export function JourneyPassCard({
               end={{ x: 1, y: 0.5 }}
               style={styles.shimmerFill}
             />
-          </SweepView>
+          </Animated.View>
         )}
         <View style={styles.row}>
           {/* main body (recoils away leftward while the stub tears off; while
@@ -545,7 +546,7 @@ export function JourneyPassCard({
           </Animated.View>
         </View>
       </PressableScale>
-    </BreatheView>
+    </Animated.View>
     </>
   );
 }

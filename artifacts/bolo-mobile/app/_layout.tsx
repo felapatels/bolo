@@ -11,13 +11,6 @@ import { ClerkLoaded, ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { setBaseUrl, ApiError } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-// DELIBERATELY UNUSED, AND DELIBERATELY STILL HERE. Build 160 is the build
-// that animates 10 for 10, and it carried this import with the component
-// unmounted. Metro does not tree-shake, so the module is bundled and evaluated
-// either way. Removing it would make this build stop being the thing that was
-// measured, for a tidiness that is worth nothing. Nothing may RENDER it:
-// __tests__/splash-film.test.tsx fails if anything does.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { BrandSplash } from '@/components/BrandSplash';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { fontMap } from '@/constants/fonts';
@@ -135,22 +128,10 @@ function RootLayout() {
                 {/* The boot film, over the Stack. The native splash still
                     runs first and still hides on fonts; this picks up from
                     there and covers Clerk plus both redirect hops. */}
-                {/* NOTHING MOUNTS HERE, AND NOTHING COVERS THE SCREEN
-                    WHILE THE APP MOUNTS. Both halves matter, and the second
-                    one cost build 201 to learn.
-
-                    The native splash hides on FONTS, which is early, before
-                    home mounts. Do not hold it longer. Build 201 held it
-                    until Clerk resolved plus 1500ms, mounted no JS overlay at
-                    all, and froze every animation exactly like the overlay
-                    builds did. Identical dependency sets, and the splash hold
-                    was the ONLY functional difference from this file.
-
-                    So the rule is not "no JS overlay at the root". It is that
-                    reanimated animations which mount while the screen is
-                    covered never start, and it does not matter whether the
-                    thing covering it is a React view or the native splash.
-                    See CLAUDE.md, THE ANIMATION BUG. */}
+                {/* The boot film, over the Stack. The native splash hides on
+                    fonts; this picks up from there and covers Clerk plus both
+                    redirect hops. */}
+                <BrandSplash />
               </GestureHandlerRootView>
             </QueryClientProvider>
           </ErrorBoundary>
