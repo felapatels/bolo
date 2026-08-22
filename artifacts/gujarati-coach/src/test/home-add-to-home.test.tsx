@@ -157,7 +157,7 @@ describe("platform detection for home-screen guidance", () => {
 });
 
 describe("home add-to-home-screen block", () => {
-  test("iOS: Safari steps, the App Store badge in its coming-soon state, no Android copy", () => {
+  test("iOS: Safari steps, the App Store badge linking to the live listing, no Android copy", () => {
     setNavigator({ ua: IPHONE_UA, platform: "iPhone", maxTouchPoints: 5 });
     renderHome();
 
@@ -169,13 +169,16 @@ describe("home add-to-home-screen block", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Scroll down the list and tap Add to Home Screen/)).toBeInTheDocument();
 
-    // Pre-release badge: present, unlinked, captioned, from the shared component.
+    // Live badge: present and linked, no caption. AddToHomeScreen renders the
+    // shared component with no `live` override, so this asserts the shipping
+    // APP_STORE_LIVE, which went true on 2026-08-22 when the listing went
+    // public. The Play half below still asserts the coming-soon rendering.
     expect(screen.getByTestId("home-appstore-badge")).toBeInTheDocument();
     expect(screen.getByAltText("Download on the App Store")).toBeInTheDocument();
-    expect(screen.getByText("Coming soon to the App Store")).toBeInTheDocument();
+    expect(screen.queryByText("Coming soon to the App Store")).toBeNull();
     expect(
-      screen.queryByRole("link", { name: /Download on the App Store/i }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("link", { name: /Download on the App Store/i }),
+    ).toHaveAttribute("href", "https://apps.apple.com/app/id6790907772");
 
     // Never both stores at once.
     expect(screen.queryByTestId("home-playstore-badge")).toBeNull();

@@ -19,8 +19,11 @@ import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
 
 // The numeric id is ascAppId from bolo-mobile/eas.json.
 export const APP_STORE_URL = "https://apps.apple.com/app/id6790907772";
-// Flip to true when the listing is approved and live in the App Store.
-export const APP_STORE_LIVE = false;
+// LIT on 2026-08-22, at the owner's word and verified against the public
+// listing: apps.apple.com/app/id6790907772 resolves to "Bolo! Speak Hindi &
+// Gujurati", free with in-app purchases. Play stays dark below until the
+// Android listing leaves closed testing.
+export const APP_STORE_LIVE = true;
 
 // The package name is the Android applicationId from bolo-mobile.
 export const PLAY_STORE_URL =
