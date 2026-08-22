@@ -378,9 +378,6 @@ importers:
       '@expo-google-fonts/noto-sans-telugu':
         specifier: ^0.4.2
         version: 0.4.2
-      '@react-native-community/javascriptcore':
-        specifier: ^0.2.0
-        version: 0.2.0
       '@sentry/react-native':
         specifier: ~7.2.0
         version: 7.2.0(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1)
@@ -3258,9 +3255,6 @@ packages:
     resolution: {integrity: sha512-gvRvjR5JAaUZF8tv2Kcq/Gbt3JHwbKFYfmb445rhOj6NUMx3qPLixmDx5pZAyb9at1bYvJ4/eTUipU5aki45xw==}
     peerDependencies:
       react-native: ^0.0.0-0 || >=0.65 <1.0
-
-  '@react-native-community/javascriptcore@0.2.0':
-    resolution: {integrity: sha512-52XCGhEngYVnpo7yhJX6rlYLEEmfWSq0yfUaEliMyfLk3LcHVJDnvzLoc/Mwlzuk5YSGoyx52WghNmzgXhtOeA==}
 
   '@react-native/assets-registry@0.81.5':
     resolution: {integrity: sha512-705B6x/5Kxm1RKRvSv0ADYWm5JOnoiQ1ufW7h8uu2E6G9Of/eE6hP/Ivw3U5jI16ERqZxiKQwk34VJbB0niX9w==}
@@ -13204,8 +13198,6 @@ snapshots:
     dependencies:
       merge-options: 3.0.4
       react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)
-
-  '@react-native-community/javascriptcore@0.2.0': {}
 
   '@react-native/assets-registry@0.81.5': {}
 
