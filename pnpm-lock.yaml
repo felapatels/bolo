@@ -378,9 +378,6 @@ importers:
       '@expo-google-fonts/noto-sans-telugu':
         specifier: ^0.4.2
         version: 0.4.2
-      '@react-native-community/javascriptcore':
-        specifier: ^0.2.0
-        version: 0.2.0
       '@sentry/react-native':
         specifier: ~7.2.0
         version: 7.2.0(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1)
@@ -519,7 +516,7 @@ importers:
         version: 8.0.12(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1)
       expo-router:
         specifier: ~6.0.17
-        version: 6.0.24(bb16d9b79e066de3f9f592f3fc882bf1)
+        version: 6.0.24(e7a0ef6f8a9500d3415f1c20505dec28)
       expo-splash-screen:
         specifier: ~31.0.12
         version: 31.0.13(expo@54.0.35)(supports-color@8.1.1)(typescript@5.9.3)
@@ -555,10 +552,10 @@ importers:
         version: 2.28.0(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
       react-native-keyboard-controller:
         specifier: 1.18.5
-        version: 1.18.5(react-native-reanimated@4.1.7(react-native-worklets@0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
+        version: 1.18.5(react-native-reanimated@3.19.5(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
       react-native-reanimated:
-        specifier: ~4.1.1
-        version: 4.1.7(react-native-worklets@0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
+        specifier: 3.19.5
+        version: 3.19.5(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1)
       react-native-safe-area-context:
         specifier: ~5.6.0
         version: 5.6.2(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
@@ -568,9 +565,6 @@ importers:
       react-native-web:
         specifier: ^0.21.0
         version: 0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      react-native-worklets:
-        specifier: 0.5.1
-        version: 0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1)
       react-test-renderer:
         specifier: 19.1.0
         version: 19.1.0(react@19.1.0)
@@ -3258,9 +3252,6 @@ packages:
     resolution: {integrity: sha512-gvRvjR5JAaUZF8tv2Kcq/Gbt3JHwbKFYfmb445rhOj6NUMx3qPLixmDx5pZAyb9at1bYvJ4/eTUipU5aki45xw==}
     peerDependencies:
       react-native: ^0.0.0-0 || >=0.65 <1.0
-
-  '@react-native-community/javascriptcore@0.2.0':
-    resolution: {integrity: sha512-52XCGhEngYVnpo7yhJX6rlYLEEmfWSq0yfUaEliMyfLk3LcHVJDnvzLoc/Mwlzuk5YSGoyx52WghNmzgXhtOeA==}
 
   '@react-native/assets-registry@0.81.5':
     resolution: {integrity: sha512-705B6x/5Kxm1RKRvSv0ADYWm5JOnoiQ1ufW7h8uu2E6G9Of/eE6hP/Ivw3U5jI16ERqZxiKQwk34VJbB0niX9w==}
@@ -8362,6 +8353,12 @@ packages:
       react: '*'
       react-native: '*'
 
+  react-native-is-edge-to-edge@1.1.7:
+    resolution: {integrity: sha512-EH6i7E8epJGIcu7KpfXYXiV2JFIYITtq+rVS8uEb+92naMRBdxhTuS8Wn2Q7j9sqyO0B+Xbaaf9VdipIAmGW4w==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+
   react-native-is-edge-to-edge@1.3.1:
     resolution: {integrity: sha512-NIXU/iT5+ORyCc7p0z2nnlkouYKX425vuU1OEm6bMMtWWR9yvb+Xg5AZmImTKoF9abxCPqrKC3rOZsKzUYgYZA==}
     peerDependencies:
@@ -8392,12 +8389,12 @@ packages:
       react-native: '>=0.63.4'
       react-native-svg: '>=14.0.0'
 
-  react-native-reanimated@4.1.7:
-    resolution: {integrity: sha512-Q4H6xA3Tn7QL0/E/KjI86I1KK4tcf+ErRE04LH34Etka2oVQhW6oXQ+Q8ZcDCVxiWp5vgbBH6XcH8BOo4w/Rhg==}
+  react-native-reanimated@3.19.5:
+    resolution: {integrity: sha512-bd4AwIkBAaY4BjrgpSoKjEaRG/tXD756F5nGuiH5IMBSKN8tRdUEA8hWZCyIo/R6/kha/tVSoCqodVUACh7ZWw==}
     peerDependencies:
+      '@babel/core': ^7.0.0-0
       react: '*'
-      react-native: 0.78 - 0.82
-      react-native-worklets: 0.5 - 0.8
+      react-native: '*'
 
   react-native-safe-area-context@5.6.2:
     resolution: {integrity: sha512-4XGqMNj5qjUTYywJqpdWZ9IG8jgkS3h06sfVjfw5yZQZfWnRFXczi0GnYyFyCc2EBps/qFmoCH8fez//WumdVg==}
@@ -8427,13 +8424,6 @@ packages:
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
-
-  react-native-worklets@0.5.1:
-    resolution: {integrity: sha512-lJG6Uk9YuojjEX/tQrCbcbmpdLCSFxDK1rJlkDhgqkVi1KZzG7cdcBFQRqyNOOzR9Y0CXNuldmtWTGOyM0k0+w==}
-    peerDependencies:
-      '@babel/core': ^7.0.0-0
-      react: '*'
-      react-native: '*'
 
   react-native@0.81.5:
     resolution: {integrity: sha512-1w+/oSjEXZjMqsIvmkCRsOc8UBYv163bTWKTI8+1mxztvQPhCRYGTvZ/PL1w16xXHneIj/SLGfxWg2GWN2uexw==}
@@ -8754,11 +8744,6 @@ packages:
 
   semver@7.6.3:
     resolution: {integrity: sha512-oVekP1cKtI+CTDvHWYFUcMtsK/00wmAEfyqKfNdARm8u1wNVhSgaX7A8d4UuIlUI5e84iEwOhs7ZPYRmzU9U6A==}
-    engines: {node: '>=10'}
-    hasBin: true
-
-  semver@7.7.2:
-    resolution: {integrity: sha512-RF0Fw+rO5AMf9MAyaRXI4AV0Ulj5lMHqVxxdSgiVbixSCXoEmmX/jk0CuJw4+3SqroYO9VoUh+HcuJivvtJemA==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -11058,7 +11043,7 @@ snapshots:
       wrap-ansi: 7.0.0
       ws: 8.21.0
     optionalDependencies:
-      expo-router: 6.0.24(bb16d9b79e066de3f9f592f3fc882bf1)
+      expo-router: 6.0.24(e7a0ef6f8a9500d3415f1c20505dec28)
       react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)
     transitivePeerDependencies:
       - bufferutil
@@ -11134,7 +11119,7 @@ snapshots:
       wrap-ansi: 7.0.0
       ws: 8.21.0
     optionalDependencies:
-      expo-router: 6.0.24(bb16d9b79e066de3f9f592f3fc882bf1)
+      expo-router: 6.0.24(e7a0ef6f8a9500d3415f1c20505dec28)
       react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)
     transitivePeerDependencies:
       - bufferutil
@@ -11210,7 +11195,7 @@ snapshots:
       wrap-ansi: 7.0.0
       ws: 8.21.0
     optionalDependencies:
-      expo-router: 6.0.24(402e04113bb76c2143d4d4b23177cfc5)
+      expo-router: 6.0.24(9d0ff18e7db20d4c665e14eb9501173d)
       react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)
     transitivePeerDependencies:
       - bufferutil
@@ -13204,8 +13189,6 @@ snapshots:
     dependencies:
       merge-options: 3.0.4
       react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)
-
-  '@react-native-community/javascriptcore@0.2.0': {}
 
   '@react-native/assets-registry@0.81.5': {}
 
@@ -16551,7 +16534,7 @@ snapshots:
       - supports-color
       - typescript
 
-  expo-router@6.0.24(402e04113bb76c2143d4d4b23177cfc5):
+  expo-router@6.0.24(9d0ff18e7db20d4c665e14eb9501173d):
     dependencies:
       '@expo/metro-runtime': 6.1.2(expo@54.0.35)(react-dom@19.1.0(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
       '@expo/schema-utils': 0.1.8
@@ -16587,7 +16570,7 @@ snapshots:
       '@testing-library/react-native': 13.3.3(jest@29.7.0(@types/node@25.9.4)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@25.9.4)(typescript@5.9.3)))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react-test-renderer@19.1.0(react@19.1.0))(react@19.1.0)
       react-dom: 19.1.0(react@19.1.0)
       react-native-gesture-handler: 2.28.0(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
-      react-native-reanimated: 4.1.7(react-native-worklets@0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
+      react-native-reanimated: 3.19.5(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1)
       react-native-web: 0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
     transitivePeerDependencies:
       - '@react-native-masked-view/masked-view'
@@ -16596,7 +16579,7 @@ snapshots:
       - supports-color
     optional: true
 
-  expo-router@6.0.24(bb16d9b79e066de3f9f592f3fc882bf1):
+  expo-router@6.0.24(e7a0ef6f8a9500d3415f1c20505dec28):
     dependencies:
       '@expo/metro-runtime': 6.1.2(expo@54.0.35)(react-dom@19.1.0(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
       '@expo/schema-utils': 0.1.8
@@ -16632,7 +16615,7 @@ snapshots:
       '@testing-library/react-native': 13.3.3(jest@29.7.0(@types/node@25.9.4)(supports-color@8.1.1)(ts-node@10.9.2(@types/node@25.9.4)(typescript@5.9.3)))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react-test-renderer@19.1.0(react@19.1.0))(react@19.1.0)
       react-dom: 19.1.0(react@19.1.0)
       react-native-gesture-handler: 2.28.0(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
-      react-native-reanimated: 4.1.7(react-native-worklets@0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
+      react-native-reanimated: 3.19.5(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1)
       react-native-web: 0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
     transitivePeerDependencies:
       - '@react-native-masked-view/masked-view'
@@ -19316,6 +19299,17 @@ snapshots:
       react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)
     optional: true
 
+  react-native-is-edge-to-edge@1.1.7(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0):
+    dependencies:
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)
+
+  react-native-is-edge-to-edge@1.1.7(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0):
+    dependencies:
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)
+    optional: true
+
   react-native-is-edge-to-edge@1.3.1(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0):
     dependencies:
       react: 19.1.0
@@ -19327,12 +19321,12 @@ snapshots:
       react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)
     optional: true
 
-  react-native-keyboard-controller@1.18.5(react-native-reanimated@4.1.7(react-native-worklets@0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0):
+  react-native-keyboard-controller@1.18.5(react-native-reanimated@3.19.5(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0):
     dependencies:
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)
       react-native-is-edge-to-edge: 1.3.1(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
-      react-native-reanimated: 4.1.7(react-native-worklets@0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
+      react-native-reanimated: 3.19.5(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1)
 
   react-native-purchases@9.15.2(react-native-web@0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0):
     dependencies:
@@ -19352,21 +19346,45 @@ snapshots:
       react-native-svg: 15.12.1(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
       text-encoding: 0.7.0
 
-  react-native-reanimated@4.1.7(react-native-worklets@0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0):
+  react-native-reanimated@3.19.5(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1):
     dependencies:
+      '@babel/core': 7.29.7(supports-color@8.1.1)
+      '@babel/plugin-transform-arrow-functions': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+      '@babel/plugin-transform-class-properties': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
+      '@babel/plugin-transform-classes': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
+      '@babel/plugin-transform-nullish-coalescing-operator': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+      '@babel/plugin-transform-optional-chaining': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
+      '@babel/plugin-transform-shorthand-properties': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+      '@babel/plugin-transform-template-literals': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+      '@babel/plugin-transform-unicode-regex': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+      '@babel/preset-typescript': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
+      convert-source-map: 2.0.0
+      invariant: 2.2.4
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)
-      react-native-is-edge-to-edge: 1.3.1(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
-      react-native-worklets: 0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1)
-      semver: 7.8.5
+      react-native-is-edge-to-edge: 1.1.7(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
+    transitivePeerDependencies:
+      - supports-color
 
-  react-native-reanimated@4.1.7(react-native-worklets@0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0):
+  react-native-reanimated@3.19.5(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1):
     dependencies:
+      '@babel/core': 7.29.7(supports-color@8.1.1)
+      '@babel/plugin-transform-arrow-functions': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+      '@babel/plugin-transform-class-properties': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
+      '@babel/plugin-transform-classes': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
+      '@babel/plugin-transform-nullish-coalescing-operator': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+      '@babel/plugin-transform-optional-chaining': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
+      '@babel/plugin-transform-shorthand-properties': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+      '@babel/plugin-transform-template-literals': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+      '@babel/plugin-transform-unicode-regex': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
+      '@babel/preset-typescript': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
+      convert-source-map: 2.0.0
+      invariant: 2.2.4
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)
-      react-native-is-edge-to-edge: 1.3.1(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
-      react-native-worklets: 0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1)
-      semver: 7.8.5
+      react-native-is-edge-to-edge: 1.1.7(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)
+    transitivePeerDependencies:
+      - supports-color
     optional: true
 
   react-native-safe-area-context@5.6.2(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0):
@@ -19424,45 +19442,6 @@ snapshots:
       styleq: 0.1.3
     transitivePeerDependencies:
       - encoding
-
-  react-native-worklets@0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1):
-    dependencies:
-      '@babel/core': 7.29.7(supports-color@8.1.1)
-      '@babel/plugin-transform-arrow-functions': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
-      '@babel/plugin-transform-class-properties': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
-      '@babel/plugin-transform-classes': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
-      '@babel/plugin-transform-nullish-coalescing-operator': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
-      '@babel/plugin-transform-optional-chaining': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
-      '@babel/plugin-transform-shorthand-properties': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
-      '@babel/plugin-transform-template-literals': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
-      '@babel/plugin-transform-unicode-regex': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
-      '@babel/preset-typescript': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
-      convert-source-map: 2.0.0
-      react: 19.1.0
-      react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1)
-      semver: 7.7.2
-    transitivePeerDependencies:
-      - supports-color
-
-  react-native-worklets@0.5.1(@babel/core@7.29.7(supports-color@8.1.1))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1):
-    dependencies:
-      '@babel/core': 7.29.7(supports-color@8.1.1)
-      '@babel/plugin-transform-arrow-functions': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
-      '@babel/plugin-transform-class-properties': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
-      '@babel/plugin-transform-classes': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
-      '@babel/plugin-transform-nullish-coalescing-operator': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
-      '@babel/plugin-transform-optional-chaining': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
-      '@babel/plugin-transform-shorthand-properties': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
-      '@babel/plugin-transform-template-literals': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
-      '@babel/plugin-transform-unicode-regex': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
-      '@babel/preset-typescript': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
-      convert-source-map: 2.0.0
-      react: 19.1.0
-      react-native: 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)
-      semver: 7.7.2
-    transitivePeerDependencies:
-      - supports-color
-    optional: true
 
   react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.1.17)(react@19.1.0)(supports-color@8.1.1):
     dependencies:
@@ -19881,8 +19860,6 @@ snapshots:
       lru-cache: 6.0.0
 
   semver@7.6.3: {}
-
-  semver@7.7.2: {}
 
   semver@7.8.5: {}
 
