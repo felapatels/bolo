@@ -1468,12 +1468,13 @@ const styles = StyleSheet.create({
   statsBanner: {
     flexDirection: 'row',
     borderRadius: 18,
-    // Symmetric, and honest now that statLabelBand is tall enough to hold its
-    // own text. The bands total 28 + 56 + 20 = 104, so at 12/12 the card is
-    // 128pt against the original 130 -- tighter than it started AND centred,
-    // with nothing relying on padding to hide an overflow.
-    paddingTop: 12,
-    paddingBottom: 12,
+    // Bands now total 28 + 40 + 20 = 88, and the padding is deliberately NOT
+    // symmetric: the labels are the lowest ink and were sitting too close to the
+    // edge, so the bottom carries 15 against the top's 11. The card comes out at
+    // 114pt against 128 before and 130 originally -- noticeably thinner, with
+    // MORE clearance under the labels rather than less.
+    paddingTop: 11,
+    paddingBottom: 15,
     paddingHorizontal: 6,
     // Stretch, so every cell is the full height of the row and its three bands
     // line up with its neighbours' by construction rather than by luck.
@@ -1490,7 +1491,11 @@ const styles = StyleSheet.create({
   // each row: a 26px kulhad, the 56px streak arc, and one line of label.
   statIconBand: { height: 28, justifyContent: 'center', alignItems: 'center' },
   statValueBand: {
-    height: 56,
+    // 40, not 56. The value is 26pt on a 30pt line, so 56 was 26 points of dead
+    // air wrapped around it and the single biggest contributor to how thick this
+    // card reads. 40 gives the line 5 points of clearance top and bottom, which
+    // is plenty, and takes 16 points straight off the card's height.
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'stretch',
