@@ -77,7 +77,7 @@ function readHermesHeader(bytes: Buffer): Header | null {
 function main(): void {
   const target = process.argv[2];
   if (!target) {
-    console.error("usage: checkBundleHealth.ts <ipa-url-or-path>");
+    console.error("usage: checkBundleHealth.ts <ipa|aab|apk url-or-path>");
     process.exit(2);
   }
 
@@ -90,15 +90,53 @@ function main(): void {
     execFileSync("curl", ["-sSL", "-o", ipa, target]);
   }
 
-  // -j flattens the path so the Payload/<name>.app/ prefix does not matter.
-  execFileSync("unzip", ["-qo", "-j", ipa, "Payload/*.app/main.jsbundle", "-d", work]);
-  const header = readHermesHeader(readFileSync(join(work, "main.jsbundle")));
+  // Where the Hermes bundle sits, per archive layout. -j flattens the path so
+  // the directory prefix does not matter, which is why each entry can be
+  // matched by a single glob and read back under its bare name.
+  //
+  // Android was added Aug 21 2026: the forked-runtime fault was a METRO
+  // bundling fault, not an iOS one, so an Android artefact carried the same
+  // duplicate react-native and deserves the same free pre-flight.
+  const LAYOUTS: Array<{ platform: string; entry: string; file: string }> = [
+    { platform: "ios", entry: "Payload/*.app/main.jsbundle", file: "main.jsbundle" },
+    { platform: "android (aab)", entry: "base/assets/index.android.bundle", file: "index.android.bundle" },
+    { platform: "android (apk)", entry: "assets/index.android.bundle", file: "index.android.bundle" },
+  ];
+
+  let header: Header | null = null;
+  let platform = "";
+  for (const layout of LAYOUTS) {
+    try {
+      execFileSync("unzip", ["-qo", "-j", ipa, layout.entry, "-d", work], {
+        stdio: "ignore",
+      });
+      header = readHermesHeader(readFileSync(join(work, layout.file)));
+      if (header) {
+        platform = layout.platform;
+        break;
+      }
+    } catch {
+      // This layout is not in this archive. Try the next one.
+    }
+  }
+
+  if (!platform) {
+    console.log("  no Hermes bundle found at any known layout; nothing to check.");
+    return;
+  }
+  console.log(`  layout:      ${platform}`);
 
   if (!header) {
     console.log("  main.jsbundle is not Hermes bytecode; nothing to check.");
     return;
   }
 
+  // The 44,000 / 52,900 numbers were measured across seven iOS store builds
+  // and nothing was ever measured on Android, so the threshold is not claimed
+  // for it. An Android artefact gets its counts printed and is compared
+  // against another Android build, which is the same rule the iOS numbers
+  // came from in the first place.
+  const calibrated = platform === "ios";
   const poisoned = header.functionCount >= POISON_THRESHOLD;
   console.log(`  hermes bytecode v${header.version}`);
   console.log(`  bytes:       ${header.fileLength.toLocaleString()}`);
@@ -106,6 +144,19 @@ function main(): void {
   console.log(`  identifiers: ${header.identifierCount.toLocaleString()}`);
   console.log(`  functions:   ${header.functionCount.toLocaleString()}`);
   console.log("");
+  if (!calibrated) {
+    console.log(
+      `  UNCALIBRATED. ${header.functionCount.toLocaleString()} functions. The healthy and poisoned`,
+    );
+    console.log(
+      "  shapes were only ever measured on iOS, so compare this against another",
+    );
+    console.log(
+      "  Android build rather than against the iOS numbers. A forked runtime shows",
+    );
+    console.log("  up as roughly a fifth more functions for the same source.");
+    return;
+  }
   console.log(
     poisoned
       ? `  POISONED. ${header.functionCount.toLocaleString()} functions is the shape that does not animate. Do not spend an install on it; rebuild instead.`
