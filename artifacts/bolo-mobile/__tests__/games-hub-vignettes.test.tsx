@@ -132,11 +132,16 @@ describe('games hub - tile vignettes', () => {
     expect(screen.getByText('Signal Lights')).toBeOnTheScreen();
     expect(screen.getByText('Wrong Platform')).toBeOnTheScreen();
     expect(screen.getByText('Luggage Match')).toBeOnTheScreen();
+    expect(screen.getByText('Script Trace')).toBeOnTheScreen();
     // Was 4/4/1. Commit 10257678 moved Signal Lights from Intermediate to
     // Beginner to match web, which is one game crossing the line, not a new
     // game: the nine tiles still add up.
+    //
+    // Advanced went 1 -> 2 on 2026-08-23 when Script Trace was switched on.
+    // That IS a new game rather than one crossing a line, so the roster is ten
+    // tiles now and the totals are asserted against ten.
     expect(screen.getAllByText('Beginner').length).toBe(5);
     expect(screen.getAllByText('Intermediate').length).toBe(3);
-    expect(screen.getAllByText('Advanced').length).toBe(1);
+    expect(screen.getAllByText('Advanced').length).toBe(2);
   });
 });

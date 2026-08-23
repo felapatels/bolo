@@ -116,15 +116,21 @@ const GAMES: GameDef[] = [
     plusOnly: true,
     icon: 'zap',
   },
-  // FEATURE FLAG: script-trace hidden until pen animation and scoring are polished
-  // {
-  //   id: 'script-trace',
-  //   title: 'Script Trace',
-  //   description: 'Trace native-script characters stroke by stroke',
-  //   difficulty: 'Advanced',
-  //   plusOnly: true,
-  //   icon: 'edit-3',
-  // },
+  // Switched ON 2026-08-23. The flag said "hidden until pen animation and
+  // scoring are polished"; what it was really waiting for was authored stroke
+  // data, since AUTHORED_GLYPHS held three prototype glyphs and traceReadyFor()
+  // was false in all 22 languages. A speaker traced the Gujarati alphabet, and
+  // the other 11 scripts now carry font-derived guesses marked provisional, so
+  // every language clears PLAYABLE_GLYPH_FLOOR. The screen still gates itself
+  // on traceReadyFor(), so this entry cannot open onto an empty game.
+  {
+    id: 'script-trace',
+    title: 'Script Trace',
+    description: 'Trace native-script characters stroke by stroke',
+    difficulty: 'Advanced',
+    plusOnly: true,
+    icon: 'edit-3',
+  },
   {
     id: 'bolo-quiz',
     title: 'Bolo Quiz',
