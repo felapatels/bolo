@@ -217,3 +217,41 @@ export function traceStopsFor(languageCode: string): TraceStop[] {
 export function traceStopIndexIn(phraseStopCount: number): number {
   return Math.floor(Math.max(0, phraseStopCount) / 2);
 }
+
+/**
+ * Whether a chapter id is real, and how many characters it holds.
+ *
+ * WHY THESE EXIST. games.ts hardcoded a four-item VALID_CHAPTERS list and a
+ * CHAPTER_SIZE of 10 with the comment "All current chapters contain exactly 10
+ * characters". Both were false by 2026-08-23: there are 48 chapters, exactly 2
+ * of which hold 10 characters, and the alphabet chapters run 5 to 39. So
+ * twenty of twenty-two languages could not record tracing progress at all, and
+ * where they could, a chapter "completed" and paid XP after ten letters
+ * regardless of whether it held five or thirty-nine.
+ *
+ * Derived from the chapter data rather than restated, so completing the
+ * alphabets again cannot desynchronise them a second time.
+ */
+export function isTraceChapterId(id: string): boolean {
+  return SCRIPT_TRACE_CHAPTERS.some((c) => c.id === id);
+}
+
+export function traceChapterSize(id: string): number {
+  return SCRIPT_TRACE_CHAPTERS.find((c) => c.id === id)?.characters.length ?? 0;
+}
+
+/**
+ * Whether a language actually studies a chapter.
+ *
+ * A chapter CANNOT tell you its language, which is the assumption
+ * languageCodeFromChapter was built on: the Devanagari chapters serve Hindi,
+ * Marathi, Nepali, Sanskrit, Maithili, Konkani, Dogri and Bodo alike, so
+ * "hindi-vowels" belongs to eight languages at once. The caller has to say
+ * which language the learner is studying; this is how that claim is checked.
+ */
+export function languageStudiesChapter(
+  languageCode: string,
+  chapterId: string,
+): boolean {
+  return (LANG_CHAPTER_IDS[languageCode] ?? []).includes(chapterId);
+}

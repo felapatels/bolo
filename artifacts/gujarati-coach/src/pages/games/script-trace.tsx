@@ -1355,6 +1355,10 @@ function TraceSession({
   chapter: TraceChapter;
   onBack: () => void;
 }) {
+  // The chapter alone cannot say which language is being studied, and the
+  // progress endpoint now requires it. Taken from the hook rather than threaded
+  // through a prop, matching how the rest of this file reads it.
+  const { activeLang } = useLanguage();
   const [charIndex, setCharIndex] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
   const [result, setResult] = useState<SessionResult>(null);
@@ -1393,6 +1397,9 @@ function TraceSession({
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
+            // Required since 2026-08-23. A chapter cannot say which language a
+            // learner is studying: the Devanagari chapters serve eight.
+            languageCode: activeLang,
             chapter: chapter.id,
             characterId: character.id,
             passed: true,

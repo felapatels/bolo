@@ -1143,6 +1143,11 @@ export const GetScriptTraceProgressResponse = zod.array(GetScriptTraceProgressRe
  * Saves the result of a single character trace. Upserts so the best score is preserved and the `passed` flag is sticky (never reverted once true). Plus-only — non-Plus callers receive a 402.
  * @summary Record a Script Trace attempt
  */
+export const recordScriptTraceProgressBodyLanguageCodeMin = 2;
+export const recordScriptTraceProgressBodyLanguageCodeMax = 8;
+
+export const recordScriptTraceProgressBodyChapterMax = 64;
+
 export const recordScriptTraceProgressBodyCharacterIdMax = 30;
 
 export const recordScriptTraceProgressBodyScoreMin = 0;
@@ -1151,7 +1156,8 @@ export const recordScriptTraceProgressBodyScoreMax = 100;
 
 
 export const RecordScriptTraceProgressBody = zod.object({
-  "chapter": zod.enum(['gujarati-vowels', 'gujarati-consonants', 'hindi-vowels', 'hindi-consonants']),
+  "languageCode": zod.string().min(recordScriptTraceProgressBodyLanguageCodeMin).max(recordScriptTraceProgressBodyLanguageCodeMax).describe('The language the learner is studying, e.g. \"gu\" or \"mr\". REQUIRED and not derivable from the chapter: the Devanagari chapters serve Hindi, Marathi, Nepali, Sanskrit, Maithili, Konkani, Dogri and Bodo alike, so \"hindi-vowels\" belongs to eight languages at once. The server rejects a language that does not study the given chapter.'),
+  "chapter": zod.string().min(1).max(recordScriptTraceProgressBodyChapterMax).describe('A Script Trace chapter id, e.g. \"gujarati-vowels\" or \"bengali-consonants\". Validated server-side against the real chapter data. This was an enum of four ids, which meant twenty of the twenty-two languages were refused and could not record any tracing progress at all.'),
   "characterId": zod.string().min(1).max(recordScriptTraceProgressBodyCharacterIdMax),
   "passed": zod.boolean(),
   "score": zod.number().min(recordScriptTraceProgressBodyScoreMin).max(recordScriptTraceProgressBodyScoreMax)

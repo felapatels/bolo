@@ -7,6 +7,11 @@ import {
   traceStopsFor,
   traceStopIndexIn,
   alphabetForLanguage,
+  isTraceChapterId,
+  traceChapterSize,
+  languageStudiesChapter,
+  SCRIPT_TRACE_CHAPTERS,
+  LANG_CHAPTER_IDS,
   type TraceStopBand,
 } from "@workspace/script-trace";
 
@@ -140,5 +145,53 @@ describe("where the stop sits in its zone", () => {
   test("a zone with no phrase stops still resolves to a valid index", () => {
     expect(traceStopIndexIn(0)).toBe(0);
     expect(traceStopIndexIn(-3)).toBe(0);
+  });
+});
+
+describe("chapter validation, which games.ts had hardcoded and wrong", () => {
+  test("every real chapter id is accepted, not just four", () => {
+    // games.ts held a four-item VALID_CHAPTERS list, so twenty of the
+    // twenty-two languages got a 400 and could record no tracing progress.
+    const ids = SCRIPT_TRACE_CHAPTERS.map((c) => c.id);
+    expect(ids.length).toBeGreaterThan(40);
+    for (const id of ids) {
+      expect(isTraceChapterId(id), id).toBe(true);
+    }
+    expect(isTraceChapterId("not-a-chapter")).toBe(false);
+    expect(isTraceChapterId("")).toBe(false);
+  });
+
+  test("a chapter reports its REAL size, which is almost never ten", () => {
+    // CHAPTER_SIZE was hardcoded to 10 with the comment "All current chapters
+    // contain exactly 10 characters". Exactly two of the forty-eight do, so a
+    // 39-character chapter paid its XP after ten letters and a 5-character one
+    // could never pay at all.
+    const tens = SCRIPT_TRACE_CHAPTERS.filter((c) => c.characters.length === 10);
+    expect(tens.length).toBeLessThan(5);
+    for (const c of SCRIPT_TRACE_CHAPTERS) {
+      expect(traceChapterSize(c.id), c.id).toBe(c.characters.length);
+    }
+    expect(traceChapterSize("not-a-chapter")).toBe(0);
+  });
+
+  test("a chapter cannot name its own language, so the caller must", () => {
+    // The assumption languageCodeFromChapter was built on. The Devanagari
+    // chapters serve eight languages, so a prefix cannot decide.
+    const devanagariLangs = ["hi", "mr", "ne", "sa", "mai", "kok", "doi", "brx"];
+    const shared = LANG_CHAPTER_IDS["hi"]![0]!;
+    for (const lang of devanagariLangs) {
+      expect(languageStudiesChapter(lang, shared), `${lang} studies ${shared}`).toBe(true);
+    }
+    // And a language that does not study it is refused.
+    expect(languageStudiesChapter("ta", shared)).toBe(false);
+    expect(languageStudiesChapter("__nope__", shared)).toBe(false);
+  });
+
+  test("every language studies at least one chapter it can be checked against", () => {
+    for (const lang of LANGUAGES) {
+      const ids = LANG_CHAPTER_IDS[lang] ?? [];
+      expect(ids.length, lang).toBeGreaterThan(0);
+      expect(languageStudiesChapter(lang, ids[0]!), lang).toBe(true);
+    }
   });
 });

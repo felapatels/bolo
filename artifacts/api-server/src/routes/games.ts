@@ -21,6 +21,11 @@ import {
   loadExtendedMetrics,
   languageCodeFromChapter,
 } from "../lib/badgeAward";
+import {
+  isTraceChapterId,
+  languageStudiesChapter,
+  traceChapterSize,
+} from "@workspace/script-trace";
 import { localDayKey, computeDailyQuizStreak } from "../lib/progressMetrics";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
 import { writeGameSessionXp, writeDailyQuizXp, computeGameDecayMultiplier, computeGameDifficultyMultiplier, applyGameXpMultipliers } from "../lib/xpEngine";
@@ -50,16 +55,21 @@ function getUserTimezone(req: Request): string | null {
 // Script Trace helpers
 // ---------------------------------------------------------------------------
 
-const VALID_CHAPTERS = [
-  "gujarati-vowels",
-  "gujarati-consonants",
-  "hindi-vowels",
-  "hindi-consonants",
-] as const;
-type Chapter = (typeof VALID_CHAPTERS)[number];
-
+// Chapters are validated against the REAL chapter data rather than a list kept
+// here by hand. The list that used to live here held four ids, so twenty of
+// twenty-two languages got a 400 and could not record tracing progress at all.
+//
+// languageCode is REQUIRED and is not derived from the chapter, because a
+// chapter cannot tell you its language: the Devanagari chapters serve Hindi,
+// Marathi, Nepali, Sanskrit, Maithili, Konkani, Dogri and Bodo alike. The old
+// languageCodeFromChapter guessed from the id prefix against a ten-entry map
+// whose keys did not even match the chapter ids ("punjabi" where the chapters
+// say "gurmukhi").
 const progressBodySchema = z.object({
-  chapter: z.enum(VALID_CHAPTERS),
+  languageCode: z.string().min(2).max(8),
+  chapter: z.string().min(1).max(64).refine(isTraceChapterId, {
+    message: "Unknown chapter",
+  }),
   characterId: z.string().min(1).max(30),
   passed: z.boolean(),
   score: z.number().int().min(0).max(100),
@@ -304,7 +314,7 @@ router.get(
       return;
 
     const chapter = String(req.query.chapter ?? "");
-    if (!VALID_CHAPTERS.includes(chapter as Chapter)) {
+    if (!isTraceChapterId(chapter)) {
       res.status(400).json({ error: "Invalid or missing chapter" });
       return;
     }
@@ -357,7 +367,13 @@ router.post(
       return;
     }
 
-    const { chapter, characterId, passed, score } = parsed.data;
+    const { languageCode, chapter, characterId, passed, score } = parsed.data;
+    if (!languageStudiesChapter(languageCode, chapter)) {
+      res
+        .status(400)
+        .json({ error: "That chapter is not part of this language's alphabet." });
+      return;
+    }
     const userId = getUserId(req);
 
     const [row] = await db
@@ -388,15 +404,21 @@ router.post(
 
     // ── Chapter-completion check ───────────────────────────────────────────
     // A chapter is "complete" when all characters in it have been passed.
-    // All current chapters contain exactly 10 characters.
-    const CHAPTER_SIZE = 10;
+    //
+    // This said `const CHAPTER_SIZE = 10` with the comment "All current
+    // chapters contain exactly 10 characters". By 2026-08-23 exactly 2 of the
+    // 48 chapters did: the alphabet chapters run 5 to 39 characters. So a
+    // 39-character chapter paid its XP after ten letters, and a 5-character
+    // chapter could never reach ten and so could never pay at all.
+    const CHAPTER_SIZE = traceChapterSize(chapter);
     const SCRIPT_TRACE_XP = 30;
     let chapterComplete = false;
     let scriptTraceXpAwarded = 0;
     let newlyEarnedBadges: Array<{ key: string; title: string; description: string; iconName: string; earnedAt: string }> = [];
 
     if (row.passed) {
-      const langCode = languageCodeFromChapter(chapter);
+      // The caller's language, checked above, rather than a guess from the id.
+      const langCode = languageCode;
       if (langCode) {
         // Count how many distinct characters in this chapter the learner has passed.
         const [{ passedCount }] = await db

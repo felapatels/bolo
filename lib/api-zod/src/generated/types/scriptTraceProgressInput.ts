@@ -5,13 +5,23 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { ScriptTraceProgressInputChapter } from './scriptTraceProgressInputChapter';
 
 /**
  * The result of a single character trace attempt.
  */
 export interface ScriptTraceProgressInput {
-  chapter: ScriptTraceProgressInputChapter;
+  /**
+     * The language the learner is studying, e.g. "gu" or "mr". REQUIRED and not derivable from the chapter: the Devanagari chapters serve Hindi, Marathi, Nepali, Sanskrit, Maithili, Konkani, Dogri and Bodo alike, so "hindi-vowels" belongs to eight languages at once. The server rejects a language that does not study the given chapter.
+     * @minLength 2
+     * @maxLength 8
+     */
+  languageCode: string;
+  /**
+     * A Script Trace chapter id, e.g. "gujarati-vowels" or "bengali-consonants". Validated server-side against the real chapter data. This was an enum of four ids, which meant twenty of the twenty-two languages were refused and could not record any tracing progress at all.
+     * @minLength 1
+     * @maxLength 64
+     */
+  chapter: string;
   /**
      * @minLength 1
      * @maxLength 30
