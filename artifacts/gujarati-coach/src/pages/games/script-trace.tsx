@@ -11,11 +11,17 @@ import {
   type GameMiss,
 } from "@/components/game-miss-review";
 import { cn } from "@/lib/utils";
+import { BandLadder } from "@/components/ui/band-ladder";
 import {
   LANG_CHAPTER_IDS,
   SCRIPT_NAMES,
   SCRIPT_TRACE_CHAPTERS,
+  traceBandFromScore,
+  traceFeedback,
+  traceHeadline,
   traceStopFor,
+  TRACE_TEASER_LIMIT,
+  type TraceBreakdown,
   type TraceChapter,
   type TraceCharacter,
   type TraceStop,
@@ -272,9 +278,24 @@ const COVERAGE_TOLERANCE = 9;
  * a sloppy trace can still pass, but it no longer reads as a perfect 100%.
  */
 export function scoreCoverage(strokes: Point[][], referencePoints: Point[]): number {
-  if (referencePoints.length === 0 || strokes.length === 0) return 0;
+  return scoreCoverageParts(strokes, referencePoints).score;
+}
+
+/**
+ * The same score, with the three factors that produced it.
+ *
+ * Added 2026-08-23 so the result card can say WHICH of the three cost the
+ * marks. They were always computed and always discarded; scoreCoverage above
+ * keeps its number-returning contract, which four test files pin.
+ */
+export function scoreCoverageParts(
+  strokes: Point[][],
+  referencePoints: Point[],
+): { score: number } & TraceBreakdown {
+  const nothing = { score: 0, coverage: 0, precision: 0, spread: 0 };
+  if (referencePoints.length === 0 || strokes.length === 0) return nothing;
   const allPts = strokes.flat();
-  if (allPts.length < 3) return 0;
+  if (allPts.length < 3) return nothing;
   let covered = 0;
   outer: for (const ref of referencePoints) {
     for (const pt of allPts) {
@@ -327,7 +348,12 @@ export function scoreCoverage(strokes: Point[][], referencePoints: Point[]): num
   const refDiag = Math.hypot(rMaxX - rMinX, rMaxY - rMinY) || 1;
   const spread = Math.min(1, drawnDiag / (0.45 * refDiag));
 
-  return Math.round(coverage * precision * spread * 100);
+  return {
+    score: Math.round(coverage * precision * spread * 100),
+    coverage,
+    precision,
+    spread,
+  };
 }
 
 // ── Animation helper ───────────────────────────────────────────────────────────
@@ -841,7 +867,7 @@ function ScriptTraceCanvas({
   interiorPoints,
 }: {
   character: TraceCharacter;
-  onResult: (score: number, passed: boolean) => void;
+  onResult: (score: number, passed: boolean, parts: TraceBreakdown) => void;
   guidePoints: Point[];
   interiorPoints: Point[];
 }) {
@@ -1227,7 +1253,8 @@ function ScriptTraceCanvas({
       scoreTimerRef.current = setTimeout(() => {
         scoreTimerRef.current = null;
         if (allStrokesRef.current.every(s => s.length < 2)) return;
-        const score = scoreCoverage(allStrokesRef.current, interiorPoints);
+        const parts = scoreCoverageParts(allStrokesRef.current, interiorPoints);
+        const score = parts.score;
         const passed = score >= PASS_THRESHOLD;
         setLiveCoverage(score);
         if (!passed) {
@@ -1244,7 +1271,7 @@ function ScriptTraceCanvas({
         } else {
           failedPointsRef.current = null;
         }
-        onResult(score, passed);
+        onResult(score, passed, parts);
       }, 1200);
     };
 
@@ -1349,7 +1376,7 @@ function ScriptTraceCanvas({
 
 // ── Session screen ────────────────────────────────────────────────────────────
 
-type SessionResult = { score: number; passed: boolean } | null;
+type SessionResult = ({ score: number; passed: boolean } & TraceBreakdown) | null;
 
 /**
  * A character in a running session may know which real chapter it came from.
@@ -1366,11 +1393,14 @@ function TraceSession({
   chapter,
   onBack,
   backLabel = "Choose Chapter",
+  tasting = false,
 }: {
   chapter: TraceChapter;
   onBack: () => void;
   /** What the exit button says. A stop-scoped session goes back to the map. */
   backLabel?: string;
+  /** This is the free taste, so the finish screen says what comes next. */
+  tasting?: boolean;
 }) {
   // The chapter alone cannot say which language is being studied, and the
   // progress endpoint now requires it. Taken from the hook rather than threaded
@@ -1399,8 +1429,8 @@ function TraceSession({
   );
 
   const handleResult = useCallback(
-    (score: number, passed: boolean) => {
-      setResult({ score, passed });
+    (score: number, passed: boolean, parts: TraceBreakdown) => {
+      setResult({ score, passed, ...parts });
       if (character) {
         setBestScores((prev) =>
           score > (prev[character.id] ?? -1) ? { ...prev, [character.id]: score } : prev,
@@ -1516,6 +1546,16 @@ function TraceSession({
             Replay
           </button>
         </div>
+        {/* The taste ends here, and says so rather than simply stopping. */}
+        {tasting && (
+          <Link
+            href="/upgrade"
+            data-testid="trace-taste-upgrade"
+            className="rounded-xl bg-secondary px-5 py-2.5 text-sm font-bold text-secondary-foreground hover:bg-secondary/90 transition-colors"
+          >
+            Unlock the whole alphabet with All-Access
+          </Link>
+        )}
         <MissReviewCta count={misses.length} onClick={() => setReviewOpen(true)} />
         <MissReviewDialog misses={misses} open={reviewOpen} onOpenChange={setReviewOpen} />
       </div>
@@ -1556,9 +1596,14 @@ function TraceSession({
         />
       )}
 
-      {/* Result feedback */}
+      {/* Result card. Built to read like the voice lesson's, because it marks
+          the same kind of thing: a headline, the five-band ladder with the
+          achieved rung lit, the number, and one sentence saying what cost the
+          marks. Before this it was a single line, "Great trace! 62%", which
+          told a learner nothing they could act on. */}
       {result && (
         <div
+          data-testid="trace-result-card"
           className={cn(
             "rounded-2xl border p-4 text-center transition-all",
             result.passed
@@ -1572,15 +1617,32 @@ function TraceSession({
             ) : (
               <XCircle className="h-5 w-5 text-amber-600" />
             )}
-            <span
-              className={cn(
-                "font-bold",
-                result.passed ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400",
-              )}
-            >
-              {result.passed ? "Great trace!" : "Keep trying!"} — {result.score}%
+            <span className="text-xl font-black">
+              {traceHeadline(traceBandFromScore(result.score))}
             </span>
           </div>
+          <div className="my-2 flex justify-center">
+            <BandLadder
+              band={traceBandFromScore(result.score)}
+              resultLabel="Tracing result"
+            />
+          </div>
+          <p
+            className={cn(
+              "text-sm font-bold",
+              result.passed
+                ? "text-emerald-700 dark:text-emerald-400"
+                : "text-amber-700 dark:text-amber-400",
+            )}
+          >
+            {result.score}% accuracy
+          </p>
+          <p
+            data-testid="trace-result-feedback"
+            className="mt-1 text-sm text-muted-foreground"
+          >
+            {traceFeedback(result.score, result)}
+          </p>
           <div className="mt-3 flex justify-center gap-3">
             {!result.passed && (
               <button
@@ -1637,13 +1699,13 @@ const BAND_STAGE: Record<TraceStop["band"], ChapterStage> = {
  * posts that instead. Named for the rung so it is obvious in a React key or a
  * console that this is a stop and not authored content.
  */
-function chapterForStop(stop: TraceStop): TraceChapter {
+function chapterForStop(stop: TraceStop, limit?: number): TraceChapter {
   return {
-    id: `trace-stop-j${stop.journey}-z${stop.zone}`,
+    id: `trace-stop-j${stop.journey}-z${stop.zone}${limit ? "-taste" : ""}`,
     title: stop.title,
     scriptName: SCRIPT_NAMES[stop.script],
     stage: BAND_STAGE[stop.band],
-    characters: stop.characters,
+    characters: limit ? stop.characters.slice(0, limit) : stop.characters,
   };
 }
 
@@ -1674,13 +1736,26 @@ export default function ScriptTracePage() {
   // eight letters one after another the way a phrase stop serves its phrases.
   const stop = useStopFromUrl(activeLang);
 
-  if (!isLoading && !isPlus) {
+  // THE FREE TASTE. Script Trace is Plus, with one carve-out: the first
+  // TRACE_TEASER_LIMIT characters of journey 1 zone 1, in every language. The
+  // same promise the voice lessons already make (lib/teaser.ts serves the first
+  // 3 phrases of any locked language), and until 2026-08-23 tracing made no
+  // such promise at all: every non-Plus learner who tapped the map's tracing
+  // stop was redirected here and then straight to /upgrade, from a card that
+  // deliberately never showed a lock.
+  const tasting = !isPlus && stop !== null && stop.journey === 1 && stop.zone === 1;
+
+  // Everything past the taste is still paid: later zones, the rest of zone 1's
+  // characters, and the chapter menu.
+  if (!isLoading && !isPlus && !tasting) {
     return <Redirect to="/upgrade" />;
   }
 
   // The stop wins over the menu, but never over an explicit pick: choosing a
   // chapter from the grid (reachable by backing out) still plays that chapter.
-  const session = activeChapter ?? (stop ? chapterForStop(stop) : null);
+  const session =
+    activeChapter ??
+    (stop ? chapterForStop(stop, tasting ? TRACE_TEASER_LIMIT : undefined) : null);
   const fromStop = !activeChapter && stop !== null;
 
   if (!session) {
@@ -1709,9 +1784,11 @@ export default function ScriptTracePage() {
               {session.title}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {fromStop && stop
-                ? `Zone ${stop.zone} · ${session.scriptName} script`
-                : `${session.scriptName} script`}
+              {tasting
+                ? `Free taste · ${session.characters.length} letters`
+                : fromStop && stop
+                  ? `Zone ${stop.zone} · ${session.scriptName} script`
+                  : `${session.scriptName} script`}
             </p>
           </div>
         </div>
@@ -1723,6 +1800,7 @@ export default function ScriptTracePage() {
           chapter={session}
           onBack={leave}
           backLabel={fromStop ? "Back to journey" : "Choose Chapter"}
+          tasting={tasting}
         />
       </div>
     </div>

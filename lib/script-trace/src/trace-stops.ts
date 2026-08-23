@@ -243,9 +243,25 @@ export function traceStopsFor(languageCode: string): TraceStop[] {
  * Both clients must call this rather than each choosing a position, or the web
  * and the phone will disagree about which stop a learner is on.
  */
-export function traceStopIndexIn(phraseStopCount: number): number {
+export function traceStopIndexIn(
+  phraseStopCount: number,
+  journey: number,
+  zone: number,
+): number {
   const n = Math.max(0, phraseStopCount);
   if (n === 0) return 0;
+  // THE FIRST ZONE IS ALWAYS STOP 2, and the free taste is why. A Free learner
+  // gets exactly one phrase stop (the position-1 Greetings group) before the
+  // paywall, so a tracing stop parked halfway down zone 1 sits behind stops
+  // they cannot open. It is reachable, because a tracing stop never gates, but
+  // nobody scrolls past a wall of locks to find the one free thing on the page.
+  // Requested 2026-08-23 in the same breath as the taste itself: put it where
+  // it will actually be tasted.
+  if (journey === 1 && zone === 1) return 1;
+  // Everywhere else it is the mid-zone break it was designed as: "maybe stop 5,
+  // 15, so on" describes a pause halfway through, not a reward bolted on the
+  // end.
+  //
   // NEVER FIRST, which floor(n/2) got wrong for a one-stop zone: it returned 0
   // and put tracing ahead of the learner's very first phrase stop. A journey
   // map that opens onto "trace the letters" before anyone has said a word
@@ -290,6 +306,51 @@ export function languageStudiesChapter(
   chapterId: string,
 ): boolean {
   return (LANG_CHAPTER_IDS[languageCode] ?? []).includes(chapterId);
+}
+
+/**
+ * How many characters a learner may trace without paying, in ANY language.
+ *
+ * THREE, matching TEASER_LIMIT for phrases exactly, and deliberately: the app
+ * already promises "a free taste of every language" through the voice lessons
+ * (lib/teaser.ts serves the first 3 phrases of any locked language with the
+ * full pipeline), and Script Trace shipped with no taste at all — `scriptTrace`
+ * is false for Free AND One-Language, both progress endpoints answer 402, and
+ * the web page redirected every non-Plus learner straight to /upgrade. A
+ * tracing stop that is never locked on the map and bounces you to the paywall
+ * when you tap it is worse than an honest lock.
+ *
+ * Chosen by the owner 2026-08-23 over a whole-stop carve-out: one number across
+ * both features is easier to reason about and to change than two.
+ */
+export const TRACE_TEASER_LIMIT = 3;
+
+/**
+ * The characters any learner may trace, whatever they pay.
+ *
+ * The first three of journey 1 zone 1, which traceStopIndexIn now pins to stop
+ * 2 of the first zone so a Free learner meets it immediately after their one
+ * free phrase stop. ONLY these: the rest of that stop and every later zone stay
+ * Plus.
+ */
+export function traceTeaserCharacters(languageCode: string): TraceStopCharacter[] {
+  const first = traceStopFor(languageCode, 1, 1);
+  return first ? first.characters.slice(0, TRACE_TEASER_LIMIT) : [];
+}
+
+/**
+ * Whether this character is inside the free taste for this language.
+ *
+ * The server's authority for letting a non-Plus write through, so it takes the
+ * language explicitly: a character id alone cannot say whose alphabet it is
+ * (the Devanagari chapters serve eight languages), which is the same trap
+ * languageCodeFromChapter fell into.
+ */
+export function isTraceTeaserCharacter(
+  languageCode: string,
+  characterId: string,
+): boolean {
+  return traceTeaserCharacters(languageCode).some((c) => c.id === characterId);
 }
 
 /** The chapters a language's trace stops draw from, for fetching progress. */

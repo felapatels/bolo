@@ -46,6 +46,7 @@ import { Mascot } from "@/components/mascot";
 import { DEPTH_2_5D, RAIL_PULSE } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/language-context";
+import { useEntitlements } from "@/lib/entitlements";
 import { LessonErrorScreen } from "@/components/lesson-states";
 import { UpgradeScreen } from "@/components/plus";
 import {
@@ -632,7 +633,8 @@ function StationCard({
         {/* Entitlement chip only where the server actually serves the stop
             plan-locked — on stops the caller can ride free (Hindi Zone 1
             carve-out) or already owns (Plus/Family), the badge is noise. */}
-        {station.stage === "sentence" && station.planLocked === true && (
+        {(station.stage === "sentence" || station.trace !== undefined) &&
+          station.planLocked === true && (
           <span
             className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-secondary shrink-0"
             title="First-class sentence stop: All-Access"
@@ -984,6 +986,9 @@ function AutoScrollToCurrentStop({
 
 export default function Journey() {
   const { activeLang, activeLanguage } = useLanguage();
+  // Only for placing the free taste: which tracing stops this learner may open.
+  // Everything else on this page gates on the server's own planLocked flag.
+  const { isPlus } = useEntitlements();
   const line = getJourneyLine(activeLang);
   const [lock, setLock] = useState<LockInfo | null>(null);
   // Chunk 6B: trackside signal encounter + signpost fact dialogs. signalTick
@@ -1203,7 +1208,7 @@ export default function Journey() {
     const trace = traceStopFor(activeLang, 1, i + 1);
     const withTrace = [...stations];
     if (trace) {
-      withTrace.splice(traceStopIndexIn(stations.length), 0, {
+      withTrace.splice(traceStopIndexIn(stations.length, trace.journey, trace.zone), 0, {
         // Every LessonGroupSummary field is optional, so a trace stop supplies
         // only what a drawn station needs and is identified by `trace`.
         title: trace.title,
@@ -1218,6 +1223,13 @@ export default function Journey() {
           trace,
           traceStopPassedCount(trace, passedCharacterIds),
         ),
+        // THE FREE TASTE, and where it stops. Journey 1 zone 1 is open to
+        // everyone (the first TRACE_TEASER_LIMIT characters of it, which the
+        // game enforces); every later zone is All-Access. A tracing stop is
+        // still never PROGRESSION-locked, which is a different thing: it
+        // teaches the alphabet and no phrase stop gates it.
+        planLocked: !isPlus && !(trace.journey === 1 && trace.zone === 1),
+        teaserStation: !isPlus && trace.journey === 1 && trace.zone === 1,
       });
     }
     const rowStations: Station[] = withTrace.map((st, gi) => ({
@@ -2183,9 +2195,11 @@ export default function Journey() {
                         station={s}
                         color={zoneColor}
                         isCurrent={!s.trace && s.id === currentId}
-                        // A tracing stop is never locked: it teaches the
-                        // alphabet, which no phrase stop gates.
-                        accessible={accessible || s.trace !== undefined}
+                        // A tracing stop is never PROGRESSION-locked: it
+                        // teaches the alphabet, which no phrase stop gates. It
+                        // can still be PLAN-locked, which is a different thing
+                        // and is how the free taste is bounded to zone 1.
+                        accessible={s.trace ? s.planLocked !== true : accessible}
                         showTeaserChip={s.teaserStation === true}
                         href={
                           // It opens the tracing screen, not a phrase session:

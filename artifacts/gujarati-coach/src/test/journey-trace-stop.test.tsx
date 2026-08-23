@@ -23,6 +23,7 @@ import type { ReactElement } from "react";
 const h = vi.hoisted(() => ({
   groupsByZone: {} as Record<number, unknown[]>,
   passedIds: [] as string[],
+  isPlus: true,
 }));
 
 vi.mock("@/lib/language-context", () => ({
@@ -39,7 +40,13 @@ vi.mock("@/lib/language-context", () => ({
 
 vi.mock("@/lib/entitlements", async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  useEntitlements: () => ({ isAllAccess: true, isLoading: false }),
+  // isPlus is what places the free taste. A mock that omitted it read as
+  // undefined, i.e. Free, and silently plan-locked five of the six stops.
+  useEntitlements: () => ({
+    isPlus: h.isPlus,
+    isAllAccess: h.isPlus,
+    isLoading: false,
+  }),
 }));
 
 vi.mock("@workspace/api-client-react", async () => ({
@@ -97,6 +104,7 @@ const grp = (id: number, position: number) => ({
 
 beforeEach(() => {
   h.passedIds = [];
+  h.isPlus = true;
   h.groupsByZone = {};
   JOURNEY_ZONES.forEach((z) => {
     h.groupsByZone[z.id] = Array.from({ length: 9 }, (_, i) => grp(z.id * 100 + i, i));
@@ -117,6 +125,13 @@ function traceCard(zone: number): HTMLElement {
   return link as HTMLElement;
 }
 
+/** A plan-locked tracing stop is a button, not a link: it opens the dialog. */
+function lockedTraceCards(): HTMLElement[] {
+  return [...document.querySelectorAll("button")].filter((b) =>
+    /tracing stop/.test(b.getAttribute("aria-label") ?? ""),
+  );
+}
+
 describe("the tracing stop as the journey map draws it", () => {
   test("never prints 'undefined' anywhere on the map", () => {
     renderJourney();
@@ -131,9 +146,13 @@ describe("the tracing stop as the journey map draws it", () => {
     expect(stop.characters.length).toBeGreaterThan(0);
 
     const card = traceCard(1);
-    // Numbered like every other stop: added to the zone, never substituted, so
-    // nine phrase stops become ten rows and tracing sits in the middle.
-    expect(card).toHaveTextContent("Stop 5 of 10");
+    // WAS "Stop 5 of 10", the mid-zone break. Zone 1 moved to stop 2 on
+    // 2026-08-23 and the free taste is the reason: a Free learner gets exactly
+    // one phrase stop before the paywall, so a tracing stop halfway down zone 1
+    // sits behind stops they cannot open. Every LATER zone is still the middle,
+    // which the next assertion holds.
+    expect(card).toHaveTextContent("Stop 2 of 10");
+    expect(traceCard(2)).toHaveTextContent("Stop 5 of 10");
     expect(card).toHaveTextContent(`Trace ${stop.characters.length} letters`);
     // And it says which kind of stop it is, which the number alone does not.
     expect(within(card).getByText("Trace")).toBeInTheDocument();
@@ -160,6 +179,46 @@ describe("the tracing stop as the journey map draws it", () => {
     expect(traceCard(1)).toHaveTextContent(
       `3 of ${stop.characters.length} letters traced`,
     );
+  });
+
+  test("a Free learner gets zone 1's tracing stop and nothing past it", () => {
+    // The free taste: three characters of journey 1 zone 1, in every language,
+    // matching the promise the voice lessons already make. Before this every
+    // non-Plus learner who tapped ANY tracing stop was bounced to /upgrade from
+    // a card that deliberately never showed a lock.
+    h.isPlus = false;
+    renderJourney();
+
+    // Zone 1 is open, and says it is a taste rather than looking like a bug.
+    const card = traceCard(1);
+    expect(card).toHaveTextContent("Stop 2 of 10");
+    expect(within(card).getByText("Free taste")).toBeInTheDocument();
+
+    // Every later zone is All-Access, and is a button (the lock dialog), not a
+    // link. An honest lock beats a card that opens onto the paywall.
+    const locked = lockedTraceCards();
+    expect(locked).toHaveLength(5);
+    for (const b of locked) {
+      // The chip is uppercased by CSS; the DOM text is title case.
+      expect(b).toHaveTextContent("All-Access");
+      expect(b).toHaveTextContent("Trace");
+    }
+    for (const zone of [2, 3, 4, 5, 6]) {
+      expect(
+        [...document.querySelectorAll("a")].some(
+          (a) =>
+            a.getAttribute("href") === `/games/script-trace?journey=1&zone=${zone}`,
+        ),
+        `zone ${zone} must not be openable`,
+      ).toBe(false);
+    }
+  });
+
+  test("a paying learner sees no lock on any tracing stop", () => {
+    h.isPlus = true;
+    renderJourney();
+    expect(lockedTraceCards()).toHaveLength(0);
+    for (const zone of [1, 2, 3, 4, 5, 6]) expect(traceCard(zone)).toBeInTheDocument();
   });
 
   test("says so when every character in the stop is traced", () => {

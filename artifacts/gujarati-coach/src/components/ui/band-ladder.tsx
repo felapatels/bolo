@@ -18,11 +18,19 @@ const LADDER_COLOR: Record<ScoredBand, string> = {
  * Labels only — never a raw numeric score (ex-#874 rule). Renders nothing for
  * `nocatch`: a system miss is not a rung on the ladder (Spec 1 rule 16).
  */
-export function BandLadder({ band }: { band: Band }) {
+export function BandLadder({
+  band,
+  resultLabel = "Pronunciation result",
+}: {
+  band: Band;
+  /** What was marked. Script Trace marks handwriting, not pronunciation, and
+   *  the ladder is shared rather than copied, so the noun is a prop. */
+  resultLabel?: string;
+}) {
   if (band === "nocatch") return null;
   return (
     <ol
-      aria-label={`Pronunciation result: ${bandLabel(band)}`}
+      aria-label={`${resultLabel}: ${bandLabel(band)}`}
       className="w-full max-w-[240px] mx-auto flex flex-col gap-0.5"
     >
       {BAND_LADDER.map((rung) => {

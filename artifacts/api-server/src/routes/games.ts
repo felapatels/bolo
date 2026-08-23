@@ -25,6 +25,7 @@ import {
   isTraceChapterId,
   languageStudiesChapter,
   traceChapterSize,
+  isTraceTeaserCharacter,
 } from "@workspace/script-trace";
 import { localDayKey, computeDailyQuizStreak } from "../lib/progressMetrics";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
@@ -299,20 +300,20 @@ export async function computeQuizStreak(
 
 // GET /games/script-trace/progress?chapter=<chapter>
 // Returns the caller's per-character progress for the requested chapter.
-// Plus-only — non-Plus callers get a 402.
+//
+// OPEN TO EVERY PLAN since the free taste landed 2026-08-23. It reads nothing
+// but the caller's OWN rows, and a Free caller can only ever have written the
+// teaser characters, because the POST below is what gates the writing. Keeping
+// the 402 here would have left the journey map unable to show a Free learner
+// the three letters they had just traced.
+//
+// A downgraded account keeps whatever it recorded while it was paying, and
+// will see those stops read as traced on the map without being able to reopen
+// them. That is their own history rather than a leak, and hiding it would need
+// a language parameter this endpoint does not take.
 router.get(
   "/games/script-trace/progress",
   async (req: Request, res: Response): Promise<void> => {
-    if (
-      denyLockedFeature(
-        req,
-        res,
-        "scriptTrace",
-        "Script Trace is a Bolo! Plus feature. Upgrade to unlock character tracing.",
-      )
-    )
-      return;
-
     const chapter = String(req.query.chapter ?? "");
     if (!isTraceChapterId(chapter)) {
       res.status(400).json({ error: "Invalid or missing chapter" });
@@ -349,16 +350,11 @@ router.get(
 router.post(
   "/games/script-trace/progress",
   async (req: Request, res: Response): Promise<void> => {
-    if (
-      denyLockedFeature(
-        req,
-        res,
-        "scriptTrace",
-        "Script Trace is a Bolo! Plus feature. Upgrade to unlock character tracing.",
-      )
-    )
-      return;
-
+    // THE BODY IS PARSED BEFORE THE PLAN IS CHECKED, and it has to be: the free
+    // taste is defined per character and per language, so there is no way to
+    // know whether this caller may write until we know what they are writing.
+    // A malformed body from a Free caller now answers 400 rather than 402,
+    // which is the more accurate of the two.
     const parsed = progressBodySchema.safeParse(req.body);
     if (!parsed.success) {
       const firstError =
@@ -374,6 +370,21 @@ router.post(
         .json({ error: "That chapter is not part of this language's alphabet." });
       return;
     }
+
+    // Script Trace is Plus, with one carve-out: the first TRACE_TEASER_LIMIT
+    // characters of every language, which is the same promise the voice lessons
+    // already make through lib/teaser.ts. Only those three, and only from
+    // journey 1 zone 1: the rest of that stop and every later zone stay paid.
+    if (
+      !isTraceTeaserCharacter(languageCode, characterId) &&
+      denyLockedFeature(
+        req,
+        res,
+        "scriptTrace",
+        "Script Trace is a Bolo! Plus feature. Upgrade to unlock character tracing.",
+      )
+    )
+      return;
     const userId = getUserId(req);
 
     const [row] = await db

@@ -13,6 +13,13 @@ import {
   traceStopStatus,
   traceStopCopy,
   traceStopPassedCount,
+  traceTeaserCharacters,
+  isTraceTeaserCharacter,
+  TRACE_TEASER_LIMIT,
+  traceBandFromScore,
+  traceFeedback,
+  traceHeadline,
+  TRACE_PASS_SCORE,
   traceChaptersFor,
   SCRIPT_TRACE_CHAPTERS,
   LANG_CHAPTER_IDS,
@@ -140,9 +147,23 @@ describe("resolving a stop for a language", () => {
 describe("where the stop sits in its zone", () => {
   test("the middle, so it breaks the phrase run rather than tailing it", () => {
     // "maybe stop 5, 15, so on" was the request: a tracing break partway
-    // through each zone, not a reward bolted on the end.
-    expect(traceStopIndexIn(10)).toBe(5);
-    expect(traceStopIndexIn(11)).toBe(5);
+    // through each zone, not a reward bolted on the end. Still true for every
+    // zone except the first, which the next test covers.
+    expect(traceStopIndexIn(10, 1, 2)).toBe(5);
+    expect(traceStopIndexIn(11, 1, 2)).toBe(5);
+    expect(traceStopIndexIn(10, 2, 6)).toBe(5);
+  });
+
+  test("zone 1 is ALWAYS stop 2, because that is where the free taste is", () => {
+    // Changed 2026-08-23. A Free learner gets exactly one phrase stop before
+    // the paywall, so a tracing stop parked at the middle of zone 1 sits behind
+    // stops they cannot open. It was reachable, since a tracing stop never
+    // gates, but nobody scrolls past a wall of locks to find the free thing.
+    for (const n of [1, 2, 5, 9, 10, 20]) {
+      expect(traceStopIndexIn(n, 1, 1), `${n} phrase stops`).toBe(1);
+    }
+    // Journey 2's first zone is not the free taste and keeps the middle.
+    expect(traceStopIndexIn(10, 2, 1)).toBe(5);
   });
 
   test("never FIRST, so a new learner's first stop stays first", () => {
@@ -150,14 +171,104 @@ describe("where the stop sits in its zone", () => {
     // learner opened the journey map onto "trace the letters" before they had
     // said a word. The scroll-on-open test caught it: the first stop was no
     // longer at the top of the line.
-    expect(traceStopIndexIn(1)).toBe(1);
-    expect(traceStopIndexIn(2)).toBe(1);
-    expect(traceStopIndexIn(3)).toBe(1);
+    expect(traceStopIndexIn(1, 1, 2)).toBe(1);
+    expect(traceStopIndexIn(2, 1, 2)).toBe(1);
+    expect(traceStopIndexIn(3, 1, 2)).toBe(1);
+    // And it holds across every rung of the ladder, at every zone size.
+    for (const rung of TRACE_STOP_LADDER) {
+      for (const n of [1, 2, 3, 7, 12]) {
+        expect(
+          traceStopIndexIn(n, rung.journey, rung.zone),
+          `j${rung.journey}z${rung.zone} with ${n}`,
+        ).toBeGreaterThanOrEqual(1);
+      }
+    }
   });
 
   test("a zone with no phrase stops still resolves to a valid index", () => {
-    expect(traceStopIndexIn(0)).toBe(0);
-    expect(traceStopIndexIn(-3)).toBe(0);
+    expect(traceStopIndexIn(0, 1, 1)).toBe(0);
+    expect(traceStopIndexIn(-3, 1, 1)).toBe(0);
+  });
+});
+
+describe("the free taste", () => {
+  test("every language has one, and it is three characters", () => {
+    // The promise the voice lessons already make (TEASER_LIMIT = 3 phrases of
+    // any locked language). Script Trace shipped with no taste at all.
+    for (const lang of LANGUAGES) {
+      const taste = traceTeaserCharacters(lang);
+      expect(taste, lang).toHaveLength(TRACE_TEASER_LIMIT);
+    }
+  });
+
+  test("it is the first three of journey 1 zone 1, and nothing else", () => {
+    for (const lang of LANGUAGES) {
+      const first = traceStopFor(lang, 1, 1)!;
+      expect(traceTeaserCharacters(lang).map((c) => c.id)).toEqual(
+        first.characters.slice(0, TRACE_TEASER_LIMIT).map((c) => c.id),
+      );
+      // The fourth character of that very stop is already paid.
+      const fourth = first.characters[TRACE_TEASER_LIMIT];
+      if (fourth) expect(isTraceTeaserCharacter(lang, fourth.id), lang).toBe(false);
+      // As is everything in every later zone.
+      for (const zone of [2, 3, 4, 5, 6]) {
+        for (const c of traceStopFor(lang, 1, zone)?.characters ?? []) {
+          expect(isTraceTeaserCharacter(lang, c.id), `${lang} z${zone} ${c.id}`).toBe(
+            false,
+          );
+        }
+      }
+    }
+  });
+
+  test("a character id alone cannot buy its way in: the language is checked", () => {
+    // The trap languageCodeFromChapter fell into. Gujarati's first letter is
+    // not Tamil's, so asking about it under the wrong language must say no.
+    const guFirst = traceTeaserCharacters("gu")[0]!;
+    expect(isTraceTeaserCharacter("gu", guFirst.id)).toBe(true);
+    expect(isTraceTeaserCharacter("ta", guFirst.id)).toBe(false);
+  });
+});
+
+describe("how a trace is marked", () => {
+  test("the pass mark is the bottom of 'almost', by construction", () => {
+    // Same five rungs as pronunciation, different thresholds, because interior
+    // coverage of a handwritten glyph is a harsher measure than pronunciation
+    // similarity. 'almost' is the lowest passing band in both.
+    expect(traceBandFromScore(TRACE_PASS_SCORE)).toBe("almost");
+    expect(traceBandFromScore(TRACE_PASS_SCORE - 1)).toBe("retry");
+    expect(traceBandFromScore(100)).toBe("perfect");
+    expect(traceBandFromScore(0)).toBe("retry");
+  });
+
+  test("the ladder never skips a rung as the score climbs", () => {
+    const seen: string[] = [];
+    for (let score = 0; score <= 100; score++) {
+      const band = traceBandFromScore(score);
+      if (seen[seen.length - 1] !== band) seen.push(band);
+    }
+    expect(seen).toEqual(["retry", "almost", "good", "great", "perfect"]);
+  });
+
+  test("the explanation names the worst of the three factors, not all of them", () => {
+    // Real signals: the scorer already computes coverage, precision and spread
+    // and used to multiply them into one number and discard the parts.
+    const good = { coverage: 0.95, precision: 0.95, spread: 1 };
+    expect(traceFeedback(90, good)).toMatch(/clean/i);
+    expect(traceFeedback(60, { ...good, spread: 0.3 })).toMatch(/too small/i);
+    expect(traceFeedback(60, { ...good, precision: 0.4 })).toMatch(/outside the letter/i);
+    expect(traceFeedback(60, { ...good, coverage: 0.4 })).toMatch(/left untraced/i);
+    expect(traceFeedback(0, { coverage: 0, precision: 0, spread: 0 })).toMatch(
+      /nothing landed/i,
+    );
+  });
+
+  test("every headline is a real string, one per rung", () => {
+    const heads = (["perfect", "great", "good", "almost", "retry"] as const).map(
+      traceHeadline,
+    );
+    expect(new Set(heads).size).toBe(5);
+    for (const h2 of heads) expect(h2.length).toBeGreaterThan(0);
   });
 });
 

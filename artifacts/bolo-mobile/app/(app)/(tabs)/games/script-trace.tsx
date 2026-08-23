@@ -1523,6 +1523,12 @@ function TraceSession({
     [character],
   );
 
+  // The chapter alone cannot say which language is being studied, and the
+  // progress endpoint has required it since 2026-08-23: the Devanagari chapters
+  // serve eight languages. Read here rather than threaded through a prop,
+  // matching how the rest of this file reads it.
+  const { activeLang } = useLanguage();
+
   const handleResult = useCallback(
     (score: number, passed: boolean) => {
       setResult({ score, passed });
@@ -1537,6 +1543,7 @@ function TraceSession({
         // applies the configured base URL and auth token automatically, so this
         // works both on web and native without a hard-coded '/api' prefix.
         recordScriptTraceProgress({
+          languageCode: activeLang,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           chapter: chapter.id as any,
           characterId: character.id,
@@ -1547,7 +1554,7 @@ function TraceSession({
         });
       }
     },
-    [character, chapter.id],
+    [character, chapter.id, activeLang],
   );
 
   const handleNext = () => {

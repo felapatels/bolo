@@ -1,4 +1,4 @@
-import { describe, test, expect, vi } from "vitest";
+import { describe, test, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Router } from "wouter";
@@ -7,7 +7,7 @@ import { memoryLocation } from "wouter/memory-location";
 // A tracing stop opens its OWN session, not a menu.
 //
 // The stop shipped linking here bare, and this screen answered with "Choose a
-// chapter to practice" — a grid of whole chapters, 36 characters in one of
+// chapter to practice", a grid of whole chapters, 36 characters in one of
 // them. What the stop promises is its eight letters, one after another, the way
 // a phrase stop serves its phrases. Reported 2026-08-23 on the live site.
 //
@@ -28,9 +28,15 @@ vi.mock("@/lib/language-context", () => ({
   nativeTextProps: () => ({ style: {}, dir: "ltr" as const }),
 }));
 
+const h = vi.hoisted(() => ({ isPlus: true }));
+
 vi.mock("@/lib/entitlements", async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  useEntitlements: () => ({ isPlus: true, isAllAccess: true, isLoading: false }),
+  useEntitlements: () => ({
+    isPlus: h.isPlus,
+    isAllAccess: h.isPlus,
+    isLoading: false,
+  }),
 }));
 
 vi.mock("@workspace/api-client-react", async () => ({
@@ -45,19 +51,28 @@ vi.mock("@/components/layout/bottom-nav", () => ({
 }));
 
 import ScriptTracePage from "@/pages/games/script-trace";
-import { traceStopFor } from "@workspace/script-trace";
+import {
+  traceStopFor,
+  traceTeaserCharacters,
+  TRACE_TEASER_LIMIT,
+} from "@workspace/script-trace";
 
 function renderAt(path: string) {
-  const { hook } = memoryLocation({ path, record: true });
+  const loc = memoryLocation({ path, record: true });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={qc}>
-      <Router hook={hook}>
+      <Router hook={loc.hook}>
         <ScriptTracePage />
       </Router>
     </QueryClientProvider>,
   );
+  return { ...view, loc };
 }
+
+beforeEach(() => {
+  h.isPlus = true;
+});
 
 describe("a tracing stop opens its own session", () => {
   test("goes straight into tracing rather than the chapter menu", () => {
@@ -88,6 +103,41 @@ describe("a tracing stop opens its own session", () => {
   test("without a zone it is still the chapter menu", () => {
     renderAt("/games/script-trace");
     expect(screen.getByText("Choose a chapter to practice")).toBeInTheDocument();
+  });
+
+  test("a Free learner tastes three characters of zone 1, in any language", () => {
+    h.isPlus = false;
+    const taste = traceTeaserCharacters("gu");
+    expect(taste).toHaveLength(TRACE_TEASER_LIMIT);
+    renderAt("/games/script-trace?journey=1&zone=1");
+    // Not the paywall, which is where every non-Plus learner used to land.
+    expect(document.body.textContent).not.toContain("Choose a chapter");
+    expect(document.body.textContent).toContain(`1 / ${TRACE_TEASER_LIMIT}`);
+    expect(document.body.textContent).toContain("Free taste");
+    expect(document.body.textContent).toContain(taste[0]!.label);
+  });
+
+  test("a Free learner gets no further than the taste", () => {
+    h.isPlus = false;
+    // Later zones stay paid, and so does the chapter menu.
+    for (const path of [
+      "/games/script-trace?journey=1&zone=3",
+      "/games/script-trace?journey=2&zone=1",
+      "/games/script-trace",
+    ]) {
+      const { loc, unmount } = renderAt(path);
+      expect(loc.history[loc.history.length - 1], path).toBe("/upgrade");
+      unmount();
+    }
+  });
+
+  test("a paying learner gets the whole stop, not the taste", () => {
+    h.isPlus = true;
+    const stop = traceStopFor("gu", 1, 1)!;
+    expect(stop.characters.length).toBeGreaterThan(TRACE_TEASER_LIMIT);
+    renderAt("/games/script-trace?journey=1&zone=1");
+    expect(document.body.textContent).toContain(`1 / ${stop.characters.length}`);
+    expect(document.body.textContent).not.toContain("Free taste");
   });
 
   test("a zone the ladder does not reach falls back to the menu", () => {
