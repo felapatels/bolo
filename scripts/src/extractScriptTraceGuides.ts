@@ -22,7 +22,7 @@
 //
 // Run: pnpm --filter @workspace/scripts exec tsx src/extractScriptTraceGuides.ts
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Blob, Face, Font, Buffer as HbBuffer, shape } from "harfbuzzjs";
 import {
@@ -484,7 +484,33 @@ const { chapters, generated, kept, stats } = buildChapters();
 // police the two against drift. Both copies moved into @workspace/script-trace
 // on 2026-08-20, so there is one file, no header, and nothing to keep in sync.
 const chaptersPath = resolve(ROOT, "lib/script-trace/src/chapters.ts");
-writeFileSync(chaptersPath, renderFile(chapters));
+
+// PRESERVE WHAT THIS GENERATOR DID NOT WRITE.
+//
+// renderFile() emits the header, the types and SCRIPT_TRACE_CHAPTERS, and
+// nothing else. But chapters.ts also carries LANG_CHAPTER_IDS, which is
+// hand-maintained and lives AFTER the chapters array. Writing the rendered
+// output on its own silently deleted it, and because the deletion is at the
+// bottom of a 5000-line generated file nothing about the diff looks alarming.
+// It surfaced as an import failing at runtime, which is a long way from the
+// cause.
+//
+// So: keep everything from the first export that follows the chapters array
+// onward, verbatim. Anything hand-written below the generated section survives
+// a regeneration, which is the property this file needs and did not have.
+const previous = existsSync(chaptersPath) ? readFileSync(chaptersPath, "utf8") : "";
+const HANDWRITTEN_MARKER = "\nexport const LANG_CHAPTER_IDS";
+const handIdx = previous.indexOf(HANDWRITTEN_MARKER);
+const preserved = handIdx === -1 ? "" : "\n" + previous.slice(handIdx + 1);
+if (previous && handIdx === -1) {
+  // Loud rather than silent: if the marker ever moves or is renamed, the next
+  // run would quietly drop it again.
+  throw new Error(
+    "chapters.ts has no LANG_CHAPTER_IDS to preserve. If it moved, update " +
+      "HANDWRITTEN_MARKER in this script before regenerating.",
+  );
+}
+writeFileSync(chaptersPath, renderFile(chapters).replace(/\n+$/, "\n") + preserved);
 
 console.log(`Wrote ${chaptersPath}`);
 console.log(`Kept ${kept} existing guides, generated ${generated} new ones.`);
