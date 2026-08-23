@@ -18,6 +18,7 @@
 export * from "./stroke-scoring";
 export * from "./scripts";
 export * from "./trace-levels";
+export * from "./trace-stops";
 export * from "./devanagari-strokes";
 export * from "./provisional-strokes";
 export * from "./contributed-strokes";

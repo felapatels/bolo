@@ -1,0 +1,219 @@
+/**
+ * The Script Trace stop: one tracing lesson inside every fare zone.
+ *
+ * WHY THIS IS DATA AND NOT A COMPONENT. Requested 2026-08-23, for all 22
+ * languages across both journeys at once. Web and mobile render the journey
+ * map from two hand-maintained twins (CLAUDE.md, "Reuse before you write"), so
+ * a ladder defined in either one would be a second definition of the
+ * curriculum within a week. Everything about WHICH letters a stop teaches lives
+ * here; the two apps keep only their canvas and their chrome.
+ *
+ * ADDED, NEVER SUBSTITUTED. The instruction was explicit: a trace stop is an
+ * EXTRA stop in the zone, not a phrase stop repurposed. Nothing that already
+ * teaches phrases is displaced, so a zone that had ten stops has eleven.
+ *
+ * THE LADDER, and why it is weighted rather than even. Four bands of rising
+ * difficulty over twelve zones. An even split would put a quarter of the
+ * curriculum on the sentences, and no script HAS that much: the alphabets run
+ * 27 to 57 characters while the word sets are 6 to 8 and the sentence sets are
+ * 3 to 6. So journey 1 spends all six zones walking the alphabet, and journey 2
+ * spends its six on the compositions.
+ *
+ *   journey 1, zones 1-6   the alphabet, in six contiguous chunks
+ *   journey 2, zones 1-2   the shorter half of the words
+ *   journey 2, zones 3-4   the longer half of the words
+ *   journey 2, zones 5-6   the sentences
+ *
+ * Chunks are computed from what a script actually has rather than fixed at N
+ * per stop, which is what makes one ladder fit Tamil's 33 letters and Sindhi's
+ * 62 without a per-script table. Journey 3 and beyond extend TRACE_STOP_LADDER
+ * and nothing else.
+ */
+import { SCRIPT_TRACE_CHAPTERS, LANG_CHAPTER_IDS, type TraceCharacter } from "./chapters";
+import { SCRIPT_BY_LANGUAGE, traceReadyFor, type ScriptId } from "./scripts";
+
+/** Rising difficulty. The order here IS the difficulty order. */
+export type TraceStopBand = "letters" | "short-words" | "long-words" | "sentences";
+
+export const TRACE_STOP_BAND_TITLE: Record<TraceStopBand, string> = {
+  letters: "Trace the letters",
+  "short-words": "Trace a word",
+  "long-words": "Trace a longer word",
+  sentences: "Trace a sentence",
+};
+
+/** One rung: which band a zone draws from, and which slice of that band. */
+export type TraceStopRung = {
+  journey: number;
+  /** 1-based within its journey, matching JOURNEY_ZONES order. */
+  zone: number;
+  band: TraceStopBand;
+  /** 0-based index of this zone among the zones sharing its band... */
+  slice: number;
+  /** ...out of this many, which is how the band gets divided up. */
+  slices: number;
+};
+
+function rung(
+  journey: number,
+  zone: number,
+  band: TraceStopBand,
+  slice: number,
+  slices: number,
+): TraceStopRung {
+  return { journey, zone, band, slice, slices };
+}
+
+export const TRACE_STOP_LADDER: readonly TraceStopRung[] = [
+  // Journey 1: the whole alphabet, split six ways. Contiguous and in roster
+  // order, so a learner meets the vowels before the consonants without the
+  // ladder having to know which is which.
+  ...[1, 2, 3, 4, 5, 6].map((z) => rung(1, z, "letters", z - 1, 6)),
+  // Journey 2: compositions. Words are split short-half then long-half, which
+  // is the difficulty ramp the request asked for, measured rather than curated.
+  rung(2, 1, "short-words", 0, 2),
+  rung(2, 2, "short-words", 1, 2),
+  rung(2, 3, "long-words", 0, 2),
+  rung(2, 4, "long-words", 1, 2),
+  rung(2, 5, "sentences", 0, 2),
+  rung(2, 6, "sentences", 1, 2),
+];
+
+/** A resolved stop: the rung plus the characters this language actually has. */
+export type TraceStop = TraceStopRung & {
+  languageCode: string;
+  script: ScriptId;
+  title: string;
+  characters: TraceCharacter[];
+};
+
+/**
+ * Every character a language has at one stage, deduped, in chapter order.
+ *
+ * Joins on LANG_CHAPTER_IDS for the reason alphabetForScript documents at
+ * length: chapters.ts spells Manipuri's script "Meitei Mayek" while
+ * SCRIPT_NAMES says "Meetei Mayek", so anything joining on the display name
+ * silently finds nothing for one language and reports it as empty.
+ */
+export function charactersAt(languageCode: string, stage: string): TraceCharacter[] {
+  const wanted = new Set(LANG_CHAPTER_IDS[languageCode] ?? []);
+  const seen = new Set<string>();
+  const out: TraceCharacter[] = [];
+  for (const chapter of SCRIPT_TRACE_CHAPTERS) {
+    if (!wanted.has(chapter.id) || chapter.stage !== stage) continue;
+    for (const c of chapter.characters) {
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      out.push(c);
+    }
+  }
+  return out;
+}
+
+/**
+ * The alphabet ONE LANGUAGE teaches, which is not the same as its script's.
+ *
+ * alphabetForScript() unions every language on a script, which is right for
+ * budgeting authored glyphs (the unit of that work is the script) and wrong for
+ * a curriculum. Perso-Arabic is the case that proves it: Urdu teaches 39
+ * letters, Kashmiri 44 and Sindhi 62, so the union is 62 and an Urdu learner
+ * would be handed 23 letters that are not in their alphabet.
+ *
+ * Added 2026-08-23 when a trace-stop test asserted journey 1 covered the whole
+ * alphabet and Urdu failed it by exactly Sindhi's extra letters.
+ */
+export function alphabetForLanguage(languageCode: string): TraceCharacter[] {
+  return charactersAt(languageCode, "alphabet");
+}
+
+/**
+ * Split `items` into `slices` contiguous chunks and return chunk `slice`.
+ *
+ * Front-loaded when it does not divide evenly, so the earlier and easier stops
+ * absorb the remainder rather than the last stop being the long one.
+ */
+function chunk<T>(items: readonly T[], slice: number, slices: number): T[] {
+  if (slices <= 0 || items.length === 0) return [];
+  const base = Math.floor(items.length / slices);
+  const extra = items.length % slices;
+  const start = slice * base + Math.min(slice, extra);
+  const size = base + (slice < extra ? 1 : 0);
+  return items.slice(start, start + size);
+}
+
+/** The words this language traces, shortest first, so the halves are a ramp. */
+function wordsByLength(languageCode: string): TraceCharacter[] {
+  return [...charactersAt(languageCode, "words")].sort(
+    (a, b) => [...a.char].length - [...b.char].length || a.id.localeCompare(b.id),
+  );
+}
+
+/** The pool a band draws from, before it is sliced. */
+function poolFor(languageCode: string, band: TraceStopBand): TraceCharacter[] {
+  if (band === "letters") return charactersAt(languageCode, "alphabet");
+  if (band === "sentences") return charactersAt(languageCode, "sentences");
+  // Short and long are the two halves of one measured list. Splitting by
+  // length rather than by a hand-picked list is what keeps this working for a
+  // script nobody on the team reads.
+  const words = wordsByLength(languageCode);
+  const half = Math.ceil(words.length / 2);
+  return band === "short-words" ? words.slice(0, half) : words.slice(half);
+}
+
+/**
+ * The trace stop for one zone, or null when there is nothing to teach there.
+ *
+ * Null rather than an empty stop, and gated on traceReadyFor() as well, for the
+ * reason PLAYABLE_GLYPH_FLOOR exists: a stop that opens onto two characters
+ * reads as broken rather than short.
+ */
+export function traceStopFor(
+  languageCode: string,
+  journey: number,
+  zone: number,
+): TraceStop | null {
+  const script = SCRIPT_BY_LANGUAGE[languageCode];
+  if (!script || !traceReadyFor(languageCode)) return null;
+
+  const rungFound = TRACE_STOP_LADDER.find(
+    (r) => r.journey === journey && r.zone === zone,
+  );
+  if (!rungFound) return null;
+
+  const characters = chunk(
+    poolFor(languageCode, rungFound.band),
+    rungFound.slice,
+    rungFound.slices,
+  );
+  if (!characters.length) return null;
+
+  return {
+    ...rungFound,
+    languageCode,
+    script,
+    title: TRACE_STOP_BAND_TITLE[rungFound.band],
+    characters,
+  };
+}
+
+/** Every trace stop a language offers, in journey then zone order. */
+export function traceStopsFor(languageCode: string): TraceStop[] {
+  return TRACE_STOP_LADDER.map((r) =>
+    traceStopFor(languageCode, r.journey, r.zone),
+  ).filter((s): s is TraceStop => s !== null);
+}
+
+/**
+ * Where the trace stop sits among a zone's existing stops, 0-based.
+ *
+ * The MIDDLE, which is the request: "maybe stop 5, 15, so on" describes a
+ * tracing break roughly halfway through each zone rather than a reward bolted
+ * on the end. A zone of ten phrase stops therefore runs five phrase stops, the
+ * trace stop, then five more.
+ *
+ * Both clients must call this rather than each choosing a position, or the web
+ * and the phone will disagree about which stop a learner is on.
+ */
+export function traceStopIndexIn(phraseStopCount: number): number {
+  return Math.floor(Math.max(0, phraseStopCount) / 2);
+}
