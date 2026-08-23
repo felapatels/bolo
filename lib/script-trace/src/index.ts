@@ -20,6 +20,7 @@ export * from "./scripts";
 export * from "./trace-levels";
 export * from "./trace-stops";
 export * from "./trace-feedback";
+export * from "./pen-strokes";
 export * from "./stray-haptics";
 export * from "./devanagari-strokes";
 export * from "./provisional-strokes";

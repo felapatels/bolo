@@ -20,6 +20,7 @@ import {
   traceFeedback,
   traceHeadline,
   traceStopFor,
+  handPenStrokes,
   TRACE_TEASER_LIMIT,
   type TraceBreakdown,
   type TraceChapter,
@@ -871,6 +872,10 @@ function ScriptTraceCanvas({
   guidePoints: Point[];
   interiorPoints: Point[];
 }) {
+  // Which language is being studied, for picking the demo's pen path. Read from
+  // the hook rather than threaded through a prop, matching how the rest of this
+  // file reads it.
+  const { activeLang } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawnRef = useRef<Point[]>([]);
   const isDrawingRef = useRef(false);
@@ -903,9 +908,17 @@ function ScriptTraceCanvas({
   // Boustrophedon order ensures the dot sweeps continuously through the letter.
   // Pen strokes (centerline skeleton) for the demo animation, plus per-stroke
   // time fractions proportional to stroke length.
+  // THE HAND FIRST, the skeleton second. The skeleton is extracted from a font
+  // outline and splits at every junction: for Gujarati it played letters as
+  // four to nine disconnected fragments that Bharti writes in ONE flow, which
+  // is what "multiple lines, not one continuous flow" meant when it was
+  // reported on 2026-08-23. Where a real hand exists it is simply better data,
+  // and it was already in the repo under the same character ids.
   const penStrokes = useMemo(
-    () => (character.guide ? strokesForGuide(character.guide) : []),
-    [character.guide],
+    () =>
+      handPenStrokes(activeLang, character.id) ??
+      (character.guide ? strokesForGuide(character.guide) : []),
+    [activeLang, character],
   );
   const penStrokeFracs = useMemo(() => strokeTimeFractions(penStrokes), [penStrokes]);
   // Longer items (words/sentences have many strokes) get proportionally more
