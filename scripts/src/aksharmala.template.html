@@ -4,330 +4,294 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600;700&display=swap">
 
 <style>
+  /* Brand tokens copied from artifacts/gujarati-coach/src/index.css so this page
+     is visibly the same product as the site: indigo primary, teal accent, slate
+     ground. Kept as the same HSL triples the app declares, so a change to the
+     app's palette is a copy rather than a translation. */
   :root {
-    --ground:#FBF1DF; --surface:#FFF7EA; --surface-2:#F6E8CF;
-    --text:#3A2716; --text-soft:#6B4A2F; --text-faint:#8A6E52;
-    --rule:#E2CFAE; --rule-strong:#C9AF88;
-    --board:#14503F; --gold:#F0A32B; --stripe:#C2410C;
-    --ink:#3A2716; --guide:rgba(107,74,47,.17); --onboard:#FFF7EA;
-    --shadow:0 1px 2px rgba(58,39,22,.06), 0 10px 30px -20px rgba(58,39,22,.4);
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --primary: 243 75% 59%;
+    --primary-fg: 0 0% 100%;
+    --secondary: 174 84% 32%;
+    --accent: 173 80% 40%;
+    --muted: 210 40% 96%;
+    --muted-fg: 215 16% 42%;
+    --border: 214 32% 91%;
+    --danger: 0 72% 51%;
+    --shadow: 0 1px 2px hsl(222 47% 11% / .05), 0 12px 28px -18px hsl(222 47% 11% / .35);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --ground:#171008; --surface:#211710; --surface-2:#2C1F15;
-      --text:#F6E8CF; --text-soft:#D5BC98; --text-faint:#A98D6B;
-      --rule:#3A2A1C; --rule-strong:#55402C;
-      --board:#F0A32B; --gold:#F0A32B; --stripe:#F2794A;
-      --ink:#F6E8CF; --guide:rgba(246,232,207,.16); --onboard:#1A1109;
-      --shadow:0 1px 2px rgba(0,0,0,.5), 0 12px 32px -22px rgba(0,0,0,.9);
+      --background: 222 47% 8%; --foreground: 210 40% 98%; --card: 222 47% 13%;
+      --primary: 243 80% 75%; --primary-fg: 222 47% 11%;
+      --secondary: 173 70% 45%; --accent: 173 70% 48%;
+      --muted: 222 30% 20%; --muted-fg: 215 20% 70%; --border: 222 30% 22%;
+      --danger: 0 70% 65%;
+      --shadow: 0 1px 2px hsl(0 0% 0% / .5), 0 14px 32px -20px hsl(0 0% 0% / .9);
     }
   }
   :root[data-theme="dark"] {
-    --ground:#171008; --surface:#211710; --surface-2:#2C1F15;
-    --text:#F6E8CF; --text-soft:#D5BC98; --text-faint:#A98D6B;
-    --rule:#3A2A1C; --rule-strong:#55402C;
-    --board:#F0A32B; --gold:#F0A32B; --stripe:#F2794A;
-    --ink:#F6E8CF; --guide:rgba(246,232,207,.16); --onboard:#1A1109;
-    --shadow:0 1px 2px rgba(0,0,0,.5), 0 12px 32px -22px rgba(0,0,0,.9);
+    --background: 222 47% 8%; --foreground: 210 40% 98%; --card: 222 47% 13%;
+    --primary: 243 80% 75%; --primary-fg: 222 47% 11%;
+    --secondary: 173 70% 45%; --accent: 173 70% 48%;
+    --muted: 222 30% 20%; --muted-fg: 215 20% 70%; --border: 222 30% 22%;
+    --danger: 0 70% 65%;
+    --shadow: 0 1px 2px hsl(0 0% 0% / .5), 0 14px 32px -20px hsl(0 0% 0% / .9);
   }
 
   * { box-sizing: border-box; }
+  /* BIG TEXT IS THE REQUIREMENT, not a preference. The people using this are
+     grandparents on a phone, so the root is 19px rather than 16, nothing
+     informational sits below 16, and every tap target is at least 56px tall. */
+  html { -webkit-text-size-adjust: 100%; font-size: 19px; }
   body {
-    margin:0; background:var(--ground); color:var(--text);
-    font-family:Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
-    line-height:1.55; -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
+    margin: 0; background: hsl(var(--background)); color: hsl(var(--foreground));
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 1rem; line-height: 1.6;
+    -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
   }
-  .wrap { max-width:34rem; margin:0 auto; padding:1.25rem 1.1rem 3rem; }
-  h1,h2,h3 { font-family:"Bricolage Grotesque", Inter, sans-serif; margin:0; text-wrap:balance; line-height:1.12; }
-  [hidden] { display:none !important; }
+  .wrap { max-width: 32rem; margin: 0 auto; padding: 1rem 1.05rem 3rem; }
+  h1, h2, h3 { font-family: "Bricolage Grotesque", Inter, sans-serif; margin: 0;
+    text-wrap: balance; line-height: 1.15; }
+  [hidden] { display: none !important; }
+  p { margin: 0 0 .85rem; }
 
-  h1 { font-size:clamp(1.8rem,1.4rem + 2vw,2.5rem); font-weight:800; letter-spacing:-.02em; }
-  .sub { color:var(--text-soft); font-size:1.04rem; margin:.75rem 0 0; }
-  .warm { margin:1rem 0 0; padding:.85rem .95rem; background:var(--surface-2);
-          border-left:3px solid var(--gold); border-radius:3px; font-size:.95rem; color:var(--text-soft); }
+  .brandbar { display: flex; align-items: center; gap: .6rem; padding: .2rem 0 .9rem; }
+  .brandbar img { width: 2.4rem; height: 2.4rem; object-fit: contain; }
+  .brandbar b { font-family: "Bricolage Grotesque", Inter, sans-serif; font-size: 1.15rem;
+    font-weight: 800; color: hsl(var(--primary)); letter-spacing: -.01em; }
 
-  label.field { display:block; font-size:.76rem; letter-spacing:.13em; text-transform:uppercase;
-                color:var(--text-faint); margin:1.6rem 0 .5rem; }
-  input[type=text] {
-    width:100%; font:inherit; font-size:1rem; background:var(--surface); color:var(--text);
-    border:1px solid var(--rule-strong); border-radius:12px; padding:.7rem .85rem;
-  }
-  input[type=text]:focus-visible, summary:focus-visible, button:focus-visible, tr:focus-visible {
-    outline:3px solid var(--stripe); outline-offset:2px;
-  }
+  .steps { display: flex; gap: .4rem; margin-bottom: 1.2rem; }
+  .steps i { flex: 1; height: .35rem; border-radius: 999px; background: hsl(var(--muted)); }
+  .steps i.on { background: hsl(var(--primary)); }
+  .steplabel { font-size: .82rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    color: hsl(var(--muted-fg)); margin-bottom: .45rem; }
 
-  .scripts { display:flex; flex-wrap:wrap; gap:.5rem; }
-  .scripts button { font:inherit; font-size:.95rem; background:var(--surface); color:var(--text);
-                    border:1px solid var(--rule-strong); border-radius:999px; padding:.5rem 1rem; cursor:pointer; }
-  .scripts button[aria-pressed="true"] { background:var(--board); color:var(--onboard); border-color:var(--board); }
-  .scripts .cnt { opacity:.6; font-size:.82em; margin-left:.3rem; }
+  h1 { font-size: 1.85rem; font-weight: 800; letter-spacing: -.02em; }
+  h2 { font-size: 1.45rem; font-weight: 800; letter-spacing: -.015em; }
+  .lede { color: hsl(var(--muted-fg)); font-size: 1.02rem; }
 
-  details.chart { margin-top:1rem; }
-  details.chart summary { cursor:pointer; font-size:.92rem; color:var(--text-soft);
-    text-decoration:underline; text-underline-offset:.2em; padding:.35rem 0; }
-  .chartnote { margin:.6rem 0; font-size:.84rem; color:var(--text-faint); }
-  .chartscroll { overflow-x:auto; border:1px solid var(--rule); border-radius:12px; }
-  .chart table { border-collapse:collapse; width:100%; font-size:.88rem; }
-  .chart th,.chart td { text-align:left; padding:.55rem .7rem; border-bottom:1px solid var(--rule); }
-  .chart thead th { font-size:.72rem; letter-spacing:.1em; text-transform:uppercase;
-    color:var(--text-faint); font-weight:500; background:var(--surface-2); }
-  .chart tbody tr:last-child th,.chart tbody tr:last-child td { border-bottom:none; }
-  .chart tbody tr { cursor:pointer; }
-  .chart tbody tr:hover { background:var(--surface-2); }
-  .chart tbody th { font-weight:600; color:var(--text); white-space:nowrap; }
-  .chart .alt { display:block; font-weight:400; font-size:.8em; color:var(--text-faint); }
+  .hero { display: flex; gap: .9rem; align-items: center; margin-bottom: 1rem; }
+  .hero img { width: 5.2rem; height: 5.2rem; object-fit: contain; flex: none; }
 
-  .primary { display:block; width:100%; margin-top:1rem; font:inherit; font-size:1.05rem; font-weight:700;
-    font-family:"Bricolage Grotesque", Inter, sans-serif; background:var(--board); color:var(--onboard);
-    border:none; border-radius:14px; padding:.95rem 1rem; cursor:pointer; }
-  .primary:disabled { opacity:.38; cursor:default; }
-  .linkish { font:inherit; font-size:.88rem; background:none; border:none; color:var(--text-faint);
-    text-decoration:underline; text-underline-offset:.2em; cursor:pointer; padding:.45rem 0; }
+  .note { padding: .9rem 1rem; background: hsl(var(--muted)); border-radius: 14px;
+    border-left: 4px solid hsl(var(--accent)); font-size: .98rem; }
 
-  /* ── Hub: two independent things, either or neither ── */
-  .cards { display:flex; flex-direction:column; gap:.9rem; margin-top:1.2rem; }
-  .card { width:100%; text-align:left; font:inherit; cursor:pointer;
-    background:var(--surface); border:1px solid var(--rule-strong); border-radius:16px;
-    padding:1.05rem 1.15rem; box-shadow:var(--shadow); }
-  .card h3 { font-size:1.12rem; font-weight:700; }
-  .card p { margin:.35rem 0 0; font-size:.9rem; color:var(--text-soft); }
-  .card .state { display:inline-block; margin-top:.55rem; font-size:.78rem; letter-spacing:.08em;
-    text-transform:uppercase; color:var(--text-faint); }
-  .card .state.on { color:var(--board); font-weight:600; }
+  input[type=text] { width: 100%; font: inherit; font-size: 1.15rem; min-height: 3.4rem;
+    background: hsl(var(--card)); color: hsl(var(--foreground));
+    border: 2px solid hsl(var(--border)); border-radius: 14px; padding: .7rem .9rem; }
+  input[type=text]:focus-visible, button:focus-visible, textarea:focus-visible {
+    outline: 3px solid hsl(var(--primary)); outline-offset: 2px; }
+  textarea { width: 100%; font: inherit; font-size: 1.05rem; background: hsl(var(--card));
+    color: hsl(var(--foreground)); border: 2px solid hsl(var(--border));
+    border-radius: 14px; padding: .7rem .9rem; resize: vertical; }
 
-  .topbar { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
-  .count { font-size:.82rem; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint); font-variant-numeric:tabular-nums; }
-  .bar { height:5px; background:var(--surface-2); border-radius:999px; overflow:hidden; margin:.55rem 0 .8rem; }
-  .bar i { display:block; height:100%; background:var(--gold); border-radius:999px; transition:width .25s ease; }
-  @media (prefers-reduced-motion: reduce) { .bar i { transition:none; } }
+  .btn { display: flex; align-items: center; justify-content: center; gap: .5rem;
+    width: 100%; min-height: 3.6rem; margin-top: .8rem;
+    font: inherit; font-size: 1.1rem; font-weight: 700;
+    font-family: "Bricolage Grotesque", Inter, sans-serif;
+    background: hsl(var(--primary)); color: hsl(var(--primary-fg));
+    border: none; border-radius: 16px; cursor: pointer; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn.ghost { background: hsl(var(--card)); color: hsl(var(--foreground));
+    border: 2px solid hsl(var(--border)); }
+  .btn.small { min-height: 3rem; font-size: 1rem; }
+  .backlink { font: inherit; font-size: 1rem; background: none; border: none;
+    color: hsl(var(--muted-fg)); text-decoration: underline; text-underline-offset: .25em;
+    cursor: pointer; padding: .7rem 0; min-height: 2.8rem; }
 
-  .letter { display:flex; align-items:baseline; gap:.85rem; justify-content:center; }
-  .letter .glyph { font-size:2.3rem; line-height:1.15; }
-  .letter .rom { font-size:1.12rem; color:var(--text-soft); font-weight:600; }
-  .say { text-align:center; color:var(--text-faint); font-size:.88rem; margin:.1rem 0 .6rem; }
+  .choices { display: flex; flex-direction: column; gap: .6rem; margin-top: .4rem; }
+  .choice { display: flex; align-items: center; gap: .85rem; width: 100%; text-align: left;
+    font: inherit; min-height: 4rem; padding: .85rem 1rem; cursor: pointer;
+    background: hsl(var(--card)); color: hsl(var(--foreground));
+    border: 2px solid hsl(var(--border)); border-radius: 16px; }
+  .choice[aria-pressed="true"] { border-color: hsl(var(--primary)); background: hsl(var(--primary) / .07); }
+  .choice .name { font-size: 1.12rem; font-weight: 700; }
+  .choice .langs { display: block; font-size: .9rem; font-weight: 400;
+    color: hsl(var(--muted-fg)); margin-top: .1rem; }
+  .choice .tick { margin-left: auto; font-size: 1.3rem; color: hsl(var(--primary)); opacity: 0; }
+  .choice[aria-pressed="true"] .tick { opacity: 1; }
 
-  .padwrap { position:relative; width:min(100%, 52vh, 26rem); margin-inline:auto; }
-  /* Adaptive on both axes, and the smallest of the three wins.
-       100%   the column, which is what caps it on a large phone
-       52vh   the viewport, which is what caps it on a short one
-       26rem  a ceiling, so it never grows past comfortable thumb reach on a
-              tablet or a desktop where the column is wide
-     52 rather than 44 because the Save button is sticky now and can no longer
-     be pushed off the bottom, so a short screen can afford a bigger pad. */
-  svg.pad { display:block; width:min(100%, 52vh, 26rem); aspect-ratio:1; margin-inline:auto;
-    background:var(--surface); border:1px solid var(--rule-strong); border-radius:18px;
-    box-shadow:var(--shadow); touch-action:none; cursor:crosshair; }
+  .card { display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
+    background: hsl(var(--card)); border: 2px solid hsl(var(--border)); border-radius: 18px;
+    padding: 1.1rem 1.15rem; box-shadow: var(--shadow); margin-bottom: .85rem; }
+  .card h3 { font-size: 1.2rem; font-weight: 800; }
+  .card p { margin: .35rem 0 0; font-size: .98rem; color: hsl(var(--muted-fg)); }
+  .card .state { display: inline-block; margin-top: .6rem; font-size: .85rem; font-weight: 700;
+    letter-spacing: .06em; text-transform: uppercase; color: hsl(var(--muted-fg)); }
+  .card .state.on { color: hsl(var(--secondary)); }
 
-  /* Landscape on a phone is the one shape where the pad and the controls
-     genuinely cannot stack. Put them side by side instead of squeezing. */
-  @media (orientation: landscape) and (max-height: 520px) {
-    .wrap { max-width:52rem; }
-    #tracer .padwrap { float:left; width:min(46vw, 44vh); margin-right:1rem; }
-    #tracer svg.pad { width:100%; }
-    #tracer .actions { clear:none; }
-    #tracer .tip { clear:both; }
-  }
-  svg.pad.empty { border-style:dashed; }
-  .hint { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none;
-    color:var(--text-faint); font-size:.95rem; text-align:center; padding:0 2rem; }
+  .count { font-size: .92rem; font-weight: 700; color: hsl(var(--muted-fg)); font-variant-numeric: tabular-nums; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .bar { height: .4rem; background: hsl(var(--muted)); border-radius: 999px; overflow: hidden; margin: .5rem 0 .9rem; }
+  .bar i { display: block; height: 100%; background: hsl(var(--primary)); border-radius: 999px; transition: width .25s ease; }
+  @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
 
-  /* Above the pad and compact: it is a rule to read BEFORE writing, and it was
-     costing vertical space between the pad and the Save button. */
-  .tip { margin:0 0 .7rem; padding:.5rem .7rem; background:var(--surface-2);
-    border-left:3px solid var(--gold); border-radius:3px; font-size:.82rem;
-    line-height:1.4; color:var(--text-soft); }
-  /* Pinned, so Save is reachable on any phone without scrolling for it. */
-  .actions { position:sticky; bottom:0; padding:.55rem 0 .3rem; background:var(--ground); }
-  .actions::before { content:""; display:block; height:.55rem; margin-top:-.55rem;
-    background:linear-gradient(to top, var(--ground), transparent); }
-  .actions .primary { margin-top:.55rem; }
+  .tip { margin: 0 0 .7rem; padding: .6rem .8rem; background: hsl(var(--muted));
+    border-left: 4px solid hsl(var(--accent)); border-radius: 10px;
+    font-size: .92rem; color: hsl(var(--muted-fg)); }
+  .letter { display: flex; align-items: baseline; gap: .8rem; justify-content: center; }
+  .letter .glyph { font-size: 2.6rem; line-height: 1.15; }
+  .letter .rom { font-size: 1.2rem; color: hsl(var(--muted-fg)); font-weight: 700; }
+  .say { text-align: center; color: hsl(var(--muted-fg)); font-size: .95rem; margin: .1rem 0 .6rem; }
 
-  .row { display:flex; gap:.5rem; margin-top:.55rem; }
-  .row button { flex:1; font:inherit; font-size:.95rem; font-weight:500; background:var(--surface);
-    color:var(--text); border:1px solid var(--rule-strong); border-radius:12px; padding:.7rem .5rem; cursor:pointer; }
-  .row button:disabled { opacity:.38; cursor:default; }
+  .padwrap { position: relative; width: min(100%, 52vh, 26rem); margin-inline: auto; }
+  svg.pad { display: block; width: 100%; aspect-ratio: 1; background: hsl(var(--card));
+    border: 2px solid hsl(var(--border)); border-radius: 20px; box-shadow: var(--shadow);
+    touch-action: none; cursor: crosshair; }
+  svg.pad.empty { border-style: dashed; }
+  .hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+    color: hsl(var(--muted-fg)); font-size: 1rem; text-align: center; padding: 0 2rem; }
 
-  .savenote { margin:.45rem 0 0; text-align:center; font-size:.8rem; color:var(--text-faint); min-height:1.2em; }
-  .savenote.ok { color:var(--board); }
-  .savenote.bad { color:var(--stripe); }
+  .row { display: flex; gap: .5rem; margin-top: .7rem; }
+  .row .btn { margin-top: 0; }
+  .actions { position: sticky; bottom: 0; padding: .5rem 0 .3rem; background: hsl(var(--background)); }
+  .actions::before { content: ""; display: block; height: .6rem; margin-top: -.6rem;
+    background: linear-gradient(to top, hsl(var(--background)), transparent); }
+  .savenote { margin: .5rem 0 0; text-align: center; font-size: .92rem;
+    color: hsl(var(--muted-fg)); min-height: 1.3em; }
+  .savenote.ok { color: hsl(var(--secondary)); font-weight: 700; }
+  .savenote.bad { color: hsl(var(--danger)); font-weight: 700; }
 
-  /* ── Reading ── */
-  .passage { margin-top:1rem; padding:1.1rem 1.15rem; background:var(--surface);
-    border:1px solid var(--rule-strong); border-radius:16px; box-shadow:var(--shadow); }
-  .passage .body { font-size:1.35rem; line-height:2.1; }
-  .passage .body.rtl { direction:rtl; text-align:right; }
-  .passage .gloss { margin:.9rem 0 0; padding-top:.8rem; border-top:1px solid var(--rule);
-    font-size:.88rem; color:var(--text-faint); }
-  .checkbox-q { margin-top:1rem; padding:.85rem .95rem; background:var(--surface-2);
-    border-radius:12px; font-size:.92rem; }
-  .checkbox-q p { margin:0 0 .7rem; }
-  .rec { display:flex; align-items:center; justify-content:center; gap:.8rem; margin-top:1rem; }
-  .recdot { width:.7rem; height:.7rem; border-radius:50%; background:var(--stripe); }
-  .elapsed { font-variant-numeric:tabular-nums; font-size:1.4rem; font-weight:600; }
-  audio { width:100%; margin-top:1rem; }
-  textarea { width:100%; font:inherit; font-size:1rem; background:var(--surface); color:var(--text);
-    border:1px solid var(--rule-strong); border-radius:12px; padding:.7rem .85rem; resize:vertical; }
-  textarea:focus-visible { outline:3px solid var(--stripe); outline-offset:2px; }
+  .passage { padding: 1.2rem; background: hsl(var(--card)); border: 2px solid hsl(var(--border));
+    border-radius: 18px; box-shadow: var(--shadow); }
+  .passage .body { font-size: 1.5rem; line-height: 2.15; }
+  .passage .body.rtl { direction: rtl; text-align: right; }
+  .passage .gloss { margin: 1rem 0 0; padding-top: .9rem; border-top: 1px solid hsl(var(--border));
+    font-size: .95rem; color: hsl(var(--muted-fg)); }
+  .ask { margin-top: 1rem; padding: 1rem; background: hsl(var(--muted)); border-radius: 16px; }
+  .rec { display: flex; align-items: center; justify-content: center; gap: .8rem; margin-top: 1rem; }
+  .recdot { width: .8rem; height: .8rem; border-radius: 50%; background: hsl(var(--danger)); }
+  .elapsed { font-variant-numeric: tabular-nums; font-size: 1.6rem; font-weight: 700; }
+  audio { width: 100%; margin-top: 1rem; }
 
-  /* ── Footer ── */
-  footer { margin-top:2.5rem; padding-top:1.4rem; border-top:1px solid var(--rule); }
-  footer p { margin:0 0 .9rem; font-size:.9rem; color:var(--text-soft); }
-  .stores { display:flex; flex-wrap:wrap; align-items:center; gap:.7rem; }
-  .stores a { display:inline-block; }
-  .stores img { height:2.6rem; width:auto; display:block; }
-  .soon { display:inline-flex; align-items:center; gap:.4rem; height:2.6rem; padding:0 .85rem;
-    border:1px dashed var(--rule-strong); border-radius:8px; font-size:.82rem; color:var(--text-faint); }
-  .weblink { display:inline-block; margin-top:.9rem; font-size:.95rem; color:var(--board); font-weight:600; }
+  footer { margin-top: 2.5rem; padding-top: 1.4rem; border-top: 1px solid hsl(var(--border)); }
+  footer p { font-size: .95rem; color: hsl(var(--muted-fg)); }
+  .stores { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; }
+  .stores img { height: 2.8rem; width: auto; display: block; }
+  .soon { display: inline-flex; align-items: center; height: 2.8rem; padding: 0 .9rem;
+    border: 2px dashed hsl(var(--border)); border-radius: 10px;
+    font-size: .88rem; color: hsl(var(--muted-fg)); }
+  .weblink { display: inline-block; margin-top: 1rem; font-size: 1.05rem; font-weight: 700;
+    color: hsl(var(--primary)); }
 </style>
 
 <div class="wrap">
+  <div class="brandbar">
+    <img src="/mascot/mascot-wave.png" alt="">
+    <b>Bolo!</b>
+  </div>
 
-  <!-- ── Intro ─────────────────────────────────────────── -->
-  <section id="intro">
-    <h1>Help teach the next generation</h1>
-    <p class="sub">
-      Bolo teaches twenty-two South Asian languages. It can already show a learner the
-      <em>shape</em> of each letter, but not the part you learned in school: which stroke
-      comes first, and which way your hand moves. Only someone who writes the script can
-      give it that.
+  <section id="s1">
+    <div class="steps"><i class="on"></i><i></i><i></i></div>
+    <p class="steplabel">Step 1 of 3</p>
+    <div class="hero">
+      <img src="/mascot/mascot-wave.png" alt="Bolo, a small blue and green bird, waving">
+      <h1>Will you help teach our children?</h1>
+    </div>
+    <p class="lede">
+      Bolo teaches twenty-two South Asian languages. It can show a child the shape of
+      each letter, but not the part you learned in school: which stroke comes first,
+      and which way your hand moves. Only you can give it that.
     </p>
-    <p class="warm">
-      <b>This takes five to ten minutes, and whatever you can manage is genuinely
-      appreciated.</b> You can stop whenever you like and nothing is lost. Every bit
-      helps make this a better way to teach the next generation.
+    <p class="note">
+      <b>Five to ten minutes, and whatever you can manage is truly appreciated.</b>
+      You can stop at any time and nothing is lost.
     </p>
-
-    <label class="field" for="who">Your first name</label>
-    <input id="who" type="text" autocomplete="given-name" placeholder="So we know whose handwriting this is" maxlength="24">
-
-    <label class="field" id="picklabel">Which alphabet do you write?</label>
-    <div class="scripts" id="scripts" role="group" aria-labelledby="picklabel"></div>
-
-    <details class="chart">
-      <summary>Not sure which one? See which alphabet each language uses</summary>
-      <p class="chartnote">Tap a row to pick that alphabet.</p>
-      <div class="chartscroll">
-        <table id="charttable">
-          <thead><tr><th scope="col">Alphabet</th><th scope="col">Languages written in it</th></tr></thead>
-          <tbody>
-            <tr data-script="Bengali"><th scope="row">Bengali<span class="alt">Bengali-Assamese</span></th><td>Bengali, Assamese</td></tr>
-            <tr data-script="Devanagari"><th scope="row">Devanagari</th><td>Hindi, Marathi, Nepali, Sanskrit, Konkani, Bodo, Maithili, Dogri, Sindhi</td></tr>
-            <tr data-script="Gujarati"><th scope="row">Gujarati</th><td>Gujarati, Kutchi</td></tr>
-            <tr data-script="Gurmukhi"><th scope="row">Gurmukhi</th><td>Punjabi</td></tr>
-            <tr data-script="Kannada"><th scope="row">Kannada</th><td>Kannada, Tulu, Konkani (regional)</td></tr>
-            <tr data-script="Malayalam"><th scope="row">Malayalam</th><td>Malayalam</td></tr>
-            <tr data-script="Meetei Mayek"><th scope="row">Meetei Mayek</th><td>Meitei (Manipuri)</td></tr>
-            <tr data-script="Nastaliq"><th scope="row">Nastaliq<span class="alt">Perso-Arabic</span></th><td>Urdu, Kashmiri, Sindhi</td></tr>
-            <tr data-script="Odia"><th scope="row">Odia</th><td>Odia (Oriya)</td></tr>
-            <tr data-script="Ol Chiki"><th scope="row">Ol Chiki</th><td>Santali</td></tr>
-            <tr data-script="Tamil"><th scope="row">Tamil</th><td>Tamil</td></tr>
-            <tr data-script="Telugu"><th scope="row">Telugu</th><td>Telugu</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="chartnote"><b>Sindhi appears twice on purpose.</b> It is written in Devanagari in
-        India and in Perso-Arabic in Pakistan. Pick whichever one you actually write.</p>
-    </details>
-
-    <button class="primary" id="start" disabled>Choose an alphabet to begin</button>
+    <label class="steplabel" for="who" style="margin-top:1.4rem;display:block">What is your first name?</label>
+    <input id="who" type="text" autocomplete="given-name" placeholder="Bharti" maxlength="24" enterkeyhint="next">
+    <button class="btn" id="to2" disabled>Next</button>
   </section>
 
-  <!-- ── Hub: two independent, optional things ─────────── -->
-  <section id="hub" hidden>
-    <div class="topbar">
-      <span class="count" id="hubwho"></span>
-      <button class="linkish" id="hubback">Change</button>
-    </div>
-    <h2 id="hubtitle"></h2>
-    <p class="sub">Do either one, both, or neither. <b>Everything saves as you go</b>, so you can
-      stop at any point and nothing you have already done is lost.</p>
-
-    <div class="cards">
-      <button class="card" id="cardtrace">
-        <h3>Write the letters</h3>
-        <p>Trace each letter with your finger, the way you would write it. About five minutes.</p>
-        <span class="state" id="statetrace">Not started</span>
-      </button>
-      <button class="card" id="cardread">
-        <h3>Read a short paragraph aloud</h3>
-        <p>Four sentences, read at your normal speed. Under a minute.</p>
-        <span class="state" id="stateread">Not started</span>
-      </button>
-    </div>
-
-    <p class="savenote ok" id="hubthanks" hidden></p>
+  <section id="s2" hidden>
+    <div class="steps"><i class="on"></i><i class="on"></i><i></i></div>
+    <p class="steplabel">Step 2 of 3</p>
+    <h2 id="s2title">Which language do you read and write?</h2>
+    <p class="lede">Pick the one you learned to write. If you know more than one, choose the one you write best.</p>
+    <div class="choices" id="choices"></div>
+    <button class="btn" id="to3" disabled>Next</button>
+    <button class="backlink" id="back1">Back</button>
   </section>
 
-  <!-- ── Tracing ───────────────────────────────────────── -->
+  <section id="s3" hidden>
+    <div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+    <p class="steplabel">Step 3 of 3</p>
+    <h2 id="s3title">What would you like to do?</h2>
+    <p class="lede">Do either one, both, or neither. <b>Everything saves as you go.</b></p>
+    <button class="card" id="cardtrace">
+      <h3>Write the letters</h3>
+      <p>Trace each letter with your finger, the way you write it. About five minutes.</p>
+      <span class="state" id="statetrace">Not started</span>
+    </button>
+    <button class="card" id="cardread">
+      <h3>Read a short paragraph aloud</h3>
+      <p>Four sentences, at your normal speed. Under a minute.</p>
+      <span class="state" id="stateread">Not started</span>
+    </button>
+    <p class="savenote ok" id="thanks" hidden></p>
+    <button class="backlink" id="back2">Back</button>
+  </section>
+
   <section id="tracer" hidden>
     <div class="topbar">
       <span class="count" id="count"></span>
-      <button class="linkish" id="tracedone">Stop and go back</button>
+      <button class="backlink" id="tracedone">Stop</button>
     </div>
     <div class="bar"><i id="progress" style="width:0%"></i></div>
-
     <p class="tip" id="tip"></p>
-
     <div class="letter"><span class="glyph" id="glyph"></span><span class="rom" id="rom"></span></div>
     <p class="say" id="say"></p>
-
     <div class="padwrap">
       <svg class="pad empty" id="pad" viewBox="0 0 100 100" aria-label="Tracing pad"></svg>
       <div class="hint" id="hint">Trace the grey letter with your finger</div>
     </div>
-
     <div class="actions">
       <div class="row">
-        <button id="undo" disabled>Undo stroke</button>
-        <button id="clear" disabled>Clear</button>
-        <button id="skip">Skip</button>
+        <button class="btn ghost small" id="undo" disabled>Undo</button>
+        <button class="btn ghost small" id="clear" disabled>Clear</button>
+        <button class="btn ghost small" id="skip">Skip</button>
       </div>
-      <button class="primary" id="next" disabled>Save and next letter</button>
+      <button class="btn" id="next" disabled>Save and next</button>
       <p class="savenote" id="tracesave"></p>
     </div>
   </section>
 
-  <!-- ── Reading ───────────────────────────────────────── -->
   <section id="reader" hidden>
     <div class="topbar">
-      <span class="count" id="readcount">Read aloud</span>
-      <button class="linkish" id="readdone">Stop and go back</button>
+      <span class="count">Read aloud</span>
+      <button class="backlink" id="readdone">Stop</button>
     </div>
-
     <div class="passage">
       <div class="body" id="passagetext"></div>
       <p class="gloss" id="passagegloss"></p>
     </div>
-
-    <div class="checkbox-q" id="checkq">
+    <div class="ask" id="askwrap">
       <p><b>Before you read it: does that sound right to you?</b> We wrote it and we are not
-        certain it is natural. You are the one who would know.</p>
-      <div class="row" style="margin-top:0">
-        <button id="textok">Yes, it reads fine</button>
-        <button id="textbad">Not quite right</button>
+        sure it is natural. You would know.</p>
+      <div class="row">
+        <button class="btn ghost small" id="textok">Yes, it is fine</button>
+        <button class="btn ghost small" id="textbad">Not quite right</button>
       </div>
-
       <div id="whywrap" hidden>
-        <p style="margin:1rem 0 .6rem"><b>What is wrong with it?</b> Anything at all helps:
-          a word that is off, wrong grammar, or how you would actually say it.</p>
+        <p style="margin:1.1rem 0 .6rem"><b>What is wrong with it?</b> Anything helps: a word
+          that is off, or how you would really say it.</p>
         <textarea id="why" rows="4" placeholder="For example: nobody says it that way, we would say..."></textarea>
         <div class="row">
-          <button id="whyskip">Skip this</button>
-          <button id="whysend">Send</button>
+          <button class="btn ghost small" id="whyskip">Skip</button>
+          <button class="btn small" id="whysend">Send</button>
         </div>
         <p class="savenote" id="whysave"></p>
       </div>
     </div>
-
     <div id="recwrap" hidden>
       <p class="say" id="recsay">Read it at your normal speed. Tap to start.</p>
       <div class="rec" id="recmeter" hidden><span class="recdot"></span><span class="elapsed" id="elapsed">0:00</span></div>
-      <button class="primary" id="recbtn">Start recording</button>
+      <button class="btn" id="recbtn">Start recording</button>
       <audio id="playback" controls hidden></audio>
-      <div class="row" id="recactions" hidden>
-        <button id="redo">Record again</button>
-      </div>
-      <button class="primary" id="sendrec" hidden>Send this recording</button>
+      <div class="row" id="recactions" hidden><button class="btn ghost small" id="redo">Record again</button></div>
+      <button class="btn" id="sendrec" hidden>Send this recording</button>
       <p class="savenote" id="recsave"></p>
     </div>
   </section>
@@ -337,8 +301,7 @@
       next generation to keep the language.</p>
     <div class="stores">
       <a href="https://apps.apple.com/app/id6790907772" target="_blank" rel="noopener">
-        <img src="/appstore-badge.svg" alt="Download Bolo on the App Store">
-      </a>
+        <img src="/appstore-badge.svg" alt="Download Bolo on the App Store"></a>
       <span class="soon">Google Play, coming soon</span>
     </div>
     <a class="weblink" href="https://trybolo.app" target="_blank" rel="noopener">trybolo.app</a>
@@ -352,16 +315,33 @@
   var ALPHABETS = /*__ALPHABETS__*/{};
   var PASSAGES  = /*__PASSAGES__*/{};
 
+  // Step 2 asks the question people actually think in. Nobody thinks "I write
+  // Meetei Mayek"; they think "I speak Manipuri". The alphabet is the answer,
+  // the language is the question.
+  var LANGS = {
+    "Bengali":"Bengali, Assamese",
+    "Devanagari":"Hindi, Marathi, Nepali, Sanskrit, Konkani, Bodo, Maithili, Dogri, Sindhi",
+    "Gujarati":"Gujarati, Kutchi",
+    "Gurmukhi":"Punjabi",
+    "Kannada":"Kannada, Tulu, Konkani",
+    "Malayalam":"Malayalam",
+    "Meetei Mayek":"Meitei (Manipuri)",
+    "Nastaliq":"Urdu, Kashmiri, Sindhi",
+    "Odia":"Odia (Oriya)",
+    "Ol Chiki":"Santali",
+    "Tamil":"Tamil",
+    "Telugu":"Telugu"
+  };
   var TIPS = {
-    "Devanagari":"The head-line across the top (shirorekha) goes on LAST, after the letter body.",
-    "Bengali":"The head-line across the top (matra) goes on LAST, after the letter body.",
-    "Gurmukhi":"The head-line across the top (sirlekh) goes on LAST, after the letter body.",
-    "Gujarati":"There is NO head-line in Gujarati. That is the difference from Devanagari, so do not draw one.",
-    "Odia":"The curved umbrella top is part of the letter. Body first, then the curve to close it.",
-    "Nastaliq":"Right to left. Draw the joined skeleton first, then add the dots and marks.",
-    "Tamil":"Left to right, top to bottom. Keep a curve as one stroke where your hand would.",
-    "Telugu":"Left to right, top to bottom. The tick above the letter comes last.",
-    "Kannada":"Left to right, top to bottom. The tick above the letter comes last.",
+    "Devanagari":"The line across the top goes on LAST, after the letter body.",
+    "Bengali":"The line across the top goes on LAST, after the letter body.",
+    "Gurmukhi":"The line across the top goes on LAST, after the letter body.",
+    "Gujarati":"There is NO line across the top in Gujarati. Please do not draw one.",
+    "Odia":"The curved top is part of the letter. Body first, then the curve.",
+    "Nastaliq":"Right to left. Draw the joined shape first, then the dots.",
+    "Tamil":"Left to right, top to bottom. Keep a curve as one stroke.",
+    "Telugu":"Left to right, top to bottom. The tick above comes last.",
+    "Kannada":"Left to right, top to bottom. The tick above comes last.",
     "Malayalam":"Left to right, top to bottom. Keep round shapes as one stroke.",
     "Ol Chiki":"Left to right, top to bottom.",
     "Meetei Mayek":"Left to right, top to bottom."
@@ -373,90 +353,56 @@
     "Nastaliq":"Noto+Nastaliq+Urdu","Ol Chiki":"Noto+Sans+Ol+Chiki","Meetei Mayek":"Noto+Sans+Meetei+Mayek"
   };
 
-  // ── Same arithmetic the app uses. Smooth first (a touchscreen jitters), then
-  // Ramer-Douglas-Peucker, then snap to whole numbers in the 0..100 box. Ends
-  // are smoothed one-sided: preserving a noisy endpoint tilts the chord RDP
-  // measures against and stops it simplifying at all.
+  // Smooth, then Ramer-Douglas-Peucker, then snap to whole numbers. Ends are
+  // smoothed one-sided: preserving a noisy endpoint tilts the chord RDP measures
+  // against and stops it simplifying at all.
   var EPSILON = 1.5, PASSES = 2;
-  function smooth(pts) {
-    var cur = pts.slice(), p, i, next, last;
-    if (cur.length <= 2) return cur;
-    for (p = 0; p < PASSES; p++) {
-      next = new Array(cur.length); last = cur.length - 1;
-      next[0] = { x:(2*cur[0].x + cur[1].x)/3, y:(2*cur[0].y + cur[1].y)/3 };
-      for (i = 1; i < last; i++) next[i] = {
-        x:(cur[i-1].x + cur[i].x + cur[i+1].x)/3, y:(cur[i-1].y + cur[i].y + cur[i+1].y)/3 };
-      next[last] = { x:(2*cur[last].x + cur[last-1].x)/3, y:(2*cur[last].y + cur[last-1].y)/3 };
-      cur = next;
-    }
-    return cur;
-  }
+  function smooth(p){var c=p.slice(),k,i,n,l;if(c.length<=2)return c;
+    for(k=0;k<PASSES;k++){n=new Array(c.length);l=c.length-1;
+      n[0]={x:(2*c[0].x+c[1].x)/3,y:(2*c[0].y+c[1].y)/3};
+      for(i=1;i<l;i++)n[i]={x:(c[i-1].x+c[i].x+c[i+1].x)/3,y:(c[i-1].y+c[i].y+c[i+1].y)/3};
+      n[l]={x:(2*c[l].x+c[l-1].x)/3,y:(2*c[l].y+c[l-1].y)/3};c=n;}return c;}
   function perp(p,a,b){var dx=b.x-a.x,dy=b.y-a.y;
     if(dx===0&&dy===0)return Math.hypot(p.x-a.x,p.y-a.y);
     return Math.abs(dy*p.x-dx*p.y+b.x*a.y-b.y*a.x)/Math.hypot(dx,dy);}
-  function simplify(pts){
-    if(pts.length<=2)return pts.slice();
-    var keep=new Array(pts.length).fill(false),stack=[[0,pts.length-1]],out=[],i;
-    keep[0]=keep[pts.length-1]=true;
-    while(stack.length){var s=stack.pop(),f=s[0],l=s[1],wi=-1,wd=EPSILON;
-      for(i=f+1;i<l;i++){var d=perp(pts[i],pts[f],pts[l]);if(d>wd){wd=d;wi=i;}}
-      if(wi!==-1){keep[wi]=true;stack.push([f,wi],[wi,l]);}}
-    for(i=0;i<pts.length;i++)if(keep[i])out.push(pts[i]);
-    return out;}
-  function clean(raw){
-    if(raw.length<2)return null;
+  function simplify(p){if(p.length<=2)return p.slice();
+    var keep=new Array(p.length).fill(false),st=[[0,p.length-1]],o=[],i;
+    keep[0]=keep[p.length-1]=true;
+    while(st.length){var s=st.pop(),f=s[0],l=s[1],wi=-1,wd=EPSILON;
+      for(i=f+1;i<l;i++){var d=perp(p[i],p[f],p[l]);if(d>wd){wd=d;wi=i;}}
+      if(wi!==-1){keep[wi]=true;st.push([f,wi],[wi,l]);}}
+    for(i=0;i<p.length;i++)if(keep[i])o.push(p[i]);return o;}
+  function clean(raw){if(raw.length<2)return null;
     var s=simplify(smooth(raw)).map(function(p){return{
-      x:Math.min(100,Math.max(0,Math.round(p.x))), y:Math.min(100,Math.max(0,Math.round(p.y)))};});
+      x:Math.min(100,Math.max(0,Math.round(p.x))),y:Math.min(100,Math.max(0,Math.round(p.y)))};});
     var o=s.filter(function(p,i){return i===0||p.x!==s[i-1].x||p.y!==s[i-1].y;});
     return o.length>=2?o:null;}
 
-  var $ = function(id){ return document.getElementById(id); };
+  var $=function(id){return document.getElementById(id);};
 
-  // ── One sitting, kept across a reload so a dropped connection or an
-  // accidental refresh continues the same row rather than starting a new one.
-  var SKEY = "bolo.aksharmala.session";
-  var sessionId = (function(){
-    try { var v = localStorage.getItem(SKEY); if (v) return v; } catch (e) {}
-    var v = "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
-    try { localStorage.setItem(SKEY, v); } catch (e) {}
-    return v;
-  })();
+  var SKEY="bolo.aksharmala.session";
+  var sessionId=(function(){try{var v=localStorage.getItem(SKEY);if(v)return v;}catch(e){}
+    var v="s"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+    try{localStorage.setItem(SKEY,v);}catch(e){}return v;})();
 
-  var scriptName=null, who="", roster=[], idx=0, strokes=[], livePts=null, saved=[];
-  var tracedCount=0, recordedOk=false;
+  var scriptName=null,who="",roster=[],idx=0,strokes=[],livePts=null,saved=[],
+      tracedCount=0,recordedOk=false;
 
-  // The "!" practice marker is still honoured by the parser and by the
-  // is_practice column, so a row can be marked non-teaching after the fact. What
-  // is gone is the CHECKBOX: it sat next to the name field looking like
-  // something to tick, and a contributor ticking it would quietly opt their own
-  // work out of ever being used.
-  function isPractice(){ return false; }
-  function safeName(){
-    var n=(who||"-").replace(/[|~;:!\s]+/g,"_").slice(0,24)||"-";
-    return isPractice()? "!"+n : n;
-  }
-  function encode(){
-    return "bolo1|"+scriptName.replace(/ /g,"_")+"|"+safeName()+"|"+saved.map(function(g){
-      return g.id+":"+g.strokes.map(function(s){
-        return s.map(function(p){return p.x+","+p.y;}).join(";");}).join("~");}).join("|");
-  }
+  function safeName(){return (who||"-").replace(/[|~;:!\s]+/g,"_").slice(0,24)||"-";}
+  function encode(){return "bolo1|"+scriptName.replace(/ /g,"_")+"|"+safeName()+"|"+
+    saved.map(function(g){return g.id+":"+g.strokes.map(function(s){
+      return s.map(function(p){return p.x+","+p.y;}).join(";");}).join("~");}).join("|");}
+  function note(el,text,kind){var n=$(el);n.textContent=text;n.className="savenote"+(kind?" "+kind:"");}
 
-  // ── Autosave. Fires after EVERY letter, because somebody can stop at any
-  // point and the alternative loses the whole sitting. Each save sends the
-  // full set so far and the server upserts on the session id.
-  function note(el, text, kind){
-    var n=$(el); n.textContent=text;
-    n.className="savenote"+(kind?" "+kind:"");
-  }
   function autosave(){
-    if(!saved.length) return Promise.resolve();
+    if(!saved.length)return;
     note("tracesave","Saving...");
-    return fetch("/api/script-trace/contributions",{
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({ sessionId:sessionId, payload:encode() })
+    fetch("/api/script-trace/contributions",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({sessionId:sessionId,payload:encode()})
     }).then(function(r){
-      if(!r.ok) throw new Error("http "+r.status);
-      note("tracesave","Saved. "+saved.length+" letter"+(saved.length===1?"":"s")+" so far.","ok");
+      if(!r.ok)throw new Error("http "+r.status);
+      note("tracesave","Saved. "+saved.length+(saved.length===1?" letter":" letters")+" so far.","ok");
       refreshHub();
     }).catch(function(){
       note("tracesave","Could not save that one. It will try again with the next letter.","bad");
@@ -464,63 +410,51 @@
   }
 
   function d(pts){return pts.map(function(p,i){return (i?"L":"M")+p.x.toFixed(2)+","+p.y.toFixed(2);}).join(" ");}
+  function loadFont(n){var f=FONTS[n];if(!f||document.getElementById("f-"+f))return;
+    var l=document.createElement("link");l.id="f-"+f;l.rel="stylesheet";
+    l.href="https://fonts.googleapis.com/css2?family="+f+"&display=swap";document.head.appendChild(l);}
+  function show(which){["s1","s2","s3","tracer","reader"].forEach(function(s){$(s).hidden=s!==which;});
+    window.scrollTo(0,0);}
 
-  function loadFont(name){
-    var fam=FONTS[name]; if(!fam||document.getElementById("f-"+fam))return;
-    var l=document.createElement("link"); l.id="f-"+fam; l.rel="stylesheet";
-    l.href="https://fonts.googleapis.com/css2?family="+fam+"&display=swap";
-    document.head.appendChild(l);
-  }
-
-  // ── Screens ──────────────────────────────────────────
-  function show(which){
-    ["intro","hub","tracer","reader"].forEach(function(s){ $(s).hidden = s!==which; });
-    window.scrollTo(0,0);
-  }
   function refreshHub(){
-    $("hubwho").textContent = (who? who+" · ":"") + scriptName;
-    $("hubtitle").textContent = "Two ways to help";
     var t=$("statetrace");
-    t.textContent = tracedCount ? tracedCount+" of "+roster.length+" letters saved" : "Not started";
-    t.className = "state"+(tracedCount?" on":"");
+    t.textContent=tracedCount?tracedCount+" of "+roster.length+" letters saved":"Not started";
+    t.className="state"+(tracedCount?" on":"");
     var r=$("stateread");
-    r.textContent = recordedOk ? "Recording saved" : "Not started";
-    r.className = "state"+(recordedOk?" on":"");
-    $("hubthanks").hidden = !(tracedCount || recordedOk);
-    $("hubthanks").textContent = "Thank you. Everything above is already saved.";
+    r.textContent=recordedOk?"Recording saved":"Not started";
+    r.className="state"+(recordedOk?" on":"");
+    $("thanks").hidden=!(tracedCount||recordedOk);
+    $("thanks").textContent="Thank you. Everything above is already saved.";
   }
 
-  // ── Tracing ──────────────────────────────────────────
   var pad=$("pad");
   function draw(){
-    var ch=roster[idx], parts=[], i;
-    parts.push(ch.guide
-      ? '<path d="'+ch.guide+'" fill="var(--guide)"></path>'
-      : '<text x="50" y="74" font-size="66" text-anchor="middle" fill="var(--guide)">'+ch.char+'</text>');
+    var ch=roster[idx],parts=[],i;
+    parts.push(ch.guide?'<path d="'+ch.guide+'" fill="hsl(var(--muted-fg) / .22)"></path>'
+      :'<text x="50" y="74" font-size="66" text-anchor="middle" fill="hsl(var(--muted-fg) / .22)">'+ch.char+'</text>');
     for(i=0;i<strokes.length;i++){
-      parts.push('<path d="'+d(strokes[i])+'" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>');
-      parts.push('<circle cx="'+strokes[i][0].x+'" cy="'+strokes[i][0].y+'" r="3" fill="var(--stripe)"></circle>');
-      parts.push('<text x="'+strokes[i][0].x+'" y="'+(strokes[i][0].y+1.3)+'" font-size="3.6" text-anchor="middle" fill="#FFF7EA">'+(i+1)+'</text>');
+      parts.push('<path d="'+d(strokes[i])+'" fill="none" stroke="hsl(var(--foreground))" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>');
+      parts.push('<circle cx="'+strokes[i][0].x+'" cy="'+strokes[i][0].y+'" r="3.2" fill="hsl(var(--primary))"></circle>');
+      parts.push('<text x="'+strokes[i][0].x+'" y="'+(strokes[i][0].y+1.3)+'" font-size="3.6" text-anchor="middle" fill="hsl(var(--primary-fg))">'+(i+1)+'</text>');
     }
     if(livePts&&livePts.length>1)
-      parts.push('<path d="'+d(livePts)+'" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"></path>');
+      parts.push('<path d="'+d(livePts)+'" fill="none" stroke="hsl(var(--foreground))" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"></path>');
     pad.innerHTML=parts.join("");
     pad.classList.toggle("empty",strokes.length===0);
-    $("hint").hidden = strokes.length>0 || !!livePts;
-
+    $("hint").hidden=strokes.length>0||!!livePts;
     $("glyph").textContent=ch.char;
     $("glyph").style.fontFamily='"'+(FONTS[scriptName]||"").replace(/\+/g," ")+'", serif';
     $("rom").textContent=ch.label;
     $("count").textContent="Letter "+(idx+1)+" of "+roster.length;
-    $("say").textContent = strokes.length
+    $("say").textContent=strokes.length
       ? strokes.length+(strokes.length===1?" stroke":" strokes")+" so far. Lift your finger between strokes."
-      : "Trace it the way you would write it.";
+      : "Trace it the way you write it.";
     $("progress").style.width=(idx/roster.length)*100+"%";
     $("undo").disabled=$("clear").disabled=$("next").disabled=strokes.length===0;
-    $("next").textContent = idx===roster.length-1 ? "Save and finish" : "Save and next letter";
+    $("next").textContent=idx===roster.length-1?"Save and finish":"Save and next";
   }
   function at(e){var r=pad.getBoundingClientRect();
-    return {x:((e.clientX-r.left)/r.width)*100, y:((e.clientY-r.top)/r.height)*100};}
+    return {x:((e.clientX-r.left)/r.width)*100,y:((e.clientY-r.top)/r.height)*100};}
   pad.addEventListener("pointerdown",function(e){e.preventDefault();pad.setPointerCapture(e.pointerId);livePts=[at(e)];draw();});
   pad.addEventListener("pointermove",function(e){if(!livePts)return;e.preventDefault();livePts.push(at(e));draw();});
   function endStroke(){if(!livePts)return;var c=clean(livePts);livePts=null;if(c)strokes.push(c);draw();}
@@ -536,254 +470,156 @@
     saved=saved.filter(function(g){return g.id!==roster[idx].id;});
     saved.push({id:roster[idx].id,strokes:strokes.slice()});
     strokes=[];
-    // Count what the person DID, synchronously. It used to be set inside the
-    // autosave promise, so finishing the last letter rendered the hub before
-    // the request came back and it said "19 of 20" after twenty letters.
-    // The network is why a save might fail; it is not what decides how many
-    // letters somebody drew.
+    // Count what she DID, synchronously. Setting this inside the autosave
+    // promise made the final letter report "19 of 20" after twenty.
     tracedCount=saved.length;
     autosave();
     advance();
   });
-  function advance(){
-    if(idx>=roster.length-1){ refreshHub(); show("hub"); return; }
-    idx++; draw();
-  }
-  $("tracedone").addEventListener("click",function(){ refreshHub(); show("hub"); });
+  function advance(){if(idx>=roster.length-1){refreshHub();show("s3");return;}idx++;draw();}
+  $("tracedone").addEventListener("click",function(){refreshHub();show("s3");});
 
-  // ── Reading ──────────────────────────────────────────
-  var mediaRecorder=null, chunks=[], recStart=0, timer=null, blob=null, mime="", audioB64="", recMs=0;
-
-  // Safari will not reliably play back a blob: URL produced by its own
-  // MediaRecorder in the same session, which shows up as a bare "Error" in the
-  // audio element while the recording itself is perfectly good. Reading the
-  // blob once into a data URL sidesteps that AND gives us the base64 the upload
-  // needs, so the file is read once instead of twice.
-  function blobToDataUrl(b){
-    return new Promise(function(resolve,reject){
-      var r=new FileReader();
-      r.onloadend=function(){ resolve(String(r.result)); };
-      r.onerror=function(){ reject(r.error); };
-      r.readAsDataURL(b);
-    });
-  }
-
-  /** The first container this browser will actually record. */
-  function pickMime(){
-    var wanted=["audio/mp4","audio/webm;codecs=opus","audio/webm","audio/ogg;codecs=opus"];
-    if(typeof MediaRecorder==="undefined") return null;
-    if(!MediaRecorder.isTypeSupported) return "";
-    for(var i=0;i<wanted.length;i++) if(MediaRecorder.isTypeSupported(wanted[i])) return wanted[i];
-    return "";
-  }
+  var mediaRecorder=null,chunks=[],recStart=0,timer=null,blob=null,mime="",audioB64="",recMs=0;
+  function blobToDataUrl(b){return new Promise(function(res,rej){var r=new FileReader();
+    r.onloadend=function(){res(String(r.result));};r.onerror=function(){rej(r.error);};r.readAsDataURL(b);});}
+  function pickMime(){var w=["audio/mp4","audio/webm;codecs=opus","audio/webm","audio/ogg;codecs=opus"];
+    if(typeof MediaRecorder==="undefined")return null;
+    if(!MediaRecorder.isTypeSupported)return "";
+    for(var i=0;i<w.length;i++)if(MediaRecorder.isTypeSupported(w[i]))return w[i];return "";}
   function fmt(ms){var s=Math.floor(ms/1000);return Math.floor(s/60)+":"+("0"+(s%60)).slice(-2);}
 
   function openReader(){
     var p=PASSAGES[scriptName];
-    $("passagetext").textContent = p ? p.text : "";
-    $("passagetext").className = "body"+(scriptName==="Nastaliq"?" rtl":"");
+    $("passagetext").textContent=p?p.text:"";
+    $("passagetext").className="body"+(scriptName==="Nastaliq"?" rtl":"");
     $("passagetext").style.fontFamily='"'+(FONTS[scriptName]||"").replace(/\+/g," ")+'", serif';
-    $("passagegloss").textContent = p ? "In English: "+p.gloss : "";
-    $("checkq").hidden=false; $("recwrap").hidden=true; $("whywrap").hidden=true;
-    $("textok").disabled=false; $("textbad").disabled=false;
-    $("why").value=""; $("whysend").disabled=false; note("whysave","");
-    note("recsave","");
+    $("passagegloss").textContent=p?"In English: "+p.gloss:"";
+    $("askwrap").hidden=false;$("recwrap").hidden=true;$("whywrap").hidden=true;
+    $("textok").disabled=false;$("textbad").disabled=false;
+    $("why").value="";$("whysend").disabled=false;note("whysave","");note("recsave","");
     show("reader");
   }
-  // Both verdicts are sent, not just the complaints. A plain yes from somebody
-  // who speaks the language is the evidence that lets a passage be marked
-  // verified; only storing corrections would leave all twelve unverified forever.
-  function sendVerdict(readsWell, comment){
+  function sendVerdict(ok,comment){
     var p=PASSAGES[scriptName];
-    return fetch("/api/script-trace/passage-feedback",{
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        sessionId:sessionId, script:scriptName, contributor:safeName(), isPractice:isPractice(),
-        passageId:p.id, passageText:p.text, readsWell:readsWell, comment:comment||""
-      })
-    });
+    return fetch("/api/script-trace/passage-feedback",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({sessionId:sessionId,script:scriptName,contributor:safeName(),
+        passageId:p.id,passageText:p.text,readsWell:ok,comment:comment||""})});
   }
-
-  $("textok").addEventListener("click",function(){
-    sendVerdict(true,"");
-    $("checkq").hidden=true; $("recwrap").hidden=false;
-  });
-
+  $("textok").addEventListener("click",function(){sendVerdict(true,"");$("askwrap").hidden=true;$("recwrap").hidden=false;});
   $("textbad").addEventListener("click",function(){
-    // Filed straight away, so a verdict is captured even if they write nothing.
     sendVerdict(false,"");
-    $("whywrap").hidden=false;
-    $("textok").disabled=true; $("textbad").disabled=true;
-    $("why").focus();
-  });
-
+    $("whywrap").hidden=false;$("textok").disabled=true;$("textbad").disabled=true;$("why").focus();});
   function finishFeedback(msg){
-    $("checkq").innerHTML='<p><b>Thank you, that is exactly the kind of thing worth knowing.</b> '+
-      msg+'</p>';
-  }
+    $("askwrap").innerHTML='<p><b>Thank you, that is exactly what we needed to know.</b> '+msg+'</p>';}
   $("whyskip").addEventListener("click",function(){
-    finishFeedback("You can still record it if you would like to, or go back and trace letters instead.");
-    $("recwrap").hidden=false;
-  });
+    finishFeedback("You can still record it, or go back and trace letters instead.");
+    $("recwrap").hidden=false;});
   $("whysend").addEventListener("click",function(){
-    var text=$("why").value.trim();
-    note("whysave","Sending...");
-    $("whysend").disabled=true;
-    sendVerdict(false,text).then(function(r){
-      if(!r.ok) throw new Error("http "+r.status);
-      finishFeedback("We will get it corrected. You can still record it as it stands if you like, "+
-        "or go back and trace letters instead.");
+    var t=$("why").value.trim();note("whysave","Sending...");$("whysend").disabled=true;
+    sendVerdict(false,t).then(function(r){
+      if(!r.ok)throw new Error("http "+r.status);
+      finishFeedback("We will get it corrected. You can still record it as it is, or trace letters instead.");
       $("recwrap").hidden=false;
-    }).catch(function(){
-      $("whysend").disabled=false;
-      note("whysave","That did not send. Tap Send again in a moment.","bad");
-    });
-  });
+    }).catch(function(){$("whysend").disabled=false;
+      note("whysave","That did not send. Tap Send again in a moment.","bad");});});
 
   $("recbtn").addEventListener("click",function(){
-    if(mediaRecorder && mediaRecorder.state==="recording"){
-      mediaRecorder.stop();
-      return;
-    }
+    if(mediaRecorder&&mediaRecorder.state==="recording"){mediaRecorder.stop();return;}
     navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
-      // Ask for a container this browser actually supports rather than letting
-      // it default. Safari and iOS want mp4/aac, Chrome and Android webm/opus,
-      // and recording what it really chose is what keeps the stored file playable.
-      var want = pickMime();
-      try {
-        mediaRecorder = want ? new MediaRecorder(stream, { mimeType: want }) : new MediaRecorder(stream);
-      } catch (e) {
-        mediaRecorder = new MediaRecorder(stream);
-      }
-      mime = mediaRecorder.mimeType || want || "audio/webm";
-      chunks=[];
-      mediaRecorder.ondataavailable=function(e){ if(e.data && e.data.size) chunks.push(e.data); };
+      var want=pickMime();
+      try{mediaRecorder=want?new MediaRecorder(stream,{mimeType:want}):new MediaRecorder(stream);}
+      catch(e){mediaRecorder=new MediaRecorder(stream);}
+      mime=mediaRecorder.mimeType||want||"audio/webm";chunks=[];
+      mediaRecorder.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data);};
       mediaRecorder.onstop=function(){
-        clearInterval(timer);
-        recMs = Date.now()-recStart;
+        clearInterval(timer);recMs=Date.now()-recStart;
         stream.getTracks().forEach(function(t){t.stop();});
         blob=new Blob(chunks,{type:mime});
-        $("recmeter").hidden=true;
-        $("recbtn").hidden=true;
-        $("recactions").hidden=false;
-
-        // Nothing captured is a real failure and must not look like a success.
-        if(!blob.size){
-          $("recsay").textContent="Nothing was captured. Tap Record again, and check nothing else is using the microphone.";
-          $("sendrec").hidden=true;
-          return;
-        }
-
+        $("recmeter").hidden=true;$("recbtn").hidden=true;$("recactions").hidden=false;
+        if(!blob.size){$("recsay").textContent="Nothing was recorded. Tap Record again.";
+          $("sendrec").hidden=true;return;}
+        // Safari will not reliably play back a blob: URL from its own
+        // MediaRecorder, so read it once into a data URL, which also gives us
+        // the base64 the upload needs.
         blobToDataUrl(blob).then(function(url){
           audioB64=url.split(",")[1]||"";
           var a=$("playback");
-          // If this browser still refuses to play it back, say so plainly and
-          // keep Send available: the recording is good even when playback is not.
-          a.onerror=function(){
-            a.hidden=true;
-            $("recsay").textContent="Your browser will not play it back, which is a Safari quirk, "+
-              "not a problem with the recording. It captured "+Math.round(recMs/1000)+
-              " seconds. Send it, or tap Record again if you would rather redo it.";
-          };
-          a.src=url; a.hidden=false; a.load();
+          a.onerror=function(){a.hidden=true;
+            $("recsay").textContent="Your phone will not play it back, but the recording is fine. It captured "+
+              Math.round(recMs/1000)+" seconds. You can send it.";};
+          a.src=url;a.hidden=false;a.load();
           $("sendrec").hidden=false;
-          $("recsay").textContent="Have a listen, "+Math.round(recMs/1000)+
-            " seconds. Send it if you are happy with it.";
-        }).catch(function(){
-          $("playback").hidden=true;
-          $("sendrec").hidden=false;
-          $("recsay").textContent="Recorded "+Math.round(recMs/1000)+
-            " seconds. Playback is not available on this browser, but you can still send it.";
-        });
+          $("recsay").textContent="Have a listen, "+Math.round(recMs/1000)+" seconds. Send it if you are happy.";
+        }).catch(function(){$("playback").hidden=true;$("sendrec").hidden=false;
+          $("recsay").textContent="Recorded "+Math.round(recMs/1000)+" seconds. You can send it.";});
       };
-      mediaRecorder.start();
-      recStart=Date.now();
-      $("recmeter").hidden=false;
-      $("recbtn").textContent="Stop recording";
+      mediaRecorder.start();recStart=Date.now();
+      $("recmeter").hidden=false;$("recbtn").textContent="Stop recording";
       $("recsay").textContent="Recording. Take your time.";
-      timer=setInterval(function(){ $("elapsed").textContent=fmt(Date.now()-recStart); },250);
+      timer=setInterval(function(){$("elapsed").textContent=fmt(Date.now()-recStart);},250);
     }).catch(function(){
-      note("recsave","Your browser would not give us the microphone. You can still trace letters.","bad");
-    });
-  });
+      note("recsave","Your phone would not let us use the microphone. You can still trace letters.","bad");});});
 
   $("redo").addEventListener("click",function(){
-    blob=null; audioB64=""; $("playback").removeAttribute("src"); $("playback").hidden=true;
-    $("recactions").hidden=true; $("sendrec").hidden=true;
-    $("recbtn").hidden=false; $("recbtn").textContent="Start recording";
-    $("recsay").textContent="Read it at your normal speed. Tap to start."; $("elapsed").textContent="0:00";
-    note("recsave","");
-  });
+    blob=null;audioB64="";$("playback").removeAttribute("src");$("playback").hidden=true;
+    $("recactions").hidden=true;$("sendrec").hidden=true;$("recbtn").hidden=false;
+    $("recbtn").textContent="Start recording";$("elapsed").textContent="0:00";
+    $("recsay").textContent="Read it at your normal speed. Tap to start.";note("recsave","");});
 
   $("sendrec").addEventListener("click",function(){
-    if(!blob) return;
-    var p=PASSAGES[scriptName];
-    note("recsave","Sending...");
-    $("sendrec").disabled=true;
+    if(!blob)return;var p=PASSAGES[scriptName];
+    note("recsave","Sending...");$("sendrec").disabled=true;
     var send=function(b64){
-      fetch("/api/script-trace/voice",{
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          sessionId:sessionId, script:scriptName, contributor:safeName(),
-          isPractice:isPractice(), promptId:p.id, promptText:p.text, promptLabel:p.language,
-          audioBase64:b64, mimeType:mime, durationMs:recMs
-        })
+      fetch("/api/script-trace/voice",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({sessionId:sessionId,script:scriptName,contributor:safeName(),
+          promptId:p.id,promptText:p.text,promptLabel:p.language,
+          audioBase64:b64,mimeType:mime,durationMs:recMs})
       }).then(function(r){
-        if(!r.ok) throw new Error("http "+r.status);
-        recordedOk=true;
-        note("recsave","Sent. Thank you.","ok");
-        setTimeout(function(){ refreshHub(); show("hub"); }, 900);
-      }).catch(function(){
-        $("sendrec").disabled=false;
-        note("recsave","That did not go through. Tap send again in a moment.","bad");
-      });
-    };
-    // Already read once for playback; only fall back to reading again if that
-    // path did not run.
-    if(audioB64) send(audioB64);
-    else blobToDataUrl(blob).then(function(u){ send(u.split(",")[1]||""); });
-  });
-  $("readdone").addEventListener("click",function(){ refreshHub(); show("hub"); });
+        if(!r.ok)throw new Error("http "+r.status);
+        recordedOk=true;note("recsave","Sent. Thank you.","ok");
+        setTimeout(function(){refreshHub();show("s3");},900);
+      }).catch(function(){$("sendrec").disabled=false;
+        note("recsave","That did not go through. Tap send again in a moment.","bad");});};
+    if(audioB64)send(audioB64);
+    else blobToDataUrl(blob).then(function(u){send(u.split(",")[1]||"");});});
+  $("readdone").addEventListener("click",function(){refreshHub();show("s3");});
 
-  // ── Picker ───────────────────────────────────────────
-  function selectScript(name){
-    var host=$("scripts");
-    Array.prototype.forEach.call(host.children,function(c){
-      c.setAttribute("aria-pressed", String(c.getAttribute("data-script")===name)); });
-    scriptName=name; loadFont(name);
-    $("start").disabled=false;
-    $("start").textContent="Continue with "+name;
-  }
+  $("who").addEventListener("input",function(){$("to2").disabled=!$("who").value.trim();});
+  $("who").addEventListener("keydown",function(e){if(e.key==="Enter"&&$("who").value.trim())$("to2").click();});
+  $("to2").addEventListener("click",function(){
+    who=$("who").value.trim();
+    $("s2title").textContent=who+", which language do you read and write?";
+    show("s2");});
+  $("back1").addEventListener("click",function(){show("s1");});
+  $("back2").addEventListener("click",function(){show("s2");});
+
   (function(){
-    var rows=document.querySelectorAll("#charttable tbody tr");
-    Array.prototype.forEach.call(rows,function(row){
-      row.setAttribute("tabindex","0"); row.setAttribute("role","button");
-      var pick=function(){ selectScript(row.getAttribute("data-script")); $("start").scrollIntoView({block:"center"}); };
-      row.addEventListener("click",pick);
-      row.addEventListener("keydown",function(e){ if(e.key==="Enter"||e.key===" "){e.preventDefault();pick();} });
-    });
-  })();
-  (function(){
-    var host=$("scripts");
+    var host=$("choices");
     Object.keys(ALPHABETS).sort().forEach(function(name){
       var b=document.createElement("button");
-      b.type="button"; b.setAttribute("aria-pressed","false"); b.setAttribute("data-script",name);
-      b.innerHTML=name+'<span class="cnt">'+ALPHABETS[name].length+"</span>";
-      b.addEventListener("click",function(){ selectScript(name); });
+      b.type="button";b.className="choice";b.setAttribute("aria-pressed","false");
+      b.setAttribute("data-script",name);
+      b.innerHTML='<span><span class="name">'+(LANGS[name]||name).split(",")[0]+
+        '</span><span class="langs">'+(LANGS[name]||"")+'</span></span>'+
+        '<span class="tick" aria-hidden="true">&#10003;</span>';
+      b.addEventListener("click",function(){
+        scriptName=name;loadFont(name);
+        Array.prototype.forEach.call(host.children,function(c){
+          c.setAttribute("aria-pressed",String(c.getAttribute("data-script")===name));});
+        $("to3").disabled=false;});
       host.appendChild(b);
     });
   })();
 
-  $("start").addEventListener("click",function(){
+  $("to3").addEventListener("click",function(){
     if(!scriptName)return;
-    who=$("who").value.trim();
     roster=ALPHABETS[scriptName];
-    idx=0; strokes=[]; livePts=null; saved=[]; tracedCount=0; recordedOk=false;
+    idx=0;strokes=[];livePts=null;saved=[];tracedCount=0;recordedOk=false;
     $("tip").textContent=TIPS[scriptName]||"";
-    refreshHub(); show("hub");
-  });
-  $("hubback").addEventListener("click",function(){ show("intro"); });
-  $("cardtrace").addEventListener("click",function(){ note("tracesave",""); show("tracer"); draw(); });
-  $("cardread").addEventListener("click", openReader);
+    refreshHub();show("s3");});
+
+  $("cardtrace").addEventListener("click",function(){note("tracesave","");show("tracer");draw();});
+  $("cardread").addEventListener("click",openReader);
 })();
 </script>
