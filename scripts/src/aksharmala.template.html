@@ -55,9 +55,6 @@
   input[type=text]:focus-visible, summary:focus-visible, button:focus-visible, tr:focus-visible {
     outline:3px solid var(--stripe); outline-offset:2px;
   }
-  .testrow { display:flex; gap:.6rem; align-items:flex-start; margin-top:.8rem; padding:.6rem .7rem;
-             background:var(--surface-2); border-radius:10px; font-size:.86rem; color:var(--text-soft); cursor:pointer; }
-  .testrow input { margin:.15rem 0 0; width:1.05rem; height:1.05rem; flex:none; accent-color:var(--stripe); }
 
   .scripts { display:flex; flex-wrap:wrap; gap:.5rem; }
   .scripts button { font:inherit; font-size:.95rem; background:var(--surface); color:var(--text);
@@ -100,32 +97,40 @@
 
   .topbar { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
   .count { font-size:.82rem; letter-spacing:.1em; text-transform:uppercase; color:var(--text-faint); font-variant-numeric:tabular-nums; }
-  .bar { height:5px; background:var(--surface-2); border-radius:999px; overflow:hidden; margin:.7rem 0 1.3rem; }
+  .bar { height:5px; background:var(--surface-2); border-radius:999px; overflow:hidden; margin:.55rem 0 .8rem; }
   .bar i { display:block; height:100%; background:var(--gold); border-radius:999px; transition:width .25s ease; }
   @media (prefers-reduced-motion: reduce) { .bar i { transition:none; } }
 
   .letter { display:flex; align-items:baseline; gap:.85rem; justify-content:center; }
-  .letter .glyph { font-size:2.9rem; line-height:1.15; }
+  .letter .glyph { font-size:2.3rem; line-height:1.15; }
   .letter .rom { font-size:1.12rem; color:var(--text-soft); font-weight:600; }
-  .say { text-align:center; color:var(--text-faint); font-size:.92rem; margin:.15rem 0 1rem; }
+  .say { text-align:center; color:var(--text-faint); font-size:.88rem; margin:.1rem 0 .6rem; }
 
   .padwrap { position:relative; }
-  svg.pad { display:block; width:100%; height:auto; aspect-ratio:1; background:var(--surface);
-    border:1px solid var(--rule-strong); border-radius:18px; box-shadow:var(--shadow);
-    touch-action:none; cursor:crosshair; }
+  svg.pad { display:block; width:min(100%, 44vh); aspect-ratio:1; margin-inline:auto;
+    background:var(--surface); border:1px solid var(--rule-strong); border-radius:18px;
+    box-shadow:var(--shadow); touch-action:none; cursor:crosshair; }
   svg.pad.empty { border-style:dashed; }
   .hint { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none;
     color:var(--text-faint); font-size:.95rem; text-align:center; padding:0 2rem; }
 
-  .tip { margin:1rem 0 0; padding:.7rem .85rem; background:var(--surface-2);
-    border-left:3px solid var(--gold); border-radius:3px; font-size:.88rem; color:var(--text-soft); }
+  /* Above the pad and compact: it is a rule to read BEFORE writing, and it was
+     costing vertical space between the pad and the Save button. */
+  .tip { margin:0 0 .7rem; padding:.5rem .7rem; background:var(--surface-2);
+    border-left:3px solid var(--gold); border-radius:3px; font-size:.82rem;
+    line-height:1.4; color:var(--text-soft); }
+  /* Pinned, so Save is reachable on any phone without scrolling for it. */
+  .actions { position:sticky; bottom:0; padding:.55rem 0 .3rem; background:var(--ground); }
+  .actions::before { content:""; display:block; height:.55rem; margin-top:-.55rem;
+    background:linear-gradient(to top, var(--ground), transparent); }
+  .actions .primary { margin-top:.55rem; }
 
-  .row { display:flex; gap:.6rem; margin-top:1rem; }
+  .row { display:flex; gap:.5rem; margin-top:.55rem; }
   .row button { flex:1; font:inherit; font-size:.95rem; font-weight:500; background:var(--surface);
     color:var(--text); border:1px solid var(--rule-strong); border-radius:12px; padding:.7rem .5rem; cursor:pointer; }
   .row button:disabled { opacity:.38; cursor:default; }
 
-  .savenote { margin:.7rem 0 0; text-align:center; font-size:.82rem; color:var(--text-faint); min-height:1.2em; }
+  .savenote { margin:.45rem 0 0; text-align:center; font-size:.8rem; color:var(--text-faint); min-height:1.2em; }
   .savenote.ok { color:var(--board); }
   .savenote.bad { color:var(--stripe); }
 
@@ -177,10 +182,6 @@
 
     <label class="field" for="who">Your first name</label>
     <input id="who" type="text" autocomplete="given-name" placeholder="So we know whose handwriting this is" maxlength="24">
-    <label class="testrow">
-      <input type="checkbox" id="istest">
-      <span>I am just trying this out. <b>Do not teach anyone from mine.</b></span>
-    </label>
 
     <label class="field" id="picklabel">Which alphabet do you write?</label>
     <div class="scripts" id="scripts" role="group" aria-labelledby="picklabel"></div>
@@ -248,6 +249,8 @@
     </div>
     <div class="bar"><i id="progress" style="width:0%"></i></div>
 
+    <p class="tip" id="tip"></p>
+
     <div class="letter"><span class="glyph" id="glyph"></span><span class="rom" id="rom"></span></div>
     <p class="say" id="say"></p>
 
@@ -256,14 +259,15 @@
       <div class="hint" id="hint">Trace the grey letter with your finger</div>
     </div>
 
-    <p class="tip" id="tip"></p>
-    <div class="row">
-      <button id="undo" disabled>Undo stroke</button>
-      <button id="clear" disabled>Clear</button>
-      <button id="skip">Skip</button>
+    <div class="actions">
+      <div class="row">
+        <button id="undo" disabled>Undo stroke</button>
+        <button id="clear" disabled>Clear</button>
+        <button id="skip">Skip</button>
+      </div>
+      <button class="primary" id="next" disabled>Save and next letter</button>
+      <p class="savenote" id="tracesave"></p>
     </div>
-    <button class="primary" id="next" disabled>Save and next letter</button>
-    <p class="savenote" id="tracesave"></p>
   </section>
 
   <!-- ── Reading ───────────────────────────────────────── -->
@@ -404,7 +408,12 @@
   var scriptName=null, who="", roster=[], idx=0, strokes=[], livePts=null, saved=[];
   var tracedCount=0, recordedOk=false;
 
-  function isPractice(){ return $("istest").checked; }
+  // The "!" practice marker is still honoured by the parser and by the
+  // is_practice column, so a row can be marked non-teaching after the fact. What
+  // is gone is the CHECKBOX: it sat next to the name field looking like
+  // something to tick, and a contributor ticking it would quietly opt their own
+  // work out of ever being used.
+  function isPractice(){ return false; }
   function safeName(){
     var n=(who||"-").replace(/[|~;:!\s]+/g,"_").slice(0,24)||"-";
     return isPractice()? "!"+n : n;

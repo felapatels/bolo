@@ -103,6 +103,29 @@ token ledger, the RevenueCat or Stripe webhook paths, or entitlement resolution.
   react-native to one resolved copy, so the churn is survivable rather than
   fatal. It is still noise in a tracked lockfile: review the diff before
   committing one, and do not let it ride along with an unrelated change.
+- **THERE ARE TWO DATABASES, AND THE SHELL IS NOT THE ONE USERS TOUCH.**
+  `$DATABASE_URL` in the Repl's Shell is the **development** database. The
+  deployed app runs against a **separate production** database, and they are
+  divergent. Established 2026-08-23 when three freshly created tables came back
+  **empty in the Shell's database while production held the real rows**.
+
+  1. **Never answer a question about real data from the Shell's database.** It
+     is dev. Empty tables there mean nothing, and a count from there is not an
+     answer. Query PRODUCTION, or you will report zero contributions to someone
+     looking at a page full of them. The BollyMoves work learned this the hard
+     way already.
+  2. **Verify a deploy against production, by content.** The live endpoint
+     answering correctly is the proof. A green check in the Shell is not.
+
+  **What is NOT established, and matters:** how the production database gets a
+  schema change. On 2026-08-23 all three new tables DID reach production, but
+  nobody confirmed what put them there, so do not assume `sync-schema` in the
+  Shell is what did it and do not assume it will next time. **An earlier draft
+  of this very entry asserted production had NOT got them. That was wrong, and
+  it was wrong because it reasoned from the dev database.** Until someone traces
+  the real mechanism and writes it here, a schema change is unverified in
+  production until a query against production says otherwise.
+
 - **Never rewrite history on `main`.** No amend, no `reset --hard`, no rebase onto
   main, no force push. `origin` is GitHub; `gitsafe-backup` is a stale Replit remote.
 - **Reuse before you write.** Web and mobile share no components: they are
