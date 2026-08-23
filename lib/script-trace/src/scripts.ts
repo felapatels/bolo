@@ -13,6 +13,7 @@
 
 import type { AuthoredGlyph } from "./stroke-scoring";
 import { DEVANAGARI_PROTOTYPE_GLYPHS } from "./devanagari-strokes";
+import { PROVISIONAL_GLYPHS } from "./provisional-strokes";
 import { CONTRIBUTED_GLYPHS } from "./contributed-strokes";
 
 export type ScriptId =
@@ -99,10 +100,16 @@ export const AUTHORED_GLYPHS: Partial<Record<ScriptId, AuthoredGlyph[]>> = {
   // set lands.
   devanagari: DEVANAGARI_PROTOTYPE_GLYPHS,
 
+  // Font-derived best guesses, so tracing is offered in all 22 languages while
+  // contributions come in rather than gating 21 of them off. Every glyph here
+  // carries `provisional: true`.
+  ...PROVISIONAL_GLYPHS,
+
   // Real contributed strokes, generated from the contribution page. Spread
-  // LAST so a script that people have actually traced REPLACES the prototype
-  // for that script rather than being merged into it. Three approximate glyphs
-  // sitting alongside forty-five real ones would poison the set they joined.
+  // LAST so a script that people have actually traced REPLACES both the
+  // prototype and the guess for that script rather than being merged into
+  // either. THE ORDER OF THESE THREE IS THE WHOLE POLICY: a hand beats a font,
+  // and a font beats nothing.
   ...CONTRIBUTED_GLYPHS,
 };
 
@@ -170,17 +177,37 @@ export function playableScripts(): ScriptId[] {
 }
 
 /**
+ * Scripts running on a real hand rather than on a font guess.
+ *
+ * Counts only non-provisional glyphs against the floor, so a script that is
+ * half traced and half guessed is honestly reported as not done.
+ */
+export function scriptsOnRealData(): ScriptId[] {
+  return (Object.keys(AUTHORED_GLYPHS) as ScriptId[]).filter(
+    (s) =>
+      (AUTHORED_GLYPHS[s] ?? []).filter((g) => !g.provisional).length >=
+      PLAYABLE_GLYPH_FLOOR,
+  );
+}
+
+/**
  * Languages that would be unlocked by authoring one more script, best first.
  *
  * The planning question this file exists to answer: what is the next set worth
- * paying for. Returns [script, languages unlocked], ignoring anything already
- * playable.
+ * paying for. Returns [script, languages unlocked], ignoring anything that
+ * already runs on a real hand.
+ *
+ * CHANGED 2026-08-23, and the question it answers is unchanged. It used to skip
+ * anything already PLAYABLE, which stopped meaning anything the day
+ * font-derived guesses made every script playable at once: it would have
+ * returned an empty list and reported the work finished. Playability is no
+ * longer the scarce thing. A speaker's hand is, so that is what it filters on.
  */
 export function unlockOrder(): { script: ScriptId; languages: string[] }[] {
-  const playable = new Set(playableScripts());
+  const done = new Set(scriptsOnRealData());
   const byScript = new Map<ScriptId, string[]>();
   for (const [lang, script] of Object.entries(SCRIPT_BY_LANGUAGE)) {
-    if (playable.has(script)) continue;
+    if (done.has(script)) continue;
     byScript.set(script, [...(byScript.get(script) ?? []), lang]);
   }
   return [...byScript.entries()]

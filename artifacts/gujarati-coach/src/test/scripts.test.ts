@@ -9,7 +9,9 @@ import {
   glyphsForLanguage,
   traceReadyFor,
   playableScripts,
+  scriptsOnRealData,
   unlockOrder,
+  DEVANAGARI_PROTOTYPE_GLYPHS,
 } from "@workspace/script-trace";
 import { JOURNEY_LINES } from "@/lib/journeyLines";
 
@@ -81,35 +83,56 @@ describe("THE ARITHMETIC: one script buys many languages", () => {
   });
 });
 
-describe("THE GATE: a three-letter tracing game is not a game", () => {
+describe("THE GATE: provenance, now that everything is playable", () => {
   test("the prototype data is deliberately below the playable floor", () => {
-    // Three approximate glyphs exist to exercise the format. If this ever
-    // passes by accident, tracing would ship with an alphabet nobody authored.
-    expect(AUTHORED_GLYPHS.devanagari!.length).toBeLessThan(PLAYABLE_GLYPH_FLOOR);
+    // Three approximate glyphs exist to exercise the format. RETARGETED
+    // 2026-08-23: this used to read AUTHORED_GLYPHS.devanagari, which is now
+    // 48 font-derived glyphs because the roster layers guesses over the
+    // prototypes. The claim being made was always about the PROTOTYPES, so it
+    // asserts on them directly now instead of on whatever currently wins.
+    expect(DEVANAGARI_PROTOTYPE_GLYPHS.length).toBeLessThan(PLAYABLE_GLYPH_FLOOR);
   });
 
-  test("so tracing is offered ONLY where a speaker has actually traced", () => {
-    // INVERTED 2026-08-23. This asserted that NO language offered tracing,
-    // which was true for as long as AUTHORED_GLYPHS held nothing but three
-    // prototype glyphs. A speaker then traced 45 Gujarati letters on the
-    // contribution page and buildAuthoredGlyphs.ts turned them into real
-    // authored data, so Gujarati is genuinely playable now.
+  test("tracing is offered in every language", () => {
+    // INVERTED TWICE on 2026-08-23, and the second time is a product decision
+    // rather than a discovery. It first asserted NO language offered tracing
+    // (true while only prototypes existed), then only Gujarati (true once a
+    // speaker traced 45 letters). The call was then made to keep all 22 on,
+    // using font-derived guesses until real handwriting arrives for each.
     //
-    // The GATE is what this test is for, not the emptiness. Kept as an
-    // assertion that everything WITHOUT contributed data is still refused,
-    // because that is the half that can regress silently.
-    expect(traceReadyFor("gu")).toBe(true);
-    expect(playableScripts()).toEqual(["gujarati"]);
+    // So playability is no longer the thing worth guarding. PROVENANCE is,
+    // and that is what the rest of this block now pins.
+    for (const code of Object.keys(SCRIPT_BY_LANGUAGE)) {
+      expect(traceReadyFor(code), `${code} should offer tracing`).toBe(true);
+    }
+    expect(playableScripts().length).toBe(Object.keys(SCRIPT_NAMES).length);
+  });
 
+  test("only a real hand counts as real, and the rest admit they are guesses", () => {
+    // The load-bearing assertion of the whole arrangement. A font guess that
+    // stopped being labelled would be indistinguishable from a speaker's
+    // handwriting, and would teach a child a stroke order nobody uses.
+    expect(scriptsOnRealData()).toEqual(["gujarati"]);
+
+    for (const g of glyphsForLanguage("gu")) {
+      expect(g.provisional, `gu ${g.id} is real handwriting`).toBeFalsy();
+    }
     for (const code of Object.keys(SCRIPT_BY_LANGUAGE)) {
       if (scriptFor(code) === "gujarati") continue;
-      expect(traceReadyFor(code), `${code} must not offer tracing yet`).toBe(false);
+      const glyphs = glyphsForLanguage(code);
+      expect(glyphs.length).toBeGreaterThanOrEqual(PLAYABLE_GLYPH_FLOOR);
+      for (const g of glyphs) {
+        expect(g.provisional, `${code} ${g.id} must admit it is a guess`).toBe(true);
+      }
     }
   });
 
-  test("a language whose script has no authored data returns no glyphs", () => {
-    expect(glyphsForLanguage("ta")).toEqual([]);
-    expect(traceReadyFor("ta")).toBe(false);
+  test("unlockOrder still names the next script worth finding a speaker for", () => {
+    // It ranks by provenance now, not by playability. Gujarati is done, so the
+    // answer is the script that buys the most languages after it.
+    const order = unlockOrder();
+    expect(order.map((o) => o.script)).not.toContain("gujarati");
+    expect(order[0]!.script).toBe("devanagari");
   });
 
   test("an unknown language code is handled, not thrown at", () => {

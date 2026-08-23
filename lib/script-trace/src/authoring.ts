@@ -248,6 +248,12 @@ export function serializeAuthoredGlyph(glyph: AuthoredGlyph, indent = "  "): str
     `${inner}id: ${JSON.stringify(glyph.id)},`,
     `${inner}char: ${JSON.stringify(glyph.char)},`,
     `${inner}label: ${JSON.stringify(glyph.label)},`,
+    // Provenance has to survive the round trip. Added 2026-08-23 when the
+    // font-derived glyphs came in: the writer predated `provisional` and
+    // silently dropped it, so every guess was being written out looking
+    // exactly like a speaker's handwriting. Emitted only when true, so the
+    // common case stays quiet in a diff.
+    ...(glyph.provisional ? [`${inner}provisional: true,`] : []),
     `${inner}strokes: [`,
     ...glyph.strokes.map((s, i) => `${strokeInner}// ${i + 1}\n${serializeStroke(s, strokeInner)}`),
     `${inner}],`,

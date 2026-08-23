@@ -57,6 +57,22 @@ export type AuthoredGlyph = {
   /** In writing order. For Devanagari the shirorekha is last. */
   strokes: AuthoredStroke[];
   example?: GlyphExample;
+  /**
+   * True when these strokes were DERIVED FROM THE FONT rather than written by
+   * a person, 2026-08-23.
+   *
+   * A font outline carries the shape and nothing else. The guide generator
+   * emits subpaths in logical cluster order so the sequence reads sensibly,
+   * but within a letter the start point and direction come from the contour
+   * winding, not from a hand. Devanagari's shirorekha is the plain case: it is
+   * written LAST and the font has no opinion about that.
+   *
+   * So a provisional glyph is a plausible guess that is sometimes confidently
+   * wrong, kept because a demo that is usually right beats no game at all
+   * while contributions are still coming in. Real contributed strokes always
+   * REPLACE these, and this flag is what makes them findable when they do.
+   */
+  provisional?: boolean;
 };
 
 /** What went wrong, in terms a learner can act on. */
