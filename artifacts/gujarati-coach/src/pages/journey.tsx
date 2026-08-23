@@ -55,6 +55,13 @@ import {
 } from "@/lib/entitlements";
 import { JOURNEY_ZONES, getJourneyLine } from "@/lib/journeyLines";
 import {
+  traceStopFor,
+  traceStopIndexIn,
+  traceStopStatus,
+  type TraceStop,
+} from "@workspace/script-trace";
+import { useTraceStopProgress } from "@/lib/useTraceStopProgress";
+import {
   TicketPerforationV,
   TicketStripes,
   ZoneStamp,
@@ -156,6 +163,15 @@ type Station = LessonGroupSummary & {
   zoneIndex: number;
   stopNumber: number; // 1-based within the zone
   stopCount: number; // stations in the zone
+  /**
+   * Present ONLY on the tracing stop, and the discriminator for it.
+   *
+   * A trace stop is not a lesson group: no row, no phrases, no id. It is
+   * synthesised and marked, and everything that renders or opens a station
+   * branches on this rather than on a sentinel id, which would be one refactor
+   * away from colliding with a real one.
+   */
+  trace?: TraceStop;
 };
 
 type LockInfo = {
@@ -1015,6 +1031,10 @@ export default function Journey() {
   // Zone conversation stamps: lightweight list of zones where the learner
   // has already completed the capstone chat. Used to show "Replay the chat".
   const stampsQuery = useListZoneStamps({ lang: activeLang });
+  // Which letters are already traced, so each zone's tracing stop shows real
+  // progress. Derived per stop, never stored, the same way lesson-group
+  // unlock state is derived.
+  const { passedCharacterIds } = useTraceStopProgress(activeLang);
   // Which zones have a capstone in THIS language. Replaces a hand-written
   // zone-to-scenario table that carried a comment telling the next person to
   // keep it in sync with the server's SCENARIOS map. The server owns the
@@ -1138,11 +1158,49 @@ export default function Journey() {
     const zoneAllDone =
       stations.length > 0 &&
       stations.every(s => s.status === "completed" || s.status === "tested_out");
+
+    // TWO LISTS, and the split is the whole design.
+    //
+    // `stations` stays exactly what it always was: the graded lesson groups.
+    // Every derivation on this page counts off it, and must keep doing so —
+    // the rail progress, the scenery budget, zone folding, the current stop,
+    // and the global counter that places Chacha-ji's stalls.
+    //
+    // `rowStations` is what the map DRAWS: the same stations with the tracing
+    // stop spliced into the MIDDLE and the whole run renumbered, so a learner
+    // reads "Stop 6 of 11" and the tracing stop is a stop like any other.
+    //
+    // Added, never substituted: no phrase stop is displaced, so a zone of ten
+    // stops becomes eleven. Journey 1 only for now; the ladder already carries
+    // journey 2 and lights up when this page learns to render it.
+    const trace = traceStopFor(activeLang, 1, i + 1);
+    const withTrace = [...stations];
+    if (trace) {
+      withTrace.splice(traceStopIndexIn(stations.length), 0, {
+        // Every LessonGroupSummary field is optional, so a trace stop supplies
+        // only what a drawn station needs and is identified by `trace`.
+        title: trace.title,
+        stage: "phrase",
+        status: traceStopStatus(trace, passedCharacterIds),
+        zoneId: z.id,
+        zoneIndex: i,
+        stopNumber: 0,
+        stopCount: 0,
+        trace,
+      });
+    }
+    const rowStations: Station[] = withTrace.map((st, gi) => ({
+      ...st,
+      stopNumber: gi + 1,
+      stopCount: withTrace.length,
+    }));
+
     return {
       ...z,
       title: categories?.find((c) => c.id === z.id)?.title ?? z.title,
       geoName: line.zones[i]!,
       stations,
+      rowStations,
       zoneAllDone,
     };
   });
@@ -1238,7 +1296,7 @@ export default function Journey() {
     // working untouched; they simply draw nothing.
     const collapsedRowY = layoutY + COLLAPSED_H / 2;
     if (collapsed) collapsedRowYs.push({ y: layoutY, zoneIndex: zi });
-    for (const s of zone.stations) {
+    for (const s of zone.rowStations) {
       // Free-tier content policy: a plan-gated sentence stop arrives
       // status "locked" (planLocked) from the server, so unlocked means lit.
       const lit =
@@ -1246,6 +1304,37 @@ export default function Journey() {
         s.status === "tested_out" ||
         s.status === "in_progress" ||
         s.status === "unlocked";
+
+      // THE TRACING STOP DRAWS A ROW BUT DOES NOT ADVANCE `k`, which is the
+      // rule Chacha-ji's halt already follows two blocks down: "It advances
+      // the layout only: `k` does not move, so the serpentine phase, the stop
+      // numbers and the station count are all exactly what they were."
+      //
+      // `k` is the GLOBAL graded-stop ordinal, and three things key off it:
+      // the serpentine flank, and through stationNumber both Chacha's stall
+      // placement and the trackside signals. A tracing stop that advanced it
+      // would slide Chacha's stall down the line and flip every card below
+      // onto the wrong side of the track. It is a stop to a learner and a
+      // scenery row to the geometry, and that is the correct split.
+      //
+      // It takes the previous station's flank, so the rail carries straight
+      // down one side through it, exactly as it does through a halt.
+      if (s.trace) {
+        if (!collapsed) {
+          pts.push({
+            x: stationX(Math.max(k - 1, 0)),
+            y: layoutY + STATION_H / 2,
+            kind: "station",
+            lit,
+            station: s,
+            globalIdx: Math.max(k - 1, 0),
+            collapsed,
+          });
+          layoutY += STATION_H;
+        }
+        continue;
+      }
+
       pts.push({
         x: stationX(k),
         y: collapsed ? collapsedRowY : layoutY + STATION_H / 2,
@@ -1352,7 +1441,18 @@ export default function Journey() {
   // no interactive signals. States re-derive from storage on every render;
   // signalTick only forces that re-render after a wave.
   void signalTick;
-  const stationPts = pts.filter((p) => p.kind === "station");
+  // GRADED station points, and the trace rows are excluded deliberately.
+  //
+  // Everything that indexes this list is graded logic: Chacha-ji's stall count
+  // and placement, the zone-local row his stall occupies, and the current
+  // stop's y. A tracing row in here inflates planChachaStalls' input and
+  // shifts every stationPts[n - 1] lookup by however many tracing rows came
+  // before it, which moves his stall onto the wrong stop and hands the scenery
+  // plan the wrong row to leave free.
+  //
+  // The rule for the whole file: `pts` is what the map DRAWS, `stationPts` is
+  // what it COUNTS.
+  const stationPts = pts.filter((p) => p.kind === "station" && !p.station!.trace);
   const visibleCountForZone = (zoneId: number) =>
     categories?.find((c) => c.id === zoneId)?.phraseCount ?? 0;
   // 0-based index of the boardable stop; the gap right behind it is gap-N
@@ -1515,7 +1615,13 @@ export default function Journey() {
   // row the zone's scenery plan left free, on the marker's side of the track.
   const signposts = zones.flatMap((zone, zi) => {
     const zonePts = pts.filter(
-      (p) => p.kind === "station" && p.station!.zoneIndex === zi && !p.collapsed,
+      (p) =>
+        p.kind === "station" &&
+        p.station!.zoneIndex === zi &&
+        !p.collapsed &&
+        // GRADED rows only, same rule as Chacha-ji's stall: a tracing stop is
+        // a row to the layout but not a station to the trackside furniture.
+        !p.station!.trace,
     );
     const spot = planZoneSignpost(zi, zonePts.length, stallRowsByZone.get(zi));
     if (!spot) return [];
@@ -1727,7 +1833,13 @@ export default function Journey() {
                 {zones.map((zone, zi) => {
                   const zonePts = pts.filter(
                     (p) =>
-                      p.kind === "station" && p.station!.zoneIndex === zi && !p.collapsed,
+                      p.kind === "station" &&
+                      p.station!.zoneIndex === zi &&
+                      !p.collapsed &&
+                      // Scenery is budgeted and placed by GRADED rows. Counting
+                      // the tracing stop changed both how many pieces a zone
+                      // got and which rows they landed on.
+                      !p.station!.trace,
                   );
                   const zoneAccessible = zone.stations.some(
                     (st) => isStatusAccessible(st.status) || st.teaserStation,
@@ -1966,7 +2078,7 @@ export default function Journey() {
             {/* Stations */}
             {pts
               .filter((p) => p.kind === "station" && !p.collapsed)
-              .map((p) => {
+              .map((p, rowIdx) => {
                 const s = p.station!;
                 const zone = zones[s.zoneIndex]!;
                 const zoneAccessible = zone.stations.some(
@@ -1994,7 +2106,14 @@ export default function Journey() {
                   s.stage === "sentence" && s.planLocked === true;
                 const accessible = isStatusAccessible(s.status) && !sentenceGated;
                 return (
-                  <div key={s.id}>
+                  // Keyed by ROW, not by group id. A tracing stop has no
+                  // lesson-group id at all, and group ids are not unique across
+                  // this list either: the same group can appear in more than
+                  // one zone, which was already producing duplicate-key
+                  // warnings before a tracing row existed. React is free to
+                  // drop or duplicate children under a duplicate key, and that
+                  // is what turned the scenery placement to nonsense.
+                  <div key={`row-${rowIdx}`}>
                     <div
                       className="absolute flex items-center justify-center pointer-events-none"
                       style={{
@@ -2032,10 +2151,18 @@ export default function Journey() {
                       <StationCard
                         station={s}
                         color={zoneColor}
-                        isCurrent={s.id === currentId}
-                        accessible={accessible}
+                        isCurrent={!s.trace && s.id === currentId}
+                        // A tracing stop is never locked: it teaches the
+                        // alphabet, which no phrase stop gates.
+                        accessible={accessible || s.trace !== undefined}
                         showTeaserChip={s.teaserStation === true}
-                        href={`/practice/${zone.id}?group=${s.id}`}
+                        href={
+                          // It opens the tracing screen, not a phrase session:
+                          // there is no group to practise.
+                          s.trace
+                            ? `/games/script-trace?zone=${zone.id}`
+                            : `/practice/${zone.id}?group=${s.id}`
+                        }
                         onLocked={() =>
                           setLock({
                             kind: showroom

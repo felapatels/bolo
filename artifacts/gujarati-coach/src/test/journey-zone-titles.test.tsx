@@ -409,7 +409,12 @@ describe("journey-map copy (task 1082 item 3)", () => {
     expect(
       screen.getByText(/Terminus: Dwarka, the festival finale awaits/),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Stop 1 of 1: In progress")).toBeInTheDocument();
+    // "Stop 1 of 1" until 2026-08-23, when a tracing stop joined every zone.
+    // One phrase stop plus one tracing stop is two, and the tracing stop is
+    // never first, so the phrase stop keeps position 1. The claim under test
+    // is the COPY, not the count: no em dash, and the replacement wording
+    // actually on screen.
+    expect(screen.getByLabelText("Stop 1 of 2: In progress")).toBeInTheDocument();
   });
 
   test("centres the terminus label below the dot, clear of the bunting", () => {

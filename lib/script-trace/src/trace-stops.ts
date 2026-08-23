@@ -215,7 +215,14 @@ export function traceStopsFor(languageCode: string): TraceStop[] {
  * and the phone will disagree about which stop a learner is on.
  */
 export function traceStopIndexIn(phraseStopCount: number): number {
-  return Math.floor(Math.max(0, phraseStopCount) / 2);
+  const n = Math.max(0, phraseStopCount);
+  if (n === 0) return 0;
+  // NEVER FIRST, which floor(n/2) got wrong for a one-stop zone: it returned 0
+  // and put tracing ahead of the learner's very first phrase stop. A journey
+  // map that opens onto "trace the letters" before anyone has said a word
+  // reads as the wrong app. Caught 2026-08-23 by the scroll-on-open test,
+  // which noticed the first stop was no longer at the top of the line.
+  return Math.max(1, Math.floor(n / 2));
 }
 
 /**

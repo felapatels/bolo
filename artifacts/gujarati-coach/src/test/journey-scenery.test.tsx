@@ -513,13 +513,19 @@ describe("Chacha-ji stall landmark", () => {
         (el) => /^Stop \d+ of \d+/.exec(el.getAttribute("aria-label")!)![0],
       ),
     );
-    // Both fixture zones still number 1..N with N unchanged: the halts add
-    // rows to the map without adding a stop to either line.
+    // The claim under test is about HALTS: they add rows to the map without
+    // adding a stop, so each zone still numbers 1..N densely with no gaps.
+    //
+    // N itself moved on 2026-08-23, and for a different reason: a tracing stop
+    // was added to every zone, so the 11-stop and 10-stop fixtures now number
+    // 12 and 11. That is a stop genuinely joining the line, which is exactly
+    // what halts do NOT do, and keeping both facts in one assertion is the
+    // point of this test.
+    expect([...stops].filter((l) => l.endsWith("of 12"))).toHaveLength(12);
     expect([...stops].filter((l) => l.endsWith("of 11"))).toHaveLength(11);
-    expect([...stops].filter((l) => l.endsWith("of 10"))).toHaveLength(10);
-    expect(stops.has("Stop 1 of 11")).toBe(true);
+    expect(stops.has("Stop 1 of 12")).toBe(true);
+    expect(stops.has("Stop 12 of 12")).toBe(true);
     expect(stops.has("Stop 11 of 11")).toBe(true);
-    expect(stops.has("Stop 10 of 10")).toBe(true);
     // Nothing in the halt row answers to a press: the stall group and the
     // figure inside it are the only things seated there, and they ride the
     // scenery layer, which takes no pointer events.

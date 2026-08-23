@@ -141,7 +141,16 @@ describe("where the stop sits in its zone", () => {
     // through each zone, not a reward bolted on the end.
     expect(traceStopIndexIn(10)).toBe(5);
     expect(traceStopIndexIn(11)).toBe(5);
-    expect(traceStopIndexIn(1)).toBe(0);
+  });
+
+  test("never FIRST, so a new learner's first stop stays first", () => {
+    // A one-stop zone used to put tracing at index 0, which meant a brand-new
+    // learner opened the journey map onto "trace the letters" before they had
+    // said a word. The scroll-on-open test caught it: the first stop was no
+    // longer at the top of the line.
+    expect(traceStopIndexIn(1)).toBe(1);
+    expect(traceStopIndexIn(2)).toBe(1);
+    expect(traceStopIndexIn(3)).toBe(1);
   });
 
   test("a zone with no phrase stops still resolves to a valid index", () => {

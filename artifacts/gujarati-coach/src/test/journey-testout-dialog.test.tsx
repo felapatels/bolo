@@ -93,8 +93,14 @@ function renderJourney() {
 
 function openProgressionDialog() {
   renderJourney();
-  // Zone 1's locked second stop; every zone has one, so take the first.
-  const lockedStops = screen.getAllByRole("button", { name: /Stop 2 of 2/ });
+  // Zone 1's locked LAST stop; every zone has one, so take the first.
+  //
+  // "Stop 2 of 2" until 2026-08-23, when a tracing stop was added to every
+  // zone. Two phrase stops plus one tracing stop is three, and the tracing
+  // stop sits in the middle, so the locked phrase stop is now the third of
+  // three. The number moved because a stop was genuinely added, which is what
+  // was asked for; nothing about the lock behaviour under test changed.
+  const lockedStops = screen.getAllByRole("button", { name: /Stop 3 of 3/ });
   fireEvent.click(lockedStops[0]);
 }
 
