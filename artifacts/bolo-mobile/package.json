@@ -9,6 +9,11 @@
         "exclude": [
           "@clerk/expo"
         ]
+      },
+      "android": {
+        "exclude": [
+          "@clerk/expo"
+        ]
       }
     }
   },
