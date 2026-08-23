@@ -20,3 +20,4 @@ export * from "./scripts";
 export * from "./trace-levels";
 export * from "./devanagari-strokes";
 export * from "./chapters";
+export * from "./authoring";

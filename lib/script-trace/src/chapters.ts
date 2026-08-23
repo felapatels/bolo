@@ -4486,8 +4486,8 @@ export const SCRIPT_TRACE_CHAPTERS: TraceChapter[] = [
   },
   {
     id: "meitei-letters",
-    title: "Meitei Letters",
-    scriptName: "Meitei Mayek",
+    title: "Meetei Mayek Letters",
+    scriptName: "Meetei Mayek",
     stage: "alphabet",
     characters: [
       {
@@ -4683,8 +4683,8 @@ export const SCRIPT_TRACE_CHAPTERS: TraceChapter[] = [
   },
   {
     id: "meitei-words",
-    title: "Meitei Words",
-    scriptName: "Meitei Mayek",
+    title: "Meetei Mayek Words",
+    scriptName: "Meetei Mayek",
     stage: "words",
     characters: [
       {
@@ -4733,8 +4733,8 @@ export const SCRIPT_TRACE_CHAPTERS: TraceChapter[] = [
   },
   {
     id: "meitei-sentences",
-    title: "Meitei Phrases",
-    scriptName: "Meitei Mayek",
+    title: "Meetei Mayek Phrases",
+    scriptName: "Meetei Mayek",
     stage: "sentences",
     characters: [
       {
@@ -4798,6 +4798,6 @@ export const LANG_CHAPTER_IDS: Record<string, string[]> = {
   ks:  ["urdu-letters", "kashmiri-additional", "urdu-words", "urdu-sentences"],
   // Santali / Ol Chiki
   sat: ["olchiki-vowels", "olchiki-consonants", "olchiki-words", "olchiki-sentences"],
-  // Meitei / Meitei Mayek
+  // Manipuri, written in Meetei Mayek
   mni: ["meitei-letters", "meitei-words", "meitei-sentences"],
 };

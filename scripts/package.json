@@ -7,7 +7,8 @@
     "hello": "tsx ./src/hello.ts",
     "check-trace-sync": "tsx src/checkScriptTraceSync.ts",
     "noise-baseline": "tsx src/noiseBaseline.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build-aksharmala": "tsx src/buildAksharmala.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",
