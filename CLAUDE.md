@@ -21,8 +21,10 @@ pnpm monorepo. Workspaces: `artifacts/*`, `lib/*`, `lib/integrations/*`, `script
   to police the two for drift.
 - `lib/referral-link`, `lib/train-class`, `lib/integrations-openai-ai-{react,server}`
 
-Database lives in Replit; `DATABASE_URL` in `.env` points at it. Dev and prod are
-out of sync. Assume nothing about parity.
+Database lives in Replit and there are TWO of them, development and production.
+See "THERE ARE TWO DATABASES" under Working rules. **There is no `.env` on the
+user's Mac**, so a laptop has no database access of any kind, dev or production,
+until one is created. Dev and prod are out of sync. Assume nothing about parity.
 
 ## Typecheck
 
@@ -117,13 +119,28 @@ token ledger, the RevenueCat or Stripe webhook paths, or entitlement resolution.
   2. **Verify a deploy against production, by content.** The live endpoint
      answering correctly is the proof. A green check in the Shell is not.
 
-  **What is NOT established, and matters:** how the production database gets a
-  schema change. On 2026-08-23 all three new tables DID reach production, but
-  nobody confirmed what put them there, so do not assume `sync-schema` in the
-  Shell is what did it and do not assume it will next time. **An earlier draft
-  of this very entry asserted production had NOT got them. That was wrong, and
-  it was wrong because it reasoned from the dev database.** Until someone traces
-  the real mechanism and writes it here, a schema change is unverified in
+  **HOW THE SPLIT WORKS, traced 2026-08-23.** The code has no dev/prod branching
+  anywhere: every consumer reads bare `process.env.DATABASE_URL`, and
+  `lib/db/src/index.ts` builds the only pool. The split is entirely Replit
+  injecting a different value per environment. `.replit` is tracked and declares
+  three scopes, `[userenv.shared]`, `[userenv.development]` and
+  `[userenv.production]`, and production is the one carrying the `pk_live_`
+  Clerk keys. `DATABASE_URL` is in NONE of them: it comes from `postgresql-16`
+  in the `modules` line, which Replit injects per environment. **Confirmed by
+  the user in the Repl's Database pane, which lists two databases.**
+
+  **NOTHING IN THIS REPO MIGRATES PRODUCTION, so do not expect a deploy to
+  carry a migration.** Boot is bare `node --enable-source-maps ./dist/index.mjs`.
+  `[deployment.postBuild]` is only `pnpm store prune`. The `[postMerge]` hook
+  DOES run `pnpm --filter @workspace/db run setup`, which is `drizzle-kit
+  migrate` plus seed, but it runs in the Repl WORKSPACE, so **it migrates dev**.
+
+  **What is STILL NOT established:** what put the three new tables into
+  production on 2026-08-23, since nothing above can have. Replit provisioning
+  the schema when the deployment was created, or a manual run, are both live
+  candidates and nobody has checked. **An earlier draft of this entry asserted
+  production had NOT got them. That was wrong, and it was wrong because it
+  reasoned from the dev database.** A schema change stays unverified in
   production until a query against production says otherwise.
 
 - **Never rewrite history on `main`.** No amend, no `reset --hard`, no rebase onto
