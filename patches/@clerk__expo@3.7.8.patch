@@ -1,0 +1,39 @@
+diff --git a/dist/specs/NativeClerkGoogleSignIn.android.js b/dist/specs/NativeClerkGoogleSignIn.android.js
+index 5d039bc66cc3bc493e6d722aa64babef78c01f51..5e992f972256d82471d364027d2229ed5d46c4c1 100644
+--- a/dist/specs/NativeClerkGoogleSignIn.android.js
++++ b/dist/specs/NativeClerkGoogleSignIn.android.js
+@@ -1,7 +1,12 @@
+ let expo = require("expo");
+ 
+ //#region src/specs/NativeClerkGoogleSignIn.android.ts
+-var NativeClerkGoogleSignIn_android_default = (0, expo.requireNativeModule)("ClerkGoogleSignIn");
++// PATCHED (bolo, 2026-08-22): same one-word fix as NativeClerkModule.android.js.
++// Clerk's own consumer, dist/google-one-tap/ClerkGoogleOneTapSignIn.js, already
++// null-checks this and throws a friendly "native module is not available"
++// message. That check can only run if the require returns null instead of
++// throwing, which is what every non-Android spec in this package does.
++var NativeClerkGoogleSignIn_android_default = (0, expo.requireOptionalNativeModule)("ClerkGoogleSignIn");
+ 
+ //#endregion
+ module.exports = NativeClerkGoogleSignIn_android_default;
+diff --git a/dist/specs/NativeClerkModule.android.js b/dist/specs/NativeClerkModule.android.js
+index deba0f18463ef7a4975b17c2f7a1fa895fce6ff5..ec25bcd1f712d357f9451c122262c86ff218e1d0 100644
+--- a/dist/specs/NativeClerkModule.android.js
++++ b/dist/specs/NativeClerkModule.android.js
+@@ -1,7 +1,15 @@
+ let expo = require("expo");
+ 
+ //#region src/specs/NativeClerkModule.android.ts
+-var NativeClerkModule_android_default = (0, expo.requireNativeModule)("ClerkExpo");
++// PATCHED (bolo, 2026-08-22): requireNativeModule -> requireOptionalNativeModule.
++// Every other platform's spec already uses the optional form. Android's throws,
++// and dist/utils/native-module.js only wraps the property access in a
++// try/catch, not the require above it, so the throw escapes and the app dies at
++// launch with "Cannot find native module 'ClerkExpo'" whenever the module is
++// excluded from autolinking. That is the supported JS-only path everywhere
++// else, including this app's iOS build. Returning null instead of throwing is
++// what loadNativeModule() already expects.
++var NativeClerkModule_android_default = (0, expo.requireOptionalNativeModule)("ClerkExpo");
+ 
+ //#endregion
+ module.exports = NativeClerkModule_android_default;

@@ -150,6 +150,9 @@ overrides:
   rollup>@rollup/rollup-win32-x64-gnu: '-'
   rollup>@rollup/rollup-win32-x64-msvc: '-'
 
+patchedDependencies:
+  '@clerk/expo@3.7.8': ef043c26b883d646ec4921bfe2bf21d95d17c0bd6d0f9e936b95ea1e6d80dc87
+
 importers:
 
   .:
@@ -335,7 +338,7 @@ importers:
     dependencies:
       '@clerk/expo':
         specifier: ^3.7.8
-        version: 3.7.8(@types/react@19.2.17)(expo-apple-authentication@8.0.8(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)))(expo-auth-session@7.0.11(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(expo-constants@18.0.13)(expo-crypto@15.0.9(expo@54.0.35))(expo-secure-store@15.0.8(expo@54.0.35))(expo-web-browser@15.0.11(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)))(expo@54.0.35)(react-dom@19.1.0(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.1.0))(zod@3.25.76)
+        version: 3.7.8(patch_hash=ef043c26b883d646ec4921bfe2bf21d95d17c0bd6d0f9e936b95ea1e6d80dc87)(@types/react@19.2.17)(expo-apple-authentication@8.0.8(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)))(expo-auth-session@7.0.11(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(expo-constants@18.0.13)(expo-crypto@15.0.9(expo@54.0.35))(expo-secure-store@15.0.8(expo@54.0.35))(expo-web-browser@15.0.11(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)))(expo@54.0.35)(react-dom@19.1.0(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.1.0))(zod@3.25.76)
       '@expo-google-fonts/bricolage-grotesque':
         specifier: ^0.4.1
         version: 0.4.1
@@ -10828,7 +10831,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@clerk/expo@3.7.8(@types/react@19.2.17)(expo-apple-authentication@8.0.8(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)))(expo-auth-session@7.0.11(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(expo-constants@18.0.13)(expo-crypto@15.0.9(expo@54.0.35))(expo-secure-store@15.0.8(expo@54.0.35))(expo-web-browser@15.0.11(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)))(expo@54.0.35)(react-dom@19.1.0(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.1.0))(zod@3.25.76)':
+  '@clerk/expo@3.7.8(patch_hash=ef043c26b883d646ec4921bfe2bf21d95d17c0bd6d0f9e936b95ea1e6d80dc87)(@types/react@19.2.17)(expo-apple-authentication@8.0.8(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)))(expo-auth-session@7.0.11(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(supports-color@8.1.1))(expo-constants@18.0.13)(expo-crypto@15.0.9(expo@54.0.35))(expo-secure-store@15.0.8(expo@54.0.35))(expo-web-browser@15.0.11(expo@54.0.35)(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1)))(expo@54.0.35)(react-dom@19.1.0(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.1.0))(zod@3.25.76)':
     dependencies:
       '@clerk/clerk-js': 6.29.3(@types/react@19.2.17)(react-dom@19.1.0(react@19.1.0))(react-native@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(react@19.1.0)(supports-color@8.1.1))(react@19.1.0)(typescript@5.9.3)(use-sync-external-store@1.6.0(react@19.1.0))(zod@3.25.76)
       '@clerk/react': 6.14.5(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
