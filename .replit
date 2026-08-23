@@ -89,27 +89,6 @@ args = "pnpm --filter @workspace/scripts run check-trace-sync"
 isValidation = true
 
 [[workflows.workflow]]
-name = "artifacts/bolo-social-clips: web"
-author = "agent"
-mode = "sequential"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-artifactId = "artifacts/bolo-social-clips"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/bolo-social-clips run dev"
-cwd = "./artifacts/bolo-social-clips"
-waitForPort = 19729
-ensurePreviewReachable = "/"
-router = "path"
-
-[workflows.workflow.tasks.env]
-PORT = "19729"
-BASE_PATH = "/social-clips/"
-
-[[workflows.workflow]]
 name = "artifacts/bolo-launch-video: web"
 author = "agent"
 mode = "sequential"
@@ -269,10 +248,6 @@ externalPort = 8081
 [[ports]]
 localPort = 19724
 externalPort = 3002
-
-[[ports]]
-localPort = 19729
-externalPort = 3001
 
 [[ports]]
 localPort = 20259
