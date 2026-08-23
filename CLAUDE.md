@@ -357,3 +357,99 @@ already deployed, which is how we know the metadata was load-bearing.
 grants. The webhook is the only thing that can add Chai. If a balance moves
 without a webhook in the log, something is wrong with your reading of the log,
 not with that rule.
+
+## The Android sign-out: two Clerk clients, resolved 2026-08-22
+
+Sign in on Android, sit on the homepage, and about 43 seconds later the app is
+back at the sign-in screen. Foreground, idle, no interaction. Deterministic, not
+flaky:
+
+```
+build 422, @clerk/expo 3.7.4   session held 43033 ms
+build 423, @clerk/expo 3.7.8   session held 43747 ms
+build 426, exclusion + patch   session held 344000 ms and still signed in
+```
+
+**The mechanism.** Since v3.0.0, `@clerk/expo` runs TWO Clerk clients: the JS one
+(clerk-js) and an embedded native one (`com.clerk.api.Clerk`, via
+`expo.modules.clerk.ClerkExpoModule`), kept agreed by `useSyncableTokenCache`,
+`useNativeClientBootstrap` and `useNativeClientEventSync` in
+`node_modules/@clerk/expo/dist/provider/nativeClientSync.js`. The client JWT
+rotates on every FAPI call. clerk-js's own refresh tick rotates it, the native
+side answers with its now stale copy, the sync layer writes the stale token back,
+refetches `/v1/client`, and the server returns **200 with a brand new empty
+client**. No sessions on it, so `isSignedIn` flips. Nothing was revoked, which is
+why Clerk's dashboard logs are clean.
+
+**The fix, and it takes BOTH halves.**
+
+1. `expo.autolinking.android.exclude: ["@clerk/expo"]` in
+   `artifacts/bolo-mobile/package.json`, beside the `apple` one that has been
+   there since 2026-07-14. **That apple exclusion is why iOS never had this bug.**
+   With the module excluded, `loadNativeModule()` returns null and every sync path
+   no-ops. Verified: builds 422 and 423 printed Clerk native lines to logcat, 426
+   prints zero.
+2. `scripts/patch-clerk-android-specs.mjs`, wired as the root `postinstall`.
+   **The exclusion alone crashes at launch.** Build 424 died with
+   `JavascriptException: Error: Cannot find native module 'ClerkExpo'` because of
+   one word:
+
+   ```
+   NativeClerkModule.js          requireOptionalNativeModule   returns null
+   NativeClerkModule.android.js  requireNativeModule           THROWS
+   ```
+
+   and `dist/utils/native-module.js` wraps only the property access on line 19,
+   not the `require` on line 4, so the throw escapes the try/catch meant to
+   absorb it.
+
+**Do NOT convert that postinstall to `pnpm patch`.** It was tried, and build 425
+died in 20 seconds on `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`. This repo is worked
+from two pnpm versions that keep `patchedDependencies` in different files with no
+shared value:
+
+```
+pnpm 11 (this Mac)                    pnpm-workspace.yaml
+pnpm 10 (EAS builder, Replit)         package.json, under "pnpm"
+```
+
+pnpm 11 refuses the pnpm 10 location outright. A postinstall script does not care
+which pnpm is running. Remove the script the day Clerk ships the fix upstream.
+
+**Latent hazard introduced by the exclusion, unproven, do not chase without
+evidence.** `NativeClientSync` renders whenever `isNative()`, regardless of its
+`enabled` prop, so its `handleUnauthenticated` and `updateClient` monkey patches
+stay installed even with the module gone. On a genuine 401,
+`handleUnauthenticated` calls `readNativeDeviceToken()`, gets null because there
+is no module, and `syncDeviceTokenToCache(cache, null)` then **clears the client
+JWT**. Idle use never triggers it. iOS has carried the same exposure since July
+without incident. One dist-426 Sentry event is consistent with it (`held 112858ms,
+credential absent`) but it came from the Google Play pre-launch crawler, not a
+real device, so treat it as a hypothesis with one data point.
+
+**Ruled out, each with evidence, so nobody re-runs these.** Not a crash (zero
+FATAL, zero tombstones, pid survives). Not server-side (Clerk logs show
+`session.created` around every bounce and zero revocations). Not session config
+(inactivity timeout off, lifetime 7 days). Not app-initiated (nothing calls
+`signOut` but two account-screen buttons). Not SecureStore (`lib/clerkTokenCache.ts`
+reports any throw before deleting, and has never fired). **Not Android 16**: one
+device, no evidence, two agents asserted it confidently anyway.
+
+**Reading the diagnostics.** Sentry's default scrubbing strips any key containing
+"token" or "auth" from extras and breadcrumb data, and it still ate
+`credentialState` on 426. Tags survive, and so does the error MESSAGE. Put
+anything load-bearing in the message, which is why the held-time and credential
+state are in the string.
+
+**Operational.** The `production` profile builds an `.aab`, which cannot be
+sideloaded, so every Android test costs a full Play round trip: about 20 minutes
+to build, then 10 or more for Play to serve it. `eas.json` already has a
+`preview` profile that builds an APK you can `adb install` directly. Use it for
+iteration. Force Play to notice a new internal build with:
+
+```bash
+adb shell am force-stop com.android.vending
+adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bolo.mobile" -p com.android.vending
+```
+
+The `-p com.android.vending` matters. Without it the intent opens an app chooser.
