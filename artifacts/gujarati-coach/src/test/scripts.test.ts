@@ -88,11 +88,23 @@ describe("THE GATE: a three-letter tracing game is not a game", () => {
     expect(AUTHORED_GLYPHS.devanagari!.length).toBeLessThan(PLAYABLE_GLYPH_FLOOR);
   });
 
-  test("so tracing is offered in NO language yet", () => {
+  test("so tracing is offered ONLY where a speaker has actually traced", () => {
+    // INVERTED 2026-08-23. This asserted that NO language offered tracing,
+    // which was true for as long as AUTHORED_GLYPHS held nothing but three
+    // prototype glyphs. A speaker then traced 45 Gujarati letters on the
+    // contribution page and buildAuthoredGlyphs.ts turned them into real
+    // authored data, so Gujarati is genuinely playable now.
+    //
+    // The GATE is what this test is for, not the emptiness. Kept as an
+    // assertion that everything WITHOUT contributed data is still refused,
+    // because that is the half that can regress silently.
+    expect(traceReadyFor("gu")).toBe(true);
+    expect(playableScripts()).toEqual(["gujarati"]);
+
     for (const code of Object.keys(SCRIPT_BY_LANGUAGE)) {
+      if (scriptFor(code) === "gujarati") continue;
       expect(traceReadyFor(code), `${code} must not offer tracing yet`).toBe(false);
     }
-    expect(playableScripts()).toEqual([]);
   });
 
   test("a language whose script has no authored data returns no glyphs", () => {

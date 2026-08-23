@@ -13,6 +13,7 @@
 
 import type { AuthoredGlyph } from "./stroke-scoring";
 import { DEVANAGARI_PROTOTYPE_GLYPHS } from "./devanagari-strokes";
+import { CONTRIBUTED_GLYPHS } from "./contributed-strokes";
 
 export type ScriptId =
   | "devanagari"
@@ -97,6 +98,12 @@ export const AUTHORED_GLYPHS: Partial<Record<ScriptId, AuthoredGlyph[]>> = {
   // under the playable floor on purpose, so tracing stays hidden until a real
   // set lands.
   devanagari: DEVANAGARI_PROTOTYPE_GLYPHS,
+
+  // Real contributed strokes, generated from the contribution page. Spread
+  // LAST so a script that people have actually traced REPLACES the prototype
+  // for that script rather than being merged into it. Three approximate glyphs
+  // sitting alongside forty-five real ones would poison the set they joined.
+  ...CONTRIBUTED_GLYPHS,
 };
 
 /**
