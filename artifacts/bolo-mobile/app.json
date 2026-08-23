@@ -2,7 +2,7 @@
   "expo": {
     "name": "Bolo! Mobile",
     "slug": "bolo-mobile",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "bolo-mobile",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.bolo.mobile",
-      "buildNumber": "420",
+      "buildNumber": "500",
       "supportsTablet": false,
       "icon": "./assets/images/icon.png",
       "infoPlist": {
@@ -24,7 +24,7 @@
     },
     "android": {
       "package": "com.bolo.mobile",
-      "versionCode": 426,
+      "versionCode": 500,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#fffdf0"
