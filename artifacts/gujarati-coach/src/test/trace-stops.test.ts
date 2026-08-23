@@ -10,6 +10,8 @@ import {
   isTraceChapterId,
   traceChapterSize,
   languageStudiesChapter,
+  traceStopStatus,
+  traceChaptersFor,
   SCRIPT_TRACE_CHAPTERS,
   LANG_CHAPTER_IDS,
   type TraceStopBand,
@@ -192,6 +194,52 @@ describe("chapter validation, which games.ts had hardcoded and wrong", () => {
       const ids = LANG_CHAPTER_IDS[lang] ?? [];
       expect(ids.length, lang).toBeGreaterThan(0);
       expect(languageStudiesChapter(lang, ids[0]!), lang).toBe(true);
+    }
+  });
+});
+
+describe("a trace stop's status, derived rather than stored", () => {
+  const stop = traceStopFor("gu", 1, 1)!;
+
+  test("nothing traced reads as unlocked, never locked", () => {
+    // Deliberately no "locked". A trace stop must not gate the phrase stops
+    // after it: a learner blocked from their next phrase because they had not
+    // traced ળ would rightly be baffled.
+    expect(traceStopStatus(stop, new Set())).toBe("unlocked");
+  });
+
+  test("some traced reads as in progress", () => {
+    const some = new Set([stop.characters[0]!.id]);
+    expect(traceStopStatus(stop, some)).toBe("in_progress");
+  });
+
+  test("all traced reads as completed", () => {
+    const all = new Set(stop.characters.map((c) => c.id));
+    expect(traceStopStatus(stop, all)).toBe("completed");
+  });
+
+  test("characters from OTHER stops do not complete this one", () => {
+    // The slices are contiguous, so a naive "count of passed characters"
+    // would let zone 2's work complete zone 1.
+    const otherZone = traceStopFor("gu", 1, 2)!;
+    const wrong = new Set(otherZone.characters.map((c) => c.id));
+    expect(traceStopStatus(stop, wrong)).toBe("unlocked");
+  });
+
+  test("the chapters to fetch cover every stop's characters", () => {
+    // If this drifts, a stop's progress silently never loads and it reads as
+    // untouched forever.
+    for (const lang of LANGUAGES) {
+      const chapters = new Set(traceChaptersFor(lang));
+      expect(chapters.size).toBeGreaterThan(0);
+      for (const s of traceStopsFor(lang)) {
+        for (const c of s.characters) {
+          const owner = SCRIPT_TRACE_CHAPTERS.find((ch) =>
+            ch.characters.some((x) => x.id === c.id),
+          );
+          expect(owner && chapters.has(owner.id), `${lang} ${c.id}`).toBe(true);
+        }
+      }
     }
   });
 });

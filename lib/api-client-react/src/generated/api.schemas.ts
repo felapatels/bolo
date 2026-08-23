@@ -1721,18 +1721,13 @@ limit?: number;
 };
 
 export type GetScriptTraceProgressParams = {
-chapter: GetScriptTraceProgressChapter;
+/**
+ * A Script Trace chapter id, e.g. "gujarati-vowels" or "bengali-consonants". Validated server-side against the real chapter data. This was an enum of four ids, the same fault the POST body carried: twenty of the twenty-two languages could not read their own tracing progress.
+ * @minLength 1
+ * @maxLength 64
+ */
+chapter: string;
 };
-
-export type GetScriptTraceProgressChapter = typeof GetScriptTraceProgressChapter[keyof typeof GetScriptTraceProgressChapter];
-
-
-export const GetScriptTraceProgressChapter = {
-  'gujarati-vowels': 'gujarati-vowels',
-  'gujarati-consonants': 'gujarati-consonants',
-  'hindi-vowels': 'hindi-vowels',
-  'hindi-consonants': 'hindi-consonants',
-} as const;
 
 export type GetDailyQuizParams = {
 /**

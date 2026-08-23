@@ -1125,8 +1125,12 @@ export const GetFriendsFeedResponse = zod.array(GetFriendsFeedResponseItem)
  * Returns the caller's per-character tracing progress for the requested Script Trace chapter. Plus-only — non-Plus callers receive a 402.
  * @summary Get Script Trace chapter progress
  */
+export const getScriptTraceProgressQueryChapterMax = 64;
+
+
+
 export const GetScriptTraceProgressQueryParams = zod.object({
-  "chapter": zod.enum(['gujarati-vowels', 'gujarati-consonants', 'hindi-vowels', 'hindi-consonants'])
+  "chapter": zod.coerce.string().min(1).max(getScriptTraceProgressQueryChapterMax).describe('A Script Trace chapter id, e.g. \"gujarati-vowels\" or \"bengali-consonants\". Validated server-side against the real chapter data. This was an enum of four ids, the same fault the POST body carried: twenty of the twenty-two languages could not read their own tracing progress.')
 })
 
 export const GetScriptTraceProgressResponseItem = zod.object({

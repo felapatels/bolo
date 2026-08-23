@@ -255,3 +255,33 @@ export function languageStudiesChapter(
 ): boolean {
   return (LANG_CHAPTER_IDS[languageCode] ?? []).includes(chapterId);
 }
+
+/** The chapters a language's trace stops draw from, for fetching progress. */
+export function traceChaptersFor(languageCode: string): string[] {
+  return [...(LANG_CHAPTER_IDS[languageCode] ?? [])];
+}
+
+/**
+ * Where a learner stands on one trace stop, from the characters they have
+ * passed.
+ *
+ * DERIVED, never stored, which is the convention lesson_group_progress already
+ * follows: "Most unlock state is DERIVED at read time". A trace stop has no
+ * row of its own and should not get one, because everything it needs is
+ * already in script_trace_progress keyed per character.
+ *
+ * Note there is no "locked". A trace stop never gates the stops after it: it
+ * teaches the alphabet, which is orthogonal to the phrases around it, and a
+ * learner blocked from their next phrase stop because they had not traced
+ * ળ would rightly be baffled.
+ */
+export type TraceStopStatus = "unlocked" | "in_progress" | "completed";
+
+export function traceStopStatus(
+  stop: TraceStop,
+  passedCharacterIds: ReadonlySet<string>,
+): TraceStopStatus {
+  const passed = stop.characters.filter((c) => passedCharacterIds.has(c.id)).length;
+  if (passed === 0) return "unlocked";
+  return passed === stop.characters.length ? "completed" : "in_progress";
+}

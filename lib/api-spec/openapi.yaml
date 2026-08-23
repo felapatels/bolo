@@ -1316,13 +1316,16 @@ paths:
         - name: chapter
           in: query
           required: true
+          description: >-
+            A Script Trace chapter id, e.g. "gujarati-vowels" or
+            "bengali-consonants". Validated server-side against the real chapter
+            data. This was an enum of four ids, the same fault the POST body
+            carried: twenty of the twenty-two languages could not read their own
+            tracing progress.
           schema:
             type: string
-            enum:
-              - gujarati-vowels
-              - gujarati-consonants
-              - hindi-vowels
-              - hindi-consonants
+            minLength: 1
+            maxLength: 64
       responses:
         "200":
           description: List of per-character progress entries for the chapter

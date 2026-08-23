@@ -5,8 +5,12 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { GetScriptTraceProgressChapter } from './getScriptTraceProgressChapter';
 
 export type GetScriptTraceProgressParams = {
-chapter: GetScriptTraceProgressChapter;
+/**
+ * A Script Trace chapter id, e.g. "gujarati-vowels" or "bengali-consonants". Validated server-side against the real chapter data. This was an enum of four ids, the same fault the POST body carried: twenty of the twenty-two languages could not read their own tracing progress.
+ * @minLength 1
+ * @maxLength 64
+ */
+chapter: string;
 };
