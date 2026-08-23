@@ -98,6 +98,14 @@ token ledger, the RevenueCat or Stripe webhook paths, or entitlement resolution.
 
 - **Verify by content, never by commit message.** Replit auto-committed 22 times in
   two days and the message rarely survived. Read the diffstat and file list.
+  **The Repl's `main` normally sits AHEAD of GitHub by a stack of `Published your
+  App` commits and the merges between them, and that is NOT divergence.**
+  Established 2026-08-23: thirteen such commits, and `git diff --stat origin/main
+  HEAD` in the Shell printed NOTHING, so the two copies were identical in content.
+  Run that diff before worrying about the log. Note also that `git pull` in the
+  Shell always produces a merge commit for this reason, so the Repl's HEAD hash
+  will never equal the hash you pushed. Check `git merge-base --is-ancestor
+  <pushed-sha> HEAD` instead.
 - **Prefer `pnpm install --frozen-lockfile`.** Any manifest change re-resolves on
   pnpm 11 and threads `supports-color` through the graph (48 peer suffixes become
   1136), which leaves several `react-native` copies in the store. That used to
