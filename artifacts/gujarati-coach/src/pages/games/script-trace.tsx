@@ -908,18 +908,30 @@ function ScriptTraceCanvas({
   // Boustrophedon order ensures the dot sweeps continuously through the letter.
   // Pen strokes (centerline skeleton) for the demo animation, plus per-stroke
   // time fractions proportional to stroke length.
-  // THE HAND FIRST, the skeleton second. The skeleton is extracted from a font
-  // outline and splits at every junction: for Gujarati it played letters as
-  // four to nine disconnected fragments that Bharti writes in ONE flow, which
-  // is what "multiple lines, not one continuous flow" meant when it was
-  // reported on 2026-08-23. Where a real hand exists it is simply better data,
-  // and it was already in the repo under the same character ids.
+  // ONLY A REAL HAND MAY TEACH STROKE ORDER. Ruled 2026-08-23, and the
+  // measurement behind it is worth keeping: the skeleton extracted from a font
+  // outline splits at every junction, so the demo played letters as four to
+  // nine disconnected fragments where a person writes one flow. Gujarati has
+  // contributions and averages 1.8 strokes a letter; the other eleven scripts
+  // average 3.3 to 6.2, with a Tamil letter at fourteen. Sweeping the merge
+  // thresholds over all 459 of their letters moved the mean from 5.19 to 4.27
+  // at best, and only by welding strokes across turns of up to 101 degrees.
+  //
+  // So tuning cannot turn a skeleton into a flow, and a demo that teaches the
+  // wrong stroke order is worse than no demo. Where nobody has traced the
+  // script, this is empty and every part of the demo is hidden: the animation,
+  // the "Watch again" control and the green start dot, which is the same claim
+  // in miniature.
+  //
+  // strokesForGuide() below is deliberately LEFT IN PLACE and still tested. It
+  // is what runs again the day a script gets contributions, and deleting a
+  // working pipeline over a display policy is not cheap to undo.
   const penStrokes = useMemo(
-    () =>
-      handPenStrokes(activeLang, character.id) ??
-      (character.guide ? strokesForGuide(character.guide) : []),
-    [activeLang, character],
+    () => handPenStrokes(activeLang, character.id) ?? [],
+    [activeLang, character.id],
   );
+  /** Whether this character can honestly be demonstrated at all. */
+  const hasPenDemo = penStrokes.length > 0;
   const penStrokeFracs = useMemo(() => strokeTimeFractions(penStrokes), [penStrokes]);
   // Longer items (words/sentences have many strokes) get proportionally more
   // demo time — capped at 3× — so the pen isn't absurdly fast on phrases.
@@ -1074,15 +1086,12 @@ function ScriptTraceCanvas({
     // ── Start indicator ───────────────────────────────────────────────────────
     // A green dot at the approximate stroke-start position so the learner
     // knows where to put their pen. Hidden once they begin drawing.
-    if (animT === null && character.guide && guidePoints.length > 0 && !hasStrokes) {
-      // Start of the first pen stroke — exactly where the writing demo begins.
-      // Falls back to the topmost outline point for degenerate glyphs.
-      const startPt = penStrokes.length > 0
-        ? penStrokes[0][0]
-        : guidePoints.reduce(
-            (best, p) => p.y < best.y ? p : best,
-            guidePoints[0],
-          );
+    // Gated on the pen path, not on the guide: without a traced hand there is
+    // no honest answer to "where do I start", and the old fallback (topmost
+    // outline point) was a guess dressed as instruction.
+    if (animT === null && penStrokes.length > 0 && !hasStrokes) {
+      // Start of the first pen stroke, exactly where the writing demo begins.
+      const startPt = penStrokes[0][0];
       const cx = (startPt.x / 100) * W;
       const cy = (startPt.y / 100) * H;
       const r = W * 0.038;
@@ -1159,9 +1168,9 @@ function ScriptTraceCanvas({
     animFrameRef.current = requestAnimationFrame(tick);
   }, [drawCanvas, animDurationMs]);
 
-  // Auto-play on mount
+  // Auto-play on mount, but only where there is a real pen path to play.
   useEffect(() => {
-    startAnim();
+    if (hasPenDemo) startAnim();
     return () => {
       if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
     };
@@ -1336,11 +1345,11 @@ function ScriptTraceCanvas({
       {/* Trace hint / animation state */}
       {isAnimating ? (
         <p className="text-xs font-medium text-primary/80">
-          {character.guide ? 'Watch where the pen moves…' : 'Study this shape, then trace it'}
+          {hasPenDemo ? 'Watch where the pen moves…' : 'Study this shape, then trace it'}
         </p>
       ) : (
         <p className="text-xs text-muted-foreground">
-          {character.guide && !hasDrawn ? 'Start at the green dot' : 'Trace the character'}
+          {hasPenDemo && !hasDrawn ? 'Start at the green dot' : 'Trace the character'}
         </p>
       )}
 
@@ -1367,6 +1376,7 @@ function ScriptTraceCanvas({
           <RotateCcw className="h-3.5 w-3.5" />
           Clear
         </button>
+        {hasPenDemo && (
         <button
           onClick={startAnim}
           disabled={isAnimating}
@@ -1375,6 +1385,7 @@ function ScriptTraceCanvas({
           <Play className="h-3.5 w-3.5" />
           {isAnimating ? "Playing…" : "Watch again"}
         </button>
+        )}
       </div>
 
       {/* Live coverage feedback — shown while drawing and after scoring */}
