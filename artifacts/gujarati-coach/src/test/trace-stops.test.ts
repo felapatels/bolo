@@ -11,6 +11,8 @@ import {
   traceChapterSize,
   languageStudiesChapter,
   traceStopStatus,
+  traceStopCopy,
+  traceStopPassedCount,
   traceChaptersFor,
   SCRIPT_TRACE_CHAPTERS,
   LANG_CHAPTER_IDS,
@@ -233,6 +235,72 @@ describe("a trace stop's status, derived rather than stored", () => {
     const otherZone = traceStopFor("gu", 1, 2)!;
     const wrong = new Set(otherZone.characters.map((c) => c.id));
     expect(traceStopStatus(stop, wrong)).toBe("unlocked");
+  });
+
+  test("the map copy counts the stop's own contents, in the band's own noun", () => {
+    // This is the line the journey map prints, and it shipped as
+    // "Now boarding · undefined phrases" because the card fell through to the
+    // phrase-stop copy. A tracing stop has no phrases; it has letters, words or
+    // sentences depending on the rung.
+    const letters = traceStopFor("gu", 1, 1)!;
+    const n = letters.characters.length;
+    expect(traceStopCopy(letters, 0)).toBe(`Trace ${n} letters`);
+    expect(traceStopCopy(letters, 3)).toBe(`3 of ${n} letters traced`);
+    expect(traceStopCopy(letters, n)).toBe(`All ${n} letters traced`);
+    // Never "phrases", and never "undefined", in any language or any band.
+    for (const lang of LANGUAGES) {
+      for (const s of traceStopsFor(lang)) {
+        for (const passed of [0, 1, s.characters.length]) {
+          const copy = traceStopCopy(s, passed);
+          expect(copy, `${lang} j${s.journey}z${s.zone}`).not.toMatch(/undefined|phrase/i);
+        }
+      }
+    }
+  });
+
+  test("the copy follows the band, so journey 2 does not say 'letters'", () => {
+    for (const lang of LANGUAGES) {
+      for (const s of traceStopsFor(lang)) {
+        const copy = traceStopCopy(s, 0);
+        if (s.band === "letters") expect(copy).toMatch(/letters?$/);
+        else if (s.band === "sentences") expect(copy).toMatch(/sentences?$/);
+        else expect(copy).toMatch(/words?$/);
+      }
+    }
+  });
+
+  test("the passed count is the stop's own, not the whole chapter's", () => {
+    const stop = traceStopFor("gu", 1, 2)!;
+    const other = traceStopFor("gu", 1, 1)!;
+    // Passing zone 1's letters must not advance zone 2's stop by even one.
+    const passed = new Set(other.characters.map((c) => c.id));
+    expect(traceStopPassedCount(stop, passed)).toBe(0);
+    expect(traceStopPassedCount(other, passed)).toBe(other.characters.length);
+  });
+
+  test("every character names the real chapter its progress records against", () => {
+    // A stop's characters are a slice ACROSS chapters, and the stop's own id is
+    // synthetic, so a session driven from a stop posts the character's tag
+    // instead. If a tag were missing or not a real chapter, the endpoint would
+    // reject the write (isTraceChapterId) and the letter would trace into the
+    // void, which is the shape of the bug that had twenty of twenty-two
+    // languages recording nothing at all.
+    for (const lang of LANGUAGES) {
+      for (const s of traceStopsFor(lang)) {
+        for (const c of s.characters) {
+          expect(isTraceChapterId(c.chapterId), `${lang} ${c.id}`).toBe(true);
+          expect(
+            languageStudiesChapter(lang, c.chapterId),
+            `${lang} ${c.id} -> ${c.chapterId}`,
+          ).toBe(true);
+          // And the tag names the chapter the character is actually in.
+          const owner = SCRIPT_TRACE_CHAPTERS.find((ch) => ch.id === c.chapterId);
+          expect(owner?.characters.some((x) => x.id === c.id), `${lang} ${c.id}`).toBe(
+            true,
+          );
+        }
+      }
+    }
   });
 
   test("the chapters to fetch cover every stop's characters", () => {

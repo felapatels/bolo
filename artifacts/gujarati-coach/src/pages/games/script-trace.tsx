@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Redirect } from "wouter";
+import { Redirect, useLocation, useSearch } from "wouter";
 import { ArrowLeft, ChevronRight, RotateCcw, CheckCircle2, XCircle, Trophy, Play } from "lucide-react";
 import { Link } from "wouter";
 import { useEntitlements } from "@/lib/entitlements";
@@ -13,9 +13,12 @@ import {
 import { cn } from "@/lib/utils";
 import {
   LANG_CHAPTER_IDS,
+  SCRIPT_NAMES,
   SCRIPT_TRACE_CHAPTERS,
+  traceStopFor,
   type TraceChapter,
   type TraceCharacter,
+  type TraceStop,
   type ChapterStage,
   StrayBuzzer,
   STRAY_VIBRATE_MS,
@@ -1348,12 +1351,26 @@ function ScriptTraceCanvas({
 
 type SessionResult = { score: number; passed: boolean } | null;
 
+/**
+ * A character in a running session may know which real chapter it came from.
+ *
+ * A stop-scoped session is a slice ACROSS chapters (Gujarati zone 2 runs from
+ * the last vowels into the first consonants), and its own chapter id is
+ * synthetic, so the progress POST has to use the tag rather than the id of the
+ * thing being played. Chapter-scoped sessions carry no tag and fall back to the
+ * chapter's own id, which is what they have always sent.
+ */
+type SessionCharacter = TraceCharacter & { chapterId?: string };
+
 function TraceSession({
   chapter,
   onBack,
+  backLabel = "Choose Chapter",
 }: {
   chapter: TraceChapter;
   onBack: () => void;
+  /** What the exit button says. A stop-scoped session goes back to the map. */
+  backLabel?: string;
 }) {
   // The chapter alone cannot say which language is being studied, and the
   // progress endpoint now requires it. Taken from the hook rather than threaded
@@ -1370,7 +1387,7 @@ function TraceSession({
   // the learner skipped past never lands here and reads as untraced.
   const [bestScores, setBestScores] = useState<Record<string, number>>({});
 
-  const character = chapter.characters[charIndex];
+  const character: SessionCharacter | undefined = chapter.characters[charIndex];
   const guidePoints = character ? parseSvgPath(character.guide) : [];
   const interiorPoints = useMemo(
     () => character
@@ -1400,7 +1417,10 @@ function TraceSession({
             // Required since 2026-08-23. A chapter cannot say which language a
             // learner is studying: the Devanagari chapters serve eight.
             languageCode: activeLang,
-            chapter: chapter.id,
+            // The character's own chapter where it has one: a stop-scoped
+            // session's chapter id is synthetic and the endpoint rejects it
+            // (isTraceChapterId).
+            chapter: character.chapterId ?? chapter.id,
             characterId: character.id,
             passed: true,
             score,
@@ -1408,7 +1428,7 @@ function TraceSession({
         }).catch(() => {/* best-effort */});
       }
     },
-    [character, chapter.id],
+    [character, chapter.id, activeLang],
   );
 
   const handleNext = () => {
@@ -1481,7 +1501,7 @@ function TraceSession({
             onClick={onBack}
             className="rounded-xl border border-border bg-card px-5 py-2.5 font-semibold text-foreground hover:bg-muted transition-colors"
           >
-            Choose Chapter
+            {backLabel}
           </button>
           <button
             onClick={() => {
@@ -1594,17 +1614,83 @@ function TraceSession({
 
 // ── Page root ─────────────────────────────────────────────────────────────────
 
+/**
+ * The ladder's bands mapped onto the authored chapters' stages.
+ *
+ * Two vocabularies for the same idea, and neither is going away: a stop's band
+ * is a difficulty rung ("the longer half of the words") while a chapter's stage
+ * is what the content IS. Only the synthetic chapter a stop-scoped session
+ * plays needs the translation.
+ */
+const BAND_STAGE: Record<TraceStop["band"], ChapterStage> = {
+  letters: "alphabet",
+  "short-words": "words",
+  "long-words": "words",
+  sentences: "sentences",
+};
+
+/**
+ * The synthetic chapter a tracing stop plays.
+ *
+ * Its id is NOT a real chapter id and must never be sent to the server; every
+ * character carries the real one (TraceStopCharacter.chapterId) and the session
+ * posts that instead. Named for the rung so it is obvious in a React key or a
+ * console that this is a stop and not authored content.
+ */
+function chapterForStop(stop: TraceStop): TraceChapter {
+  return {
+    id: `trace-stop-j${stop.journey}-z${stop.zone}`,
+    title: stop.title,
+    scriptName: SCRIPT_NAMES[stop.script],
+    stage: BAND_STAGE[stop.band],
+    characters: stop.characters,
+  };
+}
+
+/** The stop named by `?journey=&zone=`, or null when the URL names none. */
+function useStopFromUrl(languageCode: string): TraceStop | null {
+  const search = useSearch();
+  return useMemo(() => {
+    const params = new URLSearchParams(search);
+    const zone = Number(params.get("zone"));
+    if (!Number.isInteger(zone) || zone < 1) return null;
+    // Journey defaults to 1 so an older link, from before the map sent the
+    // journey, still resolves instead of silently falling back to the menu.
+    const journeyRaw = Number(params.get("journey") ?? "1");
+    const journey = Number.isInteger(journeyRaw) && journeyRaw > 0 ? journeyRaw : 1;
+    return traceStopFor(languageCode, journey, zone);
+  }, [search, languageCode]);
+}
+
 export default function ScriptTracePage() {
   const { isPlus, isLoading } = useEntitlements();
+  const { activeLang } = useLanguage();
+  const [, navigate] = useLocation();
   const [activeChapter, setActiveChapter] = useState<TraceChapter | null>(null);
+  // A tracing stop on the journey map opens this screen already scoped to its
+  // own slice of the alphabet. Requested 2026-08-23 after the stop shipped
+  // pointing here bare: it landed on "Choose a chapter to practice", which is a
+  // menu of whole 36-character chapters, when what the stop promises is its
+  // eight letters one after another the way a phrase stop serves its phrases.
+  const stop = useStopFromUrl(activeLang);
 
   if (!isLoading && !isPlus) {
     return <Redirect to="/upgrade" />;
   }
 
-  if (!activeChapter) {
+  // The stop wins over the menu, but never over an explicit pick: choosing a
+  // chapter from the grid (reachable by backing out) still plays that chapter.
+  const session = activeChapter ?? (stop ? chapterForStop(stop) : null);
+  const fromStop = !activeChapter && stop !== null;
+
+  if (!session) {
     return <ChapterGrid onSelect={setActiveChapter} />;
   }
+
+  const leave = () => {
+    if (fromStop) navigate("/journey");
+    else setActiveChapter(null);
+  };
 
   return (
     <div className="min-h-[100dvh] bg-background pb-4">
@@ -1612,22 +1698,32 @@ export default function ScriptTracePage() {
       <div className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-4 lg:px-6">
           <button
-            onClick={() => setActiveChapter(null)}
+            onClick={leave}
+            aria-label={fromStop ? "Back to the journey map" : "Choose another chapter"}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card hover:bg-muted transition-colors"
           >
             <ArrowLeft className="h-4 w-4 text-foreground" />
           </button>
           <div>
             <h1 className="text-xl font-extrabold leading-none tracking-tight text-foreground">
-              {activeChapter.title}
+              {session.title}
             </h1>
-            <p className="text-sm text-muted-foreground">{activeChapter.scriptName} script</p>
+            <p className="text-sm text-muted-foreground">
+              {fromStop && stop
+                ? `Zone ${stop.zone} · ${session.scriptName} script`
+                : `${session.scriptName} script`}
+            </p>
           </div>
         </div>
       </div>
 
       <div className="mx-auto flex max-w-2xl flex-col pt-6">
-        <TraceSession chapter={activeChapter} onBack={() => setActiveChapter(null)} />
+        <TraceSession
+          key={session.id}
+          chapter={session}
+          onBack={leave}
+          backLabel={fromStop ? "Back to journey" : "Choose Chapter"}
+        />
       </div>
     </div>
   );

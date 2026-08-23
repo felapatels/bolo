@@ -42,6 +42,17 @@ export const TRACE_STOP_BAND_TITLE: Record<TraceStopBand, string> = {
   sentences: "Trace a sentence",
 };
 
+/** What one item of a band is called, so a stop can count its own contents. */
+export const TRACE_STOP_BAND_NOUN: Record<
+  TraceStopBand,
+  { one: string; many: string }
+> = {
+  letters: { one: "letter", many: "letters" },
+  "short-words": { one: "word", many: "words" },
+  "long-words": { one: "word", many: "words" },
+  sentences: { one: "sentence", many: "sentences" },
+};
+
 /** One rung: which band a zone draws from, and which slice of that band. */
 export type TraceStopRung = {
   journey: number;
@@ -79,12 +90,25 @@ export const TRACE_STOP_LADDER: readonly TraceStopRung[] = [
   rung(2, 6, "sentences", 1, 2),
 ];
 
+/**
+ * A character resolved for a stop, tagged with the chapter it came from.
+ *
+ * WHY THE TAG. A stop's characters are a slice ACROSS chapters: Gujarati zone
+ * 2 runs from the last vowels into the first consonants, so one stop spans
+ * "gujarati-vowels" and "gujarati-consonants". The progress endpoint keys on a
+ * real chapter id and rejects anything else (isTraceChapterId), so a session
+ * driven from a stop has to remember, per character, which chapter to record
+ * against. Added 2026-08-23 when the tracing stop learned to run as its own
+ * session rather than sending the learner to a chapter menu.
+ */
+export type TraceStopCharacter = TraceCharacter & { chapterId: string };
+
 /** A resolved stop: the rung plus the characters this language actually has. */
 export type TraceStop = TraceStopRung & {
   languageCode: string;
   script: ScriptId;
   title: string;
-  characters: TraceCharacter[];
+  characters: TraceStopCharacter[];
 };
 
 /**
@@ -95,16 +119,21 @@ export type TraceStop = TraceStopRung & {
  * SCRIPT_NAMES says "Meetei Mayek", so anything joining on the display name
  * silently finds nothing for one language and reports it as empty.
  */
-export function charactersAt(languageCode: string, stage: string): TraceCharacter[] {
+export function charactersAt(
+  languageCode: string,
+  stage: string,
+): TraceStopCharacter[] {
   const wanted = new Set(LANG_CHAPTER_IDS[languageCode] ?? []);
   const seen = new Set<string>();
-  const out: TraceCharacter[] = [];
+  const out: TraceStopCharacter[] = [];
   for (const chapter of SCRIPT_TRACE_CHAPTERS) {
     if (!wanted.has(chapter.id) || chapter.stage !== stage) continue;
     for (const c of chapter.characters) {
       if (seen.has(c.id)) continue;
       seen.add(c.id);
-      out.push(c);
+      // First chapter wins, matching the dedupe above: a character shared by
+      // two chapters records against the one the learner meets first.
+      out.push({ ...c, chapterId: chapter.id });
     }
   }
   return out;
@@ -122,7 +151,7 @@ export function charactersAt(languageCode: string, stage: string): TraceCharacte
  * Added 2026-08-23 when a trace-stop test asserted journey 1 covered the whole
  * alphabet and Urdu failed it by exactly Sindhi's extra letters.
  */
-export function alphabetForLanguage(languageCode: string): TraceCharacter[] {
+export function alphabetForLanguage(languageCode: string): TraceStopCharacter[] {
   return charactersAt(languageCode, "alphabet");
 }
 
@@ -142,14 +171,14 @@ function chunk<T>(items: readonly T[], slice: number, slices: number): T[] {
 }
 
 /** The words this language traces, shortest first, so the halves are a ramp. */
-function wordsByLength(languageCode: string): TraceCharacter[] {
+function wordsByLength(languageCode: string): TraceStopCharacter[] {
   return [...charactersAt(languageCode, "words")].sort(
     (a, b) => [...a.char].length - [...b.char].length || a.id.localeCompare(b.id),
   );
 }
 
 /** The pool a band draws from, before it is sliced. */
-function poolFor(languageCode: string, band: TraceStopBand): TraceCharacter[] {
+function poolFor(languageCode: string, band: TraceStopBand): TraceStopCharacter[] {
   if (band === "letters") return charactersAt(languageCode, "alphabet");
   if (band === "sentences") return charactersAt(languageCode, "sentences");
   // Short and long are the two halves of one measured list. Splitting by
@@ -291,4 +320,36 @@ export function traceStopStatus(
   const passed = stop.characters.filter((c) => passedCharacterIds.has(c.id)).length;
   if (passed === 0) return "unlocked";
   return passed === stop.characters.length ? "completed" : "in_progress";
+}
+
+/** How many of this stop's characters the learner has already passed. */
+export function traceStopPassedCount(
+  stop: TraceStop,
+  passedCharacterIds: ReadonlySet<string>,
+): number {
+  return stop.characters.filter((c) => passedCharacterIds.has(c.id)).length;
+}
+
+/**
+ * The one line a tracing stop shows on the journey map.
+ *
+ * HERE RATHER THAN IN EITHER CLIENT, for the reason at the top of this file:
+ * the web map and the phone map are hand-maintained twins, so copy defined in
+ * one of them becomes two different copies inside a week.
+ *
+ * WHAT IT REPLACES, and why this function exists at all. The card fell through
+ * to the phrase-stop line, `${station.phraseCount} phrases`, and a tracing stop
+ * has no phrases — so every tracing stop in all 22 languages read
+ * "Now boarding · undefined phrases" on bolo-india.app. Seen on the live site
+ * 2026-08-23, the first time anyone opened the map after the stop shipped.
+ * It also said nothing about tracing, so the stop was indistinguishable from
+ * the phrase stops around it apart from the broken word.
+ */
+export function traceStopCopy(stop: TraceStop, passedCount: number): string {
+  const total = stop.characters.length;
+  const noun = TRACE_STOP_BAND_NOUN[stop.band];
+  const word = total === 1 ? noun.one : noun.many;
+  if (passedCount >= total) return `All ${total} ${word} traced`;
+  if (passedCount > 0) return `${passedCount} of ${total} ${word} traced`;
+  return `Trace ${total} ${word}`;
 }

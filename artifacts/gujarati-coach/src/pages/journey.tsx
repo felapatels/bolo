@@ -31,7 +31,7 @@ import {
   type LessonGroupList,
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
-import { ArrowLeft, Check, ChevronDown, Lock, Sparkles, Star } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Lock, PenLine, Sparkles, Star } from "lucide-react";
 import { ChaiGlyph } from "@/components/chai-stall";
 import { TrainEngine } from "@/components/train-svg";
 import { useReducedMotion } from "framer-motion";
@@ -55,8 +55,10 @@ import {
 } from "@/lib/entitlements";
 import { JOURNEY_ZONES, getJourneyLine } from "@/lib/journeyLines";
 import {
+  traceStopCopy,
   traceStopFor,
   traceStopIndexIn,
+  traceStopPassedCount,
   traceStopStatus,
   type TraceStop,
 } from "@workspace/script-trace";
@@ -172,6 +174,11 @@ type Station = LessonGroupSummary & {
    * away from colliding with a real one.
    */
   trace?: TraceStop;
+  /**
+   * The tracing stop's own status line, resolved where the passed-character
+   * set is in scope. Present only alongside `trace`.
+   */
+  traceCopy?: string;
 };
 
 type LockInfo = {
@@ -551,8 +558,14 @@ function StationCard({
   const stopLabel = `Stop ${station.stopNumber} of ${station.stopCount}`;
   const masteredAtStop = station.masteredCount ?? 0;
   const phrasesAtStop = station.phraseCount ?? 0;
-  const statusCopy =
-    station.status === "completed"
+  // A tracing stop carries its own line ("Trace 8 letters", "3 of 8 letters
+  // traced"). It must NOT fall through to the phrase-stop copy: it has no
+  // phrases, so that path printed "Now boarding · undefined phrases" on the
+  // live site, and "Now boarding" collided with the learner's actual current
+  // stop two rows above.
+  const statusCopy = station.trace
+    ? (station.traceCopy ?? "")
+    : station.status === "completed"
       ? "Completed"
       : station.status === "tested_out"
         ? "Tested out"
@@ -628,6 +641,16 @@ function StationCard({
             All-Access
           </span>
         )}
+        {station.trace && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white shrink-0"
+            style={{ background: color }}
+            title={station.trace.title}
+          >
+            <PenLine className="w-2.5 h-2.5" />
+            Trace
+          </span>
+        )}
         {station.status === "tested_out" && (
           <span
             className="inline-block -rotate-6 rounded-sm border-2 border-dashed px-1.5 py-px text-[8px] font-black uppercase tracking-widest shrink-0"
@@ -656,8 +679,10 @@ function StationCard({
         {statusCopy}
         {/* Plan-locked stops serve a plan-visible count of zero, so the count
             segment is omitted there: "Locked" plus the lock icon only.
-            Progression-locked stops keep their real counts. */}
-        {!station.attemptedCount &&
+            Progression-locked stops keep their real counts. A tracing stop has
+            no phrase count at all and is excluded outright. */}
+        {!station.trace &&
+          !station.attemptedCount &&
           station.planLocked !== true &&
           ` · ${station.phraseCount} phrases`}
         {/* Item 2: no "Bolo is waiting here" fragment. Bolo herself already
@@ -728,7 +753,9 @@ function StationCard({
   );
   // Item 3: journey-map copy carries no em dashes; a colon reads the same and
   // announces cleanly in a screen reader.
-  const aria = `${stopLabel}: ${statusCopy}${station.stage === "sentence" ? " (sentence stop)" : ""}`;
+  const aria = station.trace
+    ? `${stopLabel}: ${station.trace.title}, ${statusCopy} (tracing stop)`
+    : `${stopLabel}: ${statusCopy}${station.stage === "sentence" ? " (sentence stop)" : ""}`;
   const rowClass = cn(
     "flex w-full items-center gap-1 text-left group",
     side === "left" ? "justify-end" : "justify-start",
@@ -1187,6 +1214,10 @@ export default function Journey() {
         stopNumber: 0,
         stopCount: 0,
         trace,
+        traceCopy: traceStopCopy(
+          trace,
+          traceStopPassedCount(trace, passedCharacterIds),
+        ),
       });
     }
     const rowStations: Station[] = withTrace.map((st, gi) => ({
@@ -2159,8 +2190,17 @@ export default function Journey() {
                         href={
                           // It opens the tracing screen, not a phrase session:
                           // there is no group to practise.
+                          //
+                          // KEYED OFF THE STOP, NOT OFF `zone.id`. The ladder
+                          // is indexed by a 1-based zone ORDINAL, and a
+                          // category id is not one: journeyLines.ts spells out
+                          // that journey 1's ids are 1-6 only because those
+                          // rows were inserted first, while journey 2's landed
+                          // at 277-282. `s.trace` already carries the journey
+                          // and ordinal it was resolved from, so it is the
+                          // only thing that cannot drift.
                           s.trace
-                            ? `/games/script-trace?zone=${zone.id}`
+                            ? `/games/script-trace?journey=${s.trace.journey}&zone=${s.trace.zone}`
                             : `/practice/${zone.id}?group=${s.id}`
                         }
                         onLocked={() =>
