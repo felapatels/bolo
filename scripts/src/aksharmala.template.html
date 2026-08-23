@@ -456,8 +456,8 @@
       body:JSON.stringify({ sessionId:sessionId, payload:encode() })
     }).then(function(r){
       if(!r.ok) throw new Error("http "+r.status);
-      tracedCount=saved.length;
-      note("tracesave","Saved. "+tracedCount+" letter"+(tracedCount===1?"":"s")+" so far.","ok");
+      note("tracesave","Saved. "+saved.length+" letter"+(saved.length===1?"":"s")+" so far.","ok");
+      refreshHub();
     }).catch(function(){
       note("tracesave","Could not save that one. It will try again with the next letter.","bad");
     });
@@ -536,6 +536,12 @@
     saved=saved.filter(function(g){return g.id!==roster[idx].id;});
     saved.push({id:roster[idx].id,strokes:strokes.slice()});
     strokes=[];
+    // Count what the person DID, synchronously. It used to be set inside the
+    // autosave promise, so finishing the last letter rendered the hub before
+    // the request came back and it said "19 of 20" after twenty letters.
+    // The network is why a save might fail; it is not what decides how many
+    // letters somebody drew.
+    tracedCount=saved.length;
     autosave();
     advance();
   });

@@ -7,10 +7,19 @@
 // a phrase. One paragraph read aloud carries all of that and takes less of a
 // contributor's time than a list does.
 //
-// WHY EVERY PASSAGE SAYS THE SAME THING. One cold morning, a girl with a cup of
-// tea, an offer, and a five-minute wait. Holding the meaning constant means a
-// reviewer who reads two of these can compare them, a contributor always knows
-// what they are saying, and the sounds each one exercises are the same sounds.
+// WHY EVERY PASSAGE SAYS THE SAME THING. A cold morning, an offer of tea, and a
+// five-minute wait. Holding the meaning constant means a reviewer who reads two
+// of these can compare them, a contributor always knows what they are saying,
+// and the sounds each one exercises are the same sounds.
+//
+// WHOSE VOICE IT IS, corrected 2026-08-23 after the first native speaker read
+// it. The original described a little girl picking up a cup of tea and drinking
+// it slowly, and her verdict was that it made no sense: a small child is not who
+// drinks chai and offers it, a grandmother is. She was right, and it is exactly
+// the class of error the drafting process cannot catch, because the sentences
+// were grammatical and the words were real. The passage is now a grandmother
+// speaking to the person reading it, which is also the register these
+// contributors will read most naturally.
 //
 // WHERE THESE CAME FROM, stated plainly because it matters. They were written
 // here, not produced by a translation service and not by a speaker of each
@@ -54,17 +63,17 @@ export type ReadingPassage = {
  * rather than a fresh invention, and so a reviewer can see the target.
  */
 export const PASSAGE_GLOSS =
-  "This morning it was very cold outside the house. The little girl picked up " +
-  "her cup of tea and drank it slowly. Would you like a cup of tea too? " +
-  "Dinner will be ready in five minutes.";
+  "It was very cold outside this morning. Come, sit down, I have made tea. " +
+  "Drink it slowly, while it is hot. Will you eat something too? " +
+  "The food will be ready in five minutes.";
 
 export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
   devanagari: {
     id: "passage-hi-1",
     language: "Hindi",
     text:
-      "आज सुबह घर के बाहर बहुत ठंड थी। छोटी लड़की ने चाय का प्याला उठाया, और धीरे-धीरे पीने लगी। " +
-      "क्या तुम भी एक कप चाय लोगे? पाँच मिनट में खाना तैयार हो जाएगा।",
+      "आज सुबह बाहर बहुत ठंड थी। आ, बैठ, मैंने चाय बनाई है। धीरे-धीरे पी, जब तक गरम है। " +
+      "कुछ खाएगा भी? पाँच मिनट में खाना तैयार हो जाएगा।",
     gloss: PASSAGE_GLOSS,
     confidence: "high",
     verified: false,
@@ -73,8 +82,8 @@ export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
     id: "passage-gu-1",
     language: "Gujarati",
     text:
-      "આજે સવારે ઘરની બહાર બહુ ઠંડી હતી. નાની છોકરીએ ચાનો પ્યાલો ઉઠાવ્યો, અને ધીમે ધીમે પીવા લાગી. " +
-      "શું તમે પણ એક કપ ચા લેશો? પાંચ મિનિટમાં જમવાનું તૈયાર થઈ જશે.",
+      "આજે સવારે બહાર બહુ ઠંડી હતી. આવ, બેસ, મેં ચા બનાવી છે. ધીમે ધીમે પી, ગરમ છે ત્યાં સુધી. " +
+      "કંઈક ખાઈશ પણ? પાંચ મિનિટમાં જમવાનું તૈયાર થઈ જશે.",
     gloss: PASSAGE_GLOSS,
     confidence: "high",
     verified: false,
@@ -83,8 +92,8 @@ export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
     id: "passage-ur-1",
     language: "Urdu",
     text:
-      "آج صبح گھر کے باہر بہت ٹھنڈ تھی۔ چھوٹی لڑکی نے چائے کا پیالہ اٹھایا، اور دھیرے دھیرے پینے لگی۔ " +
-      "کیا تم بھی ایک کپ چائے لو گے؟ پانچ منٹ میں کھانا تیار ہو جائے گا۔",
+      "آج صبح باہر بہت ٹھنڈ تھی۔ آ، بیٹھ، میں نے چائے بنائی ہے۔ دھیرے دھیرے پی، جب تک گرم ہے۔ " +
+      "کچھ کھائے گا بھی؟ پانچ منٹ میں کھانا تیار ہو جائے گا۔",
     gloss: PASSAGE_GLOSS,
     confidence: "high",
     verified: false,
@@ -93,8 +102,8 @@ export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
     id: "passage-pa-1",
     language: "Punjabi",
     text:
-      "ਅੱਜ ਸਵੇਰੇ ਘਰ ਤੋਂ ਬਾਹਰ ਬਹੁਤ ਠੰਢ ਸੀ। ਛੋਟੀ ਕੁੜੀ ਨੇ ਚਾਹ ਦਾ ਪਿਆਲਾ ਚੁੱਕਿਆ, ਅਤੇ ਹੌਲੀ ਹੌਲੀ ਪੀਣ ਲੱਗੀ। " +
-      "ਕੀ ਤੁਸੀਂ ਵੀ ਇੱਕ ਕੱਪ ਚਾਹ ਲਵੋਗੇ? ਪੰਜ ਮਿੰਟਾਂ ਵਿੱਚ ਖਾਣਾ ਤਿਆਰ ਹੋ ਜਾਵੇਗਾ।",
+      "ਅੱਜ ਸਵੇਰੇ ਬਾਹਰ ਬਹੁਤ ਠੰਢ ਸੀ। ਆ, ਬੈਠ, ਮੈਂ ਚਾਹ ਬਣਾਈ ਹੈ। ਹੌਲੀ ਹੌਲੀ ਪੀ, ਜਦ ਤੱਕ ਗਰਮ ਹੈ। " +
+      "ਕੁਝ ਖਾਏਂਗਾ ਵੀ? ਪੰਜ ਮਿੰਟਾਂ ਵਿੱਚ ਖਾਣਾ ਤਿਆਰ ਹੋ ਜਾਵੇਗਾ।",
     gloss: PASSAGE_GLOSS,
     confidence: "high",
     verified: false,
@@ -103,8 +112,8 @@ export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
     id: "passage-bn-1",
     language: "Bengali",
     text:
-      "আজ সকালে ঘরের বাইরে খুব ঠান্ডা ছিল। ছোট মেয়েটি চায়ের কাপ তুলে নিল, আর ধীরে ধীরে খেতে লাগল। " +
-      "তুমিও কি এক কাপ চা নেবে? পাঁচ মিনিটের মধ্যে খাবার তৈরি হয়ে যাবে।",
+      "আজ সকালে বাইরে খুব ঠান্ডা ছিল। আয়, বোস, আমি চা বানিয়েছি। ধীরে ধীরে খা, যতক্ষণ গরম আছে। " +
+      "কিছু খাবি নাকি? পাঁচ মিনিটের মধ্যে খাবার তৈরি হয়ে যাবে।",
     gloss: PASSAGE_GLOSS,
     confidence: "high",
     verified: false,
@@ -113,8 +122,8 @@ export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
     id: "passage-ta-1",
     language: "Tamil",
     text:
-      "இன்று காலை வீட்டுக்கு வெளியே மிகவும் குளிராக இருந்தது. சிறுமி தேநீர் கோப்பையை எடுத்தாள், " +
-      "மெதுவாகக் குடிக்கத் தொடங்கினாள். நீங்களும் ஒரு கப் தேநீர் அருந்துவீர்களா? " +
+      "இன்று காலை வெளியே மிகவும் குளிராக இருந்தது. வா, உட்கார், நான் தேநீர் போட்டிருக்கிறேன். " +
+      "சூடாக இருக்கும்போதே மெதுவாகக் குடி. ஏதாவது சாப்பிடுகிறாயா? " +
       "ஐந்து நிமிடங்களில் சாப்பாடு தயாராகிவிடும்.",
     gloss: PASSAGE_GLOSS,
     confidence: "medium",
@@ -124,8 +133,8 @@ export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
     id: "passage-te-1",
     language: "Telugu",
     text:
-      "ఈ ఉదయం ఇంటి బయట చాలా చలిగా ఉంది. చిన్న అమ్మాయి టీ కప్పు తీసుకుంది, మెల్లగా తాగడం మొదలుపెట్టింది. " +
-      "మీరు కూడా ఒక కప్పు టీ తీసుకుంటారా? ఐదు నిమిషాల్లో భోజనం సిద్ధమవుతుంది.",
+      "ఈ ఉదయం బయట చాలా చలిగా ఉంది. రా, కూర్చో, నేను టీ చేశాను. వేడిగా ఉన్నప్పుడే మెల్లగా తాగు. " +
+      "ఏమైనా తింటావా? ఐదు నిమిషాల్లో భోజనం సిద్ధమవుతుంది.",
     gloss: PASSAGE_GLOSS,
     confidence: "medium",
     verified: false,
@@ -134,8 +143,8 @@ export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
     id: "passage-kn-1",
     language: "Kannada",
     text:
-      "ಇಂದು ಬೆಳಿಗ್ಗೆ ಮನೆಯ ಹೊರಗೆ ತುಂಬಾ ಚಳಿಯಿತ್ತು. ಚಿಕ್ಕ ಹುಡುಗಿ ಚಹಾದ ಲೋಟವನ್ನು ಎತ್ತಿಕೊಂಡಳು, " +
-      "ಮತ್ತು ನಿಧಾನವಾಗಿ ಕುಡಿಯಲು ಪ್ರಾರಂಭಿಸಿದಳು. ನೀವೂ ಒಂದು ಕಪ್ ಚಹಾ ತೆಗೆದುಕೊಳ್ಳುತ್ತೀರಾ? " +
+      "ಇಂದು ಬೆಳಿಗ್ಗೆ ಹೊರಗೆ ತುಂಬಾ ಚಳಿಯಿತ್ತು. ಬಾ, ಕುಳಿತುಕೋ, ನಾನು ಚಹಾ ಮಾಡಿದ್ದೇನೆ. " +
+      "ಬಿಸಿಯಾಗಿರುವಾಗಲೇ ನಿಧಾನವಾಗಿ ಕುಡಿ. ಏನಾದರೂ ತಿನ್ನುತ್ತೀಯಾ? " +
       "ಐದು ನಿಮಿಷಗಳಲ್ಲಿ ಊಟ ಸಿದ್ಧವಾಗುತ್ತದೆ.",
     gloss: PASSAGE_GLOSS,
     confidence: "medium",
@@ -145,8 +154,8 @@ export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
     id: "passage-ml-1",
     language: "Malayalam",
     text:
-      "ഇന്ന് രാവിലെ വീടിന് പുറത്ത് വളരെ തണുപ്പായിരുന്നു. കൊച്ചു പെൺകുട്ടി ചായക്കപ്പ് എടുത്തു, " +
-      "പതുക്കെ കുടിക്കാൻ തുടങ്ങി. നിങ്ങളും ഒരു കപ്പ് ചായ കുടിക്കുന്നോ? " +
+      "ഇന്ന് രാവിലെ പുറത്ത് വളരെ തണുപ്പായിരുന്നു. വാ, ഇരിക്ക്, ഞാൻ ചായ ഉണ്ടാക്കിയിട്ടുണ്ട്. " +
+      "ചൂടുള്ളപ്പോൾ തന്നെ പതുക്കെ കുടിക്ക്. വല്ലതും കഴിക്കുന്നോ? " +
       "അഞ്ച് മിനിറ്റിനുള്ളിൽ ഭക്ഷണം തയ്യാറാകും.",
     gloss: PASSAGE_GLOSS,
     confidence: "medium",
@@ -156,8 +165,8 @@ export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
     id: "passage-or-1",
     language: "Odia",
     text:
-      "ଆଜି ସକାଳେ ଘର ବାହାରେ ବହୁତ ଥଣ୍ଡା ଥିଲା। ଛୋଟ ଝିଅଟି ଚା କପ ଉଠାଇଲା, ଏବଂ ଧୀରେ ଧୀରେ ପିଇବାକୁ ଲାଗିଲା। " +
-      "ତୁମେ ମଧ୍ୟ ଏକ କପ ଚା ନେବ କି? ପାଞ୍ଚ ମିନିଟ ମଧ୍ୟରେ ଖାଦ୍ୟ ପ୍ରସ୍ତୁତ ହୋଇଯିବ।",
+      "ଆଜି ସକାଳେ ବାହାରେ ବହୁତ ଥଣ୍ଡା ଥିଲା। ଆସ, ବସ, ମୁଁ ଚା ବନାଇଛି। ଗରମ ଥିବା ବେଳେ ଧୀରେ ଧୀରେ ପିଅ। " +
+      "କିଛି ଖାଇବ କି? ପାଞ୍ଚ ମିନିଟ ମଧ୍ୟରେ ଖାଦ୍ୟ ପ୍ରସ୍ତୁତ ହୋଇଯିବ।",
     gloss: PASSAGE_GLOSS,
     confidence: "medium",
     verified: false,
@@ -166,8 +175,8 @@ export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
     id: "passage-sat-1",
     language: "Santali",
     text:
-      "ᱛᱮᱦᱮᱸ ᱥᱮᱛᱟᱜ ᱚᱲᱟᱜ ᱵᱟᱦᱨᱮ ᱯᱩᱨᱟᱹ ᱨᱟᱵᱟᱝ ᱛᱟᱦᱮᱸᱠᱟᱱᱟ᱾ ᱩᱠᱩ ᱠᱩᱲᱤ ᱫᱚ ᱪᱟᱭ ᱠᱟᱯ ᱟᱹᱜᱩ ᱠᱮᱫᱟᱭ, " +
-      "ᱟᱨ ᱟᱞᱜᱟ ᱟᱞᱜᱟ ᱧᱩ ᱮᱦᱚᱵ ᱠᱮᱫᱟᱭ᱾ ᱟᱢ ᱦᱚᱸ ᱢᱤᱫ ᱠᱟᱯ ᱪᱟᱭ ᱤᱫᱤ ᱢᱮᱭᱟᱢ ᱥᱮ? " +
+      "ᱛᱮᱦᱮᱸ ᱥᱮᱛᱟᱜ ᱵᱟᱦᱨᱮ ᱯᱩᱨᱟᱹ ᱨᱟᱵᱟᱝ ᱛᱟᱦᱮᱸᱠᱟᱱᱟ᱾ ᱦᱮᱡ ᱢᱮ, ᱫᱩᱲᱩᱵ ᱢᱮ, ᱤᱧ ᱪᱟᱭ ᱛᱮᱭᱟᱨ ᱠᱮᱫᱟᱹ᱾ " +
+      "ᱟᱞᱜᱟ ᱟᱞᱜᱟ ᱧᱩ ᱢᱮ᱾ ᱡᱚᱢ ᱦᱚᱸ ᱡᱚᱢ ᱢᱮᱭᱟᱢ ᱥᱮ? " +
       "ᱢᱚᱬᱮ ᱢᱤᱱᱤᱴ ᱨᱮ ᱡᱚᱢᱟᱜ ᱛᱮᱭᱟᱨ ᱦᱩᱭᱩᱜᱼᱟ᱾",
     gloss: PASSAGE_GLOSS,
     confidence: "low",
@@ -177,8 +186,8 @@ export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
     id: "passage-mni-1",
     language: "Meitei (Manipuri)",
     text:
-      "ꯉꯁꯤ ꯑꯌꯨꯛ ꯌꯨꯝꯒꯤ ꯃꯄꯥꯟꯗ ꯌꯥꯝꯅ ꯏꯡꯅꯈꯤ꯫ ꯑꯉꯥꯡ ꯅꯨꯄꯤꯃꯆꯥ ꯑꯗꯨꯅ ꯆꯥꯒꯤ ꯀꯞ ꯑꯗꯨ ꯂꯧꯈꯤ, " +
-      "ꯑꯃꯁꯨꯡ ꯇꯞꯅ ꯇꯞꯅ ꯊꯛꯂꯝꯃꯤ꯫ ꯅꯪꯅꯁꯨ ꯆꯥ ꯀꯞ ꯑꯃ ꯊꯛꯀꯗ꯭ꯔꯥ? " +
+      "ꯉꯁꯤ ꯑꯌꯨꯛ ꯃꯄꯥꯟꯗ ꯌꯥꯝꯅ ꯏꯡꯅꯈꯤ꯫ ꯂꯥꯛꯎ, ꯐꯝꯃꯨ, ꯑꯩꯅ ꯆꯥ ꯊꯣꯡꯂꯦ꯫ " +
+      "ꯁꯥꯡꯗ꯭ꯔꯤꯉꯩꯗ ꯇꯞꯅ ꯇꯞꯅ ꯊꯛꯎ꯫ ꯀꯔꯤꯒꯨꯝꯕ ꯑꯃ ꯆꯥꯒꯅꯤꯕ꯭ꯔꯥ? " +
       "ꯃꯤꯅꯤꯠ ꯃꯉꯥꯒꯤ ꯃꯅꯨꯡꯗ ꯆꯥꯅꯕ ꯁꯦꯝ ꯁꯥꯔꯒꯅꯤ꯫",
     gloss: PASSAGE_GLOSS,
     confidence: "low",
