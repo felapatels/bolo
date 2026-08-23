@@ -279,7 +279,7 @@ export function serializeAuthoredGlyphs(
 //   bolo1|Gujarati|Ba|gu_a:12,30;20,58~74,26;74,78|gu_aa:...
 //   ^     ^        ^  ^     ^ one stroke  ^ next stroke
 //   |     |        |  glyph id
-//   |     |        who traced it, "-" if they did not say
+//   |     |        who traced it, "-" if they did not say, "!" prefix = practice
 //   |     script name, spaces as underscores
 //   version
 //
@@ -299,6 +299,15 @@ export type ParsedTracePayload = {
   script: string;
   /** Who traced this set. "-" when they did not give a name. */
   contributor: string;
+  /**
+   * The contributor said they were only trying it out.
+   *
+   * It exists because the first person to open the page is whoever built it,
+   * and they may well not write the script at all. Marking a practice run in
+   * the DATA rather than remembering it out of band is what stops a test from
+   * quietly becoming the thing that teaches somebody their alphabet.
+   */
+  isPractice: boolean;
   glyphs: ParsedTraceGlyph[];
 };
 
@@ -344,7 +353,9 @@ export function parseTracePayload(text: string): ParsedTracePayload {
   if (parts.length < 4) throw new TracePayloadError("Payload has no glyphs.");
 
   const script = parts[1].replace(/_/g, " ");
-  const contributor = parts[2] === "" ? "-" : parts[2];
+  const rawContributor = parts[2] === "" ? "-" : parts[2];
+  const isPractice = rawContributor.startsWith("!");
+  const contributor = isPractice ? rawContributor.slice(1) || "-" : rawContributor;
   const glyphs: ParsedTraceGlyph[] = [];
 
   for (const chunk of parts.slice(3)) {
@@ -368,7 +379,7 @@ export function parseTracePayload(text: string): ParsedTracePayload {
   }
 
   if (glyphs.length === 0) throw new TracePayloadError("Payload has no glyphs.");
-  return { script, contributor, glyphs };
+  return { script, contributor, isPractice, glyphs };
 }
 
 /**
@@ -405,10 +416,13 @@ export type GlyphAgreement = {
  */
 export function compareContributions(
   payloads: readonly ParsedTracePayload[],
+  { includePractice = false }: { includePractice?: boolean } = {},
 ): GlyphAgreement[] {
   const byGlyph = new Map<string, Map<number, string[]>>();
 
   for (const payload of payloads) {
+    // Dropped by DEFAULT, so forgetting the option is the safe direction.
+    if (payload.isPractice && !includePractice) continue;
     for (const glyph of payload.glyphs) {
       let counts = byGlyph.get(glyph.id);
       if (!counts) {
@@ -506,3 +520,4 @@ export function alphabetForScript(script: ScriptId): TraceCharacter[] {
   }
   return out;
 }
+

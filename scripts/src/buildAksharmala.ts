@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import {
   SCRIPT_NAMES,
   alphabetForScript,
+  passageFor,
   type ScriptId,
 } from "@workspace/script-trace";
 
@@ -59,12 +60,28 @@ for (const script of Object.keys(SCRIPT_NAMES) as ScriptId[]) {
   }));
 }
 
-const template = readFileSync(TEMPLATE, "utf8");
-if (!template.includes("/*__ALPHABETS__*/{}")) {
-  throw new Error("Template is missing its /*__ALPHABETS__*/{} placeholder.");
+// The reading passages, keyed the same way so the page can look one up by the
+// script name it already has.
+const passages: Record<string, { id: string; language: string; text: string; gloss: string }> = {};
+for (const script of Object.keys(SCRIPT_NAMES) as ScriptId[]) {
+  const p = passageFor(script);
+  if (!p) throw new Error(`No reading passage for ${script}.`);
+  passages[SCRIPT_NAMES[script]] = {
+    id: p.id,
+    language: p.language,
+    text: p.text,
+    gloss: p.gloss,
+  };
 }
 
-const body = template.replace("/*__ALPHABETS__*/{}", JSON.stringify(alphabets));
+const template = readFileSync(TEMPLATE, "utf8");
+for (const token of ["/*__ALPHABETS__*/{}", "/*__PASSAGES__*/{}"]) {
+  if (!template.includes(token)) throw new Error(`Template is missing ${token}.`);
+}
+
+const body = template
+  .replace("/*__ALPHABETS__*/{}", JSON.stringify(alphabets))
+  .replace("/*__PASSAGES__*/{}", JSON.stringify(passages));
 const split = body.indexOf("<style>");
 const page =
   HEAD +
@@ -79,6 +96,18 @@ const page =
 writeFileSync(OUT, page);
 
 const letters = Object.values(alphabets).reduce((n, a) => n + a.length, 0);
-console.log(
-  `aksharmala: ${Object.keys(alphabets).length} scripts, ${letters} letters, ${Math.round(page.length / 1024)}KB -> ${OUT}`,
+const unverified = (Object.keys(SCRIPT_NAMES) as ScriptId[]).filter(
+  (s) => !passageFor(s).verified,
 );
+console.log(
+  `aksharmala: ${Object.keys(alphabets).length} scripts, ${letters} letters, ` +
+    `${Object.keys(passages).length} passages, ${Math.round(page.length / 1024)}KB -> ${OUT}`,
+);
+if (unverified.length > 0) {
+  // Loud, every build, until a speaker has signed each one off. These go in
+  // front of relatives; a silent "probably fine" is not good enough.
+  console.warn(
+    `WARNING: ${unverified.length} reading passage(s) NOT yet checked by a speaker: ` +
+      unverified.map((s) => SCRIPT_NAMES[s]).join(", "),
+  );
+}

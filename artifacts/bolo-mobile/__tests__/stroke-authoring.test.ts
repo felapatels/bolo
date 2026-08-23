@@ -486,3 +486,51 @@ describe('alphabetForScript', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
+
+describe('a practice run must not become teaching data', () => {
+  // The first person to open the page is whoever built it, and they may not
+  // write the script at all. Marking that in the DATA rather than remembering
+  // it out of band is the only version that survives a handover.
+  const glyphs = 'gu_a:20,30;20,70~60,20;60,80';
+
+  it('reads the ! prefix as practice and strips it from the name', () => {
+    const p = parseTracePayload(`bolo1|Gujarati|!Aakesh|${glyphs}`);
+    expect(p.isPractice).toBe(true);
+    expect(p.contributor).toBe('Aakesh');
+  });
+
+  it('treats an unmarked payload as real', () => {
+    const p = parseTracePayload(`bolo1|Gujarati|Ba|${glyphs}`);
+    expect(p.isPractice).toBe(false);
+    expect(p.contributor).toBe('Ba');
+  });
+
+  it('handles a practice run from someone who gave no name', () => {
+    const p = parseTracePayload(`bolo1|Gujarati|!|${glyphs}`);
+    expect(p.isPractice).toBe(true);
+    expect(p.contributor).toBe('-');
+  });
+
+  it('drops practice runs from the comparison BY DEFAULT', () => {
+    const real = parseTracePayload(`bolo1|Gujarati|Ba|${glyphs}`);
+    const practice = parseTracePayload(`bolo1|Gujarati|!Aakesh|gu_a:20,30;20,70`);
+    const out = compareContributions([real, practice]);
+    expect(out).toHaveLength(1);
+    expect(out[0].contributors).toBe(1);
+    expect(out[0].byStrokeCount[0].contributors).toEqual(['Ba']);
+    // Forgetting the option must fail SAFE, so the default is exclusion.
+    expect(out[0].agreed).toBe(true);
+  });
+
+  it('can include them when someone explicitly asks', () => {
+    const real = parseTracePayload(`bolo1|Gujarati|Ba|${glyphs}`);
+    const practice = parseTracePayload(`bolo1|Gujarati|!Aakesh|gu_a:20,30;20,70`);
+    const out = compareContributions([real, practice], { includePractice: true });
+    expect(out[0].contributors).toBe(2);
+  });
+
+  it('returns nothing at all when every payload is practice', () => {
+    const practice = parseTracePayload(`bolo1|Gujarati|!Aakesh|${glyphs}`);
+    expect(compareContributions([practice])).toEqual([]);
+  });
+});

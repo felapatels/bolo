@@ -12,6 +12,7 @@ import stripeRouter from "./stripe";
 import pricingRouter from "./pricing";
 import familyRouter from "./family";
 import contactRouter from "./contact";
+import scriptTraceRouter from "./scriptTrace";
 import phraseReportsRouter from "./phraseReports";
 import tokensRouter from "./tokens";
 import chaiPacksRouter from "./chaiPacks";
@@ -54,6 +55,9 @@ router.use(ttsAuditRouter);
 // signed-out visitors straight to the form; the route attributes signed-in
 // callers itself via getAuth (clerkMiddleware runs app-wide).
 router.use(contactRouter);
+// Public for the same reason contact is: the contributors are relatives who
+// write the script and have never signed in. See routes/scriptTrace.ts.
+router.use(scriptTraceRouter);
 router.use(requireAuth);
 router.use(loadEntitlements);
 router.use(entitlementsRouter);

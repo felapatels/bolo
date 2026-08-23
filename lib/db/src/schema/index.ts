@@ -17,6 +17,7 @@ export * from "./friendCodeAttempts";
 export * from "./familyPlans";
 export * from "./contactSubmissions";
 export * from "./phraseReports";
+export * from "./scriptTraceContributions";
 export * from "./scriptTraceProgress";
 export * from "./dailyQuizzes";
 export * from "./gameSessions";
@@ -33,3 +34,5 @@ export * from "./referralRedemptions";
 export * from "./activityEvents";
 
 export * from "./pushTokens";
+export * from "./voiceContributions";
+export * from "./passageFeedback";
