@@ -70,7 +70,11 @@ PORT=5173 BASE_PATH=/ API_PROXY_TARGET=http://localhost:3001 \
 Run from the repo root.
 
 - api: `pnpm --filter @workspace/api-server run test`
-  Baseline 1064 tests, 68 suites, 1062 pass, 2 skipped, ~350s. **Run it alone.**
+  Baseline **1174 tests, 91 suites, 1172 pass, 0 fail, 2 skipped, ~368s**, measured
+  in the Repl Shell 2026-08-23. (Was 1064/68/1062; the growth is the
+  contribution-page and script-trace work, not a change in behaviour.)
+  **It cannot be run on the Mac at all** — see the dev-database note under
+  Working rules. Repl Shell or nowhere. **Run it alone.**
   The script runs `sync-schema` first, so running the api tests APPLIES pending
   migrations to the dev database.
 - web: `pnpm --filter @workspace/gujarati-coach run test` (vitest)
