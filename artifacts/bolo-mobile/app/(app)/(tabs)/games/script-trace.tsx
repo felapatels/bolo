@@ -39,7 +39,11 @@ import {
   type TraceChapter,
   type TraceCharacter,
   type ChapterStage,
+  StrayBuzzer,
+  strayIntensity,
+  type StrayLevel,
 } from '@workspace/script-trace';
+import { hapticHeavy, hapticLight, hapticMedium } from '@/lib/haptics';
 import Svg, {
   Path as SvgPath,
   Text as SvgText,
@@ -1122,6 +1126,18 @@ function TraceCanvas({
     return segs.join(' ');
   };
 
+  // Rising haptic feedback while a learner drifts off the guide. WHEN to buzz
+  // is StrayBuzzer's decision, shared with web so the two platforms agree; all
+  // that lives here is how a phone plays a level. Goes through lib/haptics.ts
+  // rather than expo-haptics, which is where the web no-op and the
+  // teardown guard already live.
+  const buzzerRef = useRef(new StrayBuzzer());
+  const playStray = (level: StrayLevel) => {
+    if (level === 3) hapticHeavy();
+    else if (level === 2) hapticMedium();
+    else hapticLight();
+  };
+
   const pan = Gesture.Pan()
     .runOnJS(true)
     .onBegin((e) => {
@@ -1144,6 +1160,7 @@ function TraceCanvas({
       setIsAnimating(false);
 
       isDrawingRef.current = true;
+      buzzerRef.current.reset();
       drawnRef.current = [
         { x: (e.x / CANVAS_SIZE) * 100, y: (e.y / CANVAS_SIZE) * 100 },
       ];
@@ -1153,10 +1170,13 @@ function TraceCanvas({
     })
     .onUpdate((e) => {
       if (!isDrawingRef.current) return;
-      drawnRef.current.push({
-        x: (e.x / CANVAS_SIZE) * 100,
-        y: (e.y / CANVAS_SIZE) * 100,
-      });
+      const at = { x: (e.x / CANVAS_SIZE) * 100, y: (e.y / CANVAS_SIZE) * 100 };
+      drawnRef.current.push(at);
+      const level = buzzerRef.current.next(
+        strayIntensity(at, guidePoints),
+        Date.now(),
+      );
+      if (level) playStray(level);
       // Re-render: all completed strokes + current in-progress stroke.
       setDrawnPath(buildAllPath(drawnRef.current));
       // Throttled live coverage update (at most every 150 ms).
@@ -1170,6 +1190,7 @@ function TraceCanvas({
     .onFinalize(() => {
       if (!isDrawingRef.current) return;
       isDrawingRef.current = false;
+      buzzerRef.current.reset();
 
       // Stash the completed stroke so it stays visible when the finger lifts.
       if (drawnRef.current.length >= 2) {

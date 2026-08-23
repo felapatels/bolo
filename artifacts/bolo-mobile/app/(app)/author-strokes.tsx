@@ -365,12 +365,18 @@ function Btn({
   );
 }
 
+// AppFonts here named displayBold and bodyMedium, which this app has never
+// had: the object is regular/semibold/bold/extrabold. This screen was written
+// but, per the handoff, never built or run on a device, so nothing caught it
+// and `pnpm --filter @workspace/bolo-mobile run typecheck` has been red on
+// main because of it. Mapped to the nearest real weights, 700 and 600. Purely
+// cosmetic and worth a look whenever the screen is first run for real.
 const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20 },
-  title: { fontSize: 22, fontFamily: AppFonts.displayBold },
+  title: { fontSize: 22, fontFamily: AppFonts.bold },
   chips: { marginTop: 14, paddingLeft: 20 },
   chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8 },
-  chipText: { fontSize: 13, fontFamily: AppFonts.bodyMedium },
+  chipText: { fontSize: 13, fontFamily: AppFonts.semibold },
   tip: {
     marginTop: 14,
     marginHorizontal: 20,
@@ -380,10 +386,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  counter: { marginTop: 12, paddingHorizontal: 20, fontSize: 12.5, fontFamily: AppFonts.bodyMedium },
+  counter: { marginTop: 12, paddingHorizontal: 20, fontSize: 12.5, fontFamily: AppFonts.semibold },
   charRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 20, marginTop: 10 },
   bigChar: { fontSize: 46 },
-  label: { fontSize: 18, fontFamily: AppFonts.displayBold },
+  label: { fontSize: 18, fontFamily: AppFonts.bold },
   id: { fontSize: 12 },
   done: { fontSize: 12, fontStyle: 'italic', marginTop: 2 },
   canvas: { alignSelf: 'center', marginTop: 14, borderWidth: 1, borderRadius: 14, overflow: 'hidden' },
@@ -398,7 +404,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
-  btnText: { fontSize: 14, fontFamily: AppFonts.bodyMedium },
+  btnText: { fontSize: 14, fontFamily: AppFonts.semibold },
   primary: {
     marginTop: 14,
     marginHorizontal: 20,
@@ -406,7 +412,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  primaryText: { fontSize: 16, fontFamily: AppFonts.displayBold },
+  primaryText: { fontSize: 16, fontFamily: AppFonts.bold },
   primaryOff: { opacity: 0.35 },
   secondary: {
     marginTop: 10,
@@ -419,5 +425,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  secondaryText: { fontSize: 14, fontFamily: AppFonts.bodyMedium },
+  secondaryText: { fontSize: 14, fontFamily: AppFonts.semibold },
 });

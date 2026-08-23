@@ -17,6 +17,9 @@ import {
   type TraceChapter,
   type TraceCharacter,
   type ChapterStage,
+  StrayBuzzer,
+  STRAY_VIBRATE_MS,
+  strayIntensity,
 } from "@workspace/script-trace";
 
 // ── Accuracy scoring ─────────────────────────────────────────────────────────
@@ -842,6 +845,10 @@ function ScriptTraceCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawnRef = useRef<Point[]>([]);
   const isDrawingRef = useRef(false);
+  // Rising haptic feedback while a learner drifts off the guide. The rules for
+  // WHEN to buzz are shared with mobile in stray-haptics.ts; all that lives
+  // here is how the web plays a level, which is a vibration length.
+  const buzzerRef = useRef(new StrayBuzzer());
   // All strokes the user has drawn so far (completed pen-down → pen-up segments).
   // Kept across finger/mouse lifts so multi-stroke characters work correctly.
   const allStrokesRef = useRef<Point[][]>([]);
@@ -1160,6 +1167,7 @@ function ScriptTraceCanvas({
       const rect = canvas.getBoundingClientRect();
       isDrawingRef.current = true;
       drawnRef.current = [getPos(e, rect)];
+      buzzerRef.current.reset();
       setPulseGuide(false);
       setHasDrawn(true);
       // allStrokesRef is intentionally preserved so previous strokes stay visible.
@@ -1169,8 +1177,26 @@ function ScriptTraceCanvas({
       e.preventDefault();
       if (!isDrawingRef.current) return;
       const rect = canvas.getBoundingClientRect();
-      drawnRef.current.push(getPos(e, rect));
+      const at = getPos(e, rect);
+      drawnRef.current.push(at);
       drawCanvas();
+
+      // Buzz harder the further off the line. navigator.vibrate is absent on
+      // desktop Safari and on iOS entirely, so this is a progressive
+      // enhancement: where it does not exist the tracing is unchanged rather
+      // than broken. Guarded rather than feature-detected once, because a
+      // browser can refuse the call at runtime.
+      const level = buzzerRef.current.next(
+        strayIntensity(at, guidePoints),
+        Date.now(),
+      );
+      if (level) {
+        try {
+          navigator.vibrate?.(STRAY_VIBRATE_MS[level]);
+        } catch {
+          // A browser that refuses to vibrate must not break the stroke.
+        }
+      }
       // Throttled live coverage update (at most every 150 ms).
       const now = Date.now();
       if (now - lastCoverageTimeRef.current > 150) {
@@ -1183,6 +1209,7 @@ function ScriptTraceCanvas({
     const onEnd = () => {
       if (!isDrawingRef.current) return;
       isDrawingRef.current = false;
+      buzzerRef.current.reset();
 
       // Stash the completed stroke so it stays visible when the user lifts.
       if (drawnRef.current.length >= 2) {
