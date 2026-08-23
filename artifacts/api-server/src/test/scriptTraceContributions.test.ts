@@ -189,6 +189,49 @@ describe("autosave", () => {
     assert.equal(rows[0].glyphCount, 1);
   });
 
+  it("MERGES a return visit instead of replacing what was there", async () => {
+    // The bug this endpoint had until 2026-08-23, and the reason it was
+    // dangerous: the page keeps only the session id in localStorage and cannot
+    // read a submission back, so reopening it starts from a blank canvas with
+    // the SAME session id. A contributor who traced the alphabet, closed the
+    // tab, and came back to add the two conjuncts would have replaced
+    // forty-five letters with two.
+    const session = nextSession();
+    await post({ sessionId: session, payload: `bolo1|Gujarati|${MARK}Return|${glyphs}` });
+    const second = await post({
+      sessionId: session,
+      payload: `bolo1|Gujarati|${MARK}Return|gu_ksha:40,20;40,80`,
+    });
+    assert.equal(second.status, 200, second.text);
+
+    const rows = await db
+      .select()
+      .from(scriptTraceContributionsTable)
+      .where(like(scriptTraceContributionsTable.contributor, `${MARK}Return`));
+    assert.equal(rows.length, 1, "still one sitting");
+    assert.equal(rows[0].glyphCount, 3, "the earlier letters survived the return visit");
+    assert.ok(rows[0].payload.includes("gu_a:"), "the first letter is still there");
+    assert.ok(rows[0].payload.includes("gu_ksha:"), "and the new one was added");
+  });
+
+  it("a retraced letter is replaced, not duplicated", async () => {
+    // The other half of merging: somebody fixing one badly drawn letter must
+    // not end up with two copies of it, and must not have to redo the set.
+    const session = nextSession();
+    await post({ sessionId: session, payload: `bolo1|Gujarati|${MARK}Redo|${glyphs}` });
+    await post({
+      sessionId: session,
+      payload: `bolo1|Gujarati|${MARK}Redo|gu_a:11,11;99,99`,
+    });
+    const rows = await db
+      .select()
+      .from(scriptTraceContributionsTable)
+      .where(like(scriptTraceContributionsTable.contributor, `${MARK}Redo`));
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].glyphCount, 2, "no duplicate letter");
+    assert.ok(rows[0].payload.includes("gu_a:11,11;99,99"), "the retrace won");
+  });
+
   it("keeps two different people apart", async () => {
     await post({ sessionId: nextSession(), payload: `bolo1|Gujarati|${MARK}Ba|${glyphs}` });
     await post({ sessionId: nextSession(), payload: `bolo1|Gujarati|${MARK}Kaka|${glyphs}` });

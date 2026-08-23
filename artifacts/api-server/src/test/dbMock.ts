@@ -102,6 +102,15 @@ export function createDbMockExports(
     insertTokenLedgerSchema: {},
     insertUserTokenStateSchema: {},
 
+    // The contribution-page tables, added 2026-08-23 with migration 0054. The
+    // mock was not updated with them, which left `pnpm --filter
+    // @workspace/api-server run typecheck` failing on main for a day: the
+    // `satisfies DbValueExports` here is what catches a barrel export the mock
+    // has not learned about, and it did its job.
+    scriptTraceContributionsTable: {},
+    voiceContributionsTable: {},
+    passageFeedbackTable: {},
+
     // Insert schemas and misc consts exported by the barrel.
     insertAttemptSchema: {},
     insertCategorySchema: {},

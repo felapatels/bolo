@@ -559,3 +559,58 @@ export function alphabetForScript(script: ScriptId): TraceCharacter[] {
   return out;
 }
 
+
+/**
+ * Merge a returning contributor's submission into what they already sent.
+ *
+ * WHY THIS EXISTS. The page keeps only the session id in localStorage and has
+ * no way to read a submission back, so reopening it starts from a blank canvas
+ * with the SAME session id. The endpoint upserted the payload wholesale, so
+ * somebody who traced forty-five letters, closed the tab, and came back to add
+ * two would have replaced forty-five with two. Found 2026-08-23, before anyone
+ * hit it, while checking whether the page needed a redeploy.
+ *
+ * MERGED AT THE SEGMENT LEVEL, deliberately. The format is
+ * `bolo1|Script|Who|id:strokes|id:strokes`, so the glyph segments are split on
+ * `|` and re-joined as the STRINGS they arrived as. Nothing is re-encoded, so a
+ * merge cannot round-trip a coordinate differently from how it was sent, and
+ * this needs no serializer to be kept in step with the page's encode().
+ *
+ * THE NEW TRACING WINS for a letter it covers, which is what lets somebody fix
+ * one badly drawn letter without redoing the alphabet. Letters absent from the
+ * new submission are KEPT, which is the bug this fixes. Existing order is
+ * preserved and genuinely new letters append, so a set stays in the order it
+ * was traced.
+ *
+ * A submission in a DIFFERENT SCRIPT replaces rather than merges: the page lets
+ * a contributor switch alphabets, and merging Gujarati into Gurmukhi would
+ * produce a set belonging to neither.
+ */
+export function mergeTracePayloads(existing: string, incoming: string): string {
+  const before = parseTracePayload(existing);
+  const after = parseTracePayload(incoming);
+
+  // The header carries the script, the name and the practice flag, and the
+  // LATEST of those is the truth: somebody who fixes their name on a second
+  // visit means it.
+  const incomingParts = incoming.split("|");
+  const header = incomingParts.slice(0, 3).join("|");
+  if (before.script !== after.script) return incoming;
+
+  const segmentsOf = (payload: string): Map<string, string> => {
+    const out = new Map<string, string>();
+    for (const seg of payload.split("|").slice(3)) {
+      const id = seg.slice(0, seg.indexOf(":"));
+      if (id) out.set(id, seg);
+    }
+    return out;
+  };
+
+  const kept = segmentsOf(existing);
+  const fresh = segmentsOf(incoming);
+  const merged: string[] = [];
+  for (const [id, seg] of kept) merged.push(fresh.get(id) ?? seg);
+  for (const [id, seg] of fresh) if (!kept.has(id)) merged.push(seg);
+
+  return [header, ...merged].join("|");
+}

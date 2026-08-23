@@ -19,6 +19,7 @@ import {
   smoothTrace,
   traceToAuthoredGlyph,
   parseTracePayload,
+  mergeTracePayloads,
   resolveTracePayload,
   compareContributions,
   isTestContributor,
@@ -577,5 +578,63 @@ describe("the team's own testing never becomes teaching data", () => {
 
   it('returns nothing when every payload is the team testing', () => {
     expect(compareContributions([p('Test Aakesh'), p('Aakesh')])).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Merging a returning contributor's work. The page cannot read a submission
+// back, so a second visit starts blank with the same session id; without a
+// merge, coming back to add two letters replaces forty-five with two.
+// ---------------------------------------------------------------------------
+
+describe("mergeTracePayloads", () => {
+  const P = (...glyphs: string[]) => ["bolo1", "Gujarati", "Bharti", ...glyphs].join("|");
+
+  test("keeps letters the new submission does not mention", () => {
+    // The bug this exists for, in one assertion.
+    const merged = mergeTracePayloads(P("gu_a:1,1;2,2", "gu_aa:3,3;4,4"), P("gu_ksha:9,9;8,8"));
+    expect(merged).toBe(P("gu_a:1,1;2,2", "gu_aa:3,3;4,4", "gu_ksha:9,9;8,8"));
+  });
+
+  test("a retraced letter is replaced, not duplicated", () => {
+    const merged = mergeTracePayloads(P("gu_a:1,1;2,2", "gu_aa:3,3;4,4"), P("gu_a:7,7;6,6"));
+    expect(merged).toBe(P("gu_a:7,7;6,6", "gu_aa:3,3;4,4"));
+    expect(parseTracePayload(merged).glyphs).toHaveLength(2);
+  });
+
+  test("existing order holds and new letters append", () => {
+    const merged = mergeTracePayloads(P("gu_a:1,1;2,2", "gu_aa:2,2;3,3"), P("gu_ka:5,5;6,6", "gu_aa:9,9;8,8"));
+    expect(parseTracePayload(merged).glyphs.map((g) => g.id)).toEqual([
+      "gu_a",
+      "gu_aa",
+      "gu_ka",
+    ]);
+  });
+
+  test("the newer header wins, so a corrected name sticks", () => {
+    const merged = mergeTracePayloads(
+      ["bolo1", "Gujarati", "Bharti", "gu_a:1,1;2,2"].join("|"),
+      ["bolo1", "Gujarati", "Bharti_P", "gu_aa:2,2;3,3"].join("|"),
+    );
+    expect(parseTracePayload(merged).contributor).toBe("Bharti_P");
+  });
+
+  test("a different script REPLACES rather than merging", () => {
+    // Merging Gujarati into Gurmukhi would produce a set belonging to neither.
+    const gu = ["bolo1", "Gujarati", "B", "gu_a:1,1;2,2"].join("|");
+    const pa = ["bolo1", "Gurmukhi", "B", "pa_a:2,2;3,3"].join("|");
+    expect(mergeTracePayloads(gu, pa)).toBe(pa);
+  });
+
+  test("coordinates are never re-encoded, so a merge cannot drift them", () => {
+    const existing = P("gu_a:12,30;20,58~74,26;74,78");
+    const merged = mergeTracePayloads(existing, P("gu_aa:1,1;2,2"));
+    expect(merged).toContain("gu_a:12,30;20,58~74,26;74,78");
+  });
+
+  test("the merged result is still readable by the parser", () => {
+    const merged = mergeTracePayloads(P("gu_a:1,1;2,2"), P("gu_aa:2,2;3,3"));
+    expect(() => parseTracePayload(merged)).not.toThrow();
+    expect(parseTracePayload(merged).script).toBe("Gujarati");
   });
 });

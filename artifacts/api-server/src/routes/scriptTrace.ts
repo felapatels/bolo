@@ -1,13 +1,17 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   db,
   scriptTraceContributionsTable,
   voiceContributionsTable,
   passageFeedbackTable,
 } from "@workspace/db";
-import { parseTracePayload, TracePayloadError } from "@workspace/script-trace";
+import {
+  mergeTracePayloads,
+  parseTracePayload,
+  TracePayloadError,
+} from "@workspace/script-trace";
 import { createRateLimit } from "../middlewares/rateLimit";
 
 // Submissions from the public contribution page at /aksharmala.html.
@@ -103,29 +107,72 @@ router.post(
       return;
     }
 
-    await db
-      .insert(scriptTraceContributionsTable)
-      .values({
-        sessionId: body.data.sessionId,
-        script: parsed.script,
-        contributor: parsed.contributor,
-        isPractice: parsed.isPractice,
-        glyphCount: parsed.glyphs.length,
-        payload: body.data.payload,
-      })
-      .onConflictDoUpdate({
-        target: scriptTraceContributionsTable.sessionId,
-        set: {
-          script: parsed.script,
-          contributor: parsed.contributor,
-          isPractice: parsed.isPractice,
-          glyphCount: parsed.glyphs.length,
-          payload: body.data.payload,
-          updatedAt: sql`now()`,
-        },
-      });
+    // MERGE rather than replace, in a transaction that locks the row first.
+    //
+    // The page keeps only the session id in localStorage and has no way to read
+    // a submission back, so reopening it starts from a blank canvas with the
+    // SAME session id. Replacing wholesale meant somebody who traced the
+    // alphabet, closed the tab, and came back to add two letters would have
+    // replaced forty-five with two. Found 2026-08-23 before anyone hit it.
+    //
+    // FOR UPDATE is load-bearing, not caution. The page autosaves after every
+    // letter, so two saves overlapping on a slow connection is the normal case
+    // rather than the rare one, and a read-modify-write without the lock would
+    // drop whichever letter lost the race.
+    const stored = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ payload: scriptTraceContributionsTable.payload })
+        .from(scriptTraceContributionsTable)
+        .where(eq(scriptTraceContributionsTable.sessionId, body.data.sessionId))
+        .for("update");
 
-    res.status(200).json({ stored: parsed.glyphs.length, script: parsed.script });
+      let payload = body.data.payload;
+      if (existing?.payload) {
+        try {
+          payload = mergeTracePayloads(existing.payload, body.data.payload);
+        } catch {
+          // A stored payload that no longer parses must not block somebody
+          // who is sitting there tracing right now. Take the new one whole.
+          payload = body.data.payload;
+        }
+      }
+
+      // Re-parsed because the merge is what actually gets stored, so the glyph
+      // count has to describe it rather than describing the submission.
+      const merged = parseTracePayload(payload);
+      if (merged.glyphs.length > MAX_GLYPHS) {
+        // Only reachable by merging past the cap one letter at a time. Keep
+        // the newer submission, which is the half the contributor can see.
+        payload = body.data.payload;
+      }
+      const final = parseTracePayload(payload);
+
+      await tx
+        .insert(scriptTraceContributionsTable)
+        .values({
+          sessionId: body.data.sessionId,
+          script: final.script,
+          contributor: final.contributor,
+          isPractice: final.isPractice,
+          glyphCount: final.glyphs.length,
+          payload,
+        })
+        .onConflictDoUpdate({
+          target: scriptTraceContributionsTable.sessionId,
+          set: {
+            script: final.script,
+            contributor: final.contributor,
+            isPractice: final.isPractice,
+            glyphCount: final.glyphs.length,
+            payload,
+            updatedAt: sql`now()`,
+          },
+        });
+
+      return final;
+    });
+
+    res.status(200).json({ stored: stored.glyphs.length, script: stored.script });
   },
 );
 
