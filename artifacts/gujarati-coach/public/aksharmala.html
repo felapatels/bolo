@@ -119,10 +119,27 @@
   .letter .rom { font-size:1.12rem; color:var(--text-soft); font-weight:600; }
   .say { text-align:center; color:var(--text-faint); font-size:.88rem; margin:.1rem 0 .6rem; }
 
-  .padwrap { position:relative; }
-  svg.pad { display:block; width:min(100%, 44vh); aspect-ratio:1; margin-inline:auto;
+  .padwrap { position:relative; width:min(100%, 52vh, 26rem); margin-inline:auto; }
+  /* Adaptive on both axes, and the smallest of the three wins.
+       100%   the column, which is what caps it on a large phone
+       52vh   the viewport, which is what caps it on a short one
+       26rem  a ceiling, so it never grows past comfortable thumb reach on a
+              tablet or a desktop where the column is wide
+     52 rather than 44 because the Save button is sticky now and can no longer
+     be pushed off the bottom, so a short screen can afford a bigger pad. */
+  svg.pad { display:block; width:min(100%, 52vh, 26rem); aspect-ratio:1; margin-inline:auto;
     background:var(--surface); border:1px solid var(--rule-strong); border-radius:18px;
     box-shadow:var(--shadow); touch-action:none; cursor:crosshair; }
+
+  /* Landscape on a phone is the one shape where the pad and the controls
+     genuinely cannot stack. Put them side by side instead of squeezing. */
+  @media (orientation: landscape) and (max-height: 520px) {
+    .wrap { max-width:52rem; }
+    #tracer .padwrap { float:left; width:min(46vw, 44vh); margin-right:1rem; }
+    #tracer svg.pad { width:100%; }
+    #tracer .actions { clear:none; }
+    #tracer .tip { clear:both; }
+  }
   svg.pad.empty { border-style:dashed; }
   .hint { position:absolute; inset:0; display:grid; place-items:center; pointer-events:none;
     color:var(--text-faint); font-size:.95rem; text-align:center; padding:0 2rem; }
