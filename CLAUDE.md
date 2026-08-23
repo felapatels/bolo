@@ -143,6 +143,21 @@ token ledger, the RevenueCat or Stripe webhook paths, or entitlement resolution.
   DOES run `pnpm --filter @workspace/db run setup`, which is `drizzle-kit
   migrate` plus seed, but it runs in the Repl WORKSPACE, so **it migrates dev**.
 
+  **THE DEV DATABASE IS UNREACHABLE FROM A LAPTOP, established 2026-08-23.** Its
+  host is `helium` and its database `heliumdb`: a Replit-internal name that does
+  not resolve anywhere else, so `psql` fails with "could not translate host name".
+  Production is a public Neon endpoint and connects fine from a Mac. Two
+  consequences worth knowing before planning any work around them:
+
+  1. **The api-server test suite CANNOT be run on the Mac**, because it needs the
+     dev database. It runs in the Repl's Shell or not at all.
+  2. **The app cannot be run locally against dev either**, so a UI change that
+     needs real data has to be verified in the Repl, or by a test with mocked
+     data. The journey tests already do the latter and are the pattern to follow.
+
+  Putting a dev `DATABASE_URL` in `.env` on the Mac therefore buys nothing. That
+  is why there was never one there.
+
   **What is STILL NOT established:** what put the three new tables into
   production on 2026-08-23, since nothing above can have. Replit provisioning
   the schema when the deployment was created, or a manual run, are both live
