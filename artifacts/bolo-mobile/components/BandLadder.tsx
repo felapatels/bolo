@@ -10,13 +10,21 @@ import { BAND_LABEL, BAND_LADDER, bandColor, type Band } from '@/lib/ui';
  * Labels only — never a raw numeric score (ex-#874 rule). Renders nothing for
  * `nocatch`: a system miss is not a rung on the ladder (Spec 1 rule 16).
  */
-export function BandLadder({ band }: { band: Band }) {
+export function BandLadder({
+  band,
+  resultLabel = 'Pronunciation result',
+}: {
+  band: Band;
+  /** What was marked. Script Trace marks handwriting, not pronunciation, and
+   *  the ladder is shared rather than copied, so the noun is a prop. */
+  resultLabel?: string;
+}) {
   const colors = useColors();
   if (band === 'nocatch') return null;
   return (
     <View
       style={styles.ladder}
-      accessibilityLabel={`Pronunciation result: ${BAND_LABEL[band]}`}
+      accessibilityLabel={`${resultLabel}: ${BAND_LABEL[band]}`}
       testID="band-ladder"
     >
       {BAND_LADDER.map((rung) => {

@@ -22,7 +22,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import {
@@ -31,13 +31,23 @@ import {
   type GameMiss,
 } from '@/components/GameMissReview';
 import { AppFonts } from '@/constants/fonts';
+import { BandLadder } from '@/components/BandLadder';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   LANG_CHAPTER_IDS,
+  SCRIPT_NAMES,
   SCRIPT_TRACE_CHAPTERS,
+  handPenStrokes,
+  traceBandFromScore,
+  traceFeedback,
+  traceHeadline,
+  traceStopFor,
+  TRACE_TEASER_LIMIT,
+  type TraceBreakdown,
   type TraceChapter,
   type TraceCharacter,
+  type TraceStop,
   type ChapterStage,
   StrayBuzzer,
   strayIntensity,
@@ -272,9 +282,23 @@ const COVERAGE_TOLERANCE = 9;
  * a sloppy trace can still pass, but it no longer reads as a perfect 100%.
  */
 function scoreCoverage(strokes: Point[][], referencePoints: Point[]): number {
-  if (referencePoints.length === 0 || strokes.length === 0) return 0;
+  return scoreCoverageParts(strokes, referencePoints).score;
+}
+
+/**
+ * The same score, with the three factors that produced it.
+ *
+ * Added 2026-08-23 alongside the web twin so the result card can say WHICH of
+ * the three cost the marks. They were always computed and always discarded.
+ */
+function scoreCoverageParts(
+  strokes: Point[][],
+  referencePoints: Point[],
+): { score: number } & TraceBreakdown {
+  const nothing = { score: 0, coverage: 0, precision: 0, spread: 0 };
+  if (referencePoints.length === 0 || strokes.length === 0) return nothing;
   const allPts = strokes.flat();
-  if (allPts.length < 3) return 0;
+  if (allPts.length < 3) return nothing;
   let covered = 0;
   outer: for (const ref of referencePoints) {
     for (const pt of allPts) {
@@ -327,7 +351,12 @@ function scoreCoverage(strokes: Point[][], referencePoints: Point[]): number {
   const refDiag = Math.hypot(rMaxX - rMinX, rMaxY - rMinY) || 1;
   const spread = Math.min(1, drawnDiag / (0.45 * refDiag));
 
-  return Math.round(coverage * precision * spread * 100);
+  return {
+    score: Math.round(coverage * precision * spread * 100),
+    coverage,
+    precision,
+    spread,
+  };
 }
 
 // Convert an array of points to an SVG path string for live drawing.
@@ -942,10 +971,13 @@ function TraceCanvas({
   interiorPoints,
 }: {
   character: TraceCharacter;
-  onResult: (score: number, passed: boolean) => void;
+  onResult: (score: number, passed: boolean, parts: TraceBreakdown) => void;
   guidePoints: Point[];
   interiorPoints: Point[];
 }) {
+  // Which language is being studied, for picking the demo's pen path. Read from
+  // the hook rather than threaded through a prop, matching the rest of the file.
+  const { activeLang } = useLanguage();
   const AnimatedSvgCircle = React.useMemo(() => Animated.createAnimatedComponent(SvgCircle), []);
   const AnimatedSvgRect = React.useMemo(() => Animated.createAnimatedComponent(SvgRect), []);
   const colors = useColors();
@@ -986,14 +1018,27 @@ function TraceCanvas({
 
   // Pen strokes (centerline skeleton) for the demo animation, plus per-stroke
   // path strings, lengths, and time fractions proportional to stroke length.
+  // ONLY A REAL HAND MAY TEACH STROKE ORDER, matching the web twin and ruled
+  // for the same measured reason: the skeleton extracted from a font outline
+  // splits at every junction, so the demo played letters as four to nine
+  // disconnected fragments where a person writes one flow. Gujarati has
+  // contributions and averages 1.8 strokes a letter; the other eleven scripts
+  // average 3.3 to 6.2. Sweeping the merge thresholds moved the mean from 5.19
+  // to 4.27 at best, so tuning cannot turn a skeleton into a flow, and a demo
+  // that teaches the wrong order is worse than no demo.
+  //
+  // strokesForGuide() below stays in place and is what runs again the day a
+  // script gets contributions.
   const penStrokes = React.useMemo(
-    () => (character.guide ? strokesForGuide(character.guide) : []),
-    [character.guide],
+    () => handPenStrokes(activeLang, character.id) ?? [],
+    [activeLang, character.id],
   );
   const penStrokeFracs = React.useMemo(() => strokeTimeFractions(penStrokes), [penStrokes]);
   const penStrokeDs = React.useMemo(() => penStrokes.map(strokeToPathD), [penStrokes]);
   const penStrokeLens = React.useMemo(() => penStrokes.map(polylineLength), [penStrokes]);
   const penMode = !!character.guide && penStrokes.length > 0;
+  /** Whether this character can honestly be demonstrated at all. */
+  const hasPenDemo = penStrokes.length > 0;
   // Plain-array stroke geometry (canvas px) captured by the pen-tip worklet.
   const penTipData = React.useMemo<PenTipStroke[]>(
     () =>
@@ -1091,9 +1136,10 @@ function TraceCanvas({
     if (isAnimating) startAnim();
   }, [isAnimating, startAnim]);
 
-  // Auto-play on mount; clean up animation frame and any pending score timer on unmount.
+  // Auto-play on mount, but only where there is a real pen path to play.
+  // Clean up animation frame and any pending score timer on unmount.
   useEffect(() => {
-    startAnim();
+    if (hasPenDemo) startAnim();
     return () => {
       if (animFrameRef.current !== null) cancelAnimationFrame(animFrameRef.current);
       if (scoreTimerRef.current !== null) clearTimeout(scoreTimerRef.current);
@@ -1206,7 +1252,8 @@ function TraceCanvas({
       scoreTimerRef.current = setTimeout(() => {
         scoreTimerRef.current = null;
         if (allStrokesRef.current.every(s => s.length < 2)) return;
-        const score = scoreCoverage(allStrokesRef.current, interiorPoints);
+        const parts = scoreCoverageParts(allStrokesRef.current, interiorPoints);
+        const score = parts.score;
         const passed = score >= PASS_THRESHOLD;
         setLiveCoverage(score);
         if (!passed) {
@@ -1221,7 +1268,7 @@ function TraceCanvas({
         } else {
           setFailedPoints(null);
         }
-        onResult(score, passed);
+        onResult(score, passed, parts);
       }, 1200);
     });
 
@@ -1375,17 +1422,13 @@ function TraceCanvas({
 
             {/* Start indicator: green dot at the approximate writing start.
                 Shown after animation ends, disappears once the user draws. */}
-            {(penMode ? !penAnimVisible : !textAnimVisible) && character.guide && guidePoints.length > 0 && !drawnPath && (() => {
-              // Start of the first pen stroke — exactly where the writing demo
-              // begins. Falls back to the topmost outline point for degenerate
-              // glyphs (most Indian scripts begin at the top of the character).
-              const startPt = penStrokes.length > 0
-                ? penStrokes[0][0]
-                : guidePoints.reduce(
-                    (best: { x: number; y: number }, p: { x: number; y: number }) =>
-                      p.y < best.y ? p : best,
-                    guidePoints[0],
-                  );
+            {(penMode ? !penAnimVisible : !textAnimVisible) && penStrokes.length > 0 && !drawnPath && (() => {
+              // Start of the first pen stroke, exactly where the writing demo
+              // begins. Gated on the pen path rather than the guide: without a
+              // traced hand there is no honest answer to "where do I start",
+              // and the old fallback (topmost outline point) was a guess
+              // dressed as instruction.
+              const startPt = penStrokes[0][0];
               const cx = startPt.x * guideScale;
               const cy = startPt.y * guideScale;
               const r = CANVAS_SIZE * 0.038;
@@ -1440,6 +1483,8 @@ function TraceCanvas({
             Clear
           </Text>
         </TouchableOpacity>
+        {hasPenDemo && (
+        <>
         <TouchableOpacity
           onPress={startAnim}
           disabled={isAnimating}
@@ -1471,6 +1516,8 @@ function TraceCanvas({
             {animSpeed === 1 ? '1×' : '½×'}
           </Text>
         </TouchableOpacity>
+        </>
+        )}
       </View>
 
       {/* Live coverage feedback — shown while drawing and after scoring */}
@@ -1488,16 +1535,33 @@ function TraceCanvas({
 
 // ── Session screen ────────────────────────────────────────────────────────────
 
-type SessionResult = { score: number; passed: boolean } | null;
+type SessionResult = ({ score: number; passed: boolean } & TraceBreakdown) | null;
+
+/**
+ * A character in a running session may know which real chapter it came from.
+ *
+ * A stop-scoped session is a slice ACROSS chapters (Gujarati zone 2 runs from
+ * the last vowels into the first consonants), and its own chapter id is
+ * synthetic, so the progress POST has to use the tag rather than the id of the
+ * thing being played.
+ */
+type SessionCharacter = TraceCharacter & { chapterId?: string };
 
 function TraceSession({
   chapter,
   onBack,
+  backLabel = 'Chapters',
+  tasting = false,
 }: {
   chapter: TraceChapter;
   onBack: () => void;
+  /** What the exit button says. A stop-scoped session goes back to the map. */
+  backLabel?: string;
+  /** This is the free taste, so the finish screen says what comes next. */
+  tasting?: boolean;
 }) {
   const colors = useColors();
+  const router = useRouter();
   const [charIndex, setCharIndex] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
   const [result, setResult] = useState<SessionResult>(null);
@@ -1530,8 +1594,8 @@ function TraceSession({
   const { activeLang } = useLanguage();
 
   const handleResult = useCallback(
-    (score: number, passed: boolean) => {
-      setResult({ score, passed });
+    (score: number, passed: boolean, parts: TraceBreakdown) => {
+      setResult({ score, passed, ...parts });
       if (character) {
         setBestScores((prev) =>
           score > (prev[character.id] ?? -1) ? { ...prev, [character.id]: score } : prev,
@@ -1544,8 +1608,10 @@ function TraceSession({
         // works both on web and native without a hard-coded '/api' prefix.
         recordScriptTraceProgress({
           languageCode: activeLang,
+          // The character's own chapter where it has one: a stop-scoped
+          // session's chapter id is synthetic and the endpoint rejects it.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          chapter: chapter.id as any,
+          chapter: ((character as SessionCharacter).chapterId ?? chapter.id) as any,
           characterId: character.id,
           passed: true,
           score,
@@ -1628,7 +1694,7 @@ function TraceSession({
             activeOpacity={0.7}
           >
             <Text style={[styles.btnText, { color: colors.foreground }]}>
-              Chapters
+              {backLabel}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -1645,6 +1711,18 @@ function TraceSession({
             <Text style={[styles.btnText, { color: '#fff' }]}>Replay</Text>
           </TouchableOpacity>
         </View>
+        {tasting && (
+          <TouchableOpacity
+            testID="trace-taste-upgrade"
+            onPress={() => router.push('/(app)/paywall')}
+            style={[styles.btn, { backgroundColor: colors.secondary ?? colors.primary }]}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.btnText, { color: '#fff' }]}>
+              Unlock the whole alphabet
+            </Text>
+          </TouchableOpacity>
+        )}
         <MissReviewCta count={misses.length} onPress={() => setReviewOpen(true)} />
         <MissReviewModal
           misses={misses}
@@ -1716,10 +1794,22 @@ function TraceSession({
             },
           ]}
         >
+          {/* Built to read like the practice screen's, because it marks the
+              same kind of thing: a headline, the five-band ladder with the
+              achieved rung lit, the number, and one sentence saying what cost
+              the marks. Before this it was a single line, "Great trace! 62%",
+              which told a learner nothing they could act on. */}
           <Feather
             name={result.passed ? 'check-circle' : 'x-circle'}
             size={20}
             color={result.passed ? colors.primary : '#f59e0b'}
+          />
+          <Text style={[styles.resultHeadline, { color: colors.foreground }]}>
+            {traceHeadline(traceBandFromScore(result.score))}
+          </Text>
+          <BandLadder
+            band={traceBandFromScore(result.score)}
+            resultLabel="Tracing result"
           />
           <Text
             style={[
@@ -1727,7 +1817,13 @@ function TraceSession({
               { color: result.passed ? colors.primary : '#f59e0b' },
             ]}
           >
-            {result.passed ? 'Great trace!' : 'Keep trying!'} — {result.score}%
+            {result.score}% accuracy
+          </Text>
+          <Text
+            testID="trace-result-feedback"
+            style={[styles.resultFeedback, { color: colors.mutedForeground }]}
+          >
+            {traceFeedback(result.score, result)}
           </Text>
           <View style={styles.resultButtons}>
             {!result.passed && (
@@ -1776,51 +1872,118 @@ function TraceSession({
 
 // ── Screen root ───────────────────────────────────────────────────────────────
 
+/**
+ * The ladder's bands mapped onto the authored chapters' stages.
+ *
+ * Two vocabularies for the same idea: a stop's band is a difficulty rung, a
+ * chapter's stage is what the content IS. Only the synthetic chapter a
+ * stop-scoped session plays needs the translation.
+ */
+const BAND_STAGE: Record<TraceStop['band'], ChapterStage> = {
+  letters: 'alphabet',
+  'short-words': 'words',
+  'long-words': 'words',
+  sentences: 'sentences',
+};
+
+/**
+ * The synthetic chapter a tracing stop plays.
+ *
+ * Its id is NOT a real chapter id and must never be sent to the server; every
+ * character carries the real one and the session posts that instead.
+ */
+function chapterForStop(stop: TraceStop, limit?: number): TraceChapter {
+  return {
+    id: `trace-stop-j${stop.journey}-z${stop.zone}${limit ? '-taste' : ''}`,
+    title: stop.title,
+    scriptName: SCRIPT_NAMES[stop.script],
+    stage: BAND_STAGE[stop.band],
+    characters: limit ? stop.characters.slice(0, limit) : stop.characters,
+  };
+}
+
 export default function ScriptTraceScreen() {
   const colors = useColors();
   const router = useRouter();
   const { isPlus, isLoading } = useEntitlements();
+  const { activeLang } = useLanguage();
+  const params = useLocalSearchParams<{ journey?: string; zone?: string }>();
   const [activeChapter, setActiveChapter] = useState<TraceChapter | null>(null);
 
+  // A tracing stop on the journey map opens this screen already scoped to its
+  // own slice of the alphabet, rather than landing on a menu of whole
+  // 36-character chapters. Web parity, 2026-08-23.
+  const stop = React.useMemo(() => {
+    const zone = Number(params.zone);
+    if (!Number.isInteger(zone) || zone < 1) return null;
+    // Journey defaults to 1 so an older link still resolves.
+    const journeyRaw = Number(params.journey ?? '1');
+    const journey = Number.isInteger(journeyRaw) && journeyRaw > 0 ? journeyRaw : 1;
+    return traceStopFor(activeLang, journey, zone);
+  }, [params.journey, params.zone, activeLang]);
+
+  // THE FREE TASTE: the first TRACE_TEASER_LIMIT characters of journey 1 zone
+  // 1, in every language, matching the promise the voice lessons already make.
+  // Everything past it stays All-Access.
+  const tasting = !isPlus && stop !== null && stop.journey === 1 && stop.zone === 1;
+
   React.useEffect(() => {
-    if (!isLoading && !isPlus) {
+    if (!isLoading && !isPlus && !tasting) {
       router.replace('/(app)/paywall');
     }
-  }, [isLoading, isPlus, router]);
+  }, [isLoading, isPlus, tasting, router]);
 
   // While entitlements load, show the chapter grid immediately (static data).
   // The useEffect above will redirect non-Plus users once loading finishes.
-  if (!isPlus && !isLoading) return null;
+  if (!isPlus && !isLoading && !tasting) return null;
 
-  if (!activeChapter) {
+  // The stop wins over the menu, but never over an explicit pick.
+  const session =
+    activeChapter ??
+    (stop ? chapterForStop(stop, tasting ? TRACE_TEASER_LIMIT : undefined) : null);
+  const fromStop = !activeChapter && stop !== null;
+
+  if (!session) {
     return <ChapterGrid onSelect={setActiveChapter} />;
   }
+
+  const leave = () => {
+    if (fromStop) router.replace('/(app)/journey');
+    else setActiveChapter(null);
+  };
 
   return (
     <Screen>
       <View style={styles.header}>
         <Pressable
-          onPress={() => setActiveChapter(null)}
+          onPress={leave}
           style={styles.backBtn}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={fromStop ? 'Back to the journey map' : 'Choose another chapter'}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Feather name="arrow-left" size={22} color={colors.foreground} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, { color: colors.foreground }]}>
-            {activeChapter.title}
+            {session.title}
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            {activeChapter.scriptName} script
+            {tasting
+              ? `Free taste · ${session.characters.length} letters`
+              : fromStop && stop
+                ? `Zone ${stop.zone} · ${session.scriptName} script`
+                : `${session.scriptName} script`}
           </Text>
         </View>
       </View>
 
       <TraceSession
-        chapter={activeChapter}
-        onBack={() => setActiveChapter(null)}
+        key={session.id}
+        chapter={session}
+        onBack={leave}
+        backLabel={fromStop ? 'Back to journey' : 'Chapters'}
+        tasting={tasting}
       />
     </Screen>
   );
@@ -1890,6 +2053,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   resultText: { fontFamily: AppFonts.bold, fontSize: 15 },
+  resultHeadline: { fontFamily: AppFonts.bold, fontSize: 20 },
+  resultFeedback: {
+    fontFamily: AppFonts.regular,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
   resultButtons: { flexDirection: 'row', gap: 10 },
   btn: {
     paddingHorizontal: 20,

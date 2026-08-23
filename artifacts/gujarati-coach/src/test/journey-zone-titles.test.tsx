@@ -386,7 +386,14 @@ describe("current-stop card (task 1082 item 2)", () => {
       [], [], [], [], [],
     );
     const { container } = renderJourney();
-    expect(screen.getAllByText("Stop 1 of 1").length).toBeGreaterThan(0);
+    // WAS "Stop 1 of 1", and it was passing for the wrong reason: the match was
+    // coming from the EMPTY zones, each of which had grown a lone tracing stop
+    // numbered "Stop 1 of 1" under an empty postcard. Zone 1's real stop had
+    // already become "Stop 1 of 2" once tracing was added to it. Both halves
+    // fixed 2026-08-23: a zone with no phrase stops gets no tracing stop, and
+    // this now asserts the number the current-stop card actually carries.
+    expect(screen.getAllByText("Stop 1 of 2").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Stop 1 of 1")).toBeNull();
     expect(screen.getByText("3/8 mastered")).toBeInTheDocument();
     expect(container.querySelector(".h-1\\.5")).not.toBeNull();
   });

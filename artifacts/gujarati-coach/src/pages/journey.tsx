@@ -1207,7 +1207,18 @@ export default function Journey() {
     // journey 2 and lights up when this page learns to render it.
     const trace = traceStopFor(activeLang, 1, i + 1);
     const withTrace = [...stations];
-    if (trace) {
+    // NOT IN SHOWROOM. A locked-language preview already carries its own free
+    // taste, the three-phrase voice teaser, and a tracing stop offering a
+    // second "FREE TASTE" chip beside it reads as two competing offers on a
+    // language the learner cannot open yet.
+    //
+    // ADDED, NEVER SUBSTITUTED, and you can only add to something: a zone with
+    // no phrase stops at all gets no tracing stop either. Without this a zone
+    // whose groups have not loaded, or a language whose later zones carry no
+    // content yet, drew a lone "Trace 8 letters" row under an empty postcard
+    // and advertised a zone that is not there. Caught 2026-08-23 porting this
+    // to the phone, where a fixture with five empty zones grew five of them.
+    if (trace && stations.length > 0 && !showroom) {
       withTrace.splice(traceStopIndexIn(stations.length, trace.journey, trace.zone), 0, {
         // Every LessonGroupSummary field is optional, so a trace stop supplies
         // only what a drawn station needs and is identified by `trace`.

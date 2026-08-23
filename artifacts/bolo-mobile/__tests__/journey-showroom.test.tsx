@@ -148,6 +148,14 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // The journey map's tracing stop reads the learner's per-character progress.
+  // This mock is a FULL replacement, so the hook has to exist here: an empty
+  // list reads as "nothing traced yet", which is the right default for these
+  // suites, which are about station rendering.
+  useGetScriptTraceProgress: () => ({
+    data: [], isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn(),
+  }),
+  getGetScriptTraceProgressQueryKey: () => ['script-trace-progress'],
   // Capstone plumbing the journey map now reads to decide whether the zone
   // closeout offers a conversation or the wallet. Empty here: these suites
   // are about station rendering, not the closeout.

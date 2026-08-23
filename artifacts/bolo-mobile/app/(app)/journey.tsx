@@ -59,6 +59,16 @@ import { Mascot } from '@/components/Mascot';
 import { LessonError } from '@/components/LessonError';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { useTraceStopProgress } from '@/lib/useTraceStopProgress';
+import {
+  traceStopCopy,
+  traceStopFor,
+  traceStopIndexIn,
+  traceStopPassedCount,
+  traceStopStatus,
+  type TraceStop,
+} from '@workspace/script-trace';
 import { asUpgradeRequired } from '@/lib/entitlements';
 import { JOURNEY_ZONES, getJourneyLine, getRailBrand } from '@/lib/journeyLines';
 import { TrainEngine } from '@/components/journey/TrainEngine';
@@ -130,6 +140,17 @@ type Station = LessonGroupSummary & {
   zoneIndex: number;
   stopNumber: number; // 1-based within the zone
   stopCount: number; // stations in the zone
+  /**
+   * Present ONLY on the tracing stop, and the discriminator for it.
+   *
+   * A trace stop is not a lesson group: no row, no phrases, no id. It is
+   * synthesised and marked, and everything that renders or opens a station
+   * branches on this rather than on a sentinel id, which would be one refactor
+   * away from colliding with a real one.
+   */
+  trace?: TraceStop;
+  /** The stop's own status line, resolved where the passed set is in scope. */
+  traceCopy?: string;
 };
 
 type LockInfo = {
@@ -471,6 +492,12 @@ export default function JourneyScreen() {
   const insets = useSafeAreaInsets();
   const headerTopInset = Platform.OS === 'web' ? 67 : insets.top;
   const { activeLang, activeLanguage } = useLanguage();
+  // Only for placing the free taste: which tracing stops this learner may open.
+  // Everything else on this screen gates on the server's own planLocked flag.
+  const { isPlus } = useEntitlements();
+  // Which letters are already traced, so each zone's tracing stop shows real
+  // progress rather than always reading as untouched.
+  const { passedCharacterIds } = useTraceStopProgress(activeLang);
   const railBrand = getRailBrand(activeLang);
   const line = getJourneyLine(activeLang);
   const [lock, setLock] = useState<LockInfo | null>(null);
@@ -694,11 +721,63 @@ export default function JourneyScreen() {
       stopNumber: gi + 1,
       stopCount: groups.length,
     }));
+
+    // TWO LISTS, and the split is the whole design, identical to the web map.
+    //
+    // `stations` stays exactly what it always was: the graded lesson groups.
+    // Every derivation counts off it, and must keep doing so — the rail
+    // progress, Chacha-ji's stalls, the trackside signals, zone folding, the
+    // current stop, and the global counter that places them all.
+    //
+    // `rowStations` is what the map DRAWS: the same stations with the tracing
+    // stop spliced into the middle and the whole run renumbered, so a learner
+    // reads "Stop 2 of 10" and the tracing stop is a stop like any other.
+    //
+    // Added, never substituted: no phrase stop is displaced, so a zone of nine
+    // stops becomes ten. traceStopIndexIn() decides WHERE, and both clients
+    // call it rather than each choosing, or the web and the phone would
+    // disagree about which stop a learner is on.
+    const trace = traceStopFor(activeLang, 1, i + 1);
+    const withTrace = [...stations];
+    // NOT IN SHOWROOM. A locked-language preview already carries its own free
+    // taste, the three-phrase voice teaser, and a tracing stop offering a
+    // second "FREE TASTE" chip beside it reads as two competing offers on a
+    // language the learner cannot open yet.
+    //
+    // ADDED, NEVER SUBSTITUTED, and you can only add to something: a zone with
+    // no phrase stops at all gets no tracing stop either, or an unloaded zone
+    // draws a lone tracing row under an empty postcard.
+    if (trace && stations.length > 0 && !showroom) {
+      withTrace.splice(traceStopIndexIn(stations.length, trace.journey, trace.zone), 0, {
+        title: trace.title,
+        stage: 'phrase',
+        status: traceStopStatus(trace, passedCharacterIds),
+        zoneId: z.id,
+        zoneIndex: i,
+        stopNumber: 0,
+        stopCount: 0,
+        trace,
+        traceCopy: traceStopCopy(trace, traceStopPassedCount(trace, passedCharacterIds)),
+        // THE FREE TASTE, and where it stops. Journey 1 zone 1 is open to
+        // everyone (its first three characters, which the game enforces);
+        // every later zone is All-Access. A tracing stop is still never
+        // PROGRESSION-locked, which is a different thing.
+        planLocked: !isPlus && !(trace.journey === 1 && trace.zone === 1),
+        teaserStation: !isPlus && trace.journey === 1 && trace.zone === 1,
+      } as Station);
+    }
+    const rowStations: Station[] = withTrace.map((st, gi) => ({
+      ...st,
+      stopNumber: gi + 1,
+      stopCount: withTrace.length,
+    }));
+
     return {
       ...z,
       title: categories?.find((c) => c.id === z.id)?.title ?? z.title,
       geoName: line.zones[i]!,
       stations,
+      rowStations,
       // Every stop in the fare zone finished. An empty zone is never "done":
       // a zone whose groups have not loaded must not fire a celebration.
       zoneAllDone:
@@ -736,9 +815,19 @@ export default function JourneyScreen() {
   type Pt = {
     x: number;
     y: number;
-    kind: 'station' | 'postcard' | 'terminus' | 'halt';
+    /**
+     * 'trace' is drawn like a station but COUNTS as nothing: it advances the
+     * layout without advancing `k`, exactly as 'halt' already does. That is
+     * what keeps the serpentine phase, Chacha-ji's stalls, the trackside
+     * signals and every stop number identical to what they were before a
+     * tracing row existed.
+     */
+    kind: 'station' | 'postcard' | 'terminus' | 'halt' | 'trace';
     lit: boolean;
     station?: Station;
+    /** The GRADED index this row sits at, which is what picks the flank. Render
+     *  order cannot be used: a tracing row would flip every card below it. */
+    globalIdx?: number;
     zoneIndex?: number;
     /** Halt rows only: the 1-based global station number this halt follows. */
     haltAfterStation?: number;
@@ -764,7 +853,23 @@ export default function JourneyScreen() {
       zoneIndex: zi,
     });
     layoutY += PC_H;
-    for (const s of zone.stations) {
+    for (const s of zone.rowStations) {
+      // The tracing row: drawn like a stop, counted like nothing. It takes the
+      // flank the NEXT graded stop will take, so the rail runs straight down
+      // into that stop and the serpentine gains no extra zigzag. `k` does not
+      // move, which is the whole reason everything downstream is unaffected.
+      if (s.trace) {
+        pts.push({
+          x: stationX(k),
+          y: layoutY + STATION_H / 2,
+          kind: 'trace',
+          lit: true,
+          station: s,
+          globalIdx: k,
+        });
+        layoutY += STATION_H;
+        continue;
+      }
       // Free-tier content policy: a plan-gated sentence stop arrives
       // status "locked" (planLocked) from the server, so unlocked means lit.
       const lit =
@@ -772,7 +877,14 @@ export default function JourneyScreen() {
         s.status === 'tested_out' ||
         s.status === 'in_progress' ||
         s.status === 'unlocked';
-      pts.push({ x: stationX(k), y: layoutY + STATION_H / 2, kind: 'station', lit, station: s });
+      pts.push({
+        x: stationX(k),
+        y: layoutY + STATION_H / 2,
+        kind: 'station',
+        lit,
+        station: s,
+        globalIdx: k,
+      });
       layoutY += STATION_H;
       const stationNumber = k + 1;
       k++;
@@ -832,7 +944,10 @@ export default function JourneyScreen() {
     return { start, end };
   });
 
+  // COUNTS. Every derivation below keys off this and must keep doing so.
   const stationPts = pts.filter((p) => p.kind === 'station');
+  // DRAWS. The same stops plus the tracing rows, in layout order.
+  const rowPts = pts.filter((p) => p.kind === 'station' || p.kind === 'trace');
 
   // Trackside scenery plan (Task 985 port): deterministic per-zone placement
   // in the free strip beside a station row, same side as the marker
@@ -1431,7 +1546,7 @@ export default function JourneyScreen() {
           })}
 
           {/* Stations */}
-          {stationPts.map((p, k2) => {
+          {rowPts.map((p, k2) => {
             const s = p.station!;
             const zone = zones[s.zoneIndex]!;
             const zoneAccessible = zone.stations.some(
@@ -1439,7 +1554,10 @@ export default function JourneyScreen() {
             );
             const grayed = showroom && !zoneAccessible;
             const zoneColor = grayed ? GRAY : line.accent;
-            const side: 'left' | 'right' = k2 % 2 === 0 ? 'right' : 'left';
+            // The flank comes off the GRADED index, never the render index: a
+            // tracing row in the middle of a zone would otherwise flip every
+            // card below it onto the wrong side of the track.
+            const side: 'left' | 'right' = (p.globalIdx ?? k2) % 2 === 0 ? 'right' : 'left';
             const boxLeft = side === 'right' ? p.x + 28 : 16;
             const boxWidth =
               side === 'right' ? mapW - 16 - (p.x + 28) : p.x - 28 - 16;
@@ -1450,10 +1568,21 @@ export default function JourneyScreen() {
             // stop keeps the first-class upsell sheet.
             const sentenceGated =
               s.stage === 'sentence' && s.planLocked === true;
-            const accessible = isStatusAccessible(s.status) && !sentenceGated;
-            const isCurrent = s.id === currentId;
-            const statusCopy =
-              s.status === 'completed'
+            // A tracing stop is never PROGRESSION-locked: it teaches the
+            // alphabet, which no phrase stop gates. It can still be
+            // PLAN-locked, which is a different thing and is how the free
+            // taste is bounded to zone 1.
+            const accessible = s.trace
+              ? s.planLocked !== true
+              : isStatusAccessible(s.status) && !sentenceGated;
+            const isCurrent = !s.trace && s.id === currentId;
+            // A tracing stop carries its own line ("Trace 8 letters", "3 of 8
+            // letters traced"). It must NOT fall through to the phrase-stop
+            // copy: it has no phrases, and "Now boarding" would collide with
+            // the learner's actual current stop.
+            const statusCopy = s.trace
+              ? (s.traceCopy ?? '')
+              : s.status === 'completed'
                 ? 'Completed'
                 : s.status === 'tested_out'
                   ? 'Tested out'
@@ -1464,9 +1593,32 @@ export default function JourneyScreen() {
                       : 'Locked';
             // Item 3: journey-map copy carries no em dashes; a colon reads the
             // same and announces cleanly in a screen reader.
-            const aria = `${stopLabel}: ${statusCopy}${s.stage === 'sentence' ? ' (sentence stop)' : ''}`;
+            const aria = s.trace
+              ? `${stopLabel}: ${s.trace.title}, ${statusCopy} (tracing stop)`
+              : `${stopLabel}: ${statusCopy}${s.stage === 'sentence' ? ' (sentence stop)' : ''}`;
             const onPress = () => {
               hapticLight();
+              if (s.trace) {
+                if (accessible) {
+                  // KEYED OFF THE STOP, not off zone.id: the ladder is indexed
+                  // by a 1-based zone ORDINAL and a category id is not one.
+                  router.push({
+                    pathname: '/(app)/(tabs)/games/script-trace',
+                    params: {
+                      journey: String(s.trace.journey),
+                      zone: String(s.trace.zone),
+                    },
+                  });
+                  return;
+                }
+                setLock({
+                  kind: 'plan',
+                  stopLabel: `${stopLabel} · ${zone.geoName}`,
+                  zoneTitle: zone.title,
+                  zoneId: zone.id,
+                });
+                return;
+              }
               if (accessible) {
                 router.push({
                   pathname: '/(app)/practice/[id]',
@@ -1490,7 +1642,7 @@ export default function JourneyScreen() {
               });
             };
             return (
-              <View key={s.id}>
+              <View key={`row-${k2}`}>
                 {/* rail marker (drawn above the track, non-interactive) */}
                 <View pointerEvents="none" style={[styles.markerWrap, { left: p.x - 28, top: p.y - 28 }]}>
                   <StationMarker
@@ -1567,12 +1719,19 @@ export default function JourneyScreen() {
                             the stop plan-locked — on stops the caller can ride free
                             (Hindi Zone 1 carve-out) or already owns (Plus/Family),
                             the badge is noise. Mirrors the web condition. */}
-                        {s.stage === 'sentence' && s.planLocked === true && (
+                        {(s.stage === 'sentence' || s.trace !== undefined) &&
+                          s.planLocked === true && (
                           <View style={[styles.allAccessChip, { backgroundColor: `${colors.secondary}1a` }]}>
                             <Feather name="star" size={9} color={colors.secondary} />
                             <Text style={[styles.allAccessChipText, { color: colors.secondary }]}>
                               ALL-ACCESS
                             </Text>
+                          </View>
+                        )}
+                        {s.trace && (
+                          <View style={[styles.traceChip, { backgroundColor: zoneColor }]}>
+                            <Feather name="edit-2" size={8} color="#ffffff" />
+                            <Text style={styles.traceChipText}>TRACE</Text>
                           </View>
                         )}
                         {s.status === 'tested_out' && (
@@ -2334,6 +2493,15 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   teaserChipText: { fontFamily: AppFonts.extrabold, fontSize: 8, letterSpacing: 0.8, color: '#ffffff' },
+  traceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  traceChipText: { fontFamily: AppFonts.extrabold, fontSize: 8, letterSpacing: 0.8, color: '#ffffff' },
   cardStatus: { fontFamily: AppFonts.semibold, fontSize: 11, lineHeight: 14, marginTop: 1 },
   terminusOuter: {
     position: 'absolute',
