@@ -52,16 +52,18 @@ export default function AppLayout() {
     // token store is fine and only the client's view of it broke, which
     // points at the JS/native sync rather than at storage.
     void (async () => {
-      let tokenAfter: 'present' | 'absent' | 'threw' = 'absent';
+      // Named to survive Sentry's default scrubbing, which filters any key
+      // containing "token" or "auth". On build 423 this arrived as [Filtered].
+      let credentialState: 'present' | 'absent' | 'threw' = 'absent';
       try {
-        tokenAfter = (await getToken()) ? 'present' : 'absent';
+        credentialState = (await getToken()) ? 'present' : 'absent';
       } catch {
-        tokenAfter = 'threw';
+        credentialState = 'threw';
       }
-      reportSessionVanished(`held ${heldForMs ?? 'unknown'}ms, token ${tokenAfter}`, {
+      reportSessionVanished(`held ${heldForMs ?? 'unknown'}ms, credential ${credentialState}`, {
         lastSessionId: lastSessionIdRef.current,
         heldForMs,
-        tokenAfter,
+        credentialState,
       });
     })();
   }, [isLoaded, isSignedIn, sessionId, getToken]);

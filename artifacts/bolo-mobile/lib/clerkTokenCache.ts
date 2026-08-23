@@ -52,8 +52,8 @@ function report(
       ? err
       : new Error(`Clerk token cache ${operation} failed: ${String(err)}`);
   Sentry.captureException(exception, {
-    tags: { authContext: 'clerkTokenCache', tokenCacheOp: operation },
-    extra: { tokenCacheOp: operation, tokenCacheKey: key, ...extra },
+    tags: { authContext: 'clerkTokenCache', cacheOp: operation },
+    extra: { cacheOp: operation, cacheKey: key, ...extra },
   });
 }
 
@@ -68,6 +68,12 @@ function report(
  * session while the token sat there untouched", and only a trail of
  * successful calls can tell those apart.
  *
+ * Field names avoid the words "token" and "auth". Sentry's own default
+ * server-side scrubbing strips keys containing either, and it ate tokenCacheOp,
+ * tokenCacheKey and tokenBytes on build 423, leaving breadcrumbs that proved a
+ * save happened but not which key or how big. Tags survived; extras and
+ * breadcrumb data did not.
+ *
  * Token VALUES never appear here. Presence and byte length only.
  */
 function crumb(
@@ -80,7 +86,7 @@ function crumb(
     category: 'clerk.tokenCache',
     level: operation === 'clearToken' ? 'warning' : 'info',
     message: `${operation} ${key}`,
-    data: { tokenCacheOp: operation, tokenCacheKey: key, ...data },
+    data: { cacheOp: operation, cacheKey: key, ...data },
   });
 }
 
@@ -113,10 +119,10 @@ export const clerkTokenCache = {
         : token.length;
     try {
       await SecureStore.setItemAsync(key, token, SECURE_STORE_OPTS);
-      crumb('saveToken', key, { tokenBytes: bytes });
+      crumb('saveToken', key, { payloadBytes: bytes });
     } catch (err) {
       report('saveToken', key, err, {
-        tokenBytes: bytes,
+        payloadBytes: bytes,
         overSecureStoreLimit: bytes > SECURE_STORE_VALUE_LIMIT_BYTES,
         secureStoreLimitBytes: SECURE_STORE_VALUE_LIMIT_BYTES,
       });
