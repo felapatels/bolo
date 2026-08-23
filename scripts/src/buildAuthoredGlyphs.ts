@@ -31,6 +31,7 @@ import { resolve } from "node:path";
 import { pool } from "@workspace/db";
 import {
   AUTHORED_GLYPHS,
+  CONTRIBUTED_GLYPHS,
   PLAYABLE_GLYPH_FLOOR,
   SCRIPT_NAMES,
   alphabetForScript,
@@ -220,6 +221,37 @@ async function main(): Promise<void> {
     console.log();
 
     if (glyphs.length) out[script] = glyphs;
+  }
+
+  // ── CARRY FORWARD WHAT THIS DATABASE CANNOT SUPPLY ────────────────────────
+  //
+  // This script REPLACES contributed-strokes.ts wholesale, and that came within
+  // one flag of destroying real work on 2026-08-23. Bharti's 45 Gujarati
+  // letters are committed in that file, but the rows they were built from are
+  // NOT in production: every Gujarati row there is a probe or a "test_" name,
+  // all dropped by isTestContributor. So a regeneration aimed at adding her
+  // Devanagari letters would have emitted Devanagari alone and deleted the
+  // Gujarati, whose only surviving copy is the generated file itself.
+  //
+  // Hand-tracing an alphabet is hours of a person's time and cannot be
+  // recovered from anywhere else, so the rule is: a script the database has
+  // nothing usable for keeps whatever is already committed, loudly. Where the
+  // database DOES have rows for a script, they win outright, which is what
+  // makes a correction or a re-trace take effect.
+  for (const [script, existing] of Object.entries(CONTRIBUTED_GLYPHS) as [
+    ScriptId,
+    AuthoredGlyph[],
+  ][]) {
+    if (!existing?.length || out[script]) continue;
+    out[script] = existing;
+    console.log(
+      `KEPT ${SCRIPT_NAMES[script]}: ${existing.length} glyph(s) already committed, ` +
+        `and this database has no usable rows for it.`,
+    );
+    console.log(
+      `  Those contributions exist ONLY in contributed-strokes.ts. ` +
+        `Do not delete them without a copy.\n`,
+    );
   }
 
   const body = (Object.entries(out) as [ScriptId, AuthoredGlyph[]][])

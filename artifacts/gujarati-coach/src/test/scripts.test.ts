@@ -72,8 +72,12 @@ describe("THE ARITHMETIC: one script buys many languages", () => {
 
   test("unlockOrder ranks the next script by how many languages it buys", () => {
     const order = unlockOrder();
-    expect(order[0]!.script).toBe("devanagari");
-    expect(order[0]!.languages).toHaveLength(8);
+    // WAS devanagari with 8 languages. Bharti traced all 48 Devanagari letters
+    // on 2026-08-23, so it left the queue and Perso-Arabic is the next best
+    // buy at three (Urdu, Kashmiri, Sindhi). The RANKING is what this pins, not
+    // which script happens to be on top.
+    expect(order[0]!.script).toBe("perso-arabic");
+    expect(order[0]!.languages).toHaveLength(3);
     // Descending, so the planning answer is always the top row.
     for (let i = 1; i < order.length; i++) {
       expect(order[i - 1]!.languages.length).toBeGreaterThanOrEqual(
@@ -112,13 +116,20 @@ describe("THE GATE: provenance, now that everything is playable", () => {
     // The load-bearing assertion of the whole arrangement. A font guess that
     // stopped being labelled would be indistinguishable from a speaker's
     // handwriting, and would teach a child a stroke order nobody uses.
-    expect(scriptsOnRealData()).toEqual(["gujarati"]);
+    // WAS ["gujarati"] alone. Devanagari joined it on 2026-08-23, which turned
+    // the writing demo on for eight languages at once (hi, mr, ne, sa, mai,
+    // doi, kok, brx). The assertion below is the load-bearing half and is
+    // unchanged: everything NOT on this list must still admit it is a guess.
+    expect(scriptsOnRealData().sort()).toEqual(["devanagari", "gujarati"]);
 
-    for (const g of glyphsForLanguage("gu")) {
-      expect(g.provisional, `gu ${g.id} is real handwriting`).toBeFalsy();
+    for (const code of ["gu", "hi"]) {
+      for (const g of glyphsForLanguage(code)) {
+        expect(g.provisional, `${code} ${g.id} is real handwriting`).toBeFalsy();
+      }
     }
     for (const code of Object.keys(SCRIPT_BY_LANGUAGE)) {
-      if (scriptFor(code) === "gujarati") continue;
+      const sc = scriptFor(code);
+      if (sc === "gujarati" || sc === "devanagari") continue;
       const glyphs = glyphsForLanguage(code);
       expect(glyphs.length).toBeGreaterThanOrEqual(PLAYABLE_GLYPH_FLOOR);
       for (const g of glyphs) {
@@ -128,11 +139,13 @@ describe("THE GATE: provenance, now that everything is playable", () => {
   });
 
   test("unlockOrder still names the next script worth finding a speaker for", () => {
-    // It ranks by provenance now, not by playability. Gujarati is done, so the
-    // answer is the script that buys the most languages after it.
+    // It ranks by provenance now, not by playability. Gujarati and Devanagari
+    // are both done, so neither appears and the answer is the script that buys
+    // the most languages after them.
     const order = unlockOrder();
     expect(order.map((o) => o.script)).not.toContain("gujarati");
-    expect(order[0]!.script).toBe("devanagari");
+    expect(order.map((o) => o.script)).not.toContain("devanagari");
+    expect(order[0]!.script).toBe("perso-arabic");
   });
 
   test("an unknown language code is handled, not thrown at", () => {

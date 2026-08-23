@@ -38,14 +38,20 @@ const length = (s: { x: number; y: number }[]) => {
 };
 
 describe("which pen path the demo plays", () => {
-  test("Gujarati runs on a real hand; a font-only script does not", () => {
+  test("a traced script runs on a real hand; a font-only script does not", () => {
     expect(hasHandPenStrokes("gu")).toBe(true);
-    // Devanagari has 48 font-derived glyphs and no contributions. Those are
-    // CONTOUR paths: rendered, they trace the outside edge of the letter and
-    // double back, which is worse for a demo than a fragmented centreline.
-    // This is the assertion that stops a guess being promoted to a hand.
-    expect(hasHandPenStrokes("hi")).toBe(false);
-    expect(handPenStrokes("hi", "hi_a")).toBeNull();
+    // WAS Devanagari, asserted false. Bharti traced all 48 Devanagari letters
+    // on 2026-08-23 and it now runs on a real hand too, which turned the demo
+    // on for eight languages at once. Bengali is the stand-in: still 48
+    // font-derived glyphs and no contributions.
+    //
+    // The claim is unchanged and is the one worth keeping: a font GUESS is
+    // never promoted to a hand. Those are CONTOUR paths, and rendered they
+    // trace the outside edge of the letter and double back, which is worse for
+    // a demo than a fragmented centreline.
+    expect(hasHandPenStrokes("hi")).toBe(true);
+    expect(hasHandPenStrokes("bn")).toBe(false);
+    expect(handPenStrokes("bn", "bn_a")).toBeNull();
   });
 
   test("it is far fewer strokes than the skeleton, which is the whole point", () => {

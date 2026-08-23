@@ -25,10 +25,10 @@ vi.mock("@/lib/language-context", () => ({
   useLanguage: () => ({
     languages: [
       { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" },
-      { code: "hi", name: "Hindi", nativeName: "हिन्दी" },
+      { code: "bn", name: "Bengali", nativeName: "বাংলা" },
     ],
     activeLang: h.lang,
-    activeLanguage: { code: h.lang, name: h.lang === "gu" ? "Gujarati" : "Hindi" },
+    activeLanguage: { code: h.lang, name: h.lang === "gu" ? "Gujarati" : "Bengali" },
     setActiveLang: vi.fn(),
     isLoading: false,
   }),
@@ -78,11 +78,13 @@ describe("who gets a writing demo", () => {
   });
 
   test("a font-only script shows no demo and no control", () => {
-    h.lang = "hi";
-    // Devanagari has 48 font-derived glyphs and no contributions.
-    expect(hasHandPenStrokes("hi")).toBe(false);
-    const first = traceStopFor("hi", 1, 1)!.characters[0]!;
-    expect(handPenStrokes("hi", first.id)).toBeNull();
+    // WAS Hindi. Devanagari gained a real hand on 2026-08-23 (48 letters from
+    // Bharti), so the demo is correctly ON for it now and Bengali carries this
+    // case instead. The rule under test never changed.
+    h.lang = "bn";
+    expect(hasHandPenStrokes("bn")).toBe(false);
+    const first = traceStopFor("bn", 1, 1)!.characters[0]!;
+    expect(handPenStrokes("bn", first.id)).toBeNull();
 
     renderGame();
     expect(screen.queryByText(/Watch again|Playing/)).toBeNull();
@@ -92,7 +94,7 @@ describe("who gets a writing demo", () => {
   });
 
   test("the learner can still trace: only the demo is withheld", () => {
-    h.lang = "hi";
+    h.lang = "bn";
     renderGame();
     // The guide shape comes from the font and is legitimate; what cannot be
     // claimed is the ORDER. Clearing and scoring stay exactly as they were.
