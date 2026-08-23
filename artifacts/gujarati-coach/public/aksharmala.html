@@ -544,7 +544,30 @@
   $("tracedone").addEventListener("click",function(){ refreshHub(); show("hub"); });
 
   // ── Reading ──────────────────────────────────────────
-  var mediaRecorder=null, chunks=[], recStart=0, timer=null, blob=null, mime="";
+  var mediaRecorder=null, chunks=[], recStart=0, timer=null, blob=null, mime="", audioB64="", recMs=0;
+
+  // Safari will not reliably play back a blob: URL produced by its own
+  // MediaRecorder in the same session, which shows up as a bare "Error" in the
+  // audio element while the recording itself is perfectly good. Reading the
+  // blob once into a data URL sidesteps that AND gives us the base64 the upload
+  // needs, so the file is read once instead of twice.
+  function blobToDataUrl(b){
+    return new Promise(function(resolve,reject){
+      var r=new FileReader();
+      r.onloadend=function(){ resolve(String(r.result)); };
+      r.onerror=function(){ reject(r.error); };
+      r.readAsDataURL(b);
+    });
+  }
+
+  /** The first container this browser will actually record. */
+  function pickMime(){
+    var wanted=["audio/mp4","audio/webm;codecs=opus","audio/webm","audio/ogg;codecs=opus"];
+    if(typeof MediaRecorder==="undefined") return null;
+    if(!MediaRecorder.isTypeSupported) return "";
+    for(var i=0;i<wanted.length;i++) if(MediaRecorder.isTypeSupported(wanted[i])) return wanted[i];
+    return "";
+  }
   function fmt(ms){var s=Math.floor(ms/1000);return Math.floor(s/60)+":"+("0"+(s%60)).slice(-2);}
 
   function openReader(){
@@ -615,24 +638,55 @@
       return;
     }
     navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
-      // Chrome and Android give webm/opus, Safari and iOS give mp4/aac. Let the
-      // browser pick and record what it actually chose, because guessing wrong
-      // stores a file that will not play.
-      mediaRecorder = new MediaRecorder(stream);
-      mime = mediaRecorder.mimeType || "audio/webm";
+      // Ask for a container this browser actually supports rather than letting
+      // it default. Safari and iOS want mp4/aac, Chrome and Android webm/opus,
+      // and recording what it really chose is what keeps the stored file playable.
+      var want = pickMime();
+      try {
+        mediaRecorder = want ? new MediaRecorder(stream, { mimeType: want }) : new MediaRecorder(stream);
+      } catch (e) {
+        mediaRecorder = new MediaRecorder(stream);
+      }
+      mime = mediaRecorder.mimeType || want || "audio/webm";
       chunks=[];
       mediaRecorder.ondataavailable=function(e){ if(e.data && e.data.size) chunks.push(e.data); };
       mediaRecorder.onstop=function(){
         clearInterval(timer);
+        recMs = Date.now()-recStart;
         stream.getTracks().forEach(function(t){t.stop();});
         blob=new Blob(chunks,{type:mime});
-        $("playback").src=URL.createObjectURL(blob);
-        $("playback").hidden=false;
         $("recmeter").hidden=true;
         $("recbtn").hidden=true;
         $("recactions").hidden=false;
-        $("sendrec").hidden=false;
-        $("recsay").textContent="Have a listen. Send it if you are happy with it.";
+
+        // Nothing captured is a real failure and must not look like a success.
+        if(!blob.size){
+          $("recsay").textContent="Nothing was captured. Tap Record again, and check nothing else is using the microphone.";
+          $("sendrec").hidden=true;
+          return;
+        }
+
+        blobToDataUrl(blob).then(function(url){
+          audioB64=url.split(",")[1]||"";
+          var a=$("playback");
+          // If this browser still refuses to play it back, say so plainly and
+          // keep Send available: the recording is good even when playback is not.
+          a.onerror=function(){
+            a.hidden=true;
+            $("recsay").textContent="Your browser will not play it back, which is a Safari quirk, "+
+              "not a problem with the recording. It captured "+Math.round(recMs/1000)+
+              " seconds. Send it, or tap Record again if you would rather redo it.";
+          };
+          a.src=url; a.hidden=false; a.load();
+          $("sendrec").hidden=false;
+          $("recsay").textContent="Have a listen, "+Math.round(recMs/1000)+
+            " seconds. Send it if you are happy with it.";
+        }).catch(function(){
+          $("playback").hidden=true;
+          $("sendrec").hidden=false;
+          $("recsay").textContent="Recorded "+Math.round(recMs/1000)+
+            " seconds. Playback is not available on this browser, but you can still send it.";
+        });
       };
       mediaRecorder.start();
       recStart=Date.now();
@@ -646,7 +700,8 @@
   });
 
   $("redo").addEventListener("click",function(){
-    blob=null; $("playback").hidden=true; $("recactions").hidden=true; $("sendrec").hidden=true;
+    blob=null; audioB64=""; $("playback").removeAttribute("src"); $("playback").hidden=true;
+    $("recactions").hidden=true; $("sendrec").hidden=true;
     $("recbtn").hidden=false; $("recbtn").textContent="Start recording";
     $("recsay").textContent="Read it at your normal speed. Tap to start."; $("elapsed").textContent="0:00";
     note("recsave","");
@@ -657,15 +712,13 @@
     var p=PASSAGES[scriptName];
     note("recsave","Sending...");
     $("sendrec").disabled=true;
-    var reader=new FileReader();
-    reader.onloadend=function(){
-      var b64=String(reader.result).split(",")[1]||"";
+    var send=function(b64){
       fetch("/api/script-trace/voice",{
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           sessionId:sessionId, script:scriptName, contributor:safeName(),
           isPractice:isPractice(), promptId:p.id, promptText:p.text, promptLabel:p.language,
-          audioBase64:b64, mimeType:mime, durationMs:Date.now()-recStart
+          audioBase64:b64, mimeType:mime, durationMs:recMs
         })
       }).then(function(r){
         if(!r.ok) throw new Error("http "+r.status);
@@ -677,7 +730,10 @@
         note("recsave","That did not go through. Tap send again in a moment.","bad");
       });
     };
-    reader.readAsDataURL(blob);
+    // Already read once for playback; only fall back to reading again if that
+    // path did not run.
+    if(audioB64) send(audioB64);
+    else blobToDataUrl(blob).then(function(u){ send(u.split(",")[1]||""); });
   });
   $("readdone").addEventListener("click",function(){ refreshHub(); show("hub"); });
 

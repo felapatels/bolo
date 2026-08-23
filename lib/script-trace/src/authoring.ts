@@ -398,6 +398,36 @@ export function parseTracePayload(text: string): ParsedTracePayload {
  * something real. Shapes differ between any two hands and comparing them would
  * report disagreement everywhere.
  */
+/**
+ * Names whose submissions are the team's own testing, never teaching data.
+ *
+ * WHY THIS IS CODE AND NOT A NOTE IN A DOC. The page has no "this is a test"
+ * control any more, deliberately: it sat next to the name field and a real
+ * contributor would tick it and silently opt their own work out. What replaced
+ * it is this. Whoever is building the thing tests it, repeatedly, and their
+ * traces are not how anybody's grandmother writes. A note saying "remember to
+ * ignore Test Aakesh" survives exactly as long as the person who read it.
+ *
+ * Matched case-insensitively, and any name STARTING with "test" counts, so
+ * "Test Aakesh", "test", and "Testing123" are all covered without anyone having
+ * to come back and extend the list.
+ */
+export const TEST_CONTRIBUTORS = [
+  "test aakesh",
+  "aakesh",
+  "probe_claude",
+  "probe_claude2",
+  "probe3",
+  "smoke",
+];
+
+/** Whether a contributor name marks the team's own testing. */
+export function isTestContributor(name: string): boolean {
+  const n = name.trim().toLowerCase().replace(/^!/, "");
+  if (n.startsWith("test")) return true;
+  return TEST_CONTRIBUTORS.includes(n);
+}
+
 export type GlyphAgreement = {
   id: string;
   /** How many people traced this letter at all. */
@@ -421,8 +451,10 @@ export function compareContributions(
   const byGlyph = new Map<string, Map<number, string[]>>();
 
   for (const payload of payloads) {
-    // Dropped by DEFAULT, so forgetting the option is the safe direction.
+    // Both dropped by DEFAULT, so forgetting the option is the safe direction.
     if (payload.isPractice && !includePractice) continue;
+    // The team's own testing is never teaching data, whatever the flag says.
+    if (isTestContributor(payload.contributor) && !includePractice) continue;
     for (const glyph of payload.glyphs) {
       let counts = byGlyph.get(glyph.id);
       if (!counts) {

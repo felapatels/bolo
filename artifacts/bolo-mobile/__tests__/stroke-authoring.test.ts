@@ -21,6 +21,7 @@ import {
   parseTracePayload,
   resolveTracePayload,
   compareContributions,
+  isTestContributor,
   alphabetForScript,
   SCRIPT_NAMES,
   SCRIPT_BY_LANGUAGE,
@@ -532,5 +533,49 @@ describe('a practice run must not become teaching data', () => {
   it('returns nothing at all when every payload is practice', () => {
     const practice = parseTracePayload(`bolo1|Gujarati|!Aakesh|${glyphs}`);
     expect(compareContributions([practice])).toEqual([]);
+  });
+});
+
+describe("the team's own testing never becomes teaching data", () => {
+  // There is no "this is a test" checkbox on the page any more, on purpose: it
+  // sat by the name field and a real contributor would tick it. This is what
+  // replaced it, and it is code rather than a note because a note survives only
+  // as long as the person who read it.
+  const g = 'gu_a:20,30;20,70~60,20;60,80';
+  const p = (who: string) => parseTracePayload(`bolo1|Gujarati|${who}|${g}`);
+
+  it('recognises the developer testing under any spelling', () => {
+    for (const n of ['Test Aakesh', 'test aakesh', 'TEST AAKESH', 'testing123', 'Test', 'Aakesh']) {
+      expect(isTestContributor(n)).toBe(true);
+    }
+  });
+
+  it('recognises the probes used to check the live endpoint', () => {
+    expect(isTestContributor('PROBE_CLAUDE')).toBe(true);
+    expect(isTestContributor('smoke')).toBe(true);
+    // The practice marker is stripped before matching.
+    expect(isTestContributor('!Test Aakesh')).toBe(true);
+  });
+
+  it('leaves real contributors alone', () => {
+    for (const n of ['Ba', 'Kaka', 'Masi', 'Protima', 'Testa']) {
+      // "Testa" is the interesting one: a real name that merely starts with the
+      // same four letters. It is knowingly caught by the prefix rule, and that
+      // is the trade: losing one real contributor named Testa is recoverable,
+      // teaching a child from a developer's scribble is not.
+      if (n === 'Testa') { expect(isTestContributor(n)).toBe(true); continue; }
+      expect(isTestContributor(n)).toBe(false);
+    }
+  });
+
+  it('drops test contributors from the comparison by default', () => {
+    const out = compareContributions([p('Ba'), p('Test Aakesh'), p('PROBE_CLAUDE')]);
+    expect(out).toHaveLength(1);
+    expect(out[0].contributors).toBe(1);
+    expect(out[0].byStrokeCount[0].contributors).toEqual(['Ba']);
+  });
+
+  it('returns nothing when every payload is the team testing', () => {
+    expect(compareContributions([p('Test Aakesh'), p('Aakesh')])).toEqual([]);
   });
 });

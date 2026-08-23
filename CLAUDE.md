@@ -476,3 +476,38 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
 ```
 
 The `-p com.android.vending` matters. Without it the intent opens an app chooser.
+
+## The contribution page: whose data counts
+
+`bolo-india.app/aksharmala.html` collects traced alphabets and read-aloud audio
+from family members. Built from `scripts/src/aksharmala.template.html` by
+`pnpm --filter @workspace/scripts build-aksharmala`; the output is committed, so
+**edit the template and rebuild, never the generated file**.
+
+**IGNORE ANYTHING FROM "Test Aakesh".** That is the name used to demonstrate the
+page to people, so those rows are a walkthrough, not handwriting. Same for
+anything beginning "test", and for the `PROBE_CLAUDE` and `smoke` rows left by
+endpoint checks.
+
+This is enforced rather than remembered: `isTestContributor()` in
+`@workspace/script-trace` matches any name starting with "test" plus a short
+list, and `compareContributions()` drops them BY DEFAULT alongside anything
+flagged `is_practice`. Forgetting the option excludes too much rather than too
+little, which is the safe direction. **A name merely starting with "test" is
+caught too**, and that trade is deliberate: losing one contributor called Testa
+is recoverable, teaching a child from a developer's scribble is not.
+
+**There was a "just trying this out" checkbox on the page and it was removed.**
+It sat directly under the name field, and a real contributor would tick it as
+readily as a tester would, silently opting their own work out of ever being
+used. The `!` prefix it wrote still works in the wire format, the parser and the
+`is_practice` column, so a row can still be marked after the fact.
+
+**All twelve reading passages are UNVERIFIED.** They were written by an agent
+with no translation tool and no speaker of each language to check them; Santali
+and Meetei are first drafts. Every one carries `confidence` and
+`verified: false` in `lib/script-trace/src/passages.ts`, and the build prints a
+WARNING naming all twelve on every run. The page asks each reader whether the
+text is natural before they record and stores both answers in `passage_feedback`
+**including the plain yeses**, because a yes from a speaker is what lets a
+passage be marked verified.
