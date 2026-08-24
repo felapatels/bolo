@@ -598,6 +598,9 @@ importers:
       '@sentry/react':
         specifier: ^10.68.0
         version: 10.68.0(react@19.1.0)
+      '@workspace/story':
+        specifier: workspace:*
+        version: link:../../lib/story
       posthog-js:
         specifier: ^1.407.3
         version: 1.407.3
@@ -1088,6 +1091,8 @@ importers:
   lib/referral-link: {}
 
   lib/script-trace: {}
+
+  lib/story: {}
 
   lib/train-class:
     dependencies:
