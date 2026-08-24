@@ -110,6 +110,7 @@ const LearnLanguage = lazyRoute(() => import('@/pages/learn-language'));
 // Public: a shared referral link lands here, signed in or not.
 const Join = lazyRoute(() => import('@/pages/join'));
 const NotFound = lazyRoute(() => import('@/pages/not-found'));
+const Nest = lazyRoute(() => import('@/pages/nest'));
 
 // Most-likely-next pages first; long tail after. Order matters because the
 // prefetcher loads them one at a time.
@@ -558,6 +559,16 @@ function AppRouter() {
           <Upgrade />
         </Guard>
       </Route>
+      {/* THE NEST: internal tooling. It renders the app's own not-found page
+          for anybody the server does not clear, so this route is
+          indistinguishable from a typo unless you own the product. It sits
+          before the catch-all for the ordinary reason, and note that
+          bolo-india.app/nest already returned 200 before this existed, because
+          the catch-all serves index.html for every unknown path. */}
+      <Route path="/nest">
+        <Nest />
+      </Route>
+
       <Route component={NotFound} />
       </Switch>
     </Suspense>

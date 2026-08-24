@@ -1651,6 +1651,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/SpeechResult"
 
+  /nest/redirect:
+    get:
+      operationId: getNestRedirect
+      tags: [nest]
+      summary: Where the Nest currently lives (owner only)
+      description: >-
+        Internal operations tooling. 404 for everybody but the owner, and NEVER
+        403: a 403 confirms the page exists and tells a stranger what to keep
+        probing. Temporary by design, and retired when the page itself finishes
+        moving into the product.
+      responses:
+        "200":
+          description: The Nest's current address
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NestRedirect"
+        "404":
+          description: Not the owner, or no such thing
+
+  /nest/summary:
+    get:
+      operationId: getNestSummary
+      tags: [nest]
+      summary: The counts the cockpit runs on (owner only)
+      description: >-
+        The same query spend-ping.sh posts into PostHog hourly, served directly
+        instead of relayed. Both the with-owner and without-owner figures are
+        computed SERVER SIDE so the allowlist never reaches the browser. Cached
+        for 60 seconds. No health field: same origin means the page fetches
+        /api/healthz itself, which is a live check rather than a reading of
+        somebody else's last cron run.
+      responses:
+        "200":
+          description: Current counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NestSummary"
+        "404":
+          description: Not the owner, or no such thing
+
   /openai/narrate:
     post:
       operationId: narrateStoryLine
@@ -3983,6 +4025,61 @@ components:
             live ElevenLabs caller in production, so a run of "fallback" is the
             only signal that ELEVENLABS_API_KEY is missing or stale, and a
             silent downgrade would leave that permanently invisible.
+    NestRedirect:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          description: Absolute URL of the Nest.
+
+    NestSummary:
+      type: object
+      required:
+        [generatedAt, usersTotal, usersExclOwner, active30d, active30dExclOwner,
+         paidActive,
+         paidActiveExclOwner, trialing, ttsTotal, tts30d, attemptsTotal,
+         attempts30d, attempts30dExclOwner, chat30d, lessons30d, ttsBytes,
+         dbBytes]
+      properties:
+        generatedAt: { type: string, format: date-time }
+        usersTotal: { type: integer }
+        usersExclOwner:
+          type: integer
+          description: >
+            Rows in users minus the owner allowlist. Computed here rather than
+            in the browser so the ids themselves never leave the server.
+        active30d: { type: integer }
+        active30dExclOwner:
+          type: integer
+          description: >
+            Active learners who are NOT the owner. Ship this beside active30d
+            or the tile lies: the owner is 77 percent of all attempts in the
+            last month, and "active users" is exactly the number a reader takes
+            to mean "how many learners are actually using this". Same shape of
+            mistake as a visitor count labelled "people".
+        paidActive: { type: integer }
+        paidActiveExclOwner:
+          type: integer
+          description: >
+            Paid accounts that are not the owner's or an App Store review
+            account. Show this beside paidActive or the page implies customers
+            that do not exist.
+        trialing: { type: integer }
+        ttsTotal: { type: integer }
+        tts30d: { type: integer }
+        attemptsTotal: { type: integer }
+        attempts30d: { type: integer }
+        attempts30dExclOwner: { type: integer }
+        chat30d: { type: integer }
+        lessons30d: { type: integer }
+        ttsBytes:
+          type: integer
+          description: >
+            Cached audio. It has been 98 percent of the database and the
+            production cap is 10 GiB, so this is a ceiling as well as a bill.
+        dbBytes: { type: integer }
+
     NarrationInput:
       type: object
       required: [text]

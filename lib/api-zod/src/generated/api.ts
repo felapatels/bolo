@@ -1354,6 +1354,40 @@ export const SynthesizeSpeechResponse = zod.object({
 
 
 /**
+ * Internal operations tooling. 404 for everybody but the owner, and NEVER 403: a 403 confirms the page exists and tells a stranger what to keep probing. Temporary by design, and retired when the page itself finishes moving into the product.
+ * @summary Where the Nest currently lives (owner only)
+ */
+export const GetNestRedirectResponse = zod.object({
+  "url": zod.string().describe('Absolute URL of the Nest.')
+})
+
+
+/**
+ * The same query spend-ping.sh posts into PostHog hourly, served directly instead of relayed. Both the with-owner and without-owner figures are computed SERVER SIDE so the allowlist never reaches the browser. Cached for 60 seconds. No health field: same origin means the page fetches /api/healthz itself, which is a live check rather than a reading of somebody else's last cron run.
+ * @summary The counts the cockpit runs on (owner only)
+ */
+export const GetNestSummaryResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "usersTotal": zod.number(),
+  "usersExclOwner": zod.number().describe('Rows in users minus the owner allowlist. Computed here rather than in the browser so the ids themselves never leave the server.\n'),
+  "active30d": zod.number(),
+  "active30dExclOwner": zod.number().describe('Active learners who are NOT the owner. Ship this beside active30d or the tile lies: the owner is 77 percent of all attempts in the last month, and \"active users\" is exactly the number a reader takes to mean \"how many learners are actually using this\". Same shape of mistake as a visitor count labelled \"people\".\n'),
+  "paidActive": zod.number(),
+  "paidActiveExclOwner": zod.number().describe('Paid accounts that are not the owner\'s or an App Store review account. Show this beside paidActive or the page implies customers that do not exist.\n'),
+  "trialing": zod.number(),
+  "ttsTotal": zod.number(),
+  "tts30d": zod.number(),
+  "attemptsTotal": zod.number(),
+  "attempts30d": zod.number(),
+  "attempts30dExclOwner": zod.number(),
+  "chat30d": zod.number(),
+  "lessons30d": zod.number(),
+  "ttsBytes": zod.number().describe('Cached audio. It has been 98 percent of the database and the production cap is 10 GiB, so this is a ceiling as well as a bill.\n'),
+  "dbBytes": zod.number()
+})
+
+
+/**
  * Storybook narration. Separate from /openai/tts on purpose: that route speaks a PHRASE in the learner's own language, applies their Plus voice preference and runs pronunciation verification on the take. None of that applies here. The story is English and language-neutral by design, so one narrator serves all 22 languages and every clip is cached forever, which is what keeps a 480-line library costing once rather than 22 times.
  * @summary Read one line of the storybook aloud
  */

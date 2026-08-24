@@ -86,6 +86,8 @@ import type {
   ListZoneStampsParams,
   NarrationInput,
   NarrationResult,
+  NestRedirect,
+  NestSummary,
   Ok,
   OutfitCatalog,
   OutfitEquipResult,
@@ -4084,6 +4086,162 @@ export const useSynthesizeSpeech = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getSynthesizeSpeechMutationOptions(options));
     }
+
+export const getGetNestRedirectUrl = () => {
+
+
+
+
+  return `/api/nest/redirect`
+}
+
+/**
+ * Internal operations tooling. 404 for everybody but the owner, and NEVER 403: a 403 confirms the page exists and tells a stranger what to keep probing. Temporary by design, and retired when the page itself finishes moving into the product.
+ * @summary Where the Nest currently lives (owner only)
+ */
+export const getNestRedirect = async ( options?: RequestInit): Promise<NestRedirect> => {
+
+  return customFetch<NestRedirect>(getGetNestRedirectUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetNestRedirectQueryKey = () => {
+    return [
+    `/api/nest/redirect`
+    ] as const;
+    }
+
+
+export const getGetNestRedirectQueryOptions = <TData = Awaited<ReturnType<typeof getNestRedirect>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getNestRedirect>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetNestRedirectQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getNestRedirect>>> = ({ signal }) => getNestRedirect({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getNestRedirect>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetNestRedirectQueryResult = NonNullable<Awaited<ReturnType<typeof getNestRedirect>>>
+export type GetNestRedirectQueryError = ErrorType<void>
+
+
+/**
+ * @summary Where the Nest currently lives (owner only)
+ */
+
+export function useGetNestRedirect<TData = Awaited<ReturnType<typeof getNestRedirect>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getNestRedirect>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetNestRedirectQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetNestSummaryUrl = () => {
+
+
+
+
+  return `/api/nest/summary`
+}
+
+/**
+ * The same query spend-ping.sh posts into PostHog hourly, served directly instead of relayed. Both the with-owner and without-owner figures are computed SERVER SIDE so the allowlist never reaches the browser. Cached for 60 seconds. No health field: same origin means the page fetches /api/healthz itself, which is a live check rather than a reading of somebody else's last cron run.
+ * @summary The counts the cockpit runs on (owner only)
+ */
+export const getNestSummary = async ( options?: RequestInit): Promise<NestSummary> => {
+
+  return customFetch<NestSummary>(getGetNestSummaryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetNestSummaryQueryKey = () => {
+    return [
+    `/api/nest/summary`
+    ] as const;
+    }
+
+
+export const getGetNestSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getNestSummary>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getNestSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetNestSummaryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getNestSummary>>> = ({ signal }) => getNestSummary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getNestSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetNestSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getNestSummary>>>
+export type GetNestSummaryQueryError = ErrorType<void>
+
+
+/**
+ * @summary The counts the cockpit runs on (owner only)
+ */
+
+export function useGetNestSummary<TData = Awaited<ReturnType<typeof getNestSummary>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getNestSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetNestSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getNarrateStoryLineUrl = () => {
 

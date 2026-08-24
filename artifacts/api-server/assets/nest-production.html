@@ -1,0 +1,1566 @@
+<title>The Nest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+/* ---------- tokens ---------- */
+:root{
+  --ground:#F2F5F4;
+  --surface:#FFFFFF;
+  --surface-2:#E8EEEC;
+  --ink:#0E1D1C;
+  --ink-2:#354744;
+  --muted:#5F716D;
+  --line:#D8E1DE;
+  --line-2:#C3D0CC;
+  --accent:#0C6A60;
+  --accent-soft:rgba(12,106,96,.10);
+  --gold:#B8770A;
+  --gold-soft:rgba(184,119,10,.12);
+  --good:#1C7A4F;
+  --good-soft:rgba(28,122,79,.12);
+  --warn:#A96206;
+  --warn-soft:rgba(169,98,6,.13);
+  --crit:#AE2B21;
+  --crit-soft:rgba(174,43,33,.11);
+  --shadow:0 1px 2px rgba(14,29,28,.04), 0 10px 26px -20px rgba(14,29,28,.45);
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#08110F; --surface:#0E1A18; --surface-2:#14231F;
+    --ink:#E6EEEB; --ink-2:#B7C6C2; --muted:#8B9E99;
+    --line:#21322E; --line-2:#2C4039;
+    --accent:#45C2B0; --accent-soft:rgba(69,194,176,.13);
+    --gold:#E9AE4A; --gold-soft:rgba(233,174,74,.14);
+    --good:#4CC58C; --good-soft:rgba(76,197,140,.14);
+    --warn:#DFA34A; --warn-soft:rgba(223,163,74,.14);
+    --crit:#F2776A; --crit-soft:rgba(242,119,106,.14);
+    --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 26px -18px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#08110F; --surface:#0E1A18; --surface-2:#14231F;
+  --ink:#E6EEEB; --ink-2:#B7C6C2; --muted:#8B9E99;
+  --line:#21322E; --line-2:#2C4039;
+  --accent:#45C2B0; --accent-soft:rgba(69,194,176,.13);
+  --gold:#E9AE4A; --gold-soft:rgba(233,174,74,.14);
+  --good:#4CC58C; --good-soft:rgba(76,197,140,.14);
+  --warn:#DFA34A; --warn-soft:rgba(223,163,74,.14);
+  --crit:#F2776A; --crit-soft:rgba(242,119,106,.14);
+  --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 26px -18px rgba(0,0,0,.7);
+}
+
+/* ---------- base ---------- */
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;
+}
+a{color:inherit}
+h1,h2,h3,h4{font-family:Archivo,"Helvetica Neue",Arial,sans-serif;text-wrap:balance;margin:0}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* ---------- header ---------- */
+.top{
+  position:sticky;top:0;z-index:40;
+  background:var(--ground);
+  background:color-mix(in srgb, var(--ground) 90%, transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
+}
+.top-in{max-width:1180px;margin:0 auto;padding:12px 20px 0;display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px}
+.brand{display:flex;align-items:center;gap:11px;margin-right:auto}
+.brand svg{display:block;flex:none}
+.brand .mark{display:block;flex:none;width:46px;height:46px;object-fit:contain;image-rendering:auto}
+.brand b{font-family:Archivo,sans-serif;font-weight:800;font-size:19px;letter-spacing:.10em;text-transform:uppercase;display:block;line-height:1.1}
+.brand .sub{display:block;font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+.stamp{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);text-align:right;line-height:1.5}
+.stamp .s1{display:flex;align-items:center;gap:7px;justify-content:flex-end;color:var(--ink-2)}
+.beacon{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none}
+.beacon.live{background:var(--good);box-shadow:0 0 0 3px var(--good-soft)}
+.beacon.snap{background:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
+.beacon.busy{background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.filterwrap{position:relative;flex:1 1 240px;max-width:330px}
+.filterwrap input{width:100%;padding:8px 12px 8px 32px;font:inherit;font-size:13.5px;background:var(--surface);color:var(--ink);border:1px solid var(--line-2);border-radius:999px}
+.filterwrap input::placeholder{color:var(--muted)}
+.filterwrap svg{position:absolute;left:11px;top:18px;color:var(--muted)}
+.hits{font-size:11px;color:var(--muted);padding:2px 0 0 14px;height:14px}
+.chips{max-width:1180px;margin:0 auto;padding:8px 20px 12px;display:flex;gap:7px;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips a{flex:none;text-decoration:none;font-size:12px;font-weight:500;padding:5px 11px;border-radius:999px;border:1px solid var(--line-2);color:var(--ink-2);background:var(--surface);white-space:nowrap}
+.chips a:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ---------- layout ---------- */
+main{max-width:1180px;margin:0 auto;padding:34px 20px 90px;display:flex;flex-direction:column;gap:52px}
+section{scroll-margin-top:126px}
+.head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+.head h2{font-size:23px;font-weight:700;letter-spacing:-.015em}
+.head p{margin:0;color:var(--muted);font-size:13px;flex:1 1 220px;min-width:180px}
+.rule{height:1px;background:var(--line);margin:0 0 18px}
+
+/* ---------- cards ---------- */
+.grid{display:grid;gap:12px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(206px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.card.stripe::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line-2)}
+.card.s-good::before{background:var(--good)}
+.card.s-warn::before{background:var(--warn)}
+.card.s-crit::before{background:var(--crit)}
+.card.s-info::before{background:var(--accent)}
+.card.stripe{padding-left:19px}
+.pill{display:inline-flex;align-items:center;gap:5px;font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;letter-spacing:.10em;text-transform:uppercase;padding:3px 8px;border-radius:999px}
+.p-good{background:var(--good-soft);color:var(--good)}
+.p-warn{background:var(--warn-soft);color:var(--warn)}
+.p-crit{background:var(--crit-soft);color:var(--crit)}
+.p-info{background:var(--accent-soft);color:var(--accent)}
+.dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex:none}
+.card h3{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.cardtop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.big{font-family:"IBM Plex Mono",monospace;font-size:24px;font-weight:500;letter-spacing:-.02em;line-height:1.15}
+.big small{font-size:13px;color:var(--muted);font-weight:400}
+dl.meta{margin:12px 0 0;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12.5px}
+dl.meta dt{color:var(--muted)}
+dl.meta dd{margin:0;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-2);text-align:right;overflow-wrap:anywhere}
+.links{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px}
+.links a{font-size:11.5px;font-weight:500;text-decoration:none;padding:4px 9px;border:1px solid var(--line-2);border-radius:999px;color:var(--ink-2)}
+.links a:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+
+/* ---------- range control ---------- */
+.rangebar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line-2);border-radius:999px;padding:2px;gap:2px}
+.seg button{
+  font:inherit;font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:500;
+  padding:5px 13px;border-radius:999px;border:0;background:transparent;color:var(--ink-2);cursor:pointer;
+}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+.seg button:hover:not([aria-pressed="true"]){color:var(--accent)}
+.rangebar .why{font-size:12px;color:var(--muted)}
+.ownt{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2);cursor:pointer;user-select:none}
+.ownt input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;margin:0}
+.ownt span{white-space:nowrap}
+button.ghost{
+  font:inherit;font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;padding:5px 12px;border-radius:999px;border:1px solid var(--line-2);
+  background:transparent;color:var(--muted);cursor:pointer;
+}
+button.ghost:hover{border-color:var(--accent);color:var(--accent)}
+button.ghost[disabled]{opacity:.45;cursor:default}
+
+/* ---------- stat tiles ---------- */
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:13px 14px;display:flex;flex-direction:column;gap:2px;box-shadow:var(--shadow)}
+.tile .n{font-family:"IBM Plex Mono",monospace;font-size:30px;font-weight:500;letter-spacing:-.03em;line-height:1.1}
+.tile .l{font-size:12.5px;font-weight:500;color:var(--ink-2)}
+.tile .w{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.tile.blank .n{color:var(--muted);opacity:.55}
+
+/* ---------- danger popup ---------- */
+.danger{
+  position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
+  padding:20px;background:rgba(6,14,12,.74);
+}
+.danger.on{display:flex}
+.danger-card{
+  max-width:540px;width:100%;background:var(--surface);border:2px solid var(--crit);
+  border-radius:14px;box-shadow:0 26px 70px -22px rgba(0,0,0,.65);overflow:hidden;
+}
+.danger-top{display:flex;gap:13px;align-items:center;padding:16px 20px;background:var(--crit-soft);border-bottom:1px solid var(--crit);color:var(--crit)}
+.danger-top .kicker{margin:0;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase}
+.danger-top h2{font-size:19px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+.danger-body{padding:16px 20px}
+.danger-body p{margin:0 0 10px;font-size:14.5px}
+.danger-body p:last-child{margin-bottom:0}
+.dmore{display:flex;flex-direction:column;gap:7px;margin-top:12px}
+.dmore div{font-size:12.5px;color:var(--muted);padding-left:12px;border-left:2px solid var(--line-2)}
+.danger-foot{display:flex;align-items:center;gap:12px;padding:13px 20px;border-top:1px solid var(--line);background:var(--surface-2);flex-wrap:wrap}
+.danger-foot a{
+  font-size:13px;font-weight:600;text-decoration:none;padding:8px 15px;border-radius:999px;
+  background:var(--crit);color:var(--surface);
+}
+.danger-foot button{
+  margin-left:auto;font:inherit;font-size:12.5px;background:transparent;border:1px solid var(--line-2);
+  color:var(--muted);padding:7px 13px;border-radius:999px;cursor:pointer;
+}
+.danger-foot button:hover{color:var(--ink);border-color:var(--ink-2)}
+
+/* ---------- live check bar ---------- */
+.checkbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.checkbar .why{font-size:12px;color:var(--muted);flex:1 1 220px}
+a.linkbtn{text-decoration:none;display:inline-block}
+
+/* ---------- spend ---------- */
+.spend{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.spend-h{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:15px 16px;border-bottom:1px solid var(--line)}
+.spend-h .tot{font-family:"IBM Plex Mono",monospace;font-size:34px;font-weight:500;letter-spacing:-.03em;line-height:1}
+.spend-h .lab{font-size:12.5px;color:var(--muted)}
+.spend-h .seg{margin-left:auto}
+.spend-lines{padding:6px 16px 14px}
+.sline{display:grid;grid-template-columns:1fr auto auto;gap:4px 16px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line)}
+.sline:last-child{border-bottom:0}
+.sline .n{font-size:13.5px;font-weight:500}
+.sline .b{grid-column:1;font-size:12px;color:var(--muted)}
+.sline .q{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted);text-align:right;white-space:nowrap}
+.sline .c{font-family:"IBM Plex Mono",monospace;font-size:14px;text-align:right;min-width:76px}
+.sline.dim .n,.sline.dim .c{color:var(--muted)}
+
+/* ---------- alerts ---------- */
+.alert{
+  display:grid;grid-template-columns:auto 1fr auto;gap:3px 13px;align-items:center;
+  padding:11px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);
+}
+.alert + .alert{margin-top:7px}
+.alert.hot{border-color:var(--crit);box-shadow:0 0 0 1px var(--crit)}
+.alert.warm{border-color:var(--warn)}
+.alert .pill{grid-column:1;grid-row:1 / span 2}
+.alert .t{grid-column:2;grid-row:1;font-size:13.5px;font-weight:500}
+.alert .m{grid-column:2;grid-row:2;font-size:12px;color:var(--muted)}
+.alert .r{grid-column:3;grid-row:1 / span 2;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);text-align:right;white-space:nowrap}
+.alert .r a{color:var(--accent);text-decoration:none}
+
+.thresh{margin-top:16px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:14px 16px}
+.thresh-h{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.thresh-h span{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.thresh-h button{margin-left:auto}
+.thresh-row{display:grid;grid-template-columns:1fr 96px;gap:6px 14px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.thresh-row label{font-size:13px}
+.thresh-row input{
+  font:inherit;font-family:"IBM Plex Mono",monospace;font-size:13px;text-align:right;
+  padding:5px 9px;border:1px solid var(--line-2);border-radius:7px;background:var(--ground);color:var(--ink);
+}
+.thresh-row .hint{grid-column:1 / -1;font-size:12px;color:var(--muted)}
+.thresh-note{margin:10px 0 0;font-size:11.5px;color:var(--muted)}
+.idlist{display:flex;flex-direction:column;gap:5px;align-items:flex-start;margin-top:8px}
+.idlist .p{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink-2);background:var(--surface-2);padding:4px 10px;border-radius:6px;border:1px solid var(--line);cursor:pointer}
+.idlist .p:hover{color:var(--accent);border-color:var(--accent)}
+
+.statuschip{
+  display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono",monospace;
+  font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 9px;border-radius:999px;background:var(--good-soft);color:var(--good);
+}
+.statuschip.warm{background:var(--warn-soft);color:var(--warn)}
+.statuschip.hot{background:var(--crit-soft);color:var(--crit)}
+
+/* ---------- drill down ---------- */
+button.tile{font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%;position:relative;padding-right:26px}
+button.tile:hover{border-color:var(--accent)}
+button.tile::after{
+  content:"";position:absolute;right:14px;top:17px;width:6px;height:6px;
+  border-right:1.6px solid var(--line-2);border-bottom:1.6px solid var(--line-2);
+  transform:rotate(45deg);
+}
+button.tile:hover::after{border-color:var(--accent)}
+button.tile[aria-expanded="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+button.tile[aria-expanded="true"]::after{transform:rotate(-135deg);border-color:var(--accent);top:20px}
+
+.drill{margin-top:12px;background:var(--surface);border:1px solid var(--accent);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.drill-h{display:flex;align-items:baseline;gap:8px 16px;padding:15px 16px 13px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.drill-h .dn{font-family:"IBM Plex Mono",monospace;font-size:31px;font-weight:500;letter-spacing:-.03em;line-height:1}
+.drill-h h3{font-size:16px;font-weight:700}
+.drill-h .dw{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.drill-h .what{flex-basis:100%;font-size:12.5px;color:var(--muted);margin:0}
+.drill-h button.x{margin-left:auto;font:inherit;font-size:18px;line-height:1;border:0;background:transparent;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:6px}
+.drill-h button.x:hover{color:var(--crit);background:var(--crit-soft)}
+.drill-body{display:grid;grid-template-columns:minmax(300px,1.15fr) minmax(250px,1fr);gap:20px;padding:16px}
+@media (max-width:760px){.drill-body{grid-template-columns:1fr}}
+.dsub{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 9px}
+
+.bars{display:flex;align-items:flex-end;gap:2px;height:132px}
+.bar{flex:1 1 0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;min-width:0;position:relative}
+.bar i{display:block;background:var(--accent);border-radius:4px 4px 0 0;height:var(--h);min-height:2px}
+.bar.zero i{background:var(--line-2);height:2px;border-radius:2px}
+.bar.today i{background:repeating-linear-gradient(135deg,var(--accent) 0 3px,transparent 3px 6px);border:1px solid var(--accent);border-bottom:0}
+.bar:hover i{background:var(--gold)}
+.bar b{
+  position:absolute;top:-15px;left:50%;transform:translateX(-50%);
+  font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-2);font-weight:500;
+}
+.barx{display:flex;gap:2px;margin-top:6px}
+.barx span{flex:1 1 0;font-family:"IBM Plex Mono",monospace;font-size:9.5px;color:var(--muted);text-align:center;overflow:hidden;white-space:nowrap}
+.barnote{font-size:12px;color:var(--muted);margin:10px 0 0}
+
+.bd + .bd{margin-top:16px}
+.bd-row{display:grid;grid-template-columns:minmax(70px,auto) 1fr auto;gap:10px;align-items:center;font-size:12.5px;padding:3px 0}
+.bd-row .k{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.bd-row .t{background:var(--surface-2);border-radius:3px;height:8px;overflow:hidden}
+.bd-row .t i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.bd-row .v{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-2)}
+.bd-wait{font-size:12.5px;color:var(--muted)}
+.drill-f{border-top:1px solid var(--line);background:var(--surface-2);padding:11px 14px}
+.drill-f .fh{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.drill-f .fh span{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.drill-f a{font-size:11.5px;color:var(--accent);text-decoration:none;margin-left:auto}
+.drill-f pre{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11px;line-height:1.6;color:var(--ink-2);overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+
+/* ---------- chart ---------- */
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 16px 12px;box-shadow:var(--shadow);position:relative;margin-top:12px}
+.chart h3{font-size:14px;font-weight:700}
+.chart .sub{font-size:12px;color:var(--muted);margin:3px 0 10px}
+#plot{width:100%;height:auto;display:block;touch-action:pan-y}
+.tip{position:absolute;pointer-events:none;opacity:0;transform:translate(-50%,-100%);background:var(--ink);color:var(--ground);border-radius:7px;padding:7px 10px;font-family:"IBM Plex Mono",monospace;font-size:11px;line-height:1.6;white-space:nowrap;z-index:5;transition:opacity .1s linear}
+details.table{margin-top:10px}
+details.table summary{cursor:pointer;font-size:12px;color:var(--accent);font-weight:500;list-style:none;display:inline-flex;gap:6px;align-items:center}
+details.table summary::-webkit-details-marker{display:none}
+.tablewrap{overflow-x:auto;margin-top:10px}
+table{border-collapse:collapse;font-family:"IBM Plex Mono",monospace;font-size:11.5px;width:100%}
+th,td{text-align:right;padding:4px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:500;text-transform:uppercase;font-size:10px;letter-spacing:.08em}
+
+/* ---------- notes ---------- */
+.note{border:1px solid var(--line);border-left:3px solid var(--gold);background:var(--surface);border-radius:var(--r);padding:14px 16px;font-size:13.5px}
+.note h4{margin:0 0 6px;font-size:13.5px;font-weight:700}
+.note p{margin:0 0 8px}
+.note p:last-child{margin-bottom:0}
+.note ul{margin:6px 0 0;padding-left:18px}
+.note li{margin-bottom:5px}
+.note.crit{border-left-color:var(--crit)}
+.note.info{border-left-color:var(--accent)}
+.note.good{border-left-color:var(--good)}
+.banner{
+  display:flex;gap:12px;align-items:flex-start;font-size:13px;padding:11px 14px;border-radius:var(--r);
+  border:1px solid var(--line);background:var(--surface);margin-bottom:14px;
+}
+.banner.warn{border-left:3px solid var(--warn)}
+.banner.crit{border-left:3px solid var(--crit)}
+.banner.good{border-left:3px solid var(--good)}
+.banner b{font-weight:600}
+.banner .x{margin-left:auto}
+
+/* ---------- fires ---------- */
+.fire{display:grid;grid-template-columns:auto 1fr auto;gap:4px 14px;align-items:center;padding:11px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);text-decoration:none}
+.fire:hover{border-color:var(--accent)}
+.fire .t{font-size:13.5px;font-weight:500;overflow-wrap:anywhere}
+.fire .m{grid-column:2;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted)}
+.fire .c{font-family:"IBM Plex Mono",monospace;font-size:15px;text-align:right;grid-row:1 / span 2}
+.fire .c em{display:block;font-size:9.5px;font-style:normal;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+
+/* ---------- library ---------- */
+.lib{display:flex;flex-direction:column;gap:2px}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 14px;align-items:center;padding:9px 12px;border-radius:8px;border:1px solid transparent}
+.row:hover{background:var(--surface);border-color:var(--line)}
+.row .t{font-size:13.5px;font-weight:500}
+.row a.t{text-decoration:none}
+.row a.t:hover{color:var(--accent)}
+.row .d{grid-column:1;font-size:12px;color:var(--muted)}
+.row .p{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-2);grid-row:1 / span 2;text-align:right;background:var(--surface-2);padding:3px 8px;border-radius:5px;border:0;cursor:pointer;overflow-wrap:anywhere}
+.row .p:hover{color:var(--accent)}
+.subhead{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:20px 0 6px}
+.subhead:first-child{margin-top:0}
+
+/* ---------- pitch ---------- */
+.pitchlead{
+  font-family:Archivo,sans-serif;font-size:clamp(22px,3.1vw,33px);font-weight:700;
+  letter-spacing:-.025em;line-height:1.24;max-width:19ch;margin:0 0 14px;
+}
+.pitchlead em{font-style:normal;color:var(--accent)}
+.pitchbody{max-width:62ch;font-size:15px}
+.pitchbody p{margin:0 0 12px}
+.saybox{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:16px 18px;box-shadow:var(--shadow)}
+.saybox .lab{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.saybox p{margin:0;font-size:14.5px;line-height:1.6}
+.saybox + .saybox{margin-top:10px}
+.stackrow{display:grid;grid-template-columns:150px 1fr;gap:10px 18px;padding:12px 0;border-bottom:1px solid var(--line);align-items:start}
+.stackrow:last-child{border-bottom:0}
+.stackrow .lay{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-top:4px}
+.stackrow .bits{display:flex;flex-wrap:wrap;gap:5px}
+.bit{font-family:"IBM Plex Mono",monospace;font-size:11.5px;padding:3px 9px;border-radius:6px;background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line)}
+.bit.hot{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.stackrow .say{grid-column:2;font-size:12.5px;color:var(--muted);margin:0}
+@media (max-width:640px){.stackrow{grid-template-columns:1fr}.stackrow .say{grid-column:1}}
+
+/* ---------- commands ---------- */
+.cmd{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.cmd + .cmd{margin-top:10px}
+.cmd .ch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.cmd .ch b{font-size:13px;font-weight:600}
+.cmd .ch span{font-size:11.5px;color:var(--muted)}
+.cmd pre{margin:0;padding:13px 14px;overflow-x:auto;background:var(--surface-2);font-family:"IBM Plex Mono",monospace;font-size:12px;line-height:1.7;color:var(--ink)}
+button.copy{font:inherit;font-size:11px;font-weight:600;font-family:"IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid var(--line-2);background:transparent;color:var(--muted);cursor:pointer;flex:none}
+button.copy:hover{border-color:var(--accent);color:var(--accent)}
+button.copy.done{border-color:var(--good);color:var(--good)}
+
+/* ---------- traps ---------- */
+.trap{display:grid;grid-template-columns:auto 1fr;gap:10px 12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.trap:last-child{border-bottom:0}
+.trap .k{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--crit);padding-top:3px;white-space:nowrap}
+.trap .k.amber{color:var(--warn)}
+.trap p{margin:0;font-size:13.5px}
+.trap p b{font-weight:600}
+.trap p span{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+
+footer{border-top:1px solid var(--line);margin-top:20px;padding-top:20px;font-size:12.5px;color:var(--muted)}
+footer b{color:var(--ink-2)}
+footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:var(--surface-2);padding:2px 6px;border-radius:4px}
+.hidden{display:none !important}
+@media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
+@media (max-width:640px){.head h2{font-size:20px}.tile .n{font-size:26px}main{gap:42px;padding-top:26px}}
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <img class="mark" src="data:image/png;base64,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" alt="Bolo in aviator goggles, sitting in a nest" width="46" height="46">
+      <span>
+        <b>The Nest</b>
+        <span class="sub">Bolo mission control</span>
+      </span>
+    </div>
+    <div class="stamp">
+      <span class="s1" style="margin-bottom:3px"><span class="statuschip" id="statuschip">Checking</span></span>
+      <span class="s1"><span class="beacon busy" id="beacon"></span><span id="mode">Reading production</span></span>
+      <span id="modewhy">Served from your own API, signed in as you</span>
+    </div>
+    <div class="filterwrap">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.6" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <input id="filter" type="search" placeholder="Filter consoles and docs" aria-label="Filter consoles and documents" autocomplete="off">
+      <div class="hits" id="hits"></div>
+    </div>
+  </div>
+  <nav class="chips" aria-label="Sections">
+    <a href="#alerts">Alerts</a>
+    <a href="#spend">Spend</a>
+    <a href="#surfaces">Surfaces</a>
+    <a href="#elsewhere">Analytics</a>
+    <a href="#consoles">Consoles</a>
+    <a href="#library">Library</a>
+    <a href="#pitch">Pitch</a>
+    <a href="#traps">Traps</a>
+    <a href="#commands">Commands</a>
+  </nav>
+</header>
+
+<div class="danger" id="danger" role="alertdialog" aria-modal="true" aria-labelledby="danger-title" aria-describedby="danger-detail">
+  <div class="danger-card">
+    <div class="danger-top">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 3.2 22 20H2L12 3.2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M12 9.5v4.6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="12" cy="17.2" r="1.25" fill="currentColor"/>
+      </svg>
+      <div>
+        <p class="kicker" id="danger-kicker">Danger</p>
+        <h2 id="danger-title">Something is wrong</h2>
+      </div>
+    </div>
+    <div class="danger-body">
+      <p id="danger-detail"></p>
+      <div id="danger-more"></div>
+    </div>
+    <div class="danger-foot">
+      <a id="danger-go" href="#" target="_blank" rel="noopener">Go and look</a>
+      <button type="button" id="danger-dismiss">Dismiss until reload</button>
+    </div>
+  </div>
+</div>
+
+<main>
+
+<section id="alerts">
+  <div class="head">
+    <span class="eyebrow">01 / What is watching</span>
+    <h2>Alerts</h2>
+    <p>Five rules. Health is a real request to your own API on every load, not a reading of somebody's last cron run.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div class="checkbar">
+    <button type="button" class="ghost" id="health-check">Check production now</button>
+    <a class="ghost linkbtn" href="/api/healthz" target="_blank" rel="noopener">Open /api/healthz</a>
+    <span class="why" id="health-say">Checking.</span>
+  </div>
+
+  <div id="alertlist"></div>
+
+  <div class="note info" style="margin-top:14px">
+    <h4>This page is served from your own API</h4>
+    <p>It arrives from <span class="mono">/api/nest/page</span>, behind the same owner gate as everything else here, and it answers 404 rather than 403 for anyone who is not you. Nothing about this cockpit exists as a file anybody can request.</p>
+    <p><b>Which is why health is honest now.</b> Being same origin, the page calls <span class="mono">/api/healthz</span> itself. There is no watcher, no cron and no heartbeat event: if this section says production answered, it answered just now, to you.</p>
+  </div>
+</section>
+
+<section id="spend">
+  <div class="head">
+    <span class="eyebrow">02 / What it costs to run</span>
+    <h2>Spend</h2>
+    <p>Counted in the production database on request. The fixed block is invoice confirmed; three small lines are still estimates and say so.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div id="spend-note"></div>
+
+  <div class="spend">
+    <div class="spend-h">
+      <div>
+        <div class="tot" id="sp-total">$0.00</div>
+        <div class="lab" id="sp-lab">estimated a month</div>
+      </div>
+      <label class="ownt" style="margin-left:auto"><input type="checkbox" id="excl-own"><span>Exclude my accounts</span></label>
+      <button type="button" class="ghost" id="sp-refresh">Re-read</button>
+    </div>
+    <div class="spend-lines" id="sp-lines"></div>
+  </div>
+
+  <div class="grid g4" style="margin-top:12px" id="dbtiles"></div>
+
+  <div class="thresh">
+    <div class="thresh-h">
+      <span>The three lines that are still estimates</span>
+      <button type="button" class="ghost" id="rate-reset">Reset to defaults</button>
+    </div>
+    <div class="thresh-row">
+      <label for="r-att">Pronunciation grading, dollars per attempt</label>
+      <input type="number" id="r-att" min="0" step="0.0005">
+      <span class="hint">One transcription plus one scoring call.</span>
+    </div>
+    <div class="thresh-row">
+      <label for="r-chat">Chat reply, dollars each</label>
+      <input type="number" id="r-chat" min="0" step="0.001">
+      <span class="hint">One generated reply from Bolo.</span>
+    </div>
+    <div class="thresh-row">
+      <label for="r-lesson">Lesson generation, dollars each</label>
+      <input type="number" id="r-lesson" min="0" step="0.01">
+      <span class="hint">Rare and expensive, and it runs outside the app.</span>
+    </div>
+    <div class="thresh-row">
+      <label for="r-fixed">Fixed services, dollars a month</label>
+      <input type="number" id="r-fixed" min="0" step="1">
+      <span class="hint">Claude 200, Replit 100 with Neon inside it, ElevenLabs Creator 22, Apple 8.33, Cloudflare 4.42. Clerk, PostHog and Sentry are genuinely zero at this size. All invoice confirmed.</span>
+    </div>
+    <p class="thresh-note">Kept in this browser only.</p>
+  </div>
+
+  <div class="note good" style="margin-top:14px">
+    <h4>Nothing is missing from that total</h4>
+    <p><b>Every fixed cost is invoice confirmed.</b> Neon is not a separate bill: it is provisioned through Replit and sits inside that hundred. ElevenLabs is the Creator plan at twenty two.</p>
+    <p><b>Auto top up is on and has never fired.</b> Last full cycle burned 78,656 credits of 121,000 and was charged no overage, and the cycle before it did the same. Speech is a flat twenty two, not a variable bill, and there is about 42,000 credits a month of headroom.</p>
+    <p style="font-size:12.5px;color:var(--muted)">Unresolved on purpose: 78,656 credits across 20,255 syntheses is about 3.9 credits each, far under what per character pricing on a short phrase would predict. Either the plan bills differently than assumed or some cache rows were written outside the billing window, possibly by <span class="mono">prewarmFullTtsCache.ts</span>. An earlier version of this section priced synthesis at $122 a month against a real invoice of $22, so it is a volume line now. A confident wrong number is worse than an honest count.</p>
+  </div>
+</section>
+
+<section id="surfaces">
+  <div class="head">
+    <span class="eyebrow">03 / What is shipped</span>
+    <h2>Surfaces</h2>
+    <p>Six things carry the product. Build numbers refresh live from EAS when the connector is available.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div id="build-note"></div>
+
+  <div class="grid g3">
+
+    <article class="card stripe s-good">
+      <div class="cardtop"><h3>iOS</h3><span class="pill p-good"><span class="dot"></span>Live</span></div>
+      <div class="big" id="ios-ver">1.0.2 <small>(502)</small></div>
+      <dl class="meta">
+        <dt>Built</dt><dd id="ios-built">24 Aug, 00:06 UTC</dd>
+        <dt>Commit</dt><dd id="ios-sha">b8bc5ac</dd>
+        <dt>Profile</dt><dd>production, store</dd>
+        <dt>Bundle</dt><dd>com.bolo.mobile</dd>
+        <dt>ASC app</dt><dd>6790907772</dd>
+        <dt>SDK</dt><dd>Expo 54.0.0</dd>
+      </dl>
+      <div class="links">
+        <a href="https://apps.apple.com/app/id6790907772" target="_blank" rel="noopener">App Store listing</a>
+        <a href="https://appstoreconnect.apple.com/apps/6790907772" target="_blank" rel="noopener">App Store Connect</a>
+        <a href="https://appstoreconnect.apple.com/apps/6790907772/testflight/ios" target="_blank" rel="noopener">TestFlight</a>
+      </div>
+    </article>
+
+    <article class="card stripe s-warn">
+      <div class="cardtop"><h3>Android</h3><span class="pill p-warn"><span class="dot"></span>Internal</span></div>
+      <div class="big" id="and-ver">1.0.2 <small>(503)</small></div>
+      <dl class="meta">
+        <dt>Built</dt><dd id="and-built">24 Aug, 01:04 UTC</dd>
+        <dt>Commit</dt><dd id="and-sha">7fbf92b</dd>
+        <dt>Artifact</dt><dd>.aab, cannot sideload</dd>
+        <dt>Submit track</dt><dd>internal</dd>
+        <dt>Package</dt><dd>com.bolo.mobile</dd>
+        <dt>Push</dt><dd>Firebase bolo-9bf9a, not in a build yet</dd>
+      </dl>
+      <p style="margin:10px 0 0;font-size:12.5px;color:var(--muted)">The website still treats Play as pre release: <span class="mono">PLAY_STORE_LIVE</span> is <span class="mono">false</span>, so the badge says "coming soon" and does not link out.</p>
+      <div class="links">
+        <a href="https://play.google.com/console" target="_blank" rel="noopener">Play Console</a>
+        <a href="https://play.google.com/store/apps/details?id=com.bolo.mobile" target="_blank" rel="noopener">Play listing</a>
+      </div>
+    </article>
+
+    <article class="card stripe s-good">
+      <div class="cardtop"><h3>Web app</h3><span class="pill p-good"><span class="dot"></span>Live</span></div>
+      <div class="big">bolo-india.app</div>
+      <dl class="meta">
+        <dt>Artifact</dt><dd>gujarati-coach</dd>
+        <dt>Stack</dt><dd>React, Vite, Wouter</dd>
+        <dt>Auth</dt><dd>Clerk, pk_live</dd>
+        <dt>Host</dt><dd>Replit autoscale</dd>
+      </dl>
+      <div class="links">
+        <a href="https://bolo-india.app/" target="_blank" rel="noopener">Open the app</a>
+        <a href="https://bolo-india.app/app" target="_blank" rel="noopener">Signed in home</a>
+      </div>
+    </article>
+
+    <article class="card stripe s-info">
+      <div class="cardtop"><h3>API</h3><span class="pill p-info"><span class="dot"></span>Click to check</span></div>
+      <div class="big">/api</div>
+      <dl class="meta">
+        <dt>Runtime</dt><dd>Express 5, Drizzle</dd>
+        <dt>Public</dt><dd>healthz, languages, pricing, script-trace, revenuecat</dd>
+        <dt>Everything else</dt><dd>behind requireAuth</dd>
+      </dl>
+      <p style="margin:10px 0 0;font-size:12.5px;color:var(--muted)">Health is a link rather than a light: this page can call your connectors, but it cannot reach your own API directly.</p>
+      <div class="links">
+        <a href="https://bolo-india.app/api/healthz" target="_blank" rel="noopener">Health check</a>
+        <a href="https://bolo-india.app/api/languages" target="_blank" rel="noopener">Languages</a>
+        <a href="https://bolo-india.app/api/pricing" target="_blank" rel="noopener">Pricing</a>
+      </div>
+    </article>
+
+    <article class="card stripe s-info">
+      <div class="cardtop"><h3>Contribution page</h3><span class="pill p-info"><span class="dot"></span>Public</span></div>
+      <div class="big">aksharmala</div>
+      <dl class="meta">
+        <dt>Collects</dt><dd>traced alphabets, read aloud audio</dd>
+        <dt>Built from</dt><dd>aksharmala.template.html</dd>
+        <dt>Rule</dt><dd>edit the template, never the output</dd>
+      </dl>
+      <div class="links"><a href="https://bolo-india.app/aksharmala.html" target="_blank" rel="noopener">Open the page</a></div>
+    </article>
+
+    <article class="card stripe s-info">
+      <div class="cardtop"><h3>Code</h3><span class="pill p-info"><span class="dot"></span>In sync</span></div>
+      <div class="big mono" style="font-size:19px">04735668</div>
+      <dl class="meta">
+        <dt>Repo</dt><dd>felapatels/bolo</dd>
+        <dt>Branch</dt><dd>main</dd>
+        <dt>vs origin</dt><dd>0 ahead, 0 behind</dd>
+        <dt>Last commit</dt><dd>Journey 2 content, Gujarati</dd>
+      </dl>
+      <div class="links">
+        <a href="https://github.com/felapatels/bolo" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/felapatels/bolo/commits/main" target="_blank" rel="noopener">Commits</a>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section id="elsewhere">
+  <div class="head">
+    <span class="eyebrow">04 / What is not here</span>
+    <h2>Analytics and errors</h2>
+    <p>Two sections deliberately did not make the move, and this says where they went rather than leaving a hole.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div class="grid g2">
+    <article class="card stripe s-info">
+      <div class="cardtop"><h3>Numbers</h3><span class="pill p-info">in the artifact</span></div>
+      <p style="margin:0 0 10px;font-size:13.5px">Visitors, sign ups, practice starts, the twenty eight day chart, the drill downs and the web against app split. All of it reads PostHog.</p>
+      <p style="margin:0;font-size:12.5px;color:var(--muted)">It stayed behind because a page served from your own API cannot call PostHog without a server side proxy route and a new secret with read access to all your analytics. That was option C and it was not taken.</p>
+      <div class="links"><a href="https://claude.ai/code/artifact/845b4500-4612-4019-8e06-b36e58257435" target="_blank" rel="noopener">Open the live view</a></div>
+    </article>
+    <article class="card stripe s-info">
+      <div class="cardtop"><h3>Fires</h3><span class="pill p-info">in the artifact</span></div>
+      <p style="margin:0 0 10px;font-size:13.5px">Unresolved Sentry issues by volume, the heap corruption watch, and the new-errors-in-the-last-hour alarm.</p>
+      <p style="margin:0;font-size:12.5px;color:var(--muted)">Same reason: Sentry needs its own token server side. The Sentry console links below work from here regardless.</p>
+      <div class="links"><a href="https://claude.ai/code/artifact/845b4500-4612-4019-8e06-b36e58257435" target="_blank" rel="noopener">Open the live view</a></div>
+    </article>
+  </div>
+</section>
+
+<section id="consoles">
+  <div class="head">
+    <span class="eyebrow">05 / Where to go</span>
+    <h2>Consoles</h2>
+    <p>Every service Bolo depends on, with the reason you would open it. Use the filter at the top.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div class="subhead f-group" data-group="ship">Ship it</div>
+  <div class="grid g3 f-group" data-group="ship">
+    <a class="card f-item" data-k="eas expo builds ios android binary" href="https://expo.dev/accounts/aakeshp/projects/bolo-mobile/builds" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>EAS builds</h3><span class="pill p-info">expo</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Is the binary done, and which commit is in it</p>
+    </a>
+    <a class="card f-item" data-k="eas expo submissions store upload testflight play" href="https://expo.dev/accounts/aakeshp/projects/bolo-mobile/submissions" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>EAS submissions</h3><span class="pill p-info">expo</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Did the upload to Apple or Google actually land</p>
+    </a>
+    <a class="card f-item" data-k="app store connect apple review release version" href="https://appstoreconnect.apple.com/apps/6790907772" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>App Store Connect</h3><span class="pill p-info">apple</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Review state, version trains, in app purchases</p>
+    </a>
+    <a class="card f-item" data-k="testflight beta internal tester build apple" href="https://appstoreconnect.apple.com/apps/6790907772/testflight/ios" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>TestFlight</h3><span class="pill p-info">apple</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">The only builds that measure anything</p>
+    </a>
+    <a class="card f-item" data-k="google play console android track internal release vitals" href="https://play.google.com/console" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Play Console</h3><span class="pill p-info">google</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Internal track, pre launch reports, vitals</p>
+    </a>
+    <a class="card f-item" data-k="firebase fcm push notifications android google services messaging" href="https://console.firebase.google.com/project/bolo-9bf9a/overview" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Firebase</h3><span class="pill p-info">bolo-9bf9a</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Android push. New as of 24 Aug, not in a build yet</p>
+    </a>
+    <a class="card f-item" data-k="fcm cloud messaging service account key v1 sender expo credentials push" href="https://console.firebase.google.com/project/bolo-9bf9a/settings/cloudmessaging" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Cloud Messaging</h3><span class="pill p-info">firebase</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Where the FCM v1 service account key comes from</p>
+    </a>
+    <a class="card f-item" data-k="expo credentials push key apns fcm android ios signing" href="https://expo.dev/accounts/aakeshp/projects/bolo-mobile/credentials" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>EAS credentials</h3><span class="pill p-info">expo</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">APNs key for iOS, and where the FCM key has to land</p>
+    </a>
+    <a class="card f-item" data-k="github repo code commits pull request branch" href="https://github.com/felapatels/bolo" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>GitHub</h3><span class="pill p-info">code</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">felapatels/bolo, main only, never rewritten</p>
+    </a>
+  </div>
+
+  <div class="subhead f-group" data-group="watch">Watch it</div>
+  <div class="grid g3 f-group" data-group="watch">
+    <a class="card f-item" data-k="posthog analytics product insights funnel" href="https://us.posthog.com/project/532202" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>PostHog</h3><span class="pill p-info">532202</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Product analytics. Web and the app both report</p>
+    </a>
+    <a class="card f-item" data-k="posthog web analytics traffic visitors sources" href="https://us.posthog.com/project/532202/web" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Web analytics</h3><span class="pill p-info">posthog</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Where the homepage traffic came from</p>
+    </a>
+    <a class="card f-item" data-k="posthog session replay recording watch user" href="https://us.posthog.com/project/532202/replay" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Session replay</h3><span class="pill p-info">posthog</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Watch a real learner get stuck</p>
+    </a>
+    <a class="card f-item" data-k="sentry errors crashes exceptions issues mobile" href="https://lark-enterprises-llc.sentry.io/issues/?query=is%3Aunresolved" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Sentry</h3><span class="pill p-info">errors</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">bolo-mobile, bolo-web, node-express</p>
+    </a>
+  </div>
+
+  <div class="subhead f-group" data-group="money">Money</div>
+  <div class="grid g3 f-group" data-group="money">
+    <a class="card f-item" data-k="revenuecat subscriptions entitlements plus webhook purchasers" href="https://app.revenuecat.com/" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>RevenueCat</h3><span class="pill p-info">source of truth</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Who is Plus. The server trusts this, never the client</p>
+    </a>
+    <a class="card f-item" data-k="stripe payments web checkout price chai packs family" href="https://dashboard.stripe.com/" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Stripe</h3><span class="pill p-info">web billing</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">The prices /api/pricing reads back</p>
+    </a>
+    <a class="card f-item" data-k="apple sales trends payments proceeds app store" href="https://appstoreconnect.apple.com/trends" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Apple sales</h3><span class="pill p-info">apple</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Units and proceeds, before RevenueCat sees them</p>
+    </a>
+  </div>
+
+  <div class="subhead f-group" data-group="infra">Identity and infrastructure</div>
+  <div class="grid g3 f-group" data-group="infra">
+    <a class="card f-item" data-k="clerk auth users sessions sign in identity" href="https://dashboard.clerk.com/" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Clerk</h3><span class="pill p-info">identity</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">The real user list. Sessions, revocations, logs</p>
+    </a>
+    <a class="card f-item" data-k="replit deployment host shell secrets database dev" href="https://replit.com/~" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Replit</h3><span class="pill p-info">host</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Deployment, Secrets, and the dev database Shell</p>
+    </a>
+    <a class="card f-item" data-k="neon postgres production database sql rows" href="https://console.neon.tech/" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Neon</h3><span class="pill p-info">production db</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">The database users actually touch</p>
+    </a>
+    <a class="card f-item" data-k="cloudflare dns domain r2 bucket storage audio" href="https://dash.cloudflare.com/" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Cloudflare</h3><span class="pill p-info">dns and r2</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">bolo-india.app DNS, and the R2 audio bucket</p>
+    </a>
+  </div>
+
+  <div class="subhead f-group" data-group="brains">Voice, brains and mail</div>
+  <div class="grid g3 f-group" data-group="brains">
+    <a class="card f-item" data-k="openai usage cost tokens pronunciation transcription lessons" href="https://platform.openai.com/usage" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>OpenAI</h3><span class="pill p-info">spend</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Scoring, transcription and lesson generation cost</p>
+    </a>
+    <a class="card f-item" data-k="elevenlabs tts voice credits characters quota audio" href="https://elevenlabs.io/app/usage" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>ElevenLabs</h3><span class="pill p-info">credits</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Character credits. The prewarm script stalls at 500</p>
+    </a>
+    <a class="card f-item" data-k="resend email invites transactional delivery" href="https://resend.com/emails" target="_blank" rel="noopener" style="text-decoration:none">
+      <div class="cardtop"><h3>Resend</h3><span class="pill p-info">email</span></div>
+      <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Family invites and anything transactional</p>
+    </a>
+  </div>
+</section>
+
+<section id="library">
+  <div class="head">
+    <span class="eyebrow">06 / What is written down</span>
+    <h2>Library</h2>
+    <p>Published pages open in a tab. Repo documents show a path: click it to copy.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div class="subhead f-group" data-group="lib-pub">Published pages</div>
+  <div class="lib f-group" data-group="lib-pub">
+    <div class="row f-item" data-k="infrastructure map services architecture">
+      <a class="t" href="https://claude.ai/code/artifact/02916004-a9e5-47c4-8b93-be16d5bb6017" target="_blank" rel="noopener">Bolo Infrastructure Map</a>
+      <span class="d">Every service and how they connect. The closest thing to this page's ancestor.</span><span class="p">23 Aug</span>
+    </div>
+    <div class="row f-item" data-k="route map screens navigation web mobile">
+      <a class="t" href="https://claude.ai/code/artifact/66f57f60-07a2-47fe-8cf9-703e9d89efe5" target="_blank" rel="noopener">Bolo Route Map</a>
+      <span class="d">Every screen and route across web and mobile.</span><span class="p">23 Aug</span>
+    </div>
+    <div class="row f-item" data-k="build order roadmap plan sequence">
+      <a class="t" href="https://claude.ai/code/artifact/c5891cbc-311f-459a-ae24-82679218859b" target="_blank" rel="noopener">Bolo Build Order</a>
+      <span class="d">What to build next, and why in that order.</span><span class="p">18 Aug</span>
+    </div>
+    <div class="row f-item" data-k="replit migration getting off traps local move">
+      <a class="t" href="https://claude.ai/code/artifact/20a59d40-f984-436c-a879-8ca7b4860df8" target="_blank" rel="noopener">Getting Off Replit</a>
+      <span class="d">Ten traps and the working order for a Replit to local move.</span><span class="p">19 Aug</span>
+    </div>
+    <div class="row f-item" data-k="posting playbook social marketing content">
+      <a class="t" href="https://claude.ai/code/artifact/e199d6c2-a02f-4831-8f9a-c35a24e60882" target="_blank" rel="noopener">Bolo Posting Playbook</a>
+      <span class="d">How to post about Bolo, and what to post.</span><span class="p">23 Aug</span>
+    </div>
+    <div class="row f-item" data-k="campaign kit marketing launch assets">
+      <a class="t" href="https://claude.ai/code/artifact/0c05a193-065c-4161-b7a1-70c5bfa14a69" target="_blank" rel="noopener">Bolo Campaign Kit</a>
+      <span class="d">Campaign assets and the copy that goes with them.</span><span class="p">22 Aug</span>
+    </div>
+    <div class="row f-item" data-k="script trace writing alphabet teach devanagari gujarati">
+      <a class="t" href="https://claude.ai/code/artifact/b5592253-f621-4660-932c-46f1ad4d9f58" target="_blank" rel="noopener">Teach Bolo to Write</a>
+      <span class="d">The Script Trace pitch, and the ask that goes to family.</span><span class="p">23 Aug</span>
+    </div>
+    <div class="row f-item" data-k="festival lights diwali poster art marketing">
+      <a class="t" href="https://claude.ai/code/artifact/053d2021-5d73-4f87-981d-3dcd0c421e23" target="_blank" rel="noopener">Festival of Lights Poster</a>
+      <span class="d">Seasonal artwork.</span><span class="p">24 Aug</span>
+    </div>
+  </div>
+
+  <div class="subhead f-group" data-group="lib-hand">Handoffs</div>
+  <div class="lib f-group" data-group="lib-hand">
+    <div class="row f-item" data-k="handoff storybook story engine chat 5">
+      <span class="t">The storybook</span><span class="d">Chat 5's brief. Engine done, nothing playable yet. 16 KB, 23 Aug.</span>
+      <button class="p" data-copy="~/bolo/HANDOFF-storybook.md">HANDOFF-storybook.md</button>
+    </div>
+    <div class="row f-item" data-k="handoff script trace stroke engine extraction chat 4">
+      <span class="t">Script Trace</span><span class="d">The stroke engine extracted out of the web artifact. 11 KB, 23 Aug.</span>
+      <button class="p" data-copy="~/bolo/HANDOFF-script-trace.md">HANDOFF-script-trace.md</button>
+    </div>
+    <div class="row f-item" data-k="handoff android sign out clerk two clients session">
+      <span class="t">The Android sign out</span><span class="d">Two Clerk clients, 43 seconds, and the two part fix. 14 KB, 22 Aug.</span>
+      <button class="p" data-copy="~/bolo/HANDOFF-android-signout.md">HANDOFF-android-signout.md</button>
+    </div>
+  </div>
+
+  <div class="subhead f-group" data-group="lib-ref">Standing reference</div>
+  <div class="lib f-group" data-group="lib-ref">
+    <div class="row f-item" data-k="claude md rules working style tests migrations traps">
+      <span class="t">CLAUDE.md</span><span class="d">The rules of this repo. Read before anything else. 33 KB.</span>
+      <button class="p" data-copy="~/bolo/CLAUDE.md">CLAUDE.md</button>
+    </div>
+    <div class="row f-item" data-k="codebase facts history decisions reference grep">
+      <span class="t">Codebase facts</span><span class="d">816 KB of measured facts, oldest first. Grep it, do not read it.</span>
+      <button class="p" data-copy="~/bolo/docs/CODEBASE-FACTS.md">docs/CODEBASE-FACTS.md</button>
+    </div>
+    <div class="row f-item" data-k="replit architecture auth audio revenuecat overview">
+      <span class="t">Architecture overview</span><span class="d">Auth, audio flow, entitlements and the RevenueCat wiring.</span>
+      <button class="p" data-copy="~/bolo/replit.md">replit.md</button>
+    </div>
+    <div class="row f-item" data-k="threat model security risk">
+      <span class="t">Threat model</span><span class="d">Where a child's data and your money are exposed.</span>
+      <button class="p" data-copy="~/bolo/threat_model.md">threat_model.md</button>
+    </div>
+    <div class="row f-item" data-k="journey map design decision progression">
+      <span class="t">Journey map decision</span><span class="d">Why the journey map looks the way it does.</span>
+      <button class="p" data-copy="~/bolo/docs/BOLO-Journey-Map-Design-Decision.md">docs/BOLO-Journey-Map-Design-Decision.md</button>
+    </div>
+    <div class="row f-item" data-k="trigger fallback lesson group scope bug">
+      <span class="t">Trigger fallback and lesson group scope</span><span class="d">A scoping bug written up so it does not come back.</span>
+      <button class="p" data-copy="~/bolo/docs/trigger-fallback-lesson-group-scope.md">docs/trigger-fallback-lesson-group-scope.md</button>
+    </div>
+  </div>
+
+  <div class="subhead f-group" data-group="lib-spec">Specs</div>
+  <div class="lib f-group" data-group="lib-spec">
+    <div class="row f-item" data-k="token economy chai ledger currency spec">
+      <span class="t">Token economy</span><span class="d">Chai, the ledger, and every rule about earning and spending. 48 KB, the largest spec.</span>
+      <button class="p" data-copy="~/bolo/docs/specs/token-economy.md">docs/specs/token-economy.md</button>
+    </div>
+    <div class="row f-item" data-k="pronunciation scoring v2 accuracy grader speech">
+      <span class="t">Pronunciation scoring v2</span><span class="d">How an attempt turns into a score a child can trust. 32 KB.</span>
+      <button class="p" data-copy="~/bolo/docs/specs/pronunciation-scoring-v2.md">docs/specs/pronunciation-scoring-v2.md</button>
+    </div>
+    <div class="row f-item" data-k="android parity feature gap ios comparison">
+      <span class="t">Android parity</span><span class="d">Every place Android is behind iOS, and whether it matters. 34 KB.</span>
+      <button class="p" data-copy="~/bolo/docs/specs/android-parity.md">docs/specs/android-parity.md</button>
+    </div>
+    <div class="row f-item" data-k="voice data program contributions recording family corpus">
+      <span class="t">Voice data program</span><span class="d">Collecting real voices from real families. 32 KB.</span>
+      <button class="p" data-copy="~/bolo/docs/specs/voice-data-program.md">docs/specs/voice-data-program.md</button>
+    </div>
+    <div class="row f-item" data-k="progression completion mastery streak unlock">
+      <span class="t">Progression and completion</span><span class="d">What finished means, and what unlocks next. 14 KB.</span>
+      <button class="p" data-copy="~/bolo/docs/specs/progression-completion.md">docs/specs/progression-completion.md</button>
+    </div>
+    <div class="row f-item" data-k="noise robustness bench microphone background test">
+      <span class="t">Noise robustness bench</span><span class="d">Whether scoring survives a real kitchen. 15 KB.</span>
+      <button class="p" data-copy="~/bolo/docs/specs/noise-robustness-bench.md">docs/specs/noise-robustness-bench.md</button>
+    </div>
+  </div>
+
+  <div class="subhead f-group" data-group="lib-store">Store and release</div>
+  <div class="lib f-group" data-group="lib-store">
+    <div class="row f-item" data-k="app store listing metadata screenshots apple submission">
+      <span class="t">App Store notes</span><span class="d">Listing metadata and what Apple asked for.</span>
+      <button class="p" data-copy="~/bolo/artifacts/bolo-mobile/APP_STORE.md">artifacts/bolo-mobile/APP_STORE.md</button>
+    </div>
+    <div class="row f-item" data-k="play store listing google android submission">
+      <span class="t">Play Store notes</span><span class="d">The Google side of the same job.</span>
+      <button class="p" data-copy="~/bolo/artifacts/bolo-mobile/PLAY_STORE.md">artifacts/bolo-mobile/PLAY_STORE.md</button>
+    </div>
+    <div class="row f-item" data-k="hermes heap corruption crash report exc_bad_access launch">
+      <span class="t">Hermes heap corruption report</span><span class="d">The full write up of the crash whose signature is still in Sentry.</span>
+      <button class="p" data-copy="~/bolo/artifacts/bolo-mobile/HERMES-HEAP-CORRUPTION-REPORT.md">artifacts/bolo-mobile/HERMES-HEAP-CORRUPTION-REPORT.md</button>
+    </div>
+    <div class="row f-item" data-k="device purchase test chai pack storekit sandbox">
+      <span class="t">Device purchase test</span><span class="d">How to prove a real purchase credits a real balance.</span>
+      <button class="p" data-copy="~/bolo/artifacts/bolo-mobile/DEVICE_PURCHASE_TEST.md">artifacts/bolo-mobile/DEVICE_PURCHASE_TEST.md</button>
+    </div>
+  </div>
+
+  <div class="subhead f-group" data-group="lib-qa">QA and language reviews</div>
+  <div class="lib f-group" data-group="lib-qa">
+    <div class="row f-item" data-k="plus checkout verification stripe purchase qa">
+      <span class="t">Plus checkout verification</span><span class="d">The checkout walk through, recorded.</span>
+      <button class="p" data-copy="~/bolo/qa/plus-checkout-verification.md">qa/plus-checkout-verification.md</button>
+    </div>
+    <div class="row f-item" data-k="kashmiri ks premium review language quality withdraw">
+      <span class="t">Kashmiri review</span><span class="d">One of the five languages withdrawn at high error rates.</span>
+      <button class="p" data-copy="~/bolo/review-sheets/ks-premium-review.md">review-sheets/ks-premium-review.md</button>
+    </div>
+    <div class="row f-item" data-k="meetei manipuri mni premium review language quality">
+      <span class="t">Meetei review</span><span class="d">Same exercise, same verdict.</span>
+      <button class="p" data-copy="~/bolo/review-sheets/mni-premium-review.md">review-sheets/mni-premium-review.md</button>
+    </div>
+    <div class="row f-item" data-k="santali sat premium review language quality">
+      <span class="t">Santali review</span><span class="d">Same exercise, same verdict.</span>
+      <button class="p" data-copy="~/bolo/review-sheets/sat-premium-review.md">review-sheets/sat-premium-review.md</button>
+    </div>
+    <div class="row f-item" data-k="pilot noise bench summary results">
+      <span class="t">Noise bench results</span><span class="d">The measured output behind the bench spec.</span>
+      <button class="p" data-copy="~/bolo/qa/pilot-results/noise-bench/summary.md">qa/pilot-results/noise-bench/summary.md</button>
+    </div>
+  </div>
+</section>
+
+<section id="pitch">
+  <div class="head">
+    <span class="eyebrow">07 / What to say, and what it is made of</span>
+    <h2>Pitch</h2>
+    <p>The words for a person, and the stack for an engineer. Both are true as of this snapshot.</p>
+  </div>
+  <div class="rule"></div>
+
+  <p class="pitchlead">A child in Ohio, speaking <em>Gujarati</em> back to a parrot.</p>
+
+  <div class="grid g2" style="margin-bottom:18px">
+    <div>
+      <div class="saybox">
+        <div class="lab">One line</div>
+        <p>Bolo teaches children the languages of India by ear, the way a grandparent would: say it, hear it back, try again.</p>
+      </div>
+      <div class="saybox">
+        <div class="lab">Thirty seconds</div>
+        <p>Millions of South Asian families are one generation away from losing the language at home. The apps that exist teach European languages to adults by making them tap at flashcards. Bolo starts with the mouth instead: it speaks a phrase, the child says it back, and it scores the attempt and answers in the voice of a cheeky parrot rather than a test. It covers all twenty two of India's scheduled languages, and it teaches the alphabet by hand, from strokes traced by real family members rather than a font. It is live on the App Store today.</p>
+      </div>
+      <div class="saybox">
+        <div class="lab">If they ask why it is different</div>
+        <p><b>We learn the learner's pace and move with it.</b> Ability is modelled per learner, so the next lesson meets them where they are instead of marching everyone through the same list.</p>
+        <p><b>Writing is inside the lessons</b>, not a separate app and not a separate purchase. A child learns to say it and to write it in the same sitting.</p>
+        <p><b>And it stays fun.</b> A parrot who talks back, chai to earn and spend, streaks and games. A child comes back without being told to, which is the only retention that matters at this age.</p>
+      </div>
+    </div>
+
+    <div>
+      <div class="note good" style="margin-bottom:12px">
+        <h4>Proof, not promises</h4>
+        <ul>
+          <li><b>Live on the App Store</b> since 21 Aug 2026, version 1.0.2.</li>
+          <li><b>22 languages</b> with journey 1 content. Journey 2 generated across all 22 on 24 Aug, not yet QA reviewed.</li>
+          <li><b>Devanagari 48 letters and Gujarati 45</b> traced by hand by a real contributor, scoring 75 on average against the grader.</li>
+          <li><b>Around 3,400 automated tests</b> across the three suites: api 1,174, web 1,184, mobile 1,180.</li>
+          <li><b>Five languages withdrawn on quality</b> rather than shipped. Reviews are in the Library.</li>
+        </ul>
+      </div>
+      <div class="note">
+        <h4>How it makes money</h4>
+        <ul>
+          <li><b>Free</b> tier, the default for every new account.</li>
+          <li><b>Plus</b>, all access, monthly or annual. RevenueCat on mobile, Stripe on web, and the server is authoritative.</li>
+          <li><b>Family</b>, four seats. Sale is <b>switched off on web as of 24 Aug</b> because neither store sells the equivalent, so a phone would not honour it. Existing families keep working.</li>
+          <li><b>Chai packs</b>, one time, three sizes, credited only by the webhook.</li>
+          <li><b>One Language</b> is dead: no package, no purchasers, though the gating still branches on it.</li>
+        </ul>
+        <p style="margin-top:8px;font-size:12.5px;color:var(--muted)">Prices are deliberately not written down anywhere in the codebase. They are read from Stripe through <span class="mono">/api/pricing</span> so a displayed price can never drift from the real charge.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="subhead">The stack, by layer</div>
+  <div>
+    <div class="stackrow">
+      <span class="lay">Mobile</span>
+      <span class="bits"><span class="bit hot">Expo SDK 54</span><span class="bit">React Native, new architecture</span><span class="bit">expo-router</span><span class="bit">expo-audio</span><span class="bit">expo-video</span><span class="bit">expo-notifications</span><span class="bit">Firebase FCM</span><span class="bit">Clerk</span><span class="bit">RevenueCat</span><span class="bit">Sentry</span></span>
+      <p class="say">iOS and Android from one codebase. Clerk's native Android module is deliberately excluded and patched, which is what stopped the 43 second sign out.</p>
+    </div>
+    <div class="stackrow">
+      <span class="lay">Web</span>
+      <span class="bits"><span class="bit hot">React</span><span class="bit">Vite</span><span class="bit">Wouter</span><span class="bit">shadcn/ui</span><span class="bit">Clerk</span><span class="bit">PostHog</span><span class="bit">Sentry</span></span>
+      <p class="say">Same product, hand maintained twin of the mobile screens. Web and mobile share no components, only prose comments.</p>
+    </div>
+    <div class="stackrow">
+      <span class="lay">API</span>
+      <span class="bits"><span class="bit hot">Express 5</span><span class="bit">Drizzle ORM</span><span class="bit">Postgres</span><span class="bit">OpenAPI</span><span class="bit">orval codegen</span><span class="bit">zod</span></span>
+      <p class="say">One spec generates the typed React client and the validators, so a route and its caller cannot drift.</p>
+    </div>
+    <div class="stackrow">
+      <span class="lay">Shared</span>
+      <span class="bits"><span class="bit hot">lib/script-trace</span><span class="bit">lib/db</span><span class="bit">lib/api-spec</span><span class="bit">lib/referral-link</span><span class="bit">lib/train-class</span></span>
+      <p class="say">The stroke engine is pure: no React, no DOM. It replaced a 4,803 line duplicate that a script existed only to police.</p>
+    </div>
+    <div class="stackrow">
+      <span class="lay">Voice and AI</span>
+      <span class="bits"><span class="bit hot">ElevenLabs multilingual v2</span><span class="bit">OpenAI transcription</span><span class="bit">LLM scoring</span><span class="bit">generated lessons</span><span class="bit">TTS cache</span></span>
+      <p class="say">Speech in, score and spoken feedback out. Audio is cached and backed up so the same phrase is never paid for twice.</p>
+    </div>
+    <div class="stackrow">
+      <span class="lay">Data</span>
+      <span class="bits"><span class="bit hot">Neon Postgres</span><span class="bit">Replit dev Postgres</span><span class="bit">Drizzle migrations</span><span class="bit">Cloudflare R2</span></span>
+      <p class="say">Two databases, deliberately separate and currently divergent. Nothing in the repo migrates production.</p>
+    </div>
+    <div class="stackrow">
+      <span class="lay">Identity and money</span>
+      <span class="bits"><span class="bit hot">Clerk</span><span class="bit">RevenueCat</span><span class="bit">Stripe</span><span class="bit">Resend</span></span>
+      <p class="say">Identity is derived server side and a local user row is provisioned just in time. Entitlements are never trusted from the client.</p>
+    </div>
+    <div class="stackrow">
+      <span class="lay">Build and host</span>
+      <span class="bits"><span class="bit hot">EAS</span><span class="bit">Replit autoscale</span><span class="bit">Cloudflare DNS</span><span class="bit">pnpm workspaces</span><span class="bit">TypeScript project references</span></span>
+      <p class="say">A pnpm monorepo of six projects. The known weak point is build reproducibility, which is on the Traps list.</p>
+    </div>
+  </div>
+</section>
+
+<section id="traps">
+  <div class="head">
+    <span class="eyebrow">08 / What bites</span>
+    <h2>Traps</h2>
+    <p>Facts that cost days when forgotten. Each one was paid for.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div>
+    <div class="trap"><span class="k amber">Ops</span><p><b>This cockpit is moving into the customer-facing app, and that was a decision.</b><span>bolo-india.app is what learners open. Once the Nest lives there, every product deploy can break the cockpit and the cockpit's bugs ship inside the product bundle. The owner was told that plainly on 24 August and chose it anyway, which is the right way round. It is written here so the next person knows it was weighed rather than missed.</span></p></div>
+    <div class="trap"><span class="k amber">Ops</span><p><b>A Cloudflare redirect cannot serve bolo-india.app.</b><span>The domain is DNS only, grey cloud: it answers "Google Frontend" through Replit with no cf-ray header, so Cloudflare Rules never see the traffic. Any redirect has to be a route in the app and a deploy. Checked 24 August after assuming otherwise.</span></p></div>
+    <div class="trap"><span class="k">Data</span><p><b>There are two databases and the Shell is not the one users touch.</b><span>The Repl Shell holds development. Production is a separate Neon endpoint and they are divergent. A count from the Shell is not an answer.</span></p></div>
+    <div class="trap"><span class="k">Builds</span><p><b>Ad hoc and preview builds crash 10 out of 10, whatever is in them.</b><span>Only store builds through TestFlight tell the truth. Roughly fifteen builds of one investigation measured nothing but this artefact.</span></p></div>
+    <div class="trap"><span class="k">Builds</span><p><b>Your builds are not reproducible.</b><span>No ios/ committed, no Podfile.lock, no pinned builder image. Two builds of one commit were never guaranteed to be the same app, which is why a week of bisecting produced nothing.</span></p></div>
+    <div class="trap"><span class="k amber">Release</span><p><b>The 1.0.0 train is closed.</b><span>Every iOS submission needs expo.version bumped, not just ios.buildNumber. Error 90186 closes TestFlight too, so it blocks internal testing and not just release.</span></p></div>
+    <div class="trap"><span class="k amber">Release</span><p><b>EAS autoIncrement writes the number back into app.json.</b><span>The build you get is one higher than the number you committed, and the tree comes back dirty. That is documented behaviour, not a mistake to revert mid build.</span></p></div>
+    <div class="trap"><span class="k">Push</span><p><b>Android push needs a rebuild before it can deliver anything.</b><span>The Firebase project bolo-9bf9a exists and app.json points at google-services.json, but that file is compiled into the binary. Build 503 was made at 01:04 UTC and the file landed at 18:40 UTC, so the app on Play has no Firebase in it.</span></p></div>
+    <div class="trap"><span class="k amber">Push</span><p><b>Nothing in the repo calls the push cron.</b><span>The streak reminder wants an hourly caller and there is no GitHub action and no schedule in .replit. If one exists it was made in the Replit UI, where this page cannot see it. Until that is confirmed, no reminder fires on either platform.</span></p></div>
+    <div class="trap"><span class="k amber">Push</span><p><b>The FCM v1 key belongs in EAS credentials, never in the repo.</b><span>google-services.json is safe to commit and already is: its Android key is restricted by package name and ships inside the app anyway. The service account key that actually sends is a different file and a real secret. Confirm with eas credentials before assuming Android can send.</span></p></div>
+    <div class="trap"><span class="k">Mobile</span><p><b>The native animation driver is dead in release builds.</b><span>useNativeDriver must be false everywhere. Anything driven per frame from the native side does not tick.</span></p></div>
+    <div class="trap"><span class="k">Mobile</span><p><b>expo-image must not be imported anywhere in the mobile app.</b><span>It crashed five cold starts out of five, twice. A census test guards it. expo-image-picker is a different package and is fine.</span></p></div>
+    <div class="trap"><span class="k">Crashes</span><p><b>Read the device crash reports, not Sentry.</b><span>Sentry silently stopped delivering these once while the phone kept writing them, and that silence was read as success three separate times.</span></p></div>
+    <div class="trap"><span class="k amber">Analytics</span><p><b>The mobile app reports, but not which store it came from.</b><span>React Native events carry no OS property and build numbers collide across platforms, so iOS and Android cannot be separated. Register Platform.OS as a super property to fix it. An earlier version of this page claimed mobile sent nothing at all: that was wrong, and it came from reading absent AUTOCAPTURE events as an absent SDK.</span></p></div>
+    <div class="trap"><span class="k amber">Git</span><p><b>The Repl's main sits ahead of GitHub, and that is not divergence.</b><span>A stack of "Published your App" commits. Run git diff --stat origin/main HEAD before worrying about the log.</span></p></div>
+    <div class="trap"><span class="k amber">Content</span><p><b>Eleven of the twelve reading passages are unverified.</b><span>Hindi came off the list on 24 August, checked by a speaker against the shipping text. The other eleven are Bengali, Gujarati, Gurmukhi, Tamil, Telugu, Kannada, Malayalam, Odia, Nastaliq, Ol Chiki and Meetei Mayek, and the build names them on every run.</span></p></div>
+    <div class="trap"><span class="k amber">Content</span><p><b>Gujarati is unverified despite having a yes.</b><span>Bharti approved it, but the stored passage_text beside her answer is the older wording she later complained about, so the verdict does not apply to what ships. That is the whole reason the table stores the text next to the answer: a stale yes is catchable. Never count yeses without comparing the text they were given.</span></p></div>
+    <div class="trap"><span class="k">Content</span><p><b>The verification flag is dead code.</b><span>Marking a passage verified drives one console.warn in buildAksharmala.ts and nothing else. verifiedPassages() is exported and has zero callers, and aksharmala.html rebuilds byte identical. So a verified passage changes nothing a learner can see, and nobody should read the Hindi change as something that shipped.</span></p></div>
+    <div class="trap"><span class="k amber">Content</span><p><b>Ignore anything from "Test Aakesh".</b><span>Those rows are a walkthrough, not handwriting. isTestContributor drops them by default, along with anything starting "test".</span></p></div>
+  </div>
+</section>
+
+<section id="commands">
+  <div class="head">
+    <span class="eyebrow">09 / One paste each</span>
+    <h2>Commands</h2>
+    <p>Terminal on the Mac unless the header says otherwise. Every one of these is read only.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div class="cmd">
+    <div class="ch"><b>Is production answering</b><span>Terminal, anywhere</span><button class="copy" data-copy="curl -s https://bolo-india.app/api/healthz">Copy</button></div>
+    <pre>curl -s https://bolo-india.app/api/healthz</pre>
+  </div>
+
+  <div class="cmd">
+    <div class="ch"><b>Prove a Clerk id is really Bolo's</b><span>Terminal, in ~/bolo. The only check that confirms</span><button class="copy" data-copy="set -a; . ./.env.production; set +a; PGOPTIONS='-c default_transaction_read_only=on' psql &quot;$DATABASE_URL_PROD&quot; -c &quot;SELECT id, email, tier, subscription_status, created_at FROM users WHERE id IN ('user_3H8vsSZW9Pcc2iZsjVzvOffeG0a','user_3HBsmeNhc3jxT6rCH1WXI4R0Ykv','user_3HrkEYs5PZFbfBDPMeTympT8yqC');&quot;">Copy</button></div>
+    <pre>set -a; . ./.env.production; set +a
+PGOPTIONS='-c default_transaction_read_only=on' psql "$DATABASE_URL_PROD" -c \
+"SELECT id, email, tier, subscription_status, created_at
+   FROM users
+  WHERE id IN ('user_3H8vsSZW9Pcc2iZsjVzvOffeG0a',
+               'user_3HBsmeNhc3jxT6rCH1WXI4R0Ykv',
+               'user_3HrkEYs5PZFbfBDPMeTympT8yqC');"</pre>
+  </div>
+
+  <div class="cmd">
+    <div class="ch"><b>Start the health watcher</b><span>Terminal, once. Then every 5 minutes forever</span><button class="copy" data-copy="(crontab -l 2>/dev/null; echo '*/5 * * * * /Users/aakeshpatel/bolo-nest/health-ping.sh >/dev/null 2>&amp;1') | crontab -">Copy</button></div>
+    <pre>(crontab -l 2>/dev/null; echo '*/5 * * * * /Users/aakeshpatel/bolo-nest/health-ping.sh >/dev/null 2>&amp;1') | crontab -</pre>
+  </div>
+
+  <div class="cmd">
+    <div class="ch"><b>Does Android have a key that can send</b><span>Terminal, in artifacts/bolo-mobile. Interactive</span><button class="copy" data-copy="eas credentials --platform android">Copy</button></div>
+    <pre>eas credentials --platform android</pre>
+  </div>
+
+  <div class="cmd">
+    <div class="ch"><b>Prove push reaches one device</b><span>Needs CRON_SECRET from the Replit Secrets panel</span><button class="copy" data-copy="curl -s -X POST https://bolo-india.app/api/push/cron/test -H &quot;X-Cron-Secret: $CRON_SECRET&quot; -H &quot;Content-Type: application/json&quot; -d '{&quot;userId&quot;:&quot;user_REPLACE_ME&quot;}'">Copy</button></div>
+    <pre>curl -s -X POST https://bolo-india.app/api/push/cron/test \
+  -H "X-Cron-Secret: $CRON_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"user_REPLACE_ME"}'</pre>
+  </div>
+
+  <div class="cmd">
+    <div class="ch"><b>Fill the four empty tiles</b><span>Terminal, in ~/bolo</span><button class="copy" data-copy="set -a; . ./.env.production; set +a; PGOPTIONS='-c default_transaction_read_only=on' psql &quot;$DATABASE_URL_PROD&quot; -c &quot;SELECT (SELECT count(*) FROM users) registered, (SELECT count(*) FROM users WHERE created_at > now() - interval '30 days') new_30d, (SELECT count(DISTINCT user_id) FROM attempts WHERE created_at > now() - interval '7 days') active_7d, (SELECT count(DISTINCT user_id) FROM attempts WHERE created_at > now() - interval '30 days') active_30d, (SELECT count(*) FROM users WHERE subscription_status = 'active') subs_active, (SELECT count(*) FROM users WHERE subscription_status = 'trialing') trialing, (SELECT count(*) FROM users WHERE tier &lt;&gt; 'free') paid_tier;&quot;">Copy</button></div>
+    <pre>set -a; . ./.env.production; set +a
+PGOPTIONS='-c default_transaction_read_only=on' psql "$DATABASE_URL_PROD" -c \
+"SELECT (SELECT count(*) FROM users) registered,
+        (SELECT count(*) FROM users WHERE created_at > now() - interval '30 days') new_30d,
+        (SELECT count(DISTINCT user_id) FROM attempts WHERE created_at > now() - interval '7 days') active_7d,
+        (SELECT count(DISTINCT user_id) FROM attempts WHERE created_at > now() - interval '30 days') active_30d,
+        (SELECT count(*) FROM users WHERE subscription_status = 'active') subs_active,
+        (SELECT count(*) FROM users WHERE subscription_status = 'trialing') trialing,
+        (SELECT count(*) FROM users WHERE tier &lt;&gt; 'free') paid_tier;"</pre>
+  </div>
+
+  <div class="cmd">
+    <div class="ch"><b>Is that binary poisoned</b><span>Terminal, in ~/bolo. About a minute</span><button class="copy" data-copy="node --experimental-strip-types scripts/checkBundleHealth.ts &lt;ipa-url-or-path&gt;">Copy</button></div>
+    <pre>node --experimental-strip-types scripts/checkBundleHealth.ts &lt;ipa-url-or-path&gt;</pre>
+  </div>
+
+  <div class="cmd">
+    <div class="ch"><b>Force Play to notice a new internal build</b><span>Terminal, phone plugged in</span><button class="copy" data-copy="adb shell am force-stop com.android.vending
+adb shell am start -a android.intent.action.VIEW -d &quot;market://details?id=com.bolo.mobile&quot; -p com.android.vending">Copy</button></div>
+    <pre>adb shell am force-stop com.android.vending
+adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bolo.mobile" -p com.android.vending</pre>
+  </div>
+
+  <div class="cmd">
+    <div class="ch"><b>Does the whole monorepo still compile</b><span>Terminal, in ~/bolo</span><button class="copy" data-copy="pnpm run typecheck">Copy</button></div>
+    <pre>pnpm run typecheck</pre>
+  </div>
+</section>
+
+<footer>
+  <p><b>Where this comes from.</b> Served by <code>/api/nest/page</code> behind the owner allowlist, so it answers 404 rather than 403 to anybody else and never exists as a file that can be requested. Health is a live call to <code>/api/healthz</code> from this page; the counts come from <code>/api/nest/summary</code>, computed in the production database with your own accounts already subtracted server side.</p>
+  <p><b>What is not here.</b> Numbers and Fires stayed in the artifact, because reading PostHog and Sentry from your own server would need a proxy route and a new secret for each. That was option C and it was not taken.</p>
+  <p><b>Source.</b> <code>~/bolo-nest/nest-production.html</code>. The artifact copy remains the place the analytics live.</p>
+</footer>
+
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =========================================================
+     The production Nest. Served from /api/nest/page, behind the
+     owner gate, so this file assumes it is already authenticated.
+     Every path here is ABSOLUTE: relative ones would resolve
+     against /api/ and silently miss.
+     ========================================================= */
+  var HEALTH_URL  = "/api/healthz";
+  var SUMMARY_URL = "/api/nest/summary";
+  var ARTIFACT    = "https://claude.ai/code/artifact/845b4500-4612-4019-8e06-b36e58257435";
+
+  var TTS_PLAN = {included:121000, used:78656, base:22};
+  var RATE_DEFAULT = {att:0.002, chat:0.004, lesson:0.15, fixed:334.75};
+  var RATES = (function(){
+    var r = {}, k;
+    for (k in RATE_DEFAULT) if (Object.prototype.hasOwnProperty.call(RATE_DEFAULT,k)) r[k] = RATE_DEFAULT[k];
+    try {
+      var raw = localStorage.getItem("nest.rates2");
+      if (raw) { var p = JSON.parse(raw);
+        if (p && typeof p === "object") for (k in RATE_DEFAULT) if (+p[k] >= 0) r[k] = +p[k]; }
+    } catch (e) {}
+    return r;
+  })();
+  function saveRates(){ try { localStorage.setItem("nest.rates2", JSON.stringify(RATES)); } catch (e) {} }
+
+  var state = {
+    summary: null, summaryErr: null,
+    health: null,
+    excludeOwn: (function(){ try { return localStorage.getItem("nest.excludeOwn") !== "0"; } catch (e) { return true; } })()
+  };
+
+  function $(id){ return document.getElementById(id); }
+  function fmt(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+  function money(v){ return v >= 1 ? "$" + v.toFixed(2) : "$" + v.toFixed(3); }
+  function gbOf(b){ return b / 1073741824; }
+  function esc(s){
+    return String(s).replace(/[&<>"]/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];
+    });
+  }
+  function banner(host, kind, headline, detail){
+    var h = $(host);
+    if (!h) return;
+    if (!kind) { h.innerHTML = ""; return; }
+    h.innerHTML = '<div class="banner ' + kind + '"><span><b>' + esc(headline) + '</b> ' + esc(detail) + '</span></div>';
+  }
+
+  /* ---------------- health: a real request, every load ---------------- */
+  function checkHealth(){
+    var started = (window.performance && performance.now) ? performance.now() : null;
+    return fetch(HEALTH_URL, {credentials:"same-origin", cache:"no-store"}).then(function(res){
+      var ms = started === null ? null : Math.round(performance.now() - started);
+      return res.text().then(function(body){
+        state.health = {status: res.status, ms: ms, body: body.slice(0, 120), at: new Date()};
+      });
+    }, function(err){
+      state.health = {status: 0, ms: null, body: String(err && err.message || err), at: new Date()};
+    });
+  }
+  function healthSay(){
+    var el = $("health-say"), h = state.health;
+    if (!el) return;
+    if (!h) { el.textContent = "Checking."; return; }
+    if (h.status === 200) {
+      el.textContent = "healthz answered 200" + (h.ms === null ? "" : " in " + fmt(h.ms) + " ms") +
+        ", just now, to you. " + h.body;
+    } else if (h.status === 0) {
+      el.textContent = "The request never completed: " + h.body;
+    } else {
+      el.textContent = "healthz answered " + h.status + ". Learners are getting an error right now.";
+    }
+  }
+
+  /* ---------------- the counts ---------------- */
+  function loadSummary(){
+    return fetch(SUMMARY_URL, {credentials:"same-origin", cache:"no-store"}).then(function(res){
+      if (res.status === 404) throw new Error("This account is not on the allowlist.");
+      if (!res.ok) throw new Error("The summary endpoint answered " + res.status + ".");
+      return res.json();
+    }).then(function(j){
+      state.summary = j; state.summaryErr = null;
+      banner("spend-note", null);
+    }, function(err){
+      state.summaryErr = String(err && err.message || err);
+      banner("spend-note", "warn", "Could not read the counts.", state.summaryErr + " The rates below still work; the volumes do not.");
+    });
+  }
+
+  /* ---------------- spend ---------------- */
+  function renderSpend(){
+    var host = $("sp-lines");
+    if (!host) return;
+    var s = state.summary;
+    if (!s) {
+      host.innerHTML = '<div class="sline dim"><span class="n">Waiting on the counts</span>' +
+        '<span class="q">/api/nest/summary</span><span class="c">-</span>' +
+        '<span class="b">Fixed costs are known regardless: ' + money(RATES.fixed) + ' a month.</span></div>';
+      if ($("sp-total")) $("sp-total").textContent = money(RATES.fixed);
+      return;
+    }
+    var ex = state.excludeOwn;
+    var att = ex ? s.attempts30dExclOwner : s.attempts30d;
+    var dbGb = gbOf(s.dbBytes), ttsGb = gbOf(s.ttsBytes);
+
+    var lines = [
+      {n:"Fixed services", q:money(RATES.fixed) + " a month", c:RATES.fixed, priced:true,
+       b:"Claude 200, Replit 100 with Neon inside it, ElevenLabs Creator 22, Apple 8.33, Cloudflare 4.42. Every one invoice confirmed."},
+      {n:"Speech synthesis", q:fmt(s.tts30d) + " syntheses", c:null, priced:false,
+       b:"Inside the ElevenLabs plan, not on top of it. Last full cycle used " + fmt(TTS_PLAN.used) +
+         " credits of " + fmt(TTS_PLAN.included) + " and was charged no overage, twice running."},
+      {n:"Lesson generation", q:fmt(s.lessons30d) + " lessons", c:s.lessons30d * RATES.lesson, priced:true,
+       b:"Rare, expensive, and it runs outside the app. Still an estimate."},
+      {n:"Chat replies", q:fmt(s.chat30d) + " replies", c:s.chat30d * RATES.chat, priced:true,
+       b:"Bolo answering a learner. Still an estimate."},
+      {n:"Pronunciation grading", q:fmt(att) + " attempts", c:att * RATES.att, priced:true,
+       b:"Transcription and scoring, still an estimate." +
+         (ex ? " Your own accounts removed: " + fmt(s.attempts30d) + " becomes " + fmt(att) + "." : " Including your own testing.")},
+      {n:"Database storage", q:dbGb.toFixed(2) + " GB", c:null, priced:false,
+       b:Math.round(ttsGb / dbGb * 100) + " percent of it is cached audio. No separate charge: Neon is provisioned through Replit and billed inside that hundred. It still grows forever."}
+    ];
+    var total = 0, html = "", i;
+    for (i = 0; i < lines.length; i++) {
+      if (lines[i].priced) total += lines[i].c;
+      html += '<div class="sline' + (lines[i].priced ? '' : ' dim') + '"><span class="n">' + esc(lines[i].n) + '</span>' +
+              '<span class="q">' + esc(lines[i].q) + '</span>' +
+              '<span class="c">' + (lines[i].priced ? money(lines[i].c) : "in fixed") + '</span>' +
+              '<span class="b">' + esc(lines[i].b) + '</span></div>';
+    }
+    host.innerHTML = html;
+    if ($("sp-total")) $("sp-total").textContent = money(total);
+    if ($("sp-lab")) {
+      $("sp-lab").textContent = "estimated a month" +
+        (state.excludeOwn ? ", learners only" : ", including your testing") +
+        (s.generatedAt ? ", counted " + String(s.generatedAt).replace("T", " ").slice(0, 16) + " UTC" : "");
+    }
+    renderTiles();
+  }
+
+  function renderTiles(){
+    var host = $("dbtiles"), s = state.summary;
+    if (!host) return;
+    if (!s) { host.innerHTML = ""; return; }
+    var ex = state.excludeOwn;
+    var t = [
+      [ex ? s.usersExclOwner : s.usersTotal, "Registered accounts",
+       ex ? "yours removed, " + fmt(s.usersTotal) + " in total" : fmt(s.usersExclOwner) + " are not yours"],
+      [ex ? s.active30dExclOwner : s.active30d, "Active in 30 days",
+       ex ? "by attempts, yours removed" : "by attempts, including yours"],
+      [ex ? s.paidActiveExclOwner : s.paidActive, "Plus entitlements",
+       s.paidActiveExclOwner === 0 ? "no paying customers yet" : fmt(s.paidActiveExclOwner) + " are customers"],
+      [s.trialing, "Trials running", "production users table"]
+    ];
+    var html = "", i;
+    for (i = 0; i < t.length; i++) {
+      html += '<div class="tile"><span class="n">' + fmt(t[i][0]) + '</span><span class="l">' + esc(t[i][1]) +
+              '</span><span class="w">' + esc(t[i][2]) + '</span></div>';
+    }
+    host.innerHTML = html;
+  }
+
+  /* ---------------- alerts ---------------- */
+  function rules(){
+    var out = [], h = state.health, s = state.summary;
+
+    if (!h) {
+      out.push({id:"health", sev:"none", t:"Production", m:"Checking.", r:"healthz", href:HEALTH_URL});
+    } else if (h.status === 200) {
+      out.push({id:"health", sev:"ok", t:"Production is answering",
+        m:"healthz returned 200" + (h.ms === null ? "" : " in " + fmt(h.ms) + " ms") + ", checked just now from this page.",
+        r:"healthz", href:HEALTH_URL});
+    } else if (h.status === 0) {
+      out.push({id:"health", sev:"crit", t:"PRODUCTION DID NOT ANSWER",
+        m:"The request never completed. If this page loaded, the server was alive a moment ago, so suspect the API process rather than the host.",
+        r:"healthz", href:HEALTH_URL});
+    } else {
+      out.push({id:"health", sev:"crit", t:"PRODUCTION IS NOT ANSWERING",
+        m:"healthz returned " + h.status + ". Learners opening the app right now are getting an error. A 502 means the API process died.",
+        r:"healthz", href:HEALTH_URL});
+    }
+
+    if (state.summaryErr) {
+      out.push({id:"counts", sev:"warn", t:"The counts are unavailable",
+        m:state.summaryErr, r:"summary", href:SUMMARY_URL});
+    } else if (s) {
+      out.push({id:"counts", sev:"ok", t:"Production counts",
+        m:fmt(s.usersTotal) + " accounts, " + fmt(s.active30dExclOwner) + " active in 30 days once your own are removed.",
+        r:"summary", href:SUMMARY_URL});
+      var dbGb = gbOf(s.dbBytes), share = Math.round(gbOf(s.ttsBytes) / dbGb * 100);
+      out.push(share >= 90
+        ? {id:"storage", sev:"warn", t:"The database is almost entirely cached audio",
+           m:share + " percent of " + dbGb.toFixed(2) + " GB. Storage bills monthly and this only grows. A retention policy on tts_cache is the cheapest saving available.",
+           r:"Neon", href:"https://console.neon.tech/"}
+        : {id:"storage", sev:"ok", t:"Database storage",
+           m:dbGb.toFixed(2) + " GB, " + share + " percent of it cached audio.", r:"Neon", href:"https://console.neon.tech/"});
+    }
+
+    out.push({id:"mobiledark", sev:"warn", t:"iOS and Android are one bucket",
+      m:"The app reports to PostHog, but its events carry no OS property, so the two stores cannot be told apart.",
+      r:"artifact", href:ARTIFACT});
+    out.push({id:"androidpush", sev:"warn", t:"Android push is not in a build",
+      m:"Firebase bolo-9bf9a is wired into app.json, but the newest Android build predates the file.",
+      r:"EAS", href:"https://expo.dev/accounts/aakeshp/projects/bolo-mobile/builds"});
+    return out;
+  }
+
+  var SEV_RANK = {crit:3, warn:2, none:1, ok:0};
+  var dismissed = (function(){
+    try { return JSON.parse(sessionStorage.getItem("nest.dismissed") || "[]") || []; } catch (e) { return []; }
+  })();
+  function dismiss(id){
+    if (dismissed.indexOf(id) === -1) dismissed.push(id);
+    try { sessionStorage.setItem("nest.dismissed", JSON.stringify(dismissed)); } catch (e) {}
+  }
+
+  function renderAlerts(){
+    var list = rules(), host = $("alertlist"), html = "", i, crits = 0, warns = 0;
+    for (i = 0; i < list.length; i++) {
+      var a = list[i];
+      if (a.sev === "crit") crits++;
+      if (a.sev === "warn") warns++;
+      var cls = a.sev === "crit" ? " hot" : (a.sev === "warn" ? " warm" : "");
+      var pill = a.sev === "crit" ? "p-crit" : (a.sev === "warn" ? "p-warn" : (a.sev === "ok" ? "p-good" : "p-info"));
+      var word = a.sev === "crit" ? "Danger" : (a.sev === "warn" ? "Watch" : (a.sev === "ok" ? "Clear" : "Checking"));
+      html += '<div class="alert' + cls + '">' +
+        '<span class="pill ' + pill + '" style="grid-row:1 / span 2"><span class="dot"></span>' + word + '</span>' +
+        '<span class="t">' + esc(a.t) + '</span><span class="m">' + esc(a.m) + '</span>' +
+        '<span class="r"><a href="' + esc(a.href) + '" target="_blank" rel="noopener">' + esc(a.r) + '</a></span></div>';
+    }
+    if (host) host.innerHTML = html;
+
+    var chip = $("statuschip");
+    if (chip) {
+      chip.className = "statuschip" + (crits ? " hot" : (warns ? " warm" : ""));
+      chip.textContent = crits ? (crits + " danger") : (warns ? (warns + " to watch") : "All clear");
+    }
+    var b = $("beacon"), m = $("mode"), w = $("modewhy");
+    if (b) b.className = "beacon " + (state.health ? (state.health.status === 200 ? "live" : "snap") : "busy");
+    if (m) m.textContent = state.health ? (state.health.status === 200 ? "Live" : "Production not answering") : "Reading production";
+    if (w) w.textContent = "Served from your own API, checked " +
+      (state.health ? state.health.at.toTimeString().slice(0,5) : "now");
+    raiseDanger(list);
+  }
+
+  function raiseDanger(list){
+    var box = $("danger"), i, hit = null, others = [];
+    if (!box) return;
+    for (i = 0; i < list.length; i++) {
+      if (list[i].sev !== "crit" || dismissed.indexOf(list[i].id) !== -1) continue;
+      if (!hit) hit = list[i]; else others.push(list[i]);
+    }
+    if (!hit) { box.classList.remove("on"); return; }
+    $("danger-kicker").textContent = others.length ? "Danger, " + (others.length + 1) + " things" : "Danger";
+    $("danger-title").textContent = hit.t;
+    $("danger-detail").textContent = hit.m;
+    var more = "";
+    for (i = 0; i < others.length; i++) more += '<div><b>' + esc(others[i].t) + '</b>. ' + esc(others[i].m) + '</div>';
+    $("danger-more").innerHTML = more ? '<div class="dmore">' + more + '</div>' : "";
+    var go = $("danger-go");
+    go.href = hit.href; go.textContent = "Open " + hit.r;
+    box.classList.add("on");
+    box.setAttribute("data-rule", hit.id);
+    var btn = $("danger-dismiss");
+    if (btn) btn.focus();
+  }
+
+  var dbtn = $("danger-dismiss");
+  if (dbtn) dbtn.addEventListener("click", function(){
+    var box = $("danger");
+    dismiss(box.getAttribute("data-rule"));
+    box.classList.remove("on");
+    renderAlerts();
+  });
+  document.addEventListener("keydown", function(ev){
+    var box = $("danger");
+    if (ev.key === "Escape" && box && box.classList.contains("on")) {
+      dismiss(box.getAttribute("data-rule"));
+      box.classList.remove("on");
+      renderAlerts();
+    }
+  });
+
+  /* ---------------- controls ---------------- */
+  var hbtn = $("health-check");
+  if (hbtn) hbtn.addEventListener("click", function(){
+    hbtn.disabled = true; hbtn.textContent = "Checking";
+    checkHealth().then(function(){
+      hbtn.disabled = false; hbtn.textContent = "Check production now";
+      healthSay(); renderAlerts();
+    });
+  });
+
+  var exclBox = $("excl-own");
+  if (exclBox) {
+    exclBox.checked = state.excludeOwn;
+    exclBox.addEventListener("change", function(){
+      state.excludeOwn = exclBox.checked;
+      try { localStorage.setItem("nest.excludeOwn", state.excludeOwn ? "1" : "0"); } catch (e) {}
+      renderSpend(); renderAlerts();
+    });
+  }
+
+  var srefresh = $("sp-refresh");
+  if (srefresh) srefresh.addEventListener("click", function(){
+    srefresh.disabled = true; srefresh.textContent = "Reading";
+    loadSummary().then(function(){
+      srefresh.disabled = false; srefresh.textContent = "Re-read";
+      renderSpend(); renderAlerts();
+    });
+  });
+
+  (function wireRates(){
+    var ids = {att:"r-att", chat:"r-chat", lesson:"r-lesson", fixed:"r-fixed"}, k, el;
+    for (k in ids) {
+      if (!Object.prototype.hasOwnProperty.call(ids,k)) continue;
+      el = $(ids[k]);
+      if (!el) continue;
+      el.value = RATES[k];
+      (function(key, node){
+        node.addEventListener("change", function(){
+          var v = parseFloat(node.value);
+          if (!isFinite(v) || v < 0) { node.value = RATES[key]; return; }
+          RATES[key] = v; saveRates(); renderSpend();
+        });
+      })(k, el);
+    }
+    var r = $("rate-reset");
+    if (r) r.addEventListener("click", function(){
+      var key;
+      for (key in RATE_DEFAULT) if (Object.prototype.hasOwnProperty.call(RATE_DEFAULT,key)) {
+        RATES[key] = RATE_DEFAULT[key];
+        if ($(ids[key])) $(ids[key]).value = RATES[key];
+      }
+      saveRates(); renderSpend();
+    });
+  })();
+
+  /* ---------------- filter ---------------- */
+  var input = $("filter"), hits = $("hits");
+  var items = document.querySelectorAll(".f-item");
+  var groups = document.querySelectorAll(".f-group");
+  function applyFilter(){
+    var q = input.value.trim().toLowerCase(), shown = 0, i;
+    for (i = 0; i < items.length; i++) {
+      var hay = (items[i].getAttribute("data-k") || "") + " " + items[i].textContent.toLowerCase();
+      var match = q === "" || hay.indexOf(q) !== -1;
+      items[i].classList.toggle("hidden", !match);
+      if (match) shown++;
+    }
+    for (i = 0; i < groups.length; i++) {
+      var name = groups[i].getAttribute("data-group");
+      if (groups[i].querySelectorAll(".f-item").length) {
+        groups[i].classList.toggle("hidden", groups[i].querySelectorAll(".f-item:not(.hidden)").length === 0);
+      } else {
+        groups[i].classList.toggle("hidden", !document.querySelector('.f-group[data-group="' + name + '"] .f-item:not(.hidden)'));
+      }
+    }
+    hits.textContent = q === "" ? "" : shown + (shown === 1 ? " match" : " matches");
+  }
+  if (input) { input.addEventListener("input", applyFilter); input.addEventListener("search", applyFilter); }
+
+  /* ---------------- copy ---------------- */
+  document.addEventListener("click", function(ev){
+    var btn = ev.target.closest ? ev.target.closest("[data-copy]") : null;
+    if (!btn) return;
+    ev.preventDefault();
+    var text = btn.getAttribute("data-copy"), label = btn.textContent;
+    function done(ok){
+      btn.classList.add("done");
+      btn.textContent = ok ? "Copied" : "Select it";
+      setTimeout(function(){ btn.classList.remove("done"); btn.textContent = label; }, 1400);
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function(){ done(true); }, function(){ done(false); });
+        return;
+      }
+    } catch (e) {}
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      var ok = document.execCommand("copy");
+      document.body.removeChild(ta); done(ok);
+    } catch (e2) { done(false); }
+  });
+
+  /* ---------------- boot ---------------- */
+  renderSpend(); renderAlerts();
+  Promise.all([checkHealth(), loadSummary()]).then(function(){
+    healthSay(); renderSpend(); renderAlerts();
+  });
+})();
+</script>

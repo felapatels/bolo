@@ -773,6 +773,35 @@ export interface NarrationResult {
   source: NarrationResultSource;
 }
 
+export interface NestRedirect {
+  /** Absolute URL of the Nest. */
+  url: string;
+}
+
+export interface NestSummary {
+  generatedAt: string;
+  usersTotal: number;
+  /** Rows in users minus the owner allowlist. Computed here rather than in the browser so the ids themselves never leave the server. */
+  usersExclOwner: number;
+  active30d: number;
+  /** Active learners who are NOT the owner. Ship this beside active30d or the tile lies: the owner is 77 percent of all attempts in the last month, and "active users" is exactly the number a reader takes to mean "how many learners are actually using this". Same shape of mistake as a visitor count labelled "people". */
+  active30dExclOwner: number;
+  paidActive: number;
+  /** Paid accounts that are not the owner's or an App Store review account. Show this beside paidActive or the page implies customers that do not exist. */
+  paidActiveExclOwner: number;
+  trialing: number;
+  ttsTotal: number;
+  tts30d: number;
+  attemptsTotal: number;
+  attempts30d: number;
+  attempts30dExclOwner: number;
+  chat30d: number;
+  lessons30d: number;
+  /** Cached audio. It has been 98 percent of the database and the production cap is 10 GiB, so this is a ceiling as well as a bill. */
+  ttsBytes: number;
+  dbBytes: number;
+}
+
 export interface NarrationInput {
   /**
      * One line of English story prose: a scene's situation, or the outcome of a choice. NOT the learner's phrase, which goes to /openai/tts in their own language. The cap is generous for a sentence and small enough that a malformed caller cannot bill an essay to the narrator voice.

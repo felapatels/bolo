@@ -12,6 +12,7 @@ import stripeRouter from "./stripe";
 import pricingRouter from "./pricing";
 import familyRouter from "./family";
 import contactRouter from "./contact";
+import nestRouter from "./nest";
 import scriptTraceRouter from "./scriptTrace";
 import phraseReportsRouter from "./phraseReports";
 import tokensRouter from "./tokens";
@@ -65,6 +66,13 @@ router.use(contactRouter);
 // write the script and have never signed in. See routes/scriptTrace.ts.
 router.use(scriptTraceRouter);
 router.use(requireAuth);
+// THE NEST: internal tooling, 404 for everybody but the owner. It sits directly
+// after requireAuth and BEFORE loadEntitlements on purpose: it is not a product
+// feature, so it must not be gated by, counted in, or slowed down by
+// entitlement resolution. It also must stay under /api, which it is by being
+// here, because bolo-india.app/nest returns 200 today from the SPA catch-all
+// and anything that needs to answer 404 has to sit in front of that.
+router.use(nestRouter);
 router.use(loadEntitlements);
 router.use(entitlementsRouter);
 // Account & subscription management (profile, preferences, deletion, and the
