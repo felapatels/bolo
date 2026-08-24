@@ -18,7 +18,7 @@ import { SpeakingDemo } from '@/components/speaking-demo';
 import { Mascot } from '@/components/mascot';
 import { FloatingTag, springs } from '@/lib/motion';
 import { diasporaOrdered, LANGUAGE_PAGES } from '@/lib/languagePages';
-import { usePricing, FAMILY_SEATS } from '@/lib/pricing';
+import { usePricing, FAMILY_SEATS, FAMILY_PLAN_ENABLED } from '@/lib/pricing';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { useDocumentHead, useHomepageStructuredData } from '@/lib/seo';
 import { detectShortcutPlatform } from '@/lib/platform';
@@ -506,11 +506,23 @@ export default function Landing({
                   <p className="text-muted-foreground font-medium text-lg">
                     Hearing your grandparents' language for the first time,
                     or finding your way back to it: Bolo! meets everyone
-                    where they are. The{' '}
-                    <span className="font-bold text-foreground">Family plan</span>{' '}
-                    covers up to {FAMILY_SEATS} people on one bill, and each
-                    person's progress stays their own. Curious how we handle
-                    your family's data? It's all in our{' '}
+                    where they are.{' '}
+                    {FAMILY_PLAN_ENABLED ? (
+                      <>
+                        The{' '}
+                        <span className="font-bold text-foreground">
+                          Family plan
+                        </span>{' '}
+                        covers up to {FAMILY_SEATS} people on one bill, and each
+                        person's progress stays their own.{' '}
+                      </>
+                    ) : (
+                      <>
+                        Everyone learns at their own pace, and each person's
+                        progress stays their own.{' '}
+                      </>
+                    )}
+                    Curious how we handle your family's data? It's all in our{' '}
                     <Link href="/privacy" className="font-bold text-primary hover:underline">
                       privacy policy
                     </Link>
@@ -583,7 +595,11 @@ export default function Landing({
                 {plusAnnual && (
                   <p className="text-xs font-bold text-muted-foreground mt-1">
                     or {plusAnnual.price}
-                    {plusAnnual.per} billed yearly
+                    {plusAnnual.per}
+                    {plusAnnual.monthlyEquivalent
+                      ? `, just ${plusAnnual.monthlyEquivalent}/mo`
+                      : ''}{' '}
+                    billed yearly
                   </p>
                 )}
                 <ul className="mt-4 space-y-2 text-sm font-medium text-muted-foreground flex-1">
@@ -602,46 +618,53 @@ export default function Landing({
               </div>
             </Reveal>
 
-            <Reveal delay={0.16} className="h-full">
-              <div className="glass-card rounded-3xl p-7 h-full flex flex-col">
-                <h3 className="text-xl font-black text-foreground">Family</h3>
-                <p className="mt-1 text-3xl font-black text-foreground">
-                  {familyMonthly ? (
-                    <>
-                      {familyMonthly.price}
-                      <span className="text-sm font-bold text-muted-foreground">{familyMonthly.per}</span>
-                    </>
-                  ) : (
-                    <span
-                      className="inline-block h-8 w-28 animate-pulse rounded-lg bg-muted align-middle"
-                      aria-label="Loading price"
-                    />
-                  )}
-                </p>
-                {familyAnnual && (
-                  <p className="text-xs font-bold text-muted-foreground mt-1">
-                    or {familyAnnual.price}
-                    {familyAnnual.per} billed yearly
+            {/* Withdrawn from sale 2026-08-24: neither mobile store sells or
+                honours the Family plan, so advertising it here promises a
+                purchase a learner's phone will not recognise. Existing
+                subscribers keep it. See FAMILY_PLAN_ENABLED. */}
+            {FAMILY_PLAN_ENABLED && (
+              <Reveal delay={0.16} className="h-full">
+                <div className="glass-card rounded-3xl p-7 h-full flex flex-col">
+                  <h3 className="text-xl font-black text-foreground">Family</h3>
+                  <p className="mt-1 text-3xl font-black text-foreground">
+                    {familyMonthly ? (
+                      <>
+                        {familyMonthly.price}
+                        <span className="text-sm font-bold text-muted-foreground">{familyMonthly.per}</span>
+                      </>
+                    ) : (
+                      <span
+                        className="inline-block h-8 w-28 animate-pulse rounded-lg bg-muted align-middle"
+                        aria-label="Loading price"
+                      />
+                    )}
                   </p>
-                )}
-                <ul className="mt-4 space-y-2 text-sm font-medium text-muted-foreground flex-1">
-                  <li>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Users className="w-4 h-4 text-primary" aria-hidden="true" />
-                      All-Access for up to {FAMILY_SEATS} people
-                    </span>
-                  </li>
-                  <li>One bill for the whole household</li>
-                  <li>Each person's progress stays their own</li>
-                </ul>
-                <SignUpCta
-                  placement="pricing-family"
-                  className="mt-6 inline-flex items-center justify-center rounded-2xl border-2 border-border bg-card px-6 py-3 font-black text-foreground transition-all active:scale-95"
-                >
-                  Start with Free
-                </SignUpCta>
-              </div>
-            </Reveal>
+                  {familyAnnual && (
+                    <p className="text-xs font-bold text-muted-foreground mt-1">
+                      or {familyAnnual.price}
+                      {familyAnnual.per} billed yearly
+                    </p>
+                  )}
+                  <ul className="mt-4 space-y-2 text-sm font-medium text-muted-foreground flex-1">
+                    <li>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-primary" aria-hidden="true" />
+                        All-Access for up to {FAMILY_SEATS} people
+                      </span>
+                    </li>
+                    <li>One bill for the whole household</li>
+                    <li>Each person's progress stays their own</li>
+                  </ul>
+                  <SignUpCta
+                    placement="pricing-family"
+                    className="mt-6 inline-flex items-center justify-center rounded-2xl border-2 border-border bg-card px-6 py-3 font-black text-foreground transition-all active:scale-95"
+                  >
+                    Start with Free
+                  </SignUpCta>
+                </div>
+              </Reveal>
+            )}
+
           </div>
           <p className="mt-5 text-center text-xs font-medium text-muted-foreground max-w-xl mx-auto">
             Sign up free first; you can upgrade from inside the app whenever

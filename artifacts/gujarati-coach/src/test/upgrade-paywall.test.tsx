@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { FREE_ENTITLEMENTS } from "./fixtures";
@@ -67,12 +67,17 @@ beforeEach(() => {
   h.entitlements = FREE_ENTITLEMENTS;
 });
 
+// THE FAMILY ASSERTIONS BELOW WERE INVERTED, NOT DELETED, 2026-08-24.
+// The Family plan was withdrawn from sale on web because neither mobile store
+// sells or honours it, so a learner could buy something their phone would not
+// recognise. FAMILY_PLAN_ENABLED is the switch; these tests now pin the card's
+// ABSENCE, and they flip back the day the stores sell it.
 describe("Paywall plan preselection", () => {
   test("defaults to All-Access when no intent is passed", () => {
     renderAt("/upgrade");
 
     expect(card("All-Access")).toHaveAttribute("aria-pressed", "true");
-    expect(card("Family")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByText("Family")).not.toBeInTheDocument();
     expect(screen.getByText(/Start 7-day free trial/i)).toBeInTheDocument();
   });
 
@@ -80,16 +85,20 @@ describe("Paywall plan preselection", () => {
     renderAt("/upgrade?plan=plus");
 
     expect(card("All-Access")).toHaveAttribute("aria-pressed", "true");
-    expect(card("Family")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByText("Family")).not.toBeInTheDocument();
     expect(screen.getByText(/Start 7-day free trial/i)).toBeInTheDocument();
   });
 
-  test("?plan=family preselects Family", () => {
+  test("?plan=family lands on All-Access while Family is withdrawn", () => {
     renderAt("/upgrade?plan=family");
 
-    expect(card("Family")).toHaveAttribute("aria-pressed", "true");
-    expect(card("All-Access")).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByText(/Get the Family plan/i)).toBeInTheDocument();
+    // Inverted: it used to preselect Family. A live link in an old email must
+    // not preselect a tier whose card is not rendered, or the CTA buys
+    // something invisible. Same treatment legacy ?plan=one_language gets.
+    expect(card("All-Access")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByText("Family")).not.toBeInTheDocument();
+    expect(screen.getByText(/Start 7-day free trial/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Get the Family plan/i)).not.toBeInTheDocument();
   });
 
   test("the One Language tier is no longer sold on web", () => {
@@ -111,10 +120,25 @@ describe("Paywall plan preselection", () => {
   test("shows the store-ladder monthly prices", () => {
     renderAt("/upgrade");
 
-    // Monthly is the default interval. The amounts come from the live Stripe
-    // catalog (seeded in setup.ts): All-Access $12.99/mo, Family $24.99/mo.
+    // Monthly is the default interval. The amount comes from the live Stripe
+    // catalog (seeded in setup.ts): All-Access $12.99/mo. Family's $24.99 was
+    // asserted here too and is inverted rather than dropped: the price is still
+    // in the catalog, it is simply no longer rendered anywhere.
     expect(screen.getByText("$12.99")).toBeInTheDocument();
-    expect(screen.getByText("$24.99")).toBeInTheDocument();
+    expect(screen.queryByText("$24.99")).not.toBeInTheDocument();
+  });
+
+  test("annual shows what it works out to per month", () => {
+    // Requested 2026-08-24: the annual card showed $89.99/yr with nothing
+    // saying it is cheaper per month than the monthly plan, which is the whole
+    // argument for buying it. Monthly must NOT carry the line, where the
+    // headline price already is the monthly number.
+    renderAt("/upgrade");
+    expect(screen.queryByTestId("plan-monthly-equivalent")).toBeNull();
+
+    fireEvent.click(screen.getByText(/^Annual$/i));
+    const line = screen.getByTestId("plan-monthly-equivalent");
+    expect(line.textContent).toMatch(/^\$\d+\.\d\d\/mo$/);
   });
 });
 

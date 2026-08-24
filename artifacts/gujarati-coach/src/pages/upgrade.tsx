@@ -32,7 +32,12 @@ import {
 // subscription covering up to 4 people). One Language is not sold on web.
 // Prices come from the live Stripe catalog via lib/pricing, the same price ids
 // checkout charges, so this paywall can never quote a stale amount.
-import { usePricing, type SelectableTier, type TierPrice } from "@/lib/pricing";
+import {
+  usePricing,
+  FAMILY_PLAN_ENABLED,
+  type SelectableTier,
+  type TierPrice,
+} from "@/lib/pricing";
 
 // App Review, Guideline 3.1.2(c): the purchase flow must link the Terms of Use
 // (EULA) and the privacy policy. These are the two exact, owner-verified URLs,
@@ -128,10 +133,14 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
     const plan = params.get("plan");
     const reason = params.get("reason");
     return {
+      // A ?plan=family link from an older email or screenshot lands on
+      // All-Access while the plan is withdrawn, exactly as legacy
+      // ?plan=one_language does. Preselecting a tier whose card is not
+      // rendered would leave the CTA buying something invisible.
       tier:
-        plan === "plus" || plan === "family"
-          ? plan
-          : plan === "one_language"
+        plan === "family" && FAMILY_PLAN_ENABLED
+          ? "family"
+          : plan === "plus" || plan === "one_language" || plan === "family"
             ? "plus"
             : null,
       reason,
@@ -322,15 +331,21 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
             recommended
           />
 
-          <PlanCard
-            tier="family"
-            selected={selectedTier === "family"}
-            onSelect={() => setSelectedTier("family")}
-            title="Family"
-            tagline="All-Access for up to 4 people"
-            price={priceForTier("family")}
-            benefits={FAMILY_BENEFITS}
-          />
+          {/* Withdrawn from sale on web 2026-08-24: neither store sells or
+              honours it, so buying it here gets a plan the learner's phone will
+              not recognise. Existing Family subscribers are untouched, and
+              /family still manages seats. See FAMILY_PLAN_ENABLED. */}
+          {FAMILY_PLAN_ENABLED && (
+            <PlanCard
+              tier="family"
+              selected={selectedTier === "family"}
+              onSelect={() => setSelectedTier("family")}
+              title="Family"
+              tagline="All-Access for up to 4 people"
+              price={priceForTier("family")}
+              benefits={FAMILY_BENEFITS}
+            />
+          )}
         </div>
 
         {/* CTA */}
@@ -509,6 +524,19 @@ function PlanCard({
               />
             )}
           </div>
+          {/* THE ARGUMENT FOR BUYING ANNUAL, and it was missing. The card showed
+              $89.99/yr against $12.99/mo and left the learner to divide by
+              twelve themselves. Set on annual only: on the monthly card the
+              headline price already IS the monthly number, and repeating it
+              would read as a discount that does not exist. */}
+          {price?.monthlyEquivalent && (
+            <p
+              data-testid="plan-monthly-equivalent"
+              className="mt-0.5 text-xs font-bold text-muted-foreground"
+            >
+              {price.monthlyEquivalent}/mo
+            </p>
+          )}
           <span
             className={cn(
               "mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full border-2",

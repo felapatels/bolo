@@ -294,13 +294,20 @@ describe("Landing page", () => {
     ).toBeGreaterThanOrEqual(1);
   });
 
-  test("renders the families section with the Family plan seat count and privacy link", () => {
+  test("renders the families section, without selling a withdrawn plan", () => {
     renderAt(<Landing />);
 
     expect(
       screen.getByRole("heading", { name: /Built for the whole family/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/covers up to 4 people/i)).toBeInTheDocument();
+    // INVERTED 2026-08-24, not deleted. The section stays because families are
+    // who this app is for; the SEAT-COUNT SENTENCE goes, because it advertises
+    // a plan neither mobile store sells or honours. Flip back with
+    // FAMILY_PLAN_ENABLED.
+    expect(screen.queryByText(/covers up to 4 people/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/each person's progress stays their own/i),
+    ).toBeInTheDocument();
     // Both the in-section link and the footer link match this name; the
     // families section one must point at /privacy like the rest.
     const privacyLinks = screen.getAllByRole("link", { name: /privacy policy/i });
@@ -319,11 +326,19 @@ describe("Landing page", () => {
     expect(
       screen.getByRole("heading", { name: /^All-Access$/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /^Family$/i })).toBeInTheDocument();
+    // INVERTED 2026-08-24: the Family card is withdrawn from sale, so the
+    // pricing preview must not offer it. Its $24.99 is still in the catalog and
+    // simply is not rendered.
+    expect(screen.queryByRole("heading", { name: /^Family$/i })).toBeNull();
 
     // Prices come from the live Stripe catalog, never a hardcoded string.
     expect(screen.getByText("$12.99")).toBeInTheDocument();
-    expect(screen.getByText("$24.99")).toBeInTheDocument();
+    expect(screen.queryByText("$24.99")).not.toBeInTheDocument();
+
+    // The annual line says what it works out to per month, requested
+    // 2026-08-24: an annual price with no monthly figure gives the reader
+    // nothing to compare against the monthly plan beside it.
+    expect(container.textContent).toMatch(/just \$\d+\.\d\d\/mo/);
 
     // The Free daily lesson cap was retired; no stale daily-limit claims.
     expect(container.textContent).not.toMatch(/per day|daily limit|lessons a day/i);

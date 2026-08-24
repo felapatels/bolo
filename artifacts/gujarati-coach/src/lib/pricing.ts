@@ -19,6 +19,24 @@ export type SelectableTier = 'plus' | 'family';
 // lib/db familyPlans (owner occupies the implicit 4th seat).
 export const FAMILY_SEATS = 4;
 
+/**
+ * Whether the Family plan is OFFERED FOR SALE on web.
+ *
+ * OFF, 2026-08-24, and this is a platform-parity problem rather than a
+ * product one. The Family plan is a Stripe subscription sold on the web, and
+ * iOS and Android have no equivalent: nothing in either store's purchase flow
+ * sells it and nothing there honours it. So a learner could buy on web what
+ * their phone will not recognise, which is the worst shape a paywall can take.
+ *
+ * IT HIDES THE SALE, NOT THE PLAN. Anyone who already bought Family keeps it:
+ * entitlements resolve it server-side exactly as before, `/family` still manages
+ * seats and invites, and joining a family still works for the people invited to
+ * one. This flag only stops NEW purchases being offered.
+ *
+ * Flip it back the day the mobile stores sell the same thing.
+ */
+export const FAMILY_PLAN_ENABLED = false;
+
 // One price as the server reports it: Stripe minor units plus currency.
 export type PriceAmount = { amountCents: number; currency: string };
 
@@ -49,6 +67,19 @@ export type TierPrice = {
   // Billing cadence as a clause, for sentences that already say "cancel".
   cadence: string;
   badge?: string;
+  /**
+   * What an annual price works out to per month, already formatted, e.g.
+   * "$7.49". Set on ANNUAL only; undefined on monthly, where the headline
+   * price is already the monthly number and repeating it reads as a discount
+   * that is not there.
+   *
+   * A structured field rather than a sentence, because every card wants to
+   * place it differently and the alternative was each of them parsing it back
+   * out of `note`. Requested 2026-08-24: the annual card showed $89.99/yr with
+   * no indication that it is cheaper per month than the monthly plan, which is
+   * the entire argument for buying it.
+   */
+  monthlyEquivalent?: string;
 };
 
 export type TierPricing = Record<
@@ -65,10 +96,21 @@ export function formatMoney({ amountCents, currency }: PriceAmount): string {
   }).format(amountCents / 100);
 }
 
-// What an annual plan works out to per month, for the "just $x/mo" line.
+/**
+ * What an annual plan works out to per month, for the "just $x/mo" line.
+ *
+ * FLOORED TO THE CENT, NOT ROUNDED, and that is a correctness rule rather than
+ * a style one. $89.99 a year is $7.4991 a month; rounding gives $7.50, and
+ * twelve times $7.50 is $90.00, which is MORE than the amount actually
+ * charged. An advertised monthly rate that does not multiply back to the price
+ * on the same card is a claim the checkout does not honour.
+ *
+ * Flooring guarantees twelve times the shown figure is never above the annual
+ * price. Corrected 2026-08-24, having shipped as $7.50.
+ */
 function monthlyEquivalent(annual: PriceAmount): string {
   return formatMoney({
-    amountCents: annual.amountCents / 12,
+    amountCents: Math.floor(annual.amountCents / 12),
     currency: annual.currency,
   });
 }
@@ -119,6 +161,7 @@ export function buildTierPricing(catalog: PricingCatalog): TierPricing {
             : `Just ${monthlyEquivalent(annual)}/mo, billed yearly.`,
         cadence: 'billed yearly',
         badge: savingsBadge(monthly, annual),
+        monthlyEquivalent: monthlyEquivalent(annual),
       };
     }
   }

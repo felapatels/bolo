@@ -38,8 +38,12 @@ describe("buildTierPricing", () => {
   test("derives the monthly equivalent of an annual plan", () => {
     const pricing = buildTierPricing(PRICING_CATALOG);
 
-    // $89.99 / 12 = $7.50, $174.99 / 12 = $14.58.
-    expect(pricing.plus.annual?.note).toBe("Just $7.50/mo, billed yearly.");
+    // INVERTED 2026-08-24: $7.50 was wrong, not just differently rounded.
+    // $89.99 / 12 is $7.4991, and twelve times $7.50 is $90.00, which is more
+    // than the price on the same card. The figure is floored so it always
+    // multiplies back to at most the annual amount. $174.99 / 12 is $14.58
+    // either way, which is why that line is unchanged.
+    expect(pricing.plus.annual?.note).toBe("Just $7.49/mo, billed yearly.");
     expect(pricing.family.annual?.note).toBe(
       "Just $14.58/mo for up to 4 people, billed yearly.",
     );
