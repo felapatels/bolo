@@ -197,3 +197,42 @@ export async function sendStreakReminders(
   logger.info({ ...summary, failed: result.failed.length }, "Streak push run");
   return summary;
 }
+
+/** How often the sweep runs. Hourly, because the send window is per timezone. */
+const STREAK_PUSH_INTERVAL_MS = 60 * 60 * 1000;
+
+/**
+ * Run the streak reminder on a timer, in process.
+ *
+ * WHY IN PROCESS RATHER THAN A CRON. The endpoint exists and is the right thing
+ * for a human to curl, but NOTHING IN THIS REPO CALLS ANY CRON ENDPOINT. There
+ * is no GitHub action, no schedule in .replit, and no caller for the
+ * daily-quiz generator either. That one survives because the quiz route builds
+ * a missing quiz on demand; a notification has no equivalent fallback, so left
+ * as an endpoint alone this feature would never fire once, ever.
+ *
+ * The pattern is already here: scheduleTtsPrewarm and
+ * scheduleStripeReconcileSweep both do exactly this, and this mirrors the
+ * latter down to the unref'd timers so a shutdown is never held open.
+ *
+ * SAFE UNDER AUTOSCALE, where several instances run at once and every one of
+ * them will tick. The send is idempotent per learner per local day, so the
+ * second instance to reach a learner finds the activity_events row and skips.
+ * That is the same protection a retrying cron relies on, and it is why the
+ * idempotency was built before the schedule.
+ *
+ * THE HOURLY TICK IS WHAT MAKES THE WINDOW WORK. Each learner is sent at
+ * 5pm-to-8pm in THEIR timezone, so an hourly sweep covers every timezone on
+ * earth without the schedule knowing anything about any of them.
+ */
+export function scheduleStreakPushSweep(): void {
+  const run = (): void => {
+    void sendStreakReminders().catch((err) => {
+      logger.error({ err }, "Streak push sweep failed");
+    });
+  };
+  // Offset from boot so the first sweep is not competing with the startup
+  // pipeline's seed and backfills for the same connection pool.
+  setTimeout(run, 90 * 1000).unref?.();
+  setInterval(run, STREAK_PUSH_INTERVAL_MS).unref?.();
+}
