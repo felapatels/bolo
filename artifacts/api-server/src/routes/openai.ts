@@ -59,6 +59,8 @@ import {
   phraseAudioIdentity,
   BOLO_CHAT_TTS_INSTRUCTIONS,
   BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+  BOLO_GREETING_TTS_INSTRUCTIONS,
+  BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST,
 } from "../lib/ttsConfig";
 import {
   createChatAudioStream,
@@ -2160,11 +2162,16 @@ router.get(
 
     // Resolve synthesis identity from the single source of truth.
     // Voice is per-language (ElevenLabs) or a fixed constant (other providers).
-    // Greetings are conversational so we use BOLO_CHAT_TTS_INSTRUCTIONS rather
-    // than the phrase pronunciation instructions.
+    // Greetings are conversational, so never the phrase pronunciation
+    // instructions.
+    // Greeting-specific instructions, NOT the chat ones. Everything else about
+    // the identity is shared with chat on purpose (same provider, model and
+    // voice), because the greeting must sound like the same character. Only the
+    // accent direction differs, and only because this is the one line of chat
+    // audio that is always in English. See BOLO_GREETING_TTS_INSTRUCTIONS.
     const greetingIdentity = {
       ...phraseAudioIdentity(languageCode),
-      instructions: BOLO_CHAT_TTS_INSTRUCTIONS,
+      instructions: BOLO_GREETING_TTS_INSTRUCTIONS,
     };
 
     const cacheKey = greetingAudioCacheKey(
@@ -2172,7 +2179,7 @@ router.get(
       greetingIdentity.provider,
       greetingIdentity.model,
       greetingIdentity.voice,
-      BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+      BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST,
     );
 
     const { display: displayText, tts: ttsText, english: englishText } =

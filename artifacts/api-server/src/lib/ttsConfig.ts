@@ -64,6 +64,40 @@ Features: Uses motivational phrases, cheerful exclamations, and an energetic rhy
  * once phrase audio with these instructions has been evaluated — exaggerated emphasis
  * and pep-talk rhythm may work against pronunciation-reference use.
  */
+/**
+ * Delivery instructions for the CANNED GREETING, which is the one piece of chat
+ * audio that is always in English.
+ *
+ * WHY IT NEEDS ITS OWN. Reported from the live app 2026-08-24: the greeting
+ * reads in a different voice from the rest of chat. Measured against production
+ * before changing anything, and it is NOT a configuration divergence. The
+ * cached greeting audio and the chat reply share a provider, a model, the voice
+ * `nova` and instruction digest dce4b670 exactly, and there is already a
+ * divergence-guard test holding them equal.
+ *
+ * The difference is the TEXT. Every chat reply is in the learner's target
+ * language, and `nova` reading Hindi sounds Indian for free. The greeting is
+ * deliberately English in all 22 languages (owner ruling, Aug 18 2026), and
+ * `nova` reading English defaults to General American. "with an indian tone",
+ * buried in the middle of a paragraph about being a cheerleader, is not enough
+ * direction to hold an accent the model is not already falling into.
+ *
+ * So this says it first, plainly, and says it about English specifically. It is
+ * otherwise the chat instructions: the greeting must not sound like a different
+ * character, only like the same character speaking English.
+ */
+export const BOLO_GREETING_TTS_INSTRUCTIONS = `Accent/dialect: Indian English. This is the single most important instruction. Speak as a warm, expressive Indian English speaker, with Indian English rhythm, stress and vowel colour throughout. Do not use an American or British accent.
+
+Personality/affect: a high-energy cheerleader helping with administrative tasks
+
+Voice: Enthusiastic and bubbly, with an uplifting and motivational quality.
+
+Tone: Encouraging and playful, making even simple tasks feel exciting and fun.
+
+Pronunciation: Crisp and lively, with exaggerated emphasis on positive words to keep the energy high.
+
+Features: Uses cheerful exclamations and an energetic rhythm. The text is English, and it stays English; only the accent is Indian.`;
+
 export const BOLO_PHRASE_TTS_INSTRUCTIONS = `Personality/affect: a high-energy cheerleader helping with administrative tasks
 
 Voice: Enthusiastic, and bubbly, with an uplifting and motivational quality with an indian tone.
@@ -91,6 +125,15 @@ export const BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST = createHash("sha256")
  * Imported by ttsCache.ts and baked into the PHRASE_KEY_SCHEME so the cache
  * key namespace rotates automatically whenever the phrase instructions change.
  */
+/**
+ * Digest of the greeting instructions, carried in the greeting cache key so a
+ * change here orphans every stale entry rather than serving audio in the old
+ * accent forever. That is the whole reason the digest is in the key.
+ */
+export const BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST = createHash("sha256")
+  .update(BOLO_GREETING_TTS_INSTRUCTIONS)
+  .digest("hex");
+
 export const BOLO_PHRASE_TTS_INSTRUCTIONS_DIGEST = createHash("sha256")
   .update(BOLO_PHRASE_TTS_INSTRUCTIONS)
   .digest("hex")

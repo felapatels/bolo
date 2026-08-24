@@ -11,8 +11,14 @@
  * Version tag baked into the greeting audio cache key.
  * Bump this string whenever the greeting text changes so the stale cached
  * audio is automatically invalidated and re-synthesized.
+ *
+ * v9, 2026-08-24: the greeting moved to its own Indian-English instructions.
+ * The instruction digest in the key would have orphaned the old entries on its
+ * own, so this bump is belt and braces rather than load-bearing. Production
+ * held 45 greeting rows across v6, v7 and v8 at the time; they are dead weight
+ * now and nothing reads them.
  */
-export const GREETING_CACHE_KEY_VERSION = "v8";
+export const GREETING_CACHE_KEY_VERSION = "v9";
 
 /**
  * Provider-aware per-language cache key stored in tts_cache.
