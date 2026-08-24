@@ -484,12 +484,18 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/emergency':
+        specifier: workspace:*
+        version: link:../../lib/emergency
       '@workspace/referral-link':
         specifier: workspace:*
         version: link:../../lib/referral-link
       '@workspace/script-trace':
         specifier: workspace:*
         version: link:../../lib/script-trace
+      '@workspace/story':
+        specifier: workspace:*
+        version: link:../../lib/story
       '@workspace/train-class':
         specifier: workspace:*
         version: link:../../lib/train-class

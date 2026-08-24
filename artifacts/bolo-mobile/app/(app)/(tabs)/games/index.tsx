@@ -73,7 +73,14 @@ type GameDef = {
   icon: keyof typeof Feather.glyphMap;
 };
 
-const GAMES: GameDef[] = [
+/**
+ * EXPORTED so the hub's own test can count pills from the roster instead of
+ * from literals. That assertion had been rewritten three times, once per new
+ * game, and every rewrite was bookkeeping rather than a bug: a literal there
+ * tests that somebody remembered to edit a number, not that every tile carries
+ * a pill.
+ */
+export const GAMES: GameDef[] = [
   // Luggage Match leads: free, beginner, visually distinct — the right first
   // impression for a new learner browsing the hub.
   {
@@ -148,6 +155,17 @@ const GAMES: GameDef[] = [
     icon: 'check-square',
   },
   {
+    // PAID ONLY, same as web. Free learners still meet it where it was designed
+    // to live, sprung on them between two stops on the map; what All-Access
+    // buys is playing it deliberately and choosing how long.
+    id: 'emergency',
+    title: 'Beat the Train',
+    description: 'The train is coming through. Answer faster than the clock drains.',
+    difficulty: 'Intermediate',
+    plusOnly: true,
+    icon: 'zap',
+  },
+  {
     id: 'signal-lights',
     title: 'Signal Lights',
     description: 'Green or red? Call the phrase before the signal changes.',
@@ -218,6 +236,9 @@ const GAME_COLORS: Record<string, GameColor> = {
   // express indigo
   'express-listening': { from: '#4453B8', to: '#2A3390', deep: '#1F2670', ink: '#2A3390', glow: 'rgba(68,83,184,0.55)' },
   // signal green
+  // alarm red, the only entry in this map that is not a line colour: this game
+  // is an emergency and reads as one.
+  'emergency': { from: '#E0342C', to: '#A31E18', deep: '#7D1512', ink: '#A31E18', glow: 'rgba(224,52,44,0.55)' },
   'signal-lights': { from: '#3E8E41', to: '#256A2B', deep: '#1A4E1F', ink: '#256A2B', glow: 'rgba(62,142,65,0.55)' },
 };
 

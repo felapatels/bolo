@@ -94,7 +94,7 @@ jest.mock('@/constants/fonts', () => ({
 }));
 
 // Imported after all mocks.
-import GamesScreen from '@/app/(app)/(tabs)/games/index';
+import GamesScreen, { GAMES } from '@/app/(app)/(tabs)/games/index';
 
 const GAME_IDS = [
   'word-match',
@@ -133,15 +133,28 @@ describe('games hub - tile vignettes', () => {
     expect(screen.getByText('Wrong Platform')).toBeOnTheScreen();
     expect(screen.getByText('Luggage Match')).toBeOnTheScreen();
     expect(screen.getByText('Script Trace')).toBeOnTheScreen();
-    // Was 4/4/1. Commit 10257678 moved Signal Lights from Intermediate to
-    // Beginner to match web, which is one game crossing the line, not a new
-    // game: the nine tiles still add up.
+    // COUNTED FROM THE ROSTER, not from literals, changed 2026-08-24 when Beat
+    // the Train took Intermediate from 3 to 4.
     //
-    // Advanced went 1 -> 2 on 2026-08-23 when Script Trace was switched on.
-    // That IS a new game rather than one crossing a line, so the roster is ten
-    // tiles now and the totals are asserted against ten.
-    expect(screen.getAllByText('Beginner').length).toBe(5);
-    expect(screen.getAllByText('Intermediate').length).toBe(3);
-    expect(screen.getAllByText('Advanced').length).toBe(2);
+    // The history above is why: this assertion has been rewritten three times
+    // and every rewrite was bookkeeping rather than a bug. 4/4/1 became 5/3/1
+    // when Signal Lights crossed from Intermediate to Beginner, then Advanced
+    // went 1 -> 2 for Script Trace, then this. A literal here does not test
+    // that every tile carries a pill; it tests that somebody remembered to
+    // edit a number, and it fails on the correct behaviour every single time.
+    //
+    // What is actually worth pinning is the INVARIANT: every game on the
+    // roster renders exactly one difficulty pill, and no pill exists without a
+    // game behind it. That survives the eleventh tile.
+    const byDifficulty = (d: string) =>
+      GAMES.filter((g) => g.difficulty === d).length;
+    for (const d of ['Beginner', 'Intermediate', 'Advanced']) {
+      const expected = byDifficulty(d);
+      if (expected === 0) continue;
+      expect(screen.getAllByText(d).length).toBe(expected);
+    }
+    expect(
+      byDifficulty('Beginner') + byDifficulty('Intermediate') + byDifficulty('Advanced'),
+    ).toBe(GAMES.length);
   });
 });

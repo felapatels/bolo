@@ -58,6 +58,11 @@ import { Screen } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { LessonError } from '@/components/LessonError';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
+import {
+  hasEmergency,
+  EMERGENCY_AFTER_STOP,
+  EMERGENCY_JOURNEY,
+} from '@workspace/emergency';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useTraceStopProgress } from '@/lib/useTraceStopProgress';
@@ -479,6 +484,45 @@ function ChachaSoftStop({
 }
 
 
+/**
+ * THE EMERGENCY, fired between stop 8 and stop 9 of a zone. Twin of the web's
+ * EmergencySoftStop, and the same shape as the two watchers above it.
+ *
+ * NOTHING IS DRAWN ON THE MAP FOR IT, which is the property to protect. It adds
+ * no station to `stations`, no point to `pts`, and nothing to `rowStations`. An
+ * interruption you can see on the timetable is an appointment; and because it
+ * never touches the geometry, it cannot repeat the bug where a new row advanced
+ * `k` and slid Chacha-ji's stalls down the line.
+ *
+ * The ref is why it does not loop. Standing on stop 9 renders many times and a
+ * bare condition would fire on every one.
+ */
+function EmergencySoftStop({
+  zone,
+  blocked,
+  onFire,
+}: {
+  /** 1-based zone whose stop 9 the learner is standing on, or null. */
+  zone: number | null;
+  blocked: boolean;
+  onFire: (zone: number) => void;
+}) {
+  const fired = useRef<number | null>(null);
+  useEffect(() => {
+    if (zone === null || blocked) return;
+    // A zone with no film has no Emergency, silently.
+    if (!hasEmergency(EMERGENCY_JOURNEY, zone)) return;
+    if (fired.current === zone) return;
+    fired.current = zone;
+    onFire(zone);
+  }, [zone, blocked, onFire]);
+  useEffect(() => {
+    if (zone === null) fired.current = null;
+  }, [zone]);
+  return null;
+}
+
+
 export default function JourneyScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -795,6 +839,19 @@ export default function JourneyScreen() {
     (s) => s.status === 'unlocked' || s.status === 'in_progress',
   )?.id;
   const currentStation = allStations.find((s) => s.id === currentId) ?? null;
+
+  // WHICH ZONE'S CROSSING THE LEARNER IS STANDING ON, or null. Zone-relative,
+  // not journey-wide: each of the six zones has its own film, and a
+  // journey-wide index would put the only Emergency inside zone 1 and leave the
+  // other five unreachable.
+  const emergencyZone = (() => {
+    if (currentId == null) return null;
+    for (let zi = 0; zi < zones.length; zi++) {
+      const idx = zones[zi]!.stations.findIndex((st) => st.id === currentId);
+      if (idx === EMERGENCY_AFTER_STOP) return zi + 1;
+    }
+    return null;
+  })();
   const currentZone = currentStation ? zones[currentStation.zoneIndex]! : null;
 
   const openPaywallForLanguage = () => {
@@ -2126,6 +2183,16 @@ export default function JourneyScreen() {
       {/* Chacha-ji's stall, under the same soft-stop discipline as the signal:
           it waits for a lock, a signal or an owed closeout to clear, and opens
           once per station. */}
+      <EmergencySoftStop
+        zone={emergencyZone}
+        blocked={lock !== null || signalDlg !== null || chachaDlg !== null || closeoutPending}
+        onFire={(z) =>
+          router.push({
+            pathname: '/games/emergency',
+            params: { journey: String(EMERGENCY_JOURNEY), zone: String(z) },
+          })
+        }
+      />
       <ChachaSoftStop
         station={chachaStationIdx}
         blocked={lock !== null || signalDlg !== null || chachaDlg !== null || closeoutPending}
