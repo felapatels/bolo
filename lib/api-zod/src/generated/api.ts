@@ -1243,6 +1243,38 @@ export const CompleteDailyQuizResponse = zod.object({
 
 
 /**
+ * Returns the scene graph's vocabulary for a zone's book: each concept the book names, resolved to that language's own phrase (native script, romanized, English). The scenes, their art and their branching are NOT returned, because they are language-neutral and live in @workspace/story on the client; only the lines are per language.
+ *
+ * A concept the language does not carry is simply ABSENT from `phrases` rather than returned empty, which is what makes the client's resolveScene() return null and skip the scene.
+ *
+ * THE FREE TASTE. The journey 1 zone 1 book serves its FIRST SCENE to every plan and answers 200 with `limited: true`, never 402: that stop is never locked on the journey map, and a stop that shows no lock and then bounces you to the paywall is the bug the Script Trace taste was created to fix. Every other zone's book is All-Access and answers 402 outright.
+ * @summary The storybook for one fare zone, resolved into one language
+ */
+export const GetStoryBookQueryParams = zod.object({
+  "lang": zod.coerce.string().describe('Language code (e.g. \"gu\")'),
+  "journey": zod.coerce.number().describe('1-based journey number'),
+  "zone": zod.coerce.number().describe('1-based fare zone within the journey')
+})
+
+export const GetStoryBookResponse = zod.object({
+  "bookId": zod.string(),
+  "journey": zod.number(),
+  "zone": zod.number(),
+  "title": zod.string(),
+  "startId": zod.string().describe('The scene the book opens on.'),
+  "phrases": zod.array(zod.object({
+  "concept": zod.string(),
+  "phraseId": zod.number(),
+  "nativeScript": zod.string(),
+  "romanized": zod.string(),
+  "english": zod.string()
+}).describe('One concept resolved into one language. `concept` is the English key the scene graph names and is never shown to the learner; `english` is what the corpus row actually says, which is not always the same string (see the concept aliases in @workspace\/story).')),
+  "limited": zod.boolean().describe('True when this caller was served only the free taste. The client shows the end-of-taste beat on the first scene that resolves to null; without this flag that scene is indistinguishable from one the language\'s corpus is simply too thin to carry.'),
+  "teaserScenes": zod.number().nullable().describe('How many scenes the taste covers, or null when unlimited.')
+})
+
+
+/**
  * Saves the message to the contact_submissions table and sends a notification email to the support inbox via Resend. The DB row is always saved; if the email send fails email_sent stays false and the caller still receives { success: true }. Rate-limited to 3 submissions per 10 minutes per user/IP.
  * @summary Submit a support message via the Contact Us form
  */

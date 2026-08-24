@@ -16,6 +16,7 @@ import {
   Briefcase,
   FastForward,
   TrafficCone,
+  BookOpen,
 } from "lucide-react";
 import { useEntitlements } from "@/lib/entitlements";
 import { Mascot } from "@/components/mascot";
@@ -127,6 +128,19 @@ const GAMES: GameDef[] = [
     plusOnly: false,
     Icon: FastForward,
   },
+  // The storybook: All-Access, with the journey 1 zone 1 book's first scene
+  // open to every plan. plusOnly is FALSE on purpose — the card must not wear a
+  // lock chip over a stop that has a free taste, which is the pairing the
+  // Script Trace taste was created to fix. The server enforces the line.
+  {
+    id: "storybook",
+    href: "/games/storybook",
+    title: "Storybook",
+    description: "Read the scene and say the line that fits. Your choices become your book",
+    difficulty: "Intermediate",
+    plusOnly: false,
+    Icon: BookOpen,
+  },
   {
     id: "signal-lights",
     href: "/games/signal-lights",
@@ -156,7 +170,16 @@ const GAME_GROUPS: GameGroup[] = [
   {
     id: "vocabulary",
     title: "Vocabulary",
-    gameIds: ["luggage-match", "word-match", "ticket-check", "bolo-quiz"],
+    // Storybook sits LAST rather than first: the featured slot resolves to the
+    // first card of this shelf, and which game is featured is a product call,
+    // not a side effect of adding one.
+    gameIds: [
+      "luggage-match",
+      "word-match",
+      "ticket-check",
+      "bolo-quiz",
+      "storybook",
+    ],
   },
   {
     id: "listening",

@@ -1459,6 +1459,76 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /games/story/book:
+    get:
+      operationId: getStoryBook
+      tags: [learning]
+      summary: The storybook for one fare zone, resolved into one language
+      description: >-
+        Returns the scene graph's vocabulary for a zone's book: each concept the
+        book names, resolved to that language's own phrase (native script,
+        romanized, English). The scenes, their art and their branching are NOT
+        returned, because they are language-neutral and live in @workspace/story
+        on the client; only the lines are per language.
+
+
+        A concept the language does not carry is simply ABSENT from `phrases`
+        rather than returned empty, which is what makes the client's
+        resolveScene() return null and skip the scene.
+
+
+        THE FREE TASTE. The journey 1 zone 1 book serves its FIRST SCENE to
+        every plan and answers 200 with `limited: true`, never 402: that stop is
+        never locked on the journey map, and a stop that shows no lock and then
+        bounces you to the paywall is the bug the Script Trace taste was created
+        to fix. Every other zone's book is All-Access and answers 402 outright.
+      parameters:
+        - name: lang
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Language code (e.g. "gu")
+        - name: journey
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: 1-based journey number
+        - name: zone
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: 1-based fare zone within the journey
+      responses:
+        "200":
+          description: The book's vocabulary in this language
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoryBookResponse"
+        "400":
+          description: Missing or invalid lang, journey or zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "402":
+          description: Upgrade required (every book past zone 1 is All-Access)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+        "404":
+          description: >-
+            No storybook in that zone. Not an error: most zones have none, and
+            journey 2 has none at all.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /contact:
     post:
       operationId: submitContactForm
@@ -4530,6 +4600,70 @@ components:
         - freeLanguage
         - features
         - limits
+
+    StoryPhrase:
+      type: object
+      description: >-
+        One concept resolved into one language. `concept` is the English key the
+        scene graph names and is never shown to the learner; `english` is what
+        the corpus row actually says, which is not always the same string (see
+        the concept aliases in @workspace/story).
+      properties:
+        concept:
+          type: string
+        phraseId:
+          type: integer
+        nativeScript:
+          type: string
+        romanized:
+          type: string
+        english:
+          type: string
+      required:
+        - concept
+        - phraseId
+        - nativeScript
+        - romanized
+        - english
+
+    StoryBookResponse:
+      type: object
+      properties:
+        bookId:
+          type: string
+        journey:
+          type: integer
+        zone:
+          type: integer
+        title:
+          type: string
+        startId:
+          type: string
+          description: The scene the book opens on.
+        phrases:
+          type: array
+          items:
+            $ref: "#/components/schemas/StoryPhrase"
+        limited:
+          type: boolean
+          description: >-
+            True when this caller was served only the free taste. The client
+            shows the end-of-taste beat on the first scene that resolves to
+            null; without this flag that scene is indistinguishable from one the
+            language's corpus is simply too thin to carry.
+        teaserScenes:
+          type: integer
+          nullable: true
+          description: How many scenes the taste covers, or null when unlimited.
+      required:
+        - bookId
+        - journey
+        - zone
+        - title
+        - startId
+        - phrases
+        - limited
+        - teaserScenes
 
     CategoryAnalytics:
       type: object

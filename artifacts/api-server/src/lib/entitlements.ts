@@ -58,6 +58,11 @@ export interface PlanFeatures {
   phraseBuilder: boolean;
   // Speed Round mini-game (race against the clock). Plus-only.
   speedRound: boolean;
+  // The storybook: a scene, three lines, and the choice becomes the learner's
+  // book. All-Access, with one carve-out the server enforces itself — the first
+  // scene of the journey 1 zone 1 book is open to every plan, the same shape as
+  // the Script Trace taste. See lib/story/src/books.ts.
+  storybook: boolean;
 }
 
 // The subscription-shaped fields we persist on the user row, in the shape the
@@ -220,6 +225,7 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
       scriptTrace: true,
       phraseBuilder: true,
       speedRound: true,
+      storybook: true,
     };
   }
   if (plan === "one_language") {
@@ -237,6 +243,7 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
       scriptTrace: false,
       phraseBuilder: false,
       speedRound: false,
+      storybook: false,
     };
   }
   return {
@@ -250,6 +257,7 @@ export function featuresForPlan(plan: Plan): PlanFeatures {
     scriptTrace: false,
     phraseBuilder: false,
     speedRound: false,
+    storybook: false,
   };
 }
 

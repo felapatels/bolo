@@ -19,6 +19,7 @@ import chaiPacksRouter from "./chaiPacks";
 import outfitsRouter from "./outfits";
 import pushRouter from "./push";
 import gamesRouter, { gamesPublicRouter } from "./games";
+import storyRouter from "./story";
 import ttsAuditRouter from "./ttsAudit";
 import { requireAuth } from "../middlewares/requireAuth";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
@@ -90,6 +91,11 @@ router.use(outfitsRouter);
 router.use(pushRouter);
 router.use(learningRouter);
 router.use(gamesRouter);
+// The storybook's corpus lookup. Authed and entitlement-aware: it gates itself
+// rather than being gated here, because the journey 1 zone 1 book serves its
+// first scene to every plan (the free taste) and every other book is
+// All-Access. See routes/story.ts.
+router.use(storyRouter);
 router.use(openaiRouter);
 
 export default router;

@@ -111,7 +111,12 @@ test("the taste is three characters, and a Free caller may write them", async ()
       passed: true,
       score: 88,
     });
-    assert.equal(status, 200, `Free caller must be able to trace ${c.id}`);
+    // 201, NOT 200. The route has always answered 201 and openapi.yaml has
+    // always documented it as "the updated character progress after the
+    // attempt". This file asserted 200 because it was written and never run:
+    // the api suite needs the dev database, so it is Repl Shell or nowhere, and
+    // nobody ran it before the handoff. Caught by the first real run, chat 5.
+    assert.equal(status, 201, `Free caller must be able to trace ${c.id}`);
   }
 });
 
@@ -140,7 +145,8 @@ test("a paying caller writes anything, taste or not", async () => {
     passed: true,
     score: 88,
   });
-  assert.equal(status, 200);
+  // 201 for the same reason as above: the route's documented success status.
+  assert.equal(status, 201);
 });
 
 test("a character id alone cannot buy in: the language is checked too", async () => {

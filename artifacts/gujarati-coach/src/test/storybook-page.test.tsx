@@ -1,0 +1,302 @@
+// The storybook AS RENDERED. The engine has 45 tests and none of them render
+// anything, which is the shape of every expensive mistake in this repo: the
+// writing demo shipped visibly wrong through two store builds and a green
+// suite, because nothing drew it.
+//
+// Pins, each one a thing that would be silent if it broke:
+// (1) the scene's picture area carries the situation and nothing prints
+//     "undefined";
+// (2) the three lines show native script and its reading, and NO English
+//     before the pick, because the meaning IS the answer;
+// (3) every choice advances, including one that does not fit, and nothing is
+//     ever marked wrong;
+// (4) the end of the free taste shows the story-unfinished beat and a route to
+//     /upgrade, never a blank scene;
+// (5) a language whose corpus is short gets NO upgrade offer, because there is
+//     nothing there to sell them;
+// (6) the finished book lists what the learner said, in order.
+import { describe, test, expect, beforeEach, vi } from "vitest";
+import { render, screen, fireEvent, within } from "@testing-library/react";
+import { Router } from "wouter";
+import { memoryLocation } from "wouter/memory-location";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
+
+const h = vi.hoisted(() => ({
+  phrases: [] as Array<{
+    concept: string;
+    phraseId: number;
+    nativeScript: string;
+    romanized: string;
+    english: string;
+  }>,
+  limited: false,
+  isLoading: false,
+}));
+
+// Chrome, not the subject: BottomNav pulls in the language picker, which pulls
+// in Clerk. Mocked out in every other game-page suite for the same reason.
+vi.mock("@/components/layout/bottom-nav", () => ({ BottomNav: () => null }));
+
+vi.mock("@/lib/language-context", () => ({
+  useLanguage: () => ({
+    languages: [{ code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" }],
+    activeLang: "gu",
+    activeLanguage: { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" },
+    setActiveLang: vi.fn(),
+    isLoading: false,
+  }),
+  useNativeText: () => ({ style: {}, dir: "ltr" as const, isNastaliq: false }),
+  nativeTextProps: () => ({ style: {}, dir: "ltr" as const }),
+}));
+
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
+  useGetStoryBook: () => ({
+    data: h.isLoading
+      ? undefined
+      : {
+          bookId: "j1z1-greetings",
+          journey: 1,
+          zone: 1,
+          title: "A visit next door",
+          startId: "door-1",
+          phrases: h.phrases,
+          limited: h.limited,
+          teaserScenes: h.limited ? 1 : null,
+        },
+    isLoading: h.isLoading,
+    isError: false,
+    error: null,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+}));
+
+import Storybook from "@/pages/games/storybook";
+import { storyBookFor, bookConcepts, STORY_TEASER_END } from "@workspace/story";
+
+const BOOK = storyBookFor(1, 1)!;
+
+/** A phrase row for every concept named, the way the server would send them. */
+function serve(concepts: string[]) {
+  h.phrases = concepts.map((concept, i) => ({
+    concept,
+    phraseId: i + 1,
+    nativeScript: `native:${concept}`,
+    romanized: `roman:${concept}`,
+    english: `english:${concept}`,
+  }));
+}
+
+function renderPage() {
+  const { hook } = memoryLocation({ path: "/games/storybook", record: true });
+  // BottomNav renders XpCounter, which reads the query client directly rather
+  // than through a generated hook, so the mock above cannot stand in for it.
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    (
+      <QueryClientProvider client={client}>
+        <Router hook={hook}>{(<Storybook />) as ReactElement}</Router>
+      </QueryClientProvider>
+    ) as ReactElement,
+  );
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  h.isLoading = false;
+  h.limited = false;
+  serve(bookConcepts(BOOK));
+});
+
+describe("the scene", () => {
+  test("shows the situation and never prints undefined", () => {
+    renderPage();
+    expect(screen.getByTestId("story-scene")).toHaveTextContent(
+      BOOK.scenes[0]!.situation,
+    );
+    expect(document.body.textContent).not.toMatch(/undefined/i);
+  });
+
+  test("shows three lines, in script with their reading", () => {
+    renderPage();
+    for (const choice of BOOK.scenes[0]!.choices) {
+      const card = screen.getByTestId(`story-choice-${choice.concept}`);
+      expect(card).toHaveTextContent(`native:${choice.concept}`);
+      expect(card).toHaveTextContent(`roman:${choice.concept}`);
+    }
+  });
+
+  test("shows NO English before the pick", () => {
+    // The meaning is the answer. Printing it up front turns reading the picture
+    // into a matching exercise, which is a different and much easier game.
+    renderPage();
+    for (const choice of BOOK.scenes[0]!.choices) {
+      expect(
+        screen.getByTestId(`story-choice-${choice.concept}`),
+      ).not.toHaveTextContent(`english:${choice.concept}`);
+    }
+  });
+
+  test("reveals the meaning of the line that was picked, and only that one", () => {
+    renderPage();
+    const [first, second] = BOOK.scenes[0]!.choices;
+    fireEvent.click(screen.getByTestId(`story-choice-${first!.concept}`));
+    expect(
+      screen.getByTestId(`story-choice-${first!.concept}`),
+    ).toHaveTextContent(`english:${first!.concept}`);
+    expect(
+      screen.getByTestId(`story-choice-${second!.concept}`),
+    ).not.toHaveTextContent(`english:${second!.concept}`);
+  });
+});
+
+describe("every choice advances", () => {
+  test("a line that does not fit is never marked wrong", () => {
+    renderPage();
+    const misfit = BOOK.scenes[0]!.choices.find((c) => !c.fits)!;
+    fireEvent.click(screen.getByTestId(`story-choice-${misfit.concept}`));
+    // Not a quiz. No buzzer, no red, no "incorrect" anywhere on the page.
+    expect(document.body.textContent).not.toMatch(/incorrect|wrong|try again/i);
+    expect(screen.getByTestId("story-next")).toBeInTheDocument();
+  });
+
+  test("a misfitting line still turns the page", () => {
+    renderPage();
+    const misfit = BOOK.scenes[0]!.choices.find((c) => !c.fits)!;
+    fireEvent.click(screen.getByTestId(`story-choice-${misfit.concept}`));
+    fireEvent.click(screen.getByTestId("story-next"));
+    expect(screen.getByTestId("story-scene")).toHaveTextContent(
+      BOOK.scenes[1]!.situation,
+    );
+  });
+});
+
+describe("the free taste runs out", () => {
+  test("the second scene shows the story-unfinished beat, not a blank page", () => {
+    // Exactly what a Free caller gets: scene 1's concepts and nothing else.
+    h.limited = true;
+    serve(BOOK.scenes[0]!.choices.map((c) => c.concept));
+    renderPage();
+    fireEvent.click(
+      screen.getByTestId(`story-choice-${BOOK.scenes[0]!.choices[0]!.concept}`),
+    );
+    fireEvent.click(screen.getByTestId("story-next"));
+
+    const beat = screen.getByTestId("story-taste-end");
+    expect(beat).toHaveTextContent(STORY_TEASER_END.title);
+    expect(beat).toHaveTextContent(STORY_TEASER_END.cta);
+    expect(
+      screen.getByTestId("story-taste-upgrade").getAttribute("href"),
+    ).toBe("/upgrade");
+  });
+});
+
+describe("a language the book is not ready in", () => {
+  test("gets no upgrade offer, because there is nothing to sell", () => {
+    // Same null from the engine, a completely different cause: the corpus is
+    // short rather than the taste being spent. Selling a book that does not
+    // exist in someone's language is the worse of the two mistakes.
+    h.limited = false;
+    serve(BOOK.scenes[0]!.choices.map((c) => c.concept));
+    renderPage();
+    fireEvent.click(
+      screen.getByTestId(`story-choice-${BOOK.scenes[0]!.choices[0]!.concept}`),
+    );
+    fireEvent.click(screen.getByTestId("story-next"));
+
+    expect(screen.getByTestId("story-short")).toBeInTheDocument();
+    expect(screen.queryByTestId("story-taste-end")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/subscribe/i);
+  });
+
+  test("a scene missing even one of its three lines is skipped, not part-drawn", () => {
+    // resolveScene returns null rather than a two-option board: a stop that
+    // opens onto two of its three options reads as broken rather than short.
+    //
+    // The concept withheld is derived, not named: the greetings book reuses its
+    // eight concepts across all five scenes, so hardcoding one silently takes
+    // out scene 1 as well and the test passes for the wrong reason. This picks
+    // one that appears in a LATER scene and nowhere else.
+    const later = BOOK.scenes.slice(1).flatMap((sc) => sc.choices);
+    const only = later
+      .map((c) => c.concept)
+      .find(
+        (concept) =>
+          BOOK.scenes.filter((sc) =>
+            sc.choices.some((c) => c.concept === concept),
+          ).length === 1,
+      );
+    expect(only, "the book must have a concept unique to one later scene").toBeDefined();
+    serve(bookConcepts(BOOK).filter((c) => c !== only));
+    renderPage();
+
+    // Scene 1 still resolves, which is the half of this that proves the test
+    // is not passing by accident.
+    expect(screen.getByTestId("story-scene")).toHaveTextContent(
+      BOOK.scenes[0]!.situation,
+    );
+    const missingScene = BOOK.scenes.find((sc) =>
+      sc.choices.some((c) => c.concept === only),
+    )!;
+    let guard = 0;
+    while (screen.queryByTestId("story-scene") && guard++ < BOOK.scenes.length) {
+      const shown = screen.getByTestId("story-scene").textContent ?? "";
+      expect(shown).not.toContain(missingScene.situation);
+      const first = screen
+        .getAllByTestId(/^story-choice-/)[0]!
+        .getAttribute("data-testid")!
+        .replace("story-choice-", "");
+      fireEvent.click(screen.getByTestId(`story-choice-${first}`));
+      fireEvent.click(screen.getByTestId("story-next"));
+    }
+    // The scene it could not carry was never drawn, part-drawn or otherwise.
+    expect(screen.queryByTestId("story-scene")).toBeNull();
+  });
+});
+
+describe("the book at the end", () => {
+  /** Play the whole book, always taking the first line offered. */
+  function playThrough(): string[] {
+    const said: string[] = [];
+    for (let i = 0; i < BOOK.scenes.length; i++) {
+      const cards = screen
+        .getAllByTestId(/^story-choice-/)
+        .map((el) => el.getAttribute("data-testid")!.replace("story-choice-", ""));
+      said.push(cards[0]!);
+      fireEvent.click(screen.getByTestId(`story-choice-${cards[0]!}`));
+      fireEvent.click(screen.getByTestId("story-next"));
+    }
+    return said;
+  }
+
+  test("lists what the learner said, in order, with no score", () => {
+    renderPage();
+    const said = playThrough();
+
+    const book = screen.getByTestId("story-book");
+    expect(book).toHaveTextContent("Your book");
+    for (const concept of said) {
+      expect(book).toHaveTextContent(`native:${concept}`);
+    }
+    // A book, not a scorecard. Nothing here counts anything.
+    expect(book.textContent).not.toMatch(/\d\s*\/\s*\d/);
+    expect(book.textContent).not.toMatch(/score|correct|xp/i);
+  });
+
+  test("it is still there on the way back, and can be started again", () => {
+    const first = renderPage();
+    playThrough();
+    first.unmount();
+
+    renderPage();
+    expect(screen.getByTestId("story-book")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("story-again"));
+    expect(screen.getByTestId("story-scene")).toHaveTextContent(
+      BOOK.scenes[0]!.situation,
+    );
+  });
+});

@@ -203,6 +203,9 @@ importers:
       '@workspace/script-trace':
         specifier: workspace:*
         version: link:../../lib/script-trace
+      '@workspace/story':
+        specifier: workspace:*
+        version: link:../../lib/story
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7

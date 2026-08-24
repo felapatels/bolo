@@ -94,6 +94,7 @@ const GamesWrongPlatform = lazyRoute(() => import('@/pages/games/wrong-platform'
 const GamesLuggageMatch = lazyRoute(() => import('@/pages/games/luggage-match'));
 const GamesExpressListening = lazyRoute(() => import('@/pages/games/express-listening'));
 const GamesSignalLights = lazyRoute(() => import('@/pages/games/signal-lights'));
+const GamesStorybook = lazyRoute(() => import('@/pages/games/storybook'));
 const Bazaar = lazyRoute(() => import('@/pages/bazaar'));
 const Account = lazyRoute(() => import('@/pages/account'));
 const Contact = lazyRoute(() => import('@/pages/contact'));
@@ -508,6 +509,13 @@ function AppRouter() {
       <Route path="/games/signal-lights">
         <Guard>
           <GamesSignalLights />
+        </Guard>
+      </Route>
+      {/* The storybook reads ?journey=&zone=, defaulting to the zone that
+          carries the free taste. One route, every book. */}
+      <Route path="/games/storybook">
+        <Guard>
+          <GamesStorybook />
         </Guard>
       </Route>
       <Route path="/account">

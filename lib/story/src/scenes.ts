@@ -86,3 +86,87 @@ export const STARTER_SCENES: readonly Scene[] = [
 
 /** Where the starter book begins. */
 export const STARTER_START_ID = "table-1";
+
+/**
+ * The greetings book: journey 1 zone 1, and the one every learner meets.
+ *
+ * ITS CONCEPTS ARE THE EIGHT THAT EXIST IN ALL TWENTY-TWO LANGUAGES, measured
+ * against production 2026-08-23: good morning, good night, hello, yes, no,
+ * please, thank you, water. Not "shared by twenty or more" like the family
+ * book, but shared by every single one, because this is the book behind the
+ * FREE TASTE and a taste that resolves to null in a language is worse than no
+ * stop at all.
+ *
+ *   good morning  22    please     22
+ *   good night    22    thank you  22
+ *   hello         22    water      22
+ *   no            22    yes        22
+ *
+ * Deliberately NOT used, though they read as greetings: "how are you?" is
+ * missing in Marathi and "here" in Kashmiri. One absent concept skips a whole
+ * scene, so the taste is built only from the concepts with no gap at all.
+ *
+ * The arc is one visit from the door to the gate, so the five beats are a
+ * sequence rather than five unrelated flashcards, and each scene's distractors
+ * are lines that would be ODD at that moment rather than wrong answers.
+ */
+export const GREETINGS_SCENES: readonly Scene[] = [
+  {
+    id: "door-1",
+    situation:
+      "An older neighbour opens her door into low morning light and looks up at you, waiting.",
+    media: [{ tier: 1, ref: "scene/door-1/still", languageCode: null }],
+    choices: [
+      { concept: "good morning", next: "door-2", fits: true },
+      { concept: "good night", next: "door-2", fits: false },
+      { concept: "thank you", next: "door-2", fits: false },
+    ],
+  },
+  {
+    id: "door-2",
+    situation:
+      "She steps back and holds the door wide open with one hand, eyebrows raised at you.",
+    media: [{ tier: 1, ref: "scene/door-2/still", languageCode: null }],
+    choices: [
+      { concept: "yes", next: "door-3", fits: true },
+      { concept: "please", next: "door-3", fits: false },
+      { concept: "good night", next: "door-3", fits: false },
+    ],
+  },
+  {
+    id: "door-3",
+    situation:
+      "Inside, she lifts a heavy jug over the empty steel tumbler in front of you and pauses there.",
+    media: [{ tier: 1, ref: "scene/door-3/still", languageCode: null }],
+    choices: [
+      { concept: "water", next: "door-4", fits: true },
+      { concept: "hello", next: "door-4", fits: false },
+      { concept: "good night", next: "door-4", fits: false },
+    ],
+  },
+  {
+    id: "door-4",
+    situation:
+      "She sets the filled tumbler into both of your hands and keeps hold of it a moment longer.",
+    media: [{ tier: 1, ref: "scene/door-4/still", languageCode: null }],
+    choices: [
+      { concept: "thank you", next: "door-5", fits: true },
+      { concept: "please", next: "door-5", fits: false },
+      { concept: "no", next: "door-5", fits: false },
+    ],
+  },
+  {
+    id: "door-5",
+    situation:
+      "The lamp above her gate is lit and the street behind you is dark. She raises a hand as you go.",
+    media: [{ tier: 1, ref: "scene/door-5/still", languageCode: null }],
+    choices: [
+      { concept: "good night", next: null, fits: true },
+      { concept: "good morning", next: null, fits: false },
+      { concept: "hello", next: null, fits: false },
+    ],
+  },
+];
+
+/** Where the greetings book begins. */
+export const GREETINGS_START_ID = "door-1";

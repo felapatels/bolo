@@ -32,7 +32,15 @@ const GROUPS: Array<{ id: string; title: string; gameIds: string[] }> = [
   {
     id: "vocabulary",
     title: "Vocabulary",
-    gameIds: ["luggage-match", "word-match", "ticket-check", "bolo-quiz"],
+    // Storybook joined this shelf LAST, chat 5, so the hero (the first card of
+    // this group) is unchanged by its arrival.
+    gameIds: [
+      "luggage-match",
+      "word-match",
+      "ticket-check",
+      "bolo-quiz",
+      "storybook",
+    ],
   },
   {
     id: "listening",
@@ -81,6 +89,10 @@ const GAME_META: Record<string, { title: string; href: string; plusOnly: boolean
     href: "/games/signal-lights",
     plusOnly: false,
   },
+  // plusOnly FALSE with the server holding the line: the journey 1 zone 1 book
+  // opens its first scene to every plan, so a lock chip here would advertise a
+  // wall the learner does not hit until scene 2.
+  storybook: { title: "Storybook", href: "/games/storybook", plusOnly: false },
 };
 
 const ALL_IDS = GROUPS.flatMap((g) => g.gameIds);
@@ -159,13 +171,13 @@ describe("Games hub grouping", () => {
     }
   });
 
-  test("the catalog holds the nine non-promoted games, and hero plus grid is all ten", () => {
+  test("the catalog holds the ten non-promoted games, and hero plus grid is all eleven", () => {
     renderPage();
     const rendered = Array.from(
       catalog().querySelectorAll("[data-testid^='game-card-']"),
     ).map((el) => el.getAttribute("data-testid")!.replace("game-card-", ""));
     expect(rendered).toEqual(GRID_IDS);
-    expect(rendered).toHaveLength(9);
+    expect(rendered).toHaveLength(10);
     // Nothing was lost by promoting one card out of the grid.
     expect([...rendered, FEATURED_ID].sort()).toEqual([...ALL_IDS].sort());
   });
@@ -211,9 +223,12 @@ describe("Games hub featured slot", () => {
 });
 
 describe("Games hub gating", () => {
-  test("web splits five gated / five free", () => {
+  test("web splits five gated / six free", () => {
+    // Six free since the storybook landed: it is All-Access with a free taste,
+    // and a card that wears a lock over a playable first scene is the exact
+    // pairing the Script Trace taste was created to remove.
     expect(GATED_IDS).toHaveLength(5);
-    expect(FREE_IDS).toHaveLength(5);
+    expect(FREE_IDS).toHaveLength(6);
     expect(GATED_IDS).toEqual(
       expect.arrayContaining([
         "word-match",

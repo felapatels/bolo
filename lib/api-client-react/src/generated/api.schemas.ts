@@ -1090,6 +1090,31 @@ export interface Entitlements {
   limits: EntitlementLimits;
 }
 
+/**
+ * One concept resolved into one language. `concept` is the English key the scene graph names and is never shown to the learner; `english` is what the corpus row actually says, which is not always the same string (see the concept aliases in @workspace/story).
+ */
+export interface StoryPhrase {
+  concept: string;
+  phraseId: number;
+  nativeScript: string;
+  romanized: string;
+  english: string;
+}
+
+export interface StoryBookResponse {
+  bookId: string;
+  journey: number;
+  zone: number;
+  title: string;
+  /** The scene the book opens on. */
+  startId: string;
+  phrases: StoryPhrase[];
+  /** True when this caller was served only the free taste. The client shows the end-of-taste beat on the first scene that resolves to null; without this flag that scene is indistinguishable from one the language's corpus is simply too thin to carry. */
+  limited: boolean;
+  /** How many scenes the taste covers, or null when unlimited. */
+  teaserScenes: number | null;
+}
+
 export interface CategoryAnalytics {
   categoryId: number;
   title: string;
@@ -1734,6 +1759,21 @@ export type GetDailyQuizParams = {
  * Language code (e.g. "gu")
  */
 lang: string;
+};
+
+export type GetStoryBookParams = {
+/**
+ * Language code (e.g. "gu")
+ */
+lang: string;
+/**
+ * 1-based journey number
+ */
+journey: number;
+/**
+ * 1-based fare zone within the journey
+ */
+zone: number;
 };
 
 export type CreateFamilyInvite201 = {

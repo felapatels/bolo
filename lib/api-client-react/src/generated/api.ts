@@ -68,6 +68,7 @@ import type {
   GetProgressSummaryParams,
   GetScenarioParams,
   GetScriptTraceProgressParams,
+  GetStoryBookParams,
   HealthStatus,
   JoinFamily200,
   JoinFamilyInput,
@@ -116,6 +117,7 @@ import type {
   SpeechInput,
   SpeechResult,
   StopUnlockResult,
+  StoryBookResponse,
   StreakRepairOffer,
   StreakRepairResult,
   SubscriptionDetails,
@@ -3697,6 +3699,95 @@ export const useCompleteDailyQuiz = <TError = ErrorType<Error | UpgradeRequired>
       > => {
       return useMutation(getCompleteDailyQuizMutationOptions(options));
     }
+
+export const getGetStoryBookUrl = (params: GetStoryBookParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/games/story/book?${stringifiedParams}` : `/api/games/story/book`
+}
+
+/**
+ * Returns the scene graph's vocabulary for a zone's book: each concept the book names, resolved to that language's own phrase (native script, romanized, English). The scenes, their art and their branching are NOT returned, because they are language-neutral and live in @workspace/story on the client; only the lines are per language.
+ *
+ * A concept the language does not carry is simply ABSENT from `phrases` rather than returned empty, which is what makes the client's resolveScene() return null and skip the scene.
+ *
+ * THE FREE TASTE. The journey 1 zone 1 book serves its FIRST SCENE to every plan and answers 200 with `limited: true`, never 402: that stop is never locked on the journey map, and a stop that shows no lock and then bounces you to the paywall is the bug the Script Trace taste was created to fix. Every other zone's book is All-Access and answers 402 outright.
+ * @summary The storybook for one fare zone, resolved into one language
+ */
+export const getStoryBook = async (params: GetStoryBookParams, options?: RequestInit): Promise<StoryBookResponse> => {
+
+  return customFetch<StoryBookResponse>(getGetStoryBookUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStoryBookQueryKey = (params?: GetStoryBookParams,) => {
+    return [
+    `/api/games/story/book`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetStoryBookQueryOptions = <TData = Awaited<ReturnType<typeof getStoryBook>>, TError = ErrorType<Error | UpgradeRequired>>(params: GetStoryBookParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStoryBook>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStoryBookQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStoryBook>>> = ({ signal }) => getStoryBook(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStoryBook>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStoryBookQueryResult = NonNullable<Awaited<ReturnType<typeof getStoryBook>>>
+export type GetStoryBookQueryError = ErrorType<Error | UpgradeRequired>
+
+
+/**
+ * @summary The storybook for one fare zone, resolved into one language
+ */
+
+export function useGetStoryBook<TData = Awaited<ReturnType<typeof getStoryBook>>, TError = ErrorType<Error | UpgradeRequired>>(
+ params: GetStoryBookParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStoryBook>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStoryBookQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getSubmitContactFormUrl = () => {
 
