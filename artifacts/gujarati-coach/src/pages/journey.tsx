@@ -31,7 +31,7 @@ import {
   type LessonGroupList,
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
-import { ArrowLeft, Check, ChevronDown, Lock, PenLine, Sparkles, Star } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, ChevronDown, Lock, PenLine, Sparkles, Star } from "lucide-react";
 import { ChaiGlyph } from "@/components/chai-stall";
 import { TrainEngine } from "@/components/train-svg";
 import { useReducedMotion } from "framer-motion";
@@ -63,6 +63,12 @@ import {
   traceStopStatus,
   type TraceStop,
 } from "@workspace/script-trace";
+import {
+  isStoryTeaserBook,
+  storyBookFor,
+  storyStopIndexIn,
+  type StoryBook,
+} from "@workspace/story";
 import { useTraceStopProgress } from "@/lib/useTraceStopProgress";
 import {
   TicketPerforationV,
@@ -180,6 +186,14 @@ type Station = LessonGroupSummary & {
    * set is in scope. Present only alongside `trace`.
    */
   traceCopy?: string;
+  /**
+   * Present ONLY on the story stop, and the discriminator for it.
+   *
+   * Same arrangement as `trace` and for the same reason: a story stop is not a
+   * lesson group, so it has no row, no phrases and no id, and everything that
+   * renders or opens a station branches on this rather than on a sentinel id.
+   */
+  story?: StoryBook;
 };
 
 type LockInfo = {
@@ -566,7 +580,14 @@ function StationCard({
   // stop two rows above.
   const statusCopy = station.trace
     ? (station.traceCopy ?? "")
-    : station.status === "completed"
+    : station.story
+      ? // Says what it IS and how long, because a stop nobody can guess the
+        // shape of does not get opened. It must NOT fall through to the
+        // phrase-stop copy below: a story stop has no phrases, and that
+        // fall-through is exactly what printed "Now boarding · undefined
+        // phrases" on the live site for tracing.
+        `A picture story · ${station.story.scenes.length} scenes`
+      : station.status === "completed"
       ? "Completed"
       : station.status === "tested_out"
         ? "Tested out"
@@ -633,7 +654,9 @@ function StationCard({
         {/* Entitlement chip only where the server actually serves the stop
             plan-locked — on stops the caller can ride free (Hindi Zone 1
             carve-out) or already owns (Plus/Family), the badge is noise. */}
-        {(station.stage === "sentence" || station.trace !== undefined) &&
+        {(station.stage === "sentence" ||
+          station.trace !== undefined ||
+          station.story !== undefined) &&
           station.planLocked === true && (
           <span
             className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-secondary shrink-0"
@@ -651,6 +674,16 @@ function StationCard({
           >
             <PenLine className="w-2.5 h-2.5" />
             Trace
+          </span>
+        )}
+        {station.story && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white shrink-0"
+            style={{ background: color }}
+            title={station.story.title}
+          >
+            <BookOpen className="w-2.5 h-2.5" />
+            Story
           </span>
         )}
         {station.status === "tested_out" && (
@@ -684,6 +717,7 @@ function StationCard({
             Progression-locked stops keep their real counts. A tracing stop has
             no phrase count at all and is excluded outright. */}
         {!station.trace &&
+          !station.story &&
           !station.attemptedCount &&
           station.planLocked !== true &&
           ` · ${station.phraseCount} phrases`}
@@ -757,7 +791,9 @@ function StationCard({
   // announces cleanly in a screen reader.
   const aria = station.trace
     ? `${stopLabel}: ${station.trace.title}, ${statusCopy} (tracing stop)`
-    : `${stopLabel}: ${statusCopy}${station.stage === "sentence" ? " (sentence stop)" : ""}`;
+    : station.story
+      ? `${stopLabel}: ${station.story.title}, ${statusCopy} (story stop)`
+      : `${stopLabel}: ${statusCopy}${station.stage === "sentence" ? " (sentence stop)" : ""}`;
   const rowClass = cn(
     "flex w-full items-center gap-1 text-left group",
     side === "left" ? "justify-end" : "justify-start",
@@ -1207,6 +1243,9 @@ export default function Journey() {
     // journey 2 and lights up when this page learns to render it.
     const trace = traceStopFor(activeLang, 1, i + 1);
     const withTrace = [...stations];
+    // Where the tracing row landed, so the story row can sit directly after it.
+    // Null when this zone has no tracing stop, which storyStopIndexIn handles.
+    let traceIndex: number | null = null;
     // NOT IN SHOWROOM. A locked-language preview already carries its own free
     // taste, the three-phrase voice teaser, and a tracing stop offering a
     // second "FREE TASTE" chip beside it reads as two competing offers on a
@@ -1219,7 +1258,8 @@ export default function Journey() {
     // and advertised a zone that is not there. Caught 2026-08-23 porting this
     // to the phone, where a fixture with five empty zones grew five of them.
     if (trace && stations.length > 0 && !showroom) {
-      withTrace.splice(traceStopIndexIn(stations.length, trace.journey, trace.zone), 0, {
+      traceIndex = traceStopIndexIn(stations.length, trace.journey, trace.zone);
+      withTrace.splice(traceIndex, 0, {
         // Every LessonGroupSummary field is optional, so a trace stop supplies
         // only what a drawn station needs and is identified by `trace`.
         title: trace.title,
@@ -1243,6 +1283,46 @@ export default function Journey() {
         teaserStation: !isPlus && trace.journey === 1 && trace.zone === 1,
       });
     }
+    // THE STORY STOP, straight after the tracing one.
+    //
+    // Owner ruling 2026-08-24: zone 1 reads stop 1 the free phrase stop, stop 2
+    // the tracing taste, stop 3 the story taste, so the three free things sit
+    // together at the top of the map where they will actually be met. That is
+    // the same reasoning that pinned the tracing stop to stop 2.
+    //
+    // storyStopIndexIn owns the position, not this file. Both clients must call
+    // it or the web and the phone will disagree about which stop a learner is
+    // on, which is the rule already written on traceStopIndexIn.
+    //
+    // MOST ZONES HAVE NO BOOK and that is not a gap to fill in later: only the
+    // 44 concepts shared across 20+ languages can carry one, so a zone without
+    // an authored book simply has no story stop, exactly as a language with an
+    // unauthored script has no tracing stop.
+    const story = storyBookFor(1, i + 1);
+    if (story && stations.length > 0 && !showroom) {
+      const spliced = storyStopIndexIn(
+        withTrace.length,
+        story.journey,
+        story.zone,
+        traceIndex,
+      );
+      withTrace.splice(spliced, 0, {
+        title: story.title,
+        stage: "phrase",
+        status: "unlocked",
+        zoneId: z.id,
+        zoneIndex: i,
+        stopNumber: 0,
+        stopCount: 0,
+        story,
+        // The free taste is the FIRST SCENE of the journey 1 zone 1 book, which
+        // the server enforces by which concepts it will serve. Never
+        // progression-locked: a story teaches nothing a phrase stop gates.
+        planLocked: !isPlus && !isStoryTeaserBook(story),
+        teaserStation: !isPlus && isStoryTeaserBook(story),
+      });
+    }
+
     const rowStations: Station[] = withTrace.map((st, gi) => ({
       ...st,
       stopNumber: gi + 1,
@@ -1373,7 +1453,17 @@ export default function Journey() {
       //
       // It takes the previous station's flank, so the rail carries straight
       // down one side through it, exactly as it does through a halt.
-      if (s.trace) {
+      //
+      // THE STORY STOP IS THE SAME KIND OF ROW and joined this branch when it
+      // landed 2026-08-24. It was written without it and fell through to the
+      // ordinary station push below, which DOES advance `k`. That one line
+      // broke ten assertions across five suites at once: the directional rail
+      // pulse ran over two segments instead of one, Chacha's stall seated at
+      // the wrong y, the halt row moved, the current-stop card lost its
+      // numbers and two test-out dialogs stopped opening. Every one of those
+      // is downstream of `k`, which is precisely what the paragraph above
+      // warns about.
+      if (s.trace || s.story) {
         if (!collapsed) {
           pts.push({
             x: stationX(Math.max(k - 1, 0)),
@@ -1506,7 +1596,13 @@ export default function Journey() {
   //
   // The rule for the whole file: `pts` is what the map DRAWS, `stationPts` is
   // what it COUNTS.
-  const stationPts = pts.filter((p) => p.kind === "station" && !p.station!.trace);
+  // `pts` is what the map DRAWS, `stationPts` is what it COUNTS. Neither the
+  // tracing nor the story row is a phrase stop, so both are excluded here or
+  // every stationPts[n-1] lookup shifts by however many non-phrase rows came
+  // before it.
+  const stationPts = pts.filter(
+    (p) => p.kind === "station" && !p.station!.trace && !p.station!.story,
+  );
   const visibleCountForZone = (zoneId: number) =>
     categories?.find((c) => c.id === zoneId)?.phraseCount ?? 0;
   // 0-based index of the boardable stop; the gap right behind it is gap-N
@@ -1675,7 +1771,11 @@ export default function Journey() {
         !p.collapsed &&
         // GRADED rows only, same rule as Chacha-ji's stall: a tracing stop is
         // a row to the layout but not a station to the trackside furniture.
-        !p.station!.trace,
+        // The STORY stop is the same kind of row and joined this rule when it
+        // landed 2026-08-24; leaving it out moved the signpost onto rows the
+        // scenery plan had already taken.
+        !p.station!.trace &&
+        !p.station!.story,
     );
     const spot = planZoneSignpost(zi, zonePts.length, stallRowsByZone.get(zi));
     if (!spot) return [];
@@ -1892,8 +1992,12 @@ export default function Journey() {
                       !p.collapsed &&
                       // Scenery is budgeted and placed by GRADED rows. Counting
                       // the tracing stop changed both how many pieces a zone
-                      // got and which rows they landed on.
-                      !p.station!.trace,
+                      // got and which rows they landed on, and the STORY stop
+                      // is the same kind of row. Counting it dropped a zone's
+                      // scenery outright, because the stall-row set is built
+                      // from graded indices and the two stopped agreeing.
+                      !p.station!.trace &&
+                      !p.station!.story,
                   );
                   const zoneAccessible = zone.stations.some(
                     (st) => isStatusAccessible(st.status) || st.teaserStation,
@@ -2205,7 +2309,7 @@ export default function Journey() {
                       <StationCard
                         station={s}
                         color={zoneColor}
-                        isCurrent={!s.trace && s.id === currentId}
+                        isCurrent={!s.trace && !s.story && s.id === currentId}
                         // A tracing stop is never PROGRESSION-locked: it
                         // teaches the alphabet, which no phrase stop gates. It
                         // can still be PLAN-locked, which is a different thing
@@ -2226,7 +2330,9 @@ export default function Journey() {
                           // only thing that cannot drift.
                           s.trace
                             ? `/games/script-trace?journey=${s.trace.journey}&zone=${s.trace.zone}`
-                            : `/practice/${zone.id}?group=${s.id}`
+                            : s.story
+                              ? `/games/storybook?journey=${s.story.journey}&zone=${s.story.zone}`
+                              : `/practice/${zone.id}?group=${s.id}`
                         }
                         onLocked={() =>
                           setLock({

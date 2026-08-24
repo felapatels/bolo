@@ -121,6 +121,13 @@ export function PhraseReportButton({
               placeholderTextColor={colors.mutedForeground}
               accessibilityLabel="Optional note"
               multiline
+              // Same guard as the web twin, and for the same measured reason:
+              // 39 of the first 42 phrase_reports rows carried the reporter's
+              // email instead of their explanation. autoComplete covers
+              // Android, textContentType covers iOS. autoCorrect is left ON
+              // deliberately, since this is prose and spelling help is wanted.
+              autoComplete="off"
+              textContentType="none"
               style={[
                 styles.noteInput,
                 { borderColor: colors.border, color: colors.foreground },

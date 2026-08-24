@@ -93,6 +93,18 @@ export function PhraseReportButton({
           maxLength={280}
           placeholder="Optional note"
           aria-label="Optional note"
+          // Browsers autofill a stored email into a lone free-text box. It is
+          // not hypothetical here: 39 of the first 42 rows in phrase_reports
+          // arrived with the reporter's email address sitting where the
+          // explanation should be, so every "why" was lost while the reason
+          // and phrase id survived.
+          // "new-note" rather than "off" on purpose. Chrome and Safari both
+          // IGNORE autocomplete="off" when their own heuristic is confident,
+          // and the heuristic reads the field's name and its neighbours. An
+          // UNRECOGNISED token is treated as off and defeats the heuristic
+          // more reliably. The name is deliberately not contact-shaped.
+          autoComplete="new-note"
+          name="phrase-report-note"
           className="mt-2 h-16 text-sm resize-none"
         />
       </PopoverContent>

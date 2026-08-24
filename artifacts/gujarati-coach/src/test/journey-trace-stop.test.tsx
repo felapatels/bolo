@@ -151,8 +151,12 @@ describe("the tracing stop as the journey map draws it", () => {
     // one phrase stop before the paywall, so a tracing stop halfway down zone 1
     // sits behind stops they cannot open. Every LATER zone is still the middle,
     // which the next assertion holds.
-    expect(card).toHaveTextContent("Stop 2 of 10");
-    expect(traceCard(2)).toHaveTextContent("Stop 5 of 10");
+    // "of 11", not "of 10", since 2026-08-24: the STORY stop joined the map
+    // and sits directly after this one, so every zone carrying a book is one
+    // row longer. The tracing stop's own POSITION is unchanged, which is the
+    // half that matters here and is why only the total moved.
+    expect(card).toHaveTextContent("Stop 2 of 11");
+    expect(traceCard(2)).toHaveTextContent("Stop 5 of 11");
     expect(card).toHaveTextContent(`Trace ${stop.characters.length} letters`);
     // And it says which kind of stop it is, which the number alone does not.
     expect(within(card).getByText("Trace")).toBeInTheDocument();
@@ -191,7 +195,8 @@ describe("the tracing stop as the journey map draws it", () => {
 
     // Zone 1 is open, and says it is a taste rather than looking like a bug.
     const card = traceCard(1);
-    expect(card).toHaveTextContent("Stop 2 of 10");
+    // "of 11" for the same reason as above: the story stop is a row too.
+    expect(card).toHaveTextContent("Stop 2 of 11");
     expect(within(card).getByText("Free taste")).toBeInTheDocument();
 
     // Every later zone is All-Access, and is a button (the lock dialog), not a
