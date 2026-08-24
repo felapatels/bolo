@@ -13,3 +13,4 @@ export * from "./engine";
 export * from "./scenes";
 export * from "./concepts";
 export * from "./books";
+export * from "./coverage";

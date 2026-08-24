@@ -16,7 +16,14 @@
 // that does not fit is a different thing to have said rather than a wrong
 // answer, and the ledger records what was said.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Link, useSearch } from "wouter";
 import { ArrowLeft, BookOpen, Check, Lock, RotateCcw, Volume2 } from "lucide-react";
 import {
@@ -437,6 +444,8 @@ function TheBook({
 
 export default function StorybookPage() {
   const { activeLang, activeLanguage } = useLanguage();
+  const native = useNativeText();
+  const reduceMotion = useReducedMotion();
   const { journey, zone } = useZoneParams();
   const { soundOn, toggle: toggleSound } = useGameAudio();
 
@@ -679,25 +688,97 @@ export default function StorybookPage() {
                 selection". It did adjust, in the ledger, where nobody could
                 see it. The joke lives entirely in the image so it lands in all
                 22 languages without a word being translated. */}
+            {/* EVERY BEAT IS A PAGE TURNING. The scene lives on the page, so
+                advancing swings the next one in on a left-hand hinge rather
+                than cutting to it. Keyed on the still id, so it fires for BOTH
+                transitions that happen here: setup to consequence when you tap
+                a line, and consequence to the next setup when you press Next.
+
+                ENTER-ONLY, deliberately. An exit animation would need
+                AnimatePresence, which keeps a child mounted until that exit
+                completes, and framer-motion never completes one under jsdom.
+                The page arriving reads as a turn on its own; the page leaving
+                would have cost every test that renders this screen. */}
             {(() => {
               const chosen =
                 picked === null
                   ? null
                   : resolved.choices.find((c) => c.concept === picked) ?? null;
               const outcome = chosen?.outcome ?? null;
+              const said = picked === null ? null : phrasesByConcept.get(picked);
+              const turnKey = outcome
+                ? outcomeStillId(resolved.scene.id, picked!)
+                : setupStillId(resolved.scene.id);
+              const page = (children: ReactNode) => (
+                <div style={{ perspective: 1400 }}>
+                  <motion.div
+                    key={turnKey}
+                    style={{ transformOrigin: "left center" }}
+                    initial={
+                      reduceMotion
+                        ? { opacity: 0 }
+                        : { rotateY: -95, opacity: 0.4 }
+                    }
+                    animate={{ rotateY: 0, opacity: 1 }}
+                    transition={
+                      reduceMotion
+                        ? { duration: 0.15 }
+                        : { duration: 0.45, ease: [0.4, 0, 0.2, 1] }
+                    }
+                  >
+                    {children}
+                  </motion.div>
+                </div>
+              );
               return outcome ? (
-                <SceneFrame
-                  key={`outcome-${resolved.scene.id}-${picked}`}
-                  testId="story-outcome"
-                  stillId={outcomeStillId(resolved.scene.id, picked!)}
-                  situation={outcome.situation}
-                />
+                <>
+                  {page(
+                    <SceneFrame
+                      testId="story-outcome"
+                      stillId={outcomeStillId(resolved.scene.id, picked!)}
+                      situation={outcome.situation}
+                    />,
+                  )}
+                  {/* WHAT YOU SAID, under the picture rather than only on the
+                      card below it. The consequence is only funny once you can
+                      read the line that caused it, and by this point the eye is
+                      on the image, not on the three cards.
+
+                      Script, reading, and meaning together: the script is what
+                      they are learning to recognise, the reading is how to say
+                      it, and the English is what makes the picture land. Any
+                      one of the three alone leaves a gap. */}
+                  {said && (
+                    <p
+                      data-testid="story-said"
+                      className="text-center text-sm text-muted-foreground"
+                    >
+                      You said{" "}
+                      <span
+                        style={native.style}
+                        dir={native.dir}
+                        className="font-semibold text-foreground"
+                      >
+                        {said.nativeScript}
+                      </span>
+                      {said.romanized.trim() !== "" && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          ({said.romanized})
+                        </span>
+                      )}
+                      {" · "}
+                      <span className="italic">&ldquo;{said.english}&rdquo;</span>
+                    </p>
+                  )}
+                </>
               ) : (
-                <SceneFrame
-                  key={`setup-${resolved.scene.id}`}
-                  stillId={setupStillId(resolved.scene.id)}
-                  situation={resolved.scene.situation}
-                />
+                page(
+                  <SceneFrame
+                    stillId={setupStillId(resolved.scene.id)}
+                    situation={resolved.scene.situation}
+                  />,
+                )
               );
             })()}
 
