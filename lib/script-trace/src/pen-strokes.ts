@@ -69,6 +69,88 @@ export function dropStrayStrokes(strokes: readonly StrokePoint[][]): StrokePoint
 }
 
 /**
+ * How many points to draw between each pair of recorded ones.
+ *
+ * The contribution page samples a pen at a modest rate, so Bharti's letters
+ * arrive as 14 to 27 points per stroke. Both clients draw the demo trail with
+ * straight segments between whatever points they are handed, so replaying those
+ * raw captures literally shows the polyline: visible corners on curves a hand
+ * drew smoothly. Eight samples a segment is past the point where the corners
+ * are visible at canvas size and still cheap to compute once per character.
+ */
+const SAMPLES_PER_SEGMENT = 8;
+
+/** Centripetal. Uniform Catmull-Rom overshoots on sharp turns and cusps on
+ *  doubled-back ones, both of which a handwritten letter is full of. */
+const CENTRIPETAL = 0.5;
+
+function knot(t: number, a: StrokePoint, b: StrokePoint): number {
+  const d = Math.hypot(b.x - a.x, b.y - a.y);
+  // A repeated point would collapse the parameterisation and divide by zero.
+  return t + Math.max(Math.pow(d, CENTRIPETAL), 1e-6);
+}
+
+function mix(
+  a: StrokePoint,
+  b: StrokePoint,
+  wa: number,
+  wb: number,
+): StrokePoint {
+  return { x: a.x * wa + b.x * wb, y: a.y * wa + b.y * wb };
+}
+
+/**
+ * A smooth curve THROUGH every recorded point.
+ *
+ * Reported 2026-08-23: the demo was replaying the raw recording, and it needed
+ * to use the recorded points only as a guide to where the pen goes and draw
+ * smoothly between them. That is exactly what a centripetal Catmull-Rom spline
+ * does: it passes through every captured point, so nothing the contributor
+ * actually wrote is moved, and only the travel between them is invented.
+ *
+ * NOT CHAIKIN, which is what the skeleton path uses (and what this demo used to
+ * get for free before it switched to real handwriting, which is how the corners
+ * appeared). Chaikin cuts corners, so it approximates rather than interpolates
+ * and pulls the curve inside the shape the person drew. That is right for a
+ * skeleton, which is a machine's guess at a centreline and dense enough to
+ * absorb it. It is wrong for a hand: those points are where the pen WAS.
+ */
+export function smoothPenPath(
+  points: readonly StrokePoint[],
+  perSegment = SAMPLES_PER_SEGMENT,
+): StrokePoint[] {
+  if (points.length < 3) return points.map((p) => ({ x: p.x, y: p.y }));
+  // The ends are duplicated so the first and last real segments have the
+  // neighbour the spline needs, which keeps the curve starting and finishing
+  // exactly where the pen did. The start point is also the demo's green dot.
+  const pts = [points[0]!, ...points, points[points.length - 1]!];
+  const out: StrokePoint[] = [];
+
+  for (let i = 1; i + 2 < pts.length; i++) {
+    const p0 = pts[i - 1]!;
+    const p1 = pts[i]!;
+    const p2 = pts[i + 1]!;
+    const p3 = pts[i + 2]!;
+    const t0 = 0;
+    const t1 = knot(t0, p0, p1);
+    const t2 = knot(t1, p1, p2);
+    const t3 = knot(t2, p2, p3);
+
+    for (let s = 0; s < perSegment; s++) {
+      const t = t1 + ((t2 - t1) * s) / perSegment;
+      const a1 = mix(p0, p1, (t1 - t) / (t1 - t0), (t - t0) / (t1 - t0));
+      const a2 = mix(p1, p2, (t2 - t) / (t2 - t1), (t - t1) / (t2 - t1));
+      const a3 = mix(p2, p3, (t3 - t) / (t3 - t2), (t - t2) / (t3 - t2));
+      const b1 = mix(a1, a2, (t2 - t) / (t2 - t0), (t - t0) / (t2 - t0));
+      const b2 = mix(a2, a3, (t3 - t) / (t3 - t1), (t - t1) / (t3 - t1));
+      out.push(mix(b1, b2, (t2 - t) / (t2 - t1), (t - t1) / (t2 - t1)));
+    }
+  }
+  out.push({ x: points[points.length - 1]!.x, y: points[points.length - 1]!.y });
+  return out;
+}
+
+/**
  * The hand-traced pen path for one character, or null when nobody has written
  * it yet.
  *
@@ -87,7 +169,9 @@ export function handPenStrokes(
   // skeleton.
   if (!glyph || glyph.provisional) return null;
   if (!glyph.strokes.length) return null;
-  const cleaned = dropStrayStrokes(glyph.strokes);
+  // Smoothed, not replayed. The captured points say where the pen went; the
+  // spline says how it travelled between them.
+  const cleaned = dropStrayStrokes(glyph.strokes).map((s) => smoothPenPath(s));
   return cleaned.length ? cleaned : null;
 }
 

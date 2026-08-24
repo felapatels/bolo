@@ -112,3 +112,6 @@ play-*.json
 # Campaign zips are rebuildable from campaign-duo/ by gen-duo-campaign.mjs.
 # The PNGs are committed (same as covers/); the 13MB archive of them is not.
 artifacts/bolo-social-clips/*.zip
+
+# Preflight sheets from scripts/src/previewWritingDemo.ts. Look at them, do not commit them.
+writing-demo-*.html

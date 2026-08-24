@@ -8,7 +8,8 @@
     "check-trace-sync": "tsx src/checkScriptTraceSync.ts",
     "noise-baseline": "tsx src/noiseBaseline.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build-aksharmala": "tsx src/buildAksharmala.ts"
+    "build-aksharmala": "tsx src/buildAksharmala.ts",
+    "preview-writing-demo": "tsx src/previewWritingDemo.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",
