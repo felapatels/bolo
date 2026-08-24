@@ -350,29 +350,25 @@ export default function ChatScreen() {
     greetingRef.current = null; // invalidate cached greeting for old language
   }, [chatLang, clearWordReveal]);
 
-  // Pre-fetch the first-turn greeting audio for the current chat language.
-  React.useEffect(() => {
-    let cancelled = false;
-    const fetchGreeting = async () => {
-      try {
-        const baseUrl = getConfiguredBaseUrl() ?? '';
-        const token = await getConfiguredAuthToken();
-        const url = `${baseUrl}/api/openai/chat-greeting?languageCode=${encodeURIComponent(chatLang)}`;
-        const res = await fetch(url, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (!res.ok || cancelled) return;
-        const data = (await res.json()) as GreetingData;
-        if (!cancelled && data.audioBase64) {
-          greetingRef.current = data;
-        }
-      } catch {
-        // Non-fatal: first turn falls back to normal flow
-      }
-    };
-    void fetchGreeting();
-    return () => { cancelled = true; };
-  }, [chatLang]);
+  // THE CANNED GREETING IS RETIRED, 2026-08-24. Web dropped it in the same
+  // change; these two files are hand-maintained twins and leaving one of them
+  // still speaking it is the drift this codebase keeps paying for.
+  //
+  // It existed to fill the 2-3 second STT -> LLM -> TTS wait on the first turn.
+  // It never sounded like Bolo: the greeting is English in all 22 languages by
+  // design, every chat REPLY is in the target language, and the same voice
+  // reading English defaults to General American. Measured against production
+  // first, and it was NOT a misconfiguration: greeting and reply shared
+  // provider, model, voice and instruction digest exactly. An explicit
+  // Indian-English instruction was tried, shipped and listened to, and it was
+  // still wrong. Fighting a TTS model for an accent is a bad trade for three
+  // seconds of silence, so the wait is acknowledged in text instead.
+  //
+  // ONLY THE PREFETCH IS REMOVED. greetingRef stays null forever, so every
+  // greeting branch below is unreachable. That dead path and the
+  // /openai/chat-greeting route come out separately and deliberately later:
+  // iOS build 420 is in App Store review and calls that route, so deleting it
+  // would break the app about to be approved.
 
   // ── Mic warm-up ────────────────────────────────────────────────────────────
   const prepareRecorder = React.useCallback((): Promise<boolean> => {
@@ -1881,6 +1877,22 @@ export default function ChatScreen() {
           {getStatusLabel(phase, processingStep, messages.length > 0)}
         </Animated.Text>
 
+        {/* Replaces the canned greeting audio, retired 2026-08-24.
+            SHOWN DURING THE WAIT, not before it. Web first put this in the
+            intro bubble, which is gated on an empty transcript and therefore
+            vanished the moment the learner spoke — which is exactly when the
+            wait starts. Gated on "Bolo has never replied" rather than on
+            message count, because a pending learner bubble is pushed the
+            moment recording stops, so the count is already 1 by then. */}
+        {phase === 'processing' && !messages.some((m) => m.role === 'parrot') && (
+          <Animated.Text
+            entering={appear(appearDown(0, 250))}
+            style={[styles.firstAnswerNote, { color: colors.mutedForeground }]}
+          >
+            My first answer takes a few seconds. After that I speak straight away.
+          </Animated.Text>
+        )}
+
         {/* Instructional hint — always visible until the first exchange so
             learners can't miss it, regardless of their AsyncStorage state. */}
         {messages.length === 0 && (
@@ -1953,6 +1965,11 @@ export default function ChatScreen() {
                 same words. */}
             {'Hi! I\'m Bolo. Hold my belly to chat in English or ' +
               (chatLanguage?.name ?? chatLang) + '. Ask me or tell me anything!'}
+          </Text>
+          {/* Sets the expectation before the first turn; the line under the
+              status reinforces it during. Web says the same words. */}
+          <Text style={[styles.firstAnswerNote, { color: colors.mutedForeground, marginTop: 6, textAlign: 'left' }]}>
+            My first answer takes a few seconds. After that I speak straight away.
           </Text>
         </Animated.View>
       )}
@@ -2354,6 +2371,17 @@ const styles = StyleSheet.create({
   statusLabel: {
     fontFamily: AppFonts.semibold,
     fontSize: 14,
+  },
+  // Smaller and lighter than statusLabel: it explains the status rather than
+  // being one, and must not compete with it. Width-capped so it wraps to two
+  // lines under the mascot instead of running to the screen edges.
+  firstAnswerNote: {
+    fontFamily: AppFonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 4,
+    maxWidth: 260,
+    textAlign: 'center',
   },
   transcript: {
     flex: 1,

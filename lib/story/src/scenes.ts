@@ -117,9 +117,33 @@ export const GREETINGS_SCENES: readonly Scene[] = [
       "An older neighbour opens her door into low morning light and looks up at you, waiting.",
     media: [{ tier: 1, ref: "scene/door-1/still", languageCode: null }],
     choices: [
-      { concept: "good morning", next: "door-2", fits: true },
-      { concept: "good night", next: "door-2", fits: false },
-      { concept: "thank you", next: "door-2", fits: false },
+      {
+        concept: "good morning",
+        next: "door-2",
+        fits: true,
+        outcome: {
+          situation:
+            "Delighted, she pushes the door wide and waves you in with both hands.",
+        },
+      },
+      {
+        concept: "good night",
+        next: "door-2",
+        fits: false,
+        outcome: {
+          situation:
+            "She glances up at the bright morning sun, then back at you, then closes her eyes and pretends to sleep standing in the doorway, one eye open to check whether you noticed.",
+        },
+      },
+      {
+        concept: "thank you",
+        next: "door-2",
+        fits: false,
+        outcome: {
+          situation:
+            "She looks down at her own empty hands, puzzled about what she has already given you, then peers behind the door in case she left it there.",
+        },
+      },
     ],
   },
   {
@@ -128,9 +152,33 @@ export const GREETINGS_SCENES: readonly Scene[] = [
       "She steps back and holds the door wide open with one hand, eyebrows raised at you.",
     media: [{ tier: 1, ref: "scene/door-2/still", languageCode: null }],
     choices: [
-      { concept: "yes", next: "door-3", fits: true },
-      { concept: "please", next: "door-3", fits: false },
-      { concept: "good night", next: "door-3", fits: false },
+      {
+        concept: "yes",
+        next: "door-3",
+        fits: true,
+        outcome: {
+          situation:
+            "She sweeps one arm towards the hallway like a grand hotel doorman, grinning at her own joke.",
+        },
+      },
+      {
+        concept: "please",
+        next: "door-3",
+        fits: false,
+        outcome: {
+          situation:
+            "Still holding the door, she waits politely for the rest of your sentence. A pigeon lands on the step and waits too. Neither of them blinks.",
+        },
+      },
+      {
+        concept: "good night",
+        next: "door-3",
+        fits: false,
+        outcome: {
+          situation:
+            "She turns to the clock on the wall behind her, which plainly shows half past nine in the morning, and raises a single eyebrow at it.",
+        },
+      },
     ],
   },
   {
@@ -139,9 +187,33 @@ export const GREETINGS_SCENES: readonly Scene[] = [
       "Inside, she lifts a heavy jug over the empty steel tumbler in front of you and pauses there.",
     media: [{ tier: 1, ref: "scene/door-3/still", languageCode: null }],
     choices: [
-      { concept: "water", next: "door-4", fits: true },
-      { concept: "hello", next: "door-4", fits: false },
-      { concept: "good night", next: "door-4", fits: false },
+      {
+        concept: "water",
+        next: "door-4",
+        fits: true,
+        outcome: {
+          situation:
+            "She pours. The tumbler fills and the stream catches the window light.",
+        },
+      },
+      {
+        concept: "hello",
+        next: "door-4",
+        fits: false,
+        outcome: {
+          situation:
+            "She sets the jug down and shakes your hand with great formality across the still completely empty glass.",
+        },
+      },
+      {
+        concept: "good night",
+        next: "door-4",
+        fits: false,
+        outcome: {
+          situation:
+            "She puts the jug down, fetches a folded blanket and a pillow, and arranges them neatly beside the empty tumbler.",
+        },
+      },
     ],
   },
   {
@@ -150,9 +222,33 @@ export const GREETINGS_SCENES: readonly Scene[] = [
       "She sets the filled tumbler into both of your hands and keeps hold of it a moment longer.",
     media: [{ tier: 1, ref: "scene/door-4/still", languageCode: null }],
     choices: [
-      { concept: "thank you", next: "door-5", fits: true },
-      { concept: "please", next: "door-5", fits: false },
-      { concept: "no", next: "door-5", fits: false },
+      {
+        concept: "thank you",
+        next: "door-5",
+        fits: true,
+        outcome: {
+          situation:
+            "She pats your hands where they wrap the tumbler, thoroughly pleased with everyone involved.",
+        },
+      },
+      {
+        concept: "please",
+        next: "door-5",
+        fits: false,
+        outcome: {
+          situation:
+            "She takes the tumbler back and offers it to you again, much more slowly this time, in case you missed it.",
+        },
+      },
+      {
+        concept: "no",
+        next: "door-5",
+        fits: false,
+        outcome: {
+          situation:
+            "Stricken, she begins tipping the water back into the jug one careful drop at a time, glancing up to see if you will stop her.",
+        },
+      },
     ],
   },
   {
@@ -161,9 +257,33 @@ export const GREETINGS_SCENES: readonly Scene[] = [
       "The lamp above her gate is lit and the street behind you is dark. She raises a hand as you go.",
     media: [{ tier: 1, ref: "scene/door-5/still", languageCode: null }],
     choices: [
-      { concept: "good night", next: null, fits: true },
-      { concept: "good morning", next: null, fits: false },
-      { concept: "hello", next: null, fits: false },
+      {
+        concept: "good night",
+        next: null,
+        fits: true,
+        outcome: {
+          situation:
+            "She waves under the gate lamp as you step into the soft dark street.",
+        },
+      },
+      {
+        concept: "good morning",
+        next: null,
+        fits: false,
+        outcome: {
+          situation:
+            "She looks up at the black sky full of stars, then at her wristwatch, then back at you, delighted and completely baffled.",
+        },
+      },
+      {
+        concept: "hello",
+        next: null,
+        fits: false,
+        outcome: {
+          situation:
+            "She lowers her hand, opens the door again and stands aside, entirely willing to do the whole visit a second time.",
+        },
+      },
     ],
   },
 ];

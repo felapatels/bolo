@@ -9,7 +9,8 @@
     "noise-baseline": "tsx src/noiseBaseline.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build-aksharmala": "tsx src/buildAksharmala.ts",
-    "preview-writing-demo": "tsx src/previewWritingDemo.ts"
+    "preview-writing-demo": "tsx src/previewWritingDemo.ts",
+    "generate-story-stills": "tsx src/generateStoryStills.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",
@@ -20,6 +21,8 @@
   },
   "dependencies": {
     "@workspace/script-trace": "workspace:*",
+    "@workspace/story": "workspace:*",
+    "@workspace/integrations-openai-ai-server": "workspace:*",
     "@replit/connectors-sdk": "^0.4.1",
     "@workspace/db": "workspace:*"
   }

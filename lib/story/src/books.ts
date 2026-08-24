@@ -236,3 +236,35 @@ export const STORY_TEASER_END = {
   body: "You have read the first page. All-Access opens the rest of this book, and every book on the map.",
   cta: "Subscribe to continue",
 } as const;
+
+
+/**
+ * The asset id for a scene's setup still.
+ *
+ * ONE DEFINITION, used by the generator that writes the file and by both
+ * clients that read it. A second copy of this rule is how the phone ends up
+ * requesting an image the web app named differently.
+ */
+export function setupStillId(sceneId: string): string {
+  return sceneId;
+}
+
+/**
+ * The asset id for the still shown after a particular line is chosen.
+ *
+ * Keyed on the scene AND the concept, because the same concept appears in
+ * several scenes of a book and its consequence differs in each: saying "water"
+ * to a raised jug is a different picture from saying it to a closed door.
+ *
+ * The concept is slugged rather than used raw: concepts are display text and
+ * include spaces and question marks ("good morning", "how are you?"), none of
+ * which belong in a filename.
+ */
+export function outcomeStillId(sceneId: string, concept: string): string {
+  const slug = concept
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `${sceneId}--${slug}`;
+}

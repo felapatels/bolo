@@ -1114,9 +1114,15 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../lib/db
+      '@workspace/integrations-openai-ai-server':
+        specifier: workspace:*
+        version: link:../lib/integrations-openai-ai-server
       '@workspace/script-trace':
         specifier: workspace:*
         version: link:../lib/script-trace
+      '@workspace/story':
+        specifier: workspace:*
+        version: link:../lib/story
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

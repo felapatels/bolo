@@ -27,7 +27,9 @@ import {
 } from "@workspace/api-client-react";
 import {
   chooseScene,
+  outcomeStillId,
   resolveScene,
+  setupStillId,
   storyBookFor,
   STORY_TEASER_END,
   type LedgerEntry,
@@ -82,15 +84,47 @@ function useZoneParams(): { journey: number; zone: number } {
  * Tier 1 stills land under public/story/ this becomes an <img> keyed on it and
  * nothing else on the page changes.
  */
-function SceneFrame({ situation }: { situation: string }) {
+function SceneFrame({
+  stillId,
+  situation,
+  testId = "story-scene",
+}: {
+  stillId: string;
+  situation: string;
+  testId?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  // THE BRIEF IS THE FALLBACK, NOT THE DESIGN. The situation sentence is
+  // already the illustrator's brief and the alt text, so an image that has not
+  // been generated yet, or fails to load, degrades to the same information in
+  // the only other form it exists in. It is not a placeholder anybody should
+  // see for long: without the picture there is no scene, and the game is
+  // "read the picture, say the line that fits".
+  if (failed) {
+    return (
+      <div
+        data-testid={testId}
+        className="relative flex min-h-[180px] w-full items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-amber-300 bg-amber-50 px-6 py-8 text-center dark:border-amber-700 dark:bg-amber-950/30"
+      >
+        <p className="text-base font-semibold leading-relaxed text-foreground">
+          {situation}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div
-      data-testid="story-scene"
-      className="relative flex min-h-[180px] w-full items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-amber-300 bg-amber-50 px-6 py-8 text-center dark:border-amber-700 dark:bg-amber-950/30"
+      data-testid={testId}
+      className="relative w-full overflow-hidden rounded-3xl border border-border bg-muted"
     >
-      <p className="text-base font-semibold leading-relaxed text-foreground">
-        {situation}
-      </p>
+      <img
+        src={`${import.meta.env.BASE_URL}story/${stillId}.webp`}
+        alt={situation}
+        onError={() => setFailed(true)}
+        className="aspect-[3/2] w-full object-cover"
+      />
     </div>
   );
 }
@@ -535,7 +569,36 @@ export default function StorybookPage() {
               ))}
             </div>
 
-            <SceneFrame situation={resolved.scene.situation} />
+            {/* THE PICTURE IS THE CONSEQUENCE. Before the tap it shows the
+                moment; after it, it shows WHAT HAPPENED BECAUSE YOU SAID THAT.
+                The graph still converges, so the story rejoins on the next
+                beat, but the choice is now visible, which it was not.
+
+                Reported 2026-08-24: "it doesn't really adjust based on my
+                selection". It did adjust, in the ledger, where nobody could
+                see it. The joke lives entirely in the image so it lands in all
+                22 languages without a word being translated. */}
+            {(() => {
+              const chosen =
+                picked === null
+                  ? null
+                  : resolved.choices.find((c) => c.concept === picked) ?? null;
+              const outcome = chosen?.outcome ?? null;
+              return outcome ? (
+                <SceneFrame
+                  key={`outcome-${resolved.scene.id}-${picked}`}
+                  testId="story-outcome"
+                  stillId={outcomeStillId(resolved.scene.id, picked!)}
+                  situation={outcome.situation}
+                />
+              ) : (
+                <SceneFrame
+                  key={`setup-${resolved.scene.id}`}
+                  stillId={setupStillId(resolved.scene.id)}
+                  situation={resolved.scene.situation}
+                />
+              );
+            })()}
 
             <div className="flex flex-col gap-3">
               {resolved.choices.map((choice) => {

@@ -89,6 +89,21 @@ function serve(concepts: string[]) {
   }));
 }
 
+/**
+ * What the scene frame is currently showing, read off the image's ALT.
+ *
+ * The frame renders a picture now, not the situation sentence in a card, so
+ * text-content assertions moved here rather than being dropped. Alt is the
+ * right anchor twice over: it is the same brief the illustrator worked from,
+ * and it is what a screen reader announces, so pinning it pins the
+ * accessibility of the one element carrying the whole game.
+ */
+function sceneAlt(testId = "story-scene"): string {
+  const frame = screen.getByTestId(testId);
+  const img = frame.querySelector("img");
+  return img?.getAttribute("alt") ?? frame.textContent ?? "";
+}
+
 function renderPage() {
   const { hook } = memoryLocation({ path: "/games/storybook", record: true });
   // BottomNav renders XpCounter, which reads the query client directly rather
@@ -115,9 +130,7 @@ beforeEach(() => {
 describe("the scene", () => {
   test("shows the situation and never prints undefined", () => {
     renderPage();
-    expect(screen.getByTestId("story-scene")).toHaveTextContent(
-      BOOK.scenes[0]!.situation,
-    );
+    expect(sceneAlt()).toBe(BOOK.scenes[0]!.situation);
     expect(document.body.textContent).not.toMatch(/undefined/i);
   });
 
@@ -169,9 +182,35 @@ describe("every choice advances", () => {
     const misfit = BOOK.scenes[0]!.choices.find((c) => !c.fits)!;
     fireEvent.click(screen.getByTestId(`story-choice-${misfit.concept}`));
     fireEvent.click(screen.getByTestId("story-next"));
-    expect(screen.getByTestId("story-scene")).toHaveTextContent(
-      BOOK.scenes[1]!.situation,
-    );
+    expect(sceneAlt()).toBe(BOOK.scenes[1]!.situation);
+  });
+
+  test("the picture becomes the CONSEQUENCE of the line you said", () => {
+    // The whole point of the outcome beat. Reported 2026-08-24 as "it doesn't
+    // really adjust based on my selection": it adjusted in the ledger, where
+    // nobody could see it.
+    renderPage();
+    const misfit = BOOK.scenes[0]!.choices.find((c) => !c.fits)!;
+    expect(misfit.outcome, "zone 1 must author every consequence").toBeDefined();
+
+    expect(sceneAlt()).toBe(BOOK.scenes[0]!.situation);
+    fireEvent.click(screen.getByTestId(`story-choice-${misfit.concept}`));
+    expect(sceneAlt("story-outcome")).toBe(misfit.outcome!.situation);
+  });
+
+  test("two different lines give two different pictures", () => {
+    // If these ever matched, the branch would be invisible again and nothing
+    // else in this suite would notice.
+    const [a, b] = BOOK.scenes[0]!.choices;
+    const first = renderPage();
+    fireEvent.click(screen.getByTestId(`story-choice-${a!.concept}`));
+    const altA = sceneAlt("story-outcome");
+    first.unmount();
+    localStorage.clear();
+
+    renderPage();
+    fireEvent.click(screen.getByTestId(`story-choice-${b!.concept}`));
+    expect(sceneAlt("story-outcome")).not.toBe(altA);
   });
 });
 
@@ -236,16 +275,13 @@ describe("a language the book is not ready in", () => {
 
     // Scene 1 still resolves, which is the half of this that proves the test
     // is not passing by accident.
-    expect(screen.getByTestId("story-scene")).toHaveTextContent(
-      BOOK.scenes[0]!.situation,
-    );
+    expect(sceneAlt()).toBe(BOOK.scenes[0]!.situation);
     const missingScene = BOOK.scenes.find((sc) =>
       sc.choices.some((c) => c.concept === only),
     )!;
     let guard = 0;
     while (screen.queryByTestId("story-scene") && guard++ < BOOK.scenes.length) {
-      const shown = screen.getByTestId("story-scene").textContent ?? "";
-      expect(shown).not.toContain(missingScene.situation);
+      expect(sceneAlt()).not.toBe(missingScene.situation);
       const first = screen
         .getAllByTestId(/^story-choice-/)[0]!
         .getAttribute("data-testid")!
@@ -295,8 +331,6 @@ describe("the book at the end", () => {
     renderPage();
     expect(screen.getByTestId("story-book")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("story-again"));
-    expect(screen.getByTestId("story-scene")).toHaveTextContent(
-      BOOK.scenes[0]!.situation,
-    );
+    expect(sceneAlt()).toBe(BOOK.scenes[0]!.situation);
   });
 });
