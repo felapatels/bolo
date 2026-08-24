@@ -76,7 +76,24 @@ export const READING_PASSAGES: Record<ScriptId, ReadingPassage> = {
       "कुछ खाएगा भी? पाँच मिनट में खाना तैयार हो जाएगा।",
     gloss: PASSAGE_GLOSS,
     confidence: "high",
-    verified: false,
+    // VERIFIED 2026-08-24 by Bharti, a Hindi speaker, through the public page.
+    //
+    // THE EVIDENCE IS passage_feedback ROW 7 IN PRODUCTION: reads_well = true,
+    // and its stored passage_text is byte-identical to the text above. Same
+    // 129 characters, same sha256 prefix 1d123f83. Comparing the stored text
+    // rather than counting the answer is the whole reason that column exists.
+    //
+    // IT IS ALSO WHAT SEPARATES THIS FROM GUJARATI. Row 5 is a "yes" from the
+    // same person, but the text stored beside it is the old little-girl
+    // wording she then complained about, so it says nothing about what ships
+    // now. Gujarati stays false until she reads the current passage.
+    //
+    // AND A COUNT OF "YES" ANSWERS IS NOT EVIDENCE. Three of the five rows in
+    // that table are probes which stored a ONE-CHARACTER passage, and nothing
+    // in the codebase filters them out: isTestContributor() is only ever
+    // called on trace payloads, through compareContributions(). This table is
+    // read by hand or not at all.
+    verified: true,
   },
   gujarati: {
     id: "passage-gu-1",
