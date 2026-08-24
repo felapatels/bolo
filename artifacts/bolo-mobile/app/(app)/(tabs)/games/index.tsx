@@ -155,6 +155,16 @@ export const GAMES: GameDef[] = [
     icon: 'check-square',
   },
   {
+    // Free, matching web. The taste is the whole of zone 1's book; the other
+    // five are what All-Access opens.
+    id: 'storybook',
+    title: 'Storybook',
+    description: 'Read the scene and say the line that fits. Your choices become your book.',
+    difficulty: 'Intermediate',
+    plusOnly: false,
+    icon: 'book',
+  },
+  {
     // PAID ONLY, same as web. Free learners still meet it where it was designed
     // to live, sprung on them between two stops on the map; what All-Access
     // buys is playing it deliberately and choosing how long.
@@ -238,6 +248,8 @@ const GAME_COLORS: Record<string, GameColor> = {
   // signal green
   // alarm red, the only entry in this map that is not a line colour: this game
   // is an emergency and reads as one.
+  // book cover teal, the same blue-green the spread is drawn in.
+  'storybook': { from: '#1F5060', to: '#143B47', deep: '#0E2A33', ink: '#143B47', glow: 'rgba(31,80,96,0.55)' },
   'emergency': { from: '#E0342C', to: '#A31E18', deep: '#7D1512', ink: '#A31E18', glow: 'rgba(224,52,44,0.55)' },
   'signal-lights': { from: '#3E8E41', to: '#256A2B', deep: '#1A4E1F', ink: '#256A2B', glow: 'rgba(62,142,65,0.55)' },
 };
