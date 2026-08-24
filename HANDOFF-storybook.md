@@ -258,7 +258,7 @@ units on a 100-unit glyph. Tightened to 5 for single letters, scaled by glyph
 complexity because sentences pack thinner strokes into the same box. Perfect is
 now 60% careful, 38% wobbly, 0% sloppy, with the pass rate untouched at 100%.
 
-**The real fix for the skipped-chunk problem is a scoring redesign** — score
+**The real fix for the skipped-chunk problem is a scoring redesign**: score
 against a centreline rather than an outline, or order the interior points along
 the stroke so a skipped run is visible. That is not a constant change.
 
@@ -266,7 +266,7 @@ the stroke so a skipped run is visible. That is not a constant change.
 
 ## 8. Commands, by terminal
 
-**Deploy web — Replit Shell**, then hit Republish:
+**Deploy web, in the Replit Shell**, then hit Republish:
 
 ```bash
 git pull --no-rebase origin main
@@ -275,7 +275,7 @@ git merge-base --is-ancestor 0aeb3670 HEAD && echo IN || echo MISSING
 
 Expect `IN`. The HEAD hash will NOT match; the pull always makes a merge commit.
 
-**Typecheck and tests — Mac terminal:**
+**Typecheck and tests, Mac terminal:**
 
 ```bash
 cd /Users/aakeshpatel/bolo && pnpm run typecheck
@@ -285,7 +285,7 @@ cd /Users/aakeshpatel/bolo/artifacts/bolo-mobile && npx jest --forceExit
 
 Baselines as of `0aeb3670`: **web 110 suites / 1202 tests**, **mobile 116 / 1180**.
 
-**API suite — Replit Shell only, and alone:**
+**API suite, Replit Shell only, and alone:**
 
 ```bash
 pnpm --filter @workspace/api-server run test
@@ -296,14 +296,14 @@ started a run tonight and I never saw the result.** It covers two things changed
 today that have never been executed: the Script Trace free-taste gate
 (`games.script-trace-teaser.test.ts`, new, never run) and the greeting buffer.
 
-**Read production, read-only — Mac terminal:**
+**Read production, read-only, Mac terminal:**
 
 ```bash
 set -a; . ./.env.production; set +a
 PGOPTIONS='-c default_transaction_read_only=on' psql "$DATABASE_URL_PROD"
 ```
 
-**Mobile builds — Mac terminal**, and only once the story is done:
+**Mobile builds, Mac terminal**, and only once the story is done:
 
 ```bash
 cd /Users/aakeshpatel/bolo/artifacts/bolo-mobile
@@ -314,7 +314,7 @@ cd /Users/aakeshpatel/bolo/artifacts/bolo-mobile
 `app.json` comes back dirty with the incremented number every time. That is
 `autoIncrement`, not a mistake. Commit it after.
 
-**Bundle health before spending an install — Mac terminal:**
+**Bundle health before spending an install, Mac terminal:**
 
 ```bash
 cd /Users/aakeshpatel/bolo
