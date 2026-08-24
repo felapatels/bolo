@@ -74,3 +74,54 @@ describe("the canned buffer line", () => {
     assert.notEqual(GREETING_CACHE_KEY_VERSION, "v6");
   });
 });
+
+// ---------------------------------------------------------------------------
+// The greeting's accent, added 2026-08-24.
+//
+// Reported from the live app: the greeting reads in a different voice from the
+// rest of chat. Measured against production first, and it was NOT a config
+// divergence: the cached greeting audio and the chat reply shared provider,
+// model, the voice `nova` and instruction digest dce4b670 exactly.
+//
+// The difference is the TEXT. Chat replies are in the target language and
+// `nova` reading Hindi sounds Indian for free; the greeting is deliberately
+// English in all 22 languages, and `nova` reading English defaults to General
+// American. These pin the fix so it cannot quietly revert to sharing the chat
+// instructions again.
+// ---------------------------------------------------------------------------
+import {
+  BOLO_CHAT_TTS_INSTRUCTIONS,
+  BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+  BOLO_GREETING_TTS_INSTRUCTIONS,
+  BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST,
+} from "../lib/ttsConfig.js";
+
+test("the greeting asks for Indian English, and asks first", () => {
+  // FIRST, not buried. "with an indian tone" in the middle of a paragraph about
+  // being a cheerleader is what failed; leading with it is the fix.
+  const firstLine = BOLO_GREETING_TTS_INSTRUCTIONS.split("\n")[0] ?? "";
+  assert.match(firstLine, /Indian English/i);
+  assert.match(BOLO_GREETING_TTS_INSTRUCTIONS, /Do not use an American/i);
+});
+
+test("the greeting instructions differ from the chat ones, so the cache splits", () => {
+  // If these ever converge the digest converges too, the greeting silently
+  // reuses chat-instruction audio, and the accent goes back to American with
+  // nothing failing.
+  assert.notEqual(BOLO_GREETING_TTS_INSTRUCTIONS, BOLO_CHAT_TTS_INSTRUCTIONS);
+  assert.notEqual(
+    BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST,
+    BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+  );
+});
+
+test("the greeting is still the same character, not a different one", () => {
+  // Only the accent direction may differ. A greeting that sounded like someone
+  // else would be a worse bug than the one being fixed.
+  for (const trait of ["cheerleader", "Enthusiastic", "playful"]) {
+    assert.ok(
+      BOLO_GREETING_TTS_INSTRUCTIONS.includes(trait),
+      `greeting lost the shared trait "${trait}"`,
+    );
+  }
+});
