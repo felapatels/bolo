@@ -4,6 +4,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { runStartupSeed } from "./lib/startupSeed";
 import { runBackfillScoringV2 } from "./scripts/backfillScoringV2";
+import { scheduleStreakPushSweep } from "./lib/streakPush";
 import { runBackfillLessonGroups } from "./scripts/backfillLessonGroups";
 import { ensureLessonGroupScopeTriggers } from "./scripts/ensureLessonGroupScopeTriggers";
 import { scheduleTtsPrewarm } from "./lib/ttsPrewarm";
@@ -68,6 +69,12 @@ app.listen(port, (err) => {
       // missed webhook (endpoint drift, secret rotation, outage) self-heals
       // instead of silently desyncing learners' Plus status.
       scheduleStripeReconcileSweep();
+
+      // The streak reminder. In process rather than a cron because nothing in
+      // this repo calls a cron endpoint, and unlike the daily quiz a
+      // notification has no on-demand path to fall back to: as an endpoint
+      // alone it would never fire once. See lib/streakPush.ts.
+      scheduleStreakPushSweep();
     })
     .catch((err: unknown) => {
       logger.fatal({ err }, "Startup pipeline failed; exiting");
