@@ -35,6 +35,7 @@ import {
   type LedgerEntry,
   type StoryBook,
 } from "@workspace/story";
+import { motion, useReducedMotion } from "framer-motion";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
@@ -70,6 +71,82 @@ function useZoneParams(): { journey: number; zone: number } {
   }, [search]);
 }
 
+// ─── Opening the book ───────────────────────────────────────────────────────
+
+/**
+ * The book opens.
+ *
+ * ONCE PER VISIT, not once per scene. The gesture says "a story is starting",
+ * and a story that starts five times has not started at all. Every later beat
+ * is a page turning inside a book that is already open, which the scene
+ * crossfade already reads as.
+ *
+ * WHAT IT IS MADE OF. A cover swings away on a Y-axis hinge under perspective,
+ * so it reads as a hard cover rather than a card sliding off, and two page
+ * leaves sweep behind it slightly out of step, because real pages never fall
+ * together. The whole thing is 900ms: long enough to register as a book, short
+ * enough that the second visit is not a wait.
+ *
+ * IT COVERS THE SCENE, IT DOES NOT REPLACE IT. The picture is mounted and
+ * already zooming underneath, so the moment the cover clears there is a live
+ * scene behind it rather than a pop-in.
+ *
+ * NO EXIT FADE, and not for taste. AnimatePresence keeps a child mounted until
+ * its exit animation completes, and framer-motion does not complete one under
+ * jsdom, so the cover would sit over the scene forever in every test that
+ * renders this page. The cover swinging off its hinge IS the exit; a fade on
+ * top of it was redundant anyway.
+ *
+ * REDUCED MOTION GETS NOTHING. Not a faster flip, not a fade: a hinge swinging
+ * at the reader is exactly the vestibular trigger the setting exists for. The
+ * page simply starts open, which is the honest still frame of this animation.
+ */
+function BookOpening({ onDone }: { onDone: () => void }) {
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (reduceMotion) {
+      onDone();
+      return;
+    }
+    const t = setTimeout(onDone, 900);
+    return () => clearTimeout(t);
+  }, [reduceMotion, onDone]);
+
+  if (reduceMotion) return null;
+
+  return (
+    <motion.div
+      data-testid="story-book-opening"
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-3xl"
+      style={{ perspective: 1200 }}
+    >
+      {/* Two leaves, deliberately out of step. Pages never fall together. */}
+      {[0, 0.12].map((delay, i) => (
+        <motion.div
+          key={i}
+          className="absolute inset-y-0 left-0 w-1/2 origin-left rounded-l-3xl border-r border-amber-200/60 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950"
+          style={{ transformStyle: "preserve-3d" }}
+          initial={{ rotateY: 0 }}
+          animate={{ rotateY: -165 }}
+          transition={{ duration: 0.75, delay, ease: [0.4, 0, 0.2, 1] }}
+        />
+      ))}
+      {/* The cover, last to clear. */}
+      <motion.div
+        className="absolute inset-0 origin-left rounded-3xl bg-gradient-to-br from-amber-700 to-amber-900 shadow-2xl"
+        style={{ transformStyle: "preserve-3d" }}
+        initial={{ rotateY: 0 }}
+        animate={{ rotateY: -170 }}
+        transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+      >
+        <div className="absolute inset-4 rounded-2xl border-2 border-amber-300/40" />
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ─── The scene's picture ─────────────────────────────────────────────────────
 
 /**
@@ -94,6 +171,7 @@ function SceneFrame({
   testId?: string;
 }) {
   const [failed, setFailed] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   // THE BRIEF IS THE FALLBACK, NOT THE DESIGN. The situation sentence is
   // already the illustrator's brief and the alt text, so an image that has not
@@ -119,11 +197,28 @@ function SceneFrame({
       data-testid={testId}
       className="relative w-full overflow-hidden rounded-3xl border border-border bg-muted"
     >
-      <img
+      {/* THE SLOW ZOOM, and it earns its keep on every beat rather than only
+          the first. A Tier 1 scene is a STILL, and a still sitting dead on
+          screen while the learner reads three lines stops looking like a
+          moment and starts looking like a diagram. Six percent over twelve
+          seconds is below the threshold where anyone notices it moving and
+          above the one where the frame feels alive.
+
+          Keyed on the still id, so a new scene restarts the push rather than
+          continuing the previous one mid-zoom. */}
+      <motion.img
+        key={stillId}
         src={`${import.meta.env.BASE_URL}story/${stillId}.webp`}
         alt={situation}
         onError={() => setFailed(true)}
         className="aspect-[3/2] w-full object-cover"
+        initial={reduceMotion ? false : { scale: 1, opacity: 0 }}
+        animate={reduceMotion ? { opacity: 1 } : { scale: 1.06, opacity: 1 }}
+        transition={
+          reduceMotion
+            ? { duration: 0 }
+            : { scale: { duration: 12, ease: "linear" }, opacity: { duration: 0.4 } }
+        }
       />
     </div>
   );
@@ -376,6 +471,9 @@ export default function StorybookPage() {
   const [picked, setPicked] = useState<string | null>(null);
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [finished, setFinished] = useState(false);
+  /** The book is shut until the opening animation clears it. Once per visit. */
+  const [opened, setOpened] = useState(false);
+  const openBook = useCallback(() => setOpened(true), []);
 
   // Open on the book's own start, and restore a finished book rather than
   // silently making the learner read it again.
@@ -552,7 +650,10 @@ export default function StorybookPage() {
         )}
 
         {book && !isLoading && !finished && resolved && (
-          <div className="flex flex-1 flex-col gap-4 px-4 py-4">
+          <div className="relative flex flex-1 flex-col gap-4 px-4 py-4">
+            {/* Sits over the scene rather than instead of it, so the picture is
+                already mounted and zooming when the cover clears. */}
+            {!opened && <BookOpening onDone={openBook} />}
             <div className="flex items-center justify-center gap-1.5">
               {book.scenes.map((s, i) => (
                 <span
