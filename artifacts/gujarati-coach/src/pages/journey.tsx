@@ -16,7 +16,7 @@
 // cards, badges, lock states, dialogs and the parked-train marker are
 // functionally unchanged; only path geometry, connector art and the header
 // pass chrome changed.
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { blessAudioPlayback } from "@/lib/iosAudio";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -63,6 +63,11 @@ import {
   traceStopStatus,
   type TraceStop,
 } from "@workspace/script-trace";
+import {
+  hasEmergency,
+  EMERGENCY_AFTER_STOP,
+  EMERGENCY_JOURNEY,
+} from "@workspace/emergency";
 import {
   isStoryTeaserBook,
   storyBookFor,
@@ -949,6 +954,58 @@ function ChachaSoftStop({
   return null;
 }
 
+/**
+ * THE EMERGENCY, fired between stop 8 and stop 9 of a zone.
+ *
+ * SAME SHAPE AS ChachaSoftStop AND SignalSoftStop above, deliberately. This
+ * file already had two watchers that observe where the learner is and open
+ * something once; a third pattern for a third interruption would be the
+ * beginning of three ways to do one thing.
+ *
+ * NOTHING IS DRAWN ON THE MAP FOR IT. It adds no row, no point, no station and
+ * no entry in `pts` or `stationPts`, and that is the single most important
+ * property of this feature. The tracing stop and the story stop are places you
+ * can see coming and choose to walk into; this is an interruption, and an
+ * interruption you can see on the timetable is an appointment. It also means
+ * this cannot repeat the k-advancing bug that moved Chacha-ji's stall down the
+ * line when the story row landed, because it never touches the geometry at all.
+ *
+ * THE REF IS WHY IT DOES NOT LOOP. Standing on stop 9 renders many times; the
+ * key is the zone, so it fires once per zone per visit to the map. Leaving the
+ * zone and coming back fires it again, which is what "fires every time" means
+ * in practice. What it must never do is fire on every render, which is what a
+ * bare condition here would have done.
+ *
+ * It waits for any open dialog to close first. Firing an interruption over the
+ * top of a Chacha encounter would stack two of them.
+ */
+function EmergencySoftStop({
+  zone,
+  dialogOpen,
+  onFire,
+}: {
+  /** 1-based zone whose stop 9 the learner is standing on, or null. */
+  zone: number | null;
+  dialogOpen: boolean;
+  onFire: (zone: number) => void;
+}) {
+  const fired = useRef<number | null>(null);
+  useEffect(() => {
+    if (zone === null || dialogOpen) return;
+    // A zone with no film has no Emergency, silently. The learner walks from
+    // stop 8 to stop 9 with no idea anything was planned here.
+    if (!hasEmergency(EMERGENCY_JOURNEY, zone)) return;
+    if (fired.current === zone) return;
+    fired.current = zone;
+    onFire(zone);
+  }, [zone, dialogOpen, onFire]);
+  // Standing anywhere else re-arms it, so the next crossing fires again.
+  useEffect(() => {
+    if (zone === null) fired.current = null;
+  }, [zone]);
+  return null;
+}
+
 /** Events that mean the learner has taken the viewport for themselves. */
 const USER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown"] as const;
 
@@ -1694,6 +1751,23 @@ export default function Journey() {
     rows.add(row);
     stallRowsByZone.set(zi, rows);
   }
+  // WHICH ZONE'S CROSSING THE LEARNER IS STANDING ON, or null.
+  //
+  // ZONE-RELATIVE, not journey-wide. Each of the six zones has its own film, so
+  // "between stops 8 and 9" counts within the zone; a journey-wide index would
+  // put the only Emergency inside zone 1 and leave the other five films
+  // unreachable.
+  const [, navigate] = useLocation();
+
+  const emergencyZone = (() => {
+    if (currentId === undefined) return null;
+    for (let zi = 0; zi < zones.length; zi++) {
+      const idx = zones[zi]!.stations.findIndex((st) => st.id === currentId);
+      if (idx === EMERGENCY_AFTER_STOP) return zi + 1;
+    }
+    return null;
+  })();
+
   const activeChachaStation =
     currentStationNumber > 0 && isChachaEncounterStation(currentStationNumber)
       ? currentStationNumber
@@ -2833,6 +2907,12 @@ export default function Journey() {
             }
             lang={activeLang}
             onOpen={setChachaDlg}
+          />
+
+          <EmergencySoftStop
+            zone={emergencyZone}
+            dialogOpen={lock !== null || signalDlg !== null || factDlg !== null || chachaDlg !== null}
+            onFire={(z) => navigate(`/games/emergency?journey=${EMERGENCY_JOURNEY}&zone=${z}`)}
           />
 
           <SignalSoftStop
