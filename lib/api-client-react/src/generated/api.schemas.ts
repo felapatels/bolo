@@ -755,6 +755,24 @@ export interface VoiceListResult {
   current: string | null;
 }
 
+/**
+ * Which voice actually spoke. "narrator" is the chosen Indian English ElevenLabs voice. "fallback" means ElevenLabs would not answer and the line was spoken by the app's default provider instead, which sounds American. Reported rather than hidden: narration is the first live ElevenLabs caller in production, so a run of "fallback" is the only signal that ELEVENLABS_API_KEY is missing or stale, and a silent downgrade would leave that permanently invisible.
+ */
+export type NarrationResultSource = typeof NarrationResultSource[keyof typeof NarrationResultSource];
+
+
+export const NarrationResultSource = {
+  narrator: 'narrator',
+  fallback: 'fallback',
+} as const;
+
+export interface NarrationResult {
+  audioBase64: string;
+  format: string;
+  /** Which voice actually spoke. "narrator" is the chosen Indian English ElevenLabs voice. "fallback" means ElevenLabs would not answer and the line was spoken by the app's default provider instead, which sounds American. Reported rather than hidden: narration is the first live ElevenLabs caller in production, so a run of "fallback" is the only signal that ELEVENLABS_API_KEY is missing or stale, and a silent downgrade would leave that permanently invisible. */
+  source: NarrationResultSource;
+}
+
 export interface NarrationInput {
   /**
      * One line of English story prose: a scene's situation, or the outcome of a choice. NOT the learner's phrase, which goes to /openai/tts in their own language. The cap is generous for a sentence and small enough that a malformed caller cannot bill an essay to the narrator voice.

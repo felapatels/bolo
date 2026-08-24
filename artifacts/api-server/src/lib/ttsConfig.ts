@@ -234,6 +234,55 @@ export function narrationAudioIdentity(): PhraseAudioIdentity {
   };
 }
 
+/**
+ * Delivery notes for the FALLBACK narrator. Storyteller, not cheerleader:
+ * BOLO_PHRASE_TTS_INSTRUCTIONS is written for a single word of encouragement
+ * and would read "she nods gravely and closes the door" like a pep talk.
+ *
+ * It asks for Indian English, and that request is EXPECTED TO BE IGNORED. See
+ * the note on NARRATION_VOICE_ID: the identical instruction was measured
+ * failing on the chat greeting. It costs nothing to ask, and this path is
+ * already the degraded one.
+ */
+export const BOLO_NARRATION_FALLBACK_INSTRUCTIONS = `Accent/dialect: Indian English, warm and unhurried.
+
+Personality/affect: a storyteller reading a picture book aloud to a child.
+
+Tone: gentle and amused, never excited. Let a small joke land by slowing down rather than by getting louder.
+
+Pronunciation: clear and even, with a settling pause at each full stop.
+
+Features: this is narration, not encouragement. No exclamations, no praise, no energy for its own sake.`;
+
+/**
+ * What narration falls back to when ElevenLabs will not answer.
+ *
+ * WHY THIS EXISTS AT ALL, and it is not defensive programming for its own sake.
+ * EVERY ElevenLabs call site in this API is behind `TTS_PROVIDER ===
+ * "elevenlabs"`, and TTS_PROVIDER is "gpt-4o-mini-tts". So chat, phrases and
+ * prewarm all stopped calling ElevenLabs when the provider was switched, and
+ * narration is now the FIRST live caller in production. That means
+ * ELEVENLABS_API_KEY in the deployment has never been exercised and nobody
+ * would know if it were missing or stale.
+ *
+ * The owner's instruction was "make sure audio works". Silence is the one
+ * outcome that is not allowed, and the storybook narrating in the wrong accent
+ * is plainly better than a story that will not speak.
+ *
+ * ITS OWN CACHE KEY, which is the part that matters. A fallback clip written
+ * into the ElevenLabs slot would be served forever after the key is fixed. Two
+ * identities means two namespaces: repair the key and the good slot is simply
+ * empty, so it fills correctly on the next play.
+ */
+export function narrationFallbackIdentity(): PhraseAudioIdentity {
+  return {
+    provider: "gpt-4o-mini-tts",
+    model: "gpt-4o-mini-tts",
+    voice: PHRASE_AUDIO_DEFAULT_VOICE,
+    instructions: BOLO_NARRATION_FALLBACK_INSTRUCTIONS,
+  };
+}
+
 export function phraseAudioIdentity(
   languageCode?: string,
 ): PhraseAudioIdentity {

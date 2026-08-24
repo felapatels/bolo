@@ -25,7 +25,7 @@ import {
   type ReactNode,
 } from "react";
 import { Link, useSearch } from "wouter";
-import { ArrowLeft, BookOpen, Check, Lock, RotateCcw, Volume2 } from "lucide-react";
+import { ArrowLeft, BookOpen, Check, Lock, RotateCcw, Volume2, VolumeX } from "lucide-react";
 import {
   getGetStoryBookQueryKey,
   useGetAccount,
@@ -46,7 +46,7 @@ import {
 } from "@workspace/story";
 import { motion, useReducedMotion } from "framer-motion";
 import { BottomNav } from "@/components/layout/bottom-nav";
-import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
+import { useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { webHaptic } from "@/lib/haptics";
@@ -193,94 +193,129 @@ function BookOpening({ onDone }: { onDone: () => void }) {
  * The lines stay BELOW the board and unchanged, at the owner's direction: the
  * book is the picture, the three lines are the app.
  */
-function BookBoard({ children }: { children: ReactNode }) {
+/**
+ * Pretend words on the left leaf.
+ *
+ * Wavy strokes, not text. They read as a page of writing at a glance and as
+ * nothing at all on inspection, which is exactly right: the story is the
+ * picture and the three lines, and real prose on that leaf would be prose to
+ * translate into 22 languages. Drawn rather than typed for the same reason.
+ */
+function Scribbles() {
+  const rows = [9, 7, 10, 8, 10, 6];
   return (
-    <div className="relative mx-auto w-full" data-testid="story-bookboard">
-      {/* The pages still to come. Purely presentational, so hidden from
-          assistive tech: a screen reader announcing two empty divs before the
-          illustration would be noise. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-3 right-[-5px] w-1.5 rounded-r-md bg-stone-300 dark:bg-stone-700"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-1.5 right-[-2px] w-1.5 rounded-r-md bg-stone-200 dark:bg-stone-600"
-      />
-      <div className="relative overflow-hidden rounded-l-md rounded-r-2xl border border-stone-300 bg-[#fbf7ef] py-3 pl-6 pr-3 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.5)] dark:border-stone-700 dark:bg-stone-900">
-        {/* The binding. The gutter shadow falls to the RIGHT of the spine,
-            which is what makes paper look bound rather than printed. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-5 bg-gradient-to-r from-stone-400/60 via-stone-300/20 to-transparent dark:from-black/70 dark:via-black/25"
-        />
-        {children}
-      </div>
+    <div
+      aria-hidden
+      className="absolute inset-0 flex flex-col justify-center gap-[6%] px-[10%] py-[9%]"
+    >
+      {rows.map((seg, i) => {
+        const span = i === rows.length - 1 ? 50 : 100;
+        const step = span / seg;
+        let d = "";
+        for (let n = 0; n < seg; n++) {
+          const x = n * step;
+          d += `M${x.toFixed(2)} 6 q ${(step * 0.2).toFixed(2)} -3.4 ${(step * 0.39).toFixed(2)} 0 t ${(step * 0.39).toFixed(2)} 0 `;
+        }
+        return (
+          <svg key={i} viewBox="0 0 100 12" preserveAspectRatio="none" className="block w-full">
+            <path
+              d={d}
+              fill="none"
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              className="stroke-stone-400/70 dark:stroke-stone-600/70"
+            />
+          </svg>
+        );
+      })}
     </div>
   );
 }
 
-function SceneFrame({
+/**
+ * The storybook, as an actual book.
+ *
+ * REPORTED 2026-08-24, twice, and the second time was the useful one: "I
+ * imagined an actual book, and the image being the page, then the page flipping
+ * for the next screen", then "this is huge on standard web window" and "the
+ * book should start small and then after zoom, I will only see the right page
+ * with photo".
+ *
+ * THE THREE THINGS THAT MAKE IT WORK, and the first version had none of them.
+ *
+ * 1. A FRAME THAT CLIPS. Everything happens inside a fixed 3:2 box with
+ *    overflow hidden. The first attempt scaled the book in open page flow, so
+ *    the zoom covered the caption above it and the mute button below it. Two
+ *    separate bug reports, one cause.
+ *
+ * 2. LANDSCAPE PAGES. Each leaf is 3:2, the same shape the stills are
+ *    generated at, so the spread is 3:1 and ONE PAGE FILLS A 3:2 FRAME EXACTLY
+ *    at scale 2. The first version used portrait pages, where pushing in on a
+ *    page either crops the illustration or letterboxes it. The geometry had to
+ *    change, not the numbers.
+ *
+ * 3. IT HOLDS BEFORE IT MOVES. 1.5 seconds on the whole small book, then a slow
+ *    2-second push. "Too fast to tell its even a book" was the note on the
+ *    quick version, and it was right: the point of showing a book is lost if
+ *    nobody has time to see one.
+ *
+ * The origin is the RIGHT page's centre, so the push lands on the picture and
+ * nothing else. The rest state carries a compensating shift so the small book
+ * still sits in the middle of its frame rather than off to one side.
+ */
+function Book({
   stillId,
   situation,
   testId = "story-scene",
   narrate,
-  autoNarrate = false,
   soundOn = false,
 }: {
   stillId: string;
   situation: string;
   testId?: string;
-  /** Speak this frame's prose. Absent means narration is not offered here. */
   narrate?: (text: string) => void;
-  /**
-   * Speak without being asked, on mount.
-   *
-   * TRUE ON OUTCOMES, FALSE ON SCENES, and the asymmetry is the design rather
-   * than a default nobody thought about. The scene IS the puzzle: the learner
-   * reads the picture and decides which of three lines fits it. A narrator
-   * describing the picture hands them the answer and turns a comprehension
-   * game into a listening one. The outcome is the payoff, where nothing is
-   * being solved and the joke has already landed, so a voice there adds
-   * instead of competing.
-   *
-   * It also halves the interruptions. The frame changes twice per beat, so
-   * narrating both would be ten unbidden clips per book rather than five.
-   */
-  autoNarrate?: boolean;
   soundOn?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const reduceMotion = useReducedMotion();
+  const src = (id: string) => `${import.meta.env.BASE_URL}story/${id}.webp`;
 
-  // Keyed on the still id like the zoom above, so a new frame narrates once and
-  // re-rendering the same frame does not restart it. `narrate` itself is left
-  // out of the deps deliberately: it is a useCallback that changes whenever the
-  // mute state or the mutation object does, and including it would replay the
-  // clip on an unrelated re-render.
-  //
-  // The mute check lives in `narrate`, not here, so muted skips SYNTHESIS and
-  // not merely playback. An unheard clip that still bills is the worst of both.
+  // The leaf that turns away is simply the page this component showed LAST.
+  // Reading it from a ref during the render where `stillId` changed gives the
+  // outgoing page for free, with no prop threaded down from the page and no
+  // second copy of the truth to keep in step.
+  const prevRef = useRef<string | null>(null);
+  const prevStillId = prevRef.current !== stillId ? prevRef.current : null;
   useEffect(() => {
-    if (autoNarrate && narrate) narrate(situation);
+    prevRef.current = stillId;
+  }, [stillId]);
+
+  // NARRATION IS ON BY DEFAULT NOW, on both the scene and its consequence.
+  // It began as an opt-in "Hear the Story" button; the owner changed their mind
+  // on 2026-08-24 and asked for sound on by default with a mute, so the control
+  // below the book reads "Mute the Story" instead.
+  //
+  // Keyed on the still, so a beat narrates once and a re-render does not replay
+  // it. `narrate` is left out of the deps deliberately: it is a useCallback
+  // that changes with the mute state and would otherwise fire the clip again on
+  // an unrelated render. The mute check lives inside `narrate`, so muting skips
+  // SYNTHESIS and not merely playback.
+  useEffect(() => {
+    if (narrate && soundOn) narrate(situation);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stillId, autoNarrate]);
+  }, [stillId, soundOn]);
 
   // THE BRIEF IS THE FALLBACK, NOT THE DESIGN. The situation sentence is
-  // already the illustrator's brief and the alt text, so an image that has not
-  // been generated yet, or fails to load, degrades to the same information in
-  // the only other form it exists in. It is not a placeholder anybody should
-  // see for long: without the picture there is no scene, and the game is
-  // "read the picture, say the line that fits".
+  // already the illustrator's brief and the alt text, so a picture that has not
+  // been generated, or fails to load, degrades to the same information in the
+  // only other form it exists in.
   if (failed) {
     return (
       <div
         data-testid={testId}
         className="relative flex min-h-[180px] w-full items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-amber-300 bg-amber-50 px-6 py-8 text-center dark:border-amber-700 dark:bg-amber-950/30"
       >
-        <p className="text-base font-semibold leading-relaxed text-foreground">
-          {situation}
-        </p>
+        <p className="text-base font-semibold leading-relaxed text-foreground">{situation}</p>
       </div>
     );
   }
@@ -288,51 +323,67 @@ function SceneFrame({
   return (
     <div
       data-testid={testId}
-      className="relative w-full overflow-hidden rounded-lg border border-stone-300/80 bg-muted shadow-sm dark:border-stone-700/80"
+      className="relative mx-auto aspect-[3/2] w-full overflow-hidden rounded-2xl bg-stone-200 shadow-inner dark:bg-stone-950"
     >
-      {/* THE SLOW ZOOM, and it earns its keep on every beat rather than only
-          the first. A Tier 1 scene is a STILL, and a still sitting dead on
-          screen while the learner reads three lines stops looking like a
-          moment and starts looking like a diagram. Six percent over twelve
-          seconds is below the threshold where anyone notices it moving and
-          above the one where the frame feels alive.
-
-          Keyed on the still id, so a new scene restarts the push rather than
-          continuing the previous one mid-zoom. */}
-      <motion.img
-        key={stillId}
-        src={`${import.meta.env.BASE_URL}story/${stillId}.webp`}
-        alt={situation}
-        onError={() => setFailed(true)}
-        className="aspect-[3/2] w-full object-cover"
-        initial={reduceMotion ? false : { scale: 1, opacity: 0 }}
-        animate={reduceMotion ? { opacity: 1 } : { scale: 1.06, opacity: 1 }}
-        transition={
-          reduceMotion
-            ? { duration: 0 }
-            : { scale: { duration: 12, ease: "linear" }, opacity: { duration: 0.4 } }
-        }
-      />
-      {/* ONE IDEA ON THE PAGE. Deliberately the same speaker glyph the three
-          choice lines already carry, so "tap this to hear it" is a single
-          learned gesture rather than two. What differs is only the language:
-          the lines speak the learner's, this speaks the story's English. */}
-      {narrate && soundOn && !autoNarrate && (
-        <button
-          type="button"
-          onClick={() => narrate(situation)}
-          aria-label="Hear what is happening"
-          data-testid={`${testId}-narrate`}
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card/90 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted"
+      <div className="absolute inset-0 grid place-items-center" style={{ perspective: 2200 }}>
+        <motion.div
+          // Keyed on the still, so a new beat pulls back to the whole book and
+          // pushes in again rather than continuing the previous move.
+          key={stillId}
+          className="w-full"
+          style={{ transformOrigin: "75% 50%" }}
+          initial={reduceMotion ? { scale: 1.98, x: "-25%" } : { scale: 0.72, x: "-7%" }}
+          animate={{ scale: 1.98, x: "-25%" }}
+          transition={
+            reduceMotion
+              ? { duration: 0 }
+              : { duration: 2, delay: 1.5, ease: [0.34, 0.06, 0.2, 1] }
+          }
         >
-          <Volume2 className="h-4 w-4" />
-        </button>
-      )}
+          <div className="relative grid aspect-[3/1] w-full grid-cols-2 rounded-l-[4px] rounded-r-lg bg-gradient-to-b from-[#1f5060] to-[#143b47] p-[1.1%] shadow-[0_16px_34px_-18px_rgba(30,22,12,.6)]">
+            <div className="relative overflow-hidden rounded-l-[3px] bg-[#f8f1e0] shadow-[inset_-14px_0_18px_-15px_rgba(0,0,0,.5)] dark:bg-[#26201a]">
+              <Scribbles />
+            </div>
+            <div className="relative overflow-hidden rounded-r-[5px] bg-[#f8f1e0] shadow-[inset_14px_0_18px_-15px_rgba(0,0,0,.5)] dark:bg-[#26201a]">
+              <img
+                src={src(stillId)}
+                alt={situation}
+                onError={() => setFailed(true)}
+                className="h-full w-full object-cover"
+              />
+            </div>
+            {/* The binding. The gutter shadow is what makes paper look bound
+                rather than printed. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-[1.1%] left-1/2 z-10 w-[2.2%] -translate-x-1/2"
+              style={{
+                background:
+                  "linear-gradient(90deg,transparent,rgba(0,0,0,.22) 45%,rgba(0,0,0,.3) 50%,rgba(0,0,0,.22) 55%,transparent)",
+              }}
+            />
+            {/* The leaf that turns away, carrying the page you just left. Only
+                ever the RIGHT half, because that is the only leaf that moves in
+                a book you read left to right. */}
+            {prevStillId !== null && !reduceMotion && (
+              <motion.div
+                key={`leaf-${stillId}`}
+                aria-hidden
+                className="pointer-events-none absolute inset-y-[1.1%] left-1/2 right-[1.1%] z-20 overflow-hidden rounded-r-[5px] bg-[#f8f1e0] shadow-[-12px_0_22px_-14px_rgba(0,0,0,.6)] dark:bg-[#26201a]"
+                style={{ transformOrigin: "left center", backfaceVisibility: "hidden" }}
+                initial={{ rotateY: 0, opacity: 1 }}
+                animate={{ rotateY: -170, opacity: 0 }}
+                transition={{ duration: 0.95, ease: [0.42, 0.02, 0.28, 1] }}
+              >
+                <img src={src(prevStillId)} alt="" className="h-full w-full object-cover" />
+              </motion.div>
+            )}
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 }
-
-// ─── One line the learner can say ────────────────────────────────────────────
 
 function ChoiceCard({
   phrase,
@@ -733,6 +784,18 @@ export default function StorybookPage() {
   );
 
   // ── Turning a page ───────────────────────────────────────────────────────
+  /**
+   * The line said on the beat just gone, kept ALIVE ACROSS THE ADVANCE.
+   *
+   * Reported 2026-08-24: "The 'you said' isn't showing on the next page. It
+   * shouldn't be its own page, but it should just show up above the next set of
+   * answers." It used to be derived from `picked`, which resets on advance, so
+   * it vanished at exactly the moment it became useful. The story reads as one
+   * conversation when the line you just said is still on screen above the three
+   * you are choosing between next.
+   */
+  const [lastSaid, setLastSaid] = useState<StoryPhrase | null>(null);
+
   const advance = useCallback(() => {
     if (!scene || !picked || !book || !activeLang) return;
     const taken = chooseScene(scene, picked);
@@ -755,6 +818,9 @@ export default function StorybookPage() {
     setEntries([]);
     setFinished(false);
     setPicked(null);
+    // Starting over must clear the carried line too, or the first page of a
+    // fresh read opens with "You said" above it quoting the previous read.
+    setLastSaid(null);
     setSceneId(book.startId);
   }, [book, activeLang]);
 
@@ -779,7 +845,14 @@ export default function StorybookPage() {
             <p className="text-xs text-muted-foreground">{activeLanguage.name}</p>
           )}
         </div>
-        <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
+        {/* NO GameMuteButton HERE, and it is a deliberate exception to the
+            convention every other game follows. This page gained a labelled
+            "Mute the Story" control between the book and the answers, at the
+            owner's request, and two controls for one piece of state is worse
+            than an inconsistent header: a learner who mutes with one and sees
+            the other still showing a speaker has been told the app is broken.
+            The state itself is unchanged and still useGameAudio, so muting
+            here mutes every other game too. */}
         <BookOpen className="h-6 w-6 text-primary" />
       </div>
 
@@ -893,85 +966,72 @@ export default function StorybookPage() {
               const turnKey = outcome
                 ? outcomeStillId(resolved.scene.id, picked!)
                 : setupStillId(resolved.scene.id);
-              const page = (children: ReactNode) => (
-                <BookBoard>
-                <div style={{ perspective: 1400 }}>
-                  <motion.div
-                    key={turnKey}
-                    style={{ transformOrigin: "left center" }}
-                    initial={
-                      reduceMotion
-                        ? { opacity: 0 }
-                        : { rotateY: -95, opacity: 0.4 }
-                    }
-                    animate={{ rotateY: 0, opacity: 1 }}
-                    transition={
-                      reduceMotion
-                        ? { duration: 0.15 }
-                        : { duration: 0.45, ease: [0.4, 0, 0.2, 1] }
-                    }
-                  >
-                    {children}
-                  </motion.div>
-                </div>
-                </BookBoard>
-              );
-              return outcome ? (
-                <>
-                  {page(
-                    <SceneFrame
-                      testId="story-outcome"
-                      stillId={outcomeStillId(resolved.scene.id, picked!)}
-                      situation={outcome.situation}
-                      narrate={narrate}
-                      autoNarrate
-                      soundOn={soundOn}
-                    />,
-                  )}
-                  {/* WHAT YOU SAID, under the picture rather than only on the
-                      card below it. The consequence is only funny once you can
-                      read the line that caused it, and by this point the eye is
-                      on the image, not on the three cards.
-
-                      Script, reading, and meaning together: the script is what
-                      they are learning to recognise, the reading is how to say
-                      it, and the English is what makes the picture land. Any
-                      one of the three alone leaves a gap. */}
-                  {said && (
-                    <p
-                      data-testid="story-said"
-                      className="text-center text-sm text-muted-foreground"
-                    >
-                      You said{" "}
-                      <span
-                        style={native.style}
-                        dir={native.dir}
-                        className="font-semibold text-foreground"
-                      >
-                        {said.nativeScript}
-                      </span>
-                      {said.romanized.trim() !== "" && (
-                        <span className="text-muted-foreground">
-                          {" "}
-                          ({said.romanized})
-                        </span>
-                      )}
-                      {" · "}
-                      <span className="italic">&ldquo;{said.english}&rdquo;</span>
-                    </p>
-                  )}
-                </>
-              ) : (
-                page(
-                  <SceneFrame
-                    stillId={setupStillId(resolved.scene.id)}
-                    situation={resolved.scene.situation}
-                    narrate={narrate}
-                    soundOn={soundOn}
-                  />,
-                )
+              const stillId = outcome
+                ? outcomeStillId(resolved.scene.id, picked!)
+                : setupStillId(resolved.scene.id);
+              return (
+                <Book
+                  testId={outcome ? "story-outcome" : "story-scene"}
+                  stillId={stillId}
+                  situation={outcome ? outcome.situation : resolved.scene.situation}
+                  narrate={narrate}
+                  soundOn={soundOn}
+                />
               );
             })()}
+
+            {/* MUTE, not "hear". Sound is on by default and this turns it off,
+                which is the owner's decision of 2026-08-24 reversing an earlier
+                opt-in button. It sits between the book and the answers because
+                that is where they asked for it, and because a control over the
+                picture competes with the picture. */}
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={toggleSound}
+                aria-pressed={!soundOn}
+                data-testid="story-mute"
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-bold transition-colors",
+                  soundOn
+                    ? "border-border bg-card text-foreground hover:bg-muted"
+                    : "border-primary bg-primary text-white",
+                )}
+              >
+                {soundOn ? (
+                  <Volume2 className="h-4 w-4" />
+                ) : (
+                  <VolumeX className="h-4 w-4" />
+                )}
+                {soundOn ? "Mute the Story" : "Unmute the Story"}
+              </button>
+            </div>
+
+            {/* WHAT YOU SAID, carried onto the next beat rather than given a
+                page of its own. Script, reading and meaning together: the
+                script is what they are learning to recognise, the reading is
+                how to say it, and the English is what makes the picture land.
+                Any one of the three alone leaves a gap. */}
+            {lastSaid && (
+              <p
+                data-testid="story-said"
+                className="rounded-2xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-center text-sm text-muted-foreground"
+              >
+                You said{" "}
+                <span
+                  style={native.style}
+                  dir={native.dir}
+                  className="font-semibold text-foreground"
+                >
+                  {lastSaid.nativeScript}
+                </span>
+                {lastSaid.romanized.trim() !== "" && (
+                  <span className="text-muted-foreground"> ({lastSaid.romanized})</span>
+                )}
+                {" \u00b7 "}
+                <span className="italic">&ldquo;{lastSaid.english}&rdquo;</span>
+              </p>
+            )}
 
             <div className="flex flex-col gap-3">
               {resolved.choices.map((choice) => {
@@ -991,6 +1051,7 @@ export default function StorybookPage() {
                     soundOn={soundOn}
                     onPick={() => {
                       setPicked(choice.concept);
+                      setLastSaid(phrase);
                       webHaptic("success");
                       void speak(phrase);
                     }}

@@ -404,46 +404,64 @@ describe("the book opens", () => {
 
 // ─── The narrator ────────────────────────────────────────────────────────────
 //
-// WHY THESE FOUR. Narration is 480 clips generated once and cached forever, so
-// a regression here is not a visual glitch you notice, it is either a silent
-// bill or a game that quietly stops being a game. Neither shows up in a
-// screenshot.
+// WHY THESE FOUR. Narration is generated once per line and cached forever, so a
+// regression here is either a silent bill or a story that stops speaking, and
+// neither shows up in a screenshot.
+//
+// THE HISTORY MATTERS, because this reversed once already and will invite
+// reversing again. Narration shipped as OPT-IN, behind a "Hear the Story"
+// button, and the scene deliberately did not narrate itself on the argument
+// that describing the picture hands the learner the answer. The owner changed
+// their mind on 2026-08-24: "I want audio on by default with an option to
+// mute", then "you will need to change the button to say Mute the Story". The
+// counter-argument that lost is worth keeping: the situation sentence describes
+// the same moment the PICTURE already shows, so speaking it adds a channel
+// rather than giving anything away.
 describe("the narrator", () => {
   beforeEach(() => {
     h.narrated = [];
     serve(bookConcepts(BOOK));
   });
 
-  test("does NOT narrate the scene, because the scene is the puzzle", () => {
-    // The whole mechanic is "read the picture, say the line that fits". A voice
-    // describing the picture hands over the answer and turns a comprehension
-    // game into a listening one. This is the single most important assertion in
-    // the file: it is a DESIGN decision, it is invisible on screen, and the
-    // obvious "narrate everything" implementation breaks it.
+  test("reads the scene without being asked", () => {
     renderPage();
-    expect(h.narrated).toEqual([]);
-  });
-
-  test("offers the scene behind the same speaker the lines use", () => {
-    renderPage();
-    fireEvent.click(screen.getByTestId("story-scene-narrate"));
     expect(h.narrated).toEqual([BOOK.scenes[0]!.situation]);
   });
 
-  test("narrates the outcome without being asked, because the joke has landed", () => {
+  test("reads the consequence too, once a line is picked", () => {
     renderPage();
     const first = BOOK.scenes[0]!.choices[0]!;
     fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
-    expect(h.narrated).toEqual([first.outcome!.situation]);
+    expect(h.narrated).toEqual([
+      BOOK.scenes[0]!.situation,
+      first.outcome!.situation,
+    ]);
+  });
+
+  test("the control is a MUTE, and it says so", () => {
+    // Sound is on by default, so a button offering to start it would be a lie
+    // about the current state. It also replaces the header speaker icon every
+    // other game carries: two controls for one state is worse than an
+    // inconsistent header.
+    renderPage();
+    const btn = screen.getByTestId("story-mute");
+    expect(btn).toHaveTextContent("Mute the Story");
+    expect(btn).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByTestId("game-mute-btn")).toBeNull();
+
+    fireEvent.click(btn);
+    expect(btn).toHaveTextContent("Unmute the Story");
+    expect(btn).toHaveAttribute("aria-pressed", "true");
   });
 
   test("muted asks for NO synthesis at all, not merely silent playback", () => {
-    // Narration bills per character on first play. A clip generated for someone
-    // who muted the game is charged, cached and never heard, which is the worst
-    // of both. So mute has to short-circuit the REQUEST, not the audio element.
+    // Narration bills per character on first play and is cached forever after.
+    // A clip generated for somebody who muted the game is charged, stored and
+    // never heard, which is the worst of both. Mute has to short-circuit the
+    // REQUEST, not the audio element.
     renderPage();
-    fireEvent.click(screen.getByTestId("game-mute-btn"));
-    expect(screen.queryByTestId("story-scene-narrate")).toBeNull();
+    fireEvent.click(screen.getByTestId("story-mute"));
+    h.narrated = [];
     const first = BOOK.scenes[0]!.choices[0]!;
     fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
     expect(h.narrated).toEqual([]);
@@ -493,5 +511,40 @@ describe("finishing the free taste", () => {
 
     expect(screen.getByTestId("story-book")).toBeInTheDocument();
     expect(screen.queryByTestId("story-book-upsell")).toBeNull();
+  });
+});
+
+// ─── What you said, carried forward ──────────────────────────────────────────
+describe("the line you just said", () => {
+  beforeEach(() => { h.narrated = []; serve(bookConcepts(BOOK)); });
+
+  test("is still on screen above the NEXT set of answers", () => {
+    // Reported 2026-08-24: "The 'you said' isn't showing on the next page. It
+    // shouldn't be its own page, but it should just show up above the next set
+    // of answers." It used to be derived from `picked`, which resets on
+    // advance, so it disappeared at exactly the moment it became useful.
+    renderPage();
+    const first = BOOK.scenes[0]!.choices[0]!;
+    fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
+    fireEvent.click(screen.getByTestId("story-next"));
+
+    const said = screen.getByTestId("story-said");
+    expect(said).toHaveTextContent(`native:${first.concept}`);
+    expect(said).toHaveTextContent(`english:${first.concept}`);
+
+    // Above the answers, not below them: it is context for the choice being
+    // made now, not a footnote on the one already made.
+    const lines = screen.getByTestId(`story-choice-${BOOK.scenes[1]!.choices[0]!.concept}`);
+    expect(said.compareDocumentPosition(lines)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  test("is absent on the very first page, and gone again after a restart", () => {
+    renderPage();
+    expect(screen.queryByTestId("story-said")).toBeNull();
+    playBook();
+    fireEvent.click(screen.getByTestId("story-again"));
+    expect(screen.queryByTestId("story-said")).toBeNull();
   });
 });

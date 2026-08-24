@@ -59,6 +59,7 @@ import {
   TTS_PROVIDER,
   phraseAudioIdentity,
   narrationAudioIdentity,
+  narrationFallbackIdentity,
   BOLO_CHAT_TTS_INSTRUCTIONS,
   BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
   BOLO_GREETING_TTS_INSTRUCTIONS,
@@ -697,64 +698,94 @@ router.post("/openai/narrate", async (req: Request, res: Response): Promise<void
     return;
   }
   const { text } = parsed.data;
-
-  const identity = narrationAudioIdentity();
-  const cacheKey = phraseTtsCacheKey(
-    text,
-    identity.provider,
-    identity.model,
-    identity.voice,
-    "narration",
-  );
-
   const t0 = Date.now();
 
-  try {
-    const cached = await db.query.ttsCacheTable.findFirst({
-      where: eq(ttsCacheTable.cacheKey, cacheKey),
-    });
-    if (cached) {
-      req.log.info(
-        { voice: identity.voice, chars: text.length, hit: true, ms: Date.now() - t0 },
-        "[narration-tts]",
-      );
-      res.json({ audioBase64: cached.audioBase64, format: cached.format });
-      return;
+  // TWO IDENTITIES, TWO CACHE NAMESPACES. The chosen Indian English voice, and
+  // the app's own working provider behind it. Keying them separately is the
+  // whole point: a fallback clip written into the good slot would be served
+  // forever after the key is repaired, and nobody would ever hear the voice
+  // they picked.
+  const primary = narrationAudioIdentity();
+  const fallback = narrationFallbackIdentity();
+  const keyFor = (id: { provider: string; model: string; voice: string }) =>
+    phraseTtsCacheKey(text, id.provider, id.model, id.voice, "narration");
+
+  const readCache = async (cacheKey: string) => {
+    try {
+      return await db.query.ttsCacheTable.findFirst({
+        where: eq(ttsCacheTable.cacheKey, cacheKey),
+      });
+    } catch (err) {
+      req.log.warn({ err }, "Narration cache read failed");
+      return undefined;
     }
-  } catch (err) {
-    // A cache read failure is not worth failing the request over: synthesize.
-    req.log.warn({ err }, "Narration cache read failed, synthesizing fresh");
-  }
-
-  try {
-    // languageId "en" rather than auto-detection. The narrator is English and
-    // always English, and the story text names Indian places and people that
-    // auto-detection could plausibly read as another script's phoneme set.
-    const buffer = await textToSpeechElevenLabs(
-      text,
-      identity.voice,
-      undefined,
-      identity.model,
-      "en",
-    );
-    if (buffer.length === 0) throw new Error("ElevenLabs returned empty narration audio");
-    const audioBase64 = buffer.toString("base64");
-
-    // Fire and forget, exactly as the phrase path does. A cache write failure
-    // costs one re-synthesis later, not this response.
+  };
+  const writeCache = (cacheKey: string, audioBase64: string) => {
     db.insert(ttsCacheTable)
       .values({ cacheKey, audioBase64, format: "mp3" })
       .onConflictDoNothing()
       .execute()
       .catch((err) => req.log.warn({ err }, "Narration cache write failed"));
+  };
 
-    req.log.info(
-      { voice: identity.voice, chars: text.length, hit: false, ms: Date.now() - t0 },
-      "[narration-tts]",
-    );
-    res.json({ audioBase64, format: "mp3" });
+  // The good voice, cached then fresh.
+  const primaryKey = keyFor(primary);
+  const hit = await readCache(primaryKey);
+  if (hit) {
+    req.log.info({ source: "narrator", chars: text.length, hit: true, ms: Date.now() - t0 }, "[narration-tts]");
+    res.json({ audioBase64: hit.audioBase64, format: hit.format, source: "narrator" });
+    return;
+  }
+
+  try {
+    // languageId "en": the narrator is English and always English, and the
+    // prose names Indian places that auto-detection could read as another
+    // script's phoneme set.
+    const buffer = await textToSpeechElevenLabs(text, primary.voice, undefined, primary.model, "en");
+    if (buffer.length === 0) throw new Error("ElevenLabs returned empty narration audio");
+    const audioBase64 = buffer.toString("base64");
+    writeCache(primaryKey, audioBase64);
+    req.log.info({ source: "narrator", chars: text.length, hit: false, ms: Date.now() - t0 }, "[narration-tts]");
+    res.json({ audioBase64, format: "mp3", source: "narrator" });
+    return;
   } catch (err) {
-    req.log.error({ err }, "Narration TTS failed");
+    // WARN, not error, and it names the likely cause. Narration is the first
+    // live ElevenLabs caller in this API since TTS_PROVIDER moved to
+    // gpt-4o-mini-tts, so an unset or stale ELEVENLABS_API_KEY in the
+    // deployment is the first thing to check and would never have shown up
+    // anywhere else.
+    req.log.warn(
+      { err },
+      "[narration-tts] ElevenLabs refused; falling back. Check ELEVENLABS_API_KEY in the deployment.",
+    );
+  }
+
+  // The fallback, which exists so the story is never silent.
+  const fallbackKey = keyFor(fallback);
+  const fbHit = await readCache(fallbackKey);
+  if (fbHit) {
+    req.log.info({ source: "fallback", chars: text.length, hit: true, ms: Date.now() - t0 }, "[narration-tts]");
+    res.json({ audioBase64: fbHit.audioBase64, format: fbHit.format, source: "fallback" });
+    return;
+  }
+
+  try {
+    const response = await openai.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      voice: fallback.voice as any,
+      input: text,
+      instructions: fallback.instructions,
+      response_format: "mp3",
+    });
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length === 0) throw new Error("gpt-4o-mini-tts returned empty narration audio");
+    const audioBase64 = buffer.toString("base64");
+    writeCache(fallbackKey, audioBase64);
+    req.log.info({ source: "fallback", chars: text.length, hit: false, ms: Date.now() - t0 }, "[narration-tts]");
+    res.json({ audioBase64, format: "mp3", source: "fallback" });
+  } catch (err) {
+    req.log.error({ err }, "Narration failed on BOTH voices");
     res.status(502).json({ error: "Could not generate narration" });
   }
 });

@@ -1367,7 +1367,8 @@ export const NarrateStoryLineBody = zod.object({
 
 export const NarrateStoryLineResponse = zod.object({
   "audioBase64": zod.string(),
-  "format": zod.string()
+  "format": zod.string(),
+  "source": zod.enum(['narrator', 'fallback']).describe('Which voice actually spoke. \"narrator\" is the chosen Indian English ElevenLabs voice. \"fallback\" means ElevenLabs would not answer and the line was spoken by the app\'s default provider instead, which sounds American. Reported rather than hidden: narration is the first live ElevenLabs caller in production, so a run of \"fallback\" is the only signal that ELEVENLABS_API_KEY is missing or stale, and a silent downgrade would leave that permanently invisible.\n')
 })
 
 

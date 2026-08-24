@@ -1675,7 +1675,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SpeechResult"
+                $ref: "#/components/schemas/NarrationResult"
 
   /openai/pronunciation:
     post:
@@ -3964,6 +3964,25 @@ components:
         - voices
         - current
 
+    NarrationResult:
+      type: object
+      required: [audioBase64, format, source]
+      properties:
+        audioBase64:
+          type: string
+        format:
+          type: string
+        source:
+          type: string
+          enum: [narrator, fallback]
+          description: >
+            Which voice actually spoke. "narrator" is the chosen Indian English
+            ElevenLabs voice. "fallback" means ElevenLabs would not answer and
+            the line was spoken by the app's default provider instead, which
+            sounds American. Reported rather than hidden: narration is the first
+            live ElevenLabs caller in production, so a run of "fallback" is the
+            only signal that ELEVENLABS_API_KEY is missing or stale, and a
+            silent downgrade would leave that permanently invisible.
     NarrationInput:
       type: object
       required: [text]

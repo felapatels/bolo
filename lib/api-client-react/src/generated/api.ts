@@ -85,6 +85,7 @@ import type {
   ListScenariosParams,
   ListZoneStampsParams,
   NarrationInput,
+  NarrationResult,
   Ok,
   OutfitCatalog,
   OutfitEquipResult,
@@ -4096,9 +4097,9 @@ export const getNarrateStoryLineUrl = () => {
  * Storybook narration. Separate from /openai/tts on purpose: that route speaks a PHRASE in the learner's own language, applies their Plus voice preference and runs pronunciation verification on the take. None of that applies here. The story is English and language-neutral by design, so one narrator serves all 22 languages and every clip is cached forever, which is what keeps a 480-line library costing once rather than 22 times.
  * @summary Read one line of the storybook aloud
  */
-export const narrateStoryLine = async (narrationInput: NarrationInput, options?: RequestInit): Promise<SpeechResult> => {
+export const narrateStoryLine = async (narrationInput: NarrationInput, options?: RequestInit): Promise<NarrationResult> => {
 
-  return customFetch<SpeechResult>(getNarrateStoryLineUrl(),
+  return customFetch<NarrationResult>(getNarrateStoryLineUrl(),
   {
     ...options,
     method: 'POST',
