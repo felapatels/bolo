@@ -95,6 +95,7 @@ const GamesLuggageMatch = lazyRoute(() => import('@/pages/games/luggage-match'))
 const GamesExpressListening = lazyRoute(() => import('@/pages/games/express-listening'));
 const GamesSignalLights = lazyRoute(() => import('@/pages/games/signal-lights'));
 const GamesStorybook = lazyRoute(() => import('@/pages/games/storybook'));
+const GamesEmergency = lazyRoute(() => import('@/pages/games/emergency'));
 const Bazaar = lazyRoute(() => import('@/pages/bazaar'));
 const Account = lazyRoute(() => import('@/pages/account'));
 const Contact = lazyRoute(() => import('@/pages/contact'));
@@ -517,6 +518,12 @@ function AppRouter() {
         <Guard>
           <GamesStorybook />
         </Guard>
+      </Route>
+      {/* THE EMERGENCY. Two callers, one screen: the journey sends
+          ?journey=1&zone=N and gets the alarm, the film and five phrases;
+          the Games hub sends nothing and gets a length picker and the game. */}
+      <Route path="/games/emergency">
+        <GamesEmergency />
       </Route>
       <Route path="/account">
         <Guard>

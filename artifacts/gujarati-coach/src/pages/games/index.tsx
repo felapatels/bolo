@@ -142,6 +142,18 @@ const GAMES: GameDef[] = [
     Icon: BookOpen,
   },
   {
+    // PAID ONLY, at the owner's direction. Free learners still meet it where it
+    // was designed to live, sprung on them between two stops on the map; what
+    // All-Access buys is playing it deliberately, and choosing how long.
+    id: "emergency",
+    href: "/games/emergency",
+    title: "Beat the Train",
+    description: "The train is coming through. Answer faster than the clock drains",
+    difficulty: "Intermediate",
+    plusOnly: true,
+    Icon: Zap,
+  },
+  {
     id: "signal-lights",
     href: "/games/signal-lights",
     title: "Signal Lights",
