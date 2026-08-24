@@ -228,44 +228,55 @@ const clerkAppearance = {
     socialButtonsPlacement: 'bottom' as const,
     socialButtonsVariant: 'blockButton' as const,
   },
+  // THEME-AWARE, and it has to be. Reported 2026-08-23: dark mode hid part of
+  // the sign-in screen. Every colour here and in `elements` below was a
+  // hardcoded light-mode literal, so on a dark page the card flipped dark (it
+  // uses bg-card, which follows the theme) while the title stayed text-slate-900
+  // and the subtitle text-slate-500. Near-black on near-black: "Welcome back to
+  // Bolo!" and its subtitle simply vanished.
+  //
+  // These now read the same CSS variables the rest of the app does, defined
+  // once under :root and again under .dark in index.css, so both themes get
+  // their own values from one source instead of one theme being written down
+  // and the other left to chance.
   variables: {
     colorPrimary: '#4F46E5',
-    colorForeground: '#0F172A',
-    colorMutedForeground: '#64748B',
+    colorForeground: 'hsl(var(--card-foreground))',
+    colorMutedForeground: 'hsl(var(--muted-foreground))',
     colorDanger: '#DC2626',
-    colorBackground: '#FFFFFF',
-    colorInput: '#FFFFFF',
-    colorInputForeground: '#0F172A',
-    colorNeutral: '#CBD5E1',
+    colorBackground: 'hsl(var(--card))',
+    colorInput: 'hsl(var(--card))',
+    colorInputForeground: 'hsl(var(--card-foreground))',
+    colorNeutral: 'hsl(var(--border))',
     fontFamily: "'Inter', sans-serif",
     borderRadius: '0.625rem',
   },
   elements: {
     rootBox: 'w-full flex justify-center',
-    cardBox: 'bg-card rounded-3xl w-[440px] max-w-full overflow-hidden shadow-xl border border-slate-200',
+    cardBox: 'bg-card rounded-3xl w-[440px] max-w-full overflow-hidden shadow-xl border border-card-border',
     card: '!shadow-none !border-0 !bg-transparent !rounded-none',
     footer: '!shadow-none !border-0 !bg-transparent !rounded-none',
-    headerTitle: 'text-slate-900 font-extrabold text-2xl',
-    headerSubtitle: 'text-slate-500 font-medium',
-    socialButtonsBlockButtonText: 'text-slate-700 font-semibold',
-    formFieldLabel: 'text-slate-700 font-semibold',
+    headerTitle: 'text-card-foreground font-extrabold text-2xl',
+    headerSubtitle: 'text-muted-foreground font-medium',
+    socialButtonsBlockButtonText: 'text-card-foreground font-semibold',
+    formFieldLabel: 'text-card-foreground font-semibold',
     footerActionLink: 'text-[#4F46E5] font-bold hover:text-[#4338CA]',
-    footerActionText: 'text-slate-500',
-    dividerText: 'text-slate-400',
+    footerActionText: 'text-muted-foreground',
+    dividerText: 'text-muted-foreground',
     identityPreviewEditButton: 'text-[#4F46E5]',
     formFieldSuccessText: 'text-emerald-600',
-    alertText: 'text-slate-700',
+    alertText: 'text-card-foreground',
     logoBox: 'justify-center h-12',
     logoImage: 'h-12 w-auto',
     socialButtonsBlockButton:
-      'border-2 border-slate-200 hover:bg-slate-50 rounded-2xl',
+      'border-2 border-card-border hover:bg-muted rounded-2xl',
     formButtonPrimary:
       'bg-[#4F46E5] hover:bg-[#4338CA] text-white font-bold rounded-2xl normal-case text-base shadow-none',
     formFieldInput:
-      'border-2 border-slate-200 rounded-2xl focus:border-[#4F46E5]',
-    footerAction: 'text-slate-500',
-    dividerLine: 'bg-slate-200',
-    otpCodeFieldInput: 'border-2 border-slate-200 rounded-xl text-slate-900',
+      'border-2 border-card-border rounded-2xl focus:border-[#4F46E5]',
+    footerAction: 'text-muted-foreground',
+    dividerLine: 'bg-card-border',
+    otpCodeFieldInput: 'border-2 border-card-border rounded-xl text-card-foreground',
     main: 'gap-4',
   },
 };

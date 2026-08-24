@@ -12,7 +12,7 @@
  * Bump this string whenever the greeting text changes so the stale cached
  * audio is automatically invalidated and re-synthesized.
  */
-export const GREETING_CACHE_KEY_VERSION = "v7";
+export const GREETING_CACHE_KEY_VERSION = "v8";
 
 /**
  * Provider-aware per-language cache key stored in tts_cache.
@@ -77,12 +77,30 @@ export function buildGreetingDisplayText(languageName: string): string {
 }
 
 /**
- * The text actually passed to the synthesizer. "or a combo" is the load-bearing
- * half: a beginner's instinct is that mixing languages is cheating, and this is
- * the only place that tells them otherwise before they have to speak again.
+ * The text actually passed to the synthesizer.
+ *
+ * PERMISSION TO MIX IS THE LOAD-BEARING HALF: a beginner's instinct is that
+ * mixing languages is cheating, and this is the only place that tells them
+ * otherwise before they have to speak again.
+ *
+ * IN BOLO'S VOICE, rewritten 2026-08-23. The previous line, "By the way, before
+ * I respond, you can chat with me in English, X, or a combo. Just do your
+ * best!", was reported from testing as sounding American rather than like Bolo,
+ * and it was: flat, coachy, and with no parrot anywhere in it. Bolo is a
+ * bubbly, cheeky, rainbow-feathered parrot who refers to himself in the third
+ * person and reaches for bird imagery ("That's not in Bolo's nest!"), which is
+ * the register the chat system prompt sets and every other line he speaks
+ * keeps. A buffer line is still Bolo talking, so it has to sound like him.
+ *
+ * It stays ENGLISH in every language (owner ruling, Aug 18 2026): the buffer's
+ * whole job is to set expectations before the first real answer, and a learner
+ * who cannot yet read the script cannot receive that.
+ *
+ * Bump GREETING_CACHE_KEY_VERSION whenever this text changes or every learner
+ * keeps hearing the old line from the audio cache. Done: v7 to v8.
  */
 export function buildGreetingTtsText(languageName: string): string {
-  return `By the way, before I respond, you can chat with me in English, ${languageName}, or a combo. Just do your best!`;
+  return `Ooh, one quick thing while I think! You can talk to me in English, in ${languageName}, or mix them right up. Bolo loves a good jumble!`;
 }
 
 /**

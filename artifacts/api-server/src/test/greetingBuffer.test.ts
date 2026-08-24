@@ -20,23 +20,28 @@ describe("the canned buffer line", () => {
   test("says the specified words, with the learner's language in them", () => {
     assert.equal(
       buildGreetingTtsText("Hindi"),
-      "By the way, before I respond, you can chat with me in English, Hindi, or a combo. Just do your best!",
+      "Ooh, one quick thing while I think! You can talk to me in English, in Hindi, or mix them right up. Bolo loves a good jumble!",
     );
   });
 
   test("is the same line in every language, only the name moves", () => {
     for (const name of ["Gujarati", "Tamil", "Santali", "Konkani"]) {
       const text = buildGreetingTtsText(name);
-      assert.ok(text.includes(`English, ${name}, or a combo`));
-      assert.ok(text.startsWith("By the way, before I respond"));
+      assert.ok(text.includes(`in English, in ${name}, or mix them right up`));
+      assert.ok(text.startsWith("Ooh, one quick thing while I think"));
     }
   });
 
   test("permits a combo, which is the load-bearing half", () => {
     // A beginner's instinct is that mixing languages is cheating. This is the
     // only place that tells them otherwise before they must speak again.
-    assert.ok(buildGreetingTtsText("Hindi").includes("or a combo"));
-    assert.ok(buildGreetingTtsText("Hindi").includes("Just do your best"));
+    // Permission to MIX is the load-bearing half of this line, whatever the
+    // wording: a beginner thinks mixing is cheating and nothing else tells them
+    // otherwise before they speak again.
+    assert.ok(buildGreetingTtsText("Hindi").includes("mix them right up"));
+    // And it has to sound like Bolo, who talks about himself in the third
+    // person. The line it replaced was reported as sounding American.
+    assert.ok(buildGreetingTtsText("Hindi").includes("Bolo"));
   });
 
   test("no native script survives, in any language", () => {
