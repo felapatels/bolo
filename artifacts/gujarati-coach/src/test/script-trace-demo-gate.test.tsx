@@ -4,20 +4,26 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 
-// Only a real hand may demonstrate stroke order.
+// Who gets a writing demo, and where its stroke order comes from.
 //
-// The demo animated a skeleton extracted from the font outline, which splits at
-// every junction. Gujarati has contributions and averages 1.8 strokes a letter;
-// the other eleven scripts average 3.3 to 6.2, with a Tamil letter at fourteen.
-// Sweeping the merge thresholds across all 459 of their letters moved the mean
-// from 5.19 to 4.27 and only by welding strokes across turns up to 101 degrees,
-// so tuning cannot turn a skeleton into a flow. Ruled 2026-08-23: show nothing
-// rather than teach the wrong stroke order.
+// THIS RULE HAS MOVED TWICE, so the history is worth keeping. It began as "any
+// script with a guide gets a demo", drawn from a skeleton extracted from the
+// font outline. That was withdrawn on 2026-08-23 because the skeleton splits at
+// every junction (Gujarati letters played as four to nine fragments where a
+// hand writes one) and because its stroke DIRECTION was a hardcoded top-left
+// guess, wrong for every right-to-left script.
+//
+// It is back, with the direction fixed: strokes now start on the side the
+// script is written from, left for the eleven LTR scripts and right for
+// Nastaliq. A real hand still wins wherever one exists, and provisional
+// font-derived glyphs are still never promoted to a hand: those are CONTOUR
+// paths that trace the outside edge of a letter and double back, which is worse
+// than a fragmented centreline.
 //
 // Pins:
-// (1) a traced script keeps the demo;
-// (2) a script with only font guesses shows no demo, no control, no start dot;
-// (3) the copy never promises a green dot that is not drawn.
+// (1) a traced script plays its hand;
+// (2) a font-only script still gets a demo, from the skeleton;
+// (3) the direction rule is applied per script, not hardcoded.
 
 const h = vi.hoisted(() => ({ lang: "gu" }));
 
@@ -48,7 +54,12 @@ vi.mock("@workspace/api-client-react", async () => ({
 vi.mock("@/components/layout/bottom-nav", () => ({ BottomNav: () => null }));
 
 import ScriptTracePage from "@/pages/games/script-trace";
-import { handPenStrokes, hasHandPenStrokes, traceStopFor } from "@workspace/script-trace";
+import {
+  handPenStrokes,
+  hasHandPenStrokes,
+  traceStopFor,
+  writesRightToLeft,
+} from "@workspace/script-trace";
 
 function renderGame() {
   const loc = memoryLocation({ path: "/games/script-trace?journey=1&zone=1", record: true });
@@ -77,27 +88,37 @@ describe("who gets a writing demo", () => {
     expect(screen.getByText(/Watch again|Playing/)).toBeInTheDocument();
   });
 
-  test("a font-only script shows no demo and no control", () => {
-    // WAS Hindi. Devanagari gained a real hand on 2026-08-23 (48 letters from
-    // Bharti), so the demo is correctly ON for it now and Bengali carries this
-    // case instead. The rule under test never changed.
+  test("a font-only script gets one too, from the skeleton", () => {
+    // INVERTED 2026-08-23. This asserted no demo at all for a script with no
+    // contributions. The demo is back for them now that the stroke direction
+    // follows the script rather than a hardcoded top-left guess, on the
+    // reasoning that a sensible inference beats a blank canvas. Bengali has 48
+    // font-derived glyphs and no hand.
     h.lang = "bn";
     expect(hasHandPenStrokes("bn")).toBe(false);
     const first = traceStopFor("bn", 1, 1)!.characters[0]!;
+    // Still no HAND: a font guess is never promoted to one.
     expect(handPenStrokes("bn", first.id)).toBeNull();
 
     renderGame();
-    expect(screen.queryByText(/Watch again|Playing/)).toBeNull();
-    // And the copy must not promise a dot that is never drawn.
-    expect(document.body.textContent).not.toContain("Start at the green dot");
-    expect(document.body.textContent).toContain("Trace the character");
+    // But there is a demo, drawn from the skeleton.
+    expect(screen.getByText(/Watch again|Playing/)).toBeInTheDocument();
   });
 
-  test("the learner can still trace: only the demo is withheld", () => {
+  test("the start side follows the script, not a hardcoded corner", () => {
+    // The reason the demo could come back. Nastaliq is the one right-to-left
+    // script in the roster, and its strokes used to start at the wrong end.
+    expect(writesRightToLeft("ur")).toBe(true);
+    expect(writesRightToLeft("ks")).toBe(true);
+    expect(writesRightToLeft("sd")).toBe(true);
+    for (const ltr of ["hi", "gu", "bn", "ta", "te", "kn", "ml", "or", "pa", "sat", "mni"]) {
+      expect(writesRightToLeft(ltr), `${ltr} is written left to right`).toBe(false);
+    }
+  });
+
+  test("tracing and scoring are untouched either way", () => {
     h.lang = "bn";
     renderGame();
-    // The guide shape comes from the font and is legitimate; what cannot be
-    // claimed is the ORDER. Clearing and scoring stay exactly as they were.
     expect(screen.getByText("Clear")).toBeInTheDocument();
     expect(document.querySelector("canvas")).not.toBeNull();
   });

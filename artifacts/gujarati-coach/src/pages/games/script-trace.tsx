@@ -21,6 +21,7 @@ import {
   traceHeadline,
   traceStopFor,
   handPenStrokes,
+  writesRightToLeft,
   TRACE_TEASER_LIMIT,
   type TraceBreakdown,
   type TraceChapter,
@@ -650,20 +651,31 @@ function mergeCollinearStrokes(lines: Point[][]): Point[][] {
   return work;
 }
 
-/** Orient a stroke so it starts where a pen naturally would (top-left bias). */
-function orientStroke(pts: Point[]): Point[] {
+/**
+ * Orient a stroke so it starts where a pen naturally would.
+ *
+ * Top first always, then the side the script starts from: LEFT for the eleven
+ * left-to-right scripts, RIGHT for Nastaliq. The x weight simply changes sign,
+ * which is the whole of the rule. Before 2026-08-23 it was a hardcoded top-left
+ * bias for all twelve, so Urdu, Kashmiri and Sindhi began every stroke at the
+ * wrong end.
+ */
+function orientStroke(pts: Point[], xWeight: number): Point[] {
   if (pts.length < 2) return pts;
   const start = pts[0], end = pts[pts.length - 1];
-  // Near-closed loop → rotate so it starts at the topmost point
+  const sideBeats = (a: Point, b: Point) =>
+    xWeight < 0 ? a.x > b.x : a.x < b.x;
+  // Near-closed loop → rotate so it starts at the topmost point, breaking ties
+  // on the side the script starts from.
   if (Math.hypot(start.x - end.x, start.y - end.y) < 6) {
     let best = 0;
     for (let i = 1; i < pts.length; i++) {
-      if (pts[i].y < pts[best].y || (pts[i].y === pts[best].y && pts[i].x < pts[best].x)) best = i;
+      if (pts[i].y < pts[best].y || (pts[i].y === pts[best].y && sideBeats(pts[i], pts[best]))) best = i;
     }
     return best === 0 ? pts : [...pts.slice(best), ...pts.slice(1, best + 1)];
   }
-  const sScore = start.y + start.x * ORIENT_X_WEIGHT;
-  const eScore = end.y + end.x * ORIENT_X_WEIGHT;
+  const sScore = start.y + start.x * xWeight;
+  const eScore = end.y + end.x * xWeight;
   return eScore < sScore ? [...pts].reverse() : pts;
 }
 
@@ -694,7 +706,10 @@ function chaikinSmooth(points: Point[], iterations = 2): Point[] {
  * Extract ordered pen strokes (centerline polylines, 0-100 space) from a
  * glyph outline path. Returns [] when the glyph is degenerate.
  */
-export function extractStrokes(guideD: string): Point[][] {
+export function extractStrokes(guideD: string, rightToLeft = false): Point[][] {
+  // Negative weight means "prefer the right-hand end", which is the only
+  // difference between writing a script leftwards and rightwards here.
+  const xWeight = rightToLeft ? -ORIENT_X_WEIGHT : ORIENT_X_WEIGHT;
   const subpaths = parseSvgSubpaths(guideD).filter((sp) => sp.length > 2);
   if (subpaths.length === 0) return [];
   const res = skelResFor(subpaths.length);
@@ -711,7 +726,7 @@ export function extractStrokes(guideD: string): Point[][] {
   // Prune leftover tiny spurs (thinning artifacts) unless they are all we have
   const substantial = lines.filter((l) => polylineLength(l) >= 6);
   if (substantial.length > 0) lines = substantial;
-  lines = lines.map((l) => orientStroke(simplifyStroke(l, 1.6)));
+  lines = lines.map((l) => orientStroke(simplifyStroke(l, 1.6), xWeight));
 
   // Degenerate-skeleton fallback: sentence-scale glyphs can squeeze letter
   // limbs into HAIRLINE strokes thinner than one raster cell. Point-sampled
@@ -722,13 +737,13 @@ export function extractStrokes(guideD: string): Point[][] {
   const skelLen = lines.reduce((s, l) => s + polylineLength(l), 0);
   const outlineLen = subpaths.reduce((s, sp) => s + polylineLength(sp), 0);
   if (skelLen < 20 || skelLen < 0.08 * outlineLen) {
-    lines = subpaths.map((sp) => orientStroke(simplifyStroke(sp, 1.6)));
+    lines = subpaths.map((sp) => orientStroke(simplifyStroke(sp, 1.6), xWeight));
   }
 
   // Order strokes: most top-left start first, then greedily append the stroke
   // whose start is nearest the previous stroke's end (natural pen travel).
   const remaining = [...lines].sort(
-    (a, b) => a[0].y + a[0].x * ORIENT_X_WEIGHT - (b[0].y + b[0].x * ORIENT_X_WEIGHT),
+    (a, b) => a[0].y + a[0].x * xWeight - (b[0].y + b[0].x * xWeight),
   );
   const ordered: Point[][] = [];
   let cur = remaining.shift();
@@ -754,11 +769,15 @@ export function extractStrokes(guideD: string): Point[][] {
  * string; the full dataset would only be a few MB, a session touches far less.
  */
 const guideStrokeCache = new Map<string, Point[][]>();
-function strokesForGuide(guideD: string): Point[][] {
-  const hit = guideStrokeCache.get(guideD);
+function strokesForGuide(guideD: string, rightToLeft = false): Point[][] {
+  // Keyed on the direction too: the same guide yields a different pen path
+  // depending on which end the script starts from, and a shared key would serve
+  // one script the other's answer.
+  const key = `${rightToLeft ? "rtl" : "ltr"}:${guideD}`;
+  const hit = guideStrokeCache.get(key);
   if (hit) return hit;
-  const strokes = extractStrokes(guideD);
-  guideStrokeCache.set(guideD, strokes);
+  const strokes = extractStrokes(guideD, rightToLeft);
+  guideStrokeCache.set(key, strokes);
   return strokes;
 }
 
@@ -968,8 +987,12 @@ function ScriptTraceCanvas({
   // is what runs again the day a script gets contributions, and deleting a
   // working pipeline over a display policy is not cheap to undo.
   const penStrokes = useMemo(
-    () => handPenStrokes(activeLang, character.id) ?? [],
-    [activeLang, character.id],
+    () =>
+      handPenStrokes(activeLang, character.id) ??
+      (character.guide
+        ? strokesForGuide(character.guide, writesRightToLeft(activeLang))
+        : []),
+    [activeLang, character.id, character.guide],
   );
   /** Whether this character can honestly be demonstrated at all. */
   const hasPenDemo = penStrokes.length > 0;

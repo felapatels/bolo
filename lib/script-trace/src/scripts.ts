@@ -72,6 +72,42 @@ export const SCRIPT_BY_LANGUAGE: Record<string, ScriptId> = {
 };
 
 /** Human name, for copy that has to say which script is being traced. */
+/**
+ * Which way each script is written.
+ *
+ * The demo has to know, because everything about a pen path that is not the
+ * SHAPE is direction: which end of a stroke you start at, and which stroke you
+ * draw first. A skeleton extracted from a font outline carries neither, so both
+ * are inferred, and the inference was a hardcoded top-LEFT bias for all twelve
+ * scripts. For Nastaliq that is backwards: Urdu, Kashmiri and Sindhi are
+ * written right to left, so their demo was starting every stroke at the wrong
+ * end and drawing the strokes in the wrong order.
+ *
+ * Common sense, applied 2026-08-23: start where the script starts. It is still
+ * an inference and still not a substitute for a real hand, which is why
+ * anything with contributed strokes ignores all of this and plays those.
+ */
+export const SCRIPT_DIRECTION: Record<ScriptId, "ltr" | "rtl"> = {
+  devanagari: "ltr",
+  bengali: "ltr",
+  gujarati: "ltr",
+  gurmukhi: "ltr",
+  tamil: "ltr",
+  telugu: "ltr",
+  kannada: "ltr",
+  malayalam: "ltr",
+  odia: "ltr",
+  "perso-arabic": "rtl",
+  "ol-chiki": "ltr",
+  meitei: "ltr",
+};
+
+/** Whether this language's script is written right to left. */
+export function writesRightToLeft(languageCode: string): boolean {
+  const script = SCRIPT_BY_LANGUAGE[languageCode];
+  return script ? SCRIPT_DIRECTION[script] === "rtl" : false;
+}
+
 export const SCRIPT_NAMES: Record<ScriptId, string> = {
   devanagari: "Devanagari",
   bengali: "Bengali",

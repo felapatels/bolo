@@ -21,6 +21,12 @@
  * frame loop and anything native are outside this, and CLAUDE.md's measurement
  * rules still apply there (a dev build can never clear an animation bug). This
  * checks the geometry, which is what has actually been wrong both times.
+ *
+ * IT ALSO COVERS HAND-TRACED SCRIPTS ONLY, and not because that is the right
+ * boundary. The skeleton extractor that draws every other script lives inside
+ * the web PAGE (and a second copy inside the phone's), so this workspace cannot
+ * import it. Moving it into lib/script-trace would let this cover all twelve and
+ * would kill a duplication CLAUDE.md already complains about. Worth doing.
  */
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
