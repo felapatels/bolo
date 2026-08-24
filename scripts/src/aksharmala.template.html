@@ -277,7 +277,19 @@
       <div id="whywrap" hidden>
         <p style="margin:1.1rem 0 .6rem"><b>What is wrong with it?</b> Anything helps: a word
           that is off, or how you would really say it.</p>
-        <textarea id="why" rows="4" placeholder="For example: nobody says it that way, we would say..."></textarea>
+        <!-- autocomplete="off": this is the box a relative types a CORRECTION
+             into, and it is the whole point of the passage-feedback flow. The
+             name field above correctly declares given-name; this one declared
+             nothing, so a browser was free to autofill a stored email over it.
+             That has been observed on the in-app twin, 39 of 42 rows, and not
+             yet here only because nobody has typed in it.
+
+             "new-note" rather than "off": Chrome and Safari ignore off when
+             their heuristic is confident, and a note box sitting beside a name
+             field is exactly the shape that triggers it. An unrecognised token
+             is treated as off and holds more reliably. NEITHER IS GUARANTEED,
+             so this wants checking in a browser that has an email stored. -->
+        <textarea id="why" rows="4" autocomplete="new-note" placeholder="For example: nobody says it that way, we would say..."></textarea>
         <div class="row">
           <button class="btn ghost small" id="whyskip">Skip</button>
           <button class="btn small" id="whysend">Send</button>
