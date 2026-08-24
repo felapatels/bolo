@@ -309,8 +309,22 @@ export function Mascot({
     const t = loop.value;
     let translateY = 0;
     let rotate = 0;
-    if (motion === 'float') translateY = -6 * Math.sin(t * Math.PI);
-    else if (motion === 'bounce') translateY = -10 * Math.sin(t * Math.PI);
+    if (motion === 'float') {
+      // A BOB AND A WOBBLE, not a bob alone. Reported 2026-08-23 as Bolo "not
+      // bouncing" on the home screen: he was, by six pixels over 2.2 seconds
+      // with no rotation at all, which is about three pixels a second on an
+      // 84px bird and reads as a still image.
+      //
+      // The web twin has always had the wobble (lib/motion.tsx floatIdle:
+      // y [0,-6,0] WITH rotate [0,-1.5,1.5,0]) and reads alive at the same six
+      // pixels, so the missing ingredient was the tilt rather than the travel.
+      // Mobile gets both: a little more lift, and the tilt that makes it read.
+      //
+      // Confirmed alive before changing anything: the funny idle fires after
+      // ten untouched seconds, so the loop was always running.
+      translateY = -8 * Math.sin(t * Math.PI);
+      rotate = 1.5 * Math.sin(t * 2 * Math.PI);
+    } else if (motion === 'bounce') translateY = -10 * Math.sin(t * Math.PI);
     else if (motion === 'sway') rotate = (t - 0.5) * 6;
     if (pose === 'cheer') rotate += (t - 0.5) * 10;
 
