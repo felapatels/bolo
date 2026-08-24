@@ -299,7 +299,22 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
         </div>
 
         {/* Plan options */}
-        <div className="mt-6 space-y-4 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0 lg:items-stretch">
+        {/* COLUMN COUNT FOLLOWS THE CARDS, it is not a constant. Withdrawing
+            the Family plan left two cards in a three-column grid, which made
+            both of them narrow, and `items-stretch` then pulled the short Free
+            card down to the height of All-Access, so it rendered as a tall
+            empty box. Reported from the live site 2026-08-24.
+
+            `items-start` rather than stretch: each card is as tall as its own
+            content. Equal heights only look right when the cards carry roughly
+            equal content, and Free carries three lines against All-Access's
+            five plus a price and a trial badge. */}
+        <div
+          className={cn(
+            "mt-6 space-y-4 lg:grid lg:gap-4 lg:space-y-0 lg:items-start",
+            FAMILY_PLAN_ENABLED ? "lg:grid-cols-3" : "lg:grid-cols-2",
+          )}
+        >
           {/* Free — the current plan, shown for context and never selectable.
               Kept far left so the plans read current → upgrade → best. */}
           <div className="rounded-3xl border border-dashed border-border bg-muted/30 p-5">
@@ -476,7 +491,7 @@ function PlanCard({
       onClick={onSelect}
       aria-pressed={selected}
       className={cn(
-        "relative flex h-full w-full flex-col rounded-3xl border-2 p-5 text-left transition-all",
+        "relative flex w-full flex-col rounded-3xl border-2 p-5 text-left transition-all",
         selected
           ? "border-primary bg-primary/5 shadow-sm"
           : "border-card-border bg-card hover:border-primary/40",
