@@ -601,6 +601,9 @@ importers:
       '@sentry/react':
         specifier: ^10.68.0
         version: 10.68.0(react@19.1.0)
+      '@workspace/emergency':
+        specifier: workspace:*
+        version: link:../../lib/emergency
       '@workspace/story':
         specifier: workspace:*
         version: link:../../lib/story
@@ -1065,6 +1068,8 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+
+  lib/emergency: {}
 
   lib/integrations-openai-ai-react:
     devDependencies:

@@ -19,6 +19,9 @@
       "path": "./lib/train-class"
     },
     {
+      "path": "./lib/emergency"
+    },
+    {
       "path": "./lib/integrations-openai-ai-server"
     },
     {
