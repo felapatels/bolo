@@ -137,7 +137,35 @@ function jobsForBook(bookId: string, scenes: readonly Scene[]): Job[] {
  * visible loss at this size. ffmpeg is already in this toolchain (audioNoise,
  * genBandClips), so this needs no new dependency.
  */
-function toWebp(png: Buffer, outPath: string): void {
+function haveFfmpeg(): boolean {
+  try {
+    execFileSync("ffmpeg", ["-version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * PNG in, webp out, and PNG out when there is no ffmpeg.
+ *
+ * gpt-image-1 returns PNG, and twenty full-size PNGs is several megabytes
+ * shipped to every phone and every page load. webp at q82 is a fraction of that
+ * with no visible loss at this size, and ffmpeg is already in this toolchain
+ * (audioNoise, genBandClips) so it needs no new dependency.
+ *
+ * BUT IT FALLS BACK RATHER THAN FAILING. These images cost real money, and this
+ * runs in the Replit Shell because the OpenAI base URL is a proxy on the Repl's
+ * own localhost. Dying at the CONVERSION step would throw away every image
+ * already paid for in that run. A larger file is a problem you can fix later;
+ * a lost batch is money gone.
+ */
+function writeStill(png: Buffer, dir: string, id: string, canWebp: boolean): void {
+  if (!canWebp) {
+    writeFileSync(path.join(dir, `${id}.png`), png);
+    return;
+  }
+  const outPath = path.join(dir, `${id}.webp`);
   const tmp = `${outPath}.tmp.png`;
   writeFileSync(tmp, png);
   try {
@@ -146,6 +174,10 @@ function toWebp(png: Buffer, outPath: string): void {
       ["-y", "-loglevel", "error", "-i", tmp, "-quality", "82", outPath],
       { stdio: ["ignore", "ignore", "inherit"] },
     );
+  } catch {
+    // Keep the pixels. A PNG beside a failed webp is recoverable; a thrown
+    // error mid-run is twenty images bought and discarded.
+    writeFileSync(path.join(dir, `${id}.png`), png);
   } finally {
     rmSync(tmp, { force: true });
   }
@@ -154,14 +186,24 @@ function toWebp(png: Buffer, outPath: string): void {
 async function main(): Promise<void> {
   for (const dir of OUT_DIRS) mkdirSync(dir, { recursive: true });
 
+  const canWebp = haveFfmpeg();
+  if (!canWebp) {
+    console.warn(
+      "ffmpeg not found: writing PNG instead of webp. The images are correct, " +
+        "just larger. Convert them later rather than re-buying them.",
+    );
+  }
+
   const jobs: Job[] = [];
   for (const book of STORY_BOOKS) {
     for (const job of jobsForBook(book.id, book.scenes)) {
       // --scene matches the SCENE, so it pulls a setup and its three outcomes
       // together. Iterating on one beat means looking at all four at once.
       if (onlyScene && !job.id.startsWith(onlyScene)) continue;
-      const exists = OUT_DIRS.every((d) =>
-        existsSync(path.join(d, `${job.id}.webp`)),
+      const exists = OUT_DIRS.every(
+        (d) =>
+          existsSync(path.join(d, `${job.id}.webp`)) ||
+          existsSync(path.join(d, `${job.id}.png`)),
       );
       if (exists && !force) continue;
       jobs.push(job);
@@ -187,7 +229,7 @@ async function main(): Promise<void> {
       );
       if (png.length === 0) throw new Error("empty image buffer");
       for (const dir of OUT_DIRS) {
-        toWebp(png, path.join(dir, `${job.id}.webp`));
+        writeStill(png, dir, job.id, canWebp);
       }
       console.log(`  ${label} ok`);
     } catch (err) {
