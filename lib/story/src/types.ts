@@ -69,6 +69,33 @@ export type SceneChoice = {
   /** Where the story goes if this is chosen. Null ends the book. */
   next: string | null;
   /**
+   * WHAT HAPPENS BECAUSE YOU SAID IT. A picture, shown after the tap and before
+   * the story moves on.
+   *
+   * WHY THIS EXISTS. The graph converges: all three choices in a scene lead to
+   * the same next beat. That was the right call and it was justified with the
+   * wrong reason, namely that a divergent graph is human judgement nobody can
+   * verify in 22 languages. That argument is about the LINES, which are per
+   * language and come from the corpus. Scenes are language-neutral, so
+   * divergence costs art and English prose and carries ZERO translation risk.
+   *
+   * What convergence actually cost was the consequence. Choosing "spoon" when
+   * a grandmother is holding out a tumbler of water recorded a different entry
+   * in the learner's book and changed NOTHING they could see, so the game read
+   * as a quiz with no wrong answers. Reported 2026-08-24: "it doesn't really
+   * adjust based on my selection".
+   *
+   * The outcome restores it without multiplying the graph. Three consequence
+   * pictures per scene, then the story rejoins, so a five-beat book is 5 setups
+   * plus 15 outcomes rather than 3^5 = 243 branches.
+   *
+   * THE JOKE IS THE PICTURE, never the words. A line that does not fit gets an
+   * outcome that is funny in every language at once, because nothing in the
+   * image is written down. That is the same property that makes a Tier 1 still
+   * serve all 22 languages, applied to comedy.
+   */
+  outcome?: SceneOutcome;
+  /**
    * Whether this is the line that FITS the scene.
    *
    * Exactly one choice per scene sets it. The others are not "wrong answers"
@@ -76,6 +103,17 @@ export type SceneChoice = {
    * the choice a comprehension judgement rather than a recall test.
    */
   fits: boolean;
+};
+
+/**
+ * The consequence of one line, rendered.
+ *
+ * Deliberately the same shape as a Scene's `situation`: an English brief that
+ * an illustrator or a generator works from AND the alt text a screen reader
+ * reads. Never shown as prose to the learner, who sees the picture.
+ */
+export type SceneOutcome = {
+  situation: string;
 };
 
 /** A moment, its renderings, and where each answer takes you. */
