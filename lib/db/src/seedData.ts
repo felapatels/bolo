@@ -14,6 +14,9 @@ import curatedSentencesC1Json from "./data/curatedSentencesC1.json";
 // language, keyed language code → category slug (see curatedSentencesC1Rollout()).
 // Same provenance contract as the Gujarati file (origin="generated_c1").
 import curatedSentencesC1RolloutJson from "./data/curatedSentencesC1Rollout.json";
+// The frozen generated library. Gujarati reads from it too, but ONLY for the
+// topics GUJARATI_LESSONS does not hand-curate: see gujaratiLessonsWithC1().
+import curatedLessonsJson from "./data/curatedLessons.json";
 
 // fontFamily = the Google "Noto" family that covers this language's script.
 export type SeedLanguage = {
@@ -260,6 +263,28 @@ export function curatedSentencesC1Rollout(): Record<
 export function gujaratiLessonsWithC1(): Record<string, SeedLesson> {
   const c1 = curatedSentencesC1();
   const out: Record<string, SeedLesson> = {};
+
+  // GENERATED TOPICS FIRST, so a hand-curated lesson always overwrites one.
+  //
+  // Gujarati is the hand-curated flagship: its six journey 1 lessons are the
+  // reviewed reference every other language was generated against, and they
+  // live in GUJARATI_LESSONS and nowhere else. It is ALSO the language the app
+  // is named after, and the pre-generation runner used to skip it whole, which
+  // left it the one language of twenty-two with no journey 2 content at all.
+  //
+  // So the split is per TOPIC rather than per language. A topic Gujarati
+  // hand-curates is never generated and never read from the frozen file; a
+  // topic it does not is read from there exactly like the other twenty-one.
+  // The ordering below is the guard: if a hand-curated lesson ever appears for
+  // a topic that was generated, the reviewed one wins rather than racing.
+  const generated = (curatedLessonsJson as CuratedLessonsFile)[
+    CURATED_LANGUAGE_CODE
+  ];
+  for (const [slug, lesson] of Object.entries(generated ?? {})) {
+    if (!lesson) continue;
+    out[slug] = lesson;
+  }
+
   for (const [slug, lesson] of Object.entries(GUJARATI_LESSONS)) {
     const extra = c1[slug] ?? [];
     out[slug] =
@@ -268,6 +293,18 @@ export function gujaratiLessonsWithC1(): Record<string, SeedLesson> {
         : { ...lesson, sentences: [...(lesson.sentences ?? []), ...extra] };
   }
   return out;
+}
+
+/**
+ * The topics Gujarati hand-curates, which the generator must never touch.
+ *
+ * Derived from GUJARATI_LESSONS rather than restated, so completing a Gujarati
+ * topic by hand cannot leave a stale list telling the runner to regenerate it.
+ * Same reasoning as traceChapterSize deriving from the chapter data after a
+ * hardcoded CHAPTER_SIZE of 10 was wrong for 46 of 48 chapters.
+ */
+export function gujaratiCuratedSlugs(): ReadonlySet<string> {
+  return new Set(Object.keys(GUJARATI_LESSONS));
 }
 
 // The frozen curated-lessons file with each language's C1 rollout sentence

@@ -11,6 +11,8 @@ import {
   CURATED_LANGUAGE_CODE,
   PHRASES_PER_LESSON,
   GUJARATI_LESSONS,
+  gujaratiCuratedSlugs,
+  gujaratiLessonsWithC1,
   starterPhraseCount,
   extendedPhraseCount,
   premiumPhraseCount,
@@ -793,4 +795,63 @@ test("every category is either curated or knowingly uncurated", () => {
 
 test("the curated set still covers all six journey 1 topics", () => {
   assert.equal(CURATED_CATEGORIES.length, 6);
+});
+
+// ---------------------------------------------------------------------------
+// Gujarati is hand-curated for journey 1 and GENERATED for everything else.
+//
+// The pre-generation runner used to skip Gujarati whole, to protect the six
+// reviewed lessons every other language was generated against. The cost only
+// surfaced when journey 2 was authored: Gujarati came out the one language of
+// twenty-two with no journey 2 content, which is the wrong language to leave
+// behind. The skip is now per topic, and these are the two halves of that
+// bargain. Without them a future change regenerates reviewed content and
+// nothing anywhere says so.
+// ---------------------------------------------------------------------------
+
+test("the topics Gujarati hand-curates are exactly journey 1", () => {
+  assert.deepEqual(
+    [...gujaratiCuratedSlugs()].sort(),
+    ["everyday", "family", "feelings", "food", "greetings", "numbers"],
+  );
+  // Derived, never restated: hand-curating a seventh topic must remove it from
+  // the runner automatically rather than needing a list updated by hand.
+  assert.deepEqual(
+    [...gujaratiCuratedSlugs()].sort(),
+    Object.keys(GUJARATI_LESSONS).sort(),
+  );
+});
+
+test("a hand-curated Gujarati lesson always beats a generated one", () => {
+  // The merge writes generated topics first and hand-curated second, so this
+  // holds even if the frozen file ever grows an entry for a curated topic.
+  const merged = gujaratiLessonsWithC1();
+  for (const slug of gujaratiCuratedSlugs()) {
+    const curated = GUJARATI_LESSONS[slug]!;
+    assert.ok(merged[slug], `${slug} lost its hand-curated lesson`);
+    assert.equal(
+      merged[slug]!.titleNative,
+      curated.titleNative,
+      `${slug} was overwritten by generated content`,
+    );
+    assert.deepEqual(
+      merged[slug]!.phrases,
+      curated.phrases,
+      `${slug}'s reviewed phrases were replaced`,
+    );
+  }
+});
+
+test("Gujarati's uncurated topics are the ones the runner may generate", () => {
+  // The complement, stated so the two sets cannot drift apart silently: every
+  // journey 2 topic is generatable for Gujarati, and no journey 1 topic is.
+  const curated = gujaratiCuratedSlugs();
+  for (const cat of CATEGORIES) {
+    const isJourney2 = UNCURATED_CATEGORY_SLUGS.has(cat.slug);
+    assert.equal(
+      curated.has(cat.slug),
+      !isJourney2,
+      `${cat.slug}: Gujarati's curated set and the uncurated set disagree`,
+    );
+  }
 });

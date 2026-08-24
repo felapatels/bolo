@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import {
   LANGUAGES,
   CATEGORIES,
+  gujaratiCuratedSlugs,
   CURATED_LANGUAGE_CODE,
   starterPhraseCount,
   extendedPhraseCount,
@@ -325,6 +326,28 @@ async function generateOne(job: Job): Promise<SeedLesson> {
   return lesson;
 }
 
+/**
+ * The topics this language needs generating.
+ *
+ * THE SKIP IS PER TOPIC, NOT PER LANGUAGE. This runner used to skip Gujarati
+ * outright, because Gujarati is the hand-curated flagship whose six journey 1
+ * lessons are the reviewed reference every other language was generated
+ * against, and regenerating those would quietly replace reviewed content with
+ * model output.
+ *
+ * The cost of that blanket skip only showed up when journey 2 was authored:
+ * Gujarati came out the ONE language of twenty-two with no journey 2 content
+ * at all, which is the wrong language to leave behind twice over. So the six
+ * hand-curated topics stay untouchable and everything else generates exactly
+ * as it does elsewhere. The untouchable set is DERIVED from GUJARATI_LESSONS,
+ * so hand-curating a seventh topic removes it from this runner automatically.
+ */
+function categoriesToGenerate(langCode: string): typeof CATEGORIES {
+  if (langCode !== CURATED_LANGUAGE_CODE) return CATEGORIES;
+  const curated = gujaratiCuratedSlugs();
+  return CATEGORIES.filter((c) => !curated.has(c.slug));
+}
+
 async function main() {
   const data = loadExisting();
 
@@ -332,9 +355,8 @@ async function main() {
   // (unless already valid) fails validation. --force regenerates everything.
   const jobs: Job[] = [];
   for (const lang of LANGUAGES) {
-    if (lang.code === CURATED_LANGUAGE_CODE) continue;
     const byCat = data[lang.code];
-    for (const cat of CATEGORIES) {
+    for (const cat of categoriesToGenerate(lang.code)) {
       const existing = byCat?.[cat.slug];
       // A lesson only counts as "already done" if it is both well-formed and
       // content-clean; a duplicate/loanword lesson is regenerated.
@@ -373,8 +395,10 @@ async function main() {
     }
   }
 
-  const totalPairs =
-    (LANGUAGES.length - 1) * CATEGORIES.length; // all non-Gujarati pairs
+  const totalPairs = LANGUAGES.reduce(
+    (n, lang) => n + categoriesToGenerate(lang.code).length,
+    0,
+  );
   const alreadyDone = totalPairs - jobs.length;
   console.log(
     `Pre-generating lessons: ${jobs.length} to generate, ${alreadyDone}/${totalPairs} already valid.`,
