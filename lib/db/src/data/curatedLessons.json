@@ -13687,6 +13687,1778 @@
       ]
     }
   },
+  "gu": {
+    "festivals": {
+      "titleNative": "ઉત્સવો અને તહેવારો",
+      "phrases": [
+        {
+          "nativeScript": "શુભેચ્છા",
+          "romanized": "shubh-ecchha",
+          "english": "good wishes",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "તહેવાર મુબારક",
+          "romanized": "tehvar mubarak",
+          "english": "happy festival",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "જન્મદિન મુબારક",
+          "romanized": "janmadin mubarak",
+          "english": "happy birthday",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "આવો ઉજવણી કરીએ",
+          "romanized": "aavo ujavaNi kariye",
+          "english": "let's celebrate",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "તમને આમંત્રણ છે",
+          "romanized": "tamne aamantran chhe",
+          "english": "you are invited",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "અમારા ઘરે આવો",
+          "romanized": "amara ghare aavo",
+          "english": "come to our house",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ખુશખબર",
+          "romanized": "khushkhabar",
+          "english": "good news",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "તમારી ઉજવણી મંગલમય રહે",
+          "romanized": "tamari ujavaNi mangalmay rahe",
+          "english": "may your celebration be joyful",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "આનંદ",
+          "romanized": "anand",
+          "english": "joy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ઉત્સવ",
+          "romanized": "utsav",
+          "english": "festival; celebration",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "પાઠશાળા ઉજવણી",
+          "romanized": "paathshala ujavaNi",
+          "english": "school celebration",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મજા કરો",
+          "romanized": "maja karo",
+          "english": "have fun",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "સ્વાગત છે",
+          "romanized": "swagat chhe",
+          "english": "welcome",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "આજે ખુશીનો દિવસ છે",
+          "romanized": "aaje khushino divas chhe",
+          "english": "today is a happy day",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "પરિવાર સાથે",
+          "romanized": "parivar sathe",
+          "english": "with family",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મિત્રો સાથે",
+          "romanized": "mitro sathe",
+          "english": "with friends",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "દીવો પ્રગટાવો",
+          "romanized": "deeo pragtaavo",
+          "english": "light a lamp",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "પૂજા કરો",
+          "romanized": "puja karo",
+          "english": "do a prayer",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મીઠાઈ ખાઓ",
+          "romanized": "mithai khaao",
+          "english": "eat sweets",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ભેટ આપો",
+          "romanized": "bhet aapo",
+          "english": "give a gift",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ઘર સજાવો",
+          "romanized": "ghar sajaavo",
+          "english": "decorate the house",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "રંગોળી બનાવો",
+          "romanized": "rangoli banaavo",
+          "english": "make rangoli",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "નવું વર્ષ",
+          "romanized": "navu varsh",
+          "english": "new year",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ઉજવણી શરૂ થઈ",
+          "romanized": "ujavani sharu thai",
+          "english": "the celebration has started",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ખૂબ આનંદ થયો",
+          "romanized": "khoob anand thayo",
+          "english": "very happy to hear that",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "આવતી કાલે",
+          "romanized": "aavti kale",
+          "english": "tomorrow",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "શુભ સમારંભ",
+          "romanized": "shubh samarambh",
+          "english": "auspicious ceremony",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "પસંદીદા તહેવાર",
+          "romanized": "pasandida tehvar",
+          "english": "favorite festival",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મહારાજ",
+          "romanized": "maharaj",
+          "english": "congratulations (honorific)",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "સલામતીથી આવો",
+          "romanized": "salamati thi aavo",
+          "english": "come safely",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "આશીર્વાદ",
+          "romanized": "aashirvad",
+          "english": "blessing",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "આપનું સ્વાગત છે",
+          "romanized": "aapnu swagat chhe",
+          "english": "you are welcome",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મિત્રોને બોલાવો",
+          "romanized": "mitrone bolavo",
+          "english": "call the friends",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "કેક કાપો",
+          "romanized": "cake kapo",
+          "english": "cut the cake",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "દીપાવલીની શુભેચ્છાઓ",
+          "romanized": "dīpāvalīni shubh-echchhao",
+          "english": "best wishes for Diwali",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "ઉજવણીમાં આવજો",
+          "romanized": "ujavani ma aavjo",
+          "english": "please come to the celebration",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ખબર આપી",
+          "romanized": "khabar aapi",
+          "english": "told the news",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મંગલમય",
+          "romanized": "mangalmay",
+          "english": "auspicious; joyful",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "સુખી રહો",
+          "romanized": "sukhi raho",
+          "english": "stay happy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ઉત્સવ મનાવો",
+          "romanized": "utsav manavo",
+          "english": "celebrate the festival",
+          "difficulty": 2
+        }
+      ],
+      "sentences": [
+        {
+          "nativeScript": "આજે અમારા ઘરે ખુશી છે.",
+          "romanized": "aaje amara ghare khushi chhe.",
+          "english": "There is happiness at our house today.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મિત્રોને આજે ખૂબ આનંદ થયો.",
+          "romanized": "mitrone aaje khub anand thayo.",
+          "english": "The friends were very happy today.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "આવતી કાલે અમારા ઘરે આવજો.",
+          "romanized": "aavti kale amara ghare aavjo.",
+          "english": "Please come to our house tomorrow.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "અમે જન્મદિન માટે કેક કાપીશું.",
+          "romanized": "ame janmadin maate cake kapeeshun.",
+          "english": "We will cut a cake for the birthday.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "માતા દીવો પ્રગટાવે છે.",
+          "romanized": "mata deeo pragtaave chhe.",
+          "english": "Mother lights a lamp.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "બાળકો રંગોળી બનાવી રહ્યા છે.",
+          "romanized": "baalako rangoli banaavi rahya chhe.",
+          "english": "The children are making rangoli.",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "અમે પરિવાર સાથે ઉત્સવ મનાવીએ છીએ.",
+          "romanized": "ame parivar sathe utsav manaviye chhiye.",
+          "english": "We celebrate the festival with family.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "તમારી ઉજવણી મંગલમય રહે.",
+          "romanized": "tamari ujavaNi mangalmay rahe.",
+          "english": "May your celebration be joyful.",
+          "difficulty": 2
+        }
+      ]
+    },
+    "health": {
+      "titleNative": "આરોગ્ય અને શરીર",
+      "phrases": [
+        {
+          "nativeScript": "મને દુખે છે",
+          "romanized": "mane dukhe chhe",
+          "english": "It hurts",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "માથું દુખે છે",
+          "romanized": "mathun dukhe chhe",
+          "english": "My head hurts",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "પેટ દુખે છે",
+          "romanized": "pet dukhe chhe",
+          "english": "My stomach hurts",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મને મદદ કરો",
+          "romanized": "mane madad karo",
+          "english": "Help me",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મને હોસ્પિટલ લઈ જાઓ",
+          "romanized": "mane hospital lai jao",
+          "english": "Take me to the hospital",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને તાવ છે",
+          "romanized": "mane tave chhe",
+          "english": "I have a fever",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને ખાંસી આવે છે",
+          "romanized": "mane khansi ave chhe",
+          "english": "I have a cough",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને ડોક્ટર પાસે લઈ જાઓ",
+          "romanized": "mane doctor pase lai jao",
+          "english": "Take me to the doctor",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "હાથ દુખે છે",
+          "romanized": "haath dukhe chhe",
+          "english": "My hand hurts",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "પગ દુખે છે",
+          "romanized": "pag dukhe chhe",
+          "english": "My leg hurts",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ગળું દુખે છે",
+          "romanized": "galun dukhe chhe",
+          "english": "My throat hurts",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "કાન દુખે છે",
+          "romanized": "kaan dukhe chhe",
+          "english": "My ear hurts",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "દાંત દુખે છે",
+          "romanized": "daant dukhe chhe",
+          "english": "My tooth hurts",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "આંખ દુખે છે",
+          "romanized": "aankh dukhe chhe",
+          "english": "My eye hurts",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મને તકલીફ છે",
+          "romanized": "mane taklif chhe",
+          "english": "I have a problem",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને ચક્કર આવે છે",
+          "romanized": "mane chakkar ave chhe",
+          "english": "I feel dizzy",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને ઊલટી થાય છે",
+          "romanized": "mane ulti thay chhe",
+          "english": "I am vomiting",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને ઠંડી લાગે છે",
+          "romanized": "mane thandi lage chhe",
+          "english": "I feel cold",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મને ગરમ લાગે છે",
+          "romanized": "mane garam lage chhe",
+          "english": "I feel hot",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મને શ્વાસ લેવામાં તકલીફ છે",
+          "romanized": "mane shvas levama taklif chhe",
+          "english": "I have trouble breathing",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "મને એલર્જી છે",
+          "romanized": "mane allergy chhe",
+          "english": "I have an allergy",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મારે આરામ કરવો છે",
+          "romanized": "mare aaram karvo chhe",
+          "english": "I need to rest",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "પાણી આપો",
+          "romanized": "pani apo",
+          "english": "Give me water",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "બેન્ડેજ આપો",
+          "romanized": "bandej apo",
+          "english": "Give me a bandage",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને દવા આપો",
+          "romanized": "mane dava apo",
+          "english": "Give me medicine",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મારી માતાને બોલાવો",
+          "romanized": "mari matane bolavo",
+          "english": "Call my mother",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મારે ઘર જવું છે",
+          "romanized": "mare ghar javu chhe",
+          "english": "I want to go home",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને ઉલટી થઈ છે",
+          "romanized": "mane ulti thai chhe",
+          "english": "I have vomited",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને પેટમાં દુખાવો છે",
+          "romanized": "mane petma dukhavo chhe",
+          "english": "I have stomach pain",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને માથું ભારે લાગે છે",
+          "romanized": "mane mathun bhare lage chhe",
+          "english": "My head feels heavy",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને ખંજવાળ આવે છે",
+          "romanized": "mane khanjval ave chhe",
+          "english": "I feel itchy",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને ઘા લાગ્યો છે",
+          "romanized": "mane gha lagyo chhe",
+          "english": "I have a cut",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને ચોટ લાગી છે",
+          "romanized": "mane chot lagi chhe",
+          "english": "I am hurt",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મારું નાક વહી રહ્યું છે",
+          "romanized": "marun naak vahi rahyu chhe",
+          "english": "My nose is runny",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને સારું નથી લાગતું",
+          "romanized": "mane saru nathi lagtu",
+          "english": "I do not feel well",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મને ઊંઘ આવે છે",
+          "romanized": "mane ungh ave chhe",
+          "english": "I feel sleepy",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મને ભૂખ નથી લાગી",
+          "romanized": "mane bhukh nathi lagi",
+          "english": "I am not hungry",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "થોડી વાર આરામ કરો",
+          "romanized": "thodi var aaram karo",
+          "english": "Rest for a little while",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મારી આંખમાં કચરો ગયો છે",
+          "romanized": "mari aankh ma kachro gayo chhe",
+          "english": "Something got in my eye",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "મને પટ્ટી જોઈએ",
+          "romanized": "mane patti joie",
+          "english": "I need a bandage",
+          "difficulty": 1
+        }
+      ],
+      "sentences": [
+        {
+          "nativeScript": "મારા પગમાં દુખે છે.",
+          "romanized": "mara pagma dukhe chhe.",
+          "english": "My leg hurts.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મારી આંખ દુખે છે.",
+          "romanized": "mari aankh dukhe chhe.",
+          "english": "My eye hurts.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મારું ગળું દુખે છે.",
+          "romanized": "marun galun dukhe chhe.",
+          "english": "My throat hurts.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મને થોડી મદદ કરો.",
+          "romanized": "mane thodi madad karo.",
+          "english": "Please help me a little.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મને આજે ડોક્ટર પાસે લઈ જાઓ.",
+          "romanized": "mane aje doctor pase lai jao.",
+          "english": "Take me to the doctor today.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મારે થોડો આરામ કરવો છે.",
+          "romanized": "mare thodo aaram karvo chhe.",
+          "english": "I need to rest a little.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને પાણી આપો અને મદદ કરો.",
+          "romanized": "mane pani apo ane madad karo.",
+          "english": "Give me water and help me.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને સારું નથી લાગતું, મને ઘરે જવું છે.",
+          "romanized": "mane saru nathi lagtu, mane ghare javu chhe.",
+          "english": "I do not feel well, and I want to go home.",
+          "difficulty": 3
+        }
+      ]
+    },
+    "shopping": {
+      "titleNative": "ખરીદી અને પૈસા",
+      "phrases": [
+        {
+          "nativeScript": "કેટલું છે?",
+          "romanized": "ketlu chhe?",
+          "english": "How much is it?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "આની કિંમત કેટલી છે?",
+          "romanized": "aani kimat ketli chhe?",
+          "english": "How much does this cost?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મને આ જોઈએ.",
+          "romanized": "mane aa joie.",
+          "english": "I want this.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મારે આ ખરીદવું છે.",
+          "romanized": "mare aa kharidvu chhe.",
+          "english": "I want to buy this.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "શું તમે થોડી સસ્તી કરી શકો?",
+          "romanized": "shu tame thodi sasti kari shako?",
+          "english": "Can you make it a little cheaper?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મારે આ લેવું છે.",
+          "romanized": "mare aa levu chhe.",
+          "english": "I want to take this.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું રોકડથી ચૂકવીશ.",
+          "romanized": "hu rokad thi chukvish.",
+          "english": "I will pay by cash.",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "કાર્ડ ચાલશે?",
+          "romanized": "kaard chalashe?",
+          "english": "Will card be okay?",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "મહેરબાની કરીને બિલ આપો.",
+          "romanized": "meherbani karine bill aapo.",
+          "english": "Please give me the bill.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "રેસીદ આપશો?",
+          "romanized": "resid aapsho?",
+          "english": "Will you give me a receipt?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "આની રકમ કેટલી છે?",
+          "romanized": "aani rkam ketli chhe?",
+          "english": "What is the amount for this?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "આમાં છૂટ છે?",
+          "romanized": "aama chhut chhe?",
+          "english": "Is there a discount on this?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "છૂટ આપશો?",
+          "romanized": "chhut aapsho?",
+          "english": "Will you give a discount?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મારી પાસે છૂટક નથી.",
+          "romanized": "maari paase chhutak nathi.",
+          "english": "I don't have small change.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મોટા નોટ છે?",
+          "romanized": "mota not chhe?",
+          "english": "Do you have larger notes?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મહેરબાની કરીને ફરી ગણો.",
+          "romanized": "meherbani karine fari gano.",
+          "english": "Please count it again.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મહેરબાની કરીને ધીમે બોલો.",
+          "romanized": "meherbani karine dheeme bolo.",
+          "english": "Please speak slowly.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "બદલમાં શું આપશો?",
+          "romanized": "badlama shu aapsho?",
+          "english": "What will you give as change?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "આ ચલશે.",
+          "romanized": "aa chalshe.",
+          "english": "This will work.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મારે બિલ જોઈશે.",
+          "romanized": "maare bill joiye chhe.",
+          "english": "I need the bill.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "થોડી રાહ જુઓ.",
+          "romanized": "thodi raah juo.",
+          "english": "Please wait a moment.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મારે પૈસા ગણવા છે.",
+          "romanized": "maare paisa ganva chhe.",
+          "english": "I need to count the money.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "અહીં સસ્તું છે?",
+          "romanized": "ahi sastu chhe?",
+          "english": "Is it cheaper here?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "આના બદલે આ આપો.",
+          "romanized": "aana badle aa aapo.",
+          "english": "Give me this instead.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મારે એક થેલી જોઈએ.",
+          "romanized": "maare ek theli joiye.",
+          "english": "I need a bag.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "દુકાન ક્યારે ખુલશે?",
+          "romanized": "dukaan kyare khulshe?",
+          "english": "When will the shop open?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "દુકાન ક્યારે બંધ થશે?",
+          "romanized": "dukaan kyare bandh thashe?",
+          "english": "When will the shop close?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "આભાર.",
+          "romanized": "aabhar.",
+          "english": "Thank you.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "આ કેટલા રૂપિયાના છે?",
+          "romanized": "aa ketla rupiya na chhe?",
+          "english": "How many rupees is this?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મને એક જોઈએ.",
+          "romanized": "mane ek joie.",
+          "english": "I want one.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "બે આપો.",
+          "romanized": "be aapo.",
+          "english": "Give me two.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "પાંચ આપો.",
+          "romanized": "paanch aapo.",
+          "english": "Give me five.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "આ ચેક કરો.",
+          "romanized": "aa chek karo.",
+          "english": "Check this.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "આ સારું છે.",
+          "romanized": "aa saru chhe.",
+          "english": "This is good.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "બીજું બતાવો.",
+          "romanized": "biju bataavo.",
+          "english": "Show me another one.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "સસ્તું કંઈક બતાવો.",
+          "romanized": "sastu kaik bataavo.",
+          "english": "Show me something cheaper.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મોટું સાઇઝ આપો.",
+          "romanized": "motu size aapo.",
+          "english": "Give me a bigger size.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "નાનું સાઇઝ આપો.",
+          "romanized": "nanu size aapo.",
+          "english": "Give me a smaller size.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મારા પાસે પૂરતા પૈસા છે.",
+          "romanized": "maara paase purta paisa chhe.",
+          "english": "I have enough money.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મહેરબાની કરીને થેલો આપો.",
+          "romanized": "meherbani karine thelo aapo.",
+          "english": "Please give me a bag.",
+          "difficulty": 2
+        }
+      ],
+      "sentences": [
+        {
+          "nativeScript": "આ કેટલા રૂપિયા છે?",
+          "romanized": "aa ketla rupiya chhe?",
+          "english": "How many rupees is this?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મને આ વસ્તુ જોઈએ છે.",
+          "romanized": "mane aa vastu joie chhe.",
+          "english": "I want this thing.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "તમે કાર્ડ લેશો?",
+          "romanized": "tame kaard lesho?",
+          "english": "Will you take card?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મારી પાસે પૂરતા રૂપિયા છે.",
+          "romanized": "maari paase purta rupiya chhe.",
+          "english": "I have enough money.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને એક થેલી આપશો?",
+          "romanized": "mane ek theli aapsho?",
+          "english": "Will you give me a bag?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "બદલામાં ચિલ્લર આપો.",
+          "romanized": "badlama chillar aapo.",
+          "english": "Give small change in return.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને બિલ સાથે રસીદ પણ જોઈએ છે.",
+          "romanized": "mane bill sathe resid pan joie chhe.",
+          "english": "I want the receipt with the bill too.",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "મહેરબાની કરીને આ ફરી ગણો.",
+          "romanized": "meherbani karine aa fari gano.",
+          "english": "Please count this again.",
+          "difficulty": 3
+        }
+      ]
+    },
+    "time": {
+      "titleNative": "સમય અને દિવસો",
+      "phrases": [
+        {
+          "nativeScript": "આજે",
+          "romanized": "aaje",
+          "english": "today",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "કાલે",
+          "romanized": "kaale",
+          "english": "tomorrow / yesterday",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "સવારે",
+          "romanized": "savare",
+          "english": "in the morning",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "બપોરે",
+          "romanized": "bapore",
+          "english": "in the afternoon",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "સાંજે",
+          "romanized": "saanje",
+          "english": "in the evening",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "રાતે",
+          "romanized": "raate",
+          "english": "at night",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "કેટલા વાગ્યા?",
+          "romanized": "ketla vagya?",
+          "english": "What time is it?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ચાલો, બે વાગ્યે મળીએ.",
+          "romanized": "chaalo, be vagye maliye.",
+          "english": "Let's meet at 2 o'clock.",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "અઠવાડિયું",
+          "romanized": "athvadiyun",
+          "english": "week",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "દિવસ",
+          "romanized": "divas",
+          "english": "day",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મહિનો",
+          "romanized": "mahino",
+          "english": "month",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "વર્ષ",
+          "romanized": "varsh",
+          "english": "year",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "પહેલો",
+          "romanized": "pehlo",
+          "english": "first",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "બીજો",
+          "romanized": "beejo",
+          "english": "second",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ત્રીજો",
+          "romanized": "treejo",
+          "english": "third",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "પછી",
+          "romanized": "pachi",
+          "english": "later",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હવે",
+          "romanized": "have",
+          "english": "now",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "શીઘ્રે",
+          "romanized": "shighre",
+          "english": "soon",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મોડી",
+          "romanized": "modi",
+          "english": "late",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "વહેલી",
+          "romanized": "vaheli",
+          "english": "early",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "સાત વાગ્યે",
+          "romanized": "sat vagye",
+          "english": "at seven o'clock",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "આઠ વાગ્યે",
+          "romanized": "aath vagye",
+          "english": "at eight o'clock",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "નવ વાગ્યે",
+          "romanized": "nav vagye",
+          "english": "at nine o'clock",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "દસ વાગ્યે",
+          "romanized": "das vagye",
+          "english": "at ten o'clock",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મળીએ",
+          "romanized": "maliye",
+          "english": "let's meet",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ક્યારે?",
+          "romanized": "kyare?",
+          "english": "when?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "સમય",
+          "romanized": "samay",
+          "english": "time",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "આજ રાત્રે",
+          "romanized": "aaj raatre",
+          "english": "tonight",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "સોમવાર",
+          "romanized": "somvar",
+          "english": "Monday",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મંગળવાર",
+          "romanized": "mangalvar",
+          "english": "Tuesday",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "બુધવાર",
+          "romanized": "budhvar",
+          "english": "Wednesday",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ગુરુવાર",
+          "romanized": "gurvar",
+          "english": "Thursday",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "શુક્રવાર",
+          "romanized": "shukravar",
+          "english": "Friday",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "શનિવાર",
+          "romanized": "shanivar",
+          "english": "Saturday",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "રવિવાર",
+          "romanized": "ravivar",
+          "english": "Sunday",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "અગિયાર વાગ્યે",
+          "romanized": "agiyar vagye",
+          "english": "at eleven o'clock",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "બાર વાગ્યે",
+          "romanized": "bar vagye",
+          "english": "at twelve o'clock",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "સાંજે છ વાગ્યે",
+          "romanized": "saanje chh vagye",
+          "english": "at six in the evening",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મંગળવારે",
+          "romanized": "mangalvare",
+          "english": "on Tuesday",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "આવતીકાલે",
+          "romanized": "aavtikale",
+          "english": "the day after tomorrow",
+          "difficulty": 3
+        }
+      ],
+      "sentences": [
+        {
+          "nativeScript": "આજે હું ઘરે છું.",
+          "romanized": "aaje hu gharē chhu.",
+          "english": "Today I am at home.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "કાલે અમે શાળાએ જઈશું.",
+          "romanized": "kaale ame shalae jaishu.",
+          "english": "Tomorrow we will go to school.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "સવારે હું વહેલો ઊઠું છું.",
+          "romanized": "savare hu vahelo uthun chhu.",
+          "english": "In the morning I get up early.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "બપોરે હું ભોજન કરું છું.",
+          "romanized": "bapore hu bhojan karun chhu.",
+          "english": "In the afternoon I eat lunch.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "સાંજે અમે સાથે રમીએ છીએ.",
+          "romanized": "saanje ame sathe ramiye chhiye.",
+          "english": "In the evening we play together.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "રાતે હું વહેલો સુઈ જાઉં છું.",
+          "romanized": "raate hu vahelo sui jau chhu.",
+          "english": "At night I go to sleep early.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મંગળવારે આપણે ફરી મળીએ છીએ.",
+          "romanized": "mangalvare aapne fari maliye chhiye.",
+          "english": "On Tuesday we meet again.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "આવતીકાલે આપણે નવ વાગ્યે મળીએ.",
+          "romanized": "aavtikale aapne nav vagye maliye.",
+          "english": "The day after tomorrow we will meet at nine o'clock.",
+          "difficulty": 3
+        }
+      ]
+    },
+    "travel": {
+      "titleNative": "મુસાફરી અને દિશાઓ",
+      "phrases": [
+        {
+          "nativeScript": "ક્યાં છે?",
+          "romanized": "kyaan chhe?",
+          "english": "Where is it?",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "સામે",
+          "romanized": "saame",
+          "english": "in front",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "જમણે",
+          "romanized": "jamane",
+          "english": "right",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ડાબે",
+          "romanized": "daabe",
+          "english": "left",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "અહીં",
+          "romanized": "ahi",
+          "english": "here",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું ત્યાં જઈ રહ્યો છું",
+          "romanized": "hun tyaan jai rahyo chhun",
+          "english": "I am going there",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "બસ સ્ટોપ ક્યાં છે?",
+          "romanized": "bas stop kyaan chhe?",
+          "english": "Where is the bus stop?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને રસ્તો બતાવો",
+          "romanized": "mane rasto bataavo",
+          "english": "Show me the way",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "અહીંથી",
+          "romanized": "aahinthi",
+          "english": "from here",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "ત્યાંથી",
+          "romanized": "tyaanthi",
+          "english": "from there",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "સીધું",
+          "romanized": "seedhu",
+          "english": "straight",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "અંદર",
+          "romanized": "andar",
+          "english": "inside",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "બહાર",
+          "romanized": "baahar",
+          "english": "outside",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "નજીક",
+          "romanized": "najik",
+          "english": "near",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "દૂર",
+          "romanized": "door",
+          "english": "far",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "વળો",
+          "romanized": "valo",
+          "english": "turn",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "પહેલું",
+          "romanized": "pahelu",
+          "english": "first",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "બીજું",
+          "romanized": "biju",
+          "english": "second",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "તૈયાર છો?",
+          "romanized": "taiyaar chho?",
+          "english": "Are you ready?",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ચાલો",
+          "romanized": "chaalo",
+          "english": "Let's go",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "માફ કરશો",
+          "romanized": "maaf karsho",
+          "english": "Excuse me / Sorry",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મદદ કરો",
+          "romanized": "madad karo",
+          "english": "Help me",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "સ્ટેશન",
+          "romanized": "steshan",
+          "english": "station",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "શાળા",
+          "romanized": "shaala",
+          "english": "school",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "દુકાન",
+          "romanized": "dukaan",
+          "english": "shop",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હોટલ",
+          "romanized": "hotel",
+          "english": "hotel",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "નકશો",
+          "romanized": "naksho",
+          "english": "map",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "રસ્તો ભૂલાઈ ગયો",
+          "romanized": "rasto bhulai gayo",
+          "english": "I got lost",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "રસ્તો",
+          "romanized": "rasto",
+          "english": "road",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "માર્ગ",
+          "romanized": "maarg",
+          "english": "route",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મુસાફરી",
+          "romanized": "musaafari",
+          "english": "travel",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "યાત્રા",
+          "romanized": "yaatra",
+          "english": "journey",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ગામ",
+          "romanized": "gaam",
+          "english": "village",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "શહેર",
+          "romanized": "shehar",
+          "english": "city",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "એરપોર્ટ",
+          "romanized": "airport",
+          "english": "airport",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "બસ",
+          "romanized": "bas",
+          "english": "bus",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "રેલવે",
+          "romanized": "railve",
+          "english": "railway",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "નદી",
+          "romanized": "nadi",
+          "english": "river",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "મોડું",
+          "romanized": "modu",
+          "english": "turn / bend",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "ક્રોસિંગ",
+          "romanized": "crossing",
+          "english": "crossing",
+          "difficulty": 2
+        }
+      ],
+      "sentences": [
+        {
+          "nativeScript": "અહીંથી સીધું જાઓ.",
+          "romanized": "Aahinthi seedhu jaao.",
+          "english": "Go straight from here.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "પછી જમણે વળો.",
+          "romanized": "Pachi jamane valo.",
+          "english": "Then turn right.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "પછી ડાબે વળો.",
+          "romanized": "Pachi daabe valo.",
+          "english": "Then turn left.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "સ્ટેશન નજીક છે.",
+          "romanized": "Steshan najik chhe.",
+          "english": "The station is near.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "શાળા ત્યાંથી દૂર છે.",
+          "romanized": "Shaala tyaanthi door chhe.",
+          "english": "The school is far from there.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "દુકાન સામે બસ સ્ટોપ છે.",
+          "romanized": "Dukaan saame bas stop chhe.",
+          "english": "The bus stop is in front of the shop.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું શહેરમાં જઈ રહ્યો છું.",
+          "romanized": "Hun sheharma jai rahyo chhun.",
+          "english": "I am going to the city.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "મને નકશો આપો અને મદદ કરો.",
+          "romanized": "Mane naksho aapo ane madad karo.",
+          "english": "Give me a map and help me.",
+          "difficulty": 3
+        }
+      ]
+    },
+    "work": {
+      "titleNative": "કામ અને અભ્યાસ",
+      "phrases": [
+        {
+          "nativeScript": "હું કામ કરું છું",
+          "romanized": "hu kaam karu chu",
+          "english": "I work",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું ભણું છું",
+          "romanized": "hu bhanu chu",
+          "english": "I study",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું શાળાએ જાઉં છું",
+          "romanized": "hu shalae jau chu",
+          "english": "I go to school",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું ઓફિસમાં કામ કરું છું",
+          "romanized": "hu office ma kaam karu chu",
+          "english": "I work in an office",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું હોમવર્ક કરું છું",
+          "romanized": "hu homework karu chu",
+          "english": "I do homework",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું ક્લાસમાં બેસું છું",
+          "romanized": "hu class ma besu chu",
+          "english": "I sit in class",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું પરીક્ષા આપું છું",
+          "romanized": "hu pariksha aapu chu",
+          "english": "I take an exam",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "હું પુસ્તકાલયમાં ભણું છું",
+          "romanized": "hu pustakalay ma bhanu chu",
+          "english": "I study in the library",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "હું વાંચું છું",
+          "romanized": "hu vanchu chu",
+          "english": "I read",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું લખું છું",
+          "romanized": "hu lakhun chu",
+          "english": "I write",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું ગણિત કરું છું",
+          "romanized": "hu ganit karu chu",
+          "english": "I do math",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું ઘરકામ કરું છું",
+          "romanized": "hu gharkam karu chu",
+          "english": "I do chores",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું નોટ્સ લખું છું",
+          "romanized": "hu notes lakhun chu",
+          "english": "I write notes",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું પ્રશ્નોના જવાબ આપું છું",
+          "romanized": "hu prashnona javab aapu chu",
+          "english": "I answer questions",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "હું અભ્યાસ કરું છું",
+          "romanized": "hu abhyas karu chu",
+          "english": "I practice studying",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું હોમવર્ક પૂરુ કરું છું",
+          "romanized": "hu homework puru karu chu",
+          "english": "I finish homework",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું લંચ કરું છું",
+          "romanized": "hu lunch karu chu",
+          "english": "I eat lunch",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું વિરામ લઉં છું",
+          "romanized": "hu viram lau chu",
+          "english": "I take a break",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું શિક્ષકને સાંભળું છું",
+          "romanized": "hu shikshakne sambhalu chu",
+          "english": "I listen to the teacher",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું વર્ગમાં બોલું છું",
+          "romanized": "hu varg ma bolu chu",
+          "english": "I speak in class",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું પ્રોજેક્ટ કરું છું",
+          "romanized": "hu project karu chu",
+          "english": "I do a project",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું બેઠકમાં બેસું છું",
+          "romanized": "hu bethak ma besu chu",
+          "english": "I sit in a meeting",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "હું કમ્પ્યુટર વાપરું છું",
+          "romanized": "hu computer vaparu chu",
+          "english": "I use the computer",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું પ્રશ્ન પૂછું છું",
+          "romanized": "hu prashn puchhu chu",
+          "english": "I ask a question",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું પુસ્તક વાંચું છું",
+          "romanized": "hu pustak vanchu chu",
+          "english": "I read a book",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું લખાવું છું",
+          "romanized": "hu lakhavu chu",
+          "english": "I get it written down",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "હું મદદ કરું છું",
+          "romanized": "hu madad karu chu",
+          "english": "I help",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું વહેલો ઊઠું છું",
+          "romanized": "hu vahelu uthun chu",
+          "english": "I get up early",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું સૂમારી કરું છું",
+          "romanized": "hu sumarI karu chu",
+          "english": "I do sum/drawing work",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું સમયસર પહોંચું છું",
+          "romanized": "hu samaysar pahochu chu",
+          "english": "I arrive on time",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું હોમવર્ક ચકાસું છું",
+          "romanized": "hu homework chakasu chu",
+          "english": "I check homework",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું ધૂંધળું લખાણ વાંચું છું",
+          "romanized": "hu dhundhlu lakhanu vanchu chu",
+          "english": "I read difficult writing",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "હું પાઠ યાદ કરું છું",
+          "romanized": "hu path yaad karu chu",
+          "english": "I memorize the lesson",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું પ્રાર્થના કરું છું",
+          "romanized": "hu prarthna karu chu",
+          "english": "I pray",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું તૈયાર થાઉં છું",
+          "romanized": "hu taiyar thaun chu",
+          "english": "I get ready",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું તાલીમ લઈ રહ્યો છું",
+          "romanized": "hu talim lai rahyo chu",
+          "english": "I am taking training",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું કામ વહેંચું છું",
+          "romanized": "hu kaam vahenchu chu",
+          "english": "I divide the work",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "હું ફાઇલ ગોઠવું છું",
+          "romanized": "hu file gothvu chu",
+          "english": "I arrange the files",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "હું જવાબ તપાસું છું",
+          "romanized": "hu javab tapasu chu",
+          "english": "I check the answers",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું સમયપત્રક જોઈું છું",
+          "romanized": "hu samaypatrak jou chu",
+          "english": "I look at the timetable",
+          "difficulty": 2
+        }
+      ],
+      "sentences": [
+        {
+          "nativeScript": "હું દરરોજ શાળાએ જાઉં છું.",
+          "romanized": "hu darroj shalae jau chu",
+          "english": "I go to school every day.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું ઘરે હોમવર્ક કરું છું.",
+          "romanized": "hu ghare homework karu chu",
+          "english": "I do homework at home.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું ક્લાસમાં શિક્ષકને સાંભળું છું.",
+          "romanized": "hu class ma shikshakne sambhalu chu",
+          "english": "I listen to the teacher in class.",
+          "difficulty": 1
+        },
+        {
+          "nativeScript": "હું દરરોજ પુસ્તક વાંચું છું.",
+          "romanized": "hu darroj pustak vanchu chu",
+          "english": "I read a book every day.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું બપોરે લંચ કરું છું.",
+          "romanized": "hu bapore lunch karu chu",
+          "english": "I eat lunch in the afternoon.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું ઓફિસમાં કમ્પ્યુટર વાપરું છું.",
+          "romanized": "hu office ma computer vaparu chu",
+          "english": "I use the computer in the office.",
+          "difficulty": 2
+        },
+        {
+          "nativeScript": "હું કામ શરૂ કરતા પહેલા પ્રાર્થના કરું છું.",
+          "romanized": "hu kaam sharu karta pehla prarthna karu chu",
+          "english": "I pray before starting work.",
+          "difficulty": 3
+        },
+        {
+          "nativeScript": "હું સમયસર પહોંચીને તૈયારી કરું છું.",
+          "romanized": "hu samaysar pahochine taiyari karu chu",
+          "english": "I arrive on time and get ready.",
+          "difficulty": 3
+        }
+      ]
+    }
+  },
   "hi": {
     "everyday": {
       "titleNative": "रोज़मर्रा के शब्द",
