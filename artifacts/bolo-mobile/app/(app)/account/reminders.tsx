@@ -40,6 +40,7 @@ import {
   rescheduleReminders,
   saveReminderPrefs,
 } from '@/lib/reminders';
+import { retirePushToken, syncPushToken } from '@/lib/push';
 
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const DAY_NAMES = [
@@ -140,6 +141,40 @@ export default function RemindersScreen() {
     await apply({ ...prefs, enabled: on });
   };
 
+  /**
+   * The streak push toggle.
+   *
+   * THE PREFERENCE IS ENFORCED BY THE TOKEN, not by a server flag. Turning this
+   * on hands the server this device's address; turning it off takes the address
+   * away, and a server with no token for a device cannot reach it whatever it
+   * decides to send. That is why this needs no schema change, and it is exactly
+   * sufficient while there is one push message type. A second one needs
+   * server-side preferences.
+   *
+   * It shares the OS permission with the daily reminder, so turning it on when
+   * permission is already granted asks for nothing. Asking twice for one
+   * permission is how an app burns its single chance at that dialog on iOS.
+   */
+  const toggleStreakRisk = async (on: boolean) => {
+    if (!prefs) return;
+    setPrefs({ ...prefs, streakRisk: on });
+    await saveReminderPrefs({ ...prefs, streakRisk: on });
+    if (!on) {
+      await retirePushToken();
+      return;
+    }
+    const current = await getNotificationPermission();
+    setPermission(current);
+    if (!current.granted) {
+      const asked = current.canAskAgain
+        ? await requestNotificationPermission()
+        : current;
+      setPermission(asked);
+      if (!asked.granted) return;
+    }
+    await syncPushToken();
+  };
+
   const quietOn = !!prefs?.quietStart && !!prefs?.quietEnd;
   const timeMin = prefs ? parseHHMM(prefs.time) : null;
   const timeInQuiet =
@@ -196,6 +231,38 @@ export default function RemindersScreen() {
             <Switch
               value={remindersSupported && (prefs?.enabled ?? false)}
               onValueChange={toggleEnabled}
+              disabled={!prefs || !remindersSupported}
+              trackColor={{ false: colors.muted, true: colors.primary }}
+              thumbColor={colors.card}
+            />
+          </View>
+        </View>
+
+        {/* THE SERVER-SENT one, and separate from the daily reminder on purpose.
+            One switch for every notification means a learner who dislikes one
+            of them turns off all of them, and a lapsing streak is the single
+            message they implicitly asked for by building the streak. */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.row}>
+            <View style={styles.rowIcon}>
+              <Feather name="zap" size={18} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                Streak about to end
+              </Text>
+              <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                Only on an evening your streak would break. Never otherwise.
+              </Text>
+            </View>
+            <Switch
+              value={remindersSupported && (prefs?.streakRisk ?? false)}
+              onValueChange={toggleStreakRisk}
               disabled={!prefs || !remindersSupported}
               trackColor={{ false: colors.muted, true: colors.primary }}
               thumbColor={colors.card}

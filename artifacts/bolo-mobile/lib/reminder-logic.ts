@@ -8,7 +8,37 @@
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
 export type ReminderPrefs = {
+  /**
+   * The DAILY PRACTICE reminder, scheduled on this device.
+   *
+   * Named `enabled` rather than `dailyPractice` because it predates there being
+   * more than one kind of notification and is already persisted under that key
+   * on every installed device. Renaming it would silently reset everyone's
+   * preference to off, which is a worse outcome than an imperfect name.
+   */
   enabled: boolean;
+  /**
+   * The STREAK-AT-RISK push, sent by the server on the evening a streak is
+   * about to lapse.
+   *
+   * SEPARATE FROM `enabled` on the owner's ruling 2026-08-24: one switch for
+   * every notification means a learner who dislikes one of them turns off all
+   * of them, and a lapsing streak is the one message they implicitly asked for
+   * by building the streak in the first place.
+   *
+   * DEFAULTS TO TRUE, unlike the daily reminder, and the difference is honest:
+   * this can only ever fire for someone who already has a streak going, so it
+   * cannot reach a learner who has not engaged. It is still gated behind OS
+   * permission like everything else.
+   *
+   * TURNING IT OFF RETIRES THE DEVICE TOKEN rather than setting a server flag,
+   * which is why there is no migration behind this. A server the device has not
+   * given a token to cannot reach it, so the preference enforces itself. That
+   * only works while there is ONE push message type; a second one needs
+   * server-side preferences and therefore a production migration path, which
+   * this repo does not have.
+   */
+  streakRisk: boolean;
   /** "HH:MM" 24h local time the reminder fires. */
   time: string;
   /** Which weekdays the reminder fires on (0=Sun…6=Sat). */
@@ -21,6 +51,7 @@ export type ReminderPrefs = {
 
 export const DEFAULT_REMINDER_PREFS: ReminderPrefs = {
   enabled: false,
+  streakRisk: true,
   time: '19:00',
   days: ALL_DAYS,
   quietStart: null,
@@ -105,6 +136,13 @@ function duePhrase(dueCount: number): string | null {
  *
  * Owner ruling 2026-08-19: funny, in the Duolingo register.
  *
+ * THE PARROT IS ON EVERY TITLE, owner ruling 2026-08-24, and it is doing work
+ * rather than decorating. A lock screen shows the app name in small grey text
+ * and the title in bold; the emoji is the only part of a notification that is
+ * recognisably Bolo at a glance, which is exactly how Duolingo's owl earns its
+ * place. It leads the title so it survives truncation, which eats the END of a
+ * line on both platforms.
+ *
  * VARIETY IS DETERMINISTIC, not random. The same day always yields the same
  * line, so a learner never gets two different reminders for one slot, and the
  * tests can assert on copy without stubbing a random source. Rotating by day
@@ -115,23 +153,23 @@ type Line = { title: string; body: string };
 /** A streak worth protecting. The loss framing, played for laughs. */
 const STREAK_LINES: ((days: number) => Line)[] = [
   (d) => ({
-    title: `Your ${d}-day streak is watching the door`,
+    title: `\u{1F99C} Your ${d}-day streak is watching the door`,
     body: 'It has not said anything. That is how you know it is upset.',
   }),
   (d) => ({
-    title: `Chacha-ji poured ${d} cups in a row`,
+    title: `\u{1F99C} Chacha-ji poured ${d} cups in a row`,
     body: 'He is being very polite about today.',
   }),
   (d) => ({
-    title: `${d} days. Bolo has told everyone.`,
+    title: `\u{1F99C} ${d} days. Bolo has told everyone.`,
     body: 'Do not make a liar out of a small bird.',
   }),
   (d) => ({
-    title: `The ${d}-day streak has trust issues`,
+    title: `\u{1F99C} The ${d}-day streak has trust issues`,
     body: 'Two minutes and it stops bringing this up.',
   }),
   (d) => ({
-    title: `Day ${d + 1} is right there`,
+    title: `\u{1F99C} Day ${d + 1} is right there`,
     body: 'The train is at the platform. It will wait. It always waits.',
   }),
 ];
@@ -139,15 +177,15 @@ const STREAK_LINES: ((days: number) => Line)[] = [
 /** Day one done, day two pending: the cliff everybody falls off. */
 const DAY_TWO_LINES: Line[] = [
   {
-    title: 'Day two is the hard one',
+    title: '\u{1F99C} Day two is the hard one',
     body: 'Everyone knows it. Bolo especially knows it.',
   },
   {
-    title: 'You started something yesterday',
+    title: '\u{1F99C} You started something yesterday',
     body: 'This is the part where most people stop. Rude, honestly.',
   },
   {
-    title: 'One day is a mood. Two is a habit.',
+    title: '\u{1F99C} One day is a mood. Two is a habit.',
     body: 'Bolo is choosing to believe in the habit.',
   },
 ];
@@ -155,23 +193,23 @@ const DAY_TWO_LINES: Line[] = [
 /** No streak at all: lapsed, or brand new. Never scold, always invite. */
 const COLD_LINES: Line[] = [
   {
-    title: 'Bolo is fine',
+    title: '\u{1F99C} Bolo is fine',
     body: 'Bolo is FINE. Bolo just thought today might be the day.',
   },
   {
-    title: 'Your chai has gone cold twice now',
+    title: '\u{1F99C} Your chai has gone cold twice now',
     body: 'Chacha-ji has stopped asking. He just looks at the cup.',
   },
   {
-    title: 'A parrot has been practising your name',
+    title: '\u{1F99C} A parrot has been practising your name',
     body: 'Come and hear how badly it is going.',
   },
   {
-    title: 'The train has not left',
+    title: '\u{1F99C} The train has not left',
     body: 'It is an Indian train. It was never going to leave without you.',
   },
   {
-    title: 'Two minutes',
+    title: '\u{1F99C} Two minutes',
     body: 'That is the whole pitch. Bolo workshopped it for hours.',
   },
 ];
@@ -207,7 +245,7 @@ export function buildReminderCopy(
   const milestone = STREAK_MILESTONES.find((m) => m.days === next);
   if (milestone && streakDays > 0) {
     return {
-      title: `One practice from the "${milestone.badge}" badge`,
+      title: `\u{1F99C} One practice from the "${milestone.badge}" badge`,
       body: due
         ? `${due} Hit ${milestone.days} days today and it is yours.`
         : `Hit ${milestone.days} days today and it is yours.`,
@@ -230,8 +268,8 @@ export function buildReminderCopy(
     return {
       title:
         dueCount === 1
-          ? '1 phrase is asking for you'
-          : `${dueCount} phrases are asking for you`,
+          ? '\u{1F99C} 1 phrase is asking for you'
+          : `\u{1F99C} ${dueCount} phrases are asking for you`,
       body: 'They will not ask again until tomorrow. They are polite like that.',
     };
   }
