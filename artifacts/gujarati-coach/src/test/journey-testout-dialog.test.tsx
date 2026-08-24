@@ -97,10 +97,15 @@ function openProgressionDialog() {
   //
   // "Stop 2 of 2" until 2026-08-23, when a tracing stop was added to every
   // zone. Two phrase stops plus one tracing stop is three, and the tracing
-  // stop sits in the middle, so the locked phrase stop is now the third of
-  // three. The number moved because a stop was genuinely added, which is what
-  // was asked for; nothing about the lock behaviour under test changed.
-  const lockedStops = screen.getAllByRole("button", { name: /Stop 3 of 3/ });
+  // stop sits in the middle, so the locked phrase stop became the third of
+  // three.
+  //
+  // "Stop 4 of 4" since 2026-08-24, when the STORY stop joined it, directly
+  // after the tracing one. Same reason twice: the number moved because a row
+  // was genuinely added, which is what was asked for, and nothing about the
+  // lock behaviour under test changed. If it moves a third time, check that a
+  // row was added on purpose before touching this line.
+  const lockedStops = screen.getAllByRole("button", { name: /Stop 4 of 4/ });
   fireEvent.click(lockedStops[0]);
 }
 

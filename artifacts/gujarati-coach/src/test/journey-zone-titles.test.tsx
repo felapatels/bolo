@@ -392,7 +392,12 @@ describe("current-stop card (task 1082 item 2)", () => {
     // already become "Stop 1 of 2" once tracing was added to it. Both halves
     // fixed 2026-08-23: a zone with no phrase stops gets no tracing stop, and
     // this now asserts the number the current-stop card actually carries.
-    expect(screen.getAllByText("Stop 1 of 2").length).toBeGreaterThan(0);
+    //
+    // "of 3" since 2026-08-24: the STORY stop joined every zone that has a
+    // book, which is all six of journey 1. One phrase stop plus a tracing stop
+    // plus a story stop is three. The empty zones still get neither, which is
+    // the half of this that must keep holding.
+    expect(screen.getAllByText("Stop 1 of 3").length).toBeGreaterThan(0);
     expect(screen.queryByText("Stop 1 of 1")).toBeNull();
     expect(screen.getByText("3/8 mastered")).toBeInTheDocument();
     expect(container.querySelector(".h-1\\.5")).not.toBeNull();
@@ -416,12 +421,13 @@ describe("journey-map copy (task 1082 item 3)", () => {
     expect(
       screen.getByText(/Terminus: Dwarka, the festival finale awaits/),
     ).toBeInTheDocument();
-    // "Stop 1 of 1" until 2026-08-23, when a tracing stop joined every zone.
-    // One phrase stop plus one tracing stop is two, and the tracing stop is
-    // never first, so the phrase stop keeps position 1. The claim under test
-    // is the COPY, not the count: no em dash, and the replacement wording
-    // actually on screen.
-    expect(screen.getByLabelText("Stop 1 of 2: In progress")).toBeInTheDocument();
+    // "Stop 1 of 1" until 2026-08-23 and "Stop 1 of 2" until 2026-08-24, as a
+    // tracing stop and then a story stop joined every zone carrying content.
+    // One phrase stop, one tracing stop and one story stop is three, and
+    // neither of the two extra rows is ever first, so the phrase stop keeps
+    // position 1. The claim under test is the COPY, not the count: no em dash,
+    // and the replacement wording actually on screen.
+    expect(screen.getByLabelText("Stop 1 of 3: In progress")).toBeInTheDocument();
   });
 
   test("centres the terminus label below the dot, clear of the bunting", () => {
