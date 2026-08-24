@@ -1854,6 +1854,19 @@ export default function ChatPage() {
             {getStatusLabel(phase, processingStep, messages.length > 0)}
           </motion.p>
         </AnimatePresence>
+        {/* The line under the status, and WHICH line depends on where the
+            learner is.
+
+            The first-answer note started life in the intro bubble above the
+            transcript, which was the wrong place: that bubble is gated on
+            `messages.length === 0`, so it vanished the instant the learner
+            spoke, which is precisely when the wait begins. An expectation that
+            disappears before the thing it explains sets no expectation at all.
+            Reported 2026-08-24 as "new line not there".
+
+            Gated on "Bolo has never replied" rather than on message count,
+            because the normal path pushes a pending learner bubble the moment
+            recording stops, so the count is already 1 during the first wait. */}
         <AnimatePresence>
           {messages.length === 0 && phase === "idle" && (
             <motion.p
@@ -1866,6 +1879,20 @@ export default function ChatPage() {
               Hold to speak · release when done
             </motion.p>
           )}
+          {phase === "processing" &&
+            !messages.some((m) => m.role === "parrot") && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={springs.gentle}
+                data-testid="chat-first-answer-note"
+                className="mt-1 max-w-xs text-center text-xs text-muted-foreground"
+              >
+                My first answer takes a few seconds. After that I speak straight
+                away.
+              </motion.p>
+            )}
         </AnimatePresence>
       </button>
 
