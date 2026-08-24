@@ -113,13 +113,16 @@ describe('buildReminderCopy, with a due count', () => {
 
   it('promotes the task to the title when there is no streak to protect', () => {
     const c = buildReminderCopy(0, 3, new Date(Date.UTC(2026, 7, 19)));
-    expect(c.title).toBe('3 phrases are asking for you');
+    // The parrot leads every title, owner ruling 2026-08-24. Asserted as a
+    // PREFIX plus the exact remainder rather than loosened to a substring, so
+    // the pluralisation this test exists for is still pinned exactly.
+    expect(c.title).toBe('\u{1F99C} 3 phrases are asking for you');
     expect(c.title).not.toMatch(/streak/i);
   });
 
   it('says "1 phrase", not "1 phrases"', () => {
     const day = new Date(Date.UTC(2026, 7, 19));
-    expect(buildReminderCopy(0, 1, day).title).toBe('1 phrase is asking for you');
+    expect(buildReminderCopy(0, 1, day).title).toBe('\u{1F99C} 1 phrase is asking for you');
     expect(buildReminderCopy(5, 1, day).body).toContain('1 phrase is ready');
     expect(buildReminderCopy(5, 2, day).body).toContain('2 phrases are ready');
   });

@@ -17,7 +17,7 @@ import phraseReportsRouter from "./phraseReports";
 import tokensRouter from "./tokens";
 import chaiPacksRouter from "./chaiPacks";
 import outfitsRouter from "./outfits";
-import pushRouter from "./push";
+import pushRouter, { pushPublicRouter } from "./push";
 import gamesRouter, { gamesPublicRouter } from "./games";
 import storyRouter from "./story";
 import ttsAuditRouter from "./ttsAudit";
@@ -43,6 +43,11 @@ router.use(revenuecatRouter);
 // Cron/internal endpoints that must be reachable without a user session.
 // Each route inside validates its own X-Cron-Secret header.
 router.use(gamesPublicRouter);
+
+// The streak-reminder send and its test shot. Scheduler-driven, so they
+// authenticate with X-Cron-Secret rather than a session and must sit outside
+// requireAuth. See routes/push.ts.
+router.use(pushPublicRouter);
 
 // Operator-driven sweep of the cached phrase audio. Public section because the
 // operator driving it has no user session; the route validates its own
