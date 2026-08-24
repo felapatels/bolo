@@ -183,6 +183,57 @@ export type PhraseAudioIdentity = {
  * different languages never collide. For other providers it is a fixed
  * constant because those providers are language-agnostic at the voice level.
  */
+/**
+ * The storybook narrator's ElevenLabs voice, chosen by the owner 2026-08-24.
+ *
+ * WHY NARRATION IGNORES TTS_PROVIDER, which is otherwise the single source of
+ * truth for every piece of audio in this app. TTS_PROVIDER is
+ * "gpt-4o-mini-tts", whose voice is the fixed constant `nova`, and nova reading
+ * English defaults to General American however it is instructed.
+ *
+ * That is not a guess. It was MEASURED TODAY on the canned chat greeting, which
+ * had exactly this problem: English text in all 22 languages, read American.
+ * BOLO_GREETING_TTS_INSTRUCTIONS below was written to fix it, leading with
+ * "Accent/dialect: Indian English. This is the single most important
+ * instruction." The owner listened to the result and said it did not sound
+ * fixed, and the canned greeting was retired rather than repaired.
+ *
+ * So the instruction lever is not untried, it is DISPROVEN, and on a short
+ * sentence. A paragraph of story prose gives the model more room to drift back
+ * to its default register, not less. The lever that works is the VOICE.
+ *
+ * NARRATION IS THE ONE PLACE THAT IS AFFORDABLE. The story is English and
+ * language-neutral by design, so one narrator serves all 22 languages and the
+ * clips are cached forever. Per-language narration would be 10,560 spoken lines
+ * over 480, and 10,560 sentences of prose nobody can verify in 20 of those
+ * languages, which is what withdrew kok, ks, sat, brx and mni from the C1
+ * rollout.
+ *
+ * CHANGING THIS ID ORPHANS THE OLD CLIPS RATHER THAN SERVING THEM. The voice is
+ * part of the cache key via phraseTtsCacheKey, so a new narrator simply misses
+ * and re-synthesises. That is deliberate: swapping a narrator must never leave
+ * half a book in the old voice.
+ */
+export const NARRATION_VOICE_ID = "IYUZs7LoFwd5QZsMgrMU";
+
+/** Highest-fidelity ElevenLabs model. Narration is cached, so latency is not
+ *  the constraint that it is for live chat, which uses eleven_flash_v2_5. */
+export const NARRATION_ELEVENLABS_MODEL = "eleven_multilingual_v2";
+
+/**
+ * Identity for storybook narration. Not language-keyed, deliberately: the same
+ * English sentence must resolve to the same cache row for a Gujarati learner
+ * and a Bengali one, or the library costs 22 times what it should.
+ */
+export function narrationAudioIdentity(): PhraseAudioIdentity {
+  return {
+    provider: "elevenlabs",
+    model: NARRATION_ELEVENLABS_MODEL,
+    voice: NARRATION_VOICE_ID,
+    instructions: "",
+  };
+}
+
 export function phraseAudioIdentity(
   languageCode?: string,
 ): PhraseAudioIdentity {

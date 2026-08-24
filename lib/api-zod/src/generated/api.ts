@@ -1354,6 +1354,24 @@ export const SynthesizeSpeechResponse = zod.object({
 
 
 /**
+ * Storybook narration. Separate from /openai/tts on purpose: that route speaks a PHRASE in the learner's own language, applies their Plus voice preference and runs pronunciation verification on the take. None of that applies here. The story is English and language-neutral by design, so one narrator serves all 22 languages and every clip is cached forever, which is what keeps a 480-line library costing once rather than 22 times.
+ * @summary Read one line of the storybook aloud
+ */
+export const narrateStoryLineBodyTextMax = 600;
+
+
+
+export const NarrateStoryLineBody = zod.object({
+  "text": zod.string().min(1).max(narrateStoryLineBodyTextMax).describe('One line of English story prose: a scene\'s situation, or the outcome of a choice. NOT the learner\'s phrase, which goes to \/openai\/tts in their own language. The cap is generous for a sentence and small enough that a malformed caller cannot bill an essay to the narrator voice.\n')
+})
+
+export const NarrateStoryLineResponse = zod.object({
+  "audioBase64": zod.string(),
+  "format": zod.string()
+})
+
+
+/**
  * @summary Evaluate a spoken attempt against a target phrase
  */
 

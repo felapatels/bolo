@@ -12,6 +12,7 @@ import {
 import { elevenLabsQuotaMonitor } from "../lib/elevenLabsQuotaMonitor";
 import {
   SynthesizeSpeechBody,
+  NarrateStoryLineBody,
   EvaluatePronunciationBody,
   GeneratePhraseBody,
   ChatTurnBody,
@@ -57,6 +58,7 @@ import {
   USE_ELEVENLABS_TTS,
   TTS_PROVIDER,
   phraseAudioIdentity,
+  narrationAudioIdentity,
   BOLO_CHAT_TTS_INSTRUCTIONS,
   BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
   BOLO_GREETING_TTS_INSTRUCTIONS,
@@ -670,6 +672,90 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   } catch (err) {
     req.log.error({ err }, "TTS failed (ElevenLabs and gpt-audio fallback)");
     res.status(502).json({ error: "Could not generate speech" });
+  }
+});
+
+// POST /openai/narrate — read one line of the storybook aloud.
+//
+// WHY THIS IS NOT A FLAG ON /openai/tts. That route resolves a voice per
+// language, applies the caller's Plus voice preference, joins in-flight prewarm
+// synthesis and runs pronunciation verification on the take. Every one of those
+// is correct for a phrase the learner is about to repeat and wrong for a line of
+// English story prose. Threading a flag through it would make the app's
+// most-used audio path carry a second set of rules for a caller that needs none
+// of them.
+//
+// THE CACHE KEY USES A FIXED LANGUAGE IDENTIFIER, "narration", and that is the
+// whole economic point. The same sentence must resolve to the same row for a
+// Gujarati learner and a Bengali one. Key it by the learner's language and the
+// library silently costs 22 times what it should, which nobody would notice
+// until the bill.
+router.post("/openai/narrate", async (req: Request, res: Response): Promise<void> => {
+  const parsed = NarrateStoryLineBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid narration payload" });
+    return;
+  }
+  const { text } = parsed.data;
+
+  const identity = narrationAudioIdentity();
+  const cacheKey = phraseTtsCacheKey(
+    text,
+    identity.provider,
+    identity.model,
+    identity.voice,
+    "narration",
+  );
+
+  const t0 = Date.now();
+
+  try {
+    const cached = await db.query.ttsCacheTable.findFirst({
+      where: eq(ttsCacheTable.cacheKey, cacheKey),
+    });
+    if (cached) {
+      req.log.info(
+        { voice: identity.voice, chars: text.length, hit: true, ms: Date.now() - t0 },
+        "[narration-tts]",
+      );
+      res.json({ audioBase64: cached.audioBase64, format: cached.format });
+      return;
+    }
+  } catch (err) {
+    // A cache read failure is not worth failing the request over: synthesize.
+    req.log.warn({ err }, "Narration cache read failed, synthesizing fresh");
+  }
+
+  try {
+    // languageId "en" rather than auto-detection. The narrator is English and
+    // always English, and the story text names Indian places and people that
+    // auto-detection could plausibly read as another script's phoneme set.
+    const buffer = await textToSpeechElevenLabs(
+      text,
+      identity.voice,
+      undefined,
+      identity.model,
+      "en",
+    );
+    if (buffer.length === 0) throw new Error("ElevenLabs returned empty narration audio");
+    const audioBase64 = buffer.toString("base64");
+
+    // Fire and forget, exactly as the phrase path does. A cache write failure
+    // costs one re-synthesis later, not this response.
+    db.insert(ttsCacheTable)
+      .values({ cacheKey, audioBase64, format: "mp3" })
+      .onConflictDoNothing()
+      .execute()
+      .catch((err) => req.log.warn({ err }, "Narration cache write failed"));
+
+    req.log.info(
+      { voice: identity.voice, chars: text.length, hit: false, ms: Date.now() - t0 },
+      "[narration-tts]",
+    );
+    res.json({ audioBase64, format: "mp3" });
+  } catch (err) {
+    req.log.error({ err }, "Narration TTS failed");
+    res.status(502).json({ error: "Could not generate narration" });
   }
 });
 

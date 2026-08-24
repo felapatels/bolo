@@ -84,6 +84,7 @@ import type {
   ListReviewPhrasesParams,
   ListScenariosParams,
   ListZoneStampsParams,
+  NarrationInput,
   Ok,
   OutfitCatalog,
   OutfitEquipResult,
@@ -4081,6 +4082,78 @@ export const useSynthesizeSpeech = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getSynthesizeSpeechMutationOptions(options));
+    }
+
+export const getNarrateStoryLineUrl = () => {
+
+
+
+
+  return `/api/openai/narrate`
+}
+
+/**
+ * Storybook narration. Separate from /openai/tts on purpose: that route speaks a PHRASE in the learner's own language, applies their Plus voice preference and runs pronunciation verification on the take. None of that applies here. The story is English and language-neutral by design, so one narrator serves all 22 languages and every clip is cached forever, which is what keeps a 480-line library costing once rather than 22 times.
+ * @summary Read one line of the storybook aloud
+ */
+export const narrateStoryLine = async (narrationInput: NarrationInput, options?: RequestInit): Promise<SpeechResult> => {
+
+  return customFetch<SpeechResult>(getNarrateStoryLineUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(narrationInput)
+  }
+);}
+
+
+
+
+
+export const getNarrateStoryLineMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof narrateStoryLine>>, TError,{data: BodyType<NarrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof narrateStoryLine>>, TError,{data: BodyType<NarrationInput>}, TContext> => {
+
+const mutationKey = ['narrateStoryLine'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof narrateStoryLine>>, {data: BodyType<NarrationInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  narrateStoryLine(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NarrateStoryLineMutationResult = NonNullable<Awaited<ReturnType<typeof narrateStoryLine>>>
+    export type NarrateStoryLineMutationBody = BodyType<NarrationInput>
+    export type NarrateStoryLineMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Read one line of the storybook aloud
+ */
+export const useNarrateStoryLine = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof narrateStoryLine>>, TError,{data: BodyType<NarrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof narrateStoryLine>>,
+        TError,
+        {data: BodyType<NarrationInput>},
+        TContext
+      > => {
+      return useMutation(getNarrateStoryLineMutationOptions(options));
     }
 
 export const getEvaluatePronunciationUrl = () => {

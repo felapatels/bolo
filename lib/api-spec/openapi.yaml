@@ -1651,6 +1651,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/SpeechResult"
 
+  /openai/narrate:
+    post:
+      operationId: narrateStoryLine
+      tags: [openai]
+      summary: Read one line of the storybook aloud
+      description: >-
+        Storybook narration. Separate from /openai/tts on purpose: that route
+        speaks a PHRASE in the learner's own language, applies their Plus voice
+        preference and runs pronunciation verification on the take. None of that
+        applies here. The story is English and language-neutral by design, so one
+        narrator serves all 22 languages and every clip is cached forever, which
+        is what keeps a 480-line library costing once rather than 22 times.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NarrationInput"
+      responses:
+        "200":
+          description: Synthesized narration audio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpeechResult"
+
   /openai/pronunciation:
     post:
       operationId: evaluatePronunciation
@@ -3938,6 +3964,20 @@ components:
         - voices
         - current
 
+    NarrationInput:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 600
+          description: >
+            One line of English story prose: a scene's situation, or the
+            outcome of a choice. NOT the learner's phrase, which goes to
+            /openai/tts in their own language. The cap is generous for a
+            sentence and small enough that a malformed caller cannot bill an
+            essay to the narrator voice.
     SpeechInput:
       type: object
       properties:

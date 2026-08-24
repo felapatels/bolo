@@ -755,6 +755,15 @@ export interface VoiceListResult {
   current: string | null;
 }
 
+export interface NarrationInput {
+  /**
+     * One line of English story prose: a scene's situation, or the outcome of a choice. NOT the learner's phrase, which goes to /openai/tts in their own language. The cap is generous for a sentence and small enough that a malformed caller cannot bill an essay to the narrator voice.
+     * @minLength 1
+     * @maxLength 600
+     */
+  text: string;
+}
+
 export interface SpeechInput {
   /** @minLength 1 */
   text: string;

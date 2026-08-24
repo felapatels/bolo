@@ -31,6 +31,7 @@ import {
   useGetAccount,
   useGetStoryBook,
   useSynthesizeSpeech,
+  useNarrateStoryLine,
 } from "@workspace/api-client-react";
 import {
   chooseScene,
@@ -172,13 +173,47 @@ function SceneFrame({
   stillId,
   situation,
   testId = "story-scene",
+  narrate,
+  autoNarrate = false,
+  soundOn = false,
 }: {
   stillId: string;
   situation: string;
   testId?: string;
+  /** Speak this frame's prose. Absent means narration is not offered here. */
+  narrate?: (text: string) => void;
+  /**
+   * Speak without being asked, on mount.
+   *
+   * TRUE ON OUTCOMES, FALSE ON SCENES, and the asymmetry is the design rather
+   * than a default nobody thought about. The scene IS the puzzle: the learner
+   * reads the picture and decides which of three lines fits it. A narrator
+   * describing the picture hands them the answer and turns a comprehension
+   * game into a listening one. The outcome is the payoff, where nothing is
+   * being solved and the joke has already landed, so a voice there adds
+   * instead of competing.
+   *
+   * It also halves the interruptions. The frame changes twice per beat, so
+   * narrating both would be ten unbidden clips per book rather than five.
+   */
+  autoNarrate?: boolean;
+  soundOn?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const reduceMotion = useReducedMotion();
+
+  // Keyed on the still id like the zoom above, so a new frame narrates once and
+  // re-rendering the same frame does not restart it. `narrate` itself is left
+  // out of the deps deliberately: it is a useCallback that changes whenever the
+  // mute state or the mutation object does, and including it would replay the
+  // clip on an unrelated re-render.
+  //
+  // The mute check lives in `narrate`, not here, so muted skips SYNTHESIS and
+  // not merely playback. An unheard clip that still bills is the worst of both.
+  useEffect(() => {
+    if (autoNarrate && narrate) narrate(situation);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stillId, autoNarrate]);
 
   // THE BRIEF IS THE FALLBACK, NOT THE DESIGN. The situation sentence is
   // already the illustrator's brief and the alt text, so an image that has not
@@ -227,6 +262,21 @@ function SceneFrame({
             : { scale: { duration: 12, ease: "linear" }, opacity: { duration: 0.4 } }
         }
       />
+      {/* ONE IDEA ON THE PAGE. Deliberately the same speaker glyph the three
+          choice lines already carry, so "tap this to hear it" is a single
+          learned gesture rather than two. What differs is only the language:
+          the lines speak the learner's, this speaks the story's English. */}
+      {narrate && soundOn && !autoNarrate && (
+        <button
+          type="button"
+          onClick={() => narrate(situation)}
+          aria-label="Hear what is happening"
+          data-testid={`${testId}-narrate`}
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card/90 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted"
+        >
+          <Volume2 className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }
@@ -549,6 +599,51 @@ export default function StorybookPage() {
     [soundOn, ttsVoice, synthesize, activeLang, activeLanguage],
   );
 
+  // ── The narrator ─────────────────────────────────────────────────────────
+  //
+  // SHARES audioRef WITH speak ON PURPOSE. Tapping a line mid-narration should
+  // stop the narrator, and starting a new frame should stop whatever was
+  // playing. Two refs would give a learner two voices at once, in two
+  // languages, which is the exact collision the setup/outcome split above is
+  // trying to avoid.
+  //
+  // THE MUTE CHECK IS FIRST, before the cache and before the request, so a
+  // muted learner never causes a synthesis. Narration is billed per character
+  // on first play and cached forever after, so a clip generated and not heard
+  // is pure waste.
+  //
+  // The local cache is keyed on the TEXT ALONE, unlike the phrase cache above
+  // which keys on voice too. The narrator is one fixed voice for everyone, so
+  // there is nothing else for the key to carry.
+  const narrateApi = useNarrateStoryLine();
+  const narrationCache = useRef(new Map<string, { audioBase64: string; format: string }>());
+  const narrate = useCallback(
+    async (text: string) => {
+      if (!soundOn) return;
+      const line = text.trim();
+      if (!line) return;
+      try {
+        audioRef.current?.pause();
+        let clip = narrationCache.current.get(line);
+        if (!clip) {
+          const res = await narrateApi.mutateAsync({ data: { text: line } });
+          clip = { audioBase64: res.audioBase64, format: res.format };
+          narrationCache.current.set(line, clip);
+        }
+        const audio = new Audio(
+          `data:audio/${clip.format};base64,${clip.audioBase64}`,
+        );
+        audioRef.current = audio;
+        await audio.play();
+      } catch {
+        // A story that will not speak still reads, and the picture is still
+        // there. Same contract as speak: silence is the fallback, never an
+        // error screen over the top of the book.
+      }
+    },
+    [soundOn, narrateApi],
+  );
+
   // ── Turning a page ───────────────────────────────────────────────────────
   const advance = useCallback(() => {
     if (!scene || !picked || !book || !activeLang) return;
@@ -737,6 +832,9 @@ export default function StorybookPage() {
                       testId="story-outcome"
                       stillId={outcomeStillId(resolved.scene.id, picked!)}
                       situation={outcome.situation}
+                      narrate={narrate}
+                      autoNarrate
+                      soundOn={soundOn}
                     />,
                   )}
                   {/* WHAT YOU SAID, under the picture rather than only on the
@@ -777,6 +875,8 @@ export default function StorybookPage() {
                   <SceneFrame
                     stillId={setupStillId(resolved.scene.id)}
                     situation={resolved.scene.situation}
+                    narrate={narrate}
+                    soundOn={soundOn}
                   />,
                 )
               );

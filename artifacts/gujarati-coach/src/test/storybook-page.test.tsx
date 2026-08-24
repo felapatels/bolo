@@ -32,6 +32,7 @@ const h = vi.hoisted(() => ({
   }>,
   limited: false,
   isLoading: false,
+  narrated: [] as string[],
 }));
 
 // Chrome, not the subject: BottomNav pulls in the language picker, which pulls
@@ -52,6 +53,16 @@ vi.mock("@/lib/language-context", () => ({
 
 vi.mock("@workspace/api-client-react", async () => ({
   ...(await (await import("./api-client-mock")).baseApiClientMock()),
+  // Records what the narrator was ASKED to say. The assertions below are about
+  // whether a request happens at all, not about audio, so a spy at the mutation
+  // is the right altitude: jsdom has no HTMLMediaElement.play and mocking one
+  // would test the mock.
+  useNarrateStoryLine: () => ({
+    mutateAsync: vi.fn(async ({ data }: { data: { text: string } }) => {
+      h.narrated.push(data.text);
+      return { audioBase64: "", format: "mp3" };
+    }),
+  }),
   useGetStoryBook: () => ({
     data: h.isLoading
       ? undefined
@@ -364,5 +375,53 @@ describe("the book opens", () => {
     fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
     fireEvent.click(screen.getByTestId("story-next"));
     expect(screen.queryByTestId("story-book-opening")).toBeNull();
+  });
+});
+
+// ─── The narrator ────────────────────────────────────────────────────────────
+//
+// WHY THESE FOUR. Narration is 480 clips generated once and cached forever, so
+// a regression here is not a visual glitch you notice, it is either a silent
+// bill or a game that quietly stops being a game. Neither shows up in a
+// screenshot.
+describe("the narrator", () => {
+  beforeEach(() => {
+    h.narrated = [];
+    serve(bookConcepts(BOOK));
+  });
+
+  test("does NOT narrate the scene, because the scene is the puzzle", () => {
+    // The whole mechanic is "read the picture, say the line that fits". A voice
+    // describing the picture hands over the answer and turns a comprehension
+    // game into a listening one. This is the single most important assertion in
+    // the file: it is a DESIGN decision, it is invisible on screen, and the
+    // obvious "narrate everything" implementation breaks it.
+    renderPage();
+    expect(h.narrated).toEqual([]);
+  });
+
+  test("offers the scene behind the same speaker the lines use", () => {
+    renderPage();
+    fireEvent.click(screen.getByTestId("story-scene-narrate"));
+    expect(h.narrated).toEqual([BOOK.scenes[0]!.situation]);
+  });
+
+  test("narrates the outcome without being asked, because the joke has landed", () => {
+    renderPage();
+    const first = BOOK.scenes[0]!.choices[0]!;
+    fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
+    expect(h.narrated).toEqual([first.outcome!.situation]);
+  });
+
+  test("muted asks for NO synthesis at all, not merely silent playback", () => {
+    // Narration bills per character on first play. A clip generated for someone
+    // who muted the game is charged, cached and never heard, which is the worst
+    // of both. So mute has to short-circuit the REQUEST, not the audio element.
+    renderPage();
+    fireEvent.click(screen.getByTestId("game-mute-btn"));
+    expect(screen.queryByTestId("story-scene-narrate")).toBeNull();
+    const first = BOOK.scenes[0]!.choices[0]!;
+    fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
+    expect(h.narrated).toEqual([]);
   });
 });
