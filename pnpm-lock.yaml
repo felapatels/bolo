@@ -1119,6 +1119,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../lib/db
+      '@workspace/emergency':
+        specifier: workspace:*
+        version: link:../lib/emergency
       '@workspace/integrations-openai-ai-server':
         specifier: workspace:*
         version: link:../lib/integrations-openai-ai-server

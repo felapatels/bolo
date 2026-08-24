@@ -15,6 +15,13 @@ import {
   DRILL_WRONG_MS,
   DRILL_QUESTIONS,
   DRILL_LENGTHS,
+  hasEmergency,
+  emergencyFilmId,
+  emergencyFilmPath,
+  EMERGENCY_FILM_ZONES,
+  EMERGENCY_FILMS_EXPECTED,
+  EMERGENCY_JOURNEY,
+  EMERGENCY_AFTER_STOP,
   type DrillOption,
 } from "@workspace/emergency";
 
@@ -170,5 +177,49 @@ describe("building a run", () => {
         expect(o.concept.trim()).not.toBe("");
       }
     }
+  });
+});
+
+// ─── The film, and what happens without one ──────────────────────────────────
+describe("a zone with no film", () => {
+  test("has NO Emergency, silently and completely", () => {
+    // The owner's instruction: "put a fallback if there's no file that it
+    // skips". Nothing flashes, nothing is half-played, and the learner walks
+    // from stop 8 to stop 9 with no idea anything was planned there.
+    //
+    // Written against the MANIFEST rather than a hardcoded zone list, so it
+    // stays true as films land instead of turning red the day zone 2 arrives.
+    for (let zone = 1; zone <= EMERGENCY_FILMS_EXPECTED; zone++) {
+      expect(hasEmergency(EMERGENCY_JOURNEY, zone)).toBe(
+        EMERGENCY_FILM_ZONES.includes(zone),
+      );
+    }
+  });
+
+  test("journey 2 never has one, even where journey 1 does", () => {
+    // Deliberately absent rather than falling back to journey 1's films.
+    // Replaying the same runaway train elsewhere on the map would teach people
+    // the interruption is a loop, and the whole effect depends on it not being.
+    for (const zone of EMERGENCY_FILM_ZONES) {
+      expect(hasEmergency(EMERGENCY_JOURNEY, zone)).toBe(true);
+      expect(hasEmergency(2, zone)).toBe(false);
+    }
+  });
+
+  test("zone 0 and beyond the last zone are refused", () => {
+    expect(hasEmergency(EMERGENCY_JOURNEY, 0)).toBe(false);
+    expect(hasEmergency(EMERGENCY_JOURNEY, EMERGENCY_FILMS_EXPECTED + 1)).toBe(false);
+  });
+
+  test("the film id and path have ONE definition, shared by the scanner and all three clients", () => {
+    // A second copy of this rule is how the phone requests a file the web app
+    // named differently, which is exactly what setupStillId prevents for the
+    // storybook.
+    expect(emergencyFilmId(1, 3)).toBe("j1z3");
+    expect(emergencyFilmPath(1, 3)).toBe("emergency/j1z3.mp4");
+  });
+
+  test("it fires between stops 8 and 9", () => {
+    expect(EMERGENCY_AFTER_STOP).toBe(8);
   });
 });

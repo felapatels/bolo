@@ -1,3 +1,5 @@
+import { EMERGENCY_FILM_ZONES } from "./films";
+
 /**
  * WHERE THE EMERGENCY FIRES, and what film it plays.
  *
@@ -46,16 +48,37 @@ export function emergencyFilmId(journey: number, zone: number): string {
 /**
  * Whether this zone has an Emergency at all.
  *
- * Callers must ALSO check that the zone actually has more than
- * EMERGENCY_AFTER_STOP stops in this language, and that `buildDrill` could
- * make a full run from the corpus. Any of the three failing means the
- * Emergency is skipped in silence: a half-played interruption is worse than
- * none, and the learner has no idea they missed anything.
+ * THE FILM IS THE GATE. A zone with no film has no Emergency, silently and
+ * completely: nothing flashes, nothing is skipped mid-way, and the learner
+ * walks from stop 8 to stop 9 with no idea anything was ever planned there.
+ * That is the designed fallback, asked for by the owner in exactly those terms,
+ * and it is why EMERGENCY_FILM_ZONES is compiled in rather than probed. Firing
+ * the alarm and THEN discovering there is nothing to play is the one outcome
+ * worse than not firing at all.
+ *
+ * Callers must ALSO check two things this cannot see: that the zone actually
+ * has more than EMERGENCY_AFTER_STOP stops in this language, and that
+ * `buildDrill` could make a full run from the corpus. Any of the three failing
+ * means the same silent skip.
  */
 export function hasEmergency(journey: number, zone: number): boolean {
   return (
-    journey === EMERGENCY_JOURNEY && zone >= 1 && zone <= EMERGENCY_ZONES
+    journey === EMERGENCY_JOURNEY &&
+    zone >= 1 &&
+    zone <= EMERGENCY_ZONES &&
+    EMERGENCY_FILM_ZONES.includes(zone)
   );
+}
+
+/**
+ * Where a zone's film is served from, relative to the app's base path.
+ *
+ * ONE DEFINITION for the directory as well as the id, so the scanner that
+ * writes the manifest and the three clients that fetch the file cannot end up
+ * disagreeing about where films live.
+ */
+export function emergencyFilmPath(journey: number, zone: number): string {
+  return `emergency/${emergencyFilmId(journey, zone)}.mp4`;
 }
 
 /**

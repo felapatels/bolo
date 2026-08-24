@@ -8,6 +8,7 @@
     "check-trace-sync": "tsx src/checkScriptTraceSync.ts",
     "noise-baseline": "tsx src/noiseBaseline.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "scan-emergency-films": "tsx src/scanEmergencyFilms.ts",
     "build-aksharmala": "tsx src/buildAksharmala.ts",
     "preview-writing-demo": "tsx src/previewWritingDemo.ts",
     "generate-story-stills": "tsx src/generateStoryStills.ts"
@@ -20,6 +21,7 @@
     "tsx": "catalog:"
   },
   "dependencies": {
+    "@workspace/emergency": "workspace:*",
     "@workspace/script-trace": "workspace:*",
     "@workspace/story": "workspace:*",
     "@workspace/integrations-openai-ai-server": "workspace:*",
