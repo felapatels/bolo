@@ -9,6 +9,9 @@
 import { describe, test, expect } from "vitest";
 import {
   bookConcepts,
+  bookCoverage,
+  CONCEPT_COVERAGE,
+  MIN_CONCEPT_COVERAGE,
   conceptSpellings,
   fittingChoice,
   GREETINGS_SCENES,
@@ -19,23 +22,11 @@ import {
   storyStopIndexIn,
   storyTeaserConcepts,
   storyTeaserScenes,
-  STARTER_SCENES,
+  FAMILY_SCENES,
   STORY_BOOKS,
   STORY_TEASER_END,
   STORY_TEASER_SCENES,
 } from "@workspace/story";
-
-/** The eight concepts production carries in ALL twenty-two languages. */
-const UNIVERSAL = [
-  "good morning",
-  "good night",
-  "hello",
-  "no",
-  "please",
-  "thank you",
-  "water",
-  "yes",
-];
 
 describe("the registry", () => {
   test("no two books claim the same zone", () => {
@@ -51,14 +42,29 @@ describe("the registry", () => {
 
   test("the taste is journey 1 zone 1, and the family table is zone 2", () => {
     expect(storyBookFor(1, 1)?.scenes).toBe(GREETINGS_SCENES);
-    expect(storyBookFor(1, 2)?.scenes).toBe(STARTER_SCENES);
+    expect(storyBookFor(1, 2)?.scenes).toBe(FAMILY_SCENES);
+  });
+
+  test("every journey 1 zone has a book, and journey 2 has none", () => {
+    // INVERTED 2026-08-24. This used to assert that zone 6 had NO book, on the
+    // measurement that not one Feelings concept reaches even twenty languages.
+    // That measurement still holds and the book works around it: the photograph
+    // book is ABOUT feelings and its LINES are "sorry", "congratulations",
+    // "thank you" and "family", which the corpus does carry. The theme comes
+    // from the pictures, which cost nothing per language.
+    for (const zone of [1, 2, 3, 4, 5, 6]) {
+      expect(storyBookFor(1, zone), `zone ${zone} must have a book`).not.toBeNull();
+    }
+    // Journey 2 still has none, and not for want of writing: four of its six
+    // categories hold zero phrase rows in every language.
+    for (const zone of [1, 2, 3, 4, 5, 6]) {
+      expect(storyBookFor(2, zone)).toBeNull();
+    }
   });
 
   test("a zone with no book is null, not an empty book", () => {
-    // Feelings (zone 6) carries ZERO concepts shared by even twenty languages,
-    // and journey 2 has four categories with no phrase rows at all. Both must
-    // read as "no story stop here" rather than as a stop that opens on nothing.
-    expect(storyBookFor(1, 6)).toBeNull();
+    // Journey 2 has four categories with no phrase rows at all, so it must read
+    // as "no story stop here" rather than as a stop that opens onto nothing.
     expect(storyBookFor(2, 1)).toBeNull();
     expect(storyBookFor(9, 9)).toBeNull();
   });
@@ -116,19 +122,77 @@ describe("every book is playable", () => {
   }
 });
 
-describe("the greetings book is the one that must run everywhere", () => {
-  test("it names ONLY concepts all twenty-two languages carry", () => {
-    // Measured 2026-08-23. "how are you?" is missing in Marathi and "here" in
-    // Kashmiri, so neither is allowed in the book behind the free taste: one
-    // absent concept skips a whole scene, and a taste that is short in one
-    // language is worse than no stop at all.
-    const used = bookConcepts(storyBookFor(1, 1)!).map((c) => c.toLowerCase());
-    for (const concept of used) expect(UNIVERSAL).toContain(concept);
+describe("every book names concepts the corpus actually carries", () => {
+  // THE GUARD RAIL FOR 90 HAND-AUTHORED LINES. A book is only as wide as its
+  // narrowest concept: name one word a language lacks and resolveScene()
+  // returns null, the story stop vanishes in that language, and NOTHING FAILS.
+  // Nobody would find out until a learner did.
+  //
+  // This replaced a literal list of the eight concepts shared by all 22
+  // languages. That list was right for one book and became a straitjacket for
+  // six: the owner set the floor at 18 languages on 2026-08-24 precisely so the
+  // books could use "how much is this?", "congratulations" and "sorry", none of
+  // which reach 22.
+  for (const book of STORY_BOOKS) {
+    test(`${book.id}: every concept is in the measured corpus`, () => {
+      for (const concept of bookConcepts(book)) {
+        const n = CONCEPT_COVERAGE[concept.trim().toLowerCase()];
+        expect(
+          n,
+          `${book.id} names "${concept}", which is not in CONCEPT_COVERAGE at all`,
+        ).toBeDefined();
+        expect(
+          n,
+          `${book.id} names "${concept}", carried by only ${n} languages`,
+        ).toBeGreaterThanOrEqual(MIN_CONCEPT_COVERAGE);
+      }
+    });
+  }
+
+  test("every book runs in at least the floor, and says how many", () => {
+    for (const book of STORY_BOOKS) {
+      const n = bookCoverage(bookConcepts(book));
+      expect(n).toBeGreaterThanOrEqual(MIN_CONCEPT_COVERAGE);
+      expect(n).toBeLessThanOrEqual(22);
+    }
   });
 
-  test("it uses all eight of them, so nothing is authored and forgotten", () => {
-    const used = bookConcepts(storyBookFor(1, 1)!).map((c) => c.toLowerCase());
-    expect(new Set(used)).toEqual(new Set(UNIVERSAL));
+  test("the free-taste book is the WIDEST, because it is the shop window", () => {
+    // A taste that is missing in a language is worse than no stop at all: it is
+    // the first thing a Free learner meets. It need not be all 22, since the
+    // corpus cannot offer a funny book at 22, but nothing may be narrower.
+    const taste = bookCoverage(bookConcepts(storyBookFor(1, 1)!));
+    for (const book of STORY_BOOKS) {
+      expect(bookCoverage(bookConcepts(book))).toBeLessThanOrEqual(taste);
+    }
+  });
+});
+
+describe("every consequence is authored", () => {
+  // The outcome IS the game. A choice without one shows the setup picture again
+  // and reads as a broken tap rather than a missing asset.
+  for (const book of STORY_BOOKS) {
+    test(`${book.id}: all fifteen choices carry an outcome`, () => {
+      for (const scene of book.scenes) {
+        for (const choice of scene.choices) {
+          expect(
+            choice.outcome?.situation,
+            `${book.id} ${scene.id} "${choice.concept}" has no consequence`,
+          ).toBeTruthy();
+        }
+      }
+    });
+  }
+
+  test("no two choices in one scene share a consequence", () => {
+    // Two identical outcomes means two identical pictures, and the branch is
+    // invisible again for that pair.
+    for (const book of STORY_BOOKS) {
+      for (const scene of book.scenes) {
+        const outcomes = scene.choices.map((c) => c.outcome?.situation);
+        expect(new Set(outcomes).size).toBe(outcomes.length);
+      }
+    }
   });
 });
 
@@ -197,11 +261,20 @@ describe("the free taste", () => {
 
 describe("bookConcepts", () => {
   test("deduplicates, so one query fetches the whole book's vocabulary", () => {
-    const concepts = bookConcepts(storyBookFor(1, 2)!);
-    expect(new Set(concepts).size).toBe(concepts.length);
-    // Fifteen choice slots, fewer distinct concepts, which is the point.
-    const slots = storyBookFor(1, 2)!.scenes.flatMap((s) => s.choices).length;
-    expect(concepts.length).toBeLessThan(slots);
+    // Deduplication is the property under test, not how much a given book
+    // happens to repeat itself. A book whose fifteen slots are fifteen
+    // different words is legitimate; two slots naming the same word must still
+    // produce one entry, which is what makes the corpus lookup a single query.
+    for (const book of STORY_BOOKS) {
+      const concepts = bookConcepts(book);
+      expect(new Set(concepts).size).toBe(concepts.length);
+      const slots = book.scenes.flatMap((sc) => sc.choices).length;
+      expect(concepts.length).toBeLessThanOrEqual(slots);
+    }
+    const repeated = bookConcepts(storyBookFor(1, 1)!);
+    expect(repeated.length).toBeLessThan(
+      storyBookFor(1, 1)!.scenes.flatMap((sc) => sc.choices).length,
+    );
   });
 });
 

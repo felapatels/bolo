@@ -1,9 +1,17 @@
 import { conceptSpellings } from "./concepts";
 import {
+  CHAI_SCENES,
+  CHAI_START_ID,
+  COURTYARD_SCENES,
+  COURTYARD_START_ID,
+  FAMILY_SCENES,
+  FAMILY_START_ID,
   GREETINGS_SCENES,
   GREETINGS_START_ID,
-  STARTER_SCENES,
-  STARTER_START_ID,
+  PHOTOGRAPH_SCENES,
+  PHOTOGRAPH_START_ID,
+  THALI_SCENES,
+  THALI_START_ID,
 } from "./scenes";
 import type { Scene } from "./types";
 
@@ -75,8 +83,40 @@ export const STORY_BOOKS: readonly StoryBook[] = [
     journey: 1,
     zone: 2,
     title: "At the family table",
-    scenes: STARTER_SCENES,
-    startId: STARTER_START_ID,
+    scenes: FAMILY_SCENES,
+    startId: FAMILY_START_ID,
+  },
+  {
+    id: "j1z3-chai",
+    journey: 1,
+    zone: 3,
+    title: "The chai stall",
+    scenes: CHAI_SCENES,
+    startId: CHAI_START_ID,
+  },
+  {
+    id: "j1z4-thali",
+    journey: 1,
+    zone: 4,
+    title: "The thali",
+    scenes: THALI_SCENES,
+    startId: THALI_START_ID,
+  },
+  {
+    id: "j1z5-courtyard",
+    journey: 1,
+    zone: 5,
+    title: "The courtyard",
+    scenes: COURTYARD_SCENES,
+    startId: COURTYARD_START_ID,
+  },
+  {
+    id: "j1z6-photograph",
+    journey: 1,
+    zone: 6,
+    title: "The photograph",
+    scenes: PHOTOGRAPH_SCENES,
+    startId: PHOTOGRAPH_START_ID,
   },
 ];
 
