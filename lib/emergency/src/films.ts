@@ -22,7 +22,7 @@
  */
 
 /** Zones of journey 1 with a film on disk, ascending. */
-export const EMERGENCY_FILM_ZONES: readonly number[] = [1];
+export const EMERGENCY_FILM_ZONES: readonly number[] = [1, 2];
 
 /**
  * How many zones journey 1 has. A zone with no film simply has no Emergency,
