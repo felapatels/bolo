@@ -16,7 +16,7 @@
 //     nothing there to sell them;
 // (6) the finished book lists what the learner said, in order.
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -332,5 +332,37 @@ describe("the book at the end", () => {
     expect(screen.getByTestId("story-book")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("story-again"));
     expect(sceneAlt()).toBe(BOOK.scenes[0]!.situation);
+  });
+});
+
+describe("the book opens", () => {
+  test("the cover plays once on entry, then clears", async () => {
+    // Once per VISIT, not per scene. A story that starts five times has not
+    // started at all, and the later beats are pages turning inside a book that
+    // is already open.
+    renderPage();
+    expect(screen.getByTestId("story-book-opening")).toBeInTheDocument();
+
+    // 900ms, long enough to read as a book and short enough that a second
+    // visit is not a wait.
+    await waitFor(
+      () => expect(screen.queryByTestId("story-book-opening")).toBeNull(),
+      { timeout: 3000 },
+    );
+
+    // The scene was mounted underneath the whole time, so nothing pops in.
+    expect(sceneAlt()).toBe(BOOK.scenes[0]!.situation);
+  });
+
+  test("it does not replay when the story moves on", async () => {
+    renderPage();
+    await waitFor(
+      () => expect(screen.queryByTestId("story-book-opening")).toBeNull(),
+      { timeout: 3000 },
+    );
+    const first = BOOK.scenes[0]!.choices[0]!;
+    fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
+    fireEvent.click(screen.getByTestId("story-next"));
+    expect(screen.queryByTestId("story-book-opening")).toBeNull();
   });
 });
