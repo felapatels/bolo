@@ -171,7 +171,27 @@ function writeStill(png: Buffer, dir: string, id: string, canWebp: boolean): voi
   try {
     execFileSync(
       "ffmpeg",
-      ["-y", "-loglevel", "error", "-i", tmp, "-quality", "82", outPath],
+      [
+        "-y",
+        "-loglevel",
+        "error",
+        "-i",
+        tmp,
+        // DOWNSCALED, not just compressed. gpt-image-1's smallest landscape is
+        // 1536x1024, and the scene frame is about 600px wide on a phone, so the
+        // generated file is already better than 2x before any of this. At 1536
+        // and q82 a still lands near 280KB, which is 60MB of git and 30MB
+        // bundled into the app once six books exist. 1024 wide at q70 is a
+        // fraction of that and is still above 1.5x on the widest surface.
+        //
+        // -2 keeps the aspect ratio and rounds to an even height, which the
+        // encoder requires.
+        "-vf",
+        "scale=1024:-2",
+        "-quality",
+        "70",
+        outPath,
+      ],
       { stdio: ["ignore", "ignore", "inherit"] },
     );
   } catch {
