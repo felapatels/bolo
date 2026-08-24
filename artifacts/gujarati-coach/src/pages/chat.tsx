@@ -311,28 +311,25 @@ export default function ChatPage() {
     }
   }, [chatLang, clearWordReveal]);
 
-  // Pre-fetch the first-turn greeting audio for the active chat language so it
-  // is always ready by the time the learner first presses Bolo's belly.
-  useEffect(() => {
-    let cancelled = false;
-    const fetchGreeting = async () => {
-      try {
-        const res = await fetch(
-          `/api/openai/chat-greeting?languageCode=${encodeURIComponent(chatLang)}`,
-          { credentials: "include" },
-        );
-        if (!res.ok || cancelled) return;
-        const data = (await res.json()) as GreetingData;
-        if (!cancelled && data.audioBase64) {
-          greetingRef.current = data;
-        }
-      } catch {
-        // Non-fatal: first turn falls back to normal flow
-      }
-    };
-    void fetchGreeting();
-    return () => { cancelled = true; };
-  }, [chatLang]);
+  // THE CANNED GREETING IS RETIRED, 2026-08-24, and this is where it died.
+  //
+  // It existed to fill the 2-3 second STT -> LLM -> TTS wait on the first turn
+  // with a pre-synthesised line. It never sounded right: the greeting is
+  // English in all 22 languages by design, every chat REPLY is in the target
+  // language, and the same voice reading English defaults to General American.
+  // Owner listened to a fix that led with an explicit Indian-English
+  // instruction and it still did not sound like Bolo. Fighting a TTS model for
+  // an accent is a bad trade for three seconds of silence.
+  //
+  // The honest replacement is to SAY that the first answer is slow, which the
+  // intro card under Bolo now does. An expectation set in one line of text
+  // beats a synthesised line that sounds like a different bird.
+  //
+  // ONLY THE PREFETCH IS REMOVED HERE. greetingRef is now permanently null, so every
+  // greeting branch below is unreachable, and that dead path plus the endpoint
+  // come out separately: iOS build 420 is IN APP STORE REVIEW and it calls
+  // /openai/chat-greeting, so deleting the route would break the app that is
+  // about to be approved. The route stays until no shipped client calls it.
 
   // Stop playback, word-reveal, and any in-flight request on unmount.
   useEffect(
@@ -1909,6 +1906,14 @@ export default function ChatPage() {
                       them the one thing they cannot guess: that the mascot is
                       a press-and-hold button. Mobile says the same words. */}
                   Hi! I'm Bolo. Hold my belly to chat in English or {chatLanguage?.name ?? chatLang}. Ask me or tell me anything!
+                  {/* Replaces the canned greeting audio, retired 2026-08-24.
+                      The wait is real and only on the first turn, so the fix is
+                      to say so rather than to paper over it with a
+                      pre-synthesised line in the wrong accent. */}
+                  <span className="mt-1.5 block text-xs text-muted-foreground">
+                    My first answer takes a few seconds. After that I speak
+                    straight away.
+                  </span>
                 </motion.div>
               </>
             )}
