@@ -43,7 +43,13 @@ export const SPLASH_V2_ASSETS = {
   film: `${import.meta.env.BASE_URL}splash/welcome-bolo.mp4`,
   poster: `${import.meta.env.BASE_URL}splash/welcome-bolo-poster.png`,
   filmWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide.mp4`,
-  posterWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide-poster.png`,
+  // JPEG, where its portrait twin is a PNG, and the mismatch is deliberate.
+  // The wide film became live-action footage of a station bazaar on
+  // 2026-08-23; a photographic frame as PNG is 2.6MB against 257KB as a JPEG
+  // at the same 1920x1080, and this file is fetched on the one screen where the
+  // browser is busiest. The portrait poster is still illustration, which PNG
+  // suits.
+  posterWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide-poster.jpg`,
 } as const;
 
 /**

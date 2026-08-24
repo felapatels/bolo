@@ -470,7 +470,11 @@ describe("home brand splash v2", () => {
       );
       const film = overlay.querySelector('[data-testid="splash-film"]') as HTMLVideoElement;
       expect(film.getAttribute("src")).toContain("welcome-bolo-wide.mp4");
-      expect(film.getAttribute("poster")).toContain("welcome-bolo-wide-poster.png");
+      // WAS .png. The wide film became live-action footage of a station bazaar
+      // on 2026-08-23, and a photographic poster frame is 2.6MB as a PNG
+      // against 257KB as a JPEG at the same 1920x1080. The portrait poster is
+      // still illustration and still a PNG, which is why the pair now differs.
+      expect(film.getAttribute("poster")).toContain("welcome-bolo-wide-poster.jpg");
     } finally {
       spy.mockRestore();
     }
