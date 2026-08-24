@@ -5,6 +5,21 @@
 // matching lock dialog (progression / first-class sentence) instead of
 // navigating. Drives the REAL journey screen with the API hooks mocked.
 
+// THE STOP COUNTS IN THIS FILE WENT UP BY ONE PER ZONE ON 2026-08-24, and that
+// is the story stop being added rather than a numbering bug. It is spliced
+// straight after the tracing row and the whole run is renumbered, exactly as
+// the tracing row itself was when it landed: a zone of three stops becomes
+// four, and anything below the splice point moves down one.
+//
+// FREE TASTE WENT 1 -> 2 in zone 1 for the same reason. The story taste and the
+// tracing taste are two different free offers in the same zone, which is what
+// the web ships, and mobile matching web is the requirement.
+//
+// WHAT DID **NOT** MOVE, and this is the assertion worth reading twice: no
+// geometry test failed. Chacha-ji's stalls, the halt rows and the flank
+// alternation are all where they were, because the story row takes the no-k
+// branch alongside the tracing row. That was the whole risk of this change and
+// it is the reason `k` is left alone.
 import React from 'react';
 import { ScrollView } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
@@ -312,7 +327,7 @@ describe('journey map — station state rendering', () => {
     ]);
     render(<JourneyScreen />);
     expect(
-      screen.getByLabelText('Stop 1 of 3: Now boarding'),
+      screen.getByLabelText('Stop 1 of 4: Now boarding'),
     ).toBeOnTheScreen();
     // The header agrees with the stop the map lights up: four stations, one
     // finished, the learner standing on the second.
@@ -368,7 +383,7 @@ describe('journey map — station state rendering', () => {
     expect(offenders).toEqual([]);
     // The replacements are actually on screen, not merely absent.
     expect(screen.getByText(/Terminus: Dwarka, the festival finale awaits/)).toBeOnTheScreen();
-    expect(screen.getByLabelText('Stop 1 of 2: In progress')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Stop 1 of 3: In progress')).toBeOnTheScreen();
   });
 
 });
@@ -491,7 +506,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 1 of 2: In progress'));
+    fireEvent.press(screen.getByLabelText('Stop 1 of 3: In progress'));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/practice/[id]',
       params: { id: '2', group: String(target.id) },
@@ -509,7 +524,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 3 of 3: Locked'));
+    fireEvent.press(screen.getByLabelText('Stop 4 of 4: Locked'));
     expect(screen.getByText('This stop is still locked')).toBeOnTheScreen();
     expect(mockState.push).not.toHaveBeenCalled();
 
@@ -536,7 +551,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 3 of 3: Locked'));
+    fireEvent.press(screen.getByLabelText('Stop 4 of 4: Locked'));
     const zoneLink = screen.getByTestId('link-test-out-zone');
     expect(screen.getByText('Test out of this whole zone')).toBeOnTheScreen();
     expect(
@@ -625,7 +640,7 @@ describe('journey map — group-scoped routing', () => {
     render(<JourneyScreen />);
 
     fireEvent.press(
-      screen.getByLabelText('Stop 3 of 3: Locked (sentence stop)'),
+      screen.getByLabelText('Stop 4 of 4: Locked (sentence stop)'),
     );
     expect(
       screen.getByText('First-class coach: full sentences'),
@@ -657,7 +672,7 @@ describe('journey map — group-scoped routing', () => {
     render(<JourneyScreen />);
 
     fireEvent.press(
-      screen.getByLabelText('Stop 3 of 3: Now boarding (sentence stop)'),
+      screen.getByLabelText('Stop 4 of 4: Now boarding (sentence stop)'),
     );
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/practice/[id]',
@@ -683,7 +698,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 3 of 3: Locked'));
+    fireEvent.press(screen.getByLabelText('Stop 4 of 4: Locked'));
     expect(screen.getByText('This stop is All-Access territory')).toBeOnTheScreen();
     // Not the progression dialog: no test-out escape hatch for plan gating.
     expect(screen.queryByText('This stop is still locked')).toBeNull();
@@ -723,7 +738,7 @@ describe('journey header ticket sizing (build-28 regression)', () => {
 
     // Map content must render alongside the bounded header.
     expect(screen.getByText(/FARE ZONE 1/)).toBeOnTheScreen();
-    expect(screen.getByLabelText(/^Stop 1 of 3/)).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^Stop 1 of 4/)).toBeOnTheScreen();
   });
 });
 
@@ -1080,10 +1095,10 @@ describe('journey map — Chacha-ji stall landmark', () => {
     // this test is about and still adds nothing: of the twelve rows, exactly
     // one is the tracing stop and the other eleven are the graded stops, so
     // the three halts contributed no row at all.
-    expect(screen.getAllByText(/^Stop \d+ of 12$/).length).toBe(12);
+    expect(screen.getAllByText(/^Stop \d+ of 13$/).length).toBe(13);
     expect(screen.getAllByText('TRACE').length).toBe(1);
-    expect(screen.getByText('Stop 1 of 12')).toBeOnTheScreen();
-    expect(screen.getByText('Stop 12 of 12')).toBeOnTheScreen();
+    expect(screen.getByText('Stop 1 of 13')).toBeOnTheScreen();
+    expect(screen.getByText('Stop 13 of 13')).toBeOnTheScreen();
     expect(mockRecordChachaEncounter).not.toHaveBeenCalled();
   });
 
@@ -1118,7 +1133,7 @@ describe('journey map — the tracing stop', () => {
     // Three phrase stops become four rows, and zone 1 puts tracing at stop 2
     // so the free taste sits where a Free learner can actually reach it.
     expect(screen.getAllByText('TRACE').length).toBe(1);
-    expect(screen.getByText('Stop 2 of 4')).toBeOnTheScreen();
+    expect(screen.getByText('Stop 2 of 5')).toBeOnTheScreen();
     // The fault that shipped to the live site: the card fell through to the
     // phrase-stop line and printed "Now boarding · undefined phrases". Checked
     // on the TEXT the learner reads, never on the serialised prop tree, which
@@ -1168,9 +1183,14 @@ describe('journey map — the tracing stop', () => {
     render(<JourneyScreen />);
     // Zone 1 is the free taste and says so; zone 2 is honestly locked rather
     // than opening onto the paywall from a card showing no lock.
-    expect(screen.getAllByText('FREE TASTE').length).toBe(1);
-    expect(screen.getAllByText('ALL-ACCESS').length).toBe(1);
-    fireEvent.press(screen.getByLabelText(/Stop 2 of 3: Trace/));
+    // BOTH counts moved when the story stop landed, and both are correct.
+    // FREE TASTE 1 -> 2: zone 1 now carries the tracing taste and the story
+    // taste, two different free offers in one zone, which is what web ships.
+    // ALL-ACCESS 1 -> 2: zone 2's story stop is plan-locked beside its tracing
+    // stop and carries the same chip.
+    expect(screen.getAllByText('FREE TASTE').length).toBe(2);
+    expect(screen.getAllByText('ALL-ACCESS').length).toBe(2);
+    fireEvent.press(screen.getByLabelText(/Stop 2 of 4: Trace/));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/(tabs)/games/script-trace',
       params: { journey: '1', zone: '1' },

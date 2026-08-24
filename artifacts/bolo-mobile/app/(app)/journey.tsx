@@ -59,6 +59,12 @@ import { Mascot } from '@/components/Mascot';
 import { LessonError } from '@/components/LessonError';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import {
+  storyBookFor,
+  storyStopIndexIn,
+  isStoryTeaserBook,
+  type StoryBook,
+} from '@workspace/story';
+import {
   hasEmergency,
   EMERGENCY_AFTER_STOP,
   EMERGENCY_JOURNEY,
@@ -145,6 +151,18 @@ type Station = LessonGroupSummary & {
   zoneIndex: number;
   stopNumber: number; // 1-based within the zone
   stopCount: number; // stations in the zone
+  /**
+   * Present ONLY on the story stop, and the discriminator for it.
+   *
+   * Same arrangement as `trace` below and for the same reason: a story stop is
+   * not a lesson group, so it has no row, no phrases and no id. EVERYTHING that
+   * renders, measures or opens a station must branch on this alongside `trace`.
+   * Build 5 found out on the web what happens otherwise: a non-phrase row that
+   * advances `k` slides Chacha-ji's stall down the line and flips every card
+   * onto the wrong side of the track, and one missing condition broke five
+   * things at once.
+   */
+  story?: StoryBook;
   /**
    * Present ONLY on the tracing stop, and the discriminator for it.
    *
@@ -791,8 +809,13 @@ export default function JourneyScreen() {
     // ADDED, NEVER SUBSTITUTED, and you can only add to something: a zone with
     // no phrase stops at all gets no tracing stop either, or an unloaded zone
     // draws a lone tracing row under an empty postcard.
+    // WHERE THE TRACING ROW LANDED, kept so the story stop can sit directly
+    // after it. null when this zone has no tracing stop, which storyStopIndexIn
+    // handles by taking the mid-zone break the tracing stop would have had.
+    let traceIdx: number | null = null;
     if (trace && stations.length > 0 && !showroom) {
-      withTrace.splice(traceStopIndexIn(stations.length, trace.journey, trace.zone), 0, {
+      traceIdx = traceStopIndexIn(stations.length, trace.journey, trace.zone);
+      withTrace.splice(traceIdx, 0, {
         title: trace.title,
         stage: 'phrase',
         status: traceStopStatus(trace, passedCharacterIds),
@@ -810,6 +833,32 @@ export default function JourneyScreen() {
         teaserStation: !isPlus && trace.journey === 1 && trace.zone === 1,
       } as Station);
     }
+    // THE STORY STOP, spliced after the tracing one and by the same rules.
+    // storyStopIndexIn() decides where, and both clients call it rather than
+    // each choosing, or the web and the phone would disagree about which stop a
+    // learner is on. Added, never substituted, and never in showroom: a locked
+    // language preview already carries its own free taste.
+    const storyBook = storyBookFor(1, i + 1);
+    if (storyBook && stations.length > 0 && !showroom) {
+      withTrace.splice(storyStopIndexIn(withTrace.length, 1, i + 1, traceIdx), 0, {
+        title: storyBook.title,
+        stage: 'phrase',
+        // A story stop is never PROGRESSION-locked: it teaches nothing the
+        // phrase stops gate. "unlocked" is the honest value, and the row render
+        // branches on `story` before it ever reads this.
+        status: 'unlocked',
+        zoneId: z.id,
+        zoneIndex: i,
+        stopNumber: 0,
+        stopCount: 0,
+        story: storyBook,
+        // The taste is the WHOLE of zone 1's book; every later zone is
+        // All-Access. Same shape as the tracing teaser above it.
+        planLocked: !isPlus && !isStoryTeaserBook(storyBook),
+        teaserStation: !isPlus && isStoryTeaserBook(storyBook),
+      } as Station);
+    }
+
     const rowStations: Station[] = withTrace.map((st, gi) => ({
       ...st,
       stopNumber: gi + 1,
@@ -879,7 +928,7 @@ export default function JourneyScreen() {
      * signals and every stop number identical to what they were before a
      * tracing row existed.
      */
-    kind: 'station' | 'postcard' | 'terminus' | 'halt' | 'trace';
+    kind: 'station' | 'postcard' | 'terminus' | 'halt' | 'trace' | 'story';
     lit: boolean;
     station?: Station;
     /** The GRADED index this row sits at, which is what picks the flank. Render
@@ -915,11 +964,14 @@ export default function JourneyScreen() {
       // flank the NEXT graded stop will take, so the rail runs straight down
       // into that stop and the serpentine gains no extra zigzag. `k` does not
       // move, which is the whole reason everything downstream is unaffected.
-      if (s.trace) {
+      // BOTH non-phrase rows take this branch. `k` does not move for either,
+      // which is the whole reason everything downstream is unaffected. A new
+      // row of any kind added later MUST join this condition.
+      if (s.trace || s.story) {
         pts.push({
           x: stationX(k),
           y: layoutY + STATION_H / 2,
-          kind: 'trace',
+          kind: s.story ? 'story' : 'trace',
           lit: true,
           station: s,
           globalIdx: k,
@@ -1004,7 +1056,17 @@ export default function JourneyScreen() {
   // COUNTS. Every derivation below keys off this and must keep doing so.
   const stationPts = pts.filter((p) => p.kind === 'station');
   // DRAWS. The same stops plus the tracing rows, in layout order.
-  const rowPts = pts.filter((p) => p.kind === 'station' || p.kind === 'trace');
+  // THE ROWS THAT DRAW. Every non-phrase row must be listed here as well as
+  // taking the no-k branch above, and missing this is a silent failure rather
+  // than a loud one: the row is still COUNTED, so "Stop 2 of 4" appears and the
+  // stop itself does not, which reads as a numbering bug rather than a missing
+  // feature. Found exactly that way on 2026-08-24 when the story stop landed.
+  //
+  // stationPts below stays station-only on purpose: that is what COUNTS, and
+  // adding a non-phrase row to it is the mistake that moves Chacha-ji's stalls.
+  const rowPts = pts.filter(
+    (p) => p.kind === 'station' || p.kind === 'trace' || p.kind === 'story',
+  );
 
   // Trackside scenery plan (Task 985 port): deterministic per-zone placement
   // in the free strip beside a station row, same side as the marker
@@ -1629,17 +1691,32 @@ export default function JourneyScreen() {
             // alphabet, which no phrase stop gates. It can still be
             // PLAN-locked, which is a different thing and is how the free
             // taste is bounded to zone 1.
-            const accessible = s.trace
-              ? s.planLocked !== true
-              : isStatusAccessible(s.status) && !sentenceGated;
-            const isCurrent = !s.trace && s.id === currentId;
+            // A story stop is never PROGRESSION-locked either, for the same
+            // reason: it teaches nothing the phrase stops gate. It can still be
+            // PLAN-locked, which is how the taste is bounded to zone 1.
+            const accessible =
+              s.trace || s.story
+                ? s.planLocked !== true
+                : isStatusAccessible(s.status) && !sentenceGated;
+            // NEITHER non-phrase row can be the current stop. `currentId` is a
+            // lesson group id and these have none, but leaving the guard off
+            // would let an undefined id match an undefined id.
+            const isCurrent = !s.trace && !s.story && s.id === currentId;
             // A tracing stop carries its own line ("Trace 8 letters", "3 of 8
             // letters traced"). It must NOT fall through to the phrase-stop
             // copy: it has no phrases, and "Now boarding" would collide with
             // the learner's actual current stop.
             const statusCopy = s.trace
               ? (s.traceCopy ?? '')
-              : s.status === 'completed'
+              : s.story
+                ? // Says what it IS and how long, because a stop nobody can
+                  // guess the shape of does not get opened. It must NOT fall
+                  // through to the phrase-stop copy below: a story stop has no
+                  // phrases, and that fall-through is exactly what printed
+                  // "Now boarding, undefined phrases" on the live site for
+                  // tracing.
+                  `A picture story: ${s.story.scenes.length} scenes`
+                : s.status === 'completed'
                 ? 'Completed'
                 : s.status === 'tested_out'
                   ? 'Tested out'
@@ -1650,11 +1727,27 @@ export default function JourneyScreen() {
                       : 'Locked';
             // Item 3: journey-map copy carries no em dashes; a colon reads the
             // same and announces cleanly in a screen reader.
-            const aria = s.trace
+            const aria = s.story
+              ? `${stopLabel}: ${s.story.title}, ${statusCopy} (story stop)`
+              : s.trace
               ? `${stopLabel}: ${s.trace.title}, ${statusCopy} (tracing stop)`
               : `${stopLabel}: ${statusCopy}${s.stage === 'sentence' ? ' (sentence stop)' : ''}`;
             const onPress = () => {
               hapticLight();
+              if (s.story) {
+                if (accessible) {
+                  router.push({
+                    pathname: '/(app)/(tabs)/games/storybook',
+                    params: {
+                      journey: String(s.story.journey),
+                      zone: String(s.story.zone),
+                    },
+                  });
+                } else {
+                  router.push('/paywall');
+                }
+                return;
+              }
               if (s.trace) {
                 if (accessible) {
                   // KEYED OFF THE STOP, not off zone.id: the ladder is indexed
@@ -1776,7 +1869,9 @@ export default function JourneyScreen() {
                             the stop plan-locked — on stops the caller can ride free
                             (Hindi Zone 1 carve-out) or already owns (Plus/Family),
                             the badge is noise. Mirrors the web condition. */}
-                        {(s.stage === 'sentence' || s.trace !== undefined) &&
+                        {(s.stage === 'sentence' ||
+                          s.trace !== undefined ||
+                          s.story !== undefined) &&
                           s.planLocked === true && (
                           <View style={[styles.allAccessChip, { backgroundColor: `${colors.secondary}1a` }]}>
                             <Feather name="star" size={9} color={colors.secondary} />
@@ -1789,6 +1884,12 @@ export default function JourneyScreen() {
                           <View style={[styles.traceChip, { backgroundColor: zoneColor }]}>
                             <Feather name="edit-2" size={8} color="#ffffff" />
                             <Text style={styles.traceChipText}>TRACE</Text>
+                          </View>
+                        )}
+                        {s.story && (
+                          <View style={[styles.traceChip, { backgroundColor: zoneColor }]}>
+                            <Feather name="book-open" size={8} color="#ffffff" />
+                            <Text style={styles.traceChipText}>STORY</Text>
                           </View>
                         )}
                         {s.status === 'tested_out' && (
