@@ -270,6 +270,46 @@ function getTextReferencePoints(gridN = 10): Point[] {
 const COVERAGE_TOLERANCE = 9;
 
 /**
+ * How far off the line ink may land and still count as on target.
+ *
+ * TIGHTENED FOR SINGLE LETTERS ON 2026-08-23, reported as testers getting
+ * Perfect too easily. They were, and it was not the band threshold: every
+ * complete trace scored Perfect, because at 13.5 units on a 100-unit glyph you
+ * can be an eighth of the letter off the line and still count as on it.
+ * Precision came out at 1.00 for essentially every attempt, so the score was
+ * coverage alone, and a complete trace covers everything. Measured over all 93
+ * hand-traced letters in both scripts at three wobble levels, 279 traces:
+ *
+ *     p10 97   p25 98   p50 100   p75 100   p90 100
+ *     PERFECT: 279 of 279, and still 56% of them at a threshold of 100.
+ *
+ * No threshold could fix that; the score had no range left at the top. At 5
+ * units it has: a careful trace sits near 96 and a wobbly one near 81.
+ *
+ * SCALED BY COMPLEXITY, and the scaling is not optional. A multi-line sentence
+ * packs many small letters into the same 0-100 box, so its strokes are far
+ * thinner and the same 5 units is proportionally a much larger error. Measured
+ * with jitter across every chapter:
+ *
+ *     stage       subpaths   at 13.5      at 5
+ *     alphabet       2       min 35       min 35     unchanged
+ *     words          6       min 64       min 59
+ *     sentences     15       min 52       min 34     falls below passing
+ *
+ * So sentences keep the loose tolerance they were tuned with and letters get
+ * the strict one. Same shape as skelResFor() above, and for the same reason.
+ *
+ * The PASS mark is untouched by all of this: a heavily wobbling complete letter
+ * still scores in the seventies, far above 40.
+ */
+function strayToleranceFor(guideD: string): number {
+  const subpaths = (guideD.match(/M/g) ?? []).length;
+  if (subpaths >= 20) return 13.5; // multi-line sentences
+  if (subpaths >= 8) return 9; // words
+  return 5; // a single letter
+}
+
+/**
  * Accuracy score (0-100) = coverage × precision.
  *
  * Coverage: fraction of interior reference points reached by at least one
@@ -294,6 +334,7 @@ function scoreCoverage(strokes: Point[][], referencePoints: Point[]): number {
 function scoreCoverageParts(
   strokes: Point[][],
   referencePoints: Point[],
+  strayTol: number = 13.5,
 ): { score: number } & TraceBreakdown {
   const nothing = { score: 0, coverage: 0, precision: 0, spread: 0 };
   if (referencePoints.length === 0 || strokes.length === 0) return nothing;
@@ -310,7 +351,7 @@ function scoreCoverageParts(
   }
   const coverage = covered / referencePoints.length;
 
-  const strayTolerance = COVERAGE_TOLERANCE * 1.5;
+  const strayTolerance = strayTol;
   // Subsample the drawn points so precision stays cheap on long traces.
   const step = Math.max(1, Math.floor(allPts.length / 400));
   let sampled = 0;
@@ -1252,7 +1293,13 @@ function TraceCanvas({
       scoreTimerRef.current = setTimeout(() => {
         scoreTimerRef.current = null;
         if (allStrokesRef.current.every(s => s.length < 2)) return;
-        const parts = scoreCoverageParts(allStrokesRef.current, interiorPoints);
+        // The tolerance scales with the glyph: strict for a single letter,
+        // loose for a sentence whose strokes are far thinner in the same box.
+        const parts = scoreCoverageParts(
+          allStrokesRef.current,
+          interiorPoints,
+          strayToleranceFor(character.guide),
+        );
         const score = parts.score;
         const passed = score >= PASS_THRESHOLD;
         setLiveCoverage(score);

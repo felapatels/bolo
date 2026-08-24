@@ -37,9 +37,14 @@ export const TRACE_PASS_SCORE = 40;
  * number by construction rather than by coincidence.
  */
 export function traceBandFromScore(score: number): TraceBand {
-  if (score >= 85) return "perfect";
-  if (score >= 70) return "great";
-  if (score >= 55) return "good";
+  // RE-ANCHORED 2026-08-23 alongside the tightened precision tolerance, and
+  // both halves were needed. Before it, 279 of 279 complete traces scored
+  // Perfect and the score had no range left at the top: p50 was 100. Now a
+  // careful trace lands near 96 and a wobbly one near 81, so these rungs
+  // separate real work rather than rounding everything to the top one.
+  if (score >= 95) return "perfect";
+  if (score >= 85) return "great";
+  if (score >= 70) return "good";
   if (score >= TRACE_PASS_SCORE) return "almost";
   return "retry";
 }
