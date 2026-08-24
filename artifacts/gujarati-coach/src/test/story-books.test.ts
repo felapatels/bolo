@@ -17,6 +17,7 @@ import {
   GREETINGS_SCENES,
   isStoryTeaserBook,
   matchesConcept,
+  STORY_BOOKS,
   storyBookById,
   storyBookFor,
   storyStopIndexIn,
@@ -223,26 +224,30 @@ describe("the concept aliases", () => {
 });
 
 describe("the free taste", () => {
-  test("it is one scene, and only from the zone 1 book", () => {
-    expect(STORY_TEASER_SCENES).toBe(1);
+  test("it is the WHOLE zone 1 book, and nothing from any other", () => {
+    // Widened from one scene on 2026-08-24. One scene never reached the
+    // finished book, which is the only screen that shows what is being sold:
+    // your choices become a book you keep. A taste that stops before the point
+    // is made is a smaller ask, not a cheaper one.
     const taste = storyBookFor(1, 1)!;
     const paid = storyBookFor(1, 2)!;
+    expect(STORY_TEASER_SCENES).toBe(taste.scenes.length);
     expect(isStoryTeaserBook(taste)).toBe(true);
     expect(isStoryTeaserBook(paid)).toBe(false);
-    expect(storyTeaserScenes(taste)).toHaveLength(1);
+    expect(storyTeaserScenes(taste)).toHaveLength(taste.scenes.length);
     expect(storyTeaserScenes(paid)).toHaveLength(0);
   });
 
-  test("it serves exactly the first scene's three concepts", () => {
+  test("finishing the taste still leaves FIVE of the six books shut", () => {
+    // This replaces "the taste is only part of one book", which could not
+    // survive the widening. The unit of the taste is now a BOOK, so this is
+    // what stops it quietly becoming a free game: the giveaway is one sixth of
+    // the library, and the other five open nothing at all without paying.
     const taste = storyBookFor(1, 1)!;
-    const first = taste.scenes[0]!;
-    expect(storyTeaserConcepts(taste)).toEqual(
-      first.choices.map((c) => c.concept),
-    );
-    // The assertion that stops the taste quietly widening into a free game.
-    expect(storyTeaserConcepts(taste).length).toBeLessThan(
-      bookConcepts(taste).length,
-    );
+    expect(storyTeaserConcepts(taste)).toEqual(bookConcepts(taste));
+    const shut = STORY_BOOKS.filter((b) => !isStoryTeaserBook(b));
+    expect(shut).toHaveLength(5);
+    for (const book of shut) expect(storyTeaserConcepts(book)).toEqual([]);
   });
 
   test("a paid book offers no concepts to a caller who has not paid", () => {

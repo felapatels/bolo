@@ -40,6 +40,7 @@ import {
   bookConcepts,
   storyBookFor,
   storyTeaserConcepts,
+  STORY_TEASER_SCENES,
 } from "@workspace/story";
 import storyRouter from "./story";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
@@ -204,12 +205,19 @@ after(async () => {
   await pool.end();
 });
 
-test("a Free caller gets the first scene of the zone 1 book, and is told so", async () => {
+test("a Free caller gets the whole zone 1 book, and is told it is a taste", async () => {
+  // Widened from one scene on 2026-08-24. Asserted against the CONSTANT rather
+  // than a literal, because the number is a product decision that will move
+  // again and this test should follow it rather than veto it. What must not
+  // move quietly is `limited`: it stays true even though every scene resolves,
+  // and it is the only thing telling the client to put an ask on the finished
+  // book. Hardcode this to the book length and a future sixth scene silently
+  // becomes free.
   currentUserId = FREE_USER_ID;
   const { status, json } = await getBook(1, 1);
   assert.equal(status, 200, "the taste must never answer 402");
   assert.equal(json.limited, true);
-  assert.equal(json.teaserScenes, 1);
+  assert.equal(json.teaserScenes, STORY_TEASER_SCENES);
   assert.deepEqual(conceptsIn(json), storyTeaserConcepts(tasteBook()).sort());
 });
 

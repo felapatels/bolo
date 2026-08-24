@@ -40,6 +40,7 @@ import {
   setupStillId,
   storyBookFor,
   STORY_TEASER_END,
+  STORY_TASTE_BOOK_DONE,
   type LedgerEntry,
   type StoryBook,
 } from "@workspace/story";
@@ -169,6 +170,56 @@ function BookOpening({ onDone }: { onDone: () => void }) {
  * Tier 1 stills land under public/story/ this becomes an <img> keyed on it and
  * nothing else on the page changes.
  */
+/**
+ * The book the page is bound into.
+ *
+ * WHY THIS EXISTS AS CHROME RATHER THAN AS THE ANIMATION. The turn was already
+ * here: the scene swung in on a left-hand hinge from the day it was built. It
+ * still did not read as a book, because a rectangle rotating in empty space is
+ * a transition, not a page. What was missing is the thing it turns AGAINST.
+ *
+ * Reported 2026-08-24: "I imagined an actual book, and the image being the
+ * page, then the page flipping for the next screen."
+ *
+ * Three parts, and each is doing a job rather than decorating:
+ *   the SPINE on the left, which is the axis the page already rotates around,
+ *     so the hinge now has something visible to hinge on;
+ *   the FORE EDGE on the right, two thin slivers, which say there are more
+ *     pages after this one, so the turn implies a book rather than a slideshow;
+ *   the PAPER, warm and off-white, with the picture inset inside a margin, so
+ *     the image reads as an illustration printed on a page instead of a card
+ *     floating on the app's background.
+ *
+ * The lines stay BELOW the board and unchanged, at the owner's direction: the
+ * book is the picture, the three lines are the app.
+ */
+function BookBoard({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative mx-auto w-full" data-testid="story-bookboard">
+      {/* The pages still to come. Purely presentational, so hidden from
+          assistive tech: a screen reader announcing two empty divs before the
+          illustration would be noise. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-3 right-[-5px] w-1.5 rounded-r-md bg-stone-300 dark:bg-stone-700"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-1.5 right-[-2px] w-1.5 rounded-r-md bg-stone-200 dark:bg-stone-600"
+      />
+      <div className="relative overflow-hidden rounded-l-md rounded-r-2xl border border-stone-300 bg-[#fbf7ef] py-3 pl-6 pr-3 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.5)] dark:border-stone-700 dark:bg-stone-900">
+        {/* The binding. The gutter shadow falls to the RIGHT of the spine,
+            which is what makes paper look bound rather than printed. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-5 bg-gradient-to-r from-stone-400/60 via-stone-300/20 to-transparent dark:from-black/70 dark:via-black/25"
+        />
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function SceneFrame({
   stillId,
   situation,
@@ -237,7 +288,7 @@ function SceneFrame({
   return (
     <div
       data-testid={testId}
-      className="relative w-full overflow-hidden rounded-3xl border border-border bg-muted"
+      className="relative w-full overflow-hidden rounded-lg border border-stone-300/80 bg-muted shadow-sm dark:border-stone-700/80"
     >
       {/* THE SLOW ZOOM, and it earns its keep on every beat rather than only
           the first. A Tier 1 scene is a STILL, and a still sitting dead on
@@ -421,11 +472,26 @@ function TheBook({
   entries,
   phrasesByConcept,
   onAgain,
+  limited = false,
 }: {
   book: StoryBook;
   entries: LedgerEntry[];
   phrasesByConcept: Map<string, StoryPhrase>;
   onAgain: () => void;
+  /**
+   * The reader is on the free taste and has just finished the one book it
+   * opens.
+   *
+   * THIS IS THE ASK, AND IT ONLY EXISTS BECAUSE THE TASTE GREW. While the taste
+   * was one scene, a free learner hit STORY_TEASER_END mid-story and never
+   * reached this screen, so this screen never needed to sell anything. Now they
+   * finish, and without this the whole of zone 1 is given away with no offer
+   * attached anywhere.
+   *
+   * It sits AFTER the ledger rather than before it, because the ledger is the
+   * argument. Asking above it would be asking before showing.
+   */
+  limited?: boolean;
 }) {
   const native = useNativeText();
   return (
@@ -471,6 +537,28 @@ function TheBook({
           );
         })}
       </ol>
+
+      {limited && (
+        <div
+          data-testid="story-book-upsell"
+          className="flex flex-col items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-5 text-center"
+        >
+          <h3 className="text-lg font-extrabold text-foreground">
+            {STORY_TASTE_BOOK_DONE.title}
+          </h3>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            {STORY_TASTE_BOOK_DONE.body}
+          </p>
+          <Link
+            href="/upgrade"
+            data-testid="story-book-upgrade"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-8 py-3 font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
+          >
+            <Lock className="h-4 w-4" />
+            {STORY_TASTE_BOOK_DONE.cta}
+          </Link>
+        </div>
+      )}
 
       <button
         onClick={onAgain}
@@ -721,6 +809,7 @@ export default function StorybookPage() {
             entries={entries}
             phrasesByConcept={phrasesByConcept}
             onAgain={readAgain}
+            limited={data?.limited === true}
           />
         )}
 
@@ -805,6 +894,7 @@ export default function StorybookPage() {
                 ? outcomeStillId(resolved.scene.id, picked!)
                 : setupStillId(resolved.scene.id);
               const page = (children: ReactNode) => (
+                <BookBoard>
                 <div style={{ perspective: 1400 }}>
                   <motion.div
                     key={turnKey}
@@ -824,6 +914,7 @@ export default function StorybookPage() {
                     {children}
                   </motion.div>
                 </div>
+                </BookBoard>
               );
               return outcome ? (
                 <>

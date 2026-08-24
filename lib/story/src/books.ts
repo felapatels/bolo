@@ -166,18 +166,33 @@ export function bookConceptSpellings(book: StoryBook): string[] {
 /**
  * How many scenes of a book any learner may play, whatever they pay.
  *
- * ONE, and the first one. The owner chose All-Access with a taste over a fully
- * free storybook 2026-08-23, and the reason a taste is possible at all is that
- * scene 1's concepts are served to everyone while scenes 2 to 5 are simply
- * absent from the response. The engine already returns null for a scene whose
- * concepts it cannot resolve, so the paywall falls out of the existing path
- * rather than adding a second one.
+ * THE WHOLE OF THE TASTE BOOK, raised from 1 on 2026-08-24 because one scene
+ * was not selling anything. The owner's words: "the free taste is too small for
+ * this."
+ *
+ * WHY ONE SCENE WAS THE WRONG SIZE, and it is not simply that it was mean. The
+ * product being sold is not a picture and three lines, it is that YOUR CHOICES
+ * BECOME A BOOK YOU KEEP. That is the ledger, and a ledger with one entry in it
+ * demonstrates nothing: the learner never reaches the finished book, so the one
+ * screen that shows what All-Access is for is the one screen a free learner
+ * could never see. A taste that stops before the point has been made is a
+ * smaller ask, not a cheaper one.
+ *
+ * WHAT STILL GATES. `isStoryTeaserBook` restricts this to journey 1 zone 1, so
+ * five of the six books remain closed. This mirrors the tracing taste, which
+ * gives the whole of zone 1's first characters rather than a fragment of one.
+ *
+ * THE CONSEQUENCE, and it must be paid or this change gives the book away: a
+ * free learner now REACHES the finished book instead of hitting STORY_TEASER_END
+ * mid-story, so the upsell had to move to that screen too. `TheBook` takes a
+ * `limited` flag for exactly this. If the two ever drift apart, zone 1 becomes
+ * free with no ask attached.
  *
  * Deliberately NOT the same number as TRACE_TEASER_LIMIT, which counts
  * characters. A scene is the unit here because a half-served scene shows two of
  * its three lines, which reads as broken rather than short.
  */
-export const STORY_TEASER_SCENES = 1;
+export const STORY_TEASER_SCENES = 5;
 
 /** The scenes of a book any learner may play. Only ever from the taste book. */
 export function storyTeaserScenes(book: StoryBook): readonly Scene[] {
@@ -275,6 +290,26 @@ export const STORY_TEASER_END = {
   title: "Your story isn't finished",
   body: "You have read the first page. All-Access opens the rest of this book, and every book on the map.",
   cta: "Subscribe to continue",
+} as const;
+
+
+/**
+ * The upsell on a FINISHED taste book, which is a different moment from
+ * STORY_TEASER_END and needs different words.
+ *
+ * TEASER_END interrupts: the learner wanted more and was stopped. This one
+ * congratulates: they finished, their book is in front of them, and the ask is
+ * "again, five more times". Reusing the interrupting copy here would tell
+ * somebody who just completed a story that their story is not finished, which
+ * is both wrong and slightly insulting.
+ *
+ * Lives beside its sibling and in the shared library for the same reason: web
+ * and mobile are hand-maintained twins.
+ */
+export const STORY_TASTE_BOOK_DONE = {
+  title: "That is one book of six",
+  body: "One for every zone on the map. All-Access opens the other five, and keeps every book you write.",
+  cta: "Open the rest",
 } as const;
 
 

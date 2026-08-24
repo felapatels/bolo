@@ -85,7 +85,12 @@ vi.mock("@workspace/api-client-react", async () => ({
 }));
 
 import Storybook from "@/pages/games/storybook";
-import { storyBookFor, bookConcepts, STORY_TEASER_END } from "@workspace/story";
+import {
+  storyBookFor,
+  bookConcepts,
+  STORY_TEASER_END,
+  STORY_TASTE_BOOK_DONE,
+} from "@workspace/story";
 
 const BOOK = storyBookFor(1, 1)!;
 
@@ -227,7 +232,12 @@ describe("every choice advances", () => {
 
 describe("the free taste runs out", () => {
   test("the second scene shows the story-unfinished beat, not a blank page", () => {
-    // Exactly what a Free caller gets: scene 1's concepts and nothing else.
+    // NOT what a Free caller gets any more: since 2026-08-24 the taste is the
+    // whole zone 1 book, so a Free caller on this book resolves all five
+    // scenes. This pins the path that is STILL reachable, and the only one it
+    // was ever really for: a scene that cannot resolve because the LANGUAGE's
+    // corpus is thin, on a caller the server marked limited. Serving one
+    // scene's concepts is how that state is produced in a test.
     h.limited = true;
     serve(BOOK.scenes[0]!.choices.map((c) => c.concept));
     renderPage();
@@ -304,6 +314,20 @@ describe("a language the book is not ready in", () => {
     expect(screen.queryByTestId("story-scene")).toBeNull();
   });
 });
+
+/** Play the whole book, always taking the first line offered. */
+function playBook(): string[] {
+  const said: string[] = [];
+  for (let i = 0; i < BOOK.scenes.length; i++) {
+    const cards = screen
+      .getAllByTestId(/^story-choice-/)
+      .map((el) => el.getAttribute("data-testid")!.replace("story-choice-", ""));
+    said.push(cards[0]!);
+    fireEvent.click(screen.getByTestId(`story-choice-${cards[0]!}`));
+    fireEvent.click(screen.getByTestId("story-next"));
+  }
+  return said;
+}
 
 describe("the book at the end", () => {
   /** Play the whole book, always taking the first line offered. */
@@ -423,5 +447,51 @@ describe("the narrator", () => {
     const first = BOOK.scenes[0]!.choices[0]!;
     fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
     expect(h.narrated).toEqual([]);
+  });
+});
+
+// ─── The ask at the end of the taste ─────────────────────────────────────────
+//
+// WHY THIS IS THE MOST COMMERCIALLY LOAD-BEARING TEST IN THE FILE. The free
+// taste grew from one scene to the whole zone 1 book on 2026-08-24. That was
+// right, because one scene never reached the finished book and the finished
+// book IS the argument for subscribing. But it moved the paywall: a Free reader
+// no longer hits STORY_TEASER_END mid-story, they finish. Without an ask on the
+// finished screen, widening the taste simply gives zone 1 away.
+//
+// Nothing about that is visible. The page looks correct either way.
+describe("finishing the free taste", () => {
+  test("asks, once the ledger has made the argument", () => {
+    h.limited = true;
+    serve(bookConcepts(BOOK));
+    renderPage();
+    playBook();
+
+    const upsell = screen.getByTestId("story-book-upsell");
+    expect(upsell).toHaveTextContent(STORY_TASTE_BOOK_DONE.title);
+    expect(upsell).toHaveTextContent(STORY_TASTE_BOOK_DONE.body);
+    expect(
+      screen.getByTestId("story-book-upgrade").getAttribute("href"),
+    ).toBe("/upgrade");
+
+    // AFTER the ledger, never before it. The list of what they said is the
+    // reason to buy, so asking above it is asking before showing.
+    const book = screen.getByTestId("story-book");
+    const entries = book.querySelector("ol")!;
+    expect(entries.compareDocumentPosition(upsell)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  test("does NOT ask somebody who already pays", () => {
+    // The same screen, the same finished book. Selling All-Access to an
+    // All-Access subscriber is the kind of thing that gets screenshotted.
+    h.limited = false;
+    serve(bookConcepts(BOOK));
+    renderPage();
+    playBook();
+
+    expect(screen.getByTestId("story-book")).toBeInTheDocument();
+    expect(screen.queryByTestId("story-book-upsell")).toBeNull();
   });
 });
