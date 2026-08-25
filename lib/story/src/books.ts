@@ -260,23 +260,23 @@ export function storyStopIndexIn(
 ): number {
   const n = Math.max(0, rowCount);
   if (n === 0) return 0;
-  // ZONE 1 IS PINNED TO THE FOURTH ROW, whatever the tracing stop does.
+  // THE TASTES SIT AT STOPS 2 AND 3, tracing then story, in every language.
   //
-  // Asked for on 2026-08-24: "for zone 1 only, move the story right after stop
-  // 3 so free users can access it." It used to sit straight after the tracing
-  // row, which put it at stop 3 and displaced the phrase stop a free learner
-  // would otherwise reach there.
-  //
-  // Zone 1 is the ONLY zone this applies to, because it is the only one a free
-  // learner opens at all: its book is the taste and every other book is
-  // All-Access. Everywhere else the mid-zone break is the right place and the
-  // rule below still governs.
-  if (journey === 1 && zone === 1) return Math.min(3, n);
+  // Settled 2026-08-24 after one wrong turn worth recording, because the
+  // wording that caused it will recur. "Move the story right after stop 3" was
+  // read as position FOUR and built that way; the owner then said plainly that
+  // "the trace free taste and story free taste should be for all languages
+  // except hindi on stops 2 and 3 respectively", which is where it had been.
+  // Straight after the tracing row IS stop 3, so zone 1 needs no special case
+  // and the general rule covers it.
   if (traceIndex !== null) {
     // Straight after the tracing row, and never past the end of the run.
     return Math.min(traceIndex + 1, n);
   }
-  // No tracing stop here, and zone 1 is already handled above.
+  // No tracing stop here, which happens when the script is unauthored. Zone 1
+  // keeps the taste near the top so it stays reachable at all; every other zone
+  // takes the mid-zone break the tracing stop would have had.
+  if (journey === 1 && zone === 1) return Math.min(1, n);
   return Math.max(1, Math.floor(n / 2));
 }
 

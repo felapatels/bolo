@@ -19,16 +19,37 @@ after(async () => {
 test("reconciliation is idempotent and both policy invariants hold", async () => {
   await reconcileFreeTierContentPolicy();
 
-  // Ruling 1: every Hindi Greetings (Fare Zone 1) row serves free — phrase
-  // AND sentence stage. The paywall lands at Zone 2.
+  // Ruling 1: every Hindi Greetings AND Family row serves free — phrase AND
+  // sentence stage, both fare zones. The paywall lands at Zone 3.
+  //
+  // WIDENED FROM GREETINGS ALONE on 2026-08-24. Hindi is the flagship and the
+  // language a visitor is most likely to try, so it carries a deeper free run
+  // than the rest; every other language gets its first stop (ruling 2) plus the
+  // tracing and story tastes at stops 2 and 3.
   const hi = await pool.query(`
     SELECT count(*)::int AS n
     FROM phrases p
     JOIN lesson_groups lg ON lg.id = p.lesson_group_id
     JOIN categories c ON c.id = lg.category_id
-    WHERE p.language_code = 'hi' AND c.slug = 'greetings' AND p.premium
+    WHERE p.language_code = 'hi' AND c.slug IN ('greetings', 'family') AND p.premium
   `);
-  assert.equal(hi.rows[0].n, 0, "no premium rows may remain in Hindi Zone 1");
+  assert.equal(hi.rows[0].n, 0, "no premium rows may remain in Hindi Zones 1 and 2");
+
+  // AND ZONE 3 IS STILL PAID, which is the half that stops this widening from
+  // quietly becoming "Hindi is free". Asserted as a NEGATIVE rather than
+  // trusted: a policy that flips too much looks identical to one that flips
+  // correctly, until somebody checks the other side of the line.
+  const hiZone3 = await pool.query(`
+    SELECT count(*)::int AS n
+    FROM phrases p
+    JOIN lesson_groups lg ON lg.id = p.lesson_group_id
+    JOIN categories c ON c.id = lg.category_id
+    WHERE p.language_code = 'hi' AND c.slug = 'numbers' AND p.premium
+  `);
+  assert.ok(
+    hiZone3.rows[0].n > 0,
+    "Hindi Zone 3 must still hold premium rows, or the paywall has moved",
+  );
 
   // Ruling 2: zero premium phrase rows in any real language's first stop
   // (its lowest-position Greetings group), so every journey starts playable.

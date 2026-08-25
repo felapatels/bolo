@@ -247,6 +247,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import JourneyScreen from '@/app/(app)/journey';
 import { resetSignalMemory } from '@/lib/signalMemory';
 
+/**
+ * THE FIRST LOCKED PHRASE STOP, matched by WHAT IT IS rather than by its number.
+ *
+ * These lookups have been renumbered FOUR times in two days: "Stop 2 of 2" when
+ * zones were bare, "3 of 3" when the tracing row landed, "4 of 4" when the story
+ * row did, "3 of 4" when the story briefly moved to the fourth slot, and back
+ * again when it returned to stop 3. Every one of those edits was bookkeeping, and
+ * one of them broke differently: the story row TOOK the number these were
+ * matching, so the press opened the storybook instead of the lock dialog.
+ *
+ * A locked phrase stop announces "Locked" and nothing else. The tracing and story
+ * rows announce their own kind in brackets, so this cannot pick one up however
+ * many rows get added next.
+ */
+function lockedStop(suffix = ''): ReturnType<typeof screen.getAllByLabelText>[number] {
+  const re = new RegExp(`^Stop \\d+ of \\d+: Locked${suffix}$`);
+  return screen.getAllByLabelText(re)[0]!;
+}
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 let nextId = 100;
@@ -533,7 +552,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 3 of 4: Locked'));
+    fireEvent.press(lockedStop());
     expect(screen.getByText('This stop is still locked')).toBeOnTheScreen();
     expect(mockState.push).not.toHaveBeenCalled();
 
@@ -560,7 +579,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 3 of 4: Locked'));
+    fireEvent.press(lockedStop());
     const zoneLink = screen.getByTestId('link-test-out-zone');
     expect(screen.getByText('Test out of this whole zone')).toBeOnTheScreen();
     expect(
@@ -649,7 +668,7 @@ describe('journey map — group-scoped routing', () => {
     render(<JourneyScreen />);
 
     fireEvent.press(
-      screen.getByLabelText('Stop 3 of 4: Locked (sentence stop)'),
+      lockedStop(' \\(sentence stop\\)'),
     );
     expect(
       screen.getByText('First-class coach: full sentences'),
@@ -681,7 +700,7 @@ describe('journey map — group-scoped routing', () => {
     render(<JourneyScreen />);
 
     fireEvent.press(
-      screen.getByLabelText('Stop 3 of 4: Now boarding (sentence stop)'),
+      screen.getAllByLabelText(/^Stop \d+ of \d+: Now boarding \(sentence stop\)$/)[0]!,
     );
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/practice/[id]',
@@ -707,7 +726,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 3 of 4: Locked'));
+    fireEvent.press(lockedStop());
     expect(screen.getByText('This stop is All-Access territory')).toBeOnTheScreen();
     // Not the progression dialog: no test-out escape hatch for plan gating.
     expect(screen.queryByText('This stop is still locked')).toBeNull();
