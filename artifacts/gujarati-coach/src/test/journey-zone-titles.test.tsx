@@ -317,11 +317,19 @@ describe("boarding-pass header numbers (task 1082 item 1)", () => {
     expect(screen.getByTestId("zone-rail-1")).toHaveTextContent("0/2");
   });
 
-  test("the ticket stub always carries a stamp, even on a finished line", () => {
-    // Reported from the app: the stub rendered EMPTY, which read as unfinished
-    // development sitting above a finished map. A finished line has no CURRENT
-    // station, and the stamp was gated on one. It now falls back to the
-    // terminus: where you are, or where you ended up.
+  // THE STUB IS GONE, AND THESE TWO TESTS ARE INVERTED RATHER THAN DELETED.
+  //
+  // They asserted the stub always carried a zone stamp: once for a finished
+  // line, where the stamp used to be gated on a CURRENT station and rendered
+  // empty, and once mid-line. Both were fixes to a real bug at the time.
+  //
+  // On 2026-08-25 the stub was removed outright: "technically, the ticket is
+  // already torn, just get rid of the stub". A pass being read on the train
+  // has had its stub taken, so the perforation is now the header's torn right
+  // edge with nothing past it. What has to hold is that no stub comes back on
+  // either of the two paths that used to draw one, so the cases are kept and
+  // their expectations reversed.
+  test("a finished line carries no stub stamp", () => {
     h.zones = zonesOf(
       [grp(1, "completed", { masteredCount: 8, attemptedCount: 8 })],
       [grp(2, "completed", { masteredCount: 8, attemptedCount: 8 })],
@@ -331,10 +339,10 @@ describe("boarding-pass header numbers (task 1082 item 1)", () => {
       [grp(6, "completed", { masteredCount: 8, attemptedCount: 8 })],
     );
     renderJourney();
-    expect(screen.getByTestId("zone-stamp")).toBeInTheDocument();
+    expect(screen.queryByTestId("zone-stamp")).toBeNull();
   });
 
-  test("the stub stamps the CURRENT zone while a line is still being ridden", () => {
+  test("a line still being ridden carries no stub stamp either", () => {
     h.zones = zonesOf(
       [grp(1, "completed", { masteredCount: 8, attemptedCount: 8 })],
       [grp(2, "in_progress", { masteredCount: 3, attemptedCount: 5 })],
@@ -344,7 +352,7 @@ describe("boarding-pass header numbers (task 1082 item 1)", () => {
       [grp(6, "locked")],
     );
     renderJourney();
-    expect(screen.getByTestId("zone-stamp")).toBeInTheDocument();
+    expect(screen.queryByTestId("zone-stamp")).toBeNull();
   });
 
   test("a finished line reads as complete rather than borrowing a stop number", () => {

@@ -944,12 +944,12 @@ describe('journey header inset and stamp slot (build 30)', () => {
     );
     expect(header.paddingTop).toBe(59 + 10);
 
-    const slot = StyleSheet.flatten(
-      screen.getByTestId('header-stamp-slot').props.style,
-    );
-    expect(zoneStampExtent(44)).toBeGreaterThanOrEqual(Math.ceil(44 * 1.186));
-    expect(slot.width).toBeGreaterThanOrEqual(zoneStampExtent(44));
-    expect(slot.height).toBeGreaterThanOrEqual(zoneStampExtent(44));
+    // THE STUB WENT ON 2026-08-25 and this asserted its stamp slot was big
+    // enough to hold a rotated stamp. Inverted rather than deleted: what must
+    // hold now is that the header carries no stub at all, so a future port
+    // cannot quietly bring one back. ZoneStamp itself is untouched and still
+    // covered by ticket-sizing.test.tsx, because the home boarding pass uses it.
+    expect(screen.queryByTestId('header-stamp-slot')).toBeNull();
   });
 });
 

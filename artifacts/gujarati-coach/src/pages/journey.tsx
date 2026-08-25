@@ -1451,12 +1451,6 @@ export default function Journey() {
   )?.id;
   const currentStation = allStations.find((s) => s.id === currentId) ?? null;
   const currentZone = currentStation ? zones[currentStation.zoneIndex]! : null;
-  // The ticket stub's stamp. A finished line has NO current station, and the
-  // stub then rendered empty, which read as unfinished development rather than
-  // as a finished line. Fall back to the terminus so the stub always carries a
-  // stamp: where you are, or where you ended up.
-  const stubStation = currentStation ?? allStations[allStations.length - 1] ?? null;
-  const stubZone = stubStation ? zones[stubStation.zoneIndex]! : null;
 
   const languageName = activeLanguage?.name ?? "this language";
   const upgradeLanguageHref = upgradeHref({
@@ -1973,26 +1967,14 @@ export default function Journey() {
                   )}
                 />
               </div>
-              {/* tear-off stub */}
+              {/* THE STUB IS GONE, AND THE PERFORATION IS NOW A TORN EDGE.
+                  Removed 2026-08-25: "technically, the ticket is already torn,
+                  just get rid of the stub". A boarding pass being read on the
+                  train has had its stub taken, so keeping one attached was the
+                  detail that made the header look like a ticket nobody had
+                  collected yet. Removed on both platforms together, since the
+                  two headers are drawn to one design. */}
               <TicketPerforationV light />
-              {/* Stub: perforation-end notches (edge bites) come from
-                  TicketPerforationV. The floating notch dot and 🎫 emoji were
-                  removed — cutout circles only ever straddle card edges
-                  (approved ruling, ported from the mobile build-28 pass), and
-                  the emoji renders as tofu without an emoji font. */}
-              <div className="relative flex w-[76px] shrink-0 flex-col items-center justify-center gap-0.5 px-2 py-1.5">
-                {stubZone && stubStation && (
-                  <ZoneStamp
-                    ink="#FFFFFF"
-                    zone={stubStation.zoneIndex + 1}
-                    name={stubZone.geoName}
-                    // R1 amendment: derive the stamp from the slot so label +
-                    // circle scale as one unit (76px slot - 16px px-2 padding
-                    // - 8px rotated-extent margin).
-                    size={stampSizeForExtent(52)}
-                  />
-                )}
-              </div>
             </div>
           </div>
         </div>

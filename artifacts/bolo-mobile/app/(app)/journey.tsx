@@ -1456,26 +1456,20 @@ export default function JourneyScreen() {
                 </Text>
               )}
             </View>
-            {/* tear-off stub: perforation-end notches (edge bites) come from
-                TicketPerforationV. Web's floating notch dot and 🎫 emoji were
-                dropped from the port: cutout circles only ever straddle card
-                edges (approved ruling), and the emoji renders as tofu without
-                an emoji font. */}
+            {/* THE STUB IS GONE, AND THE PERFORATION IS NOW A TORN EDGE.
+                Removed 2026-08-25: "technically, the ticket is already torn,
+                just get rid of the stub". A boarding pass being read on the
+                train has had its stub taken; keeping one attached was the
+                detail that made the header look like a ticket nobody had
+                collected yet.
+                It was also invisible rather than empty, which is worth
+                recording so nobody re-adds it thinking it never worked: the
+                stamp was drawn with ink={line.accent} on a ticket whose
+                background IS line.accent, so it was green on green. Web
+                passed "#FFFFFF" for the same stamp and showed it fine.
+                TicketPerforationV stays as the right-hand edge: a perforated
+                edge with nothing past it is what a torn ticket looks like. */}
             <TicketPerforationV dashColor={colors.border} holeColor={colors.background} />
-            <View style={styles.headerStub}>
-              {/* Fixed slot keeps the rotated stamp's visual extent inside
-                  the stub (clear of the perforation). */}
-              {currentZone && currentStation && (
-                <View testID="header-stamp-slot" style={styles.stubStampSlot}>
-                  <ZoneStamp
-                    ink={line.accent}
-                    zone={currentStation.zoneIndex + 1}
-                    name={currentZone.geoName}
-                    size={44}
-                  />
-                </View>
-              )}
-            </View>
           </View>
         </View>
       </View>
