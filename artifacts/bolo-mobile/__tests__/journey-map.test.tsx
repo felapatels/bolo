@@ -1211,6 +1211,37 @@ describe('journey map — the tracing stop', () => {
   // TASTE" advertises a sample of something already theirs. Reported from a
   // device 2026-08-25. Derived from the payload, never from a language list,
   // so a future widening of the free tier needs no change on the client.
+  // THE ZONE GATE, AND THE REASON IT IS A GATE RATHER THAN A RULE PER ROW.
+  // With the cross-zone gate on, the server reports every group in an
+  // unreachable zone as locked. The tracing and story rows are invented by
+  // this client and are in no payload, so before 2026-08-25 they stayed open
+  // on a zone nobody could enter. Asked for as "a hard gate (invisible) right
+  // after the zone card, so we never have to count stops": a new row type is
+  // covered by sitting inside the zone, not by joining a list.
+  it('locks the tracing and story rows in a gate-locked zone', () => {
+    // Zone 1 has an open station; zone 2 has none, so zone 2 is gate-locked.
+    // Different station counts on purpose, so the two zones' rows carry
+    // different stop labels and the query cannot match the wrong one.
+    setZones([
+      [grp({ status: 'unlocked' }), grp({ status: 'locked' })],
+      [grp({ status: 'locked' })],
+      [], [], [], [],
+    ]);
+    render(<JourneyScreen />);
+
+    // Zone 1: four rows (2 stations + trace + story), tracing row opens.
+    fireEvent.press(screen.getByLabelText(/Stop 2 of 4: Trace/));
+    expect(mockState.push).toHaveBeenCalledWith({
+      pathname: '/(app)/(tabs)/games/script-trace',
+      params: { journey: '1', zone: '1' },
+    });
+    mockState.push.mockClear();
+
+    // Zone 2: three rows, and its tracing row must go nowhere.
+    fireEvent.press(screen.getByLabelText(/Stop 2 of 3: Trace/));
+    expect(mockState.push).not.toHaveBeenCalled();
+  });
+
   it('shows no taste chip in a zone the learner already owns outright', () => {
     mockState.isPlus = false;
     setZones([

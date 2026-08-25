@@ -1311,6 +1311,21 @@ export default function Journey() {
     // what the server actually serves.
     const zoneIncluded =
       stations.length > 0 && stations.every((st) => st.planLocked !== true);
+    // THE ZONE GATE, DECIDED ONCE AT THE ZONE BOUNDARY. With the cross-zone
+    // gate on, the server reports EVERY group in an unreachable zone as
+    // "locked", so a zone where no phrase station is open is a zone the
+    // learner may not enter yet. Rows this client invents (the tracing stop,
+    // the story stop, and whatever comes next) are not in that payload and
+    // would otherwise each have to remember to lock themselves, which is
+    // exactly how a stop ends up standing open at the top of a zone.
+    //
+    // Asked for on 2026-08-25: "add a hard gate (invisible) right after the
+    // zone card, so we never have to count stops". This is that gate. A new
+    // row type inherits it by being inside the zone rather than by joining a
+    // list. With the flag off the first station of every zone is unlocked, so
+    // this is false everywhere and nothing changes.
+    const zoneGateLocked =
+      stations.length > 0 && stations.every((st) => st.status === "locked");
     // Where the tracing row landed, so the story row can sit directly after it.
     // Null when this zone has no tracing stop, which storyStopIndexIn handles.
     let traceIndex: number | null = null;
@@ -1332,7 +1347,9 @@ export default function Journey() {
         // only what a drawn station needs and is identified by `trace`.
         title: trace.title,
         stage: "phrase",
-        status: traceStopStatus(trace, passedCharacterIds),
+        status: zoneGateLocked
+          ? "locked"
+          : traceStopStatus(trace, passedCharacterIds),
         zoneId: z.id,
         zoneIndex: i,
         stopNumber: 0,
@@ -1379,7 +1396,7 @@ export default function Journey() {
       withTrace.splice(spliced, 0, {
         title: story.title,
         stage: "phrase",
-        status: "unlocked",
+        status: zoneGateLocked ? "locked" : "unlocked",
         zoneId: z.id,
         zoneIndex: i,
         stopNumber: 0,
@@ -2249,7 +2266,13 @@ export default function Journey() {
                       zoneTitle={zone.title}
                       geoName={zone.geoName}
                       accent={line.accent}
-                      stationCount={zone.stations.length}
+                      // ROWS DRAWN, NOT PHRASE STATIONS. The card said 9
+                      // while the rows beneath it said "Stop 1 of 11": the
+                      // tracing and story stops are rows a learner counts and
+                      // this number never knew about them. Reading the same
+                      // list the rows come from means a new row type is
+                      // counted by existing.
+                      stationCount={zone.rowStations.length}
                       grayed={grayed}
                       zoneAllDone={zone.zoneAllDone}
                       scenarioId={scenarioIdByZone.get(zoneIndex)}

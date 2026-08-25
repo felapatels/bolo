@@ -812,6 +812,21 @@ export default function JourneyScreen() {
     // what the server actually serves.
     const zoneIncluded =
       stations.length > 0 && stations.every((st) => st.planLocked !== true);
+    // THE ZONE GATE, DECIDED ONCE AT THE ZONE BOUNDARY. With the cross-zone
+    // gate on, the server reports EVERY group in an unreachable zone as
+    // 'locked', so a zone where no phrase station is open is a zone the
+    // learner may not enter yet. Rows this client invents (the tracing stop,
+    // the story stop, and whatever comes next) are not in that payload and
+    // would otherwise each have to remember to lock themselves, which is
+    // exactly how a stop ends up standing open at the top of a zone.
+    //
+    // Asked for on 2026-08-25: "add a hard gate (invisible) right after the
+    // zone card, so we never have to count stops". This is that gate. A new
+    // row type inherits it by being inside the zone rather than by joining a
+    // list. With the flag off the first station of every zone is unlocked, so
+    // this is false everywhere and nothing changes.
+    const zoneGateLocked =
+      stations.length > 0 && stations.every((st) => st.status === 'locked');
     // NOT IN SHOWROOM. A locked-language preview already carries its own free
     // taste, the three-phrase voice teaser, and a tracing stop offering a
     // second "FREE TASTE" chip beside it reads as two competing offers on a
@@ -829,7 +844,9 @@ export default function JourneyScreen() {
       withTrace.splice(traceIdx, 0, {
         title: trace.title,
         stage: 'phrase',
-        status: traceStopStatus(trace, passedCharacterIds),
+        status: zoneGateLocked
+          ? 'locked'
+          : traceStopStatus(trace, passedCharacterIds),
         zoneId: z.id,
         zoneIndex: i,
         stopNumber: 0,
@@ -859,7 +876,7 @@ export default function JourneyScreen() {
         // A story stop is never PROGRESSION-locked: it teaches nothing the
         // phrase stops gate. "unlocked" is the honest value, and the row render
         // branches on `story` before it ever reads this.
-        status: 'unlocked',
+        status: zoneGateLocked ? 'locked' : 'unlocked',
         zoneId: z.id,
         zoneIndex: i,
         stopNumber: 0,
@@ -1618,7 +1635,12 @@ export default function JourneyScreen() {
                             {zone.geoName}
                           </Text>
                           <Text style={styles.postcardStops}>
-                            {zone.stations.length} {zone.stations.length === 1 ? 'stop' : 'stops'} in this zone
+                            {/* ROWS DRAWN, NOT PHRASE STATIONS. The card
+                                said 9 while the rows beneath it said "Stop 1
+                                of 11": the tracing and story stops are rows a
+                                learner counts and this number never knew
+                                about them. */}
+                            {zone.rowStations.length} {zone.rowStations.length === 1 ? 'stop' : 'stops'} in this zone
                           </Text>
                         </View>
                         {/* divided-back vertical rule */}
@@ -1710,7 +1732,14 @@ export default function JourneyScreen() {
             // PLAN-locked, which is how the taste is bounded to zone 1.
             const accessible =
               s.trace || s.story
-                ? s.planLocked !== true
+                ? // isStatusAccessible ADDED 2026-08-25 for the zone gate.
+                  // These rows read planLocked and ignored status entirely,
+                  // which is why a gate-locked zone could still hand back an
+                  // open tracing or story stop. traceStopStatus only ever
+                  // returns unlocked, in_progress or completed and a story row
+                  // is unlocked unless the gate says otherwise, so the only
+                  // status this can exclude is the gate's own "locked".
+                  s.planLocked !== true && isStatusAccessible(s.status)
                 : isStatusAccessible(s.status) && !sentenceGated;
             // NEITHER non-phrase row can be the current stop. `currentId` is a
             // lesson group id and these have none, but leaving the guard off
