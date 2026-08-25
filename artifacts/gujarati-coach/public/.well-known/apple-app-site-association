@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["57PJ64Z5FA.com.bolo.mobile"],
+        "components": [
+          { "/": "/join/*", "comment": "A shared referral link opens the app and hands it the code." },
+          { "/": "/join", "comment": "The bare referral landing, for a code typed by hand." }
+        ]
+      }
+    ]
+  }
+}
