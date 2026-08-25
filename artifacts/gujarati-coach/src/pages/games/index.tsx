@@ -110,9 +110,22 @@ export const GAMES: GameDef[] = [
     id: "wrong-platform",
     href: "/games/wrong-platform",
     title: "Wrong Platform",
-    description: "Spot the phrase that boarded at the wrong platform",
+    description: "Drag Chacha-ji onto the phrase that boarded at the wrong platform",
     difficulty: "Beginner",
     plusOnly: false,
+    Icon: Shuffle,
+  },
+  {
+    // PART 2, All-Access. Two tiles rather than a difficulty toggle inside
+    // one, asked for on 2026-08-25: "split the game into 2 games, it has a lot
+    // of content. Add a free version and a Part 2 for All-Access. Show 2
+    // different tiles on the games page."
+    id: "wrong-platform-2",
+    href: "/games/wrong-platform-2",
+    title: "Wrong Platform 2",
+    description: "Six cards, a closer stray, and no English to lean on",
+    difficulty: "Intermediate",
+    plusOnly: true,
     Icon: Shuffle,
   },
   {

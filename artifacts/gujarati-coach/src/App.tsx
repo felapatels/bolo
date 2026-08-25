@@ -91,6 +91,7 @@ const GamesScriptTraceGame = lazyRoute(
 const GamesBoloQuiz = lazyRoute(() => import('@/pages/games/bolo-quiz'));
 const GamesTicketCheck = lazyRoute(() => import('@/pages/games/ticket-check'));
 const GamesWrongPlatform = lazyRoute(() => import('@/pages/games/wrong-platform'));
+const GamesWrongPlatform2 = lazyRoute(() => import('@/pages/games/wrong-platform-2'));
 const GamesLuggageMatch = lazyRoute(() => import('@/pages/games/luggage-match'));
 const GamesExpressListening = lazyRoute(() => import('@/pages/games/express-listening'));
 const GamesSignalLights = lazyRoute(() => import('@/pages/games/signal-lights'));
@@ -491,6 +492,15 @@ function AppRouter() {
       <Route path="/games/ticket-check">
         <Guard>
           <GamesTicketCheck />
+        </Guard>
+      </Route>
+      {/* Part 2 FIRST: wouter matches in order and these are literal paths,
+          but a future switch to a prefix match would have /games/wrong-platform
+          swallow /games/wrong-platform-2 silently. Ordering costs nothing and
+          removes the trap. */}
+      <Route path="/games/wrong-platform-2">
+        <Guard>
+          <GamesWrongPlatform2 />
         </Guard>
       </Route>
       <Route path="/games/wrong-platform">

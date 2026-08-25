@@ -342,7 +342,11 @@ function StationMarker({
  *  action in the signal encounter dialog. */
 const GAME_BLURBS: Record<QuickGameId, string> = {
   "ticket-check": "Punch tickets to their matching script before the whistle blows.",
-  "wrong-platform": "Spot the phrase that wandered onto the wrong platform.",
+  "wrong-platform": "Drag Chacha-ji onto the phrase that wandered onto the wrong platform.",
+  // Part 2 never appears in a signal encounter (those are free-visible games),
+  // but the map is keyed by QuickGameId and must stay total, so the blurb
+  // exists rather than the type being loosened.
+  "wrong-platform-2": "The same platform, a closer stray, and no English to lean on.",
   "luggage-match": "Pair up the luggage tags before the carousel moves on.",
   "express-listening": "The express won't wait. Catch the meaning at full speed.",
   "signal-lights": "Green for true, red for false. Call it before the gate drops.",

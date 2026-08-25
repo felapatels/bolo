@@ -21,6 +21,7 @@ import type { Feather } from '@expo/vector-icons';
 export type QuickGameId =
   | 'ticket-check'
   | 'wrong-platform'
+  | 'wrong-platform-2'
   | 'luggage-match'
   | 'signal-lights';
 
@@ -38,6 +39,13 @@ export type QuickGameDef = {
   floor: number;
   /** The frozen server game id this quick game rides for scoring. */
   serverGame: 'listen-and-pick' | 'word-match';
+  /**
+   * All-Access only. Kept OUT of the trackside signal rotation: a signal is a
+   * free-visible encounter offered mid-journey, and offering a locked game
+   * there would be an upsell wearing a game's clothes. The hub still shows it,
+   * with its own lock.
+   */
+  plusOnly?: boolean;
   /**
    * Expo Router path for the game screen. Deliberately a plain string, not a
    * typed Href: none of these screens exist yet (no games are ported in this
@@ -68,6 +76,25 @@ export const QUICK_GAMES: readonly QuickGameDef[] = [
     floor: 3,
     serverGame: 'listen-and-pick',
     route: '/games/wrong-platform',
+  },
+  {
+    // PART 2, All-Access. A separate roster entry rather than a mode flag on
+    // the first, because the hub draws one tile per entry and two tiles were
+    // the ask: "add a free version and a Part 2 for All-Access. Show 2
+    // different tiles on the games page." 2026-08-25.
+    //
+    // FLOOR 5, not 3: a round deals five in-topic cards plus the stray, and a
+    // topic that cannot fill the board would repeat a phrase inside one round,
+    // turning the odd-one-out into a guess between two identical cards.
+    id: 'wrong-platform-2',
+    title: 'Wrong Platform 2',
+    description: 'Six cards, a closer stray, and no English to lean on.',
+    difficulty: 'Hard',
+    icon: 'alert-triangle',
+    floor: 5,
+    serverGame: 'listen-and-pick',
+    route: '/games/wrong-platform-2',
+    plusOnly: true,
   },
   {
     id: 'luggage-match',
@@ -101,7 +128,10 @@ export function quickGameById(id: string): QuickGameDef | undefined {
 
 /** Games playable with `visibleCount` plan-visible phrases, roster order. */
 export function eligibleQuickGames(visibleCount: number): QuickGameDef[] {
-  return QUICK_GAMES.filter((g) => g.floor <= visibleCount);
+  // plusOnly games are kept OUT of the signal rotation: a signal is a
+  // free-visible encounter offered mid-journey, and offering a locked game
+  // there would be an upsell wearing a game's clothes. Web filters the same.
+  return QUICK_GAMES.filter((g) => !g.plusOnly && g.floor <= visibleCount);
 }
 
 /**

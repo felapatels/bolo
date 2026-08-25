@@ -15,6 +15,7 @@
 export type QuickGameId =
   | "ticket-check"
   | "wrong-platform"
+  | "wrong-platform-2"
   | "luggage-match"
   | "express-listening"
   | "signal-lights";
@@ -35,6 +36,13 @@ export type QuickGameDef = {
    * learner is dealing with the world rather than naming it.
    */
   journeys?: readonly number[];
+  /**
+   * All-Access only. Kept OUT of the trackside signal rotation: a signal is a
+   * free-visible encounter offered mid-journey, and offering a locked game
+   * there would be an upsell wearing a game's clothes. The hub still shows it,
+   * with its own lock.
+   */
+  plusOnly?: boolean;
 };
 
 /** Roster order is the deterministic signal rotation order. */
@@ -52,6 +60,22 @@ export const QUICK_GAMES: readonly QuickGameDef[] = [
     path: "/games/wrong-platform",
     floor: 3,
     serverGame: "listen-and-pick",
+  },
+  {
+    // PART 2, All-Access. A separate roster entry rather than a mode flag on
+    // the first, because the hub shows one tile per entry and the split was
+    // asked for as two tiles: "add a free version and a Part 2 for
+    // All-Access. Show 2 different tiles on the games page."
+    //
+    // FLOOR 5, not 3: a round deals five in-topic cards plus the stray, and a
+    // topic that cannot fill the board would repeat a phrase inside one round,
+    // which turns the odd-one-out into a guess between two identical cards.
+    id: "wrong-platform-2",
+    title: "Wrong Platform 2",
+    path: "/games/wrong-platform-2",
+    floor: 5,
+    serverGame: "listen-and-pick",
+    plusOnly: true,
   },
   {
     id: "luggage-match",
@@ -96,7 +120,10 @@ export function eligibleQuickGames(
   journey = 1,
 ): QuickGameDef[] {
   return QUICK_GAMES.filter(
-    (g) => g.floor <= visibleCount && (!g.journeys || g.journeys.includes(journey)),
+    (g) =>
+      !g.plusOnly &&
+      g.floor <= visibleCount &&
+      (!g.journeys || g.journeys.includes(journey)),
   );
 }
 

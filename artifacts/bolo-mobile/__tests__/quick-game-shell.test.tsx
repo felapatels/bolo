@@ -144,7 +144,7 @@ import {
   parseQuickLaunch,
   type QuickRoundProps,
 } from '@/components/games/QuickGameShell';
-import { QUICK_GAMES, quickGameById } from '@/lib/quick-games';
+import { QUICK_GAMES, quickGameById, eligibleQuickGames } from '@/lib/quick-games';
 import { confirmDiscardRun } from '@/lib/gameExit';
 
 const DEF = QUICK_GAMES[0]; // ticket-check: floor 4, rides listen-and-pick
@@ -431,9 +431,18 @@ describe('quick-game roster', () => {
     expect(ids).toEqual([
       'ticket-check',
       'wrong-platform',
+      // Part 2 from 2026-08-25, All-Access, a roster entry rather than a mode
+      // flag because the hub draws one tile per entry and two tiles were the
+      // ask. It must NOT reach the signal rotation, which is asserted below.
+      'wrong-platform-2',
       'luggage-match',
       'signal-lights',
     ]);
+    // A signal is a free-visible encounter offered mid-journey, so a locked
+    // game appearing there would be an upsell wearing a game's clothes.
+    for (const g of QUICK_GAMES.filter((x) => x.plusOnly)) {
+      expect(eligibleQuickGames(99).map((e) => e.id)).not.toContain(g.id);
+    }
     expect(quickGameById('express-listening')).toBeUndefined();
     expect(quickGameById('ticket-check')?.title).toBe('Ticket Check');
     expect(quickGameById('not-a-game')).toBeUndefined();

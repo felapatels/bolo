@@ -37,14 +37,24 @@ beforeEach(() => {
 });
 
 describe("quick game roster", () => {
-  test("five games, ids stable, server mapping stays in the frozen enum", () => {
+  test("six games, ids stable, server mapping stays in the frozen enum", () => {
+    // SIX from 2026-08-25: Wrong Platform split into a free Part 1 and an
+    // All-Access Part 2. Part 2 is a roster entry rather than a mode flag,
+    // because the hub draws one tile per entry and two tiles were the ask.
     expect(QUICK_GAMES.map((g) => g.id)).toEqual([
       "ticket-check",
       "wrong-platform",
+      "wrong-platform-2",
       "luggage-match",
       "express-listening",
       "signal-lights",
     ]);
+    // A plusOnly game must never reach the trackside signal rotation: a
+    // signal is a free-visible encounter, and offering a locked game there
+    // would be an upsell wearing a game's clothes.
+    for (const g of QUICK_GAMES.filter((x) => x.plusOnly)) {
+      expect(eligibleQuickGames(99, 1).map((e) => e.id)).not.toContain(g.id);
+    }
     for (const g of QUICK_GAMES) {
       // The server's GameSessionInputGame enum is closed; quick games may
       // only ride these two Model A ids.

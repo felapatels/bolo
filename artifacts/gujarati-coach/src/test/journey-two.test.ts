@@ -200,19 +200,23 @@ describe("resolving zones to the ids everything downstream speaks", () => {
 });
 
 describe("journey-aware mini-game roster", () => {
+  // FREE-VISIBLE ONLY, from 2026-08-25. eligibleQuickGames feeds the trackside
+  // SIGNAL rotation, which is a free encounter offered mid-journey, so an
+  // All-Access game must never appear in it: that would be an upsell wearing a
+  // game's clothes. Wrong Platform 2 is the first such entry. These two
+  // compared against the whole roster and now compare against the free half,
+  // which is what they always meant.
+  const freeIds = () => QUICK_GAMES.filter((g) => !g.plusOnly).map((g) => g.id);
+
   test("journey 1 gets exactly the roster it always had", () => {
     // The default is journey 1 and nothing in the shipped roster declares a
     // journey list, so this must be byte-identical to the old behaviour.
     expect(eligibleQuickGames(10)).toEqual(eligibleQuickGames(10, 1));
-    expect(eligibleQuickGames(10).map((g) => g.id)).toEqual(
-      QUICK_GAMES.map((g) => g.id),
-    );
+    expect(eligibleQuickGames(10).map((g) => g.id)).toEqual(freeIds());
   });
 
   test("a game with no journey list appears in every journey", () => {
-    expect(eligibleQuickGames(10, 2).map((g) => g.id)).toEqual(
-      QUICK_GAMES.map((g) => g.id),
-    );
+    expect(eligibleQuickGames(10, 2).map((g) => g.id)).toEqual(freeIds());
   });
 
   test("the phrase floor still binds, in either journey", () => {

@@ -191,12 +191,24 @@ export const GAMES: GameDef[] = [
   {
     id: 'wrong-platform',
     title: 'Wrong Platform',
-    description: 'Spot the phrase that does not belong on this platform.',
+    description: 'Drag Chacha-ji onto the phrase that does not belong.',
     difficulty: 'Intermediate',
     plusOnly: false,
     // Not 'alert-triangle': a warning triangle reads as "this tile is broken"
     // in a grid of games. The crosshair says pick the odd one out, and it is
     // the only ring-shaped glyph in the hub, so it stays distinct.
+    icon: 'crosshair',
+  },
+  {
+    // PART 2, All-Access. Two tiles rather than a difficulty toggle inside
+    // one, asked for on 2026-08-25: "split the game into 2 games, it has a lot
+    // of content. Add a free version and a Part 2 for All-Access. Show 2
+    // different tiles on the games page."
+    id: 'wrong-platform-2',
+    title: 'Wrong Platform 2',
+    description: 'Six cards, a closer stray, and no English to lean on.',
+    difficulty: 'Advanced',
+    plusOnly: true,
     icon: 'crosshair',
   },
 ];
@@ -246,6 +258,9 @@ const GAME_COLORS: Record<string, GameColor> = {
   'ticket-check': { from: '#D9702F', to: '#B04A15', deep: '#8A370C', ink: '#B04A15', glow: 'rgba(217,112,47,0.55)' },
   // rani pink
   'wrong-platform': { from: '#D33A7B', to: '#A81C58', deep: '#821242', ink: '#A81C58', glow: 'rgba(211,58,123,0.55)' },
+  // Part 2 wears a deeper cut of Part 1's colour: the same game, further down
+  // the line. A brand-new hue would read as an unrelated game.
+  'wrong-platform-2': { from: '#A81C58', to: '#821242', deep: '#5E0D30', ink: '#821242', glow: 'rgba(168,28,88,0.55)' },
   // deep teal
   'luggage-match': { from: '#17897E', to: '#0B5F58', deep: '#084741', ink: '#0B5F58', glow: 'rgba(23,137,126,0.55)' },
   // express indigo
