@@ -65,8 +65,29 @@ test("frozen data covers every non-Gujarati language × every category", () => {
     }
   }
 
-  // No stray/unknown language codes leaked into the file.
+  // NO STRAY LANGUAGES, AND GUJARATI ONLY WHERE IT IS ALLOWED TO BE.
+  //
+  // INVERTED 2026-08-25. This asserted that Gujarati appeared nowhere in the
+  // frozen file, which was true until 04735668 generated its six journey 2
+  // topics. Gujarati hand-curates journey 1 and generates journey 2, so being
+  // in this file is correct for it now and the assertion was simply stale.
+  //
+  // WHAT IS WORTH PINNING IS THE OTHER HALF: Gujarati must never appear here
+  // for a CURATED slug. A generated Gujarati greetings lesson would compete
+  // with the hand-written one, which is the arrangement "a hand-curated
+  // Gujarati lesson always beats a generated one" exists to protect, and the
+  // seeder would be picking between two sources for the same cell.
+  const curatedSlugs = new Set(CURATED_CATEGORIES.map((c) => c.slug));
   for (const code of Object.keys(curated)) {
+    if (code === CURATED_LANGUAGE_CODE) {
+      for (const slug of Object.keys(curated[code]!)) {
+        assert.ok(
+          !curatedSlugs.has(slug),
+          `frozen file generates ${CURATED_LANGUAGE_CODE}/${slug}, which is hand-curated`,
+        );
+      }
+      continue;
+    }
     assert.ok(
       generatedLanguageCodes.includes(code),
       `frozen file has unexpected language "${code}"`,

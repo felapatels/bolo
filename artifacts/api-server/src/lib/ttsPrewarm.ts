@@ -6,8 +6,8 @@ import {
   TTS_PROVIDER,
   phraseAudioIdentity,
   type PhraseAudioIdentity,
-  BOLO_CHAT_TTS_INSTRUCTIONS,
-  BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+  BOLO_GREETING_TTS_INSTRUCTIONS,
+  BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST,
 } from "./ttsConfig";
 import { getVoiceIdForLanguage, getLanguageIdForCode } from "./languageVoice";
 import { synthesizeVerifiedPhraseAudio } from "./phraseAudioSynthesis";
@@ -476,8 +476,13 @@ export async function warmGreetings(
       // all languages but we still call through the resolver to stay consistent.
       const greetingIdentity = {
         ...phraseAudioIdentity(lang.code),
-        // Greetings are conversational — use chat instructions, not phrase ones.
-        instructions: BOLO_CHAT_TTS_INSTRUCTIONS,
+        // GREETING INSTRUCTIONS AND THE GREETING DIGEST, WHICH MUST MATCH THE
+        // ROUTE EXACTLY. This said "use chat instructions" and was correct
+        // when it was written. 8c324d32 gave the greeting its own Indian
+        // English direction and its own digest, changed /openai/chat-greeting
+        // to key on them, and left this job behind, so every row warmed here
+        // went under a key the route can never read. Fixed 2026-08-25.
+        instructions: BOLO_GREETING_TTS_INSTRUCTIONS,
       };
 
       const cacheKey = greetingAudioCacheKey(
@@ -485,7 +490,7 @@ export async function warmGreetings(
         greetingIdentity.provider,
         greetingIdentity.model,
         greetingIdentity.voice,
-        BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+        BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST,
       );
 
       // Skip if already cached.

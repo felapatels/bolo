@@ -7,12 +7,18 @@ import { getVoiceIdForLanguage, DEFAULT_MULTILINGUAL_VOICE_ID } from "./language
 import { isQuotaExhaustedError } from "./ttsUtils";
 import { warmGreetings, type WarmGreetingsDeps } from "./ttsPrewarm";
 import { greetingAudioCacheKey } from "./greetingStrings";
-import { phraseAudioIdentity, BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST } from "./ttsConfig";
+import { phraseAudioIdentity, BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST } from "./ttsConfig";
 import { ensureUsersColumns } from "./testDbCompat";
 
 /**
  * Compute the greeting cache key the same way warmGreetings and the route do:
- * resolver-derived provider/model/voice + chat instructions digest.
+ * resolver-derived provider/model/voice + GREETING instructions digest.
+ *
+ * It said "chat instructions digest" until 2026-08-25 and that is why this
+ * file kept passing while the two /openai/chat-greeting cache tests failed:
+ * this helper mirrored the pre-warm job, the pre-warm job had drifted from the
+ * route, and a test that copies the code under test agrees with it by
+ * construction. The route is the authority for this key.
  */
 function makeGreetingKey(langCode: string): string {
   const id = phraseAudioIdentity(langCode);
@@ -21,7 +27,7 @@ function makeGreetingKey(langCode: string): string {
     id.provider,
     id.model,
     id.voice,
-    BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+    BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST,
   );
 }
 

@@ -8,11 +8,16 @@ import { eq } from "drizzle-orm";
 import openaiRouter from "./openai";
 import { greetingAudioCacheKey, buildGreetingDisplayText, GREETING_SQUAWK_VARIANT } from "../lib/greetingStrings";
 import { getVoiceIdForLanguage, LANGUAGE_VOICE_MAP, DEFAULT_MULTILINGUAL_VOICE_ID } from "../lib/languageVoice";
-import { phraseAudioIdentity, BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST } from "../lib/ttsConfig";
+import { phraseAudioIdentity, BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST } from "../lib/ttsConfig";
 
 /**
  * Compute the greeting cache key the same way the route does:
- * resolver-derived provider/model/voice + chat instructions digest.
+ * resolver-derived provider/model/voice + GREETING instructions digest.
+ *
+ * This used the CHAT digest until 2026-08-25, which is why both cache tests in
+ * this file failed: they seeded a row under a key the route never looks up. The
+ * route changed in 8c324d32 when the greeting got its own Indian English
+ * direction, and nothing here followed.
  */
 function makeGreetingKey(langCode: string): string {
   const id = phraseAudioIdentity(langCode);
@@ -21,7 +26,7 @@ function makeGreetingKey(langCode: string): string {
     id.provider,
     id.model,
     id.voice,
-    BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST,
+    BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST,
   );
 }
 import { ensureUsersColumns } from "../lib/testDbCompat";
