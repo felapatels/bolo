@@ -15,8 +15,10 @@
     },
     "ios": {
       "bundleIdentifier": "com.bolo.mobile",
-      "buildNumber": "502",
-      "associatedDomains": ["applinks:bolo-india.app"],
+      "buildNumber": "504",
+      "associatedDomains": [
+        "applinks:bolo-india.app"
+      ],
       "supportsTablet": false,
       "icon": "./assets/images/icon.png",
       "infoPlist": {
@@ -31,8 +33,17 @@
         {
           "action": "VIEW",
           "autoVerify": true,
-          "data": [{ "scheme": "https", "host": "bolo-india.app", "pathPrefix": "/join" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "https",
+              "host": "bolo-india.app",
+              "pathPrefix": "/join"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "adaptiveIcon": {
