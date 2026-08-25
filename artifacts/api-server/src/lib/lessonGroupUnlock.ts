@@ -93,7 +93,13 @@ export function deriveGroupStatuses(
 // legacy 'nailed' boundary of score >= 80) on at least
 // ceil(TESTOUT_PASS_RATIO * sampleSize) of them.
 export const TESTOUT_SAMPLE_SIZE = 5;
-export const TESTOUT_PASS_RATIO = 0.8;
+// RAISED FROM 0.8 TO 1 ON 2026-08-25, on the owner's instruction that a
+// test-out "should be a bit harder and require band 4 or 5 for all answers".
+// The BAND half of that was already true: isFullCreditBand is perfect|great,
+// the top two of five, and always has been. The ratio was the only thing that
+// let a slip through, so this is the change that actually bites: 5 of 5 at a
+// stop, every answer of the sample at a zone.
+export const TESTOUT_PASS_RATIO = 1;
 
 export function testoutRequiredCorrect(sampleSize: number): number {
   return Math.ceil(TESTOUT_PASS_RATIO * sampleSize);
@@ -102,7 +108,21 @@ export function testoutRequiredCorrect(sampleSize: number): number {
 // Chunk 4: zone test-out sizing. Distinct from the stop-level constant: a
 // zone assessment samples one phrase per contributing station, capped here.
 // The stop-level TESTOUT_SAMPLE_SIZE stays 5 and is untouched.
+// Stations a zone assessment may draw from. Unchanged.
 export const ZONE_TESTOUT_SAMPLE_CAP = 10;
+
+// TWO PHRASES PER STATION, NOT ONE, from 2026-08-25: "testing out of a zone
+// shouldn't only be one phrase from each stop". One phrase per station let a
+// learner skip a whole zone on a single lucky draw per stop. Stations with
+// only one plan-visible phrase still contribute one; nothing is ever padded
+// with a repeat.
+export const ZONE_TESTOUT_PER_STATION = 2;
+
+// The PHRASE ceiling, which is what the request body and the sample are
+// bounded by. Named separately from the station cap because the two stopped
+// being the same number the moment a station could contribute twice.
+export const ZONE_TESTOUT_PHRASE_CAP =
+  ZONE_TESTOUT_SAMPLE_CAP * ZONE_TESTOUT_PER_STATION;
 
 // Chunk 4 cross-zone gate: a zone (one category in one language) is complete
 // when EVERY group in it is completed or tested_out. Latch rows are honored

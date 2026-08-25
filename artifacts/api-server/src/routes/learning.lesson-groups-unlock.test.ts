@@ -331,7 +331,9 @@ test("isGroupCompleted honors the 80% bestScore>=80 rule and empty groups never 
   assert.equal(isGroupCompleted([1, 2, 3], stats), false); // 2/3 = 66%
   assert.equal(isGroupCompleted([1, 2], stats), true); // 100%
   assert.equal(isGroupCompleted([], stats), false);
-  assert.equal(testoutRequiredCorrect(5), 4);
+  // 5, not 4: TESTOUT_PASS_RATIO went from 0.8 to 1 on 2026-08-25, so a
+  // test-out is passed only by getting every answer into the top two bands.
+  assert.equal(testoutRequiredCorrect(5), 5);
   assert.equal(testoutRequiredCorrect(2), 2);
 });
 

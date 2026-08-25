@@ -126,6 +126,8 @@ import {
   testoutRequiredCorrect,
   TESTOUT_SAMPLE_SIZE,
   ZONE_TESTOUT_SAMPLE_CAP,
+  ZONE_TESTOUT_PER_STATION,
+  ZONE_TESTOUT_PHRASE_CAP,
 } from "../lib/lessonGroupUnlock";
 import {
   phraseKey,
@@ -3266,7 +3268,19 @@ async function loadZoneTestout(
     allGroupIds: groups.map((g) => g.id),
     stations,
     visibleById,
-    sampleSize: Math.min(ZONE_TESTOUT_SAMPLE_CAP, stations.length),
+    // SAMPLE SIZE IS NOW A PHRASE COUNT, NOT A STATION COUNT. Each station
+    // offers up to ZONE_TESTOUT_PER_STATION, a station holding only one
+    // plan-visible phrase offers that one, and the whole thing is bounded by
+    // the phrase cap. Derived from EVERY station rather than from whichever
+    // ones the shuffle picks, so the GET and the POST agree on the number
+    // without either having to remember the draw.
+    sampleSize: Math.min(
+      ZONE_TESTOUT_PHRASE_CAP,
+      stations.reduce(
+        (n, st) => n + Math.min(ZONE_TESTOUT_PER_STATION, st.visible.length),
+        0,
+      ),
+    ),
   };
 }
 
@@ -3286,11 +3300,26 @@ router.get(
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j]!, pool[i]!];
     }
-    const chosen = pool.slice(0, ctx.sampleSize);
-    const sample = chosen.map((s) => {
-      const p = s.visible[Math.floor(Math.random() * s.visible.length)]!;
-      return p;
-    });
+    // Walk the shuffled stations taking up to ZONE_TESTOUT_PER_STATION
+    // DISTINCT phrases from each, stopping at the sample size. Shuffling each
+    // station's own bag first matters: taking the first two in stored order
+    // would ask the same pair every retry and turn the assessment into a
+    // memory test of two lines per stop.
+    const sample: (typeof phrasesTable.$inferSelect)[] = [];
+    for (const st of pool) {
+      if (sample.length >= ctx.sampleSize) break;
+      const bag = [...st.visible];
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j]!, bag[i]!];
+      }
+      const take = Math.min(
+        ZONE_TESTOUT_PER_STATION,
+        bag.length,
+        ctx.sampleSize - sample.length,
+      );
+      for (let k = 0; k < take; k++) sample.push(bag[k]!);
+    }
     res.json({
       phrases: sample.map((p) => ({
         ...serializePhrase(p, stats),
@@ -3312,7 +3341,7 @@ const ZoneTestoutBody = z.object({
       }),
     )
     .min(1)
-    .max(ZONE_TESTOUT_SAMPLE_CAP),
+    .max(ZONE_TESTOUT_PHRASE_CAP),
 });
 
 // Zone submission throttle: same shape and constants as stop-level, keyed
@@ -3378,35 +3407,40 @@ router.post(
     // a zone with two phrases from one easy station).
     const required = testoutRequiredCorrect(ctx.sampleSize);
     const seenPhrases = new Set<number>();
-    const seenStations = new Set<number>();
+    // Was a Set: one attempt per station, full stop. Now a COUNT per station,
+    // because a station may legitimately be asked twice. The rule it protects
+    // is unchanged in spirit (ruling 2: no passing a zone on two phrases from
+    // one easy station) and is simply expressed as a ceiling instead of a ban.
+    const perStation = new Map<number, number>();
     let verified = 0;
     let fullCredit = 0;
     for (const a of parsedBody.data.attempts) {
       const claims = verifyEvaluation(a.evaluationToken);
       const phrase = ctx.visibleById.get(a.phraseId);
+      const stationId = phrase?.lessonGroupId ?? null;
+      const usedHere = stationId == null ? 0 : (perStation.get(stationId) ?? 0);
       if (
         !claims ||
         claims.userId !== userId ||
         claims.phraseId !== a.phraseId ||
         !phrase ||
-        phrase.lessonGroupId == null ||
+        stationId == null ||
         seenPhrases.has(a.phraseId) ||
-        seenStations.has(phrase.lessonGroupId)
+        usedHere >= ZONE_TESTOUT_PER_STATION
       ) {
         res.status(400).json({
-          error:
-            "Zone test-out attempts must carry valid evaluation tokens for distinct phrases from distinct stations of this zone",
+          error: `Zone test-out attempts must carry valid evaluation tokens for distinct phrases, at most ${ZONE_TESTOUT_PER_STATION} from any one station of this zone`,
         });
         return;
       }
       seenPhrases.add(a.phraseId);
-      seenStations.add(phrase.lessonGroupId);
+      perStation.set(stationId, usedHere + 1);
       verified++;
       if (claims.band !== undefined && isFullCreditBand(claims.band)) fullCredit++;
     }
     if (verified !== ctx.sampleSize) {
       res.status(400).json({
-        error: `A test-out for this zone requires ${ctx.sampleSize} distinct station attempts`,
+        error: `A test-out for this zone requires ${ctx.sampleSize} distinct phrase attempts`,
       });
       return;
     }

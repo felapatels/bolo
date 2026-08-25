@@ -520,7 +520,10 @@ export default function PracticeScreen() {
   const phrases = isTestout ? activeTestoutQuery : isGroup ? groupQuery : isSentences ? sentenceQuery : phraseQuery;
   const list = (isTestout ? activeTestoutQuery.data?.phrases : (isGroup ? groupQuery : isSentences ? sentenceQuery : phraseQuery).data) ?? [];
   const testoutSampleSize = activeTestoutQuery.data?.sampleSize ?? 5;
-  const testoutRequiredCorrect = activeTestoutQuery.data?.requiredCorrect ?? 4;
+  // 5, not 4: the pass ratio went to 1 on 2026-08-25, so the fallback has to
+  // match the sample size or the copy understates what the express needs
+  // in the one frame before the envelope arrives.
+  const testoutRequiredCorrect = activeTestoutQuery.data?.requiredCorrect ?? 5;
 
   // Read the learner's TTS voice preference so the client-side audio cache
   // key can include the voice ID. Without this, changing voice mid-session

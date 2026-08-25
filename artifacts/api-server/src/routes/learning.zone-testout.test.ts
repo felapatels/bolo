@@ -458,27 +458,37 @@ after(async () => {
   await pool.end();
 });
 
-// ── Test 1: Zone GET samples one phrase per station ────────────────────────
+// ── Test 1: Zone GET samples up to two phrases per station ────────────────
 
-test("zone GET samples one phrase per station; sampleSize = station count when under cap", async () => {
-  // 3 stations: g1 (phrase), g2 (phrase), g3 (sentence — Free tier can't see it)
-  // Plus user sees all 3 stations; sampleSize = 3 (under cap of 10)
+test("zone GET samples up to two phrases per station; sampleSize is a PHRASE count", async () => {
+  // UPDATED 2026-08-25 with ZONE_TESTOUT_PER_STATION = 2. sampleSize used to
+  // be the station count; it is now the number of phrases the assessment
+  // asks for, which is not the same number as soon as a station can be asked
+  // twice. 3 stations: g1 (2 phrases), g2 (2 phrases), g3 (1 sentence, which
+  // Free cannot see). Plus therefore gets 2 + 2 + 1 = 5.
   const { status, json } = await api(
     `/zones/${catId}/test-out/${encodeURIComponent(LANG)}`,
     U_PLUS,
   );
   assert.equal(status, 200, `Expected 200, got ${status}: ${JSON.stringify(json)}`);
-  assert.equal(json.sampleSize, 3);
-  assert.equal(json.requiredCorrect, Math.ceil(0.8 * 3)); // 3
-  assert.equal(json.phrases.length, 3);
-  // Each phrase must come from a distinct station
-  const seenGroups = new Set(
-    (json.phrases as { lessonGroupId: number }[]).map((p) => p.lessonGroupId),
-  );
-  assert.equal(seenGroups.size, 3);
+  assert.equal(json.sampleSize, 5);
+  // EVERY answer now, not four fifths: TESTOUT_PASS_RATIO went to 1.
+  assert.equal(json.requiredCorrect, 5);
+  assert.equal(json.phrases.length, 5);
+  // Still every station, and still no station asked more than twice. The old
+  // assertion here was seenGroups.size === phrases.length, which stopped
+  // being the rule when a station started contributing a pair.
+  const byStation = new Map<number, number>();
+  for (const p of json.phrases as { lessonGroupId: number }[]) {
+    byStation.set(p.lessonGroupId, (byStation.get(p.lessonGroupId) ?? 0) + 1);
+  }
+  assert.equal(byStation.size, 3);
+  for (const [gid, n] of byStation) {
+    assert.ok(n <= 2, `station ${gid} was asked ${n} times`);
+  }
 });
 
-test("zone GET sampleSize = 10 and stations randomized when zone exceeds 10 stations", async () => {
+test("zone GET sampleSize caps at the phrase cap when a zone exceeds the station cap", async () => {
   // Seed a separate category with 12 phrase-stage groups
   const [bigCat] = await db
     .insert(categoriesTable)
@@ -505,18 +515,23 @@ test("zone GET sampleSize = 10 and stations randomized when zone exceeds 10 stat
       .values({ languageCode: LANG, categoryId: bigCatId, position: i })
       .returning();
     groupIds.push(g!.id);
-    phraseValues.push({
-      lessonId: bigLessonId,
-      languageCode: LANG,
-      categoryId: bigCatId,
-      nativeScript: `big-p${i}`,
-      romanized: `big-p${i}`,
-      english: `big-p${i}`,
-      sortOrder: i,
-      stage: "phrase",
-      lessonGroupId: g!.id,
-      lessonGroupPosition: 1,
-    });
+    // TWO phrases per group, so 12 stations offer 24 and the PHRASE cap of
+    // 20 is what truncates. With one each the cap would never be reached and
+    // this test would silently stop testing the thing it is named for.
+    for (const suffix of ["a", "b"]) {
+      phraseValues.push({
+        lessonId: bigLessonId,
+        languageCode: LANG,
+        categoryId: bigCatId,
+        nativeScript: `big-p${i}${suffix}`,
+        romanized: `big-p${i}${suffix}`,
+        english: `big-p${i}${suffix}`,
+        sortOrder: i * 2 + (suffix === "b" ? 1 : 0),
+        stage: "phrase",
+        lessonGroupId: g!.id,
+        lessonGroupPosition: 1,
+      });
+    }
   }
   await db.insert(phrasesTable).values(phraseValues as any);
 
@@ -526,13 +541,13 @@ test("zone GET sampleSize = 10 and stations randomized when zone exceeds 10 stat
       U_PLUS,
     );
     assert.equal(status, 200);
-    assert.equal(json.sampleSize, 10);
-    assert.equal(json.phrases.length, 10);
-    // Each from a distinct station
+    assert.equal(json.sampleSize, 20);
+    assert.equal(json.phrases.length, 20);
+    // 20 phrases at no more than two per station means at least ten stations.
     const seenGroups = new Set(
       (json.phrases as { lessonGroupId: number }[]).map((p) => p.lessonGroupId),
     );
-    assert.equal(seenGroups.size, 10);
+    assert.ok(seenGroups.size >= 10, `only ${seenGroups.size} stations drawn`);
   } finally {
     // user_item_memory FKs to phrases; must clear before phrase delete.
     await pool.query(
@@ -589,7 +604,8 @@ test("sentence station contributes for Plus (hasSentences=true)", async () => {
     U_PLUS,
   );
   assert.equal(plusResp.status, 200);
-  assert.equal(plusResp.json.sampleSize, 3); // includes sentence station
+  // 2 (g1) + 2 (g2) + 1 (g3, the sentence station, which holds a single row).
+  assert.equal(plusResp.json.sampleSize, 5); // includes sentence station
 });
 
 // ── Test 4: Pass latches tested_out for every member group ─────────────────
@@ -644,15 +660,20 @@ test("zone POST pass latches tested_out for every member group; completed stays 
 
 // ── Test 5: Token validation rejections ────────────────────────────────────
 
-test("zone POST 400 for two tokens from the same station", async () => {
+test("zone POST 400 for the same phrase submitted twice", async () => {
+  // INVERTED 2026-08-25. This asserted that TWO tokens from one station were
+  // rejected, which was right when a station could only ever be asked once.
+  // With ZONE_TESTOUT_PER_STATION = 2 that is now a legal submission, and the
+  // pass tests above exercise it every run, because they build their attempts
+  // from the GET sample. What must still be refused is the same PHRASE twice,
+  // which is the loophole that would let one answer count repeatedly.
   const { json: sample } = await api(
     `/zones/${catId}/test-out/${encodeURIComponent(LANG)}`,
     U_PLUS,
   );
-  // Send two tokens from g1 instead of one per station
   const attempts = [
     { phraseId: g1Phrases[0]!, evaluationToken: nailedToken(U_PLUS, g1Phrases[0]!) },
-    { phraseId: g1Phrases[1]!, evaluationToken: nailedToken(U_PLUS, g1Phrases[1]!) },
+    { phraseId: g1Phrases[0]!, evaluationToken: nailedToken(U_PLUS, g1Phrases[0]!) },
     { phraseId: g2Phrases[0]!, evaluationToken: nailedToken(U_PLUS, g2Phrases[0]!) },
   ];
   const { status } = await api(`/zones/${catId}/test-out`, U_PLUS, {
@@ -667,7 +688,7 @@ test("zone POST 400 when token count is below current sampleSize", async () => {
     `/zones/${catId}/test-out/${encodeURIComponent(LANG)}`,
     U_PLUS,
   );
-  // Submit only one attempt instead of sampleSize (3)
+  // Submit only one attempt instead of sampleSize (5)
   const attempts = [
     { phraseId: g1Phrases[0]!, evaluationToken: nailedToken(U_PLUS, g1Phrases[0]!) },
   ];
@@ -811,7 +832,8 @@ test("dormancy: with flag unset, zone routes work normally and gate adds no quer
     U_PLUS,
   );
   assert.equal(status, 200, `Flag-off: zone2 should be accessible: ${JSON.stringify(json)}`);
-  assert.equal(json.sampleSize, 1); // cat2 has 1 station (cat2G1Id)
+  // cat2 has 1 station (cat2G1Id) holding two phrases, so two is the draw.
+  assert.equal(json.sampleSize, 2);
 });
 
 test("dormancy: stop-level test-out behavior is byte-identical with flag off", async () => {

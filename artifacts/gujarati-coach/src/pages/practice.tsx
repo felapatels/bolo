@@ -412,7 +412,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
   const isFetching = isTestout ? activeTestoutQuery.isFetching : listFetching;
   const refetch = isTestout ? activeTestoutQuery.refetch : refetchList;
   const testoutSampleSize = activeTestoutQuery.data?.sampleSize ?? 5;
-  const testoutRequiredCorrect = activeTestoutQuery.data?.requiredCorrect ?? 4;
+  // 5, not 4: the pass ratio went to 1 on 2026-08-25, so the fallback has to
+  // match the sample size or the copy understates what the express needs
+  // in the one frame before the envelope arrives.
+  const testoutRequiredCorrect = activeTestoutQuery.data?.requiredCorrect ?? 5;
   // Polish feature flag: read from the categories listing (already cached from
   // the journey map in most sessions; adds no extra network request).
   const categoriesForFlag = useListCategories({ lang: activeLang });
