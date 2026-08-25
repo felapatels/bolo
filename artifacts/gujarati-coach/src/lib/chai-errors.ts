@@ -14,6 +14,22 @@ type SpendRefusal = {
   cost?: number;
 } | null;
 
+/**
+ * How many Chai short a refused spend was, or null when the refusal was
+ * something else.
+ *
+ * Mobile twin: shortfallFromSpendError in components/ChaiWallet.tsx, and the
+ * two must agree. A non-positive shortfall means the server rejected for a
+ * reason it did not name, and offering to sell nothing would be worse than
+ * the plain notice.
+ */
+export function shortfallFromSpendError(error: unknown): number | null {
+  const data = refusal(error);
+  if (data?.error !== "insufficient_tokens") return null;
+  const short = (data.cost ?? 0) - (data.balance ?? 0);
+  return short > 0 ? short : null;
+}
+
 /** The 409 body, or null when this was not a spend refusal at all. */
 function refusal(error: unknown): SpendRefusal {
   if (!(error instanceof ApiError) || error.status !== 409) return null;

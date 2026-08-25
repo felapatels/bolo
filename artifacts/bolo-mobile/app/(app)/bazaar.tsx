@@ -20,6 +20,11 @@ import {
 } from '@workspace/api-client-react';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { PressableScale } from '@/components/PressableScale';
+import { ChaiShortfallSheet } from '@/components/ChaiShortfallSheet';
+import {
+  shortfallFromSpendError,
+  spendErrorMessage,
+} from '@/components/ChaiWallet';
 import { Mascot } from '@/components/Mascot';
 import { mascotSource } from '@/lib/mascotOutfits';
 import { ChaiGlyph } from '@/components/ChaiStall';
@@ -181,6 +186,11 @@ export default function OutfitsScreen() {
   const [languageInfoOpen, setLanguageInfoOpen] = React.useState(false);
   const [notice, setNotice] = React.useState('');
   const [noticeKey, setNoticeKey] = React.useState(0);
+  /**
+   * How many Chai short this purchase was, or null when the refusal was
+   * something else. Drives the shortfall sheet.
+   */
+  const [shortfall, setShortfall] = React.useState<number | null>(null);
 
   const showNotice = (message: string) => {
     setNotice(message);
@@ -201,7 +211,22 @@ export default function OutfitsScreen() {
       setPreviewed(null);
       await refresh();
     },
-    onError: () => showNotice("That didn't go through. Give it another try."),
+    onError: (error: unknown) => {
+      // NOT ENOUGH CHAI IS THE ONE REFUSAL WITH AN OBVIOUS NEXT STEP, so it
+      // gets the packs rather than a sentence. Asked for 2026-08-25: "if they
+      // click on a bazaar item they don't have enough money for, just check
+      // that it pulls up the chai packages to purchase instead of just a text
+      // error." The wallet has answered this way since 2026-08-19; the bazaar,
+      // which is the surface most likely to run a learner out of Chai, was
+      // still saying "that didn't go through. Give it another try", which is
+      // both untrue and unhelpful: trying again cannot work.
+      const short = shortfallFromSpendError(error);
+      if (short !== null) {
+        setShortfall(short);
+        return;
+      }
+      showNotice(spendErrorMessage(error));
+    },
   };
   const buy = useBuyOutfit({ mutation: mutationOptions });
   const equip = useEquipOutfit({ mutation: mutationOptions });
@@ -252,6 +277,11 @@ export default function OutfitsScreen() {
           not a layer on the shop. */}
       <BazaarWelcome />
       <MilestoneToast message={notice} toastKey={noticeKey} />
+      <ChaiShortfallSheet
+        needed={shortfall}
+        itemName={shownOutfit?.name}
+        onClose={() => setShortfall(null)}
+      />
       <View style={styles.header}>
         <PressableScale
           accessibilityLabel="Go back"

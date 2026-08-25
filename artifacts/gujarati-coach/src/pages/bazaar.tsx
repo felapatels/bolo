@@ -23,6 +23,8 @@ import {
 import { BazaarWelcome } from "@/components/bazaar-welcome";
 import { DressingRoom } from "@/components/dressing-room";
 import { OutfitCard, groupOutfits } from "@/components/outfit-card";
+import { ChaiPackShop } from "@/components/chai-packs";
+import { shortfallFromSpendError } from "@/lib/chai-errors";
 import { mascotAssetSrc } from "@/lib/mascot-outfits";
 import { INDIA } from "@/lib/india-palette";
 import { cn } from "@/lib/utils";
@@ -84,6 +86,11 @@ export default function OutfitsPage() {
       ? previewedItem.id
       : equippedAccessory;
   const [error, setError] = useState<string | null>(null);
+  /**
+   * How many Chai short this purchase was, or null when the refusal was
+   * something else. Drives the shortfall panel below.
+   */
+  const [shortfall, setShortfall] = useState<number | null>(null);
 
   const refresh = async () => {
     // The equipped outfit rides GET /tokens, so refreshing both keys is what
@@ -94,8 +101,22 @@ export default function OutfitsPage() {
     ]);
   };
 
-  const onError = () =>
+  const onError = (err: unknown) => {
+    // NOT ENOUGH CHAI IS THE ONE REFUSAL WITH AN OBVIOUS NEXT STEP, so it gets
+    // the packs rather than a sentence. Asked for 2026-08-25: "if they click on
+    // a bazaar item they don't have enough money for, just check that it pulls
+    // up the chai packages to purchase instead of just a text error." The
+    // bazaar is the surface most likely to run a learner out of Chai and it was
+    // still answering "that didn't go through. Give it another try", which is
+    // both untrue and unhelpful: trying again cannot work.
+    const short = shortfallFromSpendError(err);
+    if (short !== null) {
+      setError(null);
+      setShortfall(short);
+      return;
+    }
     setError("That didn't go through. Give it another try.");
+  };
 
   const buy = useBuyOutfit({
     mutation: {
@@ -279,6 +300,42 @@ export default function OutfitsPage() {
           />
         </div>
       </div>
+
+      {shortfall !== null && (
+        <div
+          data-testid="outfit-shortfall"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Not enough Chai"
+        >
+          <div className="w-full max-w-md rounded-3xl border border-border bg-card p-5">
+            {/* LEADS WITH THE NUMBER, not with the packs: a learner four Chai
+                short should see "4 more" and probably go and earn them; one
+                who is sixty short is being told something useful by the size
+                of the gap. Same ruling the mobile sheet carries. */}
+            <p className="text-xl font-black text-foreground">
+              You need {shortfall} more Chai
+            </p>
+            {shownOutfit && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                for {shownOutfit.name}.
+              </p>
+            )}
+            <div className="mt-4">
+              <ChaiPackShop />
+            </div>
+            <button
+              type="button"
+              data-testid="outfit-shortfall-close"
+              onClick={() => setShortfall(null)}
+              className="mt-4 w-full rounded-2xl border border-border py-3 font-bold text-muted-foreground transition-colors hover:bg-muted"
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      )}
 
       {error ? (
         <p
