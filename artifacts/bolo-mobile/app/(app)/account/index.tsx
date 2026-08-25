@@ -209,6 +209,8 @@ export default function AccountScreen() {
   };
 
   const [name, setName] = React.useState('');
+  const [username, setUsername] = React.useState('');
+  const [shareStats, setShareStats] = React.useState(true);
   const [avatarBusy, setAvatarBusy] = React.useState(false);
   const seeded = React.useRef(false);
 
@@ -217,6 +219,8 @@ export default function AccountScreen() {
       seeded.current = true;
       setPrefs(account.data.preferences);
       setName(account.data.profile.displayName ?? user?.firstName ?? '');
+      setUsername(account.data.profile.username ?? '');
+      setShareStats(account.data.profile.shareStats ?? true);
       // Bring the saved theme down so it applies on this device too.
       setThemePref(account.data.preferences.learning.theme as ThemePref);
     }
@@ -246,6 +250,43 @@ export default function AccountScreen() {
     } catch {
       setPrefs(previous ?? null);
       account.refetch();
+      Alert.alert('Couldn’t save', 'That change didn’t stick. Please try again.');
+    }
+  };
+
+  /**
+   * The PUBLIC name, and the private toggle beside it.
+   *
+   * Separate from displayName and not a rename of it: the display name was
+   * chosen while it was private, and publishing it on the learner's behalf is
+   * not ours to do. See lib/db users.username.
+   */
+  const saveUsername = async () => {
+    const trimmed = username.trim();
+    if (!trimmed || trimmed === (account.data?.profile.username ?? '')) return;
+    try {
+      const res = await updateProfile.mutateAsync({ data: { username: trimmed } });
+      if (account.data) applyAccount({ ...account.data, profile: res.profile });
+    } catch (err) {
+      // The server's sentence is the useful one: it says WHY, whether that is
+      // shape, a reserved word, the profanity screen or a name already taken.
+      const data = (err as { data?: { error?: string } } | null)?.data;
+      Alert.alert(
+        'Couldn’t save that username',
+        data?.error ?? 'Please pick another and try again.',
+      );
+      setUsername(account.data?.profile.username ?? '');
+    }
+  };
+
+  const saveShareStats = async (next: boolean) => {
+    const previous = shareStats;
+    setShareStats(next);
+    try {
+      const res = await updateProfile.mutateAsync({ data: { shareStats: next } });
+      if (account.data) applyAccount({ ...account.data, profile: res.profile });
+    } catch {
+      setShareStats(previous);
       Alert.alert('Couldn’t save', 'That change didn’t stick. Please try again.');
     }
   };
@@ -485,6 +526,9 @@ export default function AccountScreen() {
                 />
               </View>
             </View>
+            <Text style={[styles.fieldHint, { color: colors.mutedForeground }]}>
+              Private. This is what Bolo calls you, and nobody else sees it.
+            </Text>
             {nameChanged ? (
               <ChunkyButton
                 title="Save name"
@@ -494,6 +538,61 @@ export default function AccountScreen() {
                 style={{ marginTop: 14, alignSelf: 'stretch' }}
               />
             ) : null}
+
+            <View style={{ marginTop: 18 }}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>USERNAME</Text>
+              <TextInput
+                testID="account-username"
+                value={username}
+                onChangeText={setUsername}
+                onBlur={saveUsername}
+                placeholder="Pick a public name"
+                placeholderTextColor={colors.mutedForeground}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={20}
+                style={[
+                  styles.nameInput,
+                  { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background },
+                ]}
+              />
+              {/* SAYS WHAT IT COSTS, BEFORE IT IS SET. A learner should know a
+                  name is public at the moment they choose it, not after
+                  somebody sees it. */}
+              <Text style={[styles.fieldHint, { color: colors.mutedForeground }]}>
+                Public. This is the name other learners see on the Everyone
+                board and feed. Leave it empty to stay off both entirely.
+              </Text>
+            </View>
+
+            <Pressable
+              testID="account-share-stats"
+              accessibilityRole="switch"
+              accessibilityState={{ checked: shareStats }}
+              accessibilityLabel="Share my stats"
+              onPress={() => {
+                hapticLight();
+                void saveShareStats(!shareStats);
+              }}
+              style={[styles.shareRow, { borderColor: colors.border }]}
+            >
+              <Feather
+                name={shareStats ? 'check-square' : 'square'}
+                size={18}
+                color={shareStats ? colors.primary : colors.mutedForeground}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.shareTitle, { color: colors.foreground }]}>
+                  Share my stats
+                </Text>
+                {/* The exit for somebody who named themselves and later wants
+                    out: turning this off must not cost them the name. */}
+                <Text style={[styles.fieldHint, { color: colors.mutedForeground }]}>
+                  Off keeps your username and takes you off the Everyone board
+                  and feed. Your friends still see you.
+                </Text>
+              </View>
+            </Pressable>
           </View>
 
           {/* Subscription */}
@@ -1108,6 +1207,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     marginBottom: 6,
   },
+  fieldHint: { fontFamily: AppFonts.regular, fontSize: 11, lineHeight: 15, marginTop: 6 },
+  shareRow: {
+    alignItems: 'flex-start',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+    padding: 12,
+  },
+  shareTitle: { fontFamily: AppFonts.bold, fontSize: 14 },
   nameInput: {
     fontFamily: AppFonts.semibold,
     fontSize: 16,

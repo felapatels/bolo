@@ -15,7 +15,15 @@ import { Share, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
+  BoardScopeToggle,
+  PublicNamePrompt,
+  useMyPublicName,
+  type BoardScope,
+} from '@/components/BoardScope';
+import {
   useGetFriendsLeaderboard,
+  getGetFriendsLeaderboardQueryKey,
+  type GetFriendsLeaderboardParams,
   useGetFriendsFeed,
   getGetFriendsFeedQueryKey,
   useGetOutfits,
@@ -104,13 +112,16 @@ const LATEST_PARAMS: GetFriendsFeedParams = { limit: 1 };
  */
 function LatestFriendMoment({
   colors,
+  scope,
 }: {
   colors: ReturnType<typeof useColors>;
+  scope: BoardScope;
 }) {
   const router = useRouter();
-  const feed = useGetFriendsFeed(LATEST_PARAMS, {
+  const feedParams = { ...LATEST_PARAMS, scope };
+  const feed = useGetFriendsFeed(feedParams, {
     query: {
-      queryKey: getGetFriendsFeedQueryKey(LATEST_PARAMS),
+      queryKey: getGetFriendsFeedQueryKey(feedParams),
       refetchOnMount: 'always',
     },
   });
@@ -163,14 +174,27 @@ function LatestFriendMoment({
 export function HomeSocialStrip() {
   const colors = useColors();
   const router = useRouter();
-  const leaderboard = useGetFriendsLeaderboard();
+  // EVERYONE IS THE DEFAULT, matching the leaderboard, and safe to default that
+  // way only because a learner with no username appears to nobody. Local to the
+  // card: the two surfaces do not share a toggle, because reading the global
+  // board once should not silently change what home shows tomorrow.
+  const [scope, setScope] = React.useState<BoardScope>('all');
+  const boardParams: GetFriendsLeaderboardParams = { scope };
+  const leaderboard = useGetFriendsLeaderboard(boardParams, {
+    query: { queryKey: getGetFriendsLeaderboardQueryKey(boardParams) },
+  });
   const referral = useGetReferral();
+  const { username, loaded: nameLoaded } = useMyPublicName();
 
   if (leaderboard.isLoading) return null;
   if (leaderboard.isError) return null;
 
   const entries = leaderboard.data ?? [];
   const hasFriends = entries.length > 1;
+  // On the global scope there is no such thing as "no friends": a populated
+  // board is a populated board, and the empty case is the app having nobody on
+  // it yet.
+  const populated = scope === 'all' ? entries.length > 0 : hasFriends;
 
   // Build display set: top 4 by rank, always including the learner even when
   // they rank 5th or lower.
@@ -189,7 +213,7 @@ export function HomeSocialStrip() {
   // would be a dead end.
   const goToBoard = () => {
     hapticLight();
-    if (hasFriends) {
+    if (populated) {
       router.push('/(app)/leaderboard');
       return;
     }
@@ -220,26 +244,40 @@ export function HomeSocialStrip() {
       {/* Header row */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Feather name="users" size={14} color={colors.primary} />
+          <Feather
+            name={scope === 'all' ? 'globe' : 'users'}
+            size={14}
+            color={colors.primary}
+          />
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-            Friends
+            {scope === 'all' ? 'Everyone' : 'Friends'}
           </Text>
         </View>
         <PressableScale
           accessibilityRole="link"
-          accessibilityLabel={hasFriends ? 'See all friends' : 'Add friends'}
+          accessibilityLabel={populated ? 'See all' : 'Add friends'}
           onPress={goToBoard}
         >
           <Text style={[styles.headerLink, { color: colors.primary }]}>
-            {hasFriends ? 'See all →' : 'Add friends →'}
+            {populated ? 'See all →' : 'Add friends →'}
           </Text>
         </PressableScale>
       </View>
 
-      {hasFriends ? (
+      <View style={{ marginBottom: 10 }}>
+        <BoardScopeToggle scope={scope} onChange={setScope} />
+      </View>
+
+      {scope === 'all' && nameLoaded && !username ? (
+        <View style={{ marginBottom: 10 }}>
+          <PublicNamePrompt />
+        </View>
+      ) : null}
+
+      {populated ? (
         /* ── populated: latest moment, then the rank strip ── */
         <View style={styles.rows}>
-          <LatestFriendMoment colors={colors} />
+          <LatestFriendMoment colors={colors} scope={scope} />
           {displayEntries.map((entry) => (
             <MiniRow key={entry.userId} entry={entry} colors={colors} />
           ))}

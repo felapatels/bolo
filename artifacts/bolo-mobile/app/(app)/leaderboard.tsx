@@ -36,6 +36,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { PressableScale } from '@/components/PressableScale';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { ChunkyButton } from '@/components/ChunkyButton';
+import {
+  BoardScopeToggle,
+  PublicNamePrompt,
+  ReportUsernameButton,
+  useMyPublicName,
+  type BoardScope,
+} from '@/components/BoardScope';
 import { appearDown, appearZoom, useAppearSkip } from '@/lib/entrance';
 import { hapticLight } from '@/lib/haptics';
 import { useColors } from '@/hooks/useColors';
@@ -191,8 +198,10 @@ function BoardRow({
   entry,
   rank,
   tab,
+  scope,
 }: {
   entry: LeaderboardEntry;
+  scope: BoardScope;
   rank: number;
   tab: RankedTab;
 }) {
@@ -271,6 +280,15 @@ function BoardRow({
           {tab.metric(entry).toLocaleString()} {tab.unit}
         </Text>
       </View>
+      {/* ONLY ON THE GLOBAL BOARD, AND NEVER ON YOUR OWN ROW. A friends board
+          is people you accepted, so a flag there is a bug report about somebody
+          you already chose. */}
+      {scope === 'all' && !isSelf ? (
+        <ReportUsernameButton
+          userId={entry.userId}
+          username={entry.username ?? entry.displayName ?? null}
+        />
+      ) : null}
     </View>
   );
 }
@@ -350,13 +368,14 @@ function FeedRow({
  * The feed tab's own content. Its own query, not a re-sort of the board: the
  * board ranks people and this lists moments.
  */
-function FeedList() {
+function FeedList({ scope }: { scope: BoardScope }) {
   const colors = useColors();
   const router = useRouter();
   const skipEnter = useAppearSkip();
-  const feed = useGetFriendsFeed(FEED_PARAMS, {
+  const feedParams = { ...FEED_PARAMS, scope };
+  const feed = useGetFriendsFeed(feedParams, {
     query: {
-      queryKey: getGetFriendsFeedQueryKey(FEED_PARAMS),
+      queryKey: getGetFriendsFeedQueryKey(feedParams),
       refetchOnMount: 'always',
     },
   });
@@ -475,7 +494,14 @@ function FeedList() {
 // The weekly window is the only one fetched: the Streak tab ranks by a number
 // that does not depend on the window, so a second request would return the same
 // streaks with different XP nobody on that tab is looking at.
-const BOARD_PARAMS: GetFriendsLeaderboardParams = { window: 'week' };
+// EVERYONE IS THE DEFAULT, per the owner on 2026-08-25, and safe to default
+// that way only because a learner with no username appears to nobody.
+const DEFAULT_SCOPE: BoardScope = 'all';
+
+const boardParams = (scope: BoardScope): GetFriendsLeaderboardParams => ({
+  window: 'week',
+  scope,
+});
 
 export default function LeaderboardScreen() {
   const colors = useColors();
@@ -495,9 +521,12 @@ export default function LeaderboardScreen() {
   // Refetch on focus and on mount, nothing else: no polling and no socket. A
   // board is only wrong while you are looking at it, and arriving on it is
   // exactly the moment to be right.
-  const board = useGetFriendsLeaderboard(BOARD_PARAMS, {
+  const [scope, setScope] = React.useState<BoardScope>(DEFAULT_SCOPE);
+  const { username, loaded: nameLoaded } = useMyPublicName();
+  const boardQueryParams = boardParams(scope);
+  const board = useGetFriendsLeaderboard(boardQueryParams, {
     query: {
-      queryKey: getGetFriendsLeaderboardQueryKey(BOARD_PARAMS),
+      queryKey: getGetFriendsLeaderboardQueryKey(boardQueryParams),
       refetchOnMount: 'always',
     },
   });
@@ -536,11 +565,24 @@ export default function LeaderboardScreen() {
             Leaderboard
           </Text>
           <Text style={[styles.headSub, { color: colors.mutedForeground }]}>
-            You and your friends, this week
+            {scope === 'all' ? 'Everyone, this week' : 'You and your friends, this week'}
           </Text>
         </View>
         <Mascot pose="thumbsup" size={72} motion="sway" />
       </Animated.View>
+
+      <View style={{ marginBottom: 12 }}>
+        <BoardScopeToggle scope={scope} onChange={setScope} />
+      </View>
+
+      {/* Shown, never blocking: a learner without a username reads the global
+          board and simply is not on it. Withholding other people's progress
+          until they name themselves would be using the feature as leverage. */}
+      {scope === 'all' && nameLoaded && !username ? (
+        <View style={{ marginBottom: 12 }}>
+          <PublicNamePrompt />
+        </View>
+      ) : null}
 
       <View style={styles.segmentWrap}>
         {TABS.map((t) => (
@@ -568,7 +610,7 @@ export default function LeaderboardScreen() {
         {tab.kind === 'feed' ? (
           // The feed owns its query, its loading and its empty state; the
           // board's states below say nothing about it.
-          <FeedList />
+          <FeedList scope={scope} />
         ) : board.isLoading ? (
           <View style={{ gap: 10, marginTop: 8 }}>
             {[0, 1, 2, 3, 4].map((i) => (
@@ -601,7 +643,7 @@ export default function LeaderboardScreen() {
                   : appearDown(Math.min(i, 8) * 45, 360)
               }
             >
-              <BoardRow entry={entry} rank={i + 1} tab={tab} />
+              <BoardRow entry={entry} rank={i + 1} tab={tab} scope={scope} />
             </Animated.View>
           ))
         )}

@@ -61,6 +61,12 @@ jest.mock('@workspace/api-client-react', () => ({
   }),
   getGetFriendsFeedQueryKey: () => ['feed'],
   useGetOutfits: () => ({ data: { outfits: [] } }),
+  // Added 2026-08-25 with the Friends/Everyone toggle: the strip keys its
+  // board query by scope and reads the account to know whether the learner
+  // has a public name yet.
+  getGetFriendsLeaderboardQueryKey: () => ['leaderboard'],
+  useGetAccount: () => ({ data: { profile: { username: 'learner', shareStats: true } } }),
+  useReportUsername: () => ({ mutateAsync: jest.fn(), isPending: false }),
 }));
 
 jest.mock('expo-router', () => ({
@@ -233,7 +239,7 @@ describe('HomeSocialStrip — populated state (has friends)', () => {
     mockState.leaderboardData = [SELF, FRIEND_A];
     render(<HomeSocialStrip />);
 
-    fireEvent.press(screen.getByLabelText('See all friends'));
+    fireEvent.press(screen.getByLabelText('See all'));
     expect(mockState.pushFn).toHaveBeenCalledWith('/(app)/leaderboard');
   });
 });

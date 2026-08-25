@@ -141,6 +141,12 @@ jest.mock('@workspace/api-client-react', () => ({
   useGetFriendsLeaderboard: () => ({ data: [], isLoading: false, isError: false }),
   getGetDailyQuizQueryKey: () => ['quiz'],
   getListReviewPhrasesQueryKey: () => ['review'],
+  // Added 2026-08-25 with the Friends/Everyone toggle: the strip keys its
+  // board query by scope and reads the account to know whether the learner
+  // has a public name yet.
+  getGetFriendsLeaderboardQueryKey: () => ['leaderboard'],
+  useGetAccount: () => ({ data: { profile: { username: 'learner', shareStats: true } } }),
+  useReportUsername: () => ({ mutateAsync: jest.fn(), isPending: false }),
 }));
 
 jest.mock('@/components/Screen', () => {
