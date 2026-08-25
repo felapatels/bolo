@@ -111,12 +111,19 @@ async function loadConceptPhrases(
  * Which concepts this caller may be served, and whether they were cut short.
  *
  * THE GATE IS A CONCEPT LIST, not a 402, for the book that carries the taste.
- * A Free learner asking for the journey 1 zone 1 book gets scene 1's concepts
- * and nothing else, so scenes 2 to 5 fail resolveScene() exactly as a language
- * with a thin corpus would, and the client shows the upgrade beat on a scene it
- * already knows how to skip. No second code path, and no 402 on a stop the map
- * deliberately never locks — that pairing is the bug the tracing taste was
- * created to fix.
+ * A Free learner asking for the journey 1 zone 1 book gets the taste's
+ * concepts, capped at STORY_TEASER_SCENES, and any scene past that cap fails
+ * resolveScene() exactly as a language with a thin corpus would, so the client
+ * shows the upgrade beat on a scene it already knows how to skip. No second
+ * code path, and no 402 on a stop the map deliberately never locks — that
+ * pairing is the bug the tracing taste was created to fix.
+ *
+ * THE TASTE WIDENED TO FIVE SCENES ON 2026-08-24 AND j1z1 HAS EXACTLY FIVE,
+ * so today every scene of zone 1 resolves for a Free caller and nothing is
+ * actually cut short. This comment said "scene 1's concepts and nothing else"
+ * until 2026-08-25, which had stopped being true. `limited` stays true
+ * regardless, because it is what puts the ask on the finished book, and the
+ * cap is still what does the work: a sixth scene would fall outside it.
  *
  * Every book outside zone 1 answers 402 outright: those stops are All-Access
  * with no taste at all.

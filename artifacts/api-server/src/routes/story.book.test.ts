@@ -9,8 +9,10 @@
 // says the same thing in either database.
 //
 // What is under test:
-//   - a Free caller gets the FIRST SCENE of the zone 1 book and no more,
-//     flagged `limited`, rather than a 402 on a stop the map never locks;
+//   - a Free caller gets the zone 1 book up to STORY_TEASER_SCENES, flagged
+//     `limited`, rather than a 402 on a stop the map never locks. That was
+//     ONE scene when this file was written and is five as of 2026-08-24,
+//     which is every scene j1z1 has;
 //   - a Free caller gets a plain 402 on any other zone's book;
 //   - a paying caller gets the whole book, premium rows included, because
 //     counting free rows only NO language carries a whole book's concepts;
@@ -40,6 +42,7 @@ import {
   bookConcepts,
   storyBookFor,
   storyTeaserConcepts,
+  storyTeaserScenes,
   STORY_TEASER_SCENES,
 } from "@workspace/story";
 import storyRouter from "./story";
@@ -221,21 +224,33 @@ test("a Free caller gets the whole zone 1 book, and is told it is a taste", asyn
   assert.deepEqual(conceptsIn(json), storyTeaserConcepts(tasteBook()).sort());
 });
 
-test("the taste stops at scene 1, so it cannot quietly widen", async () => {
+test("the taste is capped at STORY_TEASER_SCENES, so a sixth scene stays paid", async () => {
+  // INVERTED ON 2026-08-25 RATHER THAN DELETED, so what changed is on the
+  // record. This test used to assert that a Free caller receives FEWER
+  // concepts than the whole zone 1 book and never its ending. Both were true
+  // when the taste was one scene. The taste widened to five on 2026-08-24 and
+  // j1z1 has exactly five, so the taste IS the whole book now and both
+  // assertions became false. Nothing caught it because the file could not run
+  // at all: see the lang cap note in story.ts.
+  //
+  // THE GUARD THAT STILL MATTERS IS THE CAP, NOT THE SHORTFALL. Zone 1 being
+  // wholly free is a product decision. A SIXTH scene joining the free taste
+  // by accident would not be, and that is what this watches now.
   currentUserId = FREE_USER_ID;
   const { json } = await getBook(1, 1);
-  const whole = bookConcepts(tasteBook());
-  assert.ok(
-    json.phrases.length < whole.length,
-    "a Free caller must not receive the whole book's vocabulary",
+  const book = tasteBook();
+  assert.equal(
+    storyTeaserScenes(book).length,
+    Math.min(STORY_TEASER_SCENES, book.scenes.length),
+    "the taste must never serve more scenes than the cap allows",
   );
-  // Named explicitly: the last scene's fitting line is the one thing the taste
-  // must never hand over, because it is the end of the story.
-  const ending = tasteBook().scenes.at(-1)!.choices.find((c) => c.fits)!;
-  assert.ok(
-    !json.phrases.some((p) => p.concept === ending.concept),
-    "the ending must be behind the paywall",
-  );
+  const teaser = new Set(storyTeaserConcepts(book));
+  for (const p of json.phrases) {
+    assert.ok(teaser.has(p.concept), `${p.concept} is outside the taste`);
+  }
+  // The ask is the thing that must not drift. Every scene resolving is fine;
+  // a finished book with no upgrade beat attached is not.
+  assert.equal(json.limited, true);
 });
 
 test("a Free caller gets a plain 402 on any other zone", async () => {
@@ -302,7 +317,13 @@ test("one row per concept, so a book reads the same way twice", async () => {
 
 test("a zone with no book is a 404, and a bad lang is a 400", async () => {
   currentUserId = PLUS_USER_ID;
-  assert.equal((await getBook(1, 6)).status, 404, "feelings has no book");
+  // ZONE 6 WAS THE 404 CASE AND IS NOT ANY MORE. `j1z6-photograph` landed in
+  // 90188187 and gave every fare zone a book, which made this assertion stale
+  // the day it was written. Zone 6 is kept here as a 200 rather than dropped,
+  // so a seventh book fails this loudly instead of leaving the case testing
+  // nothing.
+  assert.equal((await getBook(1, 6)).status, 200, "zone 6 has a book now");
+  assert.equal((await getBook(1, 7)).status, 404, "zone 7 has none");
   assert.equal((await getBook(2, 1)).status, 404, "journey 2 has no books");
   assert.equal((await getBook(1, 1, "x")).status, 400);
 });
