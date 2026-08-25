@@ -137,7 +137,22 @@ const TERM_H = 92; // terminus row
 // number, no marker, no card, nothing tappable, and it never enters the
 // station list, so stop numbering and the station count are untouched. It
 // only lengthens the map.
-const HALT_H = 74;
+// RAISED FROM 74 TO 96 ON 2026-08-25. Chacha-ji's stall was landing on the
+// words of the station card next to it, reported from a device. The stall is
+// NOT the thing that moved: the scenery tests prove it stays inside this row
+// (top > -HALT_H/2, bottom < HALT_H/2). The card is what overflows. Rows are
+// laid out on a FIXED pitch while a card's height is variable, and a card
+// carrying two chips plus a two-line status runs past its row into the halt
+// beside it. The old 74 left about 10px of slack at each end of the stall,
+// which a second line of text eats on its own.
+//
+// This buys roughly 21px of clearance each side instead of 10. It does not
+// fix the underlying mismatch, which is that the pitch should be measured
+// rather than assumed, and that is a bigger change than tonight's list.
+// Kept identical on web and mobile: the two maps are drawn to the same
+// geometry and a difference here shows up as the stall sitting somewhere
+// else on the phone.
+const HALT_H = 96;
 // Item 3: drop of the terminus label below the terminus dot's center. The dot
 // is 24px (border-box) with a 2px ring, so its lowest ink is termY+14; the
 // bunting hangs ABOVE the dot. 18 clears both and still leaves the label's two

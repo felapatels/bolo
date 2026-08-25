@@ -633,8 +633,10 @@ export const STALL_PLACEMENT = {
   laneDx: 80,
   /** Ground line offset below the HALT POINT (the halt row's center y). The
    *  stall stands 49.2 above its ground line and its shadow pools 5.1 below
-   *  it, so this centers the whole landmark in the 74-tall halt row at
-   *  y-27.2..y+27.1, with about 10px of row to spare at each end. */
+   *  it, so this centers the whole landmark in the halt row at
+   *  y-27.2..y+27.1, with room to spare at each end. HALT_H went 74 to 96 on
+   *  2026-08-25, taking that clearance from about 10px to about 21px,
+   *  because a neighbouring card's second line was reaching the stall. */
   groundDy: 22,
   /** How far the stall reaches ABOVE its ground line (the awning rail), so
    *  the geometry tests can prove the whole landmark, not just its footprint,

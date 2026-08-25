@@ -1112,10 +1112,11 @@ describe('journey map — Chacha-ji stall landmark', () => {
     // (92 on both platforms).
     for (const s of seats) expect(s.x).toBe(92 + STALL_PLACEMENT.laneDx);
     // One zone, so the interval is a clean four station rows plus the one halt
-    // row those four rows contain (74 tall, web parity). STATION_H is 88 since
-    // the current-stop card was slimmed; the halt row itself is unchanged.
-    expect(seats[1]!.y - seats[0]!.y).toBe(4 * 88 + 74);
-    expect(seats[2]!.y - seats[1]!.y).toBe(4 * 88 + 74);
+    // row those four rows contain. STATION_H is 88 since the current-stop card
+    // was slimmed; HALT_H went 74 to 96 on 2026-08-25 to keep a neighbouring
+    // card's second line off the stall.
+    expect(seats[1]!.y - seats[0]!.y).toBe(4 * 88 + 96);
+    expect(seats[2]!.y - seats[1]!.y).toBe(4 * 88 + 96);
   });
 
   it('adds no stop, no number and nothing tappable with the halt row', () => {
