@@ -3,25 +3,44 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useUser } from '@clerk/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useUpdateAccountProfile } from '@workspace/api-client-react';
+import {
+  useUpdateAccountProfile,
+  useGetAccount,
+  getGetAccountQueryKey,
+} from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
-/** Persisted flag: the learner dismissed the one-time name prompt. */
+/** Persisted flag: the learner dismissed the one-time username prompt. */
+export const USERNAME_PROMPT_DISMISSED_KEY = 'bolo.usernamePromptDismissed';
+/** The retired key. Named so nobody reuses it and re-suppresses the new prompt. */
 export const NAME_PROMPT_DISMISSED_KEY = 'bolo.namePromptDismissed';
 
 /**
- * One-time, dismissible prompt shown on the home screen when the Clerk
- * profile has no first name. Submitting goes through the same dual-write
- * path as settings (PATCH /account/profile updates Clerk and
- * users.display_name), then reloads the Clerk user so every consumer sees
- * the new name. Dismissal persists on device and never nags again;
- * settings remains the edit path.
+ * One-time, dismissible home prompt for the PUBLIC USERNAME.
+ *
+ * IT USED TO ASK FOR A DISPLAY NAME. Changed 2026-08-25: "the username prompt
+ * should be on the homepage instead of the display name prompt". The display
+ * name is private and Clerk already has a first name for most learners, so
+ * that prompt asked for something the app mostly had. The username is the one
+ * thing the app cannot derive and must not default: it is what other learners
+ * see, and until it exists the learner appears on no global surface at all.
+ *
+ * A NEW DISMISSAL KEY, DELIBERATELY. Anybody who dismissed the old prompt
+ * would otherwise never see this one, and they are exactly the population that
+ * needs asking, since every existing account has username null.
+ *
+ * DISMISSIBLE, AND THAT IS THE POINT. A username is opt-in by an act, and a
+ * prompt that cannot be closed is not a choice.
  */
 export function NamePromptCard() {
   const colors = useColors();
   const { user } = useUser();
   const updateProfile = useUpdateAccountProfile();
+  const account = useGetAccount();
+  const qc = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
   // null = persisted dismissal still loading, so render nothing (no flash).
   const [dismissed, setDismissed] = useState<boolean | null>(null);
   const [name, setName] = useState('');
@@ -29,28 +48,36 @@ export function NamePromptCard() {
 
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem(NAME_PROMPT_DISMISSED_KEY)
+    AsyncStorage.getItem(USERNAME_PROMPT_DISMISSED_KEY)
       .then((v) => { if (!cancelled) setDismissed(v === '1'); })
       .catch(() => { if (!cancelled) setDismissed(false); });
     return () => { cancelled = true; };
   }, []);
 
-  if (!user || user.firstName || dismissed !== false) return null;
+  // Waits for the account rather than assuming: rendering while the profile
+  // loads would flash the prompt at somebody who already has a name.
+  const profile = account.data?.profile;
+  if (!user || !profile || profile.username || dismissed !== false) return null;
 
   const handleDismiss = () => {
     setDismissed(true);
-    AsyncStorage.setItem(NAME_PROMPT_DISMISSED_KEY, '1').catch(() => {});
+    AsyncStorage.setItem(USERNAME_PROMPT_DISMISSED_KEY, '1').catch(() => {});
   };
 
   const handleSave = async () => {
     const trimmed = name.trim();
     if (!trimmed || saving) return;
     setSaving(true);
+    setError(null);
     try {
-      await updateProfile.mutateAsync({ data: { displayName: trimmed } });
-      await user.reload();
+      await updateProfile.mutateAsync({ data: { username: trimmed } });
+      await qc.invalidateQueries({ queryKey: getGetAccountQueryKey() });
       handleDismiss();
-    } catch {
+    } catch (err) {
+      // THE SERVER'S OWN SENTENCE. Only it knows which rule broke: shape, a
+      // reserved word, the profanity screen, or a name already taken.
+      const data = (err as { data?: { error?: string } } | null)?.data;
+      setError(data?.error ?? 'Couldn’t save that. Please try again.');
       setSaving(false);
     }
   };
@@ -62,12 +89,12 @@ export function NamePromptCard() {
     >
       <View style={styles.headRow}>
         <Text style={[styles.title, { color: colors.foreground }]}>
-          What should Bolo call you?
+          Pick a username
         </Text>
         <Pressable
           onPress={handleDismiss}
           accessibilityRole="button"
-          accessibilityLabel="Dismiss name prompt"
+          accessibilityLabel="Dismiss username prompt"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           testID="name-prompt-dismiss"
         >
@@ -78,9 +105,11 @@ export function NamePromptCard() {
         <TextInput
           value={name}
           onChangeText={setName}
-          placeholder="Your name"
+          placeholder="Your username"
           placeholderTextColor={colors.mutedForeground}
-          autoCapitalize="words"
+          autoCapitalize="none"
+          autoCorrect={false}
+          maxLength={20}
           testID="name-prompt-input"
           style={[
             styles.input,
@@ -91,7 +120,7 @@ export function NamePromptCard() {
           onPress={handleSave}
           disabled={!name.trim() || saving}
           accessibilityRole="button"
-          accessibilityLabel="Save name"
+          accessibilityLabel="Save username"
           testID="name-prompt-save"
           style={[
             styles.saveBtn,
@@ -103,8 +132,12 @@ export function NamePromptCard() {
           </Text>
         </Pressable>
       </View>
+      {error ? (
+        <Text style={[styles.note, { color: '#EF4444' }]}>{error}</Text>
+      ) : null}
       <Text style={[styles.note, { color: colors.mutedForeground }]}>
-        You can change this any time in Settings.
+        This is the name other learners see on the Everyone board and feed. You
+        can change it any time in Settings, or skip and stay off both.
       </Text>
     </View>
   );
