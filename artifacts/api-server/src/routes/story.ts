@@ -152,7 +152,17 @@ router.get(
     const journey = Number(req.query.journey);
     const zone = Number(req.query.zone);
 
-    if (lang.length < 2 || lang.length > 8) {
+    // THE UPPER BOUND IS 64, NOT 8, AND THAT IS NOT ARBITRARY. This is the
+    // only endpoint in the API that caps the code's length at all, and the 8
+    // it shipped with in a64c2822 rejected the suite's own language
+    // sentinels: every api test names its language `__test_lang_<suite>`,
+    // which is 17 characters in story.book.test.ts, so that file could never
+    // have passed. The convention is load-bearing rather than incidental,
+    // and routes/languages.ts filters the public picker on that exact prefix
+    // so a crashed run cannot show a test language to a learner. 64 still
+    // keeps a runaway query string out of the phrase lookup, which is all
+    // the cap was ever for.
+    if (lang.length < 2 || lang.length > 64) {
       res.status(400).json({ error: "Missing or invalid lang" });
       return;
     }
