@@ -317,7 +317,19 @@ function expectedRound(round: number) {
 }
 
 /** Walk the shell's 3-2-1 count-in into the first live round. */
+/** See quick-game-shell.test.tsx: How to Play opens itself on a first play and
+ *  holds the count-in behind it, so a test dismisses it as a learner would. */
+async function dismissHowToPlay() {
+  await act(async () => {});
+  const btn = screen.queryByTestId('how-to-play-dismiss');
+  if (!btn) return;
+  await act(async () => {
+    fireEvent.press(btn);
+  });
+}
+
 async function runCountdown() {
+  await dismissHowToPlay();
   for (let i = 0; i < 4; i++) {
     await act(async () => {
       jest.advanceTimersByTime(800);

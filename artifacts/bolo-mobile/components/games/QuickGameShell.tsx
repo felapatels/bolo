@@ -32,10 +32,12 @@ import React, {
   Fragment,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -50,6 +52,8 @@ import {
   type Phrase,
 } from '@workspace/api-client-react';
 import { categoryIcon } from '@/lib/ui';
+import { HowToPlaySheet } from '@/components/games/HowToPlaySheet';
+import { hapticLight } from '@/lib/haptics';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { FunFactLoader } from '@/components/FunFactLoader';
@@ -236,8 +240,18 @@ export type QuickGameShellProps = {
    * contract does not change); it simply never uses them.
    */
   usesAudio?: boolean;
-  /** One-line instruction shown under the countdown. */
+  /**
+   * The game's one-line instruction. It is the FIRST line of the How to Play
+   * sheet, and it used to be rendered only inside the countdown branch below,
+   * which meant an untimed game never showed it at all. See HowToPlaySheet.
+   */
   instruction?: string;
+  /**
+   * Extra paragraphs for the How to Play sheet, after `instruction`. Optional:
+   * a game that needs no more than its one line supplies nothing and still
+   * gets a sheet and a `?`.
+   */
+  howToPlay?: string[];
   renderRound: (props: QuickRoundProps) => ReactNode;
 };
 
@@ -247,6 +261,7 @@ export function QuickGameShell({
   roundsPerRun = DEFAULT_ROUNDS_PER_RUN,
   usesAudio = true,
   instruction,
+  howToPlay,
   renderRound,
 }: QuickGameShellProps) {
   const colors = useColors();
@@ -292,6 +307,40 @@ export function QuickGameShell({
    * scratch. Per-round-derived games are unaffected either way.
    */
   const [runKey, setRunKey] = useState(0);
+  /**
+   * How to Play. `helpOpen` drives the sheet; `helpFirstTime` only changes the
+   * button's wording. The seen flag is per GAME, not per run: a learner who
+   * has played Wrong Platform before should not be re-explained it every time
+   * they open it, or the sheet becomes the thing you tap through.
+   */
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpFirstTime, setHelpFirstTime] = useState(false);
+  const helpLines = useMemo(
+    () => [instruction, ...(howToPlay ?? [])].filter((l): l is string => !!l),
+    [instruction, howToPlay],
+  );
+  useEffect(() => {
+    if (helpLines.length === 0) return;
+    // ONLY ONCE THE RUN STARTS. Opening over the topic picker would explain a
+    // game before the learner has said which topic they want, and the picker
+    // is not the thing being explained.
+    if (phase === 'picker' || phase === 'end') return;
+    let alive = true;
+    const key = `bolo.game.howto.${def.id}`;
+    AsyncStorage.getItem(key)
+      .then((seen) => {
+        if (!alive || seen) return;
+        setHelpFirstTime(true);
+        setHelpOpen(true);
+        return AsyncStorage.setItem(key, '1');
+      })
+      // A storage failure must never cost the learner the game. Worst case
+      // the sheet opens again next time, which is the harmless direction.
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [def.id, helpLines.length, phase]);
 
   const resultsRef = useRef<QuickRoundResult[]>([]);
   /**
@@ -336,6 +385,7 @@ export function QuickGameShell({
   //    query can never drop the learner into an empty first round.
   useEffect(() => {
     if (phase !== 'countdown' || !roundsReady || countdown === null) return;
+    if (helpOpen) return; // the count-in waits behind the sheet too
     if (countdown <= 0) {
       setCountdown(null);
       setSecondsLeft(secondsPerRound ?? null);
@@ -347,16 +397,18 @@ export function QuickGameShell({
     }
     const t = setTimeout(() => setCountdown((c) => (c ?? 1) - 1), COUNTDOWN_STEP_MS);
     return () => clearTimeout(t);
-  }, [phase, roundsReady, countdown, secondsPerRound]);
+  }, [phase, roundsReady, countdown, secondsPerRound, helpOpen]);
 
   // ── Per-round clock. Frozen while locked or counting in; absent entirely
   //    for an untimed game, which never schedules a tick at all.
   useEffect(() => {
-    if (!timed || phase !== 'playing' || locked) return;
+    // helpOpen freezes the clock. Beat the Train runs on a ten-second round,
+    // so a help button that let it run would charge the learner for asking.
+    if (!timed || phase !== 'playing' || locked || helpOpen) return;
     if (secondsLeft === null || secondsLeft <= 0) return;
     const t = setTimeout(() => setSecondsLeft((s) => (s === null ? null : s - 1)), 1000);
     return () => clearTimeout(t);
-  }, [timed, phase, locked, secondsLeft]);
+  }, [timed, phase, locked, secondsLeft, helpOpen]);
 
   // ── Zero: flag the timeout and lock. The game decides what to submit.
   //    An untimed game can never reach this, so timedOut stays false for good.
@@ -564,14 +616,43 @@ export function QuickGameShell({
             </Text>
           )}
         </View>
-        {usesAudio ? (
-          <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
-        ) : (
-          // Layout ballast only, no control: the header is space-between, so
-          // dropping the toggle outright would slide the title off centre.
-          <View style={styles.headerSlot} />
-        )}
+        <View style={styles.headerRight}>
+          {/* ALWAYS REACHABLE, which is half the ask: the sheet opens itself
+              once and this is how it comes back. It sits in the slot a silent
+              game used to fill with ballast, so nothing shifts off centre. */}
+          {helpLines.length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="How to play"
+              testID="how-to-play-open"
+              onPress={() => {
+                hapticLight();
+                setHelpFirstTime(false);
+                setHelpOpen(true);
+              }}
+              style={styles.headerSlot}
+              hitSlop={8}
+            >
+              <Feather name="help-circle" size={20} color={colors.mutedForeground} />
+            </Pressable>
+          )}
+          {usesAudio ? (
+            <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+          ) : (
+            // Layout ballast only, no control: the header is space-between, so
+            // dropping the toggle outright would slide the title off centre.
+            helpLines.length === 0 && <View style={styles.headerSlot} />
+          )}
+        </View>
       </View>
+
+      <HowToPlaySheet
+        visible={helpOpen}
+        title={def.title}
+        lines={helpLines}
+        firstTime={helpFirstTime}
+        onClose={() => setHelpOpen(false)}
+      />
 
       {phase === 'picker' && (
         <TopicPicker
@@ -933,7 +1014,10 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerSlot: { width: 44, height: 44 },
+  headerSlot: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  // The right-hand cluster: How to Play, then the mute. A row rather than a
+  // single slot because a game can now carry both.
+  headerRight: { flexDirection: 'row', alignItems: 'center' },
   title: { fontFamily: AppFonts.bold, fontSize: 18 },
   subtitle: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },

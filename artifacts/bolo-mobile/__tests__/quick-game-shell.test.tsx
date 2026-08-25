@@ -245,7 +245,26 @@ function renderShell(
 }
 
 /** Walk the 3-2-1 countdown into the first live round. */
+/**
+ * HOW TO PLAY OPENS ITSELF the first time a learner plays a given game (added
+ * 2026-08-25) and holds the count-in behind it on purpose, so a learner who is
+ * still reading has not already started. A test is that learner: dismiss it
+ * exactly as they would. No-op once the game has been seen, and no-op for a
+ * game that declares no instruction.
+ */
+async function dismissHowToPlay() {
+  // The seen flag is read from AsyncStorage, so the sheet appears a microtask
+  // after the run starts. Flush first or the query looks before it exists.
+  await act(async () => {});
+  const btn = screen.queryByTestId('how-to-play-dismiss');
+  if (!btn) return;
+  await act(async () => {
+    fireEvent.press(btn);
+  });
+}
+
 async function runCountdown() {
+  await dismissHowToPlay();
   for (let i = 0; i < 4; i++) {
     await act(async () => {
       jest.advanceTimersByTime(800);
@@ -437,6 +456,44 @@ describe('quick-game roster', () => {
         hasRouteFile: true,
       });
     }
+  });
+});
+
+// ─── How to play ─────────────────────────────────────────────────────────────
+//
+// Reported 2026-08-25 on Wrong Platform: "no instructions and i can't even
+// figure it out". The shell rendered `instruction` ONLY inside its countdown
+// branch, and Wrong Platform is untimed, so it has no countdown and the string
+// never reached the screen at all. Web had shown the same sentence above every
+// round since it was written. These pin the replacement.
+
+describe('how to play', () => {
+  test('opens itself on a first play and holds the count-in behind it', async () => {
+    mockState.params = { cat: '1' };
+    renderShell();
+    await act(async () => {});
+
+    expect(screen.getByTestId('how-to-play-dismiss')).toBeTruthy();
+    // The count-in must NOT have run behind the sheet: a learner still reading
+    // has not started, and on a timed game that would cost them the round.
+    await act(async () => {
+      jest.advanceTimersByTime(800 * 4);
+    });
+    expect(screen.queryByTestId('round-label')).toBeNull();
+
+    await dismissHowToPlay();
+    await runCountdown();
+    expect(screen.getByTestId('round-label')).toBeTruthy();
+  });
+
+  test('the header ? reopens it once the game is under way', async () => {
+    mockState.params = { cat: '1' };
+    renderShell();
+    await runCountdown();
+    expect(screen.queryByTestId('how-to-play-dismiss')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('how-to-play-open'));
+    expect(screen.getByTestId('how-to-play-dismiss')).toBeTruthy();
   });
 });
 

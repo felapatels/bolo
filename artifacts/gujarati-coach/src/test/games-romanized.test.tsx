@@ -146,6 +146,16 @@ async function openQuickGame(Page: () => JSX.Element, path: string) {
       <Page />
     </Router>,
   );
+  // HOW TO PLAY OPENS ITSELF the first time a learner plays a given game
+  // (added 2026-08-25), and it holds the count-in behind it on purpose, so a
+  // learner who is still reading has not already started. A test is that
+  // learner: dismiss it exactly as they would, then carry on.
+  const help = screen.queryByTestId("how-to-play-dismiss");
+  if (help) {
+    await act(async () => {
+      fireEvent.click(help);
+    });
+  }
   if (screen.queryByTestId("quick-countdown")) await passCountIn();
   await act(async () => {});
   return view;

@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
@@ -93,6 +93,17 @@ function renderPage() {
   );
 }
 
+/**
+ * How to Play opens itself on a first play (2026-08-25) and holds the count-in
+ * behind it on purpose, so a learner still reading has not already started. A
+ * test is that learner. localStorage is synchronous, so the sheet is on screen
+ * by the time this runs; it is a no-op for a game already seen.
+ */
+function dismissHowToPlay() {
+  const btn = screen.queryByTestId("how-to-play-dismiss");
+  if (btn) act(() => fireEvent.click(btn));
+}
+
 beforeEach(() => {
   FakeAudio.instances = [];
   h.synth.mockReset();
@@ -115,6 +126,7 @@ describe("Signal Lights round audio (Hotfix 3 items 7a/7b)", () => {
         }),
     );
     renderPage();
+    dismissHowToPlay();
     // 3-2-1 countdown (timed game), then round 1 mounts and requests audio.
     // Each step in its own act: the next timer is scheduled by an effect,
     // which only flushes when the act scope closes.
@@ -133,6 +145,7 @@ describe("Signal Lights round audio (Hotfix 3 items 7a/7b)", () => {
   test("mute button lights green while the clip plays; expiry silences it", async () => {
     h.synth.mockResolvedValue({ audioBase64: "AA", format: "mp3" });
     renderPage();
+    dismissHowToPlay();
     for (let i = 0; i < 3; i++) {
       await act(async () => {
         vi.advanceTimersByTime(800);

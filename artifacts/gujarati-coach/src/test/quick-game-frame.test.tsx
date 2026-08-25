@@ -86,6 +86,37 @@ function TestRound({ phrases, api }: QuickRoundProps) {
   );
 }
 
+// ─── How to play ─────────────────────────────────────────────────────────────
+//
+// Reported 2026-08-25 on Wrong Platform: "no instructions and i can't even
+// figure it out". Mobile rendered `instruction` ONLY inside its countdown
+// branch and Wrong Platform is untimed, so the string never reached the screen
+// there at all; web had shown the same sentence above every round since it was
+// written. The sheet is the shared replacement and these pin it on this side.
+describe("how to play", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  test("opens itself on a first play, and the ? reopens it afterwards", () => {
+    renderFrame("/games/test?cat=1");
+    expect(screen.getByTestId("how-to-play-dismiss")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("how-to-play-dismiss"));
+    expect(screen.queryByTestId("how-to-play-dismiss")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("how-to-play-open"));
+    expect(screen.getByTestId("how-to-play-dismiss")).toBeInTheDocument();
+  });
+
+  test("a game already seen goes straight in, and the ? still works", () => {
+    window.localStorage.setItem(`bolo.game.howto.${DEF.id}`, "1");
+    renderFrame("/games/test?cat=1");
+    expect(screen.queryByTestId("how-to-play-dismiss")).toBeNull();
+    expect(screen.getByTestId("how-to-play-open")).toBeInTheDocument();
+  });
+});
+
 function renderFrame(path: string) {
   const { hook } = memoryLocation({ path });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

@@ -16,6 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useSearch } from "wouter";
 import {
   ArrowLeft,
+  HelpCircle,
   Check,
   Home,
   Map as MapIcon,
@@ -305,6 +306,7 @@ const COUNTDOWN_STEP_MS = 800;
 export function QuickGameShell({
   def,
   instruction,
+  howToPlay,
   secondsPerRound,
   requiresAudio,
   usesAudio = true,
@@ -312,8 +314,13 @@ export function QuickGameShell({
   renderRound,
 }: {
   def: QuickGameDef;
-  /** One-line how-to shown above the round UI. */
+  /** One-line how-to shown above the round UI, and the FIRST line of the How
+   *  to Play sheet. */
   instruction: string;
+  /** Extra paragraphs for the How to Play sheet, after `instruction`. Optional:
+   *  a game needing no more than its one line supplies nothing and still gets
+   *  a sheet and a `?`. Mobile's QuickGameShell prop of the same name. */
+  howToPlay?: string[];
   /** Per-round countdown in seconds; omit for untimed games. */
   secondsPerRound?: number;
   /** Opt-in for a game whose PROMPT is the clip (Express Listening): entry is
@@ -332,6 +339,23 @@ export function QuickGameShell({
 }) {
   const { activeLang, activeLanguage } = useLanguage();
   const { soundOn, toggle: toggleSound } = useGameAudio();
+  /**
+   * HOW TO PLAY. It opens itself the first time this learner plays this game
+   * and the `?` in the header opens it again whenever they want. The seen flag
+   * is per GAME: re-explaining a game every launch turns the sheet into a tap
+   * you learn to dismiss without reading.
+   *
+   * Web already showed `instruction` above every round and mobile did not
+   * (its shell rendered the line only inside the countdown branch, so an
+   * untimed game showed nothing at all). The line above the round STAYS; this
+   * is the room for the rest of the explanation, on both platforms.
+   */
+  const helpLines = useMemo(
+    () => [instruction, ...(howToPlay ?? [])].filter(Boolean),
+    [instruction, howToPlay],
+  );
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpFirstTime, setHelpFirstTime] = useState(false);
   const queryClient = useQueryClient();
   const recordSession = useRecordGameSession();
   const launch = useQuickLaunch();
@@ -372,6 +396,23 @@ export function QuickGameShell({
   const [correct, setCorrect] = useState(0);
   const [locked, setLocked] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    if (helpLines.length === 0) return;
+    // ONLY ONCE THE RUN STARTS. Opening over the topic picker would explain a
+    // game before the learner has said which topic they want.
+    if (phase !== "game") return;
+    const key = `bolo.game.howto.${def.id}`;
+    try {
+      if (window.localStorage.getItem(key)) return;
+      window.localStorage.setItem(key, "1");
+    } catch {
+      // Private mode, or storage disabled. Worst case the sheet opens again
+      // next time, which is the harmless direction; it must never throw and
+      // cost the learner the game.
+    }
+    setHelpFirstTime(true);
+    setHelpOpen(true);
+  }, [def.id, helpLines.length, phase]);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(secondsPerRound ?? null);
   const resultsRef = useRef<QuickRoundResult[]>([]);
 
@@ -395,6 +436,9 @@ export function QuickGameShell({
   useEffect(() => {
     if (phase !== "game" || secondsPerRound == null || locked || countdown !== null) return;
     if (audioBlocked) return;
+    // The sheet freezes the clock. Beat the Train runs a ten-second round, so
+    // a help button that let it run would charge the learner for asking.
+    if (helpOpen) return;
     if (secondsLeft === null) return;
     if (secondsLeft <= 0) {
       setTimedOut(true);
@@ -403,7 +447,7 @@ export function QuickGameShell({
     }
     const t = setTimeout(() => setSecondsLeft((s) => (s === null ? null : s - 1)), 1000);
     return () => clearTimeout(t);
-  }, [phase, secondsPerRound, locked, secondsLeft, countdown, audioBlocked]);
+  }, [phase, secondsPerRound, locked, secondsLeft, countdown, audioBlocked, helpOpen]);
 
   // Item 7c: the 3-2-1 ticks only once the round surface is actually ready
   // (phrases loaded and above the floor), so a slow fetch never eats the
@@ -416,6 +460,7 @@ export function QuickGameShell({
     phrases.length >= def.floor;
   useEffect(() => {
     if (!roundsReady || countdown === null) return;
+    if (helpOpen) return; // the count-in waits behind the sheet too
     const t = setTimeout(
       () => setCountdown((c) => (c === null || c <= 1 ? null : c - 1)),
       COUNTDOWN_STEP_MS,
@@ -586,6 +631,22 @@ export function QuickGameShell({
               {activeLanguage?.name ?? activeLang}
             </span>
           </span>
+          {/* ALWAYS REACHABLE, which is half the ask: the sheet opens itself
+              once and this is how it comes back. */}
+          {helpLines.length > 0 && (
+            <button
+              type="button"
+              data-testid="how-to-play-open"
+              aria-label="How to play"
+              onClick={() => {
+                setHelpFirstTime(false);
+                setHelpOpen(true);
+              }}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted"
+            >
+              <HelpCircle className="h-5 w-5" />
+            </button>
+          )}
           {usesAudio && (
             <GameMuteButton
               soundOn={soundOn}
@@ -595,6 +656,43 @@ export function QuickGameShell({
           )}
         </div>
       </div>
+
+      {helpOpen && helpLines.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`How to play ${def.title}`}
+        >
+          <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-5">
+            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              <HelpCircle className="h-4 w-4 text-primary" />
+              How to play
+            </div>
+            <h2 className="mt-1 text-xl font-black text-foreground">{def.title}</h2>
+            {/* Capped rather than free: a long explanation must not push the
+                button off a short screen, which is the one thing that would
+                make the sheet a trap. */}
+            <div className="mt-2.5 max-h-[260px] space-y-2.5 overflow-y-auto">
+              {helpLines.map((line, i) => (
+                <p key={i} className="text-sm leading-relaxed text-muted-foreground">
+                  {line}
+                </p>
+              ))}
+            </div>
+            <button
+              type="button"
+              data-testid="how-to-play-dismiss"
+              onClick={() => setHelpOpen(false)}
+              className="mt-4 w-full rounded-2xl bg-primary py-3 font-bold text-white transition-opacity hover:opacity-90"
+            >
+              {/* "Play" starts something; "Got it" returns to a game already
+                  underway, where a button reading Play suggests a restart. */}
+              {helpFirstTime ? "Play" : "Got it"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {phase === "picker" && (
         <QuickTopicPicker activeLang={activeLang} floor={def.floor} onSelect={handleTopicSelect} />
