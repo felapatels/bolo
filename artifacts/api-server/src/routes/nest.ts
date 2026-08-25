@@ -106,24 +106,39 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
     return;
   }
 
+  // DRIZZLE'S sql TEMPLATE TREATS A RAW JS ARRAY AS CHUNKS TO CONCATENATE, not
+  // as one bound parameter, so `all(${owners})` produced invalid SQL and this
+  // endpoint answered 500 the first time it was opened in production. The
+  // query itself was fine: run by hand against the same database it returns
+  // 22 and 19. sql.join builds an explicit "$1, $2, $3" list instead, which
+  // needs no array typing and cannot be reinterpreted.
   const owners = [...ownerUserIds];
+  const ownerList = sql.join(
+    owners.map((o) => sql`${o}`),
+    sql`, `,
+  );
+  // `not in ()` is a syntax error, so an empty allowlist has to short-circuit
+  // to a predicate that excludes nobody rather than to an empty list.
+  const notOwner = (col: string) =>
+    owners.length > 0 ? sql`${sql.raw(col)} not in (${ownerList})` : sql`true`;
+
   try {
     // ONE ROUND TRIP. Fifteen counts as fifteen queries would be fifteen
     // connections' worth of latency for a page that opens on every glance.
     const rows = await db.execute(sql`
       select
         (select count(*) from users)::int                                        as users_total,
-        (select count(*) from users where id <> all(${owners}))::int             as users_excl_owner,
+        (select count(*) from users where ${notOwner('id')})::int                as users_excl_owner,
         (select count(distinct user_id) from attempts
           where created_at > now() - interval '30 days')::int                    as active_30d,
         (select count(distinct user_id) from attempts
           where created_at > now() - interval '30 days'
-            and user_id <> all(${owners}))::int                                  as active_30d_excl_owner,
+            and ${notOwner('user_id')})::int                                     as active_30d_excl_owner,
         (select count(*) from users
           where tier <> 'free' and subscription_status = 'active')::int          as paid_active,
         (select count(*) from users
           where tier <> 'free' and subscription_status = 'active'
-            and id <> all(${owners}))::int                                       as paid_active_excl_owner,
+            and ${notOwner('id')})::int                                          as paid_active_excl_owner,
         (select count(*) from users where subscription_status = 'trialing')::int as trialing,
         (select count(*) from tts_cache)::int                                    as tts_total,
         (select count(*) from tts_cache
@@ -133,7 +148,7 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
           where created_at > now() - interval '30 days')::int                    as attempts_30d,
         (select count(*) from attempts
           where created_at > now() - interval '30 days'
-            and user_id <> all(${owners}))::int                                  as attempts_30d_excl_owner,
+            and ${notOwner('user_id')})::int                                     as attempts_30d_excl_owner,
         (select count(*) from chat_turns
           where created_at > now() - interval '30 days')::int                    as chat_30d,
         (select count(*) from lesson_generations
