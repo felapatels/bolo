@@ -801,6 +801,17 @@ export default function JourneyScreen() {
     // disagree about which stop a learner is on.
     const trace = traceStopFor(activeLang, 1, i + 1);
     const withTrace = [...stations];
+    // IS THIS WHOLE ZONE INCLUDED FOR THIS LEARNER? Derived from the phrase
+    // stations the server already sent, never from a hardcoded language list.
+    // Hindi's fare zones 1 and 2 serve free in full (owner ruling 2026-08-24),
+    // and on 2026-08-25 the map was still stamping FREE TASTE on them, which
+    // reads as a sample of something the learner already owns outright. A zone
+    // whose every phrase stop is plan-visible is INCLUDED, so its tracing and
+    // story rows are neither locked nor a taste. Deriving it means a future
+    // widening of the free tier needs no change here, and it cannot drift from
+    // what the server actually serves.
+    const zoneIncluded =
+      stations.length > 0 && stations.every((st) => st.planLocked !== true);
     // NOT IN SHOWROOM. A locked-language preview already carries its own free
     // taste, the three-phrase voice teaser, and a tracing stop offering a
     // second "FREE TASTE" chip beside it reads as two competing offers on a
@@ -829,8 +840,10 @@ export default function JourneyScreen() {
         // everyone (its first three characters, which the game enforces);
         // every later zone is All-Access. A tracing stop is still never
         // PROGRESSION-locked, which is a different thing.
-        planLocked: !isPlus && !(trace.journey === 1 && trace.zone === 1),
-        teaserStation: !isPlus && trace.journey === 1 && trace.zone === 1,
+        planLocked:
+          !isPlus && !zoneIncluded && !(trace.journey === 1 && trace.zone === 1),
+        teaserStation:
+          !isPlus && !zoneIncluded && trace.journey === 1 && trace.zone === 1,
       } as Station);
     }
     // THE STORY STOP, spliced after the tracing one and by the same rules.
@@ -854,8 +867,9 @@ export default function JourneyScreen() {
         story: storyBook,
         // The taste is the WHOLE of zone 1's book; every later zone is
         // All-Access. Same shape as the tracing teaser above it.
-        planLocked: !isPlus && !isStoryTeaserBook(storyBook),
-        teaserStation: !isPlus && isStoryTeaserBook(storyBook),
+        planLocked: !isPlus && !zoneIncluded && !isStoryTeaserBook(storyBook),
+        teaserStation:
+          !isPlus && !zoneIncluded && isStoryTeaserBook(storyBook),
       } as Station);
     }
 
@@ -1915,7 +1929,23 @@ export default function JourneyScreen() {
                         ]}
                       >
                         {statusCopy}
-                        {!s.attemptedCount ? ` · ${s.phraseCount} phrases` : ''}
+                        {/* WEB'S RULE, WHICH MOBILE NEVER HAD. This appended
+                            the count on every row, so a tracing stop printed
+                            "Trace 8 letters · undefined phrases" and a story
+                            stop "5 scenes · undefined phrases": neither has a
+                            phraseCount, and undefined stringifies happily.
+                            Reported from a device 2026-08-25. The web frame
+                            has excluded trace, story and plan-locked rows
+                            since it was written; the divergence was ours.
+                            Plan-locked stops serve a plan-visible count of
+                            zero, so "Locked · 0 phrases" was noise too. */}
+                        {!s.trace &&
+                        !s.story &&
+                        !s.attemptedCount &&
+                        s.planLocked !== true &&
+                        s.phraseCount != null
+                          ? ` · ${s.phraseCount} phrases`
+                          : ''}
                         {/* Item 2: no "Bolo is waiting here" fragment. Bolo
                             already stands beside this card, and the words were
                             what pushed the current stop's status onto a second

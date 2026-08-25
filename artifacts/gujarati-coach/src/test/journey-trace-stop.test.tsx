@@ -185,12 +185,38 @@ describe("the tracing stop as the journey map draws it", () => {
     );
   });
 
+  // A ZONE THE LEARNER ALREADY OWNS CARRIES NO TASTE CHIP. Hindi's fare zones
+  // 1 and 2 serve free in full (owner ruling 2026-08-24), so every station is
+  // plan-visible and "Free taste" advertises a sample of something already
+  // theirs. Reported from a device 2026-08-25. The map derives this from the
+  // payload rather than from a hardcoded language list, so a future widening
+  // of the free tier needs no change here. The default fixture is exactly that
+  // shape: nine stations, none plan-locked.
+  test("a zone the learner already owns outright shows no taste chip", () => {
+    h.isPlus = false;
+    renderJourney();
+    expect(within(traceCard(1)).queryByText("Free taste")).toBeNull();
+  });
+
   test("a Free learner gets zone 1's tracing stop and nothing past it", () => {
     // The free taste: three characters of journey 1 zone 1, in every language,
     // matching the promise the voice lessons already make. Before this every
     // non-Plus learner who tapped ANY tracing stop was bounced to /upgrade from
     // a card that deliberately never showed a lock.
     h.isPlus = false;
+    // PLAN-LOCKED STOPS, BECAUSE THAT IS WHAT A FREE LEARNER IS ACTUALLY SENT.
+    // Added 2026-08-25 when the taste chip learned to ask whether the zone is
+    // already included. This fixture had no planLocked anywhere, which is the
+    // payload shape of a PLUS learner, and under the new rule it read as "this
+    // zone is free in full" and dropped the chip. Production confirms the real
+    // shape: Gujarati greetings positions 2 and 3 carry 0 free rows of 10, so
+    // the server reports them planLocked.
+    for (const zoneId of Object.keys(h.groupsByZone)) {
+      const groups = h.groupsByZone[Number(zoneId)] as Record<string, unknown>[];
+      for (const pos of [1, 2]) {
+        groups[pos] = { ...groups[pos], planLocked: true, phraseCount: 0 };
+      }
+    }
     renderJourney();
 
     // Zone 1 is open, and says it is a taste rather than looking like a bug.

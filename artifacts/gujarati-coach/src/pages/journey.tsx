@@ -1300,6 +1300,17 @@ export default function Journey() {
     // journey 2 and lights up when this page learns to render it.
     const trace = traceStopFor(activeLang, 1, i + 1);
     const withTrace = [...stations];
+    // IS THIS WHOLE ZONE INCLUDED FOR THIS LEARNER? Derived from the phrase
+    // stations the server already sent, never from a hardcoded language list.
+    // Hindi's fare zones 1 and 2 serve free in full (owner ruling 2026-08-24),
+    // and on 2026-08-25 the map was still stamping FREE TASTE on them, which
+    // reads as a sample of something the learner already owns outright. A zone
+    // whose every phrase stop is plan-visible is INCLUDED, so its tracing and
+    // story rows are neither locked nor a taste. Deriving it means a future
+    // widening of the free tier needs no change here, and it cannot drift from
+    // what the server actually serves.
+    const zoneIncluded =
+      stations.length > 0 && stations.every((st) => st.planLocked !== true);
     // Where the tracing row landed, so the story row can sit directly after it.
     // Null when this zone has no tracing stop, which storyStopIndexIn handles.
     let traceIndex: number | null = null;
@@ -1336,8 +1347,10 @@ export default function Journey() {
         // game enforces); every later zone is All-Access. A tracing stop is
         // still never PROGRESSION-locked, which is a different thing: it
         // teaches the alphabet and no phrase stop gates it.
-        planLocked: !isPlus && !(trace.journey === 1 && trace.zone === 1),
-        teaserStation: !isPlus && trace.journey === 1 && trace.zone === 1,
+        planLocked:
+          !isPlus && !zoneIncluded && !(trace.journey === 1 && trace.zone === 1),
+        teaserStation:
+          !isPlus && !zoneIncluded && trace.journey === 1 && trace.zone === 1,
       });
     }
     // THE STORY STOP, straight after the tracing one.
@@ -1375,8 +1388,8 @@ export default function Journey() {
         // The free taste is the FIRST SCENE of the journey 1 zone 1 book, which
         // the server enforces by which concepts it will serve. Never
         // progression-locked: a story teaches nothing a phrase stop gates.
-        planLocked: !isPlus && !isStoryTeaserBook(story),
-        teaserStation: !isPlus && isStoryTeaserBook(story),
+        planLocked: !isPlus && !zoneIncluded && !isStoryTeaserBook(story),
+        teaserStation: !isPlus && !zoneIncluded && isStoryTeaserBook(story),
       });
     }
 

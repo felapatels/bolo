@@ -341,7 +341,12 @@ describe('journey map — station state rendering', () => {
     // planLocked sentence stop in zone 4, not the open one in zone 3.
     expect(screen.getAllByText('ALL-ACCESS').length).toBe(1);
     expect(screen.getByText(/Now boarding/)).toBeOnTheScreen(); // Plus sentence stop is open
-    expect(screen.getAllByText(/Locked · 8 phrases/).length).toBe(3);
+    // TWO, NOT THREE, from 2026-08-25. A plan-locked stop is served a
+    // plan-visible count of ZERO, so "Locked · 0 phrases" was never
+    // information; the web frame has omitted the count on those rows since it
+    // was written and mobile was the twin that never did. The third locked row
+    // here is the planLocked sentence stop, which now reads "Locked" alone.
+    expect(screen.getAllByText(/Locked · 8 phrases/).length).toBe(2);
   });
 
   it('marks the first in-progress/unlocked stop as current, in zone order', () => {
@@ -1201,11 +1206,34 @@ describe('journey map — the tracing stop', () => {
     expect(screen.getAllByText('TRACE').length).toBe(1);
   });
 
-  it('gives a Free learner zone 1 and locks the rest behind All-Access', () => {
+  // A ZONE THE LEARNER ALREADY OWNS CARRIES NO TASTE CHIP. Hindi's fare zones
+  // 1 and 2 serve free in full, so every station is plan-visible and "FREE
+  // TASTE" advertises a sample of something already theirs. Reported from a
+  // device 2026-08-25. Derived from the payload, never from a language list,
+  // so a future widening of the free tier needs no change on the client.
+  it('shows no taste chip in a zone the learner already owns outright', () => {
     mockState.isPlus = false;
     setZones([
       [grp({ status: 'unlocked' }), grp({ status: 'locked' })],
       [grp({ status: 'locked' })],
+      [], [], [], [],
+    ]);
+    render(<JourneyScreen />);
+    expect(screen.queryAllByText('FREE TASTE').length).toBe(0);
+  });
+
+  it('gives a Free learner zone 1 and locks the rest behind All-Access', () => {
+    mockState.isPlus = false;
+    // PLAN-LOCKED STOPS, BECAUSE THAT IS WHAT A FREE LEARNER IS ACTUALLY SENT.
+    // Production check 2026-08-25: Gujarati greetings positions 2 and 3 carry
+    // 0 free rows of 10, so the server reports them planLocked. Without one
+    // here the fixture is a PLUS payload and the zone reads as included.
+    setZones([
+      [
+        grp({ status: 'unlocked' }),
+        grp({ status: 'locked', planLocked: true, phraseCount: 0 }),
+      ],
+      [grp({ status: 'locked', planLocked: true, phraseCount: 0 })],
       [], [], [], [],
     ]);
     render(<JourneyScreen />);
