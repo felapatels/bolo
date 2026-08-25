@@ -12,6 +12,7 @@
 import React from 'react';
 import { Share, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useGetReferral } from '@workspace/api-client-react';
 import { REFERRAL_REWARD_CHAI } from '@workspace/referral-link';
 import { PressableScale } from '@/components/PressableScale';
@@ -21,6 +22,7 @@ import { hapticLight } from '@/lib/haptics';
 import { referralLinkFor } from '@/lib/referral';
 
 export function HomeReferralCard() {
+  const router = useRouter();
   const colors = useColors();
   const { data, isLoading, isError } = useGetReferral();
 
@@ -76,12 +78,31 @@ export function HomeReferralCard() {
           Share invite
         </Text>
       </PressableScale>
+      {/* THE OTHER DIRECTION, and it had no door until 2026-08-24. This card
+          only ever let a learner GIVE their code away; the word "redeem"
+          appeared nowhere in the app, so somebody who installed from a
+          friend's link could never claim it. There are still no universal
+          links, so bolo-india.app/join/CODE opens the website rather than
+          this, which makes a manual way in the only way in. */}
+      <PressableScale
+        testID="home-referral-redeem"
+        accessibilityRole="button"
+        accessibilityLabel="Enter a friend's code"
+        onPress={() => router.push('/join')}
+        style={styles.redeem}
+      >
+        <Text style={[styles.redeemText, { color: colors.mutedForeground }]}>
+          Got a code from a friend?
+        </Text>
+      </PressableScale>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   // Same quiet bordered treatment as the Phrasebook door card on this screen.
+  redeem: { paddingTop: 10, alignItems: 'center' },
+  redeemText: { fontSize: 13, textDecorationLine: 'underline' },
   card: {
     borderRadius: 14,
     borderWidth: 1,
