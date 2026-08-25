@@ -262,7 +262,30 @@ export default function StorybookScreen() {
 
   const frameW = Math.min(width - 32, 520);
   const scale = zoom.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1.98] });
-  const shiftX = zoom.interpolate({ inputRange: [0, 1], outputRange: ['-7%', '-25%'] });
+  /**
+   * THE COMPENSATING SHIFT, and it is arithmetic rather than a magic number.
+   *
+   * REACT NATIVE HAS NO transform-origin. It always scales about the CENTRE,
+   * where the web twin sets the origin to the RIGHT PAGE's centre (75% 50%) so
+   * the push lands on the picture. Ported straight across, the phone scaled
+   * about the middle of the spread and the book drifted off frame, which is
+   * exactly what it did on first look.
+   *
+   * So the origin has to be faked with a translate. The right page's centre
+   * sits a QUARTER OF THE BOOK'S WIDTH right of the book's centre, so bringing
+   * it back to the middle of the frame means shifting left by that much. React
+   * Native composes [{scale},{translateX}] like CSS `scale() translateX()`,
+   * which SCALES the translate, so the constant is frameW/4 rather than
+   * frameW/4 times the scale.
+   *
+   * AND translateX TAKES POINTS, NOT PERCENTAGES. The first version passed
+   * '-7%' and '-25%', which React Native does not accept on a transform, so
+   * the compensation was dropped entirely and only the scale survived.
+   */
+  const shiftX = zoom.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -frameW / 4],
+  });
 
   const advance = useCallback(() => {
     if (!scene || !picked || !book || !activeLang) return;
@@ -387,7 +410,10 @@ export default function StorybookScreen() {
             <Animated.View
               style={{
                 width: frameW,
-                transform: [{ translateX: shiftX }, { scale }],
+                // scale FIRST, then translate, so the shift above is scaled
+                // with it. Reversing these two moves the book by a constant
+                // and the picture never lands centred.
+                transform: [{ scale }, { translateX: shiftX }],
               }}
             >
               <View style={[s.book, { width: frameW, height: frameW / 3 }]}>
