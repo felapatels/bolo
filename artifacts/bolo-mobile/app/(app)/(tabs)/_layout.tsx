@@ -33,7 +33,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { ChatRecordingProvider, useChatRecording } from '@/components/ChatRecordingContext';
 
 // ---------------------------------------------------------------------------
@@ -367,33 +366,40 @@ function TabIcon({
 }
 
 // ---------------------------------------------------------------------------
-// Language switcher tab — the 5th slot. Opens the language picker rather than
-// navigating to a tab screen (Profile is reachable from the top-right button
-// on Home, where the friend-request badge also lives now). Mirrors the web
-// nav's language item: globe icon + uppercase active-language code.
+// The Feed shortcut, the 5th slot. Pushes to the board rather than navigating
+// to a tab screen, which is the same shape as the language switcher it
+// replaced on 2026-08-25.
+//
+// IT TOOK THE LANGUAGE SLOT ON PURPOSE. The board was reachable only through
+// the home social strip, which is a burial for the app's whole social surface.
+// Language was the slot to give up because it is the only one that was never a
+// destination: it keeps three other ways in on this platform, Home's language
+// pill, the Account screen and GlobeButton, so nothing was stranded.
+//
+// Lands on ?tab=feed so the label names what appears. Weekly XP and Streak are
+// the other two tabs on that screen, one tap away on its own strip.
 // ---------------------------------------------------------------------------
-function LanguageTabButton({ style }: BoloTabButtonProps) {
+function FeedTabButton({ style }: BoloTabButtonProps) {
   const colors = useColors();
   const router = useRouter();
-  const { activeLang } = useLanguage();
   return (
     <Pressable
       onPress={() => {
         hapticLight();
-        router.push('/(app)/language');
+        router.push('/(app)/leaderboard?tab=feed');
       }}
       accessibilityRole="button"
-      accessibilityLabel="Change language"
+      accessibilityLabel="Feed"
       style={(state) => [
         typeof style === 'function' ? style(state) : style,
-        styles.langTabItem,
+        styles.pushTabItem,
       ]}
     >
       <View style={styles.iconPill}>
-        <Feather name="globe" size={20} color={colors.mutedForeground} />
+        <Feather name="activity" size={20} color={colors.mutedForeground} />
       </View>
-      <Text style={[styles.langTabCode, { color: colors.mutedForeground }]}>
-        {activeLang}
+      <Text style={[styles.pushTabLabel, { color: colors.mutedForeground }]}>
+        Feed
       </Text>
     </Pressable>
   );
@@ -407,17 +413,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  langTabItem: {
+  pushTabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
   },
-  langTabCode: {
+  // Matches tabBarLabelStyle rather than the uppercase language code it
+  // replaced: this slot now reads as a word beside four other words.
+  pushTabLabel: {
     fontFamily: AppFonts.semibold,
-    fontSize: 11,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+    fontSize: 12,
   },
   boloOuter: {
     flex: 1,
@@ -565,15 +571,18 @@ export default function TabsLayout() {
           ),
         }}
       />
-      {/* 5th slot — language switcher (opens the picker). The Profile screen
+      {/* 5th slot: the Feed shortcut, swapped in for the language switcher on
+          2026-08-25. The registration stays on `profile` because the slot needs
+          a screen to hang off and that is the one already here; the button
+          navigates elsewhere, exactly as the switcher it replaced did. Profile
           stays reachable from the top-right button on Home, which also carries
-          the friend-request badge now. */}
+          the friend-request badge. */}
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Language',
+          title: 'Profile',
           headerShown: false,
-          tabBarButton: (props) => <LanguageTabButton {...props} />,
+          tabBarButton: (props) => <FeedTabButton {...props} />,
         }}
       />
     </Tabs>

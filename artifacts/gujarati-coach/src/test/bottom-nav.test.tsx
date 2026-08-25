@@ -21,8 +21,9 @@ vi.mock("@/components/XpCounter", () => ({
   XpCounter: () => null,
 }));
 
-// BottomNav shows Home, Games, Bolo (chat), and Progress tabs.
+// BottomNav shows Home, Games, Bolo (chat), Progress and Feed.
 // Friends moved to the Account/Profile page so is no longer in the bottom nav.
+// Feed took the language switcher's slot on 2026-08-25.
 // Imported after the mock is declared.
 import { BottomNav } from "@/components/layout/bottom-nav";
 
@@ -70,6 +71,24 @@ describe("BottomNav destinations", () => {
 
     const gamesLink = screen.getByRole("link", { name: /Games/i });
     expect(gamesLink).toHaveClass("text-primary");
+  });
+
+  test("renders Feed, which took the language switcher's slot", () => {
+    renderNav(<BottomNav />);
+
+    // ADDED 2026-08-25. The fifth slot was a globe language switcher and the
+    // board was reachable only from the home social strip, which buried the
+    // whole social surface. Language was safe to take out of this bar because
+    // it was never a destination: the sidebar picker and the home page one
+    // both remain.
+    expect(screen.getByRole("link", { name: /Feed/i })).toBeInTheDocument();
+  });
+
+  test("highlights Feed when on the /leaderboard route", () => {
+    renderNav(<BottomNav />, "/leaderboard");
+
+    const feedLink = screen.getByRole("link", { name: /Feed/i });
+    expect(feedLink).toHaveClass("text-secondary");
   });
 
   test("highlights Progress when on the /progress route", () => {

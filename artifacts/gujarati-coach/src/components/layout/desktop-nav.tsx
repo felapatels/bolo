@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Trophy, Gamepad2, Crown, LogOut, Settings, type LucideIcon } from "lucide-react";
+import { Home, Trophy, Gamepad2, Crown, LogOut, Settings, Newspaper, type LucideIcon } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
 import { XpCounter } from "@/components/XpCounter";
 import { cn } from "@/lib/utils";
@@ -30,6 +30,10 @@ const NAV_ITEMS: NavItem[] = [
     activeClass: "text-primary",
   },
   { href: "/progress", label: "Progress", icon: Trophy, activeClass: "text-secondary" },
+  // Added 2026-08-25 alongside the same item on the bottom nav, where it took
+  // the language switcher's slot. The sidebar had room, so nothing came out
+  // here and its language picker stays where it is.
+  { href: "/leaderboard?tab=feed", label: "Feed", icon: Newspaper, activeClass: "text-secondary" },
 ];
 
 /**
@@ -75,7 +79,12 @@ export function DesktopNav() {
       {/* Primary destinations */}
       <nav className="flex flex-1 flex-col gap-1.5 px-4">
         {NAV_ITEMS.map((item) => {
-          const active = location === item.href || (item.href === "/games" && location.startsWith("/games"));
+          // Feed's href carries a query string and wouter's location never
+          // does, so that one can only ever match on the path.
+          const active =
+            location === item.href ||
+            (item.href === "/games" && location.startsWith("/games")) ||
+            (item.href.startsWith("/leaderboard") && location.startsWith("/leaderboard"));
           return (
             <Link
               key={item.href}

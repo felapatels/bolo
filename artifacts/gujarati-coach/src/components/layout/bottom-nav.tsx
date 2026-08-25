@@ -1,14 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { Home, Trophy, Gamepad2, Globe } from "lucide-react";
+import { Home, Trophy, Gamepad2, Newspaper } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LanguagePicker } from "@/components/language-picker";
-import { useLanguage } from "@/lib/language-context";
 import { XpCounter } from "@/components/XpCounter";
 import { Mascot } from "@/components/mascot";
 
 export function BottomNav() {
   const [location] = useLocation();
-  const { activeLang } = useLanguage();
   const chatActive = location === "/chat";
 
   return (
@@ -117,20 +114,30 @@ export function BottomNav() {
           <span className="text-[10px] font-bold tracking-wide">Progress</span>
         </Link>
 
-        {/* Globe language switcher — smaller/muted so it doesn't compete with the four primary tabs */}
-        <div className="flex flex-col items-center justify-center w-full h-full">
-          <LanguagePicker
-            trigger={
-              <button
-                className="flex flex-col items-center gap-1 text-muted-foreground/70 dark:text-muted-foreground hover:text-muted-foreground transition-colors button-spring"
-                aria-label="Change language"
-              >
-                <Globe className="w-5 h-5" strokeWidth={1.75} />
-                <span className="text-[9px] font-bold tracking-wide uppercase">{activeLang}</span>
-              </button>
-            }
-          />
-        </div>
+        {/* Feed took the language switcher's slot on 2026-08-25, so the board
+            stops being reachable only through the home social strip. Language
+            was the one thing here that was never a destination, and it keeps
+            the sidebar picker at lg and up plus the one on the home page. The
+            mobile bar makes the identical trade, on purpose: these two bars
+            mirror each other and a difference here reads as a bug.
+            Lands on ?tab=feed so the label names what appears; Weekly XP and
+            Streak sit on that screen's own strip, one tap away. */}
+        <Link
+          href="/leaderboard?tab=feed"
+          className={cn(
+            "flex flex-col items-center justify-center w-full h-full gap-1 transition-colors button-spring",
+            location === "/leaderboard" ? "text-secondary" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <span
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-full p-1 transition-all",
+            )}
+          >
+            <Newspaper className="w-6 h-6" strokeWidth={location === "/leaderboard" ? 2.5 : 2} />
+          </span>
+          <span className="text-[10px] font-bold tracking-wide">Feed</span>
+        </Link>
       </div>
     </div>
   );

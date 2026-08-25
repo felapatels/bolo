@@ -4,10 +4,11 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 // ---------------------------------------------------------------------------
 // Guards two things:
 //
-//  1. Language switcher tab — the 5th slot is a custom tabBarButton showing the
-//     globe icon plus the active-language code; pressing it opens the language
-//     picker instead of navigating to a tab screen. (The friend-request badge
-//     moved to the Home header's Account button; see home screen tests.)
+//  1. Feed tab — the 5th slot is a custom tabBarButton showing an activity
+//     icon and the word Feed; pressing it opens the board instead of
+//     navigating to a tab screen. It replaced the language switcher on
+//     2026-08-25. (The friend-request badge moved to the Home header's Account
+//     button; see home screen tests.)
 //
 //  2. Orientation stability — the BoloTabButton receives its slot width via the
 //     `style` prop forwarded by the tab bar renderer.  When the device rotates,
@@ -36,7 +37,8 @@ jest.mock('@workspace/api-client-react', () => ({
   getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
 }));
 
-// LanguageTabButton reads the active language code for its label.
+// Kept after FeedTabButton replaced LanguageTabButton on 2026-08-25: the
+// layout no longer reads this context itself, but the tree below it still can.
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({ activeLang: 'hi' }),
 }));
@@ -354,27 +356,36 @@ describe('Centre tab label', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Language switcher tab (5th slot)
+// Feed tab (5th slot)
 //
-// The Profile tab slot became the language switcher: a globe icon plus the
-// uppercase active-language code that opens the language picker. Profile stays
-// reachable from the Home header, which now also carries the friend badge.
+// INVERTED ON 2026-08-25 RATHER THAN DELETED. This block asserted a globe
+// button carrying the uppercase active-language code, which pushed to
+// /(app)/language. The slot now carries Feed, which pushes to the board,
+// because the board was reachable only through the home social strip and that
+// buried the whole social surface.
+//
+// The language picker was safe to take out of the bar precisely because it was
+// never a destination: Home's language pill, the Account screen and
+// GlobeButton all still open it. The assertion below pins that the slot is no
+// longer the switcher, so a revert has to be deliberate.
 // ---------------------------------------------------------------------------
 
-describe('Language switcher tab', () => {
-  test('renders the globe button with the active language code', () => {
+describe('Feed tab', () => {
+  test('renders the Feed button and no language switcher', () => {
     render(<TabsLayout />);
 
-    expect(screen.getByLabelText('Change language')).toBeTruthy();
-    // The code renders lowercase in the tree; textTransform uppercases it visually.
-    expect(screen.getByText('hi')).toBeTruthy();
+    expect(screen.getByLabelText('Feed')).toBeTruthy();
+    expect(screen.getByText('Feed')).toBeTruthy();
+    expect(screen.queryByLabelText('Change language')).toBeNull();
   });
 
-  test('pressing it opens the language picker instead of navigating tabs', () => {
+  test('pressing it opens the board on its feed tab, not a tab screen', () => {
     render(<TabsLayout />);
 
-    fireEvent.press(screen.getByLabelText('Change language'));
-    expect(mockPush).toHaveBeenCalledWith('/(app)/language');
+    fireEvent.press(screen.getByLabelText('Feed'));
+    // ?tab=feed on purpose: the label names what appears, and the board's other
+    // two tabs sit on the strip one tap away.
+    expect(mockPush).toHaveBeenCalledWith('/(app)/leaderboard?tab=feed');
   });
 
   test('survives an orientation change', () => {
@@ -384,7 +395,7 @@ describe('Language switcher tab', () => {
     mockState.slotWidth = 140;
     rerender(<TabsLayout />);
 
-    expect(screen.getByLabelText('Change language')).toBeTruthy();
-    expect(screen.getByText('hi')).toBeTruthy();
+    expect(screen.getByLabelText('Feed')).toBeTruthy();
+    expect(screen.getByText('Feed')).toBeTruthy();
   });
 });
