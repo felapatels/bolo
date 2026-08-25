@@ -27,6 +27,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
   useListCategoryPhrases,
@@ -216,6 +217,21 @@ export default function EmergencyScreen() {
     <View style={[s.root, { backgroundColor: colors.background }]}>
       {phase === 'picker' && (
         <ScrollView contentContainerStyle={s.pad} testID="emergency-picker">
+      {/* BACK, and every screen in the games stack has to supply its own: the
+          stack sets headerShown: false so the tab bar stays visible, which
+          means there is no system chrome to fall back on. Reported missing on
+          device 2026-08-24 by somebody who had come in from the Games hub and
+          could not get out. Same treatment as Phrasebook and Leaderboard. */}
+      <Pressable
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        testID="emergency-back"
+        hitSlop={10}
+        style={[s.backBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+      >
+        <Feather name="arrow-left" size={20} color={colors.foreground} />
+      </Pressable>
           <Text style={[s.h1, { color: colors.foreground }]}>Beat the Train</Text>
           <Text style={[s.sub, { color: colors.mutedForeground }]}>How many phrases?</Text>
           {DRILL_LENGTHS.map((n) => (
@@ -374,6 +390,16 @@ function styles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     root: { flex: 1 },
     pad: { padding: 16, gap: 10 },
+    backBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 6,
+    },
+
     padCenter: { padding: 24, gap: 12, alignItems: 'center', paddingTop: 60 },
     stage: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' },
     h1: { fontFamily: AppFonts.extrabold, fontSize: 22 },

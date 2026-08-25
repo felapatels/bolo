@@ -44,6 +44,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import {
   useGetStoryBook,
@@ -334,6 +335,21 @@ export default function StorybookScreen() {
       contentContainerStyle={s.pad}
       testID="storybook-screen"
     >
+      {/* BACK, and every screen in the games stack has to supply its own: the
+          stack sets headerShown: false so the tab bar stays visible, which
+          means there is no system chrome to fall back on. Reported missing on
+          device 2026-08-24 by somebody who had come in from the Games hub and
+          could not get out. Same treatment as Phrasebook and Leaderboard. */}
+      <Pressable
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        testID="storybook-back"
+        hitSlop={10}
+        style={[s.backBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+      >
+        <Feather name="arrow-left" size={20} color={colors.foreground} />
+      </Pressable>
       <Text style={[s.h1, { color: colors.foreground }]}>{book.title}</Text>
 
       {isLoading && (
@@ -514,6 +530,15 @@ export default function StorybookScreen() {
 const s = StyleSheet.create({
   root: { flex: 1 },
   pad: { padding: 16, gap: 10, paddingBottom: 40 },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
   gap: { gap: 10 },
   h1: { fontFamily: AppFonts.extrabold, fontSize: 21 },
   h2: { fontFamily: AppFonts.extrabold, fontSize: 18 },
