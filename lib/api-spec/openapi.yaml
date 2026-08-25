@@ -1261,9 +1261,24 @@ paths:
             type: string
             enum: [all-time, week]
             default: all-time
+        - name: scope
+          in: query
+          required: false
+          description: >-
+            Whose numbers to show. `friends` (the default, and the behaviour of
+            every client that predates this parameter) is the caller's accepted
+            friends. `all` is every learner who has opted in by SETTING A
+            USERNAME and has not since turned `shareStats` off. Eligibility is
+            enforced in the query, so a learner without a username never
+            appears. A global row carries the learner's `username` and never
+            their private `displayName`.
+          schema:
+            type: string
+            enum: [friends, all]
+            default: friends
       responses:
         "200":
-          description: The friends leaderboard, ranked highest XP first
+          description: The leaderboard, ranked highest XP first
           content:
             application/json:
               schema:
@@ -1294,9 +1309,24 @@ paths:
             minimum: 1
             maximum: 50
             default: 20
+        - name: scope
+          in: query
+          required: false
+          description: >-
+            Whose numbers to show. `friends` (the default, and the behaviour of
+            every client that predates this parameter) is the caller's accepted
+            friends. `all` is every learner who has opted in by SETTING A
+            USERNAME and has not since turned `shareStats` off. Eligibility is
+            enforced in the query, so a learner without a username never
+            appears. A global row carries the learner's `username` and never
+            their private `displayName`.
+          schema:
+            type: string
+            enum: [friends, all]
+            default: friends
       responses:
         "200":
-          description: The friends activity feed, newest first
+          description: The activity feed, newest first
           content:
             application/json:
               schema:
@@ -1611,6 +1641,53 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: Phrase not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /users/{id}/report-username:
+    post:
+      operationId: reportUsername
+      tags: [friends]
+      summary: Flag another learner's public name
+      description: >-
+        Stores a username report (reason + optional note) in username_reports.
+        The username is COPIED at write time, not joined later: the point of a
+        report is the string that was on screen when it was made. The other
+        half of the public-name safety story, alongside the write-time
+        profanity screen, which catches the obvious and nothing else.
+        Fire-and-forget: beyond the rolling-hour cap (20 per reporter) the
+        server returns { success: true } and stores nothing. Nothing here hides
+        a name; a report is an inbox, not an enforcement action.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The learner being reported.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsernameReportInput"
+      responses:
+        "200":
+          description: Report stored (or silently dropped over the cap)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhraseReportResult"
+        "400":
+          description: Invalid reason or note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such learner, or they have no public name
           content:
             application/json:
               schema:
@@ -2798,11 +2875,24 @@ components:
         avatarUrl:
           type: string
           nullable: true
+        username:
+          type: string
+          nullable: true
+          description: >-
+            The learner's public name, null until they set one. NULL IS ALSO
+            THE PROMPT SIGNAL: every account begins null, including accounts
+            years old, so a client that prompts on null prompts every existing
+            learner exactly once.
+        shareStats:
+          type: boolean
+          description: False when the learner has opted out of every global surface.
       required:
         - id
         - email
         - displayName
         - avatarUrl
+        - username
+        - shareStats
 
     AccountNotificationPreferences:
       type: object
@@ -3068,6 +3158,21 @@ components:
         avatarUrl:
           type: string
           nullable: true
+        username:
+          type: string
+          description: >-
+            The learner's PUBLIC name, seen by strangers on the global feed and
+            board. Distinct from `displayName`, which is private and is what
+            Bolo calls them. Screened server-side for shape, reserved words and
+            profanity, and unique case-insensitively; a refusal comes back as
+            400 with a sentence to show the learner, and a name already taken
+            as 409.
+        shareStats:
+          type: boolean
+          description: >-
+            False keeps the learner off every global surface while KEEPING their
+            username, for someone who named themselves and later wants out
+            without erasing the name.
 
     UpdatePreferencesInput:
       type: object
@@ -5131,6 +5236,19 @@ components:
       required:
         - reason
 
+    UsernameReportInput:
+      type: object
+      properties:
+        reason:
+          type: string
+          enum: [offensive, impersonation, personal_information, other]
+        note:
+          type: string
+          maxLength: 280
+          description: Optional free-text note, never required.
+      required:
+        - reason
+
     PhraseReportResult:
       type: object
       properties:
@@ -5674,15 +5792,23 @@ components:
     FeedActor:
       type: object
       description: >-
-        The friend a feed entry is about. Display name and mascot only: a feed
-        never carries an email address, because a friend code is deliberately
-        the only way to find another learner.
+        The learner a feed entry is about. Name and mascot only: a feed never
+        carries an email address, because a friend code is deliberately the
+        only way to find another learner.
       properties:
         userId:
           type: string
         displayName:
           type: string
           nullable: true
+          description: >-
+            The name to render. On `scope=friends` it is the learner's private
+            display name; on `scope=all` it carries the USERNAME instead, and
+            the private display name is never sent.
+        username:
+          type: string
+          nullable: true
+          description: The learner's public name, or null if they never set one.
         equippedOutfit:
           type: string
           nullable: true
@@ -5745,13 +5871,24 @@ components:
 
     LeaderboardEntry:
       type: object
-      description: One learner's standing on the friends leaderboard.
+      description: One learner's standing on the leaderboard.
       properties:
         userId:
           type: string
         displayName:
           type: string
           nullable: true
+          description: >-
+            The name to render for this row. On `scope=friends` it is the
+            learner's private display name, which is right because friends know
+            each other. On `scope=all` it carries the USERNAME instead, and the
+            private display name is never sent.
+        username:
+          type: string
+          nullable: true
+          description: >-
+            The learner's public name, or null if they have never set one. A
+            row on the global board always has one, by construction.
         xp:
           type: integer
           description: >-

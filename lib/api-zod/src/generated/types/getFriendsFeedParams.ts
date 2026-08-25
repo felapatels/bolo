@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { GetFriendsFeedScope } from './getFriendsFeedScope';
 
 export type GetFriendsFeedParams = {
 /**
@@ -13,4 +14,8 @@ export type GetFriendsFeedParams = {
  * @maximum 50
  */
 limit?: number;
+/**
+ * Whose numbers to show. `friends` (the default, and the behaviour of every client that predates this parameter) is the caller's accepted friends. `all` is every learner who has opted in by SETTING A USERNAME and has not since turned `shareStats` off. Eligibility is enforced in the query, so a learner without a username never appears. A global row carries the learner's `username` and never their private `displayName`.
+ */
+scope?: GetFriendsFeedScope;
 };

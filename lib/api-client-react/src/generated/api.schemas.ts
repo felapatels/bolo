@@ -72,6 +72,10 @@ export interface AccountProfile {
   email: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  /** The learner's public name, null until they set one. NULL IS ALSO THE PROMPT SIGNAL: every account begins null, including accounts years old, so a client that prompts on null prompts every existing learner exactly once. */
+  username: string | null;
+  /** False when the learner has opted out of every global surface. */
+  shareStats: boolean;
 }
 
 export interface AccountNotificationPreferences {
@@ -188,6 +192,10 @@ export interface AccountPreferencesResult {
 export interface UpdateProfileInput {
   displayName?: string;
   avatarUrl?: string | null;
+  /** The learner's PUBLIC name, seen by strangers on the global feed and board. Distinct from `displayName`, which is private and is what Bolo calls them. Screened server-side for shape, reserved words and profanity, and unique case-insensitively; a refusal comes back as 400 with a sentence to show the learner, and a name already taken as 409. */
+  username?: string;
+  /** False keeps the learner off every global surface while KEEPING their username, for someone who named themselves and later wants out without erasing the name. */
+  shareStats?: boolean;
 }
 
 export type UpdatePreferencesInputTheme = typeof UpdatePreferencesInputTheme[keyof typeof UpdatePreferencesInputTheme];
@@ -1361,6 +1369,25 @@ export interface PhraseReportInput {
   note?: string;
 }
 
+export type UsernameReportInputReason = typeof UsernameReportInputReason[keyof typeof UsernameReportInputReason];
+
+
+export const UsernameReportInputReason = {
+  offensive: 'offensive',
+  impersonation: 'impersonation',
+  personal_information: 'personal_information',
+  other: 'other',
+} as const;
+
+export interface UsernameReportInput {
+  reason: UsernameReportInputReason;
+  /**
+     * Optional free-text note, never required.
+     * @maxLength 280
+     */
+  note?: string;
+}
+
 export interface PhraseReportResult {
   success: boolean;
 }
@@ -1695,11 +1722,14 @@ export interface TokenSpendResult {
 }
 
 /**
- * The friend a feed entry is about. Display name and mascot only: a feed never carries an email address, because a friend code is deliberately the only way to find another learner.
+ * The learner a feed entry is about. Name and mascot only: a feed never carries an email address, because a friend code is deliberately the only way to find another learner.
  */
 export interface FeedActor {
   userId: string;
+  /** The name to render. On `scope=friends` it is the learner's private display name; on `scope=all` it carries the USERNAME instead, and the private display name is never sent. */
   displayName: string | null;
+  /** The learner's public name, or null if they never set one. */
+  username?: string | null;
   /** The outfit this friend's Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. */
   equippedOutfit: string | null;
   /** The head accessory this friend's Bolo is wearing, or null. A separate slot from the garment. */
@@ -1729,11 +1759,14 @@ export interface FeedEntry {
 }
 
 /**
- * One learner's standing on the friends leaderboard.
+ * One learner's standing on the leaderboard.
  */
 export interface LeaderboardEntry {
   userId: string;
+  /** The name to render for this row. On `scope=friends` it is the learner's private display name, which is right because friends know each other. On `scope=all` it carries the USERNAME instead, and the private display name is never sent. */
   displayName: string | null;
+  /** The learner's public name, or null if they have never set one. A row on the global board always has one, by construction. */
+  username?: string | null;
   /** XP summed across every language from the XP ledger, over the requested window. All-time includes the pre-ledger backfill; the weekly window excludes it. */
   xp: number;
   /** This learner's current streak in days, read the same way every other streak surface reads it (their own time zone, covers included). Also the first tie-break when two learners are level on XP. */
@@ -1782,6 +1815,10 @@ export type GetFriendsLeaderboardParams = {
  * Which stretch of time the XP is summed over. `all-time` (the default) covers every ledger row including the pre-ledger backfill. `week` covers the current UTC week, from Monday 00:00 UTC, and excludes backfill rows because they carry the backfill's own timestamp rather than the day the XP was earned.
  */
 window?: GetFriendsLeaderboardWindow;
+/**
+ * Whose numbers to show. `friends` (the default, and the behaviour of every client that predates this parameter) is the caller's accepted friends. `all` is every learner who has opted in by SETTING A USERNAME and has not since turned `shareStats` off. Eligibility is enforced in the query, so a learner without a username never appears. A global row carries the learner's `username` and never their private `displayName`.
+ */
+scope?: GetFriendsLeaderboardScope;
 };
 
 export type GetFriendsLeaderboardWindow = typeof GetFriendsLeaderboardWindow[keyof typeof GetFriendsLeaderboardWindow];
@@ -1792,6 +1829,14 @@ export const GetFriendsLeaderboardWindow = {
   week: 'week',
 } as const;
 
+export type GetFriendsLeaderboardScope = typeof GetFriendsLeaderboardScope[keyof typeof GetFriendsLeaderboardScope];
+
+
+export const GetFriendsLeaderboardScope = {
+  friends: 'friends',
+  all: 'all',
+} as const;
+
 export type GetFriendsFeedParams = {
 /**
  * How many events to return. Defaults to 20 and is capped at 50; a malformed value falls back to the default rather than erroring.
@@ -1799,7 +1844,19 @@ export type GetFriendsFeedParams = {
  * @maximum 50
  */
 limit?: number;
+/**
+ * Whose numbers to show. `friends` (the default, and the behaviour of every client that predates this parameter) is the caller's accepted friends. `all` is every learner who has opted in by SETTING A USERNAME and has not since turned `shareStats` off. Eligibility is enforced in the query, so a learner without a username never appears. A global row carries the learner's `username` and never their private `displayName`.
+ */
+scope?: GetFriendsFeedScope;
 };
+
+export type GetFriendsFeedScope = typeof GetFriendsFeedScope[keyof typeof GetFriendsFeedScope];
+
+
+export const GetFriendsFeedScope = {
+  friends: 'friends',
+  all: 'all',
+} as const;
 
 export type GetScriptTraceProgressParams = {
 /**

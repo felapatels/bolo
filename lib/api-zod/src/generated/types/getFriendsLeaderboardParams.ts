@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { GetFriendsLeaderboardScope } from './getFriendsLeaderboardScope';
 import type { GetFriendsLeaderboardWindow } from './getFriendsLeaderboardWindow';
 
 export type GetFriendsLeaderboardParams = {
@@ -12,4 +13,8 @@ export type GetFriendsLeaderboardParams = {
  * Which stretch of time the XP is summed over. `all-time` (the default) covers every ledger row including the pre-ledger backfill. `week` covers the current UTC week, from Monday 00:00 UTC, and excludes backfill rows because they carry the backfill's own timestamp rather than the day the XP was earned.
  */
 window?: GetFriendsLeaderboardWindow;
+/**
+ * Whose numbers to show. `friends` (the default, and the behaviour of every client that predates this parameter) is the caller's accepted friends. `all` is every learner who has opted in by SETTING A USERNAME and has not since turned `shareStats` off. Eligibility is enforced in the query, so a learner without a username never appears. A global row carries the learner's `username` and never their private `displayName`.
+ */
+scope?: GetFriendsLeaderboardScope;
 };

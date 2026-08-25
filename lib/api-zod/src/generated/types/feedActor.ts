@@ -7,11 +7,14 @@
  */
 
 /**
- * The friend a feed entry is about. Display name and mascot only: a feed never carries an email address, because a friend code is deliberately the only way to find another learner.
+ * The learner a feed entry is about. Name and mascot only: a feed never carries an email address, because a friend code is deliberately the only way to find another learner.
  */
 export interface FeedActor {
   userId: string;
+  /** The name to render. On `scope=friends` it is the learner's private display name; on `scope=all` it carries the USERNAME instead, and the private display name is never sent. */
   displayName: string | null;
+  /** The learner's public name, or null if they never set one. */
+  username?: string | null;
   /** The outfit this friend's Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. */
   equippedOutfit: string | null;
   /** The head accessory this friend's Bolo is wearing, or null. A separate slot from the garment. */

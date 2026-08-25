@@ -669,7 +669,9 @@ export const GetAccountResponse = zod.object({
   "id": zod.string(),
   "email": zod.string().nullable(),
   "displayName": zod.string().nullable(),
-  "avatarUrl": zod.string().nullable()
+  "avatarUrl": zod.string().nullable(),
+  "username": zod.string().nullable().describe('The learner\'s public name, null until they set one. NULL IS ALSO THE PROMPT SIGNAL: every account begins null, including accounts years old, so a client that prompts on null prompts every existing learner exactly once.'),
+  "shareStats": zod.boolean().describe('False when the learner has opted out of every global surface.')
 }).describe('The learner\'s identity fields, mirrored from Clerk.'),
   "preferences": zod.object({
   "notifications": zod.object({
@@ -714,7 +716,9 @@ export const DeleteAccountResponse = zod.object({
  */
 export const UpdateAccountProfileBody = zod.object({
   "displayName": zod.string().optional(),
-  "avatarUrl": zod.string().nullish()
+  "avatarUrl": zod.string().nullish(),
+  "username": zod.string().optional().describe('The learner\'s PUBLIC name, seen by strangers on the global feed and board. Distinct from `displayName`, which is private and is what Bolo calls them. Screened server-side for shape, reserved words and profanity, and unique case-insensitively; a refusal comes back as 400 with a sentence to show the learner, and a name already taken as 409.'),
+  "shareStats": zod.boolean().optional().describe('False keeps the learner off every global surface while KEEPING their username, for someone who named themselves and later wants out without erasing the name.')
 }).describe('Any subset of the editable profile fields.')
 
 export const UpdateAccountProfileResponse = zod.object({
@@ -722,7 +726,9 @@ export const UpdateAccountProfileResponse = zod.object({
   "id": zod.string(),
   "email": zod.string().nullable(),
   "displayName": zod.string().nullable(),
-  "avatarUrl": zod.string().nullable()
+  "avatarUrl": zod.string().nullable(),
+  "username": zod.string().nullable().describe('The learner\'s public name, null until they set one. NULL IS ALSO THE PROMPT SIGNAL: every account begins null, including accounts years old, so a client that prompts on null prompts every existing learner exactly once.'),
+  "shareStats": zod.boolean().describe('False when the learner has opted out of every global surface.')
 }).describe('The learner\'s identity fields, mirrored from Clerk.')
 })
 
@@ -1071,14 +1077,17 @@ export const SendFriendInviteResponse = zod.object({
  * @summary The caller and their friends ranked by XP
  */
 export const getFriendsLeaderboardQueryWindowDefault = `all-time`;
+export const getFriendsLeaderboardQueryScopeDefault = `friends`;
 
 export const GetFriendsLeaderboardQueryParams = zod.object({
-  "window": zod.enum(['all-time', 'week']).default(getFriendsLeaderboardQueryWindowDefault).describe('Which stretch of time the XP is summed over. `all-time` (the default) covers every ledger row including the pre-ledger backfill. `week` covers the current UTC week, from Monday 00:00 UTC, and excludes backfill rows because they carry the backfill\'s own timestamp rather than the day the XP was earned.')
+  "window": zod.enum(['all-time', 'week']).default(getFriendsLeaderboardQueryWindowDefault).describe('Which stretch of time the XP is summed over. `all-time` (the default) covers every ledger row including the pre-ledger backfill. `week` covers the current UTC week, from Monday 00:00 UTC, and excludes backfill rows because they carry the backfill\'s own timestamp rather than the day the XP was earned.'),
+  "scope": zod.enum(['friends', 'all']).default(getFriendsLeaderboardQueryScopeDefault).describe('Whose numbers to show. `friends` (the default, and the behaviour of every client that predates this parameter) is the caller\'s accepted friends. `all` is every learner who has opted in by SETTING A USERNAME and has not since turned `shareStats` off. Eligibility is enforced in the query, so a learner without a username never appears. A global row carries the learner\'s `username` and never their private `displayName`.')
 })
 
 export const GetFriendsLeaderboardResponseItem = zod.object({
   "userId": zod.string(),
-  "displayName": zod.string().nullable(),
+  "displayName": zod.string().nullable().describe('The name to render for this row. On `scope=friends` it is the learner\'s private display name, which is right because friends know each other. On `scope=all` it carries the USERNAME instead, and the private display name is never sent.'),
+  "username": zod.string().nullish().describe('The learner\'s public name, or null if they have never set one. A row on the global board always has one, by construction.'),
   "xp": zod.number().describe('XP summed across every language from the XP ledger, over the requested window. All-time includes the pre-ledger backfill; the weekly window excludes it.'),
   "currentStreakDays": zod.number().describe('This learner\'s current streak in days, read the same way every other streak surface reads it (their own time zone, covers included). Also the first tie-break when two learners are level on XP.'),
   "reachedAt": zod.coerce.date().nullable().describe('When this learner last earned XP in the window, which is when they reached the total shown. The final tie-break: level on XP and level on streak, whoever got there first ranks higher. Null for a learner with no XP in the window.'),
@@ -1087,7 +1096,7 @@ export const GetFriendsLeaderboardResponseItem = zod.object({
   "equippedOutfit": zod.string().nullish().describe('The outfit this learner\'s Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird. Carried on the row so friend and leaderboard lists render each learner\'s mascot without a per-row fetch. Optional: older clients that predate outfits on rows simply ignore it.'),
   "equippedAccessory": zod.string().nullish().describe('The head accessory this learner\'s Bolo is wearing, or null. A garment and an accessory are separate slots, so a row that shipped only the garment would show a pagdi-wearing friend bare-headed.'),
   "firstClassActive": zod.boolean().describe('Whether this learner\'s First Class window is open right now, resolved server-side from the expiry the spend wrote. A boolean and never the timestamp: a friend\'s exact expiry is not the reader\'s business, and a countdown on someone else\'s row is noise.')
-}).describe('One learner\'s standing on the friends leaderboard.')
+}).describe('One learner\'s standing on the leaderboard.')
 export const GetFriendsLeaderboardResponse = zod.array(GetFriendsLeaderboardResponseItem)
 
 
@@ -1098,10 +1107,11 @@ export const GetFriendsLeaderboardResponse = zod.array(GetFriendsLeaderboardResp
 export const getFriendsFeedQueryLimitDefault = 20;
 export const getFriendsFeedQueryLimitMax = 50;
 
-
+export const getFriendsFeedQueryScopeDefault = `friends`;
 
 export const GetFriendsFeedQueryParams = zod.object({
-  "limit": zod.coerce.number().min(1).max(getFriendsFeedQueryLimitMax).default(getFriendsFeedQueryLimitDefault).describe('How many events to return. Defaults to 20 and is capped at 50; a malformed value falls back to the default rather than erroring.')
+  "limit": zod.coerce.number().min(1).max(getFriendsFeedQueryLimitMax).default(getFriendsFeedQueryLimitDefault).describe('How many events to return. Defaults to 20 and is capped at 50; a malformed value falls back to the default rather than erroring.'),
+  "scope": zod.enum(['friends', 'all']).default(getFriendsFeedQueryScopeDefault).describe('Whose numbers to show. `friends` (the default, and the behaviour of every client that predates this parameter) is the caller\'s accepted friends. `all` is every learner who has opted in by SETTING A USERNAME and has not since turned `shareStats` off. Eligibility is enforced in the query, so a learner without a username never appears. A global row carries the learner\'s `username` and never their private `displayName`.')
 })
 
 export const GetFriendsFeedResponseItem = zod.object({
@@ -1112,11 +1122,12 @@ export const GetFriendsFeedResponseItem = zod.object({
   "createdAt": zod.coerce.date(),
   "actor": zod.object({
   "userId": zod.string(),
-  "displayName": zod.string().nullable(),
+  "displayName": zod.string().nullable().describe('The name to render. On `scope=friends` it is the learner\'s private display name; on `scope=all` it carries the USERNAME instead, and the private display name is never sent.'),
+  "username": zod.string().nullish().describe('The learner\'s public name, or null if they never set one.'),
   "equippedOutfit": zod.string().nullable().describe('The outfit this friend\'s Bolo is wearing (see OutfitCatalog ids), or null for the canonical undressed bird.'),
   "equippedAccessory": zod.string().nullable().describe('The head accessory this friend\'s Bolo is wearing, or null. A separate slot from the garment.'),
   "firstClassActive": zod.boolean().describe('Whether this friend\'s First Class window is open right now. A boolean, never the expiry timestamp.')
-}).describe('The friend a feed entry is about. Display name and mascot only: a feed never carries an email address, because a friend code is deliberately the only way to find another learner.')
+}).describe('The learner a feed entry is about. Name and mascot only: a feed never carries an email address, because a friend code is deliberately the only way to find another learner.')
 }).describe('One moment from a friend\'s activity log.')
 export const GetFriendsFeedResponse = zod.array(GetFriendsFeedResponseItem)
 
@@ -1314,6 +1325,28 @@ export const ReportPhraseBody = zod.object({
 })
 
 export const ReportPhraseResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
+ * Stores a username report (reason + optional note) in username_reports. The username is COPIED at write time, not joined later: the point of a report is the string that was on screen when it was made. The other half of the public-name safety story, alongside the write-time profanity screen, which catches the obvious and nothing else. Fire-and-forget: beyond the rolling-hour cap (20 per reporter) the server returns { success: true } and stores nothing. Nothing here hides a name; a report is an inbox, not an enforcement action.
+ * @summary Flag another learner's public name
+ */
+export const ReportUsernameParams = zod.object({
+  "id": zod.coerce.string().describe('The learner being reported.')
+})
+
+export const reportUsernameBodyNoteMax = 280;
+
+
+
+export const ReportUsernameBody = zod.object({
+  "reason": zod.enum(['offensive', 'impersonation', 'personal_information', 'other']),
+  "note": zod.string().max(reportUsernameBodyNoteMax).optional().describe('Optional free-text note, never required.')
+})
+
+export const ReportUsernameResponse = zod.object({
   "success": zod.boolean()
 })
 

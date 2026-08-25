@@ -134,6 +134,7 @@ import type {
   UpdatePreferencesInput,
   UpdateProfileInput,
   UpgradeRequired,
+  UsernameReportInput,
   VoiceListResult,
   ZoneStamp,
   ZoneTestoutInput
@@ -3936,6 +3937,79 @@ export const useReportPhrase = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getReportPhraseMutationOptions(options));
+    }
+
+export const getReportUsernameUrl = (id: string,) => {
+
+
+
+
+  return `/api/users/${id}/report-username`
+}
+
+/**
+ * Stores a username report (reason + optional note) in username_reports. The username is COPIED at write time, not joined later: the point of a report is the string that was on screen when it was made. The other half of the public-name safety story, alongside the write-time profanity screen, which catches the obvious and nothing else. Fire-and-forget: beyond the rolling-hour cap (20 per reporter) the server returns { success: true } and stores nothing. Nothing here hides a name; a report is an inbox, not an enforcement action.
+ * @summary Flag another learner's public name
+ */
+export const reportUsername = async (id: string,
+    usernameReportInput: UsernameReportInput, options?: RequestInit): Promise<PhraseReportResult> => {
+
+  return customFetch<PhraseReportResult>(getReportUsernameUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(usernameReportInput)
+  }
+);}
+
+
+
+
+
+export const getReportUsernameMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportUsername>>, TError,{id: string;data: BodyType<UsernameReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportUsername>>, TError,{id: string;data: BodyType<UsernameReportInput>}, TContext> => {
+
+const mutationKey = ['reportUsername'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportUsername>>, {id: string;data: BodyType<UsernameReportInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reportUsername(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportUsernameMutationResult = NonNullable<Awaited<ReturnType<typeof reportUsername>>>
+    export type ReportUsernameMutationBody = BodyType<UsernameReportInput>
+    export type ReportUsernameMutationError = ErrorType<Error>
+
+    /**
+ * @summary Flag another learner's public name
+ */
+export const useReportUsername = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportUsername>>, TError,{id: string;data: BodyType<UsernameReportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reportUsername>>,
+        TError,
+        {id: string;data: BodyType<UsernameReportInput>},
+        TContext
+      > => {
+      return useMutation(getReportUsernameMutationOptions(options));
     }
 
 export const getListTtsVoicesUrl = () => {

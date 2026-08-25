@@ -14,4 +14,8 @@ export interface AccountProfile {
   email: string | null;
   displayName: string | null;
   avatarUrl: string | null;
+  /** The learner's public name, null until they set one. NULL IS ALSO THE PROMPT SIGNAL: every account begins null, including accounts years old, so a client that prompts on null prompts every existing learner exactly once. */
+  username: string | null;
+  /** False when the learner has opted out of every global surface. */
+  shareStats: boolean;
 }

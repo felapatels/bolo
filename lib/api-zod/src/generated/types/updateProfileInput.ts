@@ -12,4 +12,8 @@
 export interface UpdateProfileInput {
   displayName?: string;
   avatarUrl?: string | null;
+  /** The learner's PUBLIC name, seen by strangers on the global feed and board. Distinct from `displayName`, which is private and is what Bolo calls them. Screened server-side for shape, reserved words and profanity, and unique case-insensitively; a refusal comes back as 400 with a sentence to show the learner, and a name already taken as 409. */
+  username?: string;
+  /** False keeps the learner off every global surface while KEEPING their username, for someone who named themselves and later wants out without erasing the name. */
+  shareStats?: boolean;
 }

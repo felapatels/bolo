@@ -7,11 +7,14 @@
  */
 
 /**
- * One learner's standing on the friends leaderboard.
+ * One learner's standing on the leaderboard.
  */
 export interface LeaderboardEntry {
   userId: string;
+  /** The name to render for this row. On `scope=friends` it is the learner's private display name, which is right because friends know each other. On `scope=all` it carries the USERNAME instead, and the private display name is never sent. */
   displayName: string | null;
+  /** The learner's public name, or null if they have never set one. A row on the global board always has one, by construction. */
+  username?: string | null;
   /** XP summed across every language from the XP ledger, over the requested window. All-time includes the pre-ledger backfill; the weekly window excludes it. */
   xp: number;
   /** This learner's current streak in days, read the same way every other streak surface reads it (their own time zone, covers included). Also the first tie-break when two learners are level on XP. */
