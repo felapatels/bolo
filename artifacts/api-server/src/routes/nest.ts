@@ -72,6 +72,34 @@ router.get("/nest/redirect", (req: Request, res: Response): void => {
  */
 type NestSummary = {
   generatedAt: string;
+  // ── LIVE, added 2026-08-25 ──
+  //
+  // The cockpit had only 30-day counts, which is a shape that cannot answer
+  // "is anything happening right now". These are the same table, cut short.
+  //
+  // THERE IS NO VISITOR COUNT HERE AND THAT IS NOT AN OVERSIGHT. Visitors are
+  // a PAGEVIEW measure and this project captures none: PostHog's schema shows
+  // $pageview and $screen both unseen in 30 days, so a "visitors" tile would
+  // be a number invented on the client's behalf. What the app does own is
+  // ACTIVITY, and activity is what these count. If visitors are wanted, the
+  // work is capturing pageviews first, not reading a metric that has never
+  // been recorded.
+  activeNow: number;
+  activeNowExclOwner: number;
+  activeToday: number;
+  activeTodayExclOwner: number;
+  active7d: number;
+  active7dExclOwner: number;
+  newUsersToday: number;
+  newUsers7d: number;
+  attemptsToday: number;
+  attemptsTodayExclOwner: number;
+  sessionsToday: number;
+  eventsToday: number;
+  /** Learners who have chosen a public name, so the global feed can see them. */
+  usernamesSet: number;
+  /** Of those, the ones still sharing. The gap is people who opted back out. */
+  usernamesSharing: number;
   usersTotal: number;
   usersExclOwner: number;
   active30d: number;
@@ -95,7 +123,11 @@ type NestSummary = {
  * fresher; the cache exists so a page left open on a second monitor does not
  * run a dozen aggregate queries a minute against production.
  */
-const CACHE_MS = 60_000;
+// LOWERED FROM 60s TO 20s on 2026-08-25, when the summary grew live counts.
+// A minute-old "active right now" is not right now, and the whole point of the
+// hour window is that it moves while you watch it. Still a cache: a page left
+// open on a second monitor must not run these aggregates once a second.
+const CACHE_MS = 20_000;
 let cached: { at: number; value: NestSummary } | null = null;
 
 router.get("/nest/summary", async (req: Request, res: Response): Promise<void> => {
@@ -127,6 +159,43 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
     // connections' worth of latency for a page that opens on every glance.
     const rows = await db.execute(sql`
       select
+        -- LIVE. An hour is the window that answers "is anybody on it now"
+        -- without being so short that a quiet minute reads as nobody.
+        (select count(distinct user_id) from attempts
+          where created_at > now() - interval '60 minutes')::int                 as active_now,
+        (select count(distinct user_id) from attempts
+          where created_at > now() - interval '60 minutes'
+            and ${notOwner('user_id')})::int                                     as active_now_excl_owner,
+        (select count(distinct user_id) from attempts
+          where created_at > now() - interval '24 hours')::int                   as active_today,
+        (select count(distinct user_id) from attempts
+          where created_at > now() - interval '24 hours'
+            and ${notOwner('user_id')})::int                                     as active_today_excl_owner,
+        (select count(distinct user_id) from attempts
+          where created_at > now() - interval '7 days')::int                     as active_7d,
+        (select count(distinct user_id) from attempts
+          where created_at > now() - interval '7 days'
+            and ${notOwner('user_id')})::int                                     as active_7d_excl_owner,
+        (select count(*) from users
+          where created_at > now() - interval '24 hours'
+            and ${notOwner('id')})::int                                          as new_users_today,
+        (select count(*) from users
+          where created_at > now() - interval '7 days'
+            and ${notOwner('id')})::int                                          as new_users_7d,
+        (select count(*) from attempts
+          where created_at > now() - interval '24 hours')::int                   as attempts_today,
+        (select count(*) from attempts
+          where created_at > now() - interval '24 hours'
+            and ${notOwner('user_id')})::int                                     as attempts_today_excl_owner,
+        (select count(*) from game_sessions
+          where created_at > now() - interval '24 hours')::int                   as sessions_today,
+        (select count(*) from activity_events
+          where created_at > now() - interval '24 hours')::int                   as events_today,
+        -- The global feed's own population, which is the number that says
+        -- whether the username gate is actually being walked through.
+        (select count(*) from users where username is not null)::int             as usernames_set,
+        (select count(*) from users
+          where username is not null and share_stats)::int                       as usernames_sharing,
         (select count(*) from users)::int                                        as users_total,
         (select count(*) from users where ${notOwner('id')})::int                as users_excl_owner,
         (select count(distinct user_id) from attempts
@@ -165,6 +234,20 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
 
     const value: NestSummary = {
       generatedAt: new Date().toISOString(),
+      activeNow: n("active_now"),
+      activeNowExclOwner: n("active_now_excl_owner"),
+      activeToday: n("active_today"),
+      activeTodayExclOwner: n("active_today_excl_owner"),
+      active7d: n("active_7d"),
+      active7dExclOwner: n("active_7d_excl_owner"),
+      newUsersToday: n("new_users_today"),
+      newUsers7d: n("new_users_7d"),
+      attemptsToday: n("attempts_today"),
+      attemptsTodayExclOwner: n("attempts_today_excl_owner"),
+      sessionsToday: n("sessions_today"),
+      eventsToday: n("events_today"),
+      usernamesSet: n("usernames_set"),
+      usernamesSharing: n("usernames_sharing"),
       usersTotal: n("users_total"),
       usersExclOwner: n("users_excl_owner"),
       active30d: n("active_30d"),

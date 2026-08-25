@@ -1315,6 +1315,24 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     if (!s) { host.innerHTML = ""; return; }
     var ex = state.excludeOwn;
     var t = [
+      /* LIVE FIRST, added 2026-08-25. The cockpit only had 30-day counts,
+         which cannot answer "is anything happening right now".
+         NO VISITORS TILE, deliberately: visitors are a pageview measure and
+         this project captures no pageviews at all ($pageview unseen in 30
+         days), so the number would be invented. These count ACTIVITY, which
+         the app actually owns. */
+      [ex ? s.activeNowExclOwner : s.activeNow, "Active right now",
+       "attempts in the last hour"],
+      [ex ? s.activeTodayExclOwner : s.activeToday, "Active today",
+       fmt(ex ? s.active7dExclOwner : s.active7d) + " in the last 7 days"],
+      [s.newUsersToday, "New accounts today",
+       fmt(s.newUsers7d) + " in the last 7 days, yours removed"],
+      [ex ? s.attemptsTodayExclOwner : s.attemptsToday, "Attempts today",
+       fmt(s.sessionsToday) + " game sessions, " + fmt(s.eventsToday) + " feed moments"],
+      [s.usernamesSharing, "On the Everyone board",
+       s.usernamesSet === s.usernamesSharing
+         ? fmt(s.usernamesSet) + " have picked a username"
+         : fmt(s.usernamesSet) + " picked a name, " + fmt(s.usernamesSet - s.usernamesSharing) + " opted back out"],
       [ex ? s.usersExclOwner : s.usersTotal, "Registered accounts",
        ex ? "yours removed, " + fmt(s.usersTotal) + " in total" : fmt(s.usersExclOwner) + " are not yours"],
       [ex ? s.active30dExclOwner : s.active30d, "Active in 30 days",
