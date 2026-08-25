@@ -228,6 +228,23 @@ INVITE_CTA_URL = "https://bolo-india.app"
 RESEND_FROM = "hello@bolo-india.app"
 
 [userenv.production]
+# Chunk 4 cross-zone progression gate, switched on 2026-08-25 at the owner's
+# direction ("flip it, nobody is there now"). A zone now unlocks only when the
+# preceding one is complete for that learner and language, which is what stops
+# stop 1 of zones 3 and up standing open before zone 2 is finished.
+#
+# PRODUCTION SCOPE ONLY, AND DELIBERATELY NOT SHARED. The api suite runs
+# against the DEVELOPMENT database from the Repl Shell, and its unlock tests
+# assume the gate is off, flipping it per-test through
+# __setCrossZoneGateForTests. Putting this in [userenv.shared] would turn it on
+# under the suite and fail them for the wrong reason.
+#
+# featureFlags.ts warned this "MUST stay false until a store-approved mobile
+# build containing the zone test-out entry point is live". The store build is
+# still 1.0.0, so that condition is NOT met; the owner waived it on the grounds
+# that nobody is on that build. The escape valve is the whole-zone test-out,
+# drawn as link-zone-test-out-{i} on a gate-locked zone.
+CROSS_ZONE_GATE_ENABLED = "true"
 CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsuYm9sby1pbmRpYS5hcHAk"
 VITE_CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsuYm9sby1pbmRpYS5hcHAk"
 SENTRY_DSN = "https://c857e6d43ad5d219bf68a3281015841c@o4511813816352768.ingest.us.sentry.io/4511813821792256"
