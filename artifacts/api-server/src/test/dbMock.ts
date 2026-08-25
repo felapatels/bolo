@@ -85,6 +85,7 @@ export function createDbMockExports(
     lessonGroupTestoutsTable: {},
     lessonsTable: {},
     phraseReportsTable: {},
+    usernameReportsTable: {},
     pushTokensTable: {},
     phrasesTable: {},
     referralRedemptionsTable: {},
@@ -121,9 +122,11 @@ export function createDbMockExports(
     insertZoneTestoutSchema: {},
     insertLessonSchema: {},
     insertPhraseReportSchema: {},
+    insertUsernameReportSchema: {},
     insertPhraseSchema: {},
     lessonGenerationKindEnum: {},
     PHRASE_REPORT_REASONS: [],
+    USERNAME_REPORT_REASONS: [],
 
     // Phrase-text normalization: the real implementations, not stubs. They are
     // pure string helpers the barrel re-exports, and callers under test rely

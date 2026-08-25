@@ -15,6 +15,7 @@ import contactRouter from "./contact";
 import nestRouter from "./nest";
 import scriptTraceRouter from "./scriptTrace";
 import phraseReportsRouter from "./phraseReports";
+import usernameReportsRouter from "./usernameReports";
 import tokensRouter from "./tokens";
 import chaiPacksRouter from "./chaiPacks";
 import outfitsRouter from "./outfits";
@@ -86,6 +87,10 @@ router.use(friendsRouter);
 router.use(referralRouter);
 // Spec B2: phrase incorrectness reports (fire-and-forget, silently throttled).
 router.use(phraseReportsRouter);
+// Username reports: the other half of the public-name safety story, alongside
+// the write-time screen in lib/usernamePolicy.ts. Authed and behind the same
+// gate as the rest: you can only report a name you were shown.
+router.use(usernameReportsRouter);
 // Real Stripe checkout / billing-portal session creation for the web paywall.
 router.use(stripeRouter);
 // Family plan management (seats, invites, join). Available to every

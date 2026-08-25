@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, boolean, integer, date, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // Local mirror of the authenticated user, keyed by the Clerk user id.
 // Rows are provisioned just-in-time on the first authenticated request.
@@ -110,8 +111,30 @@ export const usersTable = pgTable("users", {
   // exception is referral redemption, which auto-friends instantly because
   // redeeming someone's link is already an explicit act by both parties.
   referralCode: text("referral_code"),
+  // ── The public identity, added 2026-08-25 ──
+  //
+  // `username` is what OTHER LEARNERS see on the global feed and board. It is
+  // deliberately NOT displayName: that is the private nickname the app uses to
+  // talk to you ("what should Bolo call you"), it was collected while it was
+  // private, and quietly making it public would publish a name nobody chose to
+  // publish.
+  //
+  // NULL IS THE GATE. A learner with no username does not appear in anything
+  // global, at all. That is the whole consent model: the global view is on by
+  // default, and it shows nothing of yours until you deliberately pick a name
+  // to be seen under. Bolo teaches children, so opting in by an act is the
+  // right shape and a checkbox defaulted on is not.
+  //
+  // Unique, case-insensitively, via a lower() index. Postgres unique indexes
+  // ignore NULLs, so every learner without one coexists fine.
+  username: text("username"),
+  // Set false to stay out of every global surface while KEEPING a username.
+  // Distinct from having no username: this is the learner who named themselves
+  // and later wanted out, and they should not have to erase the name to leave.
+  shareStats: boolean("share_stats").notNull().default(true),
 }, (t) => [
   uniqueIndex("users_referral_code_idx").on(t.referralCode),
+  uniqueIndex("users_username_lower_idx").on(sql`lower(${t.username})`),
 ]);
 
 export type User = typeof usersTable.$inferSelect;

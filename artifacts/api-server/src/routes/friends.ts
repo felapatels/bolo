@@ -19,6 +19,7 @@ import {
   ne,
   or,
   inArray,
+  isNotNull,
   sql,
   sum,
 } from "drizzle-orm";
@@ -63,6 +64,18 @@ interface UserSummary {
   // canonical undressed bird — never a blank or a fallback initial.
   equippedOutfit: string | null;
   equippedAccessory: string | null;
+  /**
+   * The PUBLIC name, or null for a learner who has never set one.
+   *
+   * Carried separately from displayName and never conflated with it.
+   * displayName is the private nickname Bolo calls them by; username is what
+   * strangers may see. A global payload sends the username and NEVER the
+   * displayName, which is the whole reason there are two fields here rather
+   * than one that changes meaning by scope.
+   */
+  username: string | null;
+  /** False when the learner has opted out of every global surface. */
+  shareStats: boolean;
   // Whether this learner's First Class window is open RIGHT NOW. A boolean,
   // never the expiry timestamp: when somebody else's status runs out is not
   // the reader's business, and a countdown on a friend's row is noise on a
@@ -77,6 +90,8 @@ interface UserSummary {
 function toSummary(u: {
   id: string;
   displayName: string | null;
+  username?: string | null;
+  shareStats?: boolean | null;
   timezone?: string | null;
   equippedOutfit?: string | null;
   equippedAccessory?: string | null;
@@ -85,6 +100,11 @@ function toSummary(u: {
   return {
     id: u.id,
     displayName: u.displayName,
+    username: u.username ?? null,
+    // Defaults TRUE to match the column, but a caller that did not select it
+    // is not evidence of consent: every global query filters on the column
+    // itself, never on this field.
+    shareStats: u.shareStats ?? true,
     timezone: u.timezone ?? null,
     equippedOutfit: u.equippedOutfit ?? null,
     equippedAccessory: u.equippedAccessory ?? null,
@@ -110,6 +130,8 @@ async function loadUserSummaries(
     .select({
       id: usersTable.id,
       displayName: usersTable.displayName,
+      username: usersTable.username,
+      shareStats: usersTable.shareStats,
       timezone: usersTable.timezone,
       equippedOutfit: userTokenStateTable.equippedOutfit,
       equippedAccessory: userTokenStateTable.equippedAccessory,
@@ -126,6 +148,8 @@ function unknownSummary(id: string): UserSummary {
   return {
     id,
     displayName: null,
+    username: null,
+    shareStats: false,
     timezone: null,
     equippedOutfit: null,
     equippedAccessory: null,
@@ -661,6 +685,25 @@ function utcWeekStart(now: Date): Date {
   return midnight;
 }
 
+/**
+ * Whose numbers a board or feed is showing.
+ *
+ * "friends" is the original behaviour and stays the meaning of an absent
+ * parameter, so every client that predates 2026-08-25 keeps working unchanged.
+ * "all" is every learner who has opted in by SETTING A USERNAME and has not
+ * since opted out.
+ */
+export type BoardScope = "friends" | "all";
+
+/**
+ * How many rows the global board returns.
+ *
+ * Bounded at the QUERY, never trimmed after: the streak read below is one load
+ * per learner by construction, so an unbounded id list turns this route into a
+ * scan of the entire user table the day the app has real numbers on it.
+ */
+const GLOBAL_BOARD_LIMIT = 50;
+
 // GET /friends/leaderboard — the caller plus their accepted friends, ranked by
 // XP, highest first. The caller's own entry is flagged with `isSelf` so clients
 // can highlight their position.
@@ -690,31 +733,89 @@ router.get(
     const userId = getUserId(req);
     const window: LeaderboardWindow =
       req.query.window === "week" ? "week" : "all-time";
+    const scope: BoardScope = req.query.scope === "all" ? "all" : "friends";
 
-    const friendIds = await loadAcceptedFriendIds(userId);
-    // The board is the caller AND their friends; the feed is friends only.
-    const ids = [userId, ...friendIds];
+    const windowFilters = () => {
+      const f = [];
+      if (window === "week") {
+        f.push(gte(xpLedgerTable.createdAt, utcWeekStart(new Date())));
+        f.push(ne(xpLedgerTable.source, "bootstrap"));
+      }
+      return f;
+    };
 
-    const xpFilters = [inArray(xpLedgerTable.userId, ids)];
-    if (window === "week") {
-      xpFilters.push(gte(xpLedgerTable.createdAt, utcWeekStart(new Date())));
-      xpFilters.push(ne(xpLedgerTable.source, "bootstrap"));
+    type XpRow = { userId: string; totalXp: number; reachedAt: string | null };
+    const totalXp = sql<number>`COALESCE(SUM(${xpLedgerTable.xp}), 0)`;
+    // When the learner's cumulative XP last moved, which for a total is the
+    // moment they reached it. Used only as the final tie-break.
+    const reachedAtCol = sql<string | null>`MAX(${xpLedgerTable.createdAt})`;
+
+    let ids: string[];
+    let xpRows: XpRow[];
+    if (scope === "all") {
+      // THE GLOBAL BOARD IS BOUNDED AT THE QUERY, not trimmed afterwards. The
+      // per-learner streak read below is one load each by construction, so an
+      // unbounded id list would turn this route into a scan of the whole user
+      // table the day the app has any users. Top N by XP, then hydrate.
+      //
+      // ELIGIBILITY IS THE CONSENT GATE AND IT LIVES IN THE WHERE CLAUSE: a
+      // username set, and share_stats still true. Never a filter applied to
+      // rows already fetched, because the row that leaks is the one somebody
+      // forgot to filter.
+      const top = await db
+        .select({ userId: xpLedgerTable.userId, totalXp, reachedAt: reachedAtCol })
+        .from(xpLedgerTable)
+        .innerJoin(usersTable, eq(usersTable.id, xpLedgerTable.userId))
+        .where(
+          and(
+            isNotNull(usersTable.username),
+            eq(usersTable.shareStats, true),
+            ...windowFilters(),
+          ),
+        )
+        .groupBy(xpLedgerTable.userId)
+        .orderBy(desc(totalXp))
+        .limit(GLOBAL_BOARD_LIMIT);
+      xpRows = top.map((r) => ({ ...r, totalXp: Number(r.totalXp) }));
+      ids = xpRows.map((r) => r.userId);
+      // The caller sees their own row even from outside the top slice, but
+      // only if they are eligible: a learner with no username is not on this
+      // board, including to themselves, which is what makes the gate legible.
+      if (!ids.includes(userId)) {
+        const [me] = await db
+          .select({ id: usersTable.id })
+          .from(usersTable)
+          .where(
+            and(
+              eq(usersTable.id, userId),
+              isNotNull(usersTable.username),
+              eq(usersTable.shareStats, true),
+            ),
+          )
+          .limit(1);
+        if (me) {
+          const [mine] = await db
+            .select({ userId: xpLedgerTable.userId, totalXp, reachedAt: reachedAtCol })
+            .from(xpLedgerTable)
+            .where(and(eq(xpLedgerTable.userId, userId), ...windowFilters()))
+            .groupBy(xpLedgerTable.userId);
+          ids = [...ids, userId];
+          if (mine) xpRows = [...xpRows, { ...mine, totalXp: Number(mine.totalXp) }];
+        }
+      }
+    } else {
+      const friendIds = await loadAcceptedFriendIds(userId);
+      // The board is the caller AND their friends; the feed is friends only.
+      ids = [userId, ...friendIds];
+      const rows = await db
+        .select({ userId: xpLedgerTable.userId, totalXp, reachedAt: reachedAtCol })
+        .from(xpLedgerTable)
+        .where(and(inArray(xpLedgerTable.userId, ids), ...windowFilters()))
+        .groupBy(xpLedgerTable.userId);
+      xpRows = rows.map((r) => ({ ...r, totalXp: Number(r.totalXp) }));
     }
 
-    const [summaries, xpRows] = await Promise.all([
-      loadUserSummaries(ids),
-      db
-        .select({
-          userId: xpLedgerTable.userId,
-          totalXp: sql<number>`COALESCE(SUM(${xpLedgerTable.xp}), 0)`,
-          // When the learner's cumulative XP last moved, which for a total is
-          // the moment they reached it. Used only as the final tie-break.
-          reachedAt: sql<string | null>`MAX(${xpLedgerTable.createdAt})`,
-        })
-        .from(xpLedgerTable)
-        .where(and(...xpFilters))
-        .groupBy(xpLedgerTable.userId),
-    ]);
+    const summaries = await loadUserSummaries(ids);
 
     const xpByUser = new Map<string, number>();
     const reachedAtByUser = new Map<string, number>();
@@ -745,7 +846,14 @@ router.get(
       const summary = summaries.get(id) ?? unknownSummary(id);
       return {
         userId: id,
-        displayName: summary.displayName,
+        // A GLOBAL ROW CARRIES THE USERNAME AND NEVER THE DISPLAY NAME. The
+        // display name is the private nickname collected while it was private;
+        // sending it to strangers is the exact failure this whole feature is
+        // shaped to avoid, and doing it in a field called displayName is how
+        // it would happen without anybody noticing. On the friends board the
+        // display name is right: they know each other.
+        displayName: scope === "all" ? summary.username : summary.displayName,
+        username: summary.username,
         // The row's mascot, carried by the leaderboard payload itself so no
         // row has to fetch anything of its own.
         equippedOutfit: summary.equippedOutfit,
@@ -826,30 +934,59 @@ router.get(
   async (req: Request, res: Response): Promise<void> => {
     const userId = getUserId(req);
     const limit = parseFeedLimit(req.query.limit);
+    const scope: BoardScope = req.query.scope === "all" ? "all" : "friends";
 
-    const friendIds = await loadAcceptedFriendIds(userId);
-    // No friends, no feed. Skipping the query also keeps `inArray` off an
-    // empty list, which no dialect answers usefully.
-    if (friendIds.length === 0) {
-      res.json([]);
-      return;
+    const cols = {
+      id: activityEventsTable.id,
+      userId: activityEventsTable.userId,
+      type: activityEventsTable.type,
+      refId: activityEventsTable.refId,
+      payload: activityEventsTable.payload,
+      createdAt: activityEventsTable.createdAt,
+    };
+
+    // THE GLOBAL FEED IS A JOIN, NOT A LIST OF IDS. Eligibility (a username
+    // set, share_stats still true) is a WHERE clause on the users row, so a
+    // learner who has never opted in cannot appear even transiently, and a
+    // learner who opts out disappears on their next read. Filtering fetched
+    // rows instead would work right up until somebody forgot to.
+    //
+    // The caller is excluded from BOTH scopes, for the reason the friends feed
+    // already gives: a feed is for reading about other people, and your own
+    // equip echoed back is noise on a screen that already celebrated it.
+    let rows;
+    if (scope === "all") {
+      rows = await db
+        .select(cols)
+        .from(activityEventsTable)
+        .innerJoin(usersTable, eq(usersTable.id, activityEventsTable.userId))
+        .where(
+          and(
+            isNotNull(usersTable.username),
+            eq(usersTable.shareStats, true),
+            ne(activityEventsTable.userId, userId),
+          ),
+        )
+        // id breaks the tie: two events written in the same transaction share
+        // a timestamp, and a feed that reorders them between reads looks
+        // broken.
+        .orderBy(desc(activityEventsTable.createdAt), desc(activityEventsTable.id))
+        .limit(limit);
+    } else {
+      const friendIds = await loadAcceptedFriendIds(userId);
+      // No friends, no feed. Skipping the query also keeps `inArray` off an
+      // empty list, which no dialect answers usefully.
+      if (friendIds.length === 0) {
+        res.json([]);
+        return;
+      }
+      rows = await db
+        .select(cols)
+        .from(activityEventsTable)
+        .where(inArray(activityEventsTable.userId, friendIds))
+        .orderBy(desc(activityEventsTable.createdAt), desc(activityEventsTable.id))
+        .limit(limit);
     }
-
-    const rows = await db
-      .select({
-        id: activityEventsTable.id,
-        userId: activityEventsTable.userId,
-        type: activityEventsTable.type,
-        refId: activityEventsTable.refId,
-        payload: activityEventsTable.payload,
-        createdAt: activityEventsTable.createdAt,
-      })
-      .from(activityEventsTable)
-      .where(inArray(activityEventsTable.userId, friendIds))
-      // id breaks the tie: two events written in the same transaction share a
-      // timestamp, and a feed that reorders them between reads looks broken.
-      .orderBy(desc(activityEventsTable.createdAt), desc(activityEventsTable.id))
-      .limit(limit);
 
     // One summary load for the whole page, keyed by actor, so a page of twenty
     // events by the same friend still costs one query.
@@ -868,7 +1005,14 @@ router.get(
           createdAt: row.createdAt.toISOString(),
           actor: {
             userId: summary.id,
-            displayName: summary.displayName,
+            // A GLOBAL ROW CARRIES THE USERNAME AND NEVER THE DISPLAY NAME.
+            // Same rule as the board, and stated twice on purpose: the display
+            // name was collected while it was private, and sending it to
+            // strangers in a field called displayName is how it would leak
+            // without anybody noticing.
+            displayName:
+              scope === "all" ? summary.username : summary.displayName,
+            username: summary.username,
             equippedOutfit: summary.equippedOutfit,
             equippedAccessory: summary.equippedAccessory,
             firstClassActive: summary.firstClassActive,

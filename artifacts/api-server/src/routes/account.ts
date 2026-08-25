@@ -23,7 +23,8 @@ import {
   contactSubmissionsTable,
   type User,
 } from "@workspace/db";
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, ne, or, sql } from "drizzle-orm";
+import { usernameProblem } from "../lib/usernamePolicy";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { resolvePlan, type ResolvedPlan } from "../lib/entitlements";
 import { VALID_VOICE_IDS } from "../lib/languageVoice";
@@ -88,6 +89,20 @@ function profileOf(user: User) {
     email: user.email,
     displayName: user.displayName,
     avatarUrl: user.avatarUrl,
+    /**
+     * The PUBLIC name, null until the learner sets one.
+     *
+     * NULL IS ALSO THE PROMPT SIGNAL. Every account, new or years old, starts
+     * with null here, so a client that prompts on null prompts EVERY existing
+     * learner exactly once. Asked for 2026-08-25: "make sure existing accounts
+     * are prompted for public username at next login too, even if they already
+     * set a name before" — and the reason it is a separate field rather than a
+     * promotion of displayName is precisely that: the old name was chosen while
+     * it was private, and publishing it is not ours to do on their behalf.
+     */
+    username: user.username,
+    /** False when the learner keeps a username but stays off global surfaces. */
+    shareStats: user.shareStats,
   };
 }
 
@@ -172,7 +187,9 @@ export function createAccountRouter(
       const body = (req.body ?? {}) as Record<string, unknown>;
       const hasDisplayName = "displayName" in body;
       const hasAvatar = "avatarUrl" in body;
-      if (!hasDisplayName && !hasAvatar) {
+      const hasUsername = "username" in body;
+      const hasShareStats = "shareStats" in body;
+      if (!hasDisplayName && !hasAvatar && !hasUsername && !hasShareStats) {
         res.status(400).json({ error: "Nothing to update" });
         return;
       }
@@ -200,6 +217,51 @@ export function createAccountRouter(
         set.displayName = displayName;
       }
 
+      if (hasUsername) {
+        // THE PUBLIC NAME. Screened here and nowhere else that matters: a
+        // client may check as it types for a kinder form, but the server is
+        // what decides, because a client check is a suggestion.
+        const raw = body.username;
+        if (typeof raw !== "string") {
+          res.status(400).json({ error: "username must be a string" });
+          return;
+        }
+        const username = raw.trim();
+        const problem = usernameProblem(username);
+        if (problem) {
+          res.status(400).json({ error: problem });
+          return;
+        }
+        // Case-insensitive uniqueness, checked here for the message and
+        // enforced by users_username_lower_idx for the truth. Two learners
+        // submitting the same name in the same instant is exactly what the
+        // index is for; the catch below turns that into the same sentence.
+        const [taken] = await db
+          .select({ id: usersTable.id })
+          .from(usersTable)
+          .where(
+            and(
+              sql`lower(${usersTable.username}) = lower(${username})`,
+              ne(usersTable.id, id),
+            ),
+          )
+          .limit(1);
+        if (taken) {
+          res.status(409).json({ error: "That username is taken. Please pick another." });
+          return;
+        }
+        set.username = username;
+      }
+
+      if (hasShareStats) {
+        const raw = body.shareStats;
+        if (typeof raw !== "boolean") {
+          res.status(400).json({ error: "shareStats must be true or false" });
+          return;
+        }
+        set.shareStats = raw;
+      }
+
       if (hasAvatar) {
         const raw = body.avatarUrl;
         if (raw !== null && typeof raw !== "string") {
@@ -209,11 +271,23 @@ export function createAccountRouter(
         set.avatarUrl = raw === null ? null : raw.trim() || null;
       }
 
-      const [updated] = await db
-        .update(usersTable)
-        .set(set)
-        .where(eq(usersTable.id, id))
-        .returning();
+      let updated: User;
+      try {
+        [updated] = await db
+          .update(usersTable)
+          .set(set)
+          .where(eq(usersTable.id, id))
+          .returning();
+      } catch (err) {
+        // The unique index is the authority on a taken name, and it is the one
+        // that wins a race the SELECT above cannot see. Same sentence either
+        // way: the learner does not care which layer refused.
+        if (String(err).includes("users_username_lower_idx")) {
+          res.status(409).json({ error: "That username is taken. Please pick another." });
+          return;
+        }
+        throw err;
+      }
       res.json({ profile: profileOf(updated) });
     },
   );

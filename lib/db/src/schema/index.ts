@@ -17,6 +17,7 @@ export * from "./friendCodeAttempts";
 export * from "./familyPlans";
 export * from "./contactSubmissions";
 export * from "./phraseReports";
+export * from "./usernameReports";
 export * from "./scriptTraceContributions";
 export * from "./scriptTraceProgress";
 export * from "./dailyQuizzes";
