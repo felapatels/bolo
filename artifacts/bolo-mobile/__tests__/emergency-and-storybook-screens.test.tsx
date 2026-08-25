@@ -49,6 +49,13 @@ jest.mock('react-native-svg', () => {
   return { __esModule: true, default: Stub, Svg: Stub, Path: Stub };
 });
 
+// Both screens reserve the notch themselves, because the games stack has no
+// header. Outside a SafeAreaProvider the real hook THROWS rather than
+// returning zeroes, which is correct of it and a hard failure here.
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
+}));
+
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({
     activeLang: 'hi',

@@ -155,13 +155,18 @@ export const GAMES: GameDef[] = [
     icon: 'check-square',
   },
   {
-    // Free, matching web. The taste is the whole of zone 1's book; the other
-    // five are what All-Access opens.
+    // ALL-ACCESS IN THE HUB, FREE ON THE MAP, and that split is deliberate.
+    // Asked for on 2026-08-24: "why is the book game free? it should be gated
+    // as All-Access only." A free learner still meets the storybook where it
+    // was designed to live, as a stop on their line, where the whole of zone
+    // 1's book is the taste and the finished book carries the ask. What
+    // All-Access buys is opening it from the Games hub and the other five
+    // books. Same arrangement Beat the Train already uses.
     id: 'storybook',
     title: 'Storybook',
     description: 'Read the scene and say the line that fits. Your choices become your book.',
     difficulty: 'Intermediate',
-    plusOnly: false,
+    plusOnly: true,
     icon: 'book',
   },
   {

@@ -260,13 +260,23 @@ export function storyStopIndexIn(
 ): number {
   const n = Math.max(0, rowCount);
   if (n === 0) return 0;
+  // ZONE 1 IS PINNED TO THE FOURTH ROW, whatever the tracing stop does.
+  //
+  // Asked for on 2026-08-24: "for zone 1 only, move the story right after stop
+  // 3 so free users can access it." It used to sit straight after the tracing
+  // row, which put it at stop 3 and displaced the phrase stop a free learner
+  // would otherwise reach there.
+  //
+  // Zone 1 is the ONLY zone this applies to, because it is the only one a free
+  // learner opens at all: its book is the taste and every other book is
+  // All-Access. Everywhere else the mid-zone break is the right place and the
+  // rule below still governs.
+  if (journey === 1 && zone === 1) return Math.min(3, n);
   if (traceIndex !== null) {
     // Straight after the tracing row, and never past the end of the run.
     return Math.min(traceIndex + 1, n);
   }
-  // No tracing stop here. Zone 1 keeps the taste at the top; every other zone
-  // takes the mid-zone break the tracing stop would have had.
-  if (journey === 1 && zone === 1) return Math.min(1, n);
+  // No tracing stop here, and zone 1 is already handled above.
   return Math.max(1, Math.floor(n / 2));
 }
 

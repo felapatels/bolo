@@ -34,7 +34,12 @@ type GameDef = {
   Icon: React.ElementType;
 };
 
-const GAMES: GameDef[] = [
+/**
+ * EXPORTED so the hub's own test reads this list instead of keeping a copy.
+ * That copy existed, and on 2026-08-24 it failed three tests on correct
+ * behaviour because the storybook moved to All-Access here and not there.
+ */
+export const GAMES: GameDef[] = [
   {
     id: "word-match",
     href: "/games/word-match",
@@ -133,12 +138,19 @@ const GAMES: GameDef[] = [
   // lock chip over a stop that has a free taste, which is the pairing the
   // Script Trace taste was created to fix. The server enforces the line.
   {
+    // ALL-ACCESS IN THE HUB, FREE ON THE MAP, and that split is deliberate.
+    // Asked for on 2026-08-24: "why is the book game free? it should be gated
+    // as All-Access only." A free learner still meets the storybook where it
+    // was designed to live, as a stop on their line, where the whole of zone
+    // 1's book is the taste and the finished book carries the ask. What
+    // All-Access buys is opening it from the Games hub and the other five
+    // books. Same arrangement Beat the Train already uses.
     id: "storybook",
     href: "/games/storybook",
     title: "Storybook",
     description: "Read the scene and say the line that fits. Your choices become your book",
     difficulty: "Intermediate",
-    plusOnly: false,
+    plusOnly: true,
     Icon: BookOpen,
   },
   {

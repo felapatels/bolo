@@ -93,19 +93,21 @@ function renderJourney() {
 
 function openProgressionDialog() {
   renderJourney();
-  // Zone 1's locked LAST stop; every zone has one, so take the first.
+  // Zone 1's locked phrase stop, MATCHED BY WHAT IT IS rather than by its
+  // number.
   //
-  // "Stop 2 of 2" until 2026-08-23, when a tracing stop was added to every
-  // zone. Two phrase stops plus one tracing stop is three, and the tracing
-  // stop sits in the middle, so the locked phrase stop became the third of
-  // three.
+  // It was "Stop 2 of 2", then "Stop 3 of 3" when the tracing row landed, then
+  // "Stop 4 of 4" when the story row did. Three rewrites in two days, each one
+  // bookkeeping rather than a bug, and the third broke differently: the story
+  // row is pinned to zone 1's fourth ROW, so in this two-stop fixture it BECAME
+  // "Stop 4 of 4" and the click opened the storybook instead of the lock.
   //
-  // "Stop 4 of 4" since 2026-08-24, when the STORY stop joined it, directly
-  // after the tracing one. Same reason twice: the number moved because a row
-  // was genuinely added, which is what was asked for, and nothing about the
-  // lock behaviour under test changed. If it moves a third time, check that a
-  // row was added on purpose before touching this line.
-  const lockedStops = screen.getAllByRole("button", { name: /Stop 4 of 4/ });
+  // A locked phrase stop announces "Locked" and nothing else. The tracing and
+  // story rows announce their own kind in brackets, so this cannot pick one of
+  // them up however many rows get added next.
+  const lockedStops = screen.getAllByRole("button", {
+    name: /^Stop \d+ of \d+: Locked$/,
+  });
   fireEvent.click(lockedStops[0]);
 }
 

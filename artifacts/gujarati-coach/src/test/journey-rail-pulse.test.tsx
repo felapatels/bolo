@@ -137,8 +137,19 @@ describe("journey rail directional pulse (task 917)", () => {
   test("zone-boundary run spans both segments with one continuous delay order", () => {
     // Current stop is the LAST station of zone 1; next station opens zone 2,
     // so the run passes through the zone postcard point: two segments.
+    // ZONE 1 NEEDS FOUR GRADED STOPS FOR THAT TO STILL BE TRUE, since
+    // 2026-08-24. The story row is pinned to the fourth ROW of zone 1, and in a
+    // two-stop zone that made it the last row, so the current stop stopped
+    // being last and this run stopped crossing the boundary. The fixture was
+    // too small to express its own intent; the rule is fine, and zone 1 has
+    // nine or ten stops in production.
     setZones(
-      [grp(101, "completed"), grp(102, "unlocked")],
+      [
+        grp(101, "completed"),
+        grp(102, "completed"),
+        grp(103, "completed"),
+        grp(104, "unlocked"),
+      ],
       [grp(201, "locked")],
     );
     const { container } = renderJourney();

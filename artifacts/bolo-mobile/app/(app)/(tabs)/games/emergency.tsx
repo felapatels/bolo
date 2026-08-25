@@ -27,6 +27,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
@@ -67,6 +68,10 @@ type Phase = 'picker' | 'alarm' | 'film' | 'game' | 'end';
 export default function EmergencyScreen() {
   const colors = useColors();
   const router = useRouter();
+  // Same reason as the storybook: headerShown is false for this whole stack,
+  // so every screen has to reserve the notch itself or its own back button is
+  // unreachable.
+  const insets = useSafeAreaInsets();
   const { activeLang, activeLanguage } = useLanguage();
   const params = useLocalSearchParams<{ journey?: string; zone?: string }>();
 
@@ -216,7 +221,10 @@ export default function EmergencyScreen() {
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
       {phase === 'picker' && (
-        <ScrollView contentContainerStyle={s.pad} testID="emergency-picker">
+        <ScrollView
+          contentContainerStyle={[s.pad, { paddingTop: insets.top + 12 }]}
+          testID="emergency-picker"
+        >
       {/* BACK, and every screen in the games stack has to supply its own: the
           stack sets headerShown: false so the tab bar stays visible, which
           means there is no system chrome to fall back on. Reported missing on

@@ -284,11 +284,24 @@ describe("bookConcepts", () => {
 });
 
 describe("where the story stop sits", () => {
-  // Zone 1 reads: stop 1 the free phrase stop, stop 2 the tracing taste, stop 3
-  // the story taste. The three free things sit together at the top of the map,
-  // which is the whole reason the tracing stop was pinned to stop 2.
-  test("journey 1 zone 1 puts it straight after the tracing stop", () => {
-    expect(storyStopIndexIn(11, 1, 1, 1)).toBe(2);
+  // ZONE 1 IS PINNED TO THE FOURTH ROW, whatever the tracing stop does, and it
+  // is the only zone with a rule of its own.
+  //
+  // It used to sit straight after the tracing stop, which put it at stop 3.
+  // Moved on 2026-08-24: "for zone 1 only, move the story right after stop 3 so
+  // free users can access it." At stop 3 it DISPLACED the phrase stop a free
+  // learner reaches there; at stop 4 the three free things still sit together
+  // near the top and nothing is pushed out of reach.
+  //
+  // Zone 1 is the only zone this can matter for, because it is the only book a
+  // free learner opens at all.
+  test("journey 1 zone 1 sits at the fourth row, whatever tracing does", () => {
+    expect(storyStopIndexIn(11, 1, 1, 1)).toBe(3);
+    // Pinned rather than derived, so a tracing stop that moves cannot drag it.
+    expect(storyStopIndexIn(11, 1, 1, 4)).toBe(3);
+    expect(storyStopIndexIn(11, 1, 1, null)).toBe(3);
+    // Never past the end of a short run.
+    expect(storyStopIndexIn(2, 1, 1, 1)).toBe(2);
   });
 
   test("it follows the tracing stop in every other zone too", () => {
@@ -299,7 +312,7 @@ describe("where the story stop sits", () => {
   test("with no tracing stop it takes that position instead", () => {
     // An unauthored script has no tracing stop at all. The taste must stay
     // reachable rather than sliding to stop 2 of nothing.
-    expect(storyStopIndexIn(11, 1, 1, null)).toBe(1);
+    // Zone 1 has its own rule and is asserted above; this covers the rest.
     expect(storyStopIndexIn(11, 1, 4, null)).toBe(5);
   });
 

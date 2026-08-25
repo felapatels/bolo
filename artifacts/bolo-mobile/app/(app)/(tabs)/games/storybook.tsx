@@ -44,6 +44,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import {
@@ -113,6 +114,11 @@ export default function StorybookScreen() {
   const router = useRouter();
   const { activeLang, activeLanguage } = useLanguage();
   const { width } = useWindowDimensions();
+  // THE GAMES STACK HAS NO HEADER, so nothing reserves the notch and the back
+  // button landed under the status bar: present, painted, and not tappable.
+  // Reported on device, and "I can't click it" is the worst kind of bug to
+  // ship because the screenshot looks correct.
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ journey?: string; zone?: string }>();
 
   const journey = Number(params.journey) || 1;
@@ -332,7 +338,7 @@ export default function StorybookScreen() {
   return (
     <ScrollView
       style={[s.root, { backgroundColor: colors.background }]}
-      contentContainerStyle={s.pad}
+      contentContainerStyle={[s.pad, { paddingTop: insets.top + 12 }]}
       testID="storybook-screen"
     >
       {/* BACK, and every screen in the games stack has to supply its own: the

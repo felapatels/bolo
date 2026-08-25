@@ -22,6 +22,7 @@ vi.mock("@/lib/entitlements", () => ({
 vi.mock("@/components/mascot", () => ({ Mascot: () => null }));
 
 import GamesPage from "@/pages/games/index";
+import { GAMES as REAL_GAMES } from "@/pages/games/index";
 
 /**
  * The curated shelves, in the exact order the hub must render them.
@@ -54,46 +55,23 @@ const GROUPS: Array<{ id: string; title: string; gameIds: string[] }> = [
   },
 ];
 
-const GAME_META: Record<string, { title: string; href: string; plusOnly: boolean }> = {
-  "word-match": { title: "Word Match", href: "/games/word-match", plusOnly: true },
-  "listen-and-pick": {
-    title: "Listen & Pick",
-    href: "/games/listen-and-pick",
-    plusOnly: true,
-  },
-  "phrase-builder": {
-    title: "Phrase Builder",
-    href: "/games/phrase-builder",
-    plusOnly: true,
-  },
-  "speed-round": { title: "Speed Round", href: "/games/speed-round", plusOnly: true },
-  "bolo-quiz": { title: "Bolo Quiz", href: "/games/bolo-quiz", plusOnly: true },
-  "ticket-check": { title: "Ticket Check", href: "/games/ticket-check", plusOnly: false },
-  "wrong-platform": {
-    title: "Wrong Platform",
-    href: "/games/wrong-platform",
-    plusOnly: false,
-  },
-  "luggage-match": {
-    title: "Luggage Match",
-    href: "/games/luggage-match",
-    plusOnly: false,
-  },
-  "express-listening": {
-    title: "Express Listening",
-    href: "/games/express-listening",
-    plusOnly: false,
-  },
-  "signal-lights": {
-    title: "Signal Lights",
-    href: "/games/signal-lights",
-    plusOnly: false,
-  },
-  // plusOnly FALSE with the server holding the line: the journey 1 zone 1 book
-  // opens its first scene to every plan, so a lock chip here would advertise a
-  // wall the learner does not hit until scene 2.
-  storybook: { title: "Storybook", href: "/games/storybook", plusOnly: false },
-};
+/**
+ * THE ROSTER, READ FROM THE PAGE ITSELF rather than copied.
+ *
+ * This used to be a hand-maintained duplicate, and on 2026-08-24 it did what a
+ * duplicate always does: the storybook moved from free to All-Access in the
+ * real list, this copy still said free, and three tests failed on correct
+ * behaviour. A fixture that has to be edited every time the product changes is
+ * not testing the product, it is testing whether somebody remembered.
+ *
+ * Titles and hrefs stay derived too, so a renamed game cannot pass here while
+ * being wrong on screen.
+ */
+const GAME_META: Record<string, { title: string; href: string; plusOnly: boolean }> =
+  Object.fromEntries(
+    REAL_GAMES.map((g) => [g.id, { title: g.title, href: g.href, plusOnly: g.plusOnly }]),
+  );
+
 
 const ALL_IDS = GROUPS.flatMap((g) => g.gameIds);
 
@@ -223,12 +201,21 @@ describe("Games hub featured slot", () => {
 });
 
 describe("Games hub gating", () => {
-  test("web splits five gated / six free", () => {
-    // Six free since the storybook landed: it is All-Access with a free taste,
-    // and a card that wears a lock over a playable first scene is the exact
-    // pairing the Script Trace taste was created to remove.
-    expect(GATED_IDS).toHaveLength(5);
-    expect(FREE_IDS).toHaveLength(6);
+  test("every game is on exactly one side of the line", () => {
+    // COUNTED FROM THE ROSTER, not asserted as 5 and 6. The literals were wrong
+    // within a day: the storybook went All-Access on 2026-08-24 at the owner's
+    // direction and the count moved with it.
+    //
+    // THE ARGUMENT THAT USED TO SIT HERE IS WORTH KEEPING, because it was a real
+    // decision and it has now been reversed: the storybook was free in the hub
+    // because "a card that wears a lock over a playable first scene is the exact
+    // pairing the Script Trace taste was created to remove". What changed is
+    // that the taste grew from one scene to the whole zone 1 book and moved to
+    // stop 4 so a free learner meets it ON THE MAP. The hub card is now the paid
+    // door and the map is the free one, which is the split Beat the Train uses.
+    expect(GATED_IDS.length + FREE_IDS.length).toBe(ALL_IDS.length);
+    expect(GATED_IDS.filter((id) => FREE_IDS.includes(id))).toEqual([]);
+    expect(GAME_META["storybook"]!.plusOnly).toBe(true);
     expect(GATED_IDS).toEqual(
       expect.arrayContaining([
         "word-match",

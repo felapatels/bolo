@@ -5,6 +5,15 @@
 // matching lock dialog (progression / first-class sentence) instead of
 // navigating. Drives the REAL journey screen with the API hooks mocked.
 
+// ZONE 1'S GRADED STOPS MOVED **UP** LATER THE SAME DAY, which is the opposite
+// of what you would expect from a change described as "moving the story". The
+// story stop was pinned to zone 1's FOURTH row so a free learner meets it after
+// stop 3 rather than displacing the stop they would reach there. It used to sit
+// third, so the graded stop that was pushed to fourth came back to third.
+//
+// In these small fixtures the story therefore lands LAST. Zone 1 has nine or ten
+// stops in production, where the pin sits well inside the run.
+//
 // THE STOP COUNTS IN THIS FILE WENT UP BY ONE PER ZONE ON 2026-08-24, and that
 // is the story stop being added rather than a numbering bug. It is spliced
 // straight after the tracing row and the whole run is renumbered, exactly as
@@ -524,7 +533,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 4 of 4: Locked'));
+    fireEvent.press(screen.getByLabelText('Stop 3 of 4: Locked'));
     expect(screen.getByText('This stop is still locked')).toBeOnTheScreen();
     expect(mockState.push).not.toHaveBeenCalled();
 
@@ -551,7 +560,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 4 of 4: Locked'));
+    fireEvent.press(screen.getByLabelText('Stop 3 of 4: Locked'));
     const zoneLink = screen.getByTestId('link-test-out-zone');
     expect(screen.getByText('Test out of this whole zone')).toBeOnTheScreen();
     expect(
@@ -640,7 +649,7 @@ describe('journey map — group-scoped routing', () => {
     render(<JourneyScreen />);
 
     fireEvent.press(
-      screen.getByLabelText('Stop 4 of 4: Locked (sentence stop)'),
+      screen.getByLabelText('Stop 3 of 4: Locked (sentence stop)'),
     );
     expect(
       screen.getByText('First-class coach: full sentences'),
@@ -672,7 +681,7 @@ describe('journey map — group-scoped routing', () => {
     render(<JourneyScreen />);
 
     fireEvent.press(
-      screen.getByLabelText('Stop 4 of 4: Now boarding (sentence stop)'),
+      screen.getByLabelText('Stop 3 of 4: Now boarding (sentence stop)'),
     );
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/practice/[id]',
@@ -698,7 +707,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 4 of 4: Locked'));
+    fireEvent.press(screen.getByLabelText('Stop 3 of 4: Locked'));
     expect(screen.getByText('This stop is All-Access territory')).toBeOnTheScreen();
     // Not the progression dialog: no test-out escape hatch for plan gating.
     expect(screen.queryByText('This stop is still locked')).toBeNull();
