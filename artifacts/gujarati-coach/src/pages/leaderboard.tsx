@@ -379,8 +379,22 @@ function FeedList() {
 
   const entries = data ?? [];
   if (entries.length === 0) {
+    // ADD FRIENDS, WHICH THIS TAB WAS THE ONE PLACE NOT TO OFFER. Both ranked
+    // tabs have carried the button since they were written; the feed said
+    // "nothing here yet" and stopped, which is a dead end rather than an empty
+    // state. It matters more from 2026-08-25, because the nav's new Feed item
+    // lands on THIS tab: a learner with no friends now arrives here first.
     return (
-      <EmptyState pose="thinking" title="Nothing here yet" body={FEED_EMPTY_BODY} />
+      <div className="space-y-4">
+        <EmptyState pose="thinking" title="Nothing here yet" body={FEED_EMPTY_BODY} />
+        <div className="flex justify-center">
+          <Link href="/friends">
+            <Button className="rounded-2xl font-black">
+              <Users className="mr-2 h-4 w-4" /> Add friends
+            </Button>
+          </Link>
+        </div>
+      </div>
     );
   }
 

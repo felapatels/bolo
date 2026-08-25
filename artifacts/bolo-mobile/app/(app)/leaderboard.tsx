@@ -352,6 +352,7 @@ function FeedRow({
  */
 function FeedList() {
   const colors = useColors();
+  const router = useRouter();
   const skipEnter = useAppearSkip();
   const feed = useGetFriendsFeed(FEED_PARAMS, {
     query: {
@@ -433,6 +434,20 @@ function FeedList() {
         <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
           {FEED_EMPTY_BODY}
         </Text>
+        {/* ADD FRIENDS, WHICH THIS TAB WAS THE ONE PLACE NOT TO OFFER. Both
+            ranked tabs have carried this button since they were written; the
+            feed said its line and stopped, which is a dead end rather than an
+            empty state. It matters more from 2026-08-25, because the nav's new
+            Feed item lands on THIS tab, so a learner with no friends arrives
+            here first. */}
+        <ChunkyButton
+          title="Add friends"
+          icon="users"
+          onPress={() => {
+            hapticLight();
+            router.push('/(app)/(tabs)/friends');
+          }}
+        />
       </View>
     );
   }
