@@ -1,14 +1,23 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { Users, Crown, Gift } from "lucide-react";
 import {
   useGetFriendsLeaderboard,
+  getGetFriendsLeaderboardQueryKey,
   useGetFriendsFeed,
   getGetFriendsFeedQueryKey,
   useGetOutfits,
   useGetReferral,
   type LeaderboardEntry,
   type GetFriendsFeedParams,
+  type GetFriendsLeaderboardParams,
 } from "@workspace/api-client-react";
+import {
+  BoardScopeToggle,
+  PublicNamePrompt,
+  useMyPublicName,
+  type BoardScope,
+} from "@/components/board-scope";
 import { MascotAvatar } from "@/components/mascot-avatar";
 import { FirstClassChip } from "@/components/gold-chip";
 import { feedLineFor } from "@/lib/feed-copy";
@@ -88,10 +97,11 @@ const LATEST_PARAMS: GetFriendsFeedParams = { limit: 1 };
  * Absent while loading, on error, and when there is nothing to say. Never a
  * placeholder: an empty row here would push the ranks down for no information.
  */
-function LatestFriendMoment() {
-  const feed = useGetFriendsFeed(LATEST_PARAMS, {
+function LatestFriendMoment({ scope }: { scope: BoardScope }) {
+  const params = { ...LATEST_PARAMS, scope };
+  const feed = useGetFriendsFeed(params, {
     query: {
-      queryKey: getGetFriendsFeedQueryKey(LATEST_PARAMS),
+      queryKey: getGetFriendsFeedQueryKey(params),
       refetchOnWindowFocus: true,
       refetchOnMount: "always",
     },
@@ -142,16 +152,29 @@ function LatestFriendMoment() {
  * Loading: absent (no layout shift). Error: absent (quiet fail).
  */
 export function HomeSocialStrip() {
-  const leaderboard = useGetFriendsLeaderboard();
+  // EVERYONE IS THE DEFAULT, matching the leaderboard, and safe to default that
+  // way only because a learner with no username appears to nobody. Local to
+  // the card: the two surfaces do not share a toggle, because reading the
+  // global board once should not silently change what home shows tomorrow.
+  const [scope, setScope] = useState<BoardScope>("all");
+  const params: GetFriendsLeaderboardParams = { scope };
+  const leaderboard = useGetFriendsLeaderboard(params, {
+    query: { queryKey: getGetFriendsLeaderboardQueryKey(params) },
+  });
   const referral = useGetReferral();
+  const { username, loaded: nameLoaded } = useMyPublicName();
 
   // Stay absent while loading or on error — quiet on home.
   if (leaderboard.isLoading) return null;
   if (leaderboard.isError) return null;
 
   const entries = leaderboard.data ?? [];
-  // ≤1 means only the learner themselves (or nobody). Either way: no friends.
+  // On the friends scope, ≤1 means only the learner themselves (or nobody).
+  // On the global one there is no such thing as "no friends": a populated
+  // board is a populated board, and the empty case is the app having nobody
+  // on it yet.
   const hasFriends = entries.length > 1;
+  const populated = scope === "all" ? entries.length > 0 : hasFriends;
 
   // Build display set: top 4 by rank, always including the learner even when
   // they rank 5th or lower so the strip never shows four other learners while
@@ -181,20 +204,28 @@ export function HomeSocialStrip() {
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-primary" />
-          <span className="text-sm font-black text-foreground">Friends</span>
+          <span className="text-sm font-black text-foreground">
+            {scope === "all" ? "Everyone" : "Friends"}
+          </span>
         </div>
         <Link
-          href={hasFriends ? "/leaderboard" : "/friends"}
+          href={populated ? "/leaderboard" : "/friends"}
           className="text-xs font-bold text-primary transition-opacity hover:opacity-70"
         >
-          {hasFriends ? "See all →" : "Add friends →"}
+          {populated ? "See all →" : "Add friends →"}
         </Link>
       </div>
 
-      {hasFriends ? (
+      <BoardScopeToggle scope={scope} onChange={setScope} className="mb-3" />
+
+      {scope === "all" && nameLoaded && !username && (
+        <PublicNamePrompt className="mb-3" />
+      )}
+
+      {populated ? (
         /* ── populated: latest moment, then the rank strip ── */
         <div className="space-y-1.5">
-          <LatestFriendMoment />
+          <LatestFriendMoment scope={scope} />
           {displayEntries.map((entry, i) => (
             <MiniRow key={entry.userId} entry={entry} index={i} />
           ))}

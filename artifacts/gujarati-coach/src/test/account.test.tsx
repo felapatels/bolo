@@ -158,7 +158,15 @@ describe("Account settings", () => {
 
     await waitFor(() =>
       expect(h.updateProfile.mutateAsync).toHaveBeenCalledWith({
-        data: { displayName: "Asha R. Patel", avatarUrl: null },
+        // shareStats joined the payload on 2026-08-25 with the public
+        // username. It is always sent because the checkbox always has a value;
+        // `username` is sent only when there is one, since an empty string is
+        // not a name and the server reads a present username as a change.
+        data: {
+          displayName: "Asha R. Patel",
+          avatarUrl: null,
+          shareStats: true,
+        },
       }),
     );
     expect(h.invalidateQueries).toHaveBeenCalled();

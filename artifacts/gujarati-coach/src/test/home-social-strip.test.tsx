@@ -82,6 +82,12 @@ vi.mock("@workspace/api-client-react", () => ({
     isError: false,
   }),
   getGetFriendsFeedQueryKey: () => ["feed"],
+  // Added 2026-08-25 with the Friends/Everyone toggle: the strip now keys
+  // the board query by scope, and reads the account to know whether the
+  // learner has a public name yet.
+  getGetFriendsLeaderboardQueryKey: () => ["leaderboard"],
+  useGetAccount: () => ({ data: { profile: { username: "learner", shareStats: true } } }),
+  useReportUsername: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useGetOutfits: () => ({ data: { outfits: h.outfits } }),
 }));
 
@@ -101,6 +107,9 @@ vi.mock("lucide-react", () => ({
   Users: () => React.createElement("span", { "data-icon": "users" }),
   Crown: () => React.createElement("span", { "data-icon": "crown" }),
   Gift: () => React.createElement("span", { "data-icon": "gift" }),
+  // The Friends/Everyone toggle and the report control, 2026-08-25.
+  Globe: () => React.createElement("span", { "data-icon": "globe" }),
+  Flag: () => React.createElement("span", { "data-icon": "flag" }),
 }));
 
 // cn is a pure utility — use the real one (or a passthrough).

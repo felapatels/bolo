@@ -253,11 +253,22 @@ export default function Account() {
 
   // Profile form — seeded from the account snapshot once it loads.
   const [displayName, setDisplayName] = useState("");
+  /**
+   * The PUBLIC name, and the private toggle beside it.
+   *
+   * Separate from displayName on purpose and not a rename of it: the display
+   * name was chosen while it was private, and publishing it on the learner's
+   * behalf is not ours to do. See lib/db users.username.
+   */
+  const [username, setUsername] = useState("");
+  const [shareStats, setShareStats] = useState(true);
   const [avatarUrl, setAvatarUrl] = useState("");
 
   useEffect(() => {
     if (account) {
       setDisplayName(account.profile.displayName ?? "");
+      setUsername(account.profile.username ?? "");
+      setShareStats(account.profile.shareStats ?? true);
       setAvatarUrl(account.profile.avatarUrl ?? "");
     }
   }, [account]);
@@ -304,8 +315,16 @@ export default function Account() {
       return;
     }
     try {
+      const publicName = username.trim();
       await updateProfile.mutateAsync({
-        data: { displayName: name, avatarUrl: avatarUrl.trim() || null },
+        data: {
+          displayName: name,
+          avatarUrl: avatarUrl.trim() || null,
+          // Only sent when there is one: the server treats a present username
+          // as a change to make, and an empty string is not a name.
+          ...(publicName ? { username: publicName } : {}),
+          shareStats,
+        },
       });
       await invalidateAccount();
       toast({ title: "Profile updated" });
@@ -406,7 +425,48 @@ export default function Account() {
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Your name"
             />
+            <p className="text-xs text-muted-foreground">
+              Private. This is what Bolo calls you, and nobody else sees it.
+            </p>
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              data-testid="account-username"
+              value={username}
+              maxLength={20}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Pick a public name"
+            />
+            {/* SAYS WHAT IT COSTS, BEFORE IT IS SET. A learner should know a
+                name is public at the moment they choose it, not after somebody
+                sees it. */}
+            <p className="text-xs text-muted-foreground">
+              Public. This is the name other learners see on the Everyone board
+              and feed. Leave it empty to stay off both entirely.
+            </p>
+          </div>
+
+          <label className="flex items-start gap-3 rounded-2xl border border-border p-3">
+            <input
+              type="checkbox"
+              data-testid="account-share-stats"
+              checked={shareStats}
+              onChange={(e) => setShareStats(e.target.checked)}
+              className="mt-1 h-4 w-4"
+            />
+            <span className="text-sm">
+              <span className="font-bold text-foreground">Share my stats</span>
+              <span className="block text-muted-foreground">
+                {/* The exit for somebody who named themselves and later wants
+                    out: turning this off should not cost them the name. */}
+                Off keeps your username and takes you off the Everyone board and
+                feed. Your friends still see you.
+              </span>
+            </span>
+          </label>
 
           <div className="space-y-2">
             <Label htmlFor="avatarUrl">Avatar image URL</Label>

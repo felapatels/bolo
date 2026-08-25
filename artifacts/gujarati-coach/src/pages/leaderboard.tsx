@@ -58,6 +58,13 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FunFactSectionLoader } from "@/components/fun-fact-loader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  BoardScopeToggle,
+  PublicNamePrompt,
+  ReportUsernameButton,
+  useMyPublicName,
+  type BoardScope,
+} from "@/components/board-scope";
 import { cn } from "@/lib/utils";
 
 function displayNameFor(u: { displayName: string | null }): string {
@@ -154,11 +161,13 @@ function BoardRow({
   rank,
   tab,
   index,
+  scope,
 }: {
   entry: LeaderboardEntry;
   rank: number;
   tab: RankedTab;
   index: number;
+  scope: BoardScope;
 }) {
   // Rank colour is the indigo primary, never gold: gold is reserved for paid
   // status, and a leaderboard position is not something anybody bought.
@@ -230,6 +239,16 @@ function BoardRow({
         >
           {tab.unit}
         </span>
+        {/* ONLY ON THE GLOBAL BOARD, AND NEVER ON YOUR OWN ROW. A friends board
+            is people you accepted; a flag there is a bug report about somebody
+            you already chose. Reporting yourself is a misclick the server
+            quietly ignores, so the control simply is not drawn. */}
+        {scope === "all" && !entry.isSelf && (
+          <ReportUsernameButton
+            userId={entry.userId}
+            username={entry.username ?? entry.displayName ?? null}
+          />
+        )}
       </div>
     </motion.div>
   );
@@ -238,12 +257,16 @@ function BoardRow({
 function BoardList({
   entries,
   tab,
+  scope,
 }: {
   entries: LeaderboardEntry[];
   tab: RankedTab;
+  scope: BoardScope;
 }) {
   // With nobody but the learner on it, a board is a mirror. Send them to
-  // /friends, which is where standing is actually changed.
+  // /friends, which is where standing is actually changed. On the global scope
+  // that emptiness means the app has nobody on it yet rather than that the
+  // learner has no friends, but the useful next step is the same either way.
   if (entries.length <= 1) {
     return (
       <div className="space-y-4">
@@ -273,6 +296,7 @@ function BoardList({
           rank={i + 1}
           tab={tab}
           index={i}
+          scope={scope}
         />
       ))}
     </div>
@@ -317,12 +341,13 @@ function FeedRow({
  * The feed tab's own content. Its own query, not a re-sort of the board: the
  * board is a ranking of people and this is a list of moments.
  */
-function FeedList() {
+function FeedList({ scope }: { scope: BoardScope }) {
+  const params = { ...FEED_PARAMS, scope };
   const { data, isLoading, isError, refetch, isFetching } = useGetFriendsFeed(
-    FEED_PARAMS,
+    params,
     {
       query: {
-        queryKey: getGetFriendsFeedQueryKey(FEED_PARAMS),
+        queryKey: getGetFriendsFeedQueryKey(params),
         refetchOnWindowFocus: true,
         refetchOnMount: "always",
       },
@@ -412,7 +437,14 @@ function FeedList() {
 // The weekly window is the only one fetched: the Streak tab ranks by a number
 // that does not depend on the window, so a second request would return the same
 // streaks with different XP nobody on that tab is looking at.
-const BOARD_PARAMS: GetFriendsLeaderboardParams = { window: "week" };
+// EVERYONE IS THE DEFAULT, per the owner on 2026-08-25, and it is safe to
+// default that way only because a learner with no username appears to nobody.
+const DEFAULT_SCOPE: BoardScope = "all";
+
+const boardParams = (scope: BoardScope): GetFriendsLeaderboardParams => ({
+  window: "week",
+  scope,
+});
 
 export default function Leaderboard() {
   // `?tab=feed` opens the board straight on the feed, which is how the home
@@ -427,10 +459,14 @@ export default function Leaderboard() {
   // Refetch on focus and on mount, nothing else: no polling and no socket. A
   // board is only wrong while you are looking at it, and coming back to the tab
   // is exactly the moment to be right.
+  const [scope, setScope] = useState<BoardScope>(DEFAULT_SCOPE);
+  const { username, loaded: nameLoaded } = useMyPublicName();
+  const params = boardParams(scope);
+
   const { data, isLoading, isError, refetch, isFetching } =
-    useGetFriendsLeaderboard(BOARD_PARAMS, {
+    useGetFriendsLeaderboard(params, {
       query: {
-        queryKey: getGetFriendsLeaderboardQueryKey(BOARD_PARAMS),
+        queryKey: getGetFriendsLeaderboardQueryKey(params),
         refetchOnWindowFocus: true,
         refetchOnMount: "always",
       },
@@ -451,11 +487,19 @@ export default function Leaderboard() {
           Leaderboard
         </h1>
         <p className="text-lg font-medium text-muted-foreground">
-          You and your friends, this week
+          {scope === "all" ? "Everyone, this week" : "You and your friends, this week"}
         </p>
+        <BoardScopeToggle scope={scope} onChange={setScope} className="mt-3" />
       </header>
 
       <main className="mx-auto w-full max-w-3xl px-6">
+        {/* Shown, never blocking: a learner without a username can read the
+            global board and simply is not on it. Withholding other people's
+            progress until they name themselves would be using the feature as
+            leverage. */}
+        {scope === "all" && nameLoaded && !username && (
+          <PublicNamePrompt className="mb-5" />
+        )}
         <Tabs value={tabValue} onValueChange={setTabValue} className="w-full">
           <TabsList
             className="grid h-11 w-full rounded-2xl"
@@ -477,7 +521,7 @@ export default function Leaderboard() {
               {t.kind === "feed" ? (
                 // The feed owns its query, its loading and its empty state; the
                 // board's states below say nothing about it.
-                <FeedList />
+                <FeedList scope={scope} />
               ) : isLoading ? (
                 <FunFactSectionLoader />
               ) : isError ? (
@@ -505,7 +549,7 @@ export default function Leaderboard() {
                   </Button>
                 </div>
               ) : (
-                <BoardList entries={data ?? []} tab={t} />
+                <BoardList entries={data ?? []} tab={t} scope={scope} />
               )}
             </TabsContent>
           ))}
