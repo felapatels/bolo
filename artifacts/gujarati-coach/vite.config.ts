@@ -1,7 +1,7 @@
 import path from 'path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
+import { defineConfig, type PluginOption } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
@@ -27,12 +27,67 @@ if (!basePath) {
   );
 }
 
+/**
+ * Serve the Apple App Site Association file as application/json.
+ *
+ * Apple's documentation asks for `application/json` on
+ * /.well-known/apple-app-site-association. It arrives as `text/plain`, and the
+ * cause is mechanical rather than a mistake: `vite preview` types static files
+ * by EXTENSION, and this file deliberately has none because Apple requires it
+ * that way. So no amount of config on the file itself can fix it; the header
+ * has to be forced.
+ *
+ * FORCED BY WRAPPING setHeader, NOT BY SETTING IT FIRST. The static handler
+ * (sirv) sets its own Content-Type when it serves the file, which would
+ * overwrite a header set ahead of it. Patching the one response's setHeader
+ * means whatever sirv decides, JSON is what goes out. Scoped to a single
+ * request and to the Content-Type header alone.
+ *
+ * WHETHER THIS WAS BREAKING ANYTHING IS UNPROVEN. Recent iOS is widely
+ * reported to accept text/plain here, and Universal Links may well have been
+ * working. It is a one-line class of fix and it only matters once a build
+ * carrying associatedDomains is in front of real users, which is now.
+ */
+const AASA_PATH = "/.well-known/apple-app-site-association";
+
+function appleSiteAssociationJson(): PluginOption {
+  const middleware = (
+    req: { url?: string },
+    res: { setHeader: (name: string, value: unknown) => unknown },
+    next: () => void,
+  ) => {
+    const pathname = (req.url ?? "").split("?")[0];
+    // Suffix match rather than equality: a non-root `base` would prefix the
+    // URL, and Apple still requires the file at the domain root.
+    if (pathname.endsWith(AASA_PATH)) {
+      const original = res.setHeader.bind(res);
+      res.setHeader = (name: string, value: unknown) =>
+        String(name).toLowerCase() === "content-type"
+          ? original(name, "application/json")
+          : original(name, value);
+    }
+    next();
+  };
+  return {
+    name: "apple-app-site-association-json",
+    // Both hooks: preview is what serves production, and dev is included so a
+    // local check of this header tells the truth rather than only the deploy.
+    configureServer(server) {
+      server.middlewares.use(middleware);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(middleware);
+    },
+  };
+}
+
 export default defineConfig({
   base: basePath,
   plugins: [
     react(),
     tailwindcss({ optimize: false }),
     runtimeErrorOverlay(),
+    appleSiteAssociationJson(),
     ...(process.env.NODE_ENV !== 'production' &&
     process.env.REPL_ID !== undefined
       ? [
