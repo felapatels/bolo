@@ -1,0 +1,1913 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Bolo Departure Board &middot; Bolo Nest</title>
+<style>html,body{margin:0;padding:0}</style>
+</head>
+<body>
+<style>
+:root{
+  --ground:#EAEDE8; --surface:#FFFFFF; --surface-2:#DEE5DD; --sunk:#F2F5F1;
+  --ink:#101C1A; --muted:#556661; --faint:#7F908B; --line:#C7D1C6;
+  --teal:#0B6B5C; --ochre:#A24A16; --indigo:#3B3AA8;
+  --board:#132320; --board-ink:#E8F0EA; --board-muted:#8FA69F;
+  --shadow:0 1px 2px rgba(16,28,26,.06), 0 12px 30px rgba(16,28,26,.07);
+  --disp:"Avenir Next Condensed","Helvetica Neue",Arial,sans-serif;
+  --body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,ui-sans-serif,system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --indic:"Noto Sans Devanagari","Noto Sans Tamil","Noto Sans Gujarati","Noto Sans Gurmukhi",
+          "Noto Sans Bengali","Noto Sans Telugu","Noto Sans Kannada","Noto Sans Malayalam",
+          "Noto Sans Oriya","Noto Nastaliq Urdu","Noto Sans Ol Chiki","Noto Sans Meetei Mayek",
+          "Devanagari Sangam MN","Tamil Sangam MN","Gujarati Sangam MN","Gurmukhi Sangam MN",
+          "Bangla Sangam MN","Telugu Sangam MN","Kannada Sangam MN","Malayalam Sangam MN",
+          "Oriya Sangam MN","Geeza Pro","Nirmala UI", sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0C1513; --surface:#14201E; --surface-2:#1D2A27; --sunk:#101A18;
+    --ink:#E7EEE9; --muted:#93A5A0; --faint:#748680; --line:#26332F;
+    --teal:#4ECDB6; --ochre:#E9945B; --indigo:#9391FF;
+    --board:#08100F; --board-ink:#E7EEE9; --board-muted:#7C918B;
+    --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 30px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C1513; --surface:#14201E; --surface-2:#1D2A27; --sunk:#101A18;
+  --ink:#E7EEE9; --muted:#93A5A0; --faint:#748680; --line:#26332F;
+  --teal:#4ECDB6; --ochre:#E9945B; --indigo:#9391FF;
+  --board:#08100F; --board-ink:#E7EEE9; --board-muted:#7C918B;
+  --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 30px rgba(0,0,0,.4);
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+h1,h2,h3{font-family:var(--disp);margin:0;line-height:1.02;text-wrap:balance;letter-spacing:-.015em}
+a{color:var(--teal)}
+:focus-visible{outline:2.5px solid var(--ochre);outline-offset:3px;border-radius:4px}
+
+/* ---- masthead ---- */
+header{padding:64px 0 30px}
+.kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--ochre);margin:0 0 16px}
+h1{font-size:clamp(46px,7.4vw,86px);font-weight:700;text-transform:uppercase;letter-spacing:-.02em}
+.sub{font-size:19px;color:var(--muted);max-width:60ch;margin:18px 0 0}
+
+/* ---- now boarding ---- */
+.boarding{background:var(--board);color:var(--board-ink);border-radius:4px;margin-top:32px;
+  overflow:hidden;box-shadow:var(--shadow)}
+.boarding .bhead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  padding:20px 26px 16px;border-bottom:1px solid rgba(232,240,234,.16)}
+.blamp{width:9px;height:9px;border-radius:50%;background:var(--ochre);flex:none;
+  box-shadow:0 0 0 4px rgba(162,74,22,.22)}
+.bhead .t{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--board-muted)}
+.bhead .n{font-family:var(--disp);font-size:26px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.01em;margin-left:auto}
+.brow{display:grid;grid-template-columns:104px 1fr auto;gap:18px;align-items:center;
+  padding:16px 26px;border-bottom:1px solid rgba(232,240,234,.09)}
+.brow:last-child{border-bottom:0}
+.brow .when{font-family:var(--mono);font-size:12.5px;font-weight:500;letter-spacing:.06em;
+  color:var(--ochre);font-variant-numeric:tabular-nums}
+.brow .what{font-family:var(--mono);font-size:14px;word-break:break-word}
+.brow .plat{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--board-muted);text-align:right}
+
+/* ---- rule strip ---- */
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:1px;
+  background:var(--line);border:1px solid var(--line);border-radius:4px;margin-top:34px;overflow:hidden}
+.rule{background:var(--surface);padding:20px 22px}
+.rule .n{font-family:var(--disp);font-size:38px;font-weight:700;line-height:1;color:var(--teal);
+  font-variant-numeric:tabular-nums}
+.rule .l{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--faint);margin-top:8px}
+.rule p{margin:9px 0 0;font-size:14.5px;line-height:1.48;color:var(--muted)}
+
+/* ---- sections ---- */
+section{padding:56px 0 0}
+.shead{border-top:2px solid var(--ink);padding-top:15px;margin-bottom:22px}
+.shead h2{font-size:clamp(26px,3.4vw,38px);font-weight:700;text-transform:uppercase}
+.shead p{margin:10px 0 0;color:var(--muted);max-width:66ch}
+
+/* ---- the board ---- */
+.board{border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--surface)}
+details.week{border-bottom:1px solid var(--line)}
+details.week:last-child{border-bottom:0}
+summary{list-style:none;cursor:pointer;display:grid;
+  grid-template-columns:50px 152px 1fr auto;gap:16px;align-items:center;
+  padding:14px 20px;background:var(--surface);transition:background .12s}
+summary::-webkit-details-marker{display:none}
+summary:hover{background:var(--sunk)}
+details[open]>summary{background:var(--sunk);border-bottom:1px solid var(--line)}
+.wk{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--faint);
+  font-variant-numeric:tabular-nums;letter-spacing:.06em}
+.glyph{font-family:var(--indic);font-size:23px;line-height:1.3;color:var(--indigo);
+  white-space:nowrap;overflow:hidden;text-overflow:clip}
+.lang{display:block;font-family:var(--disp);font-size:21px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.01em;line-height:1.12}
+.span{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.05em;
+  font-variant-numeric:tabular-nums;margin-top:3px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
+  padding:3px 8px;border-radius:2px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.k-video{border-color:var(--teal);color:var(--teal)}
+.k-card{border-color:var(--indigo);color:var(--indigo)}
+.k-pillar{border-color:var(--ochre);color:var(--ochre)}
+.k-repost{border-style:dashed}
+.wnote{grid-column:1/-1;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ochre);padding-top:6px}
+
+/* ---- slots ---- */
+.slots{padding:6px 20px 22px;display:flex;flex-direction:column;gap:2px}
+.slot{display:grid;grid-template-columns:104px 1fr;gap:18px;padding:18px 0;
+  border-bottom:1px dashed var(--line)}
+.slot:last-child{border-bottom:0}
+.slot .when{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.06em;
+  color:var(--ink);font-variant-numeric:tabular-nums;padding-top:2px}
+.slot .when em{display:block;font-style:normal;font-weight:400;color:var(--faint);font-size:11px;margin-top:3px}
+.file{font-family:var(--mono);font-size:14px;font-weight:500;word-break:break-word}
+.meta,.call p,ul.plain li{font-family:var(--body),var(--indic)}
+.meta{font-size:14px;color:var(--muted);margin:6px 0 0;max-width:64ch}
+.meta b{color:var(--ink);font-weight:600}
+.capwrap{margin-top:12px;border:1px solid var(--line);border-radius:3px;background:var(--sunk);overflow:hidden}
+.captop{display:flex;align-items:center;gap:10px;padding:7px 10px 7px 12px;
+  border-bottom:1px solid var(--line);background:var(--surface-2)}
+.captop .cl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+button.copy{margin-left:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;padding:5px 11px;border:1px solid var(--line);border-radius:2px;
+  background:var(--surface);color:var(--ink);cursor:pointer;transition:background .12s,color .12s}
+button.copy:hover{background:var(--teal);border-color:var(--teal);color:var(--surface)}
+button.copy[data-done="1"]{background:var(--teal);border-color:var(--teal);color:var(--surface)}
+pre.cap{margin:0;padding:14px 16px;font-family:var(--body),var(--indic);font-size:14.5px;line-height:1.72;
+  white-space:pre-wrap;word-break:break-word;color:var(--ink)}
+pre.cap .ind{font-family:var(--indic)}
+label.done{display:inline-flex;align-items:center;gap:8px;margin-top:11px;cursor:pointer;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+label.done input{accent-color:var(--teal);width:15px;height:15px;cursor:pointer}
+.slot.is-done .file,.slot.is-done .meta{opacity:.42}
+.slot.is-done .file{text-decoration:line-through}
+
+/* ---- callouts ---- */
+.call{border:1px solid var(--line);border-left:3px solid var(--ochre);border-radius:3px;
+  background:var(--surface);padding:20px 24px;margin-top:20px}
+.call h3{font-family:var(--disp);font-size:20px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.01em;color:var(--ochre)}
+.call p{margin:9px 0 0;color:var(--muted);font-size:15px}
+.call p b{color:var(--ink)}
+.call.teal{border-left-color:var(--teal)} .call.teal h3{color:var(--teal)}
+.call.indigo{border-left-color:var(--indigo)} .call.indigo h3{color:var(--indigo)}
+
+ul.plain{margin:12px 0 0;padding-left:19px;color:var(--muted);font-size:15px}
+ul.plain li{margin:6px 0}
+ul.plain b{color:var(--ink)}
+
+footer{padding:56px 0 76px;color:var(--faint);font-family:var(--mono);font-size:11.5px;
+  letter-spacing:.08em;border-top:1px solid var(--line);margin-top:56px}
+
+@media (max-width:760px){
+  summary{grid-template-columns:44px 1fr;gap:12px;row-gap:4px}
+  .glyph{grid-column:2;font-size:22px}
+  .chips{grid-column:2;justify-content:flex-start;margin-top:4px}
+  .slot{grid-template-columns:1fr;gap:8px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+/* ---- launch picker ---- */
+.picker{background:var(--surface);border:1px solid var(--line);border-radius:4px;
+  padding:20px 24px 22px;margin-top:32px}
+.picker .pl{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--faint);margin:0 0 5px}
+.picker .ph{font-family:var(--disp);font-size:23px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.01em;margin:0}
+.picker .pd{margin:9px 0 16px;font-size:14.5px;color:var(--muted);max-width:62ch}
+.picker .pd b{color:var(--ink)}
+.opts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button.opt{font-family:var(--mono);font-size:12px;letter-spacing:.07em;padding:9px 14px;
+  border:1px solid var(--line);border-radius:2px;background:var(--sunk);color:var(--ink);
+  cursor:pointer;transition:background .12s,border-color .12s,color .12s;
+  font-variant-numeric:tabular-nums;text-transform:uppercase;line-height:1.15}
+button.opt:hover{border-color:var(--teal)}
+button.opt[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:var(--surface)}
+button.opt .rec{display:block;font-size:9px;letter-spacing:.14em;opacity:.75;margin-top:3px}
+.opts .other{display:flex;align-items:center;gap:9px;margin-left:4px}
+.opts .other span{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--faint)}
+input[type="date"]{font-family:var(--mono);font-size:12px;padding:8px 10px;border:1px solid var(--line);
+  border-radius:2px;background:var(--sunk);color:var(--ink);color-scheme:light dark}
+/* ---- runbook ---- */
+.rank{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:4px;overflow:hidden;margin-top:22px}
+.rk{background:var(--surface);display:grid;grid-template-columns:44px 1fr 132px;gap:16px;
+  padding:16px 20px;align-items:start}
+.rk .p{font-family:var(--disp);font-size:27px;font-weight:700;line-height:1;color:var(--teal);
+  font-variant-numeric:tabular-nums}
+.rk h4{font-family:var(--disp);font-size:19px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.01em;margin:0}
+.rk p{margin:6px 0 0;font-size:14.5px;color:var(--muted);font-family:var(--body),var(--indic)}
+.rk p b{color:var(--ink)}
+.rk .temp{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
+  text-align:right;padding-top:6px}
+.t-warm{color:var(--ochre)} .t-cold{color:var(--faint)}
+.rk.dim .p{color:var(--faint)}
+
+.run{border:1px solid var(--line);border-radius:4px;overflow:hidden;margin-top:22px;background:var(--surface)}
+.step{display:grid;grid-template-columns:126px 1fr;gap:18px;padding:16px 20px;
+  border-bottom:1px dashed var(--line)}
+.step:last-child{border-bottom:0}
+.step .clock{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.05em;
+  color:var(--ochre);font-variant-numeric:tabular-nums}
+.step .clock em{display:block;font-style:normal;font-weight:400;color:var(--faint);
+  font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;margin-top:3px}
+.step h4{font-family:var(--disp);font-size:18px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.01em;margin:0}
+.step p{margin:6px 0 0;font-size:14.5px;color:var(--muted);max-width:64ch;
+  font-family:var(--body),var(--indic)}
+.step p b{color:var(--ink)}
+.step.hot{background:var(--sunk)}
+@media (max-width:760px){
+  .rk{grid-template-columns:38px 1fr} .rk .temp{grid-column:2;text-align:left;padding-top:2px}
+  .step{grid-template-columns:1fr;gap:6px}
+}
+/* ---- 30 day plan ---- */
+.days{border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--surface);margin-top:22px}
+.day{display:grid;grid-template-columns:56px 104px 1fr;gap:16px;padding:13px 20px;
+  border-bottom:1px solid var(--line);align-items:start}
+.day:last-child{border-bottom:0}
+.day .dn{font-family:var(--disp);font-size:21px;font-weight:700;line-height:1.2;
+  font-variant-numeric:tabular-nums;color:var(--ink)}
+.day .dd{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--faint);
+  display:block;font-weight:400;margin-top:2px}
+.day .kd{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
+  padding:3px 7px;border:1px solid var(--line);border-radius:2px;color:var(--muted);
+  display:inline-block;white-space:nowrap;margin-top:3px}
+.day h4{font-family:var(--disp);font-size:18px;font-weight:600;margin:0;letter-spacing:.005em;
+  text-transform:none}
+.day p{margin:5px 0 0;font-size:14.5px;color:var(--muted);max-width:66ch;
+  font-family:var(--body),var(--indic)}
+.day p b{color:var(--ink)}
+.d-launch{border-color:var(--ochre);color:var(--ochre)}
+.d-post{border-color:var(--teal);color:var(--teal)}
+.d-rest{border-style:dashed}
+.d-own{border-color:var(--indigo);color:var(--indigo)}
+.day.is-launch{background:var(--sunk)}
+.day.is-launch .dn{color:var(--ochre)}
+.day.is-rest .dn,.day.is-rest h4{color:var(--faint)}
+.after{margin-top:22px}
+@media (max-width:760px){
+  .day{grid-template-columns:52px 1fr;gap:12px}
+  .day .kd{grid-column:2;margin-top:0}
+  .day h4,.day p{grid-column:2}
+}
+</style>
+<div class="wrap">
+<header>
+<p class="kicker">Bolo! &middot; 22 languages &middot; 22 weeks &middot; 66 posts</p>
+<h1>Departure Board</h1>
+<p class="sub">One language a week. Three posts, two days apart, anchored to whatever day you launch on. Every caption below is finished and ready to paste, so nothing has to be written on the day.</p>
+<div class="picker">
+<p class="pl">Launch day</p>
+<h2 class="ph">Pick day one. The board re-anchors to it.</h2>
+<p class="pd">The build ships this weekend, and it carries most of the value. <b>Do not point your first fifty people at a store listing on the same day the build lands.</b> Give it a day to settle and to be installed by someone who is not you.</p>
+<div class="opts" id="opts">
+<button class="opt" type="button" data-iso="2026-08-29" aria-pressed="false">Sat 29 Aug</button>
+<button class="opt" type="button" data-iso="2026-08-30" aria-pressed="false">Sun 30 Aug</button>
+<button class="opt" type="button" data-iso="2026-08-31" aria-pressed="false">Mon 31 Aug<span class="rec">Recommended</span></button>
+<button class="opt" type="button" data-iso="2026-09-01" aria-pressed="false">Tue 1 Sep</button>
+<span class="other"><span>or</span><input type="date" id="anyday" value="2026-08-31" min="2026-08-26" max="2027-06-30"></span>
+</div></div>
+<div class="boarding">
+<div class="bhead"><span class="blamp"></span><span class="t" id="bstate">Now boarding</span><span class="n" id="btitle"></span></div>
+<div id="brows"></div>
+</div>
+<div class="rules">
+<div class="rule"><span class="n">3</span><div class="l">posts per week</div><p id="rcadence">Two days apart, anchored to your launch day.</p></div>
+<div class="rule"><span class="n">1</span><div class="l">language per week</div><p>Concentrated signal teaches a cold account faster than a scattered one.</p></div>
+<div class="rule"><span class="n">1</span><div class="l">sitting per week</div><p>One evening, twenty minutes, schedule all three. Never open the app to post.</p></div>
+<div class="rule"><span class="n">22</span><div class="l">weeks of runway</div><p id="rrunway"></p></div>
+</div>
+</header>
+<section><div class="shead"><h2>Why one language a week</h2><p>The old plan spread three campaigns across every week. That was right when the only assets were stills. You now have a video in all 22 languages, and a video plus its matching card, posted to the same community two days apart, hits the same people twice in the format each does best.</p></div>
+<div class="call teal"><h3>Never post the variants together</h3><p><b>Only 3 seconds of 33 differ between them.</b> Both platforms hash for exactly that, so a block of near-identical uploads reads as duplicate content and most of them get suppressed. One a week is not caution, it is the only way they all get seen.</p></div>
+<div class="call indigo"><h3>Gujarati leads, not Punjabi</h3><p>Punjabi is the larger diaspora, which is why it led the old plan. <b>On a brand new account the first fifty viewers are hand-delivered, not discovered</b>, and the network you can actually fill a room from is Gujarati. Post to the room you have.</p></div>
+<div class="call"><h3>The build is the reason to wait a day</h3><p>This build carries most of the value, so week one sends real traffic at it. <b>A Saturday or Sunday launch puts your first fifty installs on a binary that shipped hours earlier</b>, with nobody but you having opened it. Monday costs you two days and buys you a weekend of the build being live, plus the time to seed the WhatsApp groups and r/ABCDesis before anything posts.</p></div>
+</section>
+<section><div class="shead"><h2>The first fifty</h2><p>Everything on the board assumes someone sees post one. On an account with no followers, nobody does unless you put them there by hand. This is that part, and it is the part that actually decides whether any of the rest works.</p></div>
+<div class="call"><h3>Ranked by what you actually own</h3><p>Worth saying plainly: <b>organic social is fourth on this list by expected value and first by the amount of work you have put into it.</b> The board is worth building because it compounds. It is not where your first hundred users come from.</p></div>
+<div class="rank">
+<div class="rk"><span class="p">1</span><div><h4>BollyMoves families</h4><p>Hundreds of desi parents whose kids answer in English. You have their contact details, you see them every week in person, and they are the exact customer. <b>This is the single most valuable channel you own and it is not social.</b></p></div><span class="temp t-warm">Warm &middot; yours</span></div>
+<div class="rk"><span class="p">2</span><div><h4>The Diwali table</h4><p>Face to face, with a mechanic already designed: the <b>First Words badge</b>, one spoken attempt, about 30 seconds, roughly 60 to 80 people an hour. The referral QR pays 25 Chai to both sides.</p></div><span class="temp t-warm">Warm &middot; yours</span></div>
+<div class="rk"><span class="p">3</span><div><h4>WhatsApp, family and community</h4><p>Small, warm, and the only thing that fills the first hour of a launch. Not scalable, which is fine, because launch night only needs fifty people.</p></div><span class="temp t-warm">Warm &middot; yours</span></div>
+<div class="rk dim"><span class="p">4</span><div><h4>Organic TikTok and Reels</h4><p>Slow, unreliable, and <b>the only one on this list that compounds</b>. Everything else stops the day you stop doing it. This is why the board exists.</p></div><span class="temp t-cold">Cold &middot; rented</span></div>
+<div class="rk dim"><span class="p">5</span><div><h4>Paid</h4><p>$5 to $10 a day on Meta, targeted by language and cultural interest. <b>Never boost a post to find out if it works.</b> Only ever behind one that already did.</p></div><span class="temp t-cold">Cold &middot; rented</span></div>
+</div>
+<div class="shead" style="margin-top:52px"><h2>Launch night, minute by minute</h2><p>Two and a half hours. Put nothing else in the evening.</p></div>
+<div class="run">
+<div class="step"><div class="clock">6.45pm<em>T minus 15</em></div><div><h4>Last check, not first</h4><p>The app is installed on your phone <b>from the store</b>, the bio renders, TryBolo.app loads. If anything here fails you do not post tonight. There is no version of this worth doing with a broken link.</p></div></div>
+<div class="step"><div class="clock">7.00pm<em>Go</em></div><div><h4>Post to TikTok only</h4><p>One platform first. You cannot work two comment sections at once and the first hour is the whole game.</p></div></div>
+<div class="step"><div class="clock">7.05pm<em>+5</em></div><div><h4>WhatsApp, family groups, one at a time</h4><p><b>Not a broadcast.</b> One group, then the next, so it reads as you talking and not as a blast. Send the point, not the link and a favour ask.</p></div></div>
+<div class="step"><div class="clock">7.20pm<em>+20</em></div><div><h4>WhatsApp, community and temple groups</h4><p>Same rule. Lead with what it is, not with what you want them to do.</p></div></div>
+<div class="step"><div class="clock">7.45pm<em>+45</em></div><div><h4>Now post to Reels</h4><p>By now TikTok has its first cohort and you can give Instagram your attention instead of splitting it.</p></div></div>
+<div class="step"><div class="clock">8.00pm<em>+60</em></div><div><h4>Second wave</h4><p>Anyone who opened and did not reply. One message, not two. <b>Never chase a third time.</b></p></div></div>
+<div class="step hot"><div class="clock">to 9.30pm<em>The hour that counts</em></div><div><h4>Reply to every single comment</h4><p><b>A reply is a stronger signal than the comment was</b>, and on a cold account the first hour of engagement decides who the platform tests it on next. Reply within minutes, in full sentences, including to the rude ones.</p></div></div>
+</div>
+<div class="shead" style="margin-top:52px"><h2>What to actually send</h2><p>Send the point, never the link and a favour. <b>Ask for a comment, not a like</b>, because a comment is worth more to the algorithm and it is an easier thing to give.</p></div>
+<div class="capwrap" style="margin-top:14px"><div class="captop"><span class="cl">Family group</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Ma has been saying નમસ્તે to my kids for about ten years now. Ten years of &quot;I&#x27;m good.&quot;
+
+I finally built the thing I wanted. It teaches 22 South Asian languages by making you say them out loud.
+
+Made a short film about it. If it reminds you of anyone, say who in the comments. That is the bit that actually helps it get seen.
+
+[paste the link]</pre></div>
+<div class="capwrap" style="margin-top:14px"><div class="captop"><span class="cl">BollyMoves parents</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Not a studio message, this one is from me as a parent.
+
+I built an app that teaches our languages by speaking them out loud. All 22, not just Hindi. It came out of saying કેમ છો? to my own kids for years and getting &quot;I&#x27;m good&quot; every single time.
+
+If that sounds like your house too, it is TryBolo.app. Short film here: [paste the link]</pre></div>
+<div class="capwrap" style="margin-top:14px"><div class="captop"><span class="cl">Community or temple group</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Namaste all. I built something and I would like this community to see it before anyone else does.
+
+It is an app that teaches 22 South Asian languages by speaking them out loud, including the ones no other app teaches at all.
+
+Short film here: [paste the link]. TryBolo.app if you want to look properly.</pre></div>
+<div class="call teal" style="margin-top:26px"><h3>I was wrong about Reddit on day one</h3><p>I told you to seed r/ABCDesis at launch. <b>Do not.</b> A brand new account posting a link to its own product gets auto-filtered or banned, and most subreddits ban self-promotion outright. Read the sidebar rules, spend two weeks commenting as a person, then post the story rather than the ad and say plainly that you built it. That is day 25 on the plan below, not day one.</p></div>
+</section>
+<section><div class="shead"><h2>Thirty days, one thing a day</h2><p>Five days of prep, then thirty. <b>Every day has exactly one action</b>, including the days where the action is to do nothing. The dates follow whatever launch day you picked.</p></div>
+<div class="days">
+<div class="day"><div class="dn">D&minus;5<span class="dd" data-off="-5" data-fmt="daymon"></span></div><div><span class="kd d-prep">PREP</span></div><div><h4>Install Bolo from the store, as a stranger</h4><p>A device that has never had it. Sign up the way a new person would. <b>Write down everything that is confusing or broken.</b> That list is worth more than any post on this board.</p></div></div>
+<div class="day"><div class="dn">D&minus;4<span class="dd" data-off="-4" data-fmt="daymon"></span></div><div><span class="kd d-prep">PREP</span></div><div><h4>Post three language cards so the grid is not empty</h4><p>A profile with one post looks like a bot and nobody follows a bot. Three cards, no captions needed beyond the pattern, posted quietly with no seeding.</p></div></div>
+<div class="day"><div class="dn">D&minus;3<span class="dd" data-off="-3" data-fmt="daymon"></span></div><div><span class="kd d-prep">PREP</span></div><div><h4>Write the WhatsApp messages. Do not send them.</h4><p>Written cold, days early, they come out honest. Written at 7.05pm on launch night they come out desperate.</p></div></div>
+<div class="day"><div class="dn">D&minus;2<span class="dd" data-off="-2" data-fmt="daymon"></span></div><div><span class="kd d-prep">PREP</span></div><div><h4>Count your list</h4><p>Every group, every person you would actually message. <b>If it is under fifty, add groups now</b>, because fifty is the number the first hour needs.</p></div></div>
+<div class="day"><div class="dn">D&minus;1<span class="dd" data-off="-1" data-fmt="daymon"></span></div><div><span class="kd d-prep">PREP</span></div><div><h4>Set the cover frames for week one's three posts</h4><p>A frame from the first 3 seconds while the script is still on screen. The cover is the only thing a profile visitor ever sees.</p></div></div>
+<div class="day is-launch"><div class="dn">D1<span class="dd" data-off="0" data-fmt="daymon"></span></div><div><span class="kd d-launch">LAUNCH</span></div><div><h4>LAUNCH. 7pm. Then do not leave.</h4><p>The runbook above, start to finish. <b>This is a two and a half hour evening, not a five minute upload.</b></p></div></div>
+<div class="day"><div class="dn">D2<span class="dd" data-off="1" data-fmt="daymon"></span></div><div><span class="kd d-reply">REPLY</span></div><div><h4>Reply to every comment from last night. Nothing else.</h4><p>Do not post. Do not check follower count. Just answer people, properly, in full sentences.</p></div></div>
+<div class="day"><div class="dn">D3<span class="dd" data-off="2" data-fmt="daymon"></span></div><div><span class="kd d-post">POST</span></div><div><h4>Post the Gujarati card</h4><p>Week 1, slot 2. Feed and Stories.</p></div></div>
+<div class="day"><div class="dn">D4<span class="dd" data-off="3" data-fmt="daymon"></span></div><div><span class="kd d-own">OWNED</span></div><div><h4>Tell the BollyMoves parents, as a parent</h4><p><b>Not from the studio account.</b> From you, in the parent chat, in the words above. This is the most valuable thing you will do all month and it takes four minutes.</p></div></div>
+<div class="day"><div class="dn">D5<span class="dd" data-off="4" data-fmt="daymon"></span></div><div><span class="kd d-post">POST</span></div><div><h4>Post the week 1 pillar</h4><p>father-a1. Reels and TikTok.</p></div></div>
+<div class="day"><div class="dn">D6<span class="dd" data-off="5" data-fmt="daymon"></span></div><div><span class="kd d-read">READ</span></div><div><h4>Read one number: views on day one</h4><p>Views, not followers. Followers on a week-old account mean nothing. <b>Look once, then close it.</b></p></div></div>
+<div class="day is-rest"><div class="dn">D7<span class="dd" data-off="6" data-fmt="daymon"></span></div><div><span class="kd d-rest">REST</span></div><div><h4>Rest. Post nothing, check nothing.</h4><p>This is on the plan on purpose. A month with no rest days is a month you abandon in week three.</p></div></div>
+<div class="day"><div class="dn">D8<span class="dd" data-off="7" data-fmt="daymon"></span></div><div><span class="kd d-post">POST</span></div><div><h4>Post the Punjabi video</h4><p>Week 2 opens. Seed it the same way, smaller: family groups only.</p></div></div>
+<div class="day"><div class="dn">D9<span class="dd" data-off="8" data-fmt="daymon"></span></div><div><span class="kd d-reply">REPLY</span></div><div><h4>Reply day</h4><p>Everything, including the rude ones. Especially the rude ones.</p></div></div>
+<div class="day"><div class="dn">D10<span class="dd" data-off="9" data-fmt="daymon"></span></div><div><span class="kd d-post">POST</span></div><div><h4>Post the Punjabi card</h4><p>Week 2, slot 2.</p></div></div>
+<div class="day"><div class="dn">D11<span class="dd" data-off="10" data-fmt="daymon"></span></div><div><span class="kd d-fix">FIX</span></div><div><h4>Walk your own funnel and list every dead end</h4><p>Fresh install to first spoken phrase. <b>Write down every place you would have quit.</b> Hand that list to the build chat. You already know one: the empty leaderboard tells you to add a friend and gives you nowhere to go.</p></div></div>
+<div class="day"><div class="dn">D12<span class="dd" data-off="11" data-fmt="daymon"></span></div><div><span class="kd d-post">POST</span></div><div><h4>Post the week 2 pillar</h4><p>duo-b, the scoreboard. People screenshot this one.</p></div></div>
+<div class="day"><div class="dn">D13<span class="dd" data-off="12" data-fmt="daymon"></span></div><div><span class="kd d-reddit">REDDIT</span></div><div><h4>Reddit warm-up. Comment on three threads. Post nothing.</h4><p><b>A new account dropping a link gets auto-filtered or banned.</b> Read the sidebar rules of r/ABCDesis first. Two weeks of being a person there buys you one post that survives.</p></div></div>
+<div class="day is-rest"><div class="dn">D14<span class="dd" data-off="13" data-fmt="daymon"></span></div><div><span class="kd d-rest">REST</span></div><div><h4>Rest</h4><p>Second one. Take it.</p></div></div>
+<div class="day"><div class="dn">D15<span class="dd" data-off="14" data-fmt="daymon"></span></div><div><span class="kd d-post">POST</span></div><div><h4>Post the Tamil video</h4><p>Week 3 opens.</p></div></div>
+<div class="day"><div class="dn">D16<span class="dd" data-off="15" data-fmt="daymon"></span></div><div><span class="kd d-fix">FIX</span></div><div><h4>Recut Bolo Social 4 with the Coming Soon badge</h4><p>The jeweller video. It is your Android relaunch asset and it currently carries a live Play badge that points at nothing.</p></div></div>
+<div class="day"><div class="dn">D17<span class="dd" data-off="16" data-fmt="daymon"></span></div><div><span class="kd d-post">POST</span></div><div><h4>Post the Tamil card</h4><p>Week 3, slot 2.</p></div></div>
+<div class="day"><div class="dn">D18<span class="dd" data-off="17" data-fmt="daymon"></span></div><div><span class="kd d-fix">FIX</span></div><div><h4>Crop the auntie video to 9:16</h4><p>It is 926x1080 content sitting inside a 1920x1080 black frame. It is Tamil led, so this week is its home once it is fixed.</p></div></div>
+<div class="day"><div class="dn">D19<span class="dd" data-off="18" data-fmt="daymon"></span></div><div><span class="kd d-post">POST</span></div><div><h4>Post the week 3 pillar</h4><p>ai-c, it listens. The strongest one in the AI set.</p></div></div>
+<div class="day"><div class="dn">D20<span class="dd" data-off="19" data-fmt="daymon"></span></div><div><span class="kd d-read">READ</span></div><div><h4>PostHog. Read language_entry_click and re-order the board</h4><p>Three weeks in you have real data on which communities respond. <b>The language order on the board is a reasoned guess. Replace it.</b></p></div></div>
+<div class="day is-rest"><div class="dn">D21<span class="dd" data-off="20" data-fmt="daymon"></span></div><div><span class="kd d-rest">REST</span></div><div><h4>Rest</h4><p>Third one.</p></div></div>
+<div class="day"><div class="dn">D22<span class="dd" data-off="21" data-fmt="daymon"></span></div><div><span class="kd d-post">POST</span></div><div><h4>Post the Bengali video</h4><p>Week 4 opens.</p></div></div>
+<div class="day"><div class="dn">D23<span class="dd" data-off="22" data-fmt="daymon"></span></div><div><span class="kd d-buy">ORDER</span></div><div><h4>Diwali table. Order the diyas, the totes and the stickers.</h4><p>Diwali is 8 November. Ordering in November is ordering too late.</p></div></div>
+<div class="day"><div class="dn">D24<span class="dd" data-off="23" data-fmt="daymon"></span></div><div><span class="kd d-post">POST</span></div><div><h4>Post the Bengali card</h4><p>Week 4, slot 2.</p></div></div>
+<div class="day"><div class="dn">D25<span class="dd" data-off="24" data-fmt="daymon"></span></div><div><span class="kd d-reddit">REDDIT</span></div><div><h4>Reddit. Post the story, not the ad.</h4><p>By now you have history there. Post the thing that is actually true: you said it to your kids for years and got "I'm good". <b>Mention that you built it. Never hide it.</b></p></div></div>
+<div class="day"><div class="dn">D26<span class="dd" data-off="25" data-fmt="daymon"></span></div><div><span class="kd d-post">POST</span></div><div><h4>Post the week 4 pillar</h4><p>father-b, every single time. The funny one.</p></div></div>
+<div class="day"><div class="dn">D27<span class="dd" data-off="26" data-fmt="daymon"></span></div><div><span class="kd d-buy">PRINT</span></div><div><h4>Print the referral QR card and the First Words badge card</h4><p>Two pieces of card. The QR pays 25 Chai to both sides; the badge card shows people what they are aiming at.</p></div></div>
+<div class="day is-rest"><div class="dn">D28<span class="dd" data-off="27" data-fmt="daymon"></span></div><div><span class="kd d-rest">REST</span></div><div><h4>Rest</h4><p>Fourth one.</p></div></div>
+<div class="day"><div class="dn">D29<span class="dd" data-off="28" data-fmt="daymon"></span></div><div><span class="kd d-post">POST</span></div><div><h4>Post the Urdu video</h4><p>Week 5 opens.</p></div></div>
+<div class="day"><div class="dn">D30<span class="dd" data-off="29" data-fmt="daymon"></span></div><div><span class="kd d-read">READ</span></div><div><h4>Month review. Four numbers, fifteen minutes.</h4><p>Best performing post. Worst. language_entry_click ranking. Signups from social. <b>Then change exactly one thing.</b> Not five.</p></div></div>
+</div>
+<div class="call after"><h3>And then it repeats</h3><p>After day 30 the week has a shape and you stop needing a calendar for it. <b>Three posting days, one reply day, one rest day, one fix day, one read day.</b> The board carries the posting slots out to week 22. Everything else on this page is the same seven day loop, and the only thing that changes is which language week you are in.</p></div>
+</section>
+<section><div class="shead"><h2>The board</h2><p>Every slot carries its file, where it goes, and the caption to paste. Open a week to work it. Tick a slot when it is scheduled; the ticks are remembered in this browser only, so they will not follow you to another device.</p></div>
+<div class="board">
+<details class="week" data-week="1" data-off="0" open>
+<summary>
+<span class="wk">W01</span>
+<span class="glyph">નમસ્તે</span>
+<span><span class="lang">Gujarati</span><span class="span"><span data-off="0" data-fmt="daymon"></span> &ndash; <span data-off="4" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="0" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="2" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="4" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w01-s0">
+<div class="when"><span data-off="0" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d07 Gujarati.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Launch post. Gujarati leads because it is the network you can hand-deliver the first fifty viewers from.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">કેમ છો? and all you ever get back is &quot;I&#x27;m good.&quot;
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#gujarati #learngujarati #gujju #gujaratidiaspora #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w01-s2">
+<div class="when"><span data-off="2" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d07-forgot-gu-gujarati.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Gujarati. 😞
+
+Bolo didn&#x27;t.
+
+નમસ્તે is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#gujarati #learngujarati #gujju #gujaratidiaspora #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w01-s4">
+<div class="when"><span data-off="4" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">father-a1-they-answer-in-english-9x16.png</div>
+<p class="meta"><b>Reels + TikTok.</b> The hook. Your strongest still, spent early.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">You have said it to that kid ten thousand times. You have never once heard it back.
+
+It is not too late, and it is not their fault. Bolo teaches all 22 languages by speaking them out loud, and you can learn it together on one family plan. TryBolo.app
+
+#desiparents #diaspora #heritagelanguage #motherlanguage #indianparents #speakbolo #desikids #firstgen</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="2" data-off="7">
+<summary>
+<span class="wk">W02</span>
+<span class="glyph">ਸਤ ਸ੍ਰੀ ਅਕਾਲ</span>
+<span><span class="lang">Punjabi</span><span class="span"><span data-off="7" data-fmt="daymon"></span> &ndash; <span data-off="11" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="7" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="9" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="11" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w02-s7">
+<div class="when"><span data-off="7" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d11 Punjabi.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">ਸਤ ਸ੍ਰੀ ਅਕਾਲ
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#punjabi #learnpunjabi #gurmukhi #punjabidiaspora #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w02-s9">
+<div class="when"><span data-off="9" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d11-forgot-pa-punjabi.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Punjabi. 😞
+
+Bolo didn&#x27;t.
+
+ਸਤ ਸ੍ਰੀ ਅਕਾਲ is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#punjabi #learnpunjabi #gurmukhi #punjabidiaspora #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w02-s11">
+<div class="when"><span data-off="11" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">duo-b-scoreboard-1v22.png</div>
+<p class="meta"><b>Feed + Stories.</b> The proof. People scan for their language and screenshot it.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">We checked. Of India&#x27;s 22 official languages, Duolingo teaches one.
+
+Bolo teaches 22.
+
+Find yours on the list. Then go speak it. TryBolo.app
+
+#duolingo #languagelearning #indianlanguages #desi #heritage #speakbolo #languageapp #southasian #motherlanguage #22languages</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="3" data-off="14">
+<summary>
+<span class="wk">W03</span>
+<span class="glyph">வணக்கம்</span>
+<span><span class="lang">Tamil</span><span class="span"><span data-off="14" data-fmt="daymon"></span> &ndash; <span data-off="18" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="14" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="16" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="18" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w03-s14">
+<div class="when"><span data-off="14" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d03 Tamil.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">வணக்கம்
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#tamil #learntamil #tamildiaspora #vanakkam #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w03-s16">
+<div class="when"><span data-off="16" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d03-forgot-ta-tamil.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Tamil. 😞
+
+Bolo didn&#x27;t.
+
+வணக்கம் is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#tamil #learntamil #tamildiaspora #vanakkam #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w03-s18">
+<div class="when"><span data-off="18" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">ai-c-it-listens-9x16.png</div>
+<p class="meta"><b>Reels + X.</b> The differentiator, and the strongest one in the AI set.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Most speech practice compares your words to a transcript. If the right word comes out, you pass, accent and all.
+
+Bolo sends your actual recording to an audio model, so it hears how you said it. TryBolo.app
+
+#ai #pronunciation #accent #languagelearning #speakbolo #edtech #voiceai #learnhindi</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="4" data-off="21">
+<summary>
+<span class="wk">W04</span>
+<span class="glyph">নমস্কার</span>
+<span><span class="lang">Bengali</span><span class="span"><span data-off="21" data-fmt="daymon"></span> &ndash; <span data-off="25" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="21" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="23" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="25" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w04-s21">
+<div class="when"><span data-off="21" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d02 Bengali.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">নমস্কার
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#bengali #bangla #learnbengali #bengalidiaspora #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w04-s23">
+<div class="when"><span data-off="23" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d02-forgot-bn-bengali.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Bengali. 😞
+
+Bolo didn&#x27;t.
+
+নমস্কার is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#bengali #bangla #learnbengali #bengalidiaspora #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w04-s25">
+<div class="when"><span data-off="25" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">father-b-every-single-time-9x16.png</div>
+<p class="meta"><b>Reels + TikTok.</b> The funny one. Highest share rate in the set.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Three languages go in. One comes out.
+
+If you have lived this exact conversation, the app was built for your house. TryBolo.app
+
+#desitok #desiparents #diaspora #firstgen #browntok #heritagelanguage #speakbolo #relatable</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="5" data-off="28">
+<summary>
+<span class="wk">W05</span>
+<span class="glyph">سلام</span>
+<span><span class="lang">Urdu</span><span class="span"><span data-off="28" data-fmt="daymon"></span> &ndash; <span data-off="32" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="28" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="30" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="32" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w05-s28">
+<div class="when"><span data-off="28" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d06 Urdu.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">سلام
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#urdu #learnurdu #urdupoetry #urduzaban #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w05-s30">
+<div class="when"><span data-off="30" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d06-forgot-ur-urdu.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Urdu. 😞
+
+Bolo didn&#x27;t.
+
+سلام is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#urdu #learnurdu #urdupoetry #urduzaban #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w05-s32">
+<div class="when"><span data-off="32" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">duo-a1-wall-of-22-9x16.png</div>
+<p class="meta"><b>Reels + Stories.</b> Breadth. Lands harder once the count is established.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">22 official languages. Every single one, in its own script.
+
+Duo teaches 1 of them. Bolo teaches all 22.
+
+Find your family&#x27;s language and start speaking it today. TryBolo.app
+
+#22languages #indianlanguages #desitok #heritagelanguage #motherlanguage #speakbolo #languagelearning #diaspora #southasian #learnyourlanguage</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="6" data-off="35">
+<summary>
+<span class="wk">W06</span>
+<span class="glyph">నమస్తే</span>
+<span><span class="lang">Telugu</span><span class="span"><span data-off="35" data-fmt="daymon"></span> &ndash; <span data-off="39" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="35" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="37" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="39" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w06-s35">
+<div class="when"><span data-off="35" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d04 Telugu.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">నమస్తే
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#telugu #learntelugu #telugupeople #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w06-s37">
+<div class="when"><span data-off="37" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d04-forgot-te-telugu.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Telugu. 😞
+
+Bolo didn&#x27;t.
+
+నమస్తే is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#telugu #learntelugu #telugupeople #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w06-s39">
+<div class="when"><span data-off="39" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">father-f-made-by-a-father-9x16.png</div>
+<p class="meta"><b>Reels + Feed.</b> The founder story. REWRITE THIS ONE IN YOUR OWN WORDS FIRST.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">American Born Confused Desis. I said કેમ છો? to my kids every day for years and every day I got &quot;I&#x27;m good.&quot;
+
+No app taught our language, so I built the one I wanted: all 22, taught out loud, for the whole family. TryBolo.app
+
+#buildinpublic #desiparents #founder #diaspora #heritagelanguage #abcd #speakbolo #indieapp</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="7" data-off="42">
+<summary>
+<span class="wk">W07</span>
+<span class="glyph">നമസ്കാരം</span>
+<span><span class="lang">Malayalam</span><span class="span"><span data-off="42" data-fmt="daymon"></span> &ndash; <span data-off="46" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="42" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="44" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="46" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w07-s42">
+<div class="when"><span data-off="42" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d09 Malayalam.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">നമസ്കാരം
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#malayalam #learnmalayalam #mallu #keralite #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w07-s44">
+<div class="when"><span data-off="44" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d09-forgot-ml-malayalam.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Malayalam. 😞
+
+Bolo didn&#x27;t.
+
+നമസ്കാരം is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#malayalam #learnmalayalam #mallu #keralite #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w07-s46">
+<div class="when"><span data-off="46" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">ai-a1-learning-your-pace-9x16.png</div>
+<p class="meta"><b>Reels + TikTok.</b> The capability thesis.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Say it out loud and Bolo hears it. Every attempt gets a real score and gets remembered against that exact phrase.
+
+22 languages, from the first one you try. TryBolo.app
+
+#ai #languagelearning #pronunciation #edtech #speakbolo #indianlanguages #aitools #languageapp</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="8" data-off="49">
+<summary>
+<span class="wk">W08</span>
+<span class="glyph">नमस्कार</span>
+<span><span class="lang">Marathi</span><span class="span"><span data-off="49" data-fmt="daymon"></span> &ndash; <span data-off="53" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="49" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="51" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="53" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w08-s49">
+<div class="when"><span data-off="49" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d05 Marathi.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">नमस्कार
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#marathi #learnmarathi #marathimulgi #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w08-s51">
+<div class="when"><span data-off="51" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d05-forgot-mr-marathi.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Marathi. 😞
+
+Bolo didn&#x27;t.
+
+नमस्कार is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#marathi #learnmarathi #marathimulgi #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w08-s53">
+<div class="when"><span data-off="53" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">father-c-not-just-your-house-1x1.png</div>
+<p class="meta"><b>Feed + Carousel.</b> You are not alone in this. Widens the father angle past one language.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Different language, same reply.
+
+Every diaspora household is running the same script. 22 languages on Bolo, all taught out loud. TryBolo.app
+
+#diaspora #southasian #desitok #heritagelanguage #firstgen #speakbolo #indianlanguages</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="9" data-off="56">
+<summary>
+<span class="wk">W09</span>
+<span class="glyph">ನಮಸ್ಕಾರ</span>
+<span><span class="lang">Kannada</span><span class="span"><span data-off="56" data-fmt="daymon"></span> &ndash; <span data-off="60" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="56" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="58" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="60" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w09-s56">
+<div class="when"><span data-off="56" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d08 Kannada.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">ನಮಸ್ಕಾರ
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#kannada #learnkannada #nammakarnataka #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w09-s58">
+<div class="when"><span data-off="58" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d08-forgot-kn-kannada.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Kannada. 😞
+
+Bolo didn&#x27;t.
+
+ನಮಸ್ಕಾರ is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#kannada #learnkannada #nammakarnataka #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w09-s60">
+<div class="when"><span data-off="60" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">duo-c-onramp-tamil-spanish.png</div>
+<p class="meta"><b>Reels + X.</b> The sharpest fact you own. It needed the count established first.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">In April 2025 Duolingo added Tamil, Telugu, Bengali and Hindi.
+
+Not as languages you can learn. As menus. So a Tamil speaker could go learn Spanish.
+
+Our languages were the on-ramp to theirs. Bolo teaches all 22, out loud. TryBolo.app
+
+#tamil #languagelearning #edtech #desitok #heritagelanguage #speakbolo #southasian #indianlanguages #diaspora #learntamil</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="10" data-off="63">
+<summary>
+<span class="wk">W10</span>
+<span class="glyph">ନମସ୍କାର</span>
+<span><span class="lang">Odia</span><span class="span"><span data-off="63" data-fmt="daymon"></span> &ndash; <span data-off="67" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="63" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="65" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="67" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w10-s63">
+<div class="when"><span data-off="63" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d10 Odia.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">ନମସ୍କାର
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#odia #odisha #learnodia #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w10-s65">
+<div class="when"><span data-off="65" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d10-forgot-or-odia.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Odia. 😞
+
+Bolo didn&#x27;t.
+
+ନମସ୍କାର is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#odia #odisha #learnodia #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w10-s67">
+<div class="when"><span data-off="67" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">ai-b-five-bands-9x16.png</div>
+<p class="meta"><b>Reels + Feed.</b> Show your work. Converts skeptics.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Perfect. Great. Good. Almost. Retry.
+
+Every attempt lands on one of five bands with a real score behind it, not a green tick. And every one gets logged against that phrase, for you. TryBolo.app
+
+#languagelearning #pronunciation #ai #edtech #speakbolo #languageapp #learntamil</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="11" data-off="70">
+<summary>
+<span class="wk">W11</span>
+<span class="glyph">नमस्ते</span>
+<span><span class="lang">Hindi</span><span class="span"><span data-off="70" data-fmt="daymon"></span> &ndash; <span data-off="74" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="70" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="72" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="74" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w11-s70">
+<div class="when"><span data-off="70" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d01 Hindi.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">नमस्ते
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#hindi #learnhindi #hindidiaspora #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w11-s72">
+<div class="when"><span data-off="72" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d01-forgot-hi-hindi.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duolingo teaches Hindi. Fair enough.
+
+It&#x27;s the only one of India&#x27;s 22 official languages they teach. Bolo teaches all 22, and teaches them out loud with real pronunciation coaching.
+
+नमस्ते is where you start. TryBolo.app
+
+#hindi #learnhindi #hindidiaspora #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w11-s74">
+<div class="when"><span data-off="74" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">father-d-family-plan-1x1.png</div>
+<p class="meta"><b>Feed.</b> The commercial ask, once trust is built. Points at TryBolo.app.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">The kid is not going to learn it from an app on their own. They will learn it because you are doing it too.
+
+One bill, up to four people, and everyone keeps their own progress. TryBolo.app
+
+#familygoals #desiparents #heritagelanguage #diaspora #speakbolo #learntogether #firstgen</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="12" data-off="77">
+<summary>
+<span class="wk">W12</span>
+<span class="glyph">नमस्ते</span>
+<span><span class="lang">Nepali</span><span class="span"><span data-off="77" data-fmt="daymon"></span> &ndash; <span data-off="81" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="77" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="79" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="81" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w12-s77">
+<div class="when"><span data-off="77" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d15 Nepali.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">नमस्ते
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#nepali #nepal #learnnepali #nepalidiaspora #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w12-s79">
+<div class="when"><span data-off="79" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d15-forgot-ne-nepali.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Nepali. 😞
+
+Bolo didn&#x27;t.
+
+नमस्ते is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#nepali #nepal #learnnepali #nepalidiaspora #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w12-s81">
+<div class="when"><span data-off="81" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">ai-d-remembers-1x1.png</div>
+<p class="meta"><b>Feed.</b> The retention story.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Every phrase gets its own review schedule, built from how well you actually said it.
+
+The ones slipping away come back first. TryBolo.app
+
+#spacedrepetition #languagelearning #ai #memory #speakbolo #edtech #studytips</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="13" data-off="84">
+<summary>
+<span class="wk">W13</span>
+<span class="glyph">নমস্কাৰ</span>
+<span><span class="lang">Assamese</span><span class="span"><span data-off="84" data-fmt="daymon"></span> &ndash; <span data-off="88" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="84" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="86" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="88" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w13-s84">
+<div class="when"><span data-off="84" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d12 Assamese.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">নমস্কাৰ
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#assamese #assam #axomiya #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w13-s86">
+<div class="when"><span data-off="86" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d12-forgot-as-assamese.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Assamese. 😞
+
+Bolo didn&#x27;t.
+
+নমস্কাৰ is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#assamese #assam #axomiya #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w13-s88">
+<div class="when"><span data-off="88" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">duo-a2-wall-of-22-1x1.png</div>
+<p class="meta"><b>Feed + Carousel cover.</b> Breadth again, cut for the grid.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">22 official languages. Every single one, in its own script.
+
+Duo teaches 1 of them. Bolo teaches all 22.
+
+Find your family&#x27;s language and start speaking it today. TryBolo.app
+
+#22languages #indianlanguages #desitok #heritagelanguage #motherlanguage #speakbolo #languagelearning #diaspora #southasian #learnyourlanguage</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="14" data-off="91">
+<summary>
+<span class="wk">W14</span>
+<span class="glyph">नमस्ते</span>
+<span><span class="lang">Sanskrit</span><span class="span"><span data-off="91" data-fmt="daymon"></span> &ndash; <span data-off="95" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="91" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="93" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="95" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w14-s91">
+<div class="when"><span data-off="91" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d14 Sanskrit.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">नमस्ते
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#sanskrit #samskritam #learnsanskrit #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w14-s93">
+<div class="when"><span data-off="93" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d14-forgot-sa-sanskrit.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Sanskrit. 😞
+
+Bolo didn&#x27;t.
+
+नमस्ते is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#sanskrit #samskritam #learnsanskrit #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w14-s95">
+<div class="when"><span data-off="95" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">ai-e-talk-to-bolo-1x1.png</div>
+<p class="meta"><b>Feed.</b> The feature people do not expect.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">A real back-and-forth conversation, out loud, in any of the 22 languages.
+
+He talks, you talk back. No typing. TryBolo.app
+
+#ai #conversation #languagelearning #speakbolo #voiceai #learnhindi #edtech</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="15" data-off="98">
+<summary>
+<span class="wk">W15</span>
+<span class="glyph">नमस्कार</span>
+<span><span class="lang">Konkani</span><span class="span"><span data-off="98" data-fmt="daymon"></span> &ndash; <span data-off="102" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="98" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="100" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="102" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w15-s98">
+<div class="when"><span data-off="98" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d18 Konkani.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">नमस्कार
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#konkani #goa #konkanilanguage #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w15-s100">
+<div class="when"><span data-off="100" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d18-forgot-kok-konkani.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Konkani. 😞
+
+Bolo didn&#x27;t.
+
+नमस्कार is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#konkani #goa #konkanilanguage #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w15-s102">
+<div class="when"><span data-off="102" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">father-e-answer-back-1x1.png</div>
+<p class="meta"><b>Feed.</b> The payoff. It only works after the setup has run for months.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">કેમ છો? into મજામાં!
+
+That is the entire reason this app exists. Start them speaking today. TryBolo.app
+
+#desiparents #heritagelanguage #diaspora #motherlanguage #speakbolo #firstgen #gujarati</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="16" data-off="105">
+<summary>
+<span class="wk">W16</span>
+<span class="glyph">سلام</span>
+<span><span class="lang">Sindhi</span><span class="span"><span data-off="105" data-fmt="daymon"></span> &ndash; <span data-off="109" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="105" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="107" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="109" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w16-s105">
+<div class="when"><span data-off="105" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d16 Sindhi.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">سلام
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#sindhi #sindh #sindhiculture #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w16-s107">
+<div class="when"><span data-off="107" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d16-forgot-sd-sindhi.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Sindhi. 😞
+
+Bolo didn&#x27;t.
+
+سلام is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#sindhi #sindh #sindhiculture #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w16-s109">
+<div class="when"><span data-off="109" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">ai-a2-learning-your-pace-1x1.png</div>
+<p class="meta"><b>Feed.</b> Feed cut of the thesis. Closes the loop.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Say it out loud and Bolo hears it. Every attempt gets a real score and gets remembered against that exact phrase.
+
+22 languages, from the first one you try. TryBolo.app
+
+#ai #languagelearning #pronunciation #edtech #speakbolo #indianlanguages #aitools #languageapp</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="17" data-off="112">
+<summary>
+<span class="wk">W17</span>
+<span class="glyph">آداب</span>
+<span><span class="lang">Kashmiri</span><span class="span"><span data-off="112" data-fmt="daymon"></span> &ndash; <span data-off="116" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="112" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="114" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-pillar"><b data-off="116" data-fmt="dayabbr"></b> PILLAR</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w17-s112">
+<div class="when"><span data-off="112" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d17 Kashmiri.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">آداب
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#kashmiri #kashmir #koshur #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w17-s114">
+<div class="when"><span data-off="114" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d17-forgot-ks-kashmiri.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Kashmiri. 😞
+
+Bolo didn&#x27;t.
+
+آداب is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#kashmiri #kashmir #koshur #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w17-s116">
+<div class="when"><span data-off="116" data-fmt="dayfull"></span><em>PILLAR</em></div>
+<div>
+<div class="file">father-a2-they-answer-in-english-1x1.png</div>
+<p class="meta"><b>Feed.</b> Held back on purpose so the back half is not all reruns.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">You have said it to that kid ten thousand times. You have never once heard it back.
+
+It is not too late, and it is not their fault. 22 languages, all taught out loud. TryBolo.app
+
+#desiparents #diaspora #heritagelanguage #motherlanguage #indianparents #speakbolo #desikids #firstgen</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="18" data-off="119">
+<summary>
+<span class="wk">W18</span>
+<span class="glyph">नमस्कार</span>
+<span><span class="lang">Maithili</span><span class="span"><span data-off="119" data-fmt="daymon"></span> &ndash; <span data-off="123" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="119" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="121" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-repost"><b data-off="123" data-fmt="dayabbr"></b> REPOST</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w18-s119">
+<div class="when"><span data-off="119" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d13 Maithili.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">नमस्कार
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#maithili #mithila #bihar #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w18-s121">
+<div class="when"><span data-off="121" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d13-forgot-mai-maithili.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Maithili. 😞
+
+Bolo didn&#x27;t.
+
+नमस्कार is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#maithili #mithila #bihar #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w18-s123">
+<div class="when"><span data-off="123" data-fmt="dayfull"></span><em>REPOST</em></div>
+<div>
+<div class="file">Your best performer so far</div>
+<p class="meta"><b>Wherever it worked the first time.</b> The pillar set runs out here. This is a real cap, not a gap. Repost what already earned reach, with the live Play badge if Android has shipped.</p>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="19" data-off="126">
+<summary>
+<span class="wk">W19</span>
+<span class="glyph">ꯎꯏ</span>
+<span><span class="lang">Manipuri</span><span class="span"><span data-off="126" data-fmt="daymon"></span> &ndash; <span data-off="130" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="126" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="128" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-repost"><b data-off="130" data-fmt="dayabbr"></b> REPOST</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w19-s126">
+<div class="when"><span data-off="126" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d21 Manipuri.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">ꯎꯏ
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#manipuri #meitei #manipur #northeastindia #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w19-s128">
+<div class="when"><span data-off="128" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d21-forgot-mni-manipuri.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Manipuri. 😞
+
+Bolo didn&#x27;t.
+
+ꯎꯏ is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#manipuri #meitei #manipur #northeastindia #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w19-s130">
+<div class="when"><span data-off="130" data-fmt="dayfull"></span><em>REPOST</em></div>
+<div>
+<div class="file">Your best performer so far</div>
+<p class="meta"><b>Wherever it worked the first time.</b> The pillar set runs out here. This is a real cap, not a gap. Repost what already earned reach, with the live Play badge if Android has shipped.</p>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="20" data-off="133">
+<summary>
+<span class="wk">W20</span>
+<span class="glyph">ᱡᱚᱦᱟᱨ</span>
+<span><span class="lang">Santali</span><span class="span"><span data-off="133" data-fmt="daymon"></span> &ndash; <span data-off="137" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="133" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="135" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-repost"><b data-off="137" data-fmt="dayabbr"></b> REPOST</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w20-s133">
+<div class="when"><span data-off="133" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d22 Santali.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">ᱡᱚᱦᱟᱨ
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#santali #santal #olchiki #adivasi #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w20-s135">
+<div class="when"><span data-off="135" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d22-forgot-sat-santali.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Santali. 😞
+
+Bolo didn&#x27;t.
+
+ᱡᱚᱦᱟᱨ is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#santali #santal #olchiki #adivasi #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w20-s137">
+<div class="when"><span data-off="137" data-fmt="dayfull"></span><em>REPOST</em></div>
+<div>
+<div class="file">Your best performer so far</div>
+<p class="meta"><b>Wherever it worked the first time.</b> The pillar set runs out here. This is a real cap, not a gap. Repost what already earned reach, with the live Play badge if Android has shipped.</p>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="21" data-off="140">
+<summary>
+<span class="wk">W21</span>
+<span class="glyph">नमस्ते</span>
+<span><span class="lang">Dogri</span><span class="span"><span data-off="140" data-fmt="daymon"></span> &ndash; <span data-off="144" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="140" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="142" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-repost"><b data-off="144" data-fmt="dayabbr"></b> REPOST</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w21-s140">
+<div class="when"><span data-off="140" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d19 Dogri.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">नमस्ते
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#dogri #jammu #duggar #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w21-s142">
+<div class="when"><span data-off="142" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d19-forgot-doi-dogri.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Dogri. 😞
+
+Bolo didn&#x27;t.
+
+नमस्ते is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#dogri #jammu #duggar #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w21-s144">
+<div class="when"><span data-off="144" data-fmt="dayfull"></span><em>REPOST</em></div>
+<div>
+<div class="file">Your best performer so far</div>
+<p class="meta"><b>Wherever it worked the first time.</b> The pillar set runs out here. This is a real cap, not a gap. Repost what already earned reach, with the live Play badge if Android has shipped.</p>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+<details class="week" data-week="22" data-off="147">
+<summary>
+<span class="wk">W22</span>
+<span class="glyph">जों</span>
+<span><span class="lang">Bodo</span><span class="span"><span data-off="147" data-fmt="daymon"></span> &ndash; <span data-off="151" data-fmt="daymon"></span></span></span>
+<span class="chips">
+<span class="chip k-video"><b data-off="147" data-fmt="dayabbr"></b> VIDEO</span>
+<span class="chip k-card"><b data-off="149" data-fmt="dayabbr"></b> CARD</span>
+<span class="chip k-repost"><b data-off="151" data-fmt="dayabbr"></b> REPOST</span>
+</span>
+<span class="wnote" hidden>Diwali falls Sunday 8 November, inside this week</span>
+</summary>
+<div class="slots">
+<div class="slot" data-slot="w22-s147">
+<div class="when"><span data-off="147" data-fmt="dayfull"></span><em>VIDEO</em></div>
+<div>
+<div class="file">Grandma d20 Bodo.mp4</div>
+<p class="meta"><b>TikTok + Reels.</b> Video carries reach a still cannot buy. The script is on screen for the first 3 seconds.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">जों
+
+That&#x27;s how she starts every call. It&#x27;s also where it ends.
+
+She learned English for him. Nobody ever asked him to learn hers.
+
+22 South Asian languages, taught out loud. TryBolo.app
+
+What&#x27;s the one thing your grandmother says that you only ever answer in English?
+
+#bodo #bodoland #assam #desitok #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w22-s149">
+<div class="when"><span data-off="149" data-fmt="dayfull"></span><em>CARD</em></div>
+<div>
+<div class="file">duo-d20-forgot-brx-bodo.png</div>
+<p class="meta"><b>Feed + Stories.</b> Second touch on the same community, different format.</p>
+<div class="capwrap"><div class="captop"><span class="cl">Caption, paste whole</span><button class="copy" type="button">Copy</button></div>
+<pre class="cap">Duo forgot Bodo. 😞
+
+Bolo didn&#x27;t.
+
+जों is where you start. Say it out loud, get coached on the spot, and get your family&#x27;s language back. TryBolo.app
+
+#bodo #bodoland #assam #speakbolo</pre>
+</div>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+<div class="slot" data-slot="w22-s151">
+<div class="when"><span data-off="151" data-fmt="dayfull"></span><em>REPOST</em></div>
+<div>
+<div class="file">Your best performer so far</div>
+<p class="meta"><b>Wherever it worked the first time.</b> The pillar set runs out here. This is a real cap, not a gap. Repost what already earned reach, with the live Play badge if Android has shipped.</p>
+<label class="done"><input type="checkbox"> Scheduled</label>
+</div></div>
+</div></details>
+</div>
+<div class="call"><h3>Diwali lands in week <span id="dwk">&mdash;</span></h3><p>Diwali 2026 is <b>Sunday 8 November</b>, and the five days run 6 to 10 November. <b>Spend that week's last slot on a Diwali post instead of the pillar</b> and push the pillar one week down the board. That week is also your vendor table window, which means the referral QR and the First Words badge card get printed <b>before</b> it, not during it.</p></div>
+<div class="call"><h3>The pillars run out at week 18</h3><p>There are <b>17 usable pillar stills</b> and 22 pillar slots. Weeks 18 to 22 are marked REPOST on purpose rather than padded, because a silent cap reads as coverage when it is not. By then you will know which three posts actually earned reach; those are the reposts.</p></div>
+<div class="call teal"><h3>Two things are held back deliberately</h3><p><b>ai-f-whats-next-1x1</b> stays in the drawer. It pre-announces adaptive pacing, so it posts the week that ships and not before. <b>Bolo Social 4</b>, the jeweller video, is your Android relaunch video and still needs the Coming Soon badge recut. <b>bolo social 3</b>, the auntie video, is pillarboxed inside a landscape frame and needs cropping to 9:16 before it can go anywhere; it is Tamil-led, so week 3 is its natural home once it is fixed.</p></div>
+</section>
+<section><div class="shead"><h2>The rules that make it survivable</h2><p>Everything here exists so a missed week costs you nothing.</p></div>
+<ul class="plain">
+<li><b>Schedule, never post live.</b> One sitting a week, all three queued. Opening the app to post is how a week gets skipped.</li>
+<li><b>Post 6 to 9pm your audience's time.</b> Diaspora scrolling is an evening habit, after dinner and after the kids are down.</li>
+<li><b>Change the cover frame every time.</b> Pick a frame from the first 3 seconds while the script is still on screen. The cover is the only thing a profile visitor sees.</li>
+<li><b>Five hashtags, not thirty.</b> The community tag finds the community. #languagelearning finds nobody.</li>
+<li><b>Never mix badge states.</b> A feed carrying both a live and a coming-soon Play badge looks like a rendering bug, not a launch.</li>
+<li><b>Seed the first fifty by hand.</b> WhatsApp family groups, r/ABCDesis, temple and gurdwara pages. On a cold account this is the whole game, and it matters more than anything in the caption.</li>
+<li><b>Miss a week without guilt.</b> The board is a queue, not a calendar. Pick up at the next unticked slot. Nothing here expires.</li>
+</ul>
+</section>
+<section><div class="shead"><h2>The one number that re-orders the board</h2><p>PostHog is already instrumented on the web app, so this needs no new tooling.</p></div>
+<ul class="plain">
+<li><b>language_entry_click</b> fires when someone taps a language on the landing page, tagged with which one. After four weeks you have a real ranking of which communities are responding. <b>Re-order the remaining weeks to match.</b> The order above is a reasoned guess. Your data beats it.</li>
+<li><b>signup_started</b> carries a source. Compare a video week against a card week against a pillar week, and give the winner more slots in the back half. Do not keep a balanced rotation out of tidiness.</li>
+<li><b>Check it monthly, not weekly.</b> Three posts a week is too little signal to read weekly, and reading it daily is how a plan turns into anxiety. Fifteen minutes, once a month.</li>
+</ul>
+</section>
+<footer>
+<b style="color:var(--teal)">Canonical copy.</b> Edits are made here, in <span style="font-family:var(--mono)">artifacts/api-server/assets/nest-growth.html</span>. The published artifact is a mirror and may lag.<br><br>
+Videos in <span style="font-family:var(--mono)">BOLO Social Video Ads/Grandma language variants/</span>. Stills in the flat play-soon set, 40 files, currently <span style="font-family:var(--mono)">Downloads/bolocampaignsplaysoon 2/</span>. Swap the whole set to the live badge the day Google Play goes public, never a feed carrying both.
+</footer>
+</div>
+<script>
+(function(){
+  var CKEY="bolo-board-v2", LKEY="bolo-board-launch", DEF="2026-08-31";
+  var DIWALI=new Date(2026,10,8);
+  var DAYS=["SUN","MON","TUE","WED","THU","FRI","SAT"];
+  var MONS=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  var LONGD=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  var LONGM=["January","February","March","April","May","June","July","August",
+             "September","October","November","December"];
+
+  function parse(iso){var p=iso.split("-");return new Date(+p[0],+p[1]-1,+p[2]);}
+  function add(d,n){var x=new Date(d.getTime());x.setDate(x.getDate()+n);return x;}
+  function fmt(d,k){
+    if(k==="dayabbr")return DAYS[d.getDay()];
+    if(k==="daymon")return d.getDate()+" "+MONS[d.getMonth()];
+    if(k==="long")return LONGD[d.getDay()]+" "+d.getDate()+" "+LONGM[d.getMonth()];
+    return DAYS[d.getDay()]+" "+d.getDate()+" "+MONS[d.getMonth()];
+  }
+  function readL(){try{return localStorage.getItem(LKEY)||DEF}catch(e){return DEF}}
+  function writeL(v){try{localStorage.setItem(LKEY,v)}catch(e){}}
+
+  var opts=document.getElementById("opts");
+  var anyday=document.getElementById("anyday");
+
+  function render(iso){
+    var base=parse(iso);
+    document.querySelectorAll("[data-off]").forEach(function(el){
+      var f=el.getAttribute("data-fmt"); if(!f) return;
+      el.textContent=fmt(add(base,+el.getAttribute("data-off")),f);
+    });
+    // cadence line
+    var c=document.getElementById("rcadence");
+    if(c){c.textContent=fmt(base,"dayabbr")+", "+fmt(add(base,2),"dayabbr")+", "
+      +fmt(add(base,4),"dayabbr")+". Two days apart, every week.";}
+    // runway
+    var r=document.getElementById("rrunway");
+    if(r){r.textContent=fmt(base,"long")+" to "+fmt(add(base,151),"long")
+      +". Nothing new to invent in between.";}
+    // buttons
+    Array.prototype.forEach.call(opts.querySelectorAll("button.opt"),function(b){
+      b.setAttribute("aria-pressed", b.getAttribute("data-iso")===iso ? "true":"false");
+    });
+    if(anyday.value!==iso) anyday.value=iso;
+    // diwali week
+    var dw=0;
+    document.querySelectorAll("details.week").forEach(function(dt){
+      var s=add(base,+dt.getAttribute("data-off")), e=add(s,6);
+      var hit = DIWALI>=s && DIWALI<=e;
+      var n=dt.querySelector(".wnote");
+      if(n){ if(hit){n.removeAttribute("hidden"); dw=+dt.getAttribute("data-week");}
+             else n.setAttribute("hidden",""); }
+    });
+    var dl=document.getElementById("dwk");
+    if(dl) dl.textContent = dw ? String(dw) : "the gap between 10 and 11";
+    boarding(base);
+  }
+
+  function boarding(base){
+    var today=new Date(); today.setHours(0,0,0,0);
+    var diff=Math.floor((today-base)/86400000);
+    var wk = diff<0 ? 1 : Math.min(22, Math.floor(diff/7)+1);
+    var dt=document.querySelector('details.week[data-week="'+wk+'"]');
+    if(!dt) return;
+    document.getElementById("bstate").textContent =
+      diff<0 ? ("Launches "+fmt(base,"long")) : "Now boarding";
+    document.getElementById("btitle").textContent =
+      "Week "+(wk<10?"0":"")+wk+" · "+dt.querySelector(".lang").textContent;
+    var rows=document.getElementById("brows"); rows.innerHTML="";
+    dt.querySelectorAll(".slot").forEach(function(sl){
+      var when=sl.querySelector(".when span").textContent;
+      var file=sl.querySelector(".file").textContent;
+      var meta=sl.querySelector(".meta b").textContent.replace(/\.$/,"");
+      var row=document.createElement("div"); row.className="brow";
+      var a=document.createElement("span"); a.className="when"; a.textContent=when;
+      var b=document.createElement("span"); b.className="what"; b.textContent=file;
+      var c=document.createElement("span"); c.className="plat"; c.textContent=meta;
+      row.appendChild(a); row.appendChild(b); row.appendChild(c); rows.appendChild(row);
+    });
+  }
+
+  opts.addEventListener("click",function(e){
+    var b=e.target.closest("button.opt"); if(!b) return;
+    var iso=b.getAttribute("data-iso"); writeL(iso); render(iso);
+  });
+  anyday.addEventListener("change",function(){
+    if(!anyday.value) return; writeL(anyday.value); render(anyday.value);
+  });
+
+  // ticks
+  function readC(){try{return JSON.parse(localStorage.getItem(CKEY))||{}}catch(e){return{}}}
+  function writeC(o){try{localStorage.setItem(CKEY,JSON.stringify(o))}catch(e){}}
+  var st=readC();
+  document.querySelectorAll(".slot").forEach(function(slot){
+    var id=slot.getAttribute("data-slot"), box=slot.querySelector("label.done input");
+    if(!box) return;
+    if(st[id]){box.checked=true;slot.classList.add("is-done");}
+    box.addEventListener("change",function(){
+      slot.classList.toggle("is-done",box.checked);
+      var s=readC(); if(box.checked){s[id]=1}else{delete s[id]} writeC(s);
+    });
+  });
+
+  // copy
+  function fallback(txt,cb){
+    var ta=document.createElement("textarea"); ta.value=txt; ta.setAttribute("readonly","");
+    ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    try{document.execCommand("copy");cb()}catch(e){}
+    document.body.removeChild(ta);
+  }
+  document.querySelectorAll("button.copy").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var txt=btn.closest(".capwrap").querySelector("pre.cap").textContent;
+      var done=function(){btn.textContent="Copied";btn.setAttribute("data-done","1");
+        setTimeout(function(){btn.textContent="Copy";btn.removeAttribute("data-done")},1600);};
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).then(done,function(){fallback(txt,done)});
+      }else{fallback(txt,done)}
+    });
+  });
+
+  render(readL());
+})();
+</script>
+</body>
+</html>

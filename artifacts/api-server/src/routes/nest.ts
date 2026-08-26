@@ -356,25 +356,35 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
  * output in the checkout, so both dev and dist resolve to it.
  */
 const HERE = dirname(fileURLToPath(import.meta.url));
-// dist/index.mjs and src/routes/nest.ts sit at different depths, so try both
-// rather than assume which one is running.
-const PAGE_CANDIDATES = [
-  resolve(HERE, "../assets/nest-production.html"),
-  resolve(HERE, "../../assets/nest-production.html"),
-];
-let pageCache: string | null = null;
 
-function nestPage(): string {
-  if (pageCache !== null) return pageCache;
-  for (const candidate of PAGE_CANDIDATES) {
+/**
+ * The cockpit's documents, read off disk and cached per file.
+ *
+ * dist/index.mjs and src/routes/nest.ts sit at different depths, so both are
+ * tried rather than assuming which one is running. NOTHING COPIES assets/ INTO
+ * dist: build.mjs emits only the bundle, so the running server reads these
+ * straight out of the source tree. That is why adding a document here needs no
+ * build change, and also why deleting one breaks production immediately.
+ */
+const assetCache = new Map<string, string>();
+
+function nestAsset(file: string): string {
+  const hit = assetCache.get(file);
+  if (hit !== undefined) return hit;
+  for (const dir of ["../assets", "../../assets"]) {
     try {
-      pageCache = readFileSync(candidate, "utf8");
-      return pageCache;
+      const text = readFileSync(resolve(HERE, dir, file), "utf8");
+      assetCache.set(file, text);
+      return text;
     } catch {
-      /* try the next one */
+      /* try the next depth */
     }
   }
-  throw new Error("nest-production.html not found beside the api-server build");
+  throw new Error(`${file} not found beside the api-server build`);
+}
+
+function nestPage(): string {
+  return nestAsset("nest-production.html");
 }
 
 /* ------------------------------- the drill-down --------------------------- */
@@ -1358,6 +1368,63 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
   } catch (err) {
     req.log.error({ err }, "nest live presence lookup failed");
     res.json(unavailable("Clerk refused the request. Check CLERK_SECRET_KEY and the instance it belongs to."));
+  }
+});
+
+/**
+ * THE GROWTH PLAN, a second whole document behind the same gate.
+ *
+ * WHY A ROUTE AND NOT A SECTION. It is 114KB of standalone HTML with its own
+ * stylesheet, its own script and its own localStorage, built in a separate
+ * session. Inlining it into nest-production.html would mean merging two
+ * stylesheets whose class names were never checked against each other, which
+ * is the exact trap this page paid for on 2026-08-25, and its every date is
+ * computed at runtime from one launch-day picker, so the script would have to
+ * come across intact or all 66 slots and 35 days render blank.
+ *
+ * IT OPENS IN ITS OWN TAB rather than in a nested frame. The cockpit is
+ * already an iframe inside the product, and a frame inside that frame would
+ * inherit a sandbox two levels deep for no gain. A top-level GET carries the
+ * Clerk session cookie exactly as the frame does, so the gate below works the
+ * same either way.
+ *
+ * IT TALKS TO NOTHING. Verified before it was routed, and again after it was
+ * rewritten: no fetch, no script src, no stylesheet link, no @import, not a
+ * single src or href attribute, no external host of any kind, and every
+ * localStorage call wrapped in try/catch. So it cannot leak, cannot break on a
+ * blocked request, and adds no runtime dependency to the API.
+ *
+ * TREAT THIS FILE AS HAND MAINTAINED UNTIL SOMEBODY SAYS OTHERWISE, and that
+ * is the opposite of what CLAUDE.md says about the aksharmala page for a
+ * specific measured reason. A generator exists in tools/growth-board and its
+ * README says to regenerate with `python3 gen.py <out> nest`. IT DOES NOT
+ * REPRODUCE THIS FILE. Run on 2026-08-26 it emitted 114,439 bytes against the
+ * 114,741 committed here, and the difference is not only the standalone
+ * doctype wrapper the README already warns about: the generated CSS still
+ * names "Archivo Narrow", "Instrument Sans" and "IBM Plex Mono", which are
+ * GOOGLE FONTS, while this file carries system stacks. The font link is
+ * correctly dropped in nest mode, so a regeneration would not break the strict
+ * no-external-requests property, it would just name three faces that can never
+ * load and quietly undo the substitution.
+ *
+ * So the generator is deliberately NOT committed beside this. A generated file
+ * whose generator produces something else is worse than a hand-maintained one,
+ * because the README invites a regeneration that silently reverts work. Commit
+ * it the day `gen.py ... nest` round-trips this file byte for byte, and put
+ * the aksharmala rule back over it then.
+ */
+router.get("/nest/growth", (req: Request, res: Response): void => {
+  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  try {
+    // Same no-store reasoning as the cockpit: a cached document would pin the
+    // plan at whatever shipped, and a plan is edited more often than a
+    // dashboard.
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.set("Cache-Control", "no-store");
+    res.send(nestAsset("nest-growth.html"));
+  } catch (err) {
+    req.log.error({ err }, "nest growth page missing from the build");
+    res.status(500).json({ error: "The growth plan is not in this build" });
   }
 });
 
