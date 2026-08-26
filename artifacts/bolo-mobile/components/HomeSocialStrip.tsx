@@ -11,6 +11,12 @@
  * Loading: absent. Error: absent.
  */
 import React from 'react';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { Share, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -34,6 +40,7 @@ import {
 import { MascotAvatar } from '@/components/MascotAvatar';
 import { FirstClassChip } from '@/components/GoldChip';
 import { feedLineFor } from '@/lib/feedCopy';
+import { MOMENT_ROTATION, momentRotationIndex } from '@/lib/momentRotation';
 import { FeedPulseDot, useFeedPulse } from '@/components/FeedPulse';
 import { REFERRAL_REWARD_CHAI } from '@workspace/referral-link';
 import { PressableScale } from '@/components/PressableScale';
@@ -108,7 +115,10 @@ function MiniRow({ entry, colors }: { entry: LeaderboardEntry; colors: ReturnTyp
 
 // ── latest friend moment ──────────────────────────────────────────────────────
 
-const LATEST_PARAMS: GetFriendsFeedParams = { limit: 1 };
+// Item 6: the card cycles the last few moments rather than pinning the newest
+// one forever. Still ONE LINE and still a door to the Feed tab; see
+// MOMENT_ROTATION in lib/momentRotation.ts for the timing and the reset rule.
+const LATEST_PARAMS: GetFriendsFeedParams = { limit: MOMENT_ROTATION.limit };
 
 /**
  * The single most recent thing a friend did, above the rank rows.
@@ -151,7 +161,37 @@ function LatestFriendMoment({
   const latestId = feed.data?.[0]?.id ?? null;
   const pulsing = useFeedPulse(latestId);
 
-  const entry = feed.data?.[0];
+  const entries = feed.data ?? [];
+  const count = entries.length;
+  const [ticks, setTicks] = React.useState(0);
+  const fade = useSharedValue(1);
+  // Rotating content that cannot be stopped is what the preference is asking
+  // not to happen, so those learners get the newest moment, held.
+  const reduceMotion = useReducedMotion();
+  const rotates = count > 1 && !reduceMotion;
+
+  // SNAP BACK WHEN NEWS ARRIVES. The green pulse marks a moment landing while
+  // the learner is looking at home; a rotation sitting three entries deep at
+  // that instant would pulse next to somebody else's news.
+  React.useEffect(() => {
+    setTicks(0);
+  }, [latestId]);
+
+  React.useEffect(() => {
+    if (!rotates) return;
+    const id = setInterval(() => {
+      fade.value = withTiming(0, { duration: MOMENT_ROTATION.fadeMs });
+      setTimeout(() => {
+        setTicks((t) => t + 1);
+        fade.value = withTiming(1, { duration: MOMENT_ROTATION.fadeMs });
+      }, MOMENT_ROTATION.fadeMs);
+    }, MOMENT_ROTATION.holdMs);
+    return () => clearInterval(id);
+  }, [rotates, fade]);
+
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+
+  const entry = entries[momentRotationIndex(count, ticks)];
   if (!entry) return null;
 
   const line = feedLineFor(entry, {
@@ -161,6 +201,9 @@ function LatestFriendMoment({
   if (line === null) return null;
 
   return (
+    // The crossfade rides a wrapper rather than PressableScale, which is not an
+    // Animated component and would have swallowed the style silently.
+    <Animated.View style={fadeStyle}>
     <PressableScale
       testID="home-latest-moment"
       accessibilityRole="link"
@@ -186,6 +229,7 @@ function LatestFriendMoment({
           moment lands while the learner is looking at home. */}
       <FeedPulseDot active={pulsing} />
     </PressableScale>
+    </Animated.View>
   );
 }
 

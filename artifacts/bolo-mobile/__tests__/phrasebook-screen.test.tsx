@@ -213,3 +213,86 @@ describe('Phrasebook surface (mobile)', () => {
     expect(refetch).toHaveBeenCalled();
   });
 });
+
+describe('the topic list says which doors are open', () => {
+  // The Phrasebook drew identical tiles and the only way to learn which were
+  // shut was to tap one. The phrases route serves only phrases in unlocked
+  // lesson groups and a journey stop IS a lesson group, so a topic can hold ten
+  // phrases and hand over none. Chat 9 fixed the copy a learner met AFTER
+  // tapping; this is the half that lets them not tap.
+  //
+  // Web twin: gujarati-coach/src/test/phrasebook-open-doors.test.tsx.
+  const withCats = (cats: Record<string, unknown>[]) => {
+    mockState.categories = {
+      data: cats,
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      refetch: jest.fn(),
+    };
+  };
+  const cat = (id: number, over: Record<string, unknown> = {}) => ({
+    id,
+    title: `Topic ${id}`,
+    titleNative: null,
+    iconName: 'BookOpen',
+    accent: null,
+    phraseCount: 10,
+    masteredCount: 2,
+    ...over,
+  });
+
+  it('reads a topic serving nothing yet as shut, and says where it opens', () => {
+    withCats([cat(1, { openPhraseCount: 0 })]);
+    render(<PhrasebookScreen />);
+    expect(screen.getByTestId('phrasebook-shut-1')).toBeOnTheScreen();
+    // A locked door with no directions is the version of this the learner
+    // already had. It has to point at the journey.
+    expect(screen.getByTestId('phrasebook-shut-copy-1')).toHaveTextContent(
+      'Ride the journey to open this topic',
+    );
+    expect(screen.queryByText('20%')).toBeNull();
+  });
+
+  it('counts what still waits down the line on a part-open topic', () => {
+    withCats([cat(2, { openPhraseCount: 4 })]);
+    render(<PhrasebookScreen />);
+    expect(screen.queryByTestId('phrasebook-shut-2')).toBeNull();
+    expect(screen.getByTestId('phrasebook-ahead-2')).toHaveTextContent(
+      '6 more wait further down the line',
+    );
+  });
+
+  it('says one remaining phrase in the singular', () => {
+    withCats([cat(3, { openPhraseCount: 9 })]);
+    render(<PhrasebookScreen />);
+    expect(screen.getByTestId('phrasebook-ahead-3')).toHaveTextContent(
+      '1 more waits further down the line',
+    );
+  });
+
+  it('says nothing extra on a fully open topic', () => {
+    withCats([cat(4, { openPhraseCount: 10 })]);
+    render(<PhrasebookScreen />);
+    expect(screen.queryByTestId('phrasebook-shut-4')).toBeNull();
+    expect(screen.queryByTestId('phrasebook-ahead-4')).toBeNull();
+  });
+
+  it('treats an older server, which never gated the list, as fully open', () => {
+    // THE COMPATIBILITY CASE, and the one that would ship silently wrong:
+    // absent must not read as zero, or every topic draws shut against a server
+    // that has no opinion.
+    withCats([cat(5)]);
+    render(<PhrasebookScreen />);
+    expect(screen.queryByTestId('phrasebook-shut-5')).toBeNull();
+    expect(screen.queryByTestId('phrasebook-ahead-5')).toBeNull();
+  });
+
+  it('does not call an empty topic a shut one', () => {
+    // Zero phrases and zero open is a topic with no content yet, which is a
+    // different thing from one the journey has not reached.
+    withCats([cat(6, { phraseCount: 0, masteredCount: 0, openPhraseCount: 0 })]);
+    render(<PhrasebookScreen />);
+    expect(screen.queryByTestId('phrasebook-shut-6')).toBeNull();
+  });
+});

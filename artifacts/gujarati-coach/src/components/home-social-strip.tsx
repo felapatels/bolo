@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Users, Crown, Flame, Gift } from "lucide-react";
 import {
@@ -21,10 +21,14 @@ import {
 import { MascotAvatar } from "@/components/mascot-avatar";
 import { FirstClassChip } from "@/components/gold-chip";
 import { feedLineFor } from "@/lib/feed-copy";
+import {
+  MOMENT_ROTATION,
+  momentRotationIndex,
+} from "@/lib/moment-rotation";
 import { FeedPulseDot, useFeedPulse } from "@/components/feed-pulse";
 import { REFERRAL_REWARD_CHAI, referralLink } from "@/lib/referral-code";
 import { copyReferralLink, shareReferralLink } from "@/lib/referral-share";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -95,7 +99,10 @@ function MiniRow({ entry, index }: { entry: LeaderboardEntry; index: number }) {
 
 // ── latest friend moment ──────────────────────────────────────────────────────
 
-const LATEST_PARAMS: GetFriendsFeedParams = { limit: 1 };
+// Item 6: the card cycles the last few moments rather than pinning the newest
+// one forever. Still ONE LINE and still a door to the Feed tab; see
+// MOMENT_ROTATION in lib/moment-rotation.ts for the timing and the reset rule.
+const LATEST_PARAMS: GetFriendsFeedParams = { limit: MOMENT_ROTATION.limit };
 
 /**
  * The single most recent thing a friend did, above the rank rows.
@@ -125,7 +132,35 @@ function LatestFriendMoment({ scope }: { scope: BoardScope }) {
   const latestId = feed.data?.[0]?.id ?? null;
   const pulsing = useFeedPulse(latestId);
 
-  const entry = feed.data?.[0];
+  const entries = feed.data ?? [];
+  const count = entries.length;
+  const [ticks, setTicks] = useState(0);
+  const [fading, setFading] = useState(false);
+  // Rotating content that cannot be stopped is what the preference is asking
+  // not to happen, so those learners get the newest moment, held.
+  const reduceMotion = useReducedMotion();
+  const rotates = count > 1 && !reduceMotion;
+
+  // SNAP BACK WHEN NEWS ARRIVES. The green pulse marks a moment landing while
+  // the learner is looking at home; a rotation sitting three entries deep at
+  // that instant would pulse next to somebody else's news.
+  useEffect(() => {
+    setTicks(0);
+  }, [latestId]);
+
+  useEffect(() => {
+    if (!rotates) return;
+    const id = window.setInterval(() => {
+      setFading(true);
+      window.setTimeout(() => {
+        setTicks((t) => t + 1);
+        setFading(false);
+      }, MOMENT_ROTATION.fadeMs);
+    }, MOMENT_ROTATION.holdMs);
+    return () => window.clearInterval(id);
+  }, [rotates]);
+
+  const entry = entries[momentRotationIndex(count, ticks)];
   if (!entry) return null;
 
   const line = feedLineFor(entry, {
@@ -143,6 +178,11 @@ function LatestFriendMoment({ scope }: { scope: BoardScope }) {
       href={`/leaderboard?tab=feed&scope=${scope}`}
       data-testid="home-latest-moment"
       className="flex items-center gap-2.5 rounded-xl bg-muted/50 px-3 py-2 transition-opacity hover:opacity-80"
+      style={{
+        opacity: fading ? 0 : 1,
+        transitionDuration: `${MOMENT_ROTATION.fadeMs}ms`,
+      }}
+      data-rotating={rotates ? "true" : undefined}
     >
       <MascotAvatar user={entry.actor} size={28} />
       <span className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">

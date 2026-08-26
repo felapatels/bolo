@@ -135,6 +135,17 @@ function CategoryCard({
       ? Math.round((category.masteredCount / category.phraseCount) * 100)
       : 0;
 
+  // WHICH DOORS ARE OPEN. The Phrasebook is a library of what the JOURNEY has
+  // opened: the phrases route serves only phrases in unlocked lesson groups, so
+  // a topic can hold ten phrases and hand over none. Twelve identical tiles
+  // meant the only way to find out was to tap one.
+  //
+  // Absent means an older server, and an older server never gated the list, so
+  // treating it as fully open is the behaviour this screen already had.
+  const openCount = category.openPhraseCount ?? category.phraseCount;
+  const shut = category.phraseCount > 0 && openCount === 0;
+  const aheadCount = Math.max(0, category.phraseCount - openCount);
+
   const accent = category.accent || colors.primary;
 
   const skipEnter = useAppearSkip();
@@ -147,6 +158,11 @@ function CategoryCard({
         accessibilityLabel={`Open the ${category.title} topic`}
         style={[
           styles.catCard,
+          // A shut door reads shut at a glance, before the tap. Its own accent
+          // is kept underneath rather than swapped for grey, so the topic is
+          // still recognisably itself. Web twin: `data-shut` in
+          // gujarati-coach/src/pages/phrasebook.tsx.
+          shut && styles.catCardShut,
           {
             backgroundColor: colors.card,
             borderColor: accent,
@@ -186,6 +202,23 @@ function CategoryCard({
               {category.titleNative}
             </Text>
           ) : null}
+          {shut ? (
+            // Says WHERE it opens, not just that it is shut. A locked door with
+            // no directions is the version of this the learner already had.
+            <Text
+              testID={`phrasebook-shut-copy-${category.id}`}
+              style={[styles.catNative, { color: colors.mutedForeground }]}
+            >
+              Ride the journey to open this topic
+            </Text>
+          ) : aheadCount > 0 ? (
+            <Text
+              testID={`phrasebook-ahead-${category.id}`}
+              style={[styles.catNative, { color: colors.mutedForeground }]}
+            >
+              {aheadCount} more {aheadCount === 1 ? 'waits' : 'wait'} further down the line
+            </Text>
+          ) : null}
           <View style={styles.progressTrack}>
             <View
               style={[
@@ -202,9 +235,18 @@ function CategoryCard({
                 }}
               />
             </View>
-            <View style={[styles.pctPill, { backgroundColor: accent }]}>
-              <Text style={styles.pctPillText}>{pct}%</Text>
-            </View>
+            {shut ? (
+              <View
+                testID={`phrasebook-shut-${category.id}`}
+                style={[styles.pctPill, { backgroundColor: colors.mutedForeground }]}
+              >
+                <Text style={styles.pctPillText}>NOT YET</Text>
+              </View>
+            ) : (
+              <View style={[styles.pctPill, { backgroundColor: accent }]}>
+                <Text style={styles.pctPillText}>{pct}%</Text>
+              </View>
+            )}
           </View>
         </View>
         {/* Circular play button replacing the plain chevron */}
@@ -268,6 +310,7 @@ const styles = StyleSheet.create({
   },
   catTitle: { fontFamily: AppFonts.bold, fontSize: 16 },
   catNative: { fontSize: 13, marginTop: 1 },
+  catCardShut: { opacity: 0.7 },
   progressTrack: {
     flexDirection: 'row',
     alignItems: 'center',
