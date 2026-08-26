@@ -21,7 +21,14 @@
  * losing it to a crash.
  */
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
@@ -96,6 +103,7 @@ export function FeedTabsCoach({
   onDone: () => void;
 }) {
   const colors = useColors();
+  const { width: windowW } = useWindowDimensions();
   const [i, setI] = React.useState(0);
   const step = steps[i];
 
@@ -124,6 +132,24 @@ export function FeedTabsCoach({
           else setI((n) => n + 1);
         }}
       >
+        {/* THE CARET IS THE POINTING, and until 2026-08-26 there was none: the
+            card sat at a fixed offset, centred, identical on every step, so
+            with two tabs nothing indicated anything. "Each isn't really
+            pointing to the right option." It sits under the tab the step
+            describes now. */}
+        <View
+          pointerEvents="none"
+          testID="feed-tabs-coach-caret"
+          style={[
+            styles.caret,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              left: coachCaretX(windowW, i, steps.length) - 7 - STRIP.padH,
+              top: -7,
+            },
+          ]}
+        />
         <View
           style={[
             styles.card,
@@ -157,7 +183,34 @@ export function FeedTabsCoach({
   );
 }
 
+/**
+ * WHERE THE SEGMENT STRIP PUTS ITS TABS, mirrored from leaderboard.tsx's own
+ * styles. The strip is flex:1 segments in a row, so tab i's centre is exact
+ * arithmetic and needs no layout pass. Web measures instead, because its strip
+ * sits in a container this side does not have; both end up pointing at the same
+ * thing.
+ */
+const STRIP = { padH: 20, gap: 8 } as const;
+
+/** The horizontal centre of tab `i` of `n`, at a given screen width. */
+export function coachCaretX(windowW: number, i: number, n: number): number {
+  const seg = (windowW - STRIP.padH * 2 - STRIP.gap * (n - 1)) / n;
+  return STRIP.padH + i * (seg + STRIP.gap) + seg / 2;
+}
+
 const styles = StyleSheet.create({
+  // The caret that does the pointing. Rotated square rather than a triangle:
+  // RN draws a border triangle with zero width and height, which cannot carry
+  // the card's own border along two of its edges.
+  caret: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 3,
+    borderLeftWidth: 1.5,
+    borderTopWidth: 1.5,
+    transform: [{ rotate: '45deg' }],
+  },
   // Sits high on the screen so the segment strip it is describing stays visible
   // above it rather than being covered by the card.
   scrim: {

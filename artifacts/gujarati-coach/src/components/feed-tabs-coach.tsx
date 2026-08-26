@@ -5,11 +5,21 @@
  *
  * Mobile twin: components/FeedTabsCoach.tsx. Keep the copy in step.
  *
- * IT POINTS BY SELECTING, NOT BY MEASURING. Anchoring a caret to a tab means
- * measuring that tab's position, which moves whenever the tab list changes and
- * again on every resize. Instead each step SWITCHES to the tab it describes:
- * the tab strip's own active styling becomes the pointer, and the card sits
- * under the strip. Nothing to measure and nothing to keep in sync.
+ * IT NOW POINTS BY MEASURING, AND IT USED TO REFUSE TO. The original note here
+ * argued that anchoring a caret means measuring a tab, which moves with the tab
+ * list and on every resize, so each step merely SELECTED the tab it described
+ * and let the strip's active styling do the pointing. The card sat at a fixed
+ * offset, centred, identical on every step.
+ *
+ * That is not pointing, and the owner said so on 2026-08-26: "each isn't really
+ * pointing to the right option". With two tabs and one motionless card, every
+ * step looked the same and the arrow indicated nothing.
+ *
+ * The measuring objection was answerable rather than fatal. It reads the ACTIVE
+ * tab, which the step has just selected, so there is no separate source of
+ * truth to drift from, and it re-measures on resize. Mobile computes the same
+ * anchor instead of measuring, because its strip is flex:1 segments at a known
+ * padding and gap, so the arithmetic is exact and cheaper than a layout pass.
  *
  * FLEX IS NOT ALWAYS THERE, so the steps are built from the tabs actually on
  * screen. A learner with a bare Bolo gets one step about the Feed and is done,
@@ -86,12 +96,33 @@ export function FeedTabsCoach({
   onDone: () => void;
 }) {
   const [i, setI] = useState(0);
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const step = steps[i];
 
   // Select the described tab as each step opens.
   useEffect(() => {
     if (step) onStep(step.value);
   }, [step, onStep]);
+
+  // Then measure it. A frame later, because the strip has to re-render with the
+  // new active tab before it has a box worth reading.
+  useEffect(() => {
+    if (!step) return;
+    const measure = () => {
+      const el = document.querySelector<HTMLElement>(
+        '[role="tab"][data-state="active"]',
+      );
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setAnchor({ x: r.left + r.width / 2, y: r.bottom });
+    };
+    const raf = requestAnimationFrame(measure);
+    window.addEventListener("resize", measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", measure);
+    };
+  }, [step]);
 
   if (!step) return null;
   const copy = COPY[step.value];
@@ -107,10 +138,25 @@ export function FeedTabsCoach({
       data-testid="feed-tabs-coach"
       role="dialog"
       aria-label={copy.title}
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/45 px-5 pt-56"
+      className="fixed inset-0 z-50 bg-black/45"
       onClick={advance}
     >
-      <div className="w-full max-w-md space-y-2.5 rounded-3xl border border-card-border bg-card p-5 shadow-xl">
+      {/* THE CARET IS THE POINTING. It sits on the bottom edge of the tab the
+          step describes, so two steps never look alike. Until the first
+          measurement lands there is no caret rather than one parked at a
+          guess. */}
+      {anchor && (
+        <span
+          data-testid="feed-tabs-coach-caret"
+          className="pointer-events-none absolute h-3 w-3 rotate-45 border-l border-t border-card-border bg-card"
+          style={{ left: anchor.x - 6, top: anchor.y + 8 }}
+          aria-hidden
+        />
+      )}
+      <div
+        className="absolute left-1/2 w-[min(28rem,calc(100%-2.5rem))] -translate-x-1/2 space-y-2.5 rounded-3xl border border-card-border bg-card p-5 shadow-xl"
+        style={{ top: anchor ? anchor.y + 13 : undefined, ...(anchor ? {} : { top: "14rem" }) }}
+      >
         <div className="flex items-center gap-2.5">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15">
             <ArrowUp className="h-4 w-4 text-primary" />
