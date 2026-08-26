@@ -1928,7 +1928,7 @@ export default function JourneyScreen() {
                           reads wider than the pediment above it. */}
                       <View pointerEvents="none" style={styles.boardPanelFill} />
                       <Image
-                        source={ZONE_BOARD_ART.mid}
+                        source={ZONE_BOARD_ART.panel}
                         resizeMode="stretch"
                         style={StyleSheet.absoluteFill}
                       />
@@ -1989,13 +1989,6 @@ export default function JourneyScreen() {
                       )}
                       </View>
                     </View>
-                    {/* The board's foot, aspect preserved like the pediment. */}
-                    <Image
-                      testID={`zone-board-bot-${zoneIndex}`}
-                      source={ZONE_BOARD_ART.bot}
-                      style={styles.boardBot}
-                      resizeMode="stretch"
-                    />
                   </View>
                 </View>
                 {/* interchange diamond pinned where the track meets the zone
@@ -2998,7 +2991,6 @@ const styles = StyleSheet.create({
   // the panel absorbs precisely the remainder.
   board: { height: PC_H, flexDirection: 'column', overflow: 'hidden' },
   boardTop: { width: '100%', aspectRatio: ZONE_BOARD.artW / ZONE_BOARD.topH },
-  boardBot: { width: '100%', aspectRatio: ZONE_BOARD.artW / ZONE_BOARD.botH },
   boardPanel: { width: '100%', flex: 1, minHeight: 0, overflow: 'hidden' },
   boardPanelFill: {
     position: 'absolute',

@@ -612,7 +612,7 @@ function ZonePostcard({
           <div
             className="absolute inset-0"
             style={{
-              backgroundImage: `url(${ZONE_BOARD_ART.mid})`,
+              backgroundImage: `url(${ZONE_BOARD_ART.panel})`,
               backgroundSize: "100% 100%",
             }}
             aria-hidden
@@ -665,14 +665,6 @@ function ZonePostcard({
           )}
           </div>
         </div>
-        {/* The board's foot, aspect preserved like the pediment. */}
-        <img
-          src={ZONE_BOARD_ART.bot}
-          alt=""
-          aria-hidden
-          className="block w-full shrink-0"
-          data-testid={`zone-board-bot-${zoneIndex}`}
-        />
       </div>
     </div>
   );

@@ -175,8 +175,8 @@ export const ZONE_BOARD = {
   /** The slices, and the size they were cut at. */
   artW: 760,
   topH: 142,
-  midH: 40,
-  botH: 44,
+  /** The panel is the rest of the file, so the two are contiguous. */
+  panelH: 202,
   /** Where the nameplate and the zone plate sit inside the top slice, as a
    *  fraction of it, so the overlays scale with the board. */
   namePlate: { left: 0.17, right: 0.17, top: 0.42, height: 0.23 },
@@ -209,9 +209,22 @@ export const ZONE_BOARD = {
   inkMuted: '#8A5B40',
 } as const;
 
-/** The three slices of the carved station board. */
+/**
+ * THE BOARD, IN TWO CONTIGUOUS PIECES.
+ *
+ * IT WAS THREE AND THAT WAS THE BUG. A fixed pediment, a 40px band from the
+ * middle of the panel, and a fixed foot: the band was cut from y 220-260 and
+ * the foot from y 300, so the art between 142-220 and 260-300 was simply
+ * SKIPPED. Stretching the band then butted two unrelated rows of a drawn frame
+ * against each other and the join showed as a jog in the rule: "what about
+ * this line sloppy".
+ *
+ * Two pieces cannot have that fault. The pediment keeps its aspect because its
+ * rosettes and arch must not stretch, and the panel is the WHOLE remainder of
+ * the file, 142 to 344, squashed to whatever height is left. Squashing a frame
+ * a little is invisible; losing 78 rows out of the middle of one is not.
+ */
 export const ZONE_BOARD_ART = {
   top: require('../assets/journey/zone-sign-top.png') as number,
-  mid: require('../assets/journey/zone-sign-mid.png') as number,
-  bot: require('../assets/journey/zone-sign-bot.png') as number,
+  panel: require('../assets/journey/zone-sign-panel.png') as number,
 } as const;
