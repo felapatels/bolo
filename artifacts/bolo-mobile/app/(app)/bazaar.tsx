@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Dimensions,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -182,6 +183,14 @@ export default function OutfitsScreen() {
   // The chai stall at the bottom of the street opens the wallet a learner
   // already knows, rather than a second balance surface built here.
   const [walletOpen, setWalletOpen] = React.useState(false);
+  /**
+   * THE OUTFIT AWAITING CONFIRMATION. Chai is earned slowly and an outfit is
+   * bought once, so a single mistaken tap used to spend it with no way back:
+   * no refund, no undo. Asked for 2026-08-26. Holds the id rather than a
+   * boolean because the grid can start a purchase for an outfit that is not
+   * the previewed one. Web twin: `confirming` in pages/bazaar.tsx.
+   */
+  const [confirming, setConfirming] = React.useState<string | null>(null);
   const packsSellable = useChaiPacksSellable();
   const [languageInfoOpen, setLanguageInfoOpen] = React.useState(false);
   const [notice, setNotice] = React.useState('');
@@ -277,6 +286,63 @@ export default function OutfitsScreen() {
           not a layer on the shop. */}
       <BazaarWelcome />
       <MilestoneToast message={notice} toastKey={noticeKey} />
+      {/* CONFIRM BEFORE SPENDING. Chai is earned slowly, an outfit is bought
+          once and there is no refund and no undo, so a single mistaken tap
+          used to be final. */}
+      <Modal
+        transparent
+        visible={confirming !== null}
+        animationType="fade"
+        onRequestClose={() => setConfirming(null)}
+      >
+        <Pressable
+          style={styles.confirmScrim}
+          onPress={() => setConfirming(null)}
+        >
+          <Pressable
+            testID="outfit-buy-confirm"
+            style={[
+              styles.confirmCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+            onPress={() => {}}
+          >
+            <Text style={[styles.confirmTitle, { color: colors.foreground }]}>
+              Buy {data?.outfits.find((o) => o.id === confirming)?.name ?? 'this outfit'}?
+            </Text>
+            <Text style={[styles.confirmBody, { color: colors.mutedForeground }]}>
+              {data?.outfits.find((o) => o.id === confirming)?.cost ?? 0} Chai, and it is yours for
+              good. Chai is not refundable.
+            </Text>
+            <View style={styles.confirmRow}>
+              <Pressable
+                onPress={() => setConfirming(null)}
+                style={[styles.confirmBtn, { borderColor: colors.border }]}
+              >
+                <Text style={[styles.confirmBtnText, { color: colors.foreground }]}>
+                  Not yet
+                </Text>
+              </Pressable>
+              <Pressable
+                testID="outfit-buy-confirm-yes"
+                onPress={() => {
+                  const id = confirming;
+                  setConfirming(null);
+                  if (id) buy.mutate({ data: { outfitId: id } });
+                }}
+                style={[styles.confirmBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              >
+                <Text
+                  style={[styles.confirmBtnText, { color: colors.primaryForeground }]}
+                >
+                  Buy it
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <ChaiShortfallSheet
         needed={shortfall}
         itemName={shownOutfit?.name}
@@ -451,7 +517,7 @@ export default function OutfitsScreen() {
               testID="outfit-buy"
               accessibilityRole="button"
               disabled={busy}
-              onPress={() => buy.mutate({ data: { outfitId: shownOutfit.id } })}
+              onPress={() => setConfirming(shownOutfit.id)}
               style={[
                 styles.primaryBtn,
                 { backgroundColor: colors.primary },
@@ -769,6 +835,25 @@ export default function OutfitsScreen() {
 }
 
 const styles = StyleSheet.create({
+  confirmScrim: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
+  confirmCard: { width: '100%', borderRadius: 22, borderWidth: 1.5, padding: 20, gap: 10 },
+  confirmTitle: { fontSize: 18, fontFamily: AppFonts.extrabold },
+  confirmBody: { fontSize: 14, fontFamily: AppFonts.regular, lineHeight: 20 },
+  confirmRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  confirmBtn: {
+    flex: 1,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  confirmBtnText: { fontSize: 15, fontFamily: AppFonts.bold },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

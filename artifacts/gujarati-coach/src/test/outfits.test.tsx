@@ -243,7 +243,23 @@ describe("the wardrobe previews before it charges", () => {
     const buy = screen.getByTestId("outfit-buy");
     expect(buy).toHaveTextContent("Buy · 25");
     fireEvent.click(buy);
+    // BUYING ASKS FIRST since 2026-08-26. Chai is earned slowly, an outfit is
+    // bought once, and there is no refund and no undo, so the tap that used to
+    // be final now opens a confirmation.
+    expect(mockState.buyCalls).toEqual([]);
+    fireEvent.click(screen.getByTestId("outfit-buy-confirm-yes"));
     expect(mockState.buyCalls).toEqual([{ data: { outfitId: "navratri" } }]);
+  });
+
+  test("backing out of the confirmation spends nothing", () => {
+    // The half that matters: a dialog nobody can decline is a slower tap, not
+    // a safeguard.
+    renderShop({ balance: 40, equipped: null, outfits: [NAVRATRI] });
+    fireEvent.click(screen.getByTestId("outfit-card-navratri"));
+    fireEvent.click(screen.getByTestId("outfit-buy"));
+    expect(screen.getByTestId("outfit-buy-confirm")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Not yet"));
+    expect(mockState.buyCalls).toEqual([]);
   });
 
   test("an empty tin shows what is missing instead of a buy button", () => {
@@ -429,6 +445,10 @@ describe("the rack shows stock as pictures, grouped by what it is", () => {
     );
 
     fireEvent.click(screen.getByTestId("outfit-buynow-pagdi"));
+    // The grid asks too: it can start a purchase for an outfit that is not the
+    // previewed one, which is why the confirmation holds an id rather than a
+    // boolean.
+    fireEvent.click(screen.getByTestId("outfit-buy-confirm-yes"));
     expect(mockState.buyCalls).toEqual([{ data: { outfitId: "pagdi" } }]);
     // Buying previews what was just bought, so the curtain opens on it — a
     // hat lands on the head slot, which is why the garment slot is untouched.

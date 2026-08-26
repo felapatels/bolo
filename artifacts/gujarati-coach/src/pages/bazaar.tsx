@@ -28,6 +28,16 @@ import { shortfallFromSpendError } from "@/lib/chai-errors";
 import { mascotAssetSrc } from "@/lib/mascot-outfits";
 import { INDIA } from "@/lib/india-palette";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Bolo Bazaar - the market street. FOUR stalls stacked down one scroller, each
 // a painted band with its own goods listed directly underneath it: the tailor
@@ -86,6 +96,16 @@ export default function OutfitsPage() {
       ? previewedItem.id
       : equippedAccessory;
   const [error, setError] = useState<string | null>(null);
+  /**
+   * THE OUTFIT AWAITING CONFIRMATION. Chai is earned slowly and an outfit is
+   * bought once, so a single mistaken tap used to spend it with no way back:
+   * there is no refund and no undo. Asked for 2026-08-26, "when you purchase an
+   * item in bazaar, add a confirmation popup to make sure".
+   *
+   * Holds the id rather than a boolean because the grid can start a purchase
+   * for an outfit that is not the previewed one.
+   */
+  const [confirming, setConfirming] = useState<string | null>(null);
   /**
    * How many Chai short this purchase was, or null when the refusal was
    * something else. Drives the shortfall panel below.
@@ -401,7 +421,7 @@ export default function OutfitsPage() {
             type="button"
             disabled={busy}
             data-testid="outfit-buy"
-            onClick={() => buy.mutate({ data: { outfitId: shownOutfit.id } })}
+            onClick={() => setConfirming(shownOutfit.id)}
             className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-5 py-2.5 text-sm font-black text-primary-foreground shadow-[0_4px_0_hsl(var(--primary-shadow))] transition-all active:translate-y-1 active:shadow-none disabled:opacity-50"
           >
             <span>Buy · {shownOutfit.cost}</span>
@@ -487,7 +507,7 @@ export default function OutfitsPage() {
                   onBuy={(id) => {
                     setError(null);
                     setPreviewed(id);
-                    buy.mutate({ data: { outfitId: id } });
+                    setConfirming(id);
                   }}
                   onEquip={(id, slot) => {
                     setError(null);
@@ -545,6 +565,40 @@ export default function OutfitsPage() {
         />
       </div>
       <ChaiWalletSheet open={walletOpen} onOpenChange={setWalletOpen} />
+
+    {/* CONFIRM BEFORE SPENDING. Chai is earned slowly, an outfit is bought
+        once and there is no refund and no undo, so a single mistaken tap
+        used to be final. */}
+    <AlertDialog
+      open={confirming !== null}
+      onOpenChange={(open) => { if (!open) setConfirming(null); }}
+    >
+      <AlertDialogContent data-testid="outfit-buy-confirm">
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            Buy {data?.outfits.find((o) => o.id === confirming)?.name ?? "this outfit"}?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {data?.outfits.find((o) => o.id === confirming)?.cost ?? 0} Chai, and it
+            is yours for good. Chai is not refundable.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Not yet</AlertDialogCancel>
+          <AlertDialogAction
+            data-testid="outfit-buy-confirm-yes"
+            onClick={() => {
+              const id = confirming;
+              setConfirming(null);
+              if (id !== null) buy.mutate({ data: { outfitId: id } });
+            }}
+          >
+            Buy it
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
     </div>
   );
 }

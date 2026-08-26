@@ -271,7 +271,23 @@ describe('the wardrobe previews before it charges', () => {
 
     expect(screen.getByTestId('outfit-buy')).toHaveTextContent('Buy · 25');
     fireEvent.press(screen.getByTestId('outfit-buy'));
+    // BUYING ASKS FIRST since 2026-08-26. Chai is earned slowly, an outfit is
+    // bought once, and there is no refund and no undo, so the tap that used to
+    // be final now opens a confirmation.
+    expect(mockState.buyCalls).toEqual([]);
+    fireEvent.press(screen.getByTestId('outfit-buy-confirm-yes'));
     expect(mockState.buyCalls).toEqual([{ data: { outfitId: 'navratri' } }]);
+  });
+
+  test('backing out of the confirmation spends nothing', () => {
+    // The half that matters: a dialog nobody can decline is a slower tap, not
+    // a safeguard.
+    renderShop({ balance: 40, equipped: null, outfits: [NAVRATRI] });
+    fireEvent.press(screen.getByTestId('outfit-card-navratri'));
+    fireEvent.press(screen.getByTestId('outfit-buy'));
+    expect(screen.getByTestId('outfit-buy-confirm')).toBeOnTheScreen();
+    fireEvent.press(screen.getByText('Not yet'));
+    expect(mockState.buyCalls).toEqual([]);
   });
 
   test('an empty tin shows what is missing instead of a buy button', () => {
