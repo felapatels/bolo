@@ -60,6 +60,74 @@ export function zoneBackdrop(zoneIndex: number): number | null {
   return ZONE_BACKDROPS[zoneIndex] ?? null;
 }
 
+/**
+ * WHERE THE POSTCARD'S PICTURE SIDE SITS IN THE PAINTING, per fare zone, as a
+ * vertical position in the same sense as CSS `object-position: center Y%` sense: 0 is the top of the painting, 100 the
+ * bottom, and the band is only about 9% of the painting's height because the
+ * postcard's picture side is roughly 6.25:1 and the paintings are 1280x2276.
+ *
+ * Web twin: ZONE_VISTA_Y in src/lib/zone-backdrops.ts, where these numbers go
+ * straight into object-position. React Native has no such property, so the
+ * vista turns the same number into a pixel offset by hand. Keep them in step.
+ *
+ * PICKED BY LOOKING, NOT BY FORMULA. Every offset here was cut at the real
+ * display size, 350x56, and compared against its neighbours as a set. A band
+ * chosen on arithmetic alone lands on whatever happens to be 8% down, and what
+ * is 8% down differs painting by painting.
+ *
+ * Four of the six sit at 8, which is the skyline: a landmark silhouette against
+ * a dusk sky with fireworks over it. The two exceptions are the whole reason
+ * this is a table rather than a constant.
+ *
+ * ZONE 4 SITS AT 0 BECAUSE IT HAS NO SKYLINE. The chai-stall street is roofed
+ * by awnings and lantern strings from its very first row, so 8 lands inside an
+ * arcade and reads as mush at 56px tall. Zero keeps the last sliver of dusk sky,
+ * which is what makes it a member of the same set as the other five.
+ *
+ * ZONE 6 SITS AT 16 BECAUSE THE TERMINUS SHOULD LOOK LIKE ONE. The palace's
+ * three domes only clear the band's bottom edge that far down; at 8 the
+ * fireworks are lovely and the palace is a clipped hint.
+ */
+export const ZONE_VISTA_Y: readonly number[] = [8, 8, 8, 0, 8, 16];
+
+/** The postcard's picture side, and the fallback when a zone has no painting. */
+export const ZONE_VISTA = {
+  height: 56,
+  /** How far a locked showroom zone's vista is drained. */
+  grayedOpacity: 0.55,
+  /** The paintings' intrinsic size, all six identical. Web never needs these,
+   *  because object-fit works it out; mobile does, because it has to scale the
+   *  picture to the postcard's width by hand before it can offset it. */
+  artW: 1280,
+  artH: 2276,
+} as const;
+
+/** The vista's vertical position for a fare zone, defaulting to the skyline. */
+export function zoneVistaY(zoneIndex: number): number {
+  return ZONE_VISTA_Y[zoneIndex] ?? 8;
+}
+
+/**
+ * Where to put the painting inside the postcard's picture side, given how wide
+ * that postcard turned out to be.
+ *
+ * THIS IS WEB'S `object-position: center Y%`, WORKED OUT BY HAND, and it is a
+ * function rather than three lines inside the component because it is the only
+ * arithmetic in the vista and arithmetic is the part worth asserting. CSS reads
+ * the percentage as "line up Y% of the picture with Y% of the frame", which for
+ * a picture taller than its frame comes out as Y% of the overflow. Mobile has
+ * no such property, so it scales the painting to the postcard's width and
+ * slides it up by exactly that.
+ */
+export function zoneVistaOffset(
+  zoneIndex: number,
+  width: number,
+): { width: number; height: number; top: number } {
+  const height = width * (ZONE_VISTA.artH / ZONE_VISTA.artW);
+  const slack = Math.max(0, height - ZONE_VISTA.height);
+  return { width, height, top: -(zoneVistaY(zoneIndex) / 100) * slack };
+}
+
 /** The foot tone for a fare zone, falling back to the splash ground. */
 export function zoneFootTone(zoneIndex: number): string {
   return ZONE_FOOT_TONES[zoneIndex] ?? '#89695B';

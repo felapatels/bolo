@@ -1,11 +1,16 @@
 // Journey map scenery: per-zone landmark vistas for the fare-zone postcards,
 // India-flavored dimensional trackside scenery along the serpentine rail
-// (zone-themed, Task 985), and festival bunting for the terminus. Everything
-// here is hand-coded inline SVG in the brand palette plus the active line's
-// accent, no raster artwork, nothing generated.
+// (zone-themed, Task 985), and festival bunting for the terminus.
+//
+// NEARLY everything here is hand-coded inline SVG in the brand palette plus the
+// active line's accent. The one exception, since 2026-08-26, is ZoneVista: the
+// postcard's picture side is now a band cut from the zone's own painting,
+// because a drawn gateway sitting on top of a painted one was the last vector
+// left on a painted map. The drawn scenes below it are still drawn, and still
+// the fallback for a zone with no painting.
 //
 // The six vistas are keyed by ZONE INDEX (the six categories are fixed across
-// all languages), so every line gets a thematic scene: gateway arch
+// all languages), so every line gets the same thematic view: gateway arch
 // (Greetings), family homes (Family), clock tower (Numbers), chai stall
 // (Food), bazaar street (Everyday Words), festival palace (Feelings finale).
 
@@ -14,6 +19,7 @@ import { isChachaEncounterStation } from "@/lib/quick-games";
 // isolated figure the home vignette does, straight out of the shared path
 // registry, so swapping the art still means editing one place.
 import { STALL_ASSETS } from "@/components/chai-stall";
+import { zoneBackdrop, zoneVistaY } from "@/lib/zone-backdrops";
 
 const AMBER = "#f59e0b";
 const LEAF = "#10b981";
@@ -247,23 +253,59 @@ function FestivalScene({ a }: { a: string }) {
 
 const SCENES = [GatewayScene, HomesScene, ClockTowerScene, ChaiStallScene, BazaarScene, FestivalScene] as const;
 
-/** Postcard picture side: accent-tinted sky + the zone's landmark scene.
- *  Grayscale for locked showroom zones comes free from the postcard's
- *  wrapping `grayscale` filter. */
+/**
+ * Postcard picture side: a band cut from the zone's own painting.
+ *
+ * IT USED TO BE A DRAWN SVG SCENE, one of six hand-coded landmarks, and that
+ * was right while the map was flat. Once the zones were painted it was the last
+ * vector left on a painted map: a postcard whose picture disagreed with the
+ * scenery behind it, showing a drawn gateway on top of a painted one.
+ *
+ * THE BAND COSTS NOTHING TO FETCH. It is the same URL the zone backdrop already
+ * loaded on this page, so the browser serves it from cache and no new art was
+ * cut. That is the whole argument for a crop over a bespoke thumbnail: six more
+ * files would have been six more requests to say what the page already has.
+ *
+ * Which band, per zone, is ZONE_VISTA_Y in lib/zone-backdrops.ts, picked by
+ * looking at all six at 350x56 rather than by formula.
+ *
+ * Grayscale for locked showroom zones still comes free from the postcard's
+ * wrapping `grayscale` filter. The accent wash stays underneath as the ground a
+ * painting-less zone falls back to, and as the tint the picture sits on while
+ * it decodes.
+ */
 export function ZoneVista({ zoneIndex, accent }: { zoneIndex: number; accent: string }) {
-  const Scene = SCENES[zoneIndex] ?? GatewayScene;
+  const art = zoneBackdrop(zoneIndex);
   return (
     <div
       className="relative h-14 w-full overflow-hidden"
       style={{ background: `linear-gradient(to bottom, ${accent}2e, ${accent}0a)` }}
       aria-hidden
     >
-      {/* `meet` (not `slice`): the band is wider than the 240-unit scene, and
-          slice-filling the width crops the top of tall landmarks (clock cap,
-          awning, pennants). Centered at full height, gradient fills the sides. */}
-      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 240 56" preserveAspectRatio="xMidYMax meet">
-        <Scene a={accent} />
-      </svg>
+      {art ? (
+        <img
+          src={art}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ objectPosition: `center ${zoneVistaY(zoneIndex)}%` }}
+        />
+      ) : (
+        /* A zone with no painting keeps the drawn scene rather than an empty
+           accent band. Six zones ship art today and the fallback costs a
+           branch, but ZONE_BACKDROPS is typed to allow a gap and a blank
+           postcard would be the ugliest way to find one. */
+        <svg
+          className="absolute inset-0 h-full w-full"
+          viewBox="0 0 240 56"
+          preserveAspectRatio="xMidYMax meet"
+        >
+          {(() => {
+            const Scene = SCENES[zoneIndex] ?? GatewayScene;
+            return <Scene a={accent} />;
+          })()}
+        </svg>
+      )}
     </div>
   );
 }

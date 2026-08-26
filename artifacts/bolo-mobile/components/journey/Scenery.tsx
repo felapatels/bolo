@@ -1,9 +1,14 @@
 // Journey map scenery — react-native-svg port of the web pieces
 // (gujarati-coach/src/components/journey-scenery.tsx): per-zone landmark
 // vistas for the fare-zone postcards, small trackside doodads along the
-// serpentine rail, and festival bunting for the terminus. Everything is
-// hand-coded SVG in the brand palette plus the active line's accent — no
-// raster artwork, nothing generated.
+// serpentine rail, and festival bunting for the terminus.
+//
+// NEARLY everything is hand-coded SVG in the brand palette plus the active
+// line's accent. The one exception, since 2026-08-26, is ZoneVista: the
+// postcard's picture side is now a band cut from the zone's own painting,
+// because a drawn gateway sitting on top of a painted one was the last vector
+// left on a painted map. The drawn scenes below are still drawn, and still the
+// fallback for a zone with no painting.
 //
 // The six vistas are keyed by ZONE INDEX (the six categories are fixed across
 // all languages): gateway arch (Greetings), family homes (Family), clock
@@ -14,8 +19,8 @@
 // `filter: grayscale(1)`; react-native has no such filter, so the same
 // treatment is done by swapping the fixed palette for gray tones and passing
 // a gray accent.
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useState } from 'react';
+import { Image, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Ellipse, G, Image as SvgImage, Line, Path, Rect } from 'react-native-svg';
 
@@ -25,6 +30,7 @@ import Svg, { Circle, Ellipse, G, Image as SvgImage, Line, Path, Rect } from 're
  *  wallet's own dependencies into the map: one art file, two call sites. */
 const CHACHAJI_ART = require('@/assets/images/stall/chachaji.png') as number;
 import { isChachaEncounterStation } from '@/lib/chachaMemory';
+import { ZONE_VISTA, zoneBackdrop, zoneVistaOffset } from '@/lib/zoneBackdrops';
 
 export const SCENERY_GRAY = '#9ca3af';
 
@@ -298,8 +304,26 @@ function FestivalScene({ a, p }: { a: string; p: Palette }) {
 
 const SCENES = [GatewayScene, HomesScene, ClockTowerScene, ChaiStallScene, BazaarScene, FestivalScene] as const;
 
-/** Postcard picture side: accent-tinted sky + the zone's landmark scene.
- *  `grayed` swaps the palette for gray tones (locked showroom zones). */
+/**
+ * Postcard picture side: a band cut from the zone's own painting.
+ *
+ * IT USED TO BE A DRAWN SVG SCENE, one of six hand-coded landmarks, and that
+ * was right while the map was flat. Once the zones were painted it was the last
+ * vector left on a painted map: a postcard whose picture disagreed with the
+ * scenery behind it, showing a drawn gateway on top of a painted one.
+ *
+ * THE BAND COSTS NO BUNDLE BYTES. It is the same asset the zone backdrop
+ * already requires on this screen, so no new art was cut. Six bespoke
+ * thumbnails would have been six more files to say what the screen already has.
+ *
+ * REACT NATIVE HAS NO object-position, which is the whole reason this measures.
+ * `resizeMode="cover"` centres and offers no way to say WHERE, so the vista
+ * takes its own width from a layout pass, works out how tall the painting is
+ * once scaled to that width, and offsets it by hand. The number it offsets by
+ * is ZONE_VISTA_Y, the same value web hands straight to object-position.
+ *
+ * Web twin: ZoneVista in src/components/journey-scenery.tsx.
+ */
 export function ZoneVista({
   zoneIndex,
   accent,
@@ -309,27 +333,63 @@ export function ZoneVista({
   accent: string;
   grayed: boolean;
 }) {
-  const Scene = SCENES[zoneIndex] ?? GatewayScene;
   const a = grayed ? SCENERY_GRAY : accent;
-  const p = grayed ? GRAYS : COLORS;
+  const art = zoneBackdrop(zoneIndex);
+  const [w, setW] = useState(0);
   return (
-    <View style={styles.vista} pointerEvents="none">
+    <View
+      testID={`zone-vista-${zoneIndex}`}
+      style={styles.vista}
+      pointerEvents="none"
+      onLayout={(e) => setW(e.nativeEvent.layout.width)}
+    >
       <LinearGradient
         colors={[`${a}2e`, `${a}0a`]}
         style={StyleSheet.absoluteFill}
       />
-      {/* `meet` (not `slice`): the band is wider than the 240-unit scene, and
-          slice-filling the width crops the top of tall landmarks (clock cap,
-          awning, pennants). Centered at full height, gradient fills the sides. */}
-      <Svg
-        style={StyleSheet.absoluteFill}
-        width="100%"
-        height="100%"
-        viewBox="0 0 240 56"
-        preserveAspectRatio="xMidYMax meet"
-      >
-        <Scene a={a} p={p} />
-      </Svg>
+      {art && w > 0 ? (
+        <>
+          <Image
+            testID={`zone-vista-art-${zoneIndex}`}
+            source={art}
+            resizeMode="cover"
+            style={{
+              position: 'absolute',
+              left: 0,
+              ...zoneVistaOffset(zoneIndex, w),
+            }}
+          />
+          {/* A locked showroom zone drains rather than greys. React Native
+              cannot run web's `grayscale` filter, so the honest equivalent is
+              to pull the picture back toward the gradient underneath it and
+              let the drawn postcard frame carry the locked read. */}
+          {grayed && (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: SCENERY_GRAY, opacity: ZONE_VISTA.grayedOpacity },
+              ]}
+            />
+          )}
+        </>
+      ) : (
+        /* Before the first layout pass, and for a zone with no painting, the
+           drawn scene still stands. `meet` (not `slice`): the band is wider
+           than the 240-unit scene, and slice-filling the width crops the top of
+           tall landmarks (clock cap, awning, pennants). */
+        <Svg
+          style={StyleSheet.absoluteFill}
+          width="100%"
+          height="100%"
+          viewBox="0 0 240 56"
+          preserveAspectRatio="xMidYMax meet"
+        >
+          {(() => {
+            const Scene = SCENES[zoneIndex] ?? GatewayScene;
+            return <Scene a={a} p={grayed ? GRAYS : COLORS} />;
+          })()}
+        </Svg>
+      )}
     </View>
   );
 }
