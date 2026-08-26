@@ -479,7 +479,16 @@ export default function Leaderboard() {
   // Refetch on focus and on mount, nothing else: no polling and no socket. A
   // board is only wrong while you are looking at it, and coming back to the tab
   // is exactly the moment to be right.
-  const [scope, setScope] = useState<BoardScope>(DEFAULT_SCOPE);
+  // `?scope=friends` opens the board on the same set of people the home card
+  // was showing. Without this the card's Friends view handed off to an Everyone
+  // board, which looks like the toggle was ignored. Anything but "friends"
+  // falls back to the default rather than erroring on a typo.
+  const requestedScope = new URLSearchParams(search).get("scope");
+  const [scope, setScope] = useState<BoardScope>(
+    requestedScope === "friends" || requestedScope === "all"
+      ? requestedScope
+      : DEFAULT_SCOPE,
+  );
   const { username, loaded: nameLoaded } = useMyPublicName();
   const params = boardParams(scope);
 

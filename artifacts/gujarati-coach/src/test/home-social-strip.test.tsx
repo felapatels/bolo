@@ -221,14 +221,38 @@ describe("HomeSocialStrip — populated state (has friends)", () => {
     expect(screen.getByText("Mira")).toBeInTheDocument();
   });
 
-  // Standing goes to the board. The empty state's "Add friends" link stays on
-  // /friends, which is where friends are actually added.
-  test("shows 'See all' link pointing to /leaderboard", () => {
+  // INVERTED 2026-08-26. This asserted href === "/leaderboard" and that
+  // assertion was the bug, held in place by a passing test: a bare /leaderboard
+  // opens on Weekly XP, so "See all" on a FEED card landed the learner on a
+  // ranking instead of on more of what they had just been reading.
+  //
+  // The empty state's "Add friends" link still goes to /friends, which is where
+  // friends are actually added.
+  test("'See all' opens the FEED tab, not the default ranking", () => {
     h.leaderboardData = [SELF, FRIEND_A];
     render(<HomeSocialStrip />);
 
     const link = screen.getByRole("link", { name: /see all/i });
-    expect(link).toHaveAttribute("href", "/leaderboard");
+    expect(link.getAttribute("href")).toContain("tab=feed");
+  });
+
+  // The card and the board are two views of the same thing. Handing off to a
+  // different set of people than the card was showing reads as the toggle
+  // having been ignored.
+  test("'See all' carries the scope the card is showing", () => {
+    h.leaderboardData = [SELF, FRIEND_A];
+    render(<HomeSocialStrip />);
+
+    // The card defaults to Everyone.
+    expect(
+      screen.getByRole("link", { name: /see all/i }).getAttribute("href"),
+    ).toContain("scope=all");
+
+    // Switch it to Friends and the link follows.
+    fireEvent.click(screen.getByRole("button", { name: "Friends" }));
+    expect(
+      screen.getByRole("link", { name: /see all/i }).getAttribute("href"),
+    ).toContain("scope=friends");
   });
 
   test("does not show the invite affordance when friends are present", () => {

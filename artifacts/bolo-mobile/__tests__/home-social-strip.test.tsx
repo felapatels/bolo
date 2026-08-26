@@ -232,15 +232,41 @@ describe('HomeSocialStrip — populated state (has friends)', () => {
     expect(screen.queryByTestId('home-referral-share')).toBeNull();
   });
 
-  // With friends on the strip, "See all" opens the board, not the management
-  // tab: the strip is a standings preview, so seeing all of it means the full
-  // standings. Adding and removing friends still lives on the Friends tab.
-  test('"See all" press navigates to the leaderboard', () => {
+  // INVERTED 2026-08-26, web twin inverted the same day. This asserted a bare
+  // '/(app)/leaderboard' and that assertion WAS the bug, held in place by a
+  // passing test: the bare route opens on Weekly XP, so "See all" on a FEED
+  // card landed the learner on a ranking rather than on more of what they had
+  // just been reading. Adding and removing friends still lives on the Friends
+  // tab, which is where the empty state still points.
+  test('"See all" opens the FEED tab, not the default ranking', () => {
     mockState.leaderboardData = [SELF, FRIEND_A];
     render(<HomeSocialStrip />);
 
     fireEvent.press(screen.getByLabelText('See all'));
-    expect(mockState.pushFn).toHaveBeenCalledWith('/(app)/leaderboard');
+    expect(mockState.pushFn).toHaveBeenCalledWith(
+      expect.stringContaining('tab=feed'),
+    );
+  });
+
+  // The card and the board are two views of the same thing. Handing off to a
+  // different set of people than the card was showing reads as the toggle
+  // having been ignored.
+  test('"See all" carries the scope the card is showing', () => {
+    mockState.leaderboardData = [SELF, FRIEND_A];
+    render(<HomeSocialStrip />);
+
+    // The card defaults to Everyone.
+    fireEvent.press(screen.getByLabelText('See all'));
+    expect(mockState.pushFn).toHaveBeenCalledWith(
+      expect.stringContaining('scope=all'),
+    );
+
+    // Switch it to Friends and the route follows.
+    fireEvent.press(screen.getByLabelText('Friends'));
+    fireEvent.press(screen.getByLabelText('See all'));
+    expect(mockState.pushFn).toHaveBeenLastCalledWith(
+      expect.stringContaining('scope=friends'),
+    );
   });
 });
 

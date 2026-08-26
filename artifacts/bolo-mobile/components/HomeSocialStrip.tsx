@@ -150,7 +150,7 @@ function LatestFriendMoment({
       accessibilityLabel={line}
       onPress={() => {
         hapticLight();
-        router.push('/(app)/leaderboard?tab=feed');
+        router.push(`/(app)/leaderboard?tab=feed&scope=${scope}`);
       }}
       style={[
         styles.momentRow,
@@ -214,7 +214,10 @@ export function HomeSocialStrip() {
   const goToBoard = () => {
     hapticLight();
     if (populated) {
-      router.push('/(app)/leaderboard');
+      // TAB AND SCOPE, BOTH. This pushed a bare route, which opens on Weekly
+      // XP: the card is a FEED card, so "See all" landed on a ranking rather
+      // than on more of what was just being read. Reported 2026-08-26.
+      router.push(`/(app)/leaderboard?tab=feed&scope=${scope}`);
       return;
     }
     router.push('/(app)/(tabs)/friends');

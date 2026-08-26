@@ -522,7 +522,7 @@ export default function LeaderboardScreen() {
   // `?tab=feed` opens the board straight on the feed, which is how the home
   // card's one-line teaser links through. An unknown value falls back to the
   // first tab rather than showing nothing.
-  const params = useLocalSearchParams<{ tab?: string }>();
+  const params = useLocalSearchParams<{ tab?: string; scope?: string }>();
   const [tabValue, setTabValue] = React.useState(
     TABS.some((t) => t.value === params.tab)
       ? (params.tab as string)
@@ -533,7 +533,14 @@ export default function LeaderboardScreen() {
   // Refetch on focus and on mount, nothing else: no polling and no socket. A
   // board is only wrong while you are looking at it, and arriving on it is
   // exactly the moment to be right.
-  const [scope, setScope] = React.useState<BoardScope>(DEFAULT_SCOPE);
+  // `?scope=friends` opens the board on the same set of people the home card
+  // was showing. Without this the card's Friends view handed off to an Everyone
+  // board, which looks like the toggle was ignored.
+  const [scope, setScope] = React.useState<BoardScope>(
+    params.scope === 'friends' || params.scope === 'all'
+      ? params.scope
+      : DEFAULT_SCOPE,
+  );
   const { username, loaded: nameLoaded } = useMyPublicName();
   const boardQueryParams = boardParams(scope);
   const board = useGetFriendsLeaderboard(boardQueryParams, {

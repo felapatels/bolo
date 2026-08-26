@@ -119,7 +119,11 @@ function LatestFriendMoment({ scope }: { scope: BoardScope }) {
 
   return (
     <Link
-      href="/leaderboard?tab=feed"
+      // Carries the scope as well as the tab. The card and the board are the
+      // same two views of the same thing, so arriving on the board looking at a
+      // different set of people than the card showed reads as the tap having
+      // gone somewhere else.
+      href={`/leaderboard?tab=feed&scope=${scope}`}
       data-testid="home-latest-moment"
       className="flex items-center gap-2.5 rounded-xl bg-muted/50 px-3 py-2 transition-opacity hover:opacity-80"
     >
@@ -209,7 +213,12 @@ export function HomeSocialStrip() {
           </span>
         </div>
         <Link
-          href={populated ? "/leaderboard" : "/friends"}
+          // TAB AND SCOPE, BOTH. This linked to a bare /leaderboard, which
+          // opens on Weekly XP: the card is a FEED card, so "See all" landed on
+          // a ranking instead of on more of what was just being read. Reported
+          // 2026-08-26. The scope rides along for the same reason the moment
+          // line's does.
+          href={populated ? `/leaderboard?tab=feed&scope=${scope}` : "/friends"}
           className="text-xs font-bold text-primary transition-opacity hover:opacity-70"
         >
           {populated ? "See all →" : "Add friends →"}
