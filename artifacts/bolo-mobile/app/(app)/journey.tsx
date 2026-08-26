@@ -104,6 +104,7 @@ import { ChachaEncounterDialog } from '@/components/journey/ChachaEncounter';
 import { closeoutOwed, useCloseoutMemory } from '@/lib/closeoutMemory';
 import { ZoneCloseoutOverlay } from '@/components/journey/ZoneCloseout';
 import { playStopSplash } from '@/lib/stopSplash';
+import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from '@/lib/railPalette';
 import {
   ZONE_BACKDROP_SCRIM,
   zoneBackdrop,
@@ -290,39 +291,6 @@ const DEPTH_2_5D = {
   parallaxFactor: 0.03,
   railBedDy: 2.5,
   railBedOpacity: 0.18,
-} as const;
-const RAIL_BED_INK = '#0f172a';
-
-/**
- * THE RAIL PALETTE, sampled from the owner's own rail sheet on 2026-08-26
- * rather than picked, so the drawn track matches the art it was drawn from.
- * Pulled with a palette reduction over the two tiles on that sheet.
- *
- * TWO STATES, AND THEY MEAN PROGRESS, NOT BRAND. Behind the learner the track
- * is plain wood; ahead of them it is the same wood under a green halo. The
- * owner's sheet drew it exactly that way and chose it over a line-coloured
- * rail: "ship the green rail, it looks better".
- *
- * THE LINE ACCENT IS DELIBERATELY NOT HERE ANY MORE. It used to colour the
- * rail itself, and with six paintings now shared across all 22 lines that made
- * the rail the last place a line looked like itself. It is not the right place:
- * green-means-done is a STATUS and a status should read the same on every line.
- * The accent still carries the station markers, the fare-zone postcards and the
- * comet sweep, all of which are identity rather than state.
- */
-const RAIL = {
-  /** The sleeper planks. */
-  tie: '#966F53',
-  /** Their underside, for the raised-bed read. */
-  tieInk: '#361C0F',
-  /** The two rails running over them. */
-  rail: '#CCB191',
-  /** What shows BETWEEN the two rails: more sleeper, not the page.
-   *  It used to be colors.background, which was invisible over a flat theme
-   *  and would punch a themed hole through a painted backdrop. */
-  between: '#7A5B43',
-  /** The lit halo. Two passes fake a falloff without a gradient. */
-  glow: '#ABF1A5',
 } as const;
 
 /** One comet dot: opacity follows the web keyframes (invisible at 0%, sharp
@@ -1707,20 +1675,26 @@ export default function JourneyScreen() {
                 // draws the two states as the same track with and without a
                 // halo, and greying it would say "disabled" where the truth is
                 // "not yet travelled".
-                const dash = s.lit ? undefined : '9 7';
+                const dash = s.lit ? undefined : RAIL_STROKE.unlitDash;
                 return (
-                  <G key={i} opacity={s.lit ? 1 : 0.55}>
+                  <G key={i} opacity={s.lit ? 1 : RAIL_STROKE.unlitOpacity}>
                     {/* THE HALO, under everything and only on the run behind
                         the learner. Two passes rather than one gradient: a
                         wide soft pass and a tighter brighter one give a falloff
                         that react-native-svg can draw with plain strokes, and a
                         radial gradient along a bezier is not a thing. */}
-                    {s.lit && (
-                      <>
-                        <Path d={s.d} stroke={RAIL.glow} strokeWidth={28} opacity={0.20} fill="none" strokeLinecap="round" />
-                        <Path d={s.d} stroke={RAIL.glow} strokeWidth={18} opacity={0.32} fill="none" strokeLinecap="round" />
-                      </>
-                    )}
+                    {s.lit &&
+                      RAIL_GLOW_PASSES.map((pass) => (
+                        <Path
+                          key={pass.width}
+                          d={s.d}
+                          stroke={RAIL.glow}
+                          strokeWidth={pass.width}
+                          opacity={pass.opacity}
+                          fill="none"
+                          strokeLinecap="round"
+                        />
+                      ))}
                     {/* Rail-bed underside (Task 985): the tie band duplicated
                         once, offset down in ink at low opacity, so every tie
                         shows a bottom edge and the track reads as a raised
@@ -1729,17 +1703,17 @@ export default function JourneyScreen() {
                       d={s.d}
                       transform={`translate(0 ${DEPTH_2_5D.railBedDy})`}
                       stroke={RAIL.tieInk}
-                      strokeWidth={15}
-                      strokeDasharray="3 11"
+                      strokeWidth={RAIL_STROKE.tie}
+                      strokeDasharray={RAIL_STROKE.tieDash}
                       opacity={DEPTH_2_5D.railBedOpacity}
                       fill="none"
                     />
                     {/* The sleepers, full strength now. They were the line
                         accent at 0.3 when the rail was a coloured line; they
                         are painted planks now and read as wood. */}
-                    <Path d={s.d} stroke={RAIL.tie} strokeWidth={15} strokeDasharray="3 11" fill="none" />
-                    <Path d={s.d} stroke={RAIL.rail} strokeWidth={8.5} fill="none" strokeDasharray={dash} />
-                    <Path d={s.d} stroke={RAIL.between} strokeWidth={4} fill="none" strokeDasharray={dash} />
+                    <Path d={s.d} stroke={RAIL.tie} strokeWidth={RAIL_STROKE.tie} strokeDasharray={RAIL_STROKE.tieDash} fill="none" />
+                    <Path d={s.d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.rail} fill="none" strokeDasharray={dash} />
+                    <Path d={s.d} stroke={RAIL.between} strokeWidth={RAIL_STROKE.between} fill="none" strokeDasharray={dash} />
                   </G>
                 );
               })}

@@ -31,6 +31,8 @@
 // it is the reason `k` is left alone.
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
+import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from '@/lib/railPalette';
+import { MEDALLION } from '@/lib/stopEmblems';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
@@ -1378,5 +1380,87 @@ describe('journey map — the stop card is paper on every stop (item 1.1)', () =
     // here would put the painting back behind the text, which is the bug this
     // whole change exists to fix.
     expect(stocks.every((s) => s.opacity === undefined || s.opacity === 1)).toBe(true);
+  });
+});
+
+describe('the rail palette and the medallions, mirrored on web', () => {
+  // EXACT-SHAPE, the STALL_PLACEMENT idiom, and it is here because of what
+  // happened on 2026-08-26: the repainted rail and these medallions shipped to
+  // mobile alone while the commit message named no platform, so the handoff
+  // read as though web had them. It did not, for a whole day. A constant with
+  // a twin needs a test that can tell. Web twin of these four:
+  // gujarati-coach/src/test/journey-rail-and-medallions.test.tsx.
+  it('paints the wood and the halo with exactly these six values', () => {
+    expect(RAIL).toEqual({
+      tie: '#966F53',
+      tieInk: '#361C0F',
+      rail: '#CCB191',
+      between: '#7A5B43',
+      glow: '#ABF1A5',
+    });
+  });
+
+  it('draws the halo as two passes, wide-and-soft under tight-and-bright', () => {
+    expect(RAIL_GLOW_PASSES).toEqual([
+      { width: 28, opacity: 0.2 },
+      { width: 18, opacity: 0.32 },
+    ]);
+  });
+
+  it('strokes the track to exactly this shape', () => {
+    expect(RAIL_STROKE).toEqual({
+      tie: 15,
+      rail: 8.5,
+      between: 4,
+      tieDash: '3 11',
+      unlitDash: '9 7',
+      unlitOpacity: 0.55,
+    });
+  });
+
+  it('keeps a theme colour out from between the rails', () => {
+    // THIS IS THE HOLE web carried until 2026-08-26: the centre stroke was the
+    // theme background, which drew a strip of page colour down the middle of
+    // every painting. A literal sampled from the sheet, never a token.
+    expect(RAIL.between).toMatch(/^#[0-9A-F]{6}$/i);
+  });
+
+  it('mints the brass to exactly these five values', () => {
+    expect(MEDALLION).toEqual({
+      rim: '#B08D4F',
+      rimAhead: '#8A7A63',
+      face: '#F0E4CA',
+      faceAhead: '#D8D2C6',
+      aheadOpacity: 0.62,
+    });
+  });
+
+  it('gives a phrase stop, a tracing stop and a story stop each their own', () => {
+    setZones([
+      [grp({ status: 'unlocked' }), grp({ status: 'locked' })],
+      [], [], [], [], [],
+    ]);
+    render(<JourneyScreen />);
+    // KIND, not status: the card beside every stop already says "Completed"
+    // and "8/10 mastered", so the marker's job is the half the card cannot say.
+    expect(screen.getAllByTestId('station-medallion-station').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('station-medallion-trace').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('station-medallion-story').length).toBeGreaterThan(0);
+  });
+
+  it('knocks a medallion back until the stop is behind the learner', () => {
+    setZones([
+      [grp({ status: 'unlocked' }), grp({ status: 'locked' })],
+      [], [], [], [], [],
+    ]);
+    render(<JourneyScreen />);
+    const ahead = screen
+      .getAllByTestId(/^station-medallion-/)
+      .map((el) => StyleSheet.flatten(el.props.style) as { opacity?: number })
+      .filter((st) => st.opacity !== undefined && st.opacity !== 1);
+    // The fixture locks a stop in zone 1, so unreached medallions must exist
+    // or this proves nothing.
+    expect(ahead.length).toBeGreaterThan(0);
+    expect(ahead.every((st) => st.opacity === MEDALLION.aheadOpacity)).toBe(true);
   });
 });

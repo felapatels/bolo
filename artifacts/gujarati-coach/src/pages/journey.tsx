@@ -119,6 +119,12 @@ import {
   type QuickGameDef,
   type QuickGameId,
 } from "@/lib/quick-games";
+import {
+  MEDALLION,
+  stopEmblem,
+  type StopEmblemKind,
+} from "@/lib/stop-emblems";
+import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from "@/lib/rail-palette";
 import { ZoneCloseoutOverlay } from "@/components/zone-closeout";
 import { ChachaEncounterDialog } from "@/components/chacha-encounter";
 
@@ -322,25 +328,55 @@ function StationMarker({
     );
   }
   const done = station.status === "completed" || station.status === "tested_out";
-  const shapeClass =
-    station.stage === "sentence" ? "rotate-45 rounded-[3px]" : "rounded-full";
-  if (done) {
-    return (
-      <div
-        className={cn("w-5 h-5 border-4 border-white", shapeClass)}
-        style={{ background: color, boxShadow: `0 0 0 2px ${color}, var(--depth-shadow)` }}
-      />
-    );
-  }
+
+  // WHAT KIND OF STOP, not what state it is in. The card beside every stop
+  // already says "Completed" and "8/10 mastered", so a marker that only encoded
+  // status was repeating it while leaving the thing it alone could say, that
+  // this one is a tracing stop and that one is a story, to a chip.
+  //
+  // The sentence stop keeps its diamond rather than taking an emblem of its
+  // own: it is a first-class stop and the rotated frame is what has always
+  // marked that, on both platforms.
+  const kind: StopEmblemKind = station.trace
+    ? "trace"
+    : station.story
+      ? "story"
+      : "station";
+  const diamond = station.stage === "sentence";
+
   return (
     <div
-      className={cn("w-5 h-5 bg-background", shapeClass)}
+      data-testid={`station-medallion-${kind}`}
+      className={cn(
+        "relative w-[26px] h-[26px] flex items-center justify-center overflow-hidden",
+        diamond ? "rotate-45 rounded-[4px]" : "rounded-full",
+      )}
       style={{
-        boxShadow: accessible
-          ? `inset 0 0 0 3px ${color}, var(--depth-shadow)`
-          : "inset 0 0 0 3px hsl(var(--border)), var(--depth-shadow)",
+        background: done ? MEDALLION.face : MEDALLION.faceAhead,
+        border: `2px solid ${done ? MEDALLION.rim : MEDALLION.rimAhead}`,
+        opacity: done ? 1 : MEDALLION.aheadOpacity,
+        boxShadow: "var(--depth-shadow)",
       }}
-    />
+    >
+      <img
+        src={stopEmblem(kind)}
+        alt=""
+        aria-hidden
+        className={cn("w-5 h-5 object-contain", diamond && "-rotate-45")}
+      />
+      {/* A locked stop keeps the border it always had, so "you cannot go here
+          yet" still reads from the rim rather than only from the card. */}
+      {!accessible && (
+        <span
+          className={cn(
+            "absolute inset-0",
+            diamond ? "rounded-[4px]" : "rounded-full",
+          )}
+          style={{ border: "2px solid hsl(var(--border))" }}
+          aria-hidden
+        />
+      )}
+    </div>
   );
 }
 
@@ -872,13 +908,32 @@ function StationCard({
   );
 }
 
-/** One railway segment: sleeper ties under twin rails (a wide stroke split in
- *  two by a background-colored center stroke). Locked segments are faded and
- *  dashed; completed/boarding segments are solid accent. */
-function RailSegment({ d, lit, accent }: { d: string; lit: boolean; accent: string }) {
-  const color = lit ? accent : GRAY;
+/** One railway segment: painted sleepers under twin rails, with a green halo
+ *  under the run the learner has already travelled. The unlit run stays wood
+ *  rather than going grey, because the sheet draws the two states as the same
+ *  track with and without a halo, and greying it would say "disabled" where
+ *  the truth is "not yet travelled". */
+function RailSegment({ d, lit }: { d: string; lit: boolean }) {
+  const dash = lit ? undefined : RAIL_STROKE.unlitDash;
   return (
-    <g opacity={lit ? 1 : 0.5}>
+    <g opacity={lit ? 1 : RAIL_STROKE.unlitOpacity}>
+      {/* THE HALO, under everything and only on the run behind the learner.
+          Two passes rather than one gradient, matching mobile stroke for
+          stroke: react-native-svg cannot draw a radial gradient along a
+          bezier, and a halo that differed between the platforms would be the
+          one part of the repaint nobody could compare. */}
+      {lit &&
+        RAIL_GLOW_PASSES.map((pass) => (
+          <path
+            key={pass.width}
+            d={d}
+            stroke={RAIL.glow}
+            strokeWidth={pass.width}
+            opacity={pass.opacity}
+            fill="none"
+            strokeLinecap="round"
+          />
+        ))}
       {/* Rail-bed thickness (Task 985): the tie band repeated once in ink,
           offset down by the shared depth step, so every sleeper shows an
           underside edge and the track reads as a raised bed. Same `d` and
@@ -886,21 +941,18 @@ function RailSegment({ d, lit, accent }: { d: string; lit: boolean; accent: stri
       <path
         d={d}
         transform={`translate(0 ${DEPTH_2_5D.railBedDy})`}
-        stroke="#0f172a"
-        strokeWidth={15}
-        strokeDasharray="3 11"
+        stroke={RAIL.tieInk}
+        strokeWidth={RAIL_STROKE.tie}
+        strokeDasharray={RAIL_STROKE.tieDash}
         opacity={DEPTH_2_5D.railBedOpacity}
         fill="none"
       />
-      <path d={d} stroke={color} strokeWidth={15} strokeDasharray="3 11" opacity={0.3} fill="none" />
-      <path d={d} stroke={color} strokeWidth={8.5} fill="none" strokeDasharray={lit ? undefined : "9 7"} />
-      <path
-        d={d}
-        style={{ stroke: "hsl(var(--background))" }}
-        strokeWidth={4}
-        fill="none"
-        strokeDasharray={lit ? undefined : "9 7"}
-      />
+      {/* The sleepers, full strength now. They were the line accent at 0.3
+          when the rail was a coloured line; they are painted planks now and
+          read as wood. */}
+      <path d={d} stroke={RAIL.tie} strokeWidth={RAIL_STROKE.tie} strokeDasharray={RAIL_STROKE.tieDash} fill="none" />
+      <path d={d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.rail} fill="none" strokeDasharray={dash} />
+      <path d={d} stroke={RAIL.between} strokeWidth={RAIL_STROKE.between} fill="none" strokeDasharray={dash} />
     </g>
   );
 }
@@ -2288,7 +2340,7 @@ export default function Journey() {
               </g>
               <g data-testid="journey-rail-layer">
                 {segs.map((s, i) => (
-                  <RailSegment key={i} d={s.d} lit={s.lit} accent={line.accent} />
+                  <RailSegment key={i} d={s.d} lit={s.lit} />
                 ))}
               </g>
               {/* Task #917 / #973: comet sweep on the active run. Delay
