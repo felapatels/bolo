@@ -87,6 +87,10 @@ jest.mock('@workspace/api-client-react', () => ({
   useDeclineFriendRequest: () => mockState.decline,
   useRemoveFriend: () => mockState.remove,
   useGetFriendsLeaderboard: () => mockState.leaderboard,
+  // Added 2026-08-25 when the Friends tab's own board gained the
+  // Friends/Everyone toggle, so it stopped disagreeing with the other two.
+  useGetAccount: () => ({ data: { profile: { username: 'learner', shareStats: true } } }),
+  useReportUsername: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
   getGetReferralQueryKey: () => ['referral'],
@@ -271,14 +275,27 @@ describe('Leaderboard', () => {
     expect(screen.getByText('Nothing to rank yet')).toBeOnTheScreen();
   });
 
-  test('shows a hint when the board holds only the learner', () => {
+  test('shows a hint when the FRIENDS board holds only the learner', () => {
+    // SCOPED FROM 2026-08-25. The tab defaults to Everyone now, and on that
+    // board "add friends to see how you stack up" is wrong advice: you are
+    // already being compared with everyone, and adding a friend changes
+    // nothing about the ranking you are looking at. The hint belongs to the
+    // friends scope, so the test switches to it first, as a learner would.
     mockState.leaderboard = successQuery([me]);
     render(<FriendsScreen />);
     openLeaderboard();
+    fireEvent.press(screen.getByTestId('board-scope-friends'));
 
     expect(
       screen.getByText(/Add friends to see how you stack up/i),
     ).toBeOnTheScreen();
+  });
+
+  test('does NOT show that hint on the Everyone board', () => {
+    mockState.leaderboard = successQuery([me]);
+    render(<FriendsScreen />);
+    openLeaderboard();
+    expect(screen.queryByText(/Add friends to see how you stack up/i)).toBeNull();
   });
 
   test("ranks entries and highlights the learner's own row", () => {

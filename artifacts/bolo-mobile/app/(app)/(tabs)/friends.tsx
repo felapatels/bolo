@@ -34,6 +34,7 @@ import {
   type FriendRequest,
   type Friend,
   type LeaderboardEntry,
+  type GetFriendsLeaderboardParams,
 } from '@workspace/api-client-react';
 import { normalizeReferralCode } from '@workspace/referral-link';
 import { referralLinkFor } from '@/lib/referral';
@@ -47,6 +48,12 @@ import { ChunkyButton } from '@/components/ChunkyButton';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { PressableScale } from '@/components/PressableScale';
 import { useColors } from '@/hooks/useColors';
+import {
+  BoardScopeToggle,
+  PublicNamePrompt,
+  useMyPublicName,
+  type BoardScope,
+} from '@/components/BoardScope';
 import { AppFonts } from '@/constants/fonts';
 
 type Tab = 'friends' | 'leaderboard';
@@ -1012,7 +1019,19 @@ function EmptyFriends() {
 function LeaderboardTab() {
   const colors = useColors();
   const skipEnter = useAppearSkip();
-  const leaderboard = useGetFriendsLeaderboard();
+  // TWO LEADERBOARDS DISAGREEING IS THE BUG, reported that way on 2026-08-25:
+  // "looks like we have 2 leaderboards, one when you click the add friends
+  // button on homescreen". This tab has always had its own board, and when the
+  // Friends/Everyone toggle landed on the leaderboard screen and the home card
+  // this one silently stayed friends-only, so the same learner saw different
+  // standings depending on which door they came through. Same control, same
+  // default, same gate as the other two now.
+  const [scope, setScope] = React.useState<BoardScope>('all');
+  const { username, loaded: nameLoaded } = useMyPublicName();
+  const boardParams: GetFriendsLeaderboardParams = { scope };
+  const leaderboard = useGetFriendsLeaderboard(boardParams, {
+    query: { queryKey: getGetFriendsLeaderboardQueryKey(boardParams) },
+  });
 
   const rows = leaderboard.data ?? [];
   const onlySelf = rows.length === 1 && rows[0]?.isSelf;
@@ -1032,6 +1051,16 @@ function LeaderboardTab() {
         />
       }
     >
+      <View style={{ marginBottom: 12, marginTop: 4 }}>
+        <BoardScopeToggle scope={scope} onChange={setScope} />
+      </View>
+
+      {scope === 'all' && nameLoaded && !username ? (
+        <View style={{ marginBottom: 12 }}>
+          <PublicNamePrompt />
+        </View>
+      ) : null}
+
       {leaderboard.isLoading ? (
         <View style={{ gap: 10, marginTop: 8 }}>
           {[0, 1, 2, 3, 4].map((i) => (
@@ -1052,7 +1081,7 @@ function LeaderboardTab() {
               <LeaderboardRow entry={entry} />
             </Animated.View>
           ))}
-          {onlySelf ? (
+          {onlySelf && scope === 'friends' ? (
             <Text style={[styles.lbHint, { color: colors.mutedForeground }]}>
               Add friends to see how you stack up. Your XP is the total across
               every language.
