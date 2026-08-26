@@ -53,12 +53,60 @@ export async function reconcileFreeTierContentPolicy(): Promise<void> {
       ORDER BY lg.language_code, lg.position ASC
     )
   `);
+  // 3) EVERYTHING ELSE IN JOURNEY 1 IS PAID, and this is the half the policy
+  //    described but never enforced.
+  //
+  //    Reported on a free account 2026-08-25: "after zone 2 for hindi, i
+  //    shouldn't be able to click on a stop and test out. I should just hit
+  //    the paywall for any stop in zone 3, 4, 5 or 6." Production showed why
+  //    they could:
+  //
+  //      hi numbers  position 1   10 free of 10
+  //      hi food     position 1    8 free of 10
+  //      hi everyday position 1    8 free of 10
+  //      every other position      0 free
+  //
+  //    The SEEDER leaves a free starter tranche in the first group of EVERY
+  //    category, so the first stop of every zone was partly free. Nothing had
+  //    ever marked it paid, so a free learner walked into zone 3, opened stop
+  //    1, and was offered a stop test-out into content they had not bought.
+  //    The client was right the whole way down: it locks on the server's
+  //    premium flag, and the flag said free.
+  //
+  //    THIS IS THE FIRST STATEMENT HERE THAT FLIPS premium ON. The two above
+  //    only ever widen access; this one closes it, so it is scoped narrowly
+  //    and stated loudly. It touches JOURNEY 1 categories only, leaves the
+  //    free run above untouched by construction (the WHERE excludes exactly
+  //    what rules 1 and 2 free), and skips test-scoped languages like the rest.
+  const paidRemainder = await db.execute(sql`
+    UPDATE phrases SET premium = true
+    WHERE NOT premium AND lesson_group_id IN (
+      SELECT lg.id
+      FROM lesson_groups lg
+      JOIN categories c ON c.id = lg.category_id
+      WHERE c.slug IN ('greetings','family','numbers','food','everyday','feelings')
+        AND lg.language_code NOT LIKE '\\_\\_%'
+        -- Hindi keeps the whole of zones 1 and 2.
+        AND NOT (lg.language_code = 'hi' AND c.slug IN ('greetings','family'))
+        -- Every language keeps its first stop, which is position-1 greetings.
+        AND NOT (
+          c.slug = 'greetings'
+          AND lg.position = (
+            SELECT MIN(lg2.position) FROM lesson_groups lg2
+            JOIN categories c2 ON c2.id = lg2.category_id
+            WHERE c2.slug = 'greetings' AND lg2.language_code = lg.language_code
+          )
+        )
+    )
+  `);
+
   const hindiCount = hindiFreeZones.rowCount ?? 0;
   const firstStopCount = firstStops.rowCount ?? 0;
-  if (hindiCount + firstStopCount > 0) {
+  const paidCount = paidRemainder.rowCount ?? 0;
+  if (hindiCount + firstStopCount + paidCount > 0) {
     logger.info(
-      { hindiZones1and2: hindiCount, firstStops: firstStopCount },
-      "Free-tier content policy: flipped premium rows to free.",
+      { hindiZones1and2: hindiCount, firstStops: firstStopCount, closedToPaid: paidCount },
+      "Free-tier content policy: reconciled premium rows.",
     );
   } else {
     logger.info("Free-tier content policy: already satisfied (no-op).");

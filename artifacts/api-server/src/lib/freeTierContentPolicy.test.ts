@@ -72,6 +72,34 @@ test("reconciliation is idempotent and both policy invariants hold", async () =>
     "no premium phrase rows may remain in any first stop",
   );
 
+  // Ruling 3, added 2026-08-25: NOTHING outside the free run is free.
+  //
+  // Asserted as a negative for the same reason as the Zone 3 check above. The
+  // seeder leaves a free starter tranche in the FIRST group of every category,
+  // so before this rule existed a free learner could open stop 1 of zones 2
+  // through 6 and was even offered a stop test-out into content they had not
+  // bought. Reported from a free account; 925 rows across 22 languages were
+  // sitting open.
+  const openRemainder = await pool.query(`
+    SELECT count(*)::int AS n
+    FROM phrases p
+    JOIN lesson_groups lg ON lg.id = p.lesson_group_id
+    JOIN categories c ON c.id = lg.category_id
+    WHERE NOT p.premium
+      AND c.slug IN ('greetings','family','numbers','food','everyday','feelings')
+      AND lg.language_code NOT LIKE '\\_\\_%'
+      AND NOT (lg.language_code = 'hi' AND c.slug IN ('greetings','family'))
+      AND NOT (c.slug = 'greetings' AND lg.position = (
+        SELECT MIN(lg2.position) FROM lesson_groups lg2
+        JOIN categories c2 ON c2.id = lg2.category_id
+        WHERE c2.slug = 'greetings' AND lg2.language_code = lg.language_code))
+  `);
+  assert.equal(
+    openRemainder.rows[0].n,
+    0,
+    "journey 1 outside the free run must be paid, or the paywall has holes",
+  );
+
   // Idempotency: a second pass is a clean no-op (nothing left to flip).
   await reconcileFreeTierContentPolicy();
   const again = await pool.query(`
