@@ -46,8 +46,8 @@ describe('which band of the painting each postcard shows', () => {
     expect(ZONE_VISTA).toEqual({
       height: 56,
       grayedOpacity: 0.55,
-      artW: 1280,
-      artH: 2276,
+      artW: 860,
+      artH: 1359,
     });
   });
 });
@@ -58,7 +58,7 @@ describe('the offset that stands in for object-position', () => {
   // overflow. These pin that reading, because getting it wrong is silent: the
   // picture still renders, just showing the wrong part of the painting.
   const W = 350;
-  const COVER_H = W * (2276 / 1280); // 622.65…
+  const COVER_H = W * (1359 / 860); // the tileable art's aspect
 
   it('scales the painting to the postcard width', () => {
     expect(zoneVistaOffset(0, W).width).toBe(W);

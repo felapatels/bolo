@@ -2462,7 +2462,11 @@ export default function Journey() {
                   <div
                     key={si}
                     data-testid={`journey-backdrop-${zi}`}
-                    className="absolute left-0 w-full overflow-hidden bg-cover bg-center"
+                    // FULL WIDTH AND REPEATING, never `cover`. Cover fills the
+                    // taller axis, and a zone band is far taller than the
+                    // painting's aspect, so it threw away 42% of the width and
+                    // showed a blown-up slice of a street.
+                    className="absolute left-0 w-full overflow-hidden bg-top bg-repeat-y [background-size:100%_auto]"
                     style={{
                       top: y,
                       height: end - y,

@@ -49,12 +49,12 @@ describe("which band of the painting each postcard shows", () => {
     expect(zoneVistaY(99)).toBe(8);
   });
 
-  test("the picture side is 56 tall and the paintings are 1280x2276", () => {
+  test("the picture side is 56 tall and the paintings are 860x1359", () => {
     expect(ZONE_VISTA).toEqual({
       height: 56,
       grayedOpacity: 0.55,
-      artW: 1280,
-      artH: 2276,
+      artW: 860,
+      artH: 1359,
     });
   });
 });

@@ -91,8 +91,8 @@ export const ZONE_VISTA = {
   /** The paintings' intrinsic size, all six identical. Web never needs these,
    *  because object-fit works it out; mobile does, because it has to scale the
    *  picture to the postcard's width by hand before it can offset it. */
-  artW: 1280,
-  artH: 2276,
+  artW: 860,
+  artH: 1359,
 } as const;
 
 /** The vista's vertical position for a fare zone, defaulting to the skyline. */
@@ -113,6 +113,27 @@ export function zoneFootTone(zoneIndex: number): string {
  * A flat scrim at this alpha is what keeps them legible without washing the
  * picture out; it is a single value shared with mobile so the two cannot drift.
  */
+/**
+ * THE PAINTINGS ARE VERTICALLY TILEABLE AND ARE DRAWN AT THE BAND'S FULL
+ * WIDTH, which is the fix for "the background images zoomed in too" and "I'm
+ * only seeing the top left corner of the background image".
+ *
+ * They used to be drawn with `cover` across a band as tall as its whole zone.
+ * An eleven-stop zone is about 390 by 1200, and against a 1280x2276 painting
+ * `cover` scales to fill the HEIGHT and throws away 42% OF THE WIDTH. The
+ * learner saw a slice of a street, blown up, and never the street.
+ *
+ * Fitting to the width instead shows the whole painting and leaves the height
+ * to be filled by repeating, so each file cross-fades its own bottom 170 rows
+ * into its top: the road carries through the join rather than meeting sky at a
+ * hard line. Same cut as the wide desktop bazaar, same reason.
+ *
+ * IT ALSO MADE THE BUNDLE SMALLER. Fitting to width means the art never needs
+ * to be taller than a phone is wide times its aspect, so 860x1359 replaces
+ * 1280x2276: 1.9MB for the six against 4.4MB.
+ */
+export const ZONE_TILE_ASPECT = 860 / 1359;
+
 export const ZONE_BACKDROP_SCRIM = 0.28;
 
 /**

@@ -128,6 +128,7 @@ import {
   ZONE_BACKDROP_SCRIM,
   ZONE_BOARD,
   ZONE_BOARD_ART,
+  ZONE_TILE_ASPECT,
   zoneBackdrop,
   zoneFootTone,
 } from '@/lib/zoneBackdrops';
@@ -1720,11 +1721,35 @@ export default function JourneyScreen() {
                     overflow: 'hidden',
                   }}
                 >
-                  <Image
-                    source={art}
-                    style={StyleSheet.absoluteFill}
-                    resizeMode="cover"
-                  />
+                  {/* FULL WIDTH AND REPEATING, never `cover`. Cover fills the
+                      taller axis, and a zone band is far taller than the
+                      painting's aspect: at roughly 390 by 1200 against a
+                      1280x2276 file it threw away 42% OF THE WIDTH and showed a
+                      blown-up slice anchored at one corner.
+                      Stacked rather than resizeMode="repeat", which tiles at the
+                      file's own pixel size and would crop it on a phone instead
+                      of fitting it. Each tile is exactly the band's width by the
+                      art's aspect, and the art cross-fades into itself so the
+                      joins do not read. */}
+                  {Array.from({
+                    length: Math.max(
+                      1,
+                      Math.ceil((end - start) / (windowW / ZONE_TILE_ASPECT)),
+                    ),
+                  }).map((_, ti) => (
+                    <Image
+                      key={ti}
+                      source={art}
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: ti * (windowW / ZONE_TILE_ASPECT),
+                        width: windowW,
+                        height: windowW / ZONE_TILE_ASPECT,
+                      }}
+                      resizeMode="stretch"
+                    />
+                  ))}
                   {/* A flat scrim rather than a gradient: the rail crosses the
                       whole height, so darkening only one end would leave it
                       legible in one half of the band and not the other. */}
