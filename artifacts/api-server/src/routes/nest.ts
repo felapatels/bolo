@@ -1394,24 +1394,27 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
  * localStorage call wrapped in try/catch. So it cannot leak, cannot break on a
  * blocked request, and adds no runtime dependency to the API.
  *
- * TREAT THIS FILE AS HAND MAINTAINED UNTIL SOMEBODY SAYS OTHERWISE, and that
- * is the opposite of what CLAUDE.md says about the aksharmala page for a
- * specific measured reason. A generator exists in tools/growth-board and its
- * README says to regenerate with `python3 gen.py <out> nest`. IT DOES NOT
- * REPRODUCE THIS FILE. Run on 2026-08-26 it emitted 114,439 bytes against the
- * 114,741 committed here, and the difference is not only the standalone
- * doctype wrapper the README already warns about: the generated CSS still
- * names "Archivo Narrow", "Instrument Sans" and "IBM Plex Mono", which are
- * GOOGLE FONTS, while this file carries system stacks. The font link is
- * correctly dropped in nest mode, so a regeneration would not break the strict
- * no-external-requests property, it would just name three faces that can never
- * load and quietly undo the substitution.
+ * NEST-GROWTH.HTML IS COMMITTED OUTPUT, NOT SOURCE. Same rule as the aksharmala
+ * page in CLAUDE.md and for the same reason: EDIT tools/growth-board AND
+ * REBUILD, NEVER THIS FILE. A hand edit works until the next rebuild silently
+ * reverts it.
  *
- * So the generator is deliberately NOT committed beside this. A generated file
- * whose generator produces something else is worse than a hand-maintained one,
- * because the README invites a regeneration that silently reverts work. Commit
- * it the day `gen.py ... nest` round-trips this file byte for byte, and put
- * the aksharmala rule back over it then.
+ *     cd tools/growth-board
+ *     python3 gen.py ../../artifacts/api-server/assets/nest-growth.html nest
+ *
+ * THE TRAILING `nest` IS LOAD BEARING and the build is wrong without it. It
+ * drops the Google Fonts link, substitutes system stacks, builds the standalone
+ * wrapper and sets the canonical footer.
+ *
+ * THE RULE ONLY EARNED ITS PLACE AFTER THE GENERATOR WAS MADE TO EARN IT.
+ * On 2026-08-26 that command emitted 114,439 bytes against the 114,741 here,
+ * and the generated CSS still named "Archivo Narrow", "Instrument Sans" and
+ * "IBM Plex Mono", all Google Fonts, where this file carries system stacks: the
+ * substitution had been done by hand in a shell once and then documented as if
+ * the generator did it. A rebuild would have named three faces that can never
+ * load. The generator was held out of the repo until `cmp` was silent, because
+ * pointing this rule at a command that reverts work is worse than having no
+ * generator at all. `cmp` is silent now, verified from a clean run.
  */
 router.get("/nest/growth", (req: Request, res: Response): void => {
   if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
