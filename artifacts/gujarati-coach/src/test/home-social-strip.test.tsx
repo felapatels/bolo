@@ -110,6 +110,9 @@ vi.mock("lucide-react", () => ({
   // The Friends/Everyone toggle and the report control, 2026-08-25.
   Globe: () => React.createElement("span", { "data-icon": "globe" }),
   Flag: () => React.createElement("span", { "data-icon": "flag" }),
+  // The streak on the mini row, 2026-08-26: home mirrors the Feed tab's board
+  // row now that Weekly XP and Streak are one tab.
+  Flame: () => React.createElement("span", { "data-icon": "flame" }),
 }));
 
 // cn is a pure utility — use the real one (or a passthrough).

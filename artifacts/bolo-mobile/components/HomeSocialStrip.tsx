@@ -34,6 +34,7 @@ import {
 import { MascotAvatar } from '@/components/MascotAvatar';
 import { FirstClassChip } from '@/components/GoldChip';
 import { feedLineFor } from '@/lib/feedCopy';
+import { FeedPulseDot, useFeedPulse } from '@/components/FeedPulse';
 import { REFERRAL_REWARD_CHAI } from '@workspace/referral-link';
 import { PressableScale } from '@/components/PressableScale';
 import { useColors } from '@/hooks/useColors';
@@ -85,10 +86,20 @@ function MiniRow({ entry, colors }: { entry: LeaderboardEntry; colors: ReturnTyp
         {displayName(entry)}
         {entry.isSelf ? ' (You)' : ''}
       </Text>
+      {/* BOTH NUMBERS, mirroring the Feed tab's board row since 2026-08-26.
+          Home showed XP alone while the board had a Streak tab of its own; the
+          tabs were merged, so the card that teases the board shows what the
+          board shows. */}
       <View style={styles.xpBadge}>
         <Feather name="award" size={11} color="#f59e0b" />
         <Text style={[styles.xpText, { color: colors.mutedForeground }]}>
           {entry.xp}
+        </Text>
+      </View>
+      <View style={styles.xpBadge}>
+        <Feather name="zap" size={11} color={colors.primary} />
+        <Text style={[styles.xpText, { color: colors.mutedForeground }]}>
+          {entry.currentStreakDays}
         </Text>
       </View>
     </View>
@@ -134,6 +145,12 @@ function LatestFriendMoment({
     }, [refetch]),
   );
 
+  // Hooks before the early returns below, which is why this sits here rather
+  // than beside the render: a conditional hook is a different bug every time
+  // the feed happens to be empty.
+  const latestId = feed.data?.[0]?.id ?? null;
+  const pulsing = useFeedPulse(latestId);
+
   const entry = feed.data?.[0];
   if (!entry) return null;
 
@@ -165,6 +182,9 @@ function LatestFriendMoment({
         {line}
       </Text>
       {entry.actor.firstClassActive ? <FirstClassChip /> : null}
+      {/* Same dot as the Feed tab's heading, same rule: it appears only when a
+          moment lands while the learner is looking at home. */}
+      <FeedPulseDot active={pulsing} />
     </PressableScale>
   );
 }

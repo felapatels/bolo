@@ -5,7 +5,11 @@
  * Standing is a different thing you come to look at, so it gets its own route
  * and home links straight to it.
  *
- * Three tabs: Weekly XP, Streak and Feed. The first two read the SAME payload,
+ * MOBILE TWIN: app/(app)/leaderboard.tsx. Two tabs, Feed and Flex, and Flex
+ * only exists once Bolo is dressed. See the tab model below for why Weekly XP
+ * and Streak stopped being tabs of their own on 2026-08-26.
+ *
+ * Historical, kept because it explains the shape of the payload: the first two read the SAME payload,
  * because a streak is window-independent, so the Streak tab re-sorts the
  * entries the weekly query already returned rather than fetching a second
  * board. The Feed tab is the one that is NOT a re-sort: it reads
@@ -17,7 +21,7 @@
  * applies the same rule for XP; the streak tab applies it here because the
  * metric it ranks by is not the one the payload arrives sorted on.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearch } from "wouter";
 import {
   ArrowLeft,
@@ -28,6 +32,8 @@ import {
   Loader2,
   Users,
   Newspaper,
+  Sparkles,
+  Star,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -46,6 +52,12 @@ import {
 import { motion } from "framer-motion";
 import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
+import { useEquippedOutfit } from "@/hooks/use-equipped-outfit";
+import { FeedPulseDot, useFeedPulse } from "@/components/feed-pulse";
+import {
+  FeedTabsCoach,
+  useFeedTabsCoach,
+} from "@/components/feed-tabs-coach";
 import { MascotAvatar } from "@/components/mascot-avatar";
 import { FirstClassChip } from "@/components/gold-chip";
 import {
@@ -74,98 +86,68 @@ function displayNameFor(u: { displayName: string | null }): string {
 /* --------------------------------- tabs ---------------------------------- */
 
 /**
- * A tab that RANKS the one board payload by a number of its own. Everything
- * that differs between two such tabs lives here.
+ * TWO TABS NOW, AND ONE OF THEM IS CONDITIONAL. Until 2026-08-26 there were
+ * three: Weekly XP, Streak and Feed, where the first two read the SAME payload
+ * and differed only in which number they sorted by. Asking a learner to change
+ * tab to see the other number on the same people was the wrong trade, so the
+ * board carries both numbers on one row and the two tabs became one.
+ *
+ * FLEX ONLY EXISTS ONCE BOLO IS DRESSED. Outfits are a Chai sink, and a sink is
+ * only worth spending into if the thing you bought has somewhere to be seen. An
+ * empty Flex tab would advertise the shop; a Flex tab that appears the moment
+ * you equip something rewards the purchase instead.
+ *
+ * Mobile twin: app/(app)/leaderboard.tsx. Keep the two in step.
  */
-interface RankedTab {
-  kind: "ranked";
-  value: string;
-  label: string;
-  icon: LucideIcon;
-  /** The number this tab ranks by. */
-  metric: (entry: LeaderboardEntry) => number;
-  /** The unit shown beside it. */
-  unit: string;
-  /** Copy for a board holding nobody but the learner. */
-  emptyBody: string;
-}
-
-/**
- * The feed tab. A separate shape rather than a third RankedTab, because the
- * feed is not a re-sort of the board: it reads a different endpoint, has no
- * metric and no ranking, and its rows are sentences rather than scores.
- * Pretending otherwise would mean a metric that returns nothing and a unit that
- * is never shown.
- */
-interface FeedTabDef {
-  kind: "feed";
-  value: string;
+interface BoardTabDef {
+  value: "feed" | "flex";
   label: string;
   icon: LucideIcon;
 }
 
-type BoardTab = RankedTab | FeedTabDef;
+const FEED_TAB: BoardTabDef = { value: "feed", label: "Feed", icon: Newspaper };
+const FLEX_TAB: BoardTabDef = { value: "flex", label: "Flex", icon: Sparkles };
+
+/** Copy for a board holding nobody but the learner. */
+const BOARD_EMPTY_BODY =
+  "Add a friend to see how this week's XP and streaks stack up. A little friendly competition goes a long way!";
 
 /**
- * The ranking rule, shared by both ranked tabs: the tab's metric, then the
- * longer current streak, then earliest to reach the total. Nothing falls back
- * to ids.
+ * WEEKLY XP RANKS, STREAK BREAKS THE TIE, then earliest to reach the total.
+ * Nothing falls back to ids.
+ *
+ * This used to be compareBy(tab), parameterised on whichever metric the active
+ * tab ranked by. With one board there is one order, and XP leads it because it
+ * is the number that moves this week. The streak is still on every row and
+ * still breaks ties, so nobody lost sight of it when the tab went.
  */
-function compareBy(tab: RankedTab) {
-  return (a: LeaderboardEntry, b: LeaderboardEntry): number => {
-    const byMetric = tab.metric(b) - tab.metric(a);
-    if (byMetric !== 0) return byMetric;
-    if (b.currentStreakDays !== a.currentStreakDays) {
-      return b.currentStreakDays - a.currentStreakDays;
-    }
-    if (a.reachedAt === b.reachedAt) return 0;
-    if (a.reachedAt === null) return 1;
-    if (b.reachedAt === null) return -1;
-    return a.reachedAt < b.reachedAt ? -1 : 1;
-  };
+function compareEntries(a: LeaderboardEntry, b: LeaderboardEntry): number {
+  const byXp = b.xp - a.xp;
+  if (byXp !== 0) return byXp;
+  if (b.currentStreakDays !== a.currentStreakDays) {
+    return b.currentStreakDays - a.currentStreakDays;
+  }
+  if (a.reachedAt === b.reachedAt) return 0;
+  if (a.reachedAt === null) return 1;
+  if (b.reachedAt === null) return -1;
+  return a.reachedAt < b.reachedAt ? -1 : 1;
 }
-
-const TABS: BoardTab[] = [
-  {
-    kind: "ranked",
-    value: "weekly-xp",
-    label: "Weekly XP",
-    icon: Trophy,
-    metric: (e) => e.xp,
-    unit: "XP",
-    emptyBody:
-      "Add a friend to see how this week's XP stacks up. A little friendly competition goes a long way!",
-  },
-  {
-    kind: "ranked",
-    value: "streak",
-    label: "Streak",
-    icon: Flame,
-    metric: (e) => e.currentStreakDays,
-    unit: "days",
-    emptyBody:
-      "Add a friend and see who can keep their streak alive the longest.",
-  },
-  {
-    kind: "feed",
-    value: "feed",
-    label: "Feed",
-    icon: Newspaper,
-  },
-];
 
 /* --------------------------------- rows ---------------------------------- */
 
+/**
+ * ONE ROW CARRYING BOTH NUMBERS. It took a `tab` until 2026-08-26 and printed
+ * whichever single metric that tab ranked by; with Weekly XP and Streak merged
+ * there is no metric to choose, so the row shows them side by side.
+ */
 function BoardRow({
   entry,
   rank,
-  tab,
   index,
   scope,
 }: {
   entry: LeaderboardEntry;
   rank: number;
-  tab: RankedTab;
   index: number;
   scope: BoardScope;
 }) {
@@ -225,20 +207,19 @@ function BoardRow({
         </p>
       </div>
 
-      <div className="flex shrink-0 items-baseline gap-1.5">
-        <span className="text-lg font-black tabular-nums">
-          {tab.metric(entry)}
-        </span>
-        <span
-          className={cn(
-            "text-[10px] font-bold uppercase tracking-wider",
-            entry.isSelf
-              ? "text-primary-foreground/70"
-              : "text-muted-foreground",
-          )}
-        >
-          {tab.unit}
-        </span>
+      <div className="flex shrink-0 items-center gap-4">
+        <Stat
+          icon={Trophy}
+          value={entry.xp}
+          unit="XP"
+          onPrimary={entry.isSelf}
+        />
+        <Stat
+          icon={Flame}
+          value={entry.currentStreakDays}
+          unit={entry.currentStreakDays === 1 ? "day" : "days"}
+          onPrimary={entry.isSelf}
+        />
         {/* ONLY ON THE GLOBAL BOARD, AND NEVER ON YOUR OWN ROW. A friends board
             is people you accepted; a flag there is a bug report about somebody
             you already chose. Reporting yourself is a misclick the server
@@ -254,13 +235,44 @@ function BoardRow({
   );
 }
 
+/** One number on a board row. Two of these replaced the single metric line. */
+function Stat({
+  icon: Icon,
+  value,
+  unit,
+  onPrimary,
+}: {
+  icon: LucideIcon;
+  value: number;
+  unit: string;
+  onPrimary: boolean;
+}) {
+  return (
+    <span className="flex items-baseline gap-1">
+      <Icon
+        className={cn(
+          "h-3.5 w-3.5 self-center",
+          onPrimary ? "text-primary-foreground/80" : "text-muted-foreground",
+        )}
+      />
+      <span className="text-lg font-black tabular-nums">{value}</span>
+      <span
+        className={cn(
+          "text-[10px] font-bold uppercase tracking-wider",
+          onPrimary ? "text-primary-foreground/70" : "text-muted-foreground",
+        )}
+      >
+        {unit}
+      </span>
+    </span>
+  );
+}
+
 function BoardList({
   entries,
-  tab,
   scope,
 }: {
   entries: LeaderboardEntry[];
-  tab: RankedTab;
   scope: BoardScope;
 }) {
   // With nobody but the learner on it, a board is a mirror. Send them to
@@ -273,7 +285,7 @@ function BoardList({
         <EmptyState
           pose="thinking"
           title="Your board is waiting"
-          body={tab.emptyBody}
+          body={BOARD_EMPTY_BODY}
         />
         <div className="flex justify-center">
           <Link href="/friends">
@@ -286,7 +298,7 @@ function BoardList({
     );
   }
 
-  const ranked = [...entries].sort(compareBy(tab));
+  const ranked = [...entries].sort(compareEntries);
   return (
     <div className="space-y-3">
       {ranked.map((entry, i) => (
@@ -294,7 +306,6 @@ function BoardList({
           key={entry.userId}
           entry={entry}
           rank={i + 1}
-          tab={tab}
           index={i}
           scope={scope}
         />
@@ -355,7 +366,62 @@ function FeedRow({
  * The feed tab's own content. Its own query, not a re-sort of the board: the
  * board is a ranking of people and this is a list of moments.
  */
-function FeedList({ scope }: { scope: BoardScope }) {
+/**
+ * THE FLEX TAB. Bolo large, wearing what the learner bought, and the names of
+ * the pieces underneath.
+ *
+ * It renders only where the tab exists, and the tab exists only when something
+ * is equipped, so there is no empty state to write: the unequipped case is the
+ * absent tab. `Mascot` already reads useEquippedOutfit internally, so it needs
+ * no props to be dressed; the names come from the shop catalogue because the
+ * equipped fields are ids and an id is not a thing to show somebody.
+ *
+ * Mobile twin: FlexPanel in app/(app)/leaderboard.tsx.
+ */
+function FlexPanel() {
+  const equipped = useEquippedOutfit();
+  const outfits = useGetOutfits();
+
+  const nameFor = (id: string | null): string | null => {
+    if (!id) return null;
+    return (
+      outfits.data?.outfits.find((o) => o.id === id)?.name?.trim() ?? null
+    );
+  };
+
+  const worn = [nameFor(equipped.garment), nameFor(equipped.accessory)].filter(
+    (n): n is string => Boolean(n),
+  );
+
+  return (
+    <div className="flex flex-col items-center gap-4 rounded-3xl border border-card-border bg-card px-6 py-8 text-center">
+      <Mascot pose="cheer" size={200} />
+      <p className="text-xl font-black text-foreground">Looking sharp</p>
+      {worn.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {worn.map((name) => (
+            <span
+              key={name}
+              className="inline-flex items-center gap-1.5 rounded-full bg-secondary/20 px-3 py-1.5 text-sm font-bold text-foreground"
+            >
+              <Star className="h-3.5 w-3.5" />
+              {name}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FeedList({
+  scope,
+  onLatest,
+}: {
+  scope: BoardScope;
+  /** The newest entry's id, reported up so the section heading can pulse. */
+  onLatest?: (id: string | null) => void;
+}) {
   const params = { ...FEED_PARAMS, scope };
   const { data, isLoading, isError, refetch, isFetching } = useGetFriendsFeed(
     params,
@@ -381,6 +447,14 @@ function FeedList({ scope }: { scope: BoardScope }) {
       },
     },
   );
+  // Reported from an effect rather than during render: a parent setState in a
+  // render body is a loop waiting to happen, and the id only matters once the
+  // query has settled anyway.
+  const latestId = data?.[0]?.id ?? null;
+  useEffect(() => {
+    onLatest?.(latestId);
+  }, [latestId, onLatest]);
+
   const resolvers = useMemo(
     () => ({
       itemName: (id: string) =>
@@ -472,9 +546,32 @@ export default function Leaderboard() {
   // first tab rather than showing nothing.
   const search = useSearch();
   const requestedTab = new URLSearchParams(search).get("tab");
-  const [tabValue, setTabValue] = useState(
-    TABS.some((t) => t.value === requestedTab) ? (requestedTab as string) : TABS[0].value,
+  // FLEX APPEARS AND DISAPPEARS WITH THE OUTFIT, so the tab list is derived
+  // rather than constant. Equipping in the bazaar and coming back adds it;
+  // taking everything off removes it, and the fallback below lands the learner
+  // back on Feed rather than on a tab that no longer exists.
+  const equipped = useEquippedOutfit();
+  const dressed = Boolean(equipped.garment || equipped.accessory);
+  const tabs = useMemo(
+    () => (dressed ? [FEED_TAB, FLEX_TAB] : [FEED_TAB]),
+    [dressed],
   );
+  const [tabValue, setTabValue] = useState<BoardTabDef["value"]>(
+    requestedTab === "flex" ? "flex" : "feed",
+  );
+  const activeTab = tabs.some((t) => t.value === tabValue) ? tabValue : "feed";
+
+  // The newest feed id, lifted out of FeedList so the section heading can flare
+  // when it changes. useFeedPulse ignores first sight, so arriving on the page
+  // is silent and only a genuine arrival lights it.
+  const [latestFeedId, setLatestFeedId] = useState<string | null>(null);
+  const feedPulsing = useFeedPulse(latestFeedId);
+
+  // THE FIRST-RUN TOUR. Built from `tabs`, so a learner whose Bolo is undressed
+  // is told about the Feed and nothing else, and never about a tab that is not
+  // on their screen. `pending` is null until the flag has been read, which is
+  // why nothing renders on that first tick.
+  const coach = useFeedTabsCoach();
 
   // Refetch on focus and on mount, nothing else: no polling and no socket. A
   // board is only wrong while you are looking at it, and coming back to the tab
@@ -529,12 +626,16 @@ export default function Leaderboard() {
         {scope === "all" && nameLoaded && !username && (
           <PublicNamePrompt className="mb-5" />
         )}
-        <Tabs value={tabValue} onValueChange={setTabValue} className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setTabValue(v as BoardTabDef["value"])}
+          className="w-full"
+        >
           <TabsList
             className="grid h-11 w-full rounded-2xl"
-            style={{ gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))` }}
+            style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
           >
-            {TABS.map((t) => (
+            {tabs.map((t) => (
               <TabsTrigger
                 key={t.value}
                 value={t.value}
@@ -545,12 +646,10 @@ export default function Leaderboard() {
             ))}
           </TabsList>
 
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <TabsContent key={t.value} value={t.value} className="mt-6">
-              {t.kind === "feed" ? (
-                // The feed owns its query, its loading and its empty state; the
-                // board's states below say nothing about it.
-                <FeedList scope={scope} />
+              {t.value === "flex" ? (
+                <FlexPanel />
               ) : isLoading ? (
                 <FunFactSectionLoader />
               ) : isError ? (
@@ -578,11 +677,35 @@ export default function Leaderboard() {
                   </Button>
                 </div>
               ) : (
-                <BoardList entries={data ?? []} tab={t} scope={scope} />
+                <BoardList entries={data ?? []} scope={scope} />
+              )}
+
+              {/* THE BOARD AND THE FEED SHARE THIS TAB. The feed owns its
+                  query, its loading and its empty state, so the board's states
+                  above say nothing about it and a board that failed still
+                  leaves a working feed. It is below rather than above because
+                  the numbers are what the learner came for and the stories are
+                  what keeps them scrolling. */}
+              {t.value === "feed" && (
+                <section className="mt-8 space-y-3">
+                  <h2 className="flex items-center gap-2 text-lg font-black text-foreground">
+                    Latest
+                    <FeedPulseDot active={feedPulsing} />
+                  </h2>
+                  <FeedList scope={scope} onLatest={setLatestFeedId} />
+                </section>
               )}
             </TabsContent>
           ))}
         </Tabs>
+
+        {coach.pending && (
+          <FeedTabsCoach
+            steps={tabs.map((t) => ({ value: t.value, label: t.label }))}
+            onStep={(v) => setTabValue(v as BoardTabDef["value"])}
+            onDone={coach.dismiss}
+          />
+        )}
       </main>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Users, Crown, Gift } from "lucide-react";
+import { Users, Crown, Flame, Gift } from "lucide-react";
 import {
   useGetFriendsLeaderboard,
   getGetFriendsLeaderboardQueryKey,
@@ -21,6 +21,7 @@ import {
 import { MascotAvatar } from "@/components/mascot-avatar";
 import { FirstClassChip } from "@/components/gold-chip";
 import { feedLineFor } from "@/lib/feed-copy";
+import { FeedPulseDot, useFeedPulse } from "@/components/feed-pulse";
 import { REFERRAL_REWARD_CHAI, referralLink } from "@/lib/referral-code";
 import { copyReferralLink, shareReferralLink } from "@/lib/referral-share";
 import { motion } from "framer-motion";
@@ -74,9 +75,19 @@ function MiniRow({ entry, index }: { entry: LeaderboardEntry; index: number }) {
           <span className="ml-1 text-xs font-semibold opacity-60">(You)</span>
         )}
       </span>
-      <span className="flex shrink-0 items-center gap-1 text-xs font-black tabular-nums text-muted-foreground">
-        <Crown className="h-3.5 w-3.5 text-amber-400" fill="currentColor" />
-        {entry.xp}
+      {/* BOTH NUMBERS, mirroring the Feed tab's board row since 2026-08-26.
+          Home showed XP alone while the board had a Streak tab of its own; the
+          tabs were merged, so the card that teases the board shows what the
+          board shows. */}
+      <span className="flex shrink-0 items-center gap-2.5 text-xs font-black tabular-nums text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Crown className="h-3.5 w-3.5 text-amber-400" fill="currentColor" />
+          {entry.xp}
+        </span>
+        <span className="flex items-center gap-1">
+          <Flame className="h-3.5 w-3.5 text-primary" />
+          {entry.currentStreakDays}
+        </span>
       </span>
     </motion.div>
   );
@@ -108,6 +119,12 @@ function LatestFriendMoment({ scope }: { scope: BoardScope }) {
   });
   const outfits = useGetOutfits();
 
+  // Hooks before the early returns below, which is why this sits here rather
+  // than beside the render: a conditional hook is a different bug every time
+  // the feed happens to be empty.
+  const latestId = feed.data?.[0]?.id ?? null;
+  const pulsing = useFeedPulse(latestId);
+
   const entry = feed.data?.[0];
   if (!entry) return null;
 
@@ -132,6 +149,9 @@ function LatestFriendMoment({ scope }: { scope: BoardScope }) {
         {line}
       </span>
       {entry.actor.firstClassActive && <FirstClassChip />}
+      {/* Same dot as the Feed tab's heading, same rule: it appears only when a
+          moment lands while the learner is looking at home. */}
+      <FeedPulseDot active={pulsing} />
     </Link>
   );
 }
