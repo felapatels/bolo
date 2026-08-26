@@ -653,6 +653,11 @@ export default function JourneyScreen() {
   // width is authoritative (map column = screen width capped at 390, with the
   // same 0 side padding the web column has inside its centering wrapper).
   const mapW = Math.min(MAP_MAX_W, windowW);
+  // The carved board's panel height, in points. The board is exactly PC_H and
+  // the pediment takes its own aspect out of that, so the remainder is known
+  // without measuring anything. postcardWrap insets the board by 16 a side.
+  const boardW = mapW - 32;
+  const boardPanelH = PC_H - (boardW * ZONE_BOARD.topH) / ZONE_BOARD.artW;
 
   // One language's map never fetches another language's data: exactly six
   // fixed zone queries for the active language.
@@ -2004,7 +2009,15 @@ export default function JourneyScreen() {
                       />
                       {/* Everything the board says lives inside the drawn
                           frame. */}
-                      <View style={styles.boardPanelBody}>
+                      <View
+                        style={[
+                          styles.boardPanelBody,
+                          {
+                            paddingTop: boardPanelH * ZONE_BOARD.contentInsetTop,
+                            paddingBottom: boardPanelH * ZONE_BOARD.contentInsetBottom,
+                          },
+                        ]}
+                      >
                       {/* address side */}
                       <View style={styles.postcardAddress}>
                         <View style={styles.postcardLeft}>
@@ -3049,7 +3062,10 @@ const styles = StyleSheet.create({
     bottom: 6,
     borderRadius: 999,
     backgroundColor: MAP_GLYPH_PLATE_FILL,
-    opacity: 0.42,
+    // WAS 0.42, which on a device read as a white lozenge parked behind the
+    // signal rather than as a ground under it. The glyph only needs enough
+    // separation to be findable; the box was doing more than that.
+    opacity: 0.26,
   },
   postcardWrap: { position: 'absolute', left: 16, right: 16 },
   // The carved board. Capped at PC_H so it can never push into the first
@@ -3070,15 +3086,22 @@ const styles = StyleSheet.create({
     right: `${ZONE_BOARD.panelInsetRight * 100}%`,
     backgroundColor: ZONE_BOARD.panel,
   },
-  // Positioned, not padded, and on all four sides. Yoga resolves a percentage
-  // top/bottom against the parent's HEIGHT, which is what the vertical inset
-  // needs; a percentage padding would resolve against the width.
+  // THE VERTICAL INSET IS IN POINTS, NOT PERCENT, AND THAT IS THE FIX. Web can
+  // say top/bottom in percent because CSS resolves both against the containing
+  // block's height. Yoga does not do the same thing with a percentage top AND
+  // bottom on an absolute child: the derived height collapsed, and with
+  // overflow hidden the panel rendered EMPTY. Seen on the 1.0.3 TestFlight
+  // build: a carved board with a nameplate and nothing under it.
+  //
+  // The panel's height is deterministic anyway. The board is exactly PC_H, the
+  // pediment takes width * 142/760 of it, and the panel is the remainder, so
+  // the caller works the inset out in points and hands it down.
   boardPanelBody: {
     position: 'absolute',
     left: `${ZONE_BOARD.contentInset * 100}%`,
     right: `${ZONE_BOARD.contentInset * 100}%`,
-    top: `${ZONE_BOARD.contentInsetTop * 100}%`,
-    bottom: `${ZONE_BOARD.contentInsetBottom * 100}%`,
+    top: 0,
+    bottom: 0,
     overflow: 'hidden',
   },
   boardNamePlate: {
