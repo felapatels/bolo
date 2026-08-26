@@ -33,6 +33,7 @@ import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from '@/lib/railPalette';
 import { MEDALLION } from '@/lib/stopEmblems';
+import { INTRO_SCROLL } from '@/lib/journeyIntroScroll';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
@@ -423,9 +424,19 @@ describe('journey map — station state rendering', () => {
 
 });
 
-describe('journey map — scroll to the current stop on open (Task 1082 item 4)', () => {
-  // The scroll is issued from the map's layout pass; the test renderer never
-  // lays anything out, so the test plays that pass itself.
+describe('journey map — the opening shot (Task 1082 item 4, recut 2026-08-26)', () => {
+  // THE MAP OPENS AT THE TOP, HOLDS ON THE ZONE CARD, THEN TRAVELS.
+  //
+  // It has brought the current stop into view since Task 1082. What it did not
+  // do was let anyone SEE the zone card first: the scroll started on the first
+  // frame, so the beat the owner asked for did not exist, and the pace was RN's
+  // animated scroll, which has no duration control and gets slower the further
+  // it goes. The owner wanted the opposite: "speed it up", "maybe faster for
+  // further stops", "let them skip it by tapping the screen and landing on
+  // their current card".
+  //
+  // The shot is a hand-driven tween, so these tests drive the clock and the
+  // frames themselves rather than waiting on either.
   const layOutMap = (y = 0) =>
     fireEvent(screen.getByTestId('journey-map'), 'layout', {
       nativeEvent: { layout: { x: 0, y, width: 390, height: 4000 } },
@@ -442,49 +453,120 @@ describe('journey map — scroll to the current stop on open (Task 1082 item 4)'
     ]);
 
   let scrollTo: jest.SpyInstance;
+  let frames: FrameRequestCallback[] = [];
+
+  /** Play every frame queued so far, at a given point on the frame clock. */
+  const playFrames = (now: number) => {
+    const queued = frames;
+    frames = [];
+    queued.forEach((cb) => cb(now));
+  };
+  /** Run the shot to its end: past the hold, then past its longest duration. */
+  const playWholeShot = () => {
+    jest.advanceTimersByTime(INTRO_SCROLL.holdMs);
+    playFrames(0);
+    playFrames(INTRO_SCROLL.maxMs + 1);
+  };
+  const lastScrollY = () =>
+    (scrollTo.mock.calls[scrollTo.mock.calls.length - 1]![0] as { y: number }).y;
+
   beforeEach(() => {
+    jest.useFakeTimers();
+    frames = [];
+    jest.spyOn(global, 'requestAnimationFrame').mockImplementation((cb) => {
+      frames.push(cb);
+      return frames.length as unknown as number;
+    });
+    jest.spyOn(global, 'cancelAnimationFrame').mockImplementation(() => {});
     scrollTo = jest
       .spyOn(ScrollView.prototype, 'scrollTo')
       .mockImplementation(() => {});
   });
-  afterEach(() => scrollTo.mockRestore());
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
 
-  it('lands on the current stop, comfortably clear of the top edge', () => {
+  it('holds on the zone card before it moves anything', () => {
     deepIntoTheLine();
     render(<JourneyScreen />);
     layOutMap();
-    expect(scrollTo).toHaveBeenCalledTimes(1);
-    const { y, animated } = scrollTo.mock.calls[0]![0] as {
-      y: number;
-      animated: boolean;
-    };
+    // THE POINT OF THE WHOLE CHANGE. Laying the map out used to scroll it in
+    // the same breath, so the fare-zone card at the top was never on screen for
+    // long enough to be read.
+    expect(scrollTo).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(INTRO_SCROLL.holdMs - 1);
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('travels to the current stop, comfortably clear of the top edge', () => {
+    deepIntoTheLine();
+    render(<JourneyScreen />);
+    layOutMap();
+    playWholeShot();
+    expect(scrollTo).toHaveBeenCalled();
     // Past the top of the line: this learner's stop is the twelfth, so the map
     // does not leave them staring at stop 1.
-    expect(y).toBeGreaterThan(0);
-    expect(animated).toBe(true);
-    scrollTo.mockClear();
-    screen.unmount();
+    expect(lastScrollY()).toBeGreaterThan(0);
+    // Every frame drives the scroll view directly, so none of them may hand
+    // the work back to the platform's own animation.
+    for (const call of scrollTo.mock.calls) {
+      expect((call[0] as { animated: boolean }).animated).toBe(false);
+    }
+  });
 
-    // Comfortable framing, checked at the edge where it bites: a learner on
-    // stop 1 is ALREADY in view, so the lead clamps the target to the top of
-    // the line instead of scrolling their stop up to the viewport edge.
+  it('leaves a learner on stop 1 exactly where they already are', () => {
+    // Comfortable framing, checked at the edge where it bites: their stop is
+    // ALREADY in view, so the lead clamps the target to the top of the line
+    // rather than scrolling it up to the viewport edge. A zero-length shot is
+    // not a shot, so it lands rather than holding for nothing.
     setZones([[grp({ status: 'unlocked' })], [], [], [], [], []]);
     render(<JourneyScreen />);
     layOutMap();
     expect(scrollTo).toHaveBeenCalledTimes(1);
-    expect(scrollTo.mock.calls[0]![0]).toMatchObject({ y: 0 });
+    expect(scrollTo.mock.calls[0]![0]).toMatchObject({ y: 0, animated: false });
   });
 
-  it('never scrolls twice in one visit', () => {
+  it('lands you on your card the moment you touch the screen', () => {
     deepIntoTheLine();
     render(<JourneyScreen />);
     layOutMap();
+    playWholeShot();
+    const destination = lastScrollY();
+    screen.unmount();
+
+    // Same learner, same map, but they reach for the screen during the hold.
+    scrollTo.mockClear();
+    frames = [];
+    render(<JourneyScreen />);
+    layOutMap();
+    fireEvent(screen.UNSAFE_getAllByType(ScrollView)[0]!, 'touchStart', {
+      nativeEvent: { touches: [{ locationX: 10, locationY: 10 }] },
+    });
+    // IT SKIPS TO THE DESTINATION, IT DOES NOT CANCEL. Cancelling is what this
+    // used to do, and it stranded them halfway down a map at a position nobody
+    // chose.
     expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo.mock.calls[0]![0]).toMatchObject({ y: destination, animated: false });
+    // And nothing runs afterwards: no hold still pending, no tween still queued.
+    jest.advanceTimersByTime(INTRO_SCROLL.holdMs + INTRO_SCROLL.maxMs);
+    playFrames(9999);
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+  });
+
+  it('never runs the shot twice in one visit', () => {
+    deepIntoTheLine();
+    render(<JourneyScreen />);
+    layOutMap();
     // A refetch, an orientation change or any other re-layout inside the same
     // visit must leave the learner exactly where they are.
     layOutMap();
     layOutMap(40);
-    expect(scrollTo).toHaveBeenCalledTimes(1);
+    playWholeShot();
+    const framesAfter = scrollTo.mock.calls.length;
+    layOutMap(80);
+    playWholeShot();
+    expect(scrollTo.mock.calls.length).toBe(framesAfter);
   });
 
   it('yields to a learner who is already scrolling', () => {
@@ -493,11 +575,13 @@ describe('journey map — scroll to the current stop on open (Task 1082 item 4)'
     fireEvent.scroll(screen.UNSAFE_getAllByType(ScrollView)[0]!, {
       nativeEvent: { contentOffset: { y: 120 } },
     });
-    // A drag beats the pending scroll outright: no hijack mid-gesture.
+    // A drag beats the pending shot outright: no hijack mid-gesture.
     fireEvent(screen.UNSAFE_getAllByType(ScrollView)[0]!, 'scrollBeginDrag', {
       nativeEvent: { contentOffset: { y: 120 } },
     });
+    scrollTo.mockClear();
     layOutMap();
+    playWholeShot();
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
@@ -508,8 +592,10 @@ describe('journey map — scroll to the current stop on open (Task 1082 item 4)'
       deepIntoTheLine();
       render(<JourneyScreen />);
       layOutMap();
+      // No hold and no travel: the destination, at once.
       expect(scrollTo).toHaveBeenCalledTimes(1);
       expect(scrollTo.mock.calls[0]![0]).toMatchObject({ animated: false });
+      expect((scrollTo.mock.calls[0]![0] as { y: number }).y).toBeGreaterThan(0);
     } finally {
       spy.mockRestore();
     }
@@ -524,6 +610,7 @@ describe('journey map — scroll to the current stop on open (Task 1082 item 4)'
     ]);
     render(<JourneyScreen />);
     layOutMap();
+    playWholeShot();
     expect(scrollTo).not.toHaveBeenCalled();
   });
 });

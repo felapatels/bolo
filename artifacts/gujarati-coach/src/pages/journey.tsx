@@ -125,6 +125,12 @@ import {
   type StopEmblemKind,
 } from "@/lib/stop-emblems";
 import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from "@/lib/rail-palette";
+import {
+  INTRO_SCROLL,
+  introScrollDurationMs,
+  introScrollEase,
+  introScrollLead,
+} from "@/lib/journey-intro-scroll";
 import { ZoneCloseoutOverlay } from "@/components/zone-closeout";
 import { ChachaEncounterDialog } from "@/components/chacha-encounter";
 
@@ -1113,12 +1119,23 @@ function EmergencySoftStop({
   return null;
 }
 
-/** Events that mean the learner has taken the viewport for themselves. */
-const USER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown"] as const;
+/**
+ * A TAP SKIPS THE SHOT AND LANDS ON THE CARD. A tap moves nothing by itself, so
+ * the shot is free to answer it with a destination.
+ */
+const INTRO_LAND_EVENTS = ["pointerdown", "touchstart"] as const;
 
 /**
- * Task 1082 item 4: bring the learner's current stop into view when the map
- * opens.
+ * A WHEEL OR A KEY CANCELS IT INSTEAD, and this asymmetry is deliberate. Both
+ * already scroll the page natively, so answering one by jumping to the stop
+ * would compose the jump WITH the learner's own delta and land somewhere
+ * neither of them chose. They are driving; the shot gets out of the way.
+ */
+const INTRO_CANCEL_EVENTS = ["wheel", "keydown"] as const;
+
+/**
+ * THE OPENING SHOT: the map opens at the top, holds on the fare-zone card, then
+ * travels down to the learner's current stop.
  *
  * Mounted WITH the map rather than with the page, so it runs once the zone
  * payloads have landed instead of firing against the "Laying the tracks…"
@@ -1126,10 +1143,21 @@ const USER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown"] as const;
  * once, and the internal latch closes the door on refetches and re-renders
  * inside that visit.
  *
- * It never fights the learner. Any wheel, touch or key before the frame the
- * scroll would run on cancels it outright, and it is skipped entirely when the
- * page is not at the top (something already moved the viewport). Under reduced
- * motion it jumps instead of animating.
+ * WHY IT IS HAND-ROLLED AND NOT `behavior: "smooth"`. The browser's smooth
+ * scroll has no duration control, and its duration grows with distance, which
+ * is the opposite of what was asked for: a learner six zones down should travel
+ * the same shot FASTER, not for six times as long. The tween below takes its
+ * duration from introScrollDurationMs, which caps at 900ms.
+ *
+ * TAPPING THE SCREEN LANDS YOU ON YOUR CARD. It does not cancel. Cancelling is
+ * what this used to do for every input, and it left a learner who reached for
+ * the screen stranded halfway down a map at a position nobody chose. A wheel or
+ * a key still cancels, because those scroll the page on their own and a jump on
+ * top of the learner's own delta lands somewhere neither of them chose.
+ *
+ * Skipped entirely when the page is not already at the top, because something
+ * else moved the viewport and that something is the learner. Under reduced
+ * motion there is no hold and no travel: it jumps.
  */
 function AutoScrollToCurrentStop({
   mapRef,
@@ -1151,35 +1179,79 @@ function AutoScrollToCurrentStop({
     }
     // Already scrolled before we got here: the learner is driving.
     if (window.scrollY > 0) return;
-    let cancelled = false;
-    const bail = () => {
-      cancelled = true;
-    };
-    for (const ev of USER_SCROLL_EVENTS) {
-      window.addEventListener(ev, bail, { passive: true });
-    }
-    const cleanup = () => {
-      for (const ev of USER_SCROLL_EVENTS) window.removeEventListener(ev, bail);
-    };
-    // One frame of grace so the map has been laid out (and so an immediate
-    // learner gesture wins the race).
-    const raf = requestAnimationFrame(() => {
-      cleanup();
-      if (cancelled) return;
-      // Comfortable framing: the stop lands about a third of the way down the
-      // viewport, clear of the sticky boarding-pass header at the top and
-      // never pinned to the bottom edge.
-      const lead = Math.min(260, Math.max(140, Math.round(window.innerHeight * 0.3)));
+
+    let raf = 0;
+    let holdTimer = 0;
+    let finished = false;
+    /** Where the shot ends: the stop framed a third of the way down. */
+    const destination = () => {
+      const lead = introScrollLead(window.innerHeight);
       const top = map.getBoundingClientRect().top + window.scrollY + targetY - lead;
-      window.scrollTo({
-        top: Math.max(0, top),
-        behavior: reduceMotion ? "auto" : "smooth",
-      });
-    });
-    return () => {
-      cancelAnimationFrame(raf);
+      return Math.max(0, top);
+    };
+    const land = () => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      window.scrollTo({ top: destination(), behavior: "auto" });
+    };
+    /** Stop the shot where it stands: the learner's own gesture is moving them. */
+    const abandon = () => {
+      if (finished) return;
+      finished = true;
       cleanup();
     };
+    const cleanup = () => {
+      if (raf) cancelAnimationFrame(raf);
+      if (holdTimer) window.clearTimeout(holdTimer);
+      for (const ev of INTRO_LAND_EVENTS) window.removeEventListener(ev, land);
+      for (const ev of INTRO_CANCEL_EVENTS) window.removeEventListener(ev, abandon);
+    };
+    for (const ev of INTRO_LAND_EVENTS) {
+      window.addEventListener(ev, land, { passive: true });
+    }
+    for (const ev of INTRO_CANCEL_EVENTS) {
+      window.addEventListener(ev, abandon, { passive: true });
+    }
+
+    if (reduceMotion) {
+      land();
+      return cleanup;
+    }
+
+    // One frame of grace so the map has been laid out, THEN the hold, so the
+    // beat is spent on a zone card that is actually on screen.
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      if (finished) return;
+      holdTimer = window.setTimeout(() => {
+        holdTimer = 0;
+        if (finished) return;
+        const from = window.scrollY;
+        const to = destination();
+        const dur = introScrollDurationMs(to - from);
+        if (to <= from) return void land();
+        // NULL, NOT ZERO, as the "no first frame yet" sentinel. A frame clock
+        // is allowed to hand out 0, and `if (!t0)` then re-stamps the start on
+        // every frame, so the tween sits at its origin forever. Real browsers
+        // never pass 0 here, which is precisely why this would have shipped.
+        let t0: number | null = null;
+        const step = (now: number) => {
+          if (finished) return;
+          if (t0 === null) t0 = now;
+          const p = Math.min(1, (now - t0) / dur);
+          window.scrollTo({ top: from + (to - from) * introScrollEase(p), behavior: "auto" });
+          if (p < 1) {
+            raf = requestAnimationFrame(step);
+          } else {
+            finished = true;
+            cleanup();
+          }
+        };
+        raf = requestAnimationFrame(step);
+      }, INTRO_SCROLL.holdMs);
+    });
+    return cleanup;
   }, [mapRef, targetY, reduceMotion]);
   return null;
 }
@@ -1220,7 +1292,7 @@ export default function Journey() {
     (y: number) => {
       const map = mapRef.current;
       if (!map || typeof window === "undefined" || typeof window.scrollTo !== "function") return;
-      const lead = Math.min(260, Math.max(140, Math.round(window.innerHeight * 0.3)));
+      const lead = introScrollLead(window.innerHeight);
       const top = map.getBoundingClientRect().top + window.scrollY + y - lead;
       window.scrollTo({ top: Math.max(0, top), behavior: reduceMotion ? "auto" : "smooth" });
     },

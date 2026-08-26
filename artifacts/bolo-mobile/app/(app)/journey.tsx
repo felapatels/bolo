@@ -14,7 +14,7 @@
 // completed segments solid, locked segments faded and dashed. Rendering
 // approach (approved): react-native-svg with the web's exact path geometry,
 // split into per-zone Svg blocks inside the ScrollView for scroll perf.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
   Modal,
@@ -105,6 +105,12 @@ import { closeoutOwed, useCloseoutMemory } from '@/lib/closeoutMemory';
 import { ZoneCloseoutOverlay } from '@/components/journey/ZoneCloseout';
 import { playStopSplash } from '@/lib/stopSplash';
 import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from '@/lib/railPalette';
+import {
+  INTRO_SCROLL,
+  introScrollDurationMs,
+  introScrollEase,
+  introScrollLead,
+} from '@/lib/journeyIntroScroll';
 import {
   ZONE_BACKDROP_SCRIM,
   zoneBackdrop,
@@ -1259,18 +1265,81 @@ export default function JourneyScreen() {
   // rides that layout pass rather than an effect that would fire too early.
   const currentStopY =
     currentGlobalIdx >= 0 ? stationPts[currentGlobalIdx]?.y ?? null : null;
+  /**
+   * THE OPENING SHOT: the map opens at the top, holds on the fare-zone card,
+   * then travels down to the learner's current stop.
+   *
+   * WHY IT IS HAND-ROLLED AND NOT `scrollTo({ animated: true })`. React Native's
+   * animated scroll has no duration control at all, and what it does have grows
+   * with distance, which is the opposite of what was asked for: a learner six
+   * zones down should travel the same shot FASTER, not for six times as long.
+   * The tween below takes its duration from introScrollDurationMs, which caps
+   * at 900ms, and drives the scroll view a frame at a time.
+   *
+   * Web twin: AutoScrollToCurrentStop in gujarati-coach/src/pages/journey.tsx.
+   * Same hold, same cap, same ease, same skip.
+   */
+  const introRaf = useRef<number | null>(null);
+  const introHold = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const introTarget = useRef<number | null>(null);
+
+  /** Stop the shot wherever it is and put the learner on their card. */
+  const landIntro = useCallback(() => {
+    if (introRaf.current != null) {
+      cancelAnimationFrame(introRaf.current);
+      introRaf.current = null;
+    }
+    if (introHold.current != null) {
+      clearTimeout(introHold.current);
+      introHold.current = null;
+    }
+    const y = introTarget.current;
+    if (y == null) return;
+    introTarget.current = null;
+    scrollRef.current?.scrollTo({ y, animated: false });
+  }, [scrollRef]);
+
+  // Leaving the screen mid-shot must not leave a frame loop or a timer behind
+  // pointing at an unmounted scroll view.
+  useEffect(
+    () => () => {
+      if (introRaf.current != null) cancelAnimationFrame(introRaf.current);
+      if (introHold.current != null) clearTimeout(introHold.current);
+    },
+    [],
+  );
+
   const onMapLayout = (e: LayoutChangeEvent) => {
     if (autoScrolledRef.current || userScrolledRef.current) return;
     if (currentStopY == null) return;
     autoScrolledRef.current = true;
     // Comfortable framing: the stop lands about a third of the way down the
-    // viewport, clear of the boarding-pass header and never at the bottom
-    // edge. Reduced motion jumps instead of animating.
-    const lead = Math.min(260, Math.max(140, Math.round(windowH * 0.3)));
-    scrollRef.current?.scrollTo({
-      y: Math.max(0, e.nativeEvent.layout.y + currentStopY - lead),
-      animated: !reduceMotion,
-    });
+    // viewport, clear of the boarding-pass header and never at the bottom edge.
+    const to = Math.max(
+      0,
+      e.nativeEvent.layout.y + currentStopY - introScrollLead(windowH),
+    );
+    introTarget.current = to;
+    // Reduced motion gets no hold and no travel, only the destination.
+    if (reduceMotion || to <= 0) return void landIntro();
+
+    introHold.current = setTimeout(() => {
+      introHold.current = null;
+      const dur = introScrollDurationMs(to);
+      let t0: number | null = null;
+      const step = (now: number) => {
+        if (t0 == null) t0 = now;
+        const p = Math.min(1, (now - t0) / dur);
+        scrollRef.current?.scrollTo({ y: to * introScrollEase(p), animated: false });
+        if (p < 1) {
+          introRaf.current = requestAnimationFrame(step);
+        } else {
+          introRaf.current = null;
+          introTarget.current = null;
+        }
+      };
+      introRaf.current = requestAnimationFrame(step);
+    }, INTRO_SCROLL.holdMs);
   };
 
   // Chacha-ji counts stations 1-based off the same flattened list. The
@@ -1514,8 +1583,18 @@ export default function JourneyScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         onScroll={onMapScroll}
+        // A TOUCH LANDS YOU ON YOUR CARD, it does not cancel. Cancelling is
+        // what this used to do, and it left a learner who reached for the
+        // screen stranded halfway down a map at a position nobody chose.
+        // onTouchStart catches the tap the owner asked for; the drag handler
+        // catches a flick, which is the same intent with more finger.
+        onTouchStart={() => {
+          userScrolledRef.current = true;
+          landIntro();
+        }}
         onScrollBeginDrag={() => {
           userScrolledRef.current = true;
+          landIntro();
         }}
         scrollEventThrottle={16}
       >

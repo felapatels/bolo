@@ -90,6 +90,7 @@ vi.mock("@workspace/api-client-react", async () => ({
 
 import Journey from "@/pages/journey";
 import { JOURNEY_ZONES } from "@/lib/journeyLines";
+import { INTRO_SCROLL } from "@/lib/journey-intro-scroll";
 
 // Read at call time (inside the mocked hook's body), never at factory time.
 const JOURNEY_ZONE_IDS = JOURNEY_ZONES.map((z) => z.id);
@@ -478,15 +479,31 @@ describe("scroll to the current stop on open (task 1082 item 4)", () => {
     });
   });
 
-  test("lands on the current stop, comfortably clear of the top edge", async () => {
+  /** The shot holds before it travels, so nothing has moved for the first
+   *  INTRO_SCROLL.holdMs. These wait it out on the real clock rather than
+   *  faking one, because this file's other tests share that clock. */
+  const afterTheShot = () =>
+    waitFor(() => expect(scrollTo).toHaveBeenCalled(), { timeout: 4000 });
+  const lastTop = () =>
+    (scrollTo.mock.calls[scrollTo.mock.calls.length - 1]![0] as ScrollToOptions).top!;
+
+  test("holds on the zone card, then lands on the current stop", async () => {
     deepIntoTheLine();
     renderJourney();
-    await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1));
-    const arg = scrollTo.mock.calls[0]![0] as ScrollToOptions;
-    // Past the top of the line: this learner's stop is the twelfth, so the map
-    // does not leave them staring at stop 1.
-    expect(arg.top).toBeGreaterThan(0);
-    expect(arg.behavior).toBe("smooth");
+    // THE HOLD IS THE POINT. Before 2026-08-26 the scroll went out one frame
+    // after layout, so the fare-zone card at the top was never on screen for
+    // long enough to be read.
+    await new Promise((r) => setTimeout(r, 60));
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    await afterTheShot();
+    await waitFor(() => expect(lastTop()).toBeGreaterThan(0), { timeout: 4000 });
+    // Every frame drives the scroll itself. `behavior: "smooth"` is the thing
+    // being replaced: no duration control, and SLOWER the further it travels,
+    // which is backwards from what was asked for.
+    for (const call of scrollTo.mock.calls) {
+      expect((call[0] as ScrollToOptions).behavior).toBe("auto");
+    }
   });
 
   test("leaves an early learner at the top rather than scrolling their stop up", async () => {
@@ -494,30 +511,47 @@ describe("scroll to the current stop on open (task 1082 item 4)", () => {
     // already in view, so the lead clamps the target to the top of the line.
     h.zones = zonesOf([grp(1, "unlocked")], [], [], [], [], []);
     renderJourney();
-    await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1));
-    // Effectively the top of the line: the lead is larger than the distance to
-    // stop 1, so the clamp keeps the whole head of the map on screen.
-    expect((scrollTo.mock.calls[0]![0] as ScrollToOptions).top).toBeLessThan(20);
+    await afterTheShot();
+    expect(lastTop()).toBeLessThan(20);
   });
 
-  test("never scrolls twice in one visit", async () => {
+  test("never runs the shot twice in one visit", async () => {
     deepIntoTheLine();
     const { rerender } = renderJourney();
-    await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1));
+    await afterTheShot();
+    // Past the shot's longest possible run, so the tween is finished rather
+    // than merely started: `lastTop() > 0` goes true partway through it.
+    await new Promise((r) => setTimeout(r, INTRO_SCROLL.maxMs + 200));
+    expect(lastTop()).toBeGreaterThan(0);
+    const settled = scrollTo.mock.calls.length;
     // A refetch or any other re-render inside the same visit must leave the
     // learner exactly where they are.
     const { hook } = memoryLocation({ path: "/journey", record: true });
     rerender((<Router hook={hook}>{(<Journey />) as ReactElement}</Router>) as ReactElement);
-    await new Promise((r) => setTimeout(r, 30));
-    expect(scrollTo).toHaveBeenCalledTimes(1);
+    await new Promise((r) => setTimeout(r, INTRO_SCROLL.holdMs + 200));
+    expect(scrollTo).toHaveBeenCalledTimes(settled);
   });
 
   test("yields to a learner who starts scrolling first", async () => {
+    // A wheel CANCELS rather than landing, and the asymmetry is deliberate: a
+    // wheel already scrolls the page, so answering it with a jump to the stop
+    // would compose that jump with the learner's own delta. A tap, which moves
+    // nothing by itself, is the one that lands them on their card.
     deepIntoTheLine();
     renderJourney();
     window.dispatchEvent(new Event("wheel"));
-    await new Promise((r) => setTimeout(r, 40));
+    await new Promise((r) => setTimeout(r, INTRO_SCROLL.holdMs + 200));
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  test("a tap lands the learner on their card at once", async () => {
+    deepIntoTheLine();
+    renderJourney();
+    window.dispatchEvent(new Event("pointerdown"));
+    // No hold, no travel, no waiting: the destination, now.
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(lastTop()).toBeGreaterThan(0);
+    expect((scrollTo.mock.calls[0]![0] as ScrollToOptions).behavior).toBe("auto");
   });
 
   test("jumps instead of animating under reduced motion", async () => {
