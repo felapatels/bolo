@@ -164,7 +164,17 @@ const MAP_MAX_W = 390;
 // LEFT of the marker, so a card growing a second line no longer reaches it.
 const STATION_H = 88; // vertical rhythm per station row
 const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
-const PC_H = 152; // vertical rhythm per fare-zone postcard (incl. picture side)
+// 184, MATCHING WEB, and it was 152 until the carved board shipped. That gap
+// is why the board's panel rendered EMPTY on the phone through 511 and 512: the
+// pediment takes width * 142/760 of the board, about 67pt at a 358pt column,
+// and 152 left only 85 for the panel against roughly 98 of content and inset.
+// With overflow hidden, "not enough room" looks exactly like "nothing there".
+//
+// I fixed this twice from screenshots without checking the number, which is the
+// whole lesson: the two platforms had never shared this constant, and I assumed
+// they did. ZONE_BOARD.minPanelH now asserts the budget on both sides so a
+// board that cannot fit fails a test rather than shipping blank.
+const PC_H = 184; // vertical rhythm per fare-zone postcard (incl. picture side)
 const TERM_H = 92; // terminus row
 // CHACHA-JI'S HALT ROW, RETIRED 2026-08-26. It was a scenery-only row after
 // every encounter station, 96 high, existing only so his stall had a lane clear

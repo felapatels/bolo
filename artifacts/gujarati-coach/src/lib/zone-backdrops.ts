@@ -258,3 +258,27 @@ export const ZONE_BOARD_ART = {
  * so there is no empty margin for this to fill.
  */
 export const ZONE_WIDE_ART = `${import.meta.env.BASE_URL}journey/zone-wide.jpg`;
+
+/**
+ * THE SMALLEST PANEL THE BOARD'S CONTENT CAN LIVE IN, in points.
+ *
+ * The panel carries a city name, a stop count and the fact strip, about 72pt of
+ * copy, inside insets worth 26.8% of its height. So it needs roughly 98, and
+ * the board must leave that after the pediment takes its aspect.
+ *
+ * THIS EXISTS BECAUSE THE BOARD SHIPPED BLANK TWICE. mobile's PC_H was 152
+ * against web's 184 and I never checked, so the panel had 85pt for 98pt of
+ * content and overflow hidden turned "does not fit" into "is not there". A
+ * screenshot cannot tell those apart; this can.
+ */
+export const ZONE_BOARD_MIN_PANEL_H = 98;
+
+/** The pediment's height at a given board width, which is pure aspect. */
+export function zoneBoardPedimentH(boardWidth: number): number {
+  return (boardWidth * ZONE_BOARD.topH) / ZONE_BOARD.artW;
+}
+
+/** What the panel is left with once the pediment has taken its share. */
+export function zoneBoardPanelH(boardWidth: number, boardHeight: number): number {
+  return boardHeight - zoneBoardPedimentH(boardWidth);
+}
