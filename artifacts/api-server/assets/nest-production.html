@@ -662,16 +662,16 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
   <div class="grid g2">
     <article class="card stripe s-info">
-      <div class="cardtop"><h3>Numbers</h3><span class="pill p-info">in the artifact</span></div>
-      <p style="margin:0 0 10px;font-size:13.5px">Visitors, sign ups, practice starts, the twenty eight day chart, the drill downs and the web against app split. All of it reads PostHog.</p>
-      <p style="margin:0;font-size:12.5px;color:var(--muted)">It stayed behind because a page served from your own API cannot call PostHog without a server side proxy route and a new secret with read access to all your analytics. That was option C and it was not taken.</p>
-      <div class="links"><a href="https://claude.ai/code/artifact/845b4500-4612-4019-8e06-b36e58257435" target="_blank" rel="noopener">Open the live view</a></div>
+      <div class="cardtop"><h3>Numbers</h3><span class="pill p-info">in PostHog</span></div>
+      <p style="margin:0 0 10px;font-size:13.5px">Sign ups, practice starts and the web against app split live in PostHog, not here: a page served from your own API cannot read them without a server side proxy and a key with access to all your analytics.</p>
+      <p style="margin:0;font-size:12.5px;color:var(--muted)">There is no visitor count anywhere yet. PostHog reports $pageview and $screen both unseen in the last 30 days, so this app captures named product events and no pageviews at all. Counting visitors is a capture change in the clients first, not a query.</p>
+      <div class="links"><a href="https://us.posthog.com/project/532202" target="_blank" rel="noopener">Open PostHog</a></div>
     </article>
     <article class="card stripe s-info">
-      <div class="cardtop"><h3>Fires</h3><span class="pill p-info">in the artifact</span></div>
+      <div class="cardtop"><h3>Fires</h3><span class="pill p-info">in Sentry</span></div>
       <p style="margin:0 0 10px;font-size:13.5px">Unresolved Sentry issues by volume, the heap corruption watch, and the new-errors-in-the-last-hour alarm.</p>
-      <p style="margin:0;font-size:12.5px;color:var(--muted)">Same reason: Sentry needs its own token server side. The Sentry console links below work from here regardless.</p>
-      <div class="links"><a href="https://claude.ai/code/artifact/845b4500-4612-4019-8e06-b36e58257435" target="_blank" rel="noopener">Open the live view</a></div>
+      <p style="margin:0;font-size:12.5px;color:var(--muted)">Same reason: Sentry needs its own token server side. The console links below work from here regardless.</p>
+      <div class="links"><a href="https://sentry.io/organizations/sentry/issues/" target="_blank" rel="noopener">Open Sentry</a></div>
     </article>
   </div>
 </section>
@@ -1180,7 +1180,13 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
      ========================================================= */
   var HEALTH_URL  = "/api/healthz";
   var SUMMARY_URL = "/api/nest/summary";
-  var ARTIFACT    = "https://claude.ai/code/artifact/845b4500-4612-4019-8e06-b36e58257435";
+  /* The Numbers and Fires cards used to point here and it was a dead end from
+     this page: a claude.ai artifact URL opens for whoever authored it, not for
+     somebody reading the cockpit. Reported 2026-08-25 ("open live view button
+     doesn't work on nest"). Both now link to the tool that actually holds the
+     data. This constant survives for the one alert below whose evidence really
+     does live in the artifact. */
+  var ARTIFACT    = "https://us.posthog.com/project/532202";
 
   var TTS_PLAN = {included:121000, used:78656, base:22};
   var RATE_DEFAULT = {att:0.002, chat:0.004, lesson:0.15, fixed:334.75};
@@ -1387,7 +1393,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
 
     out.push({id:"mobiledark", sev:"warn", t:"iOS and Android are one bucket",
       m:"The app reports to PostHog, but its events carry no OS property, so the two stores cannot be told apart.",
-      r:"artifact", href:ARTIFACT});
+      r:"PostHog", href:ARTIFACT});
     out.push({id:"androidpush", sev:"warn", t:"Android push is not in a build",
       m:"Firebase bolo-9bf9a is wired into app.json, but the newest Android build predates the file.",
       r:"EAS", href:"https://expo.dev/accounts/aakeshp/projects/bolo-mobile/builds"});
