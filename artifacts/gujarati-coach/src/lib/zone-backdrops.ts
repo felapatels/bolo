@@ -174,7 +174,17 @@ export const ZONE_BOARD = {
    * overlaps the actual sign".
    */
   /** The outer frame line: the cream may not start before this. */
-  panelInset: 0.039,
+  /**
+   * THE ART IS NOT CENTRED IN ITS OWN FILE, which is why these are a pair
+   * rather than one number. Scanning zone-sign-panel.png for its first and last
+   * opaque column gives a 3.68% margin on the left and 5.39% on the right. A
+   * symmetric fill therefore poked roughly 1.7% of the width out past the right
+   * frame and drew a pale strip down the outside of the board: "just caught
+   * this right side spills over". Each side is now inset a hair INSIDE its own
+   * margin, which the opaque outer frame line covers.
+   */
+  panelInsetLeft: 0.04,
+  panelInsetRight: 0.057,
   /**
    * THE PANEL'S INTERIOR, ALL FOUR SIDES, measured off zone-sign-panel.png's
    * own pixels: the outer frame, two inner rules, then clear paper. The
@@ -189,7 +199,7 @@ export const ZONE_BOARD = {
    * sitting on the panel's top rule because nothing had ever inset it
    * vertically at all.
    */
-  contentInset: 0.075,
+  contentInset: 0.08,
   contentInsetTop: 0.119,
   contentInsetBottom: 0.149,
   ink: "#5A2C16",

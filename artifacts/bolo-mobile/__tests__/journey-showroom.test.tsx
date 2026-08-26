@@ -55,6 +55,10 @@ jest.mock('react-native-svg', () => {
     Circle: passthrough,
     Rect: passthrough,
     Ellipse: passthrough,
+    // Chacha-ji's nameplate draws through react-native-svg's Text. Without it
+    // the mock hands back undefined and the whole screen fails to render with
+    // "Element type is invalid", which is a long way from the actual cause.
+    Text: passthrough,
     // Chacha-ji's delivered figure renders through react-native-svg's Image.
     Image: passthrough,
     Line: passthrough,

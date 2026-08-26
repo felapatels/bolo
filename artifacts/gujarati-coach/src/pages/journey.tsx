@@ -604,8 +604,8 @@ function ZonePostcard({
           <div
             className="absolute inset-y-0"
             style={{
-              left: `${ZONE_BOARD.panelInset * 100}%`,
-              right: `${ZONE_BOARD.panelInset * 100}%`,
+              left: `${ZONE_BOARD.panelInsetLeft * 100}%`,
+              right: `${ZONE_BOARD.panelInsetRight * 100}%`,
               background: ZONE_BOARD.panel,
             }}
             aria-hidden

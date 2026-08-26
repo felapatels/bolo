@@ -30,7 +30,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Svg, { Circle, Ellipse, G, Path, Rect } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Ellipse,
+  G,
+  Path,
+  Rect,
+  Text as SvgText,
+} from 'react-native-svg';
 import Animated, {
   interpolate,
   useAnimatedProps,
@@ -749,53 +756,6 @@ export default function JourneyScreen() {
   const upgrade = zoneQueries
     .map((q) => asUpgradeRequired(q.error))
     .find((u) => u !== null);
-  if (upgrade) {
-    return (
-      <UpgradeRequiredScreen
-        title={
-          upgrade.reason === 'teaser_exhausted'
-            ? "You've tried this language!"
-            : 'Unlock this language'
-        }
-        message={upgrade.message}
-        onUpgrade={() =>
-          router.push({
-            pathname: '/(app)/paywall',
-            params: {
-              lang: activeLang,
-              ...(upgrade.reason ? { reason: upgrade.reason } : {}),
-            },
-          })
-        }
-        onBack={() => router.back()}
-      />
-    );
-  }
-  if (zoneQueries.some((q) => q.isError)) {
-    return (
-      <Screen>
-        <LessonError
-          onRetry={() => {
-            zoneQueries.forEach((q) => void q.refetch());
-          }}
-          isRetrying={zoneQueries.some((q) => q.isFetching)}
-          onBack={() => router.back()}
-        />
-      </Screen>
-    );
-  }
-  if (zoneQueries.some((q) => q.isLoading)) {
-    return (
-      <Screen>
-        <View style={styles.loading}>
-          <Mascot pose="wave" size={88} />
-          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-            Laying the tracks…
-          </Text>
-        </View>
-      </Screen>
-    );
-  }
 
   // Task #906: zone display titles come from the categories listing the map
   // already fetches, so a server-side rename shows up here without an app
@@ -1502,6 +1462,70 @@ export default function JourneyScreen() {
     }
   }
 
+  // THE THREE EARLY EXITS LIVE DOWN HERE, BELOW EVERY HOOK, AND THAT IS THE
+  // WHOLE POINT. They sat right after the queries with FOUR hooks below them:
+  // arrivalPlayed, its effect, landIntro and the opening shot's cleanup. React
+  // therefore ran fewer hooks on the loading and error branches than on the
+  // loaded one, so every "Laying the tracks" to map transition changed the
+  // hook count and threw.
+  //
+  // WEB HAD THE IDENTICAL BUG and was fixed first, from a runtime overlay the
+  // owner screenshotted. Nothing surfaced it here because a React Native
+  // screen has no such overlay: it would have shipped in the next build.
+  //
+  // Moving the RETURNS is safe where hoisting the hooks was not: everything
+  // between reads its data through `?.data?.x ?? []`, so it computes over
+  // empty arrays while the queries are in flight and the result is discarded
+  // by the exit below. The arrival effect could not move up at all, because it
+  // depends on currentZone, which needs the loaded data.
+  if (upgrade) {
+    return (
+      <UpgradeRequiredScreen
+        title={
+          upgrade.reason === 'teaser_exhausted'
+            ? "You've tried this language!"
+            : 'Unlock this language'
+        }
+        message={upgrade.message}
+        onUpgrade={() =>
+          router.push({
+            pathname: '/(app)/paywall',
+            params: {
+              lang: activeLang,
+              ...(upgrade.reason ? { reason: upgrade.reason } : {}),
+            },
+          })
+        }
+        onBack={() => router.back()}
+      />
+    );
+  }
+  if (zoneQueries.some((q) => q.isError)) {
+    return (
+      <Screen>
+        <LessonError
+          onRetry={() => {
+            zoneQueries.forEach((q) => void q.refetch());
+          }}
+          isRetrying={zoneQueries.some((q) => q.isFetching)}
+          onBack={() => router.back()}
+        />
+      </Screen>
+    );
+  }
+  if (zoneQueries.some((q) => q.isLoading)) {
+    return (
+      <Screen>
+        <View style={styles.loading}>
+          <Mascot pose="wave" size={88} />
+          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
+            Laying the tracks…
+          </Text>
+        </View>
+      </Screen>
+    );
+  }
+
   return (
     <Screen padTop={false}>
       {/* Boarding-pass header — full-ticket treatment */}
@@ -1755,6 +1779,52 @@ export default function JourneyScreen() {
                             opacity={sp.gray ? pass.opacity * 0.5 : pass.opacity}
                           />
                         ))}
+                      {/* HIS NAMEPLATE, WHICH MOBILE HAS NEVER HAD. Web has
+                          labelled the stall since it stopped being anonymous
+                          scenery, and the phone left the one recurring
+                          character on the map unnamed: a learner had no way to
+                          know the stall between stops is the same stall, or
+                          whose it is. Same plate-then-ink treatment web uses,
+                          because the label hangs BELOW the glyph plate and
+                          would otherwise sit on the painting with nothing
+                          behind it. */}
+                      {sp.kind === 'chaiStall' && (
+                        <>
+                          <Rect
+                            x={sp.x - 30}
+                            y={sp.y + 10}
+                            width={60}
+                            height={20}
+                            rx={5}
+                            fill={MAP_GLYPH_PLATE_FILL}
+                            opacity={sp.gray ? 0.55 : 0.85}
+                          />
+                          <SvgText
+                            testID={`${sp.testID}-label`}
+                            x={sp.x}
+                            y={sp.y + 17}
+                            textAnchor="middle"
+                            fontSize={7}
+                            fontWeight="700"
+                            fill={TICKET.ink}
+                            opacity={sp.gray ? 0.5 : 1}
+                          >
+                            Chacha-ji&#8217;s
+                          </SvgText>
+                          <SvgText
+                            x={sp.x}
+                            y={sp.y + 25}
+                            textAnchor="middle"
+                            fontSize={6}
+                            fontWeight="800"
+                            letterSpacing={0.6}
+                            fill={TICKET.inkMuted}
+                            opacity={sp.gray ? 0.5 : 1}
+                          >
+                            CHAI HALT
+                          </SvgText>
+                        </>
+                      )}
                       <SceneryElement
                         kind={sp.kind}
                         x={sp.x}
@@ -2996,8 +3066,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    left: `${ZONE_BOARD.panelInset * 100}%`,
-    right: `${ZONE_BOARD.panelInset * 100}%`,
+    left: `${ZONE_BOARD.panelInsetLeft * 100}%`,
+    right: `${ZONE_BOARD.panelInsetRight * 100}%`,
     backgroundColor: ZONE_BOARD.panel,
   },
   // Positioned, not padded, and on all four sides. Yoga resolves a percentage
