@@ -23,6 +23,7 @@ import {
   ZONE_BACKDROP_SCRIM,
   ZONE_BOARD,
   ZONE_BOARD_ART,
+  ZONE_WIDE_ART,
   zoneBackdrop,
   zoneFootTone,
 } from "@/lib/zone-backdrops";
@@ -2258,7 +2259,17 @@ export default function Journey() {
   }
 
   return (
-    <div className="app-surface min-h-[100dvh] bg-background flex flex-col">
+    <div className="app-surface journey-wide-on relative min-h-[100dvh] bg-background flex flex-col">
+      {/* THE WIDE BAZAAR, big screens only. See `.journey-wide-backdrop` in
+          index.css for why it is one tile for every zone and why the six
+          per-zone paintings step aside for it here. Mobile has no equivalent
+          and wants none: a phone IS the 390px column. */}
+      <div
+        className="journey-wide-backdrop"
+        data-testid="journey-wide-backdrop"
+        style={{ ["--journey-wide" as string]: `url(${ZONE_WIDE_ART})` }}
+        aria-hidden
+      />
       {/* Boarding-pass header — full-ticket treatment */}
       <header className="sticky top-0 z-10 bg-card/95 backdrop-blur border-b border-border">
         <div className="mx-auto w-full max-w-2xl px-3 py-3 flex items-center gap-2">
@@ -2388,7 +2399,9 @@ export default function Journey() {
       </nav>
 
       {/* pb-nav below lg clears the floating BottomNav pill mounted by AppShell */}
-      <main className="mx-auto w-full max-w-2xl flex-1 pb-nav lg:pb-14">
+      {/* relative z-[1]: the wide backdrop is a positioned element at z-0,
+          and static content would otherwise paint beneath it. */}
+      <main className="relative z-[1] mx-auto w-full max-w-2xl flex-1 pb-nav lg:pb-14">
         {access === "exhausted" && (
           <div className="mx-3 mt-4 rounded-2xl border-2 p-4" style={{ borderColor: line.accent }}>
             <p className="text-sm font-bold text-foreground">

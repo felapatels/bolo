@@ -215,3 +215,15 @@ export const ZONE_BOARD_ART = {
   top: `${import.meta.env.BASE_URL}journey/zone-sign-top.png`,
   panel: `${import.meta.env.BASE_URL}journey/zone-sign-panel.png`,
 } as const;
+
+/**
+ * THE WIDE BAZAAR, big screens only, one tile for every zone.
+ *
+ * A seamless vertical tile cut from the owner's 2720x1536 original: the shipped
+ * 1600x704 cross-fades the bottom 200 rows into the top 200, so the road
+ * carries through the join instead of meeting sky at a hard line.
+ *
+ * No mobile twin, and there should not be one: a phone IS the 390px map column,
+ * so there is no empty margin for this to fill.
+ */
+export const ZONE_WIDE_ART = `${import.meta.env.BASE_URL}journey/zone-wide.jpg`;

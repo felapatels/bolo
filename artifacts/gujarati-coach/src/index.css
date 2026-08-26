@@ -530,6 +530,58 @@
   );
   pointer-events: none;
 }
+/* THE WIDE BAZAAR, ON BIG SCREENS ONLY. Asked for 2026-08-26: "I want the
+   journey screen to have this same image on web large screens for all zones,
+   just repeat it for big screens."
+
+   The map column is capped at 390px, so on a desktop the journey is a phone
+   strip in a field of empty margin. This fills that field with one painting
+   for every zone, repeating down the page as the learner scrolls.
+
+   IT IS A SEAMLESS TILE, cut rather than found: the source is 2720x1536 of
+   street at the bottom and sky at the top, which repeats with a hard join. The
+   shipped file is 1600x704, built by cross-fading the bottom 200 rows into the
+   top 200, so the road carries through the join and the gateway reads as a
+   landmark receding up the line.
+
+   ONE IMAGE FOR ALL ZONES IS WHAT WAS ASKED FOR, so the six per-zone paintings
+   are hidden at this breakpoint rather than layered under it: two paintings
+   arguing through each other is worse than either alone. They still carry the
+   phone, which is where the six zones actually read as six places.
+
+   Media-queried rather than conditionally rendered, so a phone never fetches
+   it: a browser only loads a background-image whose rule applies. */
+.journey-wide-backdrop {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .journey-wide-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    /* The URL rides in on a custom property set by the page, so the app's
+       BASE_URL is honoured. The media query still gates the FETCH: a browser
+       only loads a background-image whose rule applies. */
+    background-image: var(--journey-wide);
+    background-repeat: repeat-y;
+    background-position: top center;
+    background-size: 100% auto;
+    pointer-events: none;
+  }
+  /* The same scrim the per-zone backdrops carry, so the rail and the scenery
+     keep the contrast they were drawn for. */
+  .journey-wide-backdrop::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: #1b120e;
+    opacity: 0.28;
+  }
+  .journey-wide-on [data-testid^="journey-backdrop-"] {
+    display: none;
+  }
+}
 .depth-shadow {
   box-shadow: var(--depth-shadow);
 }
