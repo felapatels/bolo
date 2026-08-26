@@ -347,9 +347,37 @@
   --splash-decode-cap: 1200ms;   /* compose-then-reveal decode wait cap; past
                                     it, reveal whatever is ready */
   --station-surface: hsl(40 55% 97.5%); /* warm signboard surface, active stop card */
+  /* THE PAPER TICKET (item 1.1, 2026-08-26). Every stop card is opaque now,
+     not just the active one. The journey sits on a painted backdrop and a
+     transparent card put "Stop 1 of 11 / Completed" as dark text straight
+     onto a bazaar. `-ahead` is the stock for a stop the learner cannot ride
+     yet: it is knocked back with a greyer paper, NEVER with opacity, because
+     opacity puts the painting back behind the text and that is the bug.
+     `-hover` is the same stock lifted, and it is opaque for the same reason.
+     Mobile twin: stationSurface / stationSurfaceAhead in
+     bolo-mobile/app/(app)/journey.tsx. Keep the pairs in step. */
+  --station-surface-ahead: hsl(40 20% 91%);
+  --station-surface-hover: hsl(40 45% 94%);
 }
 .dark {
   --station-surface: hsl(222 30% 15%);
+  --station-surface-ahead: hsl(222 16% 21%);
+  --station-surface-hover: hsl(222 30% 20%);
+}
+/* The stop card as paper laid on the painting (item 1.1). Background and
+   shadow only, never a border: the map lays rows out on a fixed pitch while a
+   card's height is variable, so the paper must not add a single pixel to a
+   card that can already overflow its row. The active stop keeps its
+   zone-color border, roof bar and glow, so it still dominates a line of
+   cards that now all have stock. */
+.station-card {
+  background: var(--station-surface);
+}
+.station-card[data-ahead="true"] {
+  background: var(--station-surface-ahead);
+}
+.group:hover .station-card[data-accessible="true"]:not([data-current="true"]) {
+  background: var(--station-surface-hover);
 }
 /* 2.5D depth pass (Task 985): shared shadow utilities. `.depth-shadow` is the
    ONE soft box shadow for dimensional HTML surfaces (light upper-left, offset

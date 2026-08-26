@@ -635,8 +635,24 @@ function StationCard({
         // Item 2: same type scale, tighter box — py-2 -> py-1.5 and the
         // current stop's roof clearance pt-3 -> pt-2.5.
         "relative min-w-0 rounded-lg px-3 py-1.5 transition-colors",
-        isCurrent ? "border pt-2.5 depth-shadow" : "group-hover:bg-accent",
+        // Item 1.1: THE PAPER TICKET. Every stop card carries stock, not just
+        // the current one. Before this, a card that was not current had no
+        // background at all, which was invisible over a flat theme and
+        // unreadable the moment the map got painted: "Stop 1 of 11 /
+        // Completed" was dark text on a bazaar. `.station-card` picks the
+        // stock (see index.css) from the data attributes below; the shadow is
+        // the shared depth pass, so the paper reads as laid ON the painting.
+        // Background and shadow ONLY, no border: rows sit on a fixed pitch and
+        // a card's height is variable, so the paper adds no pixels.
+        "station-card depth-shadow",
+        isCurrent && "border pt-2.5",
       )}
+      // Which stock: full paper where the learner can ride, greyer paper where
+      // they cannot, lifted paper under the cursor. Attributes rather than
+      // classes because the stock is a themed token, not a Tailwind color.
+      data-current={isCurrent ? "true" : undefined}
+      data-accessible={accessible ? "true" : undefined}
+      data-ahead={!accessible ? "true" : undefined}
       style={
         isCurrent
           ? { borderColor: color, background: "var(--station-surface)" }

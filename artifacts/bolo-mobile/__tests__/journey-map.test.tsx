@@ -30,7 +30,7 @@
 // branch alongside the tracing row. That was the whole risk of this change and
 // it is the reason `k` is left alone.
 import React from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
@@ -1312,5 +1312,71 @@ describe('journey map — the tracing stop', () => {
     // of 11 stations".
     expect(screen.getByText(/\b11 stations\b/)).toBeOnTheScreen();
     expect(screen.getAllByTestId(/^chacha-stall-\d+$/).length).toBe(3);
+  });
+});
+
+describe('journey map — the stop card is paper on every stop (item 1.1)', () => {
+  // A card that was not the current stop had NO backgroundColor at all: only
+  // the `isCurrent` branch set one. That was invisible while the map sat on a
+  // flat theme, and unreadable the moment the map got painted, which is how it
+  // was found: "Stop 1 of 11 / Completed / 8/10 mastered" rendered as dark text
+  // straight onto a bazaar. Nothing failed when it broke, because nothing
+  // asserted a card had stock. These do. Web twin: journey-station-paper.test.tsx.
+  const stockOf = (card: ReturnType<typeof screen.getAllByTestId>[number]) =>
+    StyleSheet.flatten(card.props.style) as {
+      backgroundColor?: string;
+      opacity?: number;
+    };
+
+  it('gives every stop card stock, not only the current one', () => {
+    setZones([
+      [
+        grp({ status: 'completed', masteredCount: 8, attemptedCount: 8 }),
+        grp({ status: 'in_progress', masteredCount: 3, attemptedCount: 5 }),
+        grp({ status: 'unlocked' }),
+      ],
+      [grp({ status: 'locked' })],
+      [grp({ status: 'locked', planLocked: true, stage: 'sentence' })],
+      [], [], [],
+    ]);
+    render(<JourneyScreen />);
+    const cards = screen.getAllByTestId('stop-card');
+    // The fixture draws five graded stops plus the trace and story rows, so a
+    // map that rendered nothing fails here before the real assertion does.
+    expect(cards.length).toBeGreaterThan(4);
+    const bare = cards.filter(
+      (c) => typeof stockOf(c).backgroundColor !== 'string',
+    );
+    // A non-empty list here means those cards render with no stock at all, so
+    // their text sits straight on the painted backdrop. Jest's expect takes no
+    // message argument, so the labels are the message.
+    expect(bare.map((c) => c.props.accessibilityLabel ?? 'stop-card')).toEqual([]);
+  });
+
+  it('knocks an unreachable stop back with greyer paper, never with opacity', () => {
+    setZones([
+      [grp({ status: 'unlocked' })],
+      [grp({ status: 'locked' })],
+      [], [], [], [],
+    ]);
+    render(<JourneyScreen />);
+    const stocks = screen.getAllByTestId('stop-card').map(stockOf);
+    // Both stocks are on the page: the paper a learner can ride, and the paper
+    // they cannot. Two is also the ceiling, since those are the only two.
+    //
+    // THE STRING FILTER IS NOT DECORATION. Without it this test passed while
+    // the bug was still in the file, because `undefined` and the current
+    // stop's surface are also two distinct values. Checked by putting the bug
+    // back and watching it pass, which is the only way that kind of vacuous
+    // assertion ever gets caught.
+    const painted = stocks
+      .map((s) => s.backgroundColor)
+      .filter((c): c is string => typeof c === 'string');
+    expect(painted.length).toBe(stocks.length);
+    expect(new Set(painted).size).toBe(2);
+    // THE KNOCK-BACK IS IN THE COLOUR, NEVER IN THE ALPHA. Reaching for opacity
+    // here would put the painting back behind the text, which is the bug this
+    // whole change exists to fix.
+    expect(stocks.every((s) => s.opacity === undefined || s.opacity === 1)).toBe(true);
   });
 });

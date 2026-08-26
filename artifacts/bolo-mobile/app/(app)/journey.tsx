@@ -662,6 +662,11 @@ export default function JourneyScreen() {
   const themePref = useThemePrefValue();
   const isDark = (themePref === 'system' ? systemScheme : themePref) === 'dark';
   const stationSurface = isDark ? '#1B2232' : '#FCFAF5';
+  // Item 1.1: the stock for a stop the learner cannot ride yet. Knocked back
+  // with a GREYER PAPER, never with opacity: opacity puts the painted backdrop
+  // back behind the text, which is the exact bug the paper ticket fixes. Web
+  // twin: --station-surface-ahead in index.css. Keep the pair in step.
+  const stationSurfaceAhead = isDark ? '#2D323E' : '#EDEAE4';
   // Web measures the map column with a ResizeObserver; on native the window
   // width is authoritative (map column = screen width capped at 390, with the
   // same 0 side padding the web column has inside its centering wrapper).
@@ -2036,10 +2041,24 @@ export default function JourneyScreen() {
                   >
                     {side === 'left' && isCurrent && <Mascot pose="cheer" size={44} motion="none" />}
                     <View
+                      // Every stop card answers to one testID so a test can
+                      // sweep the whole line and prove none of them lost its
+                      // stock, which is exactly how this bug shipped.
+                      testID="stop-card"
                       style={[
                         styles.card,
+                        // Item 1.1: THE PAPER TICKET, and it is on EVERY stop
+                        // now, not only the current one. A card that was not
+                        // current had no background at all, which was invisible
+                        // over a flat theme and unreadable once the map got
+                        // painted: "Stop 1 of 11 / Completed" was dark text on
+                        // a bazaar. Web twin: `.station-card` in index.css.
+                        {
+                          backgroundColor: accessible
+                            ? stationSurface
+                            : stationSurfaceAhead,
+                        },
                         isCurrent && {
-                          backgroundColor: stationSurface,
                           borderWidth: 1,
                           borderColor: zoneColor,
                           // Item 2: roof-bar clearance, trimmed with the rest
@@ -2819,6 +2838,17 @@ const styles = StyleSheet.create({
     // Item 2: same type scale, tighter box (web: py-2 -> py-1.5).
     paddingVertical: 6,
     position: 'relative',
+    // Item 1.1: the paper's lift off the painting. Mirrors the web
+    // --depth-shadow (2px 3px 6px rgba(15,23,42,0.16)) so a stop card sits on
+    // the backdrop the same way on both platforms. SHADOW ONLY, no border: the
+    // map lays rows out on a fixed pitch while a card's height is variable
+    // (this is what grew HALT_H from 74 to 96 on 2026-08-25), so the paper must
+    // not add a single pixel to a card that can already overflow its row.
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 2, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
+    elevation: 3,
   },
   // Full-width zone-color roof bar across the current stop's card (the
   // signboard's painted roof; web: h-1.5 rounded-t accent bar).
