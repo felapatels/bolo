@@ -746,6 +746,14 @@ type NestMapStop = {
   lessonGroupId: number;
   /** Category slug, which is the ZONE the stop sits in. */
   zone: string;
+  /**
+   * 1 or 2. Derived from categories.sort_order, which is the journey order:
+   * 0 to 5 is journey 1 (greetings, family, numbers, food, everyday,
+   * feelings), 6 to 11 is journey 2. Sent rather than left for the page to
+   * work out, so the split is defined in ONE place and the map cannot drift
+   * from the free-tier policy that uses the same six slugs.
+   */
+  journey: 1 | 2;
   /** Stop number within its zone. */
   position: number;
   title: string | null;
@@ -811,9 +819,10 @@ router.get("/nest/map", async (req: Request, res: Response): Promise<void> => {
       )
       select lg.language_code,
              coalesce(l.name, lg.language_code) as language_name,
-             lg.id       as lesson_group_id,
-             c.slug      as zone,
-             lg.position as position,
+             lg.id         as lesson_group_id,
+             c.slug        as zone,
+             c.sort_order  as zone_order,
+             lg.position   as position,
              lg.title    as title,
              coalesce(counts.learners, 0)::int as learners
         from lesson_groups lg
@@ -824,7 +833,15 @@ router.get("/nest/map", async (req: Request, res: Response): Promise<void> => {
        -- the network anybody operates. Same '__' convention the free-tier
        -- policy uses.
        where lg.language_code not like '\\_\\_%'
-       order by lg.language_code asc, c.slug asc, lg.position asc
+       -- c.sort_order, NOT c.slug. Ordering the zones alphabetically put
+       -- greetings 6th of 12 (everyday, family, feelings, festivals, food,
+       -- greetings...), so zone 1 landed dead centre and every learner
+       -- appeared in the middle of the track, with journey 2 zones like
+       -- festivals and health sorted ahead of journey 1. Reported by eye
+       -- 2026-08-26: "how is everyone right in the middle. i think you have
+       -- journey 2 before journey 1 here." categories.sort_order is the real
+       -- journey order: 0-5 is journey 1, 6-11 is journey 2.
+       order by lg.language_code asc, c.sort_order asc, lg.position asc
     `);
     const list = (rows as unknown as { rows?: Record<string, unknown>[] }).rows ??
       (rows as unknown as Record<string, unknown>[]);
@@ -847,6 +864,7 @@ router.get("/nest/map", async (req: Request, res: Response): Promise<void> => {
       line.stops.push({
         lessonGroupId: Number(r.lesson_group_id),
         zone: String(r.zone),
+        journey: Number(r.zone_order ?? 0) < 6 ? 1 : 2,
         position: Number(r.position),
         title: r.title == null ? null : String(r.title),
         learners,

@@ -444,6 +444,19 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   padding:1px 6px;border-radius:5px;background:var(--accent-soft);color:var(--accent)}
 .ddim{color:var(--muted)}
 
+/* The zone and journey legend above the tracks. A shared header row cannot be
+   ALIGNED to the dots, because lines carry 58 to 82 stops and their zones are
+   different widths, so this names the order instead of pretending to be a
+   scale. Asked for 2026-08-26: "show on top Zone and Journey". */
+.lkey{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 2px;align-items:baseline}
+.lkey .jrn{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted)}
+.lkey .zn{display:flex;flex-wrap:wrap;gap:5px}
+.lkey .zn span{font-size:11.5px;color:var(--ink-2);padding:2px 8px;border-radius:999px;
+  border:1px solid var(--line-2);background:var(--surface)}
+.lkey .zn span.j2{color:var(--muted);border-style:dashed}
+/* Where journey 1 ends and journey 2 begins, on every track. */
+.ljoin{flex:none;width:2px;align-self:stretch;background:var(--line-2);margin:0 5px;border-radius:1px}
 /* ---- the line map. Genuinely new: nothing here draws a network. ---------- */
 .lines{margin-top:12px;display:flex;flex-direction:column;gap:2px}
 .lrow{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}
@@ -630,6 +643,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
     <label class="ownt"><input type="checkbox" id="map-busy"><span>Only lines with learners</span></label>
   </div>
 
+  <div class="lkey" id="map-key"></div>
   <div class="lines" id="map-lines"></div>
 </section>
 
@@ -1989,18 +2003,44 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     var onlyBusy = $("map-busy") && $("map-busy").checked;
     var html = "", i, j;
     var drawn = 0;
+
+    /* The legend is built from the FIRST line's stops rather than a hardcoded
+       list, so it can only ever show the order the map actually drew. */
+    var key = $("map-key");
+    if (key) {
+      var seen = {}, j1 = [], j2 = [], src = m.lines[0] ? m.lines[0].stops : [];
+      for (j = 0; j < src.length; j++) {
+        if (seen[src[j].zone]) continue;
+        seen[src[j].zone] = 1;
+        (src[j].journey === 1 ? j1 : j2).push(src[j].zone);
+      }
+      function zoneChips(list, cls){
+        var out = "", k;
+        for (k = 0; k < list.length; k++) {
+          out += '<span class="' + cls + '">' + (k + 1) + " " + esc(list[k]) + "</span>";
+        }
+        return out;
+      }
+      key.innerHTML =
+        '<span class="jrn">Journey 1</span><span class="zn">' + zoneChips(j1, "") + "</span>" +
+        '<span class="jrn">Journey 2</span><span class="zn">' + zoneChips(j2, "j2") + "</span>";
+    }
     for (i = 0; i < m.lines.length; i++) {
       var line = m.lines[i];
       if (onlyBusy && line.learners === 0) continue;
       drawn++;
-      var track = "", lastZone = null;
+      var track = "", lastZone = null, lastJourney = null;
       for (j = 0; j < line.stops.length; j++) {
         var st = line.stops[j];
-        /* A gap between zones, so a line reads as six or twelve runs rather
-           than one undifferentiated string of eighty dots. */
-        if (lastZone !== null && st.zone !== lastZone) track += '<span class="lgap"></span>';
+        /* A gap between zones, so a line reads as twelve runs rather than one
+           undifferentiated string of eighty dots, and a heavier rule where
+           journey 1 ends. */
+        if (lastJourney !== null && st.journey !== lastJourney) track += '<span class="ljoin"></span>';
+        else if (lastZone !== null && st.zone !== lastZone) track += '<span class="lgap"></span>';
         lastZone = st.zone;
-        var label = st.zone + " stop " + st.position + (st.title ? " - " + st.title : "") +
+        lastJourney = st.journey;
+        var label = "Journey " + st.journey + ", " + st.zone + " stop " + st.position +
+          (st.title ? " - " + st.title : "") +
           ": " + st.learners + (st.learners === 1 ? " learner" : " learners");
         track += '<span class="lstop' + (st.learners > 0 ? " has" : "") + '" title="' + esc(label) + '">' +
           (st.learners > 0 ? esc(st.learners) : "") + '</span>';
