@@ -69,15 +69,31 @@ export default function NestPage() {
         without allow-same-origin the document cannot send its own cookies, and
         cookies are exactly how the gated /api/nest/page and the two endpoints
         it calls authenticate. Scripts are allowed because the cockpit IS a
-        script. What is withheld is everything else: no forms, no popups, no
-        downloads, no top-level navigation, so a bug in there cannot walk the
-        learner's tab somewhere else.
+        script.
+
+        allow-popups ADDED 2026-08-26, and it was a real bug rather than a
+        tightening worth keeping. The cockpit is 49 target="_blank" links to
+        App Store Connect, the Play Console, GitHub, Neon, PostHog and Sentry,
+        and every single one was SILENTLY INERT: a sandbox without allow-popups
+        drops a _blank navigation on the floor with no error, no console line
+        and no visible failure, so the page looked fine and nothing it offered
+        actually worked. Reported by the owner as "none of the links work".
+
+        allow-popups-to-escape-sandbox goes with it so the tab that opens is a
+        normal tab. Without it every opened page INHERITS this sandbox, which
+        would give the Play Console no forms and no popups of its own, and it
+        would break in ways nobody would connect back to here.
+
+        What is still withheld: no forms, no downloads, no top-level
+        navigation, so a bug in there still cannot walk the learner's own tab
+        somewhere else. That was always the property worth having; blocking the
+        links never was.
       */}
       <iframe
         src="/api/nest/page"
         title="The Nest"
         className="h-screen w-full border-0"
-        sandbox="allow-scripts allow-same-origin"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         data-testid="nest-frame"
       />
     </div>
