@@ -162,13 +162,56 @@ token ledger, the RevenueCat or Stripe webhook paths, or entitlement resolution.
   Putting a dev `DATABASE_URL` in `.env` on the Mac therefore buys nothing. That
   is why there was never one there.
 
-  **What is STILL NOT established:** what put the three new tables into
-  production on 2026-08-23, since nothing above can have. Replit provisioning
-  the schema when the deployment was created, or a manual run, are both live
-  candidates and nobody has checked. **An earlier draft of this entry asserted
-  production had NOT got them. That was wrong, and it was wrong because it
-  reasoned from the dev database.** A schema change stays unverified in
-  production until a query against production says otherwise.
+  **ANSWERED 2026-08-26, AND IT IS THE MOST IMPORTANT THING IN THIS SECTION.**
+  This entry used to end "what is STILL NOT established: what put the three new
+  tables into production on 2026-08-23, since nothing above can have." Here is
+  what:
+
+  **REPLIT'S PUBLISH FLOW DIFFS THE DEVELOPMENT DATABASE AGAINST PRODUCTION AND
+  GENERATES MIGRATIONS TO MAKE PRODUCTION MATCH DEV.** It is a step in the
+  Publishing panel, between "Provision" and "Security checks", labelled
+  "Generated migrations to apply to production database", and it waits on an
+  **Approve and publish** button. Nothing in this repo drives it: not `.replit`,
+  whose `[deployment.postBuild]` really is only `pnpm store prune`, and not
+  `[postMerge]`, which runs against the workspace. It is the platform.
+
+  That is why three tables appeared in production on 2026-08-23: they existed in
+  dev. It is also why, on 2026-08-26, it generated
+
+      DROP TABLE "user_blocks" CASCADE;
+
+  because `user_blocks` had been created in PRODUCTION BY HAND and dev had never
+  got it. The first time it ran, it was approved without anybody reading it, and
+  the table went. `blockedUserIdsFor` is on the hot path of `/friends/feed` and
+  `/friends/leaderboard`, so the whole social surface 500'd for every learner
+  until the table was restored.
+
+  **THE RULE THAT FALLS OUT OF THIS, AND IT GOVERNS EVERY SCHEMA CHANGE:**
+
+  1. **Commit the migration.** `pnpm --filter @workspace/db run generate`.
+  2. **Apply it to DEV**, in the Repl Shell:
+     `pnpm --filter @workspace/db run sync-schema`. That script replays every
+     committed migration idempotently and **never drops anything**.
+  3. **Then publish.** With dev and production agreeing, the diff finds nothing
+     and the migrations step does not appear at all. Its absence is the signal
+     that you did this right.
+  4. **READ THE GENERATED SQL EVERY TIME. A `DROP` IS NEVER ROUTINE.** It is the
+     only thing standing between the platform and your production data, and it
+     is one click.
+
+  **ANY CHANGE APPLIED TO PRODUCTION BY HAND WILL BE REVERTED BY THE NEXT
+  PUBLISH UNLESS DEV HAS IT TOO.** Hand-applying to production is still correct
+  for getting a change live now, because production has no drizzle ledger and
+  `drizzle-kit migrate` must never be run there. It is only ever half the job.
+
+  **A related gap, found the same night and NOT yet fixed:** the api-server has
+  never sent a single error to Sentry. The `node-express` project held zero
+  issues while `/friends/feed` was returning `{"error":"Internal server error"}`
+  to every learner. `SENTRY_DSN` is set in `[userenv.production]` and
+  `app.ts:132` calls `Sentry.setupExpressErrorHandler`, so the wiring looks
+  right and nothing arrives. **Every server-side 500 you have ever had has been
+  invisible**, which is why a total outage produced no alert and was found by
+  using the app.
 
 - **Never rewrite history on `main`.** No amend, no `reset --hard`, no rebase onto
   main, no force push. `origin` is GitHub; `gitsafe-backup` is a stale Replit remote.
