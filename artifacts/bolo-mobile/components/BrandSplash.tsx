@@ -3,9 +3,16 @@
  *
  * Mounted at the ROOT, not inside home, because the wait it covers is
  * Clerk resolving plus two redirect hops that happen above home in the
- * tree. It sits over the Stack as a pointer-events-none layer and never
- * gates, delays or blocks anything below it: every screen mounts and
- * fetches exactly as it would with no splash present.
+ * tree. It sits over the Stack and never gates, delays or blocks anything
+ * below it: every screen mounts and fetches exactly as it would with no
+ * splash present.
+ *
+ * IT DOES CAPTURE TOUCH WHILE PLAYING, and that is a change from the
+ * original. The overlay was pointerEvents="none" unconditionally, so every
+ * tap fell through to the live screen underneath: tapping the middle of the
+ * film launched the journey from the boarding pass and the learner saw
+ * nothing happen until the splash ended. Reported on device 2026-08-26.
+ * A tap now skips to the exit fade instead.
  *
  * Lifecycle, identical to web: playing -> exiting -> done.
  *   FULL   the day's first cold start. Plays the film through on a fixed
@@ -194,7 +201,14 @@ function BrandSplashFilm() {
   return (
     <Animated.View
       testID="brand-splash"
-      pointerEvents="none"
+      // Captures ONLY while playing. During the exit fade it goes back to
+      // none, so the tap that skips is not followed by a second one landing
+      // in a half-faded overlay. `markFullPlayed` is stamped when FULL
+      // STARTS, so a skip still spends the day's full play and needs no
+      // handling here.
+      pointerEvents={phase === 'playing' ? 'auto' : 'none'}
+      onStartShouldSetResponder={() => phase === 'playing'}
+      onResponderRelease={() => setPhase('exiting')}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       style={[StyleSheet.absoluteFill, styles.overlay, { opacity }]}
@@ -223,12 +237,17 @@ function BrandSplashFilm() {
 }
 
 const styles = StyleSheet.create({
-  // The 2026-08-20 film opens on the BAZAAR, not on the near-white plate the
-  // old one used, so the ground is a warm mid-tone sampled from its first
-  // frame. White here would flash at the edges of any frame the poster does
-  // not cover. zIndex + elevation put the overlay above everything.
+  // THE GROUND IS SAMPLED FROM THE FILM'S FIRST FRAME, and three places carry
+  // the same value: here, app.json's native splash backgroundColor, and web's
+  // index.html boot style. White at any of them flashes before the film.
+  //
+  // #89695B is the 2026-08-26 film's average first frame; the 2026-08-20 one
+  // was #8E6A59. app.json was left at #F8FAFC through both, which is the white
+  // flicker reported on device 2026-08-26: the OS painted a near-white plate,
+  // then React painted this. zIndex + elevation put the overlay above
+  // everything.
   overlay: {
-    backgroundColor: '#8E6A59',
+    backgroundColor: '#89695B',
     zIndex: 9999,
     elevation: 9999,
   },

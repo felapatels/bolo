@@ -1,4 +1,4 @@
-import { Component, useEffect, useState, type ReactNode } from "react";
+import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useReducedMotion } from "framer-motion";
 import { cn, cssTimeMs } from "@/lib/utils";
@@ -41,14 +41,15 @@ import { cn, cssTimeMs } from "@/lib/utils";
  */
 export const SPLASH_V2_ASSETS = {
   film: `${import.meta.env.BASE_URL}splash/welcome-bolo.mp4`,
-  poster: `${import.meta.env.BASE_URL}splash/welcome-bolo-poster.png`,
+  poster: `${import.meta.env.BASE_URL}splash/welcome-bolo-poster.jpg`,
   filmWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide.mp4`,
-  // JPEG, where its portrait twin is a PNG, and the mismatch is deliberate.
-  // The wide film became live-action footage of a station bazaar on
-  // 2026-08-23; a photographic frame as PNG is 2.6MB against 257KB as a JPEG
-  // at the same 1920x1080, and this file is fetched on the one screen where the
-  // browser is busiest. The portrait poster is still illustration, which PNG
-  // suits.
+  // BOTH POSTERS ARE JPEG NOW. The portrait one was a PNG while the portrait
+  // film was flat illustration and the wide one was live-action footage, and
+  // that distinction died on 2026-08-26 when both films were replaced by the
+  // same densely shaded bazaar. As PNG the new portrait frame is 1.6MB; as a
+  // JPEG it is 237KB, and it is fetched on the one screen where the browser is
+  // busiest. Each poster is frame 0 of its own film, so the still under the
+  // video is the frame the video opens on.
   posterWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide-poster.jpg`,
 } as const;
 
@@ -187,6 +188,7 @@ type SplashPhase = "playing" | "exiting" | "done";
 export function useBrandSplash(dataReady: boolean): {
   active: boolean;
   exiting: boolean;
+  skip: () => void;
 } {
   // Phase and mode are captured TOGETHER at mount. Two modes:
   //  FULL   the day's first cold start, plays the film through on a fixed
@@ -259,7 +261,15 @@ export function useBrandSplash(dataReady: boolean): {
     return () => window.clearTimeout(t);
   }, [phase]);
 
-  return { active: phase !== "done", exiting: phase === "exiting" };
+  // TAP OR CLICK TO SKIP, added 2026-08-26 after the mobile twin. It jumps to
+  // the exit fade rather than to "done", so a skip still hands off the way the
+  // timer does. Only "playing" moves: a click landing during the fade must not
+  // restart it, and one after "done" has nothing to act on.
+  const skip = useCallback(() => {
+    setPhase((p) => (p === "playing" ? "exiting" : p));
+  }, []);
+
+  return { active: phase !== "done", exiting: phase === "exiting", skip };
 }
 
 /** Any error inside the moment falls through to the normal home render:
@@ -277,10 +287,16 @@ class SplashErrorBoundary extends Component<
   }
 }
 
-export function BrandSplash({ exiting }: { exiting: boolean }) {
+export function BrandSplash({
+  exiting,
+  onSkip,
+}: {
+  exiting: boolean;
+  onSkip?: () => void;
+}) {
   return (
     <SplashErrorBoundary>
-      <BrandSplashOverlay exiting={exiting} />
+      <BrandSplashOverlay exiting={exiting} onSkip={onSkip} />
     </SplashErrorBoundary>
   );
 }
@@ -336,7 +352,13 @@ function usePosterReady(posterSrc: string): boolean {
 // and the app shell's PageTransition animates transforms, either of which
 // would turn a fixed-position descendant into a container-relative one.
 // pointer-events-none so the overlay can never block interaction.
-function BrandSplashOverlay({ exiting }: { exiting: boolean }) {
+function BrandSplashOverlay({
+  exiting,
+  onSkip,
+}: {
+  exiting: boolean;
+  onSkip?: () => void;
+}) {
   const reduceMotion = useReducedMotion();
   const shape = useSplashShape();
   const revealed = usePosterReady(shape.poster);
@@ -344,11 +366,21 @@ function BrandSplashOverlay({ exiting }: { exiting: boolean }) {
     <div
       data-testid="brand-splash"
       aria-hidden="true"
+      onClick={exiting ? undefined : onSkip}
       className={cn(
-        // WHITE, not the old gradient: the film opens on a white plate, so
-        // any other backdrop flashes on reveal. index.html's boot style
-        // carries the same value and must stay in step.
-        "brand-splash pointer-events-none fixed inset-0 z-[100] overflow-hidden bg-white",
+        // #89695B, NOT WHITE. The film opened on a white plate until
+        // 2026-08-26 and now opens on the bazaar at dusk, whose first frame
+        // averages this. Any other backdrop flashes on reveal, which is the
+        // whole reason this colour is pinned. index.html's boot style carries
+        // the same value and must stay in step.
+        //
+        // IT CAPTURES CLICKS WHILE PLAYING, which it did not before: it was
+        // pointer-events-none unconditionally, so a click went through to
+        // whatever sat underneath and fired it unseen. During the exit fade it
+        // goes back to none so the click that skips is not followed by a
+        // second one landing in a half-faded overlay.
+        "brand-splash fixed inset-0 z-[100] overflow-hidden bg-[#89695B]",
+        exiting ? "pointer-events-none" : "cursor-pointer",
         exiting && "brand-splash-exiting",
       )}
     >

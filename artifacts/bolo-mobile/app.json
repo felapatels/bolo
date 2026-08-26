@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/images/mascot/mascot-wave.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F8FAFC"
+      "backgroundColor": "#89695B"
     },
     "ios": {
       "bundleIdentifier": "com.bolo.mobile",
