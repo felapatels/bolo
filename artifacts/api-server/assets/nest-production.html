@@ -249,6 +249,54 @@ a.linkbtn{text-decoration:none;display:inline-block}
 }
 .statuschip.warm{background:var(--warn-soft);color:var(--warn)}
 .statuschip.hot{background:var(--crit-soft);color:var(--crit)}
+/* The unchecked marker on a standing fact. Quiet on purpose: it is a note
+   about CONFIDENCE, not a second alarm, and making it loud would train the eye
+   to skip the real severity beside it. */
+.stale{
+  display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;
+  font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;
+  letter-spacing:.09em;text-transform:uppercase;vertical-align:middle;
+  background:var(--surface-2);color:var(--muted);border:1px solid var(--line);
+}
+
+/* ---------- the siren ---------- */
+/* A flashing red bar in the STICKY header, so an active production problem is
+   on screen wherever you have scrolled to. Asked for on 2026-08-26: "i need to
+   see clearly up top if there is any active production problem, that will
+   flash and get my attention".
+
+   IT IS NOT DISMISSIBLE, and that is the difference between it and the danger
+   popup. The popup covers the page, so it has to be closeable to let you work,
+   and closing it left a page that looked entirely calm while /friends/feed was
+   500ing for every learner. This is the half that stays until the problem
+   goes.
+
+   THE FLASH IS A HARD SWITCH, not a fade: a soft pulse reads as decoration at
+   the edge of vision, and this is meant to be caught there. */
+.siren{display:none}
+.siren.on{
+  display:flex;align-items:center;gap:9px 14px;flex-wrap:wrap;
+  max-width:1180px;margin:10px auto 0;padding:10px 15px;
+  border-radius:10px;border:1px solid var(--crit);font-size:14px;
+  background:var(--crit-soft);color:var(--crit);
+  animation:siren 1.15s infinite;
+}
+.siren b{font-weight:800;letter-spacing:-.01em}
+.siren .sirwhen{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  letter-spacing:.1em;text-transform:uppercase;opacity:.85;
+}
+.siren a{color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.siren .sirdetail{opacity:.95}
+@keyframes siren{
+  0%,49.9%{background:var(--crit-soft);color:var(--crit)}
+  50%,100%{background:var(--crit);color:#fff}
+}
+/* Reduce Motion still gets the loudest state, just held. Somebody who turned
+   flashing off has not asked to be told less. */
+@media (prefers-reduced-motion:reduce){
+  .siren.on{animation:none;background:var(--crit);color:#fff}
+}
 
 /* ---------- drill down ---------- */
 button.tile{font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%;position:relative;padding-right:26px}
@@ -515,12 +563,23 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
       <div class="hits" id="hits"></div>
     </div>
   </div>
+  <div class="siren" id="siren" role="alert">
+    <b id="siren-what"></b>
+    <span class="sirdetail" id="siren-detail"></span>
+    <span class="sirwhen" id="siren-when"></span>
+    <a id="siren-go" href="#" target="_blank" rel="noopener">Go and look</a>
+  </div>
+
   <nav class="chips" aria-label="Sections">
-    <a href="#alerts">Alerts</a>
-    <!-- The three sections added 2026-08-25 were missing from this nav, which
-         is how a section nobody can jump to gets forgotten. Ordered to match
-         the page rather than appended. -->
+    <!-- ORDERED TO MATCH THE PAGE, always. A jump list that disagrees with the
+         document is worse than no jump list: it teaches the wrong shape and
+         then sends you to the right place, so you stop trusting either. The
+         three sections added 2026-08-25 were missing from here entirely, which
+         is how a section nobody can jump to gets forgotten.
+         Numbers moved above Alerts on 2026-08-26, at the owner's word, and
+         this moved with it in the same edit. -->
     <a href="#numbers">Numbers</a>
+    <a href="#alerts">Alerts</a>
     <a href="#map">Map</a>
     <a href="#reports">Flagged</a>
     <a href="#spend">Spend</a>
@@ -560,37 +619,41 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <main>
 
-<section id="alerts">
-  <div class="head">
-    <span class="eyebrow">01 / What is watching</span>
-    <h2>Alerts</h2>
-    <p>Five rules. Health is a real request to your own API on every load, not a reading of somebody's last cron run.</p>
-  </div>
-  <div class="rule"></div>
-
-  <div class="checkbar">
-    <button type="button" class="ghost" id="health-check">Check production now</button>
-    <a class="ghost linkbtn" href="/api/healthz" target="_blank" rel="noopener">Open /api/healthz</a>
-    <span class="why" id="health-say">Checking.</span>
-  </div>
-
-  <div id="alertlist"></div>
-
-  <div class="note info" style="margin-top:14px">
-    <h4>This page is served from your own API</h4>
-    <p>It arrives from <span class="mono">/api/nest/page</span>, behind the same owner gate as everything else here, and it answers 404 rather than 403 for anyone who is not you. Nothing about this cockpit exists as a file anybody can request.</p>
-    <p><b>Which is why health is honest now.</b> Being same origin, the page calls <span class="mono">/api/healthz</span> itself. There is no watcher, no cron and no heartbeat event: if this section says production answered, it answered just now, to you.</p>
-  </div>
-</section>
-
 <section id="numbers">
   <div class="head">
-    <span class="eyebrow">02 / Who is on it</span>
+    <span class="eyebrow">01 / Who is on it</span>
     <h2>Numbers</h2>
     <p>Sign ups, paid and free accounts, and how many people actually practised. Read straight out of production on this same origin, over whatever window you pick.</p>
   </div>
   <div class="rule"></div>
 
+  <!-- WHO IS SIGNED IN, and it is deliberately the first thing under the
+       header. Everything else in this section counts ATTEMPTS, which is a
+       measure of PRACTICE: a learner who opens the app, reads the feed and
+       puts the phone down is a zero in every other tile on this page. Asked
+       for on 2026-08-26, "the number of people actually currently logged in
+       and be able to drill down to see the names".
+
+       IT COMES FROM CLERK, not from this database, because this database has
+       no record of a login at all: `users` carries created_at and nothing
+       else temporal. See /api/nest/live. -->
+  <p class="dsub">Signed in right now</p>
+  <div class="rangebar">
+    <div class="seg" id="live-chips" role="group" aria-label="Presence window">
+      <button type="button" data-min="5" aria-pressed="false">5 min</button>
+      <button type="button" data-min="15" aria-pressed="true">15 min</button>
+      <button type="button" data-min="60" aria-pressed="false">1 hour</button>
+      <button type="button" data-min="1440" aria-pressed="false">24 hours</button>
+    </div>
+    <span class="why" id="live-when">Reading.</span>
+  </div>
+  <!-- Capped rather than left to auto-fit: this grid holds ONE tile, and
+       auto-fit stretches a lone child across the full page, which reads as
+       a banner rather than as a number. -->
+  <div class="grid g4" id="live-tiles" style="max-width:330px"></div>
+  <div id="live-drill"></div>
+
+  <p class="dsub" style="margin-top:22px">Over a window</p>
   <div id="range-note"></div>
 
   <div class="rangebar">
@@ -625,6 +688,29 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   <p class="dsub" style="margin-top:18px">By day</p>
   <p class="barnote" style="margin:-4px 0 9px">Sign ups and the learners who practised, one bar per UTC day. Empty days are real zeroes, not gaps.</p>
   <div id="range-chart"></div>
+</section>
+
+<section id="alerts">
+  <div class="head">
+    <span class="eyebrow">02 / What is watching</span>
+    <h2>Alerts</h2>
+    <p>Five rules. Health is a real request to your own API on every load, not a reading of somebody's last cron run.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div class="checkbar">
+    <button type="button" class="ghost" id="health-check">Check production now</button>
+    <a class="ghost linkbtn" href="/api/healthz" target="_blank" rel="noopener">Open /api/healthz</a>
+    <span class="why" id="health-say">Checking.</span>
+  </div>
+
+  <div id="alertlist"></div>
+
+  <div class="note info" style="margin-top:14px">
+    <h4>This page is served from your own API</h4>
+    <p>It arrives from <span class="mono">/api/nest/page</span>, behind the same owner gate as everything else here, and it answers 404 rather than 403 for anyone who is not you. Nothing about this cockpit exists as a file anybody can request.</p>
+    <p><b>Which is why health is honest now.</b> Being same origin, the page calls <span class="mono">/api/healthz</span> itself. There is no watcher, no cron and no heartbeat event: if this section says production answered, it answered just now, to you.</p>
+  </div>
 </section>
 
 <section id="map">
@@ -1603,6 +1689,11 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     return months + (months === 1 ? " month ago" : " months ago");
   }
 
+  /* How long a hand-written fact may go unchecked before the page says so.
+     A week: long enough that a quiet stretch is not nagged about, short enough
+     that a build shipped this morning cannot still be described as missing. */
+  var STALE_DAYS = 7;
+
   function rules(){
     var out = [], h = state.health, s = state.summary;
 
@@ -1638,17 +1729,27 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
            m:dbGb.toFixed(2) + " GB, " + share + " percent of it cached audio.", r:"Neon", href:"https://console.neon.tech/"});
     }
 
-    /* STANDING FACTS, not observations. `since` is the day each was recorded
-       into this page, so their stamps read "a day ago" rather than borrowing a
-       transition time from a browser that has never seen them change. Both
-       were written on 2026-08-24 when the cockpit moved into the product. */
-    out.push({id:"mobiledark", sev:"warn", t:"iOS and Android are one bucket",
-      m:"The app reports to PostHog, but its events carry no OS property, so the two stores cannot be told apart.",
-      r:"PostHog", href:ARTIFACT, since:Date.UTC(2026, 7, 24)});
-    out.push({id:"androidpush", sev:"warn", t:"Android push is not in a build",
-      m:"Firebase bolo-9bf9a is wired into app.json, but the newest Android build predates the file.",
+    /* STANDING FACTS, not observations, and THEY ROT. `since` is the day each
+       was recorded; `checked` is the day somebody last went and looked. The
+       first is history and never moves. The second is the one that matters,
+       because a baked sentence keeps being displayed with total confidence
+       long after it stopped being true.
+
+       THIS IS NOT HYPOTHETICAL. On 2026-08-26 the owner said "some of the
+       alerts are stale, like the android push one", and it was: it read
+       "Android push is not in a build" while build 509 had carried the
+       Firebase file since 03:12 that morning. Nothing about the page could
+       have shown that, because a hardcoded string has no way to look wrong.
+       So every fact here now carries a checked date, renderAlerts marks
+       anything older than STALE_DAYS, and a fact nobody has confirmed in a
+       week SAYS SO on the page instead of quietly misleading. */
+    out.push({id:"mobiledark", sev:"warn", t:"The app's own events carry no OS",
+      m:"Measured in PostHog on 2026-08-26: 554 events from 30 people arrived from posthog-react-native with $os null, so iOS and Android cannot be told apart. The iOS and Android rows in PostHog are mobile BROWSERS on the web app, which is exactly what makes this look solved when it is not.",
+      r:"PostHog", href:ARTIFACT, since:Date.UTC(2026, 7, 24), checked:Date.UTC(2026, 7, 26)});
+    out.push({id:"androidpush", sev:"warn", t:"No learner has Android push yet",
+      m:"Firebase bolo-9bf9a IS in build 509, built 2026-08-26 from 79d61edc, so the older \u201cno build carries it\u201d is retired. What remains is distribution: 509 is deliberately unsubmitted while the closed test runs, so no device has it.",
       r:"EAS", href:"https://expo.dev/accounts/aakeshp/projects/bolo-mobile/builds",
-      since:Date.UTC(2026, 7, 24)});
+      since:Date.UTC(2026, 7, 24), checked:Date.UTC(2026, 7, 26)});
     return out;
   }
 
@@ -1675,9 +1776,16 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
          first saw the rule at this severity. */
       var at = a.since || seenSince(a.id, a.sev);
       var stampWord = a.since ? "raised " : (a.sev === "ok" ? "clear " : "");
+      /* A hand-written fact that nobody has rechecked in a week is displayed
+         as exactly that. It keeps its severity, because it is probably still
+         true; what it loses is the right to be read as current. */
+      var stale = a.checked && (Date.now() - a.checked) > STALE_DAYS * 86400000;
+      var staleTag = stale
+        ? '<span class="stale">unchecked ' + esc(ago(a.checked)) + ', go and look</span>'
+        : "";
       html += '<div class="alert' + cls + '">' +
         '<span class="pill ' + pill + '" style="grid-row:1 / span 2"><span class="dot"></span>' + word + '</span>' +
-        '<span class="t">' + esc(a.t) + '</span><span class="m">' + esc(a.m) + '</span>' +
+        '<span class="t">' + esc(a.t) + staleTag + '</span><span class="m">' + esc(a.m) + '</span>' +
         '<span class="r"><a href="' + esc(a.href) + '" target="_blank" rel="noopener">' + esc(a.r) + '</a></span>' +
         '<span class="when" title="' + esc(new Date(at).toLocaleString()) + '">' +
           esc(stampWord + ago(at)) + '</span></div>';
@@ -1694,7 +1802,30 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     if (m) m.textContent = state.health ? (state.health.status === 200 ? "Live" : "Production not answering") : "Reading production";
     if (w) w.textContent = "Served from your own API, checked " +
       (state.health ? state.health.at.toTimeString().slice(0,5) : "now");
+    renderSiren(list);
     raiseDanger(list);
+  }
+
+  /* Which critical is showing, and how many others are queued behind it. One
+     line, because a bar that lists four things is read as a list rather than
+     as an alarm. */
+  function renderSiren(list){
+    var bar = $("siren"); if (!bar) return;
+    var hit = null, extra = 0, i;
+    for (i = 0; i < list.length; i++) {
+      if (list[i].sev !== "crit") continue;
+      if (hit) { extra++; continue; }
+      hit = list[i];
+    }
+    if (!hit) { bar.className = "siren"; return; }
+    bar.className = "siren on";
+    $("siren-what").textContent = hit.t + (extra ? "  and " + extra + " more" : "");
+    $("siren-detail").textContent = hit.m;
+    /* The severity stamp, so "still broken" and "just broke" do not look alike. */
+    $("siren-when").textContent = "since " + ago(hit.since || seenSince(hit.id, hit.sev));
+    var go = $("siren-go");
+    go.href = hit.href || "#";
+    go.textContent = hit.r ? ("Open " + hit.r) : "Go and look";
   }
 
   function raiseDanger(list){
@@ -2156,6 +2287,111 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
      first version of this covered the page with a dialog that had no
      background, because it asked for a --card token this palette does not
      have. Clicking the open tile again closes it. */
+  var LIVE_URL = "/api/nest/live";
+  state.live = null;
+  state.liveErr = null;
+  state.liveMinutes = 15;
+  state.liveOpen = false;
+  try {
+    var savedMin = Number(localStorage.getItem("nest.liveMinutes"));
+    if (savedMin === 5 || savedMin === 15 || savedMin === 60 || savedMin === 1440) state.liveMinutes = savedMin;
+  } catch (e) {}
+
+  function loadLive(){
+    return fetch(LIVE_URL + "?minutes=" + state.liveMinutes, {credentials:"same-origin", cache:"no-store"})
+      .then(function(res){
+        if (!res.ok) throw new Error("The presence endpoint answered " + res.status + ".");
+        return res.json();
+      }).then(function(d){ state.live = d; state.liveErr = null; },
+              function(err){ state.live = null; state.liveErr = String(err && err.message || err); });
+  }
+
+  function windowWords(m){
+    if (m === 1440) return "last 24 hours";
+    if (m === 60) return "last hour";
+    return "last " + m + " minutes";
+  }
+
+  function renderLive(){
+    var host = $("live-tiles"), when = $("live-when");
+    if (!host) return;
+
+    if (state.liveErr) {
+      host.innerHTML = '<div class="tile blank"><span class="n">-</span>' +
+        '<span class="l">Signed in</span><span class="w">unavailable</span></div>';
+      if (when) when.textContent = state.liveErr;
+      return;
+    }
+    var d = state.live;
+    if (!d) {
+      host.innerHTML = '<div class="tile blank"><span class="n">-</span>' +
+        '<span class="l">Signed in</span><span class="w">reading</span></div>';
+      return;
+    }
+
+    /* UNKNOWN IS NOT ZERO, and the tile has to look different for it. A
+       confident 0 when Clerk simply could not be asked is the one reading
+       that would send somebody looking for a problem that is not there. */
+    if (d.source !== "clerk") {
+      host.innerHTML = '<div class="tile blank"><span class="n">?</span>' +
+        '<span class="l">Signed in</span><span class="w">cannot ask clerk</span></div>';
+      if (when) when.textContent = d.reason || d.note;
+      return;
+    }
+
+    var n = state.excludeOwn ? d.totalExclOwner : d.total;
+    host.innerHTML =
+      '<button type="button" class="tile" data-live-drill="1" aria-expanded="' +
+        (state.liveOpen ? "true" : "false") + '">' +
+        '<span class="n">' + fmt(n) + '</span>' +
+        '<span class="l">Signed in, ' + esc(windowWords(d.windowMinutes)) + '</span>' +
+        '<span class="w">' + (state.excludeOwn ? "you and testers out" : "everybody") + '</span>' +
+      '</button>';
+    if (when) when.textContent = d.note + " Last read " +
+      new Date(d.generatedAt).toLocaleTimeString() + ".";
+  }
+
+  function renderLiveDrill(){
+    var host = $("live-drill"), d = state.live;
+    if (!host) return;
+    if (!state.liveOpen || !d || d.source !== "clerk") { host.innerHTML = ""; return; }
+
+    var people = d.people;
+    if (state.excludeOwn) people = people.filter(function(p){ return !p.excluded; });
+
+    var body = "", i;
+    for (i = 0; i < people.length; i++) {
+      var p = people[i];
+      var who = p.username || p.name || "(unnamed)";
+      body += "<tr>" +
+        "<td>" + esc(who) + (p.excluded ? ' <span class="ddim">(you or a tester)</span>' : "") + "</td>" +
+        '<td class="ddim">' + esc(p.email || "-") + "</td>" +
+        "<td>" + esc(p.tier || "-") + "</td>" +
+        "<td>" + (p.lastActiveAt ? esc(new Date(p.lastActiveAt).toLocaleTimeString()) : '<span class="ddim">-</span>') + "</td>" +
+        "<td>" + (p.lastSignInAt ? esc(shortDate(p.lastSignInAt)) : '<span class="ddim">-</span>') + "</td>" +
+      "</tr>";
+    }
+
+    host.innerHTML = drillShell(
+      '<div class="drill-h">' +
+        '<span class="dn">' + fmt(people.length) + '</span>' +
+        '<h3>Signed in</h3>' +
+        '<span class="dw">' + esc(windowWords(d.windowMinutes)) + '</span>' +
+        '<button type="button" class="x" id="live-close" aria-label="Close">&times;</button>' +
+        '<p class="what">Clerk\'s own last_active_at, which it touches about once every five minutes per session. ' +
+          esc(state.excludeOwn ? "Your accounts and the App Review tester are excluded."
+                               : "Nothing is excluded.") +
+          (d.total > people.length && !state.excludeOwn ? " Listing the first " + people.length + " of " + d.total + "." : "") +
+        '</p>' +
+      '</div>' +
+      '<div class="drill-body wide">' +
+        (people.length
+          ? '<div class="dtable"><table><tr><th>Who</th><th>Email</th><th>Plan</th>' +
+            "<th>Last seen</th><th>Signed in</th></tr>" + body + "</table></div>"
+          : '<p class="bd-wait">Nobody in this window.</p>') +
+      '</div>');
+  }
+
   var DRILL_URL = "/api/nest/drill";
   state.drillOpen = null;
 
@@ -2261,6 +2497,8 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   document.addEventListener("click", function(ev){
     if (!ev.target.closest) return;
     if (ev.target.closest("#drill-close")) { closeDrill(); return; }
+    if (ev.target.closest("#live-close")) { state.liveOpen = false; renderLive(); renderLiveDrill(); return; }
+    if (ev.target.closest("[data-live-drill]")) { state.liveOpen = !state.liveOpen; renderLive(); renderLiveDrill(); return; }
     var t = ev.target.closest("[data-metric]");
     if (t) openDrill(t.getAttribute("data-metric"));
   });
@@ -2296,8 +2534,8 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   function refreshAll(){
     if (refreshing) return Promise.resolve();
     refreshing = true;
-    return Promise.all([checkHealth(), loadSummary(), loadRange(), loadMap(), loadReports()]).then(function(){
-      healthSay(); renderSpend(); renderAlerts(); renderRange(); renderMap(); renderReports(); stamp();
+    return Promise.all([checkHealth(), loadSummary(), loadRange(), loadMap(), loadReports(), loadLive()]).then(function(){
+      healthSay(); renderSpend(); renderAlerts(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); stamp();
       refreshing = false;
     }, function(){ refreshing = false; });
   }
@@ -2313,6 +2551,27 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   document.addEventListener("visibilitychange", function(){
     if (!document.hidden) refreshAll();
   });
+
+  /* ---------------- presence window ---------------- */
+  (function wireLive(){
+    var chips = $("live-chips");
+    if (!chips) return;
+    function paint(){
+      var b = chips.querySelectorAll("button"), i;
+      for (i = 0; i < b.length; i++) {
+        b[i].setAttribute("aria-pressed", Number(b[i].getAttribute("data-min")) === state.liveMinutes ? "true" : "false");
+      }
+    }
+    paint();
+    chips.addEventListener("click", function(ev){
+      var t = ev.target.closest("button[data-min]");
+      if (!t) return;
+      state.liveMinutes = Number(t.getAttribute("data-min"));
+      try { localStorage.setItem("nest.liveMinutes", String(state.liveMinutes)); } catch (e) {}
+      paint();
+      loadLive().then(function(){ renderLive(); renderLiveDrill(); });
+    });
+  })();
 
   /* ---------------- range controls ---------------- */
   (function wireRange(){
@@ -2373,7 +2632,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   })();
 
   /* ---------------- boot ---------------- */
-  renderSpend(); renderAlerts(); renderRange(); renderMap(); renderReports();
+  renderSpend(); renderAlerts(); renderLive(); renderRange(); renderMap(); renderReports();
   refreshAll().then(startRefresh);
 })();
 </script>

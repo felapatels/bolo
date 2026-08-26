@@ -23,6 +23,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Router, type IRouter, type Request, type Response } from "express";
+import { clerkClient } from "@clerk/express";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import type { AuthedRequest } from "../middlewares/requireAuth";
@@ -434,7 +435,8 @@ const DRILL_METRICS: Record<
     label: "Active learners",
     note:
       "Distinct people who recorded an attempt inside the window, ranked by how " +
-      "many. NOT logins: nothing server side records one.",
+      "many. NOT logins: this counts practice. Who is merely SIGNED IN is a " +
+      "different question and /nest/live answers it from Clerk.",
     windowed: true,
   },
   attempts: {
@@ -953,8 +955,13 @@ type NestRange = {
    *
    * NOT LOGINS. Nothing server-side records a login: Clerk owns sessions and
    * no row is written when one starts, so "active" here means an attempt was
-   * recorded. That is the honest substitute and it is a stricter bar than a
-   * login, since it counts people who actually practised.
+   * recorded. That is a stricter bar than a login, since it counts people who
+   * actually practised.
+   *
+   * IF YOU WANTED LOGINS, /nest/live IS WHERE THEY ARE, added 2026-08-26. It
+   * asks Clerk directly rather than substituting for it. The two numbers are
+   * different questions and the page shows them apart: presence up top,
+   * practice in the window tiles.
    */
   activeUsers: number;
   attempts: number;
@@ -1121,6 +1128,187 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
   } catch (err) {
     req.log.error({ err }, "nest range query failed");
     res.status(500).json({ error: "Could not read the range" });
+  }
+});
+
+/**
+ * WHO IS SIGNED IN RIGHT NOW.
+ *
+ * THE GAP THIS FILLS, AND IT IS THE WHOLE REASON THE ENDPOINT EXISTS. Every
+ * other "active" number on this page counts ATTEMPTS: /nest/summary's
+ * activeNow is `count(distinct user_id) from attempts in the last 60 minutes`,
+ * and the drill's own note has said so out loud since it was written, "NOT
+ * logins: nothing server side records one". So a learner who opens the app,
+ * reads the feed, browses the board and puts the phone down counts as ZERO
+ * everywhere on this page. Asked for on 2026-08-26 as "the number of people
+ * actually currently logged in, and be able to drill down to see the names".
+ *
+ * CLERK IS THE ONLY PLACE A LOGIN EXISTS. This app writes no session row and
+ * no last-seen column: `users` carries created_at and nothing else temporal.
+ * Clerk maintains last_active_at per user, and getUserList can filter on it
+ * directly, so this is one upstream call rather than a schema change plus a
+ * write on the hot path of every authenticated request.
+ *
+ * NOT sessions.getSessionList, which was the obvious first choice and does not
+ * work: it REQUIRES a clientId or a userId, so "every active session" would be
+ * one call per account. Fine at 23 users, wrong the moment it is not.
+ *
+ * FIVE MINUTES IS CLERK'S OWN GRANULARITY. last_active_at is touched about
+ * once every five minutes per session rather than on every request, so a
+ * window shorter than that undercounts by design. The default is 15 and the
+ * page says which window it is showing; anything under 5 is accepted but
+ * flagged in the note rather than silently rounded.
+ *
+ * IT FAILS LOUDLY AND NEVER TO ZERO. CLERK_SECRET_KEY lives only in Replit's
+ * Secrets panel, and CLAUDE.md records that secrets from there go missing.
+ * A missing key or a refused call answers `source: "unavailable"` with counts
+ * of NULL, because a cockpit that renders a confident 0 when it simply could
+ * not ask is worse than one that says it could not ask. This is the same
+ * direction the owner gate fails in.
+ */
+type NestLivePerson = {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  username: string | null;
+  tier: string | null;
+  lastActiveAt: string | null;
+  lastSignInAt: string | null;
+  /** True for the owner's own accounts and the App Review tester. */
+  excluded: boolean;
+};
+
+type NestLive = {
+  generatedAt: string;
+  windowMinutes: number;
+  source: "clerk" | "unavailable";
+  /** Null, never 0, when the source could not be read. */
+  total: number | null;
+  totalExclOwner: number | null;
+  note: string;
+  reason: string | null;
+  people: NestLivePerson[];
+};
+
+/** Clerk pages at 100 and reports the true total separately, so this caps the
+ *  LIST rather than the COUNT. At 23 accounts it is academic; it stops being
+ *  academic without anybody noticing, which is when a silent cap starts lying. */
+const LIVE_LIMIT = 100;
+
+/** Ten seconds. Short enough that "right now" means it, long enough that a
+ *  page left open on a second monitor is not a Clerk request every second. */
+const LIVE_CACHE_MS = 10_000;
+let liveCached: { at: number; minutes: number; value: NestLive } | null = null;
+
+router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
+  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+
+  const raw = Number(req.query.minutes ?? 15);
+  // A day is the ceiling: past that this stops being "right now" and the
+  // range endpoint is the right tool.
+  const minutes = Number.isFinite(raw) ? Math.min(1440, Math.max(1, Math.round(raw))) : 15;
+
+  if (liveCached && liveCached.minutes === minutes && Date.now() - liveCached.at < LIVE_CACHE_MS) {
+    res.json(liveCached.value);
+    return;
+  }
+
+  const since = Date.now() - minutes * 60_000;
+  const base = {
+    generatedAt: new Date().toISOString(),
+    windowMinutes: minutes,
+  };
+
+  const unavailable = (reason: string): NestLive => ({
+    ...base,
+    source: "unavailable",
+    total: null,
+    totalExclOwner: null,
+    note: "Presence comes from Clerk and Clerk could not be read, so this is not zero, it is unknown.",
+    reason,
+    people: [],
+  });
+
+  if (!process.env.CLERK_SECRET_KEY) {
+    // Not an error and not logged as one: on a machine without the secret this
+    // is the expected answer, and it is exactly what the page should say.
+    res.json(unavailable("CLERK_SECRET_KEY is not set in this environment."));
+    return;
+  }
+
+  try {
+    const list = await clerkClient.users.getUserList({
+      lastActiveAtAfter: since,
+      orderBy: "-last_active_at",
+      limit: LIVE_LIMIT,
+    });
+
+    const ids = list.data.map((u) => u.id);
+
+    // NAMES FROM BOTH SIDES, and the local row wins where it exists. Clerk
+    // holds the identity, but display_name and username are edited in this
+    // app's own account screen and are what the owner would recognise on the
+    // leaderboard. tier is only here.
+    const local = new Map<string, Record<string, unknown>>();
+    if (ids.length > 0) {
+      const rows = await db.execute(sql`
+        select id, email, username, display_name, tier
+          from users
+         where id in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})
+      `);
+      const arr = (rows as unknown as { rows?: Record<string, unknown>[] }).rows ??
+        (rows as unknown as Record<string, unknown>[]);
+      for (const r of arr) local.set(String(r.id), r);
+    }
+
+    const people: NestLivePerson[] = list.data.map((u) => {
+      const row = local.get(u.id);
+      const clerkName = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+      return {
+        userId: u.id,
+        name:
+          (row?.display_name == null ? null : String(row.display_name)) ||
+          (clerkName || null) ||
+          u.username ||
+          null,
+        email:
+          (row?.email == null ? null : String(row.email)) ||
+          u.emailAddresses[0]?.emailAddress ||
+          null,
+        username:
+          (row?.username == null ? null : String(row.username)) || u.username || null,
+        tier: row?.tier == null ? null : String(row.tier),
+        lastActiveAt: u.lastActiveAt == null ? null : new Date(u.lastActiveAt).toISOString(),
+        lastSignInAt: u.lastSignInAt == null ? null : new Date(u.lastSignInAt).toISOString(),
+        excluded: nonLearnerUserIds.has(u.id),
+      };
+    });
+
+    // totalCount is Clerk's own count for the filter and is NOT capped by the
+    // limit above, so the headline stays right even when the list is trimmed.
+    const total = typeof list.totalCount === "number" ? list.totalCount : people.length;
+    const excludedInPage = people.filter((p) => p.excluded).length;
+
+    const value: NestLive = {
+      ...base,
+      source: "clerk",
+      total,
+      // Only the fetched page can be checked against the allowlist, so past the
+      // cap this is a floor rather than an exact figure. Named, not hidden.
+      totalExclOwner: Math.max(0, total - excludedInPage),
+      note:
+        minutes < 5
+          ? "Clerk touches last_active_at about once every five minutes per session, so a window under five minutes undercounts."
+          : "Signed in and seen by Clerk inside the window. This counts presence, not practice: the Numbers tiles count attempts.",
+      reason: null,
+      people,
+    };
+
+    liveCached = { at: Date.now(), minutes, value };
+    res.json(value);
+  } catch (err) {
+    req.log.error({ err }, "nest live presence lookup failed");
+    res.json(unavailable("Clerk refused the request. Check CLERK_SECRET_KEY and the instance it belongs to."));
   }
 });
 
