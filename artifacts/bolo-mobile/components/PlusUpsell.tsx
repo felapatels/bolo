@@ -144,6 +144,7 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
     gap: 3,
     paddingHorizontal: 7,
     paddingVertical: 2,
@@ -171,8 +172,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // THE PILL USED TO RUN OFF THE SCREEN. Reported on device 2026-08-26 with
+  // "32 more phrases with All-Access", which wraps to two lines: the Text had
+  // no flexShrink, so it claimed the whole row and laid the pill out past the
+  // card AND past the right edge, clipped mid-word. LockedFeatureCard looked
+  // fine only because its title happened to be short enough.
+  //
+  // flexShrink on the title and none on the pill is the pair that matters: the
+  // title yields the space, the pill keeps its intrinsic width, and any title
+  // length now stays inside the card.
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  cardTitle: { fontFamily: AppFonts.bold, fontSize: 16 },
+  cardTitle: { fontFamily: AppFonts.bold, fontSize: 16, flexShrink: 1 },
   cardDesc: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
   banner: {
     flexDirection: 'row',
