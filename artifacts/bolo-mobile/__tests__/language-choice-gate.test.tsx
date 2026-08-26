@@ -105,6 +105,14 @@ jest.mock('@/components/ReminderScheduler', () => ({
   ReminderScheduler: () => null,
 }));
 
+// Stubbed for the same reason as the scheduler above: this suite is about the
+// language-choice gate, and the layout mounts both. Added 2026-08-26 with the
+// notification primer, whose permission read hit this file's expo-notifications
+// gap and surfaced a missing try/catch in the component itself.
+jest.mock('@/components/NotificationPrimer', () => ({
+  NotificationPrimer: () => null,
+}));
+
 jest.mock('@/hooks/useColors', () => ({
   useColors: () => ({
     background: '#FFFFFF',
