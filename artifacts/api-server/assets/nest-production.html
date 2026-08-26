@@ -694,7 +694,12 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   <div class="head">
     <span class="eyebrow">02 / What is watching</span>
     <h2>Alerts</h2>
-    <p>Five rules. Health is a real request to your own API on every load, not a reading of somebody's last cron run.</p>
+    <!-- The count is WRITTEN BY renderAlerts, not typed here. It said "Five
+         rules" while six were rendering, which is the same failure as the
+         stale alerts this section was just fixed for: a hand-typed number
+         beside a generated list goes wrong the first time somebody adds to
+         the list, and nothing about it can look wrong. -->
+    <p><span id="rulecount">Rules</span>. Health is a real request to your own API on every load, not a reading of somebody's last cron run.</p>
   </div>
   <div class="rule"></div>
 
@@ -938,8 +943,8 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
     <article class="card stripe s-info">
       <div class="cardtop"><h3>Fires</h3><span class="pill p-info">in Sentry</span></div>
       <p style="margin:0 0 10px;font-size:13.5px">Unresolved Sentry issues by volume, the heap corruption watch, and the new-errors-in-the-last-hour alarm.</p>
-      <p style="margin:0;font-size:12.5px;color:var(--muted)">Same reason: Sentry needs its own token server side. The console links below work from here regardless.</p>
-      <div class="links"><a href="https://sentry.io/organizations/sentry/issues/" target="_blank" rel="noopener">Open Sentry</a></div>
+      <p style="margin:0;font-size:12.5px;color:var(--muted)">Same reason: Sentry needs its own token server side. THE API ITSELF NOW REACHES SENTRY, fixed 2026-08-26 in 61c33738: the DSN had named a project that does not exist in this org, so every server-side event ever produced was posted into the void, which is why node-express held zero issues while the feed was 500ing for everyone. Verified by a delivered event.</p>
+      <div class="links"><a href="https://lark-enterprises-llc.sentry.io/issues/?query=is%3Aunresolved" target="_blank" rel="noopener">Open Sentry</a></div>
     </article>
   </div>
 </section>
@@ -1746,10 +1751,35 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     out.push({id:"mobiledark", sev:"warn", t:"The app's own events carry no OS",
       m:"Measured in PostHog on 2026-08-26: 554 events from 30 people arrived from posthog-react-native with $os null, so iOS and Android cannot be told apart. The iOS and Android rows in PostHog are mobile BROWSERS on the web app, which is exactly what makes this look solved when it is not.",
       r:"PostHog", href:ARTIFACT, since:Date.UTC(2026, 7, 24), checked:Date.UTC(2026, 7, 26)});
-    out.push({id:"androidpush", sev:"warn", t:"No learner has Android push yet",
-      m:"Firebase bolo-9bf9a IS in build 509, built 2026-08-26 from 79d61edc, so the older \u201cno build carries it\u201d is retired. What remains is distribution: 509 is deliberately unsubmitted while the closed test runs, so no device has it.",
-      r:"EAS", href:"https://expo.dev/accounts/aakeshp/projects/bolo-mobile/builds",
-      since:Date.UTC(2026, 7, 24), checked:Date.UTC(2026, 7, 26)});
+    /* PUSH, AND THIS ONE MEASURES ITSELF. It replaced a hand-written
+       "Android push is not in a build", which was true when it was written on
+       2026-08-24 and WRONG BY 03:12 ON 2026-08-26, when build 509 shipped with
+       google-services.json in it. Nobody noticed because a hardcoded sentence
+       cannot look wrong. Within the same hour that this alert was corrected by
+       hand, 509 was submitted and installed and the correction went stale too.
+       Twice in one morning is the argument: THIS NOW COUNTS ROWS.
+
+       A live token is the honest test of "can we reach anybody". It is
+       downstream of everything the old alert was gesturing at, the Firebase
+       config, the build, the submission, the install and the permission
+       prompt, because a device only registers once all of them are true. */
+    if (s) {
+      out.push(s.pushTokensLive === 0
+        ? {id:"push", sev:"warn", t:"Nothing can be pushed to anybody",
+           m:"Zero live push tokens in production. No device has registered, so every reminder and every announcement reaches nobody, whatever is in the build.",
+           r:"Expo", href:"https://expo.dev/accounts/aakeshp/projects/bolo-mobile"}
+        : {id:"push", sev:"ok", t:"Devices can receive push",
+           m:fmt(s.pushTokensLive) + " live tokens, " + fmt(s.pushTokensIos) + " iOS and " +
+             fmt(s.pushTokensAndroid) + " Android. Disabled rows are excluded, so these are installs Expo still accepts.",
+           r:"Expo", href:"https://expo.dev/accounts/aakeshp/projects/bolo-mobile"});
+    }
+
+    /* THE HALF THAT CANNOT BE MEASURED FROM HERE, so it keeps a checked date.
+       Whether anything CALLS the sender is a fact about schedulers, and a
+       Replit UI cron would be invisible to this page and to the repo alike. */
+    out.push({id:"pushcron", sev:"warn", t:"Nothing is known to call the reminder",
+      m:"POST /push/cron/streak-reminder exists and is secret-guarded, and on 2026-08-26 nothing in the repo called it: no schedule in .replit and no GitHub workflow. If a caller was made in the Replit UI this page cannot see it, so treat scheduled reminders as unproven on BOTH platforms until one arrives on a phone.",
+      r:"Replit", href:"https://replit.com/", since:Date.UTC(2026, 7, 24), checked:Date.UTC(2026, 7, 26)});
     return out;
   }
 
@@ -1791,6 +1821,12 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
           esc(stampWord + ago(at)) + '</span></div>';
     }
     if (host) host.innerHTML = html;
+
+    var WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven",
+                 "Eight", "Nine", "Ten", "Eleven", "Twelve"];
+    var rc = $("rulecount");
+    if (rc) rc.textContent = (WORDS[list.length] || list.length) +
+      (list.length === 1 ? " rule" : " rules");
 
     var chip = $("statuschip");
     if (chip) {

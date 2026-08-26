@@ -98,6 +98,18 @@ type NestSummary = {
   attemptsTodayExclOwner: number;
   sessionsToday: number;
   eventsToday: number;
+  // ── PUSH, added 2026-08-26 ──
+  //
+  // MEASURED RATHER THAN ASSERTED, and it is the whole reason these are here.
+  // The cockpit carried a hand-written alert reading "Android push is not in a
+  // build" which was true when written and wrong by the following morning, and
+  // nothing about a hardcoded string can notice that. A count moves on its own.
+  // A device that has never registered cannot be pushed to no matter what any
+  // build contains, so this is also the number that actually answers the
+  // question the old alert was trying to answer.
+  pushTokensLive: number;
+  pushTokensIos: number;
+  pushTokensAndroid: number;
   /** Learners who have chosen a public name, so the global feed can see them. */
   usernamesSet: number;
   /** Of those, the ones still sharing. The gap is people who opted back out. */
@@ -195,6 +207,14 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
           where created_at > now() - interval '24 hours')::int                   as sessions_today,
         (select count(*) from activity_events
           where created_at > now() - interval '24 hours')::int                   as events_today,
+        -- Live push tokens, by platform. disabled_at is set when Expo answers
+        -- DeviceNotRegistered, so a disabled row is a dead install and must
+        -- not count towards "who could we reach".
+        (select count(*) from push_tokens where disabled_at is null)::int       as push_tokens_live,
+        (select count(*) from push_tokens
+          where disabled_at is null and platform = 'ios')::int                  as push_tokens_ios,
+        (select count(*) from push_tokens
+          where disabled_at is null and platform = 'android')::int              as push_tokens_android,
         -- The global feed's own population, which is the number that says
         -- whether the username gate is actually being walked through.
         (select count(*) from users where username is not null)::int             as usernames_set,
@@ -238,6 +258,9 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
 
     const value: NestSummary = {
       generatedAt: new Date().toISOString(),
+      pushTokensLive: n("push_tokens_live"),
+      pushTokensIos: n("push_tokens_ios"),
+      pushTokensAndroid: n("push_tokens_android"),
       activeNow: n("active_now"),
       activeNowExclOwner: n("active_now_excl_owner"),
       activeToday: n("active_today"),
