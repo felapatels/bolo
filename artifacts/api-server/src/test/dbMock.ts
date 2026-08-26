@@ -86,6 +86,7 @@ export function createDbMockExports(
     lessonsTable: {},
     phraseReportsTable: {},
     usernameReportsTable: {},
+    userBlocksTable: {},
     pushTokensTable: {},
     phrasesTable: {},
     referralRedemptionsTable: {},

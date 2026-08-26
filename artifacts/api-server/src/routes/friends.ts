@@ -19,6 +19,7 @@ import {
   ne,
   or,
   inArray,
+  notInArray,
   isNotNull,
   sql,
   sum,
@@ -28,6 +29,8 @@ import { loadStreakLadder } from "../lib/streakDays";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { sendFriendInviteEmail } from "../lib/inviteEmail";
 import { findFriendshipBetween } from "../lib/friendship";
+import { publicNameFor } from "../lib/publicName";
+import { blockedUserIdsFor } from "../lib/blocks";
 import { normalizeReferralCode, REFERRAL_COPY } from "../lib/referral";
 
 const router: IRouter = Router();
@@ -695,36 +698,11 @@ function utcWeekStart(now: Date): Date {
  */
 export type BoardScope = "friends" | "all";
 
-/**
- * The name a learner wears on a GLOBAL surface.
- *
- * A username if they have chosen one. Otherwise a stable pseudonym, because a
- * feed that only shows the two people who have named themselves is not a feed:
- * it was empty on 2026-08-25 with 22 real accounts and 29 activity rows behind
- * it, and the owner asked for it to "look alive and busy".
- *
- * WHAT THIS DOES AND DOES NOT PUBLISH. It publishes that somebody did
- * something. It does NOT publish who: the display name is private and never
- * leaves the server on a global payload, and the pseudonym is derived from the
- * user id by a one-way sum, so it cannot be read back into an identity and
- * carries no email, no name and no Clerk id.
- *
- * STABLE ON PURPOSE. The same learner is the same "Learner 4821" tomorrow, so
- * a feed reads as people rather than as noise. That stability is also the
- * limit of the anonymity: somebody who watches long enough can follow one
- * pseudonym's activity, which is true of every pseudonymous system and is why
- * choosing a real username is presented as the better option rather than the
- * only one.
- */
-export function publicNameFor(userId: string, username: string | null): string {
-  if (username) return username;
-  let h = 0;
-  for (let i = 0; i < userId.length; i++) {
-    h = (h * 31 + userId.charCodeAt(i)) % 100000;
-  }
-  // Four digits, padded, so every pseudonym is the same shape on a row.
-  return `Learner ${String(h % 10000).padStart(4, "0")}`;
-}
+// publicNameFor moved to lib/publicName.ts on 2026-08-25 so the blocked-
+// accounts list (Guideline 1.2 block control) can use it without importing
+// a route module for a pure function. Re-exported so this module's surface
+// is unchanged.
+export { publicNameFor };
 
 /**
  * How many rows the global board returns.
@@ -766,6 +744,12 @@ router.get(
       req.query.window === "week" ? "week" : "all-time";
     const scope: BoardScope = req.query.scope === "all" ? "all" : "friends";
 
+    // BLOCKS APPLY TO THE BOARD, NOT JUST THE FEED. A block that hid somebody's
+    // moments but left them ranked above you on the leaderboard is a
+    // half-applied control, and the board is the surface a learner stares at
+    // longest. Symmetric and loaded once for both scopes: see lib/blocks.ts.
+    const blockedIds = await blockedUserIdsFor(userId);
+
     const windowFilters = () => {
       const f = [];
       if (window === "week") {
@@ -805,6 +789,12 @@ router.get(
             // on an app with 22 accounts and two chosen names. Opting out still
             // removes you completely.
             eq(usersTable.shareStats, true),
+            // In the where clause so a blocked learner never occupies one of
+            // the GLOBAL_BOARD_LIMIT slots. Filtering after the fetch would
+            // silently shorten the board instead of showing the next learner.
+            ...(blockedIds.length > 0
+              ? [notInArray(usersTable.id, blockedIds)]
+              : []),
             ...windowFilters(),
           ),
         )
@@ -837,7 +827,11 @@ router.get(
     } else {
       const friendIds = await loadAcceptedFriendIds(userId);
       // The board is the caller AND their friends; the feed is friends only.
-      ids = [userId, ...friendIds];
+      // Blocking deletes the friendship, so this filter should never remove
+      // anything; it is here because eligibility belongs on every path into
+      // the list rather than on the one somebody remembered.
+      const blocked = new Set(blockedIds);
+      ids = [userId, ...friendIds.filter((id) => !blocked.has(id))];
       const rows = await db
         .select({ userId: xpLedgerTable.userId, totalXp, reachedAt: reachedAtCol })
         .from(xpLedgerTable)
@@ -1020,6 +1014,28 @@ router.get(
       )})`;
     }
 
+    /**
+     * BLOCKS ARE A WHERE CLAUSE, on both scopes.
+     *
+     * Applied to the friends scope as well as the global one even though
+     * blocking already deletes the friendship, because "eligibility is a where
+     * clause, never a filter on fetched rows" is the rule this route is built
+     * on and a second path into the same list is exactly where the exception
+     * would be forgotten. Symmetric: see lib/blocks.ts.
+     *
+     * An empty list means no filter at all. An empty IN list is not something
+     * any dialect answers usefully, the same trap the friend list above
+     * documents.
+     */
+    const blockedIds = await blockedUserIdsFor(userId);
+    const blockFilter =
+      blockedIds.length === 0
+        ? sql`true`
+        : sql`f.user_id not in (${sql.join(
+            blockedIds.map((id) => sql`${id}`),
+            sql`, `,
+          )})`;
+
     const projected = await db.execute(sql`
       select f.id, f.user_id, f.type, f.ref_id, f.payload, f.created_at
       from (
@@ -1048,7 +1064,7 @@ router.get(
           from game_sessions gs
       ) f
       join users u on u.id = f.user_id
-      where ${scopeFilter}
+      where (${scopeFilter}) and (${blockFilter})
       order by f.created_at desc, f.id desc
       limit ${limit}
     `);

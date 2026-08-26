@@ -39,7 +39,7 @@ import { ChunkyButton } from '@/components/ChunkyButton';
 import {
   BoardScopeToggle,
   PublicNamePrompt,
-  ReportUsernameButton,
+  LearnerSafetyButton,
   useMyPublicName,
   type BoardScope,
 } from '@/components/BoardScope';
@@ -284,7 +284,7 @@ function BoardRow({
           is people you accepted, so a flag there is a bug report about somebody
           you already chose. */}
       {scope === 'all' && !isSelf ? (
-        <ReportUsernameButton
+        <LearnerSafetyButton
           userId={entry.userId}
           username={entry.username ?? entry.displayName ?? null}
         />
@@ -335,9 +335,11 @@ const FEED_PARAMS: GetFriendsFeedParams = { limit: 20 };
 function FeedRow({
   entry,
   resolvers,
+  scope,
 }: {
   entry: FeedEntry;
   resolvers: FeedResolvers;
+  scope: BoardScope;
 }) {
   const colors = useColors();
   const line = feedLineFor(entry, resolvers);
@@ -360,6 +362,16 @@ function FeedRow({
         {line}
       </Text>
       {entry.actor.firstClassActive ? <FirstClassChip /> : null}
+      {/* Same rule as the board row: global scope only. The feed already
+          excludes the caller server-side, so every row here is somebody else
+          and there is no self case to guard. A learner has to be able to act
+          on the surface where they saw the problem. */}
+      {scope === 'all' ? (
+        <LearnerSafetyButton
+          userId={entry.actor.userId}
+          username={entry.actor.username ?? entry.actor.displayName ?? null}
+        />
+      ) : null}
     </View>
   );
 }
@@ -482,7 +494,7 @@ function FeedList({ scope }: { scope: BoardScope }) {
               : appearDown(Math.min(i, 8) * 45, 360)
           }
         >
-          <FeedRow entry={entry} resolvers={resolvers} />
+          <FeedRow entry={entry} resolvers={resolvers} scope={scope} />
         </Animated.View>
       ))}
     </>

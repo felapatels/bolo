@@ -1693,6 +1693,96 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /users/{id}/block:
+    post:
+      operationId: blockUser
+      tags: [friends]
+      summary: Stop seeing another learner, and stop them seeing you
+      description: >-
+        The third App Store Guideline 1.2 control on user-generated content,
+        alongside the write-time profanity screen and the report path. Stored
+        one way (who blocked whom, since only they can undo it) and enforced
+        BOTH ways on every read: the pair disappears from each other's feed and
+        leaderboard. Also deletes any friendship or pending request between the
+        two, so the block is not half-applied. Idempotent, and the blocked
+        learner is never told.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The learner being blocked.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Blocked (or already blocked; the outcome is the same)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhraseReportResult"
+        "400":
+          description: Invalid user id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such learner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: unblockUser
+      tags: [friends]
+      summary: Undo a block
+      description: >-
+        Only the blocker can undo their own block. Unblocking does NOT restore
+        the friendship the block removed: the pair has to ask each other again.
+        Removing a block that was never there is a success, since the caller's
+        desired state is what holds afterwards.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The learner being unblocked.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Not blocked any more
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhraseReportResult"
+        "400":
+          description: Invalid user id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /blocks:
+    get:
+      operationId: listBlockedUsers
+      tags: [friends]
+      summary: The learners this caller has blocked
+      description: >-
+        The list a learner manages their own blocks from. Guideline 1.2 wants
+        the control to be reachable, and a block with no way back is a trap
+        rather than a control. Carries the PUBLIC name only, never the private
+        display name, because everybody on this list is by definition not a
+        friend any more.
+      responses:
+        "200":
+          description: Blocked learners, most recent first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BlockedUser"
+
   /openai/tts/voices:
     get:
       operationId: listTtsVoices
@@ -5788,6 +5878,35 @@ components:
           type: string
           format: date-time
           nullable: true
+
+    BlockedUser:
+      type: object
+      description: >-
+        One learner on the caller's blocked list. Carries the PUBLIC name only,
+        never the private display name: everybody on this list is by definition
+        not a friend any more, so the rule that governs the global feed and
+        board governs this payload too.
+      properties:
+        userId:
+          type: string
+        displayName:
+          type: string
+          description: >-
+            The name to render, which is the username if they chose one and the
+            same stable pseudonym the feed showed otherwise, so the row the
+            learner blocked is the row they recognise here.
+        username:
+          type: string
+          nullable: true
+          description: The learner's public name, or null if they never set one.
+        createdAt:
+          type: string
+          format: date-time
+          description: When the block was made.
+      required:
+        - userId
+        - displayName
+        - createdAt
 
     FeedActor:
       type: object

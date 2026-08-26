@@ -30,6 +30,7 @@ import type {
   AttemptInput,
   AttemptResult,
   Badge,
+  BlockedUser,
   BuyOutfitInput,
   Category,
   ChachaEncounterInput,
@@ -4011,6 +4012,228 @@ export const useReportUsername = <TError = ErrorType<Error>,
       > => {
       return useMutation(getReportUsernameMutationOptions(options));
     }
+
+export const getBlockUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/users/${id}/block`
+}
+
+/**
+ * The third App Store Guideline 1.2 control on user-generated content, alongside the write-time profanity screen and the report path. Stored one way (who blocked whom, since only they can undo it) and enforced BOTH ways on every read: the pair disappears from each other's feed and leaderboard. Also deletes any friendship or pending request between the two, so the block is not half-applied. Idempotent, and the blocked learner is never told.
+ * @summary Stop seeing another learner, and stop them seeing you
+ */
+export const blockUser = async (id: string, options?: RequestInit): Promise<PhraseReportResult> => {
+
+  return customFetch<PhraseReportResult>(getBlockUserUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBlockUserMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof blockUser>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof blockUser>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['blockUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof blockUser>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  blockUser(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BlockUserMutationResult = NonNullable<Awaited<ReturnType<typeof blockUser>>>
+
+    export type BlockUserMutationError = ErrorType<Error>
+
+    /**
+ * @summary Stop seeing another learner, and stop them seeing you
+ */
+export const useBlockUser = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof blockUser>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof blockUser>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getBlockUserMutationOptions(options));
+    }
+
+export const getUnblockUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/users/${id}/block`
+}
+
+/**
+ * Only the blocker can undo their own block. Unblocking does NOT restore the friendship the block removed: the pair has to ask each other again. Removing a block that was never there is a success, since the caller's desired state is what holds afterwards.
+ * @summary Undo a block
+ */
+export const unblockUser = async (id: string, options?: RequestInit): Promise<PhraseReportResult> => {
+
+  return customFetch<PhraseReportResult>(getUnblockUserUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getUnblockUserMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unblockUser>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unblockUser>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['unblockUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unblockUser>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  unblockUser(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnblockUserMutationResult = NonNullable<Awaited<ReturnType<typeof unblockUser>>>
+
+    export type UnblockUserMutationError = ErrorType<Error>
+
+    /**
+ * @summary Undo a block
+ */
+export const useUnblockUser = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unblockUser>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unblockUser>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getUnblockUserMutationOptions(options));
+    }
+
+export const getListBlockedUsersUrl = () => {
+
+
+
+
+  return `/api/blocks`
+}
+
+/**
+ * The list a learner manages their own blocks from. Guideline 1.2 wants the control to be reachable, and a block with no way back is a trap rather than a control. Carries the PUBLIC name only, never the private display name, because everybody on this list is by definition not a friend any more.
+ * @summary The learners this caller has blocked
+ */
+export const listBlockedUsers = async ( options?: RequestInit): Promise<BlockedUser[]> => {
+
+  return customFetch<BlockedUser[]>(getListBlockedUsersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListBlockedUsersQueryKey = () => {
+    return [
+    `/api/blocks`
+    ] as const;
+    }
+
+
+export const getListBlockedUsersQueryOptions = <TData = Awaited<ReturnType<typeof listBlockedUsers>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockedUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListBlockedUsersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listBlockedUsers>>> = ({ signal }) => listBlockedUsers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listBlockedUsers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListBlockedUsersQueryResult = NonNullable<Awaited<ReturnType<typeof listBlockedUsers>>>
+export type ListBlockedUsersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The learners this caller has blocked
+ */
+
+export function useListBlockedUsers<TData = Awaited<ReturnType<typeof listBlockedUsers>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listBlockedUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListBlockedUsersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListTtsVoicesUrl = () => {
 

@@ -16,6 +16,7 @@ import nestRouter from "./nest";
 import scriptTraceRouter from "./scriptTrace";
 import phraseReportsRouter from "./phraseReports";
 import usernameReportsRouter from "./usernameReports";
+import blocksRouter from "./blocks";
 import tokensRouter from "./tokens";
 import chaiPacksRouter from "./chaiPacks";
 import outfitsRouter from "./outfits";
@@ -91,6 +92,10 @@ router.use(phraseReportsRouter);
 // the write-time screen in lib/usernamePolicy.ts. Authed and behind the same
 // gate as the rest: you can only report a name you were shown.
 router.use(usernameReportsRouter);
+// Blocking: the third Guideline 1.2 control, beside the screen and the report
+// path. Authed and open to every learner, because a safety control behind a
+// paywall is not a safety control.
+router.use(blocksRouter);
 // Real Stripe checkout / billing-portal session creation for the web paywall.
 router.use(stripeRouter);
 // Family plan management (seats, invites, join). Available to every

@@ -14,9 +14,13 @@ import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetAccount,
   useReportUsername,
+  useBlockUser,
+  useUnblockUser,
+  useListBlockedUsers,
   type UsernameReportInputReason,
 } from '@workspace/api-client-react';
 import { AppFonts } from '@/constants/fonts';
@@ -148,74 +152,214 @@ const REPORT_REASONS: { value: UsernameReportInputReason; label: string }[] = [
 ];
 
 /**
- * Report someone's public name.
+ * The safety control on another learner's row: report the name, or block them.
  *
- * THE OTHER HALF OF THE SCREEN. The write-time profanity check catches the
- * obvious and nothing else: it cannot read intent, it does not know every
- * language's slang, and it will never catch a name that is only offensive in
- * context or only offensive to the person being impersonated. Bolo teaches
- * children, so the two ship together or neither should.
+ * ONE ENTRY POINT, TWO ACTIONS. App Store Review Guideline 1.2 asks for
+ * filtering, reporting AND blocking on user-generated content. Bolo shipped
+ * the first two on 2026-08-25 (the write-time profanity screen and the report
+ * path) and this adds the third. They share a button because a leaderboard row
+ * is a cramped place and two icons there read as clutter rather than as
+ * safety, and because a learner upset enough to open this menu should find
+ * both remedies in one place rather than guessing which icon is which.
  *
- * ALWAYS ACKNOWLEDGES, NEVER CONFIRMS AN OUTCOME. The server drops reports
- * silently past a rolling cap and nothing auto-hides a name, so "somebody will
- * look" is the only honest thing to say.
+ * THE TWO ARE NOT THE SAME PROMISE and the copy says so. A report goes to a
+ * queue somebody reads later and changes nothing on screen. A block takes
+ * effect on the next read and is the only one of the two that gives the
+ * learner relief now.
+ *
+ * ALWAYS AVAILABLE, even for a learner who never chose a username: they appear
+ * under a stable pseudonym rather than not at all, so "you can block anybody
+ * you can see" has to hold for them too.
+ *
+ * Web twin: src/components/board-scope.tsx LearnerSafetyButton. Keep in step.
  */
-export function ReportUsernameButton({
+export function LearnerSafetyButton({
   userId,
   username,
 }: {
   userId: string;
   username: string | null;
 }) {
+  type View = 'menu' | 'reasons' | 'sent' | 'confirmBlock' | 'blocked';
   const colors = useColors();
-  const [open, setOpen] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [view, setView] = useState<View | null>(null);
   const report = useReportUsername();
+  const block = useBlockUser();
+  const queryClient = useQueryClient();
 
-  if (!username) return null;
+  // The pseudonym arrives in `username` from the caller, so this fallback is
+  // for a row with no name of any kind rather than for an unnamed learner.
+  const name = username ?? 'this learner';
+  const busy = report.isPending || block.isPending;
 
   return (
     <>
       <Pressable
         testID={`report-username-${userId}`}
         accessibilityRole="button"
-        accessibilityLabel={`Report ${username}`}
+        accessibilityLabel={`Report or block ${name}`}
         hitSlop={8}
         onPress={() => {
           hapticLight();
-          setOpen(true);
+          setView('menu');
         }}
         style={styles.flagBtn}
       >
         <Feather name="flag" size={14} color={colors.mutedForeground} />
       </Pressable>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+      <Modal
+        visible={view !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setView(null)}
+      >
         <View style={styles.backdrop}>
           <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {sent ? (
+            {view === 'menu' && (
+              <>
+                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{name}</Text>
+                <Text style={[styles.sheetBody, { color: colors.mutedForeground }]}>
+                  What would you like to do?
+                </Text>
+                <Pressable
+                  testID={`safety-report-${userId}`}
+                  accessibilityRole="button"
+                  onPress={() => setView('reasons')}
+                  style={[styles.reason, { borderColor: colors.border }]}
+                >
+                  <Text style={[styles.reasonText, { color: colors.foreground }]}>
+                    Report this name
+                  </Text>
+                  <Text style={[styles.reasonSub, { color: colors.mutedForeground }]}>
+                    Somebody will look at it. Nothing changes on your screen.
+                  </Text>
+                </Pressable>
+                <Pressable
+                  testID={`safety-block-${userId}`}
+                  accessibilityRole="button"
+                  onPress={() => setView('confirmBlock')}
+                  style={[styles.reason, { borderColor: colors.border }]}
+                >
+                  <Text style={[styles.reasonText, { color: colors.foreground }]}>
+                    Block {name}
+                  </Text>
+                  <Text style={[styles.reasonSub, { color: colors.mutedForeground }]}>
+                    You stop seeing each other straight away.
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setView(null)}
+                  style={styles.cancel}
+                >
+                  <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>
+                    Cancel
+                  </Text>
+                </Pressable>
+              </>
+            )}
+
+            {view === 'confirmBlock' && (
+              <>
+                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
+                  Block {name}?
+                </Text>
+                {/* Says what actually happens, including the part people are
+                    surprised by: blocking removes the friendship. Burying that
+                    is how a safety control turns into a support ticket. */}
+                <Text style={[styles.sheetBody, { color: colors.mutedForeground }]}>
+                  You will not see each other on the feed or the leaderboard, and
+                  if you are friends that ends too. They are not told. You can
+                  undo this in Account.
+                </Text>
+                <Pressable
+                  testID={`safety-block-confirm-${userId}`}
+                  accessibilityRole="button"
+                  disabled={busy}
+                  onPress={async () => {
+                    try {
+                      await block.mutateAsync({ id: userId });
+                    } catch {
+                      // Swallowed like the report path. A block that failed to
+                      // send is not the learner's problem to solve, and the
+                      // list refresh below shows the truth either way.
+                    }
+                    // Everything that lists other learners has to re-read: the
+                    // block is enforced in the server's where clause, so a
+                    // stale cache would keep the row on screen and read as the
+                    // control having done nothing.
+                    await queryClient.invalidateQueries();
+                    setView('blocked');
+                  }}
+                  style={[styles.cta, { backgroundColor: colors.destructive }]}
+                >
+                  <Text style={[styles.ctaText, { color: colors.destructiveForeground }]}>
+                    {busy ? 'Blocking...' : `Block ${name}`}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setView('menu')}
+                  style={styles.cancel}
+                >
+                  <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>
+                    Back
+                  </Text>
+                </Pressable>
+              </>
+            )}
+
+            {view === 'blocked' && (
+              <>
+                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Blocked</Text>
+                <Text style={[styles.sheetBody, { color: colors.mutedForeground }]}>
+                  You will not see {name} any more. Account has the list if you
+                  change your mind.
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setView(null)}
+                  style={[styles.cta, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={[styles.ctaText, { color: colors.primaryForeground }]}>Done</Text>
+                </Pressable>
+              </>
+            )}
+
+            {view === 'sent' && (
               <>
                 <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Thanks</Text>
                 <Text style={[styles.sheetBody, { color: colors.mutedForeground }]}>
                   Somebody will look at this name. Nothing changes on your screen
                   in the meantime.
                 </Text>
+                {/* The offer to block sits here on purpose: a learner who just
+                    reported somebody is exactly the learner who wants relief
+                    now, and the report alone gives them none. */}
                 <Pressable
+                  testID={`safety-block-after-report-${userId}`}
                   accessibilityRole="button"
-                  onPress={() => {
-                    setOpen(false);
-                    setSent(false);
-                  }}
-                  style={[styles.cta, { backgroundColor: colors.primary }]}
+                  onPress={() => setView('confirmBlock')}
+                  style={[styles.reason, { borderColor: colors.border }]}
                 >
-                  <Text style={[styles.ctaText, { color: colors.primaryForeground }]}>
-                    Done
+                  <Text style={[styles.reasonText, { color: colors.foreground }]}>
+                    Block them as well
                   </Text>
                 </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setView(null)}
+                  style={[styles.cta, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={[styles.ctaText, { color: colors.primaryForeground }]}>Done</Text>
+                </Pressable>
               </>
-            ) : (
+            )}
+
+            {view === 'reasons' && (
               <>
                 <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
-                  Report {username}
+                  Report {name}
                 </Text>
                 <Text style={[styles.sheetBody, { color: colors.mutedForeground }]}>
                   What is wrong with this name?
@@ -225,7 +369,7 @@ export function ReportUsernameButton({
                     key={r.value}
                     testID={`report-reason-${r.value}`}
                     accessibilityRole="button"
-                    disabled={report.isPending}
+                    disabled={busy}
                     onPress={async () => {
                       try {
                         await report.mutateAsync({ id: userId, data: { reason: r.value } });
@@ -234,7 +378,7 @@ export function ReportUsernameButton({
                         // not the reporter's problem, and an error here reads as
                         // "your report was wrong".
                       }
-                      setSent(true);
+                      setView('sent');
                     }}
                     style={[styles.reason, { borderColor: colors.border }]}
                   >
@@ -245,11 +389,11 @@ export function ReportUsernameButton({
                 ))}
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setOpen(false)}
+                  onPress={() => setView('menu')}
                   style={styles.cancel}
                 >
                   <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>
-                    Cancel
+                    Back
                   </Text>
                 </Pressable>
               </>
@@ -258,6 +402,74 @@ export function ReportUsernameButton({
         </View>
       </Modal>
     </>
+  );
+}
+
+/**
+ * The blocked-learners list, and the only way back from a block.
+ *
+ * A BLOCK WITH NO WAY BACK IS A TRAP, NOT A CONTROL. Guideline 1.2 wants
+ * blocking to be reachable; a learner who blocked somebody by accident, or who
+ * has since made up with them, needs this list to exist or their only remedy
+ * is deleting the account.
+ *
+ * RENDERS NOTHING WHEN THE LIST IS EMPTY, which is almost everybody. An empty
+ * "Blocked" section on every account screen teaches learners that blocking is
+ * expected, and the setting is only interesting once it has something in it.
+ *
+ * Web twin: src/components/board-scope.tsx BlockedLearnersList. Keep in step.
+ */
+export function BlockedLearnersList() {
+  const colors = useColors();
+  const { data, isLoading } = useListBlockedUsers();
+  const unblock = useUnblockUser();
+  const queryClient = useQueryClient();
+
+  if (isLoading || !data || data.length === 0) return null;
+
+  return (
+    <View style={styles.blockedWrap} testID="blocked-learners">
+      <Text style={[styles.blockedTitle, { color: colors.foreground }]}>
+        Blocked learners
+      </Text>
+      <Text style={[styles.blockedBody, { color: colors.mutedForeground }]}>
+        You do not see each other on the Everyone board or feed. Unblocking does
+        not make you friends again.
+      </Text>
+      {data.map((row) => (
+        <View
+          key={row.userId}
+          testID={`blocked-row-${row.userId}`}
+          style={[styles.blockedRow, { borderColor: colors.border }]}
+        >
+          <Text
+            numberOfLines={1}
+            style={[styles.blockedName, { color: colors.foreground }]}
+          >
+            {row.displayName}
+          </Text>
+          <Pressable
+            testID={`unblock-${row.userId}`}
+            accessibilityRole="button"
+            disabled={unblock.isPending}
+            onPress={async () => {
+              try {
+                await unblock.mutateAsync({ id: row.userId });
+              } catch {
+                // Swallowed, same as the block path. The refetch below is what
+                // tells the learner whether it worked.
+              }
+              await queryClient.invalidateQueries();
+            }}
+            style={[styles.unblockBtn, { borderColor: colors.border }]}
+          >
+            <Text style={[styles.unblockText, { color: colors.foreground }]}>
+              Unblock
+            </Text>
+          </Pressable>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -316,6 +528,22 @@ const styles = StyleSheet.create({
   reasonText: { fontFamily: AppFonts.bold, fontSize: 14 },
   cta: { alignItems: 'center', borderRadius: 14, marginTop: 4, paddingVertical: 13 },
   ctaText: { fontFamily: AppFonts.bold, fontSize: 15 },
+  reasonSub: { fontFamily: AppFonts.regular, fontSize: 12, lineHeight: 16, marginTop: 2 },
+  blockedWrap: { gap: 8 },
+  blockedTitle: { fontFamily: AppFonts.bold, fontSize: 14 },
+  blockedBody: { fontFamily: AppFonts.regular, fontSize: 12, lineHeight: 17 },
+  blockedRow: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  blockedName: { flex: 1, fontFamily: AppFonts.bold, fontSize: 14 },
+  unblockBtn: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6 },
+  unblockText: { fontFamily: AppFonts.bold, fontSize: 12 },
   cancel: { alignItems: 'center', paddingVertical: 10 },
   cancelText: { fontFamily: AppFonts.bold, fontSize: 14 },
 });

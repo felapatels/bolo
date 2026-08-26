@@ -52,6 +52,7 @@ import {
   reportApiFailure,
 } from '@/lib/apiErrors';
 import { loadCoachVoicePref, saveCoachVoicePref } from '@/lib/coachVoicePref';
+import { BlockedLearnersList } from '@/components/BoardScope';
 import { hapticLight } from '@/lib/haptics';
 
 // The account & settings hub. Everything that used to live as a lone sign-out
@@ -593,6 +594,11 @@ export default function AccountScreen() {
                 </Text>
               </View>
             </Pressable>
+
+            {/* The way back from a block, beside the other public-name
+                settings. Renders nothing until there is something on the
+                list. Web twin: pages/account.tsx. */}
+            <BlockedLearnersList />
           </View>
 
           {/* Subscription */}

@@ -61,7 +61,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   BoardScopeToggle,
   PublicNamePrompt,
-  ReportUsernameButton,
+  LearnerSafetyButton,
   useMyPublicName,
   type BoardScope,
 } from "@/components/board-scope";
@@ -244,7 +244,7 @@ function BoardRow({
             you already chose. Reporting yourself is a misclick the server
             quietly ignores, so the control simply is not drawn. */}
         {scope === "all" && !entry.isSelf && (
-          <ReportUsernameButton
+          <LearnerSafetyButton
             userId={entry.userId}
             username={entry.username ?? entry.displayName ?? null}
           />
@@ -311,10 +311,12 @@ function FeedRow({
   entry,
   index,
   resolvers,
+  scope,
 }: {
   entry: FeedEntry;
   index: number;
   resolvers: FeedResolvers;
+  scope: BoardScope;
 }) {
   const line = feedLineFor(entry, resolvers);
   // An event this build does not know how to describe renders nothing at all.
@@ -333,6 +335,18 @@ function FeedRow({
         {line}
       </p>
       {entry.actor.firstClassActive && <FirstClassChip />}
+      {/* Same rule as the board row: global scope only. The feed already
+          excludes the caller server-side, so every row here is somebody else
+          and there is no self case to guard. A learner has to be able to act
+          on the surface where they saw the problem, and for the feed that is
+          this row rather than a name they then have to go and find on the
+          board. */}
+      {scope === "all" && (
+        <LearnerSafetyButton
+          userId={entry.actor.userId}
+          username={entry.actor.username ?? entry.actor.displayName ?? null}
+        />
+      )}
     </motion.div>
   );
 }
@@ -426,7 +440,13 @@ function FeedList({ scope }: { scope: BoardScope }) {
   return (
     <div className="space-y-3">
       {entries.map((entry, i) => (
-        <FeedRow key={entry.id} entry={entry} index={i} resolvers={resolvers} />
+        <FeedRow
+          key={entry.id}
+          entry={entry}
+          index={i}
+          resolvers={resolvers}
+          scope={scope}
+        />
       ))}
     </div>
   );

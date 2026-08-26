@@ -12,10 +12,14 @@
 // Mobile twin: components/BoardScope.tsx. Keep both in step.
 import { useState } from "react";
 import { Link } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { Flag, Globe, Users } from "lucide-react";
 import {
   useGetAccount,
   useReportUsername,
+  useBlockUser,
+  useUnblockUser,
+  useListBlockedUsers,
   type UsernameReportInputReason,
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
@@ -129,73 +133,206 @@ const REPORT_REASONS: { value: UsernameReportInputReason; label: string }[] = [
 ];
 
 /**
- * Report someone's public name.
+ * The safety control on another learner's row: report the name, or block them.
  *
- * THE OTHER HALF OF THE SCREEN. The write-time profanity check catches the
- * obvious and nothing else: it cannot read intent, it does not know every
- * language's slang, and it will never catch a name that is only offensive in
- * context or only offensive to the person being impersonated. Bolo teaches
- * children, so the two ship together or neither should.
+ * ONE ENTRY POINT, TWO ACTIONS. App Store Review Guideline 1.2 asks for
+ * filtering, reporting AND blocking on user-generated content. Bolo shipped
+ * the first two on 2026-08-25 (the write-time profanity screen and the report
+ * path) and this adds the third. They share a button because a leaderboard row
+ * is a cramped place and two icons there read as clutter rather than as
+ * safety, and because a learner who is upset enough to open this menu should
+ * find both remedies in one place rather than guessing which icon is which.
  *
- * ALWAYS ACKNOWLEDGES, NEVER CONFIRMS AN OUTCOME. The server drops reports
- * silently past a rolling cap and nothing auto-hides a name, so "thanks, we
- * will look" is the only honest thing to say. Promising removal would be a
- * promise made by a queue nobody has read yet.
+ * THE TWO ARE NOT THE SAME PROMISE and the copy says so. A report goes to a
+ * queue somebody reads later and changes nothing on screen. A block takes
+ * effect on the next read and is the only one of the two that gives the
+ * learner relief now.
+ *
+ * ALWAYS AVAILABLE, even for a learner who never chose a username. They appear
+ * under a stable pseudonym rather than not at all, so "you can block anybody
+ * you can see" has to hold for them too; an unnamed row you cannot block would
+ * be the exact gap this control exists to close.
  */
-export function ReportUsernameButton({
+export function LearnerSafetyButton({
   userId,
   username,
 }: {
   userId: string;
   username: string | null;
 }) {
-  const [open, setOpen] = useState(false);
-  const [sent, setSent] = useState(false);
+  type View = "menu" | "reasons" | "sent" | "confirmBlock" | "blocked";
+  const [view, setView] = useState<View | null>(null);
   const report = useReportUsername();
+  const block = useBlockUser();
+  const queryClient = useQueryClient();
 
-  if (!username) return null;
+  // The pseudonym arrives in `username` from the caller, so this fallback is
+  // for a row with no name of any kind rather than for an unnamed learner.
+  const name = username ?? "this learner";
+  const busy = report.isPending || block.isPending;
+
+  function close() {
+    setView(null);
+  }
 
   return (
     <>
       <button
         type="button"
         data-testid={`report-username-${userId}`}
-        aria-label={`Report ${username}`}
-        onClick={() => setOpen(true)}
+        aria-label={`Report or block ${name}`}
+        onClick={() => setView("menu")}
         className="rounded-lg p-1.5 text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
       >
         <Flag className="h-3.5 w-3.5" />
       </button>
-      {open && (
+      {view && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6"
           role="dialog"
           aria-modal="true"
-          aria-label={`Report ${username}`}
+          aria-label={`Report or block ${name}`}
         >
           <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-5">
-            {sent ? (
+            {view === "menu" && (
+              <>
+                <p className="text-lg font-black text-foreground">{name}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  What would you like to do?
+                </p>
+                <div className="mt-3 space-y-2">
+                  <button
+                    type="button"
+                    data-testid={`safety-report-${userId}`}
+                    onClick={() => setView("reasons")}
+                    className="w-full rounded-2xl border border-border px-4 py-3 text-left text-foreground transition-colors hover:bg-muted"
+                  >
+                    <span className="block text-sm font-bold">
+                      Report this name
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Somebody will look at it. Nothing changes on your screen.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid={`safety-block-${userId}`}
+                    onClick={() => setView("confirmBlock")}
+                    className="w-full rounded-2xl border border-border px-4 py-3 text-left text-foreground transition-colors hover:bg-muted"
+                  >
+                    <span className="block text-sm font-bold">
+                      Block {name}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      You stop seeing each other straight away.
+                    </span>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={close}
+                  className="mt-3 w-full rounded-2xl py-2.5 text-sm font-bold text-muted-foreground hover:bg-muted"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+
+            {view === "confirmBlock" && (
+              <>
+                <p className="text-lg font-black text-foreground">
+                  Block {name}?
+                </p>
+                {/* Says what actually happens, including the part people are
+                    surprised by: blocking removes the friendship. Burying that
+                    is how a safety control turns into a support ticket. */}
+                <p className="mt-1 text-sm text-muted-foreground">
+                  You will not see each other on the feed or the leaderboard,
+                  and if you are friends that ends too. They are not told. You
+                  can undo this in Account.
+                </p>
+                <button
+                  type="button"
+                  data-testid={`safety-block-confirm-${userId}`}
+                  disabled={busy}
+                  onClick={async () => {
+                    try {
+                      await block.mutateAsync({ id: userId });
+                    } catch {
+                      // Swallowed like the report path. A block that failed to
+                      // send is not the learner's problem to solve, and the
+                      // list refresh below shows the truth either way.
+                    }
+                    // Everything that lists other learners has to re-read: the
+                    // block is enforced in the server's where clause, so a
+                    // stale cache would keep the row on screen and read as the
+                    // control having done nothing.
+                    await queryClient.invalidateQueries();
+                    setView("blocked");
+                  }}
+                  className="mt-4 w-full rounded-2xl bg-destructive py-3 font-bold text-destructive-foreground disabled:opacity-60"
+                >
+                  {busy ? "Blocking..." : `Block ${name}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView("menu")}
+                  className="mt-2 w-full rounded-2xl py-2.5 text-sm font-bold text-muted-foreground hover:bg-muted"
+                >
+                  Back
+                </button>
+              </>
+            )}
+
+            {view === "blocked" && (
+              <>
+                <p className="text-lg font-black text-foreground">Blocked</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  You will not see {name} any more. Account has the list if you
+                  change your mind.
+                </p>
+                <button
+                  type="button"
+                  onClick={close}
+                  className="mt-4 w-full rounded-2xl bg-primary py-3 font-bold text-white"
+                >
+                  Done
+                </button>
+              </>
+            )}
+
+            {view === "sent" && (
               <>
                 <p className="text-lg font-black text-foreground">Thanks</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Somebody will look at this name. Nothing changes on your
                   screen in the meantime.
                 </p>
+                {/* The offer to block sits here on purpose: a learner who just
+                    reported somebody is exactly the learner who wants relief
+                    now, and the report alone gives them none. */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    setSent(false);
-                  }}
-                  className="mt-4 w-full rounded-2xl bg-primary py-3 font-bold text-white"
+                  data-testid={`safety-block-after-report-${userId}`}
+                  onClick={() => setView("confirmBlock")}
+                  className="mt-4 w-full rounded-2xl border border-border px-4 py-3 text-sm font-bold text-foreground transition-colors hover:bg-muted"
+                >
+                  Block them as well
+                </button>
+                <button
+                  type="button"
+                  onClick={close}
+                  className="mt-2 w-full rounded-2xl bg-primary py-3 font-bold text-white"
                 >
                   Done
                 </button>
               </>
-            ) : (
+            )}
+
+            {view === "reasons" && (
               <>
                 <p className="text-lg font-black text-foreground">
-                  Report {username}
+                  Report {name}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   What is wrong with this name?
@@ -206,7 +343,7 @@ export function ReportUsernameButton({
                       key={r.value}
                       type="button"
                       data-testid={`report-reason-${r.value}`}
-                      disabled={report.isPending}
+                      disabled={busy}
                       onClick={async () => {
                         try {
                           await report.mutateAsync({
@@ -218,7 +355,7 @@ export function ReportUsernameButton({
                           // is not the reporter's problem to solve, and an error
                           // here reads as "your report was wrong".
                         }
-                        setSent(true);
+                        setView("sent");
                       }}
                       className="w-full rounded-2xl border border-border px-4 py-3 text-left text-sm font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
                     >
@@ -228,10 +365,10 @@ export function ReportUsernameButton({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setOpen(false)}
+                  onClick={() => setView("menu")}
                   className="mt-3 w-full rounded-2xl py-2.5 text-sm font-bold text-muted-foreground hover:bg-muted"
                 >
-                  Cancel
+                  Back
                 </button>
               </>
             )}
@@ -239,5 +376,66 @@ export function ReportUsernameButton({
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The blocked-learners list, and the only way back from a block.
+ *
+ * A BLOCK WITH NO WAY BACK IS A TRAP, NOT A CONTROL. Guideline 1.2 wants
+ * blocking to be reachable; a learner who blocked somebody by accident, or who
+ * has since made up with them, needs this list to exist or their only remedy
+ * is deleting the account. It lives in Account beside the other public-name
+ * settings because that is where somebody looks for "what have I done about
+ * other people".
+ *
+ * RENDERS NOTHING WHEN THE LIST IS EMPTY, which is almost everybody. An empty
+ * "Blocked" section on every account screen teaches learners that blocking is
+ * expected, and the setting is only interesting once it has something in it.
+ */
+export function BlockedLearnersList() {
+  const { data, isLoading } = useListBlockedUsers();
+  const unblock = useUnblockUser();
+  const queryClient = useQueryClient();
+
+  if (isLoading || !data || data.length === 0) return null;
+
+  return (
+    <div className="space-y-2" data-testid="blocked-learners">
+      <p className="text-sm font-bold text-foreground">Blocked learners</p>
+      <p className="text-xs text-muted-foreground">
+        You do not see each other on the Everyone board or feed. Unblocking does
+        not make you friends again.
+      </p>
+      {data.map((row) => (
+        <div
+          key={row.userId}
+          data-testid={`blocked-row-${row.userId}`}
+          className="flex items-center gap-3 rounded-2xl border border-border p-3"
+        >
+          <span className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">
+            {row.displayName}
+          </span>
+          <button
+            type="button"
+            data-testid={`unblock-${row.userId}`}
+            disabled={unblock.isPending}
+            onClick={async () => {
+              try {
+                await unblock.mutateAsync({ id: row.userId });
+              } catch {
+                // Swallowed, same as the block path. The refetch below is what
+                // tells the learner whether it worked, and an error toast here
+                // would be a second, less reliable answer.
+              }
+              await queryClient.invalidateQueries();
+            }}
+            className="shrink-0 rounded-xl border border-border px-3 py-1.5 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+          >
+            Unblock
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }

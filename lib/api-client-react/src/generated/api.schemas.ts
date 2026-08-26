@@ -1722,6 +1722,19 @@ export interface TokenSpendResult {
 }
 
 /**
+ * One learner on the caller's blocked list. Carries the PUBLIC name only, never the private display name: everybody on this list is by definition not a friend any more, so the rule that governs the global feed and board governs this payload too.
+ */
+export interface BlockedUser {
+  userId: string;
+  /** The name to render, which is the username if they chose one and the same stable pseudonym the feed showed otherwise, so the row the learner blocked is the row they recognise here. */
+  displayName: string;
+  /** The learner's public name, or null if they never set one. */
+  username?: string | null;
+  /** When the block was made. */
+  createdAt: string;
+}
+
+/**
  * The learner a feed entry is about. Name and mascot only: a feed never carries an email address, because a friend code is deliberately the only way to find another learner.
  */
 export interface FeedActor {

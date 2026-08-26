@@ -1352,6 +1352,45 @@ export const ReportUsernameResponse = zod.object({
 
 
 /**
+ * The third App Store Guideline 1.2 control on user-generated content, alongside the write-time profanity screen and the report path. Stored one way (who blocked whom, since only they can undo it) and enforced BOTH ways on every read: the pair disappears from each other's feed and leaderboard. Also deletes any friendship or pending request between the two, so the block is not half-applied. Idempotent, and the blocked learner is never told.
+ * @summary Stop seeing another learner, and stop them seeing you
+ */
+export const BlockUserParams = zod.object({
+  "id": zod.coerce.string().describe('The learner being blocked.')
+})
+
+export const BlockUserResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
+ * Only the blocker can undo their own block. Unblocking does NOT restore the friendship the block removed: the pair has to ask each other again. Removing a block that was never there is a success, since the caller's desired state is what holds afterwards.
+ * @summary Undo a block
+ */
+export const UnblockUserParams = zod.object({
+  "id": zod.coerce.string().describe('The learner being unblocked.')
+})
+
+export const UnblockUserResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
+ * The list a learner manages their own blocks from. Guideline 1.2 wants the control to be reachable, and a block with no way back is a trap rather than a control. Carries the PUBLIC name only, never the private display name, because everybody on this list is by definition not a friend any more.
+ * @summary The learners this caller has blocked
+ */
+export const ListBlockedUsersResponseItem = zod.object({
+  "userId": zod.string(),
+  "displayName": zod.string().describe('The name to render, which is the username if they chose one and the same stable pseudonym the feed showed otherwise, so the row the learner blocked is the row they recognise here.'),
+  "username": zod.string().nullish().describe('The learner\'s public name, or null if they never set one.'),
+  "createdAt": zod.coerce.date().describe('When the block was made.')
+}).describe('One learner on the caller\'s blocked list. Carries the PUBLIC name only, never the private display name: everybody on this list is by definition not a friend any more, so the rule that governs the global feed and board governs this payload too.')
+export const ListBlockedUsersResponse = zod.array(ListBlockedUsersResponseItem)
+
+
+/**
  * Returns the curated VOICE_CATALOG of ElevenLabs premade voices plus the authenticated user's current ttsVoice preference (null = Auto).
  * @summary List available TTS voices and the caller's current preference
  */

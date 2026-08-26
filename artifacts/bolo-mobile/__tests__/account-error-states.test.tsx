@@ -41,6 +41,11 @@ jest.mock('@workspace/api-client-react', () => ({
   useUpdateAccountProfile: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useUpdateAccountPreferences: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useDeleteAccount: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  // Added 2026-08-25 with the Guideline 1.2 block control: Account now renders
+  // BlockedLearnersList, which reads this. An empty list makes the section
+  // render nothing, which is what these error-state tests want on screen.
+  useListBlockedUsers: () => ({ data: [], isLoading: false }),
+  useUnblockUser: () => ({ mutateAsync: jest.fn(), isPending: false }),
   setFailedResponseObserver: jest.fn(),
 }));
 

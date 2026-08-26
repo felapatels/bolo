@@ -65,6 +65,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { BlockedLearnersList } from "@/components/board-scope";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
@@ -481,6 +482,10 @@ export default function Account() {
               Paste a link to a photo, or leave blank to use your initials.
             </p>
           </div>
+
+          {/* The way back from a block, beside the other public-name settings.
+              Renders nothing until there is something on the list. */}
+          <BlockedLearnersList />
 
           <Button
             onClick={handleSaveProfile}
