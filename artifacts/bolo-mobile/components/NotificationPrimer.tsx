@@ -80,32 +80,34 @@ export function NotificationPrimer() {
 
     void (async () => {
       try {
-      const [permission, record] = await Promise.all([
-        getNotificationPermission(),
-        readRecord(),
-      ]);
-      const state: PrimerState = {
-        supported: remindersSupported,
-        granted: permission.granted,
-        canAskAgain: permission.canAskAgain,
-        ready: true,
-        timesShown: record.timesShown,
-        lastShownAt: record.lastShownAt,
-      };
-      if (!shouldShowPrimer(state, Date.now())) {
-        // Already granted and never asked through here? Still worth making sure
-        // the server has a token: a learner who allowed notifications on an
-        // earlier install has a grant and no row in push_tokens.
-        if (permission.granted) void syncPushToken();
-        return;
-      }
-      // Counted on SHOW, not on accept. A "not now" that did not count would
-      // re-ask on the next launch.
-      await AsyncStorage.setItem(
-        STORE_KEY,
-        JSON.stringify(nextPrimerRecord({ timesShown: record.timesShown }, Date.now())),
-      ).catch(() => {});
-      setOpen(true);
+        const [permission, record] = await Promise.all([
+          getNotificationPermission(),
+          readRecord(),
+        ]);
+        const state: PrimerState = {
+          supported: remindersSupported,
+          granted: permission.granted,
+          canAskAgain: permission.canAskAgain,
+          ready: true,
+          timesShown: record.timesShown,
+          lastShownAt: record.lastShownAt,
+        };
+        if (!shouldShowPrimer(state, Date.now())) {
+          // Already granted and never asked through here? Still worth making
+          // sure the server has a token: a learner who allowed notifications on
+          // an earlier install has a grant and no row in push_tokens.
+          if (permission.granted) void syncPushToken();
+          return;
+        }
+        // Counted on SHOW, not on accept. A "not now" that did not count would
+        // re-ask on the next launch.
+        await AsyncStorage.setItem(
+          STORE_KEY,
+          JSON.stringify(
+            nextPrimerRecord({ timesShown: record.timesShown }, Date.now()),
+          ),
+        ).catch(() => {});
+        setOpen(true);
       } catch {
         // A permission read that throws must never take the signed-in layout
         // down with it. There is no fallback worth attempting: if we cannot
