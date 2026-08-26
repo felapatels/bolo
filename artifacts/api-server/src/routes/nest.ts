@@ -26,7 +26,8 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import type { AuthedRequest } from "../middlewares/requireAuth";
-import { isOwner, ownerUserIds, NEST_ARTIFACT_URL } from "../lib/ownerGate";
+import { isOwner, nonLearnerUserIds, NEST_ARTIFACT_URL } from "../lib/ownerGate";
+import { usableNote } from "../lib/reportNote";
 
 const router: IRouter = Router();
 
@@ -144,7 +145,9 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
   // query itself was fine: run by hand against the same database it returns
   // 22 and 19. sql.join builds an explicit "$1, $2, $3" list instead, which
   // needs no array typing and cannot be reinterpreted.
-  const owners = [...ownerUserIds];
+  // nonLearnerUserIds, not ownerUserIds: the App Review tester is not a
+  // customer either, and it filed all 47 phrase reports. See lib/ownerGate.
+  const owners = [...nonLearnerUserIds];
   const ownerList = sql.join(
     owners.map((o) => sql`${o}`),
     sql`, `,
@@ -324,6 +327,245 @@ function nestPage(): string {
   throw new Error("nest-production.html not found beside the api-server build");
 }
 
+/* ------------------------------- the drill-down --------------------------- */
+
+/**
+ * THE ROWS BEHIND A NUMBER.
+ *
+ * "I want to be able to drill into any of the numbers. If I click 20 accounts,
+ * I should see the data behind that, what are these accounts, whatever we know
+ * about them." 2026-08-26.
+ *
+ * EVERY METRIC DRILLS TO A LIST OF LEARNERS, which is what makes one endpoint
+ * enough. Account-shaped metrics (accounts, paid, free, trialing, signups)
+ * list who they are; event-shaped ones (active, attempts, games, chats) list
+ * WHO DID THEM, ranked, because "who made those 160 attempts" is the question
+ * somebody clicking 160 is actually asking. A list of 160 undifferentiated
+ * attempt rows would answer nothing.
+ *
+ * THE SAME EXCLUSION AS THE TILE IT CAME FROM. A drill-down that quietly used
+ * a different denominator would make the list disagree with the number that
+ * opened it, which is worse than having no drill-down.
+ *
+ * WHAT IT CANNOT TELL YOU, and the page says so rather than implying
+ * otherwise: whether a paid subscription is a real purchase or a sandbox /
+ * TestFlight one. RevenueCat sends `environment` on every webhook and
+ * routes/revenuecat.ts LOGS it and stores nothing, so no column holds it. That
+ * is a migration plus a webhook write, deliberately not done on the evening of
+ * an App Store submission. Until then a zero-revenue "paid" account is
+ * identified by eye, and the payload carries provider and dates to make that
+ * possible.
+ */
+type NestDrillRow = {
+  userId: string;
+  email: string | null;
+  username: string | null;
+  displayName: string | null;
+  tier: string;
+  subscriptionStatus: string | null;
+  subscriptionProvider: string | null;
+  currentPeriodEnd: string | null;
+  shareStats: boolean;
+  createdAt: string;
+  /** Most recent attempt, or null for somebody who has never practised. */
+  lastActiveAt: string | null;
+  /** Lifetime attempts, so a row reads as a person rather than an id. */
+  attempts: number;
+  /** The number this metric ranked on, within the window where one applies. */
+  metricValue: number;
+};
+
+type NestDrill = {
+  generatedAt: string;
+  metric: string;
+  label: string;
+  /** What the number means, in the same words the tile used. */
+  note: string;
+  exclOwner: boolean;
+  from: string | null;
+  to: string | null;
+  total: number;
+  rows: NestDrillRow[];
+};
+
+const DRILL_LIMIT = 200;
+
+/**
+ * Each metric as (label, note, predicate, ranking expression).
+ *
+ * WINDOWED metrics take from/to; SNAPSHOT ones ignore it, exactly as the tiles
+ * above do, and the note repeats which kind it is so a reader who opened the
+ * panel from a 7-day view is not misled by a lifetime number.
+ */
+const DRILL_METRICS: Record<
+  string,
+  { label: string; note: string; windowed: boolean }
+> = {
+  accounts: {
+    label: "Accounts",
+    note: "Every account, ignoring the date range. A snapshot of the users table.",
+    windowed: false,
+  },
+  paid: {
+    label: "Paid",
+    note:
+      "tier is not free AND subscription_status is active, right now. A sandbox " +
+      "or TestFlight purchase looks identical here and bills nothing: RevenueCat " +
+      "sends the environment on every webhook and nothing stores it yet, so check " +
+      "the provider and the dates by eye.",
+    windowed: false,
+  },
+  free: {
+    label: "Free",
+    note: "Everybody who is not paid, right now. Paid plus free is the account total.",
+    windowed: false,
+  },
+  trialing: {
+    label: "Trialing",
+    note: "subscription_status is trialing, right now.",
+    windowed: false,
+  },
+  signups: {
+    label: "Sign ups",
+    note: "Accounts created inside the selected window.",
+    windowed: true,
+  },
+  activeUsers: {
+    label: "Active learners",
+    note:
+      "Distinct people who recorded an attempt inside the window, ranked by how " +
+      "many. NOT logins: nothing server side records one.",
+    windowed: true,
+  },
+  attempts: {
+    label: "Practice attempts",
+    note: "Who made them, ranked. The tile's number is the sum of this column.",
+    windowed: true,
+  },
+  games: {
+    label: "Games",
+    note: "Finished game sessions inside the window, by learner.",
+    windowed: true,
+  },
+  chats: {
+    label: "Chat replies",
+    note: "Chat turns inside the window, by learner.",
+    windowed: true,
+  },
+};
+
+router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => {
+  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+
+  const metric = String(req.query.metric ?? "");
+  const def = DRILL_METRICS[metric];
+  if (!def) {
+    res.status(400).json({ error: "Unknown metric" });
+    return;
+  }
+
+  const parsed = parseRange(req.query as Record<string, unknown>);
+  if (!parsed) {
+    res.status(400).json({ error: "Invalid from/to range" });
+    return;
+  }
+  const { from, to } = parsed;
+  const exclOwner = req.query.exclOwner !== "0";
+
+  const owners = [...nonLearnerUserIds];
+  const ownerList = sql.join(
+    owners.map((o) => sql`${o}`),
+    sql`, `,
+  );
+  const notOwner = (col: string) =>
+    exclOwner && owners.length > 0
+      ? sql`and ${sql.raw(col)} not in (${ownerList})`
+      : sql``;
+
+  // Which learners this metric selects, and what it ranks them by. Every branch
+  // yields (user_id, metric_value) so the hydrate below is written once.
+  let selector;
+  if (metric === "accounts") {
+    selector = sql`select u.id as user_id, 0 as metric_value from users u where true ${notOwner("u.id")}`;
+  } else if (metric === "paid") {
+    selector = sql`select u.id, 0 from users u
+      where u.tier <> 'free' and u.subscription_status = 'active' ${notOwner("u.id")}`;
+  } else if (metric === "free") {
+    selector = sql`select u.id, 0 from users u
+      where not (u.tier <> 'free' and u.subscription_status = 'active') ${notOwner("u.id")}`;
+  } else if (metric === "trialing") {
+    selector = sql`select u.id, 0 from users u
+      where u.subscription_status = 'trialing' ${notOwner("u.id")}`;
+  } else if (metric === "signups") {
+    selector = sql`select u.id, 0 from users u
+      where u.created_at >= ${from} and u.created_at <= ${to} ${notOwner("u.id")}`;
+  } else if (metric === "games") {
+    selector = sql`select g.user_id, count(*)::int from game_sessions g
+      where g.created_at >= ${from} and g.created_at <= ${to} ${notOwner("g.user_id")}
+      group by 1`;
+  } else if (metric === "chats") {
+    selector = sql`select c.user_id, count(*)::int from chat_turns c
+      where c.created_at >= ${from} and c.created_at <= ${to} ${notOwner("c.user_id")}
+      group by 1`;
+  } else {
+    // activeUsers and attempts are the same selection ranked the same way; the
+    // tile they came from differs only in whether it summed the column.
+    selector = sql`select a.user_id, count(*)::int from attempts a
+      where a.created_at >= ${from} and a.created_at <= ${to} ${notOwner("a.user_id")}
+      group by 1`;
+  }
+
+  try {
+    const rows = await db.execute(sql`
+      with picked(user_id, metric_value) as (${selector})
+      select u.id, u.email, u.username, u.display_name, u.tier,
+             u.subscription_status, u.subscription_provider, u.current_period_end,
+             u.share_stats, u.created_at,
+             picked.metric_value,
+             (select count(*) from attempts a2 where a2.user_id = u.id)::int as attempts,
+             (select max(a3.created_at) from attempts a3 where a3.user_id = u.id) as last_active
+        from picked
+        join users u on u.id = picked.user_id
+       order by picked.metric_value desc, u.created_at desc
+       limit ${DRILL_LIMIT}
+    `);
+    const list = (rows as unknown as { rows?: Record<string, unknown>[] }).rows ??
+      (rows as unknown as Record<string, unknown>[]);
+
+    const value: NestDrill = {
+      generatedAt: new Date().toISOString(),
+      metric,
+      label: def.label,
+      note: def.note,
+      exclOwner,
+      from: def.windowed ? from.toISOString() : null,
+      to: def.windowed ? to.toISOString() : null,
+      total: list.length,
+      rows: list.map((r) => ({
+        userId: String(r.id),
+        email: r.email == null ? null : String(r.email),
+        username: r.username == null ? null : String(r.username),
+        displayName: r.display_name == null ? null : String(r.display_name),
+        tier: String(r.tier ?? "free"),
+        subscriptionStatus: r.subscription_status == null ? null : String(r.subscription_status),
+        subscriptionProvider: r.subscription_provider == null ? null : String(r.subscription_provider),
+        currentPeriodEnd: r.current_period_end == null ? null : new Date(r.current_period_end as string).toISOString(),
+        shareStats: r.share_stats === true,
+        createdAt: new Date(r.created_at as string).toISOString(),
+        lastActiveAt: r.last_active == null ? null : new Date(r.last_active as string).toISOString(),
+        attempts: Number(r.attempts ?? 0),
+        metricValue: Number(r.metric_value ?? 0),
+      })),
+    };
+
+    res.set("Cache-Control", "no-store");
+    res.json(value);
+  } catch (err) {
+    req.log.error({ err, metric }, "nest drill query failed");
+    res.status(500).json({ error: "Could not read the rows" });
+  }
+});
+
 /* ----------------------------- the report queue --------------------------- */
 
 /**
@@ -342,10 +584,22 @@ function nestPage(): string {
  * exists and may since have been CORRECTED, and the useful question here is
  * "is it still wrong", which only a live join can answer.
  *
- * NO OWNER FILTER. Every other panel subtracts the owner because their own
- * testing swamps the numbers. A report is not a number: whoever filed it named
- * a specific phrase, and hiding the owner's own would empty this list
- * completely (all 47 rows in production came from one account).
+ * IT OBEYS THE SAME EXCLUSION AS EVERY OTHER PANEL, and an earlier version of
+ * this route deliberately did not. The argument was that a report is not a
+ * number: somebody named a specific phrase, so hiding the owner's own would
+ * empty the list. Overruled on 2026-08-26 and correctly: "anything from
+ * appletester721 should be hidden with the hide your account flag. So none of
+ * these are actual flags."
+ *
+ * That is the point. All 47 rows came from the App Review tester, so an empty
+ * list IS the honest answer: the product has no learner-side content QA yet.
+ * A panel that shows 47 rows of a tester's walkthrough and calls it QA is
+ * worse than a panel that shows nothing, because it invites work on evidence
+ * that does not exist. Untick the box to see them.
+ *
+ * WITH-A-NOTE APPLIES THE SAME TEST THE WRITE PATH DOES. A note that is only
+ * an email address is not a note, and counting 44 of them as explanations
+ * overstated what is there. See lib/reportNote.ts.
  */
 type NestReport = {
   id: number;
@@ -364,6 +618,7 @@ type NestReport = {
 
 type NestReports = {
   generatedAt: string;
+  exclOwner: boolean;
   total: number;
   /** Distinct accounts that have ever filed one. */
   reporters: number;
@@ -379,12 +634,24 @@ const REPORTS_LIMIT = 200;
 router.get("/nest/reports", async (req: Request, res: Response): Promise<void> => {
   if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
 
+  const exclOwner = req.query.exclOwner !== "0";
+  const owners = [...nonLearnerUserIds];
+  const ownerList = sql.join(
+    owners.map((o) => sql`${o}`),
+    sql`, `,
+  );
+  const notOwner =
+    exclOwner && owners.length > 0
+      ? sql`and r.user_id not in (${ownerList})`
+      : sql``;
+
   try {
     const rows = await db.execute(sql`
       select r.id, r.created_at, r.language_code, r.reason, r.stage, r.note,
              r.phrase_id, p.english, p.native_script, p.romanized
         from phrase_reports r
         left join phrases p on p.id = r.phrase_id
+       where true ${notOwner}
        order by r.created_at desc
        limit ${REPORTS_LIMIT}
     `);
@@ -393,15 +660,15 @@ router.get("/nest/reports", async (req: Request, res: Response): Promise<void> =
 
     const totals = await db.execute(sql`
       select count(*)::int as total,
-             count(distinct user_id)::int as reporters
-        from phrase_reports
+             count(distinct r.user_id)::int as reporters
+        from phrase_reports r where true ${notOwner}
     `);
     const t = ((totals as unknown as { rows?: Record<string, unknown>[] }).rows ??
       (totals as unknown as Record<string, unknown>[]))[0];
 
     const byReasonRows = await db.execute(sql`
-      select reason, count(*)::int as n
-        from phrase_reports group by 1 order by 2 desc
+      select r.reason, count(*)::int as n
+        from phrase_reports r where true ${notOwner} group by 1 order by 2 desc
     `);
     const br = (byReasonRows as unknown as { rows?: Record<string, unknown>[] }).rows ??
       (byReasonRows as unknown as Record<string, unknown>[]);
@@ -421,9 +688,13 @@ router.get("/nest/reports", async (req: Request, res: Response): Promise<void> =
 
     const value: NestReports = {
       generatedAt: new Date().toISOString(),
+      exclOwner,
       total: Number(t?.total ?? 0),
       reporters: Number(t?.reporters ?? 0),
-      withNote: mapped.filter((m) => m.note !== null && m.note.length > 0).length,
+      // usableNote, not a null check. 44 of the 47 rows in production hold an
+      // email address where the explanation should be, and counting those as
+      // notes overstated what is actually there.
+      withNote: mapped.filter((m) => usableNote(m.note ?? undefined) !== undefined).length,
       byReason: br.map((r) => ({ reason: String(r.reason), count: Number(r.n ?? 0) })),
       rows: mapped,
     };
@@ -507,7 +778,9 @@ router.get("/nest/map", async (req: Request, res: Response): Promise<void> => {
   if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
 
   const exclOwner = req.query.exclOwner !== "0";
-  const owners = [...ownerUserIds];
+  // nonLearnerUserIds, not ownerUserIds: the App Review tester is not a
+  // customer either, and it filed all 47 phrase reports. See lib/ownerGate.
+  const owners = [...nonLearnerUserIds];
   const ownerList = sql.join(
     owners.map((o) => sql`${o}`),
     sql`, `,
@@ -719,7 +992,9 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
   // a dashboard that counts the person reading it is a mirror.
   const exclOwner = req.query.exclOwner !== "0";
 
-  const owners = [...ownerUserIds];
+  // nonLearnerUserIds, not ownerUserIds: the App Review tester is not a
+  // customer either, and it filed all 47 phrase reports. See lib/ownerGate.
+  const owners = [...nonLearnerUserIds];
   const ownerList = sql.join(
     owners.map((o) => sql`${o}`),
     sql`, `,

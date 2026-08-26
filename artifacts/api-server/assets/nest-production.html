@@ -404,44 +404,47 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 .hidden{display:none !important}
 @media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
 @media (max-width:640px){.head h2{font-size:20px}.tile .n{font-size:26px}main{gap:42px;padding-top:26px}}
-/* ---- 02 Numbers and 03 the line map, added 2026-08-25 ---------------------
-   Asked for: "a dashboard that updates live with number of signups, number of
-   paid accounts, active users (filterable by any time frame, some quick
-   filters)" and "a visual map of each language, each stop like a subway
-   control map". Everything below is drawn with borders and blocks the page
-   already uses; no chart library, because this file must stay one
-   self-contained document with no external script. */
-.rangebar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}
-.chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{font:inherit;font-size:12.5px;font-weight:600;color:var(--ink-2);background:transparent;
-  border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;cursor:pointer}
-.chip:hover{border-color:var(--accent)}
-.chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+/* ---- 02 Numbers, 03 the line map, 04 flagged phrases -----------------------
+   Added 2026-08-25/26.
+
+   THIS BLOCK IS SMALL ON PURPOSE. The first version of it redefined .tile,
+   .chips, .chip, .subhead, .bar, .bars, .rangebar and .drill, every one of
+   which ALREADY EXISTED in this stylesheet, so the new sections fought the
+   page and the drill panel rendered with no background at all (it asked for
+   var(--card), which is not a token here; the palette uses --surface).
+
+   The page already owns a complete vocabulary for exactly this: .rangebar and
+   .seg for a range control, button.tile with aria-expanded for a tile that
+   opens, and .drill / .drill-h / .drill-body for what it opens into. Reusing
+   it is why these sections now look native, and the rule that catches this
+   next time is the repo's own: grep before you define. */
+
+/* The one thing the by-day chart adds to .bar: a second, dimmer series stacked
+   under the first, for sign ups against active learners. */
+.bar i.b2{background:var(--line-2);border-radius:2px 2px 0 0;min-height:0}
+.bar i.b2:only-child{border-radius:2px 2px 0 0}
+
+/* Date inputs beside the .seg control. */
 .dlab{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
-.dlab input{font:inherit;font-size:12.5px;color:var(--ink);background:transparent;
+.dlab input{font:inherit;font-size:12px;color:var(--ink);background:var(--surface);
   border:1px solid var(--line-2);border-radius:8px;padding:4px 8px}
-.subhead{margin:18px 0 8px;font-size:13px;font-weight:700;color:var(--ink)}
-.subhead .why{display:block;font-weight:400;font-size:12px;color:var(--muted);margin-top:2px}
-/* One tile. The number leads, the label explains, the foot carries the caveat
-   that stops the number being misread. */
-.tile{border:1px solid var(--line);border-radius:12px;padding:12px 13px;background:var(--card)}
-.tile .n{font-family:"IBM Plex Mono",monospace;font-size:26px;font-weight:600;color:var(--ink);line-height:1.15}
-.tile .l{font-size:12.5px;font-weight:600;color:var(--ink-2);margin-top:3px}
-.tile .f{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.45}
-.tile.hot .n{color:var(--accent)}
-/* The by-day chart. Bars are divs: 90 of them is nothing, and an SVG would
-   need a viewBox recomputed on every resize. */
-.chartwrap{border:1px solid var(--line);border-radius:12px;padding:12px}
-.bars{display:flex;align-items:flex-end;gap:2px;height:120px}
-.bar{flex:1 1 0;min-width:2px;display:flex;flex-direction:column;justify-content:flex-end;gap:1px}
-.bar i{display:block;background:var(--accent);border-radius:2px 2px 0 0;opacity:.85}
-.bar i.b2{background:var(--line-2);opacity:1}
-.bar:hover i{opacity:1}
-.chartkey{display:flex;gap:14px;margin-top:8px;font-size:11.5px;color:var(--muted)}
-.chartkey b{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
-.chartx{display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--muted);
-  font-family:"IBM Plex Mono",monospace}
-/* The line map. One row per language, dots in journey order. */
+
+/* The drill table. .drill-body is a two-column grid by default and a table
+   wants the whole width, so this overrides that one property only. */
+.drill-body.wide{grid-template-columns:1fr}
+.dtable{width:100%;overflow-x:auto}
+.dtable table{width:100%;border-collapse:collapse;font-size:12.5px}
+.dtable th{text-align:left;font-family:"IBM Plex Mono",monospace;font-size:10px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+  padding:0 10px 6px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+.dtable td{padding:7px 10px 7px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.dtable td.num{font-family:"IBM Plex Mono",monospace;text-align:right;padding-right:14px}
+.dtable tr:hover td{background:var(--surface-2)}
+.dtag{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10px;
+  padding:1px 6px;border-radius:5px;background:var(--accent-soft);color:var(--accent)}
+.ddim{color:var(--muted)}
+
+/* ---- the line map. Genuinely new: nothing here draws a network. ---------- */
 .lines{margin-top:12px;display:flex;flex-direction:column;gap:2px}
 .lrow{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}
 .lname{flex:none;width:104px;font-size:12.5px;font-weight:600;color:var(--ink);
@@ -449,36 +452,34 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 .lname small{display:block;font-weight:400;font-size:11px;color:var(--muted);
   font-family:"IBM Plex Mono",monospace}
 .ltrack{flex:1 1 auto;display:flex;align-items:center;gap:1px;overflow-x:auto;padding:3px 0}
-/* An empty stop is a hairline on the track. An occupied one grows and takes
-   the accent, so the crowd is visible at a glance across 22 lines. */
-.stop{flex:none;width:7px;height:7px;border-radius:50%;background:var(--line-2)}
-.stop.zone{box-shadow:0 0 0 1px var(--line) inset}
-.stop.has{width:18px;height:18px;background:var(--accent);color:#fff;font-size:10px;
+/* An empty stop is a hairline on the track. An occupied one grows and takes the
+   accent, so the crowd is visible at a glance across 22 lines. */
+.lstop{flex:none;width:7px;height:7px;border-radius:50%;background:var(--line-2)}
+.lstop.has{width:18px;height:18px;background:var(--accent);color:var(--surface);font-size:10px;
   font-weight:700;display:flex;align-items:center;justify-content:center;
   font-family:"IBM Plex Mono",monospace}
-.zgap{flex:none;width:7px}
+.lgap{flex:none;width:7px}
 .ltot{flex:none;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted);min-width:58px;text-align:right}
 .ltot b{color:var(--accent)}
 @media (max-width:640px){ .lname{width:76px} }
-/* ---- 04 flagged phrases, added 2026-08-25 --------------------------------
-   "I want to see these on my dashboard too. The actual thing that was flagged
-   and the notes that the user put." */
-.reports{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+
+/* ---- flagged phrases. Also new: no list on this page carries a quotation. -- */
+.reps{margin-top:12px;display:flex;flex-direction:column;gap:6px}
 .rep{display:grid;grid-template-columns:auto 1fr auto;gap:3px 12px;align-items:start;
   padding:10px 13px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
-.rep .why2{grid-column:1;grid-row:1 / span 3;font-family:"IBM Plex Mono",monospace;font-size:10px;
+.rep .rwhy{grid-column:1;grid-row:1 / span 3;font-family:"IBM Plex Mono",monospace;font-size:10px;
   text-transform:uppercase;letter-spacing:.04em;color:var(--muted);white-space:nowrap;padding-top:2px}
-/* The flagged phrase itself. Native script leads because that is the thing a
-   speaker judges; the English is the gloss, not the subject. */
-.rep .ph{grid-column:2;grid-row:1;font-size:14px;font-weight:500;color:var(--ink)}
-.rep .ph i{font-style:normal;color:var(--muted);font-weight:400}
-.rep .gloss{grid-column:2;grid-row:2;font-size:12px;color:var(--muted)}
-/* The learner's own words, quoted so it is never mistaken for our copy. */
-.rep .note{grid-column:2;grid-row:3;font-size:12.5px;color:var(--ink-2);
+/* Native script leads: that is the thing a speaker judges. */
+.rep .rph{grid-column:2;grid-row:1;font-size:14px;font-weight:500;color:var(--ink)}
+.rep .rph i{font-style:normal;color:var(--muted);font-weight:400}
+.rep .rgloss{grid-column:2;grid-row:2;font-size:12px;color:var(--muted)}
+/* Quoted, so the learner's words are never mistaken for our copy. */
+.rep .rnote{grid-column:2;grid-row:3;font-size:12.5px;color:var(--ink-2);
   border-left:2px solid var(--accent);padding-left:9px;margin-top:4px}
-.rep .nonote{grid-column:2;grid-row:3;font-size:11.5px;color:var(--muted);margin-top:3px;font-style:italic}
-.rep .meta{grid-column:3;grid-row:1 / span 3;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+.rep .rnone{grid-column:2;grid-row:3;font-size:11.5px;color:var(--muted);margin-top:3px;font-style:italic}
+.rep .rmeta{grid-column:3;grid-row:1 / span 3;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
   color:var(--muted);text-align:right;white-space:nowrap}
+
 </style>
 
 <header class="top">
@@ -503,6 +504,12 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   </div>
   <nav class="chips" aria-label="Sections">
     <a href="#alerts">Alerts</a>
+    <!-- The three sections added 2026-08-25 were missing from this nav, which
+         is how a section nobody can jump to gets forgotten. Ordered to match
+         the page rather than appended. -->
+    <a href="#numbers">Numbers</a>
+    <a href="#map">Map</a>
+    <a href="#reports">Flagged</a>
     <a href="#spend">Spend</a>
     <a href="#surfaces">Surfaces</a>
     <a href="#elsewhere">Analytics</a>
@@ -574,16 +581,16 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   <div id="range-note"></div>
 
   <div class="rangebar">
-    <div class="chips" id="range-chips" role="group" aria-label="Quick time ranges">
-      <button type="button" class="chip" data-days="1">Today</button>
-      <button type="button" class="chip" data-days="7">7 days</button>
-      <button type="button" class="chip on" data-days="28">28 days</button>
-      <button type="button" class="chip" data-days="90">90 days</button>
-      <button type="button" class="chip" data-days="0">All time</button>
+    <div class="seg" id="range-chips" role="group" aria-label="Quick time ranges">
+      <button type="button" data-days="1" aria-pressed="false">Today</button>
+      <button type="button" data-days="7" aria-pressed="false">7 days</button>
+      <button type="button" data-days="28" aria-pressed="true">28 days</button>
+      <button type="button" data-days="90" aria-pressed="false">90 days</button>
+      <button type="button" data-days="0" aria-pressed="false">All time</button>
     </div>
     <label class="dlab">From <input type="date" id="range-from" aria-label="Range start"></label>
     <label class="dlab">To <input type="date" id="range-to" aria-label="Range end"></label>
-    <label class="ownt"><input type="checkbox" id="range-excl-own"><span>Exclude my accounts</span></label>
+    <label class="ownt"><input type="checkbox" id="range-excl-own"><span>Exclude me and testers</span></label>
     <span class="why" id="range-when">Reading.</span>
   </div>
 
@@ -594,11 +601,17 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
        range entirely, because the schema stores the CURRENT tier and no
        history of tier changes. Labelled apart so the two are never read as
        one thing. -->
-  <p class="subhead">Accounts right now <span class="why">A snapshot, not a window. The database stores today's tier and no history, so "how many were paid in March" is a question it cannot answer.</span></p>
+  <p class="dsub" style="margin-top:18px">Accounts right now</p>
+  <p class="barnote" style="margin:-4px 0 9px">A snapshot, not a window. The database stores today's tier and no history, so "how many were paid in March" is a question it cannot answer.</p>
   <div class="grid g4" id="range-snapshot"></div>
 
-  <p class="subhead">By day <span class="why">Sign ups and the learners who practised, one bar per UTC day. Empty days are real zeroes, not gaps.</span></p>
-  <div class="chartwrap" id="range-chart"></div>
+  <!-- The drill panel opens HERE, under whichever tile was clicked, matching
+       the inline pattern this page already uses rather than covering it. -->
+  <div id="drill"></div>
+
+  <p class="dsub" style="margin-top:18px">By day</p>
+  <p class="barnote" style="margin:-4px 0 9px">Sign ups and the learners who practised, one bar per UTC day. Empty days are real zeroes, not gaps.</p>
+  <div id="range-chart"></div>
 </section>
 
 <section id="map">
@@ -613,7 +626,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
   <div class="rangebar">
     <span class="why" id="map-when">Reading.</span>
-    <label class="ownt" style="margin-left:auto"><input type="checkbox" id="map-excl-own"><span>Exclude my accounts</span></label>
+    <label class="ownt" style="margin-left:auto"><input type="checkbox" id="map-excl-own"><span>Exclude me and testers</span></label>
     <label class="ownt"><input type="checkbox" id="map-busy"><span>Only lines with learners</span></label>
   </div>
 
@@ -636,7 +649,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   </div>
 
   <div class="grid g4" style="margin-top:12px" id="reports-tiles"></div>
-  <div class="reports" id="reports-list"></div>
+  <div class="reps" id="reports-list"></div>
 </section>
 
 <section id="spend">
@@ -655,7 +668,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
         <div class="tot" id="sp-total">$0.00</div>
         <div class="lab" id="sp-lab">estimated a month</div>
       </div>
-      <label class="ownt" style="margin-left:auto"><input type="checkbox" id="excl-own"><span>Exclude my accounts</span></label>
+      <label class="ownt" style="margin-left:auto"><input type="checkbox" id="excl-own"><span>Exclude me and testers</span></label>
       <button type="button" class="ghost" id="sp-refresh">Re-read</button>
     </div>
     <div class="spend-lines" id="sp-lines"></div>
@@ -1869,12 +1882,22 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     });
   }
 
-  function tile(n, label, foot, hot){
-    return '<div class="tile' + (hot ? " hot" : "") + '">' +
-      '<div class="n">' + esc(n) + '</div>' +
+  /* A tile with a `metric` becomes a BUTTON that opens the rows behind it.
+     "I want to be able to drill into any of the numbers." 2026-08-26.
+
+     button.tile and aria-expanded are THIS PAGE'S OWN pattern, chevron and
+     all: see the stylesheet above. An earlier version of this defined its own
+     tile and its own modal, both of which collided with what was already here.
+     Tiles with no metric stay inert divs rather than pretending to be
+     clickable. */
+  function tile(n, label, foot, hot, metric){
+    var body =
+      '<div class="n"' + (hot ? ' style="color:var(--accent)"' : '') + '>' + esc(n) + '</div>' +
       '<div class="l">' + esc(label) + '</div>' +
-      (foot ? '<div class="f">' + esc(foot) + '</div>' : '') +
-      '</div>';
+      (foot ? '<div class="w" style="text-transform:none;letter-spacing:0;font-family:inherit;font-size:11.5px;line-height:1.45;margin-top:3px">' + esc(foot) + '</div>' : '');
+    if (!metric) return '<div class="tile">' + body + '</div>';
+    return '<button type="button" class="tile" data-metric="' + esc(metric) + '"' +
+      ' aria-expanded="' + (state.drillOpen === metric ? "true" : "false") + '">' + body + '</button>';
   }
 
   function renderRange(){
@@ -1890,19 +1913,19 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     var per = r.activeUsers ? (r.attempts / r.activeUsers) : 0;
 
     win.innerHTML =
-      tile(fmt(r.signups), "Sign ups", "Accounts created in this window.", r.signups > 0) +
+      tile(fmt(r.signups), "Sign ups", "Accounts created in this window.", r.signups > 0, "signups") +
       tile(fmt(r.activeUsers), "Active learners",
-           "Distinct people who PRACTISED. Not logins: nothing server side records a login, so this is a stricter bar.", r.activeUsers > 0) +
+           "Distinct people who PRACTISED. Not logins: nothing server side records a login, so this is a stricter bar.", r.activeUsers > 0, "activeUsers") +
       tile(fmt(r.attempts), "Practice attempts",
-           per ? per.toFixed(1) + " per active learner over " + days + " days." : "Nobody practised in this window.") +
-      tile(fmt(r.gameSessions + r.chatTurns), "Games and chats",
-           fmt(r.gameSessions) + " finished games, " + fmt(r.chatTurns) + " chat replies.");
+           per ? per.toFixed(1) + " per active learner over " + days + " days." : "Nobody practised in this window.", false, "attempts") +
+      tile(fmt(r.gameSessions), "Games", fmt(r.gameSessions) + " finished sessions.", false, "games") +
+      tile(fmt(r.chatTurns), "Chat replies", "Bolo answering a learner.", false, "chats");
 
     snap.innerHTML =
-      tile(fmt(r.usersTotal), "Accounts", r.exclOwner ? "Your own accounts already removed." : "Including your own accounts.") +
-      tile(fmt(r.paidTotal), "Paid", "tier is not free AND the subscription is active. A sandbox or TestFlight purchase counts here and bills nothing.", r.paidTotal > 0) +
-      tile(fmt(r.freeTotal), "Free", "Everybody else. Paid plus free is always the account total.") +
-      tile(fmt(r.trialingTotal), "Trialing", "subscription_status is trialing.");
+      tile(fmt(r.usersTotal), "Accounts", r.exclOwner ? "Your own accounts and the App Review tester already removed." : "Including your own accounts and the tester.", false, "accounts") +
+      tile(fmt(r.paidTotal), "Paid", "Right now. A sandbox or TestFlight purchase looks identical here and bills nothing, so open this and check the dates.", r.paidTotal > 0, "paid") +
+      tile(fmt(r.freeTotal), "Free", "Everybody else. Paid plus free is always the account total.", false, "free") +
+      tile(fmt(r.trialingTotal), "Trialing", "subscription_status is trialing.", false, "trialing");
 
     /* The chart. Two stacked bars a day: sign ups on top of active learners,
        so a spike in one is legible against the other without a second chart. */
@@ -1912,25 +1935,26 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
       if (series[i].activeUsers > max) max = series[i].activeUsers;
       if (series[i].signups > max) max = series[i].signups;
     }
-    var bars = "";
+    /* --h per bar is how .bar i already works on this page; the second, dimmer
+       series is the one line of CSS these sections add to it. */
+    var bars = "", labels = "";
+    var everyNth = Math.max(1, Math.ceil(series.length / 8));
     for (i = 0; i < series.length; i++) {
       var d = series[i];
       var ha = Math.round(d.activeUsers / max * 100);
       var hs = Math.round(d.signups / max * 100);
-      bars += '<div class="bar" title="' + esc(d.day + ": " + d.activeUsers + " active, " + d.signups + " signed up") + '">' +
-        '<i class="b2" style="height:' + hs + '%"></i>' +
-        '<i style="height:' + ha + '%"></i>' +
+      bars += '<div class="bar' + (d.activeUsers === 0 && d.signups === 0 ? " zero" : "") + '"' +
+        ' title="' + esc(d.day + ": " + d.activeUsers + " active, " + d.signups + " signed up") + '">' +
+        '<i class="b2" style="--h:' + hs + '%"></i>' +
+        '<i style="--h:' + ha + '%"></i>' +
         '</div>';
+      labels += '<span>' + (i % everyNth === 0 ? esc(d.day.slice(5)) : "") + '</span>';
     }
     chart.innerHTML =
-      '<div class="bars">' + (bars || '<div class="bar"></div>') + '</div>' +
-      '<div class="chartx"><span>' + esc(series.length ? series[0].day : "") + '</span>' +
-      '<span>' + esc(series.length ? series[series.length - 1].day : "") + '</span></div>' +
-      '<div class="chartkey">' +
-        '<span><b style="background:var(--accent)"></b>Active learners</span>' +
-        '<span><b style="background:var(--line-2)"></b>Sign ups</span>' +
-        '<span>Peak ' + fmt(max) + ' in a day</span>' +
-      '</div>';
+      '<div class="bars">' + (bars || '<div class="bar zero"><i></i></div>') + '</div>' +
+      '<div class="barx">' + labels + '</div>' +
+      '<p class="barnote">Solid is active learners, pale is sign ups. Peak ' +
+        fmt(max) + ' in a day over ' + series.length + ' days.</p>';
   }
 
   /* ================= 03 the line map =================
@@ -1974,11 +1998,11 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
         var st = line.stops[j];
         /* A gap between zones, so a line reads as six or twelve runs rather
            than one undifferentiated string of eighty dots. */
-        if (lastZone !== null && st.zone !== lastZone) track += '<span class="zgap"></span>';
+        if (lastZone !== null && st.zone !== lastZone) track += '<span class="lgap"></span>';
         lastZone = st.zone;
         var label = st.zone + " stop " + st.position + (st.title ? " - " + st.title : "") +
           ": " + st.learners + (st.learners === 1 ? " learner" : " learners");
-        track += '<span class="stop' + (st.learners > 0 ? " has" : "") + '" title="' + esc(label) + '">' +
+        track += '<span class="lstop' + (st.learners > 0 ? " has" : "") + '" title="' + esc(label) + '">' +
           (st.learners > 0 ? esc(st.learners) : "") + '</span>';
       }
       html += '<div class="lrow">' +
@@ -2010,7 +2034,8 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   };
 
   function loadReports(){
-    return fetch(REPORTS_URL, {credentials:"same-origin", cache:"no-store"}).then(function(res){
+    var url = REPORTS_URL + "?exclOwner=" + (state.excludeOwn ? "1" : "0");
+    return fetch(url, {credentials:"same-origin", cache:"no-store"}).then(function(res){
       if (res.status === 404) throw new Error("This account is not on the allowlist.");
       if (!res.ok) throw new Error("The reports endpoint answered " + res.status + ".");
       return res.json();
@@ -2036,18 +2061,21 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     tiles.innerHTML =
       tile(fmt(r.total), "Flagged phrases", "Every report ever filed, never deleted.", r.total > 0) +
       tile(fmt(r.reporters), "Reporters",
-           r.reporters === 1
-             ? "ONE account filed all of them. This is not a crowd; treat it as one person's QA pass."
-             : "Distinct accounts that have filed at least one.") +
+           r.reporters === 0
+             ? "Nobody outside your own accounts has ever flagged a phrase."
+             : r.reporters === 1
+               ? "ONE account filed all of them. This is not a crowd; treat it as one person's QA pass."
+               : "Distinct accounts that have filed at least one.") +
       tile(fmt(r.withNote), "With a note",
-           "Reports carrying the learner's own words. A note that was ONLY an email address is dropped server side; see usableNote.") +
+           "Reports carrying real words. A note that is only an email address does not count: 44 of the 47 on file are exactly that, which is why this number is not 44.") +
       tile(top ? (REASON_WORD[top.reason] || top.reason) : "-", "Most common reason",
            top ? fmt(top.count) + " of " + fmt(r.total) + " reports." : "Nothing filed yet.");
 
     var html = "", i, shown = 0;
     for (i = 0; i < r.rows.length; i++) {
       var row = r.rows[i];
-      if (onlyNoted && !row.note) continue;
+      // Same test the tile counts on: an email address is not a note.
+      if (onlyNoted && !(row.note && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.note.trim()))) continue;
       shown++;
       /* The native script leads because that is the thing a speaker judges.
          A phrase that has since been DELETED shows as such rather than as a
@@ -2056,17 +2084,20 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
         ? esc(row.nativeScript) + (row.romanized ? ' <i>' + esc(row.romanized) + '</i>' : "")
         : '<i>phrase ' + esc(row.phraseId) + ' no longer exists</i>';
       html += '<div class="rep">' +
-        '<span class="why2">' + esc(REASON_WORD[row.reason] || row.reason) + '</span>' +
-        '<span class="ph">' + phrase + '</span>' +
-        '<span class="gloss">' + (row.english ? esc(row.english) : "") +
+        '<span class="rwhy">' + esc(REASON_WORD[row.reason] || row.reason) + '</span>' +
+        '<span class="rph">' + phrase + '</span>' +
+        '<span class="rgloss">' + (row.english ? esc(row.english) : "") +
           ' &middot; ' + esc(row.languageCode) + ' &middot; ' + esc(row.stage) + '</span>' +
         (row.note
-          ? '<span class="note">' + esc(row.note) + '</span>'
-          : '<span class="nonote">No note left.</span>') +
-        '<span class="meta">#' + esc(row.id) + '<br>' + esc(ago(new Date(row.createdAt).getTime())) + '</span>' +
+          ? '<span class="rnote">' + esc(row.note) + '</span>'
+          : '<span class="rnone">No note left.</span>') +
+        '<span class="rmeta">#' + esc(row.id) + '<br>' + esc(ago(new Date(row.createdAt).getTime())) + '</span>' +
         '</div>';
     }
-    host.innerHTML = html || '<div class="sline dim"><span class="n">Nothing to show in this view.</span></div>';
+    host.innerHTML = html || '<div class="sline dim"><span class="n">' +
+      (r.exclOwner
+        ? 'No reports from real learners. Every report on file was made by your own accounts or the App Review tester, so this list is empty by design. Untick "Exclude me and testers" to read them.'
+        : 'Nothing to show in this view.') + '</span></div>';
     if ($("reports-when")) {
       $("reports-when").textContent = shown + " of " + r.rows.length +
         " shown, newest first" + (r.total > r.rows.length ? ", capped at " + r.rows.length + " of " + r.total : "") + ".";
@@ -2074,6 +2105,128 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   }
 
   if ($("reports-noted")) $("reports-noted").addEventListener("change", renderReports);
+
+  /* ================= the drill-down =================
+     "If I click 20 accounts, I should see the data behind that, what are these
+     accounts, whatever we know about them." 2026-08-26.
+
+     INLINE, NOT A MODAL, and that is this page's own pattern rather than a
+     preference: .drill / .drill-h / .drill-body already existed in the
+     stylesheet, along with button.tile[aria-expanded] and its chevron. The
+     first version of this covered the page with a dialog that had no
+     background, because it asked for a --card token this palette does not
+     have. Clicking the open tile again closes it. */
+  var DRILL_URL = "/api/nest/drill";
+  state.drillOpen = null;
+
+  function shortDate(iso){
+    if (!iso) return "-";
+    return new Date(iso).toLocaleDateString(undefined, {year:"2-digit", month:"short", day:"numeric"});
+  }
+
+  /* Ranked metrics get their own leading column; snapshot ones do not, because
+     a column of zeroes reads as data. */
+  var RANKED = {activeUsers:1, attempts:1, games:1, chats:1};
+
+  function drillShell(inner){
+    return '<div class="drill">' + inner + '</div>';
+  }
+
+  function openDrill(metric){
+    var host = $("drill");
+    if (!host) return;
+
+    if (state.drillOpen === metric) { closeDrill(); return; }
+    state.drillOpen = metric;
+    renderRange();
+    host.innerHTML = drillShell(
+      '<div class="drill-h"><span class="dn">-</span><h3>Loading</h3>' +
+      '<button type="button" class="x" id="drill-close" aria-label="Close">&times;</button></div>');
+
+    var b = rangeBounds();
+    var url = DRILL_URL + "?metric=" + encodeURIComponent(metric) +
+      "&from=" + encodeURIComponent(b.from.toISOString()) +
+      "&to=" + encodeURIComponent(b.to.toISOString()) +
+      "&exclOwner=" + (state.excludeOwn ? "1" : "0");
+
+    fetch(url, {credentials:"same-origin", cache:"no-store"}).then(function(res){
+      if (!res.ok) throw new Error("The drill endpoint answered " + res.status + ".");
+      return res.json();
+    }).then(function(d){
+      if (state.drillOpen !== metric) return; // closed or switched while in flight
+      var ranked = RANKED[d.metric];
+      var head = "<tr>" +
+        (ranked ? "<th>In window</th>" : "") +
+        "<th>Who</th><th>Email</th><th>Plan</th><th>Joined</th>" +
+        "<th>Last practised</th><th>Attempts</th><th>Shares</th></tr>";
+      var body = "", i;
+      for (i = 0; i < d.rows.length; i++) {
+        var r = d.rows[i];
+        /* Username first: the name this learner chose to be known by.
+           displayName is the private nickname and is only a fallback, on a
+           page nobody but the owner can open. */
+        var who = r.username || r.displayName || "(unnamed)";
+        var paid = r.tier !== "free" && r.subscriptionStatus === "active";
+        var plan = paid
+          ? '<span class="dtag">' + esc(r.tier) + '</span> <span class="ddim">' +
+            esc(r.subscriptionProvider || "?") +
+            (r.currentPeriodEnd ? ", to " + esc(shortDate(r.currentPeriodEnd)) : "") + '</span>'
+          : '<span class="ddim">' + esc(r.subscriptionStatus || "free") + '</span>';
+        body += "<tr>" +
+          (ranked ? '<td class="num">' + fmt(r.metricValue) + "</td>" : "") +
+          "<td>" + esc(who) + "</td>" +
+          '<td class="ddim">' + esc(r.email || "-") + "</td>" +
+          "<td>" + plan + "</td>" +
+          "<td>" + esc(shortDate(r.createdAt)) + "</td>" +
+          "<td>" + (r.lastActiveAt ? esc(shortDate(r.lastActiveAt)) : '<span class="ddim">never</span>') + "</td>" +
+          '<td class="num">' + fmt(r.attempts) + "</td>" +
+          "<td>" + (r.shareStats ? "yes" : '<span class="ddim">no</span>') + "</td>" +
+          "</tr>";
+      }
+      /* The window is restated inside the panel. Somebody who opened this from
+         a 7-day view must not read a lifetime column as a 7-day one. */
+      var win = d.from ? shortDate(d.from) + " to " + shortDate(d.to) : "all time";
+      host.innerHTML = drillShell(
+        '<div class="drill-h">' +
+          '<span class="dn">' + fmt(d.total) + '</span>' +
+          '<h3>' + esc(d.label) + '</h3>' +
+          '<span class="dw">' + esc(win) + '</span>' +
+          '<button type="button" class="x" id="drill-close" aria-label="Close">&times;</button>' +
+          '<p class="what">' + esc(d.note) +
+            (d.exclOwner ? " Your accounts and the App Review tester are excluded."
+                         : " Nothing is excluded.") +
+            (d.total >= 200 ? " Capped at 200 rows." : "") + '</p>' +
+        '</div>' +
+        '<div class="drill-body wide">' +
+          (d.rows.length
+            ? '<div class="dtable"><table>' + head + body + "</table></div>"
+            : '<p class="bd-wait">No rows behind this number.</p>') +
+        '</div>');
+    }, function(err){
+      if (state.drillOpen !== metric) return;
+      host.innerHTML = drillShell(
+        '<div class="drill-h"><span class="dn">!</span><h3>Could not read the rows</h3>' +
+        '<button type="button" class="x" id="drill-close" aria-label="Close">&times;</button>' +
+        '<p class="what">' + esc(String(err && err.message || err)) + '</p></div>');
+    });
+  }
+
+  function closeDrill(){
+    state.drillOpen = null;
+    var host = $("drill");
+    if (host) host.innerHTML = "";
+    renderRange();
+  }
+
+  document.addEventListener("click", function(ev){
+    if (!ev.target.closest) return;
+    if (ev.target.closest("#drill-close")) { closeDrill(); return; }
+    var t = ev.target.closest("[data-metric]");
+    if (t) openDrill(t.getAttribute("data-metric"));
+  });
+  document.addEventListener("keydown", function(ev){
+    if (ev.key === "Escape" && state.drillOpen) closeDrill();
+  });
 
   /* ================= live refresh =================
      Asked for 2026-08-25: "make sure nest page always stays actively
@@ -2147,11 +2300,11 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
 
     if (chips) {
       chips.addEventListener("click", function(ev){
-        var b = ev.target.closest ? ev.target.closest(".chip") : null;
-        if (!b) return;
-        var all = chips.querySelectorAll(".chip"), i;
-        for (i = 0; i < all.length; i++) all[i].classList.remove("on");
-        b.classList.add("on");
+        var b = ev.target.closest ? ev.target.closest("button") : null;
+        if (!b || !b.hasAttribute("data-days")) return;
+        var all = chips.querySelectorAll("button"), i;
+        for (i = 0; i < all.length; i++) all[i].setAttribute("aria-pressed", "false");
+        b.setAttribute("aria-pressed", "true");
         state.rangeDays = +b.getAttribute("data-days");
         state.rangeCustom = null;
         if (from) from.value = ""; if (to) to.value = "";
@@ -2171,8 +2324,8 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
       }
       banner("range-note", null);
       state.rangeCustom = {from: f, to: t};
-      var all = chips ? chips.querySelectorAll(".chip") : [], i;
-      for (i = 0; i < all.length; i++) all[i].classList.remove("on");
+      var all = chips ? chips.querySelectorAll("button") : [], i;
+      for (i = 0; i < all.length; i++) all[i].setAttribute("aria-pressed", "false");
       loadRange().then(function(){ renderRange(); stamp(); });
     }
     if (from) from.addEventListener("change", custom);
