@@ -154,6 +154,13 @@ export const ZONE_BOARD = {
   namePlate: { left: 0.17, right: 0.17, top: 0.42, height: 0.23 },
   zonePlate: { width: 0.21, top: 0.68, height: 0.24 },
   /** Ink on the carved plates: the sheet's own darkest wood. */
+  /** THE PANEL'S OWN CREAM, and it is load-bearing rather than decorative.
+   *  The sheet's paper is drawn with PARTIAL ALPHA, roughly 20 to 250 down the
+   *  panel, so the slice alone is see-through and the painted backdrop reads
+   *  straight through the board. Reported from the preview with a screenshot.
+   *  This goes underneath the slice; the art then supplies the texture and the
+   *  frame rather than the opacity. */
+  panel: "#F9EBD5",
   ink: "#5A2C16",
   inkMuted: "#8A5B40",
 } as const;

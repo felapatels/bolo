@@ -463,6 +463,34 @@
    down-right). `.ground-contact-shadow` is the soft floor ellipse rendered
    under characters standing on the map (Bolo at the active stop); the
    canonical mascot PNG itself is never filtered or redrawn. */
+/* A SMALL GLYPH NEEDS A GROUND ON A PAINTING. Reported from the preview twice
+   over: "chachaji is basically invisible" and "signals are hard to see on dark
+   background". Both are the same fault. A signal post is 20px of drawn line
+   art and the backdrop is a painted bazaar at roughly its own scale and
+   contrast, so the glyph reads as more bazaar. Nothing was wrong with the
+   glyphs; they had nothing behind them.
+
+   A soft warm plate in the ticket's own stock, falling off to nothing, so it
+   lifts the glyph without drawing a visible disc on the art. Mobile twin: the
+   MAP_GLYPH_PLATE ellipses in bolo-mobile/app/(app)/journey.tsx. */
+.map-glyph-plate {
+  position: relative;
+  isolation: isolate;
+}
+.map-glyph-plate::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  z-index: -1;
+  border-radius: 9999px;
+  background: radial-gradient(
+    closest-side,
+    rgba(250, 236, 215, 0.78),
+    rgba(250, 236, 215, 0.28) 62%,
+    rgba(250, 236, 215, 0)
+  );
+  pointer-events: none;
+}
 .depth-shadow {
   box-shadow: var(--depth-shadow);
 }

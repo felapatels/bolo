@@ -88,3 +88,23 @@ export const BADGE = {
   /** Ink on all four: the sheet's paper, so a plate reads as enamel on wood. */
   ink: "#FAECD7",
 } as const;
+
+/**
+ * A SMALL GLYPH NEEDS A GROUND ON A PAINTING. Reported twice from the preview:
+ * "chachaji is basically invisible" and "signals are hard to see on dark
+ * background". Both are one fault. A signal post is 20px of drawn line art and
+ * the backdrop is a painted bazaar at roughly its own scale and contrast, so
+ * the glyph reads as more bazaar. Nothing is wrong with the glyphs; they had
+ * nothing behind them.
+ *
+ * Two passes rather than one gradient, the same trick the rail halo uses: a
+ * radial gradient wants a defs entry per use in SVG and cannot be drawn along
+ * anything in react-native-svg without one either.
+ */
+export const MAP_GLYPH_PLATE = [
+  { r: 26, opacity: 0.2 },
+  { r: 17, opacity: 0.34 },
+] as const;
+
+/** The plate's colour: the ticket's own stock, so the map has one paper. */
+export const MAP_GLYPH_PLATE_FILL = "#FAECD7";

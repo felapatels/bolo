@@ -127,7 +127,11 @@ import {
   type StopEmblemKind,
 } from "@/lib/stop-emblems";
 import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from "@/lib/rail-palette";
-import { BADGE } from "@/lib/ticket-stock";
+import {
+  BADGE,
+  MAP_GLYPH_PLATE,
+  MAP_GLYPH_PLATE_FILL,
+} from "@/lib/ticket-stock";
 import {
   INTRO_SCROLL,
   introScrollDurationMs,
@@ -227,6 +231,10 @@ type Station = LessonGroupSummary & {
    * set is in scope. Present only alongside `trace`.
    */
   traceCopy?: string;
+  /** The tracing stop's own progress, carried so the card can draw a track:
+   *  its copy already counted the letters and only the bar was missing. */
+  traceDone?: number;
+  traceTotal?: number;
   /**
    * Present ONLY on the story stop, and the discriminator for it.
    *
@@ -478,7 +486,7 @@ function FactStrip({
       onClick={advance}
       aria-label="Show the next India fact"
       data-testid={`postcard-fact-${zoneIndex}`}
-      className="mx-1.5 mb-1.5 block w-[calc(100%-0.75rem)] rounded-md border border-dashed px-2 py-1 text-left"
+      className="mx-1.5 mb-1 block w-[calc(100%-0.75rem)] rounded-md border border-dashed px-2 py-0.5 text-left"
       style={{ borderColor: `${color}55` }}
     >
       <span
@@ -540,7 +548,15 @@ function ZonePostcard({
           See ZONE_BOARD in lib/zone-backdrops.ts for why it is three files and
           why it is capped. Mobile twin: the board block in
           bolo-mobile/app/(app)/journey.tsx. */}
-      <div className="relative depth-shadow" style={{ maxHeight: PC_H, overflow: "hidden" }}>
+      <div
+        className="relative flex flex-col overflow-hidden depth-shadow"
+        // EXACTLY PC_H, not "at most". A cap plus overflow-hidden crops
+        // whatever happens to be last, which is how the fact ended up with its
+        // final line sliced off. As a column, the pediment and the foot take
+        // their aspect and the panel absorbs precisely the remainder, so the
+        // board always fills its reserved row and never exceeds it.
+        style={{ height: PC_H }}
+      >
         {/* The pediment, aspect preserved: its rosettes and arch must not
             stretch, which is the whole reason for the three-slice. */}
         <div className="relative">
@@ -548,7 +564,7 @@ function ZonePostcard({
             src={ZONE_BOARD_ART.top}
             alt=""
             aria-hidden
-            className="block w-full"
+            className="block w-full shrink-0"
             data-testid={`zone-board-top-${zoneIndex}`}
           />
           {/* The nameplate. Positions are fractions of the slice, so the
@@ -589,8 +605,12 @@ function ZonePostcard({
             reserves PC_H for this row and the board may never push into the
             first station beneath it. */}
         <div
-          className="relative overflow-hidden"
+          className="relative min-h-0 flex-1 overflow-hidden"
           style={{
+            // Cream FIRST, art on top: the slice's paper is drawn with partial
+            // alpha, so on its own the painted backdrop reads straight through
+            // the board.
+            backgroundColor: ZONE_BOARD.panel,
             backgroundImage: `url(${ZONE_BOARD_ART.mid})`,
             backgroundSize: "100% 100%",
           }}
@@ -598,48 +618,26 @@ function ZonePostcard({
           {/* address side */}
           <div className="flex items-stretch gap-0">
             {/* left column: main address side */}
-            <div className="flex-1 min-w-0 px-3 py-1.5">
+            <div className="min-w-0 flex-1 px-3 py-1">
               {/* The fare-zone line came off the panel when the carved board
                   landed: the pediment's nameplate carries the topic and the
                   small plate carries the number, so this said both twice. */}
-              <div className="text-sm font-extrabold leading-tight text-foreground truncate">
+              {/* Ink from the board, not a theme token: the panel is cream in
+                  both themes and a cool slate reads cold on it. */}
+              <div
+                className="truncate text-sm font-extrabold leading-tight"
+                style={{ color: ZONE_BOARD.ink }}
+              >
                 {geoName}
               </div>
-              <div className="text-[10px] text-muted-foreground">
+              <div className="text-[10px]" style={{ color: ZONE_BOARD.inkMuted }}>
                 {stationCount} {stationCount === 1 ? "stop" : "stops"} in this zone
               </div>
             </div>
-            {/* divided-back vertical rule */}
-            <div className="w-px self-stretch my-1.5" style={{ background: `${color}44` }} aria-hidden />
-            {/* right column: stamp + postmark, side by side */}
-            <div className="shrink-0 flex items-center gap-1.5 px-2 py-1.5">
-              {/* circular postmark */}
-              <div
-                className="w-7 h-7 rounded-full border border-dashed flex items-center justify-center"
-                style={{ borderColor: `${color}88` }}
-                aria-hidden
-              >
-                <div
-                  className="w-4 h-4 rounded-full border flex items-center justify-center"
-                  style={{ borderColor: color }}
-                >
-                  <div className="w-1 h-1 rounded-full" style={{ background: color }} />
-                </div>
-              </div>
-              {/* postage stamp: bold zone number in accent */}
-              <div
-                className="h-9 w-9 rounded-sm border-2 flex flex-col items-center justify-center"
-                style={{ borderColor: color, background: `${color}14` }}
-                aria-hidden
-              >
-                <span className="text-[8px] font-black uppercase tracking-wide leading-none" style={{ color }}>
-                  Zone
-                </span>
-                <span className="text-base font-black leading-none" style={{ color }}>
-                  {zoneIndex + 1}
-                </span>
-              </div>
-            </div>
+            {/* THE POSTMARK AND THE ZONE STAMP CAME OFF with the carved board.
+                The pediment's small plate says ZONE n, so the stamp said it a
+                second time, and a franked postcard's furniture on a carved
+                station board was two different objects at once. */}
           </div>
           {facts && facts.length > 0 && (
             <FactStrip facts={facts} zoneIndex={zoneIndex} color={color} />
@@ -661,7 +659,7 @@ function ZonePostcard({
           src={ZONE_BOARD_ART.bot}
           alt=""
           aria-hidden
-          className="block w-full"
+          className="block w-full shrink-0"
           data-testid={`zone-board-bot-${zoneIndex}`}
         />
       </div>
@@ -798,6 +796,16 @@ function StationCard({
         />
       )}
       <div className="flex items-center gap-2 flex-wrap">
+        {isCurrent && (
+          <span className="relative shrink-0">
+            {/* Shared ground-contact shadow (Task 985): sits under the
+                canonical mascot PNG, which itself stays untouched. */}
+            <span className="ground-contact-shadow" aria-hidden />
+            {/* 28, not 44: he is inside a two-line card now rather than
+                standing in the margin beside it. */}
+            <Mascot pose="cheer" idle="cheer" size={28} className="shrink-0" />
+          </span>
+        )}
         {isCurrent && <StationSignGlyph color={color} />}
         <span
           className={cn(
@@ -905,6 +913,33 @@ function StationCard({
       </div>
       {/* Progress as a small filled track once the stop has attempts; the
           fraction stays as a label. Quiet palette off the active card. */}
+      {/* A TRACING STOP HAS PROGRESS AND HAD NO BAR. Reported from the
+          preview: "stops 2 and 3 should have a progress bar as well". Its
+          copy already counted the letters; only the track was missing, because
+          the track hung off attemptedCount and a trace stop has no attempts.
+          The STORY stop still has none, and deliberately: nothing in the app
+          records how much of a book has been read, so a bar there would be
+          decoration rather than progress. */}
+      {station.trace && station.traceTotal ? (
+        <div className="mt-0.5 flex items-center gap-1.5">
+          <div
+            className="h-1.5 w-20 max-w-full overflow-hidden rounded-full"
+            style={{ background: accessible ? `${color}26` : "hsl(var(--muted))" }}
+          >
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.round(((station.traceDone ?? 0) / station.traceTotal) * 100)}%`,
+                background: accessible ? color : "hsl(var(--muted-foreground))",
+              }}
+              data-testid={`progress-trace-${station.stopNumber}`}
+            />
+          </div>
+          <span className={cn("text-[10px] font-bold", !isCurrent && "ticket-sub")}>
+            {station.traceDone ?? 0}/{station.traceTotal}
+          </span>
+        </div>
+      ) : null}
       {station.attemptedCount ? (
         <div className="mt-0.5 flex items-center gap-1.5">
           <div
@@ -942,28 +977,11 @@ function StationCard({
       ) : null}
     </div>
   );
-  const body = (
-    <>
-      {/* Periodic celebratory hop at the active stop: the Mascot component's
-          "cheer" idle is whole-image motion on the canonical PNG and already
-          collapses to static under reduced motion. */}
-      {side === "left" && isCurrent && (
-        <span className="relative shrink-0">
-          {/* Shared ground-contact shadow (Task 985): sits under the canonical
-              mascot PNG, which itself stays untouched. */}
-          <span className="ground-contact-shadow" aria-hidden />
-          <Mascot pose="cheer" idle="cheer" size={44} className="shrink-0" />
-        </span>
-      )}
-      {card}
-      {side === "right" && isCurrent && (
-        <span className="relative shrink-0">
-          <span className="ground-contact-shadow" aria-hidden />
-          <Mascot pose="cheer" idle="cheer" size={44} className="shrink-0" />
-        </span>
-      )}
-    </>
-  );
+  // BOLO STANDS ON THE CARD NOW, not beside it. Reported from the preview:
+  // "Move bolo onto the card itself, he blends in." He was on the painting,
+  // which is a busy bazaar at his own scale, so a small mascot on it read as
+  // more bazaar. On cream stock he has a ground to stand on.
+  const body = <>{card}</>;
   // Item 3: journey-map copy carries no em dashes; a colon reads the same and
   // announces cleanly in a screen reader.
   const aria = station.trace
@@ -1044,7 +1062,7 @@ function RailSegment({ d, lit }: { d: string; lit: boolean }) {
           read as wood. */}
       <path d={d} stroke={RAIL.tie} strokeWidth={RAIL_STROKE.tie} strokeDasharray={RAIL_STROKE.tieDash} fill="none" />
       <path d={d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.rail} fill="none" strokeDasharray={dash} />
-      <path d={d} stroke={RAIL.between} strokeWidth={RAIL_STROKE.between} fill="none" strokeDasharray={dash} />
+      <path d={d} stroke={lit ? RAIL.between : RAIL.betweenUnlit} strokeWidth={RAIL_STROKE.between} fill="none" strokeDasharray={dash} />
     </g>
   );
 }
@@ -1624,6 +1642,8 @@ export default function Journey() {
           trace,
           traceStopPassedCount(trace, passedCharacterIds),
         ),
+        traceDone: traceStopPassedCount(trace, passedCharacterIds),
+        traceTotal: trace.characters.length,
         // THE FREE TASTE, and where it stops. Journey 1 zone 1 is open to
         // everyone (the first TRACE_TEASER_LIMIT characters of it, which the
         // game enforces); every later zone is All-Access. A tracing stop is
@@ -2443,6 +2463,20 @@ export default function Journey() {
                     is pointer-events-none and carries no state. */}
                 {chachaStalls.map((s) => (
                   <g key={`chacha-stall-${s.station}`}>
+                    {/* His plate. Two ellipses rather than one gradient, the
+                        same trick the rail halo uses: an SVG radial gradient
+                        needs a defs entry per zone and this is cheaper. */}
+                    {MAP_GLYPH_PLATE.map((pass) => (
+                      <ellipse
+                        key={pass.r}
+                        cx={s.x}
+                        cy={s.y}
+                        rx={pass.r}
+                        ry={pass.r * 0.72}
+                        fill={MAP_GLYPH_PLATE_FILL}
+                        opacity={s.gray ? pass.opacity * 0.5 : pass.opacity}
+                      />
+                    ))}
                     <SceneryElement
                       kind="chaiStall"
                       x={s.x}
@@ -2823,7 +2857,9 @@ export default function Journey() {
                 // released, wherever the card overlapped a signal.
                 style={{ left: sig.x, top: sig.y, zIndex: DEPTH_2_5D.layers.postcard + 1 }}
               >
-                <SignalGlyph state={sig.state} />
+                <span className="map-glyph-plate inline-flex">
+                  <SignalGlyph state={sig.state} />
+                </span>
               </button>
             ))}
 
@@ -2852,7 +2888,9 @@ export default function Journey() {
                 )}
                 style={{ left: sp.x, top: sp.y, zIndex: DEPTH_2_5D.layers.station }}
               >
-                <SignpostGlyph accent={sp.grayed ? GRAY : line.accent} />
+                <span className="map-glyph-plate inline-flex">
+                  <SignpostGlyph accent={sp.grayed ? GRAY : line.accent} />
+                </span>
               </button>
             ))}
 

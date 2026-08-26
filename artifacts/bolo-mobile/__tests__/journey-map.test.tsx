@@ -1484,19 +1484,17 @@ describe('the rail palette and the medallions, mirrored on web', () => {
   // gujarati-coach/src/test/journey-rail-and-medallions.test.tsx.
   it('paints the wood and the halo with exactly these six values', () => {
     expect(RAIL).toEqual({
-      tie: '#966F53',
+      tie: '#8A5D4A',
       tieInk: '#361C0F',
-      rail: '#CCB191',
-      between: '#7A5B43',
+      rail: '#8E9B43',
+      between: '#ECF584',
+      betweenUnlit: '#9A8A6B',
       glow: '#ABF1A5',
     });
   });
 
   it('draws the halo as two passes, wide-and-soft under tight-and-bright', () => {
-    expect(RAIL_GLOW_PASSES).toEqual([
-      { width: 28, opacity: 0.2 },
-      { width: 18, opacity: 0.32 },
-    ]);
+    expect(RAIL_GLOW_PASSES).toEqual([{ width: 9, opacity: 0.45 }]);
   });
 
   it('strokes the track to exactly this shape', () => {

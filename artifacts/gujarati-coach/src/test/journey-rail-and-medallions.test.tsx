@@ -111,23 +111,25 @@ beforeEach(() => {
 describe("the rail palette is one palette across both platforms", () => {
   // Sampled from the owner's rail sheet, not picked. Mobile twin:
   // bolo-mobile/lib/railPalette.ts, asserted there with the same three shapes.
-  test("the wood and the halo are exactly these six values", () => {
+  test("the wood, the rails and the green centre are exactly these", () => {
     expect(RAIL).toEqual({
-      tie: "#966F53",
+      tie: "#8A5D4A",
       tieInk: "#361C0F",
-      rail: "#CCB191",
-      between: "#7A5B43",
+      rail: "#8E9B43",
+      between: "#ECF584",
+      betweenUnlit: "#9A8A6B",
       glow: "#ABF1A5",
     });
   });
 
-  test("the halo is two passes, wide-and-soft under tight-and-bright", () => {
-    // One gradient would be simpler and react-native-svg cannot draw one along
-    // a bezier, so both platforms draw these same two strokes instead.
-    expect(RAIL_GLOW_PASSES).toEqual([
-      { width: 28, opacity: 0.2 },
-      { width: 18, opacity: 0.32 },
-    ]);
+  test("the glow is one narrow pass under the centre stripe", () => {
+    // WAS TWO PASSES AT 28px AND 18px, which is three times the width of the
+    // track itself: it washed the whole rail pale green and lost the twin-rail
+    // read entirely. Reported from the preview as "train tracks don't look
+    // right". The sheet draws no halo at all; it draws a bright green CENTRE
+    // STRIPE down a brown sleeper ladder, which RAIL.between now is. What
+    // survives here is one narrow glow under that stripe.
+    expect(RAIL_GLOW_PASSES).toEqual([{ width: 9, opacity: 0.45 }]);
   });
 
   test("the track strokes are exactly this shape", () => {

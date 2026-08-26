@@ -23,18 +23,25 @@
  */
 export const RAIL = {
   /** The sleeper planks. */
-  tie: '#966F53',
+  tie: '#8A5D4A',
   /** Their underside, for the raised-bed read. */
   tieInk: '#361C0F',
-  /** The two rails running over them. */
-  rail: '#CCB191',
-  /** What shows BETWEEN the two rails: more sleeper, not the page.
-   *  It used to be the theme background, which was invisible over a flat theme
-   *  and PUNCHES A THEMED HOLE THROUGH A PAINTED BACKDROP: a strip of page
-   *  colour running the length of the map, straight down the middle of every
-   *  painting. Web carried exactly that hole until 2026-08-26. */
-  between: '#7A5B43',
-  /** The lit halo. Two passes fake a falloff without a gradient. */
+  /** The two rails running over them: olive, as the sheet draws them. */
+  rail: '#8E9B43',
+  /** WHAT SHOWS BETWEEN THE TWO RAILS, and this is the correction. It was a
+   *  wood brown under a pair of wide soft green halo passes, which washed the
+   *  whole track pale green and lost the twin-rail read entirely: reported
+   *  from the preview as "train tracks don't look right".
+   *
+   *  The sheet does not draw a halo. It draws a BRIGHT GREEN CENTRE STRIPE
+   *  running down the middle of a brown sleeper ladder, and that stripe is what
+   *  says "travelled". Read off a horizontal cut through the sheet's own rail:
+   *  brown sleeper ends, olive rails, then this down the centre. */
+  between: '#ECF584',
+  /** The same centre, untravelled: plain wood, no green. */
+  betweenUnlit: '#9A8A6B',
+  /** A narrow glow under the lit centre only. It replaces two 28px and 18px
+   *  passes that were three times the width of the track itself. */
   glow: '#ABF1A5',
 } as const;
 
@@ -42,8 +49,7 @@ export const RAIL = {
  *  would be simpler and react-native-svg cannot draw one along a bezier, so
  *  both platforms draw the same two strokes instead. */
 export const RAIL_GLOW_PASSES = [
-  { width: 28, opacity: 0.2 },
-  { width: 18, opacity: 0.32 },
+  { width: 9, opacity: 0.45 },
 ] as const;
 
 /** Stroke widths for the track itself, sleepers outward. */

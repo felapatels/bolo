@@ -30,7 +30,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import Svg, { Circle, Path, G, Rect } from 'react-native-svg';
+import Svg, { Circle, Ellipse, G, Path, Rect } from 'react-native-svg';
 import Animated, {
   interpolate,
   useAnimatedProps,
@@ -105,7 +105,12 @@ import { closeoutOwed, useCloseoutMemory } from '@/lib/closeoutMemory';
 import { ZoneCloseoutOverlay } from '@/components/journey/ZoneCloseout';
 import { playStopSplash } from '@/lib/stopSplash';
 import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from '@/lib/railPalette';
-import { BADGE, TICKET } from '@/lib/ticketStock';
+import {
+  BADGE,
+  MAP_GLYPH_PLATE,
+  MAP_GLYPH_PLATE_FILL,
+  TICKET,
+} from '@/lib/ticketStock';
 import {
   INTRO_SCROLL,
   introScrollDurationMs,
@@ -205,6 +210,10 @@ type Station = LessonGroupSummary & {
   trace?: TraceStop;
   /** The stop's own status line, resolved where the passed set is in scope. */
   traceCopy?: string;
+  /** The tracing stop's own progress, carried so the card can draw a track:
+   *  its copy already counted the letters and only the bar was missing. */
+  traceDone?: number;
+  traceTotal?: number;
 };
 
 type LockInfo = {
@@ -889,6 +898,8 @@ export default function JourneyScreen() {
         stopCount: 0,
         trace,
         traceCopy: traceStopCopy(trace, traceStopPassedCount(trace, passedCharacterIds)),
+        traceDone: traceStopPassedCount(trace, passedCharacterIds),
+        traceTotal: trace.characters.length,
         // THE FREE TASTE, and where it stops. Journey 1 zone 1 is open to
         // everyone (its first three characters, which the game enforces);
         // every later zone is All-Access. A tracing stop is still never
@@ -1713,15 +1724,33 @@ export default function JourneyScreen() {
                   viewBox={`0 ${start} ${mapW} ${end - start}`}
                 >
                   {local.map((sp) => (
-                    <SceneryElement
-                      key={sp.key}
-                      kind={sp.kind}
-                      x={sp.x}
-                      y={sp.y}
-                      accent={line.accent}
-                      gray={sp.gray}
-                      testID={sp.testID}
-                    />
+                    <G key={sp.key}>
+                      {/* Chacha-ji's plate. ONLY his: the rest of the scenery
+                          is meant to sit back into the painting, and he is the
+                          one piece a learner has to be able to find. Two
+                          ellipses rather than one gradient, the same trick the
+                          rail halo uses. */}
+                      {sp.kind === 'chaiStall' &&
+                        MAP_GLYPH_PLATE.map((pass) => (
+                          <Ellipse
+                            key={pass.r}
+                            cx={sp.x}
+                            cy={sp.y}
+                            rx={pass.r}
+                            ry={pass.r * 0.72}
+                            fill={MAP_GLYPH_PLATE_FILL}
+                            opacity={sp.gray ? pass.opacity * 0.5 : pass.opacity}
+                          />
+                        ))}
+                      <SceneryElement
+                        kind={sp.kind}
+                        x={sp.x}
+                        y={sp.y}
+                        accent={line.accent}
+                        gray={sp.gray}
+                        testID={sp.testID}
+                      />
+                    </G>
                   ))}
                 </Svg>
               );
@@ -1782,7 +1811,7 @@ export default function JourneyScreen() {
                         are painted planks now and read as wood. */}
                     <Path d={s.d} stroke={RAIL.tie} strokeWidth={RAIL_STROKE.tie} strokeDasharray={RAIL_STROKE.tieDash} fill="none" />
                     <Path d={s.d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.rail} fill="none" strokeDasharray={dash} />
-                    <Path d={s.d} stroke={RAIL.between} strokeWidth={RAIL_STROKE.between} fill="none" strokeDasharray={dash} />
+                    <Path d={s.d} stroke={s.lit ? RAIL.between : RAIL.betweenUnlit} strokeWidth={RAIL_STROKE.between} fill="none" strokeDasharray={dash} />
                   </G>
                 );
               })}
@@ -1890,10 +1919,16 @@ export default function JourneyScreen() {
                               carved board landed: the pediment's nameplate
                               carries the topic and the small plate carries the
                               number, so this said both a second time. */}
-                          <Text numberOfLines={1} style={styles.postcardGeoName}>
+                          {/* Ink from the board, not a theme token: the panel
+                              is cream in both themes and a cool slate reads
+                              cold on it. */}
+                          <Text
+                            numberOfLines={1}
+                            style={[styles.postcardGeoName, { color: ZONE_BOARD.ink }]}
+                          >
                             {zone.geoName}
                           </Text>
-                          <Text style={styles.postcardStops}>
+                          <Text style={[styles.postcardStops, { color: ZONE_BOARD.inkMuted }]}>
                             {/* ROWS DRAWN, NOT PHRASE STATIONS. The card
                                 said 9 while the rows beneath it said "Stop 1
                                 of 11": the tracing and story stops are rows a
@@ -1902,20 +1937,11 @@ export default function JourneyScreen() {
                             {zone.rowStations.length} {zone.rowStations.length === 1 ? 'stop' : 'stops'} in this zone
                           </Text>
                         </View>
-                        {/* divided-back vertical rule */}
-                        <View style={[styles.postcardRule, { backgroundColor: `${cardColor}44` }]} />
-                        {/* stamp + postmark, side by side */}
-                        <View style={styles.postcardRight}>
-                          <View style={[styles.postmark, { borderColor: `${cardColor}88` }]}>
-                            <View style={[styles.postmarkInner, { borderColor: cardColor }]}>
-                              <View style={[styles.postmarkDot, { backgroundColor: cardColor }]} />
-                            </View>
-                          </View>
-                          <View style={[styles.postageStamp, { borderColor: cardColor, backgroundColor: `${cardColor}14` }]}>
-                            <Text style={[styles.postageStampLabel, { color: cardColor }]}>ZONE</Text>
-                            <Text style={[styles.postageStampNum, { color: cardColor }]}>{zoneIndex + 1}</Text>
-                          </View>
-                        </View>
+                        {/* THE POSTMARK AND THE ZONE STAMP CAME OFF with the
+                            carved board. The pediment's small plate says ZONE
+                            n, so the stamp said it a second time, and a franked
+                            postcard's furniture on a carved station board was
+                            two different objects at once. */}
                       </View>
                       {/* Zone test-out affordance (web parity:
                           link-zone-test-out-{i}) — present only when the zone
@@ -2144,7 +2170,6 @@ export default function JourneyScreen() {
                     onPress={onPress}
                     style={styles.cardRow}
                   >
-                    {side === 'left' && isCurrent && <Mascot pose="cheer" size={44} motion="none" />}
                     <View
                       // Every stop card answers to one testID so a test can
                       // sweep the whole line and prove none of them lost its
@@ -2215,6 +2240,14 @@ export default function JourneyScreen() {
                       )}
                       {isCurrent && !reduceMotion && <StopGlowPulse color={zoneColor} />}
                       <View style={styles.cardTitleRow}>
+                        {/* BOLO STANDS ON THE CARD NOW, not beside it.
+                            Reported from the preview: "Move bolo onto the card
+                            itself, he blends in." He was on the painting, which
+                            is a busy bazaar at his own scale, so a small mascot
+                            on it read as more bazaar. On cream stock he has a
+                            ground to stand on. 28, not 44: he is inside a
+                            two-line card now rather than in the margin. */}
+                        {isCurrent && <Mascot pose="cheer" size={28} motion="none" />}
                         {isCurrent && <StationSignGlyph color={zoneColor} />}
                         <Text
                           style={[
@@ -2300,6 +2333,41 @@ export default function JourneyScreen() {
                       </Text>
                       {/* Started stops trade the text fraction for a real
                           progress track (web parity). */}
+                      {/* A TRACING STOP HAS PROGRESS AND HAD NO BAR. Its copy
+                          already counted the letters; only the track was
+                          missing, because the track hung off attemptedCount and
+                          a trace stop has no attempts. The STORY stop still has
+                          none, and deliberately: nothing in the app records how
+                          much of a book has been read, so a bar there would be
+                          decoration rather than progress. */}
+                      {s.trace && s.traceTotal ? (
+                        <View style={styles.cardProgressRow}>
+                          <View
+                            style={[
+                              styles.cardProgressTrack,
+                              { backgroundColor: accessible ? `${zoneColor}26` : colors.muted },
+                            ]}
+                          >
+                            <View
+                              style={{
+                                width: `${Math.round(((s.traceDone ?? 0) / s.traceTotal) * 100)}%`,
+                                height: '100%',
+                                borderRadius: 3,
+                                backgroundColor: accessible ? zoneColor : colors.mutedForeground,
+                              }}
+                              testID={`progress-trace-${s.stopNumber}`}
+                            />
+                          </View>
+                          <Text
+                            style={[
+                              styles.cardProgressLabel,
+                              { color: isCurrent ? zoneColor : TICKET.inkMuted },
+                            ]}
+                          >
+                            {s.traceDone ?? 0}/{s.traceTotal}
+                          </Text>
+                        </View>
+                      ) : null}
                       {s.attemptedCount ? (
                         <View style={styles.cardProgressRow}>
                           <View
@@ -2336,7 +2404,6 @@ export default function JourneyScreen() {
                         </View>
                       ) : null}
                     </View>
-                    {side === 'right' && isCurrent && <Mascot pose="cheer" size={44} motion="none" />}
                   </Pressable>
                 </View>
               </View>
@@ -2410,6 +2477,11 @@ export default function JourneyScreen() {
               }}
               style={[styles.signalWrap, { left: sig.x - 28, top: sig.y - 33 }]}
             >
+              {/* His plate. See MAP_GLYPH_PLATE: a signal post is 20px of line
+                  art on a painted bazaar at its own scale, so it read as more
+                  bazaar. Nothing was wrong with the glyph; it had nothing
+                  behind it. */}
+              <View pointerEvents="none" style={styles.glyphPlate} />
               <SignalGlyph state={sig.state} />
             </Pressable>
           ))}
@@ -2870,14 +2942,40 @@ const styles = StyleSheet.create({
   },
   diamond: { transform: [{ rotate: '45deg' }], borderRadius: 4 },
   diamondInner: { borderRadius: 3 },
+  // The soft warm ground a small glyph needs on a painting. Web twin:
+  // `.map-glyph-plate` in index.css. Flat rather than a gradient here: RN needs
+  // a library for a radial and one plate does not justify it, so the radius and
+  // the low alpha carry the falloff.
+  glyphPlate: {
+    position: 'absolute',
+    left: 6,
+    right: 6,
+    top: 6,
+    bottom: 6,
+    borderRadius: 999,
+    backgroundColor: MAP_GLYPH_PLATE_FILL,
+    opacity: 0.42,
+  },
   postcardWrap: { position: 'absolute', left: 16, right: 16 },
   // The carved board. Capped at PC_H so it can never push into the first
   // station row: the map reserves exactly that much for this row and the
   // serpentine constants are shared with the scenery placement tests.
-  board: { maxHeight: PC_H, overflow: 'hidden' },
+  // EXACTLY PC_H, not "at most". A cap plus overflow hidden crops whatever
+  // happens to be last, which is how the fact ended up with its final line
+  // sliced off. As a column, the pediment and the foot take their aspect and
+  // the panel absorbs precisely the remainder.
+  board: { height: PC_H, flexDirection: 'column', overflow: 'hidden' },
   boardTop: { width: '100%', aspectRatio: ZONE_BOARD.artW / ZONE_BOARD.topH },
   boardBot: { width: '100%', aspectRatio: ZONE_BOARD.artW / ZONE_BOARD.botH },
-  boardPanel: { width: '100%', overflow: 'hidden' },
+  boardPanel: {
+    width: '100%',
+    flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+    // Cream UNDER the art: the slice's paper is drawn with partial alpha, so
+    // on its own the painted backdrop reads straight through the board.
+    backgroundColor: ZONE_BOARD.panel,
+  },
   boardNamePlate: {
     position: 'absolute',
     alignItems: 'center',
