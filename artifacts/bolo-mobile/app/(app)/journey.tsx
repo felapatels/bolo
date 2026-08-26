@@ -22,7 +22,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useColorScheme,
   useWindowDimensions,
   View,
   type LayoutChangeEvent,
@@ -105,6 +104,7 @@ import { closeoutOwed, useCloseoutMemory } from '@/lib/closeoutMemory';
 import { ZoneCloseoutOverlay } from '@/components/journey/ZoneCloseout';
 import { playStopSplash } from '@/lib/stopSplash';
 import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from '@/lib/railPalette';
+import { BADGE, TICKET } from '@/lib/ticketStock';
 import {
   INTRO_SCROLL,
   introScrollDurationMs,
@@ -133,7 +133,6 @@ import {
   planZoneScenery,
 } from '@/components/journey/Scenery';
 import { useColors } from '@/hooks/useColors';
-import { useThemePrefValue } from '@/contexts/ThemeContext';
 import { useLoopProgress } from '@/lib/useLoopProgress';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
@@ -629,18 +628,6 @@ export default function JourneyScreen() {
       { translateY: reduceMotion ? 0 : scrollY.value * DEPTH_2_5D.parallaxFactor },
     ],
   }));
-  // Web --station-surface (index.css): warm off-white in light mode, deep
-  // navy in dark — the current stop's signboard card stock. Resolved the
-  // same way useColors picks its palette.
-  const systemScheme = useColorScheme();
-  const themePref = useThemePrefValue();
-  const isDark = (themePref === 'system' ? systemScheme : themePref) === 'dark';
-  const stationSurface = isDark ? '#1B2232' : '#FCFAF5';
-  // Item 1.1: the stock for a stop the learner cannot ride yet. Knocked back
-  // with a GREYER PAPER, never with opacity: opacity puts the painted backdrop
-  // back behind the text, which is the exact bug the paper ticket fixes. Web
-  // twin: --station-surface-ahead in index.css. Keep the pair in step.
-  const stationSurfaceAhead = isDark ? '#2D323E' : '#EDEAE4';
   // Web measures the map column with a ResizeObserver; on native the window
   // width is authoritative (map column = screen width capped at 390, with the
   // same 0 side padding the web column has inside its centering wrapper).
@@ -1962,6 +1949,9 @@ export default function JourneyScreen() {
             // lesson group id and these have none, but leaving the guard off
             // would let an undefined id match an undefined id.
             const isCurrent = !s.trace && !s.story && s.id === currentId;
+            // Gold-edged stock once the stop is behind the learner, exactly as
+            // the sheet draws its finished tag.
+            const stopDone = s.status === 'completed' || s.status === 'tested_out';
             // A tracing stop carries its own line ("Trace 8 letters", "3 of 8
             // letters traced"). It must NOT fall through to the phrase-stop
             // copy: it has no phrases, and "Now boarding" would collide with
@@ -2100,19 +2090,21 @@ export default function JourneyScreen() {
                       testID="stop-card"
                       style={[
                         styles.card,
-                        // Item 1.1: THE PAPER TICKET, and it is on EVERY stop
-                        // now, not only the current one. A card that was not
-                        // current had no background at all, which was invisible
-                        // over a flat theme and unreadable once the map got
-                        // painted: "Stop 1 of 11 / Completed" was dark text on
-                        // a bazaar. Web twin: `.station-card` in index.css.
+                        // THE PAPER TICKET, drawn from the owner's element
+                        // sheet. Cream stock in BOTH themes: a tag lying on a
+                        // painting is a physical object and the painting has no
+                        // dark mode. Web twin: `.station-card` in index.css.
                         {
                           backgroundColor: accessible
-                            ? stationSurface
-                            : stationSurfaceAhead,
+                            ? TICKET.stockTop
+                            : TICKET.stockAheadTop,
+                          borderColor: stopDone
+                            ? TICKET.edgeGold
+                            : accessible
+                              ? TICKET.edge
+                              : TICKET.edgeAhead,
                         },
                         isCurrent && {
-                          borderWidth: 1,
                           borderColor: zoneColor,
                           // Item 2: roof-bar clearance, trimmed with the rest
                           // of the card (web: pt-3 -> pt-2.5).
@@ -2120,6 +2112,28 @@ export default function JourneyScreen() {
                         },
                       ]}
                     >
+                      {/* The sheet's inner frame: a hairline rule set in from
+                          the border. Absolutely positioned so it costs no
+                          layout and cannot push a card past its row. */}
+                      <View
+                        pointerEvents="none"
+                        style={[
+                          styles.ticketRule,
+                          {
+                            borderColor: stopDone ? TICKET.ruleGold : TICKET.rule,
+                          },
+                        ]}
+                      />
+                      {/* THE EYELET THE TAG HANGS BY, on the edge facing the
+                          rail. It is what makes the card read as a luggage tag
+                          tied to a medallion rather than a panel beside one. */}
+                      <View
+                        pointerEvents="none"
+                        style={[
+                          styles.ticketEyelet,
+                          side === 'left' ? { right: -2 } : { left: -2 },
+                        ]}
+                      />
                       {/* Signboard dressing: the current stop gets a full-width
                           zone-color roof bar + pulsing glow; every other stop
                           hangs a small tick from its top edge (web parity). */}
@@ -2143,7 +2157,9 @@ export default function JourneyScreen() {
                         <Text
                           style={[
                             styles.cardTitle,
-                            { color: accessible ? colors.foreground : colors.mutedForeground },
+                            // Ink from the ticket, not a theme token: the stock is
+                          // cream in both themes and a cool slate reads cold on it.
+                          { color: accessible ? TICKET.ink : TICKET.inkAhead },
                           ]}
                         >
                           {stopLabel}
@@ -2156,21 +2172,21 @@ export default function JourneyScreen() {
                           s.trace !== undefined ||
                           s.story !== undefined) &&
                           s.planLocked === true && (
-                          <View style={[styles.allAccessChip, { backgroundColor: `${colors.secondary}1a` }]}>
+                          <View style={[styles.allAccessChip, styles.rusticChip, { backgroundColor: BADGE.brassBg, borderColor: BADGE.brassEdge }]}>
                             <Feather name="star" size={9} color={colors.secondary} />
-                            <Text style={[styles.allAccessChipText, { color: colors.secondary }]}>
+                            <Text style={[styles.allAccessChipText, { color: BADGE.ink }]}>
                               ALL-ACCESS
                             </Text>
                           </View>
                         )}
                         {s.trace && (
-                          <View style={[styles.traceChip, { backgroundColor: zoneColor }]}>
+                          <View style={[styles.traceChip, styles.rusticChip, { backgroundColor: BADGE.traceBg, borderColor: BADGE.traceEdge }]}>
                             <Feather name="edit-2" size={8} color="#ffffff" />
                             <Text style={styles.traceChipText}>TRACE</Text>
                           </View>
                         )}
                         {s.story && (
-                          <View style={[styles.traceChip, { backgroundColor: zoneColor }]}>
+                          <View style={[styles.traceChip, styles.rusticChip, { backgroundColor: BADGE.storyBg, borderColor: BADGE.storyEdge }]}>
                             <Feather name="book-open" size={8} color="#ffffff" />
                             <Text style={styles.traceChipText}>STORY</Text>
                           </View>
@@ -2181,7 +2197,7 @@ export default function JourneyScreen() {
                           </View>
                         )}
                         {s.teaserStation === true && (
-                          <View style={[styles.teaserChip, { backgroundColor: zoneColor }]}>
+                          <View style={[styles.teaserChip, styles.rusticChip, { backgroundColor: BADGE.brassBg, borderColor: BADGE.brassEdge }]}>
                             <Text style={styles.teaserChipText}>FREE TASTE</Text>
                           </View>
                         )}
@@ -2883,9 +2899,34 @@ const styles = StyleSheet.create({
     zIndex: 4,
   },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  // The sheet's inner frame and the eyelet it hangs by. Web twin:
+  // `.station-card::before` and `::after` in index.css.
+  ticketRule: {
+    position: 'absolute',
+    left: 4,
+    right: 4,
+    top: 4,
+    bottom: 4,
+    borderWidth: 1,
+    borderRadius: 6,
+  },
+  ticketEyelet: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -6,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: TICKET.eyeletHole,
+    borderWidth: 3,
+    borderColor: TICKET.eyelet,
+  },
+  /** Every badge is a small enamelled plate now, not a flat accent pill. */
+  rusticChip: { borderWidth: 1 },
   card: {
     minWidth: 0,
     flexShrink: 1,
+    borderWidth: 2,
     borderRadius: 10,
     paddingHorizontal: 12,
     // Item 2: same type scale, tighter box (web: py-2 -> py-1.5).
@@ -2986,7 +3027,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
-  teaserChipText: { fontFamily: AppFonts.extrabold, fontSize: 8, letterSpacing: 0.8, color: '#ffffff' },
+  teaserChipText: { fontFamily: AppFonts.extrabold, fontSize: 8, letterSpacing: 0.8, color: BADGE.ink },
   traceChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2995,7 +3036,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  traceChipText: { fontFamily: AppFonts.extrabold, fontSize: 8, letterSpacing: 0.8, color: '#ffffff' },
+  traceChipText: { fontFamily: AppFonts.extrabold, fontSize: 8, letterSpacing: 0.8, color: BADGE.ink },
   cardStatus: { fontFamily: AppFonts.semibold, fontSize: 11, lineHeight: 14, marginTop: 1 },
   terminusOuter: {
     position: 'absolute',

@@ -125,6 +125,7 @@ import {
   type StopEmblemKind,
 } from "@/lib/stop-emblems";
 import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from "@/lib/rail-palette";
+import { BADGE } from "@/lib/ticket-stock";
 import {
   INTRO_SCROLL,
   introScrollDurationMs,
@@ -695,11 +696,15 @@ function StationCard({
       data-current={isCurrent ? "true" : undefined}
       data-accessible={accessible ? "true" : undefined}
       data-ahead={!accessible ? "true" : undefined}
-      style={
-        isCurrent
-          ? { borderColor: color, background: "var(--station-surface)" }
+      data-done={
+        station.status === "completed" || station.status === "tested_out"
+          ? "true"
           : undefined
       }
+      /* Which edge the eyelet hangs from: the one facing the rail. A card on
+         the left flank ties on its right, and the other way round. */
+      data-side={side === "left" ? "left" : "right"}
+      style={isCurrent ? { borderColor: color } : undefined}
     >
       {/* Station-signboard family marker: full-width accent bar on the
           active card, a short quiet tick on every other stop so the whole
@@ -736,8 +741,9 @@ function StationCard({
             // Item 2: leading-tight trims the line box, not the type scale;
             // whitespace-nowrap keeps "Stop 11 of 11" on one line down to
             // 320px (the card is ~180px wide there, the label ~90px).
+            // Ink comes from `.station-card` now, not from a theme token: the
+            // stock is cream in both themes and a cool slate reads cold on it.
             "text-sm font-semibold leading-tight whitespace-nowrap",
-            accessible ? "text-foreground" : "text-muted-foreground",
           )}
         >
           {stopLabel}
@@ -750,7 +756,12 @@ function StationCard({
           station.story !== undefined) &&
           station.planLocked === true && (
           <span
-            className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-secondary shrink-0"
+            className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide shrink-0"
+            style={{
+              background: BADGE.brassBg,
+              borderColor: BADGE.brassEdge,
+              color: BADGE.ink,
+            }}
             title="First-class sentence stop: All-Access"
           >
             <Sparkles className="w-2.5 h-2.5" />
@@ -759,8 +770,12 @@ function StationCard({
         )}
         {station.trace && (
           <span
-            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white shrink-0"
-            style={{ background: color }}
+            className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide shrink-0"
+            style={{
+              background: BADGE.traceBg,
+              borderColor: BADGE.traceEdge,
+              color: BADGE.ink,
+            }}
             title={station.trace.title}
           >
             <PenLine className="w-2.5 h-2.5" />
@@ -769,8 +784,12 @@ function StationCard({
         )}
         {station.story && (
           <span
-            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white shrink-0"
-            style={{ background: color }}
+            className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide shrink-0"
+            style={{
+              background: BADGE.storyBg,
+              borderColor: BADGE.storyEdge,
+              color: BADGE.ink,
+            }}
             title={station.story.title}
           >
             <BookOpen className="w-2.5 h-2.5" />
@@ -787,8 +806,12 @@ function StationCard({
         )}
         {showTeaserChip && (
           <span
-            className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white shrink-0"
-            style={{ background: color }}
+            className="rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide shrink-0"
+            style={{
+              background: BADGE.brassBg,
+              borderColor: BADGE.brassEdge,
+              color: BADGE.ink,
+            }}
           >
             Free taste
           </span>
@@ -798,7 +821,7 @@ function StationCard({
       <div
         className={cn(
           "text-[11px] leading-tight",
-          isCurrent ? "font-semibold" : "text-muted-foreground",
+          isCurrent ? "font-semibold" : "ticket-sub",
         )}
         style={isCurrent ? { color } : undefined}
       >
@@ -839,7 +862,7 @@ function StationCard({
             />
           </div>
           <span
-            className={cn("text-[10px] font-bold", !isCurrent && "text-muted-foreground")}
+            className={cn("text-[10px] font-bold", !isCurrent && "ticket-sub")}
             style={isCurrent ? { color } : undefined}
           >
             {masteredAtStop}/{phrasesAtStop} mastered

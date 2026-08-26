@@ -358,26 +358,105 @@
      bolo-mobile/app/(app)/journey.tsx. Keep the pairs in step. */
   --station-surface-ahead: hsl(40 20% 91%);
   --station-surface-hover: hsl(40 45% 94%);
+  /* THE TICKET, read off pageelements.jpeg's own pixels. These are NOT themed:
+     see the .station-card comment below for why the paper stays cream in the
+     dark theme. Mobile twin: TICKET in bolo-mobile/lib/ticketStock.ts. */
+  --ticket-stock-top: #FAECD7;
+  --ticket-stock-bottom: #F2DDC2;
+  --ticket-stock-ahead-top: #EDE3D2;
+  --ticket-stock-ahead-bottom: #E2D6C1;
+  --ticket-edge: #7A5443;
+  --ticket-edge-gold: #C9A94E;
+  --ticket-edge-ahead: #A99680;
+  --ticket-rule: #CBA37E;
+  --ticket-rule-gold: #E0C77E;
+  --ticket-eyelet: #3A2418;
+  --ticket-eyelet-hole: #6B4A33;
+  --ticket-ink: #3B2A1E;
+  --ticket-ink-muted: #7A6551;
+  --ticket-ink-ahead: #8A7A66;
 }
 .dark {
   --station-surface: hsl(222 30% 15%);
   --station-surface-ahead: hsl(222 16% 21%);
   --station-surface-hover: hsl(222 30% 20%);
 }
-/* The stop card as paper laid on the painting (item 1.1). Background and
-   shadow only, never a border: the map lays rows out on a fixed pitch while a
-   card's height is variable, so the paper must not add a single pixel to a
-   card that can already overflow its row. The active stop keeps its
-   zone-color border, roof bar and glow, so it still dominates a line of
-   cards that now all have stock. */
+/* THE STOP CARD IS A PAPER TICKET, drawn from the owner's element sheet
+   (pageelements.jpeg). Palette and geometry live in src/lib/ticket-stock.ts;
+   this is where they are spent. Mobile twin: the ticket styles in
+   bolo-mobile/app/(app)/journey.tsx.
+
+   DRAWN, NOT THE RASTER TAG, and the reason is Android: React Native's
+   nine-slice (`capInsets`) is iOS only, so stretching the sheet's tag over a
+   card whose height varies with its content would have needed three
+   implementations of one background. Drawn, the same tag stretches anywhere.
+
+   THE STOCK IS CREAM IN BOTH THEMES. A ticket lying on a painting is a
+   physical object and the painting has no dark mode. The old navy dark-mode
+   card read as a UI panel floating over the art rather than paper resting on
+   it. */
 .station-card {
-  background: var(--station-surface);
+  background: linear-gradient(180deg, var(--ticket-stock-top), var(--ticket-stock-bottom));
+  border: 2px solid var(--ticket-edge);
+  color: var(--ticket-ink);
+}
+.station-card .ticket-sub {
+  color: var(--ticket-ink-muted);
+}
+/* A stop already behind the learner is tagged in gold, exactly as the sheet
+   draws its finished tag. Status still belongs to the card's own copy; this is
+   the sheet's own way of saying the same thing in the stock. */
+.station-card[data-done="true"] {
+  border-color: var(--ticket-edge-gold);
 }
 .station-card[data-ahead="true"] {
-  background: var(--station-surface-ahead);
+  background: linear-gradient(
+    180deg,
+    var(--ticket-stock-ahead-top),
+    var(--ticket-stock-ahead-bottom)
+  );
+  border-color: var(--ticket-edge-ahead);
+  color: var(--ticket-ink-ahead);
+}
+.station-card[data-ahead="true"] .ticket-sub {
+  color: var(--ticket-ink-ahead);
 }
 .group:hover .station-card[data-accessible="true"]:not([data-current="true"]) {
-  background: var(--station-surface-hover);
+  filter: brightness(1.04);
+}
+/* The sheet's inner frame: a hairline rule set in from the border. Drawn on a
+   pseudo-element so it costs no layout and cannot push a card past its row. */
+.station-card::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid var(--ticket-rule);
+  border-radius: 6px;
+  pointer-events: none;
+}
+.station-card[data-done="true"]::before {
+  border-color: var(--ticket-rule-gold);
+}
+/* THE EYELET THE TAG HANGS BY, on the edge facing the rail. It is what makes
+   the card read as a luggage tag tied to a medallion rather than as a panel
+   that happens to be near one. */
+.station-card::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 9999px;
+  background: var(--ticket-eyelet);
+  box-shadow: inset 0 0 0 3px var(--ticket-eyelet-hole);
+  pointer-events: none;
+}
+.station-card[data-side="right"]::after {
+  left: -2px;
+}
+.station-card[data-side="left"]::after {
+  right: -2px;
 }
 /* 2.5D depth pass (Task 985): shared shadow utilities. `.depth-shadow` is the
    ONE soft box shadow for dimensional HTML surfaces (light upper-left, offset
