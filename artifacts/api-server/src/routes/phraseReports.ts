@@ -8,6 +8,7 @@ import {
   PHRASE_REPORT_REASONS,
 } from "@workspace/db";
 import type { AuthedRequest } from "../middlewares/requireAuth";
+import { usableNote } from "../lib/reportNote";
 
 const router: IRouter = Router();
 
@@ -30,6 +31,7 @@ const reportBodySchema = z.object({
 // POST /phrases/:id/report — flag a phrase as incorrect. Authenticated
 // (mounted behind requireAuth). language_code and stage are derived from the
 // phrase row server-side — the client sends only reason + optional note.
+
 // Duplicate reports (same user, same phrase) are allowed; dedup is a
 // review-time concern. Success and over-limit both return { success: true }.
 router.post(
@@ -67,7 +69,7 @@ router.post(
     // count+insert is serialized per user via an advisory xact lock (same
     // pattern as the teaser consumption gate) so concurrent requests cannot
     // all observe count < cap and overshoot — the cap is a hard guarantee.
-    const note = parsed.data.note;
+    const note = usableNote(parsed.data.note);
     await db.transaction(async (tx) => {
       await tx.execute(
         sql`SELECT pg_advisory_xact_lock(hashtext(${`phrase_report:${userId}`}))`,
