@@ -858,8 +858,13 @@ describe('journey header ticket sizing (build-28 regression)', () => {
     expect(header.maxHeight).toBeLessThanOrEqual(160);
     expect(header.overflow).toBe('hidden');
 
-    // Map content must render alongside the bounded header.
-    expect(screen.getByText(/FARE ZONE 1/)).toBeOnTheScreen();
+    // Map content must render alongside the bounded header. This used to look
+    // for "FARE ZONE 1", a line that came off the panel on 2026-08-26 when the
+    // carved station board landed: its pediment carries the topic and its small
+    // plate the number, so the panel was saying both a second time. The board
+    // itself is the better proxy for "zone 1 drew" anyway.
+    expect(screen.getByTestId('zone-board-top-0')).toBeOnTheScreen();
+    expect(screen.getByText(/ZONE 1/)).toBeOnTheScreen();
     expect(screen.getByLabelText(/^Stop 1 of 4/)).toBeOnTheScreen();
   });
 });

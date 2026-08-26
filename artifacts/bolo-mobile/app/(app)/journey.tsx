@@ -17,14 +17,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
+  ImageBackground,
   Modal,
   Platform,
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
   type LayoutChangeEvent,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -113,6 +114,8 @@ import {
 } from '@/lib/journeyIntroScroll';
 import {
   ZONE_BACKDROP_SCRIM,
+  ZONE_BOARD,
+  ZONE_BOARD_ART,
   zoneBackdrop,
   zoneFootTone,
 } from '@/lib/zoneBackdrops';
@@ -1825,16 +1828,68 @@ export default function JourneyScreen() {
             return (
               <View key={zone.id}>
                 <View style={[styles.postcardWrap, { top: py + 10 }]}>
-                  <View style={[styles.postcard, { borderColor: cardColor, opacity: grayed ? 0.8 : 1 }]}>
-                    <View style={[styles.postcardInner, { borderColor: `${cardColor}66` }]}>
-                      {/* picture side: the zone's landmark vista */}
-                      <ZoneVista zoneIndex={zoneIndex} accent={line.accent} grayed={grayed} />
+                  {/* THE CARVED STATION BOARD, cut into three so only the
+                      panel stretches. See ZONE_BOARD in lib/zoneBackdrops.ts
+                      for why it is three files and why it is capped. Web twin:
+                      ZonePostcard in gujarati-coach/src/pages/journey.tsx. */}
+                  <View style={[styles.board, { opacity: grayed ? 0.8 : 1 }]}>
+                    {/* The pediment, aspect preserved: its rosettes and arch
+                        must not stretch, which is the whole reason for the
+                        three-slice. */}
+                    <View>
+                      <Image
+                        testID={`zone-board-top-${zoneIndex}`}
+                        source={ZONE_BOARD_ART.top}
+                        style={styles.boardTop}
+                        resizeMode="stretch"
+                      />
+                      {/* The nameplate. Positions are fractions of the slice,
+                          so the overlay tracks the board at any width. */}
+                      <View
+                        pointerEvents="none"
+                        style={[
+                          styles.boardNamePlate,
+                          {
+                            left: `${ZONE_BOARD.namePlate.left * 100}%`,
+                            right: `${ZONE_BOARD.namePlate.right * 100}%`,
+                            top: `${ZONE_BOARD.namePlate.top * 100}%`,
+                            height: `${ZONE_BOARD.namePlate.height * 100}%`,
+                          },
+                        ]}
+                      >
+                        <Text numberOfLines={1} style={styles.boardNamePlateText}>
+                          {zone.title.toUpperCase()}
+                        </Text>
+                      </View>
+                      <View
+                        pointerEvents="none"
+                        style={[
+                          styles.boardZonePlate,
+                          {
+                            width: `${ZONE_BOARD.zonePlate.width * 100}%`,
+                            top: `${ZONE_BOARD.zonePlate.top * 100}%`,
+                            height: `${ZONE_BOARD.zonePlate.height * 100}%`,
+                          },
+                        ]}
+                      >
+                        <Text style={styles.boardZonePlateText}>ZONE {zoneIndex + 1}</Text>
+                      </View>
+                    </View>
+                    {/* The panel. THE ONLY PART THAT STRETCHES, and it clips:
+                        the map reserves PC_H for this row and the board may
+                        never push into the first station beneath it. */}
+                    <ImageBackground
+                      source={ZONE_BOARD_ART.mid}
+                      resizeMode="stretch"
+                      style={styles.boardPanel}
+                    >
                       {/* address side */}
                       <View style={styles.postcardAddress}>
                         <View style={styles.postcardLeft}>
-                          <Text style={[styles.postcardZoneLabel, { color: cardColor }]}>
-                            FARE ZONE {zoneIndex + 1} · {zone.title.toUpperCase()}
-                          </Text>
+                          {/* The fare-zone line came off the panel when the
+                              carved board landed: the pediment's nameplate
+                              carries the topic and the small plate carries the
+                              number, so this said both a second time. */}
                           <Text numberOfLines={1} style={styles.postcardGeoName}>
                             {zone.geoName}
                           </Text>
@@ -1883,7 +1938,14 @@ export default function JourneyScreen() {
                           </Text>
                         </Pressable>
                       )}
-                    </View>
+                    </ImageBackground>
+                    {/* The board's foot, aspect preserved like the pediment. */}
+                    <Image
+                      testID={`zone-board-bot-${zoneIndex}`}
+                      source={ZONE_BOARD_ART.bot}
+                      style={styles.boardBot}
+                      resizeMode="stretch"
+                    />
                   </View>
                 </View>
                 {/* interchange diamond pinned where the track meets the zone
@@ -2809,6 +2871,36 @@ const styles = StyleSheet.create({
   diamond: { transform: [{ rotate: '45deg' }], borderRadius: 4 },
   diamondInner: { borderRadius: 3 },
   postcardWrap: { position: 'absolute', left: 16, right: 16 },
+  // The carved board. Capped at PC_H so it can never push into the first
+  // station row: the map reserves exactly that much for this row and the
+  // serpentine constants are shared with the scenery placement tests.
+  board: { maxHeight: PC_H, overflow: 'hidden' },
+  boardTop: { width: '100%', aspectRatio: ZONE_BOARD.artW / ZONE_BOARD.topH },
+  boardBot: { width: '100%', aspectRatio: ZONE_BOARD.artW / ZONE_BOARD.botH },
+  boardPanel: { width: '100%', overflow: 'hidden' },
+  boardNamePlate: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boardNamePlateText: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: ZONE_BOARD.ink,
+  },
+  boardZonePlate: {
+    position: 'absolute',
+    left: '39.5%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boardZonePlateText: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 8,
+    letterSpacing: 1,
+    color: ZONE_BOARD.inkMuted,
+  },
   postcard: {
     borderRadius: 10,
     borderWidth: 2,

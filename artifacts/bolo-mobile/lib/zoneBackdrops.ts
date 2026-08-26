@@ -142,3 +142,53 @@ export function zoneFootTone(zoneIndex: number): string {
  * picture out; it is a single value here so both platforms cannot drift.
  */
 export const ZONE_BACKDROP_SCRIM = 0.28;
+
+/**
+ * THE CARVED STATION BOARD, the zone header. Asked for on 2026-08-26: "even
+ * the zone header should be like what i generated."
+ *
+ * Web twin: ZONE_BOARD in src/lib/zone-backdrops.ts.
+ *
+ * THREE SLICES, NOT ONE IMAGE, and Android is the reason again. The board is a
+ * carved pediment over a cream panel, and only the panel may stretch: scaling
+ * the whole PNG to a taller box would stretch the rosettes and the arch with
+ * it. Nine-slice would express that in one file and React Native's is iOS only
+ * (`capInsets` does nothing on Android), so the sheet is cut into a fixed top,
+ * a one-band middle that stretches vertically, and a fixed bottom. Three
+ * stacked images behave identically on both platforms. The seams are invisible
+ * because the middle band is cut from flat panel.
+ *
+ * IT FITS INSIDE THE 184px THE MAP ALREADY RESERVES (PC_H), and that is a hard
+ * constraint rather than a preference. The serpentine constants are shared with
+ * the scenery placement tests, and the stops, halts and every scenery position
+ * hang off them, so a taller header would be a re-plumb of the map's geometry
+ * rather than a paint pass. The panel is therefore given the remainder and
+ * clips, so the board can never push into the first station row whatever copy
+ * lands in it.
+ *
+ * THE VISTA BAND CAME OFF THE BOARD to make that budget, and the reference is
+ * why rather than the arithmetic: the owner's board carries a nameplate and a
+ * fact, not a picture. The picture was never adding anything the page did not
+ * already have, since the whole map now sits on that same painting.
+ */
+export const ZONE_BOARD = {
+  /** The slices, and the size they were cut at. */
+  artW: 760,
+  topH: 142,
+  midH: 40,
+  botH: 44,
+  /** Where the nameplate and the zone plate sit inside the top slice, as a
+   *  fraction of it, so the overlays scale with the board. */
+  namePlate: { left: 0.17, right: 0.17, top: 0.42, height: 0.23 },
+  zonePlate: { width: 0.21, top: 0.68, height: 0.24 },
+  /** Ink on the carved plates: the sheet's own darkest wood. */
+  ink: '#5A2C16',
+  inkMuted: '#8A5B40',
+} as const;
+
+/** The three slices of the carved station board. */
+export const ZONE_BOARD_ART = {
+  top: require('../assets/journey/zone-sign-top.png') as number,
+  mid: require('../assets/journey/zone-sign-mid.png') as number,
+  bot: require('../assets/journey/zone-sign-bot.png') as number,
+} as const;

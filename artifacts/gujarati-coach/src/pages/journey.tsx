@@ -21,6 +21,8 @@ import { blessAudioPlayback } from "@/lib/iosAudio";
 import { playStopSplash } from "@/lib/stop-splash";
 import {
   ZONE_BACKDROP_SCRIM,
+  ZONE_BOARD,
+  ZONE_BOARD_ART,
   zoneBackdrop,
   zoneFootTone,
 } from "@/lib/zone-backdrops";
@@ -534,19 +536,72 @@ function ZonePostcard({
   const color = grayed ? GRAY : accent;
   return (
     <div className={cn("pointer-events-auto", grayed && "grayscale opacity-80")}>
-      {/* postcard frame — outer 2px border */}
-      <div className="rounded-lg border-2 bg-card depth-shadow overflow-hidden" style={{ borderColor: color }}>
-        {/* dashed inner frame */}
-        <div className="m-1 rounded-md border border-dashed overflow-hidden" style={{ borderColor: `${color}66` }}>
-          {/* picture side: the zone's landmark vista */}
-          <ZoneVista zoneIndex={zoneIndex} accent={accent} />
+      {/* THE CARVED STATION BOARD, cut into three so only the panel stretches.
+          See ZONE_BOARD in lib/zone-backdrops.ts for why it is three files and
+          why it is capped. Mobile twin: the board block in
+          bolo-mobile/app/(app)/journey.tsx. */}
+      <div className="relative depth-shadow" style={{ maxHeight: PC_H, overflow: "hidden" }}>
+        {/* The pediment, aspect preserved: its rosettes and arch must not
+            stretch, which is the whole reason for the three-slice. */}
+        <div className="relative">
+          <img
+            src={ZONE_BOARD_ART.top}
+            alt=""
+            aria-hidden
+            className="block w-full"
+            data-testid={`zone-board-top-${zoneIndex}`}
+          />
+          {/* The nameplate. Positions are fractions of the slice, so the
+              overlay tracks the board at any width. */}
+          <div
+            className="absolute flex items-center justify-center"
+            style={{
+              left: `${ZONE_BOARD.namePlate.left * 100}%`,
+              right: `${ZONE_BOARD.namePlate.right * 100}%`,
+              top: `${ZONE_BOARD.namePlate.top * 100}%`,
+              height: `${ZONE_BOARD.namePlate.height * 100}%`,
+            }}
+          >
+            <span
+              className="truncate text-[9px] font-black uppercase tracking-widest"
+              style={{ color: ZONE_BOARD.ink }}
+            >
+              {zoneTitle}
+            </span>
+          </div>
+          <div
+            className="absolute left-1/2 flex -translate-x-1/2 items-center justify-center"
+            style={{
+              width: `${ZONE_BOARD.zonePlate.width * 100}%`,
+              top: `${ZONE_BOARD.zonePlate.top * 100}%`,
+              height: `${ZONE_BOARD.zonePlate.height * 100}%`,
+            }}
+          >
+            <span
+              className="text-[8px] font-black uppercase tracking-widest"
+              style={{ color: ZONE_BOARD.inkMuted }}
+            >
+              Zone {zoneIndex + 1}
+            </span>
+          </div>
+        </div>
+        {/* The panel. THE ONLY PART THAT STRETCHES, and it clips: the map
+            reserves PC_H for this row and the board may never push into the
+            first station beneath it. */}
+        <div
+          className="relative overflow-hidden"
+          style={{
+            backgroundImage: `url(${ZONE_BOARD_ART.mid})`,
+            backgroundSize: "100% 100%",
+          }}
+        >
           {/* address side */}
           <div className="flex items-stretch gap-0">
             {/* left column: main address side */}
             <div className="flex-1 min-w-0 px-3 py-1.5">
-              <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color }}>
-                Fare zone {zoneIndex + 1} · {zoneTitle}
-              </div>
+              {/* The fare-zone line came off the panel when the carved board
+                  landed: the pediment's nameplate carries the topic and the
+                  small plate carries the number, so this said both twice. */}
               <div className="text-sm font-extrabold leading-tight text-foreground truncate">
                 {geoName}
               </div>
@@ -601,6 +656,14 @@ function ZonePostcard({
             </Link>
           )}
         </div>
+        {/* The board's foot, aspect preserved like the pediment. */}
+        <img
+          src={ZONE_BOARD_ART.bot}
+          alt=""
+          aria-hidden
+          className="block w-full"
+          data-testid={`zone-board-bot-${zoneIndex}`}
+        />
       </div>
     </div>
   );
