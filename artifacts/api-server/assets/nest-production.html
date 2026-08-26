@@ -655,7 +655,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
        IT COMES FROM CLERK, not from this database, because this database has
        no record of a login at all: `users` carries created_at and nothing
        else temporal. See /api/nest/live. -->
-  <p class="dsub">Signed in right now</p>
+  <p class="dsub">In the app right now</p>
   <div class="rangebar">
     <div class="seg" id="live-chips" role="group" aria-label="Presence window">
       <button type="button" data-min="5" aria-pressed="false">5 min</button>
@@ -2384,63 +2384,50 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
 
     if (state.liveErr) {
       host.innerHTML = '<div class="tile blank"><span class="n">-</span>' +
-        '<span class="l">Signed in</span><span class="w">unavailable</span></div>';
+        '<span class="l">In the app</span><span class="w">unavailable</span></div>';
       if (when) when.textContent = state.liveErr;
       return;
     }
     var d = state.live;
     if (!d) {
       host.innerHTML = '<div class="tile blank"><span class="n">-</span>' +
-        '<span class="l">Signed in</span><span class="w">reading</span></div>';
-      return;
-    }
-
-    /* UNKNOWN IS NOT ZERO, and the tile has to look different for it. A
-       confident 0 when Clerk simply could not be asked is the one reading
-       that would send somebody looking for a problem that is not there. */
-    if (d.source !== "clerk") {
-      host.innerHTML = '<div class="tile blank"><span class="n">?</span>' +
-        '<span class="l">Signed in</span><span class="w">cannot ask clerk</span></div>';
-      if (when) when.textContent = d.reason || d.note;
+        '<span class="l">In the app</span><span class="w">reading</span></div>';
       return;
     }
 
     var n = state.excludeOwn ? d.totalExclOwner : d.total;
 
-    /* A BARE ZERO IS UNREADABLE and shipping one was the bug. On 2026-08-26
-       this tile read 0 with the exclusions off while the owner was looking at
-       it, signed in, and nothing on screen could say whether that meant
-       "nobody is here" or "this never worked". The caption now always carries
-       the last time ANYBODY was seen, so the two are never confusable again. */
+    /* A BARE ZERO IS UNREADABLE, and shipping one twice is how this got fixed
+       properly. The footer always says WHY it is zero: nothing measured yet
+       because the API restarted, or a real quiet with the last request named. */
     var foot;
-    if (d.newestSeenAt === null) {
-      foot = "clerk reports no timestamps";
-    } else if (n === 0) {
-      foot = "last anybody, " + ago(new Date(d.newestSeenAt).getTime());
-    } else {
+    if (n > 0) {
       foot = state.excludeOwn ? "you and testers out" : "everybody";
+    } else if (d.newestRequestAt === null) {
+      foot = "nothing seen since restart";
+    } else {
+      foot = "last request " + ago(new Date(d.newestRequestAt).getTime());
     }
 
     host.innerHTML =
       '<button type="button" class="tile' + (n === 0 ? " blank" : "") +
         '" data-live-drill="1" aria-expanded="' + (state.liveOpen ? "true" : "false") + '">' +
         '<span class="n">' + fmt(n) + '</span>' +
-        '<span class="l">Signed in, ' + esc(windowWords(d.windowMinutes)) + '</span>' +
+        '<span class="l">In the app, ' + esc(windowWords(d.windowMinutes)) + '</span>' +
         '<span class="w">' + esc(foot) + '</span>' +
       '</button>';
+
     if (when) when.textContent = d.note +
-      " Clerk was asked about " + fmt(d.usersConsidered) + " accounts" +
-      (d.capped ? ", capped, so this is a sample" : "") + "." +
-      (d.newestSeenAt
-        ? " Most recent activity anywhere: " + new Date(d.newestSeenAt).toLocaleString() + "."
-        : "") +
-      " Last read " + new Date(d.generatedAt).toLocaleTimeString() + ".";
+      " Counted by this API, not by Clerk. " + fmt(d.tracked) +
+      (d.tracked === 1 ? " account" : " accounts") + " seen since it restarted " +
+      ago(new Date(d.bootedAt).getTime()) + ". Last read " +
+      new Date(d.generatedAt).toLocaleTimeString() + ".";
   }
 
   function renderLiveDrill(){
     var host = $("live-drill"), d = state.live;
     if (!host) return;
-    if (!state.liveOpen || !d || d.source !== "clerk") { host.innerHTML = ""; return; }
+    if (!state.liveOpen || !d) { host.innerHTML = ""; return; }
 
     var people = d.people;
     if (state.excludeOwn) people = people.filter(function(p){ return !p.excluded; });
@@ -2449,31 +2436,35 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     for (i = 0; i < people.length; i++) {
       var p = people[i];
       var who = p.username || p.name || "(unnamed)";
+      /* CLERK'S COLUMN SITS BESIDE OURS DELIBERATELY. Seeing "2 minutes ago"
+         next to "a day ago" on the same row is what made it obvious that
+         last_active_at could never have answered this. */
       body += "<tr>" +
         "<td>" + esc(who) + (p.excluded ? ' <span class="ddim">(you or a tester)</span>' : "") + "</td>" +
         '<td class="ddim">' + esc(p.email || "-") + "</td>" +
         "<td>" + esc(p.tier || "-") + "</td>" +
-        "<td>" + (p.lastActiveAt ? esc(new Date(p.lastActiveAt).toLocaleTimeString()) : '<span class="ddim">-</span>') + "</td>" +
-        "<td>" + (p.lastSignInAt ? esc(shortDate(p.lastSignInAt)) : '<span class="ddim">-</span>') + "</td>" +
+        "<td>" + esc(ago(new Date(p.lastRequestAt).getTime())) + "</td>" +
+        "<td>" + (p.clerkLastActiveAt
+          ? '<span class="ddim">' + esc(ago(new Date(p.clerkLastActiveAt).getTime())) + "</span>"
+          : '<span class="ddim">-</span>') + "</td>" +
       "</tr>";
     }
 
     host.innerHTML = drillShell(
       '<div class="drill-h">' +
         '<span class="dn">' + fmt(people.length) + '</span>' +
-        '<h3>Signed in</h3>' +
+        '<h3>In the app</h3>' +
         '<span class="dw">' + esc(windowWords(d.windowMinutes)) + '</span>' +
         '<button type="button" class="x" id="live-close" aria-label="Close">&times;</button>' +
-        '<p class="what">Clerk\'s own last_active_at, which it touches about once every five minutes per session. ' +
+        '<p class="what">Everybody this API served an authenticated request for inside the window. ' +
           esc(state.excludeOwn ? "Your accounts and the App Review tester are excluded."
                                : "Nothing is excluded.") +
-          (d.total > people.length && !state.excludeOwn ? " Listing the first " + people.length + " of " + d.total + "." : "") +
-        '</p>' +
+          ' Clerk\'s own column is beside it for comparison and is routinely a day behind, which is why it is not what gets counted.</p>' +
       '</div>' +
       '<div class="drill-body wide">' +
         (people.length
           ? '<div class="dtable"><table><tr><th>Who</th><th>Email</th><th>Plan</th>' +
-            "<th>Last seen</th><th>Signed in</th></tr>" + body + "</table></div>"
+            "<th>Last request</th><th>Clerk last active</th></tr>" + body + "</table></div>"
           : '<p class="bd-wait">Nobody in this window.</p>') +
       '</div>');
   }

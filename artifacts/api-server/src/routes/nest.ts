@@ -24,6 +24,12 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { clerkClient } from "@clerk/express";
+import {
+  presenceSince,
+  presenceNewest,
+  presenceTracked,
+  presenceBootedAt,
+} from "../lib/presence";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import type { AuthedRequest } from "../middlewares/requireAuth";
@@ -1191,39 +1197,36 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
 });
 
 /**
- * WHO IS SIGNED IN RIGHT NOW.
+ * WHO IS IN THE APP RIGHT NOW.
  *
- * THE GAP THIS FILLS, AND IT IS THE WHOLE REASON THE ENDPOINT EXISTS. Every
- * other "active" number on this page counts ATTEMPTS: /nest/summary's
- * activeNow is `count(distinct user_id) from attempts in the last 60 minutes`,
- * and the drill's own note has said so out loud since it was written, "NOT
- * logins: nothing server side records one". So a learner who opens the app,
- * reads the feed, browses the board and puts the phone down counts as ZERO
- * everywhere on this page. Asked for on 2026-08-26 as "the number of people
- * actually currently logged in, and be able to drill down to see the names".
+ * THIS ANSWERED FROM CLERK AND CLERK CANNOT ANSWER IT. The first two versions
+ * read `last_active_at` off getUserList. Measured against production on
+ * 2026-08-26 at 19:37 UTC, with the owner signed in on the web app and looking
+ * at this very page:
  *
- * CLERK IS THE ONLY PLACE A LOGIN EXISTS. This app writes no session row and
- * no last-seen column: `users` carries created_at and nothing else temporal.
- * Clerk maintains last_active_at per user, and getUserList can filter on it
- * directly, so this is one upstream call rather than a schema change plus a
- * write on the hot path of every authenticated request.
+ *     aakeshp@gmail.com          lastActiveAt 2026-08-25T19:59Z
+ *                                lastSignInAt 2026-08-26T13:27Z
+ *     appletester721             lastActiveAt 2026-08-26T04:09Z
+ *                                lastSignInAt 2026-08-26T15:04Z
  *
- * NOT sessions.getSessionList, which was the obvious first choice and does not
- * work: it REQUIRES a clientId or a userId, so "every active session" would be
- * one call per account. Fine at 23 users, wrong the moment it is not.
+ * THE SIGN-IN IS NEWER THAN THE "LAST ACTIVE" ON BOTH. That inversion is the
+ * whole answer: `last_active_at` is a coarse roughly-daily figure of the sort
+ * used for monthly-active billing, not a presence signal, and the newest value
+ * across all 19 accounts was fifteen hours old. No window over it can ever say
+ * "now". `last_sign_in_at` is no better, because sessions here last seven days,
+ * so a daily user signs in once and that stamp ages while they are present.
  *
- * FIVE MINUTES IS CLERK'S OWN GRANULARITY. last_active_at is touched about
- * once every five minutes per session rather than on every request, so a
- * window shorter than that undercounts by design. The default is 15 and the
- * page says which window it is showing; anything under 5 is accepted but
- * flagged in the note rather than silently rounded.
+ * So presence now comes from THIS SERVER, which is the only thing that
+ * reliably knows: being in the app means talking to it. requireAuth touches an
+ * in-memory map on every authenticated request. See lib/presence.ts for why
+ * that is not a column and what it costs.
  *
- * IT FAILS LOUDLY AND NEVER TO ZERO. CLERK_SECRET_KEY lives only in Replit's
- * Secrets panel, and CLAUDE.md records that secrets from there go missing.
- * A missing key or a refused call answers `source: "unavailable"` with counts
- * of NULL, because a cockpit that renders a confident 0 when it simply could
- * not ask is worse than one that says it could not ask. This is the same
- * direction the owner gate fails in.
+ * CLERK IS STILL REPORTED, DEMOTED AND LABELLED. Its figure is a real answer
+ * to a different question, "who has been about today", and having both on one
+ * payload is what made the mismatch visible in the first place. It is no
+ * longer what the headline counts.
+ *
+ * NAMES COME FROM OUR OWN users TABLE, so this needs no Clerk call at all now.
  */
 type NestLivePerson = {
   userId: string;
@@ -1231,8 +1234,10 @@ type NestLivePerson = {
   email: string | null;
   username: string | null;
   tier: string | null;
-  lastActiveAt: string | null;
-  lastSignInAt: string | null;
+  /** Last authenticated request this process saw. The presence signal. */
+  lastRequestAt: string;
+  /** Clerk's coarse figure, for comparison. Frequently a day stale. */
+  clerkLastActiveAt: string | null;
   /** True for the owner's own accounts and the App Review tester. */
   excluded: boolean;
 };
@@ -1240,36 +1245,23 @@ type NestLivePerson = {
 type NestLive = {
   generatedAt: string;
   windowMinutes: number;
-  source: "clerk" | "unavailable";
-  /** Null, never 0, when the source could not be read. */
-  total: number | null;
-  totalExclOwner: number | null;
+  source: "server";
+  total: number;
+  totalExclOwner: number;
   /**
-   * How many accounts Clerk was asked about, and the most recent activity it
-   * reported for ANY of them, window or no window.
-   *
-   * THESE EXIST BECAUSE A BARE 0 IS UNREADABLE. Shipped 2026-08-26, the tile
-   * showed 0 with the exclusions off while the owner was looking at the page
-   * signed in, and 0 is what a working query and a broken one both look like.
-   * "0, and the most recent anybody was seen was 3 hours ago" separates them
-   * instantly; so does "0, and Clerk reports no activity timestamps at all".
+   * When this API process started. A RESTART EMPTIES THE MAP, so a zero right
+   * after a deploy means "not measured yet" rather than "nobody here", and the
+   * page must be able to tell those apart.
    */
-  usersConsidered: number;
-  newestSeenAt: string | null;
-  /** True when Clerk returned a full page, so these are a sample not a census. */
-  capped: boolean;
+  bootedAt: string;
+  /** Distinct accounts seen since boot, and the most recent request from any. */
+  tracked: number;
+  newestRequestAt: string | null;
   note: string;
-  reason: string | null;
   people: NestLivePerson[];
 };
 
-/** Clerk pages at 100 and reports the true total separately, so this caps the
- *  LIST rather than the COUNT. At 23 accounts it is academic; it stops being
- *  academic without anybody noticing, which is when a silent cap starts lying. */
-const LIVE_LIMIT = 100;
-
-/** Ten seconds. Short enough that "right now" means it, long enough that a
- *  page left open on a second monitor is not a Clerk request every second. */
+/** Ten seconds. Short enough that "right now" means it. */
 const LIVE_CACHE_MS = 10_000;
 let liveCached: { at: number; minutes: number; value: NestLive } | null = null;
 
@@ -1277,8 +1269,8 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
   if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
 
   const raw = Number(req.query.minutes ?? 15);
-  // A day is the ceiling: past that this stops being "right now" and the
-  // range endpoint is the right tool.
+  // A day is the ceiling: past that this stops being "right now" and the range
+  // endpoint is the right tool.
   const minutes = Number.isFinite(raw) ? Math.min(1440, Math.max(1, Math.round(raw))) : 15;
 
   if (liveCached && liveCached.minutes === minutes && Date.now() - liveCached.at < LIVE_CACHE_MS) {
@@ -1286,194 +1278,94 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  const since = Date.now() - minutes * 60_000;
+  const now = Date.now();
+  const here = presenceSince(now - minutes * 60_000);
+  const newest = presenceNewest();
+
+  // THE OWNER'S OWN REQUEST IS ALREADY IN THIS MAP by the time the handler
+  // runs, because requireAuth touched it on the way in. That is correct and
+  // not double counting: opening the cockpit IS being in the app. It is also
+  // why the exclusion toggle matters more here than anywhere else on the page.
+  const byId = new Map(here.map((h) => [h.userId, h.at]));
+
   const base = {
-    generatedAt: new Date().toISOString(),
+    generatedAt: new Date(now).toISOString(),
     windowMinutes: minutes,
+    source: "server" as const,
+    bootedAt: new Date(presenceBootedAt).toISOString(),
+    tracked: presenceTracked(),
+    newestRequestAt: newest === null ? null : new Date(newest).toISOString(),
+    note:
+      "Everybody whose authenticated request this API served inside the window. " +
+      "Presence, not practice: the Numbers tiles count attempts. Clerk's own " +
+      "last_active_at is a roughly daily figure and cannot answer this, which is " +
+      "why it is shown per person rather than counted.",
   };
 
-  const unavailable = (reason: string): NestLive => ({
-    ...base,
-    source: "unavailable",
-    total: null,
-    totalExclOwner: null,
-    usersConsidered: 0,
-    newestSeenAt: null,
-    capped: false,
-    note: "Presence comes from Clerk and Clerk could not be read, so this is not zero, it is unknown.",
-    reason,
-    people: [],
-  });
-
-  if (!process.env.CLERK_SECRET_KEY) {
-    // Not an error and not logged as one: on a machine without the secret this
-    // is the expected answer, and it is exactly what the page should say.
-    res.json(unavailable("CLERK_SECRET_KEY is not set in this environment."));
+  if (here.length === 0) {
+    const value: NestLive = { ...base, total: 0, totalExclOwner: 0, people: [] };
+    liveCached = { at: now, minutes, value };
+    res.json(value);
     return;
   }
 
   try {
-    /**
-     * NO lastActiveAtAfter, AND THAT IS THE FIX RATHER THAN A SIMPLIFICATION.
-     *
-     * The first version filtered upstream and shipped a tile reading 0 while
-     * the owner sat in front of it signed in, exclusions off. A filtered call
-     * that returns an empty page and a filter that quietly matches nothing are
-     * indistinguishable from the outside, so the endpoint could not say which
-     * had happened and neither could anybody reading the page.
-     *
-     * Sorting and cutting the window HERE means the timestamps Clerk actually
-     * holds come back and can be reported. If they are all null, the page says
-     * that instead of saying zero, which is a different problem with a
-     * different fix. At 23 accounts the whole list is one call either way, so
-     * this costs nothing; past LIVE_LIMIT it becomes a sample and `capped`
-     * says so out loud rather than letting a silent cut look like a census.
-     */
-    const list = await clerkClient.users.getUserList({
-      orderBy: "-last_active_at",
-      limit: LIVE_LIMIT,
-    });
+    const ids = [...byId.keys()];
+    const rows = await db.execute(sql`
+      select id, email, username, display_name, tier
+        from users
+       where id in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})
+    `);
+    const arr = (rows as unknown as { rows?: Record<string, unknown>[] }).rows ??
+      (rows as unknown as Record<string, unknown>[]);
+    const local = new Map(arr.map((r) => [String(r.id), r]));
 
-    const ids = list.data.map((u) => u.id);
-
-    // NAMES FROM BOTH SIDES, and the local row wins where it exists. Clerk
-    // holds the identity, but display_name and username are edited in this
-    // app's own account screen and are what the owner would recognise on the
-    // leaderboard. tier is only here.
-    const local = new Map<string, Record<string, unknown>>();
-    if (ids.length > 0) {
-      const rows = await db.execute(sql`
-        select id, email, username, display_name, tier
-          from users
-         where id in (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})
-      `);
-      const arr = (rows as unknown as { rows?: Record<string, unknown>[] }).rows ??
-        (rows as unknown as Record<string, unknown>[]);
-      for (const r of arr) local.set(String(r.id), r);
+    // Clerk, for the comparison column only. A failure here must NOT take the
+    // headline down with it: the count is ours and does not depend on it.
+    const clerkSeen = new Map<string, number>();
+    try {
+      const list = await clerkClient.users.getUserList({ userId: ids, limit: ids.length });
+      for (const u of list.data) {
+        if (typeof u.lastActiveAt === "number") clerkSeen.set(u.id, u.lastActiveAt);
+      }
+    } catch (err) {
+      req.log.warn({ err }, "nest live could not read clerk for the comparison column");
     }
 
-    const seen = list.data
-      .map((u) => u.lastActiveAt)
-      .filter((t): t is number => typeof t === "number");
-    const newest = seen.length > 0 ? Math.max(...seen) : null;
-
-    const inWindow = list.data.filter(
-      (u) => typeof u.lastActiveAt === "number" && u.lastActiveAt >= since,
-    );
-
-    const people: NestLivePerson[] = inWindow.map((u) => {
-      const row = local.get(u.id);
-      const clerkName = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+    const people: NestLivePerson[] = here.map(({ userId, at }) => {
+      const row = local.get(userId);
+      const clerkAt = clerkSeen.get(userId);
       return {
-        userId: u.id,
-        name:
-          (row?.display_name == null ? null : String(row.display_name)) ||
-          (clerkName || null) ||
-          u.username ||
-          null,
-        email:
-          (row?.email == null ? null : String(row.email)) ||
-          u.emailAddresses[0]?.emailAddress ||
-          null,
-        username:
-          (row?.username == null ? null : String(row.username)) || u.username || null,
+        userId,
+        name: row?.display_name == null ? null : String(row.display_name),
+        email: row?.email == null ? null : String(row.email),
+        username: row?.username == null ? null : String(row.username),
         tier: row?.tier == null ? null : String(row.tier),
-        lastActiveAt: u.lastActiveAt == null ? null : new Date(u.lastActiveAt).toISOString(),
-        lastSignInAt: u.lastSignInAt == null ? null : new Date(u.lastSignInAt).toISOString(),
-        excluded: nonLearnerUserIds.has(u.id),
+        lastRequestAt: new Date(at).toISOString(),
+        clerkLastActiveAt: clerkAt === undefined ? null : new Date(clerkAt).toISOString(),
+        excluded: nonLearnerUserIds.has(userId),
       };
     });
 
-    // The window is applied here, so the count IS the list. No totalCount:
-    // that is Clerk's total for the QUERY, and the query is now unfiltered, so
-    // it would report every account that has ever existed.
-    const total = people.length;
     const excluded = people.filter((p) => p.excluded).length;
-    const capped = list.data.length >= LIVE_LIMIT;
-
     const value: NestLive = {
       ...base,
-      source: "clerk",
-      total,
-      totalExclOwner: total - excluded,
-      usersConsidered: list.data.length,
-      newestSeenAt: newest === null ? null : new Date(newest).toISOString(),
-      capped,
-      note:
-        newest === null
-          ? "Clerk returned no activity timestamps at all, for anybody. That is not the same as nobody being here: it means last_active_at is empty on this instance, and no window can be read from it."
-          : minutes < 5
-            ? "Clerk touches last_active_at about once every five minutes per session, so a window under five minutes undercounts."
-            : "Signed in and seen by Clerk inside the window. This counts presence, not practice: the Numbers tiles count attempts.",
-      reason: null,
+      total: people.length,
+      totalExclOwner: people.length - excluded,
       people,
     };
-
-    liveCached = { at: Date.now(), minutes, value };
+    liveCached = { at: now, minutes, value };
     res.json(value);
   } catch (err) {
-    req.log.error({ err }, "nest live presence lookup failed");
-    res.json(unavailable("Clerk refused the request. Check CLERK_SECRET_KEY and the instance it belongs to."));
-  }
-});
-
-/**
- * THE GROWTH PLAN, a second whole document behind the same gate.
- *
- * WHY A ROUTE AND NOT A SECTION. It is 114KB of standalone HTML with its own
- * stylesheet, its own script and its own localStorage, built in a separate
- * session. Inlining it into nest-production.html would mean merging two
- * stylesheets whose class names were never checked against each other, which
- * is the exact trap this page paid for on 2026-08-25, and its every date is
- * computed at runtime from one launch-day picker, so the script would have to
- * come across intact or all 66 slots and 35 days render blank.
- *
- * IT OPENS IN ITS OWN TAB rather than in a nested frame. The cockpit is
- * already an iframe inside the product, and a frame inside that frame would
- * inherit a sandbox two levels deep for no gain. A top-level GET carries the
- * Clerk session cookie exactly as the frame does, so the gate below works the
- * same either way.
- *
- * IT TALKS TO NOTHING. Verified before it was routed, and again after it was
- * rewritten: no fetch, no script src, no stylesheet link, no @import, not a
- * single src or href attribute, no external host of any kind, and every
- * localStorage call wrapped in try/catch. So it cannot leak, cannot break on a
- * blocked request, and adds no runtime dependency to the API.
- *
- * NEST-GROWTH.HTML IS COMMITTED OUTPUT, NOT SOURCE. Same rule as the aksharmala
- * page in CLAUDE.md and for the same reason: EDIT tools/growth-board AND
- * REBUILD, NEVER THIS FILE. A hand edit works until the next rebuild silently
- * reverts it.
- *
- *     cd tools/growth-board
- *     python3 gen.py ../../artifacts/api-server/assets/nest-growth.html nest
- *
- * THE TRAILING `nest` IS LOAD BEARING and the build is wrong without it. It
- * drops the Google Fonts link, substitutes system stacks, builds the standalone
- * wrapper and sets the canonical footer.
- *
- * THE RULE ONLY EARNED ITS PLACE AFTER THE GENERATOR WAS MADE TO EARN IT.
- * On 2026-08-26 that command emitted 114,439 bytes against the 114,741 here,
- * and the generated CSS still named "Archivo Narrow", "Instrument Sans" and
- * "IBM Plex Mono", all Google Fonts, where this file carries system stacks: the
- * substitution had been done by hand in a shell once and then documented as if
- * the generator did it. A rebuild would have named three faces that can never
- * load. The generator was held out of the repo until `cmp` was silent, because
- * pointing this rule at a command that reverts work is worse than having no
- * generator at all. `cmp` is silent now, verified from a clean run.
- */
-router.get("/nest/growth", (req: Request, res: Response): void => {
-  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
-  try {
-    // Same no-store reasoning as the cockpit: a cached document would pin the
-    // plan at whatever shipped, and a plan is edited more often than a
-    // dashboard.
-    res.set("Content-Type", "text/html; charset=utf-8");
-    res.set("Cache-Control", "no-store");
-    res.send(nestAsset("nest-growth.html"));
-  } catch (err) {
-    req.log.error({ err }, "nest growth page missing from the build");
-    res.status(500).json({ error: "The growth plan is not in this build" });
+    req.log.error({ err }, "nest live could not hydrate names");
+    // The COUNT still stands even with no names: it came from this process.
+    const value: NestLive = {
+      ...base,
+      total: here.length,
+      totalExclOwner: here.filter((h) => !nonLearnerUserIds.has(h.userId)).length,
+      people: [],
+    };
+    res.json(value);
   }
 });
 
