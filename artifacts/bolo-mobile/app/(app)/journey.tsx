@@ -16,6 +16,7 @@
 // split into per-zone Svg blocks inside the ScrollView for scroll perf.
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -102,6 +103,12 @@ import { isChachaEncounterStation, useChachaMemory } from '@/lib/chachaMemory';
 import { ChachaEncounterDialog } from '@/components/journey/ChachaEncounter';
 import { closeoutOwed, useCloseoutMemory } from '@/lib/closeoutMemory';
 import { ZoneCloseoutOverlay } from '@/components/journey/ZoneCloseout';
+import { playStopSplash } from '@/lib/stopSplash';
+import {
+  ZONE_BACKDROP_SCRIM,
+  zoneBackdrop,
+  zoneFootTone,
+} from '@/lib/zoneBackdrops';
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import {
   Bunting,
@@ -949,6 +956,27 @@ export default function JourneyScreen() {
   })();
   const currentZone = currentStation ? zones[currentStation.zoneIndex]! : null;
 
+  // THE ARRIVAL FILM, symmetric with the departure one. Asked for 2026-08-26:
+  // the same zone splash that plays on the way INTO a stop also plays when the
+  // journey itself loads, so the map fades up out of the scene rather than
+  // snapping in. It reuses the six films already bundled for the departure, so
+  // it costs nothing extra.
+  //
+  // FIRED WHEN currentZone FIRST RESOLVES, not on bare mount, because the zone
+  // is not known until the queries land and the wrong zone's painting is worse
+  // than none. On a return visit those queries are cached and this is the same
+  // tick as mount; on a cold load the screen is in its loading state anyway, so
+  // neither case shows the map and then covers it.
+  //
+  // Once per mount. Popping back from a stop refocuses this screen rather than
+  // recreating it, so returning from a lesson does not replay the film.
+  const arrivalPlayed = useRef(false);
+  useEffect(() => {
+    if (arrivalPlayed.current || !currentZone) return;
+    arrivalPlayed.current = true;
+    playStopSplash(currentZone.id);
+  }, [currentZone]);
+
   const openPaywallForLanguage = () => {
     setLock(null);
     router.push({
@@ -1253,6 +1281,7 @@ export default function JourneyScreen() {
     const stop = chachaDlg ? allStations[chachaDlg.station - 1] : undefined;
     setChachaDlg(null);
     if (!stop) return;
+    playStopSplash(stop.zoneId);
     router.push({
       pathname: '/(app)/practice/[id]',
       params: { id: String(stop.zoneId), group: String(stop.id) },
@@ -1512,6 +1541,65 @@ export default function JourneyScreen() {
           style={[styles.map, { width: mapW, height: totalH }]}
           onLayout={onMapLayout}
         >
+          {/* THE PAINTED BACKDROPS, one per fare zone, underneath everything.
+              Depth order is now: backdrop < scenery < rail < stations.
+
+              NOT on the parallax layer. The scenery above it drifts against
+              the scroll, which reads as depth when it is a scatter of small
+              props; a full-bleed painting doing the same thing reads as the
+              ground sliding, which is worse than no parallax at all.
+
+              `cover` on a band that is ~390 wide and 850 to 1200 tall crops
+              about 9% off each side of a 0.56 painting, and more on a long
+              zone. That is measured, not assumed, and it is why the art was
+              briefed with its detail at the edges and a quiet corridor down
+              the middle where the rail runs.
+
+              The foot tone paints first so a slow decode never flashes light
+              behind the rail, and it is the colour the next band starts from.
+              See lib/zoneBackdrops.ts. */}
+          <View
+            testID="journey-backdrop-layer"
+            pointerEvents="none"
+            style={StyleSheet.absoluteFill}
+          >
+            {slices.map(({ start, end }, si) => {
+              const zi = postcardYs[si]?.zoneIndex ?? si;
+              const art = zoneBackdrop(zi);
+              if (!art) return null;
+              return (
+                <View
+                  key={si}
+                  testID={`journey-backdrop-${zi}`}
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: start,
+                    width: mapW,
+                    height: end - start,
+                    backgroundColor: zoneFootTone(zi),
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Image
+                    source={art}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                  />
+                  {/* A flat scrim rather than a gradient: the rail crosses the
+                      whole height, so darkening only one end would leave it
+                      legible in one half of the band and not the other. */}
+                  <View
+                    style={[
+                      StyleSheet.absoluteFill,
+                      { backgroundColor: '#1B120E', opacity: ZONE_BACKDROP_SCRIM },
+                    ]}
+                  />
+                </View>
+              );
+            })}
+          </View>
+
           {/* India-flavored trackside scenery (Task 985 port): zone-themed
               dimensional flat scenes in the free strip beside station rows,
               anchored to the same serpentine geometry the stations use.
@@ -1788,6 +1876,7 @@ export default function JourneyScreen() {
               hapticLight();
               if (s.story) {
                 if (accessible) {
+                  playStopSplash(zone.id);
                   router.push({
                     pathname: '/(app)/(tabs)/games/storybook',
                     params: {
@@ -1802,8 +1891,11 @@ export default function JourneyScreen() {
               }
               if (s.trace) {
                 if (accessible) {
+                  playStopSplash(zone.id);
                   // KEYED OFF THE STOP, not off zone.id: the ladder is indexed
                   // by a 1-based zone ORDINAL and a category id is not one.
+                  // The splash above is the exception and keys off the id on
+                  // purpose; see lib/stopSplash.ts for why.
                   router.push({
                     pathname: '/(app)/(tabs)/games/script-trace',
                     params: {
@@ -1822,6 +1914,11 @@ export default function JourneyScreen() {
                 return;
               }
               if (accessible) {
+                // BEFORE the push, not after: the overlay has to be on screen
+                // before the practice route mounts, or the learner watches the
+                // page appear and then get covered up. A zone with no film is
+                // a no-op, so there is nothing to check here.
+                playStopSplash(zone.id);
                 router.push({
                   pathname: '/(app)/practice/[id]',
                   params: { id: String(zone.id), group: String(s.id) },

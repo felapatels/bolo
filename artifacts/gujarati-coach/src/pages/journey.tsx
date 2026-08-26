@@ -18,6 +18,12 @@
 // pass chrome changed.
 import { Link, useLocation } from "wouter";
 import { blessAudioPlayback } from "@/lib/iosAudio";
+import { playStopSplash } from "@/lib/stop-splash";
+import {
+  ZONE_BACKDROP_SCRIM,
+  zoneBackdrop,
+  zoneFootTone,
+} from "@/lib/zone-backdrops";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
@@ -580,6 +586,7 @@ function StationCard({
   showTeaserChip,
   href,
   onLocked,
+  onNavigate,
   side,
   polishEnabled,
 }: {
@@ -590,6 +597,8 @@ function StationCard({
   showTeaserChip: boolean;
   href: string;
   onLocked: () => void;
+  /** Fired on an accessible stop's click, BEFORE the route changes. */
+  onNavigate?: () => void;
   side: "left" | "right";
   polishEnabled?: boolean;
 }) {
@@ -824,7 +833,18 @@ function StationCard({
   );
   if (accessible) {
     return (
-      <Link href={href} aria-label={aria} className={rowClass} onClick={blessAudioPlayback}>
+      <Link
+        href={href}
+        aria-label={aria}
+        className={rowClass}
+        onClick={() => {
+          blessAudioPlayback();
+          // BEFORE the route changes, not after: the overlay has to be on
+          // screen before the destination mounts, or the learner watches the
+          // page appear and then get covered up.
+          onNavigate?.();
+        }}
+      >
         {body}
       </Link>
     );
@@ -1456,6 +1476,26 @@ export default function Journey() {
   const currentStation = allStations.find((s) => s.id === currentId) ?? null;
   const currentZone = currentStation ? zones[currentStation.zoneIndex]! : null;
 
+  // THE ARRIVAL FILM, symmetric with the departure one. Asked for 2026-08-26:
+  // the same zone splash that plays on the way INTO a stop also plays when the
+  // journey itself loads, so the map fades up out of the scene rather than
+  // snapping in. It reuses the six films already bundled for the departure, so
+  // it costs nothing extra.
+  //
+  // FIRED WHEN currentZone FIRST RESOLVES, not on bare mount, because the zone
+  // is not known until the queries land and the wrong zone's painting is worse
+  // than none. On a return visit those queries are cached and this is the same
+  // tick as mount; on a cold load the page is in its loading state anyway, so
+  // neither case shows the map and then covers it.
+  //
+  // Mobile twin carries the same comment.
+  const arrivalPlayed = useRef(false);
+  useEffect(() => {
+    if (arrivalPlayed.current || !currentZone) return;
+    arrivalPlayed.current = true;
+    playStopSplash(currentZone.id);
+  }, [currentZone]);
+
   const languageName = activeLanguage?.name ?? "this language";
   const upgradeLanguageHref = upgradeHref({
     plan: "plus",
@@ -2075,6 +2115,59 @@ export default function Journey() {
             reduceMotion={reduceMotion}
           />
           <div className="relative" style={{ height: totalH }}>
+            {/* THE PAINTED BACKDROPS, one per fare zone, underneath everything.
+                Depth order is now: backdrop < scenery < rail < stations.
+
+                Plain divs rather than SVG <image>: the map is one <svg> laid
+                over this container, and CSS background-size: cover is the same
+                thing preserveAspectRatio="slice" would give with none of the
+                viewBox arithmetic.
+
+                NOT on the parallax layer. The scenery inside the svg drifts
+                against the scroll, which reads as depth when it is a scatter
+                of small props; a full-bleed painting doing the same thing
+                reads as the ground sliding, which is worse than no parallax.
+
+                The foot tone paints first so a slow fetch never flashes light
+                behind the rail, and it is the colour the next band starts
+                from. See lib/zone-backdrops.ts. Mobile twin carries the same
+                comment. */}
+            <div
+              data-testid="journey-backdrop-layer"
+              aria-hidden
+              className="pointer-events-none absolute inset-0 overflow-hidden"
+            >
+              {postcardYs.map(({ y, zoneIndex: zi }, si) => {
+                const art = zoneBackdrop(zi);
+                if (!art) return null;
+                const end =
+                  si + 1 < postcardYs.length ? postcardYs[si + 1]!.y : totalH;
+                return (
+                  <div
+                    key={si}
+                    data-testid={`journey-backdrop-${zi}`}
+                    className="absolute left-0 w-full overflow-hidden bg-cover bg-center"
+                    style={{
+                      top: y,
+                      height: end - y,
+                      backgroundColor: zoneFootTone(zi),
+                      backgroundImage: `url(${art})`,
+                    }}
+                  >
+                    {/* A flat scrim rather than a gradient: the rail crosses
+                        the whole height, so darkening only one end would leave
+                        it legible in one half of the band and not the other. */}
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        backgroundColor: "#1B120E",
+                        opacity: ZONE_BACKDROP_SCRIM,
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
             <svg
               className="absolute inset-0 pointer-events-none"
               width={mapW}
@@ -2445,6 +2538,7 @@ export default function Journey() {
                               ? `/games/storybook?journey=${s.story.journey}&zone=${s.story.zone}`
                               : `/practice/${zone.id}?group=${s.id}`
                         }
+                        onNavigate={() => playStopSplash(zone.id)}
                         onLocked={() =>
                           setLock({
                             kind: showroom
