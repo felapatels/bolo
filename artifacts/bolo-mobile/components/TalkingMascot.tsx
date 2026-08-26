@@ -14,6 +14,12 @@ import { useColors } from '@/hooks/useColors';
 import { accessoryOverlaySource, mascotSource } from '@/lib/mascotOutfits';
 import { useEquippedOutfit } from '@/contexts/OutfitContext';
 import type { MascotPose } from '@/components/Mascot';
+import Svg, {
+  Defs,
+  Path,
+  Text as SvgText,
+  TextPath,
+} from 'react-native-svg';
 
 export type TalkingMascotMode = 'idle' | 'listening' | 'talking' | 'thinking';
 
@@ -38,6 +44,18 @@ const MODE_POSES = {
  *
  * Reduced-motion users see the correct pose with no animated embellishments.
  */
+/**
+ * A circle as an SVG path, starting at the BOTTOM and running clockwise, which
+ * is what puts the first character under the bird rather than over his head.
+ * Two arcs because one arc cannot describe a full circle: its start and end
+ * would coincide and the renderer draws nothing.
+ */
+function ringPath(box: number): string {
+  const r = box * 0.4;
+  const c = box / 2;
+  return `M ${c} ${c + r} A ${r} ${r} 0 1 1 ${c} ${c - r} A ${r} ${r} 0 1 1 ${c} ${c + r}`;
+}
+
 export function TalkingMascot({
   mode,
   size = 160,
@@ -48,6 +66,9 @@ export function TalkingMascot({
   const colors = useColors();
   const reduceMotion = useReducedMotion();
   const equipped = useEquippedOutfit();
+  // Only while he is waiting to be held. Once he is listening or speaking the
+  // instruction has been taken and the pulse ring wants the same circle.
+  const showHint = mode === 'idle';
   const overlay = accessoryOverlaySource(
     MODE_POSES[mode],
     equipped.accessory,
@@ -160,6 +181,44 @@ export function TalkingMascot({
 
   return (
     <View style={styles.root}>
+      {/* PRESS & HOLD, WRAPPED ROUND THE BIRD. Asked for 2026-08-26: "add a
+          wrapping text around the bubble on this page that says press & hold".
+          The instruction is already written twice on this screen, under the
+          mascot and on the button, and both are easy to read past: the thing a
+          learner actually looks at is Bolo, so the instruction goes on him.
+          Hidden while he is listening or talking, when it has been obeyed and
+          the pulse ring wants the same circle. */}
+      {showHint ? (
+        <Svg
+          width={size * 1.34}
+          height={size * 1.34}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+          accessible={false}
+        >
+          <Defs>
+            {/* Starts at the bottom and runs clockwise, so the words sit under
+                the bird the right way up rather than upside down over his
+                head. */}
+            <Path
+              id="bolo-hold-ring"
+              d={ringPath(size * 1.34)}
+              fill="none"
+            />
+          </Defs>
+          <SvgText
+            fill={colors.mutedForeground}
+            fontSize={size * 0.062}
+            fontWeight="800"
+            letterSpacing={size * 0.03}
+          >
+            <TextPath href="#bolo-hold-ring" startOffset="50%" textAnchor="middle">
+              PRESS &amp; HOLD · PRESS &amp; HOLD ·
+            </TextPath>
+          </SvgText>
+        </Svg>
+      ) : null}
+
       {/* Pulse ring for listening */}
       {mode === 'listening' && (
         <Animated.View

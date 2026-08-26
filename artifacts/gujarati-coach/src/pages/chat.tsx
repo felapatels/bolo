@@ -31,6 +31,7 @@ import { ExpressOfferMoment } from "@/components/chai-wallet";
 import { webHaptic } from "@/lib/haptics";
 import { loadSoundPref } from "@/lib/soundPref";
 import { loadCoachVoicePref } from "@/lib/coachVoicePref";
+import { chatChipsFor } from "@/lib/chat-chips";
 
 // How many previous turns to include in each request.
 const HISTORY_WINDOW = 6;
@@ -1303,11 +1304,17 @@ export default function ChatPage() {
   }, [isPlus, isOneLanguage, secondsRemaining, recorder, finishRecording, setLocation]);
 
   // Send a typed message as a chat turn, bypassing audio recording entirely.
-  const sendTextTurn = useCallback(async () => {
+  /**
+   * `override` is what a quick chip sends. It cannot go through the input's
+   * state: setTextInputValue is asynchronous, so a chip that set the box and
+   * then called this would read the PREVIOUS value and send the wrong thing,
+   * or nothing at all on the first tap.
+   */
+  const sendTextTurn = useCallback(async (override?: string) => {
     // Called synchronously from the Send click / Enter keydown — bless the
     // pooled audio elements while gesture context is still live (iOS/WebKit).
     unlockAudioPlayback();
-    const text = textInputValue.trim();
+    const text = (override ?? textInputValue).trim();
     if (!text) return;
     if (phase === "processing" || phase === "recording") return;
     // Guard against concurrent invocations (e.g. simultaneous Enter + Send tap).
@@ -2063,6 +2070,27 @@ export default function ChatPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* QUICK CHIPS. Two sets: openers while the screen is empty, follow-ups
+          once there is something to follow. See lib/chat-chips.ts for why they
+          are separate and why they are in English. Hidden while Bolo is busy,
+          because a chip tapped mid-turn would queue behind the turn it is
+          reacting to. */}
+      {phase !== "processing" && phase !== "recording" && (
+        <div className="flex gap-2 overflow-x-auto px-4 pb-1 pt-2">
+          {chatChipsFor(messages.length).map((chip) => (
+            <button
+              key={chip}
+              type="button"
+              data-testid={`chat-chip-${chip}`}
+              onClick={() => void sendTextTurn(chip)}
+              className="shrink-0 rounded-full border border-card-border bg-card px-3.5 py-2 text-[13px] font-semibold text-foreground transition-opacity hover:opacity-80"
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Controls — text input + mic button side by side */}
       <div className="flex items-center gap-2 px-4 pb-10 pt-2">

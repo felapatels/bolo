@@ -58,6 +58,7 @@ import { loadCoachVoicePref } from '@/lib/coachVoicePref';
 import { PressableScale } from '@/components/PressableScale';
 import { TipCard } from '@/components/TipCard';
 import { useChatRecording } from '@/components/ChatRecordingContext';
+import { chatChipsFor } from '@/lib/chatChips';
 
 // How many previous turns to include in each request for conversational context.
 // 3 turns gives enough context for a natural exchange while keeping the LLM
@@ -1444,8 +1445,14 @@ export default function ChatScreen() {
 
   // ── Text input send ────────────────────────────────────────────────────────
   // Sends a typed message as a chat turn, bypassing audio recording entirely.
-  const handleSendText = async () => {
-    const text = textInputValue.trim();
+  /**
+   * `override` is what a quick chip sends. It cannot go through the input's
+   * state: setTextInputValue is asynchronous, so a chip that set the box and
+   * then called this would read the PREVIOUS value and send the wrong thing,
+   * or nothing at all on the first tap.
+   */
+  const handleSendText = async (override?: string) => {
+    const text = (override ?? textInputValue).trim();
     if (!text) return;
     if (phase === 'processing' || phase === 'recording') return;
     // Guard against concurrent invocations (e.g. simultaneous Return key + Send button tap).
@@ -2107,6 +2114,40 @@ export default function ChatScreen() {
         </View>
       ) : null}
 
+      {/* QUICK CHIPS. Two sets: openers while the screen is empty, follow-ups
+          once there is something to follow. See lib/chatChips.ts for why they
+          are separate and why they are in English. Hidden while Bolo is busy,
+          because a chip tapped mid-turn would queue behind the turn it is
+          reacting to. */}
+      {phase !== 'processing' && phase !== 'recording' ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.quickChipRow}
+          keyboardShouldPersistTaps="handled"
+        >
+          {chatChipsFor(messages.length).map((chip) => (
+            <Pressable
+              key={chip}
+              testID={`chat-chip-${chip}`}
+              accessibilityRole="button"
+              accessibilityLabel={chip}
+              onPress={() => {
+                void handleSendText(chip);
+              }}
+              style={[
+                styles.quickChip,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.quickChipText, { color: colors.foreground }]}>
+                {chip}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
+
       {/* Text input row — keyboard fallback for when speaking isn't convenient */}
       <View style={[styles.textInputRow, { borderTopColor: colors.border }]}>
         <TextInput
@@ -2299,6 +2340,14 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  quickChipRow: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
+  quickChip: {
+    borderRadius: 999,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  quickChipText: { fontSize: 13, fontFamily: AppFonts.semibold },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
