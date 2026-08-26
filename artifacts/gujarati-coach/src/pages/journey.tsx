@@ -130,6 +130,7 @@ import {
   BADGE,
   MAP_GLYPH_PLATE,
   MAP_GLYPH_PLATE_FILL,
+  TICKET,
 } from "@/lib/ticket-stock";
 import {
   INTRO_SCROLL,
@@ -2545,6 +2546,21 @@ export default function Journey() {
                         halt is the label, which keeps the wider line off a
                         18px-wide piece of art. Scenery still, so it inherits
                         the layer's pointer-events-none. */}
+                    {/* HIS NAMEPLATE NEEDS A GROUND TOO. The glyph plate above
+                        is centred on the stall and the label hangs BELOW it, so
+                        the two lines were back on the painting with nothing
+                        behind them: "I can't see the text under chachaji". Same
+                        fix as the stall itself, in the shape the text actually
+                        occupies. */}
+                    <rect
+                      x={s.x - 30}
+                      y={s.y + 10}
+                      width={60}
+                      height={20}
+                      rx={5}
+                      fill={MAP_GLYPH_PLATE_FILL}
+                      opacity={s.gray ? 0.55 : 0.85}
+                    />
                     <text
                       data-testid={`chacha-stall-label-${s.station}`}
                       x={s.x}
@@ -2552,8 +2568,11 @@ export default function Journey() {
                       textAnchor="middle"
                       className="select-none"
                       style={{
-                        fill: line.accent,
-                        opacity: s.gray ? 0.35 : 0.75,
+                        // Ink on the plate, not the line accent at 0.75: the
+                        // accent was chosen to sit quietly on a flat theme and
+                        // reads as one more colour on a painted bazaar.
+                        fill: TICKET.ink,
+                        opacity: s.gray ? 0.5 : 1,
                         fontSize: 7,
                         fontWeight: 700,
                       }}
@@ -2566,8 +2585,8 @@ export default function Journey() {
                       textAnchor="middle"
                       className="select-none"
                       style={{
-                        fill: line.accent,
-                        opacity: s.gray ? 0.3 : 0.6,
+                        fill: TICKET.inkMuted,
+                        opacity: s.gray ? 0.5 : 1,
                         fontSize: 6,
                         fontWeight: 800,
                         letterSpacing: 0.6,
