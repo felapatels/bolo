@@ -755,6 +755,21 @@ export const STALL_PLACEMENT = {
    *  lowest point (where the sweep toward the next station has carried the
    *  track furthest right), and further clear at every point above that. */
   laneDx: 80,
+  /** Center x of the stall lane measured LEFT from the marker, used since the
+   *  halt row was retired on 2026-08-26.
+   *
+   *  THE STALL MOVED SIDES, and that is what let the row go. Encounter stations
+   *  are always on the LEFT flank, so the station card sits to their RIGHT: the
+   *  old lane put the stall on the same side as the card, which is exactly why
+   *  it needed a row of its own and why HALT_H had to grow from 74 to 96 when a
+   *  card's second line reached it. The left of a left-flank marker is empty.
+   *
+   *  46 is the middle of the space that is actually free. The stall spans
+   *  -19..+15.5 around its center, the map's left edge is 0 and the rail's left
+   *  edge at LEFT_X 92 is about 84.5, so the center has to sit between 24 and
+   *  69. 46 puts the stall at x 27..61.5: 27 clear of the map edge and 23 clear
+   *  of the rail. */
+  laneDxLeft: 46,
   /** Ground line offset below the HALT POINT (the halt row's center y). The
    *  stall stands 49.2 above its ground line and its shadow pools 5.1 below
    *  it, so this centers the whole landmark in the halt row at

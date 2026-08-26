@@ -473,17 +473,21 @@ describe("Chacha-ji stall landmark", () => {
     expect(stalls(later.container).map(stallY)).toEqual(stalls(fresh.container).map(stallY));
   });
 
-  test("seats each stall in the halt row after its stop, right of the track", () => {
+  test("seats each stall in its stop's own row, left of the marker", () => {
     setZones(zoneOf(11, 100), zoneOf(10, 200));
     const { container } = renderJourney();
     const seats = stalls(container).map(stallY);
-    const { STATION_H, HALT_H, LEFT_X } = SERPENTINE;
-    // The halt row holds the rail on the encounter station's own flank, which
-    // is always the left one, and the stall stands out to the RIGHT of it.
-    for (const s of seats) expect(s.x).toBe(LEFT_X + STALL_PLACEMENT.laneDx);
-    // Tied to real row geometry, not to a constant: the trackside signal at
-    // the same stop is laid out from its station's center y, so the stall must
-    // sit a fixed distance below it at every encounter station.
+    const { STATION_H, LEFT_X } = SERPENTINE;
+    // INVERTED 2026-08-26 when the halt row was retired. It used to assert the
+    // stall stood to the RIGHT of the rail in a row of its own, and that row
+    // existed only because the right is where the station card is. Encounter
+    // stations are always left-flank, so their left is empty and the stall
+    // moved there, which is what let 96 of map per encounter go.
+    for (const s of seats) expect(s.x).toBe(LEFT_X - STALL_PLACEMENT.laneDxLeft);
+    // Still tied to real row geometry rather than to a constant: the trackside
+    // signal at the same stop is laid out from its station's center y, so the
+    // stall must sit a fixed distance from it at every encounter station. The
+    // HALT_H / 2 term is gone from that distance because the row is gone.
     const stations = stallStations(container);
     stations.forEach((station, i) => {
       const signal = container.querySelector<HTMLElement>(
@@ -491,15 +495,16 @@ describe("Chacha-ji stall landmark", () => {
       );
       expect(signal).not.toBeNull();
       const signalY = Number.parseFloat(signal!.style.top);
-      expect(seats[i]!.y - signalY).toBe(
-        STATION_H / 2 + HALT_H / 2 + STALL_PLACEMENT.groundDy - 30,
-      );
+      expect(seats[i]!.y - signalY).toBe(STALL_PLACEMENT.groundDy - 30);
     });
-    // The whole landmark lives inside the halt row, which exists for it.
+    // WAS: the whole landmark lives inside the halt row, which exists for it.
+    // There is no halt row now, so the clearance that matters is the STATION
+    // row it shares with its stop. It is a tighter budget and the stall still
+    // clears it: 27.2 above and 27.1 below against 44 either way.
     const top = STALL_PLACEMENT.groundDy - STALL_PLACEMENT.extentH;
     const bottom = STALL_PLACEMENT.groundDy + STALL_PLACEMENT.shadowH;
-    expect(top).toBeGreaterThan(-HALT_H / 2);
-    expect(bottom).toBeLessThan(HALT_H / 2);
+    expect(top).toBeGreaterThan(-STATION_H / 2);
+    expect(bottom).toBeLessThan(STATION_H / 2);
   });
 
   test("the halt is layout only: no stop, no number, nothing to tap", () => {

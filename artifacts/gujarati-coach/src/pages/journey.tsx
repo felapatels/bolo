@@ -1629,24 +1629,22 @@ export default function Journey() {
         collapsed,
       });
       if (!collapsed) layoutY += STATION_H;
-      const stationNumber = k + 1;
       k++;
-      // Chacha-ji's halt. Encounter stations are odd stops, so their 0-based
-      // index is even and the marker is always on the LEFT flank; the halt
-      // carries the rail straight down that same flank for a row, which frees
-      // the whole right side of the row for the stall. It advances the layout
-      // only: `k` does not move, so the serpentine phase, the stop numbers and
-      // the station count are all exactly what they were.
-      if (!collapsed && isChachaEncounterStation(stationNumber)) {
-        pts.push({
-          x: stationX(k - 1),
-          y: layoutY + HALT_H / 2,
-          kind: "halt",
-          lit,
-          haltAfterStation: stationNumber,
-        });
-        layoutY += HALT_H;
-      }
+      // CHACHA-JI'S HALT ROW WAS RETIRED HERE ON 2026-08-26. It used to insert
+      // a 96-high scenery-only row after every encounter station, purely to
+      // give his stall a lane clear of the station card. That is six rows over
+      // a journey, about 576 of map carrying no stop, no number and nothing
+      // tappable, and at 96 it spent MORE height on a decoration than STATION_H
+      // spends on a stop.
+      //
+      // The stall did not go with it. It moved to the LEFT of the marker, which
+      // is empty on an encounter station because those are always left-flank
+      // and their card sits to the right. See STALL_PLACEMENT.laneDxLeft.
+      //
+      // The mechanic never depended on any of this: ChachaSoftStop fires off
+      // chachaStationIdx, which comes from the current station index, and the
+      // free chai is granted by recordChachaEncounter on that trigger. Nothing
+      // taps the stall. Mobile twin carries the same note.
     }
     // The folded zone's whole station block costs ONE row.
     if (collapsed) layoutY += COLLAPSED_H;
@@ -1655,12 +1653,6 @@ export default function Journey() {
   const termX = k > 0 ? stationX(k - 1) : LEFT_X;
   const termY = layoutY + TERM_H / 2;
   pts.push({ x: termX, y: termY, kind: "terminus", lit: allDone });
-  // A halt is a gap in the line, not a stop, so it takes the rail colour of
-  // the point it leads to. Inserting one therefore cannot change how any run
-  // of track is drawn, only how long it is.
-  for (let i = 0; i < pts.length - 1; i++) {
-    if (pts[i]!.kind === "halt") pts[i]!.lit = pts[i + 1]!.lit;
-  }
   const totalH = layoutY + TERM_H + 8;
 
   const segs = pts.slice(1).map((p, i) => {
@@ -1796,13 +1788,9 @@ export default function Journey() {
     };
   });
 
-  const haltPts = new Map(
-    pts.filter((p) => p.kind === "halt").map((p) => [p.haltAfterStation!, p]),
-  );
   const chachaStalls = planChachaStalls(stationPts.length).flatMap((station) => {
     const p = stationPts[station - 1];
-    const halt = haltPts.get(station);
-    if (!p || !halt) return [];
+    if (!p) return [];
     const zone = zones[p.station!.zoneIndex]!;
     const zoneAccessible = zone.stations.some(
       (st) => isStatusAccessible(st.status) || st.teaserStation,
@@ -1810,12 +1798,11 @@ export default function Journey() {
     return [
       {
         station,
-        // RIGHT of the track. The halt keeps the rail on the left flank, and
-        // the rail sweeps back out to the next station across the lower half
-        // of the halt row, so the lane is offset far enough to clear that
-        // sweep at every point of it.
-        x: halt.x + STALL_PLACEMENT.laneDx,
-        y: halt.y + STALL_PLACEMENT.groundDy,
+        // LEFT of the marker, in the encounter station's OWN row. Encounter
+        // stations are always left-flank so their card is on the right, which
+        // is what makes this side free and what let the halt row go.
+        x: p.x - STALL_PLACEMENT.laneDxLeft,
+        y: p.y + STALL_PLACEMENT.groundDy,
         gray: showroom && !zoneAccessible,
       },
     ];

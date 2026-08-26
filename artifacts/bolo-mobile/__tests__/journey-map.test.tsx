@@ -1074,9 +1074,21 @@ describe('journey map — Chacha-ji stall landmark', () => {
     for (let s = 1; s <= 40; s++) {
       expect(planChachaStalls(40).includes(s)).toBe(isChachaEncounterStation(s));
     }
-    // Web parity: identical lane and ground line, so the stall sits in the
-    // same relative spot on both platforms.
-    expect(STALL_PLACEMENT).toEqual({ laneDx: 80, groundDy: 22, extentH: 49.2, shadowH: 5.1 });
+    // Web parity: identical lanes and ground line, so the stall sits in the
+    // same relative spot on both platforms. This assertion is exact on purpose,
+    // and it earned that on 2026-08-26: adding laneDxLeft to mobile alone broke
+    // it immediately and said so, which is exactly the job it exists to do.
+    //
+    // laneDxLeft was added when the halt row was retired. laneDx is kept rather
+    // than deleted because the web still measures its own clearance budget
+    // against it and because the number records where the stall used to stand.
+    expect(STALL_PLACEMENT).toEqual({
+      laneDx: 80,
+      laneDxLeft: 46,
+      groundDy: 22,
+      extentH: 49.2,
+      shadowH: 5.1,
+    });
   });
 
   it('renders at every encounter station whatever the learner position', () => {
@@ -1099,7 +1111,7 @@ describe('journey map — Chacha-ji stall landmark', () => {
     expect(mockRecordChachaEncounter).not.toHaveBeenCalled();
   });
 
-  it('seats every stall right of the track in its halt row, one pitch apart', () => {
+  it('seats every stall left of the marker in the station row, one pitch apart', () => {
     const { STALL_PLACEMENT } = require('@/components/journey/Scenery');
     setZones([Array.from({ length: 11 }, () => grp({ status: 'locked' }))]);
     render(<JourneyScreen />);
@@ -1108,19 +1120,26 @@ describe('journey map — Chacha-ji stall landmark', () => {
       .map((el) => /translate\((-?[\d.]+) (-?[\d.]+)\)/.exec(String(el.props.transform))!)
       .map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
     expect(seats.length).toBe(3); // stations 3, 7 and 11
-    // Right of the rail, which the halt row holds at the left flank marker x
-    // (92 on both platforms).
-    for (const s of seats) expect(s.x).toBe(92 + STALL_PLACEMENT.laneDx);
-    // One zone, so the interval is a clean four station rows plus the one halt
-    // row those four rows contain. STATION_H is 88 since the current-stop card
-    // was slimmed; HALT_H went 74 to 96 on 2026-08-25 to keep a neighbouring
-    // card's second line off the stall.
-    expect(seats[1]!.y - seats[0]!.y).toBe(4 * 88 + 96);
-    expect(seats[2]!.y - seats[1]!.y).toBe(4 * 88 + 96);
+    // INVERTED 2026-08-26, both halves, and both for the same reason.
+    //
+    // WAS right of the rail at 92 + laneDx. The stall sat on the same side as
+    // the station card, which is the whole reason it needed a row of its own
+    // and why HALT_H had to grow from 74 to 96 the day before. It is left of
+    // the marker now, where an encounter station has nothing.
+    for (const s of seats) expect(s.x).toBe(92 - STALL_PLACEMENT.laneDxLeft);
+    // WAS 4 * 88 + 96: four station rows plus the halt row they contained.
+    // The halt row is gone, so the interval is four station rows and nothing
+    // else. That difference, 96 per encounter and about 576 over a journey, is
+    // the point of the change.
+    expect(seats[1]!.y - seats[0]!.y).toBe(4 * 88);
+    expect(seats[2]!.y - seats[1]!.y).toBe(4 * 88);
   });
 
-  it('adds no stop, no number and nothing tappable with the halt row', () => {
-    // The map got longer, the line did not.
+  it('adds no stop, no number and nothing tappable, and no longer a row', () => {
+    // WAS "the map got longer, the line did not". The map does not get longer
+    // either now: the halt row was retired on 2026-08-26 and the stall moved
+    // into the station's own row. The line was never affected and still is not,
+    // which is what the counts below still prove.
     setZones([Array.from({ length: 11 }, () => grp({ status: 'locked' }))]);
     render(<JourneyScreen />);
     expect(screen.getAllByTestId(/^chacha-stall-\d+$/).length).toBe(3);

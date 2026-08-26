@@ -79,14 +79,44 @@ function emit(): void {
 }
 
 /**
+ * NARROW VIEWPORTS ONLY, matching hooks/use-mobile.tsx's 768px.
+ *
+ * The films are 1080x1920 portrait. On a desktop viewport `object-cover` has to
+ * upscale them past 1.8x AND crop most of their height away to fill a landscape
+ * window, and the result is visibly soft. Reported 2026-08-26: "it doesn't look
+ * right when its resized, it gets blurry."
+ *
+ * Re-encoding wider would not fix it, because the problem is the aspect as much
+ * as the pixels: these are portrait scenes with their subject up the middle, and
+ * a landscape crop throws away the top and bottom of every one of them. So the
+ * desktop simply does not get the transition and navigates instantly, which is
+ * the same thing an unfilmed zone does.
+ */
+const NARROW_MAX_PX = 767;
+
+function viewportIsNarrow(): boolean {
+  try {
+    return window.matchMedia(`(max-width: ${NARROW_MAX_PX}px)`).matches;
+  } catch {
+    // No matchMedia (SSR, jsdom): treat it as desktop and play nothing. A
+    // missing transition is invisible; a broken one is not.
+    return false;
+  }
+}
+
+/**
  * Start the transition for a zone. Call it immediately BEFORE the navigation,
  * not after: the overlay has to be on screen before the stop page mounts, or
  * the learner sees the page appear and then get covered up.
  *
- * A zone with no film is a no-op, so callers never have to check.
+ * A zone with no film, or a viewport too wide for one, is a no-op, so callers
+ * never have to check. The guard lives HERE rather than in the overlay on
+ * purpose: an overlay that renders null would leave `zone` set with nothing to
+ * clear it, and the next transition would never start.
  */
 export function playStopSplash(zoneId: number): void {
   if (stopSplashFor(zoneId) === null) return;
+  if (!viewportIsNarrow()) return;
   zone = zoneId;
   emit();
 }

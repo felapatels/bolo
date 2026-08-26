@@ -109,6 +109,11 @@ import {
   zoneBackdrop,
   zoneFootTone,
 } from '@/lib/zoneBackdrops';
+import {
+  MEDALLION,
+  stopEmblem,
+  type StopEmblemKind,
+} from '@/lib/stopEmblems';
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import {
   Bunting,
@@ -134,33 +139,28 @@ const MAP_MAX_W = 390;
 // Task 1082 item 2: web parity. The station card was slimmed (tighter padding
 // and line spacing, and no "Bolo is waiting here" fragment, which used to wrap
 // the current stop's status onto a second line), so the slot holding it comes
-// down with it. Chacha-ji's stall is unaffected: it is seated in its own halt
-// row off the halt point, not off a station row.
+// down with it. Chacha-ji's stall now sits in the station's own row, to the
+// LEFT of the marker, so a card growing a second line no longer reaches it.
 const STATION_H = 88; // vertical rhythm per station row
 const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
 const PC_H = 152; // vertical rhythm per fare-zone postcard (incl. picture side)
 const TERM_H = 92; // terminus row
-// Chacha-ji's halt (web parity): a scenery-only row inserted after every
-// encounter station so his stall has a lane on the RIGHT of the track. It is
-// NOT a stop — no number, no marker, no card, nothing tappable, and it never
-// enters the station list, so stop numbering and the station count are
-// untouched. It only lengthens the map.
-// RAISED FROM 74 TO 96 ON 2026-08-25. Chacha-ji's stall was landing on the
-// words of the station card next to it, reported from a device. The stall is
-// NOT the thing that moved: the scenery tests prove it stays inside this row
-// (top > -HALT_H/2, bottom < HALT_H/2). The card is what overflows. Rows are
-// laid out on a FIXED pitch while a card's height is variable, and a card
-// carrying two chips plus a two-line status runs past its row into the halt
-// beside it. The old 74 left about 10px of slack at each end of the stall,
-// which a second line of text eats on its own.
+// CHACHA-JI'S HALT ROW, RETIRED 2026-08-26. It was a scenery-only row after
+// every encounter station, 96 high, existing only so his stall had a lane clear
+// of the station card. Six of them over a journey is about 576 of map carrying
+// no stop and nothing tappable, and at 96 it spent MORE height on a decoration
+// than STATION_H spends on a stop.
 //
-// This buys roughly 21px of clearance each side instead of 10. It does not
-// fix the underlying mismatch, which is that the pitch should be measured
-// rather than assumed, and that is a bigger change than tonight's list.
-// Kept identical on web and mobile: the two maps are drawn to the same
-// geometry and a difference here shows up as the stall sitting somewhere
-// else on the phone.
-const HALT_H = 96;
+// It went once the stall moved to the LEFT of the marker. The whole reason the
+// row existed, and the reason HALT_H had to grow from 74 to 96 on 2026-08-25
+// when a card's second line reached the stall, is that the old lane put the
+// stall on the SAME side as the card. Encounter stations are always left-flank,
+// so their card is on the right and their left is empty. See
+// STALL_PLACEMENT.laneDxLeft for the arithmetic.
+//
+// The underlying mismatch the old comment named is still real and still not
+// fixed: rows are laid out on a fixed pitch while a card's height is variable.
+// Moving the stall took it off that collision course rather than solving it.
 // Item 3: drop of the terminus label below the terminus dot's center. The dot
 // is 28px across, so its lowest ink is termY+14; the bunting hangs ABOVE it.
 // 18 clears both and keeps the label inside the terminus row.
@@ -293,6 +293,38 @@ const DEPTH_2_5D = {
 } as const;
 const RAIL_BED_INK = '#0f172a';
 
+/**
+ * THE RAIL PALETTE, sampled from the owner's own rail sheet on 2026-08-26
+ * rather than picked, so the drawn track matches the art it was drawn from.
+ * Pulled with a palette reduction over the two tiles on that sheet.
+ *
+ * TWO STATES, AND THEY MEAN PROGRESS, NOT BRAND. Behind the learner the track
+ * is plain wood; ahead of them it is the same wood under a green halo. The
+ * owner's sheet drew it exactly that way and chose it over a line-coloured
+ * rail: "ship the green rail, it looks better".
+ *
+ * THE LINE ACCENT IS DELIBERATELY NOT HERE ANY MORE. It used to colour the
+ * rail itself, and with six paintings now shared across all 22 lines that made
+ * the rail the last place a line looked like itself. It is not the right place:
+ * green-means-done is a STATUS and a status should read the same on every line.
+ * The accent still carries the station markers, the fare-zone postcards and the
+ * comet sweep, all of which are identity rather than state.
+ */
+const RAIL = {
+  /** The sleeper planks. */
+  tie: '#966F53',
+  /** Their underside, for the raised-bed read. */
+  tieInk: '#361C0F',
+  /** The two rails running over them. */
+  rail: '#CCB191',
+  /** What shows BETWEEN the two rails: more sleeper, not the page.
+   *  It used to be colors.background, which was invisible over a flat theme
+   *  and would punch a themed hole through a painted backdrop. */
+  between: '#7A5B43',
+  /** The lit halo. Two passes fake a falloff without a gradient. */
+  glow: '#ABF1A5',
+} as const;
+
 /** One comet dot: opacity follows the web keyframes (invisible at 0%, sharp
  *  attack to full strength at 4%, slow decay back to zero through 22%),
  *  phase-shifted by the dot's order along the run so one bright head with a
@@ -411,38 +443,51 @@ function StationMarker({
     );
   }
   const done = station.status === 'completed' || station.status === 'tested_out';
+
+  // WHAT KIND OF STOP, not what state it is in. The card beside every stop
+  // already says "Completed" and "8/10 mastered", so a marker that only encoded
+  // status was repeating it while leaving the thing it alone could say, that
+  // this one is a tracing stop and that one is a story, to a chip.
+  //
+  // The sentence stop keeps its diamond rather than taking an emblem of its
+  // own: it is a first-class stop and the rotated frame is what has always
+  // marked that, on both platforms.
+  const kind: StopEmblemKind = station.trace
+    ? 'trace'
+    : station.story
+      ? 'story'
+      : 'station';
   const diamond = station.stage === 'sentence';
-  if (done) {
-    // Filled marker: accent fill, white border, thin accent outer ring.
-    return (
-      <View
-        style={[
-          styles.markerDoneRing,
-          { backgroundColor: color },
-          diamond && styles.diamond,
-        ]}
-      >
-        <View
-          style={[
-            styles.markerDone,
-            { backgroundColor: color, borderColor: '#ffffff' },
-            diamond && styles.diamondInner,
-          ]}
-        />
-      </View>
-    );
-  }
+
   return (
     <View
+      testID={`station-medallion-${kind}`}
       style={[
-        styles.markerOpen,
+        styles.medallion,
         {
-          backgroundColor: background,
-          borderColor: accessible ? color : border,
+          backgroundColor: done ? MEDALLION.face : MEDALLION.faceAhead,
+          borderColor: done ? MEDALLION.rim : MEDALLION.rimAhead,
+          opacity: done ? 1 : MEDALLION.aheadOpacity,
         },
         diamond && styles.diamond,
       ]}
-    />
+    >
+      <Image
+        source={stopEmblem(kind)}
+        style={[styles.medallionArt, diamond && styles.medallionArtUpright]}
+        resizeMode="contain"
+      />
+      {/* A locked stop keeps the border it always had, so "you cannot go here
+          yet" still reads from the rim rather than only from the card. */}
+      {!accessible && (
+        <View
+          style={[
+            StyleSheet.absoluteFillObject,
+            { borderRadius: 13, borderWidth: 2, borderColor: border },
+          ]}
+        />
+      )}
+    </View>
   );
 }
 
@@ -997,20 +1042,18 @@ export default function JourneyScreen() {
     y: number;
     /**
      * 'trace' is drawn like a station but COUNTS as nothing: it advances the
-     * layout without advancing `k`, exactly as 'halt' already does. That is
+     * layout without advancing `k`, as the retired 'halt' row used to. That is
      * what keeps the serpentine phase, Chacha-ji's stalls, the trackside
      * signals and every stop number identical to what they were before a
      * tracing row existed.
      */
-    kind: 'station' | 'postcard' | 'terminus' | 'halt' | 'trace' | 'story';
+    kind: 'station' | 'postcard' | 'terminus' | 'trace' | 'story';
     lit: boolean;
     station?: Station;
     /** The GRADED index this row sits at, which is what picks the flank. Render
      *  order cannot be used: a tracing row would flip every card below it. */
     globalIdx?: number;
     zoneIndex?: number;
-    /** Halt rows only: the 1-based global station number this halt follows. */
-    haltAfterStation?: number;
   };
   const pts: Pt[] = [];
   const postcardYs: { y: number; zoneIndex: number }[] = [];
@@ -1069,24 +1112,22 @@ export default function JourneyScreen() {
         globalIdx: k,
       });
       layoutY += STATION_H;
-      const stationNumber = k + 1;
       k++;
-      // Chacha-ji's halt (web parity). Encounter stations are odd stops, so
-      // their 0-based index is even and the marker is always on the LEFT
-      // flank; the halt carries the rail straight down that same flank for a
-      // row, which frees the whole right side of the row for the stall. It
-      // advances the layout only: `k` does not move, so the serpentine phase,
-      // the stop numbers and the station count are all exactly what they were.
-      if (isChachaEncounterStation(stationNumber)) {
-        pts.push({
-          x: stationX(k - 1),
-          y: layoutY + HALT_H / 2,
-          kind: 'halt',
-          lit,
-          haltAfterStation: stationNumber,
-        });
-        layoutY += HALT_H;
-      }
+      // CHACHA-JI'S HALT ROW WAS RETIRED HERE ON 2026-08-26. It used to insert
+      // a 96-high scenery-only row after every encounter station, purely to
+      // give his stall a lane clear of the station card. That is six rows over
+      // a journey, about 576 of map length carrying no stop, no number and
+      // nothing tappable, and at 96 it was spending MORE height on a decoration
+      // than STATION_H spends on a stop.
+      //
+      // The stall did not go with it. It moved to the LEFT of the marker, which
+      // is empty on an encounter station because those are always left-flank
+      // and their card sits to the right. See STALL_PLACEMENT.laneDxLeft.
+      //
+      // The mechanic never depended on any of this: ChachaSoftStop fires off
+      // chachaStationIdx, which comes from the current station index, and the
+      // free chai is granted by recordChachaEncounter on that trigger. Nothing
+      // taps the stall. Checked before the row was touched.
     }
   }
   // Closeout suppression, direction one (web parity): the signal soft stop
@@ -1099,12 +1140,6 @@ export default function JourneyScreen() {
   const termX = k > 0 ? stationX(k - 1) : LEFT_X;
   const termY = layoutY + TERM_H / 2;
   pts.push({ x: termX, y: termY, kind: 'terminus', lit: allDone });
-  // A halt is a gap in the line, not a stop, so it takes the rail colour of
-  // the point it leads to. Inserting one therefore cannot change how any run
-  // of track is drawn, only how long it is.
-  for (let i = 0; i < pts.length - 1; i++) {
-    if (pts[i]!.kind === 'halt') pts[i]!.lit = pts[i + 1]!.lit;
-  }
   const totalH = layoutY + TERM_H + 8;
 
   const segs = pts.slice(1).map((p, i) => {
@@ -1152,13 +1187,10 @@ export default function JourneyScreen() {
   // is visible before it is reached (web parity, identical lane and ground
   // line). Pure client geometry off the same predicate the arrival check uses:
   // no server call, no state, no encounter row. Rendering is NOT triggering.
-  const haltPts = new Map(
-    pts.filter((p) => p.kind === 'halt').map((p) => [p.haltAfterStation!, p]),
-  );
+
   const chachaStalls = planChachaStalls(stationPts.length).flatMap((station) => {
     const p = stationPts[station - 1];
-    const halt = haltPts.get(station);
-    if (!p || !halt) return [];
+    if (!p) return [];
     const zone = zones[p.station!.zoneIndex]!;
     const zoneAccessible = zone.stations.some(
       (st) => isStatusAccessible(st.status) || st.teaserStation,
@@ -1170,10 +1202,11 @@ export default function JourneyScreen() {
         kind: 'chaiStall' as const,
         station,
         zoneIndex: p.station!.zoneIndex,
-        // RIGHT of the track: the halt keeps the rail on the left flank, and
-        // the lane clears the sweep back out toward the next station.
-        x: halt.x + STALL_PLACEMENT.laneDx,
-        y: halt.y + STALL_PLACEMENT.groundDy,
+        // LEFT of the marker, in the encounter station's OWN row. Encounter
+        // stations are always left-flank so their card is on the right, which
+        // is what makes this side free and what let the halt row go.
+        x: p.x - STALL_PLACEMENT.laneDxLeft,
+        y: p.y + STALL_PLACEMENT.groundDy,
         gray: showroom && !zoneAccessible,
       },
     ];
@@ -1573,9 +1606,20 @@ export default function JourneyScreen() {
                   testID={`journey-backdrop-${zi}`}
                   style={{
                     position: 'absolute',
-                    left: 0,
+                    // FULL BLEED, past the map's own edges. The map itself is
+                    // capped at MAP_MAX_W (390) and centred, which is right for
+                    // the rail and the cards but left the paintings sitting in
+                    // a column with the page colour either side of them.
+                    // Reported 2026-08-26: "the journey has white on both
+                    // sides, not full screen".
+                    //
+                    // The band widens; the MAP GEOMETRY DOES NOT. Every stop
+                    // position, card width and scenery placement still keys off
+                    // mapW, so nothing below the art moves and the scenery
+                    // placement tests keep their arithmetic.
+                    left: -(windowW - mapW) / 2,
                     top: start,
-                    width: mapW,
+                    width: windowW,
                     height: end - start,
                     backgroundColor: zoneFootTone(zi),
                     overflow: 'hidden',
@@ -1654,9 +1698,24 @@ export default function JourneyScreen() {
             >
               {segs.map((s, i) => {
                 if (!(s.y1 > start && s.y0 < end)) return null;
-                const railColor = s.lit ? line.accent : GRAY;
+                // The unlit run stays wood rather than going grey: the sheet
+                // draws the two states as the same track with and without a
+                // halo, and greying it would say "disabled" where the truth is
+                // "not yet travelled".
+                const dash = s.lit ? undefined : '9 7';
                 return (
-                  <G key={i} opacity={s.lit ? 1 : 0.5}>
+                  <G key={i} opacity={s.lit ? 1 : 0.55}>
+                    {/* THE HALO, under everything and only on the run behind
+                        the learner. Two passes rather than one gradient: a
+                        wide soft pass and a tighter brighter one give a falloff
+                        that react-native-svg can draw with plain strokes, and a
+                        radial gradient along a bezier is not a thing. */}
+                    {s.lit && (
+                      <>
+                        <Path d={s.d} stroke={RAIL.glow} strokeWidth={28} opacity={0.20} fill="none" strokeLinecap="round" />
+                        <Path d={s.d} stroke={RAIL.glow} strokeWidth={18} opacity={0.32} fill="none" strokeLinecap="round" />
+                      </>
+                    )}
                     {/* Rail-bed underside (Task 985): the tie band duplicated
                         once, offset down in ink at low opacity, so every tie
                         shows a bottom edge and the track reads as a raised
@@ -1664,15 +1723,18 @@ export default function JourneyScreen() {
                     <Path
                       d={s.d}
                       transform={`translate(0 ${DEPTH_2_5D.railBedDy})`}
-                      stroke={RAIL_BED_INK}
+                      stroke={RAIL.tieInk}
                       strokeWidth={15}
                       strokeDasharray="3 11"
                       opacity={DEPTH_2_5D.railBedOpacity}
                       fill="none"
                     />
-                    <Path d={s.d} stroke={railColor} strokeWidth={15} strokeDasharray="3 11" opacity={0.3} fill="none" />
-                    <Path d={s.d} stroke={railColor} strokeWidth={8.5} fill="none" strokeDasharray={s.lit ? undefined : '9 7'} />
-                    <Path d={s.d} stroke={colors.background} strokeWidth={4} fill="none" strokeDasharray={s.lit ? undefined : '9 7'} />
+                    {/* The sleepers, full strength now. They were the line
+                        accent at 0.3 when the rail was a coloured line; they
+                        are painted planks now and read as wood. */}
+                    <Path d={s.d} stroke={RAIL.tie} strokeWidth={15} strokeDasharray="3 11" fill="none" />
+                    <Path d={s.d} stroke={RAIL.rail} strokeWidth={8.5} fill="none" strokeDasharray={dash} />
+                    <Path d={s.d} stroke={RAIL.between} strokeWidth={4} fill="none" strokeDasharray={dash} />
                   </G>
                 );
               })}
@@ -2627,6 +2689,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 2,
   },
+  // THE MEDALLION, replacing the filled and hollow circles on 2026-08-26. Two
+  // points wider than the old 20 so a painted emblem has room to read at all;
+  // any smaller and the compass rose turns to mush on a 3x screen.
+  medallion: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  medallionArt: { width: 20, height: 20 },
+  // A sentence stop rotates its frame 45 degrees; the art inside rotates back
+  // so the compass is not standing on its corner.
+  medallionArtUpright: { transform: [{ rotate: '-45deg' }] },
   markerDoneRing: { borderRadius: 12, padding: 2 },
   markerDone: {
     width: 20,
