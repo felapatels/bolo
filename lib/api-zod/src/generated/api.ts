@@ -1115,7 +1115,7 @@ export const GetFriendsFeedQueryParams = zod.object({
 })
 
 export const GetFriendsFeedResponseItem = zod.object({
-  "id": zod.number(),
+  "id": zod.string().describe('Stable across reads and prefixed by source (\"e\", \"p\", \"s\", \"g\"), because a projection has no single sequence to borrow from and two sources would otherwise collide on 1. Use it as a key, not as a row id in any table.'),
   "type": zod.string().describe('What happened: `equip_outfit`, `equip_accessory`, `badge_earned` or `zone_closeout`. Left open rather than enumerated so an older client meeting a newer event type can skip it instead of failing to parse the page; clients render nothing for a type they do not know.'),
   "refId": zod.string().describe('The subject of the event: the item id for an equip, the badge key for a badge, `languageCode:categoryId` for a zone closeout.'),
   "payload": zod.record(zod.string(), zod.unknown()).nullable().describe('Everything a renderer needs beyond the type and the ref.'),
@@ -1128,7 +1128,7 @@ export const GetFriendsFeedResponseItem = zod.object({
   "equippedAccessory": zod.string().nullable().describe('The head accessory this friend\'s Bolo is wearing, or null. A separate slot from the garment.'),
   "firstClassActive": zod.boolean().describe('Whether this friend\'s First Class window is open right now. A boolean, never the expiry timestamp.')
 }).describe('The learner a feed entry is about. Name and mascot only: a feed never carries an email address, because a friend code is deliberately the only way to find another learner.')
-}).describe('One moment from a friend\'s activity log.')
+}).describe('One moment from the activity feed. Some come from the activity_events log; the rest are PROJECTED from what learners actually do often (practice_day, stop_completed, game_played), because the log alone holds only milestones and a feed of milestones is nearly empty.')
 export const GetFriendsFeedResponse = zod.array(GetFriendsFeedResponseItem)
 
 

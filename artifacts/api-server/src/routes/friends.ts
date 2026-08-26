@@ -696,6 +696,37 @@ function utcWeekStart(now: Date): Date {
 export type BoardScope = "friends" | "all";
 
 /**
+ * The name a learner wears on a GLOBAL surface.
+ *
+ * A username if they have chosen one. Otherwise a stable pseudonym, because a
+ * feed that only shows the two people who have named themselves is not a feed:
+ * it was empty on 2026-08-25 with 22 real accounts and 29 activity rows behind
+ * it, and the owner asked for it to "look alive and busy".
+ *
+ * WHAT THIS DOES AND DOES NOT PUBLISH. It publishes that somebody did
+ * something. It does NOT publish who: the display name is private and never
+ * leaves the server on a global payload, and the pseudonym is derived from the
+ * user id by a one-way sum, so it cannot be read back into an identity and
+ * carries no email, no name and no Clerk id.
+ *
+ * STABLE ON PURPOSE. The same learner is the same "Learner 4821" tomorrow, so
+ * a feed reads as people rather than as noise. That stability is also the
+ * limit of the anonymity: somebody who watches long enough can follow one
+ * pseudonym's activity, which is true of every pseudonymous system and is why
+ * choosing a real username is presented as the better option rather than the
+ * only one.
+ */
+export function publicNameFor(userId: string, username: string | null): string {
+  if (username) return username;
+  let h = 0;
+  for (let i = 0; i < userId.length; i++) {
+    h = (h * 31 + userId.charCodeAt(i)) % 100000;
+  }
+  // Four digits, padded, so every pseudonym is the same shape on a row.
+  return `Learner ${String(h % 10000).padStart(4, "0")}`;
+}
+
+/**
  * How many rows the global board returns.
  *
  * Bounded at the QUERY, never trimmed after: the streak read below is one load
@@ -768,7 +799,11 @@ router.get(
         .innerJoin(usersTable, eq(usersTable.id, xpLedgerTable.userId))
         .where(
           and(
-            isNotNull(usersTable.username),
+            // NO USERNAME REQUIREMENT ANY MORE. share_stats alone is the gate:
+            // a learner without a username appears under a pseudonym rather
+            // than not at all, which is what makes the board and feed populated
+            // on an app with 22 accounts and two chosen names. Opting out still
+            // removes you completely.
             eq(usersTable.shareStats, true),
             ...windowFilters(),
           ),
@@ -786,11 +821,7 @@ router.get(
           .select({ id: usersTable.id })
           .from(usersTable)
           .where(
-            and(
-              eq(usersTable.id, userId),
-              isNotNull(usersTable.username),
-              eq(usersTable.shareStats, true),
-            ),
+            and(eq(usersTable.id, userId), eq(usersTable.shareStats, true)),
           )
           .limit(1);
         if (me) {
@@ -852,7 +883,10 @@ router.get(
         // shaped to avoid, and doing it in a field called displayName is how
         // it would happen without anybody noticing. On the friends board the
         // display name is right: they know each other.
-        displayName: scope === "all" ? summary.username : summary.displayName,
+        displayName:
+          scope === "all"
+            ? publicNameFor(id, summary.username)
+            : summary.displayName,
         username: summary.username,
         // The row's mascot, carried by the leaderboard payload itself so no
         // row has to fetch anything of its own.
@@ -936,57 +970,100 @@ router.get(
     const limit = parseFeedLimit(req.query.limit);
     const scope: BoardScope = req.query.scope === "all" ? "all" : "friends";
 
-    const cols = {
-      id: activityEventsTable.id,
-      userId: activityEventsTable.userId,
-      type: activityEventsTable.type,
-      refId: activityEventsTable.refId,
-      payload: activityEventsTable.payload,
-      createdAt: activityEventsTable.createdAt,
-    };
-
-    // THE GLOBAL FEED IS A JOIN, NOT A LIST OF IDS. Eligibility (a username
-    // set, share_stats still true) is a WHERE clause on the users row, so a
-    // learner who has never opted in cannot appear even transiently, and a
-    // learner who opts out disappears on their next read. Filtering fetched
-    // rows instead would work right up until somebody forgot to.
-    //
-    // The caller is excluded from BOTH scopes, for the reason the friends feed
-    // already gives: a feed is for reading about other people, and your own
-    // equip echoed back is noise on a screen that already celebrated it.
-    let rows;
+    /**
+     * THE FEED IS A PROJECTION NOW, NOT ONE TABLE.
+     *
+     * activity_events is written only on milestones: 29 rows across the app's
+     * entire history against 490 attempts, so a feed reading it alone showed
+     * almost nothing on a working app. Asked for on 2026-08-25: "I want Feed
+     * to be active, I want it to look alive and busy."
+     *
+     * Three more sources, each at the granularity a READER wants rather than
+     * the one the database keeps:
+     *
+     *   practice_day    attempts, aggregated per learner per DAY. 490 separate
+     *                   "practised a phrase" lines would be a log, not a feed.
+     *   stop_completed  a lesson group reaching completed or tested_out.
+     *   game_played     one finished game session, with its score.
+     *
+     * IDS ARE STRINGS AND PREFIXED BY SOURCE, because a projection has no
+     * single sequence to borrow from and two sources would otherwise collide
+     * on 1. They are stable across reads, which is all a client key needs.
+     *
+     * ELIGIBILITY IS STILL A WHERE CLAUSE, never a filter on fetched rows: the
+     * row that leaks is the one somebody forgot to filter. The gate is now
+     * share_stats alone, since an un-named learner appears under a pseudonym
+     * rather than not at all (see publicNameFor).
+     *
+     * The caller is excluded from BOTH scopes: a feed is for reading about
+     * other people, and your own moment echoed back is noise on a screen that
+     * already celebrated it.
+     */
+    let scopeFilter;
     if (scope === "all") {
-      rows = await db
-        .select(cols)
-        .from(activityEventsTable)
-        .innerJoin(usersTable, eq(usersTable.id, activityEventsTable.userId))
-        .where(
-          and(
-            isNotNull(usersTable.username),
-            eq(usersTable.shareStats, true),
-            ne(activityEventsTable.userId, userId),
-          ),
-        )
-        // id breaks the tie: two events written in the same transaction share
-        // a timestamp, and a feed that reorders them between reads looks
-        // broken.
-        .orderBy(desc(activityEventsTable.createdAt), desc(activityEventsTable.id))
-        .limit(limit);
+      scopeFilter = sql`u.share_stats and f.user_id <> ${userId}`;
     } else {
       const friendIds = await loadAcceptedFriendIds(userId);
-      // No friends, no feed. Skipping the query also keeps `inArray` off an
-      // empty list, which no dialect answers usefully.
+      // No friends, no feed. Skipping the query also keeps an empty IN list
+      // out of the SQL, which no dialect answers usefully.
       if (friendIds.length === 0) {
         res.json([]);
         return;
       }
-      rows = await db
-        .select(cols)
-        .from(activityEventsTable)
-        .where(inArray(activityEventsTable.userId, friendIds))
-        .orderBy(desc(activityEventsTable.createdAt), desc(activityEventsTable.id))
-        .limit(limit);
+      // sql.join, NOT an interpolated array and NOT string concatenation.
+      // CLAUDE.md records the day a raw JS array in a sql template was treated
+      // as CHUNKS rather than a parameter and 500'd production; building the
+      // list by hand would additionally put ids into the statement text.
+      scopeFilter = sql`f.user_id in (${sql.join(
+        friendIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})`;
     }
+
+    const projected = await db.execute(sql`
+      select f.id, f.user_id, f.type, f.ref_id, f.payload, f.created_at
+      from (
+        select 'e' || ae.id::text as id, ae.user_id, ae.type,
+               ae.ref_id, ae.payload, ae.created_at
+          from activity_events ae
+        union all
+        select 'p' || a.user_id || to_char(a.d, 'YYYYMMDD'), a.user_id,
+               'practice_day', null,
+               jsonb_build_object('count', a.n), a.last_at
+          from (
+            select user_id, date_trunc('day', created_at) as d,
+                   count(*) as n, max(created_at) as last_at
+              from attempts group by 1, 2
+          ) a
+        union all
+        select 's' || lgp.user_id || ':' || lgp.lesson_group_id::text, lgp.user_id,
+               'stop_completed', lgp.lesson_group_id::text, null, lgp.created_at
+          from lesson_group_progress lgp
+         where lgp.status in ('completed', 'tested_out')
+        union all
+        select 'g' || gs.id::text, gs.user_id, 'game_played',
+               gs.game, jsonb_build_object('correct', gs.correct_count,
+                                           'total', gs.total_count),
+               gs.created_at
+          from game_sessions gs
+      ) f
+      join users u on u.id = f.user_id
+      where ${scopeFilter}
+      order by f.created_at desc, f.id desc
+      limit ${limit}
+    `);
+
+    const rows = (
+      (projected as unknown as { rows?: Record<string, unknown>[] }).rows ??
+      (projected as unknown as Record<string, unknown>[])
+    ).map((r) => ({
+      id: String(r.id),
+      userId: String(r.user_id),
+      type: String(r.type),
+      refId: r.ref_id == null ? null : String(r.ref_id),
+      payload: (r.payload ?? null) as unknown,
+      createdAt: new Date(r.created_at as string),
+    }));
 
     // One summary load for the whole page, keyed by actor, so a page of twenty
     // events by the same friend still costs one query.
@@ -1011,7 +1088,9 @@ router.get(
             // strangers in a field called displayName is how it would leak
             // without anybody noticing.
             displayName:
-              scope === "all" ? summary.username : summary.displayName,
+              scope === "all"
+                ? publicNameFor(summary.id, summary.username)
+                : summary.displayName,
             username: summary.username,
             equippedOutfit: summary.equippedOutfit,
             equippedAccessory: summary.equippedAccessory,

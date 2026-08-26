@@ -5835,10 +5835,19 @@ components:
 
     FeedEntry:
       type: object
-      description: One moment from a friend's activity log.
+      description: >-
+        One moment from the activity feed. Some come from the activity_events
+        log; the rest are PROJECTED from what learners actually do often
+        (practice_day, stop_completed, game_played), because the log alone
+        holds only milestones and a feed of milestones is nearly empty.
       properties:
         id:
-          type: integer
+          type: string
+          description: >-
+            Stable across reads and prefixed by source ("e", "p", "s", "g"),
+            because a projection has no single sequence to borrow from and two
+            sources would otherwise collide on 1. Use it as a key, not as a
+            row id in any table.
         type:
           type: string
           description: >-

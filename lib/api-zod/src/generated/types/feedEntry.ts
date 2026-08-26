@@ -9,10 +9,11 @@ import type { FeedActor } from './feedActor';
 import type { FeedEntryPayload } from './feedEntryPayload';
 
 /**
- * One moment from a friend's activity log.
+ * One moment from the activity feed. Some come from the activity_events log; the rest are PROJECTED from what learners actually do often (practice_day, stop_completed, game_played), because the log alone holds only milestones and a feed of milestones is nearly empty.
  */
 export interface FeedEntry {
-  id: number;
+  /** Stable across reads and prefixed by source ("e", "p", "s", "g"), because a projection has no single sequence to borrow from and two sources would otherwise collide on 1. Use it as a key, not as a row id in any table. */
+  id: string;
   /** What happened: `equip_outfit`, `equip_accessory`, `badge_earned` or `zone_closeout`. Left open rather than enumerated so an older client meeting a newer event type can skip it instead of failing to parse the page; clients render nothing for a type they do not know. */
   type: string;
   /** The subject of the event: the item id for an equip, the badge key for a badge, `languageCode:categoryId` for a zone closeout. */

@@ -47,6 +47,28 @@ export function feedLineFor(
       return `${name} earned ${resolvers.badgeName?.(entry.refId) ?? 'a badge'}`;
     case 'zone_closeout':
       return `${name} finished a zone`;
+    // ── PROJECTED MOMENTS, added 2026-08-25 ──
+    //
+    // The feed read one table, activity_events, which is written only on
+    // milestones: 29 rows across the app's whole history against 490 attempts.
+    // A feed with 29 lifetime entries cannot look alive, so the server now
+    // projects the things that happen OFTEN as well.
+    case 'practice_day': {
+      const n = Number((entry.payload as { count?: number } | null)?.count ?? 0);
+      // Aggregated per learner per day rather than per attempt: 490 separate
+      // "practised a phrase" lines is a log, not a feed.
+      return n > 0
+        ? `${name} practised ${n} ${n === 1 ? 'phrase' : 'phrases'}`
+        : `${name} practised`;
+    }
+    case 'stop_completed':
+      return `${name} finished a stop`;
+    case 'game_played': {
+      const p = entry.payload as { correct?: number; total?: number } | null;
+      const c = Number(p?.correct ?? 0);
+      const t = Number(p?.total ?? 0);
+      return t > 0 ? `${name} played a game, ${c} of ${t}` : `${name} played a game`;
+    }
     default:
       return null;
   }
