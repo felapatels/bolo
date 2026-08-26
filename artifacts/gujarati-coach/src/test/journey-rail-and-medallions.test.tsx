@@ -23,7 +23,7 @@ import type { ReactElement } from "react";
 //     kind rather than the status.
 
 import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from "@/lib/rail-palette";
-import { MEDALLION, stopEmblem } from "@/lib/stop-emblems";
+import { stopEmblem } from "@/lib/stop-emblems";
 
 const h = vi.hoisted(() => ({
   groupsByZone: {} as Record<number, unknown[]>,
@@ -139,7 +139,7 @@ describe("the rail palette is one palette across both platforms", () => {
       between: 4,
       tieDash: "3 11",
       unlitDash: "9 7",
-      unlitOpacity: 0.88,
+      unlitOpacity: 1,
     });
   });
 
@@ -153,20 +153,6 @@ describe("the rail palette is one palette across both platforms", () => {
 });
 
 describe("the stop medallions are one set across both platforms", () => {
-  test("keeps only the knock-back, because the art carries its own brass", () => {
-    // WAS FIVE VALUES: a rim, a face and their drained twins, all drawn
-    // BEHIND the emblem. The emblems are cut from a painting and each already
-    // carries its own brass rim, so the drawn disc stacked a second medallion
-    // under the first and the pair read as a sticker pressed onto the map.
-    // Reported as "medallions shouldn't be opaque".
-    //
-    // Alpha is the right knock-back on a marker and the wrong one on a card,
-    // which is not a contradiction: a marker is a small piece of art with no
-    // text on it, so letting the painting through says "not yet" without
-    // costing a learner anything they have to read.
-    expect(MEDALLION).toEqual({ aheadOpacity: 0.62 });
-  });
-
   test("every kind resolves to art that already ships in public/journey", () => {
     // The six PNGs landed with the mobile medallions and web never read them,
     // so wiring this cost no bundle bytes. A kind pointing at a file that is
@@ -188,16 +174,14 @@ describe("the medallions reach the map and say KIND, not status", () => {
     expect(screen.getAllByTestId("station-medallion-story").length).toBeGreaterThan(0);
   });
 
-  test("a medallion is knocked back until the stop is behind the learner", () => {
+  test("the marker carries no status of its own, only the kind", () => {
     renderJourney();
-    const ahead = screen
-      .getAllByTestId(/^station-medallion-/)
-      .filter((el) => el.style.opacity !== "" && el.style.opacity !== "1");
-    // The fixture opens one stop per zone and locks the rest, so unreached
-    // medallions must exist or this proves nothing.
-    expect(ahead.length).toBeGreaterThan(0);
-    for (const el of ahead) {
-      expect(Number(el.style.opacity)).toBe(MEDALLION.aheadOpacity);
+    // STATUS IS SAID TWICE ALREADY, by the card's drained stock and by the rail
+    // arriving dashed instead of green. It was said a third time in the
+    // emblem's alpha until 2026-08-26, and that third telling only made cut art
+    // look faded on a painting: "some icons still too transparent".
+    for (const el of screen.getAllByTestId(/^station-medallion-/)) {
+      expect(el.style.opacity === "" || el.style.opacity === "1").toBe(true);
     }
   });
 });

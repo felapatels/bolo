@@ -122,7 +122,6 @@ import {
   type QuickGameId,
 } from "@/lib/quick-games";
 import {
-  MEDALLION,
   stopEmblem,
   type StopEmblemKind,
 } from "@/lib/stop-emblems";
@@ -303,8 +302,8 @@ function useMapWidth() {
   return { ref, w };
 }
 
-/** Marker sitting on the rail: circle for phrase stops, diamond for the
- *  first-class sentence stops, train for the current stop. */
+/** Marker sitting on the rail: a cut brass emblem saying what KIND of stop
+ *  this is, and a train at the current one. */
 function StationMarker({
   station,
   color,
@@ -351,9 +350,6 @@ function StationMarker({
   // status was repeating it while leaving the thing it alone could say, that
   // this one is a tracing stop and that one is a story, to a chip.
   //
-  // The sentence stop keeps its diamond rather than taking an emblem of its
-  // own: it is a first-class stop and the rotated frame is what has always
-  // marked that, on both platforms.
   const kind: StopEmblemKind = station.trace
     ? "trace"
     : station.story
@@ -372,23 +368,21 @@ function StationMarker({
     <div
       data-testid={`station-medallion-${kind}`}
       className="relative flex h-[34px] w-[34px] items-center justify-center"
-      style={{ opacity: done ? 1 : MEDALLION.aheadOpacity }}
     >
+      {/* THE ART, AT FULL STRENGTH, AND NOTHING ELSE. No disc, no rim, no
+          locked ring, no knock-back alpha. Reported three times off the
+          preview: "medallions shouldn't be opaque", "still see circles",
+          "some icons still too transparent". Every one of those was chrome
+          I had drawn around art that already is a medallion.
+          Whether a stop is reached is said twice over already, by the card's
+          drained stock and by the rail arriving dashed instead of green, so
+          the marker does not need to say it a third time in alpha. */}
       <img
         src={stopEmblem(kind)}
         alt=""
         aria-hidden
         className="h-full w-full object-contain drop-shadow-[var(--depth-shadow)]"
       />
-      {/* A locked stop keeps the border it always had, so "you cannot go here
-          yet" still reads from the rim rather than only from the card. */}
-      {!accessible && (
-        <span
-          className="absolute inset-0 rounded-full"
-          style={{ border: "2px solid hsl(var(--border))", opacity: 0.7 }}
-          aria-hidden
-        />
-      )}
     </div>
   );
 }
@@ -2109,9 +2103,18 @@ export default function Journey() {
         // so the crossing takes the opposite flank of its preceding stop,
         // just past it in the travel direction (the serpentine flows down).
         const cardSide = (afterStop - 1) % 2 === 0 ? "right" : "left";
+        // CHACHA-JI OWNS THE LEFT FLANK AT AN ENCOUNTER STATION and the signal
+        // was taking it too, so the crossing drew straight over his stall:
+        // "chacha hidden behind signal". Encounter stations are always
+        // left-flank, so their card is on the right and the rule above sends
+        // the signal left, which is exactly where the stall stands. Where they
+        // would share a side, the signal yields: he is a character with a name
+        // on the map and it is a piece of track furniture.
+        const stallHere = isChachaEncounterStation(afterStop);
+        const signalLeft = stallHere ? false : cardSide === "right";
         const x = Math.min(
           mapW - 20,
-          Math.max(20, a.x + (cardSide === "right" ? -30 : 30)),
+          Math.max(20, a.x + (signalLeft ? -30 : 30)),
         );
         const stopDone = station.status === "completed" || station.status === "tested_out";
         // Hotfix 3S Item 2: server truth first (ledger-backed clears, persisted
