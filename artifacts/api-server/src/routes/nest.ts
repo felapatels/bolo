@@ -1369,6 +1369,66 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+/**
+ * THE GROWTH PLAN, a second whole document behind the same gate.
+ *
+ * WHY A ROUTE AND NOT A SECTION. It is 114KB of standalone HTML with its own
+ * stylesheet, its own script and its own localStorage, built in a separate
+ * session. Inlining it into nest-production.html would mean merging two
+ * stylesheets whose class names were never checked against each other, which
+ * is the exact trap this page paid for on 2026-08-25, and its every date is
+ * computed at runtime from one launch-day picker, so the script would have to
+ * come across intact or all 66 slots and 35 days render blank.
+ *
+ * IT OPENS IN ITS OWN TAB rather than in a nested frame. The cockpit is
+ * already an iframe inside the product, and a frame inside that frame would
+ * inherit a sandbox two levels deep for no gain. A top-level GET carries the
+ * Clerk session cookie exactly as the frame does, so the gate below works the
+ * same either way.
+ *
+ * IT TALKS TO NOTHING. Verified before it was routed, and again after it was
+ * rewritten: no fetch, no script src, no stylesheet link, no @import, not a
+ * single src or href attribute, no external host of any kind, and every
+ * localStorage call wrapped in try/catch. So it cannot leak, cannot break on a
+ * blocked request, and adds no runtime dependency to the API.
+ *
+ * NEST-GROWTH.HTML IS COMMITTED OUTPUT, NOT SOURCE. Same rule as the aksharmala
+ * page in CLAUDE.md and for the same reason: EDIT tools/growth-board AND
+ * REBUILD, NEVER THIS FILE. A hand edit works until the next rebuild silently
+ * reverts it.
+ *
+ *     cd tools/growth-board
+ *     python3 gen.py ../../artifacts/api-server/assets/nest-growth.html nest
+ *
+ * THE TRAILING `nest` IS LOAD BEARING and the build is wrong without it. It
+ * drops the Google Fonts link, substitutes system stacks, builds the standalone
+ * wrapper and sets the canonical footer.
+ *
+ * THE RULE ONLY EARNED ITS PLACE AFTER THE GENERATOR WAS MADE TO EARN IT.
+ * On 2026-08-26 that command emitted 114,439 bytes against the 114,741 here,
+ * and the generated CSS still named "Archivo Narrow", "Instrument Sans" and
+ * "IBM Plex Mono", all Google Fonts, where this file carries system stacks: the
+ * substitution had been done by hand in a shell once and then documented as if
+ * the generator did it. A rebuild would have named three faces that can never
+ * load. The generator was held out of the repo until `cmp` was silent, because
+ * pointing this rule at a command that reverts work is worse than having no
+ * generator at all. `cmp` is silent now, verified from a clean run.
+ */
+router.get("/nest/growth", (req: Request, res: Response): void => {
+  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  try {
+    // Same no-store reasoning as the cockpit: a cached document would pin the
+    // plan at whatever shipped, and a plan is edited more often than a
+    // dashboard.
+    res.set("Content-Type", "text/html; charset=utf-8");
+    res.set("Cache-Control", "no-store");
+    res.send(nestAsset("nest-growth.html"));
+  } catch (err) {
+    req.log.error({ err }, "nest growth page missing from the build");
+    res.status(500).json({ error: "The growth plan is not in this build" });
+  }
+});
+
 router.get("/nest/page", (req: Request, res: Response): void => {
   if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
   try {
@@ -1384,5 +1444,50 @@ router.get("/nest/page", (req: Request, res: Response): void => {
     res.status(500).json({ error: "The cockpit is not in this build" });
   }
 });
+
+/**
+ * EVERY ROUTE THIS FILE IS SUPPOSED TO SERVE, asserted at import time.
+ *
+ * WHY THIS EXISTS. On 2026-08-26 /nest/growth was committed, deployed, linked
+ * from two places in the cockpit, and then DELETED BY AN UNRELATED EDIT four
+ * commits later: a rewrite of /nest/live replaced everything between the live
+ * block and /nest/page, and the growth route sat between them. Nothing caught
+ * it. It typechecked, every other route worked, the chip was still on the page,
+ * and the first sign of trouble was the owner clicking it and getting
+ * "Cannot GET /api/nest/growth".
+ *
+ * A ROUTE THAT VANISHES IS INVISIBLE TO A TYPECHECKER, because deleting a
+ * registration is not a type error and no caller of it exists in this codebase
+ * to break. The cockpit links to these by string from hand-written HTML, so
+ * there is nothing else that can notice either. This is the cheapest thing that
+ * can: it throws at boot rather than serving a cockpit with holes in it, which
+ * is the same fail-closed direction as the owner gate.
+ */
+const EXPECTED_ROUTES = [
+  "/nest/redirect",
+  "/nest/summary",
+  "/nest/drill",
+  "/nest/reports",
+  "/nest/map",
+  "/nest/range",
+  "/nest/live",
+  "/nest/growth",
+  "/nest/page",
+];
+
+{
+  const registered = new Set(
+    (router.stack as { route?: { path?: string } }[])
+      .map((layer) => layer.route?.path)
+      .filter((path): path is string => typeof path === "string"),
+  );
+  const missing = EXPECTED_ROUTES.filter((r) => !registered.has(r));
+  if (missing.length > 0) {
+    throw new Error(
+      `The Nest is missing routes it is supposed to serve: ${missing.join(", ")}. ` +
+        "Something deleted a registration. See EXPECTED_ROUTES in routes/nest.ts.",
+    );
+  }
+}
 
 export default router;
