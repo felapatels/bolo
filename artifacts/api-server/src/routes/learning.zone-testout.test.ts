@@ -489,6 +489,39 @@ test("zone GET samples up to two phrases per station; sampleSize is a PHRASE cou
 });
 
 test("zone GET sampleSize caps at the phrase cap when a zone exceeds the station cap", async () => {
+  // PURGE FIRST, BECAUSE THIS FIXTURE CAN POISON THE NEXT RUN. The seeding
+  // below happens OUTSIDE the try/finally, so a throw anywhere between the
+  // category insert and the try leaves the category row behind and the
+  // cleanup never runs. The next run then dies on the unique slug, and the
+  // failure it reports is an insert conflict rather than anything about
+  // sampleSize: exactly what happened on 2026-08-25, where the reported
+  // failure named this test and the real cause was a leftover row from an
+  // earlier crashed run.
+  //
+  // Deleting by SLUG rather than by id, in FK order, so it heals whatever a
+  // previous run left regardless of what its ids were.
+  await pool.query(
+    `DELETE FROM user_item_memory WHERE phrase_id IN (
+       SELECT p.id FROM phrases p
+       JOIN categories c ON c.id = p.category_id
+       WHERE c.slug = '__test_cat_zone_big')`,
+  );
+  await pool.query(
+    `DELETE FROM phrases WHERE category_id IN (
+       SELECT id FROM categories WHERE slug = '__test_cat_zone_big')`,
+  );
+  await pool.query(
+    `DELETE FROM lesson_groups WHERE category_id IN (
+       SELECT id FROM categories WHERE slug = '__test_cat_zone_big')`,
+  );
+  await pool.query(
+    `DELETE FROM lessons WHERE category_id IN (
+       SELECT id FROM categories WHERE slug = '__test_cat_zone_big')`,
+  );
+  await pool.query(
+    `DELETE FROM categories WHERE slug = '__test_cat_zone_big'`,
+  );
+
   // Seed a separate category with 12 phrase-stage groups
   const [bigCat] = await db
     .insert(categoriesTable)
