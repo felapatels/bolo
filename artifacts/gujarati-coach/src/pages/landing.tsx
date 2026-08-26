@@ -22,6 +22,7 @@ import { usePricing, FAMILY_SEATS, FAMILY_PLAN_ENABLED } from '@/lib/pricing';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { useDocumentHead, useHomepageStructuredData } from '@/lib/seo';
 import { detectShortcutPlatform } from '@/lib/platform';
+import { StoreBanner } from '@/components/store-banner';
 // The badges (and the listing URLs and LIVE flags behind them) now live in one
 // shared component so the signed-in home page shows the same ones. The hero
 // still owns its own gate and entrance animation, below. Until a flag flips,
@@ -710,6 +711,12 @@ export default function Landing({
           </Link>
         </nav>
       </footer>
+
+      {/* The sticky get-the-app bar. Fixed to the bottom, so the footer above
+          carries clearance for it: without that, the last nav row sits under
+          the bar on a short viewport and Privacy Policy is untappable. */}
+      <div aria-hidden="true" className="h-20" />
+      <StoreBanner />
     </div>
   );
 }
