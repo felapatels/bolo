@@ -121,7 +121,14 @@ describe("home Phrasebook door (task 906)", () => {
     // The header row is a link into the library.
     const links = Array.from(door.querySelectorAll('a[href="/phrasebook"]'));
     expect(links.length).toBeGreaterThan(0);
-    expect(screen.getByText("Browse and practice any topic")).toBeInTheDocument();
+    // INVERTED 2026-08-26. This asserted "Browse and practice any topic", which
+    // learning.ts:617 has always contradicted: the served phrases are filtered
+    // to unlocked lesson groups and journey stops ARE lesson groups, so the
+    // Phrasebook has never been a way round the Journey. The copy now says what
+    // the code does. Mobile twin: __tests__ for (tabs)/index.tsx.
+    expect(
+      screen.getByText("Everything your Journey has opened"),
+    ).toBeInTheDocument();
     // The old grid heading and its full topic list are gone from home.
     expect(screen.queryByText("Browse by topic")).toBeNull();
     expect(screen.queryByText("Food & Eating")).toBeNull();

@@ -155,7 +155,11 @@ describe('Phrasebook surface (mobile)', () => {
 
     expect(screen.getByText('Phrasebook')).toBeOnTheScreen();
     expect(
-      screen.getByText(/Browse and practice any of them, in any order/),
+    // INVERTED 2026-08-26. learning.ts:617 filters the served phrases to
+    // unlocked lesson groups and journey stops ARE lesson groups, so the
+    // Phrasebook has never been a way round the Journey and this copy was
+    // promising the opposite. Web twin: src/test/phrasebook-door.test.tsx.
+      screen.getByText(/Each one\s+opens as your Journey reaches it/),
     ).toBeOnTheScreen();
 
     expect(screen.getByText('Greetings & Manners')).toBeOnTheScreen();
@@ -164,8 +168,16 @@ describe('Phrasebook surface (mobile)', () => {
     expect(screen.getByText('100%')).toBeOnTheScreen();
     expect(screen.getByText('Numbers 1-10')).toBeOnTheScreen();
 
-    // Library framing: no journey or continue language.
-    expect(screen.queryByText(/journey/i)).toBeNull();
+    // INVERTED 2026-08-26, and this one is a deliberate reversal rather than a
+    // copy tweak. It used to assert LIBRARY FRAMING: that the Phrasebook never
+    // mentioned the Journey. learning.ts:617 always contradicted that, since
+    // the served phrases are filtered to unlocked lesson groups and journey
+    // stops ARE lesson groups. The owner's call was that the Phrasebook is a
+    // library of what the Journey has opened, so naming the Journey here is now
+    // the requirement, not the defect.
+    expect(screen.getByText(/Journey/)).toBeOnTheScreen();
+    // "Continue" framing is still wrong: this is somewhere to browse what you
+    // already hold, not a resume button. That half of the rule stands.
     expect(screen.queryByText(/continue/i)).toBeNull();
   });
 

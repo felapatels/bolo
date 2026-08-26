@@ -278,7 +278,13 @@ describe('HomeScreen - Phrasebook door replaces the topic grid', () => {
     render(<HomeScreen />);
 
     expect(screen.getByText('Phrasebook')).toBeOnTheScreen();
-    expect(screen.getByText('Browse and practice any topic')).toBeOnTheScreen();
+    // INVERTED 2026-08-26. learning.ts:617 filters the served phrases to
+    // unlocked lesson groups and journey stops ARE lesson groups, so the
+    // Phrasebook has never been a way round the Journey and this copy was
+    // promising the opposite. Web twin: src/test/phrasebook-door.test.tsx.
+    expect(
+      screen.getByText('Everything your Journey has opened'),
+    ).toBeOnTheScreen();
 
     fireEvent.press(screen.getByLabelText('Open the Phrasebook'));
     expect(mockState.push).toHaveBeenCalledWith('/(app)/phrasebook');

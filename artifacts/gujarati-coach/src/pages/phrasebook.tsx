@@ -93,9 +93,14 @@ export default function Phrasebook() {
             <h1 className="text-2xl font-black tracking-tight text-foreground lg:text-3xl">
               Phrasebook
             </h1>
+            {/* NOT "in any order", which is what this said until 2026-08-26.
+                learning.ts:617 filters served phrases to UNLOCKED LESSON
+                GROUPS, and journey stops ARE lesson groups, so the Phrasebook
+                has never been a way round the Journey. Mobile twin:
+                artifacts/bolo-mobile/app/(app)/phrasebook.tsx. */}
             <p className="text-sm font-semibold text-muted-foreground">
-              Every {activeLanguage?.name ?? ""} topic in your library. Browse
-              and practice any of them, in any order.
+              Every {activeLanguage?.name ?? ""} topic in your library. Each one
+              opens as your Journey reaches it.
             </p>
           </div>
         </div>

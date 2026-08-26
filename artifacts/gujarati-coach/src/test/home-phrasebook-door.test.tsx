@@ -116,7 +116,14 @@ describe("home Phrasebook door (build 31)", () => {
     renderHome();
     expect(screen.getByTestId("phrasebook-door")).toBeInTheDocument();
     expect(screen.getByText("Phrasebook")).toBeInTheDocument();
-    expect(screen.getByText("Browse and practice any topic")).toBeInTheDocument();
+    // INVERTED 2026-08-26. This asserted "Browse and practice any topic", which
+    // learning.ts:617 has always contradicted: the served phrases are filtered
+    // to unlocked lesson groups and journey stops ARE lesson groups, so the
+    // Phrasebook has never been a way round the Journey. The copy now says what
+    // the code does. Mobile twin: __tests__ for (tabs)/index.tsx.
+    expect(
+      screen.getByText("Everything your Journey has opened"),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("link-phrasebook-door").getAttribute("href")).toBe(
       "/phrasebook",
     );

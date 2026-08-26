@@ -65,9 +65,15 @@ export default function PhrasebookScreen() {
           </View>
         </View>
         <Text style={[styles.title, { color: colors.foreground }]}>Phrasebook</Text>
+        {/* NOT "in any order", which is what this said until 2026-08-26.
+            learning.ts:617 filters served phrases to UNLOCKED LESSON GROUPS,
+            and journey stops ARE lesson groups, so the Phrasebook has never
+            been a way round the Journey and was never built to be. Owner's
+            call: it is a library of what the Journey has opened, and the copy
+            now says that instead of promising the opposite. */}
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          Every {activeLanguage?.name ?? ''} topic in your library. Browse and
-          practice any of them, in any order.
+          Every {activeLanguage?.name ?? ''} topic in your library. Each one
+          opens as your Journey reaches it.
         </Text>
 
         {categories.isLoading ? (

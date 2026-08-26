@@ -569,7 +569,7 @@ export default function Home() {
     return (
       <>
         <HomeSkeleton />
-        {splash.active && <BrandSplash exiting={splash.exiting} />}
+        {splash.active && <BrandSplash exiting={splash.exiting} onSkip={splash.skip} />}
       </>
     );
   }
@@ -1187,7 +1187,7 @@ export default function Home() {
                   <span className="min-w-0 flex-1">
                     <span className="block text-base font-black text-foreground">Phrasebook</span>
                     <span className="block truncate text-sm font-semibold text-muted-foreground">
-                      Browse and practice any topic
+                      Everything your Journey has opened
                     </span>
                   </span>
                   <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
@@ -1281,7 +1281,7 @@ export default function Home() {
       <MilestoneToast message="Daily goal hit! 🎉" toastKey={goalToastKey} />
       {/* Splash exit fade can outlive the skeleton by a beat when data cuts
           the moment short — keep it mounted (portaled to body) until done. */}
-      {splash.active && <BrandSplash exiting={splash.exiting} />}
+      {splash.active && <BrandSplash exiting={splash.exiting} onSkip={splash.skip} />}
     </div>
   );
 }

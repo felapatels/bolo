@@ -860,11 +860,13 @@ export default function HomeScreen() {
                 <Text style={[styles.doorTitle, { color: colors.foreground }]}>
                   Phrasebook
                 </Text>
+                {/* See phrasebook.tsx: this is a library of what the Journey
+                    has opened, not a way past it. */}
                 <Text
                   style={[styles.doorSub, { color: colors.mutedForeground }]}
                   numberOfLines={1}
                 >
-                  Browse and practice any topic
+                  Everything your Journey has opened
                 </Text>
               </View>
               <Feather name="chevron-right" size={20} color={colors.mutedForeground} />

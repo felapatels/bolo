@@ -215,6 +215,28 @@ export default function CategoryDetail() {
           {/* Phrase List */}
           <div className="space-y-3">
             <h3 className="font-bold text-lg text-foreground px-2">Phrases to learn</h3>
+            {/* THE WEB HAD NO EMPTY STATE AT ALL. This heading sat over nothing
+                whenever the served list came back empty, which learning.ts:617
+                does for any topic the Journey has not reached yet. Mobile said
+                "No phrases here yet", which was wrong in the other direction:
+                it reads as "Bolo has no content for this".
+
+                `phraseCount` on the category listing is NOT unlock-filtered,
+                so content-exists-but-none-open is distinguishable here with no
+                new server field. Mobile twin: app/(app)/category/[id].tsx. */}
+            {(phrases?.length ?? 0) === 0 && (category?.phraseCount ?? 0) > 0 ? (
+              <div className="flex flex-col items-center gap-3 py-8 text-center">
+                <p className="text-sm font-semibold text-muted-foreground">
+                  This topic opens as your Journey reaches it.
+                </p>
+                <Link
+                  href="/journey"
+                  className="bg-primary text-primary-foreground font-bold py-2.5 px-5 rounded-xl inline-flex items-center gap-2"
+                >
+                  Go to your Journey
+                </Link>
+              </div>
+            ) : null}
           {phrases?.map((phrase, i) => (
             <motion.div
               key={phrase.id}
@@ -339,15 +361,14 @@ export default function CategoryDetail() {
                 Final step: Full sentences
               </h3>
               {category.sentencesLocked ? (
+                // THE COUNT WAS DROPPED 2026-08-26 at the owner's word: "i
+                // don't like the 8 full Sentences, just say Full Sentences".
+                // Mobile twin: app/(app)/category/[id].tsx. "with All-Access"
+                // goes too, because the cta below already says it and the
+                // title was carrying the phrase twice.
                 <UpgradeCard
                   icon={<Lock className="h-6 w-6" />}
-                  title={
-                    category.sentenceCount > 0
-                      ? `${category.sentenceCount} full ${
-                          category.sentenceCount === 1 ? "sentence" : "sentences"
-                        } with All-Access`
-                      : "Full sentences with All-Access"
-                  }
+                  title="Full sentences"
                   description="Graduate from phrases to real, natural sentences — the final step for every topic."
                   cta="Unlock with All-Access"
                   href={upgradeHref({ plan: "plus" })}

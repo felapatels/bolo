@@ -170,9 +170,41 @@ export default function CategoryScreen() {
         {phrases.isLoading ? (
           <FunFactLoader color={colors.primary} style={{ marginTop: 40 }} />
         ) : (phrases.data ?? []).length === 0 ? (
-          <Text style={[styles.note, { color: colors.mutedForeground }]}>
-            No phrases here yet.
-          </Text>
+          // TWO REASONS THIS LIST COMES BACK EMPTY, AND THEY ARE NOT THE SAME
+          // SENTENCE. learning.ts:617 filters the served phrases to unlocked
+          // lesson groups, and journey stops ARE lesson groups, so a topic the
+          // learner has not travelled to yet returns nothing even though the
+          // topic is full. `phraseCount` on the category listing is NOT
+          // unlock-filtered, so the two fields together separate the cases with
+          // no new server field: content exists, none of it is open yet.
+          //
+          // It said "No phrases here yet." in BOTH cases, which reads as "Bolo
+          // has nothing for this topic" to somebody whose only mistake was not
+          // having got here. Found on device 2026-08-26 on Celebrations &
+          // Festivals, which holds 8 free phrases in all 22 languages.
+          (category?.phraseCount ?? 0) > 0 ? (
+            <View style={{ marginTop: 28, alignItems: 'center' }}>
+              <Text style={[styles.note, { color: colors.mutedForeground }]}>
+                This topic opens as your Journey reaches it.
+              </Text>
+              <PressableScale
+                onPress={() => router.push('/(app)/journey')}
+                accessibilityRole="button"
+                accessibilityLabel="Open your Journey"
+                style={[
+                  styles.reviewBtn,
+                  { backgroundColor: colors.primary, marginTop: 14 },
+                ]}
+              >
+                <Feather name="map" size={16} color="#fff" />
+                <Text style={styles.reviewBtnText}>Go to your Journey</Text>
+              </PressableScale>
+            </View>
+          ) : (
+            <Text style={[styles.note, { color: colors.mutedForeground }]}>
+              No phrases here yet.
+            </Text>
+          )
         ) : (
           (phrases.data ?? []).map((p, i) => (
             <PhraseRow
@@ -264,11 +296,11 @@ export default function CategoryScreen() {
               </Text>
               <LockedFeatureCard
                 icon="message-circle"
-                title={
-                  category.sentenceCount > 0
-                    ? `${category.sentenceCount} full sentences`
-                    : 'Full sentences'
-                }
+                // THE COUNT WAS DROPPED 2026-08-26 at the owner's word: "i
+                // don't like the 8 full Sentences, just say Full Sentences".
+                // The number was never the point of a locked card, and it made
+                // the title read like an inventory rather than a stage.
+                title="Full sentences"
                 description="Graduate from phrases to real, natural sentences."
                 onPress={() => router.push('/(app)/paywall')}
               />
