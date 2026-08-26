@@ -477,7 +477,7 @@ function FactStrip({
       onClick={advance}
       aria-label="Show the next India fact"
       data-testid={`postcard-fact-${zoneIndex}`}
-      className="mx-1.5 mb-1 block w-[calc(100%-0.75rem)] rounded-md border border-dashed px-2 py-0.5 text-left"
+      className="mb-1 block w-full rounded-md border border-dashed px-2 py-0.5 text-left"
       style={{ borderColor: `${color}55` }}
     >
       <span
@@ -595,21 +595,40 @@ function ZonePostcard({
         {/* The panel. THE ONLY PART THAT STRETCHES, and it clips: the map
             reserves PC_H for this row and the board may never push into the
             first station beneath it. */}
-        <div
-          className="relative min-h-0 flex-1 overflow-hidden"
-          style={{
-            // Cream FIRST, art on top: the slice's paper is drawn with partial
-            // alpha, so on its own the painted backdrop reads straight through
-            // the board.
-            backgroundColor: ZONE_BOARD.panel,
-            backgroundImage: `url(${ZONE_BOARD_ART.mid})`,
-            backgroundSize: "100% 100%",
-          }}
-        >
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          {/* Cream UNDER the art, and only as wide as the art's own frame. The
+              slice's paper has partial alpha so it needs a fill behind it, and
+              its outer 3.9% is fully transparent so that fill must stop there
+              or the panel reads wider than the pediment above it. */}
+          <div
+            className="absolute inset-y-0"
+            style={{
+              left: `${ZONE_BOARD.panelInset * 100}%`,
+              right: `${ZONE_BOARD.panelInset * 100}%`,
+              background: ZONE_BOARD.panel,
+            }}
+            aria-hidden
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${ZONE_BOARD_ART.mid})`,
+              backgroundSize: "100% 100%",
+            }}
+            aria-hidden
+          />
+          {/* Everything the board says lives inside the drawn frame. */}
+          <div
+            className="relative"
+            style={{
+              paddingLeft: `${ZONE_BOARD.contentInset * 100}%`,
+              paddingRight: `${ZONE_BOARD.contentInset * 100}%`,
+            }}
+          >
           {/* address side */}
           <div className="flex items-stretch gap-0">
             {/* left column: main address side */}
-            <div className="min-w-0 flex-1 px-3 py-1">
+            <div className="min-w-0 flex-1 py-1">
               {/* The fare-zone line came off the panel when the carved board
                   landed: the pediment's nameplate carries the topic and the
                   small plate carries the number, so this said both twice. */}
@@ -638,12 +657,13 @@ function ZonePostcard({
               href={testOutHref}
               onClick={blessAudioPlayback}
               data-testid={`link-zone-test-out-${zoneIndex}`}
-              className="mx-1.5 mb-1.5 flex items-center justify-center rounded-md border-2 bg-card py-2 text-xs font-bold active:scale-[0.98] transition-transform"
+              className="mb-1.5 flex w-full items-center justify-center rounded-md border-2 bg-card py-2 text-xs font-bold active:scale-[0.98] transition-transform"
               style={{ borderColor: color, color }}
             >
               Test out of this zone
             </Link>
           )}
+          </div>
         </div>
         {/* The board's foot, aspect preserved like the pediment. */}
         <img

@@ -1920,11 +1920,21 @@ export default function JourneyScreen() {
                     {/* The panel. THE ONLY PART THAT STRETCHES, and it clips:
                         the map reserves PC_H for this row and the board may
                         never push into the first station beneath it. */}
-                    <ImageBackground
-                      source={ZONE_BOARD_ART.mid}
-                      resizeMode="stretch"
-                      style={styles.boardPanel}
-                    >
+                    <View style={styles.boardPanel}>
+                      {/* Cream UNDER the art, and only as wide as the art's own
+                          frame. The slice's paper has partial alpha so it needs
+                          a fill behind it, and its outer 3.9% is fully
+                          transparent so that fill must stop there or the panel
+                          reads wider than the pediment above it. */}
+                      <View pointerEvents="none" style={styles.boardPanelFill} />
+                      <Image
+                        source={ZONE_BOARD_ART.mid}
+                        resizeMode="stretch"
+                        style={StyleSheet.absoluteFill}
+                      />
+                      {/* Everything the board says lives inside the drawn
+                          frame. */}
+                      <View style={styles.boardPanelBody}>
                       {/* address side */}
                       <View style={styles.postcardAddress}>
                         <View style={styles.postcardLeft}>
@@ -1977,7 +1987,8 @@ export default function JourneyScreen() {
                           </Text>
                         </Pressable>
                       )}
-                    </ImageBackground>
+                      </View>
+                    </View>
                     {/* The board's foot, aspect preserved like the pediment. */}
                     <Image
                       testID={`zone-board-bot-${zoneIndex}`}
@@ -2988,14 +2999,18 @@ const styles = StyleSheet.create({
   board: { height: PC_H, flexDirection: 'column', overflow: 'hidden' },
   boardTop: { width: '100%', aspectRatio: ZONE_BOARD.artW / ZONE_BOARD.topH },
   boardBot: { width: '100%', aspectRatio: ZONE_BOARD.artW / ZONE_BOARD.botH },
-  boardPanel: {
-    width: '100%',
-    flex: 1,
-    minHeight: 0,
-    overflow: 'hidden',
-    // Cream UNDER the art: the slice's paper is drawn with partial alpha, so
-    // on its own the painted backdrop reads straight through the board.
+  boardPanel: { width: '100%', flex: 1, minHeight: 0, overflow: 'hidden' },
+  boardPanelFill: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: `${ZONE_BOARD.panelInset * 100}%`,
+    right: `${ZONE_BOARD.panelInset * 100}%`,
     backgroundColor: ZONE_BOARD.panel,
+  },
+  boardPanelBody: {
+    flex: 1,
+    paddingHorizontal: `${ZONE_BOARD.contentInset * 100}%`,
   },
   boardNamePlate: {
     position: 'absolute',

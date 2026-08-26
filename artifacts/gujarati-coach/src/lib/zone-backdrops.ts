@@ -161,6 +161,22 @@ export const ZONE_BOARD = {
    *  This goes underneath the slice; the art then supplies the texture and the
    *  frame rather than the opacity. */
   panel: "#F9EBD5",
+  /**
+   * WHERE THE ART ACTUALLY IS, as fractions of the board's width, measured off
+   * zone-sign-mid.png's own pixels rather than guessed.
+   *
+   * The slice is NOT edge to edge. Its first 28 of 760 columns are fully
+   * transparent, then the dark outer frame line, then cream, then an inner
+   * rule, and only at about 47/760 does the panel interior begin. So a cream
+   * fill across the whole container spills into the transparent margin and
+   * reads as a panel WIDER than the pediment above it, and content padded a
+   * few flat pixels crosses the drawn frame. Both were reported at once: "card
+   * overlaps the actual sign".
+   */
+  /** The outer frame line: the cream may not start before this. */
+  panelInset: 0.039,
+  /** The panel interior: no text or box may start before this. */
+  contentInset: 0.072,
   ink: "#5A2C16",
   inkMuted: "#8A5B40",
 } as const;
