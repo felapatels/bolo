@@ -456,31 +456,17 @@ describe('journey map — the opening shot (Task 1082 item 4, recut 2026-08-26)'
     ]);
 
   let scrollTo: jest.SpyInstance;
-  let frames: FrameRequestCallback[] = [];
 
-  /** Play every frame queued so far, at a given point on the frame clock. */
-  const playFrames = (now: number) => {
-    const queued = frames;
-    frames = [];
-    queued.forEach((cb) => cb(now));
-  };
-  /** Run the shot to its end: past the hold, then past its longest duration. */
+  /** Past the hold, which is all the shot needs now: it hands the travel to
+   *  the platform's own animated scroll rather than driving frames itself. */
   const playWholeShot = () => {
     jest.advanceTimersByTime(INTRO_SCROLL.holdMs);
-    playFrames(0);
-    playFrames(INTRO_SCROLL.maxMs + 1);
   };
   const lastScrollY = () =>
     (scrollTo.mock.calls[scrollTo.mock.calls.length - 1]![0] as { y: number }).y;
 
   beforeEach(() => {
     jest.useFakeTimers();
-    frames = [];
-    jest.spyOn(global, 'requestAnimationFrame').mockImplementation((cb) => {
-      frames.push(cb);
-      return frames.length as unknown as number;
-    });
-    jest.spyOn(global, 'cancelAnimationFrame').mockImplementation(() => {});
     scrollTo = jest
       .spyOn(ScrollView.prototype, 'scrollTo')
       .mockImplementation(() => {});
@@ -507,15 +493,16 @@ describe('journey map — the opening shot (Task 1082 item 4, recut 2026-08-26)'
     render(<JourneyScreen />);
     layOutMap();
     playWholeShot();
-    expect(scrollTo).toHaveBeenCalled();
+    // ONE animated scroll, not a frame loop. The hand-rolled tween drove
+    // scrollTo({ animated: false }) once per requestAnimationFrame, passed
+    // every test because the test renderer hands out the frames itself, and
+    // did not move a real ScrollView: "the AutoZone didn't work", twice off
+    // TestFlight. Duration control is worth less than working.
+    expect(scrollTo).toHaveBeenCalledTimes(1);
     // Past the top of the line: this learner's stop is the twelfth, so the map
     // does not leave them staring at stop 1.
     expect(lastScrollY()).toBeGreaterThan(0);
-    // Every frame drives the scroll view directly, so none of them may hand
-    // the work back to the platform's own animation.
-    for (const call of scrollTo.mock.calls) {
-      expect((call[0] as { animated: boolean }).animated).toBe(false);
-    }
+    expect(scrollTo.mock.calls[0]![0]).toMatchObject({ animated: true });
   });
 
   it('leaves a learner on stop 1 exactly where they already are', () => {
@@ -551,9 +538,8 @@ describe('journey map — the opening shot (Task 1082 item 4, recut 2026-08-26)'
     // chose.
     expect(scrollTo).toHaveBeenCalledTimes(1);
     expect(scrollTo.mock.calls[0]![0]).toMatchObject({ y: destination, animated: false });
-    // And nothing runs afterwards: no hold still pending, no tween still queued.
+    // And nothing runs afterwards: the hold was cleared, not merely beaten.
     jest.advanceTimersByTime(INTRO_SCROLL.holdMs + INTRO_SCROLL.maxMs);
-    playFrames(9999);
     expect(scrollTo).toHaveBeenCalledTimes(1);
   });
 
@@ -566,10 +552,10 @@ describe('journey map — the opening shot (Task 1082 item 4, recut 2026-08-26)'
     layOutMap();
     layOutMap(40);
     playWholeShot();
-    const framesAfter = scrollTo.mock.calls.length;
+    const settled = scrollTo.mock.calls.length;
     layOutMap(80);
     playWholeShot();
-    expect(scrollTo.mock.calls.length).toBe(framesAfter);
+    expect(scrollTo.mock.calls.length).toBe(settled);
   });
 
   it('yields to a learner who is already scrolling', () => {

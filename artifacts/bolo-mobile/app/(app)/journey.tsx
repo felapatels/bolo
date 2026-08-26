@@ -1276,16 +1276,11 @@ export default function JourneyScreen() {
    * Web twin: AutoScrollToCurrentStop in gujarati-coach/src/pages/journey.tsx.
    * Same hold, same cap, same ease, same skip.
    */
-  const introRaf = useRef<number | null>(null);
   const introHold = useRef<ReturnType<typeof setTimeout> | null>(null);
   const introTarget = useRef<number | null>(null);
 
   /** Stop the shot wherever it is and put the learner on their card. */
   const landIntro = useCallback(() => {
-    if (introRaf.current != null) {
-      cancelAnimationFrame(introRaf.current);
-      introRaf.current = null;
-    }
     if (introHold.current != null) {
       clearTimeout(introHold.current);
       introHold.current = null;
@@ -1300,7 +1295,6 @@ export default function JourneyScreen() {
   // pointing at an unmounted scroll view.
   useEffect(
     () => () => {
-      if (introRaf.current != null) cancelAnimationFrame(introRaf.current);
       if (introHold.current != null) clearTimeout(introHold.current);
     },
     [],
@@ -1322,20 +1316,19 @@ export default function JourneyScreen() {
 
     introHold.current = setTimeout(() => {
       introHold.current = null;
-      const dur = introScrollDurationMs(to);
-      let t0: number | null = null;
-      const step = (now: number) => {
-        if (t0 == null) t0 = now;
-        const p = Math.min(1, (now - t0) / dur);
-        scrollRef.current?.scrollTo({ y: to * introScrollEase(p), animated: false });
-        if (p < 1) {
-          introRaf.current = requestAnimationFrame(step);
-        } else {
-          introRaf.current = null;
-          introTarget.current = null;
-        }
-      };
-      introRaf.current = requestAnimationFrame(step);
+      introTarget.current = null;
+      // THE PLATFORM'S OWN ANIMATED SCROLL, not a hand-rolled tween.
+      //
+      // The tween drove scrollTo({ animated: false }) once per
+      // requestAnimationFrame. It passed every test, because the test renderer
+      // hands out the frames itself, and it did not move the map on a device.
+      // Reported twice off TestFlight: "the AutoZone didn't work".
+      //
+      // The duration control it bought is worth less than working: a shot that
+      // never fires has no pace to tune. `animated: true` is what this screen
+      // used before the hold existed and is known to move a real ScrollView.
+      // The HOLD is the half the owner actually asked for and it is kept.
+      scrollRef.current?.scrollTo({ y: to, animated: true });
     }, INTRO_SCROLL.holdMs);
   };
 
@@ -3139,22 +3132,18 @@ const styles = StyleSheet.create({
     right: `${ZONE_BOARD.panelInsetRight * 100}%`,
     backgroundColor: ZONE_BOARD.panel,
   },
-  // THE VERTICAL INSET IS IN POINTS, NOT PERCENT, AND THAT IS THE FIX. Web can
-  // say top/bottom in percent because CSS resolves both against the containing
-  // block's height. Yoga does not do the same thing with a percentage top AND
-  // bottom on an absolute child: the derived height collapsed, and with
-  // overflow hidden the panel rendered EMPTY. Seen on the 1.0.3 TestFlight
-  // build: a carved board with a nameplate and nothing under it.
+  // A FLEX CHILD, NOT AN ABSOLUTE BOX, and that is the third and last attempt
+  // at this. It was a percentage top/bottom pair, then points, and both derived
+  // a height from position, which Yoga does not do the way CSS does: the box
+  // collapsed and overflow hidden made an empty panel look exactly like a
+  // missing one. Reported off three TestFlight builds running.
   //
-  // The panel's height is deterministic anyway. The board is exactly PC_H, the
-  // pediment takes width * 142/760 of it, and the panel is the remainder, so
-  // the caller works the inset out in points and hands it down.
+  // flex:1 inside a parent that already has a height cannot collapse. The fill
+  // and the art stay absolute BEHIND it; only the words use the flow.
   boardPanelBody: {
-    position: 'absolute',
-    left: `${ZONE_BOARD.contentInset * 100}%`,
-    right: `${ZONE_BOARD.contentInset * 100}%`,
-    top: 0,
-    bottom: 0,
+    flex: 1,
+    paddingLeft: `${ZONE_BOARD.contentInset * 100}%`,
+    paddingRight: `${ZONE_BOARD.contentInset * 100}%`,
     overflow: 'hidden',
   },
   boardNamePlate: {
