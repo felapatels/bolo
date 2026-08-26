@@ -109,9 +109,24 @@ export function BoardScopeToggle({
 /**
  * The line shown on a global surface to a learner with no public name yet.
  *
- * IT DOES NOT BLOCK THE VIEW. They can read the global board and feed without
- * a username; what they cannot do is appear on it. Hiding other people's
- * progress behind a name prompt would be using the feature as leverage.
+ * THIS USED TO SAY "nobody can see you" AND THAT BECAME A LIE ON 2026-08-25.
+ * Until the feed projection landed, share_stats AND a username were both
+ * required to appear globally. 3e2a1336 made share_stats the only gate: an
+ * unnamed learner now appears under a stable pseudonym rather than not at all.
+ *
+ * The prompt was never updated, so it sat directly above the learner's OWN row
+ * telling them nobody could see them. Reported with a screenshot 2026-08-26.
+ * A stale promise about who can see you is the worst kind to leave standing,
+ * because somebody may be relying on it.
+ *
+ * IT NAMES THE REAL EXIT NOW: turning off Share my stats, which is the only
+ * thing that takes a learner off these surfaces. Picking a username is how you
+ * are RECOGNISED, not how you stay private.
+ *
+ * IT STILL DOES NOT BLOCK THE VIEW. Hiding other people's progress behind a
+ * name prompt would be using the feature as leverage.
+ *
+ * Web twin: src/components/board-scope.tsx PublicNamePrompt. Keep in step.
  */
 export function PublicNamePrompt() {
   const colors = useColors();
@@ -122,11 +137,12 @@ export function PublicNamePrompt() {
       style={[styles.prompt, { borderColor: colors.border, backgroundColor: colors.card }]}
     >
       <Text style={[styles.promptTitle, { color: colors.foreground }]}>
-        You are not on this board yet
+        You are on this board already
       </Text>
       <Text style={[styles.promptBody, { color: colors.mutedForeground }]}>
-        Pick a username and your stats join everyone else's. Until then you can
-        look, and nobody can see you.
+        You appear under a made-up name, so others see your stats but not who
+        you are. Pick a username to be recognised, or turn off Share my stats in
+        Account to come off these boards completely.
       </Text>
       <Pressable
         accessibilityRole="button"

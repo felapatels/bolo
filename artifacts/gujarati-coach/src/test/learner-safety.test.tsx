@@ -21,6 +21,7 @@ vi.mock("@workspace/api-client-react", async () => ({
 import {
   LearnerSafetyButton,
   BlockedLearnersList,
+  PublicNamePrompt,
 } from "@/components/board-scope";
 
 function renderWithClient(ui: React.ReactElement) {
@@ -128,5 +129,29 @@ describe("BlockedLearnersList", () => {
     fireEvent.click(screen.getByTestId("unblock-u1"));
     await waitFor(() => expect(unblockSpy).toHaveBeenCalledTimes(1));
     expect(unblockSpy.mock.calls[0][0]).toEqual({ id: "u1" });
+  });
+});
+
+describe("PublicNamePrompt", () => {
+  // THIS COPY WENT STALE ONCE AND THE STALE VERSION WAS A PRIVACY CLAIM.
+  // Until 3e2a1336 an unnamed learner really was invisible on global surfaces;
+  // after it they appear under a pseudonym. The prompt kept saying "nobody can
+  // see you" and sat directly above the learner's own row on the board. These
+  // assertions exist so it cannot say that again.
+  it("does not claim the learner is invisible", () => {
+    renderWithClient(<PublicNamePrompt />);
+    const text = screen.getByTestId("public-name-prompt").textContent ?? "";
+    expect(text).not.toMatch(/nobody can see you/i);
+    expect(text).not.toMatch(/not on this board/i);
+  });
+
+  it("says they are already visible, and names the real way off", () => {
+    renderWithClient(<PublicNamePrompt />);
+    const text = screen.getByTestId("public-name-prompt").textContent ?? "";
+    expect(text).toMatch(/already/i);
+    // Picking a username is how you are RECOGNISED. Share my stats is the only
+    // control that removes you, so the copy has to name it or the learner is
+    // left thinking inaction keeps them private.
+    expect(text).toMatch(/share my stats/i);
   });
 });

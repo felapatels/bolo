@@ -95,10 +95,26 @@ export function BoardScopeToggle({
 /**
  * The line shown on a global surface to a learner who has no public name yet.
  *
- * IT DOES NOT BLOCK THE VIEW. They can read the global board and feed without
- * a username; what they cannot do is appear on it. Hiding other people's
- * progress behind a name prompt would be using the feature as leverage, and
- * the prompt is more honest when it explains what setting a name buys.
+ * THIS USED TO SAY "nobody can see you" AND THAT BECAME A LIE ON 2026-08-25.
+ * Until the feed projection landed, share_stats AND a username were both
+ * required to appear globally, so an unnamed learner really was invisible.
+ * 3e2a1336 made share_stats the only gate: an unnamed learner now appears
+ * under a stable pseudonym rather than not at all, which is what made the feed
+ * populated on an app with 22 accounts and two chosen names.
+ *
+ * The prompt was never updated, so it sat directly above the learner's OWN row
+ * telling them nobody could see them. Reported with a screenshot 2026-08-26:
+ * the box says "You are not on this board yet" and the row beneath it reads
+ * "Learner 6302 (You), #2, 763". A stale promise about who can see you is the
+ * worst kind to leave standing, because somebody may be relying on it.
+ *
+ * IT NAMES THE REAL EXIT NOW. Picking a username is no longer the way to
+ * control visibility, it is the way to be RECOGNISED. Turning off Share my
+ * stats is the only thing that takes a learner off these surfaces, so the copy
+ * says so rather than implying that doing nothing keeps them private.
+ *
+ * IT STILL DOES NOT BLOCK THE VIEW. Hiding other people's progress behind a
+ * name prompt would be using the feature as leverage.
  */
 export function PublicNamePrompt({ className }: { className?: string }) {
   return (
@@ -109,10 +125,11 @@ export function PublicNamePrompt({ className }: { className?: string }) {
         className,
       )}
     >
-      <p className="font-bold text-foreground">You are not on this board yet</p>
+      <p className="font-bold text-foreground">You are on this board already</p>
       <p className="mt-0.5 text-muted-foreground">
-        Pick a username and your stats join everyone else's. Until then you can
-        look, and nobody can see you.
+        You appear under a made-up name, so others see your stats but not who
+        you are. Pick a username to be recognised, or turn off Share my stats in
+        Account to come off these boards completely.
       </p>
       <Link
         href="/account"

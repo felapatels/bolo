@@ -33,7 +33,11 @@ jest.mock('@/lib/haptics', () => ({ hapticLight: jest.fn() }));
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 
-import { LearnerSafetyButton, BlockedLearnersList } from '@/components/BoardScope';
+import {
+  LearnerSafetyButton,
+  BlockedLearnersList,
+  PublicNamePrompt,
+} from '@/components/BoardScope';
 
 beforeEach(() => {
   mockBlock.mockClear();
@@ -126,5 +130,22 @@ describe('BlockedLearnersList', () => {
     fireEvent.press(screen.getByTestId('unblock-u1'));
     await waitFor(() => expect(mockUnblock).toHaveBeenCalledTimes(1));
     expect(mockUnblock.mock.calls[0][0]).toEqual({ id: 'u1' });
+  });
+});
+
+describe('PublicNamePrompt', () => {
+  // Twin of the web assertions. This copy went stale once and the stale version
+  // was a privacy claim: it told a learner nobody could see them while their
+  // own row sat directly beneath it.
+  it('does not claim the learner is invisible', () => {
+    render(<PublicNamePrompt />);
+    expect(screen.queryByText(/nobody can see you/i)).toBeNull();
+    expect(screen.queryByText(/not on this board/i)).toBeNull();
+  });
+
+  it('says they are already visible, and names the real way off', () => {
+    render(<PublicNamePrompt />);
+    expect(screen.getByText(/already/i)).toBeTruthy();
+    expect(screen.getByText(/share my stats/i)).toBeTruthy();
   });
 });
