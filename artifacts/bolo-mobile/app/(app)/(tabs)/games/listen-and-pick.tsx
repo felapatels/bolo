@@ -40,6 +40,7 @@ import { GAME_CONFIG } from '@/lib/game-config';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { confirmDiscardRun } from '@/lib/gameExit';
 import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
+import { playablePhraseCount } from '@/lib/quick-games';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -124,7 +125,10 @@ function TopicPicker({
         Choose a topic to listen from
       </Text>
       {(categories ?? []).map((cat) => {
-        const disabled = cat.phraseCount < GAME_CONFIG.listenAndPick.choiceCount;
+        // PLAYABLE, not held: a topic the journey has not opened serves
+        // this game nothing however many phrases it holds.
+        const playable = playablePhraseCount(cat);
+        const disabled = playable < GAME_CONFIG.listenAndPick.choiceCount;
         return (
           <PressableScale
             key={cat.id}

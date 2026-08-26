@@ -42,6 +42,7 @@ import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { confirmDiscardRun } from '@/lib/gameExit';
 import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
+import { playablePhraseCount } from '@/lib/quick-games';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -237,7 +238,10 @@ function TopicPicker({
       </Text>
       {(categories ?? []).map((cat) => {
         // Require at least 6 phrases so the Easy (4×3, 6-pair) grid is always full.
-        const disabled = cat.phraseCount < WORD_MATCH_MIN_EASY;
+        // PLAYABLE, not held: a topic the journey has not opened serves
+        // this game nothing however many phrases it holds.
+        const playable = playablePhraseCount(cat);
+        const disabled = playable < WORD_MATCH_MIN_EASY;
         return (
           <PressableScale
             key={cat.id}

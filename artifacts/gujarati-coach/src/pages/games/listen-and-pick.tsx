@@ -34,6 +34,7 @@ import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { GAME_CONFIG } from "./game-config";
+import { playablePhraseCount } from "@/lib/quick-games";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -108,10 +109,10 @@ function TopicPicker({
             <button
               key={cat.id}
               onClick={() => onSelect(cat.id, cat.title)}
-              disabled={cat.phraseCount < GAME_CONFIG.listenAndPick.choiceCount}
+              disabled={playablePhraseCount(cat) < GAME_CONFIG.listenAndPick.choiceCount}
               className={cn(
                 "flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm active:scale-[0.98]",
-                cat.phraseCount < GAME_CONFIG.listenAndPick.choiceCount && "cursor-not-allowed opacity-50",
+                playablePhraseCount(cat) < GAME_CONFIG.listenAndPick.choiceCount && "cursor-not-allowed opacity-50",
               )}
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">

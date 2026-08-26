@@ -47,7 +47,9 @@ import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/language-context";
-import { markSignalCleared, type QuickGameDef } from "@/lib/quick-games";
+import { markSignalCleared, type QuickGameDef,
+  playablePhraseCount,
+} from "@/lib/quick-games";
 
 // ─── Launch context ──────────────────────────────────────────────────────────
 
@@ -152,10 +154,10 @@ function QuickTopicPicker({
             <button
               key={cat.id}
               onClick={() => onSelect(cat.id, cat.title)}
-              disabled={cat.phraseCount < floor}
+              disabled={playablePhraseCount(cat) < floor}
               className={cn(
                 "flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm active:scale-[0.98]",
-                cat.phraseCount < floor && "cursor-not-allowed opacity-50",
+                playablePhraseCount(cat) < floor && "cursor-not-allowed opacity-50",
               )}
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">

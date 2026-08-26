@@ -339,3 +339,25 @@ export function markChachaStopSeen(lang: string, station: number): void {
   if (typeof sessionStorage === "undefined") return;
   sessionStorage.setItem(`chacha-${lang}-${station}`, "1");
 }
+
+/**
+ * HOW MANY PHRASES A TOPIC CAN ACTUALLY PLAY, which is not how many it holds.
+ *
+ * Every game's topic picker used to gate on `phraseCount`, the topic's TOTAL.
+ * The phrases route serves only phrases in unlocked lesson groups and a journey
+ * stop IS a lesson group, so a topic with ten phrases can hand a game none of
+ * them. The picker offered the topic un-greyed, the learner tapped it, and the
+ * game answered "Need at least 4 phrases here. Choose another topic." Reported
+ * off a TestFlight build 2026-08-26 in Luggage Match, and it was true of all
+ * six pickers on both platforms.
+ *
+ * openPhraseCount is the server's count of what this caller can open right now.
+ * It is optional, and absent means an older server that never gated the list at
+ * all, so falling back to the total is the behaviour those clients already had.
+ */
+export function playablePhraseCount(cat: {
+  phraseCount: number;
+  openPhraseCount?: number;
+}): number {
+  return cat.openPhraseCount ?? cat.phraseCount;
+}

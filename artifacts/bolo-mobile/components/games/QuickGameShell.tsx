@@ -68,7 +68,7 @@ import { markSignalCleared } from '@/lib/signalMemory';
 import { markCloseoutGranted } from '@/lib/closeoutMemory';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { confirmDiscardRun } from '@/lib/gameExit';
-import type { QuickGameDef } from '@/lib/quick-games';
+import { playablePhraseCount, type QuickGameDef } from '@/lib/quick-games';
 
 // ─── Launch context ──────────────────────────────────────────────────────────
 
@@ -831,7 +831,10 @@ function TopicPicker({
         Choose a topic to play with
       </Text>
       {(categories ?? []).map((cat) => {
-        const disabled = cat.phraseCount < floor;
+        // PLAYABLE, not held. See playablePhraseCount: a topic the journey
+        // has not opened serves this game nothing however many it holds.
+        const playable = playablePhraseCount(cat);
+        const disabled = playable < floor;
         return (
           <PressableScale
             key={cat.id}
@@ -860,7 +863,7 @@ function TopicPicker({
                 {cat.title}
               </Text>
               <Text style={[styles.topicSub, { color: colors.mutedForeground }]}>
-                {cat.phraseCount} phrases
+                {playable} phrases
               </Text>
             </View>
             <Feather name="chevron-right" size={18} color={colors.mutedForeground} />

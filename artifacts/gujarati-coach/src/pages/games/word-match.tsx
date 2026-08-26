@@ -23,6 +23,7 @@ import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { GAME_CONFIG } from "./game-config";
+import { playablePhraseCount } from "@/lib/quick-games";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -204,7 +205,9 @@ function TopicPicker({
         <div className="grid gap-2 sm:grid-cols-2">
           {(categories ?? []).map((cat) => {
             // Require at least 6 phrases so the Easy (4×3, 6-pair) grid is always full.
-            const disabled = cat.phraseCount < WORD_MATCH_MIN_EASY;
+            // PLAYABLE, not held: a topic the journey has not opened serves
+            // this game nothing however many phrases it holds.
+            const disabled = playablePhraseCount(cat) < WORD_MATCH_MIN_EASY;
             return (
               <button
                 key={cat.id}
