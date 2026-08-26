@@ -50,10 +50,20 @@ export function stopEmblem(kind: StopEmblemKind): number {
  * rim and a painted emblem sit in the same metal.
  */
 export const MEDALLION = {
-  rim: '#B08D4F',
-  rimAhead: '#8A7A63',
-  face: '#F0E4CA',
-  faceAhead: '#D8D2C6',
-  /** How far an unreached stop's medallion is knocked back. */
+  /**
+   * How far an unreached stop's medallion is knocked back.
+   *
+   * THE DRAWN DISC IS GONE, and with it the rim and face colours that used to
+   * live here. Reported as "medallions shouldn't be opaque": the emblems are
+   * CUT FROM A PAINTING and each already has its own brass rim, so drawing a
+   * cream disc and a border behind one stacked a second medallion under the
+   * first and the pair read as a sticker pressed onto the map.
+   *
+   * Alpha is the right knock-back here and the wrong one on a card, which is
+   * not a contradiction: a marker is a small piece of art with no text on it,
+   * so letting the painting through says "not yet" without costing anything a
+   * learner has to read. The stop cards use a greyer stock for exactly the
+   * opposite reason.
+   */
   aheadOpacity: 0.62,
 } as const;

@@ -1504,7 +1504,7 @@ describe('the rail palette and the medallions, mirrored on web', () => {
       between: 4,
       tieDash: '3 11',
       unlitDash: '9 7',
-      unlitOpacity: 0.55,
+      unlitOpacity: 0.88,
     });
   });
 
@@ -1515,14 +1515,18 @@ describe('the rail palette and the medallions, mirrored on web', () => {
     expect(RAIL.between).toMatch(/^#[0-9A-F]{6}$/i);
   });
 
-  it('mints the brass to exactly these five values', () => {
-    expect(MEDALLION).toEqual({
-      rim: '#B08D4F',
-      rimAhead: '#8A7A63',
-      face: '#F0E4CA',
-      faceAhead: '#D8D2C6',
-      aheadOpacity: 0.62,
-    });
+  it('keeps only the knock-back, because the art carries its own brass', () => {
+    // WAS FIVE VALUES: a rim, a face and their drained twins, all drawn
+    // BEHIND the emblem. The emblems are cut from a painting and each already
+    // carries its own brass rim, so the drawn disc stacked a second medallion
+    // under the first and the pair read as a sticker pressed onto the map.
+    // Reported as "medallions shouldn't be opaque".
+    //
+    // Alpha is the right knock-back on a marker and the wrong one on a card,
+    // which is not a contradiction: a marker is a small piece of art with no
+    // text on it, so letting the painting through says "not yet" without
+    // costing a learner anything they have to read.
+    expect(MEDALLION).toEqual({ aheadOpacity: 0.62 });
   });
 
   it('gives a phrase stop, a tracing stop and a story stop each their own', () => {

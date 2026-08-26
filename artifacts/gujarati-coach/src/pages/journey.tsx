@@ -359,37 +359,33 @@ function StationMarker({
     : station.story
       ? "story"
       : "station";
-  const diamond = station.stage === "sentence";
-
+  // NO DIAMOND ANY MORE, and the question that killed it was the right one:
+  // "why are some diamond behind and some circle?" The rotated frame meant
+  // "first-class sentence stop", so the marker was carrying TWO encodings at
+  // once, shape for entitlement and emblem for kind, on a 26px disc. That is
+  // exactly the doubling-up the medallions were introduced to end. A sentence
+  // stop already says so on its card, in words, with an ALL-ACCESS plate.
+  //
+  // BIGGER, TOO. The reference draws these as prominent brass discs and 26px
+  // read as a bead on the rail.
   return (
     <div
       data-testid={`station-medallion-${kind}`}
-      className={cn(
-        "relative w-[26px] h-[26px] flex items-center justify-center overflow-hidden",
-        diamond ? "rotate-45 rounded-[4px]" : "rounded-full",
-      )}
-      style={{
-        background: done ? MEDALLION.face : MEDALLION.faceAhead,
-        border: `2px solid ${done ? MEDALLION.rim : MEDALLION.rimAhead}`,
-        opacity: done ? 1 : MEDALLION.aheadOpacity,
-        boxShadow: "var(--depth-shadow)",
-      }}
+      className="relative flex h-[34px] w-[34px] items-center justify-center"
+      style={{ opacity: done ? 1 : MEDALLION.aheadOpacity }}
     >
       <img
         src={stopEmblem(kind)}
         alt=""
         aria-hidden
-        className={cn("w-5 h-5 object-contain", diamond && "-rotate-45")}
+        className="h-full w-full object-contain drop-shadow-[var(--depth-shadow)]"
       />
       {/* A locked stop keeps the border it always had, so "you cannot go here
           yet" still reads from the rim rather than only from the card. */}
       {!accessible && (
         <span
-          className={cn(
-            "absolute inset-0",
-            diamond ? "rounded-[4px]" : "rounded-full",
-          )}
-          style={{ border: "2px solid hsl(var(--border))" }}
+          className="absolute inset-0 rounded-full"
+          style={{ border: "2px solid hsl(var(--border))", opacity: 0.7 }}
           aria-hidden
         />
       )}
@@ -767,6 +763,14 @@ function StationCard({
       data-side={side === "left" ? "left" : "right"}
       style={isCurrent ? { borderColor: color } : undefined}
     >
+      {/* WHICH TAG THIS STOP GETS. The sheet draws three and they mean
+          different things: a folded-corner tag for the tracing stop, a gold
+          one with a green corner ornament once a stop is behind you, and the
+          plain ruled tag for everything else. */}
+      {station.trace && <span className="ticket-fold" aria-hidden />}
+      {(station.status === "completed" || station.status === "tested_out") && (
+        <span className="ticket-flourish" aria-hidden />
+      )}
       {/* Station-signboard family marker: full-width accent bar on the
           active card, a short quiet tick on every other stop so the whole
           line reads as one system while the active card dominates. */}
@@ -1207,8 +1211,23 @@ function EmergencySoftStop({
   onFire: (zone: number) => void;
 }) {
   const fired = useRef<number | null>(null);
+  // THE ZONE THE LEARNER WAS ALREADY STANDING IN WHEN THE MAP OPENED. Firing on
+  // it is what made the journey bounce straight into the Emergency game on
+  // arrival, so the boarding pass appeared to skip the map entirely. Reported
+  // 2026-08-26: "i still go directly from boarding pass to lesson skipping
+  // journey page".
+  //
+  // THE JOURNEY IS THE DESTINATION. An encounter is something you CROSS INTO
+  // while you are on the map, not something that meets you at the door, so the
+  // first zone this sees in a visit arms the watcher rather than firing it.
+  const armedAt = useRef<number | null>(null);
   useEffect(() => {
     if (zone === null || dialogOpen) return;
+    if (armedAt.current === null) {
+      armedAt.current = zone;
+      return;
+    }
+    if (zone === armedAt.current) return;
     // A zone with no film has no Emergency, silently. The learner walks from
     // stop 8 to stop 9 with no idea anything was planned here.
     if (!hasEmergency(EMERGENCY_JOURNEY, zone)) return;
@@ -1281,8 +1300,21 @@ function AutoScrollToCurrentStop({
     if (!map || typeof window === "undefined" || typeof window.scrollTo !== "function") {
       return;
     }
-    // Already scrolled before we got here: the learner is driving.
-    if (window.scrollY > 0) return;
+    // START AT THE TOP, and this is the fix for "not seeing the start at the
+    // top and scroll to active card". This used to BAIL whenever the page was
+    // not already at zero, on the theory that something had moved the viewport
+    // and that something was the learner. Arriving from a scrolled home page is
+    // exactly that case and it is not the learner driving: the browser carried
+    // a scroll position across a route change. The shot was therefore skipped
+    // on the single most common way of reaching this page.
+    //
+    // A learner who is really driving is caught by their gesture, below, which
+    // is the honest signal.
+    // Guarded so it emits nothing in the common case: an unconditional call
+    // here would look exactly like the shot to anything watching scrollTo, and
+    // the first thing worth asserting about the shot is that it does NOTHING
+    // during the hold.
+    if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: "auto" });
 
     let raf = 0;
     let holdTimer = 0;
@@ -1488,41 +1520,6 @@ export default function Journey() {
   const upgrade = zoneQueries
     .map((q) => asUpgradeRequired(q.error))
     .find((u) => u !== null);
-  if (upgrade) {
-    return (
-      <UpgradeScreen
-        backHref="/app"
-        title={
-          upgrade.reason === "teaser_exhausted"
-            ? "You've tried this language!"
-            : "Unlock this language"
-        }
-        message={upgrade.message}
-        upgradeHref={upgradeHrefForDenial(upgrade, activeLang)}
-      />
-    );
-  }
-  if (zoneQueries.some((q) => q.isError)) {
-    return (
-      <LessonErrorScreen
-        backHref="/app"
-        onRetry={() => {
-          zoneQueries.forEach((q) => void q.refetch());
-        }}
-        isRetrying={zoneQueries.some((q) => q.isFetching)}
-      />
-    );
-  }
-  if (zoneQueries.some((q) => q.isLoading)) {
-    return (
-      <div className="app-surface min-h-[100dvh] bg-background flex flex-col items-center justify-center gap-3">
-        <Mascot pose="wave" size={88} />
-        <p className="text-sm font-bold text-muted-foreground">
-          Laying the tracks…
-        </p>
-      </div>
-    );
-  }
 
   // Task #906: zone display titles come from the categories listing the map
   // already fetches, so a server-side rename shows up here without a client
@@ -2186,6 +2183,55 @@ export default function Journey() {
   });
 
   let stationIdx = 0;
+
+  // THE THREE EARLY EXITS LIVE DOWN HERE, BELOW EVERY HOOK, AND THAT IS THE
+  // WHOLE POINT. They used to sit right after the queries, which left three
+  // hooks below them: arrivalPlayed, its effect, and useLocation. React
+  // therefore ran FEWER hooks on the loading and error branches than on the
+  // loaded one, so every "Laying the tracks" to map transition changed the
+  // hook count. That is the runtime overlay reported 2026-08-26: "Rendered
+  // more hooks than during the previous render."
+  //
+  // MOVING THE RETURNS IS SAFE WHERE MOVING THE HOOKS UP WAS NOT. Everything
+  // between reads its data through `?.data?.x ?? []`, so it computes over
+  // empty arrays while the queries are in flight and the result is thrown
+  // away by the exit below. Hoisting the hooks instead was impossible: the
+  // effect depends on currentZone, which needs the loaded data.
+  if (upgrade) {
+    return (
+      <UpgradeScreen
+        backHref="/app"
+        title={
+          upgrade.reason === "teaser_exhausted"
+            ? "You've tried this language!"
+            : "Unlock this language"
+        }
+        message={upgrade.message}
+        upgradeHref={upgradeHrefForDenial(upgrade, activeLang)}
+      />
+    );
+  }
+  if (zoneQueries.some((q) => q.isError)) {
+    return (
+      <LessonErrorScreen
+        backHref="/app"
+        onRetry={() => {
+          zoneQueries.forEach((q) => void q.refetch());
+        }}
+        isRetrying={zoneQueries.some((q) => q.isFetching)}
+      />
+    );
+  }
+  if (zoneQueries.some((q) => q.isLoading)) {
+    return (
+      <div className="app-surface min-h-[100dvh] bg-background flex flex-col items-center justify-center gap-3">
+        <Mascot pose="wave" size={88} />
+        <p className="text-sm font-bold text-muted-foreground">
+          Laying the tracks…
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="app-surface min-h-[100dvh] bg-background flex flex-col">

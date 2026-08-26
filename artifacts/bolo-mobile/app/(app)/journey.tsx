@@ -442,24 +442,22 @@ function StationMarker({
     : station.story
       ? 'story'
       : 'station';
-  const diamond = station.stage === 'sentence';
-
+  // NO DIAMOND ANY MORE, and the question that killed it was the right one:
+  // "why are some diamond behind and some circle?" The rotated frame meant
+  // "first-class sentence stop", so the marker carried TWO encodings at once,
+  // shape for entitlement and emblem for kind, on a 26px disc. That is exactly
+  // the doubling-up the medallions were introduced to end. A sentence stop
+  // already says so on its card, in words, with an ALL-ACCESS plate.
+  //
+  // BIGGER, TOO. The reference draws these as prominent brass discs.
   return (
     <View
       testID={`station-medallion-${kind}`}
-      style={[
-        styles.medallion,
-        {
-          backgroundColor: done ? MEDALLION.face : MEDALLION.faceAhead,
-          borderColor: done ? MEDALLION.rim : MEDALLION.rimAhead,
-          opacity: done ? 1 : MEDALLION.aheadOpacity,
-        },
-        diamond && styles.diamond,
-      ]}
+      style={[styles.medallion, { opacity: done ? 1 : MEDALLION.aheadOpacity }]}
     >
       <Image
         source={stopEmblem(kind)}
-        style={[styles.medallionArt, diamond && styles.medallionArtUpright]}
+        style={styles.medallionArt}
         resizeMode="contain"
       />
       {/* A locked stop keeps the border it always had, so "you cannot go here
@@ -468,7 +466,7 @@ function StationMarker({
         <View
           style={[
             StyleSheet.absoluteFillObject,
-            { borderRadius: 13, borderWidth: 2, borderColor: border },
+            { borderRadius: 17, borderWidth: 2, borderColor: border },
           ]}
         />
       )}
@@ -578,8 +576,22 @@ function EmergencySoftStop({
   onFire: (zone: number) => void;
 }) {
   const fired = useRef<number | null>(null);
+  // THE ZONE THE LEARNER WAS ALREADY STANDING IN WHEN THE MAP OPENED. Firing on
+  // it made the journey bounce straight into the Emergency game on arrival, so
+  // the boarding pass appeared to skip the map entirely.
+  //
+  // THE JOURNEY IS THE DESTINATION. An encounter is something you CROSS INTO
+  // while you are on the map, not something that meets you at the door, so the
+  // first zone this sees in a visit arms the watcher rather than firing it.
+  // Web twin: EmergencyWatcher in gujarati-coach/src/pages/journey.tsx.
+  const armedAt = useRef<number | null>(null);
   useEffect(() => {
     if (zone === null || blocked) return;
+    if (armedAt.current === null) {
+      armedAt.current = zone;
+      return;
+    }
+    if (zone === armedAt.current) return;
     // A zone with no film has no Emergency, silently.
     if (!hasEmergency(EMERGENCY_JOURNEY, zone)) return;
     if (fired.current === zone) return;
@@ -2221,6 +2233,17 @@ export default function JourneyScreen() {
                           side === 'left' ? { right: -2 } : { left: -2 },
                         ]}
                       />
+                      {/* WHICH TAG THIS STOP GETS. The sheet draws three and
+                          they mean different things: a folded-corner tag for
+                          the tracing stop, a gold one with a green corner
+                          ornament once a stop is behind you, and the plain
+                          ruled tag for everything else. */}
+                      {s.trace ? (
+                        <View pointerEvents="none" style={styles.ticketFold} />
+                      ) : null}
+                      {stopDone ? (
+                        <View pointerEvents="none" style={styles.ticketFlourish} />
+                      ) : null}
                       {/* Signboard dressing: the current stop gets a full-width
                           zone-color roof bar + pulsing glow; every other stop
                           hangs a small tick from its top edge (web parity). */}
@@ -2915,15 +2938,12 @@ const styles = StyleSheet.create({
   // points wider than the old 20 so a painted emblem has room to read at all;
   // any smaller and the compass rose turns to mush on a 3x screen.
   medallion: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 2,
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
-  medallionArt: { width: 20, height: 20 },
+  medallionArt: { width: 34, height: 34 },
   // A sentence stop rotates its frame 45 degrees; the art inside rotates back
   // so the compass is not standing on its corner.
   medallionArtUpright: { transform: [{ rotate: '-45deg' }] },
@@ -3099,6 +3119,39 @@ const styles = StyleSheet.create({
     bottom: 4,
     borderWidth: 1,
     borderRadius: 6,
+  },
+  // The page turning back on itself on a tracing stop. RN cannot draw a
+  // half-gradient corner, so the flap is a rotated square in the aged stock
+  // with a crease along two of its edges. Web twin: `.ticket-fold`.
+  // The page turning back on itself on a tracing stop. A BORDER TRIANGLE, not
+  // a rotated square: a rotated square hangs its far half outside the card, and
+  // the card cannot clip (its eyelet and its glow ring both sit outside the
+  // bounds on purpose). This stays inside the corner by construction. Web twin:
+  // `.ticket-fold`, which gets there with a half-stop gradient.
+  ticketFold: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 0,
+    height: 0,
+    borderTopWidth: 15,
+    borderTopColor: TICKET.stockAheadBottom,
+    borderLeftWidth: 15,
+    borderLeftColor: 'transparent',
+    borderTopRightRadius: 8,
+  },
+  ticketFlourish: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 0,
+    height: 0,
+    borderTopWidth: 16,
+    borderTopColor: BADGE.traceBg,
+    borderLeftWidth: 16,
+    borderLeftColor: 'transparent',
+    borderTopRightRadius: 8,
+    opacity: 0.75,
   },
   ticketEyelet: {
     position: 'absolute',

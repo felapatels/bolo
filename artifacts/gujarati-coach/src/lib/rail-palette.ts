@@ -60,6 +60,9 @@ export const RAIL_STROKE = {
   /** The sleeper rhythm, and the dash an untravelled run is drawn with. */
   tieDash: "3 11",
   unlitDash: "9 7",
-  /** How far an untravelled run is knocked back. */
-  unlitOpacity: 0.55,
+  /** How far an untravelled run is knocked back. WAS 0.55, which over a
+   *  painting left the track ahead as a ghost: reported as "the future rail
+   *  segments are too transparent". The track ahead is real track, and the
+   *  dashed centre and the missing green already say it has not been ridden. */
+  unlitOpacity: 0.88,
 } as const;

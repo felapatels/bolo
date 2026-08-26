@@ -227,12 +227,24 @@ describe("the opening shot on the journey map", () => {
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
-  test("does not run at all when the page is already scrolled", () => {
-    // Something already moved the viewport, and that something is the learner.
+  test("takes a page that arrives scrolled back to the top first", () => {
+    // THIS USED TO ASSERT THE OPPOSITE, and the opposite was the bug. The shot
+    // bailed whenever the page was not already at zero, on the theory that
+    // something had moved the viewport and that something was the learner.
+    // Arriving from a scrolled home page is exactly that case and it is not the
+    // learner driving: the browser carried a scroll position across a route
+    // change. The shot was skipped on the commonest way of reaching this page,
+    // reported as "not seeing the start at the top and scroll to active card".
     vi.stubGlobal("scrollY", 400);
     deepIntoTheLine();
     renderJourney();
-    playWholeShot();
-    expect(scrollTo).not.toHaveBeenCalled();
+    playFrames(0);
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo.mock.calls[0]![0]).toMatchObject({ top: 0 });
+    // And the shot still runs from there.
+    vi.advanceTimersByTime(INTRO_SCROLL.holdMs);
+    playFrames(0);
+    playFrames(INTRO_SCROLL.maxMs + 1);
+    expect(lastTop()).toBeGreaterThan(0);
   });
 });

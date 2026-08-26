@@ -375,6 +375,8 @@
   --ticket-ink: #3B2A1E;
   --ticket-ink-muted: #7A6551;
   --ticket-ink-ahead: #8A7A66;
+  /* The sheet's green corner ornament on a finished tag. */
+  --ticket-flourish: #5A7A52;
 }
 .dark {
   --station-surface: hsl(222 30% 15%);
@@ -457,6 +459,43 @@
 }
 .station-card[data-side="left"]::after {
   right: -2px;
+}
+
+/* THE SHEET DRAWS THREE DIFFERENT TAGS, not one, and the owner noticed:
+   "i like how my example shot had different types of cards for each stop."
+   A gold-edged tag with a green corner ornament for a stop already behind you,
+   a folded-corner tag for the tracing stop, and the plain ruled tag for
+   everything else. Same drawn stock underneath, so all three still stretch to
+   any card height. Mobile twin: ticketFold / ticketFlourish in
+   bolo-mobile/app/(app)/journey.tsx. */
+.ticket-fold {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 15px;
+  height: 15px;
+  border-top-right-radius: 8px;
+  /* The page turning back on itself: the lit triangle is the underside of the
+     flap, the dark hairline is the crease. */
+  background: linear-gradient(
+    225deg,
+    var(--ticket-stock-ahead-bottom) 0 50%,
+    transparent 50%
+  );
+  border-bottom: 1px solid var(--ticket-rule);
+  border-left: 1px solid var(--ticket-rule);
+  pointer-events: none;
+}
+.ticket-flourish {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-top-right-radius: 8px;
+  background: linear-gradient(225deg, var(--ticket-flourish) 0 55%, transparent 55%);
+  opacity: 0.75;
+  pointer-events: none;
 }
 /* 2.5D depth pass (Task 985): shared shadow utilities. `.depth-shadow` is the
    ONE soft box shadow for dimensional HTML surfaces (light upper-left, offset
