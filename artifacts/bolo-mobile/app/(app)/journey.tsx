@@ -1030,7 +1030,13 @@ export default function JourneyScreen() {
       x: (xPrev + xNext) / 2,
       y: layoutY + PC_H / 2,
       kind: 'postcard',
-      lit: !showroom || zoneLit,
+      // WAS `!showroom || zoneLit`, which is `true` for every ordinary learner
+      // and lit the run from a zone's last stop into the NEXT zone's card on
+      // every zone at once: "the last stop to the zone card is green on all".
+      // The showroom half was doing real work and the other half was cancelling
+      // it. A zone card is travelled when the zone has been reached, in both
+      // modes, which is what zoneLit already says.
+      lit: zoneLit,
       zoneIndex: zi,
     });
     layoutY += PC_H;
@@ -1047,7 +1053,19 @@ export default function JourneyScreen() {
           x: stationX(k),
           y: layoutY + STATION_H / 2,
           kind: s.story ? 'story' : 'trace',
-          lit: true,
+          // WAS HARDCODED true, AND THAT LIT THE RAIL THROUGH LOCKED ZONES.
+          // Reported 2026-08-26 off a TestFlight build: "i haven't gotten to
+          // those stops 4, 5 and 6 on zone 2, why is the line green?" The
+          // answer was that a tracing row is never PROGRESSION-locked, so
+          // somebody wrote true and it was right for that one reason and wrong
+          // for every other: a trace or story row in an All-Access zone a Free
+          // learner has not bought is locked, wears a padlock on its own card,
+          // and was still lighting the track either side of itself.
+          //
+          // The same rule the CARD uses, so the rail and the padlock beside it
+          // can never disagree again. Web derives both branches from one `lit`
+          // and never had this.
+          lit: s.planLocked !== true && isStatusAccessible(s.status),
           station: s,
           globalIdx: k,
         });

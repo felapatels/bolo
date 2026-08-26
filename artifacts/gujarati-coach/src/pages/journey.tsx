@@ -1819,7 +1819,12 @@ export default function Journey() {
       x: (xPrev + xNext) / 2,
       y: layoutY + PC_H / 2,
       kind: "postcard",
-      lit: !showroom || zoneLit,
+      // WAS `!showroom || zoneLit`, which is `true` for every ordinary learner
+      // and lit the run from a zone's last stop into the NEXT zone's card on
+      // every zone at once. The showroom half was doing real work and the other
+      // half was cancelling it. A zone card is travelled when the zone has been
+      // reached, in both modes, which is what zoneLit already says.
+      lit: zoneLit,
       zoneIndex: zi,
     });
     layoutY += PC_H;
