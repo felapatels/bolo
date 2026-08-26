@@ -1,5 +1,6 @@
 import { db, userBlocksTable } from "@workspace/db";
 import { eq, or } from "drizzle-orm";
+import { logger } from "./logger";
 
 /**
  * Every learner this caller must not be shown, and who must not be shown them.
@@ -18,18 +19,45 @@ import { eq, or } from "drizzle-orm";
  * already documents.
  */
 export async function blockedUserIdsFor(userId: string): Promise<string[]> {
-  const rows = await db
-    .select({
-      blockerId: userBlocksTable.blockerId,
-      blockedId: userBlocksTable.blockedId,
-    })
-    .from(userBlocksTable)
-    .where(
-      or(
-        eq(userBlocksTable.blockerId, userId),
-        eq(userBlocksTable.blockedId, userId),
-      ),
+  let rows: { blockerId: string; blockedId: string }[];
+  try {
+    rows = await db
+      .select({
+        blockerId: userBlocksTable.blockerId,
+        blockedId: userBlocksTable.blockedId,
+      })
+      .from(userBlocksTable)
+      .where(
+        or(
+          eq(userBlocksTable.blockerId, userId),
+          eq(userBlocksTable.blockedId, userId),
+        ),
+      );
+  } catch (err) {
+    // FAILS OPEN, LOUDLY, AND THIS IS A DELIBERATE TRADE.
+    //
+    // On 2026-08-26 user_blocks vanished from production between being created
+    // and the next look at it, and because this read is on the hot path of BOTH
+    // /friends/feed and /friends/leaderboard, an unhandled 42P01 took the feed
+    // and the board down for every learner. The home card renders nothing when
+    // its feed query fails, so the symptom was a blank card and "Bolo couldn't
+    // load this", with nothing naming the cause.
+    //
+    // A block list that cannot be read now means "hide nobody" rather than
+    // "serve nobody". Failing CLOSED on a safety control sounds safer and is
+    // not: it takes the whole social surface off the air for all 23 learners to
+    // avoid briefly showing a row somebody muted. A new feature must never be
+    // able to break the two screens that existed before it.
+    //
+    // At error, not warn, so it reaches Sentry as an exception: the logger
+    // forwards warn and above, and a silently degraded block control is exactly
+    // the thing that should not go unnoticed.
+    logger.error(
+      { err, userId },
+      "Block list unreadable; serving the feed and board UNFILTERED",
     );
+    return [];
+  }
 
   const ids = new Set<string>();
   for (const row of rows) {

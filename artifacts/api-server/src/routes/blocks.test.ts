@@ -13,7 +13,7 @@ import {
   xpLedgerTable,
   attemptsTable,
 } from "@workspace/db";
-import { eq, inArray, or } from "drizzle-orm";
+import { eq, inArray, or, sql } from "drizzle-orm";
 import blocksRouter from "./blocks";
 import friendsRouter from "./friends";
 import { ensureUsersColumns } from "../lib/testDbCompat";
@@ -480,4 +480,33 @@ test("a block is invisible to the person blocked", async () => {
   const res = await api("GET", "/blocks");
   assert.equal(res.status, 200);
   assert.deepEqual(res.json, []);
+});
+
+test("an unreadable block list serves the feed UNFILTERED rather than failing", async () => {
+  // 2026-08-26: user_blocks vanished from production, and because this read is
+  // on the hot path of both /friends/feed and /friends/leaderboard, the
+  // unhandled error took the feed and the board down for every learner. The
+  // home card renders nothing when its feed query fails, so the symptom was a
+  // blank card and "Bolo couldn't load this".
+  //
+  // Simulated by pointing the helper at a table that does not exist, which is
+  // exactly the 42P01 production threw.
+  await seedAttempt(USER_B);
+  actAs(USER_A);
+
+  await db.execute(sql`ALTER TABLE user_blocks RENAME TO user_blocks_gone_test`);
+  try {
+    const res = await api("GET", "/friends/feed?scope=all");
+    // Fails OPEN: hide nobody rather than serve nobody. A new feature must not
+    // be able to break the two screens that existed before it.
+    assert.equal(res.status, 200, "the feed must still answer");
+    assert.ok(actorIds(res.json).includes(USER_B), "and must still carry rows");
+
+    const board = await api("GET", "/friends/leaderboard?scope=all");
+    assert.equal(board.status, 200, "the board must still answer");
+  } finally {
+    // Restored in a finally, because a fixture that renames outside one is how
+    // the over-cap zone test poisoned the next run (commit 0d058a1d).
+    await db.execute(sql`ALTER TABLE user_blocks_gone_test RENAME TO user_blocks`);
+  }
 });
