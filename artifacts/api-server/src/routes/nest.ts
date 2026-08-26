@@ -110,6 +110,23 @@ type NestSummary = {
   pushTokensLive: number;
   pushTokensIos: number;
   pushTokensAndroid: number;
+  /**
+   * Scheduled streak reminders actually sent, ever, and the most recent.
+   *
+   * THIS IS THE ONLY THING THAT CAN ANSWER "IS ANYTHING CALLING THE CRON".
+   * POST /push/cron/streak-reminder is HTTP and secret-guarded, and a caller
+   * made in the Replit UI is invisible to the repo, so reading .replit and
+   * .github/workflows can prove a caller ABSENT FROM THE REPO and can never
+   * prove one absent. A written row can. streakPushLast being null after the
+   * app has had reachable devices for a while is the real signal.
+   *
+   * NOT the same question as "does push work at all". /push/cron/test sends a
+   * notification and writes NOTHING here on purpose, so a successful test
+   * leaves these at zero. Delivery working and the schedule running are two
+   * facts and the cockpit must not merge them.
+   */
+  streakPushesSent: number;
+  streakPushLast: string | null;
   /** Learners who have chosen a public name, so the global feed can see them. */
   usernamesSet: number;
   /** Of those, the ones still sharing. The gap is people who opted back out. */
@@ -215,6 +232,10 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
           where disabled_at is null and platform = 'ios')::int                  as push_tokens_ios,
         (select count(*) from push_tokens
           where disabled_at is null and platform = 'android')::int              as push_tokens_android,
+        (select count(*) from activity_events
+          where type = 'push_streak_reminder')::int                             as streak_pushes_sent,
+        (select max(created_at) from activity_events
+          where type = 'push_streak_reminder')                                  as streak_push_last,
         -- The global feed's own population, which is the number that says
         -- whether the username gate is actually being walked through.
         (select count(*) from users where username is not null)::int             as usernames_set,
@@ -261,6 +282,11 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
       pushTokensLive: n("push_tokens_live"),
       pushTokensIos: n("push_tokens_ios"),
       pushTokensAndroid: n("push_tokens_android"),
+      streakPushesSent: n("streak_pushes_sent"),
+      streakPushLast:
+        r.streak_push_last == null
+          ? null
+          : new Date(r.streak_push_last as string).toISOString(),
       activeNow: n("active_now"),
       activeNowExclOwner: n("active_now_excl_owner"),
       activeToday: n("active_today"),

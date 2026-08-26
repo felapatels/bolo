@@ -1774,12 +1774,33 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
            r:"Expo", href:"https://expo.dev/accounts/aakeshp/projects/bolo-mobile"});
     }
 
-    /* THE HALF THAT CANNOT BE MEASURED FROM HERE, so it keeps a checked date.
-       Whether anything CALLS the sender is a fact about schedulers, and a
-       Replit UI cron would be invisible to this page and to the repo alike. */
-    out.push({id:"pushcron", sev:"warn", t:"Nothing is known to call the reminder",
-      m:"POST /push/cron/streak-reminder exists and is secret-guarded, and on 2026-08-26 nothing in the repo called it: no schedule in .replit and no GitHub workflow. If a caller was made in the Replit UI this page cannot see it, so treat scheduled reminders as unproven on BOTH platforms until one arrives on a phone.",
-      r:"Replit", href:"https://replit.com/", since:Date.UTC(2026, 7, 24), checked:Date.UTC(2026, 7, 26)});
+    /* AND THE SCHEDULE, ALSO MEASURED. This was a standing fact for one hour
+       and is now a row count, for the reason the one above it is: reading
+       .replit and .github/workflows can only prove a caller ABSENT FROM THE
+       REPO, and a cron made in the Replit UI is invisible to both. A written
+       activity_event cannot be argued with.
+
+       DELIVERY AND SCHEDULE ARE DIFFERENT QUESTIONS AND THIS PAGE MUST NOT
+       MERGE THEM. /push/cron/test sends a real notification to a real phone
+       and deliberately writes nothing here, so push can be working perfectly
+       while this reads zero. That is not a contradiction, and the wording says
+       so, because being told "push is broken" when you are holding a phone
+       that just buzzed is how a cockpit loses your trust.
+
+       ZERO IS THE ONLY WARNING. Reminders go out 5pm to 8pm local, once per
+       local day, ONLY to someone whose streak would otherwise break, so a
+       quiet day is normal and a silence threshold would cry wolf. */
+    if (s) {
+      out.push(s.streakPushesSent === 0
+        ? {id:"pushcron", sev:"warn", t:"No scheduled reminder has ever been sent",
+           m:"Zero push_streak_reminder events in production, ever. POST /push/cron/streak-reminder is secret-guarded HTTP and nothing in the repo calls it: no schedule in .replit, no GitHub workflow. Delivery itself is a separate question and may well be fine, since /push/cron/test writes nothing here.",
+           r:"Replit", href:"https://replit.com/"}
+        : {id:"pushcron", sev:"ok", t:"Scheduled reminders are firing",
+           m:fmt(s.streakPushesSent) + " sent, the most recent " +
+             (s.streakPushLast ? ago(new Date(s.streakPushLast).getTime()) : "at an unknown time") +
+             ". Something IS calling the cron, which the repo alone could never have shown.",
+           r:"Replit", href:"https://replit.com/"});
+    }
     return out;
   }
 
