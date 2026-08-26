@@ -276,6 +276,8 @@ export interface Category {
   phraseCeiling?: number;
   /** How many additional phrases upgrading to Bolo! Plus would unlock for this topic. Always 0 for a caller who already has the extended library. */
   lockedPhraseCount: number;
+  /** How many of phraseCount the caller can open right now, given how far the JOURNEY has carried them. The phrases route serves only phrases in unlocked lesson groups and a journey stop is a lesson group, so a topic can hold phrases and serve none of them. 0 means a shut door. A count rather than a boolean because a topic is not simply open or shut: a learner part-way through a topic can open part of it. Optional/additive -- absent clients behave as if every topic is fully open, which is the behaviour they had before this field. */
+  openPhraseCount?: number;
   /** How many full sentences the topic's Plus-only sentence stage holds (the final step after the phrase list). 0 when the stage has not been generated yet for this language. */
   sentenceCount: number;
   /** Whether the sentence stage is locked for this caller (true for everyone without Bolo! Plus). Server-authoritative; clients show an upgrade nudge instead of requesting the sentences. */

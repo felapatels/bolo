@@ -417,6 +417,113 @@ export async function getUnlockedGroupIds(
 }
 
 /**
+ * UNLOCKED GROUPS FOR EVERY TOPIC IN ONE LANGUAGE, READ-ONLY.
+ *
+ * WHY THIS EXISTS RATHER THAN A LOOP OVER getUnlockedGroupIds. Two reasons,
+ * and the second is the important one.
+ *
+ * COST: getUnlockedGroupIds loads a context per category, five queries each.
+ * Over the topic list that is thirty round trips to draw twelve doors. This
+ * loads the groups once for the whole language and the learner's progress once
+ * for the learner, and derives each topic from those: two queries, whatever the
+ * topic count.
+ *
+ * SIDE EFFECTS: getUnlockedGroupIds goes through deriveAndLatchUnlock, which
+ * WRITES. It latches newly observed completions and can grant zone-complete
+ * tokens. That is right for a route the learner is practising through and wrong
+ * for a listing: opening the Phrasebook must not bank progress or pay out. This
+ * runs the same pure derivation and writes nothing, so the listing observes the
+ * unlock state without becoming an event that changes it.
+ *
+ * Takes the caller's already-fetched phrases and stats, because every route
+ * that wants this has both in hand.
+ */
+export async function unlockedGroupIdsByCategory(
+  userId: string,
+  languageCode: string,
+  phrases: { id: number; categoryId: number; lessonGroupId: number | null }[],
+  stats: Map<number, PhraseStats>,
+): Promise<Map<number, Set<number>>> {
+  const [groups, progressRows] = await Promise.all([
+    db
+      .select({
+        id: lessonGroupsTable.id,
+        categoryId: lessonGroupsTable.categoryId,
+        position: lessonGroupsTable.position,
+      })
+      .from(lessonGroupsTable)
+      .where(eq(lessonGroupsTable.languageCode, languageCode))
+      .orderBy(asc(lessonGroupsTable.position)),
+    // User-wide, exactly as loadGroupUnlockContext reads it: the progress table
+    // carries no language column, and a group id is already language-scoped.
+    db
+      .select({
+        lessonGroupId: lessonGroupProgressTable.lessonGroupId,
+        status: lessonGroupProgressTable.status,
+      })
+      .from(lessonGroupProgressTable)
+      .where(eq(lessonGroupProgressTable.userId, userId)),
+  ]);
+
+  const testedOutGroupIds = new Set(
+    progressRows.filter((r) => r.status === "tested_out").map((r) => r.lessonGroupId),
+  );
+  const persistedCompletedGroupIds = new Set(
+    progressRows.filter((r) => r.status === "completed").map((r) => r.lessonGroupId),
+  );
+
+  const phraseIdsByGroup = new Map<number, number[]>();
+  for (const p of phrases) {
+    if (p.lessonGroupId == null) continue;
+    const list = phraseIdsByGroup.get(p.lessonGroupId) ?? [];
+    list.push(p.id);
+    phraseIdsByGroup.set(p.lessonGroupId, list);
+  }
+
+  const groupsByCategory = new Map<number, typeof groups>();
+  for (const g of groups) {
+    const list = groupsByCategory.get(g.categoryId) ?? [];
+    list.push(g);
+    groupsByCategory.set(g.categoryId, list);
+  }
+
+  const out = new Map<number, Set<number>>();
+  for (const [categoryId, catGroups] of groupsByCategory) {
+    // The cross-zone gate is dark behind CROSS_ZONE_GATE_ENABLED, so this
+    // costs nothing today. It is honoured anyway: a listing that disagreed
+    // with the phrases route the moment the flag was flipped would be a
+    // wrong door drawn confidently, which is the exact failure being fixed.
+    if (CROSS_ZONE_GATE_ENABLED) {
+      const allowed = await zoneGateAllows(userId, categoryId, languageCode, {
+        stats,
+        testedOutGroupIds,
+        persistedCompletedGroupIds,
+      });
+      if (!allowed) {
+        out.set(categoryId, new Set<number>());
+        continue;
+      }
+    }
+    const statuses = deriveGroupStatuses(
+      catGroups.map((g) => ({
+        id: g.id,
+        position: g.position,
+        phraseIds: phraseIdsByGroup.get(g.id) ?? [],
+      })),
+      stats,
+      testedOutGroupIds,
+      persistedCompletedGroupIds,
+    );
+    const unlocked = new Set<number>();
+    for (const [gid, status] of statuses) {
+      if (status !== "locked") unlocked.add(gid);
+    }
+    out.set(categoryId, unlocked);
+  }
+  return out;
+}
+
+/**
  * The per-phrase serve rule: unlocked group, ungrouped (NULL = replenisher
  * pre-assignment inserts / dynamically generated rows), or prior attempt
  * (retake exemption). `stats` is the route's in-hand attempt stats map, so

@@ -172,6 +172,7 @@ import { recordActivityEvent } from "../lib/activityEvents";
 import {
   getUnlockedGroupIds,
   isPhraseServable,
+  unlockedGroupIdsByCategory,
   loadGroupUnlockContext,
   deriveAndLatchUnlock,
   zoneGateAllows,
@@ -425,6 +426,9 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
         categoryId: phrasesTable.categoryId,
         premium: phrasesTable.premium,
         stage: phrasesTable.stage,
+        // Carried so the listing can answer "is this door open yet", which
+        // is a question about the JOURNEY, not about the plan.
+        lessonGroupId: phrasesTable.lessonGroupId,
       })
       .from(phrasesTable)
       .where(eq(phrasesTable.languageCode, lang)),
@@ -450,7 +454,10 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
   );
   const canAccessPremium = callerFeatures.extendedLibrary;
 
-  const accessibleByCategory = new Map<number, number[]>();
+  const accessibleByCategory = new Map<
+    number,
+    { id: number; lessonGroupId: number | null }[]
+  >();
   const lockedByCategory = new Map<number, number>();
   // The Plus-only sentence stage is counted separately so the existing phrase
   // counts (and mastery math) never shift when sentences land.
@@ -471,14 +478,36 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
       continue;
     }
     const list = accessibleByCategory.get(p.categoryId) ?? [];
-    list.push(p.id);
+    list.push({ id: p.id, lessonGroupId: p.lessonGroupId });
     accessibleByCategory.set(p.categoryId, list);
   }
 
+  // WHICH DOORS ARE ACTUALLY OPEN. The phrases route serves only phrases in
+  // unlocked lesson groups, and a journey stop IS a lesson group, so a topic
+  // whose stops the learner has not reached serves nothing however many
+  // phrases it holds. The listing carried no unlock information at all, which
+  // is why the Phrasebook drew twelve identical doors and a learner found out
+  // which were shut by tapping one. Read-only: it never latches and never
+  // grants, because opening a list must not bank progress.
+  const unlockedByCategory = await unlockedGroupIdsByCategory(
+    userId,
+    lang,
+    langPhrases,
+    stats,
+  );
+
   const data = categories.map((c) => {
-    const phraseIds = accessibleByCategory.get(c.id) ?? [];
+    const accessible = accessibleByCategory.get(c.id) ?? [];
+    const phraseIds = accessible.map((p) => p.id);
     const masteredCount = phraseIds.filter(
       (id) => stats.get(id)?.mastered,
+    ).length;
+    // The SAME predicate the phrases route serves by, so the count and the
+    // list can never disagree: unlocked group, ungrouped row, or a phrase this
+    // learner has already attempted (the retake exemption).
+    const unlockedGroupIds = unlockedByCategory.get(c.id) ?? new Set<number>();
+    const openPhraseCount = accessible.filter((p) =>
+      isPhraseServable(p, unlockedGroupIds, stats),
     ).length;
     return {
       id: c.id,
@@ -503,6 +532,12 @@ router.get("/categories", async (req: Request, res: Response): Promise<void> => 
       // How many additional phrases upgrading to Bolo! Plus would unlock for
       // this topic. Always 0 for a caller who already has the extended library.
       lockedPhraseCount: lockedByCategory.get(c.id) ?? 0,
+      // How many of phraseCount the learner can open RIGHT NOW, given how far
+      // the journey has carried them. Zero means a shut door: the topic holds
+      // phrases and none of them are reachable yet. This is deliberately a
+      // COUNT rather than a boolean, because a topic is not simply open or
+      // shut: a learner two stops into Greetings can open some of it.
+      openPhraseCount,
       // The topic's final step: how many full sentences the Plus-only sentence
       // stage holds, and whether this caller still needs an upgrade to open it.
       sentenceCount: sentencesByCategory.get(c.id) ?? 0,

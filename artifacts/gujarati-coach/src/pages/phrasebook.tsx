@@ -16,6 +16,7 @@ import {
   Flame,
   HandHeart,
   Hash,
+  Lock,
   Smile,
   Sparkles,
   Star,
@@ -24,6 +25,7 @@ import {
   Utensils,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 import { springs } from "@/lib/motion";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { track } from "@/lib/analytics";
@@ -145,6 +147,18 @@ export default function Phrasebook() {
                   ? Math.round((cat.masteredCount / cat.phraseCount) * 100)
                   : 0;
               const done = progress >= 100;
+              // WHICH DOORS ARE OPEN, and this is the whole point of the field.
+              // The Phrasebook is a library of what the JOURNEY has opened: the
+              // phrases route serves only phrases in unlocked lesson groups, so
+              // a topic can hold ten phrases and hand over none. Twelve
+              // identical tiles meant the only way to find out was to tap one.
+              //
+              // Absent means an older server, and an older server never gated
+              // the list, so treating it as fully open is the behaviour this
+              // page already had.
+              const openCount = cat.openPhraseCount ?? cat.phraseCount;
+              const shut = cat.phraseCount > 0 && openCount === 0;
+              const aheadCount = Math.max(0, cat.phraseCount - openCount);
 
               return (
                 <motion.div
@@ -166,7 +180,15 @@ export default function Phrasebook() {
                     className="block h-full"
                   >
                     <div
-                      className="group relative flex h-full flex-col overflow-hidden rounded-3xl border-2 bg-card p-4 shadow-[0_6px_0_var(--tile)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_var(--tile)]"
+                      data-testid={`phrasebook-tile-${cat.id}`}
+                      data-shut={shut ? "true" : undefined}
+                      className={cn(
+                        "group relative flex h-full flex-col overflow-hidden rounded-3xl border-2 bg-card p-4 shadow-[0_6px_0_var(--tile)] transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_var(--tile)]",
+                        // A shut door reads shut at a glance, before the tap.
+                        // Its own accent is kept underneath rather than swapped
+                        // for grey, so the topic is still recognisably itself.
+                        shut && "opacity-70 saturate-50",
+                      )}
                       style={{ borderColor: accent, ["--tile" as string]: accent } as CSSProperties}
                     >
                       <div
@@ -181,9 +203,19 @@ export default function Phrasebook() {
                         >
                           <Icon className="h-6 w-6" />
                         </div>
-                        <span className="text-xs font-black" style={{ color: accent }}>
-                          {done ? "Done!" : `${progress}%`}
-                        </span>
+                        {shut ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wide text-muted-foreground"
+                            data-testid={`phrasebook-shut-${cat.id}`}
+                          >
+                            <Lock className="h-3 w-3" />
+                            Not yet
+                          </span>
+                        ) : (
+                          <span className="text-xs font-black" style={{ color: accent }}>
+                            {done ? "Done!" : `${progress}%`}
+                          </span>
+                        )}
                       </div>
 
                       <h3 className="mt-3 text-base font-black leading-tight text-foreground">
@@ -207,8 +239,22 @@ export default function Phrasebook() {
                           />
                         </div>
                         <p className="mt-1.5 text-[11px] font-bold text-muted-foreground">
-                          {cat.masteredCount}/{cat.phraseCount} phrases mastered
+                          {shut
+                            ? // Says WHERE it opens, not just that it is shut. A
+                              // locked door with no directions is the version of
+                              // this the learner already had.
+                              "Ride the journey to open this topic"
+                            : `${cat.masteredCount}/${cat.phraseCount} phrases mastered`}
                         </p>
+                        {aheadCount > 0 && !shut && (
+                          <p
+                            className="mt-0.5 text-[11px] font-bold text-muted-foreground"
+                            data-testid={`phrasebook-ahead-${cat.id}`}
+                          >
+                            {aheadCount} more {aheadCount === 1 ? "waits" : "wait"} further
+                            down the line
+                          </p>
+                        )}
                       </div>
                     </div>
                   </Link>
