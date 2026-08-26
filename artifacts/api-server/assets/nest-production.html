@@ -219,7 +219,11 @@ a.linkbtn{text-decoration:none;display:inline-block}
 .alert .pill{grid-column:1;grid-row:1 / span 2}
 .alert .t{grid-column:2;grid-row:1;font-size:13.5px;font-weight:500}
 .alert .m{grid-column:2;grid-row:2;font-size:12px;color:var(--muted)}
-.alert .r{grid-column:3;grid-row:1 / span 2;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);text-align:right;white-space:nowrap}
+.alert .r{grid-column:3;grid-row:1;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);text-align:right;white-space:nowrap}
+/* The age of each alert, added 2026-08-25 ("alerts should have a time stamp
+   on each (33 minutes ago) for example as they get listed"). Right column,
+   under the console link, so it reads as metadata rather than as message. */
+.alert .when{grid-column:3;grid-row:2;font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted);text-align:right;white-space:nowrap;opacity:.85}
 .alert .r a{color:var(--accent);text-decoration:none}
 
 .thresh{margin-top:16px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:14px 16px}
@@ -400,6 +404,81 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 .hidden{display:none !important}
 @media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
 @media (max-width:640px){.head h2{font-size:20px}.tile .n{font-size:26px}main{gap:42px;padding-top:26px}}
+/* ---- 02 Numbers and 03 the line map, added 2026-08-25 ---------------------
+   Asked for: "a dashboard that updates live with number of signups, number of
+   paid accounts, active users (filterable by any time frame, some quick
+   filters)" and "a visual map of each language, each stop like a subway
+   control map". Everything below is drawn with borders and blocks the page
+   already uses; no chart library, because this file must stay one
+   self-contained document with no external script. */
+.rangebar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:12.5px;font-weight:600;color:var(--ink-2);background:transparent;
+  border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.dlab{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.dlab input{font:inherit;font-size:12.5px;color:var(--ink);background:transparent;
+  border:1px solid var(--line-2);border-radius:8px;padding:4px 8px}
+.subhead{margin:18px 0 8px;font-size:13px;font-weight:700;color:var(--ink)}
+.subhead .why{display:block;font-weight:400;font-size:12px;color:var(--muted);margin-top:2px}
+/* One tile. The number leads, the label explains, the foot carries the caveat
+   that stops the number being misread. */
+.tile{border:1px solid var(--line);border-radius:12px;padding:12px 13px;background:var(--card)}
+.tile .n{font-family:"IBM Plex Mono",monospace;font-size:26px;font-weight:600;color:var(--ink);line-height:1.15}
+.tile .l{font-size:12.5px;font-weight:600;color:var(--ink-2);margin-top:3px}
+.tile .f{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.45}
+.tile.hot .n{color:var(--accent)}
+/* The by-day chart. Bars are divs: 90 of them is nothing, and an SVG would
+   need a viewBox recomputed on every resize. */
+.chartwrap{border:1px solid var(--line);border-radius:12px;padding:12px}
+.bars{display:flex;align-items:flex-end;gap:2px;height:120px}
+.bar{flex:1 1 0;min-width:2px;display:flex;flex-direction:column;justify-content:flex-end;gap:1px}
+.bar i{display:block;background:var(--accent);border-radius:2px 2px 0 0;opacity:.85}
+.bar i.b2{background:var(--line-2);opacity:1}
+.bar:hover i{opacity:1}
+.chartkey{display:flex;gap:14px;margin-top:8px;font-size:11.5px;color:var(--muted)}
+.chartkey b{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.chartx{display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--muted);
+  font-family:"IBM Plex Mono",monospace}
+/* The line map. One row per language, dots in journey order. */
+.lines{margin-top:12px;display:flex;flex-direction:column;gap:2px}
+.lrow{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}
+.lname{flex:none;width:104px;font-size:12.5px;font-weight:600;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lname small{display:block;font-weight:400;font-size:11px;color:var(--muted);
+  font-family:"IBM Plex Mono",monospace}
+.ltrack{flex:1 1 auto;display:flex;align-items:center;gap:1px;overflow-x:auto;padding:3px 0}
+/* An empty stop is a hairline on the track. An occupied one grows and takes
+   the accent, so the crowd is visible at a glance across 22 lines. */
+.stop{flex:none;width:7px;height:7px;border-radius:50%;background:var(--line-2)}
+.stop.zone{box-shadow:0 0 0 1px var(--line) inset}
+.stop.has{width:18px;height:18px;background:var(--accent);color:#fff;font-size:10px;
+  font-weight:700;display:flex;align-items:center;justify-content:center;
+  font-family:"IBM Plex Mono",monospace}
+.zgap{flex:none;width:7px}
+.ltot{flex:none;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted);min-width:58px;text-align:right}
+.ltot b{color:var(--accent)}
+@media (max-width:640px){ .lname{width:76px} }
+/* ---- 04 flagged phrases, added 2026-08-25 --------------------------------
+   "I want to see these on my dashboard too. The actual thing that was flagged
+   and the notes that the user put." */
+.reports{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.rep{display:grid;grid-template-columns:auto 1fr auto;gap:3px 12px;align-items:start;
+  padding:10px 13px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.rep .why2{grid-column:1;grid-row:1 / span 3;font-family:"IBM Plex Mono",monospace;font-size:10px;
+  text-transform:uppercase;letter-spacing:.04em;color:var(--muted);white-space:nowrap;padding-top:2px}
+/* The flagged phrase itself. Native script leads because that is the thing a
+   speaker judges; the English is the gloss, not the subject. */
+.rep .ph{grid-column:2;grid-row:1;font-size:14px;font-weight:500;color:var(--ink)}
+.rep .ph i{font-style:normal;color:var(--muted);font-weight:400}
+.rep .gloss{grid-column:2;grid-row:2;font-size:12px;color:var(--muted)}
+/* The learner's own words, quoted so it is never mistaken for our copy. */
+.rep .note{grid-column:2;grid-row:3;font-size:12.5px;color:var(--ink-2);
+  border-left:2px solid var(--accent);padding-left:9px;margin-top:4px}
+.rep .nonote{grid-column:2;grid-row:3;font-size:11.5px;color:var(--muted);margin-top:3px;font-style:italic}
+.rep .meta{grid-column:3;grid-row:1 / span 3;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  color:var(--muted);text-align:right;white-space:nowrap}
 </style>
 
 <header class="top">
@@ -484,9 +563,85 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   </div>
 </section>
 
+<section id="numbers">
+  <div class="head">
+    <span class="eyebrow">02 / Who is on it</span>
+    <h2>Numbers</h2>
+    <p>Sign ups, paid and free accounts, and how many people actually practised. Read straight out of production on this same origin, over whatever window you pick.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div id="range-note"></div>
+
+  <div class="rangebar">
+    <div class="chips" id="range-chips" role="group" aria-label="Quick time ranges">
+      <button type="button" class="chip" data-days="1">Today</button>
+      <button type="button" class="chip" data-days="7">7 days</button>
+      <button type="button" class="chip on" data-days="28">28 days</button>
+      <button type="button" class="chip" data-days="90">90 days</button>
+      <button type="button" class="chip" data-days="0">All time</button>
+    </div>
+    <label class="dlab">From <input type="date" id="range-from" aria-label="Range start"></label>
+    <label class="dlab">To <input type="date" id="range-to" aria-label="Range end"></label>
+    <label class="ownt"><input type="checkbox" id="range-excl-own"><span>Exclude my accounts</span></label>
+    <span class="why" id="range-when">Reading.</span>
+  </div>
+
+  <!-- WINDOW COUNTS. These move when the range moves. -->
+  <div class="grid g4" style="margin-top:12px" id="range-window"></div>
+
+  <!-- SNAPSHOT COUNTS. These are the users table RIGHT NOW and ignore the
+       range entirely, because the schema stores the CURRENT tier and no
+       history of tier changes. Labelled apart so the two are never read as
+       one thing. -->
+  <p class="subhead">Accounts right now <span class="why">A snapshot, not a window. The database stores today's tier and no history, so "how many were paid in March" is a question it cannot answer.</span></p>
+  <div class="grid g4" id="range-snapshot"></div>
+
+  <p class="subhead">By day <span class="why">Sign ups and the learners who practised, one bar per UTC day. Empty days are real zeroes, not gaps.</span></p>
+  <div class="chartwrap" id="range-chart"></div>
+</section>
+
+<section id="map">
+  <div class="head">
+    <span class="eyebrow">03 / Where everybody is standing</span>
+    <h2>The line map</h2>
+    <p>Twenty two lines, every stop, and the number of learners standing on each one. A learner studying three languages stands on three lines, so the dots add up to more than the headcount.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div id="map-note"></div>
+
+  <div class="rangebar">
+    <span class="why" id="map-when">Reading.</span>
+    <label class="ownt" style="margin-left:auto"><input type="checkbox" id="map-excl-own"><span>Exclude my accounts</span></label>
+    <label class="ownt"><input type="checkbox" id="map-busy"><span>Only lines with learners</span></label>
+  </div>
+
+  <div class="lines" id="map-lines"></div>
+</section>
+
+<section id="reports">
+  <div class="head">
+    <span class="eyebrow">04 / What learners say is wrong</span>
+    <h2>Flagged phrases</h2>
+    <p>Every phrase a learner has reported, the reason they picked, and their own words. The only learner-side content QA the product has, so it is readable here rather than only in the database.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div id="reports-note"></div>
+
+  <div class="rangebar">
+    <span class="why" id="reports-when">Reading.</span>
+    <label class="ownt" style="margin-left:auto"><input type="checkbox" id="reports-noted"><span>Only ones with a note</span></label>
+  </div>
+
+  <div class="grid g4" style="margin-top:12px" id="reports-tiles"></div>
+  <div class="reports" id="reports-list"></div>
+</section>
+
 <section id="spend">
   <div class="head">
-    <span class="eyebrow">02 / What it costs to run</span>
+    <span class="eyebrow">05 / What it costs to run</span>
     <h2>Spend</h2>
     <p>Counted in the production database on request. The fixed block is invoice confirmed; three small lines are still estimates and say so.</p>
   </div>
@@ -546,7 +701,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="surfaces">
   <div class="head">
-    <span class="eyebrow">03 / What is shipped</span>
+    <span class="eyebrow">06 / What is shipped</span>
     <h2>Surfaces</h2>
     <p>Six things carry the product. Build numbers refresh live from EAS when the connector is available.</p>
   </div>
@@ -654,7 +809,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="elsewhere">
   <div class="head">
-    <span class="eyebrow">04 / What is not here</span>
+    <span class="eyebrow">07 / What is not here</span>
     <h2>Analytics and errors</h2>
     <p>Two sections deliberately did not make the move, and this says where they went rather than leaving a hole.</p>
   </div>
@@ -662,9 +817,9 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
   <div class="grid g2">
     <article class="card stripe s-info">
-      <div class="cardtop"><h3>Numbers</h3><span class="pill p-info">in PostHog</span></div>
-      <p style="margin:0 0 10px;font-size:13.5px">Sign ups, practice starts and the web against app split live in PostHog, not here: a page served from your own API cannot read them without a server side proxy and a key with access to all your analytics.</p>
-      <p style="margin:0;font-size:12.5px;color:var(--muted)">There is no visitor count anywhere yet. PostHog reports $pageview and $screen both unseen in the last 30 days, so this app captures named product events and no pageviews at all. Counting visitors is a capture change in the clients first, not a query.</p>
+      <div class="cardtop"><h3>Pageviews</h3><span class="pill p-info">in PostHog</span></div>
+      <p style="margin:0 0 10px;font-size:13.5px">Sign ups, paid accounts, free accounts and active users MOVED INTO THIS PAGE on 2026-08-25. They were never really PostHog numbers: they live in your own database, and section 02 now reads them directly on the same origin.</p>
+      <p style="margin:0;font-size:12.5px;color:var(--muted)">What is still genuinely missing is the web against app split and anything else derived from a PAGEVIEW, because this app captures none. PostHog reports $pageview and $screen both unseen in the last 30 days. Counting visitors is a capture change in the clients first, not a query, and no dashboard can invent it.</p>
       <div class="links"><a href="https://us.posthog.com/project/532202" target="_blank" rel="noopener">Open PostHog</a></div>
     </article>
     <article class="card stripe s-info">
@@ -678,7 +833,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="consoles">
   <div class="head">
-    <span class="eyebrow">05 / Where to go</span>
+    <span class="eyebrow">08 / Where to go</span>
     <h2>Consoles</h2>
     <p>Every service Bolo depends on, with the reason you would open it. Use the filter at the top.</p>
   </div>
@@ -799,7 +954,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="library">
   <div class="head">
-    <span class="eyebrow">06 / What is written down</span>
+    <span class="eyebrow">09 / What is written down</span>
     <h2>Library</h2>
     <p>Published pages open in a tab. Repo documents show a path: click it to copy.</p>
   </div>
@@ -960,7 +1115,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="pitch">
   <div class="head">
-    <span class="eyebrow">07 / What to say, and what it is made of</span>
+    <span class="eyebrow">10 / What to say, and what it is made of</span>
     <h2>Pitch</h2>
     <p>The words for a person, and the stack for an engineer. Both are true as of this snapshot.</p>
   </div>
@@ -1058,7 +1213,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="traps">
   <div class="head">
-    <span class="eyebrow">08 / What bites</span>
+    <span class="eyebrow">11 / What bites</span>
     <h2>Traps</h2>
     <p>Facts that cost days when forgotten. Each one was paid for.</p>
   </div>
@@ -1089,7 +1244,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="commands">
   <div class="head">
-    <span class="eyebrow">09 / One paste each</span>
+    <span class="eyebrow">12 / One paste each</span>
     <h2>Commands</h2>
     <p>Terminal on the Mac unless the header says otherwise. Every one of these is read only.</p>
   </div>
@@ -1161,9 +1316,10 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
 </section>
 
 <footer>
-  <p><b>Where this comes from.</b> Served by <code>/api/nest/page</code> behind the owner allowlist, so it answers 404 rather than 403 to anybody else and never exists as a file that can be requested. Health is a live call to <code>/api/healthz</code> from this page; the counts come from <code>/api/nest/summary</code>, computed in the production database with your own accounts already subtracted server side.</p>
-  <p><b>What is not here.</b> Numbers and Fires stayed in the artifact, because reading PostHog and Sentry from your own server would need a proxy route and a new secret for each. That was option C and it was not taken.</p>
-  <p><b>Source.</b> <code>~/bolo-nest/nest-production.html</code>. The artifact copy remains the place the analytics live.</p>
+  <p><b>Where this comes from.</b> Served by <code>/api/nest/page</code> behind the owner allowlist, so it answers 404 rather than 403 to anybody else and never exists as a file that can be requested. Every call is on this origin and none are cached: <code>/api/healthz</code> plus <code>/api/nest/summary</code>, <code>/api/nest/range</code>, <code>/api/nest/map</code> and <code>/api/nest/reports</code>, computed in the production database. The counts subtract your own accounts server side; the flagged phrases deliberately do not, because a report is somebody naming a specific phrase rather than a number to average away.</p>
+  <p><b>It re-reads itself.</b> Every 30 seconds while this tab is visible, and immediately when you come back to it. Paused while it is hidden on purpose: these are aggregate queries against production, and a cockpit left open on a second monitor would otherwise run them all week to draw pixels nobody is looking at.</p>
+  <p><b>What is still not here.</b> Anything derived from a PAGEVIEW, which is the web against app split and visitor counts. This app captures none: PostHog reports $pageview and $screen both unseen in the last 30 days. That is a capture change in the clients, not a query, and no dashboard can invent it. Sentry still needs its own token server side, so Fires stays a link.</p>
+  <p><b>Source.</b> <code>artifacts/api-server/assets/nest-production.html</code> in the repo, served from the build. The copy at <code>~/bolo-nest/</code> is an old export and is not what you are reading.</p>
 </footer>
 
 </main>
@@ -1356,6 +1512,70 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   }
 
   /* ---------------- alerts ---------------- */
+  /* ---------------- how old is this alert ----------------
+     "alerts should have a time stamp on each (33 minutes ago) for example as
+     they get listed." 2026-08-25.
+
+     THERE ARE TWO KINDS OF ALERT HERE AND ONE STAMP WOULD LIE ABOUT ONE OF
+     THEM.
+
+       LIVE rules (health, counts, storage) are recomputed from a fresh read
+       every refresh. What is worth stamping is not the read, which is always
+       "just now", but HOW LONG THE RULE HAS BEEN SAYING THIS. An operator
+       wants "production has been down for 33 minutes", not "checked 4 seconds
+       ago". That is a state TRANSITION time, so it has to be tracked.
+
+       STANDING facts (mobiledark, androidpush) are hardcoded known issues.
+       They have been true for weeks and are not observations of anything. A
+       relative stamp derived from this page would say "33 minutes ago" about
+       something raised in August, so those carry an explicit `since` date
+       written into the rule instead.
+
+     PERSISTED, because a transition time held only in memory resets on every
+     reload and would report a week-old outage as one second old. The label is
+     honest about what that means: this is when THIS BROWSER first saw the rule
+     in this state, not when the world changed. A flip that happened while the
+     page was closed is invisible to it, and pretending otherwise would be the
+     same lie in the other direction. */
+  var SINCE_KEY = "nest.alertSince";
+  var sinceMap = (function(){
+    try { return JSON.parse(localStorage.getItem(SINCE_KEY) || "{}") || {}; }
+    catch (e) { return {}; }
+  })();
+
+  /* First time this browser saw rule `id` at severity `sev`. Re-stamps on any
+     severity change, which is exactly what "how long has it been like this"
+     means; a rule whose MESSAGE moves but whose severity holds keeps its age. */
+  function seenSince(id, sev){
+    var key = id + ":" + sev, now = Date.now(), changed = false, k;
+    if (!sinceMap[key]) { sinceMap[key] = now; changed = true; }
+    /* Drop the other severities for this rule, so a rule that goes crit and
+       later returns to ok does not resurrect a stale ok stamp from last week. */
+    for (k in sinceMap) {
+      if (!Object.prototype.hasOwnProperty.call(sinceMap, k)) continue;
+      if (k.indexOf(id + ":") === 0 && k !== key) { delete sinceMap[k]; changed = true; }
+    }
+    if (changed) { try { localStorage.setItem(SINCE_KEY, JSON.stringify(sinceMap)); } catch (e) {} }
+    return sinceMap[key];
+  }
+
+  /* "33 minutes ago". Rounded down and never smoothed into "about an hour":
+     on a cockpit the difference between 59 and 61 minutes can matter, so the
+     unit changes but the number is always the real one. */
+  function ago(ms){
+    var secs = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+    if (secs < 10) return "just now";
+    if (secs < 60) return secs + " seconds ago";
+    var mins = Math.floor(secs / 60);
+    if (mins < 60) return mins + (mins === 1 ? " minute ago" : " minutes ago");
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + (hrs === 1 ? " hour ago" : " hours ago");
+    var days = Math.floor(hrs / 24);
+    if (days < 30) return days + (days === 1 ? " day ago" : " days ago");
+    var months = Math.floor(days / 30);
+    return months + (months === 1 ? " month ago" : " months ago");
+  }
+
   function rules(){
     var out = [], h = state.health, s = state.summary;
 
@@ -1391,12 +1611,17 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
            m:dbGb.toFixed(2) + " GB, " + share + " percent of it cached audio.", r:"Neon", href:"https://console.neon.tech/"});
     }
 
+    /* STANDING FACTS, not observations. `since` is the day each was recorded
+       into this page, so their stamps read "a day ago" rather than borrowing a
+       transition time from a browser that has never seen them change. Both
+       were written on 2026-08-24 when the cockpit moved into the product. */
     out.push({id:"mobiledark", sev:"warn", t:"iOS and Android are one bucket",
       m:"The app reports to PostHog, but its events carry no OS property, so the two stores cannot be told apart.",
-      r:"PostHog", href:ARTIFACT});
+      r:"PostHog", href:ARTIFACT, since:Date.UTC(2026, 7, 24)});
     out.push({id:"androidpush", sev:"warn", t:"Android push is not in a build",
       m:"Firebase bolo-9bf9a is wired into app.json, but the newest Android build predates the file.",
-      r:"EAS", href:"https://expo.dev/accounts/aakeshp/projects/bolo-mobile/builds"});
+      r:"EAS", href:"https://expo.dev/accounts/aakeshp/projects/bolo-mobile/builds",
+      since:Date.UTC(2026, 7, 24)});
     return out;
   }
 
@@ -1418,10 +1643,17 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
       var cls = a.sev === "crit" ? " hot" : (a.sev === "warn" ? " warm" : "");
       var pill = a.sev === "crit" ? "p-crit" : (a.sev === "warn" ? "p-warn" : (a.sev === "ok" ? "p-good" : "p-info"));
       var word = a.sev === "crit" ? "Danger" : (a.sev === "warn" ? "Watch" : (a.sev === "ok" ? "Clear" : "Checking"));
+      /* An explicit `since` on the rule wins: those are standing facts with a
+         real recorded date. Everything else is stamped with when this browser
+         first saw the rule at this severity. */
+      var at = a.since || seenSince(a.id, a.sev);
+      var stampWord = a.since ? "raised " : (a.sev === "ok" ? "clear " : "");
       html += '<div class="alert' + cls + '">' +
         '<span class="pill ' + pill + '" style="grid-row:1 / span 2"><span class="dot"></span>' + word + '</span>' +
         '<span class="t">' + esc(a.t) + '</span><span class="m">' + esc(a.m) + '</span>' +
-        '<span class="r"><a href="' + esc(a.href) + '" target="_blank" rel="noopener">' + esc(a.r) + '</a></span></div>';
+        '<span class="r"><a href="' + esc(a.href) + '" target="_blank" rel="noopener">' + esc(a.r) + '</a></span>' +
+        '<span class="when" title="' + esc(new Date(at).toLocaleString()) + '">' +
+          esc(stampWord + ago(at)) + '</span></div>';
     }
     if (host) host.innerHTML = html;
 
@@ -1581,10 +1813,374 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     } catch (e2) { done(false); }
   });
 
-  /* ---------------- boot ---------------- */
-  renderSpend(); renderAlerts();
-  Promise.all([checkHealth(), loadSummary()]).then(function(){
-    healthSay(); renderSpend(); renderAlerts();
+  /* ================= 02 Numbers, the range view =================
+     Added 2026-08-25. "a dashboard that updates live with number of signups,
+     number of paid accounts, active users (filterable by any time frame, some
+     quick filters)".
+
+     TWO KINDS OF NUMBER AND THEY ARE DRAWN APART ON PURPOSE. Window counts
+     move when the range moves. Snapshot counts are the users table right now
+     and ignore the range, because the schema stores the CURRENT tier and no
+     history of tier changes. Mixing them in one row of tiles would invite
+     "paid accounts in March", which this database cannot answer. */
+  var RANGE_URL = "/api/nest/range";
+  var MAP_URL   = "/api/nest/map";
+
+  state.range = null; state.rangeErr = null;
+  state.map = null; state.mapErr = null;
+  /* Days back for the active quick filter. 0 means all time. Kept rather than
+     the resolved dates so a range left open overnight follows the clock
+     instead of freezing on yesterday. */
+  state.rangeDays = 28;
+  state.rangeCustom = null;
+
+  function ymd(d){
+    return d.getUTCFullYear() + "-" +
+      String(d.getUTCMonth() + 1).padStart(2, "0") + "-" +
+      String(d.getUTCDate()).padStart(2, "0");
+  }
+
+  /* The window actually asked for. All time reaches back to before the first
+     row rather than omitting `from`, so the server's own 30 day default can
+     never quietly answer a question the chip did not ask. */
+  function rangeBounds(){
+    if (state.rangeCustom) return state.rangeCustom;
+    var to = new Date();
+    var from;
+    if (state.rangeDays === 0) from = new Date(Date.UTC(2026, 0, 1));
+    else from = new Date(to.getTime() - state.rangeDays * 86400000);
+    return {from: from, to: to};
+  }
+
+  function loadRange(){
+    var b = rangeBounds();
+    var url = RANGE_URL + "?from=" + encodeURIComponent(b.from.toISOString()) +
+      "&to=" + encodeURIComponent(b.to.toISOString()) +
+      "&exclOwner=" + (state.excludeOwn ? "1" : "0");
+    return fetch(url, {credentials:"same-origin", cache:"no-store"}).then(function(res){
+      if (res.status === 404) throw new Error("This account is not on the allowlist.");
+      if (!res.ok) throw new Error("The range endpoint answered " + res.status + ".");
+      return res.json();
+    }).then(function(j){
+      state.range = j; state.rangeErr = null; banner("range-note", null);
+    }, function(err){
+      state.rangeErr = String(err && err.message || err);
+      banner("range-note", "warn", "Could not read the numbers.", state.rangeErr);
+    });
+  }
+
+  function tile(n, label, foot, hot){
+    return '<div class="tile' + (hot ? " hot" : "") + '">' +
+      '<div class="n">' + esc(n) + '</div>' +
+      '<div class="l">' + esc(label) + '</div>' +
+      (foot ? '<div class="f">' + esc(foot) + '</div>' : '') +
+      '</div>';
+  }
+
+  function renderRange(){
+    var win = $("range-window"), snap = $("range-snapshot"), chart = $("range-chart");
+    if (!win || !snap || !chart) return;
+    var r = state.range;
+    if (!r) {
+      win.innerHTML = tile("-", "Waiting on the numbers", "Reading /api/nest/range.");
+      snap.innerHTML = ""; chart.innerHTML = "";
+      return;
+    }
+    var days = Math.max(1, Math.round((new Date(r.to) - new Date(r.from)) / 86400000));
+    var per = r.activeUsers ? (r.attempts / r.activeUsers) : 0;
+
+    win.innerHTML =
+      tile(fmt(r.signups), "Sign ups", "Accounts created in this window.", r.signups > 0) +
+      tile(fmt(r.activeUsers), "Active learners",
+           "Distinct people who PRACTISED. Not logins: nothing server side records a login, so this is a stricter bar.", r.activeUsers > 0) +
+      tile(fmt(r.attempts), "Practice attempts",
+           per ? per.toFixed(1) + " per active learner over " + days + " days." : "Nobody practised in this window.") +
+      tile(fmt(r.gameSessions + r.chatTurns), "Games and chats",
+           fmt(r.gameSessions) + " finished games, " + fmt(r.chatTurns) + " chat replies.");
+
+    snap.innerHTML =
+      tile(fmt(r.usersTotal), "Accounts", r.exclOwner ? "Your own accounts already removed." : "Including your own accounts.") +
+      tile(fmt(r.paidTotal), "Paid", "tier is not free AND the subscription is active. A sandbox or TestFlight purchase counts here and bills nothing.", r.paidTotal > 0) +
+      tile(fmt(r.freeTotal), "Free", "Everybody else. Paid plus free is always the account total.") +
+      tile(fmt(r.trialingTotal), "Trialing", "subscription_status is trialing.");
+
+    /* The chart. Two stacked bars a day: sign ups on top of active learners,
+       so a spike in one is legible against the other without a second chart. */
+    var series = r.series || [];
+    var max = 1, i;
+    for (i = 0; i < series.length; i++) {
+      if (series[i].activeUsers > max) max = series[i].activeUsers;
+      if (series[i].signups > max) max = series[i].signups;
+    }
+    var bars = "";
+    for (i = 0; i < series.length; i++) {
+      var d = series[i];
+      var ha = Math.round(d.activeUsers / max * 100);
+      var hs = Math.round(d.signups / max * 100);
+      bars += '<div class="bar" title="' + esc(d.day + ": " + d.activeUsers + " active, " + d.signups + " signed up") + '">' +
+        '<i class="b2" style="height:' + hs + '%"></i>' +
+        '<i style="height:' + ha + '%"></i>' +
+        '</div>';
+    }
+    chart.innerHTML =
+      '<div class="bars">' + (bars || '<div class="bar"></div>') + '</div>' +
+      '<div class="chartx"><span>' + esc(series.length ? series[0].day : "") + '</span>' +
+      '<span>' + esc(series.length ? series[series.length - 1].day : "") + '</span></div>' +
+      '<div class="chartkey">' +
+        '<span><b style="background:var(--accent)"></b>Active learners</span>' +
+        '<span><b style="background:var(--line-2)"></b>Sign ups</span>' +
+        '<span>Peak ' + fmt(max) + ' in a day</span>' +
+      '</div>';
+  }
+
+  /* ================= 03 the line map =================
+     "22 lines with dots for each stop with the number of users currently at
+     each stop."
+
+     CURRENTLY AT IS THE LEARNER'S MOST RECENT ATTEMPT, decided against the
+     data: lesson_group_progress holds thirteen rows in production, all
+     "completed", against fifteen learners who have attempted anything, because
+     unlock state is derived at read time rather than stored. attempts is
+     written every time somebody practises, and a phrase belongs to exactly one
+     stop. */
+  function loadMap(){
+    var url = MAP_URL + "?exclOwner=" + (state.excludeOwn ? "1" : "0");
+    return fetch(url, {credentials:"same-origin", cache:"no-store"}).then(function(res){
+      if (res.status === 404) throw new Error("This account is not on the allowlist.");
+      if (!res.ok) throw new Error("The map endpoint answered " + res.status + ".");
+      return res.json();
+    }).then(function(j){
+      state.map = j; state.mapErr = null; banner("map-note", null);
+    }, function(err){
+      state.mapErr = String(err && err.message || err);
+      banner("map-note", "warn", "Could not read the map.", state.mapErr);
+    });
+  }
+
+  function renderMap(){
+    var host = $("map-lines");
+    if (!host) return;
+    var m = state.map;
+    if (!m) { host.innerHTML = '<div class="sline dim"><span class="n">Reading the network</span></div>'; return; }
+    var onlyBusy = $("map-busy") && $("map-busy").checked;
+    var html = "", i, j;
+    var drawn = 0;
+    for (i = 0; i < m.lines.length; i++) {
+      var line = m.lines[i];
+      if (onlyBusy && line.learners === 0) continue;
+      drawn++;
+      var track = "", lastZone = null;
+      for (j = 0; j < line.stops.length; j++) {
+        var st = line.stops[j];
+        /* A gap between zones, so a line reads as six or twelve runs rather
+           than one undifferentiated string of eighty dots. */
+        if (lastZone !== null && st.zone !== lastZone) track += '<span class="zgap"></span>';
+        lastZone = st.zone;
+        var label = st.zone + " stop " + st.position + (st.title ? " - " + st.title : "") +
+          ": " + st.learners + (st.learners === 1 ? " learner" : " learners");
+        track += '<span class="stop' + (st.learners > 0 ? " has" : "") + '" title="' + esc(label) + '">' +
+          (st.learners > 0 ? esc(st.learners) : "") + '</span>';
+      }
+      html += '<div class="lrow">' +
+        '<span class="lname">' + esc(line.languageName) + '<small>' + esc(line.languageCode) + ' / ' + line.stops.length + ' stops</small></span>' +
+        '<span class="ltrack">' + track + '</span>' +
+        '<span class="ltot">' + (line.learners ? '<b>' + fmt(line.learners) + '</b>' : "0") + '</span>' +
+        '</div>';
+    }
+    if (!drawn) html = '<div class="sline dim"><span class="n">No line has anybody on it in this view.</span></div>';
+    host.innerHTML = html;
+    if ($("map-when")) {
+      $("map-when").textContent = fmt(m.learnersPlaced) +
+        (m.learnersPlaced === 1 ? " learner placed" : " learners placed") +
+        " across " + m.lines.length + " lines. A learner studying three languages stands on three of them.";
+    }
+  }
+
+  /* ================= 04 flagged phrases =================
+     "I want to see these on my dashboard too. The actual thing that was
+     flagged and the notes that the user put." 2026-08-25. */
+  var REPORTS_URL = "/api/nest/reports";
+  state.reports = null; state.reportsErr = null;
+
+  var REASON_WORD = {
+    translation_wrong: "translation",
+    transliteration_wrong: "spelling",
+    audio_wrong: "audio",
+    other: "other"
+  };
+
+  function loadReports(){
+    return fetch(REPORTS_URL, {credentials:"same-origin", cache:"no-store"}).then(function(res){
+      if (res.status === 404) throw new Error("This account is not on the allowlist.");
+      if (!res.ok) throw new Error("The reports endpoint answered " + res.status + ".");
+      return res.json();
+    }).then(function(j){
+      state.reports = j; state.reportsErr = null; banner("reports-note", null);
+    }, function(err){
+      state.reportsErr = String(err && err.message || err);
+      banner("reports-note", "warn", "Could not read the flagged phrases.", state.reportsErr);
+    });
+  }
+
+  function renderReports(){
+    var tiles = $("reports-tiles"), host = $("reports-list");
+    if (!tiles || !host) return;
+    var r = state.reports;
+    if (!r) {
+      tiles.innerHTML = tile("-", "Waiting on the reports", "Reading /api/nest/reports.");
+      host.innerHTML = ""; return;
+    }
+    var onlyNoted = $("reports-noted") && $("reports-noted").checked;
+
+    var top = r.byReason.length ? r.byReason[0] : null;
+    tiles.innerHTML =
+      tile(fmt(r.total), "Flagged phrases", "Every report ever filed, never deleted.", r.total > 0) +
+      tile(fmt(r.reporters), "Reporters",
+           r.reporters === 1
+             ? "ONE account filed all of them. This is not a crowd; treat it as one person's QA pass."
+             : "Distinct accounts that have filed at least one.") +
+      tile(fmt(r.withNote), "With a note",
+           "Reports carrying the learner's own words. A note that was ONLY an email address is dropped server side; see usableNote.") +
+      tile(top ? (REASON_WORD[top.reason] || top.reason) : "-", "Most common reason",
+           top ? fmt(top.count) + " of " + fmt(r.total) + " reports." : "Nothing filed yet.");
+
+    var html = "", i, shown = 0;
+    for (i = 0; i < r.rows.length; i++) {
+      var row = r.rows[i];
+      if (onlyNoted && !row.note) continue;
+      shown++;
+      /* The native script leads because that is the thing a speaker judges.
+         A phrase that has since been DELETED shows as such rather than as a
+         blank row: the report outliving its subject is worth seeing. */
+      var phrase = row.nativeScript
+        ? esc(row.nativeScript) + (row.romanized ? ' <i>' + esc(row.romanized) + '</i>' : "")
+        : '<i>phrase ' + esc(row.phraseId) + ' no longer exists</i>';
+      html += '<div class="rep">' +
+        '<span class="why2">' + esc(REASON_WORD[row.reason] || row.reason) + '</span>' +
+        '<span class="ph">' + phrase + '</span>' +
+        '<span class="gloss">' + (row.english ? esc(row.english) : "") +
+          ' &middot; ' + esc(row.languageCode) + ' &middot; ' + esc(row.stage) + '</span>' +
+        (row.note
+          ? '<span class="note">' + esc(row.note) + '</span>'
+          : '<span class="nonote">No note left.</span>') +
+        '<span class="meta">#' + esc(row.id) + '<br>' + esc(ago(new Date(row.createdAt).getTime())) + '</span>' +
+        '</div>';
+    }
+    host.innerHTML = html || '<div class="sline dim"><span class="n">Nothing to show in this view.</span></div>';
+    if ($("reports-when")) {
+      $("reports-when").textContent = shown + " of " + r.rows.length +
+        " shown, newest first" + (r.total > r.rows.length ? ", capped at " + r.rows.length + " of " + r.total : "") + ".";
+    }
+  }
+
+  if ($("reports-noted")) $("reports-noted").addEventListener("change", renderReports);
+
+  /* ================= live refresh =================
+     Asked for 2026-08-25: "make sure nest page always stays actively
+     refreshing so i don't have to manually refresh the data."
+
+     PAUSED WHILE THE TAB IS HIDDEN, and that is not a saving worth arguing
+     about: these are aggregate queries against PRODUCTION, and a cockpit left
+     open on a second monitor for a week would otherwise run them ten thousand
+     times to draw pixels nobody is looking at. It re-reads IMMEDIATELY on
+     becoming visible, so coming back to the tab shows current numbers rather
+     than whatever was on screen when you left. */
+  var REFRESH_MS = 30000;
+  var refreshTimer = null;
+  var refreshing = false;
+
+  function stamp(){
+    var el = $("range-when");
+    if (!el) return;
+    var r = state.range;
+    if (!r) { el.textContent = "Reading."; return; }
+    var b = rangeBounds();
+    el.textContent = "Live. " + ymd(b.from) + " to " + ymd(b.to) +
+      ", re-read every " + Math.round(REFRESH_MS / 1000) + "s. Last read " +
+      new Date(r.generatedAt).toLocaleTimeString() + ".";
+  }
+
+  function refreshAll(){
+    if (refreshing) return Promise.resolve();
+    refreshing = true;
+    return Promise.all([checkHealth(), loadSummary(), loadRange(), loadMap(), loadReports()]).then(function(){
+      healthSay(); renderSpend(); renderAlerts(); renderRange(); renderMap(); renderReports(); stamp();
+      refreshing = false;
+    }, function(){ refreshing = false; });
+  }
+
+  function startRefresh(){
+    if (refreshTimer !== null) return;
+    refreshTimer = setInterval(function(){
+      if (document.hidden) return;
+      refreshAll();
+    }, REFRESH_MS);
+  }
+
+  document.addEventListener("visibilitychange", function(){
+    if (!document.hidden) refreshAll();
   });
+
+  /* ---------------- range controls ---------------- */
+  (function wireRange(){
+    var chips = $("range-chips"), from = $("range-from"), to = $("range-to");
+    var exclR = $("range-excl-own"), exclM = $("map-excl-own"), busy = $("map-busy");
+
+    if (exclR) exclR.checked = state.excludeOwn;
+    if (exclM) exclM.checked = state.excludeOwn;
+
+    /* The three "exclude my accounts" boxes are ONE setting. Two of them
+       disagreeing would put a different denominator under each section while
+       both claimed to be the same view. */
+    function setExcl(v){
+      state.excludeOwn = v;
+      try { localStorage.setItem("nest.excludeOwn", v ? "1" : "0"); } catch (e) {}
+      if (exclR) exclR.checked = v;
+      if (exclM) exclM.checked = v;
+      if ($("excl-own")) $("excl-own").checked = v;
+      refreshAll();
+    }
+    if (exclR) exclR.addEventListener("change", function(){ setExcl(exclR.checked); });
+    if (exclM) exclM.addEventListener("change", function(){ setExcl(exclM.checked); });
+    if ($("excl-own")) $("excl-own").addEventListener("change", function(){ setExcl($("excl-own").checked); });
+    if (busy) busy.addEventListener("change", renderMap);
+
+    if (chips) {
+      chips.addEventListener("click", function(ev){
+        var b = ev.target.closest ? ev.target.closest(".chip") : null;
+        if (!b) return;
+        var all = chips.querySelectorAll(".chip"), i;
+        for (i = 0; i < all.length; i++) all[i].classList.remove("on");
+        b.classList.add("on");
+        state.rangeDays = +b.getAttribute("data-days");
+        state.rangeCustom = null;
+        if (from) from.value = ""; if (to) to.value = "";
+        loadRange().then(function(){ renderRange(); stamp(); });
+      });
+    }
+
+    /* A typed date wins over the chips, and clears their highlight so the page
+       never shows "28 days" above numbers for a different window. */
+    function custom(){
+      if (!from || !to || !from.value || !to.value) return;
+      var f = new Date(from.value + "T00:00:00Z");
+      var t = new Date(to.value + "T23:59:59Z");
+      if (isNaN(f) || isNaN(t) || f > t) {
+        banner("range-note", "warn", "That range does not work.", "The start has to be on or before the end.");
+        return;
+      }
+      banner("range-note", null);
+      state.rangeCustom = {from: f, to: t};
+      var all = chips ? chips.querySelectorAll(".chip") : [], i;
+      for (i = 0; i < all.length; i++) all[i].classList.remove("on");
+      loadRange().then(function(){ renderRange(); stamp(); });
+    }
+    if (from) from.addEventListener("change", custom);
+    if (to) to.addEventListener("change", custom);
+  })();
+
+  /* ---------------- boot ---------------- */
+  renderSpend(); renderAlerts(); renderRange(); renderMap(); renderReports();
+  refreshAll().then(startRefresh);
 })();
 </script>
