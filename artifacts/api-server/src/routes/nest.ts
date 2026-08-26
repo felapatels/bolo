@@ -1244,6 +1244,20 @@ type NestLive = {
   /** Null, never 0, when the source could not be read. */
   total: number | null;
   totalExclOwner: number | null;
+  /**
+   * How many accounts Clerk was asked about, and the most recent activity it
+   * reported for ANY of them, window or no window.
+   *
+   * THESE EXIST BECAUSE A BARE 0 IS UNREADABLE. Shipped 2026-08-26, the tile
+   * showed 0 with the exclusions off while the owner was looking at the page
+   * signed in, and 0 is what a working query and a broken one both look like.
+   * "0, and the most recent anybody was seen was 3 hours ago" separates them
+   * instantly; so does "0, and Clerk reports no activity timestamps at all".
+   */
+  usersConsidered: number;
+  newestSeenAt: string | null;
+  /** True when Clerk returned a full page, so these are a sample not a census. */
+  capped: boolean;
   note: string;
   reason: string | null;
   people: NestLivePerson[];
@@ -1283,6 +1297,9 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
     source: "unavailable",
     total: null,
     totalExclOwner: null,
+    usersConsidered: 0,
+    newestSeenAt: null,
+    capped: false,
     note: "Presence comes from Clerk and Clerk could not be read, so this is not zero, it is unknown.",
     reason,
     people: [],
@@ -1296,8 +1313,23 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
+    /**
+     * NO lastActiveAtAfter, AND THAT IS THE FIX RATHER THAN A SIMPLIFICATION.
+     *
+     * The first version filtered upstream and shipped a tile reading 0 while
+     * the owner sat in front of it signed in, exclusions off. A filtered call
+     * that returns an empty page and a filter that quietly matches nothing are
+     * indistinguishable from the outside, so the endpoint could not say which
+     * had happened and neither could anybody reading the page.
+     *
+     * Sorting and cutting the window HERE means the timestamps Clerk actually
+     * holds come back and can be reported. If they are all null, the page says
+     * that instead of saying zero, which is a different problem with a
+     * different fix. At 23 accounts the whole list is one call either way, so
+     * this costs nothing; past LIVE_LIMIT it becomes a sample and `capped`
+     * says so out loud rather than letting a silent cut look like a census.
+     */
     const list = await clerkClient.users.getUserList({
-      lastActiveAtAfter: since,
       orderBy: "-last_active_at",
       limit: LIVE_LIMIT,
     });
@@ -1320,7 +1352,16 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
       for (const r of arr) local.set(String(r.id), r);
     }
 
-    const people: NestLivePerson[] = list.data.map((u) => {
+    const seen = list.data
+      .map((u) => u.lastActiveAt)
+      .filter((t): t is number => typeof t === "number");
+    const newest = seen.length > 0 ? Math.max(...seen) : null;
+
+    const inWindow = list.data.filter(
+      (u) => typeof u.lastActiveAt === "number" && u.lastActiveAt >= since,
+    );
+
+    const people: NestLivePerson[] = inWindow.map((u) => {
       const row = local.get(u.id);
       const clerkName = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
       return {
@@ -1343,22 +1384,27 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
       };
     });
 
-    // totalCount is Clerk's own count for the filter and is NOT capped by the
-    // limit above, so the headline stays right even when the list is trimmed.
-    const total = typeof list.totalCount === "number" ? list.totalCount : people.length;
-    const excludedInPage = people.filter((p) => p.excluded).length;
+    // The window is applied here, so the count IS the list. No totalCount:
+    // that is Clerk's total for the QUERY, and the query is now unfiltered, so
+    // it would report every account that has ever existed.
+    const total = people.length;
+    const excluded = people.filter((p) => p.excluded).length;
+    const capped = list.data.length >= LIVE_LIMIT;
 
     const value: NestLive = {
       ...base,
       source: "clerk",
       total,
-      // Only the fetched page can be checked against the allowlist, so past the
-      // cap this is a floor rather than an exact figure. Named, not hidden.
-      totalExclOwner: Math.max(0, total - excludedInPage),
+      totalExclOwner: total - excluded,
+      usersConsidered: list.data.length,
+      newestSeenAt: newest === null ? null : new Date(newest).toISOString(),
+      capped,
       note:
-        minutes < 5
-          ? "Clerk touches last_active_at about once every five minutes per session, so a window under five minutes undercounts."
-          : "Signed in and seen by Clerk inside the window. This counts presence, not practice: the Numbers tiles count attempts.",
+        newest === null
+          ? "Clerk returned no activity timestamps at all, for anybody. That is not the same as nobody being here: it means last_active_at is empty on this instance, and no window can be read from it."
+          : minutes < 5
+            ? "Clerk touches last_active_at about once every five minutes per session, so a window under five minutes undercounts."
+            : "Signed in and seen by Clerk inside the window. This counts presence, not practice: the Numbers tiles count attempts.",
       reason: null,
       people,
     };

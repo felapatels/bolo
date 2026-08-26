@@ -557,6 +557,16 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
       <span class="s1"><span class="beacon busy" id="beacon"></span><span id="mode">Reading production</span></span>
       <span id="modewhy">Served from your own API, signed in as you</span>
     </div>
+    <!-- THE ONE EXCLUSION CONTROL. It was three identical checkboxes, one per
+         section, kept in sync by hand because they are a single setting; the
+         code already warned that two of them disagreeing would put a different
+         denominator under each section while both claimed to be the same view.
+         Moved into the sticky header on 2026-08-26 at the owner's word, so the
+         thing that changes every number on the page is visible from every part
+         of it instead of being scrolled away. -->
+    <label class="ownt" style="margin-left:auto">
+      <input type="checkbox" id="excl-own-top"><span>Exclude me and testers</span>
+    </label>
     <div class="filterwrap">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.6" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       <input id="filter" type="search" placeholder="Filter consoles and docs" aria-label="Filter consoles and documents" autocomplete="off">
@@ -674,7 +684,6 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
     </div>
     <label class="dlab">From <input type="date" id="range-from" aria-label="Range start"></label>
     <label class="dlab">To <input type="date" id="range-to" aria-label="Range end"></label>
-    <label class="ownt"><input type="checkbox" id="range-excl-own"><span>Exclude me and testers</span></label>
     <span class="why" id="range-when">Reading.</span>
   </div>
 
@@ -738,7 +747,6 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
   <div class="rangebar">
     <span class="why" id="map-when">Reading.</span>
-    <label class="ownt" style="margin-left:auto"><input type="checkbox" id="map-excl-own"><span>Exclude me and testers</span></label>
     <label class="ownt"><input type="checkbox" id="map-busy"><span>Only lines with learners</span></label>
   </div>
 
@@ -781,7 +789,6 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
         <div class="tot" id="sp-total">$0.00</div>
         <div class="lab" id="sp-lab">estimated a month</div>
       </div>
-      <label class="ownt" style="margin-left:auto"><input type="checkbox" id="excl-own"><span>Exclude me and testers</span></label>
       <button type="button" class="ghost" id="sp-refresh">Re-read</button>
     </div>
     <div class="spend-lines" id="sp-lines"></div>
@@ -1945,16 +1952,6 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     });
   });
 
-  var exclBox = $("excl-own");
-  if (exclBox) {
-    exclBox.checked = state.excludeOwn;
-    exclBox.addEventListener("change", function(){
-      state.excludeOwn = exclBox.checked;
-      try { localStorage.setItem("nest.excludeOwn", state.excludeOwn ? "1" : "0"); } catch (e) {}
-      renderSpend(); renderAlerts();
-    });
-  }
-
   var srefresh = $("sp-refresh");
   if (srefresh) srefresh.addEventListener("click", function(){
     srefresh.disabled = true; srefresh.textContent = "Reading";
@@ -2409,15 +2406,35 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     }
 
     var n = state.excludeOwn ? d.totalExclOwner : d.total;
+
+    /* A BARE ZERO IS UNREADABLE and shipping one was the bug. On 2026-08-26
+       this tile read 0 with the exclusions off while the owner was looking at
+       it, signed in, and nothing on screen could say whether that meant
+       "nobody is here" or "this never worked". The caption now always carries
+       the last time ANYBODY was seen, so the two are never confusable again. */
+    var foot;
+    if (d.newestSeenAt === null) {
+      foot = "clerk reports no timestamps";
+    } else if (n === 0) {
+      foot = "last anybody, " + ago(new Date(d.newestSeenAt).getTime());
+    } else {
+      foot = state.excludeOwn ? "you and testers out" : "everybody";
+    }
+
     host.innerHTML =
-      '<button type="button" class="tile" data-live-drill="1" aria-expanded="' +
-        (state.liveOpen ? "true" : "false") + '">' +
+      '<button type="button" class="tile' + (n === 0 ? " blank" : "") +
+        '" data-live-drill="1" aria-expanded="' + (state.liveOpen ? "true" : "false") + '">' +
         '<span class="n">' + fmt(n) + '</span>' +
         '<span class="l">Signed in, ' + esc(windowWords(d.windowMinutes)) + '</span>' +
-        '<span class="w">' + (state.excludeOwn ? "you and testers out" : "everybody") + '</span>' +
+        '<span class="w">' + esc(foot) + '</span>' +
       '</button>';
-    if (when) when.textContent = d.note + " Last read " +
-      new Date(d.generatedAt).toLocaleTimeString() + ".";
+    if (when) when.textContent = d.note +
+      " Clerk was asked about " + fmt(d.usersConsidered) + " accounts" +
+      (d.capped ? ", capped, so this is a sample" : "") + "." +
+      (d.newestSeenAt
+        ? " Most recent activity anywhere: " + new Date(d.newestSeenAt).toLocaleString() + "."
+        : "") +
+      " Last read " + new Date(d.generatedAt).toLocaleTimeString() + ".";
   }
 
   function renderLiveDrill(){
@@ -2645,25 +2662,21 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   /* ---------------- range controls ---------------- */
   (function wireRange(){
     var chips = $("range-chips"), from = $("range-from"), to = $("range-to");
-    var exclR = $("range-excl-own"), exclM = $("map-excl-own"), busy = $("map-busy");
+    var busy = $("map-busy");
 
-    if (exclR) exclR.checked = state.excludeOwn;
-    if (exclM) exclM.checked = state.excludeOwn;
+    /* ONE box now, in the header. It used to be three kept in sync by hand,
+       and a fourth handler elsewhere that re-rendered only two sections, so
+       ticking the wrong copy left the rest of the page on the old denominator. */
+    var excl = $("excl-own-top");
+    if (excl) excl.checked = state.excludeOwn;
 
-    /* The three "exclude my accounts" boxes are ONE setting. Two of them
-       disagreeing would put a different denominator under each section while
-       both claimed to be the same view. */
     function setExcl(v){
       state.excludeOwn = v;
       try { localStorage.setItem("nest.excludeOwn", v ? "1" : "0"); } catch (e) {}
-      if (exclR) exclR.checked = v;
-      if (exclM) exclM.checked = v;
-      if ($("excl-own")) $("excl-own").checked = v;
+      if (excl) excl.checked = v;
       refreshAll();
     }
-    if (exclR) exclR.addEventListener("change", function(){ setExcl(exclR.checked); });
-    if (exclM) exclM.addEventListener("change", function(){ setExcl(exclM.checked); });
-    if ($("excl-own")) $("excl-own").addEventListener("change", function(){ setExcl($("excl-own").checked); });
+    if (excl) excl.addEventListener("change", function(){ setExcl(excl.checked); });
     if (busy) busy.addEventListener("change", renderMap);
 
     if (chips) {
