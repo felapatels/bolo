@@ -12,6 +12,7 @@ import { clerkTokenCache } from '@/lib/clerkTokenCache';
 import { setBaseUrl, ApiError } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { BrandSplash } from '@/components/BrandSplash';
+import { StopSplash } from '@/components/StopSplash';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { fontMap } from '@/constants/fonts';
 import { useColors } from '@/hooks/useColors';
@@ -125,13 +126,16 @@ function RootLayout() {
                     <Stack.Screen name="(app)" />
                   </Stack>
                 </KeyboardProvider>
-                {/* The boot film, over the Stack. The native splash still
-                    runs first and still hides on fonts; this picks up from
-                    there and covers Clerk plus both redirect hops. */}
                 {/* The boot film, over the Stack. The native splash hides on
                     fonts; this picks up from there and covers Clerk plus both
-                    redirect hops. */}
+                    redirect hops. (This comment was here twice; one copy.) */}
                 <BrandSplash />
+                {/* The stop transition, also over the Stack and one zIndex
+                    below the boot film, so the two can never fight. It has to
+                    live here rather than in journey.tsx because it covers the
+                    navigation AWAY from journey: anything mounted inside the
+                    navigator unmounts the moment the push lands. */}
+                <StopSplash />
               </GestureHandlerRootView>
             </QueryClientProvider>
           </ErrorBoundary>

@@ -19,6 +19,7 @@ import { LanguageProvider } from './lib/language-context';
 import { EquippedOutfitProvider } from '@/hooks/use-equipped-outfit';
 import { ThemeProvider } from './lib/theme-context';
 import { Toaster } from '@/components/ui/toaster';
+import { StopSplash } from "@/components/stop-splash";
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AppShell } from '@/components/layout/app-shell';
 import { ClerkAuthSync } from '@/components/clerk-auth-sync';
@@ -650,6 +651,11 @@ function ClerkProviderWithRoutes() {
                 </ReferralRedemptionProvider>
               </EquippedOutfitProvider>
               <IdleRoutePrefetch />
+              {/* The stop transition, ABOVE the router on purpose: it covers
+                  the navigation away from the journey, and anything mounted
+                  inside AppRouter unmounts the moment the route changes.
+                  Mobile twin sits beside BrandSplash in app/_layout.tsx. */}
+              <StopSplash />
               <Toaster />
             </TooltipProvider>
           </LanguageProvider>
