@@ -3000,9 +3000,16 @@ const styles = StyleSheet.create({
     right: `${ZONE_BOARD.panelInset * 100}%`,
     backgroundColor: ZONE_BOARD.panel,
   },
+  // Positioned, not padded, and on all four sides. Yoga resolves a percentage
+  // top/bottom against the parent's HEIGHT, which is what the vertical inset
+  // needs; a percentage padding would resolve against the width.
   boardPanelBody: {
-    flex: 1,
-    paddingHorizontal: `${ZONE_BOARD.contentInset * 100}%`,
+    position: 'absolute',
+    left: `${ZONE_BOARD.contentInset * 100}%`,
+    right: `${ZONE_BOARD.contentInset * 100}%`,
+    top: `${ZONE_BOARD.contentInsetTop * 100}%`,
+    bottom: `${ZONE_BOARD.contentInsetBottom * 100}%`,
+    overflow: 'hidden',
   },
   boardNamePlate: {
     position: 'absolute',

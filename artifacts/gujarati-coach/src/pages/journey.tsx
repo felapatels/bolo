@@ -617,12 +617,20 @@ function ZonePostcard({
             }}
             aria-hidden
           />
-          {/* Everything the board says lives inside the drawn frame. */}
+          {/* Everything the board says lives inside the drawn frame, on all
+              four sides. Absolutely positioned rather than padded: a CSS
+              percentage padding resolves against the WIDTH even for top and
+              bottom, so a vertical inset written as padding is wrong by however
+              much the board is wider than it is tall. `top`/`bottom` on a
+              positioned box resolve against the height, which is what this
+              needs. */}
           <div
-            className="relative"
+            className="absolute overflow-hidden"
             style={{
-              paddingLeft: `${ZONE_BOARD.contentInset * 100}%`,
-              paddingRight: `${ZONE_BOARD.contentInset * 100}%`,
+              left: `${ZONE_BOARD.contentInset * 100}%`,
+              right: `${ZONE_BOARD.contentInset * 100}%`,
+              top: `${ZONE_BOARD.contentInsetTop * 100}%`,
+              bottom: `${ZONE_BOARD.contentInsetBottom * 100}%`,
             }}
           >
           {/* address side */}

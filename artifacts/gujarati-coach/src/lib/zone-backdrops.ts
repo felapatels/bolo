@@ -175,8 +175,23 @@ export const ZONE_BOARD = {
    */
   /** The outer frame line: the cream may not start before this. */
   panelInset: 0.039,
-  /** The panel interior: no text or box may start before this. */
-  contentInset: 0.072,
+  /**
+   * THE PANEL'S INTERIOR, ALL FOUR SIDES, measured off zone-sign-panel.png's
+   * own pixels: the outer frame, two inner rules, then clear paper. The
+   * horizontal pair are fractions of the board's WIDTH and the vertical pair of
+   * the panel's HEIGHT, which is why the content box is positioned rather than
+   * padded: a percentage padding in CSS resolves against the width on all four
+   * sides, so a vertical inset written that way is wrong by however much the
+   * board is wider than it is tall.
+   *
+   * THE VERTICAL PAIR IS THE ONE I KEPT MISSING. Three rounds of "the card
+   * overlaps the sign" were fixed horizontally each time, and the title went on
+   * sitting on the panel's top rule because nothing had ever inset it
+   * vertically at all.
+   */
+  contentInset: 0.075,
+  contentInsetTop: 0.119,
+  contentInsetBottom: 0.149,
   ink: "#5A2C16",
   inkMuted: "#8A5B40",
 } as const;
