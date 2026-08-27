@@ -328,6 +328,33 @@ export default function ChatScreen() {
 
   // Silence auto-stop
   const silenceSinceRef = React.useRef<number | null>(null);
+  /**
+   * DID THIS HOLD CONTAIN ANY SPEECH AT ALL.
+   *
+   * Holding the button and saying nothing produced a fully formed Hindi
+   * sentence on a device: "I have an apple. I am happy today. I want roti and
+   * vegetables." The transcriber invents plausible speech from near-silence,
+   * and none of the server's existing guards can catch it, because they look
+   * for an EMPTY transcript or for the model echoing its own prompt back. This
+   * was neither. It was prose.
+   *
+   * That is worse than a wasted turn now that chat memory distils facts from
+   * what a learner says: a silent hold could write "likes apples" into what
+   * Bolo remembers about a child.
+   *
+   * The signal does not exist server-side either. gpt-4o-transcribe and its
+   * mini do not return `no_speech_prob`; that is a whisper-1 field. The only
+   * place the truth is available is here, in the mic level, which this screen
+   * already samples for the silence auto-stop.
+   *
+   * TWO REFS, NOT ONE, AND THAT IS THE WHOLE SAFETY OF IT. If metering is
+   * unavailable on some platform or build, "never heard speech" and "never
+   * heard anything" are indistinguishable, and a single ref would silently
+   * discard every recording the learner ever made. So the discard requires
+   * POSITIVE evidence: readings were seen, and none of them cleared the bar.
+   */
+  const heardSpeechRef = React.useRef(false);
+  const sawMeteringRef = React.useRef(false);
   const metering = recorderState?.metering;
 
   const scrollRef = React.useRef<ScrollView>(null);
@@ -487,8 +514,10 @@ export default function ChatScreen() {
       return;
     }
     if (typeof metering !== 'number') return;
+    sawMeteringRef.current = true;
     const now = Date.now();
     if (metering > SILENCE_THRESHOLD_DB) {
+      heardSpeechRef.current = true;
       silenceSinceRef.current = now;
       return;
     }
@@ -617,6 +646,8 @@ export default function ChatScreen() {
       (playbackRef.current as PlaybackHandle | null)?.stop();
       playbackRef.current = null;
       recordingStartTimeRef.current = Date.now();
+      heardSpeechRef.current = false;
+      sawMeteringRef.current = false;
       recorder.record();
       recorderPreparedRef.current = false;
       setPhase('recording');
@@ -662,6 +693,17 @@ export default function ChatScreen() {
     // clip. (Silence auto-stop can never fire this early, so only real taps
     // land here.)
     if (Date.now() - recordingStartTimeRef.current < MIN_RECORDING_MS) {
+      void abortRecording();
+      return;
+    }
+    // A HOLD WITH NO SPEECH IN IT IS NOT A TURN. See heardSpeechRef: the
+    // transcriber invents plausible sentences from near-silence, and the
+    // server cannot tell that from a real one. Discarded here rather than sent,
+    // which also spends no API call on it.
+    // The condition needs POSITIVE evidence of silence, never merely the
+    // absence of evidence of speech: if metering never reported at all, this
+    // must not fire, or a platform without it loses every recording.
+    if (sawMeteringRef.current && !heardSpeechRef.current) {
       void abortRecording();
       return;
     }
