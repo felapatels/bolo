@@ -14,6 +14,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { PurchasesPackage } from 'react-native-purchases';
 import {
   getGetEntitlementsQueryKey,
+  useGetTokens,
   useSetChosenLanguage,
 } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
@@ -46,7 +47,15 @@ type Benefit = {
   desc: string;
 };
 
-const ALL_ACCESS_BENEFITS: Benefit[] = [
+/**
+ * The All-Access list. The chai drop takes the SERVED figure rather than a
+ * literal, because tokenEconomy.ts owns every economy number and says so: the
+ * allowance already moved once (50 to 15) server-side on purpose, so that no
+ * client release was needed. A paywall with a stale price on it is worse than
+ * one that never mentioned the benefit.
+ */
+export function allAccessBenefits(monthlyChai: number | null): Benefit[] {
+  return [
   {
     icon: 'globe',
     title: 'Every language',
@@ -72,7 +81,21 @@ const ALL_ACCESS_BENEFITS: Benefit[] = [
     title: 'Exclusive badges',
     desc: 'Earn exclusive achievements as you learn.',
   },
-];
+  // Last, deliberately: it is the only benefit with a recurring shape and a
+  // number, so it is the one a reader carries away from the bottom of a list.
+  // Dropped entirely when the figure has not loaded, rather than shown with a
+  // blank or a guess where a price should be.
+  ...(monthlyChai != null && monthlyChai > 0
+    ? [
+        {
+          icon: 'coffee' as const,
+          title: 'Free Chai Drop Every Month!',
+          desc: `${monthlyChai} Chai to spend in BOLO Bazaar`,
+        },
+      ]
+    : []),
+  ];
+}
 
 function oneLanguageBenefits(chosenName: string | null): Benefit[] {
   return [
@@ -123,6 +146,11 @@ export default function PaywallScreen() {
     restore,
   } = usePurchases();
   const { plan, isPlus, chosenLanguage } = useEntitlements();
+  // Read only for the monthly chai figure on the benefit list. Every caller
+  // gets it, subscriber or not, and the grant inside GET /tokens is a no-op
+  // for anyone who is not already on a paid plan, so showing this screen can
+  // never hand somebody chai they have not paid for.
+  const tokens = useGetTokens();
   const { languages, activeLang } = useLanguage();
   const setChosenLanguage = useSetChosenLanguage();
 
@@ -216,7 +244,7 @@ export default function PaywallScreen() {
 
   const benefits =
     tier === 'all_access'
-      ? ALL_ACCESS_BENEFITS
+      ? allAccessBenefits(tokens.data?.allowanceAllAccessMonthly ?? null)
       : oneLanguageBenefits(chosenLangName);
 
   const monthlyPackage =

@@ -1851,6 +1851,7 @@ export const RecordChachaEncounterResponse = zod.object({
 export const GetTokensResponse = zod.object({
   "balance": zod.number(),
   "stationPausesEquipped": zod.number(),
+  "allowanceAllAccessMonthly": zod.number().optional().describe('How much Chai an All-Access subscriber is granted each calendar month. SERVED RATHER THAN HARDCODED because tokenEconomy.ts is the single source of truth for every economy number and says so: this one already moved once (50 to 15, owner ruling 2026-08-11) and was changed server-side precisely so no client release was needed. The paywall renders it, so a future change reaches both paywalls with no build. Present for every caller, subscriber or not, since the paywall is shown to people who are not subscribed yet.'),
   "expressMultiplierActiveUntil": zod.coerce.date().nullish(),
   "firstClassActiveUntil": zod.coerce.date().nullish().describe('When the caller\'s First Class status runs out, or null when it is not active. Mirrors expressMultiplierActiveUntil: an absolute deadline written at spend time, so clients derive active\/inactive and any countdown from the wall clock rather than holding a timer.'),
   "equippedOutfit": zod.string().nullish().describe('The garment id Bolo is wearing, or null for canonical undressed Bolo. Every mascot surface resolves its art from this value, so clients read it here rather than holding their own copy.'),

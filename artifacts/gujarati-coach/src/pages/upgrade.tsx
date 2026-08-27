@@ -12,6 +12,7 @@ import {
   Target,
   BarChart3,
   Award,
+  Coffee,
   Loader2,
   Sparkles,
   Users,
@@ -55,15 +56,37 @@ const TERMS_OF_USE_URL =
   "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
 const PRIVACY_POLICY_URL = "https://bolo-india.app/privacy";
 
+import { useGetTokens } from "@workspace/api-client-react";
+
 const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 
-const ALL_ACCESS_BENEFITS = [
-  { icon: Globe, text: "All 22 South Asian languages" },
-  { icon: InfinityIcon, text: "Full phrase library, sentences & every game" },
-  { icon: Target, text: "Review your weakest phrases" },
-  { icon: BarChart3, text: "Advanced progress analytics" },
-  { icon: Award, text: "Exclusive All-Access badges" },
-];
+/**
+ * The All-Access list. Mobile twin: allAccessBenefits() in paywall.tsx.
+ *
+ * The chai drop takes the SERVED figure rather than a literal. tokenEconomy.ts
+ * owns every economy number and says so in its first line, and this one
+ * already moved once (50 to 15, owner ruling 2026-08-11) server-side on
+ * purpose so that no client release was needed. A paywall showing a stale
+ * number is worse than one that never mentioned the benefit, so when the
+ * figure has not loaded the row is dropped rather than guessed.
+ */
+function allAccessBenefits(monthlyChai: number | null) {
+  return [
+    { icon: Globe, text: "All 22 South Asian languages" },
+    { icon: InfinityIcon, text: "Full phrase library, sentences & every game" },
+    { icon: Target, text: "Review your weakest phrases" },
+    { icon: BarChart3, text: "Advanced progress analytics" },
+    { icon: Award, text: "Exclusive All-Access badges" },
+    ...(monthlyChai != null && monthlyChai > 0
+      ? [
+          {
+            icon: Coffee,
+            text: `Free Chai Drop Every Month! ${monthlyChai} Chai to spend in BOLO Bazaar`,
+          },
+        ]
+      : []),
+  ];
+}
 
 const FAMILY_BENEFITS = [
   { icon: Users, text: "Everything in All-Access, for up to 4 people" },
@@ -111,6 +134,10 @@ function Header({ className }: { className?: string }) {
 }
 
 function Paywall({ lapsed }: { lapsed: boolean }) {
+  // Read only for the monthly chai figure on the All-Access benefit list. The
+  // grant inside GET /tokens is a no-op for anyone not already on a paid plan,
+  // so rendering this page can never hand somebody chai they have not paid for.
+  const tokens = useGetTokens();
   const [, setLocation] = useLocation();
   const search = useSearch();
   const queryClient = useQueryClient();
@@ -341,7 +368,9 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
             title="All-Access"
             tagline="Every language + every premium tool"
             price={priceForTier("plus")}
-            benefits={ALL_ACCESS_BENEFITS}
+            benefits={allAccessBenefits(
+              tokens.data?.allowanceAllAccessMonthly ?? null,
+            )}
             highlight="7-day free trial"
             recommended
           />

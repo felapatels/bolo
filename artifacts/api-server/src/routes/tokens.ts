@@ -67,6 +67,11 @@ router.get("/tokens", async (req: Request, res: Response): Promise<void> => {
   res.json({
     balance: state.balance,
     stationPausesEquipped: state.stationPausesEquipped,
+    // The paywall's "Free Chai Drop Every Month" figure. Served, never
+    // inlined in a client: tokenEconomy.ts is the single source of truth and
+    // this number already moved once (50 to 15) specifically without a client
+    // release.
+    allowanceAllAccessMonthly: TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY,
     expressMultiplierActiveUntil:
       state.expressMultiplierExpiresAt?.toISOString() ?? null,
     // First Class: an absolute deadline, same shape and same reasons as the
