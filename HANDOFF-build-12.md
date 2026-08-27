@@ -45,13 +45,22 @@ touch.
 
 | | version | where |
 |---|---|---|
-| iOS **516** | 1.0.3 | building or TestFlight, chat 11 was submitting at handoff time |
-| Android **516** | 1.0.3 | building or Play internal, same |
-| Android 515 | 1.0.3 | Play internal (superseded on arrival of 516) |
+| iOS **516** | 1.0.3 | **uploaded to TestFlight, processing at Apple**, bundle preflight HEALTHY (45,194 functions, the animating shape) |
+| Android **517** | 1.0.3 | built by chat 11; Play internal submit was the last step |
+| Android 515 | 1.0.3 | Play internal (superseded) |
 
-- 516 carries the ENTIRE journey redesign (section 3) plus the chat screen
-  changes. **Bundle-health preflight** (`scripts/checkBundleHealth.ts`) on
-  the iOS ipa before install was the rule chat 11 followed; keep it.
+**iOS is 516 and Android is 517, and that is not a typo.** The first `eas
+build` attempt died on the bare-workflow detection AFTER bumping Android's
+versionCode, so Android burned 516 (trap: autoIncrement bumps as it
+QUEUES). The chat 11 commit titled "iOS 516, Android 516" actually carries
+versionCode 517; the tree is right, the message is wrong, and main is never
+rewritten.
+
+- These carry the ENTIRE journey redesign (section 3) plus the chat screen
+  changes. **Bundle-health preflight** is
+  `node --experimental-strip-types scripts/checkBundleHealth.ts <ipa-url>`
+  run from `artifacts/bolo-mobile` (NOT the repo root, where CLAUDE.md's
+  path suggests). Chat 11 ran it on 516 before submitting; keep that gate.
 - **App Store REVIEW submission is the owner's press**, TestFlight upload is
   not.
 
