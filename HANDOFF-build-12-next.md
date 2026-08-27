@@ -53,6 +53,38 @@ real build: the launch handover (no white flash), the paywall chai row, the
 Android PRESS & HOLD ring offset, the whole journey header rework, and
 everything else on a release binary rather than a dev client.
 
+## 1b. A KNOWN REGRESSION, OPEN, AND IT IS YOUR FIRST BUG
+
+**The pinned zone board covers the previous zone's LAST stop.** Reported at
+the very end of chat 11: "I can't see stop 11", and then "zone 2's card has a
+full background box around it, its not floating itself" — which is very
+likely the SAME fault seen twice: the hidden stop card peeking out around the
+board reads as a box behind it.
+
+**What is already measured, so do not re-derive it:** the canvas geometry is
+CORRECT. A probe on a device printed zone 0's last card bottom at 1172 and
+zone 1's board top at 1190, an 18pt gap. So the layout is not wrong; the
+OVERLAY is drawing a board where it should not.
+
+Where to look, in order:
+
+1. `PinnedZoneBoard` in journey.tsx. Every zone's board is rendered, each with
+   `translateY = min(max(naturalY - scrollY, pinTop), nextNaturalY - scrollY -
+   boardH)`. Suspect the PUSH term first: it is what moves a board off its
+   natural place, and a wrong sign or a wrong `boardH` there would drag a
+   board up over the stop above it.
+2. `naturalY` is `SCROLL_CONTENT_TOP + slices[zi].start - TOP_PAD`. That
+   mapping was derived, not measured: the spacers and blocks are supposed to
+   tile the canvas exactly, so content y = canvas y + (SCROLL_CONTENT_TOP -
+   TOP_PAD). **Verify it with an onLayout probe on a spacer rather than
+   trusting the arithmetic** — that is exactly the class of assumption that
+   cost chat 11 several rounds.
+3. Only then consider whether both the pinned board and the incoming board
+   are on screen at once and one of them is the one overlapping.
+
+The measurement that settles it in one reload: log a spacer's real
+`onLayout` y for zone 1 and compare it to `naturalY` for zone 1.
+
 ## 2. Build state
 
 | | version | where |
