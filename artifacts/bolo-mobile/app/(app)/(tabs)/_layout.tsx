@@ -227,13 +227,27 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
 // Elevated center Bolo tab button
 // ---------------------------------------------------------------------------
 
-/** The PRESS & HOLD ring's circle, bottom-start so the words sit upright. */
-const HOLD_RING_BOX = 58 * 1.34;
+// 1.62, was 1.34: at 1.34 the text baseline sat 2pt outside the 58pt bubble
+// and the glyphs straddled its border, which read as cramped and half hidden
+// (reported off build 516). The label clears the button entirely now.
+const HOLD_RING_BOX = 58 * 1.62;
 
+/**
+ * A FULL CIRCLE FROM 9 O'CLOCK, CLOCKWISE OVER THE TOP, carrying one label
+ * centred at 12 o'clock.
+ *
+ * It sat UNDER the button first and both halves of that were wrong: below
+ * the button is where the tab bar writes "Bolo Chat", so the label collided
+ * with it, and a half-arc is shorter than the words, so "HOLD" ran off the
+ * end of the path and rendered as "HO". Above the button is empty. A full
+ * circle can never truncate whatever the font metrics do.
+ */
 function holdRingPath(box: number): string {
   const r = box * 0.4;
   const c = box / 2;
-  return `M ${c} ${c + r} A ${r} ${r} 0 1 1 ${c} ${c - r} A ${r} ${r} 0 1 1 ${c} ${c + r}`;
+  // Sweep 1 from 9 o'clock is clockwise, so the first half runs left to right
+  // OVER THE TOP and the glyphs stand upright there.
+  return `M ${c - r} ${c} A ${r} ${r} 0 0 1 ${c + r} ${c} A ${r} ${r} 0 0 1 ${c - r} ${c}`;
 }
 function BoloTabButton({
   onPress,
@@ -336,6 +350,8 @@ function BoloTabButton({
           },
         ]}
       >
+
+        <BoloNavParrot focused={focused} />
         {focused && !isRecording ? (
         <Svg
           pointerEvents="none"
@@ -353,17 +369,24 @@ function BoloTabButton({
           </Defs>
           <SvgText
             fill={colors.mutedForeground}
-            fontSize={8.5}
+            fontSize={9}
             fontWeight="800"
-            letterSpacing={1.6}
+            letterSpacing={1.4}
           >
-            <TextPath href="#bolo-nav-hold-ring" startOffset="50%" textAnchor="middle">
-              PRESS &amp; HOLD · PRESS &amp; HOLD ·
+            {/* 7%, AND IT IS TUNED ON A DEVICE RATHER THAN DERIVED.
+                react-native-svg's TextPath does NOT honour textAnchor here:
+                startOffset behaves as the text's START, not its centre, so
+                the arithmetic answer (25% of a full circle from 9 o'clock is
+                12 o'clock) put the label a quarter turn clockwise of centre.
+                Measured on the simulator at 25, 4 and 7 percent; 7 seats
+                "PRESS & HOLD" dead centre above the button. Re-measure if
+                the wording or the font size changes. */}
+            <TextPath href="#bolo-nav-hold-ring" startOffset="7%" textAnchor="middle">
+              PRESS &amp; HOLD
             </TextPath>
           </SvgText>
         </Svg>
         ) : null}
-        <BoloNavParrot focused={focused} />
       </Animated.View>
 
       {/* Label at the bottom of the tab bar slot. Reads "Bolo Chat" in the

@@ -2125,6 +2125,13 @@ export default function ChatScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.quickChipRow}
           keyboardShouldPersistTaps="handled"
+          // NEVER GROW (chat 11, reported off build 516: "the pills get super
+          // expanded after a first response"). The KeyboardAvoidingView above
+          // takes flex:1 the moment a message exists, and this ScrollView
+          // absorbed the slack, which its row content container then handed
+          // to the chips as height. flexGrow:0 keeps the row its own size;
+          // the alignItems on quickChipRow is the second half of the fix.
+          style={{ flexGrow: 0, flexShrink: 0 }}
         >
           {chatChipsFor(messages.length).map((chip) => (
             <Pressable
@@ -2343,7 +2350,18 @@ const styles = StyleSheet.create({
   // paddingBottom 26, was 8 (chat 11, "move the chips up"): the PRESS & HOLD
   // ring around the nav Bolo button reaches above the tab bar now, and the
   // chips sat on it.
-  quickChipRow: { paddingHorizontal: 16, paddingBottom: 26, gap: 8 },
+  //
+  // alignItems CENTER, NOT THE ROW DEFAULT OF STRETCH. A horizontal
+  // ScrollView's content container is a ROW, so its cross axis is vertical
+  // and stretch made every pill as tall as the ScrollView happened to be:
+  // ~400pt lozenges the moment the transcript's flex:1 kicked in. Reported
+  // off build 516.
+  quickChipRow: {
+    paddingHorizontal: 16,
+    paddingBottom: 26,
+    gap: 8,
+    alignItems: 'center',
+  },
   quickChip: {
     borderRadius: 999,
     borderWidth: 1.5,
