@@ -1,13 +1,28 @@
 // OWNER_USER_IDS is read at module load by lib/ownerGate, so it has to be set
-// before the router is imported. Same reason the mobile referral test assigns
-// EXPO_PUBLIC_DOMAIN above its imports.
+// before the router is EVALUATED.
+//
+// AN ASSIGNMENT ABOVE THE IMPORTS DOES NOT DO THAT, AND THIS FILE USED TO
+// BELIEVE IT DID. ESM hoists every static import above the module body, so
+// ./nest and lib/ownerGate were both evaluated before this line ever ran.
+// ownerGate then fell back to its three committed ids, isOwner("test_nest_owner")
+// was false, and EVERY owner-path test in this file 404'd. The one test that
+// expects a 404 passed, which is what made it look like seven separate query
+// failures rather than one gate refusing.
+//
+// Measured 2026-08-27, the first time this suite was ever run: 7 of its 8 tests
+// failed this way. Same shape as the jest factory trap in CLAUDE.md, where the
+// import that triggers the factory is hoisted above the const it captures.
+//
+// THE FIX IS THE DYNAMIC IMPORT IN before(). The assignment below still has to
+// happen at module scope, since before() would be too late for anything else
+// that reaches ownerGate first.
 process.env.OWNER_USER_IDS = "test_nest_owner";
 
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import express, { type Express } from "express";
+import express, { type Express, type IRouter } from "express";
 import {
   db,
   pool,
@@ -16,7 +31,6 @@ import {
   attemptsTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
-import nestRouter from "./nest";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
 // The two endpoints behind section 02 (Numbers) and section 03 (the line map)
@@ -44,6 +58,8 @@ const LANG = "__test_lang_nest";
 
 let app: Express;
 let server: Server;
+/** Imported inside before(), AFTER OWNER_USER_IDS is set. See the note above. */
+let nestRouter: IRouter;
 let baseUrl: string;
 let currentUserId = OWNER;
 
@@ -74,6 +90,32 @@ async function clearRows(): Promise<void> {
 }
 
 before(async () => {
+  // Dynamic, so ./nest and the ownerGate it pulls in are evaluated now rather
+  // than being hoisted above the assignment at the top of this file.
+  nestRouter = (await import("./nest")).default;
+
+  /**
+   * THE GUARD, and it is the FIRST thing in this hook for a reason.
+   *
+   * When the gate is misconfigured every owner-path test below 404s, and a 404
+   * is a plausible failure for seven different reasons, so the output reads as
+   * seven separate query bugs. That is exactly how it presented on 2026-08-27
+   * and it cost an hour of reading SQL that was never wrong.
+   *
+   * Checked before the database is touched, so a misconfigured gate fails in
+   * milliseconds with its own name on it rather than after a connection, a
+   * schema patch and three table creations.
+   */
+  const { isOwner } = await import("../lib/ownerGate");
+  assert.equal(
+    isOwner(OWNER),
+    true,
+    "OWNER_USER_IDS did not reach ownerGate, so every test in this file would " +
+      "404 for reasons that have nothing to do with what they assert. The " +
+      "assignment at the top of this file must be evaluated BEFORE ./nest is, " +
+      "which is why the router above is imported dynamically.",
+  );
+
   await ensureUsersColumns();
   await pool.query(`
     CREATE TABLE IF NOT EXISTS languages (
