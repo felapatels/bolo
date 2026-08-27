@@ -694,6 +694,15 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
        range entirely, because the schema stores the CURRENT tier and no
        history of tier changes. Labelled apart so the two are never read as
        one thing. -->
+  <!-- NOTIFICATIONS. Asked for on 2026-08-27: "can i get a live view on who
+       turned on notifications, how many users with drill down capability".
+       The honest answer needed TWO tiles, not one, because the product has two
+       things that both read as "notifications are on" and they are not wired
+       to each other. See the note. -->
+  <p class="dsub" style="margin-top:18px">Notifications</p>
+  <p class="barnote" style="margin:-4px 0 9px" id="push-note"></p>
+  <div class="grid g4" id="push-tiles"></div>
+
   <p class="dsub" style="margin-top:18px">Accounts right now</p>
   <p class="barnote" style="margin:-4px 0 9px">A snapshot, not a window. The database stores today's tier and no history, so "how many were paid in March" is a question it cannot answer.</p>
   <div class="grid g4" id="range-snapshot"></div>
@@ -2294,6 +2303,55 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     });
   }
 
+  /* The notification funnel. Two tiles rather than one, and a note saying why,
+     because "turned on notifications" is two different facts here and adding
+     them up would state something untrue. */
+  function renderPush(){
+    var host = $("push-tiles"), note = $("push-note"), s = state.summary;
+    if (!host) return;
+    if (!s) { host.innerHTML = '<div class="tile blank"><span class="n">-</span>' +
+      '<span class="l">Reachable</span><span class="w">reading</span></div>'; return; }
+
+    var reach = state.excludeOwn ? s.usersReachableExclOwner : s.usersReachable;
+    var on = state.excludeOwn ? s.remindersOnExclOwner : s.remindersOn;
+
+    host.innerHTML =
+      '<button type="button" class="tile' + (reach === 0 ? " blank" : "") +
+        '" data-metric="reachable" aria-expanded="false">' +
+        '<span class="n">' + fmt(reach) + '</span>' +
+        '<span class="l">Reachable by push</span>' +
+        /* THE TOKEN COUNT FOLLOWS THE TOGGLE. On 2026-08-27, 32 of the 35
+           live tokens in production belonged to the App Review tester, who
+           had reinstalled that many times, so the raw figure under a tile
+           about learners would report a reviewer's install loop as reach. */
+        '<span class="w">' + (state.excludeOwn
+          ? fmt(s.pushTokensLiveExclOwner) + ' live tokens'
+          : fmt(s.pushTokensLive) + ' live tokens, ' + fmt(s.pushTokensIos) +
+            ' ios ' + fmt(s.pushTokensAndroid) + ' android') + '</span>' +
+      '</button>' +
+      '<button type="button" class="tile' + (on === 0 ? " blank" : "") +
+        '" data-metric="remindersOn" aria-expanded="false">' +
+        '<span class="n">' + fmt(on) + '</span>' +
+        '<span class="l">Reminder preference on</span>' +
+        '<span class="w">what the account screen says</span>' +
+      '</button>' +
+      '<div class="tile' + (s.remindersOnNoToken === 0 ? " blank" : "") + '">' +
+        '<span class="n">' + fmt(s.remindersOnNoToken) + '</span>' +
+        '<span class="l">Asked, cannot be reached</span>' +
+        '<span class="w">preference on, no live token</span>' +
+      '</div>';
+
+    if (note) {
+      note.innerHTML = "<b>These two tiles are not connected, and that is a finding rather than a caption.</b> " +
+        "The sender in lib/streakPush.ts gates on the send window, the streak lapsing, " +
+        "not-already-sent and a live token. <b>It never reads the reminder preference.</b> " +
+        "So the left tile is who actually receives a reminder, the middle tile is a column " +
+        "the account screen writes and reads back and nothing else consults, and the primer " +
+        "at first login registers a token without setting it. " +
+        "Turning the preference OFF does not stop a reminder either. Both tiles drill.";
+    }
+  }
+
   function renderReportedPeople(){
     var host = $("reported-people"), r = state.reports;
     if (!host) return;
@@ -2535,7 +2593,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
 
   /* Ranked metrics get their own leading column; snapshot ones do not, because
      a column of zeroes reads as data. */
-  var RANKED = {activeUsers:1, attempts:1, games:1, chats:1};
+  var RANKED = {activeUsers:1, attempts:1, games:1, chats:1, reachable:1};
 
   function drillShell(inner){
     return '<div class="drill">' + inner + '</div>';
@@ -2668,7 +2726,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     if (refreshing) return Promise.resolve();
     refreshing = true;
     return Promise.all([checkHealth(), loadSummary(), loadRange(), loadMap(), loadReports(), loadLive()]).then(function(){
-      healthSay(); renderSpend(); renderAlerts(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); stamp();
+      healthSay(); renderSpend(); renderAlerts(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush(); stamp();
       refreshing = false;
     }, function(){ refreshing = false; });
   }
@@ -2761,7 +2819,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   })();
 
   /* ---------------- boot ---------------- */
-  renderSpend(); renderAlerts(); renderLive(); renderRange(); renderMap(); renderReports(); renderReportedPeople();
+  renderSpend(); renderAlerts(); renderLive(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush();
   refreshAll().then(startRefresh);
 })();
 </script>

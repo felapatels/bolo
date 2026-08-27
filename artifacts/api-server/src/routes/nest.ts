@@ -117,6 +117,39 @@ type NestSummary = {
   pushTokensIos: number;
   pushTokensAndroid: number;
   /**
+   * THE NOTIFICATION FUNNEL, and the two numbers in it are not connected the
+   * way the product implies. Added 2026-08-27 on the question "can i get a live
+   * view on who turned on notifications".
+   *
+   * usersReachable  distinct accounts holding a live push token. This is the
+   *                 ONLY thing that decides whether a reminder can arrive:
+   *                 lib/streakPush.ts gates on the send window, the streak
+   *                 lapsing, not-already-sent, and a token. It never reads
+   *                 dailyReminderEnabled.
+   * remindersOn     accounts whose dailyReminderEnabled is true. Written by
+   *                 PATCH /account, read by GET /account, and consulted by
+   *                 NOTHING ELSE IN THE PRODUCT.
+   *
+   * So these measure two different things that both look like "notifications
+   * are on", and the cockpit shows them apart rather than adding them up.
+   */
+  usersReachable: number;
+  usersReachableExclOwner: number;
+  /**
+   * Live tokens with the non-learner accounts taken out.
+   *
+   * NOT COSMETIC. On 2026-08-27 production held 35 live tokens and THIRTY TWO
+   * OF THEM BELONGED TO THE APP REVIEW TESTER, who had reinstalled that many
+   * times. The unfiltered figure is right for the alert, which asks "can this
+   * product reach any device at all", and badly wrong under a tile about
+   * learners, where it would report a reviewer's install loop as reach.
+   */
+  pushTokensLiveExclOwner: number;
+  remindersOn: number;
+  remindersOnExclOwner: number;
+  /** Asked for reminders and holds no token, so nothing can reach them. */
+  remindersOnNoToken: number;
+  /**
    * Scheduled streak reminders actually sent, ever, and the most recent.
    *
    * THIS IS THE ONLY THING THAT CAN ANSWER "IS ANYTHING CALLING THE CRON".
@@ -238,6 +271,20 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
           where disabled_at is null and platform = 'ios')::int                  as push_tokens_ios,
         (select count(*) from push_tokens
           where disabled_at is null and platform = 'android')::int              as push_tokens_android,
+        (select count(distinct user_id) from push_tokens
+          where disabled_at is null)::int                                       as users_reachable,
+        (select count(distinct t.user_id) from push_tokens t
+          where t.disabled_at is null and ${notOwner('t.user_id')})::int         as users_reachable_excl_owner,
+        (select count(*) from push_tokens t
+          where t.disabled_at is null and ${notOwner('t.user_id')})::int         as push_tokens_live_excl_owner,
+        (select count(*) from users where daily_reminder_enabled)::int          as reminders_on,
+        (select count(*) from users u
+          where u.daily_reminder_enabled and ${notOwner('u.id')})::int           as reminders_on_excl_owner,
+        (select count(*) from users u
+          where u.daily_reminder_enabled
+            and not exists (select 1 from push_tokens t
+                             where t.user_id = u.id and t.disabled_at is null))::int
+                                                                                as reminders_on_no_token,
         (select count(*) from activity_events
           where type = 'push_streak_reminder')::int                             as streak_pushes_sent,
         (select max(created_at) from activity_events
@@ -288,6 +335,12 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
       pushTokensLive: n("push_tokens_live"),
       pushTokensIos: n("push_tokens_ios"),
       pushTokensAndroid: n("push_tokens_android"),
+      usersReachable: n("users_reachable"),
+      usersReachableExclOwner: n("users_reachable_excl_owner"),
+      pushTokensLiveExclOwner: n("push_tokens_live_excl_owner"),
+      remindersOn: n("reminders_on"),
+      remindersOnExclOwner: n("reminders_on_excl_owner"),
+      remindersOnNoToken: n("reminders_on_no_token"),
       streakPushesSent: n("streak_pushes_sent"),
       streakPushLast:
         r.streak_push_last == null
@@ -486,6 +539,25 @@ const DRILL_METRICS: Record<
     note: "Everybody who is not paid, right now. Paid plus free is the account total.",
     windowed: false,
   },
+  reachable: {
+    label: "Reachable by push",
+    note:
+      "Accounts holding at least one live push token, ranked by how many devices. " +
+      "This is the ONLY thing that decides whether a reminder can arrive: the " +
+      "sender gates on the window, the streak, not-already-sent and a token, and " +
+      "never reads the reminder preference. Disabled tokens are excluded because " +
+      "Expo answered DeviceNotRegistered for them.",
+    windowed: false,
+  },
+  remindersOn: {
+    label: "Reminder preference on",
+    note:
+      "Accounts whose dailyReminderEnabled is true. WORTH KNOWING: this column " +
+      "is written by the account screen and read back by it, and nothing else in " +
+      "the product consults it. It does not turn reminders on and clearing it " +
+      "does not turn them off.",
+    windowed: false,
+  },
   trialing: {
     label: "Trialing",
     note: "subscription_status is trialing, right now.",
@@ -560,6 +632,13 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
   } else if (metric === "free") {
     selector = sql`select u.id, 0 from users u
       where not (u.tier <> 'free' and u.subscription_status = 'active') ${notOwner("u.id")}`;
+  } else if (metric === "reachable") {
+    selector = sql`select t.user_id, count(*)::int from push_tokens t
+      where t.disabled_at is null ${notOwner("t.user_id")}
+      group by 1`;
+  } else if (metric === "remindersOn") {
+    selector = sql`select u.id, 0 from users u
+      where u.daily_reminder_enabled ${notOwner("u.id")}`;
   } else if (metric === "trialing") {
     selector = sql`select u.id, 0 from users u
       where u.subscription_status = 'trialing' ${notOwner("u.id")}`;
