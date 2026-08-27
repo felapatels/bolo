@@ -190,6 +190,10 @@ export function JourneyPassCard({
   // the board never has to render at a guessed width for more than one pass.
   const { width: windowW } = useWindowDimensions();
   const [passW, setPassW] = React.useState(0);
+  // The station name's own column, measured. Derived width would have to know
+  // the ticket, the gap and both content insets, and it is the one number the
+  // fit depends on.
+  const [titleW, setTitleW] = React.useState(0);
   const boardW =
     passW > 0 ? passW : Math.max(1, windowW - HOME_CONTENT_PAD * 2 + HOME_BOARD_BLEED * 2);
   const pedimentH = zoneBoardPedimentH(boardW);
@@ -496,7 +500,13 @@ export function JourneyPassCard({
                 12). Landscape in the corner, the progress bar and the plate get
                 the whole panel back. */}
             <View style={styles.topRow}>
-              <View style={styles.topText}>
+              <View
+                style={styles.topText}
+                onLayout={(e) => {
+                  const w = Math.round(e.nativeEvent.layout.width);
+                  if (w > 0 && w !== titleW) setTitleW(w);
+                }}
+              >
                 {/* The brand is native-script ("Bolo Rail" in the learner's own
                     script) and MUST render with the language font or the Latin
                     UI font shows tofu. Same per-script handling as the picker.
@@ -525,7 +535,19 @@ export function JourneyPassCard({
                 {/* THE STATION, exactly as the zone card names one: the city in
                     the board's own ink, not a theme token. The panel is cream in
                     both themes and a cool slate reads cold on it. */}
-                <Text numberOfLines={1} style={styles.title}>
+                <Text
+                  numberOfLines={2}
+                  style={[
+                    styles.title,
+                    (() => {
+                      const size = stationFontSize(
+                        journey.current ? journey.current.geoName : line.lineName,
+                        titleW,
+                      );
+                      return { fontSize: size, lineHeight: Math.round(size * 1.2) };
+                    })(),
+                  ]}
+                >
                   {journey.current ? journey.current.geoName : `Ride the ${line.lineName}`}
                 </Text>
                 <Text numberOfLines={1} style={styles.subtitle}>
@@ -732,6 +754,41 @@ export function JourneyPassCard({
   );
 }
 
+/**
+ * THE STATION NAME FITS. IT DOES NOT ELLIPSIZE.
+ *
+ * `numberOfLines={1}` shrinks nothing: it cuts. The line table ships names up
+ * to 26 characters ("Thiruvananthapuram Central", and "Bolpur Shantiniketan"
+ * behind it), and at 19pt one of those is about 290 points of type in a column
+ * roughly 140 wide. Flagged before it shipped: "if the zone name is long, make
+ * sure the text shrinks and doesn't eat up the boarding pass" (owner, chat 12).
+ *
+ * FITTED, NOT `adjustsFontSizeToFit`. That prop's behaviour differs between the
+ * platforms and this repo has already been bitten once by an iOS-only text
+ * property (react-native-svg's textAnchor). Arithmetic behaves the same on
+ * both, and it is testable without a device.
+ *
+ * TWO BUDGETS, AND THE SMALLER WINS. The LONGEST WORD has to fit one line, or
+ * it breaks mid-word; the WHOLE NAME has to fit two. "Thiruvananthapuram
+ * Central" is bound by its first word, "Bolpur Shantiniketan" by its second.
+ * 0.58em per glyph is the extrabold Latin average at these sizes, measured off
+ * the rendered card rather than taken from a font table.
+ */
+export const STATION_FONT_MAX = 19;
+export const STATION_FONT_MIN = 12;
+export function stationFontSize(name: string, width: number): number {
+  const trimmed = name.trim();
+  if (width <= 0 || trimmed.length === 0) return STATION_FONT_MAX;
+  const words = trimmed.split(/\s+/);
+  const longest = words.reduce((a, b) => (b.length > a.length ? b : a), '');
+  const byWord = width / Math.max(1, longest.length * 0.58);
+  const byWholeOverTwoLines = (width * 2) / Math.max(1, trimmed.length * 0.58);
+  return Math.max(
+    STATION_FONT_MIN,
+    Math.min(STATION_FONT_MAX, Math.floor(Math.min(byWord, byWholeOverTwoLines))),
+  );
+}
+
 // R1: the stub column's fixed width, and the stamp that fits it.
 // THE MINI TICKET'S WIDTH. It grew from 64 when the stub became a whole
 // ticket: a body that names the line, the station and the stop needs a run to
@@ -864,13 +921,9 @@ const styles = StyleSheet.create({
   eyebrowNative: { fontSize: 11, letterSpacing: 0 },
   // The board's ink, not a theme token. The panel is cream in both themes and
   // a cool slate reads cold on it.
-  title: {
-    fontFamily: AppFonts.extrabold,
-    fontSize: 19,
-    lineHeight: 23,
-    color: ZONE_BOARD.ink,
-    marginTop: 1,
-  },
+  // fontSize and lineHeight are applied at the call site from the measured
+  // column: see stationFontSize.
+  title: { fontFamily: AppFonts.extrabold, color: ZONE_BOARD.ink, marginTop: 1 },
   subtitle: {
     fontFamily: AppFonts.semibold,
     fontSize: 11,
