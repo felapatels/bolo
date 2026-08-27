@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useUser } from '@clerk/expo';
 import { initSentry, setSentryUser, Sentry } from '@/lib/sentry';
 import { installApiFailureBreadcrumbs } from '@/lib/apiErrors';
@@ -31,6 +31,16 @@ const proxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
 // Prevent the splash screen from auto-hiding before fonts finish loading.
 SplashScreen.preventAutoHideAsync();
+
+/**
+ * How long the native splash may wait for the boot film before giving up.
+ *
+ * 600ms. Long enough for the RN tree to paint on a cold start on a slow
+ * device, short enough that a learner on a path with no film does not notice
+ * they waited. It is a backstop, not a delay: on the normal path the film
+ * reports in well under this and the splash hides immediately.
+ */
+const NATIVE_SPLASH_HANDOVER_FAILSAFE_MS = 600;
 
 // Both are no-ops unless their env keys (EXPO_PUBLIC_SENTRY_DSN /
 // EXPO_PUBLIC_POSTHOG_KEY) are present. Initialize at module load so early
@@ -92,11 +102,35 @@ function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontMap);
   const colors = useColors();
 
+  // THE NATIVE SPLASH HANDS OVER TO THE BOOT FILM, IT DOES NOT JUST VANISH.
+  //
+  // It used to hide the moment the FONTS resolved, and the RN tree needs a
+  // frame or two after that to paint: the gap showed the app background as a
+  // white flash between the native Bolo and the film. Reported 2026-08-27,
+  // "i see bolo with the brown background, then i see a white page flash then
+  // i see the video splash."
+  //
+  // The overlay's ground is #89695B, byte-identical to app.json's native
+  // splash backgroundColor, so once it HAS painted the handover is invisible.
+  // All that was ever missing was waiting for it.
+  //
+  // THE FAILSAFE IS NOT OPTIONAL. The film does not always mount: it is off on
+  // some paths, its error boundary can drop it, and it renders null once the
+  // day's play is spent. Without the timer any of those would leave the native
+  // splash up forever, which is a far worse bug than the flash.
+  const [filmPainted, setFilmPainted] = useState(false);
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    if (!(fontsLoaded || fontError)) return;
+    if (filmPainted) {
       SplashScreen.hideAsync();
+      return;
     }
-  }, [fontsLoaded, fontError]);
+    const t = setTimeout(
+      () => SplashScreen.hideAsync(),
+      NATIVE_SPLASH_HANDOVER_FAILSAFE_MS,
+    );
+    return () => clearTimeout(t);
+  }, [fontsLoaded, fontError, filmPainted]);
 
   if (!fontsLoaded && !fontError) return null;
 
@@ -129,7 +163,7 @@ function RootLayout() {
                 {/* The boot film, over the Stack. The native splash hides on
                     fonts; this picks up from there and covers Clerk plus both
                     redirect hops. (This comment was here twice; one copy.) */}
-                <BrandSplash />
+                <BrandSplash onReady={() => setFilmPainted(true)} />
                 {/* The stop transition, also over the Stack and one zIndex
                     below the boot film, so the two can never fight. It has to
                     live here rather than in journey.tsx because it covers the

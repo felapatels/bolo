@@ -45,6 +45,7 @@ import { FeedPulseDot, useFeedPulse } from '@/components/FeedPulse';
 import { REFERRAL_REWARD_CHAI } from '@workspace/referral-link';
 import { PressableScale } from '@/components/PressableScale';
 import { useColors } from '@/hooks/useColors';
+import { LiveFlash } from '@/components/LiveFlash';
 import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 import { referralLinkFor } from '@/lib/referral';
@@ -217,6 +218,16 @@ function LatestFriendMoment({
         { backgroundColor: `${colors.mutedForeground}18` },
       ]}
     >
+      {/* THE WHOLE CARD CATCHES THE LIGHT when a moment lands, not just the
+          dot. Same trigger as the dot and the same rule behind it: it fires on
+          a CHANGE, never on first sight, so it means something every time it
+          happens. Sits under the avatar and the text, which stay readable
+          through it. */}
+      <LiveFlash
+        testID="home-moment-live-flash"
+        active={pulsing}
+        color={colors.primary}
+      />
       <MascotAvatar user={entry.actor} size={28} />
       <Text
         numberOfLines={1}
@@ -431,6 +442,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
+    // The live flash is an absoluteFill child, so the row has to clip it or
+    // the wash would square off the corners it is meant to sit inside.
+    overflow: 'hidden',
   },
   momentText: {
     flex: 1,

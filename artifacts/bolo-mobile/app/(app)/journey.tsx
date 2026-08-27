@@ -1662,7 +1662,8 @@ export default function JourneyScreen() {
     const stop = chachaDlg ? allStations[chachaDlg.station - 1] : undefined;
     setChachaDlg(null);
     if (!stop) return;
-    playStopSplash(stop.zoneId);
+    // No splash leaving the stall either, same reason as the stop cards: the
+    // learner has already watched the arrival film on this visit.
     router.push({
       pathname: '/(app)/practice/[id]',
       params: { id: String(stop.zoneId), group: String(stop.id) },
@@ -2555,7 +2556,13 @@ export default function JourneyScreen() {
               hapticLight();
               if (s.story) {
                 if (accessible) {
-                  playStopSplash(zone.id);
+              // NO SPLASH ON SELECTION (chat 11). The film played twice on
+              // the way to one lesson: once arriving on the map and again on
+              // the way off it, "I want to get rid of the second splash
+              // playing after you select a stop on journey. feels
+              // unnecessary." The arrival film is the one that earns its
+              // place; a second showing of the same six seconds between a tap
+              // and the thing tapped is a toll.
                   router.push({
                     pathname: '/(app)/(tabs)/games/storybook',
                     params: {
@@ -2570,11 +2577,14 @@ export default function JourneyScreen() {
               }
               if (s.trace) {
                 if (accessible) {
-                  playStopSplash(zone.id);
-                  // KEYED OFF THE STOP, not off zone.id: the ladder is indexed
-                  // by a 1-based zone ORDINAL and a category id is not one.
-                  // The splash above is the exception and keys off the id on
-                  // purpose; see lib/stopSplash.ts for why.
+              // NO SPLASH ON SELECTION (chat 11). The film played twice on
+              // the way to one lesson: once arriving on the map and again on
+              // the way off it, "I want to get rid of the second splash
+              // playing after you select a stop on journey. feels
+              // unnecessary." The arrival film is the one that earns its
+              // place; a second showing of the same six seconds between a tap
+              // and the thing tapped is a toll.
+
                   router.push({
                     pathname: '/(app)/(tabs)/games/script-trace',
                     params: {
@@ -2593,11 +2603,13 @@ export default function JourneyScreen() {
                 return;
               }
               if (accessible) {
-                // BEFORE the push, not after: the overlay has to be on screen
-                // before the practice route mounts, or the learner watches the
-                // page appear and then get covered up. A zone with no film is
-                // a no-op, so there is nothing to check here.
-                playStopSplash(zone.id);
+              // NO SPLASH ON SELECTION (chat 11). The film played twice on
+              // the way to one lesson: once arriving on the map and again on
+              // the way off it, "I want to get rid of the second splash
+              // playing after you select a stop on journey. feels
+              // unnecessary." The arrival film is the one that earns its
+              // place; a second showing of the same six seconds between a tap
+              // and the thing tapped is a toll.
                 router.push({
                   pathname: '/(app)/practice/[id]',
                   params: { id: String(zone.id), group: String(s.id) },

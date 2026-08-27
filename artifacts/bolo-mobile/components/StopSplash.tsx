@@ -20,6 +20,7 @@ import { Animated, StyleSheet, View } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useReducedMotion } from 'react-native-reanimated';
 import {
+  STOP_SPLASH_ENTER_MS,
   STOP_SPLASH_EXIT_MS,
   STOP_SPLASH_HOLD_MS,
   endStopSplash,
@@ -38,7 +39,11 @@ export function StopSplash() {
 function StopSplashFilm({ zone }: { zone: number }) {
   const source = stopSplashFor(zone);
   const reduceMotion = useReducedMotion();
-  const opacity = React.useRef(new Animated.Value(1)).current;
+  // STARTS AT 0 AND FADES IN. It used to start at 1, so the overlay appeared
+  // in a single frame and only the exit was animated: "the splash that plays
+  // after boarding pass selection doesn't feel smooth enough, fade it in and
+  // out" (2026-08-27). Half the roughness was that there was no in.
+  const opacity = React.useRef(new Animated.Value(0)).current;
   const [exiting, setExiting] = React.useState(false);
 
   const player = useVideoPlayer(source, (p) => {
@@ -54,6 +59,19 @@ function StopSplashFilm({ zone }: { zone: number }) {
     const t = setTimeout(() => setExiting(true), STOP_SPLASH_HOLD_MS);
     return () => clearTimeout(t);
   }, []);
+
+  // The entrance. Reduced motion still gets the overlay, just instantly: the
+  // film is content rather than decoration, so it must not be skipped, only
+  // un-animated.
+  React.useEffect(() => {
+    const anim = Animated.timing(opacity, {
+      toValue: 1,
+      duration: reduceMotion ? 0 : STOP_SPLASH_ENTER_MS,
+      useNativeDriver: false,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [reduceMotion, opacity]);
 
   React.useEffect(() => {
     if (!exiting) return;

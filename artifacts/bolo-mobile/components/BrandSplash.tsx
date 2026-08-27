@@ -73,7 +73,7 @@ export function __resetBrandSplashForTests(): void {
 
 type SplashPhase = 'playing' | 'exiting' | 'done';
 
-function BrandSplashFilm() {
+function BrandSplashFilm({ onReady }: { onReady?: () => void }) {
   // Read the latch once, at mount, before the effect below consumes it.
   const [phase, setPhase] = useState<SplashPhase>(() =>
     coldStartConsumed ? 'done' : 'playing',
@@ -212,6 +212,14 @@ function BrandSplashFilm() {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       style={[StyleSheet.absoluteFill, styles.overlay, { opacity }]}
+      // THE HANDSHAKE THAT KILLS THE WHITE FLASH. onLayout fires once this
+      // overlay has been laid out and is about to paint, which is the earliest
+      // moment it is safe to take the native splash away. Before this, the
+      // root hid the native splash as soon as the FONTS loaded, and the gap
+      // between that and this view painting showed the app background:
+      // "i see bolo with the brown background, then i see a white page flash
+      // then i see the video splash" (2026-08-27).
+      onLayout={onReady}
     >
       {/* expo-video has no poster prop, so the still is a plain underlay: the
           film paints over it the moment its first frame decodes, and until then
@@ -279,10 +287,10 @@ class SplashErrorBoundary extends Component<{ children: ReactNode }, { failed: b
   }
 }
 
-export function BrandSplash() {
+export function BrandSplash({ onReady }: { onReady?: () => void } = {}) {
   return (
     <SplashErrorBoundary>
-      <BrandSplashFilm />
+      <BrandSplashFilm onReady={onReady} />
     </SplashErrorBoundary>
   );
 }

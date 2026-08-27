@@ -64,11 +64,33 @@ export function stopSplashFor(zoneId: number): number | null {
   return FILMS[zoneId] ?? null;
 }
 
-/** How long the overlay holds before it starts fading out. */
-export const STOP_SPLASH_HOLD_MS = 1200;
+/**
+ * The fade UP onto the film.
+ *
+ * The overlay used to appear in one frame at full opacity and only the exit
+ * was animated, which is most of why it read as abrupt: "doesn't feel smooth
+ * enough, fade it in and out" (2026-08-27). 220 is long enough to register as
+ * a fade and short enough that it does not delay a film that is only holding
+ * for 1200.
+ */
+export const STOP_SPLASH_ENTER_MS = 220;
 
-/** The fade from the film to the stop page. */
-export const STOP_SPLASH_EXIT_MS = 260;
+/**
+ * How long the overlay holds before it starts fading out.
+ *
+ * 1400, was 1200. The hold now has a 220 fade in front of it, and keeping the
+ * old number would have cut the same amount off the part a learner actually
+ * watches. This keeps the film's own visible stretch where it was.
+ */
+export const STOP_SPLASH_HOLD_MS = 1400;
+
+/**
+ * The fade from the film to the stop page.
+ *
+ * 420, was 260. Out slower than in (220) on purpose: an entrance wants to be
+ * over quickly, an exit that snaps is the half that reads as a cut.
+ */
+export const STOP_SPLASH_EXIT_MS = 420;
 
 /**
  * A module store rather than a context, because the trigger is inside the
