@@ -291,7 +291,11 @@ describe('journey map — showroom mode (locked language)', () => {
     expect(screen.getByTestId('zone-board-overlay-0')).toBeOnTheScreen();
     // Teaser affordances.
     expect(screen.getByText('FREE TASTE')).toBeOnTheScreen();
-    expect(screen.getByText('Free taste 1/3')).toBeOnTheScreen();
+    // EVERY ZONE'S BOARD IS IN THE TREE NOW, one per zone, because the boards
+    // are hand-pinned overlays rather than one swapping card: each tracks its
+    // own place, sticks at the top, and is pushed off by the next. So the
+    // teaser line appears once per board rather than once on screen.
+    expect(screen.getAllByText('Free taste 1/3').length).toBeGreaterThan(0);
 
     // The teaser station is the ONLY stop that routes into practice.
     fireEvent.press(screen.getByLabelText('Stop 1 of 2: Now boarding'));

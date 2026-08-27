@@ -31,6 +31,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+// Aliased: react-native-svg exports a LinearGradient too, and the tag
+// backs use that one.
+import { LinearGradient as FadeGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Svg, {
   Circle,
@@ -798,6 +801,66 @@ function SlidingCardSlot({
   return <Animated.View style={[style, anim]}>{children}</Animated.View>;
 }
 
+/**
+ * ONE ZONE BOARD, PINNED BY HAND.
+ *
+ * React Native's own stickyHeaderIndices could not be used: it wraps a sticky
+ * child in its own container, and THAT container is the sibling z-order
+ * applies to, so stop cards scrolled straight over the board and neither
+ * zIndex nor elevation on the board could stop it. Both were tried on a
+ * device.
+ *
+ * Drawing the board in an overlay above the ScrollView fixed the z-order and
+ * broke something else: an overlay that only ever shows the CURRENT zone means
+ * the board never appears IN the journey, so scrolling into a new zone left a
+ * blank gap where the card should have arrived. "The zone card is missing from
+ * the actual journey and only mounted on top."
+ *
+ * So the pinning is done here instead, which is the honest version of sticky:
+ *  - while the board's own place is below the pin line, it TRACKS it, so it
+ *    scrolls up the page like any other card and the learner watches it arrive
+ *  - once it reaches the pin line it STOPS there
+ *  - and when the next zone's board comes up behind it, that one PUSHES it off
+ *    rather than crossfading, which is what makes the boundary read as travel
+ *
+ * All of it is one transform off the shared scroll value, on the UI thread.
+ */
+function PinnedZoneBoard({
+  naturalY,
+  nextNaturalY,
+  pinTop,
+  boardH,
+  scrollY,
+  children,
+}: {
+  /** The board's own top in SCROLL CONTENT coordinates. */
+  naturalY: number;
+  /** The next zone's board top, or null for the last zone. */
+  nextNaturalY: number | null;
+  /** Where a pinned board rests: below the status bar. */
+  pinTop: number;
+  boardH: number;
+  scrollY: SharedValue<number>;
+  children: React.ReactNode;
+}) {
+  const style = useAnimatedStyle(() => {
+    const natural = naturalY - scrollY.value;
+    const pinned = Math.max(natural, pinTop);
+    if (nextNaturalY == null) return { transform: [{ translateY: pinned }] };
+    // The push. Never lets this board overlap the one coming up behind it.
+    const pushed = nextNaturalY - scrollY.value - boardH;
+    return { transform: [{ translateY: Math.min(pinned, pushed) }] };
+  });
+  return (
+    <Animated.View
+      pointerEvents="box-none"
+      style={[{ position: 'absolute', left: 0, right: 0 }, style]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 function StationMarker({
   station,
   color,
@@ -1407,8 +1470,7 @@ export default function JourneyScreen() {
               // SCROLL VIEW's top edge, which is under the status bar. The
               // painted cap behind it is extended by the same amount, so
               // the art still runs to the top of the screen.
-              paddingTop: headerTopInset,
-              height: PC_H + ZONE_BOARD_GAP + headerTopInset,
+              height: PC_H + ZONE_BOARD_GAP,
               // BOTH SIBLINGS ORDERED EXPLICITLY, and elevation with it. A
               // sticky header is transformed by the ScrollView to hold its
               // place, and on iOS that was enough to let the LATER block
@@ -1419,20 +1481,13 @@ export default function JourneyScreen() {
               elevation: 30,
             }}
           >
-            <ZoneBandFixed
-              zi={zi}
-              start={start}
-              end={end}
-              layerTop={0}
-              windowW={windowW}
-              windowH={windowH}
-              mapW={mapW}
-              scrollY={scrollY}
-              contentTop={SCROLL_CONTENT_TOP}
-              extraTop={headerTopInset}
-              mode="cap"
-            />
-              <View style={[styles.postcardWrap, { top: 10 + headerTopInset }]}>
+            {/* NO PAINTED BACKING. It had a full-width opaque cap so the map
+                could not show through its transparent margins while pinned,
+                and that is exactly what made it read as a header: "the whole
+                top is a box instead of a floating zone card and button." The
+                carved board is a card lying on the map now, and the live map
+                shows around it. */}
+              <View style={[styles.postcardWrap, { top: 10 }]}>
                 {/* THE CARVED STATION BOARD, cut into three so only the
                     panel stretches. See ZONE_BOARD in lib/zoneBackdrops.ts
                     for why it is three files and why it is capped. Web twin:
@@ -2441,28 +2496,19 @@ export default function JourneyScreen() {
               <View
                 key={`zone-board-${zone.id}`}
                 testID={`zone-board-child-${zi}`}
+                // EXACTLY THE RESERVED HEIGHT, no safe-area padding. It kept
+                // the inset from when the board lived in here, so every
+                // spacer was 62pt taller than the space the canvas reserves
+                // and each zone drifted further down than its own geometry
+                // said: the pinned board landed on the previous zone's last
+                // stop. "Pin is off." The pin owns the safe area now.
                 style={{
                   width: mapW,
                   alignSelf: 'center',
-                  paddingTop: headerTopInset,
-                  height: PC_H + ZONE_BOARD_GAP + headerTopInset,
+                  height: PC_H + ZONE_BOARD_GAP,
                 }}
                 onLayout={zi === 0 ? onMapLayout : undefined}
-              >
-                <ZoneBandFixed
-                  zi={zi}
-                  start={start}
-                  end={end}
-                  layerTop={0}
-                  windowW={windowW}
-                  windowH={windowH}
-                  mapW={mapW}
-                  scrollY={scrollY}
-                  contentTop={SCROLL_CONTENT_TOP}
-                  extraTop={headerTopInset}
-                  mode="cap"
-                />
-              </View>
+              />
             );
           const blockChild = (
             <View
@@ -3306,7 +3352,42 @@ export default function JourneyScreen() {
         // absolute child does not take a parent's paddingTop.
         style={[styles.boardOverlay, { top: 0 }]}
       >
-        {renderZoneBoard(activeZone)}
+        {/* A SHORT FADE UNDER THE STATUS BAR, and deliberately not a bar.
+            With the board floating, the live map runs right up behind the
+            clock, and a stop card sliding through there collides with it.
+            This is the smallest thing that fixes that: the zone's own foot
+            tone at the very top, gone within the safe area, so the status bar
+            stays readable and nothing reads as a header. */}
+        <FadeGradient
+          pointerEvents="none"
+          colors={[`${zoneFootTone(activeZone)}E6`, `${zoneFootTone(activeZone)}00`]}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: headerTopInset + 14,
+          }}
+        />
+        {zones.map((_, zi) => (
+          <PinnedZoneBoard
+            key={`pinned-board-${zi}`}
+            // -TOP_PAD: the canvas reserves 10 before the first board and the
+            // scroll content does not, so canvas y and content y differ by
+            // exactly that much for every zone.
+            naturalY={SCROLL_CONTENT_TOP + (slices[zi]?.start ?? 0) - TOP_PAD}
+            nextNaturalY={
+              zi + 1 < zones.length
+                ? SCROLL_CONTENT_TOP + (slices[zi + 1]?.start ?? 0) - TOP_PAD
+                : null
+            }
+            pinTop={headerTopInset}
+            boardH={PC_H + ZONE_BOARD_GAP}
+            scrollY={scrollY}
+          >
+            {renderZoneBoard(zi)}
+          </PinnedZoneBoard>
+        ))}
       </View>
 
       {/* Lock dialogs: entitlement locks and progression locks read
@@ -3627,7 +3708,9 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 20,
+    // ABOVE the board overlay (40). The board is a full-width card pinned to
+    // the same corner the back arrow lives in, and at 20 it buried it.
+    zIndex: 50,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
