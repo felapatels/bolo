@@ -2340,7 +2340,10 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  quickChipRow: { paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
+  // paddingBottom 26, was 8 (chat 11, "move the chips up"): the PRESS & HOLD
+  // ring around the nav Bolo button reaches above the tab bar now, and the
+  // chips sat on it.
+  quickChipRow: { paddingHorizontal: 16, paddingBottom: 26, gap: 8 },
   quickChip: {
     borderRadius: 999,
     borderWidth: 1.5,

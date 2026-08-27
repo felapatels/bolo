@@ -64,6 +64,12 @@ jest.mock('react-native-svg', () => {
     Line: passthrough,
     Pattern: passthrough,
     Defs: passthrough,
+    // The drawn tag backs (chat 11) gradient their stock and the nav ring
+    // writes on a TextPath; a mock that lacks a component hands back
+    // undefined and the whole screen dies with "Element type is invalid".
+    LinearGradient: passthrough,
+    Stop: passthrough,
+    TextPath: passthrough,
   };
 });
 

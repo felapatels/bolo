@@ -92,6 +92,12 @@ jest.mock('react-native-svg', () => {
     Line: passthrough,
     Pattern: passthrough,
     Defs: passthrough,
+    // The drawn tag backs (chat 11) gradient their stock and the nav ring
+    // writes on a TextPath; a mock that lacks a component hands back
+    // undefined and the whole screen dies with "Element type is invalid".
+    LinearGradient: passthrough,
+    Stop: passthrough,
+    TextPath: passthrough,
   };
 });
 
@@ -440,9 +446,13 @@ describe('journey map — the opening shot (Task 1082 item 4, recut 2026-08-26)'
   //
   // The shot is a hand-driven tween, so these tests drive the clock and the
   // frames themselves rather than waiting on either.
+  // The map became per-zone children for the sticky boards (chat 11), so the
+  // intro's layout baseline is the FIRST BOARD child. It sits TOP_PAD (10)
+  // into the old canvas space and onMapLayout subtracts that back off, so
+  // firing with y + 10 keeps every expected scroll target below identical.
   const layOutMap = (y = 0) =>
-    fireEvent(screen.getByTestId('journey-map'), 'layout', {
-      nativeEvent: { layout: { x: 0, y, width: 390, height: 4000 } },
+    fireEvent(screen.getByTestId('zone-board-child-0'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: y + 10, width: 390, height: 202 } },
     });
 
   /** Learner deep into the line: 11 finished stops, then the current one. */
@@ -902,8 +912,10 @@ describe('journey map — build 31 signboard dressing + rail pulse', () => {
     const partFill = StyleSheet.flatten(
       screen.getByTestId(`stop-progress-${b.id}`).props.style,
     );
-    expect(fullFill.width).toBe(80); // 8/8 of the 80px track
-    expect(partFill.width).toBe(30); // 3/8 of the 80px track
+    // Percentages of a full-width track since chat 11 ("spread out the
+    // wording"): the fixed 80px track left half an even-width tag empty.
+    expect(fullFill.width).toBe('100%'); // 8/8
+    expect(partFill.width).toBe('38%'); // 3/8, rounded
     expect(screen.queryByTestId(`stop-progress-${c.id}`)).toBeNull(); // unattempted
 
     expect(screen.getByText('8/8 mastered')).toBeOnTheScreen();
@@ -1001,7 +1013,8 @@ describe('journey map - trackside scenery (web Task 985 port)', () => {
       [],
     ]);
     render(<JourneyScreen />);
-    expect(screen.getByTestId('journey-scenery-layer')).toBeOnTheScreen();
+    // Per-zone parallax layers since the sticky-board cut (chat 11).
+    expect(screen.getByTestId('journey-scenery-layer-0')).toBeOnTheScreen();
     // The 3-station zone plans one element, the 1-station zone plans one.
     expect(screen.getAllByTestId('scenery-item').length).toBe(2);
   });
@@ -1379,7 +1392,11 @@ describe('journey map — the tracing stop', () => {
     // ALL-ACCESS 1 -> 2: zone 2's story stop is plan-locked beside its tracing
     // stop and carries the same chip.
     expect(screen.getAllByText('FREE TASTE').length).toBe(2);
-    expect(screen.getAllByText('ALL-ACCESS').length).toBe(2);
+    // 2 -> 4 (chat 11): the plate went from sentence/trace/story-only to
+    // EVERY plan-locked stop, on the owner's instruction ("Zone 3 and onward
+    // every stop should have this badge"), so the two plan-locked WORD stops
+    // in this fixture now wear it too.
+    expect(screen.getAllByText('ALL-ACCESS').length).toBe(4);
     fireEvent.press(screen.getByLabelText(/Stop 2 of 4: Trace/));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/(tabs)/games/script-trace',
@@ -1427,13 +1444,12 @@ describe('journey map — the stop card is paper on every stop (item 1.1)', () =
     // The fixture draws five graded stops plus the trace and story rows, so a
     // map that rendered nothing fails here before the real assertion does.
     expect(cards.length).toBeGreaterThan(4);
-    const bare = cards.filter(
-      (c) => typeof stockOf(c).backgroundColor !== 'string',
-    );
-    // A non-empty list here means those cards render with no stock at all, so
-    // their text sits straight on the painted backdrop. Jest's expect takes no
-    // message argument, so the labels are the message.
-    expect(bare.map((c) => c.props.accessibilityLabel ?? 'stop-card')).toEqual([]);
+    // THE STOCK IS THE DRAWN TAG BACK NOW (chat 11): backgroundColor moved
+    // off the card View and into TagCardBack's gradient, so "has stock"
+    // means "has a tag back". A card without one puts its text straight on
+    // the painting, which is the bug this test exists to catch.
+    const backs = screen.getAllByTestId(/^tag-back-/);
+    expect(backs.length).toBe(cards.length);
   });
 
   it('knocks an unreachable stop back with greyer paper, never with opacity', () => {
@@ -1443,23 +1459,17 @@ describe('journey map — the stop card is paper on every stop (item 1.1)', () =
       [], [], [], [],
     ]);
     render(<JourneyScreen />);
-    const stocks = screen.getAllByTestId('stop-card').map(stockOf);
-    // Both stocks are on the page: the paper a learner can ride, and the paper
-    // they cannot. Two is also the ceiling, since those are the only two.
-    //
-    // THE STRING FILTER IS NOT DECORATION. Without it this test passed while
-    // the bug was still in the file, because `undefined` and the current
-    // stop's surface are also two distinct values. Checked by putting the bug
-    // back and watching it pass, which is the only way that kind of vacuous
-    // assertion ever gets caught.
-    const painted = stocks
-      .map((s) => s.backgroundColor)
-      .filter((c): c is string => typeof c === 'string');
-    expect(painted.length).toBe(stocks.length);
-    expect(new Set(painted).size).toBe(2);
+    const cards = screen.getAllByTestId('stop-card');
+    // Both papers are on the page: the stock a learner can ride and the aged
+    // 'ahead' stock they cannot. Since chat 11 the distinction is the tag
+    // back VARIANT rather than a backgroundColor, so the aged paper is
+    // asserted by name and cannot be faked by an undefined.
+    expect(screen.getAllByTestId(/^tag-back-/).length).toBe(cards.length);
+    expect(screen.getAllByTestId('tag-back-ahead').length).toBeGreaterThan(0);
     // THE KNOCK-BACK IS IN THE COLOUR, NEVER IN THE ALPHA. Reaching for opacity
     // here would put the painting back behind the text, which is the bug this
     // whole change exists to fix.
+    const stocks = cards.map(stockOf);
     expect(stocks.every((s) => s.opacity === undefined || s.opacity === 1)).toBe(true);
   });
 });
@@ -1483,15 +1493,17 @@ describe('the rail palette and the medallions, mirrored on web', () => {
   });
 
   it('draws the halo as two passes, wide-and-soft under tight-and-bright', () => {
-    expect(RAIL_GLOW_PASSES).toEqual([{ width: 9, opacity: 0.45 }]);
+    expect(RAIL_GLOW_PASSES).toEqual([{ width: 12, opacity: 0.5 }]);
   });
 
   it('strokes the track to exactly this shape', () => {
+    // Chat 11: weights grew for the reference's chunky ladder ("tracks arent
+    // heavy enough"). The pin moves with the sheet, not the other way round.
     expect(RAIL_STROKE).toEqual({
-      tie: 15,
-      rail: 8.5,
-      between: 4,
-      tieDash: '3 11',
+      tie: 18,
+      rail: 9.5,
+      between: 6.5,
+      tieDash: '5 9',
       unlitDash: '9 7',
       unlitOpacity: 1,
     });

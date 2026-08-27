@@ -32,10 +32,13 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Svg, {
   Circle,
+  Defs,
   Ellipse,
   G,
+  LinearGradient,
   Path,
   Rect,
+  Stop as GradStop,
   Text as SvgText,
 } from 'react-native-svg';
 import Animated, {
@@ -126,6 +129,7 @@ import {
 } from '@/lib/journeyIntroScroll';
 import {
   ZONE_BACKDROP_SCRIM,
+  ZONE_BACKDROP_SCRIM_COLOR,
   ZONE_BOARD,
   ZONE_BOARD_ART,
   ZONE_TILE_ASPECT,
@@ -136,6 +140,7 @@ import {
   stopEmblem,
   type StopEmblemKind,
 } from '@/lib/stopEmblems';
+import { factForZone } from '@/lib/indiaFactForZone';
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import {
   Bunting,
@@ -175,6 +180,7 @@ const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
 // they did. ZONE_BOARD.minPanelH now asserts the budget on both sides so a
 // board that cannot fit fails a test rather than shipping blank.
 const PC_H = 184; // vertical rhythm per fare-zone postcard (incl. picture side)
+const ZONE_BOARD_GAP = 18; // air between the carved board and the first stop card
 const TERM_H = 92; // terminus row
 // CHACHA-JI'S HALT ROW, RETIRED 2026-08-26. It was a scenery-only row after
 // every encounter station, 96 high, existing only so his stall had a lane clear
@@ -415,6 +421,295 @@ function RailPulseDots({
 
 /** Marker sitting on the rail: a cut brass emblem saying what KIND of stop
  *  this is, and a train at the current one. */
+/**
+ * THE ZONE'S PAINTING, PINNED TO THE VIEWPORT WHILE ITS ZONE IS ON SCREEN
+ * (chat 11). The band used to scroll with its stops and the owner called it
+ * on sight: "look like the background is scrolling with the cards which isn't
+ * correct" — the painting is the zone's WALL, not one of the objects on it.
+ * A scroll-driven counter-translation holds it still relative to the
+ * viewport, clamped to its own zone's block, so it parks at the zone
+ * boundary and the NEXT zone's wall pushes it out exactly when the next
+ * board takes over: "background image shouldn't change until you hit zone 2."
+ * Same mechanism as the scenery parallax (scrollY shared value on the UI
+ * thread), which ships in production today.
+ */
+function ZoneBandFixed({
+  zi,
+  start,
+  end,
+  layerTop,
+  windowW,
+  windowH,
+  mapW,
+  scrollY,
+  contentTop,
+  mode = 'block',
+}: {
+  zi: number;
+  start: number;
+  end: number;
+  layerTop: number;
+  windowW: number;
+  windowH: number;
+  mapW: number;
+  scrollY: SharedValue<number>;
+  contentTop: number;
+  /** 'block': the zone block's wall, the box counter-scrolls. 'cap': the same
+   *  wall's top rows INSIDE the sticky board child, so scrolling cards pass
+   *  BEHIND the board instead of gliding visibly through its transparent
+   *  margins; here the box is fixed and the tiles counter-scroll within. */
+  mode?: 'block' | 'cap';
+}) {
+  const bandH = windowH + PC_H + ZONE_BOARD_GAP;
+  const travel = Math.max(0, end - start - windowH);
+  const pin = useAnimatedStyle(() => {
+    const shift = Math.min(
+      travel,
+      Math.max(0, scrollY.value - (start + contentTop)),
+    );
+    return { transform: [{ translateY: mode === 'cap' ? -shift : shift }] };
+  });
+  const art = zoneBackdrop(zi);
+  const tileH = windowW / ZONE_TILE_ASPECT;
+  if (!art) return null;
+  const tiles = (
+    <>
+      {Array.from({ length: Math.max(1, Math.ceil(bandH / tileH)) }).map(
+        (_, ti) => (
+          <Image
+            key={ti}
+            source={art}
+            style={{
+              position: 'absolute',
+              top: ti * tileH,
+              width: windowW,
+              height: tileH,
+            }}
+            resizeMode="stretch"
+          />
+        ),
+      )}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            backgroundColor: ZONE_BACKDROP_SCRIM_COLOR,
+            opacity: ZONE_BACKDROP_SCRIM,
+          },
+        ]}
+      />
+    </>
+  );
+  if (mode === 'cap') {
+    return (
+      <View
+        testID={`journey-board-cap-${zi}`}
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: -(windowW - mapW) / 2,
+          top: 0,
+          width: windowW,
+          // +2 laps the block band so the cap's bottom edge cannot show as a
+          // hairline seam under the board.
+          height: PC_H + ZONE_BOARD_GAP + 2,
+          backgroundColor: zoneFootTone(zi),
+          overflow: 'hidden',
+        }}
+      >
+        <Animated.View
+          style={[{ position: 'absolute', left: 0, top: 0, width: windowW, height: bandH }, pin]}
+        >
+          {tiles}
+        </Animated.View>
+      </View>
+    );
+  }
+  return (
+    <Animated.View
+      testID={`journey-backdrop-${zi}`}
+      pointerEvents="none"
+      style={[
+        {
+          position: 'absolute',
+          left: -(windowW - mapW) / 2,
+          top: layerTop,
+          width: windowW,
+          height: bandH,
+          backgroundColor: zoneFootTone(zi),
+          overflow: 'hidden',
+        },
+        pin,
+      ]}
+    >
+      {tiles}
+    </Animated.View>
+  );
+}
+
+/**
+ * THE TAG'S OWN SHAPE, drawn rather than styled (chat 11). The reference cuts
+ * every stop card as a LUGGAGE TAG: one end tapers to the eyelet it hangs by,
+ * and "each card has a slightly different shape". A View border cannot taper,
+ * so the stock, the edge, the hairline rule, the eyelet and the per-kind
+ * dressing are all one Svg behind the content:
+ *
+ *   plain    parchment gradient, single rule
+ *   ahead    the same tag, aged stock, drained edge
+ *   done     gold-foil stock, gold rule, accent corner ornament
+ *   trace    parchment with a folded dog-ear on the far corner
+ *   story    parchment with a DOUBLE rule, the reference's framed plaque
+ *   current  parchment with the zone accent for an edge
+ *
+ * The gradient down the stock is what reads as "more rustic" against the flat
+ * fills these replaced; the taper is what makes the card hang off the rail
+ * instead of floating beside it.
+ */
+function TagCardBack({
+  w,
+  h,
+  side,
+  variant,
+  accent,
+}: {
+  w: number;
+  h: number;
+  side: 'left' | 'right';
+  variant: 'plain' | 'ahead' | 'done' | 'trace' | 'story' | 'current';
+  accent: string;
+}) {
+  const r = 10; // corner rounding on the square end
+  const T = 15; // the tag point's depth on the eyelet end
+  // THE MIX (chat 11, "some of them with points, some of them rectangles.
+  // like my example"): phrase stops hang as pointed luggage tags; the tracing
+  // stop is a square-cut paper sheet with its dog-ear and the story stop a
+  // square-cut framed plaque, which is exactly how the reference cuts them.
+  const pointed = variant !== 'trace' && variant !== 'story';
+  const gid = `tag-${variant}-${side}`;
+  // Completed tags are NOT a different paper: a full gold stock read as "why
+  // are some different colors?" (chat 11). Done shows in the gold EDGE, the
+  // gold rule and the corner ornament, on the same parchment as every tag.
+  const [c0, c1] =
+    variant === 'ahead'
+      ? [TICKET.stockAheadTop, TICKET.stockAheadBottom]
+      : [TICKET.stockTop, TICKET.stockBottom];
+  const edge =
+    variant === 'done'
+      ? TICKET.edgeGold
+      : variant === 'current'
+        ? accent
+        : variant === 'ahead'
+          ? TICKET.edgeAhead
+          : TICKET.edge;
+  const rule =
+    variant === 'done' ? TICKET.ruleGold : variant === 'ahead' ? '#D8CBB4' : TICKET.rule;
+  // FLAT TOP AND BOTTOM, POINTED END (chat 11, two corrections in a row):
+  // the first cut sloped the long edges into the point ("are the top of the
+  // card and the bottom of the card horizonal parallels?"), the second cut
+  // the point entirely and was reversed on sight ("the point is ok"). The
+  // long edges run dead level from the shoulder; only the two short cuts
+  // between the shoulders and the tip are angled, which is how a real
+  // luggage tag is die-cut.
+  const L = 1;
+  const Tp = 1;
+  const mid = h / 2;
+  const i = 5;
+  const R = w - 1;
+  const B = h - 1;
+  const outline =
+    side === 'left'
+      ? `M ${L} ${mid} L ${L + T} ${Tp} L ${R - r} ${Tp} Q ${R} ${Tp} ${R} ${Tp + r} L ${R} ${B - r} Q ${R} ${B} ${R - r} ${B} L ${L + T} ${B} Z`
+      : `M ${R} ${mid} L ${R - T} ${Tp} L ${L + r} ${Tp} Q ${L} ${Tp} ${L} ${Tp + r} L ${L} ${B - r} Q ${L} ${B} ${L + r} ${B} L ${R - T} ${B} Z`;
+  const ruleD =
+    side === 'left'
+      ? `M ${L + i + 4} ${mid} L ${L + T + i} ${Tp + i} L ${R - r - 1} ${Tp + i} Q ${R - i} ${Tp + i} ${R - i} ${Tp + r} L ${R - i} ${B - r} Q ${R - i} ${B - i} ${R - r - 1} ${B - i} L ${L + T + i} ${B - i} Z`
+      : `M ${R - i - 4} ${mid} L ${R - T - i} ${Tp + i} L ${L + r + 1} ${Tp + i} Q ${L + i} ${Tp + i} ${L + i} ${Tp + r} L ${L + i} ${B - r} Q ${L + i} ${B - i} ${L + r + 1} ${B - i} L ${R - T - i} ${B - i} Z`;
+  const eyeX = pointed ? (side === 'left' ? L + 13 : R - 13) : side === 'left' ? 9 : w - 9;
+  // The dog-ear and the corner ornament live on the far top corner.
+  const foldD =
+    side === 'left'
+      ? `M ${R - 18} ${Tp} L ${R} ${Tp + 18} L ${R} ${Tp + r} Q ${R} ${Tp} ${R - r} ${Tp} Z`
+      : `M ${L + 18} ${Tp} L ${L} ${Tp + 18} L ${L} ${Tp + r} Q ${L} ${Tp} ${L + r} ${Tp} Z`;
+  const ornD =
+    side === 'left'
+      ? `M ${R - 22} ${Tp} L ${R} ${Tp} L ${R} ${Tp + 22} Q ${R - 4} ${Tp + 4} ${R - 22} ${Tp} Z`
+      : `M ${L + 22} ${Tp} L ${L} ${Tp} L ${L} ${Tp + 22} Q ${L + 4} ${Tp + 4} ${L + 22} ${Tp} Z`;
+  return (
+    <Svg
+      testID={`tag-back-${variant}`}
+      pointerEvents="none"
+      style={StyleSheet.absoluteFill}
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+    >
+      <Defs>
+        <LinearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <GradStop offset="0" stopColor={c0} />
+          <GradStop offset="1" stopColor={c1} />
+        </LinearGradient>
+      </Defs>
+      {pointed ? (
+        <Path
+          d={outline}
+          fill={`url(#${gid})`}
+          stroke={edge}
+          strokeWidth={2}
+          strokeLinejoin="round"
+        />
+      ) : (
+        <Rect
+          x={L}
+          y={Tp}
+          width={w - 2}
+          height={h - 2}
+          rx={r}
+          fill={`url(#${gid})`}
+          stroke={edge}
+          strokeWidth={2}
+        />
+      )}
+      {pointed ? (
+        <Path d={ruleD} fill="none" stroke={rule} strokeWidth={1} strokeLinejoin="round" />
+      ) : (
+        <Rect
+          x={L + i}
+          y={Tp + i}
+          width={w - 2 - 2 * i}
+          height={h - 2 - 2 * i}
+          rx={r - 4}
+          fill="none"
+          stroke={rule}
+          strokeWidth={1}
+        />
+      )}
+      {variant === 'story' && (
+        <Rect
+          x={L + i + 3}
+          y={Tp + i + 3}
+          width={w - 2 - 2 * (i + 3)}
+          height={h - 2 - 2 * (i + 3)}
+          rx={r - 6}
+          fill="none"
+          stroke={rule}
+          strokeWidth={1}
+          opacity={0.55}
+          strokeDasharray="3 3"
+        />
+      )}
+      {variant === 'trace' && (
+        <>
+          <Path d={foldD} fill={TICKET.stockBottom} stroke={TICKET.edge} strokeWidth={1.4} />
+        </>
+      )}
+      {variant === 'done' && <Path d={ornD} fill={accent} opacity={0.75} />}
+      {/* The eyelet at the tip, ring and hole, exactly the old View pair. */}
+      <Circle cx={eyeX} cy={mid} r={6} fill={TICKET.eyelet} />
+      <Circle cx={eyeX} cy={mid} r={2.6} fill={TICKET.eyeletHole} />
+    </Svg>
+  );
+}
+
 function StationMarker({
   station,
   color,
@@ -668,7 +963,22 @@ export default function JourneyScreen() {
   // the pediment takes its own aspect out of that, so the remainder is known
   // without measuring anything. postcardWrap insets the board by 16 a side.
   const boardW = mapW - 32;
-  const boardPanelH = PC_H - (boardW * ZONE_BOARD.topH) / ZONE_BOARD.artW;
+  // EXPLICIT POINTS, NOT width:'100%' + aspectRatio. On device (both build 515
+  // and the dev client) the pediment Image resolved the percentage against an
+  // auto-width wrapper as its INTRINSIC 760x142, overflowing the board
+  // sideways and leaving the panel 42pt of the 117 it was owed, which is the
+  // whole blank-board saga of builds 511-515 in one line. RNTL's renderer
+  // resolves the percentage happily, which is why every suite stayed green.
+  // The width is known exactly here, so nothing needs to be inferred.
+  const boardPedimentH = (boardW * ZONE_BOARD.topH) / ZONE_BOARD.artW;
+  const boardPanelH = PC_H - boardPedimentH;
+  // EVEN-SIZED STOP CARDS (chat 11): "I want it to look like this. Even sized
+  // cards." Every stop card is the same width, anchored beside its marker with
+  // the same 36pt eyelet gap, instead of stretching to whatever the flank left
+  // over (which made right-flank cards a different width from left-flank ones
+  // and the current card a different size again). The value is the widest that
+  // fits BOTH flanks inside the 16pt map margins at this mapW.
+  const cardW = mapW - 140;
 
   // One language's map never fetches another language's data: exactly six
   // fixed zone queries for the active language.
@@ -1039,7 +1349,11 @@ export default function JourneyScreen() {
       lit: zoneLit,
       zoneIndex: zi,
     });
-    layoutY += PC_H;
+    // A breath between the board and the first card (chat 11): "add a little
+    // more space between the zone and first card". The gap belongs to the
+    // zone row, so every derived y (stations, scenery, signals, the intro
+    // scroll target) moves with it by construction.
+    layoutY += PC_H + ZONE_BOARD_GAP;
     for (const s of zone.rowStations) {
       // The tracing row: drawn like a stop, counted like nothing. It takes the
       // flank the NEXT graded stop will take, so the rail runs straight down
@@ -1306,9 +1620,11 @@ export default function JourneyScreen() {
     autoScrolledRef.current = true;
     // Comfortable framing: the stop lands about a third of the way down the
     // viewport, clear of the boarding-pass header and never at the bottom edge.
+    // layout.y is the FIRST BOARD child now, which sits TOP_PAD into the old
+    // canvas space currentStopY still measures in, so the pad comes back off.
     const to = Math.max(
       0,
-      e.nativeEvent.layout.y + currentStopY - introScrollLead(windowH),
+      e.nativeEvent.layout.y - TOP_PAD + currentStopY - introScrollLead(windowH),
     );
     introTarget.current = to;
     // Reduced motion gets no hold and no travel, only the destination.
@@ -1384,9 +1700,11 @@ export default function JourneyScreen() {
         // CHECKED rather than assumed. If the preferred flank collides, the
         // signal is pushed clear of the card box instead of sitting on it.
         const cardSide: 'left' | 'right' = (afterStop - 1) % 2 === 0 ? 'right' : 'left';
-        const boxLeft = cardSide === 'right' ? a.x + 28 : 16;
-        const boxWidth =
-          cardSide === 'right' ? mapW - 16 - (a.x + 28) : a.x - 28 - 16;
+        // Even cards (chat 11): the card slot this collision check recomputes
+        // moved to a fixed width, so the check moves with it or it is checking
+        // a box that no longer exists.
+        const boxLeft = cardSide === 'right' ? a.x + 30 : a.x - 30 - (mapW - 140);
+        const boxWidth = mapW - 140;
         // CHACHA-JI OWNS THE LEFT FLANK AT AN ENCOUNTER STATION and the signal
         // was taking it too, so the crossing drew straight over his stall:
         // "chacha hidden behind signal". Encounter stations are always
@@ -1646,6 +1964,9 @@ export default function JourneyScreen() {
       <Animated.ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.scrollContent}
+        stickyHeaderIndices={zones.map(
+          (_, zi) => (access === 'exhausted' ? 1 : 0) + zi * 2,
+        )}
         showsVerticalScrollIndicator={false}
         onScroll={onMapScroll}
         // A TOUCH LANDS YOU ON YOUR CARD, it does not cancel. Cancelling is
@@ -1686,127 +2007,294 @@ export default function JourneyScreen() {
         )}
 
         {/* Serpentine railway: track + zone postcards + stations. */}
-        <View
-          testID="journey-map"
-          style={[styles.map, { width: mapW, height: totalH }]}
-          onLayout={onMapLayout}
-        >
-          {/* THE PAINTED BACKDROPS, one per fare zone, underneath everything.
-              Depth order is now: backdrop < scenery < rail < stations.
-
-              NOT on the parallax layer. The scenery above it drifts against
-              the scroll, which reads as depth when it is a scatter of small
-              props; a full-bleed painting doing the same thing reads as the
-              ground sliding, which is worse than no parallax at all.
-
-              `cover` on a band that is ~390 wide and 850 to 1200 tall crops
-              about 9% off each side of a 0.56 painting, and more on a long
-              zone. That is measured, not assumed, and it is why the art was
-              briefed with its detail at the edges and a quiet corridor down
-              the middle where the rail runs.
-
-              The foot tone paints first so a slow decode never flashes light
-              behind the rail, and it is the colour the next band starts from.
-              See lib/zoneBackdrops.ts. */}
-          <View
-            testID="journey-backdrop-layer"
-            pointerEvents="none"
-            style={StyleSheet.absoluteFill}
-          >
-            {slices.map(({ start, end }, si) => {
-              const zi = postcardYs[si]?.zoneIndex ?? si;
-              const art = zoneBackdrop(zi);
-              if (!art) return null;
-              return (
-                <View
-                  key={si}
-                  testID={`journey-backdrop-${zi}`}
-                  style={{
-                    position: 'absolute',
-                    // FULL BLEED, past the map's own edges. The map itself is
-                    // capped at MAP_MAX_W (390) and centred, which is right for
-                    // the rail and the cards but left the paintings sitting in
-                    // a column with the page colour either side of them.
-                    // Reported 2026-08-26: "the journey has white on both
-                    // sides, not full screen".
-                    //
-                    // The band widens; the MAP GEOMETRY DOES NOT. Every stop
-                    // position, card width and scenery placement still keys off
-                    // mapW, so nothing below the art moves and the scenery
-                    // placement tests keep their arithmetic.
-                    left: -(windowW - mapW) / 2,
-                    top: start,
-                    width: windowW,
-                    height: end - start,
-                    backgroundColor: zoneFootTone(zi),
-                    overflow: 'hidden',
-                  }}
-                >
-                  {/* FULL WIDTH AND REPEATING, never `cover`. Cover fills the
-                      taller axis, and a zone band is far taller than the
-                      painting's aspect: at roughly 390 by 1200 against a
-                      1280x2276 file it threw away 42% OF THE WIDTH and showed a
-                      blown-up slice anchored at one corner.
-                      Stacked rather than resizeMode="repeat", which tiles at the
-                      file's own pixel size and would crop it on a phone instead
-                      of fitting it. Each tile is exactly the band's width by the
-                      art's aspect, and the art cross-fades into itself so the
-                      joins do not read. */}
-                  {Array.from({
-                    length: Math.max(
-                      1,
-                      Math.ceil((end - start) / (windowW / ZONE_TILE_ASPECT)),
-                    ),
-                  }).map((_, ti) => (
-                    <Image
-                      key={ti}
-                      source={art}
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: ti * (windowW / ZONE_TILE_ASPECT),
-                        width: windowW,
-                        height: windowW / ZONE_TILE_ASPECT,
-                      }}
-                      resizeMode="stretch"
-                    />
-                  ))}
-                  {/* A flat scrim rather than a gradient: the rail crosses the
-                      whole height, so darkening only one end would leave it
-                      legible in one half of the band and not the other. */}
-                  <View
-                    style={[
-                      StyleSheet.absoluteFill,
-                      { backgroundColor: '#1B120E', opacity: ZONE_BACKDROP_SCRIM },
-                    ]}
-                  />
+        {/* CUT PER FARE ZONE (chat 11): each zone is a STICKY carved board
+            child over a block child holding that zone's painting, scenery,
+            track, stops and signals. stickyHeaderIndices pins the board to
+            the viewport top while its own stops scroll beneath it, and the
+            next zone's board pushes it away: "allow scrolling within the
+            stop list and secondary scrolling when you reach the bottom of
+            the stops in each zone to scroll to the next zone", and "the
+            background image for Zone 1 should stay with the zone one header
+            and zone one stops". The painted band, the scenery and the rail
+            live in the BLOCK, drawn from layerTop (one postcard row above
+            the block's own top), so the painting is continuous behind the
+            board at rest and keeps scrolling under it while it is stuck.
+            Slice arithmetic is untouched: a block draws its slice shifted
+            by its own flow position. */}
+        {zones.flatMap((zone, zi) => {
+          const { start, end } = slices[zi]!;
+          const blockTop = start + PC_H + ZONE_BOARD_GAP;
+          const blockH = end - blockTop;
+          const layerTop = -(PC_H + ZONE_BOARD_GAP);
+            const pt = pts.find((p) => p.kind === 'postcard' && p.zoneIndex === zi)!;
+            const zoneAccessible = zone.stations.some(
+              (s) => isStatusAccessible(s.status) || s.teaserStation,
+            );
+            const grayed = showroom && !zoneAccessible;
+            const cardColor = grayed ? GRAY : line.accent;
+            // Zone gate-lock (web parity, owner-corrected): every stop locked
+            // by progression, none by plan, and the listing is NOT a showroom
+            // payload (no top-level access field). Showroom forces every
+            // station locked with planLocked unset, so without the access
+            // check the affordance would render for teaser and exhausted
+            // callers. Pre-flip the first stop of every zone is unlocked, so
+            // this stays dormant until CROSS_ZONE_GATE_ENABLED flips
+            // server-side.
+            const zoneGateLocked =
+              access === null &&
+              zone.stations.length > 0 &&
+              zone.stations.every((s) => s.status === 'locked') &&
+              !zone.stations.some((s) => s.planLocked === true);
+            const boardChild = (
+            <View
+              key={`zone-board-${zone.id}`}
+              testID={`zone-board-child-${zi}`}
+              style={{
+                width: mapW,
+                alignSelf: 'center',
+                height: PC_H + ZONE_BOARD_GAP,
+                zIndex: 20,
+              }}
+              onLayout={zi === 0 ? onMapLayout : undefined}
+            >
+              <ZoneBandFixed
+                zi={zi}
+                start={start}
+                end={end}
+                layerTop={0}
+                windowW={windowW}
+                windowH={windowH}
+                mapW={mapW}
+                scrollY={scrollY}
+                contentTop={18}
+                mode="cap"
+              />
+                <View style={[styles.postcardWrap, { top: 10 }]}>
+                  {/* THE CARVED STATION BOARD, cut into three so only the
+                      panel stretches. See ZONE_BOARD in lib/zoneBackdrops.ts
+                      for why it is three files and why it is capped. Web twin:
+                      ZonePostcard in gujarati-coach/src/pages/journey.tsx. */}
+                  <View style={[styles.board, { opacity: grayed ? 0.8 : 1 }]}>
+                    {/* The pediment, aspect preserved: its rosettes and arch
+                        must not stretch, which is the whole reason for the
+                        three-slice. Sized in points computed from boardW: see
+                        boardPedimentH above for why no percentage may appear
+                        here. */}
+                    <View style={{ width: boardW, height: boardPedimentH }}>
+                      <Image
+                        testID={`zone-board-top-${zi}`}
+                        source={ZONE_BOARD_ART.top}
+                        style={{ width: boardW, height: boardPedimentH }}
+                        resizeMode="stretch"
+                      />
+                      {/* The nameplate. Positions are fractions of the slice,
+                          so the overlay tracks the board at any width. */}
+                      <View
+                        pointerEvents="none"
+                        style={[
+                          styles.boardNamePlate,
+                          {
+                            left: `${ZONE_BOARD.namePlate.left * 100}%`,
+                            right: `${ZONE_BOARD.namePlate.right * 100}%`,
+                            top: `${ZONE_BOARD.namePlate.top * 100}%`,
+                            height: `${ZONE_BOARD.namePlate.height * 100}%`,
+                          },
+                        ]}
+                      >
+                        <Text numberOfLines={1} style={styles.boardNamePlateText}>
+                          {zone.title.toUpperCase()}
+                        </Text>
+                      </View>
+                      <View
+                        pointerEvents="none"
+                        style={[
+                          styles.boardZonePlate,
+                          {
+                            width: `${ZONE_BOARD.zonePlate.width * 100}%`,
+                            top: `${ZONE_BOARD.zonePlate.top * 100}%`,
+                            height: `${ZONE_BOARD.zonePlate.height * 100}%`,
+                          },
+                        ]}
+                      >
+                        <Text style={styles.boardZonePlateText}>ZONE {zi + 1}</Text>
+                      </View>
+                    </View>
+                    {/* The panel. THE ONLY PART THAT STRETCHES, and it clips:
+                        the map reserves PC_H for this row and the board may
+                        never push into the first station beneath it. */}
+                    <View style={styles.boardPanel}>
+                      {/* Cream UNDER the art, and only as wide as the art's own
+                          frame. The slice's paper has partial alpha so it needs
+                          a fill behind it, and its outer 3.9% is fully
+                          transparent so that fill must stop there or the panel
+                          reads wider than the pediment above it. */}
+                      <View pointerEvents="none" style={styles.boardPanelFill} />
+                      {/* EXPLICIT POINTS, same cure as the pediment above: on
+                          device this Image resolved absoluteFill to its
+                          INTRINSIC 760x202, so the learner saw the art's left
+                          frame line mid-panel and no right or bottom frame at
+                          all ("zone card still doesn't look correct",
+                          side-by-side, chat 11). */}
+                      <Image
+                        source={ZONE_BOARD_ART.panel}
+                        resizeMode="stretch"
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          top: 0,
+                          width: boardW,
+                          height: boardPanelH,
+                        }}
+                      />
+                      {/* Everything the board says lives inside the drawn
+                          frame. */}
+                      <View
+                        style={[
+                          styles.boardPanelBody,
+                          {
+                            paddingTop: boardPanelH * ZONE_BOARD.contentInsetTop,
+                            paddingBottom: boardPanelH * ZONE_BOARD.contentInsetBottom,
+                          },
+                        ]}
+                      >
+                      {/* address side */}
+                      <View style={styles.postcardAddress}>
+                        <View style={styles.postcardLeft}>
+                          {/* The fare-zone line came off the panel when the
+                              carved board landed: the pediment's nameplate
+                              carries the topic and the small plate carries the
+                              number, so this said both a second time. */}
+                          {/* Ink from the board, not a theme token: the panel
+                              is cream in both themes and a cool slate reads
+                              cold on it. */}
+                          <Text
+                            numberOfLines={1}
+                            style={[styles.postcardGeoName, { color: ZONE_BOARD.ink }]}
+                          >
+                            {zone.geoName}
+                          </Text>
+                          <Text style={[styles.postcardStops, { color: ZONE_BOARD.inkMuted }]}>
+                            {/* ROWS DRAWN, NOT PHRASE STATIONS. The card
+                                said 9 while the rows beneath it said "Stop 1
+                                of 11": the tracing and story stops are rows a
+                                learner counts and this number never knew
+                                about them. */}
+                            {zone.rowStations.length} {zone.rowStations.length === 1 ? 'stop' : 'stops'} in this zone
+                          </Text>
+                          {/* THE DAILY FACT, web parity (chat 11): web's board
+                              has carried a DID YOU KNOW strip since hotfix 3
+                              and mobile's panel never got it, which the
+                              owner's side-by-side called out. Static rather
+                              than the web strip's 6-second rotation: per-frame
+                              motion is not trusted on this app's release
+                              builds (see CLAUDE.md, the native animation
+                              driver), and a board read in passing needs one
+                              fact, not a slideshow. Same factForZone
+                              arithmetic, so both platforms show the same fact
+                              for the same zone on the same day. */}
+                          {!zoneGateLocked && (
+                          <View
+                            testID={`board-fact-${zi}`}
+                            style={[styles.boardFact, { borderColor: `${cardColor}55` }]}
+                          >
+                            <Text style={[styles.boardFactLabel, { color: cardColor }]}>
+                              DID YOU KNOW?
+                            </Text>
+                            <Text
+                              numberOfLines={2}
+                              style={[styles.boardFactText, { color: ZONE_BOARD.inkMuted }]}
+                            >
+                              {factForZone({
+                                zoneIndex: zi,
+                                geoName: zone.geoName,
+                                lineName: line.lineName,
+                              })}
+                            </Text>
+                          </View>
+                          )}
+                        </View>
+                        {/* THE POSTMARK AND THE ZONE STAMP CAME OFF with the
+                            carved board. The pediment's small plate says ZONE
+                            n, so the stamp said it a second time, and a franked
+                            postcard's furniture on a carved station board was
+                            two different objects at once. */}
+                      </View>
+                      {/* Zone test-out affordance (web parity:
+                          link-zone-test-out-{i}) — present only when the zone
+                          is gate-locked; dormant pre-flip by construction. */}
+                      {zoneGateLocked && (
+                        <Pressable
+                          testID={`link-zone-test-out-${zi}`}
+                          accessibilityRole="button"
+                          onPress={() => {
+                            hapticLight();
+                            router.push({
+                              pathname: '/(app)/practice/[id]',
+                              params: { id: String(zone.id), mode: 'testout', scope: 'zone' },
+                            });
+                          }}
+                          style={[styles.postcardTestOut, { borderColor: cardColor }]}
+                        >
+                          <Text style={[styles.postcardTestOutText, { color: cardColor }]}>
+                            Test out of this zone
+                          </Text>
+                        </Pressable>
+                      )}
+                      </View>
+                    </View>
+                  </View>
                 </View>
-              );
-            })}
-          </View>
-
-          {/* India-flavored trackside scenery (Task 985 port): zone-themed
-              dimensional flat scenes in the free strip beside station rows,
-              anchored to the same serpentine geometry the stations use.
-              Rendered FIRST so the whole layer sits below the rail (depth
-              order: scenery < rail < stations). The wrapper carries the
-              single scroll-linked parallax transform; the Svg blocks inside
-              reuse the per-zone slice geometry for scroll perf. */}
-          <Animated.View
-            testID="journey-scenery-layer"
-            pointerEvents="none"
-            style={[StyleSheet.absoluteFill, sceneryParallaxStyle]}
-          >
-            {slices.map(({ start, end }, si) => {
+                {/* interchange diamond pinned where the track meets the zone
+                    card (top border) so it never collides with the card text */}
+                <View
+                  style={[
+                    styles.interchange,
+                    {
+                      left: pt.x - 8,
+                      top: 2,
+                      backgroundColor: cardColor,
+                    },
+                  ]}
+                >
+                  <View style={styles.interchangeInner} />
+                </View>
+            </View>
+            );
+          const blockChild = (
+            <View
+              key={`zone-block-${zone.id}`}
+              testID={`zone-block-child-${zi}`}
+              style={{ width: mapW, alignSelf: 'center', height: blockH }}
+            >
+            <ZoneBandFixed
+              zi={zi}
+              start={start}
+              end={end}
+              layerTop={layerTop}
+              windowW={windowW}
+              windowH={windowH}
+              mapW={mapW}
+              scrollY={scrollY}
+              contentTop={18}
+            />
+            <Animated.View
+              testID={`journey-scenery-layer-${zi}`}
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, sceneryParallaxStyle]}
+            >
+              {(() => {
               const local = sceneryPlacements.filter(
-                (sp) => sp.y >= start && sp.y < end,
+                // Chacha-ji is NOT in this pass any more: the even-width
+                // cards covered him in later rows ("chachaji gets covered by
+                // some of the new stop cards"), so his stall renders again
+                // after the stations, above the card plane (chat 11).
+                (sp) => sp.y >= start && sp.y < end && sp.kind !== 'chaiStall',
               );
               if (local.length === 0) return null;
               return (
                 <Svg
-                  key={si}
                   pointerEvents="none"
-                  style={{ position: 'absolute', left: 0, top: start }}
+                  style={{ position: 'absolute', left: 0, top: layerTop }}
                   width={mapW}
                   height={end - start}
                   viewBox={`0 ${start} ${mapW} ${end - start}`}
@@ -1815,21 +2303,24 @@ export default function JourneyScreen() {
                     <G key={sp.key}>
                       {/* Chacha-ji's plate. ONLY his: the rest of the scenery
                           is meant to sit back into the painting, and he is the
-                          one piece a learner has to be able to find. Two
-                          ellipses rather than one gradient, the same trick the
-                          rail halo uses. */}
-                      {sp.kind === 'chaiStall' &&
-                        MAP_GLYPH_PLATE.map((pass) => (
-                          <Ellipse
-                            key={pass.r}
-                            cx={sp.x}
-                            cy={sp.y}
-                            rx={pass.r}
-                            ry={pass.r * 0.72}
-                            fill={MAP_GLYPH_PLATE_FILL}
-                            opacity={sp.gray ? pass.opacity * 0.5 : pass.opacity}
-                          />
-                        ))}
+                          one piece a learner has to be able to find.
+                          A BOX NOW, NOT ELLIPSES (chat 11): "Add a box behind
+                          chachaji so we can see him. just like the words below
+                          him has." Same fill, same rounding, same opacity as
+                          his nameplate below, so the stall and its label read
+                          as one signpost. Sized to the stall's own 36x49
+                          footprint plus a margin. */}
+                      {sp.kind === 'chaiStall' && (
+                        <Rect
+                          x={sp.x - 33}
+                          y={sp.y - 54}
+                          width={66}
+                          height={62}
+                          rx={6}
+                          fill={MAP_GLYPH_PLATE_FILL}
+                          opacity={sp.gray ? 0.55 : 0.85}
+                        />
+                      )}
                       {/* HIS NAMEPLATE, WHICH MOBILE HAS NEVER HAD. Web has
                           labelled the stall since it stopped being anonymous
                           scenery, and the phone left the one recurring
@@ -1888,15 +2379,11 @@ export default function JourneyScreen() {
                   ))}
                 </Svg>
               );
-            })}
-          </Animated.View>
-
-          {/* Track, one Svg block per fare zone */}
-          {slices.map(({ start, end }, si) => (
+              })()}
+            </Animated.View>
             <Svg
-              key={si}
               pointerEvents="none"
-              style={{ position: 'absolute', left: 0, top: start }}
+              style={{ position: 'absolute', left: 0, top: layerTop }}
               width={mapW}
               height={end - start}
               viewBox={`0 ${start} ${mapW} ${end - start}`}
@@ -1960,186 +2447,12 @@ export default function JourneyScreen() {
                 />
               )}
               {/* Festival bunting over the terminus (last slice only) */}
-              {si === slices.length - 1 && (
+              {zi === slices.length - 1 && (
                 <Bunting x1={20} x2={mapW - 20} y={termY - 34} accent={line.accent} />
               )}
             </Svg>
-          ))}
-
-          {/* Zone postcards (full width; interchange diamond rides the track) */}
-          {postcardYs.map(({ y: py, zoneIndex }) => {
-            const zone = zones[zoneIndex]!;
-            const pt = pts.find((p) => p.kind === 'postcard' && p.zoneIndex === zoneIndex)!;
-            const zoneAccessible = zone.stations.some(
-              (s) => isStatusAccessible(s.status) || s.teaserStation,
-            );
-            const grayed = showroom && !zoneAccessible;
-            const cardColor = grayed ? GRAY : line.accent;
-            // Zone gate-lock (web parity, owner-corrected): every stop locked
-            // by progression, none by plan, and the listing is NOT a showroom
-            // payload (no top-level access field). Showroom forces every
-            // station locked with planLocked unset, so without the access
-            // check the affordance would render for teaser and exhausted
-            // callers. Pre-flip the first stop of every zone is unlocked, so
-            // this stays dormant until CROSS_ZONE_GATE_ENABLED flips
-            // server-side.
-            const zoneGateLocked =
-              access === null &&
-              zone.stations.length > 0 &&
-              zone.stations.every((s) => s.status === 'locked') &&
-              !zone.stations.some((s) => s.planLocked === true);
-            return (
-              <View key={zone.id}>
-                <View style={[styles.postcardWrap, { top: py + 10 }]}>
-                  {/* THE CARVED STATION BOARD, cut into three so only the
-                      panel stretches. See ZONE_BOARD in lib/zoneBackdrops.ts
-                      for why it is three files and why it is capped. Web twin:
-                      ZonePostcard in gujarati-coach/src/pages/journey.tsx. */}
-                  <View style={[styles.board, { opacity: grayed ? 0.8 : 1 }]}>
-                    {/* The pediment, aspect preserved: its rosettes and arch
-                        must not stretch, which is the whole reason for the
-                        three-slice. */}
-                    <View>
-                      <Image
-                        testID={`zone-board-top-${zoneIndex}`}
-                        source={ZONE_BOARD_ART.top}
-                        style={styles.boardTop}
-                        resizeMode="stretch"
-                      />
-                      {/* The nameplate. Positions are fractions of the slice,
-                          so the overlay tracks the board at any width. */}
-                      <View
-                        pointerEvents="none"
-                        style={[
-                          styles.boardNamePlate,
-                          {
-                            left: `${ZONE_BOARD.namePlate.left * 100}%`,
-                            right: `${ZONE_BOARD.namePlate.right * 100}%`,
-                            top: `${ZONE_BOARD.namePlate.top * 100}%`,
-                            height: `${ZONE_BOARD.namePlate.height * 100}%`,
-                          },
-                        ]}
-                      >
-                        <Text numberOfLines={1} style={styles.boardNamePlateText}>
-                          {zone.title.toUpperCase()}
-                        </Text>
-                      </View>
-                      <View
-                        pointerEvents="none"
-                        style={[
-                          styles.boardZonePlate,
-                          {
-                            width: `${ZONE_BOARD.zonePlate.width * 100}%`,
-                            top: `${ZONE_BOARD.zonePlate.top * 100}%`,
-                            height: `${ZONE_BOARD.zonePlate.height * 100}%`,
-                          },
-                        ]}
-                      >
-                        <Text style={styles.boardZonePlateText}>ZONE {zoneIndex + 1}</Text>
-                      </View>
-                    </View>
-                    {/* The panel. THE ONLY PART THAT STRETCHES, and it clips:
-                        the map reserves PC_H for this row and the board may
-                        never push into the first station beneath it. */}
-                    <View style={styles.boardPanel}>
-                      {/* Cream UNDER the art, and only as wide as the art's own
-                          frame. The slice's paper has partial alpha so it needs
-                          a fill behind it, and its outer 3.9% is fully
-                          transparent so that fill must stop there or the panel
-                          reads wider than the pediment above it. */}
-                      <View pointerEvents="none" style={styles.boardPanelFill} />
-                      <Image
-                        source={ZONE_BOARD_ART.panel}
-                        resizeMode="stretch"
-                        style={StyleSheet.absoluteFill}
-                      />
-                      {/* Everything the board says lives inside the drawn
-                          frame. */}
-                      <View
-                        style={[
-                          styles.boardPanelBody,
-                          {
-                            paddingTop: boardPanelH * ZONE_BOARD.contentInsetTop,
-                            paddingBottom: boardPanelH * ZONE_BOARD.contentInsetBottom,
-                          },
-                        ]}
-                      >
-                      {/* address side */}
-                      <View style={styles.postcardAddress}>
-                        <View style={styles.postcardLeft}>
-                          {/* The fare-zone line came off the panel when the
-                              carved board landed: the pediment's nameplate
-                              carries the topic and the small plate carries the
-                              number, so this said both a second time. */}
-                          {/* Ink from the board, not a theme token: the panel
-                              is cream in both themes and a cool slate reads
-                              cold on it. */}
-                          <Text
-                            numberOfLines={1}
-                            style={[styles.postcardGeoName, { color: ZONE_BOARD.ink }]}
-                          >
-                            {zone.geoName}
-                          </Text>
-                          <Text style={[styles.postcardStops, { color: ZONE_BOARD.inkMuted }]}>
-                            {/* ROWS DRAWN, NOT PHRASE STATIONS. The card
-                                said 9 while the rows beneath it said "Stop 1
-                                of 11": the tracing and story stops are rows a
-                                learner counts and this number never knew
-                                about them. */}
-                            {zone.rowStations.length} {zone.rowStations.length === 1 ? 'stop' : 'stops'} in this zone
-                          </Text>
-                        </View>
-                        {/* THE POSTMARK AND THE ZONE STAMP CAME OFF with the
-                            carved board. The pediment's small plate says ZONE
-                            n, so the stamp said it a second time, and a franked
-                            postcard's furniture on a carved station board was
-                            two different objects at once. */}
-                      </View>
-                      {/* Zone test-out affordance (web parity:
-                          link-zone-test-out-{i}) — present only when the zone
-                          is gate-locked; dormant pre-flip by construction. */}
-                      {zoneGateLocked && (
-                        <Pressable
-                          testID={`link-zone-test-out-${zoneIndex}`}
-                          accessibilityRole="button"
-                          onPress={() => {
-                            hapticLight();
-                            router.push({
-                              pathname: '/(app)/practice/[id]',
-                              params: { id: String(zone.id), mode: 'testout', scope: 'zone' },
-                            });
-                          }}
-                          style={[styles.postcardTestOut, { borderColor: cardColor }]}
-                        >
-                          <Text style={[styles.postcardTestOutText, { color: cardColor }]}>
-                            Test out of this zone
-                          </Text>
-                        </Pressable>
-                      )}
-                      </View>
-                    </View>
-                  </View>
-                </View>
-                {/* interchange diamond pinned where the track meets the zone
-                    card (top border) so it never collides with the card text */}
-                <View
-                  style={[
-                    styles.interchange,
-                    {
-                      left: pt.x - 8,
-                      top: py + 10 - 8,
-                      backgroundColor: cardColor,
-                    },
-                  ]}
-                >
-                  <View style={styles.interchangeInner} />
-                </View>
-              </View>
-            );
-          })}
-
-          {/* Stations */}
-          {rowPts.map((p, k2) => {
+            {rowPts.map((p, k2) => {
+              if (p.station!.zoneIndex !== zi) return null;
             const s = p.station!;
             const zone = zones[s.zoneIndex]!;
             const zoneAccessible = zone.stations.some(
@@ -2151,9 +2464,11 @@ export default function JourneyScreen() {
             // tracing row in the middle of a zone would otherwise flip every
             // card below it onto the wrong side of the track.
             const side: 'left' | 'right' = (p.globalIdx ?? k2) % 2 === 0 ? 'right' : 'left';
-            const boxLeft = side === 'right' ? p.x + 28 : 16;
-            const boxWidth =
-              side === 'right' ? mapW - 16 - (p.x + 28) : p.x - 28 - 16;
+            // Even cards (chat 11): fixed width per flank, not "whatever is
+            // left". 30 hangs the tag's tip 4pt off the 52pt medallion's rim,
+            // which is the strung-tag read the reference draws.
+            const boxLeft = side === 'right' ? p.x + 30 : p.x - 30 - cardW;
+            const boxWidth = cardW;
             const stopLabel = `Stop ${s.stopNumber} of ${s.stopCount}`;
             // Free-tier content policy: sentence stops gate by the server's
             // planLocked flag (all-premium groups), not by stage — Hindi
@@ -2186,6 +2501,26 @@ export default function JourneyScreen() {
             // Gold-edged stock once the stop is behind the learner, exactly as
             // the sheet draws its finished tag.
             const stopDone = s.status === 'completed' || s.status === 'tested_out';
+            // The drawn tag (chat 11): which end tapers to the eyelet, and
+            // which of the reference's shapes this stop wears. side names the
+            // CARD's flank, so the tip faces the other way, back at the rail.
+            const tipSide: 'left' | 'right' = side === 'right' ? 'left' : 'right';
+            const tagPointed = !s.trace && !s.story;
+            // Kind outranks state for the SHAPE: a finished tracing stop
+            // stays a square sheet rather than turning into a gold tag, so
+            // the silhouette always says what the stop IS. Done still shows
+            // on phrase stops as the gold-edged tag.
+            const tagVariant = s.trace
+              ? ('trace' as const)
+              : s.story
+                ? ('story' as const)
+                : stopDone
+                  ? ('done' as const)
+                  : isCurrent
+                    ? ('current' as const)
+                    : accessible
+                      ? ('plain' as const)
+                      : ('ahead' as const);
             // A tracing stop carries its own line ("Trace 8 letters", "3 of 8
             // letters traced"). It must NOT fall through to the phrase-stop
             // copy: it has no phrases, and "Now boarding" would collide with
@@ -2287,7 +2622,7 @@ export default function JourneyScreen() {
             return (
               <View key={`row-${k2}`}>
                 {/* rail marker (drawn above the track, non-interactive) */}
-                <View pointerEvents="none" style={[styles.markerWrap, { left: p.x - 28, top: p.y - 28 }]}>
+                <View pointerEvents="none" style={[styles.markerWrap, { left: p.x - 32, top: p.y - 32 - blockTop }]}>
                   <StationMarker
                     station={s}
                     color={zoneColor}
@@ -2305,7 +2640,7 @@ export default function JourneyScreen() {
                     {
                       left: boxLeft,
                       width: boxWidth,
-                      top: p.y - STATION_H / 2,
+                      top: p.y - STATION_H / 2 - blockTop,
                       alignItems: side === 'left' ? 'flex-end' : 'flex-start',
                     },
                   ]}
@@ -2314,6 +2649,8 @@ export default function JourneyScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={aria}
                     onPress={onPress}
+                    // No tilt: tried for the reference's hung-tag feel and
+                    // vetoed on sight, "tags shouldn't be tilted" (chat 11).
                     style={styles.cardRow}
                   >
                     <View
@@ -2323,61 +2660,24 @@ export default function JourneyScreen() {
                       testID="stop-card"
                       style={[
                         styles.card,
-                        // THE PAPER TICKET, drawn from the owner's element
-                        // sheet. Cream stock in BOTH themes: a tag lying on a
-                        // painting is a physical object and the painting has no
-                        // dark mode. Web twin: `.station-card` in index.css.
-                        {
-                          backgroundColor: accessible
-                            ? TICKET.stockTop
-                            : TICKET.stockAheadTop,
-                          borderColor: stopDone
-                            ? TICKET.edgeGold
-                            : accessible
-                              ? TICKET.edge
-                              : TICKET.edgeAhead,
-                        },
-                        isCurrent && {
-                          borderColor: zoneColor,
-                          // Item 2: roof-bar clearance, trimmed with the rest
-                          // of the card (web: pt-3 -> pt-2.5).
-                          paddingTop: 10,
-                        },
+                        // The stock, edge, rule, eyelet and per-kind dressing
+                        // all moved into TagCardBack (chat 11): a View border
+                        // cannot taper into a luggage-tag tip. The tip side
+                        // gets the deeper padding so no copy sits on the
+                        // taper.
+                        { width: cardW },
+                        tipSide === 'left'
+                          ? { paddingLeft: tagPointed ? 24 : 14, paddingRight: 12 }
+                          : { paddingLeft: 12, paddingRight: tagPointed ? 24 : 14 },
                       ]}
                     >
-                      {/* The sheet's inner frame: a hairline rule set in from
-                          the border. Absolutely positioned so it costs no
-                          layout and cannot push a card past its row. */}
-                      <View
-                        pointerEvents="none"
-                        style={[
-                          styles.ticketRule,
-                          {
-                            borderColor: stopDone ? TICKET.ruleGold : TICKET.rule,
-                          },
-                        ]}
+                      <TagCardBack
+                        w={cardW}
+                        h={72}
+                        side={tipSide}
+                        variant={tagVariant}
+                        accent={zoneColor}
                       />
-                      {/* THE EYELET THE TAG HANGS BY, on the edge facing the
-                          rail. It is what makes the card read as a luggage tag
-                          tied to a medallion rather than a panel beside one. */}
-                      <View
-                        pointerEvents="none"
-                        style={[
-                          styles.ticketEyelet,
-                          side === 'left' ? { right: -2 } : { left: -2 },
-                        ]}
-                      />
-                      {/* WHICH TAG THIS STOP GETS. The sheet draws three and
-                          they mean different things: a folded-corner tag for
-                          the tracing stop, a gold one with a green corner
-                          ornament once a stop is behind you, and the plain
-                          ruled tag for everything else. */}
-                      {s.trace ? (
-                        <View pointerEvents="none" style={styles.ticketFold} />
-                      ) : null}
-                      {stopDone ? (
-                        <View pointerEvents="none" style={styles.ticketFlourish} />
-                      ) : null}
                       {/* Signboard dressing: the current stop gets a full-width
                           zone-color roof bar + pulsing glow; every other stop
                           hangs a small tick from its top edge (web parity). */}
@@ -2416,31 +2716,27 @@ export default function JourneyScreen() {
                         >
                           {stopLabel}
                         </Text>
+                        {/* Chips ride the far end of the tag (chat 11): with
+                            even-width tags, everything hugging the title left
+                            half the paper empty. */}
+                        <View style={styles.cardTitleSpacer} />
                         {/* Entitlement chip only where the server actually serves
                             the stop plan-locked — on stops the caller can ride free
                             (Hindi Zone 1 carve-out) or already owns (Plus/Family),
                             the badge is noise. Mirrors the web condition. */}
-                        {(s.stage === 'sentence' ||
-                          s.trace !== undefined ||
-                          s.story !== undefined) &&
-                          s.planLocked === true && (
+                        {/* EVERY plan-locked stop wears the plate (chat 11):
+                            "Zone 3 and onward every stop should have this
+                            badge." It was sentence/trace/story only, which
+                            left a zone of plain Locked word stops with no
+                            hint of WHICH key opens them. Server truth still
+                            gates it: no planLocked, no plate. Web twin needs
+                            the same change. */}
+                        {s.planLocked === true && (
                           <View style={[styles.allAccessChip, styles.rusticChip, { backgroundColor: BADGE.brassBg, borderColor: BADGE.brassEdge }]}>
                             <Feather name="star" size={9} color={colors.secondary} />
                             <Text style={[styles.allAccessChipText, { color: BADGE.ink }]}>
                               ALL-ACCESS
                             </Text>
-                          </View>
-                        )}
-                        {s.trace && (
-                          <View style={[styles.traceChip, styles.rusticChip, { backgroundColor: BADGE.traceBg, borderColor: BADGE.traceEdge }]}>
-                            <Feather name="edit-2" size={8} color="#ffffff" />
-                            <Text style={styles.traceChipText}>TRACE</Text>
-                          </View>
-                        )}
-                        {s.story && (
-                          <View style={[styles.traceChip, styles.rusticChip, { backgroundColor: BADGE.storyBg, borderColor: BADGE.storyEdge }]}>
-                            <Feather name="book-open" size={8} color="#ffffff" />
-                            <Text style={styles.traceChipText}>STORY</Text>
                           </View>
                         )}
                         {s.status === 'tested_out' && (
@@ -2453,16 +2749,37 @@ export default function JourneyScreen() {
                             <Text style={styles.teaserChipText}>FREE TASTE</Text>
                           </View>
                         )}
-                        {!accessible && (
-                          <Feather name="lock" size={12} color={colors.mutedForeground} />
-                        )}
                       </View>
+                      {/* THE STATUS ROW (chat 11): the kind chip and the
+                          lock moved down here from the title row. With the
+                          ALL-ACCESS plate on every plan-locked stop, a trace
+                          stop's title row carried title + two plates + a
+                          lock and WRAPPED, which is what kept pushing the
+                          stop-5 tags past their edges. One plate per row. */}
+                      <View style={styles.cardStatusRow}>
+                        {s.trace && (
+                          <View style={[styles.traceChip, styles.rusticChip, { backgroundColor: BADGE.traceBg, borderColor: BADGE.traceEdge }]}>
+                            <Feather name="edit-2" size={8} color="#ffffff" />
+                            <Text style={styles.traceChipText}>TRACE</Text>
+                          </View>
+                        )}
+                        {s.story && (
+                          <View style={[styles.traceChip, styles.rusticChip, { backgroundColor: BADGE.storyBg, borderColor: BADGE.storyEdge }]}>
+                            <Feather name="book-open" size={8} color="#ffffff" />
+                            <Text style={styles.traceChipText}>STORY</Text>
+                          </View>
+                        )}
                       <Text
+                        numberOfLines={1}
                         style={[
                           styles.cardStatus,
+                          { flexShrink: 1 },
                           isCurrent
                             ? { color: zoneColor, fontFamily: AppFonts.bold }
-                            : { color: colors.mutedForeground },
+                            : // Ink from the ticket, not a theme token (chat
+                              // 11 dark-mode sweep): dark theme's muted
+                              // foreground went pale blue-grey on cream.
+                              { color: accessible ? TICKET.inkMuted : TICKET.inkAhead },
                         ]}
                       >
                         {statusCopy}
@@ -2488,6 +2805,11 @@ export default function JourneyScreen() {
                             what pushed the current stop's status onto a second
                             line at narrow widths. */}
                       </Text>
+                        <View style={styles.cardTitleSpacer} />
+                        {!accessible && (
+                          <Feather name="lock" size={12} color={TICKET.inkAhead} />
+                        )}
+                      </View>
                       {/* Started stops trade the text fraction for a real
                           progress track (web parity). */}
                       {/* A TRACING STOP HAS PROGRESS AND HAD NO BAR. Its copy
@@ -2502,7 +2824,7 @@ export default function JourneyScreen() {
                           <View
                             style={[
                               styles.cardProgressTrack,
-                              { backgroundColor: accessible ? `${zoneColor}26` : colors.muted },
+                              { backgroundColor: accessible ? `${zoneColor}26` : `${TICKET.inkAhead}33` },
                             ]}
                           >
                             <View
@@ -2510,7 +2832,7 @@ export default function JourneyScreen() {
                                 width: `${Math.round(((s.traceDone ?? 0) / s.traceTotal) * 100)}%`,
                                 height: '100%',
                                 borderRadius: 3,
-                                backgroundColor: accessible ? zoneColor : colors.mutedForeground,
+                                backgroundColor: accessible ? zoneColor : TICKET.inkAhead,
                               }}
                               testID={`progress-trace-${s.stopNumber}`}
                             />
@@ -2530,7 +2852,7 @@ export default function JourneyScreen() {
                           <View
                             style={[
                               styles.cardProgressTrack,
-                              { backgroundColor: accessible ? `${zoneColor}26` : colors.muted },
+                              { backgroundColor: accessible ? `${zoneColor}26` : `${TICKET.inkAhead}33` },
                             ]}
                           >
                             <View
@@ -2538,14 +2860,16 @@ export default function JourneyScreen() {
                               style={[
                                 styles.cardProgressFill,
                                 {
-                                  width: Math.round(
+                                  // A percentage of the now-flexible track,
+                                  // not CARD_PROGRESS_W points of it.
+                                  width: `${Math.round(
                                     (Math.min(s.masteredCount ?? 0, s.phraseCount ?? 0) /
                                       Math.max(s.phraseCount ?? 0, 1)) *
-                                      CARD_PROGRESS_W,
-                                  ),
+                                      100,
+                                  )}%`,
                                   backgroundColor: accessible
                                     ? zoneColor
-                                    : colors.mutedForeground,
+                                    : TICKET.inkAhead,
                                 },
                               ]}
                             />
@@ -2553,7 +2877,7 @@ export default function JourneyScreen() {
                           <Text
                             style={[
                               styles.cardProgressLabel,
-                              { color: isCurrent ? zoneColor : colors.mutedForeground },
+                              { color: isCurrent ? zoneColor : TICKET.inkMuted },
                             ]}
                           >
                             {s.masteredCount}/{s.phraseCount} mastered
@@ -2565,15 +2889,97 @@ export default function JourneyScreen() {
                 </View>
               </View>
             );
-          })}
-
+            })}
+            {(() => {
+              const stalls = sceneryPlacements.filter(
+                (sp) => sp.y >= start && sp.y < end && sp.kind === 'chaiStall',
+              );
+              if (stalls.length === 0) return null;
+              /* ONE SMALL Svg PER STALL, NOT ONE SPANNING THE ZONE. The
+                 zone-wide overlay sat above the cards (that is its job) and
+                 ATE EVERY TAP UNDER IT despite pointerEvents="none":
+                 react-native-svg's root does not reliably pass touches
+                 through on this architecture, found live in chat 11 ("i
+                 cant click on the stop cards"). A box the size of the stall
+                 can only ever cost taps on the stall itself. */
+              return stalls.map((sp) => (
+                <Svg
+                  key={sp.key}
+                  pointerEvents="none"
+                  style={{
+                    position: 'absolute',
+                    left: sp.x - 45,
+                    top: sp.y - 62 - blockTop,
+                    zIndex: 5,
+                  }}
+                  width={90}
+                  height={112}
+                  viewBox={`${sp.x - 45} ${sp.y - 62} 90 112`}
+                >
+                  <G key={sp.key}>
+                      <Rect
+                        x={sp.x - 33}
+                        y={sp.y - 54}
+                        width={66}
+                        height={62}
+                        rx={6}
+                        fill={MAP_GLYPH_PLATE_FILL}
+                        opacity={sp.gray ? 0.55 : 0.85}
+                      />
+                      <Rect
+                        x={sp.x - 30}
+                        y={sp.y + 10}
+                        width={60}
+                        height={20}
+                        rx={5}
+                        fill={MAP_GLYPH_PLATE_FILL}
+                        opacity={sp.gray ? 0.55 : 0.85}
+                      />
+                      <SvgText
+                        testID={`${sp.testID}-label`}
+                        x={sp.x}
+                        y={sp.y + 17}
+                        textAnchor="middle"
+                        fontSize={7}
+                        fontWeight="700"
+                        fill={TICKET.ink}
+                        opacity={sp.gray ? 0.5 : 1}
+                      >
+                        Chacha-ji&#8217;s
+                      </SvgText>
+                      <SvgText
+                        x={sp.x}
+                        y={sp.y + 25}
+                        textAnchor="middle"
+                        fontSize={6}
+                        fontWeight="800"
+                        letterSpacing={0.6}
+                        fill={TICKET.inkMuted}
+                        opacity={sp.gray ? 0.5 : 1}
+                      >
+                        CHAI HALT
+                      </SvgText>
+                      <SceneryElement
+                        kind={sp.kind}
+                        x={sp.x}
+                        y={sp.y}
+                        accent={line.accent}
+                        gray={sp.gray}
+                        testID={sp.testID}
+                      />
+                    </G>
+                </Svg>
+              ));
+            })()}
+            {zi === zones.length - 1 && (
+              <>
           {/* terminus */}
           <View
             style={[
               styles.terminusOuter,
               {
                 left: termX - 14,
-                top: termY - 14,
+                top: termY - 14 - blockTop,
                 backgroundColor: allDone ? line.accent : GRAY,
               },
             ]}
@@ -2595,7 +3001,7 @@ export default function JourneyScreen() {
           <View
             style={[
               styles.terminusLabelWrap,
-              { left: 12, right: 12, top: termY + TERM_LABEL_DY },
+              { left: 12, right: 12, top: termY + TERM_LABEL_DY - blockTop },
             ]}
           >
             <Text
@@ -2608,6 +3014,8 @@ export default function JourneyScreen() {
               {allDone ? 'journey complete!' : 'the festival finale awaits'}
             </Text>
           </View>
+              </>
+            )}
           {/* Trackside signals.
               TRAP 2: deliberately NOT drawn inside the per-zone <Svg> slices.
               The map is sliced per zone for scroll performance, so a signal
@@ -2617,7 +3025,9 @@ export default function JourneyScreen() {
               TRAP 3: they sit in the SAME non-parallax layer as the stations
               and the rail. The scenery layer carries a 0.03 parallax factor,
               which would drift a signal out of register with its own gap. */}
-          {signals.map((sig) => (
+          {signals
+            .filter((sig) => sig.zoneId === zone.id)
+            .map((sig) => (
             <Pressable
               key={`signal-${sig.gap}`}
               testID={`signal-${sig.gap}`}
@@ -2632,7 +3042,7 @@ export default function JourneyScreen() {
                 signalMemory.markStopSeen(sig.gap);
                 setSignalDlg(sig);
               }}
-              style={[styles.signalWrap, { left: sig.x - 28, top: sig.y - 33 }]}
+              style={[styles.signalWrap, { left: sig.x - 28, top: sig.y - 33 - blockTop }]}
             >
               {/* His plate. See MAP_GLYPH_PLATE: a signal post is 20px of line
                   art on a painted bazaar at its own scale, so it read as more
@@ -2642,7 +3052,10 @@ export default function JourneyScreen() {
               <SignalGlyph state={sig.state} />
             </Pressable>
           ))}
-        </View>
+            </View>
+          );
+          return [boardChild, blockChild];
+        })}
 
         <Text style={[styles.footerHint, { color: colors.mutedForeground }]}>
           Tap any lit station to practice it. The {line.lineName} only stops at
@@ -3014,7 +3427,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scrollContent: { paddingBottom: 48 },
+  // paddingTop carries what used to be the map View's marginTop (8) plus the
+  // canvas TOP_PAD (10), now that the zone children sit directly in the
+  // scroll content for stickyHeaderIndices (chat 11).
+  scrollContent: { paddingTop: 18, paddingBottom: 48 },
   exhaustedCard: {
     marginHorizontal: 12,
     marginTop: 16,
@@ -3049,10 +3465,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // 64, was 56: the medallion grew to 52 plus its plate rim (chat 11), and
+  // the wrap centers on the rail point so the offset in the render is half.
   markerWrap: {
     position: 'absolute',
-    width: 56,
-    height: 56,
+    width: 64,
+    height: 64,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 6,
@@ -3071,13 +3489,18 @@ const styles = StyleSheet.create({
   // THE MEDALLION, replacing the filled and hollow circles on 2026-08-26. Two
   // points wider than the old 20 so a painted emblem has room to read at all;
   // any smaller and the compass rose turns to mush on a 3x screen.
+  //
+  // BIGGER, BARE ART (chat 11). "Make ours larger and not transparent" grew
+  // it from 34; a cream plate went behind it for one reload and came straight
+  // back off: "the emblems at each stop shouldn't have a circle behind them".
+  // The no-chrome verdict of 2026-08-26 stands; only the size changed.
   medallion: {
-    width: 34,
-    height: 34,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  medallionArt: { width: 34, height: 34 },
+  medallionArt: { width: 50, height: 50 },
   // A sentence stop rotates its frame 45 degrees; the art inside rotates back
   // so the compass is not standing on its corner.
   medallionArtUpright: { transform: [{ rotate: '-45deg' }] },
@@ -3145,6 +3568,26 @@ const styles = StyleSheet.create({
     paddingLeft: `${ZONE_BOARD.contentInset * 100}%`,
     paddingRight: `${ZONE_BOARD.contentInset * 100}%`,
     overflow: 'hidden',
+  },
+  // The daily-fact strip inside the panel. Web twin: LiveFactStrip's button in
+  // journey.tsx (dashed accent border, 8px label, 9px two-line fact).
+  boardFact: {
+    marginTop: 4,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  boardFactLabel: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 8,
+    letterSpacing: 1.2,
+  },
+  boardFactText: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 9,
+    lineHeight: 12,
   },
   boardNamePlate: {
     position: 'absolute',
@@ -3305,8 +3748,10 @@ const styles = StyleSheet.create({
   },
   ticketEyelet: {
     position: 'absolute',
-    top: '50%',
-    marginTop: -6,
+    // EXPLICIT, not top:'50%'. The card is a fixed 68 now (borders take 4),
+    // and the percentage was resolving off-centre on device: "the black dots
+    // on each card should be centered vertically" (chat 11).
+    top: 26,
     width: 12,
     height: 12,
     borderRadius: 6,
@@ -3319,11 +3764,20 @@ const styles = StyleSheet.create({
   card: {
     minWidth: 0,
     flexShrink: 1,
-    borderWidth: 2,
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    // Edge, stock and rounding are TagCardBack's now (chat 11); horizontal
+    // padding is set inline per taper side.
     // Item 2: same type scale, tighter box (web: py-2 -> py-1.5).
     paddingVertical: 6,
+    // EVEN CARDS (chat 11): one fixed height for every stop card, content
+    // centred. 72, was 68: the three-line trace card (title + status + bar)
+    // measures 71, so at 68 the bar sat on the inner rule ("this progress bar
+    // is too close to the bottom"). Two-line cards centre in the same box,
+    // which is what makes the column read as a rank of identical tags.
+    // The stop-5 overflow was never height: the trace title row wrapped
+    // under three plates. With the kind chip on the status row, 72 seats
+    // everything.
+    height: 72,
+    justifyContent: 'center',
     position: 'relative',
     // Item 1.1: the paper's lift off the painting. Mirrors the web
     // --depth-shadow (2px 3px 6px rgba(15,23,42,0.16)) so a stop card sits on
@@ -3331,22 +3785,25 @@ const styles = StyleSheet.create({
     // map lays rows out on a fixed pitch while a card's height is variable
     // (this is what grew HALT_H from 74 to 96 on 2026-08-25), so the paper must
     // not add a single pixel to a card that can already overflow its row.
+    // Deeper than web's --depth-shadow on purpose (chat 11, "this also
+    // feels more 3d"): the reference hangs its tags well off the painting.
     shadowColor: '#0F172A',
-    shadowOffset: { width: 2, height: 3 },
-    shadowOpacity: 0.16,
-    shadowRadius: 6,
+    shadowOffset: { width: 2, height: 4 },
+    shadowOpacity: 0.24,
+    shadowRadius: 7,
     elevation: 3,
   },
-  // Full-width zone-color roof bar across the current stop's card (the
+  // Zone-color roof bar across the current stop's card (the
   // signboard's painted roof; web: h-1.5 rounded-t accent bar).
+  // Inset inside the drawn tag edge (chat 11): the bar used to BE the card's
+  // top edge; the tag silhouette owns the edge now.
   signboardBar: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 6,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    top: 3,
+    left: 16,
+    right: 16,
+    height: 5,
+    borderRadius: 3,
   },
   // Short platform tick hanging from every other stop's top edge.
   stopTick: {
@@ -3380,14 +3837,19 @@ const styles = StyleSheet.create({
     // Item 2: web parity (mt-1 -> mt-0.5).
     marginTop: 2,
   },
+  // FULL-WIDTH TRACK (chat 11): the fixed 80pt bar left the right half of an
+  // even-width tag empty, "spread out the wording now on the tags so it
+  // doesn't look clustered to one side". The count label rides the far end.
   cardProgressTrack: {
-    width: CARD_PROGRESS_W,
+    flex: 1,
     height: 6,
     borderRadius: 3,
     overflow: 'hidden',
   },
   cardProgressFill: { height: 6, borderRadius: 3 },
   cardProgressLabel: { fontFamily: AppFonts.bold, fontSize: 10 },
+  cardTitleSpacer: { flex: 1 },
+  cardStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
   cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',

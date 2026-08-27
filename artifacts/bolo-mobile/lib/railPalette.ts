@@ -49,16 +49,21 @@ export const RAIL = {
  *  would be simpler and react-native-svg cannot draw one along a bezier, so
  *  both platforms draw the same two strokes instead. */
 export const RAIL_GLOW_PASSES = [
-  { width: 9, opacity: 0.45 },
+  { width: 12, opacity: 0.5 },
 ] as const;
 
 /** Stroke widths for the track itself, sleepers outward. */
+/** HEAVIER, ALL FOUR NUMBERS (chat 11): "the train tracks arent heavy enough
+ *  or they are too transparent." Opacity was already 1 everywhere, so weight
+ *  was the honest lever: fatter sleepers on a denser rhythm, wider rails, a
+ *  centre stripe half again as bold, to match the chunky ladder the reference
+ *  draws. */
 export const RAIL_STROKE = {
-  tie: 15,
-  rail: 8.5,
-  between: 4,
+  tie: 18,
+  rail: 9.5,
+  between: 6.5,
   /** The sleeper rhythm, and the dash an untravelled run is drawn with. */
-  tieDash: '3 11',
+  tieDash: '5 9',
   unlitDash: '9 7',
   /** THE RUN AHEAD IS FULLY OPAQUE. It was 0.55, then 0.88, and both times it
    *  still read as a ghost over a painting: "future rail segments are too

@@ -30,6 +30,7 @@ type BoloTabButtonProps = {
   children?: React.ReactNode;
 };
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, Path, Text as SvgText, TextPath } from 'react-native-svg';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
@@ -225,6 +226,15 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
 // ---------------------------------------------------------------------------
 // Elevated center Bolo tab button
 // ---------------------------------------------------------------------------
+
+/** The PRESS & HOLD ring's circle, bottom-start so the words sit upright. */
+const HOLD_RING_BOX = 58 * 1.34;
+
+function holdRingPath(box: number): string {
+  const r = box * 0.4;
+  const c = box / 2;
+  return `M ${c} ${c + r} A ${r} ${r} 0 1 1 ${c} ${c - r} A ${r} ${r} 0 1 1 ${c} ${c + r}`;
+}
 function BoloTabButton({
   onPress,
   onLongPress,
@@ -304,6 +314,14 @@ function BoloTabButton({
       accessibilityState={accessibilityState}
       accessibilityLabel={accessibilityLabel}
     >
+      {/* PRESS & HOLD, WRAPPED ROUND THIS BUTTON (chat 11). It wrapped the
+          on-screen mascot first and the owner moved it here: "i was talking
+          about the button on the bottom. nav button." This button IS the
+          hold-to-talk control when the chat tab is focused, so the ring only
+          shows then, and hides while a hold is in progress. The box is the
+          58pt bubble at the same 1.34 ratio the mascot ring used, centred on
+          the bubble's own anchor (bottom: 32). */}
+
       {/* Circle — absolutely positioned so it overflows above the tab bar */}
       <Animated.View
         style={[
@@ -318,6 +336,33 @@ function BoloTabButton({
           },
         ]}
       >
+        {focused && !isRecording ? (
+        <Svg
+          pointerEvents="none"
+          accessible={false}
+          width={HOLD_RING_BOX}
+          height={HOLD_RING_BOX}
+          style={{
+            position: 'absolute',
+            left: -(HOLD_RING_BOX - 58) / 2,
+            top: -(HOLD_RING_BOX - 58) / 2,
+          }}
+        >
+          <Defs>
+            <Path id="bolo-nav-hold-ring" d={holdRingPath(HOLD_RING_BOX)} fill="none" />
+          </Defs>
+          <SvgText
+            fill={colors.mutedForeground}
+            fontSize={8.5}
+            fontWeight="800"
+            letterSpacing={1.6}
+          >
+            <TextPath href="#bolo-nav-hold-ring" startOffset="50%" textAnchor="middle">
+              PRESS &amp; HOLD · PRESS &amp; HOLD ·
+            </TextPath>
+          </SvgText>
+        </Svg>
+        ) : null}
         <BoloNavParrot focused={focused} />
       </Animated.View>
 

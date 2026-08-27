@@ -162,7 +162,17 @@ export function zoneFootTone(zoneIndex: number): string {
  */
 export const ZONE_TILE_ASPECT = 860 / 1359;
 
-export const ZONE_BACKDROP_SCRIM = 0.28;
+/**
+ * THE WASH OVER THE PAINTING, and it is LIGHT now, not dark (chat 11). The
+ * 0.28 near-black scrim knocked the whole bazaar into dusk, and the owner's
+ * reference is bright daylight: "add a lighter layer behind the image to
+ * brighten the image up a little bit." A warm paper tone rather than white,
+ * so the painting lifts without going grey. Web twin holds the same pair.
+ */
+/** 0.22 read as faded ("too light, it looks faded now"); 0.10 lifts the dusk
+ *  without washing the pigment out. */
+export const ZONE_BACKDROP_SCRIM = 0.1;
+export const ZONE_BACKDROP_SCRIM_COLOR = '#FFF3DE';
 
 /**
  * THE CARVED STATION BOARD, the zone header. Asked for on 2026-08-26: "even

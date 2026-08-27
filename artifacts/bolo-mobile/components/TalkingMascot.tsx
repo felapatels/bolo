@@ -181,43 +181,12 @@ export function TalkingMascot({
 
   return (
     <View style={styles.root}>
-      {/* PRESS & HOLD, WRAPPED ROUND THE BIRD. Asked for 2026-08-26: "add a
-          wrapping text around the bubble on this page that says press & hold".
-          The instruction is already written twice on this screen, under the
-          mascot and on the button, and both are easy to read past: the thing a
-          learner actually looks at is Bolo, so the instruction goes on him.
-          Hidden while he is listening or talking, when it has been obeyed and
-          the pulse ring wants the same circle. */}
-      {showHint ? (
-        <Svg
-          width={size * 1.34}
-          height={size * 1.34}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-          accessible={false}
-        >
-          <Defs>
-            {/* Starts at the bottom and runs clockwise, so the words sit under
-                the bird the right way up rather than upside down over his
-                head. */}
-            <Path
-              id="bolo-hold-ring"
-              d={ringPath(size * 1.34)}
-              fill="none"
-            />
-          </Defs>
-          <SvgText
-            fill={colors.mutedForeground}
-            fontSize={size * 0.062}
-            fontWeight="800"
-            letterSpacing={size * 0.03}
-          >
-            <TextPath href="#bolo-hold-ring" startOffset="50%" textAnchor="middle">
-              PRESS &amp; HOLD · PRESS &amp; HOLD ·
-            </TextPath>
-          </SvgText>
-        </Svg>
-      ) : null}
+      {/* The PRESS & HOLD ring moved OFF the bird and onto the tab bar
+          Bolo button (chat 11): "this text is in the wrong place, i was
+          talking about the button on the bottom. nav button." That button
+          is the actual hold-to-talk control, so the instruction now wraps
+          the thing it instructs. See BoloTabButton in (tabs)/_layout.tsx. */}
+
 
       {/* Pulse ring for listening */}
       {mode === 'listening' && (
