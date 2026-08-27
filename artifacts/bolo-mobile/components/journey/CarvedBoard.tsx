@@ -26,6 +26,7 @@ export function CarvedBoard({
   nameplate,
   plate,
   opacity = 1,
+  clipContent = true,
   testID,
   pedimentTestID,
   children,
@@ -40,6 +41,19 @@ export function CarvedBoard({
   plate: string;
   /** Greys a board the learner cannot reach (showroom). */
   opacity?: number;
+  /**
+   * THE BOARD CLIPS BY DEFAULT, AND IT HAS TO. The panel takes exactly the
+   * height it is given, so a cap plus overflow hidden is what stops content
+   * spilling past the frame; it is also what crops a daily fact's last line
+   * rather than letting it hang outside the art.
+   *
+   * Pass false for the length of an animation that must LEAVE the board. The
+   * home hero's ticket tears off and sails away, and with all three boxes
+   * clipping it vanished at the frame line instead: "now the ticket doesn't
+   * tear" (owner, chat 12). Nothing resizes during that window, so the crop is
+   * not doing any work while it is off.
+   */
+  clipContent?: boolean;
   testID?: string;
   pedimentTestID?: string;
   /** Whatever the panel says. Laid out inside the drawn frame. */
@@ -50,7 +64,14 @@ export function CarvedBoard({
   const pedimentH = zoneBoardPedimentH(width);
   const panelH = height - pedimentH;
   return (
-    <View testID={testID} style={[styles.board, { width, height, opacity }]}>
+    <View
+      testID={testID}
+      style={[
+        styles.board,
+        { width, height, opacity },
+        clipContent ? null : styles.unclipped,
+      ]}
+    >
       {/* The pediment, aspect preserved: its rosettes and arch must not
           stretch, which is the whole reason the art is cut into slices. */}
       <View style={{ width, height: pedimentH }}>
@@ -95,7 +116,7 @@ export function CarvedBoard({
         </View>
       </View>
       {/* The panel. THE ONLY PART THAT STRETCHES, and it clips. */}
-      <View style={styles.panel}>
+      <View style={[styles.panel, clipContent ? null : styles.unclipped]}>
         {/* Cream UNDER the art, and only as wide as the art's own frame. The
             slice's paper has partial alpha so it needs a fill behind it, and
             its outer margin is fully transparent, so that fill must stop there
@@ -118,6 +139,7 @@ export function CarvedBoard({
               paddingTop: panelH * ZONE_BOARD.contentInsetTop,
               paddingBottom: panelH * ZONE_BOARD.contentInsetBottom,
             },
+            clipContent ? null : styles.unclipped,
           ]}
         >
           {children}
@@ -169,6 +191,8 @@ const styles = StyleSheet.create({
     right: `${ZONE_BOARD.panelInsetRight * 100}%`,
     backgroundColor: ZONE_BOARD.panel,
   },
+  // All three boxes clip, so all three have to be opened for a child to leave.
+  unclipped: { overflow: 'visible' },
   panelBody: {
     flex: 1,
     paddingLeft: `${ZONE_BOARD.contentInset * 100}%`,

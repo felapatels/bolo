@@ -39,9 +39,8 @@ jest.mock('react-native-svg', () => {
 
 jest.mock('@expo/vector-icons', () => {
   const { Text } = require('react-native');
-  return {
-    Feather: ({ name }: { name: string }) => <Text>{`icon-${name}`}</Text>,
-  };
+  const icon = ({ name }: { name: string }) => <Text>{`icon-${name}`}</Text>;
+  return { Feather: icon, MaterialCommunityIcons: icon };
 });
 
 jest.mock('@/constants/fonts', () => ({

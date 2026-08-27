@@ -46,9 +46,8 @@ jest.mock('react-native-svg', () => {
 
 jest.mock('@expo/vector-icons', () => {
   const { Text } = require('react-native');
-  return {
-    Feather: ({ name }: { name: string }) => <Text>{`icon-${name}`}</Text>,
-  };
+  const icon = ({ name }: { name: string }) => <Text>{`icon-${name}`}</Text>;
+  return { Feather: icon, MaterialCommunityIcons: icon };
 });
 
 jest.mock('@/constants/fonts', () => ({
@@ -125,7 +124,7 @@ import {
 import {
   HOME_PANEL_H,
   JourneyPassCard,
-  stubLineFontSize,
+  STAMP_SIZE,
 } from '@/components/journey/JourneyPassCard';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -215,17 +214,19 @@ describe('zone stamp geometry (build 30)', () => {
   });
 
   it('the home pass stamp slot reserves the rotated extent of the DERIVED stamp', () => {
-    // R1: the stamp size comes from the 64px stub width (8px breathing room),
-    // no longer a hardcoded 48 that ignored its column.
-    const stampSize = stampSizeForExtent(64 - 8);
+    // TAKEN FROM THE COMPONENT, NOT RESTATED. This used to recompute
+    // `stampSizeForExtent(64 - 8)` from the stub width of the day, and when the
+    // stub became a landscape ticket with a border and an inner rule the two
+    // silently disagreed: the real stamp got smaller, the test kept checking
+    // the old one. A test that re-derives a constant is a second definition of
+    // it, which is the same defect this repo names everywhere else.
     const r = render(<JourneyPassCard onPress={() => {}} />);
     const stamp = StyleSheet.flatten(r.getByTestId('zone-stamp').props.style);
-    expect(stamp.width).toBe(stampSize);
+    expect(stamp.width).toBe(STAMP_SIZE);
     const slot = StyleSheet.flatten(r.getByTestId('home-stamp-slot').props.style);
-    expect(slot.width).toBeGreaterThanOrEqual(zoneStampExtent(stampSize));
-    expect(slot.height).toBeGreaterThanOrEqual(zoneStampExtent(stampSize));
-    // And the whole extent still clears the stub column / perforation.
-    expect(slot.width).toBeLessThanOrEqual(64);
+    // The rotated bounding box is what has to fit, not the nominal square.
+    expect(slot.width).toBeGreaterThanOrEqual(zoneStampExtent(STAMP_SIZE));
+    expect(slot.height).toBeGreaterThanOrEqual(zoneStampExtent(STAMP_SIZE));
   });
 
   it('stampSizeForExtent is the safe inverse of zoneStampExtent', () => {
@@ -316,30 +317,32 @@ describe('zone stamp type scales as a unit (R1)', () => {
 // numberOfLines={1}, which ellipsized whenever the measured run came up
 // short. Now the font fits the measured extent by construction and the
 // ellipsis path is gone entirely.
-describe('stub wordmark fits its measured run (R1)', () => {
-  it('sizes the font to the extent and never ellipsizes', () => {
+// THE ROTATED WORDMARK IS GONE, and these two cases are INVERTED rather than
+// deleted.
+//
+// The stub used to be a bare vertical column: a fare-zone stamp with the line's
+// name rotated 90 degrees beside it, fitted to its measured run by
+// `stubLineFontSize` and shortened whole word by whole word so it could never
+// ellipsize. All of that was real work and it is all retired, because the stub
+// is no longer a column. It is the right-hand half of a landscape ticket:
+// "this area can fit a full smaller ticket with stub, only keep stamp on stub"
+// (owner, 2026-08-27, chat 12).
+//
+// The line's name did not go missing with it. It is on the ticket's other half
+// now, horizontal, and carved across the board's pediment above that. What
+// these cases pin is the owner's instruction: the stub carries the stamp and
+// NOTHING else, so a future port cannot quietly rotate a wordmark back onto it.
+describe('the stub carries the stamp and nothing else', () => {
+  it('has no rotated wordmark on it any more', () => {
     const r = render(<JourneyPassCard onPress={() => {}} />);
-    const slot = r.getByTestId('stub-line-slot');
-    fireLayout(slot, 14, 120);
-
-    const text = r.getByTestId('stub-line-name');
-    expect(text.props.numberOfLines).toBeUndefined();
-    expect(text.props.allowFontScaling).toBe(false);
-
-    const name = text.props.children as string;
-    const style = StyleSheet.flatten(text.props.style);
-    expect(style.fontSize).toBe(stubLineFontSize(name, 120));
-    expect(style.width).toBe(120);
-    // The fitted run stays inside the measured extent.
-    expect(name.length * (style.fontSize as number) * 0.75).toBeLessThanOrEqual(120 - 8);
+    expect(r.queryByTestId('stub-line-name')).toBeNull();
+    expect(r.queryByTestId('stub-line-slot')).toBeNull();
   });
 
-  it('stubLineFontSize clamps to a legible band and shrinks with the run', () => {
-    const name = 'GUJARAT EXPRESS'; // 15 glyphs
-    expect(stubLineFontSize(name, 200)).toBe(8); // roomy run: cap
-    const short = stubLineFontSize(name, 78);
-    expect(short).toBeGreaterThanOrEqual(5);
-    expect(short).toBeLessThan(7);
-    expect(stubLineFontSize(name, 20)).toBe(5); // degenerate measure: floor
+  it('still stamps the fare zone, which is the half thing that stayed', () => {
+    const r = render(<JourneyPassCard onPress={() => {}} />);
+    expect(r.getByTestId('home-stamp-slot')).toBeTruthy();
+    expect(r.getByTestId('zone-stamp')).toBeTruthy();
   });
 });
+

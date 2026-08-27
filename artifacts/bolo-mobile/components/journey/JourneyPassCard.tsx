@@ -22,7 +22,7 @@
 // is a clean parked ticket.
 import React from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
@@ -44,7 +44,6 @@ import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fo
 import { CarvedBoard } from '@/components/journey/CarvedBoard';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import {
-  TicketPerforationV,
   TicketStripes,
   ZoneStamp,
   stampSizeForExtent,
@@ -70,14 +69,29 @@ const TEAR_NAV_DELAY_MS = 500; // activation → navigation; never blocked
 // under the stack — the web page unmounts instead).
 const TEAR_RESET_MS = 1200;
 // Stub tear travel (web --tear-* variables).
-const TEAR_DISTANCE = 34;
-const TEAR_DROP = 10;
-const TEAR_ROTATE = 16;
-// THE BODY-TEAR KEYFRAMES ARE GONE, not merely unused. They recoiled the
-// pass's left half as the stub came away, which was correct while the card was
-// one ticket ripped in two. The card is a carved station board now and a board
-// does not flinch: the ticket alone travels. Restoring them means restoring a
-// two-paper-halves card, which is a different design, not a tuning value.
+// IT TEARS, IT DOES NOT FLY. First these were 34 and the halves never cleared
+// the board's frame; then 120 and they shot off the card: "ticket moves too
+// fast too far after tear, just tear and leave it there" (owner, chat 12).
+// What a tear actually looks like is a small gap opening and the two halves
+// settling slightly askew, so that is what these are now. THE HALVES DO NOT
+// FADE EITHER: the torn ticket stays on the board, visible, until the reset
+// window quietly restores it under the incoming screen.
+const TEAR_DISTANCE = 16;
+const TEAR_DROP = 5;
+const TEAR_ROTATE = 5;
+// THE TICKET'S LEFT HALF TRAVELS TOO, and these came BACK on purpose after
+// being retired earlier the same session. They were retired because they moved
+// the BOARD: "the words shouldn't drop off the board when the ticket tears,
+// left side stays put", and a carved board bolted to a wall does not flinch.
+// That still holds and the board still does not move.
+//
+// What moves now is the ticket's own left half. Once the stub became a real
+// ticket with a body and a perforation, a stub tearing off it wanted the other
+// half to give way as paper does: "bonus if both sides fall off" (owner, chat
+// 12). Same keyframes, a different object.
+const TICKET_BODY_DISTANCE = -9;
+const TICKET_BODY_DROP = 3;
+const TICKET_BODY_ROTATE = -2.5;
 
 const TORN_EDGE_W = 6;
 
@@ -170,13 +184,6 @@ export function JourneyPassCard({
   const journey = useJourneyProgress(activeLang, line.zones);
   const brand = getRailBrand(activeLang);
   const reduceMotion = useReducedMotion();
-  // The rotated line name reserves real layout space: measure the slot the
-  // column gives it and size the text to that extent (see stubLineSlot).
-  const [nameExtent, setNameExtent] = React.useState(78);
-  // R1 amendment: fitted wordmark - font sized to the measured run, and the
-  // string deliberately shortened (whole trailing words) if even the floor
-  // font cannot fit. Never an ellipsis, never a mid-word cut.
-  const stubWordmark = fitStubWordmark(line.lineName, nameExtent);
   // Face width for the shimmer band's travel (band = 1/3 of the face) and for
   // the board's own geometry. The window minus home's padding is the answer on
   // the first frame; onLayout confirms it and is authoritative after that, so
@@ -294,10 +301,19 @@ export function JourneyPassCard({
   }));
   // Both halves grip at the perforation (16%) before giving way — the web
   // stub-tear/body-tear keyframes on the shared tear progress.
+  const ticketBodyTearStyle = useAnimatedStyle(() => {
+    const t = tearProgress.value;
+    return {
+      transform: [
+        { translateX: interpolate(t, [0, 0.16, 0.45, 1], [0, -1.5, TICKET_BODY_DISTANCE * 0.35, TICKET_BODY_DISTANCE]) },
+        { translateY: interpolate(t, [0, 0.16, 0.45, 1], [0, 0, TICKET_BODY_DROP * 0.25, TICKET_BODY_DROP]) },
+        { rotate: `${interpolate(t, [0, 0.16, 0.45, 1], [0, 2.5, TICKET_BODY_ROTATE * 0.55, TICKET_BODY_ROTATE])}deg` },
+      ],
+    };
+  });
   const stubTearStyle = useAnimatedStyle(() => {
     const t = tearProgress.value;
     return {
-      opacity: interpolate(t, [0, 0.8, 1], [1, 1, 0]),
       transform: [
         {
           translateX: interpolate(
@@ -373,6 +389,25 @@ export function JourneyPassCard({
       : journey.planBlocked
         ? 'Unlock with All-Access'
         : 'Continue';
+  // THE SECOND LINE IN THE PLATE. The verb alone left a wide button mostly
+  // empty once the ticket went landscape and the plate got the whole panel
+  // back: "add the text back to the button after Resume, Only 6 more stops to
+  // go, or whatever was there so it fills the button" (owner, chat 12).
+  //
+  // STOPS LEFT IN THE ZONE, not phrases at this stop, and that is the change
+  // rather than a restoration. The old sentence counted phrases, which the
+  // progress bar directly above now draws; stops left is the one number
+  // nothing else on the card says. It counts against stopCount, which is the
+  // MAP's row count, so "6 more" means six more rows the learner will actually
+  // scroll past rather than six lesson groups the payload happens to hold.
+  const stopsLeftInZone = journey.current
+    ? Math.max(journey.current.stopCount - journey.current.stopNumber, 0)
+    : 0;
+  const journeyCtaTail = !journey.current
+    ? null
+    : stopsLeftInZone === 0
+      ? 'Last stop in this zone!'
+      : `Only ${stopsLeftInZone} more ${stopsLeftInZone === 1 ? 'stop' : 'stops'} to go!`;
 
   return (
     <>
@@ -437,202 +472,240 @@ export function JourneyPassCard({
           plate={
             journey.current ? `ZONE ${journey.current.zoneIndex + 1}` : 'DEPARTURES'
           }
+          // OPEN THE BOARD FOR THE LENGTH OF THE TEAR. The ticket lives inside
+          // the panel, and the board, the panel and the panel body all clip, so
+          // a ticket sailing off the card was cropped at the frame line the
+          // moment it moved: "now the ticket doesn't tear" (owner, chat 12).
+          clipContent={!tearing}
         >
-          <View style={styles.row}>
-            {/* THE BOARD DOES NOT MOVE. It used to recoil leftward as the
-                stub tore away, which was right when the whole card was one
-                ticket in two halves: both halves were paper and both had to
-                go. A carved station board is bolted to a wall. "The words
-                shouldn't drop off the board when the ticket tears, left side
-                stays put" (owner, chat 12). Only the ticket travels now, and
-                the board is what it is torn FROM. */}
-            <View style={styles.body}>
-              {/* The brand is native-script ("Bolo Rail" in the learner's own
-                  script) and MUST render with the language font or the Latin
-                  UI font shows tofu. Same per-script handling as the picker.
-                  It is the ACCENT here rather than white-on-green: on cream
-                  paper the accent is what an eyebrow is on the zone card. */}
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.eyebrow,
-                  // THE BOARD'S OWN INK, not the line's accent. The zone card
-                  // does put its line name in the accent, but that card is a
-                  // small panel on a painted map where the green is the only
-                  // colour in the row. Full bleed on a page of cream and wood,
-                  // the same green read as the loudest thing on the card:
-                  // "update the green text here to match the theme" (owner,
-                  // chat 12). The LINE is not lost with it; the pediment's
-                  // nameplate carves it in bigger letters than this ever did.
-                  { color: ZONE_BOARD.inkMuted },
-                  brand.native && isTallCascadingScript(activeLanguage)
-                    ? styles.eyebrowTall
-                    : null,
-                ]}
-              >
-                BOARDING PASS ·{' '}
+          {/* THE FRAME IS NOT SYMMETRIC, SO THE CONTENT BOX CANNOT BE EITHER.
+              CarvedBoard insets its content by ZONE_BOARD.contentInset, one
+              number on both sides, but the panel ART has a 3.68% transparent
+              margin on the left against 5.39% on the right, so the DRAWN frame
+              sits further in on the right than on the left. At the journey's
+              width nobody could see it; full bleed, the ticket and the plate
+              ran up against the frame line: "the resume button and ticket
+              overlap the right border" (owner, chat 12). The pad is exactly
+              that asymmetry, off the same two numbers, so re-cutting the art
+              moves it rather than leaving a stale correction. */}
+          <View style={[styles.body, { paddingRight: artNudge * 2 }]}>
+            {/* THE BOARD'S TOP LINE, with the ticket lying in the corner beside
+                it. The ticket was a full-height column down the right and it
+                pushed everything under it into a narrow run: "no I want it
+                horizontal in that area... above the progress bar" (owner, chat
+                12). Landscape in the corner, the progress bar and the plate get
+                the whole panel back. */}
+            <View style={styles.topRow}>
+              <View style={styles.topText}>
+                {/* The brand is native-script ("Bolo Rail" in the learner's own
+                    script) and MUST render with the language font or the Latin
+                    UI font shows tofu. Same per-script handling as the picker.
+                    The board's ink, not the line's accent: see the retheme. */}
                 <Text
-                  style={
-                    brand.native
-                      ? [styles.eyebrowNative, nativeTextStyle(activeLanguage, { bold: true })]
-                      : null
-                  }
+                  numberOfLines={1}
+                  style={[
+                    styles.eyebrow,
+                    { color: ZONE_BOARD.inkMuted },
+                    brand.native && isTallCascadingScript(activeLanguage)
+                      ? styles.eyebrowTall
+                      : null,
+                  ]}
                 >
-                  {brand.text}
-                </Text>
-              </Text>
-              {/* THE STATION, exactly as the zone card names one: the city in
-                  the board's own ink, not a theme token. The panel is cream in
-                  both themes and a cool slate reads cold on it. */}
-              <Text numberOfLines={1} style={styles.title}>
-                {journey.current ? journey.current.geoName : `Ride the ${line.lineName}`}
-              </Text>
-              <Text numberOfLines={1} style={styles.subtitle}>
-                {journey.current
-                  ? `Stop ${journey.current.stopNumber} of ${journey.current.stopCount}`
-                  : `${line.zones[0]} to ${line.zones[5]}, station by station`}
-              </Text>
-              {journey.current && journey.current.phraseCount > 0 && (
-                <View style={styles.progressRow}>
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        {
-                          // Aged brass from the element sheet's own badge
-                          // palette: the one warm spark left on the card now
-                          // the accent has gone, and it belongs to the wood.
-                          backgroundColor: BADGE.brassBg,
-                          width: `${Math.round(
-                            (journey.current.masteredCount / journey.current.phraseCount) * 100,
-                          )}%`,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.progressText}>
-                    {journey.current.masteredCount}/{journey.current.phraseCount}
+                  BOARDING PASS ·{' '}
+                  <Text
+                    style={
+                      brand.native
+                        ? [styles.eyebrowNative, nativeTextStyle(activeLanguage, { bold: true })]
+                        : null
+                    }
+                  >
+                    {brand.text}
                   </Text>
-                </View>
-              )}
-              {/* THE DOOR. Same bordered plate the zone card uses for its
-                  test-out link, so the two screens offer an action the same
-                  way. The engine stands in it rather than up beside the
-                  title: it is the train at the platform, and pressing boards
-                  it. */}
-              <View style={[styles.ctaBtn, { borderColor: TICKET.edge }]}>
-                <TrainEngine
-                  tint={ZONE_BOARD.ink}
-                  width={34}
-                  height={22}
-                  motion="drive"
-                  palette={goldPalette}
-                />
-                <Text numberOfLines={1} style={styles.ctaText}>
-                  {journeyCta}
                 </Text>
-                <Animated.View style={arrowStyle}>
-                  <Feather name="arrow-right" size={17} color={ZONE_BOARD.ink} />
+                {/* THE STATION, exactly as the zone card names one: the city in
+                    the board's own ink, not a theme token. The panel is cream in
+                    both themes and a cool slate reads cold on it. */}
+                <Text numberOfLines={1} style={styles.title}>
+                  {journey.current ? journey.current.geoName : `Ride the ${line.lineName}`}
+                </Text>
+                <Text numberOfLines={1} style={styles.subtitle}>
+                  {journey.current
+                    ? `Stop ${journey.current.stopNumber} of ${journey.current.stopCount}`
+                    : `${line.zones[0]} to ${line.zones[5]}, station by station`}
+                </Text>
+              </View>
+              {/* A WHOLE TICKET, NOT A TORN-OFF STRIP, and it lies landscape in
+                  the corner. It was a bare vertical stub, a stamp with the
+                  line's name rotated beside it, which read as crammed in a
+                  column that tall: "this area can fit a full smaller ticket
+                  with stub, only keep stamp on stub".
+                  IT DOES NOT REPEAT THE BOARD. The station and the stop are
+                  named six points to its left, so the ticket carries its own
+                  furniture instead: what it admits, and which line it admits
+                  you to.
+                  THE BOARD'S OWN PERFORATION WENT WITH THIS. A dashed line
+                  between the board and the ticket said they were two halves of
+                  one piece of paper, which was true of the old pass and is not
+                  true of a ticket lying on a carved board. The only perforation
+                  left is the ticket's own. */}
+              <View style={styles.ticket}>
+                {/* THE LEFT HALF. Its own paper, its own three borders and its
+                    own rounded outer corners: the middle edge is square and
+                    borderless so the two halves read as ONE ticket at rest and
+                    as two pieces of paper the moment they part. */}
+                <Animated.View
+                  style={[
+                    styles.ticketHalf,
+                    styles.ticketBody,
+                    ticketBodyTearStyle,
+                    tearing && [styles.tearHalf, styles.ticketBodyTorn],
+                  ]}
+                >
+                  {/* THE TICKET'S OWN PAPER, and it is the app's paper rather
+                      than a colour picked to contrast. TICKET was sampled off
+                      the owner's element sheet, so the ticket is cut from the
+                      same stock as every stop card on the map. Cream on cream
+                      is what a real ticket lying on a cream board looks like:
+                      what separates them is the brown edge, the hairline rule
+                      inside it and the small shadow, not a different colour. */}
+                  <LinearGradient
+                    pointerEvents="none"
+                    colors={[TICKET.stockTop, TICKET.stockBottom]}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 1 }}
+                    style={styles.stubStock}
+                  />
+                  <View pointerEvents="none" style={styles.halfRule} />
+                  {/* HALF A BITE EACH. A real ticket is notched where it tears,
+                      so each half carries a disc of the PANEL'S cream pushed
+                      past its own inner edge; `overflow: hidden` crops it to a
+                      quarter, and the stub's mirror image completes the
+                      semicircle. Two of them, top and bottom.
+                      A cutout may only ever straddle an EDGE, which is the
+                      standing ruling that took the floating punch hole out of
+                      this card and off the web twin. */}
+                  <View pointerEvents="none" style={[styles.notch, styles.notchBodyTop]} />
+                  <View pointerEvents="none" style={[styles.notch, styles.notchBodyBottom]} />
+                  <View style={styles.miniBody}>
+                    <Text numberOfLines={1} style={styles.miniAdmit}>
+                      ADMIT ONE
+                    </Text>
+                    <Text numberOfLines={1} style={styles.miniLine}>
+                      {line.lineName.toUpperCase()}
+                    </Text>
+                  </View>
+                  {tearing && <TornEdge color={TICKET.stockBottom} side="right" />}
+                </Animated.View>
+                {/* DRAWN AS VIEWS, NOT AN SVG. An Svg eats every touch under it
+                    even with pointerEvents none, and this one sits inside the
+                    card's own Pressable, so a tap landing on the perforation
+                    would be a tap the hero never received. Flat dashes cost
+                    nothing and behave the same on both platforms. It hides
+                    while tearing: the dashed line is replaced by the two jagged
+                    torn edges. */}
+                {!tearing && (
+                  <View pointerEvents="none" style={styles.miniPerf}>
+                    {Array.from({ length: 7 }).map((_, i) => (
+                      <View key={i} style={styles.miniPerfDash} />
+                    ))}
+                  </View>
+                )}
+                {/* THE STUB, AND ONLY THE STAMP ON IT. Fixed slot so the
+                    stamp's ROTATED extent is part of the layout: it is tilted
+                    12 degrees, which inflates its bounding box by about 1.19x,
+                    and an exact-size slot clips the corners. */}
+                <Animated.View
+                  style={[
+                    styles.ticketHalf,
+                    styles.ticketStub,
+                    stubTearStyle,
+                    tearing && [styles.tearHalf, styles.ticketStubTorn],
+                  ]}
+                >
+                  <LinearGradient
+                    pointerEvents="none"
+                    colors={[TICKET.stockTop, TICKET.stockBottom]}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 1 }}
+                    style={styles.stubStock}
+                  />
+                  <View pointerEvents="none" style={styles.halfRule} />
+                  <View pointerEvents="none" style={[styles.notch, styles.notchStubTop]} />
+                  <View pointerEvents="none" style={[styles.notch, styles.notchStubBottom]} />
+                  <View testID="home-stamp-slot" style={styles.stampSlot}>
+                    {journey.current && (
+                      <ZoneStamp
+                        ink={TICKET.ink}
+                        zone={journey.current.zoneIndex + 1}
+                        name={journey.current.geoName}
+                        size={STAMP_SIZE}
+                      />
+                    )}
+                  </View>
+                  {tearing && <TornEdge color={TICKET.stockBottom} side="left" />}
                 </Animated.View>
               </View>
             </View>
-            {/* The perforation the ticket is torn along. It hides while
-                tearing: the dashed line is replaced by the two jagged edges.
-                The bites are the PANEL'S cream, not the page colour, because
-                the ticket is lying on the board rather than on the page. */}
-            {!tearing && (
-              <TicketPerforationV
-                dashColor={TICKET.rule}
-                // NO EDGE BITES HERE. The notches are drawn to straddle the
-                // TOP AND BOTTOM EDGES of a full-height ticket, which is what
-                // the old pass was. The ticket is a small object lying on a
-                // panel now, so its perforation runs between two points inside
-                // the board and the bites landed as two loose dots mid-panel.
-                // Transparent keeps the dashed line and drops them.
-                holeColor="transparent"
-              />
-            )}
-            {/* YOUR TICKET, CLIPPED TO THE BOARD. The card is a station board
-                now (owner, chat 12: "maybe we make it look like the styling of
-                the zone cards"), and a board has no stub of its own, so the
-                boarding pass survives as a real object lying on it: the line's
-                accent against the cream, which is also the one flash of colour
-                left on the card. It still tears off, with the same rip, the
-                same recorded SFX and the same 500ms navigation. */}
-            <Animated.View
-              style={[styles.stub, stubTearStyle, tearing && styles.tearHalf]}
-            >
-              {/* THE TICKET'S OWN PAPER, and it is the app's paper rather than
-                  a colour picked to contrast. TICKET was sampled off the
-                  owner's element sheet, so the stub is cut from the same stock
-                  as every stop card on the map. Cream on cream is what a real
-                  ticket lying on a cream board looks like: what separates them
-                  is the brown edge, the hairline rule inside it and the small
-                  shadow, not a different colour. */}
-              <LinearGradient
-                pointerEvents="none"
-                colors={[TICKET.stockTop, TICKET.stockBottom]}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-                style={styles.stubStock}
-              />
-              {/* The sheet's inner frame, set in from the border. */}
-              <View pointerEvents="none" style={styles.stubRule} />
-              {/* Fixed slot so the rotated stamp's visual extent is part of
-                  the layout: it cannot drift over the perforation or the line
-                  name. The stamp size derives from the stub width so label and
-                  circle scale as one unit. */}
-              <View testID="home-stamp-slot" style={styles.stampSlot}>
-                {journey.current && (
-                  <ZoneStamp
-                    ink={TICKET.ink}
-                    zone={journey.current.zoneIndex + 1}
-                    name={journey.current.geoName}
-                    size={STAMP_SIZE}
+            {journey.current && journey.current.phraseCount > 0 && (
+              <View style={styles.progressRow}>
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        // Aged brass from the element sheet's own badge
+                        // palette: the one warm spark left on the card now
+                        // the accent has gone, and it belongs to the wood.
+                        backgroundColor: BADGE.brassBg,
+                        width: `${Math.round(
+                          (journey.current.masteredCount / journey.current.phraseCount) * 100,
+                        )}%`,
+                      },
+                    ]}
                   />
-                )}
-              </View>
-              {/* Vertical line name, web's writing-mode:vertical-rl. The slot
-                  reserves the rotated text's true vertical extent; a bare
-                  rotated Text only reserves its unrotated ~10px box, which is
-                  what let it collide with the stamp. The text is ABSOLUTE
-                  inside the slot, because as a flex child react-native-web
-                  clamps its width to the 14px slot and truncates the name to
-                  one glyph. */}
-              <View
-                testID="stub-line-slot"
-                style={styles.stubLineSlot}
-                onLayout={(e) => {
-                  const h = Math.round(e.nativeEvent.layout.height);
-                  if (h > 20 && h !== nameExtent) setNameExtent(h);
-                }}
-              >
-                <Text
-                  testID="stub-line-name"
-                  allowFontScaling={false}
-                  style={[
-                    styles.stubLine,
-                    {
-                      // The wordmark is sized to the measured run so it can
-                      // NEVER ellipsize: the font fits the extent by
-                      // construction. Decorative fitting, so it is pinned
-                      // against OS font scaling like the stamp.
-                      fontSize: stubWordmark.fontSize,
-                      letterSpacing: stubWordmark.fontSize >= 7 ? 1.2 : 0.6,
-                      // maxWidth too: react-native-web clamps text to the
-                      // parent's width (measured: width:60 computed as 14px).
-                      width: nameExtent,
-                      maxWidth: nameExtent,
-                      left: (STUB_LINE_SLOT_W - nameExtent) / 2,
-                      top: (nameExtent - STUB_LINE_SLOT_W) / 2,
-                    },
-                  ]}
-                >
-                  {stubWordmark.text}
+                </View>
+                <Text style={styles.progressText}>
+                  {journey.current.masteredCount}/{journey.current.phraseCount}
                 </Text>
               </View>
-              {tearing && <TornEdge color={TICKET.stockBottom} side="left" />}
-            </Animated.View>
+            )}
+            {/* THE DOOR. Same bordered plate the zone card uses for its
+                test-out link, so the two screens offer an action the same
+                way. The engine stands in it rather than up beside the
+                title: it is the train at the platform, and pressing boards
+                it. */}
+            <View style={[styles.ctaBtn, { borderColor: TICKET.edge }]}>
+              <TrainEngine
+                tint={ZONE_BOARD.ink}
+                width={34}
+                height={22}
+                motion="drive"
+                palette={goldPalette}
+              />
+              <View style={styles.ctaTextCol}>
+                <Text numberOfLines={1} style={styles.ctaText}>
+                  {journeyCta}
+                </Text>
+                {journeyCtaTail && (
+                  <Text numberOfLines={1} style={styles.ctaTail}>
+                    {journeyCtaTail}
+                  </Text>
+                )}
+              </View>
+              {/* A SOLID ARROW, not a hairline one. Feather draws a thin
+                  stroke at any size and beside a 17pt extrabold word it read as
+                  a different weight of voice: "make that bouncing arrow on the
+                  resume stop heavy like the Resume word" (owner, chat 12).
+                  MaterialCommunityIcons is already bundled for the badge
+                  gallery, so this costs no new font. */}
+              <Animated.View style={arrowStyle}>
+                <MaterialCommunityIcons
+                  name="arrow-right-thick"
+                  size={20}
+                  color={ZONE_BOARD.ink}
+                />
+              </Animated.View>
+            </View>
           </View>
         </CarvedBoard>
         {/* The shimmer sweep, once per heartbeat. Warm rather than white: a
@@ -659,15 +732,25 @@ export function JourneyPassCard({
   );
 }
 
-// Width of the vertical line-name slot; also the rotated text's line height,
-// so the offset math in the render centers it exactly.
-const STUB_LINE_SLOT_W = 14;
-
-// R1: the stub column's fixed width, and the stamp that fits it. The stamp's
-// ROTATED extent (not its nominal square) must clear the column with a 4px
-// margin per side, so label + circle scale as one unit to the stub.
-const STUB_W = 64;
-const STAMP_SIZE = stampSizeForExtent(STUB_W - 8);
+// R1: the stub column's fixed width, and the stamp that fits it.
+// THE MINI TICKET'S WIDTH. It grew from 64 when the stub became a whole
+// ticket: a body that names the line, the station and the stop needs a run to
+// name them in, and the board has the room now that it bleeds to the screen.
+const STUB_W = 176;
+// THE STAMP FITS THE TICKET'S INTERIOR, not its outer width. The ticket now
+// carries a 2pt border AND a hairline rule set 4 in from it, so the usable run
+// is ~20 narrower than the card. Sizing off STUB_W - 8, as this did when the
+// stub had neither, put a stamp wider than the frame it sits in and `overflow:
+// hidden` cropped its corners rather than reporting it.
+// THE STAMP FITS THE TICKET'S INTERIOR, not its outer box. The ticket carries
+// a 2pt border AND a hairline rule set 4 in from it, and it is landscape now,
+// so the stamp's ROTATED extent is what has to clear the frame: at 52 it was
+// crossing the right border and `overflow: hidden` cropped it rather than
+// reporting it. It also sets the ticket's height, which is why shrinking it is
+// how the ticket got "wider and less tall".
+export const STAMP_SIZE = stampSizeForExtent(46);
+// The bite taken out of both edges where the ticket tears.
+const TICKET_NOTCH = 12;
 
 // R1: fit the vertical wordmark's font to the measured vertical run.
 // 0.75em per uppercase extrabold glyph (tracking included in the margin);
@@ -767,7 +850,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: TORN_EDGE_W,
   },
-  row: { flex: 1, flexDirection: 'row', alignItems: 'stretch' },
+  topRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  topText: { flex: 1, minWidth: 0 },
   // The board's own words. No padding of its own: CarvedBoard already insets
   // everything to the drawn frame, and padding here would cross it.
   body: { flex: 1, minWidth: 0, justifyContent: 'center' },
@@ -823,12 +907,28 @@ const styles = StyleSheet.create({
   },
   // BIGGER, because it is one word now rather than a sentence that had to be
   // shrunk to fit the plate beside the ticket.
+  // BESIDE THE VERB, not under it: "Only 6 more stops to go should go to the
+  // right of resume" (owner, chat 12). Baseline-aligned so the 17pt verb and
+  // the 11pt tail sit on one line rather than reading as two rows.
+  ctaTextCol: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
   ctaText: {
     fontFamily: AppFonts.extrabold,
     fontSize: 17,
     lineHeight: 21,
     color: ZONE_BOARD.ink,
-    flex: 1,
+  },
+  ctaTail: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 11,
+    lineHeight: 14,
+    color: ZONE_BOARD.inkMuted,
+    flexShrink: 1,
   },
   // R1: top-anchored column (space-between let the circle drift low when the
   // body side grew taller); the stamp docks under the top padding and the
@@ -836,20 +936,24 @@ const styles = StyleSheet.create({
   // THE TICKET LYING ON THE BOARD. Its own paper (the line's accent, applied
   // at the call site) and its own corners, because it is a separate object
   // from the board rather than a region of it.
-  // THE TICKET LYING ON THE BOARD. Cut from TICKET, the element sheet's own
-  // stock, so it is the same paper as every stop card on the map rather than a
-  // slab of the line's accent. The edge and the rule are what make it read as
-  // a separate object resting on the panel.
-  stub: {
-    width: STUB_W,
-    flexShrink: 0,
+  // THE TICKET LYING ON THE BOARD, IN TWO HALVES. Cut from TICKET, the element
+  // sheet's own stock, so it is the same paper as every stop card on the map
+  // rather than a slab of the line's accent. The edge and the rule are what
+  // make it read as a separate object resting on the panel.
+  //
+  // TWO BOXES RATHER THAN ONE, because they have to come apart. Each half
+  // carries its own paper and its own THREE borders: the middle edge is square
+  // and borderless, so at rest the perforation runs between two halves of one
+  // ticket, and the moment they part each is a whole piece of paper with a
+  // jagged edge where the other used to be.
+  ticket: { width: STUB_W, flexShrink: 0, flexDirection: 'row', alignItems: 'stretch' },
+  ticketHalf: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingVertical: 10,
-    gap: 6,
-    borderRadius: TICKET_SHAPE.radius,
-    borderWidth: TICKET_SHAPE.borderWidth,
+    paddingVertical: 5,
     borderColor: TICKET.edge,
+    borderTopWidth: TICKET_SHAPE.borderWidth,
+    borderBottomWidth: TICKET_SHAPE.borderWidth,
     overflow: 'hidden',
     backgroundColor: TICKET.stockTop,
     // It is ON the board, not part of it. iOS shadow; Android takes elevation.
@@ -859,7 +963,84 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
+  ticketBody: {
+    flex: 1,
+    minWidth: 0,
+    paddingLeft: 8,
+    borderLeftWidth: TICKET_SHAPE.borderWidth,
+    borderTopLeftRadius: TICKET_SHAPE.radius,
+    borderBottomLeftRadius: TICKET_SHAPE.radius,
+  },
+  ticketStub: {
+    paddingHorizontal: 5,
+    borderRightWidth: TICKET_SHAPE.borderWidth,
+    borderTopRightRadius: TICKET_SHAPE.radius,
+    borderBottomRightRadius: TICKET_SHAPE.radius,
+  },
+  // Once they are apart, each half gets the corners it was missing, so neither
+  // sails away with one square end.
+  ticketBodyTorn: {
+    borderRightWidth: 0,
+    borderTopRightRadius: TICKET_SHAPE.radius,
+    borderBottomRightRadius: TICKET_SHAPE.radius,
+  },
+  ticketStubTorn: {
+    borderLeftWidth: 0,
+    borderTopLeftRadius: TICKET_SHAPE.radius,
+    borderBottomLeftRadius: TICKET_SHAPE.radius,
+  },
+  // THE BITE, and it is the detail that makes a rectangle read as a ticket.
+  // Sized once: a disc of the panel's own cream, half of it hanging past the
+  // half's inner edge so the crop leaves a quarter circle behind.
+  notch: {
+    position: 'absolute',
+    width: TICKET_NOTCH,
+    height: TICKET_NOTCH,
+    borderRadius: TICKET_NOTCH / 2,
+    backgroundColor: ZONE_BOARD.panel,
+    borderWidth: 1,
+    borderColor: TICKET.edge,
+  },
+  notchBodyTop: { right: -TICKET_NOTCH / 2, top: -TICKET_NOTCH / 2 },
+  notchBodyBottom: { right: -TICKET_NOTCH / 2, bottom: -TICKET_NOTCH / 2 },
+  notchStubTop: { left: -TICKET_NOTCH / 2, top: -TICKET_NOTCH / 2 },
+  notchStubBottom: { left: -TICKET_NOTCH / 2, bottom: -TICKET_NOTCH / 2 },
+  // The sheet's inner frame, set in from the border, per half.
+  halfRule: {
+    position: 'absolute',
+    top: TICKET_SHAPE.ruleInset,
+    bottom: TICKET_SHAPE.ruleInset,
+    left: TICKET_SHAPE.ruleInset,
+    right: TICKET_SHAPE.ruleInset,
+    borderWidth: 1,
+    borderColor: TICKET.rule,
+    borderRadius: TICKET_SHAPE.radius - TICKET_SHAPE.ruleInset,
+  },
   stubStock: { ...StyleSheet.absoluteFillObject },
+  // The ticket's own words, above its own perforation.
+  // The ticket's own words, to the LEFT of its own perforation.
+  miniBody: { flex: 1, minWidth: 0, gap: 1 },
+  miniAdmit: { fontFamily: AppFonts.extrabold, fontSize: 9, color: TICKET.ink },
+  miniLine: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 6,
+    letterSpacing: 0.8,
+    color: TICKET.inkMuted,
+  },
+  // Vertical now that the ticket is landscape: the stub is the right-hand end.
+  // THE DASHES STOP AT THE BITES. At 3 they ran to the paper's very edge and
+  // straight through the notches, so the perforation read as a line drawn ON
+  // the ticket rather than the tear it is: "perforation passes ticket here"
+  // (owner, chat 12). The notch is TICKET_NOTCH across and half of it hangs
+  // outside, so it reaches TICKET_NOTCH / 2 into the paper; the dashes start
+  // clear of that.
+  miniPerf: {
+    alignSelf: 'stretch',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: TICKET_NOTCH / 2 + 3,
+  },
+  miniPerfDash: { width: 1, height: 2, backgroundColor: TICKET.rule },
   stubRule: {
     position: 'absolute',
     top: TICKET_SHAPE.ruleInset,
@@ -881,19 +1062,5 @@ const styles = StyleSheet.create({
   },
   // Reserves the vertical strip the rotated name occupies; grows to soak up
   // whatever height the body gives the stub so long names get maximum run.
-  stubLineSlot: {
-    flexGrow: 1,
-    minHeight: 60,
-    width: STUB_LINE_SLOT_W,
-    position: 'relative',
-  },
   // Font size + tracking computed per measured extent in the render (R1).
-  stubLine: {
-    position: 'absolute',
-    fontFamily: AppFonts.extrabold,
-    lineHeight: STUB_LINE_SLOT_W,
-    color: TICKET.inkMuted,
-    transform: [{ rotate: '90deg' }],
-    textAlign: 'center',
-  },
 });
