@@ -18,6 +18,14 @@
 # ---------------------------------------------------------------------------
 dist
 tmp
+
+# THE DEV-LOOP NATIVE PROJECTS, chat 11. `expo run:ios` on the Mac generates
+# artifacts/bolo-mobile/ios for the simulator dev client (placeholder bundle
+# id, hand-patched Info.plist, no icon assets). If EAS sees it, it switches
+# to bare-workflow, builds THAT project, and ignores app.json. These builds
+# must always prebuild from app.json on the builder.
+artifacts/bolo-mobile/ios
+artifacts/bolo-mobile/android
 out-tsc
 *.tsbuildinfo
 .expo
