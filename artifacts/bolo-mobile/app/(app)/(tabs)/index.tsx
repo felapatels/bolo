@@ -820,70 +820,80 @@ export default function HomeScreen() {
               (tokensQuery above), passed down rather than fetched again:
               spends are server-authoritative and every surface refetches on
               change, so the band can never drift from the wallet. */}
-          <ChaiStallVignette
-            style={styles.stallBand}
-            balance={tokensQuery.data?.balance}
-            accessibilityLabel="Chacha-ji's Chai stall, open your Chai wallet"
-            onPress={() => {
-              hapticLight();
-              setWalletOpen(true);
-            }}
-          />
-          {/* THE THREE THINGS A LEARNER COMES TO THE STALL FOR, named. Asked
-              for on 2026-08-27 (chat 12): "add small at the bottom of
-              Chachaji's chai stall home card, Purchase History, Go Shopping!,
-              Buy More Chai, make Go Shopping bigger or bolder."
-              UNDER THE ART, NOT ON IT. The vignette is a painted band with
-              Chacha-ji standing in it and a balance plate already in its top
-              corner; a row of links laid over that covers the thing it is
-              pointing at, which is exactly why the old roadside signpost was
-              taken out of the vignette.
-              TWO OF THE THREE OPEN THE SAME SHEET, and that is honest rather
-              than lazy: the wallet is where both the ledger and the pack shop
-              actually live. The labels are still worth having, because the
-              stall itself says neither of those things is behind it. */}
-          <View style={styles.stallLinks}>
-            <Pressable
-              testID="stall-link-history"
-              accessibilityRole="button"
-              accessibilityLabel="Purchase history, opens your Chai wallet"
+          {/* THE STALL SAYS WHAT IT IS FOR, ON ITSELF. The three errands
+              started as a row UNDERNEATH the art, on the reasoning that a
+              painted band with Chacha-ji standing in it should not be covered.
+              The owner moved them onto it and gave the reason: "I want this
+              text on chai stall so people know what chai stall is for... you
+              can do all of those things via the chai stall." That is right and
+              the original reasoning was answering the wrong question. Detached,
+              the row was three links that happened to sit near a picture;
+              on the art it is a shop sign, and the picture stops being
+              decoration nobody knows the purpose of.
+              THE FOOT OF THE ART IS THE PLACE IT COSTS NOTHING. Chacha-ji
+              stands left of centre, the kettle steams to his left and the
+              title and balance plate already own the top right corner. The
+              bottom strip is the stall counter and the ground, and a scrim
+              over it takes nothing away. */}
+          <View style={styles.stallWrap}>
+            <ChaiStallVignette
+              balance={tokensQuery.data?.balance}
+              accessibilityLabel="Chacha-ji's Chai stall, open your Chai wallet"
               onPress={() => {
                 hapticLight();
                 setWalletOpen(true);
               }}
-            >
-              <Text style={[styles.stallLink, { color: colors.mutedForeground }]}>
-                Purchase History
-              </Text>
-            </Pressable>
-            <Text style={[styles.stallLinkSep, { color: colors.border }]}>·</Text>
-            <Pressable
-              testID="stall-link-shop"
-              accessibilityRole="button"
-              accessibilityLabel="Go shopping in the bazaar"
-              onPress={() => {
-                hapticLight();
-                router.push('/(app)/bazaar' as Parameters<typeof router.push>[0]);
-              }}
-            >
-              <Text style={[styles.stallLinkLoud, { color: colors.primary }]}>
-                Go Shopping!
-              </Text>
-            </Pressable>
-            <Text style={[styles.stallLinkSep, { color: colors.border }]}>·</Text>
-            <Pressable
-              testID="stall-link-buy"
-              accessibilityRole="button"
-              accessibilityLabel="Buy more Chai, opens your Chai wallet"
-              onPress={() => {
-                hapticLight();
-                setWalletOpen(true);
-              }}
-            >
-              <Text style={[styles.stallLink, { color: colors.mutedForeground }]}>
-                Buy More Chai
-              </Text>
-            </Pressable>
+            />
+            {/* Bottom-up, so the art reads through the top of it and the type
+                sits on something solid. pointerEvents none: the links above it
+                take the taps and the rest of the stall still opens the wallet. */}
+            <LinearGradient
+              pointerEvents="none"
+              colors={['rgba(23,14,8,0)', 'rgba(23,14,8,0.82)']}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.stallLinksScrim}
+            />
+            <View style={styles.stallLinks}>
+              <Pressable
+                testID="stall-link-history"
+                accessibilityRole="button"
+                accessibilityLabel="Purchase history, opens your Chai wallet"
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                onPress={() => {
+                  hapticLight();
+                  setWalletOpen(true);
+                }}
+              >
+                <Text style={styles.stallLink}>Purchase History</Text>
+              </Pressable>
+              <Text style={styles.stallLinkSep}>·</Text>
+              <Pressable
+                testID="stall-link-shop"
+                accessibilityRole="button"
+                accessibilityLabel="Go shopping in the bazaar"
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                onPress={() => {
+                  hapticLight();
+                  router.push('/(app)/bazaar' as Parameters<typeof router.push>[0]);
+                }}
+              >
+                <Text style={styles.stallLinkLoud}>Go Shopping!</Text>
+              </Pressable>
+              <Text style={styles.stallLinkSep}>·</Text>
+              <Pressable
+                testID="stall-link-buy"
+                accessibilityRole="button"
+                accessibilityLabel="Buy more Chai, opens your Chai wallet"
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                onPress={() => {
+                  hapticLight();
+                  setWalletOpen(true);
+                }}
+              >
+                <Text style={styles.stallLink}>Buy More Chai</Text>
+              </Pressable>
+            </View>
           </View>
         </Animated.View>
 
@@ -1533,18 +1543,36 @@ const styles = StyleSheet.create({
   // Purely visual: transform, so the row's layout and the settings button are
   // exactly where they were. See the comment at the call site.
   mascotDrop: { transform: [{ translateY: 6 }] },
+  // Carries the spacing the vignette's own band used to, so nothing below
+  // the stall moved when the links went onto it.
+  stallWrap: { position: 'relative', marginBottom: 12 },
+  stallLinksScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 56,
+    // The vignette's own corner, or the scrim squares off the bottom of it.
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+  },
   stallLinks: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 8,
   },
-  stallLink: { fontFamily: AppFonts.semibold, fontSize: 12 },
+  // WHITE ON THE ART, not a theme token: the stall is a painting and it is the
+  // same in both themes, exactly like the title and the balance plate above it.
+  stallLink: { fontFamily: AppFonts.semibold, fontSize: 12, color: 'rgba(255,255,255,0.9)' },
   // BIGGER AND BOLDER, on purpose: it is the only one of the three that goes
   // somewhere new, and the owner asked for it to carry the weight.
-  stallLinkLoud: { fontFamily: AppFonts.extrabold, fontSize: 15 },
-  stallLinkSep: { fontFamily: AppFonts.bold, fontSize: 12 },
+  stallLinkLoud: { fontFamily: AppFonts.extrabold, fontSize: 15, color: '#FFFFFF' },
+  stallLinkSep: { fontFamily: AppFonts.bold, fontSize: 12, color: 'rgba(255,255,255,0.5)' },
   hello: { fontFamily: AppFonts.regular, fontSize: 15 },
   name: { fontFamily: AppFonts.extrabold, fontSize: 28, marginTop: 2 },
   langSubtitle: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
@@ -1596,7 +1624,6 @@ const styles = StyleSheet.create({
   langNameTall: { lineHeight: 36 },
   // The stall band and the boarding pass read as one unit: platform, then
   // pass. Only enough gap that the pass looks like it is standing in front.
-  stallBand: { marginBottom: 12 },
   statsRowWrapper: { marginBottom: 18 },
   // Two cells now (Task #1081 pulled Day Streak out), so the group is worth
   // two shares of the row — Day Streak keeps its own one beside it and every

@@ -1139,50 +1139,62 @@ export default function Home() {
                   (tokensQuery above), passed down rather than fetched again:
                   spends are server-authoritative and every surface refetches
                   on change, so the band can never drift from the wallet. */}
-              <ChaiStallVignette
-                className="mt-3"
-                label="Chacha-ji's Chai stall, open your Chai wallet"
-                onClick={() => setWalletOpen(true)}
-                balance={tokensQuery.data?.balance}
-              />
-              {/* THE THREE THINGS A LEARNER COMES TO THE STALL FOR, named.
-                  Asked for on mobile 2026-08-27 and brought here by the parity
-                  sweep.
-                  UNDER THE ART, NOT ON IT. The vignette is a painted band with
-                  Chacha-ji standing in it and a balance plate already in one
-                  corner; links laid over that cover the thing they point at.
-                  TWO OF THE THREE OPEN THE SAME SHEET, which is honest rather
-                  than lazy: the wallet is where both the ledger and the pack
-                  shop actually live. */}
-              <div className="mt-2 flex items-center justify-center gap-2">
-                <button
-                  type="button"
-                  data-testid="stall-link-history"
-                  aria-label="Purchase history, opens your Chai wallet"
+              {/* THE STALL SAYS WHAT IT IS FOR, ON ITSELF. These started as
+                  a row UNDERNEATH the art, on the reasoning that a painted
+                  band with Chacha-ji standing in it should not be covered. The
+                  owner moved them onto it and gave the reason: "I want this
+                  text on chai stall so people know what chai stall is for...
+                  you can do all of those things via the chai stall." Detached,
+                  the row was three links that happened to sit near a picture;
+                  on the art it is a shop sign, and the picture stops being
+                  decoration nobody knows the purpose of.
+                  THE FOOT OF THE ART IS THE PLACE IT COSTS NOTHING: Chacha-ji
+                  stands left of centre, the kettle steams to his left, and the
+                  title and balance plate already own the top right corner. */}
+              <div className="relative mt-3">
+                <ChaiStallVignette
+                  label="Chacha-ji's Chai stall, open your Chai wallet"
                   onClick={() => setWalletOpen(true)}
-                  className="text-xs font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  Purchase History
-                </button>
-                <span aria-hidden className="text-xs font-bold text-border">·</span>
-                <Link
-                  href="/bazaar"
-                  data-testid="stall-link-shop"
-                  aria-label="Go shopping in the bazaar"
-                  className="text-[15px] font-black text-primary hover:underline"
-                >
-                  Go Shopping!
-                </Link>
-                <span aria-hidden className="text-xs font-bold text-border">·</span>
-                <button
-                  type="button"
-                  data-testid="stall-link-buy"
-                  aria-label="Buy more Chai, opens your Chai wallet"
-                  onClick={() => setWalletOpen(true)}
-                  className="text-xs font-semibold text-muted-foreground hover:text-foreground"
-                >
-                  Buy More Chai
-                </button>
+                  balance={tokensQuery.data?.balance}
+                />
+                {/* Bottom-up, so the art reads through the top of it and the
+                    type sits on something solid. Not interactive: the links
+                    above take the clicks and the rest of the stall still opens
+                    the wallet. */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-14 rounded-b-2xl bg-gradient-to-b from-transparent to-[rgba(23,14,8,0.82)]"
+                />
+                <div className="absolute inset-x-0 bottom-2 flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="stall-link-history"
+                    aria-label="Purchase history, opens your Chai wallet"
+                    onClick={() => setWalletOpen(true)}
+                    className="text-xs font-semibold text-white/90 hover:text-white"
+                  >
+                    Purchase History
+                  </button>
+                  <span aria-hidden className="text-xs font-bold text-white/50">·</span>
+                  <Link
+                    href="/bazaar"
+                    data-testid="stall-link-shop"
+                    aria-label="Go shopping in the bazaar"
+                    className="text-[15px] font-black text-white hover:underline"
+                  >
+                    Go Shopping!
+                  </Link>
+                  <span aria-hidden className="text-xs font-bold text-white/50">·</span>
+                  <button
+                    type="button"
+                    data-testid="stall-link-buy"
+                    aria-label="Buy more Chai, opens your Chai wallet"
+                    onClick={() => setWalletOpen(true)}
+                    className="text-xs font-semibold text-white/90 hover:text-white"
+                  >
+                    Buy More Chai
+                  </button>
+                </div>
               </div>
             </motion.div>
 
