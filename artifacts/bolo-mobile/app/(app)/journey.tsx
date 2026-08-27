@@ -479,6 +479,21 @@ function ZoneBandFixed({
   mode?: 'block' | 'cap';
 }) {
   const bandH = windowH + PC_H + ZONE_BOARD_GAP + extraTop;
+  // THE BAND MAY NOT REACH UP INTO THE ZONE ABOVE IT. `extraTop` exists so the
+  // FIRST zone's art runs behind the floating header and the scroll content's
+  // own paddingTop instead of leaving page colour there. For every LATER zone
+  // that space is not empty: it holds the previous zone's LAST STOP ROW, and
+  // this band is opaque (a foot-tone fill under opaque tiles) and its block is
+  // a later sibling at the same zIndex, so it painted straight over that stop.
+  //
+  // Reported at the end of chat 11 as two things and it was one: "I can't see
+  // stop 11", and "zone 2's card has a full background box around it, its not
+  // floating itself". The box was this band's top edge, 62pt above the board.
+  // The canvas geometry was never wrong: a device probe measured 18pt of
+  // clearance between zone 0's last card and zone 1's board, and a spacer
+  // onLayout probe in chat 12 put the canvas-to-content mapping at delta 0 on
+  // all six zones. It was never a layout overlap. It was a paint layer.
+  const reachUp = zi === 0 ? extraTop : 0;
   const travel = Math.max(0, end - start - windowH);
   const pin = useAnimatedStyle(() => {
     // THE CAP DOES NOT MOVE AT ALL, and it used to. When the board was a
@@ -563,7 +578,7 @@ function ZoneBandFixed({
         {
           position: 'absolute',
           left: -(windowW - mapW) / 2,
-          top: layerTop - extraTop,
+          top: layerTop - reachUp,
           width: windowW,
           height: bandH,
           backgroundColor: zoneFootTone(zi),
@@ -3896,10 +3911,14 @@ const styles = StyleSheet.create({
     bottom: 6,
     borderRadius: 999,
     backgroundColor: MAP_GLYPH_PLATE_FILL,
-    // WAS 0.42, which on a device read as a white lozenge parked behind the
-    // signal rather than as a ground under it. The glyph only needs enough
-    // separation to be findable; the box was doing more than that.
-    opacity: 0.26,
+    // TWICE CORRECTED, and this value is the middle of the two complaints.
+    // 0.42 read as a white lozenge parked behind the signal rather than as a
+    // ground under it, so it went to 0.26 — and at 0.26 the plate stopped
+    // doing its job on the painted bazaar: "the signal signs lost their tan
+    // backing to make them appear and not blend in" (owner, chat 12). The
+    // plate exists to make a 20pt piece of line art findable on a painting;
+    // too faint and there is no reason for it to be there at all.
+    opacity: 0.38,
   },
   postcardWrap: { position: 'absolute', left: 16, right: 16 },
   // The carved board. Capped at PC_H so it can never push into the first

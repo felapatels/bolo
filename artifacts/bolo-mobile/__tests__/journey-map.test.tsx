@@ -1060,6 +1060,62 @@ describe('journey header inset and stamp slot (build 30)', () => {
   });
 });
 
+// ─── Chat 12: the band that painted over the previous zone's last stop ──────
+// Reported at the end of chat 11 as two faults and it was one: "I can't see
+// stop 11", and "zone 2's card has a full background box around it, its not
+// floating itself". Neither was a layout overlap. A device probe had already
+// measured 18pt of clearance between zone 0's last card and zone 1's board,
+// and a spacer onLayout probe put the canvas-to-content mapping at delta 0 on
+// all six zones. The board was exactly where its geometry said. What covered
+// stop 11 was a PAINT layer: the next zone's opaque backdrop band, reaching
+// 62pt above its own board to sit behind the floating header, in a block that
+// is a later sibling at the same zIndex.
+describe('the zone band never reaches up into the zone above it', () => {
+  // Mirrored from journey.tsx rather than imported, for the same reason
+  // journey-board-budget.test.ts mirrors PC_H: a drift between the two is
+  // exactly what this file exists to catch.
+  const PC_H_FOR_TEST = 184;
+  const ZONE_BOARD_GAP_FOR_TEST = 18;
+  const LAYER_TOP = -(PC_H_FOR_TEST + ZONE_BOARD_GAP_FOR_TEST);
+  const MOCKED_TOP_INSET = 59;
+
+  const bandTop = (zi: number) =>
+    StyleSheet.flatten(
+      screen.getByTestId(`journey-backdrop-${zi}`).props.style,
+    ).top;
+
+  const sixZones = () =>
+    setZones([
+      [grp({ status: 'in_progress', masteredCount: 3, attemptedCount: 5 })],
+      [grp({ status: 'locked' })],
+      [grp({ status: 'locked' })],
+      [],
+      [],
+      [],
+    ]);
+
+  it("lets only the FIRST zone's art run up behind the floating header", () => {
+    sixZones();
+    render(<JourneyScreen />);
+
+    // Zone 0 has nothing above it. Its reach-up is what stops page colour
+    // showing behind the header and through the scroll content's paddingTop.
+    expect(bandTop(0)).toBe(LAYER_TOP - MOCKED_TOP_INSET);
+  });
+
+  it('keeps every later zone off the stop row above it', () => {
+    sixZones();
+    render(<JourneyScreen />);
+
+    // THE REGRESSION. Any reach-up here is opaque paint landing on the
+    // previous zone's LAST stop card. Verified on the simulator 2026-08-27:
+    // with this at LAYER_TOP, "Stop 11 of 11" is back on screen and the board
+    // floats on continuous art instead of sitting on a hard-edged box.
+    expect(bandTop(1)).toBe(LAYER_TOP);
+    expect(bandTop(2)).toBe(LAYER_TOP);
+  });
+});
+
 // ─── Build 35: trackside signals ────────────────────────────────────────────
 // Signal memory is module-scoped and would otherwise leak between cases (a
 // stop marked seen never auto-opens again), so each case starts clean.
