@@ -24,6 +24,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { appear, appearDown, useAppearSkip } from '@/lib/entrance';
 import { markHomeReady } from '@/lib/splashReady';
 import { CountUpText } from '@/components/CountUpText';
+import { useFilmGone } from '@/lib/splashReady';
 import { XpCounter } from '@/components/XpCounter';
 import {
   useListCategories,
@@ -1374,10 +1375,33 @@ function DailyCapNote({
  * not a thing.
  */
 function StatValue({ value }: { value: number | string }) {
+  // THE SPLASH WAS EATING IT. The count is 700ms and on a cold start the film
+  // is still covering the screen for the whole of it, so the one thing this
+  // animation exists to do happened where nobody could see it: "I think the
+  // splash covers the countup" (owner, chat 12).
+  const filmGone = useFilmGone();
   if (typeof value !== 'number') {
     return <Text style={styles.gradientStatValue}>{value}</Text>;
   }
-  return <CountUpText value={value} style={styles.gradientStatValue} />;
+  return (
+    <CountUpText
+      // A KEY, NOT A GATE, AND THE DIFFERENCE IS THE FAILURE MODE. Holding the
+      // number back until the film reports gone would mean a signal that never
+      // arrives leaves four blank cells on the home screen forever, and this
+      // signal CAN fail to arrive: the splash's exit fade runs on
+      // `useNativeDriver: true`, and CLAUDE.md records that the native driver
+      // does not tick in this app's release builds, so its completion callback
+      // is not something to bet a screen on.
+      //
+      // Re-keying instead means the count simply runs twice: once behind the
+      // film where nobody sees it, and again when the film lifts. If the signal
+      // never comes, the second one never happens and the behaviour is exactly
+      // what shipped before this change. It degrades to correct.
+      key={filmGone ? 'after-film' : 'during-film'}
+      value={value}
+      style={styles.gradientStatValue}
+    />
+  );
 }
 
 function GradientStatCell({

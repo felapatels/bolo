@@ -58,7 +58,7 @@ import {
   isFirstColdStartToday,
   markFullPlayed,
 } from '@/lib/splashFilm';
-import { useHomeReady } from '@/lib/splashReady';
+import { markFilmGone, useHomeReady } from '@/lib/splashReady';
 
 /**
  * Play-once latch for this launch, web's exact pattern. Consumed in a
@@ -195,6 +195,15 @@ function BrandSplashFilm({ onReady }: { onReady?: () => void }) {
     anim.start(() => setPhase('done'));
     return () => anim.stop();
   }, [phase, reduceMotion, opacity]);
+
+  // PUBLISHED FROM HERE, FOR HOME'S COUNT-UP. Anything home animates on
+  // arrival is invisible while this overlay is up, and on a cold start that is
+  // the whole of it. Fires for the warm launch too, where `phase` starts at
+  // 'done' because the play-once latch was already spent: a consumer waiting on
+  // a film that was never going to play must not wait forever.
+  useEffect(() => {
+    if (phase === 'done') markFilmGone();
+  }, [phase]);
 
   if (phase === 'done') return null;
 
