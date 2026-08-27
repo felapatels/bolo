@@ -26,6 +26,8 @@ import {
   View,
   type LayoutChangeEvent,
   useWindowDimensions,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -181,6 +183,13 @@ const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
 // board that cannot fit fails a test rather than shipping blank.
 const PC_H = 184; // vertical rhythm per fare-zone postcard (incl. picture side)
 const ZONE_BOARD_GAP = 18; // air between the carved board and the first stop card
+/**
+ * The scroll content's own top pad, named because two places must agree on it:
+ * the contentContainerStyle that creates it, and the slide-in maths that turns
+ * a card's canvas y into a SCROLL CONTENT y. A literal in both is how an
+ * entrance animation ends up firing 18pt early forever.
+ */
+const SCROLL_CONTENT_TOP = 18;
 const TERM_H = 92; // terminus row
 // CHACHA-JI'S HALT ROW, RETIRED 2026-08-26. It was a scenery-only row after
 // every encounter station, 96 high, existing only so his stall had a lane clear
@@ -708,6 +717,67 @@ function TagCardBack({
       <Circle cx={eyeX} cy={mid} r={2.6} fill={TICKET.eyeletHole} />
     </Svg>
   );
+}
+
+/**
+ * A STOP CARD THAT SLIDES ONTO THE RAIL AS IT COMES INTO VIEW.
+ *
+ * Asked for 2026-08-27: "can we add animation while we scroll to have the
+ * stops slide in from left or right?" Each card enters from ITS OWN FLANK, so
+ * a right-hand tag arrives from the right and settles against its medallion.
+ * Sliding them all from one side would read as a list loading; from their own
+ * side it reads as the tag being hung on the rail.
+ *
+ * A COMPONENT, NOT AN INLINE useAnimatedStyle, AND THAT IS NOT STYLE. The
+ * card list is built with .map over a row array whose LENGTH CHANGES with the
+ * data, so a hook called inside that loop is a conditional hook: this exact
+ * file has already shipped one of those, on both platforms. One component per
+ * card keeps every hook unconditional by construction.
+ *
+ * TRANSFORM AND OPACITY ONLY. Both are cheap and neither touches layout, so
+ * fifty of these cannot cost a single layout pass on a map that is already
+ * drawing an SVG rail, a painted backdrop and the scenery.
+ *
+ * It reads the SAME scrollY the parallax and the pinned zone band already use,
+ * so this adds a subscriber rather than a second source of scroll truth.
+ */
+const SLIDE_DX = 44;
+/** How much scrolling it takes a card to settle, in points. */
+const SLIDE_TRAVEL = 240;
+/** How far up the viewport a card is fully home. 0.82 means it finishes just
+ *  after it clears the bottom edge, rather than still moving mid-screen. */
+const SLIDE_LEAD = 0.82;
+
+function SlidingCardSlot({
+  cardY,
+  side,
+  windowH,
+  scrollY,
+  reduceMotion,
+  style,
+  children,
+}: {
+  /** The card's top in SCROLL CONTENT coordinates, not canvas ones. */
+  cardY: number;
+  side: 'left' | 'right';
+  windowH: number;
+  scrollY: SharedValue<number>;
+  reduceMotion: boolean;
+  style: StyleProp<ViewStyle>;
+  children: React.ReactNode;
+}) {
+  const anim = useAnimatedStyle(() => {
+    // Reduced motion gets the resting frame, never a slower slide: a learner
+    // who asked the system to stop moving things asked for that.
+    if (reduceMotion) return {};
+    const start = cardY - windowH * SLIDE_LEAD;
+    const p = Math.min(1, Math.max(0, (scrollY.value - start) / SLIDE_TRAVEL));
+    return {
+      opacity: 0.4 + 0.6 * p,
+      transform: [{ translateX: (1 - p) * SLIDE_DX * (side === 'right' ? 1 : -1) }],
+    };
+  });
+  return <Animated.View style={[style, anim]}>{children}</Animated.View>;
 }
 
 function StationMarker({
@@ -2646,7 +2716,15 @@ export default function JourneyScreen() {
                   />
                 </View>
                 {/* stop card */}
-                <View
+                <SlidingCardSlot
+                  // Content coordinates, not canvas ones: the block sits at
+                  // blockTop in the scroll content, so the two cancel and what
+                  // is left is the card's own y plus the content's top pad.
+                  cardY={SCROLL_CONTENT_TOP + p.y - STATION_H / 2}
+                  side={side}
+                  windowH={windowH}
+                  scrollY={scrollY}
+                  reduceMotion={reduceMotion}
                   style={[
                     styles.cardSlot,
                     {
@@ -2898,7 +2976,7 @@ export default function JourneyScreen() {
                       ) : null}
                     </View>
                   </Pressable>
-                </View>
+                </SlidingCardSlot>
               </View>
             );
             })}
@@ -3442,7 +3520,7 @@ const styles = StyleSheet.create({
   // paddingTop carries what used to be the map View's marginTop (8) plus the
   // canvas TOP_PAD (10), now that the zone children sit directly in the
   // scroll content for stickyHeaderIndices (chat 11).
-  scrollContent: { paddingTop: 18, paddingBottom: 48 },
+  scrollContent: { paddingTop: SCROLL_CONTENT_TOP, paddingBottom: 48 },
   exhaustedCard: {
     marginHorizontal: 12,
     marginTop: 16,
