@@ -122,9 +122,10 @@ Games, then the Memory UI.**
 
 - **`learning.zone-testout.test.ts` fails** — "zone GET sampleSize caps at the
   phrase cap". Pre-existing, NOT from this session, and not the Nest's.
-- **The Nest owns 7 api failures** in `nest.range.test.ts`. The owner asked
-  that the Nest session be told; `ListAgents` showed no session identifiable
-  as the Nest, so **it was never delivered**. Deliver it.
+- **The Nest owns 7 api failures** in `nest.range.test.ts`. **The owner told
+  the Nest session directly and it is working the fixes as of 2026-08-27.**
+  Not yours: do not chase them, and expect that count to drop on the next
+  api run without anything changing on this side.
 - **The whole-line station total** disappeared with the boarding pass. The
   test records where it belongs if wanted back.
 - **Bolo's pagdi on the chat screen** — chat 10 asked for this to be confirmed
