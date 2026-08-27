@@ -233,6 +233,53 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
 const HOLD_RING_BOX = 58 * 1.62;
 
 /**
+ * HOW FAR THE RING REACHES ABOVE THE BOTTOM OF ITS TAB SLOT, in points.
+ *
+ * Exported because the chat screen's chip row has to clear it, and twice now
+ * that clearance has been a hand-tuned number that went stale: 8, then 26,
+ * then 44, each raised after somebody saw the chips sitting on the words. 44
+ * fails at a 64pt tab bar, which is exactly what Android with a gesture bar
+ * gives you, and a device photo of build 520 shows precisely that: zero gap.
+ *
+ * The bubble is anchored 32 up from the slot's bottom and is 58 tall, and the
+ * ring box overhangs it by half the difference. Anything that consumes this
+ * must subtract the REAL tab bar height, because that is the part that varies
+ * per device and is the reason a constant kept being wrong.
+ */
+export const HOLD_RING_REACH = 32 + 58 + (HOLD_RING_BOX - 58) / 2;
+
+/**
+ * WHERE THE LABEL STARTS ON THE RING, DERIVED RATHER THAN TUNED.
+ *
+ * This was a per-platform pair of magic numbers, 7% on iOS and 25% on Android,
+ * on the theory that react-native-svg honours textAnchor="middle" on Android
+ * (so the offset is the text's CENTRE) and ignores it on iOS (so it is the
+ * START). A device photo of build 520 settles it: at 25% the label ran from 12
+ * o'clock clockwise to about 4. That is a START, not a centre. Both platforms
+ * behave the same way, and the split was chasing a difference that is not
+ * there.
+ *
+ * So compute it. The label has to be CENTRED at 12 o'clock, which is 25% along
+ * a path that begins at 9 and sweeps clockwise, so it starts half its own arc
+ * before that.
+ *
+ * THE 0.6em ADVANCE IS CALIBRATED, NOT GUESSED, which is the only reason this
+ * is trustworthy: the same photo shows the label spanning roughly 12 o'clock to
+ * 4, about a third of the circle, and this arithmetic returns 33.97%. Re-measure
+ * against a photo if the wording, the size or the tracking changes.
+ */
+const HOLD_LABEL = 'PRESS & HOLD';
+const HOLD_FONT_SIZE = 9;
+const HOLD_TRACKING = 1.4;
+const HOLD_LABEL_WIDTH =
+  HOLD_LABEL.length * (HOLD_FONT_SIZE * 0.6 + HOLD_TRACKING) - HOLD_TRACKING;
+const HOLD_RING_CIRCUMFERENCE = 2 * Math.PI * (HOLD_RING_BOX * 0.4);
+/** Percent along the path where the label begins, so its middle sits at 12. */
+const HOLD_START_OFFSET = `${(
+  25 - ((HOLD_LABEL_WIDTH / HOLD_RING_CIRCUMFERENCE) * 100) / 2
+).toFixed(2)}%`;
+
+/**
  * A FULL CIRCLE FROM 9 O'CLOCK, CLOCKWISE OVER THE TOP, carrying one label
  * centred at 12 o'clock.
  *
@@ -373,28 +420,11 @@ function BoloTabButton({
             fontWeight="800"
             letterSpacing={1.4}
           >
-            {/* THE OFFSET IS PER PLATFORM, AND THAT IS NOT LAZINESS.
-                react-native-svg implements TextPath differently on each side:
-                ANDROID honours textAnchor="middle", so the offset is where
-                the text is CENTRED, and 25% of a full circle from 9 o'clock
-                is 12 o'clock. iOS ignores textAnchor, so the same number is
-                where the text STARTS, which put the label a quarter turn
-                clockwise until it was tuned back to 7%.
-                CONFIRMED IN THE LIBRARY, not just inferred from a screenshot:
-                android/.../svg/TSpanView.java getTextAnchorOffset returns
-                -textMeasure / 2 for middle, so Android shifts the text back by
-                half its own width and the offset is its CENTRE. The Apple side
-                has no equivalent, which is why iOS needs the smaller number.
-                Both values were also measured: iOS on the simulator across
-                25/4/7 percent, Android on a device against build 518, where
-                the shared 7% sat left of centre and over the chips.
-                Re-measure BOTH if the wording or the font size changes. */}
-            <TextPath
-              href="#bolo-nav-hold-ring"
-              startOffset={Platform.OS === 'android' ? '25%' : '7%'}
-              textAnchor="middle"
-            >
-              PRESS &amp; HOLD
+            {/* One offset, both platforms. See HOLD_START_OFFSET: the
+                per-platform pair was built on textAnchor behaving differently
+                on Android, and a photo of build 520 shows it does not. */}
+            <TextPath href="#bolo-nav-hold-ring" startOffset={HOLD_START_OFFSET}>
+              {HOLD_LABEL}
             </TextPath>
           </SvgText>
         </Svg>

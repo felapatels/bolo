@@ -19,6 +19,7 @@ import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useGetScenario } from '@workspace/api-client-react';
 import { useAudioRecorder, useAudioRecorderState, createAudioPlayer } from 'expo-audio';
 import Animated from 'react-native-reanimated';
+import { HOLD_RING_REACH } from '@/app/(app)/(tabs)/_layout';
 import { appear, appearDown, appearUp } from '@/lib/entrance';
 import {
   getChatTurnUrl,
@@ -2374,6 +2375,28 @@ export default function ChatScreen() {
   );
 }
 
+/**
+ * HOW FAR THE CHIPS SIT ABOVE THE TAB BAR, and this is the FOURTH value.
+ *
+ * It was 8, then 26, then 44, each raised after somebody saw the chips resting
+ * on the PRESS & HOLD ring. Derived this time rather than nudged: the ring
+ * reaches HOLD_RING_REACH (108pt) above the bottom of its tab slot, the bar
+ * itself is 74 tall, so the ring pokes 34pt above the bar's top edge and that
+ * is what the chips have to clear. 44 left ten points for the label's own
+ * height and its descenders, which is why it still touched on a device.
+ *
+ * Doubling the gap on top of the real overhang is deliberate slack: the label
+ * hangs off the OUTSIDE of the ring path, so its true top is a few points
+ * above the geometry, and I would rather this be loose than be tuned a fifth
+ * time.
+ *
+ * STILL WANTS A DEVICE EYE. This is arithmetic against a floating tab bar
+ * whose layout I cannot run here, and the previous three values all looked
+ * right on paper too.
+ */
+const CHIP_GAP = 14;
+const CHIP_CLEARANCE = HOLD_RING_REACH - 74 + CHIP_GAP * 2;
+
 const styles = StyleSheet.create({
   // paddingBottom 26, was 8 (chat 11, "move the chips up"): the PRESS & HOLD
   // ring around the nav Bolo button reaches above the tab bar now, and the
@@ -2386,12 +2409,7 @@ const styles = StyleSheet.create({
   // off build 516.
   quickChipRow: {
     paddingHorizontal: 16,
-    // 44, was 26: the ring reaches ~18pt above the button and the chips were
-    // sitting ON the words. Reported on an Android device off build 518,
-    // "it overlaps the pills". The ring is 94pt tall centred on a 58pt
-    // bubble, so it needs (94-58)/2 = 18 of clearance over the bubble's top
-    // plus the row's own breathing room.
-    paddingBottom: 44,
+    paddingBottom: CHIP_CLEARANCE,
     gap: 8,
     alignItems: 'center',
   },
