@@ -630,8 +630,13 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
     selector = sql`select u.id, 0 from users u
       where u.tier <> 'free' and u.subscription_status = 'active' ${notOwner("u.id")}`;
   } else if (metric === "free") {
+    // IS NOT TRUE, never a bare NOT. See the range endpoint for the proof:
+    // subscription_status is nullable, so `tier <> 'free' AND status = 'active'`
+    // is NULL rather than false for a non-free tier with no status, and NOT NULL
+    // is NULL, so such a row was counted as neither paid nor free and simply
+    // vanished from this panel.
     selector = sql`select u.id, 0 from users u
-      where not (u.tier <> 'free' and u.subscription_status = 'active') ${notOwner("u.id")}`;
+      where (u.tier <> 'free' and u.subscription_status = 'active') is not true ${notOwner("u.id")}`;
   } else if (metric === "reachable") {
     selector = sql`select t.user_id, count(*)::int from push_tokens t
       where t.disabled_at is null ${notOwner("t.user_id")}
@@ -1312,7 +1317,16 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
           where tier <> 'free' and subscription_status = 'active'
           ${notOwner("id")})::int                                    as paid_total,
         (select count(*) from users
-          where not (tier <> 'free' and subscription_status = 'active')
+          -- IS NOT TRUE, never a bare NOT, and the test "paid plus free always
+          -- equals the account total" exists for exactly this. subscription_status
+          -- is NULLABLE, so for a row with tier 'plus' and no status the paid
+          -- predicate is NULL rather than false, and NOT NULL is NULL, so the row
+          -- was counted in NEITHER bucket and the two stopped summing to the
+          -- total. Caught in the dev database on 2026-08-27 at 35 against 36.
+          -- IS NOT TRUE is TRUE for both false and null, which is the real
+          -- complement. Production happens to hold no such row today, so this
+          -- would have gone unnoticed there until the first one appeared.
+          where (tier <> 'free' and subscription_status = 'active') is not true
           ${notOwner("id")})::int                                    as free_total,
         (select count(*) from users
           where subscription_status = 'trialing'
