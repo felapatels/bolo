@@ -585,10 +585,52 @@ export async function playBase64Audio(
   onDone?: () => void,
 ): Promise<PlaybackHandle> {
   if (Platform.OS === 'web') {
+    // THE SAME WATCHDOG THE NATIVE PATH CARRIES, and for the same reason.
+    // `onended` is the only thing that used to call onDone here, and the
+    // catch below only covers a REJECTED play(). A clip that loads and then
+    // never ends, or never loads at all, fires neither, and the chat screen
+    // sits on "Bolo is speaking…" forever. Fixed on native 2026-08-27 off a
+    // device report; this branch had the identical hole and no report yet.
     const audio = new Audio(`data:audio/${format};base64,${base64}`);
-    audio.onended = () => onDone?.();
-    await audio.play().catch(() => onDone?.());
-    return { stop: () => audio.pause() };
+    let settled = false;
+    let loadTimer: ReturnType<typeof setTimeout> | null = null;
+    let playTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearTimers = () => {
+      if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
+      if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+    };
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      clearTimers();
+      onDone?.();
+    };
+    audio.onended = settle;
+    // Once the browser knows the clip's length, the stall bound comes from
+    // the clip itself rather than a guess, so a long reply is never cut off.
+    audio.onloadedmetadata = () => {
+      if (settled || playTimer !== null) return;
+      if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
+      const secs = Number.isFinite(audio.duration) ? audio.duration : 0;
+      if (secs > 0) {
+        playTimer = setTimeout(
+          settle,
+          secs * 1000 * PLAYBACK_STALL_FACTOR + PLAYBACK_STALL_SLACK_MS,
+        );
+      }
+    };
+    audio.onerror = settle;
+    loadTimer = setTimeout(settle, PLAYBACK_LOAD_GRACE_MS);
+    await audio.play().catch(settle);
+    return {
+      stop: () => {
+        // A caller that stops the clip owns what happens next, so this stands
+        // the watchdog down WITHOUT running onDone, exactly as native does.
+        settled = true;
+        clearTimers();
+        audio.pause();
+      },
+    };
   }
 
   const uri = `${FileSystem.cacheDirectory}bolo-audio-${Date.now()}.${format}`;

@@ -35,7 +35,11 @@ import {
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEquippedOutfit } from '@/contexts/OutfitContext';
 import { FeedPulseDot, useFeedPulse } from '@/components/FeedPulse';
-import { FeedTabsCoach, useFeedTabsCoach } from '@/components/FeedTabsCoach';
+import {
+  FeedTabsCoach,
+  useFeedTabsCoach,
+  type CoachAnchor,
+} from '@/components/FeedTabsCoach';
 import { PressableScale } from '@/components/PressableScale';
 import { SkeletonCard } from '@/components/SkeletonCard';
 import { ChunkyButton } from '@/components/ChunkyButton';
@@ -623,6 +627,21 @@ export default function LeaderboardScreen() {
   // read, which is why nothing renders on that first tick.
   const coach = useFeedTabsCoach();
 
+  // WHERE THE SEGMENT STRIP ACTUALLY IS, measured rather than assumed.
+  // The tour used to place its card at a fixed offset and land on top of the
+  // strip it was describing; it now hangs off the real box. measureInWindow
+  // rather than onLayout because the card renders inside a Modal, which is
+  // its own full-screen surface: a parent-relative y means nothing there.
+  const stripRef = React.useRef<View>(null);
+  const [stripAnchor, setStripAnchor] = React.useState<CoachAnchor | null>(null);
+  const measureStrip = React.useCallback(() => {
+    stripRef.current?.measureInWindow((x, y, width, height) => {
+      // A zero box is the measurement arriving before layout has run. Keeping
+      // the old value beats pinning the tour to the top-left corner.
+      if (width > 0 && height > 0) setStripAnchor({ x, y, width, height });
+    });
+  }, []);
+
   // Refetch on focus and on mount, nothing else: no polling and no socket. A
   // board is only wrong while you are looking at it, and arriving on it is
   // exactly the moment to be right.
@@ -698,7 +717,14 @@ export default function LeaderboardScreen() {
         </View>
       ) : null}
 
-      <View style={styles.segmentWrap}>
+      <View
+        ref={stripRef}
+        // collapsable={false} keeps the view in the Android hierarchy; a
+        // collapsed one measures as nothing.
+        collapsable={false}
+        onLayout={measureStrip}
+        style={styles.segmentWrap}
+      >
         {tabs.map((t) => (
           <Segment
             key={t.value}
@@ -781,6 +807,7 @@ export default function LeaderboardScreen() {
       {coach.pending ? (
         <FeedTabsCoach
           steps={tabs.map((t) => ({ value: t.value, label: t.label }))}
+          anchor={stripAnchor}
           onStep={(v) => setTabValue(v as BoardTabDef['value'])}
           onDone={coach.dismiss}
         />

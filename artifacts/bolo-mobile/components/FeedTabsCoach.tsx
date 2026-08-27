@@ -93,17 +93,24 @@ export function useFeedTabsCoach(): {
 
 export function FeedTabsCoach({
   steps,
+  anchor,
   onStep,
   onDone,
 }: {
   /** The tabs actually on screen, in the order they appear. */
   steps: CoachStep[];
+  /**
+   * The segment strip's real box in window coordinates, measured by the
+   * screen that owns it. Null until the measurement lands, and the tour
+   * renders NOTHING until then rather than flashing in the wrong place.
+   */
+  anchor: CoachAnchor | null;
   /** Selects the tab being described, which is what does the pointing. */
   onStep: (value: string) => void;
   onDone: () => void;
 }) {
   const colors = useColors();
-  const { width: windowW } = useWindowDimensions();
+  const { height: windowH } = useWindowDimensions();
   const [i, setI] = React.useState(0);
   const step = steps[i];
 
@@ -112,9 +119,25 @@ export function FeedTabsCoach({
     if (step) onStep(step.value);
   }, [step, onStep]);
 
-  if (!step) return null;
+  if (!step || !anchor) return null;
   const copy = COPY[step.value];
   if (!copy) return null;
+
+  // THE CARD GOES UNDER THE STRIP, WHICH IS THE ACTUAL FIX. It used to sit at
+  // a fixed paddingTop of 220 and on a real screen that lands ON TOP OF the
+  // strip it is describing: the learner saw a card about "Feed" with the Feed
+  // tab hidden underneath it and a caret pointing up at the scope toggle
+  // instead. Reported twice, "each isn't really pointing to the right option"
+  // and then "still not pointing to the right buttons".
+  //
+  // Below the strip when there is room, above it when there is not, and the
+  // caret flips with it so it always points AT the strip.
+  const gap = 12;
+  const belowY = anchor.y + anchor.height + gap;
+  // A card is about 190 tall with two lines of body copy; if that would run
+  // off the bottom, hang it above the strip instead.
+  const placeBelow = belowY + 200 < windowH;
+  const caretX = coachCaretX(anchor, i, steps.length);
 
   const last = i === steps.length - 1;
 
@@ -145,15 +168,30 @@ export function FeedTabsCoach({
             {
               backgroundColor: colors.card,
               borderColor: colors.border,
-              left: coachCaretX(windowW, i, steps.length) - 7 - STRIP.padH,
-              top: -7,
+              left: caretX - 7,
+              // Sits on the card's edge that faces the strip, so the diamond
+              // reads as the card pointing rather than as a loose lozenge.
+              top: placeBelow ? belowY - 7 : anchor.y - gap - 7,
+              // The two borders drawn are the top-left pair, which is the
+              // corner that faces up once rotated. Facing down needs the
+              // other two, so the whole thing turns instead.
+              transform: [{ rotate: placeBelow ? '45deg' : '225deg' }],
             },
           ]}
         />
         <View
           style={[
             styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              position: 'absolute',
+              left: 20,
+              right: 20,
+              ...(placeBelow
+                ? { top: belowY }
+                : { bottom: windowH - anchor.y + gap }),
+            },
           ]}
         >
           <View style={styles.head}>
@@ -184,18 +222,29 @@ export function FeedTabsCoach({
 }
 
 /**
- * WHERE THE SEGMENT STRIP PUTS ITS TABS, mirrored from leaderboard.tsx's own
- * styles. The strip is flex:1 segments in a row, so tab i's centre is exact
- * arithmetic and needs no layout pass. Web measures instead, because its strip
- * sits in a container this side does not have; both end up pointing at the same
- * thing.
+ * WHERE THE SEGMENT STRIP PUTS ITS TABS.
+ *
+ * MEASURED NOW, NOT ASSUMED, and the assumption is what broke this twice.
+ * The strip is flex:1 segments in a row with a known padding and gap, so tab
+ * i's centre looked like exact arithmetic off the WINDOW width. It is not: the
+ * strip is not the only thing on that screen and the window is not its
+ * container. The caller measures the real strip in window coordinates and
+ * passes the box; this only splits it.
  */
-const STRIP = { padH: 20, gap: 8 } as const;
+const STRIP_GAP = 8;
 
-/** The horizontal centre of tab `i` of `n`, at a given screen width. */
-export function coachCaretX(windowW: number, i: number, n: number): number {
-  const seg = (windowW - STRIP.padH * 2 - STRIP.gap * (n - 1)) / n;
-  return STRIP.padH + i * (seg + STRIP.gap) + seg / 2;
+/** The strip's own box, in window coordinates. */
+export interface CoachAnchor {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** The horizontal centre of tab `i` of `n`, inside a measured strip. */
+export function coachCaretX(anchor: CoachAnchor, i: number, n: number): number {
+  const seg = (anchor.width - STRIP_GAP * (n - 1)) / n;
+  return anchor.x + i * (seg + STRIP_GAP) + seg / 2;
 }
 
 const styles = StyleSheet.create({
@@ -209,16 +258,13 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     borderLeftWidth: 1.5,
     borderTopWidth: 1.5,
-    transform: [{ rotate: '45deg' }],
   },
-  // Sits high on the screen so the segment strip it is describing stays visible
-  // above it rather than being covered by the card.
+  // Just the dimmer now. The card and the caret are positioned from the
+  // measured strip in window coordinates, so the scrim must not add padding
+  // of its own or every position would be off by it.
   scrim: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-start',
-    paddingTop: 220,
-    paddingHorizontal: 20,
   },
   card: { borderRadius: 22, borderWidth: 1.5, padding: 18, gap: 10 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 10 },

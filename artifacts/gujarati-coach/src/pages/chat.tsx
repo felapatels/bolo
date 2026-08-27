@@ -503,13 +503,37 @@ export default function ChatPage() {
         console.log('[audio] play path=stream');
         stopCurrentPlayback();
         playbackRef.current = s.audio;
-        s.audio.onended = () => {
-          s.ended = true;
+        // EVERY EXIT RELEASES THE TURN, and before 2026-08-27 only one did.
+        // `onended` returned the screen to idle; `onerror` and a rejected
+        // play() set s.failed and left the phase on "playing" forever, and a
+        // clip that simply never ends fired none of the three. That is the
+        // "it says speaking forever" report, fixed on mobile the same day and
+        // present here in a worse form. A watchdog covers the silent case:
+        // the clip's own duration plus slack once known, a flat grace before
+        // that, since a clip with no metadata was never going to play.
+        let released = false;
+        let guard: ReturnType<typeof setTimeout> | null = null;
+        const release = () => {
+          if (released) return;
+          released = true;
+          if (guard) { clearTimeout(guard); guard = null; }
           if (playbackRef.current === s.audio) playbackRef.current = null;
           if (activeTurnRef.current === myTurn) setPhase("idle");
         };
-        s.audio.onerror = () => { s.failed = true; };
-        s.audio.play().catch(() => { s.failed = true; });
+        s.audio.onended = () => {
+          s.ended = true;
+          release();
+        };
+        s.audio.onloadedmetadata = () => {
+          if (released) return;
+          const secs = Number.isFinite(s.audio.duration) ? s.audio.duration : 0;
+          if (secs <= 0) return;
+          if (guard) clearTimeout(guard);
+          guard = setTimeout(release, secs * 1500 + 5000);
+        };
+        s.audio.onerror = () => { s.failed = true; release(); };
+        guard = setTimeout(release, 8000);
+        s.audio.play().catch(() => { s.failed = true; release(); });
       };
       if (s.squawkVariant !== null && s.squawkVariant !== undefined) {
         const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][s.squawkVariant];
