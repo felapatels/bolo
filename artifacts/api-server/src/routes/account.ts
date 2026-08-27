@@ -8,6 +8,7 @@ import {
   lessonGenerationsTable,
   friendshipsTable,
   friendInvitesTable,
+  chatMemoriesTable,
   chatTurnsTable,
   familyPlansTable,
   familySeatsTable,
@@ -23,7 +24,7 @@ import {
   contactSubmissionsTable,
   type User,
 } from "@workspace/db";
-import { and, eq, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, ne, or, sql } from "drizzle-orm";
 import { usernameProblem } from "../lib/usernamePolicy";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { resolvePlan, type ResolvedPlan } from "../lib/entitlements";
@@ -587,6 +588,49 @@ export function createAccountRouter(
   // GET /account/subscription — the full management snapshot: tier/status/dates,
   // chosen language, payment-method summary, and billing history. Softer fields
   // are pulled from RevenueCat where available and degrade gracefully.
+  /**
+   * GET /account/memories — what Bolo remembers about this learner.
+   * DELETE /account/memories — make him forget all of it.
+   *
+   * SHIPPED WITH THE MEMORY FEATURE ITSELF, not after it. Bolo started keeping
+   * notes between sessions on 2026-08-27, many of these learners are children,
+   * and a thing that quietly remembers people needs a way to see what it holds
+   * and a way to say stop, on the same day it starts holding anything. The
+   * chat screen carries the matching disclosure in Bolo's own voice.
+   *
+   * There is no write endpoint on purpose: the only thing that may add a
+   * memory is the server's own extraction step, so a client cannot put words
+   * in a learner's file.
+   */
+  router.get(
+    "/account/memories",
+    async (req: Request, res: Response): Promise<void> => {
+      const id = userId(req);
+      const rows = await db
+        .select({
+          id: chatMemoriesTable.id,
+          memory: chatMemoriesTable.memory,
+          createdAt: chatMemoriesTable.createdAt,
+        })
+        .from(chatMemoriesTable)
+        .where(eq(chatMemoriesTable.userId, id))
+        .orderBy(desc(chatMemoriesTable.createdAt));
+      res.json({ memories: rows });
+    },
+  );
+
+  router.delete(
+    "/account/memories",
+    async (req: Request, res: Response): Promise<void> => {
+      const id = userId(req);
+      const gone = await db
+        .delete(chatMemoriesTable)
+        .where(eq(chatMemoriesTable.userId, id))
+        .returning({ id: chatMemoriesTable.id });
+      res.json({ forgotten: gone.length });
+    },
+  );
+
   router.get(
     "/account/subscription",
     async (req: Request, res: Response): Promise<void> => {

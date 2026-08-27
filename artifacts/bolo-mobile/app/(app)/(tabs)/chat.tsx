@@ -1830,6 +1830,26 @@ export default function ChatScreen() {
         You can respond in English or {chatLanguage?.name ?? chatLang}
       </Text>
 
+      {/* THE MEMORY TIP. Asked for 2026-08-27 alongside the memory feature
+          itself: "add a small tip on that screen saying I learn about you and
+          remember things you say."
+          It is not decoration. Bolo now keeps notes about a learner between
+          sessions, many of these learners are children, and a thing that
+          quietly remembers you without ever saying so is the wrong shape for
+          a children's app. This is the disclosure, in Bolo's own voice, on
+          the screen where the remembering happens.
+          Only on the empty state: once a conversation is running it would be
+          one more line between the learner and the thing they came to do, and
+          they have already read it. */}
+      {messages.length === 0 && (
+        <Text
+          testID="chat-memory-tip"
+          style={[styles.memoryTip, { color: colors.mutedForeground }]}
+        >
+          I remember what you tell me, so we can pick up where we left off.
+        </Text>
+      )}
+
       {/* Free-tier time remaining bar */}
       {showTimeIndicator && (
         <Animated.View
@@ -2550,6 +2570,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 24,
     marginBottom: 8,
+  },
+  memoryTip: {
+    fontFamily: AppFonts.regular,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 2,
+    paddingHorizontal: 32,
   },
   textInputRow: {
     flexDirection: 'row',

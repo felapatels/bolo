@@ -44,6 +44,17 @@ export interface ParrotTurnInput {
   languageCode: string;
   history: ChatHistoryTurn[];
   /**
+   * What Bolo remembers about this learner from previous conversations,
+   * already rendered as a prompt block by the chatMemory lib.
+   *
+   * A STRING RATHER THAN A userId, deliberately: this module orchestrates the
+   * model and the audio and touches no database, and the route that calls it
+   * already holds the user. Passing the rendered block keeps the storage
+   * decisions (what is remembered, what is pruned, what a child's account may
+   * keep) in one file instead of spread across this one.
+   */
+  memoryBlock?: string;
+  /**
    * Optional callback fired as soon as the transcript is ready (before the
    * LLM+TTS call starts). Used by the SSE route to flush the transcript event
    * to the client ~1 s earlier than the full reply.
@@ -309,6 +320,12 @@ Rules:
 - Never use emojis or special symbols — replies are spoken aloud.
 - Never repeat the learner's utterance back verbatim or near-verbatim as your reply. That is not a response, it is an echo. Every reply must advance the conversation: answer what was asked, react to what was said, build on it, or ask a follow-up question. The only permitted exception is when you are explicitly correcting the learner's pronunciation or grammar — and in that case your reply must also include the correction or explanation. A bare repeat is never acceptable.
 
+Pointing at the rest of the app:
+- Bolo lives inside an app with more than a chat page, and a learner who never leaves this screen never finds the rest of it. So OCCASIONALLY — roughly one reply in eight, never twice in a row, and only when the conversation is at a natural lull rather than mid-topic — add a short nudge toward somewhere else in the app.
+- Real places you may name, and nothing else: the Games page and the games on it (Luggage Match, Word Match, Listen and Pick, Phrase Builder, Speed Round, Script Trace, Bolo Quiz, Ticket Check, Storybook, Beat the Train, Signal Lights, Wrong Platform); the Journey map, where the learner rides the line stop by stop; the Bolo Bazaar, where they dress you; and the Phrasebook.
+- Keep it to one short clause inside your normal reply, in the target language, and never let it replace answering what was actually said. "If you fancy something fun, try Luggage Match on the Games page!" is the size of it.
+- Never invent a feature, a game, or a page that is not on that list.
+
 Youth-safe guardrails:
 Bolo talks to learners of ALL ages, including young children. You must NEVER engage with:
 - Violence, weapons, gore, or harm to any person or animal
@@ -348,7 +365,7 @@ ${LANGUAGE_RULES_PROMPT}`;
 // BOLO_PERSONA_PROMPT or LANGUAGE_RULES_PROMPT changes. This ensures that
 // OpenAI does not serve a cached prefix built from the old constant.
 // ---------------------------------------------------------------------------
-const BOLO_CHAT_CACHE_KEY = "bolo-chat-persona-v5";
+const BOLO_CHAT_CACHE_KEY = "bolo-chat-persona-v6";
 
 // ---------------------------------------------------------------------------
 // Block truncation for chat history
@@ -911,6 +928,7 @@ export function buildUserPrompt(
   history: ChatHistoryTurn[],
   transcript: string,
   scenario?: ResolvedScenario,
+  memoryBlock?: string,
 ): string {
   const historyText = history
     .map((h) => `${h.role === "learner" ? "Learner" : "Bolo"}: ${h.text}`)
@@ -926,7 +944,12 @@ export function buildUserPrompt(
   const scenarioBlock = scenario
     ? `Scenario: ${scenario.title}\n${scenario.framingCopy}\n${scenario.steerInstructions}\n\n`
     : "";
-  return `Language: ${languageName}\n${scenarioBlock}History:\n${historyText ? historyText + "\n" : ""}Learner: ${said}\nBolo:`;
+  // Memory sits with the scenario block: after Language:, before History:, and
+  // in the USER message rather than the system prompt, so BOLO_PERSONA_PROMPT
+  // stays byte-identical and OpenAI's prompt cache keeps hitting. A learner
+  // with nothing remembered yields an empty string, so their prompt is exactly
+  // what it was before memory existed.
+  return `Language: ${languageName}\n${scenarioBlock}${memoryBlock ?? ""}History:\n${historyText ? historyText + "\n" : ""}Learner: ${said}\nBolo:`;
 }
 
 // Maximum character count of the TTS-bound text after squawk stripping and
@@ -1031,7 +1054,13 @@ export async function runParrotTurn(
     transcriptEnglish,
   } = await deps.reply(
     BOLO_PERSONA_PROMPT,
-    buildUserPrompt(input.languageName, effectiveHistory, transcript, input.scenario),
+    buildUserPrompt(
+      input.languageName,
+      effectiveHistory,
+      transcript,
+      input.scenario,
+      input.memoryBlock,
+    ),
   );
   const replyMs = Date.now() - replyStart;
 

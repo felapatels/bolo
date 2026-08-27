@@ -49,6 +49,13 @@ import {
   capstoneExemptFromWeeklyCap,
 } from "../lib/chatLimits";
 import { runParrotTurn, type ChatHistoryTurn } from "../lib/parrotChat";
+import {
+  buildMemoryBlock,
+  loadChatMemories,
+  rememberFromTurn,
+  touchChatMemories,
+} from "../lib/chatMemory";
+import { learnerContextBlockFor } from "../lib/learnerContext";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { ttsCacheKey, legacyTtsCacheKey, phraseTtsCacheKey } from "../lib/ttsCache";
 import { getPendingFeedbackSynthesis, prewarmFeedbackTts } from "../lib/feedbackTts";
@@ -1959,6 +1966,24 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
     let capturedTranscript = "";
     let capturedDuration = 0;
 
+    // WHAT BOLO ALREADY KNOWS ABOUT THIS LEARNER. Loaded before the turn so it
+    // can go into the prompt, and kept for the extractor afterwards so it does
+    // not re-record something already held. A failure here costs the learner
+    // continuity, never their reply, so it degrades to no memories at all.
+    let memories: Awaited<ReturnType<typeof loadChatMemories>> = [];
+    try {
+      memories = await loadChatMemories(userId);
+    } catch (err) {
+      req.log.warn({ err }, "chat memory load failed; continuing without");
+    }
+    touchChatMemories(memories.map((m) => m.id));
+    const memoryBlock = buildMemoryBlock(memories);
+
+    // The live picture: how far along the journey they are, what they can
+    // already say, and what their chai will stretch to. Its own loader
+    // swallows failures to an empty string, so this cannot fail a turn.
+    const learnerBlock = await learnerContextBlockFor(userId, languageCode);
+
     const result = await runParrotTurn(
       {
         audioBuffer,
@@ -1967,6 +1992,11 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
         languageName: language.name,
         languageCode,
         history: trimmedHistory,
+        // Two blocks, one slot: what Bolo was TOLD (persists) followed by
+        // what is TRUE right now (recomputed every turn). Loaded in parallel
+        // because neither depends on the other and both sit in front of the
+        // learner's reply.
+        memoryBlock: memoryBlock + learnerBlock,
         seedWords,
         seedNativeWords,
         clientDurationSeconds: typeof clientDurationSeconds === "number" ? clientDurationSeconds : undefined,
@@ -2055,6 +2085,18 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
       await recordChatTurn(userId, languageCode, capturedDuration || result.durationSeconds);
     }
     const secondsRemaining = await chatSecondsRemaining(resolvedPlan, userId);
+
+    // NOTE-TAKING, DELIBERATELY NOT AWAITED. It is a second model call, and a
+    // learner must never wait on it to hear the reply they already earned.
+    // rememberFromTurn swallows its own failures to a log for the same reason:
+    // the chat turn is the product, the memory is the bonus.
+    void rememberFromTurn({
+      userId,
+      languageCode,
+      transcript: capturedTranscript || result.transcript,
+      reply: result.replyText,
+      existing: memories,
+    });
 
     // Scenario completion logic: detect target phrase usage and track overall
     // coverage. All matching is case-insensitive substring against the learner's
