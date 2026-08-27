@@ -1786,6 +1786,33 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
            r:bad[0].label, href:bad[0].path});
     }
 
+    /* WHAT THE SERVER HAS BEEN COMPLAINING ABOUT. Sentry delivers again since
+       61c33738, and this page still cannot read it: same origin, no token. So
+       the count is taken in the API's own logger and read back here. It is not
+       a Sentry replacement and the message says so; it is the answer on the
+       screen that is already open.
+
+       AN ERROR IS A WARN, NOT A CRIT. The surface probes above are the crit
+       path because they measure what a learner actually gets. A logged error
+       may be a handled edge, and making every one of them flash would train
+       the eye to ignore the bar that matters. */
+    if (s) {
+      var errs = s.errorsHourError + s.errorsHourFatal;
+      out.push(errs === 0
+        ? {id:"errors", sev:"ok", t:"No server errors this hour",
+           m:(s.errorsHourWarn > 0 ? fmt(s.errorsHourWarn) + " warnings, none of them errors. " : "") +
+             "Counted in the API's own logger since it restarted " + ago(new Date(s.errorsBootedAt).getTime()) +
+             ", so a restart empties this and it is not a substitute for Sentry.",
+           r:"Sentry", href:"https://lark-enterprises-llc.sentry.io/issues/?query=is%3Aunresolved"}
+        : {id:"errors", sev:"warn",
+           t:fmt(errs) + (errs === 1 ? " server error this hour" : " server errors this hour"),
+           m:(s.errorsRecent.length ? "Newest: " + s.errorsRecent[0].message + ". " : "") +
+             fmt(s.errorsDayError) + " in the last day" +
+             (s.errorsSaturated ? ", and the buffer is full so these are a floor" : "") +
+             ". Every one of these was invisible before 2026-08-27.",
+           r:"Sentry", href:"https://lark-enterprises-llc.sentry.io/issues/?query=is%3Aunresolved"});
+    }
+
     if (state.summaryErr) {
       out.push({id:"counts", sev:"warn", t:"The counts are unavailable",
         m:state.summaryErr, r:"summary", href:SUMMARY_URL});

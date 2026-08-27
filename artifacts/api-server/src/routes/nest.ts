@@ -30,6 +30,7 @@ import {
   presenceTracked,
   presenceBootedAt,
 } from "../lib/presence";
+import { pulsesSince, errorPulseBootedAt } from "../lib/errorPulse";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import type { AuthedRequest } from "../middlewares/requireAuth";
@@ -166,6 +167,28 @@ type NestSummary = {
    */
   streakPushesSent: number;
   streakPushLast: string | null;
+  /**
+   * WHAT THIS SERVER HAS COMPLAINED ABOUT SINCE IT STARTED.
+   *
+   * Sentry is fixed and delivering as of 61c33738, and that is still not enough
+   * on its own: THIS PAGE CANNOT READ SENTRY. It is served same origin and may
+   * only reach its own API, and reading Sentry needs a token nobody has put
+   * anywhere. So a 500 storm was captured and still absent from the one screen
+   * that gets looked at.
+   *
+   * lib/errorPulse.ts counts them where the logger already funnels warn, error
+   * and fatal through one proxy. No secret, no external call, no schema.
+   * In memory, so it empties on restart, which is why bootedAt travels with it.
+   */
+  errorsBootedAt: string;
+  errorsHourWarn: number;
+  errorsHourError: number;
+  errorsHourFatal: number;
+  errorsDayError: number;
+  errorsNewestAt: string | null;
+  errorsSaturated: boolean;
+  /** Newest first, messages only, never the log context. */
+  errorsRecent: { at: string; level: string; message: string }[];
   /** Learners who have chosen a public name, so the global feed can see them. */
   usernamesSet: number;
   /** Of those, the ones still sharing. The gap is people who opted back out. */
@@ -330,6 +353,12 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
     if (!r) throw new Error("nest summary returned no row");
     const n = (k: string): number => Number(r[k] ?? 0);
 
+    // Read once, outside the object literal, so the two windows cannot drift
+    // by however long the literal takes to build.
+    const nowMs = Date.now();
+    const hour = pulsesSince(nowMs - 3_600_000);
+    const day = pulsesSince(nowMs - 86_400_000);
+
     const value: NestSummary = {
       generatedAt: new Date().toISOString(),
       pushTokensLive: n("push_tokens_live"),
@@ -342,6 +371,18 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
       remindersOnExclOwner: n("reminders_on_excl_owner"),
       remindersOnNoToken: n("reminders_on_no_token"),
       streakPushesSent: n("streak_pushes_sent"),
+      errorsBootedAt: new Date(errorPulseBootedAt).toISOString(),
+      errorsHourWarn: hour.warn,
+      errorsHourError: hour.error,
+      errorsHourFatal: hour.fatal,
+      errorsDayError: day.error + day.fatal,
+      errorsNewestAt: hour.newestAt === null ? null : new Date(hour.newestAt).toISOString(),
+      errorsSaturated: hour.saturated,
+      errorsRecent: hour.recent.map((pl) => ({
+        at: new Date(pl.at).toISOString(),
+        level: pl.level,
+        message: pl.message,
+      })),
       streakPushLast:
         r.streak_push_last == null
           ? null

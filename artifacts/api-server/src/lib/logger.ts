@@ -1,5 +1,6 @@
 import pino from "pino";
 import { Sentry, sentryEnabled } from "./sentry";
+import { recordPulse } from "./errorPulse";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -81,9 +82,18 @@ export const logger = new Proxy(base, {
       (value as (...a: LogArgs) => void).apply(target, args);
       // Never let a reporting failure break the request that logged.
       try {
+        // THE PULSE IS RECORDED WHETHER OR NOT SENTRY IS ON, and that is the
+        // point of it. forward() below returns immediately without a DSN, so
+        // for most of this project's life every complaint went nowhere at all.
+        // This one is in memory and always available to /nest/summary.
+        const [first, second] = args as [unknown, string | undefined];
+        recordPulse(
+          prop as "warn" | "error" | "fatal",
+          typeof first === "string" ? first : second,
+        );
         forward(prop as (typeof FORWARDED)[number], args);
       } catch {
-        /* Sentry is best effort */
+        /* Reporting is best effort, in both directions */
       }
     };
   },
