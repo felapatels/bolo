@@ -249,6 +249,29 @@ a.linkbtn{text-decoration:none;display:inline-block}
 }
 .statuschip.warm{background:var(--warn-soft);color:var(--warn)}
 .statuschip.hot{background:var(--crit-soft);color:var(--crit)}
+
+/* ---------- a tile that just moved ---------- */
+/* Asked for 2026-08-27: "I want all tiles to have a subtle pulse if the number
+   updated since i last loaded the page or page refresh changed the numbers."
+
+   SUBTLE IS THE WHOLE SPEC. This page already has a siren for the things that
+   need shouting about, and a second loud animation would compete with it. This
+   is a one-shot wash of the accent colour that decays to the tile's normal
+   state, so a glance catches it and a stare is not annoyed by it.
+
+   IT FIRES ON CHANGE, NEVER ON ARRIVAL. Pulsing every tile on first paint would
+   mean the page always looks like everything just moved, which is the same as
+   nothing moving. */
+@keyframes tilepulse{
+  0%   {background:var(--accent-soft); border-color:var(--accent)}
+  70%  {background:var(--accent-soft); border-color:var(--accent)}
+  100% {background:var(--surface); border-color:var(--line)}
+}
+.tile.moved{animation:tilepulse 1.8s ease-out 1}
+/* Reduce Motion still gets the information, just held rather than animated. */
+@media (prefers-reduced-motion:reduce){
+  .tile.moved{animation:none;border-color:var(--accent)}
+}
 /* The unchecked marker on a standing fact. Quiet on purpose: it is a note
    about CONFIDENCE, not a second alarm, and making it loud would train the eye
    to skip the real severity beside it. */
@@ -287,6 +310,11 @@ a.linkbtn{text-decoration:none;display:inline-block}
   letter-spacing:.1em;text-transform:uppercase;opacity:.85;
 }
 .siren a{color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.siren button{
+  color:inherit;background:none;border:1px solid currentColor;border-radius:999px;
+  padding:3px 11px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;
+}
+.siren button:disabled{opacity:.6;cursor:default}
 .siren .sirdetail{opacity:.95}
 @keyframes siren{
   0%,49.9%{background:var(--crit-soft);color:var(--crit)}
@@ -578,6 +606,11 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
     <span class="sirdetail" id="siren-detail"></span>
     <span class="sirwhen" id="siren-when"></span>
     <a id="siren-go" href="#" target="_blank" rel="noopener">Go and look</a>
+    <!-- RE-CHECK, in the bar itself, asked for 2026-08-27. The first question
+         on seeing this is always "is it still broken", and answering it
+         previously meant reloading the whole page or waiting up to 30 seconds
+         for the timer. It re-runs healthz and the surface probes immediately. -->
+    <button type="button" id="siren-recheck">Re-check</button>
   </div>
 
   <nav class="chips" aria-label="Sections">
@@ -1774,16 +1807,32 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
        A crit here fires the siren, which is the whole point: the 25th produced
        no alert of any kind and was found by opening the app. */
     if (state.surfaces) {
-      var bad = state.surfaces.rows.filter(function(r){ return !(r.status >= 200 && r.status < 300); });
-      out.push(bad.length === 0
-        ? {id:"surfaces", sev:"ok", t:"Learner surfaces are answering",
-           m:state.surfaces.rows.length + " real GETs to the endpoints the app calls, all 2xx, checked just now from this page.",
-           r:"feed", href:"/api/friends/feed?scope=all&limit=1"}
-        : {id:"surfaces", sev:"crit",
-           t:bad.length === 1 ? "A LEARNER SURFACE IS FAILING" : bad.length + " LEARNER SURFACES ARE FAILING",
-           m:bad.map(function(r){ return r.label + " answered " + (r.status === 0 ? "nothing" : r.status); }).join(", ") +
-             ". Learners hitting this right now are seeing an error, whatever healthz says. This is exactly the shape of the 2026-08-25 outage.",
-           r:bad[0].label, href:bad[0].path});
+      /* A 4xx AND A 5xx ARE NOT THE SAME NEWS, and conflating them cost a false
+         crit the day this shipped: /api/categories was probed without its
+         required ?lang and answered 400, and the siren blamed production for a
+         mistake in this page. A 5xx or a dead connection means the server is
+         failing. A 4xx from a fixed, hand-written probe path almost always
+         means the PROBE is wrong, or a contract moved under it. Both are worth
+         knowing and only one is an outage. */
+      var down = state.surfaces.rows.filter(function(r){ return r.status === 0 || r.status >= 500; });
+      var refused = state.surfaces.rows.filter(function(r){ return r.status >= 400 && r.status < 500; });
+
+      if (down.length > 0) {
+        out.push({id:"surfaces", sev:"crit",
+          t:down.length === 1 ? "A LEARNER SURFACE IS FAILING" : down.length + " LEARNER SURFACES ARE FAILING",
+          m:down.map(function(r){ return r.label + " answered " + (r.status === 0 ? "nothing" : r.status); }).join(", ") +
+            ". Learners hitting this right now are seeing an error, whatever healthz says. This is exactly the shape of the 2026-08-25 outage.",
+          r:down[0].label, href:down[0].path});
+      } else if (refused.length > 0) {
+        out.push({id:"surfaces", sev:"warn", t:"A surface probe is being refused",
+          m:refused.map(function(r){ return r.label + " answered " + r.status; }).join(", ") +
+            ". A 4xx to a fixed probe path is usually this page asking wrongly rather than the server failing: a missing required parameter, or a contract that moved. Check the path before suspecting production.",
+          r:refused[0].label, href:refused[0].path});
+      } else {
+        out.push({id:"surfaces", sev:"ok", t:"Learner surfaces are answering",
+          m:state.surfaces.rows.length + " real GETs to the endpoints the app calls, all 2xx, checked just now from this page.",
+          r:"feed", href:"/api/friends/feed?scope=all&limit=1"});
+      }
     }
 
     /* WHAT THE SERVER HAS BEEN COMPLAINING ABOUT. Sentry delivers again since
@@ -2019,13 +2068,22 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   });
 
   /* ---------------- controls ---------------- */
+  /* Both buttons re-run the SAME set, because "check production" that checked
+     only healthz would answer the least useful of the two questions. */
+  function recheckNow(btn, restText){
+    if (btn) { btn.disabled = true; btn.textContent = "Checking"; }
+    return Promise.all([checkHealth(), checkSurfaces()]).then(function(){
+      if (btn) { btn.disabled = false; btn.textContent = restText; }
+      healthSay(); renderSurfaces(); renderAlerts(); markMovedTiles();
+    });
+  }
+
+  var rbtn = $("siren-recheck");
+  if (rbtn) rbtn.addEventListener("click", function(){ recheckNow(rbtn, "Re-check"); });
+
   var hbtn = $("health-check");
   if (hbtn) hbtn.addEventListener("click", function(){
-    hbtn.disabled = true; hbtn.textContent = "Checking";
-    checkHealth().then(function(){
-      hbtn.disabled = false; hbtn.textContent = "Check production now";
-      healthSay(); renderAlerts();
-    });
+    recheckNow(hbtn, "Check production now");
   });
 
   var srefresh = $("sp-refresh");
@@ -2371,7 +2429,12 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     {label:"Feed",        path:"/api/friends/feed?scope=all&limit=1"},
     {label:"Leaderboard", path:"/api/friends/leaderboard?scope=all&window=week"},
     {label:"Account",     path:"/api/account"},
-    {label:"Categories",  path:"/api/categories"}
+    /* ?lang IS REQUIRED and leaving it off cost a false alarm within minutes of
+       shipping: learning.ts:406 answers 400 to a bare call, and the siren
+       flashed "A LEARNER SURFACE IS FAILING" at a server that was perfectly
+       healthy. hi is FREE_LANGUAGE in lib/entitlements, so it is allowed for
+       every account regardless of tier and cannot 402 on a Free plan. */
+    {label:"Categories",  path:"/api/categories?lang=hi"}
   ];
   state.surfaces = null;
 
@@ -2408,6 +2471,41 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
         "</tr>";
     }
     host.innerHTML = html + "</table></div>";
+  }
+
+  /* WHICH TILES MOVED, done generically after a render rather than inside each
+     renderer. Every tile on this page is built by a different function and
+     several are innerHTML strings, so threading a "did this change" flag
+     through all of them would be five edits that can drift apart. Reading the
+     DOM afterwards is one edit that cannot.
+
+     KEYED ON THE LABEL, because innerHTML replaces the nodes on every render so
+     the element identity is gone. The label is the stable name of the thing.
+
+     A LABEL SEEN FOR THE FIRST TIME NEVER PULSES. That is what stops the whole
+     page flashing on first paint, and it is also why switching the presence
+     window does not pulse: the label carries the window, so "last 15 minutes"
+     and "last hour" are different questions rather than one number moving. */
+  var tileMemory = Object.create(null);
+
+  function markMovedTiles(){
+    var tiles = document.querySelectorAll(".tile"), i;
+    for (i = 0; i < tiles.length; i++) {
+      var el = tiles[i];
+      var lab = el.querySelector(".l"), num = el.querySelector(".n");
+      if (!lab || !num) continue;
+      var key = lab.textContent.trim();
+      var val = num.textContent.trim();
+      if (Object.prototype.hasOwnProperty.call(tileMemory, key) && tileMemory[key] !== val) {
+        /* Remove, force a reflow, re-add. Without the reflow the browser sees
+           no class change on a re-render and the animation never restarts, so a
+           tile that moves twice in a row would only pulse once. */
+        el.classList.remove("moved");
+        void el.offsetWidth;
+        el.classList.add("moved");
+      }
+      tileMemory[key] = val;
+    }
   }
 
   function renderPush(){
@@ -2830,7 +2928,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     if (refreshing) return Promise.resolve();
     refreshing = true;
     return Promise.all([checkHealth(), checkSurfaces(), loadSummary(), loadRange(), loadMap(), loadReports(), loadLive()]).then(function(){
-      healthSay(); renderSurfaces(); renderSpend(); renderAlerts(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush(); stamp();
+      healthSay(); renderSurfaces(); renderSpend(); renderAlerts(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush(); stamp(); markMovedTiles();
       refreshing = false;
     }, function(){ refreshing = false; });
   }
@@ -2864,7 +2962,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
       state.liveMinutes = Number(t.getAttribute("data-min"));
       try { localStorage.setItem("nest.liveMinutes", String(state.liveMinutes)); } catch (e) {}
       paint();
-      loadLive().then(function(){ renderLive(); renderLiveDrill(); });
+      loadLive().then(function(){ renderLive(); renderLiveDrill(); markMovedTiles(); });
     });
   })();
 
@@ -2898,7 +2996,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
         state.rangeDays = +b.getAttribute("data-days");
         state.rangeCustom = null;
         if (from) from.value = ""; if (to) to.value = "";
-        loadRange().then(function(){ renderRange(); stamp(); });
+        loadRange().then(function(){ renderRange(); stamp(); markMovedTiles(); });
       });
     }
 
@@ -2916,7 +3014,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
       state.rangeCustom = {from: f, to: t};
       var all = chips ? chips.querySelectorAll("button") : [], i;
       for (i = 0; i < all.length; i++) all[i].setAttribute("aria-pressed", "false");
-      loadRange().then(function(){ renderRange(); stamp(); });
+      loadRange().then(function(){ renderRange(); stamp(); markMovedTiles(); });
     }
     if (from) from.addEventListener("change", custom);
     if (to) to.addEventListener("change", custom);
