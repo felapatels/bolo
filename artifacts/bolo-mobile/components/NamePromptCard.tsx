@@ -23,8 +23,15 @@ import { Confetti } from '@/components/Confetti';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
-/** How long the welcome holds before the lightbox closes itself. */
-const WELCOME_MS = 1900;
+/**
+ * How long the welcome holds before the lightbox closes itself.
+ *
+ * IT MUST OUTLAST THE BURST. At 1900 it did not: Confetti's default pacing
+ * starts pieces over 1200ms and takes 2200 to 4000ms to land them, so the modal
+ * unmounted with the celebration still in the air and the owner saw nothing.
+ * The burst pace lands everything inside ~1920ms; this holds past that.
+ */
+const WELCOME_MS = 2400;
 
 /** Persisted flag: the learner dismissed the one-time username prompt. */
 export const USERNAME_PROMPT_DISMISSED_KEY = 'bolo.usernamePromptDismissed';
@@ -244,7 +251,7 @@ export function NamePromptCard() {
             burst never eats the tap that closes the lightbox behind it. */}
         {welcome ? (
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            <Confetti />
+            <Confetti pace="burst" />
           </View>
         ) : null}
       </Pressable>

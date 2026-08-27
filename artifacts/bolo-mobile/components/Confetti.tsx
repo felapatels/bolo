@@ -32,6 +32,30 @@ const PERFECT_COLORS = [
 
 const PIECE_COUNT = 44;
 
+/**
+ * HOW LONG THE PIECES TAKE, and it is a real choice rather than a tuning knob.
+ *
+ * `fall` is what this component was built for: a results screen that stays put
+ * while the celebration rains down over three or four seconds.
+ *
+ * `burst` exists because that instrument was WRONG for a short moment. The
+ * username lightbox says hello and closes itself, and with the fall pacing the
+ * pieces began over a 1200ms window and each took 2200 to 4000ms to land, so
+ * the modal unmounted with almost every piece still in the air: "didn't get a
+ * confetti burst when I saved" (owner, chat 12). Nothing was broken. The
+ * animation was simply longer than the thing it was celebrating.
+ *
+ * A caller that closes itself must pick `burst` and hold at least as long as
+ * `delayMax + durBase + durSpread`, or it will cut its own celebration off
+ * exactly the same way.
+ */
+const PACE = {
+  fall: { delayMax: 1200, durBase: 2200, durSpread: 1800 },
+  burst: { delayMax: 220, durBase: 1000, durSpread: 700 },
+} as const;
+
+export type ConfettiPace = keyof typeof PACE;
+
 type PieceShape = 'rect' | 'circle' | 'diamond';
 
 type PieceSpec = {
@@ -181,9 +205,12 @@ const SHAPES: PieceShape[] = ['rect', 'circle', 'diamond'];
  */
 export function Confetti({
   variant = 'default',
+  pace = 'fall',
   glyphs,
 }: {
   variant?: ConfettiVariant;
+  /** See PACE. `burst` for anything that dismisses itself quickly. */
+  pace?: ConfettiPace;
   /**
    * Script letterforms to rain instead of shapes (Spec 1 glyph confetti).
    * Empty/undefined falls back to the classic shape confetti. Glyph mode is
@@ -202,14 +229,14 @@ export function Confetti({
         left: Math.random() * width,
         size: 8 + Math.random() * 8,
         color: palette[i % palette.length],
-        delay: Math.random() * 1200,
-        duration: 2200 + Math.random() * 1800,
+        delay: Math.random() * PACE[pace].delayMax,
+        duration: PACE[pace].durBase + Math.random() * PACE[pace].durSpread,
         drift: 20 + Math.random() * 60,
         shape: SHAPES[i % SHAPES.length],
         glyph: glyphMode ? glyphs![i % glyphs!.length] : undefined,
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [variant, glyphMode],
+    [variant, glyphMode, pace],
   );
 
   // Spec 1 rule 25: reduced motion renders no confetti at all — the summary
