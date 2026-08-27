@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +13,26 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+
+/**
+ * THE VERSION AND THE BUILD, READ FROM THE MANIFEST RATHER THAN HARDCODED.
+ *
+ * `expo.version` is the marketing version both stores show. The build number
+ * is the one that actually distinguishes two uploads of the same version, and
+ * it lives in a different place per platform: ios.buildNumber is a string,
+ * android.versionCode is a number. Both are read here so the line on screen
+ * matches what App Store Connect and Play show for the same binary.
+ *
+ * Falls back to a dash rather than throwing or printing "undefined": a
+ * settings screen must never be the thing that breaks, and a dash is honestly
+ * "not known" instead of a number that might be wrong.
+ */
+const APP_VERSION = Constants.expoConfig?.version ?? '-';
+const APP_BUILD =
+  Platform.OS === 'ios'
+    ? (Constants.expoConfig?.ios?.buildNumber ?? '-')
+    : String(Constants.expoConfig?.android?.versionCode ?? '-');
 // Use React Native's built-in Image (not expo-image): this screen only shows a
 // simple avatar, and expo-image's native view fails to resolve in some Expo Go
 // versions, hard-crashing the whole Account screen.
@@ -879,6 +900,22 @@ export default function AccountScreen() {
               </>
             )}
           </Pressable>
+
+          {/* THE BUILD, ON SCREEN. Asked for 2026-08-27: "lets add the version
+              in settings for both ios and android so it's easy for me to see
+              which version we are on." It is not a nicety: the measurement
+              rules in CLAUDE.md require confirming the build number before
+              counting a result, two builds of this app once shipped as the
+              same number and voided a whole test, and a screenshot cannot say
+              which build it came from, which cost four builds in chat 10.
+              Selectable so it can be pasted into a bug report. */}
+          <Text
+            testID="account-build-line"
+            selectable
+            style={[styles.buildLine, { color: colors.mutedForeground }]}
+          >
+            {`Bolo ${APP_VERSION} (${APP_BUILD})`}
+          </Text>
         </ScrollView>
       )}
 
@@ -1323,6 +1360,12 @@ const styles = StyleSheet.create({
   },
   modalBtnPrimary: { borderWidth: 0 },
   modalBtnText: { fontFamily: AppFonts.bold, fontSize: 14 },
+  buildLine: {
+    fontFamily: AppFonts.regular,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 20,
+  },
   centerState: {
     alignItems: 'center',
     gap: 14,

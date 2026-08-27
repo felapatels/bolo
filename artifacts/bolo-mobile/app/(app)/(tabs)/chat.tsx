@@ -923,8 +923,16 @@ export default function ChatScreen() {
           playSquawk(gSquawk);
         }
 
-        if (!coachVoiceRef.current) {
-          // Coach voice off: skip reply audio and release the turn.
+        if (!coachVoiceRef.current || !gReplyAudio) {
+          // Coach voice off, OR THE SERVER SENT NO AUDIO: either way there is
+          // nothing to play, so the turn is released here rather than handed
+          // to a player that can only report finishing something it never
+          // started. An empty replyAudioBase64 is the exact shape behind
+          // "it says speaking forever" (2026-08-27): the reply TEXT arrives,
+          // the audio does not, and the old code still went to 'playing'.
+          // playBase64Audio carries a watchdog for the stalls this cannot
+          // predict; this branch removes the one case that is knowable up
+          // front.
           if (activeTurnRef.current === myTurn) {
             setPhase('idle');
             finishingRef.current = false;
@@ -2358,7 +2366,12 @@ const styles = StyleSheet.create({
   // off build 516.
   quickChipRow: {
     paddingHorizontal: 16,
-    paddingBottom: 26,
+    // 44, was 26: the ring reaches ~18pt above the button and the chips were
+    // sitting ON the words. Reported on an Android device off build 518,
+    // "it overlaps the pills". The ring is 94pt tall centred on a 58pt
+    // bubble, so it needs (94-58)/2 = 18 of clearance over the bubble's top
+    // plus the row's own breathing room.
+    paddingBottom: 44,
     gap: 8,
     alignItems: 'center',
   },

@@ -373,15 +373,27 @@ function BoloTabButton({
             fontWeight="800"
             letterSpacing={1.4}
           >
-            {/* 7%, AND IT IS TUNED ON A DEVICE RATHER THAN DERIVED.
-                react-native-svg's TextPath does NOT honour textAnchor here:
-                startOffset behaves as the text's START, not its centre, so
-                the arithmetic answer (25% of a full circle from 9 o'clock is
-                12 o'clock) put the label a quarter turn clockwise of centre.
-                Measured on the simulator at 25, 4 and 7 percent; 7 seats
-                "PRESS & HOLD" dead centre above the button. Re-measure if
-                the wording or the font size changes. */}
-            <TextPath href="#bolo-nav-hold-ring" startOffset="7%" textAnchor="middle">
+            {/* THE OFFSET IS PER PLATFORM, AND THAT IS NOT LAZINESS.
+                react-native-svg implements TextPath differently on each side:
+                ANDROID honours textAnchor="middle", so the offset is where
+                the text is CENTRED, and 25% of a full circle from 9 o'clock
+                is 12 o'clock. iOS ignores textAnchor, so the same number is
+                where the text STARTS, which put the label a quarter turn
+                clockwise until it was tuned back to 7%.
+                CONFIRMED IN THE LIBRARY, not just inferred from a screenshot:
+                android/.../svg/TSpanView.java getTextAnchorOffset returns
+                -textMeasure / 2 for middle, so Android shifts the text back by
+                half its own width and the offset is its CENTRE. The Apple side
+                has no equivalent, which is why iOS needs the smaller number.
+                Both values were also measured: iOS on the simulator across
+                25/4/7 percent, Android on a device against build 518, where
+                the shared 7% sat left of centre and over the chips.
+                Re-measure BOTH if the wording or the font size changes. */}
+            <TextPath
+              href="#bolo-nav-hold-ring"
+              startOffset={Platform.OS === 'android' ? '25%' : '7%'}
+              textAnchor="middle"
+            >
               PRESS &amp; HOLD
             </TextPath>
           </SvgText>

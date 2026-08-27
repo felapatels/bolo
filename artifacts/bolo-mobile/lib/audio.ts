@@ -563,6 +563,22 @@ export async function playAssetAudio(
 }
 
 /** Play a base64-encoded audio clip. Resolves the handle immediately. */
+/**
+ * PLAYBACK WATCHDOG BOUNDS. See the watchdog inside playBase64Audio for why
+ * these exist at all.
+ *
+ * LOAD_GRACE is generous on purpose: a cold file read plus a decode on a slow
+ * Android device is not instant, and cutting a clip that was about to play is
+ * worse than a few extra seconds on one that was never going to.
+ *
+ * The STALL bounds are a multiple of the clip's own duration rather than a
+ * flat number, so a long reply is never truncated: only a clip that has run
+ * well past its own length without reporting completion is treated as stuck.
+ */
+export const PLAYBACK_LOAD_GRACE_MS = 8000;
+export const PLAYBACK_STALL_FACTOR = 1.5;
+export const PLAYBACK_STALL_SLACK_MS = 5000;
+
 export async function playBase64Audio(
   base64: string,
   format: string,
@@ -617,21 +633,76 @@ export async function playBase64Audio(
   // deactivation when this clip finishes or pauses; see playStreamingAudio
   // for the full explanation of the build 29 loudness seam.
   const player = createAudioPlayer({ uri }, { keepAudioSessionActive: true });
+
+  // THE WATCHDOG, AND IT IS THE WHOLE REASON THIS FUNCTION IS NOT JUST A
+  // LISTENER. `onDone` used to fire from exactly one place, `didJustFinish`,
+  // so a clip that never finished never called it: createAudioPlayer does not
+  // throw on unplayable data and play() does not either, so nothing rejected,
+  // no catch anywhere upstream ran, and the chat screen sat on "Bolo is
+  // speaking…" until the app was killed. Reported on a device 2026-08-27,
+  // "if it doesn't catch what you said, it says speaking forever", and the
+  // same shape as the journey's scroll tween: a callback that may never
+  // arrive is not a completion signal.
+  //
+  // Two bounds rather than one flat timeout, so a long clip is never cut off:
+  //  1. LOAD. If the player has not reported a usable duration within
+  //     LOAD_GRACE_MS, the audio is not going to play at all.
+  //  2. PLAY. Once the duration IS known, allow that plus slack. A clip that
+  //     has not reported finishing by then has stalled.
+  let settled = false;
+  let loadTimer: ReturnType<typeof setTimeout> | null = null;
+  let playTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const clearTimers = () => {
+    if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
+    if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+  };
+
+  /** Ends the clip exactly once, whichever bound gets there first. */
+  const settle = (reason: 'finished' | 'load-timeout' | 'play-timeout') => {
+    if (settled) return;
+    settled = true;
+    clearTimers();
+    if (reason !== 'finished') {
+      // Not thrown: a stuck clip is a degraded turn, not a crash, and the
+      // learner has already been handed back control by the time this runs.
+      // It is breadcrumbed because a silent watchdog would hide a real
+      // server-side TTS failure behind a working-looking screen.
+      noteAudioSessionOp(`playback watchdog: ${reason}`);
+    }
+    try { sub.remove(); } catch {}
+    try { player.remove(); } catch {}
+    restoreMode();
+    onDone?.();
+  };
+
   const sub = player.addListener('playbackStatusUpdate', (s) => {
     if (s.didJustFinish) {
-      onDone?.();
-      try {
-        sub.remove();
-      } catch {}
-      try {
-        player.remove();
-      } catch {}
-      restoreMode();
+      settle('finished');
+      return;
+    }
+    // A real duration means the clip loaded, so the load bound is done and
+    // the play bound can be set from the clip's own length instead of a
+    // guess. Re-armed on later updates only if it has not been set.
+    const secs = typeof s.duration === 'number' ? s.duration : 0;
+    if (!settled && secs > 0 && playTimer === null) {
+      if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
+      playTimer = setTimeout(
+        () => settle('play-timeout'),
+        secs * 1000 * PLAYBACK_STALL_FACTOR + PLAYBACK_STALL_SLACK_MS,
+      );
     }
   });
+
+  loadTimer = setTimeout(() => settle('load-timeout'), PLAYBACK_LOAD_GRACE_MS);
+
   player.play();
   return {
     stop: () => {
+      // A caller stopping the clip has taken responsibility for what happens
+      // next, so this must NOT run onDone; it only stands the watchdog down.
+      settled = true;
+      clearTimers();
       try {
         sub.remove();
       } catch {}
