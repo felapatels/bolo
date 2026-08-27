@@ -237,6 +237,30 @@ command runs.
 
 ## Known open items
 
+- **THE SIMULATOR DEV LOOP (chat 11) IS THE WAY TO SEE MOBILE.** Dev client
+  on the iPhone 17 Pro sim (`org.name.Bolo`), Metro hot reload, deep links
+  (`xcrun simctl openurl booted "bolo-mobile://journey"`), Maestro for
+  taps/swipes (coordinates only; its text matcher cannot see RN's tree),
+  `simctl` screenshots, and onLayout console probes over Metro. Valid for
+  layout, navigation and touch; NOT for animations or release behaviour
+  (rules below). Two operational traps: **EAS goes bare-workflow if it sees
+  `artifacts/bolo-mobile/ios`** (excluded in `.easignore`, which REPLACES
+  .gitignore on EAS; also run eas-cli from `artifacts/bolo-mobile`, never
+  the repo root), and the dev client's Info.plist is hand-patched (usage
+  strings + URL schemes) so regenerating ios/ silently breaks chat's mic
+  and deep links until re-patched.
+
+- **TWO RENDER TRAPS PROVEN ON DEVICE, chat 11, both invisible to RNTL:**
+  1. An `Image` sized by `width:'100%'`+`aspectRatio` or by `absoluteFill`
+     inside this tree can resolve to its INTRINSIC pixel size on device.
+     This was the entire blank-board saga of builds 511-515. Size images in
+     explicit points when the box is knowable.
+  2. A react-native-svg `Svg` overlay EATS ALL TOUCHES under it even with
+     `pointerEvents="none"`. It killed every stop-card tap when a zone-wide
+     stall layer went above the cards. Never span an Svg across tappable
+     UI; use per-element svgs sized to their art.
+
+
 - **1.0.0 IS RELEASED ON THE APP STORE as of 2026-08-21, so it is CLOSED. Every
   iOS submission from now on needs `expo.version` BUMPED, not just
   `ios.buildNumber`.** Build 210 was rejected at upload for exactly this, with two
