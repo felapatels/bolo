@@ -159,9 +159,11 @@ describe("Account settings", () => {
     await waitFor(() =>
       expect(h.updateProfile.mutateAsync).toHaveBeenCalledWith({
         // shareStats joined the payload on 2026-08-25 with the public
-        // username. It is always sent because the checkbox always has a value;
-        // `username` is sent only when there is one, since an empty string is
-        // not a name and the server reads a present username as a change.
+        // username. It is always sent because the checkbox always has a value.
+        // `username` is sent only when it CHANGED, which is what keeps an
+        // untouched empty box from meaning "erase my name" on a page that
+        // saves the whole profile behind one button. This fixture never
+        // touches it, so it is absent.
         data: {
           displayName: "Asha R. Patel",
           avatarUrl: null,
@@ -170,6 +172,43 @@ describe("Account settings", () => {
       }),
     );
     expect(h.invalidateQueries).toHaveBeenCalled();
+  });
+
+  test("clears the public username when the field is emptied", async () => {
+    // A username was PERMANENT from the moment it was first set, while this
+    // very screen said "leave it empty to stay off both entirely". Two
+    // refusals stacked: the client omitted an empty field so nothing was sent,
+    // and the server answered 400 because an empty name fails its
+    // minimum-length screen. Found 2026-08-27; the App Store risk was the
+    // reason it got looked at, and being untrue to a learner was the reason it
+    // got fixed.
+    const user = userEvent.setup();
+    // A learner who HAS a name, since the whole point is taking one back.
+    h.account = {
+      data: { ...ACCOUNT, profile: { ...ACCOUNT.profile, username: "chai_wallah" } },
+      isLoading: false,
+    };
+    renderAccount(<Account />);
+
+    // The handler refuses outright on an empty display name, so give it one:
+    // this case is about the username, not about that guard.
+    const nameField = screen.getByLabelText("Display name");
+    await user.clear(nameField);
+    await user.type(nameField, "Asha R. Patel");
+
+    const field = await screen.findByTestId("account-username");
+    await user.clear(field);
+    await user.click(screen.getByRole("button", { name: "Save profile" }));
+
+    await waitFor(() =>
+      expect(h.updateProfile.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          // NULL, not "". The server reads null as an explicit clear; an empty
+          // string reaching usernameProblem is what used to 400.
+          data: expect.objectContaining({ username: null }),
+        }),
+      ),
+    );
   });
 
   test("opens Clerk's flow to manage email & password", async () => {

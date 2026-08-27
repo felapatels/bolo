@@ -3250,6 +3250,7 @@ components:
           nullable: true
         username:
           type: string
+          nullable: true
           description: >-
             The learner's PUBLIC name, seen by strangers on the global feed and
             board. Distinct from `displayName`, which is private and is what
@@ -3257,6 +3258,20 @@ components:
             profanity, and unique case-insensitively; a refusal comes back as
             400 with a sentence to show the learner, and a name already taken
             as 409.
+
+            NULL, OR AN EMPTY STRING, CLEARS IT, and that was not possible
+            before 2026-08-27. The account screen has always told learners
+            "leave it empty" and the field simply refused: the client returned
+            early on an empty value and the server answered 400 because an
+            empty name fails the minimum-length screen. So a public name was
+            permanent from the moment it was first set, on an app children use,
+            under a sentence promising the opposite.
+
+            CLEARING IS NOT LEAVING. `shareStats: false` is what takes a learner
+            off the global surfaces; clearing the name only gives up the CHOSEN
+            one, and they carry on appearing under the stable pseudonym every
+            un-named learner already has. The two controls are different
+            promises and the screen now says so.
         shareStats:
           type: boolean
           description: >-

@@ -285,9 +285,20 @@ export default function AccountScreen() {
    */
   const saveUsername = async () => {
     const trimmed = username.trim();
-    if (!trimmed || trimmed === (account.data?.profile.username ?? '')) return;
+    const current = account.data?.profile.username ?? '';
+    // NO CHANGE IS NO REQUEST. Still true, and it is the only early return
+    // left.
+    if (trimmed === current) return;
     try {
-      const res = await updateProfile.mutateAsync({ data: { username: trimmed } });
+      // CLEARING IS A REAL EDIT, and it used to be swallowed here: `!trimmed`
+      // returned early, so emptying the field sent nothing and left the local
+      // box blank while the server kept the name. The hint under this input has
+      // always said "leave it empty", so a learner who did exactly that was
+      // told it worked and it had not. Fixed on the server the same day; the
+      // column was always nullable, since every account starts null.
+      const res = await updateProfile.mutateAsync({
+        data: { username: trimmed === '' ? null : trimmed },
+      });
       if (account.data) applyAccount({ ...account.data, profile: res.profile });
     } catch (err) {
       // The server's sentence is the useful one: it says WHY, whether that is
@@ -581,9 +592,17 @@ export default function AccountScreen() {
               {/* SAYS WHAT IT COSTS, BEFORE IT IS SET. A learner should know a
                   name is public at the moment they choose it, not after
                   somebody sees it. */}
+              {/* SAYS WHAT CLEARING ACTUALLY DOES. It read "leave it empty
+                  to stay off both entirely", which was untrue in two separate
+                  ways: emptying the field did nothing at all, and even once it
+                  works, share_stats alone is the board's gate, so a learner
+                  with no name still appears under their pseudonym. Two
+                  controls, two different promises, and the screen was making
+                  one of them for the other. */}
               <Text style={[styles.fieldHint, { color: colors.mutedForeground }]}>
                 Public. This is the name other learners see on the Everyone
-                board and feed. Leave it empty to stay off both entirely.
+                board and feed. Clear it to go back to your pseudonym, or turn
+                off Share my stats below to come off those boards entirely.
               </Text>
             </View>
 

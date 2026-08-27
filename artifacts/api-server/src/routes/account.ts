@@ -223,6 +223,24 @@ export function createAccountRouter(
         // client may check as it types for a kinder form, but the server is
         // what decides, because a client check is a suggestion.
         const raw = body.username;
+        // NULL OR EMPTY CLEARS IT, and until 2026-08-27 nothing could. The
+        // account screen has always read "leave it empty to stay off both
+        // entirely" and the field refused twice over: the client returned
+        // early on an empty value, and this handler answered 400 because an
+        // empty name fails usernameProblem's minimum length. A public name was
+        // therefore PERMANENT from the moment it was first set, on an app
+        // children use, under a sentence promising the opposite. Found while
+        // checking whether it was an App Store review risk; the more important
+        // half is that it was simply untrue.
+        //
+        // The column has always been nullable, because every account starts
+        // null, so this restores a state the schema already allowed rather
+        // than inventing one. Handled BEFORE usernameProblem, since that
+        // function's job is to screen a name somebody is taking, and clearing
+        // is not taking a name.
+        if (raw === null || (typeof raw === "string" && raw.trim() === "")) {
+          set.username = null;
+        } else {
         if (typeof raw !== "string") {
           res.status(400).json({ error: "username must be a string" });
           return;
@@ -252,6 +270,7 @@ export function createAccountRouter(
           return;
         }
         set.username = username;
+        }
       }
 
       if (hasShareStats) {

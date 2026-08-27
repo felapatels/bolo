@@ -321,9 +321,23 @@ export default function Account() {
         data: {
           displayName: name,
           avatarUrl: avatarUrl.trim() || null,
-          // Only sent when there is one: the server treats a present username
-          // as a change to make, and an empty string is not a name.
-          ...(publicName ? { username: publicName } : {}),
+          // CLEARING IS A REAL EDIT, and this used to swallow it: an empty
+          // box omitted the field entirely, so the server never heard about it
+          // and kept the name. The hint under this input has always said
+          // "leave it empty", so a learner who did exactly that was told it
+          // worked and it had not. null is an explicit clear as of 2026-08-27;
+          // the column was always nullable, since every account starts null.
+          //
+          // SENT ONLY WHEN IT CHANGED, and that guard is load-bearing on THIS
+          // page in a way it is not on mobile. Web saves the whole profile
+          // behind one button, so "always send what the box holds" turns an
+          // empty box into "erase my name" unconditionally, including on any
+          // render where the field has not populated from the account yet.
+          // Comparing against the loaded value keeps absent meaning "do not
+          // touch" while still letting a deliberate clear through.
+          ...(publicName !== (account?.profile.username ?? "")
+            ? { username: publicName === "" ? null : publicName }
+            : {}),
           shareStats,
         },
       });
@@ -444,9 +458,16 @@ export default function Account() {
             {/* SAYS WHAT IT COSTS, BEFORE IT IS SET. A learner should know a
                 name is public at the moment they choose it, not after somebody
                 sees it. */}
+            {/* SAYS WHAT CLEARING ACTUALLY DOES. It read "leave it empty to
+                stay off both entirely", untrue in two separate ways: emptying
+                the box did nothing at all, and even once it works, share_stats
+                alone is the board's gate, so a learner with no name still
+                appears under their pseudonym. Two controls, two different
+                promises, and this was making one of them for the other. */}
             <p className="text-xs text-muted-foreground">
               Public. This is the name other learners see on the Everyone board
-              and feed. Leave it empty to stay off both entirely.
+              and feed. Clear it to go back to your pseudonym, or turn off Share
+              my stats below to come off those boards entirely.
             </p>
           </div>
 

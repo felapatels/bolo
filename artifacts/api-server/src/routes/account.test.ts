@@ -463,6 +463,52 @@ test("PATCH /account/profile updates the display name (via Clerk) and avatar", a
   assert.equal(calls.profile[0].update.lastName, "Patel");
 });
 
+// --- The public name, and taking it back ------------------------------------
+//
+// A username was PERMANENT from the moment it was first set, and the account
+// screen said the opposite: "leave it empty to stay off both entirely". Two
+// refusals stacked. The client returned early on an empty value so nothing was
+// ever sent, and this handler answered 400 because an empty name fails
+// usernameProblem's minimum length. Found 2026-08-27 while checking whether it
+// was an App Store review risk; the more important half is that it was untrue
+// to a learner, on an app children use.
+//
+// The column has always been nullable, because every account starts null, so
+// this is a state the schema already allowed rather than a new one.
+
+test("PATCH /account/profile clears the username when sent null", async () => {
+  await patch("/account/profile", { username: "chai_wallah" });
+  const { status, json } = await patch("/account/profile", { username: null });
+  assert.equal(status, 200);
+  assert.equal(json.profile.username, null);
+});
+
+test("PATCH /account/profile clears the username when sent an empty string", async () => {
+  // The account screen's field sends what the box holds, and an emptied box is
+  // "". Both spellings of "I am taking my name back" have to work, or the fix
+  // depends on which client is asking.
+  await patch("/account/profile", { username: "chai_wallah" });
+  const { status, json } = await patch("/account/profile", { username: "   " });
+  assert.equal(status, 200);
+  assert.equal(json.profile.username, null);
+});
+
+test("PATCH /account/profile still screens a real name after clearing is allowed", async () => {
+  // The clear path is handled BEFORE usernameProblem, and the risk in doing
+  // that is bypassing the screen entirely. A too-short name is still a 400.
+  const { status } = await patch("/account/profile", { username: "ab" });
+  assert.equal(status, 400);
+});
+
+test("PATCH /account/profile leaves the username alone when the key is absent", async () => {
+  // Absent is not the same as null, and conflating them would silently erase
+  // the public name of every caller that PATCHes only shareStats.
+  await patch("/account/profile", { username: "chai_wallah" });
+  const { status, json } = await patch("/account/profile", { shareStats: false });
+  assert.equal(status, 200);
+  assert.equal(json.profile.username, "chai_wallah");
+});
+
 test("PATCH /account/profile rejects an empty display name and an empty body", async () => {
   assert.equal((await patch("/account/profile", { displayName: "   " })).status, 400);
   assert.equal((await patch("/account/profile", {})).status, 400);
