@@ -29,6 +29,11 @@ jest.mock('@workspace/api-client-react', () => ({
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   useSetChosenLanguage: () => ({ mutateAsync: jest.fn() }),
   getGetEntitlementsQueryKey: () => ['entitlements'],
+  // The paywall reads the wallet for the monthly-chai figure on the
+  // All-Access benefit list (2026-08-27). Undefined data is the honest
+  // default here: it is what a caller sees before the query lands, and the
+  // benefit row is built to drop out rather than render a blank number.
+  useGetTokens: () => ({ data: undefined, isLoading: false }),
   useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
   getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
 }));

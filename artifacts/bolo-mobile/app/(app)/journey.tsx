@@ -52,6 +52,7 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   type SharedValue,
+  runOnJS,
 } from 'react-native-reanimated';
 import {
   ApiError,
@@ -452,6 +453,7 @@ function ZoneBandFixed({
   mapW,
   scrollY,
   contentTop,
+  extraTop,
   mode = 'block',
 }: {
   zi: number;
@@ -463,20 +465,32 @@ function ZoneBandFixed({
   mapW: number;
   scrollY: SharedValue<number>;
   contentTop: number;
+  /** How much further up the band must reach to sit behind the floating
+   *  header. Without it the header would have a gap of page colour behind
+   *  it instead of painting. */
+  extraTop: number;
   /** 'block': the zone block's wall, the box counter-scrolls. 'cap': the same
    *  wall's top rows INSIDE the sticky board child, so scrolling cards pass
    *  BEHIND the board instead of gliding visibly through its transparent
    *  margins; here the box is fixed and the tiles counter-scroll within. */
   mode?: 'block' | 'cap';
 }) {
-  const bandH = windowH + PC_H + ZONE_BOARD_GAP;
+  const bandH = windowH + PC_H + ZONE_BOARD_GAP + extraTop;
   const travel = Math.max(0, end - start - windowH);
   const pin = useAnimatedStyle(() => {
+    // THE CAP DOES NOT MOVE AT ALL, and it used to. When the board was a
+    // sticky header INSIDE the scroll view, its painted cap travelled with it
+    // and had to counter-scroll to hold the art still against the viewport.
+    // The board is a fixed overlay now, so it is already still, and the old
+    // counter-scroll simply dragged the art up out of the cap's clip box:
+    // after a few hundred points the whole top of the screen went to a flat
+    // foot tone. "The whole top is now one solid block."
+    if (mode === 'cap') return { transform: [{ translateY: 0 }] };
     const shift = Math.min(
       travel,
       Math.max(0, scrollY.value - (start + contentTop)),
     );
-    return { transform: [{ translateY: mode === 'cap' ? -shift : shift }] };
+    return { transform: [{ translateY: shift }] };
   });
   const art = zoneBackdrop(zi);
   const tileH = windowW / ZONE_TILE_ASPECT;
@@ -521,7 +535,11 @@ function ZoneBandFixed({
           width: windowW,
           // +2 laps the block band so the cap's bottom edge cannot show as a
           // hairline seam under the board.
-          height: PC_H + ZONE_BOARD_GAP + 2,
+          // +extraTop, because the board child grew by the safe-area inset
+          // when it took over the top of the screen. Without it the cap was
+          // shorter than its own box and the uncovered strip let a stop card
+          // from further down the block show through above the pediment.
+          height: PC_H + ZONE_BOARD_GAP + extraTop + 2,
           backgroundColor: zoneFootTone(zi),
           overflow: 'hidden',
         }}
@@ -542,7 +560,7 @@ function ZoneBandFixed({
         {
           position: 'absolute',
           left: -(windowW - mapW) / 2,
-          top: layerTop,
+          top: layerTop - extraTop,
           width: windowW,
           height: bandH,
           backgroundColor: zoneFootTone(zi),
@@ -1010,8 +1028,20 @@ export default function JourneyScreen() {
   // slower than the rail and reads as sitting behind it. Entirely absent
   // under reduced motion (transform pinned to 0).
   const scrollY = useSharedValue(0);
+  // WHICH ZONE THE OVERLAY BOARD IS SHOWING. Derived on the UI thread from the
+  // scroll offset and pushed to JS only when it CHANGES, so the board's
+  // content re-renders six times over a whole journey rather than every frame.
+  const [activeZone, setActiveZone] = useState(0);
+  const activeZoneRef = useRef(0);
+  // A ref, because the worklet captures whatever it is given at creation and
+  // the callback below is rebuilt whenever the geometry changes.
+  const onMapScrollJsRef = useRef<(y: number) => void>(() => {});
   const onMapScroll = useAnimatedScrollHandler((e) => {
     scrollY.value = e.contentOffset.y;
+    // Hop to JS only to ask which zone owns the top. onMapScrollJs itself
+    // returns immediately unless the answer changed, so this is a comparison
+    // per frame rather than a re-render per frame.
+    runOnJS(onMapScrollJsRef.current)(e.contentOffset.y);
   });
   // Task 1082 item 4: bring the learner's current stop into view when the map
   // opens. The latch fires once per visit (this screen mounts once), never
@@ -1325,6 +1355,313 @@ export default function JourneyScreen() {
   )?.id;
   const currentStation = allStations.find((s) => s.id === currentId) ?? null;
 
+  /**
+   * THE ZONE BOARD, DRAWN ONCE, ABOVE EVERYTHING.
+   *
+   * It used to be a sticky header inside the ScrollView, and that could not be
+   * made to work: React Native wraps a sticky child in its own
+   * ScrollViewStickyHeader, and THAT wrapper is the sibling the z-order
+   * applies to, so no amount of zIndex or elevation on the board itself stopped
+   * a stop card scrolling up through it. Both were tried on a device.
+   *
+   * As an overlay outside the scroll view the question does not arise: it is a
+   * later sibling than the ScrollView, so it is simply on top. The in-flow
+   * children are spacers holding the same reserved height, so every derived y
+   * (stops, scenery, signals, the intro shot, the slide-in) is untouched.
+   *
+   * "Can't you just make the zone card and back button float independently?"
+   * Yes, and that is the shape that actually works.
+   */
+  const renderZoneBoard = (zi: number) => {
+    const zone = zones[zi];
+    const slice = slices[zi];
+    if (!zone || !slice) return null;
+    const { start, end } = slice;
+          const pt = pts.find((p) => p.kind === 'postcard' && p.zoneIndex === zi)!;
+          const zoneAccessible = zone.stations.some(
+            (s) => isStatusAccessible(s.status) || s.teaserStation,
+          );
+          const grayed = showroom && !zoneAccessible;
+          const cardColor = grayed ? GRAY : line.accent;
+          // Zone gate-lock (web parity, owner-corrected): every stop locked
+          // by progression, none by plan, and the listing is NOT a showroom
+          // payload (no top-level access field). Showroom forces every
+          // station locked with planLocked unset, so without the access
+          // check the affordance would render for teaser and exhausted
+          // callers. Pre-flip the first stop of every zone is unlocked, so
+          // this stays dormant until CROSS_ZONE_GATE_ENABLED flips
+          // server-side.
+          const zoneGateLocked =
+            access === null &&
+            zone.stations.length > 0 &&
+            zone.stations.every((s) => s.status === 'locked') &&
+            !zone.stations.some((s) => s.planLocked === true);
+    return (
+          <View
+            key={`zone-board-${zone.id}`}
+            testID={`zone-board-overlay-${zi}`}
+            style={{
+              width: mapW,
+              alignSelf: 'center',
+              // Its own safe-area pad, because a sticky header pins to the
+              // SCROLL VIEW's top edge, which is under the status bar. The
+              // painted cap behind it is extended by the same amount, so
+              // the art still runs to the top of the screen.
+              paddingTop: headerTopInset,
+              height: PC_H + ZONE_BOARD_GAP + headerTopInset,
+              // BOTH SIBLINGS ORDERED EXPLICITLY, and elevation with it. A
+              // sticky header is transformed by the ScrollView to hold its
+              // place, and on iOS that was enough to let the LATER block
+              // sibling paint over it: a stop card from further down the
+              // zone showed above the pediment. Ordering only the board was
+              // not enough; the block is pinned to 0 as well.
+              zIndex: 30,
+              elevation: 30,
+            }}
+          >
+            <ZoneBandFixed
+              zi={zi}
+              start={start}
+              end={end}
+              layerTop={0}
+              windowW={windowW}
+              windowH={windowH}
+              mapW={mapW}
+              scrollY={scrollY}
+              contentTop={SCROLL_CONTENT_TOP}
+              extraTop={headerTopInset}
+              mode="cap"
+            />
+              <View style={[styles.postcardWrap, { top: 10 + headerTopInset }]}>
+                {/* THE CARVED STATION BOARD, cut into three so only the
+                    panel stretches. See ZONE_BOARD in lib/zoneBackdrops.ts
+                    for why it is three files and why it is capped. Web twin:
+                    ZonePostcard in gujarati-coach/src/pages/journey.tsx. */}
+                <View style={[styles.board, { opacity: grayed ? 0.8 : 1 }]}>
+                  {/* The pediment, aspect preserved: its rosettes and arch
+                      must not stretch, which is the whole reason for the
+                      three-slice. Sized in points computed from boardW: see
+                      boardPedimentH above for why no percentage may appear
+                      here. */}
+                  <View style={{ width: boardW, height: boardPedimentH }}>
+                    <Image
+                      testID={`zone-board-top-${zi}`}
+                      source={ZONE_BOARD_ART.top}
+                      style={{ width: boardW, height: boardPedimentH }}
+                      resizeMode="stretch"
+                    />
+                    {/* The nameplate. Positions are fractions of the slice,
+                        so the overlay tracks the board at any width. */}
+                    <View
+                      pointerEvents="none"
+                      style={[
+                        styles.boardNamePlate,
+                        {
+                          left: `${ZONE_BOARD.namePlate.left * 100}%`,
+                          right: `${ZONE_BOARD.namePlate.right * 100}%`,
+                          top: `${ZONE_BOARD.namePlate.top * 100}%`,
+                          height: `${ZONE_BOARD.namePlate.height * 100}%`,
+                        },
+                      ]}
+                    >
+                      <Text numberOfLines={1} style={styles.boardNamePlateText}>
+                        {zone.title.toUpperCase()}
+                      </Text>
+                    </View>
+                    <View
+                      pointerEvents="none"
+                      style={[
+                        styles.boardZonePlate,
+                        {
+                          width: `${ZONE_BOARD.zonePlate.width * 100}%`,
+                          top: `${ZONE_BOARD.zonePlate.top * 100}%`,
+                          height: `${ZONE_BOARD.zonePlate.height * 100}%`,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.boardZonePlateText}>ZONE {zi + 1}</Text>
+                    </View>
+                  </View>
+                  {/* The panel. THE ONLY PART THAT STRETCHES, and it clips:
+                      the map reserves PC_H for this row and the board may
+                      never push into the first station beneath it. */}
+                  <View style={styles.boardPanel}>
+                    {/* Cream UNDER the art, and only as wide as the art's own
+                        frame. The slice's paper has partial alpha so it needs
+                        a fill behind it, and its outer 3.9% is fully
+                        transparent so that fill must stop there or the panel
+                        reads wider than the pediment above it. */}
+                    <View pointerEvents="none" style={styles.boardPanelFill} />
+                    {/* EXPLICIT POINTS, same cure as the pediment above: on
+                        device this Image resolved absoluteFill to its
+                        INTRINSIC 760x202, so the learner saw the art's left
+                        frame line mid-panel and no right or bottom frame at
+                        all ("zone card still doesn't look correct",
+                        side-by-side, chat 11). */}
+                    <Image
+                      source={ZONE_BOARD_ART.panel}
+                      resizeMode="stretch"
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        width: boardW,
+                        height: boardPanelH,
+                      }}
+                    />
+                    {/* Everything the board says lives inside the drawn
+                        frame. */}
+                    <View
+                      style={[
+                        styles.boardPanelBody,
+                        {
+                          paddingTop: boardPanelH * ZONE_BOARD.contentInsetTop,
+                          paddingBottom: boardPanelH * ZONE_BOARD.contentInsetBottom,
+                        },
+                      ]}
+                    >
+                    {/* address side */}
+                    <View style={styles.postcardAddress}>
+                      <View style={styles.postcardLeft}>
+                        {/* The fare-zone line came off the panel when the
+                            carved board landed: the pediment's nameplate
+                            carries the topic and the small plate carries the
+                            number, so this said both a second time. */}
+                        {/* Ink from the board, not a theme token: the panel
+                            is cream in both themes and a cool slate reads
+                            cold on it. */}
+                        {/* THE LINE, WHICH THE HEADER USED TO CARRY. The
+                            boarding pass came off this page on 2026-08-27
+                            because it collided with this very board, and
+                            the one thing it said that the map did not was
+                            the line's name. It says it here now, as an
+                            eyebrow over the city, so nothing was lost by
+                            removing it. */}
+                        <Text
+                          numberOfLines={1}
+                          style={[styles.boardLineName, { color: cardColor }]}
+                        >
+                          {line.lineName.toUpperCase()}
+                        </Text>
+                        <Text
+                          numberOfLines={1}
+                          style={[styles.postcardGeoName, { color: ZONE_BOARD.ink }]}
+                        >
+                          {zone.geoName}
+                        </Text>
+                        <Text style={[styles.postcardStops, { color: ZONE_BOARD.inkMuted }]}>
+                          {/* ROWS DRAWN, NOT PHRASE STATIONS. The card
+                              said 9 while the rows beneath it said "Stop 1
+                              of 11": the tracing and story stops are rows a
+                              learner counts and this number never knew
+                              about them. */}
+                          {zone.rowStations.length} {zone.rowStations.length === 1 ? 'stop' : 'stops'} in this zone
+                        </Text>
+                        {/* THE FREE TASTE COUNTER, rehoused. It lived in the
+                            header ticket, and when the boarding pass came off
+                            this page (2026-08-27) it would have gone with it.
+                            It is the one thing that ticket carried that a
+                            learner actually needs while sampling a locked
+                            language: how much of the taste is left. It reads
+                            here now, beside the zone's own stop count. */}
+                        {access === 'teaser' && teaserProgress && (
+                          <Text
+                            style={[
+                              styles.postcardStops,
+                              { color: cardColor, fontFamily: AppFonts.bold },
+                            ]}
+                          >
+                            Free taste {teaserProgress.consumed}/{teaserProgress.limit}
+                          </Text>
+                        )}
+                        {/* THE DAILY FACT, web parity (chat 11): web's board
+                            has carried a DID YOU KNOW strip since hotfix 3
+                            and mobile's panel never got it, which the
+                            owner's side-by-side called out. Static rather
+                            than the web strip's 6-second rotation: per-frame
+                            motion is not trusted on this app's release
+                            builds (see CLAUDE.md, the native animation
+                            driver), and a board read in passing needs one
+                            fact, not a slideshow. Same factForZone
+                            arithmetic, so both platforms show the same fact
+                            for the same zone on the same day. */}
+                        {!zoneGateLocked && (
+                        <View
+                          testID={`board-fact-${zi}`}
+                          style={[styles.boardFact, { borderColor: `${cardColor}55` }]}
+                        >
+                          <Text style={[styles.boardFactLabel, { color: cardColor }]}>
+                            DID YOU KNOW?
+                          </Text>
+                          <Text
+                            numberOfLines={2}
+                            style={[styles.boardFactText, { color: ZONE_BOARD.inkMuted }]}
+                          >
+                            {factForZone({
+                              zoneIndex: zi,
+                              geoName: zone.geoName,
+                              lineName: line.lineName,
+                            })}
+                          </Text>
+                        </View>
+                        )}
+                      </View>
+                      {/* THE POSTMARK AND THE ZONE STAMP CAME OFF with the
+                          carved board. The pediment's small plate says ZONE
+                          n, so the stamp said it a second time, and a franked
+                          postcard's furniture on a carved station board was
+                          two different objects at once. */}
+                    </View>
+                    {/* Zone test-out affordance (web parity:
+                        link-zone-test-out-{i}) — present only when the zone
+                        is gate-locked; dormant pre-flip by construction. */}
+                    {zoneGateLocked && (
+                      <Pressable
+                        testID={`link-zone-test-out-${zi}`}
+                        accessibilityRole="button"
+                        onPress={() => {
+                          hapticLight();
+                          router.push({
+                            pathname: '/(app)/practice/[id]',
+                            params: { id: String(zone.id), mode: 'testout', scope: 'zone' },
+                          });
+                        }}
+                        style={[styles.postcardTestOut, { borderColor: cardColor }]}
+                      >
+                        <Text style={[styles.postcardTestOutText, { color: cardColor }]}>
+                          Test out of this zone
+                        </Text>
+                      </Pressable>
+                    )}
+                    </View>
+                  </View>
+                </View>
+              </View>
+              {/* interchange diamond pinned where the track meets the zone
+                  card (top border) so it never collides with the card text */}
+              <View
+                style={[
+                  styles.interchange,
+                  {
+                    left: pt.x - 8,
+                    top: 2,
+                    backgroundColor: cardColor,
+                  },
+                ]}
+              >
+                <View style={styles.interchangeInner} />
+              </View>
+          </View>
+    );
+  };
+
+  // Which zone's painting backs the header. The learner's current zone, so the
+  // header matches whatever the map opens on; zone 1 before there is one.
+  // Measured rather than assumed: the header's height is 10 + the safe-area
+  // inset + whatever the ticket needs, and three things have to agree on it
+  // (the content's top pad, the bands' upward reach, and the slide-in maths).
+  const [headerH, setHeaderH] = useState(0);
+
   // WHICH ZONE'S CROSSING THE LEARNER IS STANDING ON, or null. Zone-relative,
   // not journey-wide: each of the six zones has its own film, and a
   // journey-wide index would put the only Emergency inside zone 1 and leave the
@@ -1521,6 +1858,29 @@ export default function JourneyScreen() {
     const end = i + 1 < postcardYs.length ? postcardYs[i + 1]!.y : totalH;
     return { start, end };
   });
+
+  // Slice boundaries in SCROLL CONTENT coordinates, so the overlay can be told
+  // which zone owns the top of the viewport. Recomputed only when the geometry
+  // does.
+  const zoneTops = React.useMemo(
+    () => slices.map((s) => SCROLL_CONTENT_TOP + s.start),
+    [slices],
+  );
+  const onMapScrollJs = useCallback(
+    (y: number) => {
+      let zi = 0;
+      for (let k = 0; k < zoneTops.length; k++) {
+        // A zone owns the top once its board has reached it.
+        if (y >= zoneTops[k]! - 1) zi = k;
+      }
+      if (zi !== activeZoneRef.current) {
+        activeZoneRef.current = zi;
+        setActiveZone(zi);
+      }
+    },
+    [zoneTops],
+  );
+  onMapScrollJsRef.current = onMapScrollJs;
 
   // COUNTS. Every derivation below keys off this and must keep doing so.
   const stationPts = pts.filter((p) => p.kind === 'station');
@@ -1947,15 +2307,24 @@ export default function JourneyScreen() {
       {/* Boarding-pass header — full-ticket treatment */}
       <View
         testID="journey-header"
+        onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}
         style={[
           styles.header,
-          {
-            backgroundColor: colors.card,
-            borderBottomColor: colors.border,
-            paddingTop: 10 + headerTopInset,
-          },
+          { paddingTop: 10 + headerTopInset },
         ]}
       >
+        {/* NO ART OF ITS OWN, AND THAT WAS THE SECOND WRONG ANSWER. First
+            this was a white card with a border, which read as a UI bar on top
+            of a painting. Then it carried a CROPPED COPY of the zone art,
+            which met the map at a seam because a copy can never track the
+            real thing: "still looks odd, can't we get the actual page context
+            to scroll on it? so its seamless?"
+            It is transparent now and the MAP ITSELF passes underneath. The
+            scroll content is padded by this header's measured height so
+            nothing starts hidden, and each zone's painted band is extended
+            upward by the same amount so there is real art behind the header
+            rather than a gap. One painting, scrolling, with the ticket lying
+            on it. */}
         <Pressable
           accessibilityLabel="Back to home"
           onPress={() => {
@@ -1966,78 +2335,25 @@ export default function JourneyScreen() {
         >
           <Feather name="arrow-left" size={20} color={colors.foreground} />
         </Pressable>
-        <View
-          testID="journey-header-ticket"
-          // FULL COLOUR, matching the home screen pass. This was colors.card
-          // with a 3% accent wash, which read as a pale outline beside the vivid
-          // card on home and did not look like the same object.
-          style={[styles.headerTicket, { borderColor: '#FFFFFF66', backgroundColor: line.accent }]}
-        >
-          <TicketStripes ink="#FFFFFF1A" />
-          <View style={styles.headerTicketRow}>
-            <View style={styles.headerTicketBody}>
-              {/* Native-script brand must use the language font (Latin UI
-                  font = tofu); same per-script handling as the picker. */}
-              <Text
-                style={[
-                  styles.ticketEyebrow,
-                  { color: '#FFFFFFCC' },
-                  railBrand.native && isTallCascadingScript(activeLanguage)
-                    ? styles.ticketEyebrowTall
-                    : null,
-                ]}
-              >
-                BOARDING PASS ·{' '}
-                <Text
-                  style={
-                    railBrand.native
-                      ? [styles.ticketEyebrowNative, nativeTextStyle(activeLanguage, { bold: true })]
-                      : null
-                  }
-                >
-                  {railBrand.text}
-                </Text>
-              </Text>
-              <Text numberOfLines={1} style={[styles.ticketLine, { color: '#FFFFFF' }]}>
-                {line.lineName}
-              </Text>
-              {/* Item 1: this line carries the number the whole item is about,
-                  so it wraps instead of clipping to one line. On a 320pt
-                  screen the route alone fills the ticket, and numberOfLines=1
-                  cut the stop count off the end entirely. */}
-              <Text numberOfLines={2} style={[styles.ticketRoute, { color: '#FFFFFFDD' }]}>
-                {line.zones[0]} → {line.zones[5]} · {headerStations}
-              </Text>
-              {access === 'teaser' && teaserProgress && (
-                <Text style={[styles.ticketTeaser, { color: '#FFFFFF' }]}>
-                  Free taste {teaserProgress.consumed}/{teaserProgress.limit}
-                </Text>
-              )}
-            </View>
-            {/* THE STUB IS GONE, AND THE PERFORATION IS NOW A TORN EDGE.
-                Removed 2026-08-25: "technically, the ticket is already torn,
-                just get rid of the stub". A boarding pass being read on the
-                train has had its stub taken; keeping one attached was the
-                detail that made the header look like a ticket nobody had
-                collected yet.
-                It was also invisible rather than empty, which is worth
-                recording so nobody re-adds it thinking it never worked: the
-                stamp was drawn with ink={line.accent} on a ticket whose
-                background IS line.accent, so it was green on green. Web
-                passed "#FFFFFF" for the same stamp and showed it fine.
-                TicketPerforationV stays as the right-hand edge: a perforated
-                edge with nothing past it is what a torn ticket looks like. */}
-            <TicketPerforationV dashColor={colors.border} holeColor={colors.background} />
-          </View>
-        </View>
+        {/* THE BOARDING PASS CAME OFF THIS PAGE (2026-08-27), and the reason
+            is a collision rather than a taste call. The zone board is STICKY:
+            it owns the top of the viewport permanently, so anything else
+            pinned there fights it, and a restyled ticket sat straight on top
+            of the board's own nameplate. Two objects cannot have that space.
+            The board already names the topic and the zone and now names the
+            LINE as well, so the ticket was saying nothing the map was not.
+            "If we add the Line name to each zone header, we don't need the
+            boarding pass to show on top. just a back arrow that floats." */}
       </View>
 
       <Animated.ScrollView
         ref={scrollRef}
-        contentContainerStyle={styles.scrollContent}
-        stickyHeaderIndices={zones.map(
-          (_, zi) => (access === 'exhausted' ? 1 : 0) + zi * 2,
-        )}
+        contentContainerStyle={[
+          styles.scrollContent,
+          // Clears the floating header. Measured, so a notch, a Dynamic
+          // Island and web chrome all get the right number.
+          { paddingTop: SCROLL_CONTENT_TOP },
+        ]}
         showsVerticalScrollIndicator={false}
         onScroll={onMapScroll}
         // A TOUCH LANDS YOU ON YOUR CARD, it does not cancel. Cancelling is
@@ -2116,226 +2432,49 @@ export default function JourneyScreen() {
               zone.stations.length > 0 &&
               zone.stations.every((s) => s.status === 'locked') &&
               !zone.stations.some((s) => s.planLocked === true);
+            // A SPACER, NOT THE BOARD. The board is drawn once, as an
+            // overlay above the ScrollView, so it can never be painted over
+            // by a stop card scrolling up through it. This holds the space
+            // the canvas already reserves for it (PC_H plus the gap) so every
+            // derived y stays exactly where it was.
             const boardChild = (
-            <View
-              key={`zone-board-${zone.id}`}
-              testID={`zone-board-child-${zi}`}
-              style={{
-                width: mapW,
-                alignSelf: 'center',
-                height: PC_H + ZONE_BOARD_GAP,
-                zIndex: 20,
-              }}
-              onLayout={zi === 0 ? onMapLayout : undefined}
-            >
-              <ZoneBandFixed
-                zi={zi}
-                start={start}
-                end={end}
-                layerTop={0}
-                windowW={windowW}
-                windowH={windowH}
-                mapW={mapW}
-                scrollY={scrollY}
-                contentTop={18}
-                mode="cap"
-              />
-                <View style={[styles.postcardWrap, { top: 10 }]}>
-                  {/* THE CARVED STATION BOARD, cut into three so only the
-                      panel stretches. See ZONE_BOARD in lib/zoneBackdrops.ts
-                      for why it is three files and why it is capped. Web twin:
-                      ZonePostcard in gujarati-coach/src/pages/journey.tsx. */}
-                  <View style={[styles.board, { opacity: grayed ? 0.8 : 1 }]}>
-                    {/* The pediment, aspect preserved: its rosettes and arch
-                        must not stretch, which is the whole reason for the
-                        three-slice. Sized in points computed from boardW: see
-                        boardPedimentH above for why no percentage may appear
-                        here. */}
-                    <View style={{ width: boardW, height: boardPedimentH }}>
-                      <Image
-                        testID={`zone-board-top-${zi}`}
-                        source={ZONE_BOARD_ART.top}
-                        style={{ width: boardW, height: boardPedimentH }}
-                        resizeMode="stretch"
-                      />
-                      {/* The nameplate. Positions are fractions of the slice,
-                          so the overlay tracks the board at any width. */}
-                      <View
-                        pointerEvents="none"
-                        style={[
-                          styles.boardNamePlate,
-                          {
-                            left: `${ZONE_BOARD.namePlate.left * 100}%`,
-                            right: `${ZONE_BOARD.namePlate.right * 100}%`,
-                            top: `${ZONE_BOARD.namePlate.top * 100}%`,
-                            height: `${ZONE_BOARD.namePlate.height * 100}%`,
-                          },
-                        ]}
-                      >
-                        <Text numberOfLines={1} style={styles.boardNamePlateText}>
-                          {zone.title.toUpperCase()}
-                        </Text>
-                      </View>
-                      <View
-                        pointerEvents="none"
-                        style={[
-                          styles.boardZonePlate,
-                          {
-                            width: `${ZONE_BOARD.zonePlate.width * 100}%`,
-                            top: `${ZONE_BOARD.zonePlate.top * 100}%`,
-                            height: `${ZONE_BOARD.zonePlate.height * 100}%`,
-                          },
-                        ]}
-                      >
-                        <Text style={styles.boardZonePlateText}>ZONE {zi + 1}</Text>
-                      </View>
-                    </View>
-                    {/* The panel. THE ONLY PART THAT STRETCHES, and it clips:
-                        the map reserves PC_H for this row and the board may
-                        never push into the first station beneath it. */}
-                    <View style={styles.boardPanel}>
-                      {/* Cream UNDER the art, and only as wide as the art's own
-                          frame. The slice's paper has partial alpha so it needs
-                          a fill behind it, and its outer 3.9% is fully
-                          transparent so that fill must stop there or the panel
-                          reads wider than the pediment above it. */}
-                      <View pointerEvents="none" style={styles.boardPanelFill} />
-                      {/* EXPLICIT POINTS, same cure as the pediment above: on
-                          device this Image resolved absoluteFill to its
-                          INTRINSIC 760x202, so the learner saw the art's left
-                          frame line mid-panel and no right or bottom frame at
-                          all ("zone card still doesn't look correct",
-                          side-by-side, chat 11). */}
-                      <Image
-                        source={ZONE_BOARD_ART.panel}
-                        resizeMode="stretch"
-                        style={{
-                          position: 'absolute',
-                          left: 0,
-                          top: 0,
-                          width: boardW,
-                          height: boardPanelH,
-                        }}
-                      />
-                      {/* Everything the board says lives inside the drawn
-                          frame. */}
-                      <View
-                        style={[
-                          styles.boardPanelBody,
-                          {
-                            paddingTop: boardPanelH * ZONE_BOARD.contentInsetTop,
-                            paddingBottom: boardPanelH * ZONE_BOARD.contentInsetBottom,
-                          },
-                        ]}
-                      >
-                      {/* address side */}
-                      <View style={styles.postcardAddress}>
-                        <View style={styles.postcardLeft}>
-                          {/* The fare-zone line came off the panel when the
-                              carved board landed: the pediment's nameplate
-                              carries the topic and the small plate carries the
-                              number, so this said both a second time. */}
-                          {/* Ink from the board, not a theme token: the panel
-                              is cream in both themes and a cool slate reads
-                              cold on it. */}
-                          <Text
-                            numberOfLines={1}
-                            style={[styles.postcardGeoName, { color: ZONE_BOARD.ink }]}
-                          >
-                            {zone.geoName}
-                          </Text>
-                          <Text style={[styles.postcardStops, { color: ZONE_BOARD.inkMuted }]}>
-                            {/* ROWS DRAWN, NOT PHRASE STATIONS. The card
-                                said 9 while the rows beneath it said "Stop 1
-                                of 11": the tracing and story stops are rows a
-                                learner counts and this number never knew
-                                about them. */}
-                            {zone.rowStations.length} {zone.rowStations.length === 1 ? 'stop' : 'stops'} in this zone
-                          </Text>
-                          {/* THE DAILY FACT, web parity (chat 11): web's board
-                              has carried a DID YOU KNOW strip since hotfix 3
-                              and mobile's panel never got it, which the
-                              owner's side-by-side called out. Static rather
-                              than the web strip's 6-second rotation: per-frame
-                              motion is not trusted on this app's release
-                              builds (see CLAUDE.md, the native animation
-                              driver), and a board read in passing needs one
-                              fact, not a slideshow. Same factForZone
-                              arithmetic, so both platforms show the same fact
-                              for the same zone on the same day. */}
-                          {!zoneGateLocked && (
-                          <View
-                            testID={`board-fact-${zi}`}
-                            style={[styles.boardFact, { borderColor: `${cardColor}55` }]}
-                          >
-                            <Text style={[styles.boardFactLabel, { color: cardColor }]}>
-                              DID YOU KNOW?
-                            </Text>
-                            <Text
-                              numberOfLines={2}
-                              style={[styles.boardFactText, { color: ZONE_BOARD.inkMuted }]}
-                            >
-                              {factForZone({
-                                zoneIndex: zi,
-                                geoName: zone.geoName,
-                                lineName: line.lineName,
-                              })}
-                            </Text>
-                          </View>
-                          )}
-                        </View>
-                        {/* THE POSTMARK AND THE ZONE STAMP CAME OFF with the
-                            carved board. The pediment's small plate says ZONE
-                            n, so the stamp said it a second time, and a franked
-                            postcard's furniture on a carved station board was
-                            two different objects at once. */}
-                      </View>
-                      {/* Zone test-out affordance (web parity:
-                          link-zone-test-out-{i}) — present only when the zone
-                          is gate-locked; dormant pre-flip by construction. */}
-                      {zoneGateLocked && (
-                        <Pressable
-                          testID={`link-zone-test-out-${zi}`}
-                          accessibilityRole="button"
-                          onPress={() => {
-                            hapticLight();
-                            router.push({
-                              pathname: '/(app)/practice/[id]',
-                              params: { id: String(zone.id), mode: 'testout', scope: 'zone' },
-                            });
-                          }}
-                          style={[styles.postcardTestOut, { borderColor: cardColor }]}
-                        >
-                          <Text style={[styles.postcardTestOutText, { color: cardColor }]}>
-                            Test out of this zone
-                          </Text>
-                        </Pressable>
-                      )}
-                      </View>
-                    </View>
-                  </View>
-                </View>
-                {/* interchange diamond pinned where the track meets the zone
-                    card (top border) so it never collides with the card text */}
-                <View
-                  style={[
-                    styles.interchange,
-                    {
-                      left: pt.x - 8,
-                      top: 2,
-                      backgroundColor: cardColor,
-                    },
-                  ]}
-                >
-                  <View style={styles.interchangeInner} />
-                </View>
-            </View>
+              <View
+                key={`zone-board-${zone.id}`}
+                testID={`zone-board-child-${zi}`}
+                style={{
+                  width: mapW,
+                  alignSelf: 'center',
+                  paddingTop: headerTopInset,
+                  height: PC_H + ZONE_BOARD_GAP + headerTopInset,
+                }}
+                onLayout={zi === 0 ? onMapLayout : undefined}
+              >
+                <ZoneBandFixed
+                  zi={zi}
+                  start={start}
+                  end={end}
+                  layerTop={0}
+                  windowW={windowW}
+                  windowH={windowH}
+                  mapW={mapW}
+                  scrollY={scrollY}
+                  contentTop={SCROLL_CONTENT_TOP}
+                  extraTop={headerTopInset}
+                  mode="cap"
+                />
+              </View>
             );
           const blockChild = (
             <View
               key={`zone-block-${zone.id}`}
               testID={`zone-block-child-${zi}`}
-              style={{ width: mapW, alignSelf: 'center', height: blockH }}
+              style={{
+                width: mapW,
+                alignSelf: 'center',
+                height: blockH,
+                zIndex: 0,
+                elevation: 0,
+              }}
             >
             <ZoneBandFixed
               zi={zi}
@@ -2346,7 +2485,8 @@ export default function JourneyScreen() {
               windowH={windowH}
               mapW={mapW}
               scrollY={scrollY}
-              contentTop={18}
+              contentTop={SCROLL_CONTENT_TOP}
+              extraTop={headerTopInset}
             />
             <Animated.View
               testID={`journey-scenery-layer-${zi}`}
@@ -3153,6 +3293,22 @@ export default function JourneyScreen() {
         </Text>
       </Animated.ScrollView>
 
+      {/* THE PINNED ZONE BOARD, above the scroll view rather than inside it.
+          See renderZoneBoard for why this is not a sticky header. It shows
+          whichever zone owns the top of the viewport, and the back arrow
+          floats over it from the header above. */}
+      <View
+        testID="journey-board-overlay"
+        pointerEvents="box-none"
+        // Anchored at the very top so its painted cap covers the status-bar
+        // strip too. The BOARD inside is pushed down by the safe-area inset
+        // instead, because its contents are absolutely positioned and an
+        // absolute child does not take a parent's paddingTop.
+        style={[styles.boardOverlay, { top: 0 }]}
+      >
+        {renderZoneBoard(activeZone)}
+      </View>
+
       {/* Lock dialogs: entitlement locks and progression locks read
           differently — a true mirror of the shipped web dialogs, including
           the progression dialog's Express test-out action. */}
@@ -3459,14 +3615,25 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: { fontFamily: AppFonts.bold, fontSize: 14 },
+  // FLOATS OVER THE MAP, it is not a row above it. In flow it pushed the
+  // ScrollView down and the painting could only ever start below it, which is
+  // the seam the copied-art attempt was trying to hide. Absolute and on top,
+  // with the scroll content padded by its measured height, means the real
+  // painting passes underneath and the ticket lies on it.
+  //
+  // NO BACKGROUND AND NO BOTTOM BORDER: both were what made it read as a bar.
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 12,
     // paddingTop is applied inline: 10 plus the safe-area/web chrome inset.
     paddingBottom: 10,
-    borderBottomWidth: 1,
   },
   backBtn: {
     width: 40,
@@ -3476,10 +3643,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
+  // DRESSED LIKE THE REST OF THE MAP. It was a dashed box in brand green,
+  // then a dashed box in parchment, and dashed-and-flat was still the odd one
+  // out beside carved wood and ruled paper tags. It now carries exactly what
+  // a stop tag carries: a solid brown edge, a hairline rule set in from it,
+  // and the same stock. The dashes moved to the torn right edge, which is the
+  // one place a ticket should look perforated.
   headerTicket: {
     flex: 1,
     borderWidth: 2,
-    borderStyle: 'dashed',
     borderRadius: 10,
     overflow: 'hidden',
     position: 'relative',
@@ -3490,6 +3662,17 @@ const styles = StyleSheet.create({
     maxHeight: 140,
   },
   headerTicketRow: { flexDirection: 'row', alignItems: 'stretch' },
+  // The sheet's inner frame, the same one every stop tag draws. Absolutely
+  // positioned so it costs no layout and cannot change the header's height.
+  headerTicketRule: {
+    position: 'absolute',
+    left: 4,
+    top: 4,
+    right: 4,
+    bottom: 4,
+    borderWidth: 1,
+    borderRadius: 7,
+  },
   headerTicketBody: { flex: 1, minWidth: 0, paddingHorizontal: 14, paddingVertical: 9 },
   ticketEyebrow: { fontFamily: AppFonts.bold, fontSize: 9, letterSpacing: 1.5 },
   // Nastaliq cascades above/below the baseline — keep the one-line brand
@@ -3520,7 +3703,16 @@ const styles = StyleSheet.create({
   // paddingTop carries what used to be the map View's marginTop (8) plus the
   // canvas TOP_PAD (10), now that the zone children sit directly in the
   // scroll content for stickyHeaderIndices (chat 11).
-  scrollContent: { paddingTop: SCROLL_CONTENT_TOP, paddingBottom: 48 },
+  scrollContent: { paddingBottom: 48 },
+  // box-none so the board's own buttons still take taps while the map
+  // scrolls normally either side of it.
+  boardOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 40,
+    elevation: 40,
+  },
   exhaustedCard: {
     marginHorizontal: 12,
     marginTop: 16,
@@ -3661,6 +3853,12 @@ const styles = StyleSheet.create({
   },
   // The daily-fact strip inside the panel. Web twin: LiveFactStrip's button in
   // journey.tsx (dashed accent border, 8px label, 9px two-line fact).
+  boardLineName: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 9,
+    letterSpacing: 1.4,
+    marginBottom: 1,
+  },
   boardFact: {
     marginTop: 4,
     borderWidth: 1,

@@ -24,6 +24,11 @@ jest.mock('@tanstack/react-query', () => ({
 jest.mock('@workspace/api-client-react', () => ({
   // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
+  // The paywall reads the wallet for the monthly-chai figure on the
+  // All-Access benefit list (2026-08-27). Undefined is what a caller sees
+  // before the query lands, and the benefit row drops out rather than
+  // rendering a blank number.
+  useGetTokens: () => ({ data: undefined, isLoading: false }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
   useListCategoryLessonGroups: () => ({ data: { lessonGroups: [] }, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   useSetChosenLanguage: () => ({ mutateAsync: jest.fn() }),

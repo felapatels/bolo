@@ -270,8 +270,25 @@ describe('journey map — showroom mode (locked language)', () => {
     render(<JourneyScreen />);
 
     // Whole structure visible (Nilgiri line, all six zones' postcards).
-    expect(screen.getByText('Nilgiri Mountain Railway')).toBeOnTheScreen();
-    expect(screen.getByText('Ooty')).toBeOnTheScreen();
+    // THE LINE NAME MOVED ONTO THE ZONE BOARD, uppercased, when the boarding
+    // pass came off this page on 2026-08-27. The pass was a sticky-header
+    // collision with the board and the only thing it said that the map did
+    // not was the line, so the board says it now. Same fact, new home, and
+    // the assertion follows it rather than being deleted.
+    expect(
+      screen.getAllByText('NILGIRI MOUNTAIN RAILWAY').length,
+    ).toBeGreaterThan(0);
+    // ONE BOARD EXISTS AT A TIME NOW, and that is the deliberate cost of the
+    // change on 2026-08-27. The zone board stopped being a sticky header
+    // inside the ScrollView (React Native wraps those in a container that
+    // wins the z-order, so stop cards scrolled over the board and no zIndex
+    // could stop it) and became a single overlay above the scroll view,
+    // showing whichever zone owns the top of the viewport.
+    // So a zone the learner has not scrolled to has no board in the tree.
+    // 'Ooty' is zone 6's city and this assertion was reading zone 6's board
+    // at rest. What the test is actually about, that the WHOLE LINE is
+    // browsable in showroom mode, is pinned by the stop rows below.
+    expect(screen.getByTestId('zone-board-overlay-0')).toBeOnTheScreen();
     // Teaser affordances.
     expect(screen.getByText('FREE TASTE')).toBeOnTheScreen();
     expect(screen.getByText('Free taste 1/3')).toBeOnTheScreen();

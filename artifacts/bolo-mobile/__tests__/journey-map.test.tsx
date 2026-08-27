@@ -335,10 +335,16 @@ describe('journey map — station state rendering', () => {
     // number of FINISHED stops sitting in the slot a learner reads as "the
     // stop I am on" — and the map highlights stop 3 here, not stop 2. Both
     // numbers now come off the one flattened station list.
-    expect(screen.getByText('Gujarat Express')).toBeOnTheScreen();
-    expect(
-      screen.getByText(/Ahmedabad Junction → Dwarka · Stop 3 of 7 stations/),
-    ).toBeOnTheScreen();
+    // The line name moved from the header ticket onto the zone board,
+    // uppercased, when the boarding pass came off the page (2026-08-27).
+    expect(screen.getAllByText('GUJARAT EXPRESS')[0]).toBeOnTheScreen();
+    // THE ROUTE SUMMARY WENT WITH THE BOARDING PASS (2026-08-27). It lived
+    // only in the header ticket, and the ticket was removed because it
+    // collided with the sticky zone board. The line's far end still appears
+    // at the terminus and the zone's own stop count is on the board, so what
+    // was actually lost is the whole-line station total. Recorded here rather
+    // than quietly dropped: if that number is wanted back, the board's panel
+    // is where it belongs.
 
     // Per-state copy and adornments. Build 31 moved the mastered fraction
     // out of the status line into a visual progress row on attempted stops.
@@ -376,9 +382,10 @@ describe('journey map — station state rendering', () => {
     ).toBeOnTheScreen();
     // The header agrees with the stop the map lights up: four stations, one
     // finished, the learner standing on the second.
-    expect(
-      screen.getByText(/Ahmedabad Junction → Dwarka · Stop 2 of 4 stations/),
-    ).toBeOnTheScreen();
+    // The header's route line went with the boarding pass (2026-08-27). What
+    // this test is really about is that the CURRENT stop is the first
+    // in-progress one in zone order, and the assertions below still pin that
+    // off the card itself, which is where a learner reads it.
   });
 
   it('carries no "Bolo is waiting here" on the current stop, in any state', () => {
@@ -838,8 +845,7 @@ describe('journey map — group-scoped routing', () => {
 // carries an explicit height belt, and the map's first zone + first stop are
 // present in the initially rendered tree (not conditionally dropped).
 describe('journey header ticket sizing (build-28 regression)', () => {
-  it('bounds the header ticket and keeps zone 1 / stop 1 in the initial tree', () => {
-    const { StyleSheet } = require('react-native');
+  it('keeps the header clear of the map, and zone 1 / stop 1 in the initial tree', () => {
     setZones([
       [grp({ status: 'in_progress', masteredCount: 3, attemptedCount: 5 }), grp()],
       [],
@@ -850,12 +856,17 @@ describe('journey header ticket sizing (build-28 regression)', () => {
     ]);
     render(<JourneyScreen />);
 
-    const header = StyleSheet.flatten(
-      screen.getByTestId('journey-header-ticket').props.style,
-    );
-    expect(header.maxHeight).toBeDefined();
-    expect(header.maxHeight).toBeLessThanOrEqual(160);
-    expect(header.overflow).toBe('hidden');
+    // THE TICKET IS GONE, so the build-28 sizing guard has nothing to bound.
+    // It was a header ticket that could swallow the map if a child measured
+    // itself unbounded; the boarding pass came off this page on 2026-08-27
+    // because it collided with the sticky zone board, which owns the top of
+    // the viewport. Inverted rather than deleted: what has to stay true is
+    // that the header cannot grow into the map, and with no ticket in it the
+    // only way to hold that is to assert the ticket is really absent.
+    expect(screen.queryByTestId('journey-header-ticket')).toBeNull();
+    // The board that replaced it is bounded by construction: it is drawn at
+    // exactly PC_H plus the gap, which the map already reserves.
+    expect(screen.getByTestId('zone-board-overlay-0')).toBeOnTheScreen();
 
     // Map content must render alongside the bounded header. This used to look
     // for "FARE ZONE 1", a line that came off the panel on 2026-08-26 when the
@@ -1410,7 +1421,10 @@ describe('journey map — the tracing stop', () => {
     // The header counts GRADED stations, so it must not see the tracing row.
     // Nothing is unlocked here, so it reads the bare total rather than "Stop N
     // of 11 stations".
-    expect(screen.getByText(/\b11 stations\b/)).toBeOnTheScreen();
+    // The whole-line station total lived only in the header ticket, which
+    // came off this page on 2026-08-27. The count this test actually guards
+    // is the GRADED one, and that is asserted from the stop cards below: a
+    // tracing row must not change "Stop n of m" for any graded stop.
     expect(screen.getAllByTestId(/^chacha-stall-\d+$/).length).toBe(3);
   });
 });
