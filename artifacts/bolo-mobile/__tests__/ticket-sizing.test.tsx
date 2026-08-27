@@ -122,7 +122,11 @@ import {
   stampSizeForExtent,
   zoneStampExtent,
 } from '@/components/journey/TicketParts';
-import { JourneyPassCard, stubLineFontSize } from '@/components/journey/JourneyPassCard';
+import {
+  HOME_PANEL_H,
+  JourneyPassCard,
+  stubLineFontSize,
+} from '@/components/journey/JourneyPassCard';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -180,10 +184,19 @@ describe('JourneyPassCard height belt', () => {
   it('the home hero pass carries an explicit maxHeight cap with overflow hidden', () => {
     const r = render(<JourneyPassCard onPress={() => {}} />);
     const style = StyleSheet.flatten(r.getByTestId('journey-pass-card').props.style);
-    // Content tops out around ~190px; anything near screen height means the
-    // build-28 regression is back.
+    // THE CAP MOVED FROM 260 ON 2026-08-27, and it moved because the design
+    // changed rather than because content crept. The home hero is a CARVED
+    // STATION BOARD now, so its height is HOME_PANEL_H plus a pediment that
+    // takes its own aspect (~18.7%) out of the column width: a 390pt column is
+    // 200 + 73 = 273. The belt is still a belt. It sits one step above the
+    // widest phone board, so a child that measures itself unbounded still
+    // cannot ship a full-screen hero, which is the whole build-28 lesson.
+    //
+    // TIED TO HOME_PANEL_H ON PURPOSE. Raising the panel's budget without
+    // raising the cap would clip the board rather than fail here, and a
+    // clipped panel looks BLANK rather than short.
     expect(style.maxHeight).toBeDefined();
-    expect(style.maxHeight).toBeLessThanOrEqual(260);
+    expect(style.maxHeight).toBeLessThanOrEqual(HOME_PANEL_H + 120);
     expect(style.overflow).toBe('hidden');
   });
 });

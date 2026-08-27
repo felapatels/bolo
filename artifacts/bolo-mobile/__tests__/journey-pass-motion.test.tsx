@@ -113,6 +113,40 @@ beforeEach(() => {
   mockState.journey = { current: null, doneCount: 0 };
 });
 
+// ─── The cold-start cue, chat 12 ────────────────────────────────────────────
+// "Make sure the START HERE bobbing badge above the pass is still working for
+// cold starts" (owner), asked while the hero was being rebuilt as a carved
+// station board. It had NO test at all, which is why the question needed
+// asking rather than answering. It does now.
+//
+// The cue is deliberately OUTSIDE the board wrapper: styles.glow fills the
+// wrapper, so a cue inside it would stretch the accent halo up behind the
+// badge. That placement is what these cases pin, along with the one rule that
+// makes the badge honest: it is derived from doneCount, never stored, so it
+// clears itself the moment the first stop lands and there is no flag to go
+// stale or to reset on reinstall.
+describe('the cold-start START HERE cue', () => {
+  it('shows above the board for a learner who has finished nothing', () => {
+    mockState.journey = { current: null, doneCount: 0 };
+    render(<JourneyPassCard onPress={() => {}} />);
+    expect(screen.getByText('START HERE')).toBeOnTheScreen();
+  });
+
+  it('is gone the moment a single stop is behind them', () => {
+    mockState.journey = { current: CURRENT, doneCount: 1 };
+    render(<JourneyPassCard onPress={() => {}} />);
+    expect(screen.queryByText('START HERE')).toBeNull();
+  });
+
+  it('waits for the journey to load rather than shouting at a blank card', () => {
+    // isLoading gates it: a learner mid-journey must never see START HERE
+    // flash while their progress is still in flight.
+    mockState.journey = { current: null, doneCount: 0, isLoading: true };
+    render(<JourneyPassCard onPress={() => {}} />);
+    expect(screen.queryByText('START HERE')).toBeNull();
+  });
+});
+
 describe('progress-aware CTA copy (web home.tsx parity)', () => {
   it('fresh line: Start your journey', () => {
     render(<JourneyPassCard onPress={() => {}} />);

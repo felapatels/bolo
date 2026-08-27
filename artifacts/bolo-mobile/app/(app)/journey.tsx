@@ -99,6 +99,7 @@ import {
 } from '@workspace/script-trace';
 import { asUpgradeRequired } from '@/lib/entitlements';
 import { JOURNEY_ZONES, getJourneyLine, getRailBrand } from '@/lib/journeyLines';
+import { CarvedBoard } from '@/components/journey/CarvedBoard';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import {
   TicketPerforationV,
@@ -1507,89 +1508,15 @@ export default function JourneyScreen() {
                     panel stretches. See ZONE_BOARD in lib/zoneBackdrops.ts
                     for why it is three files and why it is capped. Web twin:
                     ZonePostcard in gujarati-coach/src/pages/journey.tsx. */}
-                <View style={[styles.board, { opacity: grayed ? 0.8 : 1 }]}>
-                  {/* The pediment, aspect preserved: its rosettes and arch
-                      must not stretch, which is the whole reason for the
-                      three-slice. Sized in points computed from boardW: see
-                      boardPedimentH above for why no percentage may appear
-                      here. */}
-                  <View style={{ width: boardW, height: boardPedimentH }}>
-                    <Image
-                      testID={`zone-board-top-${zi}`}
-                      source={ZONE_BOARD_ART.top}
-                      style={{ width: boardW, height: boardPedimentH }}
-                      resizeMode="stretch"
-                    />
-                    {/* The nameplate. Positions are fractions of the slice,
-                        so the overlay tracks the board at any width. */}
-                    <View
-                      pointerEvents="none"
-                      style={[
-                        styles.boardNamePlate,
-                        {
-                          left: `${ZONE_BOARD.namePlate.left * 100}%`,
-                          right: `${ZONE_BOARD.namePlate.right * 100}%`,
-                          top: `${ZONE_BOARD.namePlate.top * 100}%`,
-                          height: `${ZONE_BOARD.namePlate.height * 100}%`,
-                        },
-                      ]}
-                    >
-                      <Text numberOfLines={1} style={styles.boardNamePlateText}>
-                        {zone.title.toUpperCase()}
-                      </Text>
-                    </View>
-                    <View
-                      pointerEvents="none"
-                      style={[
-                        styles.boardZonePlate,
-                        {
-                          width: `${ZONE_BOARD.zonePlate.width * 100}%`,
-                          top: `${ZONE_BOARD.zonePlate.top * 100}%`,
-                          height: `${ZONE_BOARD.zonePlate.height * 100}%`,
-                        },
-                      ]}
-                    >
-                      <Text style={styles.boardZonePlateText}>ZONE {zi + 1}</Text>
-                    </View>
-                  </View>
-                  {/* The panel. THE ONLY PART THAT STRETCHES, and it clips:
-                      the map reserves PC_H for this row and the board may
-                      never push into the first station beneath it. */}
-                  <View style={styles.boardPanel}>
-                    {/* Cream UNDER the art, and only as wide as the art's own
-                        frame. The slice's paper has partial alpha so it needs
-                        a fill behind it, and its outer 3.9% is fully
-                        transparent so that fill must stop there or the panel
-                        reads wider than the pediment above it. */}
-                    <View pointerEvents="none" style={styles.boardPanelFill} />
-                    {/* EXPLICIT POINTS, same cure as the pediment above: on
-                        device this Image resolved absoluteFill to its
-                        INTRINSIC 760x202, so the learner saw the art's left
-                        frame line mid-panel and no right or bottom frame at
-                        all ("zone card still doesn't look correct",
-                        side-by-side, chat 11). */}
-                    <Image
-                      source={ZONE_BOARD_ART.panel}
-                      resizeMode="stretch"
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: 0,
-                        width: boardW,
-                        height: boardPanelH,
-                      }}
-                    />
-                    {/* Everything the board says lives inside the drawn
-                        frame. */}
-                    <View
-                      style={[
-                        styles.boardPanelBody,
-                        {
-                          paddingTop: boardPanelH * ZONE_BOARD.contentInsetTop,
-                          paddingBottom: boardPanelH * ZONE_BOARD.contentInsetBottom,
-                        },
-                      ]}
-                    >
+                <CarvedBoard
+                  testID={`zone-board-overlay-inner-${zi}`}
+                  pedimentTestID={`zone-board-top-${zi}`}
+                  width={boardW}
+                  height={PC_H}
+                  nameplate={zone.title.toUpperCase()}
+                  plate={`ZONE ${zi + 1}`}
+                  opacity={grayed ? 0.8 : 1}
+                >
                     {/* address side */}
                     <View style={styles.postcardAddress}>
                       <View style={styles.postcardLeft}>
@@ -1703,9 +1630,7 @@ export default function JourneyScreen() {
                         </Text>
                       </Pressable>
                     )}
-                    </View>
-                  </View>
-                </View>
+                </CarvedBoard>
               </View>
               {/* interchange diamond pinned where the track meets the zone
                   card (top border) so it never collides with the card text */}
@@ -3921,38 +3846,6 @@ const styles = StyleSheet.create({
     opacity: 0.38,
   },
   postcardWrap: { position: 'absolute', left: 16, right: 16 },
-  // The carved board. Capped at PC_H so it can never push into the first
-  // station row: the map reserves exactly that much for this row and the
-  // serpentine constants are shared with the scenery placement tests.
-  // EXACTLY PC_H, not "at most". A cap plus overflow hidden crops whatever
-  // happens to be last, which is how the fact ended up with its final line
-  // sliced off. As a column, the pediment and the foot take their aspect and
-  // the panel absorbs precisely the remainder.
-  board: { height: PC_H, flexDirection: 'column', overflow: 'hidden' },
-  boardTop: { width: '100%', aspectRatio: ZONE_BOARD.artW / ZONE_BOARD.topH },
-  boardPanel: { width: '100%', flex: 1, minHeight: 0, overflow: 'hidden' },
-  boardPanelFill: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: `${ZONE_BOARD.panelInsetLeft * 100}%`,
-    right: `${ZONE_BOARD.panelInsetRight * 100}%`,
-    backgroundColor: ZONE_BOARD.panel,
-  },
-  // A FLEX CHILD, NOT AN ABSOLUTE BOX, and that is the third and last attempt
-  // at this. It was a percentage top/bottom pair, then points, and both derived
-  // a height from position, which Yoga does not do the way CSS does: the box
-  // collapsed and overflow hidden made an empty panel look exactly like a
-  // missing one. Reported off three TestFlight builds running.
-  //
-  // flex:1 inside a parent that already has a height cannot collapse. The fill
-  // and the art stay absolute BEHIND it; only the words use the flow.
-  boardPanelBody: {
-    flex: 1,
-    paddingLeft: `${ZONE_BOARD.contentInset * 100}%`,
-    paddingRight: `${ZONE_BOARD.contentInset * 100}%`,
-    overflow: 'hidden',
-  },
   // The daily-fact strip inside the panel. Web twin: LiveFactStrip's button in
   // journey.tsx (dashed accent border, 8px label, 9px two-line fact).
   boardLineName: {
@@ -3978,29 +3871,6 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.semibold,
     fontSize: 9,
     lineHeight: 12,
-  },
-  boardNamePlate: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  boardNamePlateText: {
-    fontFamily: AppFonts.extrabold,
-    fontSize: 9,
-    letterSpacing: 1.2,
-    color: ZONE_BOARD.ink,
-  },
-  boardZonePlate: {
-    position: 'absolute',
-    left: '39.5%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  boardZonePlateText: {
-    fontFamily: AppFonts.extrabold,
-    fontSize: 8,
-    letterSpacing: 1,
-    color: ZONE_BOARD.inkMuted,
   },
   postcard: {
     borderRadius: 10,
