@@ -70,18 +70,30 @@ PORT=5173 BASE_PATH=/ API_PROXY_TARGET=http://localhost:3001 \
 Run from the repo root.
 
 - api: `pnpm --filter @workspace/api-server run test`
-  Baseline **1174 tests, 91 suites, 1172 pass, 0 fail, 2 skipped, ~368s**, measured
-  in the Repl Shell 2026-08-23. (Was 1064/68/1062; the growth is the
-  contribution-page and script-trace work, not a change in behaviour.)
+  Baseline **1251 tests, 93 suites, 1249 pass, 0 fail, 2 skipped, ~430s**, measured
+  in the Repl Shell 2026-08-27. (Was 1174/91/1172 on 2026-08-23, and 1064/68/1062
+  before that; the growth is new coverage, not a change in behaviour.)
+  **THIS RUN CLOSED THREE THINGS AT ONCE**, which is why the number moved so far.
+  `learning.zone-testout.test.ts` was fixed at the end of chat 11 and had sat
+  UNVERIFIED across two handoffs, because this suite cannot run on a Mac; it
+  passes. The Nest's seven `nest.range.test.ts` failures are gone. And the four
+  new username-clearing cases in `account.test.ts` were shipped on reading alone
+  and are now proven against the real database.
+  **THE PASS COUNT IS THE SIGNAL, NOT THE TOTAL.** A different total is new
+  coverage; a different pass count is a regression.
   **It cannot be run on the Mac at all** — see the dev-database note under
   Working rules. Repl Shell or nowhere. **Run it alone.**
   The script runs `sync-schema` first, so running the api tests APPLIES pending
   migrations to the dev database.
 - web: `pnpm --filter @workspace/gujarati-coach run test` (vitest)
-  Baseline 93 suites, 842 tests, all pass, ~66s.
+  Baseline **128 files, 1399 tests, all pass, ~26s**, measured 2026-08-27.
+  (Was 93 suites / 842 tests.) One flake seen once on 2026-08-27, a single
+  failure that did not reproduce across two immediate re-runs; noted rather
+  than chased, and worth watching for.
 - mobile: `pnpm --filter @workspace/bolo-mobile run test` (jest)
-  Baseline 108 suites, 1007 tests, all pass. Needs `--forceExit`; workers leak and
-  CI does not pass that flag. Known open item.
+  Baseline **132 suites, 1307 tests, all pass**, measured 2026-08-27. (Was 108
+  suites / 1007 tests.) Needs `--forceExit`; workers leak and CI does not pass
+  that flag. Known open item.
 
 **Never run the api suite concurrently with web.** A different total is not a
 failure; a different PASS count is.
