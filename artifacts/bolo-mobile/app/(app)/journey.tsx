@@ -99,6 +99,7 @@ import {
 } from '@workspace/script-trace';
 import { asUpgradeRequired } from '@/lib/entitlements';
 import { JOURNEY_ZONES, getJourneyLine, getRailBrand } from '@/lib/journeyLines';
+import { planZoneRows } from '@/lib/journeyRows';
 import { CarvedBoard } from '@/components/journey/CarvedBoard';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import {
@@ -1311,7 +1312,18 @@ export default function JourneyScreen() {
     // stops becomes ten. traceStopIndexIn() decides WHERE, and both clients
     // call it rather than each choosing, or the web and the phone would
     // disagree about which stop a learner is on.
-    const trace = traceStopFor(activeLang, 1, i + 1);
+    // THE ROW PLAN, SHARED WITH THE HOME HERO. planZoneRows replays both
+    // splices in order and is the only thing that decides where the tracing and
+    // story rows land, so the map and the boarding pass cannot disagree about
+    // which stop a learner is on. They did: home said "Stop 3 of 9" for a stop
+    // this map called "Stop 5 of 11" (owner, 2026-08-27).
+    const rowPlan = planZoneRows({
+      lang: activeLang,
+      zoneIndex: i,
+      gradedCount: stations.length,
+      showroom,
+    });
+    const trace = rowPlan.trace;
     const withTrace = [...stations];
     // IS THIS WHOLE ZONE INCLUDED FOR THIS LEARNER? Derived from the phrase
     // stations the server already sent, never from a hardcoded language list.
@@ -1350,9 +1362,8 @@ export default function JourneyScreen() {
     // WHERE THE TRACING ROW LANDED, kept so the story stop can sit directly
     // after it. null when this zone has no tracing stop, which storyStopIndexIn
     // handles by taking the mid-zone break the tracing stop would have had.
-    let traceIdx: number | null = null;
-    if (trace && stations.length > 0 && !showroom) {
-      traceIdx = traceStopIndexIn(stations.length, trace.journey, trace.zone);
+    const traceIdx: number | null = rowPlan.traceIndex;
+    if (trace && traceIdx !== null) {
       withTrace.splice(traceIdx, 0, {
         title: trace.title,
         stage: 'phrase',
@@ -1382,9 +1393,9 @@ export default function JourneyScreen() {
     // each choosing, or the web and the phone would disagree about which stop a
     // learner is on. Added, never substituted, and never in showroom: a locked
     // language preview already carries its own free taste.
-    const storyBook = storyBookFor(1, i + 1);
-    if (storyBook && stations.length > 0 && !showroom) {
-      withTrace.splice(storyStopIndexIn(withTrace.length, 1, i + 1, traceIdx), 0, {
+    const storyBook = rowPlan.storyBook;
+    if (storyBook && rowPlan.storyIndex !== null) {
+      withTrace.splice(rowPlan.storyIndex, 0, {
         title: storyBook.title,
         stage: 'phrase',
         // A story stop is never PROGRESSION-locked: it teaches nothing the

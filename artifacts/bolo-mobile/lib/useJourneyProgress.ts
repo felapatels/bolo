@@ -12,6 +12,7 @@ import {
   type LessonGroupSummary,
 } from '@workspace/api-client-react';
 import { JOURNEY_ZONES } from '@/lib/journeyLines';
+import { planZoneRows } from '@/lib/journeyRows';
 
 function stageRank(g: LessonGroupSummary): number {
   return g.stage === 'sentence' ? 1 : 0;
@@ -21,9 +22,13 @@ export interface JourneyCurrentStop {
   /** Geographic zone name from the line table (e.g. "Anand"). */
   geoName: string;
   zoneIndex: number;
-  /** 1-based stop number within the zone. */
+  /**
+   * 1-based stop number within the zone, AS THE MAP NUMBERS IT: the tracing and
+   * story rows are stops a learner counts, so they count here too. See
+   * planZoneRows for why this cannot be the graded index.
+   */
   stopNumber: number;
-  /** Stations in the zone. */
+  /** Rows in the zone, again as the map draws them, not lesson groups. */
   stopCount: number;
   masteredCount: number;
   phraseCount: number;
@@ -67,10 +72,27 @@ export function useJourneyProgress(
   let totalCount = 0;
   let anyPlanGated = false;
   let current: JourneyCurrentStop | null = null;
+  // Derived exactly as the map derives it rather than assumed false: a learner
+  // previewing a LOCKED language gets showroom payloads here too, and showroom
+  // draws neither the tracing nor the story row.
+  const showroom =
+    (zoneQueries.map((q) => (q.data as LessonGroupList | undefined)?.access).find(Boolean) ??
+      null) !== null;
   zoneQueries.forEach((q, i) => {
     const groups = [...((q.data as LessonGroupList | undefined)?.lessonGroups ?? [])].sort(
       (a, b) => stageRank(a) - stageRank(b) || (a.position ?? 0) - (b.position ?? 0),
     );
+    // THE NUMBER THE MAP WILL SHOW, not the index in the payload. The hero and
+    // the map are seen back to back and were disagreeing: home said "Stop 3 of
+    // 9" for a stop the map called "Stop 5 of 11", because the map splices a
+    // tracing row and a story row into every zone and renumbers the run.
+    // Reported by the owner 2026-08-27, chat 12.
+    const rowPlan = planZoneRows({
+      lang,
+      zoneIndex: i,
+      gradedCount: groups.length,
+      showroom,
+    });
     groups.forEach((g, gi) => {
       totalCount += 1;
       if (g.status === 'completed' || g.status === 'tested_out') doneCount += 1;
@@ -90,8 +112,8 @@ export function useJourneyProgress(
         current = {
           geoName: zoneGeoNames[i] ?? '',
           zoneIndex: i,
-          stopNumber: gi + 1,
-          stopCount: groups.length,
+          stopNumber: rowPlan.rowNumberOfGraded(gi),
+          stopCount: rowPlan.rowCount,
           masteredCount: g.masteredCount ?? 0,
           phraseCount: g.phraseCount ?? 0,
           started: (g.attemptedCount ?? 0) > 0,

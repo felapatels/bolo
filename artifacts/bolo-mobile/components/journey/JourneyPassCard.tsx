@@ -92,6 +92,18 @@ const TORN_EDGE_W = 6;
 export const HOME_PANEL_H = 200;
 // Home's own column: the tab screen pads its scroll content by 20 a side.
 const HOME_CONTENT_PAD = 20;
+// THE HERO BLEEDS PAST THAT COLUMN, and the reason is the art rather than a
+// preference for a big card. The board's slices carry TRANSPARENT MARGINS on
+// both sides, so a board boxed at the column width draws visibly narrower than
+// the stats banner above it and the stall card below it, which have none. Asked
+// for on sight, then settled a beat later: "can we make the boarding home card
+// slightly wider... so it fills the screen" (owner, chat 12). So the bleed is
+// the WHOLE column padding: the board's box is the full window width, and the
+// art's own transparent margins are what keep a few points of air at each screen
+// edge. The bleed is on this wrapper and not on home's padding, because every
+// other card on that page is correctly at the column width; only this one is a
+// painting with air round its edges.
+const HOME_BOARD_BLEED = HOME_CONTENT_PAD;
 
 /** Jagged rip outline for a torn half — the RN analogue of the web's static
  *  clip-path polygons (RN has no clip-path; protruding teeth on each half
@@ -171,7 +183,8 @@ export function JourneyPassCard({
   // the board never has to render at a guessed width for more than one pass.
   const { width: windowW } = useWindowDimensions();
   const [passW, setPassW] = React.useState(0);
-  const boardW = passW > 0 ? passW : Math.max(1, windowW - HOME_CONTENT_PAD * 2);
+  const boardW =
+    passW > 0 ? passW : Math.max(1, windowW - HOME_CONTENT_PAD * 2 + HOME_BOARD_BLEED * 2);
   const pedimentH = zoneBoardPedimentH(boardW);
   const boardH = pedimentH + HOME_PANEL_H;
 
@@ -673,7 +686,7 @@ const styles = StyleSheet.create({
   },
   // Breathe wrapper carries the outer spacing so the glow overlay's inset
   // coordinates match the pass face exactly.
-  wrap: { position: 'relative', marginBottom: 12 },
+  wrap: { position: 'relative', marginBottom: 12, marginHorizontal: -HOME_BOARD_BLEED },
   // Geometry is applied inline from the board's own measurements: see the
   // call site for why a 1pt inset stopped working when the face became art.
   glow: {
