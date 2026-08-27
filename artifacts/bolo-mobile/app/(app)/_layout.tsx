@@ -112,7 +112,23 @@ export default function AppLayout() {
               <Stack.Screen name="practice/[id]" />
               <Stack.Screen name="practice/daily" />
               <Stack.Screen name="badges" />
-              <Stack.Screen name="journey" />
+              {/* A CROSS-FADE, NOT A SLIDE. Pressing the home boarding pass
+                  tears the ticket and navigates 500ms in, and the journey then
+                  holds on "Laying the tracks…" while it builds a six-zone map.
+                  Arriving on the default push, that handover read as a stall
+                  with a slide bolted to the end of it: "feels choppy, like it
+                  freezes for a second before going into the animated splash,
+                  can we fade this screen out and fade the splash in" (owner,
+                  chat 12).
+                  BE HONEST ABOUT WHAT THIS FIXES. The pause is a real one, the
+                  JS thread building the map, and a fade does not shorten it. It
+                  stops the pause being PUNCTUATED: home dissolves into the
+                  tracks screen instead of sitting still and then jumping. The
+                  stall itself is worth its own measurement later. */}
+              <Stack.Screen
+                name="journey"
+                options={{ animation: 'fade', animationDuration: 260 }}
+              />
               {/* The board: standing lives outside the tab bar, like journey. */}
               <Stack.Screen name="leaderboard" />
               <Stack.Screen name="bazaar" />

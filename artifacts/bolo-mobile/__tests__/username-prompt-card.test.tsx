@@ -59,6 +59,16 @@ async function renderCard() {
   await act(async () => {});
 }
 
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+}));
+
+// 44 animated pieces over a full screen, and this file is testing a form.
+jest.mock('@/components/Confetti', () => {
+  const { Text } = require('react-native');
+  return { Confetti: () => <Text testID="confetti">confetti</Text> };
+});
+
 describe('the home username prompt', () => {
   it('asks a learner with no username, even though Clerk has their first name', async () => {
     // The old card hid itself whenever Clerk had a first name, which is most
@@ -83,6 +93,36 @@ describe('the home username prompt', () => {
         data: { username: 'chai_wallah' },
       }),
     );
+  });
+
+  it('says hello by name, with a burst, before it closes itself', async () => {
+    // Picking a username is the moment a learner becomes visible to everyone
+    // else in the app, and it used to be marked by the box simply vanishing.
+    await renderCard();
+    fireEvent.changeText(screen.getByTestId('name-prompt-input'), 'chai_wallah');
+    fireEvent.press(screen.getByTestId('name-prompt-save'));
+    await waitFor(() => expect(screen.getByTestId('name-prompt-welcome')).toBeTruthy());
+    expect(screen.getByText('Welcome, chai_wallah!')).toBeTruthy();
+    expect(screen.getByTestId('confetti')).toBeTruthy();
+    // The form is GONE, not merely covered: a learner must not be able to type
+    // a second name into a card that has already saved one.
+    expect(screen.queryByTestId('name-prompt-input')).toBeNull();
+  });
+
+  it('celebrates nothing when the server refuses the name', async () => {
+    // The burst is tied to a SAVE, not to a press. This is the case that would
+    // let it fire on a name the server never accepted.
+    mockState.mutateAsync.mockRejectedValueOnce({
+      data: { error: 'That name cannot be used. Please pick another.' },
+    });
+    await renderCard();
+    fireEvent.changeText(screen.getByTestId('name-prompt-input'), 'rude');
+    fireEvent.press(screen.getByTestId('name-prompt-save'));
+    await waitFor(() =>
+      expect(screen.getByText('That name cannot be used. Please pick another.')).toBeTruthy(),
+    );
+    expect(screen.queryByTestId('name-prompt-welcome')).toBeNull();
+    expect(screen.queryByTestId('confetti')).toBeNull();
   });
 
   it("shows the server's own refusal, never a generic retry", async () => {

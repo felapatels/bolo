@@ -126,7 +126,7 @@ export function NamePromptCard() {
         </div>
         {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
         <p className="mt-2 text-xs text-muted-foreground">
-          You can change this any time in Settings, or skip and stay off both.
+          You can change this any time in Settings, or skip and stay anonymous.
         </p>
       </div>
       <button

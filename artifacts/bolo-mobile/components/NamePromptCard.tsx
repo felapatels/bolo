@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useUser } from '@clerk/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,8 +18,13 @@ import {
   getGetAccountQueryKey,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Confetti } from '@/components/Confetti';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
+
+/** How long the welcome holds before the lightbox closes itself. */
+const WELCOME_MS = 1900;
 
 /** Persisted flag: the learner dismissed the one-time username prompt. */
 export const USERNAME_PROMPT_DISMISSED_KEY = 'bolo.usernamePromptDismissed';
@@ -33,9 +47,23 @@ export const NAME_PROMPT_DISMISSED_KEY = 'bolo.namePromptDismissed';
  *
  * DISMISSIBLE, AND THAT IS THE POINT. A username is opt-in by an act, and a
  * prompt that cannot be closed is not a choice.
+ *
+ * A LIGHTBOX, NOT A CARD IN THE PAGE, since 2026-08-27 (chat 12): "let's make
+ * the pick a username a lightbox type thing that sits over the stats until
+ * it's dismissed or saved". In the flow it pushed the whole home page down,
+ * so the boarding pass and the stats banner sat below the fold on first run,
+ * for a prompt most learners answer once.
+ *
+ * TWO WAYS OUT, AND THEY ARE NOT THE SAME WAY. The X is the ACT: it writes the
+ * dismissal and the prompt never returns. Tapping the backdrop only snoozes it
+ * for this mount, and it is back on the next launch. That split is deliberate:
+ * a lightbox nobody can tap away is a trap, but a stray tap on a dimmed
+ * backdrop must not silently opt a learner out of every social surface in the
+ * app for good.
  */
 export function NamePromptCard() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { user } = useUser();
   const updateProfile = useUpdateAccountProfile();
   const account = useGetAccount();
@@ -45,6 +73,18 @@ export function NamePromptCard() {
   const [dismissed, setDismissed] = useState<boolean | null>(null);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  // Backdrop tap: gone for this mount, back next launch. Never persisted.
+  const [snoozed, setSnoozed] = useState(false);
+  // The saved name, held just long enough to say hello with it.
+  const [welcome, setWelcome] = useState<string | null>(null);
+  const welcomeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A timer that outlives its screen is a crash waiting for a slow render.
+  useEffect(
+    () => () => {
+      if (welcomeTimer.current) clearTimeout(welcomeTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -72,7 +112,16 @@ export function NamePromptCard() {
     try {
       await updateProfile.mutateAsync({ data: { username: trimmed } });
       await qc.invalidateQueries({ queryKey: getGetAccountQueryKey() });
-      handleDismiss();
+      // A BEAT TO SAY HELLO, then out. Asked for on sight: "let's do a quick
+      // confetti burst celebration when they enter their username and save,
+      // with a Welcome [username]". Picking a username is the moment a learner
+      // becomes visible to everyone else in the app, and it used to be
+      // acknowledged by the box simply vanishing.
+      setWelcome(trimmed);
+      welcomeTimer.current = setTimeout(() => {
+        welcomeTimer.current = null;
+        handleDismiss();
+      }, WELCOME_MS);
     } catch (err) {
       // THE SERVER'S OWN SENTENCE. Only it knows which rule broke: shape, a
       // reserved word, the profanity screen, or a name already taken.
@@ -83,6 +132,54 @@ export function NamePromptCard() {
   };
 
   return (
+    <Modal
+      visible={!snoozed}
+      transparent
+      animationType="fade"
+      // The Android back button snoozes rather than dismisses, for the same
+      // reason the backdrop does.
+      onRequestClose={() => setSnoozed(true)}
+      statusBarTranslucent
+    >
+      <Pressable
+        testID="name-prompt-backdrop"
+        accessibilityRole="button"
+        accessibilityLabel="Close for now"
+        onPress={() => setSnoozed(true)}
+        style={styles.backdrop}
+      >
+        {/* HIGH, NOT CENTRED. Centred, it landed squarely on the boarding
+            pass: "move that up and don't cover the boarding pass widget"
+            (owner, chat 12). The hero is the one thing on this page a learner
+            might want to reach WHILE deciding about a username, and a prompt
+            that hides the reason you opened the app is the wrong prompt.
+            Measured off the safe area rather than a flat number, so a notch, a
+            Dynamic Island and an Android status bar all put it in the same
+            place relative to the greeting. */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={[styles.top, { paddingTop: insets.top + 96 }]}
+        >
+          {/* Swallows taps so a press INSIDE the card never reaches the
+              backdrop behind it and closes the thing being filled in. */}
+          <Pressable onPress={() => {}} style={styles.cardWrap}>
+    {welcome ? (
+      <View
+        testID="name-prompt-welcome"
+        style={[
+          styles.card,
+          styles.welcomeCard,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[styles.welcomeTitle, { color: colors.foreground }]}>
+          Welcome, {welcome}!
+        </Text>
+        <Text style={[styles.note, { color: colors.mutedForeground }]}>
+          You’re on the Everyone board and the feed now.
+        </Text>
+      </View>
+    ) : (
     <View
       testID="name-prompt-card"
       style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -137,19 +234,42 @@ export function NamePromptCard() {
       ) : null}
       <Text style={[styles.note, { color: colors.mutedForeground }]}>
         This is the name other learners see on the Everyone board and feed. You
-        can change it any time in Settings, or skip and stay off both.
+        can change it any time in Settings, or skip and stay anonymous.
       </Text>
     </View>
+    )}
+          </Pressable>
+        </KeyboardAvoidingView>
+        {/* OVER THE CARD AND OUT OF THE WAY OF IT. pointerEvents none so the
+            burst never eats the tap that closes the lightbox behind it. */}
+        {welcome ? (
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            <Confetti />
+          </View>
+        ) : null}
+      </Pressable>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(17, 12, 8, 0.55)' },
+  top: { flex: 1, justifyContent: 'flex-start', paddingHorizontal: 20 },
+  cardWrap: { width: '100%' },
   card: {
     borderWidth: 1,
     borderRadius: 16,
     padding: 14,
-    marginBottom: 12,
+    // NO marginBottom. It had one for the days it sat in the page flow and
+    // needed clearing from the card under it; in a lightbox that margin is
+    // just the box hanging off centre.
     gap: 10,
+    // It floats now, so it casts. iOS shadow; Android takes elevation.
+    shadowColor: '#000000',
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 12,
   },
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   title: { fontFamily: AppFonts.bold, fontSize: 15, flex: 1 },
@@ -171,5 +291,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveText: { fontFamily: AppFonts.bold, fontSize: 14 },
+  welcomeCard: { alignItems: 'center', paddingVertical: 22, gap: 6 },
+  welcomeTitle: { fontFamily: AppFonts.extrabold, fontSize: 20, textAlign: 'center' },
   note: { fontFamily: AppFonts.regular, fontSize: 12 },
 });
