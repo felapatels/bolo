@@ -99,10 +99,10 @@ build to look.**
 | | version | where | safe to promote |
 |---|---|---|---|
 | iOS **515** | 1.0.3 | App Store Connect | **the only one worth using** |
-| Android **515** | 1.0.3 | was still building | submit was armed |
+| Android **515** | 1.0.3 | **live on Play internal** | **the one to use** |
 | iOS 514 | 1.0.3 | App Store Connect | **no** |
 | Android 514 | 1.0.3 | EAS only, never submitted | n/a |
-| Android 511 | 1.0.3 | **live on Play internal** | **no**, replace it |
+| Android 511 | 1.0.3 | superseded by 515 | no |
 
 - **511, 512, 513 and 514 all carry the blank board**; 513 and earlier also carry
   green rail through locked zones.
