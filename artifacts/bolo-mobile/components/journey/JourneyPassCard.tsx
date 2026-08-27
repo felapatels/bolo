@@ -50,7 +50,7 @@ import {
   stampSizeForExtent,
   zoneStampExtent,
 } from '@/components/journey/TicketParts';
-import { TICKET, TICKET_SHAPE } from '@/lib/ticketStock';
+import { BADGE, TICKET, TICKET_SHAPE } from '@/lib/ticketStock';
 import { ZONE_BOARD, zoneBoardPedimentH } from '@/lib/zoneBackdrops';
 import { playTearSfx } from '@/lib/tearAudio';
 import { loadSoundPref } from '@/lib/soundPref';
@@ -187,6 +187,18 @@ export function JourneyPassCard({
     passW > 0 ? passW : Math.max(1, windowW - HOME_CONTENT_PAD * 2 + HOME_BOARD_BLEED * 2);
   const pedimentH = zoneBoardPedimentH(boardW);
   const boardH = pedimentH + HOME_PANEL_H;
+  // THE ART IS NOT CENTRED IN ITS OWN FILE, and at full bleed that finally
+  // shows. ZONE_BOARD's panel slice was scanned for its first and last opaque
+  // column and came back with a 3.68% transparent margin on the left against
+  // 5.39% on the right, so the DRAWN board sits left of its box's centre by
+  // half that difference. Inside a padded column nobody could see it. Spanning
+  // the screen, the gap at one edge is plainly bigger than the other: "needs to
+  // nudge to the right slightly off center" (owner, chat 12).
+  //
+  // Derived from the same two numbers the panel fill is inset by, rather than
+  // typed as a magic 3, so re-cutting the art moves this with it instead of
+  // leaving a stale correction behind.
+  const artNudge = ((ZONE_BOARD.panelInsetRight - ZONE_BOARD.panelInsetLeft) / 2) * boardW;
 
   const [tearing, setTearing] = React.useState(false);
   const tearProgress = useSharedValue(0);
@@ -230,8 +242,12 @@ export function JourneyPassCard({
   const heartbeat = useLoopProgress(PASS_CYCLE_MS, idleOn);
   const arrowLoop = useLoopProgress(ARROW_CYCLE_MS, idleOn);
 
+  // The breathe and the art's own off-centre correction share one transform,
+  // because `transform` is a single property: a second style object carrying
+  // its own array would replace this one outright rather than merge with it.
   const breatheStyle = useAnimatedStyle(() => ({
     transform: [
+      { translateX: artNudge },
       {
         scale: idleOn
           ? interpolate(heartbeat.value, [0, 0.5, 1], [1, PASS_BREATHE_SCALE, 1])
@@ -341,17 +357,22 @@ export function JourneyPassCard({
   const phrasesLeftAtStop = journey.current
     ? Math.max(journey.current.phraseCount - journey.current.masteredCount, 0)
     : 0;
+  // THE VERB, AND NOTHING THE BOARD ALREADY SAYS. It used to read "Resume at
+  // Stop 5 · 10 phrases to go", which wrapped to two lines in the plate and
+  // repeated the two things sitting directly above it: "Stop 5 of 11" and the
+  // progress bar. "Just make next to the train say Resume in bigger letters, it
+  // already shows they are on stop 5 and the progress" (owner, chat 12).
+  //
+  // planBlocked keeps its words. It is the one state where the board above says
+  // nothing useful, because there IS no current stop to name, so a bare verb
+  // would leave a learner staring at a button with no reason attached.
   const journeyCta = !hasJourneyProgress
-    ? 'Start your journey'
+    ? 'Start'
     : journey.current
-      ? `Resume at Stop ${journey.current.stopNumber}${
-          phrasesLeftAtStop > 0
-            ? ` · ${phrasesLeftAtStop} ${phrasesLeftAtStop === 1 ? 'phrase' : 'phrases'} to go`
-            : ''
-        }`
+      ? 'Resume'
       : journey.planBlocked
-        ? 'Unlock your next stop with All-Access'
-        : 'Continue your journey';
+        ? 'Unlock with All-Access'
+        : 'Continue';
 
   return (
     <>
@@ -435,7 +456,15 @@ export function JourneyPassCard({
                 numberOfLines={1}
                 style={[
                   styles.eyebrow,
-                  { color: line.accent },
+                  // THE BOARD'S OWN INK, not the line's accent. The zone card
+                  // does put its line name in the accent, but that card is a
+                  // small panel on a painted map where the green is the only
+                  // colour in the row. Full bleed on a page of cream and wood,
+                  // the same green read as the loudest thing on the card:
+                  // "update the green text here to match the theme" (owner,
+                  // chat 12). The LINE is not lost with it; the pediment's
+                  // nameplate carves it in bigger letters than this ever did.
+                  { color: ZONE_BOARD.inkMuted },
                   brand.native && isTallCascadingScript(activeLanguage)
                     ? styles.eyebrowTall
                     : null,
@@ -470,7 +499,10 @@ export function JourneyPassCard({
                       style={[
                         styles.progressFill,
                         {
-                          backgroundColor: line.accent,
+                          // Aged brass from the element sheet's own badge
+                          // palette: the one warm spark left on the card now
+                          // the accent has gone, and it belongs to the wood.
+                          backgroundColor: BADGE.brassBg,
                           width: `${Math.round(
                             (journey.current.masteredCount / journey.current.phraseCount) * 100,
                           )}%`,
@@ -488,19 +520,19 @@ export function JourneyPassCard({
                   way. The engine stands in it rather than up beside the
                   title: it is the train at the platform, and pressing boards
                   it. */}
-              <View style={[styles.ctaBtn, { borderColor: line.accent }]}>
+              <View style={[styles.ctaBtn, { borderColor: TICKET.edge }]}>
                 <TrainEngine
-                  tint={line.accent}
+                  tint={ZONE_BOARD.ink}
                   width={34}
                   height={22}
                   motion="drive"
                   palette={goldPalette}
                 />
-                <Text numberOfLines={2} style={[styles.ctaText, { color: line.accent }]}>
+                <Text numberOfLines={1} style={styles.ctaText}>
                   {journeyCta}
                 </Text>
                 <Animated.View style={arrowStyle}>
-                  <Feather name="arrow-right" size={15} color={line.accent} />
+                  <Feather name="arrow-right" size={17} color={ZONE_BOARD.ink} />
                 </Animated.View>
               </View>
             </View>
@@ -789,7 +821,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 7,
   },
-  ctaText: { fontFamily: AppFonts.extrabold, fontSize: 12, lineHeight: 15, flex: 1 },
+  // BIGGER, because it is one word now rather than a sentence that had to be
+  // shrunk to fit the plate beside the ticket.
+  ctaText: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 17,
+    lineHeight: 21,
+    color: ZONE_BOARD.ink,
+    flex: 1,
+  },
   // R1: top-anchored column (space-between let the circle drift low when the
   // body side grew taller); the stamp docks under the top padding and the
   // wordmark slot soaks up the remaining run.

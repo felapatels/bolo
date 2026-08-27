@@ -147,50 +147,66 @@ describe('the cold-start START HERE cue', () => {
   });
 });
 
-describe('progress-aware CTA copy (web home.tsx parity)', () => {
-  it('fresh line: Start your journey', () => {
+// THE CTA IS A VERB NOW, and these cases are INVERTED rather than deleted.
+//
+// It used to spell the whole state out: "Resume at Stop 3 · 4 phrases to go",
+// with a singular counter at one left and the counter dropped at zero. Every
+// one of those was true and every one of them was ALREADY ON THE CARD once the
+// hero became a station board: the panel names the stop above the plate and the
+// progress bar sits between them. "Just make next to the train say Resume in
+// bigger letters, it already shows they are on stop 5 and the progress" (owner,
+// 2026-08-27, chat 12). The sentence also wrapped to two lines in a plate that
+// shares its row with the ticket.
+//
+// So the counter arithmetic is gone from the COPY, not from the card. What the
+// cases pin now is that each state still reads as its own distinct verb, and
+// that the one state with nothing above it to lean on keeps its words.
+describe('CTA copy is the verb, and the board says the rest', () => {
+  it('fresh line: Start', () => {
     render(<JourneyPassCard onPress={() => {}} />);
-    expect(screen.getByText('Start your journey')).toBeOnTheScreen();
+    expect(screen.getByText('Start')).toBeOnTheScreen();
   });
 
-  it('mid-journey: Resume at Stop N with phrases-to-go counter', () => {
+  it('mid-journey: Resume, with the stop and the counter left to the board', () => {
     mockState.journey = { current: CURRENT, doneCount: 2 };
     render(<JourneyPassCard onPress={() => {}} />);
-    expect(screen.getByText('Resume at Stop 3 · 4 phrases to go')).toBeOnTheScreen();
+    expect(screen.getByText('Resume')).toBeOnTheScreen();
+    // WAS "Resume at Stop 3 · 4 phrases to go". The stop number moved to the
+    // panel line above the plate; it must not come back into the button too.
+    expect(screen.queryByText(/phrases to go/)).toBeNull();
+    expect(screen.getByText('Stop 3 of 9')).toBeOnTheScreen();
   });
 
-  it('singular counter at one phrase left', () => {
-    mockState.journey = {
-      current: { ...CURRENT, masteredCount: 9 },
-      doneCount: 2,
-    };
-    render(<JourneyPassCard onPress={() => {}} />);
-    expect(screen.getByText('Resume at Stop 3 · 1 phrase to go')).toBeOnTheScreen();
+  it('says Resume whether one phrase is left or none', () => {
+    // The singular/plural counter and the drop-at-zero rule lived in this copy
+    // and were the reason it had three cases. A verb has one form, so what is
+    // worth pinning is that neither edge sneaks a counter back in.
+    for (const masteredCount of [9, 10]) {
+      mockState.journey = { current: { ...CURRENT, masteredCount }, doneCount: 2 };
+      const r = render(<JourneyPassCard onPress={() => {}} />);
+      expect(screen.getByText('Resume')).toBeOnTheScreen();
+      expect(screen.queryByText(/phrase/)).toBeNull();
+      r.unmount();
+    }
   });
 
-  it('drops the counter when the stop is fully mastered', () => {
-    mockState.journey = {
-      current: { ...CURRENT, masteredCount: 10 },
-      doneCount: 2,
-    };
-    render(<JourneyPassCard onPress={() => {}} />);
-    expect(screen.getByText('Resume at Stop 3')).toBeOnTheScreen();
-  });
-
-  it('progress but no current stop (locked/errored): Continue your journey', () => {
+  it('progress but no current stop (locked/errored): Continue', () => {
     mockState.journey = { current: null, doneCount: 3 };
     render(<JourneyPassCard onPress={() => {}} />);
-    expect(screen.getByText('Continue your journey')).toBeOnTheScreen();
+    expect(screen.getByText('Continue')).toBeOnTheScreen();
   });
 
   // S2 map honesty: when the only stops ahead are plan-gated (planLocked
   // groups, or sentence stops for a Free learner), the pass upsells instead
   // of promising a ride it cannot deliver.
-  it('planBlocked with nothing boardable: All-Access nudge', () => {
+  it('planBlocked KEEPS its words, because the board has none to lend it', () => {
+    // The verb-only rule holds everywhere the panel above the plate names a
+    // stop. This is the one state where it names nothing, so a bare "Unlock"
+    // would leave a learner reading a button with no reason attached.
     mockState.journey = { current: null, doneCount: 3, planBlocked: true };
     render(<JourneyPassCard onPress={() => {}} />);
-    expect(screen.getByText('Unlock your next stop with All-Access')).toBeOnTheScreen();
-    expect(screen.queryByText('Continue your journey')).toBeNull();
+    expect(screen.getByText('Unlock with All-Access')).toBeOnTheScreen();
+    expect(screen.queryByText('Continue')).toBeNull();
   });
 });
 
