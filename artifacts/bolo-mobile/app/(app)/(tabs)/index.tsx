@@ -553,7 +553,19 @@ export default function HomeScreen() {
               <XpCounter variant="chrome" />
             </View>
           </View>
-          <Mascot pose={activeToday ? 'cheer' : 'wave'} size={84} motion="float" isIdle={isIdle} />
+          {/* HE SITS LOWER, HE DOES NOT BOB LESS. "Bolo bounces too high, move
+              him down a little, don't change the amount he bounces" (owner,
+              chat 12). Mascot's `float` is `-8 * sin(t)`, so he only ever
+              RISES from rest and his apex was reading too high against the
+              greeting and the settings button. A wrapper offset drops the
+              whole arc without touching the 8pt of travel, and it is here
+              rather than in Mascot because `float` is shared by ten call
+              sites that were never complained about. A wrapper rather than
+              Mascot's own `style` prop, because that style lands on the image
+              the animated transform already owns. */}
+          <View style={styles.mascotDrop}>
+            <Mascot pose={activeToday ? 'cheer' : 'wave'} size={84} motion="float" isIdle={isIdle} />
+          </View>
           <Pressable
             accessibilityLabel={
               pendingFriendRequests > 0
@@ -1422,6 +1434,9 @@ const styles = StyleSheet.create({
     marginTop: 0,
     marginBottom: 18,
   },
+  // Purely visual: transform, so the row's layout and the settings button are
+  // exactly where they were. See the comment at the call site.
+  mascotDrop: { transform: [{ translateY: 6 }] },
   hello: { fontFamily: AppFonts.regular, fontSize: 15 },
   name: { fontFamily: AppFonts.extrabold, fontSize: 28, marginTop: 2 },
   langSubtitle: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
