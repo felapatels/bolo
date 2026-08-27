@@ -562,7 +562,15 @@ test("zone GET sampleSize caps at the phrase cap when a zone exceeds the station
         sortOrder: i * 2 + (suffix === "b" ? 1 : 0),
         stage: "phrase",
         lessonGroupId: g!.id,
-        lessonGroupPosition: 1,
+        // POSITIONS MUST DIFFER WITHIN A GROUP. Both rows carried position 1,
+        // and phrases_lesson_group_position_unique is a unique index on
+        // (lesson_group_id, lesson_group_position), so the SECOND phrase of
+        // every group violated it and the insert threw before a single
+        // assertion ran. The test then failed under its own name while the
+        // sampler it is named for was never involved, which is why the
+        // reported failure looked like a sampleSize regression for as long as
+        // it did.
+        lessonGroupPosition: suffix === "a" ? 1 : 2,
       });
     }
   }
