@@ -12,15 +12,26 @@ are NOT in any build. You are 12. Increment once.
 
 ## 1. THE ONE THING TO DO FIRST
 
-**Cut a build.** Twelve commits are ahead of what is installed, and FOUR
-separate things cannot be verified any other way:
+**Finish the home boarding-pass redesign, THEN build.** The owner's own
+ordering, given at the end of chat 11: "no build yet, lets finish the
+homecard redesign then build."
 
-- the launch handover (no more white flash between the native splash and the film)
-- the paywall's chai row
-- the Android PRESS & HOLD ring offset
-- everything else below, on a release binary rather than a dev client
+**The ask, in the owner's words:** the boarding pass on the HOME screen needs
+to match the journey. "I still want it to be alive, breathing and draw
+attention, but maybe we make it look like the styling of the zone cards."
 
-The owner deliberately held builds while stacking work. That hold is over.
+So: keep the motion and the pull, change the language. The zone card's
+vocabulary is now carved wood over a cream panel with a drawn inner frame,
+ink rather than white, and a small accent eyebrow. `TICKET` in
+`lib/ticketStock.ts` and `ZONE_BOARD` in `lib/zoneBackdrops.ts` are the
+palettes; `renderZoneBoard` in journey.tsx is the reference.
+
+**Do NOT strip the life out of it.** The home pass is the app's main call to
+action and its animation is deliberate. `LiveFlash` (added chat 11) is the
+in-repo pattern for a one-shot wash; `useLoopProgress` is the pattern for an
+idle loop that actually ticks in this app's release builds.
+
+**Then build**, both platforms, and preflight the ipa:
 
 ```bash
 cd /Users/aakeshpatel/bolo/artifacts/bolo-mobile && npx eas-cli build --platform all --profile production --non-interactive --no-wait
@@ -28,7 +39,7 @@ cd /Users/aakeshpatel/bolo/artifacts/bolo-mobile && npx eas-cli build --platform
 
 **Run eas-cli from `artifacts/bolo-mobile`, NEVER the repo root** (a root run
 scaffolds stub app.json/eas.json there and fails confusingly). Commit the
-`app.json` bump EAS writes. Preflight the ipa before submitting:
+`app.json` bump EAS writes. Preflight before submitting:
 
 ```bash
 cd /Users/aakeshpatel/bolo/artifacts/bolo-mobile && node --experimental-strip-types scripts/checkBundleHealth.ts <ipa-url>
@@ -37,7 +48,10 @@ cd /Users/aakeshpatel/bolo/artifacts/bolo-mobile && node --experimental-strip-ty
 HEALTHY is ~45,194 functions. The poisoned cluster is ~52,900; a poisoned
 build is rebuilt, never installed.
 
----
+**FOURTEEN commits are unbuilt**, and five things can only be verified on a
+real build: the launch handover (no white flash), the paywall chai row, the
+Android PRESS & HOLD ring offset, the whole journey header rework, and
+everything else on a release binary rather than a dev client.
 
 ## 2. Build state
 
@@ -120,8 +134,13 @@ Games, then the Memory UI.**
 
 ## 6. Also open
 
-- **`learning.zone-testout.test.ts` fails** — "zone GET sampleSize caps at the
-  phrase cap". Pre-existing, NOT from this session, and not the Nest's.
+- ~~`learning.zone-testout.test.ts` fails~~ **FIXED at the end of chat 11 and
+  NOT YET VERIFIED.** It was never the sampler: the fixture seeds two phrases
+  per group and gave both `lessonGroupPosition: 1`, violating
+  `phrases_lesson_group_position_unique`, so the insert threw before any
+  assertion and the throw was reported under this test's name. Positions are
+  1 and 2 now. **The api suite cannot run on a Mac, so this wants one run in
+  the Repl Shell to confirm.**
 - **The Nest owns 7 api failures** in `nest.range.test.ts`. **The owner told
   the Nest session directly and it is working the fixes as of 2026-08-27.**
   Not yours: do not chase them, and expect that count to drop on the next
