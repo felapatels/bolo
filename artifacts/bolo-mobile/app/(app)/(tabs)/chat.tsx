@@ -20,6 +20,7 @@ import { useGetScenario } from '@workspace/api-client-react';
 import { useAudioRecorder, useAudioRecorderState, createAudioPlayer } from 'expo-audio';
 import Animated from 'react-native-reanimated';
 import { HOLD_RING_REACH } from '@/app/(app)/(tabs)/_layout';
+import { pickCantHearLine } from '@/lib/cantHearLines';
 import { appear, appearDown, appearUp } from '@/lib/entrance';
 import {
   getChatTurnUrl,
@@ -353,6 +354,10 @@ export default function ChatScreen() {
    * discard every recording the learner ever made. So the discard requires
    * POSITIVE evidence: readings were seen, and none of them cleared the bar.
    */
+  // Bolo's own line when a hold carried nothing. Its OWN state, not errorMsg:
+  // that banner wears an alert-circle in destructive red, and a joke inside a
+  // red error box reads as a failure rather than as the bird being cheeky.
+  const [cantHearMsg, setCantHearMsg] = React.useState<string | null>(null);
   const heardSpeechRef = React.useRef(false);
   const sawMeteringRef = React.useRef(false);
   const metering = recorderState?.metering;
@@ -646,6 +651,7 @@ export default function ChatScreen() {
       (playbackRef.current as PlaybackHandle | null)?.stop();
       playbackRef.current = null;
       recordingStartTimeRef.current = Date.now();
+      setCantHearMsg(null);
       heardSpeechRef.current = false;
       sawMeteringRef.current = false;
       recorder.record();
@@ -704,6 +710,7 @@ export default function ChatScreen() {
     // absence of evidence of speech: if metering never reported at all, this
     // must not fire, or a platform without it loses every recording.
     if (sawMeteringRef.current && !heardSpeechRef.current) {
+      setCantHearMsg(pickCantHearLine());
       void abortRecording();
       return;
     }
@@ -2134,6 +2141,23 @@ export default function ChatScreen() {
             );
           })}
         </ScrollView>
+      )}
+
+      {/* BOLO HEARD NOTHING, and says so in his own voice. Deliberately not
+          the error box below: a mic that picked up silence is not a fault, and
+          a red alert-circle would tell a learner they broke something when all
+          they did was speak quietly. */}
+      {cantHearMsg && (
+        <Animated.View
+          testID="chat-cant-hear"
+          entering={appear(appearDown(0, 280))}
+          style={[styles.errorBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
+          <Feather name="mic-off" size={16} color={colors.mutedForeground} />
+          <Text style={[styles.errorText, { color: colors.foreground }]}>
+            {cantHearMsg}
+          </Text>
+        </Animated.View>
       )}
 
       {/* Error message */}
