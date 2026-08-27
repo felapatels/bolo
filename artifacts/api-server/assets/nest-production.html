@@ -757,11 +757,21 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 <section id="reports">
   <div class="head">
     <span class="eyebrow">04 / What learners say is wrong</span>
-    <h2>Flagged phrases</h2>
-    <p>Every phrase a learner has reported, the reason they picked, and their own words. The only learner-side content QA the product has, so it is readable here rather than only in the database.</p>
+    <h2>Flagged</h2>
+    <p>People a learner has reported, and phrases a learner has reported. The people come first because a name on a public board is a safety question and a phrase is a content one.</p>
   </div>
   <div class="rule"></div>
 
+  <!-- REPORTED PEOPLE. Until 2026-08-27 username_reports had a POST and no GET
+       anywhere in the product, so three reports sat open in production from the
+       day usernames went public with no way to read them but psql. Asked
+       directly: "if someone reports a user in feed, where do i see it?" It is
+       here now, and it is FIRST in this section on purpose. -->
+  <p class="dsub">Reported people</p>
+  <p class="barnote" style="margin:-4px 0 9px">Grouped by who was reported, newest first. <b>The exclude toggle does not apply here.</b> A report is not a count: somebody named a person and asked for it to be looked at, so every row is shown and the ones that are your own testing are labelled instead of hidden.</p>
+  <div id="reported-people"></div>
+
+  <p class="dsub" style="margin-top:22px">Reported phrases</p>
   <div id="reports-note"></div>
 
   <div class="rangebar">
@@ -2284,6 +2294,52 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     });
   }
 
+  function renderReportedPeople(){
+    var host = $("reported-people"), r = state.reports;
+    if (!host) return;
+    if (!r) { host.innerHTML = '<p class="bd-wait">Reading.</p>'; return; }
+
+    var people = r.people || [];
+    if (people.length === 0) {
+      host.innerHTML = '<p class="bd-wait">Nobody has been reported. This reads username_reports, which is append only and nothing auto-hides a name.</p>';
+      return;
+    }
+
+    var html = '<div class="dtable"><table><tr>' +
+      "<th>Reported as</th><th>Called now</th><th>Email</th>" +
+      "<th>Reports</th><th>By</th><th>Reasons</th><th>Last</th><th>State</th></tr>", i;
+    for (i = 0; i < people.length; i++) {
+      var p = people[i];
+      /* THE REPORTED NAME AND THE CURRENT NAME ARE BOTH SHOWN. The table copies
+         the string that was on screen on purpose; the live one is a join. A
+         name changed since the report is the single most useful thing a
+         reviewer can see, and showing only one of the two hides it. */
+      var renamed = p.currentUsername !== p.reportedUsername;
+      var tags = "";
+      if (p.excluded) tags += ' <span class="ddim">(your account)</span>';
+      if (p.reportersAllExcluded) tags += ' <span class="ddim">(reported by you)</span>';
+      html += "<tr>" +
+        "<td>" + esc(p.reportedUsername) + tags + "</td>" +
+        "<td>" + (p.currentUsername === null
+          ? '<span class="ddim">cleared</span>'
+          : (renamed ? "<b>" + esc(p.currentUsername) + "</b>" : '<span class="ddim">same</span>')) + "</td>" +
+        '<td class="ddim">' + esc(p.email || "-") + "</td>" +
+        '<td class="num">' + fmt(p.reports) + "</td>" +
+        '<td class="num">' + fmt(p.reporters) + "</td>" +
+        "<td>" + esc(p.reasons.join(", ").replace(/_/g, " ")) + "</td>" +
+        "<td>" + esc(ago(new Date(p.lastAt).getTime())) + "</td>" +
+        "<td>" + (p.open
+          ? '<span class="dtag">open</span>'
+          : '<span class="ddim">seen</span>') + "</td>" +
+        "</tr>";
+      if (p.notes.length > 0) {
+        html += '<tr><td colspan="8" class="ddim">' +
+          esc(p.notes.join("  |  ")) + "</td></tr>";
+      }
+    }
+    host.innerHTML = html + "</table></div>";
+  }
+
   function renderReports(){
     var tiles = $("reports-tiles"), host = $("reports-list");
     if (!tiles || !host) return;
@@ -2612,7 +2668,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     if (refreshing) return Promise.resolve();
     refreshing = true;
     return Promise.all([checkHealth(), loadSummary(), loadRange(), loadMap(), loadReports(), loadLive()]).then(function(){
-      healthSay(); renderSpend(); renderAlerts(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); stamp();
+      healthSay(); renderSpend(); renderAlerts(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); stamp();
       refreshing = false;
     }, function(){ refreshing = false; });
   }
@@ -2705,7 +2761,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   })();
 
   /* ---------------- boot ---------------- */
-  renderSpend(); renderAlerts(); renderLive(); renderRange(); renderMap(); renderReports();
+  renderSpend(); renderAlerts(); renderLive(); renderRange(); renderMap(); renderReports(); renderReportedPeople();
   refreshAll().then(startRefresh);
 })();
 </script>

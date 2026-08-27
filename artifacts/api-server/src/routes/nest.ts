@@ -683,6 +683,49 @@ type NestReport = {
   romanized: string | null;
 };
 
+/**
+ * A REPORTED PERSON, which until 2026-08-27 nothing could read at all.
+ *
+ * username_reports had a POST and no GET, anywhere in the product. Three rows
+ * had been sitting open in production since the day usernames went public and
+ * the only way to see them was psql. Asked directly: "if someone reports a
+ * user in feed, where do i see it? the nest?" The answer was nowhere, and on a
+ * product that teaches children and shows names to strangers, an unread report
+ * queue is the mitigation that was shipped and then never wired to a human.
+ *
+ * GROUPED BY WHO WAS REPORTED, because that is the unit of the decision. The
+ * table deliberately allows duplicates, since several learners naming one
+ * person is signal rather than noise; three separate rows in a flat list bury
+ * that, one row reading "3 reports from 2 people" states it.
+ *
+ * THE USERNAME IS SHOWN AS REPORTED AND AS IT STANDS NOW, both. The table
+ * copies the string that was on screen on purpose, and the live one is a join,
+ * so a name changed since the report is visible as exactly that rather than
+ * silently replacing the evidence.
+ */
+type NestReportedPerson = {
+  reportedUserId: string;
+  /** The name AS REPORTED, most recent report first. Never re-derived. */
+  reportedUsername: string;
+  /** What they are called now, or null if they have cleared it. */
+  currentUsername: string | null;
+  email: string | null;
+  tier: string | null;
+  reports: number;
+  /** Distinct accounts that reported them. One person three times is not three. */
+  reporters: number;
+  reasons: string[];
+  notes: string[];
+  firstAt: string;
+  lastAt: string;
+  /** Any row still "open". Nothing in the app writes another value yet. */
+  open: boolean;
+  /** True when the REPORTED account is the owner's or a tester's. */
+  excluded: boolean;
+  /** True when every report came from an excluded account, ie your own testing. */
+  reportersAllExcluded: boolean;
+};
+
 type NestReports = {
   generatedAt: string;
   exclOwner: boolean;
@@ -693,6 +736,10 @@ type NestReports = {
   withNote: number;
   byReason: { reason: string; count: number }[];
   rows: NestReport[];
+  /** Reported PEOPLE, newest report first. Never filtered by the exclusion
+   *  toggle: see the handler for why a person report is not a statistic. */
+  people: NestReportedPerson[];
+  peopleOpen: number;
 };
 
 /** Bounded because this renders every row into the page. */
@@ -753,9 +800,73 @@ router.get("/nest/reports", async (req: Request, res: Response): Promise<void> =
       romanized: r.romanized == null ? null : String(r.romanized),
     }));
 
+    /**
+     * REPORTED PEOPLE ARE NOT FILTERED BY THE EXCLUSION TOGGLE, and that is a
+     * deliberate departure from every other panel here.
+     *
+     * The toggle answers "who is a customer", which is a COUNTING question. A
+     * report is not a count: somebody named a specific person and asked for it
+     * to be looked at. Hiding a report because the reporter or the reported
+     * happens to be an owner account would mean the queue silently drops
+     * exactly the reports made while testing the feature, which is most of
+     * them right now, and a safety queue that hides rows is worse than no
+     * queue. Every row is shown and each one is LABELLED instead, so "this is
+     * you testing" is visible rather than enforced.
+     *
+     * That is the opposite call to the phrase reports above, on purpose. Those
+     * are content QA and a tester's walkthrough genuinely is not QA. This is a
+     * person being accused of something.
+     */
+    const peopleRows = await db.execute(sql`
+      select r.reported_user_id,
+             count(*)::int                                    as reports,
+             count(distinct r.reporter_id)::int               as reporters,
+             min(r.created_at)                                as first_at,
+             max(r.created_at)                                as last_at,
+             bool_or(r.status = 'open')                       as open,
+             array_agg(distinct r.reason)                     as reasons,
+             array_remove(array_agg(r.note), null)            as notes,
+             (array_agg(r.reported_username order by r.created_at desc))[1] as reported_username,
+             bool_and(r.reporter_id = any(${sql`array[${sql.join(owners.map((o) => sql`${o}`), sql`, `)}]`}::text[])) as reporters_all_excluded,
+             max(u.username)                                  as current_username,
+             max(u.email)                                     as email,
+             max(u.tier)                                      as tier
+        from username_reports r
+        left join users u on u.id = r.reported_user_id
+       group by r.reported_user_id
+       order by max(r.created_at) desc
+       limit ${REPORTS_LIMIT}
+    `);
+    const pr = (peopleRows as unknown as { rows?: Record<string, unknown>[] }).rows ??
+      (peopleRows as unknown as Record<string, unknown>[]);
+
+    const toList = (v: unknown): string[] =>
+      Array.isArray(v) ? v.map(String).filter((x) => x.length > 0) : [];
+
+    const people: NestReportedPerson[] = pr.map((r) => ({
+      reportedUserId: String(r.reported_user_id),
+      reportedUsername: String(r.reported_username ?? "(unknown)"),
+      currentUsername: r.current_username == null ? null : String(r.current_username),
+      email: r.email == null ? null : String(r.email),
+      tier: r.tier == null ? null : String(r.tier),
+      reports: Number(r.reports ?? 0),
+      reporters: Number(r.reporters ?? 0),
+      reasons: toList(r.reasons),
+      // usableNote, same test the phrase list uses: a note that is only an
+      // email address is not an explanation.
+      notes: toList(r.notes).filter((n) => usableNote(n) !== null),
+      firstAt: new Date(r.first_at as string).toISOString(),
+      lastAt: new Date(r.last_at as string).toISOString(),
+      open: r.open === true,
+      excluded: nonLearnerUserIds.has(String(r.reported_user_id)),
+      reportersAllExcluded: r.reporters_all_excluded === true,
+    }));
+
     const value: NestReports = {
       generatedAt: new Date().toISOString(),
       exclOwner,
+      people,
+      peopleOpen: people.filter((p) => p.open).length,
       total: Number(t?.total ?? 0),
       reporters: Number(t?.reporters ?? 0),
       // usableNote, not a null check. 44 of the 47 rows in production hold an
