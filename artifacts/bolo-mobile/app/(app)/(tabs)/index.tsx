@@ -23,6 +23,7 @@ import Animated, {
 import Svg, { Circle } from 'react-native-svg';
 import { appear, appearDown, useAppearSkip } from '@/lib/entrance';
 import { markHomeReady } from '@/lib/splashReady';
+import { CountUpText } from '@/components/CountUpText';
 import { XpCounter } from '@/components/XpCounter';
 import {
   useListCategories,
@@ -828,6 +829,62 @@ export default function HomeScreen() {
               setWalletOpen(true);
             }}
           />
+          {/* THE THREE THINGS A LEARNER COMES TO THE STALL FOR, named. Asked
+              for on 2026-08-27 (chat 12): "add small at the bottom of
+              Chachaji's chai stall home card, Purchase History, Go Shopping!,
+              Buy More Chai, make Go Shopping bigger or bolder."
+              UNDER THE ART, NOT ON IT. The vignette is a painted band with
+              Chacha-ji standing in it and a balance plate already in its top
+              corner; a row of links laid over that covers the thing it is
+              pointing at, which is exactly why the old roadside signpost was
+              taken out of the vignette.
+              TWO OF THE THREE OPEN THE SAME SHEET, and that is honest rather
+              than lazy: the wallet is where both the ledger and the pack shop
+              actually live. The labels are still worth having, because the
+              stall itself says neither of those things is behind it. */}
+          <View style={styles.stallLinks}>
+            <Pressable
+              testID="stall-link-history"
+              accessibilityRole="button"
+              accessibilityLabel="Purchase history, opens your Chai wallet"
+              onPress={() => {
+                hapticLight();
+                setWalletOpen(true);
+              }}
+            >
+              <Text style={[styles.stallLink, { color: colors.mutedForeground }]}>
+                Purchase History
+              </Text>
+            </Pressable>
+            <Text style={[styles.stallLinkSep, { color: colors.border }]}>·</Text>
+            <Pressable
+              testID="stall-link-shop"
+              accessibilityRole="button"
+              accessibilityLabel="Go shopping in the bazaar"
+              onPress={() => {
+                hapticLight();
+                router.push('/(app)/bazaar' as Parameters<typeof router.push>[0]);
+              }}
+            >
+              <Text style={[styles.stallLinkLoud, { color: colors.primary }]}>
+                Go Shopping!
+              </Text>
+            </Pressable>
+            <Text style={[styles.stallLinkSep, { color: colors.border }]}>·</Text>
+            <Pressable
+              testID="stall-link-buy"
+              accessibilityRole="button"
+              accessibilityLabel="Buy more Chai, opens your Chai wallet"
+              onPress={() => {
+                hapticLight();
+                setWalletOpen(true);
+              }}
+            >
+              <Text style={[styles.stallLink, { color: colors.mutedForeground }]}>
+                Buy More Chai
+              </Text>
+            </Pressable>
+          </View>
         </Animated.View>
 
         {/* Social strip: rank + top friends, or a single invite affordance when
@@ -879,6 +936,17 @@ export default function HomeScreen() {
                   numberOfLines={1}
                 >
                   Everything your Journey has opened
+                </Text>
+                {/* WHAT IT IS FOR, under what it holds. The line above says
+                    what is inside and carefully says it is not a way past the
+                    Journey; it never said why a learner would open it. Asked
+                    for on 2026-08-27 (chat 12): "add text: Practice here to
+                    gain confidence." */}
+                <Text
+                  style={[styles.doorSub, { color: colors.mutedForeground }]}
+                  numberOfLines={1}
+                >
+                  Practice here to gain confidence.
                 </Text>
               </View>
               <Feather name="chevron-right" size={20} color={colors.mutedForeground} />
@@ -1274,6 +1342,34 @@ function DailyCapNote({
   );
 }
 
+/**
+ * THE NUMBER, COUNTED UP. Asked for on 2026-08-27 (chat 12): "I like that the
+ * progress page counts up the numbers when it loads, have the home stats bar
+ * do the same."
+ *
+ * CountUpText, not a second implementation of one. It already carries the two
+ * things that make this safe on a four-cell row: an invisible sizing anchor
+ * holding the final value, so a number growing from one digit to three cannot
+ * reflow the band mid-count, and tabular figures so the digits do not jitter
+ * while they climb.
+ *
+ * IT COUNTS ONCE, ON ARRIVAL, and that falls out of how CountUpText is built
+ * rather than from a flag: its progress starts at 0 and is driven to 1, so a
+ * later refetch that changes the value finds progress already at 1 and simply
+ * shows the new number. A streak that ticks over while the page is open must
+ * not replay the whole animation at somebody.
+ *
+ * THE CHAI CELL PASSES A STRING when the wallet has not loaded ('-'), which is
+ * why this branches on the type rather than assuming. Counting up to a dash is
+ * not a thing.
+ */
+function StatValue({ value }: { value: number | string }) {
+  if (typeof value !== 'number') {
+    return <Text style={styles.gradientStatValue}>{value}</Text>;
+  }
+  return <CountUpText value={value} style={styles.gradientStatValue} />;
+}
+
 function GradientStatCell({
   index,
   icon,
@@ -1398,10 +1494,10 @@ function GradientStatCell({
               animatedProps={animatedArcProps}
             />
           </Svg>
-          <Text style={styles.gradientStatValue}>{value}</Text>
+          <StatValue value={value} />
         </View>
       ) : (
-        <Text style={styles.gradientStatValue}>{value}</Text>
+        <StatValue value={value} />
       )}
       </View>
       <View style={styles.statLabelBand}>
@@ -1437,6 +1533,18 @@ const styles = StyleSheet.create({
   // Purely visual: transform, so the row's layout and the settings button are
   // exactly where they were. See the comment at the call site.
   mascotDrop: { transform: [{ translateY: 6 }] },
+  stallLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  stallLink: { fontFamily: AppFonts.semibold, fontSize: 12 },
+  // BIGGER AND BOLDER, on purpose: it is the only one of the three that goes
+  // somewhere new, and the owner asked for it to carry the weight.
+  stallLinkLoud: { fontFamily: AppFonts.extrabold, fontSize: 15 },
+  stallLinkSep: { fontFamily: AppFonts.bold, fontSize: 12 },
   hello: { fontFamily: AppFonts.regular, fontSize: 15 },
   name: { fontFamily: AppFonts.extrabold, fontSize: 28, marginTop: 2 },
   langSubtitle: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
