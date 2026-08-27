@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { ChaiPurchaseReturn } from "@/components/chai-packs";
 import { ChaiGlyph, ChaiStallVignette } from "@/components/chai-stall";
+import { CountUpNumber } from "@/components/count-up-number";
 import { Link, useLocation } from "wouter";
 import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges, useGetTokens, useGetStreakRepair, useRepairStreak, getGetStreakRepairQueryKey, getGetTokensQueryKey } from "@workspace/api-client-react";
 import type { StreakRepairOffer } from "@workspace/api-client-react";
@@ -1144,6 +1145,45 @@ export default function Home() {
                 onClick={() => setWalletOpen(true)}
                 balance={tokensQuery.data?.balance}
               />
+              {/* THE THREE THINGS A LEARNER COMES TO THE STALL FOR, named.
+                  Asked for on mobile 2026-08-27 and brought here by the parity
+                  sweep.
+                  UNDER THE ART, NOT ON IT. The vignette is a painted band with
+                  Chacha-ji standing in it and a balance plate already in one
+                  corner; links laid over that cover the thing they point at.
+                  TWO OF THE THREE OPEN THE SAME SHEET, which is honest rather
+                  than lazy: the wallet is where both the ledger and the pack
+                  shop actually live. */}
+              <div className="mt-2 flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  data-testid="stall-link-history"
+                  aria-label="Purchase history, opens your Chai wallet"
+                  onClick={() => setWalletOpen(true)}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Purchase History
+                </button>
+                <span aria-hidden className="text-xs font-bold text-border">·</span>
+                <Link
+                  href="/bazaar"
+                  data-testid="stall-link-shop"
+                  aria-label="Go shopping in the bazaar"
+                  className="text-[15px] font-black text-primary hover:underline"
+                >
+                  Go Shopping!
+                </Link>
+                <span aria-hidden className="text-xs font-bold text-border">·</span>
+                <button
+                  type="button"
+                  data-testid="stall-link-buy"
+                  aria-label="Buy more Chai, opens your Chai wallet"
+                  onClick={() => setWalletOpen(true)}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Buy More Chai
+                </button>
+              </div>
             </motion.div>
 
             {/* Social strip: rank + top friends, or a single invite affordance
@@ -1188,6 +1228,14 @@ export default function Home() {
                     <span className="block text-base font-black text-foreground">Phrasebook</span>
                     <span className="block truncate text-sm font-semibold text-muted-foreground">
                       Everything your Journey has opened
+                    </span>
+                    {/* WHAT IT IS FOR, under what it holds. The line above says
+                        what is inside and carefully says it is not a way past
+                        the Journey; it never said why a learner would open it.
+                        Asked for on mobile 2026-08-27 and brought here by the
+                        parity sweep. */}
+                    <span className="block truncate text-sm font-semibold text-muted-foreground">
+                      Practice here to gain confidence.
                     </span>
                   </span>
                   <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
@@ -1338,7 +1386,13 @@ function StatCell({
       >
         {icon}
       </motion.div>
-      <div className="text-2xl font-black leading-none lg:text-3xl">{value}</div>
+      {/* THE NUMBER, COUNTED UP. The Chai cell passes a STRING when the wallet
+          has not loaded ('-'), so this branches on the type rather than
+          assuming: counting up to a dash is not a thing. Mobile twin does the
+          same check for the same reason. */}
+      <div className="text-2xl font-black leading-none lg:text-3xl">
+        {typeof value === "number" ? <CountUpNumber value={value} /> : value}
+      </div>
       <div className="text-[11px] font-bold uppercase tracking-wider text-white">
         {withChevron ? (
           <span className="inline-flex items-center gap-0.5">

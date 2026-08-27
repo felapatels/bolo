@@ -867,6 +867,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.9,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 5 },
+    // ANDROID GETS NOTHING FROM THE FOUR LINES ABOVE. CLAUDE.md already
+    // records it as a device checklist item: Android draws no shadow for a
+    // view whose shadow is the only visible part of it. This layer's body is
+    // deliberately hidden behind the opaque cream panel, so without elevation
+    // the hero simply does not glow on Android at all, and the glow is one of
+    // the pieces of life the owner asked to keep.
+    //
+    // elevation gives Android a shadow to draw, and from API 28 it honours
+    // shadowColor with it, so the pulse should read in the line's accent
+    // rather than in grey. UNVERIFIED ON A DEVICE: there is no Android here,
+    // and this app's own rules say a dev build cannot clear an animation
+    // question. Check it on the Play internal build before believing it.
+    elevation: 14,
   },
   // NO CARD STOCK OF ITS OWN ANY MORE. The face is the carved board's art, so
   // this is only a clip box for the shimmer and the press scale. It keeps the
