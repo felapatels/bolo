@@ -735,7 +735,20 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
     <span class="why" id="health-say">Checking.</span>
   </div>
 
-  <div id="alertlist"></div>
+    <!-- SURFACE PROBES. healthz answering 200 is not the same as the app working,
+       and on 2026-08-25 that difference was the whole incident: healthz was
+       green while /friends/feed and /friends/leaderboard 500'd for every
+       learner, because user_blocks had been dropped from under
+       blockedUserIdsFor. Nothing noticed. It was found by using the app.
+
+       So the page now hits the surfaces a LEARNER hits, as itself, through the
+       real stack. Same origin makes this free and honest: these are ordinary
+       authenticated GETs, no probe endpoint pretending to be a request. -->
+  <p class="dsub" style="margin-top:20px">Learner surfaces</p>
+  <p class="barnote" style="margin:-4px 0 9px">Real GETs to the endpoints the app calls, run from this page on every read. A 200 here is worth more than healthz, which was green throughout the last outage.</p>
+  <div id="surface-probes"></div>
+
+<div id="alertlist"></div>
 
   <div class="note info" style="margin-top:14px">
     <h4>This page is served from your own API</h4>
@@ -1756,6 +1769,23 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
         r:"healthz", href:HEALTH_URL});
     }
 
+    /* THE RULE THE LAST OUTAGE NEEDED. healthz is a liveness check and answers
+       200 from a process whose every route is throwing; these are the routes.
+       A crit here fires the siren, which is the whole point: the 25th produced
+       no alert of any kind and was found by opening the app. */
+    if (state.surfaces) {
+      var bad = state.surfaces.rows.filter(function(r){ return !(r.status >= 200 && r.status < 300); });
+      out.push(bad.length === 0
+        ? {id:"surfaces", sev:"ok", t:"Learner surfaces are answering",
+           m:state.surfaces.rows.length + " real GETs to the endpoints the app calls, all 2xx, checked just now from this page.",
+           r:"feed", href:"/api/friends/feed?scope=all&limit=1"}
+        : {id:"surfaces", sev:"crit",
+           t:bad.length === 1 ? "A LEARNER SURFACE IS FAILING" : bad.length + " LEARNER SURFACES ARE FAILING",
+           m:bad.map(function(r){ return r.label + " answered " + (r.status === 0 ? "nothing" : r.status); }).join(", ") +
+             ". Learners hitting this right now are seeing an error, whatever healthz says. This is exactly the shape of the 2026-08-25 outage.",
+           r:bad[0].label, href:bad[0].path});
+    }
+
     if (state.summaryErr) {
       out.push({id:"counts", sev:"warn", t:"The counts are unavailable",
         m:state.summaryErr, r:"summary", href:SUMMARY_URL});
@@ -2306,6 +2336,53 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   /* The notification funnel. Two tiles rather than one, and a note saying why,
      because "turned on notifications" is two different facts here and adding
      them up would state something untrue. */
+  /* The endpoints a learner actually depends on. GET only, no side effects,
+     and every parameter defaulted so a bare call is a valid call. limit=1
+     keeps the feed cheap; scope=all exercises the global path, which is the
+     newer query and the one that carries the block filter. */
+  var SURFACES = [
+    {label:"Feed",        path:"/api/friends/feed?scope=all&limit=1"},
+    {label:"Leaderboard", path:"/api/friends/leaderboard?scope=all&window=week"},
+    {label:"Account",     path:"/api/account"},
+    {label:"Categories",  path:"/api/categories"}
+  ];
+  state.surfaces = null;
+
+  function checkSurfaces(){
+    var started = Date.now();
+    return Promise.all(SURFACES.map(function(sf){
+      var t0 = Date.now();
+      return fetch(sf.path, {credentials:"same-origin", cache:"no-store"}).then(function(res){
+        return {label:sf.label, path:sf.path, status:res.status, ms:Date.now() - t0};
+      }, function(){
+        /* Status 0 is "the request never completed", which is a different
+           failure from a 500 and the message says so. */
+        return {label:sf.label, path:sf.path, status:0, ms:Date.now() - t0};
+      });
+    })).then(function(rows){
+      state.surfaces = {at:started, rows:rows};
+    });
+  }
+
+  function renderSurfaces(){
+    var host = $("surface-probes"), sp = state.surfaces;
+    if (!host) return;
+    if (!sp) { host.innerHTML = '<p class="bd-wait">Checking.</p>'; return; }
+    var html = '<div class="dtable"><table><tr><th>Surface</th><th>Status</th><th>Took</th><th>Path</th></tr>', i;
+    for (i = 0; i < sp.rows.length; i++) {
+      var r = sp.rows[i], ok = r.status >= 200 && r.status < 300;
+      html += "<tr>" +
+        "<td>" + esc(r.label) + "</td>" +
+        "<td>" + (ok
+          ? '<span class="dtag">' + r.status + "</span>"
+          : '<b>' + (r.status === 0 ? "no answer" : r.status) + "</b>") + "</td>" +
+        '<td class="num">' + fmt(r.ms) + " ms</td>" +
+        '<td class="ddim">' + esc(r.path) + "</td>" +
+        "</tr>";
+    }
+    host.innerHTML = html + "</table></div>";
+  }
+
   function renderPush(){
     var host = $("push-tiles"), note = $("push-note"), s = state.summary;
     if (!host) return;
@@ -2725,8 +2802,8 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   function refreshAll(){
     if (refreshing) return Promise.resolve();
     refreshing = true;
-    return Promise.all([checkHealth(), loadSummary(), loadRange(), loadMap(), loadReports(), loadLive()]).then(function(){
-      healthSay(); renderSpend(); renderAlerts(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush(); stamp();
+    return Promise.all([checkHealth(), checkSurfaces(), loadSummary(), loadRange(), loadMap(), loadReports(), loadLive()]).then(function(){
+      healthSay(); renderSurfaces(); renderSpend(); renderAlerts(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush(); stamp();
       refreshing = false;
     }, function(){ refreshing = false; });
   }
@@ -2819,7 +2896,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   })();
 
   /* ---------------- boot ---------------- */
-  renderSpend(); renderAlerts(); renderLive(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush();
+  renderSurfaces(); renderSpend(); renderAlerts(); renderLive(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush();
   refreshAll().then(startRefresh);
 })();
 </script>
