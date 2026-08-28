@@ -275,6 +275,12 @@ a.linkbtn{text-decoration:none;display:inline-block}
 /* The unchecked marker on a standing fact. Quiet on purpose: it is a note
    about CONFIDENCE, not a second alarm, and making it loud would train the eye
    to skip the real severity beside it. */
+#mail-reply{
+  width:100%;box-sizing:border-box;font:inherit;font-size:14px;line-height:1.6;
+  color:var(--ink);background:var(--surface);border:1px solid var(--line-2);
+  border-radius:var(--r);padding:11px 13px;resize:vertical;
+}
+#mail-reply:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .stale{
   display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;
   font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;
@@ -625,6 +631,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
     <a href="#alerts">Alerts</a>
     <a href="#map">Map</a>
     <a href="#reports">Flagged</a>
+    <a href="#inbox">Inbox</a>
     <a href="#spend">Spend</a>
     <a href="#surfaces">Surfaces</a>
     <a href="#elsewhere">Analytics</a>
@@ -838,9 +845,26 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   <div class="reps" id="reports-list"></div>
 </section>
 
+<section id="inbox">
+  <div class="head">
+    <span class="eyebrow">05 / What people are writing in</span>
+    <h2>Support inbox</h2>
+    <p>larksupport@gmail.com, read here and replied to here. <b>A reply can only go to the sender of a message already in this inbox</b>: the page sends a message id and your words, never an address, so this cannot be pointed at anybody else.</p>
+  </div>
+  <div class="rule"></div>
+
+  <div class="rangebar">
+    <button type="button" class="ghost" id="mail-refresh">Read the inbox</button>
+    <span class="why" id="mail-when">Not read yet. IMAP takes a second, so this one is on demand rather than on the 30 second timer.</span>
+  </div>
+
+  <div id="mail-list"></div>
+  <div id="mail-open"></div>
+</section>
+
 <section id="spend">
   <div class="head">
-    <span class="eyebrow">05 / What it costs to run</span>
+    <span class="eyebrow">06 / What it costs to run</span>
     <h2>Spend</h2>
     <p>Counted in the production database on request. The fixed block is invoice confirmed; three small lines are still estimates and say so.</p>
   </div>
@@ -899,7 +923,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="surfaces">
   <div class="head">
-    <span class="eyebrow">06 / What is shipped</span>
+    <span class="eyebrow">07 / What is shipped</span>
     <h2>Surfaces</h2>
     <p>Six things carry the product. Build numbers refresh live from EAS when the connector is available.</p>
   </div>
@@ -1007,7 +1031,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="elsewhere">
   <div class="head">
-    <span class="eyebrow">07 / What is not here</span>
+    <span class="eyebrow">08 / What is not here</span>
     <h2>Analytics and errors</h2>
     <p>Two sections deliberately did not make the move, and this says where they went rather than leaving a hole.</p>
   </div>
@@ -1031,7 +1055,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="consoles">
   <div class="head">
-    <span class="eyebrow">08 / Where to go</span>
+    <span class="eyebrow">09 / Where to go</span>
     <h2>Consoles</h2>
     <p>Every service Bolo depends on, with the reason you would open it. Use the filter at the top.</p>
   </div>
@@ -1152,7 +1176,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="library">
   <div class="head">
-    <span class="eyebrow">09 / What is written down</span>
+    <span class="eyebrow">10 / What is written down</span>
     <h2>Library</h2>
     <p>Published pages open in a tab. Repo documents show a path: click it to copy.</p>
   </div>
@@ -1317,7 +1341,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="pitch">
   <div class="head">
-    <span class="eyebrow">10 / What to say, and what it is made of</span>
+    <span class="eyebrow">11 / What to say, and what it is made of</span>
     <h2>Pitch</h2>
     <p>The words for a person, and the stack for an engineer. Both are true as of this snapshot.</p>
   </div>
@@ -1415,7 +1439,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="traps">
   <div class="head">
-    <span class="eyebrow">11 / What bites</span>
+    <span class="eyebrow">12 / What bites</span>
     <h2>Traps</h2>
     <p>Facts that cost days when forgotten. Each one was paid for.</p>
   </div>
@@ -1446,7 +1470,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <section id="commands">
   <div class="head">
-    <span class="eyebrow">12 / One paste each</span>
+    <span class="eyebrow">13 / One paste each</span>
     <h2>Commands</h2>
     <p>Terminal on the Mac unless the header says otherwise. Every one of these is read only.</p>
   </div>
@@ -2507,6 +2531,151 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
       tileMemory[key] = val;
     }
   }
+
+  /* ---------------- support inbox ---------------- */
+  /* ON DEMAND, NOT ON THE TIMER. Every other panel here rides the 30 second
+     refresh because it is a database query on the same origin. This one opens
+     an IMAP connection to Gmail, which takes about a second and is somebody
+     else's rate limit to respect. A cockpit that reconnects to a mail server
+     twice a minute forever, to draw pixels nobody is reading, is rude. */
+  var MAIL_URL = "/api/nest/mail";
+  state.mail = null;
+  state.mailOpen = null;
+
+  function loadMail(){
+    var when = $("mail-when"), btn = $("mail-refresh");
+    if (btn) { btn.disabled = true; btn.textContent = "Reading"; }
+    if (when) when.textContent = "Opening IMAP.";
+    return fetch(MAIL_URL + "?limit=25", {credentials:"same-origin", cache:"no-store"})
+      .then(function(res){
+        if (!res.ok) throw new Error("The inbox endpoint answered " + res.status + ".");
+        return res.json();
+      })
+      .then(function(d){ state.mail = d; state.mailErr = null; },
+            function(err){ state.mail = null; state.mailErr = String(err && err.message || err); })
+      .then(function(){
+        if (btn) { btn.disabled = false; btn.textContent = "Read the inbox"; }
+        renderMail();
+      });
+  }
+
+  function renderMail(){
+    var host = $("mail-list"), when = $("mail-when");
+    if (!host) return;
+
+    if (state.mailErr) {
+      host.innerHTML = '<p class="bd-wait">' + esc(state.mailErr) + "</p>";
+      if (when) when.textContent = "Could not read it.";
+      return;
+    }
+    var d = state.mail;
+    if (!d) return;
+
+    /* NOT CONFIGURED IS NOT AN EMPTY INBOX, and the page has to say which. */
+    if (!d.configured) {
+      host.innerHTML = '<p class="bd-wait">' + esc(d.reason) + "</p>";
+      if (when) when.textContent = "Not configured.";
+      return;
+    }
+    if (when) when.textContent = fmt(d.messages.length) +
+      (d.messages.length === 1 ? " message" : " messages") + ", newest first. Read " +
+      new Date(d.generatedAt).toLocaleTimeString() + ".";
+
+    if (d.messages.length === 0) {
+      host.innerHTML = '<p class="bd-wait">Nothing in the inbox.</p>';
+      return;
+    }
+
+    var html = '<div class="dtable"><table><tr><th>From</th><th>Subject</th><th>When</th><th></th></tr>', i;
+    for (i = 0; i < d.messages.length; i++) {
+      var m = d.messages[i];
+      html += "<tr>" +
+        "<td>" + esc(m.fromName || m.from) + (m.unread ? ' <span class="dtag">new</span>' : "") + "</td>" +
+        "<td>" + esc(m.subject) + "</td>" +
+        "<td>" + esc(ago(new Date(m.date).getTime())) + "</td>" +
+        '<td><button type="button" class="ghost" data-mail-uid="' + m.uid + '">Open</button></td>' +
+        "</tr>";
+    }
+    host.innerHTML = html + "</table></div>";
+  }
+
+  function openMail(uid){
+    var host = $("mail-open");
+    if (!host) return;
+    if (state.mailOpen === uid) { host.innerHTML = ""; state.mailOpen = null; return; }
+    state.mailOpen = uid;
+    host.innerHTML = drillShell('<div class="drill-h"><span class="dn">-</span><h3>Opening</h3></div>');
+
+    fetch("/api/nest/mail/message?uid=" + encodeURIComponent(uid), {credentials:"same-origin", cache:"no-store"})
+      .then(function(res){
+        if (!res.ok) throw new Error("The message endpoint answered " + res.status + ".");
+        return res.json();
+      })
+      .then(function(m){
+        if (state.mailOpen !== uid) return;
+        host.innerHTML = drillShell(
+          '<div class="drill-h">' +
+            '<h3>' + esc(m.subject) + '</h3>' +
+            '<span class="dw">' + esc(m.fromName ? m.fromName + " <" + m.from + ">" : m.from) + '</span>' +
+            '<button type="button" class="x" id="mail-close" aria-label="Close">&times;</button>' +
+            '<p class="what">' + esc(new Date(m.date).toLocaleString()) +
+              (m.truncated ? ". Truncated here; the whole thing is in Gmail." : "") + '</p>' +
+          '</div>' +
+          '<div class="drill-body wide">' +
+            '<pre class="cap">' + esc(m.body || "(no text body)") + '</pre>' +
+            '<p class="dsub" style="margin-top:18px">Reply to ' + esc(m.from) + '</p>' +
+            '<p class="barnote" style="margin:-4px 0 9px">This sends real email as larksupport, to that address and no other. There is no undo.</p>' +
+            '<textarea id="mail-reply" rows="6" placeholder="Your reply"></textarea>' +
+            '<div class="rangebar" style="margin-top:10px">' +
+              '<button type="button" class="ghost" id="mail-send" data-uid="' + m.uid + '">Send reply</button>' +
+              '<span class="why" id="mail-sent"></span>' +
+            '</div>' +
+          '</div>');
+      }, function(err){
+        if (state.mailOpen !== uid) return;
+        host.innerHTML = drillShell('<div class="drill-h"><span class="dn">!</span><h3>Could not open it</h3>' +
+          '<p class="what">' + esc(String(err && err.message || err)) + '</p></div>');
+      });
+  }
+
+  document.addEventListener("click", function(ev){
+    if (!ev.target.closest) return;
+    var open = ev.target.closest("[data-mail-uid]");
+    if (open) { openMail(Number(open.getAttribute("data-mail-uid"))); return; }
+    if (ev.target.closest("#mail-close")) {
+      state.mailOpen = null;
+      if ($("mail-open")) $("mail-open").innerHTML = "";
+      return;
+    }
+    var send = ev.target.closest("#mail-send");
+    if (send) {
+      var box = $("mail-reply"), note = $("mail-sent");
+      var text = box ? box.value : "";
+      if (!text.trim()) { if (note) note.textContent = "Nothing to send."; return; }
+      /* A CONFIRM, because this is the one control on the whole page that
+         reaches a person. Everything else here only reads. */
+      if (!window.confirm("Send this reply as larksupport? There is no undo.")) return;
+      send.disabled = true; send.textContent = "Sending";
+      fetch("/api/nest/mail/reply", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({uid: Number(send.getAttribute("data-uid")), text: text})
+      }).then(function(res){ return res.json().then(function(j){ return {ok: res.ok, j: j}; }); })
+        .then(function(r){
+          send.disabled = false; send.textContent = "Send reply";
+          if (!r.ok) { if (note) note.textContent = r.j && r.j.error ? r.j.error : "It did not send."; return; }
+          if (box) box.value = "";
+          if (note) note.textContent = "Sent to " + r.j.to + ".";
+        }, function(err){
+          send.disabled = false; send.textContent = "Send reply";
+          if (note) note.textContent = String(err && err.message || err);
+        });
+    }
+  });
+
+  var mbtn = $("mail-refresh");
+  if (mbtn) mbtn.addEventListener("click", loadMail);
 
   function renderPush(){
     var host = $("push-tiles"), note = $("push-note"), s = state.summary;

@@ -31,6 +31,13 @@ import {
   presenceBootedAt,
 } from "../lib/presence";
 import { pulsesSince, errorPulseBootedAt } from "../lib/errorPulse";
+import {
+  supportConfigured,
+  listSupport,
+  readSupport,
+  replySupport,
+  REPLY_MAX,
+} from "../lib/supportMail";
 import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import type { AuthedRequest } from "../middlewares/requireAuth";
@@ -1615,6 +1622,100 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
 });
 
 /**
+ * THE SUPPORT INBOX. larksupport@gmail.com, read and replied to from the Nest.
+ *
+ * NOT CONFIGURED IS AN ANSWER, NOT AN ERROR, and it is the same shape the
+ * presence tile settled on: without the two secrets these say so plainly rather
+ * than 500ing or, worse, rendering an empty inbox that looks like no mail.
+ *
+ * THE REPLY ROUTE TAKES NO RECIPIENT. It takes a uid and a body. lib/supportMail
+ * reads the address off the stored message, server side, so the worst this can
+ * do is reply to somebody who already emailed support. That control lives there
+ * rather than here because it must hold no matter who calls it.
+ */
+router.get("/nest/mail", async (req: Request, res: Response): Promise<void> => {
+  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  if (!supportConfigured()) {
+    res.json({
+      configured: false,
+      reason:
+        "LARKSUPPORT_USER and LARKSUPPORT_APP_PASSWORD are not set in this environment. " +
+        "This is not an empty inbox, it is an unasked question.",
+      messages: [],
+    });
+    return;
+  }
+  const raw = Number(req.query.limit ?? 25);
+  const limit = Number.isFinite(raw) ? raw : 25;
+  try {
+    const messages = await listSupport(limit);
+    res.json({ configured: true, reason: null, messages, generatedAt: new Date().toISOString() });
+  } catch (err) {
+    req.log.error({ err }, "nest support inbox listing failed");
+    res.status(502).json({ error: "Could not read the support inbox" });
+  }
+});
+
+router.get("/nest/mail/message", async (req: Request, res: Response): Promise<void> => {
+  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  if (!supportConfigured()) return notFound(res);
+  const uid = Number(req.query.uid);
+  if (!Number.isInteger(uid) || uid <= 0) {
+    res.status(400).json({ error: "A numeric uid is required" });
+    return;
+  }
+  try {
+    const message = await readSupport(uid);
+    if (!message) {
+      res.status(404).json({ error: "That message is not in the inbox" });
+      return;
+    }
+    res.json(message);
+  } catch (err) {
+    req.log.error({ err }, "nest support message read failed");
+    res.status(502).json({ error: "Could not read that message" });
+  }
+});
+
+/**
+ * SENDS REAL EMAIL, as larksupport, to a real person. The only route in this
+ * file that changes anything outside this process.
+ */
+router.post("/nest/mail/reply", async (req: Request, res: Response): Promise<void> => {
+  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  if (!supportConfigured()) return notFound(res);
+
+  const body = (req.body ?? {}) as { uid?: unknown; text?: unknown };
+  const uid = Number(body.uid);
+  const text = typeof body.text === "string" ? body.text : "";
+  if (!Number.isInteger(uid) || uid <= 0) {
+    res.status(400).json({ error: "A numeric uid is required" });
+    return;
+  }
+  if (!text.trim()) {
+    res.status(400).json({ error: "A reply cannot be empty" });
+    return;
+  }
+  if (text.length > REPLY_MAX) {
+    res.status(400).json({ error: `A reply is capped at ${REPLY_MAX} characters` });
+    return;
+  }
+
+  try {
+    const sent = await replySupport(uid, text);
+    // Recorded because it left the building. The recipient and subject only;
+    // the body is the owner's words and does not belong in a log.
+    req.log.info({ to: sent.to, subject: sent.subject }, "nest support reply sent");
+    res.json({ sent: true, ...sent });
+  } catch (err) {
+    req.log.error({ err }, "nest support reply failed");
+    res.status(502).json({
+      error: err instanceof Error ? err.message : "Could not send that reply",
+    });
+  }
+});
+
+/**
  * THE GROWTH PLAN, a second whole document behind the same gate.
  *
  * WHY A ROUTE AND NOT A SECTION. It is 114KB of standalone HTML with its own
@@ -1716,6 +1817,9 @@ const EXPECTED_ROUTES = [
   "/nest/map",
   "/nest/range",
   "/nest/live",
+  "/nest/mail",
+  "/nest/mail/message",
+  "/nest/mail/reply",
   "/nest/growth",
   "/nest/page",
 ];
