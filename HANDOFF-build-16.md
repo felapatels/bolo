@@ -6,6 +6,24 @@ Written 2026-08-28 by BOLO BUILD CHAT 15. **Read `CLAUDE.md` first, then this.**
 
 ## 0. THE STATE OF THE BUILD, IN ONE LINE
 
+**UPDATED 2026-08-28, LATE: THE CALL GATE IS CLOSED.** Server endpoint, both
+screens, record/send/play/caption, both agendas, the journey interruption and the
+games entry are all done and on `origin/main` at `9443f99f`.
+
+**THE BUILD NOW WAITS ON EXACTLY ONE THING AND IT IS NOT CODE: PUBLISH THE
+SERVER.** The call routes are not deployed, so everything verified so far is
+against a stub or against a 404 failing gracefully. **The real path has never
+completed a single turn.** See section 3b.
+
+Two late owner rulings, both landed: **the games hub call is FREE** (`plusOnly:
+false`), and **`GAME_MAX_TURNS` is 10, not 20**. `JOURNEY_QUESTIONS` stays at 5
+and the two are independent constants that no code path reads interchangeably.
+Ten leaves a beginner wanting another call rather than relieved one ended, which
+is the right shape for a feature whose retention story is that he rings again
+later.
+
+
+
 **Everything below is DONE and verified. The build is held on ONE open item:
 Chacha-ji's phone call.** The owner ruled a single build rather than shipping
 the finished work first, so nothing goes out until the call goes out.
