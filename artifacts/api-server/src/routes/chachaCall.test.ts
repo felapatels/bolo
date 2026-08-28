@@ -4,6 +4,8 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { Buffer } from "node:buffer";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { CALL_BEATS, CALL_NOTHING_HEARD } from "../lib/chachaCallScript";
 import type { ChachaCallDeps } from "./chachaCall";
 import type { LiveTurnResult } from "../lib/chachaCallTurn";
@@ -27,11 +29,8 @@ let currentUser: string | null = USER;
 
 let liveResult: LiveTurnResult | null;
 let liveError: Error | null;
-let gateDenial: unknown = null;
 let warmed = 0;
 let cannedCalls: string[] = [];
-let booked: Array<{ userId: string; languageCode: string; seconds: number }> = [];
-let bookError: Error | null = null;
 let getChatAudioStream: (id: string) => { chunks: Buffer[]; done: boolean; failed: boolean } | undefined;
 
 function makeLive(over: Partial<LiveTurnResult> = {}): LiveTurnResult {
@@ -61,11 +60,6 @@ before(async () => {
       req.onAudioChunk?.(liveResult?.mp3 ?? Buffer.alloc(0));
       return liveResult ?? makeLive();
     },
-    gateDenial: async () => gateDenial as never,
-    bookTime: async (userId, languageCode, seconds) => {
-      if (bookError) throw bookError;
-      booked.push({ userId, languageCode, seconds });
-    },
     warmConnection: () => { warmed += 1; },
   };
 
@@ -86,11 +80,8 @@ beforeEach(() => {
   currentUser = USER;
   liveResult = makeLive();
   liveError = null;
-  gateDenial = null;
   warmed = 0;
   cannedCalls = [];
-  booked = [];
-  bookError = null;
 });
 
 async function post(path: string, body?: unknown, headers: Record<string, string> = {}) {
@@ -242,33 +233,45 @@ test("one learner cannot speak into another learner's call", async () => {
   assert.equal((await post(`/openai/chacha-call/${callId}/end`)).status, 404);
 });
 
-test("the weekly chat cap gates the call at both the start and every turn", async () => {
-  gateDenial = { code: "chat_time_limit", message: "out of chat time", feature: "unlimitedChatTime", tier: "one_language" };
-  assert.equal((await post("/openai/chacha-call/start")).status, 402);
-
-  gateDenial = null;
+// INVERTED 2026-08-28 on the owner's ruling. These three tests previously
+// asserted that the call was gated by the weekly chat cap and booked against
+// it. It is neither. The game is gated by All-Access at the feature level, and
+// HE rings the learner: a journey-stop interruption must not spend practice
+// minutes the learner did not choose to spend.
+test("the weekly chat cap does NOT gate the call", async () => {
+  // Nothing in this router can answer 402: there is no meter left to trip.
+  assert.equal((await post("/openai/chacha-call/start")).status, 200);
   const callId = await startCall();
-  gateDenial = { code: "chat_time_limit", message: "out of chat time", feature: "unlimitedChatTime", tier: "one_language" };
-  assert.equal((await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP })).status, 402);
+  for (let i = 1; i < CALL_BEATS.length; i++) {
+    const { status } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+    assert.equal(status, 200, "a call must never be refused for chat time");
+  }
 });
 
-test("a live turn is booked against the weekly allowance", async () => {
-  const callId = await startCall();
-  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP, languageCode: "gu" });
-  assert.deepEqual(booked, [{ userId: USER, languageCode: "gu", seconds: 4.5 }]);
+test("a call never spends the weekly chat allowance", async () => {
+  // Asserted structurally rather than by watching a spy: the router does not
+  // import the allowance at all, so no future edit can quietly start charging
+  // for an incoming call without this failing. Same shape as the expo-image
+  // census in the mobile splash tests.
+  const source = await readFile(
+    join(import.meta.dirname, "chachaCall.ts"),
+    "utf8",
+  );
+  assert.doesNotMatch(source, /chatLimits/, "the call must not reach the chat meter");
+  assert.doesNotMatch(source, /recordChatTurn|chatTimeCapDenial/);
+  assert.doesNotMatch(source, /sendUpgradeRequired/, "a call is never an upsell");
 });
 
-test("a failed booking never costs the learner the rest of the call", async () => {
-  // Accounting is best effort. A ledger write that falls over must not hang up
-  // on someone mid-sentence.
+test("the bound on a call is its agenda, not a meter", async () => {
+  // What replaces the meter. A call is a fixed number of beats decided before
+  // it starts, which is the bound the open-ended chat route does not have and
+  // the reason that one needs charging and this one does not.
   const callId = await startCall();
-  bookError = new Error("chat_turns insert failed");
-  const { status, json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
-  assert.equal(status, 200);
-  assert.equal((json.beat as never as { text: string }).text, "Waah beta, bahut accha!");
-  assert.deepEqual(booked, []);
-  // And the call carries on to the next beat rather than stalling here.
-  assert.equal((json.next as never as { id: string }).id, "stall");
+  for (let i = 1; i < CALL_BEATS.length; i++) {
+    await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  }
+  const { status } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(status, 409, "the agenda has to run out on its own");
 });
 
 test("X-Audio-Stream: url answers immediately and tees into the chat registry", async () => {

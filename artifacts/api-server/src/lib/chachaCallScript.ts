@@ -56,11 +56,22 @@ import {
  * carried on the session rather than picked per turn precisely so no later
  * request can change it.
  *
- * `seconds` is the source clip length, which the client needs to know nothing
- * about to loop it, but which is worth recording here: neither clip loops
- * seamlessly (measured 2026-08-28, mean frame difference across the seam is
- * 5.8% for driving and 13% for backseat), so a hard loop shows a visible cut.
- * Softening that is an open item and belongs to the art, not to this module.
+ * BOTH CLIPS LOOP SEAMLESSLY AND THAT TOOK THREE ATTEMPTS. As delivered they
+ * did not: the jump at the loop point measured 2.9x a normal frame step for
+ * driving and 4.9x for backseat, which is a visible cut every few seconds. The
+ * fix is a 0.4 s dissolve of each clip's TAIL into its own HEAD with the output
+ * shortened to match, so the two ends are literally the same moment in the
+ * source. That lands both at 1.7x and 1.9x, which is each clip's own fastest
+ * ordinary motion, meaning the loop point is no longer distinguishable from
+ * normal movement.
+ *
+ * A PING-PONG WOULD HAVE SCORED IDENTICALLY AND WAS REJECTED ON SIGHT. The
+ * street travels right to left through the window in both clips, so playing
+ * them backwards drives him in reverse down the road while he talks. The
+ * numbers alone would have shipped it.
+ *
+ * `seconds` is the clip length AFTER that trim, which is why it is not a round
+ * number and does not match the source files.
  */
 export interface CallBackdrop {
   id: "driving" | "backseat";
@@ -75,13 +86,13 @@ export const CALL_BACKDROPS: readonly CallBackdrop[] = [
     id: "driving",
     video: "chacha-call-driving.mp4",
     poster: "chacha-call-driving-poster.jpg",
-    seconds: 5.04,
+    seconds: 4.67,
   },
   {
     id: "backseat",
     video: "chacha-call-backseat.mp4",
     poster: "chacha-call-backseat-poster.jpg",
-    seconds: 7.04,
+    seconds: 6.67,
   },
 ] as const;
 

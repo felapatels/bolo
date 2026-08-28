@@ -3,9 +3,6 @@ import { db, ttsCacheTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server/audio";
 import type { AuthedRequest } from "../middlewares/requireAuth";
-import type { EntitledRequest } from "../middlewares/loadEntitlements";
-import { sendUpgradeRequired } from "../lib/gating";
-import { chatTimeCapDenial, recordChatTurn } from "../lib/chatLimits";
 import { synthesizeChachaLine } from "../lib/ttsPrewarm";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
 import { CHACHA_AUDIO_FORMAT } from "../lib/chachaStrings";
@@ -65,6 +62,24 @@ import {
  * base64'd, which is the shape curl and the tests want.
  */
 
+/**
+ * A CALL IS NOT GATED AND DOES NOT SPEND THE WEEKLY CHAT ALLOWANCE. Owner
+ * ruling, 2026-08-28, and it reverses the shape this route shipped with.
+ *
+ * Two reasons, and the second is the load-bearing one:
+ *
+ *   1. The game is gated by All-Access at the feature level, so a second,
+ *      per-turn meter underneath it charges twice for one decision.
+ *   2. HE RINGS THE LEARNER. A journey-stop interruption is not something they
+ *      chose to spend their practice minutes on, and billing someone for an
+ *      incoming call is exactly the wrong shape. It follows the rule
+ *      `capstoneExemptFromWeeklyCap` already sets for the zone capstone: part
+ *      of the journey is not free chat.
+ *
+ * What still bounds the cost is the AGENDA. A call is four beats with at most
+ * two live model turns, fixed before it starts, which is a bound the open-ended
+ * chat route does not have and the reason it needs a meter and this does not.
+ */
 export interface ChachaCallDeps {
   /** Fixed clip for a line, from tts_cache, synthesized on a miss. */
   cannedAudio: (
@@ -73,10 +88,6 @@ export interface ChachaCallDeps {
   ) => Promise<{ audioBase64: string; format: string } | null>;
   /** One live beat through gpt-audio. */
   liveTurn: typeof runLiveTurn;
-  /** Null when the caller may take the call, an upgrade payload when not. */
-  gateDenial: (req: Request) => Promise<Awaited<ReturnType<typeof chatTimeCapDenial>>>;
-  /** Books the turn against the weekly chat allowance. */
-  bookTime: (userId: string, languageCode: string, seconds: number) => Promise<void>;
   /** Opens the TLS connection early so the first live turn is not the cold one. */
   warmConnection: () => void;
 }
@@ -119,12 +130,6 @@ async function cannedAudioFromCache(
 const defaultDeps: ChachaCallDeps = {
   cannedAudio: cannedAudioFromCache,
   liveTurn: runLiveTurn,
-  gateDenial: (req) => {
-    const { userId, resolvedPlan } = req as EntitledRequest;
-    return chatTimeCapDenial(resolvedPlan, userId);
-  },
-  bookTime: (userId, languageCode, seconds) =>
-    recordChatTurn(userId, languageCode, seconds),
   warmConnection: () => {
     // A cheap GET on the same host. Measured 2026-08-28: the first request a
     // process makes costs about 1.9 s to first audio against about 1.0 s warm,
@@ -152,12 +157,6 @@ export function createChachaCallRouter(
       const userId = (req as AuthedRequest).userId;
       if (!userId) {
         res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const denial = await deps.gateDenial(req);
-      if (denial) {
-        sendUpgradeRequired(res, denial);
         return;
       }
 
@@ -193,7 +192,11 @@ export function createChachaCallRouter(
   // POST /openai/chacha-call/:callId/turn
   //
   // The learner's clip in, his reply out. Body is JSON:
-  //   { audioBase64: string, format?: "wav" | "mp3", languageCode?: string }
+  //   { audioBase64: string, format?: "wav" | "mp3" }
+  //
+  // No languageCode: he speaks his own Hinglish to every learner regardless of
+  // their journey language, and the only thing that ever read it was the weekly
+  // allowance row, which a call no longer writes.
   router.post(
     "/openai/chacha-call/:callId/turn",
     async (req: Request, res: Response): Promise<void> => {
@@ -213,16 +216,9 @@ export function createChachaCallRouter(
         return;
       }
 
-      const denial = await deps.gateDenial(req);
-      if (denial) {
-        sendUpgradeRequired(res, denial);
-        return;
-      }
-
       const body = (req.body ?? {}) as {
         audioBase64?: unknown;
         format?: unknown;
-        languageCode?: unknown;
       };
       const audioBase64 = typeof body.audioBase64 === "string" ? body.audioBase64 : "";
       if (!audioBase64) {
@@ -230,12 +226,6 @@ export function createChachaCallRouter(
         return;
       }
       const format = body.format === "mp3" ? "mp3" : "wav";
-      // He speaks his own Hinglish to every learner regardless of their journey
-      // language, so this only ever labels the allowance row.
-      const languageCode =
-        typeof body.languageCode === "string" && body.languageCode.trim()
-          ? body.languageCode.trim()
-          : "hi";
 
       const beat = beatAt(session.beatIndex);
       if (!beat) {
@@ -332,14 +322,6 @@ export function createChachaCallRouter(
         chacha: chachaText,
         canned,
       });
-
-      // Booked against the same weekly allowance as chat, because it is the
-      // same kind of spend. Best effort: a failed booking must not cost the
-      // learner the rest of the call.
-      const seconds = result?.spokenSeconds ?? 0;
-      await deps
-        .bookTime(userId, languageCode, seconds)
-        .catch(() => {});
 
       if (stream) return; // The 202 already went out.
 
