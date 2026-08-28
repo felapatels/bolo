@@ -166,12 +166,12 @@ GRID_SEED = [
  # does not sell. Tamil is the biggest audience the grid was missing, the script
  # is unmistakable at thumbnail size, and it lands BOTTOM-LEFT, the least viewed
  # of the nine, which is where a late replacement belongs.
- (3, "duo-d03-forgot-ta-tamil.png", "The biggest audience the grid was missing",
-  "Duo forgot Tamil. \U0001F61E\n"
+ (3, "duo-d22-forgot-sat-santali.png", "The script nothing else on the grid looks like",
+  "Duo forgot Santali. 😞\n"
   "Bolo didn't.\n\n"
-  "\u0bb5\u0ba3\u0b95\u0bcd\u0b95\u0bae\u0bcd is where you start. Say it out loud, get coached on the spot, "
+  "ᱡᱚᱦᱟᱨ is where you start. Say it out loud, get coached on the spot, "
   "and get your family's language back. TryBolo.app\n\n"
-  "#tamil #learntamil #tamildiaspora #vanakkam #speakbolo"),
+  "#santali #santal #olchiki #adivasi #speakbolo"),
  (4, "ai-d-remembers-1x1.png", "The retention story",
   "Every phrase gets its own review schedule, built from how well you actually said it.\n\n"
   "The ones slipping away come back first. TryBolo.app\n\n"
@@ -204,7 +204,7 @@ GRID_SEED = [
 GRID_LAYOUT = [
  ["duo-a2-wall-of-22", "father-c-not-just-your-house", "duo-d01-forgot-hi-hindi"],
  ["ai-e-talk-to-bolo", "father-a2-they-answer-in-english", "ai-d-remembers"],
- ["duo-d03-forgot-ta-tamil", "ai-a2-learning-your-pace", "father-e-answer-back"],
+ ["duo-d22-forgot-sat-santali", "ai-a2-learning-your-pace", "father-e-answer-back"],
 ]
 
 # What the runbook deliberately does NOT spend, and why.
@@ -214,11 +214,12 @@ GRID_HELD = [
  # family plan card. Swapping slot 3 to Tamil spent a second one, and Tamil sits
  # at WEEK 3 rather than week 11. A note that still claimed eleven weeks of
  # distance would have been the page lying about its own schedule.
- ("Two language cards are spent early now, not one",
-  "Hindi reposts in <b>week 11</b>, and eleven weeks is far enough that nobody scrolls back to notice. "
-  "<b>Tamil now reposts in week 3</b>, because the seed swap put it in slot 3 and Tamil is week 3 on the "
-  "board. <b>Three weeks is not eleven.</b> Three ways out: accept the repeat, seed a language that sits "
-  "late on the board instead, or move Tamil's week. Worth deciding rather than discovering."),
+ ("Two language cards are spent early, and both repost late",
+  "Hindi reposts in <b>week 11</b> and Santali in <b>week 20</b>. Both are far enough out that nobody "
+  "scrolls back to notice. <b>Slot 3 was Tamil for one day and that was a mistake</b>: Tamil is week 3 "
+  "on the board, so the same card would have run twice inside a month, on a grid barely a dozen posts "
+  "deep. Seeding from the BACK of the board is the rule that falls out of it, and Ol Chiki looks like "
+  "nothing else up there, which is the tile's actual job."),
  ("ai-f-whats-next-1x1.png is excluded on purpose",
   "It is the one asset that touches adaptation, which the app does not do yet, and CAPTIONS-ai.md says to hold it back "
   "rather than pre-announce. <b>It is your spare tile if you want a tenth.</b>"),
