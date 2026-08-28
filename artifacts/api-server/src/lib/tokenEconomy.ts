@@ -7,6 +7,30 @@ export const TOKEN_EARN_QUIZ = 2;
 // Chacha-ji's trackside gift, once per learner per station (owner ruling
 // Aug 12, 2026: 3, not the 5 the draft contract carried).
 export const TOKEN_EARN_CHACHA_ENCOUNTER = 3;
+
+/**
+ * CHACHA-JI'S CALL PAYS ONLY WHEN HE RANG YOU. Owner rulings, 2026-08-28:
+ * "if they access from game hub, then they only earn xp like other games", and
+ * "if chacha calls them on a journey, then they can earn the 5 chai maximum".
+ *
+ * ONE PER ANSWERED TURN, FIVE MAXIMUM, and the two numbers agree by design: the
+ * journey call is five questions, so a learner who answers every one earns five
+ * and a learner who hangs up after two earns two. That is what makes the "+1"
+ * floating up the screen honest, and it is why the reward is per turn rather
+ * than a lump at the end.
+ *
+ * THE GAME EARNS NO CHAI AT ALL, deliberately. It is on the Games page beside
+ * thirteen other games and it pays XP the way they do. A chosen, repeatable
+ * game paying a currency would be an infinite faucet against sinks priced at 10
+ * to 50; an interruption you did not ask for cannot be farmed, because you
+ * cannot make him ring.
+ *
+ * IDEMPOTENCY IS THE REFID, not a check somewhere: `call:<callId>:<turnIndex>`
+ * means a retried turn credits once at the ledger's unique index, and a second
+ * call in the same zone cannot happen anyway because the zone gate allows one.
+ */
+export const TOKEN_EARN_CHACHA_CALL_TURN = 1;
+export const CHACHA_CALL_CHAI_MAX = 5;
 // Owner ruling Aug 11, 2026: dropped from 50 to 15. Server-side and granted
 // through the ledger, so this one constant covers web AND mobile with no client
 // release. The refId is the UTC month, so a month already granted at the old
@@ -122,6 +146,7 @@ export type TokenReason =
   | "earn_closeout_first"
   | "earn_capstone_first"
   | "earn_chacha_encounter"
+  | "earn_chacha_call"
   | "earn_referral_referrer"
   | "earn_referral_referee"
   | "spend_station_pause"
@@ -164,6 +189,7 @@ export const TOKEN_REASON_LABELS: Record<TokenReason, string> = {
   earn_closeout_first: "Zone closeout",
   earn_capstone_first: "Capstone passed",
   earn_chacha_encounter: "Chacha-ji's stall",
+  earn_chacha_call: "Chacha-ji's call",
   earn_referral_referrer: "A friend joined",
   earn_referral_referee: "Invite bonus",
   spend_station_pause: "Station Pause",

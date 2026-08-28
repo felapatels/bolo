@@ -24,6 +24,7 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
+import { AppFonts } from '@/constants/fonts';
 import { hapticMedium } from '@/lib/haptics';
 import { CALL_POSTERS, CALL_VIDEOS, type CallBackdropId } from './backdrops';
 import { CallCaptions } from './CallCaptions';
@@ -41,13 +42,128 @@ export interface InCallProps {
   chaiEarned?: number;
   /** Seconds since the call connected, for the timer. */
   elapsedSeconds: number;
+  /** The learner's own level, 0..1, so they can SEE they are being heard. */
+  level?: number;
+  /** True while their finger is down and they are being recorded. */
+  talking?: boolean;
+  onTalkStart?: () => void;
+  onTalkEnd?: () => void;
   onHangUp: () => void;
+}
+
+/**
+ * THE LEARNER'S OWN VOICE, DRAWN.
+ *
+ * A call with no press-and-hold gives a learner nothing to tell them the phone
+ * is listening, so a working call and a broken one look identical while they
+ * talk (owner, 2026-08-28: "I can't tell that my response is being captured").
+ *
+ * Fifteen bars on a rolling history rather than one live level: a single
+ * jumping bar shows the CURRENT instant, while a history shows that something
+ * was captured a moment ago, which is the actual question being asked.
+ *
+ * Plain Views resized by state, no Animated and no Svg. The native animation
+ * driver is dead in release builds of this app, so an Animated bar would move
+ * in the simulator and freeze in the store build; and an Svg spanning this area
+ * would eat the taps for the hang-up button underneath it.
+ */
+function LiveWaveform({ level, active }: { level: number; active: boolean }) {
+  const BARS = 15;
+  const [history, setHistory] = React.useState<number[]>(() => new Array(BARS).fill(0));
+  React.useEffect(() => {
+    setHistory((h) => [...h.slice(1), active ? level : 0]);
+  }, [level, active]);
+  return (
+    <View style={styles.waveRow} accessible={false} pointerEvents="none">
+      {history.map((v, i) => (
+        <View
+          key={i}
+          style={[
+            styles.waveBar,
+            {
+              // A floor of 3 so the row still reads as a meter at rest rather
+              // than vanishing, which would look like the feature had gone.
+              height: 3 + Math.round(v * 27),
+              backgroundColor: active ? '#7CFFB2' : 'rgba(255,255,255,0.28)',
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
 }
 
 function mmss(total: number): string {
   const m = Math.floor(total / 60);
   const s = Math.floor(total % 60);
   return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/**
+ * A CHAI THAT FLOATS UP AND FADES, on earning one (owner, 2026-08-28: "the
+ * learner should see if they scored a chai with a +1 and chai image that shows
+ * on screen going up and fades away").
+ *
+ * useNativeDriver: FALSE, and that is not a preference. CLAUDE.md records that
+ * the native animation driver is dead in release builds of this app: a ported
+ * animation on useNativeDriver:true came out flat on device while a false one
+ * kept moving beside it in the same build. Anything set to true here would rise
+ * perfectly in the simulator and sit frozen on a learner's phone, which is the
+ * worst of both because nobody would catch it before TestFlight.
+ *
+ * Reduce Motion gets the chip without the journey: the reward is information,
+ * the flight is decoration, and only the decoration is what that setting asks
+ * to be spared.
+ */
+function ChaiFloat({ amount }: { amount: number }) {
+  const reduceMotion = useReducedMotion();
+  const rise = React.useRef(new Animated.Value(0)).current;
+  const fade = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (amount <= 0) return;
+    rise.setValue(0);
+    fade.setValue(0);
+    if (reduceMotion) {
+      // Appear, hold, go. No travel.
+      Animated.sequence([
+        Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: false }),
+        Animated.delay(1400),
+        Animated.timing(fade, { toValue: 0, duration: 320, useNativeDriver: false }),
+      ]).start();
+      return;
+    }
+    Animated.parallel([
+      Animated.timing(rise, { toValue: 1, duration: 1600, useNativeDriver: false }),
+      Animated.sequence([
+        Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: false }),
+        Animated.delay(700),
+        Animated.timing(fade, { toValue: 0, duration: 680, useNativeDriver: false }),
+      ]),
+    ]).start();
+  }, [amount, reduceMotion, rise, fade]);
+
+  if (amount <= 0) return null;
+  return (
+    <Animated.View
+      pointerEvents="none"
+      testID="call-chai-float"
+      accessibilityLabel={`You earned ${amount} chai`}
+      style={[
+        styles.chaiFloat,
+        {
+          opacity: fade,
+          transform: [
+            { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [0, -90] }) },
+          ],
+        },
+      ]}
+    >
+      {/* Cup, number and word together. Never colour alone. */}
+      <Ionicons name="cafe" size={26} color="#FFD79A" />
+      <Text style={styles.chaiFloatText}>+{amount}</Text>
+    </Animated.View>
+  );
 }
 
 export function InCall({
@@ -57,6 +173,10 @@ export function InCall({
   romanized,
   chaiEarned,
   elapsedSeconds,
+  level = 0,
+  talking = false,
+  onTalkStart,
+  onTalkEnd,
   onHangUp,
 }: InCallProps) {
   const colors = useColors();
@@ -148,11 +268,21 @@ export function InCall({
           />
           {/* The WORD carries the state, never the dot's colour on its own. */}
           <Text style={styles.phaseText}>
-            {speaking ? 'Chacha-ji is talking' : 'Your turn, go ahead'}
+            {speaking
+              ? 'Chacha-ji is talking'
+              : talking
+                ? 'Listening, release to send'
+                : 'Your turn, hold to talk'}
           </Text>
         </View>
 
-        <View style={styles.hangUpWrap}>
+        {/* Only on the learner's turn. During his line it would be drawing his
+            voice, which it is not measuring. */}
+        {!speaking && <LiveWaveform level={level} active={talking} />}
+        <ChaiFloat amount={chaiEarned ?? 0} />
+
+        <View style={styles.controlsRow}>
+          <View style={styles.controlWrap}>
           <Pressable
             testID="in-call-hangup"
             accessibilityRole="button"
@@ -172,7 +302,46 @@ export function InCall({
                 the ringing screen: never colour alone. */}
             <Ionicons name="call" size={28} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
           </Pressable>
-          <Text style={styles.hangUpLabel}>Hang up</Text>
+            <Text style={styles.hangUpLabel}>Hang up</Text>
+          </View>
+          {onTalkStart && onTalkEnd ? (
+            <View style={styles.controlWrap}>
+              {/* PRESS AND HOLD, not a toggle and not automatic. The automatic
+                  version waited SILENCE_DURATION_MS of proven quiet before it
+                  would send, which the owner summed up as "it waits too long",
+                  and it could be tricked by a noisy room into sending on its
+                  own. A finger has neither problem: release IS the end of the
+                  turn.
+                  It is also the gesture chat and practice already use, so a
+                  learner arrives knowing how to talk to him. */}
+              <Pressable
+                testID="in-call-talk"
+                accessibilityRole="button"
+                accessibilityLabel={talking ? 'Release to send' : 'Hold to talk'}
+                hitSlop={16}
+                disabled={speaking}
+                onPressIn={() => {
+                  hapticMedium();
+                  onTalkStart();
+                }}
+                onPressOut={onTalkEnd}
+                style={[
+                  styles.talkBtn,
+                  {
+                    backgroundColor: talking ? '#7CFFB2' : 'rgba(255,255,255,0.18)',
+                    opacity: speaking ? 0.35 : 1,
+                    transform: [{ scale: talking ? 0.94 : 1 }],
+                  },
+                ]}
+              >
+                {/* Word, glyph and fill move together. Never colour alone: the
+                    owner is partially colour blind and this app's standing rule
+                    is that state has to survive in greyscale. */}
+                <Ionicons name="mic" size={30} color={talking ? '#08301C' : '#fff'} />
+              </Pressable>
+              <Text style={styles.hangUpLabel}>{talking ? 'Release' : 'Hold to talk'}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </View>
@@ -216,6 +385,59 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
   },
+  /**
+   * THE SAME GEOMETRY AS THE RINGING SCREEN'S IGNORE AND ANSWER, deliberately
+   * (owner, 2026-08-28: "same positions as answer or end"). A learner taps
+   * Answer on the right and a second later the control they need is Hold to
+   * talk; putting it anywhere else moves the target out from under the thumb
+   * that just arrived there. Copied from IncomingCall's `actions` and `action`:
+   * row, space-evenly, 24 of horizontal padding, and fixed 132 columns so
+   * neither label can shove the other off centre.
+   */
+  controlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'flex-start',
+    paddingHorizontal: 24,
+  },
+  controlWrap: { alignItems: 'center', width: 132 },
+  talkBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waveRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 4,
+    height: 30,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  waveBar: { width: 4, borderRadius: 2 },
+  chaiFloat: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: 190,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  chaiFloatText: { color: '#FFD79A', fontFamily: AppFonts.extrabold, fontSize: 20 },
   hangUpWrap: { marginTop: 22, alignItems: 'center' },
   hangUp: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center' },
   hangUpLabel: {

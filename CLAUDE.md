@@ -207,7 +207,19 @@ token ledger, the RevenueCat or Stripe webhook paths, or entitlement resolution.
   3. **Then publish.** With dev and production agreeing, the diff finds nothing
      and the migrations step does not appear at all. Its absence is the signal
      that you did this right.
-  4. **READ THE GENERATED SQL EVERY TIME. A `DROP` IS NEVER ROUTINE.** It is the
+  4. **THE DIFF STEP CAN ALSO FAIL OUTRIGHT, AND SYNC-SCHEMA IS THE FIX.** Seen
+     2026-08-28: the Publishing panel showed **"Failed to check for database
+     diff: terminating connection due to administrator command"** and the
+     publish did not happen. Nothing was wrong with the schema; the step could
+     not complete. Running step 2 above, `sync-schema` against dev, and
+     republishing worked first time.
+     **THE TRAP IS THAT A FAILED PUBLISH LOOKS LIKE A SUCCESSFUL ONE FROM THE
+     APP.** The client keeps talking to the old deployment, so a brand new route
+     simply 404s and whatever calls it fails in whatever way it fails. An
+     afternoon went into a mobile hang-up bug on 2026-08-28 that was only ever
+     an undeployed server. **If something new does not work after a publish,
+     confirm the publish SUCCEEDED before debugging the client.**
+  5. **READ THE GENERATED SQL EVERY TIME. A `DROP` IS NEVER ROUTINE.** It is the
      only thing standing between the platform and your production data, and it
      is one click.
 

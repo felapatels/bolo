@@ -3,6 +3,9 @@ import { useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import {
   RECORDING_PRESET,
   SILENCE_DURATION_MS,
+  SPEECH_MIN_DB,
+  SILENCE_DROP_DB,
+  meteringToAmplitude,
   SILENCE_THRESHOLD_DB,
   ensureRecordingMode,
   playBase64Audio,
@@ -56,6 +59,8 @@ export type LiveCallStatus =
   | 'connecting'
   | 'speaking'
   | 'listening'
+  // The learner is holding the button down and being recorded.
+  | 'talking'
   | 'ending'
   | 'ended'
   | 'error';
@@ -67,6 +72,25 @@ export interface LiveCallState {
   romanized: string | null;
   elapsedSeconds: number;
   error: string | null;
+  /**
+   * The learner's own level, 0..1, while it is their turn.
+   *
+   * SHOWN TO THEM RATHER THAN KEPT INTERNAL (owner, 2026-08-28: "I can't tell
+   * that my response is being captured"). He is right and it is a design fault
+   * rather than a polish item: this call has no press-and-hold, so a learner
+   * who is talking has nothing at all telling them the phone is listening.
+   * A silent, still screen during your own turn is indistinguishable from a
+   * broken one, which is exactly the confusion that cost this session an
+   * afternoon.
+   */
+  level: number;
+  /**
+   * Chai just credited for the turn they answered. Non-zero for one beat, then
+   * cleared, because it drives a float-up-and-fade rather than a running total:
+   * the wallet holds the total, this is the moment of getting one.
+   */
+  chaiEarned: number;
+
 }
 
 export interface UseLiveCallOptions {
@@ -78,7 +102,13 @@ export interface UseLiveCallOptions {
    */
   mode?: CallMode;
   /** Called once the call is over and the screen should go away. */
-  onFinished: () => void;
+  /**
+   * Called when the call is over. The reason is passed through so the screen
+   * can TELL the learner: every failure used to funnel into a silent navigate,
+   * which made a missing microphone, an undeployed route and a dropped turn
+   * indistinguishable. Undefined means a normal, deliberate hang-up.
+   */
+  onFinished: (reason?: string | null) => void;
 }
 
 export function useLiveCall({
@@ -96,6 +126,8 @@ export function useLiveCall({
     romanized: null,
     elapsedSeconds: 0,
     error: null,
+    level: 0,
+    chaiEarned: 0,
   });
 
   const callIdRef = React.useRef<string | null>(null);
@@ -113,6 +145,8 @@ export function useLiveCall({
    * says so instead of relying on it, and survives anyone reordering the file.
    */
   const hangUpRef = React.useRef<() => Promise<void>>(async () => {});
+  /** Same reason as hangUpRef above: stopTalking is declared before submitTurn. */
+  const submitTurnRef = React.useRef<() => Promise<void>>(async () => {});
 
   const patch = React.useCallback((p: Partial<LiveCallState>) => {
     if (!aliveRef.current) return;
@@ -163,6 +197,13 @@ export function useLiveCall({
     (message?: string, cause?: unknown) => {
       if (!aliveRef.current) return;
       if (message) {
+        // AND IT LEAVES A TRACE IN METRO TOO. Sentry alone is not enough while
+        // the feature is being built: this repo's api-server has never
+        // delivered one event, and on 2026-08-28 a failed call was debugged for
+        // an afternoon with an empty Metro log because the underlying error
+        // only ever went to a dashboard. Tagged so it can be grepped out of the
+        // RevenueCat noise: `grep "\[call\]" metro.log`.
+        console.error('[call] ended badly:', message, cause);
         Sentry.captureException(
           cause instanceof Error ? cause : new Error(`chacha-call: ${message}`),
           {
@@ -175,28 +216,78 @@ export function useLiveCall({
         );
       }
       patch({ status: message ? 'error' : 'ended', error: message ?? null });
-      onFinished();
+      onFinished(message ?? null);
     },
     [patch, onFinished],
   );
 
-  /** Record until the learner stops talking, then send the turn. */
-  const listen = React.useCallback(async () => {
+  /**
+   * PRESS AND HOLD TO TALK, replacing an automatic silence detector.
+   *
+   * The owner's verdict on the automatic version was "it waits too long", and
+   * that is inherent rather than tunable: the turn could only end after
+   * SILENCE_DURATION_MS of proven quiet, so every single reply carried two
+   * dead seconds before anything happened. Dropping that number to feel quick
+   * would start cutting learners off mid-sentence, which is the exact trade the
+   * constant's own comment says was already lost once at 1.6s.
+   *
+   * A finger has neither problem. Release IS the end of the turn, so there is
+   * nothing to wait for, and a noisy room cannot submit on the learner's behalf,
+   * which is what the mute button existed to solve. Mute is gone with it.
+   *
+   * It is also what every other speaking surface in this app already does, so a
+   * learner who has used chat or practice already knows how to talk to him.
+   */
+  const startTalking = React.useCallback(async () => {
     const callId = callIdRef.current;
     if (!callId || !aliveRef.current) return;
     try {
       heardSpeechRef.current = false;
       quietSinceRef.current = null;
+      /**
+       * RELEASE HIS PLAYER BEFORE ASKING FOR THE MICROPHONE.
+       *
+       * This is called FROM the playback's own onEnded callback, so
+       * playbackRef still holds a finished player, and on iOS a live player
+       * keeps the audio session in playback. prepareRecorderInSession
+       * re-applies `playAndRecord` and the recorder then would not start:
+       * "The microphone would not start", every call, immediately after his
+       * first line (owner, 2026-08-28, on a live server).
+       *
+       * PROVEN BY A CONTROL RATHER THAN GUESSED. Holding the nav parrot in Bolo
+       * Chat records fine on the same simulator, so the device was never the
+       * problem. The difference is that chat.tsx stops AND NULLS the player
+       * before it prepares the recorder, for the same reason, with a comment
+       * about stuck 'playing' states. The call skipped that step.
+       *
+       * Nulling matters as much as stopping: a retained handle is what holds
+       * the session, so dropping the reference is half the release.
+       */
+      try {
+        playbackRef.current?.stop();
+      } catch {
+        // Already finished. Releasing the reference below is the part that counts.
+      }
+      playbackRef.current = null;
       await prepareRecorderInSession(recorder);
       await ensureRecordingMode();
       recorder.record();
-      patch({ status: 'listening' });
+      patch({ status: 'talking' });
     } catch (err) {
       // A microphone that will not start ends the call rather than leaving the
       // learner talking to a phone that is not listening.
       finish('The microphone would not start.', err);
     }
   }, [recorder, patch, finish]);
+
+  /** Release: end the turn and send what was captured. */
+  const stopTalking = React.useCallback(() => {
+    // Guarded rather than assumed: a release with no matching press (a stray
+    // pointer-cancel, or a tap so short the prepare has not resolved) must not
+    // send an empty turn and burn one of the learner's ten.
+    if (stateRef.current.status !== 'talking') return;
+    void submitTurnRef.current();
+  }, []);
 
   /** Stop recording and run one turn. */
   const submitTurn = React.useCallback(async () => {
@@ -219,7 +310,7 @@ export function useLiveCall({
         () => {
           if (!aliveRef.current) return;
           if (overRef.current) void hangUpRef.current();
-          else void listen();
+          else patch({ status: 'listening' });
         },
       );
       playbackRef.current = handle;
@@ -229,6 +320,14 @@ export function useLiveCall({
           if (!turn || !aliveRef.current) return;
           overRef.current = turn.over;
           patch({ text: turn.text, romanized: turn.romanized });
+          if (turn.chaiEarned && turn.chaiEarned > 0) {
+            patch({ chaiEarned: turn.chaiEarned });
+            // Cleared after the float has flown, so the next turn's award
+            // re-triggers the animation instead of finding the value unchanged.
+            setTimeout(() => {
+              if (aliveRef.current) patch({ chaiEarned: 0 });
+            }, 2200);
+          }
         })
         .catch(() => {
           // No caption is survivable. A call the learner can hear but not read
@@ -237,7 +336,7 @@ export function useLiveCall({
     } catch (err) {
       finish('The call dropped.', err);
     }
-  }, [recorder, patch, finish, listen]);
+  }, [recorder, patch, finish]);
 
   /** Answer. Plays his canned hello, then starts listening. */
   const answer = React.useCallback(async () => {
@@ -264,18 +363,18 @@ export function useLiveCall({
           call.audioBase64,
           call.format,
           () => {
-            if (aliveRef.current) void listen();
+            if (aliveRef.current) patch({ status: 'listening' });
           },
         );
       } else {
         // No greeting audio is survivable: his line is on screen and the call
         // moves straight to the learner's turn rather than stalling in silence.
-        void listen();
+        patch({ status: 'listening' });
       }
     } catch (err) {
       finish('Chacha-ji could not get through.', err);
     }
-  }, [patch, finish, listen, mode]);
+  }, [patch, finish, mode]);
 
   const hangUp = React.useCallback(async () => {
     const callId = callIdRef.current;
@@ -291,32 +390,46 @@ export function useLiveCall({
   }, [patch, finish]);
 
   hangUpRef.current = hangUp;
+  submitTurnRef.current = submitTurn;
 
   /**
    * Silence auto-stop. Speech has to be HEARD first, then a run of quiet ends
    * the turn, using the same thresholds every other recording surface in the
    * app uses so a learner's pause means the same thing everywhere.
    */
+  /**
+   * THE LEVEL THE LEARNER WATCHES WHILE THEY HOLD.
+   *
+   * All that is left of what used to be an adaptive silence detector. That
+   * detector is gone with the automatic turn: release ends a turn now, so
+   * nothing has to infer when someone stopped talking, and the two seconds of
+   * proven quiet it needed are two seconds nobody waits any more.
+   *
+   * Three real bugs died with it, all found on a live call on 2026-08-28 and
+   * all worth remembering if an automatic mode ever comes back: a finished
+   * player still held the audio session so the recorder would not start; the
+   * check was keyed on the meter CHANGING, and real quiet is the one condition
+   * where a level plateaus; and it used a fixed dB floor that lib/audio.ts
+   * itself says cannot work, because room tone sits above it and reads as
+   * speech forever.
+   */
+  const meteringRef = React.useRef<number | undefined>(undefined);
+  meteringRef.current = recorderState.metering;
+
   React.useEffect(() => {
-    if (state.status !== 'listening') return;
-    const db = recorderState.metering;
-    if (typeof db !== 'number') return;
-
-    if (db > SILENCE_THRESHOLD_DB) {
-      heardSpeechRef.current = true;
-      quietSinceRef.current = null;
+    if (state.status !== 'listening' && state.status !== 'talking') {
+      if (stateRef.current.level !== 0) patch({ level: 0 });
       return;
     }
-    if (!heardSpeechRef.current) return;
-    if (quietSinceRef.current === null) {
-      quietSinceRef.current = Date.now();
-      return;
-    }
-    if (Date.now() - quietSinceRef.current >= SILENCE_DURATION_MS) {
-      quietSinceRef.current = null;
-      void submitTurn();
-    }
-  }, [state.status, recorderState.metering, submitTurn]);
+    const tick = setInterval(() => {
+      const db = meteringRef.current;
+      patch({
+        level:
+          state.status === 'talking' && typeof db === 'number' ? meteringToAmplitude(db) : 0,
+      });
+    }, 100);
+    return () => clearInterval(tick);
+  }, [state.status, patch]);
 
-  return { state, answer, hangUp };
+  return { state, answer, hangUp, startTalking, stopTalking };
 }

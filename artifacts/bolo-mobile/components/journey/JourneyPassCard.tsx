@@ -622,10 +622,23 @@ export function JourneyPassCard({
                       this card and off the web twin. */}
                   <View pointerEvents="none" style={[styles.notch, styles.notchBodyTop]} />
                   <View pointerEvents="none" style={[styles.notch, styles.notchBodyBottom]} />
+                  {/* CENTRED, BIGGER AND TRACKED OUT (owner, 2026-08-28: "spread
+                      out the words or center them, and make them bigger, maybe
+                      add some more rustic details"). It was 9pt and 6pt, hard
+                      left, and read as a caption rather than as printing on a
+                      ticket. Real ticket stock sets its fare class centred and
+                      letterspaced, with a rule between the class and the route.
+                      The hairline rules above and below are the rustic detail
+                      asked for and they cost nothing: two 1px Views in the
+                      ticket's own edge ink at low opacity, no new asset and no
+                      Svg, which matters because an Svg here would eat the taps
+                      for the whole pass. */}
                   <View style={styles.miniBody}>
+                    <View style={styles.miniRule} />
                     <Text numberOfLines={1} style={styles.miniAdmit}>
                       ADMIT ONE
                     </Text>
+                    <View style={styles.miniRule} />
                     <Text numberOfLines={1} style={styles.miniLine}>
                       {line.lineName.toUpperCase()}
                     </Text>
@@ -710,7 +723,20 @@ export function JourneyPassCard({
                 way. The engine stands in it rather than up beside the
                 title: it is the train at the platform, and pressing boards
                 it. */}
-            <View style={[styles.ctaBtn, { borderColor: TICKET.edge }]}>
+            {/* A DARKER PLATE THAN THE PAPER IT SITS ON (owner, 2026-08-28:
+                "this button is the same color as the rest, shouldn't it be a
+                shade or 2 darker"). He is right and it was: the plate had a
+                border and no fill, so it read as an outline drawn on the ticket
+                rather than as a pressed key sitting in it. TICKET.stockBottom
+                is the paper's own darker end, so this deepens the existing
+                gradient rather than introducing a colour the stock does not
+                already contain. */}
+            <View
+              style={[
+                styles.ctaBtn,
+                { borderColor: TICKET.edge, backgroundColor: TICKET.stockBottom },
+              ]}
+            >
               <TrainEngine
                 tint={ZONE_BOARD.ink}
                 width={34}
@@ -718,22 +744,24 @@ export function JourneyPassCard({
                 motion="drive"
                 palette={goldPalette}
               />
-              <View style={styles.ctaTextCol}>
-                <Text numberOfLines={1} style={styles.ctaText}>
-                  {journeyCta}
+              {/* THE VERB TRAVELS WITH THE ARROW (owner, 2026-08-28: "move the
+                  resume to next to the arrow and center it vertically"). It sat
+                  left of the tail, so the plate read train, verb, sentence,
+                  arrow, and the two halves of the ACTION were at opposite ends
+                  with a sentence wedged between them. Verb and arrow together
+                  read as one control, and the sentence becomes what it actually
+                  is: the reason, not the instruction.
+                  The tail takes the flexible middle so it still wraps to two
+                  lines; the verb is centred against whatever height that makes,
+                  which is what alignItems: 'center' on the row already gives it. */}
+              {journeyCtaTail && (
+                <Text numberOfLines={3} style={[styles.ctaTail, styles.ctaTailMiddle]}>
+                  {journeyCtaTail}
                 </Text>
-                {journeyCtaTail && (
-                  // TWO LINES, was one. The tail gained the Chai promise on
-                  // 2026-08-28 and at numberOfLines={1} it truncated to
-                  // "Only 6 more stops to go. Chai…", which cut the clause that
-                  // was the whole point of adding it. The plate is landscape and
-                  // has the height for a second line; the lineHeight is already
-                  // set, so nothing else moves.
-                  <Text numberOfLines={2} style={styles.ctaTail}>
-                    {journeyCtaTail}
-                  </Text>
-                )}
-              </View>
+              )}
+              <Text numberOfLines={1} style={styles.ctaText}>
+                {journeyCta}
+              </Text>
               {/* A SOLID ARROW, not a hairline one. Feather draws a thin
                   stroke at any size and beside a 17pt extrabold word it read as
                   a different weight of voice: "make that bouncing arrow on the
@@ -988,7 +1016,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     borderWidth: 2,
     borderRadius: 8,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 7,
   },
   // BIGGER, because it is one word now rather than a sentence that had to be
@@ -1003,16 +1031,27 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     gap: 8,
   },
+  // 16 was 17. Still the loudest thing on the plate and still clearly the verb;
+  // one point back buys the sentence beside it a useful amount of width.
   ctaText: {
     fontFamily: AppFonts.extrabold,
-    fontSize: 17,
-    lineHeight: 21,
+    fontSize: 16,
+    lineHeight: 20,
     color: ZONE_BOARD.ink,
   },
+  // Takes the slack between the engine and the verb, so the verb and the arrow
+  // stay pinned together on the right however long the sentence is.
+  ctaTailMiddle: { flex: 1, minWidth: 0, marginHorizontal: 6 },
+  // 10 was 11, and THREE lines rather than two. Moving the verb to the right
+  // took roughly a fifth of this column's width, so the sentence clipped at
+  // "Chai and surprises along t…", losing exactly the clause it was added for
+  // (owner, 2026-08-28: "too much padding, words truncated... or font is too
+  // big"). Three levers moved a little each, rather than one cut hard: the
+  // plate keeps its shape and the sentence fits whole.
   ctaTail: {
     fontFamily: AppFonts.semibold,
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 10,
+    lineHeight: 13,
     color: ZONE_BOARD.inkMuted,
     flexShrink: 1,
   },
@@ -1105,13 +1144,32 @@ const styles = StyleSheet.create({
   stubStock: { ...StyleSheet.absoluteFillObject },
   // The ticket's own words, above its own perforation.
   // The ticket's own words, to the LEFT of its own perforation.
-  miniBody: { flex: 1, minWidth: 0, gap: 1 },
-  miniAdmit: { fontFamily: AppFonts.extrabold, fontSize: 9, color: TICKET.ink },
+  miniBody: { flex: 1, minWidth: 0, gap: 3, alignItems: 'center', justifyContent: 'center' },
+  // 12 was 9, and tracked out: this is the ticket's fare class, not a caption.
+  miniAdmit: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 12,
+    letterSpacing: 2.2,
+    textAlign: 'center',
+    color: TICKET.ink,
+  },
+  // 8 was 6. Still the quieter of the two, still clearly the route under the
+  // class, but legible rather than decorative.
   miniLine: {
     fontFamily: AppFonts.extrabold,
-    fontSize: 6,
-    letterSpacing: 0.8,
+    fontSize: 8,
+    letterSpacing: 1.4,
+    textAlign: 'center',
     color: TICKET.inkMuted,
+  },
+  // The rustic detail. A printed rule above and below the fare class, in the
+  // ticket's own edge ink rather than a new colour, at the width of the words.
+  miniRule: {
+    alignSelf: 'stretch',
+    marginHorizontal: 6,
+    height: 1,
+    backgroundColor: TICKET.edge,
+    opacity: 0.28,
   },
   // Vertical now that the ticket is landscape: the stub is the right-hand end.
   // THE DASHES STOP AT THE BITES. At 3 they ran to the paper's very edge and

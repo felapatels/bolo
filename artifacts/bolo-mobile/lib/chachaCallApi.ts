@@ -67,6 +67,13 @@ export interface CallTurnResult {
   heard: string;
   next: { id: string; index: number; canned: boolean } | null;
   over: boolean;
+  /**
+   * Chai credited for the turn the learner just answered, journey calls only.
+   * Server-authoritative and only ever non-zero when THIS request was the one
+   * that inserted the ledger row, so a retried turn cannot show a second "+1"
+   * for chai nobody received.
+   */
+  chaiEarned?: number;
 }
 
 export interface CallEnded {

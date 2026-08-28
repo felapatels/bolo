@@ -203,6 +203,68 @@ const QUESTIONS: CallBeat[] = [
     english: "I see! What did you do today?",
     agenda: "React warmly to whatever they just said, then ask what they did today.",
   },
+  /**
+   * SIX MORE, WRITTEN 2026-08-28 BECAUSE FOUR WAS REPEATING ITSELF. The game
+   * cycled these with a modulo, so a ten turn call asked about lunch three
+   * times: "i feel like i did 10 turns and it repeated some lines". Ten
+   * questions means the game never reaches the end of the list, and the cycling
+   * is gone with them.
+   *
+   * SAME RULES AS THE FIRST FOUR, and they are the reason this is not just
+   * padding. Domestic and small, answerable by a learner a few stops in, and
+   * answerable in ONE WORD if that is all they have. A question they cannot
+   * attempt is the failure the no-score rule exists to prevent. Nothing here
+   * needs a tense they have not met, and nothing asks them to explain a reason,
+   * which is the first thing that goes when a beginner is trying to keep up.
+   */
+  {
+    id: "mausam",
+    mode: "live",
+    text: "Accha accha. Wahaan mausam kaisa hai aaj?",
+    english: "I see, I see. How is the weather there today?",
+    agenda:
+      "React warmly to whatever they just said, then ask what the weather is like where they are.",
+  },
+  {
+    id: "dost",
+    mode: "live",
+    text: "Waah! Aur tumhaara dost kaisa hai?",
+    english: "Lovely! And how is your friend?",
+    agenda:
+      "React warmly to whatever they just said, then ask about a friend of theirs. Keep it light, and never press if they do not answer.",
+  },
+  {
+    id: "chai-pasand",
+    mode: "live",
+    text: "Achha! Tumhe meethi chai pasand hai ya kadak?",
+    english: "I see! Do you like your chai sweet or strong?",
+    agenda:
+      "React warmly to whatever they just said, then ask whether they like their chai sweet or strong. A one word answer is a complete answer.",
+  },
+  {
+    id: "gaana",
+    mode: "live",
+    text: "Bahut accha. Koi gaana pasand hai tumhe?",
+    english: "Very good. Is there a song you like?",
+    agenda:
+      "React warmly to whatever they just said, then ask whether they have a favourite song. If they name one, be delighted by it and do not quiz them on it.",
+  },
+  {
+    id: "school",
+    mode: "live",
+    text: "Achha! Aaj school kaisa tha?",
+    english: "I see! How was school today?",
+    agenda:
+      "React warmly to whatever they just said, then ask how their day at school or work was. Do not assume which one; ask about their day.",
+  },
+  {
+    id: "kal",
+    mode: "live",
+    text: "Waah. Aur kal kya karoge?",
+    english: "Lovely. And what will you do tomorrow?",
+    agenda:
+      "React warmly to whatever they just said, then ask what they will do tomorrow. Accept a very short answer happily.",
+  },
 ];
 
 /** How many questions the JOURNEY call asks, counting his hello. */
@@ -227,7 +289,14 @@ export const JOURNEY_QUESTIONS = 5;
  * INDEPENDENT OF JOURNEY_QUESTIONS on purpose. The two agendas share no
  * constant, so the interruption stays five whatever this becomes.
  */
-export const GAME_MAX_TURNS = 10;
+export const GAME_QUESTIONS = 10;
+
+/**
+ * Kept as the learner-facing turn count: his hello plus ten questions is what
+ * they answer. Derived now rather than declared, so it cannot drift from the
+ * beats that actually exist.
+ */
+export const GAME_MAX_TURNS = GAME_QUESTIONS;
 
 /**
  * The journey call, start to finish. His hello is question one, then four live
@@ -236,6 +305,26 @@ export const GAME_MAX_TURNS = 10;
 export const JOURNEY_BEATS: readonly CallBeat[] = [
   HELLO,
   ...QUESTIONS.slice(0, JOURNEY_QUESTIONS - 1),
+  BYE,
+] as const;
+
+/**
+ * The game call, start to finish: his hello, ten questions, goodbye.
+ *
+ * AN EXPLICIT LIST RATHER THAN A MODULO. This used to cycle four questions with
+ * `QUESTIONS[(index - 1) % QUESTIONS.length]`, which asked about lunch three
+ * times in a ten turn call and was reported as exactly that. With ten questions
+ * written, a list says what happens and cannot repeat; the arithmetic could
+ * only ever repeat, and repeated more the better the learner did.
+ *
+ * If anyone adds an eleventh question, this asks it and the game gets longer.
+ * That is the intended direction: the ceiling should be the CONTENT running
+ * out, the way the journey call already ends, not a number defending a short
+ * list from itself.
+ */
+export const GAME_BEATS: readonly CallBeat[] = [
+  HELLO,
+  ...QUESTIONS.slice(0, GAME_QUESTIONS),
   BYE,
 ] as const;
 
@@ -249,18 +338,12 @@ export const JOURNEY_BEATS: readonly CallBeat[] = [
  */
 export function beatAt(mode: CallMode, index: number): CallBeat | undefined {
   if (index < 0) return undefined;
-  if (index === 0) return HELLO;
-  if (mode === "journey") return JOURNEY_BEATS[index];
-  // The game: his hello, then questions cycling until the ceiling, then
-  // goodbye. Cycling rather than repeating one question keeps a long game from
-  // becoming an interrogation about lunch.
-  if (index >= GAME_MAX_TURNS) return index === GAME_MAX_TURNS ? BYE : undefined;
-  return QUESTIONS[(index - 1) % QUESTIONS.length];
+  return (mode === "journey" ? JOURNEY_BEATS : GAME_BEATS)[index];
 }
 
 /** The index of the farewell, after which there is nothing. */
 function lastIndex(mode: CallMode): number {
-  return mode === "journey" ? JOURNEY_BEATS.length - 1 : GAME_MAX_TURNS;
+  return (mode === "journey" ? JOURNEY_BEATS : GAME_BEATS).length - 1;
 }
 
 /** True when this index is the beat the call ends on. */

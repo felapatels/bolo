@@ -25,6 +25,11 @@ import {
   waitForCallTurn,
 } from "../lib/chachaCallSessions";
 import { runLiveTurn, type LiveTurnResult } from "../lib/chachaCallTurn";
+import { grantTokensDetailed } from "../lib/tokenService";
+import {
+  TOKEN_EARN_CHACHA_CALL_TURN,
+  CHACHA_CALL_CHAI_MAX,
+} from "../lib/tokenEconomy";
 import {
   appendChatAudioChunk,
   completeChatAudioStream,
@@ -415,7 +420,50 @@ export function createChachaCallRouter(
       if (stream) return; // The 202 already went out.
 
       const next = beatAt(session.mode, session.beatIndex);
+
+      /**
+       * ONE CHAI FOR THE TURN THEY JUST ANSWERED, on the JOURNEY call only.
+       *
+       * Owner rulings, 2026-08-28: the games-hub call "only earns xp like other
+       * games", and "if chacha calls them on a journey, then they can earn the
+       * 5 chai maximum". So a call the learner chose pays no chai at all, and
+       * one he started pays as they go.
+       *
+       * PER TURN RATHER THAN A LUMP AT THE END, which is what makes the "+1"
+       * floating up the screen true rather than decorative, and it means a
+       * learner who has to hang up after two questions keeps the two they
+       * earned. The cap is belt and braces: the journey agenda is five
+       * questions, so the count cannot exceed five on its own, but a future
+       * agenda change must not quietly become a bigger payout.
+       *
+       * THE REFID IS THE IDEMPOTENCY. `call:<id>:<turn>` credits once at the
+       * ledger's unique index however many times a flaky connection retries the
+       * same turn. `granted` tells us whether THIS request was the one that
+       * inserted it, so the response never reports chai the learner did not
+       * just receive.
+       *
+       * Failure here never fails the turn. A call that keeps working without
+       * its chai is a small disappointment; a call that drops because the
+       * ledger hiccuped is the feature not working.
+       */
+      let chaiEarned = 0;
+      const answeredIndex = session.beatIndex - 1;
+      if (session.mode === "journey" && answeredIndex > 0 && answeredIndex <= CHACHA_CALL_CHAI_MAX) {
+        try {
+          const { granted } = await grantTokensDetailed(
+            userId,
+            "earn_chacha_call",
+            `call:${session.id}:${answeredIndex}`,
+            TOKEN_EARN_CHACHA_CALL_TURN,
+          );
+          if (granted) chaiEarned = TOKEN_EARN_CHACHA_CALL_TURN;
+        } catch {
+          // Deliberately swallowed. See above.
+        }
+      }
+
       res.json({
+        chaiEarned,
         callId: session.id,
         backdrop: session.backdrop,
         beat: {

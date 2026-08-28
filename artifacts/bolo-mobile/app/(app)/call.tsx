@@ -14,7 +14,7 @@
  *   xcrun simctl openurl booted "bolo-mobile://call?fake=1&phase=connected"
  */
 import React from 'react';
-import { BackHandler, Platform, StatusBar } from 'react-native';
+import { Alert, BackHandler, Platform, StatusBar } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { IncomingCall } from '@/components/call/IncomingCall';
 import { InCall, type CallPhase } from '@/components/call/InCall';
@@ -61,10 +61,44 @@ export default function CallScreen() {
     else router.replace('/(app)/(tabs)');
   }, []);
 
-  const { state, answer, hangUp } = useLiveCall({
+  /**
+   * A FAILED CALL SAYS WHY BEFORE IT GOES.
+   *
+   * Every failure in useLiveCall funnels through one finish(message), which
+   * stored the message and then navigated straight out. Nothing rendered it, so
+   * a missing microphone, an undeployed route and a dropped turn all produced
+   * the SAME symptom: answer, instant hang-up, silence.
+   *
+   * That cost a real afternoon on 2026-08-28. The owner reported "when i answer,
+   * it hangs up", two of us guessed at causes off identical screenshots, I put
+   * the microphone first and it was the server: a publish had failed at the
+   * database diff step and the routes were never deployed. The message the app
+   * already had, "Chacha-ji could not get through", would have said so in five
+   * seconds.
+   *
+   * The strings are already written and already in a learner's voice. They only
+   * ever needed somewhere to go. An Alert rather than a designed panel on
+   * purpose: it needs no layout on a full-bleed video screen, it cannot be
+   * missed, and the learner has to acknowledge it before they land back where
+   * they started wondering what happened.
+   */
+  const reportedRef = React.useRef<string | null>(null);
+  const leaveWithReason = React.useCallback(
+    (reason?: string | null) => {
+      if (reason && reportedRef.current !== reason) {
+        reportedRef.current = reason;
+        Alert.alert('The call ended', reason, [{ text: 'OK', onPress: leave }]);
+        return;
+      }
+      leave();
+    },
+    [leave],
+  );
+
+  const { state, answer, hangUp, startTalking, stopTalking } = useLiveCall({
     initialBackdrop,
     mode,
-    onFinished: leave,
+    onFinished: leaveWithReason,
   });
 
   /**
@@ -154,6 +188,11 @@ export default function CallScreen() {
         />
       ) : (
         <InCall
+          level={state.level}
+          chaiEarned={state.chaiEarned}
+          talking={state.status === 'talking'}
+          onTalkStart={() => void startTalking()}
+          onTalkEnd={stopTalking}
           backdrop={state.backdrop}
           // Anything that is not his turn to talk is the learner's, including
           // connecting and ending: the still is the safe face to hold.
