@@ -27,6 +27,7 @@
  */
 
 import { convertToWav } from "@workspace/integrations-openai-ai-server/audio";
+import { readPcm16 } from "./wavPcm";
 
 /** Frame length used for the short-term energy envelope. */
 const FRAME_MS = 20;
@@ -42,62 +43,7 @@ const AMPLITUDE_EPSILON = 1;
 const SNR_MIN_DB = -20;
 const SNR_MAX_DB = 60;
 
-interface PcmView {
-  samples: Int16Array;
-  sampleRate: number;
-}
-
-/**
- * Reads canonical PCM WAV bytes (as produced by convertToWav: 16 kHz mono
- * s16le) into sample values. Walks the RIFF chunk list rather than assuming a
- * 44-byte header, and takes channel 0 when a file is multi-channel.
- *
- * Returns null for anything that is not 16-bit PCM WAV.
- */
-function readPcm16(buffer: Buffer): PcmView | null {
-  if (buffer.length < 44) return null;
-  if (buffer.toString("ascii", 0, 4) !== "RIFF") return null;
-  if (buffer.toString("ascii", 8, 12) !== "WAVE") return null;
-
-  let sampleRate = 0;
-  let channels = 0;
-  let bitsPerSample = 0;
-  let dataStart = -1;
-  let dataLength = 0;
-
-  let offset = 12;
-  while (offset + 8 <= buffer.length) {
-    const chunkId = buffer.toString("ascii", offset, offset + 4);
-    const chunkSize = buffer.readUInt32LE(offset + 4);
-    const body = offset + 8;
-    if (chunkId === "fmt " && body + 16 <= buffer.length) {
-      channels = buffer.readUInt16LE(body + 2);
-      sampleRate = buffer.readUInt32LE(body + 4);
-      bitsPerSample = buffer.readUInt16LE(body + 14);
-    } else if (chunkId === "data") {
-      dataStart = body;
-      // A streamed WAV can declare a bogus size; trust the real byte count.
-      dataLength = Math.min(chunkSize, Math.max(0, buffer.length - body));
-      break;
-    }
-    offset = body + chunkSize + (chunkSize % 2);
-  }
-
-  if (dataStart < 0 || sampleRate <= 0 || channels <= 0) return null;
-  if (bitsPerSample !== 16) return null;
-
-  const frameBytes = 2 * channels;
-  const frameCount = Math.floor(dataLength / frameBytes);
-  if (frameCount <= 0) return null;
-
-  const samples = new Int16Array(frameCount);
-  for (let i = 0; i < frameCount; i++) {
-    // Channel 0 only: convertToWav emits mono, and for anything else one
-    // channel is a faithful enough sample of the room.
-    samples[i] = buffer.readInt16LE(dataStart + i * frameBytes);
-  }
-  return { samples, sampleRate };
-}
+export { readPcm16, type PcmView } from "./wavPcm";
 
 function rms(samples: Int16Array, from: number, to: number): number {
   let sum = 0;
