@@ -113,5 +113,20 @@ play-*.json
 # The PNGs are committed (same as covers/); the 13MB archive of them is not.
 artifacts/bolo-social-clips/*.zip
 
+# THE WHOLE PACKAGE, ignored rather than merely removed, on the owner's word
+# 2026-08-28: "no i don't need it, its old and outdated."
+#
+# IT HAS BEEN REMOVED FROM MAIN TWICE AND HAS COME BACK TWICE, both times by a
+# staging accident on an unrelated commit rather than by anybody deciding to
+# keep it. f17dd819 removed it on 2026-08-23 and its own message records how it
+# got in: `git add -A -- ':!artifacts/bolo-social-clips'`, "a pathspec of
+# nothing but exclusions does not reliably exclude". ef3a85fb put it back on
+# 2026-08-27 through the shared git index, since several sessions work this
+# directory at once and `git commit` takes the whole index.
+#
+# Removing it a third time without this line would just wait for the third
+# accident. Nothing in the repo imports it; the files stay on disk.
+artifacts/bolo-social-clips/
+
 # Preflight sheets from scripts/src/previewWritingDemo.ts. Look at them, do not commit them.
 writing-demo-*.html
