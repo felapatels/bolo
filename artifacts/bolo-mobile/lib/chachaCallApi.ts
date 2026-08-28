@@ -93,6 +93,23 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/**
+ * THE API IS MOUNTED AT /api AND THE BASE URL IS ONLY THE DOMAIN.
+ *
+ * app.ts does `app.use("/api", router)`, and the generated client carries the
+ * prefix in each operation path (`/api/healthz`, `/api/languages`) rather than
+ * in the base. This client has to do the same.
+ *
+ * It did not, for a while, and the failure would have been horrible to read:
+ * every request would have gone to https://<domain>/openai/... , missed the API
+ * entirely, hit the web app's catch-all, come back 200 with a page of HTML, and
+ * died in res.json() as a parse error. It looked like a working client because
+ * nothing on this Mac ever pointed at a real server: Metro here runs without
+ * EXPO_PUBLIC_DOMAIN, so setBaseUrl is never called and every call failed at
+ * `base()` long before the path mattered.
+ */
+const API_PREFIX = '/api';
+
 function base(): string {
   const b = getConfiguredBaseUrl();
   if (!b) throw new CallApiError(0, 'API base URL is not configured');
@@ -105,16 +122,21 @@ export async function callAudioHeaders(): Promise<Record<string, string>> {
   return authHeaders();
 }
 
-/** Absolute URL for a path the server handed back relative. */
+/**
+ * Absolute URL for a path the server handed back relative.
+ *
+ * The audio URL comes back as `/openai/chat/audio/<id>`, which is the path
+ * WITHIN the api router, so it needs the same prefix everything else does.
+ */
 export function absoluteCallUrl(path: string): string {
-  return `${base()}${path}`;
+  return `${base()}${API_PREFIX}${path}`;
 }
 
 async function request<T>(
   path: string,
   init: RequestInit & { headers?: Record<string, string> } = {},
 ): Promise<T | null> {
-  const res = await fetch(`${base()}${path}`, {
+  const res = await fetch(`${base()}${API_PREFIX}${path}`, {
     ...init,
     headers: {
       'content-type': 'application/json',
