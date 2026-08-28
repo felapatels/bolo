@@ -8,9 +8,10 @@ import { romanizeTranscript } from "../lib/romanizeTranscript";
 import { CHACHA_AUDIO_FORMAT } from "../lib/chachaStrings";
 import {
   CALL_BEATS,
+  type CallMode,
   CALL_CANNED_LINES,
   CALL_NOTHING_HEARD,
-  LEARNER_TURNS,
+  learnerTurnsFor,
   beatAt,
   callLineCacheKey,
   isFinalBeat,
@@ -203,8 +204,14 @@ export function createChachaCallRouter(
         return;
       }
 
+      // The journey's interruption unless the games hub says otherwise. The
+      // default is the safe one: five questions rather than twenty.
+      const mode: CallMode =
+        (req.body as { mode?: unknown } | undefined)?.mode === "game"
+          ? "game"
+          : "journey";
       const language = await deps.resolveLanguage(userId);
-      const session = createCallSession(userId, language.code, language.name);
+      const session = createCallSession(userId, language.code, language.name, mode);
       deps.warmConnection();
 
       const hello = CALL_BEATS[0];
@@ -220,9 +227,11 @@ export function createChachaCallRouter(
           canned: true,
           isFinal: false,
         },
+        mode,
         // How many times the learner will be asked to speak. Known before the
-        // call starts, which is the point of a semi-scripted agenda.
-        learnerTurns: LEARNER_TURNS,
+        // call starts, which is the point of a semi-scripted agenda: five for
+        // the journey's interruption, twenty for the chosen game.
+        learnerTurns: learnerTurnsFor(mode),
         // The clip that loops behind him for this call and no other. Fixed at
         // creation; a client that reconnects gets the same one back off every
         // turn rather than picking again and changing cars mid-sentence.
@@ -271,7 +280,7 @@ export function createChachaCallRouter(
       }
       const format = body.format === "mp3" ? "mp3" : "wav";
 
-      const beat = beatAt(session.beatIndex);
+      const beat = beatAt(session.mode, session.beatIndex);
       if (!beat) {
         res.status(409).json({ error: "Call is already over" });
         return;
@@ -405,7 +414,7 @@ export function createChachaCallRouter(
 
       if (stream) return; // The 202 already went out.
 
-      const next = beatAt(session.beatIndex);
+      const next = beatAt(session.mode, session.beatIndex);
       res.json({
         callId: session.id,
         backdrop: session.backdrop,
@@ -418,7 +427,7 @@ export function createChachaCallRouter(
           romanized: canned ? null : chachaRomanized || null,
           english: canned ? fallback.english : null,
           canned,
-          isFinal: isFinalBeat(session.beatIndex - 1),
+          isFinal: isFinalBeat(session.mode, session.beatIndex - 1),
         },
         heard: learnerText,
         next: next
@@ -474,7 +483,7 @@ export function createChachaCallRouter(
         return;
       }
 
-      const next = beatAt(session.beatIndex);
+      const next = beatAt(session.mode, session.beatIndex);
       res.json({
         index,
         text: turn.chacha,

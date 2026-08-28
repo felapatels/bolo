@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
 import {
-  CALL_BEATS,
+  callHasRunOut,
   pickBackdrop,
   type CallBackdrop,
-  type CallBeatId,
+  type CallMode,
 } from "./chachaCallScript";
 
 /**
@@ -28,7 +28,7 @@ import {
 export type CallOutcome = "in_progress" | "answered" | "abandoned";
 
 export interface CallTurn {
-  beatId: CallBeatId;
+  beatId: string;
   /** His line romanized, for the caption's second line. Null when the script
    * cannot be romanized honestly. */
   romanized: string | null;
@@ -55,6 +55,12 @@ export interface CallSession {
    * move him to another car in the middle of a sentence.
    */
   backdrop: CallBackdrop;
+  /**
+   * Which call this is. Fixed at creation: the journey's interruption is five
+   * questions and the games version runs to twenty, and a call must not change
+   * its own length halfway through.
+   */
+  mode: CallMode;
   /**
    * The journey language this call is conducted in, fixed at creation for the
    * same reason the backdrop is: a learner who switches language mid-call would
@@ -108,6 +114,7 @@ export function createCallSession(
   userId: string,
   languageCode: string,
   languageName: string,
+  mode: CallMode = "journey",
   now: number = Date.now(),
   random: () => number = Math.random,
 ): CallSession {
@@ -116,6 +123,7 @@ export function createCallSession(
     id: randomBytes(16).toString("hex"),
     userId,
     backdrop: pickBackdrop(random),
+    mode,
     languageCode,
     languageName,
     // The opening beat is served by start(), so the next beat to run is 1.
@@ -184,7 +192,7 @@ export function waitForCallTurn(
 
 /** True once every beat has run. */
 export function callIsOver(s: CallSession): boolean {
-  return s.beatIndex >= CALL_BEATS.length;
+  return callHasRunOut(s.mode, s.beatIndex);
 }
 
 /**

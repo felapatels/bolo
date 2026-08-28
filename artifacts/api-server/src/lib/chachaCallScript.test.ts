@@ -9,7 +9,10 @@ import {
   CALL_CANNED_LINES,
   CALL_NOTHING_HEARD,
   CALL_PERSONA_PROMPT,
-  LEARNER_TURNS,
+  JOURNEY_BEATS,
+  JOURNEY_QUESTIONS,
+  GAME_MAX_TURNS,
+  learnerTurnsFor,
   beatAt,
   buildLivePrompt,
   callLineCacheKey,
@@ -26,18 +29,16 @@ import { chachaLineCacheKey, CHACHA_TTS_VOICE } from "./chachaStrings";
 // key that cannot collide with his chai-stall clips.
 
 test("the call is bounded and its beats are in a fixed order", () => {
-  assert.deepEqual(
-    CALL_BEATS.map((b) => b.id),
-    [...CALL_BEAT_IDS],
-  );
-  assert.equal(LEARNER_TURNS, CALL_BEATS.length - 1);
+  assert.deepEqual(JOURNEY_BEATS.map((b) => b.id).slice(0, 1), ["hello"]);
+  assert.equal(JOURNEY_BEATS[JOURNEY_BEATS.length - 1].id, "bye");
+  assert.equal(learnerTurnsFor("journey"), JOURNEY_BEATS.length - 1);
   // Short on purpose: a ringing phone you cannot keep up with is pressure.
-  assert.ok(CALL_BEATS.length <= 5, "a first call should stay short");
+  assert.equal(learnerTurnsFor("journey"), JOURNEY_QUESTIONS, "the journey asks five questions");
 });
 
 test("the first and last beats are canned, which is what hides the cold start", () => {
-  assert.equal(CALL_BEATS[0].mode, "canned");
-  assert.equal(CALL_BEATS[CALL_BEATS.length - 1].mode, "canned");
+  assert.equal(JOURNEY_BEATS[0].mode, "canned");
+  assert.equal(JOURNEY_BEATS[JOURNEY_BEATS.length - 1].mode, "canned");
 });
 
 test("every live beat carries a fallback line and an agenda", () => {
@@ -120,10 +121,10 @@ test("a reworded line rotates its cache key rather than serving the stale clip",
 });
 
 test("beatAt and isFinalBeat walk the call to its end and stop", () => {
-  assert.equal(beatAt(0)?.id, "hello");
-  assert.equal(isFinalBeat(0), false);
-  assert.equal(isFinalBeat(CALL_BEATS.length - 1), true);
-  assert.equal(beatAt(CALL_BEATS.length), undefined);
+  assert.equal(beatAt("journey", 0)?.id, "hello");
+  assert.equal(isFinalBeat("journey", 0), false);
+  assert.equal(isFinalBeat("journey", JOURNEY_BEATS.length - 1), true);
+  assert.equal(beatAt("journey", JOURNEY_BEATS.length), undefined);
 });
 
 test("there are exactly two backdrops and they are different scenes", () => {
@@ -175,5 +176,35 @@ test("he never tells the learner where anything is in the app", () => {
       /\b(tab|screen|button|menu|tap|home page)\b/i,
       `${beat.id} points at the app`,
     );
+  }
+});
+
+
+test("the journey asks five questions and then says goodbye", () => {
+  // Owner ruling: "journey is only 5". His hello carries the first question.
+  assert.equal(learnerTurnsFor("journey"), 5);
+  assert.equal(JOURNEY_BEATS[0].id, "hello");
+  assert.equal(JOURNEY_BEATS[JOURNEY_BEATS.length - 1].id, "bye");
+  const live = JOURNEY_BEATS.filter((b) => b.mode === "live");
+  assert.equal(live.length, 4, "hello is question one, so four more are live");
+});
+
+test("the game runs to twenty turns, cycling its questions", () => {
+  assert.equal(learnerTurnsFor("game"), GAME_MAX_TURNS);
+  assert.equal(beatAt("game", 0)?.id, "hello");
+  assert.equal(beatAt("game", GAME_MAX_TURNS)?.id, "bye");
+  assert.equal(beatAt("game", GAME_MAX_TURNS + 1), undefined);
+  // It must not ask the same thing twenty times running.
+  const asked = new Set(
+    Array.from({ length: 8 }, (_, i) => beatAt("game", i + 1)?.id),
+  );
+  assert.ok(asked.size > 1, "the game repeats one question forever");
+});
+
+test("every beat a game can reach has a line and an agenda", () => {
+  for (let i = 1; i < GAME_MAX_TURNS; i++) {
+    const beat = beatAt("game", i)!;
+    assert.ok(beat.text.trim(), `game beat ${i} has no fallback line`);
+    assert.ok(beat.agenda?.trim(), `game beat ${i} has nowhere to steer`);
   }
 });

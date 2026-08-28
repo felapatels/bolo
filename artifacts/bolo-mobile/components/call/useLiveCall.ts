@@ -21,6 +21,7 @@ import {
   startCall,
 } from '@/lib/chachaCallApi';
 import { Sentry } from '@/lib/sentry';
+import type { CallMode } from '@/lib/chachaCallApi';
 import type { CallBackdropId } from './backdrops';
 
 /**
@@ -71,11 +72,20 @@ export interface LiveCallState {
 export interface UseLiveCallOptions {
   /** Backdrop to show while ringing, before the server has told us its choice. */
   initialBackdrop: CallBackdropId;
+  /**
+   * Which call this is. The journey's interruption unless the games hub says
+   * otherwise; the default is the shorter one on purpose.
+   */
+  mode?: CallMode;
   /** Called once the call is over and the screen should go away. */
   onFinished: () => void;
 }
 
-export function useLiveCall({ initialBackdrop, onFinished }: UseLiveCallOptions) {
+export function useLiveCall({
+  initialBackdrop,
+  mode = 'journey',
+  onFinished,
+}: UseLiveCallOptions) {
   const recorder = useAudioRecorder(RECORDING_PRESET);
   const recorderState = useAudioRecorderState(recorder, 100);
 
@@ -239,7 +249,7 @@ export function useLiveCall({ initialBackdrop, onFinished }: UseLiveCallOptions)
         finish('Bolo needs your microphone for a call.');
         return;
       }
-      const call = await startCall();
+      const call = await startCall(mode);
       if (!aliveRef.current) return;
       callIdRef.current = call.callId;
       patch({
@@ -265,7 +275,7 @@ export function useLiveCall({ initialBackdrop, onFinished }: UseLiveCallOptions)
     } catch (err) {
       finish('Chacha-ji could not get through.', err);
     }
-  }, [patch, finish, listen]);
+  }, [patch, finish, listen, mode]);
 
   const hangUp = React.useCallback(async () => {
     const callId = callIdRef.current;

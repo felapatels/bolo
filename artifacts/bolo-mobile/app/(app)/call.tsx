@@ -20,6 +20,7 @@ import { IncomingCall } from '@/components/call/IncomingCall';
 import { InCall, type CallPhase } from '@/components/call/InCall';
 import { isCallBackdropId, type CallBackdropId } from '@/components/call/backdrops';
 import { useLiveCall } from '@/components/call/useLiveCall';
+import type { CallMode } from '@/lib/chachaCallApi';
 
 /**
  * SCAFFOLDING, NOT CONTENT, and only reachable with ?fake=1. Gujarati, and
@@ -38,9 +39,13 @@ export default function CallScreen() {
   const params = useLocalSearchParams<{
     backdrop?: string;
     fake?: string;
+    mode?: string;
     phase?: string;
     say?: string;
   }>();
+  // The games hub opens this with ?mode=game; the journey's interruption does
+  // not pass one, and the default is deliberately the shorter call.
+  const mode: CallMode = params.mode === 'game' ? 'game' : 'journey';
   const fake = params.fake === '1';
 
   const [initialBackdrop] = React.useState<CallBackdropId>(() =>
@@ -58,6 +63,7 @@ export default function CallScreen() {
 
   const { state, answer, hangUp } = useLiveCall({
     initialBackdrop,
+    mode,
     onFinished: leave,
   });
 

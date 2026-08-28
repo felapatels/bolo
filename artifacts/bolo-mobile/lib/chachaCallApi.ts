@@ -36,8 +36,17 @@ export interface CallBackdrop {
   seconds: number;
 }
 
+/**
+ * TWO CALLS, NOT ONE. `journey` is the unsolicited interruption: five questions
+ * and he says goodbye, bounded because nobody asked for it. `game` is the one
+ * on the games hub, chosen as often as the learner likes and capped at twenty
+ * turns. Defaulting to `journey` is the safe direction: the shorter call.
+ */
+export type CallMode = 'journey' | 'game';
+
 export interface CallStart {
   callId: string;
+  mode: CallMode;
   beat: CallBeat;
   backdrop: CallBackdrop;
   learnerTurns: number;
@@ -124,8 +133,11 @@ async function request<T>(
 }
 
 /** He rings. Returns his canned hello, already synthesized. */
-export async function startCall(): Promise<CallStart> {
-  return (await request<CallStart>('/openai/chacha-call/start', { method: 'POST' }))!;
+export async function startCall(mode: CallMode = 'journey'): Promise<CallStart> {
+  return (await request<CallStart>('/openai/chacha-call/start', {
+    method: 'POST',
+    body: JSON.stringify({ mode }),
+  }))!;
 }
 
 /**

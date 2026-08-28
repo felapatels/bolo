@@ -145,7 +145,7 @@ test("a live turn answers in his generated voice and moves the call on", async (
   assert.equal(beat.canned, false);
   assert.equal(beat.text, "Waah beta, bahut accha!");
   assert.equal(json.heard as never, "roti aur dal");
-  assert.equal((json.next as never as { id: string }).id, "stall");
+  assert.equal((json.next as never as { id: string }).id, "ghar");
   assert.equal(json.over as never, false);
   assert.equal(json.format as never, "mp3");
 });
@@ -238,7 +238,7 @@ test("a learner who says nothing gets the gentle line, not a retry", async () =>
   assert.ok(cannedCalls.includes("nothingHeard"));
   assert.equal(json.heard as never, "");
   // The call still advances. Nobody is asked to try again.
-  assert.equal((json.next as never as { id: string }).id, "stall");
+  assert.equal((json.next as never as { id: string }).id, "ghar");
 });
 
 test("no response anywhere carries a score", async () => {
@@ -438,7 +438,7 @@ test("a turn already taken is returned without waiting", async () => {
   assert.ok(Date.now() - t0 < 500, "it waited for something already there");
   assert.equal(json!.text as never, "Waah beta, bahut accha!");
   assert.equal(json!.heard as never, "roti aur dal");
-  assert.equal((json!.next as never as { id: string }).id, "stall");
+  assert.equal((json!.next as never as { id: string }).id, "ghar");
 });
 
 test("the caption carries both lines", async () => {

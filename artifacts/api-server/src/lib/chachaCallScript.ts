@@ -108,23 +108,35 @@ export function pickBackdrop(random: () => number = Math.random): CallBackdrop {
   return CALL_BACKDROPS[i];
 }
 
-/** Ordered ids of the beats in one call. */
-export const CALL_BEAT_IDS = ["hello", "khaana", "stall", "bye"] as const;
-
-export type CallBeatId = (typeof CALL_BEAT_IDS)[number];
+/**
+ * TWO CALLS, NOT ONE, ruled by the owner 2026-08-28:
+ *
+ *   "chacha ji's phone call game is only accessible from the games page.
+ *    during the journey, the call is an interruption."
+ *
+ *   journey  UNSOLICITED. He rings, once per zone, zone 1 at station 3. FIVE
+ *            QUESTIONS and then he says goodbye. Bounded because it is not
+ *            chosen: an interruption that will not end is a nag.
+ *   game     CHOSEN, from the games hub, as often as the learner likes.
+ *            UNLIMITED questions; it ends when they hang up (and later, when
+ *            they take a third strike). You do not ration a game somebody
+ *            opened on purpose.
+ *
+ * DO NOT CONFLATE THEM. A session read "the game can trigger it" as a second
+ * trigger for one feature and started reasoning about a shared budget. The
+ * budget belongs to the interruption alone, and the games side needs an ENTRY
+ * rather than a trigger.
+ */
+export type CallMode = "journey" | "game";
 
 export type CallBeatMode = "canned" | "live";
 
 export interface CallBeat {
-  id: CallBeatId;
+  id: string;
   mode: CallBeatMode;
   /**
    * What he says when this beat runs canned. For a LIVE beat this is the
    * fallback, used when the model gives us nothing usable.
-   *
-   * Romanized Hinglish for every learner regardless of journey language, the
-   * same rule his stall lines follow: he is the CHARACTER speaking, not
-   * content to learn, so this is never localized and never graded.
    */
   text: string;
   /** On-screen gloss beneath the line. "beta" stays untranslated, as it does
@@ -132,34 +144,49 @@ export interface CallBeat {
   english: string;
   /**
    * What he is steering the conversation to when this beat runs LIVE. This is
-   * the agenda, and it is the whole reason the call is bounded: he has
-   * somewhere to be in the conversation, so it cannot wander.
+   * the agenda, and it is what stops the call wandering.
    */
   agenda?: string;
 }
 
+/** He opens the same way in both, and his hello carries the first question. */
+const HELLO: CallBeat = {
+  id: "hello",
+  mode: "canned",
+  text: "Arre beta! Chacha-ji bol raha hoon. Kaise ho?",
+  english: "Hey beta! It's Chacha-ji calling. How are you?",
+};
+
+/** And closes the same way, when there is a close. */
+const BYE: CallBeat = {
+  id: "bye",
+  mode: "canned",
+  text: "Chalo beta, phir baat karenge. Apna khayal rakhna.",
+  english: "Alright beta, we'll talk again. Take care of yourself.",
+};
+
 /**
- * The call, start to finish. Four beats, three of which the learner speaks
- * into, two live model turns.
+ * The things he asks about, in order.
  *
- * Deliberately short. A ringing phone you cannot keep up with is already
- * pressure on a shy learner, and the answer to that is a call that ends before
- * it becomes an ordeal, not a call with an escape hatch.
+ * Deliberately domestic and small: what you ate, who is at home, what you did.
+ * A learner a few stops into a journey has words for those and not for much
+ * else, and a question they cannot attempt is the failure the no-score rule
+ * exists to prevent.
  */
-export const CALL_BEATS: readonly CallBeat[] = [
-  {
-    id: "hello",
-    mode: "canned",
-    text: "Arre beta! Chacha-ji bol raha hoon. Kaise ho?",
-    english: "Hey beta! It's Chacha-ji calling. How are you?",
-  },
+const QUESTIONS: CallBeat[] = [
   {
     id: "khaana",
     mode: "live",
     text: "Bahut accha. Aur bolo, aaj kya khaya?",
     english: "Very good. So tell me, what did you eat today?",
-    agenda:
-      "React warmly to whatever they just said, then ask what they ate today.",
+    agenda: "React warmly to whatever they just said, then ask what they ate today.",
+  },
+  {
+    id: "ghar",
+    mode: "live",
+    text: "Waah. Ghar pe sab theek hai?",
+    english: "Lovely. Is everyone well at home?",
+    agenda: "React warmly to whatever they just said, then ask who is at home with them.",
   },
   {
     id: "stall",
@@ -167,15 +194,91 @@ export const CALL_BEATS: readonly CallBeat[] = [
     text: "Waah. Aaj stall pe bahut bheed thi, chai khatam ho gayi!",
     english: "Lovely. The stall was so busy today, we ran out of chai!",
     agenda:
-      "React warmly to whatever they just said, then tell them one small thing about your chai stall today.",
+      "React warmly to whatever they just said, then tell them one small thing about your chai stall today and ask if they like chai.",
   },
   {
-    id: "bye",
-    mode: "canned",
-    text: "Chalo beta, phir baat karenge. Apna khayal rakhna.",
-    english: "Alright beta, we'll talk again. Take care of yourself.",
+    id: "din",
+    mode: "live",
+    text: "Achha! Aaj tumne kya kiya?",
+    english: "I see! What did you do today?",
+    agenda: "React warmly to whatever they just said, then ask what they did today.",
   },
+];
+
+/** How many questions the JOURNEY call asks, counting his hello. */
+export const JOURNEY_QUESTIONS = 5;
+
+/**
+ * The GAME's ceiling, in learner turns. Owner ruling, 2026-08-28: "lets put max
+ * 20 turns on games."
+ *
+ * A chosen game is not rationed the way an interruption is, but it still has to
+ * END. Without a ceiling a call runs until the learner hangs up, which sounds
+ * generous and is actually a game with no finish: nothing to reach, and a
+ * session that only ever stops because somebody got bored. Twenty turns is
+ * roughly five minutes of talking, and it is the OTHER way out beside three
+ * strikes rather than a replacement for it.
+ */
+export const GAME_MAX_TURNS = 20;
+
+/**
+ * The journey call, start to finish. His hello is question one, then four live
+ * questions, then goodbye: five questions and five turns for the learner.
+ */
+export const JOURNEY_BEATS: readonly CallBeat[] = [
+  HELLO,
+  ...QUESTIONS.slice(0, JOURNEY_QUESTIONS - 1),
+  BYE,
 ] as const;
+
+/**
+ * The beat at an index.
+ *
+ * The JOURNEY call runs out of beats, which is what ends it. The GAME call
+ * never does: past the opening it cycles the questions forever, so it ends only
+ * when the learner hangs up. Cycling rather than repeating one question keeps a
+ * long game from becoming an interrogation about lunch.
+ */
+export function beatAt(mode: CallMode, index: number): CallBeat | undefined {
+  if (index < 0) return undefined;
+  if (index === 0) return HELLO;
+  if (mode === "journey") return JOURNEY_BEATS[index];
+  // The game: his hello, then questions cycling until the ceiling, then
+  // goodbye. Cycling rather than repeating one question keeps a long game from
+  // becoming an interrogation about lunch.
+  if (index >= GAME_MAX_TURNS) return index === GAME_MAX_TURNS ? BYE : undefined;
+  return QUESTIONS[(index - 1) % QUESTIONS.length];
+}
+
+/** The index of the farewell, after which there is nothing. */
+function lastIndex(mode: CallMode): number {
+  return mode === "journey" ? JOURNEY_BEATS.length - 1 : GAME_MAX_TURNS;
+}
+
+/** True when this index is the beat the call ends on. */
+export function isFinalBeat(mode: CallMode, index: number): boolean {
+  return index === lastIndex(mode);
+}
+
+/** True once the call has run out of beats. */
+export function callHasRunOut(mode: CallMode, index: number): boolean {
+  return index > lastIndex(mode);
+}
+
+/** How many times the learner speaks before he says goodbye. */
+export function learnerTurnsFor(mode: CallMode): number {
+  return lastIndex(mode);
+}
+
+/** Ordered ids of every beat that can appear, for prewarm and for tests. */
+export const CALL_BEAT_IDS: readonly string[] = [
+  HELLO.id,
+  ...QUESTIONS.map((q) => q.id),
+  BYE.id,
+];
+
+/** Every beat, for callers that need the whole set rather than a sequence. */
+export const CALL_BEATS: readonly CallBeat[] = [HELLO, ...QUESTIONS, BYE];
 
 /**
  * What he says when the learner's audio arrives empty or undecodable.
@@ -198,9 +301,6 @@ export const CALL_CANNED_LINES: Record<string, { text: string; english: string }
   ),
   nothingHeard: CALL_NOTHING_HEARD,
 };
-
-/** How many times the learner speaks in one call. */
-export const LEARNER_TURNS = CALL_BEATS.length - 1;
 
 /**
  * Version tag baked into the call clips' cache keys. Bump when any LINE'S
@@ -234,16 +334,6 @@ export function callLineCacheKey(
 ): string {
   const lang = languageCode.trim().toLowerCase() || "und";
   return `bolo-chacha-call-${CALL_CACHE_KEY_VERSION}::${provider}::${model}::${voice}::${instructionsDigest}::${lang}::${lineKey}`;
-}
-
-/** Beat at an index, or undefined once the call has run out of them. */
-export function beatAt(index: number): CallBeat | undefined {
-  return CALL_BEATS[index];
-}
-
-/** True when this index is the last beat, after which the call is over. */
-export function isFinalBeat(index: number): boolean {
-  return index === CALL_BEATS.length - 1;
 }
 
 /**
