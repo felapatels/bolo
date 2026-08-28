@@ -50,6 +50,7 @@ import { synthesizeVerifiedPhraseAudio, type SynthesizeFn } from "./phraseAudioS
 import { backupReplacedTake, type BackupFn } from "./ttsAuditBackup";
 import { logger as defaultLogger } from "./logger";
 import { pool } from "./ttsUtils";
+import { speechCapabilityFor } from "./speechCapability";
 
 /** Phrases inspected per batch. Sized so a batch finishes well inside an HTTP request. */
 export const DEFAULT_BATCH_SIZE = 40;
@@ -135,24 +136,6 @@ export type AuditBatchOptions = {
   deps?: { transcribe?: TranscribeFn; synthesize?: SynthesizeFn; backup?: BackupFn };
 };
 
-/**
- * Per-language speech capability, cached for the process lifetime: it is a
- * seeded content property, and the playback path must not pay a query for it
- * on every synthesis.
- */
-const capabilityCache = new Map<string, SpeechCapability | null>();
-
-async function speechCapabilityFor(languageCode: string): Promise<SpeechCapability | null> {
-  const cached = capabilityCache.get(languageCode);
-  if (cached !== undefined) return cached;
-  const row = await db.query.languagesTable.findFirst({
-    where: eq(languagesTable.code, languageCode),
-    columns: { speechCapability: true },
-  });
-  const capability = (row?.speechCapability as SpeechCapability | undefined) ?? null;
-  capabilityCache.set(languageCode, capability);
-  return capability;
-}
 
 /**
  * Listen to a take that has just been served and cached, and drop it if it

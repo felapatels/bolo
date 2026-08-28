@@ -29,6 +29,7 @@ import {
 } from "@workspace/db";
 import { and, asc, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { buildPhraseStats, type PhraseStats } from "./progressMetrics";
+import { isSpeechScored } from "./speechCapability";
 import {
   deriveGroupStatuses,
   isZoneComplete,
@@ -56,6 +57,13 @@ export interface GroupUnlockContext {
   stats: Map<number, PhraseStats>;
   testedOutGroupIds: Set<number>;
   persistedCompletedGroupIds: Set<number>;
+  /**
+   * False only where the language's speech is never scored ('unsupported').
+   * See deriveGroupStatuses speechScored for why the sequential gate has to
+   * stand down there. Resolved from a process-lifetime cache, so it costs no
+   * query after the first call per language.
+   */
+  speechScored: boolean;
 }
 
 export interface UnlockDerivation {
@@ -76,6 +84,10 @@ export async function loadGroupUnlockContext(
   languageCode: string,
   opts: { stats?: Map<number, PhraseStats> } = {},
 ): Promise<GroupUnlockContext> {
+  // Joins the SAME parallel round trip the doc comment promises, so the
+  // capability lookup never adds a serial hop. After the first call per
+  // language it is a cache hit and costs nothing at all.
+  const speechScored = await isSpeechScored(languageCode);
   const [groups, members, [unassigned], progressRows, attempts] =
     await Promise.all([
       db
@@ -173,6 +185,7 @@ export async function loadGroupUnlockContext(
         .filter((r) => r.status === "completed")
         .map((r) => r.lessonGroupId),
     ),
+    speechScored,
   };
 }
 
@@ -330,6 +343,7 @@ export async function deriveAndLatchUnlock(
     ctx.stats,
     ctx.testedOutGroupIds,
     ctx.persistedCompletedGroupIds,
+    ctx.speechScored,
   );
 
   const newlyCompleted = ctx.groups
@@ -444,6 +458,7 @@ export async function unlockedGroupIdsByCategory(
   phrases: { id: number; categoryId: number; lessonGroupId: number | null }[],
   stats: Map<number, PhraseStats>,
 ): Promise<Map<number, Set<number>>> {
+  const speechScored = await isSpeechScored(languageCode);
   const [groups, progressRows] = await Promise.all([
     db
       .select({
@@ -513,6 +528,7 @@ export async function unlockedGroupIdsByCategory(
       stats,
       testedOutGroupIds,
       persistedCompletedGroupIds,
+      speechScored,
     );
     const unlocked = new Set<number>();
     for (const [gid, status] of statuses) {

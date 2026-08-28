@@ -61,6 +61,26 @@ export function deriveGroupStatuses(
   // Persisted completion latch: groups that were EVER observed completed stay
   // completed even if replenishment later grew their denominator.
   completedGroupIds: Set<number> = new Set(),
+  // YOU CANNOT GATE ON A MEASUREMENT YOU HAVE DECLINED TO TAKE.
+  //
+  // False for a language whose speechCapability is 'unsupported' (Bodo and
+  // Manipuri as of 2026-08-28). Those learners get the listen-record-compare
+  // ear-training flow instead of scoring, and BOTH clients deliberately return
+  // before createAttempt: web practice.tsx, mobile practice/[id].tsx, each
+  // commented "no score, no band, no XP". Correct on its own terms.
+  //
+  // The consequence was not designed. Both doors out of a group need a score:
+  // `completed` needs bestScore >= MASTERY_THRESHOLD on 80% of its phrases, and
+  // `tested_out` needs the server-signed evaluation token that only the scoring
+  // route issues. With no attempt rows and no tokens, neither can ever happen,
+  // so group two locked forever. A learner picked Bodo, was told honestly that
+  // it is listening-only, and hit a wall at the second stop with no route past
+  // it. Found by tracing 2026-08-28.
+  //
+  // So the sequential gate simply does not apply where nothing is scored.
+  // Completion and tested_out still latch normally if they ever do occur, which
+  // is what makes this safe to switch back on the day recognition arrives.
+  speechScored: boolean = true,
 ): Map<number, LessonGroupStatus> {
   const out = new Map<number, LessonGroupStatus>();
   let previousClears = true; // first group is always unlocked
@@ -82,7 +102,7 @@ export function deriveGroupStatuses(
       status = "locked";
     }
     out.set(g.id, status);
-    previousClears = completed || testedOut;
+    previousClears = !speechScored || completed || testedOut;
   }
   return out;
 }
