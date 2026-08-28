@@ -47,11 +47,11 @@ import {
   StyleSheet,
   Text,
   View,
-  type ImageSourcePropType,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
+import { CALL_POSTERS, type CallBackdropId } from './backdrops';
 import { hapticHeavy, hapticLight, hapticMedium } from '@/lib/haptics';
 
 /** One breath of the ring, in and out. Slow: he is patient, not urgent. */
@@ -119,20 +119,6 @@ export function useRingingHaptics(active: boolean) {
     };
   }, [active]);
 }
-
-export type CallBackdropId = 'driving' | 'backseat';
-
-/**
- * The posters, keyed the way the SERVER names its backdrops. The API picks one
- * per call and returns the same one on every turn, so a call never changes car
- * mid-sentence; this map is only how the client resolves that id to a bundled
- * asset. Keep the keys in step with CALL_BACKDROPS in the api-server's
- * chachaCallScript.ts.
- */
-export const CALL_POSTERS: Record<CallBackdropId, ImageSourcePropType> = {
-  driving: require('@/assets/call/chacha-call-driving-poster.jpg'),
-  backseat: require('@/assets/call/chacha-call-backseat-poster.jpg'),
-};
 
 export interface IncomingCallProps {
   /** Which backdrop this call uses. The server decides; the client obeys. */
