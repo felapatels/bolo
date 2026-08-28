@@ -292,9 +292,15 @@ export const JOURNEY_QUESTIONS = 5;
 export const GAME_QUESTIONS = 10;
 
 /**
- * Kept as the learner-facing turn count: his hello plus ten questions is what
- * they answer. Derived now rather than declared, so it cannot drift from the
- * beats that actually exist.
+ * The learner-facing turn count. Derived rather than declared, so it cannot
+ * drift from the beats that actually exist.
+ *
+ * OFF BY ONE FROM e9889464 UNTIL 2026-08-28, and `chachaCallScript.test.ts` had
+ * been failing on it ever since: `learnerTurnsFor("game")` returned ELEVEN while
+ * this constant, the /start response and the owner's ruling all said ten. The
+ * cause was GAME_BEATS listing ten questions AFTER the hello when the modulo it
+ * replaced had counted the hello as one of them. Fixed in GAME_BEATS below, not
+ * here, because the beats are what a learner actually answers.
  */
 export const GAME_MAX_TURNS = GAME_QUESTIONS;
 
@@ -324,7 +330,12 @@ export const JOURNEY_BEATS: readonly CallBeat[] = [
  */
 export const GAME_BEATS: readonly CallBeat[] = [
   HELLO,
-  ...QUESTIONS.slice(0, GAME_QUESTIONS),
+  // MINUS ONE BECAUSE HIS HELLO CARRIES THE FIRST QUESTION, exactly as
+  // JOURNEY_BEATS does a few lines up. Without it the game ran to eleven
+  // learner turns while GAME_MAX_TURNS, the /start response and the owner's
+  // "change max turns to 10" all said ten. Ten questions are written; the game
+  // asks nine of them after the hello and still never repeats one.
+  ...QUESTIONS.slice(0, GAME_QUESTIONS - 1),
   BYE,
 ] as const;
 
@@ -401,10 +412,17 @@ export const CALL_CANNED_LINES: Record<string, { text: string; english: string }
  * call now (owner ruling, see the prompt below), so a key without a language
  * would serve the first learner's language to every learner after them. v1
  * clips are orphaned deliberately.
+ *
+ * v3, 2026-08-28: EVERY v2 ROW FOR A LANGUAGE THAT IS NOT HINDI HOLDS THE WRONG
+ * WORDS. v2 gave the key a language but left the TEXT a single hardcoded Hindi
+ * string, so a Gujarati learner's slot was filled with Hindi spoken in a
+ * Gujarati voice. That is the defect chachaCallLines.ts exists to fix, and it is
+ * not fixable by generating the right text alone: the wrong clips are already
+ * sitting under the right keys. The bump orphans them.
  * The voice, model, provider and instructions rotate the key on their own
  * through the segments below.
  */
-export const CALL_CACHE_KEY_VERSION = "v2";
+export const CALL_CACHE_KEY_VERSION = "v3";
 
 /**
  * Cache key for one canned call line, in its OWN namespace.

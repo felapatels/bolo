@@ -1,11 +1,9 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, languagesTable, ttsCacheTable, usersTable } from "@workspace/db";
+import { db, languagesTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server/audio";
 import type { AuthedRequest } from "../middlewares/requireAuth";
-import { synthesizeChachaLine } from "../lib/ttsPrewarm";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
-import { CHACHA_AUDIO_FORMAT } from "../lib/chachaStrings";
 import {
   CALL_BEATS,
   type CallMode,
@@ -13,9 +11,9 @@ import {
   CALL_NOTHING_HEARD,
   learnerTurnsFor,
   beatAt,
-  callLineCacheKey,
   isFinalBeat,
 } from "../lib/chachaCallScript";
+import { callLine, type CallLine } from "../lib/chachaCallLines";
 import {
   callIsOver,
   createCallSession,
@@ -97,12 +95,16 @@ import {
 export const TURN_WAIT_MS = 12_000;
 
 export interface ChachaCallDeps {
-  /** Fixed clip for a line, from tts_cache, synthesized on a miss. */
-  cannedAudio: (
-    lineKey: string,
-    text: string,
-    languageCode: string,
-  ) => Promise<{ audioBase64: string; format: string } | null>;
+  /**
+   * One fixed line, IN THE LEARNER'S LANGUAGE: his words, the romanization
+   * under them and the clip, from tts_cache and built on a miss.
+   *
+   * IT TAKES NO TEXT, AND THAT IS THE FIX. This used to be handed a line key
+   * AND a string, and it cached by the key while synthesizing the string, so
+   * the single hardcoded Hindi HELLO went into every language's slot. The words
+   * belong to chachaCallLines now, so no caller can pair them wrongly.
+   */
+  cannedLine: (lineKey: string, languageCode: string) => Promise<CallLine>;
   /**
    * The journey language this learner is on. He speaks it for the whole call
    * (owner ruling, 2026-08-28), which is why it is resolved ONCE at /start and
@@ -124,44 +126,8 @@ export interface ChachaCallDeps {
   turnWaitMs: number;
 }
 
-/**
- * Reads a canned line from tts_cache and synthesizes it on a miss, exactly as
- * GET /openai/chacha-lines does for the stall lines. A miss is survivable: a
- * line that will not synthesize costs that line its voice, not the call.
- */
-async function cannedAudioFromCache(
-  lineKey: string,
-  text: string,
-  languageCode: string,
-): Promise<{ audioBase64: string; format: string } | null> {
-  const cacheKey = callLineCacheKey(lineKey, languageCode);
-  try {
-    const hit = await db.query.ttsCacheTable.findFirst({
-      where: eq(ttsCacheTable.cacheKey, cacheKey),
-      columns: { audioBase64: true, format: true },
-    });
-    if (hit) return { audioBase64: hit.audioBase64, format: hit.format };
-  } catch {
-    // Cache unavailable is not fatal; fall through and synthesize.
-  }
-
-  try {
-    const buffer = await synthesizeChachaLine(text);
-    if (buffer.length === 0) return null;
-    const audioBase64 = buffer.toString("base64");
-    db.insert(ttsCacheTable)
-      .values({ cacheKey, audioBase64, format: CHACHA_AUDIO_FORMAT })
-      .onConflictDoNothing()
-      .execute()
-      .catch(() => {});
-    return { audioBase64, format: CHACHA_AUDIO_FORMAT };
-  } catch {
-    return null;
-  }
-}
-
 const defaultDeps: ChachaCallDeps = {
-  cannedAudio: cannedAudioFromCache,
+  cannedLine: callLine,
   resolveLanguage: async (userId) => {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.id, userId),
@@ -220,7 +186,7 @@ export function createChachaCallRouter(
       deps.warmConnection();
 
       const hello = CALL_BEATS[0];
-      const audio = await deps.cannedAudio(hello.id, hello.text, language.code);
+      const line = await deps.cannedLine(hello.id, language.code);
 
       res.json({
         callId: session.id,
@@ -237,7 +203,11 @@ export function createChachaCallRouter(
         beat: {
           id: hello.id,
           index: 0,
-          text: hello.text,
+          // HIS WORDS COME FROM THE CACHE, NOT FROM THE SCRIPT. The script's
+          // string is Hindi; this is that line in the learner's language, and
+          // it is the same text the clip below actually speaks.
+          text: line.text,
+          romanized: line.romanized,
           english: hello.english,
           canned: true,
           isFinal: false,
@@ -251,8 +221,8 @@ export function createChachaCallRouter(
         // creation; a client that reconnects gets the same one back off every
         // turn rather than picking again and changing cars mid-sentence.
         backdrop: session.backdrop,
-        audioBase64: audio?.audioBase64 ?? null,
-        format: audio?.format ?? null,
+        audioBase64: line.audioBase64,
+        format: line.format,
       });
     },
   );
@@ -262,9 +232,9 @@ export function createChachaCallRouter(
   // The learner's clip in, his reply out. Body is JSON:
   //   { audioBase64: string, format?: "wav" | "mp3" }
   //
-  // No languageCode: he speaks his own Hinglish to every learner regardless of
-  // their journey language, and the only thing that ever read it was the weekly
-  // allowance row, which a call no longer writes.
+  // No languageCode in the body, and there must never be one: the call is
+  // pinned to the session's language at /start so a learner switching language
+  // mid-call cannot make him change tongue between two questions.
   router.post(
     "/openai/chacha-call/:callId/turn",
     async (req: Request, res: Response): Promise<void> => {
@@ -371,29 +341,40 @@ export function createChachaCallRouter(
       // said nothing gets the nothing-heard line, because he is delighted by
       // anything and that has to include nothing; a model that failed gets this
       // beat's own scripted line, so the agenda still advances.
-      const fallback =
-        !spokeLive && result && !learnerText
-          ? { key: "nothingHeard", ...CALL_NOTHING_HEARD }
-          : { key: beat.id, text: beat.text, english: beat.english };
+      //
+      // ONLY THE KEY IS CHOSEN HERE. The words behind it belong to
+      // chachaCallLines, which holds them per language; picking a key and a
+      // string separately is what put Hindi into every language's cache slot.
+      const nothingHeard = !spokeLive && result && !learnerText;
+      const fallbackKey = nothingHeard ? "nothingHeard" : beat.id;
+      const fallbackEnglish = nothingHeard ? CALL_NOTHING_HEARD.english : beat.english;
 
       let chachaText: string;
       let canned: boolean;
+      let romanizedOut: string | null = null;
       let audioBase64Out: string | null = null;
       let formatOut: string | null = null;
 
       if (spokeLive && result) {
         chachaText = spoken;
         canned = false;
+        romanizedOut = chachaRomanized || null;
         audioBase64Out = result.mp3.toString("base64");
         formatOut = "mp3";
       } else {
-        chachaText = fallback.text;
+        const clip = await deps.cannedLine(fallbackKey, session.languageCode);
+        chachaText = clip.text;
         canned = true;
-        const clip = await deps.cannedAudio(fallback.key, fallback.text, session.languageCode);
-        audioBase64Out = clip?.audioBase64 ?? null;
-        formatOut = clip?.format ?? null;
+        // A CANNED LINE GETS A ROMANIZATION TOO, which it never used to. It was
+        // one hardcoded Hinglish string in Latin letters, so there was nothing
+        // to transliterate. In the learner's own script there is, and a canned
+        // beat that drops the second caption line would read as a different kind
+        // of moment from a live one for no reason a learner could name.
+        romanizedOut = clip.romanized;
+        audioBase64Out = clip.audioBase64;
+        formatOut = clip.format;
         // The stream was promised bytes it is not going to get from the model.
-        if (stream && clip) {
+        if (stream && clip.audioBase64) {
           appendChatAudioChunk(stream, Buffer.from(clip.audioBase64, "base64"));
         }
       }
@@ -407,7 +388,7 @@ export function createChachaCallRouter(
         beatId: beat.id,
         learner: learnerText,
         chacha: chachaText,
-        romanized: canned ? null : chachaRomanized || null,
+        romanized: romanizedOut,
         canned,
       });
 
@@ -482,8 +463,8 @@ export function createChachaCallRouter(
           text: chachaText,
           // The second caption line. Null rather than a repeat when he already
           // wrote in Latin letters, or when the script cannot be romanized.
-          romanized: canned ? null : chachaRomanized || null,
-          english: canned ? fallback.english : null,
+          romanized: romanizedOut,
+          english: canned ? fallbackEnglish : null,
           canned,
           isFinal: isFinalBeat(session.mode, session.beatIndex - 1),
         },
@@ -579,8 +560,7 @@ export function createChachaCallRouter(
         return;
       }
 
-      const bye = CALL_CANNED_LINES.bye;
-      const audio = await deps.cannedAudio("bye", bye.text, session.languageCode);
+      const bye = await deps.cannedLine("bye", session.languageCode);
       const outcome = endCallSession(session.id);
 
       res.json({
@@ -588,9 +568,11 @@ export function createChachaCallRouter(
         outcome,
         turns: session.turns.length,
         text: bye.text,
-        english: bye.english,
-        audioBase64: audio?.audioBase64 ?? null,
-        format: audio?.format ?? null,
+        romanized: bye.romanized,
+        // The gloss stays English in every language: it IS the translation.
+        english: CALL_CANNED_LINES.bye.english,
+        audioBase64: bye.audioBase64,
+        format: bye.format,
       });
     },
   );

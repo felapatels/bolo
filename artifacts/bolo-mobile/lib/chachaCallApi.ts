@@ -23,7 +23,17 @@ import { getConfiguredAuthToken, getConfiguredBaseUrl } from '@workspace/api-cli
 export interface CallBeat {
   id: string;
   index: number;
+  /** His words, in the language this call is fixed to. */
   text: string;
+  /**
+   * The romanization beneath them. Null when the script cannot be
+   * transliterated honestly, and null when it would only repeat the line.
+   *
+   * CANNED BEATS CARRY ONE NOW. They used to be a single Hinglish string in
+   * Latin letters, so there was nothing to transliterate; his hello and his
+   * farewell are in the learner's own script since 2026-08-28.
+   */
+  romanized: string | null;
   english: string | null;
   canned: boolean;
   isFinal: boolean;
@@ -89,6 +99,7 @@ export interface CallEnded {
   outcome: 'answered' | 'abandoned';
   turns: number;
   text: string;
+  romanized: string | null;
   english: string | null;
   audioBase64: string | null;
   format: string | null;

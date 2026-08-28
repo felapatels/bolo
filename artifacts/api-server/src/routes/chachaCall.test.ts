@@ -6,7 +6,17 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { CALL_BEATS, CALL_NOTHING_HEARD } from "../lib/chachaCallScript";
+import { CALL_BEATS, CALL_NOTHING_HEARD, JOURNEY_BEATS } from "../lib/chachaCallScript";
+
+// startCall() below opens a JOURNEY call, so every walk-the-whole-call loop
+// counts the journey's beats.
+//
+// THEY COUNTED CALL_BEATS UNTIL 2026-08-28, and four tests in this file had
+// been red since e9889464. CALL_BEATS is every beat that EXISTS, and that
+// commit grew it from six to twelve by writing six more questions; the journey
+// still asks five. The loops kept driving turns past the end of the call and
+// reading a 409 as a regression.
+const JOURNEY_TURNS = JOURNEY_BEATS.length - 1;
 import type { ChachaCallDeps } from "./chachaCall";
 import type { LiveTurnResult } from "../lib/chachaCallTurn";
 
@@ -53,9 +63,16 @@ before(async () => {
 
   const deps: ChachaCallDeps = {
     resolveLanguage: async () => ({ code: "gu", name: "Gujarati" }),
-    cannedAudio: async (lineKey) => {
+    cannedLine: async (lineKey, languageCode) => {
       cannedCalls.push(lineKey);
-      return { audioBase64: Buffer.from(`clip:${lineKey}`).toString("base64"), format: "mp3" };
+      return {
+        // His words in the learner's language, which is what the route must
+        // send on rather than the script's Hindi.
+        text: `${languageCode}:${lineKey}`,
+        romanized: `roman:${lineKey}`,
+        audioBase64: Buffer.from(`clip:${lineKey}`).toString("base64"),
+        format: "mp3",
+      };
     },
     liveTurn: async (req) => {
       if (liveError) throw liveError;
@@ -126,7 +143,7 @@ test("start serves his hello from a fixed clip and asks no model for it", async 
   assert.equal(json.text as never, undefined, "the line lives on beat, not the root");
   assert.ok(json.audioBase64, "the learner must hear him immediately");
   assert.deepEqual(cannedCalls, ["hello"]);
-  assert.equal(json.learnerTurns as never as number, CALL_BEATS.length - 1);
+  assert.equal(json.learnerTurns as never as number, JOURNEY_TURNS);
 });
 
 test("start warms the connection so the first live turn is not the cold one", async () => {
@@ -195,8 +212,10 @@ test("a model that fails falls back to the beat's own scripted line", async () =
   liveError = new Error("gpt-audio is down");
   const { status, json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
   assert.equal(status, 200);
-  const khaana = CALL_BEATS.find((b) => b.id === "khaana")!;
-  assert.equal((json.beat as never as { text: string }).text, khaana.text);
+  // INVERTED 2026-08-28: this asserted the beat's own HINDI string. The
+  // fallback is that beat's line IN THE LEARNER'S LANGUAGE now, which is what
+  // the dep returns, so asserting the script's text would re-assert the defect.
+  assert.equal((json.beat as never as { text: string }).text, "gu:khaana");
   assert.equal((json.beat as never as { canned: boolean }).canned, true);
   assert.ok(json.audioBase64, "he still has to say something out loud");
   assert.ok(cannedCalls.includes("khaana"));
@@ -234,7 +253,7 @@ test("a learner who says nothing gets the gentle line, not a retry", async () =>
   const callId = await startCall();
   liveResult = makeLive({ chachaText: "", learnerText: "", mp3: Buffer.alloc(0), spokenSeconds: 0 });
   const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
-  assert.equal((json.beat as never as { text: string }).text, CALL_NOTHING_HEARD.text);
+  assert.equal((json.beat as never as { text: string }).text, "gu:nothingHeard");
   assert.ok(cannedCalls.includes("nothingHeard"));
   assert.equal(json.heard as never, "");
   // The call still advances. Nobody is asked to try again.
@@ -256,7 +275,7 @@ test("no response anywhere carries a score", async () => {
 test("the call runs out of beats and says so", async () => {
   const callId = await startCall();
   let last: Record<string, never> | null = null;
-  for (let i = 1; i < CALL_BEATS.length; i++) {
+  for (let i = 1; i <= JOURNEY_TURNS; i++) {
     last = (await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP })).json;
   }
   assert.equal(last!.over as never, true);
@@ -294,7 +313,7 @@ test("the weekly chat cap does NOT gate the call", async () => {
   // Nothing in this router can answer 402: there is no meter left to trip.
   assert.equal((await post("/openai/chacha-call/start")).status, 200);
   const callId = await startCall();
-  for (let i = 1; i < CALL_BEATS.length; i++) {
+  for (let i = 1; i <= JOURNEY_TURNS; i++) {
     const { status } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
     assert.equal(status, 200, "a call must never be refused for chat time");
   }
@@ -319,7 +338,7 @@ test("the bound on a call is its agenda, not a meter", async () => {
   // it starts, which is the bound the open-ended chat route does not have and
   // the reason that one needs charging and this one does not.
   const callId = await startCall();
-  for (let i = 1; i < CALL_BEATS.length; i++) {
+  for (let i = 1; i <= JOURNEY_TURNS; i++) {
     await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
   }
   const { status } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
@@ -376,8 +395,34 @@ test("hanging up returns his farewell and the outcome the ring-back will read", 
   assert.equal(status, 200);
   assert.equal(json.outcome as never, "answered");
   assert.equal(json.turns as never as number, 1);
-  assert.equal(json.text as never, CALL_BEATS[CALL_BEATS.length - 1].text);
+  // His farewell in the learner's language, not the script's Hindi.
+  assert.equal(json.text as never, "gu:bye");
   assert.ok(json.audioBase64);
+});
+
+test("every canned line the learner hears is in their own language", async () => {
+  // The defect this covers, found by the owner 2026-08-28: "chachaji is talking
+  // in hindi on gujurati game as well." The route must never send the script's
+  // Hindi string on; it asks chachaCallLines for that line in the session's
+  // language and passes back exactly what comes out, clip and caption together.
+  const start = await post("/openai/chacha-call/start");
+  assert.equal((start.json.beat as never as { text: string }).text, "gu:hello");
+  assert.equal((start.json.beat as never as { romanized: string }).romanized, "roman:hello");
+
+  const callId = start.json.callId as unknown as string;
+  liveError = new Error("gpt-audio is down");
+  const turn = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal((turn.json.beat as never as { text: string }).text, "gu:khaana");
+  assert.equal((turn.json.beat as never as { romanized: string }).romanized, "roman:khaana");
+
+  const end = await post(`/openai/chacha-call/${callId}/end`);
+  assert.equal(end.json.text as never, "gu:bye");
+
+  const hindi = [CALL_BEATS[0].text, CALL_BEATS[CALL_BEATS.length - 1].text];
+  const wire = JSON.stringify([start.json, turn.json, end.json]);
+  for (const line of hindi) {
+    assert.ok(!wire.includes(line), `his Hindi reached a Gujarati learner: ${line}`);
+  }
 });
 
 test("a call nobody spoke in ends abandoned", async () => {
@@ -402,7 +447,7 @@ test("every turn returns the SAME backdrop, so a call never changes cars", async
   const { json: started } = await post("/openai/chacha-call/start");
   const callId = started.callId as unknown as string;
   const chosen = (started.backdrop as never as { id: string }).id;
-  for (let i = 1; i < CALL_BEATS.length; i++) {
+  for (let i = 1; i <= JOURNEY_TURNS; i++) {
     const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
     assert.equal((json.backdrop as never as { id: string }).id, chosen);
   }

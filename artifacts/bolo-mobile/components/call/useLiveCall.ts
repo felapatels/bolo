@@ -358,7 +358,10 @@ export function useLiveCall({
         languageName: call.languageName ?? null,
         backdrop: call.backdrop.id,
         text: call.beat.text,
-        romanized: null,
+        // His hello is in the learner's language now, so it gets the second
+        // caption line every other beat has. It was null when the line was one
+        // hardcoded Hinglish string and there was nothing to romanize.
+        romanized: call.beat.romanized ?? null,
         status: 'speaking',
       });
 

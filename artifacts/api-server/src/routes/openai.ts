@@ -96,7 +96,7 @@ import {
   chachaLineCacheKey,
   type ChachaLineKey,
 } from "../lib/chachaStrings";
-import { synthesizeChachaLine } from "../lib/ttsPrewarm";
+import { synthesizeChachaLine } from "../lib/chachaTts";
 
 // Module-level constant: placed before the request handler so the full rubric
 // text is a single, byte-identical string on every call, enabling OpenAI

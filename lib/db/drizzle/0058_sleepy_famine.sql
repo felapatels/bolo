@@ -1,0 +1,1 @@
+ALTER TABLE "tts_cache" ADD COLUMN "spoken_text" text;
