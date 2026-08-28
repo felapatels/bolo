@@ -21,6 +21,21 @@ import {
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 
 const STORAGE_KEY = 'bolo.activeLang';
+/**
+ * Set when a language change could not be saved to the account.
+ *
+ * WITHOUT THIS, A FAILED SAVE IS SILENTLY REVERTED. Pick a language on a flaky
+ * connection, the PATCH fails, pushRemote swallows it (onError is empty and
+ * react-query does not retry mutations), and the app works locally. On the NEXT
+ * launch, reconciliation reads the server's older value and adopts it, and the
+ * learner's choice is gone with nothing ever having said so. Traced 2026-08-28
+ * from a screenshot showing one language picked and another in the home
+ * context.
+ *
+ * With the flag, an unsynced local choice WINS reconciliation and is pushed
+ * again, which also gives the once-only reconciliation something to repair.
+ */
+const UNSYNCED_KEY = 'bolo.activeLang.unsynced';
 const DEFAULT_LANG = 'hi';
 
 type LanguageContextValue = {
@@ -79,13 +94,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // stored choice, not the transient default.
   const [hydrated, setHydrated] = useState(false);
   const reconciled = useRef(false);
+  /** True when the local choice has not reached the account. See UNSYNCED_KEY. */
+  const unsynced = useRef(false);
 
-  // Load the persisted selection once on mount.
+  // Load the persisted selection once on mount, and whether it ever synced.
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((stored) => {
-        if (!cancelled && stored) setActiveLangState(stored);
+    Promise.all([AsyncStorage.getItem(STORAGE_KEY), AsyncStorage.getItem(UNSYNCED_KEY)])
+      .then(([stored, dirty]) => {
+        if (cancelled) return;
+        if (stored) setActiveLangState(stored);
+        unsynced.current = dirty === '1';
       })
       .catch(() => {
         // Ignore storage failures; the default keeps the app usable.
@@ -106,6 +125,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       { data: { activeLanguage: code } },
       {
         onSuccess: (res) => {
+          unsynced.current = false;
+          AsyncStorage.removeItem(UNSYNCED_KEY).catch(() => {});
           const current = qc.getQueryData<Account>(getGetAccountQueryKey());
           if (current) {
             qc.setQueryData(getGetAccountQueryKey(), {
@@ -114,7 +135,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
             });
           }
         },
-        onError: () => {},
+        onError: () => {
+          // Still non-fatal for this session, but REMEMBERED, so the next
+          // reconciliation keeps the learner's choice instead of discarding it.
+          unsynced.current = true;
+          AsyncStorage.setItem(UNSYNCED_KEY, '1').catch(() => {});
+        },
       },
     );
   };
@@ -138,7 +164,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (!hydrated || reconciled.current || !account.data) return;
     reconciled.current = true;
     const server = account.data.preferences.learning.activeLanguage;
-    if (server) {
+    // AN UNSYNCED LOCAL CHOICE WINS. The learner picked it on this device and
+    // the save failed; the server's value is simply older, not authoritative.
+    // Retrying here is also the only repair path, since reconciliation runs
+    // once per mount and nothing else ever revisits it.
+    if (unsynced.current) {
+      pushRemote(activeLang);
+    } else if (server) {
       if (server !== activeLang) applyLocal(server);
     } else {
       pushRemote(activeLang);
