@@ -2096,7 +2096,35 @@ export default function JourneyScreen() {
   // never asks twice.
   const leaveChachaStall = () => {
     const stop = chachaDlg ? allStations[chachaDlg.station - 1] : undefined;
+    /**
+     * HIS PHONE RINGS AT ONE STOP PER ZONE, and this is where it happens.
+     *
+     * The server decides, not the client: `callsNow` comes back on the
+     * encounter, true at one encounter station per zone (zone 1 fixed at
+     * station 3, "after stop 2 so there is enough content"), chosen by a hash
+     * of the learner, the language and the zone so a revisit meets it at the
+     * same stop rather than rerolling.
+     *
+     * IT REPLACES THE WALK INTO PRACTICE, it does not delay it. A call is an
+     * INTERRUPTION by ruling: he rings, the learner takes it or ignores it, and
+     * either way they come back to the map and carry on. Chaining practice on
+     * behind the call would make it a gate on the lesson, which is the one
+     * thing it must not be.
+     *
+     * The chai is already poured by this point and nothing here can take it
+     * back, so a learner who lets it ring out has lost nothing.
+     *
+     * `callsNow` is read off the result rather than through the generated type:
+     * the field is additive on the server and openapi.yaml has not been
+     * regenerated inside a held build. The spec owes it.
+     */
+    const ringsNow =
+      (chachaDlg as unknown as { callsNow?: boolean } | null)?.callsNow === true;
     setChachaDlg(null);
+    if (ringsNow) {
+      router.push('/(app)/call');
+      return;
+    }
     if (!stop) return;
     // No splash leaving the stall either, same reason as the stop cards: the
     // learner has already watched the arrival film on this visit.

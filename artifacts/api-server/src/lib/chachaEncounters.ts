@@ -20,6 +20,11 @@ import {
   type OutfitKind,
 } from "./outfits";
 import { getUnlockedGroupIds } from "./lessonGroupAccess";
+import {
+  encounterStationsInZone,
+  stationCarriesCall,
+} from "./chachaCallTrigger";
+import { isEncounterStation, encounterOrdinal } from "./journeyStations";
 
 // Chacha-ji's roadside stall: he turns up trackside every fourth station,
 // pours the learner a chai, and sometimes says a phrase they already know.
@@ -31,10 +36,15 @@ import { getUnlockedGroupIds } from "./lessonGroupAccess";
 // chacha_encounters), which exists so a revisit shows the same encounter
 // rather than a fresh one.
 
-/** The first station he appears at, on the GLOBAL station index. */
-export const ENCOUNTER_FIRST_STATION = 3;
-/** He reappears every fourth station after that: 3, 7, 11, 15, ... */
-export const ENCOUNTER_STRIDE = 4;
+// The cadence lives in journeyStations.ts so the phone call's trigger can read
+// it without importing this module, which needs the trigger back. Re-exported
+// here so every existing importer is untouched.
+export {
+  ENCOUNTER_FIRST_STATION,
+  ENCOUNTER_STRIDE,
+  isEncounterStation,
+  encounterOrdinal,
+} from "./journeyStations";
 /** An offer rides along on every third encounter, at most. */
 export const OFFER_EVERY = 3;
 /** Chai per first arrival. Roughly one garment across a finished journey. */
@@ -43,19 +53,6 @@ export const CHACHA_REASON: TokenReason = "earn_chacha_encounter";
 /** Spoken lines are short by design: one to three words, phrase stage only. */
 export const SPOKEN_MIN_WORDS = 1;
 export const SPOKEN_MAX_WORDS = 3;
-
-export function isEncounterStation(station: number): boolean {
-  return (
-    Number.isInteger(station) &&
-    station >= ENCOUNTER_FIRST_STATION &&
-    (station - ENCOUNTER_FIRST_STATION) % ENCOUNTER_STRIDE === 0
-  );
-}
-
-/** 1-based position of this encounter in the journey's encounter sequence. */
-export function encounterOrdinal(station: number): number {
-  return (station - ENCOUNTER_FIRST_STATION) / ENCOUNTER_STRIDE + 1;
-}
 
 /**
  * Ledger ref for the gift. Language-scoped and station-scoped, so the same
@@ -90,6 +87,19 @@ export interface EncounterResult {
   balance: number;
   phrase: SpokenPhrase | null;
   offer: EncounterOffer | null;
+  /**
+   * True when THIS arrival is the one where his phone rings.
+   *
+   * One per zone, at a station chosen by hash rather than by a stored roll, so
+   * a learner who backs out and returns meets it at the same stop. Zone 1 is
+   * fixed at station 3 for every language: "after stop 2, so there is enough
+   * content behind him".
+   *
+   * IT IS AN OFFER, NOT AN EVENT. The chai, the line and the gift are settled
+   * before this is computed and none of them depend on it, so a learner who
+   * ignores the ringing keeps everything the encounter already gave them.
+   */
+  callsNow: boolean;
 }
 
 /**
@@ -132,6 +142,58 @@ async function stationRow(
   return row
     ? { lessonGroupId: Number(row.id), categoryId: Number(row.category_id) }
     : null;
+}
+
+/**
+ * The zone containing a station, and the span of stations in it.
+ *
+ * `categories.sort_order` (0..5) IS the zone order, so the zone number is that
+ * plus one. Zone boundaries are not constants: they fall out of how many lesson
+ * groups a zone has, which differs per language, which is why this is a query
+ * rather than a table of ranges.
+ *
+ * Built for the phone call, which rings once per zone and needs to know which
+ * of a zone's encounter stations is the one that carries it.
+ */
+export async function zoneRangeForStation(
+  languageCode: string,
+  station: number,
+): Promise<{ zone: number; firstStation: number; lastStation: number } | null> {
+  const res = await db.execute(sql`
+    WITH grouped AS (
+      SELECT lg.id,
+             lg.category_id,
+             lg.position,
+             c.sort_order,
+             COALESCE(MAX(CASE WHEN p.stage = 'sentence' THEN 1 ELSE 0 END), 0) AS stage_rank
+      FROM lesson_groups lg
+      JOIN categories c ON c.id = lg.category_id
+      LEFT JOIN phrases p ON p.lesson_group_id = lg.id
+      WHERE lg.language_code = ${languageCode}
+      GROUP BY lg.id, lg.category_id, lg.position, c.sort_order
+    ), ordered AS (
+      SELECT sort_order,
+             ROW_NUMBER() OVER (ORDER BY sort_order, stage_rank, position) AS station
+      FROM grouped
+    )
+    SELECT sort_order,
+           MIN(station) AS first_station,
+           MAX(station) AS last_station
+    FROM ordered
+    WHERE sort_order = (SELECT sort_order FROM ordered WHERE station = ${station})
+    GROUP BY sort_order
+  `);
+  const row = (res.rows as {
+    sort_order: number;
+    first_station: number;
+    last_station: number;
+  }[])[0];
+  if (!row) return null;
+  return {
+    zone: Number(row.sort_order) + 1,
+    firstStation: Number(row.first_station),
+    lastStation: Number(row.last_station),
+  };
 }
 
 /**
@@ -431,6 +493,31 @@ export async function arriveAtEncounter(opts: {
     ? selectOffer(await listOwnedOutfits(userId), balance)
     : null;
 
+  /**
+   * Does his phone ring at this stop?
+   *
+   * COMPUTED LAST, AND NOTHING ABOVE DEPENDS ON IT, deliberately. The chai, the
+   * line and the offer are all settled by now, so a learner who lets it ring
+   * out keeps everything this encounter already gave them, and a failure in
+   * here cannot cost them a gift. Which is why it swallows: a zone lookup that
+   * falls over means no call, never a failed arrival.
+   */
+  let callsNow = false;
+  try {
+    const zoneRange = await zoneRangeForStation(languageCode, station);
+    if (zoneRange) {
+      callsNow = stationCarriesCall(
+        userId,
+        languageCode,
+        zoneRange.zone,
+        encounterStationsInZone(zoneRange.firstStation, zoneRange.lastStation),
+        station,
+      );
+    }
+  } catch {
+    callsNow = false;
+  }
+
   return {
     station,
     ordinal,
@@ -439,6 +526,7 @@ export async function arriveAtEncounter(opts: {
     balance,
     phrase,
     offer,
+    callsNow,
   };
 }
 

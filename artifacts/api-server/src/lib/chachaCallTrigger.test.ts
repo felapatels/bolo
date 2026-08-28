@@ -1,46 +1,26 @@
-import { test, describe, before } from "node:test";
+import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-
-// The module takes its cadence constants from chachaEncounters, which is the
-// single source of them and which reaches the database at import. Rather than
-// duplicate the constants to keep this file pure (a second definition of the
-// same thing is the defect, not the fix), the import is dynamic and happens
-// after a dummy DATABASE_URL exists. Nothing here opens a connection: every
-// function under test is pure.
-let ZONE_ONE_CALL_STATION: number;
-let callStationForZone: (
-  userId: string,
-  languageCode: string,
-  zone: number,
-  stations: readonly number[],
-) => number | null;
-let encounterStationsInZone: (first: number, last: number) => number[];
-let stationCarriesCall: (
-  userId: string,
-  languageCode: string,
-  zone: number,
-  stations: readonly number[],
-  station: number,
-) => boolean;
-
-let ZONE_1: number[];
-let ZONE_2: number[];
-let ZONE_3: number[];
-
-before(async () => {
-  process.env.DATABASE_URL ??= "postgres://unused:unused@127.0.0.1:1/unused";
-  process.env.OPENAI_API_KEY ??= "test-key-not-used";
-  const m = await import("./chachaCallTrigger");
-  ({ ZONE_ONE_CALL_STATION, callStationForZone, encounterStationsInZone, stationCarriesCall } = m);
-  // The live Gujarati journey: 59 stations, zone 1 occupying 1..11.
-  ZONE_1 = encounterStationsInZone(1, 11);
-  ZONE_2 = encounterStationsInZone(12, 22);
-  ZONE_3 = encounterStationsInZone(23, 33);
-});
+import {
+  ZONE_ONE_CALL_STATION,
+  callStationForZone,
+  encounterStationsInZone,
+  stationCarriesCall,
+} from "./chachaCallTrigger";
 
 // When Chacha-ji rings. The rules under test are the owner's, 2026-08-28:
 // zone 1 at station 3 in all 22 languages, one random encounter station per
 // zone after that, and the answer must never change on a revisit.
+//
+// STATIC IMPORTS, NO DUMMY ENV. This used to import dynamically after setting a
+// fake DATABASE_URL, because the cadence constants came from chachaEncounters,
+// which reaches the database at import. They live in journeyStations.ts now, so
+// this file is pure the whole way down. The plainness of these imports is the
+// evidence.
+
+// The live Gujarati journey: 59 stations, zone 1 occupying 1..11.
+const ZONE_1 = encounterStationsInZone(1, 11);
+const ZONE_2 = encounterStationsInZone(12, 22);
+const ZONE_3 = encounterStationsInZone(23, 33);
 
 // The 22 journey languages, by code, so "all 22" is asserted rather than said.
 const LANGUAGES = [

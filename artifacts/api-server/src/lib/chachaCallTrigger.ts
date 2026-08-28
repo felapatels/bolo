@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
-import { ENCOUNTER_FIRST_STATION, ENCOUNTER_STRIDE, isEncounterStation } from "./chachaEncounters";
+import {
+  ENCOUNTER_FIRST_STATION,
+  ENCOUNTER_STRIDE,
+  isEncounterStation,
+} from "./journeyStations";
 
 /**
  * WHEN CHACHA-JI RINGS. Owner ruling, 2026-08-28, confirmed after three
