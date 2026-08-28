@@ -668,6 +668,18 @@ export default function AccountScreen() {
               value="••••••••"
               onPress={() => router.push('/(app)/account/password')}
             />
+            <Divider />
+            {/* WHAT BOLO REMEMBERS. Sits with identity rather than under
+                Learning because it is a privacy control: Bolo keeps notes
+                about a learner between sessions, many of them children, and
+                until this landed the chat screen disclosed the remembering
+                with no screen behind it. Web twin: pages/account.tsx. */}
+            <NavRow
+              icon="book-open"
+              label="What Bolo remembers"
+              value="See his notes, or clear them"
+              onPress={() => router.push('/(app)/account/memories')}
+            />
           </View>
 
           {/* Notifications */}

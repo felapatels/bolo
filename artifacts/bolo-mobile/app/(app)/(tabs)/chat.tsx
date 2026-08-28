@@ -1896,7 +1896,18 @@ export default function ChatScreen() {
           testID="chat-memory-tip"
           style={[styles.memoryTip, { color: colors.mutedForeground }]}
         >
-          I remember what you tell me, so we can pick up where we left off.
+          I remember what you tell me, so we can pick up where we left off.{' '}
+          {/* THE WAY TO GO AND LOOK, which a disclosure without one is only
+              half of. Held back until the screen existed: a link to nothing
+              is worse than no link. Web says the same words in pages/chat. */}
+          <Text
+            testID="chat-memory-tip-link"
+            accessibilityRole="link"
+            style={[styles.memoryTipLink, { color: colors.mutedForeground }]}
+            onPress={() => router.push('/(app)/account/memories')}
+          >
+            See what I remember
+          </Text>
         </Text>
       )}
 
@@ -2661,6 +2672,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
     paddingHorizontal: 32,
+  },
+  memoryTipLink: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 12,
+    textDecorationLine: 'underline',
   },
   textInputRow: {
     flexDirection: 'row',
