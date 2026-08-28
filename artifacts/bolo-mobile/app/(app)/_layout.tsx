@@ -132,6 +132,20 @@ export default function AppLayout() {
               {/* The board: standing lives outside the tab bar, like journey. */}
               <Stack.Screen name="leaderboard" />
               <Stack.Screen name="bazaar" />
+              {/* THE CALL TAKES THE SCREEN, IT DOES NOT SLIDE ONTO IT. A phone
+                  ringing is an interruption, and a push transition would frame
+                  it as somewhere the learner navigated to. Fade, and no
+                  gesture: a call you can half-swipe away is neither answered
+                  nor ignored, and the ignore path has to stay deliberate
+                  because it is what makes him ring again later. */}
+              <Stack.Screen
+                name="call"
+                options={{
+                  animation: 'fade',
+                  animationDuration: 220,
+                  gestureEnabled: false,
+                }}
+              />
               <Stack.Screen name="analytics" />
               <Stack.Screen name="account/index" />
               <Stack.Screen name="account/reminders" />
