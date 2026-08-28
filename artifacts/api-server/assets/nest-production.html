@@ -2995,7 +2995,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
       var ranked = RANKED[d.metric];
       var head = "<tr>" +
         (ranked ? "<th>In window</th>" : "") +
-        "<th>Who</th><th>Email</th><th>Plan</th><th>Joined</th>" +
+        "<th>Who</th><th>Email</th><th>Plan</th><th>On</th><th>Joined</th>" +
         "<th>Last practised</th><th>Attempts</th><th>Shares</th></tr>";
       var body = "", i;
       for (i = 0; i < d.rows.length; i++) {
@@ -3015,6 +3015,14 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
           "<td>" + esc(who) + "</td>" +
           '<td class="ddim">' + esc(r.email || "-") + "</td>" +
           "<td>" + plan + "</td>" +
+          /* PLATFORM. A null is "before this was recorded", not "no platform":
+             308 of 528 attempts in production predate the tag, so a dash here
+             means the question could not be asked of that person yet. The kinds
+             count marks somebody who moves between phone and laptop. */
+          "<td>" + (r.platform
+            ? esc(r.platform.replace(/_/g, " ")) +
+              (r.platformKinds > 1 ? ' <span class="ddim">+' + (r.platformKinds - 1) + "</span>" : "")
+            : '<span class="ddim">not recorded</span>') + "</td>" +
           "<td>" + esc(shortDate(r.createdAt)) + "</td>" +
           "<td>" + (r.lastActiveAt ? esc(shortDate(r.lastActiveAt)) : '<span class="ddim">never</span>') + "</td>" +
           '<td class="num">' + fmt(r.attempts) + "</td>" +

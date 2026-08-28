@@ -536,6 +536,14 @@ type NestDrillRow = {
   createdAt: string;
   /** Most recent attempt, or null for somebody who has never practised. */
   lastActiveAt: string | null;
+  /**
+   * The platform of their most recent TAGGED attempt: ios_app, android_app,
+   * ios_web, android_web, web. Null means the attempt predates the tag, which
+   * at the time of writing is 308 of 528 rows, NOT that they have no platform.
+   */
+  platform: string | null;
+  /** How many distinct platforms they have ever used. */
+  platformKinds: number;
   /** Lifetime attempts, so a row reads as a person rather than an id. */
   attempts: number;
   /** The number this metric ranked on, within the window where one applies. */
@@ -722,7 +730,20 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
              u.share_stats, u.created_at,
              picked.metric_value,
              (select count(*) from attempts a2 where a2.user_id = u.id)::int as attempts,
-             (select max(a3.created_at) from attempts a3 where a3.user_id = u.id) as last_active
+             (select max(a3.created_at) from attempts a3 where a3.user_id = u.id) as last_active,
+             -- Their MOST RECENT tagged attempt, which is "what they are on
+             -- now". Attempts predating the tag have no platform: at the time
+             -- of writing that is 308 of 528 rows, so a null here means "before
+             -- this was recorded", never "no platform".
+             (select substring(a4.flags from 'platform:([a-z_]+)') from attempts a4
+               where a4.user_id = u.id and a4.flags like '%platform:%'
+               order by a4.created_at desc limit 1) as platform,
+             -- How many DISTINCT platforms they have ever used, so somebody who
+             -- moves between the phone and the laptop is visible rather than
+             -- being flattened to whichever they touched last.
+             (select count(distinct substring(a5.flags from 'platform:([a-z_]+)'))
+                from attempts a5
+               where a5.user_id = u.id and a5.flags like '%platform:%')::int as platform_kinds
         from picked
         join users u on u.id = picked.user_id
        order by picked.metric_value desc, u.created_at desc
@@ -750,6 +771,14 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
         subscriptionProvider: r.subscription_provider == null ? null : String(r.subscription_provider),
         currentPeriodEnd: r.current_period_end == null ? null : new Date(r.current_period_end as string).toISOString(),
         shareStats: r.share_stats === true,
+        // WHICH PLATFORM, and it was already in the database. Asked for
+        // 2026-08-28. lib/clientPlatform derives it from the User-Agent and
+        // buildAttemptFlags writes it as a "platform:" tag inside
+        // attempts.flags, deliberately reusing that column rather than adding
+        // one. Read back here rather than rebuilt: a users.last_platform column
+        // was half-written before somebody grepped and found this.
+        platform: r.platform == null ? null : String(r.platform),
+        platformKinds: Number(r.platform_kinds ?? 0),
         createdAt: new Date(r.created_at as string).toISOString(),
         lastActiveAt: r.last_active == null ? null : new Date(r.last_active as string).toISOString(),
         attempts: Number(r.attempts ?? 0),
