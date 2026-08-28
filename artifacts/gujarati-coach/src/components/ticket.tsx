@@ -7,7 +7,7 @@ import { TICKET, TICKET_SHAPE } from "@/lib/ticket-stock";
 
 // The bite taken out of the paper where it tears, in px. Sized once and shared
 // by both halves so the two quarter-circles meet as one semicircle.
-const TICKET_NOTCH = 10;
+const TICKET_NOTCH = 12;
 
 /** Diagonal ticket-stock stripes (CSS gradient only). `ink` is the stripe
  *  color including alpha, e.g. "rgba(255,255,255,0.05)" on accent, or
@@ -207,6 +207,8 @@ export function MiniTicket({
   zone,
   stationName,
   stampSize,
+  /** The ticket's fixed width in px. Mobile twin: STUB_W. */
+  width,
   tearing,
   bodyRef,
   stubRef,
@@ -217,6 +219,7 @@ export function MiniTicket({
   zone: number | null;
   stationName: string | null;
   stampSize: number;
+  width: number;
   tearing: boolean;
   bodyRef?: React.Ref<HTMLDivElement>;
   stubRef?: React.Ref<HTMLDivElement>;
@@ -251,8 +254,19 @@ export function MiniTicket({
       }}
     />
   );
+  // THE TICKET MUST BE AT LEAST AS TALL AS THE STAMP'S ROTATED EXTENT. Its
+  // height is otherwise driven by the body's two lines (ADMIT ONE + the line
+  // name), which is shorter than the stamp — and both halves clip, so the
+  // stamp's bottom arc was being cut off by the ticket's own bottom border.
+  // The stub cannot simply stop clipping: the notches depend on the crop to
+  // read as quarter circles.
+  const minH = zoneStampExtent(stampSize) + TICKET_SHAPE.borderWidth * 2 + 10;
   return (
-    <div className="flex shrink-0 items-stretch" data-testid="home-mini-ticket">
+    <div
+      className="flex shrink-0 items-stretch"
+      data-testid="home-mini-ticket"
+      style={{ width, minHeight: zone !== null ? minH : undefined }}
+    >
       {/* THE LEFT HALF: what the ticket admits, and to which line. */}
       <div
         ref={bodyRef}
@@ -275,15 +289,32 @@ export function MiniTicket({
         {rule}
         {notch("-right-[5px] -top-[5px]")}
         {notch("-bottom-[5px] -right-[5px]")}
-        <div className="relative min-w-0 flex-1 py-[5px]">
+        {/* THE FARE CLASS, CENTRED AND SET LIKE ONE. It was 9px, left-aligned
+            and untracked, which read as a caption on the ticket rather than as
+            the thing the ticket says. 12px tracked out to 2.2, centred, with a
+            printed rule above and below it in the ticket's own edge ink — the
+            rustic detail, not a new colour. The route sits under the class at 8
+            (was 6): still the quieter of the two, but legible rather than
+            decorative. Mobile twin: miniBody / miniAdmit / miniLine / miniRule. */}
+        <div className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-[3px] py-[5px]">
+          <span
+            aria-hidden
+            className="mx-1.5 h-px self-stretch"
+            style={{ background: TICKET.edge, opacity: 0.28 }}
+          />
           <div
-            className="truncate text-[9px] font-black leading-tight"
+            className="truncate text-center text-[12px] font-black leading-tight tracking-[2.2px]"
             style={{ color: TICKET.ink }}
           >
             ADMIT ONE
           </div>
+          <span
+            aria-hidden
+            className="mx-1.5 h-px self-stretch"
+            style={{ background: TICKET.edge, opacity: 0.28 }}
+          />
           <div
-            className="truncate text-[6px] font-black uppercase leading-tight tracking-[0.8px]"
+            className="truncate text-center text-[8px] font-black uppercase leading-tight tracking-[1.4px]"
             style={{ color: TICKET.inkMuted }}
           >
             {lineName}

@@ -64,8 +64,15 @@ const PASS_PRESS_SPRING = { type: "spring", stiffness: 480, damping: 12 } as con
 // it. The stamp's ROTATED extent (not its nominal square) must clear the
 // column with a 4px margin per side, so label + circle scale as one unit to
 // the stub (mobile JourneyPassCard parity).
-const STUB_W = 64;
-const HOME_STAMP_SIZE = stampSizeForExtent(STUB_W - 8);
+// THE MINI TICKET'S WIDTH, matched to mobile's STUB_W. It grew from 64 when
+// the stub became a whole ticket: a body that names what it admits and which
+// line needs a run to name them in.
+const STUB_W = 176;
+// THE STAMP FITS THE TICKET'S INTERIOR, not its outer width: the ticket carries
+// a 2px border AND a hairline rule set 4 in from it, and it is landscape now,
+// so the stamp is sized off the stub's own run rather than off STUB_W. Mobile
+// twin: STAMP_SIZE in JourneyPassCard.tsx.
+const HOME_STAMP_SIZE = stampSizeForExtent(46);
 // THE HOME BOARD'S PANEL, IN PX, and it is a budget rather than a taste.
 // ZONE_BOARD's content insets take about 27% of the panel before a word is
 // drawn, and inside what is left the panel has to hold the eyebrow, the
@@ -480,8 +487,17 @@ export default function Home() {
    * more. A learner told only about the zone bonus will not notice the rest,
    * and the unexpected ones are the ones worth riding for.
    */
+  // A BARE VERB IN A FULL-WIDTH PLATE READS AS MISSING TEXT, which is exactly
+  // how it was reported ("start button missing text", owner). Mobile leaves
+  // this null when there is no current stop, and on a phone-width plate one
+  // word fills it; on web the plate runs the width of the board and "Start"
+  // alone sits in a lot of empty paper.
+  //
+  // A LEARNER WITH NO PROGRESS IS THE ONE WHO MOST NEEDS THE CHAI PROMISE, so
+  // the clause rides here too. There is no stop to count down from yet, so it
+  // goes on its own.
   const journeyCtaTail = !journey.current
-    ? null
+    ? "Chai and surprises along the way."
     : stopsLeftInZone === 0
       ? "Last stop in this zone! Chai and surprises along the way."
       : `Only ${stopsLeftInZone} more ${stopsLeftInZone === 1 ? "stop" : "stops"} to go. Chai and surprises along the way.`;
@@ -992,7 +1008,20 @@ export default function Home() {
                   // box all clip, so a ticket coming apart was cropped at the
                   // frame line the moment it moved.
                   clipContent={!tearing}
-                  className="depth-shadow rounded-b-md"
+                  // A DROP-SHADOW, NOT A BOX-SHADOW, and that is the whole
+                  // fix for "white box is still around it". `.depth-shadow` is
+                  // a box shadow, so it outlines the element's RECTANGLE — and
+                  // the board's rectangle is bigger than the wood, because
+                  // both art slices carry transparent margins. The result was
+                  // a crisp pale rectangle framing the carving. A filter
+                  // drop-shadow follows the art's own alpha instead, so the
+                  // shadow traces the pediment's arch and the panel's edge.
+                  // Mobile's board carries no shadow at all; this is the least
+                  // that still gives the board some weight on a light page.
+                  className="rounded-b-md"
+                  style={{
+                    filter: "drop-shadow(2px 3px 5px rgba(15, 23, 42, 0.18))",
+                  }}
                 >
 
                   <div
@@ -1059,6 +1088,7 @@ export default function Home() {
                           zone={journey.current ? journey.current.zoneIndex + 1 : null}
                           stationName={journey.current ? journey.current.geoName : null}
                           stampSize={HOME_STAMP_SIZE}
+                          width={STUB_W}
                           tearing={tearing}
                           bodyRef={tearBodyRef}
                           stubRef={tearStubRef}
@@ -1099,9 +1129,18 @@ export default function Home() {
                         the same way. The engine stands IN it rather than up
                         beside the title: it is the train at the platform, and
                         pressing boards it. */}
+                    {/* A DARKER PLATE THAN THE PAPER IT SITS ON. It had a
+                        border and no fill, so it read as an outline drawn on
+                        the ticket rather than as a pressed key sitting in it.
+                        TICKET.stockBottom is the paper's own darker end, so
+                        this deepens the existing gradient rather than
+                        introducing a colour the stock does not contain. */}
                     <div
-                      className="mt-2.5 flex items-center gap-1.5 rounded-lg border-2 px-2 py-[7px]"
-                      style={{ borderColor: TICKET.edge }}
+                      className="mt-2.5 flex items-center gap-1.5 rounded-lg border-2 px-1.5 py-[7px]"
+                      style={{
+                        borderColor: TICKET.edge,
+                        background: TICKET.stockBottom,
+                      }}
                     >
                       {/* THE ENGINE TAKES A PALETTE, NOT A COLOUR. TrainEngine
                           draws from four theme vars and keeps only its headlamp
@@ -1128,16 +1167,15 @@ export default function Home() {
                           )}
                         />
                       </div>
-                      {/* The tail sits BESIDE the verb, baseline-aligned, so
-                          the two read as one line rather than two rows. */}
-                      <span className="flex min-w-0 flex-1 items-baseline gap-2">
-                        <span
-                          className="shrink-0 text-[17px] font-black leading-[21px] lg:text-xl lg:leading-[26px]"
-                          style={{ color: ZONE_BOARD.ink }}
-                        >
-                          {journeyCta}
-                        </span>
-                        {/* TWO LINES, NEVER ONE WITH AN ELLIPSIS. This carried
+                      {/* THE VERB TRAVELS WITH THE ARROW. It sat left of the
+                          tail, so the plate read train, verb, sentence, arrow,
+                          and the two halves of the ACTION were at opposite ends
+                          with a sentence wedged between them. Verb and arrow
+                          together read as one control, and the sentence becomes
+                          what it actually is: the reason, not the instruction.
+                          The tail takes the flexible middle so it still wraps;
+                          the verb centres against whatever height that makes. */}
+                        {/* THREE LINES, NEVER ONE WITH AN ELLIPSIS. This carried
                             `truncate` (nowrap + ellipsis) and clipped to
                             "Only 6 more stops to go. Chai…", cutting the exact
                             clause the sentence was added for: where Chai comes
@@ -1145,18 +1183,27 @@ export default function Home() {
                             the same way. A clamp rather than free wrapping
                             because the panel CLIPS — a board that does not fit
                             its content does not look wrong, it looks blank —
-                            so a third line must be impossible, not unlikely.
-                            items-baseline on the row keeps the first line's
-                            baseline on the verb's. */}
+                            so a fourth line must be impossible, not unlikely.
+                            The type dropped 11->10 and the clamp 2->3 when the
+                            verb moved right: that took about a fifth of this
+                            column, and the sentence clipped at "Chai and
+                            surprises along t…", losing exactly the clause it
+                            was added for. Three levers each moved a little,
+                            rather than one cut hard. */}
                         {journeyCtaTail && (
                           <span
-                            className="line-clamp-2 text-[11px] font-semibold leading-[14px] lg:text-sm lg:leading-[18px]"
+                            className="line-clamp-3 mx-1.5 min-w-0 flex-1 text-[10px] font-semibold leading-[13px]"
                             style={{ color: ZONE_BOARD.inkMuted }}
                           >
                             {journeyCtaTail}
                           </span>
                         )}
-                      </span>
+                        <span
+                          className="shrink-0 text-[16px] font-black leading-[20px]"
+                          style={{ color: ZONE_BOARD.ink }}
+                        >
+                          {journeyCta}
+                        </span>
                       {/* A SOLID arrow, not a hairline one: beside a 17px black
                           verb a thin stroke reads as a different weight of
                           voice. */}
@@ -1173,14 +1220,32 @@ export default function Home() {
                     </div>
                   </div>
                 </CarvedBoard>
-                {/* NO SHIMMER SWEEP EITHER. It came across with the port and
-                    was warmed from white to cream for the paper, but a band a
-                    third of a 713px board wide does not read as light crossing
-                    wood at this size — it washes most of the panel at once, and
-                    with the two glows made up the "white box behind it" the
-                    owner reported. The idle life that survives is the breathe,
-                    the engine's drive and the arrow's pump, all of which move
-                    an object rather than tint one. */}
+                {/* The shimmer sweep, once per heartbeat. It was pulled for a
+                    round while the "white box behind it" was being chased; the
+                    box turned out to be `.depth-shadow` outlining the board's
+                    rectangle, not this, so the sweep comes back.
+                    Gradient and geometry are iOS's exactly: a band one third of
+                    the pass wide, warm cream at 0.55 in the middle and fully
+                    transparent at both ends, riding the same 3.2s heartbeat as
+                    the breathe (ticket-shimmer runs the sweep over the first
+                    45% and parks off-face for the rest). Warm rather than
+                    white, because a white streak on cream paper and varnished
+                    wood reads as a wash rather than as light crossing it. */}
+                {!reduceMotion && !tearing && (
+                  <div
+                    className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-md"
+                    aria-hidden
+                  >
+                    <div
+                      data-testid="pass-shimmer"
+                      className="absolute inset-y-0 left-0 w-1/3 animate-ticket-shimmer"
+                      style={{
+                        background:
+                          "linear-gradient(to right, rgba(255,244,222,0), rgba(255,249,236,0.55), rgba(255,244,222,0))",
+                      }}
+                    />
+                  </div>
+                )}
                 {/* NO GLOW HALO HERE, AND IT IS NOT AN OVERSIGHT. The old
                     green pass was a flat coloured card that needed lifting off
                     the page, so it carried an opacity-pulsed box-shadow. On the

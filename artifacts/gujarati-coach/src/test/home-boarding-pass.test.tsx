@@ -206,11 +206,11 @@ describe("home boarding pass CTA copy", () => {
     // Idle motion present when motion is not reduced: breathe, face shimmer,
     // glow pulse, CTA arrow slide, and the train drive.
     expect(container.querySelector(".animate-ticket-breathe")).not.toBeNull();
-    // The shimmer went with the glows: on a 713px carved board a cream band a
-    // third of it wide washes the panel rather than reading as light crossing
-    // wood. Inverted rather than deleted — the idle life that remains is the
-    // breathe, the engine and the arrow, asserted below.
-    expect(container.querySelector(".animate-ticket-shimmer")).toBeNull();
+    // The shimmer is back. It was pulled for one round while the "white box
+    // behind it" was being chased and turned out to be innocent: the box was
+    // `.depth-shadow` outlining the board's rectangle through the art's
+    // transparent margins. Restored to iOS's gradient and geometry.
+    expect(container.querySelector(".animate-ticket-shimmer")).not.toBeNull();
     // THE GLOW IS GONE, ON PURPOSE, and this assertion is inverted rather than
     // deleted. Two of them were live at once: the original accent halo and a
     // brown one added with the carved board. The accent one pulsed the LINE
@@ -248,6 +248,21 @@ describe("home boarding pass CTA copy", () => {
     h.groups = [grp({ status: "in_progress", masteredCount: 4, attemptedCount: 4 })];
     renderHome();
     expect(screen.getByText("Resume")).toBeInTheDocument();
+  });
+
+  // The state the owner was actually looking at: no boardable stop at all
+  // (loading, errored, or every authed call failing). The verb collapses to
+  // "Start" and mobile leaves the tail null — which on a phone-width plate is
+  // fine and on web's full-width plate reads as missing text. A learner with
+  // no progress is also the one who most needs to know Chai is earned by
+  // riding, so the clause carries here on its own.
+  test("no current stop still fills the plate, and keeps the Chai promise", () => {
+    h.groups = [];
+    renderHome();
+    expect(screen.getByText("Start")).toBeInTheDocument();
+    expect(
+      screen.getByText("Chai and surprises along the way."),
+    ).toBeInTheDocument();
   });
 
   test("progress without current-stop data falls back to the Continue verb", () => {
@@ -292,6 +307,7 @@ describe("home boarding pass motion", () => {
     const { container } = renderHome();
     // No idle animation classes anywhere on the page.
     expect(container.querySelector(".animate-ticket-breathe")).toBeNull();
+    expect(container.querySelector(".animate-ticket-shimmer")).toBeNull();
     expect(container.querySelector(".animate-cta-arrow-nudge")).toBeNull();
     expect(container.querySelector(".animate-train-drive")).toBeNull();
     // The static frame still carries the full progress-aware copy.
