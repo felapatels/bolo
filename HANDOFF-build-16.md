@@ -38,6 +38,37 @@ surprised when build 16 needs a build 17.
 
 ---
 
+## 0b. THE ONE OPEN DEFECT: HE SPEAKS HINDI IN EVERY LANGUAGE
+
+Found by the owner 2026-08-28: *"chachaji is talking in hindi on gujurati game as
+well. he should talk in the language selected."* He is right, and it is the last
+known defect in the call.
+
+**MOST OF THE CALL IS ALREADY LANGUAGE-AWARE, which is why this is narrow.** The
+session carries `languageCode`, `runLiveTurn` takes `languageName` and builds the
+live prompt with it, and `ttsPrewarm` caches per language (Hindi is merely warmed
+first, everything else synthesises on demand and caches).
+
+**WHAT IS NOT AWARE IS THE TEXT OF THE TWO CANNED BEATS.** `HELLO` and `BYE` in
+`chachaCallScript.ts` are single hardcoded Hindi strings, so all 22 languages open
+with *"Arre beta! Chacha-ji bol raha hoon"* and close with *"Chalo beta, phir baat
+karenge"*. Synthesising that in Gujarati gives Hindi words in a Gujarati voice.
+
+**DO NOT FIX IT BY WRITING 44 TRANSLATED STRINGS.** That is the exact mistake this
+repo already carries: all twelve reading passages are `verified: false` because an
+agent wrote them with no translation tool and no speaker, and the build prints a
+warning naming all twelve on every run. Repeating it for the FIRST AND LAST thing
+a learner hears on a call is worse, because those two lines have no surrounding
+context to recover from.
+
+**THE SHAPE THAT FITS WHAT IS ALREADY THERE:** generate each language's hello and
+bye once, at first use, and cache them beside the audio the way `tts_cache`
+already works. Latency is paid on the first call in a language and never again,
+which is precisely the trade `CALL_PREWARM_LANGUAGE` documents for the audio. The
+canned beats stay canned, so the latency decision they exist for is untouched.
+
+---
+
 ## 1. THE OPEN GATE: the call
 
 Owned by the session BOLO CHACHA-JI CALL. The screens are real and verified on
