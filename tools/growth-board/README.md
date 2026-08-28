@@ -2,7 +2,7 @@
 
 Generates the Nest growth page, `artifacts/api-server/assets/nest-growth.html`.
 
-**That HTML is committed output, not source.** It is 114,741 bytes and holds 66
+**That HTML is committed output, not source.** It is 123,165 bytes and holds 66
 finished captions plus a 35 day plan. Editing it by hand works until the next
 rebuild silently reverts you. **Edit the data here and rebuild, never the generated
 file.** Same rule as the aksharmala page in CLAUDE.md, and for the same reason.
@@ -28,7 +28,7 @@ a mirror.
 ## Reproducibility
 
 `python3 gen.py <out> nest` reproduces the committed file **byte for byte**,
-114,741 bytes, trailing newline included. Verify before committing any change here:
+123,165 bytes, trailing newline included. Verify before committing any change here:
 
 ```bash
 python3 gen.py /tmp/growth-check.html nest
@@ -50,7 +50,9 @@ exactly why that check is written down here.
   pillar assets and their captions, and the week to slot mapping.
   **The greetings were read off the shipped `duo-d*` campaign cards, not invented.**
   Keep them matched to those cards; that is the whole reason this is a data file.
-- `sections.py` — the channel ranking, the launch night runbook, the three WhatsApp
+- `sections.py` — the channel ranking, the GRID SEEDING runbook (`GRID_BADGE`,
+  `GRID_SEED`, `GRID_LAYOUT`, `GRID_HELD`, added 2026-08-27), the launch night
+  runbook, the three WhatsApp
   scripts and the 35 day plan.
 - `gen.py` — layout, CSS, and the runtime script.
 

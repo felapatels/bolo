@@ -133,3 +133,80 @@ DAYKIND = {
  "rest":("REST","d-rest"), "fix":("FIX","d-fix"), "reddit":("REDDIT","d-reddit"),
  "buy":("ORDER","d-buy"), "print":("PRINT","d-buy"),
 }
+
+# ---------------------------------------------------------------------------
+# GRID SEEDING, added 2026-08-27 from the owner's runbook.
+#
+# WHY IT SITS BEFORE LAUNCH NIGHT rather than in the 30 day plan: the launch
+# post sends its first fifty visitors to a PROFILE, and an empty grid is where
+# they decide this is not a real thing. Nine posts is the smallest number that
+# fills a visible 3x3.
+# ---------------------------------------------------------------------------
+
+# One badge set, never mixed. Both folders hold the same 40 filenames and differ
+# only in the store badge, so a feed carrying both reads as a rendering bug.
+GRID_BADGE = [
+ ("Android listing is PUBLIC on Google Play", "~/Downloads/bolocampaignslive/"),
+ ("Still internal testing", "~/Downloads/bolocampaignsplaysoon 2/"),
+]
+
+# THE ORDER IS DELIBERATELY THE REVERSE OF HOW THE GRID READS, because Instagram
+# puts the newest post top-left. Post 1 first, 9 last.
+GRID_SEED = [
+ (1, "father-e-answer-back-1x1.png", "The payoff",
+  "\u0a95\u0ac7\u0aae \u0a9b\u0acb? into \u0aae\u0a9c\u0abe\u0aae\u0abe\u0a82!\n\n"
+  "That is the entire reason this app exists. Start them speaking today. TryBolo.app\n\n"
+  "#desiparents #heritagelanguage #diaspora #motherlanguage #speakbolo #firstgen #gujarati"),
+ (2, "ai-a2-learning-your-pace-1x1.png", "The capability thesis",
+  "Say it out loud and Bolo hears it. Every attempt gets a real score and gets remembered against that exact phrase.\n\n"
+  "22 languages, from the first one you try. TryBolo.app\n\n"
+  "#ai #languagelearning #pronunciation #edtech #speakbolo #indianlanguages #aitools #languageapp"),
+ (3, "father-d-family-plan-1x1.png", "The commercial ask",
+  "The kid is not going to learn it from an app on their own. They will learn it because you are doing it too.\n\n"
+  "One bill, up to four people, and everyone keeps their own progress. TryBolo.app\n\n"
+  "#familygoals #desiparents #heritagelanguage #diaspora #speakbolo #learntogether #firstgen"),
+ (4, "ai-d-remembers-1x1.png", "The retention story",
+  "Every phrase gets its own review schedule, built from how well you actually said it.\n\n"
+  "The ones slipping away come back first. TryBolo.app\n\n"
+  "#spacedrepetition #languagelearning #ai #memory #speakbolo #edtech #studytips"),
+ (5, "father-a2-they-answer-in-english-1x1.png", "The core pain, in one line",
+  "You have said it to that kid ten thousand times. You have never once heard it back.\n\n"
+  "It is not too late, and it is not their fault. 22 languages, all taught out loud. TryBolo.app\n\n"
+  "#desiparents #diaspora #heritagelanguage #motherlanguage #indianparents #speakbolo #desikids #firstgen"),
+ (6, "ai-e-talk-to-bolo-1x1.png", "The feature people do not expect",
+  "A real back-and-forth conversation, out loud, in any of the 22 languages.\n\n"
+  "He talks, you talk back. No typing. TryBolo.app\n\n"
+  "#ai #conversation #languagelearning #speakbolo #voiceai #learnhindi #edtech"),
+ (7, "duo-d01-forgot-hi-hindi.png", "The honest Duo comparison, biggest single audience",
+  "Duolingo teaches Hindi. Fair enough.\n\n"
+  "It's the only one of India's 22 official languages they teach. Bolo teaches all 22, and teaches them out loud with real pronunciation coaching.\n\n"
+  "\u0928\u092e\u0938\u094d\u0924\u0947 is where you start. TryBolo.app\n\n"
+  "#hindi #learnhindi #hindidiaspora #speakbolo"),
+ (8, "father-c-not-just-your-house-1x1.png", "The emotional hook, widened past one language",
+  "Different language, same reply.\n\n"
+  "Every diaspora household is running the same script. 22 languages on Bolo, all taught out loud. TryBolo.app\n\n"
+  "#diaspora #southasian #desitok #heritagelanguage #firstgen #speakbolo #indianlanguages"),
+ (9, "duo-a2-wall-of-22-1x1.png", "The thesis, 22 scripts in one image",
+  "22 official languages. Every single one, in its own script.\n\n"
+  "Duo teaches 1 of them. Bolo teaches all 22.\n\n"
+  "Find your family's language and start speaking it today. TryBolo.app\n\n"
+  "#22languages #indianlanguages #desitok #heritagelanguage #motherlanguage #speakbolo #languagelearning #diaspora #southasian #learnyourlanguage"),
+]
+
+# How it reads once all nine are up, newest first, top-left.
+GRID_LAYOUT = [
+ ["duo-a2-wall-of-22", "father-c-not-just-your-house", "duo-d01-forgot-hi-hindi"],
+ ["ai-e-talk-to-bolo", "father-a2-they-answer-in-english", "ai-d-remembers"],
+ ["father-d-family-plan", "ai-a2-learning-your-pace", "father-e-answer-back"],
+]
+
+# What the runbook deliberately does NOT spend, and why.
+GRID_HELD = [
+ ("All 22 language cards stay unspent",
+  "Except Hindi, which reposts in week 11. Eleven weeks is far enough that nobody scrolls back to notice."),
+ ("ai-f-whats-next-1x1.png is excluded on purpose",
+  "It is the one asset that touches adaptation, which the app does not do yet, and CAPTIONS-ai.md says to hold it back "
+  "rather than pre-announce. <b>It is your spare tile if you want a tenth.</b>"),
+ ("The eight pillar squares repost from week 8",
+  "That is the earliest duplicate on the whole board and it is far enough out to be invisible."),
+]

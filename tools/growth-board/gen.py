@@ -1,7 +1,8 @@
 import sys, html, datetime, re
 sys.path.insert(0, sys.path[0] or '.')
 from data import build
-from sections import CHANNELS, RUNBOOK, WA, DAYS, DAYKIND
+from sections import (CHANNELS, RUNBOOK, WA, DAYS, DAYKIND,
+                      GRID_BADGE, GRID_SEED, GRID_LAYOUT, GRID_HELD)
 
 weeks = build()
 NEST_MODE = (len(sys.argv)>2 and sys.argv[2]=='nest')
@@ -498,6 +499,53 @@ for n,title,temp,desc in CHANNELS:
       '<span class="temp t-%s">%s</span></div>'
       % ("" if n<=3 else " dim", n, title, desc, temp,
          "Warm &middot; yours" if temp=="warm" else "Cold &middot; rented"))
+A('</div>')
+
+# ---- seed the grid, BEFORE launch night ----
+# Placed here rather than in the 30 day plan because it is chronologically
+# before the launch post, and the launch post is what makes an empty grid
+# expensive: it sends its first fifty visitors to a profile.
+A('<div class="shead" style="margin-top:52px"><h2>Seed the grid first</h2>'
+  '<p>The launch post sends people to a <b>profile</b>, and an empty grid is where they decide '
+  'this is not a real thing yet. Nine posts is the smallest number that fills a visible 3x3. '
+  '<b>All of this happens before the runbook below, not on the night.</b></p></div>')
+
+A('<div class="call"><h3>One badge set, and never mix them</h3>'
+  '<p>Both folders hold the same 40 filenames and differ only in the store badge. '
+  '<b>A feed carrying both states reads as a rendering bug, not a launch.</b></p></div>')
+A('<div class="rank">')
+for i,(cond,folder) in enumerate(GRID_BADGE):
+    A('<div class="rk%s"><span class="p">%d</span>'
+      '<div><h4>%s</h4><p class="file">%s</p></div></div>'
+      % ("" if i==0 else " dim", i+1, esc(cond), esc(folder)))
+A('</div>')
+A('<p class="meta"><b>Mind the folder name.</b> <span class="file">bolocampaignsplaysoon</span> '
+  'without the <span class="file">2</span> is an older nested copy with subfolders and no images '
+  'at the top level. The one you want is <span class="file">bolocampaignsplaysoon 2</span>.</p>')
+
+A('<div class="call teal" style="margin-top:26px"><h3>Post 1 first, 9 last</h3>'
+  '<p>Instagram puts the newest post top-left, so <b>this list is deliberately the reverse of how '
+  'the grid will read.</b> Space them over two or three days, three a day. '
+  'Nine in one sitting looks automated and can get throttled.</p></div>')
+
+for n,fname,why,cap in GRID_SEED:
+    A('<div class="capwrap" style="margin-top:14px"><div class="captop">'
+      '<span class="cl">%d &middot; %s</span>'
+      '<button class="copy" type="button">Copy</button></div>' % (n, esc(why)))
+    A('<p class="file" style="padding:12px 16px 0">%s</p>' % esc(fname))
+    A('<pre class="cap">%s</pre></div>' % esc(cap))
+
+A('<div class="shead" style="margin-top:40px"><h3>What the grid reads like when you are done</h3></div>')
+A('<div class="capwrap"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line)">')
+for row in GRID_LAYOUT:
+    for cell in row:
+        A('<div class="file" style="background:var(--surface);padding:14px 12px;font-size:11.5px">%s</div>' % esc(cell))
+A('</div></div>')
+
+A('<div class="shead" style="margin-top:40px"><h3>What this deliberately leaves unspent</h3></div>')
+A('<div class="rules">')
+for title,body in GRID_HELD:
+    A('<div class="rule"><h4>%s</h4><p>%s</p></div>' % (esc(title), body))
 A('</div>')
 
 A('<div class="shead" style="margin-top:52px"><h2>Launch night, minute by minute</h2>'
