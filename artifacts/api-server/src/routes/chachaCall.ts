@@ -247,6 +247,11 @@ export function createChachaCallRouter(
       }
 
       let result: LiveTurnResult | null = null;
+      const t0 = Date.now();
+      // null until the first byte lands. NOT 0-as-absent: a first chunk that
+      // arrives inside the same millisecond is the best possible outcome and
+      // must not be logged as "no audio ever came".
+      let firstAudioMs: number | null = null;
       if (beat.mode === "live") {
         try {
           result = await deps.liveTurn({
@@ -254,13 +259,21 @@ export function createChachaCallRouter(
             audioFormat: format,
             beat,
             history: session.turns,
-            onAudioChunk: stream
-              ? (chunk) => appendChatAudioChunk(stream, chunk)
-              : undefined,
+            onAudioChunk: (chunk) => {
+              if (firstAudioMs === null) firstAudioMs = Date.now() - t0;
+              if (stream) appendChatAudioChunk(stream, chunk);
+            },
           });
-        } catch {
-          // Swallowed on purpose: the canned fallback below is the answer to a
-          // live turn that will not run, and it is his voice either way.
+        } catch (err) {
+          // The learner still gets a call: the canned fallback below answers in
+          // his voice either way. But this MUST NOT be silent. A gpt-audio
+          // outage would otherwise degrade every call in the world to its
+          // script with nobody the wiser, and this repo has already had a total
+          // outage produce no alert at all. warn and above reaches Sentry.
+          req.log.warn(
+            { err, beat: beat.id, callId: session.id },
+            "[chacha-call] live turn failed, falling back to the scripted line",
+          );
           result = null;
         }
       }
@@ -322,6 +335,22 @@ export function createChachaCallRouter(
         chacha: chachaText,
         canned,
       });
+
+      // The number this whole feature rests on. Measured at about 1.0 s warm on
+      // a laptop, and NEVER measured from the Repl, where it actually runs. Log
+      // it per turn so a regression is visible in production rather than felt
+      // by a learner sitting in silence.
+      req.log.info(
+        {
+          beat: beat.id,
+          canned,
+          firstAudioMs,
+          totalMs: Date.now() - t0,
+          spokenSeconds: Number((result?.spokenSeconds ?? 0).toFixed(2)),
+          heardSomething: learnerText.length > 0,
+        },
+        "[chacha-call] turn",
+      );
 
       if (stream) return; // The 202 already went out.
 

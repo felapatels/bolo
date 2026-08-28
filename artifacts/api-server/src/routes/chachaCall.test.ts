@@ -30,6 +30,7 @@ let currentUser: string | null = USER;
 let liveResult: LiveTurnResult | null;
 let liveError: Error | null;
 let warmed = 0;
+let logged: Array<{ level: string; obj: unknown; msg: string }> = [];
 let cannedCalls: string[] = [];
 let getChatAudioStream: (id: string) => { chunks: Buffer[]; done: boolean; failed: boolean } | undefined;
 
@@ -67,6 +68,16 @@ before(async () => {
   app.use(express.json({ limit: "25mb" }));
   app.use((req: Request, _res: Response, next: NextFunction) => {
     if (currentUser) (req as Request & { userId: string }).userId = currentUser;
+    // Stands in for the pino logger the real middleware attaches, and records
+    // what the routes log so the fallback warning can be asserted on.
+    const record = (level: string) => (obj: unknown, msg: string) =>
+      logged.push({ level, obj, msg });
+    (req as Request & { log: unknown }).log = {
+      warn: record("warn"),
+      info: record("info"),
+      error: record("error"),
+      debug: record("debug"),
+    } as never;
     next();
   });
   app.use(createChachaCallRouter(deps));
@@ -81,6 +92,7 @@ beforeEach(() => {
   liveResult = makeLive();
   liveError = null;
   warmed = 0;
+  logged = [];
   cannedCalls = [];
 });
 
@@ -175,6 +187,33 @@ test("a model that fails falls back to the beat's own scripted line", async () =
   assert.equal((json.beat as never as { canned: boolean }).canned, true);
   assert.ok(json.audioBase64, "he still has to say something out loud");
   assert.ok(cannedCalls.includes("khaana"));
+});
+
+test("a live turn that fails is logged loudly, never silently", async () => {
+  // A gpt-audio outage would otherwise degrade every call in the world to its
+  // script with nobody the wiser, and this app has already had a total outage
+  // produce no alert at all. warn and above reaches Sentry.
+  const callId = await startCall();
+  liveError = new Error("gpt-audio is down");
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  const warning = logged.find((l) => l.level === "warn");
+  assert.ok(warning, "a failed live turn must not be swallowed silently");
+  assert.match(warning.msg, /falling back/i);
+  assert.equal((warning.obj as { beat: string }).beat, "khaana");
+});
+
+test("every turn logs the latency this whole feature rests on", async () => {
+  // Never measured from the Repl, where it actually runs. Logging it per turn
+  // is how a regression becomes visible instead of being felt by a learner
+  // sitting in silence.
+  const callId = await startCall();
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  const turn = logged.find((l) => l.msg === "[chacha-call] turn");
+  assert.ok(turn, "no turn log");
+  const o = turn.obj as { firstAudioMs: number | null; canned: boolean; beat: string };
+  assert.equal(o.canned, false);
+  assert.equal(o.beat, "khaana");
+  assert.equal(typeof o.firstAudioMs, "number");
 });
 
 test("a learner who says nothing gets the gentle line, not a retry", async () => {
