@@ -2,7 +2,7 @@
 
 Generates the Nest growth page, `artifacts/api-server/assets/nest-growth.html`.
 
-**That HTML is committed output, not source.** It is 123,165 bytes and holds 66
+**That HTML is committed output, not source.** It is 123,139 bytes and holds 66
 finished captions plus a 35 day plan. Editing it by hand works until the next
 rebuild silently reverts you. **Edit the data here and rebuild, never the generated
 file.** Same rule as the aksharmala page in CLAUDE.md, and for the same reason.
@@ -28,7 +28,7 @@ a mirror.
 ## Reproducibility
 
 `python3 gen.py <out> nest` reproduces the committed file **byte for byte**,
-123,165 bytes, trailing newline included. Verify before committing any change here:
+123,139 bytes, trailing newline included. Verify before committing any change here:
 
 ```bash
 python3 gen.py /tmp/growth-check.html nest

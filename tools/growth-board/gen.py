@@ -18,6 +18,9 @@ KIND = {
   "card":   ("CARD",   "k-card"),
   "pillar": ("PILLAR", "k-pillar"),
   "repost": ("REPOST", "k-repost"),
+  # A withdrawn pillar. Deliberately loud: an empty slot on a schedule is a
+  # thing to fix, not a thing to scroll past.
+  "gap":    ("EMPTY",  "k-gap"),
 }
 
 out = []
@@ -139,6 +142,7 @@ details[open]>summary{background:var(--sunk);border-bottom:1px solid var(--line)
 .chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
   padding:3px 8px;border-radius:2px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
 .k-video{border-color:var(--teal);color:var(--teal)}
+.k-gap{border-color:var(--ochre);color:var(--ochre);border-style:dashed}
 .k-card{border-color:var(--indigo);color:var(--indigo)}
 .k-pillar{border-color:var(--ochre);color:var(--ochre)}
 .k-repost{border-style:dashed}

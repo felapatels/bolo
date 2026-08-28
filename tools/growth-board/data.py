@@ -33,7 +33,7 @@ ISO = {"01":"hi","02":"bn","03":"ta","04":"te","05":"mr","06":"ur","07":"gu","08
 
 PILLARS = [
  ("father-a1-they-answer-in-english-9x16","Reels + TikTok","The hook. Your strongest still, spent early.",
-  "You have said it to that kid ten thousand times. You have never once heard it back.\n\nIt is not too late, and it is not their fault. Bolo teaches all 22 languages by speaking them out loud, and you can learn it together on one family plan. TryBolo.app\n\n#desiparents #diaspora #heritagelanguage #motherlanguage #indianparents #speakbolo #desikids #firstgen"),
+  "You have said it to that kid ten thousand times. You have never once heard it back.\n\nIt is not too late, and it is not their fault. Bolo teaches all 22 languages by speaking them out loud, and you can learn it together. TryBolo.app\n\n#desiparents #diaspora #heritagelanguage #motherlanguage #indianparents #speakbolo #desikids #firstgen"),
  ("duo-b-scoreboard-1v22","Feed + Stories","The proof. People scan for their language and screenshot it.",
   "We checked. Of India's 22 official languages, Duolingo teaches one.\n\nBolo teaches 22.\n\nFind yours on the list. Then go speak it. TryBolo.app\n\n#duolingo #languagelearning #indianlanguages #desi #heritage #speakbolo #languageapp #southasian #motherlanguage #22languages"),
  ("ai-c-it-listens-9x16","Reels + X","The differentiator, and the strongest one in the AI set.",
@@ -52,8 +52,16 @@ PILLARS = [
   "In April 2025 Duolingo added Tamil, Telugu, Bengali and Hindi.\n\nNot as languages you can learn. As menus. So a Tamil speaker could go learn Spanish.\n\nOur languages were the on-ramp to theirs. Bolo teaches all 22, out loud. TryBolo.app\n\n#tamil #languagelearning #edtech #desitok #heritagelanguage #speakbolo #southasian #indianlanguages #diaspora #learntamil"),
  ("ai-b-five-bands-9x16","Reels + Feed","Show your work. Converts skeptics.",
   "Perfect. Great. Good. Almost. Retry.\n\nEvery attempt lands on one of five bands with a real score behind it, not a green tick. And every one gets logged against that phrase, for you. TryBolo.app\n\n#languagelearning #pronunciation #ai #edtech #speakbolo #languageapp #learntamil"),
- ("father-d-family-plan-1x1","Feed","The commercial ask, once trust is built. Points at TryBolo.app.",
-  "The kid is not going to learn it from an app on their own. They will learn it because you are doing it too.\n\nOne bill, up to four people, and everyone keeps their own progress. TryBolo.app\n\n#familygoals #desiparents #heritagelanguage #diaspora #speakbolo #learntogether #firstgen"),
+ # WEEK 11 IS A HOLE, NOT A POST. father-d-family-plan-1x1 was dropped entirely
+ # on 2026-08-27 because the card claimed a family plan the product does not sell.
+ #
+ # THE ENTRY STAYS AND THE ASSET IS None ON PURPOSE. Deleting the row would pull
+ # every pillar from week 11 onward a week earlier and silently reschedule two
+ # and a half months of posts to fix a typo. A hole you can see beats a schedule
+ # that quietly moved.
+ (None,"Nothing scheduled","THE FAMILY PLAN CARD WAS DROPPED. This slot needs a replacement pillar, "
+  "and it is two and a half months out, so there is time. Pick one and put it here.",
+  ""),
  ("ai-d-remembers-1x1","Feed","The retention story.",
   "Every phrase gets its own review schedule, built from how well you actually said it.\n\nThe ones slipping away come back first. TryBolo.app\n\n#spacedrepetition #languagelearning #ai #memory #speakbolo #edtech #studytips"),
  ("duo-a2-wall-of-22-1x1","Feed + Carousel cover","Breadth again, cut for the grid.",
@@ -112,7 +120,13 @@ def build():
             why="Second touch on the same community, different format.",
             cap=card_caption(name,script,tags,special)))
         pi = wk-1
-        if pi < len(PILLARS):
+        if pi < len(PILLARS) and PILLARS[pi][0] is None:
+            # A pillar that was withdrawn. The week keeps its shape and the page
+            # says the slot is empty, rather than the schedule shuffling.
+            p = PILLARS[pi]
+            slots.append(dict(off=base+4, kind="gap", asset="Nothing scheduled",
+                              where=p[1], why=p[2], cap=""))
+        elif pi < len(PILLARS):
             p = PILLARS[pi]
             slots.append(dict(off=base+4, kind="pillar", asset=p[0]+".png",
                               where=p[1], why=p[2], cap=p[3]))

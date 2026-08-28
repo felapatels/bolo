@@ -1,0 +1,13 @@
+# Generated campaign output. The scripts are the source, these are not.
+#
+# f17dd819 deleted this whole package partly because 26MB of these PNGs had
+# already been committed in a94116bf and cannot come back out without rewriting
+# main, which CLAUDE.md forbids. The generators are restored; their output is
+# not, and must not be committed again.
+campaign-ai/*.png
+campaign-ai-playsoon/*.png
+campaign-duo/*.png
+campaign-duo-playsoon/*.png
+campaign-father/*.png
+campaign-father-playsoon/*.png
+covers/*.png

@@ -161,10 +161,17 @@ GRID_SEED = [
   "Say it out loud and Bolo hears it. Every attempt gets a real score and gets remembered against that exact phrase.\n\n"
   "22 languages, from the first one you try. TryBolo.app\n\n"
   "#ai #languagelearning #pronunciation #edtech #speakbolo #indianlanguages #aitools #languageapp"),
- (3, "father-d-family-plan-1x1.png", "The commercial ask",
-  "The kid is not going to learn it from an app on their own. They will learn it because you are doing it too.\n\n"
-  "One bill, up to four people, and everyone keeps their own progress. TryBolo.app\n\n"
-  "#familygoals #desiparents #heritagelanguage #diaspora #speakbolo #learntogether #firstgen"),
+ # SLOT 3 WAS THE FAMILY PLAN CARD AND IS NOW TAMIL, changed 2026-08-27. The
+ # family plan card was dropped outright because it claimed a plan the product
+ # does not sell. Tamil is the biggest audience the grid was missing, the script
+ # is unmistakable at thumbnail size, and it lands BOTTOM-LEFT, the least viewed
+ # of the nine, which is where a late replacement belongs.
+ (3, "duo-d03-forgot-ta-tamil.png", "The biggest audience the grid was missing",
+  "Duo forgot Tamil. \U0001F61E\n"
+  "Bolo didn't.\n\n"
+  "\u0bb5\u0ba3\u0b95\u0bcd\u0b95\u0bae\u0bcd is where you start. Say it out loud, get coached on the spot, "
+  "and get your family's language back. TryBolo.app\n\n"
+  "#tamil #learntamil #tamildiaspora #vanakkam #speakbolo"),
  (4, "ai-d-remembers-1x1.png", "The retention story",
   "Every phrase gets its own review schedule, built from how well you actually said it.\n\n"
   "The ones slipping away come back first. TryBolo.app\n\n"
@@ -197,13 +204,21 @@ GRID_SEED = [
 GRID_LAYOUT = [
  ["duo-a2-wall-of-22", "father-c-not-just-your-house", "duo-d01-forgot-hi-hindi"],
  ["ai-e-talk-to-bolo", "father-a2-they-answer-in-english", "ai-d-remembers"],
- ["father-d-family-plan", "ai-a2-learning-your-pace", "father-e-answer-back"],
+ ["duo-d03-forgot-ta-tamil", "ai-a2-learning-your-pace", "father-e-answer-back"],
 ]
 
 # What the runbook deliberately does NOT spend, and why.
 GRID_HELD = [
- ("All 22 language cards stay unspent",
-  "Except Hindi, which reposts in week 11. Eleven weeks is far enough that nobody scrolls back to notice."),
+ # CORRECTED 2026-08-27 IN THE SAME EDIT THAT CREATED THE PROBLEM. This used to
+ # say all 22 stay unspent except Hindi, which was true when slot 3 was the
+ # family plan card. Swapping slot 3 to Tamil spent a second one, and Tamil sits
+ # at WEEK 3 rather than week 11. A note that still claimed eleven weeks of
+ # distance would have been the page lying about its own schedule.
+ ("Two language cards are spent early now, not one",
+  "Hindi reposts in <b>week 11</b>, and eleven weeks is far enough that nobody scrolls back to notice. "
+  "<b>Tamil now reposts in week 3</b>, because the seed swap put it in slot 3 and Tamil is week 3 on the "
+  "board. <b>Three weeks is not eleven.</b> Three ways out: accept the repeat, seed a language that sits "
+  "late on the board instead, or move Tamil's week. Worth deciding rather than discovering."),
  ("ai-f-whats-next-1x1.png is excluded on purpose",
   "It is the one asset that touches adaptation, which the app does not do yet, and CAPTIONS-ai.md says to hold it back "
   "rather than pre-announce. <b>It is your spare tile if you want a tenth.</b>"),
