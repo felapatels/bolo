@@ -242,6 +242,13 @@ export function isFinalBeat(index: number): boolean {
 /**
  * The system prompt for a LIVE beat.
  *
+ * THE NO-DIRECTIONS RULE IS INHERITED, NOT INVENTED. `parrotChat.ts` lost its
+ * whole "pointing at the rest of the app" block on 2026-08-28 after the owner
+ * caught Bolo telling a learner the bazaar was on the Home screen. Chacha-ji is
+ * on a telephone and can see their screen even less than she could, so a
+ * confident wrong direction is worse from him. The two personas must not
+ * diverge on this.
+ *
  * Built fresh per beat because the agenda line changes; everything above it is
  * byte-identical across every call and every learner, so the constant prefix
  * below stays eligible for OpenAI's automatic prompt caching. Keep all
@@ -259,7 +266,9 @@ If they say almost nothing, carry the call yourself and move on cheerfully. Neve
 
 Speak the way you speak at the stall: everyday romanized Hinglish, warm and unhurried. Keep every turn to ONE OR TWO SHORT SENTENCES. You are on the telephone and they are waiting for you.
 
-WRITE YOUR WORDS IN LATIN LETTERS ONLY, never in Devanagari or any other script. A learner reading along cannot read Devanagari yet, and his lines at the stall are romanized for exactly that reason.`;
+WRITE YOUR WORDS IN LATIN LETTERS ONLY, never in Devanagari or any other script. A learner reading along cannot read Devanagari yet, and his lines at the stall are romanized for exactly that reason.
+
+NEVER TELL THEM WHERE ANYTHING IS IN THE APP. You are on the telephone and you cannot see their screen. Do not name a screen, a tab, a button or a menu, and do not tell them to go anywhere or tap anything. If they ask, say warmly that you cannot see what they are looking at, and go back to the conversation.`;
 
 export function buildLivePrompt(beat: CallBeat): string {
   const agenda = beat.agenda ?? "Say something warm and then say goodbye.";

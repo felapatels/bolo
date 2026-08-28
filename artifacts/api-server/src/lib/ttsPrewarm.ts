@@ -27,6 +27,11 @@ import {
   chachaLineCacheKey,
 } from "./chachaStrings";
 import {
+  CALL_CACHE_KEY_VERSION,
+  CALL_CANNED_LINES,
+  callLineCacheKey,
+} from "./chachaCallScript";
+import {
   pool,
   CONCURRENCY,
   PACING_MS,
@@ -362,6 +367,12 @@ export function scheduleTtsPrewarm(): void {
       // verifier: they are flavour dialogue, not a pronunciation reference,
       // so a retake ladder would only burn calls on audio nobody grades.
       await warmChachaLines();
+
+      // The phone call's fixed lines. These matter more than the stall ones:
+      // a canned line that has to synthesize on demand costs about 1.7 s, and
+      // the whole point of the canned hello is that the learner hears him with
+      // no wait at all.
+      await warmChachaCallLines();
     } catch (err) {
       // Top-level catch: something unexpected (e.g. DB down at startup).
       // Log and swallow — pre-warm is best-effort, never critical.
@@ -561,6 +572,67 @@ export async function synthesizeChachaLine(text: string): Promise<Buffer> {
   return Buffer.from(await response.arrayBuffer());
 }
 
+/**
+ * Pre-synthesizes the FIXED lines of Chacha-ji's phone call.
+ *
+ * SEPARATE FROM warmChachaLines BECAUSE THE CALL IS WHERE LATENCY ACTUALLY
+ * BITES. His stall lines are allowed to be slow: the chai grant and the
+ * celebration never wait on them. A call is not, and the canned lines are the
+ * whole reason the call feels instant. Without this the first call after a
+ * deploy synthesizes his hello on demand, which measured 1735 ms on 2026-08-28,
+ * WORSE than the live gpt-audio turn the canned line exists to protect against.
+ *
+ * Same voice, model and instructions as the stall lines, and its own cache
+ * namespace via callLineCacheKey, so rewording a call line cannot orphan a
+ * stall clip or the reverse.
+ */
+export async function warmChachaCallLines(
+  deps: WarmChachaLinesDeps = defaultWarmChachaCallLinesDeps,
+): Promise<void> {
+  try {
+    let synthesized = 0;
+    let alreadyCached = 0;
+    let failed = 0;
+
+    for (const [key, line] of Object.entries(CALL_CANNED_LINES)) {
+      const cacheKey = callLineCacheKey(key);
+      try {
+        const existing = await deps.findCached(cacheKey);
+        if (existing) {
+          alreadyCached++;
+          continue;
+        }
+        const buffer = await deps.synthesize(line.text);
+        await deps.insertCache({
+          cacheKey,
+          audioBase64: buffer.toString("base64"),
+          format: CHACHA_AUDIO_FORMAT,
+        });
+        synthesized++;
+      } catch (err) {
+        // One line failing must not cost the others. The route synthesizes a
+        // miss on demand, so the call still happens, just slower for that beat.
+        failed++;
+        logger.warn({ err, line: key }, "TTS pre-warm: Chacha call line synthesis failed");
+      }
+    }
+
+    logger.info(
+      {
+        voice: CHACHA_TTS_VOICE,
+        model: CHACHA_TTS_MODEL,
+        version: CALL_CACHE_KEY_VERSION,
+        alreadyCached,
+        synthesized,
+        failed,
+      },
+      "[chacha-call-tts] prewarm complete",
+    );
+  } catch (err) {
+    logger.warn({ err }, "TTS pre-warm: Chacha call warm-up error (non-fatal)");
+  }
+}
+
 const defaultWarmChachaLinesDeps: WarmChachaLinesDeps = {
   findCached: (cacheKey) =>
     db.query.ttsCacheTable.findFirst({
@@ -576,6 +648,8 @@ const defaultWarmChachaLinesDeps: WarmChachaLinesDeps = {
       .then(() => undefined),
   synthesize: synthesizeChachaLine,
 };
+
+const defaultWarmChachaCallLinesDeps: WarmChachaLinesDeps = defaultWarmChachaLinesDeps;
 
 /**
  * Pre-synthesizes Chacha-ji's three fixed lines so the stall never waits on

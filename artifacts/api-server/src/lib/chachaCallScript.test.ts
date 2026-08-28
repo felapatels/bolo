@@ -143,3 +143,20 @@ test("every backdrop names a video and a poster that are actually on disk", () =
     assert.ok(b.seconds > 0, `${b.id} has no duration`);
   }
 });
+
+test("he never tells the learner where anything is in the app", () => {
+  // Inherited from parrotChat, which lost its "pointing at the rest of the app"
+  // block on 2026-08-28 after Bolo sent a learner to the wrong screen. He is on
+  // a phone and cannot see their screen at all, so a confident wrong direction
+  // is worse from him than it was from her.
+  assert.match(CALL_PERSONA_PROMPT, /NEVER TELL THEM WHERE ANYTHING IS IN THE APP/);
+  assert.match(CALL_PERSONA_PROMPT, /cannot see their screen/i);
+  // And the agenda must never send him there either.
+  for (const beat of CALL_BEATS) {
+    assert.doesNotMatch(
+      `${beat.agenda ?? ""} ${beat.text}`,
+      /\b(tab|screen|button|menu|tap|home page)\b/i,
+      `${beat.id} points at the app`,
+    );
+  }
+});
