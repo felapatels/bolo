@@ -1,44 +1,72 @@
 /**
- * Chacha-ji's call. THE RINGING STATE ONLY, so far.
+ * Chacha-ji's call: ringing, then connected.
  *
- * Answering is not built yet and this screen says so rather than pretending:
- * onAnswer leaves a marker and returns. The question this screen exists to
- * answer first is whether a fake call FEELS like a call, and that is worth
- * settling before a single real turn is wired to it.
+ * STILL NO SERVER. The turns below are a local script so the screen can be
+ * driven on a simulator with nothing running behind it, which is how the
+ * ringing screen was settled and is the fastest way to find out whether this
+ * feels like a call. THE REAL CONTRACT ALREADY EXISTS AND MUST WIN when this is
+ * wired up:
  *
- * NO SERVER IS INVOLVED HERE YET. The backdrop is picked locally so the screen
- * can be driven on a simulator with nothing running behind it. THE REAL
- * CONTRACT IS ALREADY DIFFERENT AND MUST WIN when this is wired up: the API
- * picks ONE backdrop when the call is created and returns the same one on every
- * turn, because the two clips are different scenes and swapping mid-call would
- * move him into another car in the middle of a sentence. The `backdrop` search
- * param below is the seam that server value will arrive through.
+ *   POST /openai/chacha-call/start          picks the backdrop AND the language
+ *   POST /openai/chacha-call/:id/turn       learner audio in, his reply out
+ *   POST /openai/chacha-call/:id/end        hang up
+ *
+ * The server decides the backdrop once per call and returns the same id every
+ * turn; it decides the language from the learner's activeLanguage; and it
+ * returns his line in the language's own script plus a romanization. The
+ * FAKE_TURNS below imitate that shape deliberately, so wiring it up is a swap
+ * rather than a rewrite.
  *
  * Drive it on the simulator with:
  *   xcrun simctl openurl booted "bolo-mobile://call"
- *   xcrun simctl openurl booted "bolo-mobile://call?backdrop=backseat"
+ *   xcrun simctl openurl booted "bolo-mobile://call?phase=connected"
+ *   xcrun simctl openurl booted "bolo-mobile://call?phase=connected&say=listening"
  */
 import React from 'react';
 import { BackHandler, Platform, StatusBar } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { IncomingCall, type CallBackdropId } from '@/components/call/IncomingCall';
+import { IncomingCall } from '@/components/call/IncomingCall';
+import { InCall, type CallPhase } from '@/components/call/InCall';
+import { isCallBackdropId, type CallBackdropId } from '@/components/call/backdrops';
 
-function isBackdropId(v: unknown): v is CallBackdropId {
-  return v === 'driving' || v === 'backseat';
-}
+/**
+ * SCAFFOLDING, NOT CONTENT. Gujarati, because that is the app's oldest journey
+ * language, and unverified: nobody who speaks it has read these. They exist to
+ * put real script and a real romanization on screen at real lengths so the
+ * caption layout can be judged. They must NOT survive the server being wired
+ * up, and nothing should ever be taught from them.
+ */
+const FAKE_TURNS: {
+  text: string;
+  romanized: string;
+  chaiEarned?: number;
+}[] = [
+  { text: 'કેમ છો, બેટા? મજામાં?', romanized: 'Kem chho, beta? Majama?' },
+  { text: 'વાહ! આજે શું ખાધું?', romanized: 'Waah! Aaje shu khadhu?', chaiEarned: 1 },
+  { text: 'રોટલી અને દાળ? બહુ સરસ.', romanized: 'Rotli ane daal? Bahu saras.', chaiEarned: 1 },
+];
 
 export default function CallScreen() {
-  const params = useLocalSearchParams<{ backdrop?: string }>();
+  const params = useLocalSearchParams<{
+    backdrop?: string;
+    phase?: string;
+    say?: string;
+  }>();
 
-  // Chosen ONCE for the life of this screen. Re-picking on a re-render would
-  // change cars mid-call, which is the one thing the backdrop rule forbids.
   const [backdrop] = React.useState<CallBackdropId>(() =>
-    isBackdropId(params.backdrop)
+    isCallBackdropId(params.backdrop)
       ? params.backdrop
       : Math.random() < 0.5
         ? 'driving'
         : 'backseat',
   );
+
+  const [connected, setConnected] = React.useState(params.phase === 'connected');
+  const [turn, setTurn] = React.useState(0);
+  const [phase, setPhase] = React.useState<CallPhase>(
+    params.say === 'listening' ? 'listening' : 'speaking',
+  );
+  const [elapsed, setElapsed] = React.useState(0);
 
   const leave = React.useCallback(() => {
     if (router.canGoBack()) router.back();
@@ -46,13 +74,12 @@ export default function CallScreen() {
   }, []);
 
   /**
-   * ANDROID HAS A HARDWARE BACK BUTTON AND iOS DOES NOT, so this is the one
-   * behaviour that genuinely has to differ rather than merely look different.
-   *
-   * Back is treated as IGNORING the call, not as dismissing a screen. That is
-   * the same outcome as the Ignore button on purpose: he rings again later,
-   * nothing is lost, and a learner who panics and hits back has not
-   * accidentally taken a different path from one who chose to ignore it.
+   * Android has a hardware back button and iOS does not, so this is the one
+   * behaviour that genuinely has to differ. While RINGING, back means ignore,
+   * the same outcome as the Ignore button, so a learner who panics has not
+   * taken a different path from one who chose it. While CONNECTED it hangs up,
+   * because on a call in progress back is the only gesture available and
+   * trapping someone in a call would be worse than ending it.
    */
   React.useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -63,25 +90,53 @@ export default function CallScreen() {
     return () => sub.remove();
   }, [leave]);
 
+  // The call clock, and the fake turn-taking that drives the two backdrop
+  // states. Both die with the screen.
+  React.useEffect(() => {
+    if (!connected) return;
+    const tick = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(tick);
+  }, [connected]);
+
+  React.useEffect(() => {
+    if (!connected || params.say) return;
+    const t = setTimeout(
+      () => {
+        if (phase === 'speaking') setPhase('listening');
+        else {
+          setPhase('speaking');
+          setTurn((i) => Math.min(i + 1, FAKE_TURNS.length - 1));
+        }
+      },
+      phase === 'speaking' ? 4200 : 3400,
+    );
+    return () => clearTimeout(t);
+  }, [connected, phase, params.say]);
+
+  const current = FAKE_TURNS[Math.min(turn, FAKE_TURNS.length - 1)];
+
   return (
     <>
-      {/* Light content over his face, on both platforms: the scrim behind the
-          type is dark whichever theme the learner runs. */}
       <StatusBar barStyle="light-content" />
-      <IncomingCall
-        backdrop={backdrop}
-        onAnswer={() => {
-          // NOT BUILT YET, AND THIS MUST NOT PRETEND IT IS. The in-call screen
-          // is the next piece of work; until it exists, answering logs and
-          // leaves rather than dropping the learner somewhere blank.
-          console.log('[chacha-call] answered', { backdrop });
-          leave();
-        }}
-        onIgnore={() => {
-          console.log('[chacha-call] ignored', { backdrop });
-          leave();
-        }}
-      />
+      {connected ? (
+        <InCall
+          backdrop={backdrop}
+          phase={phase}
+          text={current.text}
+          romanized={current.romanized}
+          // Chai lands with his REACTION to the answer, not while he is still
+          // asking, so it only shows on a speaking turn.
+          chaiEarned={phase === 'speaking' ? current.chaiEarned : 0}
+          elapsedSeconds={elapsed}
+          onHangUp={leave}
+        />
+      ) : (
+        <IncomingCall
+          backdrop={backdrop}
+          onAnswer={() => setConnected(true)}
+          onIgnore={leave}
+        />
+      )}
     </>
   );
 }
