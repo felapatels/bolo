@@ -49,6 +49,7 @@ import {
 } from '@/lib/ui';
 import { ResultActions } from '@/components/ResultActions';
 import { XpCounter } from '@/components/XpCounter';
+import { ChaiPill } from '@/components/SessionStats';
 import { EmptyState } from '@/components/EmptyState';
 import { appear, appearDown, appearPlain, appearZoom, useAppearSkip } from '@/lib/entrance';
 import {
@@ -335,7 +336,10 @@ function ReviewHeader({
       </Pressable>
       <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
         <Text style={[styles.headerLabel, { color: colors.foreground }]}>{label}</Text>
-        <XpCounter variant="session" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <XpCounter variant="session" />
+          <ChaiPill compact />
+        </View>
       </View>
       {settingsItems ? (
         <View style={styles.headerRight}>

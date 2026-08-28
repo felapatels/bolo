@@ -35,6 +35,18 @@ import {
 
 // ── Shared mutable state for mocks ─────────────────────────────────────────
 
+
+// THE TEXT INPUT IS COLLAPSED UNTIL ASKED FOR, as of 2026-08-28. Speaking is
+// the point of this screen and the nav button is the microphone, so typing is a
+// small pill until someone taps it, and only then does the full bar, the send
+// button and the mute toggle appear. These tests use the input as a handle for
+// something else (keyboard avoidance, hold-to-talk), so they open it first
+// rather than asserting a collapsed screen has an open one.
+function openTypeBar(screenlike) {
+  const { fireEvent } = require('@testing-library/react-native');
+  fireEvent.press(screenlike.getByTestId('chat-expand-input'));
+}
+
 const mockState = {
   // Controls whether the chat tab is selected (focused) when the tab bar
   // renders the BoloTabButton.
@@ -55,6 +67,10 @@ const mockState = {
 // ── Common module mocks ─────────────────────────────────────────────────────
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Added 2026-08-28: practice and review headers now show a Chai balance
+  // beside the XP meter, so this screen reads the tokens query. Same
+  // shape every other Chai surface gets.
+  useGetTokens: () => ({ data: { balance: 23 }, isLoading: false, isError: false, refetch: jest.fn() }),
   // Scenario metadata; disabled when no ?scenario param is present.
   useGetScenario: () => ({ data: undefined, isLoading: false, isError: false, error: null }),
   // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
@@ -321,7 +337,14 @@ jest.mock('@/lib/entitlements', () => ({
 jest.mock('@/components/TalkingMascot', () => {
   const { View } = require('react-native');
   const React = require('react');
-  return { TalkingMascot: (props: object) => React.createElement(View, props) };
+  // SoundBars was split out of TalkingMascot on 2026-08-28 so the speaking
+  // cluster could stay centred while the bird perches in a corner. A mock that
+  // only names TalkingMascot makes the new import undefined, which renders as
+  // "Element type is invalid" rather than as a missing mock.
+  return {
+    TalkingMascot: (props: object) => React.createElement(View, props),
+    SoundBars: () => React.createElement(View, null),
+  };
 });
 
 jest.mock('@/components/TipCard', () => {

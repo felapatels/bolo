@@ -35,19 +35,13 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 import { ChatRecordingProvider, useChatRecording } from '@/components/ChatRecordingContext';
+import { accessoryOverlaySource, mascotSource } from '@/lib/mascotOutfits';
+import { useEquippedOutfit } from '@/contexts/OutfitContext';
 
 // ---------------------------------------------------------------------------
 // Mascot pose assets + type
 // ---------------------------------------------------------------------------
 type MascotPose = 'wave' | 'cheer' | 'thumbsup' | 'thinking' | 'tryagain';
-
-const POSE_SOURCES: Record<MascotPose, number> = {
-  wave: require('../../../assets/images/mascot/mascot-wave.png'),
-  cheer: require('../../../assets/images/mascot/mascot-cheer.png'),
-  thumbsup: require('../../../assets/images/mascot/mascot-thumbsup.png'),
-  thinking: require('../../../assets/images/mascot/mascot-thinking.png'),
-  tryagain: require('../../../assets/images/mascot/mascot-tryagain.png'),
-};
 
 const POSES: MascotPose[] = ['wave', 'cheer', 'thumbsup', 'thinking', 'tryagain'];
 
@@ -59,8 +53,29 @@ function randomOtherPose(current: MascotPose): MascotPose {
 // ---------------------------------------------------------------------------
 // BoloNavParrot — animated parrot for the bottom nav bubble
 // ---------------------------------------------------------------------------
-function BoloNavParrot({ focused }: { focused: boolean }) {
+function BoloNavParrot({
+  focused,
+  size,
+}: {
+  focused: boolean;
+  size: number;
+}) {
   const reduceMotion = useReducedMotion();
+  /**
+   * THE NAV BIRD DRESSES LIKE EVERY OTHER BOLO (owner, 2026-08-28: "bolo in the
+   * nav bar doesn't respect the rule that it should be wearing whatever clothes
+   * are equipped").
+   *
+   * It was the one mascot in the app still on a bare undressed pose map, so a
+   * learner who had spent Chai on a kurta saw it everywhere except on the
+   * button they press most. EquippedOutfitProvider wraps this whole tab group
+   * from app/(app)/_layout.tsx, so the same hook the on-screen mascot uses
+   * works here with nothing new to wire.
+   *
+   * A pose a client has not shipped falls back to canonical Bolo rather than
+   * blanking her; that is mascotSource's own contract, not something added here.
+   */
+  const equipped = useEquippedOutfit();
 
   // Current pose state
   const [pose, setPose] = React.useState<MascotPose>('wave');
@@ -194,6 +209,8 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
     );
   }, [focused, reduceMotion, scale, rotate]);
 
+  const overlay = accessoryOverlaySource(pose, equipped.accessory);
+
   const animatedStyle = useAnimatedStyle(() => {
     if (reduceMotion) return {};
     return {
@@ -210,15 +227,30 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
   // Architecture (Fabric) enabled — the animated wrapper's prop pipeline
   // diverges from the simulator's Old Arch path at render time. A plain Image
   // inside an Animated.View avoids the crash while keeping all the transforms.
+  // The bird grows with its bubble on the chat tab, so the proportion inside
+  // the circle is unchanged and only the whole control gets louder.
+  const box = { width: size, height: size };
   return (
-    <Animated.View style={[styles.boloImage, animatedStyle]}>
+    <Animated.View style={[box, animatedStyle]}>
       <Image
-        source={POSE_SOURCES[pose]}
-        style={styles.boloImage}
+        source={mascotSource(pose, equipped.garment)}
+        style={box}
         resizeMode="contain"
         accessibilityRole="image"
         accessibilityLabel="Bolo the parrot"
       />
+      {/* Head slot over the garment base, same 1024 frame drawn at the same
+          size so it lands where it belongs. Explicit width/height because a
+          bare absoluteFill Image takes its INTRINSIC size on iOS, which is the
+          render trap CLAUDE.md records from the blank-board saga. */}
+      {overlay ? (
+        <Image
+          source={overlay}
+          style={[box, { position: 'absolute', top: 0, left: 0 }]}
+          resizeMode="contain"
+          accessible={false}
+        />
+      ) : null}
     </Animated.View>
   );
 }
@@ -227,10 +259,48 @@ function BoloNavParrot({ focused }: { focused: boolean }) {
 // Elevated center Bolo tab button
 // ---------------------------------------------------------------------------
 
+/**
+ * THE BUBBLE GROWS ON THE CHAT TAB (owner ruling 2026-08-28: "can we bloat the
+ * nav button when we reach that screen?").
+ *
+ * This button IS the hold-to-talk control, and the owner's read is that the job
+ * is making that obvious rather than rebuilding the chat screen around a second
+ * microphone. It already changes on focus (the ring appears), so size is the
+ * same switch carrying more weight.
+ *
+ * DELIBERATELY NOT ANIMATED, and that is not laziness. CLAUDE.md records that
+ * the native animation driver is dead in release builds of this app and that
+ * reanimated's frame loop never starts for the same reason, so an eased grow
+ * would play in the simulator and be frozen in the store build. The size change
+ * lands across a tab transition, which reads as deliberate rather than abrupt.
+ * If this is ever animated, it must be RN Animated with useNativeDriver:false
+ * (see lib/useLoopProgressRN.ts), never reanimated.
+ */
+const BUBBLE_SIZE = 58;
+const BUBBLE_SIZE_FOCUSED = 68;
+const PARROT_SIZE = 44;
+const PARROT_SIZE_FOCUSED = 52;
+
+/**
+ * THE BORDER IS LOAD BEARING AND HAS TO BE NAMED, because the ring above is
+ * positioned against it. React Native lays an absolutely positioned child out
+ * against its parent's PADDING box, which is inset by the border, so an offset
+ * computed from the bubble's outer size lands one border width off in both
+ * axes. Measured on the simulator 2026-08-28: the ring sat +2.50pt right of the
+ * bubble's centre, to the exact hundredth of the value below. That is what the
+ * owner had been seeing as "off center", and it survived the 67cd22dd fix
+ * because that commit corrected the arc arithmetic, which was never the fault.
+ */
+const BUBBLE_BORDER = 2.5;
+
 // 1.62, was 1.34: at 1.34 the text baseline sat 2pt outside the 58pt bubble
 // and the glyphs straddled its border, which read as cramped and half hidden
 // (reported off build 516). The label clears the button entirely now.
-const HOLD_RING_BOX = 58 * 1.62;
+// Sized off the FOCUSED bubble because the ring only ever renders when focused.
+// Exported so the chat screen can hold its two flanking notes clear of it
+// rather than guessing a gap, which is how the chip clearance went stale four
+// times.
+export const HOLD_RING_BOX = BUBBLE_SIZE_FOCUSED * 1.62;
 
 /**
  * HOW FAR THE RING REACHES ABOVE THE BOTTOM OF ITS TAB SLOT, in points.
@@ -241,12 +311,17 @@ const HOLD_RING_BOX = 58 * 1.62;
  * fails at a 64pt tab bar, which is exactly what Android with a gesture bar
  * gives you, and a device photo of build 520 shows precisely that: zero gap.
  *
- * The bubble is anchored 32 up from the slot's bottom and is 58 tall, and the
- * ring box overhangs it by half the difference. Anything that consumes this
- * must subtract the REAL tab bar height, because that is the part that varies
- * per device and is the reason a constant kept being wrong.
+ * The bubble is anchored 32 up from the slot's bottom and is BUBBLE_SIZE_FOCUSED
+ * tall wherever the ring shows, and the ring box overhangs it by half the
+ * difference. Anything that consumes this must subtract the REAL tab bar height,
+ * because that is the part that varies per device and is the reason a constant
+ * kept being wrong.
+ *
+ * IT GREW BY 10pt on 2026-08-28 when the focused bubble went 58 -> 68. Anything
+ * clearing this recomputes itself, since every consumer reads the constant.
  */
-export const HOLD_RING_REACH = 32 + 58 + (HOLD_RING_BOX - 58) / 2;
+export const HOLD_RING_REACH =
+  32 + BUBBLE_SIZE_FOCUSED + (HOLD_RING_BOX - BUBBLE_SIZE_FOCUSED) / 2;
 
 /**
  * WHERE THE LABEL STARTS ON THE RING, DERIVED RATHER THAN TUNED.
@@ -268,15 +343,50 @@ export const HOLD_RING_REACH = 32 + 58 + (HOLD_RING_BOX - 58) / 2;
  * 4, about a third of the circle, and this arithmetic returns 33.97%. Re-measure
  * against a photo if the wording, the size or the tracking changes.
  */
-const HOLD_LABEL = 'PRESS & HOLD';
-const HOLD_FONT_SIZE = 9;
-const HOLD_TRACKING = 1.4;
+/**
+ * THE WHOLE INSTRUCTION LIVES HERE NOW (owner, 2026-08-28). The chat screen
+ * used to say "Hold Bolo to start talking" and carry a "Hold to speak" pill
+ * under the on-screen bird; both were removed, because both described THIS
+ * button while sitting next to a different one.
+ *
+ * 8pt, was 9, and that is forced by the longer words rather than chosen. The
+ * label's arc is its width over the ring's circumference: at 9pt with 1.4
+ * tracking, twenty-one characters need 51.1% of the circle, which puts the
+ * start at -0.54% — before the path begins, where a textPath has nothing to
+ * sit on. 8pt with 1.2 tracking needs 45.1% and spans 2.5% to 47.5%, so it
+ * stays inside the top half of the ring, which is the half that is empty.
+ * Recompute this if the wording changes again; the numbers are printed by the
+ * arithmetic below and were checked against the simulator.
+ */
+const HOLD_LABEL = 'PRESS & HOLD TO SPEAK';
+const HOLD_FONT_SIZE = 8;
+const HOLD_TRACKING = 1.2;
 const HOLD_LABEL_WIDTH =
   HOLD_LABEL.length * (HOLD_FONT_SIZE * 0.6 + HOLD_TRACKING) - HOLD_TRACKING;
 const HOLD_RING_CIRCUMFERENCE = 2 * Math.PI * (HOLD_RING_BOX * 0.4);
 /** Percent along the path where the label begins, so its middle sits at 12. */
+/**
+ * TEXTANCHOR DOES NOT WORK HERE, AND THAT IS NOW MEASURED RATHER THAN BELIEVED.
+ * Tried on 2026-08-28: startOffset="25%" plus textAnchor="middle" put the ink
+ * centroid 48 degrees clockwise of 12 o'clock. react-native-svg treats the
+ * offset as the START of the run whatever the anchor says, which is what commit
+ * 67cd22dd concluded from a device photo. The estimate below is therefore the
+ * only way to centre this, so it stays.
+ *
+ * HOLD_START_CORRECTION is the residual, and it exists because the 0.6em
+ * advance is an average over a string that is mostly capitals plus an ampersand
+ * and two spaces. With it at 0 the twelve-character label measured 6.0 degrees
+ * anticlockwise of 12. RE-MEASURE IT WHENEVER THE WORDING CHANGES: crop the
+ * ring out of a simulator screenshot and take the centroid of the label ink
+ * around the bubble's centre.
+ */
+// +2.25 points of the path, which is +8.1 degrees, measured off a simulator
+// screenshot of THIS twenty-one character label at 8pt: with the correction at
+// 0 its ink centroid sat 8.1 degrees anticlockwise of 12 o'clock, about one
+// letter left. The owner read that as needing to move right, and it did.
+const HOLD_START_CORRECTION = 2.25;
 const HOLD_START_OFFSET = `${(
-  25 - ((HOLD_LABEL_WIDTH / HOLD_RING_CIRCUMFERENCE) * 100) / 2
+  25 - ((HOLD_LABEL_WIDTH / HOLD_RING_CIRCUMFERENCE) * 100) / 2 + HOLD_START_CORRECTION
 ).toFixed(2)}%`;
 
 /**
@@ -389,6 +499,11 @@ function BoloTabButton({
           styles.boloBubble,
           pressAnimStyle,
           {
+            // Bigger on the chat tab, where this button IS the microphone.
+            // A swap, not an animation: see BUBBLE_SIZE_FOCUSED.
+            width: focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE,
+            height: focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE,
+            borderRadius: (focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE) / 2,
             backgroundColor: colors.card,
             borderColor: colors.primary,
             shadowColor: colors.primary,
@@ -398,7 +513,10 @@ function BoloTabButton({
         ]}
       >
 
-        <BoloNavParrot focused={focused} />
+        <BoloNavParrot
+          focused={focused}
+          size={focused ? PARROT_SIZE_FOCUSED : PARROT_SIZE}
+        />
         {focused && !isRecording ? (
         <Svg
           pointerEvents="none"
@@ -407,8 +525,12 @@ function BoloTabButton({
           height={HOLD_RING_BOX}
           style={{
             position: 'absolute',
-            left: -(HOLD_RING_BOX - 58) / 2,
-            top: -(HOLD_RING_BOX - 58) / 2,
+            // MINUS THE BORDER. An absolute child is laid out against the
+            // parent's PADDING box, so an offset derived from the bubble's
+            // outer size lands one border width right and low. Measured at
+            // exactly +2.50pt on the simulator before this was added.
+            left: -(HOLD_RING_BOX - BUBBLE_SIZE_FOCUSED) / 2 - BUBBLE_BORDER,
+            top: -(HOLD_RING_BOX - BUBBLE_SIZE_FOCUSED) / 2 - BUBBLE_BORDER,
           }}
         >
           <Defs>
@@ -416,14 +538,17 @@ function BoloTabButton({
           </Defs>
           <SvgText
             fill={colors.mutedForeground}
-            fontSize={9}
+            fontSize={HOLD_FONT_SIZE}
             fontWeight="800"
-            letterSpacing={1.4}
+            letterSpacing={HOLD_TRACKING}
           >
             {/* One offset, both platforms. See HOLD_START_OFFSET: the
                 per-platform pair was built on textAnchor behaving differently
                 on Android, and a photo of build 520 shows it does not. */}
-            <TextPath href="#bolo-nav-hold-ring" startOffset={HOLD_START_OFFSET}>
+            <TextPath
+              href="#bolo-nav-hold-ring"
+              startOffset={HOLD_START_OFFSET}
+            >
               {HOLD_LABEL}
             </TextPath>
           </SvgText>
@@ -567,10 +692,6 @@ const styles = StyleSheet.create({
     elevation: 8,
     // Stays below its own slot's text but above the tab bar background.
     zIndex: 1,
-  },
-  boloImage: {
-    width: 44,
-    height: 44,
   },
   boloLabel: {
     fontFamily: AppFonts.semibold,

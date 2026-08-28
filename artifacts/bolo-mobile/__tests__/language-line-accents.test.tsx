@@ -16,6 +16,16 @@ const mockState: Record<string, any> = {
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: jest.fn(), push: jest.fn(), replace: jest.fn() }),
+  // The picker gained useFocusEffect on 2026-08-28 to clear the search box when
+  // the modal is reopened; it is a modal ROUTE that stays mounted, so without
+  // that reset a learner who searched "guj", closed and reopened found the box
+  // still holding it. Running the callback once on mount is the closest a test
+  // renderer gets to a focus, and it is what the screen needs here: the initial
+  // load of the recent-languages list rides in the same effect.
+  useFocusEffect: (cb: () => void | (() => void)) => {
+    const React = require('react');
+    React.useEffect(cb, [cb]);
+  },
 }));
 
 // hi (active), gu, ta (locked) — three different lines, three different

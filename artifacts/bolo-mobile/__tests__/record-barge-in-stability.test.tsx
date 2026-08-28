@@ -44,6 +44,10 @@ const COLORS = {
 };
 
 jest.mock('expo-router', () => ({
+  // Added 2026-08-28: the language picker clears its search on FOCUS, because
+  // it is a modal route that stays mounted between openings. Running the
+  // callback once on mount is the closest a test renderer gets to a focus.
+  useFocusEffect: (cb) => { const R = require('react'); R.useEffect(cb, [cb]); },
   useLocalSearchParams: () => ({ id: '5' }),
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
 }));
@@ -51,6 +55,10 @@ jest.mock('expo-router', () => ({
 // Superset of the practice + review data hooks so one harness renders both
 // screens.
 jest.mock('@workspace/api-client-react', () => ({
+  // Added 2026-08-28: practice and review headers now show a Chai balance
+  // beside the XP meter, so this screen reads the tokens query. Same
+  // shape every other Chai surface gets.
+  useGetTokens: () => ({ data: { balance: 23 }, isLoading: false, isError: false, refetch: jest.fn() }),
   useGetZoneTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getGetZoneTestoutQueryKey: () => ['zone-testout'],
   useSubmitZoneTestout: () => ({ data: undefined, isError: false, error: null, isPending: false, mutate: jest.fn() }),

@@ -44,6 +44,7 @@ import {
 import { ResultActions } from '@/components/ResultActions';
 import { ExpressOfferMoment } from '@/components/ExpressOfferMoment';
 import { XpCounter } from '@/components/XpCounter';
+import { ChaiPill } from '@/components/SessionStats';
 import { appear, appearDown, appearPlain, appearZoom, useAppearSkip } from '@/lib/entrance';
 import { playBandClip, type BandClipHandle } from '@/lib/band-audio';
 import {
@@ -2913,7 +2914,10 @@ function PracticeHeader({
         <Text style={[styles.headerLabel, { color: colors.foreground }]}>
           {label}
         </Text>
-        <XpCounter variant="session" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <XpCounter variant="session" />
+          <ChaiPill compact />
+        </View>
       </View>
       {hasSettings && languageCode ? (
         // Display-only language code. Deliberately inert: no press handler and

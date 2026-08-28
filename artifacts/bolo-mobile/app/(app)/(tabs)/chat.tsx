@@ -3,6 +3,7 @@ import {
   AccessibilityInfo,
   Alert,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -19,7 +20,7 @@ import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useGetScenario } from '@workspace/api-client-react';
 import { useAudioRecorder, useAudioRecorderState, createAudioPlayer } from 'expo-audio';
 import Animated from 'react-native-reanimated';
-import { HOLD_RING_REACH } from '@/app/(app)/(tabs)/_layout';
+import { HOLD_RING_BOX, HOLD_RING_REACH } from '@/app/(app)/(tabs)/_layout';
 import { pickCantHearLine } from '@/lib/cantHearLines';
 import { appear, appearDown, appearUp } from '@/lib/entrance';
 import {
@@ -29,9 +30,10 @@ import {
   type ChatTurnMessage,
   ApiError,
 } from '@workspace/api-client-react';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { Screen, TAB_BAR_CLEARANCE, RAISED_PARROT_CLEARANCE } from '@/components/Screen';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
-import { TalkingMascot, type TalkingMascotMode } from '@/components/TalkingMascot';
+import { SoundBars, TalkingMascot, type TalkingMascotMode } from '@/components/TalkingMascot';
 import { Mascot } from '@/components/Mascot';
 import { ExpressOfferMoment } from '@/components/ExpressOfferMoment';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -145,7 +147,12 @@ function getStatusLabel(
   processingStep: ProcessingStep,
   hasMessages: boolean,
 ): string {
-  if (phase === 'idle') return hasMessages ? 'Hold to talk again' : 'Hold Bolo to start talking';
+  // Idle says NOTHING now (owner, 2026-08-28). Both idle strings were
+  // instructions pointing at the on-screen bird, and the control they
+  // describe is the nav button, which carries the words on its own ring.
+  // Every other phase here is live feedback, not instruction, so it stays:
+  // a silent three second wait with nothing on screen reads as a hang.
+  if (phase === 'idle') return '';
   if (phase === 'recording') return 'Listening… release to send';
   if (phase === 'processing') return PROCESSING_STEP_LABELS[processingStep];
   if (phase === 'playing') return 'Bolo is speaking…';
@@ -159,6 +166,23 @@ function formatSeconds(s: number): string {
   const sec = Math.floor(s % 60);
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
+
+/**
+ * A CONTEXT THAT ALWAYS EXISTS, so reading the safe-area inset can never throw.
+ *
+ * Two different ways this bit back on 2026-08-28. useSafeAreaInsets() THROWS
+ * when no SafeAreaProvider is mounted, which killed 36 tests in six suites the
+ * moment it was added. Switching to React.useContext(SafeAreaInsetsContext)
+ * then threw in a seventh, because that suite mocks
+ * react-native-safe-area-context and its mock has no SafeAreaInsetsContext to
+ * import, so useContext was handed undefined.
+ *
+ * Falling back to a locally created context fixes both and is honest about the
+ * real contract: no provider means no inset, and the caller uses its floor.
+ * Created once at module scope, never during render.
+ */
+const InsetsContext =
+  SafeAreaInsetsContext ?? React.createContext<{ bottom: number } | null>(null);
 
 export default function ChatScreen() {
   const colors = useColors();
@@ -784,7 +808,7 @@ export default function ChatScreen() {
         onGreetingEnded();
       } else {
         try {
-          const gHandle = await playBase64Audio(
+          const gHandle = await playBoloAudio(
             greeting!.audioBase64,
             greeting!.format,
             () => {
@@ -988,7 +1012,7 @@ export default function ChatScreen() {
             finishingRef.current = false;
           }
         } else {
-          void playBase64Audio(gReplyAudio, gFmt, () => {
+          void playBoloAudio(gReplyAudio, gFmt, () => {
             playbackRef.current = null;
             if (activeTurnRef.current === myTurn) {
               setPhase('idle');
@@ -1444,7 +1468,7 @@ export default function ChatScreen() {
         if (!coachVoiceRef.current) {
           setPhase('idle');
         } else {
-          const handle = await playBase64Audio(
+          const handle = await playBoloAudio(
             replyAudioBase64,
             format,
             () => {
@@ -1688,7 +1712,7 @@ export default function ChatScreen() {
       if (!coachVoiceRef.current) {
         if (activeTurnRef.current === myTurn) setPhase('idle');
       } else {
-        const handle = await playBase64Audio(replyAudioBase64, format, () => {
+        const handle = await playBoloAudio(replyAudioBase64, format, () => {
           playbackRef.current = null;
           if (activeTurnRef.current === myTurn) setPhase('idle');
         });
@@ -1807,6 +1831,198 @@ export default function ChatScreen() {
           ? 'thinking'
           : 'idle';
 
+  // ── How big the bird may be ────────────────────────────────────────────────
+  /**
+   * MEASURED, NOT PICKED. On the empty state the mascot area is flex:1 with
+   * justifyContent:'center', so when the bird plus its status label and hold
+   * hint are taller than whatever height is left, the surplus spills EQUALLY
+   * IN BOTH DIRECTIONS and the upward half lands on the bilingual hint and the
+   * memory tip above. The owner sent a screenshot of exactly that on
+   * 2026-08-28, and shrinking the constant from 220 to 156 did not clear it.
+   *
+   * A FIFTH HAND-TUNED NUMBER WOULD HAVE GONE STALE TOO. This file already
+   * carries a comment admitting the chip gap was set by eye four times. The
+   * height depends on the device, on how far the two lines of copy above wrap,
+   * and on whether the learner owns a headwear accessory (the pagdi stands
+   * well above her head), so no constant can be right everywhere.
+   *
+   * The box cannot depend on the bird, since it is flex:1, so measuring the
+   * parent and sizing the child from it cannot loop.
+   */
+  /**
+   * WHERE THE TOP CHROME ENDS, measured off the LANGUAGE PILL rather than the
+   * title row. Absolute children sit against Screen's padding box, so anything
+   * floating below the chrome needs the bottom edge of the LAST thing in it.
+   *
+   * Two misses before this landed. Measuring the header's height alone threw
+   * away its offset and put the bird over the status bar. Measuring the header
+   * at all was still wrong, because the language pill is a SIBLING BELOW it, so
+   * the speaking strip landed on top of the pill: "not enough padding from top".
+   */
+  const [headerH, setHeaderH] = React.useState(0);
+  const [mascotBoxH, setMascotBoxH] = React.useState(0);
+  // Everything inside the area that is NOT the bird: status label, the gaps
+  // either side of it, the hold hint on the empty state, and the area's own
+  // vertical padding. Rounded up rather than down; slack here costs a slightly
+  // smaller bird, while a shortfall costs covered text.
+  const MASCOT_CHROME = 104;
+  const MASCOT_MAX = 156;
+  const MASCOT_MIN = 84;
+  /**
+   * SHE FLOATS AND SHRINKS ONCE A CONVERSATION STARTS (owner, 2026-08-28:
+   * "bolo should truly be floating and not boxed, messages should scroll
+   * beneath him", then "shrink" when asked whether to scrim behind her or get
+   * out of the way).
+   *
+   * Empty state: she is the hero, in flow, sized to whatever the measured box
+   * allows. Conversation running: she leaves the layout entirely and perches
+   * top right over the transcript, which then owns the full height and slides
+   * its messages under her.
+   *
+   * SHRINKING RATHER THAN SCRIMMING was the owner's call and it is the right
+   * one. A scrim keeps text legible behind a bird that has no job to do: the
+   * nav button is the microphone now, so mid-conversation she is decoration,
+   * and decoration should take less room rather than defend the room it has.
+   */
+  const PERCH_SIZE = 76;
+  const isPerched = messages.length > 0;
+  const mascotSize =
+    messages.length > 0
+      ? PERCH_SIZE
+      : mascotBoxH === 0
+        ? MASCOT_MAX
+        : Math.max(MASCOT_MIN, Math.min(MASCOT_MAX, Math.round(mascotBoxH - MASCOT_CHROME)));
+
+  // ── Typing, and Bolo's voice ───────────────────────────────────────────────
+  /**
+   * THE TEXT INPUT IS COLLAPSED UNTIL ASKED FOR (owner, 2026-08-28: "keep type
+   * a message small and collapsed. Only show the full bar and send button once
+   * expanded as well as the mute bolo button"). Speaking is the point of this
+   * screen and the nav button is the microphone; typing is the fallback, so it
+   * takes the space of a fallback until someone reaches for it.
+   */
+  /**
+   * WHERE THE TAB BAR'S TOP EDGE ACTUALLY IS, so the flanking notes sit on it
+   * instead of under it. The bar is laid out in (tabs)/_layout.tsx as
+   * bottom: Math.max(insets.bottom, 14) with height 74, so this is the same
+   * arithmetic rather than a number copied across two files. A guessed 88 put
+   * the notes 20pt too low on this device and the bar covered them.
+   *
+   * READ FROM THE CONTEXT, NOT FROM useSafeAreaInsets(). That hook THROWS when
+   * no SafeAreaProvider is above it, and this screen's tests render it bare:
+   * calling it took out 36 tests across six suites in one line. The context
+   * returns null instead, so the fallback below covers the test renderer and
+   * any surface that forgets the provider.
+   */
+  const insets = React.useContext(InsetsContext);
+  const tabBarTop = Math.max(insets?.bottom ?? 0, 14) + 74;
+
+  const [inputExpanded, setInputExpanded] = React.useState(false);
+  const textInputRef = React.useRef<TextInput>(null);
+
+  /**
+   * MUTING BOLO IS FOR TYPED CONVERSATIONS (owner, same day: "there should be a
+   * mute bolo button when type to chat is expanded in case they just want to
+   * have a chat conversation"). Someone typing on a bus does not want their
+   * phone talking back.
+   *
+   * It is a REFUSAL TO PLAY, not a volume of zero, and it goes through one
+   * wrapper that every playback site calls. That matters because the phase
+   * machine is driven by the onEnded callback: an audio path that silently
+   * never finishes is exactly the "it says speaking forever" bug of
+   * 2026-08-27. Muted, the callback fires immediately and the screen returns
+   * to idle the way it would after a real reply.
+   */
+  const [boloMuted, setBoloMuted] = React.useState(false);
+  const boloMutedRef = React.useRef(false);
+  React.useEffect(() => { boloMutedRef.current = boloMuted; }, [boloMuted]);
+  const playBoloAudio = React.useCallback(
+    async (b64: string, fmt: string, onEnded: () => void) => {
+      if (boloMutedRef.current) {
+        // Hand back a handle of the same shape so callers need no branch, then
+        // end the turn on the next tick rather than synchronously: a caller
+        // that assigns playbackRef AFTER awaiting must not be handed a
+        // finished turn before its own assignment runs.
+        setTimeout(onEnded, 0);
+        return { stop: () => {} } as PlaybackHandle;
+      }
+      return playBase64Audio(b64, fmt, onEnded);
+    },
+    [],
+  );
+
+  // ── Idle nudge on the quick chips ──────────────────────────────────────────
+  /**
+   * AFTER FIVE SECONDS OF DOING NOTHING, THE CHIP ROW SCROLLS ITSELF (owner,
+   * 2026-08-28: "if someone is idle for more than 5 seconds, start scrolling
+   * these"). The row runs off the right edge and nothing says so, so a learner
+   * who does not think to swipe never sees more than the first two openers.
+   *
+   * It scrolls to the end, waits, comes back, and repeats until the learner
+   * touches anything. Any interaction restarts the five second clock.
+   *
+   * scrollTo({ animated: true }) is the PLATFORM's scroll animation, not the
+   * Animated/reanimated driver that CLAUDE.md records as dead in release
+   * builds of this app, so this one does move where those do not.
+   *
+   * Skipped entirely under Reduce Motion: unrequested movement is exactly what
+   * that setting is asking not to have.
+   */
+  const chipScrollRef = React.useRef<ScrollView>(null);
+  const chipContentW = React.useRef(0);
+  const chipViewportW = React.useRef(0);
+  const chipAtEnd = React.useRef(false);
+  const chipLoopRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const chipIdleRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [reduceMotionOn, setReduceMotionOn] = React.useState(false);
+  React.useEffect(() => {
+    let live = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((on) => { if (live) setReduceMotionOn(on); });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotionOn);
+    return () => { live = false; sub.remove(); };
+  }, []);
+
+  const stopChipLoop = React.useCallback(() => {
+    if (chipLoopRef.current) { clearInterval(chipLoopRef.current); chipLoopRef.current = null; }
+  }, []);
+
+  /** Call on ANY interaction: kills the loop and restarts the five second clock. */
+  const bumpChipIdle = React.useCallback(() => {
+    stopChipLoop();
+    if (chipIdleRef.current) clearTimeout(chipIdleRef.current);
+    if (reduceMotionOn) return;
+    chipIdleRef.current = setTimeout(() => {
+      // Nothing to reveal if the row already fits.
+      if (chipContentW.current <= chipViewportW.current + 8) return;
+      // A CRAWL, NOT A JUMP (owner: "slower scroll"). scrollTo with
+      // animated:true runs at the platform's own speed and cannot be slowed,
+      // so this steps the offset itself, unanimated, about 33 times a second.
+      // 0.35pt a step is roughly 12pt a second: fast enough to read as
+      // movement, slow enough to read the chips going past.
+      let x = 0;
+      let dir = 1;
+      chipLoopRef.current = setInterval(() => {
+        const max = Math.max(0, chipContentW.current - chipViewportW.current);
+        x += dir * 0.35;
+        if (x >= max) { x = max; dir = -1; }
+        else if (x <= 0) { x = 0; dir = 1; }
+        chipScrollRef.current?.scrollTo({ x, animated: false });
+      }, 30);
+    }, 5000);
+  }, [reduceMotionOn, stopChipLoop]);
+
+  // Start the clock on mount, and clear both timers on unmount.
+  React.useEffect(() => {
+    bumpChipIdle();
+    return () => {
+      stopChipLoop();
+      if (chipIdleRef.current) clearTimeout(chipIdleRef.current);
+    };
+  }, [bumpChipIdle, stopChipLoop]);
+
+  // A new phase is the learner doing something, so it counts as interaction.
+  React.useEffect(() => { bumpChipIdle(); }, [phase, bumpChipIdle]);
+
   // ── Free-tier time indicator ───────────────────────────────────────────────
   const showTimeIndicator =
     !isPlus && !isOneLanguage && secondsRemaining !== undefined && secondsRemaining !== null;
@@ -1856,7 +2072,7 @@ export default function ChatScreen() {
       ) : null}
 
       {/* Language pill — tap to switch chat language */}
-      <View style={styles.langPillRow}>
+      <View style={styles.langPillRow} onLayout={(e) => setHeaderH(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
         <Pressable
           onPress={() => setPickerOpen(true)}
           accessibilityLabel={`Chat language: ${chatLanguage?.name ?? chatLang}. Tap to change.`}
@@ -1872,44 +2088,6 @@ export default function ChatScreen() {
           <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
         </Pressable>
       </View>
-
-      {/* Persistent bilingual hint — always visible so beginners know they
-          don't have to speak only in the target language. Plain text (no
-          entering animation) so it never shifts layout across chat states. */}
-      <Text style={[styles.bilingualHint, { color: colors.mutedForeground }]}>
-        You can respond in English or {chatLanguage?.name ?? chatLang}
-      </Text>
-
-      {/* THE MEMORY TIP. Asked for 2026-08-27 alongside the memory feature
-          itself: "add a small tip on that screen saying I learn about you and
-          remember things you say."
-          It is not decoration. Bolo now keeps notes about a learner between
-          sessions, many of these learners are children, and a thing that
-          quietly remembers you without ever saying so is the wrong shape for
-          a children's app. This is the disclosure, in Bolo's own voice, on
-          the screen where the remembering happens.
-          Only on the empty state: once a conversation is running it would be
-          one more line between the learner and the thing they came to do, and
-          they have already read it. */}
-      {messages.length === 0 && (
-        <Text
-          testID="chat-memory-tip"
-          style={[styles.memoryTip, { color: colors.mutedForeground }]}
-        >
-          I remember what you tell me, so we can pick up where we left off.{' '}
-          {/* THE WAY TO GO AND LOOK, which a disclosure without one is only
-              half of. Held back until the screen existed: a link to nothing
-              is worse than no link. Web says the same words in pages/chat. */}
-          <Text
-            testID="chat-memory-tip-link"
-            accessibilityRole="link"
-            style={[styles.memoryTipLink, { color: colors.mutedForeground }]}
-            onPress={() => router.push('/(app)/account/memories')}
-          >
-            See what I remember
-          </Text>
-        </Text>
-      )}
 
       {/* Free-tier time remaining bar */}
       {showTimeIndicator && (
@@ -1955,23 +2133,54 @@ export default function ChatScreen() {
           if (phase === 'recording') void handleStopRecording();
         }}
         disabled={capExhausted}
-        style={[styles.mascotArea, messages.length === 0 && styles.mascotAreaFull]}
+        style={[
+          styles.mascotArea,
+          messages.length === 0 && styles.mascotAreaFull,
+          // Absolute against Screen, anchored under the MEASURED header rather
+          // than a guessed offset: the header carries a safe-area inset and a
+          // language chip whose height is not knowable from here.
+          messages.length > 0 && {
+            position: 'absolute',
+            top: headerH + 6,
+            right: 10,
+            paddingVertical: 0,
+            zIndex: 10,
+          },
+        ]}
+        onLayout={(e) => setMascotBoxH(e.nativeEvent.layout.height)}
         accessibilityRole="button"
         accessibilityLabel={
           phase === 'recording' ? 'Release to send' : 'Hold to speak'
         }
         accessibilityHint="Hold your finger on Bolo to record, lift to send"
       >
-        <TalkingMascot mode={mascotMode} size={messages.length === 0 ? 220 : 130} />
+        {/* SMALLER ON BOTH STATES, 2026-08-28, for two reasons that arrived
+            together.
 
-        {/* Status label under the mascot */}
-        <Animated.Text
-          key={phase === 'processing' ? `processing-${processingStep}` : phase}
-          entering={appear(appearDown(0, 250))}
-          style={[styles.statusLabel, { color: colors.mutedForeground }]}
-        >
-          {getStatusLabel(phase, processingStep, messages.length > 0)}
-        </Animated.Text>
+            The bird OVERLAPPED THE TWO LINES ABOVE IT on the empty state, with
+            a screenshot to prove it: the bilingual hint and the memory tip were
+            both partly behind her. Nothing here is absolutely positioned. The
+            cause is that mascotAreaFull is flex:1 with justifyContent:'center',
+            so once the bird plus its status label and hold hint are taller than
+            the space left under the header, the surplus spills EQUALLY IN BOTH
+            DIRECTIONS and the upward half lands on that copy.
+
+            And the nav parrot is now the loud microphone (it grows on this tab,
+            see BUBBLE_SIZE_FOCUSED), so the on-screen bird no longer has to
+            carry that job and can give the transcript its room back. */}
+        <TalkingMascot mode={mascotMode} size={mascotSize} showBars={!isPerched} />
+
+        {/* Status label under the mascot. Absent, not blank, when idle: an
+            empty Text still reserves its line height and gap. */}
+        {!isPerched && getStatusLabel(phase, processingStep, messages.length > 0) !== '' && (
+          <Animated.Text
+            key={phase === 'processing' ? `processing-${processingStep}` : phase}
+            entering={appear(appearDown(0, 250))}
+            style={[styles.statusLabel, { color: colors.mutedForeground }]}
+          >
+            {getStatusLabel(phase, processingStep, messages.length > 0)}
+          </Animated.Text>
+        )}
 
         {/* Replaces the canned greeting audio, retired 2026-08-24.
             SHOWN DURING THE WAIT, not before it. Web first put this in the
@@ -1989,22 +2198,8 @@ export default function ChatScreen() {
           </Animated.Text>
         )}
 
-        {/* Instructional hint — always visible until the first exchange so
-            learners can't miss it, regardless of their AsyncStorage state. */}
-        {messages.length === 0 && (
-          <Animated.View
-            entering={appear(appearDown(0, 320))}
-            style={[styles.holdHint, { backgroundColor: colors.primary }]}
-          >
-            <Feather name="mic" size={13} color={colors.primaryForeground ?? '#fff'} />
-            <Text style={[styles.holdHintText, { color: colors.primaryForeground ?? '#fff' }]}>
-              Hold to speak · release to send
-            </Text>
-          </Animated.View>
-        )}
-
         {/* Skip button — only shown while Bolo is speaking */}
-        {phase === 'playing' && (
+        {!isPerched && phase === 'playing' && (
           <Animated.View entering={appear(appearDown(0, 200))} style={{ marginTop: 8 }}>
             <PressableScale
               onPress={(e) => {
@@ -2025,6 +2220,42 @@ export default function ChatScreen() {
 
       {/* Tip card — shown while Bolo is processing a reply */}
       {phase === 'processing' && <TipCard />}
+
+      {/* THE SPEAKING CLUSTER STAYS CENTRED WHEN BOLO PERCHES (owner,
+          2026-08-28: "move the voice visualizer back to center along with the
+          skip button"). Status line, bars and skip were children of the mascot
+          Pressable, so when she went absolute into the top right corner they
+          went with her and ended up stacked in the corner under a tiny bird.
+
+          They belong to the CONVERSATION, not to her: the bars are what Bolo is
+          saying and skip is what you do about it, and both want the middle of
+          the screen where a thumb and an eye already are. Only mounted while
+          perched; in the empty state they still sit under the full-size bird
+          where they read as part of her. */}
+      {isPerched && (phase === 'playing' || getStatusLabel(phase, processingStep, true) !== '') && (
+        <View style={[styles.speakingStrip, { top: headerH + 14 }]} pointerEvents="box-none">
+          {getStatusLabel(phase, processingStep, true) !== '' && (
+            <Text style={[styles.statusLabel, { color: colors.mutedForeground }]}>
+              {getStatusLabel(phase, processingStep, true)}
+            </Text>
+          )}
+          {phase === 'playing' && <SoundBars />}
+          {phase === 'playing' && (
+            <PressableScale
+              onPress={() => {
+                playbackRef.current?.stop();
+                playbackRef.current = null;
+                setPhase('idle');
+              }}
+              style={[styles.skipBtn, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Skip Bolo's reply"
+            >
+              <Feather name="skip-forward" size={18} color={colors.mutedForeground} />
+            </PressableScale>
+          )}
+        </View>
+      )}
 
       {/* KeyboardAvoidingView wraps the transcript + input row so the text
           input floats above the software keyboard on iOS and Android.
@@ -2058,9 +2289,30 @@ export default function ChatScreen() {
         >
           <Text style={[styles.bubbleText, { color: colors.foreground }]}>
             {/* Says what to DO first, then what is allowed. Web says the
-                same words. */}
-            {'Hi! I\'m Bolo. Hold my belly to chat in English or ' +
+                same words.
+                "Hold my belly" WAS WRONG AS OF 2026-08-28 and is now "hold the
+                Bolo button below": holding the on-screen bird still records,
+                but the control the app points at is the nav button, which
+                carries PRESS & HOLD TO SPEAK on its own ring. */}
+            {'Hi! I\'m Bolo. Hold the Bolo button below to chat in English or ' +
               (chatLanguage?.name ?? chatLang) + '. Ask me or tell me anything!'}
+          </Text>
+          {/* THE MEMORY DISCLOSURE LIVES HERE NOW, and it kept every word.
+              It used to be its own line at the top of the screen. That line
+              moved into a pill beside the nav button on 2026-08-28, and the
+              full sentence does not fit a 140pt pill, so I cut it down. The
+              test guarding it caught that within the hour, and its comment had
+              predicted the exact failure: "a disclosure is exactly the kind of
+              line that gets refactored out of an empty state by someone tidying
+              layout, and nobody notices a sentence that stopped appearing."
+              It is in Bolo's own voice in Bolo's own first bubble, which is
+              read at the moment it matters, and the pill beside the button is
+              now only the WAY TO GO AND LOOK. Both halves survive. */}
+          <Text
+            testID="chat-memory-tip"
+            style={[styles.firstAnswerNote, { color: colors.mutedForeground, marginTop: 6, textAlign: 'left' }]}
+          >
+            I remember what you tell me, so we can pick up where we left off.
           </Text>
           {/* Sets the expectation before the first turn; the line under the
               status reinforces it during. Web says the same words. */}
@@ -2075,7 +2327,14 @@ export default function ChatScreen() {
         <ScrollView
           ref={scrollRef}
           style={styles.transcript}
-          contentContainerStyle={styles.transcriptContent}
+          contentContainerStyle={[
+            styles.transcriptContent,
+            // Clears the perched bird so the FIRST message is not born behind
+            // her. Everything after it still slides underneath as it scrolls,
+            // which is the point: she floats over the conversation rather than
+            // sitting in a box above it.
+            { paddingTop: PERCH_SIZE + 10 },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {messages.map((msg, i) => {
@@ -2227,10 +2486,16 @@ export default function ChatScreen() {
           reacting to. */}
       {phase !== 'processing' && phase !== 'recording' ? (
         <ScrollView
+          ref={chipScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.quickChipRow}
           keyboardShouldPersistTaps="handled"
+          onLayout={(e) => { chipViewportW.current = e.nativeEvent.layout.width; }}
+          onContentSizeChange={(w) => { chipContentW.current = w; }}
+          // A real swipe stops the nudge; the programmatic scrolls above do not
+          // fire this, which is why the flag is only set from a drag.
+          onScrollBeginDrag={bumpChipIdle}
           // NEVER GROW (chat 11, reported off build 516: "the pills get super
           // expanded after a first response"). The KeyboardAvoidingView above
           // takes flex:1 the moment a message exists, and this ScrollView
@@ -2246,6 +2511,7 @@ export default function ChatScreen() {
               accessibilityRole="button"
               accessibilityLabel={chip}
               onPress={() => {
+                bumpChipIdle();
                 void handleSendText(chip);
               }}
               style={[
@@ -2261,34 +2527,198 @@ export default function ChatScreen() {
         </ScrollView>
       ) : null}
 
-      {/* Text input row — keyboard fallback for when speaking isn't convenient */}
-      <View style={[styles.textInputRow, { borderTopColor: colors.border }]}>
-        <TextInput
-          value={textInputValue}
-          onChangeText={setTextInputValue}
-          onSubmitEditing={() => void handleSendText()}
-          returnKeyType="send"
-          placeholder="Type a message…"
-          placeholderTextColor={colors.mutedForeground}
-          editable={phase !== 'processing' && phase !== 'recording'}
-          style={[
-            styles.textInput,
-            { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-          blurOnSubmit={false}
+      {/* THE TEXT INPUT GOES ABOVE THE NOTES, NOT BELOW THEM.
+          Reported 2026-08-28 as "the type to chat is missing". It was: this row
+          was the LAST child of the column, so it sat in the bottom band that the
+          floating tab bar draws over, and the bar covered it completely. That
+          predates this session's work; it is absent from the first screenshot
+          taken here, before any of these files were touched.
+
+          COLLAPSED BY DEFAULT. Speaking is the point of this screen and the nav
+          button is the microphone, so typing gets the footprint of a fallback
+          until someone reaches for it. Expanded, it gets the full bar, the send
+          button and the mute toggle. */}
+      {/* TAP-OUTSIDE CATCHER. Reported twice on 2026-08-28: "if i click outside
+          the expanded state, it should collapse again", then "still doesn't
+          collapse". The first attempt hung the collapse off the TextInput's
+          onBlur, which never fires, because React Native does NOT blur an input
+          when you tap somewhere else. Nothing was listening.
+
+          So there is something to tap. It is only mounted while expanded, it
+          sits UNDER the input row and the chips in the tree so both stay live,
+          and it is transparent. The tab bar belongs to the navigator above this
+          screen, so the Bolo button keeps working through it and a learner can
+          still go straight from typing to holding to talk. */}
+      {inputExpanded ? (
+        <Pressable
+          testID="chat-input-backdrop"
+          accessible={false}
+          onPress={() => {
+            Keyboard.dismiss();
+            setInputExpanded(false);
+          }}
+          style={StyleSheet.absoluteFill}
         />
-        {textInputValue.trim() ? (
+      ) : null}
+
+      {!inputExpanded ? (
+        <View style={styles.collapsedRow}>
           <Pressable
-            onPress={() => void handleSendText()}
-            disabled={phase === 'processing' || phase === 'recording'}
-            style={[styles.sendBtn, { backgroundColor: colors.primary }]}
+            testID="chat-expand-input"
             accessibilityRole="button"
-            accessibilityLabel="Send message"
+            accessibilityLabel="Type a message instead of speaking"
+            onPress={() => {
+              bumpChipIdle();
+              setInputExpanded(true);
+              // The row has to exist before it can take focus.
+              setTimeout(() => textInputRef.current?.focus(), 0);
+            }}
+            style={[
+              styles.collapsedPill,
+              { backgroundColor: colors.primary + '12', borderColor: colors.primary + '3A' },
+            ]}
           >
-            <Feather name="send" size={18} color={colors.primaryForeground ?? '#fff'} />
+            <Feather
+              name={textInputValue.trim() ? 'corner-down-left' : 'edit-3'}
+              size={13}
+              color={colors.primary}
+            />
+            <Text
+              numberOfLines={1}
+              style={[styles.collapsedPillText, { color: colors.primary }]}
+            >
+              {textInputValue.trim() ? textInputValue.trim() : 'Type a message'}
+            </Text>
           </Pressable>
-        ) : null}
-      </View>
+        </View>
+      ) : (
+        <View style={[styles.textInputRow, { borderTopColor: colors.border }]}>
+          <TextInput
+            ref={textInputRef}
+            value={textInputValue}
+            onChangeText={setTextInputValue}
+            onSubmitEditing={() => void handleSendText()}
+            returnKeyType="send"
+            placeholder="Type a message…"
+            placeholderTextColor={colors.mutedForeground}
+            editable={phase !== 'processing' && phase !== 'recording'}
+            // Collapse again only when it is empty: a half-typed message must
+            // never be thrown away by a stray tap elsewhere.
+            // Tapping anywhere else collapses it (owner, 2026-08-28: "if i
+            // click outside the expanded state, it should collapse again").
+            // Always, not only when empty: a half-typed message is kept in
+            // state and the collapsed pill shows it back, so nothing is lost
+            // and nothing is held invisibly.
+            // Second path, not the main one: the keyboard's own dismiss
+            // button blurs the field without any tap reaching the backdrop.
+            onBlur={() => setInputExpanded(false)}
+            style={[
+              styles.textInput,
+              { color: colors.foreground, backgroundColor: colors.card, borderColor: colors.primary + '3A' },
+            ]}
+            blurOnSubmit={false}
+          />
+          {/* MUTE BOLO. Word, glyph and fill all change together, never colour
+              alone, so the state is readable without relying on hue. */}
+          <Pressable
+            testID="chat-mute-bolo"
+            accessibilityRole="switch"
+            accessibilityState={{ checked: boloMuted }}
+            accessibilityLabel={boloMuted ? 'Bolo is muted. Unmute Bolo.' : 'Mute Bolo'}
+            onPress={() => setBoloMuted((m) => !m)}
+            style={[
+              styles.muteBtn,
+              boloMuted
+                ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                : { backgroundColor: colors.primary + '12', borderColor: colors.primary + '3A' },
+            ]}
+          >
+            <Feather
+              name={boloMuted ? 'volume-x' : 'volume-2'}
+              size={15}
+              color={boloMuted ? (colors.primaryForeground ?? '#fff') : colors.primary}
+            />
+            <Text
+              style={[
+                styles.muteBtnText,
+                { color: boloMuted ? (colors.primaryForeground ?? '#fff') : colors.primary },
+              ]}
+            >
+              {boloMuted ? 'Muted' : 'Mute'}
+            </Text>
+          </Pressable>
+          {textInputValue.trim() ? (
+            <Pressable
+              onPress={() => void handleSendText()}
+              disabled={phase === 'processing' || phase === 'recording'}
+              style={[styles.sendBtn, { backgroundColor: colors.primary }]}
+              accessibilityRole="button"
+              accessibilityLabel="Send message"
+            >
+              <Feather name="send" size={18} color={colors.primaryForeground ?? '#fff'} />
+            </Pressable>
+          ) : null}
+        </View>
+      )}
+
+      {/* THE TWO NOTES, EITHER SIDE OF THE RAISED NAV BUTTON (owner,
+          2026-08-28: "move those messages on top down and put them in little
+          containers to the left and right of the nav button under the quick
+          suggestions").
+
+          They were both at the top of the screen, where they pushed the bird
+          and the transcript down and were the copy the bird then covered. The
+          band between the chip row and the tab bar is already empty except for
+          the ring poking up through the middle of it, so the space either side
+          of that ring was going spare.
+
+          Only on the empty state, the same gate the memory tip always had: once
+          a conversation is running these are two more things between the
+          learner and the thing they came to do, and they have been read.
+
+          THE MEMORY LINE IS A DISCLOSURE, NOT A TIP, which is why it keeps its
+          full sentence rather than being cut to fit. Bolo keeps notes about
+          learners between sessions and many of them are children. The whole
+          pill is the tap target now, so the underlined "See what I remember"
+          could go without losing the way in. */}
+      {/* NOT GATED ON messages OR phase. chat-bilingual-hint.test.tsx exists
+          because this hint was deliberately made PERSISTENT, unlike the old
+          empty-state tip that vanished the moment a pending learner bubble
+          pushed messages.length past zero. My first version of this row hid it
+          during recording and after the first turn, which quietly undid that. */}
+      <View style={[styles.flankRow, { paddingBottom: tabBarTop + 4 }]} pointerEvents="box-none">
+          <View
+            style={[
+              styles.flankNote,
+              { backgroundColor: colors.secondary + '14', borderColor: colors.secondary + '38' },
+            ]}
+          >
+            <Text style={[styles.flankNoteText, { color: colors.secondary }]}>
+              You can respond in English or {chatLanguage?.name ?? chatLang}
+            </Text>
+          </View>
+          {/* Clears the ring, which is HOLD_RING_BOX wide and centred. Derived,
+              so it cannot go stale the way four hand-set chip gaps did. */}
+          <View style={styles.flankGap} pointerEvents="none" />
+          {/* The way to go and look. The sentence it belongs to is in the
+              greeting bubble; this is the half that needs a tap target, and a
+              disclosure with nowhere to go is only half of one. */}
+          <Pressable
+            testID="chat-memory-tip-link"
+            accessibilityRole="link"
+            accessibilityLabel="I remember what you tell me. See what I remember."
+            onPress={() => router.push('/(app)/account/memories')}
+            style={[
+              styles.flankNote,
+              { backgroundColor: colors.primary + '14', borderColor: colors.primary + '38' },
+            ]}
+          >
+            <Text style={[styles.flankNoteText, { color: colors.primary }]}>
+              I remember what you tell me.{' '}
+              <Text style={styles.flankNoteLink}>See what I remember</Text>
+            </Text>
+          </Pressable>
+        </View>
 
       </KeyboardAvoidingView>
 
@@ -2457,10 +2887,15 @@ export default function ChatScreen() {
  *
  * It was 8, then 26, then 44, each raised after somebody saw the chips resting
  * on the PRESS & HOLD ring. Derived this time rather than nudged: the ring
- * reaches HOLD_RING_REACH (108pt) above the bottom of its tab slot, the bar
- * itself is 74 tall, so the ring pokes 34pt above the bar's top edge and that
+ * reaches HOLD_RING_REACH above the bottom of its tab slot, the bar itself is
+ * 74 tall, so the ring pokes the difference above the bar's top edge and that
  * is what the chips have to clear. 44 left ten points for the label's own
  * height and its descenders, which is why it still touched on a device.
+ *
+ * THE NUMBER IS NOT WRITTEN DOWN HERE ANY MORE. It said 108pt, which went
+ * stale on 2026-08-28 when the focused bubble grew from 58 to 68 and took the
+ * reach to 118. Everything below reads the constant, so only the prose was
+ * ever able to lie.
  *
  * Doubling the gap on top of the real overhang is deliberate slack: the label
  * hangs off the OUTSIDE of the ring path, so its true top is a few points
@@ -2472,7 +2907,6 @@ export default function ChatScreen() {
  * right on paper too.
  */
 const CHIP_GAP = 14;
-const CHIP_CLEARANCE = HOLD_RING_REACH - 74 + CHIP_GAP * 2;
 
 const styles = StyleSheet.create({
   // paddingBottom 26, was 8 (chat 11, "move the chips up"): the PRESS & HOLD
@@ -2486,7 +2920,17 @@ const styles = StyleSheet.create({
   // off build 516.
   quickChipRow: {
     paddingHorizontal: 16,
-    paddingBottom: CHIP_CLEARANCE,
+    /**
+     * CHIP_GAP, was CHIP_CLEARANCE (72pt). That clearance existed for one
+     * reason: to keep this row off the PRESS & HOLD ring poking up through the
+     * band below. On 2026-08-28 the two flanking notes moved into that band and
+     * hold themselves off the ring with their own centre gap, so the chips are
+     * no longer the thing doing the dodging and the 72pt was just a hole.
+     * The old CHIP_CLEARANCE constant is deleted rather than left sitting
+     * unused: it had no callers left, and a constant nothing reads is the next
+     * person's red herring.
+     */
+    paddingBottom: CHIP_GAP,
     gap: 8,
     alignItems: 'center',
   },
@@ -2564,7 +3008,28 @@ const styles = StyleSheet.create({
   mascotAreaFull: {
     flex: 1,
     justifyContent: 'center',
-    paddingBottom: TAB_BAR_CLEARANCE,
+    /**
+     * NO BOTTOM PADDING, and removing it is what actually fixed the bird
+     * covering the copy above her (owner screenshot, 2026-08-28).
+     *
+     * It was TAB_BAR_CLEARANCE, 132pt. That constant exists to keep the last
+     * element of a SCROLL VIEW clear of the floating tab bar, and this is not
+     * one: the greeting bubble and the chip row are both laid out BELOW this
+     * box and already hold it off the bar, so the 132 was counted twice.
+     *
+     * The damage is not the wasted space, it is the direction. justifyContent
+     * centres within the box MINUS the padding, so 132pt of it drove the
+     * centre 66pt upward and left roughly 108pt of usable height for a bird
+     * that wanted 156 plus a label plus a hint. The surplus then spilled
+     * EQUALLY IN BOTH DIRECTIONS and the upward half landed on the bilingual
+     * hint and the memory tip.
+     *
+     * PROVEN BY PUTTING THE BOXES ON THE SCREEN rather than by reading this
+     * file: a translucent fill on this box and on the mascot's own showed the
+     * image box starting 52pt ABOVE its parent's top edge. Two theories were
+     * wrong before that probe, and shrinking the bird from 220 to 156 changed
+     * nothing at all, because the bird was never the thing that was too big.
+     */
   },
   statusLabel: {
     fontFamily: AppFonts.semibold,
@@ -2580,6 +3045,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     maxWidth: 260,
     textAlign: 'center',
+  },
+  speakingStrip: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 9,
   },
   transcript: {
     flex: 1,
@@ -2678,13 +3150,91 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textDecorationLine: 'underline',
   },
+  flankRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    /**
+     * SITS THE NOTES IN THE BAND BESIDE THE RING, not behind the bar. The
+     * first version used paddingBottom 6 and the pills ran under the floating
+     * tab bar, which draws over content.
+     *
+     * Derived, not measured by eye: TAB_BAR_CLEARANCE is how far content must
+     * stay off the screen bottom to clear the bar, and the ring pokes
+     * HOLD_RING_REACH - 74 above the bar's top edge (74 being the bar's own
+     * height). Giving that overhang back is exactly the band the ring occupies,
+     * so the notes drop into it and their bottoms land on the bar's top edge.
+     */
+  },
+  flankGap: {
+    // The ring's own width, so neither note can slide under it.
+    width: HOLD_RING_BOX,
+  },
+  flankNote: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  collapsedRow: {
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+    alignItems: 'flex-start',
+  },
+  collapsedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  collapsedPillText: { fontFamily: AppFonts.semibold, fontSize: 12 },
+  muteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  muteBtnText: { fontFamily: AppFonts.semibold, fontSize: 11 },
+  flankNoteText: {
+    fontFamily: AppFonts.regular,
+    fontSize: 9,
+    lineHeight: 12,
+    textAlign: 'center',
+  },
+  // Underlined so the pill reads as somewhere to go, not just a statement.
+  flankNoteLink: {
+    fontFamily: AppFonts.semibold,
+    textDecorationLine: 'underline',
+  },
   textInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: RAISED_PARROT_CLEARANCE,
+    /**
+     * 10, was RAISED_PARROT_CLEARANCE (66pt), and that 66 was the gap the owner
+     * asked about on 2026-08-28.
+     *
+     * SAME BUG AS THE CHIP ROW, TWICE IN ONE SCREEN. This row used to be the
+     * LAST child of the column, sitting directly under the raised parrot, so it
+     * carried the clearance that kept its content off the bubble. The flanking
+     * notes were moved below it the same day and now hold that band themselves,
+     * which left this padding holding nothing but air.
+     *
+     * The lesson, since it has now cost two gaps: a clearance constant belongs
+     * to whichever element is actually FLUSH against the thing being cleared.
+     * Move an element and the clearance does not move with it.
+     */
+    paddingBottom: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   textInput: {

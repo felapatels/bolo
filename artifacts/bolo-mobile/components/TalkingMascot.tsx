@@ -56,12 +56,64 @@ function ringPath(box: number): string {
   return `M ${c} ${c + r} A ${r} ${r} 0 1 1 ${c} ${c - r} A ${r} ${r} 0 1 1 ${c} ${c + r}`;
 }
 
+/**
+ * The five bars that pulse while Bolo speaks. Extracted from TalkingMascot on
+ * 2026-08-28 so the speaking cluster can be centred while the bird herself is
+ * perched in a corner. Owns its own animation, so mounting it anywhere works.
+ */
+export function SoundBars() {
+  const colors = useColors();
+  const reduceMotion = useReducedMotion();
+  const barVals = [
+    useSharedValue(0.3),
+    useSharedValue(0.3),
+    useSharedValue(0.3),
+    useSharedValue(0.3),
+    useSharedValue(0.3),
+  ];
+  React.useEffect(() => {
+    if (reduceMotion) {
+      barVals.forEach((v) => { v.value = withTiming(0.3, { duration: 200 }); });
+      return;
+    }
+    barVals.forEach((v, i) => {
+      const duration = 280 + i * 60;
+      v.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration, easing: Easing.inOut(Easing.sin) }),
+          withTiming(0.2, { duration, easing: Easing.inOut(Easing.sin) }),
+        ),
+        -1,
+        true,
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reduceMotion]);
+  const barStyles = barVals.map((v) =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useAnimatedStyle(() => ({ transform: [{ scaleY: v.value }] })),
+  );
+  return (
+    <View style={styles.soundBars}>
+      {barStyles.map((barStyle, i) => (
+        <Animated.View
+          key={i}
+          style={[styles.soundBar, { backgroundColor: colors.primary }, barStyle]}
+        />
+      ))}
+    </View>
+  );
+}
+
 export function TalkingMascot({
   mode,
   size = 160,
+  showBars = true,
 }: {
   mode: TalkingMascotMode;
   size?: number;
+  /** false when the caller draws the bars elsewhere. */
+  showBars?: boolean;
 }) {
   const colors = useColors();
   const reduceMotion = useReducedMotion();
@@ -236,21 +288,11 @@ export function TalkingMascot({
         </Animated.View>
       </Animated.View>
 
-      {/* Sound wave bars while talking */}
-      {mode === 'talking' && (
-        <View style={styles.soundBars}>
-          {barStyles.map((barStyle, i) => (
-            <Animated.View
-              key={i}
-              style={[
-                styles.soundBar,
-                { backgroundColor: colors.primary },
-                barStyle,
-              ]}
-            />
-          ))}
-        </View>
-      )}
+      {/* Sound wave bars while talking. Suppressed when the caller is drawing
+          them somewhere else: once Bolo perches in the corner mid-conversation,
+          the bars, the status line and the skip button stay centred on screen
+          rather than following her into it (owner, 2026-08-28). */}
+      {mode === 'talking' && showBars && <SoundBars />}
 
       {/* Mic dot while listening */}
       {mode === 'listening' && !reduceMotion && (

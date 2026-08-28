@@ -252,7 +252,13 @@ command runs.
 - **THE SIMULATOR DEV LOOP (chat 11) IS THE WAY TO SEE MOBILE.** Dev client
   on the iPhone 17 Pro sim (`org.name.Bolo`), Metro hot reload, deep links
   (`xcrun simctl openurl booted "bolo-mobile://journey"`), Maestro for
-  taps/swipes (coordinates only; its text matcher cannot see RN's tree),
+  taps/swipes. **`tapOn: id: "<testID>"` WORKS, established 2026-08-28** by
+  driving the chat screen's collapsed input, mute toggle and backdrop; only the
+  TEXT matcher is the one that cannot see RN's tree, and this line used to say
+  "coordinates only", which sent a session down the coordinate path
+  unnecessarily. Maestro needs a JRE (`brew install --cask temurin`) and
+  **refuses a `takeScreenshot` path outside its own run folder**, so take shots
+  with `xcrun simctl io <udid> screenshot` between steps instead,
   `simctl` screenshots, and onLayout console probes over Metro. Valid for
   layout, navigation and touch; NOT for animations or release behaviour
   (rules below). Two operational traps: **EAS goes bare-workflow if it sees
@@ -261,6 +267,20 @@ command runs.
   the repo root), and the dev client's Info.plist is hand-patched (usage
   strings + URL schemes) so regenerating ios/ silently breaks chat's mic
   and deep links until re-patched.
+
+- **EXPO-ROUTER SCREENS OUTLIVE THE USER'S MENTAL MODEL OF THEM, and it has
+  now caused two bugs in one day (2026-08-28).** A route that looks like it
+  opens fresh is often still MOUNTED from last time, holding all its state.
+  1. The language picker is a modal route. Its search box accumulated across
+     openings: type "guj", close, reopen, type "hindi", and the field reads
+     "gujhindi" and matches nothing, so the picker appears to contain no
+     languages at all. Fixed with `useFocusEffect` resetting the query.
+  2. Chacha-ji's call screen did not unmount on answering, so a second deep
+     link found it already connected rather than ringing.
+  **The fix is the same shape both times: reset on FOCUS, not on mount.** If a
+  screen has state a learner would expect to be fresh each time they open it,
+  `useEffect(..., [])` is the wrong hook, because it fires once for the life of
+  the mounted route and not once per visit.
 
 - **TWO RENDER TRAPS PROVEN ON DEVICE, chat 11, both invisible to RNTL:**
   1. An `Image` sized by `width:'100%'`+`aspectRatio` or by `absoluteFill`
@@ -281,7 +301,10 @@ command runs.
   '1.0.0' is closed for new build submissions". **90186 means TestFlight is closed
   for that train too, so this blocks internal testing, not just release.** The
   version is a compile-time value, so a rejected binary cannot be resubmitted, it
-  has to be rebuilt. Currently `1.0.1`.
+  has to be rebuilt. **`1.0.4` was approved and released on 2026-08-28, so that
+  train is closed too and `app.json` is already bumped to `1.0.5` for the next
+  submission.** This line has been stale before: it said `1.0.1` while 1.0.2,
+  1.0.3 and 1.0.4 shipped, so check `app.json` rather than trusting it.
 
   **Also confirmed 2026-08-21: EAS `autoIncrement` with `appVersionSource: local`
   WRITES THE INCREMENTED NUMBER BACK INTO `app.json`.** It left `201` and then
@@ -360,6 +383,25 @@ command runs.
      for the toolchain, the zip manifest for the contents, the Hermes header for
      the bundle — took twenty minutes and produced the first hard fact of the
      whole investigation. **It should have come before any bisect build.**
+  13. **A SHARED SIMULATOR IS AN UNCONTROLLED VARIABLE, and every rule above
+     this one assumes you have the device to yourself.** Established 2026-08-28,
+     when two agents worked this repo at once. One drove Maestro flows opening
+     `bolo-mobile://call` while the other took screenshots of a language picker.
+     The result: one agent reported a phantom trigger that did not exist (the
+     other agent's flow had navigated over its screen), and the other read
+     3/3, then 2/3, then 1/3 failures on IDENTICAL CODE and nearly went hunting
+     for a regression. Both were the same collision.
+     **THE TELL IS NOT CONTRADICTORY RESULTS, IT IS RESULTS THAT CHANGE WHILE
+     THE CODE DOES NOT.** 3/3, then 2/3, then 1/3 on bytes that never moved, and
+     both agents' first instinct was still to go hunting for a regression rather
+     than to look at the room. That instinct is the expensive part. When a
+     number moves and your diff is empty, suspect the instrument and the room
+     before you suspect the code.
+     **Say before you run a batch, and say when you are done.** A screenshot or
+     an assertion taken while someone else is driving proves nothing, and it
+     costs more to chase than it does to ask. This is rule 12 wearing a new
+     costume: if two runs of one thing can differ, no result is interpretable.
+
   12. **A BUILD THAT IS NOT REPRODUCIBLE CANNOT BE BISECTED.** If two builds of
      one commit can differ, every A/B result is uninterpretable and every hour
      spent on one is wasted. Establish reproducibility FIRST: commit `ios/`,

@@ -51,5 +51,12 @@ export const TAB_BAR_CLEARANCE = Platform.OS === 'web' ? 124 : 132;
  * nearly reaches the top of the bar, and the idle float (-4), focus scale pop
  * (×1.25) and 22px top hit-slop all extend above it — so bottom-flush content
  * needs this much room to stay fully visible and tappable.
+ *
+ * 66, was 56, on 2026-08-28: the bubble grows from 58 to 68 on the chat tab
+ * (BUBBLE_SIZE_FOCUSED) and is anchored from its BOTTOM, so it now pokes ten
+ * points higher. Raised for every tab rather than only the focused one, because
+ * ten points of extra padding at the foot of a scroll view costs nothing
+ * visible, while a per-tab value here would have to be threaded through Screen
+ * to callers that have no reason to know which tab they are on.
  */
-export const RAISED_PARROT_CLEARANCE = 56;
+export const RAISED_PARROT_CLEARANCE = 66;

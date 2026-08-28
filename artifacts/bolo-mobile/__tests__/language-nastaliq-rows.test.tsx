@@ -11,6 +11,16 @@
 // a three-language fixture (one Nastaliq tile, one regular tile, one locked
 // tile) so every LanguageTile branch is covered in each theme.
 
+// SNAPSHOT UPDATED 2026-08-28, and the update is not what this suite guards.
+// This file exists to protect NASTALIQ ROW RENDERING: Kashmiri, Urdu and Sindhi
+// cascade vertically and clip if the row is sized like any other. None of that
+// changed. What changed is the picker's chrome around it (owner item 4): a
+// search box, a RECENT row, an unconditional instruction line, and the
+// locked-language line corrected from "Locked languages need All-Access", which
+// was false, to the words web's twin already used. The snapshot moved because
+// the tree above the rows moved. If it moves again and the DIFF TOUCHES A ROW,
+// that is the regression this file is for; chrome churn is not.
+
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
@@ -29,6 +39,10 @@ const mockState: Record<string, any> = {
 // ---------------------------------------------------------------------------
 
 jest.mock('expo-router', () => ({
+  // Added 2026-08-28: the language picker clears its search on FOCUS, because
+  // it is a modal route that stays mounted between openings. Running the
+  // callback once on mount is the closest a test renderer gets to a focus.
+  useFocusEffect: (cb) => { const R = require('react'); R.useEffect(cb, [cb]); },
   useRouter: () => ({ back: jest.fn(), push: jest.fn() }),
 }));
 

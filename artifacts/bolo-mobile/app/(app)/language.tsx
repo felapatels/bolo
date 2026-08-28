@@ -2,12 +2,13 @@ import React from 'react';
 import {
   FlatList,
   Pressable,
+  TextInput,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { GoldChip } from '@/components/GoldChip';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -19,6 +20,7 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { getJourneyLine } from '@/lib/journeyLines';
 import { hapticLight } from '@/lib/haptics';
+import { loadRecentLanguages, recordRecentLanguage } from '@/lib/recentLanguages';
 import type { Language } from '@workspace/api-client-react';
 
 export default function LanguageModal() {
@@ -49,6 +51,59 @@ export default function LanguageModal() {
     router.replace('/(app)/journey');
   };
 
+  /**
+   * SEARCH, A RECENT ROW AND A LINE SAYING WHAT THIS SCREEN DOES (owner item 4).
+   *
+   * The picker is 22 languages in a two-column grid, eleven rows of scrolling,
+   * and the only header line it had was conditional and explained LOCKS rather
+   * than the screen. A learner looking for Marathi had to scroll and hope.
+   */
+  const [query, setQuery] = React.useState('');
+  /**
+   * A REOPENED PICKER STARTS EMPTY. This screen is a modal route that stays
+   * MOUNTED between openings, so without this the search text survives: caught
+   * on the simulator 2026-08-28 typing "guj", closing, reopening and typing
+   * "hindi" to find the box reading "gujhindi" and matching nothing. A learner
+   * would see a picker that appears to contain no languages at all.
+   * The recent list is reloaded on the same beat, so a switch made a moment ago
+   * is in the row when they come back.
+   */
+  const [recent, setRecent] = React.useState<string[]>([]);
+  useFocusEffect(
+    React.useCallback(() => {
+      setQuery('');
+      loadRecentLanguages().then(setRecent).catch(() => {});
+    }, []),
+  );
+  // Matches the ENGLISH name and the NATIVE name, because a learner who reads
+  // the script will type in it, and the grid shows both. Diacritics and case
+  // are folded so "gujarati" finds "Gujarātī".
+  const norm = (v: string) =>
+    v.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  const q = norm(query.trim());
+  const filtered = q
+    ? languages.filter(
+        (l) => norm(l.name).includes(q) || norm(l.nativeName ?? '').includes(q) || norm(l.code).includes(q),
+      )
+    : languages;
+
+  // The row that saves the scroll. Hidden while searching, because a filtered
+  // grid is already the short list, and hidden when it would only repeat the
+  // language the learner is already on.
+  const recentLanguages = q
+    ? []
+    : recent
+        .filter((code) => code !== activeLang)
+        .map((code) => languages.find((l) => l.code === code))
+        .filter((l): l is Language => Boolean(l))
+        .slice(0, 3);
+
+  const pick = (code: string, locked: boolean) => {
+    void recordRecentLanguage(code);
+    if (locked) openShowroom(code);
+    else choose(code);
+  };
+
   const anyLocked = languages.some((l) => !isLanguageAllowed(l.code));
 
   return (
@@ -58,9 +113,41 @@ export default function LanguageModal() {
           <Text style={[styles.title, { color: colors.foreground }]}>
             Choose a language
           </Text>
+          {/* WHAT THIS SCREEN DOES, unconditionally. The only line here before
+              was the locked-languages one below, which is gated on the learner
+              having locked languages and explains a LOCK rather than the
+              screen. It also answers the question a picker actually raises,
+              which is "do I lose what I have done": progress, streaks and
+              mastery are all keyed per language server-side, so switching
+              keeps every language's work separately. Verified rather than
+              assumed: every progress query takes a lang parameter. */}
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+            Tap a language to switch. Each one keeps its own progress.
+          </Text>
           {anyLocked ? (
+            /* A LOCKED LANGUAGE IS NOT A WALL, AND THIS USED TO SAY IT WAS.
+               It read "Locked languages need All-Access", which the owner
+               corrected on 2026-08-28: "that's not true. locked languages give
+               you a free taste." Every Free learner gets a lifetime teaser on
+               EVERY locked language, the first few phrases of its Greetings
+               group with the whole pipeline behind them (TTS, speaking,
+               scoring, XP). See TEASER_LIMIT in api-server's lib/teaser.ts. The
+               header was talking a learner out of the exact thing the landing
+               page sells as "a free taste of all 22 languages", while the tiles
+               directly below it carried a FREE TASTE chip saying the opposite.
+
+               THE WEB TWIN HAD ALREADY FIXED THIS AND MOBILE NEVER GOT IT.
+               Same words as gujarati-coach's language-picker.tsx, deliberately:
+               these two pickers are hand-maintained twins and this is what
+               drift costs. "Locked languages", not "every language", because
+               the free language is not limited to a taste.
+
+               NO NUMBER ON PURPOSE. TEASER_LIMIT lives on the server and is not
+               exposed through the API, so "the first 3 phrases" here would be a
+               copy of a constant this client cannot see, and would go stale
+               silently the day it changes. */
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              Locked languages need All-Access — tap one to preview its journey.
+              Locked languages start with a free taste. All-Access opens the rest.
             </Text>
           ) : null}
         </View>
@@ -76,16 +163,92 @@ export default function LanguageModal() {
         </Pressable>
       </View>
 
+      {/* SEARCH. 22 languages is eleven rows of two, and a learner who knows
+          what they want should not have to scroll for it. autoCorrect off:
+          language names are exactly the words a keyboard likes to "fix". */}
+      <View style={styles.searchWrap}>
+        <View style={[styles.searchBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+          <Feather name="search" size={16} color={colors.mutedForeground} />
+          <TextInput
+            testID="language-search"
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search languages"
+            placeholderTextColor={colors.mutedForeground}
+            autoCorrect={false}
+            autoCapitalize="none"
+            style={[styles.searchInput, { color: colors.foreground }]}
+          />
+          {query.length > 0 ? (
+            <Pressable
+              accessibilityLabel="Clear search"
+              onPress={() => setQuery('')}
+              hitSlop={8}
+            >
+              <Feather name="x" size={16} color={colors.mutedForeground} />
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
       {isLoading ? (
         <FunFactLoader color={colors.primary} style={{ marginTop: 40 }} />
       ) : (
         <FlatList
-          data={languages}
+          data={filtered}
           keyExtractor={(l) => l.code}
           numColumns={2}
           columnWrapperStyle={styles.gridRow}
           contentContainerStyle={styles.gridContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            recentLanguages.length > 0 ? (
+              <View style={styles.recentWrap} testID="language-recent">
+                {/* "RECENT", NOT "RECENTLY PRACTICED", and the difference is
+                    deliberate. The owner asked for the latter; the client
+                    cannot know it. GET /languages is a flat catalogue with no
+                    per-learner state and nothing anywhere reports a
+                    last-practised-at per language, so the honest fact this
+                    device holds is which languages were SWITCHED TO. Calling a
+                    list of switches "practised" would tell a learner who opened
+                    Tamil once by accident that they had been studying it. See
+                    lib/recentLanguages.ts. */}
+                <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+                  RECENT
+                </Text>
+                <View style={styles.recentRow}>
+                  {recentLanguages.map((l) => {
+                    const locked = !isLanguageAllowed(l.code);
+                    return (
+                      <Pressable
+                        key={l.code}
+                        testID={`language-recent-${l.code}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Switch to ${l.name}`}
+                        onPress={() => pick(l.code, locked)}
+                        style={[
+                          styles.recentChip,
+                          { backgroundColor: colors.card, borderColor: getJourneyLine(l.code).accent },
+                        ]}
+                      >
+                        <Text style={[styles.recentChipText, { color: colors.foreground }]}>
+                          {l.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={
+            q ? (
+              <Text style={[styles.noMatch, { color: colors.mutedForeground }]}>
+                No language matches "{query.trim()}".
+              </Text>
+            ) : null
+          }
           renderItem={({ item }) => {
             const locked = !isLanguageAllowed(item.code);
             return (
@@ -94,9 +257,7 @@ export default function LanguageModal() {
                 active={item.code === activeLang}
                 locked={locked}
                 free={item.code === freeLanguage}
-                onPress={() =>
-                  locked ? openShowroom(item.code) : choose(item.code)
-                }
+                onPress={() => pick(item.code, locked)}
               />
             );
           }}
@@ -245,6 +406,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  searchWrap: { paddingHorizontal: 20, paddingBottom: 4 },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 42,
+  },
+  searchInput: { flex: 1, fontFamily: AppFonts.semibold, fontSize: 15, padding: 0 },
+  recentWrap: { paddingBottom: 14 },
+  sectionLabel: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 11,
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  recentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  recentChip: {
+    borderWidth: 1,
+    borderLeftWidth: 4,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  recentChipText: { fontFamily: AppFonts.semibold, fontSize: 13 },
+  noMatch: { fontFamily: AppFonts.semibold, fontSize: 14, textAlign: 'center', marginTop: 24 },
   gridContent: { padding: 20, paddingTop: 8 },
   gridRow: { gap: 12 },
   tile: {

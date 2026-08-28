@@ -57,6 +57,10 @@ const LANGUAGES = [
 ];
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Added 2026-08-28: practice and review headers now show a Chai balance
+  // beside the XP meter, so this screen reads the tokens query. Same
+  // shape every other Chai surface gets.
+  useGetTokens: () => ({ data: { balance: 23 }, isLoading: false, isError: false, refetch: jest.fn() }),
   // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
   useListLessonGroupPhrases: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getListLessonGroupPhrasesQueryKey: (id: number) => ['lesson-group-phrases', id],
@@ -73,6 +77,10 @@ jest.mock('@tanstack/react-query', () => ({
 }));
 
 jest.mock('expo-router', () => ({
+  // Added 2026-08-28: the language picker clears its search on FOCUS, because
+  // it is a modal route that stays mounted between openings. Running the
+  // callback once on mount is the closest a test renderer gets to a focus.
+  useFocusEffect: (cb) => { const R = require('react'); R.useEffect(cb, [cb]); },
   useRouter: () => ({
     replace: mockState.replace,
     push: jest.fn(),

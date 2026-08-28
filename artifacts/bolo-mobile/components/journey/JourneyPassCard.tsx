@@ -407,11 +407,25 @@ export function JourneyPassCard({
   const stopsLeftInZone = journey.current
     ? Math.max(journey.current.stopCount - journey.current.stopNumber, 0)
     : 0;
+  /**
+   * THE CHAI PROMISE RIDES IN THE BUTTON (owner, 2026-08-28: "just add the text
+   * in the resume button text", after a standalone line under the progress bar
+   * turned out to be invisible against the ticket art).
+   *
+   * IT SAYS "SURPRISES" ON PURPOSE, and that is not padding. Chai on the
+   * journey is not only the predictable 10 for finishing a zone: Chacha-ji
+   * turns up trackside every fourth station with a gift (chachaEncounters.ts,
+   * ENCOUNTER_STRIDE 4), clearing a signal pays, and a capstone pays more. A
+   * learner who is told only about the zone bonus will not notice the rest, and
+   * the unexpected ones are the ones worth riding for.
+   *
+   * The stop count stays: it is the one number nothing else on the card says.
+   */
   const journeyCtaTail = !journey.current
     ? null
     : stopsLeftInZone === 0
-      ? 'Last stop in this zone!'
-      : `Only ${stopsLeftInZone} more ${stopsLeftInZone === 1 ? 'stop' : 'stops'} to go!`;
+      ? 'Last stop in this zone! Chai and surprises along the way.'
+      : `Only ${stopsLeftInZone} more ${stopsLeftInZone === 1 ? 'stop' : 'stops'} to go. Chai and surprises along the way.`;
 
   return (
     <>
@@ -709,7 +723,13 @@ export function JourneyPassCard({
                   {journeyCta}
                 </Text>
                 {journeyCtaTail && (
-                  <Text numberOfLines={1} style={styles.ctaTail}>
+                  // TWO LINES, was one. The tail gained the Chai promise on
+                  // 2026-08-28 and at numberOfLines={1} it truncated to
+                  // "Only 6 more stops to go. Chai…", which cut the clause that
+                  // was the whole point of adding it. The plate is landscape and
+                  // has the height for a second line; the lineHeight is already
+                  // set, so nothing else moves.
+                  <Text numberOfLines={2} style={styles.ctaTail}>
                     {journeyCtaTail}
                   </Text>
                 )}

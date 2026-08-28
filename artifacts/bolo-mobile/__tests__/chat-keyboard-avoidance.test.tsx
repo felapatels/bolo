@@ -34,6 +34,18 @@ import {
 // ---------------------------------------------------------------------------
 
 // ── Shared mutable mock state ───────────────────────────────────────────────
+
+// THE TEXT INPUT IS COLLAPSED UNTIL ASKED FOR, as of 2026-08-28. Speaking is
+// the point of this screen and the nav button is the microphone, so typing is a
+// small pill until someone taps it, and only then does the full bar, the send
+// button and the mute toggle appear. These tests use the input as a handle for
+// something else (keyboard avoidance, hold-to-talk), so they open it first
+// rather than asserting a collapsed screen has an open one.
+function openTypeBar(screenlike) {
+  const { fireEvent } = require('@testing-library/react-native');
+  fireEvent.press(screenlike.getByTestId('chat-expand-input'));
+}
+
 const mockState = {
   prepareRecordingSession: jest.fn(async () => true),
   stopAndReadRecording: jest.fn(async () => 'base64audio'),
@@ -58,6 +70,10 @@ jest.mock('expo-router', () => {
 });
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Added 2026-08-28: practice and review headers now show a Chai balance
+  // beside the XP meter, so this screen reads the tokens query. Same
+  // shape every other Chai surface gets.
+  useGetTokens: () => ({ data: { balance: 23 }, isLoading: false, isError: false, refetch: jest.fn() }),
   // Scenario metadata; disabled when no ?scenario param is present.
   useGetScenario: () => ({ data: undefined, isLoading: false, isError: false, error: null }),
   // Spec D1b-M: journey/lesson-group hooks the shared screens now import.
@@ -322,6 +338,7 @@ describe('text input row is inside the KeyboardAvoidingView', () => {
     // within(kav) scopes queries to KAV's subtree — if the input is NOT inside
     // the KAV, within() throws, making the containment explicit.
     const { getByPlaceholderText } = within(kav);
+    openTypeBar(screen);
     expect(getByPlaceholderText('Type a message…')).toBeTruthy();
   });
 
@@ -415,6 +432,7 @@ describe('keyboard avoidance on small-screen devices', () => {
       // KAV is present and the text input row is inside it.
       const kav = getKAV();
       const { getByPlaceholderText } = within(kav);
+      openTypeBar(screen);
       expect(getByPlaceholderText('Type a message…')).toBeTruthy();
     });
   });
@@ -425,6 +443,7 @@ describe('keyboard avoidance on small-screen devices', () => {
 
       const kav = getKAV();
       const { getByPlaceholderText } = within(kav);
+      openTypeBar(screen);
       expect(getByPlaceholderText('Type a message…')).toBeTruthy();
     });
   });
@@ -478,6 +497,7 @@ describe('no crash when OS keyboard events fire', () => {
     });
 
     // Chat screen is still mounted and the input is still accessible.
+    openTypeBar(screen);
     expect(screen.getByPlaceholderText('Type a message…')).toBeTruthy();
   });
 
@@ -495,6 +515,7 @@ describe('no crash when OS keyboard events fire', () => {
       });
     });
 
+    openTypeBar(screen);
     expect(screen.getByPlaceholderText('Type a message…')).toBeTruthy();
   });
 
@@ -519,6 +540,7 @@ describe('no crash when OS keyboard events fire', () => {
       });
     });
 
+    openTypeBar(screen);
     expect(screen.getByPlaceholderText('Type a message…')).toBeTruthy();
   });
 });
