@@ -39,6 +39,7 @@ import type {
   ChaiPackCatalog,
   ChaiPackCreditsInput,
   ChaiPackCreditsResult,
+  ChatMemoriesResult,
   ChatTurnInput,
   ChatTurnResult,
   CompleteDailyQuizInput,
@@ -56,6 +57,7 @@ import type {
   FeedEntry,
   FirstClassInput,
   FirstClassResult,
+  ForgetMemoriesResult,
   Friend,
   FriendInviteResult,
   FriendRequest,
@@ -2194,6 +2196,157 @@ export const useUpdateAccountPreferences = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getUpdateAccountPreferencesMutationOptions(options));
+    }
+
+export const getGetAccountMemoriesUrl = () => {
+
+
+
+
+  return `/api/account/memories`
+}
+
+/**
+ * Returns every note Bolo has kept about this learner, newest first. Each is one short English sentence distilled server-side from a chat turn, never a transcript. There is no write endpoint on purpose, so a client can never put words in a learner's file.
+ * MANY OF THESE LEARNERS ARE CHILDREN. A thing that quietly remembers people needs a way to see what it holds, which is what this is for.
+ * @summary What Bolo remembers about the caller
+ */
+export const getAccountMemories = async ( options?: RequestInit): Promise<ChatMemoriesResult> => {
+
+  return customFetch<ChatMemoriesResult>(getGetAccountMemoriesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAccountMemoriesQueryKey = () => {
+    return [
+    `/api/account/memories`
+    ] as const;
+    }
+
+
+export const getGetAccountMemoriesQueryOptions = <TData = Awaited<ReturnType<typeof getAccountMemories>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccountMemories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAccountMemoriesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAccountMemories>>> = ({ signal }) => getAccountMemories({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAccountMemories>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAccountMemoriesQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountMemories>>>
+export type GetAccountMemoriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary What Bolo remembers about the caller
+ */
+
+export function useGetAccountMemories<TData = Awaited<ReturnType<typeof getAccountMemories>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccountMemories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAccountMemoriesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getForgetAccountMemoriesUrl = () => {
+
+
+
+
+  return `/api/account/memories`
+}
+
+/**
+ * Deletes every memory held for this learner and returns how many went. There is no per-memory delete: the control is all or nothing.
+ * @summary Make Bolo forget everything he has kept about the caller
+ */
+export const forgetAccountMemories = async ( options?: RequestInit): Promise<ForgetMemoriesResult> => {
+
+  return customFetch<ForgetMemoriesResult>(getForgetAccountMemoriesUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getForgetAccountMemoriesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof forgetAccountMemories>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof forgetAccountMemories>>, TError,void, TContext> => {
+
+const mutationKey = ['forgetAccountMemories'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof forgetAccountMemories>>, void> = () => {
+
+
+          return  forgetAccountMemories(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ForgetAccountMemoriesMutationResult = NonNullable<Awaited<ReturnType<typeof forgetAccountMemories>>>
+
+    export type ForgetAccountMemoriesMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Make Bolo forget everything he has kept about the caller
+ */
+export const useForgetAccountMemories = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof forgetAccountMemories>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof forgetAccountMemories>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getForgetAccountMemoriesMutationOptions(options));
     }
 
 export const getGetAccountSubscriptionUrl = () => {

@@ -1737,6 +1737,34 @@ export default function ChatPage() {
         You can respond in English or {chatLanguage?.name ?? chatLang}
       </p>
 
+      {/* THE MEMORY DISCLOSURE. Mobile has carried this since the memory
+          feature shipped on 2026-08-27; web never got it, and web posts to the
+          same /openai/chat that calls rememberFromTurn. So web has been
+          keeping notes about learners, many of them children, while saying
+          nothing at all. Same sentence as mobile, in Bolo's own voice.
+
+          WEB LINKS TO THE CONTROL AND MOBILE DOES NOT, and that is deliberate
+          rather than drift: the account screen that lists and clears the notes
+          exists on web now. Give mobile the same link when its screen lands.
+
+          Only on the empty state, matching mobile: once a conversation is
+          running this is one more line between the learner and the thing they
+          came to do, and they have already read it. */}
+      {messages.length === 0 && (
+        <p
+          data-testid="chat-memory-tip"
+          className="px-4 pb-3 text-center text-xs text-muted-foreground"
+        >
+          I remember what you tell me, so we can pick up where we left off.{" "}
+          <Link
+            href="/account"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            See what I remember
+          </Link>
+        </p>
+      )}
+
       {/* Free-tier time bar */}
       {showTimeIndicator && (
         <motion.div

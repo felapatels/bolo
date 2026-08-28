@@ -27,6 +27,7 @@ import {
   Play,
   Square,
   Gift,
+  Brain,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
@@ -66,6 +67,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { BlockedLearnersList } from "@/components/board-scope";
+import { BoloMemories } from "@/components/bolo-memories";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
@@ -586,6 +588,18 @@ export default function Account() {
           <p className="text-xs text-muted-foreground">
             Changes are verified securely — we'll send a code to confirm a new email.
           </p>
+        </Section>
+
+        {/* What Bolo remembers. Sits with the other data controls rather than
+            in a settings list, because it is a privacy surface: the app was
+            keeping notes about learners, many of them children, with nothing
+            on web to see or clear them. */}
+        <Section
+          icon={Brain}
+          title="What Bolo remembers"
+          subtitle="The notes he keeps about you, and how to clear them"
+        >
+          <BoloMemories />
         </Section>
 
         {/* Notifications */}

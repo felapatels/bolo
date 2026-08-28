@@ -770,6 +770,29 @@ export const UpdateAccountPreferencesResponse = zod.object({
 
 
 /**
+ * Returns every note Bolo has kept about this learner, newest first. Each is one short English sentence distilled server-side from a chat turn, never a transcript. There is no write endpoint on purpose, so a client can never put words in a learner's file.
+ * MANY OF THESE LEARNERS ARE CHILDREN. A thing that quietly remembers people needs a way to see what it holds, which is what this is for.
+ * @summary What Bolo remembers about the caller
+ */
+export const GetAccountMemoriesResponse = zod.object({
+  "memories": zod.array(zod.object({
+  "id": zod.number(),
+  "memory": zod.string(),
+  "createdAt": zod.coerce.date()
+}).describe('One note Bolo has kept about a learner, distilled from a chat turn. The sentence is ENGLISH whatever language the lesson was in, because it is written to be read by the model rather than by the learner.'))
+})
+
+
+/**
+ * Deletes every memory held for this learner and returns how many went. There is no per-memory delete: the control is all or nothing.
+ * @summary Make Bolo forget everything he has kept about the caller
+ */
+export const ForgetAccountMemoriesResponse = zod.object({
+  "forgotten": zod.number().describe('How many memories were deleted.')
+})
+
+
+/**
  * Returns the tier/status, relevant dates, chosen language, a best-effort payment-method summary, and billing/invoice history. Softer fields (payment method, history) are pulled from the provider where available and degrade to null/empty when it isn't configured or doesn't expose them.
  * @summary The caller's full subscription-management snapshot
  */

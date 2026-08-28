@@ -187,6 +187,24 @@ export interface AccountPreferencesResult {
 }
 
 /**
+ * One note Bolo has kept about a learner, distilled from a chat turn. The sentence is ENGLISH whatever language the lesson was in, because it is written to be read by the model rather than by the learner.
+ */
+export interface ChatMemory {
+  id: number;
+  memory: string;
+  createdAt: string;
+}
+
+export interface ChatMemoriesResult {
+  memories: ChatMemory[];
+}
+
+export interface ForgetMemoriesResult {
+  /** How many memories were deleted. */
+  forgotten: number;
+}
+
+/**
  * Any subset of the editable profile fields.
  */
 export interface UpdateProfileInput {
