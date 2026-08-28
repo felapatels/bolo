@@ -83,7 +83,23 @@ h1,h2,h3,h4{font-family:Archivo,"Helvetica Neue",Arial,sans-serif;text-wrap:bala
 .beacon.live{background:var(--good);box-shadow:0 0 0 3px var(--good-soft)}
 .beacon.snap{background:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
 .beacon.busy{background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-.filterwrap{position:relative;flex:1 1 240px;max-width:330px}
+/* WRAPS RATHER THAN SPILLS, and this is defensive rather than a confirmed fix.
+   Reported 2026-08-28, "search languages help text in the box is cut off on
+   load". I COULD NOT REPRODUCE IT at 1180px or 900px; what looked like a
+   reproduction first time was my own screenshot crop cutting the box, not the
+   page.
+
+   The change is still right on its own terms. An <input> carries an intrinsic
+   min-width from its size attribute, so without min-width:0 this wrapper cannot
+   shrink and a tight header pushes it off the right edge instead of wrapping,
+   which clips the placeholder exactly as described. A search box on its own row
+   is fine; a search box half off the screen is not.
+
+   The label beside it also had a second margin-left:auto competing with
+   .brand's margin-right:auto for the same free space. One is enough, and that
+   one was mine. */
+.filterwrap{position:relative;flex:1 1 240px;min-width:240px;max-width:330px}
+.filterwrap input{min-width:0}
 .filterwrap input{width:100%;padding:8px 12px 8px 32px;font:inherit;font-size:13.5px;background:var(--surface);color:var(--ink);border:1px solid var(--line-2);border-radius:999px}
 .filterwrap input::placeholder{color:var(--muted)}
 .filterwrap svg{position:absolute;left:11px;top:18px;color:var(--muted)}
@@ -598,7 +614,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
          Moved into the sticky header on 2026-08-26 at the owner's word, so the
          thing that changes every number on the page is visible from every part
          of it instead of being scrolled away. -->
-    <label class="ownt" style="margin-left:auto">
+    <label class="ownt">
       <input type="checkbox" id="excl-own-top"><span>Exclude me and testers</span>
     </label>
     <div class="filterwrap">
