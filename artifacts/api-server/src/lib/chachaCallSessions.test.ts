@@ -19,7 +19,7 @@ function speak(learner: string) {
 }
 
 test("a new call starts at the beat after the canned hello", () => {
-  const s = createCallSession(USER);
+  const s = createCallSession(USER, "gu", "Gujarati");
   // start() serves beat 0 itself, so the next beat to run is 1.
   assert.equal(s.beatIndex, 1);
   assert.equal(s.outcome, "in_progress");
@@ -28,7 +28,7 @@ test("a new call starts at the beat after the canned hello", () => {
 });
 
 test("recording turns walks the call to its end", () => {
-  const s = createCallSession(USER);
+  const s = createCallSession(USER, "gu", "Gujarati");
   for (let i = s.beatIndex; i < CALL_BEATS.length; i++) {
     assert.equal(callIsOver(s), false);
     recordCallTurn(s, speak("haan"));
@@ -39,7 +39,7 @@ test("recording turns walks the call to its end", () => {
 });
 
 test("a call the learner spoke in is answered", () => {
-  const s = createCallSession(USER);
+  const s = createCallSession(USER, "gu", "Gujarati");
   recordCallTurn(s, speak("main theek hoon"));
   assert.equal(endCallSession(s.id), "answered");
 });
@@ -47,19 +47,19 @@ test("a call the learner spoke in is answered", () => {
 test("a call the learner never spoke in is abandoned", () => {
   // The seam the ring-back will read. He is delighted by anything, including
   // nothing, so silence ends the call gently rather than failing it.
-  const s = createCallSession(USER);
+  const s = createCallSession(USER, "gu", "Gujarati");
   recordCallTurn(s, { beatId: "khaana", learner: "", chacha: "Koi baat nahi", canned: true });
   assert.equal(endCallSession(s.id), "abandoned");
 });
 
 test("whitespace is not speech", () => {
-  const s = createCallSession(USER);
+  const s = createCallSession(USER, "gu", "Gujarati");
   recordCallTurn(s, speak("   \n  "));
   assert.equal(endCallSession(s.id), "abandoned");
 });
 
 test("hanging up twice is not an error", () => {
-  const s = createCallSession(USER);
+  const s = createCallSession(USER, "gu", "Gujarati");
   recordCallTurn(s, speak("haan"));
   assert.equal(endCallSession(s.id), "answered");
   // A client that hangs up twice is not a bug, and the second call must not
@@ -69,7 +69,7 @@ test("hanging up twice is not an error", () => {
 });
 
 test("one learner cannot reach another learner's call", () => {
-  const s = createCallSession(OTHER);
+  const s = createCallSession(OTHER, "gu", "Gujarati");
   const found = getCallSession(s.id);
   assert.ok(found);
   // Ownership is enforced by the route, which compares this field.
@@ -79,14 +79,14 @@ test("one learner cannot reach another learner's call", () => {
 
 test("an idle call is swept once its TTL passes", () => {
   const t0 = Date.now();
-  const s = createCallSession(USER, t0);
+  const s = createCallSession(USER, "gu", "Gujarati", t0);
   assert.equal(getCallSession(s.id, t0 + CALL_TTL_MS - 1)?.id, s.id);
   assert.equal(getCallSession(s.id, t0 + CALL_TTL_MS + 1), undefined);
 });
 
 test("activity on a call postpones its sweep", () => {
   const t0 = Date.now();
-  const s = createCallSession(USER, t0);
+  const s = createCallSession(USER, "gu", "Gujarati", t0);
   recordCallTurn(s, speak("haan"), t0 + CALL_TTL_MS - 1);
   // A learner who needed a long moment to find their words has not hung up.
   assert.equal(getCallSession(s.id, t0 + CALL_TTL_MS + 1)?.id, s.id);
@@ -95,15 +95,15 @@ test("activity on a call postpones its sweep", () => {
 
 test("swept calls do not accumulate in memory", () => {
   const t0 = Date.now();
-  for (let i = 0; i < 5; i++) createCallSession(USER, t0);
+  for (let i = 0; i < 5; i++) createCallSession(USER, "gu", "Gujarati", t0);
   assert.ok(activeCallCount(t0) >= 5);
   assert.equal(activeCallCount(t0 + CALL_TTL_MS + 1), 0);
 });
 
 test("a call is given exactly one backdrop, at creation", () => {
-  const s = createCallSession(USER, Date.now(), () => 0);
+  const s = createCallSession(USER, "gu", "Gujarati", Date.now(), () => 0);
   assert.equal(s.backdrop.id, "driving");
-  const other = createCallSession(USER, Date.now(), () => 0.9);
+  const other = createCallSession(USER, "gu", "Gujarati", Date.now(), () => 0.9);
   assert.equal(other.backdrop.id, "backseat");
   endCallSession(s.id);
   endCallSession(other.id);
@@ -112,7 +112,7 @@ test("a call is given exactly one backdrop, at creation", () => {
 test("the backdrop never changes for the life of the call", () => {
   // The two clips are different scenes. Swapping mid-call would move him into
   // another car in the middle of a sentence.
-  const s = createCallSession(USER);
+  const s = createCallSession(USER, "gu", "Gujarati");
   const chosen = s.backdrop;
   for (let i = s.beatIndex; i < CALL_BEATS.length; i++) {
     recordCallTurn(s, speak("haan"));

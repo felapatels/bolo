@@ -52,6 +52,7 @@ before(async () => {
   ({ getChatAudioStream } = (await import("../lib/chatAudioStreams")) as never);
 
   const deps: ChachaCallDeps = {
+    resolveLanguage: async () => ({ code: "gu", name: "Gujarati" }),
     cannedAudio: async (lineKey) => {
       cannedCalls.push(lineKey);
       return { audioBase64: Buffer.from(`clip:${lineKey}`).toString("base64"), format: "mp3" };
@@ -147,32 +148,42 @@ test("a live turn answers in his generated voice and moves the call on", async (
   assert.equal(json.format as never, "mp3");
 });
 
-test("a reply that comes back in Devanagari is romanized before it is served", async () => {
-  // He is romanized at the stall because the learner cannot read Devanagari
-  // yet, and he has to be the same man on the phone. The prompt asks for Latin
-  // letters and usually gets it; this is the backstop for when it does not.
+// INVERTED 2026-08-28. These asserted that his line was FORCED into Latin
+// letters, because there was one caption and a learner cannot read Devanagari
+// yet. There are two caption lines now, the script and a romanization under it,
+// and he is prompted to write the real script. So the native form must SURVIVE
+// rather than be converted, and the romanization rides alongside it.
+test("a reply in the language's own script is served in that script, not flattened", async () => {
   const callId = await startCall();
-  liveResult = makeLive({ chachaText: "\u0906\u091c \u0915\u094d\u092f\u093e \u0916\u093e\u092f\u093e?" });
+  const native = "\u0906\u091c \u0915\u094d\u092f\u093e \u0916\u093e\u092f\u093e?";
+  liveResult = makeLive({ chachaText: native });
   const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
-  const text = (json.beat as never as { text: string }).text;
-  assert.doesNotMatch(text, /[\u0900-\u097F]/, `still Devanagari: ${text}`);
-  assert.match(text, /[a-z]/i);
+  const beat = json.beat as never as { text: string; romanized: string | null };
+  assert.equal(beat.text, native, "the script the learner is here to read must survive");
+  assert.ok(beat.romanized, "the second caption line is missing");
+  assert.doesNotMatch(beat.romanized!, /[\u0900-\u097F]/, "the romanization is not romanized");
 });
 
-test("a reply already in Latin letters is served exactly as he said it", async () => {
+test("a reply already in Latin letters gets no pointless second caption", async () => {
+  // Romanizing Latin would just repeat the line underneath itself.
   const callId = await startCall();
   liveResult = makeLive({ chachaText: "Arre wah beta, bahut badhiya!" });
   const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
-  assert.equal((json.beat as never as { text: string }).text, "Arre wah beta, bahut badhiya!");
+  const beat = json.beat as never as { text: string; romanized: string | null };
+  assert.equal(beat.text, "Arre wah beta, bahut badhiya!");
+  assert.equal(beat.romanized, "Arre wah beta, bahut badhiya!");
 });
 
-test("a script the romanizer cannot handle leaves his words standing", async () => {
-  // Blanking his line would be worse than showing a script we cannot convert:
-  // the audio played either way, and an empty caption is a bug on screen.
+test("a script the romanizer cannot handle still shows his words", async () => {
+  // Perso-Arabic is not reliably transliterable and the romanizer says so by
+  // returning empty. One caption line is right; a wrong second line is not.
   const callId = await startCall();
-  liveResult = makeLive({ chachaText: "\u0645\u06CC\u06BA \u0679\u06BE\u06CC\u06A9 \u06C1\u0648\u06BA" });
+  const urdu = "\u0645\u06CC\u06BA \u0679\u06BE\u06CC\u06A9 \u06C1\u0648\u06BA";
+  liveResult = makeLive({ chachaText: urdu });
   const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
-  assert.equal((json.beat as never as { text: string }).text, "\u0645\u06CC\u06BA \u0679\u06BE\u06CC\u06A9 \u06C1\u0648\u06BA");
+  const beat = json.beat as never as { text: string; romanized: string | null };
+  assert.equal(beat.text, urdu);
+  assert.equal(beat.romanized, null, "better no second line than a wrong one");
 });
 
 test("a model that fails falls back to the beat's own scripted line", async () => {

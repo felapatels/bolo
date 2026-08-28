@@ -205,10 +205,15 @@ export const LEARNER_TURNS = CALL_BEATS.length - 1;
 /**
  * Version tag baked into the call clips' cache keys. Bump when any LINE'S
  * WORDING above changes, so the stale clip is orphaned rather than served.
+ *
+ * v2, 2026-08-28: the key gained a LANGUAGE segment. He is localized on the
+ * call now (owner ruling, see the prompt below), so a key without a language
+ * would serve the first learner's language to every learner after them. v1
+ * clips are orphaned deliberately.
  * The voice, model, provider and instructions rotate the key on their own
  * through the segments below.
  */
-export const CALL_CACHE_KEY_VERSION = "v1";
+export const CALL_CACHE_KEY_VERSION = "v2";
 
 /**
  * Cache key for one canned call line, in its OWN namespace.
@@ -221,12 +226,14 @@ export const CALL_CACHE_KEY_VERSION = "v1";
  */
 export function callLineCacheKey(
   lineKey: string,
+  languageCode: string,
   provider: string = CHACHA_TTS_PROVIDER,
   model: string = CHACHA_TTS_MODEL,
   voice: string = CHACHA_TTS_VOICE,
   instructionsDigest: string = CHACHA_TTS_INSTRUCTIONS_DIGEST,
 ): string {
-  return `bolo-chacha-call-${CALL_CACHE_KEY_VERSION}::${provider}::${model}::${voice}::${instructionsDigest}::${lineKey}`;
+  const lang = languageCode.trim().toLowerCase() || "und";
+  return `bolo-chacha-call-${CALL_CACHE_KEY_VERSION}::${provider}::${model}::${voice}::${instructionsDigest}::${lang}::${lineKey}`;
 }
 
 /** Beat at an index, or undefined once the call has run out of them. */
@@ -264,15 +271,18 @@ You are DELIGHTED by anything the learner says, however small, however wrong, in
 
 If they say almost nothing, carry the call yourself and move on cheerfully. Never ask them to repeat themselves.
 
-Speak the way you speak at the stall: everyday romanized Hinglish, warm and unhurried. Keep every turn to ONE OR TWO SHORT SENTENCES. You are on the telephone and they are waiting for you.
+Speak the way you speak at the stall, warm and unhurried, but SPEAK THE LEARNER'S OWN LANGUAGE, named below. Simple, everyday words a beginner has a chance of catching. Keep every turn to ONE OR TWO SHORT SENTENCES. You are on the telephone and they are waiting for you.
 
-WRITE YOUR WORDS IN LATIN LETTERS ONLY, never in Devanagari or any other script. A learner reading along cannot read Devanagari yet, and his lines at the stall are romanized for exactly that reason.
+WRITE YOUR WORDS IN THE NATIVE SCRIPT OF THAT LANGUAGE, not in Latin letters. The learner sees your line twice on screen, once in the real script and once romanized underneath, so the script is what they are here to learn to read.
 
 NEVER TELL THEM WHERE ANYTHING IS IN THE APP. You are on the telephone and you cannot see their screen. Do not name a screen, a tab, a button or a menu, and do not tell them to go anywhere or tap anything. If they ask, say warmly that you cannot see what they are looking at, and go back to the conversation.`;
 
-export function buildLivePrompt(beat: CallBeat): string {
+export function buildLivePrompt(beat: CallBeat, languageName: string): string {
   const agenda = beat.agenda ?? "Say something warm and then say goodbye.";
-  return `${CALL_PERSONA_PROMPT}\n\nRight now, do this: ${agenda}`;
+  // Language first, because it governs every word of the reply; the agenda is
+  // what he does inside it. Both sit AFTER the byte-identical persona prefix so
+  // that prefix stays eligible for automatic prompt caching.
+  return `${CALL_PERSONA_PROMPT}\n\nThe learner is learning ${languageName}. Speak ${languageName}.\n\nRight now, do this: ${agenda}`;
 }
 
 /** Digest of the persona prompt, so a prompt edit is visible in logs. */

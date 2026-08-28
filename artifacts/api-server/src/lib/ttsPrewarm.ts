@@ -573,6 +573,19 @@ export async function synthesizeChachaLine(text: string): Promise<Buffer> {
 }
 
 /**
+ * The one language whose call clips are warmed at boot.
+ *
+ * ONE, NOT ALL, AND THAT IS A STORAGE DECISION RATHER THAN LAZINESS. He is
+ * localized on the call now, so warming every language would mean five clips
+ * times twenty-two languages sitting in tts_cache, and tts_cache is already
+ * about 98% of this database's 10 GiB ceiling with roughly nine months of
+ * headroom left. Every other language synthesizes on demand on its first call
+ * and is cached from then on, which spends storage only on languages somebody
+ * actually rings in.
+ */
+export const CALL_PREWARM_LANGUAGE = "hi";
+
+/**
  * Pre-synthesizes the FIXED lines of Chacha-ji's phone call.
  *
  * SEPARATE FROM warmChachaLines BECAUSE THE CALL IS WHERE LATENCY ACTUALLY
@@ -587,6 +600,7 @@ export async function synthesizeChachaLine(text: string): Promise<Buffer> {
  * stall clip or the reverse.
  */
 export async function warmChachaCallLines(
+  languageCode: string = CALL_PREWARM_LANGUAGE,
   deps: WarmChachaLinesDeps = defaultWarmChachaCallLinesDeps,
 ): Promise<void> {
   try {
@@ -595,7 +609,7 @@ export async function warmChachaCallLines(
     let failed = 0;
 
     for (const [key, line] of Object.entries(CALL_CANNED_LINES)) {
-      const cacheKey = callLineCacheKey(key);
+      const cacheKey = callLineCacheKey(key, languageCode);
       try {
         const existing = await deps.findCached(cacheKey);
         if (existing) {
@@ -622,6 +636,7 @@ export async function warmChachaCallLines(
         voice: CHACHA_TTS_VOICE,
         model: CHACHA_TTS_MODEL,
         version: CALL_CACHE_KEY_VERSION,
+        languageCode,
         alreadyCached,
         synthesized,
         failed,

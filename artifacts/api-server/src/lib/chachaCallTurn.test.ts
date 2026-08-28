@@ -38,6 +38,8 @@ function req(over: Partial<LiveTurnRequest> = {}): LiveTurnRequest {
     audio: AUDIO,
     audioFormat: "wav",
     beat: LIVE_BEAT,
+    languageName: "Gujarati",
+    languageCode: "gu",
     history: [],
     ...over,
   };
@@ -146,6 +148,7 @@ test("the prompt carries the persona and the beat's agenda", () => {
   const messages = buildTurnMessages(req()) as Array<{ role: string; content: unknown }>;
   assert.equal(messages[0].role, "system");
   assert.ok(String(messages[0].content).startsWith(CALL_PERSONA_PROMPT));
+  assert.ok(String(messages[0].content).includes("Speak Gujarati"));
   assert.ok(String(messages[0].content).includes(LIVE_BEAT.agenda!));
 });
 

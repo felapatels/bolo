@@ -53,6 +53,10 @@ export interface LiveTurnRequest {
   audio: Buffer;
   audioFormat: LearnerAudioFormat;
   beat: CallBeat;
+  /** The learner's journey language, e.g. "Gujarati". He speaks it now. */
+  languageName: string;
+  /** Its ISO code, for the transcriber's language hint. */
+  languageCode: string;
   /** Turns already taken in this call, oldest first. */
   history: readonly CallTurn[];
   /** Called with each mp3 chunk as it is encoded. */
@@ -73,8 +77,17 @@ export interface LiveTurnResult {
 export interface LiveTurnDeps {
   /** Opens the gpt-audio stream and yields base64 pcm16 chunks. */
   streamPcm: (req: LiveTurnRequest) => AsyncIterable<{ audio?: string; text?: string }>;
-  /** Transcribes the learner's clip, for the record only. */
-  transcribe: (audio: Buffer, format: LearnerAudioFormat) => Promise<string>;
+  /**
+   * Transcribes the learner's clip, for the record and for the chai check.
+   * The language hint matters more than it used to: the learner is expected to
+   * answer in their journey language, so a transcriber guessing English would
+   * turn a correct Gujarati answer into nonsense.
+   */
+  transcribe: (
+    audio: Buffer,
+    format: LearnerAudioFormat,
+    languageCode: string,
+  ) => Promise<string>;
   /** Encodes a pcm16 stream to mp3, calling onChunk as bytes are produced. */
   encodeMp3: (
     pcm: AsyncIterable<Buffer>,
@@ -98,7 +111,7 @@ export function buildTurnMessages(req: LiveTurnRequest): unknown[] {
   });
 
   return [
-    { role: "system", content: buildLivePrompt(req.beat) },
+    { role: "system", content: buildLivePrompt(req.beat, req.languageName) },
     ...history,
     {
       role: "user",
@@ -205,7 +218,8 @@ const defaultDeps: LiveTurnDeps = {
       yield { audio: delta?.audio?.data, text: delta?.audio?.transcript };
     }
   },
-  transcribe: (audio, format) => speechToText(audio, format),
+  transcribe: (audio, format, languageCode) =>
+    speechToText(audio, format, { language: languageCode }),
   encodeMp3: encodeMp3WithFfmpeg,
 };
 
@@ -216,7 +230,7 @@ export async function runLiveTurn(
   // Started first and awaited last: the record must never sit in front of the
   // voice. A failed transcription costs the turn its text, not its audio.
   const transcriptPromise = deps
-    .transcribe(req.audio, req.audioFormat)
+    .transcribe(req.audio, req.audioFormat, req.languageCode)
     .catch(() => "");
 
   let chachaText = "";

@@ -73,14 +73,14 @@ test("nothing in the script scores, grades or corrects", () => {
 
 test("a live prompt carries the persona and that beat's agenda", () => {
   const khaana = CALL_BEATS.find((b) => b.id === "khaana")!;
-  const prompt = buildLivePrompt(khaana);
+  const prompt = buildLivePrompt(khaana, "Gujarati");
   assert.ok(prompt.startsWith(CALL_PERSONA_PROMPT), "persona prefix must be byte-identical for prompt caching");
   assert.ok(prompt.includes(khaana.agenda!));
 });
 
 test("call clips cannot collide with his chai-stall clips", () => {
   // Rewording a call line must never orphan a stall line, or the reverse.
-  const callKey = callLineCacheKey("bye");
+  const callKey = callLineCacheKey("bye", "gu");
   assert.ok(callKey.startsWith("bolo-chacha-call-"));
   assert.notEqual(callKey, chachaLineCacheKey("farewell"));
   for (const key of ["greeting", "gift", "farewell"] as const) {
@@ -88,17 +88,34 @@ test("call clips cannot collide with his chai-stall clips", () => {
   }
 });
 
+test("clips are scoped by language, so one learner cannot poison another's", () => {
+  // He speaks the learner's journey language now (owner ruling 2026-08-28).
+  // Without a language segment the first caller's audio would be served to
+  // every caller after them, in the wrong language, from cache.
+  assert.notEqual(callLineCacheKey("hello", "gu"), callLineCacheKey("hello", "hi"));
+  assert.ok(callLineCacheKey("hello", "gu").includes("::gu::"));
+  // Case and padding must not mint a second copy of the same clip.
+  assert.equal(callLineCacheKey("hello", " GU "), callLineCacheKey("hello", "gu"));
+});
+
+test("he is told which language to speak", () => {
+  const beat = CALL_BEATS.find((b) => b.mode === "live")!;
+  const prompt = buildLivePrompt(beat, "Gujarati");
+  assert.match(prompt, /Speak Gujarati/);
+  assert.match(prompt, /NATIVE SCRIPT/i);
+});
+
 test("the call clips are recorded in his own voice, not a new one", () => {
   // He is the same man on the phone as at the stall. The key carries the voice,
   // so a drift in identity shows up here rather than in the learner's ear.
-  assert.ok(callLineCacheKey("hello").includes(`::${CHACHA_TTS_VOICE}::`));
+  assert.ok(callLineCacheKey("hello", "gu").includes(`::${CHACHA_TTS_VOICE}::`));
 });
 
 test("a reworded line rotates its cache key rather than serving the stale clip", () => {
-  assert.notEqual(callLineCacheKey("hello"), callLineCacheKey("bye"));
+  assert.notEqual(callLineCacheKey("hello", "gu"), callLineCacheKey("bye", "gu"));
   assert.notEqual(
-    callLineCacheKey("hello", "p", "m", "different-voice", "digest"),
-    callLineCacheKey("hello", "p", "m", "echo", "digest"),
+    callLineCacheKey("hello", "gu", "p", "m", "different-voice", "digest"),
+    callLineCacheKey("hello", "gu", "p", "m", "echo", "digest"),
   );
 });
 

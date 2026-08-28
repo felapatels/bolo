@@ -52,6 +52,13 @@ export interface CallSession {
    * move him to another car in the middle of a sentence.
    */
   backdrop: CallBackdrop;
+  /**
+   * The journey language this call is conducted in, fixed at creation for the
+   * same reason the backdrop is: a learner who switches language mid-call would
+   * otherwise have him change tongue between one question and the next.
+   */
+  languageCode: string;
+  languageName: string;
   /** Index into CALL_BEATS of the beat that runs NEXT. */
   beatIndex: number;
   turns: CallTurn[];
@@ -85,6 +92,8 @@ function sweep(now: number): void {
 
 export function createCallSession(
   userId: string,
+  languageCode: string,
+  languageName: string,
   now: number = Date.now(),
   random: () => number = Math.random,
 ): CallSession {
@@ -93,6 +102,8 @@ export function createCallSession(
     id: randomBytes(16).toString("hex"),
     userId,
     backdrop: pickBackdrop(random),
+    languageCode,
+    languageName,
     // The opening beat is served by start(), so the next beat to run is 1.
     beatIndex: 1,
     turns: [],

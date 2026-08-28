@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { db, ttsCacheTable } from "@workspace/db";
+import { db, languagesTable, ttsCacheTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { openai } from "@workspace/integrations-openai-ai-server/audio";
 import type { AuthedRequest } from "../middlewares/requireAuth";
@@ -85,7 +85,17 @@ export interface ChachaCallDeps {
   cannedAudio: (
     lineKey: string,
     text: string,
+    languageCode: string,
   ) => Promise<{ audioBase64: string; format: string } | null>;
+  /**
+   * The journey language this learner is on. He speaks it for the whole call
+   * (owner ruling, 2026-08-28), which is why it is resolved ONCE at /start and
+   * carried on the session rather than read per turn: a learner who switches
+   * language mid-call must not make him change tongue between two questions.
+   */
+  resolveLanguage: (
+    userId: string,
+  ) => Promise<{ code: string; name: string }>;
   /** One live beat through gpt-audio. */
   liveTurn: typeof runLiveTurn;
   /** Opens the TLS connection early so the first live turn is not the cold one. */
@@ -100,8 +110,9 @@ export interface ChachaCallDeps {
 async function cannedAudioFromCache(
   lineKey: string,
   text: string,
+  languageCode: string,
 ): Promise<{ audioBase64: string; format: string } | null> {
-  const cacheKey = callLineCacheKey(lineKey);
+  const cacheKey = callLineCacheKey(lineKey, languageCode);
   try {
     const hit = await db.query.ttsCacheTable.findFirst({
       where: eq(ttsCacheTable.cacheKey, cacheKey),
@@ -129,6 +140,21 @@ async function cannedAudioFromCache(
 
 const defaultDeps: ChachaCallDeps = {
   cannedAudio: cannedAudioFromCache,
+  resolveLanguage: async (userId) => {
+    const user = await db.query.usersTable.findFirst({
+      where: eq(usersTable.id, userId),
+      columns: { activeLanguage: true },
+    });
+    // Falls back to Hindi, which is the free language and the one whose call
+    // clips are warmed at boot, so a learner with no choice recorded still
+    // gets an instant greeting rather than a synthesis wait.
+    const code = user?.activeLanguage?.trim() || "hi";
+    const row = await db.query.languagesTable.findFirst({
+      where: eq(languagesTable.code, code),
+      columns: { name: true },
+    });
+    return { code, name: row?.name ?? "Hindi" };
+  },
   liveTurn: runLiveTurn,
   warmConnection: () => {
     // A cheap GET on the same host. Measured 2026-08-28: the first request a
@@ -160,11 +186,12 @@ export function createChachaCallRouter(
         return;
       }
 
-      const session = createCallSession(userId);
+      const language = await deps.resolveLanguage(userId);
+      const session = createCallSession(userId, language.code, language.name);
       deps.warmConnection();
 
       const hello = CALL_BEATS[0];
-      const audio = await deps.cannedAudio(hello.id, hello.text);
+      const audio = await deps.cannedAudio(hello.id, hello.text, language.code);
 
       res.json({
         callId: session.id,
@@ -258,6 +285,8 @@ export function createChachaCallRouter(
             audio,
             audioFormat: format,
             beat,
+            languageName: session.languageName,
+            languageCode: session.languageCode,
             history: session.turns,
             onAudioChunk: (chunk) => {
               if (firstAudioMs === null) firstAudioMs = Date.now() - t0;
@@ -287,8 +316,12 @@ export function createChachaCallRouter(
       // cannot romanize cleanly returns empty, in which case his own words
       // stand rather than being blanked.
       const spoken = result?.chachaText ?? "";
-      const romanized = spoken ? romanizeTranscript(spoken, "hi") : "";
-      const chachaSpoken = romanized || spoken;
+      // BOTH FORMS, because the caption shows both: his line in the language's
+      // own script, and a romanization under it. He is prompted to write the
+      // native script now; romanizeTranscript passes Latin straight through
+      // untouched and returns empty for a script it cannot convert, in which
+      // case the caption simply has no second line rather than a wrong one.
+      const chachaRomanized = spoken ? romanizeTranscript(spoken, session.languageCode) : "";
 
       const spokeLive = Boolean(result && result.mp3.length > 0 && result.chachaText);
       const learnerText = result?.learnerText ?? "";
@@ -308,14 +341,14 @@ export function createChachaCallRouter(
       let formatOut: string | null = null;
 
       if (spokeLive && result) {
-        chachaText = chachaSpoken;
+        chachaText = spoken;
         canned = false;
         audioBase64Out = result.mp3.toString("base64");
         formatOut = "mp3";
       } else {
         chachaText = fallback.text;
         canned = true;
-        const clip = await deps.cannedAudio(fallback.key, fallback.text);
+        const clip = await deps.cannedAudio(fallback.key, fallback.text, session.languageCode);
         audioBase64Out = clip?.audioBase64 ?? null;
         formatOut = clip?.format ?? null;
         // The stream was promised bytes it is not going to get from the model.
@@ -362,6 +395,9 @@ export function createChachaCallRouter(
           id: beat.id,
           index: session.beatIndex - 1,
           text: chachaText,
+          // The second caption line. Null rather than a repeat when he already
+          // wrote in Latin letters, or when the script cannot be romanized.
+          romanized: canned ? null : chachaRomanized || null,
           english: canned ? fallback.english : null,
           canned,
           isFinal: isFinalBeat(session.beatIndex - 1),
@@ -401,7 +437,7 @@ export function createChachaCallRouter(
       }
 
       const bye = CALL_CANNED_LINES.bye;
-      const audio = await deps.cannedAudio("bye", bye.text);
+      const audio = await deps.cannedAudio("bye", bye.text, session.languageCode);
       const outcome = endCallSession(session.id);
 
       res.json({
