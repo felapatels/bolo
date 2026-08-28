@@ -1,26 +1,17 @@
 /**
- * Chacha-ji's call: ringing, then connected.
+ * Chacha-ji's call, wired to the server.
  *
- * STILL NO SERVER. The turns below are a local script so the screen can be
- * driven on a simulator with nothing running behind it, which is how the
- * ringing screen was settled and is the fastest way to find out whether this
- * feels like a call. THE REAL CONTRACT ALREADY EXISTS AND MUST WIN when this is
- * wired up:
+ * THE WHOLE CALL LIVES IN useLiveCall. This screen picks which of the two
+ * faces to show and gets out of the way: ringing until it is answered, then
+ * the connected screen until it ends.
  *
- *   POST /openai/chacha-call/start          picks the backdrop AND the language
- *   POST /openai/chacha-call/:id/turn       learner audio in, his reply out
- *   POST /openai/chacha-call/:id/end        hang up
- *
- * The server decides the backdrop once per call and returns the same id every
- * turn; it decides the language from the learner's activeLanguage; and it
- * returns his line in the language's own script plus a romanization. The
- * FAKE_TURNS below imitate that shape deliberately, so wiring it up is a swap
- * rather than a rewrite.
+ * `?fake=1` keeps the old scripted turns for looking at layout without a
+ * network, which is how both screens were designed. It is scaffolding and is
+ * deliberately opt-in, so a real deep link always hits the real call.
  *
  * Drive it on the simulator with:
  *   xcrun simctl openurl booted "bolo-mobile://call"
- *   xcrun simctl openurl booted "bolo-mobile://call?phase=connected"
- *   xcrun simctl openurl booted "bolo-mobile://call?phase=connected&say=listening"
+ *   xcrun simctl openurl booted "bolo-mobile://call?fake=1&phase=connected"
  */
 import React from 'react';
 import { BackHandler, Platform, StatusBar } from 'react-native';
@@ -28,32 +19,31 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { IncomingCall } from '@/components/call/IncomingCall';
 import { InCall, type CallPhase } from '@/components/call/InCall';
 import { isCallBackdropId, type CallBackdropId } from '@/components/call/backdrops';
+import { useLiveCall } from '@/components/call/useLiveCall';
 
 /**
- * SCAFFOLDING, NOT CONTENT. Gujarati, because that is the app's oldest journey
- * language, and unverified: nobody who speaks it has read these. They exist to
- * put real script and a real romanization on screen at real lengths so the
- * caption layout can be judged. They must NOT survive the server being wired
- * up, and nothing should ever be taught from them.
+ * SCAFFOLDING, NOT CONTENT, and only reachable with ?fake=1. Gujarati, and
+ * unverified: nobody who speaks it has read these. They exist to put real
+ * script and a real romanization on screen at real lengths so the caption
+ * layout can be judged without a network. Nothing should ever be taught from
+ * them.
  */
-const FAKE_TURNS: {
-  text: string;
-  romanized: string;
-  chaiEarned?: number;
-}[] = [
+const FAKE_TURNS = [
   { text: 'કેમ છો, બેટા? મજામાં?', romanized: 'Kem chho, beta? Majama?' },
-  { text: 'વાહ! આજે શું ખાધું?', romanized: 'Waah! Aaje shu khadhu?', chaiEarned: 1 },
-  { text: 'રોટલી અને દાળ? બહુ સરસ.', romanized: 'Rotli ane daal? Bahu saras.', chaiEarned: 1 },
+  { text: 'વાહ! આજે શું ખાધું?', romanized: 'Waah! Aaje shu khadhu?' },
+  { text: 'રોટલી અને દાળ? બહુ સરસ.', romanized: 'Rotli ane daal? Bahu saras.' },
 ];
 
 export default function CallScreen() {
   const params = useLocalSearchParams<{
     backdrop?: string;
+    fake?: string;
     phase?: string;
     say?: string;
   }>();
+  const fake = params.fake === '1';
 
-  const [backdrop] = React.useState<CallBackdropId>(() =>
+  const [initialBackdrop] = React.useState<CallBackdropId>(() =>
     isCallBackdropId(params.backdrop)
       ? params.backdrop
       : Math.random() < 0.5
@@ -61,80 +51,111 @@ export default function CallScreen() {
         : 'backseat',
   );
 
-  const [connected, setConnected] = React.useState(params.phase === 'connected');
-  const [turn, setTurn] = React.useState(0);
-  const [phase, setPhase] = React.useState<CallPhase>(
-    params.say === 'listening' ? 'listening' : 'speaking',
-  );
-  const [elapsed, setElapsed] = React.useState(0);
-
   const leave = React.useCallback(() => {
     if (router.canGoBack()) router.back();
     else router.replace('/(app)/(tabs)');
   }, []);
 
+  const { state, answer, hangUp } = useLiveCall({
+    initialBackdrop,
+    onFinished: leave,
+  });
+
   /**
    * Android has a hardware back button and iOS does not, so this is the one
    * behaviour that genuinely has to differ. While RINGING, back means ignore,
    * the same outcome as the Ignore button, so a learner who panics has not
-   * taken a different path from one who chose it. While CONNECTED it hangs up,
-   * because on a call in progress back is the only gesture available and
-   * trapping someone in a call would be worse than ending it.
+   * taken a different path from one who chose it. Once CONNECTED it hangs up
+   * properly, telling the server, rather than abandoning a live call.
    */
   React.useEffect(() => {
     if (Platform.OS !== 'android') return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      leave();
+      if (state.status === 'ringing') leave();
+      else void hangUp();
       return true;
     });
     return () => sub.remove();
-  }, [leave]);
+  }, [state.status, leave, hangUp]);
 
-  // The call clock, and the fake turn-taking that drives the two backdrop
-  // states. Both die with the screen.
+  // ---- scaffolding path, ?fake=1 only -----------------------------------
+  const [fakeConnected, setFakeConnected] = React.useState(
+    fake && params.phase === 'connected',
+  );
+  const [fakeTurn, setFakeTurn] = React.useState(0);
+  const [fakePhase, setFakePhase] = React.useState<CallPhase>(
+    params.say === 'listening' ? 'listening' : 'speaking',
+  );
+  const [fakeElapsed, setFakeElapsed] = React.useState(0);
+
   React.useEffect(() => {
-    if (!connected) return;
-    const tick = setInterval(() => setElapsed((s) => s + 1), 1000);
+    if (!fake || !fakeConnected) return;
+    const tick = setInterval(() => setFakeElapsed((s) => s + 1), 1000);
     return () => clearInterval(tick);
-  }, [connected]);
+  }, [fake, fakeConnected]);
 
   React.useEffect(() => {
-    if (!connected || params.say) return;
+    if (!fake || !fakeConnected || params.say) return;
     const t = setTimeout(
       () => {
-        if (phase === 'speaking') setPhase('listening');
+        if (fakePhase === 'speaking') setFakePhase('listening');
         else {
-          setPhase('speaking');
-          setTurn((i) => Math.min(i + 1, FAKE_TURNS.length - 1));
+          setFakePhase('speaking');
+          setFakeTurn((i) => Math.min(i + 1, FAKE_TURNS.length - 1));
         }
       },
-      phase === 'speaking' ? 4200 : 3400,
+      fakePhase === 'speaking' ? 4200 : 3400,
     );
     return () => clearTimeout(t);
-  }, [connected, phase, params.say]);
+  }, [fake, fakeConnected, fakePhase, params.say]);
 
-  const current = FAKE_TURNS[Math.min(turn, FAKE_TURNS.length - 1)];
+  if (fake) {
+    const current = FAKE_TURNS[Math.min(fakeTurn, FAKE_TURNS.length - 1)];
+    return (
+      <>
+        <StatusBar barStyle="light-content" />
+        {fakeConnected ? (
+          <InCall
+            backdrop={initialBackdrop}
+            phase={fakePhase}
+            text={current.text}
+            romanized={current.romanized}
+            elapsedSeconds={fakeElapsed}
+            onHangUp={leave}
+          />
+        ) : (
+          <IncomingCall
+            backdrop={initialBackdrop}
+            onAnswer={() => setFakeConnected(true)}
+            onIgnore={leave}
+          />
+        )}
+      </>
+    );
+  }
+
+  // ---- the real call ----------------------------------------------------
+  const ringing = state.status === 'ringing';
 
   return (
     <>
       <StatusBar barStyle="light-content" />
-      {connected ? (
-        <InCall
-          backdrop={backdrop}
-          phase={phase}
-          text={current.text}
-          romanized={current.romanized}
-          // Chai lands with his REACTION to the answer, not while he is still
-          // asking, so it only shows on a speaking turn.
-          chaiEarned={phase === 'speaking' ? current.chaiEarned : 0}
-          elapsedSeconds={elapsed}
-          onHangUp={leave}
+      {ringing ? (
+        <IncomingCall
+          backdrop={state.backdrop}
+          onAnswer={() => void answer()}
+          onIgnore={leave}
         />
       ) : (
-        <IncomingCall
-          backdrop={backdrop}
-          onAnswer={() => setConnected(true)}
-          onIgnore={leave}
+        <InCall
+          backdrop={state.backdrop}
+          // Anything that is not his turn to talk is the learner's, including
+          // connecting and ending: the still is the safe face to hold.
+          phase={state.status === 'speaking' ? 'speaking' : 'listening'}
+          text={state.text}
+          romanized={state.romanized}
+          elapsedSeconds={state.elapsedSeconds}
+          onHangUp={() => void hangUp()}
         />
       )}
     </>

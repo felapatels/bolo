@@ -15,7 +15,13 @@ const USER = "test_chacha_call_user";
 const OTHER = "test_chacha_call_other";
 
 function speak(learner: string) {
-  return { beatId: "khaana" as const, learner, chacha: "Waah!", canned: false };
+  return {
+    beatId: "khaana" as const,
+    learner,
+    chacha: "Waah!",
+    romanized: "Waah!",
+    canned: false,
+  };
 }
 
 test("a new call starts at the beat after the canned hello", () => {
@@ -48,7 +54,7 @@ test("a call the learner never spoke in is abandoned", () => {
   // The seam the ring-back will read. He is delighted by anything, including
   // nothing, so silence ends the call gently rather than failing it.
   const s = createCallSession(USER, "gu", "Gujarati");
-  recordCallTurn(s, { beatId: "khaana", learner: "", chacha: "Koi baat nahi", canned: true });
+  recordCallTurn(s, { beatId: "khaana", learner: "", chacha: "Koi baat nahi", romanized: null, canned: true });
   assert.equal(endCallSession(s.id), "abandoned");
 });
 
@@ -120,4 +126,46 @@ test("the backdrop never changes for the life of the call", () => {
   }
   assert.equal(getCallSession(s.id)?.backdrop.id, chosen.id);
   endCallSession(s.id);
+});
+
+test("waiting for a turn resolves the moment it is recorded", async () => {
+  // The caption long-poll. React Native cannot stream a response body, so his
+  // words arrive on a second request; this is what stops that request being a
+  // polling loop while he is still talking.
+  const { waitForCallTurn } = await import("./chachaCallSessions");
+  const s = createCallSession(USER, "gu", "Gujarati");
+  let resolved = false;
+  const waiting = waitForCallTurn(s, 0, 5000).then((ok) => {
+    resolved = ok;
+    return ok;
+  });
+  assert.equal(resolved, false, "it must not resolve before the turn exists");
+  recordCallTurn(s, speak("haan"));
+  assert.equal(await waiting, true);
+  endCallSession(s.id);
+});
+
+test("a turn that already happened does not wait at all", async () => {
+  const { waitForCallTurn } = await import("./chachaCallSessions");
+  const s = createCallSession(USER, "gu", "Gujarati");
+  recordCallTurn(s, speak("haan"));
+  assert.equal(await waitForCallTurn(s, 0, 5000), true);
+  endCallSession(s.id);
+});
+
+test("a turn that never comes gives up rather than hanging the phone", async () => {
+  const { waitForCallTurn } = await import("./chachaCallSessions");
+  const s = createCallSession(USER, "gu", "Gujarati");
+  assert.equal(await waitForCallTurn(s, 0, 40), false);
+  endCallSession(s.id);
+});
+
+test("hanging up releases anyone still waiting on a turn", async () => {
+  // Otherwise the learner hangs up and their phone sits on an open request
+  // waiting for words that will never be spoken.
+  const { waitForCallTurn } = await import("./chachaCallSessions");
+  const s = createCallSession(USER, "gu", "Gujarati");
+  const waiting = waitForCallTurn(s, 0, 5000);
+  endCallSession(s.id);
+  assert.equal(await waiting, false);
 });

@@ -63,6 +63,8 @@ before(async () => {
       return liveResult ?? makeLive();
     },
     warmConnection: () => { warmed += 1; },
+    // Short, so the 204 case does not sit out a real twelve second wait.
+    turnWaitMs: 120,
   };
 
   app = express();
@@ -415,4 +417,57 @@ test("two calls can differ, so the scenery is not always the same one", async ()
     seen.add((json.backdrop as never as { id: string }).id);
   }
   assert.deepEqual([...seen].sort(), ["backseat", "driving"]);
+});
+
+// GET /openai/chacha-call/:callId/turn/:index — the caption long-poll.
+// A streaming turn answers 202 with an audio URL before his words exist, and
+// React Native cannot stream a response body, so the captions come from here.
+
+async function get(path: string) {
+  const res = await fetch(`${baseUrl}${path}`);
+  const body = res.status === 204 ? null : await res.json();
+  return { status: res.status, json: body as Record<string, never> | null };
+}
+
+test("a turn already taken is returned without waiting", async () => {
+  const callId = await startCall();
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  const t0 = Date.now();
+  const { status, json } = await get(`/openai/chacha-call/${callId}/turn/0`);
+  assert.equal(status, 200);
+  assert.ok(Date.now() - t0 < 500, "it waited for something already there");
+  assert.equal(json!.text as never, "Waah beta, bahut accha!");
+  assert.equal(json!.heard as never, "roti aur dal");
+  assert.equal((json!.next as never as { id: string }).id, "stall");
+});
+
+test("the caption carries both lines", async () => {
+  const callId = await startCall();
+  const native = "आज क्या खाया?";
+  liveResult = makeLive({ chachaText: native });
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  const { json } = await get(`/openai/chacha-call/${callId}/turn/0`);
+  assert.equal(json!.text as never, native);
+  assert.ok(json!.romanized, "the second caption line is missing");
+});
+
+test("a turn that has not happened answers 204 rather than an error", async () => {
+  // The client shows no caption over a call the learner can still hear, which
+  // is better than showing a failure.
+  const callId = await startCall();
+  const { status } = await get(`/openai/chacha-call/${callId}/turn/5`);
+  assert.equal(status, 204);
+});
+
+test("another learner cannot read the captions of a call", async () => {
+  const callId = await startCall();
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  currentUser = OTHER;
+  assert.equal((await get(`/openai/chacha-call/${callId}/turn/0`)).status, 404);
+});
+
+test("a nonsense turn index is refused rather than waited on", async () => {
+  const callId = await startCall();
+  assert.equal((await get(`/openai/chacha-call/${callId}/turn/-1`)).status, 400);
+  assert.equal((await get(`/openai/chacha-call/${callId}/turn/abc`)).status, 400);
 });

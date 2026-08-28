@@ -29,6 +29,9 @@ export type CallOutcome = "in_progress" | "answered" | "abandoned";
 
 export interface CallTurn {
   beatId: CallBeatId;
+  /** His line romanized, for the caption's second line. Null when the script
+   * cannot be romanized honestly. */
+  romanized: string | null;
   /**
    * What the learner said. Empty when nothing was audible, which is a normal
    * turn and not an error, AND empty on a canned beat, where nobody is
@@ -65,6 +68,17 @@ export interface CallSession {
   outcome: CallOutcome;
   createdAt: number;
   lastActivityAt: number;
+  /**
+   * Woken when a turn is recorded.
+   *
+   * REACT NATIVE'S FETCH CANNOT STREAM A RESPONSE BODY, which is the same
+   * constraint that made chatAudioStreams serve audio as a URL rather than as
+   * SSE. So the client cannot be handed his words down the same response that
+   * hands it the audio URL: it needs a second request. This is what lets that
+   * second request be a LONG POLL that resolves the moment the turn is known,
+   * rather than a polling loop hammering the server while he talks.
+   */
+  waiters: Set<() => void>;
 }
 
 const sessions = new Map<string, CallSession>();
@@ -110,6 +124,7 @@ export function createCallSession(
     outcome: "in_progress",
     createdAt: now,
     lastActivityAt: now,
+    waiters: new Set(),
   };
   sessions.set(s.id, s);
   return s;
@@ -132,6 +147,39 @@ export function recordCallTurn(
   s.turns.push(turn);
   s.beatIndex += 1;
   s.lastActivityAt = now;
+  wake(s);
+}
+
+function wake(s: CallSession): void {
+  for (const w of s.waiters) w();
+  s.waiters.clear();
+}
+
+/**
+ * Resolves once turn `index` has been recorded, or immediately if it already
+ * has. Never waits forever: the caller passes a timeout and gets false, so a
+ * turn that dies inside the model cannot leave a learner's phone hanging on an
+ * open request.
+ */
+export function waitForCallTurn(
+  s: CallSession,
+  index: number,
+  timeoutMs: number,
+): Promise<boolean> {
+  if (s.turns.length > index) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (ok: boolean) => {
+      if (done) return;
+      done = true;
+      s.waiters.delete(waiter);
+      clearTimeout(timer);
+      resolve(ok);
+    };
+    const waiter = () => finish(s.turns.length > index);
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    s.waiters.add(waiter);
+  });
 }
 
 /** True once every beat has run. */
@@ -155,6 +203,8 @@ export function endCallSession(
   s.outcome = outcome;
   s.lastActivityAt = now;
   sessions.delete(id);
+  // Anyone still waiting on a turn that will now never come must be released.
+  wake(s);
   return outcome;
 }
 

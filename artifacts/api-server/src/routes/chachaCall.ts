@@ -21,6 +21,7 @@ import {
   endCallSession,
   getCallSession,
   recordCallTurn,
+  waitForCallTurn,
 } from "../lib/chachaCallSessions";
 import { runLiveTurn, type LiveTurnResult } from "../lib/chachaCallTurn";
 import {
@@ -80,6 +81,15 @@ import {
  * two live model turns, fixed before it starts, which is a bound the open-ended
  * chat route does not have and the reason it needs a meter and this does not.
  */
+/**
+ * How long the caption long-poll waits before answering "not yet".
+ *
+ * Comfortably longer than a turn takes (measured about 2.6 s end to end, of
+ * which about 1.0 s is before the first audio byte) and comfortably shorter
+ * than any sane client or proxy timeout.
+ */
+export const TURN_WAIT_MS = 12_000;
+
 export interface ChachaCallDeps {
   /** Fixed clip for a line, from tts_cache, synthesized on a miss. */
   cannedAudio: (
@@ -100,6 +110,12 @@ export interface ChachaCallDeps {
   liveTurn: typeof runLiveTurn;
   /** Opens the TLS connection early so the first live turn is not the cold one. */
   warmConnection: () => void;
+  /**
+   * How long the caption long-poll waits before answering "not yet".
+   * Injectable so a test does not sit out the real twelve seconds; a suite of
+   * 1350 tests cannot afford a route that blocks for its own timeout.
+   */
+  turnWaitMs: number;
 }
 
 /**
@@ -165,6 +181,7 @@ const defaultDeps: ChachaCallDeps = {
     // touch the call.
     void openai.models.retrieve("gpt-audio").catch(() => {});
   },
+  turnWaitMs: TURN_WAIT_MS,
 };
 
 export function createChachaCallRouter(
@@ -366,6 +383,7 @@ export function createChachaCallRouter(
         beatId: beat.id,
         learner: learnerText,
         chacha: chachaText,
+        romanized: canned ? null : chachaRomanized || null,
         canned,
       });
 
@@ -409,6 +427,64 @@ export function createChachaCallRouter(
         over: callIsOver(session),
         audioBase64: audioBase64Out,
         format: formatOut,
+      });
+    },
+  );
+
+  // GET /openai/chacha-call/:callId/turn/:index
+  //
+  // His words for one turn, waited for rather than polled for.
+  //
+  // WHY THIS EXISTS AT ALL. A streaming turn answers 202 with an audio URL in
+  // about 30 ms so the player can start pulling before the model has said a
+  // word. That response cannot also carry his text, because his text is not
+  // known yet, and React Native's fetch cannot stream a response body to carry
+  // it later. So the captions need a second request, and this is it: it blocks
+  // until the turn is recorded and returns immediately if it already is.
+  //
+  // It is a LONG POLL rather than a polling loop on purpose. A phone asking
+  // every 200 ms while he talks is a request storm for a feature whose entire
+  // point is the second of silence at the start of a turn.
+  router.get(
+    "/openai/chacha-call/:callId/turn/:index",
+    async (req: Request, res: Response): Promise<void> => {
+      const userId = (req as AuthedRequest).userId;
+      if (!userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      const session = getCallSession(String(req.params.callId));
+      if (!session || session.userId !== userId) {
+        res.status(404).json({ error: "Unknown call" });
+        return;
+      }
+      const index = Number(req.params.index);
+      if (!Number.isInteger(index) || index < 0) {
+        res.status(400).json({ error: "Bad turn index" });
+        return;
+      }
+
+      const arrived = await waitForCallTurn(session, index, deps.turnWaitMs);
+      const turn = session.turns[index];
+      if (!arrived || !turn) {
+        // 204, not an error: the turn may still be coming, and the client's
+        // answer is to show no caption rather than to show a failure over a
+        // call the learner can still hear.
+        res.status(204).end();
+        return;
+      }
+
+      const next = beatAt(session.beatIndex);
+      res.json({
+        index,
+        text: turn.chacha,
+        romanized: turn.romanized,
+        canned: turn.canned,
+        heard: turn.learner,
+        next: next
+          ? { id: next.id, index: session.beatIndex, canned: next.mode === "canned" }
+          : null,
+        over: callIsOver(session),
       });
     },
   );

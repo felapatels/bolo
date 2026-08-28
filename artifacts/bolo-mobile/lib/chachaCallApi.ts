@@ -1,0 +1,167 @@
+import { getConfiguredAuthToken, getConfiguredBaseUrl } from '@workspace/api-client-react';
+
+/**
+ * The client for Chacha-ji's call.
+ *
+ * HAND-ROLLED RATHER THAN GENERATED, DELIBERATELY. The call routes are not in
+ * lib/api-spec/openapi.yaml, so there are no orval hooks for them. Adding them
+ * would regenerate the whole api-client-react package, which is a shared,
+ * lockfile-adjacent change landing in a build that is already held for this
+ * feature. It uses the generated client's OWN base URL and token getter, so
+ * there is one source of both and nothing here can drift from the rest of the
+ * app. Putting the routes in the spec is worth doing, after this build.
+ *
+ * THE TURN IS TWO REQUESTS AND THAT IS NOT AN OVERSIGHT. The POST answers in
+ * about 30 ms with a URL so the player can start pulling before the model has
+ * said a word; his WORDS are not known at that moment, and React Native's
+ * fetch cannot stream a response body to deliver them later. So the captions
+ * come from a second request that BLOCKS until the turn is recorded. Two
+ * requests, no polling loop, and the learner hears him at about one second
+ * instead of three.
+ */
+
+export interface CallBeat {
+  id: string;
+  index: number;
+  text: string;
+  english: string | null;
+  canned: boolean;
+  isFinal: boolean;
+}
+
+export interface CallBackdrop {
+  id: 'driving' | 'backseat';
+  video: string;
+  poster: string;
+  seconds: number;
+}
+
+export interface CallStart {
+  callId: string;
+  beat: CallBeat;
+  backdrop: CallBackdrop;
+  learnerTurns: number;
+  audioBase64: string | null;
+  format: string | null;
+}
+
+export interface CallTurnStarted {
+  callId: string;
+  audioUrl: string;
+}
+
+export interface CallTurnResult {
+  index: number;
+  text: string;
+  romanized: string | null;
+  canned: boolean;
+  heard: string;
+  next: { id: string; index: number; canned: boolean } | null;
+  over: boolean;
+}
+
+export interface CallEnded {
+  callId: string;
+  outcome: 'answered' | 'abandoned';
+  turns: number;
+  text: string;
+  english: string | null;
+  audioBase64: string | null;
+  format: string | null;
+}
+
+export class CallApiError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'CallApiError';
+    this.status = status;
+  }
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getConfiguredAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function base(): string {
+  const b = getConfiguredBaseUrl();
+  if (!b) throw new CallApiError(0, 'API base URL is not configured');
+  return b;
+}
+
+/** Headers a progressive-audio GET needs. Exported because playStreamingAudio
+ * fetches that URL itself and has to carry the session with it. */
+export async function callAudioHeaders(): Promise<Record<string, string>> {
+  return authHeaders();
+}
+
+/** Absolute URL for a path the server handed back relative. */
+export function absoluteCallUrl(path: string): string {
+  return `${base()}${path}`;
+}
+
+async function request<T>(
+  path: string,
+  init: RequestInit & { headers?: Record<string, string> } = {},
+): Promise<T | null> {
+  const res = await fetch(`${base()}${path}`, {
+    ...init,
+    headers: {
+      'content-type': 'application/json',
+      ...(await authHeaders()),
+      ...(init.headers ?? {}),
+    },
+  });
+  // 204 is a real answer on the caption route: the turn is not ready and the
+  // client shows no caption rather than an error over a call it can still hear.
+  if (res.status === 204) return null;
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new CallApiError(res.status, detail || `Call request failed (${res.status})`);
+  }
+  return (await res.json()) as T;
+}
+
+/** He rings. Returns his canned hello, already synthesized. */
+export async function startCall(): Promise<CallStart> {
+  return (await request<CallStart>('/openai/chacha-call/start', { method: 'POST' }))!;
+}
+
+/**
+ * The learner's clip goes up; an audio URL comes straight back.
+ * `X-Audio-Stream: url` is what asks for the fast shape.
+ */
+export async function sendTurn(
+  callId: string,
+  audioBase64: string,
+  format: 'wav' | 'mp3' = 'wav',
+): Promise<CallTurnStarted> {
+  return (await request<CallTurnStarted>(
+    `/openai/chacha-call/${callId}/turn`,
+    {
+      method: 'POST',
+      headers: { 'X-Audio-Stream': 'url' },
+      body: JSON.stringify({ audioBase64, format }),
+    },
+  ))!;
+}
+
+/**
+ * His words for one turn. BLOCKS on the server until they exist, so this is a
+ * single request rather than a poll. Null when the server gave up waiting, in
+ * which case the caption stays empty and the call carries on.
+ */
+export async function fetchTurn(
+  callId: string,
+  index: number,
+): Promise<CallTurnResult | null> {
+  return request<CallTurnResult>(`/openai/chacha-call/${callId}/turn/${index}`);
+}
+
+/** Hang up. Returns his canned farewell. */
+export async function endCall(callId: string): Promise<CallEnded> {
+  return (await request<CallEnded>(`/openai/chacha-call/${callId}/end`, {
+    method: 'POST',
+  }))!;
+}
