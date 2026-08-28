@@ -1,0 +1,225 @@
+// THE CARVED STATION BOARD, and there is exactly ONE of it on web.
+//
+// Extracted from the board block inside ZonePostcard (pages/journey.tsx) on
+// 2026-08-28, when the home hero was rebuilt as a station board to match
+// mobile. Two screens now draw this board, and this repo's standing rule is
+// that a second definition of the same thing is the defect rather than the
+// fix. Web and mobile are already hand-maintained twins held together by
+// prose; a third copy inside web itself would be worse.
+//
+// Mobile twin: components/journey/CarvedBoard.tsx in bolo-mobile, extracted
+// from its own journey screen a day earlier for exactly the same reason. The
+// two take the same props and read the same ZONE_BOARD fractions.
+import type { CSSProperties, ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { ZONE_BOARD, ZONE_BOARD_ART } from "@/lib/zone-backdrops";
+
+export function CarvedBoard({
+  height,
+  panelHeight,
+  panelAspect,
+  nameplate,
+  plate,
+  className,
+  style,
+  clipContent = true,
+  testId,
+  pedimentTestId,
+  children,
+}: {
+  /**
+   * The board's TOTAL height in px, pediment included. EXACTLY this, not "at
+   * most": the pediment takes its own aspect out of the top and the panel
+   * absorbs precisely the remainder, so the board always fills its reserved
+   * row and never exceeds it. A cap plus overflow-hidden crops whatever
+   * happens to be last, which is how the journey's daily fact once ended up
+   * with its final line sliced off.
+   *
+   * Use this where the LAYOUT reserves an exact row for the board (the journey
+   * map does: the board may never push into the first station beneath it).
+   */
+  height?: number;
+  /**
+   * The PANEL's height in px, with the pediment left to its own aspect on top.
+   *
+   * Use this where the board is fluid-width (the home hero fills its grid
+   * column, which is a phone's width on one screen and half a desktop on
+   * another). Sizing the panel and letting the pediment self-size is the CSS
+   * way round and needs no measurement at all — where mobile has to compute a
+   * total in points because Yoga will not derive one, an `img` with `w-full`
+   * already knows its own aspect here. Exactly one of `height` and
+   * `panelHeight` should be given.
+   */
+  panelHeight?: number;
+  /**
+   * The panel's width-to-height ratio, so it grows with a fluid board instead
+   * of letterboxing. Used WITH `panelHeight`, which becomes the floor.
+   *
+   * Mobile can hardcode a panel height because a phone's width barely varies.
+   * Web's hero runs from a 320px phone to a 704px grid column, and a fixed
+   * height across that range is a squat letterbox at the top end: the same
+   * board that reads correctly on a phone had three and a bit times its panel
+   * height in width on a desktop. The ratio holds the shape; the floor keeps
+   * the phone case identical to mobile's.
+   */
+  panelAspect?: number;
+  /** The carved nameplate's line. Upper-cased here, not by the caller. */
+  nameplate: string;
+  /** The small plate under it, e.g. "Zone 2". */
+  plate: string;
+  className?: string;
+  style?: CSSProperties;
+  /**
+   * THE BOARD CLIPS BY DEFAULT, AND IT HAS TO. The panel takes exactly the
+   * height it is given, so the crop is what stops content spilling past the
+   * frame.
+   *
+   * Pass false for the length of an animation that must LEAVE the board. The
+   * home hero's ticket tears in two and the halves settle askew, and with the
+   * board clipping they were cut off at the frame line instead. Nothing
+   * resizes during that window, so the crop is not doing any work while it is
+   * off.
+   */
+  clipContent?: boolean;
+  testId?: string;
+  pedimentTestId?: string;
+  /** Whatever the panel says. Laid out inside the drawn frame. */
+  children?: ReactNode;
+}) {
+  return (
+    <div
+      data-testid={testId}
+      className={cn(
+        "relative flex flex-col",
+        clipContent ? "overflow-hidden" : "overflow-visible",
+        className,
+      )}
+      style={{ height, ...style }}
+    >
+      {/* The pediment, aspect preserved: its rosettes and arch must not
+          stretch, which is the whole reason the art is cut into slices. */}
+      <div className="relative">
+        <img
+          src={ZONE_BOARD_ART.top}
+          alt=""
+          aria-hidden
+          className="block w-full shrink-0"
+          data-testid={pedimentTestId}
+        />
+        {/* The plates. Positions are fractions of the slice, so the overlays
+            track the board at any width. */}
+        <div
+          className="absolute flex items-center justify-center"
+          style={{
+            left: `${ZONE_BOARD.namePlate.left * 100}%`,
+            right: `${ZONE_BOARD.namePlate.right * 100}%`,
+            top: `${ZONE_BOARD.namePlate.top * 100}%`,
+            height: `${ZONE_BOARD.namePlate.height * 100}%`,
+          }}
+        >
+          <span
+            className="truncate text-[9px] font-black uppercase tracking-widest"
+            style={{ color: ZONE_BOARD.ink }}
+          >
+            {nameplate}
+          </span>
+        </div>
+        <div
+          className="absolute left-1/2 flex -translate-x-1/2 items-center justify-center"
+          style={{
+            width: `${ZONE_BOARD.zonePlate.width * 100}%`,
+            top: `${ZONE_BOARD.zonePlate.top * 100}%`,
+            height: `${ZONE_BOARD.zonePlate.height * 100}%`,
+          }}
+        >
+          <span
+            className="truncate text-[8px] font-black uppercase tracking-widest"
+            style={{ color: ZONE_BOARD.inkMuted }}
+          >
+            {plate}
+          </span>
+        </div>
+      </div>
+      {/* The panel. THE ONLY PART THAT STRETCHES: given a total `height` it
+          absorbs precisely the remainder, given a `panelHeight` it is that. */}
+      <div
+        className={cn(
+          "relative min-h-0",
+          panelHeight === undefined && "flex-1",
+          clipContent ? "overflow-hidden" : "overflow-visible",
+        )}
+        style={
+          panelHeight === undefined
+            ? undefined
+            : panelAspect === undefined
+              ? { height: panelHeight }
+              : { aspectRatio: panelAspect, minHeight: panelHeight }
+        }
+      >
+        {/* Cream UNDER the art, and only as wide as the art's own frame. The
+            slice's paper is drawn with PARTIAL ALPHA, so the slice alone is
+            see-through and whatever sits behind the board reads straight
+            through it. Its outer margin is fully transparent, so the fill must
+            stop there or the panel reads wider than the pediment above it. The
+            two insets differ because the art is not centred in its own file. */}
+        <div
+          className="absolute inset-y-0"
+          style={{
+            left: `${ZONE_BOARD.panelInsetLeft * 100}%`,
+            right: `${ZONE_BOARD.panelInsetRight * 100}%`,
+            background: ZONE_BOARD.panel,
+          }}
+          aria-hidden
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url(${ZONE_BOARD_ART.panel})`,
+            backgroundSize: "100% 100%",
+          }}
+          aria-hidden
+        />
+        {/* Everything the board says lives inside the drawn frame, on all four
+            sides. Absolutely positioned rather than padded: a CSS percentage
+            padding resolves against the WIDTH even for top and bottom, so a
+            vertical inset written as padding is wrong by however much the
+            board is wider than it is tall. `top`/`bottom` on a positioned box
+            resolve against the height, which is what this needs. */}
+        <div
+          className={cn(
+            "absolute",
+            clipContent ? "overflow-hidden" : "overflow-visible",
+          )}
+          style={{
+            left: `${ZONE_BOARD.contentInset * 100}%`,
+            right: `${ZONE_BOARD.contentInset * 100}%`,
+            top: `${ZONE_BOARD.contentInsetTop * 100}%`,
+            bottom: `${ZONE_BOARD.contentInsetBottom * 100}%`,
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * THE FRAME IS NOT SYMMETRIC, SO A FULL-BLEED CONTENT BOX CANNOT BE EITHER.
+ *
+ * CarvedBoard insets its content by ZONE_BOARD.contentInset, one number on
+ * both sides, but the panel ART carries a 4% transparent margin on the left
+ * against 5.7% on the right, so the DRAWN frame sits further in on the right.
+ * At the journey's width nobody could see it; at the home hero's full bleed
+ * the ticket and the CTA plate ran up against the frame line.
+ *
+ * This is exactly that asymmetry, off the same two numbers, so re-cutting the
+ * art moves it rather than leaving a stale hand-tuned correction behind.
+ * Mobile calls the same value `artNudge` and computes it in points; web has no
+ * board width to multiply, so it is expressed against the CONTENT box (which
+ * is already inset by contentInset on each side) and applied as padding.
+ */
+export const BOARD_ART_NUDGE = `${(
+  ((ZONE_BOARD.panelInsetRight - ZONE_BOARD.panelInsetLeft) * 2) /
+  (1 - ZONE_BOARD.contentInset * 2)
+) * 100}%`;

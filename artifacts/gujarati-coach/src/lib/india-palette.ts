@@ -24,6 +24,27 @@ export const FIRST_CLASS_GOLD_VARS = {
   "--color-card-border": "#FFF6E0", // steam: warm cream
 } as CSSProperties;
 
+/**
+ * THE ENGINE IN THE BOARD'S OWN WOODS, for the home hero's CTA plate.
+ *
+ * TrainEngine draws from four theme vars rather than taking a tint prop, which
+ * is how First Class recolours it above. On the old green pass the stock
+ * indigo-and-teal engine sat on a saturated accent and read fine; standing in
+ * a bordered plate on cream paper and carved teak it was the one cold object
+ * left on the board. Mobile passes `tint={ZONE_BOARD.ink}` for the same
+ * reason; web has no tint prop, so it gets a palette instead.
+ *
+ * The colours are the board's and the ticket's, not new ones: darkest board
+ * ink for the ironwork, the ticket's edge brown for the body, its hairline
+ * rule for the trim, and the panel's own cream for the steam.
+ */
+export const BOARD_TRAIN_VARS = {
+  "--color-foreground": "#5A2C16", // chassis: the board's darkest ink
+  "--color-primary": "#7A5443", // body: the ticket's edge brown
+  "--color-secondary": "#CBA37E", // trim: the ticket's hairline rule
+  "--color-card-border": "#F9EBD5", // steam: the panel's cream
+} as CSSProperties;
+
 export const INDIA = {
   /** Sun-bleached plaster a storefront is painted on. */
   wall: "#FBF1DF",

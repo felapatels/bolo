@@ -122,9 +122,21 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
           <DialogTitle>Choose a language</DialogTitle>
           {/* One shared note instead of a per-tile badge, so tile rows have
               room to show every English name in full at narrow widths. */}
+          {/* A LOCKED LANGUAGE IS NOT A WALL, AND THIS USED TO SAY IT WAS.
+              "Locked languages need All-Access" is false: every Free user gets
+              a lifetime teaser on EVERY locked language — the first few phrases
+              of its Greetings group, with the whole pipeline behind them (TTS,
+              speaking, scoring, XP). See TEASER_LIMIT in api-server's
+              lib/teaser.ts. The picker was talking a learner out of the exact
+              thing the landing page sells them as "a free taste of all 22
+              languages".
+              NO NUMBER ON PURPOSE. TEASER_LIMIT lives on the server and is not
+              exposed through the API, so a "first 3 phrases" here would be a
+              copy of a constant this artifact cannot see, and would go stale
+              silently the day it changes. */}
           {languages.some((l) => !isLanguageAllowed(l.code)) && (
             <p className="text-xs font-medium text-muted-foreground">
-              Locked languages need All-Access
+              Locked languages start with a free taste. All-Access opens the rest.
             </p>
           )}
         </DialogHeader>

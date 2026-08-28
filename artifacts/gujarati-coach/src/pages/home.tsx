@@ -31,17 +31,14 @@ import { BrandSplash, useBrandSplash } from "@/components/brand-splash";
 import { useIsDesktop } from "@/hooks/use-mobile";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
-import { getJourneyLine } from "@/lib/journeyLines";
+import { getRailBrand, getJourneyLine } from "@/lib/journeyLines";
 import { useJourneyProgress } from "@/lib/useJourneyProgress";
 import { TrainEngine } from "@/components/train-svg";
 import { BandPill, normalizeBand } from "@/components/ui/band-pill";
-import {
-  TicketPerforationV,
-  TicketStripes,
-  ZoneStamp,
-  fitStubWordmark,
-  stampSizeForExtent,
-} from "@/components/ticket";
+import { MiniTicket, stampSizeForExtent } from "@/components/ticket";
+import { BOARD_ART_NUDGE, CarvedBoard } from "@/components/carved-board";
+import { ZONE_BOARD } from "@/lib/zone-backdrops";
+import { BADGE, TICKET } from "@/lib/ticket-stock";
 import { track } from "@/lib/analytics";
 import { ANALYTICS_EVENTS } from "@/lib/analyticsEvents";
 import { useEntitlements, upgradeHref, upgradeHrefForDenial, asUpgradeRequired } from "@/lib/entitlements";
@@ -56,7 +53,10 @@ import { useUser } from "@clerk/react";
 // journey CTA idle motion"; these two cover the framer press spring only.
 // Low damping is what produces the overshoot spring-back on release.
 import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, ChevronRight, HelpCircle } from "lucide-react";
-import { FIRST_CLASS_GOLD_VARS as firstClassGoldVars } from "@/lib/india-palette";
+import {
+  BOARD_TRAIN_VARS as boardTrainVars,
+  FIRST_CLASS_GOLD_VARS as firstClassGoldVars,
+} from "@/lib/india-palette";
 const PASS_PRESS_SCALE = 0.94;
 const PASS_PRESS_SPRING = { type: "spring", stiffness: 480, damping: 12 } as const;
 
@@ -66,47 +66,35 @@ const PASS_PRESS_SPRING = { type: "spring", stiffness: 480, damping: 12 } as con
 // the stub (mobile JourneyPassCard parity).
 const STUB_W = 64;
 const HOME_STAMP_SIZE = stampSizeForExtent(STUB_W - 8);
+// THE HOME BOARD'S PANEL, IN PX, and it is a budget rather than a taste.
+// ZONE_BOARD's content insets take about 27% of the panel before a word is
+// drawn, and inside what is left the panel has to hold the eyebrow, the
+// station name, the stop line, the progress row and the CTA plate, beside a
+// ticket that is itself an ADMIT ONE stub plus a rotated stamp. Written out
+// here for the same reason journey-board-budget.test.ts writes PC_H out: a
+// board that does not fit its content does not look wrong, it looks BLANK,
+// because the panel clips. Raise it for real content growth, never lower it
+// to taste. Mobile twin: HOME_PANEL_H in JourneyPassCard.tsx (200pt there;
+// web's type runs a little larger, so it gets a little more room).
+// MEASURED, NOT CHOSEN. 200 (mobile's value) clips: with the Chai clause the
+// CTA tail wraps to two lines, and the populated panel — eyebrow, station,
+// stop line, ticket, progress row, plate — then needs 168px inside a content
+// box that ZONE_BOARD's insets cut to 73.2% of the panel, i.e. 230px of panel
+// for zero headroom. 240 leaves about 8px.
+//
+// A BOARD THAT DOES NOT FIT DOES NOT LOOK WRONG, IT LOOKS BLANK, because the
+// panel clips: this was checked by comparing the content box's scrollHeight
+// against its clientHeight in the browser, which is the only thing that can
+// tell "does not fit" from "is not there". Raise it for real content growth,
+// never lower it to taste.
+const HOME_PANEL_H = 240;
+// THE PANEL'S SHAPE, so a fluid board does not letterbox. Mobile's hero is
+// roughly 358pt wide over a 200pt panel (1.79); holding that exactly on web
+// would give a 704px desktop column a 393px panel, which is a lot of hero.
+// 2.5 keeps the phone case on the floor above (200) and lands desktop near
+// 280, which reads as the same object rather than a mail slot.
+const HOME_PANEL_ASPECT = 2.5;
 
-/** Vertical line-name wordmark, sized to its measured vertical run so it can
- *  never ellipsize (R1 amendment; fixed 9px + 0.2em used to overflow the run
- *  for long line names). Before the first measurement (and in jsdom, where
- *  clientHeight is 0) it renders the full name at top size; the observer
- *  corrects it in real browsers. */
-function StubWordmark({ lineName }: { lineName: string }) {
-  const slotRef = useRef<HTMLDivElement | null>(null);
-  const [extent, setExtent] = useState(0);
-  useLayoutEffect(() => {
-    const el = slotRef.current;
-    if (!el) return;
-    const measure = () => setExtent(el.clientHeight);
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  const { text, fontSize } = fitStubWordmark(lineName, extent);
-  return (
-    <div
-      ref={slotRef}
-      className="flex min-h-0 w-full flex-1 items-center justify-center"
-      aria-hidden
-    >
-      <div
-        data-testid="stub-line-name"
-        className="select-none font-black uppercase text-white/70"
-        style={{
-          writingMode: "vertical-rl",
-          fontSize,
-          lineHeight: 1.2,
-          letterSpacing: fontSize >= 7 ? "0.15em" : "0.08em",
-        }}
-      >
-        {text}
-      </div>
-    </div>
-  );
-}
 // Stub-tear navigation fallback. The authoritative delay lives in index.css
 // as --tear-nav-delay (the :root tuning constants block, in ms); this value
 // is only used when the CSS var cannot be read (jsdom, ancient UA).
@@ -447,26 +435,56 @@ export default function Home() {
   };
   const native = useNativeText();
   const journeyLine = getJourneyLine(activeLang);
+  const railBrand = getRailBrand(activeLang);
   const journey = useJourneyProgress(activeLang, journeyLine.zones);
   // Progress-aware boarding-pass CTA. Uses only the data the pass already
   // receives from useJourneyProgress (no new API calls); when the current
   // stop is unknown (loading, locked, errored) the copy falls back to the
   // pre-existing generic verbs.
   const hasJourneyProgress = Boolean(journey.current?.started) || journey.doneCount > 0;
-  const phrasesLeftAtStop = journey.current
-    ? Math.max(journey.current.phraseCount - journey.current.masteredCount, 0)
-    : 0;
+  // THE VERB, AND NOTHING THE BOARD ALREADY SAYS. It used to read "Resume at
+  // Stop 5 · 10 phrases to go", which wrapped to two lines in the plate and
+  // repeated the two things sitting directly above it: "Stop 5 of 11" and the
+  // progress bar. Ported from mobile with the carved board, 2026-08-28.
+  //
+  // planBlocked keeps its words. It is the one state where the board above
+  // says nothing useful, because there IS no current stop to name, so a bare
+  // verb would leave a learner staring at a button with no reason attached.
   const journeyCta = !hasJourneyProgress
-    ? "Start your journey"
+    ? "Start"
     : journey.current
-      ? `Resume at Stop ${journey.current.stopNumber}${
-          phrasesLeftAtStop > 0
-            ? ` · ${phrasesLeftAtStop} ${phrasesLeftAtStop === 1 ? "phrase" : "phrases"} to go`
-            : ""
-        }`
+      ? "Resume"
       : journey.planBlocked
-        ? "Unlock your next stop with All-Access"
-        : "Continue your journey";
+        ? "Unlock with All-Access"
+        : "Continue";
+  // THE SECOND HALF OF THE PLATE. The verb alone left a wide button mostly
+  // empty once the ticket went landscape and the plate got the whole panel
+  // back.
+  //
+  // STOPS LEFT IN THE ZONE, not phrases at this stop, and that is a change
+  // rather than a restoration: the old sentence counted phrases, which the
+  // progress bar directly above already draws. Stops left is the one number
+  // nothing else on the board is showing.
+  const stopsLeftInZone = journey.current
+    ? Math.max(journey.current.stopCount - journey.current.stopNumber, 0)
+    : 0;
+  /**
+   * THE CHAI PROMISE RIDES IN THE BUTTON (owner, 2026-08-28: "just add the text
+   * in the resume button text", after a standalone line under the progress bar
+   * turned out to be invisible against the ticket art). Mobile twin says the
+   * same words.
+   *
+   * IT SAYS "SURPRISES" ON PURPOSE. Chai on the journey is not only the
+   * predictable 10 for finishing a zone: Chacha-ji turns up trackside every
+   * fourth station with a gift, clearing a signal pays, and a capstone pays
+   * more. A learner told only about the zone bonus will not notice the rest,
+   * and the unexpected ones are the ones worth riding for.
+   */
+  const journeyCtaTail = !journey.current
+    ? null
+    : stopsLeftInZone === 0
+      ? "Last stop in this zone! Chai and surprises along the way."
+      : `Only ${stopsLeftInZone} more ${stopsLeftInZone === 1 ? "stop" : "stops"} to go. Chai and surprises along the way.`;
   const { isPlus, features, dailyNewLessons } = useEntitlements();
   // placeholderData: keepPreviousData — when LanguageProvider reconciles the
   // active language from /account and the key flips, the prior language's
@@ -946,186 +964,234 @@ export default function Home() {
                 // render ABOVE the stall inside the entrance wrapper.
                 data-testid="journey-pass-card"
                 onClick={handlePassActivate}
-                className={cn(
-                  "group relative block w-full rounded-3xl text-white transition-all hover:-translate-y-0.5 active:translate-y-[6px] active:shadow-[0_0px_0_rgba(0,0,0,0.18)]",
-                  // While tearing, the container itself disappears (transparent
-                  // bg, no shadow, no clipping): the widening gap between the
-                  // two departing halves shows the actual page behind the
-                  // pass, so it reads as a ticket floating over the page.
-                  tearing
-                    ? "overflow-visible shadow-none"
-                    : "overflow-hidden shadow-[0_8px_0_rgba(0,0,0,0.18)]",
-                )}
-                style={{
-                  backgroundColor: tearing ? "transparent" : journeyLine.accent,
-                }}
+                className="group relative block w-full transition-transform hover:-translate-y-0.5 active:translate-y-[3px]"
               >
-                {/* full-ticket treatment: diagonal brand-stripe ticket stock
-                    (hidden while tearing; the halves carry their own stock) */}
-                {!tearing && <TicketStripes ink="rgba(255,255,255,0.05)" />}
-                {/* shimmer sweep across the ticket face, once per heartbeat
-                    (transform-only band; the Link's overflow-hidden clips it) */}
-                {!reduceMotion && !tearing && (
+                {/* THE BOARD IS THE PASS NOW. It was a full-width card in the
+                    line's accent — bright green for Hindi, magenta for another
+                    line — with the ticket furniture drawn on top of it in
+                    white. Mobile replaced that on 2026-08-27 with a carved
+                    station board and a paper ticket lying on it, and the
+                    accent went with it ("the hero drops the green"): a line
+                    identity belongs to the rail name, the postcards and the
+                    comet, not to the paper. This is that port.
+                    The board does NOT flinch when the ticket tears. A carved
+                    board is bolted to a wall; what comes apart is the ticket. */}
+                <CarvedBoard
+                  testId="home-carved-board"
+                  pedimentTestId="home-board-top"
+                  panelHeight={HOME_PANEL_H}
+                  panelAspect={HOME_PANEL_ASPECT}
+                  nameplate={journeyLine.lineName}
+                  plate={
+                    journey.current
+                      ? `Zone ${journey.current.zoneIndex + 1}`
+                      : "Departures"
+                  }
+                  // Open the board for the length of the tear: the ticket lives
+                  // inside the panel, and the board, the panel and the content
+                  // box all clip, so a ticket coming apart was cropped at the
+                  // frame line the moment it moved.
+                  clipContent={!tearing}
+                  className="depth-shadow rounded-b-md"
+                >
+
                   <div
-                    className="pointer-events-none absolute inset-y-0 left-0 w-1/3 animate-ticket-shimmer bg-gradient-to-r from-transparent via-white/25 to-transparent"
-                    aria-hidden
-                  />
-                )}
-                {!tearing && (
-                  <div
-                    className="pointer-events-none absolute -right-8 -top-12 h-44 w-44 rounded-full bg-white/10 blur-xl"
-                    aria-hidden
-                  />
-                )}
-                <div className="relative flex items-stretch">
-                  {/* main body (pulls away leftward while the stub tears off;
-                      while tearing it carries its own ticket stock + rounded
-                      left corners so it reads as a torn half of the pass) */}
-                  <div
-                    ref={tearBodyRef}
-                    className={cn(
-                      "min-w-0 flex-1",
-                      tearing && "animate-body-tear rounded-l-3xl",
-                    )}
-                    style={
-                      tearing
-                        ? { backgroundColor: journeyLine.accent }
-                        : undefined
-                    }
+                    className="flex h-full min-w-0 flex-col justify-center"
+                    // The drawn frame sits further in on the right than on the
+                    // left, so a symmetric content box runs the ticket and the
+                    // plate into it. See BOARD_ART_NUDGE.
+                    style={{ paddingRight: BOARD_ART_NUDGE }}
                   >
-                    <div className="p-5 pr-3 lg:p-6 lg:pr-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-white/80">
-                            Boarding pass · બોલો રેલ
-                          </div>
-                          <h2 className="mt-0.5 text-lg font-black leading-tight lg:text-2xl">
-                            Ride the {journeyLine.lineName}
-                          </h2>
-                          <p className="mt-1 truncate text-sm font-semibold text-white/90">
-                            {journey.current
-                              ? `Next stop: ${journey.current.geoName} · Stop ${journey.current.stopNumber} of ${journey.current.stopCount}`
-                              : `${journeyLine.zones[0]} to ${journeyLine.zones[5]}, station by station`}
-                          </p>
-                        </div>
-                        {/* First Class: pin the four gold palette CSS vars on a
-                            display:contents wrapper so the layout box belongs to
-                            TrainEngine, not the wrapper — the vars cascade into
-                            the SVG fills while the surrounding white heading text
-                            (a sibling, not a descendant) reads default tokens. */}
+                    {/* THE TOP LINE, with the ticket lying in the corner beside
+                        it. The ticket used to be a full-height column down the
+                        right, which pushed everything under it into a narrow
+                        run; landscape in the corner, the progress bar and the
+                        CTA plate get the whole panel back. */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        {/* The brand is native-script "Bolo Rail" in the
+                            LEARNER'S OWN script and must render with that
+                            language's font or it comes out as tofu. This line
+                            used to be the Gujarati wordmark, hardcoded, on
+                            every one of the 22 lines. */}
                         <div
-                          className="contents"
-                          data-testid="boarding-pass-train-gold-wrapper"
-                          style={
-                            tokensQuery.data?.firstClassActiveUntil &&
-                            new Date(tokensQuery.data.firstClassActiveUntil) > new Date()
-                              ? firstClassGoldVars
-                              : undefined
-                          }
+                          className="truncate text-[9px] font-black uppercase tracking-[1.4px] lg:text-[11px]"
+                          style={{ color: ZONE_BOARD.inkMuted }}
                         >
-                          <TrainEngine
-                            className={cn(
-                              "mt-1 h-[var(--train-ticket-h)] w-auto shrink-0 text-white drop-shadow-sm lg:h-[var(--train-ticket-h-lg)]",
-                              !reduceMotion && "animate-train-drive",
-                            )}
+                          Boarding pass ·{" "}
+                          <span
+                            className={cn(!railBrand.native && "uppercase")}
+                            style={
+                              railBrand.native
+                                ? { ...native.style, fontSize: 11, letterSpacing: 0 }
+                                : undefined
+                            }
+                          >
+                            {railBrand.text}
+                          </span>
+                        </div>
+                        {/* THE STATION, exactly as the zone card names one, in
+                            the board's own ink: the panel is cream in both
+                            themes and a cool slate token reads cold on it. */}
+                        <h2
+                          className="mt-px truncate text-xl font-black leading-tight sm:text-2xl lg:text-3xl"
+                          style={{ color: ZONE_BOARD.ink }}
+                        >
+                          {journey.current
+                            ? journey.current.geoName
+                            : `Ride the ${journeyLine.lineName}`}
+                        </h2>
+                        <p
+                          className="mt-0.5 truncate text-[11px] font-semibold lg:text-sm"
+                          style={{ color: ZONE_BOARD.inkMuted }}
+                        >
+                          {journey.current
+                            ? `Stop ${journey.current.stopNumber} of ${journey.current.stopCount}`
+                            : `${journeyLine.zones[0]} to ${journeyLine.zones[5]}, station by station`}
+                        </p>
+                      </div>
+                      {/* The gold wrapper moved OFF this: MiniTicket reads none
+                          of the train's palette vars, and First Class recolours
+                          the ENGINE, which now stands in the CTA plate below. */}
+                      <div className="contents">
+                        <MiniTicket
+                          lineName={journeyLine.lineName}
+                          zone={journey.current ? journey.current.zoneIndex + 1 : null}
+                          stationName={journey.current ? journey.current.geoName : null}
+                          stampSize={HOME_STAMP_SIZE}
+                          tearing={tearing}
+                          bodyRef={tearBodyRef}
+                          stubRef={tearStubRef}
+                          notchFill={ZONE_BOARD.panel}
+                        />
+                      </div>
+                    </div>
+                    {journey.current && journey.current.phraseCount > 0 && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <div
+                          className="h-2 flex-1 overflow-hidden rounded-full"
+                          style={{ background: `${ZONE_BOARD.inkMuted}33` }}
+                        >
+                          <div
+                            className="h-full rounded-full transition-all duration-700"
+                            style={{
+                              // Aged brass from the element sheet's own badge
+                              // palette: the one warm spark left on the card
+                              // now the accent has gone, and it belongs to the
+                              // wood rather than to the line.
+                              background: BADGE.brassBg,
+                              width: `${Math.round(
+                                (journey.current.masteredCount / journey.current.phraseCount) * 100,
+                              )}%`,
+                            }}
                           />
                         </div>
-                      </div>
-                      {journey.current && journey.current.phraseCount > 0 && (
-                        <div className="mt-3 flex items-center gap-2">
-                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/25">
-                            <div
-                              className="h-full rounded-full bg-card transition-all duration-700"
-                              style={{
-                                width: `${Math.round(
-                                  (journey.current.masteredCount / journey.current.phraseCount) * 100,
-                                )}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="shrink-0 text-[11px] font-bold text-white/90">
-                            {journey.current.masteredCount}/{journey.current.phraseCount} at this stop
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    {/* ticket perforation (dashed line + LEFT-EDGE bite,
-                        retained per the cutout ruling: -left-2.5 puts the
-                        20px circle at x −10..+10 relative to the card, so the
-                        root's overflow-hidden clips it to a half-moon bite
-                        straddling the outer left edge at the perforation end
-                        — it is NOT a floating interior dot; measured
-                        STRADDLES-EDGE by qa/task879-shots.mjs). */}
-                    <div className="relative" aria-hidden>
-                      <div className="absolute -left-2.5 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-background" />
-                      <div className="mx-5 border-t-2 border-dashed border-white/40" />
-                    </div>
-                    {/* action verb + daily-goal/streak co-located */}
-                    <div className="flex items-center justify-between gap-2 p-5 pt-3.5 pr-3 lg:px-6 lg:pr-4">
-                      <span className="flex items-center gap-1.5 text-sm font-black lg:text-base lg:gap-2">
-                        {journeyCta}
                         <span
-                          className={cn("inline-flex", !reduceMotion && "animate-cta-arrow-nudge")}
-                          aria-hidden
+                          className="shrink-0 text-[10px] font-bold"
+                          style={{ color: ZONE_BOARD.inkMuted }}
                         >
-                          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 lg:h-5 lg:w-5" />
+                          {journey.current.masteredCount}/{journey.current.phraseCount}
                         </span>
+                      </div>
+                    )}
+                    {/* THE DOOR. The same bordered plate the zone card gives
+                        its test-out link, so the two screens offer an action
+                        the same way. The engine stands IN it rather than up
+                        beside the title: it is the train at the platform, and
+                        pressing boards it. */}
+                    <div
+                      className="mt-2.5 flex items-center gap-1.5 rounded-lg border-2 px-2 py-[7px]"
+                      style={{ borderColor: TICKET.edge }}
+                    >
+                      {/* THE ENGINE TAKES A PALETTE, NOT A COLOUR. TrainEngine
+                          draws from four theme vars and keeps only its headlamp
+                          on currentColor, so styling `color` here tinted the
+                          lamp and left an indigo-and-teal engine standing on
+                          cream paper. The vars go on a display:contents wrapper
+                          so the layout box stays the engine's; First Class
+                          still overrides them, which is the whole point of
+                          doing it this way rather than adding a tint prop. */}
+                      <div
+                        className="contents"
+                        data-testid="boarding-pass-train-gold-wrapper"
+                        style={
+                          tokensQuery.data?.firstClassActiveUntil &&
+                          new Date(tokensQuery.data.firstClassActiveUntil) > new Date()
+                            ? firstClassGoldVars
+                            : boardTrainVars
+                        }
+                      >
+                        <TrainEngine
+                          className={cn(
+                            "h-[22px] w-auto shrink-0 lg:h-[26px]",
+                            !reduceMotion && "animate-train-drive",
+                          )}
+                        />
+                      </div>
+                      {/* The tail sits BESIDE the verb, baseline-aligned, so
+                          the two read as one line rather than two rows. */}
+                      <span className="flex min-w-0 flex-1 items-baseline gap-2">
+                        <span
+                          className="shrink-0 text-[17px] font-black leading-[21px] lg:text-xl lg:leading-[26px]"
+                          style={{ color: ZONE_BOARD.ink }}
+                        >
+                          {journeyCta}
+                        </span>
+                        {/* TWO LINES, NEVER ONE WITH AN ELLIPSIS. This carried
+                            `truncate` (nowrap + ellipsis) and clipped to
+                            "Only 6 more stops to go. Chai…", cutting the exact
+                            clause the sentence was added for: where Chai comes
+                            from. The mobile twin had the same bug and was fixed
+                            the same way. A clamp rather than free wrapping
+                            because the panel CLIPS — a board that does not fit
+                            its content does not look wrong, it looks blank —
+                            so a third line must be impossible, not unlikely.
+                            items-baseline on the row keeps the first line's
+                            baseline on the verb's. */}
+                        {journeyCtaTail && (
+                          <span
+                            className="line-clamp-2 text-[11px] font-semibold leading-[14px] lg:text-sm lg:leading-[18px]"
+                            style={{ color: ZONE_BOARD.inkMuted }}
+                          >
+                            {journeyCtaTail}
+                          </span>
+                        )}
                       </span>
-                      {summary && (
-                        <span className="flex shrink-0 items-center gap-1.5">
-                          <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-[11px] font-black lg:px-2.5 lg:text-xs">
-                            <Flame className="h-3.5 w-3.5" fill="currentColor" />
-                            {summary.currentStreakDays}-day
-                            <span className="hidden lg:inline"> streak</span>
-                          </span>
-                          <span className="hidden items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-[11px] font-black sm:flex lg:px-2.5 lg:text-xs">
-                            <Target className="h-3.5 w-3.5" />
-                            {Math.min(summary.attemptsToday, dailyGoal)}/{dailyGoal} today
-                          </span>
-                        </span>
-                      )}
+                      {/* A SOLID arrow, not a hairline one: beside a 17px black
+                          verb a thin stroke reads as a different weight of
+                          voice. */}
+                      <span
+                        className={cn("inline-flex shrink-0", !reduceMotion && "animate-cta-arrow-nudge")}
+                        aria-hidden
+                      >
+                        <ArrowRight
+                          className="h-5 w-5 transition-transform group-hover:translate-x-0.5"
+                          strokeWidth={3}
+                          style={{ color: ZONE_BOARD.ink }}
+                        />
+                      </span>
                     </div>
                   </div>
-                  {/* tear-off stub: perforation with notches (edge bites),
-                      fare-zone stamp, vertical line name. No floating punch
-                      dot — cutout circles only ever straddle card edges
-                      (approved ruling, ported from the mobile build-28 pass). */}
-                  {/* the perforation hides while tearing: the dashed line is
-                      replaced by the two jagged torn edges */}
-                  {!tearing && <TicketPerforationV light />}
-                  <div
-                    ref={tearStubRef}
-                    className={cn(
-                      "relative flex w-16 shrink-0 flex-col items-center gap-2 py-4",
-                      tearing && "animate-stub-tear rounded-r-3xl",
-                    )}
-                    // While tearing, the piece carries its own ticket stock so
-                    // it reads as a torn-off piece of the pass, not floating
-                    // stamp art (at rest the Link's identical accent shows).
-                    style={tearing ? { backgroundColor: journeyLine.accent } : undefined}
-                  >
-                    {journey.current && (
-                      <ZoneStamp
-                        ink="rgba(255,255,255,0.8)"
-                        zone={journey.current.zoneIndex + 1}
-                        name={journey.current.geoName}
-                        size={HOME_STAMP_SIZE}
-                      />
-                    )}
-                    <StubWordmark lineName={journeyLine.lineName} />
-                  </div>
-                </div>
+                </CarvedBoard>
+                {/* NO SHIMMER SWEEP EITHER. It came across with the port and
+                    was warmed from white to cream for the paper, but a band a
+                    third of a 713px board wide does not read as light crossing
+                    wood at this size — it washes most of the panel at once, and
+                    with the two glows made up the "white box behind it" the
+                    owner reported. The idle life that survives is the breathe,
+                    the engine's drive and the arrow's pump, all of which move
+                    an object rather than tint one. */}
+                {/* NO GLOW HALO HERE, AND IT IS NOT AN OVERSIGHT. The old
+                    green pass was a flat coloured card that needed lifting off
+                    the page, so it carried an opacity-pulsed box-shadow. On the
+                    carved board the same overlay drew a soft rounded rectangle
+                    noticeably larger than the board's own art, which read as a
+                    white box behind it with a green cast off the page gradient
+                    ("still has green glow, white box behind it", owner) — the
+                    art already has a drawn frame and a depth-shadow, so the
+                    halo was adding a second, wrong edge. The board is heavy
+                    furniture; it does not need to float. */}
               </Link>
-              {/* soft glow / elevated shadow pulse lifting the pass off the
-                  page (opacity-only overlay; outside the Link so its outward
-                  shadow is not clipped by overflow-hidden) */}
-              {!reduceMotion && !tearing && (
-                <div
-                  className="pointer-events-none absolute inset-0 rounded-3xl animate-pass-glow"
-                  style={{ boxShadow: `0 6px 28px 2px ${journeyLine.accent}` }}
-                  aria-hidden
-                />
-              )}
               </motion.div>
               </div>
               {/* Chai treatment tier 1: Chacha-ji's stall, full width at its

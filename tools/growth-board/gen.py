@@ -703,9 +703,13 @@ else:
     A('<b style="color:var(--ochre)">Mirror, not canonical.</b> The live copy lives in the Nest. '
       'This page may lag behind it.<br><br>')
 A('Videos in <span style="font-family:var(--mono)">BOLO Social Video Ads/Grandma language '
-  'variants/</span>. Stills in the flat play-soon set, 40 files, currently '
-  '<span style="font-family:var(--mono)">Downloads/bolocampaignsplaysoon 2/</span>. '
-  'Swap the whole set to the live badge the day Google Play goes public, never a feed carrying both.')
+  'variants/</span>. Stills in the flat play-soon set, 40 files, in '
+  '<span style="font-family:var(--mono)">Downloads/bolocampaignsplaysoon 2/</span>.<br><br>'
+  '<b>The live-badge set already exists.</b> '
+  '<span style="font-family:var(--mono)">Downloads/bolocampaignslive/</span> holds the same 40 '
+  'filenames, all 40 differing only in the badge. So the day Google Play goes public the swap is '
+  '<b>a folder change, not a rebuild</b>. Nothing needs regenerating and there is no generator to '
+  'run. Swap the whole set at once, never a feed carrying both states.')
 A('</footer>')
 A('</div>')
 

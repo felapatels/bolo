@@ -58,6 +58,7 @@ import { useLanguage } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
 import { LessonErrorScreen } from "@/components/lesson-states";
 import { UpgradeScreen } from "@/components/plus";
+import { CarvedBoard } from "@/components/carved-board";
 import {
   asUpgradeRequired,
   upgradeHref,
@@ -536,104 +537,18 @@ function ZonePostcard({
   const color = grayed ? GRAY : accent;
   return (
     <div className={cn("pointer-events-auto", grayed && "grayscale opacity-80")}>
-      {/* THE CARVED STATION BOARD, cut into three so only the panel stretches.
-          See ZONE_BOARD in lib/zone-backdrops.ts for why it is three files and
-          why it is capped. Mobile twin: the board block in
-          bolo-mobile/app/(app)/journey.tsx. */}
-      <div
-        className="relative flex flex-col overflow-hidden depth-shadow"
-        // EXACTLY PC_H, not "at most". A cap plus overflow-hidden crops
-        // whatever happens to be last, which is how the fact ended up with its
-        // final line sliced off. As a column, the pediment and the foot take
-        // their aspect and the panel absorbs precisely the remainder, so the
-        // board always fills its reserved row and never exceeds it.
-        style={{ height: PC_H }}
+      {/* THE CARVED STATION BOARD. One definition on web, shared with the
+          home hero: see components/carved-board.tsx, which this block was
+          extracted into on 2026-08-28. Mobile did the same extraction a day
+          earlier for the same reason. */}
+      <CarvedBoard
+        height={PC_H}
+        nameplate={zoneTitle}
+        plate={`Zone ${zoneIndex + 1}`}
+        className="depth-shadow"
+        testId={`zone-board-${zoneIndex}`}
+        pedimentTestId={`zone-board-top-${zoneIndex}`}
       >
-        {/* The pediment, aspect preserved: its rosettes and arch must not
-            stretch, which is the whole reason for the three-slice. */}
-        <div className="relative">
-          <img
-            src={ZONE_BOARD_ART.top}
-            alt=""
-            aria-hidden
-            className="block w-full shrink-0"
-            data-testid={`zone-board-top-${zoneIndex}`}
-          />
-          {/* The nameplate. Positions are fractions of the slice, so the
-              overlay tracks the board at any width. */}
-          <div
-            className="absolute flex items-center justify-center"
-            style={{
-              left: `${ZONE_BOARD.namePlate.left * 100}%`,
-              right: `${ZONE_BOARD.namePlate.right * 100}%`,
-              top: `${ZONE_BOARD.namePlate.top * 100}%`,
-              height: `${ZONE_BOARD.namePlate.height * 100}%`,
-            }}
-          >
-            <span
-              className="truncate text-[9px] font-black uppercase tracking-widest"
-              style={{ color: ZONE_BOARD.ink }}
-            >
-              {zoneTitle}
-            </span>
-          </div>
-          <div
-            className="absolute left-1/2 flex -translate-x-1/2 items-center justify-center"
-            style={{
-              width: `${ZONE_BOARD.zonePlate.width * 100}%`,
-              top: `${ZONE_BOARD.zonePlate.top * 100}%`,
-              height: `${ZONE_BOARD.zonePlate.height * 100}%`,
-            }}
-          >
-            <span
-              className="text-[8px] font-black uppercase tracking-widest"
-              style={{ color: ZONE_BOARD.inkMuted }}
-            >
-              Zone {zoneIndex + 1}
-            </span>
-          </div>
-        </div>
-        {/* The panel. THE ONLY PART THAT STRETCHES, and it clips: the map
-            reserves PC_H for this row and the board may never push into the
-            first station beneath it. */}
-        <div className="relative min-h-0 flex-1 overflow-hidden">
-          {/* Cream UNDER the art, and only as wide as the art's own frame. The
-              slice's paper has partial alpha so it needs a fill behind it, and
-              its outer 3.9% is fully transparent so that fill must stop there
-              or the panel reads wider than the pediment above it. */}
-          <div
-            className="absolute inset-y-0"
-            style={{
-              left: `${ZONE_BOARD.panelInsetLeft * 100}%`,
-              right: `${ZONE_BOARD.panelInsetRight * 100}%`,
-              background: ZONE_BOARD.panel,
-            }}
-            aria-hidden
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `url(${ZONE_BOARD_ART.panel})`,
-              backgroundSize: "100% 100%",
-            }}
-            aria-hidden
-          />
-          {/* Everything the board says lives inside the drawn frame, on all
-              four sides. Absolutely positioned rather than padded: a CSS
-              percentage padding resolves against the WIDTH even for top and
-              bottom, so a vertical inset written as padding is wrong by however
-              much the board is wider than it is tall. `top`/`bottom` on a
-              positioned box resolve against the height, which is what this
-              needs. */}
-          <div
-            className="absolute overflow-hidden"
-            style={{
-              left: `${ZONE_BOARD.contentInset * 100}%`,
-              right: `${ZONE_BOARD.contentInset * 100}%`,
-              top: `${ZONE_BOARD.contentInsetTop * 100}%`,
-              bottom: `${ZONE_BOARD.contentInsetBottom * 100}%`,
-            }}
-          >
           {/* address side */}
           <div className="flex items-stretch gap-0">
             {/* left column: main address side */}
@@ -672,9 +587,7 @@ function ZonePostcard({
               Test out of this zone
             </Link>
           )}
-          </div>
-        </div>
-      </div>
+      </CarvedBoard>
     </div>
   );
 }

@@ -16,7 +16,16 @@ import { useListLanguages, type Language } from '@workspace/api-client-react';
 import { nativeTextProps } from '@/lib/language-context';
 import { SpeakingDemo } from '@/components/speaking-demo';
 import { Mascot } from '@/components/mascot';
-import { FloatingTag, springs } from '@/lib/motion';
+import {
+  FloatingTag,
+  ParallaxLayer,
+  Reveal,
+  RevealChild,
+  RevealStagger,
+  ScrollProgressRail,
+  SplitHeading,
+  springs,
+} from '@/lib/motion';
 import { diasporaOrdered, LANGUAGE_PAGES } from '@/lib/languagePages';
 import { usePricing, FAMILY_SEATS, FAMILY_PLAN_ENABLED } from '@/lib/pricing';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
@@ -92,34 +101,16 @@ const HOW_IT_WORKS_STEPS = [
   },
 ];
 
-// Spring-based reveal that mirrors the launch video's section entrances.
-// Honors the OS reduce-motion setting: collapses to a plain, instant fade
-// (framer-motion is JS-driven, so the global CSS reduce-motion reset doesn't
-// neutralize it).
-function Reveal({
-  children,
-  className,
-  delay = 0,
-  y = 28,
-}: {
-  children: ReactNode;
-  className?: string;
-  delay?: number;
-  y?: number;
-}) {
-  const reduceMotion = useReducedMotion();
-  return (
-    <motion.div
-      className={className}
-      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y }}
-      whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-80px' }}
-      transition={reduceMotion ? { duration: 0.001 } : { ...springs.gentle, delay }}
-    >
-      {children}
-    </motion.div>
-  );
-}
+// How far each how-it-works card drifts against the scroll, in px, cycled
+// across the five columns. Deliberately small and deliberately uneven: equal
+// values just move the whole row, and anything past ~20px starts to fight the
+// grid's alignment on a short viewport.
+const PARALLAX_STEP_DRIFT = [14, -8, 18, -6, 12];
+
+// Reveal, RevealStagger/RevealChild and SplitHeading were lifted out of this
+// file into @/lib/motion on 2026-08-28, when the scroll pass gave them
+// directions, cascades and a second consumer (the per-language pages). The
+// reduce-motion behaviour is unchanged: a plain, instant fade.
 
 // Fires section_in_viewport (once, with the section name) when a named
 // landing section first scrolls into view.
@@ -233,10 +224,47 @@ export default function Landing({
   const badgePlatform = isStandalone ? 'unknown' : detectShortcutPlatform();
 
   return (
-    <div className="app-surface min-h-[100dvh] bg-background overflow-x-hidden">
+    <div className="app-surface relative min-h-[100dvh] bg-background overflow-x-hidden">
+      {/* How far down the page you are, as a length rather than a colour.
+          Renders nothing under reduce-motion. */}
+      <ScrollProgressRail />
+
+      {/* Ambient depth. Three soft colour fields drifting against the scroll,
+          so the background travels at its own speed instead of sliding past at
+          exactly reading pace. This is what stops a long marketing page
+          reading as a stack of static slides. Wallpaper only: pointer events
+          off, hidden from assistive tech, and dead still under reduce-motion
+          (ParallaxLayer zeroes its own travel). */}
+      <div
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        aria-hidden="true"
+      >
+        <ParallaxLayer
+          className="absolute -top-24 -right-32 h-[26rem] w-[26rem]"
+          distance={90}
+        >
+          <div className="h-full w-full rounded-full bg-primary/[0.07] blur-3xl" />
+        </ParallaxLayer>
+        <ParallaxLayer
+          className="absolute top-[40%] -left-40 h-[30rem] w-[30rem]"
+          distance={150}
+        >
+          <div className="h-full w-full rounded-full bg-secondary/[0.07] blur-3xl" />
+        </ParallaxLayer>
+        <ParallaxLayer
+          className="absolute top-[75%] -right-40 h-[28rem] w-[28rem]"
+          distance={110}
+        >
+          <div className="h-full w-full rounded-full bg-primary/[0.05] blur-3xl" />
+        </ParallaxLayer>
+      </div>
+
       {/* Nav: the living rigged Bolo stands in as the logo mark (intentional
-          second mount alongside the hero, per the Step 0 ruling). */}
-      <header className="px-6 pt-8 flex items-center justify-between max-w-6xl mx-auto">
+          second mount alongside the hero, per the Step 0 ruling). The
+          `relative` here and on main/footer is load-bearing: the ambient
+          layer above is positioned, so static content would paint underneath
+          it. */}
+      <header className="relative px-6 pt-8 flex items-center justify-between max-w-6xl mx-auto">
         <div className="flex items-center gap-2">
           <Mascot pose="wave" size={36} idle="none" />
           <span className="text-2xl font-black text-foreground tracking-tight">Bolo!</span>
@@ -249,7 +277,7 @@ export default function Landing({
         </Link>
       </header>
 
-      <main className="px-6 max-w-6xl mx-auto">
+      <main className="relative px-6 max-w-6xl mx-auto">
         {/* Hero: two columns on desktop, copy left and live demo right. */}
         <section className="pt-12 pb-14 lg:pt-20 lg:pb-20 grid items-center gap-12 lg:grid-cols-2">
           <div className="text-center lg:text-left">
@@ -325,7 +353,12 @@ export default function Landing({
             )}
           </div>
 
-          {/* Live product demo: the actual speak, transcribe, coach loop. */}
+          {/* Live product demo: the actual speak, transcribe, coach loop.
+              Entrance on load (it is above the fold), then a slow upward drift
+              as the hero leaves, so the fold has some depth to it instead of
+              scrolling away as one flat sheet. decorative={false}: the demo is
+              content. */}
+          <ParallaxLayer decorative={false} distance={22}>
           <motion.div
             initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -337,29 +370,41 @@ export default function Landing({
               Watch the speak-out-loud loop in action
             </p>
           </motion.div>
+          </ParallaxLayer>
         </section>
 
         {/* Language showcase: every language, diaspora leaders first, each
             chip linking to its public per-language page. */}
         <section ref={showcaseRef} className="py-12" aria-labelledby="languages-heading">
-          <Reveal className="text-center max-w-2xl mx-auto mb-9">
-            <h2 id="languages-heading" className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">
-              22 South Asian languages, ready when you are
-            </h2>
-            <p className="text-muted-foreground font-medium text-lg mt-3">
-              From Hindi to Punjabi to Urdu to Tamil: find your family's
-              language and start speaking it today.
-            </p>
-          </Reveal>
+          <div className="text-center max-w-2xl mx-auto mb-9">
+            <SplitHeading
+              id="languages-heading"
+              text="22 South Asian languages, ready when you are"
+              className="text-3xl sm:text-4xl font-black text-foreground tracking-tight"
+            />
+            <Reveal delay={0.14}>
+              <p className="text-muted-foreground font-medium text-lg mt-3">
+                From Hindi to Punjabi to Urdu to Tamil: find your family's
+                language and start speaking it today.
+              </p>
+            </Reveal>
+          </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-3 max-w-4xl mx-auto">
+          {/* The chips already bob forever; the cascade is what they were
+              missing. Their own mount entrance fires below the fold long
+              before anyone reaches them, so without this the whole wall of 22
+              is simply already there when you arrive. */}
+          <RevealStagger
+            className="flex flex-wrap items-center justify-center gap-3 max-w-4xl mx-auto"
+            stagger={0.025}
+          >
             {displayLangs.map((lang, i) => {
               const native = nativeTextProps(lang);
               const page = LANGUAGE_PAGES.find((p) => p.code === lang.code);
               const href = page ? `/languages/${page.slug}` : '/sign-up';
               return (
+                <RevealChild key={lang.code} from="scale" y={14} spring="poppy">
                 <FloatingTag
-                  key={lang.code}
                   delay={Math.min(i, 12) * 0.18}
                   distance={7}
                   dir={native.dir}
@@ -382,46 +427,71 @@ export default function Landing({
                     </span>
                   </Link>
                 </FloatingTag>
+                </RevealChild>
               );
             })}
-          </div>
+          </RevealStagger>
         </section>
 
         {/* How it works: the five real surfaces, in the loop's order. */}
         <section ref={howRef} className="py-12" aria-labelledby="how-heading">
-          <Reveal className="text-center max-w-2xl mx-auto mb-9">
-            <h2 id="how-heading" className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">
-              What using Bolo! is actually like
-            </h2>
-            <p className="text-muted-foreground font-medium text-lg mt-3">
-              Real screens from the real app. This is the loop, start to
-              finish.
-            </p>
-          </Reveal>
+          <div className="text-center max-w-2xl mx-auto mb-9">
+            <SplitHeading
+              id="how-heading"
+              text="What using Bolo! is actually like"
+              className="text-3xl sm:text-4xl font-black text-foreground tracking-tight"
+            />
+            <Reveal delay={0.14}>
+              <p className="text-muted-foreground font-medium text-lg mt-3">
+                Real screens from the real app. This is the loop, start to
+                finish.
+              </p>
+            </Reveal>
+          </div>
 
-          <ol className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5 list-none">
+          {/* The cascade is driven from the parent, not from a per-card delay.
+              With five cards in one desktop row they all cross the viewport
+              margin on the same frame, so five independent delay timers start
+              together and the stagger is invisible; the parent's
+              staggerChildren is the only form that actually reads as a
+              cascade. Each card then drifts by a different amount as it goes
+              past (PARALLAX_STEP_DRIFT), so the row breathes rather than
+              travelling as one rigid block. decorative={false}: these are the
+              product shots, and the effect must not cost them their alt text.
+          */}
+          <RevealStagger
+            as="ol"
+            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5 list-none"
+            stagger={0.09}
+          >
             {HOW_IT_WORKS_STEPS.map((step, i) => (
-              <Reveal key={step.img} delay={i * 0.06} className="h-full">
-                <li className="glass-card rounded-3xl overflow-hidden h-full flex flex-col">
-                  <img
-                    src={`${import.meta.env.BASE_URL}screens/${step.img}.webp`}
-                    alt={step.alt}
-                    loading="lazy"
-                    width={520}
-                    height={1040}
-                    className="w-full aspect-[1/1.55] object-cover object-top border-b border-card-border"
-                  />
-                  <div className="p-5">
-                    <p className="text-xs font-black uppercase tracking-wide text-primary mb-1">
-                      Step {i + 1}
-                    </p>
-                    <h3 className="text-lg font-black text-foreground mb-1">{step.title}</h3>
-                    <p className="text-sm text-muted-foreground font-medium">{step.body}</p>
+              <RevealChild key={step.img} as="li" className="h-full" from="scale" y={34}>
+                <ParallaxLayer
+                  decorative={false}
+                  distance={PARALLAX_STEP_DRIFT[i % PARALLAX_STEP_DRIFT.length]}
+                  className="h-full"
+                >
+                  <div className="glass-card rounded-3xl overflow-hidden h-full flex flex-col">
+                    <img
+                      src={`${import.meta.env.BASE_URL}screens/${step.img}.webp`}
+                      alt={step.alt}
+                      loading="lazy"
+                      width={520}
+                      height={1040}
+                      className="w-full aspect-[1/1.55] object-cover object-top border-b border-card-border"
+                    />
+                    <div className="p-5">
+                      <p className="text-xs font-black uppercase tracking-wide text-primary mb-1">
+                        Step {i + 1}
+                      </p>
+                      <h3 className="text-lg font-black text-foreground mb-1">{step.title}</h3>
+                      <p className="text-sm text-muted-foreground font-medium">{step.body}</p>
+                    </div>
                   </div>
-                </li>
-              </Reveal>
+                </ParallaxLayer>
+              </RevealChild>
             ))}
-          </ol>
+          </RevealStagger>
 
           {/* Honest free-tier note (M1 teaser): starter phrases everywhere. */}
           <Reveal delay={0.1} className="mt-8">
@@ -435,19 +505,25 @@ export default function Landing({
 
         {/* Why Bolo! is different */}
         <section ref={whyRef} className="py-12" aria-labelledby="why-heading">
-          <Reveal className="text-center max-w-2xl mx-auto mb-9">
-            <h2 id="why-heading" className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">
-              Why Bolo! hits different
-            </h2>
-            <p className="text-muted-foreground font-medium text-lg mt-3">
-              Most apps have you tap the matching tile and call it a day. You
-              can recognize words, but can you actually say them? Big
-              difference.
-            </p>
-          </Reveal>
+          <div className="text-center max-w-2xl mx-auto mb-9">
+            <SplitHeading
+              id="why-heading"
+              text="Why Bolo! hits different"
+              className="text-3xl sm:text-4xl font-black text-foreground tracking-tight"
+            />
+            <Reveal delay={0.14}>
+              <p className="text-muted-foreground font-medium text-lg mt-3">
+                Most apps have you tap the matching tile and call it a day. You
+                can recognize words, but can you actually say them? Big
+                difference.
+              </p>
+            </Reveal>
+          </div>
 
-          <div className="grid gap-5 sm:grid-cols-2 max-w-4xl mx-auto">
-            <Reveal className="glass-card rounded-3xl p-7 h-full">
+          {/* The two cards arrive from opposite sides, which is the comparison
+              the section is making, done as motion. */}
+          <RevealStagger className="grid gap-5 sm:grid-cols-2 max-w-4xl mx-auto" stagger={0.12}>
+            <RevealChild from="left" y={40} className="glass-card rounded-3xl p-7 h-full">
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-muted text-muted-foreground">
                 <Hand className="w-7 h-7" aria-hidden="true" />
               </div>
@@ -464,9 +540,9 @@ export default function Landing({
                   </li>
                 ))}
               </ul>
-            </Reveal>
+            </RevealChild>
 
-            <Reveal delay={0.08} className="relative h-full">
+            <RevealChild from="right" y={40} className="relative h-full">
               <div className="glass-card rounded-3xl p-7 h-full border-2 border-primary">
                 <span className="absolute -top-3 right-6 bg-primary text-primary-foreground text-xs font-black uppercase tracking-wide px-3 py-1 rounded-full">
                   The Bolo! way
@@ -488,13 +564,16 @@ export default function Landing({
                   ))}
                 </ul>
               </div>
-            </Reveal>
-          </div>
+            </RevealChild>
+          </RevealStagger>
         </section>
 
         {/* For families: heritage recovery across generations. */}
         <section ref={familiesRef} className="py-12" aria-labelledby="families-heading">
-          <Reveal>
+          {/* A scale entrance rather than a word-split heading: three splits in
+              a row upstream is a tic, and this section reads better as one
+              object arriving than as a line assembling itself. */}
+          <Reveal from="scale" y={34}>
             <div className="glass-card rounded-3xl p-7 sm:p-10 max-w-4xl mx-auto">
               <div className="flex flex-col sm:flex-row items-center gap-7">
                 <div className="w-20 h-20 shrink-0 rounded-3xl bg-secondary/10 text-secondary flex items-center justify-center">
@@ -541,18 +620,25 @@ export default function Landing({
             daily-limit copy appears (verified against the entitlements
             config: dailyNewLessonLimit returns null for every plan). */}
         <section ref={pricingRef} className="py-12" aria-labelledby="pricing-heading">
-          <Reveal className="text-center max-w-2xl mx-auto mb-9">
-            <h2 id="pricing-heading" className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">
-              Honest pricing, up front
-            </h2>
-            <p className="text-muted-foreground font-medium text-lg mt-3">
-              Start free and stay free as long as you like. Upgrade only when
-              you want the full library.
-            </p>
-          </Reveal>
+          <div className="text-center max-w-2xl mx-auto mb-9">
+            <SplitHeading
+              id="pricing-heading"
+              text="Honest pricing, up front"
+              className="text-3xl sm:text-4xl font-black text-foreground tracking-tight"
+            />
+            <Reveal delay={0.14}>
+              <p className="text-muted-foreground font-medium text-lg mt-3">
+                Start free and stay free as long as you like. Upgrade only when
+                you want the full library.
+              </p>
+            </Reveal>
+          </div>
 
-          <div className="grid gap-5 sm:grid-cols-3 max-w-5xl mx-auto items-stretch">
-            <Reveal className="h-full">
+          <RevealStagger
+            className="grid gap-5 sm:grid-cols-3 max-w-5xl mx-auto items-stretch"
+            stagger={0.11}
+          >
+            <RevealChild className="h-full" from="scale" y={30}>
               <div className="glass-card rounded-3xl p-7 h-full flex flex-col">
                 <h3 className="text-xl font-black text-foreground">Free</h3>
                 <p className="mt-1 text-3xl font-black text-foreground">
@@ -572,9 +658,9 @@ export default function Landing({
                   Start free
                 </SignUpCta>
               </div>
-            </Reveal>
+            </RevealChild>
 
-            <Reveal delay={0.08} className="h-full">
+            <RevealChild className="h-full" from="scale" y={30}>
               <div className="glass-card rounded-3xl p-7 h-full flex flex-col border-2 border-primary relative">
                 <span className="absolute -top-3 right-6 bg-primary text-primary-foreground text-xs font-black uppercase tracking-wide px-3 py-1 rounded-full">
                   Most popular
@@ -617,14 +703,14 @@ export default function Landing({
                   <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </SignUpCta>
               </div>
-            </Reveal>
+            </RevealChild>
 
             {/* Withdrawn from sale 2026-08-24: neither mobile store sells or
                 honours the Family plan, so advertising it here promises a
                 purchase a learner's phone will not recognise. Existing
                 subscribers keep it. See FAMILY_PLAN_ENABLED. */}
             {FAMILY_PLAN_ENABLED && (
-              <Reveal delay={0.16} className="h-full">
+              <RevealChild className="h-full" from="scale" y={30}>
                 <div className="glass-card rounded-3xl p-7 h-full flex flex-col">
                   <h3 className="text-xl font-black text-foreground">Family</h3>
                   <p className="mt-1 text-3xl font-black text-foreground">
@@ -663,10 +749,10 @@ export default function Landing({
                     Start with Free
                   </SignUpCta>
                 </div>
-              </Reveal>
+              </RevealChild>
             )}
 
-          </div>
+          </RevealStagger>
           <p className="mt-5 text-center text-xs font-medium text-muted-foreground max-w-xl mx-auto">
             Sign up free first; you can upgrade from inside the app whenever
             you're ready. Prices shown in USD.
@@ -675,10 +761,23 @@ export default function Landing({
 
         {/* Bottom CTA */}
         <section ref={bottomRef} className="py-12">
-          <Reveal>
+          <Reveal from="scale" y={36}>
             <div className="bg-foreground text-background rounded-[2.5rem] p-10 sm:p-14 text-center relative overflow-hidden">
-              <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-primary/20" aria-hidden="true" />
-              <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-secondary/20" aria-hidden="true" />
+              {/* These two circles were already here and already static. Given
+                  opposite drifts they slide past each other as the block goes
+                  by, which is the last thing you see on the page. */}
+              <ParallaxLayer
+                className="absolute -top-16 -right-16 w-56 h-56"
+                distance={26}
+              >
+                <div className="w-full h-full rounded-full bg-primary/20" />
+              </ParallaxLayer>
+              <ParallaxLayer
+                className="absolute -bottom-16 -left-16 w-56 h-56"
+                distance={-26}
+              >
+                <div className="w-full h-full rounded-full bg-secondary/20" />
+              </ParallaxLayer>
               <div className="relative max-w-2xl mx-auto">
                 <h2 className="text-3xl sm:text-4xl font-black mb-3">
                   Ready to actually say something?
@@ -699,7 +798,7 @@ export default function Landing({
         </section>
       </main>
 
-      <footer className="px-6 pb-10 text-center text-sm text-muted-foreground font-medium">
+      <footer className="relative px-6 pb-10 text-center text-sm text-muted-foreground font-medium">
         <p>Bolo! - stop tapping, start talking.</p>
         <nav className="mt-3 flex items-center justify-center gap-4">
           <Link href="/privacy" className="hover:text-foreground transition-colors">

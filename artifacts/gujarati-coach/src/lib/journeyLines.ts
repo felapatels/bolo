@@ -309,3 +309,50 @@ export function getJourneyLine(code: string): JourneyLine {
     }
   );
 }
+
+/**
+ * THE BOARDING PASS'S BRAND, IN THE LEARNER'S OWN SCRIPT.
+ *
+ * Ported from mobile (bolo-mobile/lib/journeyLines.ts) on 2026-08-28 with the
+ * carved-board hero. Web had `બોલો રેલ` HARDCODED in the home pass eyebrow,
+ * which is the Gujarati wordmark, so a learner riding the Hindi line read a
+ * Gujarati brand on their own boarding pass and a Tamil learner read it too.
+ * The web artifact is still called gujarati-coach for historical reasons; that
+ * is the only place that name belonged.
+ *
+ * `native: true` means the string is in a South Asian script and MUST be
+ * rendered with that language's font (nativeTextProps) or it comes out as
+ * tofu. A language with no entry yet degrades to the Latin brand rather than
+ * showing another language's script.
+ *
+ * Mobile twin: RAIL_BRAND / getRailBrand in bolo-mobile/lib/journeyLines.ts.
+ * Keep the two tables in step; they are hand-maintained twins like everything
+ * else these two apps share.
+ */
+const RAIL_BRAND: Record<string, string> = {
+  hi: "बोलो रेल",
+  mr: "बोलो रेल",
+  ne: "बोलो रेल",
+  kok: "बोलो रेल",
+  mai: "बोलो रेल",
+  doi: "बोलो रेल",
+  sa: "बोलो रेल",
+  brx: "बोलो रेल",
+  gu: "બોલો રેલ",
+  bn: "বলো রেল",
+  as: "বলো ৰেল",
+  pa: "ਬੋਲੋ ਰੇਲ",
+  ta: "போலோ ரயில்",
+  te: "బోలో రైలు",
+  kn: "ಬೋಲೋ ರೈಲು",
+  ml: "ബോലോ റെയിൽ",
+  or: "ବୋଲୋ ରେଲ",
+  ur: "بولو ریل",
+  ks: "بولو ریل",
+  sd: "بولو ريل",
+};
+
+export function getRailBrand(code: string): { text: string; native: boolean } {
+  const text = RAIL_BRAND[code];
+  return text ? { text, native: true } : { text: "BOLO RAIL", native: false };
+}

@@ -1,12 +1,15 @@
 import {
   motion,
   useReducedMotion,
+  useScroll,
+  useSpring,
   useTransform,
   type MotionValue,
   type Transition,
   type MotionProps,
 } from "framer-motion";
-import type { CSSProperties, ReactNode } from "react";
+import { useRef } from "react";
+import type { CSSProperties, ReactNode, RefObject } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -435,5 +438,330 @@ export function SoundWavePulse({
         );
       })}
     </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Scroll-linked motion. Added 2026-08-28 for the "living homepage" pass: the
+// public landing page revealed each section once and then sat perfectly still,
+// so a long scroll felt like paging through a PDF. These primitives give the
+// scroll itself something to drive.
+//
+// EVERY ONE OF THEM COLLAPSES TO A STILL FRAME UNDER REDUCE-MOTION. That is
+// not decoration: framer-motion animates from JS, so the global
+// prefers-reduced-motion reset in index.css does NOT neutralize any of this.
+// The parallax distance goes to zero, the rails and drifts do not render at
+// all, and the reveals degrade to a plain opacity fade.
+// ---------------------------------------------------------------------------
+
+/**
+ * Scroll-linked vertical drift, in px, for a decorative layer.
+ *
+ * The returned MotionValue runs from `+distance` when the target first enters
+ * the viewport to `-distance` as it leaves, so the layer travels against the
+ * scroll and reads as sitting at a different depth. Same idea as the journey
+ * map's scenery parallax (see DEPTH_2_5D.parallaxFactor), expressed as a
+ * viewport-relative range rather than a raw scrollY multiplier.
+ *
+ * Give the ref to a WRAPPER that is not itself transformed, and apply the
+ * value to a child. Pointing both at one element feeds the transform back into
+ * its own bounding box measurement and the drift compounds every frame.
+ */
+export function useParallaxY(
+  ref: RefObject<HTMLElement | null>,
+  distance = 60,
+): MotionValue<number> {
+  const reduceMotion = useReducedMotion();
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start end", "end start"],
+  });
+  // Hooks must run unconditionally, so reduced motion zeroes the travel rather
+  // than skipping the subscription.
+  const travel = reduceMotion ? 0 : distance;
+  return useTransform(scrollYProgress, [0, 1], [travel, -travel]);
+}
+
+/**
+ * A decorative layer that drifts as the page scrolls. Always `aria-hidden`:
+ * this is for background shapes and glows, never for content.
+ *
+ * `className` positions the (untransformed) wrapper; the drift is applied to
+ * an inner element so the measurement stays honest.
+ */
+export function ParallaxLayer({
+  children,
+  className,
+  distance = 60,
+  /**
+   * Decorative layers are hidden from assistive tech. Pass `false` when the
+   * thing that drifts is real content (a product shot, a card) — a parallax is
+   * a visual effect and must never cost a screen reader the content itself.
+   */
+  decorative = true,
+}: {
+  children: ReactNode;
+  className?: string;
+  distance?: number;
+  decorative?: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const y = useParallaxY(ref, distance);
+  return (
+    <div ref={ref} className={className} aria-hidden={decorative || undefined}>
+      <motion.div style={{ y }} className="h-full w-full">
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
+/**
+ * A hairline rail across the top of the page showing how far down it you are.
+ * The signal is LENGTH, never colour, so it stays readable for a colour-blind
+ * visitor; it is also aria-hidden, because a scrollbar already tells assistive
+ * tech this and a second announcement is noise.
+ *
+ * Renders nothing at all under reduce-motion.
+ */
+export function ScrollProgressRail({ className }: { className?: string }) {
+  const reduceMotion = useReducedMotion();
+  const { scrollYProgress } = useScroll();
+  // Spring-smoothed so a trackpad flick glides instead of snapping.
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 220,
+    damping: 40,
+    restDelta: 0.001,
+  });
+  if (reduceMotion) return null;
+  return (
+    <motion.div
+      aria-hidden="true"
+      data-testid="scroll-progress-rail"
+      className={cn(
+        "fixed inset-x-0 top-0 z-40 h-[3px] origin-left bg-primary",
+        className,
+      )}
+      style={{ scaleX }}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Reveal — the scroll entrance used across public pages.
+// ---------------------------------------------------------------------------
+
+export type RevealFrom = "bottom" | "left" | "right" | "scale";
+
+/**
+ * Tags the reveal wrappers can render as. Kept to a short list on purpose:
+ * the point is that a grid of list items stays valid HTML (an <li> inside an
+ * <ol>, not a <div>), not that these become general-purpose polymorphs.
+ */
+export type MotionTagName = "div" | "ul" | "ol" | "li" | "section" | "span";
+
+/** The hidden offset for each entrance direction, before the spring settles. */
+function hiddenOffset(from: RevealFrom, y: number) {
+  switch (from) {
+    case "left":
+      return { opacity: 0, x: -y, y: 0, scale: 1 };
+    case "right":
+      return { opacity: 0, x: y, y: 0, scale: 1 };
+    case "scale":
+      return { opacity: 0, x: 0, y: y * 0.4, scale: 0.94 };
+    default:
+      return { opacity: 0, x: 0, y, scale: 1 };
+  }
+}
+
+const SHOWN = { opacity: 1, x: 0, y: 0, scale: 1 } as const;
+
+/**
+ * Spring-based reveal that mirrors the launch video's section entrances.
+ * Lifted out of pages/landing.tsx on 2026-08-28 (where it was bottom-only and
+ * private) so the per-language pages can share one entrance vocabulary.
+ *
+ * Set `replay` when the element should animate every time it crosses the
+ * viewport rather than once. Off by default: content that re-animates on the
+ * way back up is distracting, while ambient furniture benefits from it.
+ */
+export function Reveal({
+  children,
+  className,
+  delay = 0,
+  y = 28,
+  from = "bottom",
+  spring = "gentle",
+  replay = false,
+}: {
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+  y?: number;
+  from?: RevealFrom;
+  spring?: SpringName;
+  replay?: boolean;
+}) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      className={className}
+      initial={reduceMotion ? { opacity: 0 } : hiddenOffset(from, y)}
+      whileInView={reduceMotion ? { opacity: 1 } : SHOWN}
+      viewport={{ once: !replay, margin: "-80px" }}
+      transition={
+        reduceMotion ? { duration: 0.001 } : { ...springs[spring], delay }
+      }
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/**
+ * Cascades its `RevealChild`ren in one after another as the group scrolls in.
+ *
+ * Prefer this over giving each child its own `Reveal delay={i * 0.06}`: the
+ * per-child form starts every timer when that child crosses the margin, so a
+ * row that enters all at once fires all its delays at once and the stagger is
+ * invisible. Driving it from the parent's variants keeps the cascade intact.
+ */
+export function RevealStagger({
+  children,
+  className,
+  stagger = 0.08,
+  delayChildren = 0.04,
+  as: Tag = "div",
+}: {
+  children: ReactNode;
+  className?: string;
+  stagger?: number;
+  delayChildren?: number;
+  as?: MotionTagName;
+}) {
+  const reduceMotion = useReducedMotion();
+  const MotionTag = motion[Tag];
+  return (
+    <MotionTag
+      className={className}
+      initial="hidden"
+      whileInView="shown"
+      viewport={{ once: true, margin: "-80px" }}
+      variants={{
+        hidden: {},
+        shown: {
+          transition: reduceMotion
+            ? { staggerChildren: 0, delayChildren: 0 }
+            : { staggerChildren: stagger, delayChildren },
+        },
+      }}
+    >
+      {children}
+    </MotionTag>
+  );
+}
+
+/** One item inside a {@link RevealStagger}. Inherits the parent's timing. */
+export function RevealChild({
+  children,
+  className,
+  y = 26,
+  from = "bottom",
+  spring = "gentle",
+  as: Tag = "div",
+}: {
+  children: ReactNode;
+  className?: string;
+  y?: number;
+  from?: RevealFrom;
+  spring?: SpringName;
+  as?: MotionTagName;
+}) {
+  const reduceMotion = useReducedMotion();
+  const MotionTag = motion[Tag];
+  return (
+    <MotionTag
+      className={className}
+      variants={{
+        hidden: reduceMotion ? { opacity: 0 } : hiddenOffset(from, y),
+        shown: {
+          ...SHOWN,
+          transition: reduceMotion ? { duration: 0.001 } : springs[spring],
+        },
+      }}
+    >
+      {children}
+    </MotionTag>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SplitHeading — a headline whose words rise in sequence.
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders `text` word by word so each one can rise on its own beat.
+ *
+ * THE `aria-label` IS LOAD-BEARING, not belt-and-braces. Splitting a sentence
+ * into one element per word destroys its accessible name: the name-from-content
+ * algorithm trims each text node before joining, so the separating spaces
+ * vanish and "What using Bolo! is actually like" is announced, and matched by
+ * getByRole, as "WhatusingBolo!isactuallylike". Naming the heading explicitly
+ * from the same `text` puts the sentence back, and cannot drift from what is
+ * drawn because both read the one prop. Two landing-page tests caught this.
+ *
+ * The visible words keep a trailing space inside their own text node (with
+ * `whitespace-pre`, since an inline-block span would otherwise collapse it),
+ * so selecting and copying the heading still yields spaced words.
+ */
+export function SplitHeading({
+  text,
+  className,
+  id,
+  as: Tag = "h2",
+  stagger = 0.045,
+}: {
+  text: string;
+  className?: string;
+  id?: string;
+  as?: "h1" | "h2" | "h3";
+  stagger?: number;
+}) {
+  const reduceMotion = useReducedMotion();
+  const MotionTag = motion[Tag];
+  const words = text.split(" ");
+  return (
+    <MotionTag
+      id={id}
+      className={className}
+      aria-label={text}
+      initial="hidden"
+      whileInView="shown"
+      viewport={{ once: true, margin: "-60px" }}
+      variants={{
+        hidden: {},
+        shown: { transition: { staggerChildren: reduceMotion ? 0 : stagger } },
+      }}
+    >
+      {words.map((word, i) => (
+        <motion.span
+          key={`${word}-${i}`}
+          className="inline-block whitespace-pre"
+          variants={{
+            hidden: reduceMotion
+              ? { opacity: 0 }
+              : { opacity: 0, y: "0.45em", rotate: -2 },
+            shown: {
+              opacity: 1,
+              y: 0,
+              rotate: 0,
+              transition: reduceMotion ? { duration: 0.001 } : springs.gentle,
+            },
+          }}
+        >
+          {i < words.length - 1 ? `${word} ` : word}
+        </motion.span>
+      ))}
+    </MotionTag>
   );
 }

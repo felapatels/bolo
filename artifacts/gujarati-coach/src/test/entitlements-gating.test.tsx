@@ -146,9 +146,15 @@ describe("Language picker gating", () => {
     expect(
       within(hindiButton).getByTestId("picker-locked-hi"),
     ).toBeInTheDocument();
+    // The explainer must OFFER the teaser, not deny it: a locked language gives
+    // every Free user the first few Greetings phrases with the full pipeline
+    // (TEASER_LIMIT, api-server lib/teaser.ts), and this line used to read
+    // "Locked languages need All-Access", which talked the learner out of it.
+    // Corrected 2026-08-28 on the owner's catch.
     expect(
-      screen.getByText("Locked languages need All-Access"),
+      screen.getByText(/Locked languages start with a free taste/),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/need All-Access/)).toBeNull();
 
     await user.click(hindiButton);
 
@@ -171,7 +177,7 @@ describe("Language picker gating", () => {
       within(hindiButton).queryByTestId("picker-locked-hi"),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByText("Locked languages need All-Access"),
+      screen.queryByText(/Locked languages start with a free taste/),
     ).not.toBeInTheDocument();
 
     await user.click(hindiButton);

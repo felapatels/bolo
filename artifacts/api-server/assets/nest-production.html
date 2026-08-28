@@ -1623,15 +1623,33 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   }
 
   /* ---------------- health: a real request, every load ---------------- */
+  /* COULD NOT ASK IS NOT THE SAME AS ANSWERED BADLY, and conflating them is why
+     this page screamed at a laptop waking from sleep.
+
+     A 5xx means the SERVER answered, badly. The network is demonstrably fine,
+     so that is a crit on the first sighting and always has been.
+
+     A status of 0 means the request never completed, and from a browser that is
+     as often the browser as the server: a wifi blip, a VPN flapping, a wake
+     from sleep before the network is back, or a Republish restarting the
+     container. The page re-reads the instant the tab becomes visible, which is
+     exactly the worst moment to trust a failed fetch.
+
+     So a zero has to happen TWICE IN A ROW before it is a danger. The first one
+     says so and keeps watching. Reported 2026-08-28: "why do i keep seeing
+     this", with all five checks reading "answered nothing" at once, which is
+     the signature of one network fault rather than five server faults. */
+  state.unreachableRuns = 0;
+
   function checkHealth(){
     var started = (window.performance && performance.now) ? performance.now() : null;
     return fetch(HEALTH_URL, {credentials:"same-origin", cache:"no-store"}).then(function(res){
       var ms = started === null ? null : Math.round(performance.now() - started);
       return res.text().then(function(body){
-        state.health = {status: res.status, ms: ms, body: body.slice(0, 120), at: new Date()};
+        state.unreachableRuns = 0; state.health = {status: res.status, ms: ms, body: body.slice(0, 120), at: new Date()};
       });
     }, function(err){
-      state.health = {status: 0, ms: null, body: String(err && err.message || err), at: new Date()};
+      state.unreachableRuns++; state.health = {status: 0, ms: null, body: String(err && err.message || err), at: new Date()};
     });
   }
   function healthSay(){
@@ -1832,9 +1850,14 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
       out.push({id:"health", sev:"ok", t:"Production is answering",
         m:"healthz returned 200" + (h.ms === null ? "" : " in " + fmt(h.ms) + " ms") + ", checked just now from this page.",
         r:"healthz", href:HEALTH_URL});
+    } else if (h.status === 0 && state.unreachableRuns < 2) {
+      // FIRST MISS. Watching, not shouting. See the note on unreachableRuns.
+      out.push({id:"health", sev:"warn", t:"Could not reach production",
+        m:"The request never completed, which from a browser is as often this end as that end: a wifi blip, a wake from sleep, or a republish restarting the container. Checking again in 30 seconds, and if it misses twice in a row this becomes a danger.",
+        r:"healthz", href:HEALTH_URL});
     } else if (h.status === 0) {
       out.push({id:"health", sev:"crit", t:"PRODUCTION DID NOT ANSWER",
-        m:"The request never completed. If this page loaded, the server was alive a moment ago, so suspect the API process rather than the host.",
+        m:"Two checks in a row never completed, so this is not a passing blip. If this page loaded, the server was alive a moment ago, so suspect the API process rather than the host.",
         r:"healthz", href:HEALTH_URL});
     } else {
       out.push({id:"health", sev:"crit", t:"PRODUCTION IS NOT ANSWERING",
@@ -1854,13 +1877,26 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
          failing. A 4xx from a fixed, hand-written probe path almost always
          means the PROBE is wrong, or a contract moved under it. Both are worth
          knowing and only one is an outage. */
-      var down = state.surfaces.rows.filter(function(r){ return r.status === 0 || r.status >= 500; });
+      var down = state.surfaces.rows.filter(function(r){ return r.status >= 500; });
+      var unreachable = state.surfaces.rows.filter(function(r){ return r.status === 0; });
       var refused = state.surfaces.rows.filter(function(r){ return r.status >= 400 && r.status < 500; });
 
-      if (down.length > 0) {
+      /* ONE NETWORK FAULT REPORTED ONCE, NOT FIVE TIMES. If healthz could not be
+         reached either, these could not be reached for the same reason, and
+         "4 LEARNER SURFACES ARE FAILING" is both wrong and frightening. The
+         health rule above already owns that case. */
+      var offline = unreachable.length > 0 && state.health && state.health.status === 0;
+      if (offline) {
+        // nothing here: the health rule is telling that story already
+      } else if (unreachable.length > 0 && down.length === 0) {
+        out.push({id:"surfaces", sev:"warn", t:"A surface could not be reached",
+          m:unreachable.map(function(r){ return r.label; }).join(", ") +
+            " never answered, while healthz did. That is odd rather than alarming: one route timing out on its own usually means a slow query, not an outage.",
+          r:unreachable[0].label, href:unreachable[0].path});
+      } else if (down.length > 0) {
         out.push({id:"surfaces", sev:"crit",
           t:down.length === 1 ? "A LEARNER SURFACE IS FAILING" : down.length + " LEARNER SURFACES ARE FAILING",
-          m:down.map(function(r){ return r.label + " answered " + (r.status === 0 ? "nothing" : r.status); }).join(", ") +
+          m:down.map(function(r){ return r.label + " answered " + r.status; }).join(", ") +
             ". Learners hitting this right now are seeing an error, whatever healthz says. This is exactly the shape of the 2026-08-25 outage.",
           r:down[0].label, href:down[0].path});
       } else if (refused.length > 0) {
