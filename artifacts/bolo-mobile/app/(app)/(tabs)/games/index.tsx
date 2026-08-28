@@ -71,6 +71,16 @@ type GameDef = {
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
   plusOnly: boolean;
   icon: keyof typeof Feather.glyphMap;
+  /**
+   * Where the tile goes, when it is NOT a screen under this Stack.
+   *
+   * Every other game lives at games/<id> and inherits this Stack's XP and Chai
+   * strip. Chacha-ji's call cannot: it is full-bleed, it is his face at full
+   * size, and a scoring HUD floating over a phone call would break the one
+   * thing the feature is trying to be. So it routes out of the games Stack
+   * entirely and the tile is just its front door.
+   */
+  route?: string;
 };
 
 /**
@@ -91,6 +101,35 @@ export const GAMES: GameDef[] = [
     plusOnly: false,
     icon: 'briefcase',
   },
+  /**
+   * Second, not fourteenth. It is the newest thing in the app and the least
+   * like anything else in this list; buried at the bottom nobody finds it.
+   *
+   * FREE, ON BOTH SURFACES. This shipped All-Access for a day, on the earlier
+   * ruling that the full game was gated, and the owner reversed it: "lets flip
+   * it to free on games hub". The journey's interruption was already free, so
+   * the call now costs nothing anywhere.
+   *
+   * The reason is better than the rule it replaced. NOBODY HAS HEARD THIS WORK
+   * ON A REAL DEVICE YET. Gating the deliberate version on its first build
+   * would put it in front of the smallest group of learners, and they are the
+   * ones who would try it repeatedly and surface whatever breaks. It can earn
+   * a gate later.
+   */
+  {
+    id: 'chacha-call',
+    title: 'Chacha-ji Calls',
+    // SHORT ENOUGH TO SURVIVE THE CARD. The first draft ran to "He is happy
+    // with anything you say" and the tile truncated at "He is happ...", which
+    // cut the only line doing any work: the reassurance is the pitch, not the
+    // mechanic. Roughly fifty characters is what these cards show.
+    description: 'Talk to Chacha-ji. Anything you say delights him.',
+    difficulty: 'Beginner',
+    plusOnly: false,
+    icon: 'phone-call',
+    // Out of the games Stack, so nothing is drawn over his face.
+    route: '/(app)/call?mode=game',
+  },
   {
     id: 'word-match',
     title: 'Word Match',
@@ -100,12 +139,12 @@ export const GAMES: GameDef[] = [
     icon: 'link',
   },
   {
-    id: 'listen-and-pick',
-    title: 'Listen & Pick',
-    description: 'Hear a word or phrase and choose the right translation',
+    id: 'signal-lights',
+    title: 'Signal Lights',
+    description: 'Green or red? Call the phrase before the signal changes.',
     difficulty: 'Beginner',
-    plusOnly: true,
-    icon: 'headphones',
+    plusOnly: false,
+    icon: 'radio',
   },
   {
     id: 'phrase-builder',
@@ -181,12 +220,12 @@ export const GAMES: GameDef[] = [
     icon: 'zap',
   },
   {
-    id: 'signal-lights',
-    title: 'Signal Lights',
-    description: 'Green or red? Call the phrase before the signal changes.',
+    id: 'listen-and-pick',
+    title: 'Listen & Pick',
+    description: 'Hear a word or phrase and choose the right translation',
     difficulty: 'Beginner',
-    plusOnly: false,
-    icon: 'radio',
+    plusOnly: true,
+    icon: 'headphones',
   },
   {
     id: 'wrong-platform',
@@ -388,7 +427,7 @@ export default function GamesScreen() {
       return;
     }
     if (!reduceMotion) setEnteredId(game.id);
-    router.push(`/(app)/(tabs)/games/${game.id}` as never);
+    router.push((game.route ?? `/(app)/(tabs)/games/${game.id}`) as never);
   };
 
   return (
@@ -479,6 +518,12 @@ function GameCardTile({
       style={styles.cell}
     >
       <AnimatedPressable
+        // Named so the hub can be driven in a test at all. Maestro's text
+        // matcher cannot see React Native's tree, and there was no testID
+        // anywhere on this screen, which made every tile here unreachable to
+        // it. One per tile, derived from the id, so it covers all of them
+        // rather than just the one that needed it.
+        testID={`game-tile-${game.id}`}
         onPress={() => {
           hapticTap('light');
           onPress();

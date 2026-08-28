@@ -209,17 +209,25 @@ const QUESTIONS: CallBeat[] = [
 export const JOURNEY_QUESTIONS = 5;
 
 /**
- * The GAME's ceiling, in learner turns. Owner ruling, 2026-08-28: "lets put max
- * 20 turns on games."
+ * The GAME's ceiling, in learner turns. Owner ruling, 2026-08-28: first "lets
+ * put max 20 turns on games", then, the same day, "change max turns to 10".
  *
  * A chosen game is not rationed the way an interruption is, but it still has to
  * END. Without a ceiling a call runs until the learner hangs up, which sounds
  * generous and is actually a game with no finish: nothing to reach, and a
- * session that only ever stops because somebody got bored. Twenty turns is
- * roughly five minutes of talking, and it is the OTHER way out beside three
- * strikes rather than a replacement for it.
+ * session that only ever stops because somebody got bored.
+ *
+ * TEN IS THE BETTER NUMBER AND TWENTY WAS TOO MANY. At roughly a second of
+ * latency a turn, with no score and no correction to break it up, twenty is a
+ * long time to hold a beginner who is trying to keep up. Ten still gives a real
+ * conversation and leaves them wanting another call rather than relieved one
+ * ended, which is what matters for a feature whose whole retention shape is
+ * that he rings again later.
+ *
+ * INDEPENDENT OF JOURNEY_QUESTIONS on purpose. The two agendas share no
+ * constant, so the interruption stays five whatever this becomes.
  */
-export const GAME_MAX_TURNS = 20;
+export const GAME_MAX_TURNS = 10;
 
 /**
  * The journey call, start to finish. His hello is question one, then four live
