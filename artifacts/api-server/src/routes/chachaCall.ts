@@ -224,6 +224,16 @@ export function createChachaCallRouter(
 
       res.json({
         callId: session.id,
+        /**
+         * The language this call is FIXED to, sent so the screen can say so
+         * under the clock (owner, 2026-08-28). It has to come from the session
+         * rather than the client's live context: the call is pinned at creation
+         * precisely so a learner switching language mid-call does not change
+         * who they are talking to, which makes the client's current language
+         * the wrong answer in exactly the case this line exists for.
+         */
+        languageName: session.languageName,
+        languageCode: session.languageCode,
         beat: {
           id: hello.id,
           index: 0,

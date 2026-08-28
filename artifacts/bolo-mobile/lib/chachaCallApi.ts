@@ -47,6 +47,14 @@ export type CallMode = 'journey' | 'game';
 export interface CallStart {
   callId: string;
   mode: CallMode;
+  /**
+   * The language the call is FIXED to, for the line under the clock. From the
+   * session rather than the client's live context: the call is pinned at
+   * creation so a learner switching language mid-call keeps talking to the same
+   * Chacha-ji, which makes the current context the wrong answer in exactly the
+   * case this line exists for.
+   */
+  languageName?: string | null;
   beat: CallBeat;
   backdrop: CallBackdrop;
   learnerTurns: number;

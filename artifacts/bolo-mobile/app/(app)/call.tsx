@@ -190,6 +190,7 @@ export default function CallScreen() {
         <InCall
           level={state.level}
           chaiEarned={state.chaiEarned}
+          languageName={state.languageName}
           talking={state.status === 'talking'}
           onTalkStart={() => void startTalking()}
           onTalkEnd={stopTalking}

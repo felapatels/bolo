@@ -90,6 +90,8 @@ export interface LiveCallState {
    * the wallet holds the total, this is the moment of getting one.
    */
   chaiEarned: number;
+  /** The language this call is fixed to, shown under the clock. */
+  languageName: string | null;
 
 }
 
@@ -128,6 +130,7 @@ export function useLiveCall({
     error: null,
     level: 0,
     chaiEarned: 0,
+    languageName: null,
   });
 
   const callIdRef = React.useRef<string | null>(null);
@@ -352,6 +355,7 @@ export function useLiveCall({
       if (!aliveRef.current) return;
       callIdRef.current = call.callId;
       patch({
+        languageName: call.languageName ?? null,
         backdrop: call.backdrop.id,
         text: call.beat.text,
         romanized: null,

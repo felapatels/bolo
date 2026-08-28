@@ -42,6 +42,13 @@ export interface InCallProps {
   chaiEarned?: number;
   /** Seconds since the call connected, for the timer. */
   elapsedSeconds: number;
+  /**
+   * The language this call is being conducted in, shown under the clock (owner,
+   * 2026-08-28). Worth the line: the call is fixed to the learner's journey
+   * language at the moment it starts, so on a phone that has switched languages
+   * it is the only thing on screen saying WHICH Chacha-ji this is.
+   */
+  languageName?: string | null;
   /** The learner's own level, 0..1, so they can SEE they are being heard. */
   level?: number;
   /** True while their finger is down and they are being recorded. */
@@ -173,6 +180,7 @@ export function InCall({
   romanized,
   chaiEarned,
   elapsedSeconds,
+  languageName,
   level = 0,
   talking = false,
   onTalkStart,
@@ -252,6 +260,11 @@ export function InCall({
         <Text testID="in-call-timer" style={styles.timer}>
           {mmss(elapsedSeconds)}
         </Text>
+        {languageName ? (
+          <Text testID="in-call-language" style={styles.callLanguage}>
+            in {languageName}
+          </Text>
+        ) : null}
       </View>
 
       <SelfView />
@@ -356,6 +369,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  callLanguage: {
+    marginTop: 2,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.72)',
+    // Same shadow as the timer: this sits over his face and the backdrop moves.
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
