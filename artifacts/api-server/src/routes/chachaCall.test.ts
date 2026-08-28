@@ -1,0 +1,365 @@
+import { test, before, after, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import type { AddressInfo } from "node:net";
+import type { Server } from "node:http";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import { Buffer } from "node:buffer";
+import { CALL_BEATS, CALL_NOTHING_HEARD } from "../lib/chachaCallScript";
+import type { ChachaCallDeps } from "./chachaCall";
+import type { LiveTurnResult } from "../lib/chachaCallTurn";
+
+// Route-level tests for Chacha-ji's phone call.
+//
+// @workspace/db and the audio client both THROW AT IMPORT when their env vars
+// are missing, and ESM hoists static imports above any assignment here, so the
+// router is pulled in dynamically after the dummies are set. Nothing in this
+// file opens a socket to either: every dep is injected, and the pool is never
+// asked for a connection. That is what lets these run on a laptop.
+
+const USER = "test_chacha_call";
+const OTHER = "test_chacha_call_other";
+const CLIP = Buffer.from("a pretend wav").toString("base64");
+
+let app: Express;
+let server: Server;
+let baseUrl: string;
+let currentUser: string | null = USER;
+
+let liveResult: LiveTurnResult | null;
+let liveError: Error | null;
+let gateDenial: unknown = null;
+let warmed = 0;
+let cannedCalls: string[] = [];
+let booked: Array<{ userId: string; languageCode: string; seconds: number }> = [];
+let bookError: Error | null = null;
+let getChatAudioStream: (id: string) => { chunks: Buffer[]; done: boolean; failed: boolean } | undefined;
+
+function makeLive(over: Partial<LiveTurnResult> = {}): LiveTurnResult {
+  return {
+    chachaText: "Waah beta, bahut accha!",
+    learnerText: "roti aur dal",
+    mp3: Buffer.from("fake-mp3-bytes"),
+    spokenSeconds: 4.5,
+    ...over,
+  };
+}
+
+before(async () => {
+  process.env.DATABASE_URL ??= "postgres://unused:unused@127.0.0.1:1/unused";
+  process.env.OPENAI_API_KEY ??= "test-key-not-used";
+
+  const { createChachaCallRouter } = await import("./chachaCall");
+  ({ getChatAudioStream } = (await import("../lib/chatAudioStreams")) as never);
+
+  const deps: ChachaCallDeps = {
+    cannedAudio: async (lineKey) => {
+      cannedCalls.push(lineKey);
+      return { audioBase64: Buffer.from(`clip:${lineKey}`).toString("base64"), format: "mp3" };
+    },
+    liveTurn: async (req) => {
+      if (liveError) throw liveError;
+      req.onAudioChunk?.(liveResult?.mp3 ?? Buffer.alloc(0));
+      return liveResult ?? makeLive();
+    },
+    gateDenial: async () => gateDenial as never,
+    bookTime: async (userId, languageCode, seconds) => {
+      if (bookError) throw bookError;
+      booked.push({ userId, languageCode, seconds });
+    },
+    warmConnection: () => { warmed += 1; },
+  };
+
+  app = express();
+  app.use(express.json({ limit: "25mb" }));
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    if (currentUser) (req as Request & { userId: string }).userId = currentUser;
+    next();
+  });
+  app.use(createChachaCallRouter(deps));
+  server = app.listen(0);
+  baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+});
+
+after(() => { server.close(); });
+
+beforeEach(() => {
+  currentUser = USER;
+  liveResult = makeLive();
+  liveError = null;
+  gateDenial = null;
+  warmed = 0;
+  cannedCalls = [];
+  booked = [];
+  bookError = null;
+});
+
+async function post(path: string, body?: unknown, headers: Record<string, string> = {}) {
+  const res = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...headers },
+    body: JSON.stringify(body ?? {}),
+  });
+  return { status: res.status, json: (await res.json()) as Record<string, never> };
+}
+
+async function startCall(): Promise<string> {
+  const { json } = await post("/openai/chacha-call/start");
+  return json.callId as unknown as string;
+}
+
+test("an unauthenticated caller cannot take a call", async () => {
+  currentUser = null;
+  assert.equal((await post("/openai/chacha-call/start")).status, 401);
+});
+
+test("start serves his hello from a fixed clip and asks no model for it", async () => {
+  const { status, json } = await post("/openai/chacha-call/start");
+  assert.equal(status, 200);
+  assert.equal((json.beat as never as { id: string }).id, "hello");
+  assert.equal((json.beat as never as { canned: boolean }).canned, true);
+  assert.equal(json.text as never, undefined, "the line lives on beat, not the root");
+  assert.ok(json.audioBase64, "the learner must hear him immediately");
+  assert.deepEqual(cannedCalls, ["hello"]);
+  assert.equal(json.learnerTurns as never as number, CALL_BEATS.length - 1);
+});
+
+test("start warms the connection so the first live turn is not the cold one", async () => {
+  // Measured 2026-08-28: the first request a process makes costs about 1.9 s to
+  // first audio against about 1.0 s warm, and it is all connection setup.
+  await post("/openai/chacha-call/start");
+  assert.equal(warmed, 1);
+});
+
+test("a live turn answers in his generated voice and moves the call on", async () => {
+  const callId = await startCall();
+  const { status, json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(status, 200);
+  const beat = json.beat as never as { id: string; text: string; canned: boolean };
+  assert.equal(beat.id, "khaana");
+  assert.equal(beat.canned, false);
+  assert.equal(beat.text, "Waah beta, bahut accha!");
+  assert.equal(json.heard as never, "roti aur dal");
+  assert.equal((json.next as never as { id: string }).id, "stall");
+  assert.equal(json.over as never, false);
+  assert.equal(json.format as never, "mp3");
+});
+
+test("a reply that comes back in Devanagari is romanized before it is served", async () => {
+  // He is romanized at the stall because the learner cannot read Devanagari
+  // yet, and he has to be the same man on the phone. The prompt asks for Latin
+  // letters and usually gets it; this is the backstop for when it does not.
+  const callId = await startCall();
+  liveResult = makeLive({ chachaText: "\u0906\u091c \u0915\u094d\u092f\u093e \u0916\u093e\u092f\u093e?" });
+  const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  const text = (json.beat as never as { text: string }).text;
+  assert.doesNotMatch(text, /[\u0900-\u097F]/, `still Devanagari: ${text}`);
+  assert.match(text, /[a-z]/i);
+});
+
+test("a reply already in Latin letters is served exactly as he said it", async () => {
+  const callId = await startCall();
+  liveResult = makeLive({ chachaText: "Arre wah beta, bahut badhiya!" });
+  const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal((json.beat as never as { text: string }).text, "Arre wah beta, bahut badhiya!");
+});
+
+test("a script the romanizer cannot handle leaves his words standing", async () => {
+  // Blanking his line would be worse than showing a script we cannot convert:
+  // the audio played either way, and an empty caption is a bug on screen.
+  const callId = await startCall();
+  liveResult = makeLive({ chachaText: "\u0645\u06CC\u06BA \u0679\u06BE\u06CC\u06A9 \u06C1\u0648\u06BA" });
+  const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal((json.beat as never as { text: string }).text, "\u0645\u06CC\u06BA \u0679\u06BE\u06CC\u06A9 \u06C1\u0648\u06BA");
+});
+
+test("a model that fails falls back to the beat's own scripted line", async () => {
+  // A call that degrades to its script is still a call. A call that errors is
+  // a hang-up, and the learner is left holding a dead phone.
+  const callId = await startCall();
+  liveError = new Error("gpt-audio is down");
+  const { status, json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(status, 200);
+  const khaana = CALL_BEATS.find((b) => b.id === "khaana")!;
+  assert.equal((json.beat as never as { text: string }).text, khaana.text);
+  assert.equal((json.beat as never as { canned: boolean }).canned, true);
+  assert.ok(json.audioBase64, "he still has to say something out loud");
+  assert.ok(cannedCalls.includes("khaana"));
+});
+
+test("a learner who says nothing gets the gentle line, not a retry", async () => {
+  // He is delighted by anything they say, and that has to include nothing.
+  const callId = await startCall();
+  liveResult = makeLive({ chachaText: "", learnerText: "", mp3: Buffer.alloc(0), spokenSeconds: 0 });
+  const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal((json.beat as never as { text: string }).text, CALL_NOTHING_HEARD.text);
+  assert.ok(cannedCalls.includes("nothingHeard"));
+  assert.equal(json.heard as never, "");
+  // The call still advances. Nobody is asked to try again.
+  assert.equal((json.next as never as { id: string }).id, "stall");
+});
+
+test("no response anywhere carries a score", async () => {
+  // A call is an event, not a lesson. The guarantee is structural: there is no
+  // field for a score to travel in.
+  const callId = await startCall();
+  const turn = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  const end = await post(`/openai/chacha-call/${callId}/end`);
+  for (const body of [turn.json, end.json]) {
+    const keys = JSON.stringify(body);
+    assert.doesNotMatch(keys, /"score"|"band"|"rating"|"grade"|"correct"/i);
+  }
+});
+
+test("the call runs out of beats and says so", async () => {
+  const callId = await startCall();
+  let last: Record<string, never> | null = null;
+  for (let i = 1; i < CALL_BEATS.length; i++) {
+    last = (await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP })).json;
+  }
+  assert.equal(last!.over as never, true);
+  assert.equal(last!.next as never, null);
+  // Speaking into a finished call is a conflict, not a new turn.
+  const after = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(after.status, 409);
+});
+
+test("a turn with no audio is rejected before any model is called", async () => {
+  const callId = await startCall();
+  const { status, json } = await post(`/openai/chacha-call/${callId}/turn`, {});
+  assert.equal(status, 400);
+  assert.match(json.error as never, /audioBase64/);
+});
+
+test("an unknown call is a 404", async () => {
+  assert.equal((await post("/openai/chacha-call/nope/turn", { audioBase64: CLIP })).status, 404);
+  assert.equal((await post("/openai/chacha-call/nope/end")).status, 404);
+});
+
+test("one learner cannot speak into another learner's call", async () => {
+  const callId = await startCall();
+  currentUser = OTHER;
+  assert.equal((await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP })).status, 404);
+  assert.equal((await post(`/openai/chacha-call/${callId}/end`)).status, 404);
+});
+
+test("the weekly chat cap gates the call at both the start and every turn", async () => {
+  gateDenial = { code: "chat_time_limit", message: "out of chat time", feature: "unlimitedChatTime", tier: "one_language" };
+  assert.equal((await post("/openai/chacha-call/start")).status, 402);
+
+  gateDenial = null;
+  const callId = await startCall();
+  gateDenial = { code: "chat_time_limit", message: "out of chat time", feature: "unlimitedChatTime", tier: "one_language" };
+  assert.equal((await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP })).status, 402);
+});
+
+test("a live turn is booked against the weekly allowance", async () => {
+  const callId = await startCall();
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP, languageCode: "gu" });
+  assert.deepEqual(booked, [{ userId: USER, languageCode: "gu", seconds: 4.5 }]);
+});
+
+test("a failed booking never costs the learner the rest of the call", async () => {
+  // Accounting is best effort. A ledger write that falls over must not hang up
+  // on someone mid-sentence.
+  const callId = await startCall();
+  bookError = new Error("chat_turns insert failed");
+  const { status, json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(status, 200);
+  assert.equal((json.beat as never as { text: string }).text, "Waah beta, bahut accha!");
+  assert.deepEqual(booked, []);
+  // And the call carries on to the next beat rather than stalling here.
+  assert.equal((json.next as never as { id: string }).id, "stall");
+});
+
+test("X-Audio-Stream: url answers immediately and tees into the chat registry", async () => {
+  // Reuses GET /openai/chat/audio/:streamId rather than minting a second
+  // progressive-audio endpoint. The native players already speak that one.
+  const callId = await startCall();
+  const { status, json } = await post(
+    `/openai/chacha-call/${callId}/turn`,
+    { audioBase64: CLIP },
+    { "X-Audio-Stream": "url" },
+  );
+  assert.equal(status, 202, "the player must get a URL before the model answers");
+  const url = json.audioUrl as never as string;
+  assert.match(url, /^\/openai\/chat\/audio\/[0-9a-f]{32}$/);
+
+  const streamId = url.split("/").pop()!;
+  for (let i = 0; i < 50; i++) {
+    const s = getChatAudioStream(streamId);
+    if (s?.done) break;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  const stream = getChatAudioStream(streamId);
+  assert.ok(stream, "the stream must still be registered for the player to fetch");
+  assert.equal(stream.done, true);
+  assert.equal(Buffer.concat(stream.chunks).toString(), "fake-mp3-bytes");
+});
+
+test("a streamed turn that falls back still delivers his canned clip", async () => {
+  const callId = await startCall();
+  liveError = new Error("gpt-audio is down");
+  const { json } = await post(
+    `/openai/chacha-call/${callId}/turn`,
+    { audioBase64: CLIP },
+    { "X-Audio-Stream": "url" },
+  );
+  const streamId = (json.audioUrl as never as string).split("/").pop()!;
+  for (let i = 0; i < 50; i++) {
+    if (getChatAudioStream(streamId)?.done) break;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  const stream = getChatAudioStream(streamId)!;
+  assert.equal(stream.done, true, "a fallback must not leave the player hanging");
+  assert.equal(Buffer.concat(stream.chunks).toString(), "clip:khaana");
+});
+
+test("hanging up returns his farewell and the outcome the ring-back will read", async () => {
+  const callId = await startCall();
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  const { status, json } = await post(`/openai/chacha-call/${callId}/end`);
+  assert.equal(status, 200);
+  assert.equal(json.outcome as never, "answered");
+  assert.equal(json.turns as never as number, 1);
+  assert.equal(json.text as never, CALL_BEATS[CALL_BEATS.length - 1].text);
+  assert.ok(json.audioBase64);
+});
+
+test("a call nobody spoke in ends abandoned", async () => {
+  const callId = await startCall();
+  liveResult = makeLive({ chachaText: "", learnerText: "", mp3: Buffer.alloc(0), spokenSeconds: 0 });
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  const { json } = await post(`/openai/chacha-call/${callId}/end`);
+  assert.equal(json.outcome as never, "abandoned");
+});
+
+test("start hands the client one backdrop to loop", async () => {
+  const { json } = await post("/openai/chacha-call/start");
+  const backdrop = json.backdrop as never as { id: string; video: string; poster: string };
+  assert.ok(["driving", "backseat"].includes(backdrop.id));
+  assert.match(backdrop.video, /\.mp4$/);
+  assert.match(backdrop.poster, /\.jpg$/);
+});
+
+test("every turn returns the SAME backdrop, so a call never changes cars", async () => {
+  // The client can lose its state and recover the right clip off any turn
+  // rather than picking again and teleporting him mid-sentence.
+  const { json: started } = await post("/openai/chacha-call/start");
+  const callId = started.callId as unknown as string;
+  const chosen = (started.backdrop as never as { id: string }).id;
+  for (let i = 1; i < CALL_BEATS.length; i++) {
+    const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+    assert.equal((json.backdrop as never as { id: string }).id, chosen);
+  }
+});
+
+test("two calls can differ, so the scenery is not always the same one", async () => {
+  // Not a guarantee for any single pair, so this asks whether both are
+  // REACHABLE across a run rather than whether consecutive calls differ.
+  const seen = new Set<string>();
+  for (let i = 0; i < 40; i++) {
+    const { json } = await post("/openai/chacha-call/start");
+    seen.add((json.backdrop as never as { id: string }).id);
+  }
+  assert.deepEqual([...seen].sort(), ["backseat", "driving"]);
+});

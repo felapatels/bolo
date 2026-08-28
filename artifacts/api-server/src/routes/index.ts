@@ -24,6 +24,7 @@ import pushRouter, { pushPublicRouter } from "./push";
 import gamesRouter, { gamesPublicRouter } from "./games";
 import storyRouter from "./story";
 import ttsAuditRouter from "./ttsAudit";
+import chachaCallRouter from "./chachaCall";
 import { requireAuth } from "../middlewares/requireAuth";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 
@@ -120,5 +121,9 @@ router.use(gamesRouter);
 // All-Access. See routes/story.ts.
 router.use(storyRouter);
 router.use(openaiRouter);
+// Chacha-ji's phone call. Sits after openaiRouter because it mints stream ids
+// that openaiRouter's GET /openai/chat/audio/:streamId serves: one progressive
+// audio endpoint, not two.
+router.use(chachaCallRouter);
 
 export default router;
