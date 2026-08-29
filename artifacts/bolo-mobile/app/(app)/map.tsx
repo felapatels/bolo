@@ -322,7 +322,10 @@ function PosterWords({
       {boards.zones.map((z, i) =>
         z ? (
           <View key={`zone-${i}`} style={[at(z), { paddingHorizontal: 2.6 * u, paddingVertical: 2.2 * u, width: Math.round(z.w * W * 0.66) }]}>
-            <Text testID={`map-word-zone-${i}`} numberOfLines={2} adjustsFontSizeToFit style={{ fontFamily: AppFonts.extrabold, fontSize: 2.6 * u, lineHeight: 3.1 * u, color: accent }}>
+            {/* ONE line that shrinks, never two: React Native breaks a word
+                before it shrinks the font, and on the narrowest panel that
+                printed "Everyda / y Words" on device. */}
+            <Text testID={`map-word-zone-${i}`} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: AppFonts.extrabold, fontSize: 2.6 * u, lineHeight: 3.1 * u, color: accent }}>
               {JOURNEY_ZONES[i]?.title ?? ''}
             </Text>
             <Text numberOfLines={3} adjustsFontSizeToFit style={{ fontFamily: AppFonts.regular, fontSize: 2 * u, lineHeight: 2.7 * u, color: TICKET.ink, marginTop: 0.6 * u }}>
