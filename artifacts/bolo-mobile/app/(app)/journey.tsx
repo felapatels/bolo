@@ -223,9 +223,6 @@ const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
 const PC_H = 256; // vertical rhythm per fare-zone postcard (pediment + card)
 
 const ZONE_BOARD_GAP = 18; // air between the carved board and the first stop card
-// How far below the board's top the pediment's opaque shoulders begin, in
-// points at the map's width: the arch above them is drawn on transparency.
-const PEDIMENT_SHOULDER = 22;
 /**
  * The scroll content's own top pad, named because two places must agree on it:
  * the contentContainerStyle that creates it, and the slide-in maths that turns
@@ -3628,7 +3625,12 @@ export default function JourneyScreen() {
               // broke up here", a story card and its badge between the clock
               // and the carving. The arch draws over the cap, so nothing
               // carved is hidden by the extra rows.
-              height: headerTopInset + TOP_PAD + PEDIMENT_SHOULDER,
+              // ...AND THEN THE WHOLE FOOTPRINT. Cards scrolling under the
+              // pinned board showed in the 16pt margins beside it, so the cap
+              // paints the board's full height: at rest it is the same rows
+              // as the art beneath, and pinned it is a still painting the
+              // board sits on while the map scrolls under both.
+              height: headerTopInset + TOP_PAD + PC_H + 4,
               overflow: 'hidden',
               backgroundColor: zoneFootTone(activeZone),
             }}
