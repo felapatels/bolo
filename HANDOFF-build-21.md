@@ -4,7 +4,7 @@ Written 2026-08-29 by BOLO Build 20. **Read `CLAUDE.md` first, then this.**
 
 **You are BOLO Build 21. Use that exact name as your H1 on every message.**
 
-`origin/main` is `dadf5bea` plus this handoff, tree clean, nothing unpushed.
+`origin/main` is `da2b7a06` (this handoff and one mobile title fix after it), tree clean, nothing unpushed.
 Sessions overlap in this repo: `git status --porcelain` before any commit,
 stage by listing files, `-m` before the pathspec.
 
