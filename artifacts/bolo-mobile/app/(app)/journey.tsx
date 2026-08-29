@@ -2604,12 +2604,14 @@ export default function JourneyScreen() {
               mapW={mapW}
               scrollY={scrollY}
               contentTop={SCROLL_CONTENT_TOP}
-              // Plus the pin clearance (build 17): the flow reserves it
-              // above this zone's spacer, so the band has that much further
-              // to reach to keep painting up to the top of the screen. An
-              // earlier padding attempt left exactly that strip of Screen
-              // colour behind the status bar: "that shouldn't be there."
-              extraTop={headerTopInset + pinClearance}
+              // THE FIRST TILE STARTS AT THE TOP OF THE SCREEN (owner, build
+              // 17: "first image should start at the top"). The band's top
+              // is the spacer's top less this reach; the spacer sits at
+              // SCROLL_CONTENT_TOP plus the pin clearance, which is exactly
+              // the inset, so the inset is the whole reach. It carried the
+              // clearance on top of that for a while and the tile's first 44
+              // rows sat above the screen.
+              extraTop={headerTopInset}
             />
             <Animated.View
               testID={`journey-scenery-layer-${zi}`}
@@ -3603,51 +3605,12 @@ export default function JourneyScreen() {
             This is the smallest thing that fixes that: the zone's own foot
             tone at the very top, gone within the safe area, so the status bar
             stays readable and nothing reads as a header. */}
-        {/* THE CAP, BACK (build 17). The fade alone let a stop card show
-            through its transparent half, between the clock and the pinned
-            pediment, once the board was pinned and the rows scrolled under
-            it. This is a fixed crop of the active zone's own art, the same
-            rows that sit there at rest, so what is behind the clock is only
-            ever painting; the fade stays on top for the clock's legibility. */}
-        {zoneBackdrop(activeZone) != null && (
-          <View
-            testID="journey-status-cap"
-            pointerEvents="none"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              // DOWN TO THE PEDIMENT'S SHOULDERS, not just to the board's
-              // top. The carved top slice is transparent above its shoulders
-              // (the arch rises from them), so a cap that stopped at the
-              // board's own top left a band the map showed through: "something
-              // broke up here", a story card and its badge between the clock
-              // and the carving. The arch draws over the cap, so nothing
-              // carved is hidden by the extra rows.
-              // ...AND THEN THE WHOLE FOOTPRINT. Cards scrolling under the
-              // pinned board showed in the 16pt margins beside it, so the cap
-              // paints the board's full height: at rest it is the same rows
-              // as the art beneath, and pinned it is a still painting the
-              // board sits on while the map scrolls under both.
-              height: headerTopInset + TOP_PAD + PC_H + 4,
-              overflow: 'hidden',
-              backgroundColor: zoneFootTone(activeZone),
-            }}
-          >
-            <Image
-              source={zoneBackdrop(activeZone)!}
-              resizeMode="stretch"
-              style={{ width: windowW, height: windowW / ZONE_TILE_ASPECT }}
-            />
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: ZONE_BACKDROP_SCRIM_COLOR, opacity: ZONE_BACKDROP_SCRIM },
-              ]}
-            />
-          </View>
-        )}
+        {/* NO CAP. THE BOARD FLOATS (owner, build 17: "the zone card should
+            float, no box behind it"). A still crop of the zone's art was
+            painted here for an hour so cards would vanish behind the pinned
+            board; it read as a box the board sat on. The fade under the
+            clock stays, because it is a gradient and not a box, and a card
+            passing under the board shows at its edges, which is the pin. */}
         <FadeGradient
           pointerEvents="none"
           colors={[`${zoneFootTone(activeZone)}E6`, `${zoneFootTone(activeZone)}00`]}

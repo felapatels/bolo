@@ -1119,10 +1119,12 @@ describe('the zone band never reaches up into the zone above it', () => {
 
     // Zone 0 has nothing above it. Its reach-up is what stops page colour
     // showing behind the header and through the scroll content's paddingTop.
-    // Build 17: plus the pin clearance the flow now reserves ahead of the
-    // first board (inset less SCROLL_CONTENT_TOP 18), or exactly that strip
-    // of page colour comes back behind the status bar. Was LAYER_TOP - inset.
-    expect(bandTop(0)).toBe(LAYER_TOP - MOCKED_TOP_INSET - (MOCKED_TOP_INSET - 18));
+    // Build 17, twice. First the pin clearance was added to the reach, then
+    // taken off again: the spacer sits at SCROLL_CONTENT_TOP plus the
+    // clearance, which is exactly the inset, so the inset alone puts the
+    // first tile's top row at the top of the screen ("first image should
+    // start at the top"). Any more and the tile starts above it.
+    expect(bandTop(0)).toBe(LAYER_TOP - MOCKED_TOP_INSET);
   });
 
   it('keeps every later zone off the stop row above it', () => {
