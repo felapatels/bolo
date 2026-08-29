@@ -117,6 +117,7 @@ import {
 } from "../lib/entitlements";
 import {
   arriveAtEncounter,
+  ENCOUNTER_CHAI,
   StationNotReachedError,
   UnknownStationError,
 } from "../lib/chachaEncounters";
@@ -2640,6 +2641,9 @@ router.get(
     res.json({
       signals: {
         rewardChai: signalFirstClearChai(lang),
+        // What Chacha-ji pours at his stall (build 17): the map's invitation chip
+        // under the stall reads it, so the number is never a client constant.
+        encounterChai: ENCOUNTER_CHAI,
         waves: signalWaveRows.map((r) => r.ref.slice(signalRefPrefix.length)),
         clears: signalClearRows.map((r) =>
           r.refId.slice(signalRefPrefix.length),

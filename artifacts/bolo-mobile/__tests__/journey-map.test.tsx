@@ -116,6 +116,8 @@ jest.mock('@expo/vector-icons', () => {
   const { Text } = require('react-native');
   return {
     Feather: ({ name }: { name: string }) => <Text>{`icon-${name}`}</Text>,
+    // The story stop draws its book through MaterialCommunityIcons (build 17).
+    MaterialCommunityIcons: ({ name }: { name: string }) => <Text>{`icon-${name}`}</Text>,
   };
 });
 
@@ -1349,7 +1351,12 @@ describe('journey map — Chacha-ji stall landmark', () => {
     // this test is about and still adds nothing: of the twelve rows, exactly
     // one is the tracing stop and the other eleven are the graded stops, so
     // the three halts contributed no row at all.
-    expect(screen.getAllByText(/^Stop \d+ of 13$/).length).toBe(13);
+    // ELEVEN, NOT THIRTEEN, from build 17: the tracing and story stops draw
+    // their own bodies (a chalkboard, a plaque) and the numbered badge on
+    // the rail carries their number, so only the eleven phrase stops print
+    // "Stop n of 13" as text. All thirteen still announce it: the label check.
+    expect(screen.getAllByText(/^Stop \d+ of 13$/).length).toBe(11);
+    expect(screen.getAllByLabelText(/^Stop \d+ of 13/).length).toBe(13);
     expect(screen.getAllByText('TRACE').length).toBe(1);
     expect(screen.getByText('Stop 1 of 13')).toBeOnTheScreen();
     expect(screen.getByText('Stop 13 of 13')).toBeOnTheScreen();
@@ -1387,7 +1394,9 @@ describe('journey map — the tracing stop', () => {
     // Three phrase stops become four rows, and zone 1 puts tracing at stop 2
     // so the free taste sits where a Free learner can actually reach it.
     expect(screen.getAllByText('TRACE').length).toBe(1);
-    expect(screen.getByText('Stop 2 of 5')).toBeOnTheScreen();
+    // By label from build 17: the chalkboard prints no "Stop 2 of 5" (the badge
+    // on the rail says 2), but the card still announces it.
+    expect(screen.getByLabelText(/^Stop 2 of 5:/)).toBeOnTheScreen();
     // The fault that shipped to the live site: the card fell through to the
     // phrase-stop line and printed "Now boarding · undefined phrases". Checked
     // on the TEXT the learner reads, never on the serialised prop tree, which

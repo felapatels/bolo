@@ -30,7 +30,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 // Aliased: react-native-svg exports a LinearGradient too, and the tag
 // backs use that one.
 import { LinearGradient as FadeGradient } from 'expo-linear-gradient';
@@ -2948,6 +2948,33 @@ export default function JourneyScreen() {
                 chaiUnlockable: s.chaiUnlockable === true,
               });
             };
+            // THE CHIPS, ONCE (build 17). The tracing and story stops draw
+            // their own bodies now (a chalkboard and a plaque, off the
+            // owner's mockup), and all three bodies wear the same plates:
+            // ALL-ACCESS where the server serves the stop plan-locked, EXPRESS
+            // on a tested-out stop, FREE TASTE on a taste. One definition.
+            const cardChips = (
+              <>
+                {s.planLocked === true && (
+                  <View style={[styles.allAccessChip, styles.rusticChip, { backgroundColor: BADGE.brassBg, borderColor: BADGE.brassEdge }]}>
+                    <Feather name="star" size={9} color={colors.secondary} />
+                    <Text style={[styles.allAccessChipText, { color: BADGE.ink }]}>
+                      ALL-ACCESS
+                    </Text>
+                  </View>
+                )}
+                {s.status === 'tested_out' && (
+                  <View style={[styles.expressStamp, { borderColor: zoneColor }]}>
+                    <Text style={[styles.expressStampText, { color: zoneColor }]}>EXPRESS</Text>
+                  </View>
+                )}
+                {s.teaserStation === true && (
+                  <View style={[styles.teaserChip, styles.rusticChip, { backgroundColor: BADGE.brassBg, borderColor: BADGE.brassEdge }]}>
+                    <Text style={styles.teaserChipText}>FREE TASTE</Text>
+                  </View>
+                )}
+              </>
+            );
             return (
               <View key={`row-${k2}`}>
                 {/* rail marker (drawn above the track, non-interactive) */}
@@ -3008,13 +3035,22 @@ export default function JourneyScreen() {
                           : { paddingLeft: 12, paddingRight: tagPointed ? 24 : 14 },
                       ]}
                     >
-                      <TagCardBack
-                        w={cardW}
-                        h={72}
-                        side={tipSide}
-                        variant={tagVariant}
-                        accent={zoneColor}
-                      />
+                      {/* A CHALKBOARD FOR THE TRACING STOP (build 17, owner's
+                          mockup: "the trace one should have a completely
+                          different looking card like my example"). A slate in
+                          a wood frame in place of the paper tag; the letters
+                          are chalk. Everything else keeps its tag. */}
+                      {s.trace ? (
+                        <View testID="tag-back-chalkboard" pointerEvents="none" style={[StyleSheet.absoluteFill, styles.chalkboardBack]} />
+                      ) : (
+                        <TagCardBack
+                          w={cardW}
+                          h={72}
+                          side={tipSide}
+                          variant={tagVariant}
+                          accent={zoneColor}
+                        />
+                      )}
                       {/* Signboard dressing: the current stop gets a full-width
                           zone-color roof bar + pulsing glow; every other stop
                           hangs a small tick from its top edge (web parity). */}
@@ -3040,6 +3076,79 @@ export default function JourneyScreen() {
                           per-frame from native ticks. Static, it was a second
                           outline on a card that already has the accent edge,
                           the roof bar and the mascot: "card 1 is disorganized." */}
+                      {s.trace ? (
+                        <View style={styles.kindRow}>
+                          <View style={styles.kindCopy}>
+                            <View style={styles.cardTitleRow}>
+                              <Text style={styles.chalkKicker}>TRACE</Text>
+                              <View style={styles.cardTitleSpacer} />
+                              {cardChips}
+                              {!accessible && <Feather name="lock" size={12} color="rgba(255,255,255,0.75)" />}
+                            </View>
+                            <Text numberOfLines={1} style={styles.chalkLine}>
+                              {statusCopy}
+                            </Text>
+                            {s.traceTotal ? (
+                              <View style={styles.cardProgressRow}>
+                                <View style={[styles.cardProgressTrack, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
+                                  <View
+                                    testID={`progress-trace-${s.stopNumber}`}
+                                    style={{
+                                      width: `${Math.round(((s.traceDone ?? 0) / s.traceTotal) * 100)}%`,
+                                      height: '100%',
+                                      borderRadius: 3,
+                                      backgroundColor: '#ffffff',
+                                    }}
+                                  />
+                                </View>
+                                <Text style={[styles.cardProgressLabel, styles.chalkText]}>
+                                  {s.traceDone ?? 0}/{s.traceTotal}
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
+                          {/* The pencil, in the app's violet: the one modern
+                              mark on a slate, and what the mockup hangs on the
+                              board's corner. */}
+                          <View style={[styles.chalkPencil, { backgroundColor: colors.primary }]}>
+                            <Feather name="edit-2" size={14} color="#ffffff" />
+                          </View>
+                        </View>
+                      ) : s.story ? (
+                        <View style={styles.kindRow}>
+                          {/* THE BOOK, BIG (build 17, owner: "storybook with a
+                              big book icon on it"). */}
+                          <MaterialCommunityIcons
+                            name="book-open-page-variant"
+                            size={40}
+                            color={accessible ? ZONE_BOARD.ink : TICKET.inkAhead}
+                            style={styles.storyBook}
+                          />
+                          <View style={styles.kindCopy}>
+                            <View style={styles.cardTitleRow}>
+                              <Text style={[styles.storyKicker, { color: accessible ? colors.primary : TICKET.inkAhead }]}>
+                                STORY
+                              </Text>
+                              <View style={styles.cardTitleSpacer} />
+                              {cardChips}
+                              {!accessible && <Feather name="lock" size={12} color={TICKET.inkAhead} />}
+                            </View>
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.cardTitle, { color: accessible ? TICKET.ink : TICKET.inkAhead }]}
+                            >
+                              {s.story.title}
+                            </Text>
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.cardStatus, { color: accessible ? TICKET.inkMuted : TICKET.inkAhead }]}
+                            >
+                              {statusCopy}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : (
+                      <>
                       <View style={styles.cardTitleRow}>
                         {/* BOLO STANDS ON THE CARD NOW, not beside it.
                             Reported from the preview: "Move bolo onto the card
@@ -3085,24 +3194,7 @@ export default function JourneyScreen() {
                             hint of WHICH key opens them. Server truth still
                             gates it: no planLocked, no plate. Web twin needs
                             the same change. */}
-                        {s.planLocked === true && (
-                          <View style={[styles.allAccessChip, styles.rusticChip, { backgroundColor: BADGE.brassBg, borderColor: BADGE.brassEdge }]}>
-                            <Feather name="star" size={9} color={colors.secondary} />
-                            <Text style={[styles.allAccessChipText, { color: BADGE.ink }]}>
-                              ALL-ACCESS
-                            </Text>
-                          </View>
-                        )}
-                        {s.status === 'tested_out' && (
-                          <View style={[styles.expressStamp, { borderColor: zoneColor }]}>
-                            <Text style={[styles.expressStampText, { color: zoneColor }]}>EXPRESS</Text>
-                          </View>
-                        )}
-                        {s.teaserStation === true && (
-                          <View style={[styles.teaserChip, styles.rusticChip, { backgroundColor: BADGE.brassBg, borderColor: BADGE.brassEdge }]}>
-                            <Text style={styles.teaserChipText}>FREE TASTE</Text>
-                          </View>
-                        )}
+                        {cardChips}
                       </View>
                       {/* THE STATUS ROW (chat 11): the kind chip and the
                           lock moved down here from the title row. With the
@@ -3241,6 +3333,8 @@ export default function JourneyScreen() {
                           </Text>
                         </View>
                       ) : null}
+                      </>
+                      )}
                     </View>
                   </Pressable>
                 </SlidingCardSlot>
@@ -3264,8 +3358,13 @@ export default function JourneyScreen() {
                 {/* THE INVITATION UNDER THE STALL (build 17, owner's mockup:
                     "Take a break and earn 24 Chai"). A violet chip in the
                     app's own voice beside the painted stall, the number in
-                    gold; the reward is the zone's own, served by the
-                    signals payload, never a constant. Not in the showroom:
+                    gold. THE NUMBER IS WHAT HE POURS AT THE STALL, not the
+                    signal games' reward: the first cut read rewardChai and
+                    said 1, and the owner caught it ("I thought chachaji's
+                    stop awarded 3 chai?"). The server serves encounterChai on
+                    the zone's signals payload from build 17; 3 is the fallback
+                    for a server that predates the field, and it is
+                    TOKEN_EARN_CHACHA_ENCOUNTER today. Not in the showroom:
                     a greyed stall pours nothing. */}
                 {!sp.gray && (
                   <View
@@ -3284,7 +3383,7 @@ export default function JourneyScreen() {
                       <Text style={styles.stallInviteText}>
                         Take a break and earn{' '}
                         <Text style={styles.stallInviteGold}>
-                          {zoneQueries[zi]?.data?.signals?.rewardChai ?? 1} Chai
+                          {(zoneQueries[zi]?.data?.signals as { encounterChai?: number } | undefined)?.encounterChai ?? 3} Chai
                         </Text>
                       </Text>
                     </View>
@@ -4383,6 +4482,29 @@ const styles = StyleSheet.create({
   },
   traceChipText: { fontFamily: AppFonts.extrabold, fontSize: 8, letterSpacing: 0.8, color: '#ffffff' },
   cardStatus: { fontFamily: AppFonts.semibold, fontSize: 11, lineHeight: 14, marginTop: 1 },
+  // The tracing stop's chalkboard and the story stop's plaque (build 17).
+  chalkboardBack: {
+    backgroundColor: '#1F3D2B',
+    borderRadius: 10,
+    borderWidth: 4,
+    borderColor: '#8A5D4A',
+  },
+  kindRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  kindCopy: { flex: 1, minWidth: 0 },
+  chalkKicker: { fontFamily: AppFonts.extrabold, fontSize: 11, letterSpacing: 2, color: '#ffffff' },
+  chalkLine: { fontFamily: AppFonts.semibold, fontSize: 12, lineHeight: 15, color: 'rgba(255,255,255,0.92)', marginTop: 1 },
+  chalkText: { color: '#ffffff' },
+  chalkPencil: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  storyBook: { marginLeft: -2 },
+  storyKicker: { fontFamily: AppFonts.extrabold, fontSize: 10, letterSpacing: 1.6 },
   terminusOuter: {
     position: 'absolute',
     width: 28,

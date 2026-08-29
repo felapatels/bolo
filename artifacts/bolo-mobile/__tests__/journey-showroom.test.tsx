@@ -88,6 +88,8 @@ jest.mock('@expo/vector-icons', () => {
   const { Text } = require('react-native');
   return {
     Feather: ({ name }: { name: string }) => <Text>{`icon-${name}`}</Text>,
+    // The story stop draws its book through MaterialCommunityIcons (build 17).
+    MaterialCommunityIcons: ({ name }: { name: string }) => <Text>{`icon-${name}`}</Text>,
   };
 });
 
