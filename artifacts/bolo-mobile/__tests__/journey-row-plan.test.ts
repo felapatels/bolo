@@ -88,8 +88,27 @@ describe('the row plan is the same arithmetic both screens run', () => {
     expect(plan.rowNumberOfGraded(4)).toBe(7);
   });
 
-  it('draws neither extra row in a showroom preview', () => {
+  // INVERTED 2026-08-28 on an owner ruling: "stops 2 and 3 of every journey
+  // zone 1 should have free tastes of script tracing and storybook." This
+  // asserted that a showroom drew NEITHER row, on the reasoning that a second
+  // chip beside the voice teaser reads as two competing offers. The server
+  // gives both away regardless (tracing to every plan since 2026-08-23, and
+  // the zone 1 book's first scene to every plan), so the only thing the old
+  // rule achieved was hiding a taste the learner already had.
+  it('draws both extra rows in a showroom preview of zone 1', () => {
     const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 9, showroom: true });
+    expect(plan.traceIndex).toBe(1);
+    expect(plan.storyIndex).toBe(2);
+    expect(plan.rowCount).toBe(11);
+    // Which is what puts them at stops 2 and 3, the two the owner named.
+    expect(plan.rowNumberOfGraded(0)).toBe(1);
+    expect(plan.rowNumberOfGraded(1)).toBe(4);
+  });
+
+  it('draws neither extra row in a showroom preview of a later zone', () => {
+    // The half of the old reasoning that still holds: zone 2 onward really is
+    // All-Access for both, so a chip there would have nothing behind it.
+    const plan = planZoneRows({ lang: LANG, zoneIndex: 1, gradedCount: 9, showroom: true });
     expect(plan.traceIndex).toBeNull();
     expect(plan.storyIndex).toBeNull();
     expect(plan.rowCount).toBe(9);

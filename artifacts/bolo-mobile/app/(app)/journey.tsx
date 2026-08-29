@@ -1351,10 +1351,10 @@ export default function JourneyScreen() {
     // this is false everywhere and nothing changes.
     const zoneGateLocked =
       stations.length > 0 && stations.every((st) => st.status === 'locked');
-    // NOT IN SHOWROOM. A locked-language preview already carries its own free
-    // taste, the three-phrase voice teaser, and a tracing stop offering a
-    // second "FREE TASTE" chip beside it reads as two competing offers on a
-    // language the learner cannot open yet.
+    // IN SHOWROOM FOR ZONE 1 SINCE 2026-08-28, and planZoneRows owns that
+    // decision. The `planLocked` and `teaserStation` pair below has always
+    // marked journey 1 zone 1 as a taste rather than a lock; the row simply was
+    // never drawn for a locked language, so the taste had no door.
     //
     // ADDED, NEVER SUBSTITUTED, and you can only add to something: a zone with
     // no phrase stops at all gets no tracing stop either, or an unloaded zone
@@ -1391,8 +1391,8 @@ export default function JourneyScreen() {
     // THE STORY STOP, spliced after the tracing one and by the same rules.
     // storyStopIndexIn() decides where, and both clients call it rather than
     // each choosing, or the web and the phone would disagree about which stop a
-    // learner is on. Added, never substituted, and never in showroom: a locked
-    // language preview already carries its own free taste.
+    // learner is on. Added, never substituted, and in the showroom for zone 1
+    // only: see planZoneRows.
     const storyBook = rowPlan.storyBook;
     if (storyBook && rowPlan.storyIndex !== null) {
       withTrace.splice(rowPlan.storyIndex, 0, {

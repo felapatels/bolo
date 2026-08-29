@@ -297,8 +297,14 @@ describe('journey map — showroom mode (locked language)', () => {
     // teaser line appears once per board rather than once on screen.
     expect(screen.getAllByText('Free taste 1/3').length).toBeGreaterThan(0);
 
-    // The teaser station is the ONLY stop that routes into practice.
-    fireEvent.press(screen.getByLabelText('Stop 1 of 2: Now boarding'));
+    // "of 4", NOT "of 2", SINCE 2026-08-28. The showroom's zone 1 now draws
+    // the tracing and story rows too (owner: "stops 2 and 3 of every journey
+    // zone 1 should have free tastes of script tracing and storybook"), so two
+    // graded stops become four rows. The numbering is the whole point of
+    // planZoneRows and the assertion has to move with it.
+    //
+    // The teaser station is the only PHRASE stop that routes into practice.
+    fireEvent.press(screen.getByLabelText('Stop 1 of 4: Now boarding'));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/practice/[id]',
       params: { id: '1', group: String(teaserStop.id) },
@@ -309,7 +315,9 @@ describe('journey map — showroom mode (locked language)', () => {
     setShowroom('teaser', { consumed: 0, limit: 3 });
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 2 of 2: Locked'));
+    // The locked phrase stop is row 4 now: tracing and the story sit at 2 and
+    // 3, which is exactly where the owner asked for them.
+    fireEvent.press(screen.getByLabelText('Stop 4 of 4: Locked'));
     expect(screen.getByText('This line needs a ticket')).toBeOnTheScreen();
     expect(screen.getByText(/0\/3 tried/)).toBeOnTheScreen();
     // Showroom is read-only: nothing navigated, nothing written.

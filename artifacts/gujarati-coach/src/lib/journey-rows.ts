@@ -64,11 +64,28 @@ export function planZoneRows({
 
   // ADDED, NEVER SUBSTITUTED, and you can only add to something: a zone with no
   // graded stops gets neither extra row, or an unloaded zone draws a lone
-  // tracing row under an empty board. Never in showroom either: a locked
-  // language preview already carries its own free taste, and a second one
-  // beside it reads as two competing offers on a language nobody can open.
-  const hasTrace = Boolean(trace) && gradedCount > 0 && !showroom;
-  const hasStory = Boolean(storyBook) && gradedCount > 0 && !showroom;
+  // tracing row under an empty board.
+  //
+  // ZONE 1 KEEPS BOTH ROWS IN THE SHOWROOM, reversing an earlier ruling. Owner,
+  // 2026-08-28: "stops 2 and 3 of every journey zone 1 should have free tastes
+  // of script tracing and storybook."
+  //
+  // This used to read `&& !showroom`, on the reasoning that a locked-language
+  // preview already carries the three-phrase voice teaser and a second chip
+  // beside it reads as two competing offers. THE SERVER HAS SINCE GIVEN BOTH
+  // AWAY ANYWAY: script tracing has been open to every plan since 2026-08-23,
+  // and the journey 1 zone 1 book serves its first scene to every plan. So the
+  // tastes existed and the map was the only thing without a door to them, which
+  // is worse than two offers: it is an offer the learner cannot find.
+  //
+  // LATER ZONES STAY OUT, and that is the half of the old reasoning that still
+  // holds. Their tracing and their books really are All-Access, so a row there
+  // would be a chip with nothing behind it. The splices downstream already mark
+  // journey 1 zone 1 `teaserStation` and everything else `planLocked`, so this
+  // condition is the only thing that ever stopped them being drawn.
+  const showroomAllows = !showroom || zone === 1;
+  const hasTrace = Boolean(trace) && gradedCount > 0 && showroomAllows;
+  const hasStory = Boolean(storyBook) && gradedCount > 0 && showroomAllows;
 
   const traceIndex = hasTrace
     ? traceStopIndexIn(gradedCount, trace!.journey, trace!.zone)
