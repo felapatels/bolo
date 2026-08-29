@@ -1003,8 +1003,8 @@ export default function Home() {
                   crown, a kicker and a line of copy, and a "View Map" pill.
                   Its annotation: "The Your Journey container creates a visual
                   bridge between the modern app and the journey world." View
-                  Map is kept even though the pass already opens the map: it
-                  is the door to a future one-pager whole-journey view (parked).
+                  Map opens the one-pager map (build 20): the whole line on one
+                  poster with a live legend. The pass still opens the journey.
                   Mobile twin: home-journey-frame in (tabs)/index.tsx. It
                   bleeds 8 past the column and pads 4, so the board keeps all
                   but a few px of the column's width. */}
@@ -1030,7 +1030,7 @@ export default function Home() {
                     </div>
                   </div>
                   <Link
-                    href="/journey"
+                    href="/map"
                     data-testid="home-view-map"
                     aria-label="View the journey map"
                     className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-[7px] text-[13px] font-bold text-primary transition-colors hover:bg-muted"

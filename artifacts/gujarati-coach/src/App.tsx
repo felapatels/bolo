@@ -67,6 +67,7 @@ const Welcome = lazyRoute(() => import('@/pages/welcome'));
 const CategoryDetail = lazyRoute(() => import('@/pages/category-detail'));
 const Practice = lazyRoute(() => import('@/pages/practice'));
 const Journey = lazyRoute(() => import('@/pages/journey'));
+const JourneyMap = lazyRoute(() => import('@/pages/map'));
 const Phrasebook = lazyRoute(() => import('@/pages/phrasebook'));
 const Progress = lazyRoute(() => import('@/pages/progress'));
 const Friends = lazyRoute(() => import('@/pages/friends'));
@@ -397,6 +398,13 @@ function AppRouter() {
         <Guard>
           <AppShell>
             <Journey />
+          </AppShell>
+        </Guard>
+      </Route>
+      <Route path="/map">
+        <Guard>
+          <AppShell>
+            <JourneyMap />
           </AppShell>
         </Guard>
       </Route>

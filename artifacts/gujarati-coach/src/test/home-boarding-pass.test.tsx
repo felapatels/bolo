@@ -316,7 +316,9 @@ describe("home Your Journey frame and hybrid ticket (build 18 parity)", () => {
     // is a container bridging the modern app and the journey world.
     expect(frame.querySelector('[data-testid="journey-pass-card"]')).not.toBeNull();
     const viewMap = screen.getByTestId("home-view-map");
-    expect(viewMap.getAttribute("href")).toBe("/journey");
+    // Inverted in build 20: the pill was kept for a one-pager map and now
+    // opens it; the pass beneath still opens /journey.
+    expect(viewMap.getAttribute("href")).toBe("/map");
     expect(viewMap).toHaveTextContent("View Map");
   });
 

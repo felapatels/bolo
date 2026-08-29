@@ -850,7 +850,10 @@ export default function HomeScreen() {
                 hitSlop={6}
                 onPress={() => {
                   hapticLight();
-                  router.push('/(app)/journey' as Parameters<typeof router.push>[0]);
+                  // THE ONE-PAGER MAP (build 20), the door this pill was kept
+                  // for: the whole line on one poster with a live legend. The
+                  // pass beneath still opens the scrolling journey.
+                  router.push('/(app)/map' as Parameters<typeof router.push>[0]);
                 }}
                 style={[styles.viewMapBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
               >

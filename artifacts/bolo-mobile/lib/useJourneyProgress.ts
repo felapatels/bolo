@@ -36,9 +36,33 @@ export interface JourneyCurrentStop {
   started: boolean;
 }
 
+/**
+ * One zone as the one-pager map's legend draws it (build 20). Counted from the
+ * same six payloads as `current`, so the map and the boarding pass cannot
+ * disagree about where the learner is.
+ */
+export interface JourneyZoneProgress {
+  zoneIndex: number;
+  geoName: string;
+  /** Rows the journey draws for this zone: graded stops plus tracing and story. */
+  stopCount: number;
+  /** Graded stops in the zone, before the two spliced rows. */
+  gradedCount: number;
+  /** Graded stops finished (completed or tested out). */
+  doneCount: number;
+  /** The current stop's row number when it sits in this zone, else null. */
+  currentStopNumber: number | null;
+  /** Every graded stop finished. Never true for an empty zone. */
+  allDone: boolean;
+  /** Every graded stop locked: the learner may not enter this zone yet. */
+  locked: boolean;
+}
+
 export interface JourneyProgress {
   /** The stop Bolo is waiting at, or null when unknown (loading/locked/error). */
   current: JourneyCurrentStop | null;
+  /** Per-zone progress in journey order; empty while loading, locked or errored. */
+  zones: JourneyZoneProgress[];
   doneCount: number;
   totalCount: number;
   isLoading: boolean;
@@ -65,13 +89,21 @@ export function useJourneyProgress(
 
   const isLoading = zoneQueries.some((q) => q.isLoading);
   if (isLoading || zoneQueries.some((q) => q.isError)) {
-    return { current: null, doneCount: 0, totalCount: 0, isLoading, planBlocked: false };
+    return {
+      current: null,
+      zones: [],
+      doneCount: 0,
+      totalCount: 0,
+      isLoading,
+      planBlocked: false,
+    };
   }
 
   let doneCount = 0;
   let totalCount = 0;
   let anyPlanGated = false;
   let current: JourneyCurrentStop | null = null;
+  const zones: JourneyZoneProgress[] = [];
   // Derived exactly as the map derives it rather than assumed false: a learner
   // previewing a LOCKED language gets showroom payloads here too, and showroom
   // draws neither the tracing nor the story row.
@@ -93,9 +125,14 @@ export function useJourneyProgress(
       gradedCount: groups.length,
       showroom,
     });
+    let zoneDone = 0;
+    let zoneCurrentStopNumber: number | null = null;
     groups.forEach((g, gi) => {
       totalCount += 1;
-      if (g.status === 'completed' || g.status === 'tested_out') doneCount += 1;
+      if (g.status === 'completed' || g.status === 'tested_out') {
+        doneCount += 1;
+        zoneDone += 1;
+      }
       // S2 map honesty: a planLocked group has ZERO phrases the caller's plan
       // can practice (the server already reports it status "locked"); it can
       // never be the boarding-pass target. Free-tier content policy: sentence
@@ -118,12 +155,26 @@ export function useJourneyProgress(
           phraseCount: g.phraseCount ?? 0,
           started: (g.attemptedCount ?? 0) > 0,
         };
+        zoneCurrentStopNumber = current.stopNumber;
       }
+    });
+    zones.push({
+      zoneIndex: i,
+      geoName: zoneGeoNames[i] ?? '',
+      stopCount: groups.length > 0 ? rowPlan.rowCount : 0,
+      gradedCount: groups.length,
+      doneCount: zoneDone,
+      currentStopNumber: zoneCurrentStopNumber,
+      // Mirrors the journey's zoneAllDone and zoneGateLocked, both of which
+      // count off the graded stations only and treat an empty zone as neither.
+      allDone: groups.length > 0 && zoneDone === groups.length,
+      locked: groups.length > 0 && groups.every((g) => g.status === 'locked'),
     });
   });
 
   return {
     current,
+    zones,
     doneCount,
     totalCount,
     isLoading: false,

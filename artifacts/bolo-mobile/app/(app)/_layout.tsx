@@ -134,6 +134,7 @@ export default function AppLayout() {
               />
               {/* The board: standing lives outside the tab bar, like journey. */}
               <Stack.Screen name="leaderboard" />
+              <Stack.Screen name="map" />
               <Stack.Screen name="bazaar" />
               {/* THE CALL TAKES THE SCREEN, IT DOES NOT SLIDE ONTO IT. A phone
                   ringing is an interruption, and a push transition would frame
