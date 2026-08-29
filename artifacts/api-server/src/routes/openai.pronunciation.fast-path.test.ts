@@ -435,7 +435,10 @@ test("fix #2 — native-script STT transcript for a long target still triggers t
   assert.equal(json.passed, true, "native-script exact match must pass via fast path");
   // Task 907: a covered native script (Gujarati) is transliterated to card
   // style for display; scoring inputs and bands above are untouched.
-  assert.equal(json.transcriptRomanized, "kem cho",
+  // "kem chho", NOT "kem cho", SINCE BUILD 17 (cc94948b): the romanizer spells
+  // the way the seed spells, and the seed writes છ as chh. Inverted, not
+  // deleted; the fast path itself is unchanged.
+  assert.equal(json.transcriptRomanized, "kem chho",
     "Gujarati transcript must romanize to card-style ASCII");
 });
 
