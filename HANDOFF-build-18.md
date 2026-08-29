@@ -30,7 +30,7 @@ CLAUDE.md, or the web tests, which already render both pages.
 |---|---|---|
 | iOS 1.0.5 (522) | `12dd7d08` | on TestFlight; superseded |
 | Android 1.0.5 (523) | `12dd7d08` | finished on EAS, NOT submitted; superseded |
-| **iOS 1.0.5 (523) / Android 1.0.5 (524)** | `0dc2ad2e` | **the candidate**; cut 02:00, chat 17 submits both when they land |
+| **iOS 1.0.5 (523) / Android 1.0.5 (524)** | `0dc2ad2e` | **the candidate**; iOS on TestFlight (uploaded 02:08, 45,542 functions), Android on Play internal (submitted 02:20, 45,525). BOTH DONE, nothing to submit. |
 
 Every store build goes through `artifacts/bolo-mobile/scripts/checkBundleHealth.ts`
 before `eas submit`; iOS healthy shape is ~45,544 functions.
