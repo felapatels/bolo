@@ -49,6 +49,8 @@ let xpGrants: Array<{ languageCode: string; turnIndex: number }> = [];
 let rewardAlreadyGranted = false;
 /** Byte lengths the route handed to the decoder, one per turn. */
 let preparedBytes: number[] = [];
+/** What the transcriber was pinned to, one entry per canned-beat turn. */
+let sttPinning: Array<{ code: string; nativeName: string }> = [];
 /** Set to make the decoder throw, as ffmpeg would on a clip it cannot read. */
 let prepareError: Error | null = null;
 /** Lets one test look at exactly what reached gpt-audio. */
@@ -77,7 +79,7 @@ before(async () => {
   ({ getChatAudioStream } = (await import("../lib/chatAudioStreams")) as never);
 
   const deps: ChachaCallDeps = {
-    resolveLanguage: async () => ({ code: "gu", name: "Gujarati" }),
+    resolveLanguage: async () => ({ code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" }),
     cannedLine: async (lineKey, languageCode) => {
       cannedCalls.push(lineKey);
       return {
@@ -102,7 +104,10 @@ before(async () => {
       // either model sees the clip, not what ffmpeg does with it.
       return { buffer: Buffer.concat([Buffer.from("wav:"), a]), format: "wav" as const, detected: "mp4" };
     },
-    transcribeLearner: async () => lateTranscript,
+    transcribeLearner: async (_a, _f, code, nativeName) => {
+      sttPinning.push({ code, nativeName });
+      return lateTranscript;
+    },
     grantChai: async (_userId, callId, turnIndex) => {
       chaiGrants.push({ callId, turnIndex });
       return rewardAlreadyGranted ? 0 : 1;
@@ -150,6 +155,7 @@ beforeEach(() => {
   xpGrants = [];
   rewardAlreadyGranted = false;
   preparedBytes = [];
+  sttPinning = [];
   prepareError = null;
   liveSpy = null;
   lateTranscript = "chalo chacha-ji";
@@ -537,6 +543,27 @@ test("nothing heard mirrors nothing, rather than an empty panel", async () => {
   assert.equal(json.heard as never, "");
   assert.equal(json.heardRomanized as never, null);
   assert.equal(json.heardEnglish as never, "");
+});
+
+test("the transcriber is pinned to the language's own script", async () => {
+  // Owner, 2026-08-28, on a working Gujarati call: "mirror works well but wrong
+  // language script showing" — the learner's own words came back in
+  // PERSO-ARABIC. Whisper's `language` field is advisory and the gpt-4o
+  // recognizers overrule it; sttLanguage.ts was written for exactly this after
+  // Hindi came back as Hungarian, and the call was not using it.
+  const callId = await startCall();
+  liveError = new Error("force the canned path, which is where STT runs alone");
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  // The canned path only transcribes on a CANNED beat; walk to the farewell.
+  liveError = null;
+  for (let i = 2; i <= JOURNEY_TURNS; i++) {
+    await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  }
+  assert.ok(sttPinning.length > 0, "no canned beat ever transcribed");
+  for (const p of sttPinning) {
+    assert.equal(p.code, "gu");
+    assert.equal(p.nativeName, "ગુજરાતી", "the script anchor never reached STT");
+  }
 });
 
 test("a turn with no audio is rejected before any model is called", async () => {

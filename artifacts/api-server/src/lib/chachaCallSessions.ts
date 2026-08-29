@@ -94,6 +94,16 @@ export interface CallSession {
    */
   languageCode: string;
   languageName: string;
+  /**
+   * The language's own name in its own script, e.g. "ગુજરાતી".
+   *
+   * IT IS THE RECOGNIZER'S ANCHOR, not decoration. Whisper's `language` field
+   * is advisory and the gpt-4o transcribe models overrule it: a Gujarati call
+   * came back written in PERSO-ARABIC on 2026-08-28. buildSttOptions seeds the
+   * prompt with this so the decoder starts in the right script, which is the
+   * fix sttLanguage.ts was written for after Hindi came back as Hungarian.
+   */
+  languageNativeName: string;
   /** Index into CALL_BEATS of the beat that runs NEXT. */
   beatIndex: number;
   turns: CallTurn[];
@@ -140,6 +150,7 @@ export function createCallSession(
   userId: string,
   languageCode: string,
   languageName: string,
+  languageNativeName: string,
   mode: CallMode = "journey",
   now: number = Date.now(),
   random: () => number = Math.random,
@@ -152,6 +163,7 @@ export function createCallSession(
     mode,
     languageCode,
     languageName,
+    languageNativeName,
     // The opening beat is served by start(), so the next beat to run is 1.
     beatIndex: 1,
     turns: [],

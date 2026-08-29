@@ -9,6 +9,7 @@ import {
 } from "@workspace/integrations-openai-ai-server/audio";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
+import { buildSttOptions, discardAnchorEcho } from "../lib/sttLanguage";
 import {
   CALL_BEATS,
   type CallMode,
@@ -119,7 +120,7 @@ export interface ChachaCallDeps {
    */
   resolveLanguage: (
     userId: string,
-  ) => Promise<{ code: string; name: string }>;
+  ) => Promise<{ code: string; name: string; nativeName: string }>;
   /**
    * The learner's clip, in something the models will actually accept.
    *
@@ -158,6 +159,7 @@ export interface ChachaCallDeps {
     audio: Buffer,
     format: "wav" | "mp3",
     languageCode: string,
+    languageNativeName: string,
   ) => Promise<string>;
   /**
    * Credits one chai for an answered JOURNEY turn. Returns the amount actually
@@ -198,9 +200,15 @@ const defaultDeps: ChachaCallDeps = {
     const code = user?.activeLanguage?.trim() || "hi";
     const row = await db.query.languagesTable.findFirst({
       where: eq(languagesTable.code, code),
-      columns: { name: true },
+      // nativeName is the recognizer's script anchor, not decoration: without
+      // it a Gujarati call transcribes into Perso-Arabic. See sttLanguage.ts.
+      columns: { name: true, nativeName: true },
     });
-    return { code, name: row?.name ?? "Hindi" };
+    return {
+      code,
+      name: row?.name ?? "Hindi",
+      nativeName: row?.nativeName ?? "",
+    };
   },
   prepareLearnerAudio: async (audio) => {
     const detected = detectAudioFormat(audio);
@@ -216,8 +224,11 @@ const defaultDeps: ChachaCallDeps = {
   // Deliberately does NOT catch. The route catches and LOGS, because a
   // transcriber that refuses every clip and a learner who says nothing produce
   // the same empty string, and one of them is an outage.
-  transcribeLearner: (audio, format, languageCode) =>
-    speechToText(audio, format, { language: languageCode }),
+  transcribeLearner: async (audio, format, languageCode, languageNativeName) => {
+    const pinning = buildSttOptions({ languageCode, languageNativeName });
+    const raw = await speechToText(audio, format, pinning);
+    return discardAnchorEcho(raw.trim(), pinning.prompt);
+  },
   grantChai: async (userId, callId, turnIndex) => {
     try {
       const { granted } = await grantTokensDetailed(
@@ -285,7 +296,13 @@ export function createChachaCallRouter(
           ? "game"
           : "journey";
       const language = await deps.resolveLanguage(userId);
-      const session = createCallSession(userId, language.code, language.name, mode);
+      const session = createCallSession(
+        userId,
+        language.code,
+        language.name,
+        language.nativeName,
+        mode,
+      );
       deps.warmConnection();
 
       /**
@@ -444,6 +461,7 @@ export function createChachaCallRouter(
             beat,
             languageName: session.languageName,
             languageCode: session.languageCode,
+            languageNativeName: session.languageNativeName,
             history: session.turns,
             onAudioChunk: (chunk) => {
               if (firstAudioMs === null) firstAudioMs = Date.now() - t0;
@@ -515,7 +533,12 @@ export function createChachaCallRouter(
         const lateTranscript =
           beat.mode === "canned"
             ? deps
-                .transcribeLearner(audio, format, session.languageCode)
+                .transcribeLearner(
+                  audio,
+                  format,
+                  session.languageCode,
+                  session.languageNativeName,
+                )
                 .catch((err: unknown) => {
                   req.log.warn(
                     { err, format, detected, beat: beat.id },

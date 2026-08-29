@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { Buffer } from "node:buffer";
 import { openai, speechToText } from "@workspace/integrations-openai-ai-server/audio";
+import { buildSttOptions, discardAnchorEcho } from "./sttLanguage";
 import { CHACHA_TTS_VOICE } from "./chachaStrings";
 import { buildLivePrompt, type CallBeat } from "./chachaCallScript";
 import type { CallTurn } from "./chachaCallSessions";
@@ -83,6 +84,16 @@ export interface LiveTurnRequest {
   languageName: string;
   /** Its ISO code, for the transcriber's language hint. */
   languageCode: string;
+  /**
+   * The language's own name in its own script, e.g. "ગુજરાતી".
+   *
+   * THE ANCHOR THAT KEEPS THE TRANSCRIPT IN THE RIGHT SCRIPT. Whisper's
+   * `language` field is advisory and the gpt-4o recognizers overrule it: a
+   * Gujarati call came back written in PERSO-ARABIC on 2026-08-28, on screen,
+   * in front of the learner. sttLanguage.ts was written for exactly this after
+   * Hindi came back as Hungarian, and the call was not using it.
+   */
+  languageNativeName: string;
   /** Turns already taken in this call, oldest first. */
   history: readonly CallTurn[];
   /** Called with each mp3 chunk as it is encoded. */
@@ -138,6 +149,7 @@ export interface LiveTurnDeps {
     audio: Buffer,
     format: LearnerAudioFormat,
     languageCode: string,
+    languageNativeName: string,
   ) => Promise<string>;
   /**
    * Puts the learner's own words into English for the mirror under the caption.
@@ -274,8 +286,14 @@ const defaultDeps: LiveTurnDeps = {
       yield { audio: delta?.audio?.data, text: delta?.audio?.transcript };
     }
   },
-  transcribe: (audio, format, languageCode) =>
-    speechToText(audio, format, { language: languageCode }),
+  transcribe: async (audio, format, languageCode, languageNativeName) => {
+    const pinning = buildSttOptions({ languageCode, languageNativeName });
+    const raw = await speechToText(audio, format, pinning);
+    // Whisper hands its own prompt back when the clip holds no speech. An
+    // anchor echoed in the target script reads as a real answer, so it is
+    // dropped here rather than shown to the learner as something they said.
+    return discardAnchorEcho(raw.trim(), pinning.prompt);
+  },
   translateLearner: translateLearnerToEnglish,
   encodeMp3: encodeMp3WithFfmpeg,
 };
@@ -288,7 +306,7 @@ export async function runLiveTurn(
   // voice. A failed transcription costs the turn its text, not its audio.
   let transcriptFailed = false;
   const transcriptPromise = deps
-    .transcribe(req.audio, req.audioFormat, req.languageCode)
+    .transcribe(req.audio, req.audioFormat, req.languageCode, req.languageNativeName)
     .catch(() => {
       transcriptFailed = true;
       return "";

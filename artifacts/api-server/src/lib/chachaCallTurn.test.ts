@@ -40,6 +40,7 @@ function req(over: Partial<LiveTurnRequest> = {}): LiveTurnRequest {
     beat: LIVE_BEAT,
     languageName: "Gujarati",
     languageCode: "gu",
+    languageNativeName: "ગુજરાતી",
     history: [],
     ...over,
   };

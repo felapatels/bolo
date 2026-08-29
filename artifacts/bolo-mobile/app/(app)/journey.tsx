@@ -1667,6 +1667,31 @@ export default function JourneyScreen() {
   // inset + whatever the ticket needs, and three things have to agree on it
   // (the content's top pad, the bands' upward reach, and the slide-in maths).
   const [headerH, setHeaderH] = useState(0);
+  /**
+   * WHERE THE SCROLL CONTENT REALLY BEGINS, and the fix for a defect the owner
+   * hit on 2026-08-28: "i can scroll up and down but i can't see the top of
+   * card 1 zone 1."
+   *
+   * The header is `position: absolute, top: 0, zIndex: 50`, so it floats OVER
+   * the map rather than taking space in it, and the content was padded by a
+   * flat 18. Everything in the first ~113 points of content therefore sat under
+   * the header at scroll offset 0, permanently: there is nothing above zero to
+   * scroll to. Zone 1's first card is the only card this can happen to, because
+   * every other zone can be scrolled out from under.
+   *
+   * `headerH` HAS BEEN MEASURED SINCE THE HEADER WAS WRITTEN and was used
+   * nowhere. SCROLL_CONTENT_TOP's own comment claims it clears the header and
+   * is "measured, so a notch, a Dynamic Island and web chrome all get the right
+   * number" — the measurement existed, nothing consumed it, and the literal
+   * underneath it was 18.
+   *
+   * EVERY CANVAS-TO-CONTENT MAPPING USES THIS, not just the padding, which is
+   * exactly what SCROLL_CONTENT_TOP's comment warned about: the pad and the
+   * slide-in maths must agree or an entrance animation fires early forever. It
+   * is 18 for one frame before layout lands, which is before anyone has
+   * scrolled.
+   */
+  const contentTop = SCROLL_CONTENT_TOP + headerH;
 
   // WHICH ZONE'S CROSSING THE LEARNER IS STANDING ON, or null. Zone-relative,
   // not journey-wide: each of the six zones has its own film, and a
@@ -1869,8 +1894,10 @@ export default function JourneyScreen() {
   // which zone owns the top of the viewport. Recomputed only when the geometry
   // does.
   const zoneTops = React.useMemo(
-    () => slices.map((s) => SCROLL_CONTENT_TOP + s.start),
-    [slices],
+    () => slices.map((s) => contentTop + s.start),
+    // contentTop moves once, when the header reports its height. Leaving it out
+    // would pin every zone boundary to the pre-measurement 18.
+    [slices, contentTop],
   );
   const onMapScrollJs = useCallback(
     (y: number) => {
@@ -2386,7 +2413,7 @@ export default function JourneyScreen() {
           styles.scrollContent,
           // Clears the floating header. Measured, so a notch, a Dynamic
           // Island and web chrome all get the right number.
-          { paddingTop: SCROLL_CONTENT_TOP },
+          { paddingTop: contentTop },
         ]}
         showsVerticalScrollIndicator={false}
         onScroll={onMapScroll}
@@ -2510,7 +2537,7 @@ export default function JourneyScreen() {
               windowH={windowH}
               mapW={mapW}
               scrollY={scrollY}
-              contentTop={SCROLL_CONTENT_TOP}
+              contentTop={contentTop}
               extraTop={headerTopInset}
             />
             <Animated.View
@@ -2885,7 +2912,7 @@ export default function JourneyScreen() {
                   // Content coordinates, not canvas ones: the block sits at
                   // blockTop in the scroll content, so the two cancel and what
                   // is left is the card's own y plus the content's top pad.
-                  cardY={SCROLL_CONTENT_TOP + p.y - STATION_H / 2}
+                  cardY={contentTop + p.y - STATION_H / 2}
                   side={side}
                   windowH={windowH}
                   scrollY={scrollY}
@@ -3354,10 +3381,10 @@ export default function JourneyScreen() {
             // -TOP_PAD: the canvas reserves 10 before the first board and the
             // scroll content does not, so canvas y and content y differ by
             // exactly that much for every zone.
-            naturalY={SCROLL_CONTENT_TOP + (slices[zi]?.start ?? 0) - TOP_PAD}
+            naturalY={contentTop + (slices[zi]?.start ?? 0) - TOP_PAD}
             nextNaturalY={
               zi + 1 < zones.length
-                ? SCROLL_CONTENT_TOP + (slices[zi + 1]?.start ?? 0) - TOP_PAD
+                ? contentTop + (slices[zi + 1]?.start ?? 0) - TOP_PAD
                 : null
             }
             pinTop={headerTopInset}
