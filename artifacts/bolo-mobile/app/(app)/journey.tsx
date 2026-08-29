@@ -41,6 +41,7 @@ import Svg, {
   Ellipse,
   G,
   LinearGradient,
+  Mask,
   Path,
   Rect,
   Stop as GradStop,
@@ -2718,8 +2719,38 @@ export default function JourneyScreen() {
                         accent at 0.3 when the rail was a coloured line; they
                         are painted planks now and read as wood. */}
                     <Path d={s.d} stroke={RAIL.tie} strokeWidth={RAIL_STROKE.tie} strokeDasharray={RAIL_STROKE.tieDash} fill="none" />
-                    <Path d={s.d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.rail} fill="none" />
-                    <Path d={s.d} stroke={s.lit ? RAIL.between : RAIL.betweenUnlit} strokeWidth={RAIL_STROKE.between} fill="none" />
+                    {/* THE RUN AHEAD IS TWO LINES, NOT A BAND (owner: "future
+                        track should be only 2 purple lines, not filled"). A
+                        transparent centre stroke hides nothing under it, so
+                        the centre is CUT OUT of the rail stroke with a mask:
+                        white where the rails are, black down the middle. The
+                        travelled run needs none of this; its green centre
+                        covers the middle. */}
+                    {!s.lit && (
+                      <Defs>
+                        <Mask
+                          id={`rail-hollow-${zi}-${i}`}
+                          maskUnits="userSpaceOnUse"
+                          x={0}
+                          y={start}
+                          width={mapW}
+                          height={end - start}
+                        >
+                          <Path d={s.d} stroke="#ffffff" strokeWidth={RAIL_STROKE.rail} fill="none" />
+                          <Path d={s.d} stroke="#000000" strokeWidth={RAIL_STROKE.between} fill="none" />
+                        </Mask>
+                      </Defs>
+                    )}
+                    <Path
+                      d={s.d}
+                      stroke={RAIL.rail}
+                      strokeWidth={RAIL_STROKE.rail}
+                      fill="none"
+                      mask={s.lit ? undefined : `url(#rail-hollow-${zi}-${i})`}
+                    />
+                    {s.lit && (
+                      <Path d={s.d} stroke={RAIL.between} strokeWidth={RAIL_STROKE.between} fill="none" />
+                    )}
                   </G>
                 );
               })}

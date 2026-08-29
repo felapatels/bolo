@@ -33,6 +33,8 @@ jest.mock('react-native-svg', () => {
     Text: passthrough,
     Pattern: passthrough,
     Defs: passthrough,
+    // The run ahead cuts its centre out with a Mask (build 17).
+    Mask: passthrough,
     Line: passthrough,
   };
 });

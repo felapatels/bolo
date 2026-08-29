@@ -47,12 +47,16 @@ export const RAIL = {
   // look and the rustic look"). The travelled run's centre stripe and its
   // halo take the app's violet; the wood ladder and the olive rails stay, so
   // the track is still a painted railway with a modern light down it.
-  between: '#DDD6FE',
+  // Owner, on the first shot: "completed track should have green center and
+  // two purple lines. future track should be only 2 purple lines, not
+  // filled." So the travelled centre is the sheet's green again, the halo
+  // green with it, and ahead there is nothing between the rails at all.
+  between: '#4ADE80',
   /** The same centre, untravelled: plain wood, no green. */
-  betweenUnlit: '#2E1065AA',
+  betweenUnlit: '#00000000',
   /** A narrow glow under the lit centre only. It replaces two 28px and 18px
    *  passes that were three times the width of the track itself. */
-  glow: '#A78BFA',
+  glow: '#86EFAC',
 } as const;
 
 /** The halo's two passes, wide-and-soft under tight-and-bright. One gradient

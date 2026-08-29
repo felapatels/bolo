@@ -92,6 +92,8 @@ jest.mock('react-native-svg', () => {
     Line: passthrough,
     Pattern: passthrough,
     Defs: passthrough,
+    // The run ahead cuts its centre out with a Mask (build 17).
+    Mask: passthrough,
     // The drawn tag backs (chat 11) gradient their stock and the nav ring
     // writes on a TextPath; a mock that lacks a component hands back
     // undefined and the whole screen dies with "Element type is invalid".
@@ -1595,10 +1597,13 @@ describe('the rail palette and the medallions, mirrored on web', () => {
       // mockup, then "the track ahead should have the two parallel purple
       // lines"); the wood is unchanged. Was olive #8E9B43 rails, a #ECF584
       // centre, brown #9A8A6B between the rails ahead, and a #ABF1A5 halo.
+      // Then, on the shot: "completed track should have green center and two
+      // purple lines. future track should be only 2 purple lines, not
+      // filled." Green centre and halo back, nothing between the rails ahead.
       rail: '#8B5CF6',
-      between: '#DDD6FE',
-      betweenUnlit: '#2E1065AA',
-      glow: '#A78BFA',
+      between: '#4ADE80', // a real green: #ECF584 "looks yellow, not green"
+      betweenUnlit: '#00000000',
+      glow: '#86EFAC',
     });
   });
 
