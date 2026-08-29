@@ -279,7 +279,7 @@ describe("zero-XP encore", () => {
     await waitFor(() => expect(screen.getByText("namaste")).toBeInTheDocument());
     await attempt(); // A, strike 3 (nocatch)
     expect(screen.getByTestId("encore-note")).toHaveTextContent(
-      "That's three goes — we'll leave this one for next time.",
+      "That's three goes. We'll leave this one for next time.",
     );
     // Encore carry-over (Task #1040): the phrase comes back with its attempt
     // count, so the advance is live on the first take of the return visit

@@ -20,11 +20,21 @@ import type { ReactElement } from "react";
 // ── Hoisted mocks (same pattern as the rest of the practice test suite) ──────
 const h = vi.hoisted(() => ({
   categoryPhrases: {} as Record<string, unknown>,
+  /** The language's progress summary; undefined means "not cached". */
+  summary: undefined as { totalAttempts: number } | undefined,
   synth: vi.fn(),
   evaluate: vi.fn(),
   createAttempt: vi.fn(),
   startRecording: vi.fn(),
   stopRecording: vi.fn(),
+}));
+
+// The first-word lightbox tests below need to see WHEN the badge celebration
+// is handed its badges; the real component's dialog is not the point here.
+vi.mock("@/components/badge-unlock", () => ({
+  BadgeUnlock: ({ badges }: { badges: unknown[] }) => (
+    <div data-testid="badge-unlock" data-count={badges.length} />
+  ),
 }));
 
 vi.mock("@/lib/language-context", () => ({
@@ -93,7 +103,9 @@ vi.mock("@workspace/api-client-react", async () => ({
   useCreateAttempt: () => ({ mutateAsync: h.createAttempt, isPending: false }),
   getListCategoryPhrasesQueryKey: () => ["category-phrases"],
   getListReviewPhrasesQueryKey: () => ["review"],
-  useGetProgressSummary: vi.fn(() => ({ data: undefined, isLoading: false })),
+  // The first-word lightbox (build 19) reads the attempt count from here;
+  // undefined means "not cached", which shows no lightbox.
+  useGetProgressSummary: vi.fn(() => ({ data: h.summary, isLoading: false })),
     getGetProgressSummaryQueryKey: () => ["progress-summary"],
   getListRecentAttemptsQueryKey: () => ["recent-attempts"],
   getListBadgesQueryKey: () => ["badges"],
@@ -133,6 +145,7 @@ beforeEach(() => {
   localStorage.setItem("bolo.silentMode", "on");
   h.synth.mockReset().mockResolvedValue({ format: "mp3", audioBase64: "AAA" });
   h.createAttempt.mockReset().mockResolvedValue({ newlyEarnedBadges: [] });
+  h.summary = undefined;
   h.startRecording.mockReset().mockResolvedValue(undefined);
   h.stopRecording.mockReset().mockResolvedValue(makeBlob());
   h.categoryPhrases = {
@@ -230,5 +243,73 @@ describe("acceptance item 5 — score absent from evaluate response", () => {
       WT,
     );
     expect(screen.queryByText(/Score:/)).toBeNull();
+  });
+});
+
+// ── THE FIRST-WORD LIGHTBOX, build 19 ────────────────────────────────────────
+// Owner ask, 2026-08-29: "a light box triggered after any user's first word
+// completion right before they see their score", and "make sure it doesn't
+// interfere with the first badge celebration". It goes up BEFORE the score
+// card, the badge the attempt unlocked waits behind it, and dismissing it
+// releases the score and then the badge. Mobile twin: the same three pins in
+// bolo-mobile/__tests__/practice-celebrations.test.tsx.
+
+const badgesHanded = () =>
+  screen.getByTestId("badge-unlock").getAttribute("data-count");
+
+describe("the first-word lightbox", () => {
+  test("goes up before the first score, and the first badge waits behind it", async () => {
+    h.summary = { totalAttempts: 0 };
+    h.createAttempt.mockResolvedValue({
+      newlyEarnedBadges: [{ id: "first-words", name: "First Words", description: "", icon: "star" }],
+    });
+    h.evaluate.mockResolvedValueOnce({
+      band: "great", passed: true, xpAwarded: 8, feedback: "Lovely.", tip: null, evaluationToken: "tok",
+    });
+
+    renderPage(<Practice />);
+    await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
+    await triggerRecording();
+
+    await waitFor(() => expect(screen.getByTestId("first-word-primer")).toBeInTheDocument(), WT);
+    expect(screen.queryByText("Goated 🐐")).toBeNull();
+    expect(badgesHanded()).toBe("0");
+
+    fireEvent.click(screen.getByTestId("first-word-primer-cta"));
+
+    await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument(), WT);
+    expect(screen.queryByTestId("first-word-primer")).toBeNull();
+    expect(badgesHanded()).toBe("1");
+    expect(localStorage.getItem("bolo.firstWordPrimerSeen")).toBe("yes");
+  });
+
+  test("never appears for a learner who already has attempts on the account", async () => {
+    h.summary = { totalAttempts: 7 };
+    h.createAttempt.mockResolvedValue({
+      newlyEarnedBadges: [{ id: "x", name: "X", description: "", icon: "star" }],
+    });
+    h.evaluate.mockResolvedValueOnce({
+      band: "great", passed: true, xpAwarded: 8, feedback: "Lovely.", tip: null, evaluationToken: "tok",
+    });
+
+    renderPage(<Practice />);
+    await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
+    await triggerRecording();
+
+    await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument(), WT);
+    expect(screen.queryByTestId("first-word-primer")).toBeNull();
+    await waitFor(() => expect(badgesHanded()).toBe("1"), WT);
+  });
+
+  test("never appears when the attempt count is not known", async () => {
+    h.summary = undefined;
+    h.evaluate.mockResolvedValueOnce({
+      band: "great", passed: true, xpAwarded: 8, feedback: "Lovely.", tip: null, evaluationToken: "tok",
+    });
+    renderPage(<Practice />);
+    await waitFor(() => expect(screen.getByText("Hold Bolo to speak")).toBeInTheDocument(), WT);
+    await triggerRecording();
+    await waitFor(() => expect(screen.getByText("Goated 🐐")).toBeInTheDocument(), WT);
+    expect(screen.queryByTestId("first-word-primer")).toBeNull();
   });
 });

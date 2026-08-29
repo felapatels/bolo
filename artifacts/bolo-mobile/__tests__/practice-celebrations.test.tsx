@@ -65,7 +65,9 @@ jest.mock('@workspace/api-client-react', () => ({
   useSynthesizeSpeech: () => ({ mutateAsync: mockState.synth }),
   useEvaluatePronunciation: () => ({ mutateAsync: mockState.evaluate }),
   useCreateAttempt: () => ({ mutateAsync: mockState.createAttempt }),
-  useGetProgressSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
+  // The first-word lightbox (build 19) reads the language's attempt count
+  // from here; undefined means "not cached", which shows no lightbox.
+  useGetProgressSummary: jest.fn(() => ({ data: mockState.summary, isLoading: false })),
   getGetProgressSummaryQueryKey: () => ['progress'],
   getListRecentAttemptsQueryKey: () => ['attempts'],
   getListCategoryPhrasesQueryKey: () => ['phrases'],
@@ -168,7 +170,11 @@ jest.mock('@/components/Confetti', () => {
 jest.mock('@/components/BadgeUnlock', () => {
   const { View } = require('react-native');
   return {
-    BadgeUnlock: () => <View />,
+    // The count is exposed so the first-word lightbox tests can see WHEN the
+    // badge celebration is handed its badges, which is the whole point there.
+    BadgeUnlock: ({ badges }: { badges: unknown[] }) => (
+      <View testID="badge-unlock" accessibilityLabel={`badges:${badges.length}`} />
+    ),
   };
 });
 
@@ -250,6 +256,7 @@ beforeEach(async () => {
   jest.requireMock('@/lib/audio').playBase64Audio.mockClear();
 
   mockState.phrases = successQuery(PHRASES);
+  mockState.summary = undefined;
   mockState.synth = jest.fn(async () => ({ audioBase64: 'AAA', format: 'mp3' }));
   // Default evaluate: score 75, passed. Individual tests override per-call via
   // a queue drained by a single mock implementation.
@@ -628,5 +635,81 @@ describe('Chai receipt pill (34B)', () => {
       expect(screen.getByLabelText('+8 XP')).toBeOnTheScreen(),
     );
     expect(screen.queryByTestId('session-chai-pill')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE FIRST-WORD LIGHTBOX, build 19 (owner ask, 2026-08-29): "a light box
+// triggered after any user's first word completion right before they see
+// their score", and "make sure it doesn't interfere with the first badge
+// celebration". So: it goes up BEFORE the score card, the badge the attempt
+// unlocked waits behind it, and dismissing it releases the score and then
+// the badge, in that order.
+// ---------------------------------------------------------------------------
+
+async function recordOnce() {
+  await waitFor(() =>
+    expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+  );
+  await act(async () => {
+    fireEvent(screen.getByTestId('record-button'), 'pressIn');
+  });
+  await waitFor(() =>
+    expect(screen.getByLabelText('Stop recording')).toBeOnTheScreen(),
+  );
+  await act(async () => {
+    fireEvent(screen.getByTestId('record-button'), 'pressOut');
+  });
+}
+
+const badgesHanded = () =>
+  screen.getByTestId('badge-unlock').props.accessibilityLabel as string;
+
+describe('the first-word lightbox', () => {
+  test('goes up before the first score, and the first badge waits behind it', async () => {
+    mockState.summary = { totalAttempts: 0 };
+    mockState.createAttempt = jest.fn(async () => ({
+      newlyEarnedBadges: [{ id: 'first-words', name: 'First Words', description: '', icon: 'star' }],
+    }));
+
+    render(<PracticeScreen />);
+    await recordOnce();
+
+    await waitFor(() => expect(screen.getByTestId('first-word-primer')).toBeOnTheScreen());
+    // The score is held, and so is the badge, however fast the save came back.
+    expect(screen.queryByText('Goated 🐐')).toBeNull();
+    expect(badgesHanded()).toBe('badges:0');
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('first-word-primer-cta'));
+    });
+
+    await waitFor(() => expect(screen.getByText('Goated 🐐')).toBeOnTheScreen());
+    expect(screen.queryByTestId('first-word-primer')).toBeNull();
+    expect(badgesHanded()).toBe('badges:1');
+    // The device remembers, so a second word never sees it.
+    expect(await AsyncStorage.getItem('bolo.firstWordPrimerSeen')).toBe('yes');
+  });
+
+  test('never appears for a learner who already has attempts on the account', async () => {
+    mockState.summary = { totalAttempts: 7 };
+    mockState.createAttempt = jest.fn(async () => ({
+      newlyEarnedBadges: [{ id: 'x', name: 'X', description: '', icon: 'star' }],
+    }));
+
+    render(<PracticeScreen />);
+    await recordOnce();
+
+    await waitFor(() => expect(screen.getByText('Goated 🐐')).toBeOnTheScreen());
+    expect(screen.queryByTestId('first-word-primer')).toBeNull();
+    await waitFor(() => expect(badgesHanded()).toBe('badges:1'));
+  });
+
+  test('never appears when the attempt count is not known', async () => {
+    mockState.summary = undefined;
+    render(<PracticeScreen />);
+    await recordOnce();
+    await waitFor(() => expect(screen.getByText('Goated 🐐')).toBeOnTheScreen());
+    expect(screen.queryByTestId('first-word-primer')).toBeNull();
   });
 });

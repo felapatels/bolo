@@ -56,6 +56,7 @@ import {
   useCreateAttempt,
   useGetAccount,
   getGetProgressSummaryQueryKey,
+  useGetProgressSummary,
   getListRecentAttemptsQueryKey,
   getListCategoryPhrasesQueryKey,
   getListBadgesQueryKey,
@@ -75,6 +76,12 @@ import { ApiError } from '@workspace/api-client-react';
 import { applyOptimisticTodayXp } from '@workspace/train-class';
 import { Screen } from '@/components/Screen';
 import { BadgeUnlock } from '@/components/BadgeUnlock';
+import { FirstWordPrimer } from '@/components/FirstWordPrimer';
+import {
+  loadFirstWordPrimerSeen,
+  saveFirstWordPrimerSeen,
+  shouldShowFirstWordPrimer,
+} from '@/lib/firstWordPrimer';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { LessonError } from '@/components/LessonError';
 import { FunFactLoader } from '@/components/FunFactLoader';
@@ -407,7 +414,7 @@ function describeEvaluationError(error: unknown): string {
   if (error instanceof ApiError) {
     const status = (error as { status?: number }).status;
     if (status === 502) {
-      return "Bolo hit a snag 🦜 — give it another try!";
+      return "Bolo hit a snag 🦜. Give it another try!";
     }
     if (status === 429) {
       return "Whoa, that's a lot of practice! Wait a moment, then try again.";
@@ -416,7 +423,7 @@ function describeEvaluationError(error: unknown): string {
   }
   if (error instanceof TypeError) {
     // fetch() rejects with a TypeError when the network is unreachable.
-    return "Bolo flew out for a mango lassi 🥭 — check your connection and try again!";
+    return "Bolo flew out for a mango lassi 🥭. Check your connection and try again!";
   }
   return 'Something went wrong while scoring. Please try again.';
 }
@@ -647,6 +654,49 @@ export default function PracticeScreen() {
   const selfPlayTokenRef = React.useRef(0);
   const [unlockedBadges, setUnlockedBadges] = React.useState<EarnedBadge[]>([]);
   const [celebrate, setCelebrate] = React.useState(false);
+
+  // THE FIRST-WORD LIGHTBOX (lib/firstWordPrimer.ts). While it is up the
+  // score reveal and any badge the attempt unlocked wait in these refs;
+  // dismissing it releases both together, score first, badge over it, so
+  // the lightbox never fights the first badge celebration.
+  const [firstWordPrimerOpen, setFirstWordPrimerOpen] = React.useState(false);
+  const firstWordHoldRef = React.useRef(false);
+  const heldRevealRef = React.useRef<(() => void) | null>(null);
+  const heldBadgesRef = React.useRef<EarnedBadge[] | null>(null);
+  // The language's attempt count, the "is this really their first word"
+  // half of the decision. The reminder scheduler and home keep it cached, so
+  // this is a cache read in practice.
+  const progressSummary = useGetProgressSummary(
+    { lang: activeLang },
+    { query: { enabled: !!activeLang, queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) } },
+  );
+  const dismissFirstWordPrimer = () => {
+    setFirstWordPrimerOpen(false);
+    firstWordHoldRef.current = false;
+    const reveal = heldRevealRef.current;
+    heldRevealRef.current = null;
+    reveal?.();
+    const badges = heldBadgesRef.current;
+    heldBadgesRef.current = null;
+    if (badges?.length) setUnlockedBadges(badges);
+  };
+
+  // THE OUTCOME LAYOUT, build 19. Owner: "I don't want the user to have to
+  // scroll down to see their feedback. Can we shrink down the word card and
+  // move the feedback into the same screen view?" While a result, compare or
+  // error card is up, the mascot and the word card drop to a compact size and
+  // the word card's Hear it moves down into the result card beside Hear
+  // yourself, so the feedback lands on the first screen. The scroll is the
+  // belt to that brace, for a long feedback on a short phone: it only moves
+  // when the content overflows.
+  const showingOutcome = phase === 'result' || phase === 'compare' || phase === 'error';
+  const scrollRef = React.useRef<ScrollView>(null);
+  React.useEffect(() => {
+    if (phase !== 'result' && phase !== 'compare') return;
+    // After the card's entrance, so the end includes it.
+    const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 350);
+    return () => clearTimeout(t);
+  }, [phase]);
   const [evalError, setEvalError] = React.useState<string | null>(null);
 
   // One-time "feedback is approximate" notice for degraded-recognition
@@ -1555,7 +1605,26 @@ export default function PracticeScreen() {
         },
       }));
       setSessionFeedback((prev) => ({ ...prev, [index]: { feedback: res.feedback, tip: res.tip } }));
-      setPhaseSync('result');
+      // THE FIRST-WORD LIGHTBOX goes up before the first score is ever shown
+      // (owner ask, build 19), and the reveal waits behind it. Judged on the
+      // cached summary AND this device, never on either alone
+      // (lib/firstWordPrimer.ts). Test-out is a batch, never a first word.
+      const summaryAttempts = progressSummary.data?.totalAttempts;
+      const primer =
+        !isTestout &&
+        summaryAttempts !== undefined &&
+        shouldShowFirstWordPrimer({
+          seenOnDevice: await loadFirstWordPrimerSeen(),
+          totalAttempts: summaryAttempts,
+        });
+      if (primer) {
+        void saveFirstWordPrimerSeen();
+        firstWordHoldRef.current = true;
+        heldRevealRef.current = () => setPhaseSync('result');
+        setFirstWordPrimerOpen(true);
+      } else {
+        setPhaseSync('result');
+      }
 
       // Zero-XP encore bookkeeping. Test-out is one take per phrase and is
       // judged as a batch, so it never queues an encore.
@@ -1704,8 +1773,13 @@ export default function PracticeScreen() {
         });
 
         // Celebrate any badges this attempt unlocked (server-authoritative list).
+        // Behind the first-word lightbox the badge waits its turn.
         if (attempt.newlyEarnedBadges?.length) {
-          setUnlockedBadges(attempt.newlyEarnedBadges);
+          if (firstWordHoldRef.current) {
+            heldBadgesRef.current = attempt.newlyEarnedBadges;
+          } else {
+            setUnlockedBadges(attempt.newlyEarnedBadges);
+          }
         }
         // Chai receipt: chaiEarned is optional and only present when > 0
         // (streak-day grant is the only attempt-side earn today).
@@ -2310,6 +2384,7 @@ export default function PracticeScreen() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
       >
@@ -2362,7 +2437,7 @@ export default function PracticeScreen() {
           <Animated.View style={mascotAmpStyle}>
             <Mascot
               pose={mascotPose}
-              size={104}
+              size={showingOutcome ? 72 : 104}
               motion={mascotMotion}
               entering
               celebrateBounce={celebrateBounceCount}
@@ -2377,19 +2452,43 @@ export default function PracticeScreen() {
           exiting={FadeOutUp.duration(200)}
           style={[
             styles.phraseCard,
+            showingOutcome && styles.phraseCardCompact,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
-          <Text style={[nativeProps, styles.phraseNative, { color: colors.foreground }]}>
+          <Text
+            style={[
+              nativeProps,
+              styles.phraseNative,
+              showingOutcome && styles.phraseNativeCompact,
+              { color: colors.foreground },
+            ]}
+          >
             {phrase.nativeScript}
           </Text>
-          <Text style={[styles.phraseRoman, { color: colors.secondary }]}>
+          <Text
+            style={[
+              styles.phraseRoman,
+              showingOutcome && styles.phraseRomanCompact,
+              { color: colors.secondary },
+            ]}
+          >
             {phrase.romanized}
           </Text>
-          <Text style={[styles.phraseEng, { color: colors.mutedForeground }]}>
+          <Text
+            style={[
+              styles.phraseEng,
+              showingOutcome && styles.phraseEngCompact,
+              { color: colors.mutedForeground },
+            ]}
+          >
             {phrase.english}
           </Text>
 
+          {/* Hear it lives down in the result card while a score is up (and
+              the compare card carries its own Play target); here it would
+              only push the feedback further down. */}
+          {phase === 'result' || phase === 'compare' ? null : (
           <View style={styles.listenRow}>
             <Pressable
               onPress={() => {
@@ -2417,6 +2516,7 @@ export default function PracticeScreen() {
               }}
             />
           </View>
+          )}
         </Animated.View>
 
         {phrase.hint && phase !== 'result' && phase !== 'compare' ? (
@@ -2679,7 +2779,7 @@ export default function PracticeScreen() {
             ) : null}
             {saveFailed ? (
               <Text style={[styles.saveFailed, { color: colors.destructive }]}>
-                Heads up — this attempt couldn't be saved to your progress.
+                Heads up: this attempt couldn't be saved to your progress.
               </Text>
             ) : null}
             {/* Zero XP: say out loud that the phrase is coming back, or that
@@ -2690,12 +2790,34 @@ export default function PracticeScreen() {
                 style={[styles.encoreNote, { color: colors.mutedForeground }]}
               >
                 {(phraseTallies[index]?.zeroStrikes ?? 0) >= ZERO_XP_STRIKE_LIMIT
-                  ? "That's three goes — we'll leave this one for next time."
+                  ? "That's three goes. We'll leave this one for next time."
                   : 'No XP yet, so this one comes back at the end of the session.'}
               </Text>
             ) : null}
             {/* Hear yourself — always shown so learners can compare their
-                voice to the coach model. Not affected by spoken-feedback mute. */}
+                voice to the coach model. Not affected by spoken-feedback mute.
+                Build 19: Hear it sits beside it, moved down from the word
+                card so the two halves of the comparison share a row. */}
+            <View style={styles.resultAudioRow}>
+            <Pressable
+              onPress={() => {
+                playCoach();
+              }}
+              disabled={coachPlaying}
+              accessibilityRole="button"
+              accessibilityLabel={coachPlaying ? 'Listening to coach' : 'Listen to coach'}
+              testID="result-hear-it"
+              style={[styles.hearSelfBtn, styles.resultAudioBtn, { borderColor: colors.border }]}
+            >
+              <Feather
+                name={coachPlaying ? 'volume-2' : 'play'}
+                size={15}
+                color={colors.primary}
+              />
+              <Text style={[styles.hearSelfText, { color: colors.primary }]}>
+                {coachPlaying ? 'Listening...' : 'Hear it'}
+              </Text>
+            </Pressable>
             <Pressable
               onPress={playSelf}
               accessibilityRole="button"
@@ -2703,6 +2825,7 @@ export default function PracticeScreen() {
               testID="hear-yourself-button"
               style={[
                 styles.hearSelfBtn,
+                styles.resultAudioBtn,
                 {
                   borderColor: selfPlaying
                     ? bandColor(result.band, colors)
@@ -2731,6 +2854,7 @@ export default function PracticeScreen() {
                 {selfPlaying ? 'Playing...' : 'Hear yourself'}
               </Text>
             </Pressable>
+            </View>
           </Animated.View>
         ) : null}
       </ScrollView>
@@ -2797,6 +2921,7 @@ export default function PracticeScreen() {
         badges={unlockedBadges}
         onDismiss={() => setUnlockedBadges([])}
       />
+      <FirstWordPrimer visible={firstWordPrimerOpen} onDismiss={dismissFirstWordPrimer} />
       <MilestoneToast
         message={toastMessage}
         toastKey={toastKey}
@@ -3284,6 +3409,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
   },
+  // The outcome layout (build 19): the word card at roughly half its height
+  // while a result is up, so the feedback lands on the first screen.
+  phraseCardCompact: { padding: 14, paddingHorizontal: 16 },
+  phraseNativeCompact: { fontSize: 28, lineHeight: 40 },
+  phraseRomanCompact: { fontSize: 15, marginTop: 4 },
+  phraseEngCompact: { fontSize: 13, marginTop: 2 },
   listenRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3319,7 +3450,7 @@ const styles = StyleSheet.create({
   },
   noticeText: { fontFamily: AppFonts.regular, fontSize: 13, flex: 1, lineHeight: 19 },
   resultCard: {
-    marginTop: 20,
+    marginTop: 14,
     borderRadius: 20,
     borderWidth: 1.5,
     padding: 20,
@@ -3421,6 +3552,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     alignSelf: 'flex-start',
   },
+  // Hear it and Hear yourself share a row in the result card (build 19).
+  resultAudioRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  resultAudioBtn: { marginTop: 0 },
   hearSelfText: { fontFamily: AppFonts.semibold, fontSize: 14 },
 
   note: {

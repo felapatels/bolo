@@ -330,7 +330,7 @@ describe('scoring failure handling', () => {
     );
     expect(
       screen.getByText(
-        "Heads up — this attempt couldn't be saved to your progress.",
+        "Heads up: this attempt couldn't be saved to your progress.",
       ),
     ).toBeOnTheScreen();
   });

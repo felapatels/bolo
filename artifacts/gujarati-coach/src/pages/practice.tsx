@@ -21,6 +21,7 @@ import {
   getListLessonGroupPhrasesQueryKey,
   getListCategoryLessonGroupsQueryKey,
   getGetProgressSummaryQueryKey,
+  useGetProgressSummary,
   getListRecentAttemptsQueryKey,
   getListBadgesQueryKey,
   type EarnedBadge
@@ -42,6 +43,12 @@ import { springs, SoundWavePulse } from "@/lib/motion";
 import { prefersReducedMotion } from "@/lib/motionPrefs";
 import { Confetti } from "@/components/ui/confetti";
 import { BadgeUnlock } from "@/components/badge-unlock";
+import { FirstWordPrimer } from "@/components/first-word-primer";
+import {
+  loadFirstWordPrimerSeen,
+  saveFirstWordPrimerSeen,
+  shouldShowFirstWordPrimer,
+} from "@/lib/first-word-primer";
 import { Mascot, type MascotPose } from "@/components/mascot";
 import { isIosSafariWeb, markIosAudioHintShown, shouldShowIosAudioHint } from "@/lib/iosAudio";
 import { cn } from "@/lib/utils";
@@ -621,6 +628,31 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
   const [newBadges, setNewBadges] = useState<EarnedBadge[]>([]);
+  // THE FIRST-WORD LIGHTBOX (lib/first-word-primer.ts). While it is up the
+  // score reveal and any badge the attempt unlocked wait in these refs;
+  // dismissing it releases both together, score first, badge over it, so
+  // the lightbox never fights the first badge celebration.
+  const [firstWordPrimerOpen, setFirstWordPrimerOpen] = useState(false);
+  const firstWordHoldRef = useRef(false);
+  const heldRevealRef = useRef<(() => void) | null>(null);
+  const heldBadgesRef = useRef<EarnedBadge[] | null>(null);
+  // The language's attempt count, the "is this really their first word"
+  // half of the lightbox decision. Cached by home; a fresh fetch here costs
+  // nothing when it is.
+  const progressSummary = useGetProgressSummary(
+    { lang: activeLang },
+    { query: { enabled: !!activeLang, queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }) } },
+  );
+  const dismissFirstWordPrimer = () => {
+    setFirstWordPrimerOpen(false);
+    firstWordHoldRef.current = false;
+    const reveal = heldRevealRef.current;
+    heldRevealRef.current = null;
+    reveal?.();
+    const badges = heldBadgesRef.current;
+    heldBadgesRef.current = null;
+    if (badges?.length) setNewBadges(badges);
+  };
   const [evalError, setEvalError] = useState<EvalErrorContent | null>(null);
   // Chunk 1 item 4a: how the last coach playback attempt failed, if it did.
   // "play" = the browser rejected audio.play() (autoplay policy); recovery is
@@ -1291,7 +1323,27 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
       // The learner has their score — show it now. Saving the attempt below
       // must never take the result away from them.
-      setState("result");
+      //
+      // Except once: THE FIRST-WORD LIGHTBOX goes up before the first score
+      // is ever shown (owner ask, build 19), and the reveal waits behind it.
+      // Judged on the cached summary AND this browser, never on either alone
+      // (lib/first-word-primer.ts). Test-out is a batch, never a first word.
+      const summaryAttempts = progressSummary.data?.totalAttempts;
+      const primer =
+        !isTestout &&
+        summaryAttempts !== undefined &&
+        shouldShowFirstWordPrimer({
+          seenOnDevice: loadFirstWordPrimerSeen(),
+          totalAttempts: summaryAttempts,
+        });
+      if (primer) {
+        saveFirstWordPrimerSeen();
+        firstWordHoldRef.current = true;
+        heldRevealRef.current = () => setState("result");
+        setFirstWordPrimerOpen(true);
+      } else {
+        setState("result");
+      }
       // Web haptics — mirror the mobile practice pattern exactly.
       webHaptic('medium');
       if (isFullCreditBand(evalRes.band)) {
@@ -1387,7 +1439,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         }
 
         if (attemptRes.newlyEarnedBadges.length > 0) {
-          setNewBadges(attemptRes.newlyEarnedBadges);
+          // Behind the first-word lightbox the badge waits its turn.
+          if (firstWordHoldRef.current) {
+            heldBadgesRef.current = attemptRes.newlyEarnedBadges;
+          } else {
+            setNewBadges(attemptRes.newlyEarnedBadges);
+          }
         }
         // M1 teaser: the server reports teaser progress on attempts recorded
         // in a locked language. Keep the latest snapshot so the result panel
@@ -2174,6 +2231,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         />
       )}
       <BadgeUnlock badges={newBadges} onDismiss={() => setNewBadges([])} />
+      <FirstWordPrimer open={firstWordPrimerOpen} onDismiss={dismissFirstWordPrimer} />
       
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       {/* flex-wrap + the grouped pill row below: at large accessibility text
@@ -2224,7 +2282,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           className="shrink-0 w-9 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground text-[11px] font-bold uppercase tracking-wide leading-none"
         >
           {activeLang.toUpperCase()}
-          <span className="sr-only"> — practising {languageName}</span>
+          <span className="sr-only">, practising {languageName}</span>
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -2592,7 +2650,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   aria-hidden="true"
                 >
                   <p className="whitespace-nowrap text-xs font-black text-primary-foreground">
-                    {readyHint ? "Mic's on — hold Bolo while you speak 🦜" : "Hold Bolo to speak 🦜"}
+                    {readyHint ? "Mic's on. Hold Bolo while you speak 🦜" : "Hold Bolo to speak 🦜"}
                   </p>
                   {/* speech-bubble tail */}
                   <div className="absolute left-1/2 -bottom-1.5 -translate-x-1/2 h-3 w-3 rotate-45 bg-primary" />
@@ -2721,7 +2779,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                     // Zero-input state (Spec D2 rule 7): >1.5s of near-silence
                     // while recording — most likely a muted or wrong mic.
                     <p className="text-center text-muted-foreground font-bold uppercase tracking-widest text-xs">
-                      We can't hear you — check your mic
+                      We can't hear you. Check your mic
                     </p>
                   ) : (
                     <p className="text-center text-accent font-bold uppercase tracking-widest text-xs">
@@ -2908,7 +2966,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   )}
                   {saveFailed && (
                     <p className="mt-2 text-xs text-destructive font-medium">
-                      Heads up — this attempt couldn't be saved to your progress.
+                      Heads up: this attempt couldn't be saved to your progress.
                     </p>
                   )}
                   {/* Zero XP: say out loud that the phrase is coming back, or
@@ -2916,7 +2974,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   {!isTestout && result.xpAwarded === 0 && (
                     <p data-testid="encore-note" className="mt-2 text-xs font-medium text-muted-foreground">
                       {(phraseTallies[phrase?.id ?? -1]?.zeroStrikes ?? 0) >= ZERO_XP_STRIKE_LIMIT
-                        ? "That's three goes — we'll leave this one for next time."
+                        ? "That's three goes. We'll leave this one for next time."
                         : "No XP yet, so this one comes back at the end of the session."}
                     </p>
                   )}
@@ -2931,7 +2989,7 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
                   <UpgradeCard
                     icon={<Sparkles className="h-7 w-7" />}
                     title={`That's your free taste of ${languageName}!`}
-                    description={`Unlock ${languageName} — and every other language — with All-Access.`}
+                    description={`Unlock ${languageName}, and every other language, with All-Access.`}
                     cta="Keep learning"
                     href={upgradeHref({ plan: "plus", reason: "teaser_exhausted" })}
                     className="mt-3"
