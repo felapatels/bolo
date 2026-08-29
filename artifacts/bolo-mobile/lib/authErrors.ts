@@ -149,7 +149,7 @@ export function incompleteStateMessage(
     factorStrategies.length > 0
       ? `available sign-in methods: ${factorStrategies.join(', ')}`
       : 'no sign-in methods offered';
-  return `Sign-in did not complete (status: ${status}; ${factors}). Please try again — if this keeps happening, contact support and mention this message.`;
+  return `Sign-in did not complete (status: ${status}; ${factors}). Please try again. If this keeps happening, contact support and mention this message.`;
 }
 
 /**

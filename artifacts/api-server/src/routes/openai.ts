@@ -59,6 +59,7 @@ import { learnerContextBlockFor } from "../lib/learnerContext";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import { ttsCacheKey, legacyTtsCacheKey, phraseTtsCacheKey } from "../lib/ttsCache";
 import { getPendingFeedbackSynthesis, prewarmFeedbackTts } from "../lib/feedbackTts";
+import { stripDashes } from "../lib/spokenCopy";
 import { verifyServedTakeInBackground } from "../lib/ttsCacheAudit";
 import { getVoiceIdForLanguage, getLanguageIdForCode, VOICE_CATALOG, VALID_VOICE_IDS } from "../lib/languageVoice";
 import {
@@ -124,7 +125,7 @@ Within each band, pick a specific score that reflects exactly how close the atte
 
 The transcript is your ONLY evidence: you cannot hear the audio itself, so never invent a flaw the transcript does not show. Only point out a specific sound to work on when the transcript itself shows that sound was off, missing, or replaced. If the transcript matches the target, do NOT name a sound to polish or claim their delivery was flawless; celebrate warmly, own the limits of your ears (you judged the sounds, not the accent), and encourage them to keep practicing in general terms.
 
-Always be kind and motivating, never harsh. This feedback is going to be READ ALOUD to them, so write it like you're talking to them face to face: friendly, playful, and conversational. React to how they did first (celebrate a great one, cheer on a close one), then name one specific thing they did well, and if the transcript shows a specific miss, gently point out that one sound to work on. Reply ONLY as JSON with keys: score (integer 0-100), passed (boolean, true if score>=80), feedback (three to four warm, chatty sentences spoken directly to the learner), tip (one short, friendly tip: a concrete pronunciation tip only when the transcript shows a specific difference, otherwise a general practice suggestion). Address them directly as 'you'. Do not use emojis or any special symbols, since the text will be spoken.`;
+Always be kind and motivating, never harsh. This feedback is going to be READ ALOUD to them, so write it like you're talking to them face to face: friendly, playful, and conversational. React to how they did first (celebrate a great one, cheer on a close one), then name one specific thing they did well, and if the transcript shows a specific miss, gently point out that one sound to work on. Reply ONLY as JSON with keys: score (integer 0-100), passed (boolean, true if score>=80), feedback (three to four warm, chatty sentences spoken directly to the learner), tip (one short, friendly tip: a concrete pronunciation tip only when the transcript shows a specific difference, otherwise a general practice suggestion). Address them directly as 'you'. Do not use emojis or any special symbols, since the text will be spoken. Never use a dash as punctuation: no em dashes and no en dashes anywhere in the feedback or the tip. Use a comma or a full stop instead.`;
 
 const router: IRouter = Router();
 
@@ -1654,10 +1655,16 @@ router.post(
       // boolean could otherwise produce a full-credit band at a sub-80 score.
       const llmBand: PronunciationBand = bandFromScore(score);
       const llmXp = computePronunciationXp(llmBand, phraseDifficulty);
-      const feedback =
+      // The house rule is no em dashes, the prompt now says so, and this is
+      // the guarantee (lib/spokenCopy.ts): a dash the model writes anyway
+      // reaches the card and the voice as a comma.
+      const feedback = stripDashes(
         result.feedback ??
-        "Nice effort! Keep practicing and you'll get it even better.";
-      const llmTip = result.tip ?? "Try to say each syllable slowly and clearly.";
+          "Nice effort! Keep practicing and you'll get it even better.",
+      );
+      const llmTip = stripDashes(
+        result.tip ?? "Try to say each syllable slowly and clearly.",
+      );
       // Task 903: eval-time fire-and-forget feedback-voice synthesis.
       prewarmFeedbackTts(feedback, llmTip, req.log);
       res.json({

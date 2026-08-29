@@ -99,13 +99,13 @@ export function authFailureReason(err: unknown): string | null {
 export function apiFailureMessage(err: unknown): string {
   switch (apiFailureKind(err)) {
     case 'auth':
-      return "Bolo couldn't confirm your sign-in 🥭 — try signing out and signing back in.";
+      return "Bolo couldn't confirm your sign-in 🥭. Try signing out and signing back in.";
     case 'connection':
-      return "Bolo couldn't reach the internet 🥭 — check your connection and try again.";
+      return "Bolo couldn't reach the internet 🥭. Check your connection and try again.";
     case 'server':
-      return 'Bolo is having a wobble on our side 🥭 — please try again in a moment.';
+      return 'Bolo is having a wobble on our side 🥭. Please try again in a moment.';
     case 'client':
-      return "Bolo couldn't load this right now 🥭 — please try again.";
+      return "Bolo couldn't load this right now 🥭. Please try again.";
   }
 }
 

@@ -61,7 +61,7 @@ export function LessonError({
           style={[styles.message, { color: colors.mutedForeground }]}
         >
           {message ??
-            "The lesson didn't come through — give it another try and Bolo will whip up something fresh!"}
+            "The lesson didn't come through. Give it another try and Bolo will whip up something fresh!"}
         </Animated.Text>
 
         <Animated.View
