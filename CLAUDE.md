@@ -22,9 +22,15 @@ pnpm monorepo. Workspaces: `artifacts/*`, `lib/*`, `lib/integrations/*`, `script
 - `lib/referral-link`, `lib/train-class`, `lib/integrations-openai-ai-{react,server}`
 
 Database lives in Replit and there are TWO of them, development and production.
-See "THERE ARE TWO DATABASES" under Working rules. **There is no `.env` on the
-user's Mac**, so a laptop has no database access of any kind, dev or production,
-until one is created. Dev and prod are out of sync. Assume nothing about parity.
+See "THERE ARE TWO DATABASES" under Working rules. **`~/bolo/.env` exists on
+the user's Mac (this line used to say it did not, build 20 found it):** its
+`DATABASE_URL` is the Replit-internal DEV host (`helium`), unreachable from a
+laptop and therefore inert, and since 2026-08-29 it also holds
+**`PROD_DATABASE_URL`**, the production Neon string, under a name NOTHING in
+the repo reads so no test or build can pick it up. Use it for read-only
+questions about real data (`psql "$PROD_DATABASE_URL"`), SELECTs only, never
+`drizzle-kit migrate`, and never rename it. Dev and prod are out of sync.
+Assume nothing about parity.
 
 ## Typecheck
 
@@ -70,8 +76,10 @@ PORT=5173 BASE_PATH=/ API_PROXY_TARGET=http://localhost:3001 \
 Run from the repo root.
 
 - api: `pnpm --filter @workspace/api-server run test`
-  Baseline **1430 tests, 105 suites, 1428 pass, 0 fail, 2 skipped, ~377s**, measured
-  in the Repl Shell 2026-08-28 (build 17). (Was 1251/93/1249 on 2026-08-27,
+  Baseline **1450 tests, 109 suites, 1448 pass, 0 fail, 2 skipped, ~415s**, measured
+  in the Repl Shell 2026-08-29 (build 20, after the flashback and hesitation
+  server change; 1436/106/1434 earlier that day after build 19). (Was
+  1430/105/1428 on 2026-08-28 (build 17), 1251/93/1249 on 2026-08-27,
   1174/91/1172 on 2026-08-23, and 1064/68/1062 before that; the growth is new
   coverage, not a change in behaviour.) The 1428 is 1427 from the full run
   plus the one file re-run alone after its stale "kem cho" expectation was
@@ -92,14 +100,19 @@ Run from the repo root.
   The script runs `sync-schema` first, so running the api tests APPLIES pending
   migrations to the dev database.
 - web: `pnpm --filter @workspace/gujarati-coach run test` (vitest)
-  Baseline **135 files, 1462 tests, all pass**, measured 2026-08-29 (build 19).
-  (Was 131 / 1434 earlier on 2026-08-29 (build 18), 131 / 1421 on 2026-08-28, 128 / 1399 on 2026-08-27, and 93 suites / 842 tests before that.) One flake seen once on 2026-08-27, a single
+  Baseline **137 files, 1475 tests, all pass**, measured 2026-08-29 (build 20).
+  (Was 135 / 1462 earlier on 2026-08-29 (build 19), 131 / 1434 (build 18), 131 / 1421 on 2026-08-28, 128 / 1399 on 2026-08-27, and 93 suites / 842 tests before that.) One flake seen once on 2026-08-27, a single
   failure that did not reproduce across two immediate re-runs; noted rather
   than chased, and worth watching for.
 - mobile: `pnpm --filter @workspace/bolo-mobile run test` (jest)
-  Baseline **146 suites, 1417 tests, all pass**, measured 2026-08-29 (build 19).
-  (Was 141 / 1365 earlier on 2026-08-29 (build 18), 141 / 1359 on 2026-08-28, 132 / 1307 on 2026-08-27, and 108 suites / 1007 tests before that.) Needs `--forceExit`; workers leak and CI does not pass
-  that flag. Known open item.
+  Baseline **148 suites, 1433 tests, all pass**, measured 2026-08-29 (build 20).
+  (Was 146 / 1417 earlier on 2026-08-29 (build 19), 141 / 1365 (build 18), 141 / 1359 on 2026-08-28, 132 / 1307 on 2026-08-27, and 108 suites / 1007 tests before that.) Needs `--forceExit`; workers leak and CI does not pass
+  that flag. Known open item. **THE FULL SUITE IS `pnpm --filter
+  @workspace/bolo-mobile exec jest --forceExit`.** `pnpm run test --
+  --forceExit` with no file list hands `--forceExit` to jest as a test
+  PATTERN and finds nothing ("No tests found"); with a file list the files
+  filter and it happens to work, which is how build 20 ran suites all day
+  and then lost the full run twice.
 
 **Never run the api suite concurrently with web.** A different total is not a
 failure; a different PASS count is.
