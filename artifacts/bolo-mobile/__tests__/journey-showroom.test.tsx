@@ -289,8 +289,14 @@ describe('journey map — showroom mode (locked language)', () => {
     // at rest. What the test is actually about, that the WHOLE LINE is
     // browsable in showroom mode, is pinned by the stop rows below.
     expect(screen.getByTestId('zone-board-overlay-0')).toBeOnTheScreen();
-    // Teaser affordances.
-    expect(screen.getByText('FREE TASTE')).toBeOnTheScreen();
+    // Teaser affordances. THREE CHIPS SINCE BUILD 17, not one: the phrase
+    // taste on stop 1, the tracing taste on stop 2 and the story taste on
+    // stop 3. The showroom listing carries no planLocked, which zoneIncluded
+    // read as "owned outright" and dropped the chips off rows 2 and 3. Owner:
+    // "free taste badges should be on stops 2 and 3 zone 1 of all languages
+    // except Hindi for Free learners." Was getByText, i.e. exactly one.
+    expect(screen.getAllByText('FREE TASTE')).toHaveLength(3);
+    expect(screen.queryByText('ALL-ACCESS')).toBeNull();
     // EVERY ZONE'S BOARD IS IN THE TREE NOW, one per zone, because the boards
     // are hand-pinned overlays rather than one swapping card: each tracks its
     // own place, sticks at the top, and is pushed off by the next. So the

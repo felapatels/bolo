@@ -1518,8 +1518,18 @@ export default function Journey() {
     // story rows are neither locked nor a taste. Deriving it means a future
     // widening of the free tier needs no change here, and it cannot drift from
     // what the server actually serves.
+    //
+    // NEVER IN THE SHOWROOM (build 17, mobile twin of the same line). A locked
+    // language's listing carries the access envelope and NO planLocked on its
+    // stations, so "every stop is plan-visible" read TRUE for exactly the
+    // learner the taste exists for, and the tracing and story rows drew as
+    // owned rather than as tastes. Owner: "free taste badges should be on
+    // stops 2 and 3 zone 1 of all languages except Hindi for Free learners."
+    // Hindi is not a showroom, so it keeps its no-chip reading.
     const zoneIncluded =
-      stations.length > 0 && stations.every((st) => st.planLocked !== true);
+      !showroom &&
+      stations.length > 0 &&
+      stations.every((st) => st.planLocked !== true);
     // THE ZONE GATE, DECIDED ONCE AT THE ZONE BOUNDARY. With the cross-zone
     // gate on, the server reports EVERY group in an unreachable zone as
     // "locked", so a zone where no phrase station is open is a zone the
