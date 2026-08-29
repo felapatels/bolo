@@ -174,23 +174,24 @@ describe('chai stall scene', () => {
   });
 
   test('the overlay is legible over the art, not just where it is dark', () => {
-    // The title and balance sit top-right over the brightest part of the
-    // art, so the scrim is a right-half vertical band fading leftward, and
-    // the text carries its own shadow on top of it.
+    // INVERTED IN BUILD 17 with the owner's home mockup: the title, the
+    // purpose line and the balance sit top-LEFT now, Chacha-ji on the right,
+    // so the scrim is a left-side band fading rightward and the man stays in
+    // the light. The text still carries its own shadow on top of it.
     render(<ChaiStallVignette balance={3} />);
     const scrim = screen.getByTestId('chai-stall-scrim', HIDDEN);
     const scrimStyle = Object.assign({}, ...[scrim.props.style].flat(2));
     expect(scrimStyle.top).toBe(0);
     expect(scrimStyle.bottom).toBe(0);
-    expect(scrimStyle.right).toBe(0);
-    // Half the width, so the left of the art is untouched.
-    expect(scrimStyle.width).toBe('50%');
-    expect(scrimStyle.left).toBeUndefined();
+    expect(scrimStyle.left).toBe(0);
+    // Just over half the width, so the right of the art is untouched.
+    expect(scrimStyle.width).toBe('58%');
+    expect(scrimStyle.right).toBeUndefined();
     // jest-expo's LinearGradient stub does not forward `colors` onto the host
-    // view, so the ramp itself is pinned at the source: transparent at the top
-    // (no hard edge across the art) down to a near-opaque base under the text.
+    // view, so the ramp itself is pinned at the source: near-opaque under the
+    // text, fading to nothing before the man.
     const src = read('components/ChaiStall.tsx');
-    expect(src).toContain("colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.80)']}");
+    expect(src).toContain("colors={['rgba(0,0,0,0.82)', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0)']}");
 
     const title = screen.getByTestId('chai-stall-title', HIDDEN);
     const titleStyle = Object.assign({}, ...[title.props.style].flat(2));

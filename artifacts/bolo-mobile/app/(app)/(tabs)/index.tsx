@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { BADGE } from '@/lib/ticketStock';
 import { useUser } from '@clerk/expo';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -809,10 +810,60 @@ export default function HomeScreen() {
               progress → spend, so the primary "start practising" action is
               never pushed below a spend surface. Both still enter together
               inside this one entrance wrapper. */}
-          <JourneyPassCard
-            onPress={() => router.push('/(app)/journey' as Parameters<typeof router.push>[0])}
-            goldPalette={goldPalette}
-          />
+          {/* THE "YOUR JOURNEY" FRAME (owner's mockup, build 17). The pass used
+              to sit bare on the page and bleed to the screen edge, one world
+              dropped into another. The mockup frames it: a thin gold-lined
+              card with a small pediment and a train at its crown, a kicker and
+              a line of copy, and a "View Map" pill. Its annotation: "The Your
+              Journey container creates a visual bridge between the modern app
+              and the journey world." The board is inset inside it and no
+              longer bleeds. */}
+          <View
+            testID="home-journey-frame"
+            style={[
+              styles.journeyFrame,
+              { borderColor: BADGE.brassEdge, backgroundColor: colors.card },
+            ]}
+          >
+            <View
+              pointerEvents="none"
+              style={[
+                styles.journeyCrown,
+                { borderColor: BADGE.brassEdge, backgroundColor: colors.card },
+              ]}
+            >
+              <MaterialCommunityIcons name="train" size={13} color={BADGE.brassBg} />
+            </View>
+            <View style={[styles.journeyHeader, styles.journeyHeaderInset]}>
+              <View style={styles.journeyHeaderCopy}>
+                <Text style={[styles.journeyKicker, { color: colors.primary }]}>
+                  YOUR JOURNEY
+                </Text>
+                <Text style={[styles.journeySub, { color: colors.mutedForeground }]}>
+                  Board your train and continue learning
+                </Text>
+              </View>
+              <Pressable
+                testID="home-view-map"
+                accessibilityRole="button"
+                accessibilityLabel="View the journey map"
+                hitSlop={6}
+                onPress={() => {
+                  hapticLight();
+                  router.push('/(app)/journey' as Parameters<typeof router.push>[0]);
+                }}
+                style={[styles.viewMapBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+              >
+                <Feather name="map-pin" size={13} color={colors.primary} />
+                <Text style={[styles.viewMapText, { color: colors.primary }]}>View Map</Text>
+              </Pressable>
+            </View>
+            <JourneyPassCard
+              bleed={false}
+              onPress={() => router.push('/(app)/journey' as Parameters<typeof router.push>[0])}
+              goldPalette={goldPalette}
+            />
+          </View>
           {/* Chai treatment tier 1 (web parity): Chacha-ji's stall, full width
               at its natural aspect, directly below the pass — the platform the
               boarding pass has just pulled away from. It enters WITH the pass
@@ -1569,6 +1620,55 @@ const styles = StyleSheet.create({
   mascotDrop: { transform: [{ translateY: 6 }] },
   // Carries the spacing the vignette's own band used to, so nothing below
   // the stall moved when the links went onto it.
+  // The "Your Journey" frame (build 17). Gold hairline, the app's card
+  // colour, the pediment crown overlapping its top edge.
+  // IT HUGS THE BOARD. At 12 of padding inside home's 20 the ticket lost 67pt
+  // and showed it: the eyebrow truncated, the city wrapped, the tail ran to
+  // three lines. The frame bleeds 8 past the content edge and pads 4, so the
+  // board keeps all but 35 of the window and the gold line still reads as a
+  // frame rather than a margin.
+  journeyFrame: {
+    position: 'relative',
+    borderWidth: 1.5,
+    borderRadius: 20,
+    paddingHorizontal: 4,
+    paddingTop: 16,
+    paddingBottom: 8,
+    marginHorizontal: -8,
+    marginTop: 10,
+    marginBottom: 14,
+  },
+  journeyHeaderInset: { paddingHorizontal: 10 },
+  journeyCrown: {
+    position: 'absolute',
+    top: -12,
+    alignSelf: 'center',
+    left: '50%',
+    marginLeft: -26,
+    width: 52,
+    height: 22,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderWidth: 1.5,
+    borderBottomWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 4,
+  },
+  journeyHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  journeyHeaderCopy: { flex: 1, minWidth: 0 },
+  journeyKicker: { fontFamily: AppFonts.extrabold, fontSize: 12, letterSpacing: 1.6 },
+  journeySub: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 2 },
+  viewMapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  viewMapText: { fontFamily: AppFonts.bold, fontSize: 13 },
   stallWrap: { position: 'relative', marginBottom: 12 },
   stallLinksScrim: {
     position: 'absolute',

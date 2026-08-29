@@ -149,7 +149,7 @@ export function ZoneStamp({
           },
         ]}
       >
-        FARE ZONE
+        PLATFORM
       </Text>
       <Text
         allowFontScaling={false}

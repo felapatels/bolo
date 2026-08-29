@@ -318,10 +318,14 @@ export function ChaiStallVignette({
       {/* Legibility scrim: the right half, fading leftward, so the top-right
           column stays readable over the bright sky end of the art. The left
           of the scene, including the plume, is untouched. */}
+      {/* THE COPY MOVED TO THE LEFT (owner's mockup, build 17): title, a line
+          of purpose and the balance pill on the left, Chacha-ji and his stall
+          on the right. So the scrim moved with it: the LEFT half now, fading
+          rightward, and the man stays in the light. */}
       <LinearGradient
         testID="chai-stall-scrim"
         pointerEvents="none"
-        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.80)']}
+        colors={['rgba(0,0,0,0.82)', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0)']}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
         style={styles.scrim}
@@ -331,6 +335,16 @@ export function ChaiStallVignette({
       <View pointerEvents="none" style={styles.overlayColumn}>
         <Text testID="chai-stall-title" style={styles.title}>
           {STALL_TITLE}
+        </Text>
+        {/* WHAT THE STALL IS FOR, in one line (the mockup's "Take a break and
+            earn 24 Chai", corrected: the number is the balance, which is
+            spent here, not earned). The balance is gold so the eye lands on
+            it, and the errand links at the foot still say where it goes. */}
+        <Text testID="chai-stall-blurb" style={styles.blurb}>
+          Take a break and spend your{' '}
+          <Text style={styles.blurbGold}>
+            {balance === undefined ? 'Chai' : `${balance} Chai`}
+          </Text>
         </Text>
         <View style={styles.balanceChip}>
           <ChaiGlyph size={24} />
@@ -383,23 +397,33 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    right: 0,
-    width: '50%',
+    left: 0,
+    width: '58%',
   },
   overlayColumn: {
     position: 'absolute',
     top: 12,
-    right: 12,
-    width: '42%',
-    alignItems: 'flex-end',
-    gap: 10,
+    left: 14,
+    width: '50%',
+    alignItems: 'flex-start',
+    gap: 8,
   },
+  blurb: {
+    color: 'rgba(255,255,255,0.92)',
+    fontFamily: AppFonts.semibold,
+    fontSize: 12,
+    lineHeight: 16,
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  blurbGold: { color: '#FBBF24', fontFamily: AppFonts.extrabold },
   title: {
     color: '#FFFFFF',
     fontFamily: AppFonts.extrabold,
     fontSize: 18,
     lineHeight: 22,
-    textAlign: 'right',
+    textAlign: 'left',
     textShadowColor: 'rgba(0,0,0,0.9)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,

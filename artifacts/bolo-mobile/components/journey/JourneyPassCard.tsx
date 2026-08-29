@@ -118,6 +118,11 @@ const HOME_CONTENT_PAD = 20;
 // other card on that page is correctly at the column width; only this one is a
 // painting with air round its edges.
 const HOME_BOARD_BLEED = HOME_CONTENT_PAD;
+// Home's "Your Journey" frame nets out to 2.5 INSIDE the content pad on each
+// side: it bleeds 8 past the pad, then spends 1.5 on its border and 4 on its
+// padding. Only the first-frame guess reads it; the wrap's onLayout is
+// authoritative after that.
+const HOME_FRAME_INSET = -2.5;
 
 /** Jagged rip outline for a torn half — the RN analogue of the web's static
  *  clip-path polygons (RN has no clip-path; protruding teeth on each half
@@ -171,11 +176,18 @@ export type TrainGoldPalette = {
 };
 
 export function JourneyPassCard({
+  bleed = true,
   onPress,
   goldPalette,
 }: {
   onPress: () => void;
   /** If non-null, the boarding-pass engine renders in First Class gold. */
+  /**
+   * Bleed to the screen edge (the default, what the pass has always done) or
+   * sit inside whatever frames it. Home frames it in a "Your Journey" card
+   * from build 17 and passes false; the glow and shimmer are unaffected.
+   */
+  bleed?: boolean;
   goldPalette?: TrainGoldPalette;
 }) {
   const colors = useColors();
@@ -194,8 +206,18 @@ export function JourneyPassCard({
   // the ticket, the gap and both content insets, and it is the one number the
   // fit depends on.
   const [titleW, setTitleW] = React.useState(0);
+  // MEASURED ON THE WRAP, NOT THE PRESS (build 17). The press is centred and
+  // sized by the board, so measuring it only ever read back whatever width
+  // the board had guessed: inside home's "Your Journey" frame the full-bleed
+  // guess became the measurement and the board poked through both sides of
+  // the frame. The wrap is what the parent constrains, so it is the truth.
   const boardW =
-    passW > 0 ? passW : Math.max(1, windowW - HOME_CONTENT_PAD * 2 + HOME_BOARD_BLEED * 2);
+    passW > 0
+      ? passW
+      : Math.max(
+          1,
+          windowW - HOME_CONTENT_PAD * 2 + (bleed ? HOME_BOARD_BLEED * 2 : -HOME_FRAME_INSET * 2),
+        );
   const pedimentH = zoneBoardPedimentH(boardW);
   const boardH = pedimentH + HOME_PANEL_H;
   // THE ART IS NOT CENTRED IN ITS OWN FILE, and at full bleed that finally
@@ -438,7 +460,13 @@ export function JourneyPassCard({
           <Feather name="chevron-down" size={16} color="#FFFFFF" />
         </Animated.View>
       ) : null}
-    <Animated.View style={[styles.wrap, breatheStyle]}>
+    <Animated.View
+      style={[styles.wrap, bleed ? null : styles.wrapFramed, breatheStyle]}
+      onLayout={(e) => {
+        const w = Math.round(e.nativeEvent.layout.width);
+        if (w > 0 && w !== passW) setPassW(w);
+      }}
+    >
       {/* The glow pulse that lifts the board off the page. Inset just inside
           the board's footprint so the accent layer stays covered and only its
           shadow shows. (iOS shadow; opacity-only animation. Android has no
@@ -475,10 +503,6 @@ export function JourneyPassCard({
         onPress={handleActivate}
         scaleTo={PASS_PRESS_SCALE}
         testID="journey-pass-card"
-        onLayout={(e: { nativeEvent: { layout: { width: number } } }) => {
-          const w = Math.round(e.nativeEvent.layout.width);
-          if (w > 0 && w !== passW) setPassW(w);
-        }}
         style={tearing ? [styles.press, styles.pressTearing] : styles.press}
       >
         <CarvedBoard
@@ -529,7 +553,12 @@ export function JourneyPassCard({
                   numberOfLines={1}
                   style={[
                     styles.eyebrow,
-                    { color: ZONE_BOARD.inkMuted },
+                    // THE HYBRID TICKET (owner's mockup, build 17): the pass
+                    // keeps its paper and takes the app's purple for its
+                    // accents, so it reads as part of the app rather than as a
+                    // prop from another one. The eyebrow, the station dots and
+                    // the verb are the accents; the ink stays for the copy.
+                    { color: colors.primary },
                     brand.native && isTallCascadingScript(activeLanguage)
                       ? styles.eyebrowTall
                       : null,
@@ -695,27 +724,48 @@ export function JourneyPassCard({
                 </Animated.View>
               </View>
             </View>
-            {journey.current && journey.current.phraseCount > 0 && (
-              <View style={styles.progressRow}>
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      {
-                        // Aged brass from the element sheet's own badge
-                        // palette: the one warm spark left on the card now
-                        // the accent has gone, and it belongs to the wood.
-                        backgroundColor: BADGE.brassBg,
-                        width: `${Math.round(
-                          (journey.current.masteredCount / journey.current.phraseCount) * 100,
-                        )}%`,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={styles.progressText}>
-                  {journey.current.masteredCount}/{journey.current.phraseCount}
-                </Text>
+            {/* THE STATIONS, NOT A BAR (owner's mockup, build 17). The brass
+                bar drew mastered phrases within ONE stop; the mockup draws the
+                zone as a row of stops with the learner's own ringed, which is
+                what "Stop 5 of 11" above already says in words. Done stops are
+                filled in the accent, the current one is a ring, the rest are
+                hollow, and the skyline at the end is the zone's terminus. The
+                phrase count still reaches the learner on the stop card itself. */}
+            {journey.current && journey.current.stopCount > 0 && (
+              <View testID="pass-stops-row" style={styles.stopsRow}>
+                {Array.from({ length: journey.current.stopCount }).map((_, i) => {
+                  const n = i + 1;
+                  const at = journey.current!.stopNumber;
+                  const done = n < at;
+                  const here = n === at;
+                  return (
+                    <React.Fragment key={n}>
+                      {i > 0 && (
+                        <View
+                          style={[
+                            styles.stopLink,
+                            { backgroundColor: done || here ? colors.primary : `${ZONE_BOARD.inkMuted}55` },
+                          ]}
+                        />
+                      )}
+                      <View
+                        testID={here ? 'pass-stop-here' : done ? 'pass-stop-done' : 'pass-stop-ahead'}
+                        style={[
+                          styles.stopDot,
+                          done ? { backgroundColor: colors.primary, borderColor: colors.primary } : null,
+                          here ? [styles.stopDotHere, { borderColor: colors.primary }] : null,
+                          !done && !here ? { borderColor: `${ZONE_BOARD.inkMuted}88` } : null,
+                        ]}
+                      />
+                    </React.Fragment>
+                  );
+                })}
+                <MaterialCommunityIcons
+                  name="city-variant-outline"
+                  size={16}
+                  color={ZONE_BOARD.inkMuted}
+                  style={styles.stopTerminus}
+                />
               </View>
             )}
             {/* THE DOOR. Same bordered plate the zone card uses for its
@@ -731,12 +781,11 @@ export function JourneyPassCard({
                 is the paper's own darker end, so this deepens the existing
                 gradient rather than introducing a colour the stock does not
                 already contain. */}
-            <View
-              style={[
-                styles.ctaBtn,
-                { borderColor: TICKET.edge, backgroundColor: TICKET.stockBottom },
-              ]}
-            >
+            {/* UNBOXED (owner's mockup, build 17). The darker plate was the
+                owner's own ruling on 2026-08-28 and the mockup reverses it: the
+                train, the reason and the verb sit straight on the paper, and
+                the verb and its arrow carry the accent instead of a box. */}
+            <View style={styles.ctaBtn}>
               <TrainEngine
                 tint={ZONE_BOARD.ink}
                 width={34}
@@ -759,7 +808,7 @@ export function JourneyPassCard({
                   {journeyCtaTail}
                 </Text>
               )}
-              <Text numberOfLines={1} style={styles.ctaText}>
+              <Text numberOfLines={1} style={[styles.ctaText, { color: colors.primary }]}>
                 {journeyCta}
               </Text>
               {/* A SOLID ARROW, not a hairline one. Feather draws a thin
@@ -772,7 +821,7 @@ export function JourneyPassCard({
                 <MaterialCommunityIcons
                   name="arrow-right-thick"
                   size={20}
-                  color={ZONE_BOARD.ink}
+                  color={colors.primary}
                 />
               </Animated.View>
             </View>
@@ -841,7 +890,11 @@ export function stationFontSize(name: string, width: number): number {
 // THE MINI TICKET'S WIDTH. It grew from 64 when the stub became a whole
 // ticket: a body that names the line, the station and the stop needs a run to
 // name them in, and the board has the room now that it bleeds to the screen.
-const STUB_W = 176;
+// 148 FROM BUILD 17, WAS 176. Inside home's "Your Journey" frame the board is
+// about 35 narrower than at full bleed, and the stub took none of the loss, so
+// the eyebrow ("BOARDING PASS · बोलो रेल") truncated. The stamp's extent (46)
+// and the wordmark still fit: both size off STUB_W with margin to spare.
+const STUB_W = 148;
 // THE STAMP FITS THE TICKET'S INTERIOR, not its outer width. The ticket now
 // carries a 2pt border AND a hairline rule set 4 in from it, so the usable run
 // is ~20 narrower than the card. Sizing off STUB_W - 8, as this did when the
@@ -907,6 +960,9 @@ const styles = StyleSheet.create({
   // Breathe wrapper carries the outer spacing so the glow overlay's inset
   // coordinates match the pass face exactly.
   wrap: { position: 'relative', marginBottom: 12, marginHorizontal: -HOME_BOARD_BLEED },
+  // Inside home's "Your Journey" frame (build 17): no bleed, the frame owns
+  // the margins.
+  wrapFramed: { marginHorizontal: 0, marginBottom: 0 },
   // Geometry is applied inline from the board's own measurements: see the
   // call site for why a 1pt inset stopped working when the face became art.
   glow: {
@@ -975,7 +1031,7 @@ const styles = StyleSheet.create({
   body: { flex: 1, minWidth: 0, justifyContent: 'center' },
   // Colour is applied at the call site from the line's accent: an eyebrow over
   // a city is exactly what the zone card's panel does.
-  eyebrow: { fontFamily: AppFonts.extrabold, fontSize: 9, letterSpacing: 1.4 },
+  eyebrow: { fontFamily: AppFonts.extrabold, fontSize: 9, letterSpacing: 0.9 },
   // Nastaliq glyphs cascade above/below the baseline; give the one-line
   // eyebrow enough line height that the brand isn't clipped.
   eyebrowTall: { lineHeight: 24 },
@@ -1014,11 +1070,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 10,
-    borderWidth: 2,
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 7,
+    paddingVertical: 4,
   },
+  // The stops row (build 17), in place of the brass bar. Links flex so any
+  // stop count from 4 to 12 fits the same width.
+  stopsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingRight: 2 },
+  stopLink: { flex: 1, height: 2, minWidth: 3 },
+  stopDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 2, backgroundColor: 'transparent' },
+  stopDotHere: { width: 16, height: 16, borderRadius: 8, borderWidth: 3, backgroundColor: '#FFFFFF' },
+  stopTerminus: { marginLeft: 6 },
   // BIGGER, because it is one word now rather than a sentence that had to be
   // shrunk to fit the plate beside the ticket.
   // BESIDE THE VERB, not under it: "Only 6 more stops to go should go to the
@@ -1035,8 +1095,8 @@ const styles = StyleSheet.create({
   // one point back buys the sentence beside it a useful amount of width.
   ctaText: {
     fontFamily: AppFonts.extrabold,
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 18,
+    lineHeight: 22,
     color: ZONE_BOARD.ink,
   },
   // Takes the slack between the engine and the verb, so the verb and the arrow
@@ -1146,10 +1206,12 @@ const styles = StyleSheet.create({
   // The ticket's own words, to the LEFT of its own perforation.
   miniBody: { flex: 1, minWidth: 0, gap: 3, alignItems: 'center', justifyContent: 'center' },
   // 12 was 9, and tracked out: this is the ticket's fare class, not a caption.
+  // Two points smaller and a point less tracking from build 17: the stub is
+  // 148 wide inside home's frame and ADMIT ONE clipped at the old size.
   miniAdmit: {
     fontFamily: AppFonts.extrabold,
-    fontSize: 12,
-    letterSpacing: 2.2,
+    fontSize: 10,
+    letterSpacing: 1.2,
     textAlign: 'center',
     color: TICKET.ink,
   },

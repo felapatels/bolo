@@ -271,7 +271,7 @@ describe('zone stamp geometry (build 30)', () => {
 // stamp type ignores OS font scaling so accessibility text sizes cannot
 // re-introduce the collision.
 describe('zone stamp type scales as a unit (R1)', () => {
-  const labelOf = (r: ReturnType<typeof render>) => r.getByText('FARE ZONE');
+  const labelOf = (r: ReturnType<typeof render>) => r.getByText('PLATFORM');
 
   it('label and numeral fonts derive from the ring size', () => {
     const small = render(<ZoneStamp ink="#000" zone={2} name="Anand" size={47} />);
