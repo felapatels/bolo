@@ -95,9 +95,17 @@ jest.mock('@/lib/soundPref', () => ({
   SOUND_PREF_KEY: 'bolo.soundEffects',
 }));
 
+// Build 21: the pass starts the journey's arrival film at the tear, through
+// the root overlay's store. Spied so the beat it fires in can be pinned.
+jest.mock('@/lib/stopSplash', () => ({
+  playStopSplash: jest.fn(),
+  currentStopSplashZone: () => null,
+}));
+
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
 import { playTearSfx } from '@/lib/tearAudio';
 import { loadSoundPref } from '@/lib/soundPref';
+import { playStopSplash } from '@/lib/stopSplash';
 
 const CURRENT = {
   geoName: 'New Delhi',
@@ -237,6 +245,35 @@ describe('stub tear-off activation', () => {
       jest.advanceTimersByTime(1);
     });
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  // THE ARRIVAL FILM STARTS AT THE TEAR (build 21, owner: "the click from
+  // boarding pass to journey still feels choppy, can't we crossfade the
+  // homepage with the splash that plays?"). The journey used to start its
+  // zone film only once its queries resolved, so home dissolved into a bare
+  // loading screen and then the film faded in. Now the pass starts it in the
+  // same beat as the tear, 500ms before navigation, for the learner's
+  // current zone (zoneIndex 1 is zone id 2); the journey sees it up and
+  // stands down. No current stop, no film from here.
+  it('starts the current zone\'s arrival film at the tear, before navigation', () => {
+    mockState.journey = { current: CURRENT, doneCount: 2 };
+    const onPress = jest.fn();
+    render(<JourneyPassCard onPress={onPress} />);
+    fireEvent.press(screen.getByTestId('journey-pass-card'));
+    expect(playStopSplash).toHaveBeenCalledTimes(1);
+    expect(playStopSplash).toHaveBeenCalledWith(2);
+    expect(onPress).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts no film with no current stop: the journey keeps its own arrival', () => {
+    mockState.journey = { current: null, doneCount: 0 };
+    render(<JourneyPassCard onPress={() => {}} />);
+    fireEvent.press(screen.getByTestId('journey-pass-card'));
+    expect(playStopSplash).not.toHaveBeenCalled();
   });
 
   it('swallows re-presses while tearing, then restores to pressable', () => {

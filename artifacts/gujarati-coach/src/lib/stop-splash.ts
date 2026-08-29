@@ -121,6 +121,17 @@ export function playStopSplash(zoneId: number): void {
   emit();
 }
 
+/**
+ * The zone whose film is up right now, or null: a synchronous read for a
+ * page deciding whether to START one. Build 21: the home pass starts the
+ * journey's arrival film at the tear, so the journey, mounting under it,
+ * must not start it again when its own zone resolves. Mobile twin:
+ * lib/stopSplash.ts.
+ */
+export function currentStopSplashZone(): number | null {
+  return zone;
+}
+
 /** Called by the overlay when its fade finishes, or when a click skips it. */
 export function endStopSplash(): void {
   if (zone === null) return;

@@ -32,7 +32,8 @@ import { useIsDesktop } from "@/hooks/use-mobile";
 import { useElementSize } from "@/hooks/use-element-size";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
-import { getRailBrand, getJourneyLine } from "@/lib/journeyLines";
+import { JOURNEY_ZONES, getRailBrand, getJourneyLine } from "@/lib/journeyLines";
+import { playStopSplash } from "@/lib/stop-splash";
 import { useJourneyProgress } from "@/lib/useJourneyProgress";
 import { TrainEngine } from "@/components/train-svg";
 import { BandPill, normalizeBand } from "@/components/ui/band-pill";
@@ -470,7 +471,18 @@ export default function Home() {
     // the first coach phrase can autoplay once the learner reaches practice.
     blessAudioPlayback();
     track(ANALYTICS_EVENTS.JOURNEY_ENTERED_VIA_HERO, { language: activeLang });
-    if (reduceMotion || tearing) return; // instant native Link navigation
+    if (tearing) return;
+    // THE ARRIVAL FILM STARTS HERE, AT THE TEAR, NOT WHEN THE JOURNEY MOUNTS
+    // (build 21, owner: "can't we crossfade the homepage with the splash that
+    // plays?"). The journey used to start its zone film only once its queries
+    // resolved: home dissolved into a bare loading page, then the film faded
+    // in. Started here, the overlay (mounted above the router) covers the
+    // navigation and the map build, and home dissolves straight into the
+    // scene; the journey sees it up and stands down. A no-op on a wide
+    // viewport, where the film never plays. Mobile twin: JourneyPassCard's
+    // handleActivate.
+    if (arrivalZoneId != null) playStopSplash(arrivalZoneId);
+    if (reduceMotion) return; // instant native Link navigation
     try {
       e.preventDefault();
       // Haptic + SFX fire immediately -- both are fire-and-forget and never
@@ -509,6 +521,12 @@ export default function Home() {
   const journeyLine = getJourneyLine(activeLang);
   const railBrand = getRailBrand(activeLang);
   const journey = useJourneyProgress(activeLang, journeyLine.zones);
+  // The zone whose film the pass starts at the tear (handlePassActivate).
+  // Journey 1's zone ids are the six in JOURNEY_ZONES; with no current stop
+  // there is no zone to name and the journey keeps its own arrival.
+  const arrivalZoneId = journey.current
+    ? (JOURNEY_ZONES[journey.current.zoneIndex]?.id ?? null)
+    : null;
   // The board's content box, measured, so the whole face can scale with it.
   // See homeBoardScale.
   const passContent = useElementSize<HTMLDivElement>();

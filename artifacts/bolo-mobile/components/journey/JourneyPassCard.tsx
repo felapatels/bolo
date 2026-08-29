@@ -35,8 +35,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { PressableScale } from '@/components/PressableScale';
-import { getJourneyLine, getRailBrand } from '@/lib/journeyLines';
+import { JOURNEY_ZONES, getJourneyLine, getRailBrand } from '@/lib/journeyLines';
 import { useJourneyProgress } from '@/lib/useJourneyProgress';
+import { playStopSplash } from '@/lib/stopSplash';
 import { useLoopProgress } from '@/lib/useLoopProgress';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
@@ -369,8 +370,24 @@ export function JourneyPassCard({
   // animation-path oddity) activates instantly; otherwise the tear plays and
   // navigation fires at the 500ms mark while the tail of the tear finishes
   // under the incoming screen.
+  // THE ARRIVAL FILM STARTS HERE, AT THE TEAR, NOT WHEN THE JOURNEY MOUNTS
+  // (build 21, owner: "the click from boarding pass to journey still feels
+  // choppy, can't we crossfade the homepage with the splash that plays?").
+  // The journey used to start its own zone film only once its queries
+  // resolved, so the learner saw home dissolve into a bare loading screen and
+  // THEN the film fade in: two dissolves with a stall between them. The
+  // overlay lives at the root above the stack, so started here it covers the
+  // navigation and the map build, and home dissolves straight into the
+  // scene. The journey sees the film already up for its zone and stands
+  // down (currentStopSplashZone). Journey 1's zone ids are the six in
+  // JOURNEY_ZONES; with no current stop there is no zone to name and the
+  // journey keeps its own arrival.
+  const arrivalZoneId = journey.current
+    ? (JOURNEY_ZONES[journey.current.zoneIndex]?.id ?? null)
+    : null;
   const handleActivate = () => {
     if (tearingRef.current) return;
+    if (arrivalZoneId != null) playStopSplash(arrivalZoneId);
     if (reduceMotion) {
       onPressRef.current();
       return;

@@ -18,7 +18,7 @@
 // pass chrome changed.
 import { Link, useLocation } from "wouter";
 import { blessAudioPlayback } from "@/lib/iosAudio";
-import { playStopSplash } from "@/lib/stop-splash";
+import { currentStopSplashZone, playStopSplash } from "@/lib/stop-splash";
 import {
   ZONE_BACKDROP_SCRIM,
   ZONE_BACKDROP_SCRIM_COLOR,
@@ -1912,10 +1912,17 @@ export default function Journey() {
   // neither case shows the map and then covers it.
   //
   // Mobile twin carries the same comment.
+  //
+  // AND NOT AT ALL WHEN THE PASS ALREADY STARTED IT (build 21): home's pass
+  // plays this zone's film at the tear so home dissolves straight into the
+  // scene, and this page mounts under that film. Restarting it here would
+  // remount the player mid-hold. Any other door in finds no film up and plays
+  // its own as before.
   const arrivalPlayed = useRef(false);
   useEffect(() => {
     if (arrivalPlayed.current || !currentZone) return;
     arrivalPlayed.current = true;
+    if (currentStopSplashZone() === currentZone.id) return;
     playStopSplash(currentZone.id);
   }, [currentZone]);
 

@@ -127,7 +127,7 @@ import { isChachaEncounterStation, useChachaMemory } from '@/lib/chachaMemory';
 import { ChachaEncounterDialog } from '@/components/journey/ChachaEncounter';
 import { closeoutOwed, useCloseoutMemory } from '@/lib/closeoutMemory';
 import { ZoneCloseoutOverlay } from '@/components/journey/ZoneCloseout';
-import { playStopSplash } from '@/lib/stopSplash';
+import { currentStopSplashZone, playStopSplash } from '@/lib/stopSplash';
 import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from '@/lib/railPalette';
 import {
   BADGE,
@@ -1731,10 +1731,17 @@ export default function JourneyScreen() {
   //
   // Once per mount. Popping back from a stop refocuses this screen rather than
   // recreating it, so returning from a lesson does not replay the film.
+  //
+  // AND NOT AT ALL WHEN THE PASS ALREADY STARTED IT (build 21): the home pass
+  // plays this zone's film at the tear so home dissolves straight into the
+  // scene, and this screen mounts under that film. Restarting it here would
+  // remount the player mid-hold. Any other door in (a tab, a deep link) finds
+  // no film up and plays its own as before.
   const arrivalPlayed = useRef(false);
   useEffect(() => {
     if (arrivalPlayed.current || !currentZone) return;
     arrivalPlayed.current = true;
+    if (currentStopSplashZone() === currentZone.id) return;
     playStopSplash(currentZone.id);
   }, [currentZone]);
 

@@ -29,6 +29,14 @@ const h = vi.hoisted(() => ({
   track: vi.fn(),
   playTearSfx: vi.fn(),
   webHaptic: vi.fn(),
+  playStopSplash: vi.fn(),
+}));
+
+// Build 21: the pass starts the journey's arrival film at the tear. The real
+// store is a no-op on jsdom's wide viewport, so the call is spied here.
+vi.mock("@/lib/stop-splash", () => ({
+  playStopSplash: h.playStopSplash,
+  currentStopSplashZone: () => null,
 }));
 
 // Task #978: tear SFX + haptic. Mock both modules so jsdom never touches
@@ -170,6 +178,44 @@ beforeEach(() => {
   h.track.mockClear();
   h.playTearSfx.mockClear();
   h.webHaptic.mockClear();
+  h.playStopSplash.mockClear();
+});
+
+// THE ARRIVAL FILM STARTS AT THE TEAR (build 21, owner: "the click from
+// boarding pass to journey still feels choppy, can't we crossfade the
+// homepage with the splash that plays?"). The journey used to start its zone
+// film only once its queries resolved, so home dissolved into a bare loading
+// page and then the film faded in. Now the pass starts it in the same beat
+// as the tear, before navigation, for the learner's current zone; the
+// journey sees it up and stands down (journey.tsx). No current stop, no
+// film from here: the journey keeps its own arrival.
+describe("home boarding pass starts the arrival film at the tear (build 21)", () => {
+  test("activation with a current stop starts zone 1's film before navigating", async () => {
+    h.groups = [grp({ status: "in_progress", masteredCount: 2, attemptedCount: 3 })];
+    const { history } = renderHome();
+    await userEvent.setup().click(screen.getByText("Resume").closest("a") as HTMLElement);
+    // Fired at activation, in the tear's beat, not at the 500ms navigation.
+    expect(h.playStopSplash).toHaveBeenCalledTimes(1);
+    expect(h.playStopSplash).toHaveBeenCalledWith(1);
+    expect(history).not.toContain("/journey");
+    await waitFor(() => expect(history).toContain("/journey"));
+  });
+
+  test("reduced motion still starts the film, then navigates instantly", async () => {
+    h.reduceMotion = true;
+    h.groups = [grp({ status: "in_progress", masteredCount: 2, attemptedCount: 3 })];
+    const { history } = renderHome();
+    await userEvent.setup().click(screen.getByText("Resume").closest("a") as HTMLElement);
+    expect(h.playStopSplash).toHaveBeenCalledWith(1);
+    expect(history).toContain("/journey");
+  });
+
+  test("with no current stop the pass starts no film: the journey keeps its own arrival", async () => {
+    h.groups = [];
+    renderHome();
+    await userEvent.setup().click(screen.getByText("Start").closest("a") as HTMLElement);
+    expect(h.playStopSplash).not.toHaveBeenCalled();
+  });
 });
 
 afterEach(() => {
