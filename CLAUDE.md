@@ -70,9 +70,15 @@ PORT=5173 BASE_PATH=/ API_PROXY_TARGET=http://localhost:3001 \
 Run from the repo root.
 
 - api: `pnpm --filter @workspace/api-server run test`
-  Baseline **1251 tests, 93 suites, 1249 pass, 0 fail, 2 skipped, ~430s**, measured
-  in the Repl Shell 2026-08-27. (Was 1174/91/1172 on 2026-08-23, and 1064/68/1062
-  before that; the growth is new coverage, not a change in behaviour.)
+  Baseline **1430 tests, 105 suites, 1428 pass, 0 fail, 2 skipped, ~377s**, measured
+  in the Repl Shell 2026-08-28 (build 17). (Was 1251/93/1249 on 2026-08-27,
+  1174/91/1172 on 2026-08-23, and 1064/68/1062 before that; the growth is new
+  coverage, not a change in behaviour.) The 1428 is 1427 from the full run
+  plus the one file re-run alone after its stale "kem cho" expectation was
+  inverted (800eb602). **A single file runs with**
+  `node --import tsx --test --experimental-test-module-mocks <file>` from
+  `artifacts/api-server`; without the mocks flag a file using `mock.module`
+  fails to even import, which looks like a broken test and is not.
   **THIS RUN CLOSED THREE THINGS AT ONCE**, which is why the number moved so far.
   `learning.zone-testout.test.ts` was fixed at the end of chat 11 and had sat
   UNVERIFIED across two handoffs, because this suite cannot run on a Mac; it
@@ -86,13 +92,13 @@ Run from the repo root.
   The script runs `sync-schema` first, so running the api tests APPLIES pending
   migrations to the dev database.
 - web: `pnpm --filter @workspace/gujarati-coach run test` (vitest)
-  Baseline **128 files, 1399 tests, all pass, ~26s**, measured 2026-08-27.
-  (Was 93 suites / 842 tests.) One flake seen once on 2026-08-27, a single
+  Baseline **131 files, 1421 tests, all pass**, measured 2026-08-28 (build 17).
+  (Was 128 / 1399 on 2026-08-27, and 93 suites / 842 tests before that.) One flake seen once on 2026-08-27, a single
   failure that did not reproduce across two immediate re-runs; noted rather
   than chased, and worth watching for.
 - mobile: `pnpm --filter @workspace/bolo-mobile run test` (jest)
-  Baseline **132 suites, 1307 tests, all pass**, measured 2026-08-27. (Was 108
-  suites / 1007 tests.) Needs `--forceExit`; workers leak and CI does not pass
+  Baseline **141 suites, 1359 tests, all pass**, measured 2026-08-28 (build 17).
+  (Was 132 / 1307 on 2026-08-27, and 108 suites / 1007 tests before that.) Needs `--forceExit`; workers leak and CI does not pass
   that flag. Known open item.
 
 **Never run the api suite concurrently with web.** A different total is not a
@@ -275,8 +281,12 @@ command runs.
   layout, navigation and touch; NOT for animations or release behaviour
   (rules below). Two operational traps: **EAS goes bare-workflow if it sees
   `artifacts/bolo-mobile/ios`** (excluded in `.easignore`, which REPLACES
-  .gitignore on EAS; also run eas-cli from `artifacts/bolo-mobile`, never
-  the repo root), and the dev client's Info.plist is hand-patched (usage
+  .gitignore on EAS. **THAT FILE IS AT THE GIT ROOT, NOT IN
+  artifacts/bolo-mobile**: two handoffs said it did not exist after looking in
+  the wrong directory, and build 17 overwrote it before reading it and had to
+  restore it. `eas-cli` is a devDependency of the mobile package, at
+  `artifacts/bolo-mobile/node_modules/.bin/eas`, not on PATH; run it from
+  `artifacts/bolo-mobile`, never the repo root), and the dev client's Info.plist is hand-patched (usage
   strings + URL schemes) so regenerating ios/ silently breaks chat's mic
   and deep links until re-patched.
 
