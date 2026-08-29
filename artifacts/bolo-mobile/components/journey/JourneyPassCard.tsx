@@ -51,6 +51,7 @@ import {
 } from '@/components/journey/TicketParts';
 import { BADGE, TICKET, TICKET_SHAPE } from '@/lib/ticketStock';
 import { ZONE_BOARD, zoneBoardPedimentH } from '@/lib/zoneBackdrops';
+import { StopDots } from './StopDots';
 import { playTearSfx } from '@/lib/tearAudio';
 import { loadSoundPref } from '@/lib/soundPref';
 
@@ -727,47 +728,22 @@ export function JourneyPassCard({
             {/* THE STATIONS, NOT A BAR (owner's mockup, build 17). The brass
                 bar drew mastered phrases within ONE stop; the mockup draws the
                 zone as a row of stops with the learner's own ringed, which is
-                what "Stop 5 of 11" above already says in words. Done stops are
-                filled in the accent, the current one is a ring, the rest are
-                hollow, and the skyline at the end is the zone's terminus. The
-                phrase count still reaches the learner on the stop card itself. */}
+                what "Stop 5 of 11" above already says in words. StopDots is
+                the one drawing of that row; the cards use it too. */}
             {journey.current && journey.current.stopCount > 0 && (
-              <View testID="pass-stops-row" style={styles.stopsRow}>
-                {Array.from({ length: journey.current.stopCount }).map((_, i) => {
-                  const n = i + 1;
-                  const at = journey.current!.stopNumber;
-                  const done = n < at;
-                  const here = n === at;
-                  return (
-                    <React.Fragment key={n}>
-                      {i > 0 && (
-                        <View
-                          style={[
-                            styles.stopLink,
-                            { backgroundColor: done || here ? colors.primary : `${ZONE_BOARD.inkMuted}55` },
-                          ]}
-                        />
-                      )}
-                      <View
-                        testID={here ? 'pass-stop-here' : done ? 'pass-stop-done' : 'pass-stop-ahead'}
-                        style={[
-                          styles.stopDot,
-                          done ? { backgroundColor: colors.primary, borderColor: colors.primary } : null,
-                          here ? [styles.stopDotHere, { borderColor: colors.primary }] : null,
-                          !done && !here ? { borderColor: `${ZONE_BOARD.inkMuted}88` } : null,
-                        ]}
-                      />
-                    </React.Fragment>
-                  );
-                })}
-                <MaterialCommunityIcons
-                  name="city-variant-outline"
-                  size={16}
-                  color={ZONE_BOARD.inkMuted}
-                  style={styles.stopTerminus}
+              <View style={styles.stopsRow}>
+                <StopDots
+                  testID="pass-stops-row"
+                  total={journey.current.stopCount}
+                  done={journey.current.stopNumber - 1}
+                  current={journey.current.stopNumber}
+                  accent={colors.primary}
+                  muted={ZONE_BOARD.inkMuted}
+                  terminus
                 />
               </View>
             )}
+
             {/* THE DOOR. Same bordered plate the zone card uses for its
                 test-out link, so the two screens offer an action the same
                 way. The engine stands in it rather than up beside the
@@ -1072,13 +1048,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingVertical: 4,
   },
-  // The stops row (build 17), in place of the brass bar. Links flex so any
-  // stop count from 4 to 12 fits the same width.
+  // The stops row (build 17), in place of the brass bar; StopDots draws it.
   stopsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingRight: 2 },
-  stopLink: { flex: 1, height: 2, minWidth: 3 },
-  stopDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 2, backgroundColor: 'transparent' },
-  stopDotHere: { width: 16, height: 16, borderRadius: 8, borderWidth: 3, backgroundColor: '#FFFFFF' },
-  stopTerminus: { marginLeft: 6 },
   // BIGGER, because it is one word now rather than a sentence that had to be
   // shrunk to fit the plate beside the ticket.
   // BESIDE THE VERB, not under it: "Only 6 more stops to go should go to the

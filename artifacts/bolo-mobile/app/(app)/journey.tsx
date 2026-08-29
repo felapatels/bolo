@@ -31,6 +31,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { StopDots } from '@/components/journey/StopDots';
 // Aliased: react-native-svg exports a LinearGradient too, and the tag
 // backs use that one.
 import { LinearGradient as FadeGradient } from 'expo-linear-gradient';
@@ -183,6 +184,12 @@ const MAP_MAX_W = 390;
 // with it, and the serpentine keeps its x swing over twice the y, which
 // halves the slope of every bend.
 const STATION_H = 176; // vertical rhythm per station row
+// THE OPENING SHOT'S PACE (build 17): one animated hop of about a row every
+// beat, so the stops go by one at a time rather than in a blur. Capped so a
+// far stop takes bigger hops on the same beat rather than more of them.
+const INTRO_HOP_PX = STATION_H;
+const INTRO_HOP_MS = 520;
+const INTRO_HOPS_MAX = 10;
 // The tracing stop's chalkboard (build 17): a tall slate rather than a tag,
 // and the doubled pitch above is what leaves room for it in the row.
 const CHALKBOARD_W = 150;
@@ -2060,6 +2067,8 @@ export default function JourneyScreen() {
    * Same hold, same cap, same ease, same skip.
    */
   const introHold = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The hop chain of the opening shot (build 17), cleared by a touch. */
+  const introHop = useRef<ReturnType<typeof setTimeout> | null>(null);
   const introTarget = useRef<number | null>(null);
 
   /** Stop the shot wherever it is and put the learner on their card. */
@@ -2067,6 +2076,10 @@ export default function JourneyScreen() {
     if (introHold.current != null) {
       clearTimeout(introHold.current);
       introHold.current = null;
+    }
+    if (introHop.current != null) {
+      clearTimeout(introHop.current);
+      introHop.current = null;
     }
     const y = introTarget.current;
     if (y == null) return;
@@ -2079,6 +2092,7 @@ export default function JourneyScreen() {
   useEffect(
     () => () => {
       if (introHold.current != null) clearTimeout(introHold.current);
+      if (introHop.current != null) clearTimeout(introHop.current);
     },
     [],
   );
@@ -2113,7 +2127,8 @@ export default function JourneyScreen() {
 
     introHold.current = setTimeout(() => {
       introHold.current = null;
-      introTarget.current = null;
+      // introTarget stays set until the LAST hop lands, so a touch mid-chain
+      // still lands the whole shot rather than stopping it halfway.
       // THE PLATFORM'S OWN ANIMATED SCROLL, not a hand-rolled tween.
       //
       // The tween drove scrollTo({ animated: false }) once per
@@ -2125,7 +2140,28 @@ export default function JourneyScreen() {
       // never fires has no pace to tune. `animated: true` is what this screen
       // used before the hold existed and is known to move a real ScrollView.
       // The HOLD is the half the owner actually asked for and it is kept.
-      scrollRef.current?.scrollTo({ y: to, animated: true });
+      // IN STATION-SIZED HOPS, NOT ONE LEAP (build 17). Owner: "autoscroll
+      // happens too quickly when you join this page. slow it down so you can
+      // see the stops you passed." The platform's animated scroll has no
+      // duration, and it is the only scroll proven to move a real ScrollView
+      // here, so the shot is a chain of them: one hop of about a row every
+      // INTRO_HOP_MS, capped at INTRO_HOPS_MAX so a learner six zones down is
+      // not kept waiting (bigger hops, same beat). A touch still lands the
+      // whole shot at once: landIntro clears the chain.
+      const hops = Math.min(INTRO_HOPS_MAX, Math.max(1, Math.round(to / INTRO_HOP_PX)));
+      let hop = 0;
+      const next = () => {
+        hop += 1;
+        const y = hop >= hops ? to : Math.round((to * hop) / hops);
+        scrollRef.current?.scrollTo({ y, animated: true });
+        if (hop < hops) {
+          introHop.current = setTimeout(next, INTRO_HOP_MS);
+        } else {
+          introHop.current = null;
+          introTarget.current = null;
+        }
+      };
+      next();
     }, INTRO_SCROLL.holdMs);
   };
 
@@ -3104,15 +3140,13 @@ export default function JourneyScreen() {
                               <Text style={styles.chalkCount}>
                                 {s.traceDone ?? 0}/{s.traceTotal}
                               </Text>
-                              <View style={[styles.cardProgressTrack, styles.chalkTrack]}>
-                                <View
-                                  testID={`progress-trace-${s.stopNumber}`}
-                                  style={{
-                                    width: `${Math.round(((s.traceDone ?? 0) / s.traceTotal) * 100)}%`,
-                                    height: '100%',
-                                    borderRadius: 3,
-                                    backgroundColor: '#ffffff',
-                                  }}
+                              <View testID={`progress-trace-${s.stopNumber}`} style={styles.chalkDots}>
+                                <StopDots
+                                  total={s.traceTotal}
+                                  done={s.traceDone ?? 0}
+                                  accent="#ffffff"
+                                  muted="rgba(255,255,255,0.85)"
+                                  ringFill="#1F3D2B"
                                 />
                               </View>
                             </>
@@ -3311,29 +3345,17 @@ export default function JourneyScreen() {
                       ) : null}
                       {s.attemptedCount ? (
                         <View style={styles.cardProgressRow}>
-                          <View
-                            style={[
-                              styles.cardProgressTrack,
-                              { backgroundColor: accessible ? `${zoneColor}26` : `${TICKET.inkAhead}33` },
-                            ]}
-                          >
-                            <View
-                              testID={`stop-progress-${s.id}`}
-                              style={[
-                                styles.cardProgressFill,
-                                {
-                                  // A percentage of the now-flexible track,
-                                  // not CARD_PROGRESS_W points of it.
-                                  width: `${Math.round(
-                                    (Math.min(s.masteredCount ?? 0, s.phraseCount ?? 0) /
-                                      Math.max(s.phraseCount ?? 0, 1)) *
-                                      100,
-                                  )}%`,
-                                  backgroundColor: accessible
-                                    ? zoneColor
-                                    : TICKET.inkAhead,
-                                },
-                              ]}
+                          {/* THE DOTS, NOT A BAR (owner, build 17: "for each
+                              cards progress bar, i like the dotted bar you
+                              did with purple on the boarding pass"). One dot
+                              per phrase, mastered ones filled in the app's
+                              violet. Same StopDots the pass draws. */}
+                          <View testID={`stop-progress-${s.id}`} style={styles.cardDots}>
+                            <StopDots
+                              total={s.phraseCount ?? 0}
+                              done={Math.min(s.masteredCount ?? 0, s.phraseCount ?? 0)}
+                              accent={accessible ? colors.primary : TICKET.inkAhead}
+                              muted={accessible ? ZONE_BOARD.inkMuted : TICKET.inkAhead}
                             />
                           </View>
                           <Text
@@ -4490,6 +4512,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardProgressFill: { height: 6, borderRadius: 3 },
+  cardDots: { flex: 1, minWidth: 0, paddingRight: 2 },
+  chalkDots: { alignSelf: 'stretch', flexDirection: 'row', marginTop: 6, paddingHorizontal: 2 },
   cardProgressLabel: { fontFamily: AppFonts.bold, fontSize: 10 },
   cardTitleSpacer: { flex: 1 },
   cardStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
