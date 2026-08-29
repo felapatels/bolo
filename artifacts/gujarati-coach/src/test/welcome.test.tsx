@@ -96,6 +96,11 @@ describe("the cards", () => {
     // Owner, 2026-08-29: the walkthrough must say Bolo learns from you and
     // gets more accurate and personal as you go.
     expect(WALKTHROUGH_STEPS.map((s) => s.title)).toContain("Bolo learns you");
+    // Owner, 2026-08-29: "welcome tour should say, watch out for emergencies
+    // and unexpected fun!"
+    expect(WALKTHROUGH_STEPS[WALKTHROUGH_STEPS.length - 1]!.body).toMatch(
+      /Watch out for emergencies and unexpected fun!/,
+    );
     render(<Welcome />);
     expect(screen.getByTestId("walkthrough-title")).toHaveTextContent(WALKTHROUGH_STEPS[0]!.title);
     expect(screen.getByTestId(`mascot-${WALKTHROUGH_STEPS[0]!.pose}`)).toBeInTheDocument();

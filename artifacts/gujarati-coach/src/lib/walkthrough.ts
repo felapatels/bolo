@@ -48,11 +48,13 @@ export const WALKTHROUGH_STEPS: readonly WalkthroughStep[] = [
     title: "Bolo learns you",
     body: "Every word you say teaches Bolo how you sound. Scoring gets more accurate, and more personal, the further you go.",
   },
+  // The last line is the owner's, 2026-08-29: "welcome tour should say,
+  // watch out for emergencies and unexpected fun!"
   {
     key: "chai",
     pose: "cheer",
     title: "Chai, games and friends",
-    body: "Practice earns XP and Chai. Play quick games, add a friend, and climb the board together.",
+    body: "Practice earns XP and Chai. Play quick games, add a friend, and climb the board together. Watch out for emergencies and unexpected fun!",
   },
 ];
 

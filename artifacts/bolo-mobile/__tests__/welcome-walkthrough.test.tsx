@@ -148,6 +148,11 @@ describe('the cards', () => {
     // gets more accurate and personal as you go.
     expect(WALKTHROUGH_STEPS.map((s) => s.title)).toContain('Bolo learns you');
     expect(WALKTHROUGH_STEPS.find((s) => s.key === 'learns')!.body).toMatch(/more accurate/);
+    // Owner, 2026-08-29: "welcome tour should say, watch out for emergencies
+    // and unexpected fun!"
+    expect(WALKTHROUGH_STEPS[WALKTHROUGH_STEPS.length - 1]!.body).toMatch(
+      /Watch out for emergencies and unexpected fun!/,
+    );
     for (const step of WALKTHROUGH_STEPS) {
       expect(step.title.length).toBeGreaterThan(0);
       expect(step.body.length).toBeGreaterThan(0);
