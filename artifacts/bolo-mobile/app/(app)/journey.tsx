@@ -301,30 +301,6 @@ function isStatusAccessible(status: LessonGroupSummary['status']): boolean {
   );
 }
 
-/** Pulsing zone-colored ring around the current stop's signboard card (web:
- *  station-stop-glow keyframes, 2.6s opacity 0.45→1). Extracted so the loop
- *  hook lives outside the station map loop; callers gate on reduced motion.
- *  Opacity-only animation; the ring + shadow are static styles. */
-function StopGlowPulse({ color }: { color: string }) {
-  const progress = useLoopProgress(2600, true);
-  const style = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 0.5, 1], [0.45, 1, 0.45]),
-  }));
-  return (
-    <Animated.View
-      pointerEvents="none"
-      testID="stop-glow"
-      // R2 (32.1): the ring carries an iOS soft shadow (shadowRadius 8) and
-      // pulses opacity every frame. Rasterizing lets Core Animation fade one
-      // cached texture instead of recompositing the shadow per frame; the
-      // Android hardware-texture hint gives the same cached-layer fade.
-      shouldRasterizeIOS
-      renderToHardwareTextureAndroid
-      style={[styles.stopGlow, { borderColor: color, shadowColor: color }, style]}
-    />
-  );
-}
-
 const AnimatedG = Animated.createAnimatedComponent(G);
 
 // Rail comet tuning, mirroring the web source of truth (RAIL_PULSE in
@@ -3010,7 +2986,14 @@ export default function JourneyScreen() {
                           ]}
                         />
                       )}
-                      {isCurrent && !reduceMotion && <StopGlowPulse color={zoneColor} />}
+                      {/* THE GLOW RING CAME OFF in build 17 (owner chose B: "drop
+                          the outer glow ring, keep the edge and the roof bar").
+                          It was a 3pt accent ring 4pt outside the card, meant
+                          to pulse (web: station-stop-glow) and unable to on
+                          this app's release builds, where nothing driven
+                          per-frame from native ticks. Static, it was a second
+                          outline on a card that already has the accent edge,
+                          the roof bar and the mascot: "card 1 is disorganized." */}
                       <View style={styles.cardTitleRow}>
                         {/* BOLO STANDS ON THE CARD NOW, not beside it.
                             Reported from the preview: "Move bolo onto the card
@@ -4190,20 +4173,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 4,
     borderBottomRightRadius: 4,
     opacity: 0.55,
-  },
-  // Pulsing ring hugging the current card's border (opacity animated by
-  // StopGlowPulse; ring + shadow are static).
-  stopGlow: {
-    position: 'absolute',
-    left: -4,
-    right: -4,
-    top: -4,
-    bottom: -4,
-    borderRadius: 14,
-    borderWidth: 3,
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
   },
   cardProgressRow: {
     flexDirection: 'row',

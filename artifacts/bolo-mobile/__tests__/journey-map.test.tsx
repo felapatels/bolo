@@ -906,12 +906,15 @@ describe('journey map — build 31 signboard dressing + rail pulse', () => {
     return { a, b, c };
   }
 
-  it('dresses only the current stop as a signboard with glow and glyph', () => {
+  it('dresses only the current stop as a signboard, with no glow ring and no glyph', () => {
     const { a, b, c } = threeStopZone();
     render(<JourneyScreen />);
 
     expect(screen.getByTestId('signboard-bar')).toBeOnTheScreen();
-    expect(screen.getByTestId('stop-glow')).toBeOnTheScreen();
+    // INVERTED in build 17: the glow ring came off the current card (owner
+    // chose to keep the accent edge and the roof bar only). It could not
+    // pulse on a release build and sat as a second static outline.
+    expect(screen.queryByTestId('stop-glow')).toBeNull();
     // INVERTED in build 17: the sign glyph came off the current card so the
     // taste chip stays on the title row ("chip for free taste should be in
     // upper right like 2 and 3"). No card wears it now.
