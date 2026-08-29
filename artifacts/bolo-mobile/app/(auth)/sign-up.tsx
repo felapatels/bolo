@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useClerk, useSignUp } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
 import { AuthShell, Field, fieldError } from '@/components/AuthShell';
+import { PasswordChecklist } from '@/components/PasswordChecklist';
+import { passwordMeetsAll } from '@/lib/passwordRules';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { AppleAuthButton } from '@/components/AppleAuthButton';
 import { GoogleAuthButton } from '@/components/GoogleAuthButton';
@@ -244,6 +246,9 @@ export default function SignUpScreen() {
         onChangeText={setPassword}
         error={fieldError(errors.fields.password)}
       />
+      {/* Build 19: the rules, ticked live as they type (lib/passwordRules.ts).
+          The button waits for all three. */}
+      <PasswordChecklist password={password} />
 
       {formErrorLine ? (
         <Text
@@ -259,7 +264,7 @@ export default function SignUpScreen() {
         icon="user-plus"
         onPress={handleSubmit}
         loading={busy}
-        disabled={!emailAddress || !password}
+        disabled={!emailAddress || !passwordMeetsAll(password)}
         style={{ marginTop: 6 }}
       />
 

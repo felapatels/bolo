@@ -6,6 +6,8 @@ import { useUser, isClerkAPIResponseError } from '@clerk/expo';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { Field } from '@/components/AuthShell';
+import { PasswordChecklist } from '@/components/PasswordChecklist';
+import { passwordProblem } from '@/lib/passwordRules';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
@@ -33,8 +35,10 @@ export default function ChangePasswordScreen() {
       setError('Enter your current password.');
       return;
     }
-    if (next.length < 8) {
-      setError('New password must be at least 8 characters.');
+    // Build 19: the same rules the checklist under the field ticks live.
+    const problem = passwordProblem(next);
+    if (problem) {
+      setError(problem);
       return;
     }
     if (next !== confirm) {
@@ -108,6 +112,7 @@ export default function ChangePasswordScreen() {
           autoCapitalize="none"
           autoComplete="new-password"
         />
+        <PasswordChecklist password={next} />
         <Field
           label="Confirm new password"
           value={confirm}
