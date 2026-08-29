@@ -1,7 +1,12 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, languagesTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { openai, speechToText } from "@workspace/integrations-openai-ai-server/audio";
+import {
+  openai,
+  speechToText,
+  detectAudioFormat,
+  convertToWav,
+} from "@workspace/integrations-openai-ai-server/audio";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
 import {
@@ -115,6 +120,25 @@ export interface ChachaCallDeps {
   resolveLanguage: (
     userId: string,
   ) => Promise<{ code: string; name: string }>;
+  /**
+   * The learner's clip, in something the models will actually accept.
+   *
+   * THE CALL ROUTE WAS THE ONLY AUDIO-IN PATH IN THIS SERVER THAT SKIPPED THIS,
+   * and it cost the whole feature. iOS records m4a (expo-audio's HIGH_QUALITY
+   * preset), the call client hardcodes `format: "wav"`, and this route trusted
+   * that label: OpenAI was handed m4a bytes in a file named `audio.wav`, threw,
+   * and the throw was swallowed by a bare catch. Every turn came back with an
+   * empty transcript, which after 2026-08-28 reads as "Didn't catch that" on
+   * every single answer while the learner's own level meter is bouncing.
+   *
+   * WAV OR MP3, NOT MERELY "DECODABLE". ensureCompatibleFormat is happy to hand
+   * Whisper an mp4 untouched, and Whisper is happy to take it, but gpt-audio's
+   * `input_audio` accepts only wav and mp3. Both halves of a turn read the same
+   * buffer, so the narrower rule is the one that governs.
+   */
+  prepareLearnerAudio: (
+    audio: Buffer,
+  ) => Promise<{ buffer: Buffer; format: "wav" | "mp3"; detected: string }>;
   /** One live beat through gpt-audio. */
   liveTurn: typeof runLiveTurn;
   /**
@@ -178,9 +202,22 @@ const defaultDeps: ChachaCallDeps = {
     });
     return { code, name: row?.name ?? "Hindi" };
   },
+  prepareLearnerAudio: async (audio) => {
+    const detected = detectAudioFormat(audio);
+    if (detected === "wav" || detected === "mp3") {
+      return { buffer: audio, format: detected, detected };
+    }
+    // Anything else, including the m4a a phone actually records and the
+    // "unknown" a truncated clip produces, goes through ffmpeg. It is already
+    // a server dependency and already spawned twice per turn.
+    return { buffer: await convertToWav(audio), format: "wav", detected };
+  },
   liveTurn: runLiveTurn,
+  // Deliberately does NOT catch. The route catches and LOGS, because a
+  // transcriber that refuses every clip and a learner who says nothing produce
+  // the same empty string, and one of them is an outage.
   transcribeLearner: (audio, format, languageCode) =>
-    speechToText(audio, format, { language: languageCode }).catch(() => ""),
+    speechToText(audio, format, { language: languageCode }),
   grantChai: async (userId, callId, turnIndex) => {
     try {
       const { granted } = await grantTokensDetailed(
@@ -348,7 +385,10 @@ export function createChachaCallRouter(
         res.status(400).json({ error: "audioBase64 is required" });
         return;
       }
-      const format = body.format === "mp3" ? "mp3" : "wav";
+      // The client's label is a HINT AND NOTHING MORE from 2026-08-28. It sent
+      // "wav" for an m4a for the life of this feature and the route believed it.
+      // detectAudioFormat reads the magic bytes instead.
+      const claimedFormat = body.format === "mp3" ? "mp3" : "wav";
 
       const beat = beatAt(session.mode, session.beatIndex);
       if (!beat) {
@@ -356,7 +396,7 @@ export function createChachaCallRouter(
         return;
       }
 
-      const audio = Buffer.from(audioBase64, "base64");
+      const rawAudio = Buffer.from(audioBase64, "base64");
       const wantsStreamUrl = req.get("X-Audio-Stream") === "url";
       const stream = wantsStreamUrl ? createChatAudioStream(userId) : null;
 
@@ -367,6 +407,27 @@ export function createChachaCallRouter(
           callId: session.id,
           audioUrl: `/openai/chat/audio/${stream.id}`,
         });
+      }
+
+      // Decoded ONCE, before either model sees it, because both halves of a turn
+      // read the same buffer and gpt-audio is the fussier of the two.
+      let audio: Buffer = rawAudio;
+      let format: "wav" | "mp3" = claimedFormat;
+      let detected = claimedFormat as string;
+      try {
+        const prepared = await deps.prepareLearnerAudio(rawAudio);
+        audio = prepared.buffer;
+        format = prepared.format;
+        detected = prepared.detected;
+      } catch (err) {
+        // ffmpeg refusing the clip is not a reason to drop the call: the turn
+        // carries on with the raw bytes and degrades to his scripted line if the
+        // models will not take them. It MUST be loud, because a silent version
+        // of exactly this is what hid the defect for a day.
+        req.log.warn(
+          { err, bytes: rawAudio.length },
+          "[chacha-call] could not decode the learner's clip",
+        );
       }
 
       let result: LiveTurnResult | null = null;
@@ -453,7 +514,15 @@ export function createChachaCallRouter(
         // transcript, or has already decided it heard nothing.
         const lateTranscript =
           beat.mode === "canned"
-            ? deps.transcribeLearner(audio, format, session.languageCode)
+            ? deps
+                .transcribeLearner(audio, format, session.languageCode)
+                .catch((err: unknown) => {
+                  req.log.warn(
+                    { err, format, detected, beat: beat.id },
+                    "[chacha-call] could not transcribe the learner on a canned beat",
+                  );
+                  return "";
+                })
             : null;
         const clip = await deps.cannedLine(fallbackKey, session.languageCode);
         if (lateTranscript) learnerText = (await lateTranscript).trim();
@@ -518,6 +587,15 @@ export function createChachaCallRouter(
        * its chai is a small disappointment; a call that drops because the
        * ledger hiccuped is the feature not working.
        */
+      // A REFUSED CLIP IS NOT A SILENT LEARNER, and the difference must not be
+      // invisible again. warn and above reaches Sentry.
+      if (result?.transcriptFailed) {
+        req.log.warn(
+          { beat: beat.id, format, detected, bytes: rawAudio.length, callId: session.id },
+          "[chacha-call] transcription refused the learner's clip",
+        );
+      }
+
       const heardThem = learnerText.length > 0;
       // The turn they just answered. Read BEFORE recordCallTurn advances it.
       const answeredIndex = session.beatIndex;
@@ -555,7 +633,13 @@ export function createChachaCallRouter(
           firstAudioMs,
           totalMs: Date.now() - t0,
           spokenSeconds: Number((result?.spokenSeconds ?? 0).toFixed(2)),
+          // WHAT THE PHONE ACTUALLY SENT, against what it said it sent. A day
+          // went into "he never hears me" and this one pair answers it.
+          claimedFormat,
+          detected,
+          audioBytes: rawAudio.length,
           heardSomething: heardThem,
+          transcriptFailed: result?.transcriptFailed ?? false,
           chaiEarned,
           xpEarned,
         },

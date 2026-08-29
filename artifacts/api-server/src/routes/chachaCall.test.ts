@@ -47,6 +47,12 @@ let chaiGrants: Array<{ callId: string; turnIndex: number }> = [];
 let xpGrants: Array<{ languageCode: string; turnIndex: number }> = [];
 /** Set to make the ledger report "already credited", as a retry would. */
 let rewardAlreadyGranted = false;
+/** Byte lengths the route handed to the decoder, one per turn. */
+let preparedBytes: number[] = [];
+/** Set to make the decoder throw, as ffmpeg would on a clip it cannot read. */
+let prepareError: Error | null = null;
+/** Lets one test look at exactly what reached gpt-audio. */
+let liveSpy: ((req: { audio: Buffer; audioFormat: string }) => void) | null = null;
 /** What STT hears on a CANNED beat, where no live turn runs. */
 let lateTranscript = "chalo chacha-ji";
 let getChatAudioStream: (id: string) => { chunks: Buffer[]; done: boolean; failed: boolean } | undefined;
@@ -57,6 +63,7 @@ function makeLive(over: Partial<LiveTurnResult> = {}): LiveTurnResult {
     learnerText: "roti aur dal",
     mp3: Buffer.from("fake-mp3-bytes"),
     spokenSeconds: 4.5,
+    transcriptFailed: false,
     ...over,
   };
 }
@@ -82,9 +89,17 @@ before(async () => {
       };
     },
     liveTurn: async (req) => {
+      liveSpy?.(req);
       if (liveError) throw liveError;
       req.onAudioChunk?.(liveResult?.mp3 ?? Buffer.alloc(0));
       return liveResult ?? makeLive();
+    },
+    prepareLearnerAudio: async (a) => {
+      preparedBytes.push(a.length);
+      if (prepareError) throw prepareError;
+      // Stands in for ffmpeg: the tests care that the route DECODES before
+      // either model sees the clip, not what ffmpeg does with it.
+      return { buffer: Buffer.concat([Buffer.from("wav:"), a]), format: "wav" as const, detected: "mp4" };
     },
     transcribeLearner: async () => lateTranscript,
     grantChai: async (_userId, callId, turnIndex) => {
@@ -133,6 +148,9 @@ beforeEach(() => {
   chaiGrants = [];
   xpGrants = [];
   rewardAlreadyGranted = false;
+  preparedBytes = [];
+  prepareError = null;
+  liveSpy = null;
   lateTranscript = "chalo chacha-ji";
 });
 
@@ -426,6 +444,70 @@ test("what a turn paid is logged, so a silent reward failure is visible", async 
   assert.equal(o.chaiEarned, 1);
   assert.equal(o.xpEarned, 0);
   assert.equal(o.heardSomething, true);
+});
+
+// ── The learner's clip has to be decodable before either model sees it ─────
+//
+// Owner, 2026-08-28, on a live Gujarati call: "it says didn't catch that for
+// every one of my responses even though the audio visualizer is picking up my
+// mic." iOS records m4a, the client hardcodes format "wav", and this route was
+// the only audio-in path in the server that trusted that label instead of
+// reading the magic bytes.
+
+test("every turn decodes the clip before a model sees it", async () => {
+  const callId = await startCall();
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(preparedBytes.length, 1, "the raw clip went straight to the model");
+  assert.equal(preparedBytes[0], Buffer.from(CLIP, "base64").length);
+});
+
+test("the model is handed the DECODED bytes, never the raw ones", async () => {
+  // The whole defect in one assertion: what the phone sent and what the model
+  // must receive are not the same buffer.
+  let sawFormat = "";
+  let sawBytes = 0;
+  liveSpy = (req) => {
+    sawFormat = req.audioFormat;
+    sawBytes = req.audio.length;
+  };
+  const callId = await startCall();
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP, format: "wav" });
+  assert.equal(sawFormat, "wav");
+  assert.equal(sawBytes, Buffer.from(CLIP, "base64").length + 4, "not the decoder's output");
+  liveSpy = null;
+});
+
+test("what the phone claimed and what it actually sent are both logged", async () => {
+  // A day went into "he never hears me" and this pair answers it in one line.
+  const callId = await startCall();
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP, format: "wav" });
+  const turn = logged.find((l) => l.msg === "[chacha-call] turn");
+  const o = turn!.obj as { claimedFormat: string; detected: string; audioBytes: number };
+  assert.equal(o.claimedFormat, "wav");
+  assert.equal(o.detected, "mp4", "the label is a hint, the bytes are the fact");
+  assert.ok(o.audioBytes > 0);
+});
+
+test("a decoder that fails does not drop the call, and says so", async () => {
+  const callId = await startCall();
+  prepareError = new Error("ffmpeg refused it");
+  const { status } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(status, 200, "a clip we cannot decode is still a call");
+  const warning = logged.find((l) => /could not decode/.test(l.msg));
+  assert.ok(warning, "a swallowed decode failure is what hid this for a day");
+});
+
+test("a REFUSED transcript is reported, never mistaken for a silent learner", async () => {
+  // The two produce the same empty string. One of them is an outage, and it
+  // showed as "Didn't catch that" on every answer with nothing else to see.
+  const callId = await startCall();
+  liveResult = makeLive({ learnerText: "", transcriptFailed: true });
+  const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(json.chaiEarned as never as number, 0);
+  const warning = logged.find((l) => /transcription refused/.test(l.msg));
+  assert.ok(warning, "a transcriber refusing every clip must not be silent");
+  const turn = logged.find((l) => l.msg === "[chacha-call] turn");
+  assert.equal((turn!.obj as { transcriptFailed: boolean }).transcriptFailed, true);
 });
 
 test("a turn with no audio is rejected before any model is called", async () => {

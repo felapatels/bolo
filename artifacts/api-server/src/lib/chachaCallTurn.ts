@@ -72,6 +72,18 @@ export interface LiveTurnResult {
   mp3: Buffer;
   /** Seconds of speech he produced. */
   spokenSeconds: number;
+  /**
+   * True when transcription THREW rather than returning nothing.
+   *
+   * THE TWO WERE INDISTINGUISHABLE UNTIL 2026-08-28 and it cost the feature a
+   * day. `learnerText` is empty for a learner who said nothing and for a
+   * transcriber that refused the clip, and the refusal was swallowed by a bare
+   * catch. Once a turn started earning on whether he HEARD them, that silence
+   * became "Didn't catch that" on every single answer, with no way to tell a
+   * shy learner from a broken decoder. The turn still degrades gracefully; it
+   * just says so now.
+   */
+  transcriptFailed: boolean;
 }
 
 export interface LiveTurnDeps {
@@ -229,9 +241,13 @@ export async function runLiveTurn(
 ): Promise<LiveTurnResult> {
   // Started first and awaited last: the record must never sit in front of the
   // voice. A failed transcription costs the turn its text, not its audio.
+  let transcriptFailed = false;
   const transcriptPromise = deps
     .transcribe(req.audio, req.audioFormat, req.languageCode)
-    .catch(() => "");
+    .catch(() => {
+      transcriptFailed = true;
+      return "";
+    });
 
   let chachaText = "";
   let pcmBytes = 0;
@@ -255,5 +271,6 @@ export async function runLiveTurn(
     learnerText,
     mp3,
     spokenSeconds: pcmSeconds(pcmBytes),
+    transcriptFailed,
   };
 }
