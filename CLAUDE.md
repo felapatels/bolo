@@ -92,13 +92,13 @@ Run from the repo root.
   The script runs `sync-schema` first, so running the api tests APPLIES pending
   migrations to the dev database.
 - web: `pnpm --filter @workspace/gujarati-coach run test` (vitest)
-  Baseline **131 files, 1434 tests, all pass**, measured 2026-08-29 (build 18).
-  (Was 131 / 1421 on 2026-08-28, 128 / 1399 on 2026-08-27, and 93 suites / 842 tests before that.) One flake seen once on 2026-08-27, a single
+  Baseline **135 files, 1462 tests, all pass**, measured 2026-08-29 (build 19).
+  (Was 131 / 1434 earlier on 2026-08-29 (build 18), 131 / 1421 on 2026-08-28, 128 / 1399 on 2026-08-27, and 93 suites / 842 tests before that.) One flake seen once on 2026-08-27, a single
   failure that did not reproduce across two immediate re-runs; noted rather
   than chased, and worth watching for.
 - mobile: `pnpm --filter @workspace/bolo-mobile run test` (jest)
-  Baseline **141 suites, 1365 tests, all pass**, measured 2026-08-29 (build 18).
-  (Was 141 / 1359 on 2026-08-28, 132 / 1307 on 2026-08-27, and 108 suites / 1007 tests before that.) Needs `--forceExit`; workers leak and CI does not pass
+  Baseline **146 suites, 1417 tests, all pass**, measured 2026-08-29 (build 19).
+  (Was 141 / 1365 earlier on 2026-08-29 (build 18), 141 / 1359 on 2026-08-28, 132 / 1307 on 2026-08-27, and 108 suites / 1007 tests before that.) Needs `--forceExit`; workers leak and CI does not pass
   that flag. Known open item.
 
 **Never run the api suite concurrently with web.** A different total is not a
@@ -279,7 +279,19 @@ command runs.
   with `xcrun simctl io <udid> screenshot` between steps instead,
   `simctl` screenshots, and onLayout console probes over Metro. Valid for
   layout, navigation and touch; NOT for animations or release behaviour
-  (rules below). Two operational traps: **EAS goes bare-workflow if it sees
+  (rules below). **Three more things build 19 paid for (2026-08-29):**
+  (a) **LogBox's yellow warning bar sits over the bottom 90pt of the dev
+  client** (RevenueCat logs a warning at every launch); it hides the record
+  button and any bottom CTA and Maestro cannot see through it. Tap its × by
+  absolute point (`tapOn: point: "378,809"` on the 17 Pro) before driving
+  anything at the bottom, and NEVER dismiss it by percentage tap while a
+  list is up: one such tap landed on a language row and switched the dev
+  account to Kashmiri. (b) **`tapOn: id:` does not see `ChunkyButton`** (an
+  animated Pressable) even when it is on screen; tap it by point. (c) **A
+  screen that was not mounted while you edited it may still run the OLD
+  code when you navigate to it**; the chooser's padding fix and the practice
+  layout both looked unapplied until `simctl terminate` + `launch`. Relaunch
+  before concluding an edit did nothing. Two operational traps: **EAS goes bare-workflow if it sees
   `artifacts/bolo-mobile/ios`** (excluded in `.easignore`, which REPLACES
   .gitignore on EAS. **THAT FILE IS AT THE GIT ROOT, NOT IN
   artifacts/bolo-mobile**: two handoffs said it did not exist after looking in
