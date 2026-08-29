@@ -2228,14 +2228,11 @@ export default function Journey() {
     // the stall, NOT the signal games' reward: mobile's first cut read
     // rewardChai off the same payload and said 1, and the owner caught it ("I
     // thought chachaji's stop awarded 3 chai?"). The server serves
-    // encounterChai on the zone's signals payload from 99bb369e; 3 is the
-    // fallback for a server that predates the field, and it is
-    // TOKEN_EARN_CHACHA_ENCOUNTER today. Read through a cast because
-    // openapi.yaml owes the field (build 18 handoff, parked item 5).
-    const encounterChai =
-      (zoneQueries[zoneIndex]?.data?.signals as unknown as
-        | { encounterChai?: number }
-        | undefined)?.encounterChai ?? 3;
+    // encounterChai on the zone's signals payload from 99bb369e, typed since
+    // build 20 put it in openapi.yaml. The fallback only covers a zone whose
+    // payload has not arrived, which plans no stall anyway; it matches
+    // TOKEN_EARN_CHACHA_ENCOUNTER today so nothing reads wrong meanwhile.
+    const encounterChai = zoneQueries[zoneIndex]?.data?.signals?.encounterChai ?? 3;
     return [
       {
         station,

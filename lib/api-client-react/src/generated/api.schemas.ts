@@ -464,6 +464,8 @@ export interface StopUnlockOffer {
  */
 export interface ZoneSignalStates {
   rewardChai: number;
+  /** What Chacha-ji pours at his stall on a first arrival, served on every zone payload since 99bb369e so the invitation chip under the stall can read it. Never a client constant: mobile's first cut read rewardChai instead and said 1 where he pours 3. */
+  encounterChai: number;
   waves: string[];
   clears: string[];
 }
@@ -551,8 +553,176 @@ export interface ChachaEncounterResult {
   chaiGranted: number;
   /** Chai balance after the gift. */
   balance: number;
+  /** His phone rings at this stop. The server decides, not the client: true at one encounter station per zone (zone 1 fixed at station 3, later zones chosen by a hash of learner, language and zone so a revisit meets it at the same stop). The call is an interruption that replaces the walk into practice; it never delays it. */
+  callsNow: boolean;
   phrase?: ChachaEncounterPhrase | null;
   offer?: ChachaEncounterOffer | null;
+}
+
+/**
+ * TWO CALLS, NOT ONE. `journey` is the unsolicited interruption on the map: five questions and he says goodbye, bounded because nobody asked for it. `game` is the one on the games hub, chosen as often as the learner likes and capped at twenty turns.
+ */
+export type ChachaCallMode = typeof ChachaCallMode[keyof typeof ChachaCallMode];
+
+
+export const ChachaCallMode = {
+  journey: 'journey',
+  game: 'game',
+} as const;
+
+/**
+ * Which call this is. Anything but `game` opens the journey call, the shorter one, which is the safe default.
+ */
+export interface ChachaCallStartInput {
+  mode?: ChachaCallMode;
+}
+
+/**
+ * One thing he says, with the caption lines under it.
+ */
+export interface ChachaCallBeat {
+  id: string;
+  index: number;
+  /** His words, in the language the call is fixed to. */
+  text: string;
+  /** The romanization beneath them. Null when the script cannot be transliterated honestly, or when it would only repeat the line. */
+  romanized: string | null;
+  english: string | null;
+  /** A fixed clip from tts_cache rather than a live model turn. */
+  canned: boolean;
+  isFinal: boolean;
+}
+
+export type ChachaCallBackdropId = typeof ChachaCallBackdropId[keyof typeof ChachaCallBackdropId];
+
+
+export const ChachaCallBackdropId = {
+  driving: 'driving',
+  backseat: 'backseat',
+} as const;
+
+/**
+ * The clip that loops behind him for this call and no other. Fixed at creation, so a client that reconnects gets the same one back rather than changing cars mid-sentence.
+ */
+export interface ChachaCallBackdrop {
+  id: ChachaCallBackdropId;
+  video: string;
+  poster: string;
+  seconds: number;
+}
+
+/**
+ * The beat that follows.
+ */
+export interface ChachaCallNext {
+  id: string;
+  index: number;
+  canned: boolean;
+}
+
+export interface ChachaCallStart {
+  callId: string;
+  /** The language the call is FIXED to, from the session rather than the client's live context: a learner switching language mid-call keeps talking to the same Chacha-ji. */
+  languageName: string;
+  languageCode: string;
+  beat: ChachaCallBeat;
+  mode: ChachaCallMode;
+  /** How many times the learner will be asked to speak. Known before the call starts, which is the point of a semi-scripted agenda. */
+  learnerTurns: number;
+  backdrop: ChachaCallBackdrop;
+  /** Whether the phone may show the learner their own camera. A server flag so it can be turned off without a build; false and absent both mean off, and a client must never default it on: 1.0.5 (520) mounted the camera unconditionally ("i don't want the camera in the call"). */
+  selfView: boolean;
+  audioBase64: string | null;
+  format: string | null;
+}
+
+/**
+ * What the client believes it recorded. Anything but mp3 reads as wav; the server detects the real container regardless.
+ */
+export type ChachaCallTurnInputFormat = typeof ChachaCallTurnInputFormat[keyof typeof ChachaCallTurnInputFormat];
+
+
+export const ChachaCallTurnInputFormat = {
+  wav: 'wav',
+  mp3: 'mp3',
+} as const;
+
+export interface ChachaCallTurnInput {
+  /** The learner's clip, in whatever container the device recorded. */
+  audioBase64: string;
+  /** What the client believes it recorded. Anything but mp3 reads as wav; the server detects the real container regardless. */
+  format?: ChachaCallTurnInputFormat;
+}
+
+/**
+ * The 202 answer to a streamed turn. Pull his voice from `audioUrl` now; read his words from the turn endpoint once it is recorded.
+ */
+export interface ChachaCallTurnStarted {
+  callId: string;
+  audioUrl: string;
+}
+
+/**
+ * The whole turn in one answer, audio inline.
+ */
+export interface ChachaCallTurnResult {
+  callId: string;
+  /** Chai credited for the turn just answered, journey calls only. Non-zero only when THIS request inserted the ledger row, so a retried turn cannot show a second "+1" for chai nobody received. */
+  chaiEarned: number;
+  /** XP credited for that turn, GAME calls only. One currency each: chai is what he gives you for picking up when HE rang, XP is what every other game on the hub pays for playing it. */
+  xpEarned: number;
+  backdrop: ChachaCallBackdrop;
+  selfView: boolean;
+  beat: ChachaCallBeat;
+  /** What the server heard the learner say, in the language's own script. A mirror, never a mark: nothing compares it to anything. */
+  heard: string;
+  /** Null when it would only repeat `heard`. */
+  heardRomanized: string | null;
+  /** A plain English reading of what was heard; empty when nothing was. */
+  heardEnglish: string;
+  next: ChachaCallNext | null;
+  over: boolean;
+  audioBase64: string | null;
+  format: string | null;
+}
+
+/**
+ * One recorded turn, as the long-poll returns it.
+ */
+export interface ChachaCallTurn {
+  index: number;
+  text: string;
+  romanized: string | null;
+  canned: boolean;
+  heard: string;
+  heardRomanized: string | null;
+  heardEnglish: string;
+  /** Whether he heard the learner say anything at all. Sent explicitly rather than inferred from `heard`, which is a transcript and can be empty for a dozen reasons; it decides whether the turn earned. */
+  heardSomething: boolean;
+  chaiEarned: number;
+  xpEarned: number;
+  next: ChachaCallNext | null;
+  over: boolean;
+}
+
+export type ChachaCallEndOutcome = typeof ChachaCallEndOutcome[keyof typeof ChachaCallEndOutcome];
+
+
+export const ChachaCallEndOutcome = {
+  answered: 'answered',
+  abandoned: 'abandoned',
+} as const;
+
+export interface ChachaCallEnd {
+  callId: string;
+  outcome: ChachaCallEndOutcome;
+  turns: number;
+  text: string;
+  romanized: string | null;
+  /** The gloss stays English in every language; it IS the translation. */
+  english: string | null;
+  audioBase64: string | null;
+  format: string | null;
 }
 
 export interface ReferralSummary {

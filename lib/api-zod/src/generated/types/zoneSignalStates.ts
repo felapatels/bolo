@@ -11,6 +11,8 @@
  */
 export interface ZoneSignalStates {
   rewardChai: number;
+  /** What Chacha-ji pours at his stall on a first arrival, served on every zone payload since 99bb369e so the invitation chip under the stall can read it. Never a client constant: mobile's first cut read rewardChai instead and said 1 where he pours 3. */
+  encounterChai: number;
   waves: string[];
   clears: string[];
 }

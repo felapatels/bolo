@@ -478,9 +478,9 @@ export function useLiveCall({
       patch({
         languageName: call.languageName ?? null,
         backdrop: call.backdrop.id,
-        // Off the untyped result like callsNow: openapi.yaml owes the call
-        // routes. Strictly `=== true`, so a server without the field says no.
-        selfView: (call as unknown as { selfView?: boolean }).selfView === true,
+        // Strictly `=== true`, so a server without the field says no. Typed on
+        // CallStart since build 20 put the call routes in openapi.yaml.
+        selfView: call.selfView === true,
         text: call.beat.text,
         // His hello is in the learner's language now, so it gets the second
         // caption line every other beat has. It was null when the line was one

@@ -2000,6 +2000,142 @@ paths:
               schema:
                 $ref: "#/components/schemas/ChachaLinesResult"
 
+  /openai/chacha-call/start:
+    post:
+      operationId: startChachaCall
+      tags: [openai]
+      summary: Open a call with Chacha-ji and hear his hello
+      description: >-
+        Opens a call session pinned to the learner's journey language and
+        returns his fixed hello clip. A call is an event, not a lesson: no
+        route here carries a score, and none may. Not gated and does not
+        spend the weekly chat allowance (owner ruling, 2026-08-28): he rings
+        the learner, and billing someone for an incoming call is the wrong
+        shape. What bounds the cost is the agenda, fixed before the call
+        starts.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChachaCallStartInput"
+      responses:
+        "200":
+          description: The open call and his hello
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChachaCallStart"
+
+  /openai/chacha-call/{callId}/turn:
+    post:
+      operationId: takeChachaCallTurn
+      tags: [openai]
+      summary: The learner speaks, he answers
+      description: >-
+        The learner's clip in, his reply out. With the header
+        `X-Audio-Stream: url` the route answers 202 at once with a URL the
+        player can pull his voice from progressively (served by
+        GET /openai/chat/audio/{streamId}); his words then come from
+        GET /openai/chacha-call/{callId}/turn/{index}, which blocks until the
+        turn is recorded. Without the header it answers 200 with the whole
+        turn and the clip base64'd, which is the shape curl and the tests
+        want. The clip is re-encoded to wav or mp3 before either model hears
+        it: the route used to trust the client's format label and every turn
+        came back empty.
+      parameters:
+        - name: callId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Audio-Stream
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [url]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChachaCallTurnInput"
+      responses:
+        "200":
+          description: The whole turn, audio inline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChachaCallTurnResult"
+        "202":
+          description: Audio is streaming; the captions follow from the turn read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChachaCallTurnStarted"
+        "404":
+          description: Unknown call
+        "409":
+          description: Call is already over
+
+  /openai/chacha-call/{callId}/turn/{index}:
+    get:
+      operationId: getChachaCallTurn
+      tags: [openai]
+      summary: What one turn said and paid
+      description: >-
+        Long-polls for one recorded turn (about twelve seconds at most) and
+        returns his captions, what he heard the learner say, and the reward.
+        THIS IS THE ONLY RESPONSE THE PHONE READS for a streamed turn, so
+        everything a learner must see travels here; a reward that rode only
+        on the 200 turn answer reached curl and never a learner. 204 while
+        the turn is still being recorded.
+      parameters:
+        - name: callId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: index
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The recorded turn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChachaCallTurn"
+        "204":
+          description: Not recorded yet
+        "404":
+          description: Unknown call
+
+  /openai/chacha-call/{callId}/end:
+    post:
+      operationId: endChachaCall
+      tags: [openai]
+      summary: Hang up
+      description: His fixed farewell and how the call ended.
+      parameters:
+        - name: callId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The farewell
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChachaCallEnd"
+        "404":
+          description: Unknown call
+
   /openai/generate-phrase:
     post:
       operationId: generatePhrase
@@ -3766,6 +3902,13 @@ components:
       properties:
         rewardChai:
           type: integer
+        encounterChai:
+          type: integer
+          description: >-
+            What Chacha-ji pours at his stall on a first arrival, served on
+            every zone payload since 99bb369e so the invitation chip under
+            the stall can read it. Never a client constant: mobile's first
+            cut read rewardChai instead and said 1 where he pours 3.
         waves:
           type: array
           items:
@@ -3776,6 +3919,7 @@ components:
             type: string
       required:
         - rewardChai
+        - encounterChai
         - waves
         - clears
 
@@ -3888,6 +4032,14 @@ components:
         balance:
           type: integer
           description: Chai balance after the gift.
+        callsNow:
+          type: boolean
+          description: >-
+            His phone rings at this stop. The server decides, not the client:
+            true at one encounter station per zone (zone 1 fixed at station
+            3, later zones chosen by a hash of learner, language and zone so
+            a revisit meets it at the same stop). The call is an interruption
+            that replaces the walk into practice; it never delays it.
         phrase:
           allOf:
             - $ref: "#/components/schemas/ChachaEncounterPhrase"
@@ -3902,6 +4054,323 @@ components:
         - granted
         - chaiGranted
         - balance
+        - callsNow
+
+    ChachaCallMode:
+      type: string
+      enum: [journey, game]
+      description: >-
+        TWO CALLS, NOT ONE. `journey` is the unsolicited interruption on the
+        map: five questions and he says goodbye, bounded because nobody asked
+        for it. `game` is the one on the games hub, chosen as often as the
+        learner likes and capped at twenty turns.
+
+    ChachaCallStartInput:
+      type: object
+      description: >-
+        Which call this is. Anything but `game` opens the journey call, the
+        shorter one, which is the safe default.
+      properties:
+        mode:
+          $ref: "#/components/schemas/ChachaCallMode"
+
+    ChachaCallBeat:
+      type: object
+      description: One thing he says, with the caption lines under it.
+      properties:
+        id:
+          type: string
+        index:
+          type: integer
+        text:
+          type: string
+          description: His words, in the language the call is fixed to.
+        romanized:
+          type: string
+          nullable: true
+          description: >-
+            The romanization beneath them. Null when the script cannot be
+            transliterated honestly, or when it would only repeat the line.
+        english:
+          type: string
+          nullable: true
+        canned:
+          type: boolean
+          description: A fixed clip from tts_cache rather than a live model turn.
+        isFinal:
+          type: boolean
+      required:
+        - id
+        - index
+        - text
+        - romanized
+        - english
+        - canned
+        - isFinal
+
+    ChachaCallBackdrop:
+      type: object
+      description: >-
+        The clip that loops behind him for this call and no other. Fixed at
+        creation, so a client that reconnects gets the same one back rather
+        than changing cars mid-sentence.
+      properties:
+        id:
+          type: string
+          enum: [driving, backseat]
+        video:
+          type: string
+        poster:
+          type: string
+        seconds:
+          type: number
+      required:
+        - id
+        - video
+        - poster
+        - seconds
+
+    ChachaCallNext:
+      type: object
+      description: The beat that follows.
+      properties:
+        id:
+          type: string
+        index:
+          type: integer
+        canned:
+          type: boolean
+      required:
+        - id
+        - index
+        - canned
+
+    ChachaCallStart:
+      type: object
+      properties:
+        callId:
+          type: string
+        languageName:
+          type: string
+          description: >-
+            The language the call is FIXED to, from the session rather than
+            the client's live context: a learner switching language mid-call
+            keeps talking to the same Chacha-ji.
+        languageCode:
+          type: string
+        beat:
+          $ref: "#/components/schemas/ChachaCallBeat"
+        mode:
+          $ref: "#/components/schemas/ChachaCallMode"
+        learnerTurns:
+          type: integer
+          description: >-
+            How many times the learner will be asked to speak. Known before
+            the call starts, which is the point of a semi-scripted agenda.
+        backdrop:
+          $ref: "#/components/schemas/ChachaCallBackdrop"
+        selfView:
+          type: boolean
+          description: >-
+            Whether the phone may show the learner their own camera. A server
+            flag so it can be turned off without a build; false and absent
+            both mean off, and a client must never default it on: 1.0.5 (520)
+            mounted the camera unconditionally ("i don't want the camera in
+            the call").
+        audioBase64:
+          type: string
+          nullable: true
+        format:
+          type: string
+          nullable: true
+      required:
+        - callId
+        - languageName
+        - languageCode
+        - beat
+        - mode
+        - learnerTurns
+        - backdrop
+        - selfView
+        - audioBase64
+        - format
+
+    ChachaCallTurnInput:
+      type: object
+      properties:
+        audioBase64:
+          type: string
+          description: The learner's clip, in whatever container the device recorded.
+        format:
+          type: string
+          enum: [wav, mp3]
+          description: >-
+            What the client believes it recorded. Anything but mp3 reads as
+            wav; the server detects the real container regardless.
+      required:
+        - audioBase64
+
+    ChachaCallTurnStarted:
+      type: object
+      description: >-
+        The 202 answer to a streamed turn. Pull his voice from `audioUrl`
+        now; read his words from the turn endpoint once it is recorded.
+      properties:
+        callId:
+          type: string
+        audioUrl:
+          type: string
+      required:
+        - callId
+        - audioUrl
+
+    ChachaCallTurnResult:
+      type: object
+      description: The whole turn in one answer, audio inline.
+      properties:
+        callId:
+          type: string
+        chaiEarned:
+          type: integer
+          description: >-
+            Chai credited for the turn just answered, journey calls only.
+            Non-zero only when THIS request inserted the ledger row, so a
+            retried turn cannot show a second "+1" for chai nobody received.
+        xpEarned:
+          type: integer
+          description: >-
+            XP credited for that turn, GAME calls only. One currency each:
+            chai is what he gives you for picking up when HE rang, XP is what
+            every other game on the hub pays for playing it.
+        backdrop:
+          $ref: "#/components/schemas/ChachaCallBackdrop"
+        selfView:
+          type: boolean
+        beat:
+          $ref: "#/components/schemas/ChachaCallBeat"
+        heard:
+          type: string
+          description: >-
+            What the server heard the learner say, in the language's own
+            script. A mirror, never a mark: nothing compares it to anything.
+        heardRomanized:
+          type: string
+          nullable: true
+          description: Null when it would only repeat `heard`.
+        heardEnglish:
+          type: string
+          description: A plain English reading of what was heard; empty when nothing was.
+        next:
+          allOf:
+            - $ref: "#/components/schemas/ChachaCallNext"
+          nullable: true
+        over:
+          type: boolean
+        audioBase64:
+          type: string
+          nullable: true
+        format:
+          type: string
+          nullable: true
+      required:
+        - callId
+        - chaiEarned
+        - xpEarned
+        - backdrop
+        - selfView
+        - beat
+        - heard
+        - heardRomanized
+        - heardEnglish
+        - next
+        - over
+        - audioBase64
+        - format
+
+    ChachaCallTurn:
+      type: object
+      description: One recorded turn, as the long-poll returns it.
+      properties:
+        index:
+          type: integer
+        text:
+          type: string
+        romanized:
+          type: string
+          nullable: true
+        canned:
+          type: boolean
+        heard:
+          type: string
+        heardRomanized:
+          type: string
+          nullable: true
+        heardEnglish:
+          type: string
+        heardSomething:
+          type: boolean
+          description: >-
+            Whether he heard the learner say anything at all. Sent explicitly
+            rather than inferred from `heard`, which is a transcript and can
+            be empty for a dozen reasons; it decides whether the turn earned.
+        chaiEarned:
+          type: integer
+        xpEarned:
+          type: integer
+        next:
+          allOf:
+            - $ref: "#/components/schemas/ChachaCallNext"
+          nullable: true
+        over:
+          type: boolean
+      required:
+        - index
+        - text
+        - romanized
+        - canned
+        - heard
+        - heardRomanized
+        - heardEnglish
+        - heardSomething
+        - chaiEarned
+        - xpEarned
+        - next
+        - over
+
+    ChachaCallEnd:
+      type: object
+      properties:
+        callId:
+          type: string
+        outcome:
+          type: string
+          enum: [answered, abandoned]
+        turns:
+          type: integer
+        text:
+          type: string
+        romanized:
+          type: string
+          nullable: true
+        english:
+          type: string
+          nullable: true
+          description: The gloss stays English in every language; it IS the translation.
+        audioBase64:
+          type: string
+          nullable: true
+        format:
+          type: string
+          nullable: true
+      required:
+        - callId
+        - outcome
+        - turns
+        - text
+        - romanized
+        - english
+        - audioBase64
+        - format
 
     ReferralSummary:
       type: object

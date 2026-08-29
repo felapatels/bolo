@@ -17,6 +17,8 @@ export interface ChachaEncounterResult {
   chaiGranted: number;
   /** Chai balance after the gift. */
   balance: number;
+  /** His phone rings at this stop. The server decides, not the client: true at one encounter station per zone (zone 1 fixed at station 3, later zones chosen by a hash of learner, language and zone so a revisit meets it at the same stop). The call is an interruption that replaces the walk into practice; it never delays it. */
+  callsNow: boolean;
   phrase?: ChachaEncounterPhrase | null;
   offer?: ChachaEncounterOffer | null;
 }

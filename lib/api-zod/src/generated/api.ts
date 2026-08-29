@@ -97,6 +97,7 @@ export const ListCategoryLessonGroupsResponse = zod.object({
 }).optional().describe('The served price of a Chai stop unlock. Present on a showroom journey payload only for the first zone, the only zone whose stops are purchasable. Clients must render this number, never a hardcoded one.'),
   "signals": zod.object({
   "rewardChai": zod.number(),
+  "encounterChai": zod.number().describe('What Chacha-ji pours at his stall on a first arrival, served on every zone payload since 99bb369e so the invitation chip under the stall can read it. Never a client constant: mobile\'s first cut read rewardChai instead and said 1 where he pours 3.'),
   "waves": zod.array(zod.string()),
   "clears": zod.array(zod.string())
 }).optional().describe('Per-signal server truth for this zone\'s trackside signals, riding the existing journey fetch. `waves` and `clears` are bare gap-N contextRefs scoped to this category (stored server-side as languageCode:categoryId:gap-N). Clears are derived from the ledger-backed first-clear grants; a clear supersedes a wave for display. `rewardChai` is the single-source first-clear amount the server grants (config permits per-line values later) — clients must render it, never a hardcoded number.')
@@ -1572,6 +1573,141 @@ export const GetChachaLinesResponse = zod.object({
 
 
 /**
+ * Opens a call session pinned to the learner's journey language and returns his fixed hello clip. A call is an event, not a lesson: no route here carries a score, and none may. Not gated and does not spend the weekly chat allowance (owner ruling, 2026-08-28): he rings the learner, and billing someone for an incoming call is the wrong shape. What bounds the cost is the agenda, fixed before the call starts.
+ * @summary Open a call with Chacha-ji and hear his hello
+ */
+export const StartChachaCallBody = zod.object({
+  "mode": zod.enum(['journey', 'game']).optional().describe('TWO CALLS, NOT ONE. `journey` is the unsolicited interruption on the map: five questions and he says goodbye, bounded because nobody asked for it. `game` is the one on the games hub, chosen as often as the learner likes and capped at twenty turns.')
+}).describe('Which call this is. Anything but `game` opens the journey call, the shorter one, which is the safe default.')
+
+export const StartChachaCallResponse = zod.object({
+  "callId": zod.string(),
+  "languageName": zod.string().describe('The language the call is FIXED to, from the session rather than the client\'s live context: a learner switching language mid-call keeps talking to the same Chacha-ji.'),
+  "languageCode": zod.string(),
+  "beat": zod.object({
+  "id": zod.string(),
+  "index": zod.number(),
+  "text": zod.string().describe('His words, in the language the call is fixed to.'),
+  "romanized": zod.string().nullable().describe('The romanization beneath them. Null when the script cannot be transliterated honestly, or when it would only repeat the line.'),
+  "english": zod.string().nullable(),
+  "canned": zod.boolean().describe('A fixed clip from tts_cache rather than a live model turn.'),
+  "isFinal": zod.boolean()
+}).describe('One thing he says, with the caption lines under it.'),
+  "mode": zod.enum(['journey', 'game']).describe('TWO CALLS, NOT ONE. `journey` is the unsolicited interruption on the map: five questions and he says goodbye, bounded because nobody asked for it. `game` is the one on the games hub, chosen as often as the learner likes and capped at twenty turns.'),
+  "learnerTurns": zod.number().describe('How many times the learner will be asked to speak. Known before the call starts, which is the point of a semi-scripted agenda.'),
+  "backdrop": zod.object({
+  "id": zod.enum(['driving', 'backseat']),
+  "video": zod.string(),
+  "poster": zod.string(),
+  "seconds": zod.number()
+}).describe('The clip that loops behind him for this call and no other. Fixed at creation, so a client that reconnects gets the same one back rather than changing cars mid-sentence.'),
+  "selfView": zod.boolean().describe('Whether the phone may show the learner their own camera. A server flag so it can be turned off without a build; false and absent both mean off, and a client must never default it on: 1.0.5 (520) mounted the camera unconditionally (\"i don\'t want the camera in the call\").'),
+  "audioBase64": zod.string().nullable(),
+  "format": zod.string().nullable()
+})
+
+
+/**
+ * The learner's clip in, his reply out. With the header `X-Audio-Stream: url` the route answers 202 at once with a URL the player can pull his voice from progressively (served by GET /openai/chat/audio/{streamId}); his words then come from GET /openai/chacha-call/{callId}/turn/{index}, which blocks until the turn is recorded. Without the header it answers 200 with the whole turn and the clip base64'd, which is the shape curl and the tests want. The clip is re-encoded to wav or mp3 before either model hears it: the route used to trust the client's format label and every turn came back empty.
+ * @summary The learner speaks, he answers
+ */
+export const TakeChachaCallTurnParams = zod.object({
+  "callId": zod.coerce.string()
+})
+
+export const TakeChachaCallTurnHeader = zod.object({
+  "X-Audio-Stream": zod.enum(['url']).optional()
+})
+
+export const TakeChachaCallTurnBody = zod.object({
+  "audioBase64": zod.string().describe('The learner\'s clip, in whatever container the device recorded.'),
+  "format": zod.enum(['wav', 'mp3']).optional().describe('What the client believes it recorded. Anything but mp3 reads as wav; the server detects the real container regardless.')
+})
+
+export const TakeChachaCallTurnResponse = zod.object({
+  "callId": zod.string(),
+  "chaiEarned": zod.number().describe('Chai credited for the turn just answered, journey calls only. Non-zero only when THIS request inserted the ledger row, so a retried turn cannot show a second \"+1\" for chai nobody received.'),
+  "xpEarned": zod.number().describe('XP credited for that turn, GAME calls only. One currency each: chai is what he gives you for picking up when HE rang, XP is what every other game on the hub pays for playing it.'),
+  "backdrop": zod.object({
+  "id": zod.enum(['driving', 'backseat']),
+  "video": zod.string(),
+  "poster": zod.string(),
+  "seconds": zod.number()
+}).describe('The clip that loops behind him for this call and no other. Fixed at creation, so a client that reconnects gets the same one back rather than changing cars mid-sentence.'),
+  "selfView": zod.boolean(),
+  "beat": zod.object({
+  "id": zod.string(),
+  "index": zod.number(),
+  "text": zod.string().describe('His words, in the language the call is fixed to.'),
+  "romanized": zod.string().nullable().describe('The romanization beneath them. Null when the script cannot be transliterated honestly, or when it would only repeat the line.'),
+  "english": zod.string().nullable(),
+  "canned": zod.boolean().describe('A fixed clip from tts_cache rather than a live model turn.'),
+  "isFinal": zod.boolean()
+}).describe('One thing he says, with the caption lines under it.'),
+  "heard": zod.string().describe('What the server heard the learner say, in the language\'s own script. A mirror, never a mark: nothing compares it to anything.'),
+  "heardRomanized": zod.string().nullable().describe('Null when it would only repeat `heard`.'),
+  "heardEnglish": zod.string().describe('A plain English reading of what was heard; empty when nothing was.'),
+  "next": zod.object({
+  "id": zod.string(),
+  "index": zod.number(),
+  "canned": zod.boolean()
+}).describe('The beat that follows.').nullable(),
+  "over": zod.boolean(),
+  "audioBase64": zod.string().nullable(),
+  "format": zod.string().nullable()
+}).describe('The whole turn in one answer, audio inline.')
+
+
+/**
+ * Long-polls for one recorded turn (about twelve seconds at most) and returns his captions, what he heard the learner say, and the reward. THIS IS THE ONLY RESPONSE THE PHONE READS for a streamed turn, so everything a learner must see travels here; a reward that rode only on the 200 turn answer reached curl and never a learner. 204 while the turn is still being recorded.
+ * @summary What one turn said and paid
+ */
+export const GetChachaCallTurnParams = zod.object({
+  "callId": zod.coerce.string(),
+  "index": zod.coerce.number()
+})
+
+export const GetChachaCallTurnResponse = zod.object({
+  "index": zod.number(),
+  "text": zod.string(),
+  "romanized": zod.string().nullable(),
+  "canned": zod.boolean(),
+  "heard": zod.string(),
+  "heardRomanized": zod.string().nullable(),
+  "heardEnglish": zod.string(),
+  "heardSomething": zod.boolean().describe('Whether he heard the learner say anything at all. Sent explicitly rather than inferred from `heard`, which is a transcript and can be empty for a dozen reasons; it decides whether the turn earned.'),
+  "chaiEarned": zod.number(),
+  "xpEarned": zod.number(),
+  "next": zod.object({
+  "id": zod.string(),
+  "index": zod.number(),
+  "canned": zod.boolean()
+}).describe('The beat that follows.').nullable(),
+  "over": zod.boolean()
+}).describe('One recorded turn, as the long-poll returns it.')
+
+
+/**
+ * His fixed farewell and how the call ended.
+ * @summary Hang up
+ */
+export const EndChachaCallParams = zod.object({
+  "callId": zod.coerce.string()
+})
+
+export const EndChachaCallResponse = zod.object({
+  "callId": zod.string(),
+  "outcome": zod.enum(['answered', 'abandoned']),
+  "turns": zod.number(),
+  "text": zod.string(),
+  "romanized": zod.string().nullable(),
+  "english": zod.string().nullable().describe('The gloss stays English in every language; it IS the translation.'),
+  "audioBase64": zod.string().nullable(),
+  "format": zod.string().nullable()
+})
+
+
+/**
  * @summary Generate a fresh practice phrase with AI
  */
 export const generatePhraseBodyDifficultyMax = 3;
@@ -1852,6 +1988,7 @@ export const RecordChachaEncounterResponse = zod.object({
   "granted": zod.boolean().describe('True only when this call paid the Chai. The celebration plays on this and nothing else, so a revisit stays quiet.'),
   "chaiGranted": zod.number(),
   "balance": zod.number().describe('Chai balance after the gift.'),
+  "callsNow": zod.boolean().describe('His phone rings at this stop. The server decides, not the client: true at one encounter station per zone (zone 1 fixed at station 3, later zones chosen by a hash of learner, language and zone so a revisit meets it at the same stop). The call is an interruption that replaces the walk into practice; it never delays it.'),
   "phrase": zod.object({
   "id": zod.number(),
   "nativeScript": zod.string(),

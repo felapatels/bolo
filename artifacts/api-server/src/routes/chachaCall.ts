@@ -364,8 +364,8 @@ export function createChachaCallRouter(
         // WHETHER THE PHONE MAY SHOW THE LEARNER THEIR OWN CAMERA. A server
         // flag (build 17) so it can be turned off without a build; false and
         // absent both mean off, so a client older than this field mounts
-        // nothing. Read off the untyped result on the phone like callsNow;
-        // openapi.yaml owes the call routes.
+        // nothing. Typed on the phone since build 20 put the call routes in
+        // openapi.yaml (ChachaCallStart.selfView).
         selfView: CHACHA_CALL_SELF_VIEW_ENABLED,
         audioBase64: line.audioBase64,
         format: line.format,

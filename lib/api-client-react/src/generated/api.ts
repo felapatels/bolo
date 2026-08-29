@@ -33,6 +33,13 @@ import type {
   BlockedUser,
   BuyOutfitInput,
   Category,
+  ChachaCallEnd,
+  ChachaCallStart,
+  ChachaCallStartInput,
+  ChachaCallTurn,
+  ChachaCallTurnInput,
+  ChachaCallTurnResult,
+  ChachaCallTurnStarted,
   ChachaEncounterInput,
   ChachaEncounterResult,
   ChachaLinesResult,
@@ -5063,6 +5070,306 @@ export function useGetChachaLines<TData = Awaited<ReturnType<typeof getChachaLin
 
 
 
+
+export const getStartChachaCallUrl = () => {
+
+
+
+
+  return `/api/openai/chacha-call/start`
+}
+
+/**
+ * Opens a call session pinned to the learner's journey language and returns his fixed hello clip. A call is an event, not a lesson: no route here carries a score, and none may. Not gated and does not spend the weekly chat allowance (owner ruling, 2026-08-28): he rings the learner, and billing someone for an incoming call is the wrong shape. What bounds the cost is the agenda, fixed before the call starts.
+ * @summary Open a call with Chacha-ji and hear his hello
+ */
+export const startChachaCall = async (chachaCallStartInput?: ChachaCallStartInput, options?: RequestInit): Promise<ChachaCallStart> => {
+
+  return customFetch<ChachaCallStart>(getStartChachaCallUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(chachaCallStartInput)
+  }
+);}
+
+
+
+
+
+export const getStartChachaCallMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startChachaCall>>, TError,{data?: BodyType<ChachaCallStartInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startChachaCall>>, TError,{data?: BodyType<ChachaCallStartInput>}, TContext> => {
+
+const mutationKey = ['startChachaCall'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startChachaCall>>, {data?: BodyType<ChachaCallStartInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  startChachaCall(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartChachaCallMutationResult = NonNullable<Awaited<ReturnType<typeof startChachaCall>>>
+    export type StartChachaCallMutationBody = BodyType<ChachaCallStartInput> | undefined
+    export type StartChachaCallMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Open a call with Chacha-ji and hear his hello
+ */
+export const useStartChachaCall = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startChachaCall>>, TError,{data?: BodyType<ChachaCallStartInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startChachaCall>>,
+        TError,
+        {data?: BodyType<ChachaCallStartInput>},
+        TContext
+      > => {
+      return useMutation(getStartChachaCallMutationOptions(options));
+    }
+
+export const getTakeChachaCallTurnUrl = (callId: string,) => {
+
+
+
+
+  return `/api/openai/chacha-call/${callId}/turn`
+}
+
+/**
+ * The learner's clip in, his reply out. With the header `X-Audio-Stream: url` the route answers 202 at once with a URL the player can pull his voice from progressively (served by GET /openai/chat/audio/{streamId}); his words then come from GET /openai/chacha-call/{callId}/turn/{index}, which blocks until the turn is recorded. Without the header it answers 200 with the whole turn and the clip base64'd, which is the shape curl and the tests want. The clip is re-encoded to wav or mp3 before either model hears it: the route used to trust the client's format label and every turn came back empty.
+ * @summary The learner speaks, he answers
+ */
+export const takeChachaCallTurn = async (callId: string,
+    chachaCallTurnInput: ChachaCallTurnInput, options?: RequestInit): Promise<ChachaCallTurnResult | ChachaCallTurnStarted> => {
+
+  return customFetch<ChachaCallTurnResult | ChachaCallTurnStarted>(getTakeChachaCallTurnUrl(callId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(chachaCallTurnInput)
+  }
+);}
+
+
+
+
+
+export const getTakeChachaCallTurnMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof takeChachaCallTurn>>, TError,{callId: string;data: BodyType<ChachaCallTurnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof takeChachaCallTurn>>, TError,{callId: string;data: BodyType<ChachaCallTurnInput>}, TContext> => {
+
+const mutationKey = ['takeChachaCallTurn'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof takeChachaCallTurn>>, {callId: string;data: BodyType<ChachaCallTurnInput>}> = (props) => {
+          const {callId,data} = props ?? {};
+
+          return  takeChachaCallTurn(callId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TakeChachaCallTurnMutationResult = NonNullable<Awaited<ReturnType<typeof takeChachaCallTurn>>>
+    export type TakeChachaCallTurnMutationBody = BodyType<ChachaCallTurnInput>
+    export type TakeChachaCallTurnMutationError = ErrorType<void>
+
+    /**
+ * @summary The learner speaks, he answers
+ */
+export const useTakeChachaCallTurn = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof takeChachaCallTurn>>, TError,{callId: string;data: BodyType<ChachaCallTurnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof takeChachaCallTurn>>,
+        TError,
+        {callId: string;data: BodyType<ChachaCallTurnInput>},
+        TContext
+      > => {
+      return useMutation(getTakeChachaCallTurnMutationOptions(options));
+    }
+
+export const getGetChachaCallTurnUrl = (callId: string,
+    index: number,) => {
+
+
+
+
+  return `/api/openai/chacha-call/${callId}/turn/${index}`
+}
+
+/**
+ * Long-polls for one recorded turn (about twelve seconds at most) and returns his captions, what he heard the learner say, and the reward. THIS IS THE ONLY RESPONSE THE PHONE READS for a streamed turn, so everything a learner must see travels here; a reward that rode only on the 200 turn answer reached curl and never a learner. 204 while the turn is still being recorded.
+ * @summary What one turn said and paid
+ */
+export const getChachaCallTurn = async (callId: string,
+    index: number, options?: RequestInit): Promise<ChachaCallTurn | void> => {
+
+  return customFetch<ChachaCallTurn | void>(getGetChachaCallTurnUrl(callId,index),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetChachaCallTurnQueryKey = (callId: string,
+    index: number,) => {
+    return [
+    `/api/openai/chacha-call/${callId}/turn/${index}`
+    ] as const;
+    }
+
+
+export const getGetChachaCallTurnQueryOptions = <TData = Awaited<ReturnType<typeof getChachaCallTurn>>, TError = ErrorType<void>>(callId: string,
+    index: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getChachaCallTurn>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetChachaCallTurnQueryKey(callId,index);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getChachaCallTurn>>> = ({ signal }) => getChachaCallTurn(callId,index, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: callId !== null && callId !== undefined && index !== null && index !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getChachaCallTurn>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetChachaCallTurnQueryResult = NonNullable<Awaited<ReturnType<typeof getChachaCallTurn>>>
+export type GetChachaCallTurnQueryError = ErrorType<void>
+
+
+/**
+ * @summary What one turn said and paid
+ */
+
+export function useGetChachaCallTurn<TData = Awaited<ReturnType<typeof getChachaCallTurn>>, TError = ErrorType<void>>(
+ callId: string,
+    index: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getChachaCallTurn>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetChachaCallTurnQueryOptions(callId,index,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getEndChachaCallUrl = (callId: string,) => {
+
+
+
+
+  return `/api/openai/chacha-call/${callId}/end`
+}
+
+/**
+ * His fixed farewell and how the call ended.
+ * @summary Hang up
+ */
+export const endChachaCall = async (callId: string, options?: RequestInit): Promise<ChachaCallEnd> => {
+
+  return customFetch<ChachaCallEnd>(getEndChachaCallUrl(callId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getEndChachaCallMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof endChachaCall>>, TError,{callId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof endChachaCall>>, TError,{callId: string}, TContext> => {
+
+const mutationKey = ['endChachaCall'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof endChachaCall>>, {callId: string}> = (props) => {
+          const {callId} = props ?? {};
+
+          return  endChachaCall(callId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EndChachaCallMutationResult = NonNullable<Awaited<ReturnType<typeof endChachaCall>>>
+
+    export type EndChachaCallMutationError = ErrorType<void>
+
+    /**
+ * @summary Hang up
+ */
+export const useEndChachaCall = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof endChachaCall>>, TError,{callId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof endChachaCall>>,
+        TError,
+        {callId: string},
+        TContext
+      > => {
+      return useMutation(getEndChachaCallMutationOptions(options));
+    }
 
 export const getGeneratePhraseUrl = () => {
 

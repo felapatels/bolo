@@ -2185,12 +2185,10 @@ export default function JourneyScreen() {
      * The chai is already poured by this point and nothing here can take it
      * back, so a learner who lets it ring out has lost nothing.
      *
-     * `callsNow` is read off the result rather than through the generated type:
-     * the field is additive on the server and openapi.yaml has not been
-     * regenerated inside a held build. The spec owes it.
+     * `callsNow` is on the generated type since build 20 put it in
+     * openapi.yaml; it was read through a cast while the spec owed it.
      */
-    const ringsNow =
-      (chachaDlg as unknown as { callsNow?: boolean } | null)?.callsNow === true;
+    const ringsNow = chachaDlg?.callsNow === true;
     setChachaDlg(null);
     if (ringsNow) {
       router.push('/(app)/call');
@@ -3405,7 +3403,7 @@ export default function JourneyScreen() {
                       <Text style={styles.stallInviteText}>
                         Take a break and earn{' '}
                         <Text style={styles.stallInviteGold}>
-                          {(zoneQueries[zi]?.data?.signals as { encounterChai?: number } | undefined)?.encounterChai ?? 3} Chai
+                          {zoneQueries[zi]?.data?.signals?.encounterChai ?? 3} Chai
                         </Text>
                       </Text>
                     </View>

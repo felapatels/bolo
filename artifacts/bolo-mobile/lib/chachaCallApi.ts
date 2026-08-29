@@ -3,13 +3,15 @@ import { getConfiguredAuthToken, getConfiguredBaseUrl } from '@workspace/api-cli
 /**
  * The client for Chacha-ji's call.
  *
- * HAND-ROLLED RATHER THAN GENERATED, DELIBERATELY. The call routes are not in
- * lib/api-spec/openapi.yaml, so there are no orval hooks for them. Adding them
- * would regenerate the whole api-client-react package, which is a shared,
- * lockfile-adjacent change landing in a build that is already held for this
- * feature. It uses the generated client's OWN base URL and token getter, so
+ * HAND-ROLLED RATHER THAN GENERATED, DELIBERATELY. The call routes are in
+ * lib/api-spec/openapi.yaml since build 20 (this client predates that, and
+ * was written while the spec owed them), so orval hooks exist for them now.
+ * This file stays because the turn is two requests with a streaming header
+ * between them, which is not a shape a react-query mutation models well, and
+ * because it uses the generated client's OWN base URL and token getter, so
  * there is one source of both and nothing here can drift from the rest of the
- * app. Putting the routes in the spec is worth doing, after this build.
+ * app. The types below mirror the spec's ChachaCall* schemas; the spec is the
+ * contract, so change it first.
  *
  * THE TURN IS TWO REQUESTS AND THAT IS NOT AN OVERSIGHT. The POST answers in
  * about 30 ms with a URL so the player can start pulling before the model has
@@ -68,6 +70,14 @@ export interface CallStart {
   beat: CallBeat;
   backdrop: CallBackdrop;
   learnerTurns: number;
+  /**
+   * Whether the phone may show the learner their own camera. A server flag,
+   * so it can be turned off without a build; absent and false both mean off,
+   * and nothing on the phone may default it on ("i don't want the camera in
+   * the call", 1.0.5 build 520). Optional here for a server older than the
+   * field; the spec marks it required.
+   */
+  selfView?: boolean;
   audioBase64: string | null;
   format: string | null;
 }
