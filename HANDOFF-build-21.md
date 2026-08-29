@@ -55,11 +55,21 @@ on web, mobile and api.
 **Web and server:** build 19 was published and verified by content at
 12:11 on 2026-08-29 (`index-ClMWqBXz.js`). Build 20's server changes
 (flashback door, hesitation, spec) passed the api suite in the Repl
-(1450/1448/0/2) and **the owner clicked Republish at the end of the
-session**. Verify by content before believing it: `curl
-https://bolo-india.app/`, fetch the referenced `/assets/index-*.js`, grep
-for `journey/maps/`; then `curl -I https://bolo-india.app/journey/maps/hi.json`
-must be 200. Zero means the publish did not happen.
+(1450/1448/0/2), the Repl has pulled `dadf5bea`, and the owner was asked
+to Republish. **AT HANDOFF TIME THE LIVE SITE WAS STILL BUILD 19**: index
+`ClMWqBXz`, no `/flashback` route string in it, and
+`/journey/maps/hi.json` answering the SPA fallback. So the publish either
+has not been clicked or did not complete; ask, then verify.
+
+**VERIFY BY CONTENT, AND KNOW THE TWO TRAPS.** (1) Unknown paths on
+bolo-india.app answer **200 with the homepage HTML** (4070 bytes,
+`text/html`), so a 200 on `/journey/maps/hi.json` proves nothing; check
+`content-type: application/json` and a length in the thousands, not 4070.
+(2) `journey/maps/` lives in the lazy map chunk, not the index. The index
+DOES carry the route table, so: `curl -s https://bolo-india.app/`, fetch
+the referenced `/assets/index-*.js`, and grep it for `/flashback`. Zero
+means build 19 is still live. Build 20's watcher grepped the wrong string
+for twenty-five minutes.
 
 **Mobile:** everything from builds 19 and 20 is in the repo only. The
 dev client on the iPhone 17 Pro sim (`org.name.Bolo`) has it via Metro.
