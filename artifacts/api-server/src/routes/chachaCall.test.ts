@@ -722,6 +722,18 @@ test("start hands the client one backdrop to loop", async () => {
   assert.match(backdrop.poster, /\.jpg$/);
 });
 
+test("the self view is a server flag, off unless the environment turns it on", async () => {
+  // Owner, 2026-08-28, an hour after 1.0.5 (520) went to TestFlight with the
+  // learner's camera in the call: "i don't want the camera in the call. That
+  // is going to cause an approval delay." That build cannot be switched; every
+  // build after it reads this field and mounts nothing unless it is true.
+  const { json: started } = await post("/openai/chacha-call/start");
+  assert.equal(started.selfView as never, false);
+  const callId = started.callId as unknown as string;
+  const { json: turn } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(turn.selfView as never, false);
+});
+
 test("every turn returns the SAME backdrop, so a call never changes cars", async () => {
   // The client can lose its state and recover the right clip off any turn
   // rather than picking again and teleporting him mid-sentence.

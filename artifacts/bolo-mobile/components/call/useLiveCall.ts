@@ -74,6 +74,14 @@ export type LiveCallStatus =
 export interface LiveCallState {
   status: LiveCallStatus;
   backdrop: CallBackdropId;
+  /**
+   * Whether the call may show the learner their own camera. THE SERVER SAYS,
+   * via `selfView` on the start response, and absent means no (build 17).
+   * 1.0.5 (520) mounted the camera unconditionally and could not be switched
+   * off from anywhere: "i don't want the camera in the call." Nothing here may
+   * default it on.
+   */
+  selfView: boolean;
   text: string;
   romanized: string | null;
   /**
@@ -170,6 +178,7 @@ export function useLiveCall({
   const [state, setState] = React.useState<LiveCallState>({
     status: 'ringing',
     backdrop: initialBackdrop,
+    selfView: false,
     text: '',
     romanized: null,
     voicing: false,
@@ -469,6 +478,9 @@ export function useLiveCall({
       patch({
         languageName: call.languageName ?? null,
         backdrop: call.backdrop.id,
+        // Off the untyped result like callsNow: openapi.yaml owes the call
+        // routes. Strictly `=== true`, so a server without the field says no.
+        selfView: (call as unknown as { selfView?: boolean }).selfView === true,
         text: call.beat.text,
         // His hello is in the learner's language now, so it gets the second
         // caption line every other beat has. It was null when the line was one

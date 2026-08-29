@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { CHACHA_CALL_SELF_VIEW_ENABLED } from "../lib/featureFlags";
 import { db, languagesTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
@@ -360,6 +361,12 @@ export function createChachaCallRouter(
         // creation; a client that reconnects gets the same one back off every
         // turn rather than picking again and changing cars mid-sentence.
         backdrop: session.backdrop,
+        // WHETHER THE PHONE MAY SHOW THE LEARNER THEIR OWN CAMERA. A server
+        // flag (build 17) so it can be turned off without a build; false and
+        // absent both mean off, so a client older than this field mounts
+        // nothing. Read off the untyped result on the phone like callsNow;
+        // openapi.yaml owes the call routes.
+        selfView: CHACHA_CALL_SELF_VIEW_ENABLED,
         audioBase64: line.audioBase64,
         format: line.format,
       });
@@ -687,6 +694,7 @@ export function createChachaCallRouter(
         xpEarned,
         callId: session.id,
         backdrop: session.backdrop,
+        selfView: CHACHA_CALL_SELF_VIEW_ENABLED,
         beat: {
           id: beat.id,
           index: session.beatIndex - 1,

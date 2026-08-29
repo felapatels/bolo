@@ -227,6 +227,7 @@ export default function CallScreen() {
           onTalkStart={() => void startTalking()}
           onTalkEnd={stopTalking}
           backdrop={state.backdrop}
+          selfView={state.selfView}
           // Anything that is not his turn to talk is the learner's, including
           // connecting and ending: the still is the safe face to hold.
           phase={state.status === 'speaking' ? 'speaking' : 'listening'}

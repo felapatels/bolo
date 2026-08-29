@@ -37,6 +37,13 @@ export type CallPhase = 'speaking' | 'listening';
 
 export interface InCallProps {
   backdrop: CallBackdropId;
+  /**
+   * Mount the learner's own camera preview. OFF UNLESS THE SERVER SAYS SO
+   * (build 17): 1.0.5 (520) mounted it unconditionally and there was no way
+   * to switch it off without a build. Absent means off, so nothing older than
+   * this prop can turn it on by accident.
+   */
+  selfView?: boolean;
   phase: CallPhase;
   /** His current line, in the language's own script. */
   text: string;
@@ -197,6 +204,7 @@ function ChaiFloat({ amount }: { amount: number }) {
 
 export function InCall({
   backdrop,
+  selfView = false,
   phase,
   text,
   romanized,
@@ -315,7 +323,9 @@ export function InCall({
         </View>
       </View>
 
-      <SelfView />
+      {/* Nothing mounts, so nothing can ask for the camera, unless the server
+          said selfView. See InCallProps. */}
+      {selfView && <SelfView />}
 
       <View style={styles.bottom}>
         <CallCaptions

@@ -30,3 +30,20 @@ export { _crossZoneGateEnabled as CROSS_ZONE_GATE_ENABLED };
 export function __setCrossZoneGateForTests(value: boolean): void {
   _crossZoneGateEnabled = value;
 }
+
+/**
+ * THE LEARNER'S OWN CAMERA ON A CHACHA-JI CALL (build 17). When true, the
+ * call's start response says `selfView: true` and the phone mounts its front
+ * camera preview in the corner of the call; when false, or missing, the phone
+ * mounts nothing and can never prompt for the camera during a call.
+ *
+ * Off by default on the owner's word, 2026-08-28: "i don't want the camera in
+ * the call. That is going to cause an approval delay and I will need to change
+ * terms etc." The permission string in app.json still describes the camera as
+ * being for a profile picture or a QR code, which is accurate only while this
+ * stays false. Flip it only after that string is fixed and a build carrying
+ * the fix is approved. Set CHACHA_CALL_SELF_VIEW_ENABLED=true to turn it on.
+ * Default: false (missing means off).
+ */
+export const CHACHA_CALL_SELF_VIEW_ENABLED =
+  process.env.CHACHA_CALL_SELF_VIEW_ENABLED === "true";
