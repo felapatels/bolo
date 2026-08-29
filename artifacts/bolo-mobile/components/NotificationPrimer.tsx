@@ -19,19 +19,29 @@
 // for that too (hasCompletedTour), or picking a language on step one would
 // pop this sheet over the cards.
 //
+// THE YES TURNS THE DAILY REMINDER ON (owner, 2026-08-29: YES). The sheet
+// promises "one friendly reminder a day"; until build 19 a yes only granted
+// OS permission and registered the push token, and the daily reminder stayed
+// off until a learner found Account > Daily reminder. Now a yes also switches
+// it on at the default 19:00 local through the same path the reminders
+// screen uses (lib/reminders.ts applyReminderPrefs), and the screen still
+// changes the time or turns it off.
+//
 // The eligibility and back-off rules live in lib/notificationPrimer.ts, pure
 // and tested without a device. This file is the wiring and the words.
 import React from 'react';
 import { AppState, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
-import { useGetAccount } from '@workspace/api-client-react';
+import { useGetAccount, useUpdateAccountPreferences } from '@workspace/api-client-react';
 import { Mascot } from '@/components/Mascot';
 import { AppFonts } from '@/constants/fonts';
 import { useColors } from '@/hooks/useColors';
 import { hapticLight } from '@/lib/haptics';
 import {
+  applyReminderPrefs,
   getNotificationPermission,
+  loadReminderPrefs,
   remindersSupported,
   requestNotificationPermission,
 } from '@/lib/reminders';
@@ -67,6 +77,7 @@ async function readRecord(): Promise<PrimerRecord> {
 export function NotificationPrimer() {
   const colors = useColors();
   const account = useGetAccount();
+  const updatePrefs = useUpdateAccountPreferences();
   const [open, setOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   // One evaluation per app session. Without this the modal reappears on every
@@ -147,7 +158,17 @@ export function NotificationPrimer() {
     try {
       // THE ONE OS DIALOG, fired only now, only after a yes.
       const result = await requestNotificationPermission();
-      if (result.granted) await syncPushToken();
+      if (result.granted) {
+        await syncPushToken();
+        // And the daily reminder itself, at 19:00 local, unless the learner
+        // already switched it on in Account (then their time stands).
+        const prefs = await loadReminderPrefs();
+        if (!prefs.enabled) {
+          await applyReminderPrefs({ ...prefs, enabled: true }, (data) =>
+            updatePrefs.mutate({ data }),
+          );
+        }
+      }
     } catch {
       // A permission call that throws is not the learner's problem, and the
       // modal closing either way is the honest outcome: we asked, we are done.

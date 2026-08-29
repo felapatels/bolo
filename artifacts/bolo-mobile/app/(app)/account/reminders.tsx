@@ -32,7 +32,7 @@ import {
   type ReminderPrefs,
 } from '@/lib/reminder-logic';
 import {
-  cancelAllReminders,
+  applyReminderPrefs,
   getNotificationPermission,
   loadReminderPrefs,
   remindersSupported,
@@ -69,23 +69,11 @@ export default function RemindersScreen() {
   }, []);
 
   // Persist locally, mirror on/off + time to the account, and rebuild the
-  // device schedule. The reschedule uses conservative inputs (streak unknown
-  // here); the ReminderScheduler refines copy/skips as soon as fresh progress
-  // data is available.
+  // device schedule (lib/reminders.ts applyReminderPrefs, shared with the
+  // first-login primer's yes since build 19).
   const apply = async (next: ReminderPrefs) => {
     setPrefs(next);
-    await saveReminderPrefs(next);
-    updateServerPrefs.mutate({
-      data: {
-        dailyReminderEnabled: next.enabled,
-        dailyReminderTime: next.enabled ? next.time : null,
-      },
-    });
-    if (next.enabled) {
-      await rescheduleReminders({ streakDays: 0, practicedToday: false });
-    } else {
-      await cancelAllReminders();
-    }
+    await applyReminderPrefs(next, (data) => updateServerPrefs.mutate({ data }));
   };
 
   const askPermission = async () => {

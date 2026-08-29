@@ -131,6 +131,34 @@ export async function rescheduleReminders(input: {
   }
 }
 
+/**
+ * Persist a preference change, mirror on/off and the time to the account,
+ * and rebuild the device schedule. The one write path for the daily
+ * reminder: the reminders screen and the first-login primer both go
+ * through here, so a yes on the primer and a switch on the screen cannot
+ * disagree about what "on" means. The reschedule uses conservative inputs
+ * (streak unknown here); the ReminderScheduler refines copy and skips as
+ * soon as fresh progress data is available.
+ *
+ * `mirror` sends the server patch; it is a callback because the mutation
+ * hook belongs to whichever component is calling.
+ */
+export async function applyReminderPrefs(
+  next: ReminderPrefs,
+  mirror: (data: { dailyReminderEnabled: boolean; dailyReminderTime: string | null }) => void,
+): Promise<void> {
+  await saveReminderPrefs(next);
+  mirror({
+    dailyReminderEnabled: next.enabled,
+    dailyReminderTime: next.enabled ? next.time : null,
+  });
+  if (next.enabled) {
+    await rescheduleReminders({ streakDays: 0, practicedToday: false });
+  } else {
+    await cancelAllReminders();
+  }
+}
+
 /** Clears every scheduled reminder (used when the learner turns them off). */
 export async function cancelAllReminders(): Promise<void> {
   if (!remindersSupported) return;

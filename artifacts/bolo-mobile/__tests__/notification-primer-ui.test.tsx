@@ -16,6 +16,20 @@ const mockState: any = {
 };
 const mockRequest = jest.fn(async () => ({ granted: true, canAskAgain: false }));
 const mockSync = jest.fn(async () => true);
+// Build 19: a yes also turns the daily reminder on through the shared
+// enable path; the mock plays the mirror back so the server patch is visible.
+const mockApply = jest.fn(async (next: any, mirror: (d: any) => void) => {
+  mirror({ dailyReminderEnabled: next.enabled, dailyReminderTime: next.enabled ? next.time : null });
+});
+const mockMutate = jest.fn();
+const REMINDER_PREFS_OFF = {
+  enabled: false,
+  streakRisk: true,
+  time: '19:00',
+  days: [0, 1, 2, 3, 4, 5, 6],
+  quietStart: null,
+  quietEnd: null,
+};
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(async () => mockState.stored),
@@ -25,6 +39,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  useUpdateAccountPreferences: () => ({ mutate: (...args: unknown[]) => mockMutate(...args) }),
   useGetAccount: () => ({
     data: {
       preferences: {
@@ -47,6 +62,8 @@ jest.mock('@/lib/reminders', () => ({
   remindersSupported: true,
   getNotificationPermission: async () => mockState.permission,
   requestNotificationPermission: () => mockRequest(),
+  loadReminderPrefs: async () => mockState.reminderPrefs,
+  applyReminderPrefs: (next: any, mirror: any) => mockApply(next, mirror),
 }));
 
 jest.mock('@/lib/push', () => ({ syncPushToken: () => mockSync() }));
@@ -62,6 +79,9 @@ import { NotificationPrimer } from '@/components/NotificationPrimer';
 beforeEach(() => {
   mockRequest.mockClear();
   mockSync.mockClear();
+  mockApply.mockClear();
+  mockMutate.mockClear();
+  mockState.reminderPrefs = { ...REMINDER_PREFS_OFF };
   mockState.permission = { granted: false, canAskAgain: true };
   mockState.hasChosenLanguage = true;
   mockState.hasCompletedTour = true;
@@ -91,6 +111,34 @@ describe('NotificationPrimer', () => {
     await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1));
     // A grant with no push_tokens row is the state production was already in.
     await waitFor(() => expect(mockSync).toHaveBeenCalled());
+  });
+
+  it('"Yes" also switches the daily reminder on at 19:00 (build 19, owner: YES)', async () => {
+    render(<NotificationPrimer />);
+    fireEvent.press(await screen.findByTestId('notification-primer-allow'));
+
+    await waitFor(() => expect(mockApply).toHaveBeenCalledTimes(1));
+    expect(mockApply.mock.calls[0]![0]).toMatchObject({ enabled: true, time: '19:00' });
+    // The server mirror, through the same path the reminders screen uses.
+    expect(mockMutate).toHaveBeenCalledWith({
+      data: { dailyReminderEnabled: true, dailyReminderTime: '19:00' },
+    });
+  });
+
+  it('"Yes" leaves a reminder the learner already set alone', async () => {
+    mockState.reminderPrefs = { ...REMINDER_PREFS_OFF, enabled: true, time: '08:30' };
+    render(<NotificationPrimer />);
+    fireEvent.press(await screen.findByTestId('notification-primer-allow'));
+
+    await waitFor(() => expect(mockSync).toHaveBeenCalled());
+    expect(mockApply).not.toHaveBeenCalled();
+  });
+
+  it('"No" touches neither the OS nor the reminder', async () => {
+    render(<NotificationPrimer />);
+    fireEvent.press(await screen.findByTestId('notification-primer-dismiss'));
+    expect(mockRequest).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
   });
 
   it('does not appear before the first-run language step is done', async () => {
