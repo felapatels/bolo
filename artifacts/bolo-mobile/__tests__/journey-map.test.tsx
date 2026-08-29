@@ -33,7 +33,7 @@ import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from '@/lib/railPalette';
 import { INTRO_SCROLL } from '@/lib/journeyIntroScroll';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
 
@@ -480,10 +480,11 @@ describe('journey map — the opening shot (Task 1082 item 4, recut 2026-08-26)'
 
   let scrollTo: jest.SpyInstance;
 
-  /** Past the hold, which is all the shot needs now: it hands the travel to
-   *  the platform's own animated scroll rather than driving frames itself. */
+  /** Past the hold and the whole hop chain (build 17): the travel is a chain
+   *  of the platform's own animated scrolls, one hop of about a row every
+   *  beat, at most ten. 10 x 600 outruns INTRO_HOP_MS x INTRO_HOPS_MAX. */
   const playWholeShot = () => {
-    jest.advanceTimersByTime(INTRO_SCROLL.holdMs);
+    jest.advanceTimersByTime(INTRO_SCROLL.holdMs + 10 * 600);
   };
   const lastScrollY = () =>
     (scrollTo.mock.calls[scrollTo.mock.calls.length - 1]![0] as { y: number }).y;
@@ -521,11 +522,18 @@ describe('journey map — the opening shot (Task 1082 item 4, recut 2026-08-26)'
     // every test because the test renderer hands out the frames itself, and
     // did not move a real ScrollView: "the AutoZone didn't work", twice off
     // TestFlight. Duration control is worth less than working.
-    expect(scrollTo).toHaveBeenCalledTimes(1);
+    // A CHAIN OF ANIMATED SCROLLS, not one (build 17): "autoscroll happens
+    // too quickly when you join this page. slow it down so you can see the
+    // stops you passed." Every hop is the platform's own animated scroll, the
+    // hops climb, and the last one is the destination.
+    expect(scrollTo.mock.calls.length).toBeGreaterThan(1);
+    expect(scrollTo.mock.calls.length).toBeLessThanOrEqual(10);
+    for (const call of scrollTo.mock.calls) expect(call[0]).toMatchObject({ animated: true });
+    const ys = scrollTo.mock.calls.map((c) => (c[0] as { y: number }).y);
+    for (let i = 1; i < ys.length; i++) expect(ys[i]).toBeGreaterThan(ys[i - 1]!);
     // Past the top of the line: this learner's stop is the twelfth, so the map
     // does not leave them staring at stop 1.
     expect(lastScrollY()).toBeGreaterThan(0);
-    expect(scrollTo.mock.calls[0]![0]).toMatchObject({ animated: true });
   });
 
   it('leaves a learner on stop 1 exactly where they already are', () => {
@@ -935,16 +943,17 @@ describe('journey map — build 31 signboard dressing + rail pulse', () => {
     const { a, b, c } = threeStopZone();
     render(<JourneyScreen />);
 
-    const fullFill = StyleSheet.flatten(
-      screen.getByTestId(`stop-progress-${a.id}`).props.style,
-    );
-    const partFill = StyleSheet.flatten(
-      screen.getByTestId(`stop-progress-${b.id}`).props.style,
-    );
-    // Percentages of a full-width track since chat 11 ("spread out the
-    // wording"): the fixed 80px track left half an even-width tag empty.
-    expect(fullFill.width).toBe('100%'); // 8/8
-    expect(partFill.width).toBe('38%'); // 3/8, rounded
+    // DOTS, NOT A BAR (build 17, owner: "for each cards progress bar, i like
+    // the dotted bar you did with purple on the boarding pass"). One dot per
+    // phrase, the mastered ones filled; the row still exists only on
+    // attempted stops. Was a width percentage of a track.
+    void StyleSheet;
+    const full = within(screen.getByTestId(`stop-progress-${a.id}`));
+    const part = within(screen.getByTestId(`stop-progress-${b.id}`));
+    expect(full.getAllByTestId('stop-dot-done').length).toBe(8); // 8/8
+    expect(full.queryAllByTestId('stop-dot-ahead').length).toBe(0);
+    expect(part.getAllByTestId('stop-dot-done').length).toBe(3); // 3/8
+    expect(part.getAllByTestId('stop-dot-ahead').length).toBe(5);
     expect(screen.queryByTestId(`stop-progress-${c.id}`)).toBeNull(); // unattempted
 
     expect(screen.getByText('8/8 mastered')).toBeOnTheScreen();
