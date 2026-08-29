@@ -223,6 +223,9 @@ const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
 const PC_H = 256; // vertical rhythm per fare-zone postcard (pediment + card)
 
 const ZONE_BOARD_GAP = 18; // air between the carved board and the first stop card
+// How far below the board's top the pediment's opaque shoulders begin, in
+// points at the map's width: the arch above them is drawn on transparency.
+const PEDIMENT_SHOULDER = 22;
 /**
  * The scroll content's own top pad, named because two places must agree on it:
  * the contentContainerStyle that creates it, and the slide-in maths that turns
@@ -3129,7 +3132,7 @@ export default function JourneyScreen() {
                         <View style={styles.chalkColumn}>
                           <View style={styles.chalkChipRow}>
                             {cardChips}
-                            {!accessible && <Feather name="lock" size={12} color="rgba(255,255,255,0.75)" />}
+                            {!accessible && <Feather name="lock" size={12} color={colors.primary} />}
                           </View>
                           <Text style={styles.chalkKicker}>TRACE</Text>
                           <Text numberOfLines={2} style={styles.chalkLine}>
@@ -3178,7 +3181,7 @@ export default function JourneyScreen() {
                               </Text>
                               <View style={styles.cardTitleSpacer} />
                               {cardChips}
-                              {!accessible && <Feather name="lock" size={12} color={TICKET.inkAhead} />}
+                              {!accessible && <Feather name="lock" size={12} color={colors.primary} />}
                             </View>
                             <Text
                               numberOfLines={1}
@@ -3303,7 +3306,7 @@ export default function JourneyScreen() {
                       </Text>
                         <View style={styles.cardTitleSpacer} />
                         {!accessible && (
-                          <Feather name="lock" size={12} color={TICKET.inkAhead} />
+                          <Feather name="lock" size={12} color={colors.primary} />
                         )}
                       </View>
                       {/* Started stops trade the text fraction for a real
@@ -3618,7 +3621,14 @@ export default function JourneyScreen() {
               top: 0,
               left: 0,
               right: 0,
-              height: headerTopInset + TOP_PAD,
+              // DOWN TO THE PEDIMENT'S SHOULDERS, not just to the board's
+              // top. The carved top slice is transparent above its shoulders
+              // (the arch rises from them), so a cap that stopped at the
+              // board's own top left a band the map showed through: "something
+              // broke up here", a story card and its badge between the clock
+              // and the carving. The arch draws over the cap, so nothing
+              // carved is hidden by the extra rows.
+              height: headerTopInset + TOP_PAD + PEDIMENT_SHOULDER,
               overflow: 'hidden',
               backgroundColor: zoneFootTone(activeZone),
             }}
@@ -3780,7 +3790,7 @@ export default function JourneyScreen() {
             {lock?.kind === 'plan' && (
               <>
                 <View style={styles.dialogTitleRow}>
-                  <Feather name="lock" size={14} color={colors.foreground} />
+                  <Feather name="lock" size={14} color={colors.primary} />
                   <Text style={[styles.dialogTitle, { color: colors.foreground }]}>
                     This stop is All-Access territory
                   </Text>
@@ -4513,7 +4523,9 @@ const styles = StyleSheet.create({
   },
   cardProgressFill: { height: 6, borderRadius: 3 },
   cardDots: { flex: 1, minWidth: 0, paddingRight: 2 },
-  chalkDots: { alignSelf: 'stretch', flexDirection: 'row', marginTop: 6, paddingHorizontal: 2 },
+  // The dots stop short of the pencil on the corner (owner: "chalkboard icon
+  // is blocking the dot progress bar").
+  chalkDots: { alignSelf: 'stretch', flexDirection: 'row', marginTop: 6, paddingLeft: 2, paddingRight: 30 },
   cardProgressLabel: { fontFamily: AppFonts.bold, fontSize: 10 },
   cardTitleSpacer: { flex: 1 },
   cardStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
