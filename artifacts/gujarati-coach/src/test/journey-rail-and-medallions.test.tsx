@@ -112,13 +112,19 @@ describe("the rail palette is one palette across both platforms", () => {
   // Sampled from the owner's rail sheet, not picked. Mobile twin:
   // bolo-mobile/lib/railPalette.ts, asserted there with the same three shapes.
   test("the wood, the rails and the green centre are exactly these", () => {
+    // INVERTED 2026-08-29 (build 18, web parity with mobile's build 17, the
+    // owner's hybrid journey mockup). The rails are the app's violet on both
+    // runs ("The track ahead should have the two parallel purple lines"), the
+    // travelled centre is the owner's lime, sent as a swatch after "#ECF584
+    // looks yellow, not green" (and #4ADE80 was mint), the halo is lime with
+    // it, and betweenUnlit is GONE: ahead there is nothing between the rails
+    // at all ("future track should be only 2 purple lines, not filled").
     expect(RAIL).toEqual({
       tie: "#8A5D4A",
       tieInk: "#361C0F",
-      rail: "#8E9B43",
-      between: "#ECF584",
-      betweenUnlit: "#9A8A6B",
-      glow: "#ABF1A5",
+      rail: "#8B5CF6",
+      between: "#84CC16",
+      glow: "#BEF264",
     });
   });
 
@@ -128,19 +134,34 @@ describe("the rail palette is one palette across both platforms", () => {
     // read entirely. Reported from the preview as "train tracks don't look
     // right". The sheet draws no halo at all; it draws a bright green CENTRE
     // STRIPE down a brown sleeper ladder, which RAIL.between now is. What
-    // survives here is one narrow glow under that stripe.
-    expect(RAIL_GLOW_PASSES).toEqual([{ width: 9, opacity: 0.45 }]);
+    // survives here is one narrow glow under that stripe. 12 at 0.5 from
+    // build 17/18, with the heavier rail under it.
+    expect(RAIL_GLOW_PASSES).toEqual([{ width: 12, opacity: 0.5 }]);
   });
 
   test("the track strokes are exactly this shape", () => {
+    // INVERTED 2026-08-29 (build 18). Heavier all round ("the train tracks
+    // arent heavy enough"): 18 sleepers on a 5 9 rhythm, a 12 rail stroke
+    // over a 7 centre. The run ahead gains `line` and `gauge` (two 2.5
+    // strokes 9.5 apart, outer edges matching the 12) and loses unlitDash:
+    // it is no longer dashed, state is the light down the middle.
     expect(RAIL_STROKE).toEqual({
-      tie: 15,
-      rail: 8.5,
-      between: 4,
-      tieDash: "3 11",
-      unlitDash: "9 7",
+      tie: 18,
+      rail: 12,
+      between: 7,
+      line: 2.5,
+      gauge: 9.5,
+      tieDash: "5 9",
       unlitOpacity: 1,
     });
+  });
+
+  test("the run ahead is two lines a gauge apart, with nothing between", () => {
+    // The pair's outer edges span exactly what the travelled rail stroke
+    // spans, so the track keeps one width along its whole length.
+    expect(RAIL_STROKE.gauge + RAIL_STROKE.line).toBeCloseTo(RAIL_STROKE.rail, 5);
+    expect("betweenUnlit" in RAIL).toBe(false);
+    expect("unlitDash" in RAIL_STROKE).toBe(false);
   });
 
   test("nothing between the rails is a theme colour", () => {
@@ -172,6 +193,30 @@ describe("the medallions reach the map and say KIND, not status", () => {
     expect(screen.getAllByTestId("station-medallion-station").length).toBeGreaterThan(0);
     expect(screen.getAllByTestId("station-medallion-trace").length).toBeGreaterThan(0);
     expect(screen.getAllByTestId("station-medallion-story").length).toBeGreaterThan(0);
+  });
+
+  test("the marker is a numbered badge, and the number is the row's", () => {
+    // THE CUT-ART MEDALLION BECAME A NUMBERED PARCHMENT BADGE (build 17 on
+    // mobile, build 18 here, the owner's hybrid mockup). The number is what
+    // the card beside it counts in, and the chalkboard and the plaque no
+    // longer print it themselves, so the badge is the only place a learner
+    // reads "2" for the tracing stop.
+    renderJourney();
+    const numbers = screen
+      .getAllByTestId(/^station-medallion-/)
+      .map((el) => el.textContent?.trim());
+    // Zone 1 in the fixture is nine phrase stops plus the tracing and story
+    // rows, numbered densely: the tracing stop is 2 and the story stop 3.
+    // Stop 1 is the current stop and wears the train, not a badge, so the
+    // badges run 2 to 11 and then zone 2's stop 1.
+    expect(numbers.slice(0, 11)).toEqual([
+      "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "1",
+    ]);
+    // No emblem art on the marker any more; the story emblem lives on the
+    // plaque instead.
+    for (const el of screen.getAllByTestId(/^station-medallion-/)) {
+      expect(el.querySelector("img")).toBeNull();
+    }
   });
 
   test("the marker carries no status of its own, only the kind", () => {

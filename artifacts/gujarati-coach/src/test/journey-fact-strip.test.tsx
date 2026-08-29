@@ -69,12 +69,18 @@ function renderJourney() {
   );
 }
 
+/** One OPEN stop per zone. It was "locked", which made every zone gate-locked
+ *  (every stop locked, none by plan), and from build 18 a gate-locked zone's
+ *  card shows the test-out button IN THE FACT'S PLACE (mobile parity, the
+ *  owner's zone-card mockup: "this fell off the zone card (test out of this
+ *  zone)"). Pre-flip the first stop of every zone is unlocked, so an open
+ *  stop is also the honest shape of the payload this strip actually draws on. */
 const grp = (id: number) => ({
   id,
   title: `Stop ${id}`,
   stage: "phrase",
   position: id,
-  status: "locked",
+  status: "unlocked",
   phraseCount: 5,
   masteredCount: 0,
 });

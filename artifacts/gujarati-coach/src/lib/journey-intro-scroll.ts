@@ -60,11 +60,26 @@ export function introScrollDurationMs(distancePx: number): number {
   return Math.min(INTRO_SCROLL.maxMs, Math.max(INTRO_SCROLL.minMs, raw));
 }
 
-/** The framing lead for a viewport height. */
-export function introScrollLead(viewportH: number): number {
-  return Math.min(
-    INTRO_SCROLL.leadMax,
-    Math.max(INTRO_SCROLL.leadMin, Math.round(viewportH * INTRO_SCROLL.leadFraction)),
+/**
+ * The framing lead for a viewport height.
+ *
+ * `clearance` is the least lead that keeps the stop clear of whatever sits at
+ * the top of the viewport, and it wins over the cap (build 17 on mobile,
+ * build 18 here). Mobile's zone board pins at the safe-area inset and stands
+ * TOP_PAD + PC_H tall there, 253 on a Dynamic Island phone, against a cap of
+ * 260: every current card's top was framed under the board, and stop 1's most
+ * of all. Web passes the same floor (its sticky header plus the board's foot
+ * plus half a row) so the two shots frame a stop the same way, and so stop 1
+ * is never scrolled up past its own zone card. A stop under the board is not
+ * framed at all, so the clearance is not subject to the cap.
+ */
+export function introScrollLead(viewportH: number, clearance = 0): number {
+  return Math.max(
+    clearance,
+    Math.min(
+      INTRO_SCROLL.leadMax,
+      Math.max(INTRO_SCROLL.leadMin, Math.round(viewportH * INTRO_SCROLL.leadFraction)),
+    ),
   );
 }
 

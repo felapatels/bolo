@@ -88,7 +88,7 @@ vi.mock("@workspace/api-client-react", async () => ({
   }),
 }));
 
-import Journey from "@/pages/journey";
+import Journey, { INTRO_HOPS } from "@/pages/journey";
 import { JOURNEY_ZONES } from "@/lib/journeyLines";
 import { INTRO_SCROLL } from "@/lib/journey-intro-scroll";
 
@@ -409,7 +409,15 @@ describe("current-stop card (task 1082 item 2)", () => {
     expect(screen.getAllByText("Stop 1 of 3").length).toBeGreaterThan(0);
     expect(screen.queryByText("Stop 1 of 1")).toBeNull();
     expect(screen.getByText("3/8 mastered")).toBeInTheDocument();
-    expect(container.querySelector(".h-1\\.5")).not.toBeNull();
+    // INVERTED 2026-08-29 (build 18, web parity with mobile's build 17). The
+    // `.h-1.5` bar is gone: "for each cards progress bar, i like the dotted
+    // bar you did with purple on the boarding pass." One dot per phrase,
+    // mastered ones filled, the text fraction kept beside them.
+    const dots = container.querySelector('[data-testid="progress-stop-1"]')!;
+    expect(dots).not.toBeNull();
+    expect(dots.querySelectorAll('[data-testid="stop-dot-done"]')).toHaveLength(3);
+    expect(dots.querySelectorAll('[data-testid^="stop-dot-"]')).toHaveLength(8);
+    expect(dots.querySelector(".h-1\\.5")).toBeNull();
   });
 });
 
@@ -521,7 +529,10 @@ describe("scroll to the current stop on open (task 1082 item 4)", () => {
     await afterTheShot();
     // Past the shot's longest possible run, so the tween is finished rather
     // than merely started: `lastTop() > 0` goes true partway through it.
-    await new Promise((r) => setTimeout(r, INTRO_SCROLL.maxMs + 200));
+    // THE RUN IS A ROW PER BEAT NOW (build 18, mobile's build 17 pace), up to
+    // INTRO_HOPS.max rows' worth, so the longest shot is that many beats
+    // rather than INTRO_SCROLL.maxMs; this waits it out on the real clock.
+    await new Promise((r) => setTimeout(r, INTRO_HOPS.max * INTRO_HOPS.ms + 300));
     expect(lastTop()).toBeGreaterThan(0);
     const settled = scrollTo.mock.calls.length;
     // A refetch or any other re-render inside the same visit must leave the
@@ -530,7 +541,7 @@ describe("scroll to the current stop on open (task 1082 item 4)", () => {
     rerender((<Router hook={hook}>{(<Journey />) as ReactElement}</Router>) as ReactElement);
     await new Promise((r) => setTimeout(r, INTRO_SCROLL.holdMs + 200));
     expect(scrollTo).toHaveBeenCalledTimes(settled);
-  });
+  }, 15_000);
 
   test("yields to a learner who starts scrolling first", async () => {
     // A wheel CANCELS rather than landing, and the asymmetry is deliberate: a

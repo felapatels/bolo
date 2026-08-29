@@ -460,6 +460,25 @@
 .station-card[data-side="left"]::after {
   right: -2px;
 }
+/* THE CHALKBOARD (build 17 on mobile, build 18 here). The tracing stop is not
+   a tag any more: a slate in a wood frame, the letters in chalk, the app's
+   violet pencil on the corner (the owner's mockup: "Chalkboard should be a
+   different shaped card. Like a vertical rectangle with chalk font"). It
+   still carries `.station-card` and the stock attributes so the paper
+   contract holds for every stop; these rules come LAST so they win over the
+   accessible/ahead stocks at equal specificity, and the slate stays slate
+   whether the stop is open or ahead. No inner rule and no eyelet: a board on
+   an easel is not hung on the rail. Mobile twin: chalkboardBack. */
+.station-card[data-kind="chalkboard"] {
+  background: #1f3d2b;
+  border: 4px solid #8a5d4a;
+  border-radius: 10px;
+  color: #ffffff;
+}
+.station-card[data-kind="chalkboard"]::before,
+.station-card[data-kind="chalkboard"]::after {
+  content: none;
+}
 
 /* THE SHEET DRAWS THREE DIFFERENT TAGS, not one, and the owner noticed:
    "i like how my example shot had different types of cards for each stop."

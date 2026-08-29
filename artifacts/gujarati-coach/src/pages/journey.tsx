@@ -21,6 +21,7 @@ import { blessAudioPlayback } from "@/lib/iosAudio";
 import { playStopSplash } from "@/lib/stop-splash";
 import {
   ZONE_BACKDROP_SCRIM,
+  ZONE_BACKDROP_SCRIM_COLOR,
   ZONE_BOARD,
   ZONE_BOARD_ART,
   ZONE_WIDE_ART,
@@ -40,7 +41,7 @@ import {
   type LessonGroupList,
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
-import { ArrowLeft, BookOpen, Check, ChevronDown, Lock, PenLine, Sparkles, Star } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Lock, Pencil, Sparkle, Sparkles, Star, Train } from "lucide-react";
 import { ChaiGlyph } from "@/components/chai-stall";
 import { TrainEngine } from "@/components/train-svg";
 import { useReducedMotion } from "framer-motion";
@@ -59,6 +60,8 @@ import { useEntitlements } from "@/lib/entitlements";
 import { LessonErrorScreen } from "@/components/lesson-states";
 import { UpgradeScreen } from "@/components/plus";
 import { CarvedBoard } from "@/components/carved-board";
+import { StopDots } from "@/components/stop-dots";
+import { planZoneRows } from "@/lib/journey-rows";
 import {
   asUpgradeRequired,
   upgradeHref,
@@ -67,8 +70,6 @@ import {
 import { JOURNEY_ZONES, getJourneyLine } from "@/lib/journeyLines";
 import {
   traceStopCopy,
-  traceStopFor,
-  traceStopIndexIn,
   traceStopPassedCount,
   traceStopStatus,
   type TraceStop,
@@ -80,8 +81,6 @@ import {
 } from "@workspace/emergency";
 import {
   isStoryTeaserBook,
-  storyBookFor,
-  storyStopIndexIn,
   type StoryBook,
 } from "@workspace/story";
 import { useTraceStopProgress } from "@/lib/useTraceStopProgress";
@@ -136,7 +135,6 @@ import {
 } from "@/lib/ticket-stock";
 import {
   INTRO_SCROLL,
-  introScrollDurationMs,
   introScrollEase,
   introScrollLead,
 } from "@/lib/journey-intro-scroll";
@@ -154,10 +152,47 @@ const MAP_MAX_W = 390;
 // the current stop's status onto a second line), so the slot that holds it
 // comes down with it. Chacha-ji's stall is unaffected: it is seated in its own
 // halt row off the halt point, not off a station row.
-const STATION_H = 88; // vertical rhythm per station row
+// 176 FROM BUILD 18, WAS 88, in step with mobile's build 17. Owner: "Cards are
+// too tight, lets double each zones background so we can space everything
+// out better", and "make the winding tracks less tight". One number does
+// both: every row and scenery position hangs off the pitch, so each zone's
+// painted band doubles with it, and the serpentine keeps its x swing over
+// twice the y, which halves the slope of every bend.
+const STATION_H = 176; // vertical rhythm per station row
+// THE OPENING SHOT'S PACE (build 17 on mobile, build 18 here): about a row per
+// beat, so the stops go by one at a time rather than in a blur. Owner:
+// "autoscroll happens too quickly when you join this page. slow it down so
+// you can see the stops you passed." Capped so a far stop travels faster on
+// the same beat rather than for longer. Mobile drives a chain of animated
+// hops because its platform scroll has no duration; web's tween has one, so
+// the same three numbers become a duration and the feel is the same.
+// Exported as INTRO_HOPS so the opening-shot tests can play the whole shot.
+const INTRO_HOP_PX = STATION_H;
+const INTRO_HOP_MS = 520;
+const INTRO_HOPS_MAX = 10;
+export const INTRO_HOPS = {
+  px: INTRO_HOP_PX,
+  ms: INTRO_HOP_MS,
+  max: INTRO_HOPS_MAX,
+} as const;
+// The tracing stop's chalkboard (build 17 on mobile, build 18 here): a tall
+// slate rather than a tag, and the doubled pitch above is what leaves room
+// for it in the row.
+const CHALKBOARD_W = 150;
+const CHALKBOARD_H = 150;
+// A CHALK FACE WITHOUT A BUNDLED FONT. Chalkduster ships on every Mac and
+// iPhone; elsewhere the browser's casual hand stands in. Nothing new in the
+// bundle, nothing to license. Mobile: Chalkduster on iOS, "casual" on
+// Android, for the same reason.
+const CHALK_FONT = '"Chalkduster", "Bradley Hand", "Comic Sans MS", cursive';
 /** A folded zone's whole station block, in place of N * STATION_H. */
 const COLLAPSED_H = 56;
-const PC_H = 184; // vertical rhythm per fare-zone postcard (incl. picture side + fact strip)
+// 256 FROM BUILD 18, WAS 184, in step with mobile's build 17 zone-card
+// restyle (the owner's mockup): the panel is a card now, with a line pill, a
+// 22px city, a rule and a boxed fact, and the budget was measured in Chrome
+// with the real markup before this number was set (ZONE_BOARD_MIN_PANEL_H).
+// journey-board-budget.test.ts mirrors it on purpose; move both together.
+const PC_H = 256; // vertical rhythm per fare-zone postcard (pediment + card)
 const TERM_H = 92; // terminus row
 // Chacha-ji's halt: a scenery-only row inserted after every encounter station
 // so his stall has a lane on the RIGHT of the track. It is NOT a stop — no
@@ -173,12 +208,11 @@ const TERM_H = 92; // terminus row
 // beside it. The old 74 left about 10px of slack at each end of the stall,
 // which a second line of text eats on its own.
 //
-// This buys roughly 21px of clearance each side instead of 10. It does not
-// fix the underlying mismatch, which is that the pitch should be measured
-// rather than assumed, and that is a bigger change than tonight's list.
-// Kept identical on web and mobile: the two maps are drawn to the same
-// geometry and a difference here shows up as the stall sitting somewhere
-// else on the phone.
+// RETIRED FROM THE LAYOUT ON 2026-08-26 (the stall moved to the marker's
+// left) and mobile deleted the constant in build 17. Web keeps the number
+// only because journey-scenery.test.tsx still replays the old lane geometry
+// against it; nothing in this file lays a row out with it any more. Delete
+// it together with that test's lane block, not before.
 const HALT_H = 96;
 // Item 3: drop of the terminus label below the terminus dot's center. The dot
 // is 24px (border-box) with a 2px ring, so its lowest ink is termY+14; the
@@ -207,8 +241,9 @@ export const SERPENTINE = {
   CARD_GAP,
   EDGE_PAD,
   MARKER_HALF_W,
-  /** Half of the rail's widest stroke (the 15px sleeper-tie band). */
-  RAIL_HALF_W: 7.5,
+  /** Half of the rail's widest stroke (the sleeper-tie band), off the shared
+   *  palette so a heavier rail moves the no-overlap geometry with it. */
+  RAIL_HALF_W: RAIL_STROKE.tie / 2,
 } as const;
 // Task #917 / #973: comet samples per active-run segment come from the shared
 // RAIL_PULSE tuning export in lib/motion.tsx (geometry density, not timing;
@@ -305,7 +340,7 @@ function useMapWidth() {
   return { ref, w };
 }
 
-/** Marker sitting on the rail: a cut brass emblem saying what KIND of stop
+/** Marker sitting on the rail: a numbered parchment badge saying which stop
  *  this is, and a train at the current one. */
 function StationMarker({
   station,
@@ -348,44 +383,44 @@ function StationMarker({
   }
   const done = station.status === "completed" || station.status === "tested_out";
 
-  // WHAT KIND OF STOP, not what state it is in. The card beside every stop
-  // already says "Completed" and "8/10 mastered", so a marker that only encoded
-  // status was repeating it while leaving the thing it alone could say, that
-  // this one is a tracing stop and that one is a story, to a chip.
-  //
+  // WHAT KIND OF STOP, for the test id the medallion tests sweep by. The card
+  // beside every stop already says "Completed" and "8/10 mastered", so the
+  // marker never encodes status; it says which stop this is.
   const kind: StopEmblemKind = station.trace
     ? "trace"
     : station.story
       ? "story"
       : "station";
-  // NO DIAMOND ANY MORE, and the question that killed it was the right one:
-  // "why are some diamond behind and some circle?" The rotated frame meant
-  // "first-class sentence stop", so the marker was carrying TWO encodings at
-  // once, shape for entitlement and emblem for kind, on a 26px disc. That is
-  // exactly the doubling-up the medallions were introduced to end. A sentence
-  // stop already says so on its card, in words, with an ALL-ACCESS plate.
-  //
-  // BIGGER, TOO. The reference draws these as prominent brass discs and 26px
-  // read as a bead on the rail.
+  // A NUMBERED BADGE, FROM BUILD 17 (mobile) AND BUILD 18 (web), the owner's
+  // hybrid journey mockup: a parchment disc with a gold ring and the stop's
+  // number, a green check on a finished stop. It replaces the cut-art
+  // medallions, whose chrome had been stripped three times over ("medallions
+  // shouldn't be opaque"); this is not chrome around art, it is the marker
+  // itself, and the mockup draws every stop this way. The number is what the
+  // card beside it counts in, and the chalkboard and the plaque no longer
+  // print it themselves. A stop ahead is said in INK, never in alpha: the
+  // medallion test still holds that the marker carries no opacity of its own.
   return (
     <div
       data-testid={`station-medallion-${kind}`}
-      className="relative flex h-[34px] w-[34px] items-center justify-center"
+      className="relative flex h-[30px] w-[30px] items-center justify-center rounded-full border-2"
+      style={{ borderColor: BADGE.brassEdge, background: TICKET.stockTop }}
     >
-      {/* THE ART, AT FULL STRENGTH, AND NOTHING ELSE. No disc, no rim, no
-          locked ring, no knock-back alpha. Reported three times off the
-          preview: "medallions shouldn't be opaque", "still see circles",
-          "some icons still too transparent". Every one of those was chrome
-          I had drawn around art that already is a medallion.
-          Whether a stop is reached is said twice over already, by the card's
-          drained stock and by the rail arriving dashed instead of green, so
-          the marker does not need to say it a third time in alpha. */}
-      <img
-        src={stopEmblem(kind)}
-        alt=""
-        aria-hidden
-        className="h-full w-full object-contain drop-shadow-[var(--depth-shadow)]"
-      />
+      <span
+        className="text-[13px] font-black leading-4"
+        style={{ color: accessible ? ZONE_BOARD.ink : TICKET.inkAhead }}
+      >
+        {station.stopNumber}
+      </span>
+      {done && (
+        <span
+          data-testid="stop-badge-done"
+          className="absolute -right-[5px] -top-[5px] flex h-[15px] w-[15px] items-center justify-center rounded-full border-[1.5px] border-white"
+          style={{ background: "#22C55E" }}
+        >
+          <Check className="h-[9px] w-[9px] text-white" strokeWidth={4} />
+        </span>
+      )}
     </div>
   );
 }
@@ -410,11 +445,16 @@ const GAME_BLURBS: Record<QuickGameId, string> = {
 const FACT_CYCLE_MS = 6000;
 const FACT_FADE_MS = 250;
 
-/** Hotfix 3 item 6: the postcard's live "Did you know?" strip. Cycles to the
+/** Hotfix 3 item 6: the zone card's live "Did you know?" box. Cycles to the
  *  next fact in the zone's rotation after roughly 6 seconds of continued
  *  visibility with a gentle crossfade; tapping advances immediately. Reduced
  *  motion: no auto-cycle, tap still advances with an instant swap. Facts are
- *  a local lookup, so cycling makes zero network calls. */
+ *  a local lookup, so cycling makes zero network calls.
+ *
+ *  THE BOX IS THE FACT'S HOME NOW (the owner's zone-card mockup, build 17 on
+ *  mobile, build 18 here): its own rounded paper behind a gold spark, the
+ *  label in the app's violet, the fact up to three lines. Mobile's is static
+ *  because its release builds cannot animate; web keeps the cycle. */
 function FactStrip({
   facts,
   zoneIndex,
@@ -422,6 +462,7 @@ function FactStrip({
 }: {
   facts: string[];
   zoneIndex: number;
+  /** The label's ink: the app's violet, or grey on a showroom zone. */
   color: string;
 }) {
   const reduceMotion = useReducedMotion();
@@ -479,68 +520,78 @@ function FactStrip({
       onClick={advance}
       aria-label="Show the next India fact"
       data-testid={`postcard-fact-${zoneIndex}`}
-      className="mb-1 block w-full rounded-md border border-dashed px-2 py-0.5 text-left"
-      style={{ borderColor: `${color}55` }}
+      className="flex w-full items-center gap-2.5 rounded-[10px] border px-2.5 py-[7px] text-left"
+      style={{ background: "#FFFDF8", borderColor: `${BADGE.brassEdge}80` }}
     >
       <span
-        className="block text-[8px] font-black uppercase tracking-widest"
-        style={{ color }}
+        aria-hidden
+        className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border"
+        style={{ background: "#FFF4E0", borderColor: BADGE.brassEdge }}
       >
-        Did you know?
+        <Sparkle className="h-[18px] w-[18px]" style={{ color: BADGE.brassBg }} />
       </span>
-      <p
-        className={cn(
-          "line-clamp-2 text-[9px] leading-tight text-muted-foreground transition-opacity duration-200",
-          fading ? "opacity-0" : "opacity-100",
-        )}
-      >
-        {facts[idx % facts.length]}
-      </p>
+      <span className="min-w-0 flex-1">
+        <span
+          className="block text-[10px] font-black uppercase tracking-[1.2px]"
+          style={{ color }}
+        >
+          Did you know?
+        </span>
+        <p
+          className={cn(
+            "line-clamp-3 text-[11px] font-semibold leading-[14px] transition-opacity duration-200",
+            fading ? "opacity-0" : "opacity-100",
+          )}
+          style={{ color: "#3A2A1E" }}
+        >
+          {facts[idx % facts.length]}
+        </p>
+      </span>
     </button>
   );
 }
 
-/** Fare-zone postcard: picture side on top (per-zone landmark vista, inline
- *  SVG in brand colors — no artwork is generated, acceptance 8), address side
- *  below with stamp + postmark. Locked showroom zones render grayscale.
- *  Full-width card; the interchange diamond is drawn by the map on the track
- *  where it meets the card. */
+/** The fare-zone board: the carved pediment over ONE cream card. Locked
+ *  showroom zones render grayscale. Full-width; the interchange diamond is
+ *  drawn by the map on the track where it meets the card. */
 function ZonePostcard({
   zoneIndex,
   zoneTitle,
   geoName,
-  accent,
+  lineName,
   stationCount,
   grayed,
-  zoneAllDone,
-  scenarioId,
-  hasStamp,
   testOutHref,
   facts,
+  teaser,
 }: {
   zoneIndex: number;
   zoneTitle: string;
   geoName: string;
-  accent: string;
+  /** The line's name, in the violet pill: the board names the line as well
+   *  as the topic, which is what let mobile's boarding-pass header go. */
+  lineName: string;
   stationCount: number;
   grayed: boolean;
-  zoneAllDone?: boolean;
-  scenarioId?: string;
-  hasStamp?: boolean;
   /** Present only when the zone is gate-locked (Chunk 4B): links into the
    *  zone-level test-out flow. Dormant pre-flip by construction. */
   testOutHref?: string;
   /** Hotfix 3 item 6: the zone's rotating India facts for the live strip
    *  (index 0 is today's daily pick, factForZone parity). */
   facts?: string[];
+  /** "Free taste 1/3" on a teaser showroom, folded into the stops line. */
+  teaser?: string | null;
 }) {
-  const color = grayed ? GRAY : accent;
+  const color = grayed ? GRAY : "hsl(var(--primary))";
   return (
     <div className={cn("pointer-events-auto", grayed && "grayscale opacity-80")}>
       {/* THE CARVED STATION BOARD. One definition on web, shared with the
           home hero: see components/carved-board.tsx, which this block was
           extracted into on 2026-08-28. Mobile did the same extraction a day
-          earlier for the same reason. */}
+          earlier for the same reason.
+          BARE from build 18: the card below REPLACES the parchment panel
+          (owner, build 17: "no i don't want to keep that old box
+          underneath"). */}
       <CarvedBoard
         height={PC_H}
         nameplate={zoneTitle}
@@ -548,45 +599,95 @@ function ZonePostcard({
         className="depth-shadow"
         testId={`zone-board-${zoneIndex}`}
         pedimentTestId={`zone-board-top-${zoneIndex}`}
+        bare
       >
-          {/* address side */}
-          <div className="flex items-stretch gap-0">
-            {/* left column: main address side */}
-            <div className="min-w-0 flex-1 py-1">
-              {/* The fare-zone line came off the panel when the carved board
-                  landed: the pediment's nameplate carries the topic and the
-                  small plate carries the number, so this said both twice. */}
-              {/* Ink from the board, not a theme token: the panel is cream in
-                  both themes and a cool slate reads cold on it. */}
-              <div
-                className="truncate text-sm font-extrabold leading-tight"
-                style={{ color: ZONE_BOARD.ink }}
+        {/* THE MODERN PANEL ON THE CARVED BOARD (the owner's mockup, build 17
+            on mobile, build 18 here: "this is how i want the zone cards to
+            look"). The pediment stays carved; under it the panel is a cream
+            card with the app's violet on its top edge, the line as a violet
+            pill, the city big, a gold dashed rule with a diamond, and the
+            fact in its own box with a gold spark. The hybrid, on the board
+            itself. Wood on three sides, the violet edge on the fourth: it
+            hangs from the pediment the way the parchment did, without the
+            parchment. */}
+        <div
+          data-testid={`zone-card-${zoneIndex}`}
+          className="flex h-full min-h-0 flex-col overflow-hidden rounded-b-[14px] border-[3px] border-t-0"
+          style={{ borderColor: "#8A5D4A", background: "#FFF8EE" }}
+        >
+          <div
+            aria-hidden
+            className="h-[3px] shrink-0"
+            style={{
+              background: `linear-gradient(to right, ${color}, ${grayed ? GRAY : "#EC4899"})`,
+            }}
+          />
+          <div className="flex min-h-0 flex-1 flex-col px-3 pb-[9px] pt-2">
+            <div className="flex">
+              <span
+                className="inline-flex max-w-full items-center gap-[5px] rounded-lg px-2 py-[3px] text-[9px] font-black uppercase tracking-[1px] text-white"
+                style={{ background: color }}
               >
-                {geoName}
-              </div>
-              <div className="text-[10px]" style={{ color: ZONE_BOARD.inkMuted }}>
-                {stationCount} {stationCount === 1 ? "stop" : "stops"} in this zone
-              </div>
+                <Train className="h-3 w-3 shrink-0" />
+                <span className="truncate">{lineName}</span>
+              </span>
             </div>
-            {/* THE POSTMARK AND THE ZONE STAMP CAME OFF with the carved board.
-                The pediment's small plate says ZONE n, so the stamp said it a
-                second time, and a franked postcard's furniture on a carved
-                station board was two different objects at once. */}
-          </div>
-          {facts && facts.length > 0 && (
-            <FactStrip facts={facts} zoneIndex={zoneIndex} color={color} />
-          )}
-          {testOutHref && (
-            <Link
-              href={testOutHref}
-              onClick={blessAudioPlayback}
-              data-testid={`link-zone-test-out-${zoneIndex}`}
-              className="mb-1.5 flex w-full items-center justify-center rounded-md border-2 bg-card py-2 text-xs font-bold active:scale-[0.98] transition-transform"
-              style={{ borderColor: color, color }}
+            <div
+              className="mt-[5px] truncate text-[22px] font-black leading-[26px]"
+              style={{ color: "#2B1A0E" }}
             >
-              Test out of this zone
-            </Link>
-          )}
+              {geoName}
+            </div>
+            <div
+              className="mt-px text-[11px] font-semibold leading-[14px]"
+              style={{ color: "#6B5B4E" }}
+            >
+              {stationCount} {stationCount === 1 ? "stop" : "stops"} in this zone
+              {teaser && (
+                <>
+                  {" · "}
+                  <span className="font-bold text-primary">{teaser}</span>
+                </>
+              )}
+            </div>
+            <div aria-hidden className="my-1.5 flex items-center gap-1.5">
+              <span
+                className="h-0 flex-1 border-t border-dashed"
+                style={{ borderColor: `${BADGE.brassBg}99` }}
+              />
+              <span
+                className="h-2 w-2 shrink-0 rotate-45 border-[1.5px]"
+                style={{ borderColor: BADGE.brassBg }}
+              />
+              <span
+                className="h-0 flex-1 border-t border-dashed"
+                style={{ borderColor: `${BADGE.brassBg}99` }}
+              />
+            </div>
+            {/* The zone test-out affordance, present only when the zone is
+                gate-locked, IN THE FACT'S PLACE. It lives inside the card
+                from build 17: as a sibling after the panel it landed on the
+                painting once the card replaced the parchment ("this fell off
+                the zone card"). A violet button now, the card's one action. */}
+            {testOutHref ? (
+              <Link
+                href={testOutHref}
+                onClick={blessAudioPlayback}
+                data-testid={`link-zone-test-out-${zoneIndex}`}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-[13px] font-bold text-white active:scale-[0.98] transition-transform"
+                style={{ background: color }}
+              >
+                Test out of this zone
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            ) : (
+              facts &&
+              facts.length > 0 && (
+                <FactStrip facts={facts} zoneIndex={zoneIndex} color={color} />
+              )
+            )}
+          </div>
+        </div>
       </CarvedBoard>
     </div>
   );
@@ -658,7 +759,170 @@ function StationCard({
           : accessible
             ? "Now boarding"
             : "Locked";
-  const card = (
+  // THE CHIPS, ONCE (build 17 on mobile, build 18 here). The tracing and
+  // story stops draw their own bodies now (a chalkboard and a plaque, off the
+  // owner's mockup), and all three bodies wear the same plates: ALL-ACCESS
+  // where the server serves the stop plan-locked, EXPRESS on a tested-out
+  // stop, FREE TASTE on a taste. One definition.
+  //
+  // EVERY plan-locked stop wears the ALL-ACCESS plate (mobile chat 11, web
+  // build 18): "Zone 3 and onward every stop should have this badge." It was
+  // sentence/trace/story only, which left a zone of plain Locked word stops
+  // with no hint of WHICH key opens them. Server truth still gates it: no
+  // planLocked, no plate.
+  const chips = (
+    <>
+      {station.planLocked === true && (
+        <span
+          className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide shrink-0"
+          style={{
+            background: BADGE.brassBg,
+            borderColor: BADGE.brassEdge,
+            color: BADGE.ink,
+          }}
+          title="All-Access"
+        >
+          <Sparkles className="w-2.5 h-2.5" />
+          All-Access
+        </span>
+      )}
+      {station.status === "tested_out" && (
+        <span
+          className="inline-block -rotate-6 rounded-sm border-2 border-dashed px-1.5 py-px text-[8px] font-black uppercase tracking-widest shrink-0"
+          style={{ borderColor: color, color }}
+        >
+          Express
+        </span>
+      )}
+      {showTeaserChip && (
+        <span
+          className="rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide shrink-0"
+          style={{
+            background: BADGE.brassBg,
+            borderColor: BADGE.brassEdge,
+            color: BADGE.ink,
+          }}
+        >
+          Free taste
+        </span>
+      )}
+    </>
+  );
+  // EVERY LOCK IN THE APP'S VIOLET (owner, build 17: "Change all the lock
+  // symbols to the same color to pull the theme together. purple color.").
+  const lock = !accessible ? <Lock className="w-3 h-3 shrink-0 text-primary" /> : null;
+  // The stock attributes every stop keeps, whatever body it wears: which of
+  // the two stocks (accessible or ahead) and which edge faces the rail. The
+  // paper test (journey-station-paper.test.tsx) sweeps the line by them.
+  const stock = {
+    "data-accessible": accessible ? "true" : undefined,
+    "data-ahead": !accessible ? "true" : undefined,
+    "data-side": side === "left" ? "left" : "right",
+  } as const;
+  const card = station.trace ? (
+    // A CHALKBOARD FOR THE TRACING STOP (build 17 on mobile, build 18 here;
+    // the owner's mockup: "the trace one should have a completely different
+    // looking card like my example", then "Chalkboard should be a different
+    // shaped card. Like a vertical rectangle with chalk font"). A slate in a
+    // wood frame in place of the paper tag; TRACE, the letters line, the
+    // count and the traced letters all in chalk; the app's violet pencil hung
+    // on the corner. It keeps `.station-card` and the stock attributes (the
+    // paper contract every stop holds), and `data-kind` is what index.css
+    // restyles the stock on: slate, wood, no rule, no eyelet.
+    <div
+      className="station-card depth-shadow relative min-w-0"
+      data-kind="chalkboard"
+      data-testid="tag-back-chalkboard"
+      {...stock}
+      style={{ width: CHALKBOARD_W, minHeight: CHALKBOARD_H, fontFamily: CHALK_FONT }}
+    >
+      <div className="flex flex-col items-center gap-[3px] px-3 pb-2.5 pt-1.5">
+        <div className="flex min-h-[14px] w-full items-center justify-end gap-1.5 font-sans">
+          {chips}
+          {lock}
+        </div>
+        <span className="text-[18px] uppercase leading-6 tracking-[2px] text-white">Trace</span>
+        <span className="line-clamp-2 text-center text-[13px] leading-[18px] text-white/90">
+          {statusCopy}
+        </span>
+        {station.traceTotal ? (
+          <>
+            <span className="mt-0.5 text-[22px] leading-7 text-white">
+              {station.traceDone ?? 0}/{station.traceTotal}
+            </span>
+            {/* The letters as chalk dots, the same StopDots the pass draws.
+                They stop 30 short of the pencil on the corner (owner:
+                "chalkboard icon is blocking the dot progress bar"). */}
+            <div
+              data-testid={`progress-trace-${station.stopNumber}`}
+              className="mt-1.5 flex w-full pl-0.5 pr-[30px]"
+            >
+              <StopDots
+                total={station.traceTotal}
+                done={station.traceDone ?? 0}
+                accent="#FFFFFF"
+                muted="rgba(255,255,255,0.85)"
+                ringFill="#1F3D2B"
+              />
+            </div>
+          </>
+        ) : null}
+      </div>
+      {/* The pencil, in the app's violet: the one modern mark on a slate,
+          hung on the board's corner as the mockup does. */}
+      <span
+        aria-hidden
+        className="absolute -bottom-1.5 -right-1.5 flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 border-white/50 bg-primary"
+      >
+        <Pencil className="h-3.5 w-3.5 text-white" />
+      </span>
+    </div>
+  ) : station.story ? (
+    // THE STORY PLAQUE (build 17 on mobile, build 18 here). Paper stays; a
+    // big open book on the left (owner: "storybook with a big book icon on
+    // it", then "a 3-d looking book like my example": the open-book emblem
+    // the medallions used to carry, already drawn, so it is reused rather
+    // than a flat glyph), a violet STORY kicker, the book's title and the
+    // scenes line. No stop-number text: the badge on the rail says the
+    // number and the aria label still announces it.
+    <div
+      className="station-card depth-shadow relative min-w-0 rounded-lg px-3 py-1.5"
+      data-kind="plaque"
+      {...stock}
+    >
+      <div className="flex items-center gap-2">
+        <img
+          src={stopEmblem("story")}
+          alt=""
+          aria-hidden
+          data-testid="story-plaque-book"
+          className={cn(
+            "-ml-1 h-[52px] w-[52px] shrink-0 object-contain",
+            // Ahead, the book is knocked back the way the paper is.
+            !accessible && "grayscale opacity-70",
+          )}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span
+              className={cn(
+                "text-[10px] font-black uppercase tracking-[1.6px]",
+                accessible && "text-primary",
+              )}
+              style={accessible ? undefined : { color: TICKET.inkAhead }}
+            >
+              Story
+            </span>
+            <span className="flex-1" />
+            {chips}
+            {lock}
+          </div>
+          <div className="truncate text-sm font-semibold leading-tight">{station.story.title}</div>
+          <div className="ticket-sub truncate text-[11px] leading-tight">{statusCopy}</div>
+        </div>
+      </div>
+    </div>
+  ) : (
     <div
       className={cn(
         // Item 2: same type scale, tighter box — py-2 -> py-1.5 and the
@@ -676,27 +940,22 @@ function StationCard({
         "station-card depth-shadow",
         isCurrent && "border pt-2.5",
       )}
+      data-kind="tag"
       // Which stock: full paper where the learner can ride, greyer paper where
       // they cannot, lifted paper under the cursor. Attributes rather than
       // classes because the stock is a themed token, not a Tailwind color.
       data-current={isCurrent ? "true" : undefined}
-      data-accessible={accessible ? "true" : undefined}
-      data-ahead={!accessible ? "true" : undefined}
+      {...stock}
       data-done={
         station.status === "completed" || station.status === "tested_out"
           ? "true"
           : undefined
       }
-      /* Which edge the eyelet hangs from: the one facing the rail. A card on
-         the left flank ties on its right, and the other way round. */
-      data-side={side === "left" ? "left" : "right"}
       style={isCurrent ? { borderColor: color } : undefined}
     >
-      {/* WHICH TAG THIS STOP GETS. The sheet draws three and they mean
-          different things: a folded-corner tag for the tracing stop, a gold
-          one with a green corner ornament once a stop is behind you, and the
-          plain ruled tag for everything else. */}
-      {station.trace && <span className="ticket-fold" aria-hidden />}
+      {/* WHICH TAG THIS STOP GETS. A gold one with a green corner ornament
+          once a stop is behind you, and the plain ruled tag for everything
+          else; the tracing stop's folded-corner tag became the chalkboard. */}
       {(station.status === "completed" || station.status === "tested_out") && (
         <span className="ticket-flourish" aria-hidden />
       )}
@@ -720,7 +979,9 @@ function StationCard({
         />
       )}
       {/* "Now boarding" accent pulse: an opacity-only glow overlay so the
-          animated property stays within the transforms/opacity budget. */}
+          animated property stays within the transforms/opacity budget. Web
+          keeps it where mobile dropped its ring (ca16a295): this one can
+          actually pulse, and a pulse is what it was for. */}
       {isCurrent && !reduceMotion && (
         <div
           className="pointer-events-none absolute -inset-px rounded-lg animate-stop-glow-pulse"
@@ -739,6 +1000,8 @@ function StationCard({
             <Mascot pose="cheer" idle="cheer" size={28} className="shrink-0" />
           </span>
         )}
+        {/* Web keeps its sign glyph where mobile dropped it (10fa8387): its
+            card is not width-bound the same way, so the chip never wraps. */}
         {isCurrent && <StationSignGlyph color={color} />}
         <span
           className={cn(
@@ -752,75 +1015,8 @@ function StationCard({
         >
           {stopLabel}
         </span>
-        {/* Entitlement chip only where the server actually serves the stop
-            plan-locked — on stops the caller can ride free (Hindi Zone 1
-            carve-out) or already owns (Plus/Family), the badge is noise. */}
-        {(station.stage === "sentence" ||
-          station.trace !== undefined ||
-          station.story !== undefined) &&
-          station.planLocked === true && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide shrink-0"
-            style={{
-              background: BADGE.brassBg,
-              borderColor: BADGE.brassEdge,
-              color: BADGE.ink,
-            }}
-            title="First-class sentence stop: All-Access"
-          >
-            <Sparkles className="w-2.5 h-2.5" />
-            All-Access
-          </span>
-        )}
-        {station.trace && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide shrink-0"
-            style={{
-              background: BADGE.traceBg,
-              borderColor: BADGE.traceEdge,
-              color: BADGE.ink,
-            }}
-            title={station.trace.title}
-          >
-            <PenLine className="w-2.5 h-2.5" />
-            Trace
-          </span>
-        )}
-        {station.story && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide shrink-0"
-            style={{
-              background: BADGE.storyBg,
-              borderColor: BADGE.storyEdge,
-              color: BADGE.ink,
-            }}
-            title={station.story.title}
-          >
-            <BookOpen className="w-2.5 h-2.5" />
-            Story
-          </span>
-        )}
-        {station.status === "tested_out" && (
-          <span
-            className="inline-block -rotate-6 rounded-sm border-2 border-dashed px-1.5 py-px text-[8px] font-black uppercase tracking-widest shrink-0"
-            style={{ borderColor: color, color }}
-          >
-            Express
-          </span>
-        )}
-        {showTeaserChip && (
-          <span
-            className="rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide shrink-0"
-            style={{
-              background: BADGE.brassBg,
-              borderColor: BADGE.brassEdge,
-              color: BADGE.ink,
-            }}
-          >
-            Free taste
-          </span>
-        )}
-        {!accessible && <Lock className="w-3 h-3 text-muted-foreground shrink-0" />}
+        {chips}
+        {lock}
       </div>
       <div
         className={cn(
@@ -832,11 +1028,8 @@ function StationCard({
         {statusCopy}
         {/* Plan-locked stops serve a plan-visible count of zero, so the count
             segment is omitted there: "Locked" plus the lock icon only.
-            Progression-locked stops keep their real counts. A tracing stop has
-            no phrase count at all and is excluded outright. */}
-        {!station.trace &&
-          !station.story &&
-          !station.attemptedCount &&
+            Progression-locked stops keep their real counts. */}
+        {!station.attemptedCount &&
           station.planLocked !== true &&
           ` · ${station.phraseCount} phrases`}
         {/* Item 2: no "Bolo is waiting here" fragment. Bolo herself already
@@ -844,56 +1037,26 @@ function StationCard({
             the mascot says in the art — and it was what pushed the current
             stop's status onto a second line at narrow widths. */}
       </div>
-      {/* Progress as a small filled track once the stop has attempts; the
-          fraction stays as a label. Quiet palette off the active card. */}
-      {/* A TRACING STOP HAS PROGRESS AND HAD NO BAR. Reported from the
-          preview: "stops 2 and 3 should have a progress bar as well". Its
-          copy already counted the letters; only the track was missing, because
-          the track hung off attemptedCount and a trace stop has no attempts.
-          The STORY stop still has none, and deliberately: nothing in the app
-          records how much of a book has been read, so a bar there would be
-          decoration rather than progress. */}
-      {station.trace && station.traceTotal ? (
-        <div className="mt-0.5 flex items-center gap-1.5">
-          <div
-            className="h-1.5 w-20 max-w-full overflow-hidden rounded-full"
-            style={{ background: accessible ? `${color}26` : "hsl(var(--muted))" }}
-          >
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${Math.round(((station.traceDone ?? 0) / station.traceTotal) * 100)}%`,
-                background: accessible ? color : "hsl(var(--muted-foreground))",
-              }}
-              data-testid={`progress-trace-${station.stopNumber}`}
-            />
-          </div>
-          <span className={cn("text-[10px] font-bold", !isCurrent && "ticket-sub")}>
-            {station.traceDone ?? 0}/{station.traceTotal}
-          </span>
-        </div>
-      ) : null}
+      {/* THE DOTS, NOT A BAR (owner, build 17: "for each cards progress bar,
+          i like the dotted bar you did with purple on the boarding pass").
+          One dot per phrase, mastered ones filled in the app's violet, once
+          the stop has attempts; the fraction stays as a label. Same StopDots
+          the pass draws. */}
       {station.attemptedCount ? (
         <div className="mt-0.5 flex items-center gap-1.5">
           <div
-            className="h-1.5 w-20 max-w-full overflow-hidden rounded-full"
-            style={{ background: accessible ? `${color}26` : "hsl(var(--muted))" }}
+            data-testid={`progress-stop-${station.stopNumber}`}
+            className="flex min-w-0 flex-1 pr-0.5"
           >
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${
-                  phrasesAtStop > 0
-                    ? Math.round((masteredAtStop / phrasesAtStop) * 100)
-                    : 0
-                }%`,
-                background: accessible ? color : "hsl(var(--muted-foreground))",
-              }}
-              data-testid={`progress-stop-${station.stopNumber}`}
+            <StopDots
+              total={phrasesAtStop}
+              done={Math.min(masteredAtStop, phrasesAtStop)}
+              accent={accessible ? "hsl(var(--primary))" : TICKET.inkAhead}
+              muted={accessible ? ZONE_BOARD.inkMuted : TICKET.inkAhead}
             />
           </div>
           <span
-            className={cn("text-[10px] font-bold", !isCurrent && "ticket-sub")}
+            className={cn("shrink-0 text-[10px] font-bold", !isCurrent && "ticket-sub")}
             style={isCurrent ? { color } : undefined}
           >
             {masteredAtStop}/{phrasesAtStop} mastered
@@ -951,13 +1114,15 @@ function StationCard({
   );
 }
 
-/** One railway segment: painted sleepers under twin rails, with a green halo
- *  under the run the learner has already travelled. The unlit run stays wood
- *  rather than going grey, because the sheet draws the two states as the same
- *  track with and without a halo, and greying it would say "disabled" where
- *  the truth is "not yet travelled". */
+/** One railway segment: painted sleepers under twin violet rails. Behind the
+ *  learner the run carries the sheet's lime centre with its halo; ahead it is
+ *  two bare rails with the wood showing between them (owner, build 17:
+ *  "completed track should have green center and two purple lines. future
+ *  track should be only 2 purple lines, not filled"). The unlit run stays
+ *  wood rather than going grey, because the sheet draws the two states as the
+ *  same track with and without a light down the middle, and greying it would
+ *  say "disabled" where the truth is "not yet travelled". */
 function RailSegment({ d, lit }: { d: string; lit: boolean }) {
-  const dash = lit ? undefined : RAIL_STROKE.unlitDash;
   return (
     <g opacity={lit ? 1 : RAIL_STROKE.unlitOpacity}>
       {/* THE HALO, under everything and only on the run behind the learner.
@@ -994,8 +1159,37 @@ function RailSegment({ d, lit }: { d: string; lit: boolean }) {
           when the rail was a coloured line; they are painted planks now and
           read as wood. */}
       <path d={d} stroke={RAIL.tie} strokeWidth={RAIL_STROKE.tie} strokeDasharray={RAIL_STROKE.tieDash} fill="none" />
-      <path d={d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.rail} fill="none" strokeDasharray={dash} />
-      <path d={d} stroke={lit ? RAIL.between : RAIL.betweenUnlit} strokeWidth={RAIL_STROKE.between} fill="none" strokeDasharray={dash} />
+      {/* TWO THIN STROKES AHEAD, NOT A MASK (build 17). Mobile cut the hollow
+          run with an SVG mask for an hour and it rasterised per segment
+          inside a scrolling view: "scrolling is extremely choppy." Two copies
+          of the path shifted half a gauge apart give the same two lines for
+          the price of two strokes. A shifted copy is not a true offset, but
+          the bends are gentle since the pitch doubled, so the pair only
+          narrows a little on a diagonal. Drawn the same way here so the two
+          maps agree to the pixel. */}
+      {lit ? (
+        <>
+          <path d={d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.rail} fill="none" />
+          <path d={d} stroke={RAIL.between} strokeWidth={RAIL_STROKE.between} fill="none" />
+        </>
+      ) : (
+        <>
+          <path
+            d={d}
+            stroke={RAIL.rail}
+            strokeWidth={RAIL_STROKE.line}
+            fill="none"
+            transform={`translate(${-RAIL_STROKE.gauge / 2} 0)`}
+          />
+          <path
+            d={d}
+            stroke={RAIL.rail}
+            strokeWidth={RAIL_STROKE.line}
+            fill="none"
+            transform={`translate(${RAIL_STROKE.gauge / 2} 0)`}
+          />
+        </>
+      )}
     </g>
   );
 }
@@ -1198,8 +1392,9 @@ const INTRO_CANCEL_EVENTS = ["wheel", "keydown"] as const;
  * WHY IT IS HAND-ROLLED AND NOT `behavior: "smooth"`. The browser's smooth
  * scroll has no duration control, and its duration grows with distance, which
  * is the opposite of what was asked for: a learner six zones down should travel
- * the same shot FASTER, not for six times as long. The tween below takes its
- * duration from introScrollDurationMs, which caps at 900ms.
+ * the same shot FASTER, not for six times as long. The tween below takes a
+ * row per beat, capped at ten rows' worth (INTRO_HOPS, build 18), so past
+ * the cap a longer run is simply a quicker one.
  *
  * TAPPING THE SCREEN LANDS YOU ON YOUR CARD. It does not cancel. Cancelling is
  * what this used to do for every input, and it left a learner who reached for
@@ -1215,11 +1410,23 @@ function AutoScrollToCurrentStop({
   mapRef,
   targetY,
   reduceMotion,
+  clearance,
 }: {
   mapRef: React.RefObject<HTMLDivElement | null>;
   targetY: number | null;
   /** framer-motion's hook reports null until it has read the media query. */
   reduceMotion: boolean | null;
+  /**
+   * THE LEAST LEAD THAT KEEPS THE STOP CLEAR OF THE ZONE BOARD (build 17 on
+   * mobile, build 18 here), in map px: TOP_PAD + PC_H + half a row, the
+   * first card's centre at rest. The sticky header's own height is measured
+   * and added at shot time, because it is not a constant here: a tall
+   * script's brand line makes it taller. Every current card therefore lands
+   * where the first card sits at rest, and stop 1 itself is never scrolled
+   * up past its own zone card, which was "i can't see the top of card 1 zone
+   * 1" on the phone.
+   */
+  clearance: number;
 }) {
   const done = useRef(false);
   useEffect(() => {
@@ -1248,9 +1455,12 @@ function AutoScrollToCurrentStop({
     let raf = 0;
     let holdTimer = 0;
     let finished = false;
-    /** Where the shot ends: the stop framed a third of the way down. */
+    /** Where the shot ends: the stop framed under where the zone board's foot
+     *  sits at rest, or a third of the way down, whichever is lower. */
     const destination = () => {
-      const lead = introScrollLead(window.innerHeight);
+      const header = document.querySelector<HTMLElement>('[data-testid="journey-header"]');
+      const headerH = header?.getBoundingClientRect().height ?? 0;
+      const lead = introScrollLead(window.innerHeight, headerH + clearance);
       const top = map.getBoundingClientRect().top + window.scrollY + targetY - lead;
       return Math.max(0, top);
     };
@@ -1294,8 +1504,21 @@ function AutoScrollToCurrentStop({
         if (finished) return;
         const from = window.scrollY;
         const to = destination();
-        const dur = introScrollDurationMs(to - from);
         if (to <= from) return void land();
+        // A ROW PER BEAT, NOT A FIXED CAP (build 17 on mobile, build 18
+        // here). Owner: "autoscroll happens too quickly when you join this
+        // page. slow it down so you can see the stops you passed." The
+        // travel takes about INTRO_HOP_MS per row of map, capped at
+        // INTRO_HOPS_MAX rows' worth so a learner six zones down is not kept
+        // waiting: past the cap, further means faster on the same beat.
+        // introScrollDurationMs (0.25ms per px, capped at 900) is the pace
+        // this replaced; both platforms keep it exported and neither calls
+        // it now, which the handoff records as an owed cleanup.
+        const rows = Math.min(
+          INTRO_HOPS_MAX,
+          Math.max(1, Math.round((to - from) / INTRO_HOP_PX)),
+        );
+        const dur = rows * INTRO_HOP_MS;
         // NULL, NOT ZERO, as the "no first frame yet" sentinel. A frame clock
         // is allowed to hand out 0, and `if (!t0)` then re-stamps the start on
         // every frame, so the tween sits at its origin forever. Real browsers
@@ -1317,7 +1540,7 @@ function AutoScrollToCurrentStop({
       }, INTRO_SCROLL.holdMs);
     });
     return cleanup;
-  }, [mapRef, targetY, reduceMotion]);
+  }, [mapRef, targetY, reduceMotion, clearance]);
   return null;
 }
 
@@ -1507,7 +1730,33 @@ export default function Journey() {
     // Added, never substituted: no phrase stop is displaced, so a zone of ten
     // stops becomes eleven. Journey 1 only for now; the ladder already carries
     // journey 2 and lights up when this page learns to render it.
-    const trace = traceStopFor(activeLang, 1, i + 1);
+    // THE ROW PLAN, SHARED WITH THE HOME HERO. planZoneRows replays both
+    // splices in order and is the only thing that decides where the tracing
+    // and story rows land, so the map and the boarding pass cannot disagree
+    // about which stop a learner is on. They did: home said "Stop 3 of 9" for
+    // a stop this map called "Stop 5 of 11" (owner, 2026-08-27). The hero has
+    // read it since that day; this page still replayed the two splices by
+    // hand until build 18.
+    //
+    // IT ALSO OWNS THE SHOWROOM RULE. Zone 1 keeps both rows for a locked
+    // language (owner, 2026-08-28: "stops 2 and 3 of every journey zone 1
+    // should have free tastes of script tracing and storybook"); later zones
+    // stay out, because their tracing and their books really are All-Access
+    // and a row there would be a chip with nothing behind it. Web used to
+    // skip both rows in EVERY showroom zone, on the reasoning that a locked
+    // language's three-phrase voice teaser plus a second chip read as two
+    // competing offers. The server has since given both tastes away anyway,
+    // so the map was the only thing without a door to them, which is worse
+    // than two offers: it is an offer the learner cannot find. Mobile has
+    // drawn zone 1's rows since 2026-08-28; this is that parity (build 18
+    // handoff, parked item 4).
+    const rowPlan = planZoneRows({
+      lang: activeLang,
+      zoneIndex: i,
+      gradedCount: stations.length,
+      showroom,
+    });
+    const trace = rowPlan.trace;
     const withTrace = [...stations];
     // IS THIS WHOLE ZONE INCLUDED FOR THIS LEARNER? Derived from the phrase
     // stations the server already sent, never from a hardcoded language list.
@@ -1546,12 +1795,8 @@ export default function Journey() {
     const zoneGateLocked =
       stations.length > 0 && stations.every((st) => st.status === "locked");
     // Where the tracing row landed, so the story row can sit directly after it.
-    // Null when this zone has no tracing stop, which storyStopIndexIn handles.
-    let traceIndex: number | null = null;
-    // NOT IN SHOWROOM. A locked-language preview already carries its own free
-    // taste, the three-phrase voice teaser, and a tracing stop offering a
-    // second "FREE TASTE" chip beside it reads as two competing offers on a
-    // language the learner cannot open yet.
+    // Null when this zone has no tracing stop; planZoneRows already placed the
+    // story against whichever run exists.
     //
     // ADDED, NEVER SUBSTITUTED, and you can only add to something: a zone with
     // no phrase stops at all gets no tracing stop either. Without this a zone
@@ -1559,8 +1804,9 @@ export default function Journey() {
     // content yet, drew a lone "Trace 8 letters" row under an empty postcard
     // and advertised a zone that is not there. Caught 2026-08-23 porting this
     // to the phone, where a fixture with five empty zones grew five of them.
-    if (trace && stations.length > 0 && !showroom) {
-      traceIndex = traceStopIndexIn(stations.length, trace.journey, trace.zone);
+    // planZoneRows carries that rule now.
+    const traceIndex: number | null = rowPlan.traceIndex;
+    if (trace && traceIndex !== null) {
       withTrace.splice(traceIndex, 0, {
         // Every LessonGroupSummary field is optional, so a trace stop supplies
         // only what a drawn station needs and is identified by `trace`.
@@ -1598,23 +1844,18 @@ export default function Journey() {
     // together at the top of the map where they will actually be met. That is
     // the same reasoning that pinned the tracing stop to stop 2.
     //
-    // storyStopIndexIn owns the position, not this file. Both clients must call
-    // it or the web and the phone will disagree about which stop a learner is
-    // on, which is the rule already written on traceStopIndexIn.
+    // storyStopIndexIn owns the position, through planZoneRows, not this file.
+    // Both clients must call it or the web and the phone will disagree about
+    // which stop a learner is on, which is the rule already written on
+    // traceStopIndexIn.
     //
     // MOST ZONES HAVE NO BOOK and that is not a gap to fill in later: only the
     // 44 concepts shared across 20+ languages can carry one, so a zone without
     // an authored book simply has no story stop, exactly as a language with an
     // unauthored script has no tracing stop.
-    const story = storyBookFor(1, i + 1);
-    if (story && stations.length > 0 && !showroom) {
-      const spliced = storyStopIndexIn(
-        withTrace.length,
-        story.journey,
-        story.zone,
-        traceIndex,
-      );
-      withTrace.splice(spliced, 0, {
+    const story = rowPlan.storyBook;
+    if (story && rowPlan.storyIndex !== null) {
+      withTrace.splice(rowPlan.storyIndex, 0, {
         title: story.title,
         stage: "phrase",
         status: zoneGateLocked ? "locked" : "unlocked",
@@ -1978,19 +2219,34 @@ export default function Journey() {
   const chachaStalls = planChachaStalls(stationPts.length).flatMap((station) => {
     const p = stationPts[station - 1];
     if (!p) return [];
-    const zone = zones[p.station!.zoneIndex]!;
+    const zoneIndex = p.station!.zoneIndex;
+    const zone = zones[zoneIndex]!;
     const zoneAccessible = zone.stations.some(
       (st) => isStatusAccessible(st.status) || st.teaserStation,
     );
+    // THE NUMBER THE INVITATION UNDER HIS STALL SAYS. It is what he pours at
+    // the stall, NOT the signal games' reward: mobile's first cut read
+    // rewardChai off the same payload and said 1, and the owner caught it ("I
+    // thought chachaji's stop awarded 3 chai?"). The server serves
+    // encounterChai on the zone's signals payload from 99bb369e; 3 is the
+    // fallback for a server that predates the field, and it is
+    // TOKEN_EARN_CHACHA_ENCOUNTER today. Read through a cast because
+    // openapi.yaml owes the field (build 18 handoff, parked item 5).
+    const encounterChai =
+      (zoneQueries[zoneIndex]?.data?.signals as unknown as
+        | { encounterChai?: number }
+        | undefined)?.encounterChai ?? 3;
     return [
       {
         station,
+        zoneIndex,
         // LEFT of the marker, in the encounter station's OWN row. Encounter
         // stations are always left-flank so their card is on the right, which
         // is what makes this side free and what let the halt row go.
         x: p.x - STALL_PLACEMENT.laneDxLeft,
         y: p.y + STALL_PLACEMENT.groundDy,
         gray: showroom && !zoneAccessible,
+        encounterChai,
       },
     ];
   });
@@ -2199,7 +2455,10 @@ export default function Journey() {
         aria-hidden
       />
       {/* Boarding-pass header — full-ticket treatment */}
-      <header className="sticky top-0 z-10 bg-card/95 backdrop-blur border-b border-border">
+      <header
+        data-testid="journey-header"
+        className="sticky top-0 z-10 bg-card/95 backdrop-blur border-b border-border"
+      >
         <div className="mx-auto w-full max-w-2xl px-3 py-3 flex items-center gap-2">
           <Link
             href="/app"
@@ -2357,6 +2616,11 @@ export default function Journey() {
             mapRef={mapRef}
             targetY={currentStopY}
             reduceMotion={reduceMotion}
+            // The zone board's foot plus half a row: the first card's centre
+            // at rest, and the least lead that keeps any current card out
+            // from under its own zone card. The sticky header is added by
+            // the shot itself, measured.
+            clearance={TOP_PAD + PC_H + STATION_H / 2}
           />
           <div className="relative" style={{ height: totalH }}>
             {/* THE PAINTED BACKDROPS, one per fare zone, underneath everything.
@@ -2404,11 +2668,14 @@ export default function Journey() {
                   >
                     {/* A flat scrim rather than a gradient: the rail crosses
                         the whole height, so darkening only one end would leave
-                        it legible in one half of the band and not the other. */}
+                        it legible in one half of the band and not the other.
+                        LIGHT AND WARM from build 18 (mobile chat 11): a paper
+                        tone at 0.1 that lifts the dusk, where the near-black
+                        0.28 knocked the whole bazaar into evening. */}
                     <div
                       className="absolute inset-0"
                       style={{
-                        backgroundColor: "#1B120E",
+                        backgroundColor: ZONE_BACKDROP_SCRIM_COLOR,
                         opacity: ZONE_BACKDROP_SCRIM,
                       }}
                     />
@@ -2639,7 +2906,14 @@ export default function Journey() {
                       zoneIndex={zoneIndex}
                       zoneTitle={zone.title}
                       geoName={zone.geoName}
-                      accent={line.accent}
+                      lineName={line.lineName}
+                      // The free-taste counter rides the stops line on the
+                      // card (mobile parity); the header keeps its own.
+                      teaser={
+                        access === "teaser" && teaserProgress
+                          ? `Free taste ${teaserProgress.consumed}/${teaserProgress.limit}`
+                          : null
+                      }
                       // ROWS DRAWN, NOT PHRASE STATIONS. The card said 9
                       // while the rows beneath it said "Stop 1 of 11": the
                       // tracing and story stops are rows a learner counts and
@@ -2648,9 +2922,6 @@ export default function Journey() {
                       // counted by existing.
                       stationCount={zone.rowStations.length}
                       grayed={grayed}
-                      zoneAllDone={zone.zoneAllDone}
-                      scenarioId={scenarioIdByZone.get(zoneIndex)}
-                      hasStamp={stampedZoneIndices.has(zoneIndex)}
                       testOutHref={
                         zoneGateLocked
                           ? `/practice/${zone.id}?mode=testout&scope=zone`
@@ -2927,6 +3198,39 @@ export default function Journey() {
               </button>
             ))}
 
+            {/* THE INVITATION UNDER THE STALL (build 17 on mobile, build 18
+                here; the owner's mockup: "Take a break and earn 24 Chai"). A
+                violet chip in the app's own voice under Chacha-ji's
+                nameplate, the number in gold. The number is what he pours at
+                the stall (encounterChai on the zone payload, see
+                chachaStalls), never the signal games' reward. Not in the
+                showroom: a greyed stall pours nothing. HTML rather than SVG
+                text so it wraps the way the mobile chip does, above the
+                card plane so a tag never covers it; scenery still, so it
+                takes no pointer events. */}
+            {chachaStalls
+              .filter((s) => !s.gray)
+              .map((s) => (
+                <div
+                  key={`chacha-invite-${s.station}`}
+                  data-testid={`chacha-stall-${s.station}-invite`}
+                  aria-hidden
+                  className="pointer-events-none absolute w-[104px] rounded-[10px] border border-white/35 bg-primary px-[9px] py-1.5 text-[10px] font-semibold leading-[13px] text-white"
+                  style={{
+                    // Under the nameplate, clamped to the map: the stall stands
+                    // near the left edge and a centred chip fell off it.
+                    left: Math.max(6, Math.min(mapW - 110, s.x - 52)),
+                    top: s.y + 34,
+                    zIndex: DEPTH_2_5D.layers.station,
+                  }}
+                >
+                  Take a break and earn{" "}
+                  <span className="font-black" style={{ color: "#FBBF24" }}>
+                    {s.encounterChai} Chai
+                  </span>
+                </div>
+              ))}
+
             {/* terminus */}
             <div
               className="absolute w-6 h-6 rounded-full border-4 border-white"
@@ -3043,7 +3347,7 @@ export default function Journey() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <Lock className="w-4 h-4" aria-hidden />
+                  <Lock className="w-4 h-4 text-primary" aria-hidden />
                   This stop is All-Access territory
                 </DialogTitle>
                 <DialogDescription>

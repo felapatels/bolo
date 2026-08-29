@@ -6,9 +6,10 @@ import {
 } from "@/lib/zone-backdrops";
 
 /** The map's reserved height per fare-zone row, mirrored from journey.tsx.
- *  Both platforms hold 184 and a mismatch is exactly what this file exists
- *  to catch, so it is written out rather than imported from one of them. */
-const PC_H_FOR_TEST = 184;
+ *  Both platforms hold 256 (build 17 on mobile, build 18 here: the zone
+ *  card restyle) and a mismatch is exactly what this file exists to catch,
+ *  so it is written out rather than imported from one of them. */
+const PC_H_FOR_TEST = 256;
 
 describe('the carved board leaves room for what it has to say', () => {
   // THE GUARD THAT WAS MISSING. The board shipped BLANK to TestFlight twice,

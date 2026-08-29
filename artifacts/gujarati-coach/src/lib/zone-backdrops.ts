@@ -134,7 +134,17 @@ export function zoneFootTone(zoneIndex: number): string {
  */
 export const ZONE_TILE_ASPECT = 860 / 1359;
 
-export const ZONE_BACKDROP_SCRIM = 0.28;
+/**
+ * THE WASH OVER THE PAINTING, and it is LIGHT now, not dark (mobile chat 11,
+ * web build 18). The 0.28 near-black scrim knocked the whole bazaar into
+ * dusk, and the owner's reference is bright daylight: "add a lighter layer
+ * behind the image to brighten the image up a little bit." A warm paper tone
+ * rather than white, so the painting lifts without going grey. 0.22 read as
+ * faded ("too light, it looks faded now"); 0.10 lifts the dusk without
+ * washing the pigment out. Mobile twin holds the same pair.
+ */
+export const ZONE_BACKDROP_SCRIM = 0.1;
+export const ZONE_BACKDROP_SCRIM_COLOR = "#FFF3DE";
 
 /**
  * THE CARVED STATION BOARD, the zone header. Asked for on 2026-08-26: "even
@@ -151,7 +161,8 @@ export const ZONE_BACKDROP_SCRIM = 0.28;
  * stacked images behave identically on both platforms. The seams are invisible
  * because the middle band is cut from flat panel.
  *
- * IT FITS INSIDE THE 184px THE MAP ALREADY RESERVES (PC_H), and that is a hard
+ * IT FITS INSIDE WHAT THE MAP RESERVES PER ZONE ROW (PC_H, 256 on both
+ * platforms from build 17/18), and that is a hard
  * constraint rather than a preference. The serpentine constants are shared with
  * the scenery placement tests, and the stops, halts and every scenery position
  * hang off them, so a taller header would be a re-plumb of the map's geometry
@@ -260,18 +271,32 @@ export const ZONE_BOARD_ART = {
 export const ZONE_WIDE_ART = `${import.meta.env.BASE_URL}journey/zone-wide.jpg`;
 
 /**
- * THE SMALLEST PANEL THE BOARD'S CONTENT CAN LIVE IN, in points.
+ * THE SMALLEST PANEL THE BOARD'S CONTENT CAN LIVE IN, in px.
  *
- * The panel carries a city name, a stop count and the fact strip, about 72pt of
- * copy, inside insets worth 26.8% of its height. So it needs roughly 98, and
- * the board must leave that after the pediment takes its aspect.
+ * THE PANEL IS A CARD NOW (the owner's zone-card mockup, build 17 on mobile,
+ * build 18 here): a line pill, a 22px city, the stops line, a rule, and the
+ * fact boxed with a spark and up to three lines, and the card REPLACES the
+ * parchment ("no i don't want to keep that old box underneath"), so the art's
+ * insets no longer apply. Mobile measured 177 of card with an onLayout and set
+ * 180. WEB WAS MEASURED IN CHROME, NOT COPIED: the same markup in Inter, the
+ * longest line name in the pill, "Thiruvananthapuram Central" as the city,
+ * the free-taste counter on the stops line and the longest India fact at
+ * three lines, came to 181.5 at every column width (the card's height is
+ * copy, not width), against a panel of 189.1 at mapW 390 and 202.2 at 320.
+ * 182 is that number rounded up; web's type runs a little larger than the
+ * phone's, which is why the two floors differ by two.
+ *
+ * IT WAS 98, SET FOR "ABOUT 72PT OF COPY" BEFORE THE FACT BOX EXISTED, and it
+ * kept passing while the fact's last line sat under the frame on every phone:
+ * "did you know section is falling off zone card." A minimum that is not
+ * re-measured when the copy grows guards nothing.
  *
  * THIS EXISTS BECAUSE THE BOARD SHIPPED BLANK TWICE. mobile's PC_H was 152
  * against web's 184 and I never checked, so the panel had 85pt for 98pt of
  * content and overflow hidden turned "does not fit" into "is not there". A
  * screenshot cannot tell those apart; this can.
  */
-export const ZONE_BOARD_MIN_PANEL_H = 98;
+export const ZONE_BOARD_MIN_PANEL_H = 182;
 
 /** The pediment's height at a given board width, which is pure aspect. */
 export function zoneBoardPedimentH(boardWidth: number): number {

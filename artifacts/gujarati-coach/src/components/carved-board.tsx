@@ -23,6 +23,7 @@ export function CarvedBoard({
   className,
   style,
   clipContent = true,
+  bare = false,
   testId,
   pedimentTestId,
   children,
@@ -81,6 +82,14 @@ export function CarvedBoard({
    * off.
    */
   clipContent?: boolean;
+  /**
+   * NO PANEL ART (build 17 on mobile, build 18 here). The journey's zone board
+   * draws its own card under the pediment now (owner: "this box should
+   * replace that box"), so the parchment slice and the cream fill are skipped
+   * and the children get the panel's full height, inset only to the
+   * pediment's own posts (panelInsetLeft/Right). The home hero keeps the art.
+   */
+  bare?: boolean;
   testId?: string;
   pedimentTestId?: string;
   /** Whatever the panel says. Laid out inside the drawn frame. */
@@ -162,40 +171,55 @@ export function CarvedBoard({
             through it. Its outer margin is fully transparent, so the fill must
             stop there or the panel reads wider than the pediment above it. The
             two insets differ because the art is not centred in its own file. */}
-        <div
-          className="absolute inset-y-0"
-          style={{
-            left: `${ZONE_BOARD.panelInsetLeft * 100}%`,
-            right: `${ZONE_BOARD.panelInsetRight * 100}%`,
-            background: ZONE_BOARD.panel,
-          }}
-          aria-hidden
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `url(${ZONE_BOARD_ART.panel})`,
-            backgroundSize: "100% 100%",
-          }}
-          aria-hidden
-        />
+        {!bare && (
+          <div
+            className="absolute inset-y-0"
+            style={{
+              left: `${ZONE_BOARD.panelInsetLeft * 100}%`,
+              right: `${ZONE_BOARD.panelInsetRight * 100}%`,
+              background: ZONE_BOARD.panel,
+            }}
+            aria-hidden
+          />
+        )}
+        {!bare && (
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${ZONE_BOARD_ART.panel})`,
+              backgroundSize: "100% 100%",
+            }}
+            aria-hidden
+          />
+        )}
         {/* Everything the board says lives inside the drawn frame, on all four
             sides. Absolutely positioned rather than padded: a CSS percentage
             padding resolves against the WIDTH even for top and bottom, so a
             vertical inset written as padding is wrong by however much the
             board is wider than it is tall. `top`/`bottom` on a positioned box
-            resolve against the height, which is what this needs. */}
+            resolve against the height, which is what this needs.
+            BARE, the children take the panel's full height, inset only to
+            the pediment's posts: there is no drawn frame to stay inside. */}
         <div
           className={cn(
             "absolute",
             clipContent ? "overflow-hidden" : "overflow-visible",
           )}
-          style={{
-            left: `${ZONE_BOARD.contentInset * 100}%`,
-            right: `${ZONE_BOARD.contentInset * 100}%`,
-            top: `${ZONE_BOARD.contentInsetTop * 100}%`,
-            bottom: `${ZONE_BOARD.contentInsetBottom * 100}%`,
-          }}
+          style={
+            bare
+              ? {
+                  left: `${ZONE_BOARD.panelInsetLeft * 100}%`,
+                  right: `${ZONE_BOARD.panelInsetRight * 100}%`,
+                  top: 0,
+                  bottom: 0,
+                }
+              : {
+                  left: `${ZONE_BOARD.contentInset * 100}%`,
+                  right: `${ZONE_BOARD.contentInset * 100}%`,
+                  top: `${ZONE_BOARD.contentInsetTop * 100}%`,
+                  bottom: `${ZONE_BOARD.contentInsetBottom * 100}%`,
+                }
+          }
         >
           {children}
         </div>

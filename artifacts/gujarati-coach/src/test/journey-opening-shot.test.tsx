@@ -68,7 +68,7 @@ vi.mock("@workspace/api-client-react", async () => ({
   }),
 }));
 
-import Journey from "@/pages/journey";
+import Journey, { INTRO_HOPS } from "@/pages/journey";
 import { JOURNEY_ZONES } from "@/lib/journeyLines";
 
 const grp = (id: number, position: number, status: string) => ({
@@ -122,11 +122,16 @@ const playFrames = (now: number) => {
   queued.forEach((cb) => cb(now));
 };
 /** Past the layout frame, past the hold, then past the shot's longest run. */
+/** THE LONGEST RUN IS A ROW PER BEAT, CAPPED (build 18, mobile's build 17
+ *  pace): INTRO_HOPS.max rows at INTRO_HOPS.ms each, rather than
+ *  INTRO_SCROLL.maxMs. Owner: "autoscroll happens too quickly when you join
+ *  this page. slow it down so you can see the stops you passed." */
+const SHOT_MAX_MS = INTRO_HOPS.max * INTRO_HOPS.ms;
 const playWholeShot = () => {
   playFrames(0);
   vi.advanceTimersByTime(INTRO_SCROLL.holdMs);
   playFrames(0);
-  playFrames(INTRO_SCROLL.maxMs + 1);
+  playFrames(SHOT_MAX_MS + 1);
 };
 const lastTop = () =>
   (scrollTo.mock.calls[scrollTo.mock.calls.length - 1]![0] as { top: number }).top;
@@ -196,9 +201,40 @@ describe("the opening shot on the journey map", () => {
     expect(scrollTo).toHaveBeenCalledTimes(1);
     expect(scrollTo.mock.calls[0]![0]).toMatchObject({ top: destination, behavior: "auto" });
     // Nothing runs afterwards: no hold still pending, no tween still queued.
-    vi.advanceTimersByTime(INTRO_SCROLL.holdMs + INTRO_SCROLL.maxMs);
+    vi.advanceTimersByTime(INTRO_SCROLL.holdMs + SHOT_MAX_MS);
     playFrames(9999);
     expect(scrollTo).toHaveBeenCalledTimes(1);
+  });
+
+  test("travels about a row per beat, capped at ten rows' worth", () => {
+    // The pace the owner asked for, pinned as the tween's duration: a stop
+    // ten or more rows down takes exactly the cap, so further means faster.
+    deepIntoTheLine();
+    renderJourney();
+    playFrames(0);
+    vi.advanceTimersByTime(INTRO_SCROLL.holdMs);
+    playFrames(0);
+    // Just short of the cap the tween is still travelling...
+    playFrames(SHOT_MAX_MS - 40);
+    const before = lastTop();
+    // ...and on the cap it has landed and stops calling.
+    playFrames(SHOT_MAX_MS + 1);
+    const landed = lastTop();
+    expect(landed).toBeGreaterThan(before);
+    const calls = scrollTo.mock.calls.length;
+    playFrames(SHOT_MAX_MS + 500);
+    expect(scrollTo.mock.calls.length).toBe(calls);
+    // And it took longer than the old 900ms cap would have allowed: at 901ms
+    // the shot is nowhere near home.
+    scrollTo.mockClear();
+    frames = [];
+    deepIntoTheLine();
+    renderJourney();
+    playFrames(0);
+    vi.advanceTimersByTime(INTRO_SCROLL.holdMs);
+    playFrames(0);
+    playFrames(INTRO_SCROLL.maxMs + 1);
+    expect(lastTop()).toBeLessThan(landed);
   });
 
   test("a wheel cancels the shot rather than landing it", () => {

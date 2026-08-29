@@ -84,6 +84,19 @@ describe('where the stop lands in the viewport', () => {
       expect(introScrollLead(h)).toBeLessThan(h);
     }
   });
+
+  test('a clearance wins over the cap, and nothing else changes without one', () => {
+    // BUILD 17 (mobile) / 18 (web): the zone board's foot plus half a row is
+    // the least lead that keeps a current card out from under the board, 431
+    // on a Dynamic Island phone against a cap of 260. A stop under the board
+    // is not framed at all, so the clearance is not subject to the cap. Mobile
+    // twin holds the same two-argument shape.
+    expect(introScrollLead(900, 431)).toBe(431);
+    expect(introScrollLead(400, 431)).toBe(431);
+    // A clearance the third-down framing already clears changes nothing.
+    expect(introScrollLead(900, 100)).toBe(260);
+    expect(introScrollLead(900, 0)).toBe(introScrollLead(900));
+  });
 });
 
 describe('the ease', () => {
