@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 // THE ONE-PAGER MAP (build 20). Pins: the poster loads from the public folder
@@ -9,10 +9,23 @@ import { memoryLocation } from "wouter/memory-location";
 // boarding pass uses (tracing and story rows counted); a finished zone, the
 // current zone and a locked zone each read as words, not colour; every zone
 // links to the journey. Mobile twin: __tests__/journey-onepager.test.tsx.
-const h = vi.hoisted(() => ({ byZone: {} as Record<number, unknown> }));
+const h = vi.hoisted(() => ({ byZone: {} as Record<number, unknown>, greeting: undefined as unknown, boards: null as unknown }));
+const BOX = (x: number, y: number, w = 0.25, h = 0.1) => ({ x, y, w, h });
+const HINDI_BOARDS = {
+  size: [1080, 1935],
+  title: BOX(0.36, 0.02, 0.46, 0.1),
+  greeting: BOX(0.025, 0.11, 0.25, 0.23),
+  bottom: BOX(0.04, 0.92, 0.92, 0.07),
+  badge: BOX(0.03, 0, 0.1, 0.085),
+  zones: [BOX(0.66, 0.23), BOX(0.04, 0.42), BOX(0.63, 0.48), BOX(0.04, 0.64), BOX(0.64, 0.69), BOX(0.04, 0.78)],
+  numbers: [BOX(0.64, 0.22, 0.05, 0.03), BOX(0.02, 0.4, 0.05, 0.03), BOX(0.61, 0.47, 0.05, 0.03), BOX(0.02, 0.63, 0.05, 0.03), BOX(0.62, 0.68, 0.05, 0.03), BOX(0.02, 0.77, 0.05, 0.03)],
+  signs: [BOX(0.44, 0.16, 0.18, 0.07), BOX(0.39, 0.37, 0.18, 0.05), BOX(0.42, 0.52, 0.17, 0.05), BOX(0.41, 0.62, 0.17, 0.05), BOX(0.42, 0.73, 0.17, 0.05), BOX(0.42, 0.82, 0.18, 0.06)],
+};
 
 vi.mock("@workspace/api-client-react", () => ({
   useListCategoryLessonGroups: (categoryId: number) => h.byZone[categoryId],
+  useListCategoryPhrases: () => ({ data: h.greeting, isLoading: false, isError: false }),
+  getListCategoryPhrasesQueryKey: (id: number, lang: string) => ["phrases", id, lang],
 }));
 vi.mock("@/lib/language-context", () => ({
   useLanguage: () => ({
@@ -56,6 +69,9 @@ function renderMap() {
 }
 
 beforeEach(() => {
+  h.boards = null;
+  h.greeting = [{ id: 1, nativeScript: "नमस्ते", romanized: "namaste", english: "hello" }];
+  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: h.boards != null, json: async () => h.boards })));
   h.byZone = {
     1: zonePayload(nine(() => "completed")),
     2: zonePayload(nine((i) => (i < 2 ? "completed" : i === 2 ? "in_progress" : "locked"))),
@@ -104,6 +120,52 @@ describe("the one-pager map", () => {
     renderMap();
     expect(screen.getByText("Finding your train...")).toBeInTheDocument();
     expect(screen.queryByTestId("map-zone-0")).toBeNull();
+  });
+});
+
+describe("the words on the poster", () => {
+  test("writes the title, the greeting from the API, the zones, numbers, signs and tagline on the boards", async () => {
+    h.boards = HINDI_BOARDS;
+    renderMap();
+    await screen.findByTestId("map-words");
+    expect(screen.getByTestId("map-word-title")).toHaveTextContent("HINDI");
+    expect(screen.getByText("GANGA LINE · JOURNEY 1")).toBeInTheDocument();
+    expect(screen.getByTestId("map-word-greeting")).toHaveTextContent("नमस्ते");
+    expect(screen.getByText("(namaste)")).toBeInTheDocument();
+    expect(screen.getByTestId("map-word-zone-0")).toHaveTextContent("Greetings & Manners");
+    expect(screen.getByText("Count, learn and use numbers in Hindi.")).toBeInTheDocument();
+    ["NEW DELHI", "ALIGARH", "KANPUR CENTRAL", "PRAYAGRAJ", "MIRZAPUR", "VARANASI"].forEach((city, i) => {
+      expect(screen.getByTestId(`map-word-sign-${i}`)).toHaveTextContent(city);
+    });
+    expect(screen.getByText("Learn a little every day, speak with confidence, and make Hindi a part of your life.")).toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledWith("/journey/maps/hi.json");
+  });
+
+  test("writes the city in its own script above the Latin name, and draws the zone icons into empty medallions", async () => {
+    h.boards = {
+      ...HINDI_BOARDS,
+      iconsPainted: false,
+      medallions: [BOX(0.86, 0.3, 0.09, 0.05), BOX(0.24, 0.45, 0.09, 0.05), BOX(0.82, 0.52, 0.09, 0.05), BOX(0.24, 0.66, 0.09, 0.05), BOX(0.83, 0.72, 0.09, 0.05), BOX(0.24, 0.81, 0.09, 0.05)],
+    };
+    renderMap();
+    await screen.findByTestId("map-words");
+    expect(screen.getByTestId("map-word-sign-native-0")).toHaveTextContent("नई दिल्ली");
+    expect(screen.getByTestId("map-word-sign-native-5")).toHaveTextContent("वाराणसी");
+    expect(screen.getByTestId("map-word-sign-0")).toHaveTextContent("NEW DELHI");
+    for (let i = 0; i < 6; i += 1) expect(screen.getByTestId(`map-icon-${i}`)).toBeInTheDocument();
+  });
+
+  test("draws no icons over painted medallions", async () => {
+    h.boards = HINDI_BOARDS;
+    renderMap();
+    await screen.findByTestId("map-words");
+    expect(screen.queryByTestId("map-icon-0")).toBeNull();
+  });
+
+  test("writes nothing over a poster that has no boards file", async () => {
+    renderMap();
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect(screen.queryByTestId("map-words")).toBeNull();
   });
 });
 

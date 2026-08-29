@@ -30,6 +30,19 @@ export interface JourneyLine {
   accent: string;
   /** Z1..Z6 geographic names, positionally matching JOURNEY_ZONES. */
   zones: readonly [string, string, string, string, string, string];
+  /**
+   * The same six names in the language's own script, for the station signs
+   * on the one-pager map (owner, 2026-08-29: "I want native script on
+   * station names as well"). Fetched from Wikidata's labels by
+   * scripts/fetch-station-names (build 20), with a same-script sibling
+   * language standing in where a label was missing (Dogri, Maithili, Bodo and
+   * Sanskrit from Hindi; Konkani from Marathi; Kashmiri and Sindhi from Urdu)
+   * and a few standard spellings entered by hand. null means Latin only on
+   * the sign; the two Meetei Mayek blanks were left rather than guessed. The
+   * suffix words (Junction, Central, City) stay Latin: the sign carries the
+   * city's own name above its Latin station name.
+   */
+  zonesNative: readonly (string | null)[];
 }
 
 /** All 22 lines from the approved naming table, keyed by DB language code. */
@@ -38,111 +51,133 @@ export const JOURNEY_LINES: Record<string, JourneyLine> = {
     lineName: 'Gujarat Express',
     accent: '#ea580c',
     zones: ['Ahmedabad Junction', 'Anand', 'Vadodara', 'Surat', 'Rajkot', 'Dwarka'],
+    zonesNative: ['અમદાવાદ', 'આણંદ', 'વડોદરા', 'સુરત', 'રાજકોટ', 'દ્વારકા'],
   },
   bn: {
     lineName: 'Howrah Line',
     accent: '#16a34a',
     zones: ['Howrah Junction', 'Chandannagar', 'Bolpur Shantiniketan', 'Murshidabad', 'Malda Town', 'Kalighat'],
+    zonesNative: ['হাওড়া', 'চন্দননগর', 'বোলপুর', 'মুর্শিদাবাদ', 'মালদা', 'কালীঘাট'],
   },
   mr: {
     lineName: 'Deccan Queen',
     accent: '#7c3aed',
     zones: ['CST Mumbai', 'Karjat', 'Lonavala', 'Shivajinagar', 'Pune Junction', 'Lalbaug'],
+    zonesNative: ['छत्रपती शिवाजी महाराज टर्मिनस', 'कर्जत', 'लोणावळा', 'शिवाजीनगर', 'पुणे', 'लालबाग'],
   },
   ta: {
     lineName: 'Nilgiri Mountain Railway',
     accent: '#0284c7',
     zones: ['Chennai Egmore', 'Mettupalayam', 'Coonoor', 'Wellington', 'Lovedale', 'Ooty'],
+    zonesNative: ['எழும்பூர்', 'மேட்டுப்பாளையம்', 'குன்னூர்', 'வெல்லிங்டன்', 'லவ்டேல்', 'ஊட்டி'],
   },
   kok: {
     lineName: 'Konkan Railway',
     accent: '#0d9488',
     zones: ['Madgaon Junction', 'Karmali', 'Thivim', 'Sawantwadi', 'Ratnagiri', 'Panjim Carnival'],
+    zonesNative: ['मडगाव', 'करमळी', 'थिविम', 'सावंतवाडी', 'रत्नगिरी', 'पणजी'],
   },
   ne: {
     lineName: 'Darjeeling Himalayan Railway',
     accent: '#4f46e5',
     zones: ['New Jalpaiguri', 'Siliguri', 'Kurseong', 'Sonada', 'Ghum', 'Darjeeling'],
+    zonesNative: ['न्यू जलपाईगुडी', 'सिलिगुडी', 'खर्साङ', 'सोनादा', 'घुम', 'दार्जीलिङ्ग'],
   },
   ks: {
     lineName: 'Banihal Valley Line',
     accent: '#b45309',
     zones: ['Banihal', 'Anantnag', 'Awantipora', 'Srinagar', 'Sopore', 'Baramulla'],
+    zonesNative: ['بانِہَل', 'اَنَنت ناگ', 'ووٗنٛتؠ پور', 'سِریٖنَگَر', 'سوپُر', 'وَرمُل'],
   },
   pa: {
     lineName: 'Golden Temple Mail',
     accent: '#d97706',
     zones: ['Ludhiana', 'Phagwara', 'Jalandhar City', 'Beas', 'Amritsar Junction', 'Anandpur Sahib'],
+    zonesNative: ['ਲੁਧਿਆਣਾ', 'ਫਗਵਾੜਾ', 'ਜਲੰਧਰ', 'ਬਿਆਸ', 'ਅੰਮ੍ਰਿਤਸਰ', 'ਅਨੰਦਪੁਰ ਸਾਹਿਬ'],
   },
   ml: {
     lineName: 'Kerala Coast Line',
     accent: '#059669',
     zones: ['Thiruvananthapuram Central', 'Kollam', 'Alappuzha', 'Ernakulam Junction', 'Kozhikode', 'Thrissur'],
+    zonesNative: ['തിരുവനന്തപുരം', 'കൊല്ലം', 'ആലപ്പുഴ', 'എറണാകുളം', 'കോഴിക്കോട്', 'തൃശ്ശൂർ'],
   },
   te: {
     lineName: 'Godavari Express',
     accent: '#dc2626',
     zones: ['Secunderabad', 'Warangal', 'Vijayawada', 'Rajahmundry', 'Samalkot', 'Visakhapatnam'],
+    zonesNative: ['సికింద్రాబాద్', 'వరంగల్', 'విజయవాడ', 'రాజమహేంద్రవరం', 'సామర్లకోట', 'విశాఖపట్నం'],
   },
   kn: {
     lineName: 'Mysuru Line',
     accent: '#9333ea',
     zones: ['Bengaluru City', 'Kengeri', 'Ramanagara', 'Mandya', 'Srirangapatna', 'Mysuru Palace'],
+    zonesNative: ['ಬೆಂಗಳೂರು', 'ಕೆಂಗೇರಿ', 'ರಾಮನಗರ', 'ಮಂಡ್ಯ', 'ಶ್ರೀರಂಗಪಟ್ಟಣ', 'ಮೈಸೂರು'],
   },
   or: {
     lineName: 'Puri Line',
     accent: '#0ea5e9',
     zones: ['Cuttack', 'Bhubaneswar', 'Khurda Road', 'Pipili', 'Sakhigopal', 'Puri'],
+    zonesNative: ['କଟକ', 'ଭୁବନେଶ୍ୱର', 'ଖୋର୍ଦ୍ଧା', 'ପିପିଲି', 'ସାକ୍ଷୀଗୋପାଳ', 'ପୁରୀ'],
   },
   as: {
     lineName: 'Kamrupa Express',
     accent: '#f43f5e',
     zones: ['Guwahati Junction', 'Tezpur', 'Kaziranga', 'Jorhat', 'Majuli', 'Dibrugarh'],
+    zonesNative: ['গুৱাহাটী', 'তেজপুৰ', 'কাজিৰঙা', 'যোৰহাট', 'মাজুলী', 'ডিব্ৰুগড়'],
   },
   hi: {
     lineName: 'Ganga Line',
     accent: '#65a30d',
     zones: ['New Delhi', 'Aligarh', 'Kanpur Central', 'Prayagraj', 'Mirzapur', 'Varanasi'],
+    zonesNative: ['नई दिल्ली', 'अलीगढ़', 'कानपुर', 'प्रयागराज', 'मिर्ज़ापुर', 'वाराणसी'],
   },
   ur: {
     lineName: 'Awadh Line',
     accent: '#047857',
     zones: ['Lucknow Charbagh', 'Malihabad', 'Kakori', 'Barabanki', 'Faizabad', 'Rampur'],
+    zonesNative: ['لکھنؤ چارباغ', 'ملیح آباد', 'کاکوری', 'بارہ بنکی', 'فیض آباد', 'رام پور'],
   },
   mai: {
     lineName: 'Mithila Line',
     accent: '#c026d3',
     zones: ['Samastipur', 'Darbhanga', 'Madhubani', 'Sitamarhi', 'Jaynagar', 'Janakpur'],
+    zonesNative: ['समस्तीपुर', 'दड़िभङ्गा', 'मधुबनी', 'सीतामढ़ी', 'जयनगर', 'जनकपुर'],
   },
   doi: {
     lineName: 'Jammu Tawi Line',
     accent: '#2563eb',
     zones: ['Pathankot', 'Kathua', 'Samba', 'Jammu Tawi', 'Udhampur', 'Katra'],
+    zonesNative: ['पठानकोट', 'कठुआ', 'सांबा', 'जम्मू', 'उधमपुर', 'कटरा'],
   },
   mni: {
     lineName: 'Imphal Valley Line',
     accent: '#db2777',
     zones: ['Jiribam', 'Noney', 'Khongsang', 'Bishnupur', 'Moirang', 'Imphal'],
+    zonesNative: ['ꯖꯤꯔꯤꯕꯥꯝ', 'ꯅꯣꯅꯦ', null, null, 'ꯃꯣꯏꯔꯥꯡ', 'ꯏꯝꯐꯥꯜ'],
   },
   brx: {
     lineName: 'Bodoland Line',
     accent: '#15803d',
     zones: ['Fakiragram Junction', 'Gossaigaon', 'Kokrajhar', 'Bongaigaon', 'Udalguri', 'Tamulpur'],
+    zonesNative: ['फकिराग्राम', 'गोसाईगाँव', 'कोकराझाड़', 'बोंगाइगांव', 'उदलगुड़ी', 'तामूलपुर'],
   },
   sat: {
     lineName: 'Santhal Parganas Line',
     accent: '#a16207',
     zones: ['Jasidih Junction', 'Deoghar', 'Dumka', 'Godda', 'Pakur', 'Sahibganj'],
+    zonesNative: ['ᱡᱟᱥᱤᱰᱤᱦ', 'ᱫᱮᱣᱜᱷᱚᱨ', 'ᱫᱩᱢᱠᱟᱹ', 'ᱜᱳᱰᱰᱟ', 'ᱯᱟᱠᱩᱲ', 'ᱥᱟᱦᱮᱵᱽᱜᱚᱸᱡᱽ'],
   },
   sa: {
     lineName: 'Heritage Line',
     accent: '#b91c1c',
     zones: ['Rishikesh', 'Haridwar', 'Ayodhya', 'Ujjain', 'Nashik', 'Kashi'],
+    zonesNative: ['हृषीकेशः', 'हरिद्वार', 'अयोध्या', 'उज्जयिनी', 'नाशिक', 'काशी'],
   },
   sd: {
     lineName: 'Kutch Line',
     accent: '#0891b2',
     zones: ['Gandhidham', 'Adipur', 'Anjar', 'Bhachau', 'Bhuj', 'Lakhpat'],
+    zonesNative: ['گانڌيڌام', 'ادیپور', 'انجر', 'بہاچاو', 'ڀڄ', 'لکپت'],
   },
 };
 
@@ -198,6 +233,7 @@ export function getJourneyLine(code: string): JourneyLine {
       lineName: 'Bolo Line',
       accent: '#4F46E5',
       zones: ['Zone 1', 'Zone 2', 'Zone 3', 'Zone 4', 'Zone 5', 'Zone 6'],
+      zonesNative: [null, null, null, null, null, null],
     }
   );
 }
