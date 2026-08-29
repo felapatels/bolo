@@ -52,7 +52,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
 import { CALL_POSTERS, type CallBackdropId } from './backdrops';
+import { createAudioPlayer } from 'expo-audio';
 import { hapticHeavy, hapticLight, hapticMedium } from '@/lib/haptics';
+import { loadSoundPref } from '@/lib/soundPref';
 
 /** One breath of the ring, in and out. Slow: he is patient, not urgent. */
 const RING_HALF_MS = 900;
@@ -120,6 +122,59 @@ export function useRingingHaptics(active: boolean) {
   }, [active]);
 }
 
+/**
+ * THE RINGTONE. "Chachaji phone call game and journey interruption should have
+ * a ringtone when calling. right now its silent on this screen." (owner, build
+ * 17.) A ringing screen that makes no sound reads as a frozen one.
+ *
+ * Six seconds of double ring, 400 + 450 Hz on the cadence an Indian landline
+ * uses (ring, short gap, ring, long rest), synthesised with ffmpeg and looped
+ * by the player rather than by a timer, so it never drifts against itself:
+ *
+ *   ffmpeg -f lavfi -i "aevalsrc='(sin(2*PI*400*t)+sin(2*PI*450*t))*0.3*
+ *     (lt(mod(t,3),0.4)+between(mod(t,3),0.6,1.0))':d=6:s=44100" -c:a aac
+ *     -b:a 64k assets/sounds/ringtone.m4a
+ *
+ * It honours the app's own sound preference like every cue does, and the iOS
+ * silent switch underneath that, because nothing here opts into
+ * playsInSilentMode. On a silenced phone the buzz above is the ring, which is
+ * how a real phone behaves. One route serves both the journey interruption
+ * and the game, so one hook covers both.
+ *
+ * NOT VERIFIABLE ON A SIMULATOR FOR RELEASE BEHAVIOUR: the sim plays it, but
+ * the audio session on a device is the thing to listen to.
+ */
+const RINGTONE = require('../../assets/sounds/ringtone.m4a') as number;
+
+export function useRingtone(active: boolean) {
+  React.useEffect(() => {
+    if (!active) return;
+    let player: ReturnType<typeof createAudioPlayer> | null = null;
+    let stopped = false;
+    (async () => {
+      try {
+        if (!(await loadSoundPref())) return;
+        // Answered or ignored while the preference was still being read.
+        if (stopped) return;
+        player = createAudioPlayer(RINGTONE);
+        player.loop = true;
+        player.play();
+      } catch {
+        // A silent ring is not a broken call.
+      }
+    })();
+    return () => {
+      stopped = true;
+      try {
+        player?.pause();
+        player?.remove();
+      } catch {
+        // Already released.
+      }
+    };
+  }, [active]);
+}
+
 export interface IncomingCallProps {
   /** Which backdrop this call uses. The server decides; the client obeys. */
   backdrop: CallBackdropId;
@@ -147,6 +202,7 @@ export function IncomingCall({
   // Buzzing is not motion, so it is deliberately NOT gated on reduce motion.
   // The OS has its own vibration switch and that is the one that should win.
   useRingingHaptics(true);
+  useRingtone(true);
 
   React.useEffect(() => {
     // Reduce Motion still gets a ringing screen, just a still one. The
