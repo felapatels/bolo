@@ -135,3 +135,8 @@ the showroom-rows port (below) is still the only web debt named.
 8. **`ZoneBandFixed`'s `cap` mode has no caller.** Dead code.
 9. **The api-server has never sent one error to Sentry.**
 10. **The Play icon.**
+11. **A one-pager map view of the whole journey**, the owner's idea for where
+    home's View Map pill should eventually go ("later we can create a
+    onepager map view that shows the full journey"). Today the pill and the
+    boarding pass both open the same journey screen; the owner kept the pill
+    for that future.
