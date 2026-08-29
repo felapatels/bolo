@@ -25,6 +25,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { appear, appearDown, useAppearSkip } from '@/lib/entrance';
 import { markHomeReady } from '@/lib/splashReady';
 import { CountUpText } from '@/components/CountUpText';
+import { AttentionPulse } from '@/components/AttentionPulse';
 import { useFilmGone } from '@/lib/splashReady';
 import { XpCounter } from '@/components/XpCounter';
 import {
@@ -843,23 +844,30 @@ export default function HomeScreen() {
                   Board your train and continue learning
                 </Text>
               </View>
-              <Pressable
-                testID="home-view-map"
-                accessibilityRole="button"
-                accessibilityLabel="View the journey map"
-                hitSlop={6}
-                onPress={() => {
-                  hapticLight();
-                  // THE ONE-PAGER MAP (build 20), the door this pill was kept
-                  // for: the whole line on one poster with a live legend. The
-                  // pass beneath still opens the scrolling journey.
-                  router.push('/(app)/map' as Parameters<typeof router.push>[0]);
-                }}
-                style={[styles.viewMapBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
-              >
-                <Feather name="map-pin" size={13} color={colors.primary} />
-                <Text style={[styles.viewMapText, { color: colors.primary }]}>View Map</Text>
-              </Pressable>
+              {/* IT PULSES, SLOWLY (build 21): the one-pager map is a new
+                  area and the owner wants the eye drawn to its door. The
+                  halo is AttentionPulse's; Reduce Motion gets the plain pill.
+                  Web twin: .animate-view-map-pulse on the same pill in
+                  pages/home.tsx. */}
+              <AttentionPulse color={colors.primary}>
+                <Pressable
+                  testID="home-view-map"
+                  accessibilityRole="button"
+                  accessibilityLabel="View the journey map"
+                  hitSlop={6}
+                  onPress={() => {
+                    hapticLight();
+                    // THE ONE-PAGER MAP (build 20), the door this pill was kept
+                    // for: the whole line on one poster with a live legend. The
+                    // pass beneath still opens the scrolling journey.
+                    router.push('/(app)/map' as Parameters<typeof router.push>[0]);
+                  }}
+                  style={[styles.viewMapBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+                >
+                  <Feather name="map-pin" size={13} color={colors.primary} />
+                  <Text style={[styles.viewMapText, { color: colors.primary }]}>View Map</Text>
+                </Pressable>
+              </AttentionPulse>
             </View>
             <JourneyPassCard
               bleed={false}

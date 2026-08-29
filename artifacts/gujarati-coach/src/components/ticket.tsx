@@ -169,6 +169,37 @@ export function fitStubWordmark(
   return { text: words.join(" "), fontSize };
 }
 
+/**
+ * THE STATION NAME FITS. IT DOES NOT ELLIPSIZE. Ported from mobile's
+ * JourneyPassCard.stationFontSize in build 21, when the web hero's face
+ * started scaling with its board and a 33px "Thiruvananthapuram Central"
+ * beside a 266px ticket would have been cut to its first word.
+ *
+ * TWO BUDGETS, AND THE SMALLER WINS. The LONGEST WORD has to fit one line, or
+ * it breaks mid-word; the WHOLE NAME has to fit two. "Thiruvananthapuram
+ * Central" is bound by its first word, "Bolpur Shantiniketan" by its second.
+ * 0.58em per glyph is the black Latin average at these sizes, mobile's
+ * measurement, and Inter black is within a hair of it.
+ *
+ * `scale` is the board's factor: the ceiling and the floor scale with the
+ * rest of the face, so at scale 1 (a phone) this is mobile's 19/12 to the
+ * point (web's type ran one point larger at 20; 19 is the parity value), and
+ * an unmeasured width (jsdom, first paint) gets the ceiling.
+ */
+export const STATION_FONT_MAX = 19;
+export const STATION_FONT_MIN = 12;
+export function stationFontSize(name: string, width: number, scale = 1): number {
+  const max = STATION_FONT_MAX * scale;
+  const min = STATION_FONT_MIN * scale;
+  const trimmed = name.trim();
+  if (width <= 0 || trimmed.length === 0) return max;
+  const words = trimmed.split(/\s+/);
+  const longest = words.reduce((a, b) => (b.length > a.length ? b : a), "");
+  const byWord = width / Math.max(1, longest.length * 0.58);
+  const byWholeOverTwoLines = (width * 2) / Math.max(1, trimmed.length * 0.58);
+  return Math.max(min, Math.min(max, Math.floor(Math.min(byWord, byWholeOverTwoLines))));
+}
+
 /** Vertical tear-off perforation with semicircle notch cutouts top and
  *  bottom. `light` picks the dash color for accent (light) vs card (dark)
  *  ticket stock. Notches punch through to the page background. */

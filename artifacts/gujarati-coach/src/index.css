@@ -652,6 +652,41 @@
 .animate-pass-glow {
   animation: pass-glow var(--pass-cycle) ease-in-out infinite;
 }
+/* THE VIEW MAP PILL PULSES, SLOWLY (build 21, owner: "i want view map button
+   on web and ios to be slowly pulsing since its a new area, i want to draw
+   attention to it"). A soft halo in the app's accent swells out of the pill's
+   edge and fades, and the pill itself lifts a few percent with it: one slow
+   breath every --map-pill-cycle, nothing frantic. Box-shadow rather than an
+   extra element so the pill's markup stays a plain link. Mobile twin:
+   components/AttentionPulse.tsx. The reduced-motion block above neutralises
+   it in CSS and home.tsx also withholds the class, the same double gate the
+   pass's idle motion uses. */
+@keyframes view-map-pulse {
+  /* A BREATH, NOT A RIPPLE (owner, first cut: "pulse isn't good"). The thin
+     ring shooting outward and fading was too faint to register. This swells
+     a glow in and out UNDERNEATH the pill, in the same violet as its text
+     ("should look like the same color as text is glowing underneath"), and
+     lifts the pill 3% with it. The pill's own white and border never change:
+     the glow is beneath it, not on it. HALF STRENGTH from the first breath
+     (owner: "more subtle, its taking attention away from the actual CTA"):
+     this is a hint at a new door, and the pass's Resume beneath stays the
+     loudest thing on the page. */
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0), 0 4px 0 0 hsl(var(--primary) / 0);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1), 0 6px 16px 1px hsl(var(--primary) / 0.28);
+  }
+}
+/* ON THE PASS'S HEARTBEAT, not a cycle of its own (owner: "its on a
+   different pulse rate then the boarding card feels messy"). Both start at
+   mount and both peak mid-cycle, so the pill's glow and the pass's breathe
+   rise and fall together. */
+.animate-view-map-pulse {
+  animation: view-map-pulse var(--pass-cycle) ease-in-out infinite;
+}
 /* Strong repeating double-pump slide on the CTA arrow. */
 @keyframes cta-arrow-nudge {
   0%, 55%, 100% {

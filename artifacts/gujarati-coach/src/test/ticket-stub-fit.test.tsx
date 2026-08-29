@@ -14,7 +14,61 @@ import {
   stubLineFontSize,
   zoneStampExtent,
 } from "@/components/ticket";
-import { homeTicketScale, HOME_TICKET_BASE_W, HOME_TICKET_MAX_SCALE } from "@/pages/home";
+import {
+  homeBoardScale,
+  homeTicketScale,
+  HOME_STACK_BASE_H,
+  HOME_TICKET_BASE_W,
+  HOME_TICKET_MAX_SCALE,
+} from "@/pages/home";
+import { stationFontSize, STATION_FONT_MAX, STATION_FONT_MIN } from "@/components/ticket";
+
+// THE WHOLE FACE SCALES, AND HEIGHT CAN BE THE BUDGET THAT BITES (build 21,
+// off the owner's screenshot of the live home: "text too small and boarding
+// pass ticket is too small, should fill space").
+describe("the home board's face scales with the smaller of two budgets", () => {
+  it("width alone decides when height is unmeasured", () => {
+    expect(homeBoardScale(0, 0)).toBe(1);
+    expect(homeBoardScale(HOME_TICKET_BASE_W * 1.5, 0)).toBeCloseTo(1.5, 6);
+    expect(homeBoardScale(5000, 0)).toBe(HOME_TICKET_MAX_SCALE);
+  });
+  it("height caps the factor where the two-column grid pinches the panel", () => {
+    // A 1024 viewport: 526px of content box, 183 tall. Width would allow
+    // 1.79; the stack only fits 183 / HOME_STACK_BASE_H.
+    expect(homeBoardScale(526, 183)).toBeCloseTo(183 / HOME_STACK_BASE_H, 6);
+    expect(homeBoardScale(526, 183)).toBeLessThan(homeTicketScale(526));
+  });
+  it("never shrinks below 1: a phone stays mobile's pass to the pixel", () => {
+    expect(homeBoardScale(294, 100)).toBe(1);
+    expect(homeBoardScale(200, 60)).toBe(1);
+  });
+});
+
+// THE STATION NAME FITS ITS RUN (mobile parity, build 21). Ported from
+// JourneyPassCard.stationFontSize: the longest word must fit one line and the
+// whole name two; the ceiling and the floor scale with the board.
+describe("the station name fits beside the ticket instead of truncating", () => {
+  it("a short name at any run gets the ceiling, scaled", () => {
+    expect(stationFontSize("New Delhi", 400)).toBe(STATION_FONT_MAX);
+    expect(stationFontSize("New Delhi", 400, 1.6)).toBeCloseTo(STATION_FONT_MAX * 1.6, 6);
+  });
+  it("an unmeasured run gets the ceiling rather than a guess", () => {
+    expect(stationFontSize("Thiruvananthapuram Central", 0)).toBe(STATION_FONT_MAX);
+  });
+  it("the longest word binds Thiruvananthapuram Central; the floor scales too", () => {
+    // 18 glyphs at 0.58em: at a 150px run the word alone allows ~14px.
+    expect(stationFontSize("Thiruvananthapuram Central", 150)).toBe(14);
+    // Squeezed hard, it stops at the floor, and the floor is scaled.
+    expect(stationFontSize("Thiruvananthapuram Central", 60)).toBe(STATION_FONT_MIN);
+    expect(stationFontSize("Thiruvananthapuram Central", 60, 1.5)).toBeCloseTo(STATION_FONT_MIN * 1.5, 6);
+  });
+  it("the whole name over two lines binds Bolpur Shantiniketan", () => {
+    // 20 glyphs, longest word 12: at a 120px run the word allows 17 but the
+    // whole name over two lines allows only (240 / 11.6) = 20 -> 17 wins;
+    // at 90px the whole-name budget (180 / 11.6 = 15) is the binding one.
+    expect(stationFontSize("Bolpur Shantiniketan", 90)).toBe(12);
+  });
+});
 
 // THE STAMP'S THREE ROWS FIT THE RING DOWN, NOT ONLY ACROSS (build 18, off the
 // owner's desktop screenshot: "PLATFORM" riding the top arc and "DELHI" on the

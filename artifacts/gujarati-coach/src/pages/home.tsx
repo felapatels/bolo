@@ -29,16 +29,16 @@ import { Mascot } from "@/components/mascot";
 import { HomeSkeleton } from "@/components/home-skeleton";
 import { BrandSplash, useBrandSplash } from "@/components/brand-splash";
 import { useIsDesktop } from "@/hooks/use-mobile";
-import { useElementWidth } from "@/hooks/use-element-width";
+import { useElementSize } from "@/hooks/use-element-size";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { getRailBrand, getJourneyLine } from "@/lib/journeyLines";
 import { useJourneyProgress } from "@/lib/useJourneyProgress";
 import { TrainEngine } from "@/components/train-svg";
 import { BandPill, normalizeBand } from "@/components/ui/band-pill";
-import { MiniTicket, stampSizeForExtent } from "@/components/ticket";
+import { MiniTicket, stampSizeForExtent, stationFontSize } from "@/components/ticket";
 import { StopDots } from "@/components/stop-dots";
-import { BOARD_ART_NUDGE, CarvedBoard } from "@/components/carved-board";
+import { BOARD_ART_NUDGE, BOARD_ART_NUDGE_FRACTION, CarvedBoard } from "@/components/carved-board";
 import { ZONE_BOARD } from "@/lib/zone-backdrops";
 import { BADGE, TICKET } from "@/lib/ticket-stock";
 import { track } from "@/lib/analytics";
@@ -102,6 +102,41 @@ export const HOME_TICKET_MAX_SCALE = 1.8;
 export function homeTicketScale(contentW: number): number {
   if (!(contentW > 0)) return 1;
   return Math.min(HOME_TICKET_MAX_SCALE, Math.max(1, contentW / HOME_TICKET_BASE_W));
+}
+// THE WHOLE FACE OF THE BOARD SCALES, NOT ONLY THE TICKET (build 21, off the
+// owner's screenshot of the live home at a 704px column: "text too small and
+// boarding pass ticket is too small, should fill space"). Build 18 scaled the
+// ticket and left the type on viewport breakpoints, so at the desktop column
+// the panel was a 647 by 285 cream board with a 140px stack of small print in
+// the middle of it. Now the eyebrow, the station, the stop line, the dots,
+// the engine, the tail, the verb and every margin between them are multiples
+// of ONE factor, the same one the ticket takes, so a bigger board is the same
+// pass, larger, rather than a wider one with the same small print.
+//
+// TWO BUDGETS, AND THE SMALLER WINS. Width gives the factor the ticket always
+// had (homeTicketScale). Height is the new one: the panel's shape is fixed by
+// HOME_PANEL_ASPECT and the panel CLIPS, and a board that does not fit its
+// content does not look wrong, it looks BLANK. HOME_STACK_BASE_H is the whole
+// stack's height at scale 1 with the tail wrapped to two lines, ADDED UP FROM
+// THE COMPONENTS' OWN NUMBERS rather than measured: the ticket row is the
+// ticket's minimum height (a 46 stamp extent plus its border and 10 of
+// padding, 60), the dots row is its 8 margin plus the 16 ring (24), and the
+// CTA row is its 10 margin, 8 of padding and two 13px lines of tail (44).
+// Dividing the measured content box by it is the largest factor that still
+// fits. Where the two-column grid pinches the column (a 1024 viewport gives
+// the board 626px and its panel 250) height is the one that bites; at a 1280
+// viewport width and height agree within a tenth; on a phone width holds it
+// at exactly 1, so the phone case is still mobile's pass to the pixel. The
+// 704px column was looked at in dev by the owner on 2026-08-29 ("yes good");
+// the pinch has not been, and if anything ever clips there this constant is
+// the first suspect: raise it, never lower it to taste.
+//
+// Unmeasured height (jsdom, first paint) leaves width in charge alone.
+export const HOME_STACK_BASE_H = 128;
+export function homeBoardScale(contentW: number, contentH: number): number {
+  const byWidth = homeTicketScale(contentW);
+  if (!(contentH > 0)) return byWidth;
+  return Math.min(byWidth, Math.max(1, contentH / HOME_STACK_BASE_H));
 }
 // THE HOME BOARD'S PANEL, IN PX, and it is a budget rather than a taste.
 // ZONE_BOARD's content insets take about 27% of the panel before a word is
@@ -474,10 +509,22 @@ export default function Home() {
   const journeyLine = getJourneyLine(activeLang);
   const railBrand = getRailBrand(activeLang);
   const journey = useJourneyProgress(activeLang, journeyLine.zones);
-  // The board's content box, measured, so the ticket can scale with it. See
-  // homeTicketScale.
-  const passContent = useElementWidth<HTMLDivElement>();
-  const ticketScale = homeTicketScale(passContent.width);
+  // The board's content box, measured, so the whole face can scale with it.
+  // See homeBoardScale.
+  const passContent = useElementSize<HTMLDivElement>();
+  const boardScale = homeBoardScale(passContent.width, passContent.height);
+  const ticketW = Math.round(STUB_W * boardScale);
+  // THE RUN LEFT FOR THE STATION NAME beside the ticket: the measured box less
+  // the art-nudge padding it carries, the ticket, and the row's gap. Zero when
+  // unmeasured, which stationFontSize reads as "give me the ceiling".
+  const stationRun =
+    passContent.width > 0
+      ? passContent.width * (1 - BOARD_ART_NUDGE_FRACTION) - ticketW - Math.round(12 * boardScale)
+      : 0;
+  const stationLabel = journey.current
+    ? journey.current.geoName
+    : `Ride the ${journeyLine.lineName}`;
+  const stationFont = stationFontSize(stationLabel, stationRun, boardScale);
   // Progress-aware boarding-pass CTA. Uses only the data the pass already
   // receives from useJourneyProgress (no new API calls); when the current
   // stop is unknown (loading, locked, errored) the copy falls back to the
@@ -1029,11 +1076,20 @@ export default function Home() {
                       Board your train and continue learning
                     </div>
                   </div>
+                  {/* IT PULSES, SLOWLY (build 21): the one-pager map is a new
+                      area and the owner wants the eye drawn to its door. The
+                      halo is CSS (view-map-pulse in index.css); the class is
+                      withheld under reduced motion the way every idle motion
+                      on this page is. Mobile twin: AttentionPulse around the
+                      same pill in (tabs)/index.tsx. */}
                   <Link
                     href="/map"
                     data-testid="home-view-map"
                     aria-label="View the journey map"
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-[7px] text-[13px] font-bold text-primary transition-colors hover:bg-muted"
+                    className={cn(
+                      "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-[7px] text-[13px] font-bold text-primary transition-colors hover:bg-muted",
+                      !reduceMotion && "animate-view-map-pulse",
+                    )}
                   >
                     <MapPin className="h-[13px] w-[13px]" />
                     View Map
@@ -1103,6 +1159,7 @@ export default function Home() {
 
                   <div
                     ref={passContent.ref}
+                    data-testid="home-pass-content"
                     className="flex h-full min-w-0 flex-col justify-center"
                     // The drawn frame sits further in on the right than on the
                     // left, so a symmetric content box runs the ticket and the
@@ -1114,7 +1171,10 @@ export default function Home() {
                         right, which pushed everything under it into a narrow
                         run; landscape in the corner, the progress bar and the
                         CTA plate get the whole panel back. */}
-                    <div className="flex items-start justify-between gap-3">
+                    <div
+                      className="flex items-start justify-between"
+                      style={{ gap: Math.round(12 * boardScale) }}
+                    >
                       <div className="min-w-0 flex-1">
                         {/* The brand is native-script "Bolo Rail" in the
                             LEARNER'S OWN script and must render with that
@@ -1129,15 +1189,22 @@ export default function Home() {
                             and the verb are the accents; the ink stays for
                             the copy. Tracking eased 1.4 to 0.9 with the
                             narrower stub, so the brand fits whole. */}
+                        {/* EVERY SIZE ON THE FACE IS boardScale TIMES MOBILE'S
+                            (build 21). These used to step up on the viewport's
+                            sm/lg breakpoints, which is why a 704px column got
+                            11px small print: the breakpoints know the window,
+                            not the board. Mobile's points are the scale-1
+                            values, so a phone is still mobile to the pixel. */}
                         <div
-                          className="truncate text-[9px] font-black uppercase tracking-[0.9px] text-primary lg:text-[11px]"
+                          className="truncate font-black uppercase text-primary"
+                          style={{ fontSize: 9 * boardScale, letterSpacing: 0.9 * boardScale }}
                         >
                           Boarding pass ·{" "}
                           <span
                             className={cn(!railBrand.native && "uppercase")}
                             style={
                               railBrand.native
-                                ? { ...native.style, fontSize: 11, letterSpacing: 0 }
+                                ? { ...native.style, fontSize: 11 * boardScale, letterSpacing: 0 }
                                 : undefined
                             }
                           >
@@ -1146,18 +1213,31 @@ export default function Home() {
                         </div>
                         {/* THE STATION, exactly as the zone card names one, in
                             the board's own ink: the panel is cream in both
-                            themes and a cool slate token reads cold on it. */}
+                            themes and a cool slate token reads cold on it.
+                            FITTED TO ITS RUN, TWO LINES AT MOST, NEVER AN
+                            ELLIPSIS (mobile parity, build 21): stationFontSize
+                            shrinks the type until the longest word fits one
+                            line and the whole name two, floored at 12 times
+                            the scale. `truncate` used to cut "Thiruvananthapuram
+                            Central" to its first word at any width. */}
                         <h2
-                          className="mt-px truncate text-xl font-black leading-tight sm:text-2xl lg:text-3xl"
-                          style={{ color: ZONE_BOARD.ink }}
+                          className="mt-px line-clamp-2 font-black"
+                          style={{
+                            color: ZONE_BOARD.ink,
+                            fontSize: stationFont,
+                            lineHeight: `${Math.round(stationFont * 1.2)}px`,
+                          }}
                         >
-                          {journey.current
-                            ? journey.current.geoName
-                            : `Ride the ${journeyLine.lineName}`}
+                          {stationLabel}
                         </h2>
                         <p
-                          className="mt-0.5 truncate text-[11px] font-semibold lg:text-sm"
-                          style={{ color: ZONE_BOARD.inkMuted }}
+                          className="truncate font-semibold"
+                          style={{
+                            color: ZONE_BOARD.inkMuted,
+                            fontSize: 11 * boardScale,
+                            lineHeight: `${Math.round(16 * boardScale)}px`,
+                            marginTop: Math.round(2 * boardScale),
+                          }}
                         >
                           {journey.current
                             ? `Stop ${journey.current.stopNumber} of ${journey.current.stopCount}`
@@ -1172,9 +1252,9 @@ export default function Home() {
                           lineName={journeyLine.lineName}
                           zone={journey.current ? journey.current.zoneIndex + 1 : null}
                           stationName={journey.current ? journey.current.geoName : null}
-                          stampSize={stampSizeForExtent(Math.round(HOME_STAMP_EXTENT * ticketScale))}
-                          width={Math.round(STUB_W * ticketScale)}
-                          scale={ticketScale}
+                          stampSize={stampSizeForExtent(Math.round(HOME_STAMP_EXTENT * boardScale))}
+                          width={ticketW}
+                          scale={boardScale}
                           tearing={tearing}
                           bodyRef={tearBodyRef}
                           stubRef={tearStubRef}
@@ -1191,7 +1271,10 @@ export default function Home() {
                         card. StopDots is the one drawing of that row; the
                         journey's cards use it too. */}
                     {journey.current && journey.current.stopCount > 0 && (
-                      <div className="mt-2 flex items-center pr-0.5">
+                      <div
+                        className="flex items-center pr-0.5"
+                        style={{ marginTop: Math.round(8 * boardScale) }}
+                      >
                         <StopDots
                           testId="pass-stops-row"
                           total={journey.current.stopCount}
@@ -1199,6 +1282,7 @@ export default function Home() {
                           current={journey.current.stopNumber}
                           accent="hsl(var(--primary))"
                           muted={ZONE_BOARD.inkMuted}
+                          scale={boardScale}
                           terminus
                         />
                       </div>
@@ -1211,7 +1295,15 @@ export default function Home() {
                         2026-08-28 and the mockup reverses it: the train, the
                         reason and the verb sit straight on the paper, and the
                         verb and its arrow carry the accent instead of a box. */}
-                    <div className="mt-2.5 flex items-center gap-1.5 py-1">
+                    <div
+                      className="flex items-center"
+                      style={{
+                        marginTop: Math.round(10 * boardScale),
+                        paddingTop: Math.round(4 * boardScale),
+                        paddingBottom: Math.round(4 * boardScale),
+                        gap: Math.round(6 * boardScale),
+                      }}
+                    >
                       {/* THE ENGINE TAKES A PALETTE, NOT A COLOUR. TrainEngine
                           draws from four theme vars and keeps only its headlamp
                           on currentColor, so styling `color` here tinted the
@@ -1232,9 +1324,10 @@ export default function Home() {
                       >
                         <TrainEngine
                           className={cn(
-                            "h-[22px] w-auto shrink-0 lg:h-[26px]",
+                            "w-auto shrink-0",
                             !reduceMotion && "animate-train-drive",
                           )}
+                          style={{ height: Math.round(22 * boardScale) }}
                         />
                       </div>
                       {/* THE VERB TRAVELS WITH THE ARROW. It sat left of the
@@ -1262,8 +1355,14 @@ export default function Home() {
                             rather than one cut hard. */}
                         {journeyCtaTail && (
                           <span
-                            className="line-clamp-3 mx-1.5 min-w-0 flex-1 text-[10px] font-semibold leading-[13px]"
-                            style={{ color: ZONE_BOARD.inkMuted }}
+                            className="line-clamp-3 min-w-0 flex-1 font-semibold"
+                            style={{
+                              color: ZONE_BOARD.inkMuted,
+                              fontSize: 10 * boardScale,
+                              lineHeight: `${Math.round(13 * boardScale)}px`,
+                              marginLeft: Math.round(6 * boardScale),
+                              marginRight: Math.round(6 * boardScale),
+                            }}
                           >
                             {journeyCtaTail}
                           </span>
@@ -1271,7 +1370,13 @@ export default function Home() {
                         {/* The verb and its arrow in the app's violet: the
                             hybrid ticket's accent, now there is no plate. 18
                             over 22, one point up with mobile. */}
-                        <span className="shrink-0 text-[18px] font-black leading-[22px] text-primary">
+                        <span
+                          className="shrink-0 font-black text-primary"
+                          style={{
+                            fontSize: 18 * boardScale,
+                            lineHeight: `${Math.round(22 * boardScale)}px`,
+                          }}
+                        >
                           {journeyCta}
                         </span>
                       {/* A SOLID arrow, not a hairline one: beside a 17px black
@@ -1282,8 +1387,12 @@ export default function Home() {
                         aria-hidden
                       >
                         <ArrowRight
-                          className="h-5 w-5 transition-transform group-hover:translate-x-0.5"
+                          className="transition-transform group-hover:translate-x-0.5"
                           strokeWidth={3}
+                          style={{
+                            width: Math.round(20 * boardScale),
+                            height: Math.round(20 * boardScale),
+                          }}
                         />
                       </span>
                     </div>

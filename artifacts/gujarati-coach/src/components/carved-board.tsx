@@ -243,7 +243,7 @@ export function CarvedBoard({
  * board width to multiply, so it is expressed against the CONTENT box (which
  * is already inset by contentInset on each side) and applied as padding.
  */
-export const BOARD_ART_NUDGE = `${(
+export const BOARD_ART_NUDGE_FRACTION =
   ((ZONE_BOARD.panelInsetRight - ZONE_BOARD.panelInsetLeft) * 2) /
-  (1 - ZONE_BOARD.contentInset * 2)
-) * 100}%`;
+  (1 - ZONE_BOARD.contentInset * 2);
+export const BOARD_ART_NUDGE = `${BOARD_ART_NUDGE_FRACTION * 100}%`;

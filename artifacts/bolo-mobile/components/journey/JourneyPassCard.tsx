@@ -56,7 +56,9 @@ import { playTearSfx } from '@/lib/tearAudio';
 import { loadSoundPref } from '@/lib/soundPref';
 
 // Web tuning constants (index.css :root block + PASS_PRESS_* in home.tsx).
-const PASS_CYCLE_MS = 3200; // breathe + shimmer + glow share one heartbeat
+// Exported for AttentionPulse (build 21): home's View Map glow rides this
+// same heartbeat, because a second rate beside the pass "feels messy" (owner).
+export const PASS_CYCLE_MS = 3200; // breathe + shimmer + glow share one heartbeat
 const ARROW_CYCLE_MS = 2400; // CTA arrow double-pump
 const PASS_BREATHE_SCALE = 1.025;
 const PASS_GLOW_MIN = 0.4;

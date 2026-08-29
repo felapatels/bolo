@@ -35,6 +35,16 @@ export interface StopDotsProps {
   terminus?: boolean;
   /** Chalk: white fill on the ring instead of paper. */
   ringFill?: string;
+  /**
+   * WEB ONLY, and the mobile twin has no such prop on purpose. The home
+   * hero's board scales its whole face with the measured column (build 21,
+   * off the owner's screenshot of the live home: "text too small ... should
+   * fill space"), and a row of 10px dots under 33px type reads as a
+   * different object. Everything here is a multiple of this: the dots, the
+   * ring, the links, the terminus. Mobile's hosts are one width, so its dots
+   * are one size.
+   */
+  scale?: number;
   testId?: string;
   className?: string;
 }
@@ -56,13 +66,19 @@ export function StopDots({
   muted,
   terminus = false,
   ringFill = "#FFFFFF",
+  scale = 1,
   testId,
   className,
 }: StopDotsProps) {
   const count = Math.max(0, Math.floor(total));
   if (count === 0) return null;
   // Past fourteen the dots shrink so the row keeps its width.
-  const dot = count > 14 ? 7 : 10;
+  const dot = Math.round((count > 14 ? 7 : 10) * scale);
+  const ringPad = Math.round(6 * scale);
+  const ringStroke = Math.max(2, Math.round(3 * scale));
+  const dotStroke = Math.max(1, Math.round(2 * scale));
+  const link = Math.max(2, Math.round(2 * scale));
+  const terminusSize = Math.round(16 * scale);
   const here = current != null && current >= 1 && current <= count ? current : null;
   return (
     <div
@@ -78,8 +94,10 @@ export function StopDots({
           <Fragment key={n}>
             {i > 0 && (
               <span
-                className="h-[2px] min-w-[2px] flex-1"
+                className="flex-1"
                 style={{
+                  height: link,
+                  minWidth: link,
                   background: n <= done || isHere ? accent : withAlpha(muted, "55"),
                 }}
               />
@@ -92,22 +110,22 @@ export function StopDots({
               style={
                 isHere
                   ? {
-                      width: dot + 6,
-                      height: dot + 6,
-                      border: `3px solid ${accent}`,
+                      width: dot + ringPad,
+                      height: dot + ringPad,
+                      border: `${ringStroke}px solid ${accent}`,
                       background: ringFill,
                     }
                   : isDone
                     ? {
                         width: dot,
                         height: dot,
-                        border: `2px solid ${accent}`,
+                        border: `${dotStroke}px solid ${accent}`,
                         background: accent,
                       }
                     : {
                         width: dot,
                         height: dot,
-                        border: `2px solid ${withAlpha(muted, "88")}`,
+                        border: `${dotStroke}px solid ${withAlpha(muted, "88")}`,
                         background: "transparent",
                       }
               }
@@ -117,8 +135,13 @@ export function StopDots({
       })}
       {terminus && (
         <Building2
-          className="ml-1.5 h-4 w-4 shrink-0"
-          style={{ color: muted }}
+          className="shrink-0"
+          style={{
+            color: muted,
+            width: terminusSize,
+            height: terminusSize,
+            marginLeft: Math.round(6 * scale),
+          }}
           data-testid="stop-dots-terminus"
         />
       )}

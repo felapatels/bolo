@@ -320,6 +320,19 @@ describe("home Your Journey frame and hybrid ticket (build 18 parity)", () => {
     // opens it; the pass beneath still opens /journey.
     expect(viewMap.getAttribute("href")).toBe("/map");
     expect(viewMap).toHaveTextContent("View Map");
+    // Build 21: the pill pulses slowly to draw the eye to the new map
+    // (owner). The class is the JS half of the gate; the CSS half is the
+    // reduced-motion block in index.css, which jsdom cannot evaluate.
+    expect(viewMap.className).toContain("animate-view-map-pulse");
+  });
+
+  test("reduced motion withholds the View Map pulse", () => {
+    h.reduceMotion = true;
+    h.groups = [grp({ status: "in_progress", masteredCount: 2, attemptedCount: 3 })];
+    renderHome();
+    expect(screen.getByTestId("home-view-map").className).not.toContain(
+      "animate-view-map-pulse",
+    );
   });
 
   test("station dots replace the brass mastered bar, the learner's stop ringed", () => {
