@@ -210,6 +210,19 @@ jest.mock('expo-clipboard', () => ({
   getStringAsync: jest.fn(() => Promise.resolve('')),
 }));
 
+// expo-store-review (build 19, the "Rate Bolo!" row) requires its native
+// module at import time on the native build, and lib/store.ts imports it at
+// module scope, so every suite that renders the account or subscription
+// screens would die at import without this. Unavailable by default: the tests
+// that exercise the rating path inject their own deps into rateBolo().
+jest.mock('expo-store-review', () => ({
+  __esModule: true,
+  isAvailableAsync: jest.fn(async () => false),
+  requestReview: jest.fn(async () => undefined),
+  hasAction: jest.fn(async () => false),
+  storeUrl: jest.fn(() => null),
+}));
+
 // RevenueCat's SDK is a native module; importing it under Jest explodes. The
 // wallet now renders the (dark) Chai pack shop, so any test that mounts the
 // wallet reaches it. Tests that actually exercise purchasing declare their own
