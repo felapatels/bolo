@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Href } from 'expo-router';
 import {
   useUpdateAccountPreferences,
   getGetAccountQueryKey,
@@ -14,12 +13,15 @@ import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 // Web twin: artifacts/gujarati-coach/src/lib/walkthrough.ts, same steps, same
 // words, same rules. Change both or neither.
 //
-// STEP ONE IS THE LANGUAGE CHOOSER, which already existed as a route nobody
-// was sent to: the July 30 2026 decision removed the first-run redirect and
-// let fresh accounts land on home with Hindi seeded. That decision survives
-// as the SKIP path here. Skip at any point and you land on home with Hindi,
-// exactly as before; the difference is that a learner is now offered the
-// chooser and three cards first, once.
+// STEP ONE IS THE LANGUAGE PICKER: the modal with the search box and the
+// coloured tiles that home's Practicing card and Account > Language open,
+// NOT the plainer full-screen choose-language route (owner, 2026-08-29, on
+// seeing that one: "what happened to the colors, and search bar"). The
+// welcome screen opens the picker over card one for an account that has not
+// chosen; closing it, with or without a pick, lands on the cards. The July
+// 30 2026 decision that removed the old first-run redirect and let fresh
+// accounts land on home with Hindi seeded survives as the SKIP path: skip at
+// any point and you land on home with Hindi, exactly as before.
 //
 // ONCE MEANS ONCE, ON EVERY DEVICE. Finishing OR skipping writes the account's
 // hasCompletedTour, a server-side preference that has existed since the old
@@ -78,17 +80,20 @@ export type FirstRunPrefs = {
   hasChosenLanguage?: boolean;
 };
 
+export const WELCOME_ROUTE = '/(app)/welcome' as const;
+
 /**
- * Where a first run goes, or null when there is nothing left to show.
+ * Where a first run goes, or null when there is nothing left to show. The
+ * welcome screen itself decides whether the picker opens on top (it reads
+ * hasChosenLanguage), so the gate has one destination.
  *
  * Strictly `=== false`: a server that omits the field (none does today) must
  * read as "done", because the failure mode of the other reading is nagging
  * every learner on every launch.
  */
-export function firstRunHref(prefs: FirstRunPrefs): Href | null {
+export function firstRunHref(prefs: FirstRunPrefs): typeof WELCOME_ROUTE | null {
   if (prefs.hasCompletedTour !== false) return null;
-  if (prefs.hasChosenLanguage === true) return '/(app)/welcome';
-  return { pathname: '/(app)/choose-language', params: { next: 'welcome' } };
+  return WELCOME_ROUTE;
 }
 
 // Session-scoped "already dismissed" marker, the same external-store shape

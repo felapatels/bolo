@@ -171,10 +171,11 @@ export default function AppLayout() {
 // redirect (LanguageChoiceBootstrapper) was removed by product decision on
 // July 30 2026 so fresh accounts landed directly on home with Hindi seeded,
 // and the guided tour went in Task #906. The Play testers then asked for a
-// short skippable walkthrough with the language chooser as step one, which
-// is what this routes to, ONCE per account, keyed on the server-side
-// hasCompletedTour that the old tour left behind. Skipping lands on home with
-// Hindi, so the July 30 behaviour is the skip path rather than gone.
+// short skippable walkthrough with the language picker as step one: this
+// routes to the welcome cards ONCE per account, keyed on the server-side
+// hasCompletedTour the old tour left behind, and the welcome screen opens
+// the picker over them for an account that has not chosen. Skipping lands on
+// home with Hindi, so the July 30 behaviour is the skip path rather than gone.
 //
 // Same rules as the gate it replaces: keyed on the loaded account, never on
 // route prefixes; once per mount; and it fails OPEN. An account fetch that

@@ -59,14 +59,10 @@ const h = vi.hoisted(() => ({
   updatePrefs: vi.fn(),
   navigate: vi.fn(),
   toast: vi.fn(),
-  /** The route's query string; "next=welcome" inside the walkthrough. */
-  search: "" as string,
 }));
 
 vi.mock("wouter", () => ({
   useLocation: () => ["/", h.navigate],
-  // Build 19: the step reads ?next=welcome to continue to the cards.
-  useSearch: () => h.search,
   Redirect: ({ to }: { to: string }) => (
     <div data-testid="redirect" data-to={to} />
   ),
@@ -141,7 +137,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   sessionStorage.clear();
-  h.search = "";
   h.isSignedIn = true;
   h.accountData = accountWith();
   h.accountLoading = false;
@@ -239,38 +234,6 @@ describe("choose-language step", () => {
 // ---------------------------------------------------------------------------
 // Gate removal pin: no module in the app routes fresh accounts to the step.
 // ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Build 19: as step one of the first-run walkthrough the step is opened with
-// ?next=welcome and continues to the cards instead of home, whichever way it
-// is left. Opened any other way it behaves exactly as pinned above.
-// ---------------------------------------------------------------------------
-
-describe("choose-language as walkthrough step one", () => {
-  test("a pick continues to the cards, even a locked one", () => {
-    h.search = "next=welcome";
-    h.entitlementsData = { allowedLanguages: ["hi"] };
-    renderStep();
-    fireEvent.click(screen.getByTestId("choose-lang-gu"));
-    expect(h.updatePrefs).toHaveBeenCalledTimes(1);
-    expect(h.navigate).toHaveBeenCalledWith("/welcome");
-  });
-
-  test("skip continues to the cards", () => {
-    h.search = "next=welcome";
-    renderStep();
-    fireEvent.click(screen.getByTestId("skip-language-step"));
-    expect(h.updatePrefs).not.toHaveBeenCalled();
-    expect(h.navigate).toHaveBeenCalledWith("/welcome");
-  });
-
-  test("an account that already chose is bounced on to the cards, not home", () => {
-    h.search = "next=welcome";
-    h.accountData = accountWith({ hasChosenLanguage: true });
-    renderStep();
-    expect(screen.getByTestId("redirect")).toHaveAttribute("data-to", "/welcome");
-  });
-});
 
 describe("B1 gate removal", () => {
   test("the LanguageChoiceGate component no longer exists", () => {

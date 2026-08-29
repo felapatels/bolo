@@ -7,6 +7,8 @@ const h = vi.hoisted(() => ({
   navigate: vi.fn(),
   mutate: vi.fn(),
   track: vi.fn(),
+  /** undefined = still loading. */
+  account: undefined as unknown,
 }));
 
 vi.mock("wouter", () => ({
@@ -21,6 +23,13 @@ vi.mock("@workspace/api-client-react", async () => ({
   ...(await (await import("./api-client-mock")).baseApiClientMock()),
   useUpdateAccountPreferences: () => ({ mutate: h.mutate, isPending: false }),
   getGetAccountQueryKey: () => ["account"],
+  useGetAccount: () => h.account,
+}));
+
+// Step one is the real picker dialog; here only its open state matters.
+vi.mock("@/components/language-picker", () => ({
+  LanguagePicker: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="language-picker-open" /> : null,
 }));
 
 vi.mock("@/lib/analytics", () => ({
@@ -37,31 +46,47 @@ import {
   WALKTHROUGH_STEPS,
   firstRunPath,
   hasDismissedWalkthrough,
-  CHOOSER_THEN_WELCOME,
   WELCOME,
 } from "@/lib/walkthrough";
+
+function accountWith(hasChosenLanguage: boolean) {
+  return { data: { preferences: { learning: { hasChosenLanguage } } }, isLoading: false };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
   sessionStorage.clear();
+  h.account = accountWith(true);
 });
 
 describe("firstRunPath", () => {
-  test("a fresh account goes to the chooser, asked to continue to the cards", () => {
-    expect(firstRunPath({ hasCompletedTour: false, hasChosenLanguage: false })).toBe(
-      CHOOSER_THEN_WELCOME,
-    );
-    expect(CHOOSER_THEN_WELCOME).toBe("/choose-language?next=welcome");
-  });
-
-  test("an account that already chose goes straight to the cards", () => {
+  test("any account that owes the walkthrough goes to the cards, chosen language or not", () => {
+    expect(firstRunPath({ hasCompletedTour: false, hasChosenLanguage: false })).toBe(WELCOME);
     expect(firstRunPath({ hasCompletedTour: false, hasChosenLanguage: true })).toBe(WELCOME);
+    expect(WELCOME).toBe("/welcome");
   });
 
   test("a finished account goes nowhere, and so does an OMITTED flag", () => {
     expect(firstRunPath({ hasCompletedTour: true, hasChosenLanguage: false })).toBeNull();
     // Nagging every learner on every visit is the failure to fear.
     expect(firstRunPath({ hasChosenLanguage: false })).toBeNull();
+  });
+});
+
+describe("step one, the language picker", () => {
+  test("opens the picker dialog over card one for an account that has not chosen", () => {
+    h.account = accountWith(false);
+    render(<Welcome />);
+    expect(screen.getByTestId("language-picker-open")).toBeInTheDocument();
+    expect(screen.getByTestId("walkthrough-title")).toHaveTextContent(WALKTHROUGH_STEPS[0]!.title);
+  });
+
+  test("never opens it for an account that already chose, and waits while loading", () => {
+    render(<Welcome />);
+    expect(screen.queryByTestId("language-picker-open")).not.toBeInTheDocument();
+    h.account = { data: undefined, isLoading: true };
+    render(<Welcome />);
+    expect(screen.queryByTestId("language-picker-open")).not.toBeInTheDocument();
   });
 });
 

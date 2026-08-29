@@ -11,12 +11,13 @@ import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
 // artifacts/bolo-mobile/lib/walkthrough.ts, which carries the full reasoning;
 // same steps, same words, same rules. Change both or neither.
 //
-// In one line: step one is the language chooser (opened with ?next=welcome),
-// then three cards, skippable at every step, shown ONCE per account by way of
-// the server-side hasCompletedTour flag that the retired guided tour left
-// behind. Skipping lands on home with the seeded language, which is exactly
-// what the July 30 2026 decision made the default, so that behaviour survives
-// as the skip path.
+// In one line: step one is the language PICKER (the dialog with the search
+// box and the coloured tiles that home opens), which the welcome page opens
+// over card one for an account that has not chosen; then four cards,
+// skippable at every step, shown ONCE per account by way of the server-side
+// hasCompletedTour flag that the retired guided tour left behind. Skipping
+// lands on home with the seeded language, which is exactly what the July 30
+// 2026 decision made the default, so that behaviour survives as the skip path.
 
 export type WalkthroughStep = {
   key: string;
@@ -60,18 +61,18 @@ export type FirstRunPrefs = {
   hasChosenLanguage?: boolean;
 };
 
-export const CHOOSER_THEN_WELCOME = "/choose-language?next=welcome";
 export const WELCOME = "/welcome";
 
 /**
- * Where a first run goes, or null when there is nothing left to show.
+ * Where a first run goes, or null when there is nothing left to show. The
+ * welcome page decides whether the picker opens on top (it reads
+ * hasChosenLanguage), so the gate has one destination.
  * Strictly `=== false`: a server that omits the field reads as done, because
  * the other reading nags every learner on every visit.
  */
 export function firstRunPath(prefs: FirstRunPrefs): string | null {
   if (prefs.hasCompletedTour !== false) return null;
-  if (prefs.hasChosenLanguage === true) return WELCOME;
-  return CHOOSER_THEN_WELCOME;
+  return WELCOME;
 }
 
 // Session-scoped "already dismissed" marker, the same sessionStorage shape as

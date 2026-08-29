@@ -1,19 +1,36 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { ArrowRight, Play } from "lucide-react";
+import { useGetAccount } from "@workspace/api-client-react";
+import { LanguagePicker } from "@/components/language-picker";
 import { Mascot } from "@/components/mascot";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { WALKTHROUGH_STEPS, useFinishWalkthrough } from "@/lib/walkthrough";
 
-// THE WALKTHROUGH CARDS, build 19: three screens after the language chooser,
-// each one Bolo in a pose, a title and two lines. Next advances; the last
-// card's button and Skip both leave for home and retire the walkthrough for
-// this account (lib/walkthrough.ts). Mobile twin: app/(app)/welcome.tsx.
+// THE WALKTHROUGH, build 19: the language picker over card one, then four
+// cards, each one Bolo in a pose, a title and two lines. Next advances; the
+// last card's button and Skip both leave for home and retire the walkthrough
+// for this account (lib/walkthrough.ts). Mobile twin: app/(app)/welcome.tsx.
 export default function Welcome() {
   const [, setLocation] = useLocation();
   const finish = useFinishWalkthrough();
   const [index, setIndex] = useState(0);
+
+  // STEP ONE IS THE LANGUAGE PICKER, the same dialog home's Practicing card
+  // opens, with its search and coloured tiles. Once, over card one, for an
+  // account that has not chosen; the ref stops a close without a pick from
+  // reopening it.
+  const account = useGetAccount();
+  const chosen = account.data?.preferences?.learning?.hasChosenLanguage;
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerOpenedRef = useRef(false);
+  useEffect(() => {
+    if (chosen === false && !pickerOpenedRef.current) {
+      pickerOpenedRef.current = true;
+      setPickerOpen(true);
+    }
+  }, [chosen]);
 
   const step = WALKTHROUGH_STEPS[index]!;
   const last = index === WALKTHROUGH_STEPS.length - 1;
@@ -33,6 +50,11 @@ export default function Welcome() {
 
   return (
     <div className="min-h-[100dvh] bg-background">
+      <LanguagePicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        trigger={<span className="hidden" aria-hidden="true" />}
+      />
       <div className="mx-auto flex min-h-[100dvh] max-w-md flex-col px-6 py-6">
         <div className="flex justify-end">
           <button

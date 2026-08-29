@@ -1,10 +1,12 @@
 /**
  * THE FIRST-RUN WALKTHROUGH, build 19 (the Play testers' ask). Pins:
  *
- *  1. firstRunHref: a fresh account goes to the chooser with ?next=welcome,
- *     an account that already chose goes straight to the cards, a finished
- *     account (or an older server that omits the flag) goes nowhere.
- *  2. The cards: three of them, Next advances, the last button is "Let's go".
+ *  1. firstRunHref: an account that owes the walkthrough goes to the cards,
+ *     a finished account (or an older server that omits the flag) nowhere.
+ *     Step one, the language PICKER (the modal with search and colours),
+ *     opens from the welcome screen over card one for an account that has
+ *     not chosen, once per visit.
+ *  2. The cards: four of them, Next advances, the last button is "Let's go".
  *  3. Leaving, by finishing or by Skip, writes hasCompletedTour ONCE, marks
  *     the session, lands on home, and reports which exit and which card.
  */
@@ -20,12 +22,21 @@ import {
 const mockState = {
   mutate: jest.fn(),
   replace: jest.fn(),
+  push: jest.fn(),
   track: jest.fn(),
+  /** null = still loading. */
+  hasChosenLanguage: true as boolean | null,
 };
 
 jest.mock('@workspace/api-client-react', () => ({
   useUpdateAccountPreferences: () => ({ mutate: mockState.mutate }),
   getGetAccountQueryKey: () => ['account'],
+  useGetAccount: () => ({
+    data:
+      mockState.hasChosenLanguage === null
+        ? undefined
+        : { preferences: { learning: { hasChosenLanguage: mockState.hasChosenLanguage } } },
+  }),
 }));
 
 jest.mock('@tanstack/react-query', () => ({
@@ -35,8 +46,16 @@ jest.mock('@tanstack/react-query', () => ({
   }),
 }));
 
+// ONE router object, like the real hook returns: the welcome screen's focus
+// callback lists it as a dependency, and a fresh object per render would
+// re-run the callback (and reset the card) on every press.
+const mockRouter = {
+  replace: (...args: unknown[]) => mockState.replace(...args),
+  push: (...args: unknown[]) => mockState.push(...args),
+  back: jest.fn(),
+};
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockState.replace, push: jest.fn(), back: jest.fn() }),
+  useRouter: () => mockRouter,
   // The cards reset to the first one on FOCUS; running the callback once on
   // mount is the closest a test renderer gets to a focus.
   useFocusEffect: (cb: () => void) => {
@@ -77,21 +96,15 @@ beforeEach(() => {
   resetWalkthroughForTests();
   mockState.mutate = jest.fn();
   mockState.replace = jest.fn();
+  mockState.push = jest.fn();
   mockState.track = jest.fn();
+  mockState.hasChosenLanguage = true;
 });
 
 describe('firstRunHref', () => {
-  it('sends a fresh account to the chooser, asking it to continue to the cards', () => {
-    expect(firstRunHref({ hasCompletedTour: false, hasChosenLanguage: false })).toEqual({
-      pathname: '/(app)/choose-language',
-      params: { next: 'welcome' },
-    });
-  });
-
-  it('sends an account that already chose a language straight to the cards', () => {
-    expect(firstRunHref({ hasCompletedTour: false, hasChosenLanguage: true })).toBe(
-      '/(app)/welcome',
-    );
+  it('sends any account that owes the walkthrough to the cards, chosen language or not', () => {
+    expect(firstRunHref({ hasCompletedTour: false, hasChosenLanguage: false })).toBe('/(app)/welcome');
+    expect(firstRunHref({ hasCompletedTour: false, hasChosenLanguage: true })).toBe('/(app)/welcome');
   });
 
   it('sends a finished account nowhere', () => {
@@ -102,6 +115,29 @@ describe('firstRunHref', () => {
   it('reads an OMITTED flag as done, never as owed', () => {
     // Nagging every learner on every launch is the failure to fear here.
     expect(firstRunHref({ hasChosenLanguage: false })).toBeNull();
+  });
+});
+
+describe('step one, the language picker', () => {
+  it('opens the modal picker over card one for an account that has not chosen', () => {
+    mockState.hasChosenLanguage = false;
+    render(<WelcomeScreen />);
+    expect(mockState.push).toHaveBeenCalledWith('/(app)/language');
+    expect(mockState.push).toHaveBeenCalledTimes(1);
+    // The cards are underneath, on card one.
+    expect(screen.getByTestId('walkthrough-title').props.children).toBe(WALKTHROUGH_STEPS[0]!.title);
+  });
+
+  it('never opens it for an account that already chose', () => {
+    mockState.hasChosenLanguage = true;
+    render(<WelcomeScreen />);
+    expect(mockState.push).not.toHaveBeenCalled();
+  });
+
+  it('waits for the account rather than guessing', () => {
+    mockState.hasChosenLanguage = null;
+    render(<WelcomeScreen />);
+    expect(mockState.push).not.toHaveBeenCalled();
   });
 });
 

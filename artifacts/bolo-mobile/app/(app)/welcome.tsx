@@ -1,6 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useGetAccount } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { ChunkyButton } from '@/components/ChunkyButton';
@@ -9,22 +10,34 @@ import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 import { WALKTHROUGH_STEPS, useFinishWalkthrough } from '@/lib/walkthrough';
 
-// THE WALKTHROUGH CARDS, build 19: three screens after the language chooser,
-// each one Bolo in a pose, a title and two lines. Next advances, the last
-// card's button and Skip both leave for home and retire the walkthrough for
-// this account (lib/walkthrough.ts has the rules). Web twin: pages/welcome.tsx.
+// THE WALKTHROUGH, build 19: the language picker over card one, then four
+// cards, each one Bolo in a pose, a title and two lines. Next advances, the
+// last card's button and Skip both leave for home and retire the walkthrough
+// for this account (lib/walkthrough.ts has the rules). Web twin:
+// pages/welcome.tsx.
 export default function WelcomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const finish = useFinishWalkthrough();
   const [index, setIndex] = useState(0);
-  // Back to card one on every FOCUS, not on mount: expo-router keeps this
-  // screen mounted between visits (CLAUDE.md, "screens outlive the user's
-  // mental model"), and the simulator showed card two on a re-entry.
+  const account = useGetAccount();
+  const chosen = account.data?.preferences?.learning?.hasChosenLanguage;
+  const pickerOpenedRef = useRef(false);
+  // On every FOCUS, not on mount: expo-router keeps this screen mounted
+  // between visits (CLAUDE.md, "screens outlive the user's mental model"),
+  // and the simulator showed card two on a re-entry.
   useFocusEffect(
     useCallback(() => {
       setIndex(0);
-    }, []),
+      // STEP ONE IS THE LANGUAGE PICKER, the same modal home and Account
+      // open, with its search and colours. Once per visit, over card one,
+      // for an account that has not chosen; the ref stops a dismiss without
+      // a pick from reopening it when focus returns here.
+      if (chosen === false && !pickerOpenedRef.current) {
+        pickerOpenedRef.current = true;
+        router.push('/(app)/language');
+      }
+    }, [chosen, router]),
   );
 
   const step = WALKTHROUGH_STEPS[index]!;

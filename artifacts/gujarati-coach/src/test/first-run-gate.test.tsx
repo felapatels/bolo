@@ -39,13 +39,15 @@ beforeEach(() => {
 });
 
 describe("FirstRunGate", () => {
-  test("a fresh account is sent to the chooser, asked to continue to the cards", () => {
+  test("a fresh account is sent to the walkthrough, never to the old full-screen chooser", () => {
+    // The picker opens from the welcome page itself (welcome.test.tsx), so
+    // the gate has one destination.
     renderGate();
-    expect(screen.getByTestId("redirect")).toHaveAttribute("data-to", "/choose-language?next=welcome");
+    expect(screen.getByTestId("redirect")).toHaveAttribute("data-to", "/welcome");
     expect(screen.queryByTestId("home")).not.toBeInTheDocument();
   });
 
-  test("an account that already chose a language goes straight to the cards", () => {
+  test("an account that already chose a language goes to the cards too", () => {
     h.account = accountWith({ hasCompletedTour: false, hasChosenLanguage: true });
     renderGate();
     expect(screen.getByTestId("redirect")).toHaveAttribute("data-to", "/welcome");

@@ -7,10 +7,11 @@
  * pinned that. Build 19 brought a gate BACK in a new shape, at the Play
  * testers' ask for a short skippable walkthrough with the language chooser
  * as step one: an account whose hasCompletedTour is false is routed once, to
- * the chooser (asked to continue to the cards) or straight to the cards if
- * it already chose. Skipping lands on home with Hindi, so the July 30
- * behaviour is the skip path rather than gone. Every assertion below that
- * used to say "NOT routed" was inverted for that reason.
+ * the welcome cards, and the welcome screen opens the language picker (the
+ * modal with search and colours) over them if the account has not chosen.
+ * Skipping lands on home with Hindi, so the July 30 behaviour is the skip
+ * path rather than gone. Every assertion below that used to say "NOT routed"
+ * was inverted for that reason.
  *
  * Still true from the old suite: a failed account fetch renders home and
  * routes nowhere (the gate fails open), and a finished account is left alone.
@@ -143,15 +144,9 @@ beforeEach(() => {
   mockState.replace = jest.fn();
 });
 
-/** Every href the layout navigated to, as a string, whichever Href shape. */
+/** Every href the layout navigated to. */
 const routedTo = (): string[] =>
-  [...mockState.push.mock.calls, ...mockState.replace.mock.calls].map(([href]) =>
-    typeof href === 'string'
-      ? href
-      : `${(href as { pathname: string }).pathname}?${new URLSearchParams(
-          (href as { params?: Record<string, string> }).params ?? {},
-        ).toString()}`,
-  );
+  [...mockState.push.mock.calls, ...mockState.replace.mock.calls].map(([href]) => String(href));
 
 const wasRoutedToStep = () => routedTo().some((h) => h.includes('choose-language'));
 const wasRoutedToCards = () => routedTo().some((h) => h.includes('welcome'));
@@ -159,16 +154,18 @@ const wasRoutedToCards = () => routedTo().some((h) => h.includes('welcome'));
 // ─── tests ───────────────────────────────────────────────────────────────────
 
 describe('the first-run gate (build 19): once, to the walkthrough', () => {
-  test('a fresh account IS routed to the language step, asked to continue to the cards', async () => {
+  test('a fresh account IS routed to the walkthrough, never to the old full-screen chooser', async () => {
     // Inverted in build 19: this used to pin "NOT routed" (July 30 2026).
+    // The picker opens from the welcome screen itself (welcome-walkthrough
+    // .test.tsx), so the layout has exactly one destination.
     render(<AppLayout />);
     await act(async () => {});
 
-    expect(wasRoutedToStep()).toBe(true);
-    expect(routedTo()).toEqual(['/(app)/choose-language?next=welcome']);
+    expect(routedTo()).toEqual(['/(app)/welcome']);
+    expect(wasRoutedToStep()).toBe(false);
   });
 
-  test('an account that already chose a language goes straight to the cards', async () => {
+  test('an account that already chose a language goes to the cards too', async () => {
     // Inverted in build 19: this used to pin "behave identically" (not routed).
     mockState.hasChosenLanguage = true;
     render(<AppLayout />);
