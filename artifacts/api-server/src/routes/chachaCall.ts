@@ -251,6 +251,25 @@ export function createChachaCallRouter(
       const session = createCallSession(userId, language.code, language.name, mode);
       deps.warmConnection();
 
+      /**
+       * WHICH LANGUAGE THIS CALL OPENED IN.
+       *
+       * Logged because the answer was briefly invisible and cost an hour on
+       * 2026-08-28. The app was reported as speaking Hindi on a Gujarati
+       * account; the account was in fact on Hindi, and a home screen caught
+       * mid-reconciliation said otherwise. LanguageContext adopts the SERVER'S
+       * saved language over its local mirror once per mount, so a local value
+       * can be stale for a few seconds after a switch on another device.
+       *
+       * The line under the clock already tells the LEARNER. This tells the log,
+       * so the same question is answerable from production without a screenshot
+       * taken at the right second.
+       */
+      req.log.info(
+        { callId: session.id, mode, language: language.code },
+        "[chacha-call] start",
+      );
+
       const hello = CALL_BEATS[0];
       const line = await deps.cannedLine(hello.id, language.code);
 
