@@ -1328,8 +1328,10 @@ describe('journey map — Chacha-ji stall landmark', () => {
     // The halt row is gone, so the interval is four station rows and nothing
     // else. That difference, 96 per encounter and about 576 over a journey, is
     // the point of the change.
-    expect(seats[1]!.y - seats[0]!.y).toBe(4 * 88);
-    expect(seats[2]!.y - seats[1]!.y).toBe(4 * 88);
+    // 176 per row from build 17 (the pitch doubled on the owner's word so the
+    // cards and the bends have room); the interval is still exactly four rows.
+    expect(seats[1]!.y - seats[0]!.y).toBe(4 * 176);
+    expect(seats[2]!.y - seats[1]!.y).toBe(4 * 176);
   });
 
   it('adds no stop, no number and nothing tappable, and no longer a row', () => {
@@ -1589,10 +1591,14 @@ describe('the rail palette and the medallions, mirrored on web', () => {
     expect(RAIL).toEqual({
       tie: '#8A5D4A',
       tieInk: '#361C0F',
-      rail: '#8E9B43',
-      between: '#ECF584',
-      betweenUnlit: '#9A8A6B',
-      glow: '#ABF1A5',
+      // Violet rails on both runs from build 17 (the owner's hybrid journey
+      // mockup, then "the track ahead should have the two parallel purple
+      // lines"); the wood is unchanged. Was olive #8E9B43 rails, a #ECF584
+      // centre, brown #9A8A6B between the rails ahead, and a #ABF1A5 halo.
+      rail: '#8B5CF6',
+      between: '#DDD6FE',
+      betweenUnlit: '#2E1065AA',
+      glow: '#A78BFA',
     });
   });
 
@@ -1605,10 +1611,12 @@ describe('the rail palette and the medallions, mirrored on web', () => {
     // heavy enough"). The pin moves with the sheet, not the other way round.
     expect(RAIL_STROKE).toEqual({
       tie: 18,
-      rail: 9.5,
-      between: 6.5,
+      // 12 over 7 from build 17 (was 9.5 over 6.5): 2.5pt rails, so the run
+      // ahead reads as two violet lines over a dark centre.
+      rail: 12,
+      between: 7,
       tieDash: '5 9',
-      unlitDash: '9 7',
+      // unlitDash went in build 17: the run ahead is two lines, not a dash.
       unlitOpacity: 1,
     });
   });

@@ -175,7 +175,13 @@ const MAP_MAX_W = 390;
 // the current stop's status onto a second line), so the slot holding it comes
 // down with it. Chacha-ji's stall now sits in the station's own row, to the
 // LEFT of the marker, so a card growing a second line no longer reaches it.
-const STATION_H = 88; // vertical rhythm per station row
+// 176 FROM BUILD 17, WAS 88. Owner: "Cards are too tight, lets double each
+// zones background so we can space everything out better", and "make the
+// winding tracks less tight". One number does both: every row, halt and
+// scenery position hangs off the pitch, so each zone's painted band doubles
+// with it, and the serpentine keeps its x swing over twice the y, which
+// halves the slope of every bend.
+const STATION_H = 176; // vertical rhythm per station row
 const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
 // 200 FROM BUILD 17, AND IT NO LONGER MATCHES WEB'S 184. It was 152 until the
 // carved board shipped, which is why the panel rendered EMPTY through 511 and
@@ -899,20 +905,30 @@ function StationMarker({
   // already says so on its card, in words, with an ALL-ACCESS plate.
   //
   // BIGGER, TOO. The reference draws these as prominent brass discs.
+  // A NUMBERED BADGE, FROM BUILD 17 (owner's hybrid journey mockup): a
+  // parchment disc with a gold ring and the stop's number, a green check on
+  // a finished stop. It replaces the cut-art medallions, whose chrome had
+  // been stripped three times over ("medallions shouldn't be opaque"); this
+  // is not chrome around art, it is the marker itself, and the mockup draws
+  // every stop this way. The number is what the card beside it counts in.
+  // A stop ahead is said in INK, never in alpha: the test below still holds
+  // that the marker carries no opacity of its own.
   return (
-    <View testID={`station-medallion-${kind}`} style={styles.medallion}>
-      {/* THE ART, AT FULL STRENGTH, AND NOTHING ELSE. No disc, no rim, no
-          locked ring, no knock-back alpha. Reported three times off the
-          preview: "medallions shouldn't be opaque", "still see circles",
-          "some icons still too transparent". Every one of those was chrome
-          drawn around art that already is a medallion.
-          Whether a stop is reached is said twice over already, by the card's
-          drained stock and by the rail arriving dashed instead of green. */}
-      <Image
-        source={stopEmblem(kind)}
-        style={styles.medallionArt}
-        resizeMode="contain"
-      />
+    <View
+      testID={`station-medallion-${kind}`}
+      style={[
+        styles.stopBadge,
+        { borderColor: BADGE.brassEdge, backgroundColor: TICKET.stockTop },
+      ]}
+    >
+      <Text style={[styles.stopBadgeNumber, { color: accessible ? ZONE_BOARD.ink : TICKET.inkAhead }]}>
+        {station.stopNumber}
+      </Text>
+      {done && (
+        <View testID="stop-badge-done" style={styles.stopBadgeCheck}>
+          <Feather name="check" size={9} color="#ffffff" />
+        </View>
+      )}
     </View>
   );
 }
@@ -2666,7 +2682,6 @@ export default function JourneyScreen() {
                 // draws the two states as the same track with and without a
                 // halo, and greying it would say "disabled" where the truth is
                 // "not yet travelled".
-                const dash = s.lit ? undefined : RAIL_STROKE.unlitDash;
                 return (
                   <G key={i} opacity={s.lit ? 1 : RAIL_STROKE.unlitOpacity}>
                     {/* THE HALO, under everything and only on the run behind
@@ -2703,8 +2718,8 @@ export default function JourneyScreen() {
                         accent at 0.3 when the rail was a coloured line; they
                         are painted planks now and read as wood. */}
                     <Path d={s.d} stroke={RAIL.tie} strokeWidth={RAIL_STROKE.tie} strokeDasharray={RAIL_STROKE.tieDash} fill="none" />
-                    <Path d={s.d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.rail} fill="none" strokeDasharray={dash} />
-                    <Path d={s.d} stroke={s.lit ? RAIL.between : RAIL.betweenUnlit} strokeWidth={RAIL_STROKE.between} fill="none" strokeDasharray={dash} />
+                    <Path d={s.d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.rail} fill="none" />
+                    <Path d={s.d} stroke={s.lit ? RAIL.between : RAIL.betweenUnlit} strokeWidth={RAIL_STROKE.between} fill="none" />
                   </G>
                 );
               })}
@@ -3065,14 +3080,17 @@ export default function JourneyScreen() {
                           lock and WRAPPED, which is what kept pushing the
                           stop-5 tags past their edges. One plate per row. */}
                       <View style={styles.cardStatusRow}>
+                        {/* The app's violet on both kind chips from build 17
+                            (owner's hybrid mockup): the one modern accent on
+                            a parchment card, beside the numbered badge. */}
                         {s.trace && (
-                          <View style={[styles.traceChip, styles.rusticChip, { backgroundColor: BADGE.traceBg, borderColor: BADGE.traceEdge }]}>
+                          <View style={[styles.traceChip, styles.rusticChip, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
                             <Feather name="edit-2" size={8} color="#ffffff" />
                             <Text style={styles.traceChipText}>TRACE</Text>
                           </View>
                         )}
                         {s.story && (
-                          <View style={[styles.traceChip, styles.rusticChip, { backgroundColor: BADGE.storyBg, borderColor: BADGE.storyEdge }]}>
+                          <View style={[styles.traceChip, styles.rusticChip, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
                             <Feather name="book-open" size={8} color="#ffffff" />
                             <Text style={styles.traceChipText}>STORY</Text>
                           </View>
@@ -3211,8 +3229,37 @@ export default function JourneyScreen() {
                  cant click on the stop cards"). A box the size of the stall
                  can only ever cost taps on the stall itself. */
               return stalls.map((sp) => (
+                <React.Fragment key={sp.key}>
+                {/* THE INVITATION UNDER THE STALL (build 17, owner's mockup:
+                    "Take a break and earn 24 Chai"). A violet chip in the
+                    app's own voice beside the painted stall, the number in
+                    gold; the reward is the zone's own, served by the
+                    signals payload, never a constant. Not in the showroom:
+                    a greyed stall pours nothing. */}
+                {!sp.gray && (
+                  <View
+                    pointerEvents="none"
+                    testID={`${sp.testID}-invite`}
+                    style={{
+                      position: 'absolute',
+                      // Under the nameplate, clamped to the map: the stall
+                      // stands near the left edge and a centred chip fell off it.
+                      left: Math.max(6, Math.min(mapW - 110, sp.x - 52)),
+                      top: sp.y + 34 - blockTop,
+                      zIndex: 5,
+                    }}
+                  >
+                    <View style={[styles.stallInvite, { backgroundColor: colors.primary }]}>
+                      <Text style={styles.stallInviteText}>
+                        Take a break and earn{' '}
+                        <Text style={styles.stallInviteGold}>
+                          {zoneQueries[zi]?.data?.signals?.rewardChai ?? 1} Chai
+                        </Text>
+                      </Text>
+                    </View>
+                  </View>
+                )}
                 <Svg
-                  key={sp.key}
                   pointerEvents="none"
                   style={{
                     position: 'absolute',
@@ -3277,6 +3324,7 @@ export default function JourneyScreen() {
                       />
                     </G>
                 </Svg>
+                </React.Fragment>
               ));
             })()}
             {zi === zones.length - 1 && (
@@ -3390,6 +3438,39 @@ export default function JourneyScreen() {
             This is the smallest thing that fixes that: the zone's own foot
             tone at the very top, gone within the safe area, so the status bar
             stays readable and nothing reads as a header. */}
+        {/* THE CAP, BACK (build 17). The fade alone let a stop card show
+            through its transparent half, between the clock and the pinned
+            pediment, once the board was pinned and the rows scrolled under
+            it. This is a fixed crop of the active zone's own art, the same
+            rows that sit there at rest, so what is behind the clock is only
+            ever painting; the fade stays on top for the clock's legibility. */}
+        {zoneBackdrop(activeZone) != null && (
+          <View
+            testID="journey-status-cap"
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: headerTopInset + TOP_PAD,
+              overflow: 'hidden',
+              backgroundColor: zoneFootTone(activeZone),
+            }}
+          >
+            <Image
+              source={zoneBackdrop(activeZone)!}
+              resizeMode="stretch"
+              style={{ width: windowW, height: windowW / ZONE_TILE_ASPECT }}
+            />
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: ZONE_BACKDROP_SCRIM_COLOR, opacity: ZONE_BACKDROP_SCRIM },
+              ]}
+            />
+          </View>
+        )}
         <FadeGradient
           pointerEvents="none"
           colors={[`${zoneFootTone(activeZone)}E6`, `${zoneFootTone(activeZone)}00`]}
@@ -3903,6 +3984,40 @@ const styles = StyleSheet.create({
   // A sentence stop rotates its frame 45 degrees; the art inside rotates back
   // so the compass is not standing on its corner.
   medallionArtUpright: { transform: [{ rotate: '-45deg' }] },
+  // The numbered stop badge (build 17). 30 across so it sits on the rail
+  // the way the 28pt medallion did; the check overlaps its top-right corner.
+  stopBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stopBadgeNumber: { fontFamily: AppFonts.extrabold, fontSize: 13, lineHeight: 16 },
+  stallInvite: {
+    width: 104,
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  stallInviteText: { fontFamily: AppFonts.semibold, fontSize: 10, lineHeight: 13, color: '#ffffff' },
+  stallInviteGold: { fontFamily: AppFonts.extrabold, color: '#FBBF24' },
+  stopBadgeCheck: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 15,
+    height: 15,
+    borderRadius: 8,
+    backgroundColor: '#22C55E',
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   markerDoneRing: { borderRadius: 12, padding: 2 },
   markerDone: {
     width: 20,
@@ -4235,7 +4350,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  traceChipText: { fontFamily: AppFonts.extrabold, fontSize: 8, letterSpacing: 0.8, color: BADGE.ink },
+  traceChipText: { fontFamily: AppFonts.extrabold, fontSize: 8, letterSpacing: 0.8, color: '#ffffff' },
   cardStatus: { fontFamily: AppFonts.semibold, fontSize: 11, lineHeight: 14, marginTop: 1 },
   terminusOuter: {
     position: 'absolute',

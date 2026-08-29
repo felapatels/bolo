@@ -27,7 +27,13 @@ export const RAIL = {
   /** Their underside, for the raised-bed read. */
   tieInk: '#361C0F',
   /** The two rails running over them: olive, as the sheet draws them. */
-  rail: '#8E9B43',
+  // VIOLET RAILS ON BOTH RUNS from build 17. Owner: "The track ahead should
+  // have the two parallel purple lines." The rail stroke is the pair of
+  // rails (the wider stroke under the centre one); ahead, the centre is
+  // transparent so the sleepers show between two violet lines, and the run
+  // is no longer dashed. Travelled, the centre is a brighter violet with the
+  // halo under it. State is said by the light down the middle, not by a dash.
+  rail: '#8B5CF6',
   /** WHAT SHOWS BETWEEN THE TWO RAILS, and this is the correction. It was a
    *  wood brown under a pair of wide soft green halo passes, which washed the
    *  whole track pale green and lost the twin-rail read entirely: reported
@@ -37,12 +43,16 @@ export const RAIL = {
    *  running down the middle of a brown sleeper ladder, and that stripe is what
    *  says "travelled". Read off a horizontal cut through the sheet's own rail:
    *  brown sleeper ends, olive rails, then this down the centre. */
-  between: '#ECF584',
+  // PURPLE FROM BUILD 17 (owner's journey mockup: "incorporate the modern
+  // look and the rustic look"). The travelled run's centre stripe and its
+  // halo take the app's violet; the wood ladder and the olive rails stay, so
+  // the track is still a painted railway with a modern light down it.
+  between: '#DDD6FE',
   /** The same centre, untravelled: plain wood, no green. */
-  betweenUnlit: '#9A8A6B',
+  betweenUnlit: '#2E1065AA',
   /** A narrow glow under the lit centre only. It replaces two 28px and 18px
    *  passes that were three times the width of the track itself. */
-  glow: '#ABF1A5',
+  glow: '#A78BFA',
 } as const;
 
 /** The halo's two passes, wide-and-soft under tight-and-bright. One gradient
@@ -60,11 +70,13 @@ export const RAIL_GLOW_PASSES = [
  *  draws. */
 export const RAIL_STROKE = {
   tie: 18,
-  rail: 9.5,
-  between: 6.5,
-  /** The sleeper rhythm, and the dash an untravelled run is drawn with. */
+  // 12 over 7 from build 17, was 9.5 over 6.5: each rail is 2.5 wide now,
+  // enough to read as two lines ahead rather than one band.
+  rail: 12,
+  between: 7,
+  /** The sleeper rhythm. The untravelled run is not dashed any more (build
+   *  17): it is two violet lines with the wood showing between them. */
   tieDash: '5 9',
-  unlitDash: '9 7',
   /** THE RUN AHEAD IS FULLY OPAQUE. It was 0.55, then 0.88, and both times it
    *  still read as a ghost over a painting: "future rail segments are too
    *  transparent", twice. Alpha was never the right lever here. Real track is
