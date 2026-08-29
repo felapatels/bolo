@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Redirect, useLocation } from "wouter";
+import { Redirect, useLocation, useSearch } from "wouter";
 import { Headphones, Loader2 } from "lucide-react";
 import { useUser } from "@clerk/react";
 import {
@@ -38,6 +38,13 @@ export default function ChooseLanguage() {
   const { toast } = useToast();
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const navigatingRef = useRef(false);
+  // Build 19: as step one of the first-run walkthrough (lib/walkthrough.ts)
+  // the step is opened with ?next=welcome and continues to the cards rather
+  // than home, whether the learner picked or skipped. Opened any other way
+  // it lands on home (or the showroom) as it always has.
+  const search = useSearch();
+  const onward =
+    new URLSearchParams(search).get("next") === "welcome" ? "/welcome" : null;
 
   // Already chosen (deep link back here, or a second tab): the step never
   // re-shows for this account. Skipped while we're mid-confirm navigation so
@@ -46,7 +53,7 @@ export default function ChooseLanguage() {
     account.data?.preferences.learning.hasChosenLanguage &&
     !navigatingRef.current
   ) {
-    return <Redirect to="/app" />;
+    return <Redirect to={onward ?? "/app"} />;
   }
 
   const confirm = (code: string) => {
@@ -59,8 +66,9 @@ export default function ChooseLanguage() {
         // one-time reconcile has already settled, so it won't adopt it for us.
         setActiveLang(code);
         // A locked pick is welcome (aspirational): it lands in the existing
-        // journey showroom with its teaser and upgrade path.
-        setLocation(isLanguageAllowed(code) ? "/app" : "/journey");
+        // journey showroom with its teaser and upgrade path. Inside the
+        // walkthrough the cards come first; the showroom is a tap away after.
+        setLocation(onward ?? (isLanguageAllowed(code) ? "/app" : "/journey"));
       },
       onError: () => {
         setPendingCode(null);
@@ -75,7 +83,7 @@ export default function ChooseLanguage() {
 
   const skip = () => {
     markLanguageStepSkipped();
-    setLocation("/app");
+    setLocation(onward ?? "/app");
   };
 
   const showCommunityNote = languages.some((l) => l.communityReviewed);

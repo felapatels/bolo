@@ -436,3 +436,23 @@ describe("Voice preview button", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// "Rate Bolo!", build 19 (the Play testers' ask). jsdom's user agent is
+// neither iOS nor Android, so the row links to the App Store, which is live;
+// the Android/Play branch is pinned in rate-link.test.ts.
+// ---------------------------------------------------------------------------
+
+describe("Rate Bolo!", () => {
+  test("offers a write-review link to the App Store", () => {
+    renderAccount(<Account />);
+    const link = screen.getByTestId("rate-bolo-link");
+    expect(link).toHaveAttribute(
+      "href",
+      "https://apps.apple.com/app/id6790907772?action=write-review",
+    );
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveTextContent("Rate Bolo!");
+    expect(link).toHaveTextContent("Tell the App Store what you think.");
+  });
+});

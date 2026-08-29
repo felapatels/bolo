@@ -9,6 +9,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 const mockState: any = {
   permission: { granted: false, canAskAgain: true },
   hasChosenLanguage: true,
+  // Build 19: the walkthrough sits between the chooser and home, and the
+  // primer waits for it too.
+  hasCompletedTour: true,
   stored: null as string | null,
 };
 const mockRequest = jest.fn(async () => ({ granted: true, canAskAgain: false }));
@@ -23,7 +26,14 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 jest.mock('@workspace/api-client-react', () => ({
   useGetAccount: () => ({
-    data: { preferences: { learning: { hasChosenLanguage: mockState.hasChosenLanguage } } },
+    data: {
+      preferences: {
+        learning: {
+          hasChosenLanguage: mockState.hasChosenLanguage,
+          hasCompletedTour: mockState.hasCompletedTour,
+        },
+      },
+    },
   }),
 }));
 
@@ -54,6 +64,7 @@ beforeEach(() => {
   mockSync.mockClear();
   mockState.permission = { granted: false, canAskAgain: true };
   mockState.hasChosenLanguage = true;
+  mockState.hasCompletedTour = true;
   mockState.stored = null;
 });
 
@@ -84,6 +95,14 @@ describe('NotificationPrimer', () => {
 
   it('does not appear before the first-run language step is done', async () => {
     mockState.hasChosenLanguage = false;
+    render(<NotificationPrimer />);
+    await waitFor(() => expect(screen.queryByTestId('notification-primer')).toBeNull());
+  });
+
+  it('does not appear while the walkthrough is still up (build 19)', async () => {
+    // Picking a language on step one flips hasChosenLanguage while the cards
+    // are showing; without this gate the sheet would pop over them.
+    mockState.hasCompletedTour = false;
     render(<NotificationPrimer />);
     await waitFor(() => expect(screen.queryByTestId('notification-primer')).toBeNull());
   });

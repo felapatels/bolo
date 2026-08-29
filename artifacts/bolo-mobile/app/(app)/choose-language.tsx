@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
@@ -29,6 +29,12 @@ export default function ChooseLanguageScreen() {
   const { choose } = useExplicitLanguageChoice();
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  // Build 19: as step one of the first-run walkthrough (lib/walkthrough.ts)
+  // the step is opened with ?next=welcome and continues to the cards rather
+  // than home, whether the learner picked or skipped. Opened any other way
+  // (deep link, a settings path) it lands on home as it always has.
+  const { next } = useLocalSearchParams<{ next?: string }>();
+  const onward = next === 'welcome' ? '/(app)/welcome' : '/(app)/(tabs)';
 
   const confirm = (code: string) => {
     if (pendingCode) return;
@@ -40,7 +46,7 @@ export default function ChooseLanguageScreen() {
         // one-time reconcile has already settled, so it won't adopt it for us.
         adoptLanguageLocally(code);
         track(ANALYTICS_EVENTS.LANGUAGE_SELECTED, { language: code });
-        router.replace('/(app)/(tabs)');
+        router.replace(onward);
       },
       onError: () => {
         setPendingCode(null);
@@ -52,13 +58,15 @@ export default function ChooseLanguageScreen() {
   const skip = () => {
     hapticLight();
     markLanguageStepSkipped();
-    router.replace('/(app)/(tabs)');
+    router.replace(onward);
   };
 
   const showCommunityNote = languages.some((l) => l.communityReviewed);
 
   return (
-    <Screen padTop={false}>
+    <Screen>
+      {/* Build 19: the title used to sit under the clock (padTop was off);
+          as walkthrough step one this is the first screen a learner sees. */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.foreground }]}>
           Choose your language

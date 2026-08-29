@@ -2,6 +2,7 @@ import React from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +10,7 @@ import {
   View,
   type TextInputProps,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { useColors } from '@/hooks/useColors';
@@ -70,24 +72,55 @@ export function fieldError(err: unknown): string | undefined {
 export function Field({
   label,
   error,
+  secureTextEntry,
   ...props
 }: TextInputProps & { label: string; error?: string }) {
   const colors = useColors();
+  // THE EYE, build 19. The Play testers asked for a show/hide toggle on the
+  // password fields. Sign-in, sign-up and account/password all draw their
+  // inputs through this one component, so the toggle lives here once rather
+  // than three times, and any future password field gets it for free. Only
+  // what the glass shows changes: the field's autoComplete and keyboard stay
+  // exactly what the caller passed, so password managers still recognise it.
+  // Web twin: Clerk's own components carry the same eye on their password
+  // inputs, verified on the live site the day this landed.
+  const [revealed, setRevealed] = React.useState(false);
+  const secure = secureTextEntry === true;
   return (
     <View style={styles.field}>
       <Text style={[styles.label, { color: colors.foreground }]}>{label}</Text>
-      <TextInput
-        placeholderTextColor={colors.mutedForeground}
-        style={[
-          styles.input,
-          {
-            backgroundColor: colors.card,
-            borderColor: error ? colors.destructive : colors.border,
-            color: colors.foreground,
-          },
-        ]}
-        {...props}
-      />
+      <View>
+        <TextInput
+          placeholderTextColor={colors.mutedForeground}
+          secureTextEntry={secure && !revealed}
+          style={[
+            styles.input,
+            secure && styles.inputWithEye,
+            {
+              backgroundColor: colors.card,
+              borderColor: error ? colors.destructive : colors.border,
+              color: colors.foreground,
+            },
+          ]}
+          {...props}
+        />
+        {secure ? (
+          <Pressable
+            testID="password-eye"
+            accessibilityRole="button"
+            accessibilityLabel={revealed ? 'Hide password' : 'Show password'}
+            hitSlop={10}
+            onPress={() => setRevealed((v) => !v)}
+            style={styles.eye}
+          >
+            <Feather
+              name={revealed ? 'eye-off' : 'eye'}
+              size={20}
+              color={colors.mutedForeground}
+            />
+          </Pressable>
+        ) : null}
+      </View>
       {error ? (
         <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text>
       ) : null}
@@ -141,6 +174,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  // Room for the eye so long passwords never run underneath it.
+  inputWithEye: { paddingRight: 52 },
+  eye: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   error: {
     fontFamily: AppFonts.regular,

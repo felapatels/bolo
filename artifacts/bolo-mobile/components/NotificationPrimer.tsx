@@ -15,6 +15,9 @@
 // WHEN. On first login, gated on hasChosenLanguage so it never stacks on the
 // first-run language screen: sign up, pick a language, land in the app, and be
 // asked then. Asked for 2026-08-26: "can we also ask when they first log in?"
+// Build 19 added the walkthrough between the chooser and home, and this waits
+// for that too (hasCompletedTour), or picking a language on step one would
+// pop this sheet over the cards.
 //
 // The eligibility and back-off rules live in lib/notificationPrimer.ts, pure
 // and tested without a device. This file is the wiring and the words.
@@ -70,7 +73,11 @@ export function NotificationPrimer() {
   // render that changes the account query's identity.
   const decided = React.useRef(false);
 
-  const ready = account.data?.preferences?.learning?.hasChosenLanguage === true;
+  const learning = account.data?.preferences?.learning;
+  // `!== false` on the tour flag: a server that omits it reads as done, the
+  // same reading lib/walkthrough.ts makes, so the two can never disagree.
+  const ready =
+    learning?.hasChosenLanguage === true && learning?.hasCompletedTour !== false;
 
   React.useEffect(() => {
     if (decided.current) return;

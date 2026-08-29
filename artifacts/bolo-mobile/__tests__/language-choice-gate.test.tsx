@@ -1,18 +1,19 @@
 /**
- * B1 gate removal (product decision, July 30 2026) — fresh accounts land
- * directly on home with the seeded default language (Hindi):
+ * THE FIRST-RUN GATE, as of build 19.
  *
- *  1. A fresh account (hasChosenLanguage=false) is NOT routed to
- *     /choose-language.
- *  2. Accounts that already chose a language behave identically.
- *  3. A failed account fetch still renders home without routing anywhere.
+ * HISTORY, because this file has said the opposite twice. The B1 gate routed
+ * every fresh account to /choose-language. The July 30 2026 product decision
+ * removed it: fresh accounts landed on home with Hindi seeded, and this file
+ * pinned that. Build 19 brought a gate BACK in a new shape, at the Play
+ * testers' ask for a short skippable walkthrough with the language chooser
+ * as step one: an account whose hasCompletedTour is false is routed once, to
+ * the chooser (asked to continue to the cards) or straight to the cards if
+ * it already chose. Skipping lands on home with Hindi, so the July 30
+ * behaviour is the skip path rather than gone. Every assertion below that
+ * used to say "NOT routed" was inverted for that reason.
  *
- * The /choose-language screen itself remains a normal navigable route (see
- * language-choice-step.test.tsx), and the hasChosenLanguage flag + one-PATCH
- * helper are retained — only the redirect gate is gone.
- *
- * (The guided tour and its auto-launch were removed entirely in Task #906,
- * so this suite no longer asserts anything about tour behavior.)
+ * Still true from the old suite: a failed account fetch renders home and
+ * routes nowhere (the gate fails open), and a finished account is left alone.
  *
  * Exercises the real AppLayout.
  */
@@ -25,6 +26,7 @@ import { render, act } from '@testing-library/react-native';
 const mockState = {
   /** null = account still loading / fetch failed (no data) */
   hasChosenLanguage: false as boolean | null,
+  hasCompletedTour: false as boolean,
   push: jest.fn(),
   replace: jest.fn(),
 };
@@ -45,6 +47,7 @@ jest.mock('@workspace/api-client-react', () => ({
             preferences: {
               learning: {
                 hasChosenLanguage: mockState.hasChosenLanguage,
+                hasCompletedTour: mockState.hasCompletedTour,
               },
             },
           },
@@ -121,37 +124,76 @@ jest.mock('@/hooks/useColors', () => ({
   }),
 }));
 
+// lib/walkthrough.ts reports the exit to PostHog; inert here.
+jest.mock('@/lib/analytics', () => ({
+  track: jest.fn(),
+  ANALYTICS_EVENTS: { WALKTHROUGH_FINISHED: 'walkthrough_finished' },
+}));
+
 import AppLayout from '../app/(app)/_layout';
+import { markWalkthroughDismissed, resetWalkthroughForTests } from '@/lib/walkthrough';
 
 // ─── test lifecycle ──────────────────────────────────────────────────────────
 
 beforeEach(() => {
+  resetWalkthroughForTests();
   mockState.hasChosenLanguage = false;
+  mockState.hasCompletedTour = false;
   mockState.push = jest.fn();
   mockState.replace = jest.fn();
 });
 
-const wasRoutedToStep = () =>
-  [...mockState.push.mock.calls, ...mockState.replace.mock.calls].some(
-    ([href]) => String(href).includes('choose-language'),
+/** Every href the layout navigated to, as a string, whichever Href shape. */
+const routedTo = (): string[] =>
+  [...mockState.push.mock.calls, ...mockState.replace.mock.calls].map(([href]) =>
+    typeof href === 'string'
+      ? href
+      : `${(href as { pathname: string }).pathname}?${new URLSearchParams(
+          (href as { params?: Record<string, string> }).params ?? {},
+        ).toString()}`,
   );
+
+const wasRoutedToStep = () => routedTo().some((h) => h.includes('choose-language'));
+const wasRoutedToCards = () => routedTo().some((h) => h.includes('welcome'));
 
 // ─── tests ───────────────────────────────────────────────────────────────────
 
-describe('B1 gate removal — fresh accounts land on home', () => {
-  test('a fresh account is NOT routed to the language step', async () => {
+describe('the first-run gate (build 19): once, to the walkthrough', () => {
+  test('a fresh account IS routed to the language step, asked to continue to the cards', async () => {
+    // Inverted in build 19: this used to pin "NOT routed" (July 30 2026).
     render(<AppLayout />);
     await act(async () => {});
 
-    expect(wasRoutedToStep()).toBe(false);
+    expect(wasRoutedToStep()).toBe(true);
+    expect(routedTo()).toEqual(['/(app)/choose-language?next=welcome']);
   });
 
-  test('accounts that already chose a language behave identically', async () => {
+  test('an account that already chose a language goes straight to the cards', async () => {
+    // Inverted in build 19: this used to pin "behave identically" (not routed).
     mockState.hasChosenLanguage = true;
     render(<AppLayout />);
     await act(async () => {});
 
     expect(wasRoutedToStep()).toBe(false);
+    expect(wasRoutedToCards()).toBe(true);
+  });
+
+  test('a finished account is left alone, whatever its language state', async () => {
+    mockState.hasCompletedTour = true;
+    render(<AppLayout />);
+    await act(async () => {});
+
+    expect(mockState.push).not.toHaveBeenCalled();
+    expect(mockState.replace).not.toHaveBeenCalled();
+  });
+
+  test('an account that dismissed the walkthrough this session is not sent back', async () => {
+    // The PATCH may still be in flight; the session marker holds the door.
+    markWalkthroughDismissed();
+    render(<AppLayout />);
+    await act(async () => {});
+
+    expect(mockState.push).not.toHaveBeenCalled();
   });
 
   test('a failed account fetch renders home without routing anywhere', async () => {

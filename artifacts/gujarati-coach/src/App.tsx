@@ -23,6 +23,7 @@ import { StopSplash } from "@/components/stop-splash";
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AppShell } from '@/components/layout/app-shell';
 import { ClerkAuthSync } from '@/components/clerk-auth-sync';
+import { FirstRunGate } from '@/components/first-run-gate';
 import { ReferralRedemptionProvider } from '@/components/referral-redeemer';
 import { safeAuthRedirect } from '@/lib/auth-redirect';
 
@@ -62,6 +63,7 @@ function lazyRoute<P extends object>(loader: () => Promise<RouteModule<P>>) {
 
 const Chat = lazyRoute(() => import('@/pages/chat'));
 const ChooseLanguage = lazyRoute(() => import('@/pages/choose-language'));
+const Welcome = lazyRoute(() => import('@/pages/welcome'));
 const CategoryDetail = lazyRoute(() => import('@/pages/category-detail'));
 const Practice = lazyRoute(() => import('@/pages/practice'));
 const Journey = lazyRoute(() => import('@/pages/journey'));
@@ -373,11 +375,22 @@ function AppRouter() {
           <ChooseLanguage />
         </Guard>
       </Route>
+      {/* The first-run walkthrough cards (build 19). No AppShell: like the
+          chooser it is a full-screen step, not a page inside the app. */}
+      <Route path="/welcome">
+        <Guard>
+          <Welcome />
+        </Guard>
+      </Route>
       <Route path="/app">
         <Guard>
-          <AppShell>
-            <Home />
-          </AppShell>
+          {/* Outside the shell so a first run redirects before any chrome
+              paints; renders home untouched for everyone else. */}
+          <FirstRunGate>
+            <AppShell>
+              <Home />
+            </AppShell>
+          </FirstRunGate>
         </Guard>
       </Route>
       <Route path="/journey">

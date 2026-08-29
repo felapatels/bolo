@@ -24,6 +24,8 @@ const mockState = {
   replace: jest.fn(),
   back: jest.fn(),
   adoptLanguageLocally: jest.fn(),
+  /** The route's search params; { next: 'welcome' } inside the walkthrough. */
+  params: {} as Record<string, string>,
 };
 
 const LANGUAGES = [
@@ -86,6 +88,8 @@ jest.mock('expo-router', () => ({
     push: jest.fn(),
     back: mockState.back,
   }),
+  // Build 19: the chooser reads ?next=welcome to continue to the cards.
+  useLocalSearchParams: () => mockState.params,
 }));
 
 jest.mock('@/contexts/LanguageContext', () => ({
@@ -147,6 +151,7 @@ beforeEach(() => {
   mockState.replace = jest.fn();
   mockState.back = jest.fn();
   mockState.adoptLanguageLocally = jest.fn();
+  mockState.params = {};
 });
 
 describe('ChooseLanguageScreen', () => {
@@ -201,6 +206,33 @@ describe('ChooseLanguageScreen', () => {
     expect(hasSkippedLanguageStep()).toBe(true);
     expect(mockState.mutate).not.toHaveBeenCalled();
     expect(mockState.replace).toHaveBeenCalledWith('/(app)/(tabs)');
+  });
+
+  // Build 19: opened as step one of the first-run walkthrough, the step
+  // continues to the cards instead of home, whichever way it is left.
+  test('as walkthrough step one (?next=welcome), a pick continues to the cards', async () => {
+    mockState.params = { next: 'welcome' };
+    render(<ChooseLanguageScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('choose-lang-hi'));
+    });
+    const [, opts] = mockState.mutate.mock.calls[0];
+    await act(async () => {
+      opts.onSuccess({ preferences: { learning: {} } });
+    });
+    expect(mockState.replace).toHaveBeenCalledWith('/(app)/welcome');
+  });
+
+  test('as walkthrough step one, skip continues to the cards too', async () => {
+    mockState.params = { next: 'welcome' };
+    render(<ChooseLanguageScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('skip-language-step'));
+    });
+    expect(hasSkippedLanguageStep()).toBe(true);
+    expect(mockState.replace).toHaveBeenCalledWith('/(app)/welcome');
   });
 });
 

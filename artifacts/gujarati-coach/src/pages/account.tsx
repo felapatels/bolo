@@ -28,9 +28,12 @@ import {
   Square,
   Gift,
   Brain,
+  Star,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
+import { detectShortcutPlatform } from "@/lib/platform";
+import { rateLinkFor } from "@/lib/rate-link";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetAccount,
@@ -161,6 +164,9 @@ export default function Account() {
   const { signOut, openUserProfile } = useClerk();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  // Which listing this visitor could rate on (null: none yet). Read once;
+  // a user agent does not change mid-session.
+  const rateLink = useMemo(() => rateLinkFor(detectShortcutPlatform()), []);
   const queryClient = useQueryClient();
 
   const { languages, activeLang, activeLanguage, setActiveLang } = useLanguage();
@@ -962,6 +968,31 @@ export default function Account() {
             </div>
             <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
           </Link>
+          {/* RATE BOLO!, build 19, asked for by the Play testers. A link to
+              the listing this visitor can rate on; none for Android until
+              Play is live (lib/rate-link.ts). Mobile twin: the settings row
+              drives the stores' in-app flows (bolo-mobile/lib/store.ts). */}
+          {rateLink && (
+            <a
+              href={rateLink.href}
+              target="_blank"
+              rel="noreferrer"
+              data-testid="rate-bolo-link"
+              onClick={() => track(ANALYTICS_EVENTS.CTA_CLICK, { placement: "account-rate" })}
+              className="flex w-full items-center justify-between rounded-2xl border border-card-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-muted/60"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <Star className="h-5 w-5 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground">Rate Bolo!</p>
+                  <p className="truncate text-sm text-muted-foreground">
+                    Tell {rateLink.store} what you think.
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+            </a>
+          )}
         </Section>
 
         {/* Sign out */}

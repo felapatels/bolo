@@ -75,6 +75,7 @@ import {
 import { loadCoachVoicePref, saveCoachVoicePref } from '@/lib/coachVoicePref';
 import { BlockedLearnersList } from '@/components/BoardScope';
 import { hapticLight } from '@/lib/haptics';
+import { rateBolo, rateDestination } from '@/lib/store';
 
 // The account & settings hub. Everything that used to live as a lone sign-out
 // icon on Home now lives here: profile (name + avatar), identity changes
@@ -900,6 +901,28 @@ export default function AccountScreen() {
               label="Contact Us"
               value="Send us a message"
               onPress={() => router.push('/(app)/account/contact')}
+            />
+            <Divider />
+            {/* RATE BOLO!, build 19, asked for by the Play testers. Android
+                gets Play's in-app star sheet; iOS goes straight to the App
+                Store's write-review page. The why is in lib/store.ts. A tap
+                that can open nothing (a simulator, a phone with no store)
+                says so instead of doing nothing. Web twin: pages/account.tsx. */}
+            <NavRow
+              icon="star"
+              label="Rate Bolo!"
+              value={`Tell ${rateDestination()} what you think`}
+              onPress={() => {
+                hapticLight();
+                void rateBolo().then((outcome) => {
+                  if (outcome === 'none') {
+                    Alert.alert(
+                      'Nothing to open',
+                      "We couldn't reach the store on this device. Thank you for wanting to, though.",
+                    );
+                  }
+                });
+              }}
             />
           </View>
 

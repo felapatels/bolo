@@ -20,6 +20,10 @@ export const ANALYTICS_EVENTS = {
   // (No topic-open event existed before this; both names are new.)
   PHRASEBOOK_OPENED: 'phrasebook_opened',
   TOPIC_OPENED: 'topic_opened',
+  // Build 19: the first-run walkthrough. reason is 'done' or 'skipped', step
+  // is the card the learner was on (0-based), so a skip rate per card can be
+  // read without a second event.
+  WALKTHROUGH_FINISHED: 'walkthrough_finished',
 } as const;
 
 export type AnalyticsEvent =

@@ -44,6 +44,10 @@ export const ANALYTICS_EVENTS = {
   // (property: source = the placement). Distinct from sign_up_completed,
   // which App.tsx fires post-account-creation.
   SIGNUP_STARTED: "signup_started",
+  // Build 19: the first-run walkthrough. reason is 'done' or 'skipped', step
+  // is the card the learner was on (0-based), so a skip rate per card can be
+  // read without a second event.
+  WALKTHROUGH_FINISHED: "walkthrough_finished",
 } as const;
 
 export type AnalyticsEvent =

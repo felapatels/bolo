@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { useAuth } from '@clerk/expo';
-import { Redirect, Stack } from 'expo-router';
-import { setAuthTokenGetter } from '@workspace/api-client-react';
+import { Redirect, Stack, useRouter } from 'expo-router';
+import { setAuthTokenGetter, useGetAccount } from '@workspace/api-client-react';
+import { firstRunHref, useWalkthroughDismissed } from '@/lib/walkthrough';
 import { reportSessionVanished } from '@/lib/authErrors';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { ReminderScheduler } from '@/components/ReminderScheduler';
@@ -95,10 +96,12 @@ export default function AppLayout() {
         <EquippedOutfitProvider>
         <LanguageProvider>
             <ReminderScheduler />
+            <FirstRunBootstrapper />
             {/* Asks about notifications in Bolo's own words before the OS is
                 ever involved, so the single iOS dialog is spent on a learner
-                who already said yes. Gated on hasChosenLanguage so it never
-                lands on top of the first-run language screen. */}
+                who already said yes. Gated on hasChosenLanguage AND on the
+                walkthrough being done, so it never lands on top of either
+                first-run screen. */}
             <NotificationPrimer />
             <Stack
               screenOptions={{
@@ -153,6 +156,7 @@ export default function AppLayout() {
               <Stack.Screen name="account/email" />
               <Stack.Screen name="account/password" />
               <Stack.Screen name="choose-language" />
+              <Stack.Screen name="welcome" />
               <Stack.Screen name="language" options={{ presentation: 'modal' }} />
               <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
             </Stack>
@@ -163,9 +167,31 @@ export default function AppLayout() {
   );
 }
 
-// Note: the B1 language-choice redirect gate (LanguageChoiceBootstrapper) was
-// removed by product decision (July 30 2026): fresh accounts land directly on
-// home with the seeded default language, and /choose-language remains a
-// normal navigable route. The guided tour (and its TourBootstrapper) was
-// removed entirely in Task #906; the server-side hasCompletedTour preference
-// field still exists but nothing on the client reads or writes it anymore.
+// THE FIRST-RUN GATE, back in build 19 in a new shape. The B1 language-choice
+// redirect (LanguageChoiceBootstrapper) was removed by product decision on
+// July 30 2026 so fresh accounts landed directly on home with Hindi seeded,
+// and the guided tour went in Task #906. The Play testers then asked for a
+// short skippable walkthrough with the language chooser as step one, which
+// is what this routes to, ONCE per account, keyed on the server-side
+// hasCompletedTour that the old tour left behind. Skipping lands on home with
+// Hindi, so the July 30 behaviour is the skip path rather than gone.
+//
+// Same rules as the gate it replaces: keyed on the loaded account, never on
+// route prefixes; once per mount; and it fails OPEN. An account fetch that
+// errors renders home and shows nothing.
+function FirstRunBootstrapper() {
+  const account = useGetAccount();
+  const dismissed = useWalkthroughDismissed();
+  const router = useRouter();
+  const launched = useRef(false);
+
+  useEffect(() => {
+    if (launched.current || dismissed || !account.data) return;
+    const href = firstRunHref(account.data.preferences.learning);
+    if (!href) return;
+    launched.current = true;
+    router.push(href);
+  }, [account.data, dismissed, router]);
+
+  return null;
+}
