@@ -162,20 +162,48 @@ describe("chai stall scene", () => {
   });
 
   test("the overlay is legible over the art, not just where it is dark", () => {
-    // The title and balance sit top-right over the brightest part of the
-    // art, so the scrim is a right-half vertical band fading leftward, and
-    // the text carries its own shadow on top of it.
+    // INVERTED 2026-08-29 (build 18, web parity with mobile's build 17). The
+    // owner's home mockup puts the copy on the LEFT and Chacha-ji on the
+    // right, so the scrim moved with the copy: a left-half band fading
+    // rightward, and the man stays in the light. It used to pin right-0 and
+    // bg-gradient-to-l. The text still carries its own shadow on top of it.
     render(<ChaiStallVignette balance={3} />);
     const scrim = screen.getByTestId("chai-stall-scrim");
     expect(scrim.className).toContain("inset-y-0");
-    expect(scrim.className).toContain("right-0");
-    expect(scrim.className).toContain("w-1/2");
-    expect(scrim.className).toMatch(/bg-gradient-to-l/);
+    expect(scrim.className).toContain("left-0");
+    expect(scrim.className).not.toContain("right-0");
+    expect(scrim.className).toContain("w-[58%]");
+    expect(scrim.className).toMatch(/bg-gradient-to-r/);
+    expect(scrim.className).not.toMatch(/bg-gradient-to-l/);
     // The styling sits on the title itself now; its parent is the layout
     // column and carries no colour or shadow.
     const title = screen.getByTestId("chai-stall-title");
     expect(title.className).toMatch(/drop-shadow/);
     expect(title.className).toContain("text-white");
+    // The column sits top-left with the copy, so it never covers him.
+    const column = title.parentElement!;
+    expect(column.className).toContain("left-0");
+    expect(column.className).toContain("items-start");
+  });
+
+  test("says what the stall is for, with the balance in gold", () => {
+    // The mockup's line read "Take a break and earn 24 Chai"; the number is
+    // the BALANCE, which is spent at the stall, not earned there, so the verb
+    // was corrected on both platforms. Same string as mobile's blurb.
+    render(<ChaiStallVignette balance={24} />);
+    const blurb = screen.getByTestId("chai-stall-blurb");
+    expect(blurb).toHaveTextContent("Take a break and spend your 24 Chai");
+    const gold = blurb.querySelector("span") as HTMLElement;
+    expect(gold.style.color.replace(/\s/g, "").toLowerCase()).toMatch(
+      /^(#fbbf24|rgb\(251,191,36\))$/,
+    );
+  });
+
+  test("the blurb reads plain Chai while the balance is still loading", () => {
+    render(<ChaiStallVignette />);
+    expect(screen.getByTestId("chai-stall-blurb")).toHaveTextContent(
+      "Take a break and spend your Chai",
+    );
   });
 
   test("stays decorative when no tap target is asked for", () => {

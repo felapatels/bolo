@@ -13,14 +13,15 @@
 // the box is a real button with an accessible label. Callers that pass none
 // keep the old atmospheric treatment (aria-hidden, pointer-events-none).
 //
-// The band NAMES ITSELF and shows the live balance in a top-right column,
-// so it reads as a wallet surface rather than scenery. Both sit over
-// photographic art with a bright sky, so legibility is a two-part house
-// treatment: a right-half scrim fading leftward (the fade-mask gradient
-// pattern used for the mobile home fade and the pass shimmer) plus white
-// text with a drop-shadow (the ticket's own text-over-art treatment on
-// home). The scrim covers the whole right half, so the text does not depend
-// on the art happening to be dark under it.
+// The band NAMES ITSELF and shows the live balance in a top-LEFT column
+// (build 18, the owner's mockup: copy left, Chacha-ji right), so it reads as
+// a wallet surface rather than scenery. Both sit over photographic art with
+// a bright sky, so legibility is a two-part house treatment: a left-half
+// scrim fading rightward (the fade-mask gradient pattern used for the mobile
+// home fade and the pass shimmer) plus white text with a drop-shadow (the
+// ticket's own text-over-art treatment on home). The scrim covers the whole
+// left half, so the text does not depend on the art happening to be dark
+// under it.
 // The overlay is pointer-events-none: the band keeps exactly ONE tap target,
 // and the balance it shows is the caller's — the component never queries or
 // caches a balance, because the spend contract is server-authoritative.
@@ -180,16 +181,34 @@ export function ChaiStallVignette({
           style={{ left: KETTLE.left, bottom: KETTLE.bottom, width: KETTLE.width }}
         />
       </div>
+      {/* THE COPY MOVED TO THE LEFT (owner's mockup, build 17 on mobile,
+          build 18 here): title, a line of purpose and the balance pill on
+          the left, Chacha-ji and his stall on the right. So the scrim moved
+          with it: the LEFT half now, fading rightward, and the man stays in
+          the light. */}
       <div
         data-testid="chai-stall-scrim"
-        className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-black/80 via-black/45 to-transparent"
+        className="pointer-events-none absolute inset-y-0 left-0 w-[58%] bg-gradient-to-r from-black/80 via-black/45 to-transparent"
       />
-      <div className="pointer-events-none absolute right-0 top-0 flex w-[42%] flex-col items-end gap-2.5 px-3 pt-3 text-right">
+      <div className="pointer-events-none absolute left-0 top-0 flex w-1/2 flex-col items-start gap-2 px-3.5 pt-3 text-left">
         <span
           data-testid="chai-stall-title"
           className="text-lg font-black leading-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
         >
           {STALL_TITLE}
+        </span>
+        {/* WHAT THE STALL IS FOR, in one line (the mockup's "Take a break and
+            earn 24 Chai", corrected: the number is the balance, which is
+            spent here, not earned). The balance is gold so the eye lands on
+            it, and the errand links at the foot still say where it goes. */}
+        <span
+          data-testid="chai-stall-blurb"
+          className="text-xs font-semibold leading-4 text-white/90 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
+        >
+          Take a break and spend your{" "}
+          <span className="font-black" style={{ color: "#FBBF24" }}>
+            {balance === undefined ? "Chai" : `${balance} Chai`}
+          </span>
         </span>
         <span
           data-testid="chai-stall-balance-chip"

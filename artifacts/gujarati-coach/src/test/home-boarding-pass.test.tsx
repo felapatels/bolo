@@ -300,6 +300,59 @@ describe("home boarding pass CTA copy", () => {
   });
 });
 
+// THE HYBRID TICKET AND ITS FRAME (owner's home mockup, build 17 on mobile,
+// build 18 on web). Three pins: the pass sits INSIDE a "Your Journey" frame
+// with a View Map pill; the brass mastered bar is gone and a row of station
+// dots stands in its place; the CTA is unboxed, the verb and arrow carrying
+// the app's accent instead of a plate.
+describe("home Your Journey frame and hybrid ticket (build 18 parity)", () => {
+  test("the pass sits inside the Your Journey frame, with a View Map pill", () => {
+    h.groups = [grp({ status: "in_progress", masteredCount: 2, attemptedCount: 3 })];
+    renderHome();
+    const frame = screen.getByTestId("home-journey-frame");
+    expect(frame).toHaveTextContent("YOUR JOURNEY");
+    expect(frame).toHaveTextContent("Board your train and continue learning");
+    // The board is INSIDE the frame, not beside it: the mockup's whole point
+    // is a container bridging the modern app and the journey world.
+    expect(frame.querySelector('[data-testid="journey-pass-card"]')).not.toBeNull();
+    const viewMap = screen.getByTestId("home-view-map");
+    expect(viewMap.getAttribute("href")).toBe("/journey");
+    expect(viewMap).toHaveTextContent("View Map");
+  });
+
+  test("station dots replace the brass mastered bar, the learner's stop ringed", () => {
+    // Zone 1 in the fixture is one phrase stop plus the tracing and story
+    // rows, so the pass counts three stops with the learner on the first.
+    h.groups = [grp({ status: "in_progress", masteredCount: 2, attemptedCount: 3 })];
+    const { container } = renderHome();
+    const row = screen.getByTestId("pass-stops-row");
+    expect(row.querySelectorAll('[data-testid="stop-dot-here"]')).toHaveLength(1);
+    expect(
+      row.querySelectorAll('[data-testid^="stop-dot-"]').length,
+    ).toBeGreaterThanOrEqual(3);
+    // The terminus skyline closes the row, the way the mockup draws it.
+    expect(row.querySelector('[data-testid="stop-dots-terminus"]')).not.toBeNull();
+    // INVERTED: the old bar was a percentage-width brass fill and it is gone
+    // from the pass. The mastered count still reaches the learner on the
+    // stop card, which is where the mockup keeps it.
+    expect(container.querySelector('[data-testid="journey-pass-card"] .duration-700')).toBeNull();
+  });
+
+  test("the CTA is unboxed: verb and arrow in the accent, no plate", () => {
+    h.groups = [grp({ status: "in_progress", masteredCount: 2, attemptedCount: 3 })];
+    renderHome();
+    const verb = screen.getByText("Resume");
+    expect(verb.className).toContain("text-primary");
+    const plate = verb.parentElement as HTMLElement;
+    // INVERTED: it was a bordered plate on TICKET.stockBottom. The mockup
+    // reverses that ruling; the train, the reason and the verb sit straight
+    // on the paper.
+    expect(plate.className).not.toMatch(/border-2/);
+    expect(plate.style.background).toBe("");
+    expect(plate.style.borderColor).toBe("");
+  });
+});
+
 describe("home boarding pass motion", () => {
   test("reduced motion renders the pass static with correct copy", () => {
     h.reduceMotion = true;

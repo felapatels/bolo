@@ -103,7 +103,11 @@ export function ZoneStamp({
           letterSpacing: labelFontSize >= 6 ? "0.6px" : "0.3px",
         }}
       >
-        Fare zone
+        {/* PLATFORM, not FARE ZONE (owner's hybrid ticket, build 17 on
+            mobile, build 18 here). The pediment's plate already says the
+            zone; the stamp franks where you board. Eight glyphs against the
+            old nine, so the chord budget below still holds. */}
+        Platform
       </span>
       <span
         className="font-black"
@@ -295,7 +299,10 @@ export function MiniTicket({
             printed rule above and below it in the ticket's own edge ink — the
             rustic detail, not a new colour. The route sits under the class at 8
             (was 6): still the quieter of the two, but legible rather than
-            decorative. Mobile twin: miniBody / miniAdmit / miniLine / miniRule. */}
+            decorative. Mobile twin: miniBody / miniAdmit / miniLine / miniRule.
+            TWO POINTS SMALLER AND A POINT LESS TRACKING from build 17 (mobile)
+            and build 18 (here): the ticket is 148 wide inside home's "Your
+            Journey" frame, and ADMIT ONE clipped at 12 over 2.2. */}
         <div className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-[3px] py-[5px]">
           <span
             aria-hidden
@@ -303,7 +310,7 @@ export function MiniTicket({
             style={{ background: TICKET.edge, opacity: 0.28 }}
           />
           <div
-            className="truncate text-center text-[12px] font-black leading-tight tracking-[2.2px]"
+            className="truncate text-center text-[10px] font-black leading-tight tracking-[1.2px]"
             style={{ color: TICKET.ink }}
           >
             ADMIT ONE

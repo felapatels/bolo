@@ -36,6 +36,7 @@ import { useJourneyProgress } from "@/lib/useJourneyProgress";
 import { TrainEngine } from "@/components/train-svg";
 import { BandPill, normalizeBand } from "@/components/ui/band-pill";
 import { MiniTicket, stampSizeForExtent } from "@/components/ticket";
+import { StopDots } from "@/components/stop-dots";
 import { BOARD_ART_NUDGE, CarvedBoard } from "@/components/carved-board";
 import { ZONE_BOARD } from "@/lib/zone-backdrops";
 import { BADGE, TICKET } from "@/lib/ticket-stock";
@@ -52,7 +53,7 @@ import { useUser } from "@clerk/react";
 // shimmer, glow, arrow, train) live in index.css under "Boarding pass and
 // journey CTA idle motion"; these two cover the framer press spring only.
 // Low damping is what produces the overshoot spring-back on release.
-import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, ChevronRight, HelpCircle } from "lucide-react";
+import { BookOpen, Trophy, Flame, Star, ArrowRight, Settings, Target, Zap, MessageCircle, ChevronRight, HelpCircle, MapPin, Train } from "lucide-react";
 import {
   BOARD_TRAIN_VARS as boardTrainVars,
   FIRST_CLASS_GOLD_VARS as firstClassGoldVars,
@@ -67,7 +68,12 @@ const PASS_PRESS_SPRING = { type: "spring", stiffness: 480, damping: 12 } as con
 // THE MINI TICKET'S WIDTH, matched to mobile's STUB_W. It grew from 64 when
 // the stub became a whole ticket: a body that names what it admits and which
 // line needs a run to name them in.
-const STUB_W = 176;
+// 148 FROM BUILD 18, WAS 176, in step with mobile's build 17. Inside home's
+// "Your Journey" frame the board is narrower than at full bleed, and the stub
+// took none of the loss, so the eyebrow ("BOARDING PASS · બોલો રેલ")
+// truncated. The stamp's extent (46) and ADMIT ONE still fit: both size off
+// STUB_W with margin to spare, and ADMIT ONE eased to 10 over 1.2 with it.
+const STUB_W = 148;
 // THE STAMP FITS THE TICKET'S INTERIOR, not its outer width: the ticket carries
 // a 2px border AND a hairline rule set 4 in from it, and it is landscape now,
 // so the stamp is sized off the stub's own run rather than off STUB_W. Mobile
@@ -962,6 +968,49 @@ export default function Home() {
                   the entrance motion.div and press motion.div inline
                   transforms, and a CSS transform animation on either of those
                   elements would override them while running. */}
+              {/* THE "YOUR JOURNEY" FRAME (owner's mockup, build 17 on mobile,
+                  build 18 here). The pass used to sit bare on the page, one
+                  world dropped into another. The mockup frames it: a thin
+                  gold-lined card with a small pediment and a train at its
+                  crown, a kicker and a line of copy, and a "View Map" pill.
+                  Its annotation: "The Your Journey container creates a visual
+                  bridge between the modern app and the journey world." View
+                  Map is kept even though the pass already opens the map: it
+                  is the door to a future one-pager whole-journey view (parked).
+                  Mobile twin: home-journey-frame in (tabs)/index.tsx. It
+                  bleeds 8 past the column and pads 4, so the board keeps all
+                  but a few px of the column's width. */}
+              <div
+                data-testid="home-journey-frame"
+                className="relative -mx-2 rounded-[20px] border-[1.5px] bg-card px-1 pb-2 pt-4"
+                style={{ borderColor: BADGE.brassEdge }}
+              >
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -top-3 left-1/2 flex h-[22px] w-[52px] -translate-x-1/2 items-start justify-center rounded-t-[26px] border-[1.5px] border-b-0 bg-card pt-1"
+                  style={{ borderColor: BADGE.brassEdge }}
+                >
+                  <Train className="h-[13px] w-[13px]" style={{ color: BADGE.brassBg }} />
+                </div>
+                <div className="mb-2.5 flex items-center gap-2.5 px-2.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-black tracking-[1.6px] text-primary">
+                      YOUR JOURNEY
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      Board your train and continue learning
+                    </div>
+                  </div>
+                  <Link
+                    href="/journey"
+                    data-testid="home-view-map"
+                    aria-label="View the journey map"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-card px-3 py-[7px] text-[13px] font-bold text-primary transition-colors hover:bg-muted"
+                  >
+                    <MapPin className="h-[13px] w-[13px]" />
+                    View Map
+                  </Link>
+                </div>
               {/* Breathe pauses while tearing (Task #905): the hand-off
                   overlay measures the halves' layout boxes at navigation,
                   and an ancestor scale mid-breathe would skew the clone
@@ -1043,9 +1092,16 @@ export default function Home() {
                             language's font or it comes out as tofu. This line
                             used to be the Gujarati wordmark, hardcoded, on
                             every one of the 22 lines. */}
+                        {/* THE HYBRID TICKET (owner's mockup, build 17 on
+                            mobile, build 18 here): the pass keeps its paper
+                            and takes the app's purple for its accents, so it
+                            reads as part of the app rather than as a prop
+                            from another one. The eyebrow, the station dots
+                            and the verb are the accents; the ink stays for
+                            the copy. Tracking eased 1.4 to 0.9 with the
+                            narrower stub, so the brand fits whole. */}
                         <div
-                          className="truncate text-[9px] font-black uppercase tracking-[1.4px] lg:text-[11px]"
-                          style={{ color: ZONE_BOARD.inkMuted }}
+                          className="truncate text-[9px] font-black uppercase tracking-[0.9px] text-primary lg:text-[11px]"
                         >
                           Boarding pass ·{" "}
                           <span
@@ -1096,52 +1152,36 @@ export default function Home() {
                         />
                       </div>
                     </div>
-                    {journey.current && journey.current.phraseCount > 0 && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <div
-                          className="h-2 flex-1 overflow-hidden rounded-full"
-                          style={{ background: `${ZONE_BOARD.inkMuted}33` }}
-                        >
-                          <div
-                            className="h-full rounded-full transition-all duration-700"
-                            style={{
-                              // Aged brass from the element sheet's own badge
-                              // palette: the one warm spark left on the card
-                              // now the accent has gone, and it belongs to the
-                              // wood rather than to the line.
-                              background: BADGE.brassBg,
-                              width: `${Math.round(
-                                (journey.current.masteredCount / journey.current.phraseCount) * 100,
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                        <span
-                          className="shrink-0 text-[10px] font-bold"
-                          style={{ color: ZONE_BOARD.inkMuted }}
-                        >
-                          {journey.current.masteredCount}/{journey.current.phraseCount}
-                        </span>
+                    {/* THE STATIONS, NOT A BAR (owner's mockup, build 17 on
+                        mobile, build 18 here). The brass bar drew mastered
+                        phrases within ONE stop; the mockup draws the zone as
+                        a row of stops with the learner's own ringed, which is
+                        what "Stop 5 of 11" above already says in words. The
+                        mastered count still reaches the learner on the stop
+                        card. StopDots is the one drawing of that row; the
+                        journey's cards use it too. */}
+                    {journey.current && journey.current.stopCount > 0 && (
+                      <div className="mt-2 flex items-center pr-0.5">
+                        <StopDots
+                          testId="pass-stops-row"
+                          total={journey.current.stopCount}
+                          done={journey.current.stopNumber - 1}
+                          current={journey.current.stopNumber}
+                          accent="hsl(var(--primary))"
+                          muted={ZONE_BOARD.inkMuted}
+                          terminus
+                        />
                       </div>
                     )}
-                    {/* THE DOOR. The same bordered plate the zone card gives
-                        its test-out link, so the two screens offer an action
-                        the same way. The engine stands IN it rather than up
-                        beside the title: it is the train at the platform, and
+                    {/* THE DOOR. The engine stands here rather than up beside
+                        the title: it is the train at the platform, and
                         pressing boards it. */}
-                    {/* A DARKER PLATE THAN THE PAPER IT SITS ON. It had a
-                        border and no fill, so it read as an outline drawn on
-                        the ticket rather than as a pressed key sitting in it.
-                        TICKET.stockBottom is the paper's own darker end, so
-                        this deepens the existing gradient rather than
-                        introducing a colour the stock does not contain. */}
-                    <div
-                      className="mt-2.5 flex items-center gap-1.5 rounded-lg border-2 px-1.5 py-[7px]"
-                      style={{
-                        borderColor: TICKET.edge,
-                        background: TICKET.stockBottom,
-                      }}
-                    >
+                    {/* UNBOXED (owner's mockup, build 17 on mobile, build 18
+                        here). The darker plate was the owner's own ruling on
+                        2026-08-28 and the mockup reverses it: the train, the
+                        reason and the verb sit straight on the paper, and the
+                        verb and its arrow carry the accent instead of a box. */}
+                    <div className="mt-2.5 flex items-center gap-1.5 py-1">
                       {/* THE ENGINE TAKES A PALETTE, NOT A COLOUR. TrainEngine
                           draws from four theme vars and keeps only its headlamp
                           on currentColor, so styling `color` here tinted the
@@ -1198,23 +1238,22 @@ export default function Home() {
                             {journeyCtaTail}
                           </span>
                         )}
-                        <span
-                          className="shrink-0 text-[16px] font-black leading-[20px]"
-                          style={{ color: ZONE_BOARD.ink }}
-                        >
+                        {/* The verb and its arrow in the app's violet: the
+                            hybrid ticket's accent, now there is no plate. 18
+                            over 22, one point up with mobile. */}
+                        <span className="shrink-0 text-[18px] font-black leading-[22px] text-primary">
                           {journeyCta}
                         </span>
                       {/* A SOLID arrow, not a hairline one: beside a 17px black
                           verb a thin stroke reads as a different weight of
                           voice. */}
                       <span
-                        className={cn("inline-flex shrink-0", !reduceMotion && "animate-cta-arrow-nudge")}
+                        className={cn("inline-flex shrink-0 text-primary", !reduceMotion && "animate-cta-arrow-nudge")}
                         aria-hidden
                       >
                         <ArrowRight
                           className="h-5 w-5 transition-transform group-hover:translate-x-0.5"
                           strokeWidth={3}
-                          style={{ color: ZONE_BOARD.ink }}
                         />
                       </span>
                     </div>
@@ -1258,6 +1297,7 @@ export default function Home() {
                     furniture; it does not need to float. */}
               </Link>
               </motion.div>
+              </div>
               </div>
               {/* Chai treatment tier 1: Chacha-ji's stall, full width at its
                   natural aspect, directly BELOW the pass (Task #1049) — the

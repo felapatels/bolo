@@ -37,19 +37,24 @@ describe("zone stamp type scales as a unit (R1 amendment)", () => {
     expect(label(small)).toBeLessThan(label(large));
   });
 
-  it("the label chord budget keeps FARE ZONE inside the ring at production sizes", () => {
-    // Mirror of the mobile pin: 9 glyphs at ~0.7em advance + rendered
-    // tracking must clear the chord where the label row sits (~0.8 of the
-    // diameter). Checked at the two sizes the app actually derives - home
-    // stub (extent 56) and journey header (extent 52).
+  it("the label chord budget keeps PLATFORM inside the ring at production sizes", () => {
+    // Mirror of the mobile pin: the label's glyphs at ~0.7em advance +
+    // rendered tracking must clear the chord where the label row sits (~0.8
+    // of the diameter). Checked at the two sizes the app actually derives -
+    // home stub (extent 56) and journey header (extent 52).
+    // THE WORD IS PLATFORM NOW, NOT FARE ZONE (owner's hybrid ticket, build
+    // 17 on mobile, build 18 here): eight glyphs against nine, so the
+    // budget the FARE ZONE arc needed still holds with room to spare.
     for (const size of [stampSizeForExtent(56), stampSizeForExtent(52)]) {
       const { container } = render(
         <ZoneStamp ink="#123" zone={1} name="Anand" size={size} />,
       );
       const label = container.querySelector("span") as HTMLElement;
+      expect(label.textContent).toBe("Platform");
+      const glyphs = label.textContent!.length;
       const fontSize = parseFloat(label.style.fontSize);
       const tracking = parseFloat(label.style.letterSpacing);
-      expect(9 * fontSize * 0.7 + 8 * tracking).toBeLessThan(size * 0.8);
+      expect(glyphs * fontSize * 0.7 + (glyphs - 1) * tracking).toBeLessThan(size * 0.8);
     }
   });
 
