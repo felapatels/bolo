@@ -81,7 +81,19 @@ export function ZoneStamp({
   // glyphs + tracking) comfortably inside it at any size.
   const labelFontSize = Math.max(4, Math.round(size * 0.115));
   const zoneFontSize = Math.max(12, Math.round(size * 0.375));
-  const nameFontSize = stampNameFontSize(name, size);
+  // THE THREE ROWS HAVE TO FIT THE RING DOWN, NOT ONLY ACROSS (build 18, off
+  // the owner's desktop screenshot: "PLATFORM" riding the top arc and "DELHI"
+  // sitting on the bottom one). stampNameFontSize fits the longest WORD to the
+  // chord, and a two-word name then wraps to TWO lines; nothing ever added
+  // the three rows up. Inside the 2px ring the rows have about 0.86 of the
+  // diameter: the label and the numeral take theirs, and the name gets what
+  // is left over its two lines. At the home stub's 38px that is 5.4px rather
+  // than 7; at a desktop stamp of 69 it is the full 7 with room to spare.
+  const nameRoom = size * 0.86 - (labelFontSize + 1) - (zoneFontSize + 1);
+  const nameFontSize = Math.max(
+    3,
+    Math.min(stampNameFontSize(name, size), nameRoom / 2 - 1),
+  );
   return (
     <div
       data-testid="zone-stamp"
@@ -218,6 +230,17 @@ export function MiniTicket({
   stubRef,
   /** The panel cream the notches are punched out of. */
   notchFill,
+  /**
+   * THE TICKET SCALES AS ONE UNIT (build 18, off the owner's desktop
+   * screenshot: "boarding pass ticket on web is too small and not responsive
+   * to size"). Mobile's ticket is one size because a phone is one width; the
+   * web hero runs from a phone to a 700px column, and a 148px ticket on a
+   * 700px board reads as a postage stamp. The host measures its board and
+   * passes the factor; the type, the paddings, the notches and the stamp's
+   * extent all follow it, so a bigger ticket is the same ticket, larger,
+   * rather than a wider one with the same small print.
+   */
+  scale = 1,
 }: {
   lineName: string;
   zone: number | null;
@@ -228,22 +251,31 @@ export function MiniTicket({
   bodyRef?: React.Ref<HTMLDivElement>;
   stubRef?: React.Ref<HTMLDivElement>;
   notchFill: string;
+  scale?: number;
 }) {
   const stock = `linear-gradient(to bottom, ${TICKET.stockTop}, ${TICKET.stockBottom})`;
+  const notchSize = Math.round(TICKET_NOTCH * scale);
   // A disc of the panel's own cream, half of it hanging past the half's inner
   // edge; overflow-hidden crops it to a quarter and the opposite half's mirror
   // image completes the semicircle. A cutout may only ever straddle an EDGE,
   // which is the standing ruling that took the floating punch hole off both
   // platforms.
-  const notch = (position: string) => (
+  const notch = (position: "body-top" | "body-bottom" | "stub-top" | "stub-bottom") => (
     <span
       aria-hidden
-      className={cn("absolute rounded-full border", position)}
+      className="absolute rounded-full border"
       style={{
-        width: TICKET_NOTCH,
-        height: TICKET_NOTCH,
+        width: notchSize,
+        height: notchSize,
         background: notchFill,
         borderColor: TICKET.edge,
+        // Half of the disc hangs past the half's inner edge, whatever its size.
+        ...(position.startsWith("body")
+          ? { right: -notchSize / 2 + 1 }
+          : { left: -notchSize / 2 + 1 }),
+        ...(position.endsWith("top")
+          ? { top: -notchSize / 2 + 1 }
+          : { bottom: -notchSize / 2 + 1 }),
       }}
     />
   );
@@ -264,18 +296,19 @@ export function MiniTicket({
   // stamp's bottom arc was being cut off by the ticket's own bottom border.
   // The stub cannot simply stop clipping: the notches depend on the crop to
   // read as quarter circles.
-  const minH = zoneStampExtent(stampSize) + TICKET_SHAPE.borderWidth * 2 + 10;
+  const minH = zoneStampExtent(stampSize) + TICKET_SHAPE.borderWidth * 2 + Math.round(10 * scale);
   return (
     <div
       className="flex shrink-0 items-stretch"
       data-testid="home-mini-ticket"
+      data-scale={scale}
       style={{ width, minHeight: zone !== null ? minH : undefined }}
     >
       {/* THE LEFT HALF: what the ticket admits, and to which line. */}
       <div
         ref={bodyRef}
         className={cn(
-          "relative flex min-w-0 flex-1 items-center overflow-hidden border-y-2 border-l-2 pl-2",
+          "relative flex min-w-0 flex-1 items-center overflow-hidden border-y-2 border-l-2",
           "rounded-l-[10px]",
           // Once they are apart each half gets the corners it was missing, so
           // neither sails away with one square end.
@@ -286,13 +319,14 @@ export function MiniTicket({
         style={{
           background: stock,
           borderColor: TICKET.edge,
+          paddingLeft: Math.round(8 * scale),
           // It is ON the board, not part of it.
           boxShadow: `0 2px 4px ${TICKET.ink}38`,
         }}
       >
         {rule}
-        {notch("-right-[5px] -top-[5px]")}
-        {notch("-bottom-[5px] -right-[5px]")}
+        {notch("body-top")}
+        {notch("body-bottom")}
         {/* THE FARE CLASS, CENTRED AND SET LIKE ONE. It was 9px, left-aligned
             and untracked, which read as a caption on the ticket rather than as
             the thing the ticket says. 12px tracked out to 2.2, centred, with a
@@ -303,15 +337,19 @@ export function MiniTicket({
             TWO POINTS SMALLER AND A POINT LESS TRACKING from build 17 (mobile)
             and build 18 (here): the ticket is 148 wide inside home's "Your
             Journey" frame, and ADMIT ONE clipped at 12 over 2.2. */}
-        <div className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-[3px] py-[5px]">
+        <div
+          className="relative flex min-w-0 flex-1 flex-col items-center justify-center"
+          style={{ gap: 3 * scale, paddingTop: 5 * scale, paddingBottom: 5 * scale }}
+        >
           <span
             aria-hidden
             className="mx-1.5 h-px self-stretch"
             style={{ background: TICKET.edge, opacity: 0.28 }}
           />
           <div
-            className="truncate text-center text-[10px] font-black leading-tight tracking-[1.2px]"
-            style={{ color: TICKET.ink }}
+            data-testid="mini-ticket-admit"
+            className="truncate text-center font-black leading-tight"
+            style={{ color: TICKET.ink, fontSize: 10 * scale, letterSpacing: 1.2 * scale }}
           >
             ADMIT ONE
           </div>
@@ -321,8 +359,8 @@ export function MiniTicket({
             style={{ background: TICKET.edge, opacity: 0.28 }}
           />
           <div
-            className="truncate text-center text-[8px] font-black uppercase leading-tight tracking-[1.4px]"
-            style={{ color: TICKET.inkMuted }}
+            className="truncate text-center font-black uppercase leading-tight"
+            style={{ color: TICKET.inkMuted, fontSize: 8 * scale, letterSpacing: 1.4 * scale }}
           >
             {lineName}
           </div>
@@ -340,12 +378,12 @@ export function MiniTicket({
           style={{
             background: stock,
             borderColor: TICKET.edge,
-            paddingTop: TICKET_NOTCH / 2 + 3,
-            paddingBottom: TICKET_NOTCH / 2 + 3,
+            paddingTop: notchSize / 2 + 3,
+            paddingBottom: notchSize / 2 + 3,
             width: 5,
           }}
         >
-          {Array.from({ length: 7 }).map((_, i) => (
+          {Array.from({ length: Math.round(7 * scale) }).map((_, i) => (
             <span
               key={i}
               className="block"
@@ -360,7 +398,7 @@ export function MiniTicket({
       <div
         ref={stubRef}
         className={cn(
-          "relative flex shrink-0 items-center overflow-hidden border-y-2 border-r-2 px-[5px]",
+          "relative flex shrink-0 items-center overflow-hidden border-y-2 border-r-2",
           "rounded-r-[10px]",
           tearing
             ? "animate-stub-tear rounded-l-[10px] border-l-0"
@@ -369,12 +407,14 @@ export function MiniTicket({
         style={{
           background: stock,
           borderColor: TICKET.edge,
+          paddingLeft: Math.round(5 * scale),
+          paddingRight: Math.round(5 * scale),
           boxShadow: `0 2px 4px ${TICKET.ink}38`,
         }}
       >
         {rule}
-        {notch("-left-[5px] -top-[5px]")}
-        {notch("-bottom-[5px] -left-[5px]")}
+        {notch("stub-top")}
+        {notch("stub-bottom")}
         {/* THE SLOT IS SIZED TO THE STAMP'S ROTATED EXTENT, not to the stamp:
             it is tilted 12 degrees, which inflates its bounding box by about
             1.19x, and an exact-size slot clips the corners.

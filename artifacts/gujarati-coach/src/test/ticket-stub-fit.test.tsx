@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import {
+  MiniTicket,
   ZoneStamp,
   fitStubWordmark,
   stampNameFontSize,
@@ -13,6 +14,77 @@ import {
   stubLineFontSize,
   zoneStampExtent,
 } from "@/components/ticket";
+import { homeTicketScale, HOME_TICKET_BASE_W, HOME_TICKET_MAX_SCALE } from "@/pages/home";
+
+// THE STAMP'S THREE ROWS FIT THE RING DOWN, NOT ONLY ACROSS (build 18, off the
+// owner's desktop screenshot: "PLATFORM" riding the top arc and "DELHI" on the
+// bottom one). The chord rule fits the longest WORD; a two-word name then
+// wraps to two lines, and nothing ever added the rows up.
+describe("the stamp's rows fit inside the ring at every size the app draws", () => {
+  it("label + numeral + two lines of name never exceed the ring's interior", () => {
+    for (const size of [34, 38, 44, 47, 52, 56, 63, 69, 80]) {
+      const { container, unmount } = render(
+        <ZoneStamp ink="#123" zone={1} name="New Delhi" size={size} />,
+      );
+      const spans = [...container.querySelectorAll("span")] as HTMLElement[];
+      const [label, zone, name] = spans;
+      const rows =
+        parseFloat(label!.style.lineHeight) +
+        parseFloat(zone!.style.lineHeight) +
+        2 * parseFloat(name!.style.lineHeight);
+      expect(rows, `size ${size}`).toBeLessThanOrEqual(size * 0.86 + 0.01);
+      unmount();
+    }
+  });
+
+  it("a desktop-sized stamp keeps the name at full size", () => {
+    // The clamp only bites where the ring is small; at 69 (the home ticket at
+    // scale 1.8) the name gets its full 7px.
+    render(<ZoneStamp ink="#123" zone={1} name="New Delhi" size={69} />);
+    expect(parseFloat(screen.getByTestId("zone-stamp-name").style.fontSize)).toBe(7);
+  });
+});
+
+// THE TICKET SCALES AS ONE UNIT ON WEB (build 18): "boarding pass ticket on
+// web is too small and not responsive to size." The host measures its board
+// and passes the factor; the phone stays at mobile's 148.
+describe("the home ticket scales with the board", () => {
+  it("homeTicketScale is 1 on a phone, proportional above, capped", () => {
+    expect(homeTicketScale(0)).toBe(1);
+    expect(homeTicketScale(200)).toBe(1);
+    expect(homeTicketScale(HOME_TICKET_BASE_W)).toBe(1);
+    expect(homeTicketScale(HOME_TICKET_BASE_W * 1.5)).toBeCloseTo(1.5, 6);
+    expect(homeTicketScale(2000)).toBe(HOME_TICKET_MAX_SCALE);
+  });
+
+  it("MiniTicket scales its type, its paddings and its notches with the factor", () => {
+    const at = (scale: number) =>
+      render(
+        <MiniTicket
+          lineName="Ganga Line"
+          zone={1}
+          stationName="New Delhi"
+          stampSize={stampSizeForExtent(Math.round(46 * scale))}
+          width={Math.round(148 * scale)}
+          scale={scale}
+          tearing={false}
+          notchFill="#F9EBD5"
+        />,
+      );
+    const one = at(1);
+    const admit1 = parseFloat(one.getByTestId("mini-ticket-admit").style.fontSize);
+    const ticket1 = one.getByTestId("home-mini-ticket");
+    expect(ticket1.style.width).toBe("148px");
+    one.unmount();
+    const big = at(1.8);
+    const admit18 = parseFloat(big.getByTestId("mini-ticket-admit").style.fontSize);
+    expect(admit18).toBeCloseTo(admit1 * 1.8, 6);
+    expect(big.getByTestId("home-mini-ticket").style.width).toBe("266px");
+    // The stamp grew with it: its slot is the rotated extent of a bigger ring.
+    const slot = big.getByTestId("home-stamp-slot");
+    expect(parseFloat(slot.style.width)).toBeGreaterThan(70);
+  });
+});
 
 describe("zone stamp geometry (shared with mobile TicketParts)", () => {
   it("stampSizeForExtent is the safe inverse of zoneStampExtent", () => {

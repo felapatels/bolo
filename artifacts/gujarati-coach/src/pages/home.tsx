@@ -29,6 +29,7 @@ import { Mascot } from "@/components/mascot";
 import { HomeSkeleton } from "@/components/home-skeleton";
 import { BrandSplash, useBrandSplash } from "@/components/brand-splash";
 import { useIsDesktop } from "@/hooks/use-mobile";
+import { useElementWidth } from "@/hooks/use-element-width";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { getRailBrand, getJourneyLine } from "@/lib/journeyLines";
@@ -77,8 +78,31 @@ const STUB_W = 148;
 // THE STAMP FITS THE TICKET'S INTERIOR, not its outer width: the ticket carries
 // a 2px border AND a hairline rule set 4 in from it, and it is landscape now,
 // so the stamp is sized off the stub's own run rather than off STUB_W. Mobile
-// twin: STAMP_SIZE in JourneyPassCard.tsx.
-const HOME_STAMP_SIZE = stampSizeForExtent(46);
+// twin: STAMP_SIZE in JourneyPassCard.tsx. 46 is the stamp's rotated extent
+// at scale 1.
+const HOME_STAMP_EXTENT = 46;
+// THE TICKET SCALES WITH THE BOARD ON WEB (build 18, off the owner's desktop
+// screenshot: "boarding pass ticket on web is too small and not responsive
+// to size"). Mobile's 148 is right for a phone, where the board's content box
+// is about 294 wide (358 of board, the art's insets, the nudge); web's hero
+// runs from that same phone to a 700px desktop column, and a 148px ticket on
+// a 700px board reads as a postage stamp beside a 30px title. The WHOLE
+// ticket scales as one unit off the measured content width: never below 1,
+// so the phone keeps parity with mobile to the pixel, and never past 1.8,
+// which is where the panel budget bites. MEASURED IN CHROME with the real
+// MiniTicket rendered to static markup in Inter: at scale 1.63 (the lg
+// breakpoint's 478px content box) the stack of ticket row, dots and CTA is
+// 163 tall against a content box the panel's aspect makes about 176; at 1.8
+// (a 1280 viewport's 562px box) the ticket is 266 by 104 and the stack 172
+// against about 226. The stamp at 1.8 is 69px and its three rows take 53 of
+// its 65px interior, which is the crowding the screenshot showed, gone.
+// Unmeasured (jsdom, first paint) is 1.
+export const HOME_TICKET_BASE_W = 294;
+export const HOME_TICKET_MAX_SCALE = 1.8;
+export function homeTicketScale(contentW: number): number {
+  if (!(contentW > 0)) return 1;
+  return Math.min(HOME_TICKET_MAX_SCALE, Math.max(1, contentW / HOME_TICKET_BASE_W));
+}
 // THE HOME BOARD'S PANEL, IN PX, and it is a budget rather than a taste.
 // ZONE_BOARD's content insets take about 27% of the panel before a word is
 // drawn, and inside what is left the panel has to hold the eyebrow, the
@@ -450,6 +474,10 @@ export default function Home() {
   const journeyLine = getJourneyLine(activeLang);
   const railBrand = getRailBrand(activeLang);
   const journey = useJourneyProgress(activeLang, journeyLine.zones);
+  // The board's content box, measured, so the ticket can scale with it. See
+  // homeTicketScale.
+  const passContent = useElementWidth<HTMLDivElement>();
+  const ticketScale = homeTicketScale(passContent.width);
   // Progress-aware boarding-pass CTA. Uses only the data the pass already
   // receives from useJourneyProgress (no new API calls); when the current
   // stop is unknown (loading, locked, errored) the copy falls back to the
@@ -1074,6 +1102,7 @@ export default function Home() {
                 >
 
                   <div
+                    ref={passContent.ref}
                     className="flex h-full min-w-0 flex-col justify-center"
                     // The drawn frame sits further in on the right than on the
                     // left, so a symmetric content box runs the ticket and the
@@ -1143,8 +1172,9 @@ export default function Home() {
                           lineName={journeyLine.lineName}
                           zone={journey.current ? journey.current.zoneIndex + 1 : null}
                           stationName={journey.current ? journey.current.geoName : null}
-                          stampSize={HOME_STAMP_SIZE}
-                          width={STUB_W}
+                          stampSize={stampSizeForExtent(Math.round(HOME_STAMP_EXTENT * ticketScale))}
+                          width={Math.round(STUB_W * ticketScale)}
+                          scale={ticketScale}
                           tearing={tearing}
                           bodyRef={tearBodyRef}
                           stubRef={tearStubRef}
