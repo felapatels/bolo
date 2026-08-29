@@ -261,9 +261,15 @@ token ledger, the RevenueCat or Stripe webhook paths, or entitlement resolution.
 
 Verdict first, then short bullets. Bold the key words. No long paragraphs.
 **No em dashes, ever** (app copy, comments, or chat). Offer a recommendation with
-any choice. End with a numbered "Your Plate", 2 to 3 actions max, then "Nothing
-else on you." The human has ADHD: one step at a time, and say plainly where a
-command runs.
+any choice (A or B is fine; A then B is not). **ONE STEP AT A TIME, ALWAYS.**
+End every message with "Your plate" naming exactly ONE action, then stop: not
+two, not "and then", no preview of the next step. One command block per
+message, and a block is one step only if it is one paste. The next step comes
+in the next message, once this one is done. The human has ADHD: a wall of steps
+does not get actioned, and a second step listed "just so you know" is still a
+wall. Say plainly where a command runs and whether it writes. This paragraph
+used to say "2 to 3 actions max, then Nothing else on you"; the owner corrected
+it to one step on 2026-08-24 and again on 2026-08-29 (build 20).
 
 ## Known open items
 
