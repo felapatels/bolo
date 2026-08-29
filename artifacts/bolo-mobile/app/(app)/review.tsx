@@ -1345,6 +1345,15 @@ export default function ReviewScreen() {
         setSaveFailed(true);
       }
     } catch (error) {
+      // WHAT THE SERVER ACTUALLY SAID, for Metro and Sentry. The learner's
+      // message is deliberately generic; this line is not (build 21: "i keep
+      // seeing this" on the simulator, and nothing in any log to read).
+      console.warn(
+        '[review] scoring failed:',
+        error instanceof ApiError
+          ? `${error.status} ${error.method} ${error.url} ${JSON.stringify(error.data)}`
+          : String(error),
+      );
       setEvalError(describeEvaluationError(error));
       setPhaseSync('error');
       hapticNotify(Haptics.NotificationFeedbackType.Error);

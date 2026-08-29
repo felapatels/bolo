@@ -112,20 +112,42 @@ export async function denyLockedLanguage(
   req: Request,
   res: Response,
   lang: string,
-  opts?: {
-    teaserPhraseId?: number | null;
-    firstStopPhraseId?: number | null;
-    firstStopGroupId?: number | null;
-  },
+  opts?: LockedLanguageExceptions,
 ): Promise<boolean> {
-  const access = await getLanguageAccess(req, lang);
-  if (access.state === "allowed") return false;
+  const denial = await lockedLanguageDenial(req, lang, opts);
+  if (denial === null) return false;
+  sendLockedLanguageDenial(req, res, denial);
+  return true;
+}
+
+export type LockedLanguageExceptions = {
+  teaserPhraseId?: number | null;
+  firstStopPhraseId?: number | null;
+  firstStopGroupId?: number | null;
+  /** The language's access, when the caller already fetched it: the
+   *  flashback door asks about every due phrase of ONE language and has no
+   *  reason to count the teaser again per phrase. */
+  access?: LanguageAccess;
+};
+
+// THE PREDICATE UNDER denyLockedLanguage, split out in build 21 so a route
+// can ASK whether a phrase would be denied without sending the 402. Returns
+// null when the caller may have the phrase, or the access state to deny
+// with. Every exception denyLockedLanguage grants lives here and nowhere
+// else, so the two can never disagree.
+export async function lockedLanguageDenial(
+  req: Request,
+  lang: string,
+  opts?: LockedLanguageExceptions,
+): Promise<Exclude<LanguageAccess, { state: "allowed" }> | null> {
+  const access = opts?.access ?? (await getLanguageAccess(req, lang));
+  if (access.state === "allowed") return null;
   if (
     access.state === "teaser" &&
     opts?.teaserPhraseId != null &&
     access.teaserPhraseIds.includes(opts.teaserPhraseId)
   ) {
-    return false;
+    return null;
   }
   if (opts?.firstStopPhraseId != null || opts?.firstStopGroupId != null) {
     const firstStop = await getFirstStopGroup(lang);
@@ -136,7 +158,7 @@ export async function denyLockedLanguage(
         (opts.firstStopPhraseId != null &&
           firstStop.phraseIds.includes(opts.firstStopPhraseId)))
     ) {
-      return false;
+      return null;
     }
     // Chai stop unlock: the SAME ids identify the resource being requested, so
     // a stop this learner bought (a ledger row, see lib/stopUnlock.ts) plays
@@ -148,17 +170,40 @@ export async function denyLockedLanguage(
       opts.firstStopGroupId != null &&
       (await hasStopUnlock(userId, lang, opts.firstStopGroupId))
     ) {
-      return false;
+      return null;
     }
     if (
       opts.firstStopPhraseId != null &&
       (await hasStopUnlockForPhrase(userId, lang, opts.firstStopPhraseId))
     ) {
-      return false;
+      return null;
     }
   }
-  sendLockedLanguageDenial(req, res, access);
-  return true;
+  return access;
+}
+
+// WHETHER THIS CALLER CAN SCORE THIS PHRASE: the two gates POST
+// /openai/pronunciation sends its 402s from (the language, with the phrase's
+// own teaser and first-stop exceptions, and the Plus library for a premium
+// phrase), as one answer with nothing sent. Build 21, off the owner's
+// simulator: the free flashback listed a due phrase from the Plus library,
+// the learner recorded it, and scoring came back 402 as "Oops, that didn't
+// work" three times in a row. A door that lists what the room behind it
+// refuses is the defect; the list now asks this first.
+export async function canScorePhrase(
+  req: Request,
+  phrase: { id: number; languageCode: string; premium: boolean },
+  access?: LanguageAccess,
+): Promise<boolean> {
+  const denial = await lockedLanguageDenial(req, phrase.languageCode, {
+    teaserPhraseId: phrase.id,
+    firstStopPhraseId: phrase.id,
+    access,
+  });
+  if (denial !== null) return false;
+  if (!phrase.premium) return true;
+  const { plan } = (req as EntitledRequest).resolvedPlan;
+  return featuresForPlan(plan).extendedLibrary;
 }
 
 // If the caller's plan lacks a Plus-only feature, sends the 402 and returns

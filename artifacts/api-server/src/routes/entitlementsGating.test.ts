@@ -16,6 +16,7 @@ import {
   gameSessionsTable,
   badgesTable,
   xpLedgerTable,
+  userItemMemoryTable,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import learningRouter from "./learning";
@@ -293,6 +294,9 @@ after(async () => {
   // Tear down the premium topic's phrases → lesson → category, in FK order.
   // Clean up any attempts/sessions/badges created by the game-session success tests.
   await db.delete(badgesTable).where(eq(badgesTable.userId, TEST_USER_ID));
+  // The flashback pin seeds review memories for the two test phrases; they
+  // reference the phrases, so they go before the phrases do.
+  await db.delete(userItemMemoryTable).where(eq(userItemMemoryTable.userId, TEST_USER_ID));
   await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
   await db.delete(gameSessionsTable).where(eq(gameSessionsTable.userId, TEST_USER_ID));
   // xp_ledger rows reference users(id) — delete before the user row to avoid FK violation.
@@ -425,6 +429,40 @@ test("free is still denied a fourth phrase: the drill is Plus", async () => {
   const { status, json } = await get(`/review/phrases?lang=${FREE_LANGUAGE}&limit=4`);
   assert.equal(status, 402);
   assert.equal(json.feature, "review");
+});
+
+// THE FLASHBACK LISTS ONLY WHAT THE CALLER CAN SCORE (build 21). The owner
+// met the gap on the simulator: a free account's flashback listed a due
+// phrase from the Plus library, the learner recorded it, and the evaluate
+// route answered 402, shown as "Oops, that didn't work" three times running.
+// Two due phrases are seeded for the free user, one starter and one premium;
+// the free flashback carries the starter only, and Plus gets both.
+test("a free learner's flashback never lists a Plus-library phrase", async () => {
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  await db
+    .insert(userItemMemoryTable)
+    .values([
+      { userId: TEST_USER_ID, phraseId: starterPhraseId, reps: 1, stability: 1, dueAt: yesterday },
+      { userId: TEST_USER_ID, phraseId: premiumPhraseId, reps: 1, stability: 1, dueAt: yesterday },
+    ])
+    .onConflictDoNothing();
+  try {
+    await setPlanFree();
+    const free = await get(`/review/phrases?lang=${FREE_LANGUAGE}&limit=3`);
+    assert.equal(free.status, 200);
+    const freeIds = free.json.map((p: { id: number }) => p.id);
+    assert.ok(freeIds.includes(starterPhraseId), "the starter phrase is due and free");
+    assert.ok(!freeIds.includes(premiumPhraseId), "the Plus phrase would 402 at scoring");
+
+    await setPlanPlus();
+    const plus = await get(`/review/phrases?lang=${FREE_LANGUAGE}&limit=3`);
+    assert.equal(plus.status, 200);
+    const plusIds = plus.json.map((p: { id: number }) => p.id);
+    assert.ok(plusIds.includes(premiumPhraseId), "Plus can score it, so Plus is offered it");
+  } finally {
+    await setPlanFree();
+    await db.delete(userItemMemoryTable).where(eq(userItemMemoryTable.userId, TEST_USER_ID));
+  }
 });
 
 test("free is denied advanced analytics (Plus-only feature)", async () => {

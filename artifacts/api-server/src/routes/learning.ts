@@ -84,6 +84,7 @@ import {
 // repair offer's promise in routes/tokens.ts, and for streak-badge progress.
 import { loadStreakLadder } from "../lib/streakDays";
 import {
+  canScorePhrase,
   denyLockedFeature,
   denyLockedLanguage,
   getLanguageAccess,
@@ -1224,6 +1225,13 @@ router.get(
     // focused on items that need reinforcement.
     // Also load attempt history in parallel so serializePhrase can surface
     // best scores and mastery status alongside the FSRS ordering.
+    //
+    // MORE THAN `limit` ARE FETCHED, because some are filtered out below
+    // (build 21): a due phrase the caller's plan cannot score is dropped
+    // before the cut, so a free learner's three-phrase flashback is three
+    // phrases they can actually say, not three minus whatever the Plus
+    // library took.
+    const REVIEW_CANDIDATE_CAP = 48;
     const [memories, allAttempts] = await Promise.all([
       db
         .select({
@@ -1240,7 +1248,7 @@ router.get(
           ),
         )
         .orderBy(asc(userItemMemoryTable.dueAt))
-        .limit(limit),
+        .limit(REVIEW_CANDIDATE_CAP),
       db
         .select({
           phraseId: attemptsTable.phraseId,
@@ -1278,7 +1286,23 @@ router.get(
       .map((phraseId) => byId.get(phraseId))
       .filter((r): r is typeof phrasesTable.$inferSelect => r != null);
 
-    res.json(ordered.map((p) => serializePhrase(p, stats)));
+    // ONLY WHAT THE CALLER CAN SCORE (build 21). This door is free at three
+    // or fewer, but the room behind it, POST /openai/pronunciation, refuses a
+    // premium phrase to a plan without the Plus library and a locked
+    // language's phrases past the free exceptions, with a 402. A due phrase
+    // that would be refused there must not be listed here: the owner met
+    // it as "Oops, that didn't work" three times in a row on a flashback
+    // that had listed a Plus phrase to a free account. Same predicate as the
+    // evaluate route's gates, by construction (lib/gating.canScorePhrase);
+    // the language's access is fetched once for the whole list.
+    const access = await getLanguageAccess(req, lang);
+    const scoreable: typeof ordered = [];
+    for (const p of ordered) {
+      if (scoreable.length >= limit) break;
+      if (await canScorePhrase(req, p, access)) scoreable.push(p);
+    }
+
+    res.json(scoreable.map((p) => serializePhrase(p, stats)));
   },
 );
 
