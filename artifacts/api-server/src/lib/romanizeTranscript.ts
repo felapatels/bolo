@@ -120,10 +120,142 @@ function toAscii(text: string): { ascii: string; dropped: number } {
   return { ascii, dropped };
 }
 
-/** Drop the unpronounced word-final inherent 'a' (schwa deletion). Only fires
- * on words of 3+ letters ending in consonant+'a' so real vowels survive. */
-function deleteFinalSchwa(text: string): string {
-  return text.replace(/\b([a-z]+[bcdfghjklmnpqrstvwxyz])a\b/gi, "$1");
+/**
+ * SCHWA DELETION RUNS ON IAST, NOT ON THE STRIPPED ASCII, and that is the whole
+ * of the 2026-08-28 fix.
+ *
+ * Owner, on his own words mirrored back from a Gujarati call: `gharamam` for
+ * ઘરમાં, which should read `gharmam`. Two faults, one cause.
+ *
+ * 1. INTERNAL SCHWAS SURVIVED. Only the word-FINAL inherent 'a' was deleted, so
+ *    ઘ-ર-માં came out gha-ra-mam with the middle schwa Gujarati does not say.
+ * 2. THE FINAL RULE COULD EAT A REAL VOWEL. It ran after toAscii had flattened
+ *    ā to a, so it could not tell an inherent schwa from a long ā: राजा would
+ *    have become `raj`.
+ *
+ * Both vanish by deciding before the macrons are stripped. `a` is the inherent
+ * schwa; `ā` is a vowel the speaker actually says.
+ */
+
+/** IAST vowels. ṛ and ḷ are deliberately absent: they are rare, ambiguous with
+ * Gujarati's ળ, and leaving them out only means no deletion happens near them. */
+const IAST_VOWELS = new Set(["a", "ā", "i", "ī", "u", "ū", "e", "o"]);
+
+interface Syllable {
+  /** Consonant units before the vowel, e.g. ["gh"], ["p", "r"], []. */
+  onset: string[];
+  /** The vowel, or "" for a trailing consonant run with no vowel after it. */
+  vowel: string;
+  /** Anything after the vowel that is not a consonant unit, e.g. ṁ, ḥ. */
+  tail: string;
+}
+
+/** True for a letter that behaves as a consonant here: anything not a vowel. */
+function isVowelChar(ch: string): boolean {
+  return IAST_VOWELS.has(ch);
+}
+
+/**
+ * Splits one IAST word into onset-vowel syllables.
+ *
+ * Aspirates are ONE unit: "gh" is a single consonant, not g plus h. That
+ * matters because the cluster guard below counts units, and counting "bh" as
+ * two would block deletions that are correct.
+ */
+function syllabify(word: string): Syllable[] {
+  const out: Syllable[] = [];
+  let i = 0;
+  let onset: string[] = [];
+  while (i < word.length) {
+    const ch = word[i];
+    if (isVowelChar(ch)) {
+      // "ai" and "au" are single vowels, not two syllables.
+      let vowel = ch;
+      const next = word[i + 1];
+      if (ch === "a" && (next === "i" || next === "u")) {
+        vowel = ch + next;
+        i += 1;
+      }
+      let tail = "";
+      // Anusvara, visarga, candrabindu: they close the syllable, they do not
+      // open the next one.
+      // EXPLICIT CODEPOINTS, NOT LITERALS. Writing candrabindu as `m̐` in a
+      // character class puts a bare `m` in it, because the glyph is m plus a
+      // combining mark: every m after a vowel was then swallowed as a tail,
+      // which turned `kema cho` back into `kema cho` and `namaste` into
+      // `namste`. U+1E41 ṁ, U+1E43 ṃ, U+1E25 ḥ, plus the combining block.
+      while (i + 1 < word.length && /[\u0300-\u036f\u1e41\u1e43\u1e25~]/.test(word[i + 1])) {
+        tail += word[i + 1];
+        i += 1;
+      }
+      out.push({ onset, vowel, tail });
+      onset = [];
+      i += 1;
+      continue;
+    }
+    // A consonant unit: the letter plus an aspirating h.
+    let unit = ch;
+    if (word[i + 1] === "h" && ch !== "h") {
+      unit += "h";
+      i += 1;
+    }
+    onset.push(unit);
+    i += 1;
+  }
+  if (onset.length) out.push({ onset, vowel: "", tail: "" });
+  return out;
+}
+
+function render(syllables: Syllable[]): string {
+  return syllables.map((s) => s.onset.join("") + s.vowel + s.tail).join("");
+}
+
+/**
+ * Deletes the schwas a Hindi or Gujarati speaker does not say.
+ *
+ * RIGHT TO LEFT, AND DELIBERATELY TIMID. Real schwa deletion is a hard problem
+ * and a wrong romanization is worse than a clumsy one, so every rule here
+ * refuses rather than guesses:
+ *
+ *  - only a BARE `a`, never `ā` or any other vowel;
+ *  - never the first syllable: ghrmā is not a word;
+ *  - never when the syllable to the right has no vowel of its own;
+ *  - never two in a row;
+ *  - never when the consonants either side would merge into more than two
+ *    units. That one guard is what keeps नमस्ते as `namaste` rather than
+ *    `namste`, because m + st is three.
+ *
+ * The word-final schwa goes first and by the same rules, so `ābhāra` becomes
+ * `ābhār` while `rājā` keeps its ending.
+ */
+function deleteSchwas(text: string): string {
+  return text
+    .split(/(\s+)/)
+    .map((word) => {
+      if (!word.trim()) return word;
+      const syl = syllabify(word.normalize("NFC"));
+      if (syl.length < 2) return word;
+
+      // The final inherent 'a', when the word truly ends on it.
+      const last = syl[syl.length - 1];
+      if (last.vowel === "a" && !last.tail && last.onset.length > 0) {
+        last.vowel = "";
+      }
+
+      const deleted = new Set<number>();
+      for (let i = syl.length - 2; i >= 1; i--) {
+        const here = syl[i];
+        const right = syl[i + 1];
+        if (here.vowel !== "a" || here.tail) continue;
+        if (!right.vowel) continue;
+        if (deleted.has(i + 1)) continue;
+        if (here.onset.length + right.onset.length > 2) continue;
+        here.vowel = "";
+        deleted.add(i);
+      }
+      return render(syl);
+    })
+    .join("");
 }
 
 /**
@@ -148,19 +280,19 @@ export function romanizeTranscript(
     return "";
   }
 
-  const { ascii, dropped } = toAscii(iast);
+  const schwaDeleting = languageCode && SCHWA_DELETING_LANGS.has(languageCode)
+    ? true
+    : !languageCode && SCHWA_DELETING_SCHEMES.has(scheme);
+  // BEFORE toAscii, which is the fix: once ā is flattened to a there is no
+  // way left to tell a schwa from a vowel the speaker says.
+  const shaped = schwaDeleting ? deleteSchwas(iast.toLowerCase()) : iast;
+
+  const { ascii, dropped } = toAscii(shaped);
   const letters = ascii.replace(/[^a-zA-Z]/g, "").length;
   // Garbage guard: if transliteration left a meaningful share of unmapped
   // native glyphs behind (they were dropped in toAscii), show nothing rather
   // than a mangled fragment.
   if (letters === 0 || dropped > Math.ceil(letters * 0.15)) return "";
 
-  let out = ascii.toLowerCase().replace(/\s+/g, " ").trim();
-  const schwaDeleting = languageCode && SCHWA_DELETING_LANGS.has(languageCode)
-    ? true
-    : !languageCode && SCHWA_DELETING_SCHEMES.has(scheme);
-  if (schwaDeleting) {
-    out = deleteFinalSchwa(out);
-  }
-  return out;
+  return ascii.toLowerCase().replace(/\s+/g, " ").trim();
 }

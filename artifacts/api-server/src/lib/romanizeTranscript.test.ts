@@ -47,6 +47,33 @@ describe("romanizeTranscript", () => {
     assert.equal(romanizeTranscript("സുഖമാണോ", "ml"), "sukhamano");
   });
 
+  test("internal schwas go, and real vowels stay", () => {
+    // Owner, 2026-08-28, reading his own words mirrored back from a Gujarati
+    // call: `gharamam` for ઘરમાં, which should read `gharmam`. Only the
+    // word-FINAL schwa was ever deleted, so every middle one survived.
+    assert.equal(romanizeTranscript("ઘરમાં", "gu"), "gharmam");
+    assert.equal(romanizeTranscript("રોટલી અને દાળ", "gu"), "rotli ane dal");
+    assert.equal(romanizeTranscript("શુક્રિયા", "hi"), "sukriya");
+  });
+
+  test("a long a at the end is a vowel, not a schwa", () => {
+    // The old rule ran AFTER the macrons were stripped, so it could not tell
+    // ā from a and would have taken the ending off રાજા. Deciding on IAST is
+    // what makes the two distinguishable at all.
+    assert.equal(romanizeTranscript("રાજા", "gu"), "raja");
+    assert.equal(romanizeTranscript("મજામાં", "gu"), "majamam");
+  });
+
+  test("a schwa a cluster needs is kept", () => {
+    // Real schwa deletion is hard and a wrong romanization is worse than a
+    // clumsy one, so the rule refuses whenever the consonants either side
+    // would merge into more than two units. m + st is three, which is the
+    // whole reason નમસ્તે is not `namste`.
+    assert.equal(romanizeTranscript("નમસ્તે", "gu"), "namaste");
+    assert.equal(romanizeTranscript("नमस्ते", "hi"), "namaste");
+    assert.equal(romanizeTranscript("সুপ্রভাত", "bn"), "suprabhat");
+  });
+
   test("uncovered scripts return empty, never garbage", () => {
     // Perso-Arabic (Urdu, Sindhi, Kashmiri): unvocalized consonant skeletons.
     assert.equal(romanizeTranscript("کیسے ہو", "ur"), "");
