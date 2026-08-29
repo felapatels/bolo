@@ -912,7 +912,10 @@ describe('journey map — build 31 signboard dressing + rail pulse', () => {
 
     expect(screen.getByTestId('signboard-bar')).toBeOnTheScreen();
     expect(screen.getByTestId('stop-glow')).toBeOnTheScreen();
-    expect(screen.getAllByTestId('station-sign-glyph').length).toBe(1);
+    // INVERTED in build 17: the sign glyph came off the current card so the
+    // taste chip stays on the title row ("chip for free taste should be in
+    // upper right like 2 and 3"). No card wears it now.
+    expect(screen.queryAllByTestId('station-sign-glyph').length).toBe(0);
 
     // Non-current stops get the tick; the signboard stop does not.
     expect(screen.getByTestId(`stop-tick-${a.id}`)).toBeOnTheScreen();
@@ -973,7 +976,8 @@ describe('journey map — build 31 signboard dressing + rail pulse', () => {
       expect(screen.queryAllByTestId('rail-pulse-dot').length).toBe(0);
       expect(screen.queryByTestId('stop-glow')).toBeNull();
       expect(screen.getByTestId('signboard-bar')).toBeOnTheScreen();
-      expect(screen.getAllByTestId('station-sign-glyph').length).toBe(1);
+      // Inverted in build 17 with the case above: no sign glyph on any card.
+      expect(screen.queryAllByTestId('station-sign-glyph').length).toBe(0);
     } finally {
       spy.mockRestore();
     }

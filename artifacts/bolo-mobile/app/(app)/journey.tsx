@@ -301,19 +301,6 @@ function isStatusAccessible(status: LessonGroupSummary['status']): boolean {
   );
 }
 
-/** Station signboard silhouette shown beside the current stop's name — the
- *  rn-svg port of the web StationSignGlyph (journey.tsx). */
-function StationSignGlyph({ color }: { color: string }) {
-  return (
-    <Svg testID="station-sign-glyph" width={14} height={12} viewBox="0 0 14 12" fill="none">
-      <Path d="M1 4 L7 0.5 L13 4 Z" fill={color} />
-      <Rect x={2.5} y={4.5} width={9} height={3.5} rx={1} fill={color} opacity={0.3} />
-      <Rect x={3.5} y={8} width={1.4} height={4} fill={color} />
-      <Rect x={9.1} y={8} width={1.4} height={4} fill={color} />
-    </Svg>
-  );
-}
-
 /** Pulsing zone-colored ring around the current stop's signboard card (web:
  *  station-stop-glow keyframes, 2.6s opacity 0.45→1). Extracted so the loop
  *  hook lives outside the station map loop; callers gate on reduced motion.
@@ -3033,7 +3020,17 @@ export default function JourneyScreen() {
                             ground to stand on. 28, not 44: he is inside a
                             two-line card now rather than in the margin. */}
                         {isCurrent && <Mascot pose="cheer" size={28} motion="none" />}
-                        {isCurrent && <StationSignGlyph color={zoneColor} />}
+                        {/* THE SIGN GLYPH CAME OFF THE CURRENT CARD in build 17.
+                            Owner: "card 1 is disorganized. chip for free taste
+                            should be in upper right like 2 and 3." The row
+                            wraps, and on the current card the mascot and the
+                            glyph together pushed mascot + title + chip to 216
+                            against 214 of content at cardW 250, so the chip
+                            dropped a line. The glyph was the fourth mark of
+                            "you are here" on one card (accent edge, glow,
+                            mascot, glyph); the mascot stays and the row is
+                            196 wide now. Web keeps its glyph: its card is not
+                            width-bound the same way. */}
                         <Text
                           style={[
                             styles.cardTitle,
