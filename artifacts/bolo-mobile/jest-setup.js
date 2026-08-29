@@ -81,7 +81,20 @@ jest.mock('react-native-reanimated', () => {
     // stand-in that never attaches would leave that behaviour untestable and
     // silently green.
     useAnimatedRef: () => React.useRef(null),
-    withTiming: (v) => v,
+    // THE COMPLETION CALLBACK FIRES, on the next macrotask (build 21). The
+    // journey's opening shot travels on the UI thread (reanimated scrollTo
+    // per frame from withTiming), which no test renderer can see; what it CAN
+    // see is the landing the completion callback makes. Deferred by a timer
+    // rather than called inline so a callback that sets state never runs
+    // inside the render that started it; suites on fake timers reach it with
+    // advanceTimersByTime, which the journey map's do.
+    withTiming: (v, _cfg, cb) => {
+      if (typeof cb === 'function') setTimeout(() => cb(true), 0);
+      return v;
+    },
+    // reanimated's UI-thread scrollTo. A no-op here: the reaction that would
+    // call it (useAnimatedReaction) is itself a no-op under jest.
+    scrollTo: () => {},
     withSpring: (v) => v,
     withRepeat: (v) => v,
     withSequence: (v) => v,

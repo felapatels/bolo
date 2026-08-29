@@ -480,9 +480,11 @@ describe('journey map — the opening shot (Task 1082 item 4, recut 2026-08-26)'
 
   let scrollTo: jest.SpyInstance;
 
-  /** Past the hold and the whole hop chain (build 17): the travel is a chain
-   *  of the platform's own animated scrolls, one hop of about a row every
-   *  beat, at most ten. 10 x 600 outruns INTRO_HOP_MS x INTRO_HOPS_MAX. */
+  /** Past the hold and the whole travel. The travel is one continuous crawl
+   *  on the UI thread (build 21), INTRO_HOP_MS per row capped at
+   *  INTRO_HOPS_MAX rows' worth; 10 x 600 outruns it, and the mock's
+   *  withTiming completion (the landing) rides a zero timer inside that
+   *  window. */
   const playWholeShot = () => {
     jest.advanceTimersByTime(INTRO_SCROLL.holdMs + 10 * 600);
   };
@@ -517,20 +519,29 @@ describe('journey map — the opening shot (Task 1082 item 4, recut 2026-08-26)'
     render(<JourneyScreen />);
     layOutMap();
     playWholeShot();
-    // ONE animated scroll, not a frame loop. The hand-rolled tween drove
-    // scrollTo({ animated: false }) once per requestAnimationFrame, passed
-    // every test because the test renderer hands out the frames itself, and
-    // did not move a real ScrollView: "the AutoZone didn't work", twice off
-    // TestFlight. Duration control is worth less than working.
-    // A CHAIN OF ANIMATED SCROLLS, not one (build 17): "autoscroll happens
-    // too quickly when you join this page. slow it down so you can see the
-    // stops you passed." Every hop is the platform's own animated scroll, the
-    // hops climb, and the last one is the destination.
-    expect(scrollTo.mock.calls.length).toBeGreaterThan(1);
-    expect(scrollTo.mock.calls.length).toBeLessThanOrEqual(10);
-    for (const call of scrollTo.mock.calls) expect(call[0]).toMatchObject({ animated: true });
-    const ys = scrollTo.mock.calls.map((c) => (c[0] as { y: number }).y);
-    for (let i = 1; i < ys.length; i++) expect(ys[i]).toBeGreaterThan(ys[i - 1]!);
+    // INVERTED IN BUILD 21, with the owner's words: "the autoscroll that
+    // plays on journey page load is choppy, not a smooth crawl" (and of web,
+    // one continuous tween, "its smooth"). Build 17's chain of platform
+    // animated scrolls, one row-sized hop a beat, was the choppiness: iOS
+    // animates a hop in a quarter second and the map sat dead for the rest
+    // of each beat (150ms stops, measured on the simulator at 60fps). The
+    // pins here used to count 2 to 10 climbing `animated: true` hops.
+    //
+    // The travel is now ONE continuous crawl on the UI thread: reanimated's
+    // scrollTo per frame from withTiming, the same worklet machinery that
+    // breathes the home pass in the shipped build. The renderer cannot see a
+    // UI-thread frame, so what these tests see is exactly one JS-visible
+    // scroll: the LANDING the completion callback makes through landIntro,
+    // animated: false, on the destination. That landing is deliberate belt
+    // and braces: it is the same call a touch uses to land the shot in the
+    // shipped app, so whatever the crawl does on a given device the learner
+    // ends on their stop. Not the hop chain, and not the JS
+    // requestAnimationFrame tween before it, which passed every test and did
+    // not move the map on a device ("the AutoZone didn't work", twice off
+    // TestFlight): there is no JS frame loop here to pass for the wrong
+    // reason.
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo.mock.calls[0]![0]).toMatchObject({ animated: false });
     // Past the top of the line: this learner's stop is the twelfth, so the map
     // does not leave them staring at stop 1.
     expect(lastScrollY()).toBeGreaterThan(0);

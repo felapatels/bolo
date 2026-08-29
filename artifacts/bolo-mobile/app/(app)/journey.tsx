@@ -48,13 +48,18 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 import Animated, {
+  Easing,
+  cancelAnimation,
   interpolate,
+  scrollTo as scrollToOnUi,
   useAnimatedProps,
+  useAnimatedReaction,
   useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withTiming,
   type SharedValue,
   runOnJS,
 } from 'react-native-reanimated';
@@ -2057,9 +2062,51 @@ export default function JourneyScreen() {
    * Same hold, same cap, same ease, same skip.
    */
   const introHold = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** The hop chain of the opening shot (build 17), cleared by a touch. */
-  const introHop = useRef<ReturnType<typeof setTimeout> | null>(null);
   const introTarget = useRef<number | null>(null);
+  /**
+   * THE TRAVEL RUNS ON THE UI THREAD (build 21). Owner, off the simulator:
+   * "the autoscroll that plays on journey page load is choppy, not a smooth
+   * crawl", and of web, where it is one continuous tween, "its smooth".
+   *
+   * Build 17's chain of platform `scrollTo({ animated: true })` hops fired
+   * from a timer every INTRO_HOP_MS: iOS animates a hop over about a quarter
+   * second, so each one lurched a row, settled, and sat dead for the rest of
+   * its beat. Measured on the simulator at 60fps: a 150ms stop between hops.
+   * That chain had itself replaced a JS requestAnimationFrame tween which
+   * passed every test and did not move the map on a device ("the AutoZone
+   * didn't work", twice off TestFlight), and that tween's start sentinel was
+   * correct, so the verdict stands: no JS-thread frame loop.
+   *
+   * This is reanimated's own scrollTo, driven per frame on the UI thread by
+   * withTiming: the same worklet machinery that breathes the pass on home in
+   * the shipped 1.0.5 build. One continuous crawl from the top to the stop,
+   * the web twin's cubic in-out (Easing.inOut(Easing.cubic) IS
+   * introScrollEase), and the chain's own pace kept to the millisecond: a row
+   * per INTRO_HOP_MS, capped at INTRO_HOPS_MAX rows' worth so further still
+   * means faster.
+   *
+   * MEASURED AGAINST THREE OTHERS on the simulator the same evening, all with
+   * the same 60fps recording: this one is continuous with no dead stop but
+   * lands its offset coarsely there (about 12 updates a second on a dev
+   * bundle); native steps every 140ms or 50ms throb at the step rate; an
+   * animated contentOffset prop does not move the map at all. The recorder
+   * cannot grade a native fling either, so fine cadence is a TestFlight
+   * question. What is not in question: the dead stops are gone.
+   *
+   * THE LANDING IS A PLAIN JS scrollTo, the same call a touch uses to land
+   * the shot in the shipped app, so whatever the UI-thread crawl does on a
+   * given device the learner ends on their stop, never stranded at the top.
+   */
+  const introProgress = useSharedValue(0);
+  const introTo = useSharedValue(0);
+  const introLive = useSharedValue(false);
+  useAnimatedReaction(
+    () => introProgress.value,
+    (p) => {
+      if (!introLive.value) return;
+      scrollToOnUi(scrollRef, 0, introTo.value * p, false);
+    },
+  );
 
   /** Stop the shot wherever it is and put the learner on their card. */
   const landIntro = useCallback(() => {
@@ -2067,24 +2114,23 @@ export default function JourneyScreen() {
       clearTimeout(introHold.current);
       introHold.current = null;
     }
-    if (introHop.current != null) {
-      clearTimeout(introHop.current);
-      introHop.current = null;
-    }
+    introLive.value = false;
+    cancelAnimation(introProgress);
     const y = introTarget.current;
     if (y == null) return;
     introTarget.current = null;
     scrollRef.current?.scrollTo({ y, animated: false });
-  }, [scrollRef]);
+  }, [scrollRef, introLive, introProgress]);
 
-  // Leaving the screen mid-shot must not leave a frame loop or a timer behind
-  // pointing at an unmounted scroll view.
+  // Leaving the screen mid-shot must not leave a timer or a UI-thread tween
+  // behind pointing at an unmounted scroll view.
   useEffect(
     () => () => {
       if (introHold.current != null) clearTimeout(introHold.current);
-      if (introHop.current != null) clearTimeout(introHop.current);
+      introLive.value = false;
+      cancelAnimation(introProgress);
     },
-    [],
+    [introLive, introProgress],
   );
 
   const onMapLayout = (e: LayoutChangeEvent) => {
@@ -2117,41 +2163,34 @@ export default function JourneyScreen() {
 
     introHold.current = setTimeout(() => {
       introHold.current = null;
-      // introTarget stays set until the LAST hop lands, so a touch mid-chain
+      // introTarget stays set until the travel lands, so a touch mid-crawl
       // still lands the whole shot rather than stopping it halfway.
-      // THE PLATFORM'S OWN ANIMATED SCROLL, not a hand-rolled tween.
       //
-      // The tween drove scrollTo({ animated: false }) once per
-      // requestAnimationFrame. It passed every test, because the test renderer
-      // hands out the frames itself, and it did not move the map on a device.
-      // Reported twice off TestFlight: "the AutoZone didn't work".
-      //
-      // The duration control it bought is worth less than working: a shot that
-      // never fires has no pace to tune. `animated: true` is what this screen
-      // used before the hold existed and is known to move a real ScrollView.
-      // The HOLD is the half the owner actually asked for and it is kept.
-      // IN STATION-SIZED HOPS, NOT ONE LEAP (build 17). Owner: "autoscroll
+      // A ROW PER BEAT, NOT A FIXED CAP (build 17). Owner: "autoscroll
       // happens too quickly when you join this page. slow it down so you can
-      // see the stops you passed." The platform's animated scroll has no
-      // duration, and it is the only scroll proven to move a real ScrollView
-      // here, so the shot is a chain of them: one hop of about a row every
-      // INTRO_HOP_MS, capped at INTRO_HOPS_MAX so a learner six zones down is
-      // not kept waiting (bigger hops, same beat). A touch still lands the
-      // whole shot at once: landIntro clears the chain.
-      const hops = Math.min(INTRO_HOPS_MAX, Math.max(1, Math.round(to / INTRO_HOP_PX)));
-      let hop = 0;
-      const next = () => {
-        hop += 1;
-        const y = hop >= hops ? to : Math.round((to * hop) / hops);
-        scrollRef.current?.scrollTo({ y, animated: true });
-        if (hop < hops) {
-          introHop.current = setTimeout(next, INTRO_HOP_MS);
-        } else {
-          introHop.current = null;
-          introTarget.current = null;
-        }
-      };
-      next();
+      // see the stops you passed." The travel takes INTRO_HOP_MS per row of
+      // map, capped at INTRO_HOPS_MAX rows' worth so a learner six zones down
+      // is not kept waiting: past the cap, further means faster on the same
+      // beat. Build 17 spent that time as a chain of hops; build 21 spends
+      // exactly the same time as one continuous crawl (see introProgress).
+      const rows = Math.min(INTRO_HOPS_MAX, Math.max(1, Math.round(to / INTRO_HOP_PX)));
+      const dur = rows * INTRO_HOP_MS;
+      // The same time build 17 spent as hops, spent as one crawl. See
+      // introProgress above for the mechanism and what it was measured
+      // against.
+      introTo.value = to;
+      introProgress.value = 0;
+      introLive.value = true;
+      introProgress.value = withTiming(
+        1,
+        { duration: dur, easing: Easing.inOut(Easing.cubic) },
+        (finished) => {
+          'worklet';
+          introLive.value = false;
+          // The landing, from the JS side, whether the crawl ran or not.
+          if (finished) runOnJS(landIntro)();
+        },
+      );
     }, INTRO_SCROLL.holdMs);
   };
 
