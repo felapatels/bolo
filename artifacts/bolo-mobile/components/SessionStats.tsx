@@ -1,9 +1,12 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useGetTokens } from '@workspace/api-client-react';
 import { XpCounter } from '@/components/XpCounter';
+import { ChaiGlyph } from '@/components/ChaiStall';
+import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
+import { hapticLight } from '@/lib/haptics';
 
 /**
  * XP AND CHAI, TOGETHER, ON THE SCREENS WHERE THEY ARE EARNED.
@@ -39,27 +42,47 @@ export function ChaiPill({ compact = false }: { compact?: boolean } = {}) {
   const colors = useColors();
   const tokens = useGetTokens();
   const balance = tokens.data?.balance;
+  // THE PILL IS A DOOR TO THE WALLET (build 21, owner off the flashback's
+  // header: "if i click on that chai up top it should open my chai wallet
+  // slideout"). It owns its own sheet rather than asking every host screen to
+  // mount one: the practice, review and game screens all show this pill and
+  // none of them had a wallet, which is exactly how the home-only wallet
+  // came to be. The sheet is the same ChaiWalletSheet home opens.
+  const [walletOpen, setWalletOpen] = React.useState(false);
   // Absent, not zero, until the balance is known. A "0" that becomes "23" a
   // beat later reads as having just lost everything.
   if (balance === undefined) return null;
   return (
-    <View
-      testID="session-chai"
-      accessibilityLabel={`${balance} Chai`}
-      style={[
-        styles.chai,
-        compact && styles.chaiCompact,
-        { backgroundColor: colors.primary + '14', borderColor: colors.primary + '38' },
-      ]}
-    >
-      {/* A cup, a number and the word. Never the colour alone: the glyph and the
-          label both carry it, so the pill reads without relying on hue. */}
-      <Text style={[styles.cup, compact && styles.cupCompact]}>🍵</Text>
-      <Text style={[styles.value, compact && styles.valueCompact, { color: colors.primary }]}>
-        {balance}
-      </Text>
-      {!compact && <Text style={[styles.label, { color: colors.primary }]}>Chai</Text>}
-    </View>
+    <>
+      <Pressable
+        testID="session-chai"
+        accessibilityRole="button"
+        accessibilityLabel={`${balance} Chai`}
+        accessibilityHint="Opens your Chai wallet"
+        hitSlop={6}
+        onPress={() => {
+          hapticLight();
+          setWalletOpen(true);
+        }}
+        style={[
+          styles.chai,
+          compact && styles.chaiCompact,
+          { backgroundColor: colors.primary + '14', borderColor: colors.primary + '38' },
+        ]}
+      >
+        {/* A cup, a number and the word. Never the colour alone: the glyph and
+            the label both carry it, so the pill reads without relying on hue.
+            THE KULHAD, NOT A TEACUP (build 21, owner: "this is the wrong icon
+            for chai"): the same clay cup every other Chai surface draws, via
+            ChaiGlyph, in place of a 🍵 emoji that read as green tea. */}
+        <ChaiGlyph size={compact ? 12 : 15} testID="session-chai-glyph" />
+        <Text style={[styles.value, compact && styles.valueCompact, { color: colors.primary }]}>
+          {balance}
+        </Text>
+        {!compact && <Text style={[styles.label, { color: colors.primary }]}>Chai</Text>}
+      </Pressable>
+      <ChaiWalletSheet visible={walletOpen} onClose={() => setWalletOpen(false)} />
+    </>
   );
 }
 
@@ -96,8 +119,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   chaiCompact: { paddingHorizontal: 6, paddingVertical: 2, gap: 3 },
-  cup: { fontSize: 12 },
-  cupCompact: { fontSize: 10 },
   valueCompact: { fontSize: 11 },
   value: { fontFamily: AppFonts.extrabold, fontSize: 13 },
   label: { fontFamily: AppFonts.semibold, fontSize: 10 },
