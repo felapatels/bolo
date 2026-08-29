@@ -92,13 +92,13 @@ Run from the repo root.
   The script runs `sync-schema` first, so running the api tests APPLIES pending
   migrations to the dev database.
 - web: `pnpm --filter @workspace/gujarati-coach run test` (vitest)
-  Baseline **131 files, 1430 tests, all pass**, measured 2026-08-29 (build 18).
+  Baseline **131 files, 1434 tests, all pass**, measured 2026-08-29 (build 18).
   (Was 131 / 1421 on 2026-08-28, 128 / 1399 on 2026-08-27, and 93 suites / 842 tests before that.) One flake seen once on 2026-08-27, a single
   failure that did not reproduce across two immediate re-runs; noted rather
   than chased, and worth watching for.
 - mobile: `pnpm --filter @workspace/bolo-mobile run test` (jest)
-  Baseline **141 suites, 1359 tests, all pass**, measured 2026-08-28 (build 17).
-  (Was 132 / 1307 on 2026-08-27, and 108 suites / 1007 tests before that.) Needs `--forceExit`; workers leak and CI does not pass
+  Baseline **141 suites, 1365 tests, all pass**, measured 2026-08-29 (build 18).
+  (Was 141 / 1359 on 2026-08-28, 132 / 1307 on 2026-08-27, and 108 suites / 1007 tests before that.) Needs `--forceExit`; workers leak and CI does not pass
   that flag. Known open item.
 
 **Never run the api suite concurrently with web.** A different total is not a

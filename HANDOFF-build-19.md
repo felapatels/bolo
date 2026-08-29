@@ -22,8 +22,34 @@ Written 2026-08-29 by BOLO Build 18. **Read `CLAUDE.md` first, then this.**
   stall's invitation, the row-per-beat opening shot with the clearance floor,
   the light warm band wash, and the showroom rows through `planZoneRows`.
 
-Web suite **131 files / 1430 tests** (was 1421), typecheck clean. Eleven
-assertions inverted with the owner's words beside each, five pins added.
+Web suite **131 files / 1434 tests** (was 1421), typecheck clean. Eleven
+assertions inverted with the owner's words beside each, nine pins added.
+
+Then, off the owner's screenshots and asks the same morning:
+
+- `c1f11a18` **the web ticket scales with the board** ("boarding pass ticket
+  on web is too small and not responsive to size"): `hooks/use-element-width`
+  measures the board's content box, `homeTicketScale` runs 1 (phone, parity
+  with mobile's 148) to 1.8 (a 700px column), and `MiniTicket` takes a `scale`
+  that moves its type, paddings, notches and the stamp's extent together.
+  The stamp's three rows now also fit the ring DOWN, not only across.
+- **The splash** (mobile, next build): the native splash is the bird on
+  WHITE (`app.json` splash.backgroundColor #FFFFFF) and BrandSplash draws a
+  matching bird-on-white plate as its top layer, releases the native splash
+  only once the plate's bird has loaded, then crossfades the plate over the
+  film (600ms). expo-splash-screen's own fade is iOS-only, which is why the
+  crossfade is drawn in JS and reaches Android. The READY hold now counts
+  from the crossfade, not from mount. Verified in the simulator with three
+  150ms screenshot bursts; mobile suite 141 / 1365.
+
+**ASKED FOR THE NEXT BUILD ROUND, NOT STARTED: the Meta SDK.** Owner: "need
+to add meta sdk to builds next round." That is `react-native-fbsdk-next` with
+its config plugin (App ID, client token, display name), the iOS ATT prompt
+string and SKAdNetwork entries, the Android manifest meta-data, and the
+`AppEventsLogger` activate call at launch. A native change, so it rides an
+EAS build, and the launch path is the one place this app has crashed: put
+the initialisation AFTER the fonts and the film, never at module load, and
+give it the same census guard splash-film.test.tsx gives expo-image.
 
 **NOT DONE, ON PURPOSE:** the card slide-in (section 3 item 13, optional),
 retiring `HALT_H` on web (it only feeds one scenery test's old lane geometry;
@@ -131,6 +157,14 @@ pasted anywhere until they do.
 
 ## 5. PARKED (carried forward)
 
+0. **The Meta SDK in the next build round** (section 0), and the splash
+   change above needs a STORE build to be seen: the native splash colour is
+   baked at prebuild, and the local dev client's `ios/` storyboard is stale
+   (it already draws white with a 100pt logo, which is not what EAS's legacy
+   branch draws). The day's FIRST launch still crossfades into the empty
+   bazaar before Bolo flies in; if the owner wants the bird to become the
+   film's bird, the film itself needs a white opening, which is an asset
+   change.
 1. A one-pager map view of the whole journey, home's View Map destination.
 2. Repl: pull, api suite, republish for `encounterChai`.
 3. The camera permission string in `app.json` before
