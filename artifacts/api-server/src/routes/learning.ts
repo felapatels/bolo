@@ -140,7 +140,12 @@ import {
   FREE_PHRASE_CEILING,
 } from "../lib/phraseReplenisher";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
-import { applyFsrsRating, scoreAndBandToRating } from "../lib/fsrsScheduler";
+import {
+  HESITATION_MS,
+  applyFsrsRating,
+  ratingAfterHesitation,
+  scoreAndBandToRating,
+} from "../lib/fsrsScheduler";
 import type { PronunciationBand } from "../lib/fsrsScheduler";
 import {
   bandFromScore,
@@ -1171,16 +1176,20 @@ router.post(
 
 // How many weak phrases a single review session gathers.
 const REVIEW_SESSION_SIZE = 12;
+// THE FLASHBACK IS FREE (owner ruling A, 2026-08-29): up to this many due
+// phrases serve to every plan, so the between-stops flashback can reach the
+// free tier where retention is won. The full drill above it stays Plus.
+export const FLASHBACK_FREE_SIZE = 3;
 
-// GET /review/phrases?lang=xx — the learner's not-yet-mastered phrases for one
-// language, ordered by a spaced-repetition schedule so the ones they're about to
-// forget surface first, to power a targeted review session. A phrase qualifies
-// once it has been practiced (has at least one attempt) but its best score is
-// still below the mastery threshold. Each weak phrase carries a Leitner "box"
-// that widens the gap before it resurfaces on passing attempts and resets on a
-// miss; we order due-first (soonest/most-overdue due date first) and break ties
-// weakest-first. Returns [] when the learner has nothing to review (all
-// mastered, or nothing practiced yet).
+// GET /review/phrases?lang=xx&limit=N — the learner's due phrases for one
+// language, soonest-due first, to power a review session. A phrase qualifies
+// once it has been practiced (reps > 0), is not yet stable (FSRS stability
+// under 21 days) and is due now; the FSRS schedule in user_item_memory
+// decides when, moving a phrase out on Good and Easy and back in on Hard,
+// Again and a long hesitation. `limit` (1 to REVIEW_SESSION_SIZE, default the
+// full session) is the flashback's door: at FLASHBACK_FREE_SIZE or fewer no
+// plan gate applies. Returns [] when nothing is due. (This comment used to
+// describe a Leitner box and a best-score rule that the query never had.)
 router.get(
   "/review/phrases",
   async (req: Request, res: Response): Promise<void> => {
@@ -1190,9 +1199,15 @@ router.get(
       return;
     }
     const userId = getUserId(req);
+    const requestedLimit = Number.parseInt(String(req.query.limit ?? ""), 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(REVIEW_SESSION_SIZE, Math.max(1, requestedLimit))
+      : REVIEW_SESSION_SIZE;
 
-    // Review / weakest-phrase sessions are a Bolo! Plus feature.
+    // The full drill is a Bolo! Plus feature; the flashback (three or fewer)
+    // is free to every plan (owner ruling A, 2026-08-29).
     if (
+      limit > FLASHBACK_FREE_SIZE &&
       denyLockedFeature(
         req,
         res,
@@ -1225,7 +1240,7 @@ router.get(
           ),
         )
         .orderBy(asc(userItemMemoryTable.dueAt))
-        .limit(REVIEW_SESSION_SIZE),
+        .limit(limit),
       db
         .select({
           phraseId: attemptsTable.phraseId,
@@ -1504,7 +1519,12 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   let fsrsRating: number | undefined;
   let fsrsUpdate: ReturnType<typeof applyFsrsRating> | undefined;
   if (claims.phraseId != null && !isNocatch) {
-    const rating = scoreAndBandToRating(claims.score, band);
+    // A long pause before speaking pulls the rating one notch down (build
+    // 20): the phrase comes back sooner, the pass still stands.
+    const rating = ratingAfterHesitation(
+      scoreAndBandToRating(claims.score, band),
+      claims.hesitationMs ?? null,
+    );
     fsrsRating = rating;
     fsrsUpdate = applyFsrsRating(
       memoryRow
@@ -1552,6 +1572,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
       // comparable STT pass after the other drifted into an unverifiable
       // script. Absent on tokens issued before the rescue existed.
       sttGlitchRescue: claims.sttGlitchRescue === true,
+      hesitated: claims.hesitationMs != null && claims.hesitationMs >= HESITATION_MS,
     }),
     // S1 dual-pass honesty fields, replayed verbatim from the signed token.
     // Null (not empty string) when the token predates dual-pass STT.

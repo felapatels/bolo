@@ -360,11 +360,16 @@ export const AddCategoryPhrasesResponse = zod.array(AddCategoryPhrasesResponseIt
 
 
 /**
- * Returns the phrases the learner has practiced but not yet mastered (best attempt score below the mastery threshold) for the given language, ordered by a spaced-repetition schedule so phrases that are due (or overdue) to be reviewed surface first, with the weakest best score breaking ties. Each phrase climbs a Leitner-style spacing ladder on passing attempts (widening the gap before it resurfaces) and resets on a miss. Returns an empty array when there is nothing to review.
- * @summary The learner's not-yet-mastered phrases for a language, spaced-repetition ordered (due first)
+ * Returns the phrases the learner has practiced, has not yet made stable, and is due to see again, for the given language, soonest-due first. The FSRS schedule in user_item_memory decides when a phrase is due: Good and Easy attempts push it out, Hard and Again attempts and a long hesitation before speaking bring it back sooner. Returns an empty array when nothing is due. `limit` caps the session; a request for three or fewer phrases is the between-stops flashback and is free to every plan, while the full drill above that is Bolo! Plus.
+ * @summary The learner's due phrases for a language, soonest-due first
  */
+export const listReviewPhrasesQueryLimitMax = 12;
+
+
+
 export const ListReviewPhrasesQueryParams = zod.object({
-  "lang": zod.coerce.string()
+  "lang": zod.coerce.string(),
+  "limit": zod.coerce.number().min(1).max(listReviewPhrasesQueryLimitMax).optional().describe('How many phrases to return, 1 to 12 (default 12). Three or fewer needs no plan: that is the flashback between stops.')
 })
 
 export const ListReviewPhrasesResponseItem = zod.object({

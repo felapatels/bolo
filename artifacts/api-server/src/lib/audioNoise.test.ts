@@ -25,7 +25,8 @@ mock.module("@workspace/integrations-openai-ai-server/audio", {
   },
 });
 
-const { snrDbFromWav, measureAttemptSnrDb } = await import("./audioNoise");
+const { snrDbFromWav, measureAttemptSnrDb, leadingSilenceMsFromWav, measureAttemptAudio } =
+  await import("./audioNoise");
 
 // ── Synthetic clip helpers ───────────────────────────────────────────────────
 
@@ -166,6 +167,66 @@ describe("measureAttemptSnrDb", () => {
     convertBehaviour = () => Buffer.from("still not audio");
     const snr = await measureAttemptSnrDb(Buffer.from("webm-bytes"), "webm");
     assert.equal(snr, null);
+    convertBehaviour = (buf) => buf;
+  });
+});
+
+// ── Hesitation: the silence before the learner's voice (build 20) ───────────
+
+describe("leadingSilenceMsFromWav", () => {
+  test("a pause before speaking is measured to the frame", () => {
+    const clip = wav([...noise(500, 40), ...tone(400, 8000)]);
+    const ms = leadingSilenceMsFromWav(clip);
+    assert.ok(ms !== null);
+    assert.ok(Math.abs(ms - 500) <= 40, `expected about 500 ms, got ${ms}`);
+  });
+
+  test("speaking straight away reads as no hesitation", () => {
+    const ms = leadingSilenceMsFromWav(wav(tone(600, 8000)));
+    assert.equal(ms, 0);
+  });
+
+  test("a long pause is a long pause, not a capped one", () => {
+    const clip = wav([...noise(2000, 40, 7), ...tone(300, 8000)]);
+    const ms = leadingSilenceMsFromWav(clip);
+    assert.ok(ms !== null && ms >= 1900 && ms <= 2100, `got ${ms}`);
+  });
+
+  test("a clip with no voice at all returns null rather than a pause", () => {
+    assert.equal(leadingSilenceMsFromWav(wav(new Array(9600).fill(0))), null);
+    assert.equal(leadingSilenceMsFromWav(wav(noise(800, 40))), null);
+  });
+
+  test("a click in the opening does not count as the voice", () => {
+    // One loud 5 ms spike, then quiet, then speech at 700 ms: the spike lifts
+    // frame 0 over the level line but not frame 1, and an onset has to hold
+    // for two frames.
+    const spike = tone(5, 6000);
+    const clip = wav([...spike, ...noise(695, 40, 3), ...tone(400, 8000)]);
+    const ms = leadingSilenceMsFromWav(clip);
+    assert.ok(ms !== null && ms >= 640, `spike must not read as onset, got ${ms}`);
+  });
+
+  test("bytes that are not WAV return null", () => {
+    assert.equal(leadingSilenceMsFromWav(Buffer.from("not audio")), null);
+  });
+});
+
+describe("measureAttemptAudio", () => {
+  test("returns both measurements from one decode of a wav clip", async () => {
+    convertCalls = 0;
+    const out = await measureAttemptAudio(wav([...noise(300, 40), ...tone(500, 8000)]), "wav");
+    assert.equal(convertCalls, 0);
+    assert.ok(out.snrDb !== null && out.snrDb > 20);
+    assert.ok(out.hesitationMs !== null && Math.abs(out.hesitationMs - 300) <= 40);
+  });
+
+  test("a conversion failure yields nulls, never a throw", async () => {
+    convertBehaviour = () => {
+      throw new Error("ffmpeg missing");
+    };
+    const out = await measureAttemptAudio(Buffer.from("x"), "m4a");
+    assert.deepEqual(out, { snrDb: null, hesitationMs: null });
     convertBehaviour = (buf) => buf;
   });
 });

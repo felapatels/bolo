@@ -47,6 +47,8 @@ export interface EvaluationClaims {
   // when the clip could not be measured. A DERIVED NUMBER only: no audio and
   // no extra transcript content travels with it.
   snrDb?: number | null;
+  /** Leading silence in the clip (build 20): the pause before the learner spoke. */
+  hesitationMs?: number | null;
   // Why the attempt failed to score, when the band is 'nocatch'. The cause
   // LABEL alone — the transcript-bearing nocatch diagnostic sidecars stay on
   // their pilot allowlist.

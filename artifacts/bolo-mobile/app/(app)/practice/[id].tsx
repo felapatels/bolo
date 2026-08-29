@@ -2255,10 +2255,24 @@ export default function PracticeScreen() {
             feedback={sessionFeedback}
             colors={colors}
           />
+          {/* A finished journey stop leaves through the flashback (build 20,
+              owner ruling): three due phrases from earlier stops, skippable,
+              then back to the map. This screen REPLACES itself with the
+              flashback so its back lands on the journey, between stops.
+              Any other session leaves for home the way it always did. */}
           <ChunkyButton
-            title="Back to home"
-            icon="home"
-            onPress={() => router.replace('/(app)/(tabs)')}
+            title={isGroup && !isTestout ? 'On to the next stop' : 'Back to home'}
+            icon={isGroup && !isTestout ? 'arrow-right' : 'home'}
+            onPress={() => {
+              if (isGroup && !isTestout) {
+                router.replace({
+                  pathname: '/(app)/review',
+                  params: { flashback: '1' },
+                } as Parameters<typeof router.replace>[0]);
+              } else {
+                router.replace('/(app)/(tabs)');
+              }
+            }}
             style={{ width: '100%', marginTop: 28 }}
           />
         </View>

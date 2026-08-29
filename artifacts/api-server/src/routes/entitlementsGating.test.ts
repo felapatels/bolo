@@ -412,6 +412,21 @@ test("free is denied review sessions (Plus-only feature)", async () => {
   assert.equal(json.feature, "review");
 });
 
+// THE FLASHBACK IS FREE (owner ruling A, 2026-08-29): the same route serves
+// up to three due phrases to every plan; the full drill above that stays Plus.
+test("free gets the three-phrase flashback from the review route", async () => {
+  const { status, json } = await get(`/review/phrases?lang=${FREE_LANGUAGE}&limit=3`);
+  assert.equal(status, 200);
+  assert.ok(Array.isArray(json));
+  assert.ok(json.length <= 3);
+});
+
+test("free is still denied a fourth phrase: the drill is Plus", async () => {
+  const { status, json } = await get(`/review/phrases?lang=${FREE_LANGUAGE}&limit=4`);
+  assert.equal(status, 402);
+  assert.equal(json.feature, "review");
+});
+
 test("free is denied advanced analytics (Plus-only feature)", async () => {
   const { status, json } = await get(`/progress/analytics?lang=${FREE_LANGUAGE}`);
   assert.equal(status, 402);

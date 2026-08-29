@@ -262,12 +262,29 @@ function RecordingGlow({ active }: { active: boolean }) {
   );
 }
 
-export default function Practice({ mode = "category" }: { mode?: "category" | "review" }) {
+/**
+ * THE FLASHBACK BETWEEN STOPS (build 20, owner ruling 2026-08-29): how many
+ * due phrases a finished stop brings back on the way to the next one. Three
+ * or fewer is the server's free door (FLASHBACK_FREE_SIZE in learning.ts);
+ * the full drill above it stays Plus. Mobile twin: app/(app)/review.tsx.
+ */
+export const FLASHBACK_SIZE = 3;
+
+export default function Practice({
+  mode = "category",
+}: {
+  mode?: "category" | "review" | "flashback";
+}) {
   const { categoryId } = useParams();
   const id = parseInt(categoryId || "0", 10);
-  const isReview = mode === "review";
+  // The flashback IS a review session in every respect but three: it asks
+  // for FLASHBACK_SIZE phrases, it can be skipped, and leaving it goes on to
+  // `next` (the journey by default) rather than home.
+  const isFlashback = mode === "flashback";
+  const isReview = mode === "review" || isFlashback;
   const search = useSearch();
   const searchParams = new URLSearchParams(search);
+  const flashbackNext = searchParams.get("next") || "/journey";
   const startPhraseId = searchParams.get("phrase");
   const skipMastered = searchParams.get("skipMastered") === "true";
   // The Plus-only sentence stage practices through this same session flow —
@@ -323,7 +340,20 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
 
   // Where "back" goes: the review session lives off the Home dashboard, while a
   // normal lesson belongs to its category.
-  const backHref = isReview ? "/app" : isGroup || isZoneTestout ? "/journey" : `/learn/${id}`;
+  const backHref = isFlashback
+    ? flashbackNext
+    : isReview
+      ? "/app"
+      : isGroup || isZoneTestout
+        ? "/journey"
+        : `/learn/${id}`;
+  // A finished journey stop leaves through the flashback (build 20): three
+  // due phrases from earlier stops, skippable, then the journey. Everything
+  // else leaves the way it always did.
+  const doneHref =
+    isGroup && !isTestout
+      ? `/flashback?next=${encodeURIComponent("/journey")}`
+      : backHref;
 
   const categoryQuery = useListCategoryPhrases(id, activeLang, {
     query: {
@@ -337,15 +367,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
       queryKey: getListCategorySentencesQueryKey(id, activeLang),
     },
   });
-  const reviewQuery = useListReviewPhrases(
-    { lang: activeLang },
-    {
-      query: {
-        enabled: isReview,
-        queryKey: getListReviewPhrasesQueryKey({ lang: activeLang }),
-      },
+  const reviewParams = isFlashback
+    ? { lang: activeLang, limit: FLASHBACK_SIZE }
+    : { lang: activeLang };
+  const reviewQuery = useListReviewPhrases(reviewParams, {
+    query: {
+      enabled: isReview,
+      queryKey: getListReviewPhrasesQueryKey(reviewParams),
     },
-  );
+  });
   const groupQuery = useListLessonGroupPhrases(isGroup ? groupId : 0, {
     query: {
       enabled: isGroup && !isTestout,
@@ -1835,6 +1865,10 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
     if (!isReview && !isSentences) {
       return <Redirect to="/journey" replace />;
     }
+    // Nothing due means no flashback: straight on, no empty screen.
+    if (isFlashback) {
+      return <Redirect to={flashbackNext} replace />;
+    }
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
         <h2 className="text-xl font-bold mb-4">
@@ -2161,8 +2195,12 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
           );
         })()}
 
-        <Link href={backHref} className="w-full bg-primary text-primary-foreground font-black text-xl py-5 rounded-2xl flex items-center justify-center shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all">
-          Done
+        <Link
+          href={doneHref}
+          data-testid="session-done"
+          className="w-full bg-primary text-primary-foreground font-black text-xl py-5 rounded-2xl flex items-center justify-center shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+        >
+          {isFlashback ? "On to the next stop" : "Done"}
         </Link>
       </div>
     );
@@ -2242,6 +2280,15 @@ export default function Practice({ mode = "category" }: { mode?: "category" | "r
         <Link href={backHref} className="text-muted-foreground hover:text-foreground shrink-0">
           <ArrowLeft className="w-7 h-7" />
         </Link>
+        {isFlashback ? (
+          <Link
+            href={flashbackNext}
+            data-testid="flashback-skip"
+            className="shrink-0 rounded-full border border-border px-3 py-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
+          >
+            Skip
+          </Link>
+        ) : null}
         <div className="flex-1">
           <div className="h-2.5 bg-muted rounded-full overflow-hidden">
             <motion.div 

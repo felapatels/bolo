@@ -76,11 +76,14 @@ export function buildAttemptFlags(opts: {
   latencyMissing: boolean;
   userAgent?: string | null;
   sttGlitchRescue?: boolean;
+  /** The clip's leading silence reached HESITATION_MS (build 20). */
+  hesitated?: boolean;
 }): string | null {
   const tags: string[] = [];
   if (opts.latencyMissing) tags.push("latency_missing");
   const platform = platformFromUserAgent(opts.userAgent);
   if (platform !== "unknown") tags.push(`${PLATFORM_FLAG_PREFIX}${platform}`);
   if (opts.sttGlitchRescue) tags.push(STT_GLITCH_RESCUE_FLAG);
+  if (opts.hesitated) tags.push("hesitated");
   return tags.length > 0 ? tags.join(",") : null;
 }

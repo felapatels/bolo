@@ -22,7 +22,7 @@ import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { hapticLight, hapticMedium, hapticHeavy, hapticNotify } from '@/lib/haptics';
 import { useAudioRecorder, useAudioRecorderState } from 'expo-audio';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import Animated, {
   FadeOutUp,
@@ -312,9 +312,14 @@ function ReviewHeader({
   label,
   settingsItems,
   languageCode,
+  rightAction,
 }: {
   onClose: () => void;
   label: string;
+  /** The flashback's Skip (build 20): a worded button in the right slot,
+   *  in place of the gear, because three phrases do not need a settings
+   *  menu and a learner in a hurry needs the door. */
+  rightAction?: { label: string; onPress: () => void };
   /** When provided, shows the settings gear + menu as the rightmost control.
    *  Review is a practice screen, so it carries the same gear, menu and
    *  language chip the practice header does — all three audio items included,
@@ -341,7 +346,19 @@ function ReviewHeader({
           <ChaiPill compact />
         </View>
       </View>
-      {settingsItems ? (
+      {rightAction ? (
+        <Pressable
+          testID="review-right-action"
+          accessibilityRole="button"
+          accessibilityLabel={rightAction.label}
+          onPress={rightAction.onPress}
+          style={[styles.closeBtn, { backgroundColor: colors.card, width: undefined, paddingHorizontal: 14 }]}
+        >
+          <Text style={{ color: colors.foreground, fontFamily: AppFonts.bold, fontSize: 14 }}>
+            {rightAction.label}
+          </Text>
+        </Pressable>
+      ) : settingsItems ? (
         <View style={styles.headerRight}>
           {languageCode ? <LanguageChip code={languageCode} /> : null}
           <LessonSettingsMenu items={settingsItems} />
@@ -464,10 +481,29 @@ function RecordButton({
 
 // ── Main screen ──────────────────────────────────────────────────────────────
 
+/**
+ * THE FLASHBACK BETWEEN STOPS (build 20, owner ruling 2026-08-29): how many
+ * due phrases a finished stop brings back on the way to the next one. Three
+ * or fewer is the server's free door (FLASHBACK_FREE_SIZE in learning.ts);
+ * the full drill above it stays Plus. Web twin: pages/practice.tsx.
+ */
+const FLASHBACK_SIZE = 3;
+
 export default function ReviewScreen() {
   const colors = useColors();
   const skipEnter = useAppearSkip();
   const router = useRouter();
+  // The flashback IS this screen in every respect but three: it asks for
+  // FLASHBACK_SIZE phrases, it can be skipped, and leaving it (done, skipped,
+  // or nothing due) goes BACK to wherever the finished stop was opened from,
+  // which is the journey. A finished journey stop replaces itself with this
+  // route (practice/[id].tsx), so back lands on the map, between stops.
+  const searchParams = useLocalSearchParams<{ flashback?: string }>();
+  const isFlashback = searchParams.flashback === '1';
+  const leave = React.useCallback(() => {
+    if (isFlashback) router.back();
+    else router.replace('/(app)/(tabs)');
+  }, [isFlashback, router]);
   const queryClient = useQueryClient();
   const { activeLang, activeLanguage, speechCapability } = useLanguage();
   // Speech-recognition gating (server-classified, defaults to full scoring):
@@ -477,7 +513,9 @@ export default function ReviewScreen() {
   const isDegraded = speechCapability === 'degraded';
   const languageName = activeLanguage?.name ?? 'this language';
 
-  const reviewParams = { lang: activeLang };
+  const reviewParams = isFlashback
+    ? { lang: activeLang, limit: FLASHBACK_SIZE }
+    : { lang: activeLang };
   const phrases = useListReviewPhrases(reviewParams, {
     query: {
       enabled: !!activeLang,
@@ -485,6 +523,13 @@ export default function ReviewScreen() {
     },
   });
   const list = phrases.data ?? [];
+  // Nothing due means no flashback: straight on, no empty screen. A failed
+  // load counts too (a server without the free door answers 402): a
+  // flashback that cannot load steps aside rather than standing in the way.
+  const flashbackOver = !phrases.isLoading && (phrases.isError || list.length === 0);
+  React.useEffect(() => {
+    if (isFlashback && flashbackOver) leave();
+  }, [isFlashback, flashbackOver, leave]);
 
   const recorder = useAudioRecorder(RECORDING_PRESET);
   const synth = useSynthesizeSpeech();
@@ -1356,7 +1401,7 @@ export default function ReviewScreen() {
   if (phrases.isLoading) {
     return (
       <Screen>
-        <ReviewHeader onClose={() => router.back()} label="Review" />
+        <ReviewHeader onClose={leave} label={isFlashback ? 'Flashback' : 'Review'} />
         <FunFactLoader color={colors.primary} style={{ marginTop: 80 }} />
       </Screen>
     );
@@ -1364,9 +1409,17 @@ export default function ReviewScreen() {
 
   // ── Empty — no phrases due ───────────────────────────────────────────────
   if (!phrases.isLoading && list.length === 0) {
+    if (isFlashback) {
+      // The effect above is already leaving; show nothing that could be read.
+      return (
+        <Screen>
+          <FunFactLoader color={colors.primary} style={{ marginTop: 80 }} />
+        </Screen>
+      );
+    }
     return (
       <Screen>
-        <ReviewHeader onClose={() => router.back()} label="Review" />
+        <ReviewHeader onClose={leave} label={isFlashback ? 'Flashback' : 'Review'} />
         <View style={styles.emptyWrap}>
           <EmptyState
             title="Nothing due right now"
@@ -1376,7 +1429,7 @@ export default function ReviewScreen() {
           <ChunkyButton
             title="Back to home"
             icon="home"
-            onPress={() => router.replace('/(app)/(tabs)')}
+            onPress={leave}
             style={{ marginTop: 28, width: '100%' }}
           />
         </View>
@@ -1398,7 +1451,7 @@ export default function ReviewScreen() {
 
     return (
       <Screen>
-        <ReviewHeader onClose={() => router.replace('/(app)/(tabs)')} label="All done!" />
+        <ReviewHeader onClose={leave} label="All done!" />
         <View style={styles.summaryWrap}>
           <Animated.View entering={appear(appearZoom(0))}>
             <Mascot pose="cheer" size={168} motion="bounce" />
@@ -1413,9 +1466,13 @@ export default function ReviewScreen() {
             {isUnsupported
               ? 'Nice practice! 🎧'
               : isPerfect
-                ? 'PERFECT REVIEW! 🏆'
+                ? isFlashback
+                  ? 'PERFECT FLASHBACK! 🏆'
+                  : 'PERFECT REVIEW! 🏆'
                 : anyPassed
-                  ? 'Review complete!'
+                  ? isFlashback
+                    ? 'Flashback done!'
+                    : 'Review complete!'
                   : 'Great effort!'}
           </Animated.Text>
           <Animated.Text
@@ -1476,9 +1533,9 @@ export default function ReviewScreen() {
             colors={colors}
           />
           <ChunkyButton
-            title="Back to home"
-            icon="home"
-            onPress={() => router.replace('/(app)/(tabs)')}
+            title={isFlashback ? 'On to the next stop' : 'Back to home'}
+            icon={isFlashback ? 'arrow-right' : 'home'}
+            onPress={leave}
             style={{ width: '100%', marginTop: 28 }}
           />
         </View>
@@ -1524,10 +1581,11 @@ export default function ReviewScreen() {
   return (
     <Screen>
       <ReviewHeader
-        onClose={() => router.back()}
-        label={`${index + 1} of ${list.length}`}
+        onClose={leave}
+        label={isFlashback ? `Flashback ${index + 1} of ${list.length}` : `${index + 1} of ${list.length}`}
         settingsItems={settingsItems}
         languageCode={activeLang}
+        rightAction={isFlashback ? { label: 'Skip', onPress: leave } : undefined}
       />
 
       <View style={styles.progressOuter}>

@@ -2001,6 +2001,12 @@ lang: string;
 
 export type ListReviewPhrasesParams = {
 lang: string;
+/**
+ * How many phrases to return, 1 to 12 (default 12). Three or fewer needs no plan: that is the flashback between stops.
+ * @minimum 1
+ * @maximum 12
+ */
+limit?: number;
 };
 
 export type ListRecentAttemptsParams = {

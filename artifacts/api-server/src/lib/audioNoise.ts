@@ -27,7 +27,7 @@
  */
 
 import { convertToWav } from "@workspace/integrations-openai-ai-server/audio";
-import { readPcm16 } from "./wavPcm";
+import { readPcm16, type PcmView } from "./wavPcm";
 
 /** Frame length used for the short-term energy envelope. */
 const FRAME_MS = 20;
@@ -77,18 +77,122 @@ function percentile(sortedAscending: number[], fraction: number): number {
  *    one loud frame cannot masquerade as a noisy room;
  *  - not 16-bit PCM WAV at all → null.
  */
-export function snrDbFromWav(wav: Buffer): number | null {
-  const pcm = readPcm16(wav);
-  if (!pcm) return null;
-
+/** RMS per FRAME_MS frame, or null for a clip too short to frame at all. */
+function frameRmsSeries(pcm: PcmView): number[] | null {
   const frameLength = Math.max(1, Math.round((pcm.sampleRate * FRAME_MS) / 1000));
   const frameCount = Math.floor(pcm.samples.length / frameLength);
   if (frameCount < MIN_FRAMES) return null;
-
   const frameRms: number[] = new Array(frameCount);
   for (let f = 0; f < frameCount; f++) {
     frameRms[f] = rms(pcm.samples, f * frameLength, (f + 1) * frameLength);
   }
+  return frameRms;
+}
+
+/**
+ * HESITATION, MEASURED FROM THE CLIP ITSELF (build 20).
+ *
+ * Owner, 2026-08-29: "if the learner hesitates or does poorly, it should
+ * surface again." Doing poorly already reaches the scheduler through the
+ * score band; nothing measured hesitation, and neither client sends a timing
+ * of any kind (every attempt is flagged latency_missing). The recording
+ * starts when the learner taps Record, so the silence before their voice is
+ * exactly the pause they took to find the words. That is measured here, on
+ * the same decoded audio the SNR reads, and it costs no extra decode.
+ *
+ * The onset is the first frame that is clearly voice AND stays voice for the
+ * next frame too. "Clearly voice" is louder than four times the noise floor
+ * and at least a fifth of the clip's own speech level, capped at half that
+ * level so a clip that is voice from its first sample (no quiet floor at
+ * all) still finds its onset at zero. Holding for two frames (40 ms) is what
+ * keeps a click or a breath in the opening from reading as the first word.
+ * Null when the clip never reaches a voice-sized level at all (nothing was
+ * said, which the transcript path already turns into a miss). The lead
+ * frames and floor are the ones snrDbFromWav uses, so the two measurements
+ * can never disagree about what "quiet" means.
+ */
+const ONSET_FLOOR_RATIO = 4;
+const ONSET_SPEECH_FRACTION = 0.2;
+const ONSET_SPEECH_CAP = 0.5;
+const ONSET_SUSTAIN_FRAMES = 2;
+/** Below this RMS (about -40 dBFS) nothing in the clip is a voice. */
+const VOICE_MIN_RMS = 300;
+
+export function leadingSilenceMsFromWav(wav: Buffer): number | null {
+  const pcm = readPcm16(wav);
+  if (!pcm) return null;
+  const frameRms = frameRmsSeries(pcm);
+  if (!frameRms) return null;
+  const frameCount = frameRms.length;
+
+  const leadFrames = Math.max(
+    1,
+    Math.min(
+      Math.floor(frameCount * LEAD_MAX_FRACTION),
+      Math.round(LEAD_WINDOW_MS / FRAME_MS),
+    ),
+  );
+  let leadPower = 0;
+  for (let f = 0; f < leadFrames; f++) leadPower += frameRms[f]! * frameRms[f]!;
+  const leadRms = Math.sqrt(leadPower / leadFrames);
+  const ascending = [...frameRms].sort((a, b) => a - b);
+  const noise = Math.max(Math.min(leadRms, percentile(ascending, 0.1)), AMPLITUDE_EPSILON);
+
+  const loudCount = Math.max(1, Math.ceil(frameCount * 0.1));
+  let loudPower = 0;
+  for (let i = ascending.length - loudCount; i < ascending.length; i++) {
+    loudPower += ascending[i]! * ascending[i]!;
+  }
+  const speech = Math.sqrt(loudPower / loudCount);
+  if (speech < VOICE_MIN_RMS) return null;
+
+  const threshold = Math.min(
+    Math.max(noise * ONSET_FLOOR_RATIO, speech * ONSET_SPEECH_FRACTION),
+    speech * ONSET_SPEECH_CAP,
+  );
+  for (let f = 0; f + ONSET_SUSTAIN_FRAMES <= frameCount; f++) {
+    let sustained = true;
+    for (let k = 0; k < ONSET_SUSTAIN_FRAMES; k++) {
+      if (frameRms[f + k]! < threshold) {
+        sustained = false;
+        break;
+      }
+    }
+    if (sustained) return f * FRAME_MS;
+  }
+  return null;
+}
+
+export interface AttemptAudioMeasures {
+  snrDb: number | null;
+  /** Milliseconds of silence before the learner's voice, or null when none was found. */
+  hesitationMs: number | null;
+}
+
+/**
+ * Both clip measurements from ONE decode. measureAttemptSnrDb stays for its
+ * callers and tests; the pronunciation route uses this so the second
+ * measurement adds no conversion to the learner's wait.
+ */
+export async function measureAttemptAudio(
+  converted: Buffer,
+  format: string,
+): Promise<AttemptAudioMeasures> {
+  try {
+    const wav = format === "wav" ? converted : await convertToWav(converted);
+    return { snrDb: snrDbFromWav(wav), hesitationMs: leadingSilenceMsFromWav(wav) };
+  } catch {
+    return { snrDb: null, hesitationMs: null };
+  }
+}
+
+export function snrDbFromWav(wav: Buffer): number | null {
+  const pcm = readPcm16(wav);
+  if (!pcm) return null;
+
+  const frameRms = frameRmsSeries(pcm);
+  if (!frameRms) return null;
+  const frameCount = frameRms.length;
 
   // The room-tone opening: the first LEAD_WINDOW_MS, never more than
   // LEAD_MAX_FRACTION of the clip, always at least one frame.

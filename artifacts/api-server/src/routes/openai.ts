@@ -38,7 +38,7 @@ import {
 } from "../lib/pronunciationGuards";
 import { buildSttOptions, discardAnchorEcho } from "../lib/sttLanguage";
 import { writeNocatchDiagnostic, type NocatchCause } from "../lib/nocatchDiagnostics";
-import { measureAttemptSnrDb } from "../lib/audioNoise";
+import { measureAttemptAudio } from "../lib/audioNoise";
 import { denyLockedFeature, denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
 import { upgradeRequired, featuresForPlan } from "../lib/entitlements";
 import { SCENARIOS, toPublicScenario, resolveScenario } from "../lib/scenarios";
@@ -1053,6 +1053,9 @@ router.post(
     // could not be measured — the measurement never changes a score and never
     // fails an attempt.
     let snrDb: number | null = null;
+    // Leading silence in the clip (build 20): the pause before the learner
+    // spoke. Rides the token beside snrDb and reaches the scheduler.
+    let hesitationMs: number | null = null;
     // True when the transcription API rejected the recording as corrupted or
     // in an unsupported format (e.g. a silent WebM the browser emitted with no
     // audio track, or a partial buffer from a cancelled recording). This is a
@@ -1073,14 +1076,15 @@ router.post(
       // failure mode this defends against.
       // The SNR measurement rides in the SAME await as the two STT calls: it
       // finishes in tens of milliseconds while STT takes ~1 s, so the learner
-      // waits exactly as long as before. measureAttemptSnrDb never rejects, so
+      // waits exactly as long as before. measureAttemptAudio never rejects, so
       // it can never take the scoring path down with it.
-      const [miniRaw, hqRaw, measuredSnrDb] = await Promise.all([
+      const [miniRaw, hqRaw, measuredAudio] = await Promise.all([
         speechToText(buffer, format, sttOptions),
         speechToText(buffer, format, { ...sttOptions, highQuality: true }),
-        measureAttemptSnrDb(buffer, format).catch(() => null),
+        measureAttemptAudio(buffer, format).catch(() => ({ snrDb: null, hesitationMs: null })),
       ]);
-      snrDb = measuredSnrDb;
+      snrDb = measuredAudio.snrDb;
+      hesitationMs = measuredAudio.hesitationMs;
       // Whisper hands its own prompt back as the transcript when the clip
       // holds no speech (parrotChat.ts guards the chat path against the same
       // thing). It mattered less while the prompt was English prose, because
@@ -1188,6 +1192,7 @@ router.post(
           sttTranscriptHq,
           sttDisagreement,
           snrDb,
+          hesitationMs,
           nocatchCause,
         }),
       });
@@ -1438,6 +1443,7 @@ router.post(
             sttDisagreement,
             sttGlitchRescue,
             snrDb,
+            hesitationMs,
           }),
         });
         // Fire-and-forget pilot capture — never delays the response.
@@ -1605,6 +1611,7 @@ router.post(
             sttDisagreement,
             sttGlitchRescue,
             snrDb,
+            hesitationMs,
             nocatchCause,
           }),
         });
@@ -1699,6 +1706,7 @@ router.post(
           sttDisagreement,
           sttGlitchRescue,
           snrDb,
+          hesitationMs,
         }),
       });
       // Fire-and-forget pilot capture — never delays the response.

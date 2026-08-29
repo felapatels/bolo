@@ -136,3 +136,24 @@ export function applyFsrsRating(
     lastReviewAt: reviewedAt,
   };
 }
+
+/**
+ * HESITATION COUNTS AGAINST THE PHRASE (owner ruling, 2026-08-29): a learner
+ * who paused this long before finding the words did not have them ready,
+ * however well they then said them. One notch down, never below Hard: a
+ * hesitant but correct attempt is still a pass for XP and mastery, it just
+ * comes back sooner. The pause is the clip's leading silence, measured on
+ * the server (audioNoise.leadingSilenceMsFromWav), so no client can forget
+ * to send it.
+ */
+export const HESITATION_MS = 1500;
+
+export function ratingAfterHesitation(
+  rating: Rating,
+  hesitationMs: number | null | undefined,
+): Rating {
+  if (hesitationMs == null || hesitationMs < HESITATION_MS) return rating;
+  if (rating === Rating.Easy) return Rating.Good;
+  if (rating === Rating.Good) return Rating.Hard;
+  return rating;
+}

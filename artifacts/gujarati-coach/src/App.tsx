@@ -430,6 +430,11 @@ function AppRouter() {
           <Practice mode="review" />
         </Guard>
       </Route>
+      <Route path="/flashback">
+        <Guard>
+          <Practice mode="flashback" />
+        </Guard>
+      </Route>
       <Route path="/progress">
         <Guard>
           <AppShell>
