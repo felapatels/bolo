@@ -50,6 +50,10 @@ export interface InCallProps {
    * reads what they said, only whether they said it.
    */
   outcome?: CallOutcome | null;
+  /** What the server heard the learner say, mirrored under his line. */
+  heard?: string;
+  heardRomanized?: string | null;
+  heardEnglish?: string;
   /**
    * True once his voice is ACTUALLY coming out, as opposed to it merely being
    * his turn. The film waits for this, so his mouth stays shut through the
@@ -199,6 +203,9 @@ export function InCall({
   chaiEarned,
   xpEarned,
   outcome = null,
+  heard,
+  heardRomanized,
+  heardEnglish,
   voicing = true,
   elapsedSeconds,
   languageName,
@@ -317,6 +324,9 @@ export function InCall({
           chaiEarned={chaiEarned}
           xpEarned={xpEarned}
           outcome={outcome}
+          heard={heard}
+          heardRomanized={heardRomanized}
+          heardEnglish={heardEnglish}
         />
 
         <View testID="in-call-phase" style={styles.phase}>

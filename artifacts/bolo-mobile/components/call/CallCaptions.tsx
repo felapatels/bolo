@@ -48,6 +48,21 @@ export interface CallCaptionsProps {
    * often the room or the microphone as it is a learner who froze.
    */
   outcome?: 'earned' | 'missed' | null;
+  /**
+   * WHAT THE SERVER HEARD THE LEARNER SAY, in three readings: the language's
+   * own script, a romanization, and plain English (owner, 2026-08-28).
+   *
+   * A MIRROR AND NEVER A MARK, and the distinction is the whole design. It says
+   * what was heard. It does not say whether it was right, it is not compared to
+   * anything, there is no tick and no cross, and it must never grow one. A call
+   * is an event, not a lesson.
+   *
+   * It is also the answer to "is it even hearing me", which was unanswerable
+   * from this screen on the day the recogniser was silently refusing every clip.
+   */
+  heard?: string;
+  heardRomanized?: string | null;
+  heardEnglish?: string;
 }
 
 export function CallCaptions({
@@ -56,8 +71,22 @@ export function CallCaptions({
   chaiEarned = 0,
   xpEarned = 0,
   outcome = null,
+  heard = '',
+  heardRomanized = null,
+  heardEnglish = '',
 }: CallCaptionsProps) {
   if (!text.trim()) return null;
+
+  const said = heard.trim();
+  // Never the same line twice: an already-Latin transcript romanizes to itself.
+  const saidRoman =
+    heardRomanized && heardRomanized.trim() && heardRomanized.trim() !== said
+      ? heardRomanized.trim()
+      : null;
+  const saidEnglish =
+    heardEnglish && heardEnglish.trim() && heardEnglish.trim() !== said
+      ? heardEnglish.trim()
+      : null;
 
   // Repeating the line under itself helps nobody. The server sends the
   // romanization straight through untouched when he already wrote in Latin
@@ -99,6 +128,25 @@ export function CallCaptions({
           <Text style={[styles.chaiText, { color: '#7CFFB2' }]}>
             +{xpEarned} XP
           </Text>
+        </View>
+      ) : null}
+
+      {said ? (
+        <View testID="call-heard" style={styles.heard}>
+          <Text style={styles.heardLabel}>You said</Text>
+          <Text testID="call-heard-native" style={styles.heardNative}>
+            {said}
+          </Text>
+          {saidRoman ? (
+            <Text testID="call-heard-romanized" style={styles.heardRoman}>
+              {saidRoman}
+            </Text>
+          ) : null}
+          {saidEnglish ? (
+            <Text testID="call-heard-english" style={styles.heardEnglish}>
+              {saidEnglish}
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -152,6 +200,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  // Set apart from HIS line and quieter than it: a rule above it, smaller
+  // type, lower contrast. The conversation is his; this is a receipt.
+  heard: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.22)',
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  heardLabel: {
+    fontSize: 11,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 4,
+  },
+  heardNative: {
+    fontSize: 17,
+    lineHeight: 24,
+    color: 'rgba(255,255,255,0.92)',
+    textAlign: 'center',
+  },
+  heardRoman: {
+    marginTop: 2,
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(255,255,255,0.66)',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  heardEnglish: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(255,255,255,0.56)',
+    textAlign: 'center',
   },
   missed: {
     marginTop: 12,

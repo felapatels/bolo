@@ -60,6 +60,7 @@ function deps(over: Partial<LiveTurnDeps> = {}): LiveTurnDeps {
   return {
     streamPcm: () => fakeStream(Buffer.alloc(4800), "Waah beta!")(),
     transcribe: async () => "main theek hoon",
+    translateLearner: async (t: string) => `EN(${t})`,
     encodeMp3: async (pcm, onChunk) => {
       const parts: Buffer[] = [];
       for await (const c of pcm) parts.push(c);
@@ -162,6 +163,8 @@ test("history goes up as text, never as resent audio", () => {
       chacha: "Waah!",
       romanized: "Waah!",
       canned: false,
+      learnerRomanized: null,
+      learnerEnglish: "roti and dal",
       chaiEarned: 1,
       xpEarned: 0,
     },
@@ -187,6 +190,8 @@ test("a silent prior turn leaves no empty message behind", () => {
       chacha: "Koi baat nahi",
       romanized: null,
       canned: true,
+      learnerRomanized: null,
+      learnerEnglish: "",
       chaiEarned: 0,
       xpEarned: 0,
     },

@@ -82,6 +82,41 @@ describe('the caption pills', () => {
 // it needs includeHiddenElements, exactly as the splash overlay's do.
 const HIDDEN = { includeHiddenElements: true } as const;
 
+describe('the mirror of what they said', () => {
+  // Owner, 2026-08-28: "I want to see what was captured when i spoke, romanized
+  // native script" and "and english meaning". Three readings of one line, and
+  // it must stay a MIRROR: no tick, no cross, no verdict, ever.
+  const HEARD = { heard: 'રોટલી અને દાળ', heardRomanized: 'rotli ane dal', heardEnglish: 'roti and dal' };
+
+  test('shows the script, the romanization and the English', () => {
+    render(<CallCaptions text="કેમ છો" {...HEARD} />);
+    expect(screen.getByTestId('call-heard-native')).toBeTruthy();
+    expect(screen.getByText('rotli ane dal')).toBeTruthy();
+    expect(screen.getByText('roti and dal')).toBeTruthy();
+    expect(screen.getByText('You said')).toBeTruthy();
+  });
+
+  test('says nothing at all when nothing was heard', () => {
+    render(<CallCaptions text="કેમ છો" heard="" />);
+    expect(screen.queryByTestId('call-heard')).toBeNull();
+  });
+
+  test('never repeats the same line twice', () => {
+    // An already-Latin transcript romanizes to itself, and English that came
+    // back unchanged is the same words again.
+    render(<CallCaptions text="કેમ છો" heard="roti" heardRomanized="roti" heardEnglish="roti" />);
+    expect(screen.queryByTestId('call-heard-romanized')).toBeNull();
+    expect(screen.queryByTestId('call-heard-english')).toBeNull();
+  });
+
+  test('carries no verdict of any kind', () => {
+    // The guarantee is structural. If a mark ever appears here, this fails.
+    const { toJSON } = render(<CallCaptions text="કેમ છો" {...HEARD} />);
+    const tree = JSON.stringify(toJSON());
+    expect(tree).not.toMatch(/correct|wrong|try again|almost|score|✓|✗/i);
+  });
+});
+
 describe('the edge glow', () => {
   test('nothing is drawn when there is nothing to say', () => {
     render(<CallEdgeGlow outcome={null} />);

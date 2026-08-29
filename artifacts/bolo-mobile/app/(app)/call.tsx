@@ -218,6 +218,9 @@ export default function CallScreen() {
           chaiEarned={state.chaiEarned}
           xpEarned={state.xpEarned}
           outcome={state.outcome}
+          heard={state.heard}
+          heardRomanized={state.heardRomanized}
+          heardEnglish={state.heardEnglish}
           voicing={state.voicing}
           languageName={state.languageName}
           talking={state.status === 'talking'}

@@ -612,9 +612,18 @@ export function createChachaCallRouter(
         );
       }
 
+      // HIS words get romanized above; HERS get the same treatment here, from
+      // the same deterministic transliterator, so the mirror reads the way the
+      // caption does.
+      const learnerRomanized = learnerText
+        ? romanizeTranscript(learnerText, session.languageCode).trim() || null
+        : null;
+
       recordCallTurn(session, {
         beatId: beat.id,
         learner: learnerText,
+        learnerRomanized: learnerRomanized === learnerText ? null : learnerRomanized,
+        learnerEnglish: result?.learnerEnglish ?? "",
         chacha: chachaText,
         romanized: romanizedOut,
         canned,
@@ -667,6 +676,8 @@ export function createChachaCallRouter(
           isFinal: isFinalBeat(session.mode, session.beatIndex - 1),
         },
         heard: learnerText,
+        heardRomanized: learnerRomanized === learnerText ? null : learnerRomanized,
+        heardEnglish: result?.learnerEnglish ?? "",
         next: next
           ? { id: next.id, index: session.beatIndex, canned: next.mode === "canned" }
           : null,
@@ -727,6 +738,8 @@ export function createChachaCallRouter(
         romanized: turn.romanized,
         canned: turn.canned,
         heard: turn.learner,
+        heardRomanized: turn.learnerRomanized,
+        heardEnglish: turn.learnerEnglish,
         /**
          * WHAT THE TURN PAID, AND WHETHER HE HEARD THEM AT ALL.
          *

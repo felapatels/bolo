@@ -23,6 +23,12 @@ import {
   sendTurn,
   startCall,
 } from '@/lib/chachaCallApi';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  getGetProgressSummaryQueryKey,
+  getGetTokensQueryKey,
+} from '@workspace/api-client-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Sentry } from '@/lib/sentry';
 import type { CallMode } from '@/lib/chachaCallApi';
 import type { CallBackdropId } from './backdrops';
@@ -117,6 +123,17 @@ export interface LiveCallState {
    * said, only whether they said anything. A call is an event, not a lesson.
    */
   outcome: 'earned' | 'missed' | null;
+  /**
+   * What the server heard the learner say on their last turn, in three
+   * readings: the language's own script, a romanization, and plain English.
+   *
+   * A MIRROR AND NEVER A MARK. It is the answer to "is it even hearing me",
+   * which was unanswerable from the screen for a whole day, and it must not
+   * grow into a score: nothing here compares it to anything.
+   */
+  heard: string;
+  heardRomanized: string | null;
+  heardEnglish: string;
   /** The language this call is fixed to, shown under the clock. */
   languageName: string | null;
 
@@ -147,6 +164,8 @@ export function useLiveCall({
 }: UseLiveCallOptions) {
   const recorder = useAudioRecorder(RECORDING_PRESET);
   const recorderState = useAudioRecorderState(recorder, 100);
+  const queryClient = useQueryClient();
+  const { activeLang } = useLanguage();
 
   const [state, setState] = React.useState<LiveCallState>({
     status: 'ringing',
@@ -160,6 +179,9 @@ export function useLiveCall({
     chaiEarned: 0,
     xpEarned: 0,
     outcome: null,
+    heard: '',
+    heardRomanized: null,
+    heardEnglish: '',
     languageName: null,
   });
 
@@ -350,11 +372,33 @@ export function useLiveCall({
         xpEarned: xp,
         outcome: earned ? 'earned' : 'missed',
       });
+
+      /**
+       * THE METER IS A CACHED QUERY AND THE SERVER JUST MOVED THE NUMBER.
+       *
+       * Owner, 2026-08-28: "the XP i earned didn't get counted in the XP bar on
+       * top." The float said +5 and the meter above it did not budge, because
+       * XpCounter reads useGetProgressSummary and nothing told react-query the
+       * answer had changed. Every one of the thirteen games already does
+       * exactly this on the same key; the call mounted the meter and skipped
+       * the half that makes it move.
+       *
+       * The chai balance goes with it. The call screen does not show a wallet,
+       * but the learner walks straight back to a home screen that does.
+       */
+      if (xp > 0 && activeLang) {
+        queryClient.invalidateQueries({
+          queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }),
+        });
+      }
+      if (chai > 0) {
+        queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+      }
       setTimeout(() => {
         if (aliveRef.current) patch({ chaiEarned: 0, xpEarned: 0, outcome: null });
       }, 2200);
     },
-    [patch],
+    [patch, queryClient, activeLang],
   );
 
   /** Stop recording and run one turn. */
@@ -391,7 +435,13 @@ export function useLiveCall({
         .then((turn) => {
           if (!turn || !aliveRef.current) return;
           overRef.current = turn.over;
-          patch({ text: turn.text, romanized: turn.romanized });
+          patch({
+            text: turn.text,
+            romanized: turn.romanized,
+            heard: turn.heard ?? '',
+            heardRomanized: turn.heardRomanized ?? null,
+            heardEnglish: turn.heardEnglish ?? '',
+          });
           showOutcome(turn);
         })
         .catch(() => {
@@ -426,6 +476,9 @@ export function useLiveCall({
         romanized: call.beat.romanized ?? null,
         status: 'speaking',
         voicing: false,
+        heard: '',
+        heardRomanized: null,
+        heardEnglish: '',
       });
 
       if (call.audioBase64 && call.format) {

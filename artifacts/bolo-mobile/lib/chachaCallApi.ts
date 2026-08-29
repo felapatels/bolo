@@ -82,7 +82,17 @@ export interface CallTurnResult {
   text: string;
   romanized: string | null;
   canned: boolean;
+  /**
+   * What the server heard the learner say, in the language's own script.
+   *
+   * MIRRORED ON SCREEN SINCE 2026-08-28, with the romanization and a plain
+   * English reading beside it (owner: "I want to see what was captured when i
+   * spoke, romanized native script" and "and english meaning"). It is a mirror,
+   * never a mark: nothing compares it to anything and there is no verdict here.
+   */
   heard: string;
+  heardRomanized?: string | null;
+  heardEnglish?: string;
   next: { id: string; index: number; canned: boolean } | null;
   over: boolean;
   /**

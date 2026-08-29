@@ -21,6 +21,8 @@ function speak(learner: string) {
     chacha: "Waah!",
     romanized: "Waah!",
     canned: false,
+    learnerRomanized: null,
+    learnerEnglish: "",
     chaiEarned: 0,
     xpEarned: 0,
   };
@@ -62,6 +64,8 @@ test("a call the learner never spoke in is abandoned", () => {
     chacha: "Koi baat nahi",
     romanized: null,
     canned: true,
+    learnerRomanized: null,
+    learnerEnglish: "",
     chaiEarned: 0,
     xpEarned: 0,
   });

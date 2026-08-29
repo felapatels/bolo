@@ -38,6 +38,32 @@ import type { CallTurn } from "./chachaCallSessions";
  * record, because the voice is the feature and the transcript is bookkeeping.
  */
 
+/**
+ * The learner's own words in English, for the mirror under the caption.
+ *
+ * gpt-5.4-mini because that is the model this server actually talks to. Kept
+ * deliberately dumb: it translates and does nothing else, because anything that
+ * comments on what they said is the correction this feature refuses to make.
+ */
+export async function translateLearnerToEnglish(
+  text: string,
+  languageName: string,
+): Promise<string> {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5.4-mini",
+    max_completion_tokens: 200,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You translate one short spoken line into plain English. It is a language learner speaking, so it may be broken, partial or a single word. Translate what is there, literally and plainly. Never correct it, never comment on it, never add anything. If it is already English, return it unchanged. Reply with the translation and nothing else.",
+      },
+      { role: "user", content: `${languageName}: "${text}"` },
+    ],
+  });
+  return completion.choices[0]?.message?.content?.trim() ?? "";
+}
+
 /** pcm16 out of gpt-audio: 24 kHz, mono, 16-bit. */
 export const GPT_AUDIO_PCM_SAMPLE_RATE = 24000;
 const BYTES_PER_SAMPLE = 2;
@@ -68,6 +94,19 @@ export interface LiveTurnResult {
   chachaText: string;
   /** What the learner said. Empty is a normal outcome, never an error. */
   learnerText: string;
+  /**
+   * What they said, in English.
+   *
+   * A MIRROR, NOT A MARK (owner, 2026-08-28: "I want to see what was captured
+   * when i spoke, romanized native script" and "and english meaning"). A call
+   * has no score and this must never become one: it says what the server
+   * HEARD, not whether it was right, and nothing compares it to anything.
+   *
+   * FREE ON THE CLOCK. It is chained off the transcript, which lands around
+   * 630 ms, and awaited beside the live turn, which lands around 2.6 s. The
+   * learner waits exactly as long as they did before.
+   */
+  learnerEnglish: string;
   /** The whole reply, for callers that want the clip rather than the stream. */
   mp3: Buffer;
   /** Seconds of speech he produced. */
@@ -100,6 +139,11 @@ export interface LiveTurnDeps {
     format: LearnerAudioFormat,
     languageCode: string,
   ) => Promise<string>;
+  /**
+   * Puts the learner's own words into English for the mirror under the caption.
+   * Never on the critical path: a failure costs that line, not the turn.
+   */
+  translateLearner: (text: string, languageName: string) => Promise<string>;
   /** Encodes a pcm16 stream to mp3, calling onChunk as bytes are produced. */
   encodeMp3: (
     pcm: AsyncIterable<Buffer>,
@@ -232,6 +276,7 @@ const defaultDeps: LiveTurnDeps = {
   },
   transcribe: (audio, format, languageCode) =>
     speechToText(audio, format, { language: languageCode }),
+  translateLearner: translateLearnerToEnglish,
   encodeMp3: encodeMp3WithFfmpeg,
 };
 
@@ -249,6 +294,12 @@ export async function runLiveTurn(
       return "";
     });
 
+  // Chained off the transcript rather than awaited after it, so it overlaps the
+  // live turn entirely instead of adding to it.
+  const englishPromise = transcriptPromise.then((t) =>
+    t.trim() ? deps.translateLearner(t.trim(), req.languageName).catch(() => "") : "",
+  );
+
   let chachaText = "";
   let pcmBytes = 0;
 
@@ -265,10 +316,12 @@ export async function runLiveTurn(
 
   const mp3 = await deps.encodeMp3(pcm, req.onAudioChunk);
   const learnerText = (await transcriptPromise).trim();
+  const learnerEnglish = (await englishPromise).trim();
 
   return {
     chachaText: chachaText.trim(),
     learnerText,
+    learnerEnglish,
     mp3,
     spokenSeconds: pcmSeconds(pcmBytes),
     transcriptFailed,

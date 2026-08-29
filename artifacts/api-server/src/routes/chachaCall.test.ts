@@ -61,6 +61,7 @@ function makeLive(over: Partial<LiveTurnResult> = {}): LiveTurnResult {
   return {
     chachaText: "Waah beta, bahut accha!",
     learnerText: "roti aur dal",
+    learnerEnglish: "roti and dal",
     mp3: Buffer.from("fake-mp3-bytes"),
     spokenSeconds: 4.5,
     transcriptFailed: false,
@@ -508,6 +509,34 @@ test("a REFUSED transcript is reported, never mistaken for a silent learner", as
   assert.ok(warning, "a transcriber refusing every clip must not be silent");
   const turn = logged.find((l) => l.msg === "[chacha-call] turn");
   assert.equal((turn!.obj as { transcriptFailed: boolean }).transcriptFailed, true);
+});
+
+test("the caption request carries what the learner said, in three readings", async () => {
+  // Owner, 2026-08-28: "I want to see what was captured when i spoke, romanized
+  // native script" and "and english meaning". The streaming turn answers 202
+  // with a URL, so like the reward this has to travel on the long-poll.
+  const callId = await startCall();
+  liveResult = makeLive({ learnerText: "રોટલી અને દાળ", learnerEnglish: "roti and dal" });
+  await post(
+    `/openai/chacha-call/${callId}/turn`,
+    { audioBase64: CLIP },
+    { "X-Audio-Stream": "url" },
+  );
+  const res = await fetch(`${baseUrl}/openai/chacha-call/${callId}/turn/0`);
+  const turn = (await res.json()) as Record<string, never>;
+  assert.equal(turn.heard as never, "રોટલી અને દાળ");
+  assert.equal(turn.heardEnglish as never, "roti and dal");
+  const roman = turn.heardRomanized as never as string;
+  assert.ok(roman && /^[\x20-\x7e]+$/.test(roman), `not Latin: ${roman}`);
+});
+
+test("nothing heard mirrors nothing, rather than an empty panel", async () => {
+  const callId = await startCall();
+  liveResult = makeLive({ chachaText: "", learnerText: "", learnerEnglish: "", mp3: Buffer.alloc(0) });
+  const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(json.heard as never, "");
+  assert.equal(json.heardRomanized as never, null);
+  assert.equal(json.heardEnglish as never, "");
 });
 
 test("a turn with no audio is rejected before any model is called", async () => {

@@ -40,6 +40,17 @@ export interface CallTurn {
    * learner uttered.
    */
   learner: string;
+  /**
+   * The learner's own words, mirrored back on screen (owner, 2026-08-28).
+   *
+   * A MIRROR AND NEVER A MARK. It says what the server HEARD, in the language's
+   * own script, with a romanization and a plain English reading. Nothing
+   * compares it to anything, nothing marks it, and there is no field here for
+   * a verdict to travel in. `learner` above is the same text; these are the two
+   * readings of it the screen needs.
+   */
+  learnerRomanized: string | null;
+  learnerEnglish: string;
   /** What Chacha-ji said back. */
   chacha: string;
   /** True when this turn played a fixed clip rather than a generated reply. */
