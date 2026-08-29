@@ -49,6 +49,36 @@ export const SPLASH_FILM = require('../assets/splash/welcome-bolo.mp4') as numbe
 export const SPLASH_POSTER = require('../assets/splash/welcome-bolo-poster.jpg') as number;
 
 /**
+ * THE HANDOVER PLATE (build 18). The native splash is the bird on WHITE now
+ * (app.json's splash.backgroundColor), and the boot film opens on the bazaar,
+ * so the two used to meet at a hard cut. Owner: "Bolo bird has a brown
+ * background when you first launch. instead i want it with a white background
+ * and crossfade with intro animation."
+ *
+ * expo-splash-screen can fade the native splash out on iOS ONLY (setOptions'
+ * `fade` is @platform ios in v31), so the crossfade is drawn here instead, on
+ * both platforms: BrandSplash paints the same bird on the same white as its
+ * TOP layer, the native splash hides behind it (an invisible cut, plate for
+ * plate), and the plate then fades over the film once the root reports the
+ * native splash gone.
+ *
+ * THE BIRD IS DRAWN THE WAY THE NATIVE SPLASH DRAWS IT, or the cut shows. With
+ * the top-level `expo.splash` key and no "expo-splash-screen" plugin entry,
+ * @expo/prebuild-config takes its LEGACY branch (getIosSplashConfig /
+ * getAndroidSplashConfig): iOS draws the image full-screen aspect-fit
+ * (enableFullScreenImage_legacy), Android at imageWidth 200dp. Check both
+ * again if app.json ever gains a plugin entry, because that branch draws a
+ * 100pt logo instead and the plate would have to follow it.
+ */
+export const SPLASH_HANDOVER_BIRD = require('../assets/images/mascot/mascot-wave.png') as number;
+/** Byte-identical to app.json's splash.backgroundColor; a test holds them together. */
+export const SPLASH_HANDOVER_GROUND = '#FFFFFF';
+/** How wide Android's native splash draws the bird (prebuild's legacy imageWidth). */
+export const SPLASH_HANDOVER_BIRD_ANDROID_W = 200;
+/** The crossfade from the bird to the film. */
+export const SPLASH_HANDOVER_FADE_MS = 600;
+
+/**
  * THE GREETING WAVE, as twelve JPEG frames swapped through react-native's own
  * `Image`. No new package, no new native module, no decoder we do not already
  * trust, because that trust is the only thing left standing after 2026-08-19.

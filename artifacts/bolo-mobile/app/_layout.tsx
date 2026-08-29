@@ -110,25 +110,34 @@ function RootLayout() {
   // "i see bolo with the brown background, then i see a white page flash then
   // i see the video splash."
   //
-  // The overlay's ground is #89695B, byte-identical to app.json's native
-  // splash backgroundColor, so once it HAS painted the handover is invisible.
-  // All that was ever missing was waiting for it.
+  // THE OVERLAY'S TOP LAYER IS THE NATIVE SPLASH'S TWIN (build 18): the same
+  // bird on the same white (app.json's splash.backgroundColor and
+  // SPLASH_HANDOVER_GROUND are held equal by a test), so once it HAS painted
+  // the handover is invisible, plate for plate. It then fades over the film,
+  // which is the crossfade the owner asked for: "Bolo bird has a brown
+  // background when you first launch. instead i want it with a white
+  // background and crossfade with intro animation." The fade waits for
+  // `nativeGone`, reported here once hideAsync settles, so the bird never
+  // starts fading while the native copy still covers it.
   //
   // THE FAILSAFE IS NOT OPTIONAL. The film does not always mount: it is off on
   // some paths, its error boundary can drop it, and it renders null once the
   // day's play is spent. Without the timer any of those would leave the native
   // splash up forever, which is a far worse bug than the flash.
   const [filmPainted, setFilmPainted] = useState(false);
+  const [nativeGone, setNativeGone] = useState(false);
   useEffect(() => {
     if (!(fontsLoaded || fontError)) return;
+    // finally, not then: a hide that rejects (already hidden, no native
+    // module) must still release the plate, or the bird sits on the film.
+    const hide = () => {
+      SplashScreen.hideAsync().finally(() => setNativeGone(true));
+    };
     if (filmPainted) {
-      SplashScreen.hideAsync();
+      hide();
       return;
     }
-    const t = setTimeout(
-      () => SplashScreen.hideAsync(),
-      NATIVE_SPLASH_HANDOVER_FAILSAFE_MS,
-    );
+    const t = setTimeout(hide, NATIVE_SPLASH_HANDOVER_FAILSAFE_MS);
     return () => clearTimeout(t);
   }, [fontsLoaded, fontError, filmPainted]);
 
@@ -163,7 +172,7 @@ function RootLayout() {
                 {/* The boot film, over the Stack. The native splash hides on
                     fonts; this picks up from there and covers Clerk plus both
                     redirect hops. (This comment was here twice; one copy.) */}
-                <BrandSplash onReady={() => setFilmPainted(true)} />
+                <BrandSplash onReady={() => setFilmPainted(true)} nativeGone={nativeGone} />
                 {/* The stop transition, also over the Stack and one zIndex
                     below the boot film, so the two can never fight. It has to
                     live here rather than in journey.tsx because it covers the

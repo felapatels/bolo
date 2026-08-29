@@ -25,7 +25,7 @@
  * Any failure renders null and the app boots normally (boundary below).
  */
 import React, { Component, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Image, StyleSheet } from 'react-native';
+import { Animated, Image, Platform, StyleSheet } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useReducedMotion } from 'react-native-reanimated';
 // THE SPLASH IS A STILL, RENDERED BY REACT NATIVE'S OWN Image, AND BOTH HALVES
@@ -55,6 +55,10 @@ import {
   SPLASH_MIN_HOLD_MS,
   SPLASH_MAX_HOLD_MS,
   SPLASH_EXIT_MS,
+  SPLASH_HANDOVER_BIRD,
+  SPLASH_HANDOVER_BIRD_ANDROID_W,
+  SPLASH_HANDOVER_FADE_MS,
+  SPLASH_HANDOVER_GROUND,
   isFirstColdStartToday,
   markFullPlayed,
 } from '@/lib/splashFilm';
@@ -73,11 +77,50 @@ export function __resetBrandSplashForTests(): void {
 
 type SplashPhase = 'playing' | 'exiting' | 'done';
 
-function BrandSplashFilm({ onReady }: { onReady?: () => void }) {
+function BrandSplashFilm({
+  onReady,
+  nativeGone = true,
+}: {
+  onReady?: () => void;
+  /**
+   * True once the root has taken the native splash away. The handover plate
+   * (the bird on white, matching the native splash) holds until then and
+   * fades over the film after, so the cut from native to JS is plate for
+   * plate and the only visible motion is the crossfade. Defaults to true so a
+   * host that has no native splash to wait for gets the fade at once.
+   */
+  nativeGone?: boolean;
+}) {
   // Read the latch once, at mount, before the effect below consumes it.
   const [phase, setPhase] = useState<SplashPhase>(() =>
     coldStartConsumed ? 'done' : 'playing',
   );
+  /**
+   * THE HANDOVER PLATE'S LIFE (build 18): opaque at mount, so the native
+   * splash can hide behind an identical picture; fades once `nativeGone`;
+   * unmounted when the fade lands so the film underneath takes no cost from
+   * an invisible layer. Reduce Motion swaps instead of fading.
+   */
+  const handover = useRef(new Animated.Value(1)).current;
+  const [handoverDone, setHandoverDone] = useState(false);
+  /**
+   * THE NATIVE SPLASH IS RELEASED ONLY ONCE THE PLATE'S BIRD HAS LOADED. A
+   * simulator burst (build 18) caught one frame of plain white between the
+   * native splash and the film: the overlay had laid out, so the root took
+   * the native splash away, but the plate's PNG had not decoded yet. On a
+   * store build that frame is the bird blinking out and back in. So `onReady`
+   * waits for BOTH the layout and the image's onLoad; onError counts as
+   * loaded so a missing asset can never hold the native splash up, and the
+   * root's 600ms failsafe stands behind all of it.
+   */
+  const [laidOut, setLaidOut] = useState(false);
+  const [birdPainted, setBirdPainted] = useState(false);
+  const readyFired = useRef(false);
+  useEffect(() => {
+    if (readyFired.current || !laidOut || !birdPainted) return;
+    readyFired.current = true;
+    onReady?.();
+  }, [laidOut, birdPainted, onReady]);
   /**
    * FULL mode. Web decides this synchronously from localStorage inside
    * the phase initializer; AsyncStorage cannot be read synchronously, so
@@ -168,14 +211,25 @@ function BrandSplashFilm({ onReady }: { onReady?: () => void }) {
     return () => clearTimeout(t);
   }, [phase, full]);
 
+  // THE MINIMUM HOLD COUNTS FROM THE CROSSFADE, NOT FROM MOUNT (build 18).
+  // The handover plate covers the film for its fade, and in a dev client for
+  // however long the bird takes to arrive over Metro; a hold that started at
+  // mount was spent behind the plate, and the simulator burst showed the film
+  // for three frames before it exited. The hold is the time the learner sees
+  // the FILM, so it restarts when the plate has gone.
+  const holdFrom = useRef(Date.now());
+  useEffect(() => {
+    if (handoverDone) holdFrom.current = Date.now();
+  }, [handoverDone]);
+
   // READY: the later of the ready signal and the minimum hold, so an
   // instantly-settling signal cannot blink the film away.
   useEffect(() => {
     if (phase !== 'playing' || full || !homeReady) return;
-    const remaining = SPLASH_MIN_HOLD_MS - (Date.now() - mountedAt.current);
+    const remaining = SPLASH_MIN_HOLD_MS - (Date.now() - holdFrom.current);
     const t = setTimeout(() => setPhase('exiting'), Math.max(0, remaining));
     return () => clearTimeout(t);
-  }, [phase, full, homeReady]);
+  }, [phase, full, homeReady, handoverDone]);
 
   // Failsafe cap, both modes.
   useEffect(() => {
@@ -195,6 +249,24 @@ function BrandSplashFilm({ onReady }: { onReady?: () => void }) {
     anim.start(() => setPhase('done'));
     return () => anim.stop();
   }, [phase, reduceMotion, opacity]);
+
+  // THE CROSSFADE, once the native splash is gone. useNativeDriver is FALSE
+  // on purpose: CLAUDE.md, "the native animation driver is dead" in this
+  // app's release builds, and a fade that does not tick would leave the bird
+  // parked over the film for 600ms and then blink. The JS driver is the one
+  // proven to move here, and an opacity tween of one view costs nothing.
+  useEffect(() => {
+    if (!nativeGone || handoverDone || phase === 'done') return;
+    const anim = Animated.timing(handover, {
+      toValue: 0,
+      duration: reduceMotion ? 0 : SPLASH_HANDOVER_FADE_MS,
+      useNativeDriver: false,
+    });
+    anim.start(({ finished }) => {
+      if (finished) setHandoverDone(true);
+    });
+    return () => anim.stop();
+  }, [nativeGone, handoverDone, phase, reduceMotion, handover]);
 
   // PUBLISHED FROM HERE, FOR HOME'S COUNT-UP. Anything home animates on
   // arrival is invisible while this overlay is up, and on a cold start that is
@@ -227,8 +299,9 @@ function BrandSplashFilm({ onReady }: { onReady?: () => void }) {
       // root hid the native splash as soon as the FONTS loaded, and the gap
       // between that and this view painting showed the app background:
       // "i see bolo with the brown background, then i see a white page flash
-      // then i see the video splash" (2026-08-27).
-      onLayout={onReady}
+      // then i see the video splash" (2026-08-27). Since build 18 the layout
+      // is half of the handshake; the plate's bird loading is the other half.
+      onLayout={() => setLaidOut(true)}
     >
       {/* expo-video has no poster prop, so the still is a plain underlay: the
           film paints over it the moment its first frame decodes, and until then
@@ -249,6 +322,33 @@ function BrandSplashFilm({ onReady }: { onReady?: () => void }) {
           contentFit="cover"
         />
       ) : null}
+      {/* THE HANDOVER PLATE, on top of everything until it has faded: the
+          same bird on the same white the native splash shows, drawn the way
+          the native splash draws it (full-screen aspect-fit on iOS, 200dp on
+          Android; see SPLASH_HANDOVER_BIRD). The native splash hides behind
+          this, so the cut is invisible, and this fading is the crossfade the
+          owner asked for. react-native's own Image, like the poster: nothing
+          new on the launch path. */}
+      {!handoverDone && (
+        <Animated.View
+          testID="splash-handover"
+          pointerEvents="none"
+          style={[styles.layer, styles.handover, { opacity: handover }]}
+        >
+          <Image
+            testID="splash-handover-bird"
+            source={SPLASH_HANDOVER_BIRD}
+            resizeMode="contain"
+            onLoad={() => setBirdPainted(true)}
+            onError={() => setBirdPainted(true)}
+            style={
+              Platform.OS === 'android'
+                ? { width: SPLASH_HANDOVER_BIRD_ANDROID_W, height: SPLASH_HANDOVER_BIRD_ANDROID_W }
+                : styles.layer
+            }
+          />
+        </Animated.View>
+      )}
     </Animated.View>
   );
 }
@@ -276,6 +376,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  // The native splash's own white, so the handover is plate for plate. The
+  // bird centres itself: iOS gets the full layer to aspect-fit in, Android a
+  // fixed square in the middle.
+  handover: {
+    backgroundColor: SPLASH_HANDOVER_GROUND,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 /**
@@ -296,10 +404,13 @@ class SplashErrorBoundary extends Component<{ children: ReactNode }, { failed: b
   }
 }
 
-export function BrandSplash({ onReady }: { onReady?: () => void } = {}) {
+export function BrandSplash({
+  onReady,
+  nativeGone,
+}: { onReady?: () => void; nativeGone?: boolean } = {}) {
   return (
     <SplashErrorBoundary>
-      <BrandSplashFilm onReady={onReady} />
+      <BrandSplashFilm onReady={onReady} nativeGone={nativeGone} />
     </SplashErrorBoundary>
   );
 }

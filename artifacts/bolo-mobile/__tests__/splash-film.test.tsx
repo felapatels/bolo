@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { BrandSplash, __resetBrandSplashForTests } from '@/components/BrandSplash';
@@ -99,6 +99,101 @@ describe('THE NATIVE SPLASH MUST GET OUT OF THE WAY EARLY', () => {
   });
 
 
+});
+
+describe('THE HANDOVER PLATE: the bird on white, then a crossfade (build 18)', () => {
+  // Owner: "Bolo bird has a brown background when you first launch. instead
+  // i want it with a white background and crossfade with intro animation."
+  // expo-splash-screen's own fade is iOS-only, so BrandSplash draws the
+  // native splash's twin as its top layer and fades that on both platforms.
+  const q = (id: string) => screen.queryByTestId(id, { includeHiddenElements: true });
+  const { SPLASH_HANDOVER_GROUND, SPLASH_HANDOVER_BIRD } = jest.requireActual('@/lib/splashFilm');
+
+  beforeEach(() => {
+    __resetBrandSplashForTests();
+    __motion.reduce = false;
+  });
+
+  it('the native splash is the bird on the SAME white the plate paints', () => {
+    // Held equal here rather than remembered: a brown in either place is the
+    // cut this replaced.
+    const app = JSON.parse(readFileSync(join(ROOT, 'app.json'), 'utf8'));
+    expect(app.expo.splash.backgroundColor.toUpperCase()).toBe(SPLASH_HANDOVER_GROUND);
+    expect(app.expo.splash.image).toMatch(/mascot-wave\.png$/);
+    expect(SPLASH_HANDOVER_GROUND).toBe('#FFFFFF');
+  });
+
+  it('holds the plate, bird and white, while the native splash is still up', () => {
+    render(<BrandSplash nativeGone={false} />);
+    const plate = q('splash-handover');
+    expect(plate).not.toBeNull();
+    const flat = Object.assign({}, ...[plate!.props.style].flat(Infinity).filter(Boolean));
+    expect(flat.backgroundColor).toBe(SPLASH_HANDOVER_GROUND);
+    const bird = q('splash-handover-bird');
+    expect(bird).not.toBeNull();
+    expect(bird!.props.source).toBe(SPLASH_HANDOVER_BIRD);
+    expect(bird!.props.resizeMode).toBe('contain');
+    // Above the film, not under it: the last child of the overlay.
+    const overlay = q('brand-splash')!;
+    expect(overlay.props.children[overlay.props.children.length - 1]?.props?.testID).toBe(
+      'splash-handover',
+    );
+  });
+
+  it('fades the plate out once the native splash has gone, and unmounts it', () => {
+    jest.useFakeTimers();
+    try {
+      render(<BrandSplash nativeGone />);
+      expect(q('splash-handover')).not.toBeNull();
+      act(() => {
+        jest.advanceTimersByTime(1000);
+      });
+      expect(q('splash-handover')).toBeNull();
+      // The poster and the film are untouched underneath.
+      expect(q('splash-still')).not.toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('releases the native splash only once the plate has laid out AND its bird has loaded', () => {
+    // A simulator burst caught one frame of plain white between the native
+    // splash and the film: the overlay had laid out, the PNG had not decoded.
+    const onReady = jest.fn();
+    render(<BrandSplash onReady={onReady} nativeGone={false} />);
+    const overlay = q('brand-splash')!;
+    act(() => {
+      overlay.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 844 } } });
+    });
+    expect(onReady).not.toHaveBeenCalled();
+    act(() => {
+      q('splash-handover-bird')!.props.onLoad();
+    });
+    expect(onReady).toHaveBeenCalledTimes(1);
+    // Once, however many times either half fires again.
+    act(() => {
+      overlay.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 844 } } });
+    });
+    expect(onReady).toHaveBeenCalledTimes(1);
+  });
+
+  it('a bird that fails to load still releases the native splash', () => {
+    const onReady = jest.fn();
+    render(<BrandSplash onReady={onReady} nativeGone={false} />);
+    act(() => {
+      q('brand-splash')!.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 844 } } });
+      q('splash-handover-bird')!.props.onError();
+    });
+    expect(onReady).toHaveBeenCalledTimes(1);
+  });
+
+  it('the root reports the native splash gone AFTER hideAsync settles', () => {
+    // The plate must not start fading while the native copy still covers it,
+    // and a hide that rejects must still release it.
+    const layout = readFileSync(join(ROOT, 'app/_layout.tsx'), 'utf8');
+    expect(layout).toMatch(/SplashScreen\.hideAsync\(\)\.finally\(\(\) => setNativeGone\(true\)\)/);
+    expect(layout).toMatch(/nativeGone=\{nativeGone\}/);
+  });
 });
 
 describe('the WebP survives on disk but reaches no bundle', () => {
