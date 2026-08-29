@@ -335,10 +335,11 @@ command runs.
   '1.0.0' is closed for new build submissions". **90186 means TestFlight is closed
   for that train too, so this blocks internal testing, not just release.** The
   version is a compile-time value, so a rejected binary cannot be resubmitted, it
-  has to be rebuilt. **`1.0.4` was approved and released on 2026-08-28, so that
-  train is closed too and `app.json` is already bumped to `1.0.5` for the next
-  submission.** This line has been stale before: it said `1.0.1` while 1.0.2,
-  1.0.3 and 1.0.4 shipped, so check `app.json` rather than trusting it.
+  has to be rebuilt. **`1.0.5` (523) went into App Store review on 2026-08-29,
+  and on the owner's ruling the next build is `1.0.6`: `app.json` is already
+  bumped.** (1.0.4 was approved and released on 2026-08-28.) This line has been
+  stale before: it said `1.0.1` while 1.0.2, 1.0.3 and 1.0.4 shipped, so check
+  `app.json` rather than trusting it.
 
   **Also confirmed 2026-08-21: EAS `autoIncrement` with `appVersionSource: local`
   WRITES THE INCREMENTED NUMBER BACK INTO `app.json`.** It left `201` and then

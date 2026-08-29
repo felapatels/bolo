@@ -68,13 +68,13 @@ pass on the Mac.
 
 | build | commit | status |
 |---|---|---|
-| iOS 1.0.5 (523) | `0dc2ad2e` | on TestFlight |
+| iOS 1.0.5 (523) | `0dc2ad2e` | **in App Store review** (owner, 2026-08-29) |
 | Android 1.0.5 (524) | `0dc2ad2e` | Play internal track |
 
-Neither carries anything from build 19. The next store build needs
-`expo.version` bumped only if 1.0.5 has been submitted for App Store review
-(check App Store Connect; `app.json` says 1.0.5 / 523 / 524 and EAS
-autoIncrement will write 524 / 525 back).
+Neither carries anything from build 19. **The next build is 1.0.6** (owner
+ruling): `app.json` is already bumped to 1.0.6 with buildNumber 523 and
+versionCode 524, and EAS autoIncrement will write 524 / 525 back into the
+tree after each build, so expect a dirty `app.json` afterwards.
 
 **The simulator dev client was rebuilt** this session (`expo-store-review`
 is a native module): pods installed, `npx expo run:ios --no-install
