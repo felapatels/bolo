@@ -27,6 +27,7 @@ export function CarvedBoard({
   plate,
   opacity = 1,
   clipContent = true,
+  bare = false,
   testID,
   pedimentTestID,
   children,
@@ -54,6 +55,14 @@ export function CarvedBoard({
    * not doing any work while it is off.
    */
   clipContent?: boolean;
+  /**
+   * NO PANEL ART (build 17). The journey's zone board draws its own card
+   * under the pediment now (owner: "this box should replace that box"), so
+   * the parchment slice and the cream fill are skipped and the children get
+   * the panel's full height, inset only to the pediment's own posts. The
+   * home hero keeps the art.
+   */
+  bare?: boolean;
   testID?: string;
   pedimentTestID?: string;
   /** Whatever the panel says. Laid out inside the drawn frame. */
@@ -122,12 +131,14 @@ export function CarvedBoard({
             its outer margin is fully transparent, so that fill must stop there
             or the panel reads wider than the pediment above it. The two insets
             differ because the art is not centred in its own file. */}
-        <View pointerEvents="none" style={styles.panelFill} />
-        <Image
-          source={ZONE_BOARD_ART.panel}
-          resizeMode="stretch"
-          style={{ position: 'absolute', left: 0, top: 0, width, height: panelH }}
-        />
+        {!bare && <View pointerEvents="none" style={styles.panelFill} />}
+        {!bare && (
+          <Image
+            source={ZONE_BOARD_ART.panel}
+            resizeMode="stretch"
+            style={{ position: 'absolute', left: 0, top: 0, width, height: panelH }}
+          />
+        )}
         {/* Everything the board says lives inside the drawn frame. The vertical
             insets are fractions of the PANEL'S HEIGHT and the horizontal ones
             of the board's WIDTH, which is why this is padded from two different
@@ -135,10 +146,17 @@ export function CarvedBoard({
         <View
           style={[
             styles.panelBody,
-            {
-              paddingTop: panelH * ZONE_BOARD.contentInsetTop,
-              paddingBottom: panelH * ZONE_BOARD.contentInsetBottom,
-            },
+            bare
+              ? {
+                  paddingTop: 0,
+                  paddingBottom: 0,
+                  paddingLeft: `${ZONE_BOARD.panelInsetLeft * 100}%`,
+                  paddingRight: `${ZONE_BOARD.panelInsetRight * 100}%`,
+                }
+              : {
+                  paddingTop: panelH * ZONE_BOARD.contentInsetTop,
+                  paddingBottom: panelH * ZONE_BOARD.contentInsetBottom,
+                },
             clipContent ? null : styles.unclipped,
           ]}
         >

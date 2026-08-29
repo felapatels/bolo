@@ -1093,7 +1093,7 @@ describe('the zone band never reaches up into the zone above it', () => {
   // Mirrored from journey.tsx rather than imported, for the same reason
   // journey-board-budget.test.ts mirrors PC_H: a drift between the two is
   // exactly what this file exists to catch.
-  const PC_H_FOR_TEST = 200; // build 17, see journey.tsx PC_H
+  const PC_H_FOR_TEST = 256; // build 17, see journey.tsx PC_H
   const ZONE_BOARD_GAP_FOR_TEST = 18;
   const LAYER_TOP = -(PC_H_FOR_TEST + ZONE_BOARD_GAP_FOR_TEST);
   const MOCKED_TOP_INSET = 59;
@@ -1610,9 +1610,9 @@ describe('the rail palette and the medallions, mirrored on web', () => {
       // purple lines. future track should be only 2 purple lines, not
       // filled." Green centre and halo back, nothing between the rails ahead.
       rail: '#8B5CF6',
-      between: '#4ADE80', // a real green: #ECF584 "looks yellow, not green"
+      between: '#84CC16', // the owner's lime swatch; #ECF584 read yellow, #4ADE80 mint
       betweenUnlit: '#00000000',
-      glow: '#86EFAC',
+      glow: '#BEF264',
     });
   });
 

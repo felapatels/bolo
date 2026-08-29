@@ -51,12 +51,12 @@ export const RAIL = {
   // two purple lines. future track should be only 2 purple lines, not
   // filled." So the travelled centre is the sheet's green again, the halo
   // green with it, and ahead there is nothing between the rails at all.
-  between: '#4ADE80',
+  between: '#84CC16', // the owner's lime, sent as a swatch: not the mint #4ADE80
   /** The same centre, untravelled: plain wood, no green. */
   betweenUnlit: '#00000000',
   /** A narrow glow under the lit centre only. It replaces two 28px and 18px
    *  passes that were three times the width of the track itself. */
-  glow: '#86EFAC',
+  glow: '#BEF264',
 } as const;
 
 /** The halo's two passes, wide-and-soft under tight-and-bright. One gradient

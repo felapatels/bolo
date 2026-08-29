@@ -294,7 +294,12 @@ export const ZONE_BOARD_ART = {
  * build 17 with an onLayout on the panel body: 112 at the old paddings with
  * the counter on its own line, 90 after trimming 9 of padding and folding the
  * counter into the stops line. Inside insets worth 26.8% of the panel's height
- * that needs 90 / 0.732 = 123, so 124 with a point to spare.
+ * that needs 90 / 0.732 = 123. THEN THE PANEL BECAME A CARD (the owner's
+ * zone-card mockup, build 17): a line pill, a 22pt city, a rule, and the fact
+ * boxed with a spark and three lines, measured at 163 with two lines and 177
+ * with three, so 177 / 0.732 = 242 while the art's insets applied. THEN THE CARD
+ * REPLACED THE PARCHMENT ("no i don't want to keep that old box underneath")
+ * and the insets went with it: 177 of card in the bare panel, so 180.
  *
  * IT WAS 98, SET FOR "ABOUT 72PT OF COPY" BEFORE THE FACT BOX EXISTED, and it
  * kept passing while the fact's last line sat under the frame on every phone:
@@ -306,7 +311,7 @@ export const ZONE_BOARD_ART = {
  * content and overflow hidden turned "does not fit" into "is not there". A
  * screenshot cannot tell those apart; this can.
  */
-export const ZONE_BOARD_MIN_PANEL_H = 124;
+export const ZONE_BOARD_MIN_PANEL_H = 180;
 
 /** The pediment's height at a given board width, which is pure aspect. */
 export function zoneBoardPedimentH(boardWidth: number): number {

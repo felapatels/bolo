@@ -183,6 +183,14 @@ const MAP_MAX_W = 390;
 // with it, and the serpentine keeps its x swing over twice the y, which
 // halves the slope of every bend.
 const STATION_H = 176; // vertical rhythm per station row
+// The tracing stop's chalkboard (build 17): a tall slate rather than a tag,
+// and the doubled pitch above is what leaves room for it in the row.
+const CHALKBOARD_W = 150;
+const CHALKBOARD_H = 150;
+// A CHALK FACE WITHOUT A BUNDLED FONT. iOS ships Chalkduster; Android has no
+// chalk face, so it gets its casual hand ("casual" is a generic family every
+// Android carries). Nothing new in the binary, nothing to license.
+const CHALK_FONT = Platform.select({ ios: 'Chalkduster', default: 'casual' }) as string;
 const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
 // 200 FROM BUILD 17, AND IT NO LONGER MATCHES WEB'S 184. It was 152 until the
 // carved board shipped, which is why the panel rendered EMPTY through 511 and
@@ -202,7 +210,10 @@ const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
 // .test.ts, which mirrors this number on purpose; move both together. Web's
 // board has its own fonts and its own budget, and matching it by number was a
 // convention that hid this for a week.
-const PC_H = 200; // vertical rhythm per fare-zone postcard (pediment + panel)
+// 256 FROM THE ZONE-CARD RESTYLE (build 17, owner's mockup): the panel is a
+// card now, with a line pill, a 22pt city, a rule and a boxed fact, and the
+// budget was measured again with an onLayout before this number was set.
+const PC_H = 256; // vertical rhythm per fare-zone postcard (pediment + card)
 
 const ZONE_BOARD_GAP = 18; // air between the carved board and the first stop card
 /**
@@ -759,11 +770,18 @@ function TagCardBack({
  * so this adds a subscriber rather than a second source of scroll truth.
  */
 const SLIDE_DX = 44;
-/** How much scrolling it takes a card to settle, in points. */
-const SLIDE_TRAVEL = 240;
-/** How far up the viewport a card is fully home. 0.82 means it finishes just
- *  after it clears the bottom edge, rather than still moving mid-screen. */
-const SLIDE_LEAD = 0.82;
+/** How much scrolling it takes a card to settle, in points. 160, was 240:
+ *  the row pitch doubled in build 17 and a card spent twice as long half
+ *  faded in the lower third of the screen. */
+const SLIDE_TRAVEL = 160;
+/** How far up the viewport a card is fully home. 1.0 means the slide runs
+ *  while the card is still below the bottom edge and it is home as it
+ *  clears it; 0.82 left cards visibly unsettled on the first screen. */
+const SLIDE_LEAD = 1.0;
+/** THE FLOOR IS NOT A FADE-FROM-NOTHING. At 0.4 a chalkboard slate read as
+ *  glass with the painting through it (build 17). A card is always at least
+ *  three-quarters there; the slide is the entrance, the alpha only softens it. */
+const SLIDE_MIN_OPACITY = 0.75;
 
 function SlidingCardSlot({
   cardY,
@@ -790,7 +808,7 @@ function SlidingCardSlot({
     const start = cardY - windowH * SLIDE_LEAD;
     const p = Math.min(1, Math.max(0, (scrollY.value - start) / SLIDE_TRAVEL));
     return {
-      opacity: 0.4 + 0.6 * p,
+      opacity: SLIDE_MIN_OPACITY + (1 - SLIDE_MIN_OPACITY) * p,
       transform: [{ translateX: (1 - p) * SLIDE_DX * (side === 'right' ? 1 : -1) }],
     };
   });
@@ -1526,120 +1544,111 @@ export default function JourneyScreen() {
                   nameplate={zone.title.toUpperCase()}
                   plate={`ZONE ${zi + 1}`}
                   opacity={grayed ? 0.8 : 1}
+                  // The card below REPLACES the parchment panel (owner, build
+                  // 17: "no i don't want to keep that old box underneath").
+                  bare
                 >
                     {/* address side */}
                     <View style={styles.postcardAddress}>
-                      <View style={styles.postcardLeft}>
-                        {/* The fare-zone line came off the panel when the
-                            carved board landed: the pediment's nameplate
-                            carries the topic and the small plate carries the
-                            number, so this said both a second time. */}
-                        {/* Ink from the board, not a theme token: the panel
-                            is cream in both themes and a cool slate reads
-                            cold on it. */}
-                        {/* THE LINE, WHICH THE HEADER USED TO CARRY. The
-                            boarding pass came off this page on 2026-08-27
-                            because it collided with this very board, and
-                            the one thing it said that the map did not was
-                            the line's name. It says it here now, as an
-                            eyebrow over the city, so nothing was lost by
-                            removing it. */}
-                        <Text
-                          numberOfLines={1}
-                          style={[styles.boardLineName, { color: cardColor }]}
-                        >
-                          {line.lineName.toUpperCase()}
-                        </Text>
-                        <Text
-                          numberOfLines={1}
-                          style={[styles.postcardGeoName, { color: ZONE_BOARD.ink }]}
-                        >
-                          {zone.geoName}
-                        </Text>
-                        <Text style={[styles.postcardStops, { color: ZONE_BOARD.inkMuted }]}>
-                          {/* ROWS DRAWN, NOT PHRASE STATIONS. The card
-                              said 9 while the rows beneath it said "Stop 1
-                              of 11": the tracing and story stops are rows a
-                              learner counts and this number never knew
-                              about them. */}
-                          {zone.rowStations.length} {zone.rowStations.length === 1 ? 'stop' : 'stops'} in this zone
-                          {/* THE FREE TASTE COUNTER, rehoused. It lived in the
-                              header ticket, and when the boarding pass came
-                              off this page (2026-08-27) it would have gone
-                              with it. It is the one thing that ticket carried
-                              that a learner actually needs while sampling a
-                              locked language: how much of the taste is left.
-                              ON THE STOPS LINE from build 17, not under it: a
-                              line of its own cost 13 of a body that measured
-                              26 short, and the fact's last line paid for it. */}
-                          {access === 'teaser' && teaserProgress && (
-                            <>
-                              <Text>{' · '}</Text>
-                              <Text style={{ color: cardColor, fontFamily: AppFonts.bold }}>
-                                Free taste {teaserProgress.consumed}/{teaserProgress.limit}
-                              </Text>
-                            </>
-                          )}
-                        </Text>
-                        {/* THE DAILY FACT, web parity (chat 11): web's board
-                            has carried a DID YOU KNOW strip since hotfix 3
-                            and mobile's panel never got it, which the
-                            owner's side-by-side called out. Static rather
-                            than the web strip's 6-second rotation: per-frame
-                            motion is not trusted on this app's release
-                            builds (see CLAUDE.md, the native animation
-                            driver), and a board read in passing needs one
-                            fact, not a slideshow. Same factForZone
-                            arithmetic, so both platforms show the same fact
-                            for the same zone on the same day. */}
-                        {!zoneGateLocked && (
-                        <View
-                          testID={`board-fact-${zi}`}
-                          style={[styles.boardFact, { borderColor: `${cardColor}55` }]}
-                        >
-                          <Text style={[styles.boardFactLabel, { color: cardColor }]}>
-                            DID YOU KNOW?
-                          </Text>
-                          <Text
-                            numberOfLines={2}
-                            style={[styles.boardFactText, { color: ZONE_BOARD.inkMuted }]}
-                          >
-                            {factForZone({
-                              zoneIndex: zi,
-                              geoName: zone.geoName,
-                              lineName: line.lineName,
-                            })}
-                          </Text>
-                        </View>
-                        )}
-                      </View>
-                      {/* THE POSTMARK AND THE ZONE STAMP CAME OFF with the
-                          carved board. The pediment's small plate says ZONE
-                          n, so the stamp said it a second time, and a franked
-                          postcard's furniture on a carved station board was
-                          two different objects at once. */}
-                    </View>
-                    {/* Zone test-out affordance (web parity:
-                        link-zone-test-out-{i}) — present only when the zone
-                        is gate-locked; dormant pre-flip by construction. */}
-                    {zoneGateLocked && (
-                      <Pressable
-                        testID={`link-zone-test-out-${zi}`}
-                        accessibilityRole="button"
-                        onPress={() => {
-                          hapticLight();
-                          router.push({
-                            pathname: '/(app)/practice/[id]',
-                            params: { id: String(zone.id), mode: 'testout', scope: 'zone' },
-                          });
-                        }}
-                        style={[styles.postcardTestOut, { borderColor: cardColor }]}
+                      {/* THE MODERN PANEL ON THE CARVED BOARD (build 17, owner:
+                          "this is how i want the zone cards to look"). The
+                          pediment stays carved; under it the panel is a cream
+                          card with the app's violet on its top edge, the line
+                          as a violet pill, the city big, a gold dashed rule
+                          with a diamond, and the fact in its own box with a
+                          gold spark. The hybrid, on the board itself. */}
+                      <View
+                        style={styles.boardCard}
                       >
-                        <Text style={[styles.postcardTestOutText, { color: cardColor }]}>
-                          Test out of this zone
-                        </Text>
-                      </Pressable>
-                    )}
+                        <FadeGradient
+                          colors={[grayed ? GRAY : colors.primary, grayed ? GRAY : '#EC4899']}
+                          start={{ x: 0, y: 0.5 }}
+                          end={{ x: 1, y: 0.5 }}
+                          style={styles.boardCardEdge}
+                        />
+                        <View style={styles.boardCardBody}>
+                          <View style={styles.boardLineRow}>
+                            <View style={[styles.boardLinePill, { backgroundColor: grayed ? GRAY : colors.primary }]}>
+                              <MaterialCommunityIcons name="train" size={12} color="#ffffff" />
+                              <Text numberOfLines={1} style={styles.boardLinePillText}>
+                                {line.lineName.toUpperCase()}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text numberOfLines={1} style={styles.boardCity}>
+                            {zone.geoName}
+                          </Text>
+                          <Text style={styles.boardStops}>
+                            {zone.rowStations.length} {zone.rowStations.length === 1 ? 'stop' : 'stops'} in this zone
+                            {access === 'teaser' && teaserProgress && (
+                              <>
+                                <Text>{' · '}</Text>
+                                <Text style={{ color: colors.primary, fontFamily: AppFonts.bold }}>
+                                  Free taste {teaserProgress.consumed}/{teaserProgress.limit}
+                                </Text>
+                              </>
+                            )}
+                          </Text>
+                          <View style={styles.boardRule}>
+                            <View style={[styles.boardRuleLine, { borderColor: `${BADGE.brassBg}99` }]} />
+                            <View style={[styles.boardRuleDiamond, { borderColor: BADGE.brassBg }]} />
+                            <View style={[styles.boardRuleLine, { borderColor: `${BADGE.brassBg}99` }]} />
+                          </View>
+                          {/* THE DAILY FACT, web parity (chat 11), same factForZone
+                              arithmetic so both platforms show the same fact for
+                              the same zone on the same day. Static rather than
+                              rotating: per-frame motion is not trusted on this
+                              app's release builds. */}
+                          {!zoneGateLocked && (
+                            <View
+                              testID={`board-fact-${zi}`}
+                              style={[styles.boardFact, { borderColor: `${BADGE.brassEdge}80` }]}
+                            >
+                              <View style={[styles.boardFactSpark, { borderColor: BADGE.brassEdge }]}>
+                                <MaterialCommunityIcons name="star-four-points" size={18} color={BADGE.brassBg} />
+                              </View>
+                              <View style={styles.boardFactCopy}>
+                                <Text style={[styles.boardFactLabel, { color: grayed ? GRAY : colors.primary }]}>
+                                  DID YOU KNOW?
+                                </Text>
+                                <Text numberOfLines={3} style={styles.boardFactText}>
+                                  {factForZone({
+                                    zoneIndex: zi,
+                                    geoName: zone.geoName,
+                                    lineName: line.lineName,
+                                  })}
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+                          {/* Zone test-out affordance (web parity:
+                              link-zone-test-out-{i}), present only when the
+                              zone is gate-locked, in the fact's place. IT
+                              LIVES INSIDE THE CARD from build 17: it was a
+                              sibling after the panel, and once the card
+                              replaced the parchment it landed on the painting
+                              ("this fell off the zone card"). A violet button
+                              now, the card's one action. */}
+                          {zoneGateLocked && (
+                            <Pressable
+                              testID={`link-zone-test-out-${zi}`}
+                              accessibilityRole="button"
+                              onPress={() => {
+                                hapticLight();
+                                router.push({
+                                  pathname: '/(app)/practice/[id]',
+                                  params: { id: String(zone.id), mode: 'testout', scope: 'zone' },
+                                });
+                              }}
+                              style={[styles.boardTestOut, { backgroundColor: grayed ? GRAY : colors.primary }]}
+                            >
+                              <Text style={styles.boardTestOutText}>Test out of this zone</Text>
+                              <Feather name="arrow-right" size={14} color="#ffffff" />
+                            </Pressable>
+                          )}
+                        </View>
+                      </View>
+                    </View>
                 </CarvedBoard>
               </View>
               {/* interchange diamond pinned where the track meets the zone
@@ -3029,7 +3038,11 @@ export default function JourneyScreen() {
                         // cannot taper into a luggage-tag tip. The tip side
                         // gets the deeper padding so no copy sits on the
                         // taper.
-                        { width: cardW },
+                        // THE CHALKBOARD STANDS TALL (build 17, owner: "a
+                        // vertical rectangle with chalk font"): a slate on an
+                        // easel is taller than it is wide, and the doubled
+                        // row pitch leaves the room for it.
+                        s.trace ? { width: CHALKBOARD_W, minHeight: CHALKBOARD_H } : { width: cardW },
                         tipSide === 'left'
                           ? { paddingLeft: tagPointed ? 24 : 14, paddingRight: 12 }
                           : { paddingLeft: 12, paddingRight: tagPointed ? 24 : 14 },
@@ -3077,52 +3090,52 @@ export default function JourneyScreen() {
                           outline on a card that already has the accent edge,
                           the roof bar and the mascot: "card 1 is disorganized." */}
                       {s.trace ? (
-                        <View style={styles.kindRow}>
-                          <View style={styles.kindCopy}>
-                            <View style={styles.cardTitleRow}>
-                              <Text style={styles.chalkKicker}>TRACE</Text>
-                              <View style={styles.cardTitleSpacer} />
-                              {cardChips}
-                              {!accessible && <Feather name="lock" size={12} color="rgba(255,255,255,0.75)" />}
-                            </View>
-                            <Text numberOfLines={1} style={styles.chalkLine}>
-                              {statusCopy}
-                            </Text>
-                            {s.traceTotal ? (
-                              <View style={styles.cardProgressRow}>
-                                <View style={[styles.cardProgressTrack, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
-                                  <View
-                                    testID={`progress-trace-${s.stopNumber}`}
-                                    style={{
-                                      width: `${Math.round(((s.traceDone ?? 0) / s.traceTotal) * 100)}%`,
-                                      height: '100%',
-                                      borderRadius: 3,
-                                      backgroundColor: '#ffffff',
-                                    }}
-                                  />
-                                </View>
-                                <Text style={[styles.cardProgressLabel, styles.chalkText]}>
-                                  {s.traceDone ?? 0}/{s.traceTotal}
-                                </Text>
-                              </View>
-                            ) : null}
+                        <View style={styles.chalkColumn}>
+                          <View style={styles.chalkChipRow}>
+                            {cardChips}
+                            {!accessible && <Feather name="lock" size={12} color="rgba(255,255,255,0.75)" />}
                           </View>
+                          <Text style={styles.chalkKicker}>TRACE</Text>
+                          <Text numberOfLines={2} style={styles.chalkLine}>
+                            {statusCopy}
+                          </Text>
+                          {s.traceTotal ? (
+                            <>
+                              <Text style={styles.chalkCount}>
+                                {s.traceDone ?? 0}/{s.traceTotal}
+                              </Text>
+                              <View style={[styles.cardProgressTrack, styles.chalkTrack]}>
+                                <View
+                                  testID={`progress-trace-${s.stopNumber}`}
+                                  style={{
+                                    width: `${Math.round(((s.traceDone ?? 0) / s.traceTotal) * 100)}%`,
+                                    height: '100%',
+                                    borderRadius: 3,
+                                    backgroundColor: '#ffffff',
+                                  }}
+                                />
+                              </View>
+                            </>
+                          ) : null}
                           {/* The pencil, in the app's violet: the one modern
-                              mark on a slate, and what the mockup hangs on the
-                              board's corner. */}
+                              mark on a slate, hung on the board's corner as
+                              the mockup does. */}
                           <View style={[styles.chalkPencil, { backgroundColor: colors.primary }]}>
                             <Feather name="edit-2" size={14} color="#ffffff" />
                           </View>
                         </View>
                       ) : s.story ? (
                         <View style={styles.kindRow}>
-                          {/* THE BOOK, BIG (build 17, owner: "storybook with a
-                              big book icon on it"). */}
-                          <MaterialCommunityIcons
-                            name="book-open-page-variant"
-                            size={40}
-                            color={accessible ? ZONE_BOARD.ink : TICKET.inkAhead}
-                            style={styles.storyBook}
+                          {/* THE BOOK, BIG AND IN THREE DIMENSIONS (build 17,
+                              owner: "storybook with a big book icon on it",
+                              then "a 3-d looking book like my example"). The
+                              open-book emblem the medallions used to carry;
+                              it was already drawn, so it is reused rather
+                              than a flat glyph. */}
+                          <Image
+                            source={stopEmblem('story')}
+                            resizeMode="contain"
+                            style={[styles.storyBook, !accessible && styles.storyBookAhead]}
                           />
                           <View style={styles.kindCopy}>
                             <View style={styles.cardTitleRow}>
@@ -4193,26 +4206,67 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
     marginBottom: 1,
   },
-  // Trimmed by 3 in build 17 (marginTop 4, paddingVertical 3) as part of
-  // fitting the panel's measured 112 of content into its body. See PC_H.
-  boardFact: {
-    marginTop: 3,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderRadius: 6,
+  // THE MODERN PANEL (build 17): a cream card on the carved board.
+  // Wood on three sides, the violet edge on the fourth: it hangs from the
+  // pediment the way the parchment did, without the parchment.
+  boardCard: {
+    flex: 1,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+    borderWidth: 3,
+    borderTopWidth: 0,
+    borderColor: '#8A5D4A',
+    backgroundColor: '#FFF8EE',
+    overflow: 'hidden',
+  },
+  boardCardEdge: { height: 3 },
+  boardCardBody: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 9 },
+  boardLineRow: { flexDirection: 'row' },
+  boardLinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 8,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
   },
-  boardFactLabel: {
-    fontFamily: AppFonts.extrabold,
-    fontSize: 8,
-    letterSpacing: 1.2,
+  boardLinePillText: { fontFamily: AppFonts.extrabold, fontSize: 9, letterSpacing: 1, color: '#ffffff' },
+  boardCity: { fontFamily: AppFonts.extrabold, fontSize: 22, lineHeight: 26, color: '#2B1A0E', marginTop: 5 },
+  boardStops: { fontFamily: AppFonts.semibold, fontSize: 11, lineHeight: 14, color: '#6B5B4E', marginTop: 1 },
+  boardRule: { flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 6 },
+  boardRuleLine: { flex: 1, height: 1, borderWidth: 1, borderStyle: 'dashed' },
+  boardRuleDiamond: { width: 8, height: 8, borderWidth: 1.5, transform: [{ rotate: '45deg' }] },
+  boardFact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    backgroundColor: '#FFFDF8',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
-  boardFactText: {
-    fontFamily: AppFonts.semibold,
-    fontSize: 9,
-    lineHeight: 12,
+  boardFactSpark: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    backgroundColor: '#FFF4E0',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  boardFactCopy: { flex: 1, minWidth: 0 },
+  boardTestOut: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 12,
+    paddingVertical: 10,
+  },
+  boardTestOutText: { fontFamily: AppFonts.bold, fontSize: 13, color: '#ffffff' },
+  boardFactLabel: { fontFamily: AppFonts.extrabold, fontSize: 10, letterSpacing: 1.2 },
+  boardFactText: { fontFamily: AppFonts.semibold, fontSize: 11, lineHeight: 14, color: '#3A2A1E', marginTop: 1 },
   postcard: {
     borderRadius: 10,
     borderWidth: 2,
@@ -4490,11 +4544,18 @@ const styles = StyleSheet.create({
     borderColor: '#8A5D4A',
   },
   kindRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  chalkColumn: { alignItems: 'center', paddingTop: 6, paddingBottom: 10, gap: 3 },
+  chalkChipRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'stretch', justifyContent: 'flex-end', minHeight: 14 },
+  chalkCount: { fontFamily: CHALK_FONT, fontSize: 22, lineHeight: 28, color: '#ffffff', marginTop: 2 },
+  chalkTrack: { alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.18)', marginTop: 4 },
   kindCopy: { flex: 1, minWidth: 0 },
-  chalkKicker: { fontFamily: AppFonts.extrabold, fontSize: 11, letterSpacing: 2, color: '#ffffff' },
-  chalkLine: { fontFamily: AppFonts.semibold, fontSize: 12, lineHeight: 15, color: 'rgba(255,255,255,0.92)', marginTop: 1 },
+  chalkKicker: { fontFamily: CHALK_FONT, fontSize: 18, lineHeight: 24, letterSpacing: 2, color: '#ffffff' },
+  chalkLine: { fontFamily: CHALK_FONT, fontSize: 13, lineHeight: 18, color: 'rgba(255,255,255,0.92)', textAlign: 'center' },
   chalkText: { color: '#ffffff' },
   chalkPencil: {
+    position: 'absolute',
+    right: -6,
+    bottom: -6,
     width: 30,
     height: 30,
     borderRadius: 15,
@@ -4503,7 +4564,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.5)',
   },
-  storyBook: { marginLeft: -2 },
+  storyBook: { width: 52, height: 52, marginLeft: -4 },
+  // Ahead, the book is knocked back the way the paper is: greyer, not faded.
+  storyBookAhead: { tintColor: TICKET.inkAhead },
   storyKicker: { fontFamily: AppFonts.extrabold, fontSize: 10, letterSpacing: 1.6 },
   terminusOuter: {
     position: 'absolute',
