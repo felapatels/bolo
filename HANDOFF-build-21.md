@@ -55,11 +55,11 @@ on web, mobile and api.
 **Web and server:** build 19 was published and verified by content at
 12:11 on 2026-08-29 (`index-ClMWqBXz.js`). Build 20's server changes
 (flashback door, hesitation, spec) passed the api suite in the Repl
-(1450/1448/0/2), the Repl has pulled `dadf5bea`, and the owner was asked
-to Republish. **AT HANDOFF TIME THE LIVE SITE WAS STILL BUILD 19**: index
-`ClMWqBXz`, no `/flashback` route string in it, and
-`/journey/maps/hi.json` answering the SPA fallback. So the publish either
-has not been clicked or did not complete; ask, then verify.
+(1450/1448/0/2), the Repl pulled `dadf5bea`, and **the owner published at
+the end of the session: VERIFIED LIVE** at 17:25 UTC on 2026-08-29, index
+`fccZNL14` carrying the `/map` and `/flashback` routes, `hi.json` served as
+`application/json` (1,947 bytes, six signs), `hi.jpg` as `image/jpeg`
+(492 KB). Web and server are current. Mobile is not (section below).
 
 **VERIFY BY CONTENT, AND KNOW THE TWO TRAPS.** (1) Unknown paths on
 bolo-india.app answer **200 with the homepage HTML** (4070 bytes,
