@@ -9,8 +9,14 @@
  * network, which is how both screens were designed. It is scaffolding and is
  * deliberately opt-in, so a real deep link always hits the real call.
  *
+ * ITS THREE TURNS NOW COVER THE THREE OUTCOMES, chai, a miss and XP, because
+ * the glow at the screen edge and the pill under the caption are exactly the
+ * things that cannot be judged from a test. Cycling them is how the whole set
+ * is seen on a simulator with no server behind it.
+ *
  * Drive it on the simulator with:
- *   xcrun simctl openurl booted "bolo-mobile://call"
+ *   xcrun simctl openurl booted "bolo-mobile://call"                     the real journey call
+ *   xcrun simctl openurl booted "bolo-mobile://call?mode=game"           the real games call
  *   xcrun simctl openurl booted "bolo-mobile://call?fake=1&phase=connected"
  */
 import React from 'react';
@@ -30,9 +36,9 @@ import type { CallMode } from '@/lib/chachaCallApi';
  * them.
  */
 const FAKE_TURNS = [
-  { text: 'કેમ છો, બેટા? મજામાં?', romanized: 'Kem chho, beta? Majama?' },
-  { text: 'વાહ! આજે શું ખાધું?', romanized: 'Waah! Aaje shu khadhu?' },
-  { text: 'રોટલી અને દાળ? બહુ સરસ.', romanized: 'Rotli ane daal? Bahu saras.' },
+  { text: 'કેમ છો, બેટા? મજામાં?', romanized: 'Kem chho, beta? Majama?', chai: 1, xp: 0, heard: true },
+  { text: 'વાહ! આજે શું ખાધું?', romanized: 'Waah! Aaje shu khadhu?', chai: 0, xp: 0, heard: false },
+  { text: 'રોટલી અને દાળ? બહુ સરસ.', romanized: 'Rotli ane daal? Bahu saras.', chai: 0, xp: 5, heard: true },
 ];
 
 export default function CallScreen() {
@@ -127,6 +133,20 @@ export default function CallScreen() {
     params.say === 'listening' ? 'listening' : 'speaking',
   );
   const [fakeElapsed, setFakeElapsed] = React.useState(0);
+  const [fakeVoicing, setFakeVoicing] = React.useState(false);
+
+  // The real call waits about a second between his turn starting and his voice
+  // arriving. The scaffolding reproduces it so the held mouth can be watched.
+  React.useEffect(() => {
+    if (!fake || !fakeConnected) return;
+    if (fakePhase !== 'speaking') {
+      setFakeVoicing(false);
+      return;
+    }
+    setFakeVoicing(false);
+    const t = setTimeout(() => setFakeVoicing(true), 1000);
+    return () => clearTimeout(t);
+  }, [fake, fakeConnected, fakePhase, fakeTurn]);
 
   React.useEffect(() => {
     if (!fake || !fakeConnected) return;
@@ -160,6 +180,12 @@ export default function CallScreen() {
             phase={fakePhase}
             text={current.text}
             romanized={current.romanized}
+            chaiEarned={current.chai}
+            xpEarned={current.xp}
+            outcome={current.heard ? 'earned' : 'missed'}
+            // The scaffolding holds his mouth shut for the first beat of each
+            // speaking turn, so the wait the real call has is visible here too.
+            voicing={fakePhase === 'speaking' ? fakeVoicing : true}
             elapsedSeconds={fakeElapsed}
             onHangUp={leave}
           />
@@ -190,6 +216,9 @@ export default function CallScreen() {
         <InCall
           level={state.level}
           chaiEarned={state.chaiEarned}
+          xpEarned={state.xpEarned}
+          outcome={state.outcome}
+          voicing={state.voicing}
           languageName={state.languageName}
           talking={state.status === 'talking'}
           onTalkStart={() => void startTalking()}

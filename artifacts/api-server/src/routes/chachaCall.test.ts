@@ -7,6 +7,7 @@ import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { CALL_BEATS, CALL_NOTHING_HEARD, JOURNEY_BEATS } from "../lib/chachaCallScript";
+import { CHACHA_CALL_CHAI_MAX } from "../lib/tokenEconomy";
 
 // startCall() below opens a JOURNEY call, so every walk-the-whole-call loop
 // counts the journey's beats.
@@ -42,6 +43,12 @@ let liveError: Error | null;
 let warmed = 0;
 let logged: Array<{ level: string; obj: unknown; msg: string }> = [];
 let cannedCalls: string[] = [];
+let chaiGrants: Array<{ callId: string; turnIndex: number }> = [];
+let xpGrants: Array<{ languageCode: string; turnIndex: number }> = [];
+/** Set to make the ledger report "already credited", as a retry would. */
+let rewardAlreadyGranted = false;
+/** What STT hears on a CANNED beat, where no live turn runs. */
+let lateTranscript = "chalo chacha-ji";
 let getChatAudioStream: (id: string) => { chunks: Buffer[]; done: boolean; failed: boolean } | undefined;
 
 function makeLive(over: Partial<LiveTurnResult> = {}): LiveTurnResult {
@@ -79,6 +86,15 @@ before(async () => {
       req.onAudioChunk?.(liveResult?.mp3 ?? Buffer.alloc(0));
       return liveResult ?? makeLive();
     },
+    transcribeLearner: async () => lateTranscript,
+    grantChai: async (_userId, callId, turnIndex) => {
+      chaiGrants.push({ callId, turnIndex });
+      return rewardAlreadyGranted ? 0 : 1;
+    },
+    grantXp: async (_userId, languageCode, _callId, turnIndex) => {
+      xpGrants.push({ languageCode, turnIndex });
+      return rewardAlreadyGranted ? 0 : 5;
+    },
     warmConnection: () => { warmed += 1; },
     // Short, so the 204 case does not sit out a real twelve second wait.
     turnWaitMs: 120,
@@ -114,6 +130,10 @@ beforeEach(() => {
   warmed = 0;
   logged = [];
   cannedCalls = [];
+  chaiGrants = [];
+  xpGrants = [];
+  rewardAlreadyGranted = false;
+  lateTranscript = "chalo chacha-ji";
 });
 
 async function post(path: string, body?: unknown, headers: Record<string, string> = {}) {
@@ -283,6 +303,129 @@ test("the call runs out of beats and says so", async () => {
   // Speaking into a finished call is a conflict, not a new turn.
   const after = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
   assert.equal(after.status, 409);
+});
+
+// ── What a turn pays, and the fact that it reaches the phone ───────────────
+//
+// Owner ruling, 2026-08-28: a turn earns when he HEARD them and earns nothing
+// when it heard silence. Chai on the journey, XP on the game, never both.
+
+async function startGame(): Promise<string> {
+  const { json } = await post("/openai/chacha-call/start", { mode: "game" });
+  return json.callId as unknown as string;
+}
+
+test("a journey turn he heard pays one chai and no XP", async () => {
+  const callId = await startCall();
+  const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(json.chaiEarned as never as number, 1);
+  assert.equal(json.xpEarned as never as number, 0);
+  assert.deepEqual(chaiGrants, [{ callId, turnIndex: 1 }]);
+  assert.deepEqual(xpGrants, []);
+});
+
+test("a game turn he heard pays XP and no chai", async () => {
+  const callId = await startGame();
+  const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(json.xpEarned as never as number, 5);
+  assert.equal(json.chaiEarned as never as number, 0);
+  assert.deepEqual(xpGrants, [{ languageCode: "gu", turnIndex: 1 }]);
+  assert.deepEqual(chaiGrants, []);
+});
+
+test("a turn he heard nothing in pays nothing, in either call", async () => {
+  // Not a judgement of the answer. Nothing here reads WHAT they said, only
+  // whether they said anything, which is the only rule available in a feature
+  // that has no score by design.
+  for (const start of [startCall, startGame]) {
+    chaiGrants = [];
+    xpGrants = [];
+    const callId = await start();
+    liveResult = makeLive({ chachaText: "", learnerText: "", mp3: Buffer.alloc(0), spokenSeconds: 0 });
+    const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+    assert.equal(json.chaiEarned as never as number, 0);
+    assert.equal(json.xpEarned as never as number, 0);
+    assert.deepEqual(chaiGrants, []);
+    assert.deepEqual(xpGrants, []);
+    liveResult = makeLive();
+  }
+});
+
+test("the reward reaches the phone, which only ever reads the caption request", async () => {
+  // THE BUG THIS COVERS: the grant sat below `if (stream) return`, and the app
+  // always sends X-Audio-Stream, so no learner was ever credited a chai for a
+  // call and the "+1" the caption draws could not fire. The streaming turn
+  // answers 202 with a URL and nothing else, so the reward has to travel on the
+  // long-poll that follows it.
+  const callId = await startCall();
+  const started = await post(
+    `/openai/chacha-call/${callId}/turn`,
+    { audioBase64: CLIP },
+    { "X-Audio-Stream": "url" },
+  );
+  assert.equal(started.status, 202);
+  assert.equal(started.json.chaiEarned as never, undefined, "202 carries the URL, not the reward");
+  assert.deepEqual(chaiGrants, [{ callId, turnIndex: 1 }], "the grant must run on this path");
+
+  const res = await fetch(`${baseUrl}/openai/chacha-call/${callId}/turn/0`);
+  const turn = (await res.json()) as Record<string, never>;
+  assert.equal(turn.chaiEarned as never as number, 1);
+  assert.equal(turn.xpEarned as never as number, 0);
+  assert.equal(turn.heardSomething as never, true);
+});
+
+test("a retried turn never reports a reward twice", async () => {
+  // The refId is the idempotency and the ledger is the judge. What must not
+  // happen is a second "+1" floating up for chai nobody received.
+  rewardAlreadyGranted = true;
+  const callId = await startCall();
+  const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  assert.equal(json.chaiEarned as never as number, 0);
+});
+
+test("the journey stops paying chai after the cap, and the call carries on", async () => {
+  const callId = await startCall();
+  const paid: number[] = [];
+  for (let i = 1; i <= JOURNEY_TURNS; i++) {
+    const { status, json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+    assert.equal(status, 200);
+    paid.push(json.chaiEarned as never as number);
+  }
+  assert.ok(paid.every((n) => n === 1), `the journey agenda is inside the cap: ${paid}`);
+});
+
+test("the last answer of a journey earns, even though the goodbye is canned", async () => {
+  // The farewell beat runs no live turn, so nothing used to transcribe the
+  // answer it consumes and the fifth turn of a five-turn call could never earn.
+  // The cap is five; five must be reachable.
+  const callId = await startCall();
+  const paid: number[] = [];
+  for (let i = 1; i <= JOURNEY_TURNS; i++) {
+    const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+    paid.push(json.chaiEarned as never as number);
+  }
+  assert.equal(paid.reduce((a, b) => a + b, 0), CHACHA_CALL_CHAI_MAX);
+});
+
+test("silence into the canned goodbye earns nothing, same as any other turn", async () => {
+  lateTranscript = "";
+  const callId = await startCall();
+  let last = 0;
+  for (let i = 1; i <= JOURNEY_TURNS; i++) {
+    const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+    last = json.chaiEarned as never as number;
+  }
+  assert.equal(last, 0);
+});
+
+test("what a turn paid is logged, so a silent reward failure is visible", async () => {
+  const callId = await startCall();
+  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
+  const turn = logged.find((l) => l.msg === "[chacha-call] turn");
+  const o = turn!.obj as { chaiEarned: number; xpEarned: number; heardSomething: boolean };
+  assert.equal(o.chaiEarned, 1);
+  assert.equal(o.xpEarned, 0);
+  assert.equal(o.heardSomething, true);
 });
 
 test("a turn with no audio is rejected before any model is called", async () => {

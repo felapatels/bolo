@@ -21,6 +21,8 @@ function speak(learner: string) {
     chacha: "Waah!",
     romanized: "Waah!",
     canned: false,
+    chaiEarned: 0,
+    xpEarned: 0,
   };
 }
 
@@ -54,7 +56,15 @@ test("a call the learner never spoke in is abandoned", () => {
   // The seam the ring-back will read. He is delighted by anything, including
   // nothing, so silence ends the call gently rather than failing it.
   const s = createCallSession(USER, "gu", "Gujarati");
-  recordCallTurn(s, { beatId: "khaana", learner: "", chacha: "Koi baat nahi", romanized: null, canned: true });
+  recordCallTurn(s, {
+    beatId: "khaana",
+    learner: "",
+    chacha: "Koi baat nahi",
+    romanized: null,
+    canned: true,
+    chaiEarned: 0,
+    xpEarned: 0,
+  });
   assert.equal(endCallSession(s.id), "abandoned");
 });
 

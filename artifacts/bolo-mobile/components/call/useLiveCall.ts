@@ -70,6 +70,16 @@ export interface LiveCallState {
   backdrop: CallBackdropId;
   text: string;
   romanized: string | null;
+  /**
+   * True once his voice is ACTUALLY coming out of the speaker.
+   *
+   * SEPARATE FROM `status === 'speaking'`, which only means it is his turn.
+   * The gap between the two is the model generating, about a second warm, and
+   * the backdrop used to loop through all of it so he mouthed words nobody
+   * could hear (owner, 2026-08-28: "he starts talking at the begining of his
+   * turn but sometimes audio takes a second"). The film waits for this.
+   */
+  voicing: boolean;
   elapsedSeconds: number;
   error: string | null;
   /**
@@ -90,6 +100,23 @@ export interface LiveCallState {
    * the wallet holds the total, this is the moment of getting one.
    */
   chaiEarned: number;
+  /**
+   * XP just credited for the turn they answered. The GAME call's currency:
+   * chai is what he gives you for picking up when HE rang, XP is what every
+   * other game on the hub pays. Never both in one call (owner, 2026-08-28).
+   */
+  xpEarned: number;
+  /**
+   * How the turn they just answered went, for the glow around the screen edge.
+   *
+   * `earned`  he heard them and the turn paid.
+   * `missed`  he heard nothing, so it paid nothing.
+   * `null`    nothing to say, which is most of the time.
+   *
+   * IT IS NOT A SCORE AND MUST NEVER BECOME ONE. Nothing here reads WHAT they
+   * said, only whether they said anything. A call is an event, not a lesson.
+   */
+  outcome: 'earned' | 'missed' | null;
   /** The language this call is fixed to, shown under the clock. */
   languageName: string | null;
 
@@ -126,10 +153,13 @@ export function useLiveCall({
     backdrop: initialBackdrop,
     text: '',
     romanized: null,
+    voicing: false,
     elapsedSeconds: 0,
     error: null,
     level: 0,
     chaiEarned: 0,
+    xpEarned: 0,
+    outcome: null,
     languageName: null,
   });
 
@@ -292,6 +322,41 @@ export function useLiveCall({
     void submitTurnRef.current();
   }, []);
 
+  /**
+   * SHOWS THE LEARNER WHAT THE TURN DID, and it is the only feedback on this
+   * screen. Owner ruling, 2026-08-28: a turn earns when he HEARD them, and a
+   * turn he heard nothing in earns nothing and says so.
+   *
+   * NOT A SCORE, AND NEVER RED. Nothing reads WHAT they said, only whether
+   * they said it, and often the failure is ours rather than theirs. The miss
+   * is a calm amber with a word and an ear beside it, so it reads as "say that
+   * again when you like" rather than as a mark. There is no wrong answer in
+   * this feature and there must never be a colour claiming there is.
+   *
+   * Cleared after the float has flown, so the next turn re-triggers the
+   * animation rather than finding the value unchanged.
+   */
+  const showOutcome = React.useCallback(
+    (turn: { chaiEarned?: number; xpEarned?: number; heardSomething?: boolean }) => {
+      const chai = turn.chaiEarned ?? 0;
+      const xp = turn.xpEarned ?? 0;
+      const earned = chai > 0 || xp > 0;
+      // `heardSomething` is server-authoritative. An older server that does not
+      // send it leaves the miss unreported rather than guessing one.
+      const missed = turn.heardSomething === false;
+      if (!earned && !missed) return;
+      patch({
+        chaiEarned: chai,
+        xpEarned: xp,
+        outcome: earned ? 'earned' : 'missed',
+      });
+      setTimeout(() => {
+        if (aliveRef.current) patch({ chaiEarned: 0, xpEarned: 0, outcome: null });
+      }, 2200);
+    },
+    [patch],
+  );
+
   /** Stop recording and run one turn. */
   const submitTurn = React.useCallback(async () => {
     const callId = callIdRef.current;
@@ -299,7 +364,8 @@ export function useLiveCall({
     const index = turnIndexRef.current;
     try {
       const audio = await stopAndReadRecording(recorder);
-      patch({ status: 'speaking' });
+      // His turn, but not his VOICE yet: the film waits for the first sound.
+      patch({ status: 'speaking', voicing: false });
 
       const started = await sendTurn(callId, audio, 'wav');
       turnIndexRef.current = index + 1;
@@ -313,7 +379,10 @@ export function useLiveCall({
         () => {
           if (!aliveRef.current) return;
           if (overRef.current) void hangUpRef.current();
-          else patch({ status: 'listening' });
+          else patch({ status: 'listening', voicing: false });
+        },
+        () => {
+          if (aliveRef.current) patch({ voicing: true });
         },
       );
       playbackRef.current = handle;
@@ -323,14 +392,7 @@ export function useLiveCall({
           if (!turn || !aliveRef.current) return;
           overRef.current = turn.over;
           patch({ text: turn.text, romanized: turn.romanized });
-          if (turn.chaiEarned && turn.chaiEarned > 0) {
-            patch({ chaiEarned: turn.chaiEarned });
-            // Cleared after the float has flown, so the next turn's award
-            // re-triggers the animation instead of finding the value unchanged.
-            setTimeout(() => {
-              if (aliveRef.current) patch({ chaiEarned: 0 });
-            }, 2200);
-          }
+          showOutcome(turn);
         })
         .catch(() => {
           // No caption is survivable. A call the learner can hear but not read
@@ -339,7 +401,7 @@ export function useLiveCall({
     } catch (err) {
       finish('The call dropped.', err);
     }
-  }, [recorder, patch, finish]);
+  }, [recorder, patch, finish, showOutcome]);
 
   /** Answer. Plays his canned hello, then starts listening. */
   const answer = React.useCallback(async () => {
@@ -363,6 +425,7 @@ export function useLiveCall({
         // hardcoded Hinglish string and there was nothing to romanize.
         romanized: call.beat.romanized ?? null,
         status: 'speaking',
+        voicing: false,
       });
 
       if (call.audioBase64 && call.format) {
@@ -370,13 +433,16 @@ export function useLiveCall({
           call.audioBase64,
           call.format,
           () => {
-            if (aliveRef.current) patch({ status: 'listening' });
+            if (aliveRef.current) patch({ status: 'listening', voicing: false });
+          },
+          () => {
+            if (aliveRef.current) patch({ voicing: true });
           },
         );
       } else {
         // No greeting audio is survivable: his line is on screen and the call
         // moves straight to the learner's turn rather than stalling in silence.
-        patch({ status: 'listening' });
+        patch({ status: 'listening', voicing: false });
       }
     } catch (err) {
       finish('Chacha-ji could not get through.', err);

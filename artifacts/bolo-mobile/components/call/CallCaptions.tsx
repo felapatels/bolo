@@ -32,9 +32,31 @@ export interface CallCaptionsProps {
    * the correction this feature does not do.
    */
   chaiEarned?: number;
+  /**
+   * XP this turn earned. The GAME call's currency, never alongside chai: chai
+   * is what he gives you for picking up when HE rang, XP is what every other
+   * game on the hub pays (owner, 2026-08-28).
+   */
+  xpEarned?: number;
+  /**
+   * How the turn went, for the pill under the caption. Pairs with the glow at
+   * the screen edge so the state never rests on hue alone.
+   *
+   * `missed` says he heard nothing, and it is deliberately NOT a mark against
+   * the learner: it carries an ear rather than a cross, says "didn't catch
+   * that" rather than "wrong", and never asks them to try again. A miss is as
+   * often the room or the microphone as it is a learner who froze.
+   */
+  outcome?: 'earned' | 'missed' | null;
 }
 
-export function CallCaptions({ text, romanized, chaiEarned = 0 }: CallCaptionsProps) {
+export function CallCaptions({
+  text,
+  romanized,
+  chaiEarned = 0,
+  xpEarned = 0,
+  outcome = null,
+}: CallCaptionsProps) {
   if (!text.trim()) return null;
 
   // Repeating the line under itself helps nobody. The server sends the
@@ -65,6 +87,31 @@ export function CallCaptions({ text, romanized, chaiEarned = 0 }: CallCaptionsPr
           <Ionicons name="cafe" size={15} color="#FFD79A" />
           <Text style={styles.chaiText}>
             +{chaiEarned} chai
+          </Text>
+        </View>
+      ) : null}
+
+      {xpEarned > 0 ? (
+        // The game call's half of the same gift. Bolt, number and the word, on
+        // the same rule as the cup.
+        <View testID="call-xp-earned" style={styles.chai}>
+          <Ionicons name="flash" size={15} color="#7CFFB2" />
+          <Text style={[styles.chaiText, { color: '#7CFFB2' }]}>
+            +{xpEarned} XP
+          </Text>
+        </View>
+      ) : null}
+
+      {outcome === 'missed' ? (
+        // AN EAR, NOT A CROSS, AND NO "TRY AGAIN". He is delighted by anything
+        // they say and that has to include nothing; this line says the turn
+        // was not heard, and then the call moves on exactly as it always did.
+        // The word and the glyph both carry it, so it reads with the colour
+        // removed and beside the amber glow rather than depending on it.
+        <View testID="call-nothing-heard" style={styles.missed}>
+          <Ionicons name="ear" size={15} color="#FFC46B" />
+          <Text style={[styles.chaiText, { color: '#FFC46B' }]}>
+            Didn&apos;t catch that
           </Text>
         </View>
       ) : null}
@@ -105,6 +152,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  missed: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   chaiText: { fontSize: 14, fontWeight: '700', color: '#FFD79A' },
 });

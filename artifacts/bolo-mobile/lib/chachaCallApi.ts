@@ -92,6 +92,21 @@ export interface CallTurnResult {
    * for chai nobody received.
    */
   chaiEarned?: number;
+  /**
+   * XP credited for that turn, GAME calls only. One currency each: chai is
+   * what he gives you for picking up when HE rang, XP is what every other game
+   * on the hub pays for playing it (owner, 2026-08-28).
+   */
+  xpEarned?: number;
+  /**
+   * Whether he heard the learner say anything at all.
+   *
+   * SENT EXPLICITLY RATHER THAN INFERRED FROM `heard`, which is a transcript
+   * and can be empty for a dozen reasons. It is what decides whether the turn
+   * earned, so the client must not be second-guessing it. Optional so an older
+   * server simply leaves the miss unreported instead of one being invented.
+   */
+  heardSomething?: boolean;
 }
 
 export interface CallEnded {

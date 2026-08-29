@@ -26,8 +26,10 @@ import { useReducedMotion } from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { hapticMedium } from '@/lib/haptics';
+import { XpCounter } from '@/components/XpCounter';
 import { CALL_POSTERS, CALL_VIDEOS, type CallBackdropId } from './backdrops';
 import { CallCaptions } from './CallCaptions';
+import { CallEdgeGlow, type CallOutcome } from './CallEdgeGlow';
 import { SelfView } from './SelfView';
 
 /** Who currently holds the floor. */
@@ -40,6 +42,22 @@ export interface InCallProps {
   text: string;
   romanized?: string | null;
   chaiEarned?: number;
+  /** XP for the turn just answered. The GAME call's currency. */
+  xpEarned?: number;
+  /**
+   * How that turn went, for the glow at the screen edge. `earned` when he heard
+   * them and it paid, `missed` when he heard nothing. NOT a score: nothing here
+   * reads what they said, only whether they said it.
+   */
+  outcome?: CallOutcome | null;
+  /**
+   * True once his voice is ACTUALLY coming out, as opposed to it merely being
+   * his turn. The film waits for this, so his mouth stays shut through the
+   * second the model spends generating (owner, 2026-08-28: "hold chacha's mouth
+   * shut until the audio actually starts"). Defaults true so the fake-turn
+   * scaffolding and any older caller behave exactly as they did.
+   */
+  voicing?: boolean;
   /** Seconds since the call connected, for the timer. */
   elapsedSeconds: number;
   /**
@@ -179,6 +197,9 @@ export function InCall({
   text,
   romanized,
   chaiEarned,
+  xpEarned,
+  outcome = null,
+  voicing = true,
   elapsedSeconds,
   languageName,
   level = 0,
@@ -191,6 +212,16 @@ export function InCall({
   const reduceMotion = useReducedMotion();
   const { width, height } = Dimensions.get('window');
   const speaking = phase === 'speaking';
+  /**
+   * HIS MOUTH MOVES ONLY WHILE HIS VOICE IS OUT.
+   *
+   * `speaking` is whose TURN it is; `voicing` is whether sound is actually
+   * coming out. Between the two sits about a second of the model generating,
+   * and the loop used to run through all of it, so he mimed at the top of every
+   * turn. The still underneath is already the film's own first frame, so
+   * holding it costs nothing and there is nothing to jump over when he starts.
+   */
+  const mouthMoving = speaking && voicing;
 
   // Reduce Motion never gets the loop at all: the source is null, so the film
   // is not handed to the decoder rather than decoded and then covered. That is
@@ -204,7 +235,7 @@ export function InCall({
   React.useEffect(() => {
     if (!moving) return;
     try {
-      if (speaking) player.play();
+      if (mouthMoving) player.play();
       // Pausing rather than seeking to 0: he holds where he is, which reads as
       // attentive. Snapping back to the first frame every time the learner
       // speaks would be a visible twitch on every single turn.
@@ -212,7 +243,7 @@ export function InCall({
     } catch {
       // A player that has already been released is not worth a crash on a call.
     }
-  }, [moving, speaking, player]);
+  }, [moving, mouthMoving, player]);
 
   // The listening pip. useNativeDriver: false, per CLAUDE.md.
   const pulse = React.useRef(new Animated.Value(0.4)).current;
@@ -242,7 +273,7 @@ export function InCall({
         style={{ position: 'absolute', top: 0, left: 0, width, height }}
         resizeMode="cover"
       />
-      {moving && speaking ? (
+      {moving && mouthMoving ? (
         <VideoView
           testID="in-call-video"
           player={player}
@@ -252,6 +283,9 @@ export function InCall({
         />
       ) : null}
       <View style={[styles.scrim, { width, height }]} />
+
+      {/* Above the scrim and below everything readable. */}
+      <CallEdgeGlow outcome={outcome} />
 
       <View style={styles.top}>
         <Text testID="in-call-name" style={styles.name}>
@@ -265,12 +299,25 @@ export function InCall({
             in {languageName}
           </Text>
         ) : null}
+        {/* THE SAME METER EVERY OTHER SCREEN SHOWS, not a second one drawn for
+            this screen: same number, same denominator, same train class, from
+            the one component that owns them. The owner asked for XP up top on
+            the call, 2026-08-28. */}
+        <View testID="in-call-xp" style={styles.xpSlot}>
+          <XpCounter variant="call" />
+        </View>
       </View>
 
       <SelfView />
 
       <View style={styles.bottom}>
-        <CallCaptions text={text} romanized={romanized} chaiEarned={chaiEarned} />
+        <CallCaptions
+          text={text}
+          romanized={romanized}
+          chaiEarned={chaiEarned}
+          xpEarned={xpEarned}
+          outcome={outcome}
+        />
 
         <View testID="in-call-phase" style={styles.phase}>
           <Animated.View
@@ -282,7 +329,12 @@ export function InCall({
           {/* The WORD carries the state, never the dot's colour on its own. */}
           <Text style={styles.phaseText}>
             {speaking
-              ? 'Chacha-ji is talking'
+              // "Thinking" is the honest word for the gap: it is his turn and
+              // the model is still writing his answer. Saying he is talking
+              // while nothing comes out is the same lie the moving mouth was.
+              ? voicing
+                ? 'Chacha-ji is talking'
+                : 'Chacha-ji is thinking'
               : talking
                 ? 'Listening, release to send'
                 : 'Your turn, hold to talk'}
@@ -365,6 +417,17 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000', justifyContent: 'space-between' },
   scrim: { position: 'absolute', top: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.3)' },
   top: { marginTop: 64, alignItems: 'center' },
+  // A dark plate under the meter so its numbers hold against a moving film.
+  // The clip's brightness changes with the street going past the window, so a
+  // bare text colour that reads in one frame can vanish in the next.
+  xpSlot: {
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.42)',
+  },
   name: {
     fontSize: 24,
     fontWeight: '700',

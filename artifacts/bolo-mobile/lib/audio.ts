@@ -395,6 +395,53 @@ export async function stopAndReadRecording(
 
 export type PlaybackHandle = { stop: () => void };
 
+/**
+ * How long to wait for a player to report real sound before assuming it did.
+ *
+ * A SAFETY NET, NOT A TIMER. `onStart` drives Chacha-ji's mouth on the call: it
+ * stays shut until his voice is actually coming out, because he was miming for
+ * about a second of every turn while the model was still generating (owner,
+ * 2026-08-28: "he starts talking at the begining of his turn but sometimes
+ * audio takes a second"). A start signal that never arrives would leave him
+ * mute for the whole reply, which is worse than the fault it fixes, so the
+ * notifier fires anyway after this. Comfortably longer than the ~1.0 s to
+ * first audio byte measured on this repo's key.
+ */
+const PLAYBACK_START_ASSUME_MS = 2600;
+
+/**
+ * Fires once, the first time a player reports audio genuinely coming out.
+ *
+ * `playing` alone is not enough: a player can report playing while it is still
+ * filling its buffer, which is exactly the second this exists to cover. A
+ * currentTime that has moved off zero means samples have actually been
+ * consumed.
+ */
+function firstSoundNotifier(onStart?: () => void): {
+  note: (s: { playing?: boolean; currentTime?: number }) => void;
+  cancel: () => void;
+} {
+  if (!onStart) return { note: () => {}, cancel: () => {} };
+  let fired = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const fire = () => {
+    if (fired) return;
+    fired = true;
+    if (timer) { clearTimeout(timer); timer = null; }
+    onStart();
+  };
+  timer = setTimeout(fire, PLAYBACK_START_ASSUME_MS);
+  return {
+    note: (s) => {
+      if (s.playing === true && (s.currentTime ?? 0) > 0) fire();
+    },
+    cancel: () => {
+      fired = true;
+      if (timer) { clearTimeout(timer); timer = null; }
+    },
+  };
+}
+
 // Monotonic token guarding the iOS playback/record mode flips. When playback
 // A is stopped right as playback B starts (e.g. a partial voice stream being
 // cut over to the buffered clip), A's deferred `ensureRecordingMode()` must
@@ -417,6 +464,8 @@ export async function playStreamingAudio(
   url: string,
   headers: Record<string, string>,
   onDone?: () => void,
+  /** Called once his voice is actually sounding. See firstSoundNotifier. */
+  onStart?: () => void,
 ): Promise<PlaybackHandle> {
   const needsModeFlip = Platform.OS === 'ios' && recordingSessionActive;
   const myToken = ++playbackModeToken;
@@ -462,8 +511,11 @@ export async function playStreamingAudio(
     { uri: url, headers },
     { keepAudioSessionActive: true },
   );
+  const started = firstSoundNotifier(onStart);
   const sub = player.addListener('playbackStatusUpdate', (s) => {
+    started.note(s);
     if (s.didJustFinish) {
+      started.cancel();
       onDone?.();
       try {
         sub.remove();
@@ -477,6 +529,7 @@ export async function playStreamingAudio(
   player.play();
   return {
     stop: () => {
+      started.cancel();
       try {
         sub.remove();
       } catch {}
@@ -502,6 +555,8 @@ export async function playStreamingAudio(
 export async function playAssetAudio(
   source: number,
   onDone?: () => void,
+  /** Called once the clip is actually sounding. See firstSoundNotifier. */
+  onStart?: () => void,
 ): Promise<PlaybackHandle> {
   const needsModeFlip = Platform.OS === 'ios' && recordingSessionActive;
   const myToken = ++playbackModeToken;
@@ -532,8 +587,11 @@ export async function playAssetAudio(
 
   // keepAudioSessionActive: see playStreamingAudio for the deactivation seam.
   const player = createAudioPlayer(source, { keepAudioSessionActive: true });
+  const started = firstSoundNotifier(onStart);
   const sub = player.addListener('playbackStatusUpdate', (s) => {
+    started.note(s);
     if (s.didJustFinish) {
+      started.cancel();
       onDone?.();
       try {
         sub.remove();
@@ -547,6 +605,7 @@ export async function playAssetAudio(
   player.play();
   return {
     stop: () => {
+      started.cancel();
       try {
         sub.remove();
       } catch {}
@@ -583,6 +642,8 @@ export async function playBase64Audio(
   base64: string,
   format: string,
   onDone?: () => void,
+  /** Called once the voice is actually sounding. See firstSoundNotifier. */
+  onStart?: () => void,
 ): Promise<PlaybackHandle> {
   if (Platform.OS === 'web') {
     // THE SAME WATCHDOG THE NATIVE PATH CARRIES, and for the same reason.
@@ -606,6 +667,9 @@ export async function playBase64Audio(
       onDone?.();
     };
     audio.onended = settle;
+    // The browser's own "sound is coming out" event, which is what onStart
+    // means. No safety net needed here: this branch never streams.
+    if (onStart) audio.onplaying = onStart;
     // Once the browser knows the clip's length, the stall bound comes from
     // the clip itself rather than a guess, so a long reply is never cut off.
     audio.onloadedmetadata = () => {
@@ -712,13 +776,16 @@ export async function playBase64Audio(
       // server-side TTS failure behind a working-looking screen.
       noteAudioSessionOp(`playback watchdog: ${reason}`);
     }
+    started.cancel();
     try { sub.remove(); } catch {}
     try { player.remove(); } catch {}
     restoreMode();
     onDone?.();
   };
 
+  const started = firstSoundNotifier(onStart);
   const sub = player.addListener('playbackStatusUpdate', (s) => {
+    started.note(s);
     if (s.didJustFinish) {
       settle('finished');
       return;
@@ -744,6 +811,7 @@ export async function playBase64Audio(
       // A caller stopping the clip has taken responsibility for what happens
       // next, so this must NOT run onDone; it only stands the watchdog down.
       settled = true;
+      started.cancel();
       clearTimers();
       try {
         sub.remove();

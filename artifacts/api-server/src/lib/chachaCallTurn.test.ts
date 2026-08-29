@@ -156,7 +156,15 @@ test("history goes up as text, never as resent audio", () => {
   // Resending each prior clip would add roughly 165 KB of base64 per turn and
   // buy nothing: by this point we have the words.
   const history: CallTurn[] = [
-    { beatId: "khaana", learner: "roti aur dal", chacha: "Waah!", romanized: "Waah!", canned: false },
+    {
+      beatId: "khaana",
+      learner: "roti aur dal",
+      chacha: "Waah!",
+      romanized: "Waah!",
+      canned: false,
+      chaiEarned: 1,
+      xpEarned: 0,
+    },
   ];
   const messages = buildTurnMessages(req({ history })) as Array<{ role: string; content: unknown }>;
   assert.deepEqual(
@@ -173,7 +181,15 @@ test("history goes up as text, never as resent audio", () => {
 
 test("a silent prior turn leaves no empty message behind", () => {
   const history: CallTurn[] = [
-    { beatId: "khaana", learner: "", chacha: "Koi baat nahi", romanized: null, canned: true },
+    {
+      beatId: "khaana",
+      learner: "",
+      chacha: "Koi baat nahi",
+      romanized: null,
+      canned: true,
+      chaiEarned: 0,
+      xpEarned: 0,
+    },
   ];
   const messages = buildTurnMessages(req({ history })) as Array<{ role: string }>;
   assert.deepEqual(messages.map((m) => m.role), ["system", "assistant", "user"]);

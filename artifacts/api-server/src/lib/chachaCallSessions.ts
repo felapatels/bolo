@@ -44,6 +44,21 @@ export interface CallTurn {
   chacha: string;
   /** True when this turn played a fixed clip rather than a generated reply. */
   canned: boolean;
+  /**
+   * What this turn paid, recorded rather than recomputed.
+   *
+   * THE CAPTION REQUEST IS WHERE THE LEARNER ACTUALLY LEARNS OF IT. The phone
+   * sends its clip, gets a 202 and an audio URL back in about 30 ms, and reads
+   * his words from a SECOND request; the reward is decided in between. Holding
+   * it on the turn is what lets that second request carry it, and it means the
+   * amount reported is the one that was granted rather than a second, later
+   * guess at what the ledger did.
+   *
+   * Chai on the journey call, XP on the game, never both: owner ruling,
+   * 2026-08-28. Zero means this turn paid nothing, which is a normal turn.
+   */
+  chaiEarned: number;
+  xpEarned: number;
 }
 
 export interface CallSession {

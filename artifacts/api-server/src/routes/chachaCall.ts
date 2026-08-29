@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, languagesTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { openai } from "@workspace/integrations-openai-ai-server/audio";
+import { openai, speechToText } from "@workspace/integrations-openai-ai-server/audio";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
 import {
@@ -28,6 +28,7 @@ import {
   TOKEN_EARN_CHACHA_CALL_TURN,
   CHACHA_CALL_CHAI_MAX,
 } from "../lib/tokenEconomy";
+import { writeChachaCallXp, XP_EARN_CHACHA_CALL_TURN } from "../lib/xpEngine";
 import {
   appendChatAudioChunk,
   completeChatAudioStream,
@@ -116,6 +117,40 @@ export interface ChachaCallDeps {
   ) => Promise<{ code: string; name: string }>;
   /** One live beat through gpt-audio. */
   liveTurn: typeof runLiveTurn;
+  /**
+   * Transcribes the learner's clip on a CANNED beat, where no live turn runs.
+   *
+   * IT USED TO SKIP THIS, and the comment on CallTurn.learner said why: his
+   * farewell is fixed, so nothing would read the words. That stopped being true
+   * on 2026-08-28, when a turn started earning on whether he HEARD them. The
+   * journey's last learner turn is answered by the canned goodbye, so without
+   * this the fifth answer of a five-turn call could never earn and the cap of
+   * five was unreachable by one.
+   *
+   * It runs beside the cached clip rather than in front of it: the learner is
+   * already hearing his farewell while this resolves.
+   */
+  transcribeLearner: (
+    audio: Buffer,
+    format: "wav" | "mp3",
+    languageCode: string,
+  ) => Promise<string>;
+  /**
+   * Credits one chai for an answered JOURNEY turn. Returns the amount actually
+   * granted, which is 0 when the ledger already holds this turn.
+   *
+   * INJECTED SO THE REWARD IS TESTABLE. It reached the ledger directly until
+   * 2026-08-28, which meant no test could see it, which is part of why nobody
+   * noticed the grant sat below an early return and had never run at all.
+   */
+  grantChai: (userId: string, callId: string, turnIndex: number) => Promise<number>;
+  /** The same for XP on a GAME turn. One currency each, never both. */
+  grantXp: (
+    userId: string,
+    languageCode: string,
+    callId: string,
+    turnIndex: number,
+  ) => Promise<number>;
   /** Opens the TLS connection early so the first live turn is not the cold one. */
   warmConnection: () => void;
   /**
@@ -144,6 +179,37 @@ const defaultDeps: ChachaCallDeps = {
     return { code, name: row?.name ?? "Hindi" };
   },
   liveTurn: runLiveTurn,
+  transcribeLearner: (audio, format, languageCode) =>
+    speechToText(audio, format, { language: languageCode }).catch(() => ""),
+  grantChai: async (userId, callId, turnIndex) => {
+    try {
+      const { granted } = await grantTokensDetailed(
+        userId,
+        "earn_chacha_call",
+        `call:${callId}:${turnIndex}`,
+        TOKEN_EARN_CHACHA_CALL_TURN,
+      );
+      return granted ? TOKEN_EARN_CHACHA_CALL_TURN : 0;
+    } catch {
+      // A call that keeps working without its chai is a small disappointment;
+      // a call that drops because the ledger hiccuped is the feature failing.
+      return 0;
+    }
+  },
+  grantXp: async (userId, languageCode, callId, turnIndex) => {
+    try {
+      const granted = await writeChachaCallXp(
+        userId,
+        languageCode,
+        callId,
+        turnIndex,
+        XP_EARN_CHACHA_CALL_TURN,
+      );
+      return granted ? XP_EARN_CHACHA_CALL_TURN : 0;
+    } catch {
+      return 0;
+    }
+  },
   warmConnection: () => {
     // A cheap GET on the same host. Measured 2026-08-28: the first request a
     // process makes costs about 1.9 s to first audio against about 1.0 s warm,
@@ -335,7 +401,7 @@ export function createChachaCallRouter(
       const chachaRomanized = spoken ? romanizeTranscript(spoken, session.languageCode) : "";
 
       const spokeLive = Boolean(result && result.mp3.length > 0 && result.chachaText);
-      const learnerText = result?.learnerText ?? "";
+      let learnerText = result?.learnerText ?? "";
 
       // The fallback line depends on WHY we are falling back. A learner who
       // said nothing gets the nothing-heard line, because he is delighted by
@@ -362,7 +428,16 @@ export function createChachaCallRouter(
         audioBase64Out = result.mp3.toString("base64");
         formatOut = "mp3";
       } else {
+        // STARTED BEFORE THE CLIP AND AWAITED AFTER IT, so the farewell is on
+        // its way to the learner while this resolves. Only for a beat that ran
+        // canned with no live turn behind it; a failed live turn already has a
+        // transcript, or has already decided it heard nothing.
+        const lateTranscript =
+          beat.mode === "canned"
+            ? deps.transcribeLearner(audio, format, session.languageCode)
+            : null;
         const clip = await deps.cannedLine(fallbackKey, session.languageCode);
+        if (lateTranscript) learnerText = (await lateTranscript).trim();
         chachaText = clip.text;
         canned = true;
         // A CANNED LINE GETS A ROMANIZATION TOO, which it never used to. It was
@@ -384,12 +459,70 @@ export function createChachaCallRouter(
         else failChatAudioStream(stream);
       }
 
+      /**
+       * WHAT THE TURN PAID, DECIDED BEFORE THE TURN IS RECORDED.
+       *
+       * IT USED TO SIT BELOW `if (stream) return`, WHICH MEANT IT NEVER RAN.
+       * The app always sends `X-Audio-Stream: url`, so every real call took the
+       * 202 path and returned before reaching the grant. No learner has ever
+       * been credited a single chai for a call, and the "+1" the caption
+       * component draws could not fire. Found 2026-08-28 while wiring the
+       * screen edge the owner asked for; the reward and the way to SEE it were
+       * the same bug twice.
+       *
+       * HE HAS TO HAVE HEARD THEM. Owner ruling, 2026-08-28: a turn earns when
+       * the learner spoke and the server got words back, and earns nothing when
+       * it heard silence. That is the only rule available that means something
+       * without inventing a score, and this call has none by design. It is not
+       * a judgement of the answer: nothing here reads what they said, only
+       * WHETHER they said it.
+       *
+       * ONE CURRENCY EACH. Chai on the journey call, XP on the game (owner:
+       * "chai is only earned on the journey route when chacha calls them. if
+       * they access the game from the games page, they can only earn XP").
+       * Chai is what he gives you for picking up when HE rang; XP is what every
+       * other game on the hub pays for playing it.
+       *
+       * PER TURN RATHER THAN A LUMP AT THE END, which is what makes the "+1"
+       * floating up the screen true rather than decorative, and it means a
+       * learner who has to hang up after two questions keeps the two they
+       * earned. The chai cap is belt and braces: the journey agenda is five
+       * questions, so the count cannot exceed five on its own, but a future
+       * agenda change must not quietly become a bigger payout.
+       *
+       * THE REFID IS THE IDEMPOTENCY. `call:<id>:<turn>` credits once at each
+       * ledger's unique index however many times a flaky connection retries the
+       * same turn, and `granted` says whether THIS request was the one that
+       * inserted it, so nothing reports a reward the learner did not just get.
+       *
+       * Failure here never fails the turn. A call that keeps working without
+       * its chai is a small disappointment; a call that drops because the
+       * ledger hiccuped is the feature not working.
+       */
+      const heardThem = learnerText.length > 0;
+      // The turn they just answered. Read BEFORE recordCallTurn advances it.
+      const answeredIndex = session.beatIndex;
+      let chaiEarned = 0;
+      let xpEarned = 0;
+      if (heardThem && session.mode === "journey" && answeredIndex <= CHACHA_CALL_CHAI_MAX) {
+        chaiEarned = await deps.grantChai(userId, session.id, answeredIndex);
+      } else if (heardThem && session.mode === "game") {
+        xpEarned = await deps.grantXp(
+          userId,
+          session.languageCode,
+          session.id,
+          answeredIndex,
+        );
+      }
+
       recordCallTurn(session, {
         beatId: beat.id,
         learner: learnerText,
         chacha: chachaText,
         romanized: romanizedOut,
         canned,
+        chaiEarned,
+        xpEarned,
       });
 
       // The number this whole feature rests on. Measured at about 1.0 s warm on
@@ -403,7 +536,9 @@ export function createChachaCallRouter(
           firstAudioMs,
           totalMs: Date.now() - t0,
           spokenSeconds: Number((result?.spokenSeconds ?? 0).toFixed(2)),
-          heardSomething: learnerText.length > 0,
+          heardSomething: heardThem,
+          chaiEarned,
+          xpEarned,
         },
         "[chacha-call] turn",
       );
@@ -412,49 +547,9 @@ export function createChachaCallRouter(
 
       const next = beatAt(session.mode, session.beatIndex);
 
-      /**
-       * ONE CHAI FOR THE TURN THEY JUST ANSWERED, on the JOURNEY call only.
-       *
-       * Owner rulings, 2026-08-28: the games-hub call "only earns xp like other
-       * games", and "if chacha calls them on a journey, then they can earn the
-       * 5 chai maximum". So a call the learner chose pays no chai at all, and
-       * one he started pays as they go.
-       *
-       * PER TURN RATHER THAN A LUMP AT THE END, which is what makes the "+1"
-       * floating up the screen true rather than decorative, and it means a
-       * learner who has to hang up after two questions keeps the two they
-       * earned. The cap is belt and braces: the journey agenda is five
-       * questions, so the count cannot exceed five on its own, but a future
-       * agenda change must not quietly become a bigger payout.
-       *
-       * THE REFID IS THE IDEMPOTENCY. `call:<id>:<turn>` credits once at the
-       * ledger's unique index however many times a flaky connection retries the
-       * same turn. `granted` tells us whether THIS request was the one that
-       * inserted it, so the response never reports chai the learner did not
-       * just receive.
-       *
-       * Failure here never fails the turn. A call that keeps working without
-       * its chai is a small disappointment; a call that drops because the
-       * ledger hiccuped is the feature not working.
-       */
-      let chaiEarned = 0;
-      const answeredIndex = session.beatIndex - 1;
-      if (session.mode === "journey" && answeredIndex > 0 && answeredIndex <= CHACHA_CALL_CHAI_MAX) {
-        try {
-          const { granted } = await grantTokensDetailed(
-            userId,
-            "earn_chacha_call",
-            `call:${session.id}:${answeredIndex}`,
-            TOKEN_EARN_CHACHA_CALL_TURN,
-          );
-          if (granted) chaiEarned = TOKEN_EARN_CHACHA_CALL_TURN;
-        } catch {
-          // Deliberately swallowed. See above.
-        }
-      }
-
       res.json({
         chaiEarned,
+        xpEarned,
         callId: session.id,
         backdrop: session.backdrop,
         beat: {
@@ -529,6 +624,22 @@ export function createChachaCallRouter(
         romanized: turn.romanized,
         canned: turn.canned,
         heard: turn.learner,
+        /**
+         * WHAT THE TURN PAID, AND WHETHER HE HEARD THEM AT ALL.
+         *
+         * THIS RESPONSE IS THE ONLY ONE THE APP READS. A streaming turn answers
+         * 202 with an audio URL and nothing else, so a reward that travels only
+         * on the JSON turn response reaches curl and never reaches a learner.
+         * It carried no reward at all until 2026-08-28, which is half of why
+         * nobody had ever seen the "+1 chai" the caption draws.
+         *
+         * `heard` is the transcript and can be empty for a dozen reasons, so
+         * the boolean is sent explicitly rather than left to the client to
+         * infer from an empty string.
+         */
+        heardSomething: turn.learner.length > 0,
+        chaiEarned: turn.chaiEarned,
+        xpEarned: turn.xpEarned,
         next: next
           ? { id: next.id, index: session.beatIndex, canned: next.mode === "canned" }
           : null,

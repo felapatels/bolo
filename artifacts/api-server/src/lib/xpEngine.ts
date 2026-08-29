@@ -117,6 +117,54 @@ export async function writeDailyQuizXp(
     .onConflictDoNothing();
 }
 
+/**
+ * XP for one answered turn of Chacha-ji's phone call.
+ *
+ * THE GAME CALL PAYS XP AND NEVER CHAI (owner, 2026-08-28: "chai is only earned
+ * on the journey route when chacha calls them. if they access the game from the
+ * games page, they can only earn XP"). One currency each, because the two calls
+ * are different things: chai is what he gives you for picking up when HE rang,
+ * and XP is what every other game on the hub pays for playing it.
+ *
+ * FIVE, so a full ten-turn game pays 50. That is the shape of a short practice
+ * session rather than a farm: a pronunciation attempt pays 10 to 20 for work
+ * that is scored, and a call turn is neither scored nor corrected. It is one
+ * constant and it moves in one line if it turns out to be wrong on a device.
+ */
+export const XP_EARN_CHACHA_CALL_TURN = 5;
+
+/**
+ * Writes one xp_ledger row for one turn of a call. Idempotent through the
+ * refId, exactly as the chai grant is: a flaky connection retrying the same
+ * turn credits once at the unique index, however many times it arrives.
+ *
+ * `source` is a plain text column with no enum behind it, so this needed no
+ * migration and no schema change.
+ */
+export async function writeChachaCallXp(
+  userId: string,
+  languageCode: string,
+  callId: string,
+  turnIndex: number,
+  xp: number,
+): Promise<boolean> {
+  if (xp <= 0) return false;
+  const rows = await db
+    .insert(xpLedgerTable)
+    .values({
+      userId,
+      languageCode,
+      source: "chacha_call",
+      refId: `${callId}:${turnIndex}`,
+      xp,
+    })
+    .onConflictDoNothing()
+    .returning({ id: xpLedgerTable.id });
+  // Whether THIS request was the one that inserted it. The response must never
+  // report XP the learner did not just receive.
+  return rows.length > 0;
+}
+
 // Writes one xp_ledger row for a zone capstone conversation. Idempotent via
 // the stamp id as refId — replaying the capstone never double-awards XP.
 export async function writeZoneCapstoneXp(
