@@ -233,3 +233,41 @@ already in step.
 7. **Android's launcher icon** (`adaptive-icon.png`, July) does not match the
    white iOS icon.
 8. **The api-server has never sent one error to Sentry.**
+
+---
+
+## 6. GOOGLE PLAY: THE ROAD TO PRODUCTION, IN ORDER
+
+The 14-day closed test is over (the owner confirmed on 2026-08-29). The
+steps, each one verified before the next:
+
+1. **Confirm the requirement line in Play Console** on the closed test's
+   dashboard: 12 testers opted in continuously for 14 days. Memory
+   `play-closed-test-zero-margin`: one opt-out restarts the clock, and it has
+   happened once. If the line reads short, the clock restarted; do not apply.
+2. **Apply for production access** with HONEST answers. The paid testers'
+   PDF draft claims a Rate button, a walkthrough and a password eye were
+   implemented; none of them exist (no `expo-store-review`, no visibility
+   toggle on `sign-in.tsx` / `sign-up.tsx` / `account/password.tsx`, only the
+   `choose-language` first-run step). Chat 17 wrote truthful answers in the
+   conversation on 2026-08-29; the substance: recruited via the paid provider
+   plus family; no crashes on their devices; the real changes made during the
+   test were the Android sign-out fix, Chai crediting, the hidden first stop,
+   Chacha-ji speaking the learner's language, the ringtone, the free tastes,
+   the home and journey redesigns. Google reviews the form in a few days.
+3. **While waiting, ship the three tester asks on both platforms**, so the
+   next application (if any) and the store listing are true: a "Rate Bolo!"
+   row in settings via `expo-store-review` (in-app review flow, Play listing
+   fallback), a show/hide eye on the three password fields, and a short
+   skippable first-run walkthrough (the language chooser is already step one).
+4. **Fix the Android launcher icon** (`assets/images/adaptive-icon.png`,
+   July) to match the white iOS icon, and upload the 512x512 in the console.
+5. **When production access is granted, promote the NEWEST healthy build**
+   from the internal track to production (never 523 or older), with release
+   notes; chat 17's "What's New" text for 1.0.5 is in the conversation and is
+   reusable. Roll out to 100 percent only after the internal build has been
+   used for a day.
+6. **Screenshots**: the console wants 1320x2868 (6.9"); chat 17 produced
+   `bolo-home-6.9in.png` and `bolo-journey-6.9in.png` by resampling the
+   17 Pro simulator's 1206x2622 shots with `sips -z 2868 1320`. The same
+   recipe works for any screen.
