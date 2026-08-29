@@ -42,7 +42,6 @@ import Svg, {
   Ellipse,
   G,
   LinearGradient,
-  Mask,
   Path,
   Rect,
   Stop as GradStop,
@@ -477,7 +476,14 @@ function ZoneBandFixed({
    *  margins; here the box is fixed and the tiles counter-scroll within. */
   mode?: 'block' | 'cap';
 }) {
-  const bandH = windowH + PC_H + ZONE_BOARD_GAP + extraTop;
+  // THE WHOLE ZONE, STILL (build 17). The band was one viewport tall and
+  // counter-scrolled to stay under the viewport while the zone's cards went
+  // by; with the pitch doubled a zone is 2200 against a 1200 band, so that
+  // counter-scroll ran for most of the zone and read as the painting sliding
+  // against the cards: "it feels like the background is moving when it
+  // shouldn't." The band covers the zone now and never moves; the tiles were
+  // cut to repeat, and they do.
+  const bandH = end - start + extraTop + 2;
   // THE BAND MAY NOT REACH UP INTO THE ZONE ABOVE IT. `extraTop` exists so the
   // FIRST zone's art runs behind the floating header and the scroll content's
   // own paddingTop instead of leaving page colour there. For every LATER zone
@@ -493,22 +499,11 @@ function ZoneBandFixed({
   // onLayout probe in chat 12 put the canvas-to-content mapping at delta 0 on
   // all six zones. It was never a layout overlap. It was a paint layer.
   const reachUp = zi === 0 ? extraTop : 0;
-  const travel = Math.max(0, end - start - windowH);
-  const pin = useAnimatedStyle(() => {
-    // THE CAP DOES NOT MOVE AT ALL, and it used to. When the board was a
-    // sticky header INSIDE the scroll view, its painted cap travelled with it
-    // and had to counter-scroll to hold the art still against the viewport.
-    // The board is a fixed overlay now, so it is already still, and the old
-    // counter-scroll simply dragged the art up out of the cap's clip box:
-    // after a few hundred points the whole top of the screen went to a flat
-    // foot tone. "The whole top is now one solid block."
-    if (mode === 'cap') return { transform: [{ translateY: 0 }] };
-    const shift = Math.min(
-      travel,
-      Math.max(0, scrollY.value - (start + contentTop)),
-    );
-    return { transform: [{ translateY: shift }] };
-  });
+  // No pin any more: nothing here reads scrollY. The props stay so the
+  // callers and the cap-mode signature are untouched.
+  void scrollY;
+  void contentTop;
+  void windowH;
   const art = zoneBackdrop(zi);
   const tileH = windowW / ZONE_TILE_ASPECT;
   if (!art) return null;
@@ -561,33 +556,28 @@ function ZoneBandFixed({
           overflow: 'hidden',
         }}
       >
-        <Animated.View
-          style={[{ position: 'absolute', left: 0, top: 0, width: windowW, height: bandH }, pin]}
-        >
+        <View style={{ position: 'absolute', left: 0, top: 0, width: windowW, height: bandH }}>
           {tiles}
-        </Animated.View>
+        </View>
       </View>
     );
   }
   return (
-    <Animated.View
+    <View
       testID={`journey-backdrop-${zi}`}
       pointerEvents="none"
-      style={[
-        {
-          position: 'absolute',
-          left: -(windowW - mapW) / 2,
-          top: layerTop - reachUp,
-          width: windowW,
-          height: bandH,
-          backgroundColor: zoneFootTone(zi),
-          overflow: 'hidden',
-        },
-        pin,
-      ]}
+      style={{
+        position: 'absolute',
+        left: -(windowW - mapW) / 2,
+        top: layerTop - reachUp,
+        width: windowW,
+        height: bandH,
+        backgroundColor: zoneFootTone(zi),
+        overflow: 'hidden',
+      }}
     >
       {tiles}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -2773,30 +2763,25 @@ export default function JourneyScreen() {
                         white where the rails are, black down the middle. The
                         travelled run needs none of this; its green centre
                         covers the middle. */}
-                    {!s.lit && (
-                      <Defs>
-                        <Mask
-                          id={`rail-hollow-${zi}-${i}`}
-                          maskUnits="userSpaceOnUse"
-                          x={0}
-                          y={start}
-                          width={mapW}
-                          height={end - start}
-                        >
-                          <Path d={s.d} stroke="#ffffff" strokeWidth={RAIL_STROKE.rail} fill="none" />
-                          <Path d={s.d} stroke="#000000" strokeWidth={RAIL_STROKE.between} fill="none" />
-                        </Mask>
-                      </Defs>
-                    )}
-                    <Path
-                      d={s.d}
-                      stroke={RAIL.rail}
-                      strokeWidth={RAIL_STROKE.rail}
-                      fill="none"
-                      mask={s.lit ? undefined : `url(#rail-hollow-${zi}-${i})`}
-                    />
-                    {s.lit && (
-                      <Path d={s.d} stroke={RAIL.between} strokeWidth={RAIL_STROKE.between} fill="none" />
+                    {/* TWO THIN STROKES, NOT A MASK (build 17). The hollow
+                        run was a masked stroke for an hour and the mask
+                        rasterised per segment inside a scrolling view:
+                        "scrolling is extremely choppy." Two copies of the
+                        path shifted half a gauge apart give the same two
+                        lines for the price of two strokes. A shifted copy is
+                        not a true offset, but the bends are gentle since the
+                        pitch doubled, so the pair only narrows a little on
+                        a diagonal. */}
+                    {s.lit ? (
+                      <>
+                        <Path d={s.d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.rail} fill="none" />
+                        <Path d={s.d} stroke={RAIL.between} strokeWidth={RAIL_STROKE.between} fill="none" />
+                      </>
+                    ) : (
+                      <>
+                        <Path d={s.d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.line} fill="none" transform={`translate(${-RAIL_STROKE.gauge / 2} 0)`} />
+                        <Path d={s.d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.line} fill="none" transform={`translate(${RAIL_STROKE.gauge / 2} 0)`} />
+                      </>
                     )}
                   </G>
                 );
@@ -3611,17 +3596,10 @@ export default function JourneyScreen() {
             board; it read as a box the board sat on. The fade under the
             clock stays, because it is a gradient and not a box, and a card
             passing under the board shows at its edges, which is the pin. */}
-        <FadeGradient
-          pointerEvents="none"
-          colors={[`${zoneFootTone(activeZone)}E6`, `${zoneFootTone(activeZone)}00`]}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: headerTopInset + 14,
-          }}
-        />
+        {/* NO FADE EITHER (owner: "i don't want a blended cross fade at the
+            top of the page. I want zone 1's background to start at the
+            absolute top"). The first tile's top row is the top edge of the
+            screen, and nothing is painted over it. */}
         {zones.map((_, zi) => (
           <PinnedZoneBoard
             key={`pinned-board-${zi}`}

@@ -1622,7 +1622,6 @@ describe('the rail palette and the medallions, mirrored on web', () => {
       // filled." Green centre and halo back, nothing between the rails ahead.
       rail: '#8B5CF6',
       between: '#84CC16', // the owner's lime swatch; #ECF584 read yellow, #4ADE80 mint
-      betweenUnlit: '#00000000',
       glow: '#BEF264',
     });
   });
@@ -1640,6 +1639,10 @@ describe('the rail palette and the medallions, mirrored on web', () => {
       // ahead reads as two violet lines over a dark centre.
       rail: 12,
       between: 7,
+      // The run ahead is two thin strokes a gauge apart (build 17), not a
+      // masked hollow: the mask made scrolling choppy on a device.
+      line: 2.5,
+      gauge: 9.5,
       tieDash: '5 9',
       // unlitDash went in build 17: the run ahead is two lines, not a dash.
       unlitOpacity: 1,

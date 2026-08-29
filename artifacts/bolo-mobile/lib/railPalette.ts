@@ -53,7 +53,6 @@ export const RAIL = {
   // green with it, and ahead there is nothing between the rails at all.
   between: '#84CC16', // the owner's lime, sent as a swatch: not the mint #4ADE80
   /** The same centre, untravelled: plain wood, no green. */
-  betweenUnlit: '#00000000',
   /** A narrow glow under the lit centre only. It replaces two 28px and 18px
    *  passes that were three times the width of the track itself. */
   glow: '#BEF264',
@@ -78,6 +77,11 @@ export const RAIL_STROKE = {
   // enough to read as two lines ahead rather than one band.
   rail: 12,
   between: 7,
+  /** THE RUN AHEAD (build 17): two thin strokes a gauge apart, no mask.
+   *  2.5 wide each, centres 9.5 apart, so their outer edges match the 12
+   *  the travelled run's rail stroke spans. */
+  line: 2.5,
+  gauge: 9.5,
   /** The sleeper rhythm. The untravelled run is not dashed any more (build
    *  17): it is two violet lines with the wood showing between them. */
   tieDash: '5 9',
