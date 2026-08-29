@@ -1,100 +1,51 @@
-# What EAS Build uploads, and what it does not.
+# WHAT EAS LEAVES OUT OF THE UPLOAD. Written in build 17.
 #
-# READ THIS BEFORE EDITING. .easignore does NOT extend .gitignore, it REPLACES
-# it. The moment this file exists EAS stops reading .gitignore entirely, so
-# every rule from there has to be repeated below or the upload gets BIGGER, not
-# smaller: node_modules alone would dwarf everything this file saves.
+# When this file exists EAS reads IT for the upload tarball rather than
+# .gitignore, so it has to say everything .gitignore says that matters to a
+# build, plus the one thing that makes this repo's builds managed rather than
+# bare: the generated native projects. artifacts/bolo-mobile/ios exists on the
+# Mac, untracked, because the simulator dev client is built from it (chat 11).
+# If EAS ever sees it, the build goes bare-workflow and every expo plugin stops
+# applying. Before this file, only .gitignore stood between the two, and only
+# while ios/ stayed untracked.
 #
-# The second rule: NEVER exclude a whole pnpm workspace package. The workspace
-# globs are artifacts/*, lib/*, lib/integrations/* and scripts, and EAS runs
-# install with a frozen lockfile from the repo root. A package.json that
-# vanishes is a lockfile mismatch and a failed build. Excluding a package's
-# ASSET subdirectory is fine, because the manifest survives.
-#
-# Written 2026-08-18. Before it, every build shipped a 224 MB archive.
+# eas-cli runs from artifacts/bolo-mobile, never the repo root, and the upload
+# is the git root, which is why this lives at the git root.
 
-# ---------------------------------------------------------------------------
-# Everything .gitignore excludes, repeated because this file replaces it.
-# ---------------------------------------------------------------------------
+# Generated native projects
+artifacts/bolo-mobile/ios/
+artifacts/bolo-mobile/android/
+
+# Dependencies and build output
+node_modules
 dist
-tmp
-
-# THE DEV-LOOP NATIVE PROJECTS, chat 11. `expo run:ios` on the Mac generates
-# artifacts/bolo-mobile/ios for the simulator dev client (placeholder bundle
-# id, hand-patched Info.plist, no icon assets). If EAS sees it, it switches
-# to bare-workflow, builds THAT project, and ignores app.json. These builds
-# must always prebuild from app.json on the builder.
-artifacts/bolo-mobile/ios
-artifacts/bolo-mobile/android
-out-tsc
-*.tsbuildinfo
 .expo
 .expo-shared
-node_modules
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
-.vscode/*
-/.sass-cache
-/connect.lock
-/coverage
-/libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
-/typings
-.DS_Store
-Thumbs.db
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-.cache/
-.local/
-qa/shots/
-qa/pilot-clips/
-qa/tts-audit-prod-gu-clips/
-qa/pilot-results/manifest.json
-qa/pilot-results/calibration/
-qa/pilot-results/noise-bench/results.jsonl
-attached_assets/
-.agents/
+*.tsbuildinfo
+artifacts/bolo-mobile/web-build/
+
+# Secrets and signing material
 .env*
 !.env*.example
+*.p8
+*.p12
+*.pem
+*.key
+*.jks
+*.mobileprovision
+*.cer
+*.certSigningRequest
+api-*.json
+gcp-*.json
+play-*.json
+*service-account*.json
+*-key.json
 
-# ---------------------------------------------------------------------------
-# The weight. None of this is read by an iOS or Android build.
-# ---------------------------------------------------------------------------
-
-# The web app's static assets. gujarati-coach's package.json STAYS, so the
-# workspace and the lockfile are untouched; only its public/ payload goes.
-artifacts/gujarati-coach/public/
-
-# Design review imagery. Not a workspace package, so it can go whole.
-docs/garment-review/
-
-# App Store and Play Store listing art. Uploaded to the consoles by hand, never
-# bundled into the app itself. NOT to be confused with assets/images/, which IS
-# the app's own artwork and must stay.
-artifacts/bolo-mobile/assets/store/
-
-# Mascot art sources. `scripts` is a workspace, so only these subdirectories go.
-scripts/mascot-accessory-art/
-scripts/mascot-garment-art/
-
-# Server-side QA corpora: large JSON reports, read by nothing at build time.
-artifacts/api-server/scripts/
-
-# Sibling web artifacts' heavy media. Their package.json files stay.
-artifacts/bolo-social-clips/assets/
-artifacts/bolo-social-clips/public/
-artifacts/bolo-launch-video/assets/
-artifacts/bolo-launch-video/public/
-artifacts/mockup-sandbox/public/
-
-# Test suites. The build does not run them.
-**/__tests__/
-**/*.test.ts
-**/*.test.tsx
+# Bulk that no build reads
+attached_assets/
+artifacts/bolo-social-clips/
+qa/
+.agents/
+.cache/
+.local/
+.DS_Store
