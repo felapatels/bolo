@@ -2,148 +2,136 @@
 
 Written 2026-08-29 by BOLO BUILD CHAT 17. **Read `CLAUDE.md` first, then this.**
 
-`origin/main` is `e06b6545` plus this handoff, tree clean, nothing unpushed.
+`origin/main` is `9187f28b` plus this handoff, tree clean, nothing unpushed.
 
 ---
 
 ## 0. WHERE THE BUILD ACTUALLY IS
 
-**TWO STORE BUILDS ARE OUT, AND ONLY THE SECOND IS THE ONE.**
+**THREE PAIRS OF STORE BUILDS WENT OUT TONIGHT. ONLY THE LAST IS THE ONE.**
 
-| build | commit | iOS | Android | camera in call | status |
-|---|---|---|---|---|---|
-| 1.0.5 (520 / 521) | `ca16a295` | TestFlight | Play internal | YES, unswitchable | internal test only, **NEVER submit for review** |
-| **1.0.5 (521 / 522)** | `042f1fe3` | TestFlight (uploaded 23:58) | Play internal | no, server flag off | **the candidate** |
+| build | commit | what | status |
+|---|---|---|---|
+| 1.0.5 (520 / 521) | `ca16a295` | camera in the call, unswitchable | internal only, **NEVER submit for review** |
+| 1.0.5 (521 / 522) | `042f1fe3` | camera behind the server flag | superseded |
+| **1.0.5 (522 / 523)** | `12dd7d08` | + home and journey to the owner's hybrid mockups | **the candidate**; cut 01:40, check the watcher |
 
-Both pairs passed `checkBundleHealth.ts`: iOS 45,539 functions (the build
-160 shape), Android 45,522 on both cuts, seventeen off iOS on the same
-source and therefore the same compile. The script lives at
-`artifacts/bolo-mobile/scripts/checkBundleHealth.ts`, not `scripts/`.
+**When 522/523 land:** `checkBundleHealth.ts` (it lives at
+`artifacts/bolo-mobile/scripts/`, not `scripts/`) on both, then `eas submit`
+both; the two earlier pairs were done exactly that way and the commands are in
+the chat. iOS 45,539 functions is the healthy shape; Android came out at
+45,522 twice and is the same compile.
 
-**NOT VERIFIED ON A DEVICE, ANY OF IT.** The owner was asked for ten cold
-starts of 521 and had not reported when this was written. Motion, the
-ringtone through a real audio session, haptics on the ring and the chai
-grant on a live call are all things the simulator could not prove.
+**NOT VERIFIED ON A DEVICE, ANY OF IT.** The owner visually confirmed the home
+and the journey on the SIMULATOR through Metro, screen by screen, tonight.
+Nothing in a release build has been seen: motion, the ringtone, haptics, the
+chai grant on a live call, the opening shot's hop chain, Chalkduster.
 
-**The server is published** at `beba7be0` (Replit status: success, 23:25),
-carrying the five previously unpublished commits plus the romanizer. The
-owner republished again after pulling `042f1fe3` (the self-view flag) and
-said "repub done", but Replit reported the SAME deployment id, so whether
-that second publish took is UNVERIFIED. It gates nothing: the client mounts
-no camera unless the start response says `selfView: true`, and no server
-version sends that.
+**THE SERVER IS ONE COMMIT BEHIND.** The owner republished after `042f1fe3`
+(self-view flag); `99bb369e` then added `encounterChai` to the zone signals
+payload (`routes/learning.ts`). Until that is pulled, api-suite-run and
+published, the phone's "Take a break and earn N Chai" chip falls back to 3,
+which IS `TOKEN_EARN_CHACHA_ENCOUNTER` today. The api suite has not run on
+the Repl since `800eb602`.
 
 **The Google Play 512x512 icon is still a by-hand upload in the console.**
 
 ---
 
-## 1. WHAT THIS SESSION FOUND, AND WHY THE HANDOFF WAS WRONG
+## 1. THE OWNER'S TWO MOCKUPS, AND WHAT THEY BECAME
 
-**The build 17 handoff's one open defect did not exist as described.** It
-said the DID YOU KNOW box overran its panel by ~40pt onto card 1. The board
-is a clipped 184pt box; nothing could leave it. Three separate things were
-tangled, each measured with an `onLayout` rather than a screenshot:
+Both landed in the second half of the night, on the sim, with the owner
+watching every shot and steering. The pattern was: ship the mockup's shape,
+screenshot, adjust to the one-line correction, repeat. Fourteen corrections in
+a row. Read the commit messages from `844ab7d5` to `4315b4a9`; each quotes the
+owner's words.
 
-1. **The pinned board sat 104pt below its slot.** `5391875e` reserved the
-   header's height in the canvas alone. Block children draw canvas relative
-   to their own slice, so the cards stayed put; `PinnedZoneBoard` converts
-   canvas to content with a constant, so every board moved down and landed
-   on its zone's first card. The header was never the problem: the board
-   PINS at the safe-area inset, 41pt below the flow's slot. The flow now
-   reserves exactly the pin clearance (`journey-header-clearance`), the
-   canvas the same, and zone 0's band reaches up by it. `headerH` was
-   removed; nothing read it.
-2. **The intro shot framed every current card under the pinned board.**
-   `INTRO_SCROLL.leadMax` is 260 and the pinned board's foot is at 253.
-   `introScrollLead(viewportH, clearance)` now takes a floor that wins over
-   the cap; the journey passes the board's foot plus the card's reach. Stop
-   1 stays at scroll 0 (`to 0, lead 318` on the sim).
-3. **The fact box never fit.** Panel 117, body 86 after the art's insets,
-   content 112 on a teaser board. `PC_H` 184 to 200, paddings trimmed 9,
-   Free taste folded onto the stops line: content 90 in a 97 body.
-   `ZONE_BOARD_MIN_PANEL_H` was 98 from before the fact box existed and is
-   124 now, re-measured. Web keeps 184; the two never shared the constant in
-   any way that mattered.
+**HOME (`844ab7d5`).** A gold-lined "Your Journey" frame with a pediment crown
+around the boarding pass; the pass takes the app's violet for its eyebrow,
+station dots and Resume; the stub narrowed 176 to 148 so the ticket keeps its
+words at the frame's width; the stall's copy moved left with the balance in
+gold. `JourneyPassCard` measures its width on the WRAP now, not the press.
 
-**`ZONE_BOARD_MIN_PANEL_H` EXISTS and is asserted.** The handoff grepped
-for `minPanelH` and reported it missing. Grep for the exported name.
+**JOURNEY (`17a2656a` to `4315b4a9`).**
+- `STATION_H` 88 to 176: every zone doubles, every bend halves.
+- The rail: two violet 2.5pt rails; the owner's lime `#84CC16` between them
+  behind, an SVG mask cutting the centre out ahead so the sleepers show.
+- Numbered parchment badges with a gold ring and a green check when done.
+- The zone board: `CarvedBoard` gains `bare`, the parchment panel is gone,
+  one cream card under the pediment with a violet-to-pink edge, the line as a
+  pill, the city at 22pt, a gold dashed rule, the fact boxed behind a spark.
+  `PC_H` 256, `ZONE_BOARD_MIN_PANEL_H` 180, both from an onLayout.
+- The tracing stop is a 150x150 chalkboard in Chalkduster (Android: the
+  casual hand); the story stop wears `emblem-story.png`, the 3D book.
+- `StopDots` is the one dotted row, on the pass, every phrase card, the
+  chalkboard. The mastered bar is gone.
+- The opening shot hops one row every 520ms, at most ten hops; a touch still
+  lands it because the target lives until the last hop.
+- **The board FLOATS. No painting behind it.** A still crop of the zone art
+  was painted behind the pinned board for an hour (`d6a41e34`, `411da6de`)
+  and the owner rejected it outright; the fade under the clock is all that
+  remains. A card passing under the pinned board shows at its edges. That is
+  the pin, and the owner has seen it.
+- The first zone's band reaches up by the inset alone, so the first tile's
+  top row is the top of the screen ("first image should start at the top").
+- Every lock is `colors.primary`.
+
+**The bottom sheet from the journey mockup was NOT built**, on the owner's
+word: "B, I don't think we need that."
+
+**Web got none of this.** The home and the map are separate surfaces there;
+the showroom-rows port (below) is still the only web debt named.
 
 ---
 
-## 2. WHAT ELSE LANDED (fourteen commits)
+## 2. WHAT ELSE LANDED TONIGHT (first half; the messages carry the detail)
 
-- **Free taste chips on stops 2 and 3** (`01d82d18`). Showroom listings
-  carry no `planLocked`, so `zoneIncluded` read the zone as owned. One
-  `!showroom` guard on both platforms. **Web still does not draw the
-  tracing and story rows in a showroom at all** (`journey.tsx` 1562, 1610);
-  it never adopted `planZoneRows`. The guard is in place for the day it
-  does; the port is owed.
-- **Card 1 tidy** (`10fa8387`, `ca16a295`). The sign glyph came off (it was
-  the 14pt that wrapped the chip); the glow ring came off on the owner's
-  choice (it could not pulse on release builds and sat as a second outline).
-- **Ringtone** (`1fb55a8e`). `useRingtone` in `IncomingCall.tsx`, a bundled
-  6s double ring looped by the player, honours the sound pref and the silent
-  switch. Mobile only; web has no call screen. **Unheard by anyone.**
-- **Romanizer card style** (`cc94948b`). IAST `c` to `ch`, `ch` to `chh`,
-  `ś/ṣ` to `sh`, `ṛ` to `ri`, decided by the seed's own counts (280 `chhe`).
-  Every reader sees it: his line, the mirror, games, "We heard". The
-  fast-path route test's `kem cho` was inverted (`800eb602`).
-- **The self-view flag** (`042f1fe3`). `CHACHA_CALL_SELF_VIEW_ENABLED`,
-  default off. **The camera permission string in `app.json` still names a
-  profile picture and a QR code**; `SelfView.tsx`'s header has flagged that
-  as inaccurate since it was written. It is accurate again while the flag
-  is off. **Fix the string before the flag is ever turned on**, and expect
-  App Review to read it.
-- **`.easignore` overwritten and restored** (`230991d8`, `cc2df3e1`). See
-  section 3.
+- The pinned board, the intro lead and the fact box: three bugs the build 17
+  handoff had folded into one wrong one (`19acf416`).
+- Free taste chips on stops 2 and 3 of a showroom (`01d82d18`).
+- The ringtone (`1fb55a8e`), unheard by anyone.
+- Romanizer card style, `ch`/`chh`/`sh` (`cc94948b`).
+- The self-view server flag, default off (`042f1fe3`); the camera permission
+  string in `app.json` is still the profile-picture one and must be fixed
+  before that flag is ever turned on.
+- `.easignore` overwritten and restored (`230991d8`, `cc2df3e1`). It lives at
+  the git root. The upload is still 209 MB.
 
 ---
 
 ## 3. TRAPS THIS SESSION PAID FOR
 
-1. **LOOK AT THE TARGET BEFORE `cat >`.** I wrote a fresh `.easignore` over
-   a 92-line one from 2026-08-18 because two handoffs said none existed.
-   They had looked in `artifacts/bolo-mobile`; it lives at the git root.
-   Mine dropped the weight rules and excluded a whole workspace package,
-   which is a frozen-lockfile failure on the builder. The owner's pull
-   diffstat (`135 ++++-----`) caught it. `git show HEAD:<path>` first.
-2. **The upload is still 209 MB with the restored file in place.** The
-   file says it took the archive from 224 MB down; either the tree grew or
-   the rules no longer match. Unmeasured.
-3. **`eas-cli` was "not installed" in two handoffs.** It is a devDependency:
-   `artifacts/bolo-mobile/node_modules/.bin/eas`, 21.0.0.
-4. **A single api test file needs `--experimental-test-module-mocks`.**
-   Without it a file using `mock.module` fails at import and reads as a
-   broken test.
-5. **Jest's `mock` prefix rule and BSD sed.** `jest.mock` factories may
-   only reference variables named `mock*`; and `sed -i '' 's/\bx\b/…/'`
-   silently does nothing on macOS, use perl.
-6. **A background Bash watcher gets a ten-minute leash** but kept polling
-   past it here; check `pgrep` before assuming it died.
-7. **Screenshots were right this time because the owner's were.** The
-   owner's own screenshot disproved the handoff in one look; the numbers
-   then explained it. When the owner says the handoff is wrong, measure
-   before defending it.
+1. **LOOK AT THE TARGET BEFORE `cat >`.** The `.easignore`.
+2. **A JSX comment inside `{cond && (` is a syntax error.** Put it above.
+3. **Every test that renders the map mocks `react-native-svg` and
+   `@expo/vector-icons` by hand**, so a new primitive (`Mask`, a second icon
+   family) fails ten suites with "Element type is invalid" until every mock
+   lists it. There are ten such mocks; a shared mock file would end that.
+4. **BSD `sed` has no `\b`, and a perl rename hits module paths.** Use node
+   for exact string edits; `replace.mjs` in the scratchpad did all of tonight.
+5. **`SlidingCardSlot` faded every card to 40% until it had scrolled 240pt
+   past 0.82 of the viewport**, which with a doubled pitch made a slate read as
+   glass. Floor 0.75 now, home at the bottom edge.
+6. **The chai chip's first number came from the wrong helper**: `rewardChai`
+   is the signal games' reward. The owner caught it ("I thought chachaji's
+   stop awarded 3 chai?"). Grep for the constant on the server before
+   trusting a field's name.
 
 ---
 
 ## 4. PARKED, IN THE ORDER I WOULD TAKE THEM
 
-1. **The ten cold starts of 521, and the release-only checks**: motion,
-   ringtone audio, haptics, chai on a real journey call.
-2. **Verify the second publish took**: a real call's start response should
-   carry `selfView: false`. Every unauthenticated probe 401s; only a real
-   call answers.
+1. **Health-check and submit 522/523**, then ten cold starts on a phone.
+2. **Repl: pull, api suite, republish** for `encounterChai`. The api suite
+   will show the one route test I added on `chachaCall.test.ts` (selfView) and
+   `learning.ts`'s new field.
 3. **The camera permission string**, before the flag ever flips.
 4. **Web showroom rows**: port `planZoneRows` so stops 2 and 3 exist there.
-5. **`openapi.yaml` owes the call routes**: `callsNow`, `heardRomanized`,
-   `heardEnglish`, `xpEarned`, and now `selfView`, all read off untyped
-   results.
-6. **The exhausted card** (`access === 'exhausted'`) is a flow element the
-   canvas does not know about, so every pinned board is off by its height
-   for an exhausted teaser learner. Same class as this session's bug;
-   unfixed, unreported by any user.
-7. **`ZoneBandFixed`'s `cap` mode has no caller.** Dead code.
-8. **The api-server has never sent one error to Sentry.** Still the largest
-   invisible risk in the stack.
-9. **The Play icon.**
+5. **`openapi.yaml` owes**: `callsNow`, `heardRomanized`, `heardEnglish`,
+   `xpEarned`, `selfView`, `encounterChai`.
+6. **A shared react-native-svg / vector-icons jest mock** (trap 3).
+7. **The exhausted card** offsets every pinned board by its height for an
+   exhausted teaser learner. Same class as the pin bug; unfixed.
+8. **`ZoneBandFixed`'s `cap` mode has no caller.** Dead code.
+9. **The api-server has never sent one error to Sentry.**
+10. **The Play icon.**
