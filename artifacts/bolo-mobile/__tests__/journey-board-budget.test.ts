@@ -5,9 +5,10 @@ import {
 } from '@/lib/zoneBackdrops';
 
 /** The map's reserved height per fare-zone row, mirrored from journey.tsx.
- *  Both platforms hold 184 and a mismatch is exactly what this file exists
- *  to catch, so it is written out rather than imported from one of them. */
-const PC_H_FOR_TEST = 184;
+ *  Written out rather than imported so a drift between the two is caught
+ *  here. 200 from build 17 (web keeps its own 184): the fact box measured
+ *  the panel 26 short at 184, and the minimum below was re-measured with it. */
+const PC_H_FOR_TEST = 200;
 
 describe('the carved board leaves room for what it has to say', () => {
   // THE GUARD THAT WAS MISSING. The board shipped BLANK to TestFlight twice,

@@ -455,11 +455,13 @@ describe('journey map — the opening shot (Task 1082 item 4, recut 2026-08-26)'
   // frames themselves rather than waiting on either.
   // The map became per-zone children for the sticky boards (chat 11), so the
   // intro's layout baseline is the FIRST BOARD child. It sits TOP_PAD (10)
-  // into the old canvas space and onMapLayout subtracts that back off, so
-  // firing with y + 10 keeps every expected scroll target below identical.
+  // plus the pin clearance (the mocked 59 inset less SCROLL_CONTENT_TOP 18)
+  // into canvas space, and onMapLayout subtracts that back off, so firing
+  // with y + CANVAS_TOP keeps every expected scroll target below identical.
+  const CANVAS_TOP = 10 + (59 - 18);
   const layOutMap = (y = 0) =>
     fireEvent(screen.getByTestId('zone-board-child-0'), 'layout', {
-      nativeEvent: { layout: { x: 0, y: y + 10, width: 390, height: 202 } },
+      nativeEvent: { layout: { x: 0, y: y + CANVAS_TOP, width: 390, height: 202 } },
     });
 
   /** Learner deep into the line: 11 finished stops, then the current one. */
@@ -527,6 +529,12 @@ describe('journey map — the opening shot (Task 1082 item 4, recut 2026-08-26)'
     // ALREADY in view, so the lead clamps the target to the top of the line
     // rather than scrolling it up to the viewport edge. A zero-length shot is
     // not a shot, so it lands rather than holding for nothing.
+    //
+    // THIS IS THE REGRESSION TEST FOR "i can't see the top of card 1 zone 1"
+    // (build 17). With the pin clearance in the canvas, stop 1's marker sits
+    // 297 into it, and the plain lead (260 at most) would scroll 37 and put
+    // the card's top under the pinned board. The lead is floored at the
+    // board's foot plus the card's reach, so the shot stays at 0.
     setZones([[grp({ status: 'unlocked' })], [], [], [], [], []]);
     render(<JourneyScreen />);
     layOutMap();
@@ -1074,7 +1082,7 @@ describe('the zone band never reaches up into the zone above it', () => {
   // Mirrored from journey.tsx rather than imported, for the same reason
   // journey-board-budget.test.ts mirrors PC_H: a drift between the two is
   // exactly what this file exists to catch.
-  const PC_H_FOR_TEST = 184;
+  const PC_H_FOR_TEST = 200; // build 17, see journey.tsx PC_H
   const ZONE_BOARD_GAP_FOR_TEST = 18;
   const LAYER_TOP = -(PC_H_FOR_TEST + ZONE_BOARD_GAP_FOR_TEST);
   const MOCKED_TOP_INSET = 59;
@@ -1100,7 +1108,10 @@ describe('the zone band never reaches up into the zone above it', () => {
 
     // Zone 0 has nothing above it. Its reach-up is what stops page colour
     // showing behind the header and through the scroll content's paddingTop.
-    expect(bandTop(0)).toBe(LAYER_TOP - MOCKED_TOP_INSET);
+    // Build 17: plus the pin clearance the flow now reserves ahead of the
+    // first board (inset less SCROLL_CONTENT_TOP 18), or exactly that strip
+    // of page colour comes back behind the status bar. Was LAYER_TOP - inset.
+    expect(bandTop(0)).toBe(LAYER_TOP - MOCKED_TOP_INSET - (MOCKED_TOP_INSET - 18));
   });
 
   it('keeps every later zone off the stop row above it', () => {
@@ -1113,6 +1124,22 @@ describe('the zone band never reaches up into the zone above it', () => {
     // floats on continuous art instead of sitting on a hard-edged box.
     expect(bandTop(1)).toBe(LAYER_TOP);
     expect(bandTop(2)).toBe(LAYER_TOP);
+  });
+
+  it('reserves the pin clearance in the flow, where the board actually rests (build 17)', () => {
+    sixZones();
+    render(<JourneyScreen />);
+    // THE REGRESSION (owner, 2026-08-28: "stop card 1 is stuck under the zone
+    // card"). The board pins at the inset (59) and the flow put its slot at
+    // SCROLL_CONTENT_TOP (18), so it rested 41 below its slot, on card 1.
+    // 5391875e then reserved the whole header (104) in the canvas alone and
+    // moved every board 104 below its spacer. The flow reserves exactly the
+    // pin's 41 now, in one element, and the canvas the same.
+    expect(
+      StyleSheet.flatten(
+        screen.getByTestId('journey-header-clearance').props.style,
+      ).height,
+    ).toBe(MOCKED_TOP_INSET - 18);
   });
 });
 

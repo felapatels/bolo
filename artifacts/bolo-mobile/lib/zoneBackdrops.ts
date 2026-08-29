@@ -189,8 +189,9 @@ export const ZONE_BACKDROP_SCRIM_COLOR = '#FFF3DE';
  * stacked images behave identically on both platforms. The seams are invisible
  * because the middle band is cut from flat panel.
  *
- * IT FITS INSIDE THE 184px THE MAP ALREADY RESERVES (PC_H), and that is a hard
- * constraint rather than a preference. The serpentine constants are shared with
+ * IT FITS INSIDE WHAT THE MAP RESERVES PER ZONE ROW (PC_H: 200 on mobile from
+ * build 17, 184 on web), and that is a hard constraint rather than a
+ * preference. The serpentine constants are shared with
  * the scenery placement tests, and the stops, halts and every scenery position
  * hang off them, so a taller header would be a re-plumb of the map's geometry
  * rather than a paint pass. The panel is therefore given the remainder and
@@ -288,16 +289,24 @@ export const ZONE_BOARD_ART = {
 /**
  * THE SMALLEST PANEL THE BOARD'S CONTENT CAN LIVE IN, in points.
  *
- * The panel carries a city name, a stop count and the fact strip, about 72pt of
- * copy, inside insets worth 26.8% of its height. So it needs roughly 98, and
- * the board must leave that after the pediment takes its aspect.
+ * The panel carries a line name, a city name, a stop count with the free-taste
+ * counter on the same line, and the DID YOU KNOW box. MEASURED ON DEVICE in
+ * build 17 with an onLayout on the panel body: 112 at the old paddings with
+ * the counter on its own line, 90 after trimming 9 of padding and folding the
+ * counter into the stops line. Inside insets worth 26.8% of the panel's height
+ * that needs 90 / 0.732 = 123, so 124 with a point to spare.
+ *
+ * IT WAS 98, SET FOR "ABOUT 72PT OF COPY" BEFORE THE FACT BOX EXISTED, and it
+ * kept passing while the fact's last line sat under the frame on every phone:
+ * "did you know section is falling off zone card." A minimum that is not
+ * re-measured when the copy grows guards nothing.
  *
  * THIS EXISTS BECAUSE THE BOARD SHIPPED BLANK TWICE. mobile's PC_H was 152
  * against web's 184 and I never checked, so the panel had 85pt for 98pt of
  * content and overflow hidden turned "does not fit" into "is not there". A
  * screenshot cannot tell those apart; this can.
  */
-export const ZONE_BOARD_MIN_PANEL_H = 98;
+export const ZONE_BOARD_MIN_PANEL_H = 124;
 
 /** The pediment's height at a given board width, which is pure aspect. */
 export function zoneBoardPedimentH(boardWidth: number): number {

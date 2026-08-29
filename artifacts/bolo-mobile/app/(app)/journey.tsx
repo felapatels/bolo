@@ -177,17 +177,26 @@ const MAP_MAX_W = 390;
 // LEFT of the marker, so a card growing a second line no longer reaches it.
 const STATION_H = 88; // vertical rhythm per station row
 const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
-// 184, MATCHING WEB, and it was 152 until the carved board shipped. That gap
-// is why the board's panel rendered EMPTY on the phone through 511 and 512: the
-// pediment takes width * 142/760 of the board, about 67pt at a 358pt column,
-// and 152 left only 85 for the panel against roughly 98 of content and inset.
-// With overflow hidden, "not enough room" looks exactly like "nothing there".
+// 200 FROM BUILD 17, AND IT NO LONGER MATCHES WEB'S 184. It was 152 until the
+// carved board shipped, which is why the panel rendered EMPTY through 511 and
+// 512: the pediment takes width * 142/760 of the board, about 67pt at a 358pt
+// column, and 152 left 85 for the panel. With overflow hidden, "not enough
+// room" looks exactly like "nothing there".
 //
-// I fixed this twice from screenshots without checking the number, which is the
-// whole lesson: the two platforms had never shared this constant, and I assumed
-// they did. ZONE_BOARD.minPanelH now asserts the budget on both sides so a
-// board that cannot fit fails a test rather than shipping blank.
-const PC_H = 184; // vertical rhythm per fare-zone postcard (incl. picture side)
+// 184 WAS NEVER ENOUGH EITHER. Measured on device in build 17 with an onLayout
+// on the panel: 117 of panel, 86 of body once the art's insets are taken, and
+// 112 of content on a teaser board (line, city, stops, Free taste, and the
+// 42pt DID YOU KNOW box). The fact's last line had sat under the frame since
+// the box was added: "did you know section is falling off zone card". The
+// board is exactly PC_H tall and clips, so the crop was silent, and two
+// handoffs read it off screenshots as the panel overrunning its slot.
+//
+// The budget is asserted by ZONE_BOARD_MIN_PANEL_H in journey-board-budget
+// .test.ts, which mirrors this number on purpose; move both together. Web's
+// board has its own fonts and its own budget, and matching it by number was a
+// convention that hid this for a week.
+const PC_H = 200; // vertical rhythm per fare-zone postcard (pediment + panel)
+
 const ZONE_BOARD_GAP = 18; // air between the carved board and the first stop card
 /**
  * The scroll content's own top pad, named because two places must agree on it:
@@ -1564,24 +1573,24 @@ export default function JourneyScreen() {
                               learner counts and this number never knew
                               about them. */}
                           {zone.rowStations.length} {zone.rowStations.length === 1 ? 'stop' : 'stops'} in this zone
+                          {/* THE FREE TASTE COUNTER, rehoused. It lived in the
+                              header ticket, and when the boarding pass came
+                              off this page (2026-08-27) it would have gone
+                              with it. It is the one thing that ticket carried
+                              that a learner actually needs while sampling a
+                              locked language: how much of the taste is left.
+                              ON THE STOPS LINE from build 17, not under it: a
+                              line of its own cost 13 of a body that measured
+                              26 short, and the fact's last line paid for it. */}
+                          {access === 'teaser' && teaserProgress && (
+                            <>
+                              <Text>{' · '}</Text>
+                              <Text style={{ color: cardColor, fontFamily: AppFonts.bold }}>
+                                Free taste {teaserProgress.consumed}/{teaserProgress.limit}
+                              </Text>
+                            </>
+                          )}
                         </Text>
-                        {/* THE FREE TASTE COUNTER, rehoused. It lived in the
-                            header ticket, and when the boarding pass came off
-                            this page (2026-08-27) it would have gone with it.
-                            It is the one thing that ticket carried that a
-                            learner actually needs while sampling a locked
-                            language: how much of the taste is left. It reads
-                            here now, beside the zone's own stop count. */}
-                        {access === 'teaser' && teaserProgress && (
-                          <Text
-                            style={[
-                              styles.postcardStops,
-                              { color: cardColor, fontFamily: AppFonts.bold },
-                            ]}
-                          >
-                            Free taste {teaserProgress.consumed}/{teaserProgress.limit}
-                          </Text>
-                        )}
                         {/* THE DAILY FACT, web parity (chat 11): web's board
                             has carried a DID YOU KNOW strip since hotfix 3
                             and mobile's panel never got it, which the
@@ -1663,35 +1672,35 @@ export default function JourneyScreen() {
 
   // Which zone's painting backs the header. The learner's current zone, so the
   // header matches whatever the map opens on; zone 1 before there is one.
-  // Measured rather than assumed: the header's height is 10 + the safe-area
-  // inset + whatever the ticket needs, and three things have to agree on it
-  // (the content's top pad, the bands' upward reach, and the slide-in maths).
-  const [headerH, setHeaderH] = useState(0);
   /**
-   * HOW MUCH CANVAS THE FLOATING HEADER EATS, and the fix for a defect the
-   * owner hit on 2026-08-28: "i can scroll up and down but i can't see the top
-   * of card 1 zone 1."
+   * WHERE THE FIRST BOARD RESTS, and the fix for a defect the owner hit on
+   * 2026-08-28: "i can scroll up and down but i can't see the top of card 1
+   * zone 1", then "stop card 1 is stuck under the zone card. zone card isn't
+   * at the top where it should be."
    *
-   * The header is `position: absolute, top: 0, zIndex: 50`, so it floats OVER
-   * the map rather than taking space in it. Everything in the first ~113 points
-   * of content sat under it at scroll offset 0, permanently: there is nothing
-   * above zero to scroll to. Zone 1's first card is the only card this can
-   * happen to, because every other zone scrolls out from under.
+   * A zone board is drawn as an overlay that PINS at headerTopInset, so at
+   * scroll 0 it sits there whatever the flow says. The flow used to put its
+   * slot at SCROLL_CONTENT_TOP, 41 points higher, and the canvas laid the
+   * first card out from that slot. The board therefore rested 41 lower than
+   * its own slot and its foot covered the first card's top. The header was
+   * never the problem; 5391875e read it as the header and reserved the whole
+   * header's height (104), which pushed the board 73 BELOW its pin at rest
+   * and, because only the canvas was moved and not the flow, onto the card.
    *
-   * `headerH` HAS BEEN MEASURED SINCE THE HEADER WAS WRITTEN and was used
-   * nowhere. SCROLL_CONTENT_TOP's own comment claims it clears the header and
-   * is "measured, so a notch, a Dynamic Island and web chrome all get the right
-   * number". The measurement existed and nothing consumed it.
+   * IT IS SPENT IN THREE PLACES THAT MUST AGREE. (1) The CANVAS: layoutY
+   * starts at TOP_PAD plus this, so every row moves down by it. (2) The FLOW:
+   * a journey-header-clearance spacer of this height sits ahead of the first
+   * board child, so the block children (which draw canvas relative to their
+   * own slice) and the pinned boards (which convert canvas to content with
+   * SCROLL_CONTENT_TOP - TOP_PAD) agree on where the board is. (3) The ART:
+   * zone 0's band reaches up by this much more, or the spacer leaves a strip
+   * of Screen colour behind the status bar: "that shouldn't be there."
    *
-   * IT IS SPENT INSIDE THE CANVAS, NOT AS CONTENT PADDING, and that distinction
-   * is the second half of the fix. Padding the scroll content pushes the ART
-   * down too, which leaves a bare strip of Screen background behind the status
-   * bar where the market used to bleed through. Owner, on seeing exactly that:
-   * "that shouldn't be there." Reserving it before the first postcard instead
-   * grows zone 1's own band, so the art still starts at the top of the screen
-   * and only the card moves.
+   * The intro shot has its own half of this: see onMapLayout, where the lead
+   * is floored so no current card is ever framed under the pinned board.
    */
-  const headerClearance = Math.max(0, headerH - SCROLL_CONTENT_TOP);
+  const pinClearance = Math.max(0, headerTopInset - SCROLL_CONTENT_TOP);
+
 
   // WHICH ZONE'S CROSSING THE LEARNER IS STANDING ON, or null. Zone-relative,
   // not journey-wide: each of the six zones has its own film, and a
@@ -1763,7 +1772,7 @@ export default function JourneyScreen() {
   };
   const pts: Pt[] = [];
   const postcardYs: { y: number; zoneIndex: number }[] = [];
-  let layoutY = TOP_PAD + headerClearance;
+  let layoutY = TOP_PAD + pinClearance;
   let k = 0; // global station index (drives the serpentine phase)
   for (let zi = 0; zi < zones.length; zi++) {
     const zone = zones[zi]!;
@@ -2080,12 +2089,24 @@ export default function JourneyScreen() {
     if (currentStopY == null) return;
     autoScrolledRef.current = true;
     // Comfortable framing: the stop lands about a third of the way down the
-    // viewport, clear of the boarding-pass header and never at the bottom edge.
-    // layout.y is the FIRST BOARD child now, which sits TOP_PAD into the old
-    // canvas space currentStopY still measures in, so the pad comes back off.
+    // viewport, and NEVER UNDER THE PINNED BOARD (build 17). The board pins at
+    // headerTopInset and stands TOP_PAD + PC_H tall there, so a lead shorter
+    // than that plus the card's reach above its marker frames the current
+    // card under the board. That was "i can't see the top of card 1 zone 1":
+    // a 260 lead against a board whose foot is at 253, read as the header's
+    // doing and "fixed" there twice.
+    const boardFloor =
+      headerTopInset + TOP_PAD + PC_H + ZONE_BOARD_GAP + STATION_H / 2;
+    // layout.y is the FIRST BOARD child's CONTENT y and currentStopY is
+    // CANVAS. That child sits at canvas slices[0].start, so that is what
+    // converts one into the other. It used to subtract a bare TOP_PAD, which
+    // was only right while nothing else was reserved ahead of the first board.
     const to = Math.max(
       0,
-      e.nativeEvent.layout.y - TOP_PAD + currentStopY - introScrollLead(windowH),
+      e.nativeEvent.layout.y -
+        (slices[0]?.start ?? TOP_PAD) +
+        currentStopY -
+        introScrollLead(windowH, boardFloor),
     );
     introTarget.current = to;
     // Reduced motion gets no hold and no travel, only the destination.
@@ -2366,7 +2387,6 @@ export default function JourneyScreen() {
       {/* Boarding-pass header — full-ticket treatment */}
       <View
         testID="journey-header"
-        onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}
         style={[
           styles.header,
           { paddingTop: 10 + headerTopInset },
@@ -2467,6 +2487,19 @@ export default function JourneyScreen() {
             board at rest and keeps scrolling under it while it is stuck.
             Slice arithmetic is untouched: a block draws its slice shifted
             by its own flow position. */}
+        {/* THE FLOW RESERVES WHAT THE CANVAS RESERVES (build 17). 5391875e
+            pushed the canvas down and left the scroll content where it was.
+            The block children draw canvas y relative to their own slice, so
+            the cards stayed put; the pinned boards convert canvas to content
+            with a constant, so every board moved down by the reservation and
+            landed on its zone's first card. Owner: "stop card 1 is stuck
+            under the zone card." This spacer is the flow's half: the first
+            board child sits exactly pinClearance lower in the content, which
+            is where naturalY already expected it, and where the board pins. */}
+        <View
+          testID="journey-header-clearance"
+          style={{ height: pinClearance }}
+        />
         {zones.flatMap((zone, zi) => {
           const { start, end } = slices[zi]!;
           const blockTop = start + PC_H + ZONE_BOARD_GAP;
@@ -2536,7 +2569,12 @@ export default function JourneyScreen() {
               mapW={mapW}
               scrollY={scrollY}
               contentTop={SCROLL_CONTENT_TOP}
-              extraTop={headerTopInset}
+              // Plus the pin clearance (build 17): the flow reserves it
+              // above this zone's spacer, so the band has that much further
+              // to reach to keep painting up to the top of the screen. An
+              // earlier padding attempt left exactly that strip of Screen
+              // colour behind the status bar: "that shouldn't be there."
+              extraTop={headerTopInset + pinClearance}
             />
             <Animated.View
               testID={`journey-scenery-layer-${zi}`}
@@ -3376,9 +3414,11 @@ export default function JourneyScreen() {
         {zones.map((_, zi) => (
           <PinnedZoneBoard
             key={`pinned-board-${zi}`}
-            // -TOP_PAD: the canvas reserves 10 before the first board and the
-            // scroll content does not, so canvas y and content y differ by
-            // exactly that much for every zone.
+            // -TOP_PAD: the canvas reserves TOP_PAD plus the pin clearance
+            // before the first board, and the scroll content reserves only
+            // the clearance (journey-header-clearance), so canvas y and
+            // content y differ by exactly TOP_PAD for every zone. Build 17:
+            // the flow half of that was missing and every board sat 104 low.
             naturalY={SCROLL_CONTENT_TOP + (slices[zi]?.start ?? 0) - TOP_PAD}
             nextNaturalY={
               zi + 1 < zones.length
@@ -3918,13 +3958,15 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
     marginBottom: 1,
   },
+  // Trimmed by 3 in build 17 (marginTop 4, paddingVertical 3) as part of
+  // fitting the panel's measured 112 of content into its body. See PC_H.
   boardFact: {
-    marginTop: 4,
+    marginTop: 3,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderRadius: 6,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 2,
   },
   boardFactLabel: {
     fontFamily: AppFonts.extrabold,
@@ -3950,7 +3992,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   postcardAddress: { flexDirection: 'row', alignItems: 'stretch' },
-  postcardLeft: { flex: 1, minWidth: 0, paddingHorizontal: 12, paddingVertical: 6 },
+  // paddingVertical 6 until build 17: the panel body has its own insets from
+  // the art, so this doubled up on them and cost 6 of a body that was short.
+  postcardLeft: { flex: 1, minWidth: 0, paddingHorizontal: 12, paddingVertical: 3 },
   postcardZoneLabel: { fontFamily: AppFonts.bold, fontSize: 9, letterSpacing: 1.5 },
   postcardGeoName: { fontFamily: AppFonts.extrabold, fontSize: 14, lineHeight: 17, color: '#1f2937' },
   postcardStops: { fontFamily: AppFonts.semibold, fontSize: 10, color: '#6b7280' },

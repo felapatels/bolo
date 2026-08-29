@@ -77,6 +77,16 @@ describe('where the stop lands in the viewport', () => {
     expect(introScrollLead(400)).toBe(140); // 120 lifted to the floor
   });
 
+  it('never frames the stop under whatever is pinned at the top (build 17)', () => {
+    // The journey's zone board pins at the inset and stands 253 tall there on
+    // a Dynamic Island phone; the cap is 260. Every current card's top landed
+    // under the board, stop 1's most of all. The clearance wins over the cap.
+    expect(introScrollLead(900, 315)).toBe(315);
+    // And costs nothing when the plain lead already clears it.
+    expect(introScrollLead(900, 100)).toBe(260);
+    expect(introScrollLead(400, 0)).toBe(140);
+  });
+
   it('never leads by more than a short viewport can spare', () => {
     // A lead taller than the viewport would scroll the stop off the top.
     for (const h of [320, 480, 640, 812, 1024]) {

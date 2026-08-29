@@ -60,11 +60,24 @@ export function introScrollDurationMs(distancePx: number): number {
   return Math.min(INTRO_SCROLL.maxMs, Math.max(INTRO_SCROLL.minMs, raw));
 }
 
-/** The framing lead for a viewport height. */
-export function introScrollLead(viewportH: number): number {
-  return Math.min(
-    INTRO_SCROLL.leadMax,
-    Math.max(INTRO_SCROLL.leadMin, Math.round(viewportH * INTRO_SCROLL.leadFraction)),
+/**
+ * The framing lead for a viewport height.
+ *
+ * `clearance` is the least lead that keeps the stop clear of whatever is
+ * pinned at the top of the viewport, and it wins over the cap (build 17). The
+ * journey's zone board pins at the safe-area inset and stands TOP_PAD + PC_H
+ * tall there, 253 on a Dynamic Island phone, against a cap of 260: every
+ * current card's top was framed under the board, and stop 1's most of all.
+ * A stop under the pinned board is not framed at all, so the clearance is not
+ * subject to the cap.
+ */
+export function introScrollLead(viewportH: number, clearance = 0): number {
+  return Math.max(
+    clearance,
+    Math.min(
+      INTRO_SCROLL.leadMax,
+      Math.max(INTRO_SCROLL.leadMin, Math.round(viewportH * INTRO_SCROLL.leadFraction)),
+    ),
   );
 }
 
