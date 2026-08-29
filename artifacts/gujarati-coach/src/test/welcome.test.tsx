@@ -66,17 +66,22 @@ describe("firstRunPath", () => {
 });
 
 describe("the cards", () => {
-  test("three cards, Next walks them, the last button is Let's go", () => {
-    expect(WALKTHROUGH_STEPS).toHaveLength(3);
+  test("four cards, Next walks them, one says Bolo learns you, the last button is Let's go", () => {
+    expect(WALKTHROUGH_STEPS).toHaveLength(4);
+    // Owner, 2026-08-29: the walkthrough must say Bolo learns from you and
+    // gets more accurate and personal as you go.
+    expect(WALKTHROUGH_STEPS.map((s) => s.title)).toContain("Bolo learns you");
     render(<Welcome />);
     expect(screen.getByTestId("walkthrough-title")).toHaveTextContent(WALKTHROUGH_STEPS[0]!.title);
     expect(screen.getByTestId(`mascot-${WALKTHROUGH_STEPS[0]!.pose}`)).toBeInTheDocument();
-    expect(screen.getAllByTestId("walkthrough-dot")).toHaveLength(2);
+    expect(screen.getAllByTestId("walkthrough-dot")).toHaveLength(3);
 
     fireEvent.click(screen.getByTestId("walkthrough-next"));
     expect(screen.getByTestId("walkthrough-title")).toHaveTextContent(WALKTHROUGH_STEPS[1]!.title);
     fireEvent.click(screen.getByTestId("walkthrough-next"));
     expect(screen.getByTestId("walkthrough-title")).toHaveTextContent(WALKTHROUGH_STEPS[2]!.title);
+    fireEvent.click(screen.getByTestId("walkthrough-next"));
+    expect(screen.getByTestId("walkthrough-title")).toHaveTextContent(WALKTHROUGH_STEPS[3]!.title);
     expect(screen.getByTestId("walkthrough-next")).toHaveTextContent("Let's go");
 
     // Walking the cards writes nothing.
@@ -89,12 +94,13 @@ describe("the cards", () => {
     fireEvent.click(screen.getByTestId("walkthrough-next"));
     fireEvent.click(screen.getByTestId("walkthrough-next"));
     fireEvent.click(screen.getByTestId("walkthrough-next"));
+    fireEvent.click(screen.getByTestId("walkthrough-next"));
 
     expect(h.mutate).toHaveBeenCalledTimes(1);
     expect(h.mutate.mock.calls[0]![0]).toEqual({ data: { hasCompletedTour: true } });
     expect(h.navigate).toHaveBeenCalledWith("/app");
     expect(hasDismissedWalkthrough()).toBe(true);
-    expect(h.track).toHaveBeenCalledWith("walkthrough_finished", { reason: "done", step: 2 });
+    expect(h.track).toHaveBeenCalledWith("walkthrough_finished", { reason: "done", step: 3 });
   });
 
   test("Skip does the same from any card, and says which one", () => {

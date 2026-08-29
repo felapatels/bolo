@@ -106,8 +106,12 @@ describe('firstRunHref', () => {
 });
 
 describe('the cards', () => {
-  it('has three, each with a pose, a title and a body', () => {
-    expect(WALKTHROUGH_STEPS).toHaveLength(3);
+  it('has four, each with a pose, a title and a body, and one says Bolo learns you', () => {
+    expect(WALKTHROUGH_STEPS).toHaveLength(4);
+    // Owner, 2026-08-29: the walkthrough must say Bolo learns from you and
+    // gets more accurate and personal as you go.
+    expect(WALKTHROUGH_STEPS.map((s) => s.title)).toContain('Bolo learns you');
+    expect(WALKTHROUGH_STEPS.find((s) => s.key === 'learns')!.body).toMatch(/more accurate/);
     for (const step of WALKTHROUGH_STEPS) {
       expect(step.title.length).toBeGreaterThan(0);
       expect(step.body.length).toBeGreaterThan(0);
@@ -119,13 +123,16 @@ describe('the cards', () => {
     render(<WelcomeScreen />);
     expect(screen.getByTestId('walkthrough-title').props.children).toBe(WALKTHROUGH_STEPS[0]!.title);
     expect(screen.getByTestId(`mascot-${WALKTHROUGH_STEPS[0]!.pose}`)).toBeTruthy();
-    expect(screen.getAllByTestId('walkthrough-dot')).toHaveLength(2);
+    expect(screen.getAllByTestId('walkthrough-dot')).toHaveLength(3);
 
     fireEvent.press(screen.getByText('Next'));
     expect(screen.getByTestId('walkthrough-title').props.children).toBe(WALKTHROUGH_STEPS[1]!.title);
 
     fireEvent.press(screen.getByText('Next'));
     expect(screen.getByTestId('walkthrough-title').props.children).toBe(WALKTHROUGH_STEPS[2]!.title);
+
+    fireEvent.press(screen.getByText('Next'));
+    expect(screen.getByTestId('walkthrough-title').props.children).toBe(WALKTHROUGH_STEPS[3]!.title);
     expect(screen.getByText("Let's go")).toBeTruthy();
     expect(screen.queryByText('Next')).toBeNull();
     // Nothing written yet: walking the cards is not finishing them.
@@ -137,13 +144,14 @@ describe('the cards', () => {
     render(<WelcomeScreen />);
     fireEvent.press(screen.getByText('Next'));
     fireEvent.press(screen.getByText('Next'));
+    fireEvent.press(screen.getByText('Next'));
     fireEvent.press(screen.getByText("Let's go"));
 
     expect(mockState.mutate).toHaveBeenCalledTimes(1);
     expect(mockState.mutate.mock.calls[0]![0]).toEqual({ data: { hasCompletedTour: true } });
     expect(mockState.replace).toHaveBeenCalledWith('/(app)/(tabs)');
     expect(hasDismissedWalkthrough()).toBe(true);
-    expect(mockState.track).toHaveBeenCalledWith('walkthrough_finished', { reason: 'done', step: 2 });
+    expect(mockState.track).toHaveBeenCalledWith('walkthrough_finished', { reason: 'done', step: 3 });
   });
 
   it('Skip does the same from any card, and says which one', () => {

@@ -56,6 +56,15 @@ export const WALKTHROUGH_STEPS: readonly WalkthroughStep[] = [
     title: 'Say it out loud',
     body: 'Listen to a phrase, then speak it back. Bolo listens, and saying it aloud is how it sticks.',
   },
+  // Owner, 2026-08-29, on seeing the cards: "the walkthrough doesn't say
+  // anything about bolo learning from you and getting more accurate and
+  // personalized as you move forward."
+  {
+    key: 'learns',
+    pose: 'thumbsup',
+    title: 'Bolo learns you',
+    body: 'Every word you say teaches Bolo how you sound. Scoring gets more accurate, and more personal, the further you go.',
+  },
   {
     key: 'chai',
     pose: 'cheer',
