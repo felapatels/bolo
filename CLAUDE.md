@@ -92,8 +92,8 @@ Run from the repo root.
   The script runs `sync-schema` first, so running the api tests APPLIES pending
   migrations to the dev database.
 - web: `pnpm --filter @workspace/gujarati-coach run test` (vitest)
-  Baseline **131 files, 1421 tests, all pass**, measured 2026-08-28 (build 17).
-  (Was 128 / 1399 on 2026-08-27, and 93 suites / 842 tests before that.) One flake seen once on 2026-08-27, a single
+  Baseline **131 files, 1430 tests, all pass**, measured 2026-08-29 (build 18).
+  (Was 131 / 1421 on 2026-08-28, 128 / 1399 on 2026-08-27, and 93 suites / 842 tests before that.) One flake seen once on 2026-08-27, a single
   failure that did not reproduce across two immediate re-runs; noted rather
   than chased, and worth watching for.
 - mobile: `pnpm --filter @workspace/bolo-mobile run test` (jest)
