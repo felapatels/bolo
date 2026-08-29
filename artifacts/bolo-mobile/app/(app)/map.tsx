@@ -361,10 +361,10 @@ function PosterWords({
               adjustsFontSizeToFit
               style={{
                 fontFamily: AppFonts.bold,
-                fontSize: nativeName ? 1.8 * u : 2.6 * u,
+                fontSize: nativeName ? 1.55 * u : 2.6 * u,
                 color: nativeName ? '#F2DDC2' : '#FFFFFF',
                 textAlign: 'center',
-                letterSpacing: 0.2 * u,
+                letterSpacing: nativeName ? 0.08 * u : 0.2 * u,
               }}
             >
               {(line.zones[i] ?? '').toUpperCase()}

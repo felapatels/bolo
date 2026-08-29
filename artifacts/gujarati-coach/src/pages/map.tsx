@@ -276,7 +276,7 @@ function PosterWords({
             ) : null}
             <span
               data-testid={`map-word-sign-${i}`}
-              style={{ fontSize: nativeName ? "1.8cqw" : "2.6cqw", letterSpacing: "0.2cqw", color: nativeName ? "#F2DDC2" : "#FFFFFF" }}
+              style={{ fontSize: nativeName ? "1.55cqw" : "2.6cqw", letterSpacing: nativeName ? "0.08cqw" : "0.2cqw", color: nativeName ? "#F2DDC2" : "#FFFFFF" }}
               className="font-bold"
             >
               {(line.zones[i] ?? "").toUpperCase()}
