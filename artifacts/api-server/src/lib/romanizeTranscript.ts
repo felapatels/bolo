@@ -259,6 +259,33 @@ function deleteSchwas(text: string): string {
 }
 
 /**
+ * IAST TO THE CARD STYLE THE SEED WRITES, and it runs AFTER schwa deletion and
+ * BEFORE the diacritics are stripped, because both of those need the IAST.
+ *
+ * Owner, build 17, reading Chacha-ji's own line under his face on a Gujarati
+ * call: "are bet! hum cacaji bolum chum. kem cho?" for અરે બેટા! હું ચાચાજી
+ * બોલું છું. કેમ છો? The 'bet' was the old final-schwa rule, fixed above and
+ * unpublished. The rest is IAST leaking through: it writes ચ as `c` and છ as
+ * `ch`, and nothing mapped that to how this app's own phrase cards spell them.
+ * The seed is the authority, by count: 280 `chhe`, 100 `chhu`, 6 `kem chho`
+ * against 2 `kem cho`. So ચ is `ch`, છ is `chh`, and the sibilants ś and ṣ
+ * are `sh` rather than the bare `s` that toAscii left ("sukriya"). The
+ * vocalic ṛ is `ri`, as in kripaya. Every reader of this function sees the
+ * same spelling the cards use: his line, the mirror, the games, "We heard".
+ */
+function toCardStyle(iast: string): string {
+  return iast
+    .normalize("NFC")
+    // The aspirate first, through a placeholder, or the c-to-ch pass below
+    // would turn it into "chh" plus a stray h.
+    .replace(/ch/g, "\u0000")
+    .replace(/c/g, "ch")
+    .replace(/\u0000/g, "chh")
+    .replace(/[\u015b\u1e63]/g, "sh")
+    .replace(/\u1e5b/g, "ri");
+}
+
+/**
  * Romanize an STT transcript for display. Returns "" when the transcript is
  * empty or its script cannot be romanized cleanly (clients hide the line).
  */
@@ -287,7 +314,7 @@ export function romanizeTranscript(
   // way left to tell a schwa from a vowel the speaker says.
   const shaped = schwaDeleting ? deleteSchwas(iast.toLowerCase()) : iast;
 
-  const { ascii, dropped } = toAscii(shaped);
+  const { ascii, dropped } = toAscii(toCardStyle(shaped));
   const letters = ascii.replace(/[^a-zA-Z]/g, "").length;
   // Garbage guard: if transliteration left a meaningful share of unmapped
   // native glyphs behind (they were dropped in toAscii), show nothing rather
