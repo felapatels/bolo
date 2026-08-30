@@ -3073,6 +3073,10 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
              count marks somebody who moves between phone and laptop. */
           "<td>" + (r.platform
             ? esc(r.platform.replace(/_/g, " ")) +
+              /* THE BUILD, iOS ONLY. OkHttp's agent carries nothing about the
+                 app, so an Android row shows its platform and no build, which
+                 is the honest rendering of what was actually sent. */
+              (r.build ? ' <b>' + esc(r.build) + "</b>" : "") +
               (r.platformKinds > 1 ? ' <span class="ddim">+' + (r.platformKinds - 1) + "</span>" : "")
             : '<span class="ddim">not recorded</span>') + "</td>" +
           "<td>" + esc(shortDate(r.createdAt)) + "</td>" +

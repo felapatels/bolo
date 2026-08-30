@@ -57,6 +57,48 @@ export function platformFromUserAgent(
   return "web";
 }
 
+/** Prefix for the build tag inside attempts.flags, mirroring the platform one. */
+export const BUILD_FLAG_PREFIX = "build:";
+
+/**
+ * The app BUILD NUMBER, when the User-Agent carries it.
+ *
+ * WHY THIS IS FREE ON iOS AND IMPOSSIBLE ON ANDROID, which is the whole shape
+ * of what this can and cannot answer.
+ *
+ * React Native's iOS networking is NSURLSession, and it sets a User-Agent of
+ * "<CFBundleName>/<CFBundleVersion> CFNetwork/... Darwin/...". app.json sets
+ * expo.name to "Bolo!" and ios.buildNumber to the build, so an iOS request
+ * arrives reading "Bolo!/528 CFNetwork/1568.100.1 Darwin/24.1.0" and the build
+ * is simply there.
+ *
+ * Android goes out through OkHttp, whose User-Agent is "okhttp/4.12.0" and
+ * carries NOTHING about the app. No parsing can recover what was never sent.
+ * ANDROID WILL READ AS NULL UNTIL A CLIENT HEADER EXISTS, and that needs a
+ * release, which is exactly what recording this was meant to avoid.
+ *
+ * Asked for 2026-08-30, to find people on old builds. PostHog already knows the
+ * version and the Nest cannot read PostHog, so this puts the answer where the
+ * cockpit can see it, for the platform that is most of the traffic: 125 app
+ * attempts on iOS against 15 on Android at the time of writing.
+ *
+ * THE LEADING TOKEN ONLY, and guarded on CFNetwork being present. "CFNetwork"
+ * and "Darwin" are themselves name/number tokens, so a looser match would
+ * happily report the networking stack's version as the app's.
+ */
+export function buildFromUserAgent(userAgent: string | undefined | null): string | null {
+  if (typeof userAgent !== "string") return null;
+  const ua = userAgent.trim();
+  // Only the Apple stack carries it. Without this guard, any first token that
+  // happened to be name/digits would be read as a build number.
+  if (!/CFNetwork/i.test(ua)) return null;
+  const first = ua.split(/\s+/)[0] ?? "";
+  const m = /^([^/\s]+)\/(\d{1,7})$/.exec(first);
+  if (!m) return null;
+  if (/^(cfnetwork|darwin)$/i.test(m[1])) return null;
+  return m[2];
+}
+
 /** Tag written when the dual-pass recognizer-glitch rescue scored the attempt. */
 export const STT_GLITCH_RESCUE_FLAG = "stt_glitch_rescue";
 
@@ -83,6 +125,10 @@ export function buildAttemptFlags(opts: {
   if (opts.latencyMissing) tags.push("latency_missing");
   const platform = platformFromUserAgent(opts.userAgent);
   if (platform !== "unknown") tags.push(`${PLATFORM_FLAG_PREFIX}${platform}`);
+  // Same column, same shape as the platform tag. Absent rather than "unknown"
+  // when the agent did not carry one, which is every Android request.
+  const build = buildFromUserAgent(opts.userAgent);
+  if (build) tags.push(`${BUILD_FLAG_PREFIX}${build}`);
   if (opts.sttGlitchRescue) tags.push(STT_GLITCH_RESCUE_FLAG);
   if (opts.hesitated) tags.push("hesitated");
   return tags.length > 0 ? tags.join(",") : null;

@@ -544,6 +544,15 @@ type NestDrillRow = {
   platform: string | null;
   /** How many distinct platforms they have ever used. */
   platformKinds: number;
+  /**
+   * The app BUILD of their most recent tagged attempt, or null.
+   *
+   * iOS ONLY, and that is a property of the User-Agent rather than a gap here:
+   * NSURLSession sends "Bolo!/528 CFNetwork/...", OkHttp sends "okhttp/4.12.0"
+   * and nothing about the app. Android reads null until a client header exists,
+   * which needs a release. See lib/clientPlatform.
+   */
+  build: string | null;
   /** Lifetime attempts, so a row reads as a person rather than an id. */
   attempts: number;
   /** The number this metric ranked on, within the window where one applies. */
@@ -743,7 +752,13 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
              -- being flattened to whichever they touched last.
              (select count(distinct substring(a5.flags from 'platform:([a-z_]+)'))
                 from attempts a5
-               where a5.user_id = u.id and a5.flags like '%platform:%')::int as platform_kinds
+               where a5.user_id = u.id and a5.flags like '%platform:%')::int as platform_kinds,
+             -- The build of their most recent attempt that carried one. Same
+             -- column, same shape as the platform, because the same line writes
+             -- both. iOS only: OkHttp's agent carries nothing about the app.
+             (select substring(a6.flags from 'build:([0-9]+)') from attempts a6
+               where a6.user_id = u.id and a6.flags like '%build:%'
+               order by a6.created_at desc limit 1) as build
         from picked
         join users u on u.id = picked.user_id
        order by picked.metric_value desc, u.created_at desc
@@ -779,6 +794,7 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
         // was half-written before somebody grepped and found this.
         platform: r.platform == null ? null : String(r.platform),
         platformKinds: Number(r.platform_kinds ?? 0),
+        build: r.build == null ? null : String(r.build),
         createdAt: new Date(r.created_at as string).toISOString(),
         lastActiveAt: r.last_active == null ? null : new Date(r.last_active as string).toISOString(),
         attempts: Number(r.attempts ?? 0),
