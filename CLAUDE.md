@@ -123,9 +123,12 @@ Run from the repo root.
   failure that did not reproduce across two immediate re-runs; noted rather
   than chased, and worth watching for.
 - mobile: `pnpm --filter @workspace/bolo-mobile run test` (jest)
-  Baseline **152 suites, 1456 tests, all pass**, measured 2026-08-30 (build 23,
-  at close; the two new tests are the splash's first-frame gate and its
-  failsafe). (Was 152 / 1454 earlier on 2026-08-30 (build 22).)
+  Baseline **155 suites, 1468 tests, all pass**, measured 2026-08-30 (build 25,
+  before the first iPad build: 154 suites green in the full run plus
+  screen-column.test.tsx re-run alone after its own pin was corrected; the
+  new files are the content column's, the Screen column's, journey 2's
+  station names and the Family row's two states).
+  (Was 152 / 1456 earlier on 2026-08-30 (build 23), 152 / 1454 (build 22).)
   **THE FIRST FULL RUN AFTER BUILD 21 FAILED 25 SUITES**, almost all of them
   build 21's, never run: every screen that mounts a ChaiPill mounts the
   wallet sheet, whose `useSafeAreaInsets()` threw without a provider (now
@@ -349,6 +352,29 @@ it to one step on 2026-08-24 and again on 2026-08-29 (build 20).
   strings + URL schemes) so regenerating ios/ silently breaks chat's mic
   and deep links until re-patched.
 
+- **THE iPAD (build 25, 2026-08-30). One centred content column, portrait,
+  full screen: the owner's option A over an iPad-native redesign.**
+  `lib/contentWidth.ts` is the whole mechanism: `CONTENT_MAX_W` (600),
+  `useContentWidth` (the column, for anything that lives in it),
+  `useContentInset` (for chrome pinned to the window's edges), `useIsWideScreen`
+  (an iPad) and the `CONTENT_COLUMN` style. On every phone the column IS the
+  window, so nothing on a phone moves. `Screen` wraps its children in the
+  column (`column={false}` opts out; only the journey does, to paint web's wide
+  bazaar edge to edge with a 560 map and, on the 13-inch only, the zone rail
+  beside it). RN `Modal`s escape the column, so every bottom sheet is capped at
+  it and every dialog at a card width. **Read the width you mean:** the window
+  for a backdrop, confetti, the splash; the column for a card, a band, a grid.
+  **The iPad dev client** is `ios/build/ipad/.../Bolo.app`, built from the
+  hand-patched `ios/` project with `TARGETED_DEVICE_FAMILY="1,2"` on the
+  `xcodebuild` command line (never prebuild, which loses the plist patches),
+  installed on the iPad Pro 13-inch and iPad mini sims. Two traps: never tap
+  "Open" blind after `openurl` (a missing dialog turns the tap into a second
+  bundle load and the client dies 5s in; use `tapOn: {text: "Open", optional:
+  true}`), and ids over points wherever a list can be up (a point tap put the
+  owner's account on Punjabi). Android tablets inherit the column unlooked-at;
+  Expo SDK 54 targets API 36, where a portrait lock is IGNORED on screens
+  600dp and wider, a ruling still owed for the Android train.
+
 - **EXPO-ROUTER SCREENS OUTLIVE THE USER'S MENTAL MODEL OF THEM, and it has
   now caused two bugs in one day (2026-08-28).** A route that looks like it
   opens fresh is often still MOUNTED from last time, holding all its state.
@@ -383,10 +409,14 @@ it to one step on 2026-08-24 and again on 2026-08-29 (build 20).
   for that train too, so this blocks internal testing, not just release.** The
   version is a compile-time value, so a rejected binary cannot be resubmitted, it
   has to be rebuilt. **`1.0.5` (523) went into App Store review on 2026-08-29,
-  and `1.0.6` (iOS 525, Android 526) was built HEALTHY and submitted on
+  and `1.0.6` (iOS 528, Android 529) was built HEALTHY and submitted on
   2026-08-30: iOS to App Store Connect (TestFlight, then the owner's App
-  Store submission), Android to the Play internal track. `app.json` carries
-  525 / 526; the next version number is the owner's ruling.** (1.0.4 was approved and released on 2026-08-28.) This line has been
+  Store submission), Android to the Play internal track. **iOS 529 is the
+  FIRST iPHONE-AND-iPAD BINARY** (build 25, 2026-08-30 afternoon,
+  `supportsTablet` + `requireFullScreen`); App Store Connect will demand
+  13-inch iPad screenshots the first time an iPad-capable build is submitted
+  for review, TestFlight needs none. `app.json` carries iOS 529 / Android
+  529; the next version number is the owner's ruling.** (1.0.4 was approved and released on 2026-08-28.) This line has been
   stale before: it said `1.0.1` while 1.0.2, 1.0.3 and 1.0.4 shipped, so check
   `app.json` rather than trusting it.
 
