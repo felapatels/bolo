@@ -3822,6 +3822,36 @@ export default function JourneyScreen() {
         </Text>
       </Animated.ScrollView>
 
+      {/* THE ZONE RAIL, iPad only (build 25). Web's desktop rail (build 24)
+          brought over: the whole line at once, one ivory card per zone with
+          its state said three ways (word, glyph, edge colour), joined by
+          short track segments, closed by the gold Journey 2 card. It hangs
+          off the map column's left edge and stays put while the map scrolls;
+          a tap lands the map on that zone's board and nothing more. The
+          phone never has the margin for it, so `wide` gates it entirely. */}
+      {wide && (
+        <ZoneRail
+          zones={zones.map((z, zi) => ({
+            zoneIndex: zi,
+            geoName: z.geoName,
+            y: postcardYs.find((p) => p.zoneIndex === zi)?.y ?? 0,
+            done: z.stations.filter(
+              (st) => st.status === 'completed' || st.status === 'tested_out',
+            ).length,
+            total: z.stations.length,
+            hasCurrent: z.stations.some((st) => st.id === currentId),
+          }))}
+          onward={line.zones2}
+          accent={line.accent}
+          left={(windowW - mapW) / 2 - ZONE_RAIL_GAP - ZONE_RAIL_W}
+          onJump={(y) => {
+            userScrolledRef.current = true;
+            landIntro();
+            scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+          }}
+        />
+      )}
+
       {/* THE PINNED ZONE BOARD, above the scroll view rather than inside it.
           See renderZoneBoard for why this is not a sticky header. It shows
           whichever zone owns the top of the viewport, and the back arrow
@@ -4171,6 +4201,192 @@ export default function JourneyScreen() {
     </Screen>
   );
 }
+
+/** Web's w-36 card and mr-3 gap, in points. */
+const ZONE_RAIL_W = 144;
+const ZONE_RAIL_GAP = 12;
+
+type ZoneRailEntry = {
+  zoneIndex: number;
+  geoName: string;
+  y: number;
+  done: number;
+  total: number;
+  hasCurrent: boolean;
+};
+
+/**
+ * The line, zone by zone, beside the map on a wide screen. Twin of the web
+ * rail in gujarati-coach/src/pages/journey.tsx (data-testid
+ * journey-zone-rail): same three states, same words, same colours. Cards,
+ * not counts (owner, build 24: "show nice cards for each zone title, not stop
+ * progress"). Hidden from assistive tech as a duplicate: every zone it lists
+ * is already reachable by scrolling the map.
+ */
+function ZoneRail({
+  zones,
+  onward,
+  accent,
+  left,
+  onJump,
+}: {
+  zones: ZoneRailEntry[];
+  onward: readonly string[];
+  accent: string;
+  left: number;
+  onJump: (y: number) => void;
+}) {
+  return (
+    <View
+      pointerEvents="box-none"
+      importantForAccessibility="no-hide-descendants"
+      accessibilityElementsHidden
+      testID="journey-zone-rail"
+      style={[railStyles.wrap, { left }]}
+    >
+      <View pointerEvents="box-none" style={railStyles.stack}>
+        {zones.map((z) => {
+          const state: 'done' | 'here' | 'ahead' =
+            z.total > 0 && z.done === z.total ? 'done' : z.hasCurrent ? 'here' : 'ahead';
+          const word = state === 'done' ? 'Done' : state === 'here' ? 'You are here' : 'Ahead';
+          const edge = state === 'here' ? '#4F46E5' : state === 'done' ? accent : 'rgba(43,26,18,0.22)';
+          const wordColor = state === 'here' ? '#4F46E5' : state === 'done' ? accent : '#6B6680';
+          return (
+            <View key={z.zoneIndex}>
+              <Pressable
+                testID={`zone-rail-${z.zoneIndex}`}
+                onPress={() => {
+                  hapticLight();
+                  onJump(z.y);
+                }}
+                style={[
+                  railStyles.card,
+                  {
+                    borderColor: edge,
+                    backgroundColor: state === 'ahead' ? 'rgba(255,251,240,0.8)' : '#FFFBF0',
+                    shadowOpacity: state === 'here' ? 0.3 : 0.25,
+                  },
+                  state === 'here' && railStyles.cardHere,
+                ]}
+              >
+                <View
+                  style={[
+                    railStyles.disc,
+                    { backgroundColor: state === 'ahead' ? 'rgba(43,26,18,0.08)' : edge },
+                  ]}
+                >
+                  {state === 'done' ? (
+                    <Feather name="check" size={11} color="#ffffff" />
+                  ) : state === 'here' ? (
+                    <MaterialCommunityIcons name="train" size={12} color="#ffffff" />
+                  ) : (
+                    <Feather name="lock" size={11} color="rgba(43,26,18,0.55)" />
+                  )}
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text
+                    numberOfLines={2}
+                    style={[railStyles.name, { color: state === 'ahead' ? '#6B6680' : '#1E1B2E' }]}
+                  >
+                    {z.geoName}
+                  </Text>
+                  <Text style={[railStyles.word, { color: wordColor }]}>
+                    ZONE {z.zoneIndex + 1} · {word.toUpperCase()}
+                  </Text>
+                </View>
+              </Pressable>
+              <View
+                style={[
+                  railStyles.link,
+                  { backgroundColor: state === 'done' ? accent : 'rgba(255,251,240,0.6)' },
+                ]}
+              />
+            </View>
+          );
+        })}
+        {/* THE ONWARD CARD: gold edge and parchment because it is a PLACE, not
+            a control (gold = world). Nothing here is tappable; journey 2 is
+            not drawn on this map. */}
+        <View testID="zone-rail-onward" style={railStyles.onward}>
+          <Text style={railStyles.onwardEyebrow}>THE LINE GOES ON</Text>
+          <View style={railStyles.onwardRow}>
+            <View style={railStyles.onwardDisc}>
+              <MaterialCommunityIcons name="train" size={16} color="#ffffff" />
+            </View>
+            <Text style={railStyles.onwardTitle}>Journey 2</Text>
+          </View>
+          <Text style={railStyles.onwardSpan}>
+            {onward[0]} to {onward[5]}
+          </Text>
+          <Text style={railStyles.onwardEyebrow}>6 MORE ZONES</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const railStyles = StyleSheet.create({
+  // Vertically centred in the window, like web's sticky top-1/2.
+  wrap: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: ZONE_RAIL_W,
+    justifyContent: 'center',
+  },
+  stack: { width: ZONE_RAIL_W },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    shadowColor: '#2B1A12',
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  // Web's 3px violet halo round the current zone.
+  cardHere: { shadowRadius: 8, shadowOpacity: 0.3 },
+  disc: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  name: { fontFamily: AppFonts.extrabold, fontSize: 11, lineHeight: 13 },
+  word: { fontFamily: AppFonts.extrabold, fontSize: 9, letterSpacing: 1, marginTop: 2 },
+  link: { alignSelf: 'center', width: 3, height: 12, borderRadius: 2 },
+  onward: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#b7791f',
+    backgroundColor: '#F8EBC4',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    shadowColor: '#2B1A12',
+    shadowOpacity: 0.32,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  onwardEyebrow: { fontFamily: AppFonts.extrabold, fontSize: 9, letterSpacing: 1, color: '#8a5a12' },
+  onwardRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  onwardDisc: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#b7791f',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  onwardTitle: { fontFamily: AppFonts.extrabold, fontSize: 15, color: '#1E1B2E', flex: 1 },
+  onwardSpan: { fontFamily: AppFonts.extrabold, fontSize: 11, lineHeight: 13, color: '#1E1B2E', marginTop: 8, marginBottom: 2 },
+});
 
 const styles = StyleSheet.create({
   loading: {
