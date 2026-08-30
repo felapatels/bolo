@@ -42,18 +42,15 @@ export interface ZoneRowPlan {
  * @param lang       the learner's active language code
  * @param zoneIndex  0-based zone index, as every caller here holds it
  * @param gradedCount how many graded lesson groups the server sent for the zone
- * @param showroom   a locked-language preview, which draws neither extra row
  */
 export function planZoneRows({
   lang,
   zoneIndex,
   gradedCount,
-  showroom,
 }: {
   lang: string;
   zoneIndex: number;
   gradedCount: number;
-  showroom: boolean;
 }): ZoneRowPlan {
   const zone = zoneIndex + 1;
   const trace = traceStopFor(lang, 1, zone);
@@ -63,26 +60,28 @@ export function planZoneRows({
   // graded stops gets neither extra row, or an unloaded zone draws a lone
   // tracing row under an empty board.
   //
-  // ZONE 1 KEEPS BOTH ROWS IN THE SHOWROOM, reversing an earlier ruling. Owner,
-  // 2026-08-28: "stops 2 and 3 of every journey zone 1 should have free tastes
-  // of script tracing and storybook."
+  // EVERY ZONE, FOR EVERY LEARNER, AND NO SHOWROOM FLAG ANY MORE. Owner,
+  // 2026-08-30 (build 23), off the 1.0.6 TestFlight build on a Free account:
+  // "Every zone for every language should have a script trace and a story
+  // stop however I'm just seeing it in Zone 1 for each."
   //
-  // This used to read `&& !showroom`, on the reasoning that a locked-language
-  // preview already carries the three-phrase voice teaser and a second chip
-  // beside it reads as two competing offers. THE SERVER HAS SINCE GIVEN BOTH
-  // AWAY ANYWAY: script tracing has been open to every plan since 2026-08-23,
-  // and the journey 1 zone 1 book serves its first scene to every plan. So the
-  // tastes existed and the map was the only thing without a door to them, which
-  // is worse than two offers: it is an offer the learner cannot find.
+  // A Free learner previewing a locked language is in the showroom, and this
+  // took a `showroom` flag until build 22 that drew both rows in zone 1 only.
+  // Before 2026-08-28 it drew neither row anywhere in the showroom, on the
+  // reasoning that a second chip beside the three-phrase voice teaser read as
+  // two competing offers; zone 1 came back on the owner's ruling that "stops 2
+  // and 3 of every journey zone 1 should have free tastes of script tracing
+  // and storybook"; and later zones stayed out because their tracing and their
+  // books really are All-Access, "so a row there would be a chip with nothing
+  // behind it". That last half hid four fifths of what All-Access buys from
+  // exactly the learner being sold it. The splices downstream already mark
+  // journey 1 zone 1 `teaserStation` and every later zone `planLocked`, so a
+  // showroom now shows the whole line it is selling, locked where it is locked.
   //
-  // LATER ZONES STAY OUT, and that is the half of the old reasoning that still
-  // holds. Their tracing and their books really are All-Access, so a row there
-  // would be a chip with nothing behind it. The splices downstream already mark
-  // journey 1 zone 1 `teaserStation` and everything else `planLocked`, so this
-  // condition is the only thing that ever stopped them being drawn.
-  const showroomAllows = !showroom || zone === 1;
-  const hasTrace = Boolean(trace) && gradedCount > 0 && showroomAllows;
-  const hasStory = Boolean(storyBook) && gradedCount > 0 && showroomAllows;
+  // The flag is gone rather than ignored: a parameter nothing reads is an
+  // invitation to gate on it again.
+  const hasTrace = Boolean(trace) && gradedCount > 0;
+  const hasStory = Boolean(storyBook) && gradedCount > 0;
 
   const traceIndex = hasTrace
     ? traceStopIndexIn(gradedCount, trace!.journey, trace!.zone)

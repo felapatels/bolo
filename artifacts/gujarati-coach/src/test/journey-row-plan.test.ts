@@ -33,7 +33,7 @@ describe('the row plan is the same arithmetic both screens run', () => {
   });
 
   it('turns nine graded stops into the eleven rows the map draws', () => {
-    const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 9, showroom: false });
+    const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 9 });
     expect(plan.rowCount).toBe(11);
     // Zone 1 puts tracing at position 2 and the story straight after it, which
     // is what traceStopIndexIn and storyStopIndexIn already pin. Restated here
@@ -44,7 +44,7 @@ describe('the row plan is the same arithmetic both screens run', () => {
   });
 
   it('numbers the stop the owner was looking at 5, not 3', () => {
-    const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 9, showroom: false });
+    const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 9 });
     // Graded stop 3 is index 2. Both spliced rows sit above it, so it wears 5.
     // These three are the exact numbers off the simulator: the map's "Stop 5 of
     // 11" against the hero's "Stop 3 of 9".
@@ -53,7 +53,7 @@ describe('the row plan is the same arithmetic both screens run', () => {
   });
 
   it('leaves the first stop first, which is the one thing splicing must never move', () => {
-    const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 9, showroom: false });
+    const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 9 });
     // A journey map that opens onto "trace the letters" before anyone has said
     // a word reads as the wrong app. traceStopIndexIn guards its own end of
     // this; the plan must not undo it by counting from the wrong side.
@@ -61,7 +61,7 @@ describe('the row plan is the same arithmetic both screens run', () => {
   });
 
   it('pushes a stop down once per row spliced AT OR ABOVE it, never below', () => {
-    const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 9, showroom: false });
+    const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 9 });
     const numbers = Array.from({ length: 9 }, (_, gi) => plan.rowNumberOfGraded(gi));
     // Strictly increasing, never colliding, and never past the run.
     for (let i = 1; i < numbers.length; i++) {
@@ -75,7 +75,7 @@ describe('the row plan is the same arithmetic both screens run', () => {
   });
 
   it('takes the mid-zone break outside zone 1, and still agrees with itself', () => {
-    const plan = planZoneRows({ lang: LANG, zoneIndex: 1, gradedCount: 9, showroom: false });
+    const plan = planZoneRows({ lang: LANG, zoneIndex: 1, gradedCount: 9 });
     expect(plan.traceIndex).toBe(4);
     expect(plan.storyIndex).toBe(5);
     expect(plan.rowCount).toBe(11);
@@ -100,8 +100,12 @@ describe('the row plan is the same arithmetic both screens run', () => {
   // gives both away regardless (tracing to every plan since 2026-08-23, and
   // the zone 1 book's first scene to every plan), so the only thing the old
   // rule achieved was hiding a taste the learner already had.
+  //
+  // AND AGAIN 2026-08-30 (build 23): the plan no longer takes a showroom flag
+  // at all, so this is now the plain zone 1 sum, kept under its old name
+  // because the history of the ruling lives here.
   it('draws both extra rows in a showroom preview of zone 1', () => {
-    const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 9, showroom: true });
+    const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 9 });
     expect(plan.traceIndex).toBe(1);
     expect(plan.storyIndex).toBe(2);
     expect(plan.rowCount).toBe(11);
@@ -110,19 +114,26 @@ describe('the row plan is the same arithmetic both screens run', () => {
     expect(plan.rowNumberOfGraded(1)).toBe(4);
   });
 
-  it('draws neither extra row in a showroom preview of a later zone', () => {
-    // The half of the old reasoning that still holds: zone 2 onward really is
-    // All-Access for both, so a chip there would have nothing behind it.
-    const plan = planZoneRows({ lang: LANG, zoneIndex: 1, gradedCount: 9, showroom: true });
-    expect(plan.traceIndex).toBeNull();
-    expect(plan.storyIndex).toBeNull();
-    expect(plan.rowCount).toBe(9);
+  // INVERTED 2026-08-30 (build 23) on an owner ruling off the 1.0.6 TestFlight
+  // build, seen from a Free account: "Every zone for every language should
+  // have a script trace and a story stop however I'm just seeing it in Zone 1
+  // for each." This asserted that a showroom drew NEITHER row past zone 1,
+  // "the half of the old reasoning that still holds: zone 2 onward really is
+  // All-Access for both, so a chip there would have nothing behind it". What
+  // it actually did was hide four fifths of what All-Access buys from the one
+  // learner being sold it. The rows draw everywhere; the map locks them.
+  it('draws both extra rows in a later zone of a showroom preview too', () => {
+    const plan = planZoneRows({ lang: LANG, zoneIndex: 1, gradedCount: 9 });
+    expect(plan.traceIndex).toBe(4);
+    expect(plan.storyIndex).toBe(5);
+    expect(plan.rowCount).toBe(11);
     expect(plan.rowNumberOfGraded(2)).toBe(3);
+    expect(plan.rowNumberOfGraded(4)).toBe(7);
   });
 
   it('adds nothing to an empty zone: you can only add to something', () => {
     // An unloaded zone must not draw a lone tracing row under an empty board.
-    const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 0, showroom: false });
+    const plan = planZoneRows({ lang: LANG, zoneIndex: 0, gradedCount: 0 });
     expect(plan.rowCount).toBe(0);
     expect(plan.traceIndex).toBeNull();
     expect(plan.storyIndex).toBeNull();
@@ -135,7 +146,6 @@ describe('the row plan is the same arithmetic both screens run', () => {
       lang: 'not-a-language',
       zoneIndex: 0,
       gradedCount: 9,
-      showroom: false,
     });
     expect(plan.traceIndex).toBeNull();
     expect(plan.rowCount).toBe(9 + (plan.storyIndex === null ? 0 : 1));

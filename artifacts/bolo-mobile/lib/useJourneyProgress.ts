@@ -114,12 +114,6 @@ export function useJourneyProgress(
   let anyPlanGated = false;
   let current: JourneyCurrentStop | null = null;
   const zones: JourneyZoneProgress[] = [];
-  // Derived exactly as the map derives it rather than assumed false: a learner
-  // previewing a LOCKED language gets showroom payloads here too, and showroom
-  // draws neither the tracing nor the story row.
-  const showroom =
-    (zoneQueries.map((q) => (q.data as LessonGroupList | undefined)?.access).find(Boolean) ??
-      null) !== null;
   zoneQueries.forEach((q, i) => {
     const groups = [...((q.data as LessonGroupList | undefined)?.lessonGroups ?? [])].sort(
       (a, b) => stageRank(a) - stageRank(b) || (a.position ?? 0) - (b.position ?? 0),
@@ -133,7 +127,6 @@ export function useJourneyProgress(
       lang,
       zoneIndex: i,
       gradedCount: groups.length,
-      showroom,
     });
     let zoneDone = 0;
     let zoneMastered = 0;

@@ -89,7 +89,7 @@ import {
 } from '@workspace/story';
 import {
   hasEmergency,
-  EMERGENCY_AFTER_STOP,
+  emergencyStopIndex,
   EMERGENCY_JOURNEY,
 } from '@workspace/emergency';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -1431,7 +1431,6 @@ export default function JourneyScreen() {
       lang: activeLang,
       zoneIndex: i,
       gradedCount: stations.length,
-      showroom,
     });
     const trace = rowPlan.trace;
     const withTrace = [...stations];
@@ -1471,10 +1470,11 @@ export default function JourneyScreen() {
     // this is false everywhere and nothing changes.
     const zoneGateLocked =
       stations.length > 0 && stations.every((st) => st.status === 'locked');
-    // IN SHOWROOM FOR ZONE 1 SINCE 2026-08-28, and planZoneRows owns that
-    // decision. The `planLocked` and `teaserStation` pair below has always
-    // marked journey 1 zone 1 as a taste rather than a lock; the row simply was
-    // never drawn for a locked language, so the taste had no door.
+    // IN EVERY ZONE OF THE SHOWROOM SINCE 2026-08-30 (build 23; zone 1 only
+    // from 2026-08-28, nothing before that), and planZoneRows carries the
+    // ruling. The `planLocked` and `teaserStation` pair below marks journey 1
+    // zone 1 as a taste rather than a lock and every later zone's rows as
+    // All-Access, which is what a locked language's preview now shows.
     //
     // ADDED, NEVER SUBSTITUTED, and you can only add to something: a zone with
     // no phrase stops at all gets no tracing stop either, or an unloaded zone
@@ -1511,8 +1511,8 @@ export default function JourneyScreen() {
     // THE STORY STOP, spliced after the tracing one and by the same rules.
     // storyStopIndexIn() decides where, and both clients call it rather than
     // each choosing, or the web and the phone would disagree about which stop a
-    // learner is on. Added, never substituted, and in the showroom for zone 1
-    // only: see planZoneRows.
+    // learner is on. Added, never substituted, and in every zone, showroom
+    // included: see planZoneRows.
     const storyBook = rowPlan.storyBook;
     if (storyBook && rowPlan.storyIndex !== null) {
       withTrace.splice(rowPlan.storyIndex, 0, {
@@ -1828,11 +1828,18 @@ export default function JourneyScreen() {
   // not journey-wide: each of the six zones has its own film, and a
   // journey-wide index would put the only Emergency inside zone 1 and leave the
   // other five unreachable.
+  //
+  // AGAINST THE ZONE'S OWN LENGTH (build 23). This compared the graded index
+  // to EMERGENCY_AFTER_STOP directly, which in a nine-stop zone is the last
+  // stop and in a seven-stop zone is nowhere: zone 3 of every language, and
+  // every zone of the five languages whose zones run five stops, never fired.
+  // emergencyStopIndex carries the rule now, shared with web.
   const emergencyZone = (() => {
     if (currentId == null) return null;
     for (let zi = 0; zi < zones.length; zi++) {
-      const idx = zones[zi]!.stations.findIndex((st) => st.id === currentId);
-      if (idx === EMERGENCY_AFTER_STOP) return zi + 1;
+      const graded = zones[zi]!.stations;
+      const idx = graded.findIndex((st) => st.id === currentId);
+      if (idx >= 0 && idx === emergencyStopIndex(graded.length)) return zi + 1;
     }
     return null;
   })();

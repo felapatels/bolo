@@ -22,6 +22,7 @@ import {
   EMERGENCY_FILMS_EXPECTED,
   EMERGENCY_JOURNEY,
   EMERGENCY_AFTER_STOP,
+  emergencyStopIndex,
   type DrillOption,
 } from "@workspace/emergency";
 
@@ -221,5 +222,26 @@ describe("a zone with no film", () => {
 
   test("it fires between stops 8 and 9", () => {
     expect(EMERGENCY_AFTER_STOP).toBe(8);
+  });
+
+  // ADDED 2026-08-30 (build 23) on the owner's ruling that every zone has an
+  // Emergency. "Between stops 8 and 9" read as a fixed index meant arrival at
+  // the ninth stop, which zone 3 (seven graded stops in every language) and
+  // every zone of the five five-stop languages do not have, so it silently
+  // never fired there. Counted from production, not assumed.
+  test("a short zone fires on its last stop; a long one still at the ninth", () => {
+    expect(emergencyStopIndex(9)).toBe(8);
+    expect(emergencyStopIndex(10)).toBe(8);
+    expect(emergencyStopIndex(7)).toBe(6);
+    expect(emergencyStopIndex(5)).toBe(4);
+    expect(emergencyStopIndex(3)).toBe(2);
+  });
+
+  test("a zone of one stop, or none, has no Emergency at all", () => {
+    // The film would play before the learner had said a word, which is the
+    // failure the call's cadence was built to avoid too.
+    expect(emergencyStopIndex(1)).toBeNull();
+    expect(emergencyStopIndex(0)).toBeNull();
+    expect(emergencyStopIndex(-1)).toBeNull();
   });
 });

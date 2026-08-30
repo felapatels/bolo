@@ -304,7 +304,13 @@ describe('journey map — showroom mode (locked language)', () => {
     // "free taste badges should be on stops 2 and 3 zone 1 of all languages
     // except Hindi for Free learners." Was getByText, i.e. exactly one.
     expect(screen.getAllByText('FREE TASTE')).toHaveLength(3);
-    expect(screen.queryByText('ALL-ACCESS')).toBeNull();
+    // TEN ALL-ACCESS PLATES SINCE 2026-08-30 (build 23), none of them in zone
+    // 1: the five later zones now draw their tracing and story rows in the
+    // showroom too (owner: "Every zone for every language should have a
+    // script trace and a story stop"), and those rows are All-Access, which
+    // is what the plate says. Was queryByText(...).toBeNull(), written when
+    // later zones drew no rows at all.
+    expect(screen.getAllByText('ALL-ACCESS')).toHaveLength(10);
     // EVERY ZONE'S BOARD IS IN THE TREE NOW, one per zone, because the boards
     // are hand-pinned overlays rather than one swapping card: each tracks its
     // own place, sticks at the top, and is pushed off by the next. So the
@@ -354,8 +360,10 @@ describe('journey map — showroom mode (locked language)', () => {
     ).toBeOnTheScreen();
 
     // Locked-stop dialog switches to the exhausted copy.
-    // Several later zones each render a locked "Stop 1 of 1" — take the first.
-    fireEvent.press(screen.getAllByLabelText('Stop 1 of 1: Locked')[0]);
+    // Several later zones each render a locked "Stop 1 of 3" (their one graded
+    // stop plus the tracing and story rows, drawn in every zone since build
+    // 23); take the first. Was "Stop 1 of 1" while later zones drew no rows.
+    fireEvent.press(screen.getAllByLabelText('Stop 1 of 3: Locked')[0]);
     expect(screen.getByText("You've tried this line!")).toBeOnTheScreen();
     expect(mockState.push).not.toHaveBeenCalled();
 

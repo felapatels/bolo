@@ -76,7 +76,7 @@ import {
 } from "@workspace/script-trace";
 import {
   hasEmergency,
-  EMERGENCY_AFTER_STOP,
+  emergencyStopIndex,
   EMERGENCY_JOURNEY,
 } from "@workspace/emergency";
 import {
@@ -1728,23 +1728,20 @@ export default function Journey() {
     // read it since that day; this page still replayed the two splices by
     // hand until build 18.
     //
-    // IT ALSO OWNS THE SHOWROOM RULE. Zone 1 keeps both rows for a locked
-    // language (owner, 2026-08-28: "stops 2 and 3 of every journey zone 1
-    // should have free tastes of script tracing and storybook"); later zones
-    // stay out, because their tracing and their books really are All-Access
-    // and a row there would be a chip with nothing behind it. Web used to
-    // skip both rows in EVERY showroom zone, on the reasoning that a locked
-    // language's three-phrase voice teaser plus a second chip read as two
-    // competing offers. The server has since given both tastes away anyway,
-    // so the map was the only thing without a door to them, which is worse
-    // than two offers: it is an offer the learner cannot find. Mobile has
-    // drawn zone 1's rows since 2026-08-28; this is that parity (build 18
-    // handoff, parked item 4).
+    // THERE IS NO SHOWROOM RULE ANY MORE (build 23, owner 2026-08-30: "Every
+    // zone for every language should have a script trace and a story stop").
+    // A locked language's preview drew both rows in zone 1 only from
+    // 2026-08-28 (owner: "stops 2 and 3 of every journey zone 1 should have
+    // free tastes of script tracing and storybook") and in no zone before
+    // that, on the reasoning that later zones' tracing and books are
+    // All-Access, so a row there would be a chip with nothing behind it. That
+    // hid four fifths of what All-Access buys from the learner being sold it.
+    // planZoneRows draws both rows in every zone now; the splices below mark
+    // zone 1's as tastes and every later zone's as All-Access.
     const rowPlan = planZoneRows({
       lang: activeLang,
       zoneIndex: i,
       gradedCount: stations.length,
-      showroom,
     });
     const trace = rowPlan.trace;
     const withTrace = [...stations];
@@ -1839,10 +1836,10 @@ export default function Journey() {
     // which stop a learner is on, which is the rule already written on
     // traceStopIndexIn.
     //
-    // MOST ZONES HAVE NO BOOK and that is not a gap to fill in later: only the
-    // 44 concepts shared across 20+ languages can carry one, so a zone without
-    // an authored book simply has no story stop, exactly as a language with an
-    // unauthored script has no tracing stop.
+    // EVERY JOURNEY 1 ZONE HAS A BOOK NOW (six, in lib/story/src/books.ts);
+    // this used to say most had none. A zone without an authored book still
+    // simply has no story stop, exactly as a language with an unauthored
+    // script has no tracing stop.
     const story = rowPlan.storyBook;
     if (story && rowPlan.storyIndex !== null) {
       withTrace.splice(rowPlan.storyIndex, 0, {
@@ -2271,11 +2268,17 @@ export default function Journey() {
   // unreachable.
   const [, navigate] = useLocation();
 
+  // AGAINST THE ZONE'S OWN LENGTH (build 23). This compared the graded index
+  // to EMERGENCY_AFTER_STOP directly, which in a nine-stop zone is the last
+  // stop and in a seven-stop zone is nowhere: zone 3 of every language, and
+  // every zone of the five languages whose zones run five stops, never fired.
+  // emergencyStopIndex carries the rule now, shared with mobile.
   const emergencyZone = (() => {
     if (currentId === undefined) return null;
     for (let zi = 0; zi < zones.length; zi++) {
-      const idx = zones[zi]!.stations.findIndex((st) => st.id === currentId);
-      if (idx === EMERGENCY_AFTER_STOP) return zi + 1;
+      const graded = zones[zi]!.stations;
+      const idx = graded.findIndex((st) => st.id === currentId);
+      if (idx >= 0 && idx === emergencyStopIndex(graded.length)) return zi + 1;
     }
     return null;
   })();

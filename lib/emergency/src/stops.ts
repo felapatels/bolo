@@ -21,6 +21,29 @@ import { EMERGENCY_FILM_ZONES } from "./films";
 export const EMERGENCY_AFTER_STOP = 8;
 
 /**
+ * Which graded stop of a zone the Emergency fires on arrival at, 0-based, or
+ * null when the zone is too short to carry one.
+ *
+ * "BETWEEN STOP 8 AND STOP 9" IS ARRIVAL AT THE NINTH STOP, and the ninth stop
+ * is the LAST stop of nearly every zone: seventeen of the twenty-two languages
+ * run 9, 9, 7, 9, 9, 9 graded stops across journey 1, and the other five
+ * (Bodo, Konkani, Kashmiri, Manipuri, Santali) run 5, 5, 3, 5, 5, 5. Read as
+ * a fixed index, the way both clients read it until build 23, it silently
+ * never fired in zone 3 of any language, nor in any zone of those five.
+ * Counted from production on 2026-08-30, on the owner's ruling that every zone
+ * has an Emergency.
+ *
+ * So the rule is the zone's last stop, capped at EMERGENCY_AFTER_STOP so a
+ * long zone keeps firing exactly where it always did. A zone of one stop has
+ * none: the film would play before the learner had said a word, which is the
+ * failure Chacha-ji's call cadence was built to avoid too.
+ */
+export function emergencyStopIndex(gradedCount: number): number | null {
+  if (!Number.isInteger(gradedCount) || gradedCount < 2) return null;
+  return Math.min(EMERGENCY_AFTER_STOP, gradedCount - 1);
+}
+
+/**
  * Journey 1's six zones each get their own film.
  *
  * JOURNEY 2 IS DELIBERATELY ABSENT rather than falling back to journey 1's
@@ -56,10 +79,10 @@ export function emergencyFilmId(journey: number, zone: number): string {
  * the alarm and THEN discovering there is nothing to play is the one outcome
  * worse than not firing at all.
  *
- * Callers must ALSO check two things this cannot see: that the zone actually
- * has more than EMERGENCY_AFTER_STOP stops in this language, and that
- * `buildDrill` could make a full run from the corpus. Any of the three failing
- * means the same silent skip.
+ * Callers must ALSO check two things this cannot see: that emergencyStopIndex
+ * finds a stop for the zone's length in this language, and that `buildDrill`
+ * could make a full run from the corpus. Any of the three failing means the
+ * same silent skip.
  */
 export function hasEmergency(journey: number, zone: number): boolean {
   return (
