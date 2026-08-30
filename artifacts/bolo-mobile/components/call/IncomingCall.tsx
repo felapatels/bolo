@@ -48,6 +48,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { CarrierLine } from '@/components/call/CarrierLine';
 import { CONTENT_COLUMN } from '@/lib/contentWidth';
 import { Ionicons } from '@expo/vector-icons';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -246,6 +247,7 @@ export function IncomingCall({
       <View style={[styles.scrim, { width, height }]} />
 
       <View style={styles.top}>
+        <CarrierLine testID="incoming-call-carrier" />
         <Text testID="incoming-call-name" style={styles.name}>
           Chacha-ji
         </Text>

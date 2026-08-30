@@ -20,6 +20,8 @@
  */
 import React from 'react';
 import { Animated, Dimensions, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { CarrierLine } from '@/components/call/CarrierLine';
+import { stageGeometry } from '@/components/call/callStage';
 import { CONTENT_COLUMN } from '@/lib/contentWidth';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
@@ -227,6 +229,7 @@ export function InCall({
   const colors = useColors();
   const reduceMotion = useReducedMotion();
   const { width, height } = Dimensions.get('window');
+  const stage = stageGeometry(width, height);
   const speaking = phase === 'speaking';
   /**
    * HIS MOUTH MOVES ONLY WHILE HIS VOICE IS OUT.
@@ -280,30 +283,36 @@ export function InCall({
 
   return (
     <View testID="in-call" style={styles.root}>
-      {/* The still is ALWAYS mounted underneath. It is the poster while he
-          listens and the film's own first frame while he speaks, so there is
-          never a black rectangle between the two states. */}
-      <Image
-        testID="in-call-still"
-        source={CALL_POSTERS[backdrop]}
-        style={{ position: 'absolute', top: 0, left: 0, width, height }}
-        resizeMode="cover"
-      />
-      {moving && mouthMoving ? (
-        <VideoView
-          testID="in-call-video"
-          player={player}
-          style={{ position: 'absolute', top: 0, left: 0, width, height }}
-          nativeControls={false}
-          contentFit="cover"
+      {/* THE STAGE (build 25): his picture, framed on his face, with the words
+          and the buttons in a panel beneath it rather than climbing over him.
+          See callStage.ts for the crop. */}
+      <View testID="in-call-stage" style={{ height: stage.stageH, overflow: 'hidden' }}>
+        {/* The still is ALWAYS mounted underneath. It is the poster while he
+            listens and the film's own first frame while he speaks, so there is
+            never a black rectangle between the two states. */}
+        <Image
+          testID="in-call-still"
+          source={CALL_POSTERS[backdrop]}
+          style={{ position: 'absolute', top: stage.picTop, left: 0, width: stage.picW, height: stage.picH }}
+          resizeMode="cover"
         />
-      ) : null}
-      <View style={[styles.scrim, { width, height }]} />
+        {moving && mouthMoving ? (
+          <VideoView
+            testID="in-call-video"
+            player={player}
+            style={{ position: 'absolute', top: stage.picTop, left: 0, width: stage.picW, height: stage.picH }}
+            nativeControls={false}
+            contentFit="cover"
+          />
+        ) : null}
+        <View style={[styles.scrim, { width, height: stage.stageH }]} />
+      </View>
 
       {/* Above the scrim and below everything readable. */}
       <CallEdgeGlow outcome={outcome} />
 
       <View style={styles.top}>
+        <CarrierLine />
         <Text testID="in-call-name" style={styles.name}>
           Chacha-ji
         </Text>
@@ -328,7 +337,7 @@ export function InCall({
           said selfView. See InCallProps. */}
       {selfView && <SelfView />}
 
-      <View style={styles.bottom}>
+      <View testID="in-call-panel" style={styles.panel}>
         <CallCaptions
           text={text}
           romanized={romanized}
@@ -435,9 +444,24 @@ export function InCall({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#000', justifyContent: 'space-between' },
+  root: { flex: 1, backgroundColor: '#120A08' },
   scrim: { position: 'absolute', top: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.3)' },
-  top: { marginTop: 64, alignItems: 'center' },
+  // Over the stage, where the clip has only roof and ceiling.
+  top: { position: 'absolute', top: 0, left: 0, right: 0, marginTop: 64, alignItems: 'center' },
+  // THE PANEL under the stage: captions at the top of it, controls at the
+  // foot, and nothing in it can reach his face because it is not over him.
+  // Chai-dark rather than black, so the stage's picture reads as the bright
+  // thing on the screen.
+  panel: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingTop: 14,
+    paddingBottom: 34,
+    backgroundColor: '#120A08',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    marginTop: -26,
+  },
   // A dark plate under the meter so its numbers hold against a moving film.
   // The clip's brightness changes with the street going past the window, so a
   // bare text colour that reads in one frame can vanish in the next.
@@ -475,7 +499,6 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
   },
-  bottom: { marginBottom: 44 },
   phase: {
     marginTop: 18,
     flexDirection: 'row',
