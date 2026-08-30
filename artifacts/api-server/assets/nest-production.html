@@ -338,6 +338,44 @@ a.linkbtn{text-decoration:none;display:inline-block}
 }
 .siren button:disabled{opacity:.6;cursor:default}
 .siren .sirdetail{opacity:.95}
+/* ---------- the milestone bar ---------- */
+/* Asked for 2026-08-30: a flashing alert when any non-test learner reaches 50%
+   of journey 1, and another at 80%, "so i can make sure journey 2 is ready to
+   roll".
+
+   IT IS NOT THE SIREN AND MUST NOT LOOK LIKE IT. The siren means learners are
+   seeing errors right now. This means somebody is enjoying the product. Sharing
+   a red flashing bar between "the feed is down" and "a learner is halfway"
+   would teach the eye that red means nothing in particular, which costs the
+   siren the only thing it has.
+
+   DISMISSABLE, AND THE DISMISSAL PERSISTS. Crossing 50% is permanent: once true
+   it is true forever, so a sessionStorage dismissal would put this back on the
+   screen at every reload until the end of time. localStorage, keyed per
+   threshold, so 50 stays dismissed while 80 can still arrive later. */
+.milestone{display:none}
+.milestone.on{
+  display:flex;align-items:center;gap:9px 14px;flex-wrap:wrap;
+  max-width:1180px;margin:10px auto 0;padding:10px 15px;
+  border-radius:10px;border:1px solid var(--accent);font-size:14px;
+  background:var(--accent-soft);color:var(--accent);
+  animation:milestone 1.6s infinite;
+}
+.milestone b{font-weight:800;letter-spacing:-.01em}
+.milestone .msub{opacity:.95}
+.milestone button{
+  color:inherit;background:none;border:1px solid currentColor;border-radius:999px;
+  padding:3px 11px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;
+}
+@keyframes milestone{
+  0%,49.9%{background:var(--accent-soft);color:var(--accent)}
+  50%,100%{background:var(--accent);color:var(--surface)}
+}
+/* Slower than the siren on purpose: this is news, not an emergency. */
+@media (prefers-reduced-motion:reduce){
+  .milestone.on{animation:none;background:var(--accent);color:var(--surface)}
+}
+
 @keyframes siren{
   0%,49.9%{background:var(--crit-soft);color:var(--crit)}
   50%,100%{background:var(--crit);color:#fff}
@@ -633,6 +671,12 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
          previously meant reloading the whole page or waiting up to 30 seconds
          for the timer. It re-runs healthz and the surface probes immediately. -->
     <button type="button" id="siren-recheck">Re-check</button>
+  </div>
+
+  <div class="milestone" id="milestone" role="status">
+    <b id="milestone-what"></b>
+    <span class="msub" id="milestone-sub"></span>
+    <button type="button" id="milestone-dismiss">Dismiss</button>
   </div>
 
   <nav class="chips" aria-label="Sections">
@@ -1938,6 +1982,20 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
            r:"Sentry", href:"https://lark-enterprises-llc.sentry.io/issues/?query=is%3Aunresolved"});
     }
 
+    /* THE LEADER, always visible. A threshold that only speaks when it is
+       crossed tells you nothing about how close it is, and "is journey 2 needed
+       yet" is a question worth answering every day rather than once. */
+    if (s && s.j1TopWho) {
+      out.push({id:"journey1", sev:"ok", t:"Journey 1 progress",
+        m:"Furthest learner: " + s.j1TopWho + " at " + s.j1TopPct + " percent on " +
+          (s.j1TopLanguage || "a line") + ". " +
+          (s.j1Over50 === 0
+            ? "Nobody has reached 50 percent yet, so journey 2 is not on the clock."
+            : fmt(s.j1Over50) + " at or past 50 percent, " + fmt(s.j1Over80) + " past 80.") +
+          " Completed or tested-out stops only, and your own accounts are excluded.",
+        r:"map", href:"#map"});
+    }
+
     if (state.summaryErr) {
       out.push({id:"counts", sev:"warn", t:"The counts are unavailable",
         m:state.summaryErr, r:"summary", href:SUMMARY_URL});
@@ -2086,6 +2144,49 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   /* Which critical is showing, and how many others are queued behind it. One
      line, because a bar that lists four things is read as a list rather than
      as an alarm. */
+  /* JOURNEY 1 MILESTONES. Two thresholds, 50 and 80, both dismissable and both
+     remembered, because crossing one is permanent and an undismissable "still
+     true" would nag forever.
+
+     80 WINS WHEN BOTH ARE TRUE. Somebody past 80 is also past 50, and two bars
+     saying almost the same thing is one bar too many. */
+  var J1_KEY = "nest.j1.dismissed.";
+
+  function j1Dismissed(mark){
+    try { return localStorage.getItem(J1_KEY + mark) === "1"; } catch (e) { return false; }
+  }
+  function j1Dismiss(mark){
+    try { localStorage.setItem(J1_KEY + mark, "1"); } catch (e) {}
+  }
+
+  function renderMilestone(){
+    var bar = $("milestone"), s = state.summary;
+    if (!bar) return;
+    if (!s) { bar.className = "milestone"; return; }
+
+    var mark = s.j1Over80 > 0 ? 80 : (s.j1Over50 > 0 ? 50 : 0);
+    if (!mark || j1Dismissed(mark)) { bar.className = "milestone"; return; }
+
+    bar.className = "milestone on";
+    bar.setAttribute("data-mark", String(mark));
+    var n = mark === 80 ? s.j1Over80 : s.j1Over50;
+    $("milestone-what").textContent =
+      (n === 1 ? "A learner is " : fmt(n) + " learners are ") + mark + "% through journey 1";
+    $("milestone-sub").textContent =
+      mark === 80
+        ? "Journey 2 needs to be ready. The furthest is " + (s.j1TopWho || "somebody") +
+          " at " + s.j1TopPct + "% on " + (s.j1TopLanguage || "a line") + "."
+        : "Halfway. Time to check journey 2 is ready to roll. The furthest is " +
+          (s.j1TopWho || "somebody") + " at " + s.j1TopPct + "%.";
+  }
+
+  var mbtn2 = $("milestone-dismiss");
+  if (mbtn2) mbtn2.addEventListener("click", function(){
+    var bar = $("milestone");
+    j1Dismiss(bar ? bar.getAttribute("data-mark") : "50");
+    renderMilestone();
+  });
+
   function renderSiren(list){
     var bar = $("siren"); if (!bar) return;
     var hit = null, extra = 0, i;
@@ -3174,7 +3275,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     if (refreshing) return Promise.resolve();
     refreshing = true;
     return Promise.all([checkHealth(), checkSurfaces(), loadSummary(), loadRange(), loadMap(), loadReports(), loadLive()]).then(function(){
-      healthSay(); renderSurfaces(); renderSpend(); renderAlerts(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush(); stamp(); markMovedTiles();
+      healthSay(); renderSurfaces(); renderSpend(); renderAlerts(); renderMilestone(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush(); stamp(); markMovedTiles();
       refreshing = false;
     }, function(){ refreshing = false; });
   }
@@ -3267,7 +3368,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   })();
 
   /* ---------------- boot ---------------- */
-  renderSurfaces(); renderSpend(); renderAlerts(); renderLive(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush();
+  renderSurfaces(); renderSpend(); renderAlerts(); renderMilestone(); renderLive(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush();
   refreshAll().then(startRefresh);
 })();
 </script>

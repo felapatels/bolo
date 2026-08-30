@@ -141,6 +141,30 @@ type NestSummary = {
    * So these measure two different things that both look like "notifications
    * are on", and the cockpit shows them apart rather than adding them up.
    */
+  /**
+   * JOURNEY 1 PROGRESS, for the two milestones that decide when journey 2 has
+   * to be ready. Asked for 2026-08-30: a flashing alert at 50% and another at
+   * 80%, "so i can make sure journey 2 is ready to roll".
+   *
+   * COMPLETION, NOT POSITION. The line map answers "where is everybody
+   * standing" from their most recent attempt, which is a place rather than an
+   * amount and can move backwards. This reads lesson_group_progress with a
+   * status of completed or tested_out, which is the same source the feed's
+   * stop_completed uses, so a learner who skips ahead is not credited for what
+   * they skipped.
+   *
+   * PER LANGUAGE, because journey 1 is a different length on each line: 53
+   * stops on Gujarati, 52 on Hindi. A learner's percentage is against the
+   * line they are actually on.
+   *
+   * NON-LEARNERS EXCLUDED, always. A milestone alert that fires because the
+   * owner tested something would be worse than no alert.
+   */
+  j1TopPct: number;
+  j1TopWho: string | null;
+  j1TopLanguage: string | null;
+  j1Over50: number;
+  j1Over80: number;
   usersReachable: number;
   usersReachableExclOwner: number;
   /**
@@ -366,8 +390,56 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
     const hour = pulsesSince(nowMs - 3_600_000);
     const day = pulsesSince(nowMs - 86_400_000);
 
+    /**
+     * A SECOND QUERY RATHER THAN MORE SUBQUERIES. The count above is one
+     * round trip of scalar subselects; this one needs two CTEs and a join, and
+     * wedging that into the same select would make both unreadable to save a
+     * few milliseconds on a page that reads every thirty seconds.
+     */
+    const j1 = await db.execute(sql`
+      with j1 as (
+        select lg.id, lg.language_code
+          from lesson_groups lg
+          join categories c on c.id = lg.category_id
+         -- sort_order 0 to 5 IS journey 1. Same rule the line map uses, and
+         -- the same one that was got wrong there by ordering zones
+         -- alphabetically. Not slug, not name: sort_order.
+         where c.sort_order < 6
+           and lg.language_code not like '\_\_%'
+      ),
+      total as (select language_code, count(*)::numeric n from j1 group by 1),
+      done as (
+        select p.user_id, j1.language_code, count(*)::numeric n
+          from lesson_group_progress p
+          join j1 on j1.id = p.lesson_group_id
+         where p.status in ('completed', 'tested_out')
+           and ${notOwner('p.user_id')}
+         group by 1, 2
+      ),
+      pct as (
+        select d.user_id, d.language_code,
+               round(100 * d.n / t.n, 1) as pct
+          from done d join total t on t.language_code = d.language_code
+      )
+      select
+        coalesce((select max(pct) from pct), 0)                              as top_pct,
+        (select count(*) from pct where pct >= 50)::int                      as over50,
+        (select count(*) from pct where pct >= 80)::int                      as over80,
+        (select coalesce(u.username, u.display_name, u.email)
+           from pct join users u on u.id = pct.user_id
+          order by pct.pct desc limit 1)                                     as top_who,
+        (select pct.language_code from pct order by pct.pct desc limit 1)    as top_language
+    `);
+    const jr = ((j1 as unknown as { rows?: Record<string, unknown>[] }).rows ??
+      (j1 as unknown as Record<string, unknown>[]))[0];
+
     const value: NestSummary = {
       generatedAt: new Date().toISOString(),
+      j1TopPct: Number(jr?.top_pct ?? 0),
+      j1TopWho: jr?.top_who == null ? null : String(jr.top_who),
+      j1TopLanguage: jr?.top_language == null ? null : String(jr.top_language),
+      j1Over50: Number(jr?.over50 ?? 0),
+      j1Over80: Number(jr?.over80 ?? 0),
       pushTokensLive: n("push_tokens_live"),
       pushTokensIos: n("push_tokens_ios"),
       pushTokensAndroid: n("push_tokens_android"),
