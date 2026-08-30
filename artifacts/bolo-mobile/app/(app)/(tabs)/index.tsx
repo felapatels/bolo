@@ -761,6 +761,7 @@ export default function HomeScreen() {
                   <GradientStatCell
                     index={1}
                     icon="star"
+                    iconColor={colors.gold}
                     value={summary.data?.xp ?? 0}
                     label="Total XP"
                     loading={summary.isLoading}
@@ -769,6 +770,7 @@ export default function HomeScreen() {
                   <GradientStatCell
                     index={2}
                     icon="award"
+                    iconColor={colors.gold}
                     value={summary.data?.phrasesMastered ?? 0}
                     label="Mastered"
                     loading={summary.isLoading}
@@ -1469,6 +1471,7 @@ function StatValue({ value }: { value: number | string }) {
 function GradientStatCell({
   index,
   icon,
+  iconColor = 'rgba(255,255,255,0.9)',
   value,
   label,
   loading,
@@ -1482,6 +1485,10 @@ function GradientStatCell({
   index: number;
   /** A Feather glyph name, or 'chai' for the kulhad glyph. */
   icon: keyof typeof Feather.glyphMap | 'chai';
+  /** The glyph's ink. White by default; the owner's home mockup (build 22)
+   *  paints the star and the medal gold, so the strip is not four white
+   *  outlines in a row. Decoration, not state: nothing is encoded in it. */
+  iconColor?: string;
   value: number | string;
   label: string;
   loading?: boolean;
@@ -1551,7 +1558,7 @@ function GradientStatCell({
           // read at the same visual weight as a 20 px Feather glyph.
           <ChaiGlyph size={26} />
         ) : (
-          <Feather name={icon} size={20} color="rgba(255,255,255,0.9)" />
+          <Feather name={icon} size={20} color={iconColor} />
         )}
       </View>
       <View style={styles.statValueBand}>

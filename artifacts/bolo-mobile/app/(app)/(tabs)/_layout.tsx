@@ -13,6 +13,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
 // Inline the tab-button props shape so we don't depend on
 // @react-navigation/bottom-tabs being a direct dep of this package.
@@ -504,14 +505,49 @@ function BoloTabButton({
             width: focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE,
             height: focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE,
             borderRadius: (focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE) / 2,
-            backgroundColor: colors.card,
-            borderColor: colors.primary,
-            shadowColor: colors.primary,
-            shadowOpacity: focused ? 0.35 : 0.12,
-            shadowRadius: focused ? 12 : 7,
           },
         ]}
       >
+        {/* THE RING IS A GRADIENT, NOT A BORDER (build 22, the owner's home
+            mockup: "multi coloring around bolo chat nav circle"). The bubble
+            keeps its 2.5pt border for LAYOUT, since the hold ring's offset
+            arithmetic below is measured against it, but the border is
+            transparent and the colour comes from this disc: gold through
+            coral to the primary indigo, corner to corner, drawn one border
+            width outside the padding box so it fills the border's ring, with
+            the card-coloured disc over its middle. The bubble's shadow moved
+            here because a transparent box casts nothing. */}
+        <LinearGradient
+          pointerEvents="none"
+          colors={[colors.gold, '#F0803C', colors.primary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            position: 'absolute',
+            left: -BUBBLE_BORDER,
+            top: -BUBBLE_BORDER,
+            width: focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE,
+            height: focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE,
+            borderRadius: (focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE) / 2,
+            shadowColor: colors.primary,
+            shadowOpacity: focused ? 0.35 : 0.12,
+            shadowRadius: focused ? 12 : 7,
+            shadowOffset: { width: 0, height: -4 },
+            elevation: 8,
+          }}
+        />
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: (focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE) - BUBBLE_BORDER * 2,
+            height: (focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE) - BUBBLE_BORDER * 2,
+            borderRadius: (focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE) / 2,
+            backgroundColor: colors.card,
+          }}
+        />
 
         <BoloNavParrot
           focused={focused}
@@ -685,11 +721,13 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
+    // Layout only since build 22: the ring's colour is the gradient disc
+    // inside the bubble, and the shadow and elevation moved onto it.
     borderWidth: 2.5,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
     // Stays below its own slot's text but above the tab bar background.
     zIndex: 1,
   },
