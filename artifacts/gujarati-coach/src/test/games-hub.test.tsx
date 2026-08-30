@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 
@@ -20,39 +20,45 @@ vi.mock("@/lib/entitlements", () => ({
 }));
 
 vi.mock("@/components/mascot", () => ({ Mascot: () => null }));
+// The hero's language line reads the language context and the learner's
+// current city; neither has a provider here.
+vi.mock("@/lib/language-context", () => ({
+  useLanguage: () => ({
+    activeLang: "gu",
+    activeLanguage: { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" },
+    languages: [],
+    setActiveLang: () => {},
+    isLoading: false,
+  }),
+}));
+vi.mock("@/lib/useJourneyProgress", () => ({
+  useJourneyProgress: () => ({ current: null, doneCount: 0, isLoading: false, planBlocked: false }),
+}));
 
 import GamesPage from "@/pages/games/index";
 import { GAMES as REAL_GAMES } from "@/pages/games/index";
 
 /**
- * The curated shelves, in the exact order the hub must render them.
- * Vocabulary leads so Luggage Match — the hero, and the first card of that
- * group — takes the top-left slot, matching the mobile hub's ordering.
+ * THE PHONE'S ORDER, which the hub renders as ONE grid since 2026-08-30 (the
+ * owner: "games page needs update on web to match new mobile one"). The
+ * curated shelves and the promoted Featured card went with it. Express
+ * Listening is web-only and sits beside its listening sibling; Chacha-ji's
+ * call is mobile-only and absent.
  */
-const GROUPS: Array<{ id: string; title: string; gameIds: string[] }> = [
-  {
-    id: "vocabulary",
-    title: "Vocabulary",
-    // Storybook joined this shelf LAST, chat 5, so the hero (the first card of
-    // this group) is unchanged by its arrival.
-    gameIds: [
-      "luggage-match",
-      "word-match",
-      "ticket-check",
-      "bolo-quiz",
-      "storybook",
-    ],
-  },
-  {
-    id: "listening",
-    title: "Listening",
-    gameIds: ["listen-and-pick", "express-listening", "signal-lights"],
-  },
-  {
-    id: "building",
-    title: "Building",
-    gameIds: ["wrong-platform", "phrase-builder", "speed-round"],
-  },
+const HUB_ORDER = [
+  "luggage-match",
+  "word-match",
+  "signal-lights",
+  "phrase-builder",
+  "speed-round",
+  "bolo-quiz",
+  "ticket-check",
+  "storybook",
+  "emergency",
+  "listen-and-pick",
+  "express-listening",
+  "wrong-platform",
+  "wrong-platform-2",
 ];
 
 /**
@@ -72,23 +78,12 @@ const GAME_META: Record<string, { title: string; href: string; plusOnly: boolean
     REAL_GAMES.map((g) => [g.id, { title: g.title, href: g.href, plusOnly: g.plusOnly }]),
   );
 
+const ALL_IDS = REAL_GAMES.map((g) => g.id);
 
-const ALL_IDS = GROUPS.flatMap((g) => g.gameIds);
+/** Every game is in the grid now: there is no promoted card to lift out. */
+const GRID_IDS = ALL_IDS;
 
-/**
- * The hero is the first card of the Vocabulary group. It is deliberately a
- * FREE game: with all five vignette-bearing games gated, a locked hero over a
- * hub whose every animated card is locked reads as a paywall menu.
- */
-const FEATURED_ID = "luggage-match";
-
-/** The grid renders every game EXCEPT the promoted hero (no duplicate). */
-const GRID_IDS = ALL_IDS.filter((id) => id !== FEATURED_ID);
-
-/** A group's cards as the grid renders them, hero removed. */
-function gridIdsFor(group: { gameIds: string[] }) {
-  return group.gameIds.filter((id) => id !== FEATURED_ID);
-}
+const LAST_PLAYED_KEY = "bolo.games.lastPlayed";
 
 const GATED_IDS = ALL_IDS.filter((id) => GAME_META[id].plusOnly);
 const FREE_IDS = ALL_IDS.filter((id) => !GAME_META[id].plusOnly);
@@ -121,82 +116,87 @@ beforeEach(() => {
   h.isLoading = false;
 });
 
-describe("Games hub grouping", () => {
-  test("renders the three groups in fixed order", () => {
-    renderPage();
-    const rendered = Array.from(
-      catalog().querySelectorAll("[data-testid^='games-group-']"),
-    ).map((el) => el.getAttribute("data-testid"));
-    expect(rendered).toEqual([
-      "games-group-vocabulary",
-      "games-group-listening",
-      "games-group-building",
-    ]);
-  });
-
-  test("each group renders its heading and its games in the curated order", () => {
-    renderPage();
-    for (const group of GROUPS) {
-      const section = screen.getByTestId(`games-group-${group.id}`);
-      expect(within(section).getByText(group.title)).toBeTruthy();
-
-      const order = Array.from(
-        section.querySelectorAll("[data-testid^='game-card-']"),
-      ).map((el) => el.getAttribute("data-testid")!.replace("game-card-", ""));
-      // Curated order is preserved for the cards that remain after the hero
-      // is lifted out of its group.
-      expect(order).toEqual(gridIdsFor(group));
-    }
-  });
-
-  test("the catalog holds the ten non-promoted games, and hero plus grid is all eleven", () => {
+describe("Games hub grid", () => {
+  test("renders every game once, as one grid in the phone's order", () => {
     renderPage();
     const rendered = Array.from(
       catalog().querySelectorAll("[data-testid^='game-card-']"),
     ).map((el) => el.getAttribute("data-testid")!.replace("game-card-", ""));
-    expect(rendered).toEqual(GRID_IDS);
-    expect(rendered).toHaveLength(10);
-    // Nothing was lost by promoting one card out of the grid.
-    expect([...rendered, FEATURED_ID].sort()).toEqual([...ALL_IDS].sort());
+    expect(rendered).toEqual(HUB_ORDER);
+    // Nothing in the roster is lost by the ordering.
+    expect([...rendered].sort()).toEqual([...ALL_IDS].sort());
+    // The shelves and the promoted card are gone.
+    expect(catalog().querySelectorAll("[data-testid^='games-group-']")).toHaveLength(0);
+    expect(screen.queryByTestId("featured-game")).toBeNull();
+  });
+
+  test("the hero carries the words, the painting and the language line", () => {
+    renderPage();
+    const hero = screen.getByTestId("games-hero");
+    expect(within(hero).getByText("Games")).toBeTruthy();
+    expect(within(hero).getByText("Play your way to fluency")).toBeTruthy();
+    expect(hero.querySelector("img")!.getAttribute("src")).toContain("games/hero.png");
+    const line = screen.getByTestId("games-language-line");
+    expect(line.getAttribute("href")).toBe("/choose-language");
+    expect(line).toHaveTextContent("Gujarati");
+  });
+
+  test("every tile shows its painting, or a gradient where no painting exists", () => {
+    renderPage();
+    for (const id of GRID_IDS) {
+      const card = within(catalog()).getByTestId(`game-card-${id}`);
+      const img = card.querySelector("img");
+      if (id === "express-listening") {
+        expect(img).toBeNull();
+      } else {
+        expect(img!.getAttribute("src")).toContain(`games/${id}.png`);
+      }
+    }
   });
 });
 
-describe("Games hub featured slot", () => {
-  test("promotes the first card of the Vocabulary group", () => {
-    renderPage();
-    const featured = screen.getByTestId("featured-game");
-    expect(within(featured).getByText(GAME_META[FEATURED_ID].title)).toBeTruthy();
-    expect(within(featured).getByText("Featured")).toBeTruthy();
+describe("Games hub continue playing", () => {
+  beforeEach(() => {
+    localStorage.removeItem(LAST_PLAYED_KEY);
   });
 
-  test("the promoted game does NOT also render in the grid below", () => {
+  test("with nothing remembered there is no band", () => {
     renderPage();
-    // No duplicate card...
-    expect(within(catalog()).queryByTestId(`game-card-${FEATURED_ID}`)).toBeNull();
-    // ...and no duplicate title anywhere on the page.
-    expect(screen.queryAllByText(GAME_META[FEATURED_ID].title)).toHaveLength(1);
+    expect(screen.queryByTestId("games-continue")).toBeNull();
   });
 
-  test("the hero is a non-gated card: free to a free user, never a lock", () => {
+  test("the last game opened comes back wide, with Play again, and stays in the grid", () => {
+    localStorage.setItem(LAST_PLAYED_KEY, "ticket-check");
     renderPage();
-    expect(GAME_META[FEATURED_ID].plusOnly).toBe(false);
-    const featured = screen.getByTestId("featured-game");
-    expect(within(featured).getByText("Free")).toBeTruthy();
-    expect(within(featured).queryByText("All-Access")).toBeNull();
-    expect(within(featured).queryByTestId("lock-chip")).toBeNull();
-    expect(featured.closest("a")!.getAttribute("href")).toBe(
-      GAME_META[FEATURED_ID].href,
-    );
+    const band = screen.getByTestId("games-continue");
+    expect(within(band).getByText("Continue playing".toUpperCase())).toBeTruthy();
+    const card = within(band).getByTestId("continue-ticket-check");
+    expect(within(card).getByText("Ticket Check")).toBeTruthy();
+    expect(within(card).getByText("Play again")).toBeTruthy();
+    expect(card.getAttribute("href")).toBe(GAME_META["ticket-check"].href);
+    // The phone keeps the game in the grid too; the band is a shortcut.
+    expect(within(catalog()).getByTestId("game-card-ticket-check")).toBeTruthy();
   });
 
-  test("the hero opens its own game for All-Access members too", () => {
-    h.isPlus = true;
+  test("a remembered gated game offers Unlock and the upgrade route to a free learner", () => {
+    localStorage.setItem(LAST_PLAYED_KEY, "word-match");
     renderPage();
-    const featured = screen.getByTestId("featured-game");
-    expect(featured.closest("a")!.getAttribute("href")).toBe(
-      GAME_META[FEATURED_ID].href,
-    );
-    expect(within(featured).queryByTestId("lock-chip")).toBeNull();
+    const card = screen.getByTestId("continue-word-match");
+    expect(within(card).getByText("Unlock")).toBeTruthy();
+    expect(card.getAttribute("href")).toBe("/upgrade");
+  });
+
+  test("opening a free game from the grid remembers it", () => {
+    renderPage();
+    fireEvent.click(cardLink("ticket-check"));
+    expect(localStorage.getItem(LAST_PLAYED_KEY)).toBe("ticket-check");
+    expect(screen.getByTestId("games-continue")).toBeTruthy();
+  });
+
+  test("an unknown remembered id renders no band", () => {
+    localStorage.setItem(LAST_PLAYED_KEY, "no-such-game");
+    renderPage();
+    expect(screen.queryByTestId("games-continue")).toBeNull();
   });
 });
 
@@ -241,8 +241,7 @@ describe("Games hub gating", () => {
 
   test("free user: the free cards in the grid open their own game", () => {
     renderPage();
-    // The fifth free game is the hero, covered by the featured-slot tests.
-    for (const id of FREE_IDS.filter((id) => id !== FEATURED_ID)) {
+    for (const id of FREE_IDS) {
       const card = within(catalog()).getByTestId(`game-card-${id}`);
       expect(within(card).getByText("Free")).toBeTruthy();
       expect(within(card).queryByTestId("lock-chip")).toBeNull();
@@ -314,9 +313,6 @@ describe("Games hub chips", () => {
       expect(within(card).queryByText(/energy/i)).toBeNull();
       expect(within(card).queryByText(/^\s*(quick|deep)\s*$/i)).toBeNull();
     }
-    // Nor does the featured slot.
-    const featured = screen.getByTestId("featured-game");
-    expect(within(featured).queryByText(/energy/i)).toBeNull();
   });
 
   test("copy canon: the hub says All-Access and never Plus", () => {
@@ -333,9 +329,10 @@ describe("Games hub vignettes", () => {
       const preview = within(catalog()).getByTestId(`game-preview-${id}`);
       expect(preview.getAttribute("aria-hidden")).toBe("true");
     }
-    // The quick games have no vignette; they keep their static icons.
-    // (luggage-match is one of them, and is now the hero rather than a tile.)
+    // The quick games have no vignette; their medallions keep the static
+    // icon. luggage-match is a tile again (the promoted slot is gone).
     for (const id of [
+      "luggage-match",
       "ticket-check",
       "wrong-platform",
       "express-listening",
@@ -343,8 +340,6 @@ describe("Games hub vignettes", () => {
     ]) {
       expect(within(catalog()).queryByTestId(`game-preview-${id}`)).toBeNull();
     }
-    // The hero has no vignette either, so it renders no preview handle at all.
-    expect(screen.queryByTestId("featured-game-preview")).toBeNull();
   });
 
   test("vignette loops are staggered: no two share a phase offset", () => {

@@ -1,9 +1,30 @@
+/**
+ * THE GAMES HUB, to the owner's games mockup (build 21 on mobile: "big
+ * images, very colorful etc", "a hero header up top"; here 2026-08-30 on the
+ * owner's "games page needs update on web to match new mobile one").
+ *
+ * Three bands, as on the phone. A HERO across the top: the painting from
+ * lib/game-art (Bolo in it with his controller, so no mascot overlay), a
+ * cream wash over its left half for the words, and the language line, which
+ * is the language switch. CONTINUE PLAYING: the last game this browser
+ * opened, wide, with its picture and a Play again button. ALL GAMES: one
+ * two-column grid in the phone's order, each tile a 4:3 painting with the
+ * access pill in its corner and the vignette medallion overlapping its foot,
+ * then the title, the description and the difficulty.
+ *
+ * WHAT WENT: the curated shelves (Vocabulary, Listening, Building) and the
+ * promoted Featured card. The phone never had them and the mockup has one
+ * grid; games-hub.test.tsx moved with it.
+ *
+ * Gated cards render in FULL COLOUR under a light dim: the All-Access badge
+ * and the lock chip carry the gate, never a grey tile, and a locked card is
+ * never a dead end: it opens the upgrade route.
+ */
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import { Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import {
-  Gamepad2,
   Link2,
   Headphones,
   Layers,
@@ -17,11 +38,18 @@ import {
   FastForward,
   TrafficCone,
   BookOpen,
+  MapPin,
+  ChevronDown,
+  ArrowRight,
 } from "lucide-react";
 import { useEntitlements } from "@/lib/entitlements";
-import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { springs } from "@/lib/motion";
+import { useLanguage } from "@/lib/language-context";
+import { getJourneyLine } from "@/lib/journeyLines";
+import { useJourneyProgress } from "@/lib/useJourneyProgress";
+import { GAMES_HERO, gameArt } from "@/lib/game-art";
+import { readLastPlayedGame, writeLastPlayedGame } from "@/lib/last-played-game";
 import { GamePreview } from "./game-previews";
 
 type GameDef = {
@@ -189,77 +217,44 @@ export const GAMES: GameDef[] = [
   },
 ];
 
-type GameGroup = {
-  id: string;
-  title: string;
-  /** Curated membership AND order. Never re-sorted at runtime. */
-  gameIds: string[];
-};
-
 /**
- * The hub's fixed curated shelves. This array is the single source of both
- * group order and within-group card order; nothing downstream sorts, filters
- * by tier, or reorders on entitlement state.
+ * THE PHONE'S ORDER (bolo-mobile app/(app)/(tabs)/games/index.tsx GAMES), with
+ * the web-only Express Listening beside its listening sibling, and Chacha-ji's
+ * call left out because the call has no web door. Anything in GAMES that this
+ * list forgets is appended rather than lost.
  */
-const GAME_GROUPS: GameGroup[] = [
-  // Vocabulary leads so Luggage Match (first card of this group) appears in
-  // the top-left slot — matching the mobile hub's ordering.
-  {
-    id: "vocabulary",
-    title: "Vocabulary",
-    // Storybook sits LAST rather than first: the featured slot resolves to the
-    // first card of this shelf, and which game is featured is a product call,
-    // not a side effect of adding one.
-    gameIds: [
-      "luggage-match",
-      "word-match",
-      "ticket-check",
-      "bolo-quiz",
-      "storybook",
-    ],
-  },
-  {
-    id: "listening",
-    title: "Listening",
-    gameIds: ["listen-and-pick", "express-listening", "signal-lights"],
-  },
-  {
-    id: "building",
-    title: "Building",
-    gameIds: ["wrong-platform", "phrase-builder", "speed-round"],
-  },
+const HUB_ORDER = [
+  "luggage-match",
+  "word-match",
+  "signal-lights",
+  "phrase-builder",
+  "speed-round",
+  "bolo-quiz",
+  "ticket-check",
+  "storybook",
+  "emergency",
+  "listen-and-pick",
+  "express-listening",
+  "wrong-platform",
+  "wrong-platform-2",
 ];
-
-/**
- * Featured slot configuration. Data-driven on purpose: it names WHERE the
- * hero card is sourced from rather than naming a card inline, so the slot can
- * be re-pointed (or later fed from the server) without touching the render.
- * There is deliberately NO rotation logic here.
- */
-const FEATURED_SLOT: { groupId: string } = { groupId: "vocabulary" };
 
 const GAMES_BY_ID: Record<string, GameDef> = Object.fromEntries(
   GAMES.map((game) => [game.id, game]),
 );
 
 /**
- * The catalog flattened in curated order. Its index doubles as each game's
+ * The catalog in the hub's order. Its index doubles as each game's
  * ambient-loop phase offset, so no two vignettes ever pulse in sync.
  */
-const ORDERED_GAMES: GameDef[] = GAME_GROUPS.flatMap((group) =>
-  group.gameIds.map((id) => GAMES_BY_ID[id]).filter(Boolean),
-);
+const ORDERED_GAMES: GameDef[] = [
+  ...HUB_ORDER.map((id) => GAMES_BY_ID[id]).filter(Boolean),
+  ...GAMES.filter((g) => !HUB_ORDER.includes(g.id)),
+];
 
 const STAGGER_INDEX: Record<string, number> = Object.fromEntries(
   ORDERED_GAMES.map((game, index) => [game.id, index]),
 );
-
-/** The featured card resolves to the first card of the configured group. */
-function resolveFeaturedGame(): GameDef | undefined {
-  const group = GAME_GROUPS.find((g) => g.id === FEATURED_SLOT.groupId);
-  const firstId = group?.gameIds[0];
-  return firstId ? GAMES_BY_ID[firstId] : undefined;
-}
 
 /**
  * Per-game color identity. These are NOT pastel tints over the theme card:
@@ -305,6 +300,12 @@ const GAME_COLORS: Record<string, GameColor> = {
   "express-listening": { from: "#4453B8", to: "#2A3390", deep: "#1F2670", ink: "#2A3390" },
   // signal green
   "signal-lights": { from: "#3E8E41", to: "#256A2B", deep: "#1A4E1F", ink: "#256A2B" },
+  // saffron, for the picture book
+  storybook: { from: "#E08A1E", to: "#B5650E", deep: "#8C4A05", ink: "#9A5510" },
+  // signal red, for the train you have to beat
+  emergency: { from: "#D64545", to: "#A62B2B", deep: "#7E1F1F", ink: "#A62B2B" },
+  // rani pink again, for the second platform
+  "wrong-platform-2": { from: "#D33A7B", to: "#A81C58", deep: "#821242", ink: "#A81C58" },
 };
 
 /** Neutral fallback so an unmapped future game still renders sensibly. */
@@ -314,15 +315,6 @@ const FALLBACK_COLOR: GameColor = {
   deep: "#2C333D",
   ink: "#3E4653",
 };
-
-/** The board itself: gradient face, deep edge, and the hard shadow under it. */
-function boardStyle(c: GameColor): CSSProperties {
-  return {
-    backgroundImage: `linear-gradient(150deg, ${c.from} 0%, ${c.to} 100%)`,
-    borderColor: c.deep,
-    boxShadow: `0 5px 0 ${c.deep}`,
-  };
-}
 
 /**
  * The vignettes (game-previews.css) are authored against the LIGHT theme
@@ -352,243 +344,297 @@ export default function GamesPage() {
   const plusReady = isPlus === true && !isLoading;
   // Task 986 step-in: the card being navigated into scales slightly toward
   // the viewer while the route transitions. State only ever selects the
-  // animate target — navigation itself is the Link's default behavior and is
+  // animate target; navigation itself is the Link's default behavior and is
   // never delayed or intercepted.
   const [enteredId, setEnteredId] = useState<string | null>(null);
-  const featuredGame = resolveFeaturedGame();
+  const { activeLang, activeLanguage } = useLanguage();
+  const line = getJourneyLine(activeLang);
+  // The learner's current city for the hero's "Hindi · New Delhi" line: the
+  // same journey read the home pass makes, cached between the two.
+  const journey = useJourneyProgress(activeLang, line.zones);
+  const city = journey.current ? journey.current.geoName : line.zones[0];
+
+  // THE LAST GAME PLAYED, read once per mount; a game opened from this hub
+  // becomes the one offered on the way back out of it.
+  const [lastPlayed, setLastPlayed] = useState<string | null>(() => readLastPlayedGame());
+  const continueGame = lastPlayed ? (GAMES_BY_ID[lastPlayed] ?? null) : null;
+  const remember = (id: string) => {
+    writeLastPlayedGame(id);
+    setLastPlayed(id);
+  };
 
   return (
     <div className="min-h-[100dvh] bg-background pb-nav lg:pb-8">
-      {/* Header */}
-      <div className="sticky top-0 z-10 border-b-2 border-border bg-background/85 backdrop-blur-md dark:bg-background/80">
-        <div className="mx-auto flex max-w-2xl items-center gap-4 px-4 py-4 lg:px-6">
-          <Gamepad2 className="h-7 w-7 shrink-0 text-primary" />
-          <div>
-            <h1 className="text-xl font-extrabold leading-none tracking-tight text-foreground">
-              Games
-            </h1>
-            <p className="text-sm text-muted-foreground">Play your way to fluency</p>
-          </div>
-          <div className="ml-auto">
-            {/* Task 986: Bolo reacts to the hub opening — one whole-image
-                bounce timed to the cascade start, once per mount, never
-                looping (canonical mascot rule: whole-image transforms only).
-                Reduced motion renders the mascot perfectly still. */}
-            <motion.div
-              animate={reduceMotion ? undefined : { y: [0, -9, 0], rotate: [0, -7, 4, 0] }}
-              transition={reduceMotion ? undefined : { duration: 0.55, delay: 0.08, ease: "easeOut" }}
-            >
-              <Mascot pose="cheer" size={52} />
-            </motion.div>
-          </div>
-        </div>
-      </div>
+      <div className="mx-auto max-w-2xl px-4 lg:px-6">
+        <GamesHero language={activeLanguage?.name ?? "Your language"} city={city} />
 
-      <div className="mx-auto max-w-2xl space-y-7 px-4 pt-6 lg:px-6">
-        {/* Featured slot — one promoted card above the catalog. Its content
-            comes from FEATURED_SLOT, never from hard-coded JSX. */}
-        {featuredGame && (
-          <FeaturedCard
-            game={featuredGame}
-            locked={featuredGame.plusOnly && !plusReady}
-            reduceMotion={Boolean(reduceMotion)}
-          />
+        {continueGame && (
+          <section className="mt-2.5" data-testid="games-continue">
+            <SectionEyebrow>Continue playing</SectionEyebrow>
+            <ContinueCard
+              game={continueGame}
+              locked={continueGame.plusOnly && !plusReady}
+              onPlay={() => remember(continueGame.id)}
+            />
+          </section>
         )}
 
-        {/* Curated shelves. Group order and within-group order both come
-            straight from GAME_GROUPS and never change at runtime. */}
-        <div className="space-y-7" data-testid="games-catalog">
-          {GAME_GROUPS.map((group) => (
-            <section key={group.id} data-testid={`games-group-${group.id}`}>
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-extrabold uppercase tracking-[0.14em] text-[#8A4B12] dark:text-muted-foreground">
-                <span
-                  aria-hidden="true"
-                  className="h-3 w-1.5 rounded-full bg-[#E0A93B]"
-                />
-                {group.title}
-              </h2>
-              {/* 2 columns from small-phone widths up (min-[480px]), a single
-                  column only on very narrow screens so titles never truncate. */}
-              <div className="grid gap-3 min-[480px]:grid-cols-2">
-                {/* The promoted card is rendered once, in the featured slot
-                    above; it is skipped here so it never appears twice. The
-                    remaining cards keep their curated order. */}
-                {group.gameIds.filter((id) => id !== featuredGame?.id).map((gameId) => {
-                  const game = GAMES_BY_ID[gameId];
-                  if (!game) return null;
-                  const index = STAGGER_INDEX[game.id] ?? 0;
-                  const locked = game.plusOnly && !plusReady;
-                  const entered = enteredId === game.id;
-                  const Card = (
-                    <motion.div
-                      // Staggered entrance cascade (task 986: pronounced —
-                      // larger rise, scale from 0.9, springs.poppy overshoot).
-                      // Cards stay interactive throughout (no pointer-events
-                      // gate). Under reduced motion this collapses to an
-                      // instant fade and the gesture transforms are dropped.
-                      initial={
-                        reduceMotion ? { opacity: 0 } : { opacity: 0, y: 28, scale: 0.9 }
-                      }
-                      animate={
-                        reduceMotion
-                          ? { opacity: 1 }
-                          : entered
-                            ? { opacity: 1, y: 0, scale: 1.05 }
-                            : { opacity: 1, y: 0, scale: 1 }
-                      }
-                      transition={
-                        reduceMotion
-                          ? { duration: 0.001 }
-                          : entered
-                            ? springs.snappy
-                            : { ...springs.poppy, delay: index * 0.05 }
-                      }
-                      // Gesture transitions live on the targets so they never
-                      // inherit the entrance's stagger delay.
-                      whileHover={
-                        reduceMotion
-                          ? undefined
-                          : { y: -4, scale: 1.02, transition: springs.snappy }
-                      }
-                      whileTap={
-                        reduceMotion ? undefined : { scale: 0.93, transition: springs.snappy }
-                      }
-                      // Step-in fires only when actually navigating into a
-                      // game; the upgrade route keeps the plain press.
-                      onClick={
-                        locked || reduceMotion ? undefined : () => setEnteredId(game.id)
-                      }
-                    >
-                      <GameCard
-                        game={game}
-                        locked={locked}
-                        // Negative delays start each ambient loop mid-phase,
-                        // using the catalog-wide ordinal so no two vignettes
-                        // ever pulse in unison.
-                        previewDelay={`${-(index * 1.1)}s`}
-                      />
-                    </motion.div>
-                  );
+        <section className="mt-5">
+          <SectionEyebrow>All games</SectionEyebrow>
+          {/* One grid, the phone's order. Two columns at every width, as on
+              the phone; the tiles are pictures first and the titles are one
+              line, so nothing truncates before 320px. */}
+          <div className="grid grid-cols-2 gap-2.5" data-testid="games-catalog">
+            {ORDERED_GAMES.map((game) => {
+              const index = STAGGER_INDEX[game.id] ?? 0;
+              const locked = game.plusOnly && !plusReady;
+              const entered = enteredId === game.id;
+              const Card = (
+                <motion.div
+                  // Staggered entrance cascade (task 986: pronounced, a
+                  // larger rise, scale from 0.9, springs.poppy overshoot).
+                  // Cards stay interactive throughout (no pointer-events
+                  // gate). Under reduced motion this collapses to an
+                  // instant fade and the gesture transforms are dropped.
+                  initial={
+                    reduceMotion ? { opacity: 0 } : { opacity: 0, y: 28, scale: 0.9 }
+                  }
+                  animate={
+                    reduceMotion
+                      ? { opacity: 1 }
+                      : entered
+                        ? { opacity: 1, y: 0, scale: 1.05 }
+                        : { opacity: 1, y: 0, scale: 1 }
+                  }
+                  transition={
+                    reduceMotion
+                      ? { duration: 0.001 }
+                      : entered
+                        ? springs.snappy
+                        : { ...springs.poppy, delay: index * 0.05 }
+                  }
+                  // Gesture transitions live on the targets so they never
+                  // inherit the entrance's stagger delay.
+                  whileHover={
+                    reduceMotion
+                      ? undefined
+                      : { y: -4, scale: 1.02, transition: springs.snappy }
+                  }
+                  whileTap={
+                    reduceMotion ? undefined : { scale: 0.93, transition: springs.snappy }
+                  }
+                  // Step-in fires only when actually navigating into a
+                  // game; the upgrade route keeps the plain press.
+                  onClick={
+                    locked || reduceMotion ? undefined : () => setEnteredId(game.id)
+                  }
+                >
+                  <GameCard
+                    game={game}
+                    locked={locked}
+                    // Negative delays start each ambient loop mid-phase,
+                    // using the catalog-wide ordinal so no two vignettes
+                    // ever pulse in unison.
+                    previewDelay={`${-(index * 1.1)}s`}
+                  />
+                </motion.div>
+              );
 
-                  // Locked cards are never dead ends: they open the upgrade
-                  // route instead of the game.
-                  return (
-                    <Link
-                      key={game.id}
-                      href={locked ? "/upgrade" : game.href}
-                      className="block"
-                    >
-                      {Card}
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
+              // Locked cards are never dead ends: they open the upgrade
+              // route instead of the game. An open card is remembered for
+              // the Continue playing band.
+              return (
+                <Link
+                  key={game.id}
+                  href={locked ? "/upgrade" : game.href}
+                  onClick={locked ? undefined : () => remember(game.id)}
+                  className="block"
+                >
+                  {Card}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
       </div>
-
     </div>
   );
 }
 
 /**
- * The promoted hero card. Same gate grammar as a grid card (full-color board,
- * All-Access badge, lock chip, always tappable) in a wider layout.
+ * THE HERO. The painting, a cream wash over its left half for the words, and
+ * Bolo on the right, in the picture. Bleeds to the column's edges (the
+ * screen's, on a phone); the grid below keeps the column. Anchored a third of
+ * the way from left to centre, as on the phone: the words keep the pale left
+ * and the parrot keeps his face.
  */
-function FeaturedCard({
-  game,
-  locked,
-  reduceMotion,
-}: {
-  game: GameDef;
-  locked: boolean;
-  reduceMotion: boolean;
-}) {
-  const { Icon } = game;
-  const c = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
-
+function GamesHero({ language, city }: { language: string; city: string }) {
   return (
-    <Link href={locked ? "/upgrade" : game.href} className="block">
-      <motion.div
-        data-testid="featured-game"
-        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.96 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={reduceMotion ? { duration: 0.001 } : springs.poppy}
-        whileHover={reduceMotion ? undefined : { y: -4, transition: springs.snappy }}
-        whileTap={reduceMotion ? undefined : { scale: 0.97, transition: springs.snappy }}
-        className="group relative flex cursor-pointer items-center gap-4 overflow-hidden rounded-2xl border-2 p-4 text-white transition-[filter] duration-200 motion-safe:hover:saturate-[1.1]"
-        style={boardStyle(c)}
-      >
-        <div
-          className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#FFF8EC] shadow-[inset_0_0_0_3px_rgba(255,255,255,0.6)] lg:h-28 lg:w-28 lg:rounded-3xl"
-          style={MEDALLION_INK}
+    <div
+      data-testid="games-hero"
+      className="relative -mx-4 h-[236px] overflow-hidden lg:-mx-6 lg:h-[280px] lg:rounded-b-3xl"
+    >
+      <img
+        src={GAMES_HERO}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{ objectPosition: "34% 50%" }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to right, rgba(251,243,230,0.66) 0%, rgba(251,243,230,0.4) 50%, rgba(251,243,230,0) 82%)",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0"
+        style={{
+          background: "linear-gradient(to bottom, rgba(251,243,230,0) 72%, hsl(var(--background)) 100%)",
+        }}
+      />
+      <div className="absolute left-5 right-[150px] top-10 lg:top-14">
+        <h1
+          className="text-[40px] font-extrabold leading-none tracking-[-0.8px]"
+          style={{ color: "#1E1633" }}
         >
-          <GamePreview
-            gameId={game.id}
-            // The hero runs on its own phase, offset from every grid card's
-            // catalog-ordinal phase so it never beats in lockstep with them.
-            delay="-0.55s"
-            testId="featured-game-preview"
-            fallback={<Icon className="h-12 w-12" style={{ color: c.ink }} strokeWidth={2} />}
-          />
-        </div>
+          Games
+        </h1>
+        <p className="mt-1 text-base" style={{ color: "#4B4368" }}>
+          Play your way to fluency
+        </p>
+        {/* THE LANGUAGE LINE IS THE LANGUAGE SWITCH: the line already names
+            the language, so it opens the picker. */}
+        <Link
+          href="/choose-language"
+          data-testid="games-language-line"
+          aria-label={`Learning ${language}. Change language`}
+          className="mt-3.5 inline-flex items-center gap-1.5 text-sm font-semibold"
+          style={{ color: "#4F46E5" }}
+        >
+          <MapPin className="h-3.5 w-3.5" />
+          <span>
+            {language}
+            <span style={{ color: "#8A83B3" }}>{"  ·  "}</span>
+            {city}
+          </span>
+          <ChevronDown className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+    </div>
+  );
+}
 
-        <div className="relative min-w-0 flex-1 space-y-1">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/70">
-            Featured
-          </p>
-          <h2 className="text-xl font-extrabold leading-tight text-white">{game.title}</h2>
-          <p className="text-sm leading-snug text-white/85">{game.description}</p>
-          <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
-            <DifficultyPill difficulty={game.difficulty} />
-            <AccessBadge plusOnly={game.plusOnly} />
-            {locked && <LockChip />}
-          </div>
-        </div>
-      </motion.div>
-    </Link>
+/** The small violet caption over each band, with the mockup's spark. */
+function SectionEyebrow({ children }: { children: string }) {
+  return (
+    <h2 className="mb-2.5 flex items-center gap-1.5">
+      <span className="text-xs font-extrabold tracking-[1.6px]" style={{ color: "#4F46E5" }}>
+        {children.toUpperCase()}
+      </span>
+      <span aria-hidden="true" className="text-xs" style={{ color: "#D9A21B" }}>
+        ✦
+      </span>
+    </h2>
   );
 }
 
 /**
- * Free vs All-Access pill. Copy canon: "All-Access", never "Plus".
- * These are enamel badges, not tinted text: solid fill, white ring and a hard
- * shadow so they read as stickers stuck onto the board.
+ * CONTINUE PLAYING: the last game this browser remembers, wide, its picture
+ * at the left and a Play again button at the right. No personal best and no
+ * level yet (see lib/last-played-game.ts).
  */
-function AccessBadge({ plusOnly }: { plusOnly: boolean }) {
-  if (plusOnly) {
-    return (
-      <span className="flex items-center gap-1 whitespace-nowrap rounded-full bg-gradient-to-b from-[#FFD65A] to-[#F0A202] px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-[#4A2C00] shadow-[0_2px_0_rgba(0,0,0,0.28)] ring-2 ring-white/70">
-        <Star className="h-3 w-3 fill-[#4A2C00]" />
-        All-Access
-      </span>
-    );
-  }
+function ContinueCard({
+  game,
+  locked,
+  onPlay,
+}: {
+  game: GameDef;
+  locked: boolean;
+  onPlay: () => void;
+}) {
+  const gc = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
+  const art = gameArt(game.id);
   return (
-    <span className="whitespace-nowrap rounded-full bg-gradient-to-b from-[#4ADE80] to-[#16A34A] px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-[0_2px_0_rgba(0,0,0,0.28)] ring-2 ring-white/70">
-      Free
+    <Link
+      href={locked ? "/upgrade" : game.href}
+      onClick={locked ? undefined : onPlay}
+      data-testid={`continue-${game.id}`}
+      aria-label={`Continue playing ${game.title}`}
+      className="flex gap-3 rounded-[18px] border border-border bg-card p-2.5 shadow-[0_4px_10px_rgba(30,22,51,0.08)]"
+    >
+      <div className="h-[93px] w-[124px] shrink-0 overflow-hidden rounded-xl bg-[#E9E4F5]">
+        {art ? (
+          <img src={art} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="h-full w-full"
+            style={{ backgroundImage: `linear-gradient(150deg, ${gc.from} 0%, ${gc.to} 100%)` }}
+          />
+        )}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+        <div className="flex items-center gap-1.5" style={{ color: gc.ink }}>
+          <game.Icon className="h-3 w-3" />
+          <span className="text-[10px] font-extrabold tracking-[1.2px]">{game.title.toUpperCase()}</span>
+        </div>
+        <p className="truncate text-lg font-extrabold text-foreground">{game.title}</p>
+        <p className="truncate text-xs text-muted-foreground">{game.description}</p>
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <DifficultyPill difficulty={game.difficulty} gc={gc} />
+          <span
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-[7px] text-[13px] font-extrabold text-white",
+              locked ? "bg-muted-foreground" : "bg-[#4F46E5]",
+            )}
+          >
+            {locked ? "Unlock" : "Play again"}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+/** Free vs All-Access pill: FREE in green, ALL-ACCESS in gold with its star.
+ *  Copy canon: "All-Access", never "Plus". */
+function AccessBadge({ plusOnly }: { plusOnly: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-[3px] rounded-full border-2 border-white/85 px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.4px]",
+        plusOnly ? "bg-[#F5B31B] text-[#4A2C00]" : "bg-[#22C55E] text-white",
+      )}
+    >
+      {plusOnly && <Star className="h-2.5 w-2.5" />}
+      {plusOnly ? "All-Access" : "Free"}
     </span>
   );
 }
 
-/** The lock affordance on a gated card. The board behind it stays full color. */
 function LockChip() {
   return (
     <span
-      className="flex items-center gap-1 whitespace-nowrap rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white ring-1 ring-white/35"
       data-testid="lock-chip"
+      className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border border-border"
     >
-      <Lock className="h-3 w-3" />
-      Locked
+      <Lock className="h-2.5 w-2.5 text-muted-foreground" />
     </span>
   );
 }
 
-/** Difficulty on a painted board: white label, hue carried by the dot. */
-function DifficultyPill({ difficulty }: { difficulty: GameDef["difficulty"] }) {
+/** The difficulty, a dot and a word on a tint of the game's own hue. */
+function DifficultyPill({ difficulty, gc }: { difficulty: GameDef["difficulty"]; gc: GameColor }) {
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-black/25 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-white ring-1 ring-white/30">
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.6px]"
+      style={{ backgroundColor: `${gc.from}1F`, borderColor: `${gc.from}55`, color: gc.ink }}
+    >
       <span
         aria-hidden="true"
         className="h-1.5 w-1.5 rounded-full"
@@ -599,6 +645,13 @@ function DifficultyPill({ difficulty }: { difficulty: GameDef["difficulty"] }) {
   );
 }
 
+/**
+ * A tile: the painting 4:3 with the access pill in its corner and the
+ * vignette medallion overlapping its foot (the same looping preview as
+ * before, on its cream disc, a picture-in-picture rather than the whole face
+ * of the card), then the words in ink on ivory, then the difficulty and,
+ * on a gated card, the lock chip.
+ */
 function GameCard({
   game,
   locked,
@@ -606,71 +659,54 @@ function GameCard({
 }: {
   game: GameDef;
   locked: boolean;
-  previewDelay?: string;
+  previewDelay: string;
 }) {
-  const { Icon } = game;
-  const c = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
-
+  const gc = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
+  const art = gameArt(game.id);
   return (
     <div
-      className={cn(
-        // Hover lift + press compress are handled by the framer-motion wrapper
-        // in GamesPage (whileHover / whileTap) so transform feedback lives in
-        // ONE place; the CSS here only wakes the board's saturation on hover.
-        //
-        // aspect-square gives the near-square tile, gated behind the SAME
-        // min-[480px] breakpoint as the two-column grid: a square is only
-        // near-square when the card is half the row. Below the breakpoint the
-        // card is content-height with a modest floor so it can't collapse back
-        // to the old slender shape.
-        //
-        // Padding and gaps are deliberately tight (p-3 / gap-2) so the
-        // medallion, title and badges fill the square instead of floating in
-        // dead space.
-        "group relative flex min-h-[172px] cursor-pointer flex-col gap-2 overflow-hidden rounded-2xl border-2 p-3 text-white transition-[filter] duration-200 motion-safe:hover:saturate-[1.15] min-[480px]:aspect-square min-[480px]:min-h-0",
-      )}
-      style={boardStyle(c)}
       data-testid={`game-card-${game.id}`}
+      className="overflow-hidden rounded-[18px] border border-border bg-card shadow-[0_4px_14px_rgba(30,22,51,0.08)]"
     >
-      {/* Preview medallion + badge row. Gated cards keep FULL-COLOR art and a
-          live ambient loop — the All-Access badge and lock chip carry the
-          gate, so nothing here is grayed out or paused. */}
-      <div className="relative flex items-start justify-between gap-2">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#E9E4F5]">
+        {art ? (
+          <img
+            src={art}
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="absolute inset-0"
+            style={{ backgroundImage: `linear-gradient(150deg, ${gc.from} 0%, ${gc.to} 100%)` }}
+          />
+        )}
+        {/* Locked games keep their colour (an All-Access card is a promise,
+            not a broken tile) and take a light dim so the lock reads. */}
+        {locked && <div aria-hidden="true" className="absolute inset-0 bg-[rgba(30,22,51,0.28)]" />}
+        <div className="absolute right-2 top-2">
+          <AccessBadge plusOnly={game.plusOnly} />
+        </div>
         <div
-          className="flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#FFF8EC] shadow-[inset_0_0_0_3px_rgba(255,255,255,0.6)] min-[480px]:h-20 min-[480px]:w-20 lg:h-28 lg:w-28 lg:rounded-3xl"
+          className="absolute -bottom-2 left-2.5 flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-[#FFF8EC]"
           style={MEDALLION_INK}
         >
           <GamePreview
             gameId={game.id}
             delay={previewDelay}
-            fallback={
-              <Icon
-                className="h-9 w-9 lg:h-14 lg:w-14"
-                style={{ color: c.ink }}
-                strokeWidth={2}
-              />
-            }
+            fallback={<game.Icon className="h-6 w-6" style={{ color: gc.ink }} />}
           />
         </div>
-
-        <div className="flex items-center gap-1.5">
-          <AccessBadge plusOnly={game.plusOnly} />
-        </div>
       </div>
-
-      {/* Title & description */}
-      <div className="relative space-y-0.5">
-        <h3 className="text-[15px] font-extrabold leading-tight text-white lg:text-lg">
-          {game.title}
-        </h3>
-        <p className="line-clamp-2 text-[12.5px] leading-snug text-white/85 lg:text-sm">
-          {game.description}
-        </p>
+      <div className="px-3 pt-3.5">
+        <h3 className="truncate text-base font-extrabold text-foreground">{game.title}</h3>
+        <p className="line-clamp-2 text-xs leading-4 text-muted-foreground">{game.description}</p>
       </div>
-
-      {/* Difficulty chip, plus the lock chip on gated cards. */}
-      <div className="relative mt-auto flex flex-wrap items-center gap-1.5">
-        <DifficultyPill difficulty={game.difficulty} />
+      <div className="flex items-center justify-between gap-1.5 px-3 pb-3 pt-2.5">
+        <DifficultyPill difficulty={game.difficulty} gc={gc} />
         {locked && <LockChip />}
       </div>
     </div>

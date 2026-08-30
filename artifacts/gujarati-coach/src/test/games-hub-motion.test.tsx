@@ -25,6 +25,20 @@ vi.mock("@/lib/entitlements", () => ({
 }));
 
 vi.mock("@/components/mascot", () => ({ Mascot: () => null }));
+// The hero's language line reads the language context and the learner's
+// current city; neither has a provider here.
+vi.mock("@/lib/language-context", () => ({
+  useLanguage: () => ({
+    activeLang: "gu",
+    activeLanguage: { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" },
+    languages: [],
+    setActiveLang: () => {},
+    isLoading: false,
+  }),
+}));
+vi.mock("@/lib/useJourneyProgress", () => ({
+  useJourneyProgress: () => ({ current: null, doneCount: 0, isLoading: false, planBlocked: false }),
+}));
 
 vi.mock("framer-motion", async (importOriginal) => {
   const actual = await importOriginal<typeof import("framer-motion")>();
