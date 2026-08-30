@@ -53,18 +53,20 @@ function read(rel: string): string {
  */
 const GLYPH_SITES: Record<string, number> = {
   "components/chai-stall.tsx": 1, // the band's own balance readout
-  "components/chai-wallet.tsx": 3 /* was 4; the empty-history glyph went with the tile-to-list rebuild on 2026-08-19: the empty state is now the same LIST as the populated one, and that list carries no glyph in its heading */, // header balance, the shared ChaiCoin, the empty-history illustration, the per-row delta
+  "components/chai-wallet.tsx": 4 /* was 3; build 23 rebuilt the sheet to the phone's: the balance card on the stall, the per-row delta, a kulhad in the history tile for Chacha-ji's cups (where a coffee cup must never stand), and the shared ChaiCoin */,
+  "components/bazaar-header.tsx": 1, // the Chai pill on the hub and every door (build 23); it was pages/bazaar.tsx's wardrobe balance
+  "pages/upgrade.tsx": 4, // build 23: three kulhads on the annual card and one in the trial box, off the phone's paywall
   "components/referral-card.tsx": 1, // Chai earned from referrals
   "pages/home.tsx": 2, // Chai stat cell + streak-repair banner balance
   "pages/games/quick-game-frame.tsx": 1, // chai-earn-beat
   "pages/games/speed-round.tsx": 1, // +N Chai earned
   "pages/journey.tsx": 2, // signal-chai-chip, stop-unlock offer
   "pages/practice.tsx": 1, // session-chai-pill
-  "pages/bazaar.tsx": 2, // wardrobe balance, the action bar's Buy · N
+  "pages/bazaar.tsx": 1, // the action bar's Buy · N; the wardrobe balance moved to components/bazaar-header.tsx (build 23)
   "components/outfit-card.tsx": 1, // Buy Now. The thumbnail price pill went with the card-to-row rebuild (5414ef9)
 };
 
-const WEB_GLYPH_COUNT = 15;
+const WEB_GLYPH_COUNT = 20; // 15 until build 23; see the three lines above
 
 describe("chai glyph", () => {
   test("renders the delivered kulhad art, decoratively", () => {

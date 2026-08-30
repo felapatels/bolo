@@ -664,8 +664,11 @@ export const SCENERY_MAX_H = 40;
  *  inset and ground line the old doodads used, so future layout changes move
  *  scenery together with the stations. */
 export const SCENERY_PLACEMENT = {
-  /** Distance from the map edge to a scenery element's center x. */
-  edgeX: 42,
+  /** Distance from the map edge to a scenery element's center x. 38 since
+   *  build 23: the current stop's node grew to 64px (MARKER_HALF_W 32) and
+   *  at 42 the widest pieces (the ghat at 21) reached 63, three px into the
+   *  node's box at LEFT_X 92. The placement test caught it. */
+  edgeX: 38,
   /** Ground line offset below a station row's center y. */
   groundDy: 22,
 } as const;

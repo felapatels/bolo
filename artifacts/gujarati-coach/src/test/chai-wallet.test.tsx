@@ -136,7 +136,10 @@ describe("Chai wallet sheet", () => {
     const header = screen.getByTestId("wallet-header");
     const art = header.querySelector("img");
     expect(art).not.toBeNull();
-    expect(art?.getAttribute("src")).toContain("stall/wallet-header");
+    // THE STALL ITSELF SINCE BUILD 23 (mobile build 22): the header is the
+    // same painted scene every Chai surface draws, Chacha-ji waving in it,
+    // not the cropped wallet-header.jpg it used to carry.
+    expect(art?.getAttribute("src")).toContain("stall/stall");
     // Painted scene, not content: it must not be announced.
     expect(art?.getAttribute("alt")).toBe("");
 

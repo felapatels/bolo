@@ -170,13 +170,15 @@ const grp = (
 
 const zonesOf = (...counts: Array<unknown[]>) => counts;
 
-describe("boarding-pass header numbers (task 1082 item 1)", () => {
-  test("reads the learner's current station, not the count of finished ones", () => {
-    // Seven stations: two finished, the learner standing on the third. The
-    // header used to render "{doneCount}/{totalCount} stations", so the slot a
-    // learner reads as "the stop I am on" carried the number 2 while the map
-    // lit up stop 3. Both numbers now come off the one flattened station list
-    // the map, the payload and the Chacha encounter logic already share.
+describe("the journey's header (task 1082 item 1, then build 23)", () => {
+  // THE STICKY BOARDING-PASS HEADER IS GONE (build 23, one of the owner's web
+  // corrections: "the web journey's green top header should go, floating
+  // back arrow like mobile"). The three cases that stood here pinned the
+  // numbers that strip printed ("· Stop 3 of 7 stations", "· All 2 stations
+  // complete"); nothing prints them now, on either platform, and the zone
+  // board says how many stops each zone has. What remains to hold is that
+  // the strip is gone and the way home still stands.
+  test("the strip is gone and a floating back arrow stands in for it", () => {
     h.zones = zonesOf(
       [grp(1, "completed", { masteredCount: 8, attemptedCount: 8 }), grp(2, "tested_out")],
       [grp(3, "in_progress", { masteredCount: 3, attemptedCount: 5 })],
@@ -186,26 +188,11 @@ describe("boarding-pass header numbers (task 1082 item 1)", () => {
       [grp(7, "locked")],
     );
     renderJourney();
-    expect(screen.getByText(/· Stop 3 of 7 stations/)).toBeInTheDocument();
-    expect(screen.queryByText(/2\/7 stations/)).toBeNull();
-  });
-
-  test("counts every station the six zones serve, with no second source", () => {
-    // The total is the length of that same list: 11 + 10 + 8 + 10 + 10 + 10,
-    // the real Gujarati shape in the development library. Nothing in the
-    // client caps or filters it.
-    const zone = (n: number, from: number) =>
-      Array.from({ length: n }, (_, i) => grp(from + i, "locked"));
-    h.zones = zonesOf(
-      [grp(1, "in_progress", { masteredCount: 1, attemptedCount: 2 }), ...zone(10, 2)],
-      zone(10, 12),
-      zone(8, 22),
-      zone(10, 30),
-      zone(10, 40),
-      zone(10, 50),
-    );
-    renderJourney();
-    expect(screen.getByText(/· Stop 1 of 59 stations/)).toBeInTheDocument();
+    expect(screen.queryByTestId("journey-header")).toBeNull();
+    expect(screen.queryByText(/stations/)).toBeNull();
+    const back = screen.getByTestId("journey-back");
+    expect(back).toHaveAttribute("href", "/app");
+    expect(back).toHaveAttribute("aria-label", "Back to home");
   });
 
   // ── Folding finished zones ────────────────────────────────────────────────
@@ -356,15 +343,10 @@ describe("boarding-pass header numbers (task 1082 item 1)", () => {
     expect(screen.queryByTestId("zone-stamp")).toBeNull();
   });
 
-  test("a finished line reads as complete rather than borrowing a stop number", () => {
-    h.zones = zonesOf(
-      [grp(1, "completed", { masteredCount: 8, attemptedCount: 8 })],
-      [grp(2, "completed", { masteredCount: 8, attemptedCount: 8 })],
-      [], [], [], [],
-    );
-    renderJourney();
-    expect(screen.getByText(/· All 2 stations complete/)).toBeInTheDocument();
-  });
+  // ("a finished line reads as complete rather than borrowing a stop number"
+  // stood here; it pinned the strip's "· All 2 stations complete", which
+  // nothing prints since build 23. The test above holds that no "stations"
+  // line renders at all.)
 });
 
 describe("current-stop card (task 1082 item 2)", () => {

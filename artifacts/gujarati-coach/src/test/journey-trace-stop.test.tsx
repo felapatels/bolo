@@ -185,9 +185,11 @@ describe("the tracing stop as the journey map draws it", () => {
     const stop = traceStopFor("gu", 1, 1)!;
     h.passedIds = stop.characters.slice(0, 3).map((c) => c.id);
     renderJourney();
-    expect(traceCard(1)).toHaveTextContent(
-      `3 of ${stop.characters.length} letters traced`,
-    );
+    // THE TICKET COUNTS IN ITS FOOT ROW (build 23, the phone's build 22 trace
+    // card): "3/8" beside the dot row and a Continue, where the chalkboard
+    // printed "3 of 8 letters traced".
+    expect(traceCard(1)).toHaveTextContent(`3/${stop.characters.length}`);
+    expect(traceCard(1)).toHaveTextContent("Continue");
   });
 
   // A ZONE THE LEARNER ALREADY OWNS CARRIES NO TASTE CHIP. Hindi's fare zones
@@ -262,8 +264,8 @@ describe("the tracing stop as the journey map draws it", () => {
     const stop = traceStopFor("gu", 1, 1)!;
     h.passedIds = stop.characters.map((c) => c.id);
     renderJourney();
-    expect(traceCard(1)).toHaveTextContent(
-      `All ${stop.characters.length} letters traced`,
-    );
+    // Every letter traced reads as the full fraction on the ticket (build 23).
+    const n = stop.characters.length;
+    expect(traceCard(1)).toHaveTextContent(`${n}/${n}`);
   });
 });

@@ -10,7 +10,6 @@ import {
   ChevronRight,
   ChevronUp,
   Clock,
-  Coffee,
   Flame,
   Leaf,
   Pause,
@@ -633,7 +632,7 @@ export function LanguageSignpostRow() {
 /** Which tile a movement wears, read off the server's label. Decoration
  *  keyed on words, never on the raw reason (which is never sent). Mobile
  *  twin: historyGlyph in components/ChaiWallet.tsx, same words, same tints. */
-function historyGlyph(label: string): { Icon: LucideIcon; tint: string } {
+function historyGlyph(label: string): { Icon: LucideIcon | null; tint: string } {
   const l = label.toLowerCase();
   if (/streak/.test(l)) return { Icon: Flame, tint: "#22C55E" };
   if (/signal/.test(l)) return { Icon: Star, tint: "#F59E0B" };
@@ -642,9 +641,10 @@ function historyGlyph(label: string): { Icon: LucideIcon; tint: string } {
   if (/pause/.test(l)) return { Icon: Pause, tint: "#F0A32B" };
   if (/mend|repair/.test(l)) return { Icon: Wrench, tint: "#1E7357" };
   if (/pack|top.?up|adjust|grant|bonus/.test(l)) return { Icon: Plus, tint: "#1E7357" };
-  if (/chacha|stall|halt/.test(l)) return { Icon: Coffee, tint: "#B5651D" };
   if (/outfit|bazaar|kurta|pagdi|cap|saree|sherwani|anarkali|kediyu|choli|wear/.test(l)) return { Icon: ShoppingBag, tint: "#4F46E5" };
-  return { Icon: Coffee, tint: "#B5651D" };
+  // Chacha-ji's cups, and anything unnamed: the kulhad itself, never a
+  // coffee cup (the census in chai-stall.test.tsx guards exactly this).
+  return { Icon: null, tint: "#B5651D" };
 }
 
 /** "May 12, 9:20 AM", in the browser's own locale. */
@@ -735,7 +735,7 @@ function WalletHistory() {
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
                 style={{ backgroundColor: `${tint}1F`, color: tint }}
               >
-                <Icon className="h-[18px] w-[18px]" />
+                {Icon ? <Icon className="h-[18px] w-[18px]" /> : <ChaiGlyph className="h-[18px] w-[18px]" />}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-bold text-foreground">{entry.label}</span>
