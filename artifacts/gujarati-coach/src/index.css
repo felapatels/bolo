@@ -490,24 +490,33 @@
 .station-card[data-side="left"]::after {
   right: -2px;
 }
-/* THE CHALKBOARD (build 17 on mobile, build 18 here). The tracing stop is not
-   a tag any more: a slate in a wood frame, the letters in chalk, the app's
-   violet pencil on the corner (the owner's mockup: "Chalkboard should be a
-   different shaped card. Like a vertical rectangle with chalk font"). It
-   still carries `.station-card` and the stock attributes so the paper
-   contract holds for every stop; these rules come LAST so they win over the
-   accessible/ahead stocks at equal specificity, and the slate stays slate
-   whether the stop is open or ahead. No inner rule and no eyelet: a board on
-   an easel is not hung on the rail. Mobile twin: chalkboardBack. */
-.station-card[data-kind="chalkboard"] {
-  background: #1f3d2b;
-  border: 4px solid #8a5d4a;
+/* THE TRACE TICKET (mobile build 22, here build 23; the owner's crop). The
+   tracing stop is a wide ticket the width of the phrase cards, die-cut: a
+   semicircle bitten out of each side at mid-height, the way a tear-off
+   ticket is. The mask cuts the notches through the border and the paper
+   alike; because a mask also clips a box-shadow, the ticket's lift lives on
+   its wrapper as a drop-shadow, which follows the cut. No inner rule and no
+   eyelet: a ticket is torn off, not hung. These rules come LAST so they win
+   over the accessible/ahead stocks at equal specificity. Mobile twin:
+   TagCardBack variant=trace. */
+.station-card[data-kind="trace-ticket"] {
   border-radius: 10px;
-  color: #ffffff;
+  box-shadow: none;
+  -webkit-mask-image:
+    radial-gradient(circle at 0 50%, transparent 7px, #000 7.5px),
+    radial-gradient(circle at 100% 50%, transparent 7px, #000 7.5px);
+  mask-image:
+    radial-gradient(circle at 0 50%, transparent 7px, #000 7.5px),
+    radial-gradient(circle at 100% 50%, transparent 7px, #000 7.5px);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
 }
-.station-card[data-kind="chalkboard"]::before,
-.station-card[data-kind="chalkboard"]::after {
+.station-card[data-kind="trace-ticket"]::before,
+.station-card[data-kind="trace-ticket"]::after {
   content: none;
+}
+.trace-ticket-wrap {
+  filter: drop-shadow(0 6px 10px rgba(43, 26, 18, 0.34));
 }
 
 /* THE SHEET DRAWS THREE DIFFERENT TAGS, not one, and the owner noticed:

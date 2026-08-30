@@ -177,8 +177,12 @@ export const INTRO_HOPS = {
 // The tracing stop's chalkboard (build 17 on mobile, build 18 here): a tall
 // slate rather than a tag, and the doubled pitch above is what leaves room
 // for it in the row.
-const CHALKBOARD_W = 150;
-const CHALKBOARD_H = 150;
+/** The trace ticket's height (mobile build 22, here build 23, the owner's
+ *  crop): a wide ticket with a head row, the words beside a small chalkboard,
+ *  a rule and a foot row. The row pitch is 176 on both platforms and the tip
+ *  hangs under the card; the stack may overhang the slot, the row has the
+ *  room. It replaced the build 18 slate, a 150 by 150 chalkboard. */
+const TRACE_TICKET_H = 148;
 // A CHALK FACE WITHOUT A BUNDLED FONT. Chalkduster ships on every Mac and
 // iPhone; elsewhere the browser's casual hand stands in. Nothing new in the
 // bundle, nothing to license. Mobile: Chalkduster on iOS, "casual" on
@@ -727,6 +731,7 @@ function StationCard({
   onNavigate,
   side,
   polishEnabled,
+  languageName,
 }: {
   station: Station;
   color: string;
@@ -739,6 +744,8 @@ function StationCard({
   onNavigate?: () => void;
   side: "left" | "right";
   polishEnabled?: boolean;
+  /** The language's name, for the trace ticket's practice line. */
+  languageName: string;
 }) {
   const reduceMotion = useReducedMotion();
   const stopLabel = `Stop ${station.stopNumber} of ${station.stopCount}`;
@@ -827,63 +834,126 @@ function StationCard({
     "data-ahead": !accessible ? "true" : undefined,
     "data-side": side === "left" ? "left" : "right",
   } as const;
+  // THE TRACE CARD IS A WIDE TICKET (mobile build 22, here build 23; the
+  // owner's crop): a TRACE pill with a pencil, "Trace N letters", the
+  // practice line, a small framed chalkboard showing the next letter as
+  // dashed chalk (the guide path when the script has one, the letter itself
+  // when not), a rule, the dot row with its count, and a round Start. The
+  // chalk slate that was the whole card since build 18 is gone; the board is
+  // a picture on the ticket now. The ticket is die-cut: a semicircle bitten
+  // out of each side at mid-height (the mask in index.css), the way a
+  // tear-off ticket is, and its shadow follows the cut. It keeps
+  // `.station-card` and the stock attributes (the paper contract every stop
+  // holds); `data-kind` is what index.css restyles on: no inner rule, no
+  // eyelet, the notches.
+  const nextGlyph = station.trace
+    ? station.trace.characters[Math.min(station.traceDone ?? 0, station.trace.characters.length - 1)]
+    : undefined;
+  const inkFor = accessible ? TICKET.ink : TICKET.inkAhead;
+  const violetFor = accessible ? "hsl(var(--primary))" : TICKET.inkAhead;
   const card = station.trace ? (
-    // A CHALKBOARD FOR THE TRACING STOP (build 17 on mobile, build 18 here;
-    // the owner's mockup: "the trace one should have a completely different
-    // looking card like my example", then "Chalkboard should be a different
-    // shaped card. Like a vertical rectangle with chalk font"). A slate in a
-    // wood frame in place of the paper tag; TRACE, the letters line, the
-    // count and the traced letters all in chalk; the app's violet pencil hung
-    // on the corner. It keeps `.station-card` and the stock attributes (the
-    // paper contract every stop holds), and `data-kind` is what index.css
-    // restyles the stock on: slate, wood, no rule, no eyelet.
     <div
-      className="station-card depth-shadow relative min-w-0"
-      data-kind="chalkboard"
-      data-testid="tag-back-chalkboard"
+      className="station-card relative w-full min-w-[150px] max-w-[222px]"
+      data-kind="trace-ticket"
+      data-testid="tag-back-trace"
       {...stock}
-      style={{ width: CHALKBOARD_W, minHeight: CHALKBOARD_H, fontFamily: CHALK_FONT }}
+      style={{ minHeight: TRACE_TICKET_H }}
     >
-      <div className="flex flex-col items-center gap-[3px] px-3 pb-2.5 pt-1.5">
-        <div className="flex min-h-[14px] w-full items-center justify-end gap-1.5 font-sans">
+      <div className="flex h-full flex-col justify-between px-3 py-2">
+        <div className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5">
+            <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full" style={{ background: violetFor }}>
+              <Pencil className="h-[11px] w-[11px] text-white" />
+            </span>
+            <span className="text-[11px] font-black uppercase tracking-[1.6px]" style={{ color: violetFor }}>
+              Trace
+            </span>
+          </span>
+          <span className="flex-1" />
           {chips}
           {lock}
         </div>
-        <span className="text-[18px] uppercase leading-6 tracking-[2px] text-white">Trace</span>
-        <span className="line-clamp-2 text-center text-[13px] leading-[18px] text-white/90">
-          {statusCopy}
-        </span>
-        {station.traceTotal ? (
-          <>
-            <span className="mt-0.5 text-[22px] leading-7 text-white">
-              {station.traceDone ?? 0}/{station.traceTotal}
-            </span>
-            {/* The letters as chalk dots, the same StopDots the pass draws.
-                They stop 30 short of the pencil on the corner (owner:
-                "chalkboard icon is blocking the dot progress bar"). */}
-            <div
-              data-testid={`progress-trace-${station.stopNumber}`}
-              className="mt-1.5 flex w-full pl-0.5 pr-[30px]"
-            >
-              <StopDots
-                total={station.traceTotal}
-                done={station.traceDone ?? 0}
-                accent="#FFFFFF"
-                muted="rgba(255,255,255,0.85)"
-                ringFill="#1F3D2B"
-              />
+        <div className="mt-1 flex items-center gap-2.5">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-base font-black leading-5" style={{ color: inkFor }}>
+              {station.traceTotal ? `Trace ${station.traceTotal} letters` : station.trace.title}
             </div>
-          </>
-        ) : null}
+            <div
+              className="mt-0.5 line-clamp-2 text-[11.5px] leading-[15px]"
+              style={{ color: accessible ? TICKET.inkMuted : TICKET.inkAhead }}
+            >
+              {`Practice writing ${languageName} characters.`}
+            </div>
+          </div>
+          {/* The small framed chalkboard: 64 by 50, the next letter in chalk,
+              a ledge with a stick of chalk and the violet eraser. */}
+          <div
+            aria-hidden
+            className="relative flex h-[50px] w-16 shrink-0 items-center justify-center rounded-md"
+            style={{ background: "#1F3D2B", border: "3px solid #8A5D4A" }}
+          >
+            {nextGlyph ? (
+              nextGlyph.guide ? (
+                <svg width={40} height={40} viewBox="0 0 100 100">
+                  <path
+                    d={nextGlyph.guide}
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth={7}
+                    strokeDasharray="9 7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity={0.92}
+                  />
+                </svg>
+              ) : (
+                <span style={{ fontFamily: CHALK_FONT, fontSize: 24, lineHeight: "30px", color: "rgba(255,255,255,0.92)" }}>
+                  {nextGlyph.char}
+                </span>
+              )
+            ) : null}
+            <span
+              className="absolute flex items-center justify-between rounded-sm px-1"
+              style={{ left: 2, right: 2, bottom: -3, height: 5, background: "#A8734F" }}
+            >
+              <span className="h-[3px] w-[10px] rounded-full bg-white" />
+              <span className="h-1 w-3 rounded-full bg-primary" />
+            </span>
+          </div>
+        </div>
+        <div aria-hidden className="mb-1 mt-1.5 h-px" style={{ background: "var(--stop-edge)", opacity: 0.9 }} />
+        <div className="flex items-center gap-2">
+          {station.traceTotal ? (
+            <>
+              <div data-testid={`progress-trace-${station.stopNumber}`} className="flex min-w-0 flex-1 items-center">
+                <StopDots
+                  total={station.traceTotal}
+                  done={station.traceDone ?? 0}
+                  accent={violetFor}
+                  muted="var(--stop-eyelet-hole)"
+                  ringFill="var(--stop-stock-top)"
+                />
+              </div>
+              <span className="text-[13px] font-black tabular-nums" style={{ color: inkFor }}>
+                {station.traceDone ?? 0}/{station.traceTotal}
+              </span>
+            </>
+          ) : (
+            <span className="flex-1" />
+          )}
+          <span className="ml-1 flex flex-col items-center gap-px">
+            <span
+              className="flex h-[34px] w-[34px] items-center justify-center rounded-full shadow-[0_2px_4px_rgba(43,26,18,0.25)]"
+              style={{ background: violetFor }}
+            >
+              <Pencil className="h-[15px] w-[15px] text-white" />
+            </span>
+            <span className="text-[10px] font-bold" style={{ color: violetFor }}>
+              {(station.traceDone ?? 0) > 0 ? "Continue" : "Start"}
+            </span>
+          </span>
+        </div>
       </div>
-      {/* The pencil, in the app's violet: the one modern mark on a slate,
-          hung on the board's corner as the mockup does. */}
-      <span
-        aria-hidden
-        className="absolute -bottom-1.5 -right-1.5 flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 border-white/50 bg-primary"
-      >
-        <Pencil className="h-3.5 w-3.5 text-white" />
-      </span>
     </div>
   ) : station.story ? (
     // THE STORY PLAQUE (build 17 on mobile, build 18 here). Paper stays; a
@@ -1085,9 +1155,26 @@ function StationCard({
   // child: a child with a negative z-index still paints over its parent's
   // background, and the slab has to sit under the paper.
   const body = (
-    <span className="relative inline-block">
+    <span className={cn("relative inline-block", station.trace && "trace-ticket-wrap w-full max-w-[222px]")}>
       {isCurrent ? <span aria-hidden className="stop-glow rounded-xl" style={{ inset: -6 }} /> : null}
       {card}
+      {/* THE TIP UNDER THE TRACE CARD (mobile build 22, here build 23, the
+          crop): a lavender slip with a dashed edge and a bulb, the one
+          instruction tracing needs. */}
+      {station.trace ? (
+        <span
+          data-testid={`trace-tip-${station.stopNumber}`}
+          className="mt-2 flex w-full items-center gap-2.5 rounded-xl border-[1.5px] border-dashed px-2.5 py-[7px] text-left"
+          style={{ borderColor: "#C9C2F2", background: "#F1EEFA" }}
+        >
+          <span aria-hidden className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-white">
+            <Lightbulb className="h-[18px] w-[18px] text-primary" />
+          </span>
+          <span className="flex-1 text-[11.5px] font-semibold leading-[15px]" style={{ color: TICKET.ink }}>
+            Trace each letter with your finger. Go slow and stay on the lines!
+          </span>
+        </span>
+      ) : null}
     </span>
   );
   // Item 3: journey-map copy carries no em dashes; a colon reads the same and
@@ -3051,6 +3138,7 @@ export default function Journey() {
                         }
                         side={side}
                         polishEnabled={polishEnabled}
+                        languageName={activeLanguage?.name ?? "this language"}
                       />
                       {/* Polish pill: flag-gated secondary CTA below the station
                           card for completed/tested-out stops where not every
