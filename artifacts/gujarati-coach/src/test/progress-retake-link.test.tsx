@@ -57,6 +57,20 @@ vi.mock("@/components/advanced-analytics", () => ({
   AdvancedAnalytics: () => <div data-testid="advanced-analytics" />,
 }));
 
+// BUILD 23: the page was rebuilt to the phone's mockup and now greets the
+// learner by first name (Clerk) and hangs the language picker under the
+// title. Neither is what this file tests, so both are stubbed the way the
+// home tests stub them; the picker keeps its trigger so the door still
+// renders.
+vi.mock("@clerk/react", () => ({
+  useUser: () => ({ isSignedIn: true, user: { firstName: "Test" } }),
+  useClerk: () => ({ signOut: vi.fn() }),
+}));
+
+vi.mock("@/components/language-picker", () => ({
+  LanguagePicker: ({ trigger }: { trigger?: React.ReactNode }) => <>{trigger}</>,
+}));
+
 vi.mock("@/lib/language-context", () => ({
   useLanguage: () => ({
     activeLang: "gu",

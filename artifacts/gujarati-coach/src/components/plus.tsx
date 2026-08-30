@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Crown, Lock, ArrowRight } from "lucide-react";
+import { Crown, Lock, ArrowRight, Ticket } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Shared "All-Access" visual language for the locked-but-visible upgrade
@@ -152,5 +152,85 @@ export function UpgradeScreen({
         </div>
       </div>
     </div>
+  );
+}
+
+/** The All-Access card's paper: warm cream, gold edge, brown ink. The theme's
+ *  slate foreground reads cold on it, as it does on the ticket stock. Mobile
+ *  twin: components/PlusUpsell.tsx ALL_ACCESS; keep the five in step. */
+const ALL_ACCESS = {
+  paper: "#FBF1E3",
+  edge: "#E8CFA3",
+  ink: "#3B2A1E",
+  inkMuted: "#8A6A47",
+  brass: "#9A6B1C",
+} as const;
+
+/** Mobile's gold (constants/colors.ts, light). Web has no gold token. */
+const ALL_ACCESS_GOLD = "#F59E0B";
+
+/**
+ * ONE CARD FOR THE WHOLE UPSELL (build 23, ported from mobile build 22, the
+ * owner's Progress mockup: "Go deeper with All-Access"). A warm paper card
+ * with the three features as two lines, a padlocked ticket, and a gold
+ * "Explore All-Access" button. The whole card is the link and the button is
+ * its affordance, so a learner cannot land between two targets.
+ */
+export function AllAccessCard({
+  href = "/upgrade",
+  className,
+}: {
+  href?: string;
+  className?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-label="Explore All-Access"
+      data-testid="all-access-card"
+      className={cn(
+        "relative flex items-center gap-3.5 rounded-[18px] border-[1.5px] py-4 pl-3 pr-4 transition-transform hover:-translate-y-0.5 active:translate-y-0",
+        className,
+      )}
+      style={{ backgroundColor: ALL_ACCESS.paper, borderColor: ALL_ACCESS.edge }}
+    >
+      <div className="relative flex w-[54px] shrink-0 items-center justify-center">
+        <Ticket
+          className="h-14 w-14 -rotate-[14deg]"
+          strokeWidth={1.5}
+          style={{ color: ALL_ACCESS.brass }}
+        />
+        <span
+          className="absolute flex h-6 w-6 items-center justify-center rounded-full"
+          style={{ backgroundColor: ALL_ACCESS.paper }}
+        >
+          <Lock className="h-[13px] w-[13px]" style={{ color: ALL_ACCESS.brass }} />
+        </span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="mb-1 pr-7 text-base font-extrabold" style={{ color: ALL_ACCESS.ink }}>
+          Go deeper with All-Access
+        </p>
+        <p className="truncate text-xs font-semibold leading-[18px]" style={{ color: ALL_ACCESS.inkMuted }}>
+          Review weak phrases  •  Advanced analytics
+        </p>
+        <p className="truncate text-xs font-semibold leading-[18px]" style={{ color: ALL_ACCESS.inkMuted }}>
+          Exclusive badges and achievements
+        </p>
+        <span
+          className="mt-2.5 inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-extrabold"
+          style={{ backgroundColor: ALL_ACCESS_GOLD, color: "#1a1200" }}
+        >
+          Explore All-Access
+          <ArrowRight className="h-4 w-4" />
+        </span>
+      </div>
+      {/* The padlock sits in the corner rather than in the row, so the two
+          feature lines keep the width they need to stay on one line each. */}
+      <Lock
+        className="absolute right-3.5 top-3.5 h-[22px] w-[22px] opacity-75"
+        style={{ color: ALL_ACCESS.brass }}
+      />
+    </Link>
   );
 }

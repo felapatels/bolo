@@ -55,6 +55,17 @@ export interface JourneyZoneProgress {
   allDone: boolean;
   /** Every graded stop locked: the learner may not enter this zone yet. */
   locked: boolean;
+  /** The zone's topic as the line table titles it ("Greetings & Manners"). */
+  title: string;
+  /**
+   * Phrases mastered and phrases on offer, summed over the zone's graded
+   * stops (mobile build 22, here build 23: the Progress page's journey card
+   * draws a bar per zone). A planLocked stop reports zero phrases, so a free
+   * learner's total is the total their plan can reach, which is the honest
+   * denominator.
+   */
+  masteredCount: number;
+  phraseCount: number;
 }
 
 export interface JourneyProgress {
@@ -118,9 +129,13 @@ export function useJourneyProgress(
       gradedCount: groups.length,
     });
     let zoneDone = 0;
+    let zoneMastered = 0;
+    let zonePhrases = 0;
     let zoneCurrentStopNumber: number | null = null;
     groups.forEach((g, gi) => {
       totalCount += 1;
+      zoneMastered += g.masteredCount ?? 0;
+      zonePhrases += g.phraseCount ?? 0;
       if (g.status === "completed" || g.status === "tested_out") {
         doneCount += 1;
         zoneDone += 1;
@@ -161,6 +176,9 @@ export function useJourneyProgress(
       // count off the graded stations only and treat an empty zone as neither.
       allDone: groups.length > 0 && zoneDone === groups.length,
       locked: groups.length > 0 && groups.every((g) => g.status === "locked"),
+      title: JOURNEY_ZONES[i]?.title ?? "",
+      masteredCount: zoneMastered,
+      phraseCount: zonePhrases,
     });
   });
 
