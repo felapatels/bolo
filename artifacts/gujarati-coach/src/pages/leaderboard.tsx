@@ -72,7 +72,6 @@ import { useLanguage } from "@/lib/language-context";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FunFactSectionLoader } from "@/components/fun-fact-loader";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   BoardScopeToggle,
   PublicNamePrompt,
@@ -434,30 +433,57 @@ export default function Leaderboard() {
 
   return (
     <div className="min-h-[100dvh] bg-background pb-nav lg:pb-12">
-      <header className="relative mx-auto flex w-full max-w-3xl flex-col items-center px-6 pb-4 pt-6 text-center">
-        <Link
-          href="/"
-          className="absolute left-6 top-6 flex h-10 w-10 items-center justify-center rounded-2xl border border-card-border bg-card text-muted-foreground transition-colors hover:text-foreground"
-          aria-label="Back to home"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <Mascot pose="thumbsup" size={96} idle="float" className="mb-2" />
+      {/* THE HEAD, AS ON THE PHONE (2026-08-30, owner: "feed on web is not
+          updated to match mobile styling"; mobile twin: LeaderboardScreen's
+          head). The back button, the words and Bolo at the right giving a
+          thumbs up, on one row; the bubble hangs under the words rather
+          than beside her, because the row is too tight to seat it without
+          squeezing the title. Then the scope, then the XP / Streak pills and
+          the race bar, and only then the Feed / Flex segments: the numbers
+          come before the choice of what to read under them. */}
+      <header className="mx-auto w-full max-w-3xl px-5 pt-4 lg:px-6">
+        <div className="flex items-center gap-3" data-testid="board-head">
+          <Link
+            href="/"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-muted text-foreground transition-colors hover:bg-muted/80"
+            aria-label="Back to home"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[26px] font-extrabold leading-tight text-foreground lg:text-3xl">
+              Leaderboard
+            </h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {scope === "all" ? "Everyone, this week" : "You and your friends, this week"}
+            </p>
+          </div>
+          <Mascot pose="thumbsup" size={72} idle="float" />
+        </div>
         {/* WHAT BOLO SAYS (build 23): the learner's standing in one line, in a
             bubble under the bird with its tail pointing up at her. */}
-        <SpeechBubble tail="up" className="mb-3" testId="board-bubble">
-          {boardBubbleLine(data ? selfRank : null)}
-        </SpeechBubble>
-        <h1 className="mb-1 text-3xl font-extrabold text-foreground lg:text-4xl">
-          Leaderboard
-        </h1>
-        <p className="text-lg font-medium text-muted-foreground">
-          {scope === "all" ? "Everyone, this week" : "You and your friends, this week"}
-        </p>
-        <BoardScopeToggle scope={scope} onChange={setScope} className="mt-3" />
+        <div className="-mt-1.5 mb-3 flex">
+          <SpeechBubble tail="up" testId="board-bubble">
+            {boardBubbleLine(data ? selfRank : null)}
+          </SpeechBubble>
+        </div>
+        <div className="mb-3 flex justify-center">
+          <BoardScopeToggle scope={scope} onChange={setScope} />
+        </div>
+        {/* XP OR STREAK RANKS and the weekly race, above the segments as on
+            the phone, and shown whatever the board's state: the race bar
+            says "you are not on it yet" on its own. */}
+        <div className="mb-3.5 space-y-3" data-testid="board-controls">
+          <MetricToggle metric={metric} onChange={setMetric} />
+          <WeeklyRaceBar
+            rank={data ? selfRank : null}
+            delta={selfIndex >= 0 ? deltas[ranked[selfIndex].userId] : undefined}
+            metricLabel={metric === "xp" ? "XP" : "streak"}
+          />
+        </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl px-6">
+      <main className="mx-auto w-full max-w-3xl px-5 lg:px-6">
         {/* Shown, never blocking: a learner without a username can read the
             global board and simply is not on it. Withholding other people's
             progress until they name themselves would be using the feature as
@@ -465,88 +491,93 @@ export default function Leaderboard() {
         {scope === "all" && nameLoaded && !username && (
           <PublicNamePrompt className="mb-5" />
         )}
-        <Tabs
-          value={activeTab}
-          onValueChange={(v) => setTabValue(v as BoardTabDef["value"])}
-          className="w-full"
+        {/* FEED OR FLEX: two wide segments, the chosen one filled (mobile's
+            Segment). Flex only exists once Bolo is dressed; see the tab model
+            above. Buttons with the tab roles rather than the stock tab strip,
+            so the shape matches the XP / Streak pills above them. */}
+        <div
+          role="tablist"
+          aria-label="Feed or Flex"
+          className="mb-3 flex gap-2"
+          data-testid="board-tabs"
         >
-          <TabsList
-            className="grid h-11 w-full rounded-2xl"
-            style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
-          >
-            {tabs.map((t) => (
-              <TabsTrigger
+          {tabs.map((t) => {
+            const active = t.value === activeTab;
+            return (
+              <button
                 key={t.value}
-                value={t.value}
-                className="gap-1.5 rounded-xl font-bold"
+                type="button"
+                role="tab"
+                aria-selected={active}
+                data-testid={`board-tab-${t.value}`}
+                onClick={() => setTabValue(t.value)}
+                className={cn(
+                  "flex h-11 flex-1 items-center justify-center gap-1.5 rounded-2xl border-[1.5px] px-1.5 text-sm font-bold transition-colors",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-card-border bg-card text-foreground hover:border-primary/40",
+                )}
               >
-                <t.icon className="h-4 w-4" /> {t.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+                <t.icon
+                  className={cn("h-4 w-4", active ? "text-primary-foreground" : "text-muted-foreground")}
+                />
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
 
-          {tabs.map((t) => (
-            <TabsContent key={t.value} value={t.value} className="mt-6">
-              {t.value === "flex" ? (
-                <FlexPanel />
-              ) : isLoading ? (
-                <FunFactSectionLoader />
-              ) : isError ? (
-                <div className="flex flex-col items-center rounded-3xl border border-card-border bg-card px-6 py-8 text-center">
-                  <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
-                    <AlertCircle className="h-7 w-7 text-destructive" />
-                  </div>
-                  <p className="mb-1 text-base font-bold text-foreground">
-                    Bolo couldn't load this 🦜
-                  </p>
-                  <p className="mb-4 text-sm text-muted-foreground">
-                    We couldn't load the leaderboard.
-                  </p>
-                  <Button
-                    variant="outline"
-                    className="rounded-xl"
-                    onClick={() => refetch()}
-                    disabled={isFetching}
-                  >
-                    {isFetching ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Try again"
-                    )}
-                  </Button>
-                </div>
-              ) : entries.length <= 1 ? (
-                <BoardEmpty />
-              ) : (
-                <div className="space-y-3.5">
-                  <MetricToggle metric={metric} onChange={setMetric} />
-                  <WeeklyRaceBar
-                    rank={data ? selfRank : null}
-                    delta={selfIndex >= 0 ? deltas[ranked[selfIndex].userId] : undefined}
-                    metricLabel={metric === "xp" ? "XP" : "streak"}
-                  />
-                  <LeaderboardBoard ranked={ranked} metric={metric} deltas={deltas} scope={scope} />
-                </div>
-              )}
+        <div className="mt-2" data-testid={`board-panel-${activeTab}`}>
+          {activeTab === "flex" ? (
+            <FlexPanel />
+          ) : isLoading ? (
+            <FunFactSectionLoader />
+          ) : isError ? (
+            <div className="flex flex-col items-center rounded-3xl border border-card-border bg-card px-6 py-8 text-center">
+              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
+                <AlertCircle className="h-7 w-7 text-destructive" />
+              </div>
+              <p className="mb-1 text-base font-bold text-foreground">
+                Bolo couldn't load this 🦜
+              </p>
+              <p className="mb-4 text-sm text-muted-foreground">
+                We couldn't load the leaderboard.
+              </p>
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                onClick={() => refetch()}
+                disabled={isFetching}
+              >
+                {isFetching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Try again"
+                )}
+              </Button>
+            </div>
+          ) : entries.length <= 1 ? (
+            <BoardEmpty />
+          ) : (
+            <LeaderboardBoard ranked={ranked} metric={metric} deltas={deltas} scope={scope} />
+          )}
 
-              {/* THE BOARD AND THE FEED SHARE THIS TAB. The feed owns its
-                  query, its loading and its empty state, so the board's states
-                  above say nothing about it and a board that failed still
-                  leaves a working feed. It is below rather than above because
-                  the numbers are what the learner came for and the stories are
-                  what keeps them scrolling. */}
-              {t.value === "feed" && (
-                <section className="mt-8 space-y-3">
-                  <h2 className="flex items-center gap-2 text-lg font-black text-foreground">
-                    Latest
-                    <FeedPulseDot active={feedPulsing} />
-                  </h2>
-                  <FeedList scope={scope} onLatest={setLatestFeedId} />
-                </section>
-              )}
-            </TabsContent>
-          ))}
-        </Tabs>
+          {/* THE BOARD AND THE FEED SHARE THIS TAB. The feed owns its
+              query, its loading and its empty state, so the board's states
+              above say nothing about it and a board that failed still
+              leaves a working feed. It is below rather than above because
+              the numbers are what the learner came for and the stories are
+              what keeps them scrolling. */}
+          {activeTab === "feed" && (
+            <section className="mt-8 space-y-3">
+              <h2 className="flex items-center gap-2 text-lg font-black text-foreground">
+                Latest
+                <FeedPulseDot active={feedPulsing} />
+              </h2>
+              <FeedList scope={scope} onLatest={setLatestFeedId} />
+            </section>
+          )}
+        </div>
 
         {coach.pending && (
           <FeedTabsCoach
