@@ -25,6 +25,7 @@ import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useReducedMotion } from 'react-native-reanimated';
+import { useIsWideScreen } from '@/lib/contentWidth';
 // RESTORED 2026-08-20. This import was ripped out on 2026-08-19 because
 // expo-video was the leading suspect for the launch crash. It was innocent: the
 // cause was react-native-worklets 0.5.1, thirty crashes in thirty launches, and
@@ -82,6 +83,10 @@ async function markSeen(): Promise<void> {
 
 export function BazaarWelcome() {
   const reduceMotion = useReducedMotion();
+  // COVER ON AN IPAD (build 25): the key art is 1200x1616, a hair off the
+  // iPad's 3:4, so cover crops nothing there and the black bars go. A phone
+  // is far taller than the art and keeps contain, letterbox and all.
+  const wide = useIsWideScreen();
   // undefined while the stamp is being read: render nothing rather than a
   // flash of full-screen black before the answer arrives.
   const [open, setOpen] = React.useState<boolean | undefined>(undefined);
@@ -205,7 +210,7 @@ export function BazaarWelcome() {
           testID="bazaar-welcome-still"
           source={WELCOME_STILL}
           style={styles.media}
-          resizeMode="contain"
+          resizeMode={wide ? 'cover' : 'contain'}
         />
       ) : (
         <VideoView
@@ -213,7 +218,7 @@ export function BazaarWelcome() {
           player={player}
           style={styles.media}
           nativeControls={false}
-          contentFit="contain"
+          contentFit={wide ? 'cover' : 'contain'}
         />
       )}
       <View pointerEvents="none" style={styles.hintWrap}>
