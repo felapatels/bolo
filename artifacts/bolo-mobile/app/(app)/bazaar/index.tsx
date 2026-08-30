@@ -42,7 +42,12 @@ export default function BazaarScreen() {
   return (
     <Screen>
       <BazaarWelcome />
-      <BazaarHeader title="Bazaar" subtitle="Spend Chai, upgrade your journey." back={false} onWallet={() => setWalletOpen(true)} />
+      {/* A BACK BUTTON ON THE HUB TOO (build 23, owner off the 1.0.6 build:
+          "Bazaar has no back button so you get stuck on that screen"). The
+          hub sits outside the tabs, so without one there was no way off it
+          but the home indicator. Build 22 hid it on the hub as the top of
+          the bazaar's own stack; the top of a stack still needs a door out. */}
+      <BazaarHeader title="Bazaar" subtitle="Spend Chai, upgrade your journey." onWallet={() => setWalletOpen(true)} />
       <ScrollView contentContainerStyle={styles.street} showsVerticalScrollIndicator={false}>
         <SceneBand stall="tailor" width={bandW} testID="bazaar-hero" />
         <Text style={[styles.ask, { color: colors.primary }]}>Where would you like to go?</Text>

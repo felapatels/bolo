@@ -10,10 +10,17 @@ import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 
 /**
- * THE BAZAAR'S HEADER (build 22, the owner's redesign): a back button on the
- * doors and none on the hub, the place's name with its one-line trade under
- * it, and the Chai pill at the right, which opens the wallet. The balance is
- * the wallet's own query, so every door shows the same number.
+ * THE BAZAAR'S HEADER (build 22, the owner's redesign): a back button, the
+ * place's name with its one-line trade under it, and the Chai pill at the
+ * right, which opens the wallet. The balance is the wallet's own query, so
+ * every door shows the same number.
+ *
+ * THE HUB HAS THE BACK BUTTON TOO SINCE BUILD 23 (owner: "Bazaar has no back
+ * button so you get stuck on that screen"), and back FALLS BACK TO HOME:
+ * a bazaar opened by a deep link, or first thing after a launch, has nothing
+ * behind it, and router.back() on an empty stack is a dev-only warning and a
+ * learner still stuck. Every screen outside the tabs needs a way back or the
+ * tab bar; this one is the way back.
  */
 export function BazaarHeader({
   title,
@@ -41,7 +48,8 @@ export function BazaarHeader({
           accessibilityLabel="Go back"
           onPress={() => {
             hapticLight();
-            router.back();
+            if (router.canGoBack()) router.back();
+            else router.replace('/(app)/(tabs)');
           }}
           style={[styles.backBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
         >

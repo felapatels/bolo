@@ -26,6 +26,7 @@ import {
 import { ChaiGlyph } from '@/components/ChaiStall';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import { PressableScale } from '@/components/PressableScale';
+import { AllAccessUpgradeCard } from '@/components/PlusUpsell';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { repairErrorMessage } from '@/lib/chai-errors';
 import { useColors } from '@/hooks/useColors';
@@ -209,30 +210,17 @@ export function Upgrades() {
   const router = useRouter();
   const { isPlus, isLoading } = useEntitlements();
   if (isLoading || isPlus) return null;
+  // ONE CARD, drawn by PlusUpsell since build 23: the home shows this same
+  // card now, and a second copy of it here is how the two drifted apart in
+  // the first place (owner: "not the same as the new ones we created").
   return (
-    <PressableScale
-      accessibilityRole="button"
-      accessibilityLabel="Explore All-Access"
-      accessibilityHint="Opens the Bolo! All-Access upgrade screen"
+    <AllAccessUpgradeCard
       onPress={() => {
         hapticLight();
         router.push('/(app)/paywall');
       }}
-      style={[styles.upgrade, { backgroundColor: STAMP.paper, borderColor: STAMP.edge }]}
       testID="ticket-upgrade"
-    >
-      <View style={[styles.upgradePicture, { backgroundColor: 'rgba(232,185,60,0.22)' }]}>
-        <MaterialCommunityIcons name="sofa-single" size={34} color="#92650A" />
-      </View>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={[styles.title, { color: STAMP.ink }]}>All-Access</Text>
-        <Text style={[styles.line, { color: STAMP.inkMuted }]}>Every language, the full phrase library and every game.</Text>
-      </View>
-      <View style={[styles.exploreBtn, { backgroundColor: colors.gold }]}>
-        <Text style={styles.exploreText}>Explore</Text>
-        <Feather name="arrow-right" size={14} color="#1a1200" />
-      </View>
-    </PressableScale>
+    />
   );
 }
 
@@ -276,15 +264,4 @@ const styles = StyleSheet.create({
   },
   priceText: { fontFamily: AppFonts.extrabold, fontSize: 15 },
   pressed: { opacity: 0.6 },
-  upgrade: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    padding: 12,
-  },
-  upgradePicture: { width: 64, height: 64, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  exploreBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
-  exploreText: { fontFamily: AppFonts.extrabold, fontSize: 13, color: '#1a1200' },
 });

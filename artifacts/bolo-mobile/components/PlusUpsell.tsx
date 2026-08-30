@@ -108,36 +108,73 @@ export function LockedPhrasesCard({
   );
 }
 
+/** The upgrade card's paper: the Ticket Counter's own stamp stock, so the
+ *  card reads as one of the bazaar's tickets wherever it is met. Mobile twin
+ *  of the same five in components/bazaar/PassCards.tsx (STAMP). */
+const UPGRADE_PAPER = {
+  paper: '#FBF3E6',
+  edge: '#DCCBAF',
+  ink: '#3B2A1E',
+  inkMuted: '#7A6551',
+  picture: 'rgba(232,185,60,0.22)',
+  brass: '#92650A',
+} as const;
+
 /**
- * Prominent upgrade banner shown to learners who aren't yet all-access. Its copy
- * adapts to the plan: Free learners are nudged toward the plans generally, while
- * a One-Language subscriber is nudged specifically toward all-access.
+ * THE ALL-ACCESS UPGRADE CARD, ONE OF IT (build 23, owner off the 1.0.6
+ * build: "This go all access button is not the same as the new ones we
+ * created. Fix it on the home screen"). The Ticket Counter drew it first in
+ * build 22 (an armchair in a beige tile, "All-Access", its one line, a gold
+ * Explore pill on cream paper) while the home kept the navy "Go All-Access"
+ * banner with a gold star from before. Same card now, from one definition:
+ * the Ticket Counter's Upgrades renders this, and so does the home.
  */
-export function UpgradeBanner({ onPress }: { onPress: () => void }) {
+export function AllAccessUpgradeCard({
+  onPress,
+  style,
+  testID,
+}: {
+  onPress: () => void;
+  style?: ViewStyle;
+  testID?: string;
+}) {
   const colors = useColors();
-  const { isOneLanguage } = useEntitlements();
   return (
     <PressableScale
-      onPress={onPress}
       accessibilityRole="button"
-      style={[styles.banner, { backgroundColor: colors.foreground }]}
+      accessibilityLabel="Explore All-Access"
+      accessibilityHint="Opens the Bolo! All-Access upgrade screen"
+      onPress={onPress}
+      style={[styles.upgrade, { backgroundColor: UPGRADE_PAPER.paper, borderColor: UPGRADE_PAPER.edge }, ...(style ? [style] : [])]}
+      testID={testID}
     >
-      <View style={[styles.bannerIcon, { backgroundColor: colors.gold }]}>
-        <Feather name="star" size={20} color="#1a1200" />
+      <View style={[styles.upgradePicture, { backgroundColor: UPGRADE_PAPER.picture }]}>
+        <MaterialCommunityIcons name="sofa-single" size={34} color={UPGRADE_PAPER.brass} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.bannerTitle, { color: colors.background }]}>
-          Go All-Access
-        </Text>
-        <Text style={[styles.bannerSub, { color: colors.background }]}>
-          {isOneLanguage
-            ? 'Every language, review & analytics.'
-            : 'Every language, the full phrase library & every game.'}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[styles.upgradeTitle, { color: UPGRADE_PAPER.ink }]}>All-Access</Text>
+        <Text style={[styles.upgradeLine, { color: UPGRADE_PAPER.inkMuted }]}>
+          Every language, the full phrase library and every game.
         </Text>
       </View>
-      <Feather name="chevron-right" size={22} color={colors.background} />
+      <View style={[styles.exploreBtn, { backgroundColor: colors.gold }]}>
+        <Text style={styles.exploreText}>Explore</Text>
+        <Feather name="arrow-right" size={14} color="#1a1200" />
+      </View>
     </PressableScale>
   );
+}
+
+/**
+ * The home's upgrade card for learners who are not yet All-Access. It was a
+ * navy banner ("Go All-Access", a gold star, a chevron) with plan-aware copy
+ * until build 23; it is the Ticket Counter's card now, see
+ * AllAccessUpgradeCard. The One-Language line went with it: that tier is
+ * dead (CLAUDE.md), and a card that reads differently for a plan nobody is
+ * on is a branch nobody can see.
+ */
+export function UpgradeBanner({ onPress }: { onPress: () => void }) {
+  return <AllAccessUpgradeCard onPress={onPress} style={styles.homeUpgrade} testID="home-upgrade" />;
 }
 
 /** The All-Access card's paper: warm cream, gold edge, brown ink. The theme's
@@ -278,21 +315,21 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardTitle: { fontFamily: AppFonts.bold, fontSize: 16, flexShrink: 1 },
   cardDesc: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 2 },
-  banner: {
+  // The Ticket Counter's upgrade card, exactly (PassCards.tsx held these
+  // until build 23): cream paper, a 64pt picture tile, the gold Explore pill.
+  upgrade: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    padding: 16,
-    borderRadius: 22,
-    marginBottom: 18,
+    gap: 12,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 12,
   },
-  bannerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bannerTitle: { fontFamily: AppFonts.extrabold, fontSize: 18 },
-  bannerSub: { fontFamily: AppFonts.regular, fontSize: 13, marginTop: 1, opacity: 0.85 },
+  upgradePicture: { width: 64, height: 64, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  upgradeTitle: { fontFamily: AppFonts.extrabold, fontSize: 14, lineHeight: 18 },
+  upgradeLine: { fontFamily: AppFonts.regular, fontSize: 11.5, lineHeight: 15 },
+  exploreBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  exploreText: { fontFamily: AppFonts.extrabold, fontSize: 13, color: '#1a1200' },
+  // The home keeps the banner's old spacing below it.
+  homeUpgrade: { marginBottom: 18 },
 });

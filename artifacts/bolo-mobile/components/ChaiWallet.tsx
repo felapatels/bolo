@@ -904,12 +904,23 @@ export function ChaiWalletSheet({
   // mounts a ChaiPill mounts this sheet with it, and a test rendering one
   // screen has no SafeAreaProvider.
   const insets = useSafeInsets();
-  const { width } = useWindowDimensions();
+  const { width, height: windowH } = useWindowDimensions();
   const headerPadTop = Platform.OS === 'web' ? 67 : insets.top;
   const tokensQuery = useGetTokens();
   const tokens = tokensQuery.data;
   const packsSellable = useChaiPacksSellable();
   const sceneH = HEADER_ART_HEIGHT + 96 + headerPadTop;
+  // THE BODY'S HEIGHT IS A NUMBER, NOT A HOPE (build 23, owner off the 1.0.6
+  // build: "the bottom of chai wallet should show the chai packages but the
+  // bottom is cut off and not scrollable"). The sheet is capped at 80% of
+  // the screen and the scroller had flexShrink to give way to the fixed
+  // header, but Yoga sizes a ScrollView inside a content-sized parent to
+  // its whole content first and applies the cap to the PARENT, which then
+  // clips: the scroller believed it had all the room it needed and never
+  // scrolled. A bound of its own, the cap minus the header, is what makes
+  // it a scroller. Sized once here so the sheet still shrinks to fit a
+  // short body.
+  const bodyMaxH = Math.max(160, Math.floor(windowH * 0.8) - sceneH);
   return (
     <Modal
       visible={visible}
@@ -977,7 +988,12 @@ export function ChaiWalletSheet({
               </View>
             </View>
           </View>
-          <ScrollView style={styles.bodyScroll} contentContainerStyle={styles.body}>
+          <ScrollView
+            style={[styles.bodyScroll, { maxHeight: bodyMaxH }]}
+            contentContainerStyle={[styles.body, { paddingBottom: 34 + insets.bottom }]}
+            showsVerticalScrollIndicator={false}
+            testID="wallet-body"
+          >
             <WalletHistory />
             {/* THE WALLET IS A BALANCE AND A DOOR. Every sink it used to sell
                 is stocked in the bazaar, behind its four doors since build 22;
@@ -1046,7 +1062,8 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
   },
   // The scroller inside that bound. flexShrink lets it give way to the fixed
-  // header instead of overflowing the sheet.
+  // header; its own maxHeight (set in render, from the window) is what makes
+  // it scroll at all. See bodyMaxH.
   bodyScroll: {
     flexShrink: 1,
   },
