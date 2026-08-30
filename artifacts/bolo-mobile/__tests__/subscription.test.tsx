@@ -374,3 +374,33 @@ describe('SubscriptionScreen', () => {
     expect(mockQueryClient.invalidateQueries).toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// The Family row, build 25. Web withdrew the tier from sale on 2026-08-24 and
+// mobile kept offering it to every Free account (the owner saw it on the
+// iPad). The row is an upsell for nobody now, and a plan for those on one.
+// ---------------------------------------------------------------------------
+describe('SubscriptionScreen — the Family row while Family is off sale', () => {
+  afterEach(() => {
+    mockState.family = undefined;
+  });
+
+  it('shows no Family upsell to an account that is not on a plan', () => {
+    mockState.sub = successQuery(detailsFixture({ tier: 'free', status: 'none' }));
+    mockState.family = successQuery({ role: 'none' });
+    render(<SubscriptionScreen />);
+    expect(screen.queryByText('Bolo! Family')).toBeNull();
+    expect(screen.queryByLabelText('Family plan')).toBeNull();
+  });
+
+  it('keeps the row for an account already on a family plan', () => {
+    mockState.sub = successQuery(detailsFixture());
+    mockState.family = successQuery({
+      role: 'owner',
+      capacity: 4,
+      seats: [{ status: 'active' }],
+    });
+    render(<SubscriptionScreen />);
+    expect(screen.getByText('Your family plan')).toBeOnTheScreen();
+  });
+});

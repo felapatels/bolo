@@ -9,6 +9,8 @@ import {
   Text,
   View,
 } from 'react-native';
+import { FAMILY_PLAN_ENABLED } from '@/lib/entitlements';
+import { CONTENT_MAX_W } from '@/lib/contentWidth';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -656,6 +658,9 @@ function FamilySection({ onOpen }: { onOpen: () => void }) {
   const family = useGetFamily();
   const data = family.data;
   if (!data) return null;
+  // No upsell while the tier is off sale (see FAMILY_PLAN_ENABLED); accounts
+  // already on a plan keep their row.
+  if (!FAMILY_PLAN_ENABLED && data.role !== 'owner' && data.role !== 'member') return null;
 
   let title = 'Bolo! Family';
   let subtitle = 'All-Access for up to 4 people — or join with a code.';
@@ -1150,6 +1155,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
+    // Capped to the content column on an iPad; the full width on a phone (build 25).
+    width: '100%',
+    maxWidth: CONTENT_MAX_W,
+    alignSelf: 'center',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderWidth: 1,

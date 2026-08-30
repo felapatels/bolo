@@ -44,3 +44,16 @@ export function paywallHrefForDenial(
     ? { pathname: '/(app)/paywall', params }
     : { pathname: '/(app)/paywall' };
 }
+
+/**
+ * FAMILY IS WITHDRAWN FROM SALE, mobile's copy of the web flag (build 25,
+ * 2026-08-30). Web turned the sale off on 2026-08-24
+ * (gujarati-coach/src/lib/pricing.ts, FAMILY_PLAN_ENABLED) because neither
+ * store sells or honours the tier; mobile never got the flag, so the
+ * Subscription screen kept offering "All-Access for up to 4 people" to every
+ * Free account, and the owner saw it on the iPad. Same rule as web: it hides
+ * the SALE, not the plan. An account already in a family (owner or member)
+ * keeps its row, its seats and its invites, and joining by code still works
+ * for the people invited to one. Flip both flags together.
+ */
+export const FAMILY_PLAN_ENABLED = false;
