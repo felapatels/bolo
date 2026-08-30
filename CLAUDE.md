@@ -365,8 +365,10 @@ it to one step on 2026-08-24 and again on 2026-08-29 (build 20).
   for that train too, so this blocks internal testing, not just release.** The
   version is a compile-time value, so a rejected binary cannot be resubmitted, it
   has to be rebuilt. **`1.0.5` (523) went into App Store review on 2026-08-29,
-  and on the owner's ruling the next build is `1.0.6`: `app.json` is already
-  bumped.** (1.0.4 was approved and released on 2026-08-28.) This line has been
+  and `1.0.6` (iOS 525, Android 526) was built HEALTHY and submitted on
+  2026-08-30: iOS to App Store Connect (TestFlight, then the owner's App
+  Store submission), Android to the Play internal track. `app.json` carries
+  525 / 526; the next version number is the owner's ruling.** (1.0.4 was approved and released on 2026-08-28.) This line has been
   stale before: it said `1.0.1` while 1.0.2, 1.0.3 and 1.0.4 shipped, so check
   `app.json` rather than trusting it.
 

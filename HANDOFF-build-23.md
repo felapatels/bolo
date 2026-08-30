@@ -105,10 +105,10 @@ and `useFocusEffect` mocked, three build 21 additions.
    `8eefa37f-a38b-4f36-bd88-0b994033d48c`), processing for TestFlight at
    handoff; 1.0.0 is closed, so 1.0.6 needs its own App Store submission
    from the owner once TestFlight has it. Android `1.0.6 (526)`
-   `1cb4711c-ce13-4581-8f3c-69a7c1f577fc`: FINISHED, and `eas submit
-   --platform android --latest` was submitting to the Play internal track
-   at handoff (submission `d7484321-2397-41f1-9bc0-94ce69cb254b`); the Play
-   listing's icon is a hand upload if it is ever missing (memory). **Check both on expo.dev / App Store Connect / Play before
+   `1cb4711c-ce13-4581-8f3c-69a7c1f577fc`: FINISHED and **submitted to
+   Google Play** (internal track, submission
+   `d7484321-2397-41f1-9bc0-94ce69cb254b`, "All done!"); the Play listing's
+   icon is a hand upload if it is ever missing (memory). **Check both on expo.dev / App Store Connect / Play before
    trusting this line**; "already submitted" from eas means it is on Play.
    `app.json` carries the write-back (525 / 526), committed and pushed.
 2. **THE REPL IS ON `811d982e`** and its api suite ran there: **1451 tests,
