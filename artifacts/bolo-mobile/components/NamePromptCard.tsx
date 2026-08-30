@@ -262,7 +262,8 @@ export function NamePromptCard() {
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(17, 12, 8, 0.55)' },
   top: { flex: 1, justifyContent: 'flex-start', paddingHorizontal: 20 },
-  cardWrap: { width: '100%' },
+  // maxWidth: a card in a lightbox, not a banner, on an iPad (build 25).
+  cardWrap: { width: '100%', maxWidth: 420, alignSelf: 'center' },
   card: {
     borderWidth: 1,
     borderRadius: 16,

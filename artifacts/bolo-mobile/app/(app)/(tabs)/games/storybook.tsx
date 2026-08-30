@@ -40,9 +40,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+  View } from 'react-native';
+import { CONTENT_COLUMN, useContentWidth } from '@/lib/contentWidth';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -113,7 +112,7 @@ export default function StorybookScreen() {
   const colors = useColors();
   const router = useRouter();
   const { activeLang, activeLanguage } = useLanguage();
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   // THE GAMES STACK HAS NO HEADER, so nothing reserves the notch and the back
   // button landed under the status bar: present, painted, and not tappable.
   // Reported on device, and "I can't click it" is the worst kind of bug to
@@ -338,7 +337,7 @@ export default function StorybookScreen() {
   return (
     <ScrollView
       style={[s.root, { backgroundColor: colors.background }]}
-      contentContainerStyle={[s.pad, { paddingTop: insets.top + 12 }]}
+      contentContainerStyle={[s.pad, CONTENT_COLUMN, { paddingTop: insets.top + 12 }]}
       testID="storybook-screen"
     >
       {/* BACK, and every screen in the games stack has to supply its own: the

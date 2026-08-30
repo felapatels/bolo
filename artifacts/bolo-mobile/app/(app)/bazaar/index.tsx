@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useContentWidth } from '@/lib/contentWidth';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
@@ -32,7 +33,7 @@ const OFFICE_ART = require('@/assets/games/script-trace.png') as number;
 export default function BazaarScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const [walletOpen, setWalletOpen] = React.useState(false);
   const bandW = Math.max(1, width - 40);
   const go = (path: string) => {

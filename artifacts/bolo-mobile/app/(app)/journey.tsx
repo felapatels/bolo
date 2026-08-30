@@ -29,6 +29,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { useContentWidth } from '@/lib/contentWidth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StopDots } from '@/components/journey/StopDots';
@@ -1189,7 +1190,10 @@ function EmergencySoftStop({
 export default function JourneyScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { width: windowW, height: windowH } = useWindowDimensions();
+  const { height: windowH } = useWindowDimensions();
+  // THE MAP COLUMN IS THE CONTENT COLUMN (build 25): the zone tiles bleed to
+  // its edge rather than the window's, so an iPad gets a 600 band, not 1032.
+  const windowW = useContentWidth();
   // The main render opts out of Screen's top padding (padTop={false}) so the
   // header hugs the top edge, which shoved it under the status bar/notch on
   // native. Pad the header itself with the same inset Screen would apply

@@ -18,9 +18,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+  View } from 'react-native';
+import { useContentWidth } from '@/lib/contentWidth';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
@@ -84,7 +83,7 @@ export function zoneDotsDone(z: JourneyZoneProgress): number {
 export default function JourneyMapScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const { activeLang, activeLanguage } = useLanguage();
   const line = getJourneyLine(activeLang);
   const progress = useJourneyProgress(activeLang, line.zones);

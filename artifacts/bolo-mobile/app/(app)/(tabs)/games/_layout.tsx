@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeInsets } from '@/lib/useSafeInsets';
 import { SessionStats } from '@/components/SessionStats';
 import { useColors } from '@/hooks/useColors';
+import { CONTENT_COLUMN } from '@/lib/contentWidth';
 
 /**
  * Nested stack inside the Games tab.
@@ -30,7 +31,12 @@ export default function GamesLayout() {
   const onHub = segments[segments.length - 1] === 'games';
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: onHub ? 0 : insets.top }}>
-      {!onHub && <SessionStats testID="games-session-stats" />}
+      {/* The strip lives on the content column, not the window (build 25). */}
+      {!onHub && (
+        <View style={styles.column}>
+          <SessionStats testID="games-session-stats" />
+        </View>
+      )}
       <Stack
         screenOptions={{
           headerShown: false,
@@ -50,7 +56,7 @@ export default function GamesLayout() {
             locations={[0, 0.6, 1]}
             style={[StyleSheet.absoluteFill, { height: insets.top + 64 }]}
           />
-          <View style={{ paddingTop: insets.top }}>
+          <View style={[styles.column, { paddingTop: insets.top }]}>
             <SessionStats testID="games-session-stats" floating />
           </View>
         </View>
@@ -58,3 +64,8 @@ export default function GamesLayout() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  // The veil above stays full-bleed; the numbers sit where the cards do.
+  column: CONTENT_COLUMN,
+});

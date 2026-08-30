@@ -26,6 +26,7 @@
 // launch path: nothing decodes until a learner is standing on stop 9.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CONTENT_COLUMN } from '@/lib/contentWidth';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -222,7 +223,7 @@ export default function EmergencyScreen() {
     <View style={[s.root, { backgroundColor: colors.background }]}>
       {phase === 'picker' && (
         <ScrollView
-          contentContainerStyle={[s.pad, { paddingTop: insets.top + 12 }]}
+          contentContainerStyle={[s.pad, CONTENT_COLUMN, { paddingTop: insets.top + 12 }]}
           testID="emergency-picker"
         >
       {/* BACK, and every screen in the games stack has to supply its own: the
@@ -290,7 +291,7 @@ export default function EmergencyScreen() {
       )}
 
       {phase === 'game' && (
-        <ScrollView contentContainerStyle={s.pad} testID="emergency-game">
+        <ScrollView contentContainerStyle={[s.pad, CONTENT_COLUMN]} testID="emergency-game">
           <View style={s.row}>
             <Text style={[s.label, { color: colors.mutedForeground }]}>
               {EMERGENCY_COPY.running.toUpperCase()}
@@ -363,7 +364,7 @@ export default function EmergencyScreen() {
       )}
 
       {phase === 'end' && (
-        <ScrollView contentContainerStyle={s.padCenter} testID="emergency-end">
+        <ScrollView contentContainerStyle={[s.padCenter, CONTENT_COLUMN]} testID="emergency-end">
           <Text style={[s.h1, { color: colors.foreground }]}>
             {drill.status === 'won' ? EMERGENCY_COPY.won.title : EMERGENCY_COPY.lost.title}
           </Text>

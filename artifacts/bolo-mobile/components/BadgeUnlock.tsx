@@ -154,6 +154,8 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
+    maxWidth: 420, // a card, not a banner, on an iPad (build 25)
+    alignSelf: 'center',
     alignItems: 'center',
     borderRadius: 28,
     borderWidth: 1,

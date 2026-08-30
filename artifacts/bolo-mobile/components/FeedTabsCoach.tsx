@@ -32,6 +32,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
+import { useContentInset } from '@/lib/contentWidth';
 import { AppFonts } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 
@@ -111,6 +112,7 @@ export function FeedTabsCoach({
 }) {
   const colors = useColors();
   const { height: windowH } = useWindowDimensions();
+  const contentInset = useContentInset();
   const [i, setI] = React.useState(0);
   const step = steps[i];
 
@@ -186,8 +188,12 @@ export function FeedTabsCoach({
               backgroundColor: colors.card,
               borderColor: colors.border,
               position: 'absolute',
-              left: 20,
-              right: 20,
+              // The card spans the column, not the window (build 25): on an
+              // iPad it ran a thousand points wide under a 140pt strip. The
+              // caret keeps window coordinates, because the anchor is measured
+              // in them.
+              left: 20 + contentInset,
+              right: 20 + contentInset,
               ...(placeBelow
                 ? { top: belowY }
                 : { bottom: windowH - anchor.y + gap }),

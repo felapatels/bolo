@@ -21,7 +21,8 @@
 // All idle keyframes start and end at identity, so the reduced-motion frame
 // is a clean parked ticket.
 import React from 'react';
-import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import { useContentWidth } from '@/lib/contentWidth';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -218,7 +219,7 @@ export function JourneyPassCard({
   // the board's own geometry. The window minus home's padding is the answer on
   // the first frame; onLayout confirms it and is authoritative after that, so
   // the board never has to render at a guessed width for more than one pass.
-  const { width: windowW } = useWindowDimensions();
+  const windowW = useContentWidth() /* the column, not the window: build 25 */;
   const [passW, setPassW] = React.useState(0);
   // The station name's own column, measured. Derived width would have to know
   // the ticket, the gap and both content insets, and it is the one number the

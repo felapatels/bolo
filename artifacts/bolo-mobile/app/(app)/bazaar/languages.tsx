@@ -1,5 +1,6 @@
 import React from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useContentWidth } from '@/lib/contentWidth';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
@@ -31,7 +32,7 @@ const OFFICE_ART = require('@/assets/games/script-trace.png') as number;
 export default function LanguageOfficeScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const { languages, activeLang, activeLanguage } = useLanguage();
   const { isPlus, isOneLanguage } = useEntitlements();
   const line = getJourneyLine(activeLang);

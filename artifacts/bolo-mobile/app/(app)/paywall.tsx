@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { CONTENT_MAX_W } from '@/lib/contentWidth';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -1231,6 +1232,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
+    // Capped to the content column on an iPad; the full width on a phone (build 25).
+    width: '100%',
+    maxWidth: CONTENT_MAX_W,
+    alignSelf: 'center',
     maxHeight: '80%',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,

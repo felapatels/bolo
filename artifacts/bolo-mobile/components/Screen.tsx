@@ -1,21 +1,33 @@
 import React from 'react';
-import { Platform, View, type ViewStyle } from 'react-native';
+import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
+import { CONTENT_COLUMN } from '@/lib/contentWidth';
 
 /**
  * Full-bleed screen container with the brand background and top safe-area
  * padding. On web (preview iframe) the proxied insets report 0, so we apply
  * the fixed 67px offset the scaffold recommends.
+ *
+ * THE CONTENT COLUMN (build 25, the iPad ruling). The background is the
+ * screen; the children are a centred column no wider than CONTENT_MAX_W. On
+ * every phone the column is the full width and this is a no-op, which is why
+ * it lives here rather than in fifty screens: one wrapper turns every phone
+ * column into an iPad column. Absolute children (confetti, toasts, the home
+ * bottom fade) now position against the column, which is where they belong.
+ * `column={false}` is for a screen that draws its own full-bleed art and
+ * wants the whole window, and then owes its own column (lib/contentWidth).
  */
 export function Screen({
   children,
   style,
   padTop = true,
+  column = true,
 }: {
   children: React.ReactNode;
   style?: ViewStyle;
   padTop?: boolean;
+  column?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const colors = useColors();
@@ -32,10 +44,14 @@ export function Screen({
         style,
       ]}
     >
-      {children}
+      {column ? <View style={styles.column}>{children}</View> : children}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  column: { flex: 1, ...CONTENT_COLUMN },
+});
 
 /**
  * Bottom padding that clears the floating pill tab bar in scroll views.

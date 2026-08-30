@@ -38,6 +38,7 @@ import { hapticLight } from '@/lib/haptics';
 import { ChatRecordingProvider, useChatRecording } from '@/components/ChatRecordingContext';
 import { accessoryOverlaySource, mascotSource } from '@/lib/mascotOutfits';
 import { useEquippedOutfit } from '@/contexts/OutfitContext';
+import { useContentInset } from '@/lib/contentWidth';
 
 // ---------------------------------------------------------------------------
 // Mascot pose assets + type
@@ -749,6 +750,11 @@ const styles = StyleSheet.create({
 export default function TabsLayout() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  // THE PILL SITS ON THE COLUMN, NOT THE WINDOW (build 25, the iPad ruling).
+  // Pinned 14 from each window edge, the bar ran a thousand points wide on a
+  // 13-inch iPad with five words lost in the middle of it. Zero on a phone,
+  // so the bar is untouched there. See lib/contentWidth.
+  const contentInset = useContentInset();
 
   return (
     <ChatRecordingProvider>
@@ -765,8 +771,8 @@ export default function TabsLayout() {
         // shadow; sits above the home indicator via the safe-area inset.
         tabBarStyle: {
           position: 'absolute',
-          left: 14,
-          right: 14,
+          left: 14 + contentInset,
+          right: 14 + contentInset,
           bottom: Math.max(insets.bottom, 14),
           borderRadius: 32,
           height: 74,

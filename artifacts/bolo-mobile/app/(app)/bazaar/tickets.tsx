@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { useContentWidth } from '@/lib/contentWidth';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { BazaarHeader } from '@/components/bazaar/BazaarHeader';
 import { SceneBand } from '@/components/bazaar/SceneBand';
@@ -21,7 +22,7 @@ import { AppFonts } from '@/constants/fonts';
  */
 export default function TicketCounterScreen() {
   const colors = useColors();
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const { isPlus, isLoading } = useEntitlements();
   const [walletOpen, setWalletOpen] = React.useState(false);
   const [notice, setNotice] = React.useState('');

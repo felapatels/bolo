@@ -17,6 +17,8 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { CONTENT_MAX_W } from '@/lib/contentWidth';
+import { useContentWidth } from '@/lib/contentWidth';
 import { useSafeInsets } from '@/lib/useSafeInsets';
 import { useRouter } from 'expo-router';
 import { ChaiGlyph } from '@/components/ChaiStall';
@@ -904,7 +906,9 @@ export function ChaiWalletSheet({
   // mounts a ChaiPill mounts this sheet with it, and a test rendering one
   // screen has no SafeAreaProvider.
   const insets = useSafeInsets();
-  const { width, height: windowH } = useWindowDimensions();
+  const { height: windowH } = useWindowDimensions();
+  // The sheet is column content on an iPad (build 25); its height is still the window's.
+  const width = useContentWidth();
   const headerPadTop = Platform.OS === 'web' ? 67 : insets.top;
   const tokensQuery = useGetTokens();
   const tokens = tokensQuery.data;
@@ -1072,6 +1076,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
+    // Capped to the content column on an iPad; the full width on a phone (build 25).
+    width: '100%',
+    maxWidth: CONTENT_MAX_W,
+    alignSelf: 'center',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,

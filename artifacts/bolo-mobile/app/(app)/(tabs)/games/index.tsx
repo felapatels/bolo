@@ -34,9 +34,8 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
-  type ViewToken,
-} from 'react-native';
+  type ViewToken } from 'react-native';
+import { useContentWidth } from '@/lib/contentWidth';
 import { Feather } from '@expo/vector-icons';
 import Animated, {
   useAnimatedStyle,
@@ -406,7 +405,7 @@ export default function GamesScreen() {
   const skipEnter = useAppearSkip();
   const reduceMotion = useReducedMotion();
   const router = useRouter();
-  const { width: windowW } = useWindowDimensions();
+  const windowW = useContentWidth() /* the column, not the window: build 25 */;
   // The hero runs under the status bar and the floating XP and Chai strip
   // (build 21): its height carries the inset, and its words start below the
   // strip.

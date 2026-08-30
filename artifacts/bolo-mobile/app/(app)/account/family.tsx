@@ -1031,6 +1031,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   modalCard: {
+    // Capped to the content column on an iPad; the full width on a phone (build 25).
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
     borderRadius: 24,
     borderWidth: 1,
     padding: 22,

@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { CONTENT_MAX_W } from '@/lib/contentWidth';
 import { Feather } from '@expo/vector-icons';
 import { ChaiGlyph } from '@/components/ChaiStall';
 import * as Haptics from 'expo-haptics';
@@ -3377,6 +3378,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
+    // Capped to the content column on an iPad; the full width on a phone (build 25).
+    width: '100%',
+    maxWidth: CONTENT_MAX_W,
+    alignSelf: 'center',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,

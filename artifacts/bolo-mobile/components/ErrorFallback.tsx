@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { CONTENT_MAX_W } from '@/lib/contentWidth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
@@ -231,6 +232,8 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: '100%',
+    maxWidth: CONTENT_MAX_W, // the column on an iPad (build 25)
+    alignSelf: 'center',
     height: '90%',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

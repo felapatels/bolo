@@ -11,6 +11,7 @@
 // otherwise is a worse shop.
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { CONTENT_MAX_W } from '@/lib/contentWidth';
 import { Feather } from '@expo/vector-icons';
 import { AppFonts } from '@/constants/fonts';
 import { useColors } from '@/hooks/useColors';
@@ -85,6 +86,10 @@ export function ChaiShortfallSheet({
 const styles = StyleSheet.create({
   scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   sheet: {
+    // Capped to the content column on an iPad; the full width on a phone (build 25).
+    width: '100%',
+    maxWidth: CONTENT_MAX_W,
+    alignSelf: 'center',
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingHorizontal: 18,

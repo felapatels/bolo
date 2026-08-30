@@ -167,6 +167,10 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   sheet: {
+    // Capped to the content column on an iPad; the full width on a phone (build 25).
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
     borderRadius: 22,
     borderWidth: 1,
     padding: 18,

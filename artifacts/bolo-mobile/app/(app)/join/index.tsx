@@ -28,6 +28,7 @@
 // is native configuration and a separate piece of work.
 import { useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { CONTENT_COLUMN } from '@/lib/contentWidth';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRedeemReferral, ApiError } from '@workspace/api-client-react';
 import { REFERRAL_REWARD_CHAI, normalizeReferralCode } from '@workspace/referral-link';
@@ -102,7 +103,7 @@ export default function JoinScreen() {
   return (
     <ScrollView
       style={[s.root, { backgroundColor: colors.background }]}
-      contentContainerStyle={s.pad}
+      contentContainerStyle={[s.pad, CONTENT_COLUMN]}
       testID="join-screen"
     >
       <Text style={[s.h1, { color: colors.foreground }]}>Got a code?</Text>

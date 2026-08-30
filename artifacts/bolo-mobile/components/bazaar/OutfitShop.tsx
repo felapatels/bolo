@@ -7,9 +7,8 @@ import {
   Share,
   StyleSheet,
   Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+  View } from 'react-native';
+import { useContentWidth } from '@/lib/contentWidth';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -115,7 +114,7 @@ const DOORS: Record<ShopDoor, { title: string; subtitle: string; stall: 'tailor'
 export function OutfitShop({ door }: { door: ShopDoor }) {
   const colors = useColors();
   const queryClient = useQueryClient();
-  const { width: windowW } = useWindowDimensions();
+  const windowW = useContentWidth();
   const sceneW = Math.max(1, windowW - 40);
   const sceneH = Math.round(sceneW * 0.86);
   const outfitsQuery = useGetOutfits();
@@ -540,7 +539,8 @@ function RailCard({
 
 const styles = StyleSheet.create({
   confirmScrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
-  confirmCard: { width: '100%', borderRadius: 22, borderWidth: 1.5, padding: 20, gap: 10 },
+  // maxWidth: a dialog, not a banner, on an iPad (build 25); the phone fills it anyway.
+  confirmCard: { width: '100%', maxWidth: 420, alignSelf: 'center', borderRadius: 22, borderWidth: 1.5, padding: 20, gap: 10 },
   confirmTitle: { fontSize: 18, fontFamily: AppFonts.extrabold },
   confirmBody: { fontSize: 14, fontFamily: AppFonts.regular, lineHeight: 20 },
   confirmRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
