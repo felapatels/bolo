@@ -33,6 +33,11 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // THE FLASHBACK'S DOOR (build 23): a finished journey stop asks for the
+  // three due phrases before it opens the lightbox. This mock is a FULL
+  // replacement, so the hook has to exist here; nothing due, no lightbox.
+  useListReviewPhrases: () => ({ data: undefined, isLoading: false, isError: false }),
+  getListReviewPhrasesQueryKey: () => ['review-phrases'],
   // Added 2026-08-28: practice and review headers now show a Chai balance
   // beside the XP meter, so this screen reads the tokens query. Same
   // shape every other Chai surface gets.

@@ -26,6 +26,11 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // THE FLASHBACK'S DOOR (build 23): a finished journey stop asks for the
+  // three due phrases before it opens the lightbox. This mock is a FULL
+  // replacement, so the hook has to exist here; nothing due, no lightbox.
+  useListReviewPhrases: () => ({ data: undefined, isLoading: false, isError: false }),
+  getListReviewPhrasesQueryKey: () => ['review-phrases'],
   // ExpressOfferMoment (70d27c8a) renders inside the shared results tree and
   // reads the chai wallet, so these hooks are needed even in suites that are
   // not about the offer. Added when the mobile suite was first run off Replit.

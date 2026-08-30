@@ -69,6 +69,8 @@ import {
   getGetZoneTestoutQueryKey,
   useSubmitZoneTestout,
   getListCategoryLessonGroupsQueryKey,
+  useListReviewPhrases,
+  getListReviewPhrasesQueryKey,
   type PronunciationResult,
   type EarnedBadge,
 } from '@workspace/api-client-react';
@@ -77,6 +79,7 @@ import { applyOptimisticTodayXp } from '@workspace/train-class';
 import { Screen } from '@/components/Screen';
 import { BadgeUnlock } from '@/components/BadgeUnlock';
 import { FirstWordPrimer } from '@/components/FirstWordPrimer';
+import { FlashbackLightbox } from '@/components/FlashbackLightbox';
 import {
   loadFirstWordPrimerSeen,
   saveFirstWordPrimerSeen,
@@ -472,6 +475,32 @@ export default function PracticeScreen() {
   const isZoneTestout = !isGroup && mode === 'testout' && scope === 'zone';
   const isTestout = isGroupTestout || isZoneTestout;
   const { activeLang, activeLanguage, speechCapability } = useLanguage();
+  // THE FLASHBACK'S DOOR (build 23): a finished journey stop asks the server
+  // for the three due phrases the flashback would show, so the lightbox
+  // opens only onto a flashback that exists. Same query the review screen
+  // makes, so it is warm by the time the learner enters. Group sessions
+  // only; a test-out or a category drill never leaves through the flashback.
+  const flashbackDue = useListReviewPhrases(
+    { lang: activeLang, limit: 3 },
+    {
+      query: {
+        enabled: isGroup && !isTestout && !!activeLang,
+        queryKey: getListReviewPhrasesQueryKey({ lang: activeLang, limit: 3 }),
+      },
+    },
+  );
+  const [flashbackOpen, setFlashbackOpen] = React.useState(false);
+  const enterFlashback = () => {
+    setFlashbackOpen(false);
+    router.replace({
+      pathname: '/(app)/review',
+      params: { flashback: '1' },
+    } as Parameters<typeof router.replace>[0]);
+  };
+  const skipFlashback = () => {
+    setFlashbackOpen(false);
+    router.replace('/(app)/journey' as Parameters<typeof router.replace>[0]);
+  };
   // Speech-recognition gating (server-classified, defaults to full scoring):
   //  • 'unsupported' → listen-record-compare only, never send an evaluation.
   //  • 'degraded'    → scored practice continues, plus a one-time approx notice.
@@ -2260,21 +2289,35 @@ export default function PracticeScreen() {
               then back to the map. This screen REPLACES itself with the
               flashback so its back lands on the journey, between stops.
               Any other session leaves for home the way it always did. */}
+          {/* THE LIGHTBOX BEFORE THE FLASHBACK (build 23; build 22 handoff,
+              section 4): with due phrases known, the stop opens a lightbox
+              with Enter and Skip rather than replacing itself straight into
+              the flashback; with none due, or the answer not yet in, it
+              goes on as before, and the review screen still steps aside
+              when it finds nothing. */}
           <ChunkyButton
             title={isGroup && !isTestout ? 'On to the next stop' : 'Back to home'}
             icon={isGroup && !isTestout ? 'arrow-right' : 'home'}
             onPress={() => {
               if (isGroup && !isTestout) {
-                router.replace({
-                  pathname: '/(app)/review',
-                  params: { flashback: '1' },
-                } as Parameters<typeof router.replace>[0]);
+                const due = flashbackDue.data;
+                if (Array.isArray(due) && due.length > 0) {
+                  setFlashbackOpen(true);
+                } else if (Array.isArray(due)) {
+                  router.replace('/(app)/journey' as Parameters<typeof router.replace>[0]);
+                } else {
+                  router.replace({
+                    pathname: '/(app)/review',
+                    params: { flashback: '1' },
+                  } as Parameters<typeof router.replace>[0]);
+                }
               } else {
                 router.replace('/(app)/(tabs)');
               }
             }}
             style={{ width: '100%', marginTop: 28 }}
           />
+          <FlashbackLightbox visible={flashbackOpen} onEnter={enterFlashback} onSkip={skipFlashback} />
         </View>
         {celebrate ? (
           <Confetti

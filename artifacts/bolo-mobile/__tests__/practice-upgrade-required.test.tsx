@@ -27,6 +27,11 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // THE FLASHBACK'S DOOR (build 23): a finished journey stop asks for the
+  // three due phrases before it opens the lightbox. This mock is a FULL
+  // replacement, so the hook has to exist here; nothing due, no lightbox.
+  useListReviewPhrases: () => ({ data: undefined, isLoading: false, isError: false }),
+  getListReviewPhrasesQueryKey: () => ['review-phrases'],
   useGetZoneTestout: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
   getGetZoneTestoutQueryKey: () => ['zone-testout'],
   useSubmitZoneTestout: () => ({ data: undefined, isError: false, error: null, isPending: false, mutate: jest.fn() }),

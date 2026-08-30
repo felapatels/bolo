@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useParams, Link, Redirect, useSearch } from "wouter";
+import { useParams, Link, Redirect, useSearch, useLocation } from "wouter";
+import { FlashbackLightbox } from "@/components/flashback-lightbox";
 import { 
   useListCategoryPhrases, 
   useListCategorySentences,
@@ -376,6 +377,26 @@ export default function Practice({
       queryKey: getListReviewPhrasesQueryKey(reviewParams),
     },
   });
+  // THE FLASHBACK'S DOOR (build 23; build 22 handoff, section 4): a finished
+  // journey stop asks for the three due phrases the flashback would show, so
+  // the lightbox with Enter and Skip opens only onto a flashback that exists.
+  // Same query the flashback itself makes, so it is warm on entry. With none
+  // due the stop goes to the map; with the answer not yet in, it goes to the
+  // flashback route, which steps aside when it finds nothing, as before.
+  // Outside a group session this asks for exactly what the review above asks
+  // for, so the last call the API client sees is still the session's own
+  // (practice-flashback.test.tsx reads it back).
+  const flashbackParams = isGroup && !isTestout ? { lang: activeLang, limit: FLASHBACK_SIZE } : reviewParams;
+  const flashbackDue = useListReviewPhrases(flashbackParams, {
+    query: {
+      enabled: isGroup && !isTestout && !!activeLang,
+      queryKey: getListReviewPhrasesQueryKey(flashbackParams),
+    },
+  });
+  const [flashbackOpen, setFlashbackOpen] = useState(false);
+  const [, navigate] = useLocation();
+  const dueKnown = Array.isArray(flashbackDue.data);
+  const dueCount = Array.isArray(flashbackDue.data) ? flashbackDue.data.length : 0;
   const groupQuery = useListLessonGroupPhrases(isGroup ? groupId : 0, {
     query: {
       enabled: isGroup && !isTestout,
@@ -2195,13 +2216,39 @@ export default function Practice({
           );
         })()}
 
-        <Link
-          href={doneHref}
-          data-testid="session-done"
-          className="w-full bg-primary text-primary-foreground font-black text-xl py-5 rounded-2xl flex items-center justify-center shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
-        >
-          {isFlashback ? "On to the next stop" : "Done"}
-        </Link>
+        {isGroup && !isTestout && dueKnown ? (
+          // The lightbox's door, or straight to the map when nothing is due.
+          <button
+            type="button"
+            data-testid="session-done"
+            onClick={() => {
+              if (dueCount > 0) setFlashbackOpen(true);
+              else navigate("/journey");
+            }}
+            className="w-full bg-primary text-primary-foreground font-black text-xl py-5 rounded-2xl flex items-center justify-center shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+          >
+            Done
+          </button>
+        ) : (
+          <Link
+            href={doneHref}
+            data-testid="session-done"
+            className="w-full bg-primary text-primary-foreground font-black text-xl py-5 rounded-2xl flex items-center justify-center shadow-[0_8px_0_hsl(var(--primary-shadow))] active:translate-y-2 active:shadow-[0_0px_0_hsl(var(--primary-shadow))] transition-all"
+          >
+            {isFlashback ? "On to the next stop" : "Done"}
+          </Link>
+        )}
+        <FlashbackLightbox
+          open={flashbackOpen}
+          onEnter={() => {
+            setFlashbackOpen(false);
+            navigate(`/flashback?next=${encodeURIComponent("/journey")}`);
+          }}
+          onSkip={() => {
+            setFlashbackOpen(false);
+            navigate("/journey");
+          }}
+        />
       </div>
     );
   }

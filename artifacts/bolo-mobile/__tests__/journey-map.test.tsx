@@ -199,6 +199,11 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // THE FLASHBACK'S DOOR (build 23): a finished journey stop asks for the
+  // three due phrases before it opens the lightbox. This mock is a FULL
+  // replacement, so the hook has to exist here; nothing due, no lightbox.
+  useListReviewPhrases: () => ({ data: undefined, isLoading: false, isError: false }),
+  getListReviewPhrasesQueryKey: () => ['review-phrases'],
   // The journey map's tracing stop reads the learner's per-character progress.
   // This mock is a FULL replacement, so the hook has to exist here: an empty
   // list reads as "nothing traced yet", which is the right default for these
