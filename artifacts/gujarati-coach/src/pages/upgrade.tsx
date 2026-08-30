@@ -14,11 +14,16 @@ import {
   Award,
   Coffee,
   Loader2,
+  Shield,
   Sparkles,
   Users,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { GOLD } from "@/lib/gold";
+import { Mascot } from "@/components/mascot";
+import { SpeechBubble } from "@/components/speech-bubble";
+import { ChaiGlyph } from "@/components/chai-stall";
 import { useEntitlements } from "@/lib/entitlements";
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
 import { useLanguage, nativeTextProps } from "@/lib/language-context";
@@ -254,8 +259,18 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
           >
             <Crown className="h-10 w-10" fill="currentColor" />
           </div>
+          {/* THE TWO-TONE HEADLINE (mobile build 22, here build 23, the owner's
+              paywall mockup): the promise in the foreground ink, the reach
+              in the app's violet. The phone's station silhouette behind the
+              words is left out on purpose: web has no city silhouettes. */}
           <h1 className="text-4xl font-black tracking-tight text-foreground lg:text-5xl">
-            {lapsed ? "Pick up where you left off" : "Choose your plan"}
+            {lapsed ? (
+              "Pick up where you left off"
+            ) : (
+              <>
+                Learn faster, <span className="text-primary">in every language</span>
+              </>
+            )}
           </h1>
           <p className="mt-3 text-lg font-medium text-muted-foreground">
             Unlock all 22 languages and every premium tool — for yourself, or
@@ -373,6 +388,8 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
             )}
             highlight="7-day free trial"
             recommended
+            annualArt={interval === "annual"}
+            saveBadge={pricing?.plus.annual?.badge}
           />
 
           {/* Withdrawn from sale on web 2026-08-24: neither store sells or
@@ -453,17 +470,27 @@ function FinePrint({
           Invite your family after checkout. No free trial on this plan.
         </p>
       ) : (
-        <p className="mt-3 text-center text-xs font-medium text-muted-foreground">
-          {price ? (
-            <>
-              7 days free, then {price.price}
-              {price.per}, {price.cadence}.{" "}
-            </>
-          ) : (
-            <>7 days free. </>
-          )}
-          Cancel anytime before the trial ends and you won't be charged.
-        </p>
+        // THE TRIAL BOX (mobile build 22, here build 23, the mockup): a cream
+        // slip with a shield, the terms beside it rather than centred, the
+        // reassurance in the done green, and a kulhad at the end.
+        <div
+          className="mt-3.5 flex items-center gap-3 rounded-2xl p-3.5 text-xs font-medium text-foreground"
+          style={{ backgroundColor: "#FBF0DC" }}
+        >
+          <Shield className="h-[22px] w-[22px] shrink-0" style={{ color: "#92650A" }} />
+          <p className="min-w-0 flex-1 leading-[18px]">
+            {price ? (
+              <>
+                7 days free, then {price.price}
+                {price.per}, {price.cadence}.{" "}
+              </>
+            ) : (
+              <>7 days free. </>
+            )}
+            <span className="font-bold text-success">Cancel anytime</span> before the trial ends and you won't be charged.
+          </p>
+          <ChaiGlyph className="h-[30px] w-[30px] shrink-0" />
+        </div>
       )}
       {/* App Review, Guideline 3.1.2(c): the purchase flow must link the Terms
           of Use (EULA) and the privacy policy. These are the two exact,
@@ -503,6 +530,8 @@ function PlanCard({
   benefits,
   highlight,
   recommended,
+  annualArt,
+  saveBadge,
 }: {
   tier: SelectableTier;
   selected: boolean;
@@ -514,7 +543,13 @@ function PlanCard({
   benefits: { icon: React.ElementType; text: string }[];
   highlight?: string;
   recommended?: boolean;
+  /** The annual card's art (mobile build 22): three kulhads and the round
+   *  SAVE badge, drawn when the annual interval is the one selected. */
+  annualArt?: boolean;
+  /** The server's own saving line, "Save 42%"; the badge shows its number. */
+  saveBadge?: string;
 }) {
+  const savePct = saveBadge?.match(/\d+%/)?.[0] ?? null;
   return (
     <button
       onClick={onSelect}
@@ -529,11 +564,32 @@ function PlanCard({
       {recommended && (
         <span
           className={cn(
-            "absolute -top-2.5 left-5 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white shadow-sm",
-            PLUS_GRADIENT,
+            "absolute -top-2.5 left-5 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide shadow-sm",
           )}
+          style={{ backgroundColor: GOLD, color: "#1a1200" }}
         >
           Best value
+        </span>
+      )}
+      {/* THE ANNUAL CARD'S ART (mobile build 22, here build 23): three
+          kulhads in the corner and the saving as a round badge in the app's
+          violet, from the real prices, never a typed number. */}
+      {annualArt && (
+        <span aria-hidden className="pointer-events-none absolute bottom-16 right-2.5 flex flex-col items-center">
+          <span className="flex items-end -space-x-1.5">
+            <ChaiGlyph className="h-[22px] w-[22px]" />
+            <ChaiGlyph className="h-7 w-7" />
+            <ChaiGlyph className="h-[22px] w-[22px]" />
+          </span>
+          {savePct ? (
+            <span
+              data-testid="plan-save-badge"
+              className="-mt-2.5 ml-7 flex h-11 w-11 flex-col items-center justify-center rounded-full bg-primary text-white"
+            >
+              <span className="text-[8px] font-black tracking-[0.6px]">SAVE</span>
+              <span className="text-xs font-black leading-[14px]">{savePct}</span>
+            </span>
+          ) : null}
         </span>
       )}
       <div className="flex items-start justify-between gap-3">
@@ -593,18 +649,40 @@ function PlanCard({
           </span>
         </div>
       </div>
-      <ul className="mt-4 space-y-2">
-        {benefits.map((b) => (
-          <li key={b.text} className="flex items-center gap-2.5">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <b.icon className="h-3.5 w-3.5" />
-            </span>
-            <span className="text-sm font-semibold text-foreground">
-              {b.text}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {/* BOLO BESIDE THE BENEFITS (mobile build 22, here build 23, the
+          mockup: the bird gives a thumbs up under "All access. All aboard!"
+          while the list runs down the right, dashed rules between rows). On
+          the other cards the list runs alone, as it did. */}
+      <div className={cn("mt-4", recommended && "flex items-start gap-2")}>
+        {recommended && (
+          <div className="flex w-[132px] shrink-0 flex-col items-center gap-1.5 pt-1.5">
+            <SpeechBubble tail="down">
+              <span className="whitespace-pre-line font-bold text-primary">{"All access.\nAll aboard!"}</span>
+            </SpeechBubble>
+            <Mascot pose="thumbsup" size={132} idle="none" />
+          </div>
+        )}
+        <ul className={cn("min-w-0 flex-1", recommended ? "" : "space-y-2")}>
+          {benefits.map((b, bi) => (
+            <li
+              key={b.text}
+              className={cn(
+                "flex items-center gap-2.5",
+                recommended && "py-2",
+                recommended && bi > 0 && "border-t border-dashed",
+              )}
+              style={recommended && bi > 0 ? { borderColor: "#E8DFCB" } : undefined}
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <b.icon className="h-3.5 w-3.5" />
+              </span>
+              <span className="text-sm font-semibold text-foreground">
+                {b.text}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </button>
   );
 }
