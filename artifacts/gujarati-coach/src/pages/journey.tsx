@@ -146,15 +146,19 @@ const GRAY = "#9ca3af"; // rail/marker color for locked showroom zones
 // max-w-2xl on desktop.
 const MAP_MAX_W = 390;
 // THE LARGE-SCREEN COLUMN (2026-08-30, owner: "we didn't fix the journey page
-// train route to be adaptive to large screen size"). From lg up the column
+// train route to be adaptive to large screen size"). From md (768) up the column
 // grows to 560 and the geometry, which is all edge insets (LEFT_X,
 // RIGHT_INSET, EDGE_PAD), widens the serpentine's swing with it: 204px of
 // swing on a phone, 374 here, over the same STATION_H pitch. The cards keep
 // their 222 and hug their markers; the scenery keeps its edge; the zone
 // board's cap holds its phone height (ZONE_BOARD_PEDIMENT_MAX_H) so the panel
-// budget survives the width. The desktop zone rail is fixed to the viewport
-// edge and xl-only, so the two never meet. Nothing above lg changes on a
-// phone: useMapWidth measures the column, and the column is still 390.
+// budget survives the width. The zone rail lives in a gutter hung off the
+// column (xl-only, see the nav inside <main>), so the two never meet.
+// MD, NOT LG (build 24): from 768 to 1023 the page was a 390 column on blank
+// sides, phone chrome at tablet width with nothing painted either side. The
+// wide bazaar backdrop in index.css moved to md with it, so the column and
+// its painting arrive together. Nothing changes on a phone: useMapWidth
+// measures the column, and under 768 the column is still 390.
 const MAP_MAX_W_LG = 560;
 // Task 1082 item 2: the station card was slimmed (tighter padding and line
 // spacing, and the "Bolo is waiting here" fragment gone, which used to wrap
@@ -2677,9 +2681,9 @@ export default function Journey() {
         )}
 
         {/* Serpentine railway: track + zone postcards + stations. The map is
-            mobile-width on a phone, 560 wide from lg up (MAP_MAX_W_LG), and
+            mobile-width on a phone, 560 wide from md up (MAP_MAX_W_LG), and
             centers in the column. */}
-        <div ref={mapRef} className="relative mx-auto mt-2 w-full max-w-[390px] lg:max-w-[560px]">
+        <div ref={mapRef} className="relative mx-auto mt-2 w-full max-w-[390px] md:max-w-[560px]">
           <AutoScrollToCurrentStop
             mapRef={mapRef}
             targetY={currentStopY}

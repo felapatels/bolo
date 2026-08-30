@@ -614,11 +614,16 @@
    phone, which is where the six zones actually read as six places.
 
    Media-queried rather than conditionally rendered, so a phone never fetches
-   it: a browser only loads a background-image whose rule applies. */
+   it: a browser only loads a background-image whose rule applies.
+
+   FROM 768 (md), NOT 1024 (build 24). Between 768 and 1023 the page was the
+   phone column on blank sides: the painting only arrived with the sidebar at
+   lg. The map column grows to 560 at md too (journey.tsx, MAP_MAX_W_LG), so
+   the painting and the wider route arrive together on a tablet. */
 .journey-wide-backdrop {
   display: none;
 }
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .journey-wide-backdrop {
     display: block;
     position: absolute;
