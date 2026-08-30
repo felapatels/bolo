@@ -23,14 +23,22 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 describe("Chacha-ji's line queue", () => {
   /** Resolves each playback by hand so we control when a line "ends". */
   let finishers: Array<() => void>;
+  /** The player's own "sound is out" signal per line, captured for the last case. */
+  let starters: Array<() => void>;
+  let holdSound = false;
 
   beforeEach(() => {
     jest.clearAllMocks();
     __resetChachaVoiceQueueForTests();
     finishers = [];
+    starters = [];
     (playBase64Audio as jest.Mock).mockImplementation(
-      async (_b64: string, _fmt: string, onDone: () => void) => {
+      async (_b64: string, _fmt: string, onDone: () => void, onStart?: () => void) => {
         finishers.push(onDone);
+        starters.push(onStart ?? (() => {}));
+        // The player reports sound at once in these tests, so the ordering
+        // pins below read as they always did. The last case holds it back.
+        if (!holdSound) onStart?.();
         return { stop: jest.fn() };
       },
     );
@@ -62,7 +70,10 @@ describe("Chacha-ji's line queue", () => {
     await flush();
     await flush();
 
-    expect(started).toEqual(['greeting', 'farewell']);
+    // INVERTED (build 25): a line that never sounds never reports a start,
+    // because onStart is the player's own "sound is out" signal now. The
+    // queue still releases, which is what this case guards.
+    expect(started).toEqual(['farewell']);
   });
 
   it("reports each line's start and end so the caption stays in step", async () => {
@@ -77,5 +88,20 @@ describe("Chacha-ji's line queue", () => {
     finishers[0]();
     await flush();
     expect(events).toEqual(['start', 'end']);
+  });
+
+  it("keeps onStart shut until the player says the sound is out (build 25)", async () => {
+    // The mouth on the call is driven by this. It used to fire at the line's
+    // turn in the queue, before the clip was written or decoded, so he mimed
+    // ahead of his own voice; the owner saw it on 1.0.6.
+    holdSound = true;
+    const events: string[] = [];
+    speakChachaLine(clip('GREET'), { onStart: () => events.push('start') });
+    await flush();
+    expect(playBase64Audio).toHaveBeenCalledTimes(1);
+    expect(events).toEqual([]);
+    starters[0]!();
+    expect(events).toEqual(['start']);
+    holdSound = false;
   });
 });

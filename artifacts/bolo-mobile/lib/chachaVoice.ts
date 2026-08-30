@@ -37,7 +37,7 @@ export function __resetChachaVoiceQueueForTests(): void {
  */
 let current: PlaybackHandle | null = null;
 
-function playOnce(clip: ChachaClip): Promise<void> {
+function playOnce(clip: ChachaClip, onStart?: () => void): Promise<void> {
   return new Promise<void>((resolve) => {
     let settled = false;
     const done = () => {
@@ -46,7 +46,10 @@ function playOnce(clip: ChachaClip): Promise<void> {
       current = null;
       resolve();
     };
-    void playBase64Audio(clip.audioBase64, clip.format || 'mp3', done)
+    // onStart rides through to the player, which fires it when sound is
+    // ACTUALLY out (lib/audio's firstSoundNotifier), not when the line is
+    // merely next in the queue. See speakChachaLine.
+    void playBase64Audio(clip.audioBase64, clip.format || 'mp3', done, onStart)
       .then((handle) => {
         // The clip can finish (or fail) while the handle is still in flight;
         // retaining it then would leave a stale ref pointing at silence.
@@ -60,9 +63,18 @@ function playOnce(clip: ChachaClip): Promise<void> {
 /**
  * Queue one of his lines behind whatever is already speaking.
  *
- * `onStart` fires when this line actually begins (its turn in the queue), and
- * `onEnd` when it finishes or fails — that pair is what drives the on-screen
- * caption, so the text and the voice stay in step.
+ * `onStart` fires when this line's voice is actually coming out, and `onEnd`
+ * when it finishes or fails. The pair drives the caption on the stall and the
+ * MOUTH on the call: InCall opens him only while `voicing`, and `voicing` is
+ * this onStart.
+ *
+ * IT USED TO FIRE AT THE LINE'S TURN IN THE QUEUE, before the clip was even
+ * written to disk, so on the call he mimed through the file write, the load
+ * and the decode on every turn. The guard against exactly that had been built
+ * into playBase64Audio (firstSoundNotifier, 2026-08-28) and this queue never
+ * passed its onStart through, which is why the owner saw the mouth move before
+ * the sound on 1.0.6 (build 25). Now the player fires it, with the player's own
+ * 2.6 s safety net so a start that never reports still opens his mouth.
  */
 export function speakChachaLine(
   clip: ChachaClip,
@@ -70,8 +82,7 @@ export function speakChachaLine(
 ): void {
   chain = chain.then(async () => {
     try {
-      hooks?.onStart?.();
-      await playOnce(clip);
+      await playOnce(clip, hooks?.onStart);
     } catch {
       // Never let one line's failure break the chain for the next.
     } finally {

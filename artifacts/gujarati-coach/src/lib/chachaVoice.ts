@@ -25,18 +25,28 @@ export function __resetChachaVoiceQueueForTests(): void {
   chain = Promise.resolve();
 }
 
-function playOnce(clip: ChachaClip): Promise<void> {
+function playOnce(clip: ChachaClip, onStart?: () => void): Promise<void> {
   return new Promise<void>((resolve) => {
     let settled = false;
+    let audioEl: HTMLAudioElement | null = null;
     const done = () => {
       if (settled) return;
       settled = true;
+      // The element is a reused singleton: a stale onplaying would fire for
+      // the NEXT line, so it is cleared with the rest.
+      if (audioEl) audioEl.onplaying = null;
       resolve();
     };
     try {
       const audio = getChachaAudioElement();
+      audioEl = audio;
       audio.onended = done;
       audio.onerror = done;
+      // The browser's own "sound is coming out" event, which is what onStart
+      // means: not the line's turn in the queue, not play() being called.
+      audio.onplaying = () => {
+        if (!settled) onStart?.();
+      };
       audio.src = `data:audio/${clip.format};base64,${clip.audioBase64}`;
       const p = audio.play();
       // A refused play() (no blessing, silent switch, autoplay policy) must
@@ -51,9 +61,14 @@ function playOnce(clip: ChachaClip): Promise<void> {
 /**
  * Queue one of his lines behind whatever is already speaking.
  *
- * `onStart` fires when this line actually begins (its turn in the queue), and
- * `onEnd` when it finishes or fails — that pair is what drives the on-screen
- * caption, so the text and the voice stay in step.
+ * `onStart` fires when this line's voice is actually coming out (the
+ * element's own `playing` event), and `onEnd` when it finishes or fails. The
+ * pair drives the caption, so the text and the voice stay in step.
+ *
+ * IT USED TO FIRE AT THE LINE'S TURN IN THE QUEUE, before play() had even been
+ * called, the same hole mobile had; mobile's fix (build 25, the owner saw
+ * Chacha-ji's mouth move before his voice on the call) is mirrored here so the
+ * twins keep one contract. A line that never sounds reports no start.
  */
 export function speakChachaLine(
   clip: ChachaClip,
@@ -61,8 +76,7 @@ export function speakChachaLine(
 ): void {
   chain = chain.then(async () => {
     try {
-      hooks?.onStart?.();
-      await playOnce(clip);
+      await playOnce(clip, hooks?.onStart);
     } catch {
       // Never let one line's failure break the chain for the next.
     } finally {

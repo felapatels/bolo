@@ -18,7 +18,15 @@ class MockAudio {
   src = "";
   onended: (() => void) | null = null;
   onerror: (() => void) | null = null;
-  play = vi.fn(() => Promise.resolve());
+  onplaying: (() => void) | null = null;
+  /** When false, play() never reports sound; the held case below uses it. */
+  static soundsAtOnce = true;
+  // The browser fires `playing` once sound is out; here it is immediate unless
+  // a case holds it, so the ordering pins read as they always did.
+  play = vi.fn(function (this: MockAudio) {
+    if (MockAudio.soundsAtOnce) this.onplaying?.();
+    return Promise.resolve();
+  });
   constructor() {
     MockAudio.instances.push(this);
   }
@@ -36,6 +44,7 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 describe("Chacha-ji's line queue", () => {
   beforeEach(() => {
     MockAudio.instances = [];
+    MockAudio.soundsAtOnce = true;
     vi.stubGlobal("Audio", MockAudio as unknown as typeof Audio);
     __resetBlessedAudioElementsForTests();
     __resetChachaVoiceQueueForTests();
@@ -86,7 +95,11 @@ describe("Chacha-ji's line queue", () => {
     await flush();
     await flush();
 
-    expect(started).toEqual(["greeting", "farewell"]);
+    // INVERTED (build 25): both lines are attempted, which is the release
+    // this case guards, and neither reports a start, because a refused play()
+    // never sounds and onStart is the element's own "sound is out" signal now.
+    expect(el.play).toHaveBeenCalledTimes(2);
+    expect(started).toEqual([]);
   });
 
   it("reports each line's start and end so the caption stays in step", async () => {
@@ -101,5 +114,19 @@ describe("Chacha-ji's line queue", () => {
     (getChachaAudioElement() as unknown as MockAudio).finish();
     await flush();
     expect(events).toEqual(["start", "end"]);
+  });
+
+  it("keeps onStart shut until the element says the sound is out (build 25)", async () => {
+    // Mirrors mobile: onStart is the player's own signal, never the queue's
+    // turn, so a caption or a mouth driven by it cannot run ahead of the voice.
+    MockAudio.soundsAtOnce = false;
+    const events: string[] = [];
+    speakChachaLine(clip("GREET"), { onStart: () => events.push("start") });
+    await flush();
+    const el = getChachaAudioElement() as unknown as MockAudio;
+    expect(el.play).toHaveBeenCalledTimes(1);
+    expect(events).toEqual([]);
+    el.onplaying?.();
+    expect(events).toEqual(["start"]);
   });
 });
