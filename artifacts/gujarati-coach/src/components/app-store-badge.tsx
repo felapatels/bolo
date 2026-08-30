@@ -31,6 +31,14 @@ export const PLAY_STORE_URL =
 // Flip to true when the listing is approved and live in Google Play.
 export const PLAY_STORE_LIVE = false;
 
+/**
+ * IPADOS SHIPS THROUGH THE SAME APP STORE LISTING, so this is not about a
+ * store being open. It is whether the app has been laid out for a tablet:
+ * today it is the iPhone build running letterboxed, which is not something to
+ * advertise. Flip it when the iPad layout actually lands.
+ */
+export const IPAD_LIVE = false;
+
 export type BadgeStore = "apple" | "play";
 
 // Apple's badge is drawn edge to edge, so its CSS height is its ink height.

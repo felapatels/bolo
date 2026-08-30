@@ -14,7 +14,9 @@ import {
 } from 'lucide-react';
 import { useListLanguages, type Language } from '@workspace/api-client-react';
 import { nativeTextProps } from '@/lib/language-context';
-import { SpeakingDemo } from '@/components/speaking-demo';
+import { HeroShowcase, type ShowcasePanel } from '@/components/hero-showcase';
+import { PlatformStrip } from '@/components/platform-strip';
+import { cn } from '@/lib/utils';
 import { Mascot } from '@/components/mascot';
 import {
   FloatingTag,
@@ -32,6 +34,7 @@ import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
 import { useDocumentHead, useHomepageStructuredData } from '@/lib/seo';
 import { detectShortcutPlatform } from '@/lib/platform';
 import { StoreBanner } from '@/components/store-banner';
+import { LoopingVideo } from '@/components/looping-video';
 // The badges (and the listing URLs and LIVE flags behind them) now live in one
 // shared component so the signed-in home page shows the same ones. The hero
 // still owns its own gate and entrance animation, below. Until a flag flips,
@@ -45,6 +48,74 @@ import {
 } from '@/components/app-store-badge';
 
 const CHIP_COLORS = ['#4F46E5', '#0D9488', '#6366F1'];
+
+// THE HERO'S ROTATING PANELS, AND EVERY ONE IS A CAPTURE OF THE REAL APP.
+//
+// What stood here before was SpeakingDemo, a hand-built mock of a practice
+// screen, and it had drifted into being simply untrue: it read "Tap, then
+// speak" over "LISTENING... STOPS ON ITS OWN", describing an auto-stop
+// recorder. The real screen says "Hold and say it out loud" and submits on
+// RELEASE. Reported 2026-08-30: "this is not how lessons work or scoring
+// looks." A drawn mock cannot be kept honest, because nothing fails when the
+// app changes underneath it; a screenshot at least goes visibly stale.
+//
+// HOME FIRST, THEN THE CALL, then the rest in any order (owner, 2026-08-30).
+// Home is what the app actually opens on, and the call is the thing nothing
+// else does, so those two are the argument; the remaining five are evidence.
+//
+// Six of these are the owner's own App Store set (1320x2868, ~/Desktop/
+// appstore-noalpha), which is curated and clean; `practice` is a simulator
+// capture at 1206x2622, because that set has no practice screen and it is the
+// one that shows hold-to-talk. Both aspects are 0.460, so they sit in the same
+// frame without cropping. All re-encoded to 480 wide.
+//
+// RE-CAPTURE THESE TOGETHER when a screen changes shape: a set where one panel
+// is a season out of date looks worse than one that is uniformly old.
+const HERO_PANELS: readonly ShowcasePanel[] = [
+  {
+    id: 'home',
+    caption: 'Pick up where you left off',
+    alt: "The Bolo home screen: a greeting, day streak, total XP, phrases mastered and chai, above a carved boarding pass showing the next stop on the Ganga Line.",
+    src: `${import.meta.env.BASE_URL}hero/home.webp`,
+  },
+  {
+    id: 'call',
+    caption: 'Chacha-ji rings you',
+    alt: 'Chacha-ji phones in Hindi. You answer, hold the button to reply out loud, and he answers back.',
+    src: `${import.meta.env.BASE_URL}video/chachaji-call.mp4`,
+    poster: `${import.meta.env.BASE_URL}video/chachaji-call-poster.webp`,
+  },
+  {
+    id: 'practice',
+    caption: 'Hold Bolo, say it out loud',
+    alt: 'A Hindi practice screen: नमस्ते with its romanisation and meaning, a Hear it button, and a microphone captioned "Hold and say it out loud".',
+    src: `${import.meta.env.BASE_URL}hero/practice.webp`,
+  },
+  {
+    id: 'journey',
+    caption: 'Ride the line, stop by stop',
+    alt: 'The Ganga Line journey map: an illustrated bazaar with a railway winding through it, and station cards for tracing, stories and each stop.',
+    src: `${import.meta.env.BASE_URL}hero/journey.webp`,
+  },
+  {
+    id: 'games',
+    caption: 'Play your way to fluency',
+    alt: 'The games arcade: Luggage Match, Chacha-ji Calls, Word Match and Signal Lights, each with its own painted card.',
+    src: `${import.meta.env.BASE_URL}hero/games.webp`,
+  },
+  {
+    id: 'progress',
+    caption: 'Watch it actually stick',
+    alt: 'A progress screen showing the next milestone, phrases mastered, practices, best score and a day streak.',
+    src: `${import.meta.env.BASE_URL}hero/progress.webp`,
+  },
+  {
+    id: 'leaderboard',
+    caption: 'Ride with everyone else',
+    alt: 'The weekly leaderboard: a podium of top travellers with their XP, and the rest of the ranking below.',
+    src: `${import.meta.env.BASE_URL}hero/leaderboard.webp`,
+  },
+];
 
 // Shown instantly on first paint (and if the languages API is slow/empty) so
 // the hero never renders an empty chip row. The eight diaspora leaders, in
@@ -188,8 +259,10 @@ export default function Landing({
     track(ANALYTICS_EVENTS.HOMEPAGE_VIEW);
   }, []);
 
+  const platformsRef = useSectionInViewport('platforms');
   const showcaseRef = useSectionInViewport('language-showcase');
   const howRef = useSectionInViewport('how-it-works');
+  const callRef = useSectionInViewport('chachaji-call');
   const whyRef = useSectionInViewport('why-bolo');
   const familiesRef = useSectionInViewport('families');
   const pricingRef = useSectionInViewport('pricing');
@@ -223,8 +296,13 @@ export default function Landing({
     (navigator as unknown as { standalone?: boolean }).standalone === true;
   const badgePlatform = isStandalone ? 'unknown' : detectShortcutPlatform();
 
+  // NO overflow-x-hidden ON THE ROOT ANY MORE. It made this a scroll container,
+  // and `position: sticky` then resolves against IT rather than the viewport,
+  // so the header simply would not stick. The ambient colour fields were the
+  // only reason it was there and they already clip inside their own
+  // overflow-hidden box below, so nothing is left to bleed sideways.
   return (
-    <div className="app-surface relative min-h-[100dvh] bg-background overflow-x-hidden">
+    <div className="app-surface relative min-h-[100dvh] bg-background">
       {/* How far down the page you are, as a length rather than a colour.
           Renders nothing under reduce-motion. */}
       <ScrollProgressRail />
@@ -264,30 +342,58 @@ export default function Landing({
           `relative` here and on main/footer is load-bearing: the ambient
           layer above is positioned, so static content would paint underneath
           it. */}
-      <header className="relative px-6 pt-8 flex items-center justify-between max-w-6xl mx-auto">
-        <div className="flex items-center gap-2">
-          <Mascot pose="wave" size={36} idle="none" />
-          <span className="text-2xl font-black text-foreground tracking-tight">Bolo!</span>
+      {/* THE ACTIONS LIVE UP HERE NOW, and they stay. Suggested 2026-08-30:
+          "maybe we move the CTA buttons to the top header so they stay
+          sticky?" It buys the hero back about ninety pixels, which is what
+          lets the phones clear the fold, and it means the primary action is
+          reachable from anywhere on a long marketing page instead of only at
+          the two ends of it.
+          Translucent with a blur rather than opaque: the ambient colour fields
+          drift underneath, and a solid bar would cut a hard line across them. */}
+      <header
+        data-testid="site-header"
+        className="sticky top-0 z-40 border-b border-border/40 bg-background/85 backdrop-blur"
+      >
+        <div className="px-6 py-3 flex items-center justify-between max-w-6xl mx-auto">
+          <div className="flex items-center gap-2">
+            <Mascot pose="wave" size={32} idle="none" />
+            <span className="text-xl font-black text-foreground tracking-tight">Bolo!</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/sign-in"
+              onClick={() => track(ANALYTICS_EVENTS.CTA_CLICK, { placement: 'header-signin' })}
+              className="font-bold text-foreground/80 hover:text-foreground px-3 py-2 rounded-xl transition-colors"
+            >
+              Sign in
+            </Link>
+            <SignUpCta
+              placement="header-primary"
+              className="bg-primary text-primary-foreground font-black py-2.5 px-5 rounded-xl inline-flex items-center gap-2 shadow-[0_4px_0_hsl(var(--primary-shadow))] active:translate-y-1 active:shadow-none transition-all"
+            >
+              Get started free
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </SignUpCta>
+          </div>
         </div>
-        <Link
-          href="/sign-in"
-          className="font-bold text-foreground/80 hover:text-foreground px-4 py-2 rounded-xl transition-colors"
-        >
-          Sign in
-        </Link>
       </header>
 
       <main className="relative px-6 max-w-6xl mx-auto">
         {/* Hero: two columns on desktop, copy left and live demo right. */}
-        <section className="pt-12 pb-14 lg:pt-20 lg:pb-20 grid items-center gap-12 lg:grid-cols-2">
-          <div className="text-center lg:text-left">
-            <motion.div {...heroItem(0)} className="flex justify-center lg:justify-start">
-              <Mascot pose="wave" size={88} idle="float" className="mb-5" />
+        {/* THE HERO IS ONE WIDE COLUMN NOW, not copy beside a widget. Asked for
+            2026-08-30: "an actively changing wide hero". Two columns pinned the
+            demo to half the page, which is why it was a single small phone; the
+            showcase gets the full width and shows three at a time on a desktop.
+            The copy is centred rather than left-aligned to match. */}
+        <section className="pt-6 pb-10 lg:pt-8 lg:pb-12">
+          <div className="text-center max-w-3xl mx-auto">
+            <motion.div {...heroItem(0)} className="flex justify-center">
+              <Mascot pose="wave" size={56} idle="float" className="mb-3" />
             </motion.div>
 
             <motion.div
               {...heroItem(0.05)}
-              className="inline-flex items-center gap-2 bg-secondary/10 text-secondary font-bold text-sm px-4 py-2 rounded-full mb-6"
+              className="inline-flex items-center gap-2 bg-secondary/10 text-secondary font-bold text-sm px-4 py-1.5 rounded-full mb-4"
             >
               <Sparkles className="w-4 h-4" aria-hidden="true" />
               Talk, don't tap. It hits different.
@@ -295,7 +401,7 @@ export default function Landing({
 
             <motion.h1
               {...heroItem(0.1)}
-              className="text-5xl sm:text-6xl font-black text-foreground leading-[1.05] tracking-tight"
+              className="text-4xl sm:text-5xl lg:text-[3.25rem] font-black text-foreground leading-[1.05] tracking-tight"
             >
               Actually speak your
               <br />
@@ -304,31 +410,18 @@ export default function Landing({
 
             <motion.p
               {...heroItem(0.15)}
-              className="text-lg sm:text-xl text-muted-foreground font-medium mt-6 max-w-xl mx-auto lg:mx-0"
+              className="text-lg text-muted-foreground font-medium mt-4 max-w-xl mx-auto"
             >
-              22 South Asian languages, taught out loud. Say every phrase and
-              get coached on the spot, chat with Bolo the parrot, ride a
-              journey map, play the games arcade, and let spaced review bring
-              each phrase back right before you'd forget it. For every
-              generation finding its way back home.
+              22 South Asian languages, taught out loud. Say every phrase, get
+              coached on the spot, and find your way back home.
             </motion.p>
 
-            <motion.div
-              {...heroItem(0.2)}
-              className="mt-9 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4"
-            >
-              <SignUpCta placement="hero-primary" className={PRIMARY_CTA_CLASS}>
-                Get started free
-                <ArrowRight className="w-5 h-5" aria-hidden="true" />
-              </SignUpCta>
-              <Link
-                href="/sign-in"
-                onClick={() => track(ANALYTICS_EVENTS.CTA_CLICK, { placement: 'hero-secondary' })}
-                className="w-full sm:w-auto bg-card text-foreground border-2 border-border font-bold text-lg py-4 px-8 rounded-2xl flex items-center justify-center active:scale-95 transition-all"
-              >
-                I have an account
-              </Link>
-            </motion.div>
+            {/* THE HERO'S OWN CTA ROW MOVED INTO THE STICKY HEADER. Both
+                actions are two inches up and now follow the reader down the
+                page, so repeating them here bought a duplicate button at the
+                cost of the ninety pixels the showcase needed to clear the
+                fold. "I have an account" and the header's "Sign in" were
+                always the same door. */}
 
             {/* The official badge for the store the visitor's platform will
                 get the app from: Apple on iOS, Google Play on Android, and
@@ -338,7 +431,7 @@ export default function Landing({
             {badgePlatform !== 'unknown' && (
               <motion.div
                 {...heroItem(0.25)}
-                className="mt-6 flex flex-col items-center lg:items-start"
+                className="mt-6 flex flex-col items-center"
               >
                 {badgePlatform === 'ios' ? (
                   <AppStoreBadge live={appStoreLive} placement="hero-appstore-badge" />
@@ -353,24 +446,40 @@ export default function Landing({
             )}
           </div>
 
-          {/* Live product demo: the actual speak, transcribe, coach loop.
-              Entrance on load (it is above the fold), then a slow upward drift
-              as the hero leaves, so the fold has some depth to it instead of
-              scrolling away as one flat sheet. decorative={false}: the demo is
-              content. */}
-          <ParallaxLayer decorative={false} distance={22}>
-          <motion.div
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={reduceMotion ? { duration: 0.001 } : { ...springs.gentle, delay: 0.2 }}
-            className="flex flex-col items-center"
-          >
-            <SpeakingDemo />
-            <p className="mt-4 text-sm font-bold uppercase tracking-widest text-muted-foreground text-center">
-              Watch the speak-out-loud loop in action
-            </p>
-          </motion.div>
+          {/* The real app, rotating. Entrance on load (it is above the fold),
+              then a slow upward drift as the hero leaves, so the fold has some
+              depth instead of scrolling away as one flat sheet.
+              decorative={false}: these are the product, not wallpaper. */}
+          <ParallaxLayer decorative={false} distance={18} className="mt-8">
+            <motion.div
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={reduceMotion ? { duration: 0.001 } : { ...springs.gentle, delay: 0.2 }}
+            >
+              <HeroShowcase panels={HERO_PANELS} />
+            </motion.div>
           </ParallaxLayer>
+        </section>
+
+        {/* WHERE YOU CAN USE IT. Directly under the hero, so it is the first
+            thing a visitor meets on starting to scroll, and deliberately NOT
+            inside the hero: the showcase has to clear the fold, and every row
+            added above it costs that. Availability comes off the store flags
+            rather than being typed in here. */}
+        <section ref={platformsRef} className="pb-10" aria-labelledby="platforms-heading">
+          <Reveal>
+            <div className="max-w-3xl mx-auto">
+              <h2
+                id="platforms-heading"
+                className="text-center text-xs font-black uppercase tracking-widest text-muted-foreground"
+              >
+                One account, every screen
+              </h2>
+              <div className="mt-4">
+                <PlatformStrip />
+              </div>
+            </div>
+          </Reveal>
         </section>
 
         {/* Language showcase: every language, diaspora leaders first, each
@@ -501,6 +610,72 @@ export default function Landing({
               before paying anything.
             </p>
           </Reveal>
+        </section>
+
+        {/* Chacha-ji's call. Added 2026-08-29: the one feature that is an
+            EVENT rather than a lesson, so it earns its own section and a real
+            recording rather than a still. The clip is a simulator capture cut
+            to one complete beat — he rings, you answer, he speaks, you hold to
+            talk, he answers back — so a loop returns to the ringing phone
+            rather than to the middle of a sentence.
+            IT SAYS "IN THE APP" AND THAT LINE IS LOAD-BEARING. The call is
+            iOS-only; a browser cannot place one. Without the line this is a
+            demo of something the page it sits on cannot do. */}
+        <section ref={callRef} className="py-12" aria-labelledby="call-heading">
+          <div className="grid items-center gap-10 lg:grid-cols-2">
+            <div className="order-2 lg:order-1">
+              <SplitHeading
+                id="call-heading"
+                text="Chacha-ji rings you"
+                className="text-3xl sm:text-4xl font-black text-foreground tracking-tight"
+              />
+              <Reveal delay={0.14}>
+                <p className="text-muted-foreground font-medium text-lg mt-3">
+                  Not a lesson you sit down for: a phone call you pick up. Your
+                  uncle rings, asks how you are, and waits. Hold the button,
+                  answer him out loud, and he answers back.
+                </p>
+              </Reveal>
+              <Reveal delay={0.2}>
+                <ul className="mt-5 space-y-2.5">
+                  {[
+                    'He calls you, in your language, about nothing in particular.',
+                    'Hold to talk and let go: releasing is how you finish a turn.',
+                    'Every reply earns XP, and the chai adds up.',
+                  ].map((item) => (
+                    <li
+                      key={item}
+                      className="flex items-start gap-2.5 text-foreground font-medium"
+                    >
+                      <Check className="w-5 h-5 shrink-0 mt-0.5 text-success" aria-hidden="true" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Reveal>
+              <Reveal delay={0.26}>
+                <p className="mt-5 text-sm font-bold text-muted-foreground">
+                  Chacha-ji's calls are in the iPhone app.
+                </p>
+              </Reveal>
+            </div>
+
+            {/* The phone. A drawn bezel rather than a screenshot of one: the
+                capture is the screen only, so the frame has to come from CSS
+                or the clip floats. */}
+            <Reveal from="scale" y={36} className="order-1 lg:order-2">
+              <div className="mx-auto w-full max-w-[280px]">
+                <div className="rounded-[2.25rem] border-[6px] border-foreground/85 bg-foreground/85 shadow-[0_18px_40px_-12px_rgba(15,23,42,0.45)]">
+                  <LoopingVideo
+                    src={`${import.meta.env.BASE_URL}video/chachaji-call.mp4`}
+                    poster={`${import.meta.env.BASE_URL}video/chachaji-call-poster.webp`}
+                    label="Chacha-ji calls in Hindi. You answer, hold the button to reply out loud, and he answers back."
+                    className="overflow-hidden rounded-[1.75rem]"
+                  />
+                </div>
+              </div>
+            </Reveal>
+          </div>
         </section>
 
         {/* Why Bolo! is different */}
@@ -634,8 +809,23 @@ export default function Landing({
             </Reveal>
           </div>
 
+          {/* THE COLUMN COUNT FOLLOWS THE CARDS THAT ACTUALLY RENDER. This was
+              fixed at three from when there were three plans, and the Family
+              card was withdrawn on 2026-08-24 without anyone revisiting it, so
+              two cards sat in the first two of three columns and the whole
+              block hung left of centre with a card's worth of empty space on
+              the right. Reported 2026-08-30: "these are off center".
+              Derived from FAMILY_PLAN_ENABLED rather than hardcoded to two, so
+              the day the Family plan comes back the grid widens with it. The
+              max-width narrows too: two cards stretched across a five-column
+              measure read as slabs. */}
           <RevealStagger
-            className="grid gap-5 sm:grid-cols-3 max-w-5xl mx-auto items-stretch"
+            className={cn(
+              'grid gap-5 mx-auto items-stretch',
+              FAMILY_PLAN_ENABLED
+                ? 'sm:grid-cols-3 max-w-5xl'
+                : 'sm:grid-cols-2 max-w-3xl',
+            )}
             stagger={0.11}
           >
             <RevealChild className="h-full" from="scale" y={30}>

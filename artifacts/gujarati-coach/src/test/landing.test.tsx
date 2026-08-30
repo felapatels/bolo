@@ -161,6 +161,41 @@ describe("store badges (platform-following)", () => {
   });
 });
 
+describe("Chacha-ji call section", () => {
+  test("loops the call clip, lazily, and says it is an app feature", () => {
+    const { container } = renderAt(<Landing />);
+
+    expect(
+      screen.getByRole("heading", { name: "Chacha-ji rings you" }),
+    ).toBeInTheDocument();
+
+    const video = container.querySelector(
+      '[data-testid="looping-video"]',
+    ) as HTMLVideoElement | null;
+    expect(video).not.toBeNull();
+    // muted + playsInline are what make an autoplaying clip legal at all on
+    // iOS Safari; loop is the ask; and preload="none" keeps a 229 KB file off
+    // the wire for a visitor who never scrolls this far, on a page whose whole
+    // remaining asset budget is about 120 KB of lazy screenshots.
+    expect(video).toHaveAttribute("loop");
+    expect(video).toHaveAttribute("playsinline");
+    expect(video).toHaveAttribute("preload", "none");
+    expect(video?.muted).toBe(true);
+    // A poster, so the slot is never an empty black box before play starts.
+    expect(video?.getAttribute("poster")).toMatch(/chachaji-call-poster\.webp$/);
+    // Not decorative: it is the whole point of the section, so it carries a
+    // description rather than aria-hidden.
+    expect(video?.getAttribute("aria-label")).toMatch(/Chacha-ji calls in Hindi/);
+
+    // THE PLATFORM LINE IS LOAD-BEARING, not a footnote. The call is iOS-only
+    // and a browser cannot place one, so without this the section demos
+    // something the page it sits on cannot do.
+    expect(
+      screen.getByText("Chacha-ji's calls are in the iPhone app."),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("Landing page", () => {
   test("renders the South Asian hero headline and both hero CTAs", () => {
     renderAt(<Landing />);
@@ -175,16 +210,24 @@ describe("Landing page", () => {
     // Tagline survives the rebuild.
     expect(screen.getByText(/Talk, don't tap/i)).toBeInTheDocument();
 
-    // Primary + secondary hero actions, plus the "I have an account" sign-in.
+    // BOTH ACTIONS LIVE IN THE STICKY HEADER NOW, 2026-08-30. They used to be
+    // a row inside the hero as well; repeating them bought a duplicate button
+    // at the cost of the ~90px the showcase needed to clear the fold, and
+    // "I have an account" was always the same door as the header's "Sign in".
+    // Asserted where they actually are rather than deleted.
     expect(signUpHrefs().length).toBeGreaterThan(0);
     expect(signUpHrefs()).toContain("/sign-up");
-    expect(
-      screen.getByRole("link", { name: /I have an account/i }),
-    ).toHaveAttribute("href", "/sign-in");
     expect(screen.getByRole("link", { name: /^Sign in$/i })).toHaveAttribute(
       "href",
       "/sign-in",
     );
+    // Scoped to the header: "Get started free" also appears in the pricing
+    // card and the bottom CTA, which is fine and deliberate.
+    const header = within(screen.getByTestId("site-header"));
+    expect(
+      header.getByRole("link", { name: /Get started free/i }),
+    ).toHaveAttribute("href", "/sign-up");
+    expect(header.getByRole("link", { name: /^Sign in$/i })).toBeInTheDocument();
   });
 
   test("no stale 'Indian languages' positioning remains anywhere on the page", () => {
@@ -193,17 +236,89 @@ describe("Landing page", () => {
     expect(container.textContent).not.toMatch(/22 official/i);
   });
 
-  test("drives the real SpeakingDemo component", () => {
-    renderAt(<Landing />);
+  // THIS REPLACED A TEST FOR SpeakingDemo, a hand-drawn mock of a practice
+  // screen that used to sit here. The mock had gone quietly untrue — it said
+  // "Tap, then speak" over "LISTENING... STOPS ON ITS OWN", describing an
+  // auto-stop recorder, while the real screen says "Hold and say it out loud"
+  // and submits on release (pages/practice.tsx). Nothing could fail when the
+  // app changed under it, which is the whole argument against drawing a screen
+  // twice. The hero now rotates CAPTURES of the real app.
+  test("names every platform, and derives coming-soon from the store flags", () => {
+    const { container } = renderAt(<Landing />);
 
-    expect(
-      screen.getByText(/Watch the speak-out-loud loop in action/i),
-    ).toBeInTheDocument();
-    // The demo renders its first scripted phrase (native + romanized) and the
-    // opening caption — proof the component and its motion primitives mounted.
-    expect(screen.getByText("કેમ છો?")).toBeInTheDocument();
-    expect(screen.getByText(/Kem cho\?/i)).toBeInTheDocument();
-    expect(screen.getByText(/Hear it first/i)).toBeInTheDocument();
+    expect(screen.getByTestId("platform-strip")).toBeInTheDocument();
+    for (const id of ["ios", "web", "ipad", "android"]) {
+      expect(screen.getByTestId(`platform-${id}`)).toBeInTheDocument();
+    }
+
+    // iPhone is on the App Store and web is the page you are reading; iPad and
+    // Android are not open yet. These come off APP_STORE_LIVE / IPAD_LIVE /
+    // PLAY_STORE_LIVE, so the day a store opens this strip corrects itself
+    // rather than carrying a stale promise.
+    expect(screen.getByTestId("platform-ios")).toHaveAttribute("data-live", "yes");
+    expect(screen.getByTestId("platform-web")).toHaveAttribute("data-live", "yes");
+    expect(screen.getByTestId("platform-ipad")).toHaveAttribute("data-live", "no");
+    expect(screen.getByTestId("platform-android")).toHaveAttribute("data-live", "no");
+
+    // STATE IS IN WORDS, not only in colour. Two of each, spelled out, so a
+    // colour-blind reader is told the same thing everyone else is.
+    expect(screen.getAllByText("Available now")).toHaveLength(2);
+    expect(screen.getAllByText("Coming soon")).toHaveLength(2);
+
+    // No brand marks were drawn by hand: the licensed Apple and Google artwork
+    // is the store badges, and these tiles are form-factor glyphs only.
+    expect(container.querySelector('[data-testid="platform-strip"] img')).toBeNull();
+  });
+
+  test("rotates real captures of the app, and stays operable", () => {
+    const { container } = renderAt(<Landing />);
+
+    expect(screen.getByTestId("hero-showcase")).toBeInTheDocument();
+
+    // Every panel is a file, not a drawing. Home leads because it is what the
+    // app opens on, and the call is the silent looping clip right behind it.
+    expect(container.querySelector('[data-testid="showcase-image-home"]'))
+      .toBeInTheDocument();
+
+    // ONLY THREE PANELS ARE MOUNTED: the active one and the two flanking it.
+    // The rest are not in the DOM at all, so seven phone screenshots never
+    // become seven requests on a page whose whole point is loading fast.
+    // `practice` sits at index 2 and is therefore absent while home leads.
+    expect(container.querySelectorAll("[data-testid^='showcase-image-']"))
+      .toHaveLength(2);
+    expect(container.querySelector('[data-testid="showcase-image-practice"]'))
+      .toBeNull();
+    const call = container.querySelector(
+      '[data-testid="showcase-video-call"]',
+    ) as HTMLVideoElement | null;
+    expect(call).not.toBeNull();
+    expect(call).toHaveAttribute("loop");
+    expect(call).toHaveAttribute("playsinline");
+    expect(call?.muted).toBe(true);
+
+    // The caption names the panel on screen, and it starts on practice.
+    expect(screen.getByTestId("showcase-caption")).toHaveTextContent(
+      "Pick up where you left off",
+    );
+
+    // AN AUTO-ROTATING CAROUSEL MUST BE OPERABLE, not just watchable: one
+    // labelled tab per panel plus real prev/next buttons, so it can be driven
+    // from a keyboard and named by a screen reader.
+    expect(screen.getAllByRole("tab")).toHaveLength(7);
+    expect(screen.getByLabelText("Next screen")).toBeInTheDocument();
+    expect(screen.getByLabelText("Previous screen")).toBeInTheDocument();
+  });
+
+  test("taking hold of the showcase moves it and stops it rotating", () => {
+    renderAt(<Landing />);
+    fireEvent.click(screen.getByLabelText("Next screen"));
+    // A carousel that keeps moving under someone who just took hold of it is
+    // the worst version of this pattern, so pressing a control ends the
+    // rotation for good rather than pausing it. Next from home is the call,
+    // which also pins the order the owner asked for: home, then Chacha-ji.
+    expect(screen.getByTestId("showcase-caption")).toHaveTextContent(
+      "Chacha-ji rings you",
+    );
   });
 
   test("shows the diaspora-leader fallback chips (incl. RTL Urdu) when the API is empty", () => {
@@ -371,21 +486,24 @@ describe("Landing page", () => {
     expect(ANALYTICS_EVENTS.SECTION_IN_VIEWPORT).toBe("section_in_viewport");
     expect(ANALYTICS_EVENTS.PER_LANGUAGE_PAGE_VIEW).toBe("per_language_page_view");
 
-    // Hero primary CTA: cta_click by placement + signup_started attribution.
+    // The sticky header's primary CTA: cta_click by placement plus the
+    // signup_started attribution. Placement renamed hero-primary ->
+    // header-primary with the move, so the funnel does not silently keep
+    // reporting clicks against a button that no longer exists.
     fireEvent.click(screen.getAllByRole("link", { name: /Get started free/i })[0]!);
     expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.CTA_CLICK, {
-      placement: "hero-primary",
+      placement: "header-primary",
     });
     expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.SIGNUP_STARTED, {
-      source: "hero-primary",
+      source: "header-primary",
     });
     expect(ANALYTICS_EVENTS.CTA_CLICK).toBe("cta_click");
     expect(ANALYTICS_EVENTS.SIGNUP_STARTED).toBe("signup_started");
 
-    // Hero secondary CTA.
-    fireEvent.click(screen.getByRole("link", { name: /I have an account/i }));
+    // And the sign-in beside it.
+    fireEvent.click(screen.getByRole("link", { name: /^Sign in$/i }));
     expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.CTA_CLICK, {
-      placement: "hero-secondary",
+      placement: "header-signin",
     });
 
     // Language chip click carries the language name.
