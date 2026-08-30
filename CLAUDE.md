@@ -100,14 +100,19 @@ Run from the repo root.
   The script runs `sync-schema` first, so running the api tests APPLIES pending
   migrations to the dev database.
 - web: `pnpm --filter @workspace/gujarati-coach run test` (vitest)
-  Baseline **139 files, 1491 tests, all pass**, measured 2026-08-30 (build 22,
-  with the rail-offset pin and another session's landing test in the tree).
+  Baseline **139 files, 1492 tests, all pass**, measured 2026-08-30 (build 23,
+  at close, with another session's landing test in the tree; the count moved
+  with the Emergency pins added, the journey header's three pins folded into
+  one, and the trace ticket's pins inverted).
+  (Was 139 / 1491 earlier on 2026-08-30 (build 22).)
   (Was 137 / 1475 on 2026-08-29 (build 20).)
   (Was 135 / 1462 earlier on 2026-08-29 (build 19), 131 / 1434 (build 18), 131 / 1421 on 2026-08-28, 128 / 1399 on 2026-08-27, and 93 suites / 842 tests before that.) One flake seen once on 2026-08-27, a single
   failure that did not reproduce across two immediate re-runs; noted rather
   than chased, and worth watching for.
 - mobile: `pnpm --filter @workspace/bolo-mobile run test` (jest)
-  Baseline **152 suites, 1454 tests, all pass**, measured 2026-08-30 (build 22).
+  Baseline **152 suites, 1456 tests, all pass**, measured 2026-08-30 (build 23,
+  at close; the two new tests are the splash's first-frame gate and its
+  failsafe). (Was 152 / 1454 earlier on 2026-08-30 (build 22).)
   **THE FIRST FULL RUN AFTER BUILD 21 FAILED 25 SUITES**, almost all of them
   build 21's, never run: every screen that mounts a ChaiPill mounts the
   wallet sheet, whose `useSafeAreaInsets()` threw without a provider (now
@@ -531,7 +536,9 @@ it to one step on 2026-08-24 and again on 2026-08-29 (build 20).
   actual work.
 
   **PRE-FLIGHT CHECK, use it before spending an install:**
-  `node --experimental-strip-types scripts/checkBundleHealth.ts <ipa-url-or-path>`
+  `node --experimental-strip-types artifacts/bolo-mobile/scripts/checkBundleHealth.ts <ipa-url-or-path>`
+  (it lives in the mobile package, not the repo's `scripts/`; two handoffs
+  were sent to the wrong directory by this line)
   reads the Hermes header and tells you HEALTHY or POISONED in about a minute.
   **A poisoned build should be rebuilt, not installed.**
 
