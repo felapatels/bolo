@@ -5,10 +5,28 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Clock,
+  Coffee,
+  Flame,
+  Leaf,
+  Pause,
+  Plus,
+  ShoppingBag,
+  Star,
+  Train,
+  Wrench,
+  X,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+import { Mascot } from "@/components/mascot";
+import { SceneBand } from "@/components/scene-band";
 import { ChaiGlyph } from "@/components/chai-stall";
 import {
-  BazaarTile,
   ExpressTile,
   LanguagesTile,
   StationPauseTile,
@@ -59,7 +77,6 @@ const FIRST_CLASS_COST = 25;
 // The wallet opens on Chacha-ji's stall itself — the painted scene, with the
 // balance struck across it. (The home band still composites the layered art;
 // this is a single flattened still, used only as a header.)
-const HEADER_SRC = `${import.meta.env.BASE_URL}stall/wallet-header.jpg`;
 
 // Spend buttons are bazaar green, not app indigo: the kulhad glyph is
 // terracotta, which muddied against indigo and pops against the signboard
@@ -613,8 +630,55 @@ export function LanguageSignpostRow() {
  * one that shows the balance, the shop and the door and stays quiet about the
  * rest.
  */
+/** Which tile a movement wears, read off the server's label. Decoration
+ *  keyed on words, never on the raw reason (which is never sent). Mobile
+ *  twin: historyGlyph in components/ChaiWallet.tsx, same words, same tints. */
+function historyGlyph(label: string): { Icon: LucideIcon; tint: string } {
+  const l = label.toLowerCase();
+  if (/streak/.test(l)) return { Icon: Flame, tint: "#22C55E" };
+  if (/signal/.test(l)) return { Icon: Star, tint: "#F59E0B" };
+  if (/first class/.test(l)) return { Icon: Train, tint: "#3B2A1E" };
+  if (/express/.test(l)) return { Icon: Zap, tint: "#4F46E5" };
+  if (/pause/.test(l)) return { Icon: Pause, tint: "#F0A32B" };
+  if (/mend|repair/.test(l)) return { Icon: Wrench, tint: "#1E7357" };
+  if (/pack|top.?up|adjust|grant|bonus/.test(l)) return { Icon: Plus, tint: "#1E7357" };
+  if (/chacha|stall|halt/.test(l)) return { Icon: Coffee, tint: "#B5651D" };
+  if (/outfit|bazaar|kurta|pagdi|cap|saree|sherwani|anarkali|kediyu|choli|wear/.test(l)) return { Icon: ShoppingBag, tint: "#4F46E5" };
+  return { Icon: Coffee, tint: "#B5651D" };
+}
+
+/** "May 12, 9:20 AM", in the browser's own locale. */
+function historyWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const day = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return `${day}, ${time}`;
+}
+
+type HistoryFilter = "all" | "earned" | "spent";
+const HISTORY_FILTER_LABEL: Record<HistoryFilter, string> = {
+  all: "All activity",
+  earned: "Earned",
+  spent: "Spent",
+};
+/** Five rows at rest (the owner's ruling: the last five, then the full
+ *  history behind a door). The door opens the rest in place. */
+const HISTORY_AT_REST = 5;
+
+/**
+ * CHAI HISTORY (mobile build 22, here build 23, the owner's wallet mockup):
+ * a clock, the heading, a filter pill that cycles all / earned / spent, then
+ * tiled rows with the movement's glyph, its label, when it happened, and the
+ * signed amount with a kulhad; five at rest, "View full history" for the
+ * rest. The labels come from the server as they always did; loading and
+ * error still show nothing, so a wallet that cannot reach the ledger is a
+ * balance and a door.
+ */
 function WalletHistory() {
   const history = useGetTokenHistory();
+  const [filter, setFilter] = useState<HistoryFilter>("all");
+  const [showAll, setShowAll] = useState(false);
   if (history.isLoading) return null;
   if (history.isError) return null;
 
@@ -622,62 +686,86 @@ function WalletHistory() {
 
   // Nothing earned and nothing spent yet. A wallet that never mentions history
   // teaches a learner there is none, so the empty case still says where
-  // movements will land.
+  // movements will land, in the same frame with the same heading.
   if (entries.length === 0) {
     return (
-      /* THE EMPTY STATE IS THE SAME LIST, not a different component. It used to
-         borrow the SPEND row's shape, an icon tile beside a title and a body,
-         which is the exact silhouette of every buyable item above it. It read
-         as a button that would not respond to a click, which is worse than
-         saying nothing. Same frame, same heading, one muted row where the
-         entries will go. Owner ruling 2026-08-19, matched on both platforms. */
-      <div
-        data-testid="wallet-history-placeholder"
-        className="rounded-2xl border border-card-border p-4"
-      >
-        <p className="font-black text-foreground">Chai history</p>
-        <ul className="mt-2 space-y-1">
-          <li className="flex items-center gap-3">
-            <span className="min-w-0 flex-1 text-sm font-bold text-muted-foreground">
-              Cups you earn and buy will appear here.
-            </span>
-          </li>
-        </ul>
+      <div data-testid="wallet-history-placeholder" className="rounded-[18px] border border-card-border bg-card p-3.5">
+        <div className="mb-1.5 flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/[0.08] text-primary">
+            <Clock className="h-4 w-4" />
+          </span>
+          <p className="font-black text-foreground">Chai history</p>
+        </div>
+        <p className="py-2 text-sm font-bold text-muted-foreground">Cups you earn and buy will appear here.</p>
       </div>
     );
   }
 
+  const filtered = entries.filter((e) => (filter === "all" ? true : filter === "earned" ? e.delta > 0 : e.delta < 0));
+  const shown = showAll ? filtered : filtered.slice(0, HISTORY_AT_REST);
+  const more = filtered.length - shown.length;
   return (
-    <div
-      data-testid="wallet-history-list"
-      className="rounded-2xl border border-card-border p-4"
-    >
-      <p className="font-black text-foreground">Chai history</p>
-      <ul className="mt-2 space-y-1">
-        {entries.map((entry) => (
-          <li
-            key={entry.id}
-            data-testid="wallet-history-entry"
-            className="flex items-center gap-3"
-          >
-            <span className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">
-              {entry.label}
-            </span>
-            <span
-              className={cn(
-                "flex shrink-0 items-center gap-1 text-sm font-black tabular-nums",
-                entry.delta <= 0 && "text-muted-foreground",
-              )}
-              style={
-                entry.delta > 0 ? { color: INDIA.board } : undefined
-              }
+    <div data-testid="wallet-history-list" className="rounded-[18px] border border-card-border bg-card p-3.5">
+      <div className="mb-1.5 flex items-center gap-2.5">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/[0.08] text-primary">
+          <Clock className="h-4 w-4" />
+        </span>
+        <p className="flex-1 font-black text-foreground">Chai history</p>
+        <button
+          type="button"
+          aria-label={`Showing ${HISTORY_FILTER_LABEL[filter]}. Change filter`}
+          onClick={() => setFilter((f) => (f === "all" ? "earned" : f === "earned" ? "spent" : "all"))}
+          data-testid="wallet-history-filter"
+          className="inline-flex items-center gap-1 rounded-full border border-primary/35 px-3 py-1.5 text-[13px] font-bold text-primary"
+        >
+          {HISTORY_FILTER_LABEL[filter]}
+          <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <ul>
+        {shown.map((entry) => {
+          const { Icon, tint } = historyGlyph(entry.label);
+          return (
+            <li
+              key={entry.id}
+              data-testid="wallet-history-entry"
+              className="flex items-center gap-2.5 border-b border-card-border py-2 last:border-b-0"
             >
-              {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
-              <ChaiGlyph className="h-4 w-4" />
-            </span>
-          </li>
-        ))}
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                style={{ backgroundColor: `${tint}1F`, color: tint }}
+              >
+                <Icon className="h-[18px] w-[18px]" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold text-foreground">{entry.label}</span>
+                <span className="block truncate text-xs text-muted-foreground">{historyWhen(entry.createdAt)}</span>
+              </span>
+              <span
+                className="shrink-0 text-sm font-black tabular-nums"
+                style={{ color: entry.delta > 0 ? INDIA.board : "hsl(var(--destructive))" }}
+              >
+                {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
+              </span>
+              <ChaiGlyph className="h-4 w-4 shrink-0" />
+            </li>
+          );
+        })}
       </ul>
+      {filtered.length === 0 ? (
+        <p className="py-2 text-sm font-bold text-muted-foreground">Nothing {filter} yet.</p>
+      ) : null}
+      {more > 0 || showAll ? (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          data-testid="wallet-history-more"
+          className="flex w-full items-center justify-center gap-1 pt-2.5 text-sm font-bold text-primary"
+        >
+          {showAll ? "Show less" : "View full history"}
+          {showAll ? <ChevronUp className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -698,70 +786,75 @@ export function ChaiWalletSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="mx-auto flex max-h-[80vh] max-w-md flex-col overflow-hidden rounded-t-3xl p-0 [&>button]:z-10 [&>button]:text-white [&>button]:opacity-90"
+        className="mx-auto flex max-h-[80vh] max-w-md flex-col overflow-hidden rounded-t-3xl p-0 [&>button]:z-10 [&>button]:right-4 [&>button]:top-8 [&>button]:flex [&>button]:h-9 [&>button]:w-9 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-full [&>button]:bg-white/90 [&>button]:text-[#3B2A1E] [&>button]:opacity-100"
         data-testid="chai-wallet-sheet"
       >
-        {/* The wallet opens ON the stall: the painted scene as the header,
-            with the balance struck across the bottom of it. The scrim is what
-            keeps white lettering legible over a warm sunset. */}
-        <div className="relative shrink-0" data-testid="wallet-header">
-          <img
-            src={HEADER_SRC}
-            alt=""
-            aria-hidden="true"
-            className="h-32 w-full object-cover"
-          />
+        {/* THE WALLET OPENS ON THE STALL (mobile build 22, here build 23, the
+            owner's wallet mockup): the painted stall with Chacha-ji waving is
+            the header, under a scalloped awning, with the name and its line
+            on the left and the balance on a cream card. The scene is the same
+            picture every other Chai surface draws. */}
+        <div className="relative h-[232px] shrink-0 overflow-hidden" data-testid="wallet-header">
+          <SceneBand stall="chai" className="absolute inset-0 !rounded-none" />
           <div
-            className="pointer-events-none absolute inset-0"
+            className="pointer-events-none absolute inset-y-0 left-0 w-[62%]"
             style={{
               background:
-                "linear-gradient(180deg, rgba(24,16,12,0.58) 0%, rgba(24,16,12,0.08) 44%, rgba(24,16,12,0.78) 100%)",
+                "linear-gradient(90deg, rgba(251,243,230,0.92) 0%, rgba(251,243,230,0.35) 50%, rgba(251,243,230,0) 100%)",
             }}
           />
-          <SheetHeader className="absolute inset-x-0 top-0 space-y-0 p-4 text-left">
-            <SheetTitle className="text-lg text-white">Chai Wallet</SheetTitle>
-          </SheetHeader>
-          <div
-            data-testid="wallet-balance-band"
-            className="absolute inset-x-0 bottom-0 flex items-end gap-2 px-4 pb-3"
-          >
-            <ChaiGlyph className="h-9 w-9" />
-            <span className="text-4xl font-black leading-none text-white">
-              {tokens?.balance ?? "-"}
-            </span>
-            <span className="pb-1 text-sm font-bold uppercase tracking-wider text-white/85">
-              Chai
-            </span>
+          {/* The awning: a row of scallops clipped to half by the sheet's edge. */}
+          <div aria-hidden className="pointer-events-none absolute -left-1 -right-1 -top-[15px] flex justify-between">
+            {Array.from({ length: 15 }, (_, i) => (
+              <span key={i} className="h-[30px] w-[30px] shrink-0 rounded-full" style={{ backgroundColor: i % 2 === 0 ? "#7C5CBF" : "#FBF3E6" }} />
+            ))}
           </div>
+          <span aria-hidden className="pointer-events-none absolute left-1/2 top-[22px] h-[5px] w-[38px] -translate-x-1/2 rounded-full bg-[#3B2A1E]/30" />
+          <SheetHeader className="absolute left-[18px] right-[18px] top-11 space-y-0 p-0 text-left">
+            <div className="flex items-center gap-2">
+              <Leaf className="h-4 w-4 -rotate-[30deg] text-primary" />
+              <SheetTitle className="text-[26px] font-black leading-tight" style={{ color: "#2B1A0E" }}>
+                Chai Wallet
+              </SheetTitle>
+              <Leaf className="h-4 w-4 -scale-x-100 -rotate-[30deg] text-primary" />
+            </div>
+            <p className="ml-6 mt-0.5 text-[13px] font-semibold" style={{ color: "#3B2A1E" }}>
+              Your chai, your progress.
+            </p>
+            <div
+              data-testid="wallet-balance-band"
+              className="mt-3.5 w-fit rounded-[18px] px-[18px] py-3"
+              style={{ backgroundColor: "rgba(251,243,230,0.9)" }}
+            >
+              <p className="text-[11px] font-black tracking-[1.4px] text-primary">YOUR CHAI BALANCE</p>
+              <div className="flex items-center gap-3">
+                <ChaiGlyph className="h-10 w-10" />
+                <span className="text-[44px] font-black leading-[48px]" style={{ color: "#2B1A0E" }}>
+                  {tokens?.balance ?? "-"}
+                </span>
+              </div>
+              <p className="text-xs font-bold uppercase tracking-[1.2px]" style={{ color: "#7A6551" }}>
+                Chai
+              </p>
+            </div>
+          </SheetHeader>
         </div>
 
-        {/* Only the rows scroll; the painted header above stays put, which is
-            what keeps the balance readable when the row stack is long.
-            THE WALLET IS A BALANCE AND A DOOR NOW. Every sink it used to sell
-            (pause, express, First Class, the language signpost) is stocked on
-            the bazaar street, where the learner can see all four stalls and
-            every price at once; selling the same things twice made the wallet
-            a second, worse shop. What is left is what only the wallet can do:
-            show the balance, top it up, and point at the street. Those rows
-            are still exported from this file and still rendered by
-            pages/bazaar.tsx. */}
+        {/* Only the rows scroll; the painted header above stays put.
+            THE WALLET IS A BALANCE AND A DOOR. Every sink it used to sell is
+            stocked in the bazaar, behind its four doors; what is left is what
+            only the wallet can do: show the balance, its history, top it up,
+            and point at the street. */}
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
-          {/* Chai history: the real ledger rows now, labelled server-side.
-              See WalletHistory above for why loading and error show
-              nothing. */}
           <WalletHistory />
 
-          {/* Dark until CHAI_PACKS_LIVE is flipped; renders nothing at all
-              while the flag is off, so the wallet is unchanged today. */}
-          <ChaiPackShop />
-
           <div
-            className="flex items-center gap-3 rounded-2xl border border-card-border bg-card p-4"
-            style={{
-              backgroundImage: `linear-gradient(90deg, ${INDIA.stripe}1A 0%, transparent 55%)`,
-            }}
+            className="flex items-center gap-2.5 rounded-[18px] border p-3"
+            style={{ backgroundColor: "#EFEBFA", borderColor: "#D9D2F3" }}
           >
-            <BazaarTile />
+            <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center">
+              <Mascot pose="wave" size={72} idle="none" />
+            </span>
             <div className="min-w-0 flex-1">
               <p className="font-black text-foreground">Bolo Bazaar</p>
               <p className="text-xs leading-snug text-muted-foreground">
@@ -779,12 +872,15 @@ export function ChaiWalletSheet({
                 navigate("/bazaar");
               }}
               data-testid="wallet-open-wardrobe"
-              className={SPEND_BTN_CLASS}
-              style={SPEND_BTN_STYLE}
+              className="shrink-0 rounded-full bg-primary px-3.5 py-2.5 text-[13px] font-bold text-primary-foreground"
             >
-              Browse
+              Browse Bazaar
             </button>
           </div>
+
+          {/* Dark until CHAI_PACKS_LIVE is flipped; renders nothing at all
+              while the flag is off, so the wallet is unchanged today. */}
+          <ChaiPackShop />
         </div>
       </SheetContent>
     </Sheet>
