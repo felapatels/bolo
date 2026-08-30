@@ -4,6 +4,7 @@
 import type { LeaderboardEntry } from '@workspace/api-client-react';
 import {
   boardBubbleLine,
+  toTopFive,
   formatRaceCountdown,
   metricUnit,
   rankEntries,
@@ -105,7 +106,24 @@ describe('copy', () => {
     expect(boardBubbleLine(1)).toBe("You're leading the line!");
     expect(boardBubbleLine(3)).toBe('Podium spot. Hold it!');
     expect(boardBubbleLine(5)).toBe("You're in the top 5!");
-    expect(boardBubbleLine(6)).toBe('Top 5 is within reach!');
+    // INVERTED (build 25): a rank alone no longer earns the top-5 promise;
+    // without a standing the line is the honest generic one.
+    expect(boardBubbleLine(6)).toBe('Every phrase moves you up!');
+    // With a standing it says the number, and only calls the top 5 close
+    // when it is.
+    expect(boardBubbleLine(7, { toPass: 6, toTopFive: 31, metric: 'xp' })).toBe('Top 5 is 31 XP away!');
+    expect(boardBubbleLine(7, { toPass: 6, toTopFive: 200, metric: 'xp' })).toBe('6 XP to pass #6');
+    expect(boardBubbleLine(9, { toPass: 1, toTopFive: 2, metric: 'streak' })).toBe('Top 5 is 2 days away!');
+    expect(boardBubbleLine(12, { toPass: null, toTopFive: null, metric: 'xp' })).toBe('Every phrase moves you up!');
     expect(boardBubbleLine(40)).toBe('Every phrase moves you up!');
+  });
+
+  it('measures the distance to fifth place, one more than the gap', () => {
+    const e = (xp: number, isSelf = false) =>
+      ({ xp, streak: 0, reachedAt: null, isSelf, rank: 0 }) as unknown as Parameters<typeof toTopFive>[0][number];
+    const ranked = [e(356), e(312), e(283), e(179), e(104), e(81), e(74, true)];
+    expect(toTopFive(ranked, 6, 'xp')).toBe(31);
+    expect(toTopFive(ranked, 4, 'xp')).toBeNull();
+    expect(toTopFive(ranked, 9, 'xp')).toBeNull();
   });
 });

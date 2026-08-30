@@ -106,11 +106,54 @@ export function formatRaceCountdown(ms: number): string {
  * is not on it. Every line is true of the number it is given; none of them
  * promises anything the board cannot show.
  */
-export function boardBubbleLine(rank: number | null): string {
+/**
+ * Points (or days) needed to overtake fifth place: one more than the gap,
+ * so a tie is not enough. Null on the podium row or the top five, and off
+ * the board.
+ */
+export function toTopFive(ranked: readonly LeaderboardEntry[], index: number, metric: BoardMetric): number | null {
+  if (index < 5 || index >= ranked.length || ranked.length < 5) return null;
+  const fifth = metricValue(ranked[4]!, metric);
+  const mine = metricValue(ranked[index], metric);
+  return Math.max(1, fifth - mine + 1);
+}
+
+/** How close the top five has to be before Bolo calls it within reach. */
+export const TOP_FIVE_REACH: Record<BoardMetric, number> = { xp: 60, streak: 3 };
+
+/**
+ * What the learner is up against, for the bubble: the gap to the row above
+ * and the gap to fifth place, in the board's own metric.
+ */
+export interface BoardStanding {
+  toPass: number | null;
+  toTopFive: number | null;
+  metric: BoardMetric;
+}
+
+/**
+ * WHAT BOLO SAYS ABOUT THE LEARNER'S STANDING, and it has to be true (owner,
+ * build 25: "make sure that updates accurately to what's actually happening").
+ * It used to say "Top 5 is within reach!" to everyone from sixth to tenth,
+ * whatever the gap: a learner 200 XP behind fifth read a promise the board
+ * could not keep. With a standing it names the number: how far fifth place
+ * is when it is close, otherwise how far the next row up is. Without one
+ * (a board still loading, a caller that has no ranking) it falls back to
+ * the rank alone, and never to the old promise.
+ */
+export function boardBubbleLine(rank: number | null, standing?: BoardStanding): string {
   if (rank === null) return 'Practise to join the race!';
-  if (rank === 1) return "You're leading the line!";
+  if (rank === 1) return 'You\'re leading the line!';
   if (rank <= 3) return 'Podium spot. Hold it!';
-  if (rank <= 5) return "You're in the top 5!";
-  if (rank <= 10) return 'Top 5 is within reach!';
+  if (rank <= 5) return 'You\'re in the top 5!';
+  if (standing) {
+    const { toPass, toTopFive, metric } = standing;
+    if (toTopFive !== null && toTopFive <= TOP_FIVE_REACH[metric]) {
+      return `Top 5 is ${toTopFive} ${metricUnit(metric, toTopFive)} away!`;
+    }
+    if (toPass !== null) {
+      return `${toPass} ${metricUnit(metric, toPass)} to pass #${rank - 1}`;
+    }
+  }
   return 'Every phrase moves you up!';
 }

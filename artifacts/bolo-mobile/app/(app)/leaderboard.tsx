@@ -31,7 +31,7 @@ import { SpeechBubble } from '@/components/SpeechBubble';
 import { MetricToggle } from '@/components/leaderboard/MetricToggle';
 import { WeeklyRaceBar } from '@/components/leaderboard/WeeklyRaceBar';
 import { LeaderboardBoard } from '@/components/leaderboard/LeaderboardBoard';
-import { type BoardMetric, boardBubbleLine, rankEntries, weekKey } from '@/lib/boardRanking';
+import { type BoardMetric, boardBubbleLine, rankEntries, toPassAbove, toTopFive, weekKey } from '@/lib/boardRanking';
 import { useRankDeltas } from '@/lib/useRankDeltas';
 import {
   FEED_EMPTY_BODY,
@@ -569,9 +569,22 @@ export default function LeaderboardScreen() {
           bubble under the bird with its tail pointing up at her. The header
           is too tight to seat the bubble beside her without squeezing the
           title, so it hangs below. */}
+      {/* FROM HER BEAK (build 25): the bubble sits under the bird at the
+          right, tail up at her, rather than at the far left with a tail
+          pointing at nothing. And it says the real number: see
+          boardBubbleLine. */}
       <View style={styles.bubbleRow}>
-        <SpeechBubble tail="up" testID="board-bubble">
-          {boardBubbleLine(board.data ? selfRank : null)}
+        <SpeechBubble tail="up" testID="board-bubble" style={{ alignSelf: 'flex-end' }}>
+          {boardBubbleLine(
+            board.data ? selfRank : null,
+            board.data && selfIndex >= 0
+              ? {
+                  toPass: toPassAbove(ranked, selfIndex, metric),
+                  toTopFive: toTopFive(ranked, selfIndex, metric),
+                  metric,
+                }
+              : undefined,
+          )}
         </SpeechBubble>
       </View>
 

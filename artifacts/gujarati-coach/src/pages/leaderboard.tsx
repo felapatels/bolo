@@ -61,7 +61,7 @@ import { SpeechBubble } from "@/components/speech-bubble";
 import { MetricToggle } from "@/components/leaderboard/metric-toggle";
 import { WeeklyRaceBar } from "@/components/leaderboard/weekly-race-bar";
 import { LeaderboardBoard } from "@/components/leaderboard/leaderboard-board";
-import { type BoardMetric, boardBubbleLine, rankEntries, weekKey } from "@/lib/boardRanking";
+import { type BoardMetric, boardBubbleLine, rankEntries, toPassAbove, toTopFive, weekKey } from "@/lib/boardRanking";
 import { useRankDeltas } from "@/lib/useRankDeltas";
 import {
   FEED_EMPTY_BODY,
@@ -462,9 +462,20 @@ export default function Leaderboard() {
         </div>
         {/* WHAT BOLO SAYS (build 23): the learner's standing in one line, in a
             bubble under the bird with its tail pointing up at her. */}
-        <div className="-mt-1.5 mb-3 flex">
+        {/* FROM HER BEAK (build 25, with mobile): under the bird at the right,
+            tail up at her; and the real number, see boardBubbleLine. */}
+        <div className="-mt-1.5 mb-3 flex justify-end">
           <SpeechBubble tail="up" testId="board-bubble">
-            {boardBubbleLine(data ? selfRank : null)}
+            {boardBubbleLine(
+              data ? selfRank : null,
+              data && selfIndex >= 0
+                ? {
+                    toPass: toPassAbove(ranked, selfIndex, metric),
+                    toTopFive: toTopFive(ranked, selfIndex, metric),
+                    metric,
+                  }
+                : undefined,
+            )}
           </SpeechBubble>
         </div>
         <div className="mb-3 flex justify-center">
