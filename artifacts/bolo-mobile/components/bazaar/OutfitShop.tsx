@@ -181,7 +181,13 @@ export function OutfitShop({ door }: { door: ShopDoor }) {
   const catalogue = data?.outfits ?? [];
   // The door's own stock: the Tailor sells everything, the Station Master
   // the station pieces.
-  const allItems = door === 'station' ? catalogue.filter((o) => STATION_IDS.has(o.id)) : catalogue;
+  // DISJOINT RACKS (owner, build 25: the cap was in both shops; "A"). Each
+  // piece has ONE home: station gear with the Station Master, everything
+  // else with the Tailor. Before this the Tailor sold the whole catalogue.
+  const allItems =
+    door === 'station'
+      ? catalogue.filter((o) => STATION_IDS.has(o.id))
+      : catalogue.filter((o) => !STATION_IDS.has(o.id));
   const ownedCount = allItems.filter((o) => o.owned).length;
   const rackItems = (ownedOnly ? allItems.filter((o) => o.owned) : allItems).filter((o) =>
     kindFilter === 'all' ? true : (o.kind ?? 'garment') === kindFilter,

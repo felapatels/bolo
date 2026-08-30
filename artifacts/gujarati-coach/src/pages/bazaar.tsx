@@ -102,7 +102,12 @@ export default function OutfitsPage({ door = "tailor" }: { door?: ShopDoor } = {
   const [walletOpen, setWalletOpen] = useState(false);
   // The door's own stock: the Tailor sells everything, the Station Master
   // the station pieces.
-  const stock = door === "station" ? (data?.outfits ?? []).filter((o) => STATION_IDS.has(o.id)) : (data?.outfits ?? []);
+  // DISJOINT RACKS (owner, build 25, with mobile): each piece has ONE home,
+  // station gear with the Station Master, everything else with the Tailor.
+  const stock =
+    door === "station"
+      ? (data?.outfits ?? []).filter((o) => STATION_IDS.has(o.id))
+      : (data?.outfits ?? []).filter((o) => !STATION_IDS.has(o.id));
   const previewedItem = data?.outfits.find((o) => o.id === previewed) ?? null;
   const previewedKind = previewedItem?.kind ?? "garment";
   const shownGarment =
