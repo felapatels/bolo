@@ -106,6 +106,9 @@ function OutfitThumb({ outfitId, preview, size }: { outfitId: string; preview?: 
   );
 }
 
+/** The Flex card's inner padding; the scene's width is computed off it. */
+const FLEX_PAD = 12;
+
 const DOORS: Record<ShopDoor, { title: string; subtitle: string; stall: 'tailor' | 'ticket' }> = {
   tailor: { title: 'The Tailor', subtitle: 'Dress Bolo for the journey.', stall: 'tailor' },
   station: { title: 'Station Master', subtitle: 'Hats, uniforms and more.', stall: 'ticket' },
@@ -115,7 +118,9 @@ export function OutfitShop({ door }: { door: ShopDoor }) {
   const colors = useColors();
   const queryClient = useQueryClient();
   const windowW = useContentWidth();
-  const sceneW = Math.max(1, windowW - 40);
+  // The scene sits inside the Flex card now (build 24): the street's 20 a
+  // side, then the card's FLEX_PAD.
+  const sceneW = Math.max(1, windowW - 40 - FLEX_PAD * 2);
   const sceneH = Math.round(sceneW * 0.86);
   const outfitsQuery = useGetOutfits();
   const data = outfitsQuery.data;
@@ -130,6 +135,15 @@ export function OutfitShop({ door }: { door: ShopDoor }) {
   const [notice, setNotice] = React.useState('');
   const [noticeKey, setNoticeKey] = React.useState(0);
   const [shortfall, setShortfall] = React.useState<number | null>(null);
+  // "View all" under the collected count: every filter off, and the rack
+  // brought into view, which is a screen below the card.
+  const scrollRef = React.useRef<ScrollView>(null);
+  const rackY = React.useRef(0);
+  const viewAll = () => {
+    setOwnedOnly(false);
+    setKindFilter('all');
+    scrollRef.current?.scrollTo({ y: Math.max(0, rackY.current - 12), animated: true });
+  };
   const showNotice = (message: string) => {
     setNotice(message);
     setNoticeKey((k) => k + 1);
@@ -234,10 +248,36 @@ export function OutfitShop({ door }: { door: ShopDoor }) {
       </Modal>
       <ChaiShortfallSheet needed={shortfall} itemName={shownOutfit?.name} onClose={() => setShortfall(null)} />
       <BazaarHeader title={meta.title} subtitle={meta.subtitle} centred onWallet={() => setWalletOpen(true)} />
-      <ScrollView contentContainerStyle={styles.street} showsVerticalScrollIndicator={false}>
-        {/* THE SCENE: the keeper's shop with the bird dressed, large, and the
-            two category buttons standing on it. */}
-        <View testID="outfit-storefront">
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.street} showsVerticalScrollIndicator={false}>
+        {/* YOUR FLEX (build 24; the owner's bazaar mockup of 2026-08-29, memory
+            bolo-feed-and-bazaar-mockups-2026-08-29): the card the shop opens
+            on. The scene, the slot buttons and the two chips were build 22's;
+            the card around them, its head, Share Flex and the collected count
+            are new. NO RARITY AND NO UNLOCK RULES: the catalogue has neither,
+            so the count is owned against not owned and the rails below are
+            the collection. Ivory card colours are the hub's Door, verbatim,
+            and fixed like every painted scene: not theme tokens. Web twin:
+            pages/bazaar.tsx. */}
+        <View testID="outfit-storefront" style={styles.flexCard}>
+          <View style={styles.flexHead}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.flexEyebrow}>YOUR FLEX</Text>
+              <Text style={styles.flexTitle}>Looking sharp!</Text>
+              <Text style={styles.flexSub}>Show off your style on the leaderboard.</Text>
+            </View>
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel="Share Bolo's look"
+              onPress={shareLook}
+              style={[styles.shareBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              testID="outfit-share-look"
+            >
+              <Feather name="share" size={14} color={colors.foreground} />
+              <Text style={[styles.shareText, { color: colors.foreground }]}>Share Flex</Text>
+            </PressableScale>
+          </View>
+          {/* THE SCENE: the keeper's shop with the bird dressed, large, and the
+              two category buttons standing on it. */}
           <SceneBand stall={meta.stall} width={sceneW} height={sceneH} testID="outfit-scene">
             <View style={styles.sceneVeil} pointerEvents="none" />
             <View style={styles.sideButtons}>
@@ -268,16 +308,6 @@ export function OutfitShop({ door }: { door: ShopDoor }) {
                 </View>
               ) : null}
             </View>
-            <PressableScale
-              accessibilityRole="button"
-              accessibilityLabel="Share Bolo's look"
-              onPress={shareLook}
-              style={[styles.shareBtn, { backgroundColor: colors.card }]}
-              testID="outfit-share-look"
-            >
-              <Feather name="share" size={14} color={colors.foreground} />
-              <Text style={[styles.shareText, { color: colors.foreground }]}>Share Look</Text>
-            </PressableScale>
           </SceneBand>
           {/* WHAT SHE HAS ON: one chip per slot. */}
           <View style={styles.wearingRow}>
@@ -291,6 +321,14 @@ export function OutfitShop({ door }: { door: ShopDoor }) {
               worn={wornAccessory !== null}
               glyph={<MaterialCommunityIcons name="hat-fedora" size={15} color={colors.gold} />}
             />
+          </View>
+          <View style={styles.collectedRow}>
+            <Text testID="outfit-collected" style={styles.collectedText}>
+              {ownedCount} of {allItems.length} items collected
+            </Text>
+            <Pressable accessibilityRole="button" testID="outfit-view-all" onPress={viewAll} hitSlop={8}>
+              <Text style={[styles.viewAll, { color: colors.primary }]}>View all</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -374,7 +412,7 @@ export function OutfitShop({ door }: { door: ShopDoor }) {
         ) : null}
 
         {/* EVERYTHING / MY WARDROBE. */}
-        <View testID="outfit-filters" style={styles.filters}>
+        <View testID="outfit-filters" onLayout={(e) => { rackY.current = e.nativeEvent.layout.y; }} style={styles.filters}>
           <Pressable
             testID="outfit-filter-all"
             accessibilityRole="button"
@@ -555,9 +593,18 @@ const styles = StyleSheet.create({
   stage: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 6, paddingLeft: 42, paddingRight: 44 },
   stageCaption: { marginTop: 4, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, maxWidth: 200 },
   stageCaptionText: { fontFamily: AppFonts.bold, fontSize: 12 },
-  shareBtn: { position: 'absolute', right: 12, bottom: 12, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  shareBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, flexShrink: 0 },
   shareText: { fontFamily: AppFonts.bold, fontSize: 13 },
-  wearingRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  // The Flex card (build 24): the hub Door's ivory, fixed like the scene.
+  flexCard: { borderRadius: 18, borderWidth: 1.5, padding: FLEX_PAD, gap: 12, backgroundColor: '#FBF4E8', borderColor: '#E8D9BE' },
+  flexHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  flexEyebrow: { fontFamily: AppFonts.extrabold, fontSize: 10, letterSpacing: 1.8, color: '#8A5A32' },
+  flexTitle: { fontFamily: AppFonts.extrabold, fontSize: 18, color: '#2B1A0E', marginTop: 2 },
+  flexSub: { fontFamily: AppFonts.semibold, fontSize: 12, color: '#6B5B4E', marginTop: 2 },
+  collectedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 },
+  collectedText: { fontFamily: AppFonts.bold, fontSize: 12, color: '#6B5B4E' },
+  viewAll: { fontFamily: AppFonts.extrabold, fontSize: 12 },
+  wearingRow: { flexDirection: 'row', gap: 10 },
   // Tight on purpose: two chips share the width, and "Marigold pagdi" has to
   // fit beside a glyph and a tick (it clipped at 34 and 13 on the simulator).
   wearingChip: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 14, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 8 },

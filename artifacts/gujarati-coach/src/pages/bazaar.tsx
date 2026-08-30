@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type React from "react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,12 +14,11 @@ import { ChaiGlyph } from "@/components/chai-stall";
 import { SceneBand } from "@/components/scene-band";
 import { BazaarHeader } from "@/components/bazaar-header";
 import { ChaiWalletSheet } from "@/components/chai-wallet";
-import { DressingRoom } from "@/components/dressing-room";
 import { OutfitCard, groupOutfits } from "@/components/outfit-card";
 import { ChaiPackShop } from "@/components/chai-packs";
 import { shortfallFromSpendError } from "@/lib/chai-errors";
-import { mascotAssetSrc } from "@/lib/mascot-outfits";
 import { INDIA } from "@/lib/india-palette";
+import { CheckCircle2, Crown, Share2, Shirt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -94,6 +94,9 @@ export default function OutfitsPage({ door = "tailor" }: { door?: ShopDoor } = {
   // The rack grows; what a learner already paid for should not need hunting
   // for. One chip narrows it to their own wardrobe.
   const [ownedOnly, setOwnedOnly] = useState(false);
+  // The two round buttons on the scene narrow the rack to one slot; a second
+  // tap on the same one lets everything back in (mobile twin: kindFilter).
+  const [kindFilter, setKindFilter] = useState<"all" | "garment" | "accessory">("all");
   // The chai stall at the bottom of the street opens the wallet a learner
   // already knows, rather than a second balance surface built here.
   const [walletOpen, setWalletOpen] = useState(false);
@@ -181,57 +184,70 @@ export default function OutfitsPage({ door = "tailor" }: { door?: ShopDoor } = {
 
   const allItems = stock;
   const ownedCount = allItems.filter((o) => o.owned).length;
-  const rackItems = ownedOnly ? allItems.filter((o) => o.owned) : allItems;
+  const rackItems = (ownedOnly ? allItems.filter((o) => o.owned) : allItems).filter((o) =>
+    kindFilter === "all" ? true : (o.kind ?? "garment") === kindFilter,
+  );
+  // What she has on right now, as catalogue rows, for the two chips and the
+  // share line. Off the whole catalogue, not the door's stock: a hat bought
+  // at the Station Master is still on her head at the Tailor.
+  const wornGarment = data?.outfits.find((o) => o.id === equipped) ?? null;
+  const wornAccessory = data?.outfits.find((o) => o.id === equippedAccessory) ?? null;
 
-  // The changing room. Every costume change draws the curtain, swaps the art
-  // behind it and opens again once the dressed bird has actually decoded —
-  // the wait is real (a first-time outfit is a fresh PNG), which is exactly
-  // why an in-place swap looked like a glitch. The failsafe matters more than
-  // the beat: a curtain that never reopens hides the product, so it opens on
-  // load, on error, and on a timer regardless.
-  const [changing, setChanging] = useState(false);
-  const dressedAs = useRef<string | undefined>(undefined);
-  // Both slots decide what is behind the curtain, so the key is the pair.
-  const shown = `${shownGarment ?? ""}|${shownAccessory ?? ""}`;
+  // SHARE FLEX. The phone hands the line to the OS share sheet; a browser
+  // has that only where navigator.share exists (mobile Safari, Chrome on
+  // Android, some desktops), so the fallback is the clipboard and a beat of
+  // "Copied" on the button. The line is the phone's, word for word.
+  const [shared, setShared] = useState<"copied" | null>(null);
+  const shareLook = async () => {
+    const pieces = [wornGarment?.name, wornAccessory?.name].filter(Boolean);
+    const line =
+      pieces.length > 0 ? `My Bolo is wearing ${pieces.join(" and ")} on Bolo!` : "Come dress your Bolo on Bolo!";
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        await navigator.share({ text: line });
+        return;
+      }
+      await navigator.clipboard?.writeText(line);
+      setShared("copied");
+      window.setTimeout(() => setShared(null), 1800);
+    } catch {
+      // The learner closed the sheet; nothing to say.
+    }
+  };
 
+  // The bird is sized off the painted scene she stands in, as on the phone
+  // (0.58 of the scene's height), so she fills a phone's squarer band and a
+  // desktop's wide one alike. Measured, because the band's height is pure
+  // aspect off a width this page does not know.
+  const bandRef = useRef<HTMLDivElement | null>(null);
+  const [bandH, setBandH] = useState(300);
   useEffect(() => {
-    if (dressedAs.current === shown) return;
-    const first = dressedAs.current === undefined;
-    dressedAs.current = shown;
-    if (first) return; // the shop opens with the curtain already up
+    const el = bandRef.current;
+    if (!el) return;
+    const measure = () => {
+      const h = el.clientHeight;
+      if (h > 0) setBandH(Math.round(h));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const birdSize = Math.round(bandH * 0.58);
 
-    setChanging(true);
-    const shutAt = Date.now();
-    let settled = false;
-    const timers: number[] = [];
-    // A cached image resolves instantly, and a curtain that opens the frame
-    // after it shut just flashes. Whatever happens, it stays closed for the
-    // whole beat and only then reveals.
-    const MIN_CLOSED_MS = 1100;
-    const openWhenDressed = () => {
-      if (settled) return;
-      settled = true;
-      timers.push(
-        window.setTimeout(
-          () => setChanging(false),
-          Math.max(0, MIN_CLOSED_MS - (Date.now() - shutAt)),
-        ),
-      );
-    };
-    // The base is the slow one — a first-time garment is a fresh PNG — and
-    // the hat overlay is small and usually already cached, so the curtain
-    // waits on the garment and lets the overlay ride along.
-    const img = new Image();
-    img.onload = openWhenDressed;
-    img.onerror = openWhenDressed;
-    img.src = mascotAssetSrc("wave", shownGarment);
-    // Failsafe: the art may never resolve, and the booth must still open.
-    timers.push(window.setTimeout(openWhenDressed, 2400));
-    return () => {
-      settled = true;
-      timers.forEach((t) => window.clearTimeout(t));
-    };
-  }, [shown]);
+  // "View all" under the collected count: every filter off, and the rack
+  // brought into view, which on a phone is a screen below.
+  const rackRef = useRef<HTMLDivElement | null>(null);
+  const viewAll = () => {
+    setOwnedOnly(false);
+    setKindFilter("all");
+    rackRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  };
+
+  // NO CHANGING ROOM ANY MORE (build 24, the phone's ruling since build 22,
+  // owner: "get rid of the dressing room thing"): the bird stands in the
+  // tailor's own scene and a change of clothes is instant. The curtain, its
+  // 1100ms beat and the PNG preload that timed it went with it.
 
   const tryOn = (outfitId: string) => {
     setError(null);
@@ -251,71 +267,137 @@ export default function OutfitsPage({ door = "tailor" }: { door?: ShopDoor } = {
         onWallet={() => setWalletOpen(true)}
       />
 
-      {/* The shopfront; the dressing room, the filters and the rack below it
-          are the door's stock. */}
-      <SceneBand stall={DOORS[door].stall} />
+      {/* YOUR FLEX (build 24; the owner's bazaar mockup of 2026-08-29, memory
+          bolo-feed-and-bazaar-mockups-2026-08-29). The card the shop opens on:
+          the learner's own dressed Bolo on the tailor's scene, the two slot
+          buttons, what she has on as two chips, and how much of the rack is
+          hers. The phone built its scene in build 22; this is that scene
+          brought to web plus the card around it. NO RARITY AND NO UNLOCK
+          RULES: the catalogue has neither (nothing in openapi.yaml or
+          lib/outfits.ts carries them), so the honest count is owned against
+          not owned and the rack below is the collection; a second grid here
+          would be the duplicate CLAUDE.md warns of. Ivory card colours are
+          the hub's Door, verbatim. */}
+      <section
+        data-testid="outfit-storefront"
+        className="mt-3 overflow-hidden rounded-[18px] border-[1.5px] shadow-[0_4px_8px_rgba(43,26,18,0.12)]"
+        style={{ background: "#FBF4E8", borderColor: "#E8D9BE" }}
+      >
+        <div className="flex items-start justify-between gap-3 px-4 pt-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: INDIA.timber }}>
+              Your flex
+            </p>
+            <h2 className="mt-0.5 text-lg font-black leading-tight" style={{ color: "#2B1A0E" }}>
+              Looking sharp!
+            </h2>
+            <p className="mt-0.5 text-xs font-bold" style={{ color: "#6B5B4E" }}>
+              Show off your style on the leaderboard.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="outfit-share-look"
+            aria-label="Share Bolo's look"
+            onClick={shareLook}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-card-border bg-card px-3 py-1.5 text-xs font-black text-foreground transition-colors hover:bg-muted"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            {shared === "copied" ? "Copied" : "Share Flex"}
+          </button>
+        </div>
 
-      {/* The dressing room. It no longer sticks to the top of the scroller:
-          on a street of four stalls a pinned bird would hang over the ticket
-          counter and the signal box, which read as different places. Its own
-          markup is untouched. */}
+        {/* THE SCENE: the keeper's shop with the bird dressed, large, and the
+            two slot buttons standing on it. Squarer on a phone (the phone's
+            own 0.86), the band's 16:9 from sm up; the important flag beats
+            SceneBand's inline aspect. */}
+        <div className="px-3 pt-3">
+          <div ref={bandRef}>
+            <SceneBand stall={DOORS[door].stall} className="!aspect-[1/0.86] sm:!aspect-[16/9]" testId="outfit-scene">
+              <div className="absolute inset-0" style={{ background: "rgba(43,26,18,0.08)" }} aria-hidden />
+              <div className="absolute left-3 top-3 flex flex-col gap-2">
+                <CategoryButton
+                  label="Outfits"
+                  active={kindFilter === "garment"}
+                  onClick={() => setKindFilter((k) => (k === "garment" ? "all" : "garment"))}
+                  testId="outfit-kind-garment"
+                >
+                  <Shirt className="h-5 w-5 text-primary" />
+                </CategoryButton>
+                <CategoryButton
+                  label="Headwear"
+                  active={kindFilter === "accessory"}
+                  onClick={() => setKindFilter((k) => (k === "accessory" ? "all" : "accessory"))}
+                  testId="outfit-kind-accessory"
+                >
+                  <Crown className="h-5 w-5 text-primary" />
+                </CategoryButton>
+              </div>
+              {/* Preview: the learner's own Bolo, in whatever is selected.
+                  Left of centre so the keeper at the scene's right shows
+                  beside her. The caption names what she is trying on, under
+                  her feet, so the picture says it before the rack does. */}
+              <div
+                data-testid="outfit-preview"
+                className="pointer-events-none absolute inset-0 flex flex-col items-center justify-end pb-1.5 pl-[42px] pr-[44px]"
+              >
+                <Mascot pose="cheer" size={birdSize} outfit={shownGarment} accessory={shownAccessory} />
+                {shownOutfit ? (
+                  <span
+                    className="mt-1 max-w-[200px] truncate rounded-full px-2.5 py-1 text-xs font-bold text-foreground"
+                    style={{ background: "rgba(255,253,249,0.92)" }}
+                  >
+                    {shownOutfit.name}
+                  </span>
+                ) : null}
+              </div>
+            </SceneBand>
+          </div>
+        </div>
+
+        {/* WHAT SHE HAS ON: one chip per slot. */}
+        <div className="mt-3 flex gap-2.5 px-3">
+          <WearingChip
+            label={wornGarment?.name ?? "Nothing on"}
+            worn={wornGarment !== null}
+            glyph={<Shirt className="h-[15px] w-[15px]" />}
+          />
+          <WearingChip
+            label={wornAccessory?.name ?? "Bare head"}
+            worn={wornAccessory !== null}
+            glyph={<Crown className="h-[15px] w-[15px]" />}
+          />
+        </div>
+
+        <div className="flex items-center justify-between px-4 py-3">
+          <p data-testid="outfit-collected" className="text-xs font-bold" style={{ color: "#6B5B4E" }}>
+            {ownedCount} of {allItems.length} items collected
+          </p>
+          <button
+            type="button"
+            data-testid="outfit-view-all"
+            onClick={viewAll}
+            className="text-xs font-black text-primary hover:underline"
+          >
+            View all
+          </button>
+        </div>
+      </section>
+
+      {/* THE TRY-ON, when something is picked off the rack: its name, its
+          line, and the one action that fits. The bird herself is on the
+          scene above, already wearing it. */}
       {previewed ? (
       <div
         data-testid="outfit-dressing-room"
-        className="pb-3 pt-1"
+        className="mt-3 rounded-2xl border border-card-border bg-card p-3"
       >
-      {/* The tailor's own floor. The awning, the toran and the painted
-          "Bolo Bazaar" board used to stand here, announcing a shop the stall
-          band above now announces by name; two signboards on one screen read
-          as two different shops. What is left is the wall the bird stands
-          against and the counter she stands behind, so she has a floor
-          instead of floating in the page. */}
-      <div
-        data-testid="outfit-storefront"
-        className="mt-3 overflow-hidden rounded-2xl border border-card-border bg-card"
-      >
-        {/* Preview: the learner's own Bolo, standing at the counter in
-            whatever is selected. */}
-        <div
-          data-testid="outfit-preview"
-          className="flex flex-col items-center px-5 pb-0 pt-5"
-        >
-          <DressingRoom closed={changing} className="w-full rounded-t-xl">
-            <div className="flex justify-center pt-3">
-              <Mascot
-                pose="wave"
-                size={180}
-                outfit={shownGarment}
-                accessory={shownAccessory}
-              />
-            </div>
-          </DressingRoom>
-          {shownOutfit ? (
-            <p
-              className="mt-2 text-center text-sm font-black"
-              style={{ color: INDIA.board }}
-            >
-              {shownOutfit.name}
-            </p>
-          ) : null}
-          {shownOutfit ? (
-            <p
-              className="mt-0.5 text-center text-xs font-bold"
-              style={{ color: INDIA.ink }}
-            >
-              {shownOutfit.tagline}
-            </p>
-          ) : null}
-          {/* The counter: a timber lip the bird stands behind. */}
-          <div
-            aria-hidden="true"
-            className="mt-3 h-3 w-[calc(100%+2.5rem)] rounded-t-sm"
-            style={{
-              background: `linear-gradient(180deg, ${INDIA.timber} 0 55%, ${INDIA.timberShade} 55% 100%)`,
-            }}
-          />
-        </div>
-      </div>
+        {shownOutfit ? (
+          <>
+            <p className="text-base font-black text-foreground">{shownOutfit.name}</p>
+            <p className="mt-0.5 text-xs font-bold text-muted-foreground">{shownOutfit.tagline}</p>
+          </>
+        ) : null}
 
       {shortfall !== null && (
         <div
@@ -353,6 +435,7 @@ export default function OutfitsPage({ door = "tailor" }: { door?: ShopDoor } = {
         </div>
       )}
 
+
       {error ? (
         <p
           data-testid="outfit-error"
@@ -362,9 +445,10 @@ export default function OutfitsPage({ door = "tailor" }: { door?: ShopDoor } = {
         </p>
       ) : null}
 
+
       {/* Action for whatever is on the bird right now. Taking something off
           always names its slot, so removing a hat leaves the outfit on. */}
-      <div className="mt-4 flex justify-center">
+      <div className="mt-3 flex justify-center">
         {shownOutfit == null ? (
           equipped == null && equippedAccessory == null ? null : (
             <button
@@ -425,6 +509,7 @@ export default function OutfitsPage({ door = "tailor" }: { door?: ShopDoor } = {
           </button>
         )}
       </div>
+
       </div>
       ) : null}
 
@@ -474,7 +559,7 @@ export default function OutfitsPage({ door = "tailor" }: { door?: ShopDoor } = {
           a learner what she is buying. Every card still carries its own two
           doors — Try On is a free preview, Buy is the till — and the card
           body previews on click as a convenience. */}
-      <div className="mt-4 space-y-5">
+      <div ref={rackRef} data-testid="outfit-rack" className="mt-4 space-y-5">
         {rackItems.length === 0 ? (
           <p
             data-testid="outfit-filter-empty"
@@ -567,6 +652,63 @@ export default function OutfitsPage({ door = "tailor" }: { door?: ShopDoor } = {
       </AlertDialogContent>
     </AlertDialog>
 
+    </div>
+  );
+}
+
+/** One of the two round slot buttons on the scene (mobile twin: CategoryButton). */
+function CategoryButton({
+  label,
+  active,
+  onClick,
+  testId,
+  children,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  testId: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "flex h-[68px] w-[68px] flex-col items-center justify-center gap-1 rounded-2xl border-[1.5px] text-[11px] font-semibold text-foreground transition-colors",
+        active ? "border-primary" : "border-[rgba(207,200,240,0.9)]",
+      )}
+      style={{ background: "rgba(255,253,249,0.94)" }}
+    >
+      {children}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+/** What one slot holds (mobile twin: WearingChip). State is a word and a
+ *  tick, not a colour alone. */
+function WearingChip({ label, worn, glyph }: { label: string; worn: boolean; glyph: React.ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-[14px] border border-card-border bg-card px-2 py-2">
+      <span
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px]"
+        style={{ backgroundColor: `${INDIA.gold}22`, color: INDIA.gold }}
+      >
+        {glyph}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[12.5px] font-bold text-foreground">{label}</span>
+        <span
+          className={cn("block text-[11px] font-semibold", worn ? "" : "text-muted-foreground")}
+          style={worn ? { color: "#16a34a" } : undefined}
+        >
+          {worn ? "Wearing" : "Empty"}
+        </span>
+      </span>
+      {worn ? <CheckCircle2 className="h-[18px] w-[18px] shrink-0" style={{ color: "#16a34a" }} /> : null}
     </div>
   );
 }

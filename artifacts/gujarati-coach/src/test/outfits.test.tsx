@@ -469,3 +469,46 @@ describe("the rack shows stock as pictures, grouped by what it is", () => {
     expect(groupOutfits([PAGDI]).map((s) => s.kind)).toEqual(["accessory"]);
   });
 });
+
+// ── The Your Flex card (build 24) ──────────────────────────────────────────
+
+describe("the Your Flex card opens the shop", () => {
+  test("it counts what is owned and says what is worn in words, not colour", () => {
+    renderShop({
+      balance: 40,
+      equipped: "navratri",
+      equippedAccessory: null,
+      outfits: [{ ...NAVRATRI, owned: true }, PAGDI],
+    });
+    // Owned against not owned is the only honest count: the catalogue has no
+    // rarity and no unlock rules (nothing in openapi.yaml or lib/outfits.ts
+    // carries them), so nothing here pretends otherwise.
+    expect(screen.getByTestId("outfit-collected")).toHaveTextContent("1 of 2 items collected");
+    const card = screen.getByTestId("outfit-storefront");
+    expect(card).toHaveTextContent("Navratri chaniya choli");
+    expect(card).toHaveTextContent("Wearing");
+    expect(card).toHaveTextContent("Bare head");
+    expect(card).toHaveTextContent("Empty");
+    // She stands on the scene in her own things before anything is tried on;
+    // the changing room that used to hide her until a tap is gone (the
+    // phone's ruling since build 22, here build 24).
+    expect(previewOutfit()).toBe("navratri");
+    expect(screen.getByTestId("outfit-share-look")).toHaveTextContent("Share Flex");
+  });
+
+  test("the slot buttons narrow the rack and View all lets everything back in", () => {
+    renderShop({ balance: 40, equipped: null, outfits: [NAVRATRI, PAGDI] });
+    fireEvent.click(screen.getByTestId("outfit-kind-accessory"));
+    expect(screen.queryByTestId("outfit-section-garment")).toBeNull();
+    expect(screen.getByTestId("outfit-section-accessory")).toBeInTheDocument();
+    // A second tap on the same button lets everything back in.
+    fireEvent.click(screen.getByTestId("outfit-kind-accessory"));
+    expect(screen.getByTestId("outfit-section-garment")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("outfit-filter-owned"));
+    expect(screen.getByTestId("outfit-filter-empty")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("outfit-view-all"));
+    expect(screen.queryByTestId("outfit-filter-empty")).toBeNull();
+    expect(screen.getByTestId("outfit-section-garment")).toBeInTheDocument();
+  });
+});

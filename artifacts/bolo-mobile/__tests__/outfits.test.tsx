@@ -392,3 +392,35 @@ describe('the wardrobe previews before it charges', () => {
     ]);
   });
 });
+
+// ── The Your Flex card (build 24) ──────────────────────────────────────────
+
+describe('the Your Flex card opens the shop', () => {
+  test('it counts what is owned and says what is worn in words, not colour', () => {
+    renderShop({
+      balance: 40,
+      equipped: 'navratri',
+      equippedAccessory: null,
+      outfits: [{ ...NAVRATRI, owned: true }, PAGDI],
+    });
+    // Owned against not owned is the only honest count: the catalogue has no
+    // rarity and no unlock rules, so nothing here pretends otherwise.
+    expect(screen.getByText('1 of 2 items collected')).toBeTruthy();
+    const card = within(screen.getByTestId('outfit-storefront'));
+    expect(card.getByText('Navratri chaniya choli')).toBeTruthy();
+    expect(card.getByText('Wearing')).toBeTruthy();
+    expect(card.getByText('Bare head')).toBeTruthy();
+    expect(card.getByText('Empty')).toBeTruthy();
+    expect(previewOutfit()).toBe('navratri');
+    expect(card.getByText('Share Flex')).toBeTruthy();
+  });
+
+  test('View all lets every filter back in', () => {
+    renderShop({ balance: 40, equipped: null, outfits: [NAVRATRI, PAGDI] });
+    fireEvent.press(screen.getByTestId('outfit-kind-accessory'));
+    expect(screen.queryByTestId('outfit-section-garment')).toBeNull();
+    expect(screen.getByTestId('outfit-section-accessory')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('outfit-view-all'));
+    expect(screen.getByTestId('outfit-section-garment')).toBeTruthy();
+  });
+});
