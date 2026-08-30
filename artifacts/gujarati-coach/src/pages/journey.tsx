@@ -86,7 +86,6 @@ import {
 import { useTraceStopProgress } from "@/lib/useTraceStopProgress";
 import {
   TicketPerforationV,
-  TicketStripes,
   ZoneStamp,
   stampSizeForExtent,
 } from "@/components/ticket";
@@ -2275,12 +2274,6 @@ export default function Journey() {
   // server payload and the Chacha encounter logic all already share: the total
   // is its length and the stop number is the very index the encounter check
   // uses, so the header can never disagree with the stop the map lights up.
-  const headerStations =
-    currentStationNumber > 0
-      ? `Stop ${currentStationNumber} of ${totalCount} stations`
-      : allDone
-        ? `All ${totalCount} stations complete`
-        : `${totalCount} stations`;
   // Item 4: y of the current stop inside the map column, off the same
   // serpentine points the markers are drawn from.
   const currentStopY =
@@ -2554,76 +2547,22 @@ export default function Journey() {
         style={{ ["--journey-wide" as string]: `url(${ZONE_WIDE_ART})` }}
         aria-hidden
       />
-      {/* Boarding-pass header — full-ticket treatment */}
-      <header
-        data-testid="journey-header"
-        className="sticky top-0 z-10 bg-card/95 backdrop-blur border-b border-border"
+      {/* A FLOATING BACK ARROW, LIKE THE PHONE (build 23, one of the owner's
+          web corrections: "the web journey's green top header should go,
+          floating back arrow like mobile"). The sticky boarding-pass strip
+          that stood here repeated what the zone board already says (the
+          line, the stops, the free taste) and sat on top of a painting that
+          wanted the room. One round button over the map, pinned to the
+          viewport so it survives the scroll. */}
+      <Link
+        href="/app"
+        aria-label="Back to home"
+        data-testid="journey-back"
+        className="fixed left-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-muted/90 text-foreground shadow-[0_2px_6px_rgba(43,26,18,0.25)] backdrop-blur transition-colors hover:bg-muted"
+        style={{ top: "max(0.75rem, env(safe-area-inset-top))" }}
       >
-        <div className="mx-auto w-full max-w-2xl px-3 py-3 flex items-center gap-2">
-          <Link
-            href="/app"
-            aria-label="Back to home"
-            className="p-2 rounded-full hover:bg-muted text-foreground transition-colors shrink-0"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          {/* Same OBJECT as the pass on home (pages/home.tsx), not a second
-              design: accent fill, white ink, the engine riding on the right.
-              It used to be a pale outlined strip whose middle was empty
-              hatching and whose stub was blank, which read as unfinished work
-              sitting above a finished map. It stays a slim sticky header
-              rather than a copy of home's hero, because it has to survive
-              being pinned to the top of a scrolling map. */}
-          <div
-            className="relative flex-1 overflow-hidden rounded-lg border-2 border-dashed"
-            style={{ backgroundColor: line.accent, borderColor: "rgba(255,255,255,0.45)" }}
-          >
-            <TicketStripes ink="rgba(255,255,255,0.10)" />
-            <div className="relative flex items-stretch">
-              <div className="min-w-0 flex-1 px-4 py-2.5">
-                <div className="text-[9px] font-black uppercase tracking-widest text-white/80">
-                  Boarding pass · બોલો રેલ
-                </div>
-                <div className="text-base font-extrabold text-white leading-tight truncate">
-                  {line.lineName}
-                </div>
-                {/* Item 1: this line carries the number the whole item is
-                    about, so it wraps instead of truncating. At 320px the
-                    route alone fills the ticket, and `truncate` cut the stop
-                    count off the end entirely. Wrapping shows both at every
-                    width and still sits on one line once there is room. */}
-                <div className="text-[11px] leading-tight text-white/85">
-                  {line.zones[0]} → {line.zones[5]} · {headerStations}
-                </div>
-                {access === "teaser" && teaserProgress && (
-                  <div className="text-[10px] font-bold" style={{ color: line.accent }}>
-                    Free taste {teaserProgress.consumed}/{teaserProgress.limit}
-                  </div>
-                )}
-              </div>
-              {/* The engine that fills the dead space, and the same cue home
-                  uses to say "this is a ticket for a train". Hidden on the
-                  narrowest widths, where the route text needs the room. */}
-              <div className="hidden shrink-0 items-end pb-2 pr-1 sm:flex" aria-hidden>
-                <TrainEngine
-                  className={cn(
-                    "h-7 w-auto text-white drop-shadow-sm",
-                    !reduceMotion && "animate-train-drive",
-                  )}
-                />
-              </div>
-              {/* THE STUB IS GONE, AND THE PERFORATION IS NOW A TORN EDGE.
-                  Removed 2026-08-25: "technically, the ticket is already torn,
-                  just get rid of the stub". A boarding pass being read on the
-                  train has had its stub taken, so keeping one attached was the
-                  detail that made the header look like a ticket nobody had
-                  collected yet. Removed on both platforms together, since the
-                  two headers are drawn to one design. */}
-              <TicketPerforationV light />
-            </div>
-          </div>
-        </div>
-      </header>
+        <ArrowLeft className="h-5 w-5" />
+      </Link>
 
       {/* Desktop line index. Fixed, so it never enters the map's layout, and
           xl-only because below that the margin it lives in does not exist.

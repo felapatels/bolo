@@ -839,8 +839,15 @@ export default function Home() {
   return (
     <div className="min-h-[100dvh] pb-nav lg:pb-12 animate-content-enter">
       {/* Header / Greeting */}
-      <header className="mx-auto w-full max-w-6xl px-6 pt-6 pb-2 lg:px-10 lg:pt-6">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={springs.smooth} className="flex items-start justify-between gap-3">
+      {/* HEADROOM FOR THE BIRD (build 23, one of the owner's web corrections
+          off a screenshot: "the mascot cut off at the top of the web home").
+          The greeting's mascot floats on its idle loop and the header gave
+          it the same top padding as the words; the float carried the head
+          past the top of the page. More room above, and the row may
+          overflow rather than clip. Applied from the report rather than a
+          reproduction: the web app cannot run against data on this Mac. */}
+      <header className="mx-auto w-full max-w-6xl overflow-visible px-6 pb-2 pt-8 lg:px-10 lg:pt-8">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={springs.smooth} className="flex items-start justify-between gap-3 overflow-visible">
           <div className="flex items-center gap-3 min-w-0">
             {/* One mascot, sized per breakpoint via JS instead of mounting two
                 CSS-hidden copies — a hidden mascot still animates and burns CPU. */}
