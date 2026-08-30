@@ -133,6 +133,15 @@ const COMMITTED_TESTERS = [
   // make it obvious. Found by querying the email rather than the id.
   "user_3IMzxsxGJsJMontcvbiNkW5Oa6Y", // dr.wala0126@gmail.com, 2026-08-24, 19 attempts
   "user_3GdvZ37lLUHAPsZOWQHZjkDveeE", // dr.wala0126@gmail.com, 2026-07-17, 0 attempts
+  //
+  // "Anshwala snuck in", 2026-08-30. THE DISPLAY NAME IS "Sharad Wala", not
+  // Anshwala, which is the email; recorded because the next person to look for
+  // this row will search the name they were given and not find it. Created the
+  // same day with 0 attempts, so excluding it moves the account count and
+  // nothing else. Shares a surname with the two dr.wala0126 accounts above and
+  // is probably the same household, but they are separate Clerk users and
+  // merging them is not a counting decision.
+  "user_3IdrQd64frpS0igZYTCrvQYeSco", // anshwala1014@gmail.com, 2026-08-30, 0 attempts
 ];
 
 export const nonLearnerUserIds: Set<string> = new Set(
