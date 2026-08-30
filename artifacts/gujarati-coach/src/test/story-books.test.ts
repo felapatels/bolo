@@ -204,6 +204,17 @@ describe("the concept aliases", () => {
     // its five scenes in the language the app is named after.
     expect(conceptSpellings("father")).toContain("dad");
     expect(conceptSpellings("mother")).toContain("mom");
+    // Build 25, measured against production: the greetings book's first page
+    // blanked for paying Gujarati accounts because the corpus writes these
+    // ideas differently; and kal means both tomorrow and yesterday, which is
+    // why three languages card them as the pair.
+    expect(conceptSpellings("how much is this?")).toContain("how much is it?");
+    expect(conceptSpellings("sorry")).toContain("sorry / excuse me");
+    expect(conceptSpellings("tomorrow")).toContain("tomorrow / yesterday");
+    expect(conceptSpellings("goodbye")).toContain("bye");
+    expect(conceptSpellings("congratulations")).toContain("congratulations / best wishes");
+    expect(matchesConcept("sorry", " Sorry / Excuse me ")).toBe(true);
+    expect(matchesConcept("how much is this?", "How much is it?")).toBe(true);
     expect(matchesConcept("father", "Dad")).toBe(true);
     expect(matchesConcept("mother", " Mom ")).toBe(true);
   });

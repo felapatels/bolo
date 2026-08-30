@@ -26,6 +26,28 @@
 const CONCEPT_ALIASES: Record<string, readonly string[]> = {
   father: ["dad"],
   mother: ["mom"],
+  // MEASURED AGAINST PRODUCTION, 2026-08-30 (build 25). The greetings book's
+  // FIRST page names "how much is this?", and Gujarati's corpus writes the
+  // idea as "How much is it?" / "How much?" / "How much does this cost?" —
+  // zero exact rows. A paying account therefore opened the book to the
+  // deliberate corpus-thin blank on page one, in the flagship language (the
+  // owner's tester, iPhone, 1.0.6). Same drift for "sorry", which Gujarati
+  // writes paired with excuse me. Full sentences ("How much is it? I need
+  // more.") are deliberately NOT aliases: a concept resolves to a phrase a
+  // learner can answer with, not a monologue.
+  "how much is this?": ["how much is it?", "how much?", "how much does this cost?"],
+  sorry: ["sorry / excuse me", "excuse me / sorry"],
+  // "kal" means both tomorrow and yesterday, which is why Hindi, Urdu and
+  // Dogri all write the card as the pair; resolving the concept to it is
+  // correct, not a compromise.
+  tomorrow: ["tomorrow / yesterday"],
+  goodbye: ["bye"],
+  congratulations: [
+    "congratulations / best wishes",
+    "congratulations to you",
+    "heartfelt congratulations",
+    "congratulations, best wishes on success",
+  ],
 };
 
 /**

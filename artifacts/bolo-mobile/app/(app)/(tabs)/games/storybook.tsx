@@ -425,6 +425,31 @@ export default function StorybookScreen() {
         </View>
       )}
 
+      {/* THE CORPUS IS SHORT IN THIS LANGUAGE, web's story-short twin
+          (build 25). This state rendered NOTHING on mobile: a paying account
+          on a language missing one of the scene's concepts opened the book
+          to a title and a blank page, which the owner's Gujarati tester hit
+          on 1.0.6 page one. No offer, because there is nothing to sell:
+          the rest of this book does not exist in their language yet. */}
+      {!isLoading && !finished && !resolved && !limited && (
+        <View style={s.gap} testID="storybook-short">
+          <Text style={[s.h2, { color: colors.foreground }]}>
+            {`This story is not ready in ${activeLanguage?.name ?? 'this language'} yet`}
+          </Text>
+          <Text style={[s.body, { color: colors.mutedForeground }]}>
+            A few of its words have not been written in
+            {` ${activeLanguage?.name ?? 'this language'}`} yet. The rest of the
+            journey is unaffected.
+          </Text>
+          <Pressable
+            testID="storybook-short-back"
+            onPress={() => router.back()}
+            style={[s.cta, { backgroundColor: colors.primary }]}
+          >
+            <Text style={s.ctaText}>Back to the games</Text>
+          </Pressable>
+        </View>
+      )}
       {!isLoading && !finished && resolved && stillId && (
         <>
           <View style={[s.frame, { width: frameW, height: (frameW * 2) / 3 }]} testID="storybook-frame">
