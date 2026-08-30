@@ -180,12 +180,13 @@ describe("home add-to-home-screen block", () => {
       screen.getByRole("link", { name: /Download on the App Store/i }),
     ).toHaveAttribute("href", "https://apps.apple.com/app/id6790907772");
 
-    // Never both stores at once.
-    expect(screen.queryByTestId("home-playstore-badge")).toBeNull();
-    expect(screen.queryByAltText("Get it on Google Play")).toBeNull();
-    expect(screen.queryByText("Coming soon to Google Play")).toBeNull();
+    // BOTH STORES, ALWAYS (2026-08-30, the owner's ruling): the Play badge
+    // is here too, in its coming-soon state until the listing is live.
+    expect(screen.getByTestId("home-playstore-badge")).toBeInTheDocument();
+    expect(screen.getByAltText("Get it on Google Play")).toBeInTheDocument();
+    expect(screen.getByText("Coming soon to Google Play")).toBeInTheDocument();
 
-    // No cross-contamination.
+    // No cross-contamination of the STEPS.
     expect(screen.queryByTestId("add-to-home-android")).toBeNull();
     expect(screen.queryByText(/Chrome/)).toBeNull();
     expect(screen.queryByText(/three dot menu/)).toBeNull();
@@ -200,7 +201,7 @@ describe("home add-to-home-screen block", () => {
     expect(screen.queryByTestId("add-to-home-android")).toBeNull();
   });
 
-  test("Android: Chrome steps, the Play badge in its coming-soon state, no Safari copy, no Apple badge", () => {
+  test("Android: Chrome steps, the Play badge in its coming-soon state, no Safari copy, and the Apple badge too", () => {
     setNavigator({ ua: ANDROID_UA, platform: "Linux armv8l", maxTouchPoints: 5 });
     renderHome();
 
@@ -214,15 +215,17 @@ describe("home add-to-home-screen block", () => {
     expect(screen.getByText("Coming soon to Google Play")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Get it on Google Play/i })).toBeNull();
 
-    // Never both stores at once.
+    // The steps never cross-contaminate; the badges always show both.
     expect(screen.queryByTestId("add-to-home-ios")).toBeNull();
     expect(screen.queryByText(/Safari/)).toBeNull();
-    expect(screen.queryByTestId("home-appstore-badge")).toBeNull();
-    expect(screen.queryByAltText("Download on the App Store")).toBeNull();
+    expect(screen.getByTestId("home-appstore-badge")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Download on the App Store/i }),
+    ).toHaveAttribute("href", "https://apps.apple.com/app/id6790907772");
     expect(screen.queryByText("Coming soon to the App Store")).toBeNull();
   });
 
-  test("unknown platform: neutral steps, neither platform's wording, neither store badge", () => {
+  test("unknown platform: neutral steps, neither platform's wording, and both store badges", () => {
     setNavigator({ ua: MAC_DESKTOP_UA, platform: "MacIntel", maxTouchPoints: 0 });
     renderHome();
 
@@ -230,8 +233,9 @@ describe("home add-to-home-screen block", () => {
     expect(screen.getByText(/Open your browser's share or menu button/)).toBeInTheDocument();
     expect(screen.queryByText(/Safari/)).toBeNull();
     expect(screen.queryByText(/Chrome/)).toBeNull();
-    expect(screen.queryByAltText("Download on the App Store")).toBeNull();
-    expect(screen.queryByAltText("Get it on Google Play")).toBeNull();
+    // A desktop visitor has a phone in their pocket: both badges, always.
+    expect(screen.getByAltText("Download on the App Store")).toBeInTheDocument();
+    expect(screen.getByAltText("Get it on Google Play")).toBeInTheDocument();
   });
 
   test("the copy never promises an installed app", () => {

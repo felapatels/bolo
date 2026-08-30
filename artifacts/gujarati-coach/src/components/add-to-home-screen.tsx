@@ -2,9 +2,8 @@
 //
 // There is no native app for iPad, tablets or desktop, and no manifest or
 // service worker in this app, so this is honestly a bookmark: it opens in the
-// visitor's browser, it is not an installed app, and the copy says so. The
-// App Store badge sits beside it for the platform that does have an app
-// coming.
+// visitor's browser, it is not an installed app, and the copy says so. Both
+// store badges sit beside it, on every device (2026-08-30).
 //
 // Platform-aware by design: an iPad visitor never sees Chrome steps and an
 // Android visitor never sees Safari steps. When the platform cannot be told
@@ -70,19 +69,26 @@ export function AddToHomeScreen() {
         <p className="mt-3 text-xs text-muted-foreground/80">{note}</p>
       </div>
 
-      {/* The badge shows where the visitor's own platform will get the app:
-          Apple on iOS, Google Play on Android, never both. An unrecognized
-          platform has no store to point at, so it just gets the steps. */}
-      {platform === "ios" && (
+      {/* BOTH STORES, ALWAYS (owner, 2026-08-30: "I want apple and play store
+          icons to always show on the web home page footer with links to the
+          store pages. regardless of device"). They used to follow the
+          visitor's platform, Apple on iOS and Play on Android, never both,
+          and a desktop visitor got neither; a learner reading on a laptop
+          has a phone in their pocket. The STEPS above stay platform-aware.
+          Each badge links to its listing once that store's LIVE flag is on
+          (app-store-badge.tsx); until then it is the muted coming-soon
+          badge, which is the truth about that listing. */}
+      <div
+        className="flex flex-col items-start gap-3 sm:items-end"
+        data-testid="home-store-badges"
+      >
         <div className="flex flex-col items-start sm:items-end" data-testid="home-appstore-badge">
           <AppStoreBadge placement="home-appstore-badge" />
         </div>
-      )}
-      {platform === "android" && (
         <div className="flex flex-col items-start sm:items-end" data-testid="home-playstore-badge">
           <AppStoreBadge store="play" placement="home-playstore-badge" />
         </div>
-      )}
+      </div>
     </section>
   );
 }
