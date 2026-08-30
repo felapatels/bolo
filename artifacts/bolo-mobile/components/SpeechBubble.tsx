@@ -22,11 +22,11 @@ export function SpeechBubble({
   /** Where the bird is: beside the bubble ('right') or above it ('up'),
    *  the latter for a header too tight to seat the bubble beside the bird
    *  (the Leaderboard, build 22). */
-  tail?: 'right' | 'up';
+  tail?: 'right' | 'up' | 'down';
 }) {
   const colors = useColors();
-  const tailPos = tail === 'up' ? styles.tailUp : styles.tailRight;
-  const tailBorderPos = tail === 'up' ? styles.tailUpBorder : styles.tailRightBorder;
+  const tailPos = tail === 'up' ? styles.tailUp : tail === 'down' ? styles.tailDown : styles.tailRight;
+  const tailBorderPos = tail === 'up' ? styles.tailUpBorder : tail === 'down' ? styles.tailDownBorder : styles.tailRightBorder;
   return (
     <View style={[styles.wrap, style]} testID={testID}>
       <View style={[styles.bubble, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -66,4 +66,7 @@ const styles = StyleSheet.create({
   // Up: near the right end of the top edge, under the bird's feet.
   tailUp: { top: -TAIL / 2 + 1, right: 22 },
   tailUpBorder: { top: -TAIL / 2, right: 22 - 0.75, width: TAIL + 1.5, height: TAIL + 1.5 },
+  // Down: the middle of the bottom edge, over the bird's head (the paywall).
+  tailDown: { bottom: -TAIL / 2 + 1, left: '50%', marginLeft: -TAIL / 2 },
+  tailDownBorder: { bottom: -TAIL / 2, left: '50%', marginLeft: -(TAIL + 1.5) / 2, width: TAIL + 1.5, height: TAIL + 1.5 },
 });

@@ -28,6 +28,10 @@ import {
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
+import { SpeechBubble } from '@/components/SpeechBubble';
+import { Mascot } from '@/components/Mascot';
+import { Landmark } from '@/components/journey/Landmark';
+import { ChaiGlyph } from '@/components/ChaiStall';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { hapticLight } from '@/lib/haptics';
 import { track, ANALYTICS_EVENTS } from '@/lib/analytics';
@@ -371,10 +375,20 @@ export default function PaywallScreen() {
         contentContainerStyle={{ padding: 20, paddingTop: 8, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* THE STATION BEHIND THE WORDS, at a whisper (build 22, the owner's
+            paywall mockup): the map's own station silhouette, top right. */}
+        <View pointerEvents="none" style={styles.stationSketch}>
+          <Landmark city="Kanpur Central" width={200} height={120} ink="#3B2A1E" paper="transparent" opacity={0.08} />
+        </View>
         <Text style={[styles.headline, { color: colors.foreground }]}>
-          {tier === 'all_access'
-            ? 'Learn faster, in every language'
-            : 'Go all-in on one language'}
+          {tier === 'all_access' ? (
+            <>
+              {'Learn faster, '}
+              <Text style={{ color: colors.primary }}>in every language</Text>
+            </>
+          ) : (
+            'Go all-in on one language'
+          )}
         </Text>
         <Text style={[styles.subhead, { color: colors.mutedForeground }]}>
           {tier === 'all_access'
@@ -463,10 +477,21 @@ export default function PaywallScreen() {
               </View>
             ) : null}
 
-            {/* Benefits for the selected tier */}
-            <View style={{ marginTop: 20, marginBottom: 20, gap: 14 }}>
-              {benefits.map((b) => (
-                <View key={b.title} style={styles.benefitRow}>
+            {/* Benefits for the selected tier, with Bolo beside them (build
+                22, the mockup: the bird gives a thumbs up under "All access.
+                All aboard!" while the list runs down the right). */}
+            <View style={styles.benefitsBlock}>
+              {tier === 'all_access' ? (
+                <View style={styles.birdColumn}>
+                  <SpeechBubble tail="down" style={styles.birdBubble}>
+                    <Text style={{ color: colors.primary, fontFamily: AppFonts.bold }}>{'All access.\nAll aboard!'}</Text>
+                  </SpeechBubble>
+                  <Mascot pose="thumbsup" size={132} motion="none" entering={false} />
+                </View>
+              ) : null}
+              <View style={{ flex: 1, minWidth: 0, gap: 0 }}>
+              {benefits.map((b, bi) => (
+                <View key={b.title} style={[styles.benefitRow, bi > 0 && styles.benefitRule]}>
                   <View
                     style={[
                       styles.benefitIcon,
@@ -492,6 +517,7 @@ export default function PaywallScreen() {
                   </View>
                 </View>
               ))}
+              </View>
             </View>
 
             {/* One-Language: which language you're subscribing to */}
@@ -559,6 +585,7 @@ export default function PaywallScreen() {
                 period="per year"
                 best
                 monthlyEquivalent={perMonthString(annualPackage)}
+                savePct={savePercent(annualPackage, monthlyPackage)}
                 selected={interval === 'annual'}
                 onPress={() => setInterval('annual')}
               />
@@ -574,9 +601,14 @@ export default function PaywallScreen() {
             ) : null}
 
             {trial ? (
-              <Text style={[styles.trialNote, { color: colors.success }]}>
-                {trial}, then billed automatically. Cancel anytime.
-              </Text>
+              <View style={styles.trialBox}>
+                <Feather name="shield" size={22} color="#92650A" />
+                <Text style={[styles.trialNote, { color: colors.foreground }]}>
+                  {`${trial}, then billed automatically. `}
+                  <Text style={{ color: colors.success, fontFamily: AppFonts.bold }}>Cancel anytime.</Text>
+                </Text>
+                <ChaiGlyph size={30} />
+              </View>
             ) : null}
 
             {/* App Review, Guideline 3.1.2(c): the purchase flow itself must
@@ -620,9 +652,12 @@ export default function PaywallScreen() {
               disabled={busy}
               style={{ marginTop: 16, alignItems: 'center' }}
             >
-              <Text style={[styles.restore, { color: colors.mutedForeground }]}>
-                {isRestoring ? 'Restoring…' : 'Restore purchases'}
-              </Text>
+              <View style={styles.restoreRow}>
+                <Feather name="rotate-ccw" size={14} color={colors.mutedForeground} />
+                <Text style={[styles.restore, { color: colors.mutedForeground }]}>
+                  {isRestoring ? 'Restoring…' : 'Restore purchases'}
+                </Text>
+              </View>
             </Pressable>
           </>
         ) : (
@@ -849,12 +884,24 @@ function TierCard({
   );
 }
 
+/** How much the annual plan saves against twelve months, whole percent, or
+ *  null when either price is unknown or the saving is nothing. */
+function savePercent(annual: PurchasesPackage | null, monthly: PurchasesPackage | null): number | null {
+  if (!annual || !monthly) return null;
+  const a = annual.product.price;
+  const m = monthly.product.price;
+  if (!(a > 0) || !(m > 0)) return null;
+  const pct = Math.round(100 * (1 - a / (12 * m)));
+  return pct > 0 ? pct : null;
+}
+
 function PlanOption({
   label,
   priceString,
   period,
   monthlyEquivalent,
   best,
+  savePct,
   selected,
   onPress,
 }: {
@@ -863,6 +910,8 @@ function PlanOption({
   period: string;
   monthlyEquivalent?: string;
   best?: boolean;
+  /** The annual card's saving against monthly, as a badge (build 22). */
+  savePct?: number | null;
   selected: boolean;
   onPress: () => void;
 }) {
@@ -879,6 +928,8 @@ function PlanOption({
           backgroundColor: selected ? `${colors.primary}12` : colors.card,
           borderColor: selected ? colors.primary : colors.border,
         },
+        // Room at the right for the kulhads and the badge (build 22).
+        best && { paddingRight: 96, minHeight: 98 },
       ]}
     >
       <View
@@ -897,25 +948,40 @@ function PlanOption({
             {label}
           </Text>
           {best ? (
-            <View style={[styles.bestPill, { backgroundColor: colors.success }]}>
+            <View style={[styles.bestPill, { backgroundColor: colors.gold }]}>
               <Text style={styles.bestText}>BEST VALUE</Text>
             </View>
           ) : null}
         </View>
         {monthlyEquivalent ? (
-          <Text style={[styles.planSub, { color: colors.mutedForeground }]}>
+          <Text style={[styles.planSub, { color: colors.primary }]}>
             Just {monthlyEquivalent}/mo
           </Text>
         ) : null}
       </View>
       <View style={{ alignItems: 'flex-end' }}>
-        <Text style={[styles.planPrice, { color: colors.foreground }]}>
+        <Text style={[styles.planPrice, { color: best ? colors.primary : colors.foreground }]}>
           {priceString}
         </Text>
         <Text style={[styles.planPeriod, { color: colors.mutedForeground }]}>
           {period}
         </Text>
       </View>
+      {best ? (
+        <View style={styles.planArt} pointerEvents="none">
+          <View style={styles.kulhads}>
+            <ChaiGlyph size={22} />
+            <ChaiGlyph size={28} />
+            <ChaiGlyph size={22} />
+          </View>
+          {savePct ? (
+            <View style={[styles.saveBadge, { backgroundColor: colors.primary }]} testID="plan-save-badge">
+              <Text style={styles.saveText}>SAVE</Text>
+              <Text style={styles.savePct}>{savePct}%</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -1023,7 +1089,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   currentPlanText: { flex: 1, fontFamily: AppFonts.semibold, fontSize: 14 },
-  benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  stationSketch: { position: 'absolute', right: 0, top: -4 },
+  benefitsBlock: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 20, marginBottom: 20 },
+  birdColumn: { width: 132, alignItems: 'center', gap: 6, paddingTop: 6 },
+  birdBubble: { alignSelf: 'center' },
+  benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9 },
+  benefitRule: { borderTopWidth: 1, borderStyle: 'dashed', borderColor: '#E8DFCB' },
   benefitIcon: {
     width: 40,
     height: 40,
@@ -1079,6 +1150,21 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 999,
   },
+  planArt: { position: 'absolute', right: 10, bottom: 8, alignItems: 'center' },
+  kulhads: { flexDirection: 'row', alignItems: 'flex-end', gap: -6 },
+  saveBadge: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginTop: -10, marginLeft: 30 },
+  saveText: { fontFamily: AppFonts.extrabold, fontSize: 8, color: '#FFFFFF', letterSpacing: 0.6 },
+  savePct: { fontFamily: AppFonts.extrabold, fontSize: 12, color: '#FFFFFF', lineHeight: 14 },
+  trialBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#FBF0DC',
+  },
+  restoreRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   bestText: {
     fontFamily: AppFonts.extrabold,
     fontSize: 9,
@@ -1101,11 +1187,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  // In the trial box since build 22: a line beside the shield, not centred.
   trialNote: {
+    flex: 1,
     fontFamily: AppFonts.semibold,
     fontSize: 13,
-    textAlign: 'center',
-    marginTop: 4,
+    lineHeight: 18,
   },
   status: {
     fontFamily: AppFonts.semibold,
