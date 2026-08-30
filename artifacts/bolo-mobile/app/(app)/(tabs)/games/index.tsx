@@ -47,7 +47,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeInsets } from '@/lib/useSafeInsets';
 import { useAppearSkip } from '@/lib/entrance';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
@@ -410,7 +410,7 @@ export default function GamesScreen() {
   // The hero runs under the status bar and the floating XP and Chai strip
   // (build 21): its height carries the inset, and its words start below the
   // strip.
-  const insets = useSafeAreaInsets();
+  const insets = useSafeInsets() /* zero without a provider, for the hub's tests */;
   const heroH = HERO_H + insets.top;
   const heroWordsTop = insets.top + 52;
   const { isPlus, isLoading: entitlementsLoading } = useEntitlements();

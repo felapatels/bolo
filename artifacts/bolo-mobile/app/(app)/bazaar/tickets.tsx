@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions } from 'react-native';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { BazaarHeader } from '@/components/bazaar/BazaarHeader';
 import { SceneBand } from '@/components/bazaar/SceneBand';
@@ -51,6 +51,18 @@ export default function TicketCounterScreen() {
             <ChaiPackShop />
           </>
         ) : null}
+        {/* The wallet is one tap away for the balance and the ledger, as it
+            was on the old street: the header's pill, and this link under the
+            counter for anyone who scrolled past it. */}
+        <Pressable
+          onPress={() => setWalletOpen(true)}
+          testID="bazaar-open-wallet"
+          accessibilityRole="button"
+          accessibilityLabel="Open your Chai wallet"
+          style={({ pressed }) => [styles.walletLink, pressed && styles.walletLinkPressed]}
+        >
+          <Text style={[styles.walletLinkText, { color: colors.primary }]}>Open the wallet</Text>
+        </Pressable>
       </ScrollView>
       <ChaiWalletSheet visible={walletOpen} onClose={() => setWalletOpen(false)} />
     </Screen>
@@ -60,4 +72,7 @@ export default function TicketCounterScreen() {
 const styles = StyleSheet.create({
   street: { paddingHorizontal: 20, paddingBottom: TAB_BAR_CLEARANCE, gap: 14 },
   label: { fontFamily: AppFonts.extrabold, fontSize: 12, letterSpacing: 1.4, marginTop: 4 },
+  walletLink: { alignSelf: 'center', paddingVertical: 10, paddingHorizontal: 12 },
+  walletLinkPressed: { opacity: 0.6 },
+  walletLinkText: { fontFamily: AppFonts.bold, fontSize: 14 },
 });

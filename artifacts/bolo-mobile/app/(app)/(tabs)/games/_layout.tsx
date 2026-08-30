@@ -1,7 +1,7 @@
 import { Stack, useSegments } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeInsets } from '@/lib/useSafeInsets';
 import { SessionStats } from '@/components/SessionStats';
 import { useColors } from '@/hooks/useColors';
 
@@ -25,7 +25,7 @@ import { useColors } from '@/hooks/useColors';
  */
 export default function GamesLayout() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
+  const insets = useSafeInsets(); // zero without a provider, for the hub's tests
   const segments = useSegments();
   const onHub = segments[segments.length - 1] === 'games';
   return (

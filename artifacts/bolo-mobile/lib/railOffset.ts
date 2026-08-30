@@ -51,8 +51,11 @@ export function railPairPaths(
     const nx = -dyy / len;
     const ny = dx / len;
     const cmd = i === 0 ? 'M' : 'L';
-    left.push(`${cmd} ${(x - nx * half).toFixed(2)} ${(y - ny * half).toFixed(2)}`);
-    right.push(`${cmd} ${(x + nx * half).toFixed(2)} ${(y + ny * half).toFixed(2)}`);
+    // The normal points to the RIGHT of travel for a downward tangent, so
+    // the left rail is the centre plus it and the right rail the centre
+    // minus it (the first pin caught this the other way round).
+    left.push(`${cmd} ${(x + nx * half).toFixed(2)} ${(y + ny * half).toFixed(2)}`);
+    right.push(`${cmd} ${(x - nx * half).toFixed(2)} ${(y - ny * half).toFixed(2)}`);
   }
   return { left: left.join(' '), right: right.join(' ') };
 }

@@ -259,6 +259,15 @@ export function OutfitShop({ door }: { door: ShopDoor }) {
             </View>
             <View testID="outfit-preview" style={styles.stage} pointerEvents="none">
               <Mascot pose="cheer" size={Math.round(sceneH * 0.58)} motion="float" outfit={shownGarment} accessory={shownAccessory} />
+              {/* The caption names what she is trying on, under her feet on
+                  the scene, so the picture says it before the rail does. */}
+              {shownOutfit ? (
+                <View style={[styles.stageCaption, { backgroundColor: 'rgba(255,253,249,0.92)' }]}>
+                  <Text style={[styles.stageCaptionText, { color: colors.foreground }]} numberOfLines={1}>
+                    {shownOutfit.name}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             <PressableScale
               accessibilityRole="button"
@@ -544,6 +553,8 @@ const styles = StyleSheet.create({
   categoryText: { fontFamily: AppFonts.semibold, fontSize: 11 },
   // Bolo stands left of centre so the keeper at the scene's right shows beside her.
   stage: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 6, paddingLeft: 42, paddingRight: 44 },
+  stageCaption: { marginTop: 4, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, maxWidth: 200 },
+  stageCaptionText: { fontFamily: AppFonts.bold, fontSize: 12 },
   shareBtn: { position: 'absolute', right: 12, bottom: 12, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
   shareText: { fontFamily: AppFonts.bold, fontSize: 13 },
   wearingRow: { flexDirection: 'row', gap: 10, marginTop: 12 },

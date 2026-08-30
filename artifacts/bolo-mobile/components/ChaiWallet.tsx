@@ -17,7 +17,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeInsets } from '@/lib/useSafeInsets';
 import { useRouter } from 'expo-router';
 import { ChaiGlyph } from '@/components/ChaiStall';
 import { useQueryClient } from '@tanstack/react-query';
@@ -900,7 +900,10 @@ export function ChaiWalletSheet({
 }) {
   const colors = useColors();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  // Zero without a provider (see lib/useSafeInsets): every screen that
+  // mounts a ChaiPill mounts this sheet with it, and a test rendering one
+  // screen has no SafeAreaProvider.
+  const insets = useSafeInsets();
   const { width } = useWindowDimensions();
   const headerPadTop = Platform.OS === 'web' ? 67 : insets.top;
   const tokensQuery = useGetTokens();

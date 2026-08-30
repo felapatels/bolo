@@ -69,6 +69,13 @@ const ARROW_SLIDE = 7;
 const PASS_PRESS_SCALE = 0.94;
 const TEAR_DURATION_MS = 600;
 const TEAR_NAV_DELAY_MS = 500; // activation → navigation; never blocked
+/** THE FILM WAITS FOR THE TEAR (build 22, owner: "the ticket tear doesn't
+ *  happen now"). Build 21 started the journey's arrival film at the tear's
+ *  first frame, and the film's fade covered the pass before the stub had
+ *  moved a point: recorded at 8fps, the stub never left its seat. A third
+ *  of a second of tear shows first; the film then dissolves in while the
+ *  stub is still sailing, ahead of the navigation at 500. */
+const TEAR_SPLASH_DELAY_MS = 320;
 // After navigation covers the screen, quietly restore the intact pass so the
 // learner never returns to a torn/empty hero (mobile keeps home mounted
 // under the stack — the web page unmounts instead).
@@ -387,11 +394,15 @@ export function JourneyPassCard({
     : null;
   const handleActivate = () => {
     if (tearingRef.current) return;
-    if (arrivalZoneId != null) playStopSplash(arrivalZoneId);
     if (reduceMotion) {
+      // No tear to wait for: the film and the navigation come at once.
+      if (arrivalZoneId != null) playStopSplash(arrivalZoneId);
       onPressRef.current();
       return;
     }
+    schedule(() => {
+      if (arrivalZoneId != null) playStopSplash(arrivalZoneId);
+    }, TEAR_SPLASH_DELAY_MS);
     // R4: the recorded paper-tear SFX fires at the exact tear start, in the
     // same beat as PressableScale's press haptic. Fire-and-forget: it never
     // delays the tear or the scheduled navigation, and it sits AFTER the
@@ -1087,7 +1098,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 10,
+    marginTop: 14, // 10 until build 22: air between the wheels and the pill
     paddingVertical: 2,
   },
   // The reason, with its cup, takes the slack; the pill keeps its shape.
@@ -1136,7 +1147,11 @@ const styles = StyleSheet.create({
   },
   // The stops row (build 17), in place of the brass bar; StopDots draws it.
   stopsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingRight: 2 },
-  engineSeat: { marginLeft: 6, marginTop: 14, marginBottom: -14 },
+  // The engine no longer hangs into the CTA row (owner, build 22: "move the
+  // resume button lower on the card away from train"): its overhang below
+  // the dots' line shrank from 14 to 4, which pushes the Resume pill 10
+  // lower, and the pill's own top margin grew by 4 for air.
+  engineSeat: { marginLeft: 6, marginTop: 14, marginBottom: -4 },
   // BIGGER, because it is one word now rather than a sentence that had to be
   // shrunk to fit the plate beside the ticket.
   // BESIDE THE VERB, not under it: "Only 6 more stops to go should go to the
