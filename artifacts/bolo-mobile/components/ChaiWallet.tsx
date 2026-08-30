@@ -15,6 +15,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -33,7 +34,7 @@ import {
   useSpendTokens,
 } from '@workspace/api-client-react';
 import { TrainEngine } from '@/components/journey/TrainEngine';
-import { ChaiPackShop } from '@/components/ChaiPackShop';
+import { ChaiPackShop, useChaiPacksSellable } from '@/components/ChaiPackShop';
 import { repairErrorMessage } from '@/lib/chai-errors';
 import {
   BazaarTile,
@@ -43,6 +44,9 @@ import {
   StreakMendTile,
 } from '@/components/WalletArt';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { SceneBand } from '@/components/bazaar/SceneBand';
+import { Mascot } from '@/components/Mascot';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { INDIA } from '@/constants/india';
@@ -68,7 +72,6 @@ function RowWash({ color }: { color: string }) {
 // The wallet opens on Chacha-ji's stall itself — the painted scene, with the
 // balance struck across it. (The home band still composites the layered art;
 // this is a single flattened still, used only as a header.)
-const HEADER_IMAGE = require('../assets/images/stall/wallet-header.jpg') as number;
 
 // The painted band's own height, before any safe-area padding. The art and its
 // scrim fill the whole header box, so on a notched phone the picture runs up
@@ -77,8 +80,8 @@ const HEADER_ART_HEIGHT = 132;
 
 // Mirrors artifacts/api-server/src/lib/tokenEconomy.ts (server is
 // authoritative; these only size copy client-side).
-const STATION_PAUSE_COST = 10;
-const STATION_PAUSE_MAX_EQUIPPED = 2;
+export const STATION_PAUSE_COST = 10;
+export const STATION_PAUSE_MAX_EQUIPPED = 2;
 // The Express price was hardcoded into its own button copy as a bare "10",
 // which is the one thing on this screen that could silently disagree with the
 // server after a repricing. Named here like every other cost.
@@ -218,7 +221,7 @@ export function spendErrorMessage(error: unknown): string {
   return 'That spend did not go through. Try again in a moment.';
 }
 
-function useFirstClassBuy(
+export function useFirstClassBuy(
   onNotice: (msg: string) => void,
   onShortfall?: (needed: number) => void,
 ) {
@@ -254,7 +257,7 @@ function useFirstClassBuy(
  * label never slides a day either side of a timezone; the key itself was cut
  * on the learner's own calendar, server-side. (Web twin: missedDayLabel.)
  */
-function missedDayLabel(dayKey: string): string {
+export function missedDayLabel(dayKey: string): string {
   const d = new Date(`${dayKey}T12:00:00.000Z`);
   if (Number.isNaN(d.getTime())) return 'That day';
   return d.toLocaleDateString(undefined, { weekday: 'long', timeZone: 'UTC' });
@@ -336,10 +339,10 @@ export function StreakRepairRow({ onNotice }: { onNotice: (message: string) => v
 }
 
 // Mirror of tokenEconomy.ts — server is authoritative.
-const FIRST_CLASS_COST = 25;
+export const FIRST_CLASS_COST = 25;
 
 /** Gold palette applied when the learner holds First Class. Approved Aug 2026. */
-const GOLD_PALETTE = { chassis: '#6B4A0F', body: '#E8B93C', trim: '#FFE39A', steam: '#FFF6E0' } as const;
+export const GOLD_PALETTE = { chassis: '#6B4A0F', body: '#E8B93C', trim: '#FFE39A', steam: '#FFF6E0' } as const;
 
 /**
  * First Class wallet row (mobile twin of the web FirstClassRow in chai-wallet.tsx).
@@ -730,32 +733,71 @@ export function LanguageInfoOverlay({ onClose }: { onClose: () => void }) {
  * one that shows the balance, the shop and the door and stays quiet about the
  * rest.
  */
+/** Which tile a movement wears, read off the server's label. Decoration
+ *  keyed on words, never on the raw reason (which is never sent). */
+function historyGlyph(label: string): { name: React.ComponentProps<typeof MaterialCommunityIcons>['name']; tint: string } {
+  const l = label.toLowerCase();
+  if (/streak/.test(l)) return { name: 'fire', tint: '#22C55E' };
+  if (/signal/.test(l)) return { name: 'star', tint: '#F59E0B' };
+  if (/first class/.test(l)) return { name: 'train', tint: '#3B2A1E' };
+  if (/express/.test(l)) return { name: 'flash', tint: '#4F46E5' };
+  if (/pause/.test(l)) return { name: 'pause', tint: '#F0A32B' };
+  if (/mend|repair/.test(l)) return { name: 'needle', tint: '#1E7357' };
+  if (/pack|top.?up|adjust|grant|bonus/.test(l)) return { name: 'plus', tint: '#1E7357' };
+  if (/chacha|stall|halt/.test(l)) return { name: 'cup', tint: '#B5651D' };
+  if (/outfit|bazaar|kurta|pagdi|cap|saree|sherwani|anarkali|kediyu|choli|wear/.test(l)) return { name: 'shopping-outline', tint: '#4F46E5' };
+  return { name: 'cup', tint: '#B5651D' };
+}
+
+/** "May 12, 9:20 AM", in the phone's own locale. */
+function historyWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const day = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `${day}, ${time}`;
+}
+
+type HistoryFilter = 'all' | 'earned' | 'spent';
+const HISTORY_FILTER_LABEL: Record<HistoryFilter, string> = {
+  all: 'All activity',
+  earned: 'Earned',
+  spent: 'Spent',
+};
+/** Five rows at rest (the owner's parked ruling: the last five, then the
+ *  full history behind a door). The door opens the rest in place. */
+const HISTORY_AT_REST = 5;
+
+/**
+ * CHAI HISTORY (build 22, the owner's wallet mockup): a clock, the heading,
+ * a filter pill that cycles all / earned / spent, then tiled rows with the
+ * movement's glyph, its label, when it happened, and the signed amount with
+ * a kulhad; five at rest, "View full history" for the rest. The labels come
+ * from the server as they always did; loading and error still show nothing,
+ * so a wallet that cannot reach the ledger is a balance and a door.
+ */
 function WalletHistory() {
   const colors = useColors();
   const history = useGetTokenHistory();
+  const [filter, setFilter] = React.useState<HistoryFilter>('all');
+  const [showAll, setShowAll] = React.useState(false);
   if (history.isLoading) return null;
   if (history.isError) return null;
-
   const entries = history.data?.entries ?? [];
-
-  // Nothing earned and nothing spent yet.
-  //
-  // THE EMPTY STATE IS THE SAME LIST, not a different component. It used to
-  // borrow the SPEND row's shape: an icon tile beside a title and a body, which
-  // is the exact silhouette of every buyable item above it. It read as a button
-  // that would not respond to a tap, which is worse than saying nothing.
-  //
-  // Same frame, same heading, one muted row where the entries will go. Owner
-  // ruling 2026-08-19.
   if (entries.length === 0) {
     return (
       <View
         testID="wallet-history-placeholder"
-        style={[styles.historyList, { borderColor: colors.border }]}
+        style={[styles.historyList, { borderColor: colors.border, backgroundColor: colors.card }]}
       >
-        <Text style={[styles.itemTitle, { color: colors.foreground }]}>
-          Chai history
-        </Text>
+        <View style={styles.historyHead}>
+          <View style={[styles.historyClock, { backgroundColor: `${colors.primary}14` }]}>
+            <Feather name="clock" size={16} color={colors.primary} />
+          </View>
+          <Text style={[styles.itemTitle, { color: colors.foreground }]}>
+            Chai history
+          </Text>
+        </View>
         <View style={styles.historyEntry}>
           <Text style={[styles.historyLabel, { color: colors.mutedForeground }]}>
             Cups you earn and buy will appear here.
@@ -764,41 +806,87 @@ function WalletHistory() {
       </View>
     );
   }
-
+  const filtered = entries.filter((e) => (filter === 'all' ? true : filter === 'earned' ? e.delta > 0 : e.delta < 0));
+  const shown = showAll ? filtered : filtered.slice(0, HISTORY_AT_REST);
+  const more = filtered.length - shown.length;
   return (
     <View
       testID="wallet-history-list"
-      style={[styles.historyList, { borderColor: colors.border }]}
+      style={[styles.historyList, { borderColor: colors.border, backgroundColor: colors.card }]}
     >
-      <Text style={[styles.itemTitle, { color: colors.foreground }]}>
-        Chai history
-      </Text>
-      {entries.map((entry) => (
-        <View
-          key={entry.id}
-          testID="wallet-history-entry"
-          style={styles.historyEntry}
-        >
-          <Text
-            numberOfLines={1}
-            style={[styles.historyLabel, { color: colors.foreground }]}
-          >
-            {entry.label}
-          </Text>
-          <Text
-            style={[
-              styles.historyDelta,
-              {
-                color:
-                  entry.delta > 0 ? INDIA.board : colors.mutedForeground,
-              },
-            ]}
-          >
-            {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
-          </Text>
-          <ChaiGlyph size={14} />
+      <View style={styles.historyHead}>
+        <View style={[styles.historyClock, { backgroundColor: `${colors.primary}14` }]}>
+          <Feather name="clock" size={16} color={colors.primary} />
         </View>
-      ))}
+        <Text style={[styles.itemTitle, { color: colors.foreground, flex: 1 }]}>
+          Chai history
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Showing ${HISTORY_FILTER_LABEL[filter]}. Change filter`}
+          onPress={() => setFilter((f) => (f === 'all' ? 'earned' : f === 'earned' ? 'spent' : 'all'))}
+          style={[styles.historyFilter, { borderColor: `${colors.primary}55` }]}
+          testID="wallet-history-filter"
+        >
+          <Text style={[styles.historyFilterText, { color: colors.primary }]}>{HISTORY_FILTER_LABEL[filter]}</Text>
+          <Feather name="chevron-down" size={14} color={colors.primary} />
+        </Pressable>
+      </View>
+      {shown.map((entry) => {
+        const glyph = historyGlyph(entry.label);
+        return (
+          <View
+            key={entry.id}
+            testID="wallet-history-entry"
+            style={[styles.historyEntry, { borderColor: `${colors.border}` }]}
+          >
+            <View style={[styles.historyTile, { backgroundColor: `${glyph.tint}1F` }]}>
+              <MaterialCommunityIcons name={glyph.name} size={18} color={glyph.tint} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text
+                numberOfLines={1}
+                style={[styles.historyLabel, { color: colors.foreground }]}
+              >
+                {entry.label}
+              </Text>
+              <Text numberOfLines={1} style={[styles.historyWhen, { color: colors.mutedForeground }]}>
+                {historyWhen(entry.createdAt)}
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.historyDelta,
+                {
+                  color:
+                    entry.delta > 0 ? INDIA.board : colors.destructive,
+                },
+              ]}
+            >
+              {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
+            </Text>
+            <ChaiGlyph size={16} />
+          </View>
+        );
+      })}
+      {filtered.length === 0 ? (
+        <Text style={[styles.historyLabel, { color: colors.mutedForeground, paddingVertical: 8 }]}>
+          Nothing {filter} yet.
+        </Text>
+      ) : null}
+      {more > 0 || showAll ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setShowAll((v) => !v)}
+          style={styles.historyMore}
+          testID="wallet-history-more"
+        >
+          <Text style={[styles.historyMoreText, { color: colors.primary }]}>
+            {showAll ? 'Show less' : 'View full history'}
+          </Text>
+          <Feather name={showAll ? 'chevron-up' : 'chevron-right'} size={16} color={colors.primary} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -813,12 +901,12 @@ export function ChaiWalletSheet({
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  // Screen.tsx's rule: real inset on device, the scaffold's fixed 67 on web,
-  // where the proxied preview reports 0.
+  const { width } = useWindowDimensions();
   const headerPadTop = Platform.OS === 'web' ? 67 : insets.top;
   const tokensQuery = useGetTokens();
   const tokens = tokensQuery.data;
-
+  const packsSellable = useChaiPacksSellable();
+  const sceneH = HEADER_ART_HEIGHT + 96 + headerPadTop;
   return (
     <Modal
       visible={visible}
@@ -836,65 +924,67 @@ export function ChaiWalletSheet({
           ]}
           onPress={(e) => e.stopPropagation()}
         >
-          {/* The wallet opens ON the stall: the painted scene as the header,
-              with the balance struck across the bottom of it. The scrim is
-              what keeps white lettering legible over a warm sunset. */}
-          <View
-            style={[styles.header, { height: HEADER_ART_HEIGHT + headerPadTop }]}
-            testID="wallet-header"
-          >
-            <Image
-              source={HEADER_IMAGE}
-              style={styles.headerImage}
-              resizeMode="cover"
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-            />
+          {/* THE WALLET OPENS ON THE STALL (build 22, the owner's wallet
+              mockup): the painted stall with Chacha-ji waving is the header,
+              under a scalloped awning, with the name and its line on the
+              left and the balance on a cream card. The scene is the same
+              picture every other Chai surface draws. */}
+          <View style={{ height: sceneH }} testID="wallet-header">
+            <SceneBand stall="chai" width={width} height={sceneH} style={styles.headerScene} />
             <LinearGradient
-              colors={[
-                'rgba(24,16,12,0.58)',
-                'rgba(24,16,12,0.08)',
-                'rgba(24,16,12,0.78)',
-              ]}
-              locations={[0, 0.44, 1]}
-              style={StyleSheet.absoluteFill}
+              colors={['rgba(251,243,230,0.92)', 'rgba(251,243,230,0.35)', 'rgba(251,243,230,0)']}
+              locations={[0, 0.5, 1]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={[StyleSheet.absoluteFill, { width: width * 0.62 }]}
               pointerEvents="none"
             />
-            <Text style={[styles.titleOnArt, { top: 14 + headerPadTop }]}>
-              Chai Wallet
-            </Text>
-            <View testID="wallet-balance-band" style={styles.balanceRow}>
-              <ChaiGlyph size={40} testID="wallet-balance-glyph" />
-              <Text style={styles.balanceValue} testID="wallet-balance">
-                {tokens?.balance ?? '-'}
-              </Text>
-              <Text style={styles.balanceUnit}>Chai</Text>
+            {/* The awning: a row of scallops clipped to half by the sheet's edge. */}
+            <View pointerEvents="none" style={styles.awning}>
+              {Array.from({ length: Math.ceil(width / 30) + 1 }, (_, i) => (
+                <View key={i} style={[styles.scallop, { backgroundColor: i % 2 === 0 ? '#7C5CBF' : '#FBF3E6' }]} />
+              ))}
+            </View>
+            <View pointerEvents="none" style={[styles.grabHandle, { top: headerPadTop + 22 }]} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close the wallet"
+              onPress={onClose}
+              style={[styles.closeBtn, { top: headerPadTop + 30 }]}
+              testID="wallet-close"
+            >
+              <Feather name="x" size={20} color="#3B2A1E" />
+            </Pressable>
+            <View style={[styles.headerWords, { top: headerPadTop + 44 }]}>
+              <View style={styles.titleRow}>
+                <MaterialCommunityIcons name="leaf" size={16} color={colors.primary} style={{ transform: [{ rotate: '-30deg' }] }} />
+                <Text style={styles.titleOnArt}>Chai Wallet</Text>
+                <MaterialCommunityIcons name="leaf" size={16} color={colors.primary} style={{ transform: [{ scaleX: -1 }, { rotate: '-30deg' }] }} />
+              </View>
+              <Text style={styles.subtitleOnArt}>Your chai, your progress.</Text>
+              <View style={styles.balanceCard}>
+                <Text style={[styles.balanceEyebrow, { color: colors.primary }]}>YOUR CHAI BALANCE</Text>
+                <View testID="wallet-balance-band" style={styles.balanceRow}>
+                  <ChaiGlyph size={40} testID="wallet-balance-glyph" />
+                  <Text style={styles.balanceValue} testID="wallet-balance">
+                    {tokens?.balance ?? '-'}
+                  </Text>
+                </View>
+                <Text style={styles.balanceUnit}>Chai</Text>
+              </View>
             </View>
           </View>
-
           <ScrollView style={styles.bodyScroll} contentContainerStyle={styles.body}>
-            {/* Chai history: the real ledger rows now, labelled server-side.
-                See WalletHistory above for why loading and error show
-                nothing. */}
             <WalletHistory />
-
-            {/* THE WALLET IS A BALANCE AND A DOOR NOW. Every sink it used to
-                sell (pause, express, First Class, the language signpost) is
-                stocked on the bazaar street, where a learner sees all four
-                stalls and every price at once; selling the same things twice
-                made the wallet a second, worse shop. What is left is what only
-                the wallet can do: show the balance, top it up, and point at
-                the street. Those rows are still exported from this file and
-                still rendered by app/(app)/bazaar.tsx. */}
-            <View
-              style={[
-                styles.itemRow,
-                { backgroundColor: colors.background, borderColor: colors.border },
-              ]}
-            >
-              <RowWash color={`${INDIA.stripe}26`} />
-              <BazaarTile />
-              <View style={styles.itemInfo}>
+            {/* THE WALLET IS A BALANCE AND A DOOR. Every sink it used to sell
+                is stocked in the bazaar, behind its four doors since build 22;
+                what is left is what only the wallet can do: show the balance,
+                its history, top it up, and point at the street. */}
+            <View style={[styles.bazaarBanner, { backgroundColor: '#EFEBFA', borderColor: '#D9D2F3' }]}>
+              <View style={styles.bazaarBird} pointerEvents="none">
+                <Mascot pose="wave" size={72} motion="none" entering={false} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={[styles.itemTitle, { color: colors.foreground }]}>
                   Bolo Bazaar
                 </Text>
@@ -910,20 +1000,26 @@ export function ChaiWalletSheet({
                   router.push('/(app)/bazaar');
                 }}
                 style={({ pressed }) => [
-                  styles.spendBtn,
+                  styles.browseBtn,
+                  { backgroundColor: colors.primary },
                   pressed && styles.spendBtnPressed,
                 ]}
               >
-                <SpendFace />
-                <Text style={styles.spendBtnText}>Browse</Text>
+                <Text style={[styles.browseText, { color: colors.primaryForeground }]}>Browse Bazaar</Text>
               </Pressable>
             </View>
-
-            {/* Buying Chai with money, through Apple. Dark until
-                CHAI_PACKS_LIVE flips — exactly as the web shop is — while the
-                catalog, the StoreKit purchase, the webhook credit and the
-                launch recovery underneath it all stay live and tested. */}
+            {/* Buying Chai with money, through Apple. The shop hides itself
+                until Apple can price the packs, and the reassurance under it
+                hides with it. */}
             <ChaiPackShop />
+            {packsSellable ? (
+              <View style={styles.secureRow}>
+                <Feather name="lock" size={12} color={colors.mutedForeground} />
+                <Text style={[styles.secureText, { color: colors.mutedForeground }]}>
+                  Purchases are secure and restore across devices.
+                </Text>
+              </View>
+            ) : null}
           </ScrollView>
         </Pressable>
       </Pressable>
@@ -956,44 +1052,91 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     gap: 12,
   },
-  header: {
-    height: HEADER_ART_HEIGHT,
-    justifyContent: 'flex-end',
-  },
-  headerImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-  },
-  titleOnArt: {
+  headerScene: { borderRadius: 0 },
+  awning: {
     position: 'absolute',
-    top: 14,
-    left: 18,
-    fontFamily: AppFonts.extrabold,
-    fontSize: 18,
-    color: '#FFFFFF',
+    top: -15,
+    left: -4,
+    right: -4,
+    flexDirection: 'row',
+    gap: 0,
+    justifyContent: 'space-between',
   },
+  scallop: { width: 30, height: 30, borderRadius: 15 },
+  grabHandle: {
+    position: 'absolute',
+    alignSelf: 'center',
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(59,42,30,0.35)',
+  },
+  closeBtn: {
+    position: 'absolute',
+    right: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,253,249,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerWords: { position: 'absolute', left: 18, right: 18 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  titleOnArt: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 26,
+    color: '#2B1A0E',
+  },
+  subtitleOnArt: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 13,
+    color: '#3B2A1E',
+    marginTop: 2,
+    marginLeft: 24,
+  },
+  balanceCard: {
+    alignSelf: 'flex-start',
+    marginTop: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 18,
+    backgroundColor: 'rgba(251,243,230,0.9)',
+    alignItems: 'center',
+    gap: 2,
+  },
+  balanceEyebrow: { fontFamily: AppFonts.extrabold, fontSize: 11, letterSpacing: 1.4 },
   balanceRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 10,
-    paddingHorizontal: 18,
-    paddingBottom: 12,
+    alignItems: 'center',
+    gap: 12,
   },
   balanceValue: {
     fontFamily: AppFonts.extrabold,
-    fontSize: 36,
-    lineHeight: 38,
-    color: '#FFFFFF',
+    fontSize: 44,
+    lineHeight: 48,
+    color: '#2B1A0E',
   },
   balanceUnit: {
     fontFamily: AppFonts.bold,
-    fontSize: 13,
+    fontSize: 12,
     textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: 'rgba(255,255,255,0.85)',
-    paddingBottom: 4,
+    letterSpacing: 1.2,
+    color: '#7A6551',
   },
+  historyHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
+  historyClock: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  historyFilter: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6 },
+  historyFilterText: { fontFamily: AppFonts.bold, fontSize: 13 },
+  historyWhen: { fontFamily: AppFonts.regular, fontSize: 12, marginTop: 1 },
+  historyMore: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingTop: 10 },
+  historyMoreText: { fontFamily: AppFonts.bold, fontSize: 14 },
+  bazaarBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 18, borderWidth: 1, padding: 12 },
+  bazaarBird: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center' },
+  browseBtn: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10 },
+  browseText: { fontFamily: AppFonts.bold, fontSize: 13 },
+  secureRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  secureText: { fontFamily: AppFonts.regular, fontSize: 12 },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1011,11 +1154,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
   },
+  // The movement's tile (build 22): 36 round, tinted by what moved.
   historyTile: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: INDIA.cloth,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -1027,17 +1170,18 @@ const styles = StyleSheet.create({
   },
   historyList: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 14,
-    gap: 4,
+    gap: 2,
   },
   historyEntry: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   historyLabel: {
-    flex: 1,
     fontFamily: AppFonts.bold,
     fontSize: 14,
   },
