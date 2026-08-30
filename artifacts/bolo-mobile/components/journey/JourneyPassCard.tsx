@@ -21,7 +21,7 @@
 // All idle keyframes start and end at identity, so the reduced-motion frame
 // is a clean parked ticket.
 import React from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -42,7 +42,7 @@ import { useLoopProgress } from '@/lib/useLoopProgress';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
-import { CarvedBoard } from '@/components/journey/CarvedBoard';
+import { PARCHMENT_TOP, ParchmentPass } from '@/components/journey/ParchmentPass';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import {
   TicketStripes,
@@ -51,8 +51,9 @@ import {
   zoneStampExtent,
 } from '@/components/journey/TicketParts';
 import { BADGE, TICKET, TICKET_SHAPE } from '@/lib/ticketStock';
-import { ZONE_BOARD, zoneBoardPedimentH } from '@/lib/zoneBackdrops';
+import { ZONE_BOARD } from '@/lib/zoneBackdrops';
 import { StopDots } from './StopDots';
+import { ChaiGlyph } from '@/components/ChaiStall';
 import { playTearSfx } from '@/lib/tearAudio';
 import { loadSoundPref } from '@/lib/soundPref';
 
@@ -107,7 +108,13 @@ const TORN_EDGE_W = 6;
 // for the same reason journey-board-budget.test.ts writes PC_H out: a board
 // that does not fit its content does not look wrong, it looks BLANK, because
 // the panel clips. Raise it for real content growth, never lower it to taste.
-export const HOME_PANEL_H = 200;
+// 222 WAS 200 (build 21, the owner's home mockup): the CTA row grew from a
+// 22pt line of type to a 38pt filled Resume button, and the panel clips, so
+// the extra 18 is the button's own height plus a little. Checked on the
+// simulator with the populated Hindi pass: nothing clipped at 222, and the
+// CTA row's foot cleared the frame's inner rule. Raise for real growth,
+// never lower to taste.
+export const HOME_PANEL_H = 222;
 // Home's own column: the tab screen pads its scroll content by 20 a side.
 const HOME_CONTENT_PAD = 20;
 // THE HERO BLEEDS PAST THAT COLUMN, and the reason is the art rather than a
@@ -222,20 +229,9 @@ export function JourneyPassCard({
           1,
           windowW - HOME_CONTENT_PAD * 2 + (bleed ? HOME_BOARD_BLEED * 2 : -HOME_FRAME_INSET * 2),
         );
-  const pedimentH = zoneBoardPedimentH(boardW);
-  const boardH = pedimentH + HOME_PANEL_H;
-  // THE ART IS NOT CENTRED IN ITS OWN FILE, and at full bleed that finally
-  // shows. ZONE_BOARD's panel slice was scanned for its first and last opaque
-  // column and came back with a 3.68% transparent margin on the left against
-  // 5.39% on the right, so the DRAWN board sits left of its box's centre by
-  // half that difference. Inside a padded column nobody could see it. Spanning
-  // the screen, the gap at one edge is plainly bigger than the other: "needs to
-  // nudge to the right slightly off center" (owner, chat 12).
-  //
-  // Derived from the same two numbers the panel fill is inset by, rather than
-  // typed as a magic 3, so re-cutting the art moves this with it instead of
-  // leaving a stale correction behind.
-  const artNudge = ((ZONE_BOARD.panelInsetRight - ZONE_BOARD.panelInsetLeft) / 2) * boardW;
+  // THE PARCHMENT (build 21): the plate's overhang and the zone line above
+  // the panel, where the carved pediment used to be.
+  const boardH = PARCHMENT_TOP + HOME_PANEL_H;
 
   const [tearing, setTearing] = React.useState(false);
   const tearProgress = useSharedValue(0);
@@ -284,7 +280,11 @@ export function JourneyPassCard({
   // its own array would replace this one outright rather than merge with it.
   const breatheStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: artNudge },
+      // No art nudge any more (build 21): the carved board's painted margins
+      // were unequal and the whole pass slid right to compensate; the parchment
+      // is symmetric and sits centred in the frame (owner: "it needs to move
+      // very slightly to the left to be centered inside the outer box").
+      { translateX: 0 },
       {
         scale: idleOn
           ? interpolate(heartbeat.value, [0, 0.5, 1], [1, PASS_BREATHE_SCALE, 1])
@@ -506,9 +506,11 @@ export function JourneyPassCard({
               // the same layer read as a green border painted round the board.
               // Sat under the opaque cream panel instead, only the shadow
               // escapes, which is what the pulse was ever meant to be.
-              left: boardW * 0.09,
-              right: boardW * 0.09,
-              top: pedimentH * 0.62,
+              left: boardW * 0.12,
+              right: boardW * 0.12,
+              // Well under the paper, which starts half a plate down (build 21):
+              // the torn edge is ragged, so the glow sits clear of it.
+              top: PARCHMENT_TOP * 0.6,
               bottom: 10,
               backgroundColor: line.accent,
               shadowColor: line.accent,
@@ -525,19 +527,19 @@ export function JourneyPassCard({
         testID="journey-pass-card"
         style={tearing ? [styles.press, styles.pressTearing] : styles.press}
       >
-        <CarvedBoard
-          testID="home-carved-board"
-          pedimentTestID="home-board-top"
+        {/* THE PARCHMENT, NOT THE CARVED BOARD (build 21, the owner's home
+            mockup: "change the actual pass to the parchment paper look in my
+            example, and the icon landmark seeping through"). The board with
+            its pediment stays the journey's zone header; the pass is a sheet
+            of aged paper with a brass nameplate on its top edge. Open for the
+            length of the tear, as the board was. */}
+        <ParchmentPass
+          testID="home-parchment-pass"
           width={boardW}
           height={boardH}
-          nameplate={line.lineName.toUpperCase()}
-          plate={
-            journey.current ? `ZONE ${journey.current.zoneIndex + 1}` : 'DEPARTURES'
-          }
-          // OPEN THE BOARD FOR THE LENGTH OF THE TEAR. The ticket lives inside
-          // the panel, and the board, the panel and the panel body all clip, so
-          // a ticket sailing off the card was cropped at the frame line the
-          // moment it moved: "now the ticket doesn't tear" (owner, chat 12).
+          nameplate={line.lineName}
+          plate={journey.current ? `ZONE ${journey.current.zoneIndex + 1}` : 'DEPARTURES'}
+          landmark={journey.current ? journey.current.geoName : line.zones[0]}
           clipContent={!tearing}
         >
           {/* THE FRAME IS NOT SYMMETRIC, SO THE CONTENT BOX CANNOT BE EITHER.
@@ -550,7 +552,7 @@ export function JourneyPassCard({
               overlap the right border" (owner, chat 12). The pad is exactly
               that asymmetry, off the same two numbers, so re-cutting the art
               moves it rather than leaving a stale correction. */}
-          <View style={[styles.body, { paddingRight: artNudge * 2 }]}>
+          <View style={styles.body}>
             {/* THE BOARD'S TOP LINE, with the ticket lying in the corner beside
                 it. The ticket was a full-height column down the right and it
                 pushed everything under it into a narrow run: "no I want it
@@ -758,8 +760,25 @@ export function JourneyPassCard({
                   current={journey.current.stopNumber}
                   accent={colors.primary}
                   muted={ZONE_BOARD.inkMuted}
-                  terminus
                 />
+                {/* THE LOCOMOTIVE CLOSES THE ROW (build 21, the owner's home
+                    mockup): a real engine at the end of the line where a
+                    16pt skyline glyph stood. It is the same TrainEngine that
+                    drove in the CTA row, drawn large enough to be a picture,
+                    and it still drives on the heartbeat. First Class still
+                    recolours it. */}
+                {/* Sat a little below the dots' line, wheels on the rail, so
+                    the plume above the stack clears the ticket stub's foot;
+                    the negative bottom margin gives the row back the height. */}
+                <View style={styles.engineSeat}>
+                  <TrainEngine
+                    tint={ZONE_BOARD.ink}
+                    width={72}
+                    height={46}
+                    motion="drive"
+                    palette={goldPalette}
+                  />
+                </View>
               </View>
             )}
 
@@ -780,48 +799,45 @@ export function JourneyPassCard({
                 owner's own ruling on 2026-08-28 and the mockup reverses it: the
                 train, the reason and the verb sit straight on the paper, and
                 the verb and its arrow carry the accent instead of a box. */}
+            {/* BOXED AGAIN (build 21, the owner's home mockup: a filled violet
+                Resume pill at the right, the reason beside a chai cup at the
+                left). The unboxed verb was the owner's earlier mockup and the
+                newer one reverses it; the newest wins. The engine moved up to
+                close the stops row, so the reason now sits where it did. */}
             <View style={styles.ctaBtn}>
-              <TrainEngine
-                tint={ZONE_BOARD.ink}
-                width={34}
-                height={22}
-                motion="drive"
-                palette={goldPalette}
-              />
-              {/* THE VERB TRAVELS WITH THE ARROW (owner, 2026-08-28: "move the
-                  resume to next to the arrow and center it vertically"). It sat
-                  left of the tail, so the plate read train, verb, sentence,
-                  arrow, and the two halves of the ACTION were at opposite ends
-                  with a sentence wedged between them. Verb and arrow together
-                  read as one control, and the sentence becomes what it actually
-                  is: the reason, not the instruction.
-                  The tail takes the flexible middle so it still wraps to two
-                  lines; the verb is centred against whatever height that makes,
-                  which is what alignItems: 'center' on the row already gives it. */}
+              {/* THE CUP BEFORE THE REASON: the sentence says where Chai
+                  comes from, and the kulhad is Chai's mark on every surface. */}
               {journeyCtaTail && (
-                <Text numberOfLines={3} style={[styles.ctaTail, styles.ctaTailMiddle]}>
-                  {journeyCtaTail}
-                </Text>
+                <View style={styles.ctaReason}>
+                  <ChaiGlyph size={18} testID="pass-chai-glyph" />
+                  <Text numberOfLines={3} style={[styles.ctaTail, styles.ctaTailMiddle]}>
+                    {journeyCtaTail}
+                  </Text>
+                </View>
               )}
-              <Text numberOfLines={1} style={[styles.ctaText, { color: colors.primary }]}>
-                {journeyCta}
-              </Text>
-              {/* A SOLID ARROW, not a hairline one. Feather draws a thin
-                  stroke at any size and beside a 17pt extrabold word it read as
-                  a different weight of voice: "make that bouncing arrow on the
-                  resume stop heavy like the Resume word" (owner, chat 12).
-                  MaterialCommunityIcons is already bundled for the badge
-                  gallery, so this costs no new font. */}
-              <Animated.View style={arrowStyle}>
-                <MaterialCommunityIcons
-                  name="arrow-right-thick"
-                  size={20}
-                  color={colors.primary}
-                />
-              </Animated.View>
+              {/* THE VERB TRAVELS WITH THE ARROW (owner, 2026-08-28: "move the
+                  resume to next to the arrow and center it vertically"), now
+                  inside one filled pill so the two halves of the ACTION are
+                  one control, and the primary CTA stands out the way the
+                  mockup's "Clear Actions" note asks. */}
+              <View
+                testID="pass-cta-button"
+                style={[styles.ctaButton, { backgroundColor: colors.primary }]}
+              >
+                <Text numberOfLines={1} style={styles.ctaText}>
+                  {journeyCta}
+                </Text>
+                {/* A SOLID ARROW, not a hairline one. Feather draws a thin
+                    stroke at any size and beside a 17pt extrabold word it read
+                    as a different weight of voice: "make that bouncing arrow on
+                    the resume stop heavy like the Resume word" (owner, chat 12). */}
+                <Animated.View style={arrowStyle}>
+                  <MaterialCommunityIcons name="arrow-right-thick" size={20} color="#FFFFFF" />
+                </Animated.View>
+              </View>
             </View>
           </View>
-        </CarvedBoard>
+        </ParchmentPass>
         {/* The shimmer sweep, once per heartbeat. Warm rather than white: a
             white streak on green read as a highlight, and the same streak on
             cream paper and varnished wood reads as light crossing the board.
@@ -1063,12 +1079,57 @@ const styles = StyleSheet.create({
   ctaBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginTop: 10,
-    paddingVertical: 4,
+    paddingVertical: 2,
+  },
+  // The reason, with its cup, takes the slack; the pill keeps its shape.
+  ctaReason: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // THE FILLED PILL (build 21). 38 tall: two lines of the reason beside it
+  // stand 26, so the pill is the tallest thing in the row and sets it.
+  ctaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 38,
+    paddingLeft: 16,
+    paddingRight: 12,
+    borderRadius: 999,
+    shadowColor: '#3B2A1E',
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  // The zone's painting behind the paper's rows; see the JSX for why.
+  // Kept INSIDE the content box: run out past it and the painting crosses
+  // the frame's inner rule, which the first simulator look showed on the
+  // right edge.
+  backdrop: {
+    position: 'absolute',
+    left: -6,
+    right: -6,
+    top: -6,
+    bottom: -6,
+    overflow: 'hidden',
+    borderRadius: 6,
+  },
+  // EXPLICIT POINTS, NOT '100%' (the render trap proven on device, chat 11:
+  // an Image sized by percentages or absoluteFill can resolve to its intrinsic
+  // pixel size). The box above is sized by its insets; the picture fills it.
+  backdropImage: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: undefined,
+    height: undefined,
+    opacity: 0.13,
   },
   // The stops row (build 17), in place of the brass bar; StopDots draws it.
   stopsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingRight: 2 },
+  engineSeat: { marginLeft: 6, marginTop: 14, marginBottom: -14 },
   // BIGGER, because it is one word now rather than a sentence that had to be
   // shrunk to fit the plate beside the ticket.
   // BESIDE THE VERB, not under it: "Only 6 more stops to go should go to the
@@ -1085,13 +1146,13 @@ const styles = StyleSheet.create({
   // one point back buys the sentence beside it a useful amount of width.
   ctaText: {
     fontFamily: AppFonts.extrabold,
-    fontSize: 18,
+    fontSize: 17,
     lineHeight: 22,
-    color: ZONE_BOARD.ink,
+    color: '#FFFFFF',
   },
-  // Takes the slack between the engine and the verb, so the verb and the arrow
-  // stay pinned together on the right however long the sentence is.
-  ctaTailMiddle: { flex: 1, minWidth: 0, marginHorizontal: 6 },
+  // Takes the slack between the cup and the pill, so the pill keeps its
+  // shape however long the sentence is.
+  ctaTailMiddle: { flex: 1, minWidth: 0 },
   // 10 was 11, and THREE lines rather than two. Moving the verb to the right
   // took roughly a fifth of this column's width, so the sentence clipped at
   // "Chai and surprises along t…", losing exactly the clause it was added for

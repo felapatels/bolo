@@ -52,9 +52,10 @@ const GLYPH_SITES: Record<string, number> = {
   'components/journey/ZoneCloseout.tsx': 1, // closeout payoff chip
   'app/(app)/bazaar.tsx': 4, // wardrobe balance, action-bar Buy, row Buy Now, and the chai stall's top-up badge (2026-08-19). The thumbnail price pill went with the card-to-row rebuild (5414ef9)
   'components/SessionStats.tsx': 1, // the session-chai pill in the practice, review and game headers. Build 21: it drew a 🍵 emoji, which read as green tea ("this is the wrong icon for chai", owner); it now draws the kulhad like every other Chai surface.
+  'components/journey/JourneyPassCard.tsx': 1, // the cup before "Chai and surprises along the way" on the home pass (build 21, the owner's home mockup)
 };
 
-const MOBILE_GLYPH_COUNT = 14;
+const MOBILE_GLYPH_COUNT = 15;
 
 describe('chai glyph', () => {
   test('renders the delivered kulhad art at the caller size', () => {
