@@ -44,7 +44,13 @@ export function Screen({
         style,
       ]}
     >
-      {column ? <View style={styles.column}>{children}</View> : children}
+      {column ? (
+        <View testID="screen-column" style={styles.column}>
+          {children}
+        </View>
+      ) : (
+        children
+      )}
     </View>
   );
 }

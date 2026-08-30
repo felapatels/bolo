@@ -18,8 +18,10 @@ describe('Screen', () => {
         <Text>inside</Text>
       </Screen>,
     );
-    const column = screen.getByText('inside').parent;
+    // By id: a Text's `.parent` is a composite here, not a host view.
+    const column = screen.getByTestId('screen-column');
     expect(column).toHaveStyle({ maxWidth: CONTENT_MAX_W, alignSelf: 'center', width: '100%' });
+    expect(screen.getByText('inside')).toBeOnTheScreen();
   });
 
   it('gives the whole window to a screen that opts out', () => {
@@ -28,7 +30,7 @@ describe('Screen', () => {
         <Text>bleed</Text>
       </Screen>,
     );
-    const parent = screen.getByText('bleed').parent;
-    expect(parent).not.toHaveStyle({ maxWidth: CONTENT_MAX_W });
+    expect(screen.queryByTestId('screen-column')).toBeNull();
+    expect(screen.getByText('bleed')).toBeOnTheScreen();
   });
 });
