@@ -100,8 +100,11 @@ and `useFocusEffect` mocked, three build 21 additions.
    **HEALTHY** by `artifacts/bolo-mobile/scripts/checkBundleHealth.ts`
    (45,974 functions, the animating shape; the script lives THERE, not in
    `scripts/`, which is where CLAUDE.md sends you), and `eas submit
-   --platform ios --latest` was started on the owner's word ("push them all
-   the way to testflight/play store"). Android `1.0.6 (526)`
+   --platform ios --latest` ran on the owner's word ("push them all the way
+   to testflight/play store"): **uploaded to App Store Connect** (submission
+   `8eefa37f-a38b-4f36-bd88-0b994033d48c`), processing for TestFlight at
+   handoff; 1.0.0 is closed, so 1.0.6 needs its own App Store submission
+   from the owner once TestFlight has it. Android `1.0.6 (526)`
    `1cb4711c-ce13-4581-8f3c-69a7c1f577fc`: still building at handoff, with
    `eas submit --platform android --latest` queued behind it (internal
    track). **Check both on expo.dev / App Store Connect / Play before
