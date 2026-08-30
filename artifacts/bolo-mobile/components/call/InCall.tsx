@@ -20,6 +20,7 @@
  */
 import React from 'react';
 import { Animated, Dimensions, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { CONTENT_COLUMN } from '@/lib/contentWidth';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -500,6 +501,9 @@ const styles = StyleSheet.create({
    * neither label can shove the other off centre.
    */
   controlsRow: {
+    // The buttons keep a phone's spread on an iPad instead of drifting 400
+    // points apart across the window (build 25). Backdrop stays full-bleed.
+    ...CONTENT_COLUMN,
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'flex-start',

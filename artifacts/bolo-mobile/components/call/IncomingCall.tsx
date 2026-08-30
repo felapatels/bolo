@@ -48,6 +48,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { CONTENT_COLUMN } from '@/lib/contentWidth';
 import { Ionicons } from '@expo/vector-icons';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
@@ -421,6 +422,9 @@ const styles = StyleSheet.create({
     textShadowRadius: 6,
   },
   actions: {
+    // The buttons keep a phone's spread on an iPad instead of drifting 400
+    // points apart across the window (build 25). Backdrop stays full-bleed.
+    ...CONTENT_COLUMN,
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'flex-start',
