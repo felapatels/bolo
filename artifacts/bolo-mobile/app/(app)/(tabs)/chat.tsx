@@ -2072,8 +2072,14 @@ export default function ChatScreen() {
         </View>
       ) : null}
 
+      {/* THE HEADER THE BIRD HANGS UNDER, measured as one box (build 25, owner
+          on the iPad: "after a first response mascot covers the meter line").
+          It was the pill row alone, and on a Free account the time bar
+          renders after that row, so the perched bird landed on the bar. Plus
+          accounts never show the bar, which is why it hid. */}
+      <View onLayout={(e) => setHeaderH(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
       {/* Language pill — tap to switch chat language */}
-      <View style={styles.langPillRow} onLayout={(e) => setHeaderH(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
+      <View style={styles.langPillRow}>
         <Pressable
           onPress={() => setPickerOpen(true)}
           accessibilityLabel={`Chat language: ${chatLanguage?.name ?? chatLang}. Tap to change.`}
@@ -2112,6 +2118,7 @@ export default function ChatScreen() {
           </Text>
         </Animated.View>
       )}
+      </View>
 
       {/* Mascot area — hold the bird to speak, release to send */}
       <Pressable
