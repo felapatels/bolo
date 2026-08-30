@@ -59,6 +59,7 @@ import {
   SPLASH_HANDOVER_BIRD_ANDROID_W,
   SPLASH_HANDOVER_FADE_MS,
   SPLASH_HANDOVER_GROUND,
+  SPLASH_FILM_FRAME_FAILSAFE_MS,
   isFirstColdStartToday,
   markFullPlayed,
 } from '@/lib/splashFilm';
@@ -149,29 +150,33 @@ function BrandSplashFilm({
     p.loop = false;
     // READY is assumed until AsyncStorage says otherwise, so open on the beat
     // where Bolo is already in shot rather than on the empty sky before it.
+    // NOT PLAYED HERE (build 23): the film starts once the day's mode is
+    // decided, see below, so it never has to rewind on screen.
     p.currentTime = SPLASH_SHORT_START_S;
-    p.play();
   });
 
   /**
-   * FULL came back true, so rewind and play the film whole.
+   * THE FILM STARTS AFTER THE DAY'S MODE IS DECIDED, AND THE PLATE WAITS FOR
+   * ITS FIRST FRAME (build 23, owner off the 1.0.6 build: "there is a flicker
+   * between the bolo bird and the splash video playing when i launch").
    *
-   * This runs a tick after mount because the day stamp cannot be read
-   * synchronously, which is the same reason the player opens in short mode by
-   * default. The rewind is invisible: it lands within a frame or two of the
-   * first paint, and the poster is underneath the whole time.
+   * Two things could show through the crossfade before this. The plate began
+   * fading the moment the native splash was gone, whether or not the decoder
+   * had drawn a frame, so the bird faded onto the POSTER and the film then
+   * popped over it a beat later. And the film started playing at the short
+   * start immediately, then rewound to 0 a tick later when the day's first
+   * play came back from storage: a jump under the fade, or after it on a
+   * slow read. Both are the same fault, motion on the film while the bird is
+   * still handing over.
+   *
+   * So: `decided` is set once storage has answered and the film has been
+   * put at its true start and played; `filmFrame` once the view has drawn a
+   * frame; the plate fades only when both hold (or when there is no film to
+   * wait for). SPLASH_FILM_FRAME_FAILSAFE_MS stands behind it so a decoder
+   * that never reports cannot park the bird on screen.
    */
-  useEffect(() => {
-    if (!moving || !full) return;
-    try {
-      player.currentTime = 0;
-    } catch {
-      /* player already released; the film is ending anyway */
-    }
-  }, [moving, full, player]);
-
-  // Muted, no loop, plays as soon as it is ready. Reduced motion never
-  // creates a source, so the film is not decoded at all in that mode.
+  const [decided, setDecided] = useState(false);
+  const [filmFrame, setFilmFrame] = useState(false);
 
   useEffect(() => {
     coldStartConsumed = true;
@@ -181,28 +186,53 @@ function BrandSplashFilm({
     let cancelled = false;
     void (async () => {
       const first = await isFirstColdStartToday();
-      if (cancelled || !first) return;
-      // Stamped when FULL STARTS, not when it ends: a launch killed
-      // mid-film has still spent the day's full play.
-      //
-      // In PLAIN STATEMENT POSITION, never inside the setFull updater.
-      // React updaters must be pure: React may discard an invocation
-      // (unmount, thrown-away render) or run it twice, so a write in
-      // there fires unpredictably. Every other AsyncStorage write in
-      // this app sits in statement position, including the daily-goal
-      // stamp in (tabs)/index.tsx, and every one of them is reliable.
-      //
-      // Awaited, so FULL mode does not engage until the stamp is
-      // durable. The film is already on screen either way, so the wait
-      // costs the learner nothing.
-      await markFullPlayed();
       if (cancelled) return;
-      setFull(true);
+      if (first) {
+        // Stamped when FULL STARTS, not when it ends: a launch killed
+        // mid-film has still spent the day's full play.
+        //
+        // In PLAIN STATEMENT POSITION, never inside the setFull updater.
+        // React updaters must be pure: React may discard an invocation
+        // (unmount, thrown-away render) or run it twice, so a write in
+        // there fires unpredictably. Every other AsyncStorage write in
+        // this app sits in statement position, including the daily-goal
+        // stamp in (tabs)/index.tsx, and every one of them is reliable.
+        //
+        // Awaited, so FULL mode does not engage until the stamp is
+        // durable. The plate is still up either way, so the wait costs the
+        // learner nothing.
+        await markFullPlayed();
+        if (cancelled) return;
+        setFull(true);
+      }
+      if (moving) {
+        try {
+          // The rewind happens BEFORE the first play, under the plate, so
+          // nothing on screen ever jumps.
+          if (first) player.currentTime = 0;
+          player.play();
+        } catch {
+          /* player already released; the film is ending anyway */
+        }
+      }
+      setDecided(true);
     })();
     return () => {
       cancelled = true;
     };
+    // Mount only: the mode is decided once per launch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The plate may fade once the film is truly under it, or when there is no
+  // film (Reduce Motion, the kill switch), or once the failsafe has run out.
+  const filmReady = !moving || (decided && filmFrame);
+  const [frameFailsafe, setFrameFailsafe] = useState(false);
+  useEffect(() => {
+    if (!nativeGone || filmReady) return;
+    const t = setTimeout(() => setFrameFailsafe(true), SPLASH_FILM_FRAME_FAILSAFE_MS);
+    return () => clearTimeout(t);
+  }, [nativeGone, filmReady]);
 
   // FULL: fixed timer, ready signal ignored.
   useEffect(() => {
@@ -257,6 +287,9 @@ function BrandSplashFilm({
   // proven to move here, and an opacity tween of one view costs nothing.
   useEffect(() => {
     if (!nativeGone || handoverDone || phase === 'done') return;
+    // Not before the film has a frame under the plate (build 23), unless the
+    // failsafe says the frame is never coming.
+    if (!filmReady && !frameFailsafe) return;
     const anim = Animated.timing(handover, {
       toValue: 0,
       duration: reduceMotion ? 0 : SPLASH_HANDOVER_FADE_MS,
@@ -266,7 +299,7 @@ function BrandSplashFilm({
       if (finished) setHandoverDone(true);
     });
     return () => anim.stop();
-  }, [nativeGone, handoverDone, phase, reduceMotion, handover]);
+  }, [nativeGone, handoverDone, phase, reduceMotion, handover, filmReady, frameFailsafe]);
 
   // PUBLISHED FROM HERE, FOR HOME'S COUNT-UP. Anything home animates on
   // arrival is invisible while this overlay is up, and on a cold start that is
@@ -320,6 +353,8 @@ function BrandSplashFilm({
           style={styles.layer}
           nativeControls={false}
           contentFit="cover"
+          // The plate's other half (build 23): the crossfade waits for this.
+          onFirstFrameRender={() => setFilmFrame(true)}
         />
       ) : null}
       {/* THE HANDOVER PLATE, on top of everything until it has faded: the

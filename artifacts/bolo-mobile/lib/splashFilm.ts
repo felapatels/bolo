@@ -77,6 +77,20 @@ export const SPLASH_HANDOVER_GROUND = '#FFFFFF';
 export const SPLASH_HANDOVER_BIRD_ANDROID_W = 200;
 /** The crossfade from the bird to the film. */
 export const SPLASH_HANDOVER_FADE_MS = 600;
+/**
+ * How long the plate may wait for the film's first frame before fading
+ * anyway (build 23). The crossfade used to start the moment the native
+ * splash was gone, whether or not the decoder had a frame yet, so on a store
+ * build the bird faded onto the poster and the film then popped over it, and
+ * the same launch could rewind the film under the fade when the day's first
+ * play resolved late: "there is a flicker between the bolo bird and the
+ * splash video playing when i launch." The plate now holds until the film
+ * has drawn its first frame at the right start. This is the cap on that
+ * hold, so a decoder that never reports (a broken file, an emulator without
+ * video) cannot park the bird on screen for good; past it the old behaviour
+ * resumes, poster first.
+ */
+export const SPLASH_FILM_FRAME_FAILSAFE_MS = 1200;
 
 /**
  * THE GREETING WAVE, as twelve JPEG frames swapped through react-native's own

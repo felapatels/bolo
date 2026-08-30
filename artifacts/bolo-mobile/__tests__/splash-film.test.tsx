@@ -140,17 +140,59 @@ describe('THE HANDOVER PLATE: the bird on white, then a crossfade (build 18)', (
     );
   });
 
-  it('fades the plate out once the native splash has gone, and unmounts it', () => {
+  // ADJUSTED 2026-08-30 (build 23), owner off the 1.0.6 build: "there is a
+  // flicker between the bolo bird and the splash video playing when i
+  // launch." The plate used to fade the moment the native splash was gone,
+  // frame or no frame, which is the bird fading onto the poster and the film
+  // popping over it. It now waits for the film's first frame (and for the
+  // day's mode to be decided, so the film never rewinds on screen); this
+  // case reports the frame the way the view would.
+  it('fades the plate out once the native splash has gone AND the film has a frame, and unmounts it', async () => {
     jest.useFakeTimers();
     try {
       render(<BrandSplash nativeGone />);
       expect(q('splash-handover')).not.toBeNull();
+      // Let the day's mode resolve (storage answers on the microtask queue)
+      // and report the first frame.
+      await act(async () => {
+        q('splash-film')!.props.onFirstFrameRender();
+      });
       act(() => {
         jest.advanceTimersByTime(1000);
       });
       expect(q('splash-handover')).toBeNull();
       // The poster and the film are untouched underneath.
       expect(q('splash-still')).not.toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('holds the plate while the film has no frame yet', async () => {
+    jest.useFakeTimers();
+    try {
+      render(<BrandSplash nativeGone />);
+      await act(async () => {});
+      act(() => {
+        jest.advanceTimersByTime(1000);
+      });
+      // A second short of the failsafe: still the bird, not the poster.
+      expect(q('splash-handover')).not.toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('a film that never draws a frame still lets the plate go, on the failsafe', async () => {
+    const { SPLASH_FILM_FRAME_FAILSAFE_MS } = jest.requireActual('@/lib/splashFilm');
+    jest.useFakeTimers();
+    try {
+      render(<BrandSplash nativeGone />);
+      await act(async () => {});
+      act(() => {
+        jest.advanceTimersByTime(SPLASH_FILM_FRAME_FAILSAFE_MS + 1000);
+      });
+      expect(q('splash-handover')).toBeNull();
     } finally {
       jest.useRealTimers();
     }
