@@ -99,6 +99,18 @@ Written 2026-08-30 (afternoon, EDT) by BOLO Build 25. **Read `CLAUDE.md` first, 
 
 ## 4. THE BUILD AND THE QUEUE
 
+0. **1.0.7 (530) is BUILT AND SUBMITTED on both platforms** (evening,
+   after the storybook fix): iOS `72858604` HEALTHY (46,030 functions) and
+   submitted to App Store Connect for TestFlight; Android `d06a45af`
+   submitted to the Play internal track ("All done!"). Full suites ran
+   green immediately before (mobile 156/1475, web 142/1518). **The server
+   half of the storybook fix ships ONLY with a Repl publish** (pull
+   `d7c8d6fc`+, api suite in the Shell, publish); until that publish, every
+   build still shows the Gujarati blank-page fix's client half against a
+   server that returns no variant rows. The owner was running that block
+   when this was written; confirm it happened before assuming the fix is
+   live.
+
 1. **Build `6aa48cb0` (1.0.6, 529) FINISHED at about 18:05 UTC, HEALTHY
    (46,007 functions, the animating shape), and was SUBMITTED to App Store
    Connect** (submission `76d3e24f-63be-4455-92b2-2eb1dd0a53bc`, "Submitted
