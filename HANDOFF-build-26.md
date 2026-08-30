@@ -115,7 +115,10 @@ Written 2026-08-30 (afternoon, EDT) by BOLO Build 25. **Read `CLAUDE.md` first, 
 4. **Games do not explain journey-locked topics** (owner, build 25, for the
    next round): a game's topic list shows "0 phrases" rows with no word that
    the journey unlocks them. Say why, and point at the journey.
-5. Everything build 24 left: the Repl pull and publish of the second wave,
+5. **The Progress screen lost its share options** (owner, build 25, for the
+   next round): whatever used to offer sharing from Progress is not there.
+   Find what shipped it last and restore or redesign it.
+6. Everything build 24 left: the Repl pull and publish of the second wave,
    the Your Flex card, the splash flicker on a store build, the XP question,
    the wide serpentine.
 
