@@ -14,6 +14,21 @@ import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { ZONE_BOARD, ZONE_BOARD_ART } from "@/lib/zone-backdrops";
 
+/** The modern card's own colours (mobile build 22, here build 23): ivory
+ *  paper, a lavender edge, the plate in the app's violet. Static rather than
+ *  themed, like the ticket stock: the card lies on a painting, not on the
+ *  app's background. Mobile twin: MODERN in components/journey/CarvedBoard. */
+export const MODERN_BOARD = {
+  paper: "#FFFDF9",
+  edge: "#CFC8F0",
+  arc: "#B9B0E8",
+  plateTop: "#6D5BF4",
+  plateBottom: "#4F46E5",
+  tagPaper: "#EFEBFA",
+  tagInk: "#4B3F8F",
+} as const;
+const MODERN_RADIUS = 18;
+
 export function CarvedBoard({
   height,
   panelHeight,
@@ -24,10 +39,22 @@ export function CarvedBoard({
   style,
   clipContent = true,
   bare = false,
+  variant = "carved",
   testId,
   pedimentTestId,
   children,
 }: {
+  /**
+   * 'carved' is the painted station board: the wood pediment with its
+   * rosettes and brass plates. 'modern' (mobile build 22, here build 23; the
+   * owner's zone card crop: "i like this new zone card style") keeps the
+   * board's exact geometry, so nothing that measures the map moves, and
+   * draws the pediment in code instead: an ivory cap with rounded shoulders
+   * and a faint arch, a violet plate carrying the zone's name, and a small
+   * ZONE tag straddling the cap and the body. The body below is the
+   * caller's card, flush to the cap's width.
+   */
+  variant?: "carved" | "modern";
   /**
    * The board's TOTAL height in px, pediment included. EXACTLY this, not "at
    * most": the pediment takes its own aspect out of the top and the panel
@@ -95,6 +122,64 @@ export function CarvedBoard({
   /** Whatever the panel says. Laid out inside the drawn frame. */
   children?: ReactNode;
 }) {
+  if (variant === "modern") {
+    // The cap takes the pediment art's own aspect, so the panel below it is
+    // exactly what the carved board's panel would be and the map's row
+    // budget holds (journey-board-budget.test.ts).
+    const capAspect = ZONE_BOARD.artW / ZONE_BOARD.topH;
+    const plateH = 30;
+    const tagH = 18;
+    return (
+      <div
+        data-testid={testId}
+        className={cn("relative flex flex-col", clipContent ? "overflow-hidden" : "overflow-visible", className)}
+        style={{ height, ...style }}
+      >
+        <div
+          data-testid={pedimentTestId}
+          className="relative z-[2] w-full shrink-0"
+          style={{
+            aspectRatio: String(capAspect),
+            background: MODERN_BOARD.paper,
+            border: `1.5px solid ${MODERN_BOARD.edge}`,
+            borderBottom: "none",
+            borderTopLeftRadius: MODERN_RADIUS,
+            borderTopRightRadius: MODERN_RADIUS,
+          }}
+        >
+          {/* The arch, a whisper of the carved board's curve, drawn once. */}
+          <svg aria-hidden className="absolute inset-0 h-full w-full" viewBox="0 0 100 20" preserveAspectRatio="none">
+            <path d="M 6 16 Q 50 -7 94 16" stroke={MODERN_BOARD.arc} strokeWidth={1.5} strokeOpacity={0.55} fill="none" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <div
+            aria-hidden
+            className="absolute flex items-center justify-center overflow-hidden rounded-[9px] shadow-[0_2px_4px_rgba(43,26,18,0.18)]"
+            style={{
+              left: "17%",
+              right: "17%",
+              top: `max(6px, calc((100% - ${tagH + plateH}px) / 2 - 2px))`,
+              height: plateH,
+              backgroundImage: `linear-gradient(${MODERN_BOARD.plateTop}, ${MODERN_BOARD.plateBottom})`,
+            }}
+          >
+            <span className="truncate text-[11px] font-black uppercase tracking-[1.6px] text-white">{nameplate}</span>
+          </div>
+          <div
+            aria-hidden
+            className="absolute left-1/2 z-[3] flex -translate-x-1/2 items-center justify-center rounded-full border px-3"
+            style={{ bottom: -tagH / 2, height: tagH, background: MODERN_BOARD.tagPaper, borderColor: MODERN_BOARD.edge }}
+          >
+            <span className="truncate text-[9px] font-black uppercase tracking-[1.2px]" style={{ color: MODERN_BOARD.tagInk }}>
+              {plate}
+            </span>
+          </div>
+        </div>
+        <div className={cn("relative min-h-0 flex-1", clipContent ? "overflow-hidden" : "overflow-visible")}>
+          <div className={cn("absolute inset-0", clipContent ? "overflow-hidden" : "overflow-visible")}>{children}</div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div
       data-testid={testId}

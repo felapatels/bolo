@@ -41,7 +41,7 @@ import {
   type LessonGroupList,
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Lock, Pencil, Sparkle, Sparkles, Star, Train } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Lightbulb, Lock, Pencil, Sparkles, Star, Train } from "lucide-react";
 import { ChaiGlyph } from "@/components/chai-stall";
 import { TrainEngine } from "@/components/train-svg";
 import { useReducedMotion } from "framer-motion";
@@ -59,7 +59,7 @@ import { useLanguage } from "@/lib/language-context";
 import { useEntitlements } from "@/lib/entitlements";
 import { LessonErrorScreen } from "@/components/lesson-states";
 import { UpgradeScreen } from "@/components/plus";
-import { CarvedBoard } from "@/components/carved-board";
+import { CarvedBoard, MODERN_BOARD } from "@/components/carved-board";
 import { StopDots } from "@/components/stop-dots";
 import { planZoneRows } from "@/lib/journey-rows";
 import {
@@ -530,15 +530,17 @@ function FactStrip({
       onClick={advance}
       aria-label="Show the next India fact"
       data-testid={`postcard-fact-${zoneIndex}`}
-      className="flex w-full items-center gap-2.5 rounded-[10px] border px-2.5 py-[7px] text-left"
-      style={{ background: "#FFFDF8", borderColor: `${BADGE.brassEdge}80` }}
+      // A bulb in a lavender disc, white box (mobile build 22, here build
+      // 23, the owner's crop), where a gold spark on cream stood.
+      className="flex w-full items-center gap-2.5 rounded-[10px] border bg-white px-2.5 py-[7px] text-left"
+      style={{ borderColor: `${color}33` }}
     >
       <span
         aria-hidden
         className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border"
-        style={{ background: "#FFF4E0", borderColor: BADGE.brassEdge }}
+        style={{ background: `${color}14`, borderColor: `${color}33` }}
       >
-        <Sparkle className="h-[18px] w-[18px]" style={{ color: BADGE.brassBg }} />
+        <Lightbulb className="h-5 w-5" style={{ color }} />
       </span>
       <span className="min-w-0 flex-1">
         <span
@@ -610,28 +612,35 @@ function ZonePostcard({
         testId={`zone-board-${zoneIndex}`}
         pedimentTestId={`zone-board-top-${zoneIndex}`}
         bare
+        // THE MODERN CAP (mobile build 22, here build 23; the owner's zone
+        // card crop): the carved wood pediment gives way to an ivory cap with
+        // a violet plate; the geometry is untouched.
+        variant="modern"
       >
-        {/* THE MODERN PANEL ON THE CARVED BOARD (the owner's mockup, build 17
-            on mobile, build 18 here: "this is how i want the zone cards to
-            look"). The pediment stays carved; under it the panel is a cream
-            card with the app's violet on its top edge, the line as a violet
-            pill, the city big, a gold dashed rule with a diamond, and the
-            fact in its own box with a gold spark. The hybrid, on the board
-            itself. Wood on three sides, the violet edge on the fourth: it
-            hangs from the pediment the way the parchment did, without the
-            parchment. */}
+        {/* ONE IVORY SURFACE WITH THE CAP (mobile build 22, here build 23):
+            the brown 3px frame and the violet-to-pink edge went with the
+            carved pediment. The lavender edge continues the cap's; the
+            shadow that lifts the card off the painting sits on the board.
+            The line as a violet pill, the city big, Bolo standing on the
+            card's right with the words keeping clear of him, and the fact in
+            its own white box with a bulb. */}
         <div
           data-testid={`zone-card-${zoneIndex}`}
-          className="flex h-full min-h-0 flex-col overflow-hidden rounded-b-[14px] border-[3px] border-t-0"
-          style={{ borderColor: "#8A5D4A", background: "#FFF8EE" }}
+          className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-b-[18px] border-[1.5px] border-t-0"
+          style={{ borderColor: MODERN_BOARD.edge, background: MODERN_BOARD.paper }}
         >
-          <div
-            aria-hidden
-            className="h-[3px] shrink-0"
-            style={{
-              background: `linear-gradient(to right, ${color}, ${grayed ? GRAY : "#EC4899"})`,
-            }}
-          />
+          {/* BOLO ON THE CARD (owner: "i like this new zone card style and
+              bolo being on it"): the bird stands on the card's right, wholly
+              inside it (owner, on the first cut: "bolo needs more space on
+              the zone card, he's getting cut off"), her feet on the fact
+              box. The wave, the one pose nothing crosses. Not in a greyed
+              showroom zone. The phone's landmark whisper behind the words is
+              left out here on purpose: web has no city silhouettes. */}
+          {!grayed ? (
+            <div aria-hidden className="pointer-events-none absolute right-1.5 top-0 z-[2]">
+              <Mascot pose="wave" size={92} idle="none" />
+            </div>
+          ) : null}
           <div className="flex min-h-0 flex-1 flex-col px-3 pb-[9px] pt-2">
             <div className="flex">
               <span
@@ -643,13 +652,13 @@ function ZonePostcard({
               </span>
             </div>
             <div
-              className="mt-[5px] truncate text-[22px] font-black leading-[26px]"
+              className="mt-[5px] truncate pr-[100px] text-[22px] font-black leading-[26px]"
               style={{ color: "#2B1A0E" }}
             >
               {geoName}
             </div>
             <div
-              className="mt-px text-[11px] font-semibold leading-[14px]"
+              className="mt-px pr-[100px] text-[11px] font-semibold leading-[14px]"
               style={{ color: "#6B5B4E" }}
             >
               {stationCount} {stationCount === 1 ? "stop" : "stops"} in this zone
@@ -660,20 +669,9 @@ function ZonePostcard({
                 </>
               )}
             </div>
-            <div aria-hidden className="my-1.5 flex items-center gap-1.5">
-              <span
-                className="h-0 flex-1 border-t border-dashed"
-                style={{ borderColor: `${BADGE.brassBg}99` }}
-              />
-              <span
-                className="h-2 w-2 shrink-0 rotate-45 border-[1.5px]"
-                style={{ borderColor: BADGE.brassBg }}
-              />
-              <span
-                className="h-0 flex-1 border-t border-dashed"
-                style={{ borderColor: `${BADGE.brassBg}99` }}
-              />
-            </div>
+            {/* The gold dashed rule went with the crop (build 22): the bird
+                carries the rustic note now, and the fact box sits closer. */}
+            <div aria-hidden className="h-2 shrink-0" />
             {/* The zone test-out affordance, present only when the zone is
                 gate-locked, IN THE FACT'S PLACE. It lives inside the card
                 from build 17: as a sibling after the panel it landed on the
