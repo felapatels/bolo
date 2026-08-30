@@ -3828,8 +3828,11 @@ export default function JourneyScreen() {
           short track segments, closed by the gold Journey 2 card. It hangs
           off the map column's left edge and stays put while the map scrolls;
           a tap lands the map on that zone's board and nothing more. The
-          phone never has the margin for it, so `wide` gates it entirely. */}
-      {wide && (
+          phone never has the margin for it, so `wide` gates it entirely, and
+          so does the margin itself: beside a 560 map the 11-inch leaves 137
+          and the mini 92, under the 168 the rail needs, so only the 13-inch
+          shows it today (web draws the line at 1280px for the same reason). */}
+      {wide && (windowW - mapW) / 2 >= ZONE_RAIL_W + ZONE_RAIL_GAP * 2 && (
         <ZoneRail
           zones={zones.map((z, zi) => ({
             zoneIndex: zi,
