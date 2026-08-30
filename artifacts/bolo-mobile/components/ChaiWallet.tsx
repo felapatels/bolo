@@ -929,14 +929,29 @@ export function ChaiWalletSheet({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      <View style={styles.backdrop}>
+        {/* THE SCRIM IS A SIBLING UNDER THE SHEET, NOT A PARENT AROUND IT
+            (build 23, owner off 1.0.6 build 527: "the scroll doesn't work
+            correctly, feels stuck", an old bug the wallet had dodged by
+            never needing to scroll). The sheet was a Pressable inside a
+            Pressable backdrop, and a ScrollView under a Pressable ancestor
+            does not scroll reliably on this app's New Architecture: the
+            drag is claimed above it and the list rubber-bands in place. As
+            a sibling, the scrim still dismisses on a tap outside, and no
+            touch inside the sheet has a Pressable above the scroller. */}
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close the wallet"
+          onPress={onClose}
+          style={StyleSheet.absoluteFill}
+          testID="wallet-scrim"
+        />
+        <View
           testID="chai-wallet-sheet"
           style={[
             styles.sheet,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
-          onPress={(e) => e.stopPropagation()}
         >
           {/* THE WALLET OPENS ON THE STALL (build 22, the owner's wallet
               mockup): the painted stall with Chacha-ji waving is the header,
@@ -1040,8 +1055,8 @@ export function ChaiWalletSheet({
               </View>
             ) : null}
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
