@@ -154,7 +154,9 @@ jest.mock('@/constants/fonts', () => ({
   },
 }));
 
-import OutfitsScreen from '../app/(app)/bazaar';
+// The tailor stall is a door of its own since build 22 (the bazaar became a
+// hub with four doors); its logic and every pin here live on unchanged.
+import OutfitsScreen from '../app/(app)/bazaar/tailor';
 import {
   mascotSource,
   CANONICAL_POSE_SOURCES,

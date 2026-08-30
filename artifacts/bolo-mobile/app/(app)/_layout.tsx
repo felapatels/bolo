@@ -135,7 +135,12 @@ export default function AppLayout() {
               {/* The board: standing lives outside the tab bar, like journey. */}
               <Stack.Screen name="leaderboard" />
               <Stack.Screen name="map" />
-              <Stack.Screen name="bazaar" />
+              {/* The bazaar is a hub with four doors since build 22. */}
+              <Stack.Screen name="bazaar/index" />
+              <Stack.Screen name="bazaar/tailor" />
+              <Stack.Screen name="bazaar/station" />
+              <Stack.Screen name="bazaar/tickets" />
+              <Stack.Screen name="bazaar/languages" />
               {/* THE CALL TAKES THE SCREEN, IT DOES NOT SLIDE ONTO IT. A phone
                   ringing is an interruption, and a push transition would frame
                   it as somewhere the learner navigated to. Fade, and no
