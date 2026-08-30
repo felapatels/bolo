@@ -317,19 +317,30 @@ export function ParchmentPass({
           pointerEvents="none"
           style={[
             styles.landmark,
-            { width: landmarkW, height: landmarkH, left: (width - landmarkW) / 2, bottom: 10 },
+            {
+              width: landmarkW,
+              height: landmarkH,
+              left: (width - landmarkW) / 2,
+              // CENTRED ON THE SHEET, both ways (owner, 2026-08-30: "it should
+              // be center of card vertically as well"); it sat on the paper's
+              // foot until then. Web twin: parchment-pass.tsx.
+              top: (paperH - landmarkH) / 2,
+            },
           ]}
         >
-          {/* A tenth of ink reads on the drawn sheet's flat cream and vanished
-              on the painted grain (build 22, checked on the simulator), so
-              the painted sheet gets twice the ink. Still a watermark. */}
+          {/* A QUARTER OF INK HERE, A TENTH ON WEB, AND THEY READ ALIKE
+              (2026-08-30). A tenth was invisible on the phone (owner:
+              "mobile is missing this silhouette"; confirmed on the simulator,
+              nothing behind the dots) while the same tenth read on web; a
+              fifth was a whisper beside the web's, checked side by side on
+              the simulator. Still a watermark. */}
           <Landmark
             city={landmark}
             width={landmarkW}
             height={landmarkH}
             ink={TICKET.ink}
             paper={PAPER.mid}
-            opacity={painted ? 0.2 : 0.1}
+            opacity={0.26}
           />
         </View>
         {/* The inner rule, set in from the tear like a ticket's. The painted

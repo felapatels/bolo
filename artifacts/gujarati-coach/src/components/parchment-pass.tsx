@@ -324,11 +324,13 @@ export function ParchmentPass({
             strokeOpacity={0.7}
           />
         </svg>
-        {/* The landmark, seeping through from below the words. A tenth of ink
-            on the drawn sheet's flat cream, as on mobile. */}
+        {/* The landmark, seeping through behind the words. A tenth of ink on
+            the drawn sheet's flat cream. CENTRED ON THE SHEET, both ways
+            (owner, 2026-08-30: "it should be center of card vertically as
+            well"); it sat on the paper's foot until then. */}
         <div
-          className="pointer-events-none absolute left-1/2 -translate-x-1/2"
-          style={{ width: landmarkW, height: landmarkH, bottom: 10 }}
+          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+          style={{ width: landmarkW, height: landmarkH }}
         >
           <Landmark
             city={landmark}

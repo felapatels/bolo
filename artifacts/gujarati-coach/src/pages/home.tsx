@@ -1086,9 +1086,16 @@ export default function Home() {
                   Mobile twin: home-journey-frame in (tabs)/index.tsx. It
                   bleeds 8 past the column and pads 4, so the board keeps all
                   but a few px of the column's width. */}
+              {/* ROOM TO BREATHE (owner, 2026-08-30, off the desktop preview:
+                  "outer box gets passed during throb. make outer box a little
+                  bigger on boarding card"). The pass breathes to 1.025 and the
+                  frame gave it 4px a side, so on a 700px column the paper grew
+                  about 9px past the frame line at the top of every breath and
+                  about 5px on a phone. The padding now clears the throb with
+                  margin at both widths. */}
               <div
                 data-testid="home-journey-frame"
-                className="relative -mx-2 rounded-[20px] border-[1.5px] bg-card px-1 pb-2 pt-4"
+                className="relative -mx-2 rounded-[20px] border-[1.5px] bg-card px-2.5 pb-3 pt-4 lg:px-5 lg:pb-5"
                 style={{ borderColor: BADGE.brassEdge }}
               >
                 <div
