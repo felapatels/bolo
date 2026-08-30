@@ -20,8 +20,9 @@ import { PLUS_ENTITLEMENTS } from "./fixtures";
 //     the hold;
 // (2) release fires at the LATER of the ready signal and the minimum hold
 //     (--splash-min-hold), so an instant signal cannot blink the moment;
-// (3) poster-first reveal: the overlay renders nothing until the still
-//     decodes, then the film in one reveal; a stalled decode is capped by
+// (3) poster-first reveal: the overlay holds the blurred first frame as its
+//     own background and renders nothing else until the still decodes, then
+//     the film in one reveal that fades in; a stalled decode is capped by
 //     --splash-decode-cap and never traps the user;
 // (4) the max-hold failsafe retires the moment even if the ready signal
 //     never lands (NOT gated on the minimum hold), leaving the skeleton;
@@ -301,17 +302,28 @@ describe("home brand splash v2", () => {
       renderHome();
       const overlay = splash() as HTMLElement;
       expect(overlay).not.toBeNull();
-      // The gate is holding: the one still is decoding, and the overlay is a
-      // white holding surface with nothing in it.
+      // The gate is holding: the one still is decoding, and the overlay is
+      // its holding surface with nothing in it. NOT A FLAT COLOUR (2026-08-30,
+      // owner: "i don't want to see a blank brown page before the video
+      // splash loads"): the surface is the film's own first frame, tiny and
+      // pre-blurred, inlined as the overlay's background.
       expect(h.decodeResolvers.length).toBe(1);
       expect(overlay.querySelector("img")).toBeNull();
       expect(overlay.textContent).toBe("");
-      // The decode lands: the film appears in a single reveal.
+      expect(overlay.style.backgroundImage).toContain("data:image/jpeg;base64,");
+      expect(overlay.style.backgroundSize).toBe("cover");
+      // The decode lands: the film appears in a single reveal, and that
+      // reveal FADES IN over the blur (the class carries the keyframes).
       h.decodeResolvers[0]();
       await waitFor(() =>
         expect(overlay.querySelector('[data-testid="splash-scene"]')).not.toBeNull(),
       );
       expect(overlay.querySelector('[data-testid="splash-film"]')).not.toBeNull();
+      expect(
+        (overlay.querySelector('[data-testid="splash-scene"]') as HTMLElement).classList.contains(
+          "splash-scene-enter",
+        ),
+      ).toBe(true);
     } finally {
       spy.mockRestore();
       vi.unstubAllGlobals();

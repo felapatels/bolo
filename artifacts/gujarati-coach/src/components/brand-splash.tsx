@@ -2,6 +2,7 @@ import { Component, useCallback, useEffect, useState, type ReactNode } from "rea
 import { createPortal } from "react-dom";
 import { useReducedMotion } from "framer-motion";
 import { cn, cssTimeMs } from "@/lib/utils";
+import { SPLASH_LQIP, splashHoldingStyle } from "@/lib/splash-lqip";
 
 // Splash v2 (layered motion boot with ready-signal hold): a cold-load boot
 // moment that overlays the loading home, HOLDS until home's real readiness
@@ -29,8 +30,19 @@ import { cn, cssTimeMs } from "@/lib/utils";
 //
 // ONE-TOASTER-STYLE RULE for the boot gap (item 4): index.html carries a boot
 // <style> that paints the document background with this overlay's exact
-// gradient so no white flash precedes the splash. If the backdrop gradient
-// below changes, update index.html's boot style in the same commit.
+// holding surface so no flash precedes the splash. Since 2026-08-30 that
+// surface is the film's own first frame at 48px, pre-blurred (lib/splash-lqip.ts),
+// over the #89695B plate, in BOTH places; splash-lqip.test.ts pins the copies.
+//
+// THE THREE BEATS, AS OF 2026-08-30 (owner, off the Repl preview: "i don't
+// want to see a blank brown page before the video splash loads. Also, smooth
+// it out. Fade it in and crossfade out"):
+//   1. the blurred frame paints before any JavaScript and stays under
+//      everything, so the wait is a soft bazaar and never a flat colour;
+//   2. once the poster has decoded, the scene FADES IN over it
+//      (splash-scene-enter, --splash-enter) instead of cutting;
+//   3. the release is a slower ease-in-out CROSSFADE (--splash-exit) over
+//      the home already painted beneath the overlay.
 
 /**
  * The boot film and its still, in two shapes. A phone-shaped film on a
@@ -65,7 +77,7 @@ export const SPLASH_V2_ASSETS = {
  *    five-second film.
  * Failure-safe: anything unexpected yields the portrait pair.
  */
-function useSplashShape(): { film: string; poster: string } {
+function useSplashShape(): { film: string; poster: string; lqip: string; wide: boolean } {
   const [wide] = useState(() => {
     try {
       return window.matchMedia("(orientation: landscape)").matches;
@@ -74,13 +86,13 @@ function useSplashShape(): { film: string; poster: string } {
     }
   });
   return wide
-    ? { film: SPLASH_V2_ASSETS.filmWide, poster: SPLASH_V2_ASSETS.posterWide }
-    : { film: SPLASH_V2_ASSETS.film, poster: SPLASH_V2_ASSETS.poster };
+    ? { film: SPLASH_V2_ASSETS.filmWide, poster: SPLASH_V2_ASSETS.posterWide, lqip: SPLASH_LQIP.wide, wide }
+    : { film: SPLASH_V2_ASSETS.film, poster: SPLASH_V2_ASSETS.poster, lqip: SPLASH_LQIP.portrait, wide };
 }
 
 // jsdom / ancient-UA fallbacks for the :root tuning vars (values in ms).
 const SPLASH_MAX_HOLD_FALLBACK_MS = 8000;
-const SPLASH_EXIT_FALLBACK_MS = 260;
+const SPLASH_EXIT_FALLBACK_MS = 640;
 // Minimum hold: a qualifying mount shows the moment for at least this long,
 // so an instantly-settling ready signal cannot blink the splash away. The
 // clock starts at overlay MOUNT (not at the compose-then-reveal below), so
@@ -301,17 +313,18 @@ export function BrandSplash({
   );
 }
 
-// Poster-first reveal: nothing renders until the ONE still is fetched AND
-// decoded (image decode, not merely onload), so the film's poster is already
-// paintable the instant the video mounts and the reveal lands as one
-// complete frame. While the gate holds, the overlay paints only its white
-// backdrop, which matches the index.html boot style, so the holding surface
-// is seamless (the boot <style> stops applying once React fills #root, which
-// is why the overlay must carry the backdrop itself). A stalled or failed
-// decode can never trap the user: after --splash-decode-cap, whatever is
-// ready is revealed anyway, and the max-hold failsafe still bounds total
-// time. The decode runs on an off-DOM Image object; the same URL is already
-// in cache when the real element mounts, so the reveal paints in one frame.
+// Poster-first reveal: the scene does not render until the ONE still is
+// fetched AND decoded (image decode, not merely onload), so the film's poster
+// is already paintable the instant the video mounts and the reveal lands as
+// one complete frame. While the gate holds, the overlay paints only its
+// holding surface: the blurred first frame over the plate, the same picture
+// index.html's boot style paints, so the surface is seamless (the boot
+// <style> stops applying once React fills #root, which is why the overlay
+// must carry the surface itself). A stalled or failed decode can never trap
+// the user: after --splash-decode-cap, whatever is ready is revealed anyway,
+// and the max-hold failsafe still bounds total time. The decode runs on an
+// off-DOM Image object; the same URL is already in cache when the real
+// element mounts, so the reveal paints in one frame, and then fades in.
 function usePosterReady(posterSrc: string): boolean {
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
@@ -370,9 +383,10 @@ function BrandSplashOverlay({
       className={cn(
         // #89695B, NOT WHITE. The film opened on a white plate until
         // 2026-08-26 and now opens on the bazaar at dusk, whose first frame
-        // averages this. Any other backdrop flashes on reveal, which is the
-        // whole reason this colour is pinned. index.html's boot style carries
-        // the same value and must stay in step.
+        // averages this. Since 2026-08-30 the plate sits UNDER the blurred
+        // first frame (splashHoldingStyle), so the wait is a soft picture and
+        // never a flat brown page. index.html's boot style carries the same
+        // plate and the same two thumbnails and must stay in step.
         //
         // IT CAPTURES CLICKS WHILE PLAYING, which it did not before: it was
         // pointer-events-none unconditionally, so a click went through to
@@ -383,9 +397,13 @@ function BrandSplashOverlay({
         exiting ? "pointer-events-none" : "cursor-pointer",
         exiting && "brand-splash-exiting",
       )}
+      style={splashHoldingStyle(shape.wide)}
     >
       {revealed && (
-        <div className="absolute inset-0" data-testid="splash-scene">
+        // FADES IN over the blurred frame (splash-scene-enter): the same
+        // picture, sharp, arriving over its own blur reads as focus pulling
+        // in. Reduced motion gets the plain swap.
+        <div className="splash-scene-enter absolute inset-0" data-testid="splash-scene">
           {reduceMotion ? (
             <img
               src={shape.poster}
