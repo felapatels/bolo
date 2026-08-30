@@ -29,7 +29,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { useContentWidth } from '@/lib/contentWidth';
+import { useIsWideScreen } from '@/lib/contentWidth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StopDots } from '@/components/journey/StopDots';
@@ -151,6 +151,8 @@ import {
   ZONE_TILE_ASPECT,
   zoneBackdrop,
   zoneFootTone,
+  WIDE_BACKDROP,
+  WIDE_BACKDROP_ASPECT_H,
 } from '@/lib/zoneBackdrops';
 import {
   stopEmblem,
@@ -178,6 +180,11 @@ const GRAY = SCENERY_GRAY; // rail/marker color for locked showroom zones
 // Serpentine layout rhythm — identical to the web map (which is itself
 // mobile-width, max 390px).
 const MAP_MAX_W = 390;
+// ON AN IPAD THE MAP IS 560, AS ON WEB FROM 768px (MAP_MAX_W_LG). The owner
+// chose it on 2026-08-30 (build 25) over keeping the phone's 390 on the wide
+// bazaar, from side-by-side captures of both. Phones are never wide, so they
+// keep MAP_MAX_W.
+const MAP_MAX_W_WIDE = 560;
 // Task 1082 item 2: web parity. The station card was slimmed (tighter padding
 // and line spacing, and no "Bolo is waiting here" fragment, which used to wrap
 // the current stop's status onto a second line), so the slot holding it comes
@@ -465,8 +472,11 @@ function ZoneBandFixed({
   contentTop,
   extraTop,
   mode = 'block',
+  wide = false,
 }: {
   zi: number;
+  /** An iPad: one wide bazaar for every zone instead of the six paintings. */
+  wide?: boolean;
   start: number;
   end: number;
   layerTop: number;
@@ -513,8 +523,8 @@ function ZoneBandFixed({
   void scrollY;
   void contentTop;
   void windowH;
-  const art = zoneBackdrop(zi);
-  const tileH = windowW / ZONE_TILE_ASPECT;
+  const art = wide ? WIDE_BACKDROP : zoneBackdrop(zi);
+  const tileH = wide ? Math.round(windowW * WIDE_BACKDROP_ASPECT_H) : windowW / ZONE_TILE_ASPECT;
   if (!art) return null;
   const tiles = (
     <>
@@ -1190,10 +1200,12 @@ function EmergencySoftStop({
 export default function JourneyScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { height: windowH } = useWindowDimensions();
-  // THE MAP COLUMN IS THE CONTENT COLUMN (build 25): the zone tiles bleed to
-  // its edge rather than the window's, so an iPad gets a 600 band, not 1032.
-  const windowW = useContentWidth();
+  // THE WINDOW, NOT THE COLUMN (build 25): this screen opts out of Screen's
+  // column and paints edge to edge, as web does from 768px. The map column
+  // centres itself (the zone blocks are mapW wide, alignSelf center) and the
+  // backdrop tiles span the whole window behind it.
+  const { width: windowW, height: windowH } = useWindowDimensions();
+  const wide = useIsWideScreen();
   // The main render opts out of Screen's top padding (padTop={false}) so the
   // header hugs the top edge, which shoved it under the status bar/notch on
   // native. Pad the header itself with the same inset Screen would apply
@@ -1252,7 +1264,7 @@ export default function JourneyScreen() {
   // Web measures the map column with a ResizeObserver; on native the window
   // width is authoritative (map column = screen width capped at 390, with the
   // same 0 side padding the web column has inside its centering wrapper).
-  const mapW = Math.min(MAP_MAX_W, windowW);
+  const mapW = Math.min(wide ? MAP_MAX_W_WIDE : MAP_MAX_W, windowW);
   // The carved board's panel height, in points. The board is exactly PC_H and
   // the pediment takes its own aspect out of that, so the remainder is known
   // without measuring anything. postcardWrap insets the board by 16 a side.
@@ -2589,7 +2601,7 @@ export default function JourneyScreen() {
   }
 
   return (
-    <Screen padTop={false}>
+    <Screen padTop={false} column={false}>
       {/* Boarding-pass header — full-ticket treatment */}
       <View
         testID="journey-header"
@@ -2771,6 +2783,7 @@ export default function JourneyScreen() {
               end={end}
               layerTop={layerTop}
               windowW={windowW}
+              wide={wide}
               windowH={windowH}
               mapW={mapW}
               scrollY={scrollY}

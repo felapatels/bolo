@@ -326,3 +326,16 @@ export function zoneBoardPedimentH(boardWidth: number): number {
 export function zoneBoardPanelH(boardWidth: number, boardHeight: number): number {
   return boardHeight - zoneBoardPedimentH(boardWidth);
 }
+
+/**
+ * THE WIDE BAZAAR, big screens only: web's `.journey-wide-backdrop`
+ * (gujarati-coach/src/index.css), asked for 2026-08-26: "I want the journey
+ * screen to have this same image on web large screens for all zones, just
+ * repeat it for big screens." One seamless 1600x704 tile for every zone,
+ * repeating down the page; on an iPad the six paintings above give way to it,
+ * as they do on web from 768px, because two paintings arguing through each
+ * other is worse than either alone. Phones never load it.
+ */
+export const WIDE_BACKDROP = require('../assets/journey/zone-wide.jpg') as number;
+/** Height over width of the wide tile, so a band knows how many to stack. */
+export const WIDE_BACKDROP_ASPECT_H = 704 / 1600;
