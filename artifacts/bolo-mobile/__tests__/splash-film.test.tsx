@@ -189,8 +189,14 @@ describe('THE HANDOVER PLATE: the bird on white, then a crossfade (build 18)', (
     try {
       render(<BrandSplash nativeGone />);
       await act(async () => {});
+      // Two steps, not one: the failsafe's timer sets state, React commits
+      // that at the end of the act, and only THEN does the fade's own timer
+      // start. One long advance would run out before the fade existed.
       act(() => {
-        jest.advanceTimersByTime(SPLASH_FILM_FRAME_FAILSAFE_MS + 1000);
+        jest.advanceTimersByTime(SPLASH_FILM_FRAME_FAILSAFE_MS + 1);
+      });
+      act(() => {
+        jest.advanceTimersByTime(1000);
       });
       expect(q('splash-handover')).toBeNull();
     } finally {
