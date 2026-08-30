@@ -45,6 +45,7 @@ import type { CSSProperties } from "react";
 // global prefers-reduced-motion rule in index.css collapses the loop and the
 // plume settles onto its authored base frame — visible steam, no movement.
 // Never a blank layer.
+import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import "./chai-stall.css";
 
@@ -138,11 +139,20 @@ export function ChaiGlyph({ className, style }: { className?: string; style?: CS
 export function ChaiStallVignette({
   className,
   onClick,
+  onShop,
   label,
   balance,
 }: {
   className?: string;
   onClick?: () => void;
+  /**
+   * A direct door to the Bazaar under the balance (owner, build 25, with
+   * mobile: "so they don't have to click twice"). With it the scene is no
+   * longer one big button: the wallet door is a cover button under the copy
+   * and the shop button sits over it, because a button inside a button is
+   * not HTML.
+   */
+  onShop?: () => void;
   label?: string;
   /**
    * The learner's live Chai balance, straight from the caller's token query
@@ -224,6 +234,19 @@ export function ChaiStallVignette({
             Chai
           </span>
         </span>
+        {onShop ? (
+          <button
+            type="button"
+            data-testid="chai-stall-shop"
+            onClick={onShop}
+            aria-label="Go shopping at the Bazaar"
+            className="pointer-events-auto relative z-10 mt-1 inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-black shadow-[0_2px_5px_rgba(0,0,0,0.35)] transition-transform hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            style={{ backgroundColor: "#FBBF24", color: "#3B2A0A" }}
+          >
+            Go Shopping
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+          </button>
+        ) : null}
       </div>
     </>
   );
@@ -246,6 +269,22 @@ export function ChaiStallVignette({
     );
   }
 
+  if (onShop) {
+    return (
+      <div data-testid="chai-stall-vignette" className={cn(box, className)} style={style}>
+        {/* The wallet door covers the art; the copy column lies over it and
+            passes clicks through, except its own shop button. */}
+        <button
+          type="button"
+          data-testid="chai-stall-button"
+          onClick={onClick}
+          aria-label={label ?? "Open your Chai wallet"}
+          className="absolute inset-0 z-0 block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+        />
+        {layers}
+      </div>
+    );
+  }
   return (
     <button
       type="button"

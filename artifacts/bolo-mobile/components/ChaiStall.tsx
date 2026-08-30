@@ -47,6 +47,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppFonts } from '@/constants/fonts';
 import Animated, {
@@ -180,11 +181,18 @@ export function ChaiGlyph({
 export function ChaiStallVignette({
   style,
   onPress,
+  onShop,
   accessibilityLabel,
   balance,
 }: {
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
+  /**
+   * A direct door to the Bazaar under the balance (owner, build 25: "add a
+   * direct button on the Chachaji card for Go Shopping so they don't have to
+   * click twice"). The rest of the scene still opens the wallet.
+   */
+  onShop?: () => void;
   accessibilityLabel?: string;
   /**
    * The learner's live Chai balance, straight from the caller's token query
@@ -234,7 +242,13 @@ export function ChaiStallVignette({
       // the overlay's title and balance text.
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      pointerEvents="none"
+      // "none" so the wrapping Pressable owns every tap; box-none the moment
+      // the scene carries its own shop button (build 25), or that button
+      // could never be pressed: none on a parent swallows the child's
+      // touches too, which is exactly what the first cut shipped. VoiceOver
+      // still lands on the wallet button alone; the footer's Go Shopping
+      // link remains the accessible road to the Bazaar.
+      pointerEvents={onShop ? 'box-none' : 'none'}
       style={[styles.vignette, onPress ? undefined : style]}
     >
       <View
@@ -332,7 +346,7 @@ export function ChaiStallVignette({
       />
       {/* Quiet on purpose: white on the scrim, no accent fill, so it does not
           compete with the orange boarding pass directly above. */}
-      <View pointerEvents="none" style={styles.overlayColumn}>
+      <View pointerEvents="box-none" style={styles.overlayColumn}>
         <Text testID="chai-stall-title" style={styles.title}>
           {STALL_TITLE}
         </Text>
@@ -353,6 +367,19 @@ export function ChaiStallVignette({
           </Text>
           <Text style={styles.balanceUnit}>Chai</Text>
         </View>
+        {onShop ? (
+          <Pressable
+            testID="chai-stall-shop"
+            onPress={onShop}
+            accessibilityRole="button"
+            accessibilityLabel="Go shopping at the Bazaar"
+            hitSlop={6}
+            style={({ pressed }) => [styles.shopBtn, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={styles.shopText}>Go Shopping</Text>
+            <Feather name="arrow-right" size={14} color="#3B2A0A" />
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -444,6 +471,25 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.extrabold,
     fontSize: 18,
   },
+  // Gold, because it goes to the Bazaar (gold = world); the wallet chip
+  // above it stays primary (purple = touch me), so the two doors differ.
+  shopBtn: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: '#FBBF24',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  shopText: { fontFamily: AppFonts.extrabold, fontSize: 13, color: '#3B2A0A' },
   balanceUnit: {
     color: 'rgba(255,255,255,0.9)',
     fontFamily: AppFonts.bold,
