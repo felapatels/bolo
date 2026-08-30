@@ -12,7 +12,7 @@
 // two take the same props and read the same ZONE_BOARD fractions.
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { ZONE_BOARD, ZONE_BOARD_ART } from "@/lib/zone-backdrops";
+import { ZONE_BOARD, ZONE_BOARD_ART, ZONE_BOARD_PEDIMENT_MAX_H } from "@/lib/zone-backdrops";
 
 /** The modern card's own colours (mobile build 22, here build 23): ivory
  *  paper, a lavender edge, the plate in the app's violet. Static rather than
@@ -126,6 +126,10 @@ export function CarvedBoard({
     // The cap takes the pediment art's own aspect, so the panel below it is
     // exactly what the carved board's panel would be and the map's row
     // budget holds (journey-board-budget.test.ts).
+    // CAPPED AT THE PHONE'S HEIGHT (2026-08-30): on the lg map column the
+    // board is 528 wide, and an uncapped cap would eat the panel's budget.
+    // zoneBoardPedimentH in lib/zone-backdrops.ts is the same rule in
+    // arithmetic, and journey-board-budget.test.ts holds the two together.
     const capAspect = ZONE_BOARD.artW / ZONE_BOARD.topH;
     const plateH = 30;
     const tagH = 18;
@@ -140,6 +144,7 @@ export function CarvedBoard({
           className="relative z-[2] w-full shrink-0"
           style={{
             aspectRatio: String(capAspect),
+            maxHeight: ZONE_BOARD_PEDIMENT_MAX_H,
             background: MODERN_BOARD.paper,
             border: `1.5px solid ${MODERN_BOARD.edge}`,
             borderBottom: "none",

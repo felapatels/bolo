@@ -142,9 +142,20 @@ import { ChachaEncounterDialog } from "@/components/chacha-encounter";
 const GRAY = "#9ca3af"; // rail/marker color for locked showroom zones
 
 // Serpentine layout rhythm (approved "pronounced" treatment). The map column
-// is mobile-width (max 390px) and centers inside the page's max-w-2xl on
-// desktop — no separate desktop composition.
+// is mobile-width (max 390px) on a phone and centers inside the page's
+// max-w-2xl on desktop.
 const MAP_MAX_W = 390;
+// THE LARGE-SCREEN COLUMN (2026-08-30, owner: "we didn't fix the journey page
+// train route to be adaptive to large screen size"). From lg up the column
+// grows to 560 and the geometry, which is all edge insets (LEFT_X,
+// RIGHT_INSET, EDGE_PAD), widens the serpentine's swing with it: 204px of
+// swing on a phone, 374 here, over the same STATION_H pitch. The cards keep
+// their 222 and hug their markers; the scenery keeps its edge; the zone
+// board's cap holds its phone height (ZONE_BOARD_PEDIMENT_MAX_H) so the panel
+// budget survives the width. The desktop zone rail is fixed to the viewport
+// edge and xl-only, so the two never meet. Nothing above lg changes on a
+// phone: useMapWidth measures the column, and the column is still 390.
+const MAP_MAX_W_LG = 560;
 // Task 1082 item 2: the station card was slimmed (tighter padding and line
 // spacing, and the "Bolo is waiting here" fragment gone, which used to wrap
 // the current stop's status onto a second line), so the slot that holds it
@@ -236,6 +247,7 @@ const MARKER_HALF_W = 32;
  *  the page actually renders. */
 export const SERPENTINE = {
   MAP_MAX_W,
+  MAP_MAX_W_LG,
   STATION_H,
   PC_H,
   TERM_H,
@@ -2649,8 +2661,9 @@ export default function Journey() {
         )}
 
         {/* Serpentine railway: track + zone postcards + stations. The map is
-            mobile-width and centers in the column on desktop. */}
-        <div ref={mapRef} className="relative mx-auto mt-2 w-full max-w-[390px]">
+            mobile-width on a phone, 560 wide from lg up (MAP_MAX_W_LG), and
+            centers in the column. */}
+        <div ref={mapRef} className="relative mx-auto mt-2 w-full max-w-[390px] lg:max-w-[560px]">
           <AutoScrollToCurrentStop
             mapRef={mapRef}
             targetY={currentStopY}

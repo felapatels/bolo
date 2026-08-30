@@ -300,9 +300,19 @@ export const ZONE_WIDE_ART = `${import.meta.env.BASE_URL}journey/zone-wide.jpg`;
  */
 export const ZONE_BOARD_MIN_PANEL_H = 182;
 
-/** The pediment's height at a given board width, which is pure aspect. */
+/** THE PEDIMENT STOPS GROWING AT THE PHONE'S WIDTH (2026-08-30, the map's
+ *  large-screen column). It is pure aspect up to a 358px board (the 390 map
+ *  column less its 16 a side) and holds there: the map column is 560 wide on
+ *  lg screens now, and a cap that kept its aspect would take 106px of a
+ *  256px row and leave the panel below ZONE_BOARD_MIN_PANEL_H, which is the
+ *  blank board this file exists to prevent. Phones are untouched: every
+ *  width up to 358 gives exactly what it always did. */
+export const ZONE_BOARD_CAP_W = 358;
+export const ZONE_BOARD_PEDIMENT_MAX_H = (ZONE_BOARD_CAP_W * ZONE_BOARD.topH) / ZONE_BOARD.artW;
+
+/** The pediment's height at a given board width: its aspect, capped. */
 export function zoneBoardPedimentH(boardWidth: number): number {
-  return (boardWidth * ZONE_BOARD.topH) / ZONE_BOARD.artW;
+  return Math.min((boardWidth * ZONE_BOARD.topH) / ZONE_BOARD.artW, ZONE_BOARD_PEDIMENT_MAX_H);
 }
 
 /** What the panel is left with once the pediment has taken its share. */
