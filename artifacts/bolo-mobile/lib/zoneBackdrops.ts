@@ -171,8 +171,12 @@ export const ZONE_TILE_ASPECT = 860 / 1359;
  */
 /** 0.22 read as faded ("too light, it looks faded now"); 0.10 lifts the dusk
  *  without washing the pigment out. */
-export const ZONE_BACKDROP_SCRIM = 0.1;
-export const ZONE_BACKDROP_SCRIM_COLOR = '#FFF3DE';
+// DARKER (build 22, owner: "on journey, make the background darker"). The
+// scrim was a cream veil at a tenth, which LIGHTENED the painting; it is an
+// ink veil now, so the cards and the track stand off the world instead of
+// sinking into it.
+export const ZONE_BACKDROP_SCRIM = 0.26;
+export const ZONE_BACKDROP_SCRIM_COLOR = '#2B1A12';
 
 /**
  * THE CARVED STATION BOARD, the zone header. Asked for on 2026-08-26: "even

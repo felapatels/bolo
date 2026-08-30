@@ -17,8 +17,24 @@
 // Web twin: ZonePostcard in gujarati-coach/src/pages/journey.tsx.
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 import { AppFonts } from '@/constants/fonts';
 import { ZONE_BOARD, ZONE_BOARD_ART, zoneBoardPedimentH } from '@/lib/zoneBackdrops';
+
+/** The modern card's own colours (build 22): ivory paper, a lavender edge,
+ *  the plate in the app's violet. Static rather than themed, like the ticket
+ *  stock: the card lies on a painting, not on the app's background. */
+const MODERN = {
+  paper: '#FFFDF9',
+  edge: '#CFC8F0',
+  arc: '#B9B0E8',
+  plateTop: '#6D5BF4',
+  plateBottom: '#4F46E5',
+  tagPaper: '#EFEBFA',
+  tagInk: '#4B3F8F',
+} as const;
+const MODERN_RADIUS = 18;
 
 export function CarvedBoard({
   width,
@@ -28,6 +44,7 @@ export function CarvedBoard({
   opacity = 1,
   clipContent = true,
   bare = false,
+  variant = 'carved',
   testID,
   pedimentTestID,
   children,
@@ -63,6 +80,17 @@ export function CarvedBoard({
    * home hero keeps the art.
    */
   bare?: boolean;
+  /**
+   * 'carved' is the painted station board: the wood pediment with its
+   * rosettes and brass plates. 'modern' (build 22, the owner's zone card
+   * crop: "i like this new zone card style") keeps the board's exact
+   * geometry, so nothing that measures the map moves, and draws the pediment
+   * in code instead: an ivory cap with rounded shoulders and a faint arch, a
+   * violet plate carrying the zone's name, and a small ZONE tag straddling
+   * the cap and the body. The body below is the caller's card, flush to the
+   * cap's width.
+   */
+  variant?: 'carved' | 'modern';
   testID?: string;
   pedimentTestID?: string;
   /** Whatever the panel says. Laid out inside the drawn frame. */
@@ -72,6 +100,59 @@ export function CarvedBoard({
   // precisely the remainder, so nothing here has to be measured.
   const pedimentH = zoneBoardPedimentH(width);
   const panelH = height - pedimentH;
+  if (variant === 'modern') {
+    const plateH = 30;
+    const tagH = 18;
+    return (
+      <View
+        testID={testID}
+        style={[styles.board, { width, height, opacity }, clipContent ? null : styles.unclipped]}
+      >
+        <View
+          testID={pedimentTestID}
+          style={[styles.modernCap, { width, height: pedimentH }]}
+        >
+          {/* The arch, a whisper of the carved board's curve, drawn once. */}
+          <Svg
+            pointerEvents="none"
+            width={width}
+            height={pedimentH}
+            viewBox={`0 0 ${width} ${pedimentH}`}
+            style={StyleSheet.absoluteFill}
+          >
+            <Path
+              d={`M ${width * 0.06} ${pedimentH - 4} Q ${width / 2} ${-pedimentH * 0.35} ${width * 0.94} ${pedimentH - 4}`}
+              stroke={MODERN.arc}
+              strokeWidth={1.5}
+              strokeOpacity={0.55}
+              fill="none"
+            />
+          </Svg>
+          <View pointerEvents="none" style={[styles.modernPlate, { top: Math.max(6, (pedimentH - tagH - plateH) / 2 - 2), height: plateH }]}>
+            <LinearGradient
+              colors={[MODERN.plateTop, MODERN.plateBottom]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Text numberOfLines={1} style={styles.modernPlateText}>
+              {nameplate}
+            </Text>
+          </View>
+          <View pointerEvents="none" style={[styles.modernTag, { bottom: -tagH / 2, height: tagH }]}>
+            <Text numberOfLines={1} style={styles.modernTagText}>
+              {plate}
+            </Text>
+          </View>
+        </View>
+        <View style={[styles.panel, clipContent ? null : styles.unclipped]}>
+          <View style={[styles.panelBody, styles.modernBody, clipContent ? null : styles.unclipped]}>
+            {children}
+          </View>
+        </View>
+      </View>
+    );
+  }
   return (
     <View
       testID={testID}
@@ -211,6 +292,57 @@ const styles = StyleSheet.create({
   },
   // All three boxes clip, so all three have to be opened for a child to leave.
   unclipped: { overflow: 'visible' },
+  // THE MODERN CAP (build 22): ivory, rounded shoulders, a lavender edge on
+  // three sides; the body's card closes the fourth.
+  modernCap: {
+    backgroundColor: MODERN.paper,
+    borderTopLeftRadius: MODERN_RADIUS,
+    borderTopRightRadius: MODERN_RADIUS,
+    borderWidth: 1.5,
+    borderBottomWidth: 0,
+    borderColor: MODERN.edge,
+    overflow: 'visible',
+    zIndex: 2,
+  },
+  modernPlate: {
+    position: 'absolute',
+    left: '17%',
+    right: '17%',
+    borderRadius: 9,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2B1A12',
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  modernPlateText: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 11,
+    letterSpacing: 1.6,
+    color: '#FFFFFF',
+  },
+  modernTag: {
+    position: 'absolute',
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: MODERN.tagPaper,
+    borderWidth: 1,
+    borderColor: MODERN.edge,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
+  modernTagText: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: MODERN.tagInk,
+  },
+  modernBody: { paddingLeft: 0, paddingRight: 0 },
   panelBody: {
     flex: 1,
     paddingLeft: `${ZONE_BOARD.contentInset * 100}%`,

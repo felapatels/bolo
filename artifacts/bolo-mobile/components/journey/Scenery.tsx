@@ -22,13 +22,17 @@
 import React, { useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, Ellipse, G, Image as SvgImage, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Ellipse, G, Image as SvgImage, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 
 /** Chacha-ji's delivered figure, the same isolated art components/ChaiStall.tsx
  *  composites in the home vignette (STALL_ASSETS.chachaji there). Required
  *  here directly rather than imported from that module, which pulls the
  *  wallet's own dependencies into the map: one art file, two call sites. */
 const CHACHAJI_ART = require('@/assets/images/stall/chachaji.png') as number;
+/** The stall as one picture: the delivered scene's counter, kettle and cups
+ *  with the delivered Chacha-ji standing behind the counter, cut together by
+ *  scripts/make-stall-card.py (build 22). */
+const STALL_CARD_ART = require('@/assets/images/stall/stall-card.png') as number;
 import { isChachaEncounterStation } from '@/lib/chachaMemory';
 import { ZONE_VISTA, zoneBackdrop, zoneVistaOffset } from '@/lib/zoneBackdrops';
 
@@ -566,57 +570,64 @@ function FruitCart({ p }: { p: SceneryPalette }) {
  *  to clear his head. Footprint 36 wide, 49.2 tall above the ground line,
  *  which SCENERY_HALF_W.chaiStall and STALL_PLACEMENT are sized against. */
 function ChaiStallTrackside({ p }: { p: SceneryPalette }) {
+  // A PAINTED CARD SINCE BUILD 22 (owner: "Chachaji's stall should be more
+  // detailed like this"). The vector stall (posts, awning, counter, a 24pt
+  // figure and a signpost) is replaced by the delivered painting of his
+  // stall with him behind the counter, on an ivory card with a nameplate,
+  // seated ABOVE the marker in the station row's free left flank: the card
+  // runs from 144 above the ground line to 56 above it, which clears the
+  // marker's box below and the previous stop's card above. The origin, the
+  // ground shadow and the testIDs are unchanged, so the map's stall
+  // geometry (and the tests that pin it) did not move.
+  // 104 tall since the invite joined the card (build 22, owner: "chacha has
+  // been separated from the take a break text"): picture, nameplate, then a
+  // reserved strip the map lays the violet invite over. The card's top sits
+  // 2 above the previous stop's card and its foot 2 above the marker's box.
+  void p;
+  const cardX = -40;
+  const cardY = -160;
+  const cardW = 80;
+  const cardH = 104;
+  const picH = 48;
   return (
     <G>
-      {/* Shadow re-centered under the structure (web parity): the house
-          shadow's +2 down-light offset pushed this landmark's bounding box
-          into the trackside signal's glyph. */}
       <GroundShadow rx={16} cx={-3} />
-      {/* posts */}
-      <Rect x={-15.5} y={-44} width={2} height={44} fill={p.trunk} />
-      <Rect x={11.5} y={-44} width={2} height={44} fill={p.trunk} />
-      {/* counter front + side */}
-      <Rect x={-14} y={-18} width={26} height={14} rx={1} fill={p.trunk} />
-      <Path d="M12 -4 l3.5 -1.5 v-11.4 l-3.5 -0.6 Z" fill={p.amberShade} />
-      {/* counter skirt panel */}
-      <Rect x={-12} y={-16} width={22} height={7} rx={1} fill={p.amber} opacity={0.35} />
-      {/* striped awning front + side */}
-      {[0, 1, 2, 3].map((i) => (
-        <Rect key={i} x={-17 + i * 7} y={-48} width={7} height={7} fill={i % 2 === 0 ? p.amber : '#ffffff'} />
-      ))}
-      <Path d="M11 -48 l3.5 1.3 v5.7 h-3.5 Z" fill={p.amberShade} />
-      <Rect x={-17.5} y={-49.2} width={31.5} height={1.7} rx={0.85} fill={p.amberShade} />
-      {/* kettle + glass on the counter top, to his right */}
-      <Circle cx={9} cy={-21.4} r={3.2} fill={p.slate} />
-      <Rect x={4.4} y={-22.6} width={2.4} height={1.8} rx={0.9} fill={p.slate} />
-      <Rect x={0.4} y={-21.6} width={3.2} height={3.6} rx={0.9} fill="#ffffff" opacity={0.95} />
-      {/* Chacha-ji himself, drawn last so he stands in front of his counter */}
+      {/* the drop shadow, then the card */}
+      <Rect x={cardX + 1} y={cardY + 3} width={cardW} height={cardH} rx={9} fill="#2B1A12" opacity={0.2} />
+      <Rect x={cardX} y={cardY} width={cardW} height={cardH} rx={9} fill="#FFFDF9" stroke="#E2D8C6" strokeWidth={1} />
       <SvgImage
         testID="chacha-stall-figure"
-        href={CHACHAJI_ART}
-        x={-17}
-        y={-32.3}
-        width={24}
-        height={32.3}
-        preserveAspectRatio="xMidYMax meet"
+        href={STALL_CARD_ART}
+        x={cardX + 4}
+        y={cardY + 4}
+        width={cardW - 8}
+        height={picH}
+        preserveAspectRatio="xMidYMid slice"
       />
-      {/* Roadside signpost, same idea as the one on the home stall card: the
-          stall needs to read as somewhere you can GO, not just scenery. Board
-          leans slightly and its arrow points back at the counter. Drawn last so
-          it sits in front of everything. */}
-      <G testID="chacha-stall-sign">
-        {/* Scaled up from the first pass: at sprite size the original board was
-            a smudge. Now it reads as a sign from a thumb's distance. */}
-        <Rect x={22.4} y={-20} width={2.8} height={20} fill={p.trunkShade} />
-        <Rect x={19.4} y={-22.4} width={9} height={2.4} rx={1.2} fill={p.trunkShade} />
-        <G transform="rotate(-5 26 -28)">
-          <Rect x={16.5} y={-33} width={20} height={11} rx={1.6} fill={p.trunkShade} />
-          <Rect x={17.7} y={-31.8} width={17.6} height={8.6} rx={1.1} fill={p.amber} />
-          {/* left-pointing arrow, back toward the counter */}
-          <Path d="M21 -27.5 l4 -3 v6 Z" fill={p.trunkShade} />
-          <Rect x={25.5} y={-28.5} width={8} height={2} rx={1} fill={p.trunkShade} />
-        </G>
-      </G>
+      {/* the nameplate strip under the picture; the strip below it stays
+          blank for the invite pill the map draws over it */}
+      <Rect x={cardX + 4} y={cardY + picH + 7} width={cardW - 8} height={20} rx={5} fill="#F4ECDD" />
+      <SvgText
+        x={0}
+        y={cardY + picH + 15.5}
+        textAnchor="middle"
+        fontSize={7.5}
+        fontWeight="700"
+        fill="#3B2A1E"
+      >
+        Chacha-ji&#8217;s
+      </SvgText>
+      <SvgText
+        x={0}
+        y={cardY + picH + 23.5}
+        textAnchor="middle"
+        fontSize={6}
+        fontWeight="800"
+        letterSpacing={0.6}
+        fill="#7A6551"
+      >
+        CHAI HALT
+      </SvgText>
     </G>
   );
 }

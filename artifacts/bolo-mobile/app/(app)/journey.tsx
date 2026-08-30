@@ -34,7 +34,6 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StopDots } from '@/components/journey/StopDots';
 // Aliased: react-native-svg exports a LinearGradient too, and the tag
 // backs use that one.
-import { LinearGradient as FadeGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Svg, {
   Circle,
@@ -79,6 +78,7 @@ import {
 } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
+import { Landmark } from '@/components/journey/Landmark';
 import { LessonError } from '@/components/LessonError';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import {
@@ -129,6 +129,7 @@ import { closeoutOwed, useCloseoutMemory } from '@/lib/closeoutMemory';
 import { ZoneCloseoutOverlay } from '@/components/journey/ZoneCloseout';
 import { currentStopSplashZone, playStopSplash } from '@/lib/stopSplash';
 import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from '@/lib/railPalette';
+import { railPairPaths } from '@/lib/railOffset';
 import {
   BADGE,
   MAP_GLYPH_PLATE,
@@ -194,10 +195,12 @@ const STATION_H = 176; // vertical rhythm per station row
 const INTRO_HOP_PX = STATION_H;
 const INTRO_HOP_MS = 520;
 const INTRO_HOPS_MAX = 10;
-// The tracing stop's chalkboard (build 17): a tall slate rather than a tag,
-// and the doubled pitch above is what leaves room for it in the row.
-const CHALKBOARD_W = 150;
-const CHALKBOARD_H = 150;
+/** The trace card's height (build 22, the owner's crop): a wide ticket with
+ *  a head row, the words beside a small chalkboard, a rule and a foot row.
+ *  The row pitch is 176 and the tip box hangs under the card, so this plus
+ *  the tip has to stay inside the slot. It replaced the build 17 slate, a
+ *  150 by 150 chalkboard that was the whole card. */
+const TRACE_CARD_H = 148; // 116 clipped the foot row on the simulator
 // A CHALK FACE WITHOUT A BUNDLED FONT. iOS ships Chalkduster; Android has no
 // chalk face, so it gets its casual hand ("casual" is a generic family every
 // Android carries). Nothing new in the binary, nothing to license.
@@ -604,6 +607,29 @@ function ZoneBandFixed({
  * fills these replaced; the taper is what makes the card hang off the rail
  * instead of floating beside it.
  */
+/**
+ * THE STOP CARDS WEAR THE ZONE CARD'S COLOURS (build 22, owner, on seeing
+ * the modern zone card: "i need the stop cards to match the same color of
+ * the new zone cards"). Ivory stock, a lavender edge and rule, the zone's
+ * violet on the current stop's edge and a soft green on a finished one, in
+ * place of the home ticket's cream-and-brown TICKET stock. The ink stays
+ * TICKET's, which is the same brown the zone card writes its city in.
+ */
+const STOP_CARD = {
+  stockTop: '#FFFDF9',
+  stockBottom: '#F7F3EC',
+  stockAheadTop: '#F1EEE9',
+  stockAheadBottom: '#E8E4DE',
+  edge: '#CFC8F0',
+  edgeAhead: '#DAD6E4',
+  edgeDone: '#8FCBA4',
+  rule: '#E6E1F6',
+  ruleAhead: '#E3DFDA',
+  ruleDone: '#C4E6CF',
+  eyelet: '#4B3F8F',
+  eyeletHole: '#A79ED6',
+} as const;
+
 function TagCardBack({
   w,
   h,
@@ -630,18 +656,18 @@ function TagCardBack({
   // gold rule and the corner ornament, on the same parchment as every tag.
   const [c0, c1] =
     variant === 'ahead'
-      ? [TICKET.stockAheadTop, TICKET.stockAheadBottom]
-      : [TICKET.stockTop, TICKET.stockBottom];
+      ? [STOP_CARD.stockAheadTop, STOP_CARD.stockAheadBottom]
+      : [STOP_CARD.stockTop, STOP_CARD.stockBottom];
   const edge =
     variant === 'done'
-      ? TICKET.edgeGold
+      ? STOP_CARD.edgeDone
       : variant === 'current'
         ? accent
         : variant === 'ahead'
-          ? TICKET.edgeAhead
-          : TICKET.edge;
+          ? STOP_CARD.edgeAhead
+          : STOP_CARD.edge;
   const rule =
-    variant === 'done' ? TICKET.ruleGold : variant === 'ahead' ? '#D8CBB4' : TICKET.rule;
+    variant === 'done' ? STOP_CARD.ruleDone : variant === 'ahead' ? STOP_CARD.ruleAhead : STOP_CARD.rule;
   // FLAT TOP AND BOTTOM, POINTED END (chat 11, two corrections in a row):
   // the first cut sloped the long edges into the point ("are the top of the
   // card and the bottom of the card horizonal parallels?"), the second cut
@@ -664,11 +690,8 @@ function TagCardBack({
       ? `M ${L + i + 4} ${mid} L ${L + T + i} ${Tp + i} L ${R - r - 1} ${Tp + i} Q ${R - i} ${Tp + i} ${R - i} ${Tp + r} L ${R - i} ${B - r} Q ${R - i} ${B - i} ${R - r - 1} ${B - i} L ${L + T + i} ${B - i} Z`
       : `M ${R - i - 4} ${mid} L ${R - T - i} ${Tp + i} L ${L + r + 1} ${Tp + i} Q ${L + i} ${Tp + i} ${L + i} ${Tp + r} L ${L + i} ${B - r} Q ${L + i} ${B - i} ${L + r + 1} ${B - i} L ${R - T - i} ${B - i} Z`;
   const eyeX = pointed ? (side === 'left' ? L + 13 : R - 13) : side === 'left' ? 9 : w - 9;
-  // The dog-ear and the corner ornament live on the far top corner.
-  const foldD =
-    side === 'left'
-      ? `M ${R - 18} ${Tp} L ${R} ${Tp + 18} L ${R} ${Tp + r} Q ${R} ${Tp} ${R - r} ${Tp} Z`
-      : `M ${L + 18} ${Tp} L ${L} ${Tp + 18} L ${L} ${Tp + r} Q ${L} ${Tp} ${L + r} ${Tp} Z`;
+  // The corner ornament lives on the far top corner. (The trace sheet's
+  // dog-ear went with the notched ticket, build 22.)
   const ornD =
     side === 'left'
       ? `M ${R - 22} ${Tp} L ${R} ${Tp} L ${R} ${Tp + 22} Q ${R - 4} ${Tp + 4} ${R - 22} ${Tp} Z`
@@ -696,6 +719,17 @@ function TagCardBack({
           strokeWidth={2}
           strokeLinejoin="round"
         />
+      ) : variant === 'trace' ? (
+        /* A TICKET, NOTCHED (build 22, the owner's trace card crop): a
+           semicircle bitten out of each side at mid-height, the way a
+           tear-off ticket is die-cut. The arcs sweep INTO the card. */
+        <Path
+          d={`M ${L + r} ${Tp} L ${R - r} ${Tp} Q ${R} ${Tp} ${R} ${Tp + r} L ${R} ${mid - 7} A 7 7 0 0 0 ${R} ${mid + 7} L ${R} ${B - r} Q ${R} ${B} ${R - r} ${B} L ${L + r} ${B} Q ${L} ${B} ${L} ${B - r} L ${L} ${mid + 7} A 7 7 0 0 1 ${L} ${mid - 7} L ${L} ${Tp + r} Q ${L} ${Tp} ${L + r} ${Tp} Z`}
+          fill={`url(#${gid})`}
+          stroke={edge}
+          strokeWidth={2}
+          strokeLinejoin="round"
+        />
       ) : (
         <Rect
           x={L}
@@ -708,7 +742,7 @@ function TagCardBack({
           strokeWidth={2}
         />
       )}
-      {pointed ? (
+      {variant === 'trace' ? null : pointed ? (
         <Path d={ruleD} fill="none" stroke={rule} strokeWidth={1} strokeLinejoin="round" />
       ) : (
         <Rect
@@ -736,15 +770,10 @@ function TagCardBack({
           strokeDasharray="3 3"
         />
       )}
-      {variant === 'trace' && (
-        <>
-          <Path d={foldD} fill={TICKET.stockBottom} stroke={TICKET.edge} strokeWidth={1.4} />
-        </>
-      )}
       {variant === 'done' && <Path d={ornD} fill={accent} opacity={0.75} />}
       {/* The eyelet at the tip, ring and hole, exactly the old View pair. */}
-      <Circle cx={eyeX} cy={mid} r={6} fill={TICKET.eyelet} />
-      <Circle cx={eyeX} cy={mid} r={2.6} fill={TICKET.eyeletHole} />
+      <Circle cx={eyeX} cy={mid} r={6} fill={STOP_CARD.eyelet} />
+      <Circle cx={eyeX} cy={mid} r={2.6} fill={STOP_CARD.eyeletHole} />
     </Svg>
   );
 }
@@ -877,6 +906,66 @@ function PinnedZoneBoard({
   );
 }
 
+/** The throb's cycle. Slow enough to read as breathing, not blinking. */
+const GLOW_CYCLE_MS = 2400;
+
+/**
+ * THE CURRENT STOP'S GLOW (build 22, owner: "current stop should have a
+ * blue/purple glow under it throbbing to indicate current stop"). One soft
+ * indigo disc or slab under the node and under the card, breathing between
+ * a quarter and a half of its strength on the map's own idle loop, opacity
+ * and scale only (never a layout prop). Under Reduce Motion the loop rests
+ * at its first frame, so the glow is still there, just still.
+ *
+ * iOS draws the halo from the shadow on the same view; Android has no soft
+ * shadow without a background, so there the glow is the tinted slab alone.
+ */
+function CurrentStopGlow({
+  color,
+  radius,
+  inset,
+  enabled,
+  testID,
+}: {
+  color: string;
+  radius: number;
+  /** How far past its parent's box the glow reaches, in points. */
+  inset: number;
+  enabled: boolean;
+  testID?: string;
+}) {
+  const progress = useLoopProgress(GLOW_CYCLE_MS, enabled);
+  const throb = useAnimatedStyle(() => {
+    const wave = 0.5 - 0.5 * Math.cos(progress.value * 2 * Math.PI);
+    return {
+      opacity: 0.24 + 0.3 * wave,
+      transform: [{ scale: 0.96 + 0.07 * wave }],
+    };
+  });
+  return (
+    <Animated.View
+      pointerEvents="none"
+      testID={testID}
+      style={[
+        {
+          position: 'absolute',
+          left: -inset,
+          right: -inset,
+          top: -inset,
+          bottom: -inset,
+          borderRadius: radius,
+          backgroundColor: color,
+          shadowColor: color,
+          shadowOpacity: 0.9,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 0 },
+        },
+        throb,
+      ]}
+    />
+  );
+}
+
 function StationMarker({
   station,
   color,
@@ -885,6 +974,8 @@ function StationMarker({
   background,
   border,
   goldPalette,
+  glow,
+  reduceMotion = false,
 }: {
   station: Station;
   color: string;
@@ -893,14 +984,24 @@ function StationMarker({
   background: string;
   border: string;
   goldPalette?: { chassis: string; body: string; trim: string; steam: string };
+  /** The glow's colour under the current node (the app's indigo). */
+  glow?: string;
+  reduceMotion?: boolean;
 }) {
   if (isCurrent) {
-    // White pill + accent ring + soft outer ring (web: box-shadow rings).
+    // THE TRAIN ON THE TRACK (build 22, owner's journey notes: "the new
+    // train should be on the track"). A round white node the width of the
+    // marker box, the accent ring round it and a soft outer ring beyond, the
+    // painted engine filling it: it was a 40 by 28 pill with a 32pt engine,
+    // which the wider rail now runs straight through. Web: box-shadow rings.
     return (
       <View style={[styles.markerCurrentOuter, { backgroundColor: `${color}33` }]}>
+        {glow ? (
+          <CurrentStopGlow color={glow} radius={48} inset={16} enabled={!reduceMotion} testID="current-stop-glow-node" />
+        ) : null}
         <View style={[styles.markerCurrentRing, { backgroundColor: color }]}>
           <View style={styles.markerCurrentPill}>
-            <TrainEngine tint={color} width={32} height={22} motion="bob" palette={goldPalette} />
+            <TrainEngine tint={color} width={40} height={28} motion="bob" palette={goldPalette} />
           </View>
         </View>
       </View>
@@ -1549,6 +1650,10 @@ export default function JourneyScreen() {
                   // The card below REPLACES the parchment panel (owner, build
                   // 17: "no i don't want to keep that old box underneath").
                   bare
+                  // THE MODERN CAP (build 22, the owner's zone card crop):
+                  // the carved wood pediment gives way to an ivory cap with a
+                  // violet plate; the geometry is untouched.
+                  variant="modern"
                 >
                     {/* address side */}
                     <View style={styles.postcardAddress}>
@@ -1562,12 +1667,27 @@ export default function JourneyScreen() {
                       <View
                         style={styles.boardCard}
                       >
-                        <FadeGradient
-                          colors={[grayed ? GRAY : colors.primary, grayed ? GRAY : '#EC4899']}
-                          start={{ x: 0, y: 0.5 }}
-                          end={{ x: 1, y: 0.5 }}
-                          style={styles.boardCardEdge}
-                        />
+                        {/* THE CITY'S LANDMARK BEHIND THE WORDS, at a whisper
+                            (build 22, the owner's zone card crop), the same
+                            silhouette the home pass seeps through its paper. */}
+                        <View pointerEvents="none" style={styles.boardLandmark}>
+                          <Landmark city={zone.geoName} width={180} height={108} ink="#3B2A1E" paper="#FFF8EE" opacity={0.1} />
+                        </View>
+                        {/* BOLO ON THE CARD (build 22, owner: "i like this new
+                            zone card style and bolo being on it"): the bird
+                            stands on the card's right, her feet on the fact
+                            box, the words keeping clear of her. The pose is
+                            the wave, the one nothing crosses. */}
+                        {/* WHOLLY INSIDE THE CARD (owner, on the first cut:
+                            "bolo needs more space on the zone card, he's
+                            getting cut off"): the card clips, so the bird
+                            starts at its top edge rather than above it, and
+                            her feet rest on the fact box. */}
+                        {!grayed ? (
+                          <View pointerEvents="none" style={styles.boardBolo}>
+                            <Mascot pose="wave" size={92} motion="none" entering={false} />
+                          </View>
+                        ) : null}
                         <View style={styles.boardCardBody}>
                           <View style={styles.boardLineRow}>
                             <View style={[styles.boardLinePill, { backgroundColor: grayed ? GRAY : colors.primary }]}>
@@ -1577,10 +1697,10 @@ export default function JourneyScreen() {
                               </Text>
                             </View>
                           </View>
-                          <Text numberOfLines={1} style={styles.boardCity}>
+                          <Text numberOfLines={1} style={[styles.boardCity, styles.boardClearOfBolo]}>
                             {zone.geoName}
                           </Text>
-                          <Text style={styles.boardStops}>
+                          <Text style={[styles.boardStops, styles.boardClearOfBolo]}>
                             {zone.rowStations.length} {zone.rowStations.length === 1 ? 'stop' : 'stops'} in this zone
                             {access === 'teaser' && teaserProgress && (
                               <>
@@ -1591,11 +1711,10 @@ export default function JourneyScreen() {
                               </>
                             )}
                           </Text>
-                          <View style={styles.boardRule}>
-                            <View style={[styles.boardRuleLine, { borderColor: `${BADGE.brassBg}99` }]} />
-                            <View style={[styles.boardRuleDiamond, { borderColor: BADGE.brassBg }]} />
-                            <View style={[styles.boardRuleLine, { borderColor: `${BADGE.brassBg}99` }]} />
-                          </View>
+                          {/* The gold dashed rule went with the crop (build
+                              22): the landmark and the bird carry the
+                              rustic note now, and the fact box sits closer. */}
+                          <View style={styles.boardGap} />
                           {/* THE DAILY FACT, web parity (chat 11), same factForZone
                               arithmetic so both platforms show the same fact for
                               the same zone on the same day. Static rather than
@@ -1604,10 +1723,12 @@ export default function JourneyScreen() {
                           {!zoneGateLocked && (
                             <View
                               testID={`board-fact-${zi}`}
-                              style={[styles.boardFact, { borderColor: `${BADGE.brassEdge}80` }]}
+                              style={[styles.boardFact, { borderColor: `${grayed ? GRAY : colors.primary}33` }]}
                             >
-                              <View style={[styles.boardFactSpark, { borderColor: BADGE.brassEdge }]}>
-                                <MaterialCommunityIcons name="star-four-points" size={18} color={BADGE.brassBg} />
+                              {/* A bulb in a lavender disc, white box (build 22,
+                                  the crop), where a gold spark on cream stood. */}
+                              <View style={[styles.boardFactSpark, { backgroundColor: `${grayed ? GRAY : colors.primary}14`, borderColor: `${grayed ? GRAY : colors.primary}33` }]}>
+                                <MaterialCommunityIcons name="lightbulb-outline" size={20} color={grayed ? GRAY : colors.primary} />
                               </View>
                               <View style={styles.boardFactCopy}>
                                 <Text style={[styles.boardFactLabel, { color: grayed ? GRAY : colors.primary }]}>
@@ -1890,8 +2011,13 @@ export default function JourneyScreen() {
   const segs = pts.slice(1).map((p, i) => {
     const a = pts[i]!;
     const dy = (p.y - a.y) / 2;
+    // The run ahead's two rails are TRUE offsets of the curve (build 22, see
+    // railPairPaths), computed here once per segment rather than per frame.
+    const pair = railPairPaths(a.x, a.y, p.x, p.y, RAIL_STROKE.gauge);
     return {
       d: `M ${a.x} ${a.y} C ${a.x} ${a.y + dy}, ${p.x} ${p.y - dy}, ${p.x} ${p.y}`,
+      left: pair.left,
+      right: pair.right,
       lit: p.lit,
       y0: a.y,
       y1: p.y,
@@ -2810,12 +2936,14 @@ export default function JourneyScreen() {
                     {/* TWO THIN STROKES, NOT A MASK (build 17). The hollow
                         run was a masked stroke for an hour and the mask
                         rasterised per segment inside a scrolling view:
-                        "scrolling is extremely choppy." Two copies of the
-                        path shifted half a gauge apart give the same two
-                        lines for the price of two strokes. A shifted copy is
-                        not a true offset, but the bends are gentle since the
-                        pitch doubled, so the pair only narrows a little on
-                        a diagonal. */}
+                        "scrolling is extremely choppy." Two strokes give the
+                        two lines for the price of two strokes.
+                        TRUE OFFSETS FROM BUILD 22: they were two copies of
+                        the path shifted half a gauge apart, which pinched on
+                        every diagonal once the gauge widened ("tracks are not
+                        staying equidistant apart"). railPairPaths pushes each
+                        sample out along the curve's normal instead, so the
+                        pair is a gauge apart everywhere. */}
                     {s.lit ? (
                       <>
                         <Path d={s.d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.rail} fill="none" />
@@ -2823,8 +2951,8 @@ export default function JourneyScreen() {
                       </>
                     ) : (
                       <>
-                        <Path d={s.d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.line} fill="none" transform={`translate(${-RAIL_STROKE.gauge / 2} 0)`} />
-                        <Path d={s.d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.line} fill="none" transform={`translate(${RAIL_STROKE.gauge / 2} 0)`} />
+                        <Path d={s.left} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.line} fill="none" strokeLinejoin="round" />
+                        <Path d={s.right} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.line} fill="none" strokeLinejoin="round" />
                       </>
                     )}
                   </G>
@@ -3063,6 +3191,8 @@ export default function JourneyScreen() {
                     background={colors.background}
                     border={colors.border}
                     goldPalette={goldPalette}
+                    glow={colors.primary}
+                    reduceMotion={reduceMotion}
                   />
                 </View>
                 {/* stop card */}
@@ -3091,8 +3221,13 @@ export default function JourneyScreen() {
                     onPress={onPress}
                     // No tilt: tried for the reference's hung-tag feel and
                     // vetoed on sight, "tags shouldn't be tilted" (chat 11).
-                    style={styles.cardRow}
+                    style={[styles.cardRow, s.trace ? styles.traceStack : null]}
                   >
+                    {/* The current stop's card breathes on the same indigo
+                        glow as its node (build 22). */}
+                    {isCurrent ? (
+                      <CurrentStopGlow color={colors.primary} radius={20} inset={6} enabled={!reduceMotion} testID="current-stop-glow-card" />
+                    ) : null}
                     <View
                       // Every stop card answers to one testID so a test can
                       // sweep the whole line and prove none of them lost its
@@ -3109,7 +3244,16 @@ export default function JourneyScreen() {
                         // vertical rectangle with chalk font"): a slate on an
                         // easel is taller than it is wide, and the doubled
                         // row pitch leaves the room for it.
-                        s.trace ? { width: CHALKBOARD_W, minHeight: CHALKBOARD_H } : { width: cardW },
+                        // THE TRACE CARD IS A WIDE TICKET NOW (build 22,
+                        // the owner's crop), the same width as the phrase
+                        // cards and taller; the tall slate went.
+                        // flexShrink 0: the base style lets a card shrink,
+                        // and inside the 176pt slot the trace stack (card
+                        // plus tip) is taller than the slot, so the card
+                        // shrank to 122 and its drawn ticket ran on under
+                        // the tip (seen on the simulator). The stack may
+                        // overhang the slot instead; the row has the room.
+                        s.trace ? { width: cardW, height: TRACE_CARD_H, flexShrink: 0 } : { width: cardW },
                         tipSide === 'left'
                           ? { paddingLeft: tagPointed ? 24 : 14, paddingRight: 12 }
                           : { paddingLeft: 12, paddingRight: tagPointed ? 24 : 14 },
@@ -3120,17 +3264,13 @@ export default function JourneyScreen() {
                           different looking card like my example"). A slate in
                           a wood frame in place of the paper tag; the letters
                           are chalk. Everything else keeps its tag. */}
-                      {s.trace ? (
-                        <View testID="tag-back-chalkboard" pointerEvents="none" style={[StyleSheet.absoluteFill, styles.chalkboardBack]} />
-                      ) : (
-                        <TagCardBack
-                          w={cardW}
-                          h={72}
-                          side={tipSide}
-                          variant={tagVariant}
-                          accent={zoneColor}
-                        />
-                      )}
+                      <TagCardBack
+                        w={cardW}
+                        h={s.trace ? TRACE_CARD_H : 72}
+                        side={tipSide}
+                        variant={tagVariant}
+                        accent={zoneColor}
+                      />
                       {/* Signboard dressing: the current stop gets a full-width
                           zone-color roof bar + pulsing glow; every other stop
                           hangs a small tick from its top edge (web parity). */}
@@ -3157,36 +3297,92 @@ export default function JourneyScreen() {
                           outline on a card that already has the accent edge,
                           the roof bar and the mascot: "card 1 is disorganized." */}
                       {s.trace ? (
-                        <View style={styles.chalkColumn}>
-                          <View style={styles.chalkChipRow}>
+                        <View style={styles.traceBody}>
+                          {/* THE TRACE CARD (build 22, the owner's crop): a
+                              TRACE pill with a pencil, "Trace N letters",
+                              the practice line, a small framed chalkboard
+                              showing the next letter as dashed chalk (the
+                              guide path when the script has one, the letter
+                              itself when not), a rule, the dot row with its
+                              count, and a round Start. The chalk slate that
+                              was the whole card since build 17 is gone; the
+                              board is a picture on the ticket now. */}
+                          <View style={styles.traceHead}>
+                            <View style={styles.tracePill}>
+                              <View style={[styles.tracePillDisc, { backgroundColor: accessible ? colors.primary : TICKET.inkAhead }]}>
+                                <Feather name="edit-2" size={11} color="#ffffff" />
+                              </View>
+                              <Text style={[styles.tracePillText, { color: accessible ? colors.primary : TICKET.inkAhead }]}>TRACE</Text>
+                            </View>
+                            <View style={styles.cardTitleSpacer} />
                             {cardChips}
                             {!accessible && <Feather name="lock" size={12} color={colors.primary} />}
                           </View>
-                          <Text style={styles.chalkKicker}>TRACE</Text>
-                          <Text numberOfLines={2} style={styles.chalkLine}>
-                            {statusCopy}
-                          </Text>
-                          {s.traceTotal ? (
-                            <>
-                              <Text style={styles.chalkCount}>
-                                {s.traceDone ?? 0}/{s.traceTotal}
+                          <View style={styles.traceMain}>
+                            <View style={styles.traceWords}>
+                              <Text numberOfLines={1} style={[styles.traceTitle, { color: accessible ? TICKET.ink : TICKET.inkAhead }]}>
+                                {s.traceTotal ? `Trace ${s.traceTotal} letters` : s.trace.title}
                               </Text>
-                              <View testID={`progress-trace-${s.stopNumber}`} style={styles.chalkDots}>
-                                <StopDots
-                                  total={s.traceTotal}
-                                  done={s.traceDone ?? 0}
-                                  accent="#ffffff"
-                                  muted="rgba(255,255,255,0.85)"
-                                  ringFill="#1F3D2B"
-                                />
+                              <Text numberOfLines={2} style={[styles.traceSub, { color: accessible ? TICKET.inkMuted : TICKET.inkAhead }]}>
+                                {`Practice writing ${languageName} characters.`}
+                              </Text>
+                            </View>
+                            <View style={styles.traceBoard}>
+                              {(() => {
+                                const chars = s.trace.characters;
+                                const next = chars[Math.min(s.traceDone ?? 0, chars.length - 1)];
+                                if (!next) return null;
+                                return next.guide ? (
+                                  <Svg width={40} height={40} viewBox="0 0 100 100">
+                                    <Path
+                                      d={next.guide}
+                                      fill="none"
+                                      stroke="#ffffff"
+                                      strokeWidth={7}
+                                      strokeDasharray="9 7"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      opacity={0.92}
+                                    />
+                                  </Svg>
+                                ) : (
+                                  <Text style={styles.traceBoardGlyph}>{next.char}</Text>
+                                );
+                              })()}
+                              <View style={styles.traceBoardLedge}>
+                                <View style={styles.traceChalk} />
+                                <View style={[styles.traceEraser, { backgroundColor: colors.primary }]} />
                               </View>
-                            </>
-                          ) : null}
-                          {/* The pencil, in the app's violet: the one modern
-                              mark on a slate, hung on the board's corner as
-                              the mockup does. */}
-                          <View style={[styles.chalkPencil, { backgroundColor: colors.primary }]}>
-                            <Feather name="edit-2" size={14} color="#ffffff" />
+                            </View>
+                          </View>
+                          <View style={[styles.traceRule, { backgroundColor: STOP_CARD.edge }]} />
+                          <View style={styles.traceFoot}>
+                            {s.traceTotal ? (
+                              <>
+                                <View testID={`progress-trace-${s.stopNumber}`} style={styles.traceDots}>
+                                  <StopDots
+                                    total={s.traceTotal}
+                                    done={s.traceDone ?? 0}
+                                    accent={accessible ? colors.primary : TICKET.inkAhead}
+                                    muted={STOP_CARD.eyeletHole}
+                                    ringFill={STOP_CARD.stockTop}
+                                  />
+                                </View>
+                                <Text style={[styles.traceCount, { color: accessible ? TICKET.ink : TICKET.inkAhead }]}>
+                                  {`${s.traceDone ?? 0}/${s.traceTotal}`}
+                                </Text>
+                              </>
+                            ) : (
+                              <View style={{ flex: 1 }} />
+                            )}
+                            <View style={styles.traceStart}>
+                              <View style={[styles.traceStartDisc, { backgroundColor: accessible ? colors.primary : TICKET.inkAhead }]}>
+                                <Feather name="edit-2" size={15} color="#ffffff" />
+                              </View>
+                              <Text style={[styles.traceStartText, { color: accessible ? colors.primary : TICKET.inkAhead }]}>
+                                {(s.traceDone ?? 0) > 0 ? 'Continue' : 'Start'}
+                              </Text>
+                            </View>
                           </View>
                         </View>
                       ) : s.story ? (
@@ -3402,6 +3598,19 @@ export default function JourneyScreen() {
                       </>
                       )}
                     </View>
+                    {/* THE TIP UNDER THE TRACE CARD (build 22, the crop): a
+                        lavender slip with a dashed edge and a bulb, the one
+                        instruction tracing needs. */}
+                    {s.trace ? (
+                      <View style={[styles.traceTip, { width: cardW }]} testID={`trace-tip-${s.stopNumber}`}>
+                        <View style={styles.traceTipBulb}>
+                          <MaterialCommunityIcons name="lightbulb-outline" size={18} color={colors.primary} />
+                        </View>
+                        <Text style={[styles.traceTipText, { color: TICKET.ink }]}>
+                          Trace each letter with your finger. Go slow and stay on the lines!
+                        </Text>
+                      </View>
+                    ) : null}
                   </Pressable>
                 </SlidingCardSlot>
               </View>
@@ -3432,22 +3641,31 @@ export default function JourneyScreen() {
                     for a server that predates the field, and it is
                     TOKEN_EARN_CHACHA_ENCOUNTER today. Not in the showroom:
                     a greyed stall pours nothing. */}
+                {/* ON THE CARD, NOT UNDER THE NODE (build 22, owner: "chacha
+                    has been separated from the take a break text"): the
+                    stall card reserves its bottom strip for this pill, which
+                    is drawn here because the number is the zone's own
+                    encounterChai and the card is scenery that knows no zone. */}
                 {!sp.gray && (
                   <View
                     pointerEvents="none"
                     testID={`${sp.testID}-invite`}
                     style={{
                       position: 'absolute',
-                      // Under the nameplate, clamped to the map: the stall
-                      // stands near the left edge and a centred chip fell off it.
-                      left: Math.max(6, Math.min(mapW - 110, sp.x - 52)),
-                      top: sp.y + 34 - blockTop,
-                      zIndex: 5,
+                      left: sp.x - 36,
+                      top: sp.y - 82 - blockTop,
+                      zIndex: 6,
                     }}
                   >
                     <View style={[styles.stallInvite, { backgroundColor: colors.primary }]}>
-                      <Text style={styles.stallInviteText}>
-                        Take a break and earn{' '}
+                      {/* Two Texts, not one wrapping Text: a nested run with
+                          its own face made the wrap ellipsise at one line on
+                          the simulator, twice. */}
+                      <Text style={styles.stallInviteText} numberOfLines={1}>
+                        Take a break,
+                      </Text>
+                      <Text style={styles.stallInviteText} numberOfLines={1}>
+                        {'earn '}
                         <Text style={styles.stallInviteGold}>
                           {zoneQueries[zi]?.data?.signals?.encounterChai ?? 3} Chai
                         </Text>
@@ -3455,61 +3673,26 @@ export default function JourneyScreen() {
                     </View>
                   </View>
                 )}
+                {/* THE STALL IS A PAINTED CARD NOW (build 22, owner:
+                    "Chachaji's stall should be more detailed like this"),
+                    drawn by ChaiStallTrackside with its own nameplate, and
+                    seated ABOVE the marker where the row's left flank is
+                    free (the previous stop's card ends 136 above the marker,
+                    the marker's box starts 32 above). The box grew to hold
+                    it; the plates that used to sit here went with the glyph. */}
                 <Svg
                   pointerEvents="none"
                   style={{
                     position: 'absolute',
-                    left: sp.x - 45,
-                    top: sp.y - 62 - blockTop,
+                    left: sp.x - 46,
+                    top: sp.y - 168 - blockTop,
                     zIndex: 5,
                   }}
-                  width={90}
-                  height={112}
-                  viewBox={`${sp.x - 45} ${sp.y - 62} 90 112`}
+                  width={92}
+                  height={178}
+                  viewBox={`${sp.x - 46} ${sp.y - 168} 92 178`}
                 >
                   <G key={sp.key}>
-                      <Rect
-                        x={sp.x - 33}
-                        y={sp.y - 54}
-                        width={66}
-                        height={62}
-                        rx={6}
-                        fill={MAP_GLYPH_PLATE_FILL}
-                        opacity={sp.gray ? 0.55 : 0.85}
-                      />
-                      <Rect
-                        x={sp.x - 30}
-                        y={sp.y + 10}
-                        width={60}
-                        height={20}
-                        rx={5}
-                        fill={MAP_GLYPH_PLATE_FILL}
-                        opacity={sp.gray ? 0.55 : 0.85}
-                      />
-                      <SvgText
-                        testID={`${sp.testID}-label`}
-                        x={sp.x}
-                        y={sp.y + 17}
-                        textAnchor="middle"
-                        fontSize={7}
-                        fontWeight="700"
-                        fill={TICKET.ink}
-                        opacity={sp.gray ? 0.5 : 1}
-                      >
-                        Chacha-ji&#8217;s
-                      </SvgText>
-                      <SvgText
-                        x={sp.x}
-                        y={sp.y + 25}
-                        textAnchor="middle"
-                        fontSize={6}
-                        fontWeight="800"
-                        letterSpacing={0.6}
-                        fill={TICKET.inkMuted}
-                        opacity={sp.gray ? 0.5 : 1}
-                      >
-                        CHAI HALT
-                      </SvgText>
                       <SceneryElement
                         kind={sp.kind}
                         x={sp.x}
@@ -4117,16 +4300,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 6,
   },
-  markerCurrentOuter: { borderRadius: 26, padding: 4 },
-  markerCurrentRing: { borderRadius: 22, padding: 4 },
+  // A ROUND NODE SINCE BUILD 22: 64 outer, 56 ring, 48 node, filling the
+  // marker box so the engine sits on the rail rather than beside it.
+  markerCurrentOuter: { borderRadius: 32, padding: 4 },
+  markerCurrentRing: { borderRadius: 28, padding: 4 },
   markerCurrentPill: {
-    width: 40,
-    height: 28,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 2,
+    overflow: 'hidden',
+    shadowColor: '#2B1A12',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
   // THE MEDALLION, replacing the filled and hollow circles on 2026-08-26. Two
   // points wider than the old 20 so a painted emblem has room to read at all;
@@ -4155,17 +4345,27 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#2B1A12',
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   stopBadgeNumber: { fontFamily: AppFonts.extrabold, fontSize: 13, lineHeight: 16 },
   stallInvite: {
-    width: 104,
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
+    // The card's bottom strip since build 22: 72 wide, two short lines.
+    width: 72,
+    height: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 0,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.35)',
   },
-  stallInviteText: { fontFamily: AppFonts.semibold, fontSize: 10, lineHeight: 13, color: '#ffffff' },
+  // Two lines in a 22pt strip on the stall card (build 22); was 10 over 13.
+  stallInviteText: { fontFamily: AppFonts.semibold, fontSize: 7.5, lineHeight: 9.5, color: '#ffffff', textAlign: 'center' },
   stallInviteGold: { fontFamily: AppFonts.extrabold, color: '#FBBF24' },
   stopBadgeCheck: {
     position: 'absolute',
@@ -4216,7 +4416,17 @@ const styles = StyleSheet.create({
     // too faint and there is no reason for it to be there at all.
     opacity: 0.38,
   },
-  postcardWrap: { position: 'absolute', left: 16, right: 16 },
+  // Lifted off the painting (build 22, "more depth"): the card inside clips,
+  // so the shadow lives on this wrapper, cast by the card's own pixels.
+  postcardWrap: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    shadowColor: '#2B1A12',
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+  },
   // The daily-fact strip inside the panel. Web twin: LiveFactStrip's button in
   // journey.tsx (dashed accent border, 8px label, 9px two-line fact).
   boardLineName: {
@@ -4228,18 +4438,26 @@ const styles = StyleSheet.create({
   // THE MODERN PANEL (build 17): a cream card on the carved board.
   // Wood on three sides, the violet edge on the fourth: it hangs from the
   // pediment the way the parchment did, without the parchment.
+  // ONE IVORY SURFACE WITH THE CAP (build 22): the brown 3pt frame and the
+  // violet-to-pink edge went with the carved pediment. The lavender edge
+  // continues the cap's, and the shadow that lifts the card off the painting
+  // sits on postcardWrap, since this box clips.
   boardCard: {
     flex: 1,
-    borderBottomLeftRadius: 14,
-    borderBottomRightRadius: 14,
-    borderWidth: 3,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    borderWidth: 1.5,
     borderTopWidth: 0,
-    borderColor: '#8A5D4A',
-    backgroundColor: '#FFF8EE',
+    borderColor: '#CFC8F0',
+    backgroundColor: '#FFFDF9',
     overflow: 'hidden',
   },
-  boardCardEdge: { height: 3 },
   boardCardBody: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 9 },
+  boardLandmark: { position: 'absolute', left: 120, top: 2 },
+  boardBolo: { position: 'absolute', right: 6, top: 0, zIndex: 2 },
+  // The city and the stops line stop short of the bird.
+  boardClearOfBolo: { paddingRight: 100 },
+  boardGap: { height: 8 },
   boardLineRow: { flexDirection: 'row' },
   boardLinePill: {
     flexDirection: 'row',
@@ -4252,25 +4470,26 @@ const styles = StyleSheet.create({
   boardLinePillText: { fontFamily: AppFonts.extrabold, fontSize: 9, letterSpacing: 1, color: '#ffffff' },
   boardCity: { fontFamily: AppFonts.extrabold, fontSize: 22, lineHeight: 26, color: '#2B1A0E', marginTop: 5 },
   boardStops: { fontFamily: AppFonts.semibold, fontSize: 11, lineHeight: 14, color: '#6B5B4E', marginTop: 1 },
-  boardRule: { flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 6 },
-  boardRuleLine: { flex: 1, height: 1, borderWidth: 1, borderStyle: 'dashed' },
-  boardRuleDiamond: { width: 8, height: 8, borderWidth: 1.5, transform: [{ rotate: '45deg' }] },
   boardFact: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    backgroundColor: '#FFFDF8',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 8,
+    shadowColor: '#2B1A12',
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   boardFactSpark: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
-    backgroundColor: '#FFF4E0',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4463,11 +4682,14 @@ const styles = StyleSheet.create({
     // not add a single pixel to a card that can already overflow its row.
     // Deeper than web's --depth-shadow on purpose (chat 11, "this also
     // feels more 3d"): the reference hangs its tags well off the painting.
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 2, height: 4 },
-    shadowOpacity: 0.24,
-    shadowRadius: 7,
-    elevation: 3,
+    // DEEPER AGAIN (build 22, owner: "give the stop boxes and all aspects a
+    // little more depth, make them more 3d"): the lift grew from 0.24 at 7
+    // to 0.34 at 10, dropped straight down.
+    shadowColor: '#2B1A12',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.34,
+    shadowRadius: 10,
+    elevation: 5,
   },
   // Zone-color roof bar across the current stop's card (the
   // signboard's painted roof; web: h-1.5 rounded-t accent bar).
@@ -4512,7 +4734,6 @@ const styles = StyleSheet.create({
   cardDots: { flex: 1, minWidth: 0, paddingRight: 2 },
   // The dots stop short of the pencil on the corner (owner: "chalkboard icon
   // is blocking the dot progress bar").
-  chalkDots: { alignSelf: 'stretch', flexDirection: 'row', marginTop: 6, paddingLeft: 2, paddingRight: 30 },
   cardProgressLabel: { fontFamily: AppFonts.bold, fontSize: 10 },
   cardTitleSpacer: { flex: 1 },
   cardStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
@@ -4560,33 +4781,85 @@ const styles = StyleSheet.create({
   traceChipText: { fontFamily: AppFonts.extrabold, fontSize: 8, letterSpacing: 0.8, color: '#ffffff' },
   cardStatus: { fontFamily: AppFonts.semibold, fontSize: 11, lineHeight: 14, marginTop: 1 },
   // The tracing stop's chalkboard and the story stop's plaque (build 17).
-  chalkboardBack: {
-    backgroundColor: '#1F3D2B',
-    borderRadius: 10,
-    borderWidth: 4,
-    borderColor: '#8A5D4A',
-  },
   kindRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  chalkColumn: { alignItems: 'center', paddingTop: 6, paddingBottom: 10, gap: 3 },
-  chalkChipRow: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'stretch', justifyContent: 'flex-end', minHeight: 14 },
-  chalkCount: { fontFamily: CHALK_FONT, fontSize: 22, lineHeight: 28, color: '#ffffff', marginTop: 2 },
-  chalkTrack: { alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.18)', marginTop: 4 },
   kindCopy: { flex: 1, minWidth: 0 },
-  chalkKicker: { fontFamily: CHALK_FONT, fontSize: 18, lineHeight: 24, letterSpacing: 2, color: '#ffffff' },
-  chalkLine: { fontFamily: CHALK_FONT, fontSize: 13, lineHeight: 18, color: 'rgba(255,255,255,0.92)', textAlign: 'center' },
-  chalkText: { color: '#ffffff' },
-  chalkPencil: {
+  // THE TRACE CARD (build 22, the owner's crop).
+  traceStack: { flexDirection: 'column', alignItems: 'stretch', gap: 8 },
+  traceBody: { flex: 1, justifyContent: 'space-between', paddingVertical: 2 },
+  traceHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tracePill: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tracePillDisc: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  tracePillText: { fontFamily: AppFonts.extrabold, fontSize: 11, letterSpacing: 1.6 },
+  traceMain: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
+  traceWords: { flex: 1, minWidth: 0 },
+  traceTitle: { fontFamily: AppFonts.extrabold, fontSize: 16, lineHeight: 20 },
+  traceSub: { fontFamily: AppFonts.regular, fontSize: 11.5, lineHeight: 15, marginTop: 2 },
+  traceBoard: {
+    width: 64,
+    height: 50,
+    borderRadius: 6,
+    borderWidth: 3,
+    borderColor: '#8A5D4A',
+    backgroundColor: '#1F3D2B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
+  },
+  traceBoardGlyph: { fontFamily: CHALK_FONT, fontSize: 24, lineHeight: 30, color: 'rgba(255,255,255,0.92)' },
+  traceBoardLedge: {
     position: 'absolute',
-    right: -6,
-    bottom: -6,
+    left: 2,
+    right: 2,
+    bottom: -3,
+    height: 5,
+    borderRadius: 2,
+    backgroundColor: '#A8734F',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+  },
+  traceChalk: { width: 10, height: 3, borderRadius: 1.5, backgroundColor: '#ffffff' },
+  traceEraser: { width: 12, height: 4, borderRadius: 1.5 },
+  traceRule: { height: 1, marginTop: 6, marginBottom: 4, opacity: 0.9 },
+  traceFoot: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  traceDots: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  traceCount: { fontFamily: AppFonts.extrabold, fontSize: 13 },
+  traceStart: { alignItems: 'center', gap: 1, marginLeft: 4 },
+  traceStartDisc: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2B1A12',
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  traceStartText: { fontFamily: AppFonts.bold, fontSize: 10 },
+  traceTip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#C9C2F2',
+    backgroundColor: '#F1EEFA',
+  },
+  traceTipBulb: {
     width: 30,
     height: 30,
     borderRadius: 15,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.5)',
   },
+  traceTipText: { flex: 1, fontFamily: AppFonts.semibold, fontSize: 11.5, lineHeight: 15 },
   storyBook: { width: 52, height: 52, marginLeft: -4 },
   // Ahead, the book is knocked back the way the paper is: greyer, not faded.
   storyBookAhead: { tintColor: TICKET.inkAhead },

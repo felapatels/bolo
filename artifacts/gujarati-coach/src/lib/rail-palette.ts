@@ -23,9 +23,11 @@
  */
 export const RAIL = {
   /** The sleeper planks. */
-  tie: "#8A5D4A",
+  // DARKER PLANKS (build 22, owner: "make the wood planks on the track
+  // larger and darker"). Was #8A5D4A over #361C0F.
+  tie: "#6B4130",
   /** Their underside, for the raised-bed read. */
-  tieInk: "#361C0F",
+  tieInk: "#22110A",
   /** The two rails running over them. */
   // VIOLET RAILS ON BOTH RUNS from build 17 (mobile) and build 18 (web).
   // Owner: "The track ahead should have the two parallel purple lines." The
@@ -58,7 +60,7 @@ export const RAIL = {
  *  would be simpler and react-native-svg cannot draw one along a bezier, so
  *  both platforms draw the same two strokes instead. */
 export const RAIL_GLOW_PASSES = [
-  { width: 12, opacity: 0.5 },
+  { width: 16, opacity: 0.5 },
 ] as const;
 
 /** Stroke widths for the track itself, sleepers outward. */
@@ -67,20 +69,23 @@ export const RAIL_GLOW_PASSES = [
  *  already 1 everywhere, so weight was the honest lever: fatter sleepers on
  *  a denser rhythm, wider rails, a centre stripe half again as bold, to match
  *  the chunky ladder the reference draws. */
+// HEAVIER AND A BIT WIDER AGAIN (build 22, owner: "they are the centerpoint
+// of the journey"). Same shape, every number grown; mobile twin lib/railPalette.ts.
 export const RAIL_STROKE = {
-  tie: 18,
+  // Planks 32 wide on a 10 12 rhythm (build 22, "larger"); 26 on 7 11 before.
+  tie: 32,
   // 12 over 7 from build 17, was 9.5 over 6.5: each rail is 2.5 wide now,
   // enough to read as two lines ahead rather than one band.
-  rail: 12,
-  between: 7,
+  rail: 16,
+  between: 9,
   /** THE RUN AHEAD (build 17): two thin strokes a gauge apart, no mask.
    *  2.5 wide each, centres 9.5 apart, so their outer edges match the 12
    *  the travelled run's rail stroke spans. */
-  line: 2.5,
-  gauge: 9.5,
+  line: 3.5,
+  gauge: 12.5,
   /** The sleeper rhythm. The untravelled run is not dashed any more (build
    *  17): it is two violet lines with the wood showing between them. */
-  tieDash: "5 9",
+  tieDash: "10 12",
   /** THE RUN AHEAD IS FULLY OPAQUE. It was 0.55, then 0.88, and both times it
    *  still read as a ghost over a painting: "future rail segments are too
    *  transparent", twice. Alpha was never the right lever here. Real track is

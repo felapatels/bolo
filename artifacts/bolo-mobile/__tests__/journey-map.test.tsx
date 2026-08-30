@@ -1622,8 +1622,9 @@ describe('the rail palette and the medallions, mirrored on web', () => {
   // gujarati-coach/src/test/journey-rail-and-medallions.test.tsx.
   it('paints the wood and the halo with exactly these six values', () => {
     expect(RAIL).toEqual({
-      tie: '#8A5D4A',
-      tieInk: '#361C0F',
+      // Darker planks from build 22 ("larger and darker"); were #8A5D4A over #361C0F.
+      tie: '#6B4130',
+      tieInk: '#22110A',
       // Violet rails on both runs from build 17 (the owner's hybrid journey
       // mockup, then "the track ahead should have the two parallel purple
       // lines"); the wood is unchanged. Was olive #8E9B43 rails, a #ECF584
@@ -1638,23 +1639,26 @@ describe('the rail palette and the medallions, mirrored on web', () => {
   });
 
   it('draws the halo as two passes, wide-and-soft under tight-and-bright', () => {
-    expect(RAIL_GLOW_PASSES).toEqual([{ width: 12, opacity: 0.5 }]);
+    // 16 from build 22, with the wider rail under it.
+    expect(RAIL_GLOW_PASSES).toEqual([{ width: 16, opacity: 0.5 }]);
   });
 
   it('strokes the track to exactly this shape', () => {
     // Chat 11: weights grew for the reference's chunky ladder ("tracks arent
     // heavy enough"). The pin moves with the sheet, not the other way round.
+    // INVERTED build 22 (owner: "much heavier and a bit wider, they are the
+    // centerpoint of the journey"): 26 sleepers on 7 11, 16 rails over 9,
+    // the run ahead 3.5 lines 12.5 apart. Was 18 / 5 9 / 12 over 7 / 2.5
+    // and 9.5 since build 18.
     expect(RAIL_STROKE).toEqual({
-      tie: 18,
-      // 12 over 7 from build 17 (was 9.5 over 6.5): 2.5pt rails, so the run
-      // ahead reads as two violet lines over a dark centre.
-      rail: 12,
-      between: 7,
+      tie: 32,
+      rail: 16,
+      between: 9,
       // The run ahead is two thin strokes a gauge apart (build 17), not a
       // masked hollow: the mask made scrolling choppy on a device.
-      line: 2.5,
-      gauge: 9.5,
-      tieDash: '5 9',
+      line: 3.5,
+      gauge: 12.5,
+      tieDash: '10 12',
       // unlitDash went in build 17: the run ahead is two lines, not a dash.
       unlitOpacity: 1,
     });

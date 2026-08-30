@@ -120,8 +120,9 @@ describe("the rail palette is one palette across both platforms", () => {
     // it, and betweenUnlit is GONE: ahead there is nothing between the rails
     // at all ("future track should be only 2 purple lines, not filled").
     expect(RAIL).toEqual({
-      tie: "#8A5D4A",
-      tieInk: "#361C0F",
+      // Darker planks from build 22 ("larger and darker"); were #8A5D4A over #361C0F.
+      tie: "#6B4130",
+      tieInk: "#22110A",
       rail: "#8B5CF6",
       between: "#84CC16",
       glow: "#BEF264",
@@ -136,7 +137,8 @@ describe("the rail palette is one palette across both platforms", () => {
     // STRIPE down a brown sleeper ladder, which RAIL.between now is. What
     // survives here is one narrow glow under that stripe. 12 at 0.5 from
     // build 17/18, with the heavier rail under it.
-    expect(RAIL_GLOW_PASSES).toEqual([{ width: 12, opacity: 0.5 }]);
+    // 16 from build 22, with the wider rail under it.
+    expect(RAIL_GLOW_PASSES).toEqual([{ width: 16, opacity: 0.5 }]);
   });
 
   test("the track strokes are exactly this shape", () => {
@@ -145,13 +147,16 @@ describe("the rail palette is one palette across both platforms", () => {
     // over a 7 centre. The run ahead gains `line` and `gauge` (two 2.5
     // strokes 9.5 apart, outer edges matching the 12) and loses unlitDash:
     // it is no longer dashed, state is the light down the middle.
+    // INVERTED AGAIN build 22 (owner: "much heavier and a bit wider, they
+    // are the centerpoint of the journey"): 26 on 7 11, 16 over 9, 3.5
+    // lines 12.5 apart. Mobile twin pins the same six.
     expect(RAIL_STROKE).toEqual({
-      tie: 18,
-      rail: 12,
-      between: 7,
-      line: 2.5,
-      gauge: 9.5,
-      tieDash: "5 9",
+      tie: 32,
+      rail: 16,
+      between: 9,
+      line: 3.5,
+      gauge: 12.5,
+      tieDash: "10 12",
       unlitOpacity: 1,
     });
   });

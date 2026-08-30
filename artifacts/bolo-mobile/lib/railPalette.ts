@@ -23,9 +23,11 @@
  */
 export const RAIL = {
   /** The sleeper planks. */
-  tie: '#8A5D4A',
+  // DARKER PLANKS (build 22, owner: "make the wood planks on the track
+  // larger and darker"). Was #8A5D4A over #361C0F.
+  tie: '#6B4130',
   /** Their underside, for the raised-bed read. */
-  tieInk: '#361C0F',
+  tieInk: '#22110A',
   /** The two rails running over them: olive, as the sheet draws them. */
   // VIOLET RAILS ON BOTH RUNS from build 17. Owner: "The track ahead should
   // have the two parallel purple lines." The rail stroke is the pair of
@@ -62,7 +64,7 @@ export const RAIL = {
  *  would be simpler and react-native-svg cannot draw one along a bezier, so
  *  both platforms draw the same two strokes instead. */
 export const RAIL_GLOW_PASSES = [
-  { width: 12, opacity: 0.5 },
+  { width: 16, opacity: 0.5 },
 ] as const;
 
 /** Stroke widths for the track itself, sleepers outward. */
@@ -71,20 +73,28 @@ export const RAIL_GLOW_PASSES = [
  *  was the honest lever: fatter sleepers on a denser rhythm, wider rails, a
  *  centre stripe half again as bold, to match the chunky ladder the reference
  *  draws. */
+/** HEAVIER AND A BIT WIDER AGAIN (build 22, owner, on the journey notes:
+ *  "Our current tracks can stay but need to be much heavier and a bit wider,
+ *  they are the centerpoint of the journey."). The shape is unchanged; every
+ *  number grew: sleepers 18 to 26 on a 7 11 rhythm, rails 12 to 16 over a 9
+ *  centre, the run ahead 3.5 lines 12.5 apart so the outer edges still span
+ *  the 16, the glow 16 under it. */
 export const RAIL_STROKE = {
-  tie: 18,
-  // 12 over 7 from build 17, was 9.5 over 6.5: each rail is 2.5 wide now,
-  // enough to read as two lines ahead rather than one band.
-  rail: 12,
-  between: 7,
+  // Planks 32 wide on a 10 12 rhythm (build 22, "larger"); 26 on 7 11
+  // before that, 18 on 5 9 before build 22.
+  tie: 32,
+  // 16 over 9 from build 22 (12 over 7 from build 17, 9.5 over 6.5 before):
+  // each rail is 3.5 wide now.
+  rail: 16,
+  between: 9,
   /** THE RUN AHEAD (build 17): two thin strokes a gauge apart, no mask.
-   *  2.5 wide each, centres 9.5 apart, so their outer edges match the 12
+   *  3.5 wide each, centres 12.5 apart, so their outer edges match the 16
    *  the travelled run's rail stroke spans. */
-  line: 2.5,
-  gauge: 9.5,
+  line: 3.5,
+  gauge: 12.5,
   /** The sleeper rhythm. The untravelled run is not dashed any more (build
    *  17): it is two violet lines with the wood showing between them. */
-  tieDash: '5 9',
+  tieDash: '10 12',
   /** THE RUN AHEAD IS FULLY OPAQUE. It was 0.55, then 0.88, and both times it
    *  still read as a ghost over a painting: "future rail segments are too
    *  transparent", twice. Alpha was never the right lever here. Real track is

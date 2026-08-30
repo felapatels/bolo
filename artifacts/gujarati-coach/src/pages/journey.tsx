@@ -127,6 +127,7 @@ import {
   type StopEmblemKind,
 } from "@/lib/stop-emblems";
 import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from "@/lib/rail-palette";
+import { railPairPaths } from "@/lib/rail-offset";
 import {
   BADGE,
   MAP_GLYPH_PLATE,
@@ -1122,7 +1123,7 @@ function StationCard({
  *  wood rather than going grey, because the sheet draws the two states as the
  *  same track with and without a light down the middle, and greying it would
  *  say "disabled" where the truth is "not yet travelled". */
-function RailSegment({ d, lit }: { d: string; lit: boolean }) {
+function RailSegment({ d, left, right, lit }: { d: string; left: string; right: string; lit: boolean }) {
   return (
     <g opacity={lit ? 1 : RAIL_STROKE.unlitOpacity}>
       {/* THE HALO, under everything and only on the run behind the learner.
@@ -1161,12 +1162,13 @@ function RailSegment({ d, lit }: { d: string; lit: boolean }) {
       <path d={d} stroke={RAIL.tie} strokeWidth={RAIL_STROKE.tie} strokeDasharray={RAIL_STROKE.tieDash} fill="none" />
       {/* TWO THIN STROKES AHEAD, NOT A MASK (build 17). Mobile cut the hollow
           run with an SVG mask for an hour and it rasterised per segment
-          inside a scrolling view: "scrolling is extremely choppy." Two copies
-          of the path shifted half a gauge apart give the same two lines for
-          the price of two strokes. A shifted copy is not a true offset, but
-          the bends are gentle since the pitch doubled, so the pair only
-          narrows a little on a diagonal. Drawn the same way here so the two
-          maps agree to the pixel. */}
+          inside a scrolling view: "scrolling is extremely choppy." Two
+          strokes give the two lines for the price of two strokes.
+          TRUE OFFSETS FROM BUILD 22: they were two copies of the path shifted
+          half a gauge apart, which pinched on every diagonal once the gauge
+          widened ("tracks are not staying equidistant apart"). railPairPaths
+          pushes each sample out along the curve's normal instead, so the pair
+          is a gauge apart everywhere. Drawn the same way on mobile. */}
       {lit ? (
         <>
           <path d={d} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.rail} fill="none" />
@@ -1174,20 +1176,8 @@ function RailSegment({ d, lit }: { d: string; lit: boolean }) {
         </>
       ) : (
         <>
-          <path
-            d={d}
-            stroke={RAIL.rail}
-            strokeWidth={RAIL_STROKE.line}
-            fill="none"
-            transform={`translate(${-RAIL_STROKE.gauge / 2} 0)`}
-          />
-          <path
-            d={d}
-            stroke={RAIL.rail}
-            strokeWidth={RAIL_STROKE.line}
-            fill="none"
-            transform={`translate(${RAIL_STROKE.gauge / 2} 0)`}
-          />
+          <path d={left} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.line} fill="none" strokeLinejoin="round" />
+          <path d={right} stroke={RAIL.rail} strokeWidth={RAIL_STROKE.line} fill="none" strokeLinejoin="round" />
         </>
       )}
     </g>
@@ -2093,8 +2083,13 @@ export default function Journey() {
   const segs = pts.slice(1).map((p, i) => {
     const a = pts[i]!;
     const dy = (p.y - a.y) / 2;
+    // The run ahead's two rails are TRUE offsets of the curve (build 22, see
+    // railPairPaths), computed once per segment. Mobile does the same.
+    const pair = railPairPaths(a.x, a.y, p.x, p.y, RAIL_STROKE.gauge);
     return {
       d: `M ${a.x} ${a.y} C ${a.x} ${a.y + dy}, ${p.x} ${p.y - dy}, ${p.x} ${p.y}`,
+      left: pair.left,
+      right: pair.right,
       lit: p.lit,
     };
   });
@@ -2836,7 +2831,7 @@ export default function Journey() {
               </g>
               <g data-testid="journey-rail-layer">
                 {segs.map((s, i) => (
-                  <RailSegment key={i} d={s.d} lit={s.lit} />
+                  <RailSegment key={i} d={s.d} left={s.left} right={s.right} lit={s.lit} />
                 ))}
               </g>
               {/* Task #917 / #973: comet sweep on the active run. Delay
