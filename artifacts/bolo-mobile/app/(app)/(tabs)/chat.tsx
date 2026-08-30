@@ -2241,7 +2241,11 @@ export default function ChatScreen() {
           perched; in the empty state they still sit under the full-size bird
           where they read as part of her. */}
       {isPerched && (phase === 'playing' || getStatusLabel(phase, processingStep, true) !== '') && (
-        <View style={[styles.speakingStrip, { top: headerH + 14 }]} pointerEvents="box-none">
+        <View
+          // Left of the bird's perch, so a long label never runs under her.
+          style={[styles.speakingStrip, { top: headerH + 14, right: PERCH_SIZE + 20 }]}
+          pointerEvents="box-none"
+        >
           {getStatusLabel(phase, processingStep, true) !== '' && (
             <Text style={[styles.statusLabel, { color: colors.mutedForeground }]}>
               {getStatusLabel(phase, processingStep, true)}
@@ -2334,15 +2338,15 @@ export default function ChatScreen() {
       {messages.length > 0 && (
         <ScrollView
           ref={scrollRef}
-          style={styles.transcript}
-          contentContainerStyle={[
-            styles.transcriptContent,
-            // Clears the perched bird so the FIRST message is not born behind
-            // her. Everything after it still slides underneath as it scrolls,
-            // which is the point: she floats over the conversation rather than
-            // sitting in a box above it.
-            { paddingTop: PERCH_SIZE + 10 },
-          ]}
+          // THE BAND UNDER THE HEADER IS HERS, NOT THE TRANSCRIPT'S (build 25,
+          // owner on the iPad: "make sure this isn't happening on any ios or
+          // ipad os build", with the reply bubble and the "Crafting a reply"
+          // label under the bird). She used to float over the conversation,
+          // with only the first message padded clear of her, so anything
+          // scrolled to the top slid under her and under the status strip.
+          // The viewport now starts below the band, so nothing can.
+          style={[styles.transcript, { marginTop: PERCH_SIZE + 16 }]}
+          contentContainerStyle={styles.transcriptContent}
           showsVerticalScrollIndicator={false}
         >
           {messages.map((msg, i) => {
