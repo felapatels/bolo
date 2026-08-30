@@ -2576,70 +2576,86 @@ export default function Journey() {
         <ArrowLeft className="h-5 w-5" />
       </Link>
 
-      {/* Desktop line index. Fixed, so it never enters the map's layout, and
-          xl-only because below that the margin it lives in does not exist.
-          Hidden from assistive tech as a duplicate: every zone it lists is
-          already reachable by scrolling the map itself. */}
-      <nav
-        aria-label="Jump to a fare zone"
-        data-testid="journey-zone-rail"
-        className="pointer-events-none fixed left-6 top-1/2 z-10 hidden -translate-y-1/2 xl:block"
-      >
-        <ol className="pointer-events-auto flex w-44 flex-col gap-1">
-          {zoneNav.map((z) => (
-            <li key={z.zoneIndex}>
-              <button
-                type="button"
-                data-testid={`zone-rail-${z.zoneIndex}`}
-                onClick={() => scrollToMapY(z.y)}
-                className={cn(
-                  "group flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition-colors",
-                  z.hasCurrent
-                    ? "border-transparent"
-                    : "border-transparent hover:bg-muted",
-                )}
-                style={
-                  z.hasCurrent
-                    ? { backgroundColor: `${line.accent}14`, borderColor: `${line.accent}59` }
-                    : undefined
-                }
-              >
-                <span
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-black text-white"
-                  style={{
-                    backgroundColor:
-                      z.done === z.total ? line.accent : `${line.accent}66`,
-                  }}
-                >
-                  {z.zoneIndex + 1}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[11px] font-extrabold text-foreground">
-                    {z.geoName}
-                  </span>
-                  <span className="mt-1 block h-1 overflow-hidden rounded-full bg-muted">
-                    <span
-                      className="block h-full rounded-full"
-                      style={{
-                        width: `${z.total > 0 ? Math.round((z.done / z.total) * 100) : 0}%`,
-                        backgroundColor: line.accent,
-                      }}
-                    />
-                  </span>
-                </span>
-                <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground">
-                  {z.done}/{z.total}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ol>
-      </nav>
 
       {/* pb-nav below lg clears the floating BottomNav pill mounted by AppShell */}
       {/* relative z-[1]: the wide backdrop is a positioned element at z-0,
           and static content would otherwise paint beneath it. */}
       <main className="relative z-[1] mx-auto w-full max-w-2xl flex-1 pb-nav lg:pb-14">
+        {/* THE LINE INDEX, in the margin LEFT of the column (build 24). It was
+            `position: fixed; left: 1.5rem`, and where that landed depended on
+            whether the shell's PageTransition still carried a transform: a
+            transformed ancestor is the containing block for fixed, so the
+            rail sat 24px into the CONTENT AREA on one load and 24px into the
+            VIEWPORT, under the desktop sidebar (z-40), on the next. Seen both
+            ways in one session, 2026-08-30; under the sidebar it was dead UI.
+            Now it hangs off the column itself: a gutter the full height of
+            <main>, absolutely positioned right-full of it, with the nav
+            sticky at mid-viewport inside. No containing-block dependence and
+            no viewport arithmetic. xl-only because at 1280 the margin beside
+            the 672 column is 176px once the sidebar's 256 is taken, and
+            168.5px when a classic 15px scrollbar is showing (the iframe
+            check on 2026-08-30 had one, and a w-40 gutter tucked 3px under
+            the sidebar there): w-36 plus mr-3 is 156 and clears both. Below
+            xl that margin is not there.
+            Hidden from assistive tech as a duplicate: every zone it lists is
+            already reachable by scrolling the map itself. */}
+        <div className="pointer-events-none absolute inset-y-0 right-full mr-3 hidden w-36 xl:block">
+          <nav
+            aria-label="Jump to a fare zone"
+            data-testid="journey-zone-rail"
+            className="sticky top-1/2 -translate-y-1/2"
+          >
+            <ol className="pointer-events-auto flex w-full flex-col gap-1">
+              {zoneNav.map((z) => (
+                <li key={z.zoneIndex}>
+                  <button
+                    type="button"
+                    data-testid={`zone-rail-${z.zoneIndex}`}
+                    onClick={() => scrollToMapY(z.y)}
+                    className={cn(
+                      "group flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition-colors",
+                      z.hasCurrent
+                        ? "border-transparent"
+                        : "border-transparent hover:bg-muted",
+                    )}
+                    style={
+                      z.hasCurrent
+                        ? { backgroundColor: `${line.accent}14`, borderColor: `${line.accent}59` }
+                        : undefined
+                    }
+                  >
+                    <span
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-black text-white"
+                      style={{
+                        backgroundColor:
+                          z.done === z.total ? line.accent : `${line.accent}66`,
+                      }}
+                    >
+                      {z.zoneIndex + 1}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[11px] font-extrabold text-foreground">
+                        {z.geoName}
+                      </span>
+                      <span className="mt-1 block h-1 overflow-hidden rounded-full bg-muted">
+                        <span
+                          className="block h-full rounded-full"
+                          style={{
+                            width: `${z.total > 0 ? Math.round((z.done / z.total) * 100) : 0}%`,
+                            backgroundColor: line.accent,
+                          }}
+                        />
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground">
+                      {z.done}/{z.total}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </div>
         {access === "exhausted" && (
           <div className="mx-3 mt-4 rounded-2xl border-2 p-4" style={{ borderColor: line.accent }}>
             <p className="text-sm font-bold text-foreground">
