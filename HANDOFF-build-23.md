@@ -95,21 +95,32 @@ and `useFocusEffect` mocked, three build 21 additions.
 
 ## 4. THE QUEUE, IN THE OWNER'S ORDER
 
-1. **The builds are RUNNING** (started 2026-08-30 ~01:00 EDT, production
-   profile, both platforms, no submit): iOS `1.0.6 (525)`
-   `a0ec08bb-988e-438b-a788-355519cd1150`, Android `1.0.6 (526)`
-   `1cb4711c-ce13-4581-8f3c-69a7c1f577fc`. When the ipa is out, run
-   `node --experimental-strip-types scripts/checkBundleHealth.ts <ipa-url>`
-   from the repo root BEFORE anyone installs (HEALTHY or POISONED; a
-   poisoned build is rebuilt, not installed). Then TestFlight for iOS and
-   the Play internal track for Android, on the owner's word. `app.json`
-   already carries the write-back (525 / 526).
-2. **Web parity** for everything in section 1 that is mobile only: Progress,
+1. **THE 1.0.6 BUILDS, where they stood at handoff (2026-08-30 ~01:30 EDT).**
+   iOS `1.0.6 (525)` `a0ec08bb-988e-438b-a788-355519cd1150`: FINISHED,
+   **HEALTHY** by `artifacts/bolo-mobile/scripts/checkBundleHealth.ts`
+   (45,974 functions, the animating shape; the script lives THERE, not in
+   `scripts/`, which is where CLAUDE.md sends you), and `eas submit
+   --platform ios --latest` was started on the owner's word ("push them all
+   the way to testflight/play store"). Android `1.0.6 (526)`
+   `1cb4711c-ce13-4581-8f3c-69a7c1f577fc`: still building at handoff, with
+   `eas submit --platform android --latest` queued behind it (internal
+   track). **Check both on expo.dev / App Store Connect / Play before
+   trusting this line**; "already submitted" from eas means it is on Play.
+   `app.json` carries the write-back (525 / 526), committed and pushed.
+2. **THE REPL IS ON `811d982e`** and its api suite ran there: **1451 tests,
+   1449 pass, 0 fail, 2 skipped** (build 20's 1450/1448 plus the flashback
+   pin). The owner was republishing at handoff; the server's flashback door
+   fix (`00d44c95`) goes live with that publish. **The Repl holds 120 files
+   GitHub does not**: `artifacts/bolo-mobile/assets/story/*.webp`, storybook
+   art created in the Repl and auto-committed there, never pushed (the Repl
+   cannot push without the PAT flow in memory). Nothing on the Mac or on
+   GitHub references them; they are one Repl away from lost.
+3. **Web parity** for everything in section 1 that is mobile only: Progress,
    Leaderboard, the journey's zone card, stall card, stop colours, trace card
    and glow, the bazaar doors, the wallet, the paywall. The rail palette and
    offsets are already on web.
-3. The Bazaar "Your Flex" card (memory `bolo-feed-and-bazaar-mockups-2026-08-29`).
-4. Flashback lightbox, the web corrections, the XP question (build 22's
+4. The Bazaar "Your Flex" card (memory `bolo-feed-and-bazaar-mockups-2026-08-29`).
+5. Flashback lightbox, the web corrections, the XP question (build 22's
    handoff section 4, untouched).
 
 ## 5. TRAPS BUILD 22 PAID FOR
