@@ -846,8 +846,12 @@ export function ChaiWalletSheet({
             only the wallet can do: show the balance, its history, top it up,
             and point at the street. */}
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
-          <WalletHistory />
-
+          {/* THE DOOR FIRST, THEN THE TOP-UP, THEN THE LEDGER (owner,
+              2026-08-30: "Order of items on the slideout chai wallet should
+              be, Bazaar link, Chai packages, then history"). History was on
+              top until then; a ledger is the thing you scroll for, and the
+              two ways to DO something with Chai come before it. Mobile twin
+              in the same order. */}
           <div
             className="flex items-center gap-2.5 rounded-[18px] border p-3"
             style={{ backgroundColor: "#EFEBFA", borderColor: "#D9D2F3" }}
@@ -881,6 +885,8 @@ export function ChaiWalletSheet({
           {/* Dark until CHAI_PACKS_LIVE is flipped; renders nothing at all
               while the flag is off, so the wallet is unchanged today. */}
           <ChaiPackShop />
+
+          <WalletHistory />
         </div>
       </SheetContent>
     </Sheet>

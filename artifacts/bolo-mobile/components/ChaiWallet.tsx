@@ -1009,11 +1009,14 @@ export function ChaiWalletSheet({
             showsVerticalScrollIndicator={false}
             testID="wallet-body"
           >
-            <WalletHistory />
             {/* THE WALLET IS A BALANCE AND A DOOR. Every sink it used to sell
                 is stocked in the bazaar, behind its four doors since build 22;
                 what is left is what only the wallet can do: show the balance,
-                its history, top it up, and point at the street. */}
+                its history, top it up, and point at the street.
+                THE DOOR FIRST, THEN THE TOP-UP, THEN THE LEDGER (owner,
+                2026-08-30: "Order of items on the slideout chai wallet should
+                be, Bazaar link, Chai packages, then history"). History led
+                until then. Web twin in the same order. */}
             <View style={[styles.bazaarBanner, { backgroundColor: '#EFEBFA', borderColor: '#D9D2F3' }]}>
               <View style={styles.bazaarBird} pointerEvents="none">
                 <Mascot pose="wave" size={72} motion="none" entering={false} />
@@ -1054,6 +1057,7 @@ export function ChaiWalletSheet({
                 </Text>
               </View>
             ) : null}
+            <WalletHistory />
           </ScrollView>
         </View>
       </View>

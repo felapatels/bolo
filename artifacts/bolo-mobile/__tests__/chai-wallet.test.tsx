@@ -362,6 +362,17 @@ describe('express countdown', () => {
 
   // Build 37: the Bazaar row's worded "Browse" link became a real button,
   // matching the other rows; it still closes the sheet on the way out.
+  it('puts the Bazaar door before the ledger (owner, 2026-08-30)', () => {
+    // "Order of items on the slideout chai wallet should be, Bazaar link,
+    // Chai packages, then history." getAllByTestId walks the tree in order.
+    render(<ChaiWalletSheet visible onClose={jest.fn()} />);
+    const ids = screen
+      .getAllByTestId(/^(wallet-open-wardrobe|wallet-history-(list|placeholder))$/)
+      .map((n) => n.props.testID);
+    expect(ids[0]).toBe('wallet-open-wardrobe');
+    expect(ids[ids.length - 1]).toMatch(/^wallet-history-/);
+  });
+
   it('opens the wardrobe from a real Browse button', () => {
     const onClose = jest.fn();
     render(<ChaiWalletSheet visible onClose={onClose} />);

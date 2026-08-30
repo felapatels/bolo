@@ -151,6 +151,16 @@ describe("Chai wallet sheet", () => {
     expect(screen.getByText("Chai Wallet")).toBeInTheDocument();
   });
 
+  test("the door comes first, then the ledger (owner, 2026-08-30)", () => {
+    // "Order of items on the slideout chai wallet should be, Bazaar link,
+    // Chai packages, then history." The pack shop renders nothing while
+    // CHAI_PACKS_LIVE is off, so the pin is the two that always render.
+    renderWallet();
+    const door = screen.getByTestId("wallet-open-wardrobe");
+    const ledger = screen.getByTestId(/^wallet-history-(list|placeholder)$/);
+    expect(door.compareDocumentPosition(ledger) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   test("reaches the bazaar through a real button, and Bolo is not a boy", async () => {
     const user = userEvent.setup();
     renderWallet();
