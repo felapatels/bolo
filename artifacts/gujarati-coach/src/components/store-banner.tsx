@@ -31,11 +31,13 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { detectShortcutPlatform } from "@/lib/platform";
 import {
-  APP_STORE_URL,
+  AppStoreBadge,
+  WebBadge,
   APP_STORE_LIVE,
   PLAY_STORE_LIVE,
 } from "@/components/app-store-badge";
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
+import { cn } from "@/lib/utils";
 
 const DISMISS_KEY = "bolo.storeBanner.dismissed";
 
@@ -117,22 +119,34 @@ export function StoreBanner() {
           <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>
         </div>
 
-        {showAppStoreCta && (
-          <a
-            href={APP_STORE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-testid="store-banner-appstore"
-            onClick={() =>
-              track(ANALYTICS_EVENTS.CTA_CLICK, {
-                placement: "store-banner-appstore",
-              })
-            }
-            className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground"
+        {/* THE REAL BADGE, not a button that says "Get it". Apple ships this
+            artwork and it is the only licensed way to show their mark; a
+            home-made pill beside it was both duller and less trustworthy than
+            the thing every other app on the web uses. The web badge is ours
+            and matches it in weight only - see WebBadge. Reported 2026-08-30:
+            "banner on bottom for app store is boring... can't we use official
+            assets". */}
+        <div
+          className="flex shrink-0 items-center gap-2"
+          data-testid="store-banner-badges"
+        >
+          {showAppStoreCta && (
+            <span data-testid="store-banner-appstore">
+              <AppStoreBadge placement="store-banner-appstore" />
+            </span>
+          )}
+          {/* THE WEB BADGE IS ALWAYS OFFERED, because the visitor is already in
+              a browser and it is never the wrong answer - on Android it is the
+              ONLY answer, since there is no store link to sit beside yet.
+              It hides under `sm` when the store badge is also present: two
+              badges plus the copy and the dismiss control do not fit a phone's
+              width, and there the store badge is the one worth the room. */}
+          <span
+            className={cn(showAppStoreCta && "hidden sm:inline-flex")}
           >
-            Get it
-          </a>
-        )}
+            <WebBadge placement="store-banner-web" />
+          </span>
+        </div>
 
         <button
           type="button"

@@ -70,6 +70,14 @@ describe("store badges (platform-following)", () => {
     setUserAgent(originalUserAgent);
   });
 
+  // SCOPED TO THE HERO. Since 2026-08-30 the sticky get-the-app bar carries the
+  // real App Store artwork too, so the page holds two of these badges on an
+  // iPhone - deliberately: the hero's scrolls away and the bar stays (see the
+  // header of store-banner.tsx). These tests are about the HERO's
+  // platform-following badge, so they query inside <main> rather than the whole
+  // document, which the bar sits outside of.
+  const hero = () => within(screen.getByRole("main"));
+
   const IPHONE_UA =
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
   // The same Android user agent home-add-to-home.test.tsx pins.
@@ -83,10 +91,10 @@ describe("store badges (platform-following)", () => {
     // pre-release rendering. Both states are now stated outright.
     renderAt(<Landing appStoreLive={false} />);
 
-    expect(screen.getByAltText("Download on the App Store")).toBeInTheDocument();
+    expect(hero().getByAltText("Download on the App Store")).toBeInTheDocument();
     expect(screen.getByText("Coming soon to the App Store")).toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: /Download on the App Store/i }),
+      hero().queryByRole("link", { name: /Download on the App Store/i }),
     ).not.toBeInTheDocument();
     expect(h.track).not.toHaveBeenCalledWith(
       ANALYTICS_EVENTS.CTA_CLICK,
@@ -94,7 +102,7 @@ describe("store badges (platform-following)", () => {
     );
 
     // Never both stores at once.
-    expect(screen.queryByAltText("Get it on Google Play")).not.toBeInTheDocument();
+    expect(hero().queryByAltText("Get it on Google Play")).not.toBeInTheDocument();
     expect(screen.queryByText("Coming soon to Google Play")).not.toBeInTheDocument();
   });
 
@@ -102,10 +110,10 @@ describe("store badges (platform-following)", () => {
     setUserAgent(IPHONE_UA);
     renderAt(<Landing appStoreLive />);
 
-    const badge = screen.getByRole("link", { name: /Download on the App Store/i });
+    const badge = hero().getByRole("link", { name: /Download on the App Store/i });
     expect(badge).toHaveAttribute("href", "https://apps.apple.com/app/id6790907772");
     expect(screen.queryByText("Coming soon to the App Store")).not.toBeInTheDocument();
-    expect(screen.queryByAltText("Get it on Google Play")).not.toBeInTheDocument();
+    expect(hero().queryByAltText("Get it on Google Play")).not.toBeInTheDocument();
 
     fireEvent.click(badge);
     expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.CTA_CLICK, {
@@ -119,7 +127,7 @@ describe("store badges (platform-following)", () => {
     // PLAY_STORE_LIVE does not break a test about the pre-release rendering.
     renderAt(<Landing playStoreLive={false} />);
 
-    expect(screen.getByAltText("Get it on Google Play")).toBeInTheDocument();
+    expect(hero().getByAltText("Get it on Google Play")).toBeInTheDocument();
     expect(screen.getByText("Coming soon to Google Play")).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: /Get it on Google Play/i }),
@@ -130,7 +138,7 @@ describe("store badges (platform-following)", () => {
     );
 
     // Never both stores at once.
-    expect(screen.queryByAltText("Download on the App Store")).not.toBeInTheDocument();
+    expect(hero().queryByAltText("Download on the App Store")).not.toBeInTheDocument();
     expect(screen.queryByText("Coming soon to the App Store")).not.toBeInTheDocument();
   });
 
@@ -144,7 +152,7 @@ describe("store badges (platform-following)", () => {
       "https://play.google.com/store/apps/details?id=com.bolo.mobile",
     );
     expect(screen.queryByText("Coming soon to Google Play")).not.toBeInTheDocument();
-    expect(screen.queryByAltText("Download on the App Store")).not.toBeInTheDocument();
+    expect(hero().queryByAltText("Download on the App Store")).not.toBeInTheDocument();
 
     fireEvent.click(badge);
     expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.CTA_CLICK, {
@@ -154,9 +162,9 @@ describe("store badges (platform-following)", () => {
 
   test("desktop and unrecognized user agents see neither store badge in either state", () => {
     renderAt(<Landing />);
-    expect(screen.queryByAltText("Download on the App Store")).not.toBeInTheDocument();
+    expect(hero().queryByAltText("Download on the App Store")).not.toBeInTheDocument();
     expect(screen.queryByText("Coming soon to the App Store")).not.toBeInTheDocument();
-    expect(screen.queryByAltText("Get it on Google Play")).not.toBeInTheDocument();
+    expect(hero().queryByAltText("Get it on Google Play")).not.toBeInTheDocument();
     expect(screen.queryByText("Coming soon to Google Play")).not.toBeInTheDocument();
   });
 });

@@ -15,6 +15,8 @@
 // is muted, unlinked and untracked under a coming-soon caption; flip the const
 // at launch and it links to the listing and tracks a cta_click carrying the
 // caller's placement.
+import { Link } from "wouter";
+import { Globe } from "lucide-react";
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
 
 // The numeric id is ascAppId from bolo-mobile/eas.json.
@@ -102,5 +104,37 @@ export function AppStoreBadge({
       <img src={src} alt={badge.alt} className={`${badge.className} opacity-50`} />
       <p className="mt-2 text-xs font-semibold text-muted-foreground">{badge.caption}</p>
     </>
+  );
+}
+
+/**
+ * THE WEB BADGE, cut to sit beside the store ones.
+ *
+ * Asked for 2026-08-30: official store artwork on the get-the-app bar, "then
+ * make a web one to match". Apple and Google ship their badges and those are
+ * the only licensed way to show those marks; there is no such artwork for "it
+ * runs in a browser", so this is ours.
+ *
+ * IT MATCHES IN WEIGHT, NOT IN LOOK, and that distinction is deliberate. It
+ * takes the same 48px ink height so the row reads as one set, and then stops:
+ * its own radius, its own words, and the app's foreground token rather than
+ * Apple's black. A close copy of Apple's lockup would be the one thing their
+ * guidelines actually forbid, and it would read as a knock-off next to the
+ * genuine badge sitting beside it.
+ */
+export function WebBadge({ placement }: { placement: string }) {
+  return (
+    <Link
+      href="/sign-up"
+      onClick={() => track(ANALYTICS_EVENTS.CTA_CLICK, { placement })}
+      data-testid="web-badge"
+      className="inline-flex h-12 shrink-0 items-center gap-2.5 rounded-xl bg-foreground px-4 text-background transition-transform active:scale-95"
+    >
+      <Globe className="h-6 w-6 shrink-0" aria-hidden="true" />
+      <span className="flex flex-col leading-none text-left">
+        <span className="text-[10px] font-semibold opacity-80">Use it now</span>
+        <span className="text-[15px] font-black">In your browser</span>
+      </span>
+    </Link>
   );
 }

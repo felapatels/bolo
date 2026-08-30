@@ -18,8 +18,21 @@ vi.mock("@/lib/platform", () => ({
 // hero can never disagree about whether a store is live.
 let appLive = true;
 let playLive = false;
+// The bar renders the REAL Apple artwork and our matching web badge since
+// 2026-08-30, so the mock has to supply both. They are stubbed rather than
+// imported: this file is about the bar's own logic (which platform sees what,
+// dismissal, copy), and pulling in the badges would drag wouter's Link and the
+// SVG assets into every case for no gain. app-store-badge has its own tests.
 vi.mock("@/components/app-store-badge", () => ({
   APP_STORE_URL: "https://apps.apple.com/app/id6790907772",
+  AppStoreBadge: ({ placement }: { placement: string }) => (
+    <img alt="Download on the App Store" data-placement={placement} />
+  ),
+  WebBadge: ({ placement }: { placement: string }) => (
+    <a href="/sign-up" data-placement={placement}>
+      In your browser
+    </a>
+  ),
   get APP_STORE_LIVE() {
     return appLive;
   },
@@ -42,9 +55,14 @@ describe("StoreBanner", () => {
     render(<StoreBanner />);
     expect(screen.getByText("Bolo! is live on the App Store")).toBeTruthy();
     expect(screen.getByText(/Google Play is coming very soon/i)).toBeTruthy();
-    expect(
-      screen.getByTestId("store-banner-appstore").getAttribute("href"),
-    ).toBe("https://apps.apple.com/app/id6790907772");
+    // THE BAR NO LONGER OWNS THE ANCHOR. It used to draw its own "Get it"
+    // button with the store URL on it; since 2026-08-30 it renders Apple's
+    // official badge, and the href, the tracking and the pre-release muted
+    // state all live in AppStoreBadge, which has its own tests. So this
+    // asserts the delegation rather than re-testing the link through a mock,
+    // which would only ever prove the mock.
+    expect(screen.getByTestId("store-banner-appstore")).toBeTruthy();
+    expect(screen.getByAltText("Download on the App Store")).toBeTruthy();
   });
 
   it("does NOT offer an App Store button on Android", () => {
