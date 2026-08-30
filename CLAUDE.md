@@ -73,6 +73,19 @@ PORT=5173 BASE_PATH=/ API_PROXY_TARGET=http://localhost:3001 \
 
 ## Tests, per artifact
 
+**TYPECHECK ONLY WHILE DEVELOPING. THE FULL SUITES RUN ONCE, BEFORE A BUILD OR
+A PUBLISH, AND NEVER IN BETWEEN.** The owner's standing rule, given 2026-08-29
+and made permanent 2026-08-30 ("no full test runs until the end. typecheck
+only", "Always develop that way, typecheck only, full suites before build or
+publish"). While iterating, the check after a change is `tsc --noEmit` for the
+artifact touched (web: `pnpm --filter @workspace/gujarati-coach exec tsc
+--noEmit -p tsconfig.json`; mobile: the same with `@workspace/bolo-mobile`).
+Write the pins as the work goes; they run later. Keep a list of the suites the
+session's changes touch, and run the FULL suites (mobile and web on the Mac,
+api in the Repl Shell) exactly once, immediately before `eas build` or a Repl
+publish. A suite run costs the owner minutes each time and answers a question
+nobody asked mid-iteration.
+
 Run from the repo root.
 
 - api: `pnpm --filter @workspace/api-server run test`
