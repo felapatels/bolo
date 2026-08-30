@@ -12,8 +12,10 @@ Written 2026-08-30 (afternoon, EDT) by BOLO Build 25. **Read `CLAUDE.md` first, 
   start: portrait only, full screen, one centred 600pt column on every
   screen, backgrounds full-bleed. Option B (all orientations, Split View,
   two-column layouts) was rejected; do not re-propose it.
-- **Fourteen commits on `main`**, `2b5a3c4f` to `a79b0bd1`, all mobile.
-  Section 1 lists them. **PUSH STATE: see the last line of this section.**
+- **Sixteen commits on `main`**, `2b5a3c4f` to this handoff, all mobile
+  plus the records. Section 1 lists them. **NOT PUSHED** at the time of
+  writing: the owner had not asked, and the other agent's uncommitted web
+  work sits in the same tree.
 - **iOS 1.0.6 (529) is the first iPhone-and-iPad binary**, EAS build
   `6aa48cb0-c4b0-4d48-ad84-7cdfcf73f7fa` off `cea37099`, started 17:44 UTC
   on the owner's "i want to see it on my device". Its outcome, the bundle
@@ -97,11 +99,13 @@ Written 2026-08-30 (afternoon, EDT) by BOLO Build 25. **Read `CLAUDE.md` first, 
 
 ## 4. THE BUILD AND THE QUEUE
 
-1. **Build `6aa48cb0` (1.0.6, 529).** When it finishes: run the pre-flight
-   `node --experimental-strip-types artifacts/bolo-mobile/scripts/checkBundleHealth.ts <ipa url>`
-   (HEALTHY or POISONED), then `eas submit --platform ios --latest` from
-   `artifacts/bolo-mobile`, then the owner installs from TestFlight on their
-   iPad. Ten cold starts, never five, before calling it clean.
+1. **Build `6aa48cb0` (1.0.6, 529) FINISHED at about 18:05 UTC, HEALTHY
+   (46,007 functions, the animating shape), and was SUBMITTED to App Store
+   Connect** (submission `76d3e24f-63be-4455-92b2-2eb1dd0a53bc`, "Submitted
+   your app to Apple App Store Connect"). Apple's processing takes 5 to 10
+   minutes, then it appears in TestFlight for the owner's iPad. Ten cold
+   starts, never five, before calling it clean; the splash film, the wide
+   bazaar and the rail have only ever been seen on a dev client.
 2. **13-inch iPad screenshots** for App Store Connect before any iPad build
    goes to review: the simulator at 2064x2752 is the 13-inch slot; the same
    seven scenes as the phone set in `~/Desktop/appstore-noalpha/`, flattened
