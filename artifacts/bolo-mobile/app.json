@@ -19,7 +19,8 @@
       "associatedDomains": [
         "applinks:bolo-india.app"
       ],
-      "supportsTablet": false,
+      "supportsTablet": true,
+      "requireFullScreen": true,
       "icon": "./assets/images/icon.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
