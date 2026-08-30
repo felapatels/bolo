@@ -25,9 +25,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearch } from "wouter";
 import {
   ArrowLeft,
-  Trophy,
-  Flame,
-  Medal,
   AlertCircle,
   Loader2,
   Users,
@@ -60,6 +57,12 @@ import {
 } from "@/components/feed-tabs-coach";
 import { MascotAvatar } from "@/components/mascot-avatar";
 import { FirstClassChip } from "@/components/gold-chip";
+import { SpeechBubble } from "@/components/speech-bubble";
+import { MetricToggle } from "@/components/leaderboard/metric-toggle";
+import { WeeklyRaceBar } from "@/components/leaderboard/weekly-race-bar";
+import { LeaderboardBoard } from "@/components/leaderboard/leaderboard-board";
+import { type BoardMetric, boardBubbleLine, rankEntries, weekKey } from "@/lib/boardRanking";
+import { useRankDeltas } from "@/lib/useRankDeltas";
 import {
   FEED_EMPTY_BODY,
   feedLineFor,
@@ -78,10 +81,6 @@ import {
   type BoardScope,
 } from "@/components/board-scope";
 import { cn } from "@/lib/utils";
-
-function displayNameFor(u: { displayName: string | null }): string {
-  return u.displayName?.trim() || "Fellow learner";
-}
 
 /* --------------------------------- tabs ---------------------------------- */
 
@@ -108,208 +107,31 @@ interface BoardTabDef {
 const FEED_TAB: BoardTabDef = { value: "feed", label: "Feed", icon: Newspaper };
 const FLEX_TAB: BoardTabDef = { value: "flex", label: "Flex", icon: Sparkles };
 
-/** Copy for a board holding nobody but the learner. */
+/**
+ * THE BOARD LEFT THIS FILE IN BUILD 23 (mobile build 22, the owner's
+ * Leaderboard mockup): the podium, the rows, the XP or Streak pills and the
+ * weekly race bar are components/leaderboard over lib/boardRanking, shared
+ * with the friends page's board so the two cannot drift. What stays here is
+ * the page: scope, tabs, the feed and the empty state.
+ */
 const BOARD_EMPTY_BODY =
   "Add a friend to see how this week's XP and streaks stack up. A little friendly competition goes a long way!";
 
-/**
- * WEEKLY XP RANKS, STREAK BREAKS THE TIE, then earliest to reach the total.
- * Nothing falls back to ids.
- *
- * This used to be compareBy(tab), parameterised on whichever metric the active
- * tab ranked by. With one board there is one order, and XP leads it because it
- * is the number that moves this week. The streak is still on every row and
- * still breaks ties, so nobody lost sight of it when the tab went.
- */
-function compareEntries(a: LeaderboardEntry, b: LeaderboardEntry): number {
-  const byXp = b.xp - a.xp;
-  if (byXp !== 0) return byXp;
-  if (b.currentStreakDays !== a.currentStreakDays) {
-    return b.currentStreakDays - a.currentStreakDays;
-  }
-  if (a.reachedAt === b.reachedAt) return 0;
-  if (a.reachedAt === null) return 1;
-  if (b.reachedAt === null) return -1;
-  return a.reachedAt < b.reachedAt ? -1 : 1;
-}
-
-/* --------------------------------- rows ---------------------------------- */
-
-/**
- * ONE ROW CARRYING BOTH NUMBERS. It took a `tab` until 2026-08-26 and printed
- * whichever single metric that tab ranked by; with Weekly XP and Streak merged
- * there is no metric to choose, so the row shows them side by side.
- */
-function BoardRow({
-  entry,
-  rank,
-  index,
-  scope,
-}: {
-  entry: LeaderboardEntry;
-  rank: number;
-  index: number;
-  scope: BoardScope;
-}) {
-  // Rank colour is the indigo primary, never gold: gold is reserved for paid
-  // status, and a leaderboard position is not something anybody bought.
-  const leading = rank === 1;
+/** With nobody but the learner on it, a board is a mirror. Send them to
+ *  /friends, which is where standing is actually changed. On the global
+ *  scope that emptiness means the app has nobody on it yet rather than that
+ *  the learner has no friends, but the useful next step is the same. */
+function BoardEmpty() {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ ...springs.snappy, delay: index * 0.05 }}
-      data-testid="board-row"
-      className={cn(
-        "flex items-center gap-3 rounded-2xl border p-3 shadow-sm",
-        entry.isSelf
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-card-border bg-card",
-      )}
-    >
-      <div
-        className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-black",
-          entry.isSelf
-            ? "bg-white/20 text-primary-foreground"
-            : leading
-              ? "bg-primary/15 text-primary"
-              : "bg-muted text-muted-foreground",
-        )}
-      >
-        {leading ? <Medal className="h-5 w-5" /> : <span className="text-sm">{rank}</span>}
+    <div className="space-y-4">
+      <EmptyState pose="thinking" title="Your board is waiting" body={BOARD_EMPTY_BODY} />
+      <div className="flex justify-center">
+        <Link href="/friends">
+          <Button className="rounded-2xl font-black">
+            <Users className="mr-2 h-4 w-4" /> Add friends
+          </Button>
+        </Link>
       </div>
-
-      <MascotAvatar user={entry} className={cn(entry.isSelf && "bg-white/20")} />
-
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-bold leading-tight">
-          {displayNameFor(entry)}
-          {entry.isSelf && (
-            <span className="ml-1.5 text-xs font-bold opacity-80">(You)</span>
-          )}
-          {/* Gold for status somebody paid for, and only while it is live. */}
-          {entry.firstClassActive && (
-            <span className="ml-1.5 align-middle">
-              <FirstClassChip />
-            </span>
-          )}
-        </p>
-        <p
-          className={cn(
-            "text-xs font-medium",
-            entry.isSelf
-              ? "text-primary-foreground/80"
-              : "text-muted-foreground",
-          )}
-        >
-          Rank #{rank}
-        </p>
-      </div>
-
-      <div className="flex shrink-0 items-center gap-4">
-        <Stat
-          icon={Trophy}
-          value={entry.xp}
-          unit="XP"
-          onPrimary={entry.isSelf}
-        />
-        <Stat
-          icon={Flame}
-          value={entry.currentStreakDays}
-          unit={entry.currentStreakDays === 1 ? "day" : "days"}
-          onPrimary={entry.isSelf}
-        />
-        {/* ONLY ON THE GLOBAL BOARD, AND NEVER ON YOUR OWN ROW. A friends board
-            is people you accepted; a flag there is a bug report about somebody
-            you already chose. Reporting yourself is a misclick the server
-            quietly ignores, so the control simply is not drawn. */}
-        {scope === "all" && !entry.isSelf && (
-          <LearnerSafetyButton
-            userId={entry.userId}
-            username={entry.username ?? entry.displayName ?? null}
-          />
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
-/** One number on a board row. Two of these replaced the single metric line. */
-function Stat({
-  icon: Icon,
-  value,
-  unit,
-  onPrimary,
-}: {
-  icon: LucideIcon;
-  value: number;
-  unit: string;
-  onPrimary: boolean;
-}) {
-  return (
-    <span className="flex items-baseline gap-1">
-      <Icon
-        className={cn(
-          "h-3.5 w-3.5 self-center",
-          onPrimary ? "text-primary-foreground/80" : "text-muted-foreground",
-        )}
-      />
-      <span className="text-lg font-black tabular-nums">{value}</span>
-      <span
-        className={cn(
-          "text-[10px] font-bold uppercase tracking-wider",
-          onPrimary ? "text-primary-foreground/70" : "text-muted-foreground",
-        )}
-      >
-        {unit}
-      </span>
-    </span>
-  );
-}
-
-function BoardList({
-  entries,
-  scope,
-}: {
-  entries: LeaderboardEntry[];
-  scope: BoardScope;
-}) {
-  // With nobody but the learner on it, a board is a mirror. Send them to
-  // /friends, which is where standing is actually changed. On the global scope
-  // that emptiness means the app has nobody on it yet rather than that the
-  // learner has no friends, but the useful next step is the same either way.
-  if (entries.length <= 1) {
-    return (
-      <div className="space-y-4">
-        <EmptyState
-          pose="thinking"
-          title="Your board is waiting"
-          body={BOARD_EMPTY_BODY}
-        />
-        <div className="flex justify-center">
-          <Link href="/friends">
-            <Button className="rounded-2xl font-black">
-              <Users className="mr-2 h-4 w-4" /> Add friends
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const ranked = [...entries].sort(compareEntries);
-  return (
-    <div className="space-y-3">
-      {ranked.map((entry, i) => (
-        <BoardRow
-          key={entry.userId}
-          entry={entry}
-          rank={i + 1}
-          index={i}
-          scope={scope}
-        />
-      ))}
     </div>
   );
 }
@@ -598,6 +420,18 @@ export default function Leaderboard() {
       },
     });
 
+  // XP OR STREAK RANKS (build 23; the mockup's two pills). One payload, two
+  // orders: the toggle changes the sort and nothing else.
+  const [metric, setMetric] = useState<BoardMetric>("xp");
+  const entries = useMemo(() => data ?? [], [data]);
+  const ranked = useMemo(() => rankEntries(entries, metric), [entries, metric]);
+  const selfIndex = ranked.findIndex((e) => e.isSelf);
+  const selfRank = selfIndex >= 0 ? selfIndex + 1 : null;
+  const deltas = useRankDeltas(
+    data ? `${scope}:${metric}:${weekKey(new Date())}` : null,
+    ranked,
+  );
+
   return (
     <div className="min-h-[100dvh] bg-background pb-nav lg:pb-12">
       <header className="relative mx-auto flex w-full max-w-3xl flex-col items-center px-6 pb-4 pt-6 text-center">
@@ -609,6 +443,11 @@ export default function Leaderboard() {
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <Mascot pose="thumbsup" size={96} idle="float" className="mb-2" />
+        {/* WHAT BOLO SAYS (build 23): the learner's standing in one line, in a
+            bubble under the bird with its tail pointing up at her. */}
+        <SpeechBubble tail="up" className="mb-3" testId="board-bubble">
+          {boardBubbleLine(data ? selfRank : null)}
+        </SpeechBubble>
         <h1 className="mb-1 text-3xl font-extrabold text-foreground lg:text-4xl">
           Leaderboard
         </h1>
@@ -676,8 +515,18 @@ export default function Leaderboard() {
                     )}
                   </Button>
                 </div>
+              ) : entries.length <= 1 ? (
+                <BoardEmpty />
               ) : (
-                <BoardList entries={data ?? []} scope={scope} />
+                <div className="space-y-3.5">
+                  <MetricToggle metric={metric} onChange={setMetric} />
+                  <WeeklyRaceBar
+                    rank={data ? selfRank : null}
+                    delta={selfIndex >= 0 ? deltas[ranked[selfIndex].userId] : undefined}
+                    metricLabel={metric === "xp" ? "XP" : "streak"}
+                  />
+                  <LeaderboardBoard ranked={ranked} metric={metric} deltas={deltas} scope={scope} />
+                </div>
               )}
 
               {/* THE BOARD AND THE FEED SHARE THIS TAB. The feed owns its

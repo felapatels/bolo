@@ -196,7 +196,12 @@ describe("Leaderboard", () => {
     expect(screen.queryByText("Rank #2")).not.toBeInTheDocument();
   });
 
-  test("ranks entries and highlights the learner's own row", () => {
+  // BUILD 23: the tab draws the shared board (podium plus rows, the same one
+  // /leaderboard draws, ported from mobile build 22). The first three sit on
+  // the podium, the learner's own seat or row says "You" rather than the
+  // name with "(You)" after it, and the self-highlight belongs to a ROW
+  // below the podium, which is why the highlight case has four learners.
+  test("ranks entries on the podium and names the learner You", () => {
     h.leaderboard = successQuery([rival, me, third]);
     renderFriends(<Friends />);
 
@@ -204,18 +209,30 @@ describe("Leaderboard", () => {
     expect(screen.getByText("Dev")).toBeInTheDocument();
     expect(screen.getByText("Priya")).toBeInTheDocument();
 
-    // The learner's own row is marked with "(You)".
-    const you = screen.getByText("(You)");
-    expect(you).toBeInTheDocument();
-
-    // And it carries the self-highlight styling, not a plain card.
-    const selfRow = you.closest("div.rounded-2xl");
-    expect(selfRow).not.toBeNull();
-    expect(selfRow!.className).toContain("bg-primary");
+    // The learner is second, so they hold the podium's second seat, as "You".
+    const you = screen.getByText("You");
+    expect(you.closest('[data-testid="podium-2"]')).not.toBeNull();
 
     // XP is rendered for the entries.
     expect(screen.getByText("500")).toBeInTheDocument();
     expect(screen.getByText("240")).toBeInTheDocument();
+  });
+
+  test("the learner's own row below the podium carries the self highlight", () => {
+    h.leaderboard = successQuery([
+      rival,
+      { ...third, userId: "second", displayName: "Kabir", xp: 300, rank: 2 },
+      third,
+      { ...me, xp: 40, rank: 4 },
+    ]);
+    renderFriends(<Friends />);
+
+    const you = screen.getByText("You");
+    const selfRow = you.closest('[data-testid="board-row"]');
+    expect(selfRow).not.toBeNull();
+    expect(selfRow!.className).toContain("bg-primary");
+    // And it says what it would take to pass the row above (90 XP, so 51).
+    expect(screen.getByText("51 XP to pass #3")).toBeInTheDocument();
   });
 
   test("every row wears that learner's own outfit, undressed when they have none", () => {
@@ -230,22 +247,26 @@ describe("Leaderboard", () => {
     ]);
     renderFriends(<Friends />);
 
+    // PODIUM ORDER SINCE BUILD 23: the seats are drawn second, first, third
+    // (silver on the left, gold raised in the middle, bronze on the right),
+    // so the DOM runs me, rival, Priya. Was rank order while the tab drew a
+    // plain list.
     const rows = screen.getAllByTestId("row-mascot");
     expect(rows.map((r) => r.getAttribute("data-outfit"))).toEqual([
-      "kurta",
       "sherwani",
+      "kurta",
       "none",
     ]);
     // The head slot travels with the garment: shipping only the outfit would
     // show a pagdi-wearing friend bare-headed.
-    expect(rows[0].getAttribute("data-accessory")).toBe("pagdi");
+    expect(rows[1].getAttribute("data-accessory")).toBe("pagdi");
 
     // And the outfit reaches the ART, not just the wrapper.
     const srcs = rows.map((r) =>
       Array.from(r.querySelectorAll("img")).map((i) => i.getAttribute("src")).join(" "),
     );
-    expect(srcs[0]).toContain("outfits/kurta/mascot-wave.png");
-    expect(srcs[1]).toContain("outfits/sherwani/mascot-wave.png");
+    expect(srcs[1]).toContain("outfits/kurta/mascot-wave.png");
+    expect(srcs[0]).toContain("outfits/sherwani/mascot-wave.png");
     expect(srcs[2]).toContain("mascot-wave.png");
     expect(srcs[2]).not.toContain("outfits/");
   });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import {
@@ -17,7 +17,6 @@ import {
   getGetFriendsLeaderboardQueryKey,
   type FriendRequest,
   type Friend,
-  type LeaderboardEntry,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@workspace/api-client-react";
@@ -31,8 +30,6 @@ import {
   X,
   Trash2,
   Loader2,
-  Crown,
-  Medal,
   Trophy,
   AlertCircle,
   Clock,
@@ -42,8 +39,10 @@ import { normalizeReferralCode, referralLink } from "@/lib/referral-code";
 import { copyReferralLink, shareReferralLink } from "@/lib/referral-share";
 import { FunFactSectionLoader } from "@/components/fun-fact-loader";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LeaderboardBoard } from "@/components/leaderboard/leaderboard-board";
+import { rankEntries, weekKey } from "@/lib/boardRanking";
+import { useRankDeltas } from "@/lib/useRankDeltas";
 import { motion, AnimatePresence } from "framer-motion";
-import { springs } from "@/lib/motion";
 import { Mascot } from "@/components/mascot";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -247,9 +246,30 @@ export default function Friends() {
 
 /* ----------------------------- Leaderboard ------------------------------ */
 
+/**
+ * THE SAME BOARD AS THE LEADERBOARD PAGE (build 23; mobile build 22): the
+ * podium and the rows are shared components over shared arithmetic, so this
+ * tab cannot drift from the page home links to. It used to draw its own
+ * rows off the server's all-time order.
+ *
+ * THE WEEK, LIKE THE LEADERBOARD PAGE. This tab fetched all-time XP while
+ * /leaderboard fetched the week, so the same learner could be #2 here and
+ * #4 there. One window ends it. Friends only: this is the friends page, and
+ * the flag that opens report-or-block never draws on a friends board.
+ */
+const FRIENDS_BOARD_PARAMS = { window: "week", scope: "friends" } as const;
+
 function LeaderboardTab() {
   const { data, isLoading, isError, refetch, isFetching } =
-    useGetFriendsLeaderboard();
+    useGetFriendsLeaderboard(FRIENDS_BOARD_PARAMS, {
+      query: { queryKey: getGetFriendsLeaderboardQueryKey(FRIENDS_BOARD_PARAMS) },
+    });
+  const entries = useMemo(() => data ?? [], [data]);
+  const ranked = useMemo(() => rankEntries(entries, "xp"), [entries]);
+  const deltas = useRankDeltas(
+    data ? `friends:xp:${weekKey(new Date())}` : null,
+    ranked,
+  );
 
   if (isLoading) return <SectionLoader />;
 
@@ -263,9 +283,7 @@ function LeaderboardTab() {
     );
   }
 
-  const entries = data ?? [];
-
-  // With no friends the board only holds the learner — nudge them to add some.
+  // With no friends the board only holds the learner: nudge them to add some.
   if (entries.length <= 1) {
     return (
       <EmptyState
@@ -277,25 +295,10 @@ function LeaderboardTab() {
   }
 
   return (
-    <div className="space-y-3 animate-content-enter">
-      {entries.map((entry, i) => (
-        <LeaderboardRow key={entry.userId} entry={entry} index={i} />
-      ))}
+    <div className="animate-content-enter">
+      <LeaderboardBoard ranked={ranked} metric="xp" deltas={deltas} scope="friends" />
     </div>
   );
-}
-
-function rankStyles(rank: number) {
-  switch (rank) {
-    case 1:
-      return { ring: "text-amber-400", bg: "bg-amber-400/15" };
-    case 2:
-      return { ring: "text-slate-400", bg: "bg-slate-400/15" };
-    case 3:
-      return { ring: "text-orange-400", bg: "bg-orange-400/15" };
-    default:
-      return { ring: "text-muted-foreground", bg: "bg-muted" };
-  }
 }
 
 /**
@@ -364,84 +367,6 @@ function GhostLeaderboard() {
         them add you.
       </p>
     </div>
-  );
-}
-
-function LeaderboardRow({
-  entry,
-  index,
-}: {
-  entry: LeaderboardEntry;
-  index: number;
-}) {
-  const styles = rankStyles(entry.rank);
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ ...springs.snappy, delay: index * 0.05 }}
-      className={cn(
-        "flex items-center gap-3 rounded-2xl p-3 border shadow-sm card-lift",
-        entry.isSelf
-          ? "bg-primary text-primary-foreground border-primary"
-          : "bg-card border-card-border",
-      )}
-    >
-      <div
-        className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-black",
-          entry.isSelf ? "bg-white/20 text-primary-foreground" : styles.bg,
-          !entry.isSelf && styles.ring,
-        )}
-      >
-        {entry.rank <= 3 ? (
-          <Medal className="w-5 h-5" />
-        ) : (
-          <span className="text-sm">{entry.rank}</span>
-        )}
-      </div>
-
-      <MascotAvatar
-        user={entry}
-        className={cn(entry.isSelf && "bg-white/20")}
-      />
-
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-bold leading-tight">
-          {displayNameFor(entry)}
-          {entry.isSelf && (
-            <span className="ml-1.5 text-xs font-bold opacity-80">(You)</span>
-          )}
-        </p>
-        <p
-          className={cn(
-            "text-xs font-medium",
-            entry.isSelf ? "text-primary-foreground/80" : "text-muted-foreground",
-          )}
-        >
-          Rank #{entry.rank}
-        </p>
-      </div>
-
-      <div className="flex items-center gap-1.5 shrink-0">
-        <Crown
-          className={cn(
-            "w-4 h-4",
-            entry.isSelf ? "text-amber-300" : "text-amber-400",
-          )}
-          fill="currentColor"
-        />
-        <span className="text-lg font-black tabular-nums">{entry.xp}</span>
-        <span
-          className={cn(
-            "text-[10px] font-bold uppercase tracking-wider",
-            entry.isSelf ? "text-primary-foreground/70" : "text-muted-foreground",
-          )}
-        >
-          XP
-        </span>
-      </div>
-    </motion.div>
   );
 }
 

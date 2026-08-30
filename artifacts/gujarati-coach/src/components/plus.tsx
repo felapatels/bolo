@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { Crown, Lock, ArrowRight, Ticket } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GOLD } from "@/lib/gold";
 
 // Shared "All-Access" visual language for the locked-but-visible upgrade
 // experience. All-Access is expressed as a warm orange -> pink gradient (the
@@ -166,9 +167,6 @@ const ALL_ACCESS = {
   brass: "#9A6B1C",
 } as const;
 
-/** Mobile's gold (constants/colors.ts, light). Web has no gold token. */
-const ALL_ACCESS_GOLD = "#F59E0B";
-
 /**
  * ONE CARD FOR THE WHOLE UPSELL (build 23, ported from mobile build 22, the
  * owner's Progress mockup: "Go deeper with All-Access"). A warm paper card
@@ -219,7 +217,7 @@ export function AllAccessCard({
         </p>
         <span
           className="mt-2.5 inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-extrabold"
-          style={{ backgroundColor: ALL_ACCESS_GOLD, color: "#1a1200" }}
+          style={{ backgroundColor: GOLD, color: "#1a1200" }}
         >
           Explore All-Access
           <ArrowRight className="h-4 w-4" />

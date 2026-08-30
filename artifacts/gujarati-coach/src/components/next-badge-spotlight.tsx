@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Train, Trophy } from "lucide-react";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { findNearestLockedBadge, progressRatio } from "@/lib/badge-progress";
+import { GOLD } from "@/lib/gold";
 import { TICKET } from "@/lib/ticket-stock";
 
 /**
@@ -30,8 +31,6 @@ export function milestoneUnit(description: string): string {
   return "";
 }
 
-/** Mobile's gold (constants/colors.ts, light). Web has no gold token. */
-const GOLD = "#F59E0B";
 const STAMP = 72;
 
 const stock: React.CSSProperties = {
