@@ -3048,7 +3048,10 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
       var head = "<tr>" +
         (ranked ? "<th>In window</th>" : "") +
         "<th>Who</th><th>Email</th><th>Plan</th><th>On</th><th>Joined</th>" +
-        "<th>Last practised</th><th>Attempts</th><th>Shares</th></tr>";
+        /* "Last seen", not "Last practised". It now spans attempts, chat and
+           games, and the old word was what turned a chatting learner into an
+           apparent case of missing data. */
+        "<th>Last seen</th><th>Did</th><th>Shares</th></tr>";
       var body = "", i;
       for (i = 0; i < d.rows.length; i++) {
         var r = d.rows[i];
@@ -3081,7 +3084,17 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
             : '<span class="ddim">not recorded</span>') + "</td>" +
           "<td>" + esc(shortDate(r.createdAt)) + "</td>" +
           "<td>" + (r.lastActiveAt ? esc(shortDate(r.lastActiveAt)) : '<span class="ddim">never</span>') + "</td>" +
-          '<td class="num">' + fmt(r.attempts) + "</td>" +
+          /* WHAT THEY DID, not just what they were scored on. An account with
+             no attempts but eight chat turns used the app; showing a bare 0
+             said the opposite, and read as lost data. Attempts stay first
+             because they are the thing the rest of this page counts. */
+          '<td class="num">' + (function(){
+            var bits = [];
+            if (r.attempts) bits.push(fmt(r.attempts) + " att");
+            if (r.chats) bits.push(fmt(r.chats) + " chat");
+            if (r.games) bits.push(fmt(r.games) + " game");
+            return bits.length ? esc(bits.join(", ")) : '<span class="ddim">nothing</span>';
+          })() + "</td>" +
           "<td>" + (r.shareStats ? "yes" : '<span class="ddim">no</span>') + "</td>" +
           "</tr>";
       }

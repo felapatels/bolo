@@ -534,7 +534,10 @@ type NestDrillRow = {
   currentPeriodEnd: string | null;
   shareStats: boolean;
   createdAt: string;
-  /** Most recent attempt, or null for somebody who has never practised. */
+  /**
+   * Most recent activity OF ANY KIND: an attempt, a chat turn or a game. Null
+   * only for somebody who has genuinely done nothing.
+   */
   lastActiveAt: string | null;
   /**
    * The platform of their most recent TAGGED attempt: ios_app, android_app,
@@ -553,6 +556,10 @@ type NestDrillRow = {
    * which needs a release. See lib/clientPlatform.
    */
   build: string | null;
+  /** Lifetime chat turns and finished games, so activity that is not a scored
+   *  attempt still shows. See the query for why this exists. */
+  chats: number;
+  games: number;
   /** Lifetime attempts, so a row reads as a person rather than an id. */
   attempts: number;
   /** The number this metric ranked on, within the window where one applies. */
@@ -739,7 +746,22 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
              u.share_stats, u.created_at,
              picked.metric_value,
              (select count(*) from attempts a2 where a2.user_id = u.id)::int as attempts,
-             (select max(a3.created_at) from attempts a3 where a3.user_id = u.id) as last_active,
+             -- CHAT AND GAMES TOO, because attempts alone made a real learner
+             -- read as inert. 2026-08-30: an account showed "0 attempts, never
+             -- practised" while its owner said he had used the app, and he had:
+             -- 8 chat turns in Hindi, three minutes after signing up, and no
+             -- scored attempt. The number was right about attempts and wrong
+             -- about him.
+             (select count(*) from chat_turns c2 where c2.user_id = u.id)::int as chats,
+             (select count(*) from game_sessions g2 where g2.user_id = u.id)::int as games,
+             -- LAST SEEN, not last practised. greatest() ignores nulls, so
+             -- somebody who only ever chatted still has a date rather than
+             -- "never", which is the word that made this look like data loss.
+             greatest(
+               (select max(a3.created_at) from attempts a3 where a3.user_id = u.id),
+               (select max(c3.created_at) from chat_turns c3 where c3.user_id = u.id),
+               (select max(g3.created_at) from game_sessions g3 where g3.user_id = u.id)
+             ) as last_active,
              -- Their MOST RECENT tagged attempt, which is "what they are on
              -- now". Attempts predating the tag have no platform: at the time
              -- of writing that is 308 of 528 rows, so a null here means "before
@@ -798,6 +820,8 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
         createdAt: new Date(r.created_at as string).toISOString(),
         lastActiveAt: r.last_active == null ? null : new Date(r.last_active as string).toISOString(),
         attempts: Number(r.attempts ?? 0),
+        chats: Number(r.chats ?? 0),
+        games: Number(r.games ?? 0),
         metricValue: Number(r.metric_value ?? 0),
       })),
     };
