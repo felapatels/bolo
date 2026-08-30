@@ -17,8 +17,8 @@
  *    the 700ms budget. Press is a deeper 0.93 squash with a brief glow in
  *    the card's own hue; navigating into a game steps the card toward the
  *    viewer (1.05, web springs.snappy) without ever delaying navigation.
- *  - Bolo reacts to the hub opening: one whole-image bounce, once per mount,
- *    never looping (canonical mascot rule: whole-image transforms only).
+ *  - Bolo is IN the hero painting now (build 21); the overlay bounce went
+ *    with the overlay.
  *  - Reduced motion: fully static - no cascade, no squash, no glow, no
  *    step-in, no mascot bounce, vignettes hold their settled frames.
  *
@@ -29,34 +29,37 @@
 import React from 'react';
 import {
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type ViewToken,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, {
-  Easing,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withDelay,
-  withSequence,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppearSkip } from '@/lib/entrance';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { hapticTap } from '@/lib/haptics';
-import { Mascot } from '@/components/Mascot';
-import { GlobeButton } from '@/components/GlobeButton';
 import { GamePreview, type VignetteInk } from '@/components/games/GamePreview';
+import { GAMES_HERO, gameArt } from '@/lib/gameArt';
+import { readLastPlayedGame, writeLastPlayedGame } from '@/lib/lastPlayedGame';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { getJourneyLine } from '@/lib/journeyLines';
+import { useJourneyProgress } from '@/lib/useJourneyProgress';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -300,6 +303,9 @@ const GAME_COLORS: Record<string, GameColor> = {
   // Part 2 wears a deeper cut of Part 1's colour: the same game, further down
   // the line. A brand-new hue would read as an unrelated game.
   'wrong-platform-2': { from: '#A81C58', to: '#821242', deep: '#5E0D30', ink: '#821242', glow: 'rgba(168,28,88,0.55)' },
+  // chai-stall terracotta: his awning and his kulhads. He had no entry and
+  // fell to the grey fallback, which showed the moment his card had a picture.
+  'chacha-call': { from: '#D9702F', to: '#A8461A', deep: '#7E330F', ink: '#A8461A', glow: 'rgba(217,112,47,0.55)' },
   // deep teal
   'luggage-match': { from: '#17897E', to: '#0B5F58', deep: '#084741', ink: '#0B5F58', glow: 'rgba(23,137,126,0.55)' },
   // express indigo
@@ -365,20 +371,82 @@ function cardEntering(index: number) {
   };
 }
 
+/**
+ * THE HUB, REBUILT TO THE OWNER'S MOCKUP (build 21: "lets pivot to make games
+ * like this. big images, very colorful etc", "a hero header up top").
+ *
+ * Three bands. A HERO across the top: the painting from lib/gameArt's
+ * GAMES_HERO under a cream wash on its left half, the heading, the tagline,
+ * the language and the learner's current city, and Bolo at the right doing
+ * his one bounce. CONTINUE PLAYING: the last game the device remembers, as a
+ * wide card with its picture and a Play again button; absent until a game
+ * has been played. ALL GAMES: the same two-column grid, but each tile is now
+ * an ivory card with a big 4:3 painting on top, the vignette medallion
+ * overlapping the painting's bottom-left, the access badge on the painting's
+ * top-right, and the words in ink beneath, so the grid reads as a wall of
+ * pictures rather than a wall of enamel boards.
+ *
+ * WHAT THE MOCKUP SHOWS THAT THE SERVER CANNOT YET: "Personal best" and
+ * "Level" per game. POST /game-sessions records sessions and nothing reads
+ * them back per game, so those lines are not drawn rather than invented.
+ * The foot of each card carries the difficulty, and the lock where it is
+ * locked. The mockup's Filter pill is not drawn either: there is nothing to
+ * filter by until best scores exist.
+ *
+ * EXPLICIT POINTS FOR EVERY PICTURE (the chat 11 render trap): the card's
+ * width comes from the window and the grid's paddings, and the painting is
+ * that width by three quarters of it, never a percentage.
+ */
+const GRID_PAD = 16;
+const GRID_GAP = 10;
+const HERO_H = 236;
+
 export default function GamesScreen() {
   const colors = useColors();
   const skipEnter = useAppearSkip();
   const reduceMotion = useReducedMotion();
   const router = useRouter();
+  const { width: windowW } = useWindowDimensions();
+  // The hero runs under the status bar and the floating XP and Chai strip
+  // (build 21): its height carries the inset, and its words start below the
+  // strip.
+  const insets = useSafeAreaInsets();
+  const heroH = HERO_H + insets.top;
+  const heroWordsTop = insets.top + 52;
   const { isPlus, isLoading: entitlementsLoading } = useEntitlements();
   // Fail closed: while entitlements are loading (or undefined), Plus-only
   // tiles render locked rather than briefly unlocked.
   const plusReady = isPlus === true && !entitlementsLoading;
+  const { activeLang, activeLanguage } = useLanguage();
+  const line = getJourneyLine(activeLang);
+  // The learner's current city for the hero's "Hindi · New Delhi" line: the
+  // same journey read the home pass makes, cached between the two.
+  const journey = useJourneyProgress(activeLang, line.zones);
+  const city = journey.current ? journey.current.geoName : line.zones[0];
 
   // Step-in: the card being navigated into scales slightly toward the viewer
   // while the route transitions. State only ever selects the animate target -
   // navigation happens immediately and is never delayed.
   const [enteredId, setEnteredId] = React.useState<string | null>(null);
+
+  // THE LAST GAME PLAYED, read on every focus so a game just played is the
+  // one offered on the way back out of it.
+  const [lastPlayed, setLastPlayed] = React.useState<string | null>(null);
+  useFocusEffect(
+    React.useCallback(() => {
+      let live = true;
+      readLastPlayedGame().then((id) => {
+        if (live) setLastPlayed(id);
+      });
+      return () => {
+        live = false;
+      };
+    }, []),
+  );
+  const continueGame = React.useMemo(
+    () => GAMES.find((g) => g.id === lastPlayed) ?? null,
+    [lastPlayed],
+  );
 
   // FlatList viewability drives vignette pausing (the mobile stand-in for
   // the web IntersectionObserver). Null = callback has not fired yet (fresh
@@ -392,34 +460,6 @@ export default function GamesScreen() {
   ).current;
   const viewabilityConfig = React.useRef({ itemVisiblePercentThreshold: 5 }).current;
 
-  // Bolo reacts to the hub opening - one whole-image bounce timed to the
-  // cascade start, once per mount, never looping.
-  const mascotY = useSharedValue(0);
-  const mascotRot = useSharedValue(0);
-  React.useEffect(() => {
-    if (skipEnter || reduceMotion) return;
-    mascotY.value = withDelay(
-      80,
-      withSequence(
-        withTiming(-9, { duration: 220, easing: Easing.out(Easing.quad) }),
-        withTiming(0, { duration: 330, easing: Easing.out(Easing.quad) }),
-      ),
-    );
-    mascotRot.value = withDelay(
-      80,
-      withSequence(
-        withTiming(-7, { duration: 180, easing: Easing.out(Easing.quad) }),
-        withTiming(4, { duration: 180, easing: Easing.inOut(Easing.quad) }),
-        withTiming(0, { duration: 190, easing: Easing.out(Easing.quad) }),
-      ),
-    );
-    // One-shot on mount only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const mascotStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: mascotY.value }, { rotate: `${mascotRot.value}deg` }],
-  }));
-
   const handleGamePress = (game: GameDef) => {
     if (game.plusOnly && !plusReady) {
       // Locked cards route to the paywall and skip the step-in.
@@ -427,29 +467,111 @@ export default function GamesScreen() {
       return;
     }
     if (!reduceMotion) setEnteredId(game.id);
+    void writeLastPlayedGame(game.id);
     router.push((game.route ?? `/(app)/(tabs)/games/${game.id}`) as never);
   };
 
-  return (
-    <Screen>
-      <View style={styles.head}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.h1, { color: colors.foreground }]}>Games</Text>
-          <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-            Play your way to fluency
-          </Text>
+  // The grid's card width, in points, so every painting is sized exactly.
+  const cardW = Math.floor((windowW - GRID_PAD * 2 - GRID_GAP) / 2);
+
+  const header = (
+    <View>
+      {/* THE HERO. The painting, a cream wash over its left half for the
+          words, and Bolo on the right. Bleeds to the screen edges; the grid
+          below keeps the column. */}
+      <View style={[styles.hero, { width: windowW, height: heroH }]} testID="games-hero">
+        {/* ANCHORED TO THE PAINTING'S LEFT EDGE, not centred: the brief put
+            the parrot in the right third and left the left half open for the
+            words, and a centred cover crop threw a third of that away and
+            slid the boiler under the tagline. The picture is 16:9; sized
+            off the hero's height and left at 0, the overflow is clipped on
+            the right, where only platform and roof were. */}
+        <Image
+          source={GAMES_HERO}
+          resizeMode="cover"
+          style={{
+            position: 'absolute',
+            // A third of the way from left-anchored to centred: the words keep
+            // the pale left, and the parrot keeps his face.
+            left: -Math.round((Math.round((heroH * 16) / 9) - windowW) * 0.34),
+            top: 0,
+            width: Math.round((heroH * 16) / 9),
+            height: heroH,
+          }}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
+        <LinearGradient
+          // Lighter than the first cut (owner: "make the hero less
+          // transparent"): the painting shows through the words' side too.
+          colors={['rgba(251,243,230,0.66)', 'rgba(251,243,230,0.4)', 'rgba(251,243,230,0)']}
+          locations={[0, 0.5, 0.82]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <LinearGradient
+          colors={['rgba(251,243,230,0)', colors.background]}
+          locations={[0.72, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.heroWords, { top: heroWordsTop }]}>
+          <Text style={styles.heroTitle}>Games</Text>
+          <Text style={styles.heroSub}>Play your way to fluency</Text>
+          {/* THE LANGUAGE LINE IS THE LANGUAGE SWITCH (build 21). The globe
+              disc that used to sit in the corner landed on the parrot's face
+              once the hero was a painting; the mockup has no globe, and the
+              line already names the language, so it opens the same picker. */}
+          <Pressable
+            testID="games-language-line"
+            accessibilityRole="button"
+            accessibilityLabel={`Learning ${activeLanguage?.name ?? 'a language'}. Change language`}
+            hitSlop={8}
+            onPress={() => {
+              hapticTap('light');
+              router.push('/(app)/language');
+            }}
+            style={styles.heroWhere}
+          >
+            <Feather name="map-pin" size={14} color="#4F46E5" />
+            <Text style={styles.heroWhereText}>
+              {activeLanguage?.name ?? 'Your language'}
+              <Text style={styles.heroDot}>  ·  </Text>
+              {city}
+            </Text>
+            <Feather name="chevron-down" size={14} color="#4F46E5" />
+          </Pressable>
         </View>
-        <GlobeButton style={{ marginRight: 8 }} />
-        <Animated.View style={mascotStyle}>
-          <Mascot pose="cheer" size={64} />
-        </Animated.View>
+        {/* NO MASCOT OVERLAY (build 21): the hero painting carries the parrot
+            himself, waving with his controller; the app's dressed Mascot on top
+            of him made two birds on the first simulator look. */}
       </View>
 
+      {continueGame && (
+        <View style={styles.section}>
+          <SectionEyebrow>Continue playing</SectionEyebrow>
+          <ContinueCard
+            game={continueGame}
+            locked={continueGame.plusOnly && !plusReady}
+            onPress={() => handleGamePress(continueGame)}
+          />
+        </View>
+      )}
+
+      <View style={[styles.section, { marginBottom: 4 }]}>
+        <SectionEyebrow>All games</SectionEyebrow>
+      </View>
+    </View>
+  );
+
+  return (
+    <Screen padTop={false}>
       <FlatList
         data={GAMES}
         keyExtractor={(g) => g.id}
         numColumns={2}
         columnWrapperStyle={styles.column}
+        ListHeaderComponent={header}
         contentContainerStyle={[styles.list, { paddingBottom: TAB_BAR_CLEARANCE }]}
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
@@ -458,6 +580,7 @@ export default function GamesScreen() {
           <GameCardTile
             game={item}
             index={index}
+            cardW={cardW}
             locked={item.plusOnly && !plusReady}
             entered={enteredId === item.id}
             visible={visibleIds ? visibleIds.has(item.id) : true}
@@ -471,9 +594,98 @@ export default function GamesScreen() {
   );
 }
 
+/** The small violet caption over each band, with the mockup's spark. */
+function SectionEyebrow({ children }: { children: string }) {
+  return (
+    <View style={styles.eyebrowRow}>
+      <Text style={styles.eyebrow}>{children.toUpperCase()}</Text>
+      <Text style={styles.eyebrowSpark}>✦</Text>
+    </View>
+  );
+}
+
+/** The access badge: FREE in green, ALL-ACCESS in gold with its star. */
+function AccessPill({ plusOnly }: { plusOnly: boolean }) {
+  return (
+    <View style={[styles.pill, plusOnly ? styles.pillAllAccess : styles.pillFree]}>
+      {plusOnly && <Feather name="star" size={10} color="#4A2C00" />}
+      <Text style={[styles.pillText, { color: plusOnly ? '#4A2C00' : '#FFFFFF' }]}>
+        {plusOnly ? 'All-Access' : 'Free'}
+      </Text>
+    </View>
+  );
+}
+
+/** The difficulty, a dot and a word on a tint of the game's own hue. */
+function DifficultyPill({ game, gc }: { game: GameDef; gc: GameColor }) {
+  return (
+    <View style={[styles.difficultyPill, { backgroundColor: `${gc.from}1F`, borderColor: `${gc.from}55` }]}>
+      <View style={[styles.diffDot, { backgroundColor: DIFFICULTY_DOT[game.difficulty] }]} />
+      <Text style={[styles.difficultyText, { color: gc.ink }]}>{game.difficulty}</Text>
+    </View>
+  );
+}
+
+/**
+ * CONTINUE PLAYING: the last game the device remembers, wide, its picture at
+ * the left and a Play again button at the right. No personal best and no
+ * level yet (see the file comment).
+ */
+function ContinueCard({
+  game,
+  locked,
+  onPress,
+}: {
+  game: GameDef;
+  locked: boolean;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  const gc = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
+  const art = gameArt(game.id);
+  return (
+    <Pressable
+      testID={`continue-${game.id}`}
+      accessibilityRole="button"
+      accessibilityLabel={`Continue playing ${game.title}`}
+      onPress={() => {
+        hapticTap('light');
+        onPress();
+      }}
+      style={[styles.continueCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+    >
+      <View style={styles.continuePicture}>
+        {art != null && (
+          <Image source={art} resizeMode="cover" style={{ width: 124, height: 93 }} />
+        )}
+      </View>
+      <View style={styles.continueBody}>
+        <View style={styles.continueEyebrowRow}>
+          <Feather name={game.icon} size={12} color={gc.ink} />
+          <Text style={[styles.continueEyebrow, { color: gc.ink }]}>{game.title.toUpperCase()}</Text>
+        </View>
+        <Text style={[styles.continueTitle, { color: colors.foreground }]} numberOfLines={1}>
+          {game.title}
+        </Text>
+        <Text style={[styles.continueDesc, { color: colors.mutedForeground }]} numberOfLines={1}>
+          {game.description}
+        </Text>
+        <View style={styles.continueFoot}>
+          <DifficultyPill game={game} gc={gc} />
+          <View style={[styles.playAgain, { backgroundColor: locked ? colors.mutedForeground : '#4F46E5' }]}>
+            <Text style={styles.playAgainText}>{locked ? 'Unlock' : 'Play again'}</Text>
+            <Feather name="arrow-right" size={14} color="#FFFFFF" />
+          </View>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 function GameCardTile({
   game,
   index,
+  cardW,
   locked,
   entered,
   visible,
@@ -483,6 +695,7 @@ function GameCardTile({
 }: {
   game: GameDef;
   index: number;
+  cardW: number;
   locked: boolean;
   entered: boolean;
   visible: boolean;
@@ -490,7 +703,10 @@ function GameCardTile({
   reduceMotion: boolean;
   onPress: () => void;
 }) {
+  const colors = useColors();
   const gc = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
+  const art = gameArt(game.id);
+  const pictureH = Math.round((cardW * 3) / 4);
 
   // Pressed drives both the squash/glow and the vignette wake.
   const [pressed, setPressed] = React.useState(false);
@@ -509,13 +725,13 @@ function GameCardTile({
     // Press squash (0.93) and step-in (1.05) compose on one scale; glow is
     // the per-hue shadow fading in with the press.
     transform: [{ scale: (1 - pressedSV.value * 0.07) * (1 + enteredSV.value * 0.05) }],
-    shadowOpacity: pressedSV.value,
+    shadowOpacity: 0.1 + pressedSV.value * 0.5,
   }));
 
   return (
     <Animated.View
       entering={skipEnter || reduceMotion ? undefined : cardEntering(index)}
-      style={styles.cell}
+      style={[styles.cell, { width: cardW }]}
     >
       <AnimatedPressable
         // Named so the hub can be driven in a test at all. Maestro's text
@@ -543,82 +759,64 @@ function GameCardTile({
         style={[
           styles.card,
           {
-            // The deeper hue is both the border and the chunky bottom edge
-            // the board appears to sit on (web parity: a hard 0 5px shadow).
-            borderColor: gc.deep,
-            borderBottomColor: gc.deep,
-            backgroundColor: gc.to,
+            backgroundColor: colors.card,
+            borderColor: colors.border,
             shadowColor: gc.glow,
           },
           motionStyle,
         ]}
       >
-        {/* Painted enamel face. */}
-        <LinearGradient
-          colors={[gc.from, gc.to]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        {/* Access badge — its own right-aligned row, in normal flow.
-            It cannot share the medallion's row and it cannot be pinned to the
-            corner: "ALL-ACCESS" measures ~103pt at 10pt extrabold, while a
-            two-column card's content box is only ~146pt and the 64pt medallion
-            claims the left 64 of that. Pinned at top/right:0 the badge sits
-            hard against the border (absolute insets resolve against the
-            PADDING BOX, so the card's 12pt padding does not inset it) and
-            already overlaps the medallion by ~9pt at 390pt wide; any inset big
-            enough to look padded drives it further in. On its own row it gets
-            the card's full 12pt padding on all four sides at every width. */}
-        <View style={styles.pillRow}>
-          <View
-            style={[
-              styles.pill,
-              game.plusOnly ? styles.pillAllAccess : styles.pillFree,
-            ]}
-          >
-            {game.plusOnly && <Feather name="star" size={10} color="#4A2C00" />}
-            <Text
-              style={[styles.pillText, { color: game.plusOnly ? '#4A2C00' : '#FFFFFF' }]}
-            >
-              {game.plusOnly ? 'All-Access' : 'Free'}
-            </Text>
+        {/* THE PICTURE, 4:3, in explicit points. Locked games keep their
+            colour (an All-Access card is a promise, not a broken tile) and
+            take a light dim so the lock reads. */}
+        <View style={[styles.pictureBox, { width: cardW - 2, height: pictureH }]}>
+          {art != null ? (
+            <Image
+              source={art}
+              resizeMode="cover"
+              style={{ width: cardW - 2, height: pictureH }}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            />
+          ) : (
+            <LinearGradient colors={[gc.from, gc.to]} style={StyleSheet.absoluteFill} />
+          )}
+          {locked && <View style={styles.pictureDim} />}
+          <View style={styles.badgeCorner}>
+            <AccessPill plusOnly={game.plusOnly} />
+          </View>
+          {/* The vignette medallion, overlapping the picture's foot: the
+              same looping preview as before, on its cream disc, now a
+              picture-in-picture rather than the whole face of the card. */}
+          <View style={styles.medallion}>
+            <GamePreview
+              gameId={game.id}
+              index={index}
+              playing={!reduceMotion && (locked ? pressed : visible || pressed)}
+              tempo={pressed ? 1 : 2.2}
+              holdMidCycle={locked && !reduceMotion}
+              ink={MEDALLION_INK}
+              fallback={<Feather name={game.icon} size={24} color={gc.ink} />}
+            />
           </View>
         </View>
-        {/* Vignette medallion */}
-        <View style={styles.medallion}>
-          <GamePreview
-            gameId={game.id}
-            index={index}
-            playing={!reduceMotion && (locked ? pressed : visible || pressed)}
-            tempo={pressed ? 1 : 2.2}
-            holdMidCycle={locked && !reduceMotion}
-            ink={MEDALLION_INK}
-            fallback={<Feather name={game.icon} size={32} color={gc.ink} />}
-          />
-        </View>
 
-        {/* Title & description */}
+        {/* Title & description, in ink on ivory. */}
         <View style={styles.cardBody}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
+          <Text style={[styles.cardTitle, { color: colors.foreground }]} numberOfLines={1}>
             {game.title}
           </Text>
-          <Text style={styles.cardDesc} numberOfLines={2}>
+          <Text style={[styles.cardDesc, { color: colors.mutedForeground }]} numberOfLines={2}>
             {game.description}
           </Text>
         </View>
 
-        {/* Difficulty badge, plus the lock chip on gated cards. */}
+        {/* Difficulty, plus the lock chip on gated cards. */}
         <View style={styles.footRow}>
-          <View style={styles.difficultyPill}>
-            <View
-              style={[styles.diffDot, { backgroundColor: DIFFICULTY_DOT[game.difficulty] }]}
-            />
-            <Text style={styles.difficultyText}>{game.difficulty}</Text>
-          </View>
+          <DifficultyPill game={game} gc={gc} />
           {locked && (
-            <View style={styles.lockChip}>
-              <Feather name="lock" size={10} color="#FFFFFF" />
+            <View style={[styles.lockChip, { borderColor: colors.border }]}>
+              <Feather name="lock" size={10} color={colors.mutedForeground} />
             </View>
           )}
         </View>
@@ -628,60 +826,144 @@ function GameCardTile({
 }
 
 const styles = StyleSheet.create({
-  head: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
+  // Bleeds past the list's padding on both sides: the list is inset by
+  // GRID_PAD and the hero is the window's width, so without this it started
+  // a pad in and ran a pad off the right edge (the globe was half gone).
+  hero: {
+    marginLeft: -GRID_PAD,
+    marginBottom: 6,
+    overflow: 'hidden',
   },
-  h1: {
+  heroWords: {
+    position: 'absolute',
+    left: 20,
+    right: 150,
+  },
+  heroTitle: {
     fontFamily: AppFonts.extrabold,
-    fontSize: 28,
-    letterSpacing: -0.5,
+    fontSize: 40,
+    letterSpacing: -0.8,
+    color: '#1E1633',
   },
-  sub: {
+  heroSub: {
     fontFamily: AppFonts.regular,
-    fontSize: 14,
+    fontSize: 16,
+    color: '#4B4368',
     marginTop: 2,
   },
+  heroWhere: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 14,
+  },
+  heroWhereText: {
+    fontFamily: AppFonts.semibold,
+    fontSize: 14,
+    color: '#4F46E5',
+  },
+  heroDot: { color: '#8A83B3' },
+  section: {
+    paddingHorizontal: GRID_PAD,
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  eyebrow: {
+    fontFamily: AppFonts.extrabold,
+    fontSize: 12,
+    letterSpacing: 1.6,
+    color: '#4F46E5',
+  },
+  eyebrowSpark: { color: '#D9A21B', fontSize: 12 },
+  continueCard: {
+    flexDirection: 'row',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 10,
+    shadowColor: '#1E1633',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  continuePicture: {
+    width: 124,
+    height: 93,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#E9E4F5',
+  },
+  continueBody: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 2 },
+  continueEyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  continueEyebrow: { fontFamily: AppFonts.extrabold, fontSize: 10, letterSpacing: 1.2 },
+  continueTitle: { fontFamily: AppFonts.extrabold, fontSize: 18 },
+  continueDesc: { fontFamily: AppFonts.regular, fontSize: 12 },
+  continueFoot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 6,
+  },
+  playAgain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  playAgainText: { fontFamily: AppFonts.extrabold, fontSize: 13, color: '#FFFFFF' },
   list: {
-    paddingHorizontal: 16,
-    gap: 10,
+    paddingHorizontal: GRID_PAD,
+    gap: GRID_GAP,
   },
   column: {
-    gap: 10,
+    gap: GRID_GAP,
   },
-  cell: {
-    flex: 1,
-  },
+  cell: {},
   card: {
-    flex: 1,
     borderRadius: 18,
-    borderWidth: 2,
-    // Chunky bottom edge: the board sits on its own deeper hue (web parity
-    // with the hard `0 5px 0` shadow, which RN cannot express directly).
-    borderBottomWidth: 5,
+    borderWidth: 1,
     overflow: 'hidden',
-    padding: 12,
-    gap: 8,
-    // Press bloom: hue glow fades in via animated shadowOpacity.
+    // The press bloom: the game's hue as a shadow that deepens on press.
     shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  pictureBox: {
+    overflow: 'hidden',
+    backgroundColor: '#E9E4F5',
+  },
+  pictureDim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(30, 22, 51, 0.28)',
+  },
+  badgeCorner: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
   },
   medallion: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
+    position: 'absolute',
+    left: 10,
+    bottom: -8,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFF8EC',
     borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.6)',
-  },
-  pillRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    borderColor: '#FFFFFF',
   },
   pill: {
     flexDirection: 'row',
@@ -691,7 +973,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 100,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.72)',
+    borderColor: 'rgba(255,255,255,0.85)',
   },
   pillAllAccess: {
     backgroundColor: '#F5B31B',
@@ -707,23 +989,26 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     gap: 2,
+    paddingHorizontal: 12,
+    paddingTop: 14,
   },
   cardTitle: {
     fontFamily: AppFonts.extrabold,
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontSize: 16,
   },
   cardDesc: {
     fontFamily: AppFonts.regular,
     fontSize: 12,
     lineHeight: 16,
-    color: 'rgba(255,255,255,0.86)',
   },
   footRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 6,
-    marginTop: 'auto',
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 12,
   },
   difficultyPill: {
     flexDirection: 'row',
@@ -733,9 +1018,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 100,
-    backgroundColor: 'rgba(0,0,0,0.25)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
   },
   diffDot: {
     width: 6,
@@ -746,17 +1029,14 @@ const styles = StyleSheet.create({
     fontFamily: AppFonts.extrabold,
     fontSize: 10,
     letterSpacing: 0.6,
-    color: '#FFFFFF',
     textTransform: 'uppercase',
   },
   lockChip: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.45)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
   },
 });

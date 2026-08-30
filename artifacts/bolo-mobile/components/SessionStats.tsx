@@ -38,7 +38,10 @@ import { hapticLight } from '@/lib/haptics';
  * language chip; a full-width space-between row does not fit in the column, but
  * a pill beside the XP meter does.
  */
-export function ChaiPill({ compact = false }: { compact?: boolean } = {}) {
+/** The cream the hub's veil is made of; the plaques are the same paper. */
+const PLAQUE = 'rgba(251,243,230,0.94)';
+
+export function ChaiPill({ compact = false, solid = false }: { compact?: boolean; solid?: boolean } = {}) {
   const colors = useColors();
   const tokens = useGetTokens();
   const balance = tokens.data?.balance;
@@ -68,6 +71,12 @@ export function ChaiPill({ compact = false }: { compact?: boolean } = {}) {
           styles.chai,
           compact && styles.chaiCompact,
           { backgroundColor: colors.primary + '14', borderColor: colors.primary + '38' },
+          // SOLID OVER ART (build 22, owner on the hub's hero: "the xp and
+          // chai is hard to see since they are transparent"): the tinted
+          // glass fill vanished against the painting, so on art the pill is
+          // cream paper with a lift, and keeps its purple rim as the "touch
+          // me" signal.
+          solid && [styles.plaque, { backgroundColor: PLAQUE }],
         ]}
       >
         {/* A cup, a number and the word. Never the colour alone: the glyph and
@@ -86,13 +95,25 @@ export function ChaiPill({ compact = false }: { compact?: boolean } = {}) {
   );
 }
 
-export function SessionStats({ testID = 'session-stats' }: { testID?: string }) {
+/**
+ * `floating` is for the one place the strip lies on a picture (the Games
+ * hub's hero, build 21): both halves sit on their own cream plaque so the
+ * numbers read on any part of the painting. Everywhere else the strip is in
+ * flow on the screen's own background and needs no backing.
+ */
+export function SessionStats({
+  testID = 'session-stats',
+  floating = false,
+}: {
+  testID?: string;
+  floating?: boolean;
+}) {
   return (
     <View style={styles.row} testID={testID}>
-      <View style={styles.xpSlot}>
+      <View style={[styles.xpSlot, floating && [styles.plaque, styles.xpPlaque]]}>
         <XpCounter variant="session" />
       </View>
-      <ChaiPill />
+      <ChaiPill solid={floating} />
     </View>
   );
 }
@@ -119,6 +140,21 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   chaiCompact: { paddingHorizontal: 6, paddingVertical: 2, gap: 3 },
+  // Paper under the numbers when they lie on art: a lift on iOS, an
+  // elevation on Android, the same cream as the veil above the hero.
+  plaque: {
+    backgroundColor: PLAQUE,
+    shadowColor: '#3B2A1E',
+    shadowOpacity: 0.14,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  xpPlaque: {
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
   valueCompact: { fontSize: 11 },
   value: { fontFamily: AppFonts.extrabold, fontSize: 13 },
   label: { fontFamily: AppFonts.semibold, fontSize: 10 },

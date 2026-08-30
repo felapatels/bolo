@@ -1,5 +1,6 @@
-import { Stack } from 'expo-router';
-import { View } from 'react-native';
+import { Stack, useSegments } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SessionStats } from '@/components/SessionStats';
 import { useColors } from '@/hooks/useColors';
@@ -14,19 +15,46 @@ import { useColors } from '@/hooks/useColors';
  * each screen means a new game gets it for free and cannot be the one that
  * forgets. That matters because the gap this fixes was created exactly that
  * way: XP was added screen by screen and the games were simply never done.
+ *
+ * ON THE HUB THE STRIP FLOATS OVER THE HERO (build 21, owner: "move the hero
+ * all the way up to the top and overlay the Chai and XP over it, no white
+ * space up top"). The hub's hero painting starts under the status bar and
+ * the strip sits on it at the safe-area inset; every other screen in this
+ * stack keeps the strip in flow above its content, exactly as before, since
+ * those screens lay out under it rather than behind it.
  */
 export default function GamesLayout() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const segments = useSegments();
+  const onHub = segments[segments.length - 1] === 'games';
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top }}>
-      <SessionStats testID="games-session-stats" />
+    <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: onHub ? 0 : insets.top }}>
+      {!onHub && <SessionStats testID="games-session-stats" />}
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.background },
         }}
       />
+      {onHub && (
+        <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
+          {/* A soft cream veil from the top edge. On its own it was not
+              enough once the real hero landed (build 22, owner: "the xp and
+              chai is hard to see since they are transparent"), so the strip
+              below also floats each half on a cream plaque. The veil stays
+              for the status bar's own text. */}
+          <LinearGradient
+            pointerEvents="none"
+            colors={['rgba(251,243,230,0.92)', 'rgba(251,243,230,0.55)', 'rgba(251,243,230,0)']}
+            locations={[0, 0.6, 1]}
+            style={[StyleSheet.absoluteFill, { height: insets.top + 64 }]}
+          />
+          <View style={{ paddingTop: insets.top }}>
+            <SessionStats testID="games-session-stats" floating />
+          </View>
+        </View>
+      )}
     </View>
   );
 }
