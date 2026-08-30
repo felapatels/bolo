@@ -8,12 +8,10 @@ Written 2026-08-30 (small hours) by BOLO Build 22. **Read `CLAUDE.md` first, the
 
 ## 0. THE STATE, HONESTLY
 
-- `origin/main` was `c98d1386` at the start of build 22. **Eighteen commits sit
-  ahead of it** after this session's five approvals, PLUS whatever build 22
-  committed after this file was written (the Resume pill, the tear, the test
-  pins; see section 3). The owner said "commit, and push mobile builds" at
-  the end; check `git log origin/main..HEAD` and `git status --porcelain`
-  before believing any of this.
+- **PUSHED.** `origin/main` moved from `c98d1386` to `811d982e` on
+  2026-08-30 (21 commits: the five approvals, the pass and tear fixes, the
+  green-suite pins, the build-number write-back). This handoff's own last
+  edits are after that push; check `git log origin/main..HEAD`.
 - **Four files in the tree are NOT ours**: `gujarati-coach/src/pages/landing.tsx`,
   `src/test/landing.test.tsx`, `src/components/looping-video.tsx` and
   `public/video/`. Another session's web landing work. Never sweep them into
@@ -97,11 +95,15 @@ and `useFocusEffect` mocked, three build 21 additions.
 
 ## 4. THE QUEUE, IN THE OWNER'S ORDER
 
-1. **Push and the mobile builds** (the owner's last instruction: "commit,
-   and push mobile builds"): EAS from `artifacts/bolo-mobile`, production
-   profile, both platforms, `scripts/checkBundleHealth.ts` on the ipa, STOP
-   before any submit. `expo.version` is `1.0.6`; `autoIncrement` writes the
-   next numbers back into `app.json` (commit them after).
+1. **The builds are RUNNING** (started 2026-08-30 ~01:00 EDT, production
+   profile, both platforms, no submit): iOS `1.0.6 (525)`
+   `a0ec08bb-988e-438b-a788-355519cd1150`, Android `1.0.6 (526)`
+   `1cb4711c-ce13-4581-8f3c-69a7c1f577fc`. When the ipa is out, run
+   `node --experimental-strip-types scripts/checkBundleHealth.ts <ipa-url>`
+   from the repo root BEFORE anyone installs (HEALTHY or POISONED; a
+   poisoned build is rebuilt, not installed). Then TestFlight for iOS and
+   the Play internal track for Android, on the owner's word. `app.json`
+   already carries the write-back (525 / 526).
 2. **Web parity** for everything in section 1 that is mobile only: Progress,
    Leaderboard, the journey's zone card, stall card, stop colours, trace card
    and glow, the bazaar doors, the wallet, the paywall. The rail palette and
