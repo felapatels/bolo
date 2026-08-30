@@ -2601,62 +2601,149 @@ export default function Journey() {
             check on 2026-08-30 had one, and a w-40 gutter tucked 3px under
             the sidebar there): w-36 plus mr-3 is 156 and clears both. Below
             xl that margin is not there.
+
+            CARDS, NOT COUNTS (build 24, the same day). The first rail was bare
+            text with a progress bar and "4/11" per zone, and once the wide
+            painting filled the margin it blended straight into the art.
+            Owner: "show nice cards for each zone title, not stop progress",
+            and "just show the zone titles and a downward progression". So:
+            one ivory card per zone with its title, joined by short track
+            segments down the line, and the zone's STATE said three ways
+            (word, glyph, edge colour) so it never rests on hue alone: a done
+            zone reads DONE with a check on the line's green edge; the zone
+            the learner is in reads YOU ARE HERE with the train on the violet
+            edge that marks the current stop on the map; the rest read AHEAD
+            with a lock on a paler card. Tapping still scrolls the map to the
+            zone; that is all it ever did, nothing here unlocks anything.
             Hidden from assistive tech as a duplicate: every zone it lists is
             already reachable by scrolling the map itself. */}
         <div className="pointer-events-none absolute inset-y-0 right-full mr-3 hidden w-36 xl:block">
           <nav
-            aria-label="Jump to a fare zone"
+            aria-label="The line, zone by zone"
             data-testid="journey-zone-rail"
             className="sticky top-1/2 -translate-y-1/2"
           >
-            <ol className="pointer-events-auto flex w-full flex-col gap-1">
-              {zoneNav.map((z) => (
-                <li key={z.zoneIndex}>
-                  <button
-                    type="button"
-                    data-testid={`zone-rail-${z.zoneIndex}`}
-                    onClick={() => scrollToMapY(z.y)}
-                    className={cn(
-                      "group flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition-colors",
-                      z.hasCurrent
-                        ? "border-transparent"
-                        : "border-transparent hover:bg-muted",
-                    )}
-                    style={
-                      z.hasCurrent
-                        ? { backgroundColor: `${line.accent}14`, borderColor: `${line.accent}59` }
-                        : undefined
-                    }
-                  >
-                    <span
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-black text-white"
+            <ol className="pointer-events-auto flex w-full flex-col">
+              {zoneNav.map((z, i) => {
+                const state: "done" | "here" | "ahead" =
+                  z.total > 0 && z.done === z.total ? "done" : z.hasCurrent ? "here" : "ahead";
+                const word = state === "done" ? "Done" : state === "here" ? "You are here" : "Ahead";
+                const edge =
+                  state === "here" ? "#4F46E5" : state === "done" ? line.accent : "rgba(43,26,18,0.22)";
+                const wordColor =
+                  state === "here" ? "#4F46E5" : state === "done" ? line.accent : undefined;
+                return (
+                  <li key={z.zoneIndex} className="flex flex-col items-stretch">
+                    <button
+                      type="button"
+                      data-testid={`zone-rail-${z.zoneIndex}`}
+                      data-state={state}
+                      onClick={() => scrollToMapY(z.y)}
+                      className={cn(
+                        "flex w-full items-start gap-2 rounded-xl border-[1.5px] px-2.5 py-2 text-left transition-transform hover:-translate-y-px",
+                        state === "ahead" ? "bg-[rgba(255,251,240,0.8)]" : "bg-[#FFFBF0]",
+                      )}
                       style={{
-                        backgroundColor:
-                          z.done === z.total ? line.accent : `${line.accent}66`,
+                        borderColor: edge,
+                        boxShadow:
+                          state === "here"
+                            ? "0 0 0 3px rgba(79,70,229,0.22), 0 2px 8px rgba(43,26,18,0.3)"
+                            : "0 2px 6px rgba(43,26,18,0.25)",
                       }}
                     >
-                      {z.zoneIndex + 1}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[11px] font-extrabold text-foreground">
-                        {z.geoName}
+                      <span
+                        className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                        style={{
+                          backgroundColor: state === "ahead" ? "rgba(43,26,18,0.08)" : edge,
+                          color: state === "ahead" ? "rgba(43,26,18,0.55)" : "#ffffff",
+                        }}
+                        aria-hidden
+                      >
+                        {state === "done" ? (
+                          <Check className="h-3 w-3" strokeWidth={3} />
+                        ) : state === "here" ? (
+                          <Train className="h-3 w-3" strokeWidth={2.5} />
+                        ) : (
+                          <Lock className="h-3 w-3" strokeWidth={2.5} />
+                        )}
                       </span>
-                      <span className="mt-1 block h-1 overflow-hidden rounded-full bg-muted">
+                      <span className="min-w-0 flex-1">
                         <span
-                          className="block h-full rounded-full"
-                          style={{
-                            width: `${z.total > 0 ? Math.round((z.done / z.total) * 100) : 0}%`,
-                            backgroundColor: line.accent,
-                          }}
-                        />
+                          className={cn(
+                            "line-clamp-2 block text-[11px] font-extrabold leading-tight",
+                            state === "ahead" ? "text-muted-foreground" : "text-foreground",
+                          )}
+                        >
+                          {z.geoName}
+                        </span>
+                        <span
+                          className="mt-0.5 block text-[9px] font-black uppercase tracking-[1px] text-muted-foreground"
+                          style={wordColor ? { color: wordColor } : undefined}
+                        >
+                          Zone {z.zoneIndex + 1} · {word}
+                        </span>
                       </span>
+                    </button>
+                    <span
+                      aria-hidden
+                      className="mx-auto block h-3 w-[3px] rounded-full"
+                      style={{
+                        backgroundColor:
+                          state === "done" ? line.accent : "rgba(255,251,240,0.6)",
+                      }}
+                    />
+                  </li>
+                );
+              })}
+              {/* THE ONWARD CARD (build 24, owner: "add a final card, more
+                  grand one for Journey 2 so the user knows it keeps going").
+                  Gold edge and parchment because it is a PLACE, not a control
+                  (gold = world): nothing here is tappable, since the web map
+                  does not draw journey 2 yet (journeyIsReady and zones2 have
+                  no caller on web outside lib/journeyLines.ts). It says only
+                  what is true: the line's next six stations, from the
+                  language's own zones2, and that there are six of them. */}
+              <li className="flex flex-col items-stretch">
+                <div
+                  data-testid="zone-rail-onward"
+                  className="w-full rounded-2xl border-[1.5px] px-2.5 py-3 text-left"
+                  style={{
+                    borderColor: "#b7791f",
+                    background: "linear-gradient(180deg, #FFF8E1 0%, #F3E2B8 100%)",
+                    boxShadow: "0 0 0 3px rgba(183,121,31,0.18), 0 3px 10px rgba(43,26,18,0.32)",
+                  }}
+                >
+                  {/* Eyebrow on its own line: beside the disc it wrapped at
+                      the gutter's 144px ("THE LINE GOES / ON"). */}
+                  <span
+                    className="block text-[9px] font-black uppercase tracking-[1px]"
+                    style={{ color: "#8a5a12" }}
+                  >
+                    The line goes on
+                  </span>
+                  <span className="mt-1 flex items-center gap-2">
+                    <span
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white"
+                      style={{ backgroundColor: "#b7791f" }}
+                      aria-hidden
+                    >
+                      <Train className="h-4 w-4" strokeWidth={2.5} />
                     </span>
-                    <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground">
-                      {z.done}/{z.total}
+                    <span className="block min-w-0 flex-1 text-[15px] font-black leading-tight text-foreground">
+                      Journey 2
                     </span>
-                  </button>
-                </li>
-              ))}
+                  </span>
+                  <span className="mt-2 block text-[11px] font-extrabold leading-tight text-foreground">
+                    {line.zones2[0]} to {line.zones2[5]}
+                  </span>
+                  <span
+                    className="mt-0.5 block text-[9px] font-black uppercase tracking-[1px]"
+                    style={{ color: "#8a5a12" }}
+                  >
+                    6 more zones
+                  </span>
+                </div>
+              </li>
             </ol>
           </nav>
         </div>

@@ -279,7 +279,7 @@ describe("the journey's header (task 1082 item 1, then build 23)", () => {
     expect(screen.getByTestId("zone-collapsed-1")).toBeInTheDocument();
   });
 
-  test("the desktop rail indexes every zone with its real progress", () => {
+  test("the desktop rail is one card per zone, titled and stated, never counted", () => {
     // The map column is phone-width and centred, so on a wide screen most of
     // the viewport is empty margin while the learner scrolls 52 stations
     // looking for where they are. The rail fills it with the whole line.
@@ -299,10 +299,31 @@ describe("the journey's header (task 1082 item 1, then build 23)", () => {
     for (let zi = 0; zi < 6; zi++) {
       expect(screen.getByTestId(`zone-rail-${zi}`)).toBeInTheDocument();
     }
-    // Counts come off the same station list the map draws, so they cannot
-    // disagree with it: zone 1 is 2/2 done, zone 2 is 0/2.
-    expect(screen.getByTestId("zone-rail-0")).toHaveTextContent("2/2");
-    expect(screen.getByTestId("zone-rail-1")).toHaveTextContent("0/2");
+    // INVERTED (build 24). These two pinned "2/2" and "0/2" on the first two
+    // cards: counts off the same station list the map draws. The owner, off
+    // the dev preview on 2026-08-30: "show nice cards for each zone title,
+    // not stop progress", and "just show the zone titles and a downward
+    // progression". The zone board already carries the counts; the rail now
+    // carries the title and the zone's STATE, said as a word and a glyph and
+    // an edge colour so it never rests on hue alone. Zone 1 is finished
+    // (both groups completed), zone 2 holds the current stop, zone 3 is ahead.
+    expect(screen.getByTestId("zone-rail-0")).not.toHaveTextContent("2/2");
+    expect(screen.getByTestId("zone-rail-1")).not.toHaveTextContent("0/2");
+    expect(screen.getByTestId("zone-rail-0")).toHaveAttribute("data-state", "done");
+    expect(screen.getByTestId("zone-rail-0")).toHaveTextContent(/Done/);
+    expect(screen.getByTestId("zone-rail-1")).toHaveAttribute("data-state", "here");
+    expect(screen.getByTestId("zone-rail-1")).toHaveTextContent(/You are here/);
+    expect(screen.getByTestId("zone-rail-2")).toHaveAttribute("data-state", "ahead");
+    expect(screen.getByTestId("zone-rail-2")).toHaveTextContent(/Ahead/);
+    // The onward card closes the rail (owner, same day: "add a final card,
+    // more grand one for Journey 2 so the user knows it keeps going"). It is
+    // a place, not a control: the web map does not draw journey 2 yet, so it
+    // must never be a button that promises a ride it cannot give.
+    const onward = screen.getByTestId("zone-rail-onward");
+    expect(onward).toHaveTextContent(/Journey 2/);
+    expect(onward).toHaveTextContent(/6 more zones/);
+    expect(onward.tagName).not.toBe("BUTTON");
+    expect(onward.querySelector("button, a")).toBeNull();
   });
 
   // THE STUB IS GONE, AND THESE TWO TESTS ARE INVERTED RATHER THAN DELETED.
