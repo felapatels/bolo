@@ -7,6 +7,8 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle } from 'react-native-svg';
 import { appearDown, useAppearSkip } from '@/lib/entrance';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useListBadges } from '@workspace/api-client-react';
@@ -14,14 +16,36 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { badgeIcon } from '@/lib/badge-icons';
 import { findNearestLockedBadge, progressRatio } from '@/lib/badge-progress';
+import { TICKET } from '@/lib/ticketStock';
 
 /**
- * A prominent "next goal" card at the top of the badges area that calls out the
- * single locked badge the learner is closest to unlocking, turning the gallery
- * into a directed goal rather than a reference grid. When every badge is earned
- * it shows a celebratory all-earned state instead. Mirrors the web
- * NextBadgeSpotlight so the highlighted goal matches across platforms.
+ * THE NEXT MILESTONE, AS A TICKET (build 22, the owner's Progress mockup).
+ * A prominent card at the top of the Progress tab that calls out the single
+ * locked badge the learner is closest to unlocking, turning the gallery into
+ * a directed goal rather than a reference grid. It used to be a tinted
+ * "Next goal" card; the mockup makes it a slip of ticket stock with a gold
+ * edge, the badge in a gold tile, a purple bar, "19 / 25 phrases" on the
+ * left and "6 more to unlock" on the right, and a faint stamp in the
+ * corner. When every badge is earned it shows a celebratory all-earned state
+ * instead. Mirrors the web NextBadgeSpotlight so the highlighted goal
+ * matches across platforms; web still wears the old tint until its parity
+ * pass.
  */
+
+/** The unit a milestone counts in, read off its own description ("Master 25
+ *  phrases", "a 7 day streak"). Empty when the description does not say, so
+ *  the count stands alone rather than guessing. */
+export function milestoneUnit(description: string): string {
+  const d = description.toLowerCase();
+  if (d.includes('phrase')) return 'phrases';
+  if (d.includes('day')) return 'days';
+  if (d.includes('game')) return 'games';
+  if (d.includes('stop')) return 'stops';
+  return '';
+}
+
+const STAMP = 72;
+
 export function NextBadgeSpotlight({ lang }: { lang: string }) {
   const colors = useColors();
   const skipEnter = useAppearSkip();
@@ -80,85 +104,85 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
     return (
       <Animated.View
         entering={skipEnter ? undefined : appearDown(0, 400)}
-        style={[
-          styles.card,
-          styles.allEarned,
-          {
-            backgroundColor: `${colors.secondary}14`,
-            borderColor: `${colors.secondary}4D`,
-          },
-        ]}
+        style={[styles.card, styles.allEarned, { borderColor: TICKET.edgeGold }]}
       >
-        <View
-          style={[styles.trophy, { backgroundColor: colors.secondary }]}
-        >
-          <MaterialCommunityIcons
-            name="trophy"
-            size={26}
-            color={colors.secondaryForeground}
-          />
+        <LinearGradient
+          pointerEvents="none"
+          colors={[TICKET.stockTop, TICKET.stockBottom]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.trophy, { backgroundColor: colors.gold }]}>
+          <MaterialCommunityIcons name="trophy" size={26} color="#1a1200" />
         </View>
-        <Text style={[styles.eyebrow, { color: colors.secondary }]}>
+        <Text style={[styles.eyebrow, { color: colors.primary }]}>
           All badges earned
         </Text>
-        <Text style={[styles.allEarnedTitle, { color: colors.foreground }]}>
+        <Text style={[styles.allEarnedTitle, { color: TICKET.ink }]}>
           You've unlocked them all!
         </Text>
-        <Text style={[styles.allEarnedSub, { color: colors.mutedForeground }]}>
+        <Text style={[styles.allEarnedSub, { color: TICKET.inkMuted }]}>
           Keep practicing to stay sharp — new goals await.
         </Text>
       </Animated.View>
     );
   }
 
+  const remaining = Math.max(nearest.progressTarget - nearest.progressCurrent, 0);
+  const unit = milestoneUnit(nearest.description);
+
   return (
     <Animated.View
       entering={skipEnter ? undefined : appearDown(0, 400)}
-      style={[
-        styles.card,
-        {
-          backgroundColor: `${colors.secondary}14`,
-          borderColor: `${colors.secondary}66`,
-        },
-      ]}
+      style={[styles.card, { borderColor: TICKET.edgeGold }]}
+      testID="next-milestone"
     >
-      <Text style={[styles.eyebrow, { color: colors.secondary }]}>
-        Next goal
+      <LinearGradient
+        pointerEvents="none"
+        colors={[TICKET.stockTop, TICKET.stockBottom]}
+        style={StyleSheet.absoluteFill}
+      />
+      {/* The stamp: two rings, the outer one perforated, a train in the
+          middle, in the primary ink at a whisper. Decoration; it carries no
+          state, so it can be as faint as it likes. */}
+      <View pointerEvents="none" style={styles.stamp}>
+        <Svg width={STAMP} height={STAMP} viewBox={`0 0 ${STAMP} ${STAMP}`}>
+          <Circle
+            cx={STAMP / 2}
+            cy={STAMP / 2}
+            r={STAMP / 2 - 2}
+            fill="none"
+            stroke={colors.primary}
+            strokeWidth={2}
+            strokeDasharray="5 4"
+          />
+          <Circle cx={STAMP / 2} cy={STAMP / 2} r={STAMP / 2 - 9} fill="none" stroke={colors.primary} strokeWidth={1} />
+        </Svg>
+        <View style={styles.stampGlyph}>
+          <MaterialCommunityIcons name="train" size={28} color={colors.primary} />
+        </View>
+      </View>
+
+      <Text style={[styles.eyebrow, { color: colors.primary }]}>
+        ◆  NEXT MILESTONE  ◆
       </Text>
       <View style={styles.row}>
         {/* Animated.View is safe here: opacity is not a layout prop and does
             not trigger the New Architecture crash that width/height would. */}
-        <Animated.View
-          style={[
-            styles.icon,
-            { backgroundColor: `${colors.secondary}26` },
-            iconAnimStyle,
-          ]}
-        >
-          <MaterialCommunityIcons
-            name={badgeIcon(nearest.iconName)}
-            size={30}
-            color={colors.secondary}
-          />
+        <Animated.View style={[styles.icon, { backgroundColor: `${colors.gold}2E` }, iconAnimStyle]}>
+          <MaterialCommunityIcons name={badgeIcon(nearest.iconName)} size={30} color={colors.gold} />
         </Animated.View>
         <View style={{ flex: 1 }}>
-          <Text
-            style={[styles.title, { color: colors.foreground }]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.title, { color: TICKET.ink }]} numberOfLines={1}>
             {nearest.title}
           </Text>
-          <Text
-            style={[styles.desc, { color: colors.mutedForeground }]}
-            numberOfLines={2}
-          >
+          <Text style={[styles.desc, { color: TICKET.inkMuted }]} numberOfLines={2}>
             {nearest.description}
           </Text>
         </View>
       </View>
 
       <View style={styles.progressWrap}>
-        <View style={[styles.track, { backgroundColor: colors.muted }]}>
+        <View style={[styles.track, { backgroundColor: `${colors.primary}22` }]}>
           {/* RNAnimated.View required: width is a layout prop and crashes New
               Architecture if driven by Reanimated useAnimatedStyle. */}
           <RNAnimated.View
@@ -166,16 +190,16 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
               width: barWidthPct,
               height: '100%',
               borderRadius: 999,
-              backgroundColor: colors.secondary,
+              backgroundColor: colors.primary,
             }}
           />
         </View>
         <View style={styles.progressMeta}>
-          <Text style={[styles.pctLabel, { color: colors.secondary }]}>
-            {Math.round(ratio * 100)}% there
+          <Text style={[styles.count, { color: TICKET.ink }]}>
+            {`${nearest.progressCurrent} / ${nearest.progressTarget}${unit ? ` ${unit}` : ''}`}
           </Text>
-          <Text style={[styles.count, { color: colors.foreground }]}>
-            {nearest.progressCurrent} / {nearest.progressTarget}
+          <Text style={[styles.remaining, { color: colors.primary }]}>
+            {`${remaining} more to unlock`}
           </Text>
         </View>
       </View>
@@ -186,18 +210,33 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
 const styles = StyleSheet.create({
   card: {
     borderRadius: 22,
-    borderWidth: 1,
+    borderWidth: 1.5,
     padding: 18,
     marginBottom: 20,
+    overflow: 'hidden',
+  },
+  stamp: {
+    position: 'absolute',
+    right: 16,
+    top: 14,
+    width: STAMP,
+    height: STAMP,
+    opacity: 0.32,
+    transform: [{ rotate: '-8deg' }],
+  },
+  stampGlyph: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   eyebrow: {
     fontFamily: AppFonts.extrabold,
     fontSize: 11,
-    letterSpacing: 0.6,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
     marginBottom: 12,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingRight: STAMP - 6 },
   icon: {
     width: 60,
     height: 60,
@@ -205,11 +244,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { fontFamily: AppFonts.extrabold, fontSize: 18 },
+  title: { fontFamily: AppFonts.extrabold, fontSize: 20 },
   desc: {
     fontFamily: AppFonts.regular,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 19,
     marginTop: 2,
   },
   progressWrap: { marginTop: 16 },
@@ -223,15 +262,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 10,
   },
-  pctLabel: {
-    fontFamily: AppFonts.extrabold,
-    fontSize: 11,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  count: { fontFamily: AppFonts.extrabold, fontSize: 15 },
+  count: { fontFamily: AppFonts.semibold, fontSize: 14 },
+  remaining: { fontFamily: AppFonts.bold, fontSize: 14 },
   // All-earned celebratory variant.
   allEarned: { alignItems: 'center' },
   trophy: {

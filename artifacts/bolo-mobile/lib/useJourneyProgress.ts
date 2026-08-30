@@ -44,6 +44,16 @@ export interface JourneyCurrentStop {
 export interface JourneyZoneProgress {
   zoneIndex: number;
   geoName: string;
+  /** The zone's topic as the line table titles it ("Greetings & Manners"). */
+  title: string;
+  /**
+   * Phrases mastered and phrases on offer, summed over the zone's graded
+   * stops (build 22, the Progress tab's journey card draws a bar per zone).
+   * A planLocked stop reports zero phrases, so a free learner's total is the
+   * total their plan can reach, which is the honest denominator.
+   */
+  masteredCount: number;
+  phraseCount: number;
   /** Rows the journey draws for this zone: graded stops plus tracing and story. */
   stopCount: number;
   /** Graded stops in the zone, before the two spliced rows. */
@@ -126,9 +136,13 @@ export function useJourneyProgress(
       showroom,
     });
     let zoneDone = 0;
+    let zoneMastered = 0;
+    let zonePhrases = 0;
     let zoneCurrentStopNumber: number | null = null;
     groups.forEach((g, gi) => {
       totalCount += 1;
+      zoneMastered += g.masteredCount ?? 0;
+      zonePhrases += g.phraseCount ?? 0;
       if (g.status === 'completed' || g.status === 'tested_out') {
         doneCount += 1;
         zoneDone += 1;
@@ -161,6 +175,9 @@ export function useJourneyProgress(
     zones.push({
       zoneIndex: i,
       geoName: zoneGeoNames[i] ?? '',
+      title: JOURNEY_ZONES[i]?.title ?? '',
+      masteredCount: zoneMastered,
+      phraseCount: zonePhrases,
       stopCount: groups.length > 0 ? rowPlan.rowCount : 0,
       gradedCount: groups.length,
       doneCount: zoneDone,

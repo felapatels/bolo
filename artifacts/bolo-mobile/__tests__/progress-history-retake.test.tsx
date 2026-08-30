@@ -76,8 +76,19 @@ jest.mock('@expo/vector-icons', () => {
     Feather: ({ name, testID }: { name: string; testID?: string }) => (
       <Text testID={testID ?? `icon-${name}`}>{name}</Text>
     ),
+    // The milestone ticket's stamp and the All-Access card's ticket glyph
+    // (build 22) draw from this family too.
+    MaterialCommunityIcons: ({ name, testID }: { name: string; testID?: string }) => (
+      <Text testID={testID ?? `mci-${name}`}>{name}</Text>
+    ),
   };
 });
+
+// The greeting in Bolo's speech bubble (build 22) reads the first name the
+// way the home screen does.
+jest.mock('@clerk/expo', () => ({
+  useUser: () => ({ user: { firstName: 'Alex' } }),
+}));
 
 jest.mock('@/lib/entrance', () => ({
   // The safe entrances (lib/entrance.ts). No-ops here: these suites pin
@@ -297,10 +308,12 @@ beforeEach(() => {
   };
 });
 
-// Task #1057: the Progress-tab stat grid is FOUR cards, matching the
-// four-card loading skeleton above it. Speaking streak is still tracked and
-// still returned by the server (`speakingStreakDays`), but the owner ruled it
-// is not worth a permanent tile, so it has no display here.
+// Task #1057: the Progress-tab stat row is FOUR cells. Speaking streak is
+// still tracked and still returned by the server (`speakingStreakDays`), but
+// the owner ruled it is not worth a permanent tile, so it has no display here.
+// Build 22 (the owner's Progress mockup): the 2 by 2 grid became one row and
+// the labels shortened, "Phrases mastered" to "Mastered" and "Total
+// practices" to "Practices"; the pins were inverted to match.
 describe('progress stat grid', () => {
   test('renders exactly the four summary stats, with no speaking streak', () => {
     mockState.summary = {
@@ -316,8 +329,8 @@ describe('progress stat grid', () => {
     render(<ProgressScreen />);
 
     for (const label of [
-      'Phrases mastered',
-      'Total practices',
+      'Mastered',
+      'Practices',
       'Best score',
       'Day streak',
     ]) {

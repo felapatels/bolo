@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { PressableScale } from '@/components/PressableScale';
 import { useColors } from '@/hooks/useColors';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
@@ -140,7 +140,101 @@ export function UpgradeBanner({ onPress }: { onPress: () => void }) {
   );
 }
 
+/** The All-Access card's paper: warm cream, gold edge, brown ink. The theme's
+ *  slate foreground reads cold on it, as it does on the ticket stock. */
+const ALL_ACCESS = {
+  paper: '#FBF1E3',
+  edge: '#E8CFA3',
+  ink: '#3B2A1E',
+  inkMuted: '#8A6A47',
+  brass: '#9A6B1C',
+} as const;
+
+/**
+ * ONE CARD FOR THE WHOLE UPSELL (build 22, the owner's Progress mockup: "Go
+ * deeper with All-Access"). The Progress tab used to stack three
+ * LockedFeatureCards under a heading; the mockup folds them into one warm
+ * card with the three features as two lines, a padlocked ticket, and a gold
+ * "Explore All-Access" button. The whole card is the tap target and the
+ * button is its affordance, so a learner cannot land between two targets.
+ */
+export function AllAccessCard({ onPress }: { onPress: () => void }) {
+  const colors = useColors();
+  return (
+    <PressableScale
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Explore All-Access"
+      accessibilityHint="Opens the Bolo! All-Access upgrade screen"
+      testID="all-access-card"
+      style={[styles.allAccess, { backgroundColor: ALL_ACCESS.paper, borderColor: ALL_ACCESS.edge }]}
+    >
+      <View style={styles.allAccessTicket}>
+        <MaterialCommunityIcons
+          name="ticket-confirmation-outline"
+          size={56}
+          color={ALL_ACCESS.brass}
+          style={{ transform: [{ rotate: '-14deg' }] }}
+        />
+        <View style={[styles.allAccessTicketLock, { backgroundColor: ALL_ACCESS.paper }]}>
+          <Feather name="lock" size={13} color={ALL_ACCESS.brass} />
+        </View>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.allAccessTitle, { color: ALL_ACCESS.ink }]}>Go deeper with All-Access</Text>
+        <Text style={[styles.allAccessLine, { color: ALL_ACCESS.inkMuted }]} numberOfLines={1}>
+          Review weak phrases  •  Advanced analytics
+        </Text>
+        <Text style={[styles.allAccessLine, { color: ALL_ACCESS.inkMuted }]} numberOfLines={1}>
+          Exclusive badges and achievements
+        </Text>
+        <View style={[styles.allAccessCta, { backgroundColor: colors.gold }]}>
+          <Text style={styles.allAccessCtaText}>Explore All-Access</Text>
+          <Feather name="arrow-right" size={16} color="#1a1200" />
+        </View>
+      </View>
+      {/* The padlock sits in the corner rather than in the row, so the two
+          feature lines keep the width they need to stay on one line each. */}
+      <Feather name="lock" size={22} color={ALL_ACCESS.brass} style={styles.allAccessLock} />
+    </PressableScale>
+  );
+}
+
 const styles = StyleSheet.create({
+  allAccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 16,
+    paddingLeft: 12,
+    paddingRight: 16,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    marginBottom: 24,
+  },
+  allAccessTicket: { width: 54, alignItems: 'center', justifyContent: 'center' },
+  allAccessLock: { position: 'absolute', top: 14, right: 14, opacity: 0.75 },
+  allAccessTicketLock: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  allAccessTitle: { fontFamily: AppFonts.extrabold, fontSize: 16, marginBottom: 4, paddingRight: 28 },
+  allAccessLine: { fontFamily: AppFonts.semibold, fontSize: 12, lineHeight: 18 },
+  allAccessCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 8,
+    marginTop: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
+  },
+  allAccessCtaText: { fontFamily: AppFonts.extrabold, fontSize: 14, color: '#1a1200' },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
