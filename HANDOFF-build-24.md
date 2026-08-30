@@ -36,9 +36,21 @@ Written 2026-08-30 (about 04:00 EDT) by BOLO Build 23. **Read `CLAUDE.md` first,
 - **The next build needs the owner's go in the current message.** Keep
   `1.0.6` unless told otherwise: the owner ruled 1.0.6 three times for
   rebuilds of an unreleased train.
-- **The Repl has NOT pulled anything from tonight.** Every web change below
-  is on GitHub only. `git pull` in the Repl Shell, the api suite there (no
-  server change since `811d982e`, so the baseline should hold), then publish.
+- **The Repl pulled `008424d8` at 08:38 on 2026-08-30 and has NOT pulled the
+  second wave (section 1b, twelve commits, `105e2536` to `bfe7a07c`).** The
+  pull block that worked: in the Bolo Repl Shell,
+  `test -f artifacts/bolo-mobile/app.json && git pull --no-rebase --no-edit origin main && git merge-base --is-ancestor <sha> HEAD && echo ok && git diff --quiet origin/main HEAD && echo identical`.
+  No schema or lockfile change all day, so no sync-schema and no install.
+  Then the api suite there, then publish.
+- **THE FULL SUITES HAVE NOT RUN SINCE `45f4b6eb`.** The owner's standing
+  rule (CLAUDE.md, Tests): typecheck only while developing, the full suites
+  once, right before a build or a publish. Every change since ran its own
+  file's suite at most (and some only typecheck); the web suite as a whole,
+  the mobile suite as a whole and the api suite are all owed before the next
+  `eas build` or Repl publish. Expect pin moves in files nobody ran.
+- **UNBUILT ON MOBILE:** the wallet order (`e7053556`) and the pass landmark
+  centred at a quarter of ink (`11698233`). Both seen on the simulator, both
+  ride the next build, which needs the owner's go.
 - **Web was never seen in a browser tonight.** The web app cannot run against
   data on this Mac (CLAUDE.md). Every web change is typecheck plus the
   suites; the first pair of eyes on it is the Repl preview.
@@ -92,6 +104,49 @@ Written 2026-08-30 (about 04:00 EDT) by BOLO Build 23. **Read `CLAUDE.md` first,
     geometry fix and the glyph census, then this handoff and the CLAUDE.md
     baselines.
 
+## 1b. THE SECOND WAVE (2026-08-30, 09:00 to 11:00, off the Repl preview)
+
+The owner reviewed the dev preview and listed gaps; each is one commit,
+web unless said, all pushed:
+
+1. `105e2536` **Splash**: the blurred first frame inlined under everything
+   (index.html and the overlay, lib/splash-lqip.ts, pinned in step), the
+   scene fades in, a 640ms crossfade out. "No blank brown page."
+2. `e7053556` **Chai wallet order, BOTH platforms**: Bazaar door, packs,
+   history.
+3. `d426640d` **Home pass is the parchment sheet** (components/parchment-pass,
+   components/landmark), engine closes the stops row, Resume pill, glow
+   back; HOME_PANEL_ASPECT 1.9, HOME_STACK_BASE_H 180.
+4. `72d6ab95` **Journey map 560 wide on lg**; the zone board's cap holds its
+   phone height (ZONE_BOARD_PEDIMENT_MAX_H). UNSEEN in a browser.
+5. `a58607c8` **Games hub to the phone's three bands** (lib/game-art,
+   lib/last-played-game); the shelves and the Featured card are gone.
+6. `b83c373c` **Feed page to the phone's order**; the stock tab strip is
+   gone (leaderboard-page.test.tsx is new).
+7. `673b07b5` **Language switcher: search, Recent, subtitle**
+   (lib/recent-languages); the games hero's line opens the picker, never
+   /choose-language (which redirects an account that has chosen).
+8. `11698233` **Landmark centred on both, mobile at 0.26 ink** (a tenth was
+   invisible on the phone, checked on the simulator); the web frame's
+   padding clears the breathe.
+9. `77cdb910` **Both store badges in the home footer, always.** Play is still
+   the coming-soon badge until `PLAY_STORE_LIVE` flips.
+10. `bfe7a07c` **CLAUDE.md**: typecheck only while developing.
+
+**Rulings in this wave:** no full test runs until the end, typecheck only
+(permanent, in CLAUDE.md); the wallet order; both badges regardless of
+device; the landmark centred.
+
+**iPad, the owner's question, answered in chat:** `supportsTablet` is false
+and the app is portrait-only, so today it runs on iPad in phone-compat mode
+with no separate build. A real iPad build is one flag plus layout work:
+18 mobile files size off the window width and every screen is a phone
+column, and web's lg work does not transfer (it is CSS). Cheapest honest
+route: a centred content column (about 600pt) on every tab screen, the
+window-width users re-pointed at the column, a QA pass on the iPad
+simulator, and the mandatory 12.9-inch screenshots. Estimate: one to two
+focused days, not hours.
+
 ## 2. RULINGS THE OWNER MADE TONIGHT
 
 - **Every zone has a Script Trace stop, a story stop, a Chacha-ji call, an
@@ -129,8 +184,10 @@ Written 2026-08-30 (about 04:00 EDT) by BOLO Build 23. **Read `CLAUDE.md` first,
 
 1. **The owner's testing of 528/529** (the wallet scrim fix and the lightbox
    are in them), then whatever they find.
-2. **The Repl**: pull, api suite, publish, then look at every web change of
-   section 1 in the preview. Expect the first visual corrections there.
+2. **The Repl**: pull the second wave (section 0 has the block), the FULL
+   suites once (web and mobile on the Mac, api in the Shell), publish, then
+   look at section 1b's changes in the preview: the wide map and the games
+   hub have not been seen in a browser by me.
 3. **The Bazaar "Your Flex" card** (memory
    `bolo-feed-and-bazaar-mockups-2026-08-29`), both platforms. Not started.
    The catalogue has no rarity and no unlock rules; the honest version
