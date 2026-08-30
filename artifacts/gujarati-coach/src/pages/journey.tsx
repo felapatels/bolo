@@ -130,8 +130,6 @@ import { RAIL, RAIL_GLOW_PASSES, RAIL_STROKE } from "@/lib/rail-palette";
 import { railPairPaths } from "@/lib/rail-offset";
 import {
   BADGE,
-  MAP_GLYPH_PLATE,
-  MAP_GLYPH_PLATE_FILL,
   TICKET,
 } from "@/lib/ticket-stock";
 import {
@@ -225,7 +223,10 @@ const LEFT_X = 92; // marker x for even-index stations
 const RIGHT_INSET = 94; // mirror inset of LEFT_X for odd-index stations
 const CARD_GAP = 28; // gap between a marker and its station card
 const EDGE_PAD = 16; // station card / postcard inset from the map edge
-const MARKER_HALF_W = 23; // widest marker (the 46px current-stop train pill) / 2
+// A ROUND NODE SINCE BUILD 22 ON MOBILE, BUILD 23 HERE: 64 outer, 56 ring, 48
+// node, so the painted engine sits ON the rail rather than beside it; it was
+// a 46 by 32 pill the widened rail ran straight through. Half of 64.
+const MARKER_HALF_W = 32;
 
 /** Serpentine geometry constants shared with the scenery placement tests
  *  (Task 985), so the no-overlap assertions can never drift from the layout
@@ -359,25 +360,33 @@ function StationMarker({
 }) {
   const reduceMotion = useReducedMotion();
   if (isCurrent) {
+    // THE TRAIN ON THE TRACK (mobile build 22, here build 23; owner's journey
+    // notes: "the new train should be on the track"). A round white node the
+    // width of the marker box, the accent ring round it and a soft outer ring
+    // beyond, the painted engine filling it. It was a 46 by 32 pill with the
+    // engine beside the rail, which the wider rail now ran straight through.
+    // THE GLOW under it (owner: "current stop should have a blue/purple glow
+    // under it throbbing to indicate current stop") is the indigo disc
+    // behind, breathing on the map's idle cycle; see .stop-glow in index.css.
     return (
-      <div
-        className="w-[46px] h-8 rounded-full bg-card flex items-center justify-center px-1"
-        style={{
-          boxShadow: `0 0 0 4px ${color}, 0 0 0 8px ${color}33, var(--depth-shadow)`,
-          color,
-        }}
-        title="Your current stop"
-      >
-        {/* Soft idle bob on the parked train, whole-element transform only.
-            Width routed through the :root tuning constants (task 899 bump).
-            First Class: gold vars on a contents wrapper (no layout impact). */}
+      <div className="relative flex h-16 w-16 items-center justify-center" title="Your current stop">
+        <span aria-hidden className="stop-glow rounded-full" style={{ inset: -16 }} />
         <div
-          className="contents"
-          style={firstClassActive ? firstClassGoldVars : undefined}
+          className="relative flex h-16 w-16 items-center justify-center rounded-full"
+          style={{ background: `${color}33` }}
         >
-          <TrainEngine
-            className={cn("w-[var(--train-marker-w)] h-full", !reduceMotion && "animate-train-bob")}
-          />
+          <div className="flex h-14 w-14 items-center justify-center rounded-full" style={{ background: color }}>
+            <div
+              className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-white"
+              style={{ boxShadow: "0 4px 8px rgba(43,26,18,0.3)", color }}
+            >
+              {/* Soft idle bob on the parked train, whole-element transform
+                  only. First Class: gold vars on a contents wrapper. */}
+              <div className="contents" style={firstClassActive ? firstClassGoldVars : undefined}>
+                <TrainEngine className={cn("h-7 w-10", !reduceMotion && "animate-train-bob")} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -979,17 +988,11 @@ function StationCard({
           aria-hidden
         />
       )}
-      {/* "Now boarding" accent pulse: an opacity-only glow overlay so the
-          animated property stays within the transforms/opacity budget. Web
-          keeps it where mobile dropped its ring (ca16a295): this one can
-          actually pulse, and a pulse is what it was for. */}
-      {isCurrent && !reduceMotion && (
-        <div
-          className="pointer-events-none absolute -inset-px rounded-lg animate-stop-glow-pulse"
-          style={{ boxShadow: `0 0 0 3px ${color}, 0 0 16px 4px ${color}88` }}
-          aria-hidden
-        />
-      )}
+      {/* The ring pulse that stood here (a 3px accent ring, opacity-only)
+          went in build 23 for the glow slab BEHIND the card, drawn by the
+          row wrapper below, the same throb the node carries: one indigo
+          light under the stop, not a second outline on a card that already
+          has the accent edge and the roof bar. */}
       <div className="flex items-center gap-2 flex-wrap">
         {isCurrent && (
           <span className="relative shrink-0">
@@ -1078,7 +1081,17 @@ function StationCard({
   // "Move bolo onto the card itself, he blends in." He was on the painting,
   // which is a busy bazaar at his own scale, so a small mascot on it read as
   // more bazaar. On cream stock he has a ground to stand on.
-  const body = <>{card}</>;
+  // THE GLOW UNDER THE CURRENT CARD (mobile build 22, here build 23): one
+  // soft indigo slab behind the paper, breathing on the map's idle cycle,
+  // the same light the node carries. A sibling BEFORE the card rather than a
+  // child: a child with a negative z-index still paints over its parent's
+  // background, and the slab has to sit under the paper.
+  const body = (
+    <span className="relative inline-block">
+      {isCurrent ? <span aria-hidden className="stop-glow rounded-xl" style={{ inset: -6 }} /> : null}
+      {card}
+    </span>
+  );
   // Item 3: journey-map copy carries no em dashes; a colon reads the same and
   // announces cleanly in a screen reader.
   const aria = station.trace
@@ -2747,20 +2760,10 @@ export default function Journey() {
                     is pointer-events-none and carries no state. */}
                 {chachaStalls.map((s) => (
                   <g key={`chacha-stall-${s.station}`}>
-                    {/* His plate. Two ellipses rather than one gradient, the
-                        same trick the rail halo uses: an SVG radial gradient
-                        needs a defs entry per zone and this is cheaper. */}
-                    {MAP_GLYPH_PLATE.map((pass) => (
-                      <ellipse
-                        key={pass.r}
-                        cx={s.x}
-                        cy={s.y}
-                        rx={pass.r}
-                        ry={pass.r * 0.72}
-                        fill={MAP_GLYPH_PLATE_FILL}
-                        opacity={s.gray ? pass.opacity * 0.5 : pass.opacity}
-                      />
-                    ))}
+                    {/* THE PLATE AND THE LABEL WENT WITH THE VECTOR STALL
+                        (build 23): the painted card carries its own paper and
+                        its own nameplate (journey-scenery.tsx, ChaiStall), so
+                        nothing here needs a ground any more. */}
                     <SceneryElement
                       kind="chaiStall"
                       x={s.x}
@@ -2769,66 +2772,6 @@ export default function Journey() {
                       gray={s.gray}
                       testId={`chacha-stall-${s.station}`}
                     />
-                    {/* The halt has a NAME. It was unlabelled scenery, so the
-                        one recurring character on the map read as decoration:
-                        a learner had no way to know the stall between stops is
-                        the same stall, or whose it is. Indian lines name their
-                        smallest stops "<name> Halt", and this is his.
-                        Deliberately identical at every encounter station,
-                        because it IS the same stall each time.
-                        Two lines: the possessive is the quiet half and the
-                        halt is the label, which keeps the wider line off a
-                        18px-wide piece of art. Scenery still, so it inherits
-                        the layer's pointer-events-none. */}
-                    {/* HIS NAMEPLATE NEEDS A GROUND TOO. The glyph plate above
-                        is centred on the stall and the label hangs BELOW it, so
-                        the two lines were back on the painting with nothing
-                        behind them: "I can't see the text under chachaji". Same
-                        fix as the stall itself, in the shape the text actually
-                        occupies. */}
-                    <rect
-                      x={s.x - 30}
-                      y={s.y + 10}
-                      width={60}
-                      height={20}
-                      rx={5}
-                      fill={MAP_GLYPH_PLATE_FILL}
-                      opacity={s.gray ? 0.55 : 0.85}
-                    />
-                    <text
-                      data-testid={`chacha-stall-label-${s.station}`}
-                      x={s.x}
-                      y={s.y + 17}
-                      textAnchor="middle"
-                      className="select-none"
-                      style={{
-                        // Ink on the plate, not the line accent at 0.75: the
-                        // accent was chosen to sit quietly on a flat theme and
-                        // reads as one more colour on a painted bazaar.
-                        fill: TICKET.ink,
-                        opacity: s.gray ? 0.5 : 1,
-                        fontSize: 7,
-                        fontWeight: 700,
-                      }}
-                    >
-                      Chacha-ji&rsquo;s
-                    </text>
-                    <text
-                      x={s.x}
-                      y={s.y + 25}
-                      textAnchor="middle"
-                      className="select-none"
-                      style={{
-                        fill: TICKET.inkMuted,
-                        opacity: s.gray ? 0.5 : 1,
-                        fontSize: 6,
-                        fontWeight: 800,
-                        letterSpacing: 0.6,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      CHAI HALT
-                    </text>
                   </g>
                 ))}
               </g>
@@ -3210,6 +3153,11 @@ export default function Journey() {
                 text so it wraps the way the mobile chip does, above the
                 card plane so a tag never covers it; scenery still, so it
                 takes no pointer events. */}
+            {/* ON THE CARD, NOT UNDER THE NODE (mobile build 22, here build
+                23; owner: "chacha has been separated from the take a break
+                text"): the painted stall card reserves its bottom strip for
+                this pill, 72 by 22 at the phone's own offsets, two short
+                lines with the number in gold. */}
             {chachaStalls
               .filter((s) => !s.gray)
               .map((s) => (
@@ -3217,18 +3165,19 @@ export default function Journey() {
                   key={`chacha-invite-${s.station}`}
                   data-testid={`chacha-stall-${s.station}-invite`}
                   aria-hidden
-                  className="pointer-events-none absolute w-[104px] rounded-[10px] border border-white/35 bg-primary px-[9px] py-1.5 text-[10px] font-semibold leading-[13px] text-white"
+                  className="pointer-events-none absolute flex h-[22px] w-[72px] flex-col items-center justify-center rounded-md bg-primary px-[5px] text-center text-[7.5px] font-semibold leading-[9.5px] text-white"
                   style={{
-                    // Under the nameplate, clamped to the map: the stall stands
-                    // near the left edge and a centred chip fell off it.
-                    left: Math.max(6, Math.min(mapW - 110, s.x - 52)),
-                    top: s.y + 34,
+                    left: Math.max(4, Math.min(mapW - 76, s.x - 36)),
+                    top: s.y - 82,
                     zIndex: DEPTH_2_5D.layers.station,
                   }}
                 >
-                  Take a break and earn{" "}
-                  <span className="font-black" style={{ color: "#FBBF24" }}>
-                    {s.encounterChai} Chai
+                  <span>Take a break,</span>
+                  <span>
+                    earn{" "}
+                    <span className="font-black" style={{ color: "#FBBF24" }}>
+                      {s.encounterChai} Chai
+                    </span>
                   </span>
                 </div>
               ))}

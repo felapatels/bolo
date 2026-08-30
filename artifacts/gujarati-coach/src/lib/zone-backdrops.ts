@@ -135,16 +135,18 @@ export function zoneFootTone(zoneIndex: number): string {
 export const ZONE_TILE_ASPECT = 860 / 1359;
 
 /**
- * THE WASH OVER THE PAINTING, and it is LIGHT now, not dark (mobile chat 11,
- * web build 18). The 0.28 near-black scrim knocked the whole bazaar into
- * dusk, and the owner's reference is bright daylight: "add a lighter layer
- * behind the image to brighten the image up a little bit." A warm paper tone
- * rather than white, so the painting lifts without going grey. 0.22 read as
- * faded ("too light, it looks faded now"); 0.10 lifts the dusk without
- * washing the pigment out. Mobile twin holds the same pair.
+ * THE WASH OVER THE PAINTING. It was a cream veil at a tenth (mobile chat 11,
+ * web build 18: the 0.28 near-black scrim had knocked the bazaar into dusk,
+ * and the owner asked for "a lighter layer behind the image to brighten the
+ * image up a little bit"; 0.22 read as faded, 0.10 lifted the dusk).
+ *
+ * DARKER AGAIN (mobile build 22, here build 23; owner: "on journey, make the
+ * background darker"). The cream veil LIGHTENED the painting; it is an ink
+ * veil now, so the cards and the track stand off the world instead of
+ * sinking into it. Mobile twin holds the same pair (lib/zoneBackdrops.ts).
  */
-export const ZONE_BACKDROP_SCRIM = 0.1;
-export const ZONE_BACKDROP_SCRIM_COLOR = "#FFF3DE";
+export const ZONE_BACKDROP_SCRIM = 0.26;
+export const ZONE_BACKDROP_SCRIM_COLOR = "#2B1A12";
 
 /**
  * THE CARVED STATION BOARD, the zone header. Asked for on 2026-08-26: "even

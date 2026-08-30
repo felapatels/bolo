@@ -606,10 +606,13 @@ describe("Chacha-ji stall landmark", () => {
     for (const el of stallEls) {
       const figure = el.querySelector('[data-testid="chacha-stall-figure"]');
       expect(figure).not.toBeNull();
-      expect(figure!.getAttribute("href")).toContain("chachaji.png");
-      // Full height, feet on the stall's ground line: he reads as a person,
-      // not a smudge behind the counter.
-      expect(Number(figure!.getAttribute("height"))).toBeGreaterThanOrEqual(30);
+      // THE PAINTED STALL CARD SINCE BUILD 23 (mobile build 22; owner:
+      // "Chachaji's stall should be more detailed like this"): the figure is
+      // the delivered painting of the stall with him behind the counter,
+      // stall-card.png, 48 tall in the card. Was the cut-out chachaji.png at
+      // 32.3, full height in front of a vector counter.
+      expect(figure!.getAttribute("href")).toContain("stall-card.png");
+      expect(Number(figure!.getAttribute("height"))).toBeGreaterThanOrEqual(40);
     }
   });
 

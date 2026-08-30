@@ -377,6 +377,32 @@
   --ticket-ink-ahead: #8A7A66;
   /* The sheet's green corner ornament on a finished tag. */
   --ticket-flourish: #5A7A52;
+  /* THE STOP CARDS WEAR THE ZONE CARD'S COLOURS (mobile build 22, here build
+     23; owner, on seeing the modern zone card: "i need the stop cards to
+     match the same color of the new zone cards"). Ivory stock, a lavender
+     edge and rule, the zone's violet on the current stop's edge (set inline)
+     and a soft green on a finished one, in place of the home ticket's
+     cream-and-brown stock above, which the pass keeps. The ink stays the
+     ticket's, the same brown the zone card writes its city in. Mobile twin:
+     STOP_CARD in app/(app)/journey.tsx. */
+  --stop-stock-top: #FFFDF9;
+  --stop-stock-bottom: #F7F3EC;
+  --stop-stock-ahead-top: #F1EEE9;
+  --stop-stock-ahead-bottom: #E8E4DE;
+  --stop-edge: #CFC8F0;
+  --stop-edge-ahead: #DAD6E4;
+  --stop-edge-done: #8FCBA4;
+  --stop-rule: #E6E1F6;
+  --stop-rule-ahead: #E3DFDA;
+  --stop-rule-done: #C4E6CF;
+  --stop-eyelet: #4B3F8F;
+  --stop-eyelet-hole: #A79ED6;
+  /* Lifted off the painting (owner, build 22: "give the stop boxes and all
+     aspects a little more depth, make them more 3d"): 0.34 at 10, dropped
+     straight down, where the shared depth shadow is 0.16 at 6. */
+  --stop-shadow: 0 6px 10px rgba(43, 26, 18, 0.34);
+  /* The glow under the current stop, node and card: the app's indigo. */
+  --stop-glow-color: #4F46E5;
 }
 .dark {
   --station-surface: hsl(222 30% 15%);
@@ -398,26 +424,27 @@
    card read as a UI panel floating over the art rather than paper resting on
    it. */
 .station-card {
-  background: linear-gradient(180deg, var(--ticket-stock-top), var(--ticket-stock-bottom));
-  border: 2px solid var(--ticket-edge);
+  background: linear-gradient(180deg, var(--stop-stock-top), var(--stop-stock-bottom));
+  border: 2px solid var(--stop-edge);
   color: var(--ticket-ink);
+  box-shadow: var(--stop-shadow);
 }
 .station-card .ticket-sub {
   color: var(--ticket-ink-muted);
 }
-/* A stop already behind the learner is tagged in gold, exactly as the sheet
-   draws its finished tag. Status still belongs to the card's own copy; this is
-   the sheet's own way of saying the same thing in the stock. */
+/* A stop already behind the learner is edged in the soft green (build 23;
+   was the sheet's gold), "done" in the colour law. Status still belongs to
+   the card's own copy; this is the stock's own way of saying the same. */
 .station-card[data-done="true"] {
-  border-color: var(--ticket-edge-gold);
+  border-color: var(--stop-edge-done);
 }
 .station-card[data-ahead="true"] {
   background: linear-gradient(
     180deg,
-    var(--ticket-stock-ahead-top),
-    var(--ticket-stock-ahead-bottom)
+    var(--stop-stock-ahead-top),
+    var(--stop-stock-ahead-bottom)
   );
-  border-color: var(--ticket-edge-ahead);
+  border-color: var(--stop-edge-ahead);
   color: var(--ticket-ink-ahead);
 }
 .station-card[data-ahead="true"] .ticket-sub {
@@ -432,12 +459,15 @@
   content: "";
   position: absolute;
   inset: 4px;
-  border: 1px solid var(--ticket-rule);
+  border: 1px solid var(--stop-rule);
   border-radius: 6px;
   pointer-events: none;
 }
 .station-card[data-done="true"]::before {
-  border-color: var(--ticket-rule-gold);
+  border-color: var(--stop-rule-done);
+}
+.station-card[data-ahead="true"]::before {
+  border-color: var(--stop-rule-ahead);
 }
 /* THE EYELET THE TAG HANGS BY, on the edge facing the rail. It is what makes
    the card read as a luggage tag tied to a medallion rather than as a panel
@@ -450,8 +480,8 @@
   height: 12px;
   margin-top: -6px;
   border-radius: 9999px;
-  background: var(--ticket-eyelet);
-  box-shadow: inset 0 0 0 3px var(--ticket-eyelet-hole);
+  background: var(--stop-eyelet);
+  box-shadow: inset 0 0 0 3px var(--stop-eyelet-hole);
   pointer-events: none;
 }
 .station-card[data-side="right"]::after {
@@ -863,6 +893,36 @@
 }
 .animate-stop-glow-pulse {
   animation: stop-glow-pulse var(--stop-glow-cycle) ease-in-out infinite;
+}
+/* THE CURRENT STOP'S GLOW (mobile build 22, here build 23; owner: "current
+   stop should have a blue/purple glow under it throbbing to indicate current
+   stop"). One soft indigo disc or slab under the node and under the card,
+   breathing between a quarter and a half of its strength, opacity and scale
+   only. 2400ms: slow enough to read as breathing, not blinking. Under
+   reduced motion the loop rests at its first frame, so the glow is still
+   there, just still. Mobile twin: CurrentStopGlow. */
+@keyframes stop-glow-throb {
+  0%, 100% {
+    opacity: 0.24;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.54;
+    transform: scale(1.03);
+  }
+}
+.stop-glow {
+  position: absolute;
+  pointer-events: none;
+  background: var(--stop-glow-color);
+  box-shadow: 0 0 16px var(--stop-glow-color);
+  opacity: 0.24;
+  animation: stop-glow-throb 2400ms ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stop-glow {
+    animation: none;
+  }
 }
 
 /* Journey rail: comet sweep on the active run (current stop to next stop).

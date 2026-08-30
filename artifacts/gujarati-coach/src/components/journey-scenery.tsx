@@ -443,41 +443,63 @@ function FruitCart() {
  *  the earlier unmanned 37x33 prop did not. Total footprint 36 wide and 49.2
  *  tall above the ground line, which is what SCENERY_HALF_W.chaiStall and
  *  STALL_PLACEMENT are sized against. */
+/** The painted stall card, delivered art cropped to its sheet by
+ *  scripts/make-stall-card.py on mobile (build 22); the same file here. */
+const STALL_CARD_SRC = `${import.meta.env.BASE_URL}journey/stall-card.png`;
+
 function ChaiStall() {
+  // A PAINTED CARD SINCE BUILD 22 ON MOBILE, BUILD 23 HERE (owner:
+  // "Chachaji's stall should be more detailed like this"). The vector stall
+  // (posts, awning, counter, a 24px figure) is replaced by the delivered
+  // painting of his stall with him behind the counter, on an ivory card with
+  // a nameplate, seated ABOVE the marker in the station row's free flank: the
+  // card runs from 160 above the ground line to 56 above it, which clears the
+  // marker's box below and the previous stop's card above. The origin and the
+  // ground shadow are unchanged, so the map's stall geometry did not move.
+  // 104 tall: picture, nameplate, then a reserved strip the map lays the
+  // violet invite over (it knows the zone's encounterChai; this does not).
+  // Same numbers as mobile's ChaiStallTrackside, to the point.
+  const cardX = -40;
+  const cardY = -160;
+  const cardW = 80;
+  const cardH = 104;
+  const picH = 48;
   return (
     <g>
-      {/* Shadow re-centered under the structure: the house shadow carries a
-          +2 down-light offset, which on a landmark this size pushed the
-          bounding box into the trackside signal's glyph. */}
       <GroundShadow rx={16} cx={-3} />
-      {/* posts */}
-      <rect x={-15.5} y={-44} width={2} height={44} fill={TRUNK} />
-      <rect x={11.5} y={-44} width={2} height={44} fill={TRUNK} />
-      {/* counter front + side */}
-      <rect x={-14} y={-18} width={26} height={14} rx={1} fill={TRUNK} />
-      <path d="M12 -4 l3.5 -1.5 v-11.4 l-3.5 -0.6 Z" fill={AMBER_SHADE} />
-      {/* counter skirt panel */}
-      <rect x={-12} y={-16} width={22} height={7} rx={1} fill={AMBER} opacity={0.35} />
-      {/* striped awning front + side */}
-      {[0, 1, 2, 3].map((i) => (
-        <rect key={i} x={-17 + i * 7} y={-48} width={7} height={7} fill={i % 2 === 0 ? AMBER : "#ffffff"} />
-      ))}
-      <path d="M11 -48 l3.5 1.3 v5.7 h-3.5 Z" fill={AMBER_SHADE} />
-      <rect x={-17.5} y={-49.2} width={31.5} height={1.7} rx={0.85} fill={AMBER_SHADE} />
-      {/* kettle + glass on the counter top, to his right */}
-      <circle cx={9} cy={-21.4} r={3.2} fill={SLATE} />
-      <rect x={4.4} y={-22.6} width={2.4} height={1.8} rx={0.9} fill={SLATE} />
-      <rect x={0.4} y={-21.6} width={3.2} height={3.6} rx={0.9} fill="#ffffff" opacity={0.95} />
-      {/* Chacha-ji himself, drawn last so he stands in front of his counter */}
+      {/* the drop shadow, then the card */}
+      <rect x={cardX + 1} y={cardY + 3} width={cardW} height={cardH} rx={9} fill="#2B1A12" opacity={0.2} />
+      <rect x={cardX} y={cardY} width={cardW} height={cardH} rx={9} fill="#FFFDF9" stroke="#E2D8C6" strokeWidth={1} />
       <image
         data-testid="chacha-stall-figure"
-        href={STALL_ASSETS.chachaji}
-        x={-17}
-        y={-32.3}
-        width={24}
-        height={32.3}
-        preserveAspectRatio="xMidYMax meet"
+        href={STALL_CARD_SRC}
+        x={cardX + 4}
+        y={cardY + 4}
+        width={cardW - 8}
+        height={picH}
+        preserveAspectRatio="xMidYMid slice"
       />
+      {/* the nameplate strip under the picture; the strip below it stays
+          blank for the invite pill the map draws over it */}
+      <rect x={cardX + 4} y={cardY + picH + 7} width={cardW - 8} height={20} rx={5} fill="#F4ECDD" />
+      <text
+        x={0}
+        y={cardY + picH + 15.5}
+        textAnchor="middle"
+        className="select-none"
+        style={{ fontSize: 7.5, fontWeight: 700, fill: "#3B2A1E" }}
+      >
+        Chacha-ji&rsquo;s
+      </text>
+      <text
+        x={0}
+        y={cardY + picH + 23.5}
+        textAnchor="middle"
+        className="select-none"
+        style={{ fontSize: 6, fontWeight: 800, letterSpacing: 0.6, fill: "#7A6551" }}
+      >
+        CHAI HALT
+      </text>
     </g>
   );
 }
