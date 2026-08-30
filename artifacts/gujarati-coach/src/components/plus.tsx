@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Crown, Lock, ArrowRight, Ticket } from "lucide-react";
+import { Armchair, Crown, Lock, ArrowRight, Ticket } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GOLD } from "@/lib/gold";
 
@@ -229,6 +229,67 @@ export function AllAccessCard({
         className="absolute right-3.5 top-3.5 h-[22px] w-[22px] opacity-75"
         style={{ color: ALL_ACCESS.brass }}
       />
+    </Link>
+  );
+}
+
+/**
+ * THE TICKET COUNTER'S UPGRADE CARD (mobile build 22, here build 23): an
+ * armchair in a beige tile, "All-Access", its one line, and a gold Explore
+ * pill on the counter's cream paper. The one upgrade the product sells is
+ * All-Access, and it is not bought with Chai, so the card explores rather
+ * than prices. Mobile twin: AllAccessUpgradeCard in components/PlusUpsell.
+ */
+const UPGRADE_PAPER = {
+  paper: "#FBF3E6",
+  edge: "#DCCBAF",
+  ink: "#3B2A1E",
+  inkMuted: "#7A6551",
+  picture: "rgba(232,185,60,0.22)",
+  brass: "#92650A",
+} as const;
+
+export function AllAccessUpgradeCard({
+  href = "/upgrade",
+  className,
+  testId = "ticket-upgrade",
+}: {
+  href?: string;
+  className?: string;
+  testId?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-label="Explore All-Access"
+      data-testid={testId}
+      className={cn(
+        "flex items-center gap-3 rounded-2xl border-[1.5px] p-3 transition-transform hover:-translate-y-0.5 active:translate-y-0",
+        className,
+      )}
+      style={{ backgroundColor: UPGRADE_PAPER.paper, borderColor: UPGRADE_PAPER.edge }}
+    >
+      <span
+        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl"
+        style={{ backgroundColor: UPGRADE_PAPER.picture, color: UPGRADE_PAPER.brass }}
+      >
+        <Armchair className="h-[34px] w-[34px]" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-black leading-[18px]" style={{ color: UPGRADE_PAPER.ink }}>
+          All-Access
+        </span>
+        <span className="block text-[11.5px] leading-[15px]" style={{ color: UPGRADE_PAPER.inkMuted }}>
+          Every language, the full phrase library and every game.
+        </span>
+      </span>
+      <span
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-black"
+        style={{ backgroundColor: GOLD, color: "#1a1200" }}
+      >
+        Explore
+        <ArrowRight className="h-3.5 w-3.5" />
+      </span>
     </Link>
   );
 }

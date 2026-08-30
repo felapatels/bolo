@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetOutfitsQueryKey,
@@ -11,16 +10,9 @@ import {
 } from "@workspace/api-client-react";
 import { Mascot } from "@/components/mascot";
 import { ChaiGlyph } from "@/components/chai-stall";
-import { StallBand } from "@/components/stall-band";
-import {
-  ChaiWalletSheet,
-  ExpressMultiplierRow,
-  FirstClassWalletRow,
-  LanguageSignpostRow,
-  StationPauseRow,
-  StreakRepairRow,
-} from "@/components/chai-wallet";
-import { BazaarWelcome } from "@/components/bazaar-welcome";
+import { SceneBand } from "@/components/scene-band";
+import { BazaarHeader } from "@/components/bazaar-header";
+import { ChaiWalletSheet } from "@/components/chai-wallet";
 import { DressingRoom } from "@/components/dressing-room";
 import { OutfitCard, groupOutfits } from "@/components/outfit-card";
 import { ChaiPackShop } from "@/components/chai-packs";
@@ -66,7 +58,25 @@ import {
 // reads the same in light and dark mode. Only the scene is fixed; every
 // control below it stays on the design system.
 
-export default function OutfitsPage() {
+export type ShopDoor = "tailor" | "station";
+
+/** The station-themed pieces of the catalogue, by id. Grows with the art.
+ *  Mobile twin: STATION_IDS in components/bazaar/OutfitShop.tsx. */
+const STATION_IDS: ReadonlySet<string> = new Set(["station-cap"]);
+
+const DOORS: Record<ShopDoor, { title: string; subtitle: string; stall: "tailor" | "ticket" }> = {
+  tailor: { title: "The Tailor", subtitle: "Dress Bolo for the journey.", stall: "tailor" },
+  station: { title: "Station Master", subtitle: "Hats, uniforms and more.", stall: "ticket" },
+};
+
+/**
+ * ONE SHOP BEHIND TWO DOORS (mobile build 22, here build 23): the Tailor
+ * sells everything, the Station Master the station pieces. The street's
+ * other stalls (the ticket counter, the signal box, the chai stall) left
+ * this page for doors of their own off the hub (pages/bazaar-hub.tsx); what
+ * stays is the rack and the buying.
+ */
+export default function OutfitsPage({ door = "tailor" }: { door?: ShopDoor } = {}) {
   const queryClient = useQueryClient();
   const outfitsQuery = useGetOutfits();
   const data = outfitsQuery.data;
@@ -87,6 +97,9 @@ export default function OutfitsPage() {
   // The chai stall at the bottom of the street opens the wallet a learner
   // already knows, rather than a second balance surface built here.
   const [walletOpen, setWalletOpen] = useState(false);
+  // The door's own stock: the Tailor sells everything, the Station Master
+  // the station pieces.
+  const stock = door === "station" ? (data?.outfits ?? []).filter((o) => STATION_IDS.has(o.id)) : (data?.outfits ?? []);
   const previewedItem = data?.outfits.find((o) => o.id === previewed) ?? null;
   const previewedKind = previewedItem?.kind ?? "garment";
   const shownGarment =
@@ -166,7 +179,7 @@ export default function OutfitsPage() {
   const isWorn = (id: string, kind?: string | null) =>
     kind === "accessory" ? id === equippedAccessory : id === equipped;
 
-  const allItems = data?.outfits ?? [];
+  const allItems = stock;
   const ownedCount = allItems.filter((o) => o.owned).length;
   const rackItems = ownedOnly ? allItems.filter((o) => o.owned) : allItems;
 
@@ -226,38 +239,21 @@ export default function OutfitsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-6 lg:pb-12" data-testid="outfit-shop">
-      <BazaarWelcome />
-      {/* Back and the tin, pinned to the top of the scroller. The balance used
-          to sit on the painted signboard, which is gone; a learner scrolling
-          four stalls has to be able to see what they can afford at every one
-          of them, so the pill rides along instead of scrolling away with the
-          tailor. Its own markup is unchanged. */}
-      <div className="sticky top-0 z-30 -mx-4 flex items-center justify-between gap-4 bg-background px-4 pb-2 pt-1">
-        <Link
-          href="/app"
-          className="inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Link>
-        <span
-          data-testid="outfit-balance"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-sm font-black"
-          style={{
-            borderColor: INDIA.gold,
-            background: INDIA.cloth,
-            color: INDIA.board,
-          }}
-        >
-          {balance}
-          <ChaiGlyph className="h-4 w-4" />
-        </span>
-      </div>
+    <div className="mx-auto w-full max-w-2xl px-4 pb-nav pt-4 lg:pb-12" data-testid="outfit-shop">
+      {/* The door's header: back to the hub, the door's name, the Chai pill
+          that opens the wallet. The balance is handed in off the catalogue
+          payload so the pill and the rack cannot disagree. */}
+      <BazaarHeader
+        title={DOORS[door].title}
+        subtitle={DOORS[door].subtitle}
+        centred
+        balance={balance}
+        onWallet={() => setWalletOpen(true)}
+      />
 
-      {/* STALL 1 - THE TAILOR. The band is the shopfront; the dressing room,
-          the filters and the rack below it are his stock. */}
-      <StallBand stall="tailor" className="mt-4" />
+      {/* The shopfront; the dressing room, the filters and the rack below it
+          are the door's stock. */}
+      <SceneBand stall={DOORS[door].stall} />
 
       {/* The dressing room. It no longer sticks to the top of the scroller:
           on a street of four stalls a pinned bird would hang over the ticket
@@ -536,34 +532,6 @@ export default function OutfitsPage() {
         ) : null}
       </div>
 
-      {/* STALL 2 - THE TICKET COUNTER. First Class is the only paid-status
-          thing on the street, and the language signpost sits with it because
-          both are bought at a counter rather than off a rack. */}
-      <div className="mt-8 space-y-3" data-testid="bazaar-ticket-counter">
-        <StallBand stall="ticket" />
-        <FirstClassWalletRow />
-        <LanguageSignpostRow />
-      </div>
-
-      {/* STALL 3 - THE SIGNAL BOX. Everything that keeps the line running:
-          mending a break, holding a pause in reserve, running an express. The
-          mend row is silent unless the server is offering a real repair. */}
-      <div className="mt-8 space-y-3" data-testid="bazaar-signal-box">
-        <StallBand stall="signal" />
-        <StreakRepairRow />
-        <StationPauseRow />
-        <ExpressMultiplierRow />
-      </div>
-
-      {/* STALL 4 - THE CHAI STALL. One door, into the wallet the rest of the
-          app already opens; the balance and the packs live there. */}
-      <div className="mt-8" data-testid="bazaar-chai-stall">
-        <StallBand
-          stall="chai"
-          onClick={() => setWalletOpen(true)}
-          label="Open your Chai wallet"
-        />
-      </div>
       <ChaiWalletSheet open={walletOpen} onOpenChange={setWalletOpen} />
 
     {/* CONFIRM BEFORE SPENDING. Chai is earned slowly, an outfit is bought

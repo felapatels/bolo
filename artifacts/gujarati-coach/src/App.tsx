@@ -1,5 +1,7 @@
 import { ClerkProvider, SignIn, SignUp, Show, useUser } from '@clerk/react';
 import { lazy, Suspense, useEffect, type ComponentType } from 'react';
+// Type only, so the bazaar's page stays a lazy chunk.
+import type { ShopDoor } from '@/pages/bazaar';
 import { identifyUser, trackOnce, ANALYTICS_EVENTS } from './lib/analytics';
 import { setSentryUser } from './lib/sentry';
 import { publishableKeyFromHost } from '@clerk/react/internal';
@@ -101,7 +103,10 @@ const GamesExpressListening = lazyRoute(() => import('@/pages/games/express-list
 const GamesSignalLights = lazyRoute(() => import('@/pages/games/signal-lights'));
 const GamesStorybook = lazyRoute(() => import('@/pages/games/storybook'));
 const GamesEmergency = lazyRoute(() => import('@/pages/games/emergency'));
-const Bazaar = lazyRoute(() => import('@/pages/bazaar'));
+const Bazaar = lazyRoute<{ door?: ShopDoor }>(() => import('@/pages/bazaar'));
+const BazaarHub = lazyRoute(() => import('@/pages/bazaar-hub'));
+const BazaarTickets = lazyRoute(() => import('@/pages/bazaar-tickets'));
+const BazaarLanguages = lazyRoute(() => import('@/pages/bazaar-languages'));
 const Account = lazyRoute(() => import('@/pages/account'));
 const Contact = lazyRoute(() => import('@/pages/contact'));
 const Subscription = lazyRoute(() => import('@/pages/subscription'));
@@ -457,10 +462,41 @@ function AppRouter() {
           </AppShell>
         </Guard>
       </Route>
+      {/* THE BAZAAR IS A STREET WITH FOUR DOORS (mobile build 22, here build
+          23): the hub, then the Tailor and the Station Master (one shop, two
+          doors), the Ticket Counter and the Language Office. */}
       <Route path="/bazaar">
         <Guard>
           <AppShell>
-            <Bazaar />
+            <BazaarHub />
+          </AppShell>
+        </Guard>
+      </Route>
+      <Route path="/bazaar/tailor">
+        <Guard>
+          <AppShell>
+            <Bazaar door="tailor" />
+          </AppShell>
+        </Guard>
+      </Route>
+      <Route path="/bazaar/station">
+        <Guard>
+          <AppShell>
+            <Bazaar door="station" />
+          </AppShell>
+        </Guard>
+      </Route>
+      <Route path="/bazaar/tickets">
+        <Guard>
+          <AppShell>
+            <BazaarTickets />
+          </AppShell>
+        </Guard>
+      </Route>
+      <Route path="/bazaar/languages">
+        <Guard>
+          <AppShell>
+            <BazaarLanguages />
           </AppShell>
         </Guard>
       </Route>
