@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import type React from "react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 
@@ -20,6 +21,11 @@ vi.mock("@/lib/entitlements", () => ({
 }));
 
 vi.mock("@/components/mascot", () => ({ Mascot: () => null }));
+// The hero's language line is the LanguagePicker's trigger; the picker
+// itself (the dialog, the entitlement reads) is another file's test.
+vi.mock("@/components/language-picker", () => ({
+  LanguagePicker: ({ trigger }: { trigger?: React.ReactNode }) => <>{trigger}</>,
+}));
 // The hero's language line reads the language context and the learner's
 // current city; neither has a provider here.
 vi.mock("@/lib/language-context", () => ({
@@ -136,8 +142,10 @@ describe("Games hub grid", () => {
     expect(within(hero).getByText("Games")).toBeTruthy();
     expect(within(hero).getByText("Play your way to fluency")).toBeTruthy();
     expect(hero.querySelector("img")!.getAttribute("src")).toContain("games/hero.png");
+    // A button, the picker's trigger, never a link to /choose-language:
+    // that page redirects an account that has already chosen.
     const line = screen.getByTestId("games-language-line");
-    expect(line.getAttribute("href")).toBe("/choose-language");
+    expect(line.tagName).toBe("BUTTON");
     expect(line).toHaveTextContent("Gujarati");
   });
 

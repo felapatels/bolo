@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import type React from "react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 
@@ -25,6 +26,11 @@ vi.mock("@/lib/entitlements", () => ({
 }));
 
 vi.mock("@/components/mascot", () => ({ Mascot: () => null }));
+// The hero's language line is the LanguagePicker's trigger; the picker
+// itself (the dialog, the entitlement reads) is another file's test.
+vi.mock("@/components/language-picker", () => ({
+  LanguagePicker: ({ trigger }: { trigger?: React.ReactNode }) => <>{trigger}</>,
+}));
 // The hero's language line reads the language context and the learner's
 // current city; neither has a provider here.
 vi.mock("@/lib/language-context", () => ({

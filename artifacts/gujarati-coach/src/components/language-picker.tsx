@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "wouter";
-import { Check, ChevronDown, Globe } from "lucide-react";
+import { Check, ChevronDown, Globe, Search, X } from "lucide-react";
 import { GoldChip } from "@/components/gold-chip";
 import {
   Dialog,
@@ -14,6 +14,7 @@ import { useLanguage, nativeTextProps } from "@/lib/language-context";
 import { getJourneyLine } from "@/lib/journeyLines";
 import { useEntitlements } from "@/lib/entitlements";
 import { useExplicitLanguageChoice } from "@/lib/language-step";
+import { foldForSearch, loadRecentLanguages, recordRecentLanguage } from "@/lib/recent-languages";
 
 type LanguagePickerProps = {
   /** Optional external open state — pass both open + onOpenChange to control from outside. */
@@ -99,6 +100,64 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
     onOpenChange?.(val);
   };
 
+  /**
+   * SEARCH AND A RECENT ROW (mobile build 20, here 2026-08-30 on the owner's
+   * "Language switcher on web should have the same search and recent
+   * functionality as mobile"). The picker is 22 languages in a two-column
+   * grid, eleven rows of scrolling; a learner looking for Marathi had to
+   * scroll and hope.
+   *
+   * A REOPENED PICKER STARTS EMPTY: the search text is cleared on every
+   * opening, and the recent list is reloaded on the same beat, so a switch
+   * made a moment ago is in the row when they come back.
+   */
+  const [query, setQuery] = useState("");
+  const [recent, setRecent] = useState<string[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    setQuery("");
+    setRecent(loadRecentLanguages());
+  }, [open]);
+  // Matches the ENGLISH name and the NATIVE name, because a learner who reads
+  // the script will type in it, and the grid shows both. Case and diacritics
+  // fold, so "gujarati" finds "Gujarātī".
+  const q = foldForSearch(query.trim());
+  const filtered = q
+    ? languages.filter(
+        (l) =>
+          foldForSearch(l.name).includes(q) ||
+          foldForSearch(l.nativeName ?? "").includes(q) ||
+          foldForSearch(l.code).includes(q),
+      )
+    : languages;
+  // The row that saves the scroll. Hidden while searching, because a filtered
+  // grid is already the short list, and hidden when it would only repeat the
+  // language the learner is already on.
+  const recentLanguages = q
+    ? []
+    : recent
+        .filter((code) => code !== activeLang)
+        .map((code) => languages.find((l) => l.code === code))
+        .filter((l): l is (typeof languages)[number] => Boolean(l))
+        .slice(0, 3);
+
+  const pick = (code: string, locked: boolean) => {
+    recordRecentLanguage(code);
+    if (locked) {
+      // Locked-but-visible: open this language's journey map in showroom
+      // mode, a browsable teaser with an upgrade path, instead of bouncing
+      // straight to the paywall.
+      setActiveLang(code);
+      choose(code);
+      setOpen(false);
+      setLocation("/journey");
+      return;
+    }
+    setActiveLang(code);
+    choose(code);
+    setOpen(false);
+  };
+
   const defaultTrigger = (
     <button
       className="flex items-center gap-2 rounded-2xl bg-card border border-card-border px-4 h-12 shadow-[0_4px_0_rgba(0,0,0,0.08)] active:translate-y-1 active:shadow-none transition-all"
@@ -120,6 +179,14 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Choose a language</DialogTitle>
+          {/* WHAT THIS SCREEN DOES, unconditionally (mobile's line). It
+              answers the question a picker actually raises, "do I lose what
+              I have done": progress, streaks and mastery are keyed per
+              language server-side, so switching keeps every language's work
+              separately. */}
+          <p className="text-xs font-medium text-muted-foreground" data-testid="picker-subtitle">
+            Tap a language to switch. Each one keeps its own progress.
+          </p>
           {/* One shared note instead of a per-tile badge, so tile rows have
               room to show every English name in full at narrow widths. */}
           {/* A LOCKED LANGUAGE IS NOT A WALL, AND THIS USED TO SAY IT WAS.
@@ -140,8 +207,65 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
             </p>
           )}
         </DialogHeader>
+        {/* SEARCH. 22 languages is eleven rows of two, and a learner who
+            knows what they want should not have to scroll for it.
+            autoCorrect off: language names are exactly the words a keyboard
+            likes to "fix". */}
+        <label className="flex items-center gap-2 rounded-2xl border border-border bg-muted px-3 py-2.5">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <input
+            data-testid="language-search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search languages"
+            aria-label="Search languages"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            className="min-w-0 flex-1 bg-transparent text-[15px] font-semibold text-foreground outline-none placeholder:text-muted-foreground"
+          />
+          {query.length > 0 && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setQuery("")}
+              className="shrink-0 text-muted-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </label>
+        {recentLanguages.length > 0 && (
+          <div data-testid="language-recent" className="space-y-2">
+            {/* "RECENT", NOT "RECENTLY PRACTISED": see lib/recent-languages.ts. */}
+            <p className="text-[10px] font-extrabold tracking-[1.4px] text-muted-foreground">RECENT</p>
+            <div className="flex flex-wrap gap-2">
+              {recentLanguages.map((l) => {
+                const locked = !isLanguageAllowed(l.code);
+                return (
+                  <button
+                    key={l.code}
+                    type="button"
+                    data-testid={`language-recent-${l.code}`}
+                    aria-label={`Switch to ${l.name}`}
+                    onClick={() => pick(l.code, locked)}
+                    className="rounded-full border-[1.5px] bg-card px-3 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted"
+                    style={{ borderColor: getJourneyLine(l.code).accent }}
+                  >
+                    {l.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {q && filtered.length === 0 && (
+          <p className="py-6 text-center text-sm text-muted-foreground" data-testid="language-no-match">
+            No language matches "{query.trim()}".
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-2 max-h-[60vh] overflow-y-auto pr-1 -mr-1">
-          {languages.map((lang) => {
+          {filtered.map((lang) => {
             const native = nativeTextProps(lang);
             const selected = lang.code === activeLang;
             const locked = !isLanguageAllowed(lang.code);
@@ -159,21 +283,7 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
             return (
               <button
                 key={lang.code}
-                onClick={() => {
-                  if (locked) {
-                    // Locked-but-visible: open this language's journey map in
-                    // showroom mode — a browsable teaser with an upgrade path —
-                    // instead of bouncing straight to the paywall.
-                    setActiveLang(lang.code);
-                    choose(lang.code);
-                    setOpen(false);
-                    setLocation("/journey");
-                    return;
-                  }
-                  setActiveLang(lang.code);
-                  choose(lang.code);
-                  setOpen(false);
-                }}
+                onClick={() => pick(lang.code, locked)}
                 className={cn(
                   // pr-8 clears the corner glyph; the English name below gets
                   // the full tile width and never truncates.

@@ -106,6 +106,10 @@ function currentPath(history: string[]) {
 }
 
 beforeEach(() => {
+  // The picker records every pick in localStorage for its Recent row
+  // (2026-08-30); a pick in one test would put a chip with the same name
+  // beside the tile in the next.
+  localStorage.clear();
   h.entitlements = undefined;
   h.languages = [
     { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી" },

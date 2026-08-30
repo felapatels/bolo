@@ -50,6 +50,7 @@ import { getJourneyLine } from "@/lib/journeyLines";
 import { useJourneyProgress } from "@/lib/useJourneyProgress";
 import { GAMES_HERO, gameArt } from "@/lib/game-art";
 import { readLastPlayedGame, writeLastPlayedGame } from "@/lib/last-played-game";
+import { LanguagePicker } from "@/components/language-picker";
 import { GamePreview } from "./game-previews";
 
 type GameDef = {
@@ -507,22 +508,29 @@ function GamesHero({ language, city }: { language: string; city: string }) {
           Play your way to fluency
         </p>
         {/* THE LANGUAGE LINE IS THE LANGUAGE SWITCH: the line already names
-            the language, so it opens the picker. */}
-        <Link
-          href="/choose-language"
-          data-testid="games-language-line"
-          aria-label={`Learning ${language}. Change language`}
-          className="mt-3.5 inline-flex items-center gap-1.5 text-sm font-semibold"
-          style={{ color: "#4F46E5" }}
-        >
-          <MapPin className="h-3.5 w-3.5" />
-          <span>
-            {language}
-            <span style={{ color: "#8A83B3" }}>{"  ·  "}</span>
-            {city}
-          </span>
-          <ChevronDown className="h-3.5 w-3.5" />
-        </Link>
+            the language, so it opens the same picker the home globe opens
+            (the modal with search and the Recent row), never the first-run
+            step at /choose-language, which redirects an account that has
+            already chosen. */}
+        <LanguagePicker
+          trigger={
+            <button
+              type="button"
+              data-testid="games-language-line"
+              aria-label={`Learning ${language}. Change language`}
+              className="mt-3.5 inline-flex items-center gap-1.5 text-sm font-semibold"
+              style={{ color: "#4F46E5" }}
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              <span>
+                {language}
+                <span style={{ color: "#8A83B3" }}>{"  ·  "}</span>
+                {city}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          }
+        />
       </div>
     </div>
   );
