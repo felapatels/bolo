@@ -473,6 +473,13 @@ export default function GamesScreen() {
   // The grid's card width, in points, so every painting is sized exactly.
   const cardW = Math.floor((windowW - GRID_PAD * 2 - GRID_GAP) / 2);
 
+  // THE PAINTING COVERS ITS BOX ON BOTH AXES (build 25, owner on the iPad:
+  // "games header not the same width as the cards below"). Sized off the
+  // height alone at 16:9 it is 462 wide: past every phone's edge, and 138
+  // short of the 600 column, so the iPad showed page colour where the
+  // painting ran out. Whichever axis needs more wins; a phone is unchanged.
+  const heroImgW = Math.max(windowW, Math.round((heroH * 16) / 9));
+  const heroImgH = Math.round((heroImgW * 9) / 16);
   const header = (
     <View>
       {/* THE HERO. The painting, a cream wash over its left half for the
@@ -492,10 +499,12 @@ export default function GamesScreen() {
             position: 'absolute',
             // A third of the way from left-anchored to centred: the words keep
             // the pale left, and the parrot keeps his face.
-            left: -Math.round((Math.round((heroH * 16) / 9) - windowW) * 0.34),
-            top: 0,
-            width: Math.round((heroH * 16) / 9),
-            height: heroH,
+            left: -Math.round((heroImgW - windowW) * 0.34),
+            // Centred vertically when the width, not the height, sets the
+            // size (the iPad column); zero on a phone, where the height does.
+            top: -Math.round((heroImgH - heroH) / 2),
+            width: heroImgW,
+            height: heroImgH,
           }}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
