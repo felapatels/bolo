@@ -16,18 +16,26 @@ Written 2026-08-30 (about 04:00 EDT) by BOLO Build 23. **Read `CLAUDE.md` first,
   Stage by listed files, never sweep them in. Build 22 was alive in another
   tab until about 01:25: it committed handoff edits between my `git status`
   and my `git push` twice. Assume the index is shared.
-- **Stores.** iOS `1.0.6 (527)` is IN APP STORE REVIEW, submitted by the owner
-  with the wallet scroll as a known issue (section 2). Android `1.0.6 (528)`
-  is on the Play internal track (EAS submission `57eb772a`, "All done!").
-  Both carry commit `163a7065`: the four mobile fixes of section 2 but NOT
-  the wallet scrim fix (`82ad6f53`) nor the flashback lightbox (section 3),
-  which came after the builds were cut. An earlier Android `527`
-  (`0333ca22`, no fixes) is stuck IN_PROGRESS on EAS with an artifact;
-  never submit it, cancel it if it bothers you.
-- **The next build needs the owner's go in the current message.** It would
-  carry: the wallet scrim fix, the flashback lightbox, and whatever the
-  owner finds in the morning's testing. Keep `1.0.6` unless told otherwise:
-  the owner ruled 1.0.6 twice tonight for rebuilds of an unreleased train.
+- **Stores, morning of 2026-08-30.** The owner said "build now" at 07:58 and
+  both builds were cut from `15ef37ff` (everything in this handoff, including
+  the wallet scrim fix `82ad6f53` and the flashback lightbox). iOS `1.0.6
+  (528)` (`b558fd11`) is HEALTHY (45,985 functions) and uploaded to App Store
+  Connect (submission `b30a5e0d`); the owner said they will replace the
+  in-flight 527 review with it. Android `1.0.6 (529)` (`72413e89`) is on the
+  Play internal track (submission `02202f00`, "All done!"). The earlier iOS
+  `527` review and Android `528` internal build carry `163a7065` without the
+  scrim fix. An Android `527` (`0333ca22`, no fixes) is still stuck
+  IN_PROGRESS on EAS with an artifact; never submit it, cancel it if it
+  bothers you.
+- **App Store screenshots.** Seven flattened, alpha-free PNGs (1320 x 2868,
+  the 6.9-inch slot) are in `~/Desktop/appstore-noalpha/`, numbered in
+  upload order: home, journey map, progress, leaderboard, games hub, tailor,
+  choose a language. Made with PIL from the owner's phone captures in
+  `~/Downloads` (macOS screenshot names carry a narrow no-break space before
+  "AM"; glob for them). App Store Connect rejects PNGs with an alpha channel.
+- **The next build needs the owner's go in the current message.** Keep
+  `1.0.6` unless told otherwise: the owner ruled 1.0.6 three times for
+  rebuilds of an unreleased train.
 - **The Repl has NOT pulled anything from tonight.** Every web change below
   is on GitHub only. `git pull` in the Repl Shell, the api suite there (no
   server change since `811d982e`, so the baseline should hold), then publish.
@@ -48,7 +56,8 @@ Written 2026-08-30 (about 04:00 EDT) by BOLO Build 23. **Read `CLAUDE.md` first,
    `lib/emergency` is the zone's last stop capped at the ninth. Seen on the
    sim in the Gujarati showroom.
 2. `987b0b06` app.json write-back (iOS 526, Android 527) after the first
-   1.0.6 rebuild; `cbf7baea` the second (iOS 527, Android 528).
+   1.0.6 rebuild; `cbf7baea` the second (iOS 527, Android 528); `15ef37ff`
+   the third, the morning build (iOS 528, Android 529).
 3. `9220e2a6` **Web Progress** rebuilt to the mockup (ticket, one-row stats,
    journey card, All-Access card, Bolo's bubble).
 4. `5f68c674` **Web Leaderboard**: one shared board on both doors, XP or
@@ -118,8 +127,8 @@ Written 2026-08-30 (about 04:00 EDT) by BOLO Build 23. **Read `CLAUDE.md` first,
 
 ## 4. THE QUEUE, IN THE OWNER'S ORDER
 
-1. **The owner's morning testing** of 527/528, then a build with the wallet
-   scrim fix and the lightbox once they say build.
+1. **The owner's testing of 528/529** (the wallet scrim fix and the lightbox
+   are in them), then whatever they find.
 2. **The Repl**: pull, api suite, publish, then look at every web change of
    section 1 in the preview. Expect the first visual corrections there.
 3. **The Bazaar "Your Flex" card** (memory
