@@ -640,9 +640,15 @@ export function JourneyPassCard({
                     own rounded outer corners: the middle edge is square and
                     borderless so the two halves read as ONE ticket at rest and
                     as two pieces of paper the moment they part. */}
+                {/* THE OUTLINE IS THE APP'S INDIGO (build 22, owner: "change
+                    the dark black outline to the same blue/purple color
+                    weaved throughout the pass and journey"). The stock, the
+                    rules and the stamp keep their ink; only the cut edge and
+                    the notches that continue it take the primary. */}
                 <Animated.View
                   style={[
                     styles.ticketHalf,
+                    { borderColor: colors.primary },
                     styles.ticketBody,
                     ticketBodyTearStyle,
                     tearing && [styles.tearHalf, styles.ticketBodyTorn],
@@ -671,8 +677,8 @@ export function JourneyPassCard({
                       A cutout may only ever straddle an EDGE, which is the
                       standing ruling that took the floating punch hole out of
                       this card and off the web twin. */}
-                  <View pointerEvents="none" style={[styles.notch, styles.notchBodyTop]} />
-                  <View pointerEvents="none" style={[styles.notch, styles.notchBodyBottom]} />
+                  <View pointerEvents="none" style={[styles.notch, { borderColor: colors.primary }, styles.notchBodyTop]} />
+                  <View pointerEvents="none" style={[styles.notch, { borderColor: colors.primary }, styles.notchBodyBottom]} />
                   {/* CENTRED, BIGGER AND TRACKED OUT (owner, 2026-08-28: "spread
                       out the words or center them, and make them bigger, maybe
                       add some more rustic details"). It was 9pt and 6pt, hard
@@ -717,6 +723,7 @@ export function JourneyPassCard({
                 <Animated.View
                   style={[
                     styles.ticketHalf,
+                    { borderColor: colors.primary },
                     styles.ticketStub,
                     stubTearStyle,
                     tearing && [styles.tearHalf, styles.ticketStubTorn],
@@ -730,8 +737,8 @@ export function JourneyPassCard({
                     style={styles.stubStock}
                   />
                   <View pointerEvents="none" style={styles.halfRule} />
-                  <View pointerEvents="none" style={[styles.notch, styles.notchStubTop]} />
-                  <View pointerEvents="none" style={[styles.notch, styles.notchStubBottom]} />
+                  <View pointerEvents="none" style={[styles.notch, { borderColor: colors.primary }, styles.notchStubTop]} />
+                  <View pointerEvents="none" style={[styles.notch, { borderColor: colors.primary }, styles.notchStubBottom]} />
                   <View testID="home-stamp-slot" style={styles.stampSlot}>
                     {journey.current && (
                       <ZoneStamp

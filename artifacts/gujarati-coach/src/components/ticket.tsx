@@ -8,6 +8,13 @@ import { TICKET, TICKET_SHAPE } from "@/lib/ticket-stock";
 // The bite taken out of the paper where it tears, in px. Sized once and shared
 // by both halves so the two quarter-circles meet as one semicircle.
 const TICKET_NOTCH = 12;
+/** THE CUT EDGE IS THE APP'S INDIGO (build 22, owner: "change the dark black
+ *  outline to the same blue/purple color weaved throughout the pass and
+ *  journey"). The stock, rules and stamp keep TICKET's ink; the two halves,
+ *  the perforation column between them and the notch discs that continue the
+ *  edge take the primary. Mobile twin: JourneyPassCard.tsx, colors.primary at
+ *  the halves and the notches. */
+const TICKET_OUTLINE = "hsl(var(--primary))";
 
 /** Diagonal ticket-stock stripes (CSS gradient only). `ink` is the stripe
  *  color including alpha, e.g. "rgba(255,255,255,0.05)" on accent, or
@@ -299,7 +306,7 @@ export function MiniTicket({
         width: notchSize,
         height: notchSize,
         background: notchFill,
-        borderColor: TICKET.edge,
+        borderColor: TICKET_OUTLINE,
         // Half of the disc hangs past the half's inner edge, whatever its size.
         ...(position.startsWith("body")
           ? { right: -notchSize / 2 + 1 }
@@ -349,7 +356,7 @@ export function MiniTicket({
         )}
         style={{
           background: stock,
-          borderColor: TICKET.edge,
+          borderColor: TICKET_OUTLINE,
           paddingLeft: Math.round(8 * scale),
           // It is ON the board, not part of it.
           boxShadow: `0 2px 4px ${TICKET.ink}38`,
@@ -408,7 +415,7 @@ export function MiniTicket({
           className="relative flex shrink-0 flex-col items-center justify-between border-y-2"
           style={{
             background: stock,
-            borderColor: TICKET.edge,
+            borderColor: TICKET_OUTLINE,
             paddingTop: notchSize / 2 + 3,
             paddingBottom: notchSize / 2 + 3,
             width: 5,
@@ -437,7 +444,7 @@ export function MiniTicket({
         )}
         style={{
           background: stock,
-          borderColor: TICKET.edge,
+          borderColor: TICKET_OUTLINE,
           paddingLeft: Math.round(5 * scale),
           paddingRight: Math.round(5 * scale),
           boxShadow: `0 2px 4px ${TICKET.ink}38`,
