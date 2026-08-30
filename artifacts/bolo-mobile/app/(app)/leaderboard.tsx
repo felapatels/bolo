@@ -27,6 +27,12 @@ import { Screen } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { MascotAvatar } from '@/components/MascotAvatar';
 import { FirstClassChip } from '@/components/GoldChip';
+import { SpeechBubble } from '@/components/SpeechBubble';
+import { MetricToggle } from '@/components/leaderboard/MetricToggle';
+import { WeeklyRaceBar } from '@/components/leaderboard/WeeklyRaceBar';
+import { LeaderboardBoard } from '@/components/leaderboard/LeaderboardBoard';
+import { type BoardMetric, boardBubbleLine, rankEntries, weekKey } from '@/lib/boardRanking';
+import { useRankDeltas } from '@/lib/useRankDeltas';
 import {
   FEED_EMPTY_BODY,
   feedLineFor,
@@ -50,6 +56,9 @@ import {
   useMyPublicName,
   type BoardScope,
 } from '@/components/BoardScope';
+// BoardRow, the podium and the ranking arithmetic left this file in build 22
+// (the owner's Leaderboard mockup) for components/leaderboard and
+// lib/boardRanking, so the Feed tab draws the identical board.
 import { appearDown, appearZoom, useAppearSkip } from '@/lib/entrance';
 import { hapticLight } from '@/lib/haptics';
 import { useColors } from '@/hooks/useColors';
@@ -93,27 +102,6 @@ const FLEX_TAB: BoardTabDef = { value: 'flex', label: 'Flex', icon: 'star' };
 /** Copy for a board holding nobody but the learner. */
 const BOARD_EMPTY_BODY =
   "Add a friend to see how this week's XP and streaks stack up. A little friendly competition goes a long way!";
-
-/**
- * WEEKLY XP RANKS, STREAK BREAKS THE TIE, then earliest to reach the total.
- * Nothing falls back to ids.
- *
- * This used to be compareBy(tab), parameterised on whichever metric the active
- * tab ranked by. With one board there is one order, and XP leads it because it
- * is the number that moves this week. The streak is still on every row and
- * still breaks ties, so nobody lost sight of it when the tab went.
- */
-function compareEntries(a: LeaderboardEntry, b: LeaderboardEntry): number {
-  const byXp = b.xp - a.xp;
-  if (byXp !== 0) return byXp;
-  if (b.currentStreakDays !== a.currentStreakDays) {
-    return b.currentStreakDays - a.currentStreakDays;
-  }
-  if (a.reachedAt === b.reachedAt) return 0;
-  if (a.reachedAt === null) return 1;
-  if (b.reachedAt === null) return -1;
-  return a.reachedAt < b.reachedAt ? -1 : 1;
-}
 
 /** Human-friendly label for a learner: their name, else a fallback. */
 function displayFor(u: { displayName?: string | null }): string {
@@ -165,136 +153,6 @@ function Segment({
         {label}
       </Text>
     </PressableScale>
-  );
-}
-
-/**
- * ONE ROW CARRYING BOTH NUMBERS, and deliberately a taller one. It took a
- * `tab` until 2026-08-26 and printed whichever single metric that tab ranked
- * by; with Weekly XP and Streak merged there is no metric to choose, so the row
- * shows them side by side and is given the room to do it.
- */
-function BoardRow({
-  entry,
-  rank,
-  scope,
-}: {
-  entry: LeaderboardEntry;
-  scope: BoardScope;
-  rank: number;
-}) {
-  const colors = useColors();
-  const isSelf = entry.isSelf;
-  // The leader is marked in the indigo primary, never gold: gold is reserved
-  // for paid status, and a leaderboard position is not something anybody bought.
-  const leading = rank === 1;
-
-  return (
-    <View
-      testID="board-row"
-      style={[
-        styles.row,
-        {
-          backgroundColor: isSelf ? colors.primary : colors.card,
-          borderColor: isSelf ? colors.primary : colors.border,
-        },
-      ]}
-    >
-      <View
-        style={[
-          styles.rankBadge,
-          {
-            backgroundColor: isSelf
-              ? 'rgba(255,255,255,0.22)'
-              : leading
-                ? `${colors.primary}26`
-                : colors.muted,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.rankText,
-            {
-              color: isSelf
-                ? colors.primaryForeground
-                : leading
-                  ? colors.primary
-                  : colors.mutedForeground,
-            },
-          ]}
-        >
-          {rank}
-        </Text>
-      </View>
-
-      <MascotAvatar user={entry} onPrimary={isSelf} />
-
-      <View style={{ flex: 1 }}>
-        <View style={styles.nameRow}>
-          <Text
-            style={[
-              styles.name,
-              { color: isSelf ? colors.primaryForeground : colors.foreground },
-              { flexShrink: 1 },
-            ]}
-            numberOfLines={1}
-          >
-            {isSelf ? 'You' : displayFor(entry)}
-          </Text>
-          {/* Gold for status somebody paid for, and only while it is live. */}
-          {entry.firstClassActive ? <FirstClassChip /> : null}
-        </View>
-        <View style={styles.statRow}>
-          <Stat
-            icon="award"
-            value={entry.xp.toLocaleString()}
-            unit="XP"
-            onPrimary={isSelf}
-          />
-          <Stat
-            icon="zap"
-            value={entry.currentStreakDays.toLocaleString()}
-            unit={entry.currentStreakDays === 1 ? 'day' : 'days'}
-            onPrimary={isSelf}
-          />
-        </View>
-      </View>
-      {/* ONLY ON THE GLOBAL BOARD, AND NEVER ON YOUR OWN ROW. A friends board
-          is people you accepted, so a flag there is a bug report about somebody
-          you already chose. */}
-      {scope === 'all' && !isSelf ? (
-        <LearnerSafetyButton
-          userId={entry.userId}
-          username={entry.username ?? entry.displayName ?? null}
-        />
-      ) : null}
-    </View>
-  );
-}
-
-/** One number on a board row. Two of these replaced the single metric line. */
-function Stat({
-  icon,
-  value,
-  unit,
-  onPrimary,
-}: {
-  icon: keyof typeof Feather.glyphMap;
-  value: string;
-  unit: string;
-  onPrimary: boolean;
-}) {
-  const colors = useColors();
-  const tint = onPrimary ? 'rgba(255,255,255,0.85)' : colors.mutedForeground;
-  return (
-    <View style={styles.stat}>
-      <Feather name={icon} size={13} color={tint} />
-      <Text style={[styles.statValue, { color: onPrimary ? colors.primaryForeground : colors.foreground }]}>
-        {value}
-      </Text>
-      <Text style={[styles.statUnit, { color: tint }]}>{unit}</Text>
-    </View>
   );
 }
 
@@ -670,11 +528,15 @@ export default function LeaderboardScreen() {
   );
 
   const entries = board.data ?? [];
-  // ONE ORDER NOW. There is no tab to ask which metric to rank by, so the board
-  // is always sorted the same way and every row shows both numbers.
-  const ranked = React.useMemo(
-    () => [...entries].sort(compareEntries),
-    [entries],
+  // XP OR STREAK RANKS (build 22, the mockup's two pills). One payload, two
+  // orders: the toggle changes the sort and nothing else.
+  const [metric, setMetric] = React.useState<BoardMetric>('xp');
+  const ranked = React.useMemo(() => rankEntries(entries, metric), [entries, metric]);
+  const selfIndex = ranked.findIndex((e) => e.isSelf);
+  const selfRank = selfIndex >= 0 ? selfIndex + 1 : null;
+  const deltas = useRankDeltas(
+    board.data ? `${scope}:${metric}:${weekKey(new Date())}` : null,
+    ranked,
   );
 
   return (
@@ -703,9 +565,26 @@ export default function LeaderboardScreen() {
         </View>
         <Mascot pose="thumbsup" size={72} motion="sway" />
       </Animated.View>
+      {/* WHAT BOLO SAYS (build 22): the learner's standing in one line, in a
+          bubble under the bird with its tail pointing up at her. The header
+          is too tight to seat the bubble beside her without squeezing the
+          title, so it hangs below. */}
+      <View style={styles.bubbleRow}>
+        <SpeechBubble tail="up" testID="board-bubble">
+          {boardBubbleLine(board.data ? selfRank : null)}
+        </SpeechBubble>
+      </View>
 
       <View style={{ marginBottom: 12 }}>
         <BoardScopeToggle scope={scope} onChange={setScope} />
+      </View>
+      <View style={styles.controls}>
+        <MetricToggle metric={metric} onChange={setMetric} />
+        <WeeklyRaceBar
+          rank={board.data ? selfRank : null}
+          delta={selfIndex >= 0 ? deltas[ranked[selfIndex].userId] : undefined}
+          metricLabel={metric === 'xp' ? 'XP' : 'streak'}
+        />
       </View>
 
       {/* Shown, never blocking: a learner without a username reads the global
@@ -772,18 +651,7 @@ export default function LeaderboardScreen() {
         ) : ranked.length <= 1 ? (
           <EmptyBoard emptyBody={BOARD_EMPTY_BODY} />
         ) : (
-          ranked.map((entry, i) => (
-            <Animated.View
-              key={entry.userId}
-              entering={
-                skipEnter
-                  ? undefined
-                  : appearDown(Math.min(i, 8) * 45, 360)
-              }
-            >
-              <BoardRow entry={entry} rank={i + 1} scope={scope} />
-            </Animated.View>
-          ))
+          <LeaderboardBoard ranked={ranked} metric={metric} deltas={deltas} scope={scope} />
         )}
 
         {/* THE BOARD AND THE FEED SHARE THIS TAB. The feed owns its query, its
@@ -834,6 +702,8 @@ const styles = StyleSheet.create({
   },
   h1: { fontSize: 26, fontFamily: AppFonts.extrabold },
   headSub: { fontSize: 14, fontFamily: AppFonts.regular, marginTop: 2 },
+  bubbleRow: { alignItems: 'flex-end', paddingHorizontal: 20, marginTop: -6, marginBottom: 12 },
+  controls: { paddingHorizontal: 20, gap: 12, marginBottom: 14 },
   segmentWrap: {
     flexDirection: 'row',
     gap: 8,
@@ -853,22 +723,6 @@ const styles = StyleSheet.create({
   },
   segmentText: { fontSize: 14, fontFamily: AppFonts.bold },
   scroll: { paddingHorizontal: 20, paddingBottom: 48, gap: 10 },
-  // TALLER SINCE 2026-08-26. The row carries two numbers where it used to carry
-  // one, and the owner asked for rows that signify importance: 12 to 16 of pad
-  // and a wider gap is what buys the second line the room to read as a pair
-  // rather than as wrapped text.
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1.5,
-  },
-  statRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 4 },
-  stat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statValue: { fontSize: 15, fontFamily: AppFonts.extrabold },
-  statUnit: { fontSize: 12, fontFamily: AppFonts.regular },
   feedSection: { marginTop: 26, gap: 10 },
   feedHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   feedHeading: { fontSize: 18, fontFamily: AppFonts.extrabold },
@@ -897,16 +751,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   flexChipText: { fontSize: 13, fontFamily: AppFonts.bold },
-  rankBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rankText: { fontSize: 14, fontFamily: AppFonts.extrabold },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  name: { fontSize: 17, fontFamily: AppFonts.bold },
   feedRow: {
     flexDirection: 'row',
     alignItems: 'center',

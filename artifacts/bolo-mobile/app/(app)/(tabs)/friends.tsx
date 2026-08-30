@@ -54,6 +54,11 @@ import {
   useMyPublicName,
   type BoardScope,
 } from '@/components/BoardScope';
+import { MetricToggle } from '@/components/leaderboard/MetricToggle';
+import { WeeklyRaceBar } from '@/components/leaderboard/WeeklyRaceBar';
+import { LeaderboardBoard } from '@/components/leaderboard/LeaderboardBoard';
+import { type BoardMetric, rankEntries, weekKey } from '@/lib/boardRanking';
+import { useRankDeltas } from '@/lib/useRankDeltas';
 import { AppFonts } from '@/constants/fonts';
 
 type Tab = 'friends' | 'leaderboard';
@@ -1028,13 +1033,30 @@ function LeaderboardTab() {
   // default, same gate as the other two now.
   const [scope, setScope] = React.useState<BoardScope>('all');
   const { username, loaded: nameLoaded } = useMyPublicName();
-  const boardParams: GetFriendsLeaderboardParams = { scope };
+  // THE WEEK, LIKE THE LEADERBOARD SCREEN (build 22). This tab fetched
+  // all-time XP while the screen home links to fetched the week, so the same
+  // learner was #4 here and #7 there, and the "since you last looked" arrows
+  // compared one board's snapshot with the other's. Seen on the simulator the
+  // first time both drew the shared board; one window ends it.
+  const boardParams: GetFriendsLeaderboardParams = { scope, window: 'week' };
   const leaderboard = useGetFriendsLeaderboard(boardParams, {
     query: { queryKey: getGetFriendsLeaderboardQueryKey(boardParams) },
   });
 
   const rows = leaderboard.data ?? [];
   const onlySelf = rows.length === 1 && rows[0]?.isSelf;
+  // THE SAME BOARD AS THE LEADERBOARD SCREEN (build 22): the podium, the
+  // rows, the XP or Streak pills and the weekly race bar are shared
+  // components over shared arithmetic, so this tab cannot drift from the
+  // screen home links to. It used to draw its own rows.
+  const [metric, setMetric] = React.useState<BoardMetric>('xp');
+  const ranked = React.useMemo(() => rankEntries(rows, metric), [rows, metric]);
+  const selfIndex = ranked.findIndex((e) => e.isSelf);
+  const selfRank = selfIndex >= 0 ? selfIndex + 1 : null;
+  const deltas = useRankDeltas(
+    leaderboard.data ? `${scope}:${metric}:${weekKey(new Date())}` : null,
+    ranked,
+  );
 
   return (
     <KeyboardAwareScrollViewCompat
@@ -1061,6 +1083,15 @@ function LeaderboardTab() {
         </View>
       ) : null}
 
+      <View style={{ gap: 12, marginBottom: 14 }}>
+        <MetricToggle metric={metric} onChange={setMetric} />
+        <WeeklyRaceBar
+          rank={leaderboard.data ? selfRank : null}
+          delta={selfIndex >= 0 ? deltas[ranked[selfIndex].userId] : undefined}
+          metricLabel={metric === 'xp' ? 'XP' : 'streak'}
+        />
+      </View>
+
       {leaderboard.isLoading ? (
         <View style={{ gap: 10, marginTop: 8 }}>
           {[0, 1, 2, 3, 4].map((i) => (
@@ -1073,14 +1104,7 @@ function LeaderboardTab() {
         <EmptyLeaderboard />
       ) : (
         <>
-          {rows.map((entry, i) => (
-            <Animated.View
-              key={entry.userId}
-              entering={skipEnter ? undefined : appearDown(Math.min(i, 8) * 45, 360)}
-            >
-              <LeaderboardRow entry={entry} />
-            </Animated.View>
-          ))}
+          <LeaderboardBoard ranked={ranked} metric={metric} deltas={deltas} scope={scope} />
           {onlySelf && scope === 'friends' ? (
             <Text style={[styles.lbHint, { color: colors.mutedForeground }]}>
               Add friends to see how you stack up. Your XP is the total across
@@ -1090,90 +1114,6 @@ function LeaderboardTab() {
         </>
       )}
     </KeyboardAwareScrollViewCompat>
-  );
-}
-
-function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
-  const colors = useColors();
-  const isSelf = entry.isSelf;
-  const isPodium = entry.rank <= 3;
-  const podiumColor =
-    entry.rank === 1
-      ? colors.gold
-      : entry.rank === 2
-        ? colors.mutedForeground
-        : colors.secondary;
-
-  return (
-    <View
-      style={[
-        styles.lbRow,
-        {
-          backgroundColor: isSelf ? colors.primary : colors.card,
-          borderColor: isSelf ? colors.primary : colors.border,
-        },
-      ]}
-    >
-      <View
-        style={[
-          styles.rankBadge,
-          {
-            backgroundColor: isSelf
-              ? 'rgba(255,255,255,0.22)'
-              : isPodium
-                ? `${podiumColor}26`
-                : colors.muted,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            styles.rankText,
-            {
-              color: isSelf
-                ? colors.primaryForeground
-                : isPodium
-                  ? podiumColor
-                  : colors.mutedForeground,
-            },
-          ]}
-        >
-          {entry.rank}
-        </Text>
-      </View>
-
-      <MascotAvatar user={entry} onPrimary={isSelf} />
-
-      <View style={{ flex: 1 }}>
-        <Text
-          style={[
-            styles.lbName,
-            { color: isSelf ? colors.primaryForeground : colors.foreground },
-          ]}
-          numberOfLines={1}
-        >
-          {isSelf ? 'You' : displayFor(entry)}
-        </Text>
-        <Text
-          style={[
-            styles.lbSub,
-            {
-              color: isSelf
-                ? 'rgba(255,255,255,0.75)'
-                : colors.mutedForeground,
-            },
-          ]}
-        >
-          {entry.xp.toLocaleString()} XP
-        </Text>
-      </View>
-
-      <Feather
-        name="zap"
-        size={20}
-        color={isSelf ? colors.primaryForeground : colors.gold}
-      />
-    </View>
   );
 }
 
