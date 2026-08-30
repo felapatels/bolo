@@ -36,6 +36,14 @@ jest.mock('react-native-svg', () => {
     // The run ahead cuts its centre out with a Mask (build 17).
     Mask: passthrough,
     Line: passthrough,
+    // The home pass's drawn parchment (build 21) shades its sheet with
+    // gradients and freckles it with ellipses (build 22 pins).
+    RadialGradient: passthrough,
+    LinearGradient: passthrough,
+    Stop: passthrough,
+    Image: passthrough,
+    TextPath: passthrough,
+    ClipPath: passthrough,
   };
 });
 
@@ -255,16 +263,25 @@ describe('stub tear-off activation', () => {
   // same beat as the tear, 500ms before navigation, for the learner's
   // current zone (zoneIndex 1 is zone id 2); the journey sees it up and
   // stands down. No current stop, no film from here.
-  it('starts the current zone\'s arrival film at the tear, before navigation', () => {
+  // INVERTED build 22 (owner: "the ticket tear doesn't happen now"): started
+  // in the tear's first frame, the film's fade covered the stub before it
+  // had moved, which a recording of the simulator proved. The film now waits
+  // 320ms so a third of a second of tear shows, then dissolves in while the
+  // stub is still sailing, still ahead of the navigation at 500.
+  it('starts the current zone\'s arrival film a beat into the tear, before navigation', () => {
     mockState.journey = { current: CURRENT, doneCount: 2 };
     const onPress = jest.fn();
     render(<JourneyPassCard onPress={onPress} />);
     fireEvent.press(screen.getByTestId('journey-pass-card'));
+    expect(playStopSplash).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(320);
+    });
     expect(playStopSplash).toHaveBeenCalledTimes(1);
     expect(playStopSplash).toHaveBeenCalledWith(2);
     expect(onPress).not.toHaveBeenCalled();
     act(() => {
-      jest.advanceTimersByTime(500);
+      jest.advanceTimersByTime(180);
     });
     expect(onPress).toHaveBeenCalledTimes(1);
   });

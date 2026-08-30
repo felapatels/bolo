@@ -390,7 +390,8 @@ describe('THE STALL SELLS CHAI', () => {
   // wallet, which is a strange thing for a stall to be. Someone standing at a
   // chai stall should be able to buy chai without being sent to another room.
   const bazaar = require('node:fs').readFileSync(
-    require('node:path').join(__dirname, '..', 'app', '(app)', 'bazaar.tsx'),
+    // The Ticket Counter door serves the packs since the bazaar's rebuild (build 22).
+    require('node:path').join(__dirname, '..', 'app', '(app)', 'bazaar', 'tickets.tsx'),
     'utf8',
   ) as string;
 

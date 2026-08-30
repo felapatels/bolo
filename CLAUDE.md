@@ -100,12 +100,22 @@ Run from the repo root.
   The script runs `sync-schema` first, so running the api tests APPLIES pending
   migrations to the dev database.
 - web: `pnpm --filter @workspace/gujarati-coach run test` (vitest)
-  Baseline **137 files, 1475 tests, all pass**, measured 2026-08-29 (build 20).
+  Baseline **139 files, 1491 tests, all pass**, measured 2026-08-30 (build 22,
+  with the rail-offset pin and another session's landing test in the tree).
+  (Was 137 / 1475 on 2026-08-29 (build 20).)
   (Was 135 / 1462 earlier on 2026-08-29 (build 19), 131 / 1434 (build 18), 131 / 1421 on 2026-08-28, 128 / 1399 on 2026-08-27, and 93 suites / 842 tests before that.) One flake seen once on 2026-08-27, a single
   failure that did not reproduce across two immediate re-runs; noted rather
   than chased, and worth watching for.
 - mobile: `pnpm --filter @workspace/bolo-mobile run test` (jest)
-  Baseline **148 suites, 1433 tests, all pass**, measured 2026-08-29 (build 20).
+  Baseline **152 suites, 1454 tests, all pass**, measured 2026-08-30 (build 22).
+  **THE FIRST FULL RUN AFTER BUILD 21 FAILED 25 SUITES**, almost all of them
+  build 21's, never run: every screen that mounts a ChaiPill mounts the
+  wallet sheet, whose `useSafeAreaInsets()` threw without a provider (now
+  `lib/useSafeInsets.ts`, zero without one); the home pass's drawn parchment
+  uses svg gradients the tests' `react-native-svg` mocks lacked; the games
+  hub grew `useLanguage`, `useJourneyProgress` and `useFocusEffect` that its
+  two suites never mocked. A suite that is not run is not a suite.
+  (Was 148 / 1433 on 2026-08-29 (build 20).)
   (Was 146 / 1417 earlier on 2026-08-29 (build 19), 141 / 1365 (build 18), 141 / 1359 on 2026-08-28, 132 / 1307 on 2026-08-27, and 108 suites / 1007 tests before that.) Needs `--forceExit`; workers leak and CI does not pass
   that flag. Known open item. **THE FULL SUITE IS `pnpm --filter
   @workspace/bolo-mobile exec jest --forceExit`.** `pnpm run test --

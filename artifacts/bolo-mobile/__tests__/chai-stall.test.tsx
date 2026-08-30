@@ -50,12 +50,19 @@ const GLYPH_SITES: Record<string, number> = {
   'components/journey/SignalEncounter.tsx': 1, // signal-chai-chip
   'app/(app)/practice/[id].tsx': 1, // session-chai-pill
   'components/journey/ZoneCloseout.tsx': 1, // closeout payoff chip
-  'app/(app)/bazaar.tsx': 4, // wardrobe balance, action-bar Buy, row Buy Now, and the chai stall's top-up badge (2026-08-19). The thumbnail price pill went with the card-to-row rebuild (5414ef9)
+  // THE BAZAAR IS FOUR DOORS (build 22): the shop's try-on Buy and the rail
+  // card's price, the header's Chai pill every door shares, the Ticket
+  // Counter's stamp price. The old street's four went with the street.
+  'components/bazaar/OutfitShop.tsx': 2,
+  'components/bazaar/BazaarHeader.tsx': 1,
+  'components/bazaar/PassCards.tsx': 1,
+  // The paywall's annual card wears three kulhads and the trial box one (build 22).
+  'app/(app)/paywall.tsx': 4,
   'components/SessionStats.tsx': 1, // the session-chai pill in the practice, review and game headers. Build 21: it drew a 🍵 emoji, which read as green tea ("this is the wrong icon for chai", owner); it now draws the kulhad like every other Chai surface.
   'components/journey/JourneyPassCard.tsx': 1, // the cup before "Chai and surprises along the way" on the home pass (build 21, the owner's home mockup)
 };
 
-const MOBILE_GLYPH_COUNT = 15;
+const MOBILE_GLYPH_COUNT = 19; // 15 until build 22: the street's 4 became 4 across the doors, and the paywall added 4
 
 describe('chai glyph', () => {
   test('renders the delivered kulhad art at the caller size', () => {

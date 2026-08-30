@@ -131,6 +131,8 @@ jest.mock('@/components/MilestoneToast', () => ({
 
 jest.mock('@expo/vector-icons', () => ({
   Feather: () => null,
+  // The shop's category buttons and stamps draw this family too (build 22).
+  MaterialCommunityIcons: () => null,
 }));
 
 jest.mock('@/hooks/useColors', () => ({

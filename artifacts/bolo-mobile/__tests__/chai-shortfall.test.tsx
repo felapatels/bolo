@@ -104,7 +104,8 @@ describe('NOTHING ADVERTISES A COUNTER WITH NOBODY BEHIND IT', () => {
     fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8') as string;
 
   it('the bazaar badge is gated on the store having stock', () => {
-    const src = read('app', '(app)', 'bazaar.tsx');
+    // The packs moved to the Ticket Counter door with the bazaar's rebuild (build 22).
+    const src = read('app', '(app)', 'bazaar', 'tickets.tsx');
     expect(src).toContain('useChaiPacksSellable');
     expect(src).toContain('packsSellable ?');
   });

@@ -367,7 +367,9 @@ describe('express countdown', () => {
     render(<ChaiWalletSheet visible onClose={onClose} />);
 
     const browse = screen.getByTestId('wallet-open-wardrobe');
-    expect(browse).toHaveTextContent('Browse');
+    // INVERTED build 22 (the owner's wallet mockup): the button reads
+    // "Browse Bazaar", the street's own name.
+    expect(browse).toHaveTextContent('Browse Bazaar');
     // Bolo is female; the row copy must not call her a boy.
     expect(
       screen.getByText('Fits, boosts and streak savers.'),

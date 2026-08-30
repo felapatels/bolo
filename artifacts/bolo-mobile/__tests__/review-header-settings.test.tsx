@@ -297,9 +297,10 @@ describe('review header: settings gear and menu (#1045)', () => {
   test('the Android back gesture closes the menu', async () => {
     await openReview();
     await openMenu();
-    const modal = screen.UNSAFE_getByType(
-      require('react-native').Modal,
-    );
+    // Two Modals since build 21: the menu's, and the Chai pill's wallet sheet
+    // (hidden). The open one is the menu's.
+    const modals = screen.UNSAFE_getAllByType(require('react-native').Modal);
+    const modal = modals.find((m) => m.props.visible) ?? modals[0];
     await act(async () => {
       modal.props.onRequestClose();
     });

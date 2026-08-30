@@ -100,6 +100,10 @@ jest.mock('react-native-svg', () => {
     LinearGradient: passthrough,
     Stop: passthrough,
     TextPath: passthrough,
+    // The home pass's drawn parchment (build 21) shades its sheet with
+    // gradients and freckles it with ellipses (build 22 pins).
+    RadialGradient: passthrough,
+    ClipPath: passthrough,
   };
 });
 

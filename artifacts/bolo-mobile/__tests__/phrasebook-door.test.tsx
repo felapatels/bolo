@@ -83,6 +83,15 @@ jest.mock('react-native-svg', () => {
     Defs: passthrough,
     // The run ahead cuts its centre out with a Mask (build 17).
     Mask: passthrough,
+    // The home pass's drawn parchment (build 21) shades its sheet with
+    // gradients and freckles it with ellipses (build 22 pins).
+    RadialGradient: passthrough,
+    LinearGradient: passthrough,
+    Stop: passthrough,
+    Image: passthrough,
+    Text: passthrough,
+    TextPath: passthrough,
+    ClipPath: passthrough,
   };
 });
 

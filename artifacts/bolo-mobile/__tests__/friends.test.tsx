@@ -331,18 +331,21 @@ describe('Leaderboard', () => {
     // the viewer's outfit, and asserting screen-wide would catch that instead.
     const rows = screen.getAllByTestId('row-mascot');
     expect(rows).toHaveLength(3);
+    // INVERTED build 22: the first three sit on a podium that seats second
+    // on the left, first in the middle and third on the right, so the rows
+    // read me (2nd), the rival (1st), then the third.
     expect(
       rows.map((r) => within(r).getByTestId(/^mascot-outfit-/).props.testID),
     ).toEqual([
-      'mascot-outfit-kurta',
       'mascot-outfit-sherwani',
+      'mascot-outfit-kurta',
       // The learner who owns nothing gets canonical Bolo — an EXPLICIT null,
       // not an inherited fallback that would paint them in the viewer's
       // clothes ('mascot-outfit-inherited' is what that failure looks like).
       'mascot-outfit-none',
     ]);
-    // The head slot rides along with the garment.
-    expect(within(rows[0]).getByLabelText('accessory-pagdi')).toBeOnTheScreen();
+    // The head slot rides along with the garment (the rival, in the middle).
+    expect(within(rows[1]).getByLabelText('accessory-pagdi')).toBeOnTheScreen();
   });
 
   test('renders skeleton placeholders while loading', () => {

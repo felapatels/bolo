@@ -11,7 +11,29 @@ import { render, screen } from '@testing-library/react-native';
 const mockState: Record<string, any> = {};
 const mockPush = jest.fn();
 
+// THE HUB READS THE LANGUAGE (build 21: the hero's language line is the
+// switch), and this suite predates that; a bare hook throws without the
+// provider. The mock is the shape the hub reads.
+// THE HUB WALKS THE JOURNEY for its "Continue playing" line (build 21) through
+// the same six queries the map fires; this suite has no QueryClient, so the
+// hook is mocked to a fresh learner.
+jest.mock('@/lib/useJourneyProgress', () => ({
+  useJourneyProgress: () => ({ current: null, zones: [], doneCount: 0, totalCount: 0, isLoading: false, planBlocked: false }),
+}));
+
+jest.mock('@/contexts/LanguageContext', () => ({
+  useLanguage: () => ({
+    activeLang: 'hi',
+    activeLanguage: { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', script: 'devanagari', fontFamily: '', rtl: false, sortOrder: 0 },
+    languages: [],
+    speechCapability: 'supported',
+    timeZone: null,
+  }),
+}));
+
 jest.mock('expo-router', () => ({
+  // The hub refreshes its last-played line on focus (build 21).
+  useFocusEffect: jest.fn(),
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
 }));
 
@@ -67,6 +89,16 @@ jest.mock('react-native-svg', () => {
     Polygon: passthrough,
     Ellipse: passthrough,
     Line: passthrough,
+    // The home pass's drawn parchment (build 21) shades its sheet with
+    // gradients and freckles it with ellipses (build 22 pins).
+    RadialGradient: passthrough,
+    LinearGradient: passthrough,
+    Stop: passthrough,
+    Defs: passthrough,
+    Image: passthrough,
+    Text: passthrough,
+    TextPath: passthrough,
+    ClipPath: passthrough,
   };
 });
 
