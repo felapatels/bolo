@@ -8,6 +8,8 @@ import {
   StyleSheet,
   Text,
   View } from 'react-native';
+// The rack split is generated from scripts/wardrobe/manifest.json (build 25).
+import { STATION_IDS } from '@/lib/wardrobeShop.gen';
 import { useContentWidth } from '@/lib/contentWidth';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
@@ -52,8 +54,6 @@ import { hapticLight } from '@/lib/haptics';
  */
 export type ShopDoor = 'tailor' | 'station';
 
-/** The station-themed pieces of the catalogue, by id. Grows with the art. */
-const STATION_IDS: ReadonlySet<string> = new Set(['station-cap']);
 
 const RACK_SECTIONS: ReadonlyArray<{ kind: string; label: string }> = [
   { kind: 'garment', label: 'Outfits' },

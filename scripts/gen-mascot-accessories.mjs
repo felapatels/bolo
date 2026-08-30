@@ -64,7 +64,12 @@ const CANON_DIR = "artifacts/gujarati-coach/public/mascot";
 const WEB_OUT = "artifacts/gujarati-coach/public/mascot/outfits";
 const MOBILE_OUT = "artifacts/bolo-mobile/assets/images/mascot/outfits";
 const ART = "scripts/mascot-accessory-art";
-const FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
+// The Repl's Linux font, with the Mac's Arial as the fallback so review
+// sheets render on both machines (build 25).
+import { existsSync as fontExists } from "node:fs";
+const FONT = fontExists("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+  ? "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+  : "/System/Library/Fonts/Supplemental/Arial.ttf";
 
 function arg(name, fallback = null) {
   const i = process.argv.indexOf(`--${name}`);

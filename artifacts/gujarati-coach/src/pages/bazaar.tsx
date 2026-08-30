@@ -60,9 +60,8 @@ import {
 
 export type ShopDoor = "tailor" | "station";
 
-/** The station-themed pieces of the catalogue, by id. Grows with the art.
- *  Mobile twin: STATION_IDS in components/bazaar/OutfitShop.tsx. */
-const STATION_IDS: ReadonlySet<string> = new Set(["station-cap"]);
+// The rack split is generated from scripts/wardrobe/manifest.json (build 25).
+import { STATION_IDS } from "@/lib/wardrobeShop.gen";
 
 const DOORS: Record<ShopDoor, { title: string; subtitle: string; stall: "tailor" | "ticket" }> = {
   tailor: { title: "The Tailor", subtitle: "Dress Bolo for the journey.", stall: "tailor" },

@@ -1,0 +1,109 @@
+{
+  "$comment": "THE WARDROBE MANIFEST (build 25): the single source of truth for every piece of Bolo clothing. `node scripts/wardrobe.mjs codegen` regenerates the server catalogue table, mobile's literal require() maps and both clients' shop racks from this file; `gen`/`install` drive the compositing generators with each item's recorded recipe. Hand-edit THIS file, never the generated ones. The laws that bound every entry: the canonical mascot rule (she is never redrawn), the sleeve rule (wings redraw in front of cloth, so sleeved outerwear can never work; a Western jacket set was generated once and rejected - do not regenerate it), and eye clearance for anything on her head. costBand maps to server tokenEconomy constants: standard=OUTFIT_COST, premium=PREMIUM_OUTFIT_COST, accessory=ACCESSORY_COST.",
+  "items": [
+    {
+      "id": "navratri",
+      "name": "Navratri chaniya choli",
+      "tagline": "Nine nights of dancing, mirrors and all.",
+      "kind": "garment",
+      "shop": "tailor",
+      "costBand": "standard",
+      "preview": "full",
+      "status": "shipped",
+      "art": null,
+      "recipe": null,
+      "note": "Predates the generator: pose art was made by hand and no source cloth exists in the repo. Refining it means regenerating source art from the art spec."
+    },
+    {
+      "id": "kediyu",
+      "name": "Navratri kediyu",
+      "tagline": "Mirror-work cotton, cut for nine nights of garba.",
+      "kind": "garment",
+      "shop": "tailor",
+      "costBand": "standard",
+      "preview": "full",
+      "status": "shipped",
+      "art": "scripts/mascot-garment-art/gar-kediyu-wide.png",
+      "recipe": {}
+    },
+    {
+      "id": "anarkali",
+      "name": "Diwali anarkali",
+      "tagline": "Magenta and gold, and it spins beautifully.",
+      "kind": "garment",
+      "shop": "tailor",
+      "costBand": "standard",
+      "preview": "full",
+      "status": "shipped",
+      "art": "scripts/mascot-garment-art/gar-anarkali-c.png",
+      "recipe": { "squash": 1.05, "freefrac": 1.0 }
+    },
+    {
+      "id": "kurta",
+      "name": "Diwali kurta",
+      "tagline": "Saffron cotton, a gold placket, churidar to match.",
+      "kind": "garment",
+      "shop": "tailor",
+      "costBand": "standard",
+      "preview": "full",
+      "status": "shipped",
+      "art": "scripts/mascot-garment-art/gar-kurta-c.png",
+      "recipe": { "squash": 1.05, "freefrac": 1.0 }
+    },
+    {
+      "id": "sherwani",
+      "name": "Wedding sherwani",
+      "tagline": "Cream brocade and gold buttons. Baraat-ready.",
+      "kind": "garment",
+      "shop": "tailor",
+      "costBand": "premium",
+      "preview": "full",
+      "status": "shipped",
+      "art": "scripts/mascot-garment-art/gar-sherwani-c.png",
+      "recipe": { "squash": 1.05, "freefrac": 0.78 }
+    },
+    {
+      "id": "saree",
+      "name": "Banarasi saree",
+      "tagline": "Crimson silk with a whole river of gold zari.",
+      "kind": "garment",
+      "shop": "tailor",
+      "costBand": "premium",
+      "preview": "full",
+      "status": "shipped",
+      "art": "scripts/mascot-garment-art/gar-saree-c.png",
+      "recipe": { "squash": 1.05, "freefrac": 0.5 }
+    },
+    {
+      "id": "pagdi",
+      "name": "Marigold pagdi",
+      "tagline": "Marigold silk, gold zari and one peacock feather.",
+      "kind": "accessory",
+      "shop": "tailor",
+      "costBand": "accessory",
+      "preview": "head",
+      "status": "shipped",
+      "art": "scripts/mascot-accessory-art/pagdi.png",
+      "recipe": {}
+    },
+    {
+      "id": "station-cap",
+      "name": "Station master's cap",
+      "tagline": "Navy and red, with a little brass engine on the badge.",
+      "kind": "accessory",
+      "shop": "station",
+      "costBand": "accessory",
+      "preview": "head",
+      "status": "shipped",
+      "art": "scripts/mascot-accessory-art/station-cap.png",
+      "recipe": { "nudgeX": { "thinking": 20, "tryagain": 20 } }
+    }
+  ],
+  "unshippedSources": {
+    "$comment": "Source art in the repo with no catalogue entry.",
+    "gar-baddie-top.png": "novelty piece, never stocked",
+    "gar-certified-ten-tee.png": "novelty piece, never stocked",
+    "gar-{kurta,sherwani,saree}-b.png": "closed-front alternate cuts the owner did not pick; swapping one in is a single gen run",
+    "gar-sherwani-d.png": "a later sherwani recut reviewed in docs/garment-review/sherwani-d*, not shipped"
+  }
+}
