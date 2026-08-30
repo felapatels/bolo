@@ -118,6 +118,21 @@ const COMMITTED_TESTERS = [
   "user_3GdmYFr3KFW0QntIRs5aGn7HgKV", // aakesh_patel@yahoo.com, duplicate of an owner id
   "user_3GVXSGyUrSfNfOnrfnSGNNShCPh", // aakeshp+applereview@gmail.com
   "user_3HrjrJGKwKMEPlaWqTf206bLMpM", // bollymovesdance@gmail.com, the business address
+
+  // ---- People the owner knows are testing, added 2026-08-30 ----
+  // "naina c and ansh are testers and should be excluded with that toggle."
+  // Both verified against the PRODUCTION users table before being written here,
+  // which is the rule at the top of this file and not a formality: the drill
+  // shows a display name and an email, and neither of those is the id.
+  "user_3IL4Nk85MbjxiGi615BbxnIT13o", // nainachhabra11@icloud.com, 29 attempts
+  //
+  // ANSH HAS TWO ACCOUNTS ON ONE EMAIL AND BOTH ARE HERE. The drill only showed
+  // the August one, because the July one falls outside the window that was on
+  // screen. Excluding only what was visible would have left a duplicate
+  // counting as a learner forever, in every all-time figure, with nothing to
+  // make it obvious. Found by querying the email rather than the id.
+  "user_3IMzxsxGJsJMontcvbiNkW5Oa6Y", // dr.wala0126@gmail.com, 2026-08-24, 19 attempts
+  "user_3GdvZ37lLUHAPsZOWQHZjkDveeE", // dr.wala0126@gmail.com, 2026-07-17, 0 attempts
 ];
 
 export const nonLearnerUserIds: Set<string> = new Set(
