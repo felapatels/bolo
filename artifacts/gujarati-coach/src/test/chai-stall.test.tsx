@@ -57,7 +57,7 @@ const GLYPH_SITES: Record<string, number> = {
   "components/bazaar-header.tsx": 1, // the Chai pill on the hub and every door (build 23); it was pages/bazaar.tsx's wardrobe balance
   "pages/upgrade.tsx": 4, // build 23: three kulhads on the annual card and one in the trial box, off the phone's paywall
   "components/referral-card.tsx": 1, // Chai earned from referrals
-  "pages/home.tsx": 2, // Chai stat cell + streak-repair banner balance
+  "pages/home.tsx": 3, // Chai stat cell + streak-repair banner balance + the cup before the pass's reason (2026-08-30)
   "pages/games/quick-game-frame.tsx": 1, // chai-earn-beat
   "pages/games/speed-round.tsx": 1, // +N Chai earned
   "pages/journey.tsx": 2, // signal-chai-chip, stop-unlock offer
@@ -66,7 +66,7 @@ const GLYPH_SITES: Record<string, number> = {
   "components/outfit-card.tsx": 1, // Buy Now. The thumbnail price pill went with the card-to-row rebuild (5414ef9)
 };
 
-const WEB_GLYPH_COUNT = 20; // 15 until build 23; see the three lines above
+const WEB_GLYPH_COUNT = 21; // 15 until build 23; see the three lines above
 
 describe("chai glyph", () => {
   test("renders the delivered kulhad art, decoratively", () => {

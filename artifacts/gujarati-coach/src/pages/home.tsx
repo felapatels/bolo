@@ -39,7 +39,7 @@ import { TrainEngine } from "@/components/train-svg";
 import { BandPill, normalizeBand } from "@/components/ui/band-pill";
 import { MiniTicket, stampSizeForExtent, stationFontSize } from "@/components/ticket";
 import { StopDots } from "@/components/stop-dots";
-import { BOARD_ART_NUDGE, BOARD_ART_NUDGE_FRACTION, CarvedBoard } from "@/components/carved-board";
+import { PARCHMENT_PAPER, PARCHMENT_TOP, ParchmentPass } from "@/components/parchment-pass";
 import { ZONE_BOARD } from "@/lib/zone-backdrops";
 import { BADGE, TICKET } from "@/lib/ticket-stock";
 import { track } from "@/lib/analytics";
@@ -133,7 +133,11 @@ export function homeTicketScale(contentW: number): number {
 // the first suspect: raise it, never lower it to taste.
 //
 // Unmeasured height (jsdom, first paint) leaves width in charge alone.
-export const HOME_STACK_BASE_H = 128;
+// 180 WITH THE PARCHMENT (2026-08-30), was 128 on the carved board: the ticket
+// row is still 60, but the stops row now seats the 46px engine (its 14 up and
+// 4 back, plus the row's 10 margin: 66), and the CTA row is a 38px pill under
+// a 14px margin with 2px of padding (54).
+export const HOME_STACK_BASE_H = 180;
 export function homeBoardScale(contentW: number, contentH: number): number {
   const byWidth = homeTicketScale(contentW);
   if (!(contentH > 0)) return byWidth;
@@ -161,12 +165,14 @@ export function homeBoardScale(contentW: number, contentH: number): number {
 // tell "does not fit" from "is not there". Raise it for real content growth,
 // never lower it to taste.
 const HOME_PANEL_H = 240;
-// THE PANEL'S SHAPE, so a fluid board does not letterbox. Mobile's hero is
-// roughly 358pt wide over a 200pt panel (1.79); holding that exactly on web
-// would give a 704px desktop column a 393px panel, which is a lot of hero.
-// 2.5 keeps the phone case on the floor above (200) and lands desktop near
-// 280, which reads as the same object rather than a mail slot.
-const HOME_PANEL_ASPECT = 2.5;
+// THE PAPER'S SHAPE, so a fluid sheet does not letterbox. Mobile's parchment
+// is 358pt wide over a 222pt sheet (1.61). 2.5 was the carved board's shape
+// and it starved the taller stack the parchment carries (the engine closes
+// the stops row now, and the verb is a 38px pill): at the 704px desktop
+// column the height budget held the face at 1.33 where the owner had
+// approved 1.8. 1.9 lands that column on a 370px sheet, where width and
+// height agree at the cap, and keeps the phone on the floor above.
+const HOME_PANEL_ASPECT = 1.9;
 
 // Stub-tear navigation fallback. The authoritative delay lives in index.css
 // as --tear-nav-delay (the :root tuning constants block, in ms); this value
@@ -537,7 +543,7 @@ export default function Home() {
   // unmeasured, which stationFontSize reads as "give me the ceiling".
   const stationRun =
     passContent.width > 0
-      ? passContent.width * (1 - BOARD_ART_NUDGE_FRACTION) - ticketW - Math.round(12 * boardScale)
+      ? passContent.width - ticketW - Math.round(12 * boardScale)
       : 0;
   const stationLabel = journey.current
     ? journey.current.geoName
@@ -1132,6 +1138,28 @@ export default function Home() {
                 whileTap={reduceMotion ? undefined : { scale: PASS_PRESS_SCALE }}
                 transition={PASS_PRESS_SPRING}
               >
+              {/* THE GLOW IS BACK WITH THE PAPER (mobile twin: pass-glow in
+                  JourneyPassCard). It went with the carved board, whose art
+                  had a drawn frame and transparent margins that turned a halo
+                  into a white box; the parchment is a torn sheet with no
+                  frame, and the line's accent pulsing under it is what lifts
+                  it off the page. Inset to the sheet's middle and well under
+                  its ragged top edge, so only the shadow escapes. */}
+              {!reduceMotion && !tearing && (
+                <div
+                  aria-hidden
+                  data-testid="pass-glow"
+                  className="pointer-events-none absolute animate-pass-glow rounded-[14px]"
+                  style={{
+                    left: "12%",
+                    right: "12%",
+                    top: PARCHMENT_TOP * 0.6,
+                    bottom: 10,
+                    backgroundColor: journeyLine.accent,
+                    boxShadow: `0 6px 28px ${journeyLine.accent}`,
+                  }}
+                />
+              )}
               <Link
                 href="/journey"
                 // Stable hook for the order pin (Task #1049): the pass must
@@ -1150,46 +1178,30 @@ export default function Home() {
                     comet, not to the paper. This is that port.
                     The board does NOT flinch when the ticket tears. A carved
                     board is bolted to a wall; what comes apart is the ticket. */}
-                <CarvedBoard
-                  testId="home-carved-board"
-                  pedimentTestId="home-board-top"
-                  panelHeight={HOME_PANEL_H}
-                  panelAspect={HOME_PANEL_ASPECT}
+                {/* THE PARCHMENT, NOT THE CARVED BOARD (2026-08-30, owner:
+                    "the boarding pass on web is not updated with new UX from
+                    mobile"; mobile made this move in build 21 off the owner's
+                    home mockup). The board with its pediment stays the
+                    journey's zone header; the pass is a sheet of aged paper
+                    with a brass nameplate on its top edge, the zone in faint
+                    ink under it, and the city's landmark seeping through
+                    behind the words. Open for the length of the tear, as the
+                    board was. The sheet is symmetric, so the art nudge the
+                    board needed is gone with it. */}
+                <ParchmentPass
+                  testId="home-parchment-pass"
+                  minHeight={HOME_PANEL_H}
+                  aspect={HOME_PANEL_ASPECT}
                   nameplate={journeyLine.lineName}
-                  plate={
-                    journey.current
-                      ? `Zone ${journey.current.zoneIndex + 1}`
-                      : "Departures"
-                  }
-                  // Open the board for the length of the tear: the ticket lives
-                  // inside the panel, and the board, the panel and the content
-                  // box all clip, so a ticket coming apart was cropped at the
-                  // frame line the moment it moved.
+                  plate={journey.current ? `ZONE ${journey.current.zoneIndex + 1}` : "DEPARTURES"}
+                  landmark={journey.current ? journey.current.geoName : journeyLine.zones[0]}
                   clipContent={!tearing}
-                  // A DROP-SHADOW, NOT A BOX-SHADOW, and that is the whole
-                  // fix for "white box is still around it". `.depth-shadow` is
-                  // a box shadow, so it outlines the element's RECTANGLE — and
-                  // the board's rectangle is bigger than the wood, because
-                  // both art slices carry transparent margins. The result was
-                  // a crisp pale rectangle framing the carving. A filter
-                  // drop-shadow follows the art's own alpha instead, so the
-                  // shadow traces the pediment's arch and the panel's edge.
-                  // Mobile's board carries no shadow at all; this is the least
-                  // that still gives the board some weight on a light page.
-                  className="rounded-b-md"
-                  style={{
-                    filter: "drop-shadow(2px 3px 5px rgba(15, 23, 42, 0.18))",
-                  }}
                 >
 
                   <div
                     ref={passContent.ref}
                     data-testid="home-pass-content"
                     className="flex h-full min-w-0 flex-col justify-center"
-                    // The drawn frame sits further in on the right than on the
-                    // left, so a symmetric content box runs the ticket and the
-                    // plate into it. See BOARD_ART_NUDGE.
-                    style={{ paddingRight: BOARD_ART_NUDGE }}
                   >
                     {/* THE TOP LINE, with the ticket lying in the corner beside
                         it. The ticket used to be a full-height column down the
@@ -1283,7 +1295,7 @@ export default function Home() {
                           tearing={tearing}
                           bodyRef={tearBodyRef}
                           stubRef={tearStubRef}
-                          notchFill={ZONE_BOARD.panel}
+                          notchFill={PARCHMENT_PAPER.mid}
                         />
                       </div>
                     </div>
@@ -1295,11 +1307,21 @@ export default function Home() {
                         mastered count still reaches the learner on the stop
                         card. StopDots is the one drawing of that row; the
                         journey's cards use it too. */}
-                    {journey.current && journey.current.stopCount > 0 && (
-                      <div
-                        className="flex items-center pr-0.5"
-                        style={{ marginTop: Math.round(8 * boardScale) }}
-                      >
+                    {/* THE LOCOMOTIVE CLOSES THE ROW (mobile build 21, the
+                        owner's home mockup; here 2026-08-30): a real engine at
+                        the end of the line where it used to stand small in the
+                        CTA row. Sat a little below the dots' line, wheels on
+                        the rail, so the plume above the stack clears the
+                        ticket stub's foot; the negative bottom margin gives the
+                        row back the height. It still drives on the heartbeat
+                        and First Class still recolours it. With no current
+                        stop the dots have nothing to draw and the engine
+                        stands at the platform alone. */}
+                    <div
+                      className="flex items-center pr-0.5"
+                      style={{ marginTop: Math.round(10 * boardScale) }}
+                    >
+                      {journey.current && journey.current.stopCount > 0 ? (
                         <StopDots
                           testId="pass-stops-row"
                           total={journey.current.stopCount}
@@ -1310,33 +1332,9 @@ export default function Home() {
                           scale={boardScale}
                           terminus
                         />
-                      </div>
-                    )}
-                    {/* THE DOOR. The engine stands here rather than up beside
-                        the title: it is the train at the platform, and
-                        pressing boards it. */}
-                    {/* UNBOXED (owner's mockup, build 17 on mobile, build 18
-                        here). The darker plate was the owner's own ruling on
-                        2026-08-28 and the mockup reverses it: the train, the
-                        reason and the verb sit straight on the paper, and the
-                        verb and its arrow carry the accent instead of a box. */}
-                    <div
-                      className="flex items-center"
-                      style={{
-                        marginTop: Math.round(10 * boardScale),
-                        paddingTop: Math.round(4 * boardScale),
-                        paddingBottom: Math.round(4 * boardScale),
-                        gap: Math.round(6 * boardScale),
-                      }}
-                    >
-                      {/* THE ENGINE TAKES A PALETTE, NOT A COLOUR. TrainEngine
-                          draws from four theme vars and keeps only its headlamp
-                          on currentColor, so styling `color` here tinted the
-                          lamp and left an indigo-and-teal engine standing on
-                          cream paper. The vars go on a display:contents wrapper
-                          so the layout box stays the engine's; First Class
-                          still overrides them, which is the whole point of
-                          doing it this way rather than adding a tint prop. */}
+                      ) : (
+                        <span className="min-w-0 flex-1" />
+                      )}
                       <div
                         className="contents"
                         data-testid="boarding-pass-train-gold-wrapper"
@@ -1352,77 +1350,99 @@ export default function Home() {
                             "w-auto shrink-0",
                             !reduceMotion && "animate-train-drive",
                           )}
-                          style={{ height: Math.round(22 * boardScale) }}
+                          style={{
+                            height: Math.round(46 * boardScale),
+                            marginLeft: Math.round(6 * boardScale),
+                            marginTop: Math.round(14 * boardScale),
+                            marginBottom: Math.round(-4 * boardScale),
+                          }}
                         />
                       </div>
-                      {/* THE VERB TRAVELS WITH THE ARROW. It sat left of the
-                          tail, so the plate read train, verb, sentence, arrow,
-                          and the two halves of the ACTION were at opposite ends
-                          with a sentence wedged between them. Verb and arrow
-                          together read as one control, and the sentence becomes
-                          what it actually is: the reason, not the instruction.
-                          The tail takes the flexible middle so it still wraps;
-                          the verb centres against whatever height that makes. */}
-                        {/* THREE LINES, NEVER ONE WITH AN ELLIPSIS. This carried
-                            `truncate` (nowrap + ellipsis) and clipped to
-                            "Only 6 more stops to go. Chai…", cutting the exact
-                            clause the sentence was added for: where Chai comes
-                            from. The mobile twin had the same bug and was fixed
-                            the same way. A clamp rather than free wrapping
-                            because the panel CLIPS — a board that does not fit
-                            its content does not look wrong, it looks blank —
-                            so a fourth line must be impossible, not unlikely.
-                            The type dropped 11->10 and the clamp 2->3 when the
-                            verb moved right: that took about a fifth of this
-                            column, and the sentence clipped at "Chai and
-                            surprises along t…", losing exactly the clause it
-                            was added for. Three levers each moved a little,
-                            rather than one cut hard. */}
-                        {journeyCtaTail && (
+                    </div>
+                    {/* THE DOOR. BOXED AGAIN (mobile build 21, the owner's
+                        home mockup: a filled violet Resume pill at the right,
+                        the reason beside a chai cup at the left; here
+                        2026-08-30). The unboxed verb was the owner's earlier
+                        mockup and the newer one reverses it; the newest wins.
+                        The cup before the reason: the sentence says where
+                        Chai comes from, and the kulhad is Chai's mark on every
+                        surface. Verb and arrow ride together inside one filled
+                        pill so the two halves of the ACTION are one control. */}
+                    <div
+                      className="flex items-center"
+                      style={{
+                        marginTop: Math.round(14 * boardScale),
+                        paddingTop: Math.round(2 * boardScale),
+                        paddingBottom: Math.round(2 * boardScale),
+                        gap: Math.round(8 * boardScale),
+                      }}
+                    >
+                      {journeyCtaTail && (
+                        <div
+                          className="flex min-w-0 flex-1 items-center"
+                          style={{ gap: Math.round(6 * boardScale) }}
+                        >
+                          <ChaiGlyph
+                            className="shrink-0"
+                            style={{ width: Math.round(18 * boardScale), height: Math.round(18 * boardScale) }}
+                          />
+                          {/* THREE LINES, NEVER ONE WITH AN ELLIPSIS: the
+                              clamp keeps the Chai clause, which is the half of
+                              the sentence most likely to be lost, and the
+                              panel clips, so a fourth line must be impossible
+                              rather than unlikely. */}
                           <span
                             className="line-clamp-3 min-w-0 flex-1 font-semibold"
                             style={{
                               color: ZONE_BOARD.inkMuted,
                               fontSize: 10 * boardScale,
                               lineHeight: `${Math.round(13 * boardScale)}px`,
-                              marginLeft: Math.round(6 * boardScale),
-                              marginRight: Math.round(6 * boardScale),
                             }}
                           >
                             {journeyCtaTail}
                           </span>
-                        )}
-                        {/* The verb and its arrow in the app's violet: the
-                            hybrid ticket's accent, now there is no plate. 18
-                            over 22, one point up with mobile. */}
+                        </div>
+                      )}
+                      <span
+                        data-testid="pass-cta-button"
+                        className="inline-flex shrink-0 items-center rounded-full bg-primary text-primary-foreground"
+                        style={{
+                          height: Math.round(38 * boardScale),
+                          paddingLeft: Math.round(16 * boardScale),
+                          paddingRight: Math.round(12 * boardScale),
+                          gap: Math.round(6 * boardScale),
+                          boxShadow: "0 3px 6px rgba(59, 42, 30, 0.22)",
+                        }}
+                      >
                         <span
-                          className="shrink-0 font-black text-primary"
+                          className="truncate font-black"
                           style={{
-                            fontSize: 18 * boardScale,
+                            fontSize: 17 * boardScale,
                             lineHeight: `${Math.round(22 * boardScale)}px`,
                           }}
                         >
                           {journeyCta}
                         </span>
-                      {/* A SOLID arrow, not a hairline one: beside a 17px black
-                          verb a thin stroke reads as a different weight of
-                          voice. */}
-                      <span
-                        className={cn("inline-flex shrink-0 text-primary", !reduceMotion && "animate-cta-arrow-nudge")}
-                        aria-hidden
-                      >
-                        <ArrowRight
-                          className="transition-transform group-hover:translate-x-0.5"
-                          strokeWidth={3}
-                          style={{
-                            width: Math.round(20 * boardScale),
-                            height: Math.round(20 * boardScale),
-                          }}
-                        />
+                        {/* A SOLID arrow, not a hairline one: beside a 17px
+                            black verb a thin stroke reads as a different
+                            weight of voice. */}
+                        <span
+                          className={cn("inline-flex shrink-0", !reduceMotion && "animate-cta-arrow-nudge")}
+                          aria-hidden
+                        >
+                          <ArrowRight
+                            className="transition-transform group-hover:translate-x-0.5"
+                            strokeWidth={3}
+                            style={{
+                              width: Math.round(20 * boardScale),
+                              height: Math.round(20 * boardScale),
+                            }}
+                          />
+                        </span>
                       </span>
                     </div>
                   </div>
-                </CarvedBoard>
+                </ParchmentPass>
                 {/* The shimmer sweep, once per heartbeat. It was pulled for a
                     round while the "white box behind it" was being chased; the
                     box turned out to be `.depth-shadow` outlining the board's
@@ -1436,7 +1456,7 @@ export default function Home() {
                     wood reads as a wash rather than as light crossing it. */}
                 {!reduceMotion && !tearing && (
                   <div
-                    className="pointer-events-none absolute inset-0 overflow-hidden rounded-b-md"
+                    className="pointer-events-none absolute inset-0 overflow-hidden"
                     aria-hidden
                   >
                     <div

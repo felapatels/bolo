@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 // Chacha-ji's Chai Stall — the two-tier Chai treatment.
 //
 // TIER 1, the SCENE: a FULL-WIDTH band on home, the art's 1024/572 scene
@@ -113,7 +114,7 @@ export const STALL_TITLE = "Chacha-ji's Chai Stall";
  * pass the same sizing classes. Decorative — every site that uses it already
  * writes the amount and the word "Chai" in text.
  */
-export function ChaiGlyph({ className }: { className?: string }) {
+export function ChaiGlyph({ className, style }: { className?: string; style?: CSSProperties }) {
   return (
     <img
       src={STALL_ASSETS.kulhad}
@@ -121,6 +122,7 @@ export function ChaiGlyph({ className }: { className?: string }) {
       aria-hidden="true"
       data-testid="chai-glyph"
       className={cn("inline-block shrink-0 object-contain", className)}
+      style={style}
     />
   );
 }

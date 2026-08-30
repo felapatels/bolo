@@ -257,13 +257,13 @@ describe("home boarding pass CTA copy", () => {
     // `.depth-shadow` outlining the board's rectangle through the art's
     // transparent margins. Restored to iOS's gradient and geometry.
     expect(container.querySelector(".animate-ticket-shimmer")).not.toBeNull();
-    // THE GLOW IS GONE, ON PURPOSE, and this assertion is inverted rather than
-    // deleted. Two of them were live at once: the original accent halo and a
-    // brown one added with the carved board. The accent one pulsed the LINE
-    // COLOUR — green on the Ganga Line — around a teak board, and both drew a
-    // rounded rectangle bigger than the board's own art, which reads as a white
-    // box behind it. The art has a drawn frame and a depth-shadow already.
-    expect(container.querySelector(".animate-pass-glow")).toBeNull();
+    // THE GLOW IS BACK, and this assertion is inverted a second time. It was
+    // removed with the carved board, whose drawn frame and transparent margins
+    // turned the halo into a white box; the pass is a torn parchment sheet now
+    // (2026-08-30, mobile's build 21 design) with no frame, and the line's
+    // accent pulsing under the paper is what lifts it off the page, exactly
+    // as on the phone.
+    expect(container.querySelector(".animate-pass-glow")).not.toBeNull();
     expect(container.querySelector(".animate-cta-arrow-nudge")).not.toBeNull();
     expect(container.querySelector(".animate-train-drive")).not.toBeNull();
   });
@@ -399,18 +399,40 @@ describe("home Your Journey frame and hybrid ticket (build 18 parity)", () => {
     expect(container.querySelector('[data-testid="journey-pass-card"] .duration-700')).toBeNull();
   });
 
-  test("the CTA is unboxed: verb and arrow in the accent, no plate", () => {
+  test("the CTA is a filled pill: verb and arrow together in the primary, the cup before the reason", () => {
     h.groups = [grp({ status: "in_progress", masteredCount: 2, attemptedCount: 3 })];
     renderHome();
     const verb = screen.getByText("Resume");
-    expect(verb.className).toContain("text-primary");
-    const plate = verb.parentElement as HTMLElement;
-    // INVERTED: it was a bordered plate on TICKET.stockBottom. The mockup
-    // reverses that ruling; the train, the reason and the verb sit straight
-    // on the paper.
-    expect(plate.className).not.toMatch(/border-2/);
-    expect(plate.style.background).toBe("");
-    expect(plate.style.borderColor).toBe("");
+    const pill = verb.parentElement as HTMLElement;
+    // INVERTED AGAIN (2026-08-30). Unboxed was the owner's build 17 mockup;
+    // the build 21 home mockup on mobile boxes it back into a filled violet
+    // pill at the right with the reason beside a chai cup at the left, and
+    // the newest wins. The web pass took the same shape with the parchment.
+    expect(pill.getAttribute("data-testid")).toBe("pass-cta-button");
+    expect(pill.className).toContain("bg-primary");
+    expect(pill.className).toContain("text-primary-foreground");
+    expect(pill.querySelector("svg")).not.toBeNull();
+    const pass = screen.getByTestId("home-parchment-pass");
+    expect(pass.querySelector('[data-testid="chai-glyph"]')).not.toBeNull();
+  });
+
+  test("the pass is the parchment sheet: the plate names the line, the zone sits under it, the landmark seeps through", () => {
+    h.groups = [grp({ status: "in_progress", masteredCount: 2, attemptedCount: 3 })];
+    renderHome();
+    const pass = screen.getByTestId("home-parchment-pass");
+    expect(pass.querySelector('[data-testid="parchment-sheet"]')).not.toBeNull();
+    // The line's name, upper-cased on the brass ("GUJARAT EXPRESS" for the
+    // fixture's Gujarati; not every line is called a Line).
+    const plateText = pass.querySelector('[data-testid="parchment-plate"]')?.textContent ?? "";
+    expect(plateText.length).toBeGreaterThan(0);
+    expect(plateText).toBe(plateText.toUpperCase());
+    expect(screen.getByTestId("parchment-zone")).toHaveTextContent(/^ZONE \d+$/);
+    expect(pass.querySelector('[data-testid^="landmark-"]')).not.toBeNull();
+    // The engine closes the stops row rather than standing in the CTA row.
+    const stops = screen.getByTestId("pass-stops-row");
+    const train = pass.querySelector(".animate-train-drive") as HTMLElement;
+    expect(train).not.toBeNull();
+    expect(stops.parentElement).toBe(train.closest("div.flex.items-center"));
   });
 });
 
