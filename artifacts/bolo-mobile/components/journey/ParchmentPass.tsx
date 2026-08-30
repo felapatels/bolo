@@ -11,7 +11,7 @@
  * faint ink beneath, and a landmark seeping through the paper behind the
  * words. The journey's zone header keeps CarvedBoard until the journey pass.
  *
- * THE SHEET IS PAINTED SINCE BUILD 22 (the owner's art loop delivered
+ * A PAINTED SHEET EXISTS AND IS SWITCHED OFF (build 22: the owner's art loop delivered
  * assets/journey/parchment.png: a real aged sheet, torn on all four sides,
  * on transparent, imported by scripts/import-game-art.py). It is stretched
  * over the pass's whole box, which on the phone is about 1.47:1 against the
@@ -50,8 +50,12 @@ import { ZONE_BOARD } from '@/lib/zoneBackdrops';
 
 /** The painted sheet, 1200 x 900 with alpha, the tear at every edge. */
 export const PARCHMENT_SHEET = require('../../assets/journey/parchment.png') as number;
-/** The kill switch for the painted sheet: false puts the drawn one back. */
-export const PARCHMENT_PAINTED = true;
+/** The kill switch for the painted sheet: false puts the drawn one back.
+ *  OFF BY THE OWNER'S RULING (build 22, 2026-08-29, on seeing it on the
+ *  simulator: "revert the parchment paper on boarding pass back to previous
+ *  one"). The painted path stays wired and the picture stays in the bundle,
+ *  so this is one word to bring back; the drawn sheet is the home pass. */
+export const PARCHMENT_PAINTED = false;
 /** The nameplate's height; it straddles the paper's top edge by half of it. */
 export const PARCHMENT_PLATE_H = 34;
 /** How far below the paper's top the content starts: the plate's lower half,
