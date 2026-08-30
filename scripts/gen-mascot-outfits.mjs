@@ -91,46 +91,18 @@ const FONT = fontExists("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
 // point at nothing. Every id below regenerates byte-for-byte from a fresh
 // checkout.
 const ART = "scripts/mascot-garment-art";
-const ITEMS = [
-  { id: "kediyu", art: `${ART}/gar-kediyu-wide.png` },
-  // The anarkali runs on RECUT art (`-c`, srcSuffix: "" in the recut tool since
-  // there was no prior `-b` closed-front pass for this piece). Its waist band
-  // has interior transparency gaps (embroidery/fold highlighting, not holes at
-  // the silhouette edge) that job A's edge-widen alone never closes — the
-  // yoke fraction plateaus once it reaches the gap band because the resize is
-  // a single uniform horizontal scale, so extending MORE rows to full width
-  // doesn't add width where the source pixels themselves are transparent.
-  // Needs job B (interior gap fill) run almost the full height (`--gaps`
-  // near 0) plus a full-height yoke AND freefrac 1.0 (same full-clip
-  // reasoning as the kurta) to close the remaining hem-to-foot band.
-  { id: "anarkali", art: `${ART}/gar-anarkali-c.png`, squash: 1.05, freefrac: 1.0 },
-  // These three run on the RECUT art (`-c`, see scripts/recut-garment-yoke.mjs):
-  // their collars taper inward over the top quarter, which left her shoulders
-  // bare no matter where the cloth was placed. squash 1.05 on all three is the
-  // hem: at 1.0 the cloth stops ~11px above her feet and a teal band shows
-  // between hem and foot in cheer and tryagain.
-  //
-  // The kurta is the odd one. Short sleeves mean it tapers a SECOND time below
-  // the cuff and a third time at the ankles, so its art is widened full height
-  // with interior gaps filled — and a full-height widen is only safe at
-  // freefrac 1.0, because below the hem line cloth hangs unclipped and the
-  // widened rows become a slab through her feet.
-  { id: "kurta", art: `${ART}/gar-kurta-c.png`, squash: 1.05, freefrac: 1.0 },
-  // The sherwani's cuffs sit lower than any other garment's, well inside the
-  // default free zone, so they survived the silhouette clip as two tabs
-  // floating beside her wings. Clipped almost to the hem instead: the coat's
-  // flare is in the bottom quarter, so nothing real is lost.
-  { id: "sherwani", art: `${ART}/gar-sherwani-c.png`, squash: 1.05, freefrac: 0.78 },
-  { id: "saree", art: `${ART}/gar-saree-c.png`, squash: 1.05, freefrac: 0.5 },
-];
-
-// Alternates generated and NOT chosen, committed beside the shipped art:
-// gar-{kurta,sherwani,saree}-b.png are closed-front re-cuts of those three
-// garments (the shipped cut reads as a more open coat). The owner picked the
-// first cut; swapping one in is a single --art run with no code change. A
-// Western everyday set (denim jacket, hoodie, track jacket, puffer vest) was
-// generated and rejected outright — don't regenerate it without asking.
-
+// THE RECIPES LIVE IN THE MANIFEST NOW (build 25): scripts/wardrobe/
+// manifest.json is the single source, read here so `--all` and the wardrobe
+// command cannot disagree. The per-item commentary that used to sit in an
+// ITEMS table here (the anarkali's interior gaps, the kurta's three tapers,
+// the sherwani's low cuffs, the rejected closed-front alternates and the
+// rejected Western set) moved to the manifest and git history; the knobs
+// are each item's `recipe`.
+import { readFileSync } from "node:fs";
+const MANIFEST = JSON.parse(readFileSync("scripts/wardrobe/manifest.json", "utf8"));
+const ITEMS = MANIFEST.items
+  .filter((i) => i.kind === "garment" && i.art)
+  .map((i) => ({ id: i.id, art: i.art, ...(i.recipe ?? {}) }));
 function arg(name, fallback = null) {
   const i = process.argv.indexOf(`--${name}`);
   return i === -1 ? fallback : process.argv[i + 1];

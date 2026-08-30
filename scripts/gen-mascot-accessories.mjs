@@ -56,9 +56,14 @@ const POSES = ["wave", "cheer", "thumbsup", "thinking", "tryagain"];
  * +20px right. Kept here rather than baked into the reference layers so the
  * correction stays visible and revisable.
  */
-const NUDGE_X = {
-  "station-cap": { thinking: 20, tryagain: 20 },
-};
+// Owner-approved corrections and source art live in each item's manifest
+// recipe now (build 25), so the wardrobe command and this tool cannot
+// disagree.
+import { readFileSync as readManifestFile } from "node:fs";
+const WARDROBE = JSON.parse(readManifestFile("scripts/wardrobe/manifest.json", "utf8"));
+const NUDGE_X = Object.fromEntries(
+  WARDROBE.items.filter((i) => i.recipe?.nudgeX).map((i) => [i.id, i.recipe.nudgeX]),
+);
 
 const CANON_DIR = "artifacts/gujarati-coach/public/mascot";
 const WEB_OUT = "artifacts/gujarati-coach/public/mascot/outfits";
@@ -183,7 +188,10 @@ function extractPlaced(id, pose, tmp) {
 
 function buildPose(id, pose, tmp, { install, fudge, margin }) {
   const canon = `${CANON_DIR}/mascot-${pose}.png`;
-  const source = `${ART}/${id}.png`;
+  // The manifest's `art` wins, so a piece can be re-cut from new source art
+  // (pagdi-v2) without touching the shipped original (build 25).
+  const manifestArt = WARDROBE.items.find((i) => i.id === id)?.art;
+  const source = manifestArt ?? `${ART}/${id}.png`;
   const reference = `${ART}/${id}/${pose}.png`;
   const p = (s) => `${tmp}/${pose}-${s}.png`;
   const [w, h] = magick([canon, "-format", "%w %h", "info:"]).split(" ").map(Number);

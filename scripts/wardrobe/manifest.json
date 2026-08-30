@@ -36,7 +36,10 @@
       "preview": "full",
       "status": "shipped",
       "art": "scripts/mascot-garment-art/gar-anarkali-c.png",
-      "recipe": { "squash": 1.05, "freefrac": 1.0 }
+      "recipe": {
+        "squash": 1.05,
+        "freefrac": 1.0
+      }
     },
     {
       "id": "kurta",
@@ -48,7 +51,10 @@
       "preview": "full",
       "status": "shipped",
       "art": "scripts/mascot-garment-art/gar-kurta-c.png",
-      "recipe": { "squash": 1.05, "freefrac": 1.0 }
+      "recipe": {
+        "squash": 1.05,
+        "freefrac": 1.0
+      }
     },
     {
       "id": "sherwani",
@@ -60,7 +66,10 @@
       "preview": "full",
       "status": "shipped",
       "art": "scripts/mascot-garment-art/gar-sherwani-c.png",
-      "recipe": { "squash": 1.05, "freefrac": 0.78 }
+      "recipe": {
+        "squash": 1.05,
+        "freefrac": 0.78
+      }
     },
     {
       "id": "saree",
@@ -72,7 +81,10 @@
       "preview": "full",
       "status": "shipped",
       "art": "scripts/mascot-garment-art/gar-saree-c.png",
-      "recipe": { "squash": 1.05, "freefrac": 0.5 }
+      "recipe": {
+        "squash": 1.05,
+        "freefrac": 0.5
+      }
     },
     {
       "id": "pagdi",
@@ -83,8 +95,9 @@
       "costBand": "accessory",
       "preview": "head",
       "status": "shipped",
-      "art": "scripts/mascot-accessory-art/pagdi.png",
-      "recipe": {}
+      "art": "scripts/mascot-accessory-art/pagdi-v2.png",
+      "recipe": {},
+      "note": "Awaiting externally generated v2 art at scripts/mascot-accessory-art/pagdi-v2.png (see PROMPTS.md); v1 shipped painterly 3D with a clipped plume."
     },
     {
       "id": "station-cap",
@@ -96,7 +109,12 @@
       "preview": "head",
       "status": "shipped",
       "art": "scripts/mascot-accessory-art/station-cap.png",
-      "recipe": { "nudgeX": { "thinking": 20, "tryagain": 20 } }
+      "recipe": {
+        "nudgeX": {
+          "thinking": 20,
+          "tryagain": 20
+        }
+      }
     }
   ],
   "unshippedSources": {
