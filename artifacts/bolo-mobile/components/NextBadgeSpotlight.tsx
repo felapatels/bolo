@@ -1,5 +1,7 @@
 import React from 'react';
-import { Animated as RNAnimated, StyleSheet, Text, View } from 'react-native';
+import { Animated as RNAnimated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -47,6 +49,7 @@ export function milestoneUnit(description: string): string {
 const STAMP = 72;
 
 export function NextBadgeSpotlight({ lang }: { lang: string }) {
+  const router = useRouter();
   const colors = useColors();
   const skipEnter = useAppearSkip();
   const reduceMotion = useReducedMotion();
@@ -198,9 +201,22 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
           <Text style={[styles.count, { color: TICKET.ink }]}>
             {`${nearest.progressCurrent} / ${nearest.progressTarget}${unit ? ` ${unit}` : ''}`}
           </Text>
-          <Text style={[styles.remaining, { color: colors.primary }]}>
-            {`${remaining} more to unlock`}
-          </Text>
+          {/* A DOOR TO THE JOURNEY (owner, build 25: "if they click that 6
+              more to unlock, they should be taken to the journey"). The
+              phrases are mastered on the line, so the number is the link. */}
+          <Pressable
+            testID="next-milestone-go"
+            onPress={() => router.push('/(app)/journey' as Parameters<typeof router.push>[0])}
+            accessibilityRole="link"
+            accessibilityLabel={`${remaining} more to unlock, open the journey`}
+            hitSlop={8}
+            style={({ pressed }) => [styles.remainingLink, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={[styles.remaining, { color: colors.primary }]}>
+              {`${remaining} more to unlock`}
+            </Text>
+            <Feather name="chevron-right" size={14} color={colors.primary} />
+          </Pressable>
         </View>
       </View>
     </Animated.View>
@@ -265,6 +281,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   count: { fontFamily: AppFonts.semibold, fontSize: 14 },
+  remainingLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   remaining: { fontFamily: AppFonts.bold, fontSize: 14 },
   // All-earned celebratory variant.
   allEarned: { alignItems: 'center' },

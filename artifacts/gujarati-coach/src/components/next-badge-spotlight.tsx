@@ -1,6 +1,7 @@
 import { useListBadges } from "@workspace/api-client-react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Train, Trophy } from "lucide-react";
+import { ChevronRight, Train, Trophy } from "lucide-react";
+import { Link } from "wouter";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { findNearestLockedBadge, progressRatio } from "@/lib/badge-progress";
 import { GOLD } from "@/lib/gold";
@@ -154,7 +155,17 @@ export function NextBadgeSpotlight({ lang }: { lang: string }) {
           <span className="text-sm font-semibold tabular-nums" style={{ color: TICKET.ink }}>
             {`${nearest.progressCurrent} / ${nearest.progressTarget}${unit ? ` ${unit}` : ""}`}
           </span>
-          <span className="text-sm font-bold text-primary">{`${remaining} more to unlock`}</span>
+          {/* A DOOR TO THE JOURNEY (owner, build 25, with mobile): the phrases
+              are mastered on the line, so the number is the link. */}
+          <Link
+            href="/journey"
+            data-testid="next-milestone-go"
+            aria-label={`${remaining} more to unlock, open the journey`}
+            className="inline-flex items-center gap-0.5 text-sm font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+          >
+            {`${remaining} more to unlock`}
+            <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+          </Link>
         </div>
       </div>
     </motion.section>
