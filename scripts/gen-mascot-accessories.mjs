@@ -144,6 +144,48 @@ function eyes(pose, tmp) {
 }
 
 /**
+ * Where her CROWN is centred, which is not where her eyes are centred.
+ *
+ * MEASURED, BUILD 26, AND THIS IS THE NUMBER THAT WAS MISSING. Anchoring on the
+ * midpoint between her eyes was a real improvement over the reference box and
+ * still read as off-centre, because her face is turned: the crown of her head
+ * sits to the RIGHT of the midpoint between her eyes in every pose, by 21px in
+ * thumbsup up to 93px in tryagain. As a fraction of the eye span that is 0.10
+ * to 0.39, so it is not a constant either, which is exactly why hand-nudging
+ * kept coming back pose by pose.
+ *
+ * So it is measured rather than modelled: a band above her eyes, and the
+ * LARGEST opaque component in it. Largest, because in wave and thinking a wing
+ * is raised beside her head and a plain bounding box would take the wing's
+ * side and drag the hat off her.
+ */
+function crownCenterX(pose, eye) {
+  const canon = `${CANON_DIR}/mascot-${pose}.png`;
+  const top = Math.round(eye.top - eye.span * 0.75);
+  const h = Math.max(4, Math.round(eye.span * 0.35));
+  const band = `${CANON_DIR}/../.crown-band.png`;
+  magick([canon, "-crop", `%[fx:w]x${h}+0+${top}`, "+repage",
+    "-alpha", "extract", "-threshold", "50%", band]);
+  const cc = magick([band, "-define", "connected-components:verbose=true",
+    "-define", "connected-components:area-threshold=200",
+    "-connected-components", "8", "null:"]);
+  let best = null;
+  for (const line of cc.split("\n")) {
+    const g = line.trim().match(
+      /^\d+:\s+(\d+)x(\d+)\+(-?\d+)\+(-?\d+)\s+([\d.]+),([\d.]+)\s+(\d+)\s+(\S+)/,
+    );
+    if (!g) continue;
+    if (!/255,255,255|gray\(255\)|white/.test(g[8])) continue;
+    const b = { w: +g[1], x: +g[3], area: +g[7] };
+    if (!best || b.area > best.area) best = b;
+  }
+  rmSync(band, { force: true });
+  // No band found is not a crash: fall back to the eyes, which is where this
+  // stood before and is wrong by at most a third of a span.
+  return best ? best.x + best.w / 2 : eye.midX;
+}
+
+/**
  * Where the hat's BRIM is centred, in the accessory's own pixels.
  *
  * NOT THE BOUNDING BOX, and this is the whole reason hats sat off-centre. A
@@ -258,7 +300,7 @@ function buildPose(id, pose, tmp, { install, fudge, margin }) {
   // per-pose tuning at all. nudgeX survives as an override for art that is
   // deliberately worn at an angle, and is now empty for every item.
   const nudge = NUDGE_X[id]?.[pose] ?? 0;
-  const x = Math.round(eye.midX - brimCenterX(p("scaled"))) + nudge;
+  const x = Math.round(crownCenterX(pose, eye) - brimCenterX(p("scaled"))) + nudge;
   const baseY = ref.bottom - sh + 1;
   let lift = 0;
   let overlay = null;
