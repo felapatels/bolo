@@ -629,6 +629,19 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 .rep .rmeta{grid-column:3;grid-row:1 / span 3;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
   color:var(--muted);text-align:right;white-space:nowrap}
 
+
+/* PAGES (build 26). `is-off` rather than the hidden attribute, because the
+   chips and sections both carry other display rules and a class loses to
+   nothing here. */
+.is-off{display:none!important}
+.pagenav{max-width:1180px;margin:0 auto;padding:14px 20px 0;display:flex;gap:8px}
+.pagenav button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.02em;cursor:pointer;
+  padding:7px 16px;border-radius:999px;border:1px solid var(--line-2);
+  background:var(--surface);color:var(--ink-2)}
+.pagenav button[aria-pressed="true"]{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+.pagenav button:hover{border-color:var(--accent);color:var(--accent)}
+.pagenav button[aria-pressed="true"]:hover{color:var(--surface)}
+.pagenav button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 </style>
 
 <header class="top">
@@ -678,6 +691,19 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
     <span class="msub" id="milestone-sub"></span>
     <button type="button" id="milestone-dismiss">Dismiss</button>
   </div>
+
+  <!-- TWO PAGES, NOT ONE SCROLL (build 26, the owner: "make the UX much
+       simpler and make it multipaged. the dashboard should have my actionable
+       items and stats. All informational things should go on another page").
+       DASHBOARD is what you act on: the numbers, what is broken, what is
+       flagged, who wrote in. REFERENCE is what you read: the consoles, the
+       library, the pitch, the traps, the commands. The split is declared on
+       each <section> as data-page, so adding a section means choosing a side
+       and nothing else. -->
+  <nav class="pagenav" id="page-nav" aria-label="Pages">
+    <button type="button" data-page="dashboard" aria-pressed="true">Dashboard</button>
+    <button type="button" data-page="reference" aria-pressed="false">Reference</button>
+  </nav>
 
   <nav class="chips" aria-label="Sections">
     <!-- ORDERED TO MATCH THE PAGE, always. A jump list that disagrees with the
@@ -737,7 +763,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
 <main>
 
-<section id="numbers">
+<section id="numbers" data-page="dashboard">
   <div class="head">
     <span class="eyebrow">01 / Who is on it</span>
     <h2>Numbers</h2>
@@ -816,7 +842,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   <div id="range-chart"></div>
 </section>
 
-<section id="alerts">
+<section id="alerts" data-page="dashboard">
   <div class="head">
     <span class="eyebrow">02 / What is watching</span>
     <h2>Alerts</h2>
@@ -857,7 +883,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   </div>
 </section>
 
-<section id="map">
+<section id="map" data-page="dashboard">
   <div class="head">
     <span class="eyebrow">03 / Where everybody is standing</span>
     <h2>The line map</h2>
@@ -876,7 +902,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   <div class="lines" id="map-lines"></div>
 </section>
 
-<section id="reports">
+<section id="reports" data-page="dashboard">
   <div class="head">
     <span class="eyebrow">04 / What learners say is wrong</span>
     <h2>Flagged</h2>
@@ -905,7 +931,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   <div class="reps" id="reports-list"></div>
 </section>
 
-<section id="inbox">
+<section id="inbox" data-page="dashboard">
   <div class="head">
     <span class="eyebrow">05 / What people are writing in</span>
     <h2>Support inbox</h2>
@@ -922,7 +948,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   <div id="mail-open"></div>
 </section>
 
-<section id="spend">
+<section id="spend" data-page="dashboard">
   <div class="head">
     <span class="eyebrow">06 / What it costs to run</span>
     <h2>Spend</h2>
@@ -981,7 +1007,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   </div>
 </section>
 
-<section id="surfaces">
+<section id="surfaces" data-page="dashboard">
   <div class="head">
     <span class="eyebrow">07 / What is shipped</span>
     <h2>Surfaces</h2>
@@ -1089,9 +1115,9 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   </div>
 </section>
 
-<section id="elsewhere">
+<section id="elsewhere" data-page="reference">
   <div class="head">
-    <span class="eyebrow">08 / What is not here</span>
+    <span class="eyebrow">01 / What is not here</span>
     <h2>Analytics and errors</h2>
     <p>Two sections deliberately did not make the move, and this says where they went rather than leaving a hole.</p>
   </div>
@@ -1113,9 +1139,9 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   </div>
 </section>
 
-<section id="consoles">
+<section id="consoles" data-page="reference">
   <div class="head">
-    <span class="eyebrow">09 / Where to go</span>
+    <span class="eyebrow">02 / Where to go</span>
     <h2>Consoles</h2>
     <p>Every service Bolo depends on, with the reason you would open it. Use the filter at the top.</p>
   </div>
@@ -1234,9 +1260,9 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   </div>
 </section>
 
-<section id="library">
+<section id="library" data-page="reference">
   <div class="head">
-    <span class="eyebrow">10 / What is written down</span>
+    <span class="eyebrow">03 / What is written down</span>
     <h2>Library</h2>
     <p>Published pages open in a tab. Repo documents show a path: click it to copy.</p>
   </div>
@@ -1399,9 +1425,9 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   </div>
 </section>
 
-<section id="pitch">
+<section id="pitch" data-page="reference">
   <div class="head">
-    <span class="eyebrow">11 / What to say, and what it is made of</span>
+    <span class="eyebrow">04 / What to say, and what it is made of</span>
     <h2>Pitch</h2>
     <p>The words for a person, and the stack for an engineer. Both are true as of this snapshot.</p>
   </div>
@@ -1497,9 +1523,9 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   </div>
 </section>
 
-<section id="traps">
+<section id="traps" data-page="reference">
   <div class="head">
-    <span class="eyebrow">12 / What bites</span>
+    <span class="eyebrow">05 / What bites</span>
     <h2>Traps</h2>
     <p>Facts that cost days when forgotten. Each one was paid for.</p>
   </div>
@@ -1528,9 +1554,9 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   </div>
 </section>
 
-<section id="commands">
+<section id="commands" data-page="reference">
   <div class="head">
-    <span class="eyebrow">13 / One paste each</span>
+    <span class="eyebrow">06 / One paste each</span>
     <h2>Commands</h2>
     <p>Terminal on the Mac unless the header says otherwise. Every one of these is read only.</p>
   </div>
@@ -3370,5 +3396,83 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   /* ---------------- boot ---------------- */
   renderSurfaces(); renderSpend(); renderAlerts(); renderMilestone(); renderLive(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush();
   refreshAll().then(startRefresh);
+})();
+
+/* ─── PAGES ────────────────────────────────────────────────────────────────
+   Build 26, the owner: "make the UX much simpler and make it multipaged."
+
+   NO ROUTER AND NO FRAMEWORK, deliberately. This document is served off disk
+   with no build step, and a real route would mean the server, the iframe and
+   the browser history all having an opinion about a page nobody can link to
+   from outside anyway. Showing one page's sections at a time is the whole
+   mechanism.
+
+   THE SPLIT LIVES ON THE SECTIONS, as data-page, not in a list here. A list
+   would be a second place to forget: three sections were once missing from
+   the chip nav for exactly that reason. A section with no data-page counts as
+   Dashboard, so a new section is visible by default rather than invisible,
+   which is the safe direction to fail.
+
+   A LINK INTO A SECTION BEATS THE REMEMBERED PAGE. Landing on #traps has to
+   show Traps whatever page you were last on, or a deep link silently does
+   nothing. */
+(function () {
+  var KEY = 'nest.page';
+  var VALID = { dashboard: 1, reference: 1 };
+
+  function pageOf(el) {
+    return (el && el.dataset && el.dataset.page) || 'dashboard';
+  }
+
+  function apply(page) {
+    var sections = document.querySelectorAll('main > section');
+    for (var i = 0; i < sections.length; i++) {
+      sections[i].classList.toggle('is-off', pageOf(sections[i]) !== page);
+    }
+    // The chip nav filters with the page, so it never offers a jump to
+    // something that is not on screen.
+    var chips = document.querySelectorAll('nav.chips a');
+    for (var j = 0; j < chips.length; j++) {
+      var href = chips[j].getAttribute('href') || '';
+      // The growth-plan chip is a real URL to another document, not an
+      // anchor, so it belongs on every page.
+      var target = href.charAt(0) === '#' ? document.getElementById(href.slice(1)) : null;
+      chips[j].classList.toggle('is-off', !!target && pageOf(target) !== page);
+    }
+    var buttons = document.querySelectorAll('#page-nav button');
+    for (var k = 0; k < buttons.length; k++) {
+      buttons[k].setAttribute('aria-pressed', String(buttons[k].dataset.page === page));
+    }
+    try { localStorage.setItem(KEY, page); } catch (e) { /* private window */ }
+  }
+
+  var start = 'dashboard';
+  try {
+    var saved = localStorage.getItem(KEY);
+    if (VALID[saved]) start = saved;
+  } catch (e) { /* private window */ }
+
+  var hash = (location.hash || '').slice(1);
+  var linked = hash ? document.getElementById(hash) : null;
+  if (linked && linked.dataset && linked.dataset.page) start = pageOf(linked);
+
+  var nav = document.getElementById('page-nav');
+  if (nav) {
+    nav.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button[data-page]') : null;
+      if (!b) return;
+      apply(b.dataset.page);
+      window.scrollTo(0, 0);
+    });
+  }
+
+  // A chip on the other page (from a bookmark, or the danger banner's link)
+  // switches to that page before the browser jumps.
+  window.addEventListener('hashchange', function () {
+    var el = document.getElementById((location.hash || '').slice(1));
+    if (el && el.dataset && el.dataset.page) apply(pageOf(el));
+  });
+
+  apply(start);
 })();
 </script>
