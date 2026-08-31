@@ -49,6 +49,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 import {
   SPLASH_FILM,
   SPLASH_POSTER,
+  SPLASH_POSTER_SHORT,
   SPLASH_SHORT_START_S,
   SPLASH_MOTION_ENABLED,
   SPLASH_FULL_PLAY_MS,
@@ -342,7 +343,15 @@ function BrandSplashFilm({
           splash and no VideoView is mounted at all. */}
       <Image
         testID="splash-still"
-        source={SPLASH_POSTER}
+        // THE STILL HAS TO MATCH WHERE THE FILM STARTS (build 26). A short
+        // launch opens at SPLASH_SHORT_START_S with Bolo already in shot,
+        // and this underlay was always the frame at 0, which is the one
+        // stretch of the film with no bird in it. Whenever the frame failsafe
+        // lifted the plate before the film had painted, the learner saw the
+        // empty sky and then the film popped in mid-flight. `full` is decided
+        // from storage before that failsafe can fire, so it is known by the
+        // time either of these is visible.
+        source={full ? SPLASH_POSTER : SPLASH_POSTER_SHORT}
         style={styles.layer}
         resizeMode="cover"
       />

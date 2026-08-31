@@ -46,7 +46,44 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  */
 export const SPLASH_FILM = require('../assets/splash/welcome-bolo.mp4') as number;
 
+/**
+ * The still under the film, for a FULL launch, which plays from 0.
+ *
+ * Verified build 26 by re-cutting the film at 0 and comparing: RMSE 1.6%
+ * against this file, which is JPEG noise. It is the frame at zero.
+ */
 export const SPLASH_POSTER = require('../assets/splash/welcome-bolo-poster.jpg') as number;
+
+/**
+ * The same still for a SHORT launch, which opens at SPLASH_SHORT_START_S.
+ *
+ * WHY TWO POSTERS. The underlay exists to cover the gap before the film's
+ * first frame decodes, and the plate normally hides that gap entirely: it only
+ * lifts once the film has painted. But the frame failsafe lifts the plate
+ * whether or not the film painted, and THAT is when the poster is actually
+ * seen. With one poster it was the frame at 0, the stretch of this film with
+ * no bird in it, and the film then popped in at 2.6s with Bolo already in
+ * shot. A jump, on the launch path, on every launch but the day's first.
+ *
+ * There is no ambiguity about which to show: the mode is decided from storage
+ * before the failsafe can fire, so by the time this is visible the answer is
+ * known. Before it is decided the plate is still down and neither is seen.
+ *
+ * HOW TO RE-CUT IT if the film is ever changed. Both posters are plain frame
+ * grabs at quality 90, and they must be re-cut TOGETHER, from the same encode:
+ *
+ *   the frame at 0                -> welcome-bolo-poster.jpg
+ *   the frame at SPLASH_SHORT_START_S -> welcome-bolo-poster-short.jpg
+ *
+ * ffmpeg is the obvious tool and it was BROKEN on the owner's Mac in build 26
+ * (a Homebrew x265 dylib the installed ffmpeg was not built against), so the
+ * cut was made with AVFoundation instead, which needs nothing installed:
+ * AVAssetImageGenerator with both time tolerances set to zero, so it lands on
+ * the named instant rather than snapping to the nearest keyframe. The
+ * tolerances matter: without them a 2.6s request can return a frame from a
+ * second earlier, which is the whole bug again.
+ */
+export const SPLASH_POSTER_SHORT = require('../assets/splash/welcome-bolo-poster-short.jpg') as number;
 
 /**
  * THE HANDOVER PLATE (build 18). The native splash is the bird on WHITE now

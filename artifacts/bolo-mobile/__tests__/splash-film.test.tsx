@@ -284,3 +284,32 @@ describe('THE SPLASH IS A STILL, in every motion mode', () => {
     expect(q('splash-still')?.props.resizeMode).toBe('cover');
   });
 });
+
+describe('THE STILL MATCHES WHERE THE FILM STARTS (build 26)', () => {
+  // The underlay covers the gap before the film's first frame decodes, and
+  // the plate normally hides that gap outright. The FRAME FAILSAFE is what
+  // exposes it: it lifts the plate whether or not the film ever painted. With
+  // one poster that meant the frame at 0, the stretch of this film with no
+  // bird in it, followed by the film popping in at SPLASH_SHORT_START_S with
+  // Bolo already in shot. On every launch but the day's first.
+  const q = (id: string) => screen.queryByTestId(id, { includeHiddenElements: true });
+  const { SPLASH_POSTER, SPLASH_POSTER_SHORT } = jest.requireActual('@/lib/splashFilm');
+
+  beforeEach(() => {
+    __resetBrandSplashForTests();
+    __motion.reduce = false;
+  });
+
+  it('two different stills exist, or none of this bought anything', () => {
+    expect(SPLASH_POSTER_SHORT).not.toBe(SPLASH_POSTER);
+  });
+
+  // The day check is asynchronous, so the first paint is always the short
+  // still. That is the right default and not an accident: short is every
+  // launch but the day's first, and the plate is still down at this point
+  // either way.
+  it('opens on the short still, before the day check has answered', () => {
+    render(<BrandSplash nativeGone />);
+    expect(q('splash-still')?.props.source).toBe(SPLASH_POSTER_SHORT);
+  });
+});
