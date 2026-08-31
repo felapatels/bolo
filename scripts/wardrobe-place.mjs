@@ -31,7 +31,7 @@
 // says so, rather than offering a dead button.
 
 import { createServer } from "node:http";
-import { readFileSync, writeFileSync, existsSync, copyFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, copyFileSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { extname, join } from "node:path";
 
@@ -40,8 +40,64 @@ const ROOT = process.cwd();
 const MANIFEST = "scripts/wardrobe/manifest.json";
 const CANON = "artifacts/gujarati-coach/public/mascot";
 const POSES = ["wave", "cheer", "thumbsup", "thinking", "tryagain"];
+/** Ids become directory names and generated TS keys, so keep them boring. */
+const ID_RE = /^[a-z][a-z0-9-]{1,39}$/;
+const SHOPS = ["tailor", "station"];
+/** garment is the WHOLE body; top and bottom are its two halves. */
+const KINDS = ["garment", "top", "bottom", "accessory"];
+const BANDS = ["standard", "premium", "accessory"];
 
 const readManifest = () => JSON.parse(readFileSync(join(ROOT, MANIFEST), "utf8"));
+const writeManifest = (m) =>
+  writeFileSync(join(ROOT, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
+
+/** The item fields the browser is allowed to see and set. */
+const publicItem = (i) => ({
+  id: i.id, name: i.name, kind: i.kind, art: i.art, recipe: i.recipe ?? {},
+  tagline: i.tagline ?? "", shop: i.shop, costBand: i.costBand,
+  cost: i.cost ?? null, preview: i.preview, status: i.status ?? "draft",
+});
+
+/**
+ * Apply the shop-facing fields, returning an error string or null.
+ *
+ * VALIDATED HERE RATHER THAN AT CODEGEN, because codegen throwing means the
+ * owner has already saved something the generators cannot read, and the tool
+ * is the last place that can still say no cheaply. `cost` is the one the owner
+ * asked for: a whole number of Chai that overrides the band (build 27).
+ */
+function applyMeta(item, meta) {
+  if (meta.name !== undefined) {
+    const v = String(meta.name).trim();
+    if (!v) return "name cannot be empty";
+    item.name = v;
+  }
+  if (meta.tagline !== undefined) item.tagline = String(meta.tagline).trim();
+  if (meta.shop !== undefined) {
+    if (!SHOPS.includes(meta.shop)) return `shop must be one of ${SHOPS.join(", ")}`;
+    item.shop = meta.shop;
+  }
+  if (meta.costBand !== undefined) {
+    if (!BANDS.includes(meta.costBand)) return `costBand must be one of ${BANDS.join(", ")}`;
+    item.costBand = meta.costBand;
+  }
+  if (meta.cost !== undefined) {
+    if (meta.cost === null || meta.cost === "") {
+      // Back to the shared band. Deleting the key is the only way to say that;
+      // 0 is a real price and must not mean "unset".
+      delete item.cost;
+    } else {
+      const n = Number(meta.cost);
+      if (!Number.isInteger(n) || n < 0) return "Chai price must be a whole number, 0 or more";
+      item.cost = n;
+    }
+  }
+  if (meta.status !== undefined) {
+    if (!["draft", "shipped"].includes(meta.status)) return "status must be draft or shipped";
+    item.status = meta.status;
+  }
+  return null;
+}
 
 /** Only ever serve PNGs from the two art trees and the canonical poses. A tool
  *  that reads any path the browser asks for is a file server, not a tool. */
@@ -53,6 +109,9 @@ function safePath(rel) {
   const abs = join(ROOT, rel);
   return existsSync(abs) ? abs : null;
 }
+
+/** ImageMagick, for the one place the tool does image work of its own. */
+const magickRun = (args) => execFileSync("magick", args, { encoding: "utf8", maxBuffer: 1 << 28 });
 
 function send(res, code, body, type = "application/json") {
   res.writeHead(code, { "content-type": type, "cache-control": "no-store" });
@@ -75,9 +134,7 @@ const server = createServer(async (req, res) => {
     return send(res, 200, JSON.stringify({
       poses: POSES,
       canon: POSES.map((p) => `${CANON}/mascot-${p}.png`),
-      items: m.items.map((i) => ({
-        id: i.id, name: i.name, kind: i.kind, art: i.art, recipe: i.recipe ?? {},
-      })),
+      items: m.items.map(publicItem),
     }));
   }
 
@@ -109,7 +166,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/save" && req.method === "POST") {
-    const { id, place, knobs } = await readBody(req);
+    const { id, place, knobs, meta } = await readBody(req);
     const m = readManifest();
     const item = m.items.find((i) => i.id === id);
     if (!item) return send(res, 404, JSON.stringify({ error: "no such item" }));
@@ -119,8 +176,161 @@ const server = createServer(async (req, res) => {
       if (v === null || v === "" || Number.isNaN(v)) delete item.recipe[k];
       else item.recipe[k] = v;
     }
-    writeFileSync(join(ROOT, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
-    return send(res, 200, JSON.stringify({ ok: true, recipe: item.recipe }));
+    // Shop-facing fields (build 27). `cost` null means "use the band again"
+    // rather than "free", because free is a real price and deleting the key is
+    // the only way back to the shared constant.
+    if (meta) {
+      const err = applyMeta(item, meta);
+      if (err) return send(res, 400, JSON.stringify({ error: err }));
+    }
+    writeManifest(m);
+    return send(res, 200, JSON.stringify({ ok: true, recipe: item.recipe, item: publicItem(item) }));
+  }
+
+  // UPLOAD (build 27). New art arrives as a PNG from the owner's disk and
+  // lands in the art tree the generators already read, so an uploaded piece is
+  // indistinguishable from one committed by hand.
+  if (url.pathname === "/api/upload" && req.method === "POST") {
+    const { id, kind, png } = await readBody(req);
+    if (!ID_RE.test(id ?? "")) {
+      return send(res, 400, JSON.stringify({ error: "id must be lower-case letters, digits and dashes" }));
+    }
+    if (!KINDS.includes(kind)) {
+      return send(res, 400, JSON.stringify({ error: `kind must be one of ${KINDS.join(", ")}` }));
+    }
+    const b64 = String(png ?? "").split(",").pop() ?? "";
+    const buf = Buffer.from(b64, "base64");
+    // A PNG starts \x89PNG\r\n\x1a\n; a JPEG starts \xff\xd8\xff. Sniffed rather
+    // than trusted from the file name, because a JPEG renamed .png fails deep
+    // inside a composite with a message about nothing in particular.
+    const isPng = buf.length > 8 && buf.toString("latin1", 0, 8) === "\x89PNG\r\n\x1a\n";
+    const isJpeg = buf.length > 3 && buf.toString("latin1", 0, 3) === "\xff\xd8\xff";
+    if (!isPng && !isJpeg) {
+      return send(res, 400, JSON.stringify({ error: "that file is neither a PNG nor a JPEG" }));
+    }
+    const dir = kind === "accessory" ? "scripts/mascot-accessory-art" : "scripts/mascot-garment-art";
+    const rel = `${dir}/${id}.png`;
+    mkdirSync(join(ROOT, dir), { recursive: true });
+    // Never clobber art that is already on disk: a second upload for the same
+    // id parks beside the first rather than overwriting a piece that may be
+    // shipped. The manifest is repointed at whichever one is written.
+    let target = rel;
+    if (existsSync(join(ROOT, rel))) {
+      let n = 2;
+      while (existsSync(join(ROOT, `${dir}/${id}-v${n}.png`))) n += 1;
+      target = `${dir}/${id}-v${n}.png`;
+    }
+    // JPEG IN, KEYED PNG OUT (build 27, owner: "google flow outputs jpegs").
+    //
+    // Converting the container is the easy half and on its own it is a trap: a
+    // JPEG CANNOT HOLD TRANSPARENCY, so a straight convert gives cloth sitting
+    // on an opaque rectangle, and the generator would dutifully composite the
+    // rectangle onto Bolo. So the background is keyed out here.
+    //
+    // FLOOD-FILLED FROM THE FOUR CORNERS rather than "make every white pixel
+    // transparent": the yellow singlet has white highlights and the hoodie has
+    // white drawstrings, and a global key would punch holes straight through
+    // them. Flood fill only takes the background that is actually connected to
+    // the edge. Art that beats the key still has the Erase tab.
+    let out = buf;
+    let keyed = false;
+    if (isJpeg) {
+      const src = "/tmp/wardrobe-upload-src.jpg";
+      const dst = "/tmp/wardrobe-upload-out.png";
+      writeFileSync(src, buf);
+      try {
+        magickRun([
+          src, "-alpha", "set", "-channel", "RGBA", "-fuzz", "12%",
+          "-fill", "none",
+          "-floodfill", "+0+0", "white",
+          "-floodfill", "+%[fx:w-1]+0", "white",
+          "-floodfill", "+0+%[fx:h-1]", "white",
+          "-floodfill", "+%[fx:w-1]+%[fx:h-1]", "white",
+          "-trim", "+repage", dst,
+        ]);
+        out = readFileSync(dst);
+        keyed = true;
+      } catch {
+        // The key failed (an unusual background, or magick refused the fx
+        // expressions). Convert anyway and say so: an opaque piece the owner
+        // can erase beats a refused upload with no file to work on.
+        try {
+          magickRun([src, dst]);
+          out = readFileSync(dst);
+        } catch {
+          return send(res, 400, JSON.stringify({ error: "could not convert that JPEG" }));
+        }
+      }
+    }
+    writeFileSync(join(ROOT, target), out);
+    return send(res, 200, JSON.stringify({
+      ok: true, art: target, bytes: out.length,
+      converted: isJpeg,
+      keyed,
+      note: isJpeg
+        ? (keyed
+            ? "JPEG converted to PNG and the background keyed out. Check the armholes and the neck; use Erase if any of it survived."
+            : "JPEG converted to PNG, but the background could NOT be keyed. Use the Erase tab before rendering.")
+        : undefined,
+    }));
+  }
+
+  // NEW ITEM (build 27). Adding a piece used to mean hand-editing the manifest
+  // in an editor, which is the one step of `wardrobe` that never got a UI.
+  if (url.pathname === "/api/new-item" && req.method === "POST") {
+    const body = await readBody(req);
+    const { id, kind, art } = body;
+    if (!ID_RE.test(id ?? "")) {
+      return send(res, 400, JSON.stringify({ error: "id must be lower-case letters, digits and dashes" }));
+    }
+    const m = readManifest();
+    if (m.items.some((i) => i.id === id)) {
+      return send(res, 409, JSON.stringify({ error: `"${id}" already exists` }));
+    }
+    if (!KINDS.includes(kind)) {
+      return send(res, 400, JSON.stringify({ error: `kind must be one of ${KINDS.join(", ")}` }));
+    }
+    if (!art || !safePath(art)) {
+      return send(res, 400, JSON.stringify({ error: "upload the art first" }));
+    }
+    const item = {
+      id,
+      name: body.name?.trim() || id,
+      tagline: body.tagline?.trim() || "",
+      kind,
+      shop: body.shop === "station" ? "station" : "tailor",
+      // An accessory sits on her head, so its preview is cropped to it.
+      costBand: kind === "accessory" ? "accessory" : "standard",
+      preview: kind === "accessory" ? "head" : "full",
+      status: "draft",
+      art,
+      recipe: {},
+    };
+    const err = applyMeta(item, body);
+    if (err) return send(res, 400, JSON.stringify({ error: err }));
+    m.items.push(item);
+    writeManifest(m);
+    return send(res, 200, JSON.stringify({ ok: true, item: publicItem(item) }));
+  }
+
+  // PUBLISH (build 27). Everything the repo can do on its own: regenerate the
+  // registries from the manifest and write the pose files into both apps.
+  // What it CANNOT do is reach a user, and the UI says so rather than implying
+  // a deploy happened.
+  if (url.pathname === "/api/publish" && req.method === "POST") {
+    const { id } = await readBody(req);
+    const steps = [];
+    try {
+      for (const args of [["install", id], ["codegen"], ["check"]]) {
+        const out = execFileSync("node", ["scripts/wardrobe.mjs", ...args],
+          { cwd: ROOT, encoding: "utf8", maxBuffer: 1 << 24 });
+        steps.push(`$ wardrobe ${args.join(" ")}\n${out.trim()}`);
+      }
+      return send(res, 200, JSON.stringify({ ok: true, log: steps.join("\n\n").slice(-6000) }));
+    } catch (e) {
+      steps.push(String(e.stdout ?? e.stderr ?? e));
+      return send(res, 200, JSON.stringify({ ok: false, log: steps.join("\n\n").slice(-6000) }));
+    }
   }
 
   if (url.pathname === "/api/erase" && req.method === "POST") {
@@ -182,6 +392,14 @@ input[type=range]{width:110px}
 #toast.on{opacity:1}
 #log{padding:10px 18px;font:12px ui-monospace,monospace;white-space:pre-wrap;color:#6b6558;border-top:1px solid var(--line)}
 #eraser{padding:18px;display:none;gap:16px;align-items:flex-start}
+#shop,#newitem{padding:18px;display:none}
+#prepublish{position:fixed;inset:0;background:rgba(27,26,23,.45);display:none;
+  align-items:center;justify-content:center;z-index:20;padding:20px}
+.card{border:1px solid var(--line);border-radius:12px;background:#fff;padding:16px 18px;max-width:560px}
+.card h3{margin:0 0 10px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#6b6558}
+.card p{margin:0 0 12px}
+.card label{font-size:11px;color:#6b6558;text-transform:uppercase;letter-spacing:.06em}
+input[type=text],input[type=number],.card select{font:inherit;padding:6px 9px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink)}
 #eraser canvas{border:1px solid var(--line);background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px;cursor:crosshair;max-width:520px;height:auto}
 .hint{max-width:320px;color:#6b6558;font-size:13px}
 </style>
@@ -190,12 +408,15 @@ input[type=range]{width:110px}
   <select id="item"></select>
   <button id="tab-place" aria-pressed="true">Place</button>
   <button id="tab-erase" aria-pressed="false">Erase</button>
+  <button id="tab-shop" aria-pressed="false">Shop</button>
+  <button id="tab-new" aria-pressed="false">Add a piece</button>
   <span id="kind" style="color:#6b6558"></span>
   <span style="flex:1"></span>
   <button id="reset">Reset pose</button>
   <button id="save" class="primary">Save</button>
   <button id="render">Save &amp; render</button>
   <button id="install">Save &amp; install</button>
+  <button id="publish">Publish</button>
   <span id="toast" role="status" aria-live="polite"></span>
 </header>
 <main id="place"></main>
@@ -212,9 +433,89 @@ input[type=range]{width:110px}
     <p><button id="undo">Undo all erasing</button></p>
   </div>
 </section>
+
+<section id="shop">
+  <div class="card">
+    <h3>What the Bazaar shows</h3>
+    <p class="hint">Name, tagline and price as a learner sees them. <b>Save</b> writes
+    them to the manifest; they reach the shop when you <b>Publish</b>.</p>
+    <p><label>Name<br><input id="f-name" type="text" size="34"></label></p>
+    <p><label>Tagline<br><input id="f-tagline" type="text" size="44"></label></p>
+    <p>
+      <label>Chai price<br><input id="f-cost" type="number" min="0" step="1" size="6"></label>
+      <button id="f-cost-clear">Use the band instead</button>
+    </p>
+    <p class="hint" id="f-cost-note"></p>
+    <p><label>Band (used when no price is set)<br>
+      <select id="f-band">
+        <option value="standard">standard</option>
+        <option value="premium">premium</option>
+        <option value="accessory">accessory</option>
+      </select></label></p>
+    <p><label>Shop door<br>
+      <select id="f-shop">
+        <option value="tailor">tailor</option>
+        <option value="station">station</option>
+      </select></label></p>
+    <p><label>Status<br>
+      <select id="f-status">
+        <option value="draft">draft</option>
+        <option value="shipped">shipped</option>
+      </select></label></p>
+    <p><button id="f-save" class="primary">Save shop details</button></p>
+  </div>
+</section>
+
+<section id="newitem">
+  <div class="card">
+    <h3>Add a piece</h3>
+    <p class="hint">Upload the source art, then place it on the poses like any other
+    piece. <b>A garment is a flat piece of cloth over her belly</b> (her wings and
+    feet get restacked in front); <b>an accessory is a transparent overlay</b> for
+    her head. Sleeves can never work: her wings redraw in front of cloth.</p>
+    <p><label>Kind<br>
+      <select id="n-kind">
+        <option value="accessory">accessory (a hat)</option>
+        <option value="top">top (her upper half)</option>
+        <option value="bottom">bottom (her lower half, needs a top)</option>
+        <option value="garment">full body (a saree, a sherwani)</option>
+      </select></label></p>
+    <p><label>Id<br><input id="n-id" type="text" size="24" placeholder="marigold-topi"></label>
+       <span class="hint">lower-case, dashes; becomes the folder name</span></p>
+    <p><label>Name<br><input id="n-name" type="text" size="34" placeholder="Marigold topi"></label></p>
+    <p><label>Tagline<br><input id="n-tagline" type="text" size="44"></label></p>
+    <p><label>Chai price<br><input id="n-cost" type="number" min="0" step="1" size="6" placeholder="leave blank for the band"></label></p>
+    <p><label>Source art (PNG or JPEG)<br><input id="n-file" type="file" accept="image/png,image/jpeg"></label></p>
+    <p><img id="n-preview" alt="" style="max-width:260px;display:none;border:1px solid var(--line);border-radius:8px;background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px"></p>
+    <p><button id="n-create" class="primary">Upload and add</button></p>
+  </div>
+</section>
+
+<div id="prepublish">
+  <div class="card">
+    <h3>Last look before push</h3>
+    <p class="hint">Publishing <b id="p-which"></b>. This is what a learner sees in the
+    Bazaar. Change anything here and it is saved with the push.</p>
+    <p><label>Name<br><input id="p-name" type="text" size="34"></label></p>
+    <p><label>Tagline<br><input id="p-tagline" type="text" size="44"></label></p>
+    <p><label>Chai price<br><input id="p-cost" type="number" min="0" step="1" size="6"
+       placeholder="blank = use the band"></label></p>
+    <p><label>Band (used when no price is set)<br>
+      <select id="p-band">
+        <option value="standard">standard</option>
+        <option value="premium">premium</option>
+        <option value="accessory">accessory</option>
+      </select></label></p>
+    <p><button id="p-go" class="primary">Save and publish</button>
+       <button id="p-cancel">Cancel</button></p>
+  </div>
+</div>
 <div id="log"></div>
 <script>
 const POSE_W = 1024, POSE_H = 1200;
+/** Everything worn on her BODY, which shares one generator and one set of
+ *  whole-item knobs. Only the head slot is different. */
+const CLOTH = ["garment", "top", "bottom"];
 let data = null, item = null, place = {}, mode = "place";
 const log = (s) => { document.getElementById("log").textContent = s; };
 /** SAY IT WHERE THE BUTTON IS. The log is at the foot of a long page, so a
@@ -233,9 +534,21 @@ const artURL = (p) => fileURL(p) + "&trim=1";
 async function boot() {
   data = await (await fetch("/api/items")).json();
   const sel = document.getElementById("item");
-  sel.innerHTML = data.items.map((i) => '<option value="'+i.id+'">'+i.name+' ('+i.kind+')</option>').join("");
+  // MARK THE UNPLACEABLE ONES. Navratri predates the generator and has no
+  // source cloth in the repo, so it can never be dragged or erased. Saying so
+  // in the list is the difference between "this piece is special" and "your
+  // tool is broken".
+  sel.innerHTML = data.items.map(function (i) {
+    return '<option value="' + i.id + '">' + i.name + ' (' + i.kind + ')' +
+      (i.art ? '' : ' — no source art') + '</option>';
+  }).join("");
   sel.onchange = () => load(sel.value);
-  load(data.items[0].id);
+  // OPEN ON SOMETHING PLACEABLE. It used to open on items[0], which is
+  // navratri, the one item with nothing to show: the owner opened the tool,
+  // got an empty stage, and reported it as not loading (Aug 31 2026).
+  const first = data.items.find((i) => i.art) ?? data.items[0];
+  sel.value = first.id;
+  load(first.id);
 }
 
 async function load(id) {
@@ -243,7 +556,9 @@ async function load(id) {
   place = JSON.parse(JSON.stringify(item.recipe.place ?? {}));
   AUTO = await (await fetch("/api/auto?id=" + encodeURIComponent(id))).json().catch(() => ({}));
   document.getElementById("kind").textContent =
-    item.kind === "garment" ? "garment: whole-item knobs" : "accessory: per pose";
+    CLOTH.indexOf(item.kind) >= 0
+      ? item.kind + ": whole-item knobs"
+      : "accessory: per pose";
   draw();
   drawEraser();
   log("");
@@ -315,7 +630,7 @@ function seed(pose) {
 function draw() {
   const main = document.getElementById("place");
   main.innerHTML = "";
-  if (item.kind === "garment") {
+  if (CLOTH.indexOf(item.kind) >= 0) {
     // The four whole-item knobs the outfit generator reads, ALONGSIDE the same
     // per-pose drag accessories get. The knobs are what a garment gets for
     // free; a dragged pose overrides them outright, so both belong on screen.
@@ -453,22 +768,170 @@ function drawEraser() {
     if (e.key === "]") brush = Math.min(160, brush + 6);
     const b = document.getElementById("brush"); if (b) b.value = brush;
   });
-  document.getElementById("undo").onclick = () => drawEraser();
+  document.getElementById("undo").onclick = () => { drawEraser(); toast("erasing undone (not saved)"); };
 })();
 
 // ─── chrome ─────────────────────────────────────────────────────────────────
+const TABS = { place: "place", erase: "eraser", shop: "shop", new: "newitem" };
 function setMode(m) {
   mode = m;
-  document.getElementById("place").style.display = m === "place" ? "flex" : "none";
-  document.getElementById("eraser").style.display = m === "erase" ? "flex" : "none";
-  document.getElementById("tab-place").setAttribute("aria-pressed", String(m === "place"));
-  document.getElementById("tab-erase").setAttribute("aria-pressed", String(m === "erase"));
+  for (const [name, section] of Object.entries(TABS)) {
+    document.getElementById(section).style.display =
+      name === m ? (name === "place" || name === "erase" ? "flex" : "block") : "none";
+    document.getElementById("tab-" + name).setAttribute("aria-pressed", String(name === m));
+  }
+  // Only the placement tabs act on the selected piece; the header's Save,
+  // render and install would all be lies on the other two.
+  const onPiece = m === "place" || m === "erase";
+  for (const b of ["reset", "save", "render", "install", "publish"]) {
+    document.getElementById(b).style.display = onPiece ? "" : "none";
+  }
+  if (m === "shop") fillShop();
 }
-document.getElementById("tab-place").onclick = () => setMode("place");
-document.getElementById("tab-erase").onclick = () => setMode("erase");
+for (const name of Object.keys(TABS)) {
+  document.getElementById("tab-" + name).onclick = () => { setMode(name); toast(name === "new" ? "add a piece" : name); };
+}
 document.getElementById("reset").onclick = () => {
   for (const k of Object.keys(place)) delete place[k];
-  draw(); log("every pose back to automatic seating (not saved yet)");
+  draw();
+  toast("reset to automatic seating (not saved)");
+  log("every pose back to automatic seating (not saved yet)");
+};
+
+// ─── shop details ───────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+function fillShop() {
+  if (!item) return;
+  $("f-name").value = item.name ?? "";
+  $("f-tagline").value = item.tagline ?? "";
+  $("f-cost").value = item.cost == null ? "" : item.cost;
+  $("f-band").value = item.costBand ?? "standard";
+  $("f-shop").value = item.shop ?? "tailor";
+  $("f-status").value = item.status ?? "draft";
+  noteCost();
+}
+function noteCost() {
+  const v = $("f-cost").value.trim();
+  $("f-cost-note").textContent = v === ""
+    ? "No price set, so this piece follows the shared " + $("f-band").value + " band and moves whenever that band is retuned."
+    : v === "0"
+      ? "Free. 0 is a real price, not 'unset'."
+      : v + " Chai, set on this piece alone. It will NOT move when the band is retuned.";
+}
+$("f-cost").oninput = noteCost;
+$("f-band").onchange = noteCost;
+$("f-cost-clear").onclick = () => { $("f-cost").value = ""; noteCost(); toast("price cleared, band will apply"); };
+$("f-save").onclick = async () => {
+  const meta = {
+    name: $("f-name").value, tagline: $("f-tagline").value,
+    cost: $("f-cost").value.trim() === "" ? null : Number($("f-cost").value),
+    costBand: $("f-band").value, shop: $("f-shop").value, status: $("f-status").value,
+  };
+  const r = await (await fetch("/api/save", { method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id: item.id, meta }) })).json();
+  if (r.error) { toast("NOT saved: " + r.error); log(r.error); return; }
+  Object.assign(item, r.item);
+  toast("shop details saved");
+  log("saved to manifest.json\n" + JSON.stringify(r.item, null, 2));
+  const opt = [...$("item").options].find((o) => o.value === item.id);
+  if (opt) opt.textContent = item.name + " (" + item.kind + ")";
+};
+
+// ─── add a piece ────────────────────────────────────────────────────────────
+let newPng = null;
+$("n-file").onchange = () => {
+  const f = $("n-file").files[0];
+  if (!f) { newPng = null; $("n-preview").style.display = "none"; return; }
+  const fr = new FileReader();
+  fr.onload = () => {
+    newPng = fr.result;
+    $("n-preview").src = newPng;
+    $("n-preview").style.display = "";
+    toast("art loaded, " + Math.round(f.size / 1024) + " KB");
+  };
+  fr.readAsDataURL(f);
+};
+$("n-create").onclick = async () => {
+  const id = $("n-id").value.trim(), kind = $("n-kind").value;
+  if (!newPng) { toast("choose a PNG or JPEG first"); return; }
+  if (!id) { toast("give it an id"); return; }
+  toast("uploading...");
+  const up = await (await fetch("/api/upload", { method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id, kind, png: newPng }) })).json();
+  if (!up.ok) { toast("upload FAILED: " + up.error); log(up.error); return; }
+  if (up.note) { toast(up.keyed ? "JPEG converted and keyed" : "JPEG converted, key FAILED"); log(up.note); }
+  const body = {
+    id, kind, art: up.art,
+    name: $("n-name").value, tagline: $("n-tagline").value,
+    cost: $("n-cost").value.trim() === "" ? null : Number($("n-cost").value),
+  };
+  const r = await (await fetch("/api/new-item", { method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body) })).json();
+  if (!r.ok) { toast("NOT added: " + r.error); log(r.error); return; }
+  data.items.push(r.item);
+  const opt = new Option(r.item.name + " (" + r.item.kind + ")", r.item.id);
+  $("item").add(opt);
+  $("item").value = r.item.id;
+  await load(r.item.id);
+  setMode("place");
+  toast("added " + r.item.id + ", now place it");
+  log("art  -> " + up.art + "\nitem -> manifest.json (status: draft)\n\n" +
+      "Nothing reaches a learner until you Publish, and mobile needs a native build.");
+};
+
+/* LAST LOOK BEFORE PUSH (build 27, owner: "i want to set price and name and
+   Tagline at the end before push"). Placement and shop copy are decided at
+   different moments: you drag the art first and decide what to call it and
+   what to charge once you can see it. So Publish stops here rather than
+   shipping whatever the Add-a-piece form happened to hold. */
+function confirmShopDetails() {
+  return new Promise((resolve) => {
+    const box = document.getElementById("prepublish");
+    document.getElementById("p-name").value = item.name ?? "";
+    document.getElementById("p-tagline").value = item.tagline ?? "";
+    document.getElementById("p-cost").value = item.cost == null ? "" : item.cost;
+    document.getElementById("p-band").value = item.costBand ?? "standard";
+    document.getElementById("p-which").textContent = item.name + " (" + item.kind + ")";
+    box.style.display = "flex";
+    const done = (go) => {
+      box.style.display = "none";
+      document.getElementById("p-go").onclick = null;
+      document.getElementById("p-cancel").onclick = null;
+      resolve(go);
+    };
+    document.getElementById("p-go").onclick = () => done(true);
+    document.getElementById("p-cancel").onclick = () => { toast("publish cancelled"); done(false); };
+  });
+}
+
+document.getElementById("publish").onclick = async () => {
+  if (!(await confirmShopDetails())) return;
+  const meta = {
+    name: $("p-name").value,
+    tagline: $("p-tagline").value,
+    cost: $("p-cost").value.trim() === "" ? null : Number($("p-cost").value),
+    costBand: $("p-band").value,
+  };
+  const saved = await (await fetch("/api/save", { method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id: item.id, meta }) })).json();
+  if (saved.error) { toast("NOT published: " + saved.error); log(saved.error); return; }
+  Object.assign(item, saved.item);
+  const opt = [...$("item").options].find((o) => o.value === item.id);
+  if (opt) opt.textContent = item.name + " (" + item.kind + ")";
+  await save();
+  toast("publishing...");
+  log("installing art, regenerating registries, checking parity...");
+  const r = await (await fetch("/api/publish", { method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id: item.id }) })).json();
+  toast(r.ok ? "published to the repo" : "publish FAILED");
+  log(r.log + "\n\n" + (r.ok
+    ? "IN THE REPO ONLY. Web learners get this on the next Repl publish; phones need a native build, because Metro bundles the art at compile time."
+    : "nothing was published"));
 };
 
 async function save() {

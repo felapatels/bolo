@@ -42,6 +42,8 @@ router.get("/outfits", async (req: Request, res: Response): Promise<void> => {
     balance: state.balance,
     equipped: state.equippedOutfit,
     equippedAccessory: state.equippedAccessory,
+    equippedTop: state.equippedTop,
+    equippedBottom: state.equippedBottom,
     outfits: OUTFIT_CATALOG.map((outfit) => ({
       id: outfit.id,
       name: outfit.name,
@@ -81,6 +83,8 @@ router.post(
         cost: catalogEntry.cost,
         equipped: state.equippedOutfit,
         equippedAccessory: state.equippedAccessory,
+        equippedTop: state.equippedTop,
+        equippedBottom: state.equippedBottom,
       });
     } catch (e) {
       if (e instanceof InsufficientTokensError) {
@@ -113,7 +117,7 @@ router.post(
     // Which slot is a property of the item, so it is looked up, not trusted.
     // `slot` in the body is only consulted to take something off, where there
     // is no item to look it up from; omitting it undresses her completely.
-    const { state, owned } = await equipOutfit(
+    const { state, owned, refused } = await equipOutfit(
       getUserId(req),
       requested,
       parsed.data.slot ?? undefined,
@@ -122,9 +126,18 @@ router.post(
       res.status(409).json({ error: "outfit_not_owned" });
       return;
     }
+    // A bottom with nothing on top is refused rather than quietly ignored, so
+    // the shop can say why instead of looking broken (owner ruling, Aug 31
+    // 2026). See slotChange() in tokenService.ts.
+    if (refused) {
+      res.status(409).json({ error: refused });
+      return;
+    }
     res.json({
       equipped: state.equippedOutfit,
       equippedAccessory: state.equippedAccessory,
+      equippedTop: state.equippedTop,
+      equippedBottom: state.equippedBottom,
     });
   },
 );

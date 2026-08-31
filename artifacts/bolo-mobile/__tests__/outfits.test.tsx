@@ -215,14 +215,27 @@ describe('pose art resolves from the equipped outfit', () => {
     expect(mascotSource('cheer', undefined)).toBe(CANONICAL_POSE_SOURCES.cheer);
   });
 
+  // THE ID IS TAKEN FROM THE GENERATED MAP, NOT WRITTEN HERE. It used to say
+  // 'navratri', which broke the moment the owner cleared the wardrobe to start
+  // fresh (build 27) — a test that names a shop item asserts the catalogue as
+  // much as the behaviour, and the catalogue is generated and meant to change.
+  // What is being pinned is "a dressed pose is not the canonical pose", which
+  // is true of whatever is stocked.
   test('an equipped outfit dresses every pose', () => {
+    const dressed = Object.keys(OUTFIT_POSE_SOURCES)[0];
+    if (!dressed) {
+      // An empty wardrobe is a legitimate state, not a failure: there is
+      // simply nothing to dress her in yet.
+      expect(Object.keys(OUTFIT_POSE_SOURCES)).toHaveLength(0);
+      return;
+    }
     for (const pose of Object.keys(CANONICAL_POSE_SOURCES) as Array<
       keyof typeof CANONICAL_POSE_SOURCES
     >) {
-      expect(mascotSource(pose, 'navratri')).toBe(
-        OUTFIT_POSE_SOURCES.navratri![pose],
+      expect(mascotSource(pose, dressed)).toBe(
+        OUTFIT_POSE_SOURCES[dressed]![pose],
       );
-      expect(mascotSource(pose, 'navratri')).not.toBe(
+      expect(mascotSource(pose, dressed)).not.toBe(
         CANONICAL_POSE_SOURCES[pose],
       );
     }

@@ -727,6 +727,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
     <a href="#surfaces">Surfaces</a>
     <a href="#elsewhere">Analytics</a>
     <a href="#consoles">Consoles</a>
+    <a href="#wardrobe">Wardrobe</a>
     <a href="#library">Library</a>
     <a href="#pitch">Pitch</a>
     <a href="#traps">Traps</a>
@@ -1279,6 +1280,18 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
       <p class="mono" style="margin:0;font-size:12px;color:var(--muted)">Family invites and anything transactional</p>
     </a>
   </div>
+</section>
+
+<section id="wardrobe" data-page="reference">
+  <div class="head">
+    <span class="eyebrow">02b / What the Bazaar sells</span>
+    <h2>Wardrobe</h2>
+    <p>Every piece of Bolo clothing and what it costs, straight from the catalogue the
+       shop reads. Editing happens in the placement tool on the Mac; this is the window.</p>
+  </div>
+  <div id="wardrobe-body" class="mono" style="color:var(--muted)">Loading the catalogue...</div>
+  <p class="mono" id="wardrobe-reach"
+     style="font-size:12px;color:var(--muted);margin-top:12px;line-height:1.6"></p>
 </section>
 
 <section id="library" data-page="reference">
@@ -3522,5 +3535,54 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   });
 
   apply(start);
+})();
+
+/* ---------------- the wardrobe ----------------
+   READ ONLY, and that is the design. The placement tool writes source art and
+   regenerated registries into the repo, which this server does not have. So
+   the Nest answers "what is in the shop and what does it cost" and names where
+   the editing happens, rather than offering a button that cannot work. */
+(function () {
+  var body = document.getElementById('wardrobe-body');
+  if (!body) return;
+  var esc = function (t) {
+    return String(t == null ? '' : t)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  };
+  fetch('/api/nest/wardrobe', { credentials: 'same-origin', cache: 'no-store' })
+    .then(function (res) {
+      if (res.status === 404) throw new Error('This account is not on the allowlist.');
+      if (!res.ok) throw new Error('The wardrobe endpoint answered ' + res.status + '.');
+      return res.json();
+    })
+    .then(function (j) {
+      var c = j.counts || {};
+      var rows = (j.items || []).map(function (i) {
+        return '<tr>' +
+          '<td>' + esc(i.name) + '</td>' +
+          '<td class="mono">' + esc(i.id) + '</td>' +
+          '<td>' + esc(i.kind) + '</td>' +
+          '<td>' + esc(i.shop) + '</td>' +
+          '<td style="text-align:right">' + esc(i.cost) + ' Chai</td>' +
+          '</tr>';
+      }).join('');
+      body.classList.remove('mono');
+      body.innerHTML =
+        '<p style="margin:0 0 10px;color:var(--muted);font-size:13px">' +
+        esc(c.total) + ' pieces: ' + esc(c.garments) + ' garments, ' + esc(c.accessories) +
+        ' accessories. ' + esc(c.tailor) + ' at the Tailor, ' + esc(c.station) +
+        ' at the Station Master.</p>' +
+        '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">' +
+        '<thead><tr style="text-align:left;color:var(--muted);font-size:11px;' +
+        'text-transform:uppercase;letter-spacing:.06em">' +
+        '<th>Piece</th><th>Id</th><th>Kind</th><th>Door</th>' +
+        '<th style="text-align:right">Price</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody></table></div>';
+      var reach = document.getElementById('wardrobe-reach');
+      if (reach) reach.textContent = j.reach || '';
+    })
+    .catch(function (err) {
+      body.textContent = 'Could not read the wardrobe: ' + err.message;
+    });
 })();
 </script>

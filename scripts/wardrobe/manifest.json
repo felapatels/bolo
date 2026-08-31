@@ -2,91 +2,6 @@
   "$comment": "THE WARDROBE MANIFEST (build 25): the single source of truth for every piece of Bolo clothing. `node scripts/wardrobe.mjs codegen` regenerates the server catalogue table, mobile's literal require() maps and both clients' shop racks from this file; `gen`/`install` drive the compositing generators with each item's recorded recipe. Hand-edit THIS file, never the generated ones. The laws that bound every entry: the canonical mascot rule (she is never redrawn), the sleeve rule (wings redraw in front of cloth, so sleeved outerwear can never work; a Western jacket set was generated once and rejected - do not regenerate it), and eye clearance for anything on her head. costBand maps to server tokenEconomy constants: standard=OUTFIT_COST, premium=PREMIUM_OUTFIT_COST, accessory=ACCESSORY_COST.",
   "items": [
     {
-      "id": "navratri",
-      "name": "Navratri chaniya choli",
-      "tagline": "Nine nights of dancing, mirrors and all.",
-      "kind": "garment",
-      "shop": "tailor",
-      "costBand": "standard",
-      "preview": "full",
-      "status": "shipped",
-      "art": null,
-      "recipe": null,
-      "note": "Predates the generator: pose art was made by hand and no source cloth exists in the repo. Refining it means regenerating source art from the art spec."
-    },
-    {
-      "id": "kediyu",
-      "name": "Navratri kediyu",
-      "tagline": "Mirror-work cotton, cut for nine nights of garba.",
-      "kind": "garment",
-      "shop": "tailor",
-      "costBand": "standard",
-      "preview": "full",
-      "status": "shipped",
-      "art": "scripts/mascot-garment-art/gar-kediyu-wide.png",
-      "recipe": {}
-    },
-    {
-      "id": "anarkali",
-      "name": "Diwali anarkali",
-      "tagline": "Magenta and gold, and it spins beautifully.",
-      "kind": "garment",
-      "shop": "tailor",
-      "costBand": "standard",
-      "preview": "full",
-      "status": "shipped",
-      "art": "scripts/mascot-garment-art/gar-anarkali-c.png",
-      "recipe": {
-        "squash": 1.05,
-        "freefrac": 1
-      }
-    },
-    {
-      "id": "kurta",
-      "name": "Diwali kurta",
-      "tagline": "Saffron cotton, a gold placket, churidar to match.",
-      "kind": "garment",
-      "shop": "tailor",
-      "costBand": "standard",
-      "preview": "full",
-      "status": "shipped",
-      "art": "scripts/mascot-garment-art/gar-kurta-c.png",
-      "recipe": {
-        "squash": 1.05,
-        "freefrac": 1
-      }
-    },
-    {
-      "id": "sherwani",
-      "name": "Wedding sherwani",
-      "tagline": "Cream brocade and gold buttons. Baraat-ready.",
-      "kind": "garment",
-      "shop": "tailor",
-      "costBand": "premium",
-      "preview": "full",
-      "status": "shipped",
-      "art": "scripts/mascot-garment-art/gar-sherwani-c.png",
-      "recipe": {
-        "squash": 1.05,
-        "freefrac": 0.78
-      }
-    },
-    {
-      "id": "saree",
-      "name": "Banarasi saree",
-      "tagline": "Crimson silk with a whole river of gold zari.",
-      "kind": "garment",
-      "shop": "tailor",
-      "costBand": "premium",
-      "preview": "full",
-      "status": "shipped",
-      "art": "scripts/mascot-garment-art/gar-saree-c.png",
-      "recipe": {
-        "squash": 1.05,
-        "freefrac": 0.5
-      }
-    },
-    {
       "id": "pagdi",
       "name": "Marigold pagdi",
       "tagline": "Marigold silk, gold zari and one peacock feather.",
@@ -100,37 +15,37 @@
         "place": {
           "wave": {
             "x": 0.36720816406249995,
-            "y": -0.010218749999999999,
+            "y": 0.0564479167,
             "w": 0.45117,
             "rot": 8.54
           },
           "thumbsup": {
             "x": 0.34158748046875004,
-            "y": 0.0003437500000000038,
+            "y": 0.0670104167,
             "w": 0.42,
             "rot": 7.88
           },
           "thinking": {
             "x": 0.3918015625,
-            "y": 0.01455208333333333,
+            "y": 0.08121875,
             "w": 0.425,
             "rot": 19.01
           },
           "tryagain": {
             "x": 0.41495392578125,
-            "y": 0.017024166666666674,
+            "y": 0.0836908333,
             "w": 0.44,
             "rot": 19.6
           },
           "cheer": {
             "x": 0.282664140625,
-            "y": 0.003909583333333334,
+            "y": 0.07057625,
             "w": 0.44141,
             "rot": 3.38
           }
         }
       },
-      "note": "v2 art on the 1200-tall canvas. ALL FIVE POSES PLACED BY HAND in `pnpm wardrobe place` (build 26). A placed pose wins outright, so the crown seating, the clearance lift and the old nudge overrides are all bypassed here and the nudges were removed rather than left to mislead."
+      "note": "v2 art on the 1200-tall canvas. ALL FIVE POSES PLACED BY HAND in `pnpm wardrobe place` (build 26), then DROPPED 80px in every pose (build 27, owner's number) after the first browser render: the hand placement perched the turban on her crest instead of seating it on her head, and wave's plume was clipping the top of the canvas at -12px. A placed pose wins outright, so crown seating, the clearance lift and the old nudge overrides are all bypassed here."
     },
     {
       "id": "station-cap",

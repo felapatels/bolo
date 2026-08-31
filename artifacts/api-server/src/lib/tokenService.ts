@@ -47,6 +47,8 @@ export interface TokenStateRow {
   firstClassExpiresAt: Date | null;
   equippedOutfit: string | null;
   equippedAccessory: string | null;
+  equippedTop: string | null;
+  equippedBottom: string | null;
 }
 
 /**
@@ -54,13 +56,45 @@ export interface TokenStateRow {
  *
  * The slot is a property of the ITEM, read from the catalog, never taken from
  * a client: otherwise a request could ask for a turban to be worn as a garment
- * and silently strip whatever she has on. Writing one slot never touches the
- * other, which is the whole point — a hat and an outfit at the same time.
+ * and silently strip whatever she has on. The head slot never contends with
+ * the body, which is the whole point — a hat and an outfit at the same time.
+ *
+ * THE BODY IS THREE COLUMNS AND ONE RULE (build 27). `equipped_outfit` is the
+ * whole-body slot; `equipped_top` and `equipped_bottom` are the two-part slots.
+ * They are mutually exclusive, so putting on a saree takes off a top and a
+ * bottom, and putting on a top takes off the saree. Doing that here rather than
+ * in the route means no caller can produce a bird wearing a saree AND trousers.
+ *
+ * AND A BOTTOM IS NEVER WORN ALONE (owner ruling, Aug 31 2026: "top with no
+ * bottom is fine, vice versa is not fine"). Two consequences, both here:
+ *   - equipping a bottom with no top on is refused, not silently dropped
+ *   - taking the top off takes the bottom off with it
+ * A top with no bottom is fine and needs no special case.
  */
-function slotSet(kind: OutfitKind, value: OutfitId | null) {
-  return kind === "accessory"
-    ? { equippedAccessory: value }
-    : { equippedOutfit: value };
+function slotChange(
+  kind: OutfitKind,
+  value: OutfitId | null,
+  state: Pick<TokenStateRow, "equippedTop">,
+): { ok: true; set: Partial<TokenStateRow> } | { ok: false; reason: "bottom_needs_top" } {
+  switch (kind) {
+    case "accessory":
+      return { ok: true, set: { equippedAccessory: value } };
+    case "garment":
+      // A whole-body piece owns both halves, so it clears them.
+      return { ok: true, set: { equippedOutfit: value, equippedTop: null, equippedBottom: null } };
+    case "top":
+      // Removing the top removes the bottom: she must never be left in
+      // trousers alone. Putting one on only clears the whole-body piece.
+      return value == null
+        ? { ok: true, set: { equippedTop: null, equippedBottom: null } }
+        : { ok: true, set: { equippedTop: value, equippedOutfit: null } };
+    case "bottom":
+      if (value == null) return { ok: true, set: { equippedBottom: null } };
+      // The whole-body piece is about to be cleared, so the top that matters is
+      // the one already on. Nothing to pair with means nothing to wear.
+      if (state.equippedTop == null) return { ok: false, reason: "bottom_needs_top" };
+      return { ok: true, set: { equippedBottom: value, equippedOutfit: null } };
+  }
 }
 
 export class InsufficientTokensError extends Error {
@@ -348,11 +382,18 @@ export async function buyOutfit(
 
     // Buying wears it immediately, in the slot that item belongs to. A hat
     // bought while she is in a saree puts the hat on and leaves the saree on.
+    //
+    // EXCEPT A BOTTOM WITH NOTHING ON TOP: the purchase still completes and the
+    // piece is owned forever, it just is not put on. Refusing the SALE would be
+    // the wrong lesson — you are allowed to buy trousers before you own a
+    // shirt. slotChange() is the one place that knows the rule, so an empty set
+    // here means "bought, not worn" rather than a second copy of it.
+    const wear = slotChange(kind, outfitId, state);
     const [updated] = await tx
       .update(userTokenStateTable)
       .set({
         balance: sql`${userTokenStateTable.balance} - ${cost}`,
-        ...slotSet(kind, outfitId),
+        ...(wear.ok ? wear.set : {}),
         updatedAt: new Date(),
       })
       .where(eq(userTokenStateTable.userId, userId))
@@ -496,7 +537,12 @@ export async function equipOutfit(
   userId: string,
   outfitId: OutfitId | null,
   slot?: OutfitKind,
-): Promise<{ state: TokenStateRow; owned: boolean }> {
+): Promise<{
+  state: TokenStateRow;
+  owned: boolean;
+  /** Set when the wardrobe rule said no; null when the change was made. */
+  refused: "bottom_needs_top" | null;
+}> {
   const result = await db.transaction(async (tx) => {
     const state = await ensureState(tx, userId);
     if (outfitId != null) {
@@ -511,22 +557,35 @@ export async function equipOutfit(
           ),
         )
         .limit(1);
-      if (!owned) return { state, owned: false, equipped: null };
+      if (!owned) return { state, owned: false, refused: null, equipped: null };
     }
     const kind = outfitId != null ? getOutfit(outfitId)?.kind ?? "garment" : null;
     // Read BEFORE the update: whether this item was already in its slot is the
     // difference between a moment and a no-op, and the update erases it.
-    const alreadyWorn =
-      outfitId != null &&
-      (kind === "accessory"
-        ? state.equippedAccessory === outfitId
-        : state.equippedOutfit === outfitId);
-    const change =
+    const worn: Record<OutfitKind, string | null> = {
+      accessory: state.equippedAccessory,
+      garment: state.equippedOutfit,
+      top: state.equippedTop,
+      bottom: state.equippedBottom,
+    };
+    const alreadyWorn = outfitId != null && worn[kind ?? "garment"] === outfitId;
+    const decided =
       outfitId != null
-        ? slotSet(kind ?? "garment", outfitId)
+        ? slotChange(kind ?? "garment", outfitId, state)
         : slot
-          ? slotSet(slot, null)
-          : { equippedOutfit: null, equippedAccessory: null };
+          ? slotChange(slot, null, state)
+          // No id and no slot: undress her completely, head and body.
+          : {
+              ok: true as const,
+              set: {
+                equippedOutfit: null,
+                equippedAccessory: null,
+                equippedTop: null,
+                equippedBottom: null,
+              },
+            };
+    if (!decided.ok) return { state, owned: true, refused: decided.reason, equipped: null };
+    const change = decided.set;
     const [updated] = await tx
       .update(userTokenStateTable)
       .set({ ...change, updatedAt: new Date() })
@@ -535,6 +594,7 @@ export async function equipOutfit(
     return {
       state: toState(updated),
       owned: true,
+      refused: null,
       equipped:
         outfitId != null && !alreadyWorn
           ? { outfitId, kind: kind ?? "garment" }
@@ -556,7 +616,7 @@ export async function equipOutfit(
     });
   }
 
-  return { state: result.state, owned: result.owned };
+  return { state: result.state, owned: result.owned, refused: result.refused };
 }
 
 /**
@@ -810,6 +870,8 @@ const toState = (r: {
   firstClassExpiresAt: Date | null;
   equippedOutfit: string | null;
   equippedAccessory: string | null;
+  equippedTop: string | null;
+  equippedBottom: string | null;
 }): TokenStateRow => ({
   balance: r.balance,
   stationPausesEquipped: r.stationPausesEquipped,
@@ -817,4 +879,6 @@ const toState = (r: {
   firstClassExpiresAt: r.firstClassExpiresAt ?? null,
   equippedOutfit: r.equippedOutfit ?? null,
   equippedAccessory: r.equippedAccessory ?? null,
+  equippedTop: r.equippedTop ?? null,
+  equippedBottom: r.equippedBottom ?? null,
 });

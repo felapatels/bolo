@@ -40,6 +40,23 @@ export const userTokenStateTable = pgTable("user_token_state", {
   // separate columns, because a single "equipped" value can only ever hold one
   // of them and equipping either would silently take the other off.
   equippedAccessory: text("equipped_accessory"),
+  // TWO-PART CLOTHING (owner ruling, Aug 31 2026): a top and a bottom worn
+  // together, alongside the hat. `equipped_outfit` above stays the WHOLE-BODY
+  // slot — a saree is neither a top nor a bottom — and the six garments that
+  // predate this ruling keep using it untouched.
+  //
+  // The three body columns are mutually exclusive by rule, not by constraint:
+  // wearing a whole-body piece clears these two, and wearing either of these
+  // clears the whole-body one. Enforced in slotChange() in tokenService.ts,
+  // which is the only writer.
+  //
+  // A BOTTOM WITHOUT A TOP IS NOT ALLOWED, and a top without a bottom is
+  // (owner ruling, same day: "top with no bottom is fine, vice versa is not
+  // fine"). She is feathered, so bare legs read as a bird; a bare chest above
+  // trousers reads as a mistake. That asymmetry is a product rule, so it lives
+  // in the writer rather than in a CHECK constraint no client could explain.
+  equippedTop: text("equipped_top"),
+  equippedBottom: text("equipped_bottom"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -10,48 +10,6 @@ export const OUTFIT_POSE_SOURCES: Record<
   string,
   Partial<Record<MascotPose, number>>
 > = {
-  navratri: {
-    wave: require('../assets/images/mascot/outfits/navratri/mascot-wave.png'),
-    cheer: require('../assets/images/mascot/outfits/navratri/mascot-cheer.png'),
-    thumbsup: require('../assets/images/mascot/outfits/navratri/mascot-thumbsup.png'),
-    thinking: require('../assets/images/mascot/outfits/navratri/mascot-thinking.png'),
-    tryagain: require('../assets/images/mascot/outfits/navratri/mascot-tryagain.png'),
-  },
-  kediyu: {
-    wave: require('../assets/images/mascot/outfits/kediyu/mascot-wave.png'),
-    cheer: require('../assets/images/mascot/outfits/kediyu/mascot-cheer.png'),
-    thumbsup: require('../assets/images/mascot/outfits/kediyu/mascot-thumbsup.png'),
-    thinking: require('../assets/images/mascot/outfits/kediyu/mascot-thinking.png'),
-    tryagain: require('../assets/images/mascot/outfits/kediyu/mascot-tryagain.png'),
-  },
-  anarkali: {
-    wave: require('../assets/images/mascot/outfits/anarkali/mascot-wave.png'),
-    cheer: require('../assets/images/mascot/outfits/anarkali/mascot-cheer.png'),
-    thumbsup: require('../assets/images/mascot/outfits/anarkali/mascot-thumbsup.png'),
-    thinking: require('../assets/images/mascot/outfits/anarkali/mascot-thinking.png'),
-    tryagain: require('../assets/images/mascot/outfits/anarkali/mascot-tryagain.png'),
-  },
-  kurta: {
-    wave: require('../assets/images/mascot/outfits/kurta/mascot-wave.png'),
-    cheer: require('../assets/images/mascot/outfits/kurta/mascot-cheer.png'),
-    thumbsup: require('../assets/images/mascot/outfits/kurta/mascot-thumbsup.png'),
-    thinking: require('../assets/images/mascot/outfits/kurta/mascot-thinking.png'),
-    tryagain: require('../assets/images/mascot/outfits/kurta/mascot-tryagain.png'),
-  },
-  sherwani: {
-    wave: require('../assets/images/mascot/outfits/sherwani/mascot-wave.png'),
-    cheer: require('../assets/images/mascot/outfits/sherwani/mascot-cheer.png'),
-    thumbsup: require('../assets/images/mascot/outfits/sherwani/mascot-thumbsup.png'),
-    thinking: require('../assets/images/mascot/outfits/sherwani/mascot-thinking.png'),
-    tryagain: require('../assets/images/mascot/outfits/sherwani/mascot-tryagain.png'),
-  },
-  saree: {
-    wave: require('../assets/images/mascot/outfits/saree/mascot-wave.png'),
-    cheer: require('../assets/images/mascot/outfits/saree/mascot-cheer.png'),
-    thumbsup: require('../assets/images/mascot/outfits/saree/mascot-thumbsup.png'),
-    thinking: require('../assets/images/mascot/outfits/saree/mascot-thinking.png'),
-    tryagain: require('../assets/images/mascot/outfits/saree/mascot-tryagain.png'),
-  },
   pagdi: {
     wave: require('../assets/images/mascot/outfits/pagdi/mascot-wave.png'),
     cheer: require('../assets/images/mascot/outfits/pagdi/mascot-cheer.png'),

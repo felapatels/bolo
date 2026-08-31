@@ -24,6 +24,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { clerkClient } from "@clerk/express";
+import { OUTFIT_CATALOG } from "../lib/outfits.catalog.gen";
 import {
   presenceSince,
   presenceNewest,
@@ -1916,6 +1917,51 @@ router.post("/nest/mail/reply", async (req: Request, res: Response): Promise<voi
  * pointing this rule at a command that reverts work is worse than having no
  * generator at all. `cmp` is silent now, verified from a clean run.
  */
+/**
+ * THE WARDROBE, as the shop actually sees it (build 27).
+ *
+ * The owner asked for the placement tool to be part of the Nest. It cannot be:
+ * the tool writes source art and regenerated registries INTO THE REPO, and this
+ * server has no repo, no ImageMagick and no compiler. What the Nest can do is
+ * be the honest window onto the result, so a question like "what does the
+ * pagdi cost" has an answer that is not "open your laptop".
+ *
+ * Served from OUTFIT_CATALOG, which is generated from the wardrobe manifest at
+ * build time, so this is exactly what the Bazaar sells. `cost` is resolved:
+ * a per-item Chai price if one is set, otherwise its band's shared constant.
+ * Everything here is a read. There is still no write path in the Nest, and the
+ * first one needs auth and an audit trail designed rather than a button.
+ */
+router.get("/nest/wardrobe", (req: Request, res: Response): void => {
+  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  const items = OUTFIT_CATALOG.map((entry) => ({
+    id: entry.id,
+    name: entry.name,
+    tagline: entry.tagline,
+    kind: entry.kind,
+    shop: entry.shop,
+    preview: entry.preview,
+    cost: entry.cost,
+  }));
+  res.set("Cache-Control", "no-store");
+  res.json({
+    items,
+    counts: {
+      total: items.length,
+      garments: items.filter((i) => i.kind === "garment").length,
+      accessories: items.filter((i) => i.kind === "accessory").length,
+      tailor: items.filter((i) => i.shop === "tailor").length,
+      station: items.filter((i) => i.shop === "station").length,
+    },
+    // Said here rather than in the page, so the constraint travels with the
+    // data and cannot go stale in one place but not the other.
+    reach:
+      "Adding or repricing a piece happens in `pnpm wardrobe place` on the Mac. " +
+      "Web learners get it on the next Repl publish; phones need a native build, " +
+      "because Metro bundles outfit art at compile time.",
+  });
+});
+
 router.get("/nest/growth", (req: Request, res: Response): void => {
   if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
   try {
@@ -1977,6 +2023,7 @@ const EXPECTED_ROUTES = [
   "/nest/mail/message",
   "/nest/mail/reply",
   "/nest/growth",
+  "/nest/wardrobe",
   "/nest/page",
 ];
 
