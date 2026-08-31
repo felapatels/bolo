@@ -634,6 +634,11 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
    chips and sections both carry other display rules and a class loses to
    nothing here. */
 .is-off{display:none!important}
+/* The flash a jumped-to list gives, so the scroll is visible even when the
+   rows were already on screen. */
+@keyframes nest-jumped{from{background:var(--accent-soft,rgba(20,120,90,.16))}to{background:transparent}}
+.jumped{animation:nest-jumped 1.1s ease-out}
+@media (prefers-reduced-motion:reduce){.jumped{animation:none}}
 .pagenav{max-width:1180px;margin:0 auto;padding:14px 20px 0;display:flex;gap:8px}
 .pagenav button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.02em;cursor:pointer;
   padding:7px 16px;border-radius:999px;border:1px solid var(--line-2);
@@ -2438,14 +2443,25 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
      tile and its own modal, both of which collided with what was already here.
      Tiles with no metric stay inert divs rather than pretending to be
      clickable. */
-  function tile(n, label, foot, hot, metric){
+  function tile(n, label, foot, hot, metric, jump){
     var body =
       '<div class="n"' + (hot ? ' style="color:var(--accent)"' : '') + '>' + esc(n) + '</div>' +
       '<div class="l">' + esc(label) + '</div>' +
       (foot ? '<div class="w" style="text-transform:none;letter-spacing:0;font-family:inherit;font-size:11.5px;line-height:1.45;margin-top:3px">' + esc(foot) + '</div>' : '');
-    if (!metric) return '<div class="tile">' + body + '</div>';
-    return '<button type="button" class="tile" data-metric="' + esc(metric) + '"' +
-      ' aria-expanded="' + (state.drillOpen === metric ? "true" : "false") + '">' + body + '</button>';
+    if (metric) {
+      return '<button type="button" class="tile" data-metric="' + esc(metric) + '"' +
+        ' aria-expanded="' + (state.drillOpen === metric ? "true" : "false") + '">' + body + '</button>';
+    }
+    /* A NUMBER WHOSE ROWS ARE ALREADY ON THIS PAGE (build 26, the owner:
+       every stat should drill down). The drill panel only speaks in PEOPLE:
+       every row it returns is an account. Three of the Flagged numbers count
+       reports and phrases, so they cannot open it, but the reports themselves
+       are listed directly underneath. Sending the number to its own rows is
+       the honest drill for those, and it is not a second endpoint. */
+    if (jump) {
+      return '<button type="button" class="tile" data-jump="' + esc(jump) + '">' + body + '</button>';
+    }
+    return '<div class="tile">' + body + '</div>';
   }
 
   function renderRange(){
@@ -2960,17 +2976,20 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
 
     var top = r.byReason.length ? r.byReason[0] : null;
     tiles.innerHTML =
-      tile(fmt(r.total), "Flagged phrases", "Every report ever filed, never deleted.", r.total > 0) +
+      tile(fmt(r.total), "Flagged phrases", "Every report ever filed, never deleted.", r.total > 0, null, "reports-list") +
       tile(fmt(r.reporters), "Reporters",
            r.reporters === 0
              ? "Nobody outside your own accounts has ever flagged a phrase."
              : r.reporters === 1
                ? "ONE account filed all of them. This is not a crowd; treat it as one person's QA pass."
-               : "Distinct accounts that have filed at least one.") +
+               : "Distinct accounts that have filed at least one.",
+           false, "reporters") +
       tile(fmt(r.withNote), "With a note",
-           "Reports carrying real words. A note that is only an email address does not count: 44 of the 47 on file are exactly that, which is why this number is not 44.") +
+           "Reports carrying real words. A note that is only an email address does not count: 44 of the 47 on file are exactly that, which is why this number is not 44.",
+           false, null, "reports-list") +
       tile(top ? (REASON_WORD[top.reason] || top.reason) : "-", "Most common reason",
-           top ? fmt(top.count) + " of " + fmt(r.total) + " reports." : "Nothing filed yet.");
+           top ? fmt(top.count) + " of " + fmt(r.total) + " reports." : "Nothing filed yet.",
+           false, null, "reports-list");
 
     var html = "", i, shown = 0;
     for (i = 0; i < r.rows.length; i++) {
@@ -3265,6 +3284,19 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     if (ev.target.closest("#drill-close")) { closeDrill(); return; }
     if (ev.target.closest("#live-close")) { state.liveOpen = false; renderLive(); renderLiveDrill(); return; }
     if (ev.target.closest("[data-live-drill]")) { state.liveOpen = !state.liveOpen; renderLive(); renderLiveDrill(); return; }
+    var j = ev.target.closest("[data-jump]");
+    if (j) {
+      var rows = document.getElementById(j.getAttribute("data-jump"));
+      if (rows) {
+        rows.scrollIntoView({ behavior: "smooth", block: "center" });
+        // A flash, because a silent scroll on a long page reads as nothing
+        // having happened when the rows were already in view.
+        rows.classList.remove("jumped");
+        void rows.offsetWidth;
+        rows.classList.add("jumped");
+      }
+      return;
+    }
     var t = ev.target.closest("[data-metric]");
     if (t) openDrill(t.getAttribute("data-metric"));
   });

@@ -702,6 +702,17 @@ const DRILL_METRICS: Record<
       "does not turn them off.",
     windowed: false,
   },
+  reporters: {
+    label: "Reporters",
+    note:
+      "Accounts that have filed at least one phrase report, ever, ranked by how " +
+      "many they filed. LIFETIME, ignoring the date range, exactly as the tile " +
+      "is. Added build 26 on the owner's ask that every stat drills down; it was " +
+      "the one Flagged tile whose rows are PEOPLE, so it reuses this panel rather " +
+      "than needing a second shape. The other three Flagged numbers count " +
+      "reports and phrases, which this panel cannot describe.",
+    windowed: false,
+  },
   trialing: {
     label: "Trialing",
     note: "subscription_status is trialing, right now.",
@@ -791,6 +802,10 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
   } else if (metric === "trialing") {
     selector = sql`select u.id, 0 from users u
       where u.subscription_status = 'trialing' ${notOwner("u.id")}`;
+  } else if (metric === "reporters") {
+    selector = sql`select r.user_id, count(*)::int from phrase_reports r
+      where true ${notOwner("r.user_id")}
+      group by 1`;
   } else if (metric === "signups") {
     selector = sql`select u.id, 0 from users u
       where u.created_at >= ${from} and u.created_at <= ${to} ${notOwner("u.id")}`;
