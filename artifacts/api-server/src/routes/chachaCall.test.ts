@@ -77,13 +77,11 @@ let rewardAlreadyGranted = false;
 /** Byte lengths the route handed to the decoder, one per turn. */
 let preparedBytes: number[] = [];
 /** What the transcriber was pinned to, one entry per canned-beat turn. */
-let sttPinning: Array<{ code: string; nativeName: string }> = [];
 /** Set to make the decoder throw, as ffmpeg would on a clip it cannot read. */
 let prepareError: Error | null = null;
 /** Lets one test look at exactly what reached gpt-audio. */
 let liveSpy: ((req: { audio: Buffer; audioFormat: string }) => void) | null = null;
 /** What STT hears on a CANNED beat, where no live turn runs. */
-let lateTranscript = "chalo chacha-ji";
 let getChatAudioStream: (id: string) => { chunks: Buffer[]; done: boolean; failed: boolean } | undefined;
 
 function makeLive(over: Partial<LiveTurnResult> = {}): LiveTurnResult {
@@ -130,10 +128,6 @@ before(async () => {
       // Stands in for ffmpeg: the tests care that the route DECODES before
       // either model sees the clip, not what ffmpeg does with it.
       return { buffer: Buffer.concat([Buffer.from("wav:"), a]), format: "wav" as const, detected: "mp4" };
-    },
-    transcribeLearner: async (_a, _f, code, nativeName) => {
-      sttPinning.push({ code, nativeName });
-      return lateTranscript;
     },
     grantChai: async (_userId, callId, turnIndex) => {
       chaiGrants.push({ callId, turnIndex });
@@ -182,10 +176,8 @@ beforeEach(() => {
   xpGrants = [];
   rewardAlreadyGranted = false;
   preparedBytes = [];
-  sttPinning = [];
   prepareError = null;
   liveSpy = null;
-  lateTranscript = "chalo chacha-ji";
 });
 
 async function post(path: string, body?: unknown, headers: Record<string, string> = {}) {
@@ -465,11 +457,19 @@ test("the last answer of a journey earns, even though the goodbye is canned", as
   assert.equal(paid.reduce((a, b) => a + b, 0), CHACHA_CALL_CHAI_MAX);
 });
 
-test("silence into the canned goodbye earns nothing, same as any other turn", async () => {
-  lateTranscript = "";
+// KEPT, AND RE-AIMED. The guarantee is real and still worth holding: saying
+// nothing on the LAST turn earns nothing, exactly like saying nothing on any
+// other. Only the way silence is produced changed — it used to come from the
+// canned goodbye's late transcription, and the goodbye is live since build 26,
+// so silence now arrives the same way it does on every other turn.
+test("silence on the final turn earns nothing, same as any other turn", async () => {
   const callId = await startCall();
   let last = 0;
   for (let i = 1; i <= JOURNEY_TURNS; i++) {
+    // Silent only on the last turn, so the ones before it are ordinary.
+    if (i === JOURNEY_TURNS) {
+      liveResult = makeLive({ chachaText: "", learnerText: "", mp3: Buffer.alloc(0), spokenSeconds: 0 });
+    }
     const { json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
     last = json.chaiEarned as never as number;
   }
@@ -578,26 +578,19 @@ test("nothing heard mirrors nothing, rather than an empty panel", async () => {
   assert.equal(json.heardEnglish as never, "");
 });
 
-test("the transcriber is pinned to the language's own script", async () => {
-  // Owner, 2026-08-28, on a working Gujarati call: "mirror works well but wrong
-  // language script showing" — the learner's own words came back in
-  // PERSO-ARABIC. Whisper's `language` field is advisory and the gpt-4o
-  // recognizers overrule it; sttLanguage.ts was written for exactly this after
-  // Hindi came back as Hungarian, and the call was not using it.
-  const callId = await startCall();
-  liveError = new Error("force the canned path, which is where STT runs alone");
-  await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
-  // The canned path only transcribes on a CANNED beat; walk to the farewell.
-  liveError = null;
-  for (let i = 2; i <= JOURNEY_TURNS; i++) {
-    await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
-  }
-  assert.ok(sttPinning.length > 0, "no canned beat ever transcribed");
-  for (const p of sttPinning) {
-    assert.equal(p.code, "gu");
-    assert.equal(p.nativeName, "ગુજરાતી", "the script anchor never reached STT");
-  }
-});
+// REMOVED IN BUILD 27 WITH THE PATH IT WATCHED: "the transcriber is pinned to
+// the language's own script". It drove the CANNED late-transcription branch,
+// which no call can reach any more (a turn's beat is never index 0, and the
+// hello is the only canned beat), so it could only ever assert on an empty
+// list.
+//
+// THE GUARANTEE IT PROTECTED IS NOT LOST, and that was checked before deleting
+// anything. The owner's Gujarati call came back in PERSO-ARABIC on 2026-08-28
+// because the call was not using sttLanguage.ts. The live path pins identically
+// — chachaCallTurn.ts builds the same buildSttOptions from the same code and
+// native name — and buildSttOptions has fifteen tests of its own in
+// sttLanguage.test.ts, including that the prompt is anchored in the language's
+// own script with no English in it.
 
 test("a turn with no audio is rejected before any model is called", async () => {
   const callId = await startCall();

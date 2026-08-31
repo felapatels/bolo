@@ -4,13 +4,11 @@ import { db, languagesTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   openai,
-  speechToText,
   detectAudioFormat,
   convertToWav,
 } from "@workspace/integrations-openai-ai-server/audio";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
-import { buildSttOptions, discardAnchorEcho } from "../lib/sttLanguage";
 import {
   CALL_BEATS,
   type CallMode,
@@ -143,25 +141,16 @@ export interface ChachaCallDeps {
   ) => Promise<{ buffer: Buffer; format: "wav" | "mp3"; detected: string }>;
   /** One live beat through gpt-audio. */
   liveTurn: typeof runLiveTurn;
-  /**
-   * Transcribes the learner's clip on a CANNED beat, where no live turn runs.
-   *
-   * IT USED TO SKIP THIS, and the comment on CallTurn.learner said why: his
-   * farewell is fixed, so nothing would read the words. That stopped being true
-   * on 2026-08-28, when a turn started earning on whether he HEARD them. The
-   * journey's last learner turn is answered by the canned goodbye, so without
-   * this the fifth answer of a five-turn call could never earn and the cap of
-   * five was unreachable by one.
-   *
-   * It runs beside the cached clip rather than in front of it: the learner is
-   * already hearing his farewell while this resolves.
-   */
-  transcribeLearner: (
-    audio: Buffer,
-    format: "wav" | "mp3",
-    languageCode: string,
-    languageNativeName: string,
-  ) => Promise<string>;
+  // REMOVED IN BUILD 27: transcribeLearner, the late transcription for a
+  // CANNED beat. It existed because the journey's last learner turn was
+  // answered by a canned goodbye, and a turn earns on whether he HEARD them,
+  // so without it the fifth answer of a five-turn call could never earn.
+  //
+  // Build 26 made the goodbye LIVE, which both supersedes the reason and makes
+  // the code unreachable: a turn's beat is beats[beatIndex] with beatIndex
+  // starting at 1, so index 0 (the only canned beat, the hello) is never a
+  // turn's beat, and every other beat is live. The last turn now earns through
+  // the live path, which the chai-cap test proves.
   /**
    * Credits one chai for an answered JOURNEY turn. Returns the amount actually
    * granted, which is 0 when the ledger already holds this turn.
@@ -222,14 +211,6 @@ const defaultDeps: ChachaCallDeps = {
     return { buffer: await convertToWav(audio), format: "wav", detected };
   },
   liveTurn: runLiveTurn,
-  // Deliberately does NOT catch. The route catches and LOGS, because a
-  // transcriber that refuses every clip and a learner who says nothing produce
-  // the same empty string, and one of them is an outage.
-  transcribeLearner: async (audio, format, languageCode, languageNativeName) => {
-    const pinning = buildSttOptions({ languageCode, languageNativeName });
-    const raw = await speechToText(audio, format, pinning);
-    return discardAnchorEcho(raw.trim(), pinning.prompt);
-  },
   grantChai: async (userId, callId, turnIndex) => {
     try {
       const { granted } = await grantTokensDetailed(
@@ -533,29 +514,7 @@ export function createChachaCallRouter(
         audioBase64Out = result.mp3.toString("base64");
         formatOut = "mp3";
       } else {
-        // STARTED BEFORE THE CLIP AND AWAITED AFTER IT, so the farewell is on
-        // its way to the learner while this resolves. Only for a beat that ran
-        // canned with no live turn behind it; a failed live turn already has a
-        // transcript, or has already decided it heard nothing.
-        const lateTranscript =
-          beat.mode === "canned"
-            ? deps
-                .transcribeLearner(
-                  audio,
-                  format,
-                  session.languageCode,
-                  session.languageNativeName,
-                )
-                .catch((err: unknown) => {
-                  req.log.warn(
-                    { err, format, detected, beat: beat.id },
-                    "[chacha-call] could not transcribe the learner on a canned beat",
-                  );
-                  return "";
-                })
-            : null;
         const clip = await deps.cannedLine(fallbackKey, session.languageCode);
-        if (lateTranscript) learnerText = (await lateTranscript).trim();
         chachaText = clip.text;
         canned = true;
         // A CANNED LINE GETS A ROMANIZATION TOO, which it never used to. It was
