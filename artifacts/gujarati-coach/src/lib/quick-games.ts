@@ -361,3 +361,62 @@ export function playablePhraseCount(cat: {
 }): number {
   return cat.openPhraseCount ?? cat.phraseCount;
 }
+
+/**
+ * WHY A TOPIC IS LOCKED, AND WHAT THE PICKER SHOULD SAY ABOUT IT.
+ *
+ * The owner, build 26: "games must say WHY a topic is locked". Every picker
+ * greyed the row to 0.5 and said nothing, so the learner saw a dead control
+ * with no cause and no way forward. All six pickers on both platforms had the
+ * same hole, which is why the copy lives here rather than five more times.
+ *
+ * THE WORDS ARE THE PHRASEBOOK'S, NOT NEW ONES. pages/phrasebook.tsx shut the
+ * same door on the same field first, and a second dialect of that sentence
+ * would read as a different app.
+ *
+ * NEVER "REACH ZONE N". The cross-zone gate ships OFF (the api-server's
+ * featureFlags), so a whole-topic shut door is rare and the usual truth is a
+ * topic that is partly open. The real requirement is the stop before this one,
+ * which is exactly what the journey's own lock dialog says.
+ *
+ * THE THREE LOCKED STATES ARE DIFFERENT FACTS and must not share a sentence:
+ *   shut   the journey has opened none of it
+ *   ahead  it is open, and this game's floor still wants more than it has
+ *   thin   it is fully open and simply smaller than the game needs, which is
+ *          nothing to do with the journey and must not blame it
+ *
+ * TWIN: artifacts/bolo-mobile/lib/quick-games.ts. Change both or neither.
+ */
+export type TopicLockState = {
+  /** True for every state but `open`, so the caller greys and re-routes once. */
+  locked: boolean;
+  kind: "open" | "shut" | "ahead" | "thin";
+  /** The subtitle under the topic's title. */
+  sub: string;
+};
+
+export function topicLockState(
+  cat: { phraseCount: number; openPhraseCount?: number },
+  floor: number,
+): TopicLockState {
+  const playable = playablePhraseCount(cat);
+  if (playable >= floor) {
+    return { locked: false, kind: "open", sub: `${playable} phrases` };
+  }
+  if (cat.phraseCount > 0 && playable === 0) {
+    return {
+      locked: true,
+      kind: "shut",
+      sub: "Ride the journey to open this topic",
+    };
+  }
+  const ahead = Math.max(0, cat.phraseCount - playable);
+  if (ahead > 0) {
+    return {
+      locked: true,
+      kind: "ahead",
+      sub: `${ahead} more ${ahead === 1 ? "waits" : "wait"} further down the line`,
+    };
+  }
+  return { locked: true, kind: "thin", sub: `Needs ${floor} phrases to play` };
+}

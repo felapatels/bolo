@@ -42,7 +42,7 @@ import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { confirmDiscardRun } from '@/lib/gameExit';
 import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
-import { playablePhraseCount } from '@/lib/quick-games';
+import { topicLockState } from '@/lib/quick-games';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -215,6 +215,7 @@ function TopicPicker({
   colors: ReturnType<typeof useColors>;
 }) {
   const { data: categories, isLoading } = useListCategories({ lang: activeLang });
+  const router = useRouter();
 
   if (isLoading) {
     // Shimmer skeletons shaped like the incoming topic rows keep the layout
@@ -237,16 +238,28 @@ function TopicPicker({
         Choose a topic to match
       </Text>
       {(categories ?? []).map((cat) => {
-        // Require at least 6 phrases so the Easy (4×3, 6-pair) grid is always full.
-        // PLAYABLE, not held: a topic the journey has not opened serves
-        // this game nothing however many phrases it holds.
-        const playable = playablePhraseCount(cat);
-        const disabled = playable < WORD_MATCH_MIN_EASY;
+        // Require at least 6 phrases so the Easy (4×3, 6-pair) grid is always
+        // full. PLAYABLE, not held, and WHY when it is not enough:
+        // topicLockState owns both the gate and the sentence for all six
+        // pickers. It replaced this row's "Need 6+ phrases", which named the
+        // floor and never the journey, so a topic holding ten phrases told the
+        // learner it needed six.
+        const lock = topicLockState(cat, WORD_MATCH_MIN_EASY);
+        const disabled = lock.locked;
         return (
           <PressableScale
             key={cat.id}
-            onPress={() => onSelect(cat.id, cat.title, cat.phraseCount)}
-            disabled={disabled}
+            // A locked card is never a dead end: a shut topic is a door to the
+            // journey rather than a control that does nothing.
+            onPress={() =>
+              disabled
+                ? router.push('/(app)/journey')
+                : onSelect(cat.id, cat.title, cat.phraseCount)
+            }
+            accessibilityRole="button"
+            accessibilityLabel={
+              disabled ? `${cat.title}, locked, open the journey` : cat.title
+            }
             style={[
               styles.topicCard,
               { backgroundColor: colors.card, borderColor: colors.border, opacity: disabled ? 0.5 : 1 },
@@ -262,8 +275,11 @@ function TopicPicker({
               <Text style={[styles.topicTitle, { color: colors.foreground }]} numberOfLines={1}>
                 {cat.title}
               </Text>
-              <Text style={[styles.topicSub, { color: colors.mutedForeground }]}>
-                {disabled ? `Need ${WORD_MATCH_MIN_EASY}+ phrases` : `${cat.phraseCount} phrases`}
+              <Text
+                testID={`game-topic-${lock.kind}-${cat.id}`}
+                style={[styles.topicSub, { color: colors.mutedForeground }]}
+              >
+                {lock.sub}
               </Text>
             </View>
             <Feather name="chevron-right" size={18} color={colors.mutedForeground} />

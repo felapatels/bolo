@@ -118,20 +118,25 @@ describe("how to play", () => {
 });
 
 function renderFrame(path: string) {
-  const { hook } = memoryLocation({ path });
+  // `record` since build 26: a locked topic navigates to the journey now, so
+  // where the frame SENT the learner has to be assertable.
+  const loc = memoryLocation({ path, record: true });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <Router hook={hook}>
-        <QuickGameShell
-          def={DEF}
-          instruction="Pick the right answer"
-          totalRounds={() => 2}
-          renderRound={(p) => <TestRound {...p} />}
-        />
-      </Router>
-    </QueryClientProvider>,
-  );
+  return {
+    ...render(
+      <QueryClientProvider client={qc}>
+        <Router hook={loc.hook}>
+          <QuickGameShell
+            def={DEF}
+            instruction="Pick the right answer"
+            totalRounds={() => 2}
+            renderRound={(p) => <TestRound {...p} />}
+          />
+        </Router>
+      </QueryClientProvider>,
+    ),
+    history: loc.history,
+  };
 }
 
 /** Same shell but timed, for the Hotfix 3 countdown and timer-urgency pins. */
@@ -197,12 +202,36 @@ beforeEach(() => {
   localStorage.removeItem("bolo-signal-cleared:gu");
 });
 
+// The owner, build 26: "games must say WHY a topic is locked". Tiny holds one
+// phrase and the journey has opened it, so the journey is NOT what is holding
+// this topic back and the copy must not say it is.
+describe("a locked topic says why, and offers a way out", () => {
+  test("names the game's own floor when the topic is simply too small", () => {
+    renderFrame("/games/signal-lights");
+    expect(screen.getByTestId("game-topic-thin-8")).toHaveTextContent(
+      "Needs 2 phrases to play",
+    );
+  });
+
+  test("is a door to the journey, not a dead control", () => {
+    const { history } = renderFrame("/games/signal-lights");
+    fireEvent.click(screen.getByText("Tiny"));
+    expect(history).toContain("/journey");
+  });
+});
+
 describe("hub launch (no params)", () => {
-  test("shows the picker, disables topics under the floor, and POSTs the pre-6B payload shape", () => {
+  test("shows the picker, keeps a topic under the floor out of the run, and POSTs the pre-6B payload shape", () => {
     renderFrame("/games/signal-lights");
     expect(screen.getByText("Choose a topic to play from")).toBeInTheDocument();
     // Tiny (1 phrase) sits under Signal Lights' floor of 2.
-    expect(screen.getByText("Tiny").closest("button")).toBeDisabled();
+    // BUILD 26 INVERTED THE ASSERTION THAT WAS HERE. It read
+    // `expect(...).toBeDisabled()`, which pinned a row that was greyed, dead
+    // and silent about why. The owner asked for the picker to say why a topic
+    // is locked, so the row is a door to the journey now. What must still hold
+    // is that pressing it does not start a run, and that is what this checks.
+    fireEvent.click(screen.getByText("Tiny"));
+    expect(screen.queryByText("Round 1 of 2")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Food"));
     expect(screen.getByText("Round 1 of 2")).toBeInTheDocument();

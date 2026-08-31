@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import {
   ArrowLeft,
   HelpCircle,
@@ -47,8 +47,10 @@ import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/language-context";
-import { markSignalCleared, type QuickGameDef,
-  playablePhraseCount,
+import {
+  markSignalCleared,
+  topicLockState,
+  type QuickGameDef,
 } from "@/lib/quick-games";
 
 // ─── Launch context ──────────────────────────────────────────────────────────
@@ -140,6 +142,7 @@ function QuickTopicPicker({
   onSelect: (categoryId: number, title: string) => void;
 }) {
   const { data: categories, isLoading } = useListCategories({ lang: activeLang });
+  const [, setLocation] = useLocation();
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-4 pt-4">
@@ -150,25 +153,42 @@ function QuickTopicPicker({
         </div>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
-          {(categories ?? []).map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => onSelect(cat.id, cat.title)}
-              disabled={playablePhraseCount(cat) < floor}
-              className={cn(
-                "flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm active:scale-[0.98]",
-                playablePhraseCount(cat) < floor && "cursor-not-allowed opacity-50",
-              )}
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <CategoryIcon iconName={cat.iconName} />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate font-bold text-foreground">{cat.title}</p>
-                <p className="text-xs text-muted-foreground">{cat.phraseCount} phrases</p>
-              </div>
-            </button>
-          ))}
+          {(categories ?? []).map((cat) => {
+            // PLAYABLE, not held, and WHY when it is not enough.
+            // topicLockState owns both the gate and the sentence for all six
+            // pickers. The count under the title used to be cat.phraseCount,
+            // the TOTAL, while the grey came from the playable count: a shut
+            // topic read "10 phrases" and refused to open.
+            const lock = topicLockState(cat, floor);
+            return (
+              <button
+                key={cat.id}
+                // A locked card is never a dead end, the rule this hub already
+                // states: a shut topic is a door to the journey.
+                onClick={() =>
+                  lock.locked ? setLocation("/journey") : onSelect(cat.id, cat.title)
+                }
+                aria-label={lock.locked ? `${cat.title}, locked, open the journey` : cat.title}
+                className={cn(
+                  "flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm active:scale-[0.98]",
+                  lock.locked && "opacity-50",
+                )}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <CategoryIcon iconName={cat.iconName} />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate font-bold text-foreground">{cat.title}</p>
+                  <p
+                    className="text-xs text-muted-foreground"
+                    data-testid={`game-topic-${lock.kind}-${cat.id}`}
+                  >
+                    {lock.sub}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

@@ -31,7 +31,10 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({
     back: (...a: unknown[]) => mockState.back(...a),
     replace: (...a: unknown[]) => mockState.replace(...a),
-    push: jest.fn(),
+    // Hoisted into mockState in build 26: a locked topic now ROUTES to the
+    // journey, so the push has to be assertable. A fresh jest.fn() per
+    // useRouter() call could never be reached from a test.
+    push: (...a: unknown[]) => mockState.push(...a),
   }),
 }));
 
@@ -310,6 +313,7 @@ beforeEach(() => {
   mockState.params = {};
   mockState.back = jest.fn();
   mockState.replace = jest.fn();
+  mockState.push = jest.fn();
   mockState.invalidate = jest.fn();
   mockState.pendingConfirm = undefined;
   mockState.sessionResponse = { xpEarned: 25, totalXp: 900 };
@@ -532,12 +536,37 @@ describe('topic picker', () => {
     expect(screen.getByTestId('round-label')).toHaveTextContent('round-0-of-5');
   });
 
-  test('topics under the game floor are disabled', async () => {
+  // BUILD 26 CHANGED WHAT THIS PINS, and the old assertion could no longer
+  // tell the two apart. It only checked that the picker was still on screen
+  // after pressing a locked topic, which stays true whether the press does
+  // nothing (the old `disabled`) or navigates away through a mocked router
+  // (the new door). Both halves are now asserted separately: the run must not
+  // start, AND the journey must be opened.
+  test('a topic under the game floor never starts a run', async () => {
     renderShell();
     await act(async () => {});
     // Tiny Topic has 2 phrases, under ticket-check's floor of 4.
     fireEvent.press(screen.getByText('Tiny Topic'));
     expect(screen.getByText('Greetings')).toBeTruthy(); // still on the picker
+    expect(screen.queryByTestId('quick-countdown')).toBeNull();
+  });
+
+  test('a locked topic is a door to the journey, not a dead control', async () => {
+    renderShell();
+    await act(async () => {});
+    fireEvent.press(screen.getByText('Tiny Topic'));
+    expect(mockState.push).toHaveBeenCalledWith('/(app)/journey');
+  });
+
+  // The owner, build 26: "games must say WHY a topic is locked". Tiny Topic
+  // holds 2 phrases and the journey has opened both, so it is not the journey
+  // holding it back and the copy must not blame it.
+  test('says why a topic is locked, and does not blame the journey wrongly', async () => {
+    renderShell();
+    await act(async () => {});
+    expect(screen.getByTestId('game-topic-thin-2')).toHaveTextContent(
+      'Needs 4 phrases to play',
+    );
   });
 });
 

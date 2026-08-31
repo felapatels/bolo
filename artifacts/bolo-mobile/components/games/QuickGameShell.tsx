@@ -68,7 +68,7 @@ import { markSignalCleared } from '@/lib/signalMemory';
 import { markCloseoutGranted } from '@/lib/closeoutMemory';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { confirmDiscardRun } from '@/lib/gameExit';
-import { playablePhraseCount, type QuickGameDef } from '@/lib/quick-games';
+import { topicLockState, type QuickGameDef } from '@/lib/quick-games';
 
 // ─── Launch context ──────────────────────────────────────────────────────────
 
@@ -811,6 +811,7 @@ function TopicPicker({
   colors: ReturnType<typeof useColors>;
 }) {
   const { data: categories, isLoading } = useListCategories({ lang: activeLang });
+  const router = useRouter();
 
   if (isLoading) {
     return (
@@ -831,15 +832,23 @@ function TopicPicker({
         Choose a topic to play with
       </Text>
       {(categories ?? []).map((cat) => {
-        // PLAYABLE, not held. See playablePhraseCount: a topic the journey
-        // has not opened serves this game nothing however many it holds.
-        const playable = playablePhraseCount(cat);
-        const disabled = playable < floor;
+        // PLAYABLE, not held, and WHY when it is not enough. topicLockState
+        // owns both the gate and the sentence for all six pickers.
+        const lock = topicLockState(cat, floor);
+        const disabled = lock.locked;
         return (
           <PressableScale
             key={cat.id}
-            onPress={() => onSelect(cat.id)}
-            disabled={disabled}
+            // A LOCKED CARD IS NEVER A DEAD END, the rule the games hub already
+            // states and the Phrasebook already keeps: a shut topic is a door
+            // to the journey rather than a control that does nothing.
+            onPress={() => (disabled ? router.push('/(app)/journey') : onSelect(cat.id))}
+            accessibilityRole="button"
+            accessibilityLabel={
+              disabled
+                ? `${cat.title}, locked, open the journey`
+                : cat.title
+            }
             style={[
               styles.topicCard,
               {
@@ -862,8 +871,11 @@ function TopicPicker({
               >
                 {cat.title}
               </Text>
-              <Text style={[styles.topicSub, { color: colors.mutedForeground }]}>
-                {playable} phrases
+              <Text
+                testID={`game-topic-${lock.kind}-${cat.id}`}
+                style={[styles.topicSub, { color: colors.mutedForeground }]}
+              >
+                {lock.sub}
               </Text>
             </View>
             <Feather name="chevron-right" size={18} color={colors.mutedForeground} />

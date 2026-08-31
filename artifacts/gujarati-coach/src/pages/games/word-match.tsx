@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { ArrowLeft, RefreshCw, Home, Clock, Zap, Trophy } from "lucide-react";
 import { CategoryIcon } from "@/lib/category-icons";
 import {
@@ -23,7 +23,7 @@ import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { GAME_CONFIG } from "./game-config";
-import { playablePhraseCount } from "@/lib/quick-games";
+import { topicLockState } from "@/lib/quick-games";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -193,6 +193,7 @@ function TopicPicker({
   onSelect: (categoryId: number, title: string) => void;
 }) {
   const { data: categories, isLoading } = useListCategories({ lang: activeLang });
+  const [, setLocation] = useLocation();
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-4 pt-4">
@@ -204,18 +205,25 @@ function TopicPicker({
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
           {(categories ?? []).map((cat) => {
-            // Require at least 6 phrases so the Easy (4×3, 6-pair) grid is always full.
-            // PLAYABLE, not held: a topic the journey has not opened serves
-            // this game nothing however many phrases it holds.
-            const disabled = playablePhraseCount(cat) < WORD_MATCH_MIN_EASY;
+            // Require at least 6 phrases so the Easy (4×3, 6-pair) grid is
+            // always full. PLAYABLE, not held, and WHY when it is not enough:
+            // topicLockState owns both the gate and the sentence for all six
+            // pickers. It replaced this row's "Need 6+ phrases", which named
+            // the floor and never the journey, so a topic holding ten phrases
+            // told the learner it needed six.
+            const lock = topicLockState(cat, WORD_MATCH_MIN_EASY);
             return (
               <button
                 key={cat.id}
-                onClick={() => onSelect(cat.id, cat.title)}
-                disabled={disabled}
+                // A locked card is never a dead end: a shut topic is a door to
+                // the journey.
+                onClick={() =>
+                  lock.locked ? setLocation("/journey") : onSelect(cat.id, cat.title)
+                }
+                aria-label={lock.locked ? `${cat.title}, locked, open the journey` : cat.title}
                 className={cn(
                   "flex items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm active:scale-[0.98]",
-                  disabled && "cursor-not-allowed opacity-50",
+                  lock.locked && "opacity-50",
                 )}
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -223,10 +231,11 @@ function TopicPicker({
                 </div>
                 <div className="min-w-0">
                   <p className="truncate font-bold text-foreground">{cat.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {disabled
-                      ? `Need ${WORD_MATCH_MIN_EASY}+ phrases`
-                      : `${cat.phraseCount} phrases`}
+                  <p
+                    className="text-xs text-muted-foreground"
+                    data-testid={`game-topic-${lock.kind}-${cat.id}`}
+                  >
+                    {lock.sub}
                   </p>
                 </div>
               </button>

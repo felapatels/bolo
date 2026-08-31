@@ -1,4 +1,4 @@
-import { playablePhraseCount } from '@/lib/quick-games';
+import { playablePhraseCount, topicLockState } from '@/lib/quick-games';
 
 describe('a topic is offered on what it can PLAY, not on what it holds', () => {
   // Reported off a TestFlight build 2026-08-26: a Luggage Match topic that was
@@ -31,5 +31,69 @@ describe('a topic is offered on what it can PLAY, not on what it holds', () => {
     expect(playablePhraseCount(shut) < 4).toBe(true);
     expect(playablePhraseCount(partly) < 4).toBe(true);
     expect(playablePhraseCount(open) < 4).toBe(false);
+  });
+});
+
+// ─── Why a topic is locked (build 26) ────────────────────────────────────────
+//
+// The owner: "games must say WHY a topic is locked". All six pickers greyed
+// the row and said nothing, so the states and their sentences live in one
+// helper. The three locked states are different FACTS and must never share a
+// sentence: the journey has opened none of it, the journey has opened some of
+// it, or the topic is simply smaller than the game needs and the journey has
+// nothing to do with it.
+//
+// ITS TWIN IS PINNED IDENTICALLY on web, in
+// gujarati-coach/src/test/game-topic-playable.test.ts.
+
+describe('topicLockState', () => {
+  it('an open topic is unlocked and just counts what it can play', () => {
+    expect(topicLockState({ phraseCount: 10, openPhraseCount: 8 }, 4)).toEqual({
+      locked: false,
+      kind: 'open',
+      sub: '8 phrases',
+    });
+  });
+
+  it('sends a wholly shut topic to the journey, not to a number', () => {
+    expect(topicLockState({ phraseCount: 10, openPhraseCount: 0 }, 4)).toEqual({
+      locked: true,
+      kind: 'shut',
+      sub: 'Ride the journey to open this topic',
+    });
+  });
+
+  it('counts what is still coming when the topic is only part open', () => {
+    expect(topicLockState({ phraseCount: 10, openPhraseCount: 3 }, 4)).toEqual({
+      locked: true,
+      kind: 'ahead',
+      sub: '7 more wait further down the line',
+    });
+  });
+
+  it('says waits, not wait, for a single phrase still ahead', () => {
+    expect(topicLockState({ phraseCount: 4, openPhraseCount: 3 }, 4).sub).toBe(
+      '1 more waits further down the line',
+    );
+  });
+
+  // THE ONE THAT MUST NOT BLAME THE JOURNEY. Everything this topic holds is
+  // already open; it is just smaller than the game's floor.
+  it('blames the topic, not the journey, when it is fully open and too thin', () => {
+    expect(topicLockState({ phraseCount: 2, openPhraseCount: 2 }, 4)).toEqual({
+      locked: true,
+      kind: 'thin',
+      sub: 'Needs 4 phrases to play',
+    });
+  });
+
+  // An older server never sent openPhraseCount and never gated the list, so
+  // the total stands in and nothing is wrongly blamed on the journey.
+  it('treats a missing openPhraseCount as fully open', () => {
+    expect(topicLockState({ phraseCount: 8 }, 4)).toEqual({
+      locked: false,
+      kind: 'open',
+      sub: '8 phrases',
+    });
   });
 });
