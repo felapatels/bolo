@@ -24,8 +24,9 @@ Written 2026-08-31 (just after midnight EDT) by BOLO Build 25. **Read
   suites ran immediately before the builds and were green: mobile 156
   suites / 1475 tests, web 142 files / 1518 tests, api 1459 tests with
   1456 passing plus the one stale pin corrected and re-run alone (16/16).
-- **The Repl PUBLISHED the server half** (the owner confirmed "published",
-  no migrations step). **NOT verified by content:** my one curl of
+- **The Repl publish of the server half was STILL RUNNING when this was
+  written** (the owner started it; no migrations step had appeared).
+  **NOT verified at all yet:** my one curl of
   `bolo-india.app/games/story/book?lang=gu...` returned non-JSON (likely
   the wrong path prefix or auth), and the owner interrupted before a second
   try. FIRST JOB: verify the storybook fix against production by content
