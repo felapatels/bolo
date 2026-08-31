@@ -169,15 +169,17 @@ button[aria-pressed=true]{background:var(--ink);color:var(--pap);border-color:va
 main{padding:18px;display:flex;gap:18px;flex-wrap:wrap}
 .pose{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
 .pose h2{font-size:12px;margin:0;padding:7px 10px;border-bottom:1px solid var(--line);letter-spacing:.08em;text-transform:uppercase;color:#6b6558}
-.stage{position:relative;width:320px;height:375px;touch-action:none;cursor:grab;background:
+.stage{position:relative;width:320px;height:375px;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;background:
   repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px}
 .stage.dragging{cursor:grabbing}
-.stage img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.stage img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;pointer-events:none;-webkit-user-drag:none;user-select:none}
 .stage .worn{z-index:2}
 .stage .piece{transform-origin:center}
 .row{display:flex;gap:8px;align-items:center;padding:8px 10px;border-top:1px solid var(--line);flex-wrap:wrap}
 .row label{font-size:11px;color:#6b6558;text-transform:uppercase;letter-spacing:.06em}
 input[type=range]{width:110px}
+#toast{font-weight:700;color:var(--acc);opacity:0;transition:opacity .15s}
+#toast.on{opacity:1}
 #log{padding:10px 18px;font:12px ui-monospace,monospace;white-space:pre-wrap;color:#6b6558;border-top:1px solid var(--line)}
 #eraser{padding:18px;display:none;gap:16px;align-items:flex-start}
 #eraser canvas{border:1px solid var(--line);background:repeating-conic-gradient(#eee 0 25%,#fff 0 50%) 0 0/16px 16px;cursor:crosshair;max-width:520px;height:auto}
@@ -194,6 +196,7 @@ input[type=range]{width:110px}
   <button id="save" class="primary">Save</button>
   <button id="render">Save &amp; render</button>
   <button id="install">Save &amp; install</button>
+  <span id="toast" role="status" aria-live="polite"></span>
 </header>
 <main id="place"></main>
 <section id="eraser">
@@ -214,6 +217,16 @@ input[type=range]{width:110px}
 const POSE_W = 1024, POSE_H = 1200;
 let data = null, item = null, place = {}, mode = "place";
 const log = (s) => { document.getElementById("log").textContent = s; };
+/** SAY IT WHERE THE BUTTON IS. The log is at the foot of a long page, so a
+ *  save that worked looked identical to one that did nothing: the owner hit
+ *  Save, saw no answer, and had to ask whether it had taken. */
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove("on"), 2600);
+}
 const fileURL = (p) => "/file?path=" + encodeURIComponent(p);
 const artURL = (p) => fileURL(p) + "&trim=1";
 
@@ -249,8 +262,8 @@ function card(pose) {
       // moment you drag, this hides and the draggable piece takes over.
       '<img class="worn" src="' + fileURL("artifacts/gujarati-coach/public/mascot/outfits/" + item.id + "/mascot-" + pose + ".png") + '"' +
         ' onerror="this.style.display=\'none\'">' +
-      '<img class="bird" src="' + fileURL("artifacts/gujarati-coach/public/mascot/mascot-" + pose + ".png") + '">' +
-      '<img class="piece" src="' + artURL(item.art) + '">' +
+      '<img class="bird" draggable="false" src="' + fileURL("artifacts/gujarati-coach/public/mascot/mascot-" + pose + ".png") + '">' +
+      '<img class="piece" draggable="false" src="' + artURL(item.art) + '">' +
     '</div>' +
     '<div class="row">' +
       '<label>size</label><input type="range" class="w" min="10" max="120" step="0.5">' +
@@ -303,25 +316,27 @@ function draw() {
   const main = document.getElementById("place");
   main.innerHTML = "";
   if (item.kind === "garment") {
+    // The four whole-item knobs the outfit generator reads, ALONGSIDE the same
+    // per-pose drag accessories get. The knobs are what a garment gets for
+    // free; a dragged pose overrides them outright, so both belong on screen.
     const k = item.recipe;
     const box = document.createElement("div");
-    box.innerHTML = '<div class="hint"><p><b>Garments are placed by the outfit ' +
-      'generator with whole-item knobs, not per pose.</b> Drag is per pose and ' +
-      'would be lying about what the pipeline can do, so these are the real ' +
-      'four it reads.</p></div>' +
-      ['wfrac','dy','squash','freefrac'].map((n) =>
+    box.innerHTML = '<div class="hint"><p><b>Knobs place every pose at once. ' +
+      'Dragging a pose overrides them for that pose only.</b> Leave a knob ' +
+      'blank to use the generator default.</p></div>' +
+      ["wfrac", "dy", "squash", "freefrac"].map((n) =>
         '<div class="row"><label style="width:70px">' + n + '</label>' +
         '<input class="knob" data-k="' + n + '" value="' + (k[n] ?? "") + '" ' +
         'style="padding:6px 10px;border:1px solid var(--line);border-radius:8px;width:120px"></div>').join("");
     main.appendChild(box);
-    for (const pose of data.poses) {
-      const el = document.createElement("div");
-      el.className = "pose";
-      el.innerHTML = '<h2>' + pose + '</h2><div class="stage"><img class="bird" src="' +
-        fileURL("artifacts/gujarati-coach/public/mascot/outfits/" + item.id + "/mascot-" + pose + ".png") +
-        '" onerror="this.src=\'' + fileURL("artifacts/gujarati-coach/public/mascot/mascot-" + pose + ".png") + '\'"></div>';
-      main.appendChild(el);
-    }
+  }
+  if (!item.art) {
+    const warn = document.createElement("div");
+    warn.className = "hint";
+    warn.innerHTML = '<p><b>This item has no source art in the repo.</b> Its ' +
+      'poses were made by hand before the generator existed, so there is ' +
+      'nothing to place or erase until new source art is added.</p>';
+    main.appendChild(warn);
     return;
   }
   for (const pose of data.poses) main.appendChild(card(pose));
@@ -341,23 +356,58 @@ function wire(stage) {
   };
   sync();
   let drag = null;
-  stage.addEventListener("pointerdown", (e) => {
-    if (!place[pose]) place[pose] = seed(pose);
-    stage.setPointerCapture(e.pointerId);
-    stage.classList.add("dragging");
-    drag = { x: e.clientX, y: e.clientY, p: { ...place[pose] } };
-  });
-  stage.addEventListener("pointermove", (e) => {
+
+  // DRAG, WRITTEN DEFENSIVELY, because the first version worked when I drove it
+  // and not when the owner did. Three things were wrong with relying on pointer
+  // capture alone, and all three are cheap to remove:
+  //   - a throw from setPointerCapture aborted the handler BEFORE it recorded
+  //     the drag, so the press silently did nothing
+  //   - the browser's own image drag can swallow the gesture; the images are
+  //     pointer-events:none and now draggable=false and preventDefault'd too
+  //   - if capture is refused, a pointer that leaves the stage is never heard
+  //     from again, so the move and up listeners go on the DOCUMENT
+  const onMove = (e) => {
     if (!drag) return;
     const W = stage.clientWidth, H = stage.clientHeight;
     place[pose] = { ...drag.p,
       x: drag.p.x + (e.clientX - drag.x) / W,
       y: drag.p.y + (e.clientY - drag.y) / H };
     apply(stage);
+  };
+  const onUp = () => {
+    if (!drag) return;
+    drag = null;
+    stage.classList.remove("dragging");
+    document.removeEventListener("pointermove", onMove);
+    document.removeEventListener("pointerup", onUp);
+    mark(card, pose);
+  };
+  stage.addEventListener("dragstart", (e) => e.preventDefault());
+  stage.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    if (!place[pose]) place[pose] = seed(pose);
+    try { stage.setPointerCapture(e.pointerId); } catch { /* capture is a nicety */ }
+    stage.classList.add("dragging");
+    drag = { x: e.clientX, y: e.clientY, p: { ...place[pose] } };
+    apply(stage);
+    mark(card, pose);
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
   });
-  const end = () => { drag = null; stage.classList.remove("dragging"); mark(card, pose); };
-  stage.addEventListener("pointerup", end);
-  stage.addEventListener("pointercancel", end);
+
+  // SCROLL TO RESIZE, on the pose you are pointing at. The sliders below stay,
+  // because a slider is the only one of the two you can aim precisely, but
+  // nobody reaches for a slider mid-drag. Owner's ask.
+  stage.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const p = place[pose] ?? seed(pose);
+    const step = e.deltaY < 0 ? 1.03 : 1 / 1.03;
+    place[pose] = { ...p, w: Math.min(1.4, Math.max(0.05, p.w * step)) };
+    apply(stage);
+    sync();
+    mark(card, pose);
+  }, { passive: false });
+
   wIn.oninput = () => { place[pose] = { ...(place[pose] ?? seed(pose)), w: +wIn.value / 100 }; apply(stage); mark(card, pose); };
   rIn.oninput = () => { place[pose] = { ...(place[pose] ?? seed(pose)), rot: +rIn.value }; apply(stage); mark(card, pose); };
 }
@@ -432,23 +482,31 @@ async function save() {
     const r = await (await fetch("/api/erase", { method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: item.id, png }) })).json();
-    if (r.ok) { item.art = r.art; log("cut saved to " + r.art + "\noriginal kept at " + r.kept); }
+    if (r.ok) {
+      item.art = r.art;
+      toast("erase saved");
+      log("cut saved to " + r.art + "\noriginal kept at " + r.kept);
+    } else toast("erase FAILED");
     return;
   }
   const r = await (await fetch("/api/save", { method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ id: item.id, place, knobs }) })).json();
   item.recipe = r.recipe ?? item.recipe;
+  const n = Object.keys(place).length;
+  toast("saved " + n + " pose" + (n === 1 ? "" : "s") + " to manifest.json");
   log("saved to manifest.json\n" + JSON.stringify(item.recipe, null, 2));
 }
 document.getElementById("save").onclick = save;
 for (const [btn, install] of [["render", false], ["install", true]]) {
   document.getElementById(btn).onclick = async () => {
     await save();
+    toast("rendering...");
     log("rendering...");
     const r = await (await fetch("/api/render", { method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: item.id, install }) })).json();
+    toast(r.ok ? "rendered" : "render FAILED");
     log(r.log);
     for (const img of document.querySelectorAll(".bird")) img.src = img.src.split("&t=")[0] + "&t=" + Date.now();
   };

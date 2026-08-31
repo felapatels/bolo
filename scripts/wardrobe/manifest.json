@@ -38,7 +38,7 @@
       "art": "scripts/mascot-garment-art/gar-anarkali-c.png",
       "recipe": {
         "squash": 1.05,
-        "freefrac": 1.0
+        "freefrac": 1
       }
     },
     {
@@ -53,7 +53,7 @@
       "art": "scripts/mascot-garment-art/gar-kurta-c.png",
       "recipe": {
         "squash": 1.05,
-        "freefrac": 1.0
+        "freefrac": 1
       }
     },
     {
@@ -97,12 +97,40 @@
       "status": "shipped",
       "art": "scripts/mascot-accessory-art/pagdi-v2.png",
       "recipe": {
-        "nudgeXFrac": {
-          "thinking": 0.5,
-          "tryagain": 0.07
+        "place": {
+          "wave": {
+            "x": 0.36720816406249995,
+            "y": -0.010218749999999999,
+            "w": 0.45117,
+            "rot": 8.54
+          },
+          "thumbsup": {
+            "x": 0.34158748046875004,
+            "y": 0.0003437500000000038,
+            "w": 0.42,
+            "rot": 7.88
+          },
+          "thinking": {
+            "x": 0.3918015625,
+            "y": 0.01455208333333333,
+            "w": 0.425,
+            "rot": 19.01
+          },
+          "tryagain": {
+            "x": 0.41495392578125,
+            "y": 0.017024166666666674,
+            "w": 0.44,
+            "rot": 19.6
+          },
+          "cheer": {
+            "x": 0.282664140625,
+            "y": 0.003909583333333334,
+            "w": 0.44141,
+            "rot": 3.38
+          }
         }
       },
-      "note": "v2 art on the 1200-tall canvas (build 26). Seated by landing the hat's BRIM midpoint on her measured CROWN, which needs no per-pose value in any upright pose. thinking and tryagain are rolled ~19deg and the crown measurement finds her wing there, so they carry an override until the head is isolated by colour: the owner's own numbers, as fractions of the art's width."
+      "note": "v2 art on the 1200-tall canvas. ALL FIVE POSES PLACED BY HAND in `pnpm wardrobe place` (build 26). A placed pose wins outright, so the crown seating, the clearance lift and the old nudge overrides are all bypassed here and the nudges were removed rather than left to mislead."
     },
     {
       "id": "station-cap",

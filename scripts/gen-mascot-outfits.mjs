@@ -129,7 +129,7 @@ function centroidX(maskPath) {
   return den > 0 ? Math.round(num / den) : 512;
 }
 
-function dressPose(pose, { art, tmp, wfrac, dy, squash, freefrac }) {
+function dressPose(pose, { art, tmp, wfrac, dy, squash, freefrac, place }) {
   const canon = `${CANON_DIR}/mascot-${pose}.png`;
   const p = (suffix) => `${tmp}/${pose}-${suffix}.png`;
 
@@ -157,13 +157,19 @@ function dressPose(pose, { art, tmp, wfrac, dy, squash, freefrac }) {
   const live = centroidX(p("belly"));
   const cx = has("live-centre") ? live : CX[pose];
 
-  // Cut the cloth and hang it off the chin line.
-  const gw = Math.round(wfrac * WIDTH[pose]);
-  const resize = squash ? ["-resize", `${gw}x${Math.round(squash * bh)}!`] : ["-resize", `${gw}x`];
+  // Cut the cloth and hang it off the chin line, UNLESS the placement tool has
+  // been used on this pose. A dragged pose wins outright, exactly as it does
+  // for accessories: the chin line, the belly centroid and the whole-item
+  // knobs are what a garment gets for free, and the moment somebody drags it
+  // they have said something more specific than any of them.
+  const gw = place ? Math.round(place.w * w) : Math.round(wfrac * WIDTH[pose]);
+  const resize = squash && !place
+    ? ["-resize", `${gw}x${Math.round(squash * bh)}!`]
+    : ["-resize", `${gw}x`];
   magick([art, ...resize, p("garment")]);
   const gh = Number(magick([p("garment"), "-format", "%h", "info:"]));
-  const gx = Math.round(cx - gw / 2);
-  const gy = CHIN[pose] + dy;
+  const gx = place ? Math.round(place.x * w) : Math.round(cx - gw / 2);
+  const gy = place ? Math.round(place.y * h) : CHIN[pose] + dy;
 
   // THE SLEEVE RULE. Above the hem line the cloth may only exist where SHE is;
   // below it, it hangs free. Without this, any garment whose art has sleeves
@@ -207,8 +213,17 @@ function buildItem({ id, art, squash = null, wfrac, dy, freefrac, install }) {
   const dims = magick([trimmed, "-format", "%wx%h (w/h %[fx:w/h])", "info:"]);
   console.log(`\n${id}: ${basename(art)} trimmed to ${dims}${squash ? ` squash ${squash}` : ""}`);
 
+  // PER-POSE PLACEMENT FROM THE TOOL, read off the manifest the same way the
+  // whole-item knobs are. Absent for every garment nobody has dragged, which
+  // is all of them until somebody opens `wardrobe place`.
+  let PLACE = {};
+  try {
+    const m = JSON.parse(readFileSync("scripts/wardrobe/manifest.json", "utf8"));
+    PLACE = m.items.find((i) => i.id === id)?.recipe?.place ?? {};
+  } catch { /* no manifest is not a reason to refuse to render */ }
+
   const finals = POSES.map((pose) =>
-    dressPose(pose, { art: trimmed, tmp, wfrac, dy, squash, freefrac }),
+    dressPose(pose, { art: trimmed, tmp, wfrac, dy, squash, freefrac, place: PLACE[pose] }),
   );
 
   // Labelled contact sheet. Never judge a pose set on wave alone.
