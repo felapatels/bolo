@@ -197,7 +197,7 @@ export function playablePhraseCount(cat: {
 export type TopicLockState = {
   /** True for every state but `open`, so the caller greys and re-routes once. */
   locked: boolean;
-  kind: 'open' | 'shut' | 'ahead' | 'thin';
+  kind: 'open' | 'paywalled' | 'shut' | 'ahead' | 'thin';
   /** The subtitle under the topic's title. */
   sub: string;
 };
@@ -210,7 +210,26 @@ export function topicLockState(
   if (playable >= floor) {
     return { locked: false, kind: 'open', sub: `${playable} phrases` };
   }
-  if (cat.phraseCount > 0 && playable === 0) {
+  // NOTHING VISIBLE AT ALL IS A PLAN LOCK, NOT A JOURNEY LOCK, and telling
+  // those two apart is the whole reason this reads phraseCount as well as the
+  // playable count. MEASURED AGAINST PRODUCTION 2026-08-31, on the owner's
+  // free account in Hindi: Numbers, Food, Everyday Words and Feelings come
+  // back phraseCount 0, because every row in them is premium (71 to 91 rows
+  // each, all of them). Family comes back phraseCount 40 with none open,
+  // which IS the journey holding it.
+  //
+  // Riding the journey will never open a premium row, so sending a free
+  // learner down the map to find one is a promise the product cannot keep.
+  // The device caught this: the picker read "Needs 4 phrases to play" on four
+  // topics holding ninety phrases each.
+  if (cat.phraseCount === 0) {
+    return {
+      locked: true,
+      kind: 'paywalled',
+      sub: 'All-Access opens this topic',
+    };
+  }
+  if (playable === 0) {
     return {
       locked: true,
       kind: 'shut',

@@ -87,6 +87,31 @@ describe('topicLockState', () => {
     });
   });
 
+  // THE ONE THE DEVICE CAUGHT, 2026-08-31. The categories route reports
+  // phraseCount 0 for a topic the journey has opened nothing of, and the shut
+  // test used to require phraseCount > 0, so four Hindi topics fell through to
+  // `thin` and read "Needs 4 phrases to play" on a real phone. Production holds
+  // 71 to 91 phrases in every one of them. Nothing playable is shut, whatever
+  // the count says.
+  it('blames the PLAN, not the journey, when nothing is visible at all', () => {
+    expect(topicLockState({ phraseCount: 0, openPhraseCount: 0 }, 4)).toEqual({
+      locked: true,
+      kind: 'paywalled',
+      sub: 'All-Access opens this topic',
+    });
+  });
+
+  // The pair that proves the discriminator. Both have nothing playable; only
+  // one of them is the journey's doing. Family came back 40 and 0, the four
+  // premium-only topics came back 0 and 0, on the same account on the same day.
+  it('still blames the journey when the topic is visible but shut', () => {
+    expect(topicLockState({ phraseCount: 40, openPhraseCount: 0 }, 4)).toEqual({
+      locked: true,
+      kind: 'shut',
+      sub: 'Ride the journey to open this topic',
+    });
+  });
+
   // An older server never sent openPhraseCount and never gated the list, so
   // the total stands in and nothing is wrongly blamed on the journey.
   it('treats a missing openPhraseCount as fully open', () => {

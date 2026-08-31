@@ -42,11 +42,34 @@ never wrap her wings. Drapes, vests, tunics, wraps, skirts.
 
 ## pagdi (v2) → `scripts/mascot-accessory-art/pagdi-v2.png`
 
+**READ THIS BEFORE REGENERATING.** The first v2 came back beautiful and
+unusable, twice. The prompt said the feather rises from the brooch "drawn
+complete from base to tip", and it did: straight up. The pipeline then lifts
+the whole accessory to clear her eyes, and the lift pushes an upright plume
+off the top of the 1024 frame. The five-pose review sheet
+(`docs/garment-review/pagdi/`) showed a turban with **no feather at all** in
+every pose. Halving the plume was tried and it still cropped.
+
+**THE RULE THE ART HAS TO OBEY: the plume grows SIDEWAYS, NOT UPWARD.** Height
+above the turban is the one thing there is no room for. Width is free.
+
 > [base style block] A festive Indian pagdi (turban): rounded silk folds in
 > warm marigold orange and deep magenta crossing each other, one gold zari
-> band with a small diamond pattern, a gold rosette brooch with a ruby at
-> the centre front, and one stylised peacock feather rising from the brooch,
-> drawn complete from base to tip. [accessory add-on block]
+> band with a small diamond pattern, and a gold rosette brooch with a ruby at
+> the centre front. One stylised peacock feather springs from the brooch and
+> **arcs steeply out to one side, leaning about 45 degrees from vertical,
+> curving over like a plume in a breeze**, its eye and tip drawn complete.
+> **The feather must never rise straight up.** The turban fills the lower
+> two thirds of the canvas; the feather sweeps sideways across the upper
+> third and its tip stops well short of the top edge, with clear empty
+> margin above everything. Wider than it is tall overall.
+> [accessory add-on block]
+
+Ask for a **true transparent PNG export**, not a preview with the
+transparency checkerboard painted into the pixels. One earlier export had the
+checkerboard baked in and had to be keyed out by flood-filling the corners.
+Verify before dropping it in: the corner pixels should be fully transparent,
+not light grey squares.
 
 ## station-cap (v2, optional refresh) → `scripts/mascot-accessory-art/station-cap-v2.png`
 
