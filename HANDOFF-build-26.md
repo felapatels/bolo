@@ -1,6 +1,7 @@
 # Handoff: BOLO Build 26
 
-Written 2026-08-30 (afternoon, EDT) by BOLO Build 25. **Read `CLAUDE.md` first, then this.**
+Written 2026-08-31 (just after midnight EDT) by BOLO Build 25. **Read
+`CLAUDE.md` first, then this.**
 
 **You are BOLO Build 26. Use that exact name as your H1 on every message.**
 
@@ -8,154 +9,182 @@ Written 2026-08-30 (afternoon, EDT) by BOLO Build 25. **Read `CLAUDE.md` first, 
 
 ## 0. THE STATE, HONESTLY
 
-- **Build 25 was the iPad session.** The owner ruled **option A** at the
-  start: portrait only, full screen, one centred 600pt column on every
-  screen, backgrounds full-bleed. Option B (all orientations, Split View,
-  two-column layouts) was rejected; do not re-propose it.
-- **Sixteen commits on `main`**, `2b5a3c4f` to this handoff, all mobile
-  plus the records. Section 1 lists them. **NOT PUSHED** at the time of
-  writing: the owner had not asked, and the other agent's uncommitted web
-  work sits in the same tree.
-- **iOS 1.0.6 (529) is the first iPhone-and-iPad binary**, EAS build
-  `6aa48cb0-c4b0-4d48-ad84-7cdfcf73f7fa` off `cea37099`, started 17:44 UTC
-  on the owner's "i want to see it on my device". Its outcome, the bundle
-  health check and the TestFlight submission are in section 4 if build 25
-  got that far; if section 4 says nothing, the build was still on the
-  builder when this was written. Version stayed 1.0.6 per the standing
-  ruling; **App Store Connect will require 13-inch iPad screenshots the
-  first time an iPad-capable build is submitted for review** (TestFlight
-  needs none), so replacing the phone-only 528 review with 529 is the
-  owner's call and needs screenshots first.
-- **Suites.** Mobile: 155 suites, 1468 tests, all pass (full run before the
-  build, one file re-run after its own pin was corrected). Web: NOT run by
-  build 25; nothing in today's commits touches web. Api: not run; no server
-  change today.
-- **Another agent's web work is in the tree**, uncommitted:
-  `gujarati-coach/index.html`, `src/pages/journey.tsx`, `landing.tsx`,
-  `landing.test.tsx`, `looping-video.tsx`, `hero-showcase.tsx`,
-  `public/hero/`, `public/video/`, and a deleted `speaking-demo.tsx`. Never
-  stage them. Their dev server is on `:5173` from the same checkout.
-- **Chrome and simulators.** Build 25 opened nothing that is still open in
-  Chrome. Three simulators are booted: iPhone 17 Pro (the usual dev client),
-  iPad Pro 13-inch and iPad mini (the iPad dev client, both signed into the
-  owner's gmail account, which is **Free on Hindi**). Metro is the owner's
-  own `expo start` on `:8081`.
-- **The owner's account was switched to Punjabi by one of my point taps and
-  switched back to Hindi.** Ids over points wherever a list can be up.
+- **Everything is pushed** through the outfits-pin commit (`9a1535ab`) plus
+  any handoff commits after it. The working tree holds ONLY: another
+  session's web work (never stage it: `gujarati-coach/` index.html,
+  pages/journey.tsx, landing.tsx and its test, hero-showcase, looping-video,
+  app-store-badge, platform-strip, store-banner and its test, public/hero,
+  public/video), and two uncommitted wardrobe leftovers of ours
+  (`scripts/wardrobe/manifest.json` pointing pagdi at
+  `pagdi-v2-shortplume.png`, and that generated png) — see section 4.3
+  before touching them.
+- **1.0.7 (530) is BUILT, HEALTHY and SUBMITTED on both platforms.** iOS
+  `72858604` (46,030 functions, the animating shape) to App Store Connect
+  for TestFlight; Android `d06a45af` to the Play internal track. Full
+  suites ran immediately before the builds and were green: mobile 156
+  suites / 1475 tests, web 142 files / 1518 tests, api 1459 tests with
+  1456 passing plus the one stale pin corrected and re-run alone (16/16).
+- **The Repl PUBLISHED the server half** (the owner confirmed "published",
+  no migrations step). **NOT verified by content:** my one curl of
+  `bolo-india.app/games/story/book?lang=gu...` returned non-JSON (likely
+  the wrong path prefix or auth), and the owner interrupted before a second
+  try. FIRST JOB: verify the storybook fix against production by content
+  (a Gujarati Plus account's book resolving page one, or the endpoint
+  returning a phrase for "How much is it?"), per the deploy rule in
+  CLAUDE.md.
+- **1.0.6 (529) sits in App Store review as the pending release** (phone
+  set of screenshots). 1.0.7 supersedes it in TestFlight. If the owner
+  swaps the review build to an iPad-capable one, App Store Connect demands
+  the 13-inch screenshot set, which now exists:
+  `~/Downloads/bolo-ipad-13-screenshots/` (seven 2064x2752 flattened PNGs,
+  upload order 01..07) plus a What's New text the owner has in chat.
+- **The room:** iPhone 17 Pro, iPad Pro 13-inch and iPad mini simulators
+  are booted with dev clients signed into the owner's gmail account (FREE,
+  on HINDI; I switched it twice for repros and switched it back). Metro is
+  the owner's `expo start` on :8081. The owner's Galaxy A17 (SM-A176U1,
+  build 529) was attached by USB with a logcat capture running to
+  `.../scratchpad/android-journey.log` (the scratchpad dies with my
+  session; the FINDINGS survive below). ImageMagick and librsvg are newly
+  installed on this Mac via brew.
 
-## 1. WHAT BUILD 25 DID (commit order, all on `main`)
+## 1. WHAT BUILD 25 SHIPPED (the day, compressed)
 
-1. `2b5a3c4f` **Bolo! Family is off sale on the Subscription screen too.**
-   Web withdrew the tier on 2026-08-24; mobile never got the flag. Not an
-   iPad bug, the iPad just showed it. Pinned both roles.
-2. `399fb51f` **The content column**: `lib/contentWidth.ts`, `Screen`'s
-   column, the tab bar on the column, ten width readers re-pointed, nine
-   bottom sheets capped at the column and six dialogs at a card width, the
-   Feed coach card on the column.
-3. `108b753c` **Journey on the iPad: web's wide bazaar edge to edge, the map
-   at 560** (the owner chose 560 over 390 from side-by-side captures; the
-   artifact is at https://claude.ai/code/artifact/6e8acee4-d053-4cc6-a6be-9d6b68d3ead8).
-   `assets/journey/zone-wide.jpg` copied from web.
-4. `f83a539b` **The zone rail beside the map**, a twin of web's build 24
-   rail, with `zones2` (Journey 2 station names) ported for all 22 lines.
-5. `497565dc` The rail shows only where it fits (13-inch only today).
-6. `9cea52d7` Call screens' button rows capped to the column (code only).
-7. `eeb8c093` Bazaar welcome key art covers a wide screen.
-8. `201fa7e9` **Games hero covers the column** (owner's catch).
-9. `b6b61d50` **Chat bird under the time bar**, not on it (owner's catch;
-   Free accounts only, so a phone had it too).
-10. `2c182762` **The chat bird's band is hers alone**: the transcript
-    viewport starts below her, the strip is inset from her (owner's catch,
-    proven on the iPad and the iPhone through a real text turn).
-11. `69f18942` `supportsTablet` + `requireFullScreen` in app.json.
-12. `cea37099` The Screen column pin by id.
-13. `a79b0bd1` app.json write-back, iOS 529.
+**The iPad (option A, the owner's ruling):** one centred 600pt column via
+`lib/contentWidth.ts` + `Screen`'s column; tab bar and sheets on the
+column; the journey opts out (`column={false}`) to paint web's wide bazaar
+edge to edge with a 560 map and, on the 13-inch only, the zone rail
+(web's build 24 twin; `zones2` ported for all 22 lines). supportsTablet +
+requireFullScreen shipped in 529; 530 is the second iPad-capable build.
+CLAUDE.md carries the full iPad section and the two sim traps (never tap
+"Open" blind; ids over points, except the rail which is a11y-hidden).
 
-## 2. RULINGS THE OWNER MADE
+**Owner catches fixed on both platforms:** games hero covers the column;
+the chat bird's band is hers alone (transcript starts below her; strip
+inset); the leaderboard bubble tells the truth with real numbers
+(boardRanking standing) from under Bolo's beak; Go Shopping button on the
+chai stall (the scene root's pointerEvents "none" swallowed it at first:
+box-none when the shop door exists); "N more to unlock" opens the journey;
+Bolo! Family off sale on mobile as on web (FAMILY_PLAN_ENABLED in
+lib/entitlements); Tailor and Station Master racks disjoint.
 
-- **Option A** for the iPad (see section 0). **560** for the map on the wide
-  bazaar. **The zone rail** brought over from web. **Fix Family now** rather
-  than park it. **Version 1.0.6** stays for the iPad build.
-- **Android tablets** are out of scope for this train. The Android 16 ruling
-  is owed: Expo SDK 54 targets API 36, where a portrait lock is ignored on
-  screens 600dp and wider, so an Android tablet will rotate this app to
-  landscape. Options: the one-release manifest opt-out, or accept landscape
-  with the column centred.
+**Chacha-ji's call:** face framed on a stage (callStage.ts geometry,
+pinned across four screen sizes), words and controls in a panel beneath,
+"BOLO Wireless · 4G" carrier line on both screens. And the mouth guard is
+real now: playBase64Audio's firstSoundNotifier existed but the voice queue
+never passed onStart through, so he mimed before his voice on every turn;
+both twins fixed and pinned. NOT yet seen through a real call (that rings
+him on the owner's account).
 
-## 3. VERIFICATION, WHERE IT STOOD
+**The wardrobe pipeline (owner: "architecture to spin up new clothing"):**
+`scripts/wardrobe/manifest.json` is the single source; `pnpm wardrobe
+gen|install|codegen|check|montage`; generated registries
+(`outfits.catalog.gen.ts` server-side, `mascotOutfits.gen.ts` and
+`wardrobeShop.gen.ts` on the clients); both compositing generators read
+the manifest; ART-SPEC.md and PROMPTS.md hold the art rules and
+paste-ready prompts. The api outfits parity test reads the gen file now.
 
-- **Seen with real data on the iPad Pro 13-inch and the iPad mini:** Home,
-  Games and a game, Progress, Chat (a full text turn), Journey, Leaderboard
-  with the coach, Bazaar and its welcome, one-pager map, paywall and language
-  picker (page sheets, columned inside), Settings, Subscription, Badges,
-  Phrasebook, Friends, Storybook, Emergency, practice, review, analytics, a
-  category, reminders, voice, memories, welcome, the chai wallet sheet, the
-  splash film, the zone rail and its tap.
-- **Seen on the iPhone 17 Pro:** the chat band fix.
-- **Not seen anywhere:** Chacha-ji's call screens (reaching them rings him
-  on the owner's account); the release build's behaviour on a real iPad
-  (a dev client is not evidence for animations or crashes, CLAUDE.md).
-- **Not run:** web suite, api suite (nothing of theirs changed).
+**The storybook production bug (the owner's tester, Gujarati, iPhone,
+1.0.6):** a paying account opened the greetings book to a blank page one.
+Cause measured against production: the concept lookup accepted one exact
+spelling and Gujarati writes "How much is it?" etc. Fix: aliases in
+lib/story concepts.ts (also "tomorrow / yesterday" — kal means both —
+"bye", the congratulations forms), plus mobile got web's story-short
+state so a genuine gap never renders as silent blank. Ships as: server →
+the publish above; clients → 1.0.7.
 
-## 4. THE BUILD AND THE QUEUE
+## 2. RULINGS AND OPEN DECISIONS
 
-0. **1.0.7 (530) is BUILT AND SUBMITTED on both platforms** (evening,
-   after the storybook fix): iOS `72858604` HEALTHY (46,030 functions) and
-   submitted to App Store Connect for TestFlight; Android `d06a45af`
-   submitted to the Play internal track ("All done!"). Full suites ran
-   green immediately before (mobile 156/1475, web 142/1518). **The server
-   half of the storybook fix ships ONLY with a Repl publish** (pull
-   `d7c8d6fc`+, api suite in the Shell, publish); until that publish, every
-   build still shows the Gujarati blank-page fix's client half against a
-   server that returns no variant rows. The owner was running that block
-   when this was written; confirm it happened before assuming the fix is
-   live.
+- **Rulings today:** iPad option A; journey map 560 on the wide bazaar;
+  the zone rail; Family fixed now; version 1.0.7 for everything after 529;
+  racks disjoint; wardrobe manifest approach approved; prompts from us,
+  art generated by the owner, the pipeline maps it.
+- **OPEN: Chacha-ji conversation variety.** The owner asked twice for
+  calls that differ and tailor (the agenda is a fixed interview; live
+  turns are told "react warmly, then ask X"). Options A (random topic
+  draw + follow-what-they-said prompt + live goodbye) and B (A plus a
+  bigger topic pool) were presented; NO ANSWER YET. Server-only work.
+- **OPEN: the pagdi.** The owner's generated art seats beautifully but an
+  upright plume can NEVER fully fit the 1024 frame (eye-clearance lift
+  eats the headroom; halving the plume still crops). The owner chose A:
+  export their candidate #2 (leaning feather) as a true transparent PNG to
+  `scripts/mascot-accessory-art/pagdi-v2.png` — NOT YET DROPPED. Then:
+  `pnpm wardrobe gen pagdi`, review, install. Watch for baked
+  checkerboard backgrounds (their first export had one; corner flood-fill
+  keyed it out). The uncommitted manifest change points pagdi at the
+  shortplume experiment; repoint to the real v2 when it lands.
+- **OPEN: storybook missing content** (not fixable by spelling): goodbye
+  (sa, mai), fork (sat, sa, mni), father-in-law (kok, ml, mni),
+  congratulations (kn), welcome (mni). Those languages now get the honest
+  message; the rows need authoring.
+- **The Nest wardrobe approvals** (owner: unreleased items on the Nest,
+  approve-to-production instantly) = phase-2 remote wardrobe with a status
+  column. Future state, recorded in memory.
 
-1. **Build `6aa48cb0` (1.0.6, 529) FINISHED at about 18:05 UTC, HEALTHY
-   (46,007 functions, the animating shape), and was SUBMITTED to App Store
-   Connect** (submission `76d3e24f-63be-4455-92b2-2eb1dd0a53bc`, "Submitted
-   your app to Apple App Store Connect"). Apple's processing takes 5 to 10
-   minutes, then it appears in TestFlight for the owner's iPad. Ten cold
-   starts, never five, before calling it clean; the splash film, the wide
-   bazaar and the rail have only ever been seen on a dev client.
-2. **13-inch iPad screenshots** for App Store Connect before any iPad build
-   goes to review: the simulator at 2064x2752 is the 13-inch slot; the same
-   seven scenes as the phone set in `~/Desktop/appstore-noalpha/`, flattened
-   and alpha-free.
-3. **The Android 16 orientation ruling** (section 2) before the next Android
-   build.
-4. **Games do not explain journey-locked topics** (owner, build 25, for the
-   next round): a game's topic list shows "0 phrases" rows with no word that
-   the journey unlocks them. Say why, and point at the journey.
-5. **The Progress screen lost its share options** (owner, build 25, for the
-   next round): whatever used to offer sharing from Progress is not there.
-   Find what shipped it last and restore or redesign it.
-6. Everything build 24 left: the Repl pull and publish of the second wave,
-   the Your Flex card, the splash flicker on a store build, the XP question,
-   the wide serpentine.
+## 3. THE ANDROID JOURNEY INVESTIGATION (unfinished, evidence in hand)
 
-## 5. TRAPS BUILD 25 PAID FOR
+The owner's Galaxy A17 on 529: journey "choppy then crashes". Logcat
+findings, all from one attended run:
+1. **The "crash" is `System.exit(0)` by Google Play's automatic integrity
+   protection (`com.pairip`)** after its LicenseClient failed three
+   retries ("Licensing service unexpectedly disconnected") and showed its
+   LicenseActivity. Not our code, not an ANR record, not lmkd.
+2. **The failures land inside OUR main-thread stalls:** 5-8 SECOND frames
+   (`Davey! duration=8368ms`), 200-340 skipped frames at a stretch, the
+   cost in HWUI draw-command issue — the journey's tree is brutally
+   expensive to paint on a budget Mali GPU. The working theory: our jank
+   starves the licensing binder; fix the jank, the exits likely stop.
+   iPhone pays no such bill (no pairip, and release-build animations are
+   frozen by the known EAS bug, which HIDES per-frame costs there).
+3. **The next measurement never ran:** journey open, untouched 15 seconds
+   — does it stall idle (continuous animations redrawing the giant tree)
+   or only during scroll (the intro auto-scroll redraws everything per
+   frame)? Ask the owner to repeat with the phone attached; also grab
+   `dumpsys gfxinfo com.bolo.mobile` after. Suspects in order: the intro
+   auto-scroll (reanimated scrollTo per frame over a huge tree), per-zone
+   Svg complexity, the parallax layer. Fix directions sketched in the
+   session: land the intro instantly on Android, cheapen the Svg, and
+   measure before believing anything (CLAUDE.md's rules).
+4. Play Console's crash API is not enabled for the service account
+   (`playdeveloperreporting.googleapis.com`, project 1086547179495) — one
+   click by the owner would give Vitals access next time.
 
-1. **Never tap "Open" blind after `openurl` to the dev client.** When the
-   dialog is absent the tap lands on the launcher's server row and loads the
-   bundle twice; the client dies 5s in (a reanimated turbo-module assert or
-   EXC_BAD_ACCESS in Fabric's mount). Three crash reports were read as an
-   app bug first. `tapOn: {text: "Open", optional: true}`; 8/8 alive since.
-2. **A point tap switched the owner's account language.** Ids over points
-   wherever a list can be up. The zone rail hides itself from the
-   accessibility tree (as on web), so it alone must be tapped by point.
-3. **`useContentWidth` where you meant the window breaks full-bleed art.**
-   The first pass pointed the journey's zone tiles at the column and got a
-   600 band on a 1032 screen. The window for backdrops; the column for cards.
-4. **A hero sized off its height at 16:9 stops covering at 600.** 462 wide
-   passes every phone and fails the column. Cover on whichever axis needs
-   more.
-5. **Absolute chrome anchored to a measured header measures the wrong box
-   the day a sibling appears.** The chat's time bar (Free only) sat outside
-   the measured pill row, so the bird landed on it. Measure the whole band.
-6. **A 1 MB artifact page tripped Cloudflare in the viewer**; 293 KB did
-   not. Send the picture with SendUserFile as well.
-7. **Maestro's `pressKey: Enter` once backgrounded the dev client** on the
-   iPad (the app survived); the same flow worked on the next run.
-8. **`xcrun simctl terminate` can silently not terminate**; check
-   `launchctl list` before believing a relaunch captured a cold start.
+## 4. THE QUEUE
+
+1. **Verify the publish by content** (section 0) and have the tester
+   re-try the Gujarati storybook on a 1.0.7 client when TestFlight serves
+   it.
+2. **The Android journey jank** (section 3): measure idle vs scroll, then
+   fix; it is the release blocker for Android quality.
+3. **The pagdi drop** (section 2), then batch-1 refinement via the
+   montage loop.
+4. **Games must say WHY a topic is locked** (journey unlocks it) — owner,
+   for this round.
+5. **Progress screen share options are missing** — owner, for this round.
+6. **Chacha-ji variety ruling** (section 2), then the server work.
+7. 13-inch screenshots are made; if the owner swaps the review build to
+   1.0.7, upload them and the What's New text.
+8. Build 24's leftovers: the Your Flex card polish, splash flicker
+   measurement on a store build, the XP question, the wide serpentine,
+   the 120 storybook webps only the Repl has.
+
+## 5. TRAPS BUILD 25 PAID FOR (beyond CLAUDE.md's new iPad section)
+
+1. **A half-failed multi-edit script leaves later edits silently
+   unapplied.** One aborted batch left both generators unwired while the
+   commit message claimed otherwise; corrected in `e54e0767`. Verify every
+   step of an aborted batch, not just the step you re-ran.
+2. **Maestro text taps do not see RN's tree** (CLAUDE.md said it; I paid
+   it again on the Feed coach). Native dialogs and Play sheets: text works.
+   RN cards: ids, or the scrim, or points.
+3. **The weekly race resets the Everyone board**: after rollover the
+   leaderboard is an empty state — worthless for screenshots; the Flex
+   view or the Streak tab are the photogenic survivors.
+4. **`sips` cannot read SVG; librsvg can.** And a "transparent" export
+   from a generator preview may carry a BAKED CHECKERBOARD (hasAlpha: no):
+   flood-fill the corners with fuzz to key it, but ask for the real
+   export.
+5. **The pairip finding** (section 3): a clean `System.exit(0)` on
+   Android is Play's protection layer, not a crash; grep logcat for
+   LicenseClient before hunting your own code.
+6. **An elided command in prose gets pasted elided.** The owner pasted my
+   "`git pull ... &&`" literally. Paste-blocks must always be complete.
