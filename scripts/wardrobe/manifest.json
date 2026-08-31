@@ -96,8 +96,13 @@
       "preview": "head",
       "status": "shipped",
       "art": "scripts/mascot-accessory-art/pagdi-v2.png",
-      "recipe": {},
-      "note": "v2 art on the 1200-tall canvas (build 26). NO nudgeX: the generator seats a hat by landing its BRIM midpoint on the midpoint between her eyes, so it follows her head as she turns and a new hat needs no per-pose tuning."
+      "recipe": {
+        "nudgeXFrac": {
+          "thinking": 0.5,
+          "tryagain": 0.07
+        }
+      },
+      "note": "v2 art on the 1200-tall canvas (build 26). Seated by landing the hat's BRIM midpoint on her measured CROWN, which needs no per-pose value in any upright pose. thinking and tryagain are rolled ~19deg and the crown measurement finds her wing there, so they carry an override until the head is isolated by colour: the owner's own numbers, as fractions of the art's width."
     },
     {
       "id": "station-cap",

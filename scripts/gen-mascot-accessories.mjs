@@ -65,6 +65,23 @@ const NUDGE_X = Object.fromEntries(
   WARDROBE.items.filter((i) => i.recipe?.nudgeX).map((i) => [i.id, i.recipe.nudgeX]),
 );
 
+/**
+ * Per-pose push as a FRACTION OF THE ART'S OWN WIDTH, not a pixel count.
+ *
+ * The crown seating handles every upright pose without a value here, and it
+ * cannot yet handle a strongly rolled one: uprighting her to measure brings a
+ * raised wing into the crown band, and the wing wins the largest-component
+ * test. Until the head is isolated by COLOUR rather than by size, the two
+ * rolled poses take an override.
+ *
+ * A fraction rather than pixels so it survives the art being re-cut at a
+ * different size, which pixels would not: the owner's correction was given as
+ * "50% of its size" and "7%", which is already the right unit.
+ */
+const NUDGE_X_FRAC = Object.fromEntries(
+  WARDROBE.items.filter((i) => i.recipe?.nudgeXFrac).map((i) => [i.id, i.recipe.nudgeXFrac]),
+);
+
 /** How far above the eye-clearance seat a hat rides, as a fraction of the
  *  distance between her eyes. One number for every hat and every pose,
  *  because it scales with her head rather than with the canvas. */
@@ -300,14 +317,22 @@ function buildPose(id, pose, tmp, { install, fudge, margin }) {
   // per-pose tuning at all. nudgeX survives as an override for art that is
   // deliberately worn at an angle, and is now empty for every item.
   const nudge = NUDGE_X[id]?.[pose] ?? 0;
-  const x = Math.round(crownCenterX(pose, eye) - brimCenterX(p("scaled"))) + nudge;
+  const frac = NUDGE_X_FRAC[id]?.[pose] ?? 0;
+  // A HORIZONTAL OVERRIDE MUST NOT CHANGE THE HEIGHT, and it did. The
+  // clearance loop below stops the moment her eyes are clear, so a hat pushed
+  // sideways clears them sooner and settles LOWER: pushing thinking right by
+  // half its width dropped its lift from 116px to 40px, which read as the hat
+  // sliding down her head. The loop therefore runs at the SEATED x and the
+  // override is applied after, so the two knobs stay independent.
+  const seatX = Math.round(crownCenterX(pose, eye) - brimCenterX(p("scaled")));
+  const x = seatX + nudge + Math.round(frac * sw);
   const baseY = ref.bottom - sh + 1;
   let lift = 0;
   let overlay = null;
   let over = 0;
   for (; lift <= 260; lift += 2) {
     magick(["-size", `${w}x${h}`, "xc:none", p("scaled"),
-      "-geometry", `+${x}+${baseY - lift}`, "-composite", p("overlay")]);
+      "-geometry", `+${seatX}+${baseY - lift}`, "-composite", p("overlay")]);
     over = eyeOverlap(p("overlay"), mask);
     if (over === 0) break;
   }
