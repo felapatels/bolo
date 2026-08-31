@@ -929,7 +929,16 @@ export function SceneryElement({
 }) {
   const p = gray ? SCENERY_GRAYS : SCENERY_COLORS;
   return (
-    <G testID={testID ?? 'scenery-item'} transform={`translate(${x} ${y})`} opacity={gray ? 0.45 : 0.95}>
+    // THE LIT CASE IS opacity 1 ON PURPOSE, not 0.95. Any value other than
+    // exactly 1 makes react-native-svg's GroupView allocate a layer bitmap
+    // THE SIZE OF THE PARENT CANVAS, and the scenery Svg is zone-tall
+    // (1072x6562px on a Galaxy A17, 28MB a piece), recycled and reallocated
+    // on every draw. 0.95 against 1 is a difference nobody can see and it
+    // cost 28MB per placed item. The grey case keeps its 0.45 because that
+    // fade is load-bearing (scenery ahead of the learner reads as not yet
+    // reached); paying for it properly means giving each item its own small
+    // Svg, which is the split build 26 left for next.
+    <G testID={testID ?? 'scenery-item'} transform={`translate(${x} ${y})`} opacity={gray ? 0.45 : 1}>
       {SCENERY_ASSETS[kind]({ p, accent: gray ? SCENERY_GRAY : accent })}
     </G>
   );

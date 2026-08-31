@@ -52,7 +52,6 @@ import Animated, {
   cancelAnimation,
   interpolate,
   scrollTo as scrollToOnUi,
-  useAnimatedProps,
   useAnimatedReaction,
   useAnimatedRef,
   useAnimatedScrollHandler,
@@ -341,8 +340,6 @@ function isStatusAccessible(status: LessonGroupSummary['status']): boolean {
   );
 }
 
-const AnimatedG = Animated.createAnimatedComponent(G);
-
 // Rail comet tuning, mirroring the web source of truth (RAIL_PULSE in
 // lib/motion.tsx plus the --rail-pulse-* custom properties in index.css):
 // 10 bezier samples per segment, r=4 dots, one 3.4s traversal of the run.
@@ -360,12 +357,27 @@ const DEPTH_2_5D = {
   railBedOpacity: 0.18,
 } as const;
 
+const RAIL_PULSE_HALO_R = RAIL_PULSE.dotRadius + 3;
+
 /** One comet dot: opacity follows the web keyframes (invisible at 0%, sharp
  *  attack to full strength at 4%, slow decay back to zero through 22%),
  *  phase-shifted by the dot's order along the run so one bright head with a
  *  fading tail travels from the current stop toward the next station. The
  *  larger soft circle underneath stands in for the web's currentColor
- *  drop-shadow glow (rn-svg has no CSS filters). */
+ *  drop-shadow glow (rn-svg has no CSS filters).
+ *
+ *  A PLAIN VIEW, NOT AN ANIMATED <G> INSIDE THE RAIL SVG, and that swap is
+ *  the whole of build 26's Android fix. react-native-svg rasterises every
+ *  <Svg> root into a full-size ARGB_8888 bitmap (SvgView.drawOutput), and a
+ *  <G> at any opacity other than exactly 1 allocates ANOTHER bitmap the size
+ *  of the PARENT CANVAS rather than of the group (GroupView.saveLayer). The
+ *  rail Svg is zone-tall, 1072x6562px on a Galaxy A17, so each of these dots
+ *  was recycling and reallocating 28MB every frame, the invisible ones
+ *  included, because opacity 0 is not 1. Measured on the owner's A17: the
+ *  journey held 1.65GB of GPU memory and Android's lmkd killed the app while
+ *  it was the foreground process, twice, about forty seconds in. A View's
+ *  opacity is a RenderNode alpha and allocates nothing, and a circle is a
+ *  borderRadius. */
 function RailPulseDot({
   x,
   y,
@@ -379,11 +391,9 @@ function RailPulseDot({
   color: string;
   progress: SharedValue<number>;
 }) {
-  // R2 (32.1): ONE animated node per dot. The halo used to carry its own
-  // useAnimatedProps (0.35x the head keyframe), doubling the per-frame SVG
-  // prop writes on the UI thread; a shared group opacity with a static 0.35
-  // halo fill opacity is visually equivalent and halves that work.
-  const groupProps = useAnimatedProps(() => ({
+  // R2 (32.1): ONE animated node per dot. The halo keeps a static 0.35 and
+  // rides the shared parent opacity rather than carrying a second worklet.
+  const dotStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       (progress.value - delayFrac + 1) % 1,
       [0, 0.04, 0.22, 1],
@@ -391,58 +401,90 @@ function RailPulseDot({
     ),
   }));
   return (
-    <AnimatedG animatedProps={groupProps}>
-      <Circle
-        cx={x}
-        cy={y}
-        r={RAIL_PULSE.dotRadius + 3}
-        fill={color}
-        opacity={0.35}
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        {
+          position: 'absolute',
+          left: x - RAIL_PULSE_HALO_R,
+          top: y - RAIL_PULSE_HALO_R,
+          width: RAIL_PULSE_HALO_R * 2,
+          height: RAIL_PULSE_HALO_R * 2,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        dotStyle,
+      ]}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          width: RAIL_PULSE_HALO_R * 2,
+          height: RAIL_PULSE_HALO_R * 2,
+          borderRadius: RAIL_PULSE_HALO_R,
+          backgroundColor: color,
+          opacity: 0.35,
+        }}
       />
-      <Circle
+      <View
         testID="rail-pulse-dot"
-        cx={x}
-        cy={y}
-        r={RAIL_PULSE.dotRadius}
-        fill={color}
+        style={{
+          width: RAIL_PULSE.dotRadius * 2,
+          height: RAIL_PULSE.dotRadius * 2,
+          borderRadius: RAIL_PULSE.dotRadius,
+          backgroundColor: color,
+        }}
       />
-    </AnimatedG>
+    </Animated.View>
   );
 }
 
 /** Comet sweep on the active run (web tasks #917/#973 port): dots sampled on
  *  the same cubic beziers the rail draws, delay fraction growing with sample
  *  order from the current stop toward the next station. One shared clock per
- *  Svg slice keeps that slice's dots in phase; slices start their clocks on
+ *  slice keeps that slice's dots in phase; slices start their clocks on
  *  the same mount pass, so the sweep stays continuous across postcard seams.
- *  Callers gate on reduced motion (the dot list is empty). */
+ *  Callers gate on reduced motion (the dot list is empty).
+ *
+ *  AN OVERLAY SIBLING OF THE RAIL SVG, not its child, since build 26. It is
+ *  laid over the Svg at the same origin, so the dots still sit above the
+ *  rail strokes and below the stop cards. `top` and `width` mirror the Svg's
+ *  own absolute position, and `start` is that slice's viewBox origin, so a
+ *  dot's map y becomes y - start inside this box. */
 function RailPulseDots({
   dots,
   start,
   end,
   color,
+  top,
+  width,
 }: {
   dots: { x: number; y: number }[];
   start: number;
   end: number;
   color: string;
+  top: number;
+  width: number;
 }) {
   const progress = useLoopProgress(RAIL_PULSE_CYCLE_MS, true);
   return (
-    <>
+    <View
+      pointerEvents="none"
+      style={{ position: 'absolute', left: 0, top, width, height: end - start }}
+    >
       {dots.map((d, i) =>
         d.y >= start && d.y < end ? (
           <RailPulseDot
             key={i}
             x={d.x}
-            y={d.y}
+            y={d.y - start}
             delayFrac={i / dots.length}
             color={color}
             progress={progress}
           />
         ) : null,
       )}
-    </>
+    </View>
   );
 }
 
@@ -1234,20 +1276,13 @@ export default function JourneyScreen() {
   // slower than the rail and reads as sitting behind it. Entirely absent
   // under reduced motion (transform pinned to 0).
   const scrollY = useSharedValue(0);
-  // WHICH ZONE THE OVERLAY BOARD IS SHOWING. Derived on the UI thread from the
-  // scroll offset and pushed to JS only when it CHANGES, so the board's
-  // content re-renders six times over a whole journey rather than every frame.
-  const [activeZone, setActiveZone] = useState(0);
-  const activeZoneRef = useRef(0);
-  // A ref, because the worklet captures whatever it is given at creation and
-  // the callback below is rebuilt whenever the geometry changes.
-  const onMapScrollJsRef = useRef<(y: number) => void>(() => {});
+  // ONE SHARED VALUE OUT OF THE SCROLL, AND NOTHING ELSE. Every scroll-linked
+  // thing on this screen (the scenery parallax, the sliding cards, the pinned
+  // zone boards) reads `scrollY` in its own worklet. There used to be a
+  // `runOnJS` hop here as well, per frame, feeding an activeZone state with no
+  // readers; see where the zoneTops memo used to live.
   const onMapScroll = useAnimatedScrollHandler((e) => {
     scrollY.value = e.contentOffset.y;
-    // Hop to JS only to ask which zone owns the top. onMapScrollJs itself
-    // returns immediately unless the answer changed, so this is a comparison
-    // per frame rather than a re-render per frame.
-    runOnJS(onMapScrollJsRef.current)(e.contentOffset.y);
   });
   // Task 1082 item 4: bring the learner's current stop into view when the map
   // opens. The latch fires once per visit (this screen mounts once), never
@@ -2056,28 +2091,14 @@ export default function JourneyScreen() {
     return { start, end };
   });
 
-  // Slice boundaries in SCROLL CONTENT coordinates, so the overlay can be told
-  // which zone owns the top of the viewport. Recomputed only when the geometry
-  // does.
-  const zoneTops = React.useMemo(
-    () => slices.map((s) => SCROLL_CONTENT_TOP + s.start),
-    [slices],
-  );
-  const onMapScrollJs = useCallback(
-    (y: number) => {
-      let zi = 0;
-      for (let k = 0; k < zoneTops.length; k++) {
-        // A zone owns the top once its board has reached it.
-        if (y >= zoneTops[k]! - 1) zi = k;
-      }
-      if (zi !== activeZoneRef.current) {
-        activeZoneRef.current = zi;
-        setActiveZone(zi);
-      }
-    },
-    [zoneTops],
-  );
-  onMapScrollJsRef.current = onMapScrollJs;
+  // THE ZONE-OWNS-THE-TOP CHAIN LIVED HERE AND IS GONE (build 26). A
+  // `zoneTops` memo fed an `onMapScrollJs` callback that compared the scroll
+  // offset against the slice boundaries and pushed the answer into an
+  // `activeZone` state. Nothing ever read that state: each PinnedZoneBoard
+  // derives its own position from `scrollY` in its own worklet, which is what
+  // replaced it. What survived was a `runOnJS` hop out of the scroll worklet
+  // ON EVERY FRAME, plus a full re-render of this component at every zone
+  // crossing, both to set a value with no readers.
 
   // COUNTS. Every derivation below keys off this and must keep doing so.
   const stationPts = pts.filter((p) => p.kind === 'station');
@@ -2982,21 +3003,26 @@ export default function JourneyScreen() {
                   </G>
                 );
               })}
-              {/* Comet sweep on the active run: above the rail strokes, in
-                  whichever slice(s) the sampled dots fall. */}
-              {pulseDots.some((d) => d.y >= start && d.y < end) && (
-                <RailPulseDots
-                  dots={pulseDots}
-                  start={start}
-                  end={end}
-                  color={line.accent}
-                />
-              )}
               {/* Festival bunting over the terminus (last slice only) */}
               {zi === slices.length - 1 && (
                 <Bunting x1={20} x2={mapW - 20} y={termY - 34} accent={line.accent} />
               )}
             </Svg>
+            {/* Comet sweep on the active run: above the rail strokes, in
+                whichever slice(s) the sampled dots fall. An overlay sibling
+                of the Svg rather than a child of it since build 26, so the
+                per-frame opacity never touches the zone-tall Svg bitmap.
+                See RailPulseDot for what that cost on a Galaxy A17. */}
+            {pulseDots.some((d) => d.y >= start && d.y < end) && (
+              <RailPulseDots
+                dots={pulseDots}
+                start={start}
+                end={end}
+                color={line.accent}
+                top={layerTop}
+                width={mapW}
+              />
+            )}
             {rowPts.map((p, k2) => {
               if (p.station!.zoneIndex !== zi) return null;
             const s = p.station!;
