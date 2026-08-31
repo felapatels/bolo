@@ -322,8 +322,11 @@ test("every item in the shop has its art, and both clients know about it", () =>
     },
     mobile: {
       dir: `${root}artifacts/bolo-mobile/assets/images/mascot/outfits`,
+      // The require() map moved into the GENERATED file when the wardrobe
+      // manifest became the single source (build 25); the hand-kept
+      // mascotOutfits.ts keeps only the canonical poses and the resolvers.
       src: readFileSync(
-        `${root}artifacts/bolo-mobile/lib/mascotOutfits.ts`,
+        `${root}artifacts/bolo-mobile/lib/mascotOutfits.gen.ts`,
         "utf8",
       ),
     },
