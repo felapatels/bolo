@@ -208,6 +208,9 @@ function genServerCatalog(m) {
 function mobileHasPoses(id, prefix) {
   return POSES.every((p) => existsSync(join(MOBILE_OUT, id, `${prefix}-${p}.png`)));
 }
+function webHasPoses(id, prefix) {
+  return POSES.every((p) => existsSync(join(WEB_OUT, id, `${prefix}-${p}.png`)));
+}
 
 function genMobileMap(m) {
   const lines = [];
@@ -249,6 +252,62 @@ function genMobileMap(m) {
   return { path: join(ROOT, "artifacts/bolo-mobile/lib/mascotOutfits.gen.ts"), body: lines.join("\n") };
 }
 
+/**
+ * WEB'S ART MAP, generated (build 27). It was hand-maintained, and mobile's was
+ * not, which meant the two clients drifted in opposite directions from the same
+ * manifest:
+ *
+ *   a piece ADDED through `wardrobe place` never rendered on web at all,
+ *   because nothing put it in the map, so "publish and it appears" was quietly
+ *   false;
+ *
+ *   a piece REMOVED left its entry behind pointing at PNGs that had just been
+ *   deleted, so anyone still wearing it got a 404 instead of a bird. Clearing
+ *   the six garments is exactly that case.
+ *
+ * Generated from the manifest, both faults are impossible: an absent id falls
+ * back to canonical Bolo (mascotAssetSrc), which is the designed behaviour for
+ * art a client does not have.
+ *
+ * Only items whose pose files are ACTUALLY INSTALLED appear, the same rule
+ * mobile uses, so the map can never promise a file that is not on disk.
+ */
+function genWebMap(m) {
+  const lines = [GEN_HEADER.replace(/\n$/, "")];
+  lines.push(`import type { MascotPose } from "@/components/mascot";`);
+  lines.push("");
+  lines.push(`/** Pose art per outfit, relative to MASCOT_BASE. */`);
+  lines.push(`export const OUTFIT_POSE_FILES: Record<`);
+  lines.push(`  string,`);
+  lines.push(`  Partial<Record<MascotPose, string>>`);
+  lines.push(`> = {`);
+  for (const it of m.items) {
+    if (!webHasPoses(it.id, "mascot")) continue;
+    lines.push(`  ${JSON.stringify(it.id)}: {`);
+    for (const p of POSES) lines.push(`    ${p}: "outfits/${it.id}/mascot-${p}.png",`);
+    lines.push(`  },`);
+  }
+  lines.push(`};`);
+  lines.push("");
+  lines.push(`/** The accessory alone, transparent, in the same frame as every pose. */`);
+  lines.push(`export const ACCESSORY_OVERLAY_FILES: Record<`);
+  lines.push(`  string,`);
+  lines.push(`  Partial<Record<MascotPose, string>>`);
+  lines.push(`> = {`);
+  for (const it of m.items) {
+    if (it.kind !== "accessory" || !webHasPoses(it.id, "overlay")) continue;
+    lines.push(`  ${JSON.stringify(it.id)}: {`);
+    for (const p of POSES) lines.push(`    ${p}: "outfits/${it.id}/overlay-${p}.png",`);
+    lines.push(`  },`);
+  }
+  lines.push(`};`);
+  lines.push("");
+  return {
+    path: join(ROOT, "artifacts/gujarati-coach/src/lib/mascotOutfits.gen.ts"),
+    body: lines.join("\n"),
+  };
+}
+
 function genShopSets(m) {
   const station = m.items.filter((i) => i.shop === "station").map((i) => i.id);
   const mobile = [
@@ -271,7 +330,7 @@ function genShopSets(m) {
 
 function generated() {
   const m = manifest();
-  return [genServerCatalog(m), genMobileMap(m), ...genShopSets(m)];
+  return [genServerCatalog(m), genMobileMap(m), genWebMap(m), ...genShopSets(m)];
 }
 
 function codegen({ write = true } = {}) {

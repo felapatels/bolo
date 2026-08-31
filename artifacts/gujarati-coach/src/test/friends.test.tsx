@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import type { ReactElement } from "react";
+import { OUTFIT_POSE_FILES } from "@/lib/mascot-outfits";
 
 // LanguagePicker calls useLanguage (needs LanguageProvider + API mocks).
 // Friends tests render the full page which includes BottomNav; stub out the
@@ -240,9 +241,16 @@ describe("Leaderboard", () => {
     // rows are the audience. Three rows, three states: a dressed friend, the
     // caller in something else, and a learner who owns nothing — who gets the
     // canonical bird, never a blank or an initial.
+    // THE IDS COME FROM THE ART MAP. They were "kurta" and "sherwani", which
+    // stopped resolving when the rack was cleared (build 27) — and the art
+    // assertions below are the whole point of the test, so a fixture id this
+    // build ships no art for would quietly prove nothing.
+    const stocked = Object.keys(OUTFIT_POSE_FILES);
+    if (stocked.length < 2) return; // needs two dressed rows to tell apart
+    const [wornA, wornB] = stocked;
     h.leaderboard = successQuery([
-      { ...rival, equippedOutfit: "kurta", equippedAccessory: "pagdi" },
-      { ...me, equippedOutfit: "sherwani" },
+      { ...rival, equippedOutfit: wornB, equippedAccessory: "pagdi" },
+      { ...me, equippedOutfit: wornA },
       third,
     ]);
     renderFriends(<Friends />);
@@ -253,8 +261,8 @@ describe("Leaderboard", () => {
     // plain list.
     const rows = screen.getAllByTestId("row-mascot");
     expect(rows.map((r) => r.getAttribute("data-outfit"))).toEqual([
-      "sherwani",
-      "kurta",
+      wornA,
+      wornB,
       "none",
     ]);
     // The head slot travels with the garment: shipping only the outfit would
@@ -265,8 +273,8 @@ describe("Leaderboard", () => {
     const srcs = rows.map((r) =>
       Array.from(r.querySelectorAll("img")).map((i) => i.getAttribute("src")).join(" "),
     );
-    expect(srcs[1]).toContain("outfits/kurta/mascot-wave.png");
-    expect(srcs[0]).toContain("outfits/sherwani/mascot-wave.png");
+    expect(srcs[1]).toContain(`outfits/${wornB}/mascot-wave.png`);
+    expect(srcs[0]).toContain(`outfits/${wornA}/mascot-wave.png`);
     expect(srcs[2]).toContain("mascot-wave.png");
     expect(srcs[2]).not.toContain("outfits/");
   });

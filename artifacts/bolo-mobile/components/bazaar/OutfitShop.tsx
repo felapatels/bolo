@@ -26,7 +26,7 @@ import { PressableScale } from '@/components/PressableScale';
 import { ChaiShortfallSheet } from '@/components/ChaiShortfallSheet';
 import { ChaiWalletSheet, shortfallFromSpendError, spendErrorMessage } from '@/components/ChaiWallet';
 import { Mascot } from '@/components/Mascot';
-import { mascotSource } from '@/lib/mascotOutfits';
+import { mascotSource, OUTFIT_POSE_SOURCES } from '@/lib/mascotOutfits';
 import { ChaiGlyph } from '@/components/ChaiStall';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { BazaarHeader } from '@/components/bazaar/BazaarHeader';
@@ -178,7 +178,21 @@ export function OutfitShop({ door }: { door: ShopDoor }) {
   const shown = `${shownGarment ?? ''}|${shownAccessory ?? ''}`;
   const isWorn = (id: string, kind?: string | null) =>
     kind === 'accessory' ? id === equippedAccessory : id === equipped;
-  const catalogue = data?.outfits ?? [];
+  // ONLY WHAT THIS BUILD CAN ACTUALLY DRAW (build 27, owner's call).
+  //
+  // The rack is served by the API, but the ART is bundled by Metro at compile
+  // time, so the two go out of step every time a piece is published between
+  // builds: the server offers a new garment, this phone has no bytes for it,
+  // and mascotSource falls back to canonical Bolo. Unguarded that is not a
+  // cosmetic bug, it is a sale — the piece appears priced and buyable, takes
+  // the Chai, and dresses her in nothing.
+  //
+  // OUTFIT_POSE_SOURCES is generated per build and already omits anything whose
+  // pose files were not installed, so it is exactly the right question to ask.
+  // A piece hidden here reappears on its own once the build carrying its art
+  // ships; an owned piece is hidden too, deliberately, because showing a thing
+  // that cannot be worn is worse than waiting for the update that draws it.
+  const catalogue = (data?.outfits ?? []).filter((o) => o.id in OUTFIT_POSE_SOURCES);
   // The door's own stock: the Tailor sells everything, the Station Master
   // the station pieces.
   // DISJOINT RACKS (owner, build 25: the cap was in both shops; "A"). Each

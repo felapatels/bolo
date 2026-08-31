@@ -20,115 +20,23 @@ export const CANONICAL_POSE_FILES: Record<MascotPose, string> = {
   tryagain: "mascot-tryagain.png",
 };
 
-/**
- * Per-outfit overrides, keyed by the server's catalog id. Filenames are
- * spelled out rather than composed so a missing file is visible here (and so
- * this map reads the same as the mobile require() map, which Metro forces to
- * be literal).
- */
-export const OUTFIT_POSE_FILES: Record<
-  string,
-  Partial<Record<MascotPose, string>>
-> = {
-  navratri: {
-    wave: "outfits/navratri/mascot-wave.png",
-    cheer: "outfits/navratri/mascot-cheer.png",
-    thumbsup: "outfits/navratri/mascot-thumbsup.png",
-    thinking: "outfits/navratri/mascot-thinking.png",
-    tryagain: "outfits/navratri/mascot-tryagain.png",
-  },
-  // The generated garments. Same five whole-image poses as the hand-drawn
-  // choli above, produced by scripts/gen-mascot-outfits.mjs: a flat piece of
-  // cloth over her belly with her own wings and feet restacked in front. No
-  // pixel of Bolo is redrawn, so the canonical rule holds.
-  kediyu: {
-    wave: "outfits/kediyu/mascot-wave.png",
-    cheer: "outfits/kediyu/mascot-cheer.png",
-    thumbsup: "outfits/kediyu/mascot-thumbsup.png",
-    thinking: "outfits/kediyu/mascot-thinking.png",
-    tryagain: "outfits/kediyu/mascot-tryagain.png",
-  },
-  anarkali: {
-    wave: "outfits/anarkali/mascot-wave.png",
-    cheer: "outfits/anarkali/mascot-cheer.png",
-    thumbsup: "outfits/anarkali/mascot-thumbsup.png",
-    thinking: "outfits/anarkali/mascot-thinking.png",
-    tryagain: "outfits/anarkali/mascot-tryagain.png",
-  },
-  kurta: {
-    wave: "outfits/kurta/mascot-wave.png",
-    cheer: "outfits/kurta/mascot-cheer.png",
-    thumbsup: "outfits/kurta/mascot-thumbsup.png",
-    thinking: "outfits/kurta/mascot-thinking.png",
-    tryagain: "outfits/kurta/mascot-tryagain.png",
-  },
-  sherwani: {
-    wave: "outfits/sherwani/mascot-wave.png",
-    cheer: "outfits/sherwani/mascot-cheer.png",
-    thumbsup: "outfits/sherwani/mascot-thumbsup.png",
-    thinking: "outfits/sherwani/mascot-thinking.png",
-    tryagain: "outfits/sherwani/mascot-tryagain.png",
-  },
-  saree: {
-    wave: "outfits/saree/mascot-wave.png",
-    cheer: "outfits/saree/mascot-cheer.png",
-    thumbsup: "outfits/saree/mascot-thumbsup.png",
-    thinking: "outfits/saree/mascot-thinking.png",
-    tryagain: "outfits/saree/mascot-tryagain.png",
-  },
-  // An accessory ships the same five whole-image poses as a garment, so
-  // nothing downstream has to know the difference. The art is the untouched
-  // canonical PNG with the accessory composited over it at a per-pose anchor
-  // and rotation — Bolo's own pixels are never redrawn. This whole-bird set is
-  // what a single-layer surface (the shop thumbnail) uses; wearing an
-  // accessory WITH a garment goes through the overlay map below instead.
-  pagdi: {
-    wave: "outfits/pagdi/mascot-wave.png",
-    cheer: "outfits/pagdi/mascot-cheer.png",
-    thumbsup: "outfits/pagdi/mascot-thumbsup.png",
-    thinking: "outfits/pagdi/mascot-thinking.png",
-    tryagain: "outfits/pagdi/mascot-tryagain.png",
-  },
-  "station-cap": {
-    wave: "outfits/station-cap/mascot-wave.png",
-    cheer: "outfits/station-cap/mascot-cheer.png",
-    thumbsup: "outfits/station-cap/mascot-thumbsup.png",
-    thinking: "outfits/station-cap/mascot-thinking.png",
-    tryagain: "outfits/station-cap/mascot-tryagain.png",
-  },
-};
-
-/**
- * The accessory ALONE, transparent, in the same 1024 frame as every pose.
- *
- * This is what makes a hat and an outfit wearable at once. The alternative —
- * one baked PNG per garment×accessory pair — multiplies with the catalog and
- * would need regenerating every time either side gains an item. Stacking two
- * layers needs no new art when a garment ships, because the hat does not know
- * or care what she is wearing below it.
- *
- * Alignment is baked into the file, so a call site just drops it on top of the
- * base at the same size and position; there is no per-pose offset to get wrong.
- */
-export const ACCESSORY_OVERLAY_FILES: Record<
-  string,
-  Partial<Record<MascotPose, string>>
-> = {
-  pagdi: {
-    wave: "outfits/pagdi/overlay-wave.png",
-    cheer: "outfits/pagdi/overlay-cheer.png",
-    thumbsup: "outfits/pagdi/overlay-thumbsup.png",
-    thinking: "outfits/pagdi/overlay-thinking.png",
-    tryagain: "outfits/pagdi/overlay-tryagain.png",
-  },
-  "station-cap": {
-    wave: "outfits/station-cap/overlay-wave.png",
-    cheer: "outfits/station-cap/overlay-cheer.png",
-    thumbsup: "outfits/station-cap/overlay-thumbsup.png",
-    thinking: "outfits/station-cap/overlay-thinking.png",
-    tryagain: "outfits/station-cap/overlay-tryagain.png",
-  },
-};
+// THE TWO MAPS ARE GENERATED (build 27), from scripts/wardrobe/manifest.json
+// via `node scripts/wardrobe.mjs codegen`, and re-exported here so every
+// existing import keeps working.
+//
+// They used to be hand-written, and mobile's twin was not, so the two clients
+// drifted from the same manifest in opposite directions: a piece added through
+// the placement tool never rendered on web because nothing added it here, and
+// a piece removed left a dead entry pointing at PNGs that had been deleted,
+// which is a 404 rather than a bird. Generating them makes both impossible.
+//
+// Filenames stay spelled out rather than composed, because Metro forces
+// mobile's map to be literal and the two are meant to read the same.
+export { OUTFIT_POSE_FILES, ACCESSORY_OVERLAY_FILES } from "./mascotOutfits.gen";
+import {
+  OUTFIT_POSE_FILES,
+  ACCESSORY_OVERLAY_FILES,
+} from "./mascotOutfits.gen";
 
 /**
  * The image URL for a pose, dressed in `outfit` when that outfit ships the

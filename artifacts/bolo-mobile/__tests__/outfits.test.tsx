@@ -63,6 +63,28 @@ jest.mock('@workspace/api-client-react', () => ({
 
 // The language signpost is a free-tier row and reads entitlements; without the
 // provider the hook throws.
+// THE ART MAP THIS BUILD SHIPS, so the shop's stock guard has something to
+// pass. The rack hides any item the build has no art for (see OutfitShop), and
+// the fixtures below are a MOCKED catalogue, so without this they would all be
+// filtered out and every rack assertion would fail on an empty shop.
+//
+// Mocked rather than renamed to real stock: what these tests are about is shop
+// behaviour, and coupling them to whatever the owner happens to be selling is
+// exactly what broke them when the rack was cleared. The guard itself is
+// tested directly further down.
+jest.mock('@/lib/mascotOutfits.gen', () => {
+  const poses = ['wave', 'cheer', 'thumbsup', 'thinking', 'tryagain'] as const;
+  const set = (id: string, prefix: string) =>
+    Object.fromEntries(poses.map((p) => [p, `${id}-${prefix}-${p}`]));
+  return {
+    OUTFIT_POSE_SOURCES: {
+      navratri: set('navratri', 'mascot'),
+      pagdi: set('pagdi', 'mascot'),
+    },
+    ACCESSORY_OVERLAY_SOURCES: { pagdi: set('pagdi', 'overlay') },
+  };
+});
+
 jest.mock('@/contexts/EntitlementsContext', () => ({
   useEntitlements: () => ({
     isPlus: false,
@@ -407,6 +429,51 @@ describe('the wardrobe previews before it charges', () => {
 });
 
 // ── The Your Flex card (build 24) ──────────────────────────────────────────
+
+describe('the rack only offers what this build can draw', () => {
+  // THE MONEY BUG THIS PREVENTS (build 27, owner's call). The rack is served by
+  // the API; the ART is bundled by Metro at compile time. Publish a garment
+  // between builds and the server offers it to phones that have no bytes for
+  // it: it appears priced and buyable, takes the Chai, and dresses her in
+  // nothing, because mascotSource correctly falls back to canonical Bolo.
+  //
+  // The fixture below is a piece the mocked art map does NOT carry, which is
+  // exactly the shape of a newly published item reaching an older build.
+  const UNSHIPPED = {
+    id: 'not-in-this-build',
+    name: 'Something published after this build',
+    tagline: 'The server knows about it. This phone does not.',
+    cost: 25,
+    owned: false,
+  };
+
+  test('an item this build has no art for is not on the rack at all', () => {
+    renderShop({ balance: 999, equipped: null, outfits: [NAVRATRI, UNSHIPPED] });
+
+    expect(screen.getByTestId('outfit-card-navratri')).toBeTruthy();
+    expect(screen.queryByTestId('outfit-card-not-in-this-build')).toBeNull();
+  });
+
+  test('and it cannot be bought, because there is nothing to press', () => {
+    renderShop({ balance: 999, equipped: null, outfits: [UNSHIPPED] });
+
+    expect(screen.queryByTestId('outfit-card-not-in-this-build')).toBeNull();
+    expect(mockState.buyCalls).toEqual([]);
+  });
+
+  test('an OWNED item with no art is hidden too, rather than worn as nothing', () => {
+    // Hiding a thing already paid for is the lesser harm: it comes back on its
+    // own once the build carrying its art ships, whereas showing it renders an
+    // undressed bird and reads as the purchase having been lost.
+    renderShop({
+      balance: 0,
+      equipped: 'not-in-this-build',
+      outfits: [{ ...UNSHIPPED, owned: true }],
+    });
+
+    expect(screen.queryByTestId('outfit-card-not-in-this-build')).toBeNull();
+  });
+});
 
 describe('the Your Flex card opens the shop', () => {
   test('it counts what is owned and says what is worn in words, not colour', () => {

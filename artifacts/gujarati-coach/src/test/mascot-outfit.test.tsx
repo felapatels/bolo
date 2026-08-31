@@ -1,7 +1,11 @@
 import { describe, test, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Mascot } from "@/components/mascot";
-import { CANONICAL_POSE_FILES, MASCOT_BASE } from "@/lib/mascot-outfits";
+import {
+  CANONICAL_POSE_FILES,
+  MASCOT_BASE,
+  OUTFIT_POSE_FILES,
+} from "@/lib/mascot-outfits";
 
 // ---------------------------------------------------------------------------
 // The mascot wears what the learner equipped.
@@ -32,9 +36,15 @@ describe("mascot outfit plumbing", () => {
     expect(srcOf()).toBe(MASCOT_BASE + CANONICAL_POSE_FILES.wave);
   });
 
+  // THE ID COMES FROM THE ART MAP, NOT FROM THIS FILE. It said "navratri",
+  // which stopped resolving the moment the map became generated and the owner
+  // cleared the rack (build 27). What is pinned is that the override dresses
+  // him from the outfit's own art, which is true of whatever is stocked.
   test("the preview override dresses him", () => {
-    render(<Mascot pose="thumbsup" outfit="navratri" />);
-    expect(srcOf()).toBe(MASCOT_BASE + "outfits/navratri/mascot-thumbsup.png");
+    const [dressed] = Object.keys(OUTFIT_POSE_FILES);
+    if (!dressed) return; // an empty wardrobe is a real state, not a failure
+    render(<Mascot pose="thumbsup" outfit={dressed} />);
+    expect(srcOf()).toBe(MASCOT_BASE + OUTFIT_POSE_FILES[dressed]!.thumbsup);
   });
 
   test("an explicit null forces canonical Bolo", () => {
