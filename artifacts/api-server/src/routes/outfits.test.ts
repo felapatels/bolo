@@ -16,11 +16,7 @@ import outfitsRouter from "./outfits";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 import { grantTokens, buyOutfit } from "../lib/tokenService";
 import { existsSync, readFileSync } from "node:fs";
-import {
-  ACCESSORY_COST,
-  OUTFIT_COST,
-  PREMIUM_OUTFIT_COST,
-} from "../lib/tokenEconomy";
+import { ACCESSORY_COST, OUTFIT_COST } from "../lib/tokenEconomy";
 import {
   OUTFIT_CATALOG,
   OUTFIT_IDS,
@@ -263,13 +259,12 @@ test("an unknown outfit cannot be bought or worn", async () => {
 // changing it in one is a failing test rather than a surprise on someone's
 // balance. Every new item must appear here; the test refuses stock it has no
 // price for.
+// The six garments were removed in build 27: the owner cleared the rack to
+// restart the wardrobe from new art. Their prices go with them, because this
+// list must equal the shop exactly — an entry for stock that does not exist
+// would fail the assertion below just as loudly as missing stock does, and
+// that symmetry is the point.
 const PRICE_LIST: Record<string, number> = {
-  navratri: OUTFIT_COST,
-  kediyu: OUTFIT_COST,
-  anarkali: OUTFIT_COST,
-  kurta: OUTFIT_COST,
-  sherwani: PREMIUM_OUTFIT_COST,
-  saree: PREMIUM_OUTFIT_COST,
   pagdi: ACCESSORY_COST,
   "station-cap": ACCESSORY_COST,
 };
