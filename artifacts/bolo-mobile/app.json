@@ -29,7 +29,7 @@
     "android": {
       "package": "com.bolo.mobile",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 530,
+      "versionCode": 531,
       "intentFilters": [
         {
           "action": "VIEW",
