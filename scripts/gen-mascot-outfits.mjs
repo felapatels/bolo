@@ -43,8 +43,21 @@ import { basename } from "node:path";
 const POSES = ["wave", "cheer", "thumbsup", "thinking", "tryagain"];
 
 /** Bottom of Bolo's beak per pose: the mask must start below this or it eats
- *  her (teal) head. Measured, not guessed — wave sits 5px lower than the rest. */
-const CHIN = { wave: 500, cheer: 495, thumbsup: 495, thinking: 495, tryagain: 495 };
+ *  her (teal) head. Measured, not guessed — wave sits 5px lower than the rest.
+ *
+ *  MEASURED ON THE 1024 SQUARE, which is no longer the canvas. Build 26 grew
+ *  the frame to 1024x1200 by adding 176px of SKY ABOVE HER, so she moved down
+ *  by 176 and these numbers did not follow: the belly mask started across her
+ *  eyes and every garment shipped painted over her face. Build 27 found it by
+ *  opening the placement tool and looking at a bird.
+ *
+ *  So they are OFFSET AT USE, by however much taller the canonical art is than
+ *  the square it was measured on (chinOf below). That is deliberately derived
+ *  from the art rather than written as 676: the next canvas change corrects
+ *  itself, and this is the third thing that same 176 has broken. */
+const CHIN_ON_SQUARE = { wave: 500, cheer: 495, thumbsup: 495, thinking: 495, tryagain: 495 };
+const MEASURED_ON_H = 1024;
+const chinOf = (pose, canvasH) => CHIN_ON_SQUARE[pose] + (canvasH - MEASURED_ON_H);
 
 /** How wide to cut the cloth per pose. These track the measured teal belly
  *  EXCEPT thumbsup: there a wing folds across her chest and splits the visible
@@ -68,6 +81,10 @@ const FUZZ = "22%";
 const CANON_DIR = "artifacts/gujarati-coach/public/mascot";
 const WEB_OUT = "artifacts/gujarati-coach/public/mascot/outfits";
 const MOBILE_OUT = "artifacts/bolo-mobile/assets/images/mascot/outfits";
+// Where the canonical poses live. The shared `front-<pose>.png` layer belongs
+// here and not under an outfit, because it is hers and not any garment's.
+const CANON_WEB_OUT = "artifacts/gujarati-coach/public/mascot";
+const CANON_MOBILE_OUT = "artifacts/bolo-mobile/assets/images/mascot";
 // The Repl's Linux font, with the Mac's Arial as the fallback so review
 // sheets render on both machines (build 25).
 import { existsSync as fontExists } from "node:fs";
@@ -149,7 +166,7 @@ function dressPose(pose, { art, tmp, wfrac, dy, squash, freefrac, place }) {
 
   // ... clipped to below the chin, which leaves the belly and only the belly.
   magick(["-size", `${w}x${h}`, "xc:black", "-fill", "white",
-    "-draw", `rectangle 0,${CHIN[pose]} ${w - 1},${h - 1}`, "-alpha", "off", p("band")]);
+    "-draw", `rectangle 0,${chinOf(pose, h)} ${w - 1},${h - 1}`, "-alpha", "off", p("band")]);
   magick([p("teal"), p("band"), "-compose", "multiply", "-composite", "-alpha", "off", p("belly")]);
 
   const box = magick([p("belly"), "-fuzz", "5%", "-format", "%@", "info:"]);
@@ -169,7 +186,7 @@ function dressPose(pose, { art, tmp, wfrac, dy, squash, freefrac, place }) {
   magick([art, ...resize, p("garment")]);
   const gh = Number(magick([p("garment"), "-format", "%h", "info:"]));
   const gx = place ? Math.round(place.x * w) : Math.round(cx - gw / 2);
-  const gy = place ? Math.round(place.y * h) : CHIN[pose] + dy;
+  const gy = place ? Math.round(place.y * h) : chinOf(pose, h) + dy;
 
   // THE SLEEVE RULE. Above the hem line the cloth may only exist where SHE is;
   // below it, it hangs free. Without this, any garment whose art has sleeves
@@ -186,11 +203,38 @@ function dressPose(pose, { art, tmp, wfrac, dy, squash, freefrac, place }) {
     "-compose", "multiply", "-composite", ")", "-compose", "copy_opacity", "-composite", p("clothclip")]);
   magick([canon, p("clothclip"), "-composite", p("dressed")]);
 
-  // Everything of hers that is NOT belly goes back on top: wings, beak, eyes,
-  // feet, tail. Build the alpha first and copy it in — flattening her to an
-  // opaque layer here (an earlier bug) paints the whole frame and hides the
-  // garment completely.
-  magick([p("alpha"), "(", p("belly"), "-negate", ")", "-compose", "multiply",
+  // WHAT GOES BACK ON TOP OF THE CLOTH: her head, and her wings. Nothing else.
+  //
+  // It used to be "everything that is not belly", which sounds equivalent and
+  // is not. The belly mask is a colour key, so every teal pixel it MISSED — the
+  // shaded rim all round her body — counted as not-belly and was redrawn over
+  // the garment, along with her feet. The result was a sherwani with a teal
+  // fringe along its hem and toes on top of the skirt. The owner, build 27:
+  // "its getting sent to the back, i shouldn't see the lower half of bolo. the
+  // outfit covers it."
+  //
+  // So the rule is positive rather than subtractive:
+  //   above the chin   all of her (head, crest, beak, eyes)
+  //   below the chin   her WINGS only
+  //
+  // WINGS ARE FOUND BY CHANNEL, NOT BY COLOUR. Keying her indigo cannot work:
+  // the darkest wing shade is about as far from mid-indigo as her teal is, so
+  // any fuzz wide enough to hold the wing also swallows the body. But her wings
+  // are blue-DOMINANT (B well above G) and every other part of her is not —
+  // teal body has B≈G, beak and feet are warm — so B minus G separates them
+  // cleanly at any shade.
+  //
+  // Her feet leaving the front layer is the point, not a side effect: a long
+  // garment now covers them, and a short one still shows them, because where
+  // there is no cloth she is drawn from the canonical art underneath anyway.
+  magick([canon, "-alpha", "off", "-channel", "B", "-separate", p("blue")]);
+  magick([canon, "-alpha", "off", "-channel", "G", "-separate", p("green")]);
+  magick([p("blue"), p("green"), "-compose", "minus_src", "-composite",
+    "-threshold", "12%", p("wings")]);
+  // above the chin  =  the band negated
+  magick(["(", p("band"), "-negate", ")", p("wings"), "-compose", "lighten",
+    "-composite", "-alpha", "off", p("frontmask")]);
+  magick([p("alpha"), p("frontmask"), "-compose", "multiply",
     "-composite", "-alpha", "off", p("frontalpha")]);
   magick([canon, p("frontalpha"), "-compose", "copy_opacity", "-composite", p("front")]);
   magick([p("dressed"), p("front"), "-composite", p("final")]);
@@ -198,7 +242,23 @@ function dressPose(pose, { art, tmp, wfrac, dy, squash, freefrac, place }) {
   console.log(
     `${pose.padEnd(9)} belly ${bw}x${bh}+${bx}+${by}  cx_mass=${live}${has("live-centre") ? "" : ` (pinned ${cx})`}  cloth ${gw}w @ +${gx}+${gy}`,
   );
-  return p("final");
+  // THE STACKABLE PAIR (build 27), so Bolo can wear a top and a bottom at once.
+  //
+  // `final` is the whole bird with this garment baked into it, which is why two
+  // garments could never be worn together: drawing one over the other hides the
+  // first completely. These two layers are the same render taken apart, and
+  // both were already being computed here and thrown away.
+  //
+  //   cloth  this garment's cloth alone, clipped, transparent everywhere else
+  //   front  HER non-belly pixels (wings, beak, eyes, feet, tail), transparent
+  //
+  // `front` depends only on the pose, never on the garment, so every garment
+  // produces an identical one and it installs once beside the canonical art.
+  // That is also what keeps the sleeve rule true: her wings are in `front`, so
+  // they redraw over every cloth layer no matter how many are worn.
+  //
+  // Runtime order is canon, bottom, top, front, then the head overlay.
+  return { final: p("final"), cloth: p("clothclip"), front: p("front") };
 }
 
 function buildItem({ id, art, squash = null, wfrac, dy, freefrac, install }) {
@@ -222,9 +282,10 @@ function buildItem({ id, art, squash = null, wfrac, dy, freefrac, install }) {
     PLACE = m.items.find((i) => i.id === id)?.recipe?.place ?? {};
   } catch { /* no manifest is not a reason to refuse to render */ }
 
-  const finals = POSES.map((pose) =>
+  const layers = POSES.map((pose) =>
     dressPose(pose, { art: trimmed, tmp, wfrac, dy, squash, freefrac, place: PLACE[pose] }),
   );
+  const finals = layers.map((l) => l.final);
 
   // Labelled contact sheet. Never judge a pose set on wave alone.
   const tiles = finals.map((f, i) => {
@@ -248,9 +309,26 @@ function buildItem({ id, art, squash = null, wfrac, dy, freefrac, install }) {
         // public dir and once into the mobile bundle.
         magick([finals[i], "-strip", "-colors", "255", "-define", "png:compression-level=9",
           `${dir}/mascot-${pose}.png`]);
+        // The stackable cloth layer, for wearing a top and a bottom together.
+        // Shipped alongside the baked `mascot-` file rather than instead of it:
+        // a whole-body piece still renders from one image, and a client that
+        // has not been taught about layers keeps working.
+        magick([layers[i].cloth, "-strip", "-colors", "255",
+          "-define", "png:compression-level=9", `${dir}/cloth-${pose}.png`]);
       });
     }
-    console.log(`  installed → ${WEB_OUT}/${id}/ and ${MOBILE_OUT}/${id}/`);
+    // Her wings, beak, eyes, feet and tail, which must redraw in FRONT of every
+    // cloth layer. Identical for every garment because it is derived from the
+    // canonical pose alone, so it lives with the canonical art and is written
+    // once rather than copied into all eight item folders.
+    for (const dir of [CANON_WEB_OUT, CANON_MOBILE_OUT]) {
+      mkdirSync(dir, { recursive: true });
+      POSES.forEach((pose, i) => {
+        magick([layers[i].front, "-strip", "-colors", "255",
+          "-define", "png:compression-level=9", `${dir}/front-${pose}.png`]);
+      });
+    }
+    console.log(`  installed → ${WEB_OUT}/${id}/ and ${MOBILE_OUT}/${id}/ (+ cloth layers, + shared front)`);
   }
   console.log(`  review sheet → ${sheet}`);
   return sheet;

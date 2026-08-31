@@ -274,7 +274,28 @@ export function Mascot({
               in-flow element that opens the box (an absolute base collapses
               the fill chain), and this sits inside the same relative wrapper
               at the same size, so the two 1024-frame images line up with no
-              per-pose maths here. */}
+              per-pose maths here.
+
+              IT CARRIES NO PULL-UP OF ITS OWN, and that is the whole trick.
+              Build 26 gave it the same `marginTop: -MASCOT_SKY_PCT%` as the
+              base, reasoning that the same frame plus the same pull-up must
+              register. On web it does not, and build 27 measured every hat in
+              the app floating exactly one sky-height above her head.
+
+              CSS MARGIN COLLAPSING IS THE DIFFERENCE FROM MOBILE. The base
+              img is in flow with no padding or border between it and the
+              wrappers above, so its negative top margin COLLAPSES OUT and
+              moves this element's containing block up by the sky instead of
+              moving the img inside it. The base then paints flush at the top
+              of an already-raised box. An absolutely-positioned `top-0` child
+              of that same box therefore starts in register with the base
+              ALREADY; adding the margin here spends the pull-up a second
+              time. Mobile's twin really does need its `top: -sky`
+              (components/Mascot.tsx) because Yoga has no margin collapsing.
+
+              Pinned by qa/mascot-overlay-register.mjs, which measures both
+              imgs in a real browser. jsdom cannot see this: it has no layout,
+              so the web suite passed the whole time. */}
           {overlaySrc ? (
             <AnimatePresence initial={false} mode="popLayout">
               <motion.img
@@ -288,10 +309,8 @@ export function Mascot({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: reduceMotion ? 0 : 0.22, ease: "easeOut" }}
-                // Same frame as the base, so the same pull-up keeps the two in
-                // register. Absolute here is correct and always was: the base
-                // above is the in-flow element that opens the box.
-                style={{ marginTop: `-${MASCOT_SKY_PCT}%` }}
+                // No marginTop: see the block comment above. The containing
+                // block has already absorbed the base's pull-up by collapsing.
                 className={cn(
                   "pointer-events-none absolute inset-x-0 top-0 w-full object-contain",
                   fill ? "h-full" : "aspect-[1024/1200]",
