@@ -298,8 +298,13 @@ switch (cmd) {
   case "codegen": codegen(); break;
   case "check": check(); break;
   case "montage": montage(); break;
+  // THE PLACEMENT TOOL. Its own process because it is a server and because
+  // nothing else in this CLI is interactive: `wardrobe place`, then drag.
+  case "place":
+    execFileSync("node", ["scripts/wardrobe-place.mjs"], { stdio: "inherit" });
+    break;
   case "list": for (const it of manifest().items) console.log(`${it.id.padEnd(14)} ${it.kind.padEnd(10)} ${it.shop.padEnd(8)} ${it.costBand.padEnd(10)} ${it.status}`); break;
   default:
-    console.error("usage: wardrobe.mjs gen <id> | install <id> | codegen | check | montage | list");
+    console.error("usage: wardrobe.mjs gen <id> | install <id> | place | codegen | check | montage | list");
     process.exit(1);
 }

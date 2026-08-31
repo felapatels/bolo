@@ -42,7 +42,7 @@
 //   ... --fudge 1.04 --margin 10     size and clearance knobs
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, rmSync, existsSync } from "node:fs";
+import { mkdirSync, rmSync, existsSync, writeFileSync } from "node:fs";
 
 const POSES = ["wave", "cheer", "thumbsup", "thinking", "tryagain"];
 
@@ -80,6 +80,33 @@ const NUDGE_X = Object.fromEntries(
  */
 const NUDGE_X_FRAC = Object.fromEntries(
   WARDROBE.items.filter((i) => i.recipe?.nudgeXFrac).map((i) => [i.id, i.recipe.nudgeXFrac]),
+);
+
+/**
+ * PER-POSE PLACEMENT, WRITTEN BY THE PLACEMENT TOOL, not by hand.
+ *
+ * `wardrobe place <id>` opens an editor where the owner drags, rotates and
+ * scales the piece over each pose and it saves the numbers here. Six rounds of
+ * describing pixel shifts in chat is what this replaces.
+ *
+ * WHEN A POSE IS PLACED, THE PLACEMENT WINS OUTRIGHT. The automatic seating
+ * (her measured crown, her measured roll, the eye-clearance lift) is what a
+ * brand new item gets for free, and it is a good start. The moment somebody
+ * drags a pose in the tool, guessing stops: that pose uses exactly what they
+ * dragged, with no crown maths and no lift loop underneath it to fight.
+ *
+ * EVERY VALUE IS A FRACTION OF THE CANVAS, never a pixel, so a placement made
+ * today survives the art being re-cut at another size and the canvas changing
+ * again the way it did in build 26:
+ *   x, y   top-left corner, as fractions of canvas width and height
+ *   w      the piece's width, as a fraction of canvas width
+ *   rot    absolute degrees, not an offset from her roll
+ */
+/** Filled by buildPose, dumped beside the review sheet. See the tool. */
+const PLACEMENTS = {};
+
+const PLACE = Object.fromEntries(
+  WARDROBE.items.filter((i) => i.recipe?.place).map((i) => [i.id, i.recipe.place]),
 );
 
 /** How far above the eye-clearance seat a hat rides, as a fraction of the
@@ -296,10 +323,12 @@ function buildPose(id, pose, tmp, { install, fudge, margin }) {
 
   // Rotate to her head roll first, then measure: the bounding box of a rotated
   // sprite is not the rotation of its bounding box.
-  magick([source, "-background", "none", "-rotate", eye.roll.toFixed(2),
+  const place = PLACE[id]?.[pose];
+  magick([source, "-background", "none",
+    "-rotate", (place ? place.rot : eye.roll).toFixed(2),
     "-trim", "+repage", p("rot")]);
   const rot = layerBox(p("rot"), pose);
-  const scale = (ref.w * fudge) / rot.w;
+  const scale = place ? (place.w * w) / rot.w : (ref.w * fudge) / rot.w;
   const sw = Math.round(rot.w * scale);
   const sh = Math.round(rot.h * scale);
   magick([p("rot"), "-resize", `${sw}x${sh}!`, p("scaled")]);
@@ -309,42 +338,38 @@ function buildPose(id, pose, tmp, { install, fudge, margin }) {
   // plume runs off the top of the frame, and this source still has the whole
   // feather, so what leaves the frame reads as a feather continuing past the
   // edge rather than a sawn-off stump.
-  // SEATED ON HER EYES, NOT ON THE REFERENCE BOX (build 26). The owner:
-  // "can't you map a triangle from the two eyes to the circle in the middle of
-  // the pagdi. or another solution that won't require this every time we create
-  // a hat?" This is that: the brim's midpoint lands on the midpoint between her
-  // eyes, so the hat follows her head as she turns and a new hat needs no
-  // per-pose tuning at all. nudgeX survives as an override for art that is
-  // deliberately worn at an angle, and is now empty for every item.
-  const nudge = NUDGE_X[id]?.[pose] ?? 0;
-  const frac = NUDGE_X_FRAC[id]?.[pose] ?? 0;
-  // A HORIZONTAL OVERRIDE MUST NOT CHANGE THE HEIGHT, and it did. The
-  // clearance loop below stops the moment her eyes are clear, so a hat pushed
-  // sideways clears them sooner and settles LOWER: pushing thinking right by
-  // half its width dropped its lift from 116px to 40px, which read as the hat
-  // sliding down her head. The loop therefore runs at the SEATED x and the
-  // override is applied after, so the two knobs stay independent.
-  const seatX = Math.round(crownCenterX(pose, eye) - brimCenterX(p("scaled")));
-  const x = seatX + nudge + Math.round(frac * sw);
-  const baseY = ref.bottom - sh + 1;
+  // PLACED BY HAND WINS, AND SKIPS EVERYTHING BELOW. No crown measurement and
+  // no clearance loop: the owner already said where it goes, and a loop that
+  // "corrects" a deliberate placement is just the guessing again with extra
+  // steps.
+  let x;
+  let baseY;
   let lift = 0;
-  let overlay = null;
   let over = 0;
-  for (; lift <= 260; lift += 2) {
+  if (place) {
+    x = Math.round(place.x * w);
+    baseY = Math.round(place.y * h);
     magick(["-size", `${w}x${h}`, "xc:none", p("scaled"),
-      "-geometry", `+${seatX}+${baseY - lift}`, "-composite", p("overlay")]);
-    over = eyeOverlap(p("overlay"), mask);
-    if (over === 0) break;
+      "-geometry", `+${x}+${baseY}`, "-composite", p("overlay")]);
+  } else {
+    // SEATED ON HER CROWN, NOT ON THE REFERENCE BOX. The reference is a
+    // hand-approved placement that does not turn when her head does.
+    const nudge = NUDGE_X[id]?.[pose] ?? 0;
+    const frac = NUDGE_X_FRAC[id]?.[pose] ?? 0;
+    const seatX = Math.round(crownCenterX(pose, eye) - brimCenterX(p("scaled")));
+    x = seatX + nudge + Math.round(frac * sw);
+    baseY = ref.bottom - sh + 1;
+    for (; lift <= 260; lift += 2) {
+      magick(["-size", `${w}x${h}`, "xc:none", p("scaled"),
+        "-geometry", `+${seatX}+${baseY - lift}`, "-composite", p("overlay")]);
+      over = eyeOverlap(p("overlay"), mask);
+      if (over === 0) break;
+    }
+    lift += Math.round(SEAT_RISE * eye.span);
+    magick(["-size", `${w}x${h}`, "xc:none", p("scaled"),
+      "-geometry", `+${x}+${baseY - lift}`, "-composite", p("overlay")]);
   }
-  // SIT IT ON HER HEAD, NOT AT HER EYEBROWS. The loop above stops the instant
-  // the eyes are clear, which is the lowest legal seat rather than the right
-  // one, and the owner read it as the hat riding low. A rise proportional to
-  // the eye span scales with her head instead of being a pixel count that only
-  // suits one pose.
-  lift += Math.round(SEAT_RISE * eye.span);
-  magick(["-size", `${w}x${h}`, "xc:none", p("scaled"),
-    "-geometry", `+${x}+${baseY - lift}`, "-composite", p("overlay")]);
-  overlay = p("overlay");
+  const overlay = p("overlay");
   magick([canon, overlay, "-composite", p("worn")]);
 
   const plume = Math.max(0, -(baseY - lift));
@@ -354,6 +379,16 @@ function buildPose(id, pose, tmp, { install, fudge, margin }) {
       `eye_overlap=${over}${over > 0 ? " *** STILL CLIPPING ***" : ""}  ` +
       `plume ${plume}px past frame`,
   );
+
+  // WHERE IT ACTUALLY LANDED, in the same fractions the placement tool speaks.
+  // Written every run so the tool can seed a first drag from the real
+  // automatic seating instead of jumping to a guess the moment you touch it.
+  PLACEMENTS[pose] = {
+    x: +(x / w).toFixed(5),
+    y: +((baseY - lift) / h).toFixed(5),
+    w: +(sw / w).toFixed(5),
+    rot: +(place ? place.rot : eye.roll).toFixed(2),
+  };
 
   if (install) {
     for (const dir of [`${WEB_OUT}/${id}`, `${MOBILE_OUT}/${id}`]) {
@@ -413,6 +448,7 @@ function main() {
   const sheet = `${tmp}/${id}-faces.png`;
   magick(["montage", "-font", FONT, "-label", "", ...tiles, "-tile", "3x2",
     "-geometry", "330x+4+4", "-background", "#eeeeee", sheet]);
+  writeFileSync(`${tmp}/placement.json`, `${JSON.stringify(PLACEMENTS, null, 2)}\n`);
   console.log(`  review sheet → ${sheet}`);
   if (has("install")) console.log(`  installed → ${WEB_OUT}/${id}/ and ${MOBILE_OUT}/${id}/`);
 }
