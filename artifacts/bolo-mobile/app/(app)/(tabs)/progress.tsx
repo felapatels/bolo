@@ -5,6 +5,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -40,6 +41,7 @@ import { findNearestLockedBadge } from '@/lib/badge-progress';
 import { getJourneyLine } from '@/lib/journeyLines';
 import { useJourneyProgress } from '@/lib/useJourneyProgress';
 import { hapticLight } from '@/lib/haptics';
+import { progressShareMessage } from '@/lib/progressShare';
 
 /**
  * THE PROGRESS TAB, REBUILT TO THE OWNER'S MOCKUP (build 22, 2026-08-29:
@@ -104,6 +106,24 @@ export default function ProgressScreen() {
   // WHAT BOLO SAYS: the next milestone by name, with how far off it is, in
   // the same terms the ticket below counts in. No badges known yet, or every
   // one earned, and the bird still has a line.
+  // SHARING THE STATS, NOT A BADGE (owner's ruling, build 26, option A). A
+  // stat line is postable on any day of the week; a badge is postable on the
+  // rare day you earn one, and daily is what earns reach.
+  const onShareProgress = async () => {
+    hapticLight();
+    try {
+      await Share.share({
+        message: progressShareMessage({
+          languageName: activeLanguage?.name,
+          phrasesMastered: s?.phrasesMastered ?? 0,
+          streakDays: s?.currentStreakDays ?? 0,
+        }),
+      });
+    } catch {
+      /* dismissed */
+    }
+  };
+
   const nearest = findNearestLockedBadge(badges.data);
   const remaining = nearest
     ? Math.max(nearest.progressTarget - nearest.progressCurrent, 0)
@@ -134,24 +154,42 @@ export default function ProgressScreen() {
               Your progress
             </Text>
             {/* The language line is the same door as the globe (build 22,
-                the mockup: "Hindi" with a chevron under the title). */}
-            <Pressable
-              onPress={() => {
-                hapticLight();
-                router.push('/(app)/language');
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Language: ${activeLanguage?.name ?? 'loading'}`}
-              accessibilityHint="Opens the language picker"
-              hitSlop={6}
-              style={styles.langRow}
-              testID="progress-language"
-            >
-              <Text style={[styles.sub, { color: colors.primary }]}>
-                {activeLanguage?.name ?? 'Loading...'}
-              </Text>
-              <Feather name="chevron-down" size={16} color={colors.primary} />
-            </Pressable>
+                the mockup: "Hindi" with a chevron under the title), and the
+                share action sits beside it (build 26, the owner's option A).
+                Both carry a word as well as a glyph. */}
+            <View style={styles.metaRow}>
+              <Pressable
+                onPress={() => {
+                  hapticLight();
+                  router.push('/(app)/language');
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Language: ${activeLanguage?.name ?? 'loading'}`}
+                accessibilityHint="Opens the language picker"
+                hitSlop={6}
+                style={styles.langRow}
+                testID="progress-language"
+              >
+                <Text style={[styles.sub, { color: colors.primary }]}>
+                  {activeLanguage?.name ?? 'Loading...'}
+                </Text>
+                <Feather name="chevron-down" size={16} color={colors.primary} />
+              </Pressable>
+              <Pressable
+                onPress={onShareProgress}
+                accessibilityRole="button"
+                accessibilityLabel="Share your progress"
+                accessibilityHint="Opens the share sheet with your progress"
+                hitSlop={6}
+                style={styles.shareRow}
+                testID="progress-share"
+              >
+                <Feather name="share-2" size={14} color={colors.primary} />
+                <Text style={[styles.shareLabel, { color: colors.primary }]}>
+                  Share
+                </Text>
+              </Pressable>
+            </View>
             <SpeechBubble style={styles.bubble} testID="progress-bubble">
               {nearest ? (
                 <>
@@ -596,7 +634,10 @@ const styles = StyleSheet.create({
   headWords: { flex: 1, minWidth: 0 },
   headSide: { alignItems: 'flex-end', gap: 2 },
   h1: { fontFamily: AppFonts.extrabold, fontSize: 30 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
   langRow: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: 2 },
+  shareRow: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 2 },
+  shareLabel: { fontFamily: AppFonts.semibold, fontSize: 14 },
   sub: { fontFamily: AppFonts.semibold, fontSize: 15 },
   bubble: { marginTop: 14, marginRight: 4 },
   // ONE ROW OF FOUR (build 22, the mockup). Each cell is a column: a tinted

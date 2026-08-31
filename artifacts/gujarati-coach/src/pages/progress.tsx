@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   useGetProgressSummary,
   useListRecentAttempts,
@@ -12,6 +13,7 @@ import {
   Mic,
   MicOff,
   RotateCcw,
+  Share2,
   Star,
   Zap,
 } from "lucide-react";
@@ -33,6 +35,11 @@ import { SpeechBubble } from "@/components/speech-bubble";
 import { LanguagePicker } from "@/components/language-picker";
 import { CountUpNumber } from "@/components/count-up-number";
 import { findNearestLockedBadge } from "@/lib/badge-progress";
+import {
+  copyProgressMessage,
+  progressShareMessage,
+  shareProgress,
+} from "@/lib/progress-share";
 import { getJourneyLine } from "@/lib/journeyLines";
 import { useJourneyProgress } from "@/lib/useJourneyProgress";
 
@@ -77,6 +84,26 @@ export default function Progress() {
   const { data: badges } = useListBadges({ lang: activeLang });
   const line = getJourneyLine(activeLang);
   const journey = useJourneyProgress(activeLang, line.zones);
+
+  // SHARING THE STATS, NOT A BADGE (owner's ruling, build 26, option A): a
+  // stat line is postable on any day, a badge only on the rare day you earn
+  // one. The share sheet where the browser has one, the clipboard and a beat
+  // of "Copied" on the button everywhere else, exactly as the bazaar's Flex
+  // share does it. THE HOOK SITS ABOVE THE LOADING RETURNS on purpose.
+  const [shared, setShared] = useState<"copied" | null>(null);
+  const onShareProgress = async () => {
+    const message = progressShareMessage({
+      languageName: activeLanguage?.name,
+      phrasesMastered: summary?.phrasesMastered ?? 0,
+      streakDays: summary?.currentStreakDays ?? 0,
+    });
+    await shareProgress(message, async () => {
+      if (await copyProgressMessage(message)) {
+        setShared("copied");
+        window.setTimeout(() => setShared(null), 1800);
+      }
+    });
+  };
 
   if (loadingSummary || loadingAttempts) {
     return (
@@ -123,20 +150,34 @@ export default function Progress() {
               <div className="min-w-0 flex-1">
                 <h1 className="text-3xl font-extrabold text-foreground">Your progress</h1>
                 {/* The language line is the door to the picker (the mockup:
-                    "Hindi" with a chevron under the title). */}
-                <LanguagePicker
-                  trigger={
-                    <button
-                      type="button"
-                      className="mt-0.5 inline-flex items-center gap-1 text-[15px] font-semibold text-primary hover:opacity-80"
-                      aria-label={`Language: ${activeLanguage?.name ?? "loading"}`}
-                      data-testid="progress-language"
-                    >
-                      {activeLanguage?.name ?? "Loading..."}
-                      <ChevronDown className="h-4 w-4" />
-                    </button>
-                  }
-                />
+                    "Hindi" with a chevron under the title), and the share
+                    action sits beside it (build 26, the owner's option A).
+                    Both carry a word as well as a glyph. */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <LanguagePicker
+                    trigger={
+                      <button
+                        type="button"
+                        className="mt-0.5 inline-flex items-center gap-1 text-[15px] font-semibold text-primary hover:opacity-80"
+                        aria-label={`Language: ${activeLanguage?.name ?? "loading"}`}
+                        data-testid="progress-language"
+                      >
+                        {activeLanguage?.name ?? "Loading..."}
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={onShareProgress}
+                    className="mt-0.5 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:opacity-80"
+                    aria-label="Share your progress"
+                    data-testid="progress-share"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                    {shared === "copied" ? "Copied!" : "Share"}
+                  </button>
+                </div>
                 <SpeechBubble className="mr-1 mt-3.5" testId="progress-bubble">
                   {nearest ? (
                     <>
