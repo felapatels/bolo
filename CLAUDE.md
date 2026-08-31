@@ -153,6 +153,51 @@ say which set you ran and why. Typecheck always. Full suites only on request, or
 for the two exceptions: any migration change, and any change to tokenService, the
 token ledger, the RevenueCat or Stripe webhook paths, or entitlement resolution.
 
+## THE NEST IS PART OF DONE, NOT A SEPARATE PROJECT
+
+The owner's cockpit, owner-only, at `bolo-india.app/nest`. The server routes
+are `artifacts/api-server/src/routes/nest.ts`; the cockpit itself is ONE
+hand-written document, `artifacts/api-server/assets/nest-production.html`,
+vanilla JS, no framework and no build step, served off disk and shown in a
+sandboxed iframe by `gujarati-coach/src/pages/nest.tsx`. **`~/bolo-nest` is a
+stale separate copy. Ignore it.**
+
+**TWO PAGES since build 26**, the owner's instruction: **Dashboard** is what
+they act on or watch (Numbers, Alerts, the map, Flagged, Inbox, Spend,
+Surfaces); **Reference** is what they read (Analytics, Consoles, Library,
+Pitch, Traps, Commands). The split is declared on each `<section>` as
+`data-page`, never in a list in the script, because a list is a second place
+to forget.
+
+**THE RULE, AND IT BINDS EVERY BOLO SESSION INCLUDING FUTURE ONES.** The Nest
+goes stale silently: nothing links to it from the app, nobody visits it during
+a feature, and it is the one screen with no user to complain. So it is not
+"the Nest task", it is part of finishing whatever you were already doing:
+
+1. **Shipped something the owner would want to watch?** It needs a number on
+   Dashboard, and that number needs a **drill** (`DRILL_METRICS` in
+   `routes/nest.ts`, plus its tile). The owner's standing ask is that **every
+   stat drills down**; 11 metrics had a drill when this was written, and the
+   Numbers section shows more tiles than that.
+2. **Added a console, a service, a secret, a trap you paid for, or a command
+   worth pasting?** It goes on **Reference**. The Traps and Library sections
+   are where a future agent finds out what already bit somebody.
+3. **Added a section?** Give it a `data-page` and a chip in the section nav.
+   Both halves, or the test below fails.
+4. **Changed a route in `nest.ts`?** Add it to `EXPECTED_ROUTES`, which throws
+   at boot if a registration goes missing. A route was silently deleted by an
+   unrelated edit on 2026-08-26; that assertion is why it cannot happen twice.
+
+**`routes/nest.page.test.ts` enforces the structural half**: every section
+declares a page, the chip nav and the document agree in BOTH directions, both
+pages have content, and the page nav offers every page the sections use. It
+cannot check whether the WORDS are current. That part is on you.
+
+**What the Nest still is not:** read-only. Eleven GETs and one POST that sends
+an email. It has never written production application state, there is no
+runtime config, no settings table, and no audit trail. The first write action
+needs that substrate designed rather than a one-off button.
+
 ## Migrations
 
 `lib/db/drizzle/`, numbered sequentially, each with a matching entry in
