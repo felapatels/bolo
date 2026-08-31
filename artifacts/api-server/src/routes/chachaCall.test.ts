@@ -6,7 +6,34 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { CALL_BEATS, CALL_NOTHING_HEARD, JOURNEY_BEATS } from "../lib/chachaCallScript";
+import {
+  CALL_BEATS,
+  CALL_BEAT_IDS,
+  CALL_NOTHING_HEARD,
+  JOURNEY_BEATS,
+} from "../lib/chachaCallScript";
+
+/**
+ * EVERY CALL DRAWS ITS OWN LADDER, so no test may name the question it expects.
+ *
+ * Build 26 gave Chacha-ji an eighteen-question bag and a Fisher-Yates shuffle
+ * per call, which is the whole point of "calls that differ". It updated
+ * chachaCallScript.test.ts and left THIS file asserting the old fixed order —
+ * that the first question is khaana and the second is ghar. Those assertions
+ * were then a coin flip, and nobody saw it because the api suite cannot run on
+ * a laptop and had not been run since build 20. Build 27 found it on the way
+ * to a publish.
+ *
+ * What is still worth pinning is the SHAPE: a real question, and the call
+ * moving on to a different one. That is true of every draw.
+ */
+function assertIsQuestion(id: string, what: string): void {
+  assert.ok(
+    CALL_BEAT_IDS.includes(id),
+    `${what} is "${id}", which is not one of his questions`,
+  );
+  assert.ok(id !== "hello" && id !== "bye", `${what} should be a question, got ${id}`);
+}
 import { CHACHA_CALL_CHAI_MAX } from "../lib/tokenEconomy";
 
 // startCall() below opens a JOURNEY call, so every walk-the-whole-call loop
@@ -203,11 +230,13 @@ test("a live turn answers in his generated voice and moves the call on", async (
   const { status, json } = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
   assert.equal(status, 200);
   const beat = json.beat as never as { id: string; text: string; canned: boolean };
-  assert.equal(beat.id, "khaana");
+  assertIsQuestion(beat.id, "the beat just answered");
   assert.equal(beat.canned, false);
   assert.equal(beat.text, "Waah beta, bahut accha!");
   assert.equal(json.heard as never, "roti aur dal");
-  assert.equal((json.next as never as { id: string }).id, "ghar");
+  const next = json.next as never as { id: string };
+  assertIsQuestion(next.id, "the next beat");
+  assert.notEqual(next.id, beat.id, "the call has to move on, not repeat");
   assert.equal(json.over as never, false);
   assert.equal(json.format as never, "mp3");
 });
@@ -260,10 +289,14 @@ test("a model that fails falls back to the beat's own scripted line", async () =
   // INVERTED 2026-08-28: this asserted the beat's own HINDI string. The
   // fallback is that beat's line IN THE LEARNER'S LANGUAGE now, which is what
   // the dep returns, so asserting the script's text would re-assert the defect.
-  assert.equal((json.beat as never as { text: string }).text, "gu:khaana");
-  assert.equal((json.beat as never as { canned: boolean }).canned, true);
+  const fallback = json.beat as never as { id: string; text: string; canned: boolean };
+  assertIsQuestion(fallback.id, "the fallback beat");
+  // The fallback is THIS beat's line in the learner's language, whichever
+  // question the draw happened to deal.
+  assert.equal(fallback.text, `gu:${fallback.id}`);
+  assert.equal(fallback.canned, true);
   assert.ok(json.audioBase64, "he still has to say something out loud");
-  assert.ok(cannedCalls.includes("khaana"));
+  assert.ok(cannedCalls.includes(fallback.id));
 });
 
 test("a live turn that fails is logged loudly, never silently", async () => {
@@ -302,7 +335,7 @@ test("a learner who says nothing gets the gentle line, not a retry", async () =>
   assert.ok(cannedCalls.includes("nothingHeard"));
   assert.equal(json.heard as never, "");
   // The call still advances. Nobody is asked to try again.
-  assert.equal((json.next as never as { id: string }).id, "ghar");
+  assertIsQuestion((json.next as never as { id: string }).id, "the next beat");
 });
 
 test("no response anywhere carries a score", async () => {
@@ -693,8 +726,10 @@ test("every canned line the learner hears is in their own language", async () =>
   const callId = start.json.callId as unknown as string;
   liveError = new Error("gpt-audio is down");
   const turn = await post(`/openai/chacha-call/${callId}/turn`, { audioBase64: CLIP });
-  assert.equal((turn.json.beat as never as { text: string }).text, "gu:khaana");
-  assert.equal((turn.json.beat as never as { romanized: string }).romanized, "roman:khaana");
+  const drawn = turn.json.beat as never as { id: string; text: string; romanized: string };
+  assertIsQuestion(drawn.id, "the beat after hello");
+  assert.equal(drawn.text, `gu:${drawn.id}`);
+  assert.equal(drawn.romanized, `roman:${drawn.id}`);
 
   const end = await post(`/openai/chacha-call/${callId}/end`);
   assert.equal(end.json.text as never, "gu:bye");
@@ -776,7 +811,7 @@ test("a turn already taken is returned without waiting", async () => {
   assert.ok(Date.now() - t0 < 500, "it waited for something already there");
   assert.equal(json!.text as never, "Waah beta, bahut accha!");
   assert.equal(json!.heard as never, "roti aur dal");
-  assert.equal((json!.next as never as { id: string }).id, "ghar");
+  assertIsQuestion((json!.next as never as { id: string }).id, "the next beat");
 });
 
 test("the caption carries both lines", async () => {
