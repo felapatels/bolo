@@ -45,7 +45,6 @@ import Svg, {
   Path,
   Rect,
   Stop as GradStop,
-  Text as SvgText,
 } from 'react-native-svg';
 import Animated, {
   Easing,
@@ -164,6 +163,8 @@ import {
   SceneryElement,
   ZoneVista,
   SCENERY_GRAY,
+  SCENERY_HALF_W,
+  SCENERY_MAX_H,
   SCENERY_PLACEMENT,
   STALL_PLACEMENT,
   planChachaStalls,
@@ -348,6 +349,14 @@ const RAIL_PULSE = {
   dotRadius: 4,
 } as const;
 const RAIL_PULSE_CYCLE_MS = 3400;
+
+// Slack around a scenery object's own declared extents when it is given its
+// own Svg canvas (build 26). Small on purpose: the canvas IS the cost on
+// Android, so the padding only has to absorb a stroke's half width and the
+// ground shadow, not guess at the art.
+const SCENERY_SVG_PAD = 4;
+/** Room under the ground line for the shadow the assets pool beneath them. */
+const SCENERY_SVG_BELOW = 10;
 
 // 2.5D depth pass tuning (web Task 985, DEPTH_2_5D in lib/motion.tsx): the
 // scenery layer's scroll parallax factor and the rail-bed underlay offset.
@@ -2832,94 +2841,57 @@ export default function JourneyScreen() {
                 (sp) => sp.y >= start && sp.y < end && sp.kind !== 'chaiStall',
               );
               if (local.length === 0) return null;
-              return (
-                <Svg
-                  pointerEvents="none"
-                  style={{ position: 'absolute', left: 0, top: layerTop }}
-                  width={mapW}
-                  height={end - start}
-                  viewBox={`0 ${start} ${mapW} ${end - start}`}
-                >
-                  {local.map((sp) => (
-                    <G key={sp.key}>
-                      {/* Chacha-ji's plate. ONLY his: the rest of the scenery
-                          is meant to sit back into the painting, and he is the
-                          one piece a learner has to be able to find.
-                          A BOX NOW, NOT ELLIPSES (chat 11): "Add a box behind
-                          chachaji so we can see him. just like the words below
-                          him has." Same fill, same rounding, same opacity as
-                          his nameplate below, so the stall and its label read
-                          as one signpost. Sized to the stall's own 36x49
-                          footprint plus a margin. */}
-                      {sp.kind === 'chaiStall' && (
-                        <Rect
-                          x={sp.x - 33}
-                          y={sp.y - 54}
-                          width={66}
-                          height={62}
-                          rx={6}
-                          fill={MAP_GLYPH_PLATE_FILL}
-                          opacity={sp.gray ? 0.55 : 0.85}
-                        />
-                      )}
-                      {/* HIS NAMEPLATE, WHICH MOBILE HAS NEVER HAD. Web has
-                          labelled the stall since it stopped being anonymous
-                          scenery, and the phone left the one recurring
-                          character on the map unnamed: a learner had no way to
-                          know the stall between stops is the same stall, or
-                          whose it is. Same plate-then-ink treatment web uses,
-                          because the label hangs BELOW the glyph plate and
-                          would otherwise sit on the painting with nothing
-                          behind it. */}
-                      {sp.kind === 'chaiStall' && (
-                        <>
-                          <Rect
-                            x={sp.x - 30}
-                            y={sp.y + 10}
-                            width={60}
-                            height={20}
-                            rx={5}
-                            fill={MAP_GLYPH_PLATE_FILL}
-                            opacity={sp.gray ? 0.55 : 0.85}
-                          />
-                          <SvgText
-                            testID={`${sp.testID}-label`}
-                            x={sp.x}
-                            y={sp.y + 17}
-                            textAnchor="middle"
-                            fontSize={7}
-                            fontWeight="700"
-                            fill={TICKET.ink}
-                            opacity={sp.gray ? 0.5 : 1}
-                          >
-                            Chacha-ji&#8217;s
-                          </SvgText>
-                          <SvgText
-                            x={sp.x}
-                            y={sp.y + 25}
-                            textAnchor="middle"
-                            fontSize={6}
-                            fontWeight="800"
-                            letterSpacing={0.6}
-                            fill={TICKET.inkMuted}
-                            opacity={sp.gray ? 0.5 : 1}
-                          >
-                            CHAI HALT
-                          </SvgText>
-                        </>
-                      )}
-                      <SceneryElement
-                        kind={sp.kind}
-                        x={sp.x}
-                        y={sp.y}
-                        accent={line.accent}
-                        gray={sp.gray}
-                        testID={sp.testID}
-                      />
-                    </G>
-                  ))}
-                </Svg>
-              );
+              // ONE SMALL SVG PER OBJECT, NOT ONE SPANNING THE ZONE (build 26).
+              //
+              // This was a single <Svg> the height of the whole zone carrying
+              // one to three little drawings of about thirty nodes each. On
+              // Android react-native-svg rasterises every <Svg> root into a
+              // full-size ARGB_8888 bitmap (SvgView.drawOutput), so that was
+              // 1072x6562px, about 28MB, per zone, held for the life of the
+              // screen: roughly 170MB of mostly transparent pixels across six
+              // zones. Each object now gets a canvas the size of its own art,
+              // about 50x54, which is four orders of magnitude less.
+              //
+              // IT ALSO MAKES THE GREY FADE FREE. SceneryElement wraps itself
+              // in <G opacity>, and a group at any opacity other than exactly 1
+              // allocates ANOTHER bitmap the size of the PARENT CANVAS rather
+              // than of the group (GroupView.saveLayer). That was 28MB per
+              // greyed item; against these canvases it is nothing, which is why
+              // the 0.45 an unreached zone needs could stay.
+              //
+              // THE PATTERN IS THE STALL'S, a few hundred lines down, which has
+              // drawn itself into its own 92x178 box since build 22. That was
+              // done for a TOUCH reason and the same insight was never applied
+              // to paint. Sizes come from the art's own declared extents so a
+              // redrawn asset cannot outgrow its box quietly.
+              const above = SCENERY_MAX_H + SCENERY_SVG_PAD;
+              const boxH = above + SCENERY_SVG_BELOW;
+              return local.map((sp) => {
+                const halfW = SCENERY_HALF_W[sp.kind] + SCENERY_SVG_PAD;
+                return (
+                  <Svg
+                    key={sp.key}
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      left: sp.x - halfW,
+                      top: layerTop + (sp.y - start) - above,
+                    }}
+                    width={halfW * 2}
+                    height={boxH}
+                    viewBox={`${sp.x - halfW} ${sp.y - above} ${halfW * 2} ${boxH}`}
+                  >
+                    <SceneryElement
+                      kind={sp.kind}
+                      x={sp.x}
+                      y={sp.y}
+                      accent={line.accent}
+                      gray={sp.gray}
+                      testID={sp.testID}
+                    />
+                  </Svg>
+                );
+              });
               })()}
             </Animated.View>
             <Svg
