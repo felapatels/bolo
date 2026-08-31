@@ -408,7 +408,10 @@ test("the service prices the item itself — no caller can pass the wrong price"
   // more than the accessory costs and well under a garment — an overcharge
   // does not just book the wrong number, it refuses the sale outright.
   const before = await balanceOf(DIRECT_USER_ID);
-  assert.ok(before < OUTFIT_PRICE);
+  // That trap only springs while there IS a dearer garment price to overcharge
+  // at. With an accessory-only rack the tin is not short of anything, and the
+  // debit assertions below carry the test on their own.
+  if (GARMENT) assert.ok(before < OUTFIT_PRICE);
   const { state, charged } = await buyOutfit(DIRECT_USER_ID, ACCESSORY.id);
   assert.equal(charged, true);
   assert.equal(state.balance, before - ACCESSORY_COST);
