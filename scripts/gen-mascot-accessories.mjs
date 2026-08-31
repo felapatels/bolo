@@ -65,6 +65,11 @@ const NUDGE_X = Object.fromEntries(
   WARDROBE.items.filter((i) => i.recipe?.nudgeX).map((i) => [i.id, i.recipe.nudgeX]),
 );
 
+/** How far above the eye-clearance seat a hat rides, as a fraction of the
+ *  distance between her eyes. One number for every hat and every pose,
+ *  because it scales with her head rather than with the canvas. */
+const SEAT_RISE = 0.05;
+
 const CANON_DIR = "artifacts/gujarati-coach/public/mascot";
 const WEB_OUT = "artifacts/gujarati-coach/public/mascot/outfits";
 const MOBILE_OUT = "artifacts/bolo-mobile/assets/images/mascot/outfits";
@@ -127,7 +132,37 @@ function eyes(pose, tmp) {
   return {
     top: Math.min(l.y, r.y),
     roll: (Math.atan2(r.cy - l.cy, r.cx - l.cx) * 180) / Math.PI,
+    // THE HEAD'S OWN ANCHOR. The two eyes give a midpoint that follows her as
+    // she turns and a span that scales with how big her head is drawn in this
+    // pose. Both were computed here and thrown away until build 26, which is
+    // why every hat needed hand-tuned nudges: the seating used the reference
+    // BOX, which does not turn with her.
+    midX: (l.cx + r.cx) / 2,
+    midY: (l.cy + r.cy) / 2,
+    span: Math.hypot(r.cx - l.cx, r.cy - l.cy),
   };
+}
+
+/**
+ * Where the hat's BRIM is centred, in the accessory's own pixels.
+ *
+ * NOT THE BOUNDING BOX, and this is the whole reason hats sat off-centre. A
+ * plume, a tassel or a peak sticks out to one side, which drags the bounding
+ * box's midpoint with it: this pagdi's feather leans right, so centring the box
+ * put the TURBAN left of her head every time, and every pose needed a nudge to
+ * push it back. The bottom band is the part that actually rests on her head and
+ * nothing decorative reaches it, so its midpoint is the hat's true centre.
+ */
+function brimCenterX(path) {
+  const box = layerBox(path, "brim");
+  const bandH = Math.max(2, Math.round(box.h * 0.12));
+  const out = magick([path, "-crop",
+    `${box.w}x${bandH}+${box.left}+${box.bottom - bandH + 1}`, "+repage",
+    "-alpha", "extract", "-threshold", "50%", "-format", "%@", "info:"]);
+  const m = out.match(/(\d+)x(\d+)\+(\d+)\+(\d+)/);
+  if (!m) return box.left + box.w / 2;
+  const [, bw, , bx] = m.map(Number);
+  return box.left + bx + bw / 2;
 }
 
 /**
@@ -215,8 +250,15 @@ function buildPose(id, pose, tmp, { install, fudge, margin }) {
   // plume runs off the top of the frame, and this source still has the whole
   // feather, so what leaves the frame reads as a feather continuing past the
   // edge rather than a sawn-off stump.
+  // SEATED ON HER EYES, NOT ON THE REFERENCE BOX (build 26). The owner:
+  // "can't you map a triangle from the two eyes to the circle in the middle of
+  // the pagdi. or another solution that won't require this every time we create
+  // a hat?" This is that: the brim's midpoint lands on the midpoint between her
+  // eyes, so the hat follows her head as she turns and a new hat needs no
+  // per-pose tuning at all. nudgeX survives as an override for art that is
+  // deliberately worn at an angle, and is now empty for every item.
   const nudge = NUDGE_X[id]?.[pose] ?? 0;
-  const x = Math.round(ref.left + ref.w / 2 - sw / 2) + nudge;
+  const x = Math.round(eye.midX - brimCenterX(p("scaled"))) + nudge;
   const baseY = ref.bottom - sh + 1;
   let lift = 0;
   let overlay = null;
@@ -227,6 +269,14 @@ function buildPose(id, pose, tmp, { install, fudge, margin }) {
     over = eyeOverlap(p("overlay"), mask);
     if (over === 0) break;
   }
+  // SIT IT ON HER HEAD, NOT AT HER EYEBROWS. The loop above stops the instant
+  // the eyes are clear, which is the lowest legal seat rather than the right
+  // one, and the owner read it as the hat riding low. A rise proportional to
+  // the eye span scales with her head instead of being a pixel count that only
+  // suits one pose.
+  lift += Math.round(SEAT_RISE * eye.span);
+  magick(["-size", `${w}x${h}`, "xc:none", p("scaled"),
+    "-geometry", `+${x}+${baseY - lift}`, "-composite", p("overlay")]);
   overlay = p("overlay");
   magick([canon, overlay, "-composite", p("worn")]);
 
