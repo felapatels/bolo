@@ -157,12 +157,31 @@ const HELLO: CallBeat = {
   english: "Hey beta! It's Chacha-ji calling. How are you?",
 };
 
-/** And closes the same way, when there is a close. */
+/**
+ * And closes, when there is a close.
+ *
+ * LIVE SINCE BUILD 26, and it used to be canned. The owner asked twice for
+ * calls that differ and tailor, and the goodbye was the one beat guaranteed to
+ * be identical in every call a learner ever took: they could tell him anything
+ * at all on the last turn and he would answer with the same recorded sentence.
+ *
+ * THE COLD START ARGUMENT DOES NOT REACH THIS BEAT. The opening is canned
+ * because the FIRST live turn must not also be the connection's first request
+ * (measured 2026-08-28: about 1.9 s cold against about 1.0 s warm). By the
+ * goodbye the connection has been warm for several turns, so this costs one
+ * ordinary turn and buys a farewell that can mention what the call was about.
+ *
+ * The line below is still its fallback and is still pre-synthesized, so a
+ * refusal or a timeout on the last beat ends the call in his voice rather than
+ * in silence.
+ */
 const BYE: CallBeat = {
   id: "bye",
-  mode: "canned",
+  mode: "live",
   text: "Chalo beta, phir baat karenge. Apna khayal rakhna.",
   english: "Alright beta, we'll talk again. Take care of yourself.",
+  agenda:
+    "React warmly to whatever they just said, then say goodbye and hang up. If anything they told you in this call is worth mentioning once more, mention it. Do not ask another question, and do not tell them how they did.",
 };
 
 /**
@@ -265,6 +284,85 @@ const QUESTIONS: CallBeat[] = [
     agenda:
       "React warmly to whatever they just said, then ask what they will do tomorrow. Accept a very short answer happily.",
   },
+  /**
+   * EIGHT MORE, WRITTEN BUILD 26, AND THIS TIME NOT BECAUSE THE LIST RAN OUT.
+   * Ten questions were enough to fill any single call without repeating; what
+   * they could not do was make two calls DIFFERENT, because every call walked
+   * the same list from the top. The owner asked twice for calls that differ
+   * and tailor. drawCallQuestions below is the answer, and a draw is only as
+   * varied as the bag it draws from: with ten questions a five question
+   * journey call was over half the pool every time.
+   *
+   * SAME RULES AS THE FIRST TEN, and they are not negotiable. Domestic and
+   * small; answerable by a learner a few stops in; answerable in ONE WORD if
+   * that is all they have. Nothing needs a tense they have not met, and
+   * nothing asks them to explain a reason, which is the first thing that goes
+   * when a beginner is trying to keep up.
+   */
+  {
+    id: "rang",
+    mode: "live",
+    text: "Achha! Tumhaara pasandeeda rang kaun sa hai?",
+    english: "I see! What is your favourite colour?",
+    agenda:
+      "React warmly to whatever they just said, then ask what their favourite colour is. One word is a complete answer.",
+  },
+  {
+    id: "subah",
+    mode: "live",
+    text: "Waah. Subah kya khaya tumne?",
+    english: "Lovely. What did you have this morning?",
+    agenda:
+      "React warmly to whatever they just said, then ask what they had for breakfast. Be delighted whatever it is.",
+  },
+  {
+    id: "khel",
+    mode: "live",
+    text: "Bahut accha. Koi khel pasand hai tumhe?",
+    english: "Very good. Is there a game you like?",
+    agenda:
+      "React warmly to whatever they just said, then ask whether they like any game or sport. Do not quiz them on it.",
+  },
+  {
+    id: "jaanwar",
+    mode: "live",
+    text: "Achha! Ghar pe koi jaanwar hai?",
+    english: "I see! Is there an animal at home?",
+    agenda:
+      "React warmly to whatever they just said, then ask whether they have a pet or an animal they like. If they say no, be cheerful about it and move on.",
+  },
+  {
+    id: "tyohaar",
+    mode: "live",
+    text: "Waah! Tumhe kaun sa tyohaar pasand hai?",
+    english: "Lovely! Which festival do you like?",
+    agenda:
+      "React warmly to whatever they just said, then ask which festival they like best. Never test them on when it falls.",
+  },
+  {
+    id: "neend",
+    mode: "live",
+    text: "Achha. Raat ko acchi neend aayi?",
+    english: "I see. Did you sleep well last night?",
+    agenda:
+      "React warmly to whatever they just said, then ask whether they slept well. A yes or a no is a complete answer.",
+  },
+  {
+    id: "kaun",
+    mode: "live",
+    text: "Bahut accha. Yeh bhasha kisse bologe?",
+    english: "Very good. Who will you speak this language with?",
+    agenda:
+      "React warmly to whatever they just said, then ask who they want to speak this language with. If they name a relative, be delighted by that person.",
+  },
+  {
+    id: "jagah",
+    mode: "live",
+    text: "Achha! Tum abhi kahaan ho?",
+    english: "I see! Where are you right now?",
+    agenda:
+      "React warmly to whatever they just said, then ask where they are right now, at home or outside. Never ask for an address or anything more exact.",
+  },
 ];
 
 /** How many questions the JOURNEY call asks, counting his hello. */
@@ -333,43 +431,87 @@ export const GAME_BEATS: readonly CallBeat[] = [
   // MINUS ONE BECAUSE HIS HELLO CARRIES THE FIRST QUESTION, exactly as
   // JOURNEY_BEATS does a few lines up. Without it the game ran to eleven
   // learner turns while GAME_MAX_TURNS, the /start response and the owner's
-  // "change max turns to 10" all said ten. Ten questions are written; the game
-  // asks nine of them after the hello and still never repeats one.
+  // "change max turns to 10" all said ten.
   ...QUESTIONS.slice(0, GAME_QUESTIONS - 1),
   BYE,
 ] as const;
 
+/** How many of QUESTIONS a call of this mode asks after his hello. */
+export function questionsFor(mode: CallMode): number {
+  return (mode === "journey" ? JOURNEY_QUESTIONS : GAME_QUESTIONS) - 1;
+}
+
 /**
- * The beat at an index.
+ * THE LADDER FOR ONE CALL, DRAWN RATHER THAN READ OFF THE TOP OF THE LIST.
  *
- * The JOURNEY call runs out of beats, which is what ends it. The GAME call
- * never does: past the opening it cycles the questions forever, so it ends only
- * when the learner hangs up. Cycling rather than repeating one question keeps a
- * long game from becoming an interrogation about lunch.
+ * The owner, twice: the calls should differ and should tailor. They did not.
+ * Every call walked QUESTIONS from index 0, so the second call a learner ever
+ * took asked them what they ate, who was home and how the stall was, in that
+ * order, exactly as the first had. The pool grew to eighteen in build 26 and
+ * the walk stayed the same, which would have changed nothing on its own.
+ *
+ * A DRAW WITHOUT REPLACEMENT, so one call still never repeats a question. That
+ * property came from the explicit list and must survive the shuffle: repeating
+ * inside a call is the bug ("i feel like i did 10 turns and it repeated some
+ * lines") that the list was written to fix.
+ *
+ * HELLO AND BYE ARE NOT IN THE BAG. They are the call's shape rather than its
+ * content, and a call that opened on a different sentence each time would stop
+ * sounding like the same man ringing.
+ *
+ * `random` is injected for the same reason the backdrop's is: a drawn call is
+ * untestable otherwise, and the tests seed it to walk a known ladder.
  */
-export function beatAt(mode: CallMode, index: number): CallBeat | undefined {
+export function drawCallBeats(
+  mode: CallMode,
+  random: () => number = Math.random,
+): readonly CallBeat[] {
+  const bag = [...QUESTIONS];
+  // Fisher-Yates, so every ordering is equally likely. A sort() with a random
+  // comparator is the tempting one-liner and it is biased.
+  for (let i = bag.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [bag[i], bag[j]] = [bag[j]!, bag[i]!];
+  }
+  return [HELLO, ...bag.slice(0, questionsFor(mode)), BYE];
+}
+
+/**
+ * The beat at an index, within one call's own drawn ladder.
+ *
+ * TAKES THE BEATS, NOT THE MODE, SINCE BUILD 26. It used to look the sequence
+ * up from the mode, which was only possible while every call of a mode ran the
+ * same questions in the same order. Each call now carries its own draw on its
+ * session, and this walks that.
+ *
+ * Both modes run out of beats, which is what ends a call.
+ */
+export function beatAt(
+  beats: readonly CallBeat[],
+  index: number,
+): CallBeat | undefined {
   if (index < 0) return undefined;
-  return (mode === "journey" ? JOURNEY_BEATS : GAME_BEATS)[index];
+  return beats[index];
 }
 
 /** The index of the farewell, after which there is nothing. */
-function lastIndex(mode: CallMode): number {
-  return (mode === "journey" ? JOURNEY_BEATS : GAME_BEATS).length - 1;
+function lastIndex(beats: readonly CallBeat[]): number {
+  return beats.length - 1;
 }
 
 /** True when this index is the beat the call ends on. */
-export function isFinalBeat(mode: CallMode, index: number): boolean {
-  return index === lastIndex(mode);
+export function isFinalBeat(beats: readonly CallBeat[], index: number): boolean {
+  return index === lastIndex(beats);
 }
 
 /** True once the call has run out of beats. */
-export function callHasRunOut(mode: CallMode, index: number): boolean {
-  return index > lastIndex(mode);
+export function callHasRunOut(beats: readonly CallBeat[], index: number): boolean {
+  return index > lastIndex(beats);
 }
 
 /** How many times the learner speaks before he says goodbye. */
-export function learnerTurnsFor(mode: CallMode): number {
-  return lastIndex(mode);
+export function learnerTurnsFor(beats: readonly CallBeat[]): number {
+  return lastIndex(beats);
 }
 
 /** Ordered ids of every beat that can appear, for prewarm and for tests. */
@@ -469,6 +611,8 @@ You are on a phone call, not in a lesson.
 You are DELIGHTED by anything the learner says, however small, however wrong, in whatever language it comes out. You never correct them. You never score them. You never grade them or tell them how they did. If they manage only one word, that word is wonderful.
 
 If they say almost nothing, carry the call yourself and move on cheerfully. Never ask them to repeat themselves.
+
+IF THEY GIVE YOU SOMETHING OF THEIR OWN, TAKE IT UP. When they mention a person, a place, a food, a plan, anything that is theirs, be delighted by that first and ask them one small thing about it. Your instruction below is where to go when they have handed you nothing to follow; it is not a script to read over them. An uncle who asks his next question while you are still telling him about your dog is not listening, and you are listening.
 
 Speak the way you speak at the stall, warm and unhurried, but SPEAK THE LEARNER'S OWN LANGUAGE, named below. Simple, everyday words a beginner has a chance of catching. Keep every turn to ONE OR TWO SHORT SENTENCES. You are on the telephone and they are waiting for you.
 

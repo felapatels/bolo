@@ -356,7 +356,7 @@ export function createChachaCallRouter(
         // How many times the learner will be asked to speak. Known before the
         // call starts, which is the point of a semi-scripted agenda: five for
         // the journey's interruption, twenty for the chosen game.
-        learnerTurns: learnerTurnsFor(mode),
+        learnerTurns: learnerTurnsFor(session.beats),
         // The clip that loops behind him for this call and no other. Fixed at
         // creation; a client that reconnects gets the same one back off every
         // turn rather than picking again and changing cars mid-sentence.
@@ -414,7 +414,7 @@ export function createChachaCallRouter(
       // detectAudioFormat reads the magic bytes instead.
       const claimedFormat = body.format === "mp3" ? "mp3" : "wav";
 
-      const beat = beatAt(session.mode, session.beatIndex);
+      const beat = beatAt(session.beats, session.beatIndex);
       if (!beat) {
         res.status(409).json({ error: "Call is already over" });
         return;
@@ -687,7 +687,7 @@ export function createChachaCallRouter(
 
       if (stream) return; // The 202 already went out.
 
-      const next = beatAt(session.mode, session.beatIndex);
+      const next = beatAt(session.beats, session.beatIndex);
 
       res.json({
         chaiEarned,
@@ -704,7 +704,7 @@ export function createChachaCallRouter(
           romanized: romanizedOut,
           english: canned ? fallbackEnglish : null,
           canned,
-          isFinal: isFinalBeat(session.mode, session.beatIndex - 1),
+          isFinal: isFinalBeat(session.beats, session.beatIndex - 1),
         },
         heard: learnerText,
         heardRomanized: learnerRomanized === learnerText ? null : learnerRomanized,
@@ -762,7 +762,7 @@ export function createChachaCallRouter(
         return;
       }
 
-      const next = beatAt(session.mode, session.beatIndex);
+      const next = beatAt(session.beats, session.beatIndex);
       res.json({
         index,
         text: turn.chacha,

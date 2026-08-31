@@ -1,8 +1,10 @@
 import { randomBytes } from "node:crypto";
 import {
   callHasRunOut,
+  drawCallBeats,
   pickBackdrop,
   type CallBackdrop,
+  type CallBeat,
   type CallMode,
 } from "./chachaCallScript";
 
@@ -104,7 +106,17 @@ export interface CallSession {
    * fix sttLanguage.ts was written for after Hindi came back as Hungarian.
    */
   languageNativeName: string;
-  /** Index into CALL_BEATS of the beat that runs NEXT. */
+  /**
+   * THIS CALL'S OWN LADDER, drawn at creation and never redrawn.
+   *
+   * Build 26: the questions are drawn per call rather than read off the top of
+   * QUESTIONS, so two calls differ. Fixed here for the same reason the backdrop
+   * and the language are: a later request that redrew would change the subject
+   * between one turn and the next, and the learner would hear him ask about
+   * dinner and then answer about the weather.
+   */
+  beats: readonly CallBeat[];
+  /** Index into this session's own `beats` of the beat that runs NEXT. */
   beatIndex: number;
   turns: CallTurn[];
   outcome: CallOutcome;
@@ -160,6 +172,8 @@ export function createCallSession(
     id: randomBytes(16).toString("hex"),
     userId,
     backdrop: pickBackdrop(random),
+    // Drawn once, here, so this call's questions are its own. See drawCallBeats.
+    beats: drawCallBeats(mode, random),
     mode,
     languageCode,
     languageName,
@@ -230,7 +244,7 @@ export function waitForCallTurn(
 
 /** True once every beat has run. */
 export function callIsOver(s: CallSession): boolean {
-  return callHasRunOut(s.mode, s.beatIndex);
+  return callHasRunOut(s.beats, s.beatIndex);
 }
 
 /**
