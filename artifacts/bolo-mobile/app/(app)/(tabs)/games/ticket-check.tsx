@@ -17,8 +17,14 @@
 //   - the game NEVER persists anything: it reports each round through
 //     api.submitRound and the shell owns the single end-of-run POST.
 
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  PanResponder,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutRectangle,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { Phrase } from '@workspace/api-client-react';
@@ -31,6 +37,20 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { hapticNotify } from '@/lib/haptics';
 import { quickGameById } from '@/lib/quick-games';
+import { pickTargetByStroke, type GesturePoint } from '@/lib/gestureAnswer';
+
+/**
+ * How far a finger has to travel before it stops being a tap and becomes a
+ * slash.
+ *
+ * THE TAP IS NOT REPLACED, IT IS UNDERNEATH. The house rule Wrong Platform
+ * established: a target reachable only by a gesture is not reachable by a
+ * screen reader at all. The grid only claims the gesture once the finger has
+ * MOVED, so a plain tap never reaches this code and goes to the ticket's own
+ * Pressable exactly as it always did. It also means that if the slash geometry
+ * is wrong on some screen, the game still plays.
+ */
+const SLASH_SLOP = 6;
 
 const ROUNDS = 8;
 const CHOICES = 4;
@@ -120,6 +140,70 @@ function TicketCheckRound({ phrases, api, activeLanguage }: QuickRoundProps) {
     );
   };
 
+  // PUNCHING THE TICKET, which is what an inspector does and what this game
+  // has said in its own header since it shipped: "the learner punches the
+  // matching native-script ticket". It was a tap. It is a stroke across the
+  // ticket now (the owner's ruling, 2026-08-31: stop building "select an
+  // answer from the following"). The question, the plan and what goes to the
+  // server are all unchanged; only the hand movement is different.
+  //
+  // PanResponder AND useNativeDriver-free styling, deliberately, following
+  // Wrong Platform rather than Script Trace: the native animation driver is
+  // dead in this app's release builds, so nothing on an answer path may
+  // depend on it.
+  const handlePickRef = useRef(handlePick);
+  handlePickRef.current = handlePick;
+  const answeredRef = useRef(answered);
+  answeredRef.current = answered;
+
+  const gridRef = useRef<View | null>(null);
+  const gridOrigin = useRef({ x: 0, y: 0 });
+  const cardRects = useRef<(LayoutRectangle | null)[]>([]);
+  const stroke = useRef<GesturePoint[]>([]);
+  const [slashing, setSlashing] = useState<number | null>(null);
+
+  /** Page coordinates into the grid's own space, where the cards were laid out. */
+  const toGrid = (pageX: number, pageY: number): GesturePoint => ({
+    x: pageX - gridOrigin.current.x,
+    y: pageY - gridOrigin.current.y,
+  });
+
+  const targets = () =>
+    cardRects.current
+      .map((rect, id) => (rect ? { id, rect } : null))
+      .filter((t): t is { id: number; rect: LayoutRectangle } => t !== null);
+
+  const responder = useRef(
+    PanResponder.create({
+      // Never on touch-down. A tap has to fall through to the ticket itself.
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_e, g) =>
+        !answeredRef.current &&
+        (Math.abs(g.dx) > SLASH_SLOP || Math.abs(g.dy) > SLASH_SLOP),
+      onPanResponderGrant: (e) => {
+        stroke.current = [
+          toGrid(e.nativeEvent.pageX, e.nativeEvent.pageY),
+        ];
+      },
+      onPanResponderMove: (e) => {
+        stroke.current.push(toGrid(e.nativeEvent.pageX, e.nativeEvent.pageY));
+        setSlashing(pickTargetByStroke(stroke.current, targets(), 'slash'));
+      },
+      onPanResponderRelease: () => {
+        const hit = pickTargetByStroke(stroke.current, targets(), 'slash');
+        stroke.current = [];
+        setSlashing(null);
+        // Null is a normal outcome: they drew across empty space and have not
+        // answered. Let them draw again rather than marking anything.
+        if (hit !== null) handlePickRef.current(hit);
+      },
+      onPanResponderTerminate: () => {
+        stroke.current = [];
+        setSlashing(null);
+      },
+    }),
+  ).current;
+
   return (
     <View style={styles.wrap}>
       {/* The ticket being checked. */}
@@ -136,25 +220,52 @@ function TicketCheckRound({ phrases, api, activeLanguage }: QuickRoundProps) {
             recognise. It lives under the script on the answers instead. */}
       </View>
 
-      <View style={styles.grid}>
+      <View
+        ref={gridRef}
+        style={styles.grid}
+        onLayout={() =>
+          gridRef.current?.measureInWindow((x, y) => {
+            gridOrigin.current = { x, y };
+          })
+        }
+        {...responder.panHandlers}
+      >
         {q.choices.map((choice, idx) => {
           const isCorrect = answered && idx === q.correctIdx;
           const isWrong = answered && !wasCorrect && idx === picked;
+          const underSlash = !answered && slashing === idx;
           return (
             <PressableScale
               key={choice.id}
               testID={`ticket-choice-${idx}`}
               onPress={() => handlePick(idx)}
+              onLayout={(e) => {
+                cardRects.current[idx] = e.nativeEvent.layout;
+              }}
               disabled={answered}
               style={[
                 styles.choice,
                 {
                   backgroundColor: colors.card,
+                  // THE SLASH IS SHOWN BY THE TICKET, NOT BY A TRAIL OVER IT.
+                  // An Svg overlay would be the obvious way to draw the line
+                  // the finger makes, and an Svg spanning tappable UI eats
+                  // every touch beneath it even with pointerEvents none: that
+                  // is a proven trap in this codebase, and it killed every
+                  // stop-card tap on the journey once. Wrong Platform's
+                  // highlight-the-target-under-the-finger is the shape that
+                  // already works here.
                   borderColor: isCorrect
                     ? '#10B981'
                     : isWrong
                       ? '#EF4444'
-                      : colors.border,
+                      : underSlash
+                        ? '#D97706'
+                        : colors.border,
+                  // 1.5 is the resting width in styles.choice; only the ticket
+                  // under the finger thickens, so the cue is weight AND colour
+                  // rather than colour alone.
+                  borderWidth: underSlash ? 3 : 1.5,
                 },
               ]}
             >
@@ -240,7 +351,11 @@ export default function TicketCheckScreen() {
       // control over silence. This landed after the port did — usesAudio
       // defaults to true, so the first game on the shell never opted out.
       usesAudio={false}
-      instruction="Punch the ticket that matches the script"
+      // "Swipe across" rather than "slash", because the word has to teach the
+      // gesture to somebody who has only ever tapped. Tapping still works and
+      // is deliberately not advertised: naming both would read as a choice to
+      // be made rather than an instruction to follow.
+      instruction="Swipe across the ticket that matches the script"
       renderRound={(props) => <TicketCheckRound {...props} />}
     />
   );
