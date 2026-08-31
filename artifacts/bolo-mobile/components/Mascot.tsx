@@ -49,6 +49,16 @@ export type MascotPose =
 export type MascotMotion = 'none' | 'float' | 'bounce' | 'sway' | 'working';
 
 /** How small Bolo gets while he is working. */
+/**
+ * The sprite canvas. 1024 WIDE BY 1200 TALL since build 26; it was 1024 square.
+ * The extra 176 is sky above her head, so a plume, a pennant or a tassel has
+ * somewhere to go. Declared here rather than inferred from the asset, because
+ * every generated overlay is cut to this exact frame and a mismatch would show
+ * as the accessory sliding off her head.
+ */
+export const MASCOT_SPRITE_W = 1024;
+export const MASCOT_SPRITE_H = 1200;
+
 const WORKING_SCALE = 0.45;
 
 // Pose art (canonical and dressed) resolves in lib/mascotOutfits.ts, so every
@@ -353,10 +363,36 @@ export function Mascot({
       : undefined;
 
   const overlay = accessoryOverlaySource(pose, wornAccessory);
+
+  /**
+   * THE SPRITE IS TALLER THAN IT IS WIDE SINCE BUILD 26, and `size` still means
+   * the bird.
+   *
+   * The canvas was 1024 square and she filled almost all of it: between 36 and
+   * 96 pixels of sky above her head, depending on the pose. A peacock feather
+   * needs about 113 more than that, which is why every pagdi ever generated
+   * came back with its plume sawn off and why the last attempt was heading for
+   * a 28% shrink to make it fit. The canvas is 1024x1200 now, and the extra 176
+   * is all sky above her.
+   *
+   * NOTHING ABOUT THE LAYOUT CHANGES, and that is the point of doing it here
+   * rather than at the call sites. `size` is still the width, the box is still
+   * `size` tall, and the bird still lands exactly where she landed before. The
+   * image is drawn taller and pulled UP by the difference, so the new sky hangs
+   * above the box and a plume draws into it. 128 call sites pass a `size` and
+   * not one of them had to move.
+   *
+   * The cost is that a tall accessory now draws OUTSIDE the box, so an ancestor
+   * with overflow hidden would clip it. Nothing on her paths does today.
+   */
+  const spriteH = size * (MASCOT_SPRITE_H / MASCOT_SPRITE_W);
+  const sky = spriteH - size;
+  const spriteBox = { width: size, height: spriteH, marginTop: -sky } as const;
+
   const base = (
     <Image
       source={mascotSource(pose, wornOutfit)}
-      style={[{ width: size, height: size }, styles.img, style]}
+      style={[spriteBox, styles.img, style]}
       resizeMode="contain"
       accessibilityRole="image"
       accessibilityLabel={`Bolo the parrot, ${pose}`}
@@ -364,16 +400,16 @@ export function Mascot({
   );
 
   // The head slot, stacked over whatever base the garment picked. Both files
-  // are the same 1024 frame, so drawing the overlay at the same size in the
-  // same box lines them up with no per-pose maths. The overlay carries its own
-  // explicit width/height: a bare absoluteFill Image renders at intrinsic size
-  // on iOS and ignores resizeMode.
+  // are the same 1024x1200 frame, so drawing the overlay in the same box lines
+  // them up with no per-pose maths. The overlay carries its own explicit
+  // width/height: a bare absoluteFill Image renders at intrinsic size on iOS
+  // and ignores resizeMode.
   const image = overlay ? (
     <View style={{ width: size, height: size }}>
       {base}
       <Image
         source={overlay}
-        style={[styles.overlay, { width: size, height: size }]}
+        style={[styles.overlay, { width: size, height: spriteH, top: -sky }]}
         resizeMode="contain"
                 accessible={false}
       />
@@ -399,7 +435,7 @@ export function Mascot({
 
 const styles = StyleSheet.create({
   img: {},
-  overlay: { position: 'absolute', top: 0, left: 0 },
+  overlay: { position: 'absolute', left: 0 },
   /** The shrink itself — a plain transform, so it holds with animations off. */
   working: { transform: [{ scale: WORKING_SCALE }] },
 });

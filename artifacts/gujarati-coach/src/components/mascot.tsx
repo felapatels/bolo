@@ -64,6 +64,21 @@ function useAnimationVisible(ref: RefObject<HTMLElement | null>): boolean {
   return inView && tabVisible;
 }
 
+/**
+ * The sprite canvas: 1024 WIDE BY 1200 TALL since build 26, previously square.
+ *
+ * She filled almost the whole square, with 36 to 96 pixels of sky above her
+ * head depending on the pose, and a peacock feather needs about 113 more than
+ * that. Every pagdi ever generated came back with its plume sawn off. The
+ * extra 176 is all sky, so a plume, a pennant or a tassel has somewhere to go.
+ *
+ * MASCOT_SKY_PCT is that sky as a percentage of the WIDTH, which is the unit
+ * CSS resolves a margin percentage against. Mobile's twin is MASCOT_SPRITE_H
+ * in components/Mascot.tsx; the frames must match or every accessory slides
+ * off her head.
+ */
+const MASCOT_SKY_PCT = ((1200 - 1024) / 1024) * 100;
+
 export function Mascot({
   pose,
   size = 96,
@@ -224,14 +239,31 @@ export function Mascot({
                   WebkitTouchCallout: "none",
                   WebkitUserDrag: "none",
                   userSelect: "none",
+                  marginTop: `-${MASCOT_SKY_PCT}%`,
                 } as React.CSSProperties
               }
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: reduceMotion ? 0 : 0.22, ease: "easeOut" }}
+              // THE SPRITE IS 1024x1200 SINCE BUILD 26, and the box is still
+              // square, so the image is drawn taller than the box and pulled UP
+              // by the difference. The bird lands exactly where she landed when
+              // the canvas was square; the new sky hangs above the box so a
+              // plume has room. See MASCOT_SPRITE_H.
+              //
+              // IN FLOW, NOT ABSOLUTE, and that is not a style preference: the
+              // practice screen's `fill` chain has no definite ancestor height,
+              // and an absolutely-positioned base collapses the whole parrot
+              // zone. That regression is dated July 30, 2026 in the comment
+              // above and must not be reintroduced to save a line here.
+              //
+              // The negative margin is a percentage of the WIDTH, which is what
+              // CSS resolves margin percentages against, and the overhang is a
+              // fraction of the width too, so the two agree by construction.
               className={cn(
-                "h-full w-full object-contain",
+                "w-full object-contain",
+                fill ? "h-full" : "aspect-[1024/1200]",
                 // The floaty drop shadow reads wrong inside small chrome circles.
                 !calm && "drop-shadow-[0_12px_22px_hsl(243_75%_59%_/_0.22)]",
               )}
@@ -256,7 +288,14 @@ export function Mascot({
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: reduceMotion ? 0 : 0.22, ease: "easeOut" }}
-                className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+                // Same frame as the base, so the same pull-up keeps the two in
+                // register. Absolute here is correct and always was: the base
+                // above is the in-flow element that opens the box.
+                style={{ marginTop: `-${MASCOT_SKY_PCT}%` }}
+                className={cn(
+                  "pointer-events-none absolute inset-x-0 top-0 w-full object-contain",
+                  fill ? "h-full" : "aspect-[1024/1200]",
+                )}
               />
             </AnimatePresence>
           ) : null}

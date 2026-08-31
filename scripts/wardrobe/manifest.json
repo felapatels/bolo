@@ -96,8 +96,15 @@
       "preview": "head",
       "status": "shipped",
       "art": "scripts/mascot-accessory-art/pagdi-v2.png",
-      "recipe": {},
-      "note": "Awaiting externally generated v2 art at scripts/mascot-accessory-art/pagdi-v2.png (see PROMPTS.md); v1 shipped painterly 3D with a clipped plume."
+      "recipe": {
+        "nudgeX": {
+          "wave": 14,
+          "thumbsup": 26,
+          "thinking": 26,
+          "tryagain": 26
+        }
+      },
+      "note": "v2 art seated on the 1200-tall canvas (build 26). nudgeX exists because the seating centres on the REFERENCE BOX, which does not follow her head when she turns: the owner caught it aligning to her nose rather than to her crown. Four poses turn, so four get a push."
     },
     {
       "id": "station-cap",
