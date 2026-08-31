@@ -328,8 +328,12 @@ test("every item in the shop has its art, and both clients know about it", () =>
   const maps = {
     web: {
       dir: `${root}artifacts/gujarati-coach/public/mascot/outfits`,
+      // Web's map moved into ITS generated file in build 27, for the same
+      // reason mobile's did: hand-keeping one of the two let the clients drift
+      // from the same manifest in opposite directions, so a piece added never
+      // rendered and a piece removed left a dead path behind.
       src: readFileSync(
-        `${root}artifacts/gujarati-coach/src/lib/mascot-outfits.ts`,
+        `${root}artifacts/gujarati-coach/src/lib/mascotOutfits.gen.ts`,
         "utf8",
       ),
     },

@@ -200,8 +200,16 @@ test("the journey asks five questions and then says goodbye", () => {
   assert.equal(learnerTurnsFor(JOURNEY_BEATS), 5);
   assert.equal(JOURNEY_BEATS[0].id, "hello");
   assert.equal(JOURNEY_BEATS[JOURNEY_BEATS.length - 1].id, "bye");
+  // EVERY BEAT BUT THE HELLO IS LIVE. It said four, from when the farewell was
+  // canned as well; build 26 made the goodbye live so he can answer what they
+  // just said, and inverted the sibling test above but not this one. Written
+  // against the ladder's own length now, so it cannot drift again.
   const live = JOURNEY_BEATS.filter((b) => b.mode === "live");
-  assert.equal(live.length, 4, "hello is question one, so four more are live");
+  assert.equal(
+    live.length,
+    JOURNEY_BEATS.length - 1,
+    "only the hello is canned; the questions and the farewell are all live",
+  );
 });
 
 test("the game runs to twenty turns, cycling its questions", () => {

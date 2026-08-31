@@ -309,7 +309,7 @@ test("a live turn that fails is logged loudly, never silently", async () => {
   const warning = logged.find((l) => l.level === "warn");
   assert.ok(warning, "a failed live turn must not be swallowed silently");
   assert.match(warning.msg, /falling back/i);
-  assert.equal((warning.obj as { beat: string }).beat, "khaana");
+  assertIsQuestion((warning.obj as { beat: string }).beat, "the logged beat");
 });
 
 test("every turn logs the latency this whole feature rests on", async () => {
@@ -322,7 +322,7 @@ test("every turn logs the latency this whole feature rests on", async () => {
   assert.ok(turn, "no turn log");
   const o = turn.obj as { firstAudioMs: number | null; canned: boolean; beat: string };
   assert.equal(o.canned, false);
-  assert.equal(o.beat, "khaana");
+  assertIsQuestion(o.beat, "the logged beat");
   assert.equal(typeof o.firstAudioMs, "number");
 });
 
@@ -699,7 +699,10 @@ test("a streamed turn that falls back still delivers his canned clip", async () 
   }
   const stream = getChatAudioStream(streamId)!;
   assert.equal(stream.done, true, "a fallback must not leave the player hanging");
-  assert.equal(Buffer.concat(stream.chunks).toString(), "clip:khaana");
+  // The clip is THIS beat's canned line, whichever question the draw dealt.
+  const played = Buffer.concat(stream.chunks).toString();
+  assert.match(played, /^clip:/, `the fallback played "${played}"`);
+  assertIsQuestion(played.slice("clip:".length), "the beat that was played");
 });
 
 test("hanging up returns his farewell and the outcome the ring-back will read", async () => {
