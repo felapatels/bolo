@@ -162,6 +162,24 @@ token ledger, the RevenueCat or Stripe webhook paths, or entitlement resolution.
 
 ## Working rules
 
+- **TYPECHECK WHILE DEVELOPING. SUITES ONLY BEFORE A BUILD OR A PUBLISH.**
+  The full statement of this rule is under "Tests, per artifact" above, and it
+  was ALREADY THERE, in bold, when build 26 broke it anyway. It is repeated
+  here because this is the section an agent actually re-reads mid-task, and
+  the owner has now given the rule three times (2026-08-29, 2026-08-30, and
+  again on 2026-08-31 after watching a session run suite after suite).
+  **THE EXCUSE THAT DEFEATS IT IS "just this one file, it only takes six
+  seconds".** Build 26 ran eleven single-file runs that way, each one
+  individually defensible, none of them asked for. A single file is still a
+  suite run, and a run nobody asked for is a run that answers a question
+  nobody asked. **While developing, the check is `tsc --noEmit` for the
+  artifact touched, and nothing else.** Write the pins as you go, keep a list
+  of what the session touched, and run the full suites ONCE, immediately
+  before `eas build` or a Repl publish.
+  The one exception, and it is narrow: a test you have just INVERTED because
+  behaviour changed on purpose may be run alone to confirm the inversion, and
+  said out loud when you do it.
+
 - **Verify by content, never by commit message.** Replit auto-committed 22 times in
   two days and the message rarely survived. Read the diffstat and file list.
   **The Repl's `main` normally sits AHEAD of GitHub by a stack of `Published your
