@@ -108,6 +108,48 @@ function applyMeta(item, meta) {
   return null;
 }
 
+/**
+ * What Chai is worth, read from tokenEconomy.ts rather than restated.
+ *
+ * "How much should this cost" is unanswerable from a price box alone, and the
+ * owner said so: the band dropdown offered "accessory" without ever saying what
+ * an accessory costs, and nothing on screen said what a learner has to do to
+ * earn one. Both halves are pulled straight out of the source of truth, so a
+ * repricing there shows up here without anyone remembering to copy it.
+ */
+function chaiEconomy() {
+  let src = "";
+  try {
+    src = readFileSync(join(ROOT, "artifacts/api-server/src/lib/tokenEconomy.ts"), "utf8");
+  } catch { return null; }
+  const num = (name) => {
+    const m = new RegExp(`export const ${name}\\s*=\\s*(\\d+)`).exec(src);
+    return m ? Number(m[1]) : null;
+  };
+  return {
+    bands: {
+      standard: num("OUTFIT_COST"),
+      premium: num("PREMIUM_OUTFIT_COST"),
+      accessory: num("ACCESSORY_COST"),
+    },
+    // A price only means something next to what it takes to earn it.
+    earn: {
+      "a practice streak day": num("TOKEN_EARN_STREAK_DAY"),
+      "a quiz": num("TOKEN_EARN_QUIZ"),
+      "meeting Chacha-ji": num("TOKEN_EARN_CHACHA_ENCOUNTER"),
+      "a whole call with him": num("CHACHA_CALL_CHAI_MAX"),
+      "finishing a zone": num("TOKEN_EARN_ZONE_COMPLETE"),
+      "a referral": num("REFERRAL_REWARD_REFERRER_CHAI"),
+    },
+    alsoCosts: {
+      "unlock a stop": num("STOP_UNLOCK_COST"),
+      "repair a streak": num("STREAK_REPAIR_COST"),
+      "retry a test-out": num("TESTOUT_RETRY_COST"),
+      "First Class": num("FIRST_CLASS_COST"),
+    },
+  };
+}
+
 /** Only ever serve PNGs from the two art trees and the canonical poses. A tool
  *  that reads any path the browser asks for is a file server, not a tool. */
 function safePath(rel) {
@@ -238,6 +280,7 @@ const server = createServer(async (req, res) => {
       poses: POSES,
       canon: POSES.map((p) => `${CANON}/mascot-${p}.png`),
       items: m.items.map(publicItem),
+      economy: chaiEconomy(),
     }));
   }
 
@@ -681,7 +724,9 @@ input[type=range]{width:110px}
 #legend li{margin-bottom:5px}
 #legend p{margin:8px 0 0;line-height:1.55}
 #prepublish{position:fixed;inset:0;background:rgba(27,26,23,.45);display:none;
-  align-items:center;justify-content:center;z-index:20;padding:20px}
+  align-items:center;justify-content:center;z-index:20;padding:20px;overflow:auto}
+#prepublish .card{max-width:820px;max-height:92vh;overflow:auto}
+#pricing td{padding:1px 0;border-bottom:1px solid #f0ece4}
 .card{border:1px solid var(--line);border-radius:12px;background:#fff;padding:16px 18px;max-width:560px}
 .card h3{margin:0 0 10px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#6b6558}
 .card p{margin:0 0 12px}
@@ -805,6 +850,7 @@ input[type=text],input[type=number],.card select{font:inherit;padding:6px 9px;bo
         <option value="premium">premium</option>
         <option value="accessory">accessory</option>
       </select></label></p>
+    <div id="pricing"></div>
     <p><button id="p-go" class="primary">Save and publish</button>
        <button id="p-cancel">Cancel</button></p>
   </div>
@@ -1143,6 +1189,40 @@ document.getElementById("reset").onclick = () => {
 
 // ─── shop details ───────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
+/**
+ * WHAT EVERYTHING ELSE COSTS, beside the price box.
+ *
+ * The owner, mid-publish: "I'm not sure how much to price things, can we show
+ * the current prices of items on this screen." A number in a box has no scale
+ * on its own, and the band dropdown was worse than silent — it offered
+ * "accessory" without ever saying that an accessory is 10 Chai.
+ *
+ * So: what the bands are worth, what the shop already charges, and what a
+ * learner has to DO to earn it, which is the half that turns a price into a
+ * decision. All read from tokenEconomy.ts and the live catalogue, never
+ * restated here.
+ */
+function pricingTable() {
+  const e = data.economy;
+  if (!e) return "";
+  const row = (a, b) => "<tr><td>" + a + "</td><td style='text-align:right;padding-left:18px'>" + b + "</td></tr>";
+  const bands = Object.entries(e.bands)
+    .map(([k, v]) => row("<b>" + k + "</b> band", v + " Chai")).join("");
+  const stock = data.items
+    .map((i) => row(i.name + " <span style='color:#8a857a'>(" + i.kind + ")</span>",
+      (i.cost == null ? e.bands[i.costBand] + " Chai <span style=\"color:#8a857a\">(band)</span>" : i.cost + " Chai"))).join("");
+  const earn = Object.entries(e.earn).map(([k, v]) => row(k, v + " Chai")).join("");
+  const spend = Object.entries(e.alsoCosts).map(([k, v]) => row(k, v + " Chai")).join("");
+  const box = (title, body) =>
+    "<div style='flex:1;min-width:210px'><div style='font-size:11px;text-transform:uppercase;" +
+    "letter-spacing:.06em;color:#6b6558;margin-bottom:4px'>" + title + "</div>" +
+    "<table style='width:100%;border-collapse:collapse;font-size:12px'>" + body + "</table></div>";
+  return "<div style='display:flex;gap:22px;flex-wrap:wrap;border-top:1px solid var(--line);" +
+    "margin-top:6px;padding-top:12px'>" +
+    box("The bands", bands) + box("On the rack now", stock) +
+    box("A learner earns", earn) + box("Chai also buys", spend) + "</div>";
+}
+
 function fillShop() {
   if (!item) return;
   $("f-name").value = item.name ?? "";
@@ -1162,6 +1242,7 @@ function noteCost() {
       : v + " Chai, set on this piece alone. It will NOT move when the band is retuned.";
 }
 $("f-cost").oninput = noteCost;
+$("p-cost").oninput = () => { const n = $("p-cost").value.trim(); $("p-cost").title = n === "" ? "Blank means the band below" : n + " Chai"; };
 $("f-band").onchange = noteCost;
 $("f-cost-clear").onclick = () => { $("f-cost").value = ""; noteCost(); toast("price cleared, band will apply"); };
 $("f-save").onclick = async () => {
@@ -1238,6 +1319,7 @@ function confirmShopDetails() {
     document.getElementById("p-cost").value = item.cost == null ? "" : item.cost;
     document.getElementById("p-band").value = item.costBand ?? "standard";
     document.getElementById("p-which").textContent = item.name + " (" + item.kind + ")";
+    document.getElementById("pricing").innerHTML = pricingTable();
     box.style.display = "flex";
     const done = (go) => {
       box.style.display = "none";
