@@ -319,11 +319,18 @@ function buildPose(id, pose, tmp, { install, fudge, margin }) {
 
   const eye = eyes(pose, tmp);
   const mask = eyeMask(pose, tmp, margin);
-  const ref = layerBox(reference, pose);
 
   // Rotate to her head roll first, then measure: the bounding box of a rotated
   // sprite is not the rotation of its bounding box.
   const place = PLACE[id]?.[pose];
+  // REFERENCE ART IS ONLY READ WHEN THE POSE IS NOT PLACED (build 27). It used
+  // to be read for every pose, before anything looked at `place`, which meant a
+  // hand-placed accessory still demanded a reference layer it never uses. That
+  // is fine for the pieces that shipped before the placement tool existed and
+  // impossible for a NEW one: the references are `--extract`ed from art that
+  // has already shipped, so a hat nobody has shipped can never have them. The
+  // owner hit exactly that uploading a beanie.
+  const ref = place ? null : layerBox(reference, pose);
   magick([source, "-background", "none",
     "-rotate", (place ? place.rot : eye.roll).toFixed(2),
     "-trim", "+repage", p("rot")]);
@@ -427,9 +434,23 @@ function main() {
       console.log(`extracted reference → ${ART}/${id}/${pose}.png`);
     }
   }
-  for (const path of [`${ART}/${id}.png`, `${ART}/${id}/wave.png`]) {
+  // A piece placed by hand in every pose needs no reference art, because a
+  // placement wins outright and the reference is only the automatic seating's
+  // starting box. Asking for it anyway is what stopped a new accessory from
+  // ever rendering.
+  const placedAll = POSES.every((pose) => PLACE[id]?.[pose]);
+  const manifestArt = WARDROBE.items.find((i) => i.id === id)?.art;
+  const required = [manifestArt ?? `${ART}/${id}.png`];
+  if (!placedAll) required.push(`${ART}/${id}/wave.png`);
+  for (const path of required) {
     if (!existsSync(path)) {
-      console.error(`missing input: ${path}`);
+      console.error(
+        path.endsWith("/wave.png")
+          ? `missing input: ${path}\n` +
+            `  "${id}" has no reference art, so the automatic seating has no box to start from.\n` +
+            `  Place all five poses in \`pnpm wardrobe place\` and it will render without one.`
+          : `missing input: ${path}`,
+      );
       process.exit(1);
     }
   }

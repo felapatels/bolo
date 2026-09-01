@@ -113,6 +113,69 @@ function safePath(rel) {
 /** ImageMagick, for the one place the tool does image work of its own. */
 const magickRun = (args) => execFileSync("magick", args, { encoding: "utf8", maxBuffer: 1 << 28 });
 
+/**
+ * Rub the opaque background off uploaded art, whatever it arrived as.
+ *
+ * TWO THINGS BUILD 27 GOT WRONG FIRST TIME, both found on the owner's pink
+ * beanie:
+ *
+ *   1. IT ONLY RAN FOR JPEGs, on the reasoning that a PNG carries real alpha.
+ *      That PNG was 74% transparent and still had a flat #DBDBDB slab painted
+ *      across the rest — art exported with its backdrop baked in. The format
+ *      says nothing about whether the background is real.
+ *
+ *   2. IT FLOOD-FILLED AGAINST HARDCODED WHITE. #DBDBDB is 14% away from
+ *      white and the fuzz was 12%, so the fill matched nothing and returned
+ *      the picture unchanged while reporting success. The seed colour is read
+ *      from the corner itself now, so it cannot be wrong.
+ *
+ * FLOOD FILL FROM THE CORNERS, still, rather than "make every light pixel
+ * transparent": a global key punches holes through a singlet's white
+ * highlights and a hoodie's drawstrings. Only background connected to an edge
+ * goes. A corner that is ALREADY transparent is skipped, so art that arrives
+ * correct is left alone.
+ *
+ * Returns null when there was nothing opaque to remove.
+ */
+function keyBackground(src, dst) {
+  const [w, h] = magickRun([src, "-format", "%w %h", "info:"]).trim().split(" ").map(Number);
+  if (!w || !h) return null;
+  const args = [src, "-alpha", "set", "-channel", "RGBA", "-fuzz", "16%", "-fill", "none"];
+  const seeds = [];
+  let dominant = null;
+  for (const [x, y] of [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]]) {
+    const px = magickRun([src, "-format", `%[pixel:p{${x},${y}}]`, "info:"]).trim();
+    const m = /^srgba?\((\d+),(\d+),(\d+)(?:,([\d.]+))?\)$/.exec(px);
+    if (!m) continue;
+    if (m[4] !== undefined && Number(m[4]) < 0.5) continue; // already transparent
+    const rgb = `rgb(${m[1]},${m[2]},${m[3]})`;
+    args.push("-floodfill", `+${x}+${y}`, rgb);
+    seeds.push(`${x},${y} ${px}`);
+    dominant ??= rgb;
+  }
+  if (!seeds.length) return null;
+  /**
+   * AND THEN THE SAME COLOUR GLOBALLY, on a TIGHT fuzz.
+   *
+   * The owner's beanie arrived with a CHECKERBOARD BAKED INTO ITS ALPHA:
+   * alternating opaque-grey and transparent squares, a picture OF transparency
+   * rather than transparency. Flood fill can never clear that, because
+   * checkerboard squares touch only at their corners and a fill is
+   * four-connected, so it clears one square and stops. Three corners came out
+   * clean and the middle of the background stayed grey.
+   *
+   * The fuzz is deliberately much tighter here than for the flood. A global key
+   * is the dangerous one — it is what punches holes through a singlet's white
+   * highlights — so it is aimed at the exact colour measured off the corner,
+   * close enough to take the checkerboard and far enough from white (#DBDBDB is
+   * 14% away) to leave real art alone.
+   */
+  if (dominant) args.push("-fuzz", "6%", "-transparent", dominant);
+  args.push("-trim", "+repage", dst);
+  magickRun(args);
+  return seeds;
+}
+
 function send(res, code, body, type = "application/json") {
   res.writeHead(code, { "content-type": type, "cache-control": "no-store" });
   res.end(body);
@@ -220,58 +283,46 @@ const server = createServer(async (req, res) => {
       while (existsSync(join(ROOT, `${dir}/${id}-v${n}.png`))) n += 1;
       target = `${dir}/${id}-v${n}.png`;
     }
-    // JPEG IN, KEYED PNG OUT (build 27, owner: "google flow outputs jpegs").
-    //
-    // Converting the container is the easy half and on its own it is a trap: a
-    // JPEG CANNOT HOLD TRANSPARENCY, so a straight convert gives cloth sitting
-    // on an opaque rectangle, and the generator would dutifully composite the
-    // rectangle onto Bolo. So the background is keyed out here.
-    //
-    // FLOOD-FILLED FROM THE FOUR CORNERS rather than "make every white pixel
-    // transparent": the yellow singlet has white highlights and the hoodie has
-    // white drawstrings, and a global key would punch holes straight through
-    // them. Flood fill only takes the background that is actually connected to
-    // the edge. Art that beats the key still has the Erase tab.
+    // ONE PATH FOR BOTH FORMATS. A JPEG cannot hold transparency at all, and a
+    // PNG only might, so the question is never the container: it is whether
+    // the corners are opaque. keyBackground answers that and no-ops when the
+    // art already arrived cut out.
+    const srcTmp = `/tmp/wardrobe-upload-src.${isJpeg ? "jpg" : "png"}`;
+    const dstTmp = "/tmp/wardrobe-upload-out.png";
+    writeFileSync(srcTmp, buf);
     let out = buf;
-    let keyed = false;
-    if (isJpeg) {
-      const src = "/tmp/wardrobe-upload-src.jpg";
-      const dst = "/tmp/wardrobe-upload-out.png";
-      writeFileSync(src, buf);
-      try {
-        magickRun([
-          src, "-alpha", "set", "-channel", "RGBA", "-fuzz", "12%",
-          "-fill", "none",
-          "-floodfill", "+0+0", "white",
-          "-floodfill", "+%[fx:w-1]+0", "white",
-          "-floodfill", "+0+%[fx:h-1]", "white",
-          "-floodfill", "+%[fx:w-1]+%[fx:h-1]", "white",
-          "-trim", "+repage", dst,
-        ]);
-        out = readFileSync(dst);
-        keyed = true;
-      } catch {
-        // The key failed (an unusual background, or magick refused the fx
-        // expressions). Convert anyway and say so: an opaque piece the owner
-        // can erase beats a refused upload with no file to work on.
+    let keyed = null;
+    try {
+      keyed = keyBackground(srcTmp, dstTmp);
+      if (keyed) out = readFileSync(dstTmp);
+      else if (isJpeg) {
+        // Nothing opaque at the corners but still a JPEG, so it must at least
+        // become a PNG for the generators to composite it.
+        magickRun([srcTmp, dstTmp]);
+        out = readFileSync(dstTmp);
+      }
+    } catch {
+      if (isJpeg) {
         try {
-          magickRun([src, dst]);
-          out = readFileSync(dst);
+          magickRun([srcTmp, dstTmp]);
+          out = readFileSync(dstTmp);
         } catch {
           return send(res, 400, JSON.stringify({ error: "could not convert that JPEG" }));
         }
       }
+      // A PNG that defeated the key is still usable art: the Erase tab exists
+      // for exactly this, so keep the upload rather than refusing it.
     }
     writeFileSync(join(ROOT, target), out);
     return send(res, 200, JSON.stringify({
       ok: true, art: target, bytes: out.length,
       converted: isJpeg,
-      keyed,
-      note: isJpeg
-        ? (keyed
-            ? "JPEG converted to PNG and the background keyed out. Check the armholes and the neck; use Erase if any of it survived."
-            : "JPEG converted to PNG, but the background could NOT be keyed. Use the Erase tab before rendering.")
-        : undefined,
+      keyed: Boolean(keyed),
+      note: keyed
+        ? `Background removed from ${keyed.length} corner${keyed.length === 1 ? "" : "s"}. Check the armholes and the neck; use Erase if any of it survived.`
+        : isJpeg
+          ? "Converted to PNG. The corners were already transparent, so nothing was keyed."
+          : "The corners were already transparent, so the art was taken as it is.",
     }));
   }
 
