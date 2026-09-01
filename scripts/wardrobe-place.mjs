@@ -490,6 +490,11 @@ input[type=range]{width:110px}
 #log{padding:10px 18px;font:12px ui-monospace,monospace;white-space:pre-wrap;color:#6b6558;border-top:1px solid var(--line)}
 #eraser{padding:18px;display:none;gap:16px;align-items:flex-start}
 #shop,#newitem{padding:18px;display:none}
+#legend{margin:14px 18px 0;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;max-width:900px;font-size:13px;color:#4a4740}
+#legend summary{cursor:pointer;font-weight:700;color:var(--ink);letter-spacing:.01em}
+#legend ol{margin:10px 0 6px;padding-left:20px}
+#legend li{margin-bottom:5px}
+#legend p{margin:8px 0 0;line-height:1.55}
 #prepublish{position:fixed;inset:0;background:rgba(27,26,23,.45);display:none;
   align-items:center;justify-content:center;z-index:20;padding:20px}
 .card{border:1px solid var(--line);border-radius:12px;background:#fff;padding:16px 18px;max-width:560px}
@@ -509,13 +514,33 @@ input[type=text],input[type=number],.card select{font:inherit;padding:6px 9px;bo
   <button id="tab-new" aria-pressed="false">Add a piece</button>
   <span id="kind" style="color:#6b6558"></span>
   <span style="flex:1"></span>
-  <button id="reset">Reset pose</button>
-  <button id="save" class="primary">Save</button>
-  <button id="render">Save &amp; render</button>
-  <button id="install">Save &amp; install</button>
-  <button id="publish">Publish</button>
+  <button id="reset" title="Throw away every placement for this piece and go back to the automatic seating. Not saved until you Save.">Reset poses</button>
+  <button id="save" class="primary" title="Writes the placements and the shop details into scripts/wardrobe/manifest.json. Renders nothing.">Save</button>
+  <button id="render" title="Save, then composite the five poses and open a review sheet in docs/garment-review. The apps are not touched.">Save &amp; render</button>
+  <button id="install" title="Save, render, and write the sprites into BOTH apps plus the generated registries. This is the step that decides what ships.">Save &amp; install</button>
+  <button id="publish" title="Save, install, and check that the manifest, the registries and the art on both clients all agree. Still only on this Mac.">Install &amp; check</button>
   <span id="toast" role="status" aria-live="polite"></span>
 </header>
+<details id="legend" open>
+  <summary>What these buttons do, and what it takes to reach a learner</summary>
+  <ol>
+    <li><b>Save</b> writes your placements into the manifest. Nothing is drawn.</li>
+    <li><b>Save &amp; render</b> also composites the five poses into a review sheet,
+        so you can see the truth instead of the preview. The apps are untouched.</li>
+    <li><b>Save &amp; install</b> also writes the sprites into the web app and the
+        mobile app, and regenerates the registries. <b>This is the one that
+        decides what ships.</b></li>
+    <li><b>Install &amp; check</b> also proves the manifest, the registries and the
+        art on both clients agree.</li>
+  </ol>
+  <p><b>All four stop on this Mac.</b> To reach a learner it has to be committed
+     and pushed, then the Repl pulled and republished, which covers <b>web</b>.
+     <b>Phones need a native build</b>, because their art is bundled at compile
+     time, so a piece published without one shows up in the shop with no art
+     behind it.</p>
+  <p><b>Reset poses</b> clears every placement for this piece, not just the one
+     you are looking at, and it is only a Save away from being permanent.</p>
+</details>
 <main id="place"></main>
 <section id="eraser">
   <canvas id="cut"></canvas>
@@ -926,6 +951,7 @@ function setMode(m) {
   for (const b of ["reset", "save", "render", "install", "publish"]) {
     document.getElementById(b).style.display = onPiece ? "" : "none";
   }
+  document.getElementById("legend").style.display = onPiece ? "" : "none";
   if (m === "shop") fillShop();
 }
 for (const name of Object.keys(TABS)) {
@@ -1063,15 +1089,15 @@ document.getElementById("publish").onclick = async () => {
   const opt = [...$("item").options].find((o) => o.value === item.id);
   if (opt) opt.textContent = item.name + " (" + item.kind + ")";
   await save();
-  toast("publishing...");
+  toast("installing and checking...");
   log("installing art, regenerating registries, checking parity...");
   const r = await (await fetch("/api/publish", { method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ id: item.id }) })).json();
-  toast(r.ok ? "published to the repo" : "publish FAILED");
+  toast(r.ok ? "installed and checked" : "install FAILED");
   log(r.log + "\n\n" + (r.ok
-    ? "IN THE REPO ONLY. Web learners get this on the next Repl publish; phones need a native build, because Metro bundles the art at compile time."
-    : "nothing was published"));
+    ? "THIS MAC ONLY. Commit and push, then pull and republish the Repl, and web learners have it. Phones need a native build, because their art is bundled at compile time."
+    : "nothing was installed"));
 };
 
 async function save() {
