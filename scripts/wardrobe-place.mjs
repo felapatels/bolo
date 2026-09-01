@@ -740,6 +740,19 @@ main{padding:18px;display:flex;gap:18px;flex-wrap:wrap}
 .stage img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;pointer-events:none;-webkit-user-drag:none;user-select:none}
 .stage .worn{z-index:2}
 .stage .piece{transform-origin:center}
+/* THE LOUPE. Erasing a bird out of a dressed render is close work, and the
+   brush covers exactly the pixels you are trying to judge. This floats beside
+   the cursor showing what is under it, magnified, with the brush footprint
+   drawn on. The checker shows through wherever the art is already transparent,
+   so you can see what you have taken out as well as what is left. */
+#loupe{position:fixed;z-index:60;display:none;pointer-events:none;
+  border:2px solid #333;border-radius:50%;overflow:hidden;
+  box-shadow:0 4px 14px rgba(0,0,0,.35);
+  background:repeating-conic-gradient(#e9e9e9 0 25%,#fff 0 50%) 0 0/14px 14px}
+#loupe canvas{display:block}
+#loupelbl{position:fixed;z-index:61;display:none;pointer-events:none;
+  font:600 10px ui-monospace,monospace;letter-spacing:.1em;
+  background:#222;color:#fff;padding:2px 7px;border-radius:9px}
 /* THE RESIZE BOX. Eight handles round the piece: a side pulls one edge, a
    corner pulls two. The sliders below stay for typing an exact number, but
    this is the instrument, because two sliders that both look like "bigger"
@@ -818,6 +831,9 @@ input[type=text],input[type=number],.card select{font:inherit;padding:6px 9px;bo
      up in the shop with nothing behind it.</p>
 </details>
 <main id="place"></main>
+<div id="loupe"><canvas id="loupec" width="176" height="176"></canvas></div>
+<b id="loupelbl">ERASE</b>
+
 <section id="eraser">
   <canvas id="cut"></canvas>
   <div class="hint">
@@ -827,8 +843,19 @@ input[type=text],input[type=number],.card select{font:inherit;padding:6px 9px;bo
     <p>Drag to rub out. <b>Bracket keys</b> resize the brush.
     <b>Save</b> writes a cut copy beside the original and points the manifest at
     it. The original is never written, so a bad erase costs one file.</p>
+    <p><b>Restore paints it back.</b> Rub too far and you do not start again:
+    switch to Restore, or just hold <b>ALT</b> while you drag, and the artwork
+    comes back inside the brush. Undo steps back one stroke at a time.</p>
     <p><label>Brush <input id="brush" type="range" min="6" max="160" value="46"></label></p>
-    <p><button id="undo">Undo all erasing</button></p>
+    <p>
+      <button id="tool-erase" aria-pressed="true">Erase</button>
+      <button id="tool-restore" aria-pressed="false">Restore</button>
+    </p>
+    <p>
+      <button id="undostep">Undo</button>
+      <button id="redostep">Redo</button>
+      <button id="undo">Start over</button>
+    </p>
   </div>
 </section>
 
@@ -1377,6 +1404,70 @@ function mark(card, pose) {
 
 // ─── eraser ─────────────────────────────────────────────────────────────────
 let ectx = null, painting = false, brush = 46;
+
+/**
+ * ERASING IS THE WHOLE JOB NOW, not a tidy-up.
+ *
+ * Google Flow is text to image, so every dressed render comes back as a NEW
+ * parrot: 39% of one measured against the canonical bird differs, which is her
+ * head, beak, wings and outline, not her clothes. So the automatic cut-out
+ * (extractPlaced, which differences against the canonical art) cannot work on
+ * it, and the only way from a dressed render to a wearable garment is to rub
+ * the bird away by hand.
+ *
+ * That makes the eraser a drawing tool rather than a nicety, and it had one
+ * button: undo EVERYTHING. One slip cost the whole cut, which is why it fought
+ * the owner. Three things it now has:
+ *
+ *   orig     the untouched art, offscreen, so Restore has something to put
+ *            back. Hold ALT or pick Restore and the artwork returns inside the
+ *            brush, which is what "let me redraw what I erased" asked for.
+ *   hist     one snapshot per STROKE, not per pixel, so Undo steps the way a
+ *            person thinks. Capped, because a snapshot of 1024x1024 is 4MB.
+ *   redoBuf  because an undo you cannot take back is its own trap.
+ *
+ * The orig canvas holds whatever the art was when this tab loaded, so after a
+ * save it is
+ * the cut, not the first upload. Going all the way back is the -orig.png the
+ * server keeps beside the source.
+ */
+let orig = null, hist = [], redoBuf = [], erasing = true;
+const HIST_MAX = 16;
+
+function histLabels() {
+  const u = document.getElementById("undostep"), r = document.getElementById("redostep");
+  if (u) { u.textContent = hist.length ? "Undo (" + hist.length + ")" : "Undo"; u.disabled = !hist.length; }
+  if (r) { r.textContent = redoBuf.length ? "Redo (" + redoBuf.length + ")" : "Redo"; r.disabled = !redoBuf.length; }
+}
+function snapshot() {
+  const c = document.getElementById("cut");
+  if (!ectx || !c.width) return;
+  try { hist.push(ectx.getImageData(0, 0, c.width, c.height)); } catch (err) { return; }
+  while (hist.length > HIST_MAX) hist.shift();
+  redoBuf.length = 0;
+  histLabels();
+}
+function stepBack() {
+  const c = document.getElementById("cut");
+  if (!ectx || !hist.length) { toast("nothing to undo"); return; }
+  redoBuf.push(ectx.getImageData(0, 0, c.width, c.height));
+  ectx.putImageData(hist.pop(), 0, 0);
+  histLabels();
+}
+function stepForward() {
+  const c = document.getElementById("cut");
+  if (!ectx || !redoBuf.length) { toast("nothing to redo"); return; }
+  hist.push(ectx.getImageData(0, 0, c.width, c.height));
+  ectx.putImageData(redoBuf.pop(), 0, 0);
+  histLabels();
+}
+function setTool(toErase) {
+  erasing = toErase;
+  const e = document.getElementById("tool-erase"), r = document.getElementById("tool-restore");
+  if (e) e.setAttribute("aria-pressed", String(erasing));
+  if (r) r.setAttribute("aria-pressed", String(!erasing));
+}
+
 function drawEraser() {
   const c = document.getElementById("cut");
   const img = new Image();
@@ -1386,6 +1477,11 @@ function drawEraser() {
     ectx = c.getContext("2d");
     ectx.clearRect(0, 0, c.width, c.height);
     ectx.drawImage(img, 0, 0);
+    orig = document.createElement("canvas");
+    orig.width = c.width; orig.height = c.height;
+    orig.getContext("2d").drawImage(img, 0, 0);
+    hist = []; redoBuf = [];
+    histLabels();
   };
   img.src = fileURL(item.art);
 }
@@ -1398,21 +1494,96 @@ function drawEraser() {
   const rub = (e) => {
     if (!painting || !ectx) return;
     const { x, y } = at(e);
+    // ALT is the override, so a stray rub is repaired without leaving the
+    // stroke you are in the middle of.
+    const putBack = (!erasing || e.altKey) && orig;
     ectx.save();
-    ectx.globalCompositeOperation = "destination-out";
-    ectx.beginPath(); ectx.arc(x, y, brush, 0, Math.PI * 2); ectx.fill();
+    ectx.beginPath();
+    ectx.arc(x, y, brush, 0, Math.PI * 2);
+    if (putBack) {
+      ectx.clip();
+      ectx.drawImage(orig, 0, 0);
+    } else {
+      ectx.globalCompositeOperation = "destination-out";
+      ectx.fill();
+    }
     ectx.restore();
   };
-  c.addEventListener("pointerdown", (e) => { painting = true; c.setPointerCapture(e.pointerId); rub(e); });
-  c.addEventListener("pointermove", rub);
+  c.addEventListener("pointerdown", (e) => {
+    snapshot();                       // ONE PER STROKE, so Undo steps sensibly
+    painting = true; c.setPointerCapture(e.pointerId); rub(e);
+  });
+  /**
+   * THE LOUPE. What the brush is about to do, before you commit it.
+   *
+   * The window shows about 2.6 brush-widths across whatever the brush size is,
+   * so the footprint always frames itself: at a small brush you get a close
+   * look, at a big one you still see its edges. Nearest-neighbour, because a
+   * smoothed magnifier of a cut edge tells you a comforting lie about how
+   * clean it is.
+   *
+   * The ring is drawn twice, dark then light, so it reads on any artwork, and
+   * ERASE / RESTORE is spelled out under it rather than signalled by colour.
+   */
+  const loupe = document.getElementById("loupe");
+  const lc = document.getElementById("loupec");
+  const lctx = lc.getContext("2d");
+  const lbl = document.getElementById("loupelbl");
+  const L = lc.width;
+
+  const drawLoupe = (e) => {
+    if (!ectx) return;
+    const { x, y } = at(e);
+    const view = Math.max(26, brush * 2.6);      // canvas px across the window
+    const z = L / view;
+    lctx.clearRect(0, 0, L, L);
+    lctx.imageSmoothingEnabled = false;
+    lctx.drawImage(c, x - view / 2, y - view / 2, view, view, 0, 0, L, L);
+
+    const putBack = (!erasing || e.altKey) && orig;
+    lctx.beginPath();
+    lctx.arc(L / 2, L / 2, brush * z, 0, Math.PI * 2);
+    lctx.setLineDash(putBack ? [6, 5] : []);     // shape, not colour
+    lctx.lineWidth = 3; lctx.strokeStyle = "rgba(0,0,0,.75)"; lctx.stroke();
+    lctx.lineWidth = 1; lctx.strokeStyle = "rgba(255,255,255,.95)"; lctx.stroke();
+    lctx.setLineDash([]);
+
+    loupe.style.display = "block";
+    lbl.style.display = "block";
+    lbl.textContent = putBack ? "RESTORE" : "ERASE";
+    // Above and right of the cursor, flipped near an edge so it never leaves
+    // the window and never sits under the hand.
+    const pad = 22;
+    let lx = e.clientX + pad, ly = e.clientY - L - pad;
+    if (lx + L + 6 > innerWidth) lx = e.clientX - L - pad;
+    if (ly < 6) ly = e.clientY + pad;
+    loupe.style.left = lx + "px"; loupe.style.top = ly + "px";
+    lbl.style.left = (lx + L / 2 - 28) + "px"; lbl.style.top = (ly + L + 5) + "px";
+  };
+  const hideLoupe = () => { loupe.style.display = "none"; lbl.style.display = "none"; };
+
+  c.addEventListener("pointermove", (e) => { rub(e); drawLoupe(e); });
+  c.addEventListener("pointerenter", drawLoupe);
+  c.addEventListener("pointerleave", hideLoupe);
   c.addEventListener("pointerup", () => { painting = false; });
   document.getElementById("brush").oninput = (e) => { brush = +e.target.value; };
+  document.getElementById("tool-erase").onclick = () => { setTool(true); toast("erase"); };
+  document.getElementById("tool-restore").onclick = () => { setTool(false); toast("restore"); };
+  document.getElementById("undostep").onclick = stepBack;
+  document.getElementById("redostep").onclick = stepForward;
   addEventListener("keydown", (e) => {
+    if (mode !== "erase") return;
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      if (e.shiftKey) stepForward(); else stepBack();
+      return;
+    }
     if (e.key === "[") brush = Math.max(6, brush - 6);
     if (e.key === "]") brush = Math.min(160, brush + 6);
     const b = document.getElementById("brush"); if (b) b.value = brush;
   });
-  document.getElementById("undo").onclick = () => { drawEraser(); toast("erasing undone (not saved)"); };
+  document.getElementById("undo").onclick = () => { drawEraser(); toast("back to the saved art (not saved)"); };
+  histLabels();
 })();
 
 // ─── chrome ─────────────────────────────────────────────────────────────────

@@ -436,6 +436,28 @@ function check() {
   }
   const stale = codegen({ write: false });
   if (stale) problems.push(`${stale} generated registr${stale === 1 ? "y is" : "ies are"} stale — run codegen`);
+
+  /*
+   * THE PLACEMENT TOOL'S BROWSER SCRIPT MUST CONTAIN NO BACKTICKS, not even in
+   * a comment. It lives inside a String.raw template, so one backtick closes
+   * the string and the next word is evaluated as JavaScript.
+   *
+   * This is checked rather than remembered because it bit FOUR TIMES in one
+   * sitting on 2026-09-01, and the reason it keeps landing is that `node
+   * --check` passes it: what remains after the string closes early is still
+   * valid syntax. The only other way to catch it is to boot the server, which
+   * is not something anyone does before committing.
+   */
+  const toolSrc = readFileSync(join(ROOT, "scripts/wardrobe-place.mjs"), "utf8").split("\n");
+  const open = toolSrc.findIndex((l) => l.includes("const PAGE = String.raw"));
+  const close = toolSrc.findIndex((l, i) => i > open && l.includes("</script>"));
+  if (open >= 0 && close > open) {
+    for (let i = open + 1; i < close; i++) {
+      if (toolSrc[i].includes("`")) {
+        problems.push(`wardrobe-place.mjs:${i + 1} has a backtick inside PAGE, which closes the template: ${toolSrc[i].trim().slice(0, 60)}`);
+      }
+    }
+  }
   if (problems.length) {
     for (const p of problems) console.error(`✗ ${p}`);
     process.exit(1);
