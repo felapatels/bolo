@@ -913,6 +913,22 @@ const fileURL = (p) => "/file?path=" + encodeURIComponent(p);
  */
 const artURL = (p, rot) => fileURL(p) + "&trim=1&rot=" + (Number(rot) || 0).toFixed(2);
 
+/**
+ * ONLY THE ACCESSORY PIPELINE TURNS A PIECE.
+ *
+ * gen-mascot-accessories.mjs rotates then trims. gen-mascot-outfits.mjs, which
+ * every garment, top and bottom goes through, contains no `-rotate` at all: it
+ * trims once and reads place.x/y/w, and place.rot is discarded in silence.
+ *
+ * So the turn control must not appear to do anything for cloth. Showing one is
+ * how the preview lied about placement in the first place, and serving cloth
+ * pre-rotated would be worse than the bug it fixed: the generator would then
+ * disagree about the SCALE too, because it measures the untrimmed-unrotated
+ * width. Cloth is always requested at rot 0.
+ */
+const TURNABLE = (it) => it.kind === "accessory";
+const pieceRot = (p) => (TURNABLE(item) ? p.rot : 0);
+
 async function boot() {
   data = await (await fetch("/api/items")).json();
   const sel = document.getElementById("item");
@@ -966,7 +982,14 @@ function card(pose) {
     '</div>' +
     '<div class="row">' +
       '<label>size</label><input type="range" class="w" min="10" max="120" step="0.5">' +
-      '<label>turn</label><input type="range" class="r" min="-60" max="60" step="0.5">' +
+      // DISABLED FOR CLOTH, and labelled with the reason rather than just
+      // vanishing. gen-mascot-outfits.mjs has no -rotate, so a turn set here
+      // would be written to the manifest and then silently discarded at bake.
+      // A control that does nothing is the exact shape of the bug this tool
+      // just cost a morning on.
+      '<label>' + (TURNABLE(item) ? "turn" : "turn &middot; cloth does not turn") + '</label>' +
+      '<input type="range" class="r" min="-60" max="60" step="0.5"' +
+        (TURNABLE(item) ? "" : " disabled") + '>' +
     '</div>';
   return el;
 }
@@ -981,7 +1004,7 @@ function layout(piece, stage, p) {
   // are then literally the generator's three lines:
   //     x = place.x * w ; baseY = place.y * h ; scale = place.w*w / rotated.w
   // Do not put a rotate() back on this element. That was the bug.
-  const want = artURL(item.art, p.rot);
+  const want = artURL(item.art, pieceRot(p));
   if (piece.dataset.want !== want) {
     piece.dataset.want = want;
     piece.src = want;
@@ -1001,7 +1024,7 @@ function layout(piece, stage, p) {
   // piece is spun by the DIFFERENCE to keep the handle feeling live. The moment
   // the matching art loads this is rotate(0deg) and the preview is exact again.
   const loaded = Number(piece.dataset.loadedRot);
-  const delta = Number.isFinite(loaded) ? p.rot - loaded : 0;
+  const delta = Number.isFinite(loaded) ? pieceRot(p) - loaded : 0;
   piece.style.transform = delta ? "rotate(" + delta + "deg)" : "";
 }
 
