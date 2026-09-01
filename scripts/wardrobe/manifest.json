@@ -14,8 +14,8 @@
       "recipe": {
         "place": {
           "wave": {
-            "x": 0.3649986914062499,
-            "y": 0.03662500003333334,
+            "x": 0.3661461523437499,
+            "y": 0.030354166700000008,
             "w": 0.415,
             "rot": 8.54
           },
@@ -74,6 +74,18 @@
       "preview": "head",
       "status": "draft",
       "art": "scripts/mascot-accessory-art/pink-beanie.png",
+      "recipe": {}
+    },
+    {
+      "id": "pink-beanie2",
+      "name": "Pink Knit Beanie",
+      "tagline": "",
+      "kind": "accessory",
+      "shop": "tailor",
+      "costBand": "accessory",
+      "preview": "head",
+      "status": "draft",
+      "art": "scripts/mascot-accessory-art/pink-beanie2-cut.png",
       "recipe": {}
     }
   ],

@@ -428,10 +428,19 @@ const server = createServer(async (req, res) => {
     if (!item) return send(res, 404, JSON.stringify({ error: "no such item" }));
     // The cut lives beside the source and the source is never written, so a
     // bad erase costs one file rather than the art.
-    const cut = item.art.replace(/\.png$/i, "-cut.png");
-    const orig = item.art.replace(/\.png$/i, "-orig.png");
-    if (!existsSync(join(ROOT, orig)) && !item.art.endsWith("-cut.png")) {
-      copyFileSync(join(ROOT, item.art), join(ROOT, orig));
+    //
+    // ONE CUT FILE, NOT A CHAIN. The suffix used to be appended to whatever the
+    // manifest currently pointed at, and after the first erase that was already
+    // the cut, so a second rub made -cut-cut and a sixth made
+    // -cut-cut-cut-cut-cut-cut. The owner got there in one sitting on a beanie.
+    // The base name is stripped of any cut suffixes first, so erasing again
+    // overwrites the same file: the accumulation was only ever in the NAME, and
+    // the pixels always continued from the previous cut either way.
+    const base = item.art.replace(/(-cut)+\.png$/i, ".png");
+    const cut = base.replace(/\.png$/i, "-cut.png");
+    const orig = base.replace(/\.png$/i, "-orig.png");
+    if (!existsSync(join(ROOT, orig))) {
+      copyFileSync(join(ROOT, base), join(ROOT, orig));
     }
     writeFileSync(join(ROOT, cut), Buffer.from(png.split(",")[1], "base64"));
     item.art = cut;
