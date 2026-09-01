@@ -285,6 +285,7 @@ test("an unknown outfit cannot be bought or worn", async () => {
 const PRICE_LIST: Record<string, number> = {
   pagdi: ACCESSORY_COST,
   "station-cap": ACCESSORY_COST,
+  "pink-beanie2": ACCESSORY_COST,
 };
 
 const POSES = ["wave", "cheer", "thumbsup", "thinking", "tryagain"] as const;

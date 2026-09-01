@@ -363,6 +363,36 @@ function pngSize(path) {
 function check() {
   const m = manifest();
   const problems = [];
+  /**
+   * THE TEST'S PRICE LIST IS A THIRD PLACE, and it is deliberately a second
+   * copy: outfits.test.ts pins every price by hand so a typo in the manifest is
+   * a failing test rather than a surprise on somebody's balance. The cost of
+   * that is real, and the owner pays it every time the placement tool adds a
+   * piece — the api suite goes red for a missing line, seven minutes away in
+   * the Repl, long after the tool said everything agreed.
+   *
+   * So `check` asks about it too. The parity is unchanged; only how long it
+   * takes to hear about it. Build 27, after adding a beanie would have done
+   * exactly this.
+   */
+  try {
+    const spec = readFileSync(
+      join(ROOT, "artifacts/api-server/src/routes/outfits.test.ts"), "utf8");
+    const block = /const PRICE_LIST[^{]*\{([\s\S]*?)\n\};/.exec(spec)?.[1] ?? "";
+    const priced = new Set([...block.matchAll(/^\s*"?([a-z0-9-]+)"?\s*:/gm)].map((x) => x[1]));
+    for (const it of m.items) {
+      if (!priced.has(it.id)) {
+        problems.push(
+          `${it.id}: no price in PRICE_LIST (artifacts/api-server/src/routes/outfits.test.ts). ` +
+          `Add "${it.id}": ${it.cost ?? COST_CONST[it.costBand]},`);
+      }
+    }
+    for (const id of priced) {
+      if (!m.items.some((i) => i.id === id)) {
+        problems.push(`${id}: priced in PRICE_LIST but not in the shop any more`);
+      }
+    }
+  } catch { /* the suite is not always beside us; not a parity failure */ }
   for (const it of m.items) {
     for (const [name, dir] of [["mobile", MOBILE_OUT], ["web", WEB_OUT]]) {
       for (const p of POSES) {
