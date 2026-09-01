@@ -9,6 +9,7 @@ import { ChunkyButton } from '@/components/ChunkyButton';
 import { AppleAuthButton } from '@/components/AppleAuthButton';
 import { GoogleAuthButton } from '@/components/GoogleAuthButton';
 import {
+  authErrorCode,
   authErrorMessage,
   incompleteStateMessage,
   isExpectedUserError,
@@ -49,13 +50,24 @@ export default function SignUpScreen() {
     setFormError(authErrorMessage(error));
   };
 
+  /**
+   * WHETHER THE CODE WAS ACTUALLY SENT, which the screen used to assume.
+   *
+   * null   not attempted yet
+   * true   Clerk accepted the send
+   * false  the send failed, so no email is coming
+   */
+  const [codeSent, setCodeSent] = React.useState<boolean | null>(null);
+
   const sendCode = async (context: string) => {
     const { error } = await signUp.verifications.sendEmailCode();
     if (error) {
       reportAuthError(context, error);
       setFormError(authErrorMessage(error));
+      setCodeSent(false);
       return false;
     }
+    setCodeSent(true);
     return true;
   };
 
@@ -86,10 +98,31 @@ export default function SignUpScreen() {
 
   const handleSubmit = async () => {
     setFormError(null);
+    setCodeSent(null);
     // A fresh submit re-enters the code step if Clerk asks for one again.
     setReturnedToForm(false);
-    const { error } = await signUp.password({ emailAddress, password });
+    let { error } = await signUp.password({ emailAddress, password });
+    if (error && authErrorCode(error) === 'resource_not_found') {
+      // SELF-HEAL (2026-08-31, BOLO-MOBILE-13): the local SignUp resource can
+      // outlive its server-side attempt — client.destroy() from the escape
+      // hatch orphaned one, and signUp.password() then PATCHed the dead id
+      // ("No sign up was found with id sua_..."), a wall the learner could
+      // not get past by retrying. create() POSTs a fresh attempt and, per its
+      // contract, deactivates whatever stale attempt the client still holds.
+      // Reported first (resource_not_found is not an expected user error), so
+      // every heal remains visible in Sentry.
+      reportAuthError('signUp.password.staleAttempt', error);
+      ({ error } = await signUp.create({ emailAddress, password }));
+    }
     if (error) {
+      // THE FLIP GUARD (same incident): a failed submit must stay on the
+      // form. The 422 response piggybacks client state, and if that state
+      // carries a missing_requirements attempt, the derived awaitingCode
+      // would flip this screen to the code step — hiding the password error
+      // (only the form renders it) behind a claim that a code was emailed,
+      // when the send never ran. Clerk's email log for that night shows zero
+      // emails to the learner who reported it.
+      setReturnedToForm(true);
       handleUnexpected('signUp.password', error);
       return;
     }
@@ -161,8 +194,28 @@ export default function SignUpScreen() {
   if (awaitingCode) {
     return (
       <AuthShell
-        title="Check your email"
-        subtitle={`We sent a 6-digit code to ${emailAddress}. Enter it below to finish.`}
+        title={codeSent === false ? "We could not send the code" : "Check your email"}
+        /**
+         * IT USED TO SAY "We sent a 6-digit code" THE MOMENT THE STATUS
+         * CHANGED, whether or not a send had happened. On 2026-08-31 a
+         * learner read that sentence, went to her inbox, and waited for an
+         * email that was never dispatched (Clerk's email log shows zero
+         * sends to her): her submit had been REJECTED, and the screen flip
+         * hid the rejection. The flip itself is now guarded in handleSubmit;
+         * this copy is the belt to that guard's braces.
+         *
+         * The claim tracks codeSent: only a send THIS SESSION confirmed may
+         * say "we sent". null means no send has happened here — true on
+         * every relaunch into a rehydrated attempt, where the honest offer
+         * is the code from the earlier email, or the resend link below.
+         */
+        subtitle={
+          codeSent === false
+            ? `No email was sent to ${emailAddress}, so nothing is on its way. Go back and try again, which starts a fresh sign up.`
+            : codeSent === true
+              ? `We sent a 6-digit code to ${emailAddress}. Enter it below to finish.`
+              : `Enter the 6-digit code from your email. If nothing arrived, send a new code below.`
+        }
       >
         <Field
           label="Verification code"
@@ -180,14 +233,29 @@ export default function SignUpScreen() {
             {formErrorLine}
           </Text>
         ) : null}
-        <ChunkyButton
-          title="Verify & continue"
-          icon="check"
-          onPress={handleVerify}
-          loading={busy}
-          disabled={code.length < 6}
-          style={{ marginTop: 6 }}
-        />
+        {/* A DEAD END IS THE WORST PART OF A FAILED SEND. With no email
+            coming, "Verify & continue" asks for a code that does not exist and
+            the learner has nothing to do but leave. When the send failed the
+            way out becomes the main button: going back re-runs the sign up
+            from the form, which creates a fresh attempt. */}
+        {codeSent === false ? (
+          <ChunkyButton
+            title="Start over"
+            icon="check"
+            onPress={backToForm}
+            loading={busy}
+            style={{ marginTop: 6 }}
+          />
+        ) : (
+          <ChunkyButton
+            title="Verify & continue"
+            icon="check"
+            onPress={handleVerify}
+            loading={busy}
+            disabled={code.length < 6}
+            style={{ marginTop: 6 }}
+          />
+        )}
         <Pressable
           style={styles.resend}
           disabled={busy}
