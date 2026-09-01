@@ -94,9 +94,19 @@ scripts/mascot-garment-art/
 # Server-side QA corpora: large JSON reports, read by nothing at build time.
 artifacts/api-server/scripts/
 
-# Sibling web artifacts' heavy media. Their package.json files stay.
-artifacts/bolo-social-clips/assets/
-artifacts/bolo-social-clips/public/
+# THE SOCIAL CLIPS GO WHOLE, and they are the only artifacts/ directory that
+# may. It has NO package.json, so it is not in the artifacts/* workspace glob
+# and dropping it cannot cause the lockfile mismatch the second rule at the top
+# warns about. Checked before writing this, 2026-09-01: every other artifacts/
+# directory does have one and keeps its manifest.
+#
+# Only assets/ and public/ were listed here, and the weight had moved. The
+# campaign renders sit at the package root and were riding along untouched:
+# campaign-duo and campaign-duo-playsoon at 13.9 MB each, plus the two
+# campaign-father directories. 34 MB of marketing video in an app binary's
+# upload.
+artifacts/bolo-social-clips/
+
 artifacts/bolo-launch-video/assets/
 artifacts/bolo-launch-video/public/
 artifacts/mockup-sandbox/public/
