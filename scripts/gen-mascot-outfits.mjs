@@ -186,14 +186,29 @@ function dressPose(pose, { art, tmp, wfrac, dy, squash, freefrac, place }) {
   // existed bakes byte for byte as it did. `squash` is the older whole-item
   // version of the same idea and still owns the undragged path.
   const ar = place && Number.isFinite(place.ar) ? place.ar : 1;
-  const artW = Number(magick([art, "-format", "%w", "info:"]));
-  const artH = Number(magick([art, "-format", "%h", "info:"]));
+
+  // TILT. Cloth used to have no rotation at all, so the placement tool hid its
+  // turn control; the owner asked for it back, and a garment cut out of a
+  // dressed render usually needs a few degrees to sit with a pose. ROTATE THEN
+  // TRIM, byte for byte the order gen-mascot-accessories.mjs uses, because the
+  // tool previews the rotated-and-trimmed box and the two must measure the
+  // same thing. Untilted cloth never touches this branch, so every garment
+  // placed before it existed bakes exactly as it did.
+  let src = art;
+  if (place && place.rot) {
+    magick([art, "-background", "none", "-rotate", Number(place.rot).toFixed(2),
+      "-trim", "+repage", p("rot")]);
+    src = p("rot");
+  }
+
+  const artW = Number(magick([src, "-format", "%w", "info:"]));
+  const artH = Number(magick([src, "-format", "%h", "info:"]));
   const resize = squash && !place
     ? ["-resize", `${gw}x${Math.round(squash * bh)}!`]
     : place && ar !== 1
       ? ["-resize", `${gw}x${Math.round(artH * (gw / artW) * ar)}!`]
       : ["-resize", `${gw}x`];
-  magick([art, ...resize, p("garment")]);
+  magick([src, ...resize, p("garment")]);
   const gh = Number(magick([p("garment"), "-format", "%h", "info:"]));
   const gx = place ? Math.round(place.x * w) : Math.round(cx - gw / 2);
   const gy = place ? Math.round(place.y * h) : chinOf(pose, h) + dy;

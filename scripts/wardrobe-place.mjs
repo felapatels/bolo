@@ -739,7 +739,13 @@ main{padding:18px;display:flex;gap:18px;flex-wrap:wrap}
 .stage.dragging{cursor:grabbing}
 .stage img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;pointer-events:none;-webkit-user-drag:none;user-select:none}
 .stage .worn{z-index:2}
-.stage .piece{transform-origin:center}
+/* FILL, NOT CONTAIN, and this is the whole reason stretching looked broken.
+   .stage img sets object-fit:contain, which PRESERVES the art's aspect: give
+   the box a different one and the picture letterboxes inside it instead of
+   stretching, so the dashed box widened and the vest did not, and the stretch
+   slider read as a second size slider. The piece is the one image whose box is
+   deliberately not the art's own shape, so it is the one that must fill. */
+.stage .piece{transform-origin:center;object-fit:fill}
 /* THE LOUPE. Erasing a bird out of a dressed render is close work, and the
    brush covers exactly the pixels you are trying to judge. This floats beside
    the cursor showing what is under it, magnified, with the brush footprint
@@ -983,7 +989,12 @@ const artURL = (p, rot) => fileURL(p) + "&trim=1&rot=" + (Number(rot) || 0).toFi
  * disagree about the SCALE too, because it measures the untrimmed-unrotated
  * width. Cloth is always requested at rot 0.
  */
-const TURNABLE = (it) => it.kind === "accessory";
+// EVERYTHING TURNS AGAIN. This was accessory-only for one afternoon, because
+// gen-mascot-outfits.mjs had no -rotate and a turn on cloth was written to the
+// manifest and then silently discarded. The owner asked for tilt on a vest, so
+// the garment pipeline grew the same rotate-then-trim step the accessory one
+// has, and the control is honest for both kinds now.
+const TURNABLE = () => true;
 const pieceRot = (p) => (TURNABLE(item) ? p.rot : 0);
 
 async function boot() {
