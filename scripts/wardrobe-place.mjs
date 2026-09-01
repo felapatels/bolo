@@ -742,7 +742,14 @@ main{padding:18px;display:flex;gap:18px;flex-wrap:wrap}
 .stage .piece{transform-origin:center}
 .row{display:flex;gap:8px;align-items:center;padding:8px 10px;border-top:1px solid var(--line);flex-wrap:wrap}
 .row label{font-size:11px;color:#6b6558;text-transform:uppercase;letter-spacing:.06em}
-input[type=range]{width:110px}
+/* WIDER TRACK, NARROWER RANGE, 2026-09-01. At 110px carrying 10..120, one
+   pixel of mouse travel was a whole unit of size, and the band anyone actually
+   uses (37.5 to 57) was 19 pixels of the bar. The number box beside each
+   slider is the precise control; the bar is for getting close. */
+input[type=range]{width:170px}
+.row input[type=number]{width:64px;font:12px ui-monospace,monospace;padding:2px 5px;
+  border:1px solid var(--line);border-radius:5px;background:#fff}
+.row input[type=number]:disabled{opacity:.45}
 #toast{font-weight:700;color:var(--acc);opacity:0;transition:opacity .15s}
 #toast.on{opacity:1}
 #log{padding:10px 18px;font:12px ui-monospace,monospace;white-space:pre-wrap;color:#6b6558;border-top:1px solid var(--line)}
@@ -987,15 +994,31 @@ function card(pose) {
       '<img class="piece" draggable="false" onload="pieceLoaded(this)">' +
     '</div>' +
     '<div class="row">' +
-      '<label>size</label><input type="range" class="w" min="10" max="120" step="0.5">' +
+      // EVERY CONTROL IS A BAR PLUS A BOX. The bar's range is deliberately
+      // narrower than the box's, so the bar is usable at the sizes real pieces
+      // actually take while the box can still hold an outlier and show it
+      // truthfully. Type in the box, or click it and use the arrow keys.
+      '<label>size</label>' +
+      '<input type="range" class="w" min="20" max="80" step="0.25">' +
+      '<input type="number" class="wn" min="1" max="200" step="0.25">' +
       // DISABLED FOR CLOTH, and labelled with the reason rather than just
       // vanishing. gen-mascot-outfits.mjs has no -rotate, so a turn set here
       // would be written to the manifest and then silently discarded at bake.
       // A control that does nothing is the exact shape of the bug this tool
       // just cost a morning on.
       '<label>' + (TURNABLE(item) ? "turn" : "turn &middot; cloth does not turn") + '</label>' +
-      '<input type="range" class="r" min="-60" max="60" step="0.5"' +
+      '<input type="range" class="r" min="-30" max="30" step="0.25"' +
         (TURNABLE(item) ? "" : " disabled") + '>' +
+      '<input type="number" class="rn" min="-90" max="90" step="0.25"' +
+        (TURNABLE(item) ? "" : " disabled") + '>' +
+      // STRETCH. 100 is the art's own aspect; below is shorter and wider,
+      // above is taller and skinnier. Both generators multiply HEIGHT by this
+      // and leave width to the size slider, so the preview and the bake agree
+      // by using the same one number.
+      '<label>stretch</label>' +
+      '<input type="range" class="a" min="60" max="160" step="1">' +
+      '<input type="number" class="an" min="10" max="400" step="1">' +
+      '<button type="button" class="areset" title="back to the art\'s own shape">reset</button>' +
     '</div>';
   return el;
 }
@@ -1022,8 +1045,15 @@ function layout(piece, stage, p) {
   // object-contain letterbox the piece, so it drew smaller than it renders and
   // every drag was corrected against a lie.
   const natW = piece.naturalWidth || 1, natH = piece.naturalHeight || 1;
+  // STRETCH. A multiplier on height alone, which is what both generators do:
+  //   accessories   sh = rot.h * scale * ar
+  //   cloth         gh = artH * (gw / artW) * ar
+  // and width is already p.w in both. Absent is 1, so nothing placed before
+  // the slider existed moves. Above 1 is taller and skinnier, below 1 shorter
+  // and wider, which is the one control that gives both directions.
+  const ar = Number.isFinite(p.ar) ? p.ar : 1;
   piece.style.width = (p.w * W) + "px";
-  piece.style.height = (p.w * W * (natH / natW)) + "px";
+  piece.style.height = (p.w * W * (natH / natW) * ar) + "px";
 
   // TRANSIENT ONLY, and zero whenever the right art has arrived. Dragging the
   // turn slider outruns the server, so between the input and the new PNG the
@@ -1151,9 +1181,18 @@ function wire(stage) {
   const pose = stage.dataset.pose;
   const card = stage.closest(".pose");
   const wIn = card.querySelector(".w"), rIn = card.querySelector(".r");
+  const aIn = card.querySelector(".a"), aReset = card.querySelector(".areset");
+  const wNum = card.querySelector(".wn"), rNum = card.querySelector(".rn");
+  const aNum = card.querySelector(".an");
   const sync = () => {
     const p = place[pose] ?? seed(pose);
-    wIn.value = p.w * 100; rIn.value = p.rot;
+    // Rounded for display only. The stored value keeps its full precision, so
+    // reading a box never quietly coarsens a placement that is already good.
+    const wv = +(p.w * 100).toFixed(2), rv = +(+p.rot).toFixed(2);
+    const av = Math.round((Number.isFinite(p.ar) ? p.ar : 1) * 100);
+    wIn.value = wNum.value = wv;
+    rIn.value = rNum.value = rv;
+    aIn.value = aNum.value = av;
   };
   sync();
   let drag = null;
@@ -1202,15 +1241,47 @@ function wire(stage) {
   stage.addEventListener("wheel", (e) => {
     e.preventDefault();
     const p = place[pose] ?? seed(pose);
-    const step = e.deltaY < 0 ? 1.03 : 1 / 1.03;
+    // 3% a notch was too coarse to land on a size; most wheels fire several
+    // notches per flick. Fine by default, hold shift for the old speed.
+    const k = e.shiftKey ? 1.05 : 1.012;
+    const step = e.deltaY < 0 ? k : 1 / k;
     place[pose] = { ...p, w: Math.min(1.4, Math.max(0.05, p.w * step)) };
     apply(stage);
     sync();
     mark(card, pose);
   }, { passive: false });
 
-  wIn.oninput = () => { place[pose] = { ...(place[pose] ?? seed(pose)), w: +wIn.value / 100 }; apply(stage); mark(card, pose); };
-  rIn.oninput = () => { place[pose] = { ...(place[pose] ?? seed(pose)), rot: +rIn.value }; apply(stage); mark(card, pose); };
+  /**
+   * Bind one bar and one box to one field. Whichever the owner touches, the
+   * other follows and the placement is written once. The write callback
+   * placement so STRETCH can delete its key instead of storing a 1.
+   */
+  const bind = (bar, box, write) => {
+    const push = (raw) => {
+      const v = Number(raw);
+      if (!Number.isFinite(v)) return;          // a half-typed "-" or empty box
+      place[pose] = write({ ...(place[pose] ?? seed(pose)) }, v);
+      apply(stage); mark(card, pose);
+    };
+    bar.oninput = () => { box.value = bar.value; push(bar.value); };
+    box.oninput = () => { bar.value = box.value; push(box.value); };
+  };
+
+  bind(wIn, wNum, (p, v) => ({ ...p, w: v / 100 }));
+  bind(rIn, rNum, (p, v) => ({ ...p, rot: v }));
+  // STRETCH stores nothing at 1, so a piece left at the art's own shape carries
+  // no ar in the manifest and its entry reads exactly as it did before this
+  // control existed.
+  bind(aIn, aNum, (p, v) => {
+    const next = { ...p, ar: v / 100 };
+    if (next.ar === 1) delete next.ar;
+    return next;
+  });
+  aReset.onclick = () => {
+    const next = { ...(place[pose] ?? seed(pose)) };
+    delete next.ar;
+    place[pose] = next; apply(stage); sync(); mark(card, pose);
+  };
 }
 
 function mark(card, pose) {

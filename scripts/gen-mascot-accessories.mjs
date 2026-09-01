@@ -336,8 +336,13 @@ function buildPose(id, pose, tmp, { install, fudge, margin }) {
     "-trim", "+repage", p("rot")]);
   const rot = layerBox(p("rot"), pose);
   const scale = place ? (place.w * w) / rot.w : (ref.w * fudge) / rot.w;
+  // STRETCH, from the tool's aspect slider. A multiplier on height only, since
+  // width is already what place.w means. Above 1 is taller and skinnier, below
+  // 1 is shorter and wider. Absent is 1, so every placement made before the
+  // slider existed bakes exactly as it did.
+  const ar = place && Number.isFinite(place.ar) ? place.ar : 1;
   const sw = Math.round(rot.w * scale);
-  const sh = Math.round(rot.h * scale);
+  const sh = Math.round(rot.h * scale * ar);
   magick([p("rot"), "-resize", `${sw}x${sh}!`, p("scaled")]);
 
   // Seat it where the approved reference sits, then raise it until her eye is

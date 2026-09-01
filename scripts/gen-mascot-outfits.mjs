@@ -180,9 +180,19 @@ function dressPose(pose, { art, tmp, wfrac, dy, squash, freefrac, place }) {
   // knobs are what a garment gets for free, and the moment somebody drags it
   // they have said something more specific than any of them.
   const gw = place ? Math.round(place.w * w) : Math.round(wfrac * WIDTH[pose]);
+  // STRETCH, from the tool's aspect slider, and only meaningful on a dragged
+  // pose. A multiplier on height alone, because place.w already says how wide
+  // the cloth is. Absent is 1, so every garment placed before the slider
+  // existed bakes byte for byte as it did. `squash` is the older whole-item
+  // version of the same idea and still owns the undragged path.
+  const ar = place && Number.isFinite(place.ar) ? place.ar : 1;
+  const artW = Number(magick([art, "-format", "%w", "info:"]));
+  const artH = Number(magick([art, "-format", "%h", "info:"]));
   const resize = squash && !place
     ? ["-resize", `${gw}x${Math.round(squash * bh)}!`]
-    : ["-resize", `${gw}x`];
+    : place && ar !== 1
+      ? ["-resize", `${gw}x${Math.round(artH * (gw / artW) * ar)}!`]
+      : ["-resize", `${gw}x`];
   magick([art, ...resize, p("garment")]);
   const gh = Number(magick([p("garment"), "-format", "%h", "info:"]));
   const gx = place ? Math.round(place.x * w) : Math.round(cx - gw / 2);
