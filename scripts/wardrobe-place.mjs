@@ -917,7 +917,13 @@ const artURL = (p, rot) => fileURL(p) + "&trim=1&rot=" + (Number(rot) || 0).toFi
  * ONLY THE ACCESSORY PIPELINE TURNS A PIECE.
  *
  * gen-mascot-accessories.mjs rotates then trims. gen-mascot-outfits.mjs, which
- * every garment, top and bottom goes through, contains no `-rotate` at all: it
+ * every garment, top and bottom goes through, contains no -rotate at all: it
+ * NO BACKTICKS ANYWHERE IN THIS BROWSER SCRIPT, not even in a comment.
+ * Everything from PAGE down lives inside a String.raw template, so one
+ * backtick closes that string and the next word is evaluated as JavaScript.
+ * It cost a restart on 2026-09-01: a comment reading -rotate in backticks
+ * threw "ReferenceError: rotate is not defined" at module load. Note that
+ * node --check PASSES this, because the result is still valid syntax.
  * trims once and reads place.x/y/w, and place.rot is discarded in silence.
  *
  * So the turn control must not appear to do anything for cloth. Showing one is
