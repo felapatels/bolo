@@ -3,3 +3,43 @@
 
 # No need to store the pnpm store twice.
 .local
+
+# ---------------------------------------------------------------------------
+# WEIGHT THE DEPLOYED IMAGE DOES NOT RUN, excluded 2026-09-01 after the Build
+# stage started dying with no error message.
+#
+# THE SYMPTOM, so nobody re-diagnoses it from scratch: Provision and Security
+# checks pass, Build goes red, Bundle and Promote never start, and Replit says
+# "usually caused by a build command error". It is not. Inside that failed
+# stage the log shows every one of the five package builds finishing, then the
+# `[deployment.postBuild]` step printing its own "Removed all cached metadata
+# files", and then the log simply stops mid-line. A stage that dies AFTER its
+# build command succeeded, with no error text, is a process killed rather than
+# a command that failed.
+#
+# Container disk is already known to be tight here: the platform overrides in
+# pnpm-workspace.yaml strip every non-Linux native binary for exactly this
+# reason. What tipped it over is that this repo commits binary art. Eleven
+# commits on 2026-09-01 alone carried ~50 PNGs each for three accessories, and
+# every wardrobe publish regenerates a ~1.4MB review sheet on top.
+#
+# None of the paths below is read at build time or at runtime, verified rather
+# than assumed: nothing in api-server, gujarati-coach or the mobile build
+# script reads git, and neither docs/ nor qa/ is served by any route.
+#
+# DO NOT ADD A WORKSPACE PACKAGE HERE. `artifacts/*`, `lib/*` and `scripts` are
+# all in pnpm-workspace.yaml, so excluding one breaks `pnpm install` and the
+# recursive build, including the packages that only exist for review
+# (bolo-launch-video, mockup-sandbox). They stay.
+#
+# If a deploy ever needs the history back, `.git` is the one line to drop.
+
+# 456 MB, and it grows with every committed PNG. Nothing reads it.
+.git
+
+# 47 MB of generated review sheets and handoff notes. Never served.
+docs
+qa
+screenshots
+review-sheets
+HANDOFF-*.md
