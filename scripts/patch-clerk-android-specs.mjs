@@ -64,7 +64,70 @@ function patchFile(path) {
   return true;
 }
 
+/**
+ * SECOND PATCH, BUILD 27: stop a missing native module from WIPING THE CLIENT.
+ *
+ * The bug it fixes, seen by a real person trying to sign up on 2026-09-01:
+ *
+ *     No sign up was found with id sua_3IhsKmW5mxqagxLyIrWEGrWZ7Na
+ *
+ * The chain, all inside dist/provider/nativeClientSync.js:
+ *
+ *   1. NativeClientSync installs its handleUnauthenticated monkey patch
+ *      whenever isNative(), regardless of its own `enabled` prop. Excluding
+ *      the native module does not stop it being installed.
+ *   2. Any 401 runs that patch. During SIGN-UP the learner is unauthenticated
+ *      by definition, and they have to leave the app to fetch the emailed code
+ *      and come back, which is exactly when a token refresh can 401.
+ *   3. It calls readNativeDeviceToken(), which returns null because the module
+ *      is excluded on both platforms here.
+ *   4. syncDeviceTokenToCache(cache, null) then runs
+ *
+ *          await tokenCache?.clearToken?.(CLERK_CLIENT_JWT_KEY)
+ *
+ *      CLEARING the client JWT.
+ *   5. The next GET /v1/client has no client JWT, so Clerk issues a BRAND NEW
+ *      EMPTY client, and an empty client has no sign-up attempt on it. The
+ *      attempt the learner is halfway through is simply gone.
+ *
+ * CLAUDE.md carried this as a latent hazard, unproven, one data point from the
+ * Play pre-launch crawler. This is the second data point and a much better one:
+ * a real device, a real person, and a sign-up they could not finish.
+ *
+ * THE FIX IS ONE WORD OF SEMANTICS. A null device token means "the native side
+ * has nothing to say", which is permanently true when the module is excluded.
+ * It does NOT mean "there is no token". Clearing on null is only correct while
+ * the native side is the source of truth, and here there is no native side at
+ * all, so the JS client's own token is the only truth there is. Leave it alone.
+ *
+ * Deliberately NOT disabling the monkey patch itself: it still forwards to
+ * Clerk's own handleUnauthenticated, which is the behaviour a JS-only client
+ * should have. Only the destructive branch goes.
+ */
+function patchDeviceTokenClear(path) {
+  let src;
+  try {
+    src = readFileSync(path, 'utf8');
+  } catch {
+    return false;
+  }
+  const CLEAR = 'await tokenCache?.clearToken?.(src_constants.CLERK_CLIENT_JWT_KEY);';
+  if (!src.includes(CLEAR)) return false;
+  writeFileSync(
+    path,
+    src.replace(
+      CLEAR,
+      '/* patched by scripts/patch-clerk-android-specs.mjs (build 27): a null\n' +
+        '\t   device token means the native module is absent, not that the client\n' +
+        '\t   has no token. Clearing here wiped an in-flight sign-up attempt. */\n' +
+        '\treturn;',
+    ),
+  );
+  return true;
+}
+
 let patched = 0;
+let cleared = 0;
 let dirs = [];
 try {
   dirs = readdirSync(STORE).filter((d) => d.startsWith('@clerk+expo@'));
@@ -81,10 +144,18 @@ for (const dir of dirs) {
   for (const target of TARGETS) {
     if (patchFile(join(pkg, target))) patched += 1;
   }
+  if (patchDeviceTokenClear(join(pkg, 'dist/provider/nativeClientSync.js'))) {
+    cleared += 1;
+  }
 }
 
 if (patched > 0) {
   console.log(
     `patch-clerk-android-specs: made ${patched} Android spec(s) fail soft instead of throwing`,
+  );
+}
+if (cleared > 0) {
+  console.log(
+    `patch-clerk-android-specs: stopped ${cleared} copy(s) wiping the client JWT when the native module is absent`,
   );
 }
