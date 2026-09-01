@@ -39,6 +39,7 @@ import {
   mkdirSync,
   statSync,
   unlinkSync,
+  rmSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { extname, join } from "node:path";
@@ -401,24 +402,206 @@ const server = createServer(async (req, res) => {
     return send(res, 200, JSON.stringify({ ok: true, item: publicItem(item) }));
   }
 
-  // PUBLISH (build 27). Everything the repo can do on its own: regenerate the
-  // registries from the manifest and write the pose files into both apps.
-  // What it CANNOT do is reach a user, and the UI says so rather than implying
-  // a deploy happened.
+/**
+ * Every path a wardrobe change is allowed to touch.
+ *
+ * LISTED, NEVER AN EXCLUSION. A commit built from "everything except" sweeps in
+ * whatever else happens to be dirty in the tree, and this tool runs on a
+ * machine where something else usually is.
+ */
+const WARDROBE_PATHS = [
+  "scripts/wardrobe/manifest.json",
+  "scripts/mascot-accessory-art",
+  "scripts/mascot-garment-art",
+  "artifacts/gujarati-coach/public/mascot",
+  "artifacts/bolo-mobile/assets/images/mascot",
+  "artifacts/api-server/src/lib/outfits.catalog.gen.ts",
+  "artifacts/gujarati-coach/src/lib/mascotOutfits.gen.ts",
+  "artifacts/gujarati-coach/src/lib/wardrobeShop.gen.ts",
+  "artifacts/bolo-mobile/lib/mascotOutfits.gen.ts",
+  "artifacts/bolo-mobile/lib/wardrobeShop.gen.ts",
+  "docs/garment-review",
+];
+
+const git = (args) =>
+  execFileSync("git", args, { cwd: ROOT, encoding: "utf8", maxBuffer: 1 << 24 });
+
+/**
+ * Commit and push exactly the wardrobe paths. Returns a log line or throws.
+ *
+ * `git commit -- <paths>` rather than a bare commit, because the index is
+ * shared with whatever else is working in this repo and a bare commit takes
+ * all of it.
+ */
+function commitWardrobe(subject) {
+  const dirty = git(["status", "--porcelain", "--", ...WARDROBE_PATHS]).trim();
+  if (!dirty) return null;
+  git(["add", "--", ...WARDROBE_PATHS]);
+  git(["commit", "-m", subject, "--", ...WARDROBE_PATHS]);
+  git(["push", "origin", "HEAD"]);
+  return `${dirty}\n\n${git(["log", "--oneline", "-1"]).trim()}`;
+}
+
+/**
+ * WHO ALREADY PAID FOR THIS PIECE, asked of PRODUCTION.
+ *
+ * The owner's worry, and the right one: "something can be deleted that was
+ * already purchased". Ownership is a ledger row, so deleting the catalogue
+ * entry does not refund anybody — it strands what they bought. Tonight two
+ * accounts had bought a kurta and it was only safe because both turned out to
+ * be the owner's own; that check was done by hand, which is the wrong place
+ * for it.
+ *
+ * READ-ONLY, AND AGAINST PROD ON PURPOSE. The Shell's database is development
+ * and its emptiness means nothing. PROD_DATABASE_URL lives in ~/bolo/.env under
+ * a name nothing in the repo reads, so nothing can pick it up by accident.
+ *
+ * Returns null when it cannot ask, which is NOT the same as "nobody bought it"
+ * and is reported as the difference it is.
+ */
+function outfitPurchases(id) {
+  let url = null;
+  try {
+    const env = readFileSync(join(ROOT, ".env"), "utf8");
+    url = /^PROD_DATABASE_URL=(.+)$/m.exec(env)?.[1]?.trim().replace(/^["']|["']$/g, "");
+  } catch { /* no .env on this machine */ }
+  if (!url) return null;
+  try {
+    const rows = execFileSync("psql", [url, "-A", "-t", "-F", "\t", "-c",
+      `SELECT user_id, created_at FROM token_ledger WHERE reason = 'spend_outfit' AND ref_id = 'outfit:${id}' ORDER BY created_at`],
+      { encoding: "utf8", timeout: 20000 }).trim();
+    if (!rows) return { buyers: [], owners: 0, learners: 0 };
+    // The owner's own accounts are on the Nest allowlist, and a purchase by one
+    // of those is a test rather than a customer. Read straight out of the gate
+    // so the two can never drift.
+    let allow = "";
+    try { allow = readFileSync(join(ROOT, "artifacts/api-server/src/lib/ownerGate.ts"), "utf8"); } catch { /* fall back to counting all as learners */ }
+    const buyers = rows.split("\n").map((r) => {
+      const [userId, at] = r.split("\t");
+      return { userId, at, mine: allow.includes(userId) };
+    });
+    return {
+      buyers,
+      owners: buyers.filter((b) => b.mine).length,
+      learners: buyers.filter((b) => !b.mine).length,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * PUBLISH (build 27). Render, install into both apps, regenerate the
+ * registries, check they all agree, then COMMIT AND PUSH.
+ *
+ * The owner asked why there were four buttons when they wanted two, and the
+ * honest answer was that the fourth one lied: it was called Publish and only
+ * wrote files. Pushing is what makes the name true, and it removes the step
+ * where a change sat on one laptop waiting for somebody to remember it.
+ *
+ * It still cannot reach a learner on its own, and the response says so: the
+ * Repl has to pull and republish for web, and phones need a native build.
+ */
   if (url.pathname === "/api/publish" && req.method === "POST") {
-    const { id } = await readBody(req);
+    const { id, message } = await readBody(req);
     const steps = [];
+    const run = (args) => {
+      const out = execFileSync("node", ["scripts/wardrobe.mjs", ...args],
+        { cwd: ROOT, encoding: "utf8", maxBuffer: 1 << 24 });
+      steps.push(`$ wardrobe ${args.join(" ")}\n${out.trim()}`);
+    };
     try {
-      for (const args of [["install", id], ["codegen"], ["check"]]) {
-        const out = execFileSync("node", ["scripts/wardrobe.mjs", ...args],
-          { cwd: ROOT, encoding: "utf8", maxBuffer: 1 << 24 });
-        steps.push(`$ wardrobe ${args.join(" ")}\n${out.trim()}`);
-      }
-      return send(res, 200, JSON.stringify({ ok: true, log: steps.join("\n\n").slice(-6000) }));
+      if (id) run(["install", id]);
+      run(["codegen"]);
+      run(["check"]);
     } catch (e) {
       steps.push(String(e.stdout ?? e.stderr ?? e));
-      return send(res, 200, JSON.stringify({ ok: false, log: steps.join("\n\n").slice(-6000) }));
+      return send(res, 200, JSON.stringify({ ok: false, stage: "build", log: steps.join("\n\n").slice(-6000) }));
     }
+    // The build is done and on disk either way. A git failure from here is
+    // worth reporting loudly and is NOT a reason to call the install a failure,
+    // so it gets its own stage in the answer.
+    try {
+      const subject = String(message || "").trim() || `Wardrobe: ${id || "catalogue"} from the placement tool`;
+      const line = commitWardrobe(subject);
+      steps.push(line ? `$ git commit && push\n${line}` : "nothing to commit: the wardrobe already matches the last commit");
+      return send(res, 200, JSON.stringify({ ok: true, pushed: Boolean(line), log: steps.join("\n\n").slice(-6000) }));
+    } catch (e) {
+      steps.push(`GIT FAILED (the art is installed, it just is not pushed)\n${String(e.stdout ?? e.stderr ?? e)}`);
+      return send(res, 200, JSON.stringify({ ok: true, pushed: false, log: steps.join("\n\n").slice(-6000) }));
+    }
+  }
+
+  // DELETE (build 27, owner's ask). Removes the piece from the shop and takes
+  // its installed sprites out of both apps. The SOURCE ART IS KEPT: it is the
+  // only thing here that cannot be regenerated, and a delete should cost a
+  // catalogue entry rather than the artwork.
+  if (url.pathname === "/api/delete" && req.method === "POST") {
+    const { id, force } = await readBody(req);
+    if (!ID_RE.test(id ?? "")) return send(res, 400, JSON.stringify({ error: "bad id" }));
+    const m = readManifest();
+    const item = m.items.find((i) => i.id === id);
+    if (!item) return send(res, 404, JSON.stringify({ error: "no such item" }));
+    // ASK PRODUCTION WHO OWNS IT FIRST. Deleting the catalogue entry does not
+    // refund anybody, it strands what they bought, so a piece somebody paid for
+    // needs a deliberate second press rather than a shrug.
+    const paid = outfitPurchases(id);
+    if (!force) {
+      if (paid === null) {
+        return send(res, 409, JSON.stringify({
+          error: "unchecked",
+          detail: "Production could not be reached, so whether anyone bought this is UNKNOWN. " +
+            "That is not the same as nobody having bought it.",
+        }));
+      }
+      if (paid.buyers.length) {
+        return send(res, 409, JSON.stringify({
+          error: "purchased",
+          buyers: paid.buyers.length,
+          owners: paid.owners,
+          learners: paid.learners,
+          detail:
+            `${paid.buyers.length} purchase${paid.buyers.length === 1 ? "" : "s"} in production: ` +
+            `${paid.owners} from your own accounts, ${paid.learners} from real learners. ` +
+            (paid.learners
+              ? "Deleting it takes away something a learner paid Chai for; it is not refunded."
+              : "Every buyer is one of your own accounts, so nothing a learner paid for is lost."),
+        }));
+      }
+    }
+    m.items = m.items.filter((i) => i.id !== id);
+    writeManifest(m);
+    const removed = [];
+    for (const base of [
+      "artifacts/gujarati-coach/public/mascot/outfits",
+      "artifacts/bolo-mobile/assets/images/mascot/outfits",
+    ]) {
+      const dir = join(ROOT, base, id);
+      if (existsSync(dir)) { rmSync(dir, { recursive: true, force: true }); removed.push(`${base}/${id}`); }
+    }
+    let log = "";
+    try {
+      log = execFileSync("node", ["scripts/wardrobe.mjs", "codegen"],
+        { cwd: ROOT, encoding: "utf8", maxBuffer: 1 << 24 });
+    } catch (e) { log = String(e.stdout ?? e); }
+    let pushed = false;
+    let gitLog = "";
+    try {
+      const line = commitWardrobe(`Wardrobe: remove ${id}`);
+      pushed = Boolean(line);
+      gitLog = line ? `\n\n$ git commit && push\n${line}` : "\n\nnothing to commit";
+    } catch (e) {
+      gitLog = `\n\nGIT FAILED (it is deleted locally, just not pushed)\n${String(e.stdout ?? e.stderr ?? e)}`;
+    }
+    return send(res, 200, JSON.stringify({
+      ok: true, removed, keptArt: item.art, pushed,
+      log: `removed ${id}\n${removed.map((r) => "  " + r).join("\n")}\n\n${log.trim()}` +
+        `\n\nsource art kept at ${item.art}` +
+        (paid && paid.buyers.length
+          ? `\n\n${paid.buyers.length} production purchase(s) existed; ownership rows are UNTOUCHED and unrefunded.`
+          : "") +
+        gitLog,
+    }));
   }
 
   if (url.pathname === "/api/erase" && req.method === "POST") {
@@ -472,6 +655,8 @@ header{display:flex;gap:14px;align-items:center;padding:12px 18px;border-bottom:
 h1{font-size:15px;margin:0;font-weight:800;letter-spacing:.02em}
 select,button{font:inherit;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer}
 button.primary{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:700}
+button.danger{color:#a3243b;border-color:#e3bcc4}
+button.danger:hover{background:#a3243b;color:#fff;border-color:#a3243b}
 button[aria-pressed=true]{background:var(--ink);color:var(--pap);border-color:var(--ink)}
 main{padding:18px;display:flex;gap:18px;flex-wrap:wrap}
 .pose{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
@@ -514,32 +699,24 @@ input[type=text],input[type=number],.card select{font:inherit;padding:6px 9px;bo
   <button id="tab-new" aria-pressed="false">Add a piece</button>
   <span id="kind" style="color:#6b6558"></span>
   <span style="flex:1"></span>
-  <button id="reset" title="Throw away every placement for this piece and go back to the automatic seating. Not saved until you Save.">Reset poses</button>
-  <button id="save" class="primary" title="Writes the placements and the shop details into scripts/wardrobe/manifest.json. Renders nothing.">Save</button>
-  <button id="render" title="Save, then composite the five poses and open a review sheet in docs/garment-review. The apps are not touched.">Save &amp; render</button>
-  <button id="install" title="Save, render, and write the sprites into BOTH apps plus the generated registries. This is the step that decides what ships.">Save &amp; install</button>
-  <button id="publish" title="Save, install, and check that the manifest, the registries and the art on both clients all agree. Still only on this Mac.">Install &amp; check</button>
+  <button id="reset" title="Throw away every placement for this piece and go back to the automatic seating. Only a Save away from permanent.">Reset poses</button>
+  <button id="delete" class="danger" title="Take this piece out of the shop and remove its sprites from both apps. The source art is kept.">Delete piece</button>
+  <button id="save" title="Write your placements and shop details to the manifest. Nothing is rendered and nobody sees it.">Save draft</button>
+  <button id="publish" class="primary" title="Render, install into both apps, regenerate and check the registries, then commit and push.">Publish</button>
   <span id="toast" role="status" aria-live="polite"></span>
 </header>
 <details id="legend" open>
-  <summary>What these buttons do, and what it takes to reach a learner</summary>
-  <ol>
-    <li><b>Save</b> writes your placements into the manifest. Nothing is drawn.</li>
-    <li><b>Save &amp; render</b> also composites the five poses into a review sheet,
-        so you can see the truth instead of the preview. The apps are untouched.</li>
-    <li><b>Save &amp; install</b> also writes the sprites into the web app and the
-        mobile app, and regenerates the registries. <b>This is the one that
-        decides what ships.</b></li>
-    <li><b>Install &amp; check</b> also proves the manifest, the registries and the
-        art on both clients agree.</li>
-  </ol>
-  <p><b>All four stop on this Mac.</b> To reach a learner it has to be committed
-     and pushed, then the Repl pulled and republished, which covers <b>web</b>.
-     <b>Phones need a native build</b>, because their art is bundled at compile
-     time, so a piece published without one shows up in the shop with no art
-     behind it.</p>
-  <p><b>Reset poses</b> clears every placement for this piece, not just the one
-     you are looking at, and it is only a Save away from being permanent.</p>
+  <summary>What the two buttons do</summary>
+  <p><b>Save draft</b> writes your placements and shop details to the manifest.
+     Nothing is rendered and nobody sees it. Safe to hit as often as you like.</p>
+  <p><b>Publish</b> does everything else in one go: composites the five poses,
+     writes the sprites into the web app and the mobile app, regenerates the
+     registries, checks they all agree, then commits and pushes.</p>
+  <p><b>One step is left after Publish, and it is not on this Mac.</b> The Repl
+     has to pull and republish, and then <b>web learners have it</b>.
+     <b>Phones need a native build</b> on top of that, because their art is
+     bundled at compile time: a piece that reaches the server without one turns
+     up in the shop with nothing behind it.</p>
 </details>
 <main id="place"></main>
 <section id="eraser">
@@ -948,7 +1125,7 @@ function setMode(m) {
   // Only the placement tabs act on the selected piece; the header's Save,
   // render and install would all be lies on the other two.
   const onPiece = m === "place" || m === "erase";
-  for (const b of ["reset", "save", "render", "install", "publish"]) {
+  for (const b of ["reset", "delete", "save", "publish"]) {
     document.getElementById(b).style.display = onPiece ? "" : "none";
   }
   document.getElementById("legend").style.display = onPiece ? "" : "none";
@@ -1089,15 +1266,17 @@ document.getElementById("publish").onclick = async () => {
   const opt = [...$("item").options].find((o) => o.value === item.id);
   if (opt) opt.textContent = item.name + " (" + item.kind + ")";
   await save();
-  toast("installing and checking...");
-  log("installing art, regenerating registries, checking parity...");
+  toast("publishing...");
+  log("rendering, installing into both apps, regenerating registries, checking, then pushing...");
   const r = await (await fetch("/api/publish", { method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ id: item.id }) })).json();
-  toast(r.ok ? "installed and checked" : "install FAILED");
-  log(r.log + "\n\n" + (r.ok
-    ? "THIS MAC ONLY. Commit and push, then pull and republish the Repl, and web learners have it. Phones need a native build, because their art is bundled at compile time."
-    : "nothing was installed"));
+  toast(!r.ok ? "publish FAILED" : r.pushed ? "published and pushed" : "installed, NOT pushed");
+  log(r.log + "\n\n" + (!r.ok
+    ? "nothing was installed"
+    : r.pushed
+      ? "PUSHED. One step left and it is not here: pull and republish the Repl, and web learners have it. Phones need a native build on top of that."
+      : "INSTALLED BUT NOT PUSHED. The art is on this Mac only; see the log above for why the push did not happen."));
 };
 
 async function save() {
@@ -1135,19 +1314,38 @@ async function save() {
   log("saved to manifest.json\n" + JSON.stringify(item.recipe, null, 2));
 }
 document.getElementById("save").onclick = save;
-for (const [btn, install] of [["render", false], ["install", true]]) {
-  document.getElementById(btn).onclick = async () => {
-    await save();
-    toast("rendering...");
-    log("rendering...");
-    const r = await (await fetch("/api/render", { method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id: item.id, install }) })).json();
-    toast(r.ok ? "rendered" : "render FAILED");
-    log(r.log);
-    for (const img of document.querySelectorAll(".bird")) img.src = img.src.split("&t=")[0] + "&t=" + Date.now();
-  };
-}
+
+/**
+ * DELETE, WITH PRODUCTION ASKED FIRST.
+ *
+ * The server refuses a piece somebody has bought and says who; this turns that
+ * refusal into a question rather than a dead end, because the owner's own test
+ * accounts are the usual answer and that IS safe to delete over.
+ */
+document.getElementById("delete").onclick = async () => {
+  const doomed = item.id;
+  if (!confirm("Delete " + item.name + " from the shop?\n\nIts sprites come out of both apps and the change is pushed. The source art is kept.")) {
+    toast("delete cancelled");
+    return;
+  }
+  const post = (force) => fetch("/api/delete", { method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id: doomed, force }) }).then((x) => x.json());
+  let r = await post(false);
+  if (r.error === "purchased" || r.error === "unchecked") {
+    log(r.detail);
+    if (!confirm(r.detail + "\n\nDelete it anyway?")) { toast("delete cancelled"); return; }
+    r = await post(true);
+  }
+  if (!r.ok) { toast("delete FAILED"); log(r.error || "unknown error"); return; }
+  toast(r.pushed ? "deleted and pushed" : "deleted, NOT pushed");
+  log(r.log);
+  data.items = data.items.filter((i) => i.id !== doomed);
+  const sel = $("item");
+  [...sel.options].filter((o) => o.value === doomed).forEach((o) => o.remove());
+  if (data.items.length) { sel.value = data.items[0].id; await load(data.items[0].id); }
+  else { document.getElementById("place").innerHTML = "<p class=hint>The wardrobe is empty. Add a piece.</p>"; }
+};
 boot();
 </script>`;
 
