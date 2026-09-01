@@ -31,7 +31,7 @@ import { SPLASH_LQIP, splashHoldingStyle } from "@/lib/splash-lqip";
 // ONE-TOASTER-STYLE RULE for the boot gap (item 4): index.html carries a boot
 // <style> that paints the document background with this overlay's exact
 // holding surface so no flash precedes the splash. Since 2026-08-30 that
-// surface is the film's own first frame at 48px, pre-blurred (lib/splash-lqip.ts),
+// surface is the film's own first frame at 160px, pre-blurred (lib/splash-lqip.ts),
 // over the #89695B plate, in BOTH places; splash-lqip.test.ts pins the copies.
 //
 // THE THREE BEATS, AS OF 2026-08-30 (owner, off the Repl preview: "i don't
