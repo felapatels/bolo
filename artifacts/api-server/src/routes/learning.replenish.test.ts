@@ -440,10 +440,17 @@ test("replenishment records generation tracking but never hits a cap for Plus", 
     generate: gen.generate,
   });
   // The real AI cost is tracked in lesson_generations...
-  const [{ count: rawCount }] = await db
-    .select({ count: db.$count(lessonGenerationsTable) })
-    .from(lessonGenerationsTable)
-    .where(eq(lessonGenerationsTable.userId, USER));
+  //
+  // COUNT THE USER'S ROWS, NOT THE TABLE (2026-09-01): `db.$count(table)` as
+  // a selected FIELD is an unfiltered scalar subquery — the outer .where()
+  // never touches it, so this assertion was really "the whole table holds
+  // exactly one row". True on the fresh dev database it was written against,
+  // false the day anyone else's generations landed there, which is how it
+  // failed with 7. The two-argument form applies the filter inside the count.
+  const rawCount = await db.$count(
+    lessonGenerationsTable,
+    eq(lessonGenerationsTable.userId, USER),
+  );
   assert.equal(Number(rawCount), 1);
   // ...but because it is kind='replenishment', it does NOT count toward the
   // Free daily cap (countLessonGenerationsToday only counts 'initial' rows).

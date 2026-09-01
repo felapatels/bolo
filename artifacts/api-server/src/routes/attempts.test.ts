@@ -517,7 +517,16 @@ test("a second attempt persists but re-awards no already-earned badge", async ()
       audioJudged: true,
     });
 
-  const first = await postAttempt({ evaluationToken: makeToken(1) });
+  // FIXTURE IDS, NEVER LITERALS (2026-09-01): this test used to sign tokens
+  // for phrases 1 and 2, which are dev SEED rows, not ours. The dev database
+  // drifted (phrases 1 and 2 no longer exist there), the FSRS upsert's
+  // phrase_id foreign key rejected the insert, and the route 500'd — a
+  // deterministic failure that said nothing about the code. Every other test
+  // in this file already uses the suite's own seeded phrases; attempts are
+  // wiped by beforeEach, so any two fixture ids are badge-fresh.
+  const first = await postAttempt({
+    evaluationToken: makeToken(phrase.weakLow),
+  });
   assert.equal(first.status, 201);
   assert.deepEqual(
     first.json.newlyEarnedBadges.map((b: any) => b.key).sort(),
@@ -526,7 +535,9 @@ test("a second attempt persists but re-awards no already-earned badge", async ()
 
   // A different phrase, same perfect score: the attempt is recorded, but the
   // starter badges are already held so nothing new is celebrated.
-  const second = await postAttempt({ evaluationToken: makeToken(2) });
+  const second = await postAttempt({
+    evaluationToken: makeToken(phrase.weakHigh),
+  });
   assert.equal(second.status, 201);
   assert.deepEqual(second.json.newlyEarnedBadges, []);
 

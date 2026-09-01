@@ -231,8 +231,16 @@ test("both owner-filter branches build valid SQL, and the filter bites", async (
   // database, which carries other learners and their attempts, so an exact
   // count here would fail for reasons that have nothing to do with this code.
   // The difference between the two branches is entirely ours.
+  // BOTH branches before seeding, because the delta law below applies to the
+  // branch GAP too: the owner's real accounts practise on this shared dev
+  // database, so (included - excluded) is never ours alone. It was asserted
+  // bare and failed with 7 on 2026-09-01, six of them the owner's own dev
+  // activity inside the range. What IS ours is how much the seeds below move
+  // that gap: exactly one learner, the seeded OWNER.
   const before = await api("/nest/range?exclOwner=1");
+  const beforeIncluded = await api("/nest/range?exclOwner=0");
   assert.equal(before.status, 200);
+  assert.equal(beforeIncluded.status, 200);
 
   await seedAttempt(LEARNER_A);
   await seedAttempt(LEARNER_A);
@@ -253,9 +261,11 @@ test("both owner-filter branches build valid SQL, and the filter bites", async (
     "two non-owner learners became active",
   );
   assert.equal(
-    included.json.activeUsers - excluded.json.activeUsers,
+    included.json.activeUsers -
+      excluded.json.activeUsers -
+      (beforeIncluded.json.activeUsers - before.json.activeUsers),
     1,
-    "the owner is exactly the one learner the filter removes",
+    "the seeded owner is exactly the one learner the seeds add to the filtered set",
   );
   assert.ok(Array.isArray(excluded.json.series), "a series must come back");
 });
