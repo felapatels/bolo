@@ -24,6 +24,13 @@ export const OUTFIT_POSE_SOURCES: Record<
     thinking: require('../assets/images/mascot/outfits/station-cap/mascot-thinking.png'),
     tryagain: require('../assets/images/mascot/outfits/station-cap/mascot-tryagain.png'),
   },
+  'pink-beanie2': {
+    wave: require('../assets/images/mascot/outfits/pink-beanie2/mascot-wave.png'),
+    cheer: require('../assets/images/mascot/outfits/pink-beanie2/mascot-cheer.png'),
+    thumbsup: require('../assets/images/mascot/outfits/pink-beanie2/mascot-thumbsup.png'),
+    thinking: require('../assets/images/mascot/outfits/pink-beanie2/mascot-thinking.png'),
+    tryagain: require('../assets/images/mascot/outfits/pink-beanie2/mascot-tryagain.png'),
+  },
 };
 
 export const ACCESSORY_OVERLAY_SOURCES: Record<
@@ -43,5 +50,12 @@ export const ACCESSORY_OVERLAY_SOURCES: Record<
     thumbsup: require('../assets/images/mascot/outfits/station-cap/overlay-thumbsup.png'),
     thinking: require('../assets/images/mascot/outfits/station-cap/overlay-thinking.png'),
     tryagain: require('../assets/images/mascot/outfits/station-cap/overlay-tryagain.png'),
+  },
+  'pink-beanie2': {
+    wave: require('../assets/images/mascot/outfits/pink-beanie2/overlay-wave.png'),
+    cheer: require('../assets/images/mascot/outfits/pink-beanie2/overlay-cheer.png'),
+    thumbsup: require('../assets/images/mascot/outfits/pink-beanie2/overlay-thumbsup.png'),
+    thinking: require('../assets/images/mascot/outfits/pink-beanie2/overlay-thinking.png'),
+    tryagain: require('../assets/images/mascot/outfits/pink-beanie2/overlay-tryagain.png'),
   },
 };

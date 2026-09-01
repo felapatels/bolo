@@ -6,6 +6,7 @@ import { ACCESSORY_COST } from "./tokenEconomy";
 export const OUTFIT_IDS = [
   "pagdi",
   "station-cap",
+  "pink-beanie2",
 ] as const;
 export type OutfitId = (typeof OUTFIT_IDS)[number];
 
@@ -54,5 +55,14 @@ export const OUTFIT_CATALOG: readonly OutfitCatalogEntry[] = [
     kind: "accessory",
     preview: "head",
     shop: "station",
+  },
+  {
+    id: "pink-beanie2",
+    name: "Pink Knit Beanie",
+    tagline: "",
+    cost: ACCESSORY_COST,
+    kind: "accessory",
+    preview: "head",
+    shop: "tailor",
   },
 ];

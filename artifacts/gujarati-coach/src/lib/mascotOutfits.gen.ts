@@ -21,6 +21,13 @@ export const OUTFIT_POSE_FILES: Record<
     thinking: "outfits/station-cap/mascot-thinking.png",
     tryagain: "outfits/station-cap/mascot-tryagain.png",
   },
+  "pink-beanie2": {
+    wave: "outfits/pink-beanie2/mascot-wave.png",
+    cheer: "outfits/pink-beanie2/mascot-cheer.png",
+    thumbsup: "outfits/pink-beanie2/mascot-thumbsup.png",
+    thinking: "outfits/pink-beanie2/mascot-thinking.png",
+    tryagain: "outfits/pink-beanie2/mascot-tryagain.png",
+  },
 };
 
 /** The accessory alone, transparent, in the same frame as every pose. */
@@ -41,5 +48,12 @@ export const ACCESSORY_OVERLAY_FILES: Record<
     thumbsup: "outfits/station-cap/overlay-thumbsup.png",
     thinking: "outfits/station-cap/overlay-thinking.png",
     tryagain: "outfits/station-cap/overlay-tryagain.png",
+  },
+  "pink-beanie2": {
+    wave: "outfits/pink-beanie2/overlay-wave.png",
+    cheer: "outfits/pink-beanie2/overlay-cheer.png",
+    thumbsup: "outfits/pink-beanie2/overlay-thumbsup.png",
+    thinking: "outfits/pink-beanie2/overlay-thinking.png",
+    tryagain: "outfits/pink-beanie2/overlay-tryagain.png",
   },
 };
