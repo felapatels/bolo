@@ -341,14 +341,36 @@ needs that substrate designed rather than a one-off button.
   for getting a change live now, because production has no drizzle ledger and
   `drizzle-kit migrate` must never be run there. It is only ever half the job.
 
-  **A related gap, found the same night and NOT yet fixed:** the api-server has
-  never sent a single error to Sentry. The `node-express` project held zero
-  issues while `/friends/feed` was returning `{"error":"Internal server error"}`
-  to every learner. `SENTRY_DSN` is set in `[userenv.production]` and
-  `app.ts:132` calls `Sentry.setupExpressErrorHandler`, so the wiring looks
-  right and nothing arrives. **Every server-side 500 you have ever had has been
-  invisible**, which is why a total outage produced no alert and was found by
-  using the app.
+  **A related gap, found the same night. ANSWERED AND FIXED 2026-09-01
+  (8d9c6808).** The api-server had never sent a single error to Sentry: the
+  `node-express` project held zero issues while `/friends/feed` was returning
+  `{"error":"Internal server error"}` to every learner, so a total outage
+  produced no alert and was found by using the app. `SENTRY_DSN` is set in
+  `[userenv.production]`, `app.ts` calls `Sentry.setupExpressErrorHandler`, and
+  the logger forwards warn and above, so the wiring looked right from every
+  angle. **TWO INDEPENDENT FAULTS, and either alone was enough**, which is why
+  removing one suspect never changed anything.
+
+  1. **`Sentry.setupExpressErrorHandler` cannot work here, and STILL DOES NOT.**
+     `build.mjs` bundles express into `dist/index.mjs`, and Sentry patches
+     express as a MODULE, so there is nothing to patch. The built bundle's only
+     runtime imports are `@sentry/node` and node builtins; all 233 mentions of
+     express are inlined. This is what `[Sentry] express is not instrumented`
+     has been printing at every boot. Fixing it needs express `external` in
+     build.mjs. **The separate `instrument.ts` loaded with `--import` that the
+     warning recommends does NOT help while express is bundled; it was tried
+     and reverted.**
+
+  2. **The one that mattered.** `pinoHttp` is handed the forwarding proxy and
+     calls `.child()` on it to build `req.log`. `child` was not intercepted, so
+     the proxy returned pino's raw method, which returns a plain UNWRAPPED
+     child. Every `req.log.error` wrote a perfect log line and told Sentry
+     nothing, and app.ts's handler is exactly
+     `req.log?.error({ err }, "Unhandled route error")`. So the one path every
+     unhandled route error takes was the one path that did not report.
+     `logger.ts` now wraps recursively, and `logger.sentry.test.ts` pins it
+     through a child AND a grandchild. **A test on the base logger passes
+     either way, which is why nothing caught this for a month.**
 
 - **Never rewrite history on `main`.** No amend, no `reset --hard`, no rebase onto
   main, no force push. `origin` is GitHub; `gitsafe-backup` is a stale Replit remote.
