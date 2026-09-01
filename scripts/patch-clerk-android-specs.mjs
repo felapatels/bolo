@@ -103,6 +103,20 @@ function patchFile(path) {
  * Deliberately NOT disabling the monkey patch itself: it still forwards to
  * Clerk's own handleUnauthenticated, which is the behaviour a JS-only client
  * should have. Only the destructive branch goes.
+ *
+ * REVERT THIS WITH THE AUTOLINKING EXCLUSIONS, NEVER ON ITS OWN. Clearing the
+ * JWT on a null device token is CORRECT native-sign-out propagation the moment
+ * a native module exists to produce that null deliberately. This patch is only
+ * right while `expo.autolinking.{apple,android}.exclude` carries @clerk/expo,
+ * so the day Clerk fixes the two-client bug upstream, both go together.
+ *
+ * IT IS A STRING MATCH AND IT FAILS SILENTLY. A @clerk/expo bump that
+ * reformats the line makes this match nothing, report nothing, and leave the
+ * app unpatched, which is indistinguishable from never having written it.
+ * __tests__/clerk-patch.test.ts is the pin: it asserts the destructive line is
+ * gone, the marker is present, the save half survives, and the exclusions that
+ * justify all of it are still in package.json. Both risks were named by a peer
+ * session reviewing this on 2026-09-01.
  */
 function patchDeviceTokenClear(path) {
   let src;
