@@ -176,14 +176,40 @@ function safePath(rel) {
  */
 const trimCache = new Map();
 let trimSeq = 0;
-function trimmedPng(abs) {
-  const key = abs;
+/**
+ * The art as the GENERATOR will see it: rotated first, then trimmed.
+ *
+ * THE ORDER IS THE WHOLE POINT, and getting it backwards cost a morning on
+ * 2026-09-01. gen-mascot-accessories.mjs runs
+ *
+ *     -background none -rotate <rot> -trim +repage
+ *
+ * and then scales so the ROTATED-AND-TRIMMED width is `place.w * canvas`.
+ * This server used to hand the browser art trimmed at rot 0 and let CSS spin
+ * it about its centre, which scales against the UNROTATED width instead.
+ * Rotation grows a bounding box, so the two disagree by more the further the
+ * piece turns: on the pagdi's `thinking` pose at 19.01deg the preview drew the
+ * turban 26% too large and its bottom edge 163px too low, so a placement that
+ * looked seated on her head baked floating above it. `cheer` at 3.38deg was
+ * nearly right, which is exactly why it looked like an art problem.
+ *
+ * Serving the art pre-rotated makes the preview exact BY CONSTRUCTION rather
+ * than by re-deriving the generator's maths in a second place. The alpha shape
+ * matters here and cannot be predicted analytically: rotating the pagdi's
+ * 829x803 trimmed box by 19.01deg gives 981x751, where the rectangle bound
+ * would say 1046x1029.
+ */
+function trimmedPng(abs, rot = 0) {
+  const deg = Number.isFinite(rot) ? rot : 0;
+  const key = `${abs}@${deg.toFixed(2)}`;
   const stamp = statSync(abs).mtimeMs;
   const hit = trimCache.get(key);
   if (hit && hit.stamp === stamp) return hit.buf;
   const out = `/tmp/wardrobe-place-trim-${process.pid}-${trimSeq++}.png`;
   try {
-    magickRun([abs, "-trim", "+repage", out]);
+    // Byte-for-byte the generator's own invocation. Keep them identical.
+    magickRun([abs, "-background", "none", "-rotate", deg.toFixed(2),
+      "-trim", "+repage", out]);
     const buf = readFileSync(out);
     trimCache.set(key, { stamp, buf });
     return buf;
@@ -290,9 +316,13 @@ const server = createServer(async (req, res) => {
     // TRIMMED ON REQUEST, because the generator trims before it places. Handing
     // the browser the untrimmed art would make every drag off by however much
     // transparent margin the artist left, which differs per file.
+    // `rot` is the piece's current turn: pass it and the art comes back rotated
+    // THEN trimmed, which is the only box the generator ever measures. See
+    // trimmedPng. The browser must not rotate again on top of this.
     if (url.searchParams.get("trim") === "1") {
       try {
-        return send(res, 200, trimmedPng(abs), "image/png");
+        const rot = Number.parseFloat(url.searchParams.get("rot") ?? "0");
+        return send(res, 200, trimmedPng(abs, Number.isFinite(rot) ? rot : 0), "image/png");
       } catch { /* fall through to the untrimmed file */ }
     }
     const type = extname(abs) === ".png" ? "image/png" : "application/octet-stream";
@@ -874,7 +904,14 @@ function toast(msg) {
   toast._t = setTimeout(() => t.classList.remove("on"), 2600);
 }
 const fileURL = (p) => "/file?path=" + encodeURIComponent(p);
-const artURL = (p) => fileURL(p) + "&trim=1";
+/**
+ * The art AT A GIVEN TURN, rotated then trimmed on the server exactly as
+ * gen-mascot-accessories.mjs does it. The rot belongs in the URL rather than in
+ * a CSS transform: rotating in CSS scales the piece against its UNROTATED
+ * width, which is a different and smaller box, and that mismatch is what made
+ * the preview disagree with the bake. See trimmedPng.
+ */
+const artURL = (p, rot) => fileURL(p) + "&trim=1&rot=" + (Number(rot) || 0).toFixed(2);
 
 async function boot() {
   data = await (await fetch("/api/items")).json();
@@ -923,7 +960,9 @@ function card(pose) {
       '<img class="worn" style="display:none" src="' + fileURL("artifacts/gujarati-coach/public/mascot/outfits/" + item.id + "/mascot-" + pose + ".png") + '"' +
         ' onload="wornLoaded(this)" onerror="this.style.display=\'none\'">' +
       '<img class="bird" draggable="false" src="' + fileURL("artifacts/gujarati-coach/public/mascot/mascot-" + pose + ".png") + '">' +
-      '<img class="piece" draggable="false" src="' + artURL(item.art) + '">' +
+      // NO src HERE ON PURPOSE. layout() owns it, because the URL carries the
+      // pose's current turn and only layout() knows what that is.
+      '<img class="piece" draggable="false" onload="pieceLoaded(this)">' +
     '</div>' +
     '<div class="row">' +
       '<label>size</label><input type="range" class="w" min="10" max="120" step="0.5">' +
@@ -936,8 +975,18 @@ function card(pose) {
 /** Put the draggable piece where a placement says, in stage pixels. */
 function layout(piece, stage, p) {
   const W = stage.clientWidth, H = stage.clientHeight;
-  // The piece image is drawn object-contain in a full-stage box, so scaling it
-  // means scaling that box: width fraction of the canvas, height to match.
+
+  // THE PIECE IS FETCHED ALREADY ROTATED, so the box being sized here IS the
+  // rotated-and-trimmed box the generator measures, and left/top/width below
+  // are then literally the generator's three lines:
+  //     x = place.x * w ; baseY = place.y * h ; scale = place.w*w / rotated.w
+  // Do not put a rotate() back on this element. That was the bug.
+  const want = artURL(item.art, p.rot);
+  if (piece.dataset.want !== want) {
+    piece.dataset.want = want;
+    piece.src = want;
+  }
+
   piece.style.left = (p.x * W) + "px";
   piece.style.top = (p.y * H) + "px";
   // THE ART'S OWN ASPECT, not the canvas's. Sizing the box to the canvas made
@@ -946,7 +995,27 @@ function layout(piece, stage, p) {
   const natW = piece.naturalWidth || 1, natH = piece.naturalHeight || 1;
   piece.style.width = (p.w * W) + "px";
   piece.style.height = (p.w * W * (natH / natW)) + "px";
-  piece.style.transform = "rotate(" + p.rot + "deg)";
+
+  // TRANSIENT ONLY, and zero whenever the right art has arrived. Dragging the
+  // turn slider outruns the server, so between the input and the new PNG the
+  // piece is spun by the DIFFERENCE to keep the handle feeling live. The moment
+  // the matching art loads this is rotate(0deg) and the preview is exact again.
+  const loaded = Number(piece.dataset.loadedRot);
+  const delta = Number.isFinite(loaded) ? p.rot - loaded : 0;
+  piece.style.transform = delta ? "rotate(" + delta + "deg)" : "";
+}
+
+/**
+ * The pre-rotated art arrived, so its natural size changed under the layout
+ * that asked for it. Record the turn it represents and lay the piece out again
+ * against the real numbers.
+ */
+function pieceLoaded(img) {
+  const stage = img.closest(".stage");
+  if (!stage) return;
+  const m = /[?&]rot=(-?[\d.]+)/.exec(img.dataset.want || "");
+  img.dataset.loadedRot = m ? m[1] : "0";
+  apply(stage);
 }
 
 /**
