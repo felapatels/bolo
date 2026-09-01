@@ -740,6 +740,23 @@ main{padding:18px;display:flex;gap:18px;flex-wrap:wrap}
 .stage img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;pointer-events:none;-webkit-user-drag:none;user-select:none}
 .stage .worn{z-index:2}
 .stage .piece{transform-origin:center}
+/* THE RESIZE BOX. Eight handles round the piece: a side pulls one edge, a
+   corner pulls two. The sliders below stay for typing an exact number, but
+   this is the instrument, because two sliders that both look like "bigger"
+   are not a way to shape a picture. */
+.stage .box{position:absolute;pointer-events:none;
+  outline:1px dashed rgba(40,40,40,.45);outline-offset:0}
+.stage .box i{position:absolute;width:11px;height:11px;margin:-6px 0 0 -6px;
+  background:#fff;border:1px solid #555;border-radius:2px;pointer-events:auto;
+  box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.stage .box i[data-h=nw]{left:0;top:0;cursor:nwse-resize}
+.stage .box i[data-h=n] {left:50%;top:0;cursor:ns-resize}
+.stage .box i[data-h=ne]{left:100%;top:0;cursor:nesw-resize}
+.stage .box i[data-h=w] {left:0;top:50%;cursor:ew-resize}
+.stage .box i[data-h=e] {left:100%;top:50%;cursor:ew-resize}
+.stage .box i[data-h=sw]{left:0;top:100%;cursor:nesw-resize}
+.stage .box i[data-h=s] {left:50%;top:100%;cursor:ns-resize}
+.stage .box i[data-h=se]{left:100%;top:100%;cursor:nwse-resize}
 .row{display:flex;gap:8px;align-items:center;padding:8px 10px;border-top:1px solid var(--line);flex-wrap:wrap}
 .row label{font-size:11px;color:#6b6558;text-transform:uppercase;letter-spacing:.06em}
 /* WIDER TRACK, NARROWER RANGE, 2026-09-01. At 110px carrying 10..120, one
@@ -992,6 +1009,11 @@ function card(pose) {
       // NO src HERE ON PURPOSE. layout() owns it, because the URL carries the
       // pose's current turn and only layout() knows what that is.
       '<img class="piece" draggable="false" onload="pieceLoaded(this)">' +
+      '<div class="box">' +
+        '<i data-h="nw"></i><i data-h="n"></i><i data-h="ne"></i>' +
+        '<i data-h="w"></i><i data-h="e"></i>' +
+        '<i data-h="sw"></i><i data-h="s"></i><i data-h="se"></i>' +
+      '</div>' +
     '</div>' +
     '<div class="row">' +
       // EVERY CONTROL IS A BAR PLUS A BOX. The bar's range is deliberately
@@ -1001,16 +1023,19 @@ function card(pose) {
       '<label>size</label>' +
       '<input type="range" class="w" min="20" max="80" step="0.25">' +
       '<input type="number" class="wn" min="1" max="200" step="0.25">' +
-      // DISABLED FOR CLOTH, and labelled with the reason rather than just
-      // vanishing. gen-mascot-outfits.mjs has no -rotate, so a turn set here
-      // would be written to the manifest and then silently discarded at bake.
-      // A control that does nothing is the exact shape of the bug this tool
-      // just cost a morning on.
-      '<label>' + (TURNABLE(item) ? "turn" : "turn &middot; cloth does not turn") + '</label>' +
-      '<input type="range" class="r" min="-30" max="30" step="0.25"' +
-        (TURNABLE(item) ? "" : " disabled") + '>' +
-      '<input type="number" class="rn" min="-90" max="90" step="0.25"' +
-        (TURNABLE(item) ? "" : " disabled") + '>' +
+      // GONE FOR CLOTH, not disabled. gen-mascot-outfits.mjs has no -rotate,
+      // so a turn set here would be written to the manifest and then silently
+      // discarded at bake, and a control that does nothing is the exact shape
+      // of the bug this tool cost a morning on. It was first shipped DISABLED
+      // with the reason in the label, and the owner rejected that on sight: a
+      // greyed bar plus "CLOTH DOES NOT TURN" ate half the row to explain
+      // something once. The reason lives in this comment and in the legend
+      // now, where it costs nothing to look at.
+      (TURNABLE(item)
+        ? '<label>turn</label>' +
+          '<input type="range" class="r" min="-30" max="30" step="0.25">' +
+          '<input type="number" class="rn" min="-90" max="90" step="0.25">'
+        : '') +
       // STRETCH. 100 is the art's own aspect; below is shorter and wider,
       // above is taller and skinnier. Both generators multiply HEIGHT by this
       // and leave width to the size slider, so the preview and the bake agree
@@ -1052,8 +1077,17 @@ function layout(piece, stage, p) {
   // the slider existed moves. Above 1 is taller and skinnier, below 1 shorter
   // and wider, which is the one control that gives both directions.
   const ar = Number.isFinite(p.ar) ? p.ar : 1;
-  piece.style.width = (p.w * W) + "px";
-  piece.style.height = (p.w * W * (natH / natW) * ar) + "px";
+  const bw = p.w * W, bh = p.w * W * (natH / natW) * ar;
+  piece.style.width = bw + "px";
+  piece.style.height = bh + "px";
+
+  // The handle box sits exactly on the piece, so what you grab is what bakes.
+  const box = stage.querySelector(".box");
+  if (box) {
+    box.style.left = piece.style.left; box.style.top = piece.style.top;
+    box.style.width = bw + "px"; box.style.height = bh + "px";
+    box.style.display = piece.style.display === "none" ? "none" : "";
+  }
 
   // TRANSIENT ONLY, and zero whenever the right art has arrived. Dragging the
   // turn slider outruns the server, so between the input and the new PNG the
@@ -1191,7 +1225,8 @@ function wire(stage) {
     const wv = +(p.w * 100).toFixed(2), rv = +(+p.rot).toFixed(2);
     const av = Math.round((Number.isFinite(p.ar) ? p.ar : 1) * 100);
     wIn.value = wNum.value = wv;
-    rIn.value = rNum.value = rv;
+    // Absent on cloth, which has no turn control at all.
+    if (rIn) rIn.value = rNum.value = rv;
     aIn.value = aNum.value = av;
   };
   sync();
@@ -1268,7 +1303,7 @@ function wire(stage) {
   };
 
   bind(wIn, wNum, (p, v) => ({ ...p, w: v / 100 }));
-  bind(rIn, rNum, (p, v) => ({ ...p, rot: v }));
+  if (rIn) bind(rIn, rNum, (p, v) => ({ ...p, rot: v }));   // cloth has no turn
   // STRETCH stores nothing at 1, so a piece left at the art's own shape carries
   // no ar in the manifest and its entry reads exactly as it did before this
   // control existed.
@@ -1282,6 +1317,58 @@ function wire(stage) {
     delete next.ar;
     place[pose] = next; apply(stage); sync(); mark(card, pose);
   };
+
+  /**
+   * RESIZE BY PULLING THE BOX. The owner's ask, and the right instrument:
+   * two sliders that both read as "bigger" are not a way to shape a picture.
+   *
+   * A side handle pulls one edge, a corner pulls two, and the stored numbers
+   * fall out of the box rather than the box out of the numbers:
+   *
+   *     w  = width  / stageW
+   *     ar = height / (width * natH/natW)
+   *
+   * so pulling e or w changes WIDTH and leaves the height exactly where it
+   * was, and pulling n or s changes HEIGHT alone. Dragging a west or north
+   * handle moves x or y too, because place.x/y is the box's top-left and that
+   * is the corner the generator composites from.
+   */
+  for (const grip of stage.querySelectorAll(".box i")) {
+    grip.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();                 // never also start a move-drag
+      const piece = stage.querySelector(".piece");
+      const W = stage.clientWidth, H = stage.clientHeight;
+      const p = place[pose] ?? seed(pose);
+      const aspect = (piece.naturalHeight || 1) / (piece.naturalWidth || 1);
+      const ar0 = Number.isFinite(p.ar) ? p.ar : 1;
+      const s = { x: e.clientX, y: e.clientY, dir: grip.dataset.h, p,
+        left: p.x * W, top: p.y * H, w: p.w * W, h: p.w * W * aspect * ar0 };
+
+      const move = (ev) => {
+        const dx = ev.clientX - s.x, dy = ev.clientY - s.y;
+        let left = s.left, top = s.top, bw = s.w, bh = s.h;
+        if (s.dir.indexOf("e") >= 0) bw = s.w + dx;
+        if (s.dir.indexOf("w") >= 0) { bw = s.w - dx; left = s.left + dx; }
+        if (s.dir.indexOf("s") >= 0) bh = s.h + dy;
+        if (s.dir.indexOf("n") >= 0) { bh = s.h - dy; top = s.top + dy; }
+        if (bw < 10) bw = 10;
+        if (bh < 10) bh = 10;
+        const next = { ...s.p, x: left / W, y: top / H, w: bw / W,
+          ar: bh / (bw * aspect) };
+        // Store nothing at the art's own shape, same rule as the slider.
+        if (Math.abs(next.ar - 1) < 0.0005) delete next.ar;
+        place[pose] = next;
+        apply(stage); sync(); mark(card, pose);
+      };
+      const up = () => {
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+      };
+      document.addEventListener("pointermove", move);
+      document.addEventListener("pointerup", up);
+    });
+  }
 }
 
 function mark(card, pose) {
