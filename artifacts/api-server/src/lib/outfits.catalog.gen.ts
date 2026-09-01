@@ -59,7 +59,7 @@ export const OUTFIT_CATALOG: readonly OutfitCatalogEntry[] = [
   {
     id: "pink-beanie2",
     name: "Pink Knit Beanie",
-    tagline: "",
+    tagline: "Chunky pink cable knit, pulled right down over her ears.",
     cost: ACCESSORY_COST,
     kind: "accessory",
     preview: "head",

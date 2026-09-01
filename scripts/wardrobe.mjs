@@ -375,6 +375,19 @@ function check() {
    * takes to hear about it. Build 27, after adding a beanie would have done
    * exactly this.
    */
+  /**
+   * EVERY PIECE NEEDS A NAME AND A TAGLINE, because the shop renders both and
+   * outfits.test.ts asserts both. A piece added through the placement tool can
+   * reach the catalogue with the tagline still blank, which is what the beanie
+   * did: the tool said everything agreed and the api suite failed on "is
+   * described". Same parity, heard here instead.
+   */
+  for (const it of m.items) {
+    if (!String(it.name ?? "").trim()) problems.push(`${it.id}: no name`);
+    if (!String(it.tagline ?? "").trim()) {
+      problems.push(`${it.id}: no tagline, and the shop shows one under the name`);
+    }
+  }
   try {
     const spec = readFileSync(
       join(ROOT, "artifacts/api-server/src/routes/outfits.test.ts"), "utf8");

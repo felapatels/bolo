@@ -1327,7 +1327,18 @@ function confirmShopDetails() {
       document.getElementById("p-cancel").onclick = null;
       resolve(go);
     };
-    document.getElementById("p-go").onclick = () => done(true);
+    document.getElementById("p-go").onclick = () => {
+      // A BLANK TAGLINE IS A FAILING TEST, not a cosmetic gap: the shop renders
+      // one under every name and outfits.test.ts asserts it. Caught here so it
+      // costs a sentence now rather than a red suite later.
+      if (!$("p-tagline").value.trim()) {
+        toast("give it a tagline first, the shop shows one under the name");
+        $("p-tagline").focus();
+        return;
+      }
+      if (!$("p-name").value.trim()) { toast("give it a name first"); $("p-name").focus(); return; }
+      done(true);
+    };
     document.getElementById("p-cancel").onclick = () => { toast("publish cancelled"); done(false); };
   });
 }
