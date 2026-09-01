@@ -140,18 +140,6 @@
           }
         }
       }
-    },
-    {
-      "id": "puffer-vest",
-      "name": "Puffer Vest",
-      "tagline": "Blue Puffer vest",
-      "kind": "top",
-      "shop": "tailor",
-      "costBand": "standard",
-      "preview": "full",
-      "status": "draft",
-      "art": "scripts/mascot-garment-art/puffer-vest-cut.png",
-      "recipe": {}
     }
   ],
   "unshippedSources": {
