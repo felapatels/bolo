@@ -28,6 +28,13 @@ export const OUTFIT_POSE_FILES: Record<
     thinking: "outfits/pink-beanie2/mascot-thinking.png",
     tryagain: "outfits/pink-beanie2/mascot-tryagain.png",
   },
+  "puffer-vest": {
+    wave: "outfits/puffer-vest/mascot-wave.png",
+    cheer: "outfits/puffer-vest/mascot-cheer.png",
+    thumbsup: "outfits/puffer-vest/mascot-thumbsup.png",
+    thinking: "outfits/puffer-vest/mascot-thinking.png",
+    tryagain: "outfits/puffer-vest/mascot-tryagain.png",
+  },
 };
 
 /** The accessory alone, transparent, in the same frame as every pose. */

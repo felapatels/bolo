@@ -31,6 +31,13 @@ export const OUTFIT_POSE_SOURCES: Record<
     thinking: require('../assets/images/mascot/outfits/pink-beanie2/mascot-thinking.png'),
     tryagain: require('../assets/images/mascot/outfits/pink-beanie2/mascot-tryagain.png'),
   },
+  'puffer-vest': {
+    wave: require('../assets/images/mascot/outfits/puffer-vest/mascot-wave.png'),
+    cheer: require('../assets/images/mascot/outfits/puffer-vest/mascot-cheer.png'),
+    thumbsup: require('../assets/images/mascot/outfits/puffer-vest/mascot-thumbsup.png'),
+    thinking: require('../assets/images/mascot/outfits/puffer-vest/mascot-thinking.png'),
+    tryagain: require('../assets/images/mascot/outfits/puffer-vest/mascot-tryagain.png'),
+  },
 };
 
 export const ACCESSORY_OVERLAY_SOURCES: Record<
