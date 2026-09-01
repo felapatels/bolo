@@ -31,7 +31,15 @@
 // says so, rather than offering a dead button.
 
 import { createServer } from "node:http";
-import { readFileSync, writeFileSync, existsSync, copyFileSync, mkdirSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  copyFileSync,
+  mkdirSync,
+  statSync,
+  unlinkSync,
+} from "node:fs";
 import { execFileSync } from "node:child_process";
 import { extname, join } from "node:path";
 
@@ -108,6 +116,37 @@ function safePath(rel) {
   if (rel.includes("..")) return null;
   const abs = join(ROOT, rel);
   return existsSync(abs) ? abs : null;
+}
+
+/**
+ * The art with its transparent margin trimmed off, cached by file and mtime.
+ *
+ * IT USED TO TRIM INTO ONE SHARED /tmp PATH, and the page asks for five poses
+ * AT ONCE. Five magick processes wrote the same file while five handlers read
+ * it, so a card got a half-written or someone else's PNG and rendered nothing:
+ * the owner saw a single pose load out of five and reported the tool as broken.
+ * Found in build 27.
+ *
+ * The unique name is what fixes the race. The cache is why five cards now cost
+ * one trim instead of five, which is also why a drag no longer stutters on a
+ * megabyte of source art.
+ */
+const trimCache = new Map();
+let trimSeq = 0;
+function trimmedPng(abs) {
+  const key = abs;
+  const stamp = statSync(abs).mtimeMs;
+  const hit = trimCache.get(key);
+  if (hit && hit.stamp === stamp) return hit.buf;
+  const out = `/tmp/wardrobe-place-trim-${process.pid}-${trimSeq++}.png`;
+  try {
+    magickRun([abs, "-trim", "+repage", out]);
+    const buf = readFileSync(out);
+    trimCache.set(key, { stamp, buf });
+    return buf;
+  } finally {
+    try { unlinkSync(out); } catch { /* nothing to clean up */ }
+  }
 }
 
 /** ImageMagick, for the one place the tool does image work of its own. */
@@ -208,10 +247,8 @@ const server = createServer(async (req, res) => {
     // the browser the untrimmed art would make every drag off by however much
     // transparent margin the artist left, which differs per file.
     if (url.searchParams.get("trim") === "1") {
-      const out = "/tmp/wardrobe-place-trim.png";
       try {
-        execFileSync("magick", [abs, "-trim", "+repage", out], { stdio: "ignore" });
-        return send(res, 200, readFileSync(out), "image/png");
+        return send(res, 200, trimmedPng(abs), "image/png");
       } catch { /* fall through to the untrimmed file */ }
     }
     const type = extname(abs) === ".png" ? "image/png" : "application/octet-stream";
@@ -626,8 +663,8 @@ function card(pose) {
       // An UNPLACED pose shows the pipeline's own composite, so "auto" is what
       // the app would actually ship rather than a ghost floating over her. The
       // moment you drag, this hides and the draggable piece takes over.
-      '<img class="worn" src="' + fileURL("artifacts/gujarati-coach/public/mascot/outfits/" + item.id + "/mascot-" + pose + ".png") + '"' +
-        ' onerror="this.style.display=\'none\'">' +
+      '<img class="worn" style="display:none" src="' + fileURL("artifacts/gujarati-coach/public/mascot/outfits/" + item.id + "/mascot-" + pose + ".png") + '"' +
+        ' onload="wornLoaded(this)" onerror="this.style.display=\'none\'">' +
       '<img class="bird" draggable="false" src="' + fileURL("artifacts/gujarati-coach/public/mascot/mascot-" + pose + ".png") + '">' +
       '<img class="piece" draggable="false" src="' + artURL(item.art) + '">' +
     '</div>' +
@@ -639,22 +676,8 @@ function card(pose) {
 }
 
 /** Fractions of the canvas in, CSS pixels out. The stage is the canvas. */
-function apply(stage) {
-  const pose = stage.dataset.pose;
-  const piece = stage.querySelector(".piece");
-  const worn = stage.querySelector(".worn");
-  const bird = stage.querySelector(".bird");
-  const p = place[pose];
-  if (!p) {
-    // Show the shipped composite alone.
-    piece.style.display = "none";
-    if (worn && worn.getAttribute("src")) { worn.style.display = ""; bird.style.opacity = "0"; }
-    return;
-  }
-  piece.style.display = "";
-  if (worn) worn.style.display = "none";
-  bird.style.opacity = "1";
-  piece.style.opacity = "1";
+/** Put the draggable piece where a placement says, in stage pixels. */
+function layout(piece, stage, p) {
   const W = stage.clientWidth, H = stage.clientHeight;
   // The piece image is drawn object-contain in a full-stage box, so scaling it
   // means scaling that box: width fraction of the canvas, height to match.
@@ -669,13 +692,70 @@ function apply(stage) {
   piece.style.transform = "rotate(" + p.rot + "deg)";
 }
 
+/**
+ * The shipped composite has loaded, so show THAT instead of the ghost.
+ *
+ * Called from the image's own onload, not from apply(), because apply() runs
+ * long before the picture arrives and cannot know whether it will.
+ */
+function wornLoaded(img) {
+  const stage = img.closest(".stage");
+  if (!stage || place[stage.dataset.pose]) return; // a drag already took over
+  img.style.display = "";
+  stage.querySelector(".bird").style.opacity = "0";
+  stage.querySelector(".piece").style.display = "none";
+}
+
+function apply(stage) {
+  const pose = stage.dataset.pose;
+  const piece = stage.querySelector(".piece");
+  const worn = stage.querySelector(".worn");
+  const bird = stage.querySelector(".bird");
+  const p = place[pose];
+  if (!p) {
+    /**
+     * UNPLACED, AND THE COMPOSITE MAY NOT EXIST. It used to hide the bird and
+     * the piece here and show the shipped composite, gated on whether the
+     * composite element had a src ATTRIBUTE — which it always does, even when
+     * that src 404s. So for a piece never installed, the composite hid itself
+     * on error, the bird stayed at opacity 0, the piece stayed display:none,
+     * and the card was blank. The owner uploaded a beanie and got five empty
+     * stages with nothing to drag.
+     *
+     * The default is now the draggable ghost at the automatic seating, which
+     * is the state a NEW piece needs. A composite that really does load swaps
+     * to itself from its own onload, so a shipped piece still shows what the
+     * app would actually ship rather than a ghost floating over her.
+     */
+    if (worn) worn.style.display = "none";
+    bird.style.opacity = "1";
+    piece.style.display = "";
+    piece.style.opacity = "0.9";
+    layout(piece, stage, seed(pose));
+    return;
+  }
+  piece.style.display = "";
+  if (worn) worn.style.display = "none";
+  bird.style.opacity = "1";
+  piece.style.opacity = "1";
+  layout(piece, stage, p);
+}
+
 let AUTO = {};
 function seed(pose) {
   // THE REAL AUTOMATIC SEATING, not a guess. Picking a hat up should move it
   // from where it already is; anything else throws away the crown maths the
   // moment you touch a pose and makes the tool feel like it fought you.
   const a = AUTO[pose];
-  return a ? { ...a } : { x: 0.25, y: 0.02, w: 0.5, rot: 0 };
+  if (a) return { ...a };
+  // NO SEATING TO START FROM, which is every piece nobody has rendered yet.
+  // The fallback used to be one box for everything and it landed a hat across
+  // her eyes, so the first thing the owner had to do was undo it. Aim it at the
+  // slot the piece belongs to instead: a hat small and high, cloth wide and
+  // over her belly. Still only a starting point, and one drag replaces it.
+  return item.kind === "accessory"
+    ? { x: 0.30, y: 0.00, w: 0.40, rot: 0 }
+    : { x: 0.16, y: 0.46, w: 0.68, rot: 0 };
 }
 
 function draw() {
@@ -998,7 +1078,15 @@ async function save() {
       body: JSON.stringify({ id: item.id, png }) })).json();
     if (r.ok) {
       item.art = r.art;
-      toast("erase saved");
+      // REDRAW THE PLACE TAB TOO. It used to update only the item's art and
+      // the log, so the pose cards kept showing the art from before the erase
+      // and the rub looked like it had not taken. The owner rubbed the back
+      // off a beanie in build 27 and watched Place carry on drawing the old
+      // one. (No backticks in this comment on purpose: the whole page is one
+      // template literal, and a stray backtick ends it mid-string.)
+      draw();
+      drawEraser();
+      toast("erase saved, poses redrawn");
       log("cut saved to " + r.art + "\noriginal kept at " + r.kept);
     } else toast("erase FAILED");
     return;
