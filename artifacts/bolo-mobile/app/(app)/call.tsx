@@ -26,6 +26,7 @@ import { IncomingCall } from '@/components/call/IncomingCall';
 import { InCall, type CallPhase } from '@/components/call/InCall';
 import { isCallBackdropId, type CallBackdropId } from '@/components/call/backdrops';
 import { useLiveCall } from '@/components/call/useLiveCall';
+import { warmCallServer } from '@/lib/chachaCallApi';
 import type { CallMode } from '@/lib/chachaCallApi';
 
 /**
@@ -106,6 +107,21 @@ export default function CallScreen() {
     mode,
     onFinished: leaveWithReason,
   });
+
+  /**
+   * WAKE THE SERVER WHILE HE RINGS. The deployment is autoscale and scales to
+   * zero, and a cold container needs about 8 seconds to open its port. A
+   * learner who answers into that window gets "Chacha-ji could not get
+   * through", which is exactly what build 533 did on TestFlight.
+   *
+   * Ringing is dead time we already spend, so spending it on a health ping
+   * costs nothing and usually removes the whole window before Answer is even
+   * tapped. Once, on mount, and never awaited: this is a head start, not a
+   * gate, and startCall's retry is what actually has to hold if it fails.
+   */
+  React.useEffect(() => {
+    warmCallServer();
+  }, []);
 
   /**
    * Android has a hardware back button and iOS does not, so this is the one

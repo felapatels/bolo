@@ -215,8 +215,64 @@ async function request<T>(
   return (await res.json()) as T;
 }
 
+/**
+ * Wake the server before the learner taps Answer.
+ *
+ * THE DEPLOYMENT SCALES TO ZERO. `.replit` sets deploymentTarget "autoscale",
+ * and the boot measured off the deploy log on 2026-09-01 is
+ *
+ *     +0.0s   process starts, /api returns 500
+ *     +8.5s   server listening
+ *     +23s    startup seeding pipeline finishes
+ *
+ * A learner who calls into that window gets "Chacha-ji could not get through",
+ * which is what the owner hit on TestFlight build 533; a second attempt minutes
+ * later worked with nothing changed. The call screen rings for a few seconds
+ * before Answer is even possible, so that ringing is free time to spend waking
+ * the container.
+ *
+ * Fire and forget on purpose: this is a head start, never a gate. If it fails
+ * the call proceeds exactly as it did, and startCall's own retry is the thing
+ * that actually has to hold.
+ */
+export function warmCallServer(): void {
+  void fetch(`${base()}${API_PREFIX}/healthz`, { method: 'GET' }).catch(() => {});
+}
+
+/**
+ * Retry a cold or flaky start, because ONE failure here ends the call outright.
+ *
+ * Only worth retrying what a cold container actually produces: a thrown fetch
+ * (connection refused or reset while the port is not open yet) and a 5xx. A 401
+ * or any other 4xx is a real answer and retrying it just delays the truth by a
+ * couple of seconds.
+ */
+const RETRYABLE_START_ATTEMPTS = 3;
+const RETRY_BACKOFF_MS = [700, 1600];
+
+function worthRetrying(err: unknown): boolean {
+  if (err instanceof CallApiError) return err.status >= 500;
+  return true; // a network throw, which is what a closed port looks like
+}
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /** He rings. Returns his canned hello, already synthesized. */
 export async function startCall(mode: CallMode = 'journey'): Promise<CallStart> {
+  let last: unknown;
+  for (let attempt = 0; attempt < RETRYABLE_START_ATTEMPTS; attempt++) {
+    try {
+      return await startCallOnce(mode);
+    } catch (err) {
+      last = err;
+      if (!worthRetrying(err) || attempt === RETRYABLE_START_ATTEMPTS - 1) throw err;
+      await wait(RETRY_BACKOFF_MS[attempt] ?? 1600);
+    }
+  }
+  throw last;
+}
+
+async function startCallOnce(mode: CallMode): Promise<CallStart> {
   return (await request<CallStart>('/openai/chacha-call/start', {
     method: 'POST',
     body: JSON.stringify({ mode }),
