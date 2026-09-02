@@ -1,37 +1,53 @@
 import React from 'react';
-import { Animated, Image, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { ZONE_FILM, ZONE_FILM_STILL } from '@/lib/zoneBackdrops';
+import { ZONE_FILM } from '@/lib/zoneBackdrops';
+
+/** How far the film reaches past the viewport at each end. See FILM_OVERSCAN. */
+export const FILM_OVERSCAN = 160;
 
 /**
  * A ZONE BACKDROP THAT COMES ALIVE WHEN THE LEARNER SETTLES ON IT.
  *
- * The owner, build 29: "I want to convert mobile backdrops to this new art and
- * make them living with video files", then "film starts playing if a learner
- * lands on a zone... once they stop scrolling, that video will play".
+ * The owner, build 29: "make them living with video files", then "film starts
+ * playing if a learner lands on a zone... once they stop scrolling, that video
+ * will play", then "if i'm seeing 2 background images, i want both videos
+ * playing", then "you cant blend videos at the seams?".
  *
- * WHY THE CROSS-FADE IS INVISIBLE, and it is not luck. The still under the film
- * is the film's OWN FIRST FRAME, extracted from the encoded clip. So the fade
- * begins from a byte-identical picture and the only thing a learner sees appear
- * is the motion. Getting there needed the still to be derived FROM the video
- * rather than the video matched to an existing painting, which was the first
- * thing tried and does not work: they are separate generations and never line
- * up.
+ * ONE FILM, SIZED TO THE VIEWPORT, AND THAT ANSWERS ALL THREE.
  *
- * ONE PLAYER, AND ONLY WHILE IT IS BEING LOOKED AT. `active` is false whenever
- * the map is moving or another zone owns the viewport, and a false `active`
- * hands `useVideoPlayer` a null source, so no decoder exists. Six simultaneous
- * decoders behind a scrolling map is exactly the kind of load that had lmkd
- * killing this screen on Android before build 26 fixed the bitmap problem, and
- * this screen has not earned a second one.
+ * The obvious build is one film per visible tile, and it does not work. Two
+ * players sit at different frames of the same clip, so at the tile boundary a
+ * person is mid-stride on one side and not the other. A gradient cannot hide
+ * that: a fade softens a COLOUR step, and this is a motion mismatch. Syncing two
+ * players is possible and they drift.
  *
- * THE FADE USES useNativeDriver: false, and that is not an oversight. This
- * app's native animation driver does not tick in release builds; see the
- * measurement rules in CLAUDE.md. `false` is the only thing that animates here.
+ * So there is never more than one film, and it covers everything on screen.
+ * Nothing meets another film, so there is no seam to blend.
  *
- * `onFirstFrameRender` gates the fade so it never cross-fades to a black or
- * half-decoded frame, which is the same trick BrandSplash uses for the same
- * reason.
+ * ITS EDGES ARE OFF-SCREEN, which is why it needs no mask. Where the film meets
+ * the still art the motion simply stops, and no gradient can dissolve that
+ * either, because a LinearGradient paints colour and cannot make a video
+ * transparent. Masking one needs @react-native-masked-view, and a native
+ * dependency invalidates every installed dev build in this project. So the film
+ * is drawn FILM_OVERSCAN taller than the viewport at each end and parked so both
+ * edges fall outside the screen. It only ever plays while the map is at rest, so
+ * nothing can scroll one into view.
+ *
+ * THE CROSS-FADE IN IS INVISIBLE BY CONSTRUCTION, because the still underneath
+ * is this film's own first frame, pulled out of the encoded clip. The fade
+ * starts from a byte-identical picture and the only thing that appears is the
+ * motion. Matching a film to an existing painting was tried first and cannot
+ * work: separate generations never line up.
+ *
+ * `active` is false whenever the map is moving, and a false `active` hands
+ * useVideoPlayer a null source, so no decoder exists. That matters: six
+ * decoders behind a scrolling map is the class of load that had lmkd killing
+ * this screen before build 26.
+ *
+ * The fade uses useNativeDriver: false deliberately. This app's native
+ * animation driver does not tick in release builds; see CLAUDE.md's measurement
+ * rules. `false` is the only thing that animates here.
  */
 export function ZoneFilm({
   zoneIndex,
@@ -41,11 +57,10 @@ export function ZoneFilm({
 }: {
   zoneIndex: number;
   width: number;
+  /** Viewport height plus FILM_OVERSCAN at each end. */
   height: number;
-  /** True only when the map is still AND this zone owns the viewport. */
   active: boolean;
 }) {
-  const still = ZONE_FILM_STILL(zoneIndex);
   const film = ZONE_FILM(zoneIndex);
   const [firstFrame, setFirstFrame] = React.useState(false);
   const fade = React.useRef(new Animated.Value(0)).current;
@@ -68,21 +83,21 @@ export function ZoneFilm({
     }).start();
   }, [active, firstFrame, fade]);
 
+  if (!active || !film) return null;
+
   return (
-    <View style={{ width, height }} pointerEvents="none">
-      <Image source={still} style={StyleSheet.absoluteFill} resizeMode="cover" />
-      {active && film ? (
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: fade }]}>
-          <VideoView
-            testID={`zone-film-${zoneIndex}`}
-            player={player}
-            style={StyleSheet.absoluteFill}
-            nativeControls={false}
-            contentFit="cover"
-            onFirstFrameRender={() => setFirstFrame(true)}
-          />
-        </Animated.View>
-      ) : null}
-    </View>
+    <Animated.View
+      pointerEvents="none"
+      style={{ width, height, opacity: fade }}
+    >
+      <VideoView
+        testID={`zone-film-${zoneIndex}`}
+        player={player}
+        style={StyleSheet.absoluteFill}
+        nativeControls={false}
+        contentFit="cover"
+        onFirstFrameRender={() => setFirstFrame(true)}
+      />
+    </Animated.View>
   );
 }

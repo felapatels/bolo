@@ -33,7 +33,7 @@ import { useIsWideScreen } from '@/lib/contentWidth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StopDots } from '@/components/journey/StopDots';
-import { ZoneFilm } from '@/components/journey/ZoneFilm';
+import { ZoneFilm, FILM_OVERSCAN } from '@/components/journey/ZoneFilm';
 // Aliased: react-native-svg exports a LinearGradient too, and the tag
 // backs use that one.
 import { LinearGradient as FadeGradient } from 'expo-linear-gradient';
@@ -152,6 +152,7 @@ import {
   zoneBackdrop,
   zoneFootTone,
   wideBackdrop,
+  ZONE_FILM_STILL,
   WIDE_BACKDROP_ASPECT_H,
 } from '@/lib/zoneBackdrops';
 import {
@@ -519,7 +520,7 @@ function RailPulseDots({
  */
 function ZoneBandFixed({
   zi,
-  filmTile,
+  filmTop,
   start,
   end,
   layerTop,
@@ -533,8 +534,8 @@ function ZoneBandFixed({
   wide = false,
 }: {
   zi: number;
-  /** Which tile of THIS band should be alive, or null for none. */
-  filmTile: number | null;
+  /** Where in THIS band the one live film sits, in band pixels, or null. */
+  filmTop: number | null;
   /** An iPad: one wide bazaar for every zone instead of the six paintings. */
   wide?: boolean;
   start: number;
@@ -583,39 +584,46 @@ function ZoneBandFixed({
   void scrollY;
   void contentTop;
   void windowH;
-  const art = wide ? wideBackdrop(zi) : zoneBackdrop(zi);
+  // THE PHONE'S STILL IS THE FILM'S OWN FIRST FRAME (build 29). It used to be
+  // zoneBackdrop(zi), the older painting, and the moment one tile became a film
+  // the zone showed TWO DIFFERENT PICTURES stacked: the film's still on the live
+  // tile and the old painting on every other. The owner saw it immediately.
+  // Using the film's frame everywhere makes a zone one continuous image again,
+  // and it is also what "convert mobile backdrops to this new art" asked for.
+  const art = wide ? wideBackdrop(zi) : ZONE_FILM_STILL(zi);
   const tileH = wide ? Math.round(windowW * WIDE_BACKDROP_ASPECT_H) : windowW / ZONE_TILE_ASPECT;
   if (!art) return null;
   const tiles = (
     <>
       {Array.from({ length: Math.max(1, Math.ceil(bandH / tileH)) }).map(
         (_, ti) => (
-          filmTile === ti && !wide ? (
-            // THE LIVING TILE. Only ever one, only while the map is still, and
-            // only on a phone: the films are 9:16 and the iPad's paintings are
-            // 16:9. The still underneath is this film's own first frame, so the
-            // cross-fade starts from an identical picture.
-            <View
-              key={ti}
-              style={{ position: 'absolute', top: ti * tileH, width: windowW, height: tileH }}
-            >
-              <ZoneFilm zoneIndex={zi} width={windowW} height={tileH} active />
-            </View>
-          ) : (
-            <Image
-              key={ti}
-              source={art}
-              style={{
-                position: 'absolute',
-                top: ti * tileH,
-                width: windowW,
-                height: tileH,
-              }}
-              resizeMode="stretch"
-            />
-          )
+          <Image
+            key={ti}
+            source={art}
+            style={{
+              position: 'absolute',
+              top: ti * tileH,
+              width: windowW,
+              height: tileH,
+            }}
+            resizeMode="stretch"
+          />
         ),
       )}
+      {/* THE LIVING BACKDROP, one film covering everything on screen rather than
+          one per tile. Two players would sit at different frames of the same
+          clip and put a person mid-stride on one side of a tile boundary; a
+          gradient softens a colour step and cannot fix a motion mismatch. With
+          one film there is no film-to-film seam at all, and its own edges are
+          drawn FILM_OVERSCAN beyond the viewport so they fall off-screen, which
+          is cheaper than masking a video and needs no native dependency.
+          Under the scrim on purpose, so a film is dimmed exactly as the
+          painting it replaces. */}
+      {filmTop !== null && !wide ? (
+        <View style={{ position: 'absolute', left: 0, top: filmTop, width: windowW }}>
+          <ZoneFilm zoneIndex={zi} width={windowW} height={tileH} active />
+        </View>
+      ) : null}
       <View
         style={[
           StyleSheet.absoluteFill,
@@ -2183,22 +2191,31 @@ export default function JourneyScreen() {
    * a phone only about 1.2 tiles fit on screen, so the one under the viewport
    * centre is the one being looked at.
    */
-  const [activeFilm, setActiveFilm] = useState<{ zone: number; tile: number } | null>(null);
+  const [activeFilm, setActiveFilm] = useState<{ zone: number; top: number } | null>(null);
   const settleFilm = useCallback(
     (offsetY: number) => {
-      const eye = offsetY + windowH / 2 - SCROLL_CONTENT_TOP;
+      // Where the viewport sits in content space, and which zone owns its middle.
+      const viewTop = offsetY - SCROLL_CONTENT_TOP;
+      const eye = viewTop + windowH / 2;
       const zi = slices.findIndex((sl) => eye >= sl.start && eye < sl.end);
       if (zi < 0) {
         setActiveFilm(null);
         return;
       }
+      // THE FILM SITS ON A TILE BOUNDARY, NOT OVER THE VIEWPORT, and that is a
+      // correction. Sized to the viewport, `contentFit: cover` crops a 9:16 clip
+      // into a much taller box and zooms it about 1.7x, so the film was framed
+      // far closer than the stills and the cross-fade jumped between two zoom
+      // levels instead of being invisible. On a tile's own box the framing is
+      // identical to the still underneath, which is the whole point.
       const tileH = windowW / ZONE_TILE_ASPECT;
-      const tile = Math.max(0, Math.floor((eye - slices[zi]!.start) / tileH));
+      const rel = viewTop - slices[zi]!.start;
+      const top = Math.max(0, Math.round(rel / tileH) * tileH);
       setActiveFilm((prev) =>
-        prev && prev.zone === zi && prev.tile === tile ? prev : { zone: zi, tile },
+        prev && prev.zone === zi && Math.abs(prev.top - top) < 2 ? prev : { zone: zi, top },
       );
     },
-    [slices, windowH, windowW],
+    [slices, windowH],
   );
 
   // THE ZONE-OWNS-THE-TOP CHAIN LIVED HERE AND IS GONE (build 26). A
@@ -2916,7 +2933,7 @@ export default function JourneyScreen() {
             >
             <ZoneBandFixed
               zi={zi}
-              filmTile={activeFilm && activeFilm.zone === zi ? activeFilm.tile : null}
+              filmTop={activeFilm && activeFilm.zone === zi ? activeFilm.top : null}
               start={start}
               end={end}
               layerTop={layerTop}
