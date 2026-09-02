@@ -131,6 +131,23 @@ const FEEDBACK_AUDIO_TIMEOUT_MS = 8000;
 // and today has already cost three separate bugs from twins fixed a day apart.
 const MEANING_SEGMENT_PAUSE_MS = 220;
 
+/**
+ * WHICH LINE IS BEING SPOKEN, for the swell animation (build 29, the owner:
+ * "show an animation of the word enlarging on the screen when it's being
+ * spoken. then the meaning be enlarged so learners can tie the visual to the
+ * audio for better learning").
+ *
+ * Separate from SessionState's "playing_coach", which spans BOTH segments and
+ * gates the buttons. Splitting that would change behaviour nobody asked to
+ * change, so this is a second, narrower signal only the animation reads.
+ *
+ * Mobile twin: `speakingSegment` in bolo-mobile's practice screen, and
+ * components/SpokenLine.tsx carries the reasoning for the transform and the
+ * 1.06. Changed together, deliberately: three separate bugs on 2026-09-02 came
+ * from twins fixed a day apart.
+ */
+type SpokenSegment = 'phrase' | 'meaning' | null;
+
 // localStorage key that records the learner has already seen the "feedback is
 // approximate" notice for a given (degraded) language, so it shows only once.
 function approxNoticeKey(code: string): string {
@@ -581,6 +598,7 @@ export default function Practice({
   // later advance must come from the queue, never from currentIndex + 1.
   const [inEncore, setInEncore] = useState(false);
   const [state, setState] = useState<SessionState>("intro");
+  const [speakingSegment, setSpeakingSegment] = useState<SpokenSegment>(null);
   const [result, setResult] = useState<{ band: Band; passed: boolean; xpAwarded: number; xpBreakdown?: string | null; feedback: string; tip: string; transcript: string; transcriptRomanized: string } | null>(null);
   // Keyed by phraseId so retrying a phrase overwrites its previous entry
   // instead of appending a duplicate. The summary derives an ordered list from
@@ -1016,6 +1034,7 @@ export default function Practice({
         // the very next play without a reload.
         if (!coachVoiceRef.current || !meaningAudioPrefRef.current || !phrase.english) {
           setState("idle");
+          setSpeakingSegment(null);
           return;
         }
         try {
@@ -1032,13 +1051,20 @@ export default function Practice({
           meaningEl.src = `data:audio/${res.format};base64,${res.audioBase64}`;
           meaningAudioElRef.current = meaningEl;
           meaningEl.onended = () => {
-            if (!cancelled) setState("idle");
+            if (!cancelled) {
+              setState("idle");
+              setSpeakingSegment(null);
+            }
           };
+          setSpeakingSegment('meaning');
           await meaningEl.play();
         } catch {
           // Fail silent to phrase-only: the phrase clip already played in
           // full, so simply return to idle as if the meaning were off.
-          if (!cancelled) setState("idle");
+          if (!cancelled) {
+            setState("idle");
+            setSpeakingSegment(null);
+          }
         }
       };
 
@@ -1061,6 +1087,7 @@ export default function Practice({
           audio.src = `data:audio/${res.format};base64,${res.audioBase64}`;
           audioRef.current = audio;
           audio.onended = () => {
+            if (!cancelled) setSpeakingSegment(null);
             void playMeaning();
           };
           // Pre-warm the meaning segment while the phrase clip plays so the
@@ -1085,9 +1112,15 @@ export default function Practice({
           return;
         }
         try {
+          // THE SEGMENT FLIPS WHEN THE AUDIO STARTS, not when synthesis does.
+          // The clip is fetched above and that can take a moment on a cold
+          // cache; swelling the word during the wait would light up a line
+          // that is not being spoken yet, which is the opposite of the point.
+          setSpeakingSegment('phrase');
           await audio.play();
         } catch (error) {
           if (cancelled) return; // cleanup pause() aborts a pending play()
+          setSpeakingSegment(null);
           const name = error instanceof DOMException ? error.name : "";
           if (name === "NotAllowedError" || name === "NotSupportedError") {
             // Autoplay policy rejection (Chunk 1 ruling 6): light up the
@@ -2583,16 +2616,43 @@ export default function Practice({
                 <Volume2 className="w-5 h-5" />
               </button>
 
+              {/* EACH LINE SWELLS WHILE IT IS THE ONE BEING SPOKEN (build 29).
+                  The coach says the phrase and then its meaning, and the card
+                  gave no signal which was playing, so a learner had to work it
+                  out from the sound alone. This is dual coding: eye and ear
+                  land on the same thing at the same moment.
+
+                  A TRANSFORM, NEVER A FONT SIZE. Growing the type relayouts the
+                  card and shoves everything under it on every play; scale costs
+                  no layout. `origin-left` so a long phrase grows away from the
+                  play button rather than into it.
+
+                  motion-reduce:transform-none respects the system setting, and
+                  a learner who takes that path loses nothing, because the audio
+                  still says both halves. Mobile twin: components/SpokenLine.tsx,
+                  changed in the same commit. */}
               <div className="flex-1 min-w-0">
                 <h2
-                  className="text-3xl font-extrabold text-foreground leading-tight tracking-tight truncate"
+                  className={cn(
+                    "text-3xl font-extrabold text-foreground leading-tight tracking-tight truncate",
+                    "origin-left transition-transform duration-200 ease-out motion-reduce:transform-none",
+                    speakingSegment === 'phrase' ? "scale-[1.06]" : "scale-100",
+                  )}
                   style={native.style}
                   dir={native.dir}
                 >
                   {phrase?.nativeScript}
                 </h2>
                 <p className="text-primary font-bold text-base leading-tight">{phrase?.romanized}</p>
-                <p className="text-muted-foreground text-sm leading-tight">{phrase?.english}</p>
+                <p
+                  className={cn(
+                    "text-muted-foreground text-sm leading-tight",
+                    "origin-left transition-transform duration-200 ease-out motion-reduce:transform-none",
+                    speakingSegment === 'meaning' ? "scale-[1.06]" : "scale-100",
+                  )}
+                >
+                  {phrase?.english}
+                </p>
               </div>
 
               {/* Spec B2: quiet flag affordance — must not compete with play */}

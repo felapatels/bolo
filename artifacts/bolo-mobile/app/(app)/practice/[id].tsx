@@ -117,6 +117,7 @@ import { Waveform } from '@/components/Waveform';
 import { prefersReducedMotion } from '@/lib/motionPrefs';
 import { loadSpokenFeedback, saveSpokenFeedback, loadSilentMode, saveSilentMode, loadApproxNoticeSeen, saveApproxNoticeSeen } from '@/lib/settings';
 import { loadMeaningAudio, saveMeaningAudio, meaningSpeechText } from '@/lib/meaning-audio';
+import { SpokenLine } from '@/components/SpokenLine';
 import { loadCoachVoicePref } from '@/lib/coachVoicePref';
 import { playCue } from '@/lib/sound';
 import { XpArc } from '@/components/XpArc';
@@ -690,6 +691,24 @@ export default function PracticeScreen() {
   // Feedback text per phrase index — used on the summary screen.
   const [sessionFeedback, setSessionFeedback] = React.useState<Record<number, { feedback: string; tip: string }>>({});
   const [coachPlaying, setCoachPlaying] = React.useState(false);
+  /**
+   * WHICH LINE IS BEING SPOKEN RIGHT NOW (build 29, the owner: "show an
+   * animation of the word enlarging on the screen when it's being spoken, then
+   * the meaning be enlarged so learners can tie the visual to the audio").
+   *
+   * coachPlaying stays exactly as it was, a single boolean spanning BOTH
+   * segments, because the listen buttons and the record gate all key off it and
+   * splitting it would change behaviour nobody asked to change. This is a
+   * second, narrower signal that only the animation reads.
+   *
+   * The point is teaching, not decoration: the coach says two things in a row
+   * and the card gave no clue which one was playing, so a learner had to infer
+   * it. Lighting the line being spoken is dual coding, and it is the whole
+   * reason meaning-aloud exists.
+   */
+  const [speakingSegment, setSpeakingSegment] = React.useState<
+    'phrase' | 'meaning' | null
+  >(null);
   const [selfPlaying, setSelfPlaying] = React.useState(false);
   /** The learner's own recording from the most recent attempt (base64 m4a). */
   const lastRecordingBase64Ref = React.useRef<string | null>(null);
@@ -1027,6 +1046,7 @@ export default function PracticeScreen() {
     playbackRef.current?.stop();
     playbackRef.current = null;
     setCoachPlaying(false);
+    setSpeakingSegment(null);
   }, []);
 
   const stopSelfPlayback = React.useCallback(() => {
@@ -1172,7 +1192,13 @@ export default function PracticeScreen() {
             languageName: activeLanguage?.name,
           },
         }));
-      if (!res) { if (token === playTokenRef.current) setCoachPlaying(false); return; }
+      if (!res) {
+        if (token === playTokenRef.current) {
+          setCoachPlaying(false);
+          setSpeakingSegment(null);
+        }
+        return;
+      }
       audioCacheRef.current.set(cacheKey, {
         audioBase64: res.audioBase64,
         format: res.format || 'mp3',
@@ -1221,6 +1247,7 @@ export default function PracticeScreen() {
         // the very next play without a reload (web parity).
         if (!meaningPrefRef.current || !phrase.english) {
           setCoachPlaying(false);
+          setSpeakingSegment(null);
           return;
         }
         try {
@@ -1233,11 +1260,15 @@ export default function PracticeScreen() {
             ),
           ]);
           if (token !== playTokenRef.current) return;
+          setSpeakingSegment('meaning');
           playbackRef.current = await playBase64Audio(
             meaningRes.audioBase64,
             meaningRes.format || 'mp3',
             () => {
-              if (token === playTokenRef.current) setCoachPlaying(false);
+              if (token === playTokenRef.current) {
+                setCoachPlaying(false);
+                setSpeakingSegment(null);
+              }
             },
           );
           if (token !== playTokenRef.current) {
@@ -1247,14 +1278,23 @@ export default function PracticeScreen() {
         } catch {
           // Fail silent to phrase-only: the phrase clip already played in
           // full, so simply drop back as if the meaning were off.
-          if (token === playTokenRef.current) setCoachPlaying(false);
+          if (token === playTokenRef.current) {
+            setCoachPlaying(false);
+            setSpeakingSegment(null);
+          }
         }
       };
       const onCoachDone = () => {
         // coachPlaying (and the disabled listen buttons) span the meaning
         // segment too, matching the web's playing_coach state span.
+        if (token === playTokenRef.current) setSpeakingSegment(null);
         void playMeaning();
       };
+      // THE SEGMENT FLIPS WHEN THE AUDIO STARTS, not when synthesis does. The
+      // clip is fetched above and that can take a moment on a cold cache;
+      // enlarging the word during the wait would light up a line that is not
+      // being spoken yet, which is the opposite of the point.
+      setSpeakingSegment('phrase');
       playbackRef.current = await playBase64Audio(
         res.audioBase64,
         res.format || 'mp3',
@@ -1266,7 +1306,10 @@ export default function PracticeScreen() {
         return;
       }
     } catch {
-      if (token === playTokenRef.current) setCoachPlaying(false);
+      if (token === playTokenRef.current) {
+        setCoachPlaying(false);
+        setSpeakingSegment(null);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phrase?.id, activeLanguage?.name, ttsVoice, isSentences]);
@@ -2578,16 +2621,21 @@ export default function PracticeScreen() {
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
-          <Text
-            style={[
-              nativeProps,
-              styles.phraseNative,
-              showingOutcome && styles.phraseNativeCompact,
-              { color: colors.foreground },
-            ]}
-          >
-            {phrase.nativeScript}
-          </Text>
+          {/* The native line swells while the coach is saying it. See
+              components/SpokenLine.tsx for why it is a transform and not a
+              font size, and why the driver is false. */}
+          <SpokenLine speaking={speakingSegment === 'phrase'} reduceMotion={reduceMotion}>
+            <Text
+              style={[
+                nativeProps,
+                styles.phraseNative,
+                showingOutcome && styles.phraseNativeCompact,
+                { color: colors.foreground },
+              ]}
+            >
+              {phrase.nativeScript}
+            </Text>
+          </SpokenLine>
           <Text
             style={[
               styles.phraseRoman,
@@ -2597,15 +2645,21 @@ export default function PracticeScreen() {
           >
             {phrase.romanized}
           </Text>
-          <Text
-            style={[
-              styles.phraseEng,
-              showingOutcome && styles.phraseEngCompact,
-              { color: colors.mutedForeground },
-            ]}
-          >
-            {phrase.english}
-          </Text>
+          {/* And the English swells for the meaning segment, so the two
+              halves of what the coach says are never ambiguous. With
+              meaning-aloud off this simply never fires, which is correct
+              rather than a gap: nothing is being spoken here then. */}
+          <SpokenLine speaking={speakingSegment === 'meaning'} reduceMotion={reduceMotion}>
+            <Text
+              style={[
+                styles.phraseEng,
+                showingOutcome && styles.phraseEngCompact,
+                { color: colors.mutedForeground },
+              ]}
+            >
+              {phrase.english}
+            </Text>
+          </SpokenLine>
 
           {/* Hear it lives down in the result card while a score is up (and
               the compare card carries its own Play target); here it would
