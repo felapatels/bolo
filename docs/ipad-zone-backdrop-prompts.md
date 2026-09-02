@@ -5,20 +5,31 @@ single repeating `zone-wide.jpg` tile.
 
 ## Before you generate
 
-- **Output 3840 x 2160 px (16:9), JPEG.** If your tool caps lower, **2560 x 1440**
-  also clears what a 13-inch iPad needs in landscape at @2x (2732px).
+- **Output 3840 x 2160 px (16:9), JPEG. Use the LARGEST size your tool offers.**
+  If it caps lower, **2752 x 1536** is the floor. About 16% of the height is
+  spent on the seam blend before anything is cropped to 16:9, so a 1376x768
+  generation ends up around 1150px wide and has to be upscaled 2.4x to fill a
+  13-inch. Zone 2's first attempt came back at exactly that size and was too
+  soft to sit beside zone 1.
 - **16:9 EXACTLY.** The app draws these with `resizeMode="stretch"` at
   `windowW x windowW * 9/16`, so any other aspect is distorted rather than
   cropped. This brief said 25:11 until 2026-09-02; that was simply the shape of
   the old tile, it turned out to be a shape no generator offers, and the code
   constant was changed to 16:9 rather than the art being forced to match it.
-- **Attach `artifacts/bolo-mobile/assets/journey/zone-wide.jpg` as a style
-  reference at MODERATE weight.** Prose drifts across six generations. Moderate,
-  not maximum, or zones 4 and 6 come back as copies of zone 1.
-  **That reference is 25:11, which is NOT the target aspect, and that is fine:**
-  it is there for linework, palette and camera height, not for framing. Set the
-  output to 16:9 explicitly and do not let the tool inherit the reference's
-  shape.
+- **THE HOUSE STYLE IS `zone-wide-2.jpg`.** The owner chose it on 2026-09-02:
+  "I'm fine with this style if we use it for all zones on ipad." It is paler and
+  cooler than the August tile, so attach THAT as the reference for every
+  remaining zone, and note that zone 1 was generated against the older, warmer
+  look and needs redoing to match.
+- **Reference weight: LOW to MODERATE, and this needs care in both directions.**
+  Too little and the palette washes out and the street empties (zone 2, attempt
+  one). Too much and it copies the reference's whole composition and ignores the
+  scene you asked for (zone 2, attempt two: same street, same stalls, no
+  families anywhere). Attempt three worked with the weight turned down and the
+  scene beats made mandatory.
+- **The reference is for linework, palette, density and camera height, NOT for
+  framing.** Set the output to 16:9 explicitly rather than letting the tool
+  inherit the reference's shape.
 - **It must tile seamlessly top to bottom.** Each zone stacks the image 4 to 5
   times down the page. The bottom edge has to continue into the top edge with no
   visible join. The current tile does this with a ghosted band of figures across
@@ -48,10 +59,24 @@ specific, no recognisable single monument.
 > potted plants and clay pots on the rooftops. Striped market awnings in coral,
 > teal and mustard. Marigold garlands looped along the balconies, paper lanterns
 > glowing amber, triangular bunting strung across the street.
-> THE SCENE: arrival and welcome. Neighbours meeting in the street, hands folded
-> in namaste, a shopkeeper leaning out to wave someone over, an older man
-> greeting a younger one, children running through the crowd with a hoop. Warm
-> and busy but not chaotic. A few fireworks low in the dusk sky.
+> TAKE FROM THE REFERENCE, AND ONLY THESE: the crowd density (dozens of figures,
+> no empty walls, no empty street), the dusk lighting with lit lanterns, the ink
+> line weight and contrast, the high aerial camera, the saturation.
+> DO NOT COPY THE REFERENCE'S SCENE. The buildings and the street may be the
+> same city, but WHAT THE PEOPLE ARE DOING must be visibly, obviously different,
+> and the difference must be readable at a glance from across a room.
+> THE SCENE: arrival and welcome, and the street is crowded with greetings.
+> THESE FIVE MUST APPEAR IN THE FOREGROUND THIRD OF THE IMAGE, drawn large
+> enough to read clearly. They are the whole point of this picture and it fails
+> without them:
+>   1. two people facing each other with hands folded in namaste
+>   2. a shopkeeper leaning out of a stall waving someone over
+>   3. an older man greeting a younger one, a hand on his shoulder
+>   4. two women meeting and clasping hands
+>   5. children running through the crowd with a rolling hoop
+> Behind them the bazaar continues as busy as ever, with a few fireworks low in
+> the dusk sky. If this image could be mistaken for a general market scene, it
+> is wrong.
 > Dozens of small figures in everyday Indian dress, faces simple and friendly.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
@@ -71,11 +96,23 @@ specific, no recognisable single monument.
 > potted plants and clay pots on the rooftops. Striped market awnings in coral,
 > teal and mustard. Marigold garlands looped along the balconies, paper lanterns
 > glowing amber, triangular bunting strung across the street.
-> THE SCENE: courtyards and rooftops, three generations together. A grandmother
-> on a charpai with a child beside her, a father carrying a small child on his
-> shoulders, a mother braiding a daughter's hair on a balcony, washing strung
-> between buildings, a family sharing a rooftop meal around a low tray. Quieter
-> and more domestic than a market scene. Fewer stalls, more homes and terraces.
+> TAKE FROM THE REFERENCE, AND ONLY THESE: the crowd density (dozens of figures,
+> no empty walls, no empty street), the dusk lighting with lit lanterns, the ink
+> line weight and contrast, the high aerial camera, the saturation.
+> DO NOT COPY THE REFERENCE'S SCENE. The buildings and the street may be the
+> same city, but WHAT THE PEOPLE ARE DOING must be visibly, obviously different,
+> and the difference must be readable at a glance from across a room.
+> THE SCENE: families, and the street is crowded with them.
+> THESE FIVE MUST APPEAR IN THE FOREGROUND THIRD OF THE IMAGE, drawn large
+> enough to read clearly. They are the whole point of this picture and it fails
+> without them:
+>   1. a grandmother sitting on a charpai with a small child beside her
+>   2. a father carrying a child on his shoulders
+>   3. a mother braiding her daughter's hair on a balcony
+>   4. a family sitting on a rooftop sharing a meal from a low round tray
+>   5. lines of washing strung between two balconies
+> Behind them the bazaar continues as busy as ever. If this image could be
+> mistaken for a general market scene, it is wrong.
 > Dozens of small figures in everyday Indian dress, faces simple and friendly.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
@@ -95,6 +132,12 @@ specific, no recognisable single monument.
 > potted plants and clay pots on the rooftops. Striped market awnings in coral,
 > teal and mustard. Marigold garlands looped along the balconies, paper lanterns
 > glowing amber, triangular bunting strung across the street.
+> TAKE FROM THE REFERENCE, AND ONLY THESE: the crowd density (dozens of figures,
+> no empty walls, no empty street), the dusk lighting with lit lanterns, the ink
+> line weight and contrast, the high aerial camera, the saturation.
+> DO NOT COPY THE REFERENCE'S SCENE. The buildings and the street may be the
+> same city, but WHAT THE PEOPLE ARE DOING must be visibly, obviously different,
+> and the difference must be readable at a glance from across a room.
 > THE SCENE: the counting market. Vendors weighing goods on brass balance scales,
 > neatly stacked crates and jute sacks, rows of identical clay pots and brass
 > vessels, bundles of bananas hanging in a line, coins and folded notes changing
@@ -121,6 +164,12 @@ specific, no recognisable single monument.
 > potted plants and clay pots on the rooftops. Striped market awnings in coral,
 > teal and mustard. Marigold garlands looped along the balconies, paper lanterns
 > glowing amber, triangular bunting strung across the street.
+> TAKE FROM THE REFERENCE, AND ONLY THESE: the crowd density (dozens of figures,
+> no empty walls, no empty street), the dusk lighting with lit lanterns, the ink
+> line weight and contrast, the high aerial camera, the saturation.
+> DO NOT COPY THE REFERENCE'S SCENE. The buildings and the street may be the
+> same city, but WHAT THE PEOPLE ARE DOING must be visibly, obviously different,
+> and the difference must be readable at a glance from across a room.
 > THE SCENE: the food lane at its busiest. Deep kadhai pans steaming over flame,
 > a flat tawa with breads puffing, jalebi coiling into hot oil, a chai wallah
 > pouring from height between two steel cups, stacked steel thali plates, cones
@@ -139,20 +188,26 @@ specific, no recognisable single monument.
 > linework over flat muted colour with soft cel shading. No photorealism, no 3D
 > render, no painterly brushwork. Warm dusk palette: dusty rose and mauve sky,
 > ochre, terracotta, cream sand, warm grey-taupe stucco, mid-brown carved wood,
-> with teal-green, indigo and saffron as the only saturated accents. This one is
-> the CALMEST and least festive of the six: fewer garlands, fewer lanterns lit,
-> more daylight than dusk, but the same palette and the same linework.
+> with teal-green, indigo and saffron as the only saturated accents.
 > Elevated three-quarter aerial view, camera high and looking down, on a pale
 > sand-coloured street that winds in an S-curve from the bottom edge of the frame
 > back toward a domed archway gateway in the middle distance. Tall carved wooden
 > haveli balconies crowd both sides in receding tiers, latticework screens,
 > potted plants and clay pots on the rooftops. Striped market awnings in coral,
 > teal and mustard.
-> THE SCENE: ordinary working life. Cycle rickshaws waiting, a barber shaving a
-> customer in a chair on the pavement, a tailor bent over a treadle sewing
-> machine, laundry being beaten and hung, a small queue at a bus stop, a man
-> reading a folded newspaper on a step, a street dog asleep in a patch of sun,
-> someone sweeping. Unhurried, everyday, nobody celebrating anything.
+> TAKE FROM THE REFERENCE, AND ONLY THESE: the crowd density (dozens of figures,
+> no empty walls, no empty street), the dusk lighting with lit lanterns, the ink
+> line weight and contrast, the high aerial camera, the saturation.
+> DO NOT COPY THE REFERENCE'S SCENE. The buildings and the street may be the
+> same city, but WHAT THE PEOPLE ARE DOING must be visibly, obviously different,
+> and the difference must be readable at a glance from across a room.
+> THE SCENE: the same crowded bazaar street, doing ORDINARY WORK. Cycle
+> rickshaws waiting, a barber shaving a customer in a chair on the pavement, a
+> tailor bent over a treadle sewing machine, laundry being beaten and hung, a
+> queue at a bus stop, a man reading a folded newspaper on a step, a street dog
+> asleep, someone sweeping. Nobody is celebrating, but the street is just as
+> FULL and just as richly lit as the reference. Do NOT empty it out, do NOT
+> lighten the palette, do NOT make it daytime.
 > Dozens of small figures in everyday Indian dress, faces simple and friendly.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
@@ -173,6 +228,12 @@ specific, no recognisable single monument.
 > potted plants and clay pots on the rooftops. Striped market awnings in coral,
 > teal and mustard. Marigold garlands looped along every balcony, paper lanterns
 > glowing amber on every line, triangular bunting strung densely across.
+> TAKE FROM THE REFERENCE, AND ONLY THESE: the crowd density (dozens of figures,
+> no empty walls, no empty street), the dusk lighting with lit lanterns, the ink
+> line weight and contrast, the high aerial camera, the saturation.
+> DO NOT COPY THE REFERENCE'S SCENE. The buildings and the street may be the
+> same city, but WHAT THE PEOPLE ARE DOING must be visibly, obviously different,
+> and the difference must be readable at a glance from across a room.
 > THE SCENE: the festival finale, the loudest of the six. Full Diwali night.
 > Every lamp and lantern lit, rows of small clay diya lamps along every ledge and
 > step, intricate rangoli patterns chalked on the ground, people dancing in a
