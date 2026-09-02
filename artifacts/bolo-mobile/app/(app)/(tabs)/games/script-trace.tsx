@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import {
   GestureDetector,
@@ -57,6 +58,7 @@ import {
   strayIntensity,
   type StrayLevel,
 } from '@workspace/script-trace';
+import { CONTENT_MAX_W } from '@/lib/contentWidth';
 import { hapticHeavy, hapticLight, hapticMedium } from '@/lib/haptics';
 import Svg, {
   Path as SvgPath,
@@ -481,6 +483,37 @@ function pointsToPath(points: Point[], size: number): string {
   return `${start} ${lines}`;
 }
 
+/**
+ * THE WRITING SURFACE, and it is the whole iPad story on this screen.
+ *
+ * It was `Math.min(Dimensions.get('window').width - 48, 300)`, a module-level
+ * constant, which had two faults that only show on a tablet. The 300 cap meant
+ * a 13-inch iPad, 1032pt across, offered a 300pt square to write in: the
+ * definition of a wide iPhone. And `Dimensions.get` at MODULE LOAD is read
+ * once when the file is imported, so the value could never answer a rotation
+ * or a window resize.
+ *
+ * PHONES ARE BYTE-FOR-BYTE UNCHANGED, which is the property the test pins.
+ * Below the content column the old expression is returned exactly.
+ *
+ * On an iPad it takes the room writing actually needs, bounded three ways:
+ * by width, by HALF THE HEIGHT so a square canvas cannot push the letter and
+ * the buttons off the screen in landscape, and by 560 so it still sits inside
+ * the app's 600pt content column with its margins intact. That lands ~560 on
+ * every iPad in portrait against 300 today, so the letter is nearly twice the
+ * size, which is what makes a Pencil worth holding.
+ */
+export function canvasSizeFor(windowW: number, windowH: number): number {
+  if (windowW <= CONTENT_MAX_W) return Math.min(windowW - 48, 300);
+  return Math.min(windowW - 48, windowH * 0.5, 560);
+}
+
+function useCanvasSize(): number {
+  const { width, height } = useWindowDimensions();
+  return canvasSizeFor(width, height);
+}
+
+/** Phone-sized fallback for the stylesheet only; every live use is the hook. */
 const CANVAS_SIZE = Math.min(Dimensions.get('window').width - 48, 300);
 const PASS_THRESHOLD = 40; // % interior coverage needed to pass
 const ANIM_DURATION_MS = 2200;
@@ -1108,6 +1141,10 @@ function TraceCanvas({
   // Which language is being studied, for picking the demo's pen path. Read from
   // the hook rather than threaded through a prop, matching the rest of the file.
   const { activeLang } = useLanguage();
+  // SHADOWS the module constant on purpose, so every CANVAS_SIZE below is the
+  // live, rotation-aware size without twenty-six edits. The constant survives
+  // only for the StyleSheet, whose width/height this component overrides.
+  const CANVAS_SIZE = useCanvasSize();
   // THE HAND-AUTHORED STROKES FOR THIS LETTER, if a person ever traced it.
   // `glyphsForLanguage` already layers a real hand over the font's guess over
   // nothing (scripts.ts), and applyOrderGates refuses to grade a glyph still
@@ -1492,6 +1529,8 @@ function TraceCanvas({
           style={[
             styles.canvas,
             {
+              width: CANVAS_SIZE,
+              height: CANVAS_SIZE,
               borderColor: colors.border,
               backgroundColor: colors.muted + '30',
             },
