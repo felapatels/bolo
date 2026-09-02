@@ -654,9 +654,33 @@ function ZonePostcard({
               the zone card, he's getting cut off"), her feet on the fact
               box. The wave, the one pose nothing crosses. Not in a greyed
               showroom zone. The phone's landmark whisper behind the words is
-              left out here on purpose: web has no city silhouettes. */}
+              left out here on purpose: web has no city silhouettes.
+
+              top-4 AND NOT top-0, BECAUSE THE FIRST FIX ONLY COVERED THE
+              BIRD. The owner reported the same cut a second time in build 29,
+              "bolo cut off on zone card web", and measured against the real
+              card it was never her: she cleared every edge by 4.9px and the
+              PAGDI was cut 11.1px off the top.
+
+              Build 26 grew the sprite from 1024 square to 1024x1200, all of
+              it sky above her head, so a plume has somewhere to go. Her
+              parent here is absolutely positioned, which is a formatting
+              context, so Mascot's pull-up APPLIES rather than collapsing:
+              at top-0 her body sits flush with the card's top edge and that
+              whole sky hangs ABOVE the card, where this card's
+              overflow-hidden cuts it off. Anything worn on her head lives in
+              that sky, so every hat in the game was being beheaded here and
+              a bare bird looked perfect.
+
+              16px is the sky itself, MASCOT_SKY_PCT * 92 = 15.8, so this
+              drops exactly enough to bring it inside the card and no more.
+              Her body does sit 16px lower than it did, which is the honest
+              cost of the sprite having grown a sky that this call site never
+              accounted for. Pinned by qa/zone-card-bolo-fit.mjs, which
+              measures PAINTED PIXELS: a box-based check passes while the bird
+              is still cut, because most of the frame is transparent. */}
           {!grayed ? (
-            <div aria-hidden className="pointer-events-none absolute right-1.5 top-0 z-[2]">
+            <div aria-hidden className="pointer-events-none absolute right-1.5 top-4 z-[2]">
               <Mascot pose="wave" size={92} idle="none" />
             </div>
           ) : null}

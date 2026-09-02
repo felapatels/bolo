@@ -94,6 +94,38 @@ function PracticeChain({ compact, outfit, accessory }: { compact: boolean; outfi
   );
 }
 
+/* ── journey.tsx:646, the ZONE CARD, verbatim ────────────────────────────
+   The owner, build 29: "bolo cut off on zone card web". This is a REPEAT:
+   the call site's own comment records an earlier report of the same thing
+   ("bolo needs more space on the zone card, he's getting cut off"), so a fix
+   here already came back once and this case exists so the next one does not.
+
+   The card clips (overflow-hidden) and Bolo is pinned to its top right
+   corner, so any part of her that reaches the frame edge is cut by the
+   border. Rendered at the map's real widths, with and without the pagdi,
+   because the accessory lives in the sky the 1024x1200 canvas added.        */
+function ZoneCardChain({ width, accessory }: { width: number; accessory?: string | null }) {
+  return (
+    <div
+      data-zone-card
+      className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-b-[18px] border-[1.5px] border-t-0"
+      style={{ borderColor: "#D9CDBA", background: "#FFFDF9", width }}
+    >
+      <div aria-hidden className="pointer-events-none absolute right-1.5 top-4 z-[2]">
+        <Mascot pose="wave" size={92} idle="none" accessory={accessory} />
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col px-3 pb-[9px] pt-2">
+        <div className="mt-[5px] truncate pr-[100px] text-[22px] font-black leading-[26px]">
+          Prayagraj
+        </div>
+        <div className="mt-px pr-[100px] text-[11px] font-semibold leading-[14px]">
+          11 stops in this zone
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── join.tsx:110, verbatim: a DEFINITE 96x96 box with fill ─────────────── */
 function JoinChain({ accessory }: { accessory?: string | null }) {
   return (
@@ -141,6 +173,36 @@ function Harness() {
         height={760}
       >
         <PracticeChain compact />
+      </Case>
+
+      <Case
+        id="zone-card-390"
+        title="Z1. zone card at MAP_MAX_W 390"
+        note="Bolo pinned right-1.5 top-0 in a clipping card. Does any of her leave it?"
+        width={370}
+        height={150}
+      >
+        <ZoneCardChain width={370} />
+      </Case>
+
+      <Case
+        id="zone-card-390-pagdi"
+        title="Z2. same, wearing the pagdi"
+        note="The hat lives in the sky the 1024x1200 canvas added, at the card's top edge."
+        width={370}
+        height={150}
+      >
+        <ZoneCardChain width={370} accessory="pagdi" />
+      </Case>
+
+      <Case
+        id="zone-card-560"
+        title="Z3. zone card at MAP_MAX_W_LG 560"
+        note="The desktop width the owner's screenshot was taken at."
+        width={540}
+        height={150}
+      >
+        <ZoneCardChain width={540} accessory="pagdi" />
       </Case>
 
       <Case
