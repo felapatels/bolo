@@ -1366,7 +1366,15 @@ export default function JourneyScreen() {
   // over (which made right-flank cards a different width from left-flank ones
   // and the current card a different size again). The value is the widest that
   // fits BOTH flanks inside the 16pt map margins at this mapW.
-  const cardW = mapW - 140;
+  // CAPPED ON A TABLET (build 29). `mapW - 140` is the widest that fits both
+  // flanks inside the map margins, and on a phone that is 250, which is right.
+  // On an iPad the map grows to 560 and the same rule gives 420: a 420pt band
+  // holding "Stop 6 of 11" over "Locked . 10 phrases", which reads as a poster
+  // rather than a card. 320 keeps roughly the phone's card-to-map proportion
+  // (250 of 390 is 0.64; 320 of 560 is 0.57) and leaves the two short lines
+  // looking like a label again. Phones are untouched: 390 - 140 is already
+  // below the cap.
+  const cardW = Math.min(mapW - 140, 320);
 
   // One language's map never fetches another language's data: exactly six
   // fixed zone queries for the active language.
