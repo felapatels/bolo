@@ -51,6 +51,7 @@ import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
 import { PressableScale } from '@/components/PressableScale';
+import { useIsWideScreen } from '@/lib/contentWidth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { UpgradeBanner } from '@/components/PlusUpsell';
@@ -332,6 +333,14 @@ const repairSheetStyles = StyleSheet.create({
 });
 
 export default function HomeScreen() {
+  // Build 29: home comes OUT of the 600pt column so its top bar spans the
+  // window on an iPad, the owner's ask. Phones are unaffected: below the
+  // column width the window IS the column, so nothing there changes.
+  const wideScreen = useIsWideScreen();
+  // Two column widths for the tablet reflow. undefined on a phone, where the
+  // sections are plain block children of a column exactly as they always were.
+  const colHalf = wideScreen ? ({ width: '48.5%' } as const) : undefined;
+  const colFull = wideScreen ? ({ width: '100%' } as const) : undefined;
   const colors = useColors();
   const router = useRouter();
   const { user } = useUser();
@@ -521,7 +530,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <Screen>
+    <Screen column={false}>
       {/* Daily-goal celebration overlays — mounted on top of all content */}
       {showConfetti && <Confetti />}
       <MilestoneToast
@@ -530,8 +539,17 @@ export default function HomeScreen() {
       />
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: 20,
+          paddingHorizontal: wideScreen ? 32 : 20,
           paddingBottom: TAB_BAR_CLEARANCE,
+          // THE REFLOW (build 29). A wrapping ROW on a tablet and a plain
+          // column on a phone. Sections keep their source order either way,
+          // which is the point of doing it with flexWrap rather than by
+          // splitting the tree into a left half and a right half: a phone
+          // reads exactly the sequence it always read, and there is no second
+          // ordering to keep in step.
+          ...(wideScreen
+            ? { flexDirection: 'row' as const, flexWrap: 'wrap' as const, alignItems: 'flex-start' as const, columnGap: 24 }
+            : null),
         }}
         showsVerticalScrollIndicator={false}
         onTouchStart={onActivity}
@@ -544,7 +562,7 @@ export default function HomeScreen() {
         }
       >
         {/* Greeting + mascot */}
-        <Animated.View entering={skipEnter ? undefined : appearDown(0, 500)} style={styles.topRow}>
+        <Animated.View entering={skipEnter ? undefined : appearDown(0, 500)} style={[styles.topRow, colFull]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.hello, { color: colors.mutedForeground }]}>
               {greeting},
@@ -607,7 +625,7 @@ export default function HomeScreen() {
         <NamePromptCard />
 
         {/* Language selector + Chat with Bolo shortcut */}
-        <Animated.View entering={skipEnter ? undefined : appearDown(60, 500)}>
+        <Animated.View entering={skipEnter ? undefined : appearDown(60, 500)} style={colHalf}>
           <View style={styles.langRow}>
             <PressableScale
               onPress={() => router.push('/(app)/language')}
@@ -652,7 +670,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Stats — genuine three-stop gradient banner (indigo→blue→violet, matches web) */}
-        <View style={styles.statsRowWrapper}>
+        <View style={[styles.statsRowWrapper, colHalf]}>
           <LinearGradient
             colors={['#4f46e5', '#3b6fef', '#7c3aed']}
             start={{ x: 0, y: 0 }}
@@ -812,7 +830,7 @@ export default function HomeScreen() {
 
         {/* Spec D1b-M: boarding-pass hero — the journey map is the primary
             path into practice and the sole continue mechanism. */}
-        <Animated.View entering={skipEnter ? undefined : appearDown(200, 500)}>
+        <Animated.View entering={skipEnter ? undefined : appearDown(200, 500)} style={colHalf}>
           {/* Task #1049 (web parity): the pass renders FIRST, with the stall
               directly beneath it — home's order of intent is practise →
               progress → spend, so the primary "start practising" action is
@@ -981,7 +999,7 @@ export default function HomeScreen() {
             #1049's pass-then-platform adjacency and their shared entrance
             wrapper stay intact, and home's order of intent reads practise →
             spend → compare. */}
-        <Animated.View entering={skipEnter ? undefined : appearDown(205, 500)}>
+        <Animated.View entering={skipEnter ? undefined : appearDown(205, 500)} style={colHalf}>
           <HomeSocialStrip />
         </Animated.View>
 
@@ -990,7 +1008,7 @@ export default function HomeScreen() {
             card directly below the boarding pass so the pass stays the
             loudest element. The chip row reuses the categories this screen
             already fetches (no new API calls). */}
-        <Animated.View entering={skipEnter ? undefined : appearDown(210, 500)}>
+        <Animated.View entering={skipEnter ? undefined : appearDown(210, 500)} style={colHalf}>
           <View
             style={[
               styles.doorCard,
@@ -1094,7 +1112,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Daily quiz card */}
-        <Animated.View entering={skipEnter ? undefined : appearDown(220, 500)}>
+        <Animated.View entering={skipEnter ? undefined : appearDown(220, 500)} style={colHalf}>
           <DailyQuizCard
             isPlus={isPlus}
             entitlementsLoading={entitlementsLoading}
@@ -1108,7 +1126,7 @@ export default function HomeScreen() {
 
         {/* Review due badge (Plus only) */}
         {isPlus && reviewDueCount > 0 ? (
-          <Animated.View entering={skipEnter ? undefined : appearDown(300, 500)}>
+          <Animated.View entering={skipEnter ? undefined : appearDown(300, 500)} style={colHalf}>
             <ReviewBadge
               count={reviewDueCount}
               onPress={() => router.push('/(app)/review' as Parameters<typeof router.push>[0])}
@@ -1118,7 +1136,7 @@ export default function HomeScreen() {
 
         {/* Daily lesson allowance (Free plan) */}
         {!isPlus && dailyNewLessons?.limit != null ? (
-          <Animated.View entering={skipEnter ? undefined : appearDown(360, 500)}>
+          <Animated.View entering={skipEnter ? undefined : appearDown(360, 500)} style={colHalf}>
             <DailyCapNote
               remaining={dailyNewLessons.remaining ?? 0}
               limit={dailyNewLessons.limit}
@@ -1129,14 +1147,14 @@ export default function HomeScreen() {
 
         {/* Upgrade prompt (Free plan) */}
         {!isPlus ? (
-          <Animated.View entering={skipEnter ? undefined : appearDown(400, 500)}>
+          <Animated.View entering={skipEnter ? undefined : appearDown(400, 500)} style={colHalf}>
             <UpgradeBanner onPress={() => router.push('/(app)/paywall')} />
           </Animated.View>
         ) : null}
 
         {/* Recent plays */}
         {(recent.data ?? []).length > 0 ? (
-          <>
+          <View style={colFull}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
               Recent plays
             </Text>
@@ -1220,7 +1238,7 @@ export default function HomeScreen() {
                 </Animated.View>
               );
             })}
-          </>
+          </View>
         ) : null}
 
         {/* Privacy policy — App/Play review expects an in-app link learners can
