@@ -383,7 +383,13 @@ export function Mascot({
    * not one of them had to move.
    *
    * The cost is that a tall accessory now draws OUTSIDE the box, so an ancestor
-   * with overflow hidden would clip it. Nothing on her paths does today.
+   * with overflow hidden clips it. THIS LINE USED TO SAY "nothing on her paths
+   * does today" AND THAT WAS WRONG BOTH TIMES IT WAS READ. The journey's zone
+   * card clips, and it beheaded every accessory in the game from build 26 until
+   * 2026-09-02, on web and then again on mobile because the twins were fixed a
+   * day apart. Any clipping ancestor must leave `size * 176/1024` of room, and
+   * a bare bird looks perfect in a container that cuts every hat, so CHECK WITH
+   * AN ACCESSORY EQUIPPED.
    */
   const spriteH = size * (MASCOT_SPRITE_H / MASCOT_SPRITE_W);
   const sky = spriteH - size;

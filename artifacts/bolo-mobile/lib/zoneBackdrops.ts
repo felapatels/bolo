@@ -376,6 +376,58 @@ export function wideBackdrop(zoneIndex: number): number {
   return WIDE_BACKDROPS[zoneIndex] ?? WIDE_BACKDROP;
 }
 
+/**
+ * THE LIVING BACKDROPS (build 29). One short film per zone, and the STILL each
+ * film opens on.
+ *
+ * The still is the film's own first frame, pulled out of the encoded clip, so a
+ * cross-fade between them starts from a byte-identical picture and only the
+ * motion appears. That direction matters: matching a film to an existing
+ * painting was tried first and cannot work, because they are separate
+ * generations that never line up. Deriving the still FROM the film makes the
+ * match exact by construction.
+ *
+ * PORTRAIT, so these are the PHONE's backdrops. The films are 9:16; the iPad's
+ * paintings are 16:9 and stay still until 16:9 films exist.
+ *
+ * Trimmed before encoding: three of the six opened on a completely different
+ * street for two seconds before dissolving into their real scene, which no
+ * scene detector found because the change is a dissolve rather than a cut. They
+ * were cut by eye at 2.5s. 720 wide, 24fps, no audio, about 1MB each against
+ * the 6 to 11MB they arrived at, which is the difference between a feature and
+ * 45MB of bundle.
+ */
+const ZONE_FILMS: readonly number[] = [
+  require('../assets/journey/zone-film/zone-1.mp4') as number,
+  require('../assets/journey/zone-film/zone-2.mp4') as number,
+  require('../assets/journey/zone-film/zone-3.mp4') as number,
+  require('../assets/journey/zone-film/zone-4.mp4') as number,
+  require('../assets/journey/zone-film/zone-5.mp4') as number,
+  require('../assets/journey/zone-film/zone-6.mp4') as number,
+];
+
+const ZONE_FILM_STILLS: readonly number[] = [
+  require('../assets/journey/zone-film/zone-1-first.jpg') as number,
+  require('../assets/journey/zone-film/zone-2-first.jpg') as number,
+  require('../assets/journey/zone-film/zone-3-first.jpg') as number,
+  require('../assets/journey/zone-film/zone-4-first.jpg') as number,
+  require('../assets/journey/zone-film/zone-5-first.jpg') as number,
+  require('../assets/journey/zone-film/zone-6-first.jpg') as number,
+];
+
+/** The film for a zone, or null past the end so nothing has to guard a length. */
+export function ZONE_FILM(zoneIndex: number): number | null {
+  return ZONE_FILMS[zoneIndex] ?? null;
+}
+
+/** The frame that film opens on. Falls back to the zone painting. */
+export function ZONE_FILM_STILL(zoneIndex: number): number {
+  return ZONE_FILM_STILLS[zoneIndex] ?? ZONE_BACKDROPS[zoneIndex] ?? WIDE_BACKDROP;
+}
+
+/** How many zones have a film. For tests and readouts. */
+export const ZONE_FILM_COUNT = ZONE_FILMS.length;
+
 /** How many zones have a wide painting of their own. For tests and readouts. */
 export const WIDE_BACKDROP_COUNT = WIDE_BACKDROPS.length;
 /**

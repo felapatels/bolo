@@ -33,6 +33,7 @@ import { useIsWideScreen } from '@/lib/contentWidth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StopDots } from '@/components/journey/StopDots';
+import { ZoneFilm } from '@/components/journey/ZoneFilm';
 // Aliased: react-native-svg exports a LinearGradient too, and the tag
 // backs use that one.
 import { LinearGradient as FadeGradient } from 'expo-linear-gradient';
@@ -518,6 +519,7 @@ function RailPulseDots({
  */
 function ZoneBandFixed({
   zi,
+  filmTile,
   start,
   end,
   layerTop,
@@ -531,6 +533,8 @@ function ZoneBandFixed({
   wide = false,
 }: {
   zi: number;
+  /** Which tile of THIS band should be alive, or null for none. */
+  filmTile: number | null;
   /** An iPad: one wide bazaar for every zone instead of the six paintings. */
   wide?: boolean;
   start: number;
@@ -586,17 +590,30 @@ function ZoneBandFixed({
     <>
       {Array.from({ length: Math.max(1, Math.ceil(bandH / tileH)) }).map(
         (_, ti) => (
-          <Image
-            key={ti}
-            source={art}
-            style={{
-              position: 'absolute',
-              top: ti * tileH,
-              width: windowW,
-              height: tileH,
-            }}
-            resizeMode="stretch"
-          />
+          filmTile === ti && !wide ? (
+            // THE LIVING TILE. Only ever one, only while the map is still, and
+            // only on a phone: the films are 9:16 and the iPad's paintings are
+            // 16:9. The still underneath is this film's own first frame, so the
+            // cross-fade starts from an identical picture.
+            <View
+              key={ti}
+              style={{ position: 'absolute', top: ti * tileH, width: windowW, height: tileH }}
+            >
+              <ZoneFilm zoneIndex={zi} width={windowW} height={tileH} active />
+            </View>
+          ) : (
+            <Image
+              key={ti}
+              source={art}
+              style={{
+                position: 'absolute',
+                top: ti * tileH,
+                width: windowW,
+                height: tileH,
+              }}
+              resizeMode="stretch"
+            />
+          )
         ),
       )}
       <View
@@ -1331,6 +1348,8 @@ export default function JourneyScreen() {
   const onMapScroll = useAnimatedScrollHandler((e) => {
     scrollY.value = e.contentOffset.y;
   });
+
+
   // Task 1082 item 4: bring the learner's current stop into view when the map
   // opens. The latch fires once per visit (this screen mounts once), never
   // again on refetch or state change, and a learner who starts dragging first
@@ -2146,6 +2165,42 @@ export default function JourneyScreen() {
     return { start, end };
   });
 
+  /**
+   * WHICH ZONE, AND WHICH TILE OF IT, IS BEING LOOKED AT WHILE THE MAP IS STILL.
+   *
+   * The owner, build 29: "film starts playing if a learner lands on a zone...
+   * once they stop scrolling, that video will play". So this is an IDLE signal,
+   * not a scroll signal.
+   *
+   * THAT DISTINCTION IS THE WHOLE REASON THIS IS SAFE. A zone-owns-the-top
+   * chain lived here before and was deleted in build 26 because it did a
+   * runOnJS hop PER FRAME to feed a state nobody read. This fires twice per
+   * gesture: null when a drag begins, and one answer when the map comes to
+   * rest. Nothing runs while the finger is moving.
+   *
+   * The tile is computed as well as the zone, so the film can be parked where
+   * the learner actually stopped rather than always at the top of the band. On
+   * a phone only about 1.2 tiles fit on screen, so the one under the viewport
+   * centre is the one being looked at.
+   */
+  const [activeFilm, setActiveFilm] = useState<{ zone: number; tile: number } | null>(null);
+  const settleFilm = useCallback(
+    (offsetY: number) => {
+      const eye = offsetY + windowH / 2 - SCROLL_CONTENT_TOP;
+      const zi = slices.findIndex((sl) => eye >= sl.start && eye < sl.end);
+      if (zi < 0) {
+        setActiveFilm(null);
+        return;
+      }
+      const tileH = windowW / ZONE_TILE_ASPECT;
+      const tile = Math.max(0, Math.floor((eye - slices[zi]!.start) / tileH));
+      setActiveFilm((prev) =>
+        prev && prev.zone === zi && prev.tile === tile ? prev : { zone: zi, tile },
+      );
+    },
+    [slices, windowH, windowW],
+  );
+
   // THE ZONE-OWNS-THE-TOP CHAIN LIVED HERE AND IS GONE (build 26). A
   // `zoneTops` memo fed an `onMapScrollJs` callback that compared the scroll
   // offset against the slice boundaries and pushed the answer into an
@@ -2729,6 +2784,10 @@ export default function JourneyScreen() {
         ]}
         showsVerticalScrollIndicator={false}
         onScroll={onMapScroll}
+        // A film plays only while the map is at rest. Both handlers are needed:
+        // a flick ends in momentum, a slow drag ends without any.
+        onScrollEndDrag={(e) => settleFilm(e.nativeEvent.contentOffset.y)}
+        onMomentumScrollEnd={(e) => settleFilm(e.nativeEvent.contentOffset.y)}
         // A TOUCH LANDS YOU ON YOUR CARD, it does not cancel. Cancelling is
         // what this used to do, and it left a learner who reached for the
         // screen stranded halfway down a map at a position nobody chose.
@@ -2741,6 +2800,8 @@ export default function JourneyScreen() {
         onScrollBeginDrag={() => {
           userScrolledRef.current = true;
           landIntro();
+          // A film never plays while the map is moving.
+          setActiveFilm(null);
         }}
         scrollEventThrottle={16}
       >
@@ -2855,6 +2916,7 @@ export default function JourneyScreen() {
             >
             <ZoneBandFixed
               zi={zi}
+              filmTile={activeFilm && activeFilm.zone === zi ? activeFilm.tile : null}
               start={start}
               end={end}
               layerTop={layerTop}
@@ -4741,7 +4803,17 @@ const styles = StyleSheet.create({
   },
   boardCardBody: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 9 },
   boardLandmark: { position: 'absolute', left: 120, top: 2 },
-  boardBolo: { position: 'absolute', right: 6, top: 0, zIndex: 2 },
+  // top 16, NOT 0, AND THE FIRST FIX HERE ONLY COVERED THE BIRD. The owner
+  // reported this twice: "bolo needs more space on the zone card, he's getting
+  // cut off", then on 2026-09-02 "ipad sim still shows bolo hat being cut off
+  // on zone card". She was never the thing being cut. Mascot draws the sprite
+  // with marginTop: -sky, so the 176px of headroom build 26 added hangs ABOVE
+  // her box, and this card clips. A bare bird looks perfect while every hat in
+  // the game is beheaded. 16 is that sky at size 92 (92 * 176/1024 = 15.8), so
+  // it drops exactly enough to bring the hat inside and no further. The web
+  // twin is pages/journey.tsx's `top-4`, fixed a day earlier; this file was
+  // missed, which is what a hand-maintained twin costs.
+  boardBolo: { position: 'absolute', right: 6, top: 16, zIndex: 2 },
   // The city and the stops line stop short of the bird.
   boardClearOfBolo: { paddingRight: 100 },
   boardGap: { height: 8 },
