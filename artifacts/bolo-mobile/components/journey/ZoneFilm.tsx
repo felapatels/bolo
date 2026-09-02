@@ -95,7 +95,12 @@ export function ZoneFilm({
         player={player}
         style={StyleSheet.absoluteFill}
         nativeControls={false}
-        contentFit="cover"
+        // FILL, MATCHING THE STILLS' resizeMode="stretch". Not a preference:
+        // the tiles under this are STRETCHED into the tile box and cover CROPS
+        // instead, so one squashes the picture 11% and the other trims 11% off
+        // it. Film and still were framed differently and the join between them
+        // showed a scale change. Identical transform, identical framing.
+        contentFit="fill"
         onFirstFrameRender={() => setFirstFrame(true)}
       />
     </Animated.View>
