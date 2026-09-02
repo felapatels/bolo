@@ -372,8 +372,26 @@ needs that substrate designed rather than a one-off button.
      through a child AND a grandchild. **A test on the base logger passes
      either way, which is why nothing caught this for a month.**
 
+- **NO ATTRIBUTION TRAILERS IN COMMIT MESSAGES.** No `Co-Authored-By:`, no
+  `Claude-Session:`, no "Generated with". The owner's instruction, 2026-09-01.
+  This repo is PUBLIC, and a session URL in a public log is a private link that
+  nobody but the owner can open. The reasoning in the commit body is the part
+  with value; the trailer is not.
+
 - **Never rewrite history on `main`.** No amend, no `reset --hard`, no rebase onto
   main, no force push. `origin` is GitHub; `gitsafe-backup` is a stale Replit remote.
+
+  **BROKEN ONCE, DELIBERATELY, ON 2026-09-01**, on the owner's explicit
+  instruction, to strip 609 `Co-Authored-By` and 580 `Claude-Session` trailers.
+  697 commits were rewritten and force pushed. It was safe only because it was
+  CHECKED: all 1839 trees came out identical in the same order, the repo had 0
+  forks and 0 open PRs, a full mirror backup was taken first, and the 36 commit
+  hashes cited in this file and in memory were remapped afterwards and verified
+  to resolve to the same subjects. **Two things cost time and would again:**
+  `filter-branch --all` also rewrites `refs/remotes/origin/*`, which destroys
+  git's record of what the remote holds and turned a few KB of new commit
+  objects into a 171 MB push; and the Repl's `main` is built on the OLD hashes,
+  so after a force push it needs a hard reset and must never be given a pull.
 - **Reuse before you write.** Web and mobile share no components: they are
   hand-maintained twins held together only by prose comments. Grep for an existing
   helper first. A second definition of the same thing is the defect, not the fix.
