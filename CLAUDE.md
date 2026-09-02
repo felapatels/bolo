@@ -123,7 +123,24 @@ Run from the repo root.
   failure that did not reproduce across two immediate re-runs; noted rather
   than chased, and worth watching for.
 - mobile: `pnpm --filter @workspace/bolo-mobile run test` (jest)
-  Baseline **155 suites, 1468 tests, all pass**, measured 2026-08-30 (build 25,
+  Baseline **162 suites, 1542 tests, all pass**, measured 2026-09-02 (build 29,
+  the first run ever made at a PHONE window: see the note below).
+
+  **THE SUITE RENDERED AS A TABLET FOR FOUR DAYS AND NOBODY KNEW.** jest-expo's
+  default window is 750x1334, and `useIsWideScreen()` is `width > 600`, so from
+  the day build 25 added the iPad content column every mobile test took the
+  TABLET branch and the phone path, which is what nearly every learner sees, was
+  covered by nothing. Found 2026-09-02 when the home leaderboard card grew a
+  wide-screen podium and two assertions started finding two of every name.
+  `jest-setup.js` now pins the window to **390x844**, the reference device, and a
+  test that wants a tablet asks with `setTestWindow({ width: 1032, height: 1366 })`.
+  **It is a plain assignment to `Dimensions.get`, deliberately not `jest.spyOn`:**
+  several suites call `jest.restoreAllMocks()` in their own `beforeEach`, which
+  removes a spy and silently reverts those files to 750. Nothing fell out when
+  the window was fixed, which is worth knowing too: the suite barely asserts
+  layout, so this closes a future gap rather than an existing bug.
+
+  The previous baseline was **155 suites, 1468 tests**, measured 2026-08-30 (build 25,
   before the first iPad build: 154 suites green in the full run plus
   screen-column.test.tsx re-run alone after its own pin was corrected; the
   new files are the content column's, the Screen column's, journey 2's

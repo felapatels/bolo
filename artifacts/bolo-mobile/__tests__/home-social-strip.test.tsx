@@ -309,3 +309,47 @@ describe('HomeSocialStrip — self outside top 4', () => {
     expect(youLabels).toHaveLength(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// PHONE VERSUS TABLET (build 29). These two are the reason the suite's window
+// was changed at all.
+//
+// Until 2026-09-02 jest rendered at 750x1334, which useIsWideScreen() calls a
+// tablet, so every test above was a wide-screen render and the phone path had
+// no coverage whatsoever. The window is a phone now, and a test that wants a
+// tablet says so out loud.
+// ---------------------------------------------------------------------------
+declare const setTestWindow: (win: { width: number; height: number } | null) => void;
+
+describe('the podium is a tablet affordance', () => {
+  test('a phone gets the rank rows and NO podium', () => {
+    mockState.leaderboardData = [SELF, FRIEND_A, FRIEND_B];
+    render(<HomeSocialStrip />);
+
+    // The rows are there...
+    expect(screen.getAllByText('Arjun').length).toBeGreaterThan(0);
+    // ...and the stage is not. On a phone this card is one of eight stacked
+    // sections; a podium would push everything under it off the fold.
+    //
+    // COUNTING NAMES IS THE WRONG TEST and the first cut of this did it: a name
+    // can already appear twice on a phone, because LatestFriendMoment names a
+    // friend above the rows. The podium's own testID is the honest signal.
+    expect(screen.queryByTestId('podium')).toBeNull();
+  });
+
+  test('a 13-inch iPad gets the podium as well', () => {
+    setTestWindow({ width: 1032, height: 1366 });
+    mockState.leaderboardData = [SELF, FRIEND_A, FRIEND_B];
+    render(<HomeSocialStrip />);
+
+    expect(screen.queryByTestId('podium')).not.toBeNull();
+    // The top three are now named twice: once on a pedestal, once in the strip.
+    expect(screen.getAllByText('Arjun').length).toBeGreaterThan(1);
+  });
+
+  test('the window resets between tests, so an opt-in cannot leak', () => {
+    mockState.leaderboardData = [SELF, FRIEND_A, FRIEND_B];
+    render(<HomeSocialStrip />);
+    expect(screen.queryByTestId('podium')).toBeNull();
+  });
+});

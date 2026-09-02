@@ -317,3 +317,46 @@ jest.mock('expo-audio', () => ({
   AudioModule: { requestRecordingPermissionsAsync: jest.fn(async () => ({ granted: true })) },
   RecordingPresets: { HIGH_QUALITY: {} },
 }));
+
+// ---------------------------------------------------------------------------
+// THE TEST WINDOW IS A PHONE (build 29).
+//
+// jest-expo's default window is 750x1334, and `useIsWideScreen()` in
+// lib/contentWidth is `width > CONTENT_MAX_W`, which is 600. So from the day
+// build 25 introduced the iPad content column, EVERY mobile test has rendered
+// the TABLET layout, and the phone path, which is what almost every learner
+// sees, was covered by nothing at all. It was found on 2026-09-02 when the home
+// leaderboard card grew a wide-screen podium and two assertions started finding
+// two of every name.
+//
+// 390x844 is the reference device named in CLAUDE.md, so the suite now tests
+// what most people use. A test that WANTS a tablet asks for one:
+//
+//   setTestWindow({ width: 1032, height: 1366 });   // 13-inch iPad
+//   setTestWindow(null);                            // back to the phone
+//
+// Reset between tests, so an opt-in cannot leak into the next file.
+// ---------------------------------------------------------------------------
+const PHONE_WINDOW = { width: 390, height: 844, scale: 3, fontScale: 1 };
+let testWindow = PHONE_WINDOW;
+
+global.setTestWindow = (win) => {
+  testWindow = win ? { scale: 2, fontScale: 1, ...win } : PHONE_WINDOW;
+};
+
+// A PLAIN ASSIGNMENT, DELIBERATELY NOT jest.spyOn. Several suites call
+// jest.restoreAllMocks() in their own beforeEach, which removes a spy installed
+// here and reverts the window to jest-expo's 750 without a word. Every test in
+// those files then renders as a TABLET while appearing to be configured as a
+// phone, which is the exact silent failure this block exists to end. A direct
+// replacement is not a jest mock, so nothing restores it.
+{
+  const { Dimensions } = require('react-native');
+  const realGet = Dimensions.get.bind(Dimensions);
+  Dimensions.get = (dim) =>
+    dim === 'window' || dim === 'screen' ? testWindow : realGet(dim);
+}
+
+afterEach(() => {
+  testWindow = PHONE_WINDOW;
+});
