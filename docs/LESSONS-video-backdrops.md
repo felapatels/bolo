@@ -41,7 +41,10 @@ A 9:16 clip in a 0.633 tile box is **squashed 11% by stretch and cropped 11% by
 cover**. So film and still were framed differently, and the boundary between
 them showed a change of scale rather than just a change in motion.
 
-**Whatever the stills use, the film uses.** Here that meant `contentFit="fill"`.
+**While a film sits BESIDE a still, whatever the stills use the film must use**,
+which meant `contentFit="fill"` here. Once the film became full screen no still
+was visible next to it, and `cover` became right again because it keeps the art
+undistorted. The rule is not "always fill", it is "match whatever it abuts".
 
 Related, and I got it wrong first: **do not size the film to the viewport.**
 `cover` on a 9:16 clip in a viewport-tall box zooms it about **1.7x**, so the
@@ -50,20 +53,30 @@ zoom levels. Size it to the same box the stills are drawn in.
 
 ---
 
-## 3. Animate every visible tile, not one
+## 3. The tile is the wrong unit. Use the viewport
 
-A phone shows about **1.4 tiles**, so a single film always leaves a dead strip
-with an obvious boundary, and re-parking it after each scroll reads as the video
-"not staying put".
+This went through three shapes before it was right, and the ending is the
+simplest one.
 
-Give a film to every tile the viewport touches. Mount them in one commit and let
-them all start at zero: they run in near lockstep, and the drift across a ten
-second loop is far less visible than a static tile beside a moving one.
+**One film per tile** is the obvious build and it is wrong: a phone shows about
+**1.4 tiles**, so there is always a boundary somewhere on screen, and it reads as
+the video "not staying put" every time it re-parks after a scroll.
 
-**You cannot blend that boundary away.** A gradient softens a COLOUR step; two
-players at different frames put a person mid-stride on one side of the line and
-not the other, and no fade fixes that. Either everything visible moves, or the
-boundary shows.
+**A film on every visible tile** fixes the dead strip but not the boundary: two
+players on the same clip sit at different frames, so a person is mid-stride on
+one side of the line and not the other.
+
+**One film sized to the viewport** is the answer. Nothing else is on screen while
+it plays, so there is no boundary to hide and only ONE decoder exists.
+
+**Size it to the viewport exactly, not larger.** A 9:16 clip in a 0.46 screen box
+crops **1.22x**, which just reads as slightly closer framing. The same clip in a
+box padded with overscan crops **1.7x**, and the film ends up visibly closer than
+the still it fades from.
+
+**You cannot blend a film-to-film boundary away, which is why you avoid having
+one.** A gradient softens a COLOUR step; two players at different frames put a
+person mid-stride on one side of the line, and no fade fixes that.
 
 **And you cannot mask a video cheaply.** `LinearGradient` paints colour; it
 cannot make a VideoView transparent. Masking needs `@react-native-masked-view`,

@@ -520,7 +520,7 @@ function RailPulseDots({
  */
 function ZoneBandFixed({
   zi,
-  filmTiles,
+  filmTop,
   start,
   end,
   layerTop,
@@ -534,8 +534,8 @@ function ZoneBandFixed({
   wide = false,
 }: {
   zi: number;
-  /** Which tiles of THIS band are on screen and should be alive. */
-  filmTiles: number[] | null;
+  /** Where the one full-screen film sits in THIS band, in band pixels. */
+  filmTop: number | null;
   /** An iPad: one wide bazaar for every zone instead of the six paintings. */
   wide?: boolean;
   start: number;
@@ -619,24 +619,24 @@ function ZoneBandFixed({
           is cheaper than masking a video and needs no native dependency.
           Under the scrim on purpose, so a film is dimmed exactly as the
           painting it replaces. */}
-      {/* EVERY VISIBLE TILE IS ALIVE, not just one. The owner: "if i'm seeing 2
-          background images, i want both videos playing". A phone shows about
-          1.4 tiles at once, so one film left a dead strip at the bottom of the
-          screen and the boundary was obvious.
-          They are mounted in the same commit and all start at zero, so they run
-          in near lockstep; the drift across a ten second loop is far less
-          visible than a static tile beside a moving one. Still only ever two or
-          three decoders, and only while the map is at rest. */}
-      {filmTiles && !wide
-        ? filmTiles.map((ti) => (
-            <View
-              key={`film-${ti}`}
-              style={{ position: 'absolute', left: 0, top: ti * tileH, width: windowW }}
-            >
-              <ZoneFilm zoneIndex={zi} width={windowW} height={tileH} active />
-            </View>
-          ))
-        : null}
+      {/* ONE FULL-SCREEN FILM, CENTRED ON THE VIEWPORT. The owner's final
+          shape: "only one full screen card playing to be centered on the screen
+          at any time... then when i scroll to the next zone, it will nicely
+          fade into the next one".
+          This replaces a film per visible tile. Tiles were the wrong unit: a
+          phone shows about 1.4 of them, so there was always a boundary
+          somewhere, and two players on the same clip sit at different frames so
+          no fade could hide it. At viewport size there is no boundary on screen
+          at all, and only ONE decoder exists.
+          Sized to the viewport exactly, not larger. A 9:16 clip in a 0.46 screen
+          box crops 1.22x, which is fine; the same clip in a box padded with
+          overscan crops 1.7x and the film ends up framed visibly closer than
+          the still it fades from. */}
+      {filmTop !== null && !wide ? (
+        <View style={{ position: 'absolute', left: 0, top: filmTop, width: windowW }}>
+          <ZoneFilm zoneIndex={zi} width={windowW} height={windowH} active />
+        </View>
+      ) : null}
       <View
         style={[
           StyleSheet.absoluteFill,
@@ -2204,7 +2204,7 @@ export default function JourneyScreen() {
    * a phone only about 1.2 tiles fit on screen, so the one under the viewport
    * centre is the one being looked at.
    */
-  const [activeFilm, setActiveFilm] = useState<{ zone: number; tiles: number[] } | null>(null);
+  const [activeFilm, setActiveFilm] = useState<{ zone: number; top: number } | null>(null);
   const settleFilm = useCallback(
     (offsetY: number) => {
       // Where the viewport sits in content space, and which zone owns its middle.
@@ -2221,20 +2221,13 @@ export default function JourneyScreen() {
       // far closer than the stills and the cross-fade jumped between two zoom
       // levels instead of being invisible. On a tile's own box the framing is
       // identical to the still underneath, which is the whole point.
-      // EVERY TILE THE VIEWPORT TOUCHES, not the nearest one. A phone shows
-      // about 1.4 tiles, so animating one left a dead strip and an obvious
-      // boundary: "if i'm seeing 2 background images, i want both videos
-      // playing". Two or three decoders, only while the map is at rest.
-      const tileH = windowW / ZONE_TILE_ASPECT;
-      const relTop = viewTop - slices[zi]!.start;
-      const first = Math.max(0, Math.floor(relTop / tileH));
-      const last = Math.floor((relTop + windowH) / tileH);
-      const tiles: number[] = [];
-      for (let t = first; t <= last; t++) tiles.push(t);
+      // The film is parked over exactly what is on screen, so it needs no tile
+      // grid at all: one box, viewport sized, at the viewport's own offset
+      // expressed in band pixels. Nothing else on screen is a still while it
+      // plays, so there is no boundary to hide.
+      const top = Math.round(viewTop - slices[zi]!.start);
       setActiveFilm((prev) =>
-        prev && prev.zone === zi && prev.tiles.join() === tiles.join()
-          ? prev
-          : { zone: zi, tiles },
+        prev && prev.zone === zi && Math.abs(prev.top - top) < 2 ? prev : { zone: zi, top },
       );
     },
     [slices, windowH],
@@ -2955,7 +2948,7 @@ export default function JourneyScreen() {
             >
             <ZoneBandFixed
               zi={zi}
-              filmTiles={activeFilm && activeFilm.zone === zi ? activeFilm.tiles : null}
+              filmTop={activeFilm && activeFilm.zone === zi ? activeFilm.top : null}
               start={start}
               end={end}
               layerTop={layerTop}

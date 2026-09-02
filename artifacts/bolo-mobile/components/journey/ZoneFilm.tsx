@@ -95,12 +95,13 @@ export function ZoneFilm({
         player={player}
         style={StyleSheet.absoluteFill}
         nativeControls={false}
-        // FILL, MATCHING THE STILLS' resizeMode="stretch". Not a preference:
-        // the tiles under this are STRETCHED into the tile box and cover CROPS
-        // instead, so one squashes the picture 11% and the other trims 11% off
-        // it. Film and still were framed differently and the join between them
-        // showed a scale change. Identical transform, identical framing.
-        contentFit="fill"
+        // COVER, now that the film is the whole screen rather than one tile.
+        // `fill` mattered while a film sat beside a still and any framing
+        // difference showed at the join; at viewport size no still is visible
+        // at all, and cover keeps the art undistorted. A 9:16 clip in a 0.46
+        // screen box crops 1.22x, which reads as a slightly closer framing and
+        // nothing worse.
+        contentFit="cover"
         onFirstFrameRender={() => setFirstFrame(true)}
       />
     </Animated.View>
