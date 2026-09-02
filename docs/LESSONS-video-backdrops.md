@@ -4,8 +4,11 @@ Written 2026-09-02, build 29, for the **Bolo Southeast Asia** build. This is onl
 about putting looping video behind a scrolling map. Everything here was found by
 building it and looking at the result; none of it came out right first time.
 
-The shape that works: **one short clip per zone, still art everywhere, and a film
-mounted on every visible tile only while the map is at rest.**
+The shape that works: **one short clip per zone, still art everywhere, and ONE
+film sized to the viewport, playing only while the map is at rest.**
+
+It took three attempts to get to that, and the two rejected ones are in section
+3, because the reasons they fail are the useful part.
 
 ---
 
@@ -170,8 +173,10 @@ ImageStat.Stat(d).mean          # ~15 per channel = real motion, ~0 = static
 ```
 
 Then scan it in row bands to see **which part of the screen is moving**. That is
-what proved one tile was alive and five sixths of the screen was not: motion
-covered 59 of 66 bands after the fix, against a single band before.
+what proved a single tile was alive while most of the screen was not, and then
+that the full-screen version really did cover it: **58 of 66 bands moving,
+y=0 to 2360 of 2622**, with the still rows at the bottom being a warning bar
+rather than backdrop.
 
 ---
 
