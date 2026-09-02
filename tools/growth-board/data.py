@@ -76,19 +76,63 @@ PILLARS = [
   "You have said it to that kid ten thousand times. You have never once heard it back.\n\nIt is not too late, and it is not their fault. 22 languages, all taught out loud. TryBolo.app\n\n#desiparents #diaspora #heritagelanguage #motherlanguage #indianparents #speakbolo #desikids #firstgen"),
 ]
 
+# The first line of a caption is the ONLY line TikTok shows before it truncates.
+# The launch post led with "કેમ છો? and all you ever get back is I'm good" and did 5,889 views.
+# Every other language led with its GREETING and a flat setup line, and did double
+# digits. So the hook is the rule now, not a Gujarati special case.
+#
+# The hook only works on a question, because "I'm good" is its answer. A greeting
+# (નમસ્તે, வணக்கம்) is not a question, so `script` above cannot be used here.
+#
+# These are READ OFF THE SHIPPED PHRASES TABLE in production, same rule as the
+# greetings: SELECT native_script FROM phrases WHERE english = 'How are you?'.
+# Never invent one. A wrong sentence in the target language is worse than no post.
+#
+# A language ABSENT from this dict is held out of the schedule on purpose. Its
+# week keeps its shape and the board says the slot is empty. See HELD_REASON.
+ASK = {
+ "Gujarati":  u"કેમ છો?",
+ "Punjabi":   u"ਕਿਵੇਂ ਹੋ?",
+ "Tamil":     u"எப்படி இருக்கிறீர்கள்?",
+ "Bengali":   u"কেমন আছো?",
+ "Urdu":      u"آپ کیسے ہیں؟",
+ "Telugu":    u"ఎలా ఉన్నారు?",
+ "Malayalam": u"സുഖമാണോ?",
+ "Marathi":   u"कसे आहात?",
+ "Kannada":   u"ಹೇಗಿದ್ದೀರಾ?",
+ "Odia":      u"କେମିତି ଅଛନ୍ତି?",
+ "Hindi":     u"कैसे हैं?",
+ "Nepali":    u"तपाईंलाई कस्तो छ?",
+ "Assamese":  u"কেনে আছা?",
+ "Sanskrit":  u"कथमस्ति",
+ "Konkani":   u"कशें आसा?",
+ "Sindhi":    u"ڪيئن آهيو؟",
+ "Kashmiri":  u"کیٛاہ حال چھُ؟",
+ "Maithili":  u"की हाल छथि?",
+ "Dogri":     u"की हाल ऐ?",
+}
+
+# Why each held language is held. These are content bugs, not scheduling choices,
+# and the board says so out loud so they get fixed rather than scrolled past.
+HELD_REASON = {
+ "Bodo": ("Its shipped \"How are you?\" is खराब बा? (khorab ba?). खराब means BAD. "
+          "That is a live content bug in the app, not just a caption problem. "
+          "Fix the phrases row first, then this week comes back."),
+ "Manipuri": ("Its shipped \"How are you?\" is ꯅꯦꯎ (neu), two characters. That is a fragment, "
+              "not a sentence. Needs a speaker before anything goes out under it."),
+ "Santali": ("Its shipped \"How are you?\" is ᱪᱷᱟᱹᱣ (chhau), one word, no question mark. "
+             "Same problem as Manipuri and the same fix."),
+}
+
+
 def video_caption(name, script, tags):
-    if name == "Gujarati":
-        return ("કેમ છો? and all you ever get back is \"I'm good.\"\n\n"
-                "She learned English for him. Nobody ever asked him to learn hers.\n\n"
-                "22 South Asian languages, taught out loud. TryBolo.app\n\n"
-                "What's the one thing your grandmother says that you only ever answer in English?\n\n"
-                + tags + " #desitok #speakbolo")
-    return (script + "\n\n"
-            "That's how she starts every call. It's also where it ends.\n\n"
+    """The hook line first. See ASK for why `script` is deliberately unused."""
+    return (ASK[name] + " and all you ever get back is \"I'm good.\"\n\n"
             "She learned English for him. Nobody ever asked him to learn hers.\n\n"
             "22 South Asian languages, taught out loud. TryBolo.app\n\n"
             "What's the one thing your grandmother says that you only ever answer in English?\n\n"
             + tags + " #desitok #speakbolo")
+
 
 def card_caption(name, script, tags, special):
     if special:
@@ -107,13 +151,22 @@ def build():
         wk = i+1
         base = (wk-1)*7
         slots = []
-        slots.append(dict(off=base+0, kind="video",
-            asset="Grandma d%s %s.mp4" % (num,name),
-            where="TikTok + Reels",
-            why=("Launch post. Gujarati leads because it is the network you can hand-deliver the "
-                 "first fifty viewers from." if wk==1 else
-                 "Video carries reach a still cannot buy. The script is on screen for the first 3 seconds."),
-            cap=video_caption(name,script,tags)))
+        if name in HELD_REASON:
+            # Held, not skipped. The week keeps its number and its card slot; only
+            # the video waits, because only the video caption needs the question.
+            slots.append(dict(off=base+0, kind="gap",
+                asset="Video held: no usable \u201cHow are you?\u201d",
+                where="TikTok + Reels",
+                why=HELD_REASON[name], cap=""))
+        else:
+            slots.append(dict(off=base+0, kind="video",
+                asset="Grandma d%s %s.mp4" % (num,name),
+                where="TikTok + Reels",
+                why=("Launch post. Gujarati leads because it is the network you can hand-deliver the "
+                     "first fifty viewers from." if wk==1 else
+                     "Video carries reach a still cannot buy. The hook line is the whole game: it is "
+                     "the only line TikTok shows before it truncates."),
+                cap=video_caption(name,script,tags)))
         slots.append(dict(off=base+2, kind="card",
             asset="duo-d%s-forgot-%s-%s.png" % (num,ISO[num],name.lower()),
             where="Feed + Stories",
