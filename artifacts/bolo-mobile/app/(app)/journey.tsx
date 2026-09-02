@@ -625,9 +625,15 @@ function ZoneBandFixed({
           needs @react-native-masked-view, and a whole native dependency for a
           64pt band is a bad trade in an app that has been bitten by native
           additions before. */}
+      {/* THE TOP FADE USES THE ZONE ABOVE'S TONE, not this zone's. Fading a
+          band out of its OWN colour leaves a step at the join: zone 5 ends on a
+          pale dusk tone and zone 6 begins on a night one, so the two fades meet
+          as two different colours and the cut survives. Opening on the PREVIOUS
+          zone's tone means the band literally emerges from its neighbour. It
+          matters most at 5 into 6, the only dusk-to-night jump in the set. */}
       <FadeGradient
         pointerEvents="none"
-        colors={[zoneFootTone(zi), 'transparent']}
+        colors={[zoneFootTone(Math.max(0, zi - 1)), 'transparent']}
         style={{ position: 'absolute', left: 0, right: 0, top: 0, height: ZONE_FADE_H }}
       />
       <FadeGradient
