@@ -1086,6 +1086,56 @@ export default function PracticeScreen() {
     new Map<number, { audioBase64: string; format: string }>(),
   );
 
+  /**
+   * SYNTHESISE THE MEANING WHEN THE CARD APPEARS, NOT WHEN PLAY IS PRESSED.
+   *
+   * The owner on TestFlight 1.0.11: "There is a large gap between the native
+   * word being spoken, and the means Line".
+   *
+   * The beat itself is only MEANING_SEGMENT_PAUSE_MS, 400ms, and playCoach
+   * already pre-warms the clip and overlaps that pause with the synthesis. But
+   * the pre-warm starts when playback starts, so it can only hide as much
+   * latency as the phrase clip is LONG. A short word plus a cold English TTS
+   * round trip leaves the rest of that round trip as silence, and a single word
+   * is exactly the case where the phrase clip is shortest. It is worst on the
+   * first play of each phrase, which is the play that matters.
+   *
+   * The cache is in-memory and per phrase id, so the whole cost is paid once.
+   * Moving it here spends the seconds a learner takes to look at the card
+   * before pressing listen, which is time the app was throwing away.
+   *
+   * Deliberately quiet: a failure here changes nothing, because playCoach
+   * still synthesises on demand and still fails silent to phrase-only.
+   */
+  React.useEffect(() => {
+    if (!phrase?.english) return;
+    if (!meaningPrefRef.current) return;
+    if (meaningCacheRef.current.has(phrase.id)) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const fresh = await synth.mutateAsync({
+          data: {
+            text: meaningSpeechText(phrase.english!, { sentence: isSentences }),
+            languageName: 'English',
+            languageCode: 'en',
+          },
+        });
+        if (cancelled) return;
+        meaningCacheRef.current.set(phrase.id, {
+          audioBase64: fresh.audioBase64,
+          format: fresh.format || 'mp3',
+        });
+      } catch {
+        // Silent: playCoach synthesises on demand and fails silent already.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phrase?.id, phrase?.english, isSentences]);
+
   const playCoach = React.useCallback(async () => {
     if (!phrase) return;
     if (!coachVoiceRef.current) return; // Coach voice master gate
