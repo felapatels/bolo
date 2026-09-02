@@ -497,13 +497,21 @@ describe("Chacha-ji stall landmark", () => {
       const signalY = Number.parseFloat(signal!.style.top);
       expect(seats[i]!.y - signalY).toBe(STALL_PLACEMENT.groundDy - 30);
     });
-    // WAS: the whole landmark lives inside the halt row, which exists for it.
-    // There is no halt row now, so the clearance that matters is the STATION
-    // row it shares with its stop. It is a tighter budget and the stall still
-    // clears it: 27.2 above and 27.1 below against 44 either way.
+    // INVERTED AGAIN IN BUILD 29. It asked that the whole landmark sit inside
+    // its own station row, which was true of the VECTOR stall (27.2 above its
+    // ground line) and has not been true since build 23 replaced it with the
+    // painted card. The card is deliberately seated ABOVE the marker, running
+    // from 160 above its ground line to 56 above it, so of course it leaves
+    // the row: that is the design, and the row is not what it has to clear.
+    //
+    // What it does have to clear is the PREVIOUS stop's card, which ends 39
+    // below that row's centre, one STATION_H up. Asserting the row instead of
+    // the neighbour is why an extent that was three times too small never
+    // caused a failure here.
     const top = STALL_PLACEMENT.groundDy - STALL_PLACEMENT.extentH;
     const bottom = STALL_PLACEMENT.groundDy + STALL_PLACEMENT.shadowH;
-    expect(top).toBeGreaterThan(-STATION_H / 2);
+    expect(top).toBeGreaterThan(-STATION_H + 39);
+    // Downward it stays in its own row, where the ground shadow pools.
     expect(bottom).toBeLessThan(STATION_H / 2);
   });
 
@@ -541,55 +549,36 @@ describe("Chacha-ji stall landmark", () => {
     }
   });
 
-  test("the lane clears the rail, the station card and the next row", () => {
-    // Encounter stations are odd stops, so their 0-based index is even and the
-    // serpentine always seats their marker on the left flank. One rule
-    // therefore covers every encounter station and every supported map width.
-    const { LEFT_X, RAIL_HALF_W, STATION_H, HALT_H } = SERPENTINE;
+  test("the lane clears the rail and the map edge, on the LEFT flank", () => {
+    // INVERTED IN BUILD 29, and it was measuring the wrong side of the track.
+    // It read `LEFT_X + STALL_PLACEMENT.laneDx`, the RIGHT lane of the halt
+    // row, and the halt row was retired on 2026-08-26: the stall moved to the
+    // left flank and this proof never followed it. So it went on passing about
+    // a lane the product does not use while the owner could see the card
+    // sitting on the rail. Both of its inputs were stale too: half-width 18
+    // and extent 49.2 described the VECTOR stall that build 23 replaced with
+    // the painted card.
+    //
+    // What it proves now is the strip the stall really stands in: from the map
+    // edge to the rail's left edge at LEFT_X - RAIL_HALF_W.
+    const { LEFT_X, RAIL_HALF_W } = SERPENTINE;
     for (const station of planChachaStalls(40)) expect((station - 1) % 2).toBe(0);
-    const laneX = LEFT_X + STALL_PLACEMENT.laneDx;
+    const laneX = LEFT_X - STALL_PLACEMENT.laneDxLeft;
     const box: [number, number] = [
       laneX - SCENERY_HALF_W.chaiStall,
       laneX + SCENERY_HALF_W.chaiStall,
     ];
-    // Offsets from the encounter station's row center.
-    const haltY = STATION_H / 2 + HALT_H / 2;
-    const top = haltY + STALL_PLACEMENT.groundDy - STALL_PLACEMENT.extentH;
-    const bottom = haltY + STALL_PLACEMENT.groundDy + STALL_PLACEMENT.shadowH;
-    for (const mapW of [320, 360, 390]) {
-      // VIEWPORT CONTAINMENT. The map runs full bleed at or below 390 CSS px,
-      // so the map column IS the screen there: every pixel of the landmark has
-      // to be inside it, with a margin so it never reads as falling off the
-      // edge (the defect the first cut shipped with).
-      expect(box[0]).toBeGreaterThanOrEqual(4);
-      expect(box[1]).toBeLessThanOrEqual(mapW - 4);
-      // Clear of the trackside signal, whose glyph ends at x82 in this gap.
-      expect(box[0]).toBeGreaterThan(82);
-      // RIGHT OF THE TRACK AT EVERY POINT BESIDE IT. The halt holds the rail
-      // on the left flank, then it sweeps back out to the next station across
-      // the lower half of the row, so checking the halt point alone would miss
-      // the part of the curve that comes closest. A zone postcard instead of a
-      // station leaves the halt later and gentler, so this is the worst case.
-      const a = { x: LEFT_X, y: haltY };
-      const b = { x: mapW - 94, y: STATION_H / 2 + HALT_H + STATION_H / 2 };
-      const dy = (b.y - a.y) / 2;
-      for (let i = 0; i <= 400; i++) {
-        const t = i / 400;
-        const u = 1 - t;
-        const y =
-          u * u * u * a.y + 3 * u * u * t * (a.y + dy) + 3 * u * t * t * (b.y - dy) + t * t * t * b.y;
-        if (y < top || y > bottom) continue;
-        const x = u * u * u * a.x + 3 * u * u * t * a.x + 3 * u * t * t * b.x + t * t * t * b.x;
-        expect(x + RAIL_HALF_W).toBeLessThan(box[0]);
-      }
-    }
-    // Vertical: the whole landmark, awning rail and pooled shadow included,
-    // sits below the encounter station's card (which ends at y+39 at its
-    // tallest), above a zone postcard (which starts where the halt ends when
-    // the stop closes a fare zone), and above the next row's card.
-    expect(top).toBeGreaterThan(39);
-    expect(bottom).toBeLessThan(STATION_H / 2 + HALT_H);
-    expect(bottom).toBeLessThan(STATION_H + HALT_H + STATION_H / 2 - 39);
+    // Off the map edge, with a margin so it never reads as falling off it.
+    expect(box[0]).toBeGreaterThanOrEqual(4);
+    // Clear of the rail. The encounter station's marker holds the rail at
+    // LEFT_X on this row, so its left edge is the near one.
+    expect(box[1]).toBeLessThanOrEqual(LEFT_X - RAIL_HALF_W - 6);
+    // The card is 80 wide as drawn and the strip is 66, which is why ChaiStall
+    // carries a scale. If the scale is dropped the numbers stop fitting, and
+    // this is the assertion that says so.
+    expect(SCENERY_HALF_W.chaiStall * 2).toBeLessThanOrEqual(
+      LEFT_X - RAIL_HALF_W - 6 - 4,
+    );
   });
 
   test("Chacha-ji himself stands at every stall, as the delivered figure", () => {

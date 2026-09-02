@@ -2915,6 +2915,13 @@ export default function Journey() {
                       accent={line.accent}
                       gray={s.gray}
                       testId={`chacha-stall-${s.station}`}
+                      // THE INVITATION RIDES THE CARD (build 29, the owner's
+                      // call). It used to be a separate absolutely-positioned
+                      // div below, carrying its own copy of where this card
+                      // is; the two disagreed and the pill ended up nowhere
+                      // near the stall. A greyed showroom stall pours nothing,
+                      // so it gets no invitation, exactly as before.
+                      invite={s.gray ? null : { chai: s.encounterChai }}
                     />
                   </g>
                 ))}
@@ -3287,45 +3294,6 @@ export default function Journey() {
                 </span>
               </button>
             ))}
-
-            {/* THE INVITATION UNDER THE STALL (build 17 on mobile, build 18
-                here; the owner's mockup: "Take a break and earn 24 Chai"). A
-                violet chip in the app's own voice under Chacha-ji's
-                nameplate, the number in gold. The number is what he pours at
-                the stall (encounterChai on the zone payload, see
-                chachaStalls), never the signal games' reward. Not in the
-                showroom: a greyed stall pours nothing. HTML rather than SVG
-                text so it wraps the way the mobile chip does, above the
-                card plane so a tag never covers it; scenery still, so it
-                takes no pointer events. */}
-            {/* ON THE CARD, NOT UNDER THE NODE (mobile build 22, here build
-                23; owner: "chacha has been separated from the take a break
-                text"): the painted stall card reserves its bottom strip for
-                this pill, 72 by 22 at the phone's own offsets, two short
-                lines with the number in gold. */}
-            {chachaStalls
-              .filter((s) => !s.gray)
-              .map((s) => (
-                <div
-                  key={`chacha-invite-${s.station}`}
-                  data-testid={`chacha-stall-${s.station}-invite`}
-                  aria-hidden
-                  className="pointer-events-none absolute flex h-[22px] w-[72px] flex-col items-center justify-center rounded-md bg-primary px-[5px] text-center text-[7.5px] font-semibold leading-[9.5px] text-white"
-                  style={{
-                    left: Math.max(4, Math.min(mapW - 76, s.x - 36)),
-                    top: s.y - 82,
-                    zIndex: DEPTH_2_5D.layers.station,
-                  }}
-                >
-                  <span>Take a break,</span>
-                  <span>
-                    earn{" "}
-                    <span className="font-black" style={{ color: "#FBBF24" }}>
-                      {s.encounterChai} Chai
-                    </span>
-                  </span>
-                </div>
-              ))}
 
             {/* terminus */}
             <div

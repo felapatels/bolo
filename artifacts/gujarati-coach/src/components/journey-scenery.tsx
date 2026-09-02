@@ -447,7 +447,7 @@ function FruitCart() {
  *  scripts/make-stall-card.py on mobile (build 22); the same file here. */
 const STALL_CARD_SRC = `${import.meta.env.BASE_URL}journey/stall-card.png`;
 
-function ChaiStall() {
+function ChaiStall({ invite }: { invite?: { chai: number } | null }) {
   // A PAINTED CARD SINCE BUILD 22 ON MOBILE, BUILD 23 HERE (owner:
   // "Chachaji's stall should be more detailed like this"). The vector stall
   // (posts, awning, counter, a 24px figure) is replaced by the delivered
@@ -465,7 +465,25 @@ function ChaiStall() {
   const cardH = 104;
   const picH = 48;
   return (
-    <g>
+    // SCALED TO THE LANE IT ACTUALLY STANDS IN (build 29, the owner: "chachaji
+    // is colliding with the rail"). The card was authored at 80 wide and the
+    // strip it occupies is not that wide. The stall moved to the LEFT flank on
+    // 2026-08-26 when the halt row was retired, and the left strip runs from
+    // the map edge to the rail's left edge at LEFT_X - RAIL_HALF_W = 92 - 16 =
+    // 76. Allowing 4px off the map edge and 6px off the rail leaves 66px, and
+    // an 80-wide card centred at the old lane spanned 5..87: eleven pixels
+    // INTO the rail.
+    //
+    // A SINGLE SCALE RATHER THAN NEW NUMBERS EVERYWHERE, because every offset
+    // in here is measured off cardX/cardY and they all have to keep agreeing:
+    // the picture, the nameplate and the invitation strip. 0.8 puts the card
+    // at 64 wide, half-width 33 with its drop shadow, which fits the 66 with
+    // its margins intact. Scale it here and the whole card moves as one.
+    //
+    // Mirrored by SCENERY_HALF_W.chaiStall (33) and STALL_PLACEMENT.extentH
+    // (128) and laneDxLeft (55); journey-scenery.test.tsx pins the clearance
+    // against the LEFT lane, which nothing did until build 29.
+    <g transform="scale(0.8)">
       <GroundShadow rx={16} cx={-3} />
       {/* the drop shadow, then the card */}
       <rect x={cardX + 1} y={cardY + 3} width={cardW} height={cardH} rx={9} fill="#2B1A12" opacity={0.2} />
@@ -500,6 +518,50 @@ function ChaiStall() {
       >
         CHAI HALT
       </text>
+      {/* THE INVITATION IS PART OF THE CARD NOW, not a floating HTML chip
+          positioned to land on it. The owner's call, build 29: "can't we just
+          add an anchor to chachaji's card for the Take a break".
+
+          It used to be an absolutely-positioned div in the HTML layer at
+          `top: s.y - 82`, offsets hand-tuned to fall inside the strip this
+          card reserves for it. That is two independent copies of where the
+          card is, in two different coordinate spaces, and the owner's
+          screenshot is what happens when they disagree: the pill at the
+          stall's x but hundreds of px off in y. Drawn here it rides the same
+          `translate` as the picture and the nameplate, so it cannot drift
+          from them by construction, and moving the card moves it.
+
+          Same 72x22 box, same two lines, same gold number as the chip it
+          replaces, seated in the reserved strip at cardY + 78. */}
+      {invite ? (
+        <g data-testid="chacha-stall-invite" className="select-none">
+          <rect
+            x={cardX + 4}
+            y={cardY + 78}
+            width={cardW - 8}
+            height={22}
+            rx={5}
+            style={{ fill: "hsl(var(--primary))" }}
+          />
+          <text
+            x={0}
+            y={cardY + 87}
+            textAnchor="middle"
+            style={{ fontSize: 7.5, fontWeight: 600, fill: "#FFFFFF" }}
+          >
+            Take a break,
+          </text>
+          <text
+            x={0}
+            y={cardY + 96.5}
+            textAnchor="middle"
+            style={{ fontSize: 7.5, fontWeight: 600, fill: "#FFFFFF" }}
+          >
+            earn{" "}
+            <tspan style={{ fontWeight: 900, fill: "#FBBF24" }}>{invite.chai} Chai</tspan>
+          </text>
+        </g>
+      ) : null}
     </g>
   );
 }
@@ -627,11 +689,14 @@ export type SceneryKind =
   | "cycleRickshaw"
   | "ghat";
 
-const SCENERY_ASSETS: Record<SceneryKind, (p: { accent: string }) => React.ReactNode> = {
+const SCENERY_ASSETS: Record<
+  SceneryKind,
+  (p: { accent: string; invite?: { chai: number } | null }) => React.ReactNode
+> = {
   tuktuk: () => <TukTuk />,
   cow: () => <CowStanding />,
   fruitCart: () => <FruitCart />,
-  chaiStall: () => <ChaiStall />,
+  chaiStall: ({ invite }) => <ChaiStall invite={invite} />,
   temple: ({ accent }) => <TempleSilhouette accent={accent} />,
   banyan: () => <BanyanTree />,
   marigolds: () => <MarigoldString />,
@@ -646,7 +711,7 @@ export const SCENERY_HALF_W: Record<SceneryKind, number> = {
   tuktuk: 19,
   cow: 17,
   fruitCart: 20,
-  chaiStall: 18,
+  chaiStall: 33,
   temple: 16,
   banyan: 16,
   marigolds: 19,
@@ -713,7 +778,7 @@ export const STALL_PLACEMENT = {
    *  edge at LEFT_X 92 is about 84.5, so the center has to sit between 24 and
    *  69. 46 puts the stall at x 27..61.5: 27 clear of the map edge and 23 clear
    *  of the rail. Identical to the mobile constant on purpose. */
-  laneDxLeft: 46,
+  laneDxLeft: 55,
   /** Ground line offset below the HALT POINT (the halt row's center y). The
    *  stall stands 49.2 above its ground line and its shadow pools 5.1 below
    *  it, so this centers the whole landmark in the halt row at
@@ -721,13 +786,20 @@ export const STALL_PLACEMENT = {
    *  2026-08-25, taking that clearance from about 10px to about 21px,
    *  because a neighbouring card's second line was reaching the stall. */
   groundDy: 22,
-  /** How far the stall reaches ABOVE its ground line (the awning rail), so
-   *  the geometry tests can prove the whole landmark, not just its footprint,
-   *  stays inside the gap. */
-  extentH: 49.2,
+  /** How far the stall reaches ABOVE its ground line, so the geometry tests
+   *  can prove the whole landmark, not just its footprint, stays inside the
+   *  gap.
+   *
+   *  160 SINCE BUILD 29, and it was 49.2 for six builds after it stopped
+   *  being true. 49.2 was the AWNING RAIL of the vector stall that build 23
+   *  deleted. What stands here now is the painted card, drawn from cardY
+   *  -160 to -56, so the landmark reaches 160 above its ground line and not
+   *  49.2. Every clearance proof in journey-scenery.test.tsx was run against
+   *  a third of the real height, which is why none of them ever objected. */
+  extentH: 128,
   /** How far the ground shadow pools BELOW that line (cy 1.2 + ry 3.84). It is
    *  part of the drawing, so it is part of the clearance budget. */
-  shadowH: 5.1,
+  shadowH: 4.1,
 } as const;
 
 /** The stations Chacha-ji's stall stands at, 1-based on the flattened global
@@ -1035,6 +1107,7 @@ export function SceneryElement({
   accent,
   gray,
   testId,
+  invite,
 }: {
   kind: SceneryKind;
   x: number;
@@ -1044,6 +1117,10 @@ export function SceneryElement({
   /** Overrides the generic scenery test id for placed landmarks (the
    *  Chacha-ji stall), which tests locate by station. */
   testId?: string;
+  /** Chacha-ji's stall only: the Chai he pours here, drawn as the violet
+   *  invitation in the card's own reserved strip. Null or absent draws no
+   *  invitation, which is what a greyed showroom stall wants. */
+  invite?: { chai: number } | null;
 }) {
   return (
     <g
@@ -1053,7 +1130,7 @@ export function SceneryElement({
       style={gray ? { filter: "grayscale(1)", opacity: 0.45 } : { opacity: 0.95 }}
       aria-hidden
     >
-      {SCENERY_ASSETS[kind]({ accent })}
+      {SCENERY_ASSETS[kind]({ accent, invite })}
     </g>
   );
 }

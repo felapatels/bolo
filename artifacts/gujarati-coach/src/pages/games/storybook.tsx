@@ -829,7 +829,7 @@ export default function StorybookPage() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background pb-nav lg:pb-8">
-      <div className="flex items-center gap-3 border-b border-border px-4 py-4">
+      <div className="mx-auto flex w-full max-w-2xl items-center gap-3 border-b border-border px-4 py-4">
         <Link
           href="/games"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted"
@@ -856,7 +856,22 @@ export default function StorybookPage() {
         <BookOpen className="h-6 w-6 text-primary" />
       </div>
 
-      <div className="flex flex-1 flex-col">
+      {/* THE PAGE HAD NO COLUMN AT ALL, which is why the owner's desktop
+          showed one enormous picture and none of the answers: "storybook is
+          super zoomed on the web", "can't see the answers" (build 29).
+
+          The scene frame is `aspect-[3/2] w-full`, so with nothing capping
+          the width it took the whole window, about 2000px on the owner's
+          screen, and stood 1300 tall. Everything under it, the caption and
+          the answer buttons, went below the fold. Every other screen in this
+          app is a centred column and this one simply never got one: practice
+          has seven width caps, this file had three and none of them on its
+          container.
+
+          max-w-2xl is practice's own column, so the storybook now reads at
+          the same measure as the rest of the app, and a phone is unchanged
+          because the column IS the window there. */}
+      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col">
         {!book && (
           <div
             className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center"
