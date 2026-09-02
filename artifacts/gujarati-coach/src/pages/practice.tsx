@@ -2703,7 +2703,39 @@ export default function Practice({
                 per-part pose targets). The evaluating dim is gone with the
                 spinner it used to sit behind: Bolo himself now plays that
                 state, so he stays at full strength while it runs. */}
-            <div className="w-full h-full">
+            {/* HER BOX MUST BE HER OWN SHAPE, and in the result band it was
+                not. Owner's screenshot, build 29: Bolo sitting on top of the
+                phrase card instead of in her band.
+
+                <Mascot fill> pulls the sprite up by MASCOT_SKY_PCT, which is
+                the sky as a fraction of the box WIDTH, because that is the
+                only thing CSS resolves a margin percentage against. That is
+                exact while the painted bird is as wide as her box. In the
+                result state this zone becomes a DEFINITE h-[72px], so a
+                w-full box is 398x72 here, `object-contain` letterboxes her
+                down to 61x72, and the pull-up carries on being computed off
+                the full 398. Measured in a browser: 68px of pull inside a
+                72px band, which is why she cleared the band entirely and
+                landed on the card above it.
+
+                Giving the band a box with the frame's 1024:1200 aspect makes
+                painted and element the same rectangle again, so the component's
+                own arithmetic is exact and nothing about Mascot changes. Only
+                the compact branch: the idle zone is flex-1 with an INDEFINITE
+                height, where h-full falls back to the image's own size and the
+                existing w-full is already correct. An aspect box there would
+                have nothing to resolve against and would collapse.
+
+                Pinned by qa/practice-band-fit.mjs. jsdom cannot see this: it
+                has no layout, which is why the web suite passed throughout. */}
+            <div
+              className={cn(
+                "h-full",
+                state === "result" || state === "error"
+                  ? "aspect-[1024/1200] mx-auto"
+                  : "w-full",
+              )}
+            >
               {/* Spec D2: mascot "hears" the learner — scale rides the live
                     amplitude MotionValue (1.0–1.08) while recording. The rAF
                     loop leaves amplitudeMv at 0 under reduced motion or when

@@ -76,7 +76,10 @@ function PracticeChain({ compact, outfit, accessory }: { compact: boolean; outfi
           }
         >
           <div className="relative w-full h-full flex items-center justify-center">
-            <div className="w-full h-full">
+            {/* Build 29: the compact band gets a box with the FRAME's aspect,
+                so painted and element are the same rectangle and Mascot's
+                width-based pull-up is exact. Verbatim from practice.tsx. */}
+            <div className={compact ? "h-full aspect-[1024/1200] mx-auto" : "w-full h-full"}>
               <div className="w-full h-full">
                 <div className="w-full h-full transition-transform duration-100">
                   <Mascot pose="wave" fill idle="none" ambient="calm" outfit={outfit} accessory={accessory} />
