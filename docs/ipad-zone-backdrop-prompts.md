@@ -21,12 +21,15 @@ single repeating `zone-wide.jpg` tile.
   cooler than the August tile, so attach THAT as the reference for every
   remaining zone, and note that zone 1 was generated against the older, warmer
   look and needs redoing to match.
-- **Reference weight: LOW to MODERATE, and this needs care in both directions.**
-  Too little and the palette washes out and the street empties (zone 2, attempt
-  one). Too much and it copies the reference's whole composition and ignores the
-  scene you asked for (zone 2, attempt two: same street, same stalls, no
-  families anywhere). Attempt three worked with the weight turned down and the
-  scene beats made mandatory.
+- **THERE IS NO REFERENCE WEIGHT CONTROL, so the prompt has to do that job.**
+  The failure modes are real and go both ways: with the reference too weak the
+  palette washes out and the street empties (zone 2, attempt one); too strong
+  and it copies the reference's whole composition and ignores the scene you
+  asked for (zone 2, attempt two: same street, same stalls, not one family).
+  Zone 4 came back carrying a washing line and a rooftop meal, which are ZONE
+  2's beats, not its own.
+  Since the weight cannot be turned down, every prompt now carries a DO NOT
+  INCLUDE list naming the other zones' signature props. That is the lever.
 - **The reference is for linework, palette, density and camera height, NOT for
   framing.** Set the output to 16:9 explicitly rather than letting the tool
   inherit the reference's shape.
@@ -77,6 +80,14 @@ specific, no recognisable single monument.
 > Behind them the bazaar continues as busy as ever, with a few fireworks low in
 > the dusk sky. If this image could be mistaken for a general market scene, it
 > is wrong.
+> DO NOT INCLUDE ANY OF THESE. They belong to the other five pictures in
+> this set and each one appearing here makes two zones look like the same
+> picture:
+>   a grandmother on a charpai, a child on a father's shoulders, hair being braided on a balcony, a family sharing a rooftop meal, washing strung between balconies
+>   brass balance scales, stacked crates and jute sacks, notes or coins being counted, a seller holding up fingers to quote a price, bananas hanging in rows
+>   a kadhai of jalebi over flame, a tawa of breads, chai poured from height, cones of spice powder, stacked steel thali plates, a tray of glasses being carried
+>   cycle rickshaws, a barber shaving a customer, a tailor at a sewing machine, a bus queue, a man reading a newspaper, a sleeping street dog, someone sweeping
+>   clay diya lamps in rows, rangoli chalked on the ground, dhol drummers, dancing in a ring, thrown colour powder, a sky full of fireworks
 > Dozens of small figures in everyday Indian dress, faces simple and friendly.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
@@ -113,6 +124,14 @@ specific, no recognisable single monument.
 >   5. lines of washing strung between two balconies
 > Behind them the bazaar continues as busy as ever. If this image could be
 > mistaken for a general market scene, it is wrong.
+> DO NOT INCLUDE ANY OF THESE. They belong to the other five pictures in
+> this set and each one appearing here makes two zones look like the same
+> picture:
+>   two people in namaste, a shopkeeper waving someone over, an older man greeting a younger one with a hand on his shoulder, women clasping hands, children with a rolling hoop
+>   brass balance scales, stacked crates and jute sacks, notes or coins being counted, a seller holding up fingers to quote a price, bananas hanging in rows
+>   a kadhai of jalebi over flame, a tawa of breads, chai poured from height, cones of spice powder, stacked steel thali plates, a tray of glasses being carried
+>   cycle rickshaws, a barber shaving a customer, a tailor at a sewing machine, a bus queue, a man reading a newspaper, a sleeping street dog, someone sweeping
+>   clay diya lamps in rows, rangoli chalked on the ground, dhol drummers, dancing in a ring, thrown colour powder, a sky full of fireworks
 > Dozens of small figures in everyday Indian dress, faces simple and friendly.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
@@ -144,6 +163,14 @@ specific, no recognisable single monument.
 > hands, a fruit seller holding up fingers to quote a price, a porter counting
 > boxes onto a handcart. Repetition and quantity everywhere, things in rows and
 > stacks.
+> DO NOT INCLUDE ANY OF THESE. They belong to the other five pictures in
+> this set and each one appearing here makes two zones look like the same
+> picture:
+>   two people in namaste, a shopkeeper waving someone over, an older man greeting a younger one with a hand on his shoulder, women clasping hands, children with a rolling hoop
+>   a grandmother on a charpai, a child on a father's shoulders, hair being braided on a balcony, a family sharing a rooftop meal, washing strung between balconies
+>   a kadhai of jalebi over flame, a tawa of breads, chai poured from height, cones of spice powder, stacked steel thali plates, a tray of glasses being carried
+>   cycle rickshaws, a barber shaving a customer, a tailor at a sewing machine, a bus queue, a man reading a newspaper, a sleeping street dog, someone sweeping
+>   clay diya lamps in rows, rangoli chalked on the ground, dhol drummers, dancing in a ring, thrown colour powder, a sky full of fireworks
 > Dozens of small figures in everyday Indian dress, faces simple and friendly.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders, NO
 > numerals or digits anywhere in the image.
@@ -177,6 +204,14 @@ specific, no recognisable single monument.
 > eating standing up at counters, a boy carrying a tray of glasses. Steam and
 > warm glow throughout. This is the most appetising and most saturated of the
 > six after the festival one.
+> DO NOT INCLUDE ANY OF THESE. They belong to the other five pictures in
+> this set and each one appearing here makes two zones look like the same
+> picture:
+>   two people in namaste, a shopkeeper waving someone over, an older man greeting a younger one with a hand on his shoulder, women clasping hands, children with a rolling hoop
+>   a grandmother on a charpai, a child on a father's shoulders, hair being braided on a balcony, a family sharing a rooftop meal, washing strung between balconies
+>   brass balance scales, stacked crates and jute sacks, notes or coins being counted, a seller holding up fingers to quote a price, bananas hanging in rows
+>   cycle rickshaws, a barber shaving a customer, a tailor at a sewing machine, a bus queue, a man reading a newspaper, a sleeping street dog, someone sweeping
+>   clay diya lamps in rows, rangoli chalked on the ground, dhol drummers, dancing in a ring, thrown colour powder, a sky full of fireworks
 > Dozens of small figures in everyday Indian dress, faces simple and friendly.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
@@ -208,6 +243,14 @@ specific, no recognisable single monument.
 > asleep, someone sweeping. Nobody is celebrating, but the street is just as
 > FULL and just as richly lit as the reference. Do NOT empty it out, do NOT
 > lighten the palette, do NOT make it daytime.
+> DO NOT INCLUDE ANY OF THESE. They belong to the other five pictures in
+> this set and each one appearing here makes two zones look like the same
+> picture:
+>   two people in namaste, a shopkeeper waving someone over, an older man greeting a younger one with a hand on his shoulder, women clasping hands, children with a rolling hoop
+>   a grandmother on a charpai, a child on a father's shoulders, hair being braided on a balcony, a family sharing a rooftop meal, washing strung between balconies
+>   brass balance scales, stacked crates and jute sacks, notes or coins being counted, a seller holding up fingers to quote a price, bananas hanging in rows
+>   a kadhai of jalebi over flame, a tawa of breads, chai poured from height, cones of spice powder, stacked steel thali plates, a tray of glasses being carried
+>   clay diya lamps in rows, rangoli chalked on the ground, dhol drummers, dancing in a ring, thrown colour powder, a sky full of fireworks
 > Dozens of small figures in everyday Indian dress, faces simple and friendly.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
@@ -239,6 +282,14 @@ specific, no recognisable single monument.
 > step, intricate rangoli patterns chalked on the ground, people dancing in a
 > ring, drummers with dhol, colour powder thrown in the air, the sky full of
 > fireworks bursting in gold and white. Joy and noise everywhere.
+> DO NOT INCLUDE ANY OF THESE. They belong to the other five pictures in
+> this set and each one appearing here makes two zones look like the same
+> picture:
+>   two people in namaste, a shopkeeper waving someone over, an older man greeting a younger one with a hand on his shoulder, women clasping hands, children with a rolling hoop
+>   a grandmother on a charpai, a child on a father's shoulders, hair being braided on a balcony, a family sharing a rooftop meal, washing strung between balconies
+>   brass balance scales, stacked crates and jute sacks, notes or coins being counted, a seller holding up fingers to quote a price, bananas hanging in rows
+>   a kadhai of jalebi over flame, a tawa of breads, chai poured from height, cones of spice powder, stacked steel thali plates, a tray of glasses being carried
+>   cycle rickshaws, a barber shaving a customer, a tailor at a sewing machine, a bus queue, a man reading a newspaper, a sleeping street dog, someone sweeping
 > Dozens of small figures in everyday Indian dress, faces simple and happy.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
