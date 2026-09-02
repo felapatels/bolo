@@ -96,7 +96,7 @@ Run from the repo root.
   1174/91/1172 on 2026-08-23, and 1064/68/1062 before that; the growth is new
   coverage, not a change in behaviour.) The 1428 is 1427 from the full run
   plus the one file re-run alone after its stale "kem cho" expectation was
-  inverted (800eb602). **A single file runs with**
+  inverted (4eb48a51). **A single file runs with**
   `node --import tsx --test --experimental-test-module-mocks <file>` from
   `artifacts/api-server`; without the mocks flag a file using `mock.module`
   fails to even import, which looks like a broken test and is not.
@@ -342,7 +342,7 @@ needs that substrate designed rather than a one-off button.
   `drizzle-kit migrate` must never be run there. It is only ever half the job.
 
   **A related gap, found the same night. ANSWERED AND FIXED 2026-09-01
-  (8d9c6808).** The api-server had never sent a single error to Sentry: the
+  (24fe1b81).** The api-server had never sent a single error to Sentry: the
   `node-express` project held zero issues while `/friends/feed` was returning
   `{"error":"Internal server error"}` to every learner, so a total outage
   produced no alert and was found by using the app. `SENTRY_DSN` is set in
