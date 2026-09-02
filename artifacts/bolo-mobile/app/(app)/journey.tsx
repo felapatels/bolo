@@ -35,6 +35,7 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StopDots } from '@/components/journey/StopDots';
 // Aliased: react-native-svg exports a LinearGradient too, and the tag
 // backs use that one.
+import { LinearGradient as FadeGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Svg, {
   Circle,
@@ -196,6 +197,10 @@ const MAP_MAX_W_WIDE = 560;
 // scenery position hangs off the pitch, so each zone's painted band doubles
 // with it, and the serpentine keeps its x swing over twice the y, which
 // halves the slope of every bend.
+/** How tall the dissolve at each end of a zone band is. Deep enough to hide a
+ *  cut between two different paintings, short enough that neither picture is
+ *  meaningfully eaten by it. */
+const ZONE_FADE_H = 72;
 const STATION_H = 176; // vertical rhythm per station row
 // THE OPENING SHOT'S PACE (build 17): one animated hop of about a row every
 // beat, so the stops go by one at a time rather than in a blur. Capped so a
@@ -602,6 +607,33 @@ function ZoneBandFixed({
             opacity: ZONE_BACKDROP_SCRIM,
           },
         ]}
+      />
+      {/* THE CROSS-FADE BETWEEN ZONES (build 29, the owner: "make sure to cross
+          fade between zones").
+          Every zone now has its OWN painting, so where one band ends and the
+          next begins there is a cut between two different pictures. Inside a
+          band the repeat is already invisible, because each image is
+          wrap-blended so its top is a haze of its own bottom. Between bands
+          nothing was doing that job.
+          Each band therefore opens and closes on its own ground tone: a short
+          gradient at the top fading OUT of that colour, and one at the foot
+          fading INTO it. Two neighbours meeting both land on their ground
+          tones, which come from the same palette, so the join dissolves
+          instead of cutting. Drawn ABOVE the scrim so the scrim cannot lift the
+          fade's far end back to full strength.
+          A gradient rather than a real alpha mask on purpose: masking an Image
+          needs @react-native-masked-view, and a whole native dependency for a
+          64pt band is a bad trade in an app that has been bitten by native
+          additions before. */}
+      <FadeGradient
+        pointerEvents="none"
+        colors={[zoneFootTone(zi), 'transparent']}
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, height: ZONE_FADE_H }}
+      />
+      <FadeGradient
+        pointerEvents="none"
+        colors={['transparent', zoneFootTone(zi)]}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: ZONE_FADE_H }}
       />
     </>
   );
