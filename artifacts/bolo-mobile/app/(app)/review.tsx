@@ -127,7 +127,21 @@ const TOGGLE_TOAST = {
 // Beat between the phrase clip and the spoken English meaning. Same constant
 // as the practice screen (which took it from web's MEANING_SEGMENT_PAUSE_MS,
 // Task 1003) so all three surfaces leave the same gap.
-const MEANING_SEGMENT_PAUSE_MS = 400;
+// 220ms SINCE BUILD 29, down from 400. The owner, testing 1.0.11: "so can we
+// shorten the gap between word and meaning?". 400 was chosen as a speech beat
+// before anyone had heard it with the synthesis latency removed; once the clip
+// is pre-fetched, 400ms of true silence between a one-word phrase and "means..."
+// is a long time to wait. 220 still reads as a beat rather than the two clips
+// running together.
+//
+// THE PLAYER'S OWN START-UP SITS ON TOP OF THIS and is the real floor: writing
+// the base64 out and loading it costs its own moment on a device, so the felt
+// gap is always somewhat longer than this number. Cutting this below about 150
+// buys very little and starts to sound like a stumble.
+//
+// Changed on BOTH platforms in one commit. This constant exists three times,
+// and today has already cost three separate bugs from twins fixed a day apart.
+const MEANING_SEGMENT_PAUSE_MS = 220;
 
 const BAND_LABEL: Record<Band, string> = {
   perfect: 'Perfect',

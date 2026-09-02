@@ -115,7 +115,21 @@ const FEEDBACK_AUDIO_TIMEOUT_MS = 8000;
 // (Task 1003). Two separate audio elements with a short breath between them.
 // Synthesis is pre-warmed during the phrase clip, so this constant IS the
 // felt gap on cache hits and cold caches alike.
-const MEANING_SEGMENT_PAUSE_MS = 400;
+// 220ms SINCE BUILD 29, down from 400. The owner, testing 1.0.11: "so can we
+// shorten the gap between word and meaning?". 400 was chosen as a speech beat
+// before anyone had heard it with the synthesis latency removed; once the clip
+// is pre-fetched, 400ms of true silence between a one-word phrase and "means..."
+// is a long time to wait. 220 still reads as a beat rather than the two clips
+// running together.
+//
+// THE PLAYER'S OWN START-UP SITS ON TOP OF THIS and is the real floor: writing
+// the base64 out and loading it costs its own moment on a device, so the felt
+// gap is always somewhat longer than this number. Cutting this below about 150
+// buys very little and starts to sound like a stumble.
+//
+// Changed on BOTH platforms in one commit. This constant exists three times,
+// and today has already cost three separate bugs from twins fixed a day apart.
+const MEANING_SEGMENT_PAUSE_MS = 220;
 
 // localStorage key that records the learner has already seen the "feedback is
 // approximate" notice for a given (degraded) language, so it shows only once.
