@@ -38,6 +38,8 @@ import {
   LANG_CHAPTER_IDS,
   SCRIPT_NAMES,
   SCRIPT_TRACE_CHAPTERS,
+  applyOrderGates,
+  glyphsForLanguage,
   handPenStrokes,
   writesRightToLeft,
   traceBandFromScore,
@@ -46,6 +48,7 @@ import {
   traceStopFor,
   TRACE_TEASER_LIMIT,
   type TraceBreakdown,
+  type TraceFault,
   type TraceChapter,
   type TraceCharacter,
   type TraceStop,
@@ -1031,13 +1034,23 @@ function TraceCanvas({
   interiorPoints,
 }: {
   character: TraceCharacter;
-  onResult: (score: number, passed: boolean, parts: TraceBreakdown) => void;
+  onResult: (score: number, passed: boolean, parts: TraceBreakdown, faults: TraceFault[]) => void;
   guidePoints: Point[];
   interiorPoints: Point[];
 }) {
   // Which language is being studied, for picking the demo's pen path. Read from
   // the hook rather than threaded through a prop, matching the rest of the file.
   const { activeLang } = useLanguage();
+  // THE HAND-AUTHORED STROKES FOR THIS LETTER, if a person ever traced it.
+  // `glyphsForLanguage` already layers a real hand over the font's guess over
+  // nothing (scripts.ts), and applyOrderGates refuses to grade a glyph still
+  // marked `provisional`, so this returning a guess is safe: the gates simply
+  // do not fire. Matched on the character itself rather than on an id, because
+  // the chapter data and the stroke data are authored separately.
+  const authoredGlyph = React.useMemo(
+    () => glyphsForLanguage(activeLang).find((g) => g.char === character.char),
+    [activeLang, character.char],
+  );
   const AnimatedSvgCircle = React.useMemo(() => Animated.createAnimatedComponent(SvgCircle), []);
   const AnimatedSvgRect = React.useMemo(() => Animated.createAnimatedComponent(SvgRect), []);
   const colors = useColors();
@@ -1323,7 +1336,20 @@ function TraceCanvas({
           interiorPoints,
           strayToleranceFor(character.guide),
         );
-        const score = parts.score;
+        // ORDER GATES (build 29, the owner twice: "its still too easy to score
+        // perfect on tracing. there has to be more gates to ensure they are
+        // actually writing it in the order of the example").
+        //
+        // Coverage still answers "did you draw the letter". It cannot answer
+        // "did you WRITE it", because an outline has no order, no direction and
+        // no pen lift, so one scribble through the interior scores beautifully.
+        // applyOrderGates can only ever LOWER this score, and it does nothing
+        // at all unless a HUMAN authored the strokes for this glyph: the
+        // font-derived guesses disagree with a real hand on 48 of 48 Devanagari
+        // letters, so gating on those would fail correct writing. Today that
+        // means Devanagari and Gujarati are gated and nothing else is.
+        const gate = applyOrderGates(parts.score, allStrokesRef.current, authoredGlyph);
+        const score = gate.score;
         const passed = score >= PASS_THRESHOLD;
         setLiveCoverage(score);
         if (!passed) {
@@ -1338,7 +1364,7 @@ function TraceCanvas({
         } else {
           setFailedPoints(null);
         }
-        onResult(score, passed, parts);
+        onResult(score, passed, parts, gate.faults);
       }, 1200);
     });
 
@@ -1605,7 +1631,12 @@ function TraceCanvas({
 
 // ── Session screen ────────────────────────────────────────────────────────────
 
-type SessionResult = ({ score: number; passed: boolean } & TraceBreakdown) | null;
+// `faults` carries the ORDER gates (build 29) through to the feedback line, so
+// a learner who ran three strokes together is told THAT rather than being told
+// to keep the pen on the shape, which they did.
+type SessionResult =
+  | ({ score: number; passed: boolean; faults: TraceFault[] } & TraceBreakdown)
+  | null;
 
 /**
  * A character in a running session may know which real chapter it came from.
@@ -1664,8 +1695,8 @@ function TraceSession({
   const { activeLang } = useLanguage();
 
   const handleResult = useCallback(
-    (score: number, passed: boolean, parts: TraceBreakdown) => {
-      setResult({ score, passed, ...parts });
+    (score: number, passed: boolean, parts: TraceBreakdown, faults: TraceFault[] = []) => {
+      setResult({ score, passed, faults, ...parts });
       if (character) {
         setBestScores((prev) =>
           score > (prev[character.id] ?? -1) ? { ...prev, [character.id]: score } : prev,
@@ -1893,7 +1924,7 @@ function TraceSession({
             testID="trace-result-feedback"
             style={[styles.resultFeedback, { color: colors.mutedForeground }]}
           >
-            {traceFeedback(result.score, result)}
+            {traceFeedback(result.score, result, result.faults)}
           </Text>
           <View style={styles.resultButtons}>
             {!result.passed && (

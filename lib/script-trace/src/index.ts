@@ -16,6 +16,7 @@
  * are genuinely different on web and on a phone and always will be.
  */
 export * from "./stroke-scoring";
+export * from "./order-gates";
 export * from "./scripts";
 export * from "./trace-levels";
 export * from "./trace-stops";

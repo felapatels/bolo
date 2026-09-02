@@ -5,6 +5,8 @@ import {
   resample,
   strokesUpTo,
   PASS_SCORE,
+  applyOrderGates,
+  ORDER_GATE_CAPS,
   type AuthoredGlyph,
 } from "@workspace/script-trace";
 import {
@@ -256,5 +258,69 @@ describe("strokesUpTo: the pen demo's reveal", () => {
   test("out-of-range progress is clamped, not thrown at", () => {
     expect(strokesUpTo([A, B], -5)).toEqual([]);
     expect(strokesUpTo([A, B], 99)).toEqual([A, B]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ORDER GATES (build 29). Everything above proves stroke scoring CAN see what
+// coverage cannot. These pin the thing that finally uses it in the shipped
+// game: gates that lower a coverage score when the letter was not written in
+// the order it is taught.
+//
+// The owner, twice: "accuracy is way too high as long as you stay in the line"
+// (2026-08-23) and "there has to be more gates to ensure they are actually
+// writing it in the order of the example" (2026-09-02).
+// ---------------------------------------------------------------------------
+describe("order gates lower a coverage score, and only ever lower it", () => {
+  const glyph = DEVANAGARI_PROTOTYPE_GLYPHS[0]!;
+
+  test("an honest trace keeps its coverage score untouched", () => {
+    const r = applyOrderGates(88, perfectTraceOf(glyph), glyph);
+    expect(r.score).toBe(88);
+    expect(r.faults).toEqual([]);
+    expect(r.gated).toBe(true);
+  });
+
+  test("THE REPORTED BUG: one scribble through the whole letter fails", () => {
+    // Every stroke merged into one continuous line. Coverage loves this: it
+    // passes right through the glyph's interior. It is not writing.
+    const scribble = [perfectTraceOf(glyph).flat()];
+    const r = applyOrderGates(97, scribble, glyph);
+    expect(r.faults).toContain("too-few-strokes");
+    // Capped below any pass mark the game has used, so it FAILS rather than
+    // merely scoring worse.
+    expect(r.score).toBe(ORDER_GATE_CAPS["too-few-strokes"]);
+    expect(r.score).toBeLessThan(PASS_THRESHOLD);
+  });
+
+  test("right shapes in the wrong sequence are capped", () => {
+    const shuffled = [...perfectTraceOf(glyph)].reverse();
+    const r = applyOrderGates(96, shuffled, glyph);
+    expect(r.score).toBeLessThanOrEqual(ORDER_GATE_CAPS["wrong-order"]);
+    expect(r.gated).toBe(true);
+  });
+
+  test("a gate can never RAISE a score", () => {
+    const scribble = [perfectTraceOf(glyph).flat()];
+    // A low coverage score stays low even though the cap is higher than it.
+    expect(applyOrderGates(12, scribble, glyph).score).toBe(12);
+  });
+
+  test("THE SAFETY PROPERTY: a font-guessed glyph is never gated", () => {
+    // 0 of 48 Devanagari letters had the font agreeing with a real hand, and
+    // 35 of them disagreed on the stroke COUNT alone. Gating on that would
+    // fail correct writing, so provisional glyphs pass through untouched.
+    const guessed: AuthoredGlyph = { ...glyph, provisional: true };
+    const scribble = [perfectTraceOf(glyph).flat()];
+    const r = applyOrderGates(97, scribble, guessed);
+    expect(r.score).toBe(97);
+    expect(r.gated).toBe(false);
+    expect(r.faults).toEqual([]);
+  });
+
+  test("no glyph at all is not gated either", () => {
+    const r = applyOrderGates(97, [[{ x: 0, y: 0 }, { x: 99, y: 99 }]], undefined);
+    expect(r.score).toBe(97);
+    expect(r.gated).toBe(false);
   });
 });

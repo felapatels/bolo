@@ -1,3 +1,4 @@
+import type { TraceFault } from "./stroke-scoring";
 /**
  * What a traced character scored, said in the words the rest of the app uses.
  *
@@ -71,8 +72,33 @@ export type TraceBreakdown = {
  * Names the WORST of the three, because that is the one thing worth changing on
  * the next attempt. Saying all three at once is how feedback becomes wallpaper.
  */
-export function traceFeedback(score: number, parts: TraceBreakdown): string {
+export function traceFeedback(
+  score: number,
+  parts: TraceBreakdown,
+  faults: TraceFault[] = [],
+): string {
   const { coverage, precision, spread } = parts;
+
+  // AN ORDER FAULT IS SAID FIRST, AND IT OVERRIDES THE THREE BELOW (build 29).
+  // The gates in order-gates.ts can cap a score for a reason coverage cannot
+  // see, and then the coverage branches underneath happily explain a DIFFERENT
+  // mistake. A learner who ran three strokes together would be told to keep the
+  // pen on the grey shape, which they did, so the one sentence they get would
+  // be false and the real fault would go unnamed.
+  //
+  // Same rule as below: name ONE thing, the one worth changing next attempt.
+  if (faults.includes("too-few-strokes")) {
+    return "That was one line. This letter is written in separate strokes, so lift your pen between them.";
+  }
+  if (faults.includes("wrong-order")) {
+    return "Right shapes, wrong order. Watch the demo and follow the strokes in the order it draws them.";
+  }
+  if (faults.includes("reversed-stroke")) {
+    return "One stroke went the wrong way. Watch which end the demo starts from.";
+  }
+  if (faults.includes("too-many-strokes")) {
+    return "You lifted the pen more often than this letter needs. Keep each stroke in one go.";
+  }
 
   // "Nothing landed" is decided on the FACTORS, never on the score. The score
   // is the three multiplied together, so a tap that lands squarely on the glyph
