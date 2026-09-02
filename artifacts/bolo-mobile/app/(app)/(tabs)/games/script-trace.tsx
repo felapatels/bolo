@@ -70,7 +70,25 @@ import { recordScriptTraceProgress } from '@workspace/api-client-react';
 
 // ── Accuracy scoring ──────────────────────────────────────────────────────────
 
-type Point = { x: number; y: number };
+type Point = {
+  x: number;
+  y: number;
+  /**
+   * APPLE PENCIL PRESSURE, 0 to 1, and ONLY ever set by a Pencil (build 29).
+   *
+   * Optional on purpose. A finger, a mouse and every phone leave it undefined,
+   * and the ink falls back to the single constant-width path it has always
+   * drawn, so nothing outside an iPad with a Pencil changes by a pixel.
+   *
+   * IT NEVER REACHES SCORING. StrokePoint in the shared engine is {x, y} and
+   * reads nothing else, so an extra field rides along harmlessly. That is the
+   * owner's ruling of 2026-09-02, "for now keep it identical": the Pencil
+   * changes how writing FEELS, never how it is judged, because grading on
+   * pressure would fork the standard between a learner with a Pencil and a
+   * learner with a finger.
+   */
+  p?: number;
+};
 
 function samplePath(points: Point[], n: number): Point[] {
   if (points.length === 0) return [];
@@ -405,6 +423,55 @@ function scoreCoverageParts(
 }
 
 // Convert an array of points to an SVG path string for live drawing.
+/**
+ * THE INK, BANDED BY PEN PRESSURE (build 29).
+ *
+ * SVG has no variable-width stroke, so the only way to draw a nib is to emit
+ * several paths at several widths. One path PER SEGMENT would be correct and
+ * far too many nodes for a glyph, so segments are quantised into a handful of
+ * bands and consecutive segments sharing a band become one path.
+ *
+ * COLLAPSES TO EXACTLY TODAY'S SINGLE PATH when nothing carries pressure,
+ * which is a finger, a mouse, and every phone. That is the property worth
+ * protecting: this is an iPad affordance and it must cost the phone nothing.
+ */
+const INK_BASE_W = 5; // what a finger has always drawn
+const INK_MIN_W = 2.6;
+const INK_MAX_W = 8.5;
+const INK_BANDS = 5;
+
+export function inkWidthFor(pressure: number | undefined): number {
+  if (pressure === undefined || Number.isNaN(pressure)) return INK_BASE_W;
+  const t = Math.max(0, Math.min(1, pressure));
+  const step = (INK_MAX_W - INK_MIN_W) / (INK_BANDS - 1);
+  return INK_MIN_W + Math.round((t * (INK_MAX_W - INK_MIN_W)) / step) * step;
+}
+
+export function inkBands(strokes: Point[][], size: number): { width: number; d: string }[] {
+  const out: { width: number; d: string }[] = [];
+  for (const stroke of strokes) {
+    if (stroke.length < 2) continue;
+    let runStart = 0;
+    let runWidth = inkWidthFor(avgP(stroke[0], stroke[1]));
+    for (let i = 1; i < stroke.length; i++) {
+      const w = inkWidthFor(avgP(stroke[i - 1], stroke[i]));
+      if (w !== runWidth) {
+        // The run ends ON this point, so bands meet rather than leaving a gap.
+        out.push({ width: runWidth, d: pointsToPath(stroke.slice(runStart, i + 1), size) });
+        runStart = i;
+        runWidth = w;
+      }
+    }
+    out.push({ width: runWidth, d: pointsToPath(stroke.slice(runStart), size) });
+  }
+  return out.filter((b) => b.d !== '');
+}
+
+function avgP(a: Point, b: Point): number | undefined {
+  if (a.p === undefined && b.p === undefined) return undefined;
+  return ((a.p ?? b.p ?? 0) + (b.p ?? a.p ?? 0)) / 2;
+}
+
 function pointsToPath(points: Point[], size: number): string {
   if (points.length < 2) return '';
   const scale = size / 100;
@@ -1055,6 +1122,9 @@ function TraceCanvas({
   const AnimatedSvgRect = React.useMemo(() => Animated.createAnimatedComponent(SvgRect), []);
   const colors = useColors();
   const [drawnPath, setDrawnPath] = useState('');
+  // The same ink, split into pressure bands for rendering. Empty on a phone,
+  // where every point is pressureless and drawnPath alone is drawn.
+  const [inkBandsState, setInkBands] = useState<{ width: number; d: string }[]>([]);
   // Controls whether the guide pulses amber on a failed trace.
   const [guidePulsed, setGuidePulsed] = useState(false);
   const drawnRef = useRef<Point[]>([]);
@@ -1285,7 +1355,11 @@ function TraceCanvas({
       isDrawingRef.current = true;
       buzzerRef.current.reset();
       drawnRef.current = [
-        { x: (e.x / CANVAS_SIZE) * 100, y: (e.y / CANVAS_SIZE) * 100 },
+        // stylusData is populated by react-native-gesture-handler ONLY for a
+        // UITouchTypePencil touch, and is undefined for a finger or a mouse.
+        // No opt-in, no native shim: RNPanHandler.m fills it from
+        // touch.force / touch.maximumPossibleForce.
+        { x: (e.x / CANVAS_SIZE) * 100, y: (e.y / CANVAS_SIZE) * 100, p: e.stylusData?.pressure },
       ];
       setGuidePulsed(false);
       // Note: drawnPath and allStrokesRef are intentionally preserved so all
@@ -1293,7 +1367,11 @@ function TraceCanvas({
     })
     .onUpdate((e) => {
       if (!isDrawingRef.current) return;
-      const at = { x: (e.x / CANVAS_SIZE) * 100, y: (e.y / CANVAS_SIZE) * 100 };
+      const at = {
+        x: (e.x / CANVAS_SIZE) * 100,
+        y: (e.y / CANVAS_SIZE) * 100,
+        p: e.stylusData?.pressure,
+      };
       drawnRef.current.push(at);
       const level = buzzerRef.current.next(
         strayIntensity(at, guidePoints),
@@ -1302,6 +1380,7 @@ function TraceCanvas({
       if (level) playStray(level);
       // Re-render: all completed strokes + current in-progress stroke.
       setDrawnPath(buildAllPath(drawnRef.current));
+      setInkBands(inkBands([...allStrokesRef.current, drawnRef.current], CANVAS_SIZE));
       // Throttled live coverage update (at most every 150 ms).
       const now = Date.now();
       if (now - lastCoverageTimeRef.current > 150) {
@@ -1321,6 +1400,7 @@ function TraceCanvas({
       }
       drawnRef.current = [];
       setDrawnPath(buildAllPath());
+      setInkBands(inkBands(allStrokesRef.current, CANVAS_SIZE));
 
       // Debounce: score the full accumulated drawing 1.2 s after the last lift.
       // If the user touches down again before the timer fires, onBegin cancels
@@ -1376,6 +1456,7 @@ function TraceCanvas({
     allStrokesRef.current = [];
     drawnRef.current = [];
     setDrawnPath('');
+    setInkBands([]);
     setGuidePulsed(false);
     setFailedPoints(null);
     setLiveCoverage(null);
@@ -1537,11 +1618,29 @@ function TraceCanvas({
             })()}
 
             {/* User's traced path */}
-            {drawnPath ? (
+            {/* PENCIL INK. A Pencil gives every point a pressure, so the
+                stroke is drawn as a few paths at a few widths and reads like a
+                nib. A finger gives none, inkBands collapses to one band at the
+                old constant width, and this renders exactly what it always
+                did. The `.length > 1` test is deliberate: one band IS the
+                phone case, and there is no reason to pay for a map there. */}
+            {inkBandsState.length > 1 ? (
+              inkBandsState.map((b, i) => (
+                <SvgPath
+                  key={`ink-${i}`}
+                  d={b.d}
+                  stroke={colors.primary}
+                  strokeWidth={b.width}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              ))
+            ) : drawnPath ? (
               <SvgPath
                 d={drawnPath}
                 stroke={colors.primary}
-                strokeWidth={5}
+                strokeWidth={inkBandsState[0]?.width ?? 5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
