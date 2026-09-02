@@ -337,5 +337,46 @@ export function zoneBoardPanelH(boardWidth: number, boardHeight: number): number
  * other is worse than either alone. Phones never load it.
  */
 export const WIDE_BACKDROP = require('../assets/journey/zone-wide.jpg') as number;
+
+/**
+ * ONE WIDE PAINTING PER FARE ZONE, big screens only (build 29).
+ *
+ * The single tile above was the whole tablet backdrop: the same bazaar
+ * repeating behind all six zones, while a PHONE got six different paintings.
+ * So the small screen told a richer story than the large one, which is
+ * backwards. The owner is generating six wide ones; docs/ipad-zone-backdrop-
+ * prompts.md is the brief, and the sizes and the tiling rule live there.
+ *
+ * REQUIRE RESOLVES AT BUNDLE TIME, so these six files must exist for the app to
+ * build at all. They ship as COPIES of the shared tile until the real art
+ * lands, which means the screen looks exactly as it does today and each zone
+ * changes the moment its file is overwritten. No code change follows the art.
+ *
+ * Same order and same 1-based file naming as ZONE_BACKDROPS, so the two sets
+ * cannot drift out of step, and same 25:11 aspect as the tile they replace, so
+ * WIDE_BACKDROP_ASPECT_H stays true for every one of them.
+ */
+const WIDE_BACKDROPS: readonly number[] = [
+  require('../assets/journey/zone-wide-1.jpg') as number,
+  require('../assets/journey/zone-wide-2.jpg') as number,
+  require('../assets/journey/zone-wide-3.jpg') as number,
+  require('../assets/journey/zone-wide-4.jpg') as number,
+  require('../assets/journey/zone-wide-5.jpg') as number,
+  require('../assets/journey/zone-wide-6.jpg') as number,
+];
+
+/**
+ * The wide painting for a fare zone.
+ *
+ * Falls back to the shared tile rather than to null, and that is deliberate:
+ * journey 2 and anything past six zones must still have a backdrop. A missing
+ * painting should look like the old app, never like a hole.
+ */
+export function wideBackdrop(zoneIndex: number): number {
+  return WIDE_BACKDROPS[zoneIndex] ?? WIDE_BACKDROP;
+}
+
+/** How many zones have a wide painting of their own. For tests and readouts. */
+export const WIDE_BACKDROP_COUNT = WIDE_BACKDROPS.length;
 /** Height over width of the wide tile, so a band knows how many to stack. */
 export const WIDE_BACKDROP_ASPECT_H = 704 / 1600;

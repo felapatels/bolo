@@ -149,7 +149,7 @@ import {
   ZONE_TILE_ASPECT,
   zoneBackdrop,
   zoneFootTone,
-  WIDE_BACKDROP,
+  wideBackdrop,
   WIDE_BACKDROP_ASPECT_H,
 } from '@/lib/zoneBackdrops';
 import {
@@ -574,7 +574,7 @@ function ZoneBandFixed({
   void scrollY;
   void contentTop;
   void windowH;
-  const art = wide ? WIDE_BACKDROP : zoneBackdrop(zi);
+  const art = wide ? wideBackdrop(zi) : zoneBackdrop(zi);
   const tileH = wide ? Math.round(windowW * WIDE_BACKDROP_ASPECT_H) : windowW / ZONE_TILE_ASPECT;
   if (!art) return null;
   const tiles = (
