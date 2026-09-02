@@ -44,11 +44,12 @@ describe('every zone has a wide painting', () => {
     expect(wideBackdrop(-1)).toBe(WIDE_BACKDROP);
   });
 
-  test('the aspect the app stretches to is still 25:11', () => {
+  test('the aspect the app stretches to is 16:9', () => {
     // The journey draws these with resizeMode="stretch" at
-    // windowW x windowW * WIDE_BACKDROP_ASPECT_H. New art at any other aspect
-    // is distorted rather than cropped, which is why the brief pins 3200x1408.
-    expect(WIDE_BACKDROP_ASPECT_H).toBeCloseTo(704 / 1600, 10);
-    expect(704 / 1600).toBeCloseTo(11 / 25, 10);
+    // windowW x windowW * WIDE_BACKDROP_ASPECT_H, so art at any OTHER aspect is
+    // distorted rather than cropped. It was 25:11 until build 29, which is a
+    // shape no image generator offers; 16:9 is offered by all of them. If this
+    // ever changes again, the six prompts in docs/ change with it.
+    expect(WIDE_BACKDROP_ASPECT_H).toBeCloseTo(9 / 16, 10);
   });
 });

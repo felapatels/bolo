@@ -378,5 +378,17 @@ export function wideBackdrop(zoneIndex: number): number {
 
 /** How many zones have a wide painting of their own. For tests and readouts. */
 export const WIDE_BACKDROP_COUNT = WIDE_BACKDROPS.length;
-/** Height over width of the wide tile, so a band knows how many to stack. */
-export const WIDE_BACKDROP_ASPECT_H = 704 / 1600;
+/**
+ * Height over width of a wide tile, so a band knows how many to stack.
+ *
+ * 16:9 SINCE BUILD 29, and it was 25:11 (704/1600) before. That number was
+ * never a requirement, it was simply the shape of the one tile somebody made in
+ * August, and it turned out to be a shape no image generator offers: the owner
+ * could not produce it in Google Imagen or Kling. Since the app STRETCHES the
+ * art to `windowW x windowW * this`, the constant is the thing that should move,
+ * not the art. 16:9 is offered by every generator there is.
+ *
+ * A 16:9 tile is TALLER relative to its width, so a zone stacks slightly fewer
+ * of them. Nothing else changes.
+ */
+export const WIDE_BACKDROP_ASPECT_H = 9 / 16;

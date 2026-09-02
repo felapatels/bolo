@@ -5,12 +5,20 @@ single repeating `zone-wide.jpg` tile.
 
 ## Before you generate
 
-- **Output 3200 x 1408 px, JPEG.** Exactly 2x the current tile, aspect **25:11**.
-  Any other aspect distorts, because the app draws it with `resizeMode="stretch"`
-  at `windowW x windowW * 704/1600`.
+- **Output 3840 x 2160 px (16:9), JPEG.** If your tool caps lower, **2560 x 1440**
+  also clears what a 13-inch iPad needs in landscape at @2x (2732px).
+- **16:9 EXACTLY.** The app draws these with `resizeMode="stretch"` at
+  `windowW x windowW * 9/16`, so any other aspect is distorted rather than
+  cropped. This brief said 25:11 until 2026-09-02; that was simply the shape of
+  the old tile, it turned out to be a shape no generator offers, and the code
+  constant was changed to 16:9 rather than the art being forced to match it.
 - **Attach `artifacts/bolo-mobile/assets/journey/zone-wide.jpg` as a style
   reference at MODERATE weight.** Prose drifts across six generations. Moderate,
   not maximum, or zones 4 and 6 come back as copies of zone 1.
+  **That reference is 25:11, which is NOT the target aspect, and that is fine:**
+  it is there for linework, palette and camera height, not for framing. Set the
+  output to 16:9 explicitly and do not let the tool inherit the reference's
+  shape.
 - **It must tile seamlessly top to bottom.** Each zone stacks the image 4 to 5
   times down the page. The bottom edge has to continue into the top edge with no
   visible join. The current tile does this with a ghosted band of figures across
@@ -47,7 +55,7 @@ specific, no recognisable single monument.
 > Dozens of small figures in everyday Indian dress, faces simple and friendly.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
-> so the image can stack repeatedly with no visible seam. 3200x1408, aspect 25:11.
+> so the image can stack repeatedly with no visible seam. 3840x2160, aspect 16:9 EXACTLY.
 
 ## 2. Family
 
@@ -71,7 +79,7 @@ specific, no recognisable single monument.
 > Dozens of small figures in everyday Indian dress, faces simple and friendly.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
-> so the image can stack repeatedly with no visible seam. 3200x1408, aspect 25:11.
+> so the image can stack repeatedly with no visible seam. 3840x2160, aspect 16:9 EXACTLY.
 
 ## 3. Numbers 1-10
 
@@ -97,7 +105,7 @@ specific, no recognisable single monument.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders, NO
 > numerals or digits anywhere in the image.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
-> so the image can stack repeatedly with no visible seam. 3200x1408, aspect 25:11.
+> so the image can stack repeatedly with no visible seam. 3840x2160, aspect 16:9 EXACTLY.
 
 ## 4. Food & Eating
 
@@ -123,7 +131,7 @@ specific, no recognisable single monument.
 > Dozens of small figures in everyday Indian dress, faces simple and friendly.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
-> so the image can stack repeatedly with no visible seam. 3200x1408, aspect 25:11.
+> so the image can stack repeatedly with no visible seam. 3840x2160, aspect 16:9 EXACTLY.
 
 ## 5. Everyday Words
 
@@ -148,7 +156,7 @@ specific, no recognisable single monument.
 > Dozens of small figures in everyday Indian dress, faces simple and friendly.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
-> so the image can stack repeatedly with no visible seam. 3200x1408, aspect 25:11.
+> so the image can stack repeatedly with no visible seam. 3840x2160, aspect 16:9 EXACTLY.
 
 ## 6. Feelings, the festival finale
 
@@ -173,7 +181,7 @@ specific, no recognisable single monument.
 > Dozens of small figures in everyday Indian dress, faces simple and happy.
 > NO text, NO lettering, NO signage, NO logos, NO watermark, NO borders.
 > SEAMLESSLY TILEABLE VERTICALLY: the bottom edge must continue into the top edge
-> so the image can stack repeatedly with no visible seam. 3200x1408, aspect 25:11.
+> so the image can stack repeatedly with no visible seam. 3840x2160, aspect 16:9 EXACTLY.
 
 ---
 
