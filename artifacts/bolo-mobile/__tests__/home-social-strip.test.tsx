@@ -219,9 +219,20 @@ describe('HomeSocialStrip — populated state (has friends)', () => {
     mockState.leaderboardData = [SELF, FRIEND_A, FRIEND_B];
     render(<HomeSocialStrip />);
 
-    expect(screen.getByText('Priya (You)')).toBeOnTheScreen();
-    expect(screen.getByText('Arjun')).toBeOnTheScreen();
-    expect(screen.getByText('Mira')).toBeOnTheScreen();
+    // getAllByText SINCE BUILD 29, and the reason is worth writing down.
+    // On a wide screen the card now draws the leaderboard PODIUM above the
+    // rows, so the top three are named twice: once on a pedestal, once in the
+    // rank strip. getByText fails on "multiple elements", which is the test
+    // correctly noticing a deliberate change rather than a bug.
+    //
+    // AND THIS SUITE IS A WIDE SCREEN. jest's window is 750x1334 and
+    // useIsWideScreen() is width > 600, so every mobile test has rendered the
+    // TABLET layout since build 25 introduced the content column. That is a
+    // real gap, it is not this change's to fix, and it is why these assertions
+    // see a podium at all.
+    expect(screen.getAllByText('Priya (You)').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Arjun').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Mira').length).toBeGreaterThan(0);
   });
 
   test('does not show the invite affordance when friends are present', () => {
@@ -276,13 +287,16 @@ describe('HomeSocialStrip — self outside top 4', () => {
     mockState.leaderboardData = [FRIEND_A, FRIEND_B, FRIEND_C, FRIEND_D, selfRank5];
     render(<HomeSocialStrip />);
 
-    // Top 4 shown.
-    expect(screen.getByText('Arjun')).toBeOnTheScreen();
-    expect(screen.getByText('Mira')).toBeOnTheScreen();
-    expect(screen.getByText('Dev')).toBeOnTheScreen();
+    // Top 4 shown. getAllByText for the first three: the podium names them a
+    // second time on a wide screen, and this suite runs at 750pt. See the note
+    // on the populated-state test above.
+    expect(screen.getAllByText('Arjun').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Mira').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Dev').length).toBeGreaterThan(0);
     expect(screen.getByText('Anaya')).toBeOnTheScreen();
 
-    // Self appended.
+    // Self appended. Never on the podium, since they rank 5th, so still exactly
+    // one of these. That is a real assertion about the append, not a workaround.
     expect(screen.getByText('Priya (You)')).toBeOnTheScreen();
   });
 

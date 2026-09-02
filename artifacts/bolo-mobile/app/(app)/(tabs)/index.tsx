@@ -51,6 +51,7 @@ import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
 import { useIdleTimer } from '@/hooks/useIdleTimer';
 import { PressableScale } from '@/components/PressableScale';
+import { HomeColumns } from '@/components/HomeColumns';
 import { useIsWideScreen } from '@/lib/contentWidth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
@@ -541,15 +542,6 @@ export default function HomeScreen() {
         contentContainerStyle={{
           paddingHorizontal: wideScreen ? 32 : 20,
           paddingBottom: TAB_BAR_CLEARANCE,
-          // THE REFLOW (build 29). A wrapping ROW on a tablet and a plain
-          // column on a phone. Sections keep their source order either way,
-          // which is the point of doing it with flexWrap rather than by
-          // splitting the tree into a left half and a right half: a phone
-          // reads exactly the sequence it always read, and there is no second
-          // ordering to keep in step.
-          ...(wideScreen
-            ? { flexDirection: 'row' as const, flexWrap: 'wrap' as const, alignItems: 'flex-start' as const, columnGap: 24 }
-            : null),
         }}
         showsVerticalScrollIndicator={false}
         onTouchStart={onActivity}
@@ -561,7 +553,7 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Greeting + mascot */}
+        <HomeColumns wide={wideScreen}>        {/* Greeting + mascot */}
         <Animated.View entering={skipEnter ? undefined : appearDown(0, 500)} style={[styles.topRow, colFull]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.hello, { color: colors.mutedForeground }]}>
@@ -625,7 +617,7 @@ export default function HomeScreen() {
         <NamePromptCard />
 
         {/* Language selector + Chat with Bolo shortcut */}
-        <Animated.View entering={skipEnter ? undefined : appearDown(60, 500)} style={colHalf}>
+        <Animated.View entering={skipEnter ? undefined : appearDown(60, 500)} style={colFull}>
           <View style={styles.langRow}>
             <PressableScale
               onPress={() => router.push('/(app)/language')}
@@ -1112,7 +1104,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Daily quiz card */}
-        <Animated.View entering={skipEnter ? undefined : appearDown(220, 500)} style={colHalf}>
+        <Animated.View entering={skipEnter ? undefined : appearDown(220, 500)} style={colFull}>
           <DailyQuizCard
             isPlus={isPlus}
             entitlementsLoading={entitlementsLoading}
@@ -1259,6 +1251,7 @@ export default function HomeScreen() {
             </Text>
           </Pressable>
         ) : null}
+        </HomeColumns>
       </ScrollView>
       {/* R5 (32.1): bottom fade mask. Recent-plays rows carry the same
           "Didn't catch that" / "Retake" vocabulary as the practice feedback

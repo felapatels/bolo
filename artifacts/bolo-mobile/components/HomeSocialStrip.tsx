@@ -44,6 +44,8 @@ import { MOMENT_ROTATION, momentRotationIndex } from '@/lib/momentRotation';
 import { FeedPulseDot, useFeedPulse } from '@/components/FeedPulse';
 import { REFERRAL_REWARD_CHAI } from '@workspace/referral-link';
 import { PressableScale } from '@/components/PressableScale';
+import { Podium } from '@/components/leaderboard/Podium';
+import { useIsWideScreen } from '@/lib/contentWidth';
 import { useColors } from '@/hooks/useColors';
 import { LiveFlash } from '@/components/LiveFlash';
 import { AppFonts } from '@/constants/fonts';
@@ -248,6 +250,7 @@ function LatestFriendMoment({
 
 export function HomeSocialStrip() {
   const colors = useColors();
+  const wide = useIsWideScreen();
   const router = useRouter();
   // EVERYONE IS THE DEFAULT, matching the leaderboard, and safe to default that
   // way only because a learner with no username appears to nobody. Local to the
@@ -355,6 +358,22 @@ export function HomeSocialStrip() {
       {populated ? (
         /* ── populated: latest moment, then the rank strip ── */
         <View style={styles.rows}>
+          {/* THE PODIUM, ON A TABLET ONLY (build 29, the owner: "lets make the
+              leaderboard widget larger and show the 3 pedestal view from that
+              page"). It is the same <Podium> the leaderboard page draws, not a
+              copy: this card already holds the ranked entries, so showing the
+              first three costs a slice and nothing else.
+
+              Wide screens only, and that is not timidity. The podium is 
+              designed for a full page; on a phone this card is one of eight
+              stacked sections and a stage would push everything below it off
+              the fold. The tablet has the room the phone does not, which is
+              the entire point of the reflow it sits in. */}
+          {wide && entries.length > 0 ? (
+            <View style={{ marginBottom: 10 }}>
+              <Podium top={entries.slice(0, 3)} metric="xp" deltas={{}} />
+            </View>
+          ) : null}
           <LatestFriendMoment colors={colors} scope={scope} />
           {displayEntries.map((entry) => (
             <MiniRow key={entry.userId} entry={entry} colors={colors} />
