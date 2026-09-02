@@ -34,8 +34,9 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type ViewToken } from 'react-native';
-import { useContentWidth } from '@/lib/contentWidth';
+import { useContentWidth, useIsWideScreen } from '@/lib/contentWidth';
 import { Feather } from '@expo/vector-icons';
 import Animated, {
   useAnimatedStyle,
@@ -405,7 +406,18 @@ export default function GamesScreen() {
   const skipEnter = useAppearSkip();
   const reduceMotion = useReducedMotion();
   const router = useRouter();
-  const windowW = useContentWidth() /* the column, not the window: build 25 */;
+  // BUILD 29: THE COLUMN ON A PHONE, THE WINDOW ON A TABLET. Build 25 read the
+  // column here on purpose, so a game tile would not stretch into a poster on
+  // an iPad. Right answer, wrong lever: a GRID does not have to stretch, it can
+  // grow another column. So the hub takes the whole window now and spends it on
+  // more tiles rather than on wider ones.
+  const columnW = useContentWidth();
+  const fullW = useWindowDimensions().width;
+  const wide = useIsWideScreen();
+  const windowW = wide ? fullW : columnW;
+  // Two on a phone, three on an iPad. A tile keeps roughly its phone size, so
+  // the art and the label are unchanged and only the count moves.
+  const gridCols = wide ? 3 : 2;
   // The hero runs under the status bar and the floating XP and Chai strip
   // (build 21): its height carries the inset, and its words start below the
   // strip.
@@ -471,7 +483,7 @@ export default function GamesScreen() {
   };
 
   // The grid's card width, in points, so every painting is sized exactly.
-  const cardW = Math.floor((windowW - GRID_PAD * 2 - GRID_GAP) / 2);
+  const cardW = Math.floor((windowW - GRID_PAD * 2 - GRID_GAP * (gridCols - 1)) / gridCols);
 
   // THE PAINTING COVERS ITS BOX ON BOTH AXES (build 25, owner on the iPad:
   // "games header not the same width as the cards below"). Sized off the
@@ -573,11 +585,16 @@ export default function GamesScreen() {
   );
 
   return (
-    <Screen padTop={false}>
+    // column={false} SINCE BUILD 29. The hub sizes its own grid off the window
+    // now, so Screen's 600pt column would clip the third tile off the right.
+    <Screen padTop={false} column={false}>
       <FlatList
         data={GAMES}
         keyExtractor={(g) => g.id}
-        numColumns={2}
+        // FlatList cannot change numColumns in place, so the key forces the one
+        // remount that a rotation needs and nothing else does.
+        key={`grid-${gridCols}`}
+        numColumns={gridCols}
         columnWrapperStyle={styles.column}
         ListHeaderComponent={header}
         contentContainerStyle={[styles.list, { paddingBottom: TAB_BAR_CLEARANCE }]}
