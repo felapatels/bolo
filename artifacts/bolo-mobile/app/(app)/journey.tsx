@@ -577,12 +577,12 @@ function ZoneBandFixed({
   // onLayout probe in chat 12 put the canvas-to-content mapping at delta 0 on
   // all six zones. It was never a layout overlap. It was a paint layer.
   const reachUp = zi === 0 ? extraTop : 0;
-  // ON A PHONE THE BAND PAINTS NOTHING (build 29, second pass). The living
-  // backdrop is a fixed layer behind the ScrollView and carries its own tone
-  // and scrim, so an opaque band here would simply cover it. The tiles, the
-  // foot-tone fill, the scrim and the zone fades all stay for the iPad, whose
-  // wide paintings still live in the bands.
-  if (!wide && mode === 'block') return null;
+  // THE BAND PAINTS NOTHING (build 29, second pass; iPad joined in the same
+  // build's trial). The living backdrop is a fixed layer behind the ScrollView
+  // and carries its own tone and scrim, so an opaque band here would simply
+  // cover it. The wide paintings and the tile machinery stay in this file as
+  // the fallback the trial can return to.
+  if (mode === 'block') return null;
   // No pin any more: nothing here reads scrollY. The props stay so the
   // callers and the cap-mode signature are untouched.
   void scrollY;
@@ -2774,9 +2774,13 @@ export default function JourneyScreen() {
 
       {/* THE LIVING BACKDROP, fixed behind everything and never scrolling. A
           sibling BEFORE the ScrollView so it paints under it, and it takes no
-          touches. Phones only: the iPad keeps its wide paintings in the bands.
-          See components/journey/ZoneFilmLayer.tsx for why two players. */}
-      {!wide ? <ZoneFilmLayer zone={filmZone} reduceMotion={reduceMotion} /> : null}
+          touches. See components/journey/ZoneFilmLayer.tsx for why two players.
+          iPAD TRIAL (owner, build 29: "do you think its possible to make video
+          background work on the ipad journey?"): the same six portrait films
+          under the iPad's portrait window. `cover` on a 9:16 clip in a 3:4
+          window crops about a quarter of the width; whether that framing
+          holds is what the trial is for. Landscape clips are content, not code. */}
+      <ZoneFilmLayer zone={filmZone} reduceMotion={reduceMotion} />
 
       <Animated.ScrollView
         ref={scrollRef}
