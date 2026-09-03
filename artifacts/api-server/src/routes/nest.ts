@@ -1962,7 +1962,7 @@ router.get("/nest/social", async (req: Request, res: Response): Promise<void> =>
     return;
   }
   try {
-    const { alerts, samples } = await countSocial();
+    const { alerts, samples, ignored } = await countSocial();
     res.json({
       configured: true,
       reason: null,
@@ -1972,6 +1972,10 @@ router.get("/nest/social", async (req: Request, res: Response): Promise<void> =>
       // production read put all 26 in "social-other", which is a classifier
       // that has never seen a real subject line, not an inbox with no DMs.
       samples,
+      // Social-sender mail NOT counted: digests, marketing, login codes.
+      // Reported so a chip reading zero can be told apart from a mailbox
+      // that received nothing.
+      ignored,
       total: alerts.reduce((n, a) => n + a.unseen, 0),
       generatedAt: new Date().toISOString(),
     });

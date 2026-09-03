@@ -266,7 +266,7 @@ export type SocialKind = "instagram-dm" | "instagram-comment" | "tiktok-comment"
 /** One unseen envelope, for tuning the classifier against reality rather than
  *  against a guess about Meta's subject lines. Sender DOMAIN only, never the
  *  address, and the subject: that is what the buckets are keyed on. */
-export type SocialSample = { domain: string; subject: string; date: string; kind: SocialKind };
+export type SocialSample = { domain: string; subject: string; date: string; kind: SocialKind | "ignored" };
 
 /** How many samples ride along. Enough to see the shape, not a mail client. */
 const SOCIAL_SAMPLE_MAX = 12;
@@ -295,23 +295,41 @@ const SOCIAL_KINDS: { kind: SocialKind; label: string; href: string }[] = [
  *  notification is not an alert, it is a mailbox nobody tidied. */
 const SOCIAL_WINDOW_DAYS = 30;
 
+/**
+ * THE FIRST PRODUCTION READ REWROTE THIS FUNCTION. Twenty-six unseen mails
+ * matched the social senders and the newest twelve were: Instagram feed
+ * digests ("See what kruti818 and 8 others shared"), TikTok marketing ("claim
+ * your coupon before it expires!") and two login codes. Not one comment, not
+ * one DM. The chip on the Nest flashed "New 26" for coupons.
+ *
+ * So this is an ALLOWLIST now. A subject has to be shaped like engagement to
+ * count at all; anything else returns null and is ignored, not bucketed. A
+ * miss shows as a zero, which the page already warns the owner to distrust.
+ * A false positive flashes forever, which trains the owner to ignore the chip.
+ *
+ * The honest limit, learned the same way: Instagram only emails about
+ * comments and DMs when "Feedback emails" is on in its notification settings,
+ * and it batches and suppresses even those while the owner is active in the
+ * app. TikTok sends almost no per-event email. This counter is therefore a
+ * lagging signal for Instagram and close to no signal for TikTok, and the
+ * reliable version of this feature is the platform APIs, not this mailbox.
+ */
+const ENGAGE_DM = /\b(sent you a message|new message|messaged you|message request|sent you a (photo|video|reel))\b/i;
+const ENGAGE_COMMENT = /\b(commented on|left a comment|replied to your|reply to your|mentioned you|tagged you|new comment)\b/i;
+
 function classify(from: string, subject: string): SocialKind | null {
   const f = from.toLowerCase();
-  const s = subject.toLowerCase();
-  const instagram = f.includes("instagram.com");
-  const tiktok = f.includes("tiktok.com");
-  const meta = f.includes("facebookmail.com") || f.includes("facebook.com");
+  const instagram = f.endsWith("instagram.com") || f.includes(".instagram.com");
+  const tiktok = f.endsWith("tiktok.com") || f.includes(".tiktok.com");
+  const meta = f.includes("facebookmail.com") || f.endsWith("facebook.com");
   if (!instagram && !tiktok && !meta) return null;
-  // A DM first: "sent you a message", "new message from", "messaged you".
-  if (/\bmessage|messaged|\bdm\b|inbox/.test(s)) {
-    return instagram ? "instagram-dm" : "social-other";
-  }
-  if (/comment|replied|reply|mentioned|tagged you/.test(s)) {
+  if (ENGAGE_DM.test(subject)) return instagram ? "instagram-dm" : "social-other";
+  if (ENGAGE_COMMENT.test(subject)) {
     if (instagram) return "instagram-comment";
     if (tiktok) return "tiktok-comment";
     return "social-other";
   }
-  return "social-other";
+  return null;
 }
 
 /**
@@ -322,37 +340,46 @@ function classify(from: string, subject: string): SocialKind | null {
  * commented), and a row that vanishes at zero is indistinguishable from a
  * broken watcher. This page has been bitten by exactly that shape before.
  */
-export async function countSocial(): Promise<{ alerts: SocialAlert[]; samples: SocialSample[] }> {
+export async function countSocial(): Promise<{ alerts: SocialAlert[]; samples: SocialSample[]; ignored: number }> {
   const since = new Date(Date.now() - SOCIAL_WINDOW_DAYS * 86400000);
   const tally = new Map<SocialKind, { n: number; newest: number | null }>();
   for (const k of SOCIAL_KINDS) tally.set(k.kind, { n: 0, newest: null });
-  const samples: SocialSample[] = [];
+  const seen: SocialSample[] = [];
+  let ignored = 0;
 
   await withMailbox(async (client) => {
     const uids = (await client.search({ seen: false, since }, { uid: true })) || [];
     if (!uids.length) return;
     for await (const msg of client.fetch(uids, { uid: true, envelope: true }, { uid: true })) {
       const who = addressOf(msg.envelope);
-      const kind = classify(who.address, msg.envelope?.subject ?? "");
-      if (!kind) continue;
+      const subject = msg.envelope?.subject ?? "";
+      const domain = who.address.split("@").pop() ?? "";
+      const t = (msg.envelope?.date ?? new Date()).getTime();
+      const kind = classify(who.address, subject);
+      // Every social-sender envelope is sampled, ignored ones included, so the
+      // owner can see what was dropped and why. Non-social senders are not
+      // social mail at all and are not sampled.
+      const social = /instagram\.com$|tiktok\.com$|facebookmail\.com$|facebook\.com$/i.test(domain);
+      if (!kind) {
+        if (social) {
+          ignored += 1;
+          seen.push({ domain, subject, date: new Date(t).toISOString(), kind: "ignored" });
+        }
+        continue;
+      }
       const slot = tally.get(kind);
       if (!slot) continue;
       slot.n += 1;
-      const t = (msg.envelope?.date ?? new Date()).getTime();
       if (slot.newest === null || t > slot.newest) slot.newest = t;
-      if (samples.length < SOCIAL_SAMPLE_MAX) {
-        samples.push({
-          domain: who.address.split("@").pop() ?? "",
-          subject: msg.envelope?.subject ?? "",
-          date: new Date(t).toISOString(),
-          kind,
-        });
-      }
+      seen.push({ domain, subject, date: new Date(t).toISOString(), kind });
     }
   });
 
-  // Newest first, so the twelve you see are the twelve most recent.
-  samples.sort((a, b) => (a.date < b.date ? 1 : -1));
+  // SORT, THEN CAP. The first version capped at twelve in fetch order, which
+  // is oldest first, and then sorted those: it showed the twelve OLDEST while
+  // the comment claimed newest.
+  seen.sort((a, b) => (a.date < b.date ? 1 : -1));
+  const samples = seen.slice(0, SOCIAL_SAMPLE_MAX);
   const alerts = SOCIAL_KINDS.map((k) => {
     const slot = tally.get(k.kind);
     return {
@@ -363,5 +390,5 @@ export async function countSocial(): Promise<{ alerts: SocialAlert[]; samples: S
       newest: slot?.newest ? new Date(slot.newest).toISOString() : null,
     };
   });
-  return { alerts, samples };
+  return { alerts, samples, ignored };
 }
