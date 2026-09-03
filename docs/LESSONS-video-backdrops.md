@@ -88,25 +88,43 @@ or put edges off-screen instead.
 
 ---
 
-## 4. Play on IDLE, never on scroll
+## 4. Play on IDLE, never on scroll: WRONG, and the fork proved it
 
-Mount on `onScrollEndDrag` and `onMomentumScrollEnd`; unmount on
-`onScrollBeginDrag`. Both end handlers are needed: a flick ends in momentum, a
-slow drag ends without any.
+**This section used to say the opposite, and the Southeast Asia build did the
+opposite of it and came out better.** Kept as a correction rather than
+deleted, because the reasoning that produced the wrong rule is the useful
+part.
 
-**Why this matters more than it looks.** The equivalent machinery existed on this
-screen before and was deleted in build 26 because it did a `runOnJS` hop **per
-frame** to feed a state nobody read. The idle version fires **twice per gesture**.
+The rule came from a real incident: six per-tile decoders behind a scrolling
+map had `lmkd` killing the screen on Android before build 26. The mistake was
+generalising "six decoders on scroll is fatal" into "no decoder on scroll".
+**One fixed, full-screen decoder, two for the 900ms of a zone crossing, is a
+different regime entirely**, and a film that plays continuously is what makes
+the backdrop feel alive rather than stop-start.
 
-`useVideoPlayer(active ? source : null)` is the whole lifecycle: a false `active`
-hands it a null source and **no decoder exists at all**. Six decoders behind a
-scrolling map is exactly the load that had `lmkd` killing this screen on Android
-before build 26.
+What the fork does, and what the second pass here now does too:
 
-Gate the fade on `onFirstFrameRender` or you cross-fade to a black frame.
+- **The layer is a fixed sibling of the ScrollView, never inside it.** Nothing
+  to park, nothing to counter-scroll, and the whole class of "background is
+  moving with the cards" bugs goes with the position.
+- **Two stacked players whose roles swap; neither is the base.** A single
+  player with a swapped source can only cut. A fixed base slot that adopts the
+  new zone when the fade ends, keyed on the zone, REMOUNTS the player at full
+  opacity and restarts it from frame 0: every crossing then ends in the flash
+  the dissolve exists to avoid.
+- **Only the incoming film animates.** The outgoing one holds at full and drops
+  to zero afterwards, once covered. Cross-dissolving both lets a quarter of the
+  ground tone through at the midpoint and the picture visibly desaturates.
+- **Zone is derived in the scroll worklet, crossing to JS only on a change.**
+  That is at most five hops in a whole journey. It is not the per-frame hop
+  that was deleted in build 26; it is the same shape with a comparison in
+  front of it.
+- **Failure is a colour.** Each slot paints its zone's measured ground tone
+  under the film. A clip that will not decode shows brown, not a hole.
 
-Animate the fade with `useNativeDriver: false`. In this app that is not a
-preference, it is the only thing that ticks in release builds.
+`useNativeDriver: false` still holds. Gating the first fade on
+`onFirstFrameRender` is no longer needed, because the tone underneath makes a
+slow first frame a dissolve rather than a flash.
 
 ---
 

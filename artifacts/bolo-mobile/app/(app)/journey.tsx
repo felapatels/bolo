@@ -33,7 +33,7 @@ import { useIsWideScreen } from '@/lib/contentWidth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StopDots } from '@/components/journey/StopDots';
-import { ZoneFilm, FILM_OVERSCAN } from '@/components/journey/ZoneFilm';
+import { ZoneFilmLayer } from '@/components/journey/ZoneFilmLayer';
 // Aliased: react-native-svg exports a LinearGradient too, and the tag
 // backs use that one.
 import { LinearGradient as FadeGradient } from 'expo-linear-gradient';
@@ -153,6 +153,7 @@ import {
   zoneFootTone,
   wideBackdrop,
   ZONE_FILM_STILL,
+  ZONE_FILM_COUNT,
   WIDE_BACKDROP_ASPECT_H,
 } from '@/lib/zoneBackdrops';
 import {
@@ -520,7 +521,6 @@ function RailPulseDots({
  */
 function ZoneBandFixed({
   zi,
-  filmTop,
   start,
   end,
   layerTop,
@@ -534,8 +534,6 @@ function ZoneBandFixed({
   wide = false,
 }: {
   zi: number;
-  /** Where the one full-screen film sits in THIS band, in band pixels. */
-  filmTop: number | null;
   /** An iPad: one wide bazaar for every zone instead of the six paintings. */
   wide?: boolean;
   start: number;
@@ -579,6 +577,12 @@ function ZoneBandFixed({
   // onLayout probe in chat 12 put the canvas-to-content mapping at delta 0 on
   // all six zones. It was never a layout overlap. It was a paint layer.
   const reachUp = zi === 0 ? extraTop : 0;
+  // ON A PHONE THE BAND PAINTS NOTHING (build 29, second pass). The living
+  // backdrop is a fixed layer behind the ScrollView and carries its own tone
+  // and scrim, so an opaque band here would simply cover it. The tiles, the
+  // foot-tone fill, the scrim and the zone fades all stay for the iPad, whose
+  // wide paintings still live in the bands.
+  if (!wide && mode === 'block') return null;
   // No pin any more: nothing here reads scrollY. The props stay so the
   // callers and the cap-mode signature are untouched.
   void scrollY;
@@ -610,33 +614,6 @@ function ZoneBandFixed({
           />
         ),
       )}
-      {/* THE LIVING BACKDROP, one film covering everything on screen rather than
-          one per tile. Two players would sit at different frames of the same
-          clip and put a person mid-stride on one side of a tile boundary; a
-          gradient softens a colour step and cannot fix a motion mismatch. With
-          one film there is no film-to-film seam at all, and its own edges are
-          drawn FILM_OVERSCAN beyond the viewport so they fall off-screen, which
-          is cheaper than masking a video and needs no native dependency.
-          Under the scrim on purpose, so a film is dimmed exactly as the
-          painting it replaces. */}
-      {/* ONE FULL-SCREEN FILM, CENTRED ON THE VIEWPORT. The owner's final
-          shape: "only one full screen card playing to be centered on the screen
-          at any time... then when i scroll to the next zone, it will nicely
-          fade into the next one".
-          This replaces a film per visible tile. Tiles were the wrong unit: a
-          phone shows about 1.4 of them, so there was always a boundary
-          somewhere, and two players on the same clip sit at different frames so
-          no fade could hide it. At viewport size there is no boundary on screen
-          at all, and only ONE decoder exists.
-          Sized to the viewport exactly, not larger. A 9:16 clip in a 0.46 screen
-          box crops 1.22x, which is fine; the same clip in a box padded with
-          overscan crops 1.7x and the film ends up framed visibly closer than
-          the still it fades from. */}
-      {filmTop !== null && !wide ? (
-        <View style={{ position: 'absolute', left: 0, top: filmTop, width: windowW }}>
-          <ZoneFilm zoneIndex={zi} width={windowW} height={windowH} active />
-        </View>
-      ) : null}
       <View
         style={[
           StyleSheet.absoluteFill,
@@ -1366,8 +1343,30 @@ export default function JourneyScreen() {
   // zone boards) reads `scrollY` in its own worklet. There used to be a
   // `runOnJS` hop here as well, per frame, feeding an activeZone state with no
   // readers; see where the zoneTops memo used to live.
+  // WHICH FILM IS ON SCREEN (build 29, second pass). The one piece of state
+  // the living backdrop needs, and the reason a runOnJS hop is back in this
+  // handler after being removed in build 26 for having no readers. IT IS NOT
+  // THE OLD PER-FRAME HOP: the worklet compares against `filmZoneSV` and only
+  // crosses to JS when the answer CHANGES, which is at most five times in a
+  // whole journey. The loop is inlined rather than calling filmZoneFor because
+  // a worklet cannot call a plain JS function; the pins in zone-films.test.ts
+  // hold filmZoneFor to the same rule.
+  const [filmZone, setFilmZone] = useState(0);
+  const filmZoneSV = useSharedValue(0);
+  const filmZoneTops = useSharedValue<number[]>([0]);
   const onMapScroll = useAnimatedScrollHandler((e) => {
     scrollY.value = e.contentOffset.y;
+    const tops = filmZoneTops.value;
+    let next = 0;
+    for (let i = 0; i < tops.length; i++) {
+      if (e.contentOffset.y >= tops[i]!) next = i;
+      else break;
+    }
+    if (next > ZONE_FILM_COUNT - 1) next = ZONE_FILM_COUNT - 1;
+    if (next !== filmZoneSV.value) {
+      filmZoneSV.value = next;
+      runOnJS(setFilmZone)(next);
+    }
   });
 
 
@@ -2185,53 +2184,12 @@ export default function JourneyScreen() {
     const end = i + 1 < postcardYs.length ? postcardYs[i + 1]!.y : totalH;
     return { start, end };
   });
+  // THE FILM LAYER'S ONLY INPUT. Content coordinates, matching what the scroll
+  // handler compares against: a zone's film comes up when its board reaches
+  // the top of the screen, which is where the zone begins. Derived from
+  // `slices` so the film can never disagree with the boards about a zone start.
+  filmZoneTops.value = slices.map((sl) => SCROLL_CONTENT_TOP + sl.start - TOP_PAD);
 
-  /**
-   * WHICH ZONE, AND WHICH TILE OF IT, IS BEING LOOKED AT WHILE THE MAP IS STILL.
-   *
-   * The owner, build 29: "film starts playing if a learner lands on a zone...
-   * once they stop scrolling, that video will play". So this is an IDLE signal,
-   * not a scroll signal.
-   *
-   * THAT DISTINCTION IS THE WHOLE REASON THIS IS SAFE. A zone-owns-the-top
-   * chain lived here before and was deleted in build 26 because it did a
-   * runOnJS hop PER FRAME to feed a state nobody read. This fires twice per
-   * gesture: null when a drag begins, and one answer when the map comes to
-   * rest. Nothing runs while the finger is moving.
-   *
-   * The tile is computed as well as the zone, so the film can be parked where
-   * the learner actually stopped rather than always at the top of the band. On
-   * a phone only about 1.2 tiles fit on screen, so the one under the viewport
-   * centre is the one being looked at.
-   */
-  const [activeFilm, setActiveFilm] = useState<{ zone: number; top: number } | null>(null);
-  const settleFilm = useCallback(
-    (offsetY: number) => {
-      // Where the viewport sits in content space, and which zone owns its middle.
-      const viewTop = offsetY - SCROLL_CONTENT_TOP;
-      const eye = viewTop + windowH / 2;
-      const zi = slices.findIndex((sl) => eye >= sl.start && eye < sl.end);
-      if (zi < 0) {
-        setActiveFilm(null);
-        return;
-      }
-      // THE FILM SITS ON A TILE BOUNDARY, NOT OVER THE VIEWPORT, and that is a
-      // correction. Sized to the viewport, `contentFit: cover` crops a 9:16 clip
-      // into a much taller box and zooms it about 1.7x, so the film was framed
-      // far closer than the stills and the cross-fade jumped between two zoom
-      // levels instead of being invisible. On a tile's own box the framing is
-      // identical to the still underneath, which is the whole point.
-      // The film is parked over exactly what is on screen, so it needs no tile
-      // grid at all: one box, viewport sized, at the viewport's own offset
-      // expressed in band pixels. Nothing else on screen is a still while it
-      // plays, so there is no boundary to hide.
-      const top = Math.round(viewTop - slices[zi]!.start);
-      setActiveFilm((prev) =>
-        prev && prev.zone === zi && Math.abs(prev.top - top) < 2 ? prev : { zone: zi, top },
-      );
-    },
-    [slices, windowH],
-  );
 
   // THE ZONE-OWNS-THE-TOP CHAIN LIVED HERE AND IS GONE (build 26). A
   // `zoneTops` memo fed an `onMapScrollJs` callback that compared the scroll
@@ -2806,6 +2764,12 @@ export default function JourneyScreen() {
             boarding pass to show on top. just a back arrow that floats." */}
       </View>
 
+      {/* THE LIVING BACKDROP, fixed behind everything and never scrolling. A
+          sibling BEFORE the ScrollView so it paints under it, and it takes no
+          touches. Phones only: the iPad keeps its wide paintings in the bands.
+          See components/journey/ZoneFilmLayer.tsx for why two players. */}
+      {!wide ? <ZoneFilmLayer zone={filmZone} reduceMotion={reduceMotion} /> : null}
+
       <Animated.ScrollView
         ref={scrollRef}
         contentContainerStyle={[
@@ -2816,10 +2780,6 @@ export default function JourneyScreen() {
         ]}
         showsVerticalScrollIndicator={false}
         onScroll={onMapScroll}
-        // A film plays only while the map is at rest. Both handlers are needed:
-        // a flick ends in momentum, a slow drag ends without any.
-        onScrollEndDrag={(e) => settleFilm(e.nativeEvent.contentOffset.y)}
-        onMomentumScrollEnd={(e) => settleFilm(e.nativeEvent.contentOffset.y)}
         // A TOUCH LANDS YOU ON YOUR CARD, it does not cancel. Cancelling is
         // what this used to do, and it left a learner who reached for the
         // screen stranded halfway down a map at a position nobody chose.
@@ -2832,8 +2792,6 @@ export default function JourneyScreen() {
         onScrollBeginDrag={() => {
           userScrolledRef.current = true;
           landIntro();
-          // A film never plays while the map is moving.
-          setActiveFilm(null);
         }}
         scrollEventThrottle={16}
       >
@@ -2948,7 +2906,6 @@ export default function JourneyScreen() {
             >
             <ZoneBandFixed
               zi={zi}
-              filmTop={activeFilm && activeFilm.zone === zi ? activeFilm.top : null}
               start={start}
               end={end}
               layerTop={layerTop}

@@ -444,3 +444,56 @@ export const WIDE_BACKDROP_COUNT = WIDE_BACKDROPS.length;
  * of them. Nothing else changes.
  */
 export const WIDE_BACKDROP_ASPECT_H = 9 / 16;
+
+/**
+ * THE LIVING BACKDROP'S OWN NUMBERS (build 29, second pass).
+ *
+ * The owner, on the Southeast Asia fork: "the video splash on the new BOLO
+ * Southeast Asia is much better than ours." It was, for one reason: their film
+ * never stops. Ours unmounted on every scroll gesture and faded back in from a
+ * still when the map settled. So this is the port of their design, and the
+ * three values it needs live HERE beside the paintings they replace, not in a
+ * second file, because ZONE_FILM and ZONE_FILM_STILL were already here.
+ *
+ * THE GROUND TONES ARE MEASURED, not chosen: the mean colour of each film's
+ * own first frame. A film that will not decode shows its tone and the map is
+ * legible on it. Six distinct values on purpose; six identical would mean
+ * somebody pasted one.
+ */
+export const ZONE_FILM_TONES: readonly string[] = [
+  '#B89383',
+  '#C4A18B',
+  '#A38C75',
+  '#8A6E5D',
+  '#B59175',
+  '#9A7B70',
+];
+
+/** The ground under a zone's film, falling back to the splash ground. */
+export function zoneFilmTone(zoneIndex: number): string {
+  return ZONE_FILM_TONES[zoneIndex] ?? '#89695B';
+}
+
+/**
+ * How long the incoming film takes to come up over the outgoing one. Under
+ * ~250ms it reads as a cut; over ~1.5s a fast scroller watches two films at
+ * half strength for most of a zone. 900 is the fork's measured middle.
+ */
+export const ZONE_FILM_CROSSFADE_MS = 900;
+
+/**
+ * WHICH FILM IS ON SCREEN. The rule, and it is the part with a right answer:
+ * a zone's film comes up when its board reaches the top of the screen, which
+ * is where the zone begins. `tops` are content-space y values, one per zone,
+ * ascending. Overscroll above the first is zone 0; past the last stays on the
+ * last; and the answer is clamped to a zone that HAS a film, so a twelve-zone
+ * journey 2 can never ask for film seven and get nothing.
+ */
+export function filmZoneFor(scrollY: number, tops: readonly number[]): number {
+  let zone = 0;
+  for (let i = 0; i < tops.length; i++) {
+    if (scrollY >= tops[i]!) zone = i;
+    else break;
+  }
+  return Math.min(zone, Math.max(0, ZONE_FILM_COUNT - 1));
+}
