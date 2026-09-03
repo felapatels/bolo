@@ -45,7 +45,13 @@ jest.mock('expo-router', () => {
   };
   return {
     useRouter: () => router,
-    useFocusEffect: (cb: () => void) => { cb(); },
+    // The real hook runs the callback in an effect after commit, never during
+    // render. Calling it inline is a render phase update and React throws
+    // "Too many re-renders" once a focused screen sets state on focus.
+    useFocusEffect: (cb: () => void) => {
+      const { useEffect } = require('react');
+      useEffect(() => cb(), [cb]);
+    },
     __router: router,
   };
 });

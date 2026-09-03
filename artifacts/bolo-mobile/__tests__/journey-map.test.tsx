@@ -1142,30 +1142,30 @@ describe('the zone band never reaches up into the zone above it', () => {
       [],
     ]);
 
-  it("lets only the FIRST zone's art run up behind the floating header", () => {
+  // BUILD 29, SECOND PASS: THE BAND PAINTS NOTHING. The living backdrop is a
+  // fixed layer behind the ScrollView carrying its own tone and scrim, so
+  // ZoneBandFixed returns null in 'block' mode and no journey-backdrop is ever
+  // mounted. Measured 2026-09-03: this is true at every width, and it was
+  // already true BEFORE the iPad trial changed the guard. The two assertions
+  // this replaces had been dead since the phone stopped painting bands, and
+  // they failed identically with the old guard restored.
+  //
+  // The reach-up regression is unreachable now rather than fixed. The tile
+  // machinery and the reach-up maths stay in journey.tsx as the fallback the
+  // iPad trial can return to, so IF THE BAND EVER PAINTS AGAIN, restore:
+  //
+  //   expect(bandTop(0)).toBe(LAYER_TOP - MOCKED_TOP_INSET);  // zone 0 reaches up
+  //   expect(bandTop(1)).toBe(LAYER_TOP);                     // zone 1 must not
+  //   expect(bandTop(2)).toBe(LAYER_TOP);                     // nor zone 2
+  //
+  // What those guarded: an opaque band reaching up into the zone above paints
+  // over the previous zone's LAST stop card. Reported as "I can't see stop 11".
+  it('paints no zone band, so nothing can land on the stop row above', () => {
     sixZones();
     render(<JourneyScreen />);
-
-    // Zone 0 has nothing above it. Its reach-up is what stops page colour
-    // showing behind the header and through the scroll content's paddingTop.
-    // Build 17, twice. First the pin clearance was added to the reach, then
-    // taken off again: the spacer sits at SCROLL_CONTENT_TOP plus the
-    // clearance, which is exactly the inset, so the inset alone puts the
-    // first tile's top row at the top of the screen ("first image should
-    // start at the top"). Any more and the tile starts above it.
-    expect(bandTop(0)).toBe(LAYER_TOP - MOCKED_TOP_INSET);
-  });
-
-  it('keeps every later zone off the stop row above it', () => {
-    sixZones();
-    render(<JourneyScreen />);
-
-    // THE REGRESSION. Any reach-up here is opaque paint landing on the
-    // previous zone's LAST stop card. Verified on the simulator 2026-08-27:
-    // with this at LAYER_TOP, "Stop 11 of 11" is back on screen and the board
-    // floats on continuous art instead of sitting on a hard-edged box.
-    expect(bandTop(1)).toBe(LAYER_TOP);
-    expect(bandTop(2)).toBe(LAYER_TOP);
+    for (const zi of [0, 1, 2]) {
+      expect(screen.queryByTestId(`journey-backdrop-${zi}`)).toBeNull();
+    }
   });
 
   it('reserves the pin clearance in the flow, where the board actually rests (build 17)', () => {
