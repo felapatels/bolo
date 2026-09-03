@@ -223,3 +223,125 @@ export async function replySupport(uid: number, text: string): Promise<ReplyResu
 
   return { to: original.from, subject };
 }
+
+// ---------------------------------------------------------------------------
+// SOCIAL ALERTS. The owner, build 29: "I'm missing tiktok comments and
+// instagram comments and DMs... i need a flashing alert, don't need to reply
+// from there. i just need a link to go look."
+//
+// WHY THIS IS MAIL AND NOT AN API, because that decision is the whole design.
+// The obvious build is the platform APIs, and for two of the three asks it
+// cannot be built at all today:
+//
+//   Instagram comments   possible: Graph API, instagram_manage_comments,
+//                        a Meta app, a linked professional account, App Review.
+//   Instagram DMs        possible: Instagram Messaging API, App Review again.
+//   TikTok comment text  gated behind business scopes that are not generally
+//                        granted, and the public Display API returns COUNTS
+//                        only, never a comment's words.
+//   TikTok DMs           NO PUBLIC API EXISTS. Not gated, absent.
+//
+// So the API route is weeks of registration and review for partial coverage.
+// But the ask is not "read my comments", it is "flash, and give me a link".
+// A notification email is already exactly that signal, every platform sends
+// one, and THIS PROCESS ALREADY HOLDS A MAILBOX CREDENTIAL AND AN IMAP
+// CONNECTION. Nothing new is registered, nothing is reviewed, and TikTok DMs
+// are covered by the only mechanism that can cover them.
+//
+// IT COUNTS, IT DOES NOT READ. No body is fetched and no snippet is stored:
+// an envelope carries the sender, the subject and the date, which is all a
+// count and a deep link need. The words of a stranger's DM never enter this
+// server, which is a smaller blast radius than the support inbox already has.
+//
+// THE SUBJECT IS THE ONLY THING SEPARATING A DM FROM A COMMENT, because both
+// arrive from the same Instagram sender. That is a heuristic on somebody
+// else's copy and it will drift; when it does, the count lands in "Social"
+// rather than in the wrong bucket, and nothing breaks. It is deliberately not
+// clever: a wrong bucket on a notification is a rounding error, and the link
+// goes to the platform either way.
+// ---------------------------------------------------------------------------
+
+export type SocialKind = "instagram-dm" | "instagram-comment" | "tiktok-comment" | "social-other";
+
+export type SocialAlert = {
+  kind: SocialKind;
+  label: string;
+  /** Unseen notification emails of this kind. The number that flashes. */
+  unseen: number;
+  /** ISO date of the newest, or null. Lets the page say "12 minutes ago". */
+  newest: string | null;
+  /** Where to go and look. The platform, never this page. */
+  href: string;
+};
+
+/** Deep links, in the order the Nest shows them. Ordered by how fast the owner
+ *  would want to answer: a DM is a person waiting, a comment is not. */
+const SOCIAL_KINDS: { kind: SocialKind; label: string; href: string }[] = [
+  { kind: "instagram-dm", label: "Instagram DMs", href: "https://www.instagram.com/direct/inbox/" },
+  { kind: "instagram-comment", label: "Instagram comments", href: "https://www.instagram.com/notifications/" },
+  { kind: "tiktok-comment", label: "TikTok comments", href: "https://www.tiktok.com/notifications" },
+  { kind: "social-other", label: "Other social", href: "https://business.facebook.com/latest/inbox/" },
+];
+
+/** How far back an unseen notification still counts. A month-old unread
+ *  notification is not an alert, it is a mailbox nobody tidied. */
+const SOCIAL_WINDOW_DAYS = 30;
+
+function classify(from: string, subject: string): SocialKind | null {
+  const f = from.toLowerCase();
+  const s = subject.toLowerCase();
+  const instagram = f.includes("instagram.com");
+  const tiktok = f.includes("tiktok.com");
+  const meta = f.includes("facebookmail.com") || f.includes("facebook.com");
+  if (!instagram && !tiktok && !meta) return null;
+  // A DM first: "sent you a message", "new message from", "messaged you".
+  if (/\bmessage|messaged|\bdm\b|inbox/.test(s)) {
+    return instagram ? "instagram-dm" : "social-other";
+  }
+  if (/comment|replied|reply|mentioned|tagged you/.test(s)) {
+    if (instagram) return "instagram-comment";
+    if (tiktok) return "tiktok-comment";
+    return "social-other";
+  }
+  return "social-other";
+}
+
+/**
+ * Unseen social notifications, bucketed. Envelopes only.
+ *
+ * Returns every bucket including the empty ones, on purpose: a row reading
+ * "TikTok comments 0" is information (the pipe is working and nobody
+ * commented), and a row that vanishes at zero is indistinguishable from a
+ * broken watcher. This page has been bitten by exactly that shape before.
+ */
+export async function countSocial(): Promise<SocialAlert[]> {
+  const since = new Date(Date.now() - SOCIAL_WINDOW_DAYS * 86400000);
+  const tally = new Map<SocialKind, { n: number; newest: number | null }>();
+  for (const k of SOCIAL_KINDS) tally.set(k.kind, { n: 0, newest: null });
+
+  await withMailbox(async (client) => {
+    const uids = (await client.search({ seen: false, since }, { uid: true })) || [];
+    if (!uids.length) return;
+    for await (const msg of client.fetch(uids, { uid: true, envelope: true }, { uid: true })) {
+      const who = addressOf(msg.envelope);
+      const kind = classify(who.address, msg.envelope?.subject ?? "");
+      if (!kind) continue;
+      const slot = tally.get(kind);
+      if (!slot) continue;
+      slot.n += 1;
+      const t = (msg.envelope?.date ?? new Date()).getTime();
+      if (slot.newest === null || t > slot.newest) slot.newest = t;
+    }
+  });
+
+  return SOCIAL_KINDS.map((k) => {
+    const slot = tally.get(k.kind);
+    return {
+      kind: k.kind,
+      label: k.label,
+      href: k.href,
+      unseen: slot?.n ?? 0,
+      newest: slot?.newest ? new Date(slot.newest).toISOString() : null,
+    };
+  });
+}

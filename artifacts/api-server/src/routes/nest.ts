@@ -37,6 +37,7 @@ import {
   listSupport,
   readSupport,
   replySupport,
+  countSocial,
   REPLY_MAX,
 } from "../lib/supportMail";
 import { sql } from "drizzle-orm";
@@ -1932,6 +1933,49 @@ router.post("/nest/mail/reply", async (req: Request, res: Response): Promise<voi
  * Everything here is a read. There is still no write path in the Nest, and the
  * first one needs auth and an audit trail designed rather than a button.
  */
+/**
+ * SOCIAL ALERTS. Counts only, and a link out.
+ *
+ * The owner, build 29: "i need a flashing alert, don't need to reply from
+ * there. i just need a link to go look." That sentence is what made this
+ * buildable at all. Reading Instagram comments needs a Meta app and App
+ * Review; reading TikTok comments needs business scopes that are not generally
+ * granted; reading TikTok DMs is impossible, there is no API. COUNTING an
+ * unseen notification email needs none of that, and the mailbox credential is
+ * already in this process. See lib/supportMail's SOCIAL ALERTS note.
+ *
+ * `configured:false` is an answer, not an error, and it says which half is
+ * missing. An empty list would be a lie in the one case that matters: nothing
+ * arriving because the notifications are pointed at another mailbox looks
+ * exactly like nobody commenting.
+ */
+router.get("/nest/social", async (req: Request, res: Response): Promise<void> => {
+  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  if (!supportConfigured()) {
+    res.json({
+      configured: false,
+      reason:
+        "LARKSUPPORT_USER and LARKSUPPORT_APP_PASSWORD are not set in this environment, " +
+        "so there is no mailbox to watch. This is not silence from Instagram, it is an unasked question.",
+      alerts: [],
+    });
+    return;
+  }
+  try {
+    const alerts = await countSocial();
+    res.json({
+      configured: true,
+      reason: null,
+      alerts,
+      total: alerts.reduce((n, a) => n + a.unseen, 0),
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    req.log.error({ err }, "nest social alert count failed");
+    res.status(502).json({ error: "Could not read the social notifications" });
+  }
+});
+
 router.get("/nest/wardrobe", (req: Request, res: Response): void => {
   if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
   const items = OUTFIT_CATALOG.map((entry) => ({
@@ -2022,6 +2066,7 @@ const EXPECTED_ROUTES = [
   "/nest/mail",
   "/nest/mail/message",
   "/nest/mail/reply",
+  "/nest/social",
   "/nest/growth",
   "/nest/wardrobe",
   "/nest/page",

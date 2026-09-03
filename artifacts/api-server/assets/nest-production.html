@@ -376,6 +376,31 @@ a.linkbtn{text-decoration:none;display:inline-block}
   .milestone.on{animation:none;background:var(--accent);color:var(--surface)}
 }
 
+/* SOCIAL ALERT. Deliberately NOT the siren: the siren means production is
+   down, and a comment is not an outage. Sharing it would train the owner to
+   look away from the one bar that must never be ignored, which is the same
+   mistake this page already made once with stale alerts.
+
+   STATE IS NEVER CARRIED BY COLOUR ALONE. The owner is partially colour
+   blind, so every state here is a WORD ("New" / "Nothing new"), a GLYPH that
+   changes shape (filled disc against hollow ring) and a COUNT. The pulse is
+   the fourth signal, and the global prefers-reduced-motion rule already
+   switches it off without needing anything here. */
+.social{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;
+  margin:16px 0 0;padding:11px 14px;border-radius:10px;
+  border:1px solid var(--line);background:var(--card);font-size:13.5px}
+.social.new{border-color:var(--accent);border-width:2px;padding:10px 13px;
+  animation:socialflash 1.5s infinite}
+.social .glyph{font-size:15px;line-height:1}
+.social .word{font-weight:800;letter-spacing:-.01em}
+.social .n{font-family:"IBM Plex Mono",monospace;font-weight:700}
+.social .why{color:var(--muted);flex:1 1 240px;min-width:0}
+.social a{font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.social .go{display:inline-flex;gap:5px;align-items:center}
+@keyframes socialflash{
+  0%,100%{box-shadow:0 0 0 0 var(--accent-soft,rgba(20,120,90,.35))}
+  50%{box-shadow:0 0 0 5px transparent}
+}
 @keyframes siren{
   0%,49.9%{background:var(--crit-soft);color:var(--crit)}
   50%,100%{background:var(--crit);color:#fff}
@@ -879,6 +904,13 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   <p class="dsub" style="margin-top:20px">Learner surfaces</p>
   <p class="barnote" style="margin:-4px 0 9px">Real GETs to the endpoints the app calls, run from this page on every read. A 200 here is worth more than healthz, which was green throughout the last outage.</p>
   <div id="surface-probes"></div>
+
+  <!-- SOCIAL. Inside Alerts on purpose rather than as its own section: it is
+       one more thing that is watching, and a new <section> would need a
+       data-page and a chip (see routes/nest.page.test.ts). -->
+  <p class="dsub" style="margin-top:20px">Social</p>
+  <p class="barnote" style="margin:-4px 0 9px">Unseen notification mail from Instagram, TikTok and Meta, counted by envelope. No comment or message is read, and nothing is answered from here: the link goes to the platform. <b>If every row reads zero for days, suspect the pipe before you believe it:</b> this counts mail arriving at LARKSUPPORT_USER, so the platforms' notification emails have to be forwarded there and their in-app notification settings have to be on. A silent count and a quiet audience look identical from here, which is the one failure this section cannot detect for you.</p>
+  <div id="social-alerts"></div>
 
 <div id="alertlist"></div>
 
@@ -3362,11 +3394,72 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
       new Date(r.generatedAt).toLocaleTimeString() + ".";
   }
 
+  /* ---------------- social alerts ---------------- */
+  /* The owner, build 29: "i need a flashing alert, don't need to reply from
+     there. i just need a link to go look." Counts and a deep link, nothing
+     more, which is exactly why this could be built at all: reading Instagram
+     comments needs App Review, reading TikTok comments needs business scopes
+     that are not generally granted, and TikTok has no DM API whatsoever.
+     Counting an unseen notification email needs none of them. */
+  var SOCIAL_URL = "/api/nest/social";
+  state.social = null; state.socialErr = null;
+
+  function loadSocial(){
+    return fetch(SOCIAL_URL, {credentials:"same-origin", cache:"no-store"})
+      .then(function(res){
+        if (!res.ok) throw new Error("The social endpoint answered " + res.status + ".");
+        return res.json();
+      })
+      .then(function(d){ state.social = d; state.socialErr = null; },
+            function(err){ state.social = null; state.socialErr = String(err && err.message || err); });
+  }
+
+  function renderSocial(){
+    var host = $("social-alerts"); if (!host) return;
+
+    if (state.socialErr) {
+      host.innerHTML = '<div class="social"><span class="glyph">!</span>' +
+        '<span class="word">Not counted</span>' +
+        '<span class="why">' + esc(state.socialErr) + '</span></div>';
+      return;
+    }
+    var d = state.social;
+    if (!d) { host.innerHTML = '<div class="social"><span class="glyph">.</span>' +
+      '<span class="word">Counting</span><span class="why">Opening the mailbox.</span></div>'; return; }
+
+    /* NOT CONFIGURED IS AN ANSWER, and it is the one that matters most here:
+       notifications pointed at a mailbox this server cannot read look exactly
+       like nobody commenting. Say which half is missing. */
+    if (!d.configured) {
+      host.innerHTML = '<div class="social"><span class="glyph">?</span>' +
+        '<span class="word">Not watching</span>' +
+        '<span class="why">' + esc(d.reason || "No mailbox configured.") + '</span></div>';
+      return;
+    }
+
+    var html = "", i;
+    for (i = 0; i < (d.alerts || []).length; i++) {
+      var a = d.alerts[i];
+      var isNew = a.unseen > 0;
+      /* Word, glyph AND number, never colour on its own. A filled disc against
+         a hollow ring reads at a glance without any hue at all. */
+      html += '<div class="social' + (isNew ? ' new' : '') + '">' +
+        '<span class="glyph">' + (isNew ? "\u25CF" : "\u25CB") + '</span>' +
+        '<span class="word">' + (isNew ? "New" : "Nothing new") + '</span>' +
+        '<span class="n">' + esc(String(a.unseen)) + '</span>' +
+        '<span class="why">' + esc(a.label) +
+          (a.newest ? ', newest ' + esc(ago(new Date(a.newest).getTime())) : '') + '</span>' +
+        '<span class="go"><a href="' + esc(a.href) + '" target="_blank" rel="noopener">Go and look</a></span>' +
+        '</div>';
+    }
+    host.innerHTML = html;
+  }
+
   function refreshAll(){
     if (refreshing) return Promise.resolve();
     refreshing = true;
-    return Promise.all([checkHealth(), checkSurfaces(), loadSummary(), loadRange(), loadMap(), loadReports(), loadLive()]).then(function(){
-      healthSay(); renderSurfaces(); renderSpend(); renderAlerts(); renderMilestone(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush(); stamp(); markMovedTiles();
+    return Promise.all([checkHealth(), checkSurfaces(), loadSummary(), loadRange(), loadMap(), loadReports(), loadLive(), loadSocial()]).then(function(){
+      healthSay(); renderSurfaces(); renderSocial(); renderSpend(); renderAlerts(); renderMilestone(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush(); stamp(); markMovedTiles();
       refreshing = false;
     }, function(){ refreshing = false; });
   }
