@@ -1962,11 +1962,16 @@ router.get("/nest/social", async (req: Request, res: Response): Promise<void> =>
     return;
   }
   try {
-    const alerts = await countSocial();
+    const { alerts, samples } = await countSocial();
     res.json({
       configured: true,
       reason: null,
       alerts,
+      // The twelve newest unseen envelopes, sender domain and subject only, so
+      // the buckets can be tuned against what Meta actually sends. The first
+      // production read put all 26 in "social-other", which is a classifier
+      // that has never seen a real subject line, not an inbox with no DMs.
+      samples,
       total: alerts.reduce((n, a) => n + a.unseen, 0),
       generatedAt: new Date().toISOString(),
     });

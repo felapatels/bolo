@@ -263,6 +263,14 @@ export async function replySupport(uid: number, text: string): Promise<ReplyResu
 
 export type SocialKind = "instagram-dm" | "instagram-comment" | "tiktok-comment" | "social-other";
 
+/** One unseen envelope, for tuning the classifier against reality rather than
+ *  against a guess about Meta's subject lines. Sender DOMAIN only, never the
+ *  address, and the subject: that is what the buckets are keyed on. */
+export type SocialSample = { domain: string; subject: string; date: string; kind: SocialKind };
+
+/** How many samples ride along. Enough to see the shape, not a mail client. */
+const SOCIAL_SAMPLE_MAX = 12;
+
 export type SocialAlert = {
   kind: SocialKind;
   label: string;
@@ -314,10 +322,11 @@ function classify(from: string, subject: string): SocialKind | null {
  * commented), and a row that vanishes at zero is indistinguishable from a
  * broken watcher. This page has been bitten by exactly that shape before.
  */
-export async function countSocial(): Promise<SocialAlert[]> {
+export async function countSocial(): Promise<{ alerts: SocialAlert[]; samples: SocialSample[] }> {
   const since = new Date(Date.now() - SOCIAL_WINDOW_DAYS * 86400000);
   const tally = new Map<SocialKind, { n: number; newest: number | null }>();
   for (const k of SOCIAL_KINDS) tally.set(k.kind, { n: 0, newest: null });
+  const samples: SocialSample[] = [];
 
   await withMailbox(async (client) => {
     const uids = (await client.search({ seen: false, since }, { uid: true })) || [];
@@ -331,10 +340,20 @@ export async function countSocial(): Promise<SocialAlert[]> {
       slot.n += 1;
       const t = (msg.envelope?.date ?? new Date()).getTime();
       if (slot.newest === null || t > slot.newest) slot.newest = t;
+      if (samples.length < SOCIAL_SAMPLE_MAX) {
+        samples.push({
+          domain: who.address.split("@").pop() ?? "",
+          subject: msg.envelope?.subject ?? "",
+          date: new Date(t).toISOString(),
+          kind,
+        });
+      }
     }
   });
 
-  return SOCIAL_KINDS.map((k) => {
+  // Newest first, so the twelve you see are the twelve most recent.
+  samples.sort((a, b) => (a.date < b.date ? 1 : -1));
+  const alerts = SOCIAL_KINDS.map((k) => {
     const slot = tally.get(k.kind);
     return {
       kind: k.kind,
@@ -344,4 +363,5 @@ export async function countSocial(): Promise<SocialAlert[]> {
       newest: slot?.newest ? new Date(slot.newest).toISOString() : null,
     };
   });
+  return { alerts, samples };
 }
