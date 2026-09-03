@@ -167,6 +167,14 @@ three of six after being explicitly excluded from all of them.
   project.** A `MessageQueue doesn't exist` red box looked like a broken bundle
   and was a different app's Metro. Check with
   `lsof -ti :8081` before blaming your code, and start yours on another port.
+- **A new asset file can be invisible to a running Metro.** Copy an mp4 or a
+  jpg into `assets/` while Metro is up and `require()` it: the bundle can fail
+  with `UnableToResolveError` while the file plainly exists, and the dev client
+  keeps running its LAST GOOD bundle, so the screen looks stale rather than
+  broken and every screenshot lies. Twenty minutes went into "why is the old
+  still showing" before fetching the served bundle returned the error JSON.
+  Restart Metro with `-c` after adding asset files, and when a screenshot
+  disagrees with the code, fetch the bundle and read what Metro actually sent.
 - **`xcrun simctl ... booted` is ambiguous with two simulators up.** It silently
   picked the iPad while I was checking the phone. Target by UDID.
 - **`git fetch origin <branch>` does not move `refs/remotes/origin/<branch>`.**
