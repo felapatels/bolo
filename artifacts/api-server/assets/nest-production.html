@@ -397,6 +397,11 @@ a.linkbtn{text-decoration:none;display:inline-block}
 .social .why{color:var(--muted);flex:1 1 240px;min-width:0}
 .social a{font-weight:700;text-decoration:underline;text-underline-offset:3px}
 .social .go{display:inline-flex;gap:5px;align-items:center}
+/* THE CHIP FLASHES, the rows do not shout. Word, glyph and count on the
+   chip itself, and a pulse; never colour on its own. */
+.chips a.new{border-color:var(--accent);border-width:2px;padding:4px 10px;font-weight:700;
+  animation:socialflash 1.5s infinite}
+.chips a .n{font-family:"IBM Plex Mono",monospace;margin-left:5px}
 @keyframes socialflash{
   0%,100%{box-shadow:0 0 0 0 var(--accent-soft,rgba(20,120,90,.35))}
   50%{box-shadow:0 0 0 5px transparent}
@@ -745,6 +750,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
          this moved with it in the same edit. -->
     <a href="#numbers">Numbers</a>
     <a href="#alerts">Alerts</a>
+    <a href="#social" id="chip-social">Social</a>
     <a href="#map">Map</a>
     <a href="#reports">Flagged</a>
     <a href="#inbox">Inbox</a>
@@ -905,13 +911,6 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
   <p class="barnote" style="margin:-4px 0 9px">Real GETs to the endpoints the app calls, run from this page on every read. A 200 here is worth more than healthz, which was green throughout the last outage.</p>
   <div id="surface-probes"></div>
 
-  <!-- SOCIAL. Inside Alerts on purpose rather than as its own section: it is
-       one more thing that is watching, and a new <section> would need a
-       data-page and a chip (see routes/nest.page.test.ts). -->
-  <p class="dsub" style="margin-top:20px">Social</p>
-  <p class="barnote" style="margin:-4px 0 9px">Unseen notification mail from Instagram, TikTok and Meta, counted by envelope. No comment or message is read, and nothing is answered from here: the link goes to the platform. <b>If every row reads zero for days, suspect the pipe before you believe it:</b> this counts mail arriving at LARKSUPPORT_USER, so the platforms' notification emails have to be forwarded there and their in-app notification settings have to be on. A silent count and a quiet audience look identical from here, which is the one failure this section cannot detect for you.</p>
-  <div id="social-alerts"></div>
-
 <div id="alertlist"></div>
 
   <div class="note info" style="margin-top:14px">
@@ -919,6 +918,22 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
     <p>It arrives from <span class="mono">/api/nest/page</span>, behind the same owner gate as everything else here, and it answers 404 rather than 403 for anyone who is not you. Nothing about this cockpit exists as a file anybody can request.</p>
     <p><b>Which is why health is honest now.</b> Being same origin, the page calls <span class="mono">/api/healthz</span> itself. There is no watcher, no cron and no heartbeat event: if this section says production answered, it answered just now, to you.</p>
   </div>
+</section>
+
+<section id="social" data-page="dashboard">
+  <div class="head">
+    <span class="eyebrow">02b / Who is talking to you</span>
+    <h2>Social</h2>
+    <!-- ITS OWN SECTION, build 29, at the owner's word: "I want a Social pill
+         filter link on top. I want that to flash if there is one." A chip has
+         to point at a <section> (routes/nest.page.test.ts binds the two both
+         ways), so the block that first shipped inside Alerts moved out here.
+         Flashing is the chip's job; the rows below carry the detail. -->
+    <p>Unseen notification mail from Instagram, TikTok and Meta, counted by envelope. No comment or message is read, and nothing is answered from here: the link goes to the platform.</p>
+  </div>
+  <div class="rule"></div>
+  <p class="barnote" style="margin:0 0 9px"><b>If every row reads zero for days, suspect the pipe before you believe it:</b> this counts mail arriving at LARKSUPPORT_USER, so the platforms' notification emails have to be forwarded there and their in-app notification settings have to be on. A silent count and a quiet audience look identical from here, which is the one failure this section cannot detect for you.</p>
+  <div id="social-alerts"></div>
 </section>
 
 <section id="map" data-page="dashboard">
@@ -3415,6 +3430,21 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   }
 
   function renderSocial(){
+    /* The chip first, in every state, so a stale "New 3" cannot survive a
+       later error or a reconfigure: it is repainted from the same read that
+       paints the rows. Flashes only on a real, configured, non-zero count. */
+    (function paintChip(){
+      var c = $("chip-social"); if (!c) return;
+      var d0 = state.social, total = 0, k;
+      if (d0 && d0.configured && d0.alerts) for (k = 0; k < d0.alerts.length; k++) total += (d0.alerts[k].unseen || 0);
+      if (total > 0) {
+        c.className = "new";
+        c.innerHTML = "Social \u25CF New<span class=\"n\">" + total + "</span>";
+      } else {
+        c.className = "";
+        c.textContent = "Social";
+      }
+    })();
     var host = $("social-alerts"); if (!host) return;
 
     if (state.socialErr) {
