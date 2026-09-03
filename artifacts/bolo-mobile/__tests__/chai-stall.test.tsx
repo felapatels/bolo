@@ -8,6 +8,7 @@ import {
   STALL_ASSETS,
   STEAM_REST_OPACITY,
   steamLoop,
+  STALL_FILM_POSTER,
 } from '@/components/ChaiStall';
 
 // ---------------------------------------------------------------------------
@@ -302,4 +303,21 @@ describe('chai glyph census (mobile)', () => {
     // is pinned here rather than left to look like an oversight.
     expect(read('lib/ui.ts')).toContain("Utensils: 'coffee'");
   });
+});
+
+test('the film variant plays the clip over its own first frame and drops the painted layers', () => {
+  // Build 29: the home hero is the living stall. The clip already carries
+  // Chacha-ji and his steam, so neither painted layer may sit on it, and the
+  // poster under the player is the film's own first frame.
+  render(<ChaiStallVignette film />);
+  expect(screen.getByTestId('chai-stall-scene', HIDDEN).props.source).toBe(STALL_FILM_POSTER);
+  expect(screen.getByTestId('chai-stall-film', HIDDEN)).toBeTruthy();
+  expect(screen.queryByTestId('chai-stall-chachaji', HIDDEN)).toBeNull();
+  expect(screen.queryByTestId('chai-stall-steam', HIDDEN)).toBeNull();
+});
+
+test('an inactive film has no player: the poster alone, no decoder behind another tab', () => {
+  render(<ChaiStallVignette film active={false} />);
+  expect(screen.getByTestId('chai-stall-scene', HIDDEN).props.source).toBe(STALL_FILM_POSTER);
+  expect(screen.queryByTestId('chai-stall-film', HIDDEN)).toBeNull();
 });

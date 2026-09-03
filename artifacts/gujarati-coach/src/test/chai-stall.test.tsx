@@ -83,6 +83,17 @@ describe("chai glyph", () => {
 });
 
 describe("chai stall scene", () => {
+  test("the film variant plays the clip over its own first frame and drops the painted layers", () => {
+    // Build 29: the home hero is the living stall. The clip already carries
+    // Chacha-ji and his steam, so neither painted layer may sit on it.
+    render(<ChaiStallVignette film />);
+    const film = screen.getByTestId("chai-stall-film") as HTMLVideoElement;
+    expect(film.getAttribute("poster")).toBe(STALL_ASSETS.filmPoster);
+    expect(film.querySelector("source")?.getAttribute("src")).toBe(STALL_ASSETS.film);
+    expect(screen.queryByTestId("chai-stall-chachaji")).toBeNull();
+    expect(screen.queryByTestId("chai-stall-steam")).toBeNull();
+  });
+
   test("renders the scene with the steam plume layered over it", () => {
     render(<ChaiStallVignette />);
     const scene = screen.getByTestId("chai-stall-scene");

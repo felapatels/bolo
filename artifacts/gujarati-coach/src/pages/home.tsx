@@ -1515,6 +1515,7 @@ export default function Home() {
                   title and balance plate already own the top right corner. */}
               <div className="relative mt-3">
                 <ChaiStallVignette
+                  film
                   label="Chacha-ji's Chai stall, open your Chai wallet"
                   onClick={() => setWalletOpen(true)}
                   // One click to the Bazaar (owner, build 25), beside the wallet door.

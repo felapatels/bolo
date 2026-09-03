@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -338,6 +338,15 @@ export default function HomeScreen() {
   // window on an iPad, the owner's ask. Phones are unaffected: below the
   // column width the window IS the column, so nothing there changes.
   const wideScreen = useIsWideScreen();
+  // The stall film runs only while this tab is in front. Tabs stay mounted
+  // behind each other, and a decoder behind the Games tab is cost for nobody.
+  const [homeFocused, setHomeFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setHomeFocused(true);
+      return () => setHomeFocused(false);
+    }, []),
+  );
   // Two column widths for the tablet reflow. undefined on a phone, where the
   // sections are plain block children of a column exactly as they always were.
   const colHalf = wideScreen ? ({ width: '48.5%' } as const) : undefined;
@@ -918,6 +927,8 @@ export default function HomeScreen() {
               over it takes nothing away. */}
           <View style={styles.stallWrap}>
             <ChaiStallVignette
+              film
+              active={homeFocused}
               balance={tokensQuery.data?.balance}
               accessibilityLabel="Chacha-ji's Chai stall, open your Chai wallet"
               onPress={() => {

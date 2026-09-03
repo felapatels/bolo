@@ -63,6 +63,14 @@ export const STALL_ASSETS = {
    * banked pour-on-earn moment has to be able to animate him.
    */
   chachaji: `${import.meta.env.BASE_URL}stall/chachaji.png`,
+  /**
+   * THE LIVING STALL (build 29): eight seconds, 960x540, silent, ~1MB, and
+   * its own first frame as the poster so the still-to-motion hand-off is
+   * byte-identical. The film already carries Chacha-ji and his steam, so
+   * `film` drops the painted cut-out and the plume. Mobile twin: ChaiStall.tsx.
+   */
+  film: `${import.meta.env.BASE_URL}stall/stall-hero.mp4`,
+  filmPoster: `${import.meta.env.BASE_URL}stall/stall-hero-first.jpg`,
 } as const;
 
 /** Intrinsic scene dimensions; drives the vignette's aspect box. */
@@ -142,6 +150,7 @@ export function ChaiStallVignette({
   onShop,
   label,
   balance,
+  film = false,
 }: {
   className?: string;
   onClick?: () => void;
@@ -160,19 +169,44 @@ export function ChaiStallVignette({
    * query is in flight, which renders the same "-" the wallet surfaces show.
    */
   balance?: number;
+  /** Play the stall film over its own first frame instead of the still. */
+  film?: boolean;
 }) {
+  // Reduced motion holds the poster; autoplay cannot be stopped by CSS alone.
+  const reduced =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const layers = (
     <>
       <div
         className="absolute inset-x-0 top-0"
         style={{ aspectRatio: `${SCENE_W} / ${SCENE_H}` }}
       >
-        <img
-          src={STALL_ASSETS.scene}
-          alt=""
-          data-testid="chai-stall-scene"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
+        {film && !reduced ? (
+          <video
+            data-testid="chai-stall-film"
+            className="absolute inset-0 h-full w-full object-cover"
+            poster={STALL_ASSETS.filmPoster}
+            autoPlay
+            muted
+            loop
+            playsInline
+            aria-hidden="true"
+          >
+            <source src={STALL_ASSETS.film} type="video/mp4" />
+          </video>
+        ) : (
+          <img
+            src={film ? STALL_ASSETS.filmPoster : STALL_ASSETS.scene}
+            alt=""
+            data-testid="chai-stall-scene"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+        {/* Not on the film: it already has him and his steam. */}
+        {!film ? (
+          <>
         <img
           src={STALL_ASSETS.chachaji}
           alt=""
@@ -192,6 +226,8 @@ export function ChaiStallVignette({
           className="chai-stall-steam absolute"
           style={{ left: KETTLE.left, bottom: KETTLE.bottom, width: KETTLE.width }}
         />
+          </>
+        ) : null}
       </div>
       {/* THE COPY MOVED TO THE LEFT (owner's mockup, build 17 on mobile,
           build 18 here): title, a line of purpose and the balance pill on

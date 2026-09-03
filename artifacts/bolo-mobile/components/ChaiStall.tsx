@@ -58,6 +58,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { VideoView, useVideoPlayer } from 'expo-video';
 
 /** Asset map: the mobile twin of web's STALL_ASSETS path registry. */
 export const STALL_ASSETS = {
@@ -74,6 +75,30 @@ export const STALL_ASSETS = {
    */
   chachaji: require('../assets/images/stall/chachaji.png') as number,
 };
+
+/**
+ * THE LIVING STALL (build 29). The owner: "replace the home hero for chachaji
+ * chai wallet with this video instead of the still image."
+ *
+ * Eight seconds of the stall, 960x540, silent, about 1MB. Generated clips
+ * rarely end where they start, so the cut was MEASURED: the first and last
+ * frames differ by 12.5 on the same scale where this clip's own frame-to-frame
+ * motion runs 8 to 15, which is the best loop point in its final two seconds.
+ * The seam is in range, not invisible; a clip generated to loop is the fix
+ * if it ever shows, and that is content, not code.
+ *
+ * THE POSTER IS THE FILM'S OWN FIRST FRAME, pulled out of the encoded clip,
+ * so the hand-off from still to motion is byte-identical and there is nothing
+ * to cross-fade. Same lesson as the zone films.
+ *
+ * THE FILM CARRIES CHACHA-JI AND HIS STEAM ALREADY, so the painted cut-out
+ * and the animated plume that sit on the still do not sit on the film: they
+ * would put a second Chacha-ji beside the first. `film` drops both layers.
+ * Every tap target lives on the wrapper and the shop button, so nothing a
+ * finger can reach moves.
+ */
+export const STALL_FILM = require('../assets/images/stall/stall-hero.mp4') as number;
+export const STALL_FILM_POSTER = require('../assets/images/stall/stall-hero-first.jpg') as number;
 
 /**
  * Intrinsic art dimensions, so the vignette and plume keep their shapes.
@@ -184,9 +209,20 @@ export function ChaiStallVignette({
   onShop,
   accessibilityLabel,
   balance,
+  film = false,
+  active = true,
 }: {
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
+  /** Play the stall film over its own first frame instead of the still. */
+  film?: boolean;
+  /**
+   * Whether the film should have a decoder at all. The home passes its tab
+   * focus: tabs stay mounted behind each other, and a decoder running behind
+   * the Games tab is cost for nobody. False hands useVideoPlayer a null
+   * source, so no player exists.
+   */
+  active?: boolean;
   /**
    * A direct door to the Bazaar under the balance (owner, build 25: "add a
    * direct button on the Chachaji card for Go Shopping so they don't have to
@@ -202,6 +238,14 @@ export function ChaiStallVignette({
   balance?: number;
 }) {
   const reduceMotion = useReducedMotion();
+  // Reduced motion holds the poster. The learner asked for less movement and
+  // loses nothing: it is the same picture, still.
+  const filming = film && active && !reduceMotion;
+  const player = useVideoPlayer(filming ? STALL_FILM : null, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
   const loop = steamLoop(!!reduceMotion);
   const phase = useSharedValue(0.5);
   const [box, setBox] = React.useState({ width: 0, height: 0 });
@@ -279,11 +323,23 @@ export function ChaiStallVignette({
             ever shows up on device. Mirrors web's `absolute inset-0 h-full
             w-full object-cover`, and matches the chachaji/steam layers below. */}
         <Image
-          source={STALL_ASSETS.scene}
+          source={film ? STALL_FILM_POSTER : STALL_ASSETS.scene}
           testID="chai-stall-scene"
           resizeMode="cover"
           style={[StyleSheet.absoluteFill, styles.fillImage]}
         />
+        {filming ? (
+          <VideoView
+            testID="chai-stall-film"
+            player={player}
+            nativeControls={false}
+            contentFit="cover"
+            style={[StyleSheet.absoluteFill, styles.fillImage]}
+          />
+        ) : null}
+        {/* Not on the film: it already has him and his steam. */}
+        {!film ? (
+          <>
         {/* Decorative layer, under the scrim like the rest of the art: he is
             the man at the stall, not a control. Not pressable, and the whole
             scene is already out of the a11y tree, so no node is added. */}
@@ -328,6 +384,8 @@ export function ChaiStallVignette({
             style={styles.steamImage}
           />
         </Animated.View>
+          </>
+        ) : null}
       </View>
       {/* Legibility scrim: the right half, fading leftward, so the top-right
           column stays readable over the bright sky end of the art. The left
