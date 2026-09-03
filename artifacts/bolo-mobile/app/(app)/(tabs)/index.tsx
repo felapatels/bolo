@@ -553,7 +553,8 @@ export default function HomeScreen() {
           />
         }
       >
-        <HomeColumns wide={wideScreen}>        {/* Greeting + mascot */}
+        <HomeColumns wide={wideScreen}>
+        {/* Greeting + mascot */}
         <Animated.View entering={skipEnter ? undefined : appearDown(0, 500)} style={[styles.topRow, colFull]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.hello, { color: colors.mutedForeground }]}>

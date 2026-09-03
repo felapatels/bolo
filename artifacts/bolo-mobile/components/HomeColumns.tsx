@@ -49,7 +49,12 @@ export function HomeColumns({
   gap?: number;
   children: React.ReactNode;
 }) {
-  if (!wide) return <>{children}</>;
+  // THE PHONE PATH FILTERS TOO (build 29). It used to hand children straight
+  // through, and eight spaces between a tag and a JSX comment on the same
+  // line reached a View as a string: "Text strings must be rendered within a
+  // <Text> component", on every phone, while the iPad path below already
+  // dropped non-elements and hid the fault. Same rule on both paths now.
+  if (!wide) return <>{React.Children.toArray(children).filter(React.isValidElement)}</>;
 
   const bands: React.ReactNode[] = [];
   let left: React.ReactNode[] = [];
