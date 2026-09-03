@@ -31,6 +31,16 @@ export const GAME_ART: Record<string, number> = {
 
 /** The hero band across the top of the hub, 16:9, cropped wide by the hub. */
 export const GAMES_HERO = require('../assets/games/hero.png') as number;
+/**
+ * THE HERO AS A FILM (build 29, the owner's clip): Bolo dancing on the platform
+ * before the train pulls out. 3.75s, 960x540, silent, 557KB. The source runs
+ * ten seconds but the train starts moving at about five, and nothing can loop
+ * a departing train, so the cut stops before it moves and a 1.0s dissolve is
+ * baked into the loop point (join measured 3.3 against a hard cut of ~40).
+ * The poster is the film's own first frame.
+ */
+export const GAMES_HERO_FILM = require('../assets/games/hero.mp4') as number;
+export const GAMES_HERO_POSTER = require('../assets/games/hero-first.jpg') as number;
 
 /** A game's picture, or null for an id the table does not know. */
 export function gameArt(gameId: string): number | null {

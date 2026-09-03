@@ -55,7 +55,8 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 import { hapticTap } from '@/lib/haptics';
 import { GamePreview, type VignetteInk } from '@/components/games/GamePreview';
-import { GAMES_HERO, gameArt } from '@/lib/gameArt';
+import { GAMES_HERO_FILM, GAMES_HERO_POSTER, gameArt } from '@/lib/gameArt';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { readLastPlayedGame, writeLastPlayedGame } from '@/lib/lastPlayedGame';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getJourneyLine } from '@/lib/journeyLines';
@@ -443,14 +444,20 @@ export default function GamesScreen() {
   // THE LAST GAME PLAYED, read on every focus so a game just played is the
   // one offered on the way back out of it.
   const [lastPlayed, setLastPlayed] = React.useState<string | null>(null);
+  // The hero film holds a decoder only while this tab is in front. Tabs stay
+  // mounted behind each other, and a decoder behind the Home tab is cost for
+  // nobody (same rule as the home's stall film).
+  const [heroFocused, setHeroFocused] = React.useState(true);
   useFocusEffect(
     React.useCallback(() => {
       let live = true;
+      setHeroFocused(true);
       readLastPlayedGame().then((id) => {
         if (live) setLastPlayed(id);
       });
       return () => {
         live = false;
+        setHeroFocused(false);
       };
     }, []),
   );
@@ -490,6 +497,12 @@ export default function GamesScreen() {
   // height alone at 16:9 it is 462 wide: past every phone's edge, and 138
   // short of the 600 column, so the iPad showed page colour where the
   // painting ran out. Whichever axis needs more wins; a phone is unchanged.
+  const heroFilming = heroFocused && !reduceMotion;
+  const heroPlayer = useVideoPlayer(heroFilming ? GAMES_HERO_FILM : null, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
   const heroImgW = Math.max(windowW, Math.round((heroH * 16) / 9));
   const heroImgH = Math.round((heroImgW * 9) / 16);
   const header = (
@@ -505,13 +518,18 @@ export default function GamesScreen() {
             off the hero's height and left at 0, the overflow is clipped on
             the right, where only platform and roof were. */}
         <Image
-          source={GAMES_HERO}
+          source={GAMES_HERO_POSTER}
+          testID="games-hero-poster"
           resizeMode="cover"
           style={{
             position: 'absolute',
-            // A third of the way from left-anchored to centred: the words keep
-            // the pale left, and the parrot keeps his face.
-            left: -Math.round((heroImgW - windowW) * 0.34),
+            // Anchored 80% of the way across the overflow (build 29). The
+            // painting's parrot stood at two thirds and 0.34 kept his face; the
+            // film's parrot stands further right, and at 0.34 a phone clipped
+            // his head at the edge. On a 402pt phone the image is 524 wide, so
+            // 0.8 shows 19% to 96% of it: his whole head, and the words still
+            // sit on pale sky. A width-sized iPad shows the whole frame anyway.
+            left: -Math.round((heroImgW - windowW) * 0.8),
             // Centred vertically when the width, not the height, sets the
             // size (the iPad column); zero on a phone, where the height does.
             top: -Math.round((heroImgH - heroH) / 2),
@@ -521,6 +539,32 @@ export default function GamesScreen() {
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         />
+        {/* THE PAINTING BECAME A FILM (build 29, the owner's clip). Same rect as
+            the poster under it, which is the film's own first frame, so the
+            hand-off is byte-identical; lib/gameArt.ts has the cut and the loop. */}
+        {heroFilming ? (
+          <VideoView
+            testID="games-hero-film"
+            player={heroPlayer}
+            nativeControls={false}
+            contentFit="cover"
+            style={{
+            position: 'absolute',
+            // Anchored 80% of the way across the overflow (build 29). The
+            // painting's parrot stood at two thirds and 0.34 kept his face; the
+            // film's parrot stands further right, and at 0.34 a phone clipped
+            // his head at the edge. On a 402pt phone the image is 524 wide, so
+            // 0.8 shows 19% to 96% of it: his whole head, and the words still
+            // sit on pale sky. A width-sized iPad shows the whole frame anyway.
+            left: -Math.round((heroImgW - windowW) * 0.8),
+            // Centred vertically when the width, not the height, sets the
+            // size (the iPad column); zero on a phone, where the height does.
+            top: -Math.round((heroImgH - heroH) / 2),
+            width: heroImgW,
+            height: heroImgH,
+          }}
+          />
+        ) : null}
         <LinearGradient
           // Lighter than the first cut (owner: "make the hero less
           // transparent"): the painting shows through the words' side too.

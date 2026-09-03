@@ -48,7 +48,7 @@ import { springs } from "@/lib/motion";
 import { useLanguage } from "@/lib/language-context";
 import { getJourneyLine } from "@/lib/journeyLines";
 import { useJourneyProgress } from "@/lib/useJourneyProgress";
-import { GAMES_HERO, gameArt } from "@/lib/game-art";
+import { GAMES_HERO_FILM, GAMES_HERO_POSTER, gameArt } from "@/lib/game-art";
 import { readLastPlayedGame, writeLastPlayedGame } from "@/lib/last-played-game";
 import { LanguagePicker } from "@/components/language-picker";
 import { GamePreview } from "./game-previews";
@@ -475,13 +475,34 @@ function GamesHero({ language, city }: { language: string; city: string }) {
       data-testid="games-hero"
       className="relative -mx-4 h-[236px] overflow-hidden lg:-mx-6 lg:h-[280px] lg:rounded-b-3xl"
     >
-      <img
-        src={GAMES_HERO}
-        alt=""
-        aria-hidden="true"
-        className="absolute inset-0 h-full w-full object-cover"
-        style={{ objectPosition: "34% 50%" }}
-      />
+      {/* THE PAINTING BECAME A FILM (build 29, the owner's clip). Poster is the
+          film's own first frame; reduced motion holds it, since CSS cannot stop
+          autoplay. Mobile twin: app/(app)/(tabs)/games/index.tsx. */}
+      {typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ? (
+        <img
+          src={GAMES_HERO_POSTER}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ objectPosition: "80% 50%" }}
+        />
+      ) : (
+        <video
+          data-testid="games-hero-film"
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ objectPosition: "80% 50%" }}
+          poster={GAMES_HERO_POSTER}
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden="true"
+        >
+          <source src={GAMES_HERO_FILM} type="video/mp4" />
+        </video>
+      )}
       <div
         aria-hidden="true"
         className="absolute inset-0"

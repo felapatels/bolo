@@ -141,7 +141,10 @@ describe("Games hub grid", () => {
     const hero = screen.getByTestId("games-hero");
     expect(within(hero).getByText("Games")).toBeTruthy();
     expect(within(hero).getByText("Play your way to fluency")).toBeTruthy();
-    expect(hero.querySelector("img")!.getAttribute("src")).toContain("games/hero.png");
+    // INVERTED, build 29: the hero is the film now, its own first frame as poster.
+    const film = hero.querySelector("video")!;
+    expect(film.getAttribute("poster")).toContain("games/hero-first.jpg");
+    expect(film.querySelector("source")!.getAttribute("src")).toContain("games/hero.mp4");
     // A button, the picker's trigger, never a link to /choose-language:
     // that page redirects an account that has already chosen.
     const line = screen.getByTestId("games-language-line");
