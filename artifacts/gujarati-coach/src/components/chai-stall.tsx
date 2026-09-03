@@ -63,9 +63,10 @@ export const STALL_ASSETS = {
    */
   chachaji: `${import.meta.env.BASE_URL}stall/chachaji.png`,
   /**
-   * THE LIVING STALL (build 29): eight seconds, 960x540, silent, ~1MB, and
-   * its own first frame as the poster so the still-to-motion hand-off is
-   * byte-identical. The film already carries Chacha-ji and his steam, so
+   * THE LIVING STALL (build 29): 7.4 seconds, 960x540, silent, under 1MB,
+   * with a 0.6s dissolve baked into the loop point (last frame to first frame
+   * measures 2.2, down from a 12.5 hard cut the owner could see), and its own
+   * first frame as the poster so the still-to-motion hand-off is byte-identical. The film already carries Chacha-ji and his steam, so
    * `film` drops the painted cut-out and the plume. Mobile twin: ChaiStall.tsx.
    */
   film: `${import.meta.env.BASE_URL}stall/stall-hero.mp4`,

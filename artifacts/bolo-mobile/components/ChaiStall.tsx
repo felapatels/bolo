@@ -80,12 +80,14 @@ export const STALL_ASSETS = {
  * THE LIVING STALL (build 29). The owner: "replace the home hero for chachaji
  * chai wallet with this video instead of the still image."
  *
- * Eight seconds of the stall, 960x540, silent, about 1MB. Generated clips
- * rarely end where they start, so the cut was MEASURED: the first and last
- * frames differ by 12.5 on the same scale where this clip's own frame-to-frame
- * motion runs 8 to 15, which is the best loop point in its final two seconds.
- * The seam is in range, not invisible; a clip generated to loop is the fix
- * if it ever shows, and that is content, not code.
+ * 7.4 seconds of the stall, 960x540, silent, under 1MB, AND IT LOOPS WITHOUT A
+ * SEAM. Generated clips never end where they start: the first cut had a hard
+ * join that measured 12.5 on a scale where the clip's own frame-to-frame
+ * motion runs 8 to 15, and the owner saw it ("choppy at that point"). The
+ * dissolve is baked into the file: the first 0.6s are cut off the front and
+ * the last 0.6s are cross-faded into them, so the final frame IS the first
+ * frame. Measured after the bake: join 2.2, and no step through the dissolve
+ * above 5.6. The player just loops; nothing in code knows there was a seam.
  *
  * THE POSTER IS THE FILM'S OWN FIRST FRAME, pulled out of the encoded clip,
  * so the hand-off from still to motion is byte-identical and there is nothing
