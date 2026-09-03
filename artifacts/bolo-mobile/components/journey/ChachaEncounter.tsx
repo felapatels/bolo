@@ -255,15 +255,19 @@ export function ChachaEncounterDialog({
               Chacha-ji pours you a chai.
             </Text>
 
-            <View style={styles.grantedRow}>
-              <Text testID="chacha-granted-text" style={styles.grantedText}>
-                +{encounter.chaiGranted}
-              </Text>
-              <ChaiGlyph size={18} />
-              <Text style={[styles.balanceText, { color: colors.mutedForeground }]}>
-                Balance: {encounter.balance}
-              </Text>
-            </View>
+            {/* Only when he actually poured. The row used to draw whatever the
+                server sent, and the server sent the tariff on repeats too. */}
+            {encounter.granted ? (
+              <View style={styles.grantedRow}>
+                <Text testID="chacha-granted-text" style={styles.grantedText}>
+                  +{encounter.chaiGranted}
+                </Text>
+                <ChaiGlyph size={18} />
+                <Text style={[styles.balanceText, { color: colors.mutedForeground }]}>
+                  Balance: {encounter.balance}
+                </Text>
+              </View>
+            ) : null}
 
             {encounter.phrase && (
               <View

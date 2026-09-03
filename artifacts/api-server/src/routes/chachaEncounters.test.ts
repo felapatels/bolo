@@ -366,6 +366,12 @@ describe("the chai", () => {
 
     assert.equal(first.json.granted, false);
     assert.equal(second.json.granted, false);
+    // A repeat reports what it poured (nothing) and rings nobody. chaiGranted
+    // used to echo the tariff on every response, so the stall said "+3" over
+    // a balance that had not moved; callsNow used to be a pure station test,
+    // so revisiting the call station rang him again every time (build 29).
+    assert.equal(second.json.chaiGranted, 0);
+    assert.equal(second.json.callsNow, false);
     assert.equal(await balanceOf(TEST_USER_ID), before);
     assert.equal(first.json.phrase.id, masteredPhraseId);
     assert.equal(second.json.phrase.id, masteredPhraseId);

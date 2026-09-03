@@ -2526,6 +2526,14 @@ export default function JourneyScreen() {
         onSuccess: (res) => {
           // Spent only once he has actually answered; see ChachaSoftStop.
           chachaMemory.markSeen(stationIdx);
+          // THE SERVER IS THE MEMORY, THE DEVICE IS A CACHE. Seen-state lives
+          // in AsyncStorage per install, so a new phone, a reinstall or a
+          // TestFlight build opened the stall again at a station the ledger
+          // had paid weeks ago, every cold start, "+3" and all (owner, build
+          // 29). `granted:false` is the server saying "already poured": mark
+          // it seen here and show nothing. Nothing is lost, there was nothing
+          // to pour, and the call does not ring on a repeat either.
+          if (!res.granted) return;
           setChachaDlg(res);
           if (res.granted) {
             void tokensQuery.refetch();

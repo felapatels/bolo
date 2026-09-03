@@ -522,11 +522,19 @@ export async function arriveAtEncounter(opts: {
     station,
     ordinal,
     granted,
-    chaiGranted: ENCOUNTER_CHAI,
+    // WHAT WAS ACTUALLY POURED, not the tariff. This returned ENCOUNTER_CHAI on
+    // every response, so a learner re-opening a stall the ledger had already
+    // paid saw "+3" beside a balance that had not moved (owner, build 29:
+    // "make sure it doesn't add more chai each time"). It never did add more;
+    // the number was lying about it.
+    chaiGranted: granted ? ENCOUNTER_CHAI : 0,
     balance,
     phrase,
     offer,
-    callsNow,
+    // HE RINGS ONCE. callsNow was a pure station test and ignored `granted`,
+    // so every revisit to the call station rang him again the moment the stall
+    // closed. The map's own rule is "he never asks twice"; the call inherits it.
+    callsNow: granted && callsNow,
   };
 }
 
