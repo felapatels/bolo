@@ -206,7 +206,6 @@ export function ChaiGlyph({
 export function ChaiStallVignette({
   style,
   onPress,
-  onShop,
   accessibilityLabel,
   balance,
   film = false,
@@ -223,12 +222,6 @@ export function ChaiStallVignette({
    * source, so no player exists.
    */
   active?: boolean;
-  /**
-   * A direct door to the Bazaar under the balance (owner, build 25: "add a
-   * direct button on the Chachaji card for Go Shopping so they don't have to
-   * click twice"). The rest of the scene still opens the wallet.
-   */
-  onShop?: () => void;
   accessibilityLabel?: string;
   /**
    * The learner's live Chai balance, straight from the caller's token query
@@ -292,7 +285,11 @@ export function ChaiStallVignette({
       // touches too, which is exactly what the first cut shipped. VoiceOver
       // still lands on the wallet button alone; the footer's Go Shopping
       // link remains the accessible road to the Bazaar.
-      pointerEvents={onShop ? 'box-none' : 'none'}
+      // "none" so the wrapping Pressable owns every tap. It was box-none while
+      // the scene carried its own shop button (build 25); that button went in
+      // build 29 (owner: "drop gold button") and the footer's Go Shopping link
+      // is the road to the Bazaar again.
+      pointerEvents="none"
       style={[styles.vignette, onPress ? undefined : style]}
     >
       <View
@@ -402,6 +399,21 @@ export function ChaiStallVignette({
         end={{ x: 1, y: 0.5 }}
         style={styles.scrim}
       />
+      {/* THE BALANCE PILL SITS TOP RIGHT (owner, build 29: "move this button to
+          the top right of the box", then kept). It left the left column, which
+          now carries only the title and the line of purpose. The gold Go
+          Shopping button that used to follow it went in the same decision
+          ("drop gold button"): with the pill gone it stacked directly over the
+          footer's Go Shopping link and read as a duplicate. */}
+      <View pointerEvents="none" style={styles.balanceTopRight}>
+        <View style={styles.balanceChip}>
+          <ChaiGlyph size={24} />
+          <Text testID="chai-stall-balance" style={styles.balanceValue}>
+            {balance === undefined ? '-' : String(balance)}
+          </Text>
+          <Text style={styles.balanceUnit}>Chai</Text>
+        </View>
+      </View>
       {/* Quiet on purpose: white on the scrim, no accent fill, so it does not
           compete with the orange boarding pass directly above. */}
       <View pointerEvents="box-none" style={styles.overlayColumn}>
@@ -418,26 +430,6 @@ export function ChaiStallVignette({
             {balance === undefined ? 'Chai' : `${balance} Chai`}
           </Text>
         </Text>
-        <View style={styles.balanceChip}>
-          <ChaiGlyph size={24} />
-          <Text testID="chai-stall-balance" style={styles.balanceValue}>
-            {balance === undefined ? '-' : String(balance)}
-          </Text>
-          <Text style={styles.balanceUnit}>Chai</Text>
-        </View>
-        {onShop ? (
-          <Pressable
-            testID="chai-stall-shop"
-            onPress={onShop}
-            accessibilityRole="button"
-            accessibilityLabel="Go shopping at the Bazaar"
-            hitSlop={6}
-            style={({ pressed }) => [styles.shopBtn, pressed && { opacity: 0.85 }]}
-          >
-            <Text style={styles.shopText}>Go Shopping</Text>
-            <Feather name="arrow-right" size={14} color="#3B2A0A" />
-          </Pressable>
-        ) : null}
       </View>
     </View>
   );
@@ -513,6 +505,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
+  balanceTopRight: { position: 'absolute', top: 12, right: 12 },
   balanceChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -531,23 +524,6 @@ const styles = StyleSheet.create({
   },
   // Gold, because it goes to the Bazaar (gold = world); the wallet chip
   // above it stays primary (purple = touch me), so the two doors differ.
-  shopBtn: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    backgroundColor: '#FBBF24',
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  shopText: { fontFamily: AppFonts.extrabold, fontSize: 13, color: '#3B2A0A' },
   balanceUnit: {
     color: 'rgba(255,255,255,0.9)',
     fontFamily: AppFonts.bold,

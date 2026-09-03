@@ -935,11 +935,6 @@ export default function HomeScreen() {
                 hapticLight();
                 setWalletOpen(true);
               }}
-              // One tap to the Bazaar (owner, build 25), beside the wallet door.
-              onShop={() => {
-                hapticLight();
-                router.push('/(app)/bazaar' as Parameters<typeof router.push>[0]);
-              }}
             />
             {/* Bottom-up, so the art reads through the top of it and the type
                 sits on something solid. pointerEvents none: the links above it

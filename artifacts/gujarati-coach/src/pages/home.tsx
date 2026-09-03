@@ -1519,7 +1519,6 @@ export default function Home() {
                   label="Chacha-ji's Chai stall, open your Chai wallet"
                   onClick={() => setWalletOpen(true)}
                   // One click to the Bazaar (owner, build 25), beside the wallet door.
-                  onShop={() => navigate("/bazaar")}
                   balance={tokensQuery.data?.balance}
                 />
                 {/* Bottom-up, so the art reads through the top of it and the
