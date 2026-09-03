@@ -1,6 +1,9 @@
 import React from 'react';
 import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import { useReducedMotion } from 'react-native-reanimated';
 import { BAND_ASPECT, BAZAAR_ASSETS, STALL_CHARACTERS, type StallKey } from '@/components/StallBand';
+import { STALL_FILM, STALL_FILM_POSTER } from '@/components/ChaiStall';
 
 /**
  * A PAINTED SCENE WITH ITS CHARACTER, AND ROOM ON IT (build 22, the owner's
@@ -15,6 +18,8 @@ export function SceneBand({
   width,
   height,
   character = true,
+  film = false,
+  active = true,
   children,
   style,
   testID,
@@ -25,6 +30,19 @@ export function SceneBand({
   height?: number;
   /** Whether the stall's keeper stands in the scene. */
   character?: boolean;
+  /**
+   * THE CHAI STALL AS A FILM (build 29). The owner, on the wallet header:
+   * "on the chai wallet chacha is floating above the ground", then "swap it
+   * out for the video on iphone and ipad". The float was structural: the
+   * scene is `cover`-cropped into a box of the sheet's own height while the
+   * cut-out's `bottom` fraction is measured against that box, so the ground
+   * moved and his feet did not. The film has him in the frame, on the
+   * ground by construction, so `film` drops the cut-out entirely. Chai only;
+   * the other three stalls keep their painted figures.
+   */
+  film?: boolean;
+  /** Whether the film may hold a decoder. The wallet passes its visibility. */
+  active?: boolean;
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   testID?: string;
@@ -47,10 +65,31 @@ export function SceneBand({
   const place = STALL_CHARACTERS[stall];
   const figureW = Math.round(width * place.width);
   const figureH = Math.round(figureW / place.aspect);
+  const reduceMotion = useReducedMotion();
+  const filmed = film && stall === 'chai';
+  const filming = filmed && active && !reduceMotion;
+  const player = useVideoPlayer(filming ? STALL_FILM : null, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
   return (
     <View testID={testID} style={[styles.band, { width, height: h }, style]}>
-      <Image source={scene} resizeMode="cover" style={{ position: 'absolute', left: 0, top: 0, width, height: h }} />
-      {character ? (
+      <Image
+        source={filmed ? STALL_FILM_POSTER : scene}
+        resizeMode="cover"
+        style={{ position: 'absolute', left: 0, top: 0, width, height: h }}
+      />
+      {filming ? (
+        <VideoView
+          testID="scene-band-film"
+          player={player}
+          nativeControls={false}
+          contentFit="cover"
+          style={{ position: 'absolute', left: 0, top: 0, width, height: h }}
+        />
+      ) : null}
+      {character && !filmed ? (
         <Image
           source={figure}
           resizeMode="contain"

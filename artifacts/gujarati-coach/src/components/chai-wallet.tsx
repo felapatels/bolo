@@ -795,7 +795,7 @@ export function ChaiWalletSheet({
             on the left and the balance on a cream card. The scene is the same
             picture every other Chai surface draws. */}
         <div className="relative h-[232px] shrink-0 overflow-hidden" data-testid="wallet-header">
-          <SceneBand stall="chai" className="absolute inset-0 !rounded-none" />
+          <SceneBand stall="chai" film className="absolute inset-0 !rounded-none" />
           <div
             className="pointer-events-none absolute inset-y-0 left-0 w-[62%]"
             style={{

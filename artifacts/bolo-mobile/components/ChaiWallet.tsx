@@ -963,7 +963,7 @@ export function ChaiWalletSheet({
               left and the balance on a cream card. The scene is the same
               picture every other Chai surface draws. */}
           <View style={{ height: sceneH }} testID="wallet-header">
-            <SceneBand stall="chai" width={width} height={sceneH} style={styles.headerScene} />
+            <SceneBand stall="chai" width={width} height={sceneH} film active={visible} style={styles.headerScene} />
             <LinearGradient
               colors={['rgba(251,243,230,0.92)', 'rgba(251,243,230,0.35)', 'rgba(251,243,230,0)']}
               locations={[0, 0.5, 1]}

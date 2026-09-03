@@ -928,7 +928,9 @@ export default function HomeScreen() {
           <View style={styles.stallWrap}>
             <ChaiStallVignette
               film
-              active={homeFocused}
+              // The wallet header plays the same film while the sheet is up,
+              // so the card hands over its decoder rather than running a second.
+              active={homeFocused && !walletOpen}
               balance={tokensQuery.data?.balance}
               accessibilityLabel="Chacha-ji's Chai stall, open your Chai wallet"
               onPress={() => {
