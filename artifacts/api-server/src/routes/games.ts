@@ -29,6 +29,10 @@ import {
   LETTER_STOP_LENGTH,
   LETTER_STOP_PASS,
   letterStopFor,
+  MATCH_BOARD_PAIRS,
+  MATCH_BOARD_ROUNDS,
+  letterMatchBoards,
+  lettersMetBy,
 } from "@workspace/script-trace";
 import { localDayKey, computeDailyQuizStreak } from "../lib/progressMetrics";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
@@ -970,6 +974,113 @@ router.post(
     }
 
     res.json({ passed, correct: gotRight, total: totalAsked, xpAwarded });
+  },
+);
+
+/**
+ * POST /games/letter-match/complete
+ *
+ * Match the letter to its sound: a Games hub game, not a journey stop. The stop
+ * at position 4 hides the letter and tests the ear; this shows the letter and
+ * tests the eye, which is the direction a learner needs standing in front of a
+ * signboard.
+ *
+ * THE BOARDS ARE NOT SERVED FROM HERE, for the same reason the letter stop's
+ * questions are not: letterMatchBoards lives in @workspace/script-trace and
+ * both clients call it directly, exactly as they already do for traceStopFor.
+ * The alphabet is shipped static data, so fetching it would buy a round trip
+ * and a second source of truth for no secret worth keeping. What the server
+ * owns is the gate, the ledger and the count.
+ *
+ * PLUS ONLY, AND NO TASTE, which is the one place this differs from the letter
+ * stop and is deliberate. The taste for reading already exists, at stop 4 of
+ * journey 1 zone 1, in every language. A second free door onto the same
+ * alphabet from the Games hub would not be a taste, it would be the feature.
+ * Gated on `scriptTrace` because that is the entitlement this content sits
+ * behind everywhere else.
+ *
+ * Scored by the client and clamped by the server, like script-trace and the
+ * letter stop, and unlike the daily quiz: the game is practice rather than a
+ * contest and the answers ship in the lib either way. Nothing above a full
+ * game's own length is storable.
+ */
+router.post(
+  "/games/letter-match/complete",
+  async (req: Request, res: Response): Promise<void> => {
+    const { lang, correct, total } = req.body as {
+      lang?: unknown;
+      correct?: unknown;
+      total?: unknown;
+    };
+
+    if (typeof lang !== "string" || !lang) {
+      res.status(400).json({ error: "Missing lang" });
+      return;
+    }
+    if (!Number.isInteger(correct) || !Number.isInteger(total)) {
+      res.status(400).json({ error: "correct and total must be integers" });
+      return;
+    }
+    // A whole game is every pair on every board. Clamped rather than trusted:
+    // the client scores, the server refuses to store an impossible session.
+    const maxPairs = MATCH_BOARD_PAIRS * MATCH_BOARD_ROUNDS;
+    const totalAsked = Math.min(Math.max(total as number, 0), maxPairs);
+    const gotRight = Math.min(Math.max(correct as number, 0), totalAsked);
+    if (totalAsked === 0) {
+      res.status(400).json({ error: "A game with no pairs is not a game" });
+      return;
+    }
+
+    if (
+      denyLockedFeature(
+        req,
+        res,
+        "scriptTrace",
+        "Letter match is a Bolo! Plus feature. Upgrade to keep reading.",
+      )
+    )
+      return;
+
+    // REFUSED WHERE A BOARD CANNOT BE BUILT, which is the same check the client
+    // makes before it draws one: a language with no authored script, or an
+    // alphabet whose distinct readings do not reach six, has no game to record.
+    // Journey 1 and the last zone, because the hub is not scoped to a zone and
+    // this asks the widest question the ladder can answer.
+    const pool = lettersMetBy(lang, 1, Number.MAX_SAFE_INTEGER);
+    if (letterMatchBoards(pool, 1, () => 0).length === 0) {
+      res.status(404).json({ error: "No letter match for that language" });
+      return;
+    }
+
+    const userId = getUserId(req);
+    const xpAwarded = computeXp(gotRight, totalAsked);
+    // "hub" like every other Games entry, and it is what says this session was
+    // chosen rather than met on the journey. A chosen, repeatable game pays XP
+    // and never Chai, which is the rule Chacha-ji's call already states: a
+    // currency a learner can farm is a faucet against sinks priced 10 to 50.
+    const context = "hub";
+
+    try {
+      const [session] = await db
+        .insert(gameSessionsTable)
+        .values({
+          userId,
+          languageCode: lang,
+          game: "letter-match",
+          correctCount: gotRight,
+          totalCount: totalAsked,
+          xpAwarded,
+          context,
+        })
+        .returning({ id: gameSessionsTable.id });
+      if (session) await writeGameSessionXp(userId, lang, session.id, xpAwarded);
+    } catch (err) {
+      req.log?.error({ err }, "letter_match_session_write_failed");
+      res.status(500).json({ error: "Could not record that game" });
+      return;
+    }
+
+    res.json({ correct: gotRight, total: totalAsked, xpAwarded });
   },
 );
 

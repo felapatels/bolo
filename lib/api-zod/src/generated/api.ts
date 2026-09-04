@@ -1284,6 +1284,29 @@ export const CompleteDailyQuizResponse = zod.object({
 
 
 /**
+ * Match the letter to its sound: a Games hub game, not a journey stop. The stop at position 4 hides the letter and tests the ear; this shows the letter and tests the eye, which is the direction a learner needs standing in front of a signboard.
+ *
+ * THE BOARDS ARE NOT SERVED FROM HERE. letterMatchBoards lives in @workspace/script-trace and both clients call it directly, exactly as they already do for traceStopFor: the alphabet is shipped static data, so fetching it would buy a round trip and a second source of truth for no secret worth keeping.
+ *
+ * PLUS ONLY AND NO TASTE, which is where this differs from the letter stop. The taste for reading already exists at stop 4 of journey 1 zone 1 in every language; a second free door onto the same alphabet from the Games hub would not be a taste, it would be the feature.
+ *
+ * Scored by the client and clamped by the server: nothing above a full game's own length is storable, and correct can never exceed total.
+ * @summary Record a letter match game
+ */
+export const CompleteLetterMatchBody = zod.object({
+  "lang": zod.string().describe('Language code (e.g. \"hi\")'),
+  "correct": zod.number().describe('Pairs matched at the first try. Clamped server-side to a full game\'s length and never above `total`.'),
+  "total": zod.number().describe('Pairs played. Clamped server-side to MATCH_BOARD_PAIRS times MATCH_BOARD_ROUNDS in @workspace\/script-trace.')
+})
+
+export const CompleteLetterMatchResponse = zod.object({
+  "correct": zod.number().describe('The clamped correct count actually recorded'),
+  "total": zod.number().describe('The clamped total actually recorded'),
+  "xpAwarded": zod.number().describe('XP for this game. No Chai: a chosen, repeatable game paying a currency is a faucet against sinks priced 10 to 50.')
+})
+
+
+/**
  * The letter stop, position 4 of every zone: hear the sound, pick the romanisation. Tracing at stop 2 teaches the hand and this is the only thing in the app that ever asks a learner to READ what they wrote.
  *
  * THE QUESTIONS ARE NOT SERVED FROM HERE, on purpose. letterStopFor lives in @workspace/script-trace and both clients call it directly, exactly as they already do for traceStopFor: the alphabet is shipped static data, so fetching it would buy a round trip and a second source of truth for no secret worth keeping. What the server owns is the gate, the ledger and the count.

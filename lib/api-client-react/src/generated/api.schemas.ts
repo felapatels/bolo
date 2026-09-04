@@ -1699,6 +1699,24 @@ export interface DailyQuizResult {
   quizStreak: number;
 }
 
+export interface CompleteLetterMatchInput {
+  /** Language code (e.g. "hi") */
+  lang: string;
+  /** Pairs matched at the first try. Clamped server-side to a full game's length and never above `total`. */
+  correct: number;
+  /** Pairs played. Clamped server-side to MATCH_BOARD_PAIRS times MATCH_BOARD_ROUNDS in @workspace/script-trace. */
+  total: number;
+}
+
+export interface LetterMatchResult {
+  /** The clamped correct count actually recorded */
+  correct: number;
+  /** The clamped total actually recorded */
+  total: number;
+  /** XP for this game. No Chai: a chosen, repeatable game paying a currency is a faucet against sinks priced 10 to 50. */
+  xpAwarded: number;
+}
+
 export interface CompleteLetterStopInput {
   /** Language code (e.g. "hi") */
   lang: string;

@@ -50,6 +50,7 @@ import type {
   ChatTurnInput,
   ChatTurnResult,
   CompleteDailyQuizInput,
+  CompleteLetterMatchInput,
   CompleteLetterStopInput,
   ContactFormInput,
   ContactFormResult,
@@ -91,6 +92,7 @@ import type {
   LessonGroupTestoutInput,
   LessonGroupTestoutResult,
   LessonGroupTestoutSample,
+  LetterMatchResult,
   LetterStopResult,
   ListBadgesParams,
   ListCategoriesParams,
@@ -3868,6 +3870,84 @@ export const useCompleteDailyQuiz = <TError = ErrorType<Error | UpgradeRequired>
         TContext
       > => {
       return useMutation(getCompleteDailyQuizMutationOptions(options));
+    }
+
+export const getCompleteLetterMatchUrl = () => {
+
+
+
+
+  return `/api/games/letter-match/complete`
+}
+
+/**
+ * Match the letter to its sound: a Games hub game, not a journey stop. The stop at position 4 hides the letter and tests the ear; this shows the letter and tests the eye, which is the direction a learner needs standing in front of a signboard.
+ *
+ * THE BOARDS ARE NOT SERVED FROM HERE. letterMatchBoards lives in @workspace/script-trace and both clients call it directly, exactly as they already do for traceStopFor: the alphabet is shipped static data, so fetching it would buy a round trip and a second source of truth for no secret worth keeping.
+ *
+ * PLUS ONLY AND NO TASTE, which is where this differs from the letter stop. The taste for reading already exists at stop 4 of journey 1 zone 1 in every language; a second free door onto the same alphabet from the Games hub would not be a taste, it would be the feature.
+ *
+ * Scored by the client and clamped by the server: nothing above a full game's own length is storable, and correct can never exceed total.
+ * @summary Record a letter match game
+ */
+export const completeLetterMatch = async (completeLetterMatchInput: CompleteLetterMatchInput, options?: RequestInit): Promise<LetterMatchResult> => {
+
+  return customFetch<LetterMatchResult>(getCompleteLetterMatchUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(completeLetterMatchInput)
+  }
+);}
+
+
+
+
+
+export const getCompleteLetterMatchMutationOptions = <TError = ErrorType<Error | UpgradeRequired>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeLetterMatch>>, TError,{data: BodyType<CompleteLetterMatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeLetterMatch>>, TError,{data: BodyType<CompleteLetterMatchInput>}, TContext> => {
+
+const mutationKey = ['completeLetterMatch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeLetterMatch>>, {data: BodyType<CompleteLetterMatchInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  completeLetterMatch(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteLetterMatchMutationResult = NonNullable<Awaited<ReturnType<typeof completeLetterMatch>>>
+    export type CompleteLetterMatchMutationBody = BodyType<CompleteLetterMatchInput>
+    export type CompleteLetterMatchMutationError = ErrorType<Error | UpgradeRequired>
+
+    /**
+ * @summary Record a letter match game
+ */
+export const useCompleteLetterMatch = <TError = ErrorType<Error | UpgradeRequired>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeLetterMatch>>, TError,{data: BodyType<CompleteLetterMatchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeLetterMatch>>,
+        TError,
+        {data: BodyType<CompleteLetterMatchInput>},
+        TContext
+      > => {
+      return useMutation(getCompleteLetterMatchMutationOptions(options));
     }
 
 export const getCompleteLetterStopUrl = () => {
