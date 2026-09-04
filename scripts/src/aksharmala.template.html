@@ -368,7 +368,13 @@
   // Smooth, then Ramer-Douglas-Peucker, then snap to whole numbers. Ends are
   // smoothed one-sided: preserving a noisy endpoint tilts the chord RDP measures
   // against and stops it simplifying at all.
-  var EPSILON = 1.5, PASSES = 2;
+  // EPSILON WAS 1.5 AND THAT IS 1.5% OF THE PAD (2026-09-04). RDP discards any
+  // point within that of the chord, so on a 300px pad it was throwing away
+  // detail up to four and a half pixels off the line, on top of the integer
+  // rounding below. 0.6 keeps roughly three times as many points. The ceiling
+  // is 256 KB (MAX_PAYLOAD_BYTES) and a full 48-letter alphabet at this
+  // fidelity is tens of KB, so there is room to spare.
+  var EPSILON = 0.6, PASSES = 2;
   function smooth(p){var c=p.slice(),k,i,n,l;if(c.length<=2)return c;
     for(k=0;k<PASSES;k++){n=new Array(c.length);l=c.length-1;
       n[0]={x:(2*c[0].x+c[1].x)/3,y:(2*c[0].y+c[1].y)/3};
@@ -384,9 +390,16 @@
       for(i=f+1;i<l;i++){var d=perp(p[i],p[f],p[l]);if(d>wd){wd=d;wi=i;}}
       if(wi!==-1){keep[wi]=true;st.push([f,wi],[wi,l]);}}
     for(i=0;i<p.length;i++)if(keep[i])o.push(p[i]);return o;}
+  // ONE DECIMAL, NOT WHOLE NUMBERS (2026-09-04). Math.round on a 0..100 scale
+  // quantised every stroke to a 100x100 grid, which is 3px per unit on a 300px
+  // pad, and this is data meant to replace font guesses that agree with a hand
+  // 0 times out of 48. parseTracePayload reads points with Number(), not
+  // parseInt, so decimals need NO change to the wire format, the parser or the
+  // server: bolo1 carries them today. Whole numbers still print short, since
+  // Math.round(x*10)/10 gives 20 rather than 20.0.
+  function q(v){return Math.min(100,Math.max(0,Math.round(v*10)/10));}
   function clean(raw){if(raw.length<2)return null;
-    var s=simplify(smooth(raw)).map(function(p){return{
-      x:Math.min(100,Math.max(0,Math.round(p.x))),y:Math.min(100,Math.max(0,Math.round(p.y)))};});
+    var s=simplify(smooth(raw)).map(function(p){return{x:q(p.x),y:q(p.y)};});
     var o=s.filter(function(p,i){return i===0||p.x!==s[i-1].x||p.y!==s[i-1].y;});
     return o.length>=2?o:null;}
 
