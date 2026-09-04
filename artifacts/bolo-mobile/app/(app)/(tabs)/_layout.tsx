@@ -38,7 +38,7 @@ import { hapticLight } from '@/lib/haptics';
 import { ChatRecordingProvider, useChatRecording } from '@/components/ChatRecordingContext';
 import { accessoryOverlaySource, mascotSource } from '@/lib/mascotOutfits';
 import { useEquippedOutfit } from '@/contexts/OutfitContext';
-import { useContentInset } from '@/lib/contentWidth';
+import { useContentInset, useIsWideScreen } from '@/lib/contentWidth';
 
 // ---------------------------------------------------------------------------
 // Mascot pose assets + type
@@ -278,10 +278,61 @@ function BoloNavParrot({
  * If this is ever animated, it must be RN Animated with useNativeDriver:false
  * (see lib/useLoopProgressRN.ts), never reanimated.
  */
-const BUBBLE_SIZE = 58;
-const BUBBLE_SIZE_FOCUSED = 68;
-const PARROT_SIZE = 44;
-const PARROT_SIZE_FOCUSED = 52;
+/**
+ * THE BAR IS BIGGER ON AN iPAD (owner, 2026-09-03: "They should all be bigger
+ * nav icons as well on ipad. and bolo button should be larger").
+ *
+ * A phone is untouched: every phone number below is the value that was already
+ * here. The wide set is the same proportions at iPad scale, so nothing in the
+ * bubble's own arithmetic changes shape, only its inputs.
+ */
+type NavMetrics = {
+  icon: number;
+  pillW: number;
+  pillH: number;
+  label: number;
+  barHeight: number;
+  bubble: number;
+  bubbleFocused: number;
+  parrot: number;
+  parrotFocused: number;
+  bubbleBottom: number;
+  boloLabel: number;
+};
+const NAV_PHONE: NavMetrics = {
+  icon: 20,
+  pillW: 46,
+  pillH: 28,
+  label: 12,
+  barHeight: 74,
+  bubble: 58,
+  bubbleFocused: 68,
+  parrot: 44,
+  parrotFocused: 52,
+  bubbleBottom: 32,
+  boloLabel: 11,
+};
+const NAV_WIDE: NavMetrics = {
+  icon: 26,
+  pillW: 60,
+  pillH: 36,
+  label: 15,
+  barHeight: 92,
+  bubble: 76,
+  bubbleFocused: 88,
+  parrot: 58,
+  parrotFocused: 68,
+  bubbleBottom: 40,
+  boloLabel: 14,
+};
+export function navMetrics(wide: boolean): NavMetrics {
+  return wide ? NAV_WIDE : NAV_PHONE;
+}
+
+const BUBBLE_SIZE = NAV_PHONE.bubble;
+const BUBBLE_SIZE_FOCUSED = NAV_PHONE.bubbleFocused;
+const PARROT_SIZE = NAV_PHONE.parrot;
+const PARROT_SIZE_FOCUSED = NAV_PHONE.parrotFocused;
 
 /**
  * THE BORDER IS LOAD BEARING AND HAS TO BE NAMED, because the ring above is
@@ -302,7 +353,11 @@ const BUBBLE_BORDER = 2.5;
 // Exported so the chat screen can hold its two flanking notes clear of it
 // rather than guessing a gap, which is how the chip clearance went stale four
 // times.
-export const HOLD_RING_BOX = BUBBLE_SIZE_FOCUSED * 1.62;
+export function holdRingBoxFor(wide: boolean): number {
+  return navMetrics(wide).bubbleFocused * 1.62;
+}
+/** The phone value. chat.tsx's flankGap overrides it per width at render. */
+export const HOLD_RING_BOX = holdRingBoxFor(false);
 
 /**
  * HOW FAR THE RING REACHES ABOVE THE BOTTOM OF ITS TAB SLOT, in points.
@@ -322,8 +377,11 @@ export const HOLD_RING_BOX = BUBBLE_SIZE_FOCUSED * 1.62;
  * IT GREW BY 10pt on 2026-08-28 when the focused bubble went 58 -> 68. Anything
  * clearing this recomputes itself, since every consumer reads the constant.
  */
-export const HOLD_RING_REACH =
-  32 + BUBBLE_SIZE_FOCUSED + (HOLD_RING_BOX - BUBBLE_SIZE_FOCUSED) / 2;
+export function holdRingReachFor(wide: boolean): number {
+  const m = navMetrics(wide);
+  return m.bubbleBottom + m.bubbleFocused + (holdRingBoxFor(wide) - m.bubbleFocused) / 2;
+}
+export const HOLD_RING_REACH = holdRingReachFor(false);
 
 /**
  * WHERE THE LABEL STARTS ON THE RING, DERIVED RATHER THAN TUNED.
@@ -365,7 +423,7 @@ const HOLD_FONT_SIZE = 8;
 const HOLD_TRACKING = 1.2;
 const HOLD_LABEL_WIDTH =
   HOLD_LABEL.length * (HOLD_FONT_SIZE * 0.6 + HOLD_TRACKING) - HOLD_TRACKING;
-const HOLD_RING_CIRCUMFERENCE = 2 * Math.PI * (HOLD_RING_BOX * 0.4);
+
 /** Percent along the path where the label begins, so its middle sits at 12. */
 /**
  * TEXTANCHOR DOES NOT WORK HERE, AND THAT IS NOW MEASURED RATHER THAN BELIEVED.
@@ -387,9 +445,12 @@ const HOLD_RING_CIRCUMFERENCE = 2 * Math.PI * (HOLD_RING_BOX * 0.4);
 // 0 its ink centroid sat 8.1 degrees anticlockwise of 12 o'clock, about one
 // letter left. The owner read that as needing to move right, and it did.
 const HOLD_START_CORRECTION = 2.25;
-const HOLD_START_OFFSET = `${(
-  25 - ((HOLD_LABEL_WIDTH / HOLD_RING_CIRCUMFERENCE) * 100) / 2 + HOLD_START_CORRECTION
-).toFixed(2)}%`;
+function holdStartOffset(box: number): string {
+  const circumference = 2 * Math.PI * (box * 0.4);
+  return `${(
+    25 - ((HOLD_LABEL_WIDTH / circumference) * 100) / 2 + HOLD_START_CORRECTION
+  ).toFixed(2)}%`;
+}
 
 /**
  * A FULL CIRCLE FROM 9 O'CLOCK, CLOCKWISE OVER THE TOP, carrying one label
@@ -425,6 +486,10 @@ function BoloTabButton({
   // the legacy accessibilityState shape as a fallback.
   const focused = ariaSelected ?? accessibilityState?.selected ?? false;
   const reduceMotion = useReducedMotion();
+  const wide = useIsWideScreen();
+  const m = navMetrics(wide);
+  const bubble = focused ? m.bubbleFocused : m.bubble;
+  const ringBox = holdRingBoxFor(wide);
 
   // Hold-to-talk context — available when the chat screen is mounted.
   const { startRecordingRef, stopRecordingRef, isRecording } = useChatRecording();
@@ -482,6 +547,10 @@ function BoloTabButton({
       style={(state) => [
         typeof style === 'function' ? style(state) : style,
         styles.boloOuter,
+        // Same 14pt as the Feed slot above: this label is bottom-anchored and
+        // the built-in three are not. The bubble is absolutely positioned from
+        // the slot's bottom, so this moves the WORD and never the circle.
+        wide ? { paddingBottom: 24 } : null,
       ]}
       accessibilityRole="button"
       accessibilityState={accessibilityState}
@@ -503,9 +572,10 @@ function BoloTabButton({
           {
             // Bigger on the chat tab, where this button IS the microphone.
             // A swap, not an animation: see BUBBLE_SIZE_FOCUSED.
-            width: focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE,
-            height: focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE,
-            borderRadius: (focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE) / 2,
+            width: bubble,
+            height: bubble,
+            borderRadius: bubble / 2,
+            bottom: m.bubbleBottom,
           },
         ]}
       >
@@ -527,9 +597,9 @@ function BoloTabButton({
             position: 'absolute',
             left: -BUBBLE_BORDER,
             top: -BUBBLE_BORDER,
-            width: focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE,
-            height: focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE,
-            borderRadius: (focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE) / 2,
+            width: bubble,
+            height: bubble,
+            borderRadius: bubble / 2,
             shadowColor: colors.primary,
             shadowOpacity: focused ? 0.35 : 0.12,
             shadowRadius: focused ? 12 : 7,
@@ -543,35 +613,35 @@ function BoloTabButton({
             position: 'absolute',
             left: 0,
             top: 0,
-            width: (focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE) - BUBBLE_BORDER * 2,
-            height: (focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE) - BUBBLE_BORDER * 2,
-            borderRadius: (focused ? BUBBLE_SIZE_FOCUSED : BUBBLE_SIZE) / 2,
+            width: bubble - BUBBLE_BORDER * 2,
+            height: bubble - BUBBLE_BORDER * 2,
+            borderRadius: bubble / 2,
             backgroundColor: colors.card,
           }}
         />
 
         <BoloNavParrot
           focused={focused}
-          size={focused ? PARROT_SIZE_FOCUSED : PARROT_SIZE}
+          size={focused ? m.parrotFocused : m.parrot}
         />
         {focused && !isRecording ? (
         <Svg
           pointerEvents="none"
           accessible={false}
-          width={HOLD_RING_BOX}
-          height={HOLD_RING_BOX}
+          width={ringBox}
+          height={ringBox}
           style={{
             position: 'absolute',
             // MINUS THE BORDER. An absolute child is laid out against the
             // parent's PADDING box, so an offset derived from the bubble's
             // outer size lands one border width right and low. Measured at
             // exactly +2.50pt on the simulator before this was added.
-            left: -(HOLD_RING_BOX - BUBBLE_SIZE_FOCUSED) / 2 - BUBBLE_BORDER,
-            top: -(HOLD_RING_BOX - BUBBLE_SIZE_FOCUSED) / 2 - BUBBLE_BORDER,
+            left: -(ringBox - m.bubbleFocused) / 2 - BUBBLE_BORDER,
+            top: -(ringBox - m.bubbleFocused) / 2 - BUBBLE_BORDER,
           }}
         >
           <Defs>
-            <Path id="bolo-nav-hold-ring" d={holdRingPath(HOLD_RING_BOX)} fill="none" />
+            <Path id="bolo-nav-hold-ring" d={holdRingPath(ringBox)} fill="none" />
           </Defs>
           <SvgText
             fill={colors.mutedForeground}
@@ -584,7 +654,7 @@ function BoloTabButton({
                 on Android, and a photo of build 520 shows it does not. */}
             <TextPath
               href="#bolo-nav-hold-ring"
-              startOffset={HOLD_START_OFFSET}
+              startOffset={holdStartOffset(ringBox)}
             >
               {HOLD_LABEL}
             </TextPath>
@@ -608,7 +678,7 @@ function BoloTabButton({
           above), so VoiceOver announces the tab exactly as it does today. */}
       <Text
         numberOfLines={1}
-        style={[styles.boloLabel, { color: colors.primary }]}
+        style={[styles.boloLabel, { color: colors.primary, fontSize: m.boloLabel }]}
       >
         Bolo Chat
       </Text>
@@ -630,9 +700,16 @@ function TabIcon({
   focused: boolean;
 }) {
   const colors = useColors();
+  const m = navMetrics(useIsWideScreen());
   return (
-    <View style={[styles.iconPill, focused && { backgroundColor: colors.primary }]}>
-      <Feather name={name} size={20} color={focused ? colors.primaryForeground : color} />
+    <View
+      style={[
+        styles.iconPill,
+        { width: m.pillW, height: m.pillH, borderRadius: m.pillH / 2 },
+        focused && { backgroundColor: colors.primary },
+      ]}
+    >
+      <Feather name={name} size={m.icon} color={focused ? colors.primaryForeground : color} />
     </View>
   );
 }
@@ -654,6 +731,8 @@ function TabIcon({
 function FeedTabButton({ style }: BoloTabButtonProps) {
   const colors = useColors();
   const router = useRouter();
+  const wide = useIsWideScreen();
+  const m = navMetrics(wide);
   return (
     <Pressable
       onPress={() => {
@@ -665,12 +744,19 @@ function FeedTabButton({ style }: BoloTabButtonProps) {
       style={(state) => [
         typeof style === 'function' ? style(state) : style,
         styles.pushTabItem,
+        // MEASURED ON THE 13-INCH SIM, 2026-09-03. This button centres its own
+        // icon and label in the slot; the three built-in items are laid out by
+        // react-navigation instead, and on the taller iPad bar the two rules
+        // disagree by about 14pt. Centring with padding at the bottom lifts the
+        // pair by half of it, so 28 puts this label on their baseline. Zero on
+        // a phone, where the shorter bar never showed the difference.
+        wide ? { paddingBottom: 28 } : null,
       ]}
     >
-      <View style={styles.iconPill}>
-        <Feather name="activity" size={20} color={colors.mutedForeground} />
+      <View style={[styles.iconPill, { width: m.pillW, height: m.pillH, borderRadius: m.pillH / 2 }]}>
+        <Feather name="activity" size={m.icon} color={colors.mutedForeground} />
       </View>
-      <Text style={[styles.pushTabLabel, { color: colors.mutedForeground }]}>
+      <Text style={[styles.pushTabLabel, { color: colors.mutedForeground, fontSize: m.label }]}>
         Feed
       </Text>
     </Pressable>
@@ -755,6 +841,8 @@ export default function TabsLayout() {
   // 13-inch iPad with five words lost in the middle of it. Zero on a phone,
   // so the bar is untouched there. See lib/contentWidth.
   const contentInset = useContentInset();
+  const wide = useIsWideScreen();
+  const m = navMetrics(wide);
 
   return (
     <ChatRecordingProvider>
@@ -766,7 +854,16 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
-        tabBarLabelStyle: { fontFamily: AppFonts.semibold, fontSize: 12 },
+        tabBarLabelStyle: { fontFamily: AppFonts.semibold, fontSize: m.label },
+        /**
+         * THE LABEL GOES UNDER THE ICON, ALWAYS (owner, 2026-09-03: "bottom nav
+         * all bad on ipad"). @react-navigation/bottom-tabs picks
+         * `labeled-beside` on its own once the bar is wide enough, which on a
+         * 13-inch iPad put every label to the RIGHT of its icon and ran the
+         * active tab's filled pill straight into its own word. A phone was
+         * never wide enough to trip it, so this only ever showed on a tablet.
+         */
+        tabBarLabelPosition: 'below-icon',
         // Floating pill — detached from the screen edges with a soft drop
         // shadow; sits above the home indicator via the safe-area inset.
         tabBarStyle: {
@@ -775,7 +872,7 @@ export default function TabsLayout() {
           right: 14 + contentInset,
           bottom: Math.max(insets.bottom, 14),
           borderRadius: 32,
-          height: 74,
+          height: m.barHeight,
           paddingTop: 6,
           paddingBottom: 8,
           backgroundColor: colors.card,

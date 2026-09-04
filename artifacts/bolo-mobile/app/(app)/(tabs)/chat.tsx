@@ -15,13 +15,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { CONTENT_MAX_W } from '@/lib/contentWidth';
+import { CONTENT_MAX_W, useIsWideScreen } from '@/lib/contentWidth';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useGetScenario } from '@workspace/api-client-react';
 import { useAudioRecorder, useAudioRecorderState, createAudioPlayer } from 'expo-audio';
 import Animated from 'react-native-reanimated';
-import { HOLD_RING_BOX, HOLD_RING_REACH } from '@/app/(app)/(tabs)/_layout';
+import { HOLD_RING_BOX, HOLD_RING_REACH, holdRingBoxFor } from '@/app/(app)/(tabs)/_layout';
 import { pickCantHearLine } from '@/lib/cantHearLines';
 import { appear, appearDown, appearUp } from '@/lib/entrance';
 import {
@@ -186,6 +186,9 @@ const InsetsContext =
   SafeAreaInsetsContext ?? React.createContext<{ bottom: number } | null>(null);
 
 export default function ChatScreen() {
+  // The nav bubble and its ring are bigger on an iPad; the flank notes below
+  // have to clear whichever size is drawn. See navMetrics in (tabs)/_layout.
+  const isWideScreen = useIsWideScreen();
   const colors = useColors();
   const router = useRouter();
   const { activeLang, languages } = useLanguage();
@@ -2711,7 +2714,13 @@ export default function ChatScreen() {
           </View>
           {/* Clears the ring, which is HOLD_RING_BOX wide and centred. Derived,
               so it cannot go stale the way four hand-set chip gaps did. */}
-          <View style={styles.flankGap} pointerEvents="none" />
+          {/* The ring grows on an iPad (navMetrics), so the gap that holds the
+              two notes off it has to grow with it or they slide underneath.
+              styles.flankGap carries the phone width; this overrides it. */}
+          <View
+            style={[styles.flankGap, { width: holdRingBoxFor(isWideScreen) }]}
+            pointerEvents="none"
+          />
           {/* The way to go and look. The sentence it belongs to is in the
               greeting bubble; this is the half that needs a tap target, and a
               disclosure with nowhere to go is only half of one. */}
