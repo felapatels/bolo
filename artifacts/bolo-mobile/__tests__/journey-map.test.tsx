@@ -391,7 +391,7 @@ describe('journey map — station state rendering', () => {
     ]);
     render(<JourneyScreen />);
     expect(
-      screen.getByLabelText('Stop 1 of 4: Now boarding'),
+      screen.getByLabelText('Stop 1 of 5: Now boarding'),
     ).toBeOnTheScreen();
     // The header agrees with the stop the map lights up: four stations, one
     // finished, the learner standing on the second.
@@ -448,7 +448,7 @@ describe('journey map — station state rendering', () => {
     expect(offenders).toEqual([]);
     // The replacements are actually on screen, not merely absent.
     expect(screen.getByText(/Terminus: Dwarka, the festival finale awaits/)).toBeOnTheScreen();
-    expect(screen.getByLabelText('Stop 1 of 3: In progress')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Stop 1 of 4: In progress')).toBeOnTheScreen();
   });
 
 });
@@ -674,7 +674,7 @@ describe('journey map — group-scoped routing', () => {
     ]);
     render(<JourneyScreen />);
 
-    fireEvent.press(screen.getByLabelText('Stop 1 of 3: In progress'));
+    fireEvent.press(screen.getByLabelText('Stop 1 of 4: In progress'));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/practice/[id]',
       params: { id: '2', group: String(target.id) },
@@ -915,7 +915,7 @@ describe('journey header ticket sizing (build-28 regression)', () => {
     // itself is the better proxy for "zone 1 drew" anyway.
     expect(screen.getByTestId('zone-board-top-0')).toBeOnTheScreen();
     expect(screen.getByText(/ZONE 1/)).toBeOnTheScreen();
-    expect(screen.getByLabelText(/^Stop 1 of 4/)).toBeOnTheScreen();
+    expect(screen.getByLabelText(/^Stop 1 of 5/)).toBeOnTheScreen();
   });
 });
 
@@ -1377,20 +1377,23 @@ describe('journey map — Chacha-ji stall landmark', () => {
     setZones([Array.from({ length: 11 }, () => grp({ status: 'locked' }))]);
     render(<JourneyScreen />);
     expect(screen.getAllByTestId(/^chacha-stall-\d+$/).length).toBe(3);
-    // WAS 11 of 11. The count moved to 12 on 2026-08-23 because the zone gained
-    // a TRACING stop, which is an added row by design. The halt is still what
-    // this test is about and still adds nothing: of the twelve rows, exactly
-    // one is the tracing stop and the other eleven are the graded stops, so
-    // the three halts contributed no row at all.
-    // ELEVEN, NOT THIRTEEN, from build 17: the tracing and story stops draw
-    // their own bodies (a chalkboard, a plaque) and the numbered badge on
-    // the rail carries their number, so only the eleven phrase stops print
-    // "Stop n of 13" as text. All thirteen still announce it: the label check.
-    expect(screen.getAllByText(/^Stop \d+ of 13$/).length).toBe(11);
-    expect(screen.getAllByLabelText(/^Stop \d+ of 13/).length).toBe(13);
+    // WAS 11 of 11. The count went to 12 on 2026-08-23 for the TRACING row, 13
+    // for the story row, and 14 for the letter row: each is an added row by
+    // design. The halt is still what this test is about and still adds nothing,
+    // which is exactly what the arithmetic below proves: of the fourteen rows,
+    // three are spliced and the other eleven are the graded stops, so the three
+    // halts contributed no row at all.
+    // ELEVEN, NOT FOURTEEN, from build 17: the tracing, story and letter stops
+    // draw their own bodies (a chalkboard, a plaque, a speaker) and the
+    // numbered badge on the rail carries their number, so only the eleven
+    // phrase stops print "Stop n of 14" as text. All fourteen still announce
+    // it: the label check.
+    expect(screen.getAllByText(/^Stop \d+ of 14$/).length).toBe(11);
+    expect(screen.getAllByLabelText(/^Stop \d+ of 14/).length).toBe(14);
     expect(screen.getAllByText('TRACE').length).toBe(1);
-    expect(screen.getByText('Stop 1 of 13')).toBeOnTheScreen();
-    expect(screen.getByText('Stop 13 of 13')).toBeOnTheScreen();
+    expect(screen.getAllByText('LETTERS').length).toBe(1);
+    expect(screen.getByText('Stop 1 of 14')).toBeOnTheScreen();
+    expect(screen.getByText('Stop 14 of 14')).toBeOnTheScreen();
     expect(mockRecordChachaEncounter).not.toHaveBeenCalled();
   });
 
@@ -1422,12 +1425,13 @@ describe('journey map — the tracing stop', () => {
       [], [], [], [], [],
     ]);
     render(<JourneyScreen />);
-    // Three phrase stops become four rows, and zone 1 puts tracing at stop 2
+    // Three phrase stops become six rows, and zone 1 puts tracing at stop 2
     // so the free taste sits where a Free learner can actually reach it.
     expect(screen.getAllByText('TRACE').length).toBe(1);
-    // By label from build 17: the chalkboard prints no "Stop 2 of 5" (the badge
-    // on the rail says 2), but the card still announces it.
-    expect(screen.getByLabelText(/^Stop 2 of 5:/)).toBeOnTheScreen();
+    // By label from build 17: the chalkboard prints no "Stop 2 of 6" (the badge
+    // on the rail says 2), but the card still announces it. The total was 5
+    // before the letter row landed at stop 4.
+    expect(screen.getByLabelText(/^Stop 2 of 6:/)).toBeOnTheScreen();
     // The fault that shipped to the live site: the card fell through to the
     // phrase-stop line and printed "Now boarding · undefined phrases". Checked
     // on the TEXT the learner reads, never on the serialised prop tree, which
@@ -1490,16 +1494,22 @@ describe('journey map — the tracing stop', () => {
     ]);
     render(<JourneyScreen />);
 
-    // Zone 1: four rows (2 stations + trace + story), tracing row opens.
-    fireEvent.press(screen.getByLabelText(/Stop 2 of 4: Trace/));
+    // Zone 1: five rows (2 stations + trace + story + letters), tracing opens.
+    fireEvent.press(screen.getByLabelText(/Stop 2 of 5: Trace/));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/(tabs)/games/script-trace',
       params: { journey: '1', zone: '1' },
     });
     mockState.push.mockClear();
 
-    // Zone 2: three rows, and its tracing row must go nowhere.
-    fireEvent.press(screen.getByLabelText(/Stop 2 of 3: Trace/));
+    // Zone 2: four rows, and its tracing row must go nowhere.
+    fireEvent.press(screen.getByLabelText(/Stop 2 of 4: Trace/));
+    expect(mockState.push).not.toHaveBeenCalled();
+
+    // AND THE LETTER ROW OBEYS THE SAME GATE, which is the point of the gate
+    // being a gate: a row this client invents is covered by sitting inside the
+    // zone rather than by remembering to join a list.
+    fireEvent.press(screen.getByLabelText(/Stop 4 of 4: .* \(letter stop\)/));
     expect(mockState.push).not.toHaveBeenCalled();
   });
 
@@ -1531,18 +1541,18 @@ describe('journey map — the tracing stop', () => {
     render(<JourneyScreen />);
     // Zone 1 is the free taste and says so; zone 2 is honestly locked rather
     // than opening onto the paywall from a card showing no lock.
-    // BOTH counts moved when the story stop landed, and both are correct.
-    // FREE TASTE 1 -> 2: zone 1 now carries the tracing taste and the story
-    // taste, two different free offers in one zone, which is what web ships.
-    // ALL-ACCESS 1 -> 2: zone 2's story stop is plan-locked beside its tracing
-    // stop and carries the same chip.
-    expect(screen.getAllByText('FREE TASTE').length).toBe(2);
+    // BOTH counts moved when the story stop landed, and again for the letters.
+    // FREE TASTE 1 -> 2 -> 3: zone 1 carries the tracing taste, the story taste
+    // and now the letter taste, three free offers in one zone.
+    // ALL-ACCESS 1 -> 2 -> 3 for zone 2's own three spliced rows, all
+    // plan-locked, all carrying the chip.
+    expect(screen.getAllByText('FREE TASTE').length).toBe(3);
     // 2 -> 4 (chat 11): the plate went from sentence/trace/story-only to
     // EVERY plan-locked stop, on the owner's instruction ("Zone 3 and onward
     // every stop should have this badge"), so the two plan-locked WORD stops
-    // in this fixture now wear it too.
-    expect(screen.getAllByText('ALL-ACCESS').length).toBe(4);
-    fireEvent.press(screen.getByLabelText(/Stop 2 of 4: Trace/));
+    // in this fixture wear it too. 4 -> 5 for zone 2's letter row.
+    expect(screen.getAllByText('ALL-ACCESS').length).toBe(5);
+    fireEvent.press(screen.getByLabelText(/Stop 2 of 5: Trace/));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/(tabs)/games/script-trace',
       params: { journey: '1', zone: '1' },
@@ -1589,8 +1599,9 @@ describe('journey map — the stop card is paper on every stop (item 1.1)', () =
     ]);
     render(<JourneyScreen />);
     const cards = screen.getAllByTestId('stop-card');
-    // The fixture draws five graded stops plus the trace and story rows, so a
-    // map that rendered nothing fails here before the real assertion does.
+    // The fixture draws five graded stops plus the trace, story and letter
+    // rows, so a map that rendered nothing fails here before the real
+    // assertion does.
     expect(cards.length).toBeGreaterThan(4);
     // THE STOCK IS THE DRAWN TAG BACK NOW (chat 11): backgroundColor moved
     // off the card View and into TagCardBack's gradient, so "has stock"
@@ -1680,7 +1691,7 @@ describe('the rail palette and the medallions, mirrored on web', () => {
     expect(RAIL.between).toMatch(/^#[0-9A-F]{6}$/i);
   });
 
-  it('gives a phrase stop, a tracing stop and a story stop each their own', () => {
+  it('gives a phrase, a tracing, a story and a letter stop each their own', () => {
     setZones([
       [grp({ status: 'unlocked' }), grp({ status: 'locked' })],
       [], [], [], [], [],
@@ -1691,6 +1702,7 @@ describe('the rail palette and the medallions, mirrored on web', () => {
     expect(screen.getAllByTestId('station-medallion-station').length).toBeGreaterThan(0);
     expect(screen.getAllByTestId('station-medallion-trace').length).toBeGreaterThan(0);
     expect(screen.getAllByTestId('station-medallion-story').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('station-medallion-letter').length).toBeGreaterThan(0);
   });
 
   it('gives the marker no status of its own, only the kind', () => {

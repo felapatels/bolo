@@ -126,15 +126,17 @@ describe('the one-pager map', () => {
     expect(screen.getByText('11 of 52 lessons done')).toBeTruthy();
   });
 
-  it('numbers the current stop the way the boarding pass does, tracing and story rows included', () => {
+  it('numbers the current stop the way the boarding pass does, every spliced row included', () => {
     render(<JourneyMapScreen />);
-    // Zone 2, graded index 2 of 9: the tracing and story rows land after the
-    // fourth graded stop, so this is still row 3 of 11.
-    expect(screen.getByTestId('map-zone-1-status').props.children).toBe('Stop 3 of 11');
-    expect(screen.getByTestId('map-zone-0-status').props.children).toBe('All 11 stops done');
-    // Numbers: 7 graded plus the two rows.
-    expect(screen.getByTestId('map-zone-2-status').props.children).toBe('9 stops, locked');
-    expect(screen.getByTestId('map-zone-5-status').props.children).toBe('11 stops, locked');
+    // Zone 2, graded index 2 of 9: all three spliced rows land after the fourth
+    // graded stop, so this is still row 3. The TOTAL moved 11 -> 12 when the
+    // letter row landed, which is the whole reason this file reads the plan
+    // rather than counting the payload.
+    expect(screen.getByTestId('map-zone-1-status').props.children).toBe('Stop 3 of 12');
+    expect(screen.getByTestId('map-zone-0-status').props.children).toBe('All 12 stops done');
+    // Numbers: 7 graded plus the three rows, and 9 plus the three.
+    expect(screen.getByTestId('map-zone-2-status').props.children).toBe('10 stops, locked');
+    expect(screen.getByTestId('map-zone-5-status').props.children).toBe('12 stops, locked');
     expect(screen.getByText('New Delhi')).toBeTruthy();
     expect(screen.getByText('Varanasi')).toBeTruthy();
   });

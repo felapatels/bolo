@@ -25,12 +25,13 @@
  * rather than drawn as vectors, and that is the same trade the backdrops made.
  */
 
-/** The six stop kinds the journey lays out. */
+/** The seven stop kinds the journey lays out. */
 export type StopEmblemKind =
   | 'station'
   | 'halt'
   | 'trace'
   | 'story'
+  | 'letter'
   | 'postcard'
   | 'terminus';
 
@@ -39,6 +40,14 @@ const EMBLEMS: Record<StopEmblemKind, number> = {
   halt: require('../assets/journey/emblem-halt.png') as number, // a signal post
   trace: require('../assets/journey/emblem-trace.png') as number, // a key
   story: require('../assets/journey/emblem-story.png') as number, // an open book
+  // THE LETTER STOP SHARES THE TRACING STOP'S KEY, and this is a placeholder
+  // that says so rather than a seventh painting. There is no letter emblem on
+  // the owner's element sheet yet, and ASSET MAPS ARE COMPILE TIME on mobile:
+  // a png cannot be dropped in later and switched on, it has to ride a build
+  // first. Nothing draws this one today (the medallion is a numbered badge and
+  // only the story card calls stopEmblem), so the sharing is invisible; the
+  // kind exists so the row is nameable in a test and in the medallion testID.
+  letter: require('../assets/journey/emblem-trace.png') as number, // the key, borrowed
   postcard: require('../assets/journey/emblem-postcard.png') as number, // a franked stamp
   terminus: require('../assets/journey/emblem-terminus.png') as number, // the engine
 };

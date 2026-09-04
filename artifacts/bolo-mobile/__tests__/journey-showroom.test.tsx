@@ -302,34 +302,37 @@ describe('journey map — showroom mode (locked language)', () => {
     // at rest. What the test is actually about, that the WHOLE LINE is
     // browsable in showroom mode, is pinned by the stop rows below.
     expect(screen.getByTestId('zone-board-overlay-0')).toBeOnTheScreen();
-    // Teaser affordances. THREE CHIPS SINCE BUILD 17, not one: the phrase
-    // taste on stop 1, the tracing taste on stop 2 and the story taste on
-    // stop 3. The showroom listing carries no planLocked, which zoneIncluded
-    // read as "owned outright" and dropped the chips off rows 2 and 3. Owner:
-    // "free taste badges should be on stops 2 and 3 zone 1 of all languages
-    // except Hindi for Free learners." Was getByText, i.e. exactly one.
-    expect(screen.getAllByText('FREE TASTE')).toHaveLength(3);
-    // TEN ALL-ACCESS PLATES SINCE 2026-08-30 (build 23), none of them in zone
-    // 1: the five later zones now draw their tracing and story rows in the
-    // showroom too (owner: "Every zone for every language should have a
-    // script trace and a story stop"), and those rows are All-Access, which
-    // is what the plate says. Was queryByText(...).toBeNull(), written when
-    // later zones drew no rows at all.
-    expect(screen.getAllByText('ALL-ACCESS')).toHaveLength(10);
+    // Teaser affordances. FOUR CHIPS since the letter row landed, three since
+    // build 17, one before that: the phrase taste on stop 1, the tracing taste
+    // on stop 2, the story taste on stop 3 and the letter taste on stop 4. The
+    // showroom listing carries no planLocked, which zoneIncluded read as "owned
+    // outright" and dropped the chips off rows 2 and 3. Owner: "free taste
+    // badges should be on stops 2 and 3 zone 1 of all languages except Hindi
+    // for Free learners", and stop 4 is a taste on the same ruling, which the
+    // server route enforces at journey 1 zone 1 in every language.
+    expect(screen.getAllByText('FREE TASTE')).toHaveLength(4);
+    // FIFTEEN ALL-ACCESS PLATES, none of them in zone 1: the five later zones
+    // each draw a tracing, a story and a letter row in the showroom (owner,
+    // build 23: "Every zone for every language should have a script trace and
+    // a story stop"), and those rows are All-Access, which is what the plate
+    // says. Was 10 with two rows a zone, and queryByText(...).toBeNull()
+    // before that, when later zones drew no rows at all.
+    expect(screen.getAllByText('ALL-ACCESS')).toHaveLength(15);
     // EVERY ZONE'S BOARD IS IN THE TREE NOW, one per zone, because the boards
     // are hand-pinned overlays rather than one swapping card: each tracks its
     // own place, sticks at the top, and is pushed off by the next. So the
     // teaser line appears once per board rather than once on screen.
     expect(screen.getAllByText('Free taste 1/3').length).toBeGreaterThan(0);
 
-    // "of 4", NOT "of 2", SINCE 2026-08-28. The showroom's zone 1 now draws
-    // the tracing and story rows too (owner: "stops 2 and 3 of every journey
-    // zone 1 should have free tastes of script tracing and storybook"), so two
-    // graded stops become four rows. The numbering is the whole point of
-    // planZoneRows and the assertion has to move with it.
+    // "of 5" NOW, "of 4" from 2026-08-28, "of 2" before it. The showroom's
+    // zone 1 draws the tracing, story and letter rows too (owner: "stops 2 and
+    // 3 of every journey zone 1 should have free tastes of script tracing and
+    // storybook", and stop 4 by the same ruling), so two graded stops become
+    // five rows. The numbering is the whole point of planZoneRows and the
+    // assertion has to move with it.
     //
     // The teaser station is the only PHRASE stop that routes into practice.
-    fireEvent.press(screen.getByLabelText('Stop 1 of 4: Now boarding'));
+    fireEvent.press(screen.getByLabelText('Stop 1 of 5: Now boarding'));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/practice/[id]',
       params: { id: '1', group: String(teaserStop.id) },
@@ -340,9 +343,9 @@ describe('journey map — showroom mode (locked language)', () => {
     setShowroom('teaser', { consumed: 0, limit: 3 });
     render(<JourneyScreen />);
 
-    // The locked phrase stop is row 4 now: tracing and the story sit at 2 and
-    // 3, which is exactly where the owner asked for them.
-    fireEvent.press(screen.getByLabelText('Stop 4 of 4: Locked'));
+    // The locked phrase stop is row 5 now: tracing, the story and the letters
+    // sit at 2, 3 and 4, which is exactly where the owner asked for them.
+    fireEvent.press(screen.getByLabelText('Stop 5 of 5: Locked'));
     expect(screen.getByText('This line needs a ticket')).toBeOnTheScreen();
     expect(screen.getByText(/0\/3 tried/)).toBeOnTheScreen();
     // Showroom is read-only: nothing navigated, nothing written.
@@ -365,10 +368,11 @@ describe('journey map — showroom mode (locked language)', () => {
     ).toBeOnTheScreen();
 
     // Locked-stop dialog switches to the exhausted copy.
-    // Several later zones each render a locked "Stop 1 of 3" (their one graded
-    // stop plus the tracing and story rows, drawn in every zone since build
-    // 23); take the first. Was "Stop 1 of 1" while later zones drew no rows.
-    fireEvent.press(screen.getAllByLabelText('Stop 1 of 3: Locked')[0]);
+    // Several later zones each render a locked "Stop 1 of 4" (their one graded
+    // stop plus the tracing, story and letter rows, drawn in every zone since
+    // build 23); take the first. Was "of 3" with two spliced rows and "of 1"
+    // while later zones drew none.
+    fireEvent.press(screen.getAllByLabelText('Stop 1 of 4: Locked')[0]);
     expect(screen.getByText("You've tried this line!")).toBeOnTheScreen();
     expect(mockState.push).not.toHaveBeenCalled();
 

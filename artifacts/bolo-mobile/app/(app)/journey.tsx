@@ -97,11 +97,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useTraceStopProgress } from '@/lib/useTraceStopProgress';
 import {
+  LETTER_STOP_LENGTH,
   traceStopCopy,
   traceStopFor,
   traceStopIndexIn,
   traceStopPassedCount,
   traceStopStatus,
+  type LetterStop,
   type TraceStop,
 } from '@workspace/script-trace';
 import { asUpgradeRequired } from '@/lib/entitlements';
@@ -326,6 +328,15 @@ type Station = LessonGroupSummary & {
    * away from colliding with a real one.
    */
   trace?: TraceStop;
+  /**
+   * Present ONLY on the letter stop, and the discriminator for it.
+   *
+   * Third of the three non-phrase rows, and it arrived after the Station type
+   * comment above had already been written twice about what happens when one
+   * condition is missed. Everything that renders, measures or opens a station
+   * branches on this alongside `trace` and `story`.
+   */
+  letter?: LetterStop;
   /** The stop's own status line, resolved where the passed set is in scope. */
   traceCopy?: string;
   /** The tracing stop's own progress, carried so the card can draw a track:
@@ -778,7 +789,7 @@ function TagCardBack({
   w: number;
   h: number;
   side: 'left' | 'right';
-  variant: 'plain' | 'ahead' | 'done' | 'trace' | 'story' | 'current';
+  variant: 'plain' | 'ahead' | 'done' | 'trace' | 'story' | 'letter' | 'current';
   accent: string;
 }) {
   const r = 10; // corner rounding on the square end
@@ -787,7 +798,11 @@ function TagCardBack({
   // like my example"): phrase stops hang as pointed luggage tags; the tracing
   // stop is a square-cut paper sheet with its dog-ear and the story stop a
   // square-cut framed plaque, which is exactly how the reference cuts them.
-  const pointed = variant !== 'trace' && variant !== 'story';
+  // THE LETTER STOP IS SQUARE-CUT TOO, and the rule behind that is worth
+  // stating rather than pattern-matching: the SILHOUETTE says whether a stop
+  // teaches phrases or something else. Three non-phrase kinds now share one
+  // shape, which is the point of a shape.
+  const pointed = variant !== 'trace' && variant !== 'story' && variant !== 'letter';
   const gid = `tag-${variant}-${side}`;
   // Completed tags are NOT a different paper: a full gold stock read as "why
   // are some different colors?" (chat 11). Done shows in the gold EDGE, the
@@ -1156,7 +1171,9 @@ function StationMarker({
     ? 'trace'
     : station.story
       ? 'story'
-      : 'station';
+      : station.letter
+        ? 'letter'
+        : 'station';
   // NO DIAMOND ANY MORE, and the question that killed it was the right one:
   // "why are some diamond behind and some circle?" The rotated frame meant
   // "first-class sentence stop", so the marker carried TWO encodings at once,
@@ -1706,6 +1723,37 @@ export default function JourneyScreen() {
           !isPlus && !zoneIncluded && isStoryTeaserBook(storyBook),
       } as Station);
     }
+    // THE LETTER STOP, spliced after the story one and by the same rules.
+    // letterStopIndexIn() decides where, against a run that already holds both
+    // rows above it, and that is the whole of why it lands at stop 4 rather
+    // than the stop 3 the fork asked for: stops 2 and 3 are the two free
+    // tastes, and a letter row at 3 either displaces the story taste or pushes
+    // it past the paywall. Added, never substituted, and in every zone,
+    // showroom included: see planZoneRows.
+    const letter = rowPlan.letter;
+    if (letter && rowPlan.letterIndex !== null) {
+      withTrace.splice(rowPlan.letterIndex, 0, {
+        title: letter.title,
+        stage: 'phrase',
+        // Never PROGRESSION-locked, for the same reason as the two rows above
+        // it: it teaches the alphabet, which no phrase stop gates. The zone
+        // gate is the one thing that can shut it.
+        status: zoneGateLocked ? 'locked' : 'unlocked',
+        zoneId: z.id,
+        zoneIndex: i,
+        stopNumber: 0,
+        stopCount: 0,
+        letter,
+        // The taste is journey 1 zone 1 in every language, which is the
+        // condition the server route enforces too (games.ts, and it derives it
+        // inline rather than through a helper so neither side learns a new
+        // rule). Same shape as the two teasers above it.
+        planLocked:
+          !isPlus && !zoneIncluded && !(letter.journey === 1 && letter.zone === 1),
+        teaserStation:
+          !isPlus && !zoneIncluded && letter.journey === 1 && letter.zone === 1,
+      } as Station);
+    }
 
     const rowStations: Station[] = withTrace.map((st, gi) => ({
       ...st,
@@ -2064,13 +2112,13 @@ export default function JourneyScreen() {
     x: number;
     y: number;
     /**
-     * 'trace' is drawn like a station but COUNTS as nothing: it advances the
-     * layout without advancing `k`, as the retired 'halt' row used to. That is
-     * what keeps the serpentine phase, Chacha-ji's stalls, the trackside
-     * signals and every stop number identical to what they were before a
-     * tracing row existed.
+     * 'trace', 'story' and 'letter' are drawn like a station but COUNT as
+     * nothing: they advance the layout without advancing `k`, as the retired
+     * 'halt' row used to. That is what keeps the serpentine phase, Chacha-ji's
+     * stalls, the trackside signals and every stop number identical to what
+     * they were before a tracing row existed.
      */
-    kind: 'station' | 'postcard' | 'terminus' | 'trace' | 'story';
+    kind: 'station' | 'postcard' | 'terminus' | 'trace' | 'story' | 'letter';
     lit: boolean;
     station?: Station;
     /** The GRADED index this row sits at, which is what picks the flank. Render
@@ -2114,14 +2162,16 @@ export default function JourneyScreen() {
       // flank the NEXT graded stop will take, so the rail runs straight down
       // into that stop and the serpentine gains no extra zigzag. `k` does not
       // move, which is the whole reason everything downstream is unaffected.
-      // BOTH non-phrase rows take this branch. `k` does not move for either,
-      // which is the whole reason everything downstream is unaffected. A new
-      // row of any kind added later MUST join this condition.
-      if (s.trace || s.story) {
+      // ALL THREE non-phrase rows take this branch. `k` does not move for any
+      // of them, which is the whole reason everything downstream is unaffected.
+      // A new row of any kind added later MUST join this condition, and the
+      // letter row is the one that came along and proved the line was worth
+      // writing: it joined here rather than growing a fourth code path.
+      if (s.trace || s.story || s.letter) {
         pts.push({
           x: stationX(k),
           y: layoutY + STATION_H / 2,
-          kind: s.story ? 'story' : 'trace',
+          kind: s.story ? 'story' : s.letter ? 'letter' : 'trace',
           // WAS HARDCODED true, AND THAT LIT THE RAIL THROUGH LOCKED ZONES.
           // Reported 2026-08-26 off a TestFlight build: "i haven't gotten to
           // those stops 4, 5 and 6 on zone 2, why is the line green?" The
@@ -2239,7 +2289,11 @@ export default function JourneyScreen() {
   // stationPts below stays station-only on purpose: that is what COUNTS, and
   // adding a non-phrase row to it is the mistake that moves Chacha-ji's stalls.
   const rowPts = pts.filter(
-    (p) => p.kind === 'station' || p.kind === 'trace' || p.kind === 'story',
+    (p) =>
+      p.kind === 'station' ||
+      p.kind === 'trace' ||
+      p.kind === 'story' ||
+      p.kind === 'letter',
   );
 
   // Trackside scenery plan (Task 985 port): deterministic per-zone placement
@@ -3164,20 +3218,22 @@ export default function JourneyScreen() {
             // reason: it teaches nothing the phrase stops gate. It can still be
             // PLAN-locked, which is how the taste is bounded to zone 1.
             const accessible =
-              s.trace || s.story
+              s.trace || s.story || s.letter
                 ? // isStatusAccessible ADDED 2026-08-25 for the zone gate.
                   // These rows read planLocked and ignored status entirely,
                   // which is why a gate-locked zone could still hand back an
                   // open tracing or story stop. traceStopStatus only ever
-                  // returns unlocked, in_progress or completed and a story row
-                  // is unlocked unless the gate says otherwise, so the only
-                  // status this can exclude is the gate's own "locked".
+                  // returns unlocked, in_progress or completed and a story or
+                  // letter row is unlocked unless the gate says otherwise, so
+                  // the only status this can exclude is the gate's own
+                  // "locked".
                   s.planLocked !== true && isStatusAccessible(s.status)
                 : isStatusAccessible(s.status) && !sentenceGated;
-            // NEITHER non-phrase row can be the current stop. `currentId` is a
-            // lesson group id and these have none, but leaving the guard off
-            // would let an undefined id match an undefined id.
-            const isCurrent = !s.trace && !s.story && s.id === currentId;
+            // NO non-phrase row can be the current stop, and there are three of
+            // them now. `currentId` is a lesson group id and these have none,
+            // but leaving a guard off would let an undefined id match an
+            // undefined id.
+            const isCurrent = !s.trace && !s.story && !s.letter && s.id === currentId;
             // Gold-edged stock once the stop is behind the learner, exactly as
             // the sheet draws its finished tag.
             const stopDone = s.status === 'completed' || s.status === 'tested_out';
@@ -3185,7 +3241,7 @@ export default function JourneyScreen() {
             // which of the reference's shapes this stop wears. side names the
             // CARD's flank, so the tip faces the other way, back at the rail.
             const tipSide: 'left' | 'right' = side === 'right' ? 'left' : 'right';
-            const tagPointed = !s.trace && !s.story;
+            const tagPointed = !s.trace && !s.story && !s.letter;
             // Kind outranks state for the SHAPE: a finished tracing stop
             // stays a square sheet rather than turning into a gold tag, so
             // the silhouette always says what the stop IS. Done still shows
@@ -3194,7 +3250,9 @@ export default function JourneyScreen() {
               ? ('trace' as const)
               : s.story
                 ? ('story' as const)
-                : stopDone
+                : s.letter
+                  ? ('letter' as const)
+                  : stopDone
                   ? ('done' as const)
                   : isCurrent
                     ? ('current' as const)
@@ -3215,6 +3273,11 @@ export default function JourneyScreen() {
                   // "Now boarding, undefined phrases" on the live site for
                   // tracing.
                   `A picture story: ${s.story.scenes.length} scenes`
+                : s.letter
+                ? // Same rule, and the letter row has no phrases either. It
+                  // says HEAR because that is the whole difference from the
+                  // tracing stop two rows above it: the letter is never shown.
+                  `Hear ${Math.min(s.letter.characters.length, LETTER_STOP_LENGTH)} letters, pick the sound`
                 : s.status === 'completed'
                 ? 'Completed'
                 : s.status === 'tested_out'
@@ -3230,6 +3293,8 @@ export default function JourneyScreen() {
               ? `${stopLabel}: ${s.story.title}, ${statusCopy} (story stop)`
               : s.trace
               ? `${stopLabel}: ${s.trace.title}, ${statusCopy} (tracing stop)`
+              : s.letter
+              ? `${stopLabel}: ${s.letter.title}, ${statusCopy} (letter stop)`
               : `${stopLabel}: ${statusCopy}${s.stage === 'sentence' ? ' (sentence stop)' : ''}`;
             const onPress = () => {
               hapticLight();
@@ -3252,6 +3317,28 @@ export default function JourneyScreen() {
                 } else {
                   router.push('/paywall');
                 }
+                return;
+              }
+              if (s.letter) {
+                if (accessible) {
+                  // NO SPLASH ON SELECTION (chat 11), same as the two rows
+                  // above it: a second showing of the six-second film between
+                  // a tap and the thing tapped is a toll.
+                  router.push({
+                    pathname: '/(app)/(tabs)/games/letter-stop',
+                    params: {
+                      journey: String(s.letter.journey),
+                      zone: String(s.letter.zone),
+                    },
+                  });
+                  return;
+                }
+                setLock({
+                  kind: 'plan',
+                  stopLabel: `${stopLabel} · ${zone.geoName}`,
+                  zoneTitle: zone.title,
+                  zoneId: zone.id,
+                });
                 return;
               }
               if (s.trace) {
@@ -3579,6 +3666,51 @@ export default function JourneyScreen() {
                             </Text>
                           </View>
                         </View>
+                      ) : s.letter ? (
+                        <View style={styles.kindRow}>
+                          {/* A SPEAKER, DRAWN RATHER THAN CUT. Every other kind
+                              on this map wears art from the owner's element
+                              sheet, and there is no letter emblem on it yet.
+                              ASSET MAPS ARE COMPILE TIME here, so a new png
+                              cannot simply be added later and switched on: it
+                              has to ride a build first. A Feather in a disc
+                              ships today and swaps for the painting the day it
+                              exists, which is the same trade the tracing chip
+                              already made. */}
+                          <View
+                            testID="letter-speaker"
+                            style={[
+                              styles.letterDisc,
+                              {
+                                backgroundColor: accessible ? colors.primary : TICKET.inkAhead,
+                              },
+                            ]}
+                          >
+                            <Feather name="volume-2" size={22} color="#ffffff" />
+                          </View>
+                          <View style={styles.kindCopy}>
+                            <View style={styles.cardTitleRow}>
+                              <Text style={[styles.storyKicker, { color: accessible ? colors.primary : TICKET.inkAhead }]}>
+                                LETTERS
+                              </Text>
+                              <View style={styles.cardTitleSpacer} />
+                              {cardChips}
+                              {!accessible && <Feather name="lock" size={12} color={colors.primary} />}
+                            </View>
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.cardTitle, { color: accessible ? TICKET.ink : TICKET.inkAhead }]}
+                            >
+                              {s.letter.title}
+                            </Text>
+                            <Text
+                              numberOfLines={1}
+                              style={[styles.cardStatus, { color: accessible ? TICKET.inkMuted : TICKET.inkAhead }]}
+                            >
+                              {statusCopy}
+                            </Text>
+                          </View>
+                        </View>
                       ) : (
                       <>
                       <View style={styles.cardTitleRow}>
@@ -3676,6 +3808,7 @@ export default function JourneyScreen() {
                             zero, so "Locked · 0 phrases" was noise too. */}
                         {!s.trace &&
                         !s.story &&
+                        !s.letter &&
                         !s.attemptedCount &&
                         s.planLocked !== true &&
                         s.phraseCount != null
@@ -5247,6 +5380,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   traceTipText: { flex: 1, fontFamily: AppFonts.semibold, fontSize: 11.5, lineHeight: 15 },
+  // The letter stop's speaker disc, sized to sit where the story book sits so
+  // the two kind cards line up. See the comment at its call site for why this
+  // is an icon and not cut art.
+  letterDisc: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   storyBook: { width: 52, height: 52, marginLeft: -4 },
   // Ahead, the book is knocked back the way the paper is: greyer, not faded.
   storyBookAhead: { tintColor: TICKET.inkAhead },

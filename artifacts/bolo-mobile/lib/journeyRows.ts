@@ -1,39 +1,55 @@
 // WHAT NUMBER A STOP WEARS, decided in ONE place.
 //
-// The map draws more rows than the server sends groups: a tracing row and a
-// story row are spliced into every zone and the whole run is renumbered, so a
-// zone of nine graded stops reads "Stop 1 of 11" to "Stop 11 of 11". The home
-// hero was counting the GROUPS instead, so it said "Stop 3 of 9" for a stop the
-// map called "Stop 5 of 11": wrong total AND wrong number, on the two screens a
-// learner sees back to back. Reported by the owner on 2026-08-27, chat 12.
+// The map draws more rows than the server sends groups: a tracing row, a story
+// row and a letter row are spliced into every zone and the whole run is
+// renumbered, so a zone of nine graded stops reads "Stop 1 of 12" to "Stop 12
+// of 12". The home hero was counting the GROUPS instead, so it said "Stop 3 of
+// 9" for a stop the map called "Stop 5 of 11": wrong total AND wrong number, on
+// the two screens a learner sees back to back. Reported by the owner on
+// 2026-08-27, chat 12.
 //
-// `traceStopIndexIn` and `storyStopIndexIn` each already carry the rule that
-// BOTH CLIENTS MUST CALL THEM rather than each choosing a position. This is the
-// same rule one level up: knowing where the rows land is not enough, because
-// the two splices interact (the story row is placed against a run that already
-// contains the tracing row, and each splice pushes every graded stop at or
-// after it down by one). Anyone deriving a stop number has to replay both, and
+// `traceStopIndexIn`, `storyStopIndexIn` and `letterStopIndexIn` each already
+// carry the rule that BOTH CLIENTS MUST CALL THEM rather than each choosing a
+// position. This is the same rule one level up: knowing where the rows land is
+// not enough, because the three splices interact (the story row is placed
+// against a run that already contains the tracing row, the letter row against a
+// run that contains both, and each splice pushes every graded stop at or after
+// it down by one). Anyone deriving a stop number has to replay all three, and
 // replaying them twice is how the two screens drifted in the first place.
 //
 // Web twin: gujarati-coach's journey page splices in the same order with the
 // same helpers. When the web hero is ported, it calls a port of this.
 import { storyBookFor, storyStopIndexIn, type StoryBook } from '@workspace/story';
-import { traceStopFor, traceStopIndexIn, type TraceStop } from '@workspace/script-trace';
+import {
+  letterStopFor,
+  letterStopIndexIn,
+  traceStopFor,
+  traceStopIndexIn,
+  type LetterStop,
+  type TraceStop,
+} from '@workspace/script-trace';
 
 export interface ZoneRowPlan {
   /** The tracing stop this zone draws, or null. */
   trace: TraceStop | null;
   /** The story book this zone draws, or null. */
   storyBook: StoryBook | null;
+  /** The letter stop this zone draws, or null. */
+  letter: LetterStop | null;
   /** Where the tracing row lands in the run, or null when there is none. */
   traceIndex: number | null;
   /** Where the story row lands, or null. Computed AFTER the tracing splice. */
   storyIndex: number | null;
-  /** Rows the map draws: graded stops plus whichever of the two are present. */
+  /**
+   * Where the letter row lands, or null. Computed AFTER both splices above it,
+   * which is what puts it at stop 4 rather than stop 3.
+   */
+  letterIndex: number | null;
+  /** Rows the map draws: graded stops plus whichever of the three are present. */
   rowCount: number;
   /**
    * The 1-based number a graded stop wears on the map, given its 0-based index
-   * among the zone's graded stops. Replays both splices in order.
+   * among the zone's graded stops. Replays all three splices in order.
    */
   rowNumberOfGraded(gradedIndex: number): number;
 }
@@ -55,10 +71,11 @@ export function planZoneRows({
   const zone = zoneIndex + 1;
   const trace = traceStopFor(lang, 1, zone);
   const storyBook = storyBookFor(1, zone);
+  const letter = letterStopFor(lang, 1, zone);
 
   // ADDED, NEVER SUBSTITUTED, and you can only add to something: a zone with no
-  // graded stops gets neither extra row, or an unloaded zone draws a lone
-  // tracing row under an empty board.
+  // graded stops gets none of the three extra rows, or an unloaded zone draws a
+  // lone tracing row under an empty board.
   //
   // EVERY ZONE, FOR EVERY LEARNER, AND NO SHOWROOM FLAG ANY MORE. Owner,
   // 2026-08-30 (build 23), off the 1.0.6 TestFlight build on a Free account:
@@ -82,6 +99,7 @@ export function planZoneRows({
   // invitation to gate on it again.
   const hasTrace = Boolean(trace) && gradedCount > 0;
   const hasStory = Boolean(storyBook) && gradedCount > 0;
+  const hasLetter = Boolean(letter) && gradedCount > 0;
 
   const traceIndex = hasTrace
     ? traceStopIndexIn(gradedCount, trace!.journey, trace!.zone)
@@ -91,22 +109,41 @@ export function planZoneRows({
   const storyIndex = hasStory
     ? storyStopIndexIn(gradedCount + (hasTrace ? 1 : 0), 1, zone, traceIndex)
     : null;
+  // And the letter row against the run that holds BOTH of those, which is the
+  // whole of why it lands at stop 4. The fork asked for stop 3 and letterStopFor
+  // carries the reason it is not: stops 2 and 3 are the two free tastes, so a
+  // letter row at 3 either displaces the story taste or pushes it past the
+  // paywall, and a taste nobody reaches is not a taste.
+  const letterIndex = hasLetter
+    ? letterStopIndexIn(
+        gradedCount + (hasTrace ? 1 : 0) + (hasStory ? 1 : 0),
+        1,
+        zone,
+        traceIndex,
+        storyIndex,
+      )
+    : null;
 
-  const rowCount = gradedCount + (hasTrace ? 1 : 0) + (hasStory ? 1 : 0);
+  const rowCount =
+    gradedCount + (hasTrace ? 1 : 0) + (hasStory ? 1 : 0) + (hasLetter ? 1 : 0);
 
   return {
     trace,
     storyBook,
+    letter,
     traceIndex,
     storyIndex,
+    letterIndex,
     rowCount,
     rowNumberOfGraded(gradedIndex: number): number {
       // splice(i, 0, x) inserts BEFORE i, so an element at index j moves down
       // by one exactly when i <= j. Order matters: trace first, then story
-      // against the already-shifted run, which is the order the map splices in.
+      // against the already-shifted run, then the letter row against that,
+      // which is the order the map splices in.
       let at = gradedIndex;
       if (traceIndex !== null && traceIndex <= at) at += 1;
       if (storyIndex !== null && storyIndex <= at) at += 1;
+      if (letterIndex !== null && letterIndex <= at) at += 1;
       return at + 1;
     },
   };
