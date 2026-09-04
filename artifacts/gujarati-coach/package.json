@@ -92,6 +92,7 @@
     "@clerk/themes": "^2.4.57",
     "@sentry/react": "^10.68.0",
     "@workspace/daily-gift": "workspace:*",
+    "@workspace/game-taste": "workspace:*",
     "@workspace/emergency": "workspace:*",
     "@workspace/story": "workspace:*",
     "posthog-js": "^1.407.3",

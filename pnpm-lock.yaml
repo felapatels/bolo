@@ -200,6 +200,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/game-taste':
+        specifier: workspace:*
+        version: link:../../lib/game-taste
       '@workspace/integrations-openai-ai-server':
         specifier: workspace:*
         version: link:../../lib/integrations-openai-ai-server
@@ -514,6 +517,9 @@ importers:
       '@workspace/emergency':
         specifier: workspace:*
         version: link:../../lib/emergency
+      '@workspace/game-taste':
+        specifier: workspace:*
+        version: link:../../lib/game-taste
       '@workspace/referral-link':
         specifier: workspace:*
         version: link:../../lib/referral-link
@@ -640,6 +646,9 @@ importers:
       '@workspace/emergency':
         specifier: workspace:*
         version: link:../../lib/emergency
+      '@workspace/game-taste':
+        specifier: workspace:*
+        version: link:../../lib/game-taste
       '@workspace/story':
         specifier: workspace:*
         version: link:../../lib/story
@@ -1108,6 +1117,8 @@ importers:
         version: 0.31.10
 
   lib/emergency: {}
+
+  lib/game-taste: {}
 
   lib/integrations-openai-ai-react:
     devDependencies:

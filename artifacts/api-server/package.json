@@ -30,6 +30,7 @@
     "@sentry/node": "^10.68.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/daily-gift": "workspace:*",
+    "@workspace/game-taste": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/integrations-openai-ai-server": "workspace:*",
     "@workspace/script-trace": "workspace:*",

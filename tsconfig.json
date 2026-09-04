@@ -22,6 +22,9 @@
       "path": "./lib/emergency"
     },
     {
+      "path": "./lib/game-taste"
+    },
+    {
       "path": "./lib/integrations-openai-ai-server"
     },
     {

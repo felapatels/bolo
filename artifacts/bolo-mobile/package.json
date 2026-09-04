@@ -42,6 +42,7 @@
     "@workspace/api-client-react": "workspace:*",
     "@workspace/daily-gift": "workspace:*",
     "@workspace/emergency": "workspace:*",
+    "@workspace/game-taste": "workspace:*",
     "@workspace/referral-link": "workspace:*",
     "@workspace/script-trace": "workspace:*",
     "@workspace/story": "workspace:*",
