@@ -20,6 +20,11 @@ export const GAME_ART: Record<string, number> = {
   'phrase-builder': require('../assets/games/phrase-builder.png') as number,
   'speed-round': require('../assets/games/speed-round.png') as number,
   'script-trace': require('../assets/games/script-trace.png') as number,
+  // Placeholder in Letter Match's own plum, generated the same way every other
+  // card's was and replaced by the real painting the same way: it lands in
+  // ~/Downloads/bolo-games/ under this name and scripts/import-game-art.py
+  // resamples it over this file, so nothing here changes when it arrives.
+  'letter-match': require('../assets/games/letter-match.png') as number,
   'bolo-quiz': require('../assets/games/bolo-quiz.png') as number,
   'ticket-check': require('../assets/games/ticket-check.png') as number,
   storybook: require('../assets/games/storybook.png') as number,

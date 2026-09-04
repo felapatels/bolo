@@ -181,6 +181,26 @@ export const GAMES: GameDef[] = [
     plusOnly: true,
     icon: 'edit-3',
   },
+  /**
+   * DIRECTLY AFTER SCRIPT TRACE, because it is the other half of the same
+   * lesson and a learner who just traced eight letters is exactly who should
+   * see it next. Tracing teaches the hand; this is the only game in the hub
+   * that asks somebody to READ.
+   *
+   * All-Access with no taste, matching the server. The free taste for reading
+   * already exists on the journey at stop 4 of zone 1, in every language; a
+   * second free door onto the same alphabet from here would not be a taste, it
+   * would be the feature.
+   */
+  {
+    id: 'letter-match',
+    title: 'Letter Match',
+    // Roughly fifty characters is what these cards show before truncating.
+    description: 'Pair each letter with the sound it makes.',
+    difficulty: 'Intermediate',
+    plusOnly: true,
+    icon: 'volume-2',
+  },
   {
     id: 'bolo-quiz',
     title: 'Bolo Quiz',
@@ -318,6 +338,10 @@ const GAME_COLORS: Record<string, GameColor> = {
   'storybook': { from: '#1F5060', to: '#143B47', deep: '#0E2A33', ink: '#143B47', glow: 'rgba(31,80,96,0.55)' },
   'emergency': { from: '#E0342C', to: '#A31E18', deep: '#7D1512', ink: '#A31E18', glow: 'rgba(224,52,44,0.55)' },
   'signal-lights': { from: '#3E8E41', to: '#256A2B', deep: '#1A4E1F', ink: '#256A2B', glow: 'rgba(62,142,65,0.55)' },
+  // jamun plum, a shade off Bolo Quiz's: the same family for the two games that
+  // test what a learner can read, and distinct enough not to be mistaken for it.
+  // The placeholder painting in assets/games is generated in this hue.
+  'letter-match': { from: '#7A3E9D', to: '#4E2069', deep: '#3A1650', ink: '#4E2069', glow: 'rgba(122,62,157,0.55)' },
 };
 
 /** Neutral fallback so an unmapped future game still renders sensibly. */
