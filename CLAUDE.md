@@ -89,9 +89,16 @@ nobody asked mid-iteration.
 Run from the repo root.
 
 - api: `pnpm --filter @workspace/api-server run test`
-  Baseline **1450 tests, 109 suites, 1448 pass, 0 fail, 2 skipped, ~415s**, measured
-  in the Repl Shell 2026-08-29 (build 20, after the flashback and hesitation
-  server change; 1436/106/1434 earlier that day after build 19). (Was
+  Baseline **1485 tests, 115 suites, 1483 pass, 0 fail, 2 skipped, ~422s**, measured
+  in the Repl Shell 2026-09-04, after the letter stop, the daily gift, the letter
+  match, the script-keyed letter audio and the Nest's three new drill metrics.
+  **THAT RUN WAS THE FIRST TIME ANY OF THOSE ROUTE TESTS HAD EXECUTED**, since
+  this suite cannot run on a Mac, and the one it mattered most for is the gift:
+  fec82be8 DELETED the silent earn_streak_day grant from the attempts path, and
+  the only prior evidence that nothing depended on it was a reading of every
+  test that posts to /attempts. Nothing did.
+  (Was 1450/109/1448 on 2026-08-29 (build 20), after the flashback and
+  hesitation server change; 1436/106/1434 earlier that day after build 19.) (Was
   1430/105/1428 on 2026-08-28 (build 17), 1251/93/1249 on 2026-08-27,
   1174/91/1172 on 2026-08-23, and 1064/68/1062 before that; the growth is new
   coverage, not a change in behaviour.) The 1428 is 1427 from the full run
@@ -113,18 +120,34 @@ Run from the repo root.
   The script runs `sync-schema` first, so running the api tests APPLIES pending
   migrations to the dev database.
 - web: `pnpm --filter @workspace/gujarati-coach run test` (vitest)
-  Baseline **139 files, 1492 tests, all pass**, measured 2026-08-30 (build 23,
-  at close, with another session's landing test in the tree; the count moved
-  with the Emergency pins added, the journey header's three pins folded into
-  one, and the trace ticket's pins inverted).
+  Baseline **150 files, 1634 tests, all pass**, measured 2026-09-04 at the close
+  of the letter stop, the daily gift and the letter match. Eleven new files: the
+  three features' pure halves (letter-stops, daily-gift, letter-match) and their
+  page twins, plus the letter key.
+  **NOT ONE EXISTING FILE NEEDED PATCHING** when two new hooks landed on home
+  and practice, because every web suite spreads src/test/api-client-mock.ts.
+  The identical change cost mobile ninety-six lines across thirty-two files. If
+  you read one line of this section, read that one: mobile owes itself that base.
+  (Was 139 / 1492 on 2026-08-30 (build 23), at close, with another session's
+  landing test in the tree.)
   (Was 139 / 1491 earlier on 2026-08-30 (build 22).)
   (Was 137 / 1475 on 2026-08-29 (build 20).)
   (Was 135 / 1462 earlier on 2026-08-29 (build 19), 131 / 1434 (build 18), 131 / 1421 on 2026-08-28, 128 / 1399 on 2026-08-27, and 93 suites / 842 tests before that.) One flake seen once on 2026-08-27, a single
   failure that did not reproduce across two immediate re-runs; noted rather
   than chased, and worth watching for.
 - mobile: `pnpm --filter @workspace/bolo-mobile run test` (jest)
-  Baseline **162 suites, 1542 tests, all pass**, measured 2026-09-02 (build 29,
-  the first run ever made at a PHONE window: see the note below).
+  Baseline **168 suites, 1596 tests, all pass**, measured 2026-09-04 at the close
+  of the letter stop, the daily gift and the letter match.
+  **THIRTY-TWO SUITES GAINED THREE MOCK LINES EACH THAT DAY AND IT WAS AVOIDABLE.**
+  These suites use FULL-REPLACEMENT mocks of @workspace/api-client-react with no
+  shared base, so the two hooks the gift box added to home and practice broke 36
+  suites at once with "useGetDailyGift is not a function". gujarati-coach solved
+  this with src/test/api-client-mock.ts, which derives its export surface from
+  the real module at runtime; its header promises "no per-file patching pass ever
+  again" and it delivered, costing web ZERO lines for the same change. Build the
+  twin the next time this bill arrives.
+  (Was 162 / 1542 on 2026-09-02 (build 29), the first run ever made at a PHONE
+  window: see the note below.)
 
   **THE SUITE RENDERED AS A TABLET FOR FOUR DAYS AND NOBODY KNEW.** jest-expo's
   default window is 750x1334, and `useIsWideScreen()` is `width > 600`, so from
