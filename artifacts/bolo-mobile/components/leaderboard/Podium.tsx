@@ -52,10 +52,13 @@ function Seat({
   const colors = useColors();
   const size = place === 1 ? BIG : SMALL;
   const [ringTop, ringBottom] = RINGS[place];
-  if (!entry) return <View style={[styles.seat, { width: size + 40 }]} />;
+  if (!entry) return <View style={[styles.seat, { flexBasis: size + 40 }]} />;
   const value = metricValue(entry, metric);
   return (
-    <View style={[styles.seat, { width: size + 40, marginTop: place === 1 ? 0 : 26 }]} testID={`podium-${place}`}>
+    <View
+      style={[styles.seat, { flexBasis: size + 40, marginTop: place === 1 ? 0 : 26 }]}
+      testID={`podium-${place}`}
+    >
       <View style={{ width: size + RING * 2, height: size + RING * 2 }}>
         <LinearGradient
           colors={[ringTop, ringBottom]}
@@ -162,8 +165,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
-  seats: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 4, paddingHorizontal: 6 },
-  seat: { alignItems: 'center', gap: 4 },
+  /**
+   * THE SEATS SHRINK (owner, 2026-09-03, on a 10-inch iPad: "looks like
+   * leaderboard is clipped on the left side").
+   *
+   * They were three FIXED widths, 128 + 112 + 112, which with the gaps and the
+   * stage's own padding needs 372pt. Home is two columns on an iPad, so the
+   * card holding this is narrower than that on a 10-inch and the row simply
+   * overflowed: the outer names and their numbers were cut off at BOTH edges,
+   * which is why the left one read "earner 7521".
+   *
+   * flexBasis keeps the three at their designed proportions wherever there is
+   * room and lets them give ground proportionally where there is not. Each
+   * avatar is size + RING * 2, so the row can come down to 268pt of art before
+   * anything is clipped, and the names ellipsise long before that.
+   */
+  seats: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    gap: 4,
+    paddingHorizontal: 6,
+    alignSelf: 'stretch',
+  },
+  seat: { alignItems: 'center', gap: 4, flexShrink: 1, minWidth: 0 },
   crown: {
     position: 'absolute',
     top: -8,

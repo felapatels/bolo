@@ -243,7 +243,30 @@ const CARD_PROGRESS_W = 80; // mastered-progress track width (web: w-20)
 // 256 FROM THE ZONE-CARD RESTYLE (build 17, owner's mockup): the panel is a
 // card now, with a line pill, a 22pt city, a rule and a boxed fact, and the
 // budget was measured again with an onLayout before this number was set.
-const PC_H = 256; // vertical rhythm per fare-zone postcard (pediment + card)
+/**
+ * THE PANEL'S BUDGET, and PC_H is derived from it rather than the other way
+ * round (owner, 2026-09-03, on a 10-inch iPad: "the zone card on journey is
+ * cut off on the bottom").
+ *
+ * The pediment is a fixed ASPECT of the board, so it grows with the board's
+ * width, and PC_H was a constant 256. A phone's 358pt board gives a 66.9pt
+ * pediment and leaves 189.1 for the panel, which is the number build 17
+ * measured with an onLayout and sized the content to. An iPad's 528pt board
+ * gives a 98.7pt pediment and left the panel 157.3: THIRTY-ONE POINTS SHORT,
+ * and the board clips rather than growing, so the fact box fell off the bottom
+ * silently. It is the same fault as "did you know section is falling off zone
+ * card" from build 17, arriving again by a different road.
+ *
+ * Deriving it keeps the panel at its measured budget on any width, and a phone
+ * lands on 256 exactly, so nothing there moves and the mirrored pins in
+ * journey-board-budget.test.ts and journey-map.test.ts still hold.
+ */
+const ZONE_PANEL_BUDGET = 189;
+function pcHeightFor(mapW: number): number {
+  return Math.round(ZONE_PANEL_BUDGET + ((mapW - 32) * ZONE_BOARD.topH) / ZONE_BOARD.artW);
+}
+/** The phone value, for anything that cannot reach a width. */
+const PC_H = pcHeightFor(MAP_MAX_W);
 
 const ZONE_BOARD_GAP = 18; // air between the carved board and the first stop card
 /**
@@ -674,7 +697,7 @@ function ZoneBandFixed({
           // when it took over the top of the screen. Without it the cap was
           // shorter than its own box and the uncovered strip let a stop card
           // from further down the block show through above the pediment.
-          height: PC_H + ZONE_BOARD_GAP + extraTop + 2,
+          height: pcHeightFor(mapW) + ZONE_BOARD_GAP + extraTop + 2,
           backgroundColor: zoneFootTone(zi),
           overflow: 'hidden',
         }}
@@ -1386,6 +1409,10 @@ export default function JourneyScreen() {
   // width is authoritative (map column = screen width capped at 390, with the
   // same 0 side padding the web column has inside its centering wrapper).
   const mapW = Math.min(wide ? MAP_MAX_W_WIDE : MAP_MAX_W, windowW);
+  // The board grows with the map, so the postcard's rhythm has to grow with
+  // it or the panel loses the room its content was measured against. See
+  // ZONE_PANEL_BUDGET; on a phone this is 256, exactly as before.
+  const pcH = pcHeightFor(mapW);
   // The carved board's panel height, in points. The board is exactly PC_H and
   // the pediment takes its own aspect out of that, so the remainder is known
   // without measuring anything. postcardWrap insets the board by 16 a side.
@@ -1398,7 +1425,7 @@ export default function JourneyScreen() {
   // resolves the percentage happily, which is why every suite stayed green.
   // The width is known exactly here, so nothing needs to be inferred.
   const boardPedimentH = (boardW * ZONE_BOARD.topH) / ZONE_BOARD.artW;
-  const boardPanelH = PC_H - boardPedimentH;
+  const boardPanelH = pcH - boardPedimentH;
   // EVEN-SIZED STOP CARDS (chat 11): "I want it to look like this. Even sized
   // cards." Every stop card is the same width, anchored beside its marker with
   // the same 36pt eyelet gap, instead of stretching to whatever the flank left
@@ -1762,7 +1789,7 @@ export default function JourneyScreen() {
               // SCROLL VIEW's top edge, which is under the status bar. The
               // painted cap behind it is extended by the same amount, so
               // the art still runs to the top of the screen.
-              height: PC_H + ZONE_BOARD_GAP,
+              height: pcH + ZONE_BOARD_GAP,
               // BOTH SIBLINGS ORDERED EXPLICITLY, and elevation with it. A
               // sticky header is transformed by the ScrollView to hold its
               // place, and on iOS that was enough to let the LATER block
@@ -1788,7 +1815,7 @@ export default function JourneyScreen() {
                   testID={`zone-board-overlay-inner-${zi}`}
                   pedimentTestID={`zone-board-top-${zi}`}
                   width={boardW}
-                  height={PC_H}
+                  height={pcH}
                   nameplate={zone.title.toUpperCase()}
                   plate={`ZONE ${zi + 1}`}
                   opacity={grayed ? 0.8 : 1}
@@ -2066,7 +2093,7 @@ export default function JourneyScreen() {
     const xNext = stationX(k);
     pts.push({
       x: (xPrev + xNext) / 2,
-      y: layoutY + PC_H / 2,
+      y: layoutY + pcH / 2,
       kind: 'postcard',
       // WAS `!showroom || zoneLit`, which is `true` for every ordinary learner
       // and lit the run from a zone's last stop into the NEXT zone's card on
@@ -2081,7 +2108,7 @@ export default function JourneyScreen() {
     // more space between the zone and first card". The gap belongs to the
     // zone row, so every derived y (stations, scenery, signals, the intro
     // scroll target) moves with it by construction.
-    layoutY += PC_H + ZONE_BOARD_GAP;
+    layoutY += pcH + ZONE_BOARD_GAP;
     for (const s of zone.rowStations) {
       // The tracing row: drawn like a stop, counted like nothing. It takes the
       // flank the NEXT graded stop will take, so the rail runs straight down
@@ -2422,7 +2449,7 @@ export default function JourneyScreen() {
     // a 260 lead against a board whose foot is at 253, read as the header's
     // doing and "fixed" there twice.
     const boardFloor =
-      headerTopInset + TOP_PAD + PC_H + ZONE_BOARD_GAP + STATION_H / 2;
+      headerTopInset + TOP_PAD + pcH + ZONE_BOARD_GAP + STATION_H / 2;
     // layout.y is the FIRST BOARD child's CONTENT y and currentStopY is
     // CANVAS. That child sits at canvas slices[0].start, so that is what
     // converts one into the other. It used to subtract a bare TOP_PAD, which
@@ -2859,9 +2886,9 @@ export default function JourneyScreen() {
         />
         {zones.flatMap((zone, zi) => {
           const { start, end } = slices[zi]!;
-          const blockTop = start + PC_H + ZONE_BOARD_GAP;
+          const blockTop = start + pcH + ZONE_BOARD_GAP;
           const blockH = end - blockTop;
-          const layerTop = -(PC_H + ZONE_BOARD_GAP);
+          const layerTop = -(pcH + ZONE_BOARD_GAP);
             const pt = pts.find((p) => p.kind === 'postcard' && p.zoneIndex === zi)!;
             const zoneAccessible = zone.stations.some(
               (s) => isStatusAccessible(s.status) || s.teaserStation,
@@ -2899,7 +2926,7 @@ export default function JourneyScreen() {
                 style={{
                   width: mapW,
                   alignSelf: 'center',
-                  height: PC_H + ZONE_BOARD_GAP,
+                  height: pcH + ZONE_BOARD_GAP,
                 }}
                 onLayout={zi === 0 ? onMapLayout : undefined}
               />
@@ -4006,7 +4033,7 @@ export default function JourneyScreen() {
                 : null
             }
             pinTop={headerTopInset}
-            boardH={PC_H + ZONE_BOARD_GAP}
+            boardH={pcH + ZONE_BOARD_GAP}
             scrollY={scrollY}
           >
             {renderZoneBoard(zi)}
