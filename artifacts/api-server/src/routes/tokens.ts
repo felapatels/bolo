@@ -4,13 +4,20 @@ import {
   SpendTokensBody,
   UnlockStopBody,
 } from "@workspace/api-zod";
+import {
+  dailyGiftFor,
+  giftChaiForStreakDay,
+  giftRefId,
+  type DailyGift,
+} from "@workspace/daily-gift";
 import { db, tokenLedgerTable } from "@workspace/db";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import {
   getOrCreateTokenState,
   grantTokens,
+  grantTokensDetailed,
   spendTokens,
   buyFirstClass,
   unlockStop,
@@ -28,6 +35,7 @@ import {
 } from "../lib/tokenEconomy";
 import { findRepairableBreak } from "../lib/streakRepair";
 import { loadStreakLadder } from "../lib/streakDays";
+import { localDayKey } from "../lib/progressMetrics";
 import { checkStopUnlockEligibility } from "../lib/stopUnlock";
 import { getLanguageAccess, sendLockedLanguageDenial } from "../lib/gating";
 
@@ -432,6 +440,139 @@ router.post(
       }
       throw e;
     }
+  },
+);
+
+// ── THE DAILY GIFT ───────────────────────────────────────────────────────────
+//
+// NOT A NEW REWARD. The app has paid 1 Chai a day for showing up since long
+// before this, granted silently on the day's first attempt in learning.ts, and
+// nobody has ever seen it happen. THE TAP IS THE GRANT now (owner ruling,
+// 2026-09-04): same reason code, same local-day refId, same ledger index, moved
+// here so the learner opens a box for it and reads what tomorrow's is worth.
+//
+// TWO ENDPOINTS, AND THE READ IS NOT A CACHE OF THE WRITE. Both derive the
+// whole state from the same two facts, the streak ladder and the ledger, so a
+// box drawn from GET and a box claimed by POST cannot disagree about the day,
+// the amount or whether it is still open.
+//
+// WHY IT LIVES IN tokens.ts. It is a Chai grant, and this file already owns the
+// wallet, the ledger's receipt strip and streak repair, which is the one other
+// place `streakDays` is turned into an offer. A gift route in learning.ts would
+// have put the ledger in two files.
+
+/**
+ * Today's box, resolved from the streak ladder and the ledger and nothing else.
+ *
+ * THE PRECONDITION IS AN EARNED DAY, NOT AN ATTEMPT, and that is a deliberate
+ * tightening rather than an oversight. The old silent grant fired on the day's
+ * first ATTEMPT, while the streak itself has counted only a completed lesson or
+ * a played mini-game since Task #1081 ("showing up and recording a few takes
+ * without finishing anything is not the thing the streak is meant to reward").
+ * The two rules disagreed, harmlessly, while nobody could see either. They
+ * cannot now: the ladder decides the box's NUMBER, so it has to decide the
+ * box's DAY as well, or a learner could open day 4's box on a day the streak
+ * refuses to count and find themselves on day 4 again tomorrow.
+ */
+async function readDailyGift(req: Request): Promise<{
+  gift: DailyGift;
+  streakDays: number;
+  earnedToday: boolean;
+  todayKey: string;
+}> {
+  const userId = getUserId(req);
+  const timeZone = (req as EntitledRequest).userTimezone;
+  const todayKey = localDayKey(new Date(), timeZone);
+  const { earnedDayKeys, currentStreakDays } = await loadStreakLadder(
+    userId,
+    timeZone,
+  );
+  // The ledger IS the claim record. No flag, no device state that could
+  // disagree with it, and no way for a reinstall to hand somebody a second box.
+  const [claimedRow] = await db
+    .select({ refId: tokenLedgerTable.refId })
+    .from(tokenLedgerTable)
+    .where(
+      and(
+        eq(tokenLedgerTable.userId, userId),
+        eq(tokenLedgerTable.reason, "earn_streak_day"),
+        eq(tokenLedgerTable.refId, giftRefId(todayKey)),
+      ),
+    )
+    .limit(1);
+  const earnedToday = earnedDayKeys.has(todayKey);
+  const gift = dailyGiftFor({
+    streakDays: currentStreakDays,
+    claimedDayKey: claimedRow ? todayKey : null,
+    todayKey,
+  });
+  return {
+    gift: { ...gift, claimable: gift.claimable && earnedToday },
+    streakDays: currentStreakDays,
+    earnedToday,
+    todayKey,
+  };
+}
+
+// GET /tokens/gift — what box to draw, and whether it is still worth tapping.
+router.get("/tokens/gift", async (req: Request, res: Response): Promise<void> => {
+  const { gift, streakDays, earnedToday, todayKey } = await readDailyGift(req);
+  const state = await getOrCreateTokenState(getUserId(req));
+  res.json({
+    ...gift,
+    streakDays,
+    // The clients need to tell "come back tomorrow" from "practise first", and
+    // those are two different boxes on the same screen.
+    earnedToday,
+    // Sent so a client can hold its own midnight without guessing at the
+    // learner's timezone, which is the server's to know.
+    localDay: todayKey,
+    balance: state.balance,
+  });
+});
+
+// POST /tokens/gift/claim — open it. This call IS the grant.
+router.post(
+  "/tokens/gift/claim",
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = getUserId(req);
+    const { gift, streakDays, earnedToday, todayKey } = await readDailyGift(req);
+
+    // Nothing practised today, so there is no box. 409 rather than 402: this is
+    // not a plan boundary and a learner must never be upsold over one, which is
+    // the same rule streak repair above states in the same words.
+    if (!earnedToday) {
+      res.status(409).json({ error: "no_gift_today" });
+      return;
+    }
+
+    // THE AMOUNT IS DERIVED HERE, NOT SENT. A client that could name its own
+    // number would be a faucet, and this is the only place in the product where
+    // a tap writes to the ledger.
+    const amount = giftChaiForStreakDay(streakDays);
+    const { state, granted } = await grantTokensDetailed(
+      userId,
+      "earn_streak_day",
+      giftRefId(todayKey),
+      amount,
+    );
+
+    // `granted` false means the day was already claimed, which is not an error:
+    // a double tap, a retried request and a second device all land here and all
+    // of them should see the same open box rather than a failure. The ledger's
+    // unique index on (userId, reason, refId) is the authority, and it is the
+    // same index that has made this grant idempotent since long before the box.
+    res.json({
+      ...gift,
+      claimed: true,
+      claimable: false,
+      chai: amount,
+      streakDays,
+      earnedToday,
+      localDay: todayKey,
+      granted,
+      balance: state.balance,
+    });
   },
 );
 

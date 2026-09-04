@@ -1934,6 +1934,47 @@ export interface StreakRepairResult {
   cost: number;
 }
 
+/**
+ * Which of the four boxes to draw. A function of the DAY and not of the amount: the amount is economy tuning that has moved before, the box is a picture of how long the learner has kept it up. `grand` is the one with the gold ribbon.
+ */
+export type DailyGiftStateTier = typeof DailyGiftStateTier[keyof typeof DailyGiftStateTier];
+
+
+export const DailyGiftStateTier = {
+  small: 'small',
+  medium: 'medium',
+  large: 'large',
+  grand: 'grand',
+} as const;
+
+export interface DailyGiftState {
+  /** The streak day this box belongs to, clamped to the ladder's cap. */
+  day: number;
+  /** What the box holds. Linear from 1, capped at a week. */
+  chai: number;
+  /** Which of the four boxes to draw. A function of the DAY and not of the amount: the amount is economy tuning that has moved before, the box is a picture of how long the learner has kept it up. `grand` is the one with the gold ribbon. */
+  tier: DailyGiftStateTier;
+  /** What tomorrow's box holds. Naming it is the mechanic. At the cap it equals `chai`, never `chai + 1`, because promising an eighth is a promise the ladder breaks the next morning. */
+  tomorrowChai: number;
+  /** True once today's box has been tapped. The tap is the grant. */
+  claimed: boolean;
+  /** True while the box is worth tapping: practised today and not yet opened. */
+  claimable: boolean;
+  /** The learner's current streak, which is what the ladder rides. */
+  streakDays: number;
+  /** Whether today counts as a streak day yet. False with claimable false means "practise first", which is a different box from "come back tomorrow". */
+  earnedToday: boolean;
+  /** The learner's local day key, YYYY-MM-DD. Sent so a client can hold its own midnight without guessing at a timezone the server knows. */
+  localDay: string;
+  /** The Chai wallet after whatever has already happened today. */
+  balance: number;
+}
+
+export type DailyGiftClaimResult = DailyGiftState & {
+  /** Whether THIS call wrote the ledger row. False means the day was already claimed, which is not an error: a double tap, a retried request and a second device all land here and all should see the same open box. */
+  granted: boolean;
+};
+
 export interface TokenSpendResult {
   balance: number;
   granted: string;

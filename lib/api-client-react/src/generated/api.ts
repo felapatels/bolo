@@ -55,6 +55,8 @@ import type {
   ContactFormResult,
   CreateFamilyInvite201,
   CreateFamilyInviteInput,
+  DailyGiftClaimResult,
+  DailyGiftState,
   DailyQuizResponse,
   DailyQuizResult,
   DeleteAccountResult,
@@ -7175,6 +7177,164 @@ export const useRepairStreak = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getRepairStreakMutationOptions(options));
+    }
+
+export const getGetDailyGiftUrl = () => {
+
+
+
+
+  return `/api/tokens/gift`
+}
+
+/**
+ * NOT A NEW REWARD. The app has paid 1 Chai a day for showing up since long before this, granted silently on the day's first attempt, and nobody ever saw it happen. THE TAP IS THE GRANT now (owner ruling, 2026-09-04): the same reason code, the same local-day refId and the same ledger idempotency, moved to POST /tokens/gift/claim so a learner opens a box for it and reads what tomorrow's is worth.
+ *
+ * The whole state is derived from the streak ladder and the ledger, so a box drawn from here and a box claimed by the POST cannot disagree about the day, the amount or whether it is still open.
+ *
+ * THE PRECONDITION IS AN EARNED DAY, not an attempt: a streak day is a day the learner completed a lesson or played a mini-game, in any language. `earnedToday` false and `claimable` false together mean "practise first", which is a different box from "come back tomorrow".
+ * @summary Today's gift box, and whether it is still worth tapping
+ */
+export const getDailyGift = async ( options?: RequestInit): Promise<DailyGiftState> => {
+
+  return customFetch<DailyGiftState>(getGetDailyGiftUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDailyGiftQueryKey = () => {
+    return [
+    `/api/tokens/gift`
+    ] as const;
+    }
+
+
+export const getGetDailyGiftQueryOptions = <TData = Awaited<ReturnType<typeof getDailyGift>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyGift>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDailyGiftQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDailyGift>>> = ({ signal }) => getDailyGift({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDailyGift>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDailyGiftQueryResult = NonNullable<Awaited<ReturnType<typeof getDailyGift>>>
+export type GetDailyGiftQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Today's gift box, and whether it is still worth tapping
+ */
+
+export function useGetDailyGift<TData = Awaited<ReturnType<typeof getDailyGift>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyGift>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDailyGiftQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getClaimDailyGiftUrl = () => {
+
+
+
+
+  return `/api/tokens/gift/claim`
+}
+
+/**
+ * Takes no body, and reads none: the amount is derived from the learner's own streak ladder, because a client that could name its own number would be a faucet. Grants `earn_streak_day` with the local day as the refId, so the ledger's unique index on (userId, reason, refId) makes a double tap, a retried request and a second device land on ONE payment.
+ *
+ * A replay answers 200 with `granted` false and the same open box rather than an error. Refusal is 409 and never 402: practising is not a plan boundary and a learner must never be upsold over one.
+ *
+ * THE FORFEIT IS THE OTHER HALF OF THE RULING. There is no backlog and no claiming yesterday, because claiming is always keyed on today. A learner who practised and never tapped gets nothing for that day, which is only fair because the box is offered where practice ends as well as on Home.
+ * @summary Open today's box. This call IS the grant.
+ */
+export const claimDailyGift = async ( options?: RequestInit): Promise<DailyGiftClaimResult> => {
+
+  return customFetch<DailyGiftClaimResult>(getClaimDailyGiftUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getClaimDailyGiftMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimDailyGift>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimDailyGift>>, TError,void, TContext> => {
+
+const mutationKey = ['claimDailyGift'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimDailyGift>>, void> = () => {
+
+
+          return  claimDailyGift(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimDailyGiftMutationResult = NonNullable<Awaited<ReturnType<typeof claimDailyGift>>>
+
+    export type ClaimDailyGiftMutationError = ErrorType<Error>
+
+    /**
+ * @summary Open today's box. This call IS the grant.
+ */
+export const useClaimDailyGift = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimDailyGift>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimDailyGift>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getClaimDailyGiftMutationOptions(options));
     }
 
 export const getGetChaiPacksUrl = () => {

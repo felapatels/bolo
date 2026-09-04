@@ -2895,6 +2895,72 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /tokens/gift:
+    get:
+      operationId: getDailyGift
+      tags: [tokens]
+      summary: Today's gift box, and whether it is still worth tapping
+      description: >-
+        NOT A NEW REWARD. The app has paid 1 Chai a day for showing up since
+        long before this, granted silently on the day's first attempt, and
+        nobody ever saw it happen. THE TAP IS THE GRANT now (owner ruling,
+        2026-09-04): the same reason code, the same local-day refId and the same
+        ledger idempotency, moved to POST /tokens/gift/claim so a learner opens
+        a box for it and reads what tomorrow's is worth.
+
+
+        The whole state is derived from the streak ladder and the ledger, so a
+        box drawn from here and a box claimed by the POST cannot disagree about
+        the day, the amount or whether it is still open.
+
+
+        THE PRECONDITION IS AN EARNED DAY, not an attempt: a streak day is a day
+        the learner completed a lesson or played a mini-game, in any language.
+        `earnedToday` false and `claimable` false together mean "practise
+        first", which is a different box from "come back tomorrow".
+      responses:
+        "200":
+          description: Today's box
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyGiftState"
+  /tokens/gift/claim:
+    post:
+      operationId: claimDailyGift
+      tags: [tokens]
+      summary: Open today's box. This call IS the grant.
+      description: >-
+        Takes no body, and reads none: the amount is derived from the learner's
+        own streak ladder, because a client that could name its own number would
+        be a faucet. Grants `earn_streak_day` with the local day as the refId,
+        so the ledger's unique index on (userId, reason, refId) makes a double
+        tap, a retried request and a second device land on ONE payment.
+
+
+        A replay answers 200 with `granted` false and the same open box rather
+        than an error. Refusal is 409 and never 402: practising is not a plan
+        boundary and a learner must never be upsold over one.
+
+
+        THE FORFEIT IS THE OTHER HALF OF THE RULING. There is no backlog and no
+        claiming yesterday, because claiming is always keyed on today. A learner
+        who practised and never tapped gets nothing for that day, which is only
+        fair because the box is offered where practice ends as well as on Home.
+      responses:
+        "200":
+          description: Opened (or already opened, with granted=false)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyGiftClaimResult"
+        "409":
+          description: no_gift_today, when nothing has been practised today
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /chai-packs:
     get:
       operationId: getChaiPacks
@@ -6564,6 +6630,83 @@ components:
             False when this day was already repaired — the call is a no-op that
             deducts nothing.
         cost: { type: integer }
+    DailyGiftState:
+      type: object
+      required:
+        [
+          day,
+          chai,
+          tier,
+          tomorrowChai,
+          claimed,
+          claimable,
+          streakDays,
+          earnedToday,
+          localDay,
+          balance,
+        ]
+      properties:
+        day:
+          type: integer
+          description: >-
+            The streak day this box belongs to, clamped to the ladder's cap.
+        chai:
+          type: integer
+          description: What the box holds. Linear from 1, capped at a week.
+        tier:
+          type: string
+          enum: [small, medium, large, grand]
+          description: >-
+            Which of the four boxes to draw. A function of the DAY and not of
+            the amount: the amount is economy tuning that has moved before, the
+            box is a picture of how long the learner has kept it up. `grand` is
+            the one with the gold ribbon.
+        tomorrowChai:
+          type: integer
+          description: >-
+            What tomorrow's box holds. Naming it is the mechanic. At the cap it
+            equals `chai`, never `chai + 1`, because promising an eighth is a
+            promise the ladder breaks the next morning.
+        claimed:
+          type: boolean
+          description: True once today's box has been tapped. The tap is the grant.
+        claimable:
+          type: boolean
+          description: >-
+            True while the box is worth tapping: practised today and not yet
+            opened.
+        streakDays:
+          type: integer
+          description: The learner's current streak, which is what the ladder rides.
+        earnedToday:
+          type: boolean
+          description: >-
+            Whether today counts as a streak day yet. False with claimable false
+            means "practise first", which is a different box from "come back
+            tomorrow".
+        localDay:
+          type: string
+          description: >-
+            The learner's local day key, YYYY-MM-DD. Sent so a client can hold
+            its own midnight without guessing at a timezone the server knows.
+        balance:
+          type: integer
+          description: The Chai wallet after whatever has already happened today.
+
+    DailyGiftClaimResult:
+      allOf:
+        - $ref: "#/components/schemas/DailyGiftState"
+        - type: object
+          required: [granted]
+          properties:
+            granted:
+              type: boolean
+              description: >-
+                Whether THIS call wrote the ledger row. False means the day was
+                already claimed, which is not an error: a double tap, a retried
+                request and a second device all land here and all should see the
+                same open box.
+
     StopUnlockOffer:
       type: object
       description: >-

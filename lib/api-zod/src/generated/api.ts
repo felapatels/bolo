@@ -2145,6 +2145,52 @@ export const RepairStreakResponse = zod.object({
 
 
 /**
+ * NOT A NEW REWARD. The app has paid 1 Chai a day for showing up since long before this, granted silently on the day's first attempt, and nobody ever saw it happen. THE TAP IS THE GRANT now (owner ruling, 2026-09-04): the same reason code, the same local-day refId and the same ledger idempotency, moved to POST /tokens/gift/claim so a learner opens a box for it and reads what tomorrow's is worth.
+ *
+ * The whole state is derived from the streak ladder and the ledger, so a box drawn from here and a box claimed by the POST cannot disagree about the day, the amount or whether it is still open.
+ *
+ * THE PRECONDITION IS AN EARNED DAY, not an attempt: a streak day is a day the learner completed a lesson or played a mini-game, in any language. `earnedToday` false and `claimable` false together mean "practise first", which is a different box from "come back tomorrow".
+ * @summary Today's gift box, and whether it is still worth tapping
+ */
+export const GetDailyGiftResponse = zod.object({
+  "day": zod.number().describe('The streak day this box belongs to, clamped to the ladder\'s cap.'),
+  "chai": zod.number().describe('What the box holds. Linear from 1, capped at a week.'),
+  "tier": zod.enum(['small', 'medium', 'large', 'grand']).describe('Which of the four boxes to draw. A function of the DAY and not of the amount: the amount is economy tuning that has moved before, the box is a picture of how long the learner has kept it up. `grand` is the one with the gold ribbon.'),
+  "tomorrowChai": zod.number().describe('What tomorrow\'s box holds. Naming it is the mechanic. At the cap it equals `chai`, never `chai + 1`, because promising an eighth is a promise the ladder breaks the next morning.'),
+  "claimed": zod.boolean().describe('True once today\'s box has been tapped. The tap is the grant.'),
+  "claimable": zod.boolean().describe('True while the box is worth tapping: practised today and not yet opened.'),
+  "streakDays": zod.number().describe('The learner\'s current streak, which is what the ladder rides.'),
+  "earnedToday": zod.boolean().describe('Whether today counts as a streak day yet. False with claimable false means \"practise first\", which is a different box from \"come back tomorrow\".'),
+  "localDay": zod.string().describe('The learner\'s local day key, YYYY-MM-DD. Sent so a client can hold its own midnight without guessing at a timezone the server knows.'),
+  "balance": zod.number().describe('The Chai wallet after whatever has already happened today.')
+})
+
+
+/**
+ * Takes no body, and reads none: the amount is derived from the learner's own streak ladder, because a client that could name its own number would be a faucet. Grants `earn_streak_day` with the local day as the refId, so the ledger's unique index on (userId, reason, refId) makes a double tap, a retried request and a second device land on ONE payment.
+ *
+ * A replay answers 200 with `granted` false and the same open box rather than an error. Refusal is 409 and never 402: practising is not a plan boundary and a learner must never be upsold over one.
+ *
+ * THE FORFEIT IS THE OTHER HALF OF THE RULING. There is no backlog and no claiming yesterday, because claiming is always keyed on today. A learner who practised and never tapped gets nothing for that day, which is only fair because the box is offered where practice ends as well as on Home.
+ * @summary Open today's box. This call IS the grant.
+ */
+export const ClaimDailyGiftResponse = zod.object({
+  "day": zod.number().describe('The streak day this box belongs to, clamped to the ladder\'s cap.'),
+  "chai": zod.number().describe('What the box holds. Linear from 1, capped at a week.'),
+  "tier": zod.enum(['small', 'medium', 'large', 'grand']).describe('Which of the four boxes to draw. A function of the DAY and not of the amount: the amount is economy tuning that has moved before, the box is a picture of how long the learner has kept it up. `grand` is the one with the gold ribbon.'),
+  "tomorrowChai": zod.number().describe('What tomorrow\'s box holds. Naming it is the mechanic. At the cap it equals `chai`, never `chai + 1`, because promising an eighth is a promise the ladder breaks the next morning.'),
+  "claimed": zod.boolean().describe('True once today\'s box has been tapped. The tap is the grant.'),
+  "claimable": zod.boolean().describe('True while the box is worth tapping: practised today and not yet opened.'),
+  "streakDays": zod.number().describe('The learner\'s current streak, which is what the ladder rides.'),
+  "earnedToday": zod.boolean().describe('Whether today counts as a streak day yet. False with claimable false means \"practise first\", which is a different box from \"come back tomorrow\".'),
+  "localDay": zod.string().describe('The learner\'s local day key, YYYY-MM-DD. Sent so a client can hold its own midnight without guessing at a timezone the server knows.'),
+  "balance": zod.number().describe('The Chai wallet after whatever has already happened today.')
+}).and(zod.object({
+  "granted": zod.boolean().describe('Whether THIS call wrote the ledger row. False means the day was already claimed, which is not an error: a double tap, a retried request and a second device all land here and all should see the same open box.')
+}))
+
+
+/**
  * The mobile shop's catalog. Deliberately NOT part of GET /pricing: that endpoint quotes live Stripe prices and fails when Stripe is unreachable, and the iOS shop must not depend on the web payment processor. It also carries no price at all — on iOS the price shown is the StoreKit product's own, so no server number can drift from what Apple charges. The Chai amount is the same catalog the credit path grants from, so the shop cannot advertise a pack size the purchase does not deliver.
  * @summary The Chai packs, their Apple product ids and what each grants
  */

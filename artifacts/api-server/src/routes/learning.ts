@@ -165,7 +165,6 @@ import {
   listCoveredDayKeys,
 } from "../lib/tokenService";
 import {
-  TOKEN_EARN_STREAK_DAY,
   TOKEN_EARN_ZONE_COMPLETE,
   TOKEN_EARN_EXPRESS_STAMP,
   EXPRESS_MULTIPLIER_FACTOR,
@@ -1536,9 +1535,16 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     tokenState.expressMultiplierExpiresAt > now
       ? xpAwarded * EXPRESS_MULTIPLIER_FACTOR
       : xpAwarded;
-  // Hotfix 3S Item 3: Chai granted synchronously within THIS attempt request
-  // (today: the streak-day earn). Reported on the response as `chaiEarned` so
-  // the Session Complete receipt aggregates server-authoritative amounts.
+  // Hotfix 3S Item 3: Chai granted synchronously within THIS attempt request,
+  // reported on the response as `chaiEarned` so the Session Complete receipt
+  // aggregates server-authoritative amounts.
+  //
+  // NOTHING FEEDS IT TODAY, and the rail is kept rather than deleted. Its one
+  // contributor was the silent streak-day grant, which became the daily gift's
+  // tap (see HOOK 1c below). `chaiEarned` is optional on the contract and is
+  // simply absent now, which is exactly how it already behaved on an attempt
+  // that granted nothing, so no client changes and no client breaks. The next
+  // per-attempt grant has its rail; deleting it would only mean rebuilding it.
   let attemptChaiEarned = 0;
   let fsrsRating: number | undefined;
   let fsrsUpdate: ReturnType<typeof applyFsrsRating> | undefined;
@@ -1728,18 +1734,25 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
           .set({ exposureCount: sql`${phrasesTable.exposureCount} + 1` })
           .where(eq(phrasesTable.id, claims.phraseId))
       : Promise.resolve(),
-    // HOOK 1c: streak-day earn (1 Chai). Nocatch included for parity with
-    // streak counting — a system miss never costs the learner their daily Chai.
-    // Hotfix 3S Item 3: the detailed variant reports whether THIS attempt's
-    // request inserted the grant, so the response can carry an authoritative
-    // per-attempt Chai receipt (client sums them like XP for the session pill).
-    grantTokensDetailed(userId, "earn_streak_day", localDayKey(now, timezone), TOKEN_EARN_STREAK_DAY)
-      .then(({ granted }) => {
-        if (granted) attemptChaiEarned += TOKEN_EARN_STREAK_DAY;
-      })
-      .catch((err) => {
-        req.log?.warn({ err }, "token_streak_day_grant_failed");
-      }),
+    // HOOK 1c IS GONE, AND ITS ABSENCE IS THE DAILY GIFT.
+    //
+    // This is where the day's Chai was granted, silently, on the first attempt:
+    //
+    //   grantTokensDetailed(userId, "earn_streak_day",
+    //                       localDayKey(now, timezone), TOKEN_EARN_STREAK_DAY)
+    //
+    // It paid a flat 1, nobody ever saw it happen, and the receipt it fed was
+    // the only thing that ever told a learner it had. THE TAP IS THE GRANT now
+    // (owner ruling, 2026-09-04): the same reason code, the same local-day
+    // refId, the same ledger idempotency, moved to POST /tokens/gift/claim so
+    // the learner opens a box for it and sees what tomorrow's is worth.
+    //
+    // IT IS A TAKEAWAY AND THE RULING SAYS SO. A learner who practises and
+    // never taps now gets nothing for that day, where before they were paid
+    // whether they noticed or not. That is only fair if the box is unmissable,
+    // which is why it has to be offered where practice ENDS and not only on
+    // Home. Anything that re-adds a grant here is a second daily Chai source,
+    // which is a bug rather than a safety net.
     // HOOK 5: lazy monthly allowance for active subscribers.
     maybeGrantAllowance(req).catch((err) => {
       req.log?.warn({ err }, "token_allowance_grant_failed");
