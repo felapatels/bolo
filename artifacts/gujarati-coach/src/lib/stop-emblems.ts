@@ -29,12 +29,13 @@
  * this file adds no bytes to the bundle.
  */
 
-/** The six stop kinds the journey lays out. */
+/** The seven stop kinds the journey lays out. */
 export type StopEmblemKind =
   | 'station'
   | 'halt'
   | 'trace'
   | 'story'
+  | 'letter'
   | 'postcard'
   | 'terminus';
 
@@ -43,6 +44,15 @@ const EMBLEMS: Record<StopEmblemKind, string> = {
   halt: `${import.meta.env.BASE_URL}journey/emblem-halt.png`, // a signal post
   trace: `${import.meta.env.BASE_URL}journey/emblem-trace.png`, // a key
   story: `${import.meta.env.BASE_URL}journey/emblem-story.png`, // an open book
+  // THE LETTER STOP SHARES THE TRACING STOP'S KEY, a placeholder that says so
+  // rather than a seventh painting. There is no letter emblem on the owner's
+  // element sheet yet. Web could fetch a new png the day it exists, but the
+  // MOBILE twin cannot: asset maps are compile time there, so the file has to
+  // ride a build first, and the two kinds lists must stay in step. Nothing
+  // draws this one today (the medallion is a numbered badge and only the story
+  // plaque calls stopEmblem), so the sharing is invisible; the kind exists so
+  // the row is nameable in a test and in the medallion test id.
+  letter: `${import.meta.env.BASE_URL}journey/emblem-trace.png`, // the key, borrowed
   postcard: `${import.meta.env.BASE_URL}journey/emblem-postcard.png`, // a franked stamp
   terminus: `${import.meta.env.BASE_URL}journey/emblem-terminus.png`, // the engine
 };

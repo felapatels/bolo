@@ -529,17 +529,18 @@ describe("Chacha-ji stall landmark", () => {
     // The claim under test is about HALTS: they add rows to the map without
     // adding a stop, so each zone still numbers 1..N densely with no gaps.
     //
-    // N itself moved on 2026-08-23, and again on 2026-08-24, both times for a
-    // different reason from the one under test: a tracing stop was added to
-    // every zone, then a story stop beside it. The 11-stop and 10-stop
-    // fixtures numbered 12 and 11, and now number 13 and 12. Those are stops
-    // genuinely joining the line, which is exactly what halts do NOT do, and
-    // keeping both facts in one assertion is the point of this test.
+    // N itself moved on 2026-08-23, again on 2026-08-24 and again for the
+    // letter row, every time for a different reason from the one under test: a
+    // tracing stop was added to every zone, then a story stop beside it, then a
+    // letter stop after that. The 11-stop and 10-stop fixtures numbered 12 and
+    // 11, then 13 and 12, and now number 14 and 13. Those are stops genuinely
+    // joining the line, which is exactly what halts do NOT do, and keeping both
+    // facts in one assertion is the point of this test.
+    expect([...stops].filter((l) => l.endsWith("of 14"))).toHaveLength(14);
     expect([...stops].filter((l) => l.endsWith("of 13"))).toHaveLength(13);
-    expect([...stops].filter((l) => l.endsWith("of 12"))).toHaveLength(12);
-    expect(stops.has("Stop 1 of 13")).toBe(true);
+    expect(stops.has("Stop 1 of 14")).toBe(true);
+    expect(stops.has("Stop 14 of 14")).toBe(true);
     expect(stops.has("Stop 13 of 13")).toBe(true);
-    expect(stops.has("Stop 12 of 12")).toBe(true);
     // Nothing in the halt row answers to a press: the stall group and the
     // figure inside it are the only things seated there, and they ride the
     // scenery layer, which takes no pointer events.

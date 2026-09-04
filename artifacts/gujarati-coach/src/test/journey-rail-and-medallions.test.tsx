@@ -191,13 +191,14 @@ describe("the stop medallions are one set across both platforms", () => {
 });
 
 describe("the medallions reach the map and say KIND, not status", () => {
-  test("a phrase stop, a tracing stop and a story stop each wear their own", () => {
+  test("a phrase, a tracing, a story and a letter stop each wear their own", () => {
     renderJourney();
     // Status is already on the card beside every stop, so the marker's job is
     // the half the card cannot say.
     expect(screen.getAllByTestId("station-medallion-station").length).toBeGreaterThan(0);
     expect(screen.getAllByTestId("station-medallion-trace").length).toBeGreaterThan(0);
     expect(screen.getAllByTestId("station-medallion-story").length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("station-medallion-letter").length).toBeGreaterThan(0);
   });
 
   test("the marker is a numbered badge, and the number is the row's", () => {
@@ -210,12 +211,14 @@ describe("the medallions reach the map and say KIND, not status", () => {
     const numbers = screen
       .getAllByTestId(/^station-medallion-/)
       .map((el) => el.textContent?.trim());
-    // Zone 1 in the fixture is nine phrase stops plus the tracing and story
-    // rows, numbered densely: the tracing stop is 2 and the story stop 3.
-    // Stop 1 is the current stop and wears the train, not a badge, so the
-    // badges run 2 to 11 and then zone 2's stop 1.
-    expect(numbers.slice(0, 11)).toEqual([
-      "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "1",
+    // Zone 1 in the fixture is nine phrase stops plus the tracing, story and
+    // letter rows, numbered densely: the tracing stop is 2, the story stop 3
+    // and the letter stop 4. Stop 1 is the current stop and wears the train,
+    // not a badge, so the badges run 2 to 12 and then zone 2's stop 1.
+    // INVERTED from 2..11 when the letter row landed; the DENSENESS is the
+    // claim, and it is what would fail if a row stopped being numbered.
+    expect(numbers.slice(0, 12)).toEqual([
+      "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "1",
     ]);
     // No emblem art on the marker any more; the story emblem lives on the
     // plaque instead.

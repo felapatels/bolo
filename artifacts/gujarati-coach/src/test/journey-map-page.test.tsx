@@ -94,14 +94,17 @@ describe("the one-pager map", () => {
     expect(screen.getByText("11 of 52 lessons done")).toBeInTheDocument();
   });
 
-  test("numbers the current stop the way the boarding pass does, tracing and story rows included", () => {
+  test("numbers the current stop the way the boarding pass does, every spliced row included", () => {
     renderMap();
-    // Zone 2, graded index 2 of 9: the tracing and story rows land after the
-    // fourth graded stop, so this is still row 3 of 11.
-    expect(screen.getByTestId("map-zone-1-status")).toHaveTextContent("Stop 3 of 11");
-    expect(screen.getByTestId("map-zone-0-status")).toHaveTextContent("All 11 stops done");
-    expect(screen.getByTestId("map-zone-2-status")).toHaveTextContent("9 stops, locked");
-    expect(screen.getByTestId("map-zone-5-status")).toHaveTextContent("11 stops, locked");
+    // Zone 2, graded index 2 of 9: all three spliced rows land after the fourth
+    // graded stop, so this is still row 3. The TOTAL moved 11 -> 12 when the
+    // letter row landed, which is the whole reason this page reads the plan
+    // rather than counting the payload.
+    expect(screen.getByTestId("map-zone-1-status")).toHaveTextContent("Stop 3 of 12");
+    expect(screen.getByTestId("map-zone-0-status")).toHaveTextContent("All 12 stops done");
+    // 7 graded plus the three rows, and 9 plus the three.
+    expect(screen.getByTestId("map-zone-2-status")).toHaveTextContent("10 stops, locked");
+    expect(screen.getByTestId("map-zone-5-status")).toHaveTextContent("12 stops, locked");
     expect(screen.getByText("New Delhi")).toBeInTheDocument();
     expect(screen.getByText("Varanasi")).toBeInTheDocument();
   });
