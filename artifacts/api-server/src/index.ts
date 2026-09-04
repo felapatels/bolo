@@ -7,7 +7,7 @@ import { runBackfillScoringV2 } from "./scripts/backfillScoringV2";
 import { scheduleStreakPushSweep } from "./lib/streakPush";
 import { runBackfillLessonGroups } from "./scripts/backfillLessonGroups";
 import { ensureLessonGroupScopeTriggers } from "./scripts/ensureLessonGroupScopeTriggers";
-import { scheduleTtsPrewarm } from "./lib/ttsPrewarm";
+import { scheduleTtsPrewarm, scheduleLetterTtsPrewarm } from "./lib/ttsPrewarm";
 import { scheduleStripeReconcileSweep } from "./lib/stripeReconcile";
 
 const rawPort = process.env["PORT"];
@@ -64,6 +64,13 @@ app.listen(port, (err) => {
       // Pre-warm the TTS cache in the background once content is in place.
       // Fire-and-forget: a failure here never affects request handling.
       scheduleTtsPrewarm();
+
+      // AND THE ALPHABET, which is the only bounded set in that cache: 529
+      // letters across 12 scripts, one character each, and no future content
+      // adds one. Warming all of it costs about what five phrases do, and a
+      // first-tap round trip is exactly the silence that makes the letter
+      // stop's listening question feel broken.
+      scheduleLetterTtsPrewarm();
 
       // Periodically reconcile stored subscription tiers against Stripe so a
       // missed webhook (endpoint drift, secret rotation, outage) self-heals

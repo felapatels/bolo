@@ -1495,7 +1495,8 @@ export const SynthesizeSpeechBody = zod.object({
   "voice": zod.string().optional(),
   "languageName": zod.string().optional(),
   "languageCode": zod.string().optional().describe('ISO-639-1 code of the language being synthesized (e.g. \"gu\", \"hi\", \"ta\"). When provided the server selects a voice that sounds more authentic for that language family instead of always defaulting to the English voice.\n'),
-  "previewVoiceId": zod.string().optional().describe('When present and a valid VOICE_CATALOG ID, bypasses the user\'s saved preference and the language-voice mapping and synthesizes using this specific ElevenLabs voice. Intended for voice-picker preview only.\n')
+  "previewVoiceId": zod.string().optional().describe('When present and a valid VOICE_CATALOG ID, bypasses the user\'s saved preference and the language-voice mapping and synthesizes using this specific ElevenLabs voice. Intended for voice-picker preview only.\n'),
+  "script": zod.string().optional().describe('The SCRIPT this clip belongs to (e.g. \"devanagari\"), for audio that is a letter rather than a phrase. When present it replaces languageName in the cache key, because a letter\'s sound belongs to its script and not to a language: Devanagari serves nine languages and क sounds the same in all of them, so a language-keyed letter stores one identical clip nine times against a tts_cache already at 98% of a 10 GiB ceiling. The voice stays in the key either way, a new voice genuinely being a new clip. Absent for every phrase, which is every caller that existed before the letter stop.\n')
 })
 
 export const SynthesizeSpeechResponse = zod.object({

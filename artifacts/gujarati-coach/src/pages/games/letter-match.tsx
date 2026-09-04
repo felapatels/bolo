@@ -34,6 +34,7 @@ import {
 } from "@workspace/api-client-react";
 import {
   MATCH_BOARD_PAIRS,
+  SCRIPT_BY_LANGUAGE,
   isLetterMatch,
   letterMatchBoards,
   lettersMetBy,
@@ -124,6 +125,9 @@ export default function LetterMatchPage() {
           (await synthesize.mutateAsync({
             data: {
               text: char.char,
+              // The SCRIPT, not the language. See the letter stop page and the
+              // `script` field on SpeechInput for why.
+              script: SCRIPT_BY_LANGUAGE[activeLang],
               languageName: activeLanguage?.name,
               languageCode: activeLang,
             },

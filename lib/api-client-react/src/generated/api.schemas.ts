@@ -1022,6 +1022,8 @@ export interface SpeechInput {
   languageCode?: string;
   /** When present and a valid VOICE_CATALOG ID, bypasses the user's saved preference and the language-voice mapping and synthesizes using this specific ElevenLabs voice. Intended for voice-picker preview only. */
   previewVoiceId?: string;
+  /** The SCRIPT this clip belongs to (e.g. "devanagari"), for audio that is a letter rather than a phrase. When present it replaces languageName in the cache key, because a letter's sound belongs to its script and not to a language: Devanagari serves nine languages and क sounds the same in all of them, so a language-keyed letter stores one identical clip nine times against a tts_cache already at 98% of a 10 GiB ceiling. The voice stays in the key either way, a new voice genuinely being a new clip. Absent for every phrase, which is every caller that existed before the letter stop. */
+  script?: string;
 }
 
 export interface SpeechResult {

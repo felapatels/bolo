@@ -192,6 +192,11 @@ function LetterRun({
               // "a-kaar". The learner is being taught to decode; the name of
               // the letter is a different fact and a later one.
               text: char.char,
+              // THE SCRIPT, NOT THE LANGUAGE, and the server keys the cache on
+              // it: Devanagari serves nine languages and क sounds the same in
+              // all of them, so a language-keyed letter stores one identical
+              // clip nine times against a tts_cache at 98% of a 10 GiB ceiling.
+              script: stop.script,
               languageName: activeLanguage?.name,
               languageCode: activeLanguage?.code,
             },

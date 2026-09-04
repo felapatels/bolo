@@ -313,7 +313,8 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     res.status(400).json({ error: "Invalid speech payload" });
     return;
   }
-  const { text, voice, languageName, languageCode, previewVoiceId } = parsed.data;
+  const { text, voice, languageName, languageCode, previewVoiceId, script } =
+    parsed.data;
   const chosen: Voice =
     voice && (VOICES as readonly string[]).includes(voice)
       ? (voice as Voice)
@@ -402,6 +403,27 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
   const synthesisVoice =
     TTS_PROVIDER === "elevenlabs" ? elevenLabsVoiceId : phraseIdentity.voice;
 
+  /**
+   * WHAT THE CLIP BELONGS TO, and it is not always a language.
+   *
+   * A LETTER'S SOUND BELONGS TO ITS SCRIPT. Devanagari serves nine languages
+   * (Hindi, Marathi, Nepali, Sanskrit, Konkani, Bodo, Maithili, Dogri, Sindhi)
+   * and क sounds the same in all of them, so keying a letter on the language
+   * NAME stores one identical clip nine times. Against a tts_cache already at
+   * 98% of a 10 GiB database and climbing a gigabyte a month, that turns a
+   * bounded 529-clip set into something over 1,400 for no gain. Where languages
+   * differ they differ by having different LETTERS, not different sounds for
+   * the same one (owner ruling, 2026-09-04).
+   *
+   * The voice stays in the key either way, because a new voice genuinely is a
+   * new clip. The language does not.
+   *
+   * NAMESPACED rather than passed bare: "script:devanagari" can never collide
+   * with a language display name, and a reader of a cache row can tell at a
+   * glance which kind of clip it is.
+   */
+  const audioIdentifier = script ? `script:${script}` : (languageName ?? "");
+
   // Unified phrase cache key: incorporates provider, model, and voice so the
   // prewarm and the playback route always target the same namespace.
   const cacheKey = phraseTtsCacheKey(
@@ -409,7 +431,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     phraseIdentity.provider,
     phraseIdentity.model,
     synthesisVoice,
-    languageName ?? "",
+    audioIdentifier,
   );
 
   const t0 = Date.now();
@@ -425,7 +447,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
           provider: phraseIdentity.provider,
           model: phraseIdentity.model,
           voice: synthesisVoice,
-          language: languageName ?? "",
+          language: audioIdentifier,
           chars: text.length,
           hit: true,
           ms: Date.now() - t0,
@@ -455,7 +477,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
           provider: phraseIdentity.provider,
           model: phraseIdentity.model,
           voice: synthesisVoice,
-          language: languageName ?? "",
+          language: audioIdentifier,
           chars: text.length,
           hit: "pending-prewarm",
           ms: Date.now() - t0,
@@ -500,7 +522,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
           provider: phraseIdentity.provider,
           model: phraseIdentity.model,
           voice: phraseIdentity.voice,
-          language: languageName ?? "",
+          language: audioIdentifier,
           chars: text.length,
           hit: false,
           ms: Date.now() - t0,
@@ -549,7 +571,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
           provider: phraseIdentity.provider,
           model: phraseIdentity.model,
           voice: phraseIdentity.voice,
-          language: languageName ?? "",
+          language: audioIdentifier,
           chars: text.length,
           hit: false,
           ms: Date.now() - t0,
@@ -635,7 +657,7 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
         provider: phraseIdentity.provider,
         model: phraseIdentity.model,
         voice: synthesisVoice,
-        language: languageName ?? "",
+        language: audioIdentifier,
         chars: text.length,
         hit: false,
         ms: Date.now() - t0,

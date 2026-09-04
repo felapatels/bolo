@@ -10,6 +10,7 @@ import {
   BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST,
 } from "./ttsConfig";
 import { getVoiceIdForLanguage, getLanguageIdForCode } from "./languageVoice";
+import { SCRIPT_BY_LANGUAGE, alphabetForLanguage } from "@workspace/script-trace";
 import { synthesizeVerifiedPhraseAudio } from "./phraseAudioSynthesis";
 import { logger } from "./logger";
 import {
@@ -639,4 +640,191 @@ export async function warmChachaLines(
   } catch (err) {
     logger.warn({ err }, "TTS pre-warm: Chacha warm-up error (non-fatal)");
   }
+}
+
+/**
+ * PRE-WARM EVERY LETTER, ONCE PER SCRIPT.
+ *
+ * THE ALPHABET IS THE ONLY BOUNDED THING IN THIS CACHE. Phrases grow forever
+ * and are why tts_cache is at 98% of a 10 GiB database climbing a gigabyte a
+ * month. Letters do not: there are 529 of them across 12 scripts, a letter's
+ * sound never changes, and no future content adds one. That is what makes this
+ * worth warming eagerly where phrases have to be rationed.
+ *
+ * AND IT IS ALMOST FREE. A letter is ONE CHARACTER, so the entire alphabet of
+ * every script in the app costs about 529 characters against a default per-run
+ * budget of 4,000. Warming all of it costs roughly what five phrases do.
+ *
+ * KEYED ON THE SCRIPT, never the language, which is the whole reason this is a
+ * separate pass rather than more rows in the phrase list: Devanagari serves
+ * nine languages and क sounds the same in all of them, so a language-keyed
+ * letter would store one identical clip nine times and turn a bounded 529 into
+ * something over 1,400 for no gain (owner ruling, 2026-09-04). The key is built
+ * with the same phraseTtsCacheKey and the same `script:<id>` namespace the
+ * /openai/tts route uses, so a warmed letter is always a hit on first play.
+ *
+ * A FIRST-TAP ROUND TRIP IS EXACTLY THE SILENCE THAT MAKES A LISTENING
+ * QUESTION FEEL BROKEN, which is why the letter stop and the match game both
+ * want this and neither can do it for itself.
+ */
+export function scheduleLetterTtsPrewarm(): void {
+  void (async () => {
+    try {
+      // Every letter of every script the app ships, deduplicated by script and
+      // glyph: the same character in two chapters of one script is one clip.
+      const seen = new Set<string>();
+      const letters: { script: string; char: string; languageCode: string }[] = [];
+      for (const languageCode of Object.keys(SCRIPT_BY_LANGUAGE)) {
+        const script = SCRIPT_BY_LANGUAGE[languageCode]!;
+        for (const c of alphabetForLanguage(languageCode)) {
+          const dedupe = `${script}:${c.char}`;
+          if (seen.has(dedupe)) continue;
+          seen.add(dedupe);
+          letters.push({ script, char: c.char, languageCode });
+        }
+      }
+      if (letters.length === 0) {
+        logger.info("letter TTS pre-warm: no letters found, nothing to do");
+        return;
+      }
+
+      // The SAME identity resolver and key function the playback route uses, or
+      // a warmed clip lands in a namespace nothing reads.
+      const keyed = letters.map((l) => {
+        const identity = phraseAudioIdentity(l.languageCode);
+        const voice =
+          TTS_PROVIDER === "elevenlabs"
+            ? getVoiceIdForLanguage(l.languageCode)
+            : identity.voice;
+        return {
+          letter: l,
+          identity,
+          voice,
+          key: phraseTtsCacheKey(
+            l.char,
+            identity.provider,
+            identity.model,
+            voice,
+            `script:${l.script}`,
+          ),
+        };
+      });
+
+      const existing = new Set(
+        (
+          await db
+            .select({ cacheKey: ttsCacheTable.cacheKey })
+            .from(ttsCacheTable)
+            .where(
+              inArray(
+                ttsCacheTable.cacheKey,
+                keyed.map((k) => k.key),
+              ),
+            )
+        ).map((r) => r.cacheKey),
+      );
+      const missing = keyed.filter((k) => !existing.has(k.key));
+      if (missing.length === 0) {
+        logger.info(
+          { total: letters.length },
+          "letter TTS pre-warm: every letter already cached",
+        );
+        return;
+      }
+
+      // The same per-run character budget the phrase warm respects, so the two
+      // passes cannot together blow a quota one of them was sized for. A letter
+      // is one character, so this almost never bites.
+      const budget = charBudget();
+      const batch = missing.slice(0, Math.max(0, budget));
+
+      logger.info(
+        {
+          total: letters.length,
+          missing: missing.length,
+          warming: batch.length,
+          scripts: new Set(letters.map((l) => l.script)).size,
+        },
+        "letter TTS pre-warm: synthesizing uncached letters",
+      );
+
+      let done = 0;
+      let failed = 0;
+      let quotaExhausted = false;
+
+      await pool(
+        batch,
+        CONCURRENCY,
+        async ({ letter, identity, voice, key }) => {
+          if (TTS_PROVIDER === "elevenlabs" && quotaExhausted) return;
+          const alreadyCached = await db.query.ttsCacheTable.findFirst({
+            where: eq(ttsCacheTable.cacheKey, key),
+            columns: { cacheKey: true },
+          });
+          if (alreadyCached) {
+            done++;
+            return;
+          }
+          try {
+            // NOT synthesizeVerifiedPhraseAudio. That helper re-listens to a
+            // take and checks the words came out; a single letter has no words
+            // to check and the transcriber would be asked to romanise one
+            // glyph, which is the very thing the game exists to teach and is
+            // not something to grade a clip on.
+            const buffer =
+              TTS_PROVIDER === "elevenlabs"
+                ? await textToSpeechElevenLabs(
+                    letter.char,
+                    voice,
+                    undefined,
+                    undefined,
+                    getLanguageIdForCode(letter.languageCode),
+                  )
+                : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  await textToSpeech(letter.char, identity.voice as any, "mp3", undefined);
+            if (buffer.length === 0) throw new Error("empty letter audio");
+            await db
+              .insert(ttsCacheTable)
+              .values({
+                cacheKey: key,
+                audioBase64: buffer.toString("base64"),
+                format: "mp3",
+              })
+              .onConflictDoNothing()
+              .execute();
+            done++;
+          } catch (err) {
+            failed++;
+            if (
+              TTS_PROVIDER === "elevenlabs" &&
+              !quotaExhausted &&
+              isQuotaExhaustedError(err)
+            ) {
+              quotaExhausted = true;
+              logger.warn(
+                { err },
+                "letter TTS pre-warm: ElevenLabs quota exhausted, remaining letters will cache on demand",
+              );
+            }
+            throw err; // re-throw so pool() counts consecutive failures
+          }
+        },
+        PACING_MS,
+        MAX_CONSECUTIVE_FAILURES,
+        (remaining) => {
+          logger.warn(
+            { consecutiveFailures: MAX_CONSECUTIVE_FAILURES, remaining },
+            "letter TTS pre-warm: aborting run after repeated consecutive failures",
+          );
+        },
+      );
+
+      logger.info(
+        { provider: TTS_PROVIDER, cached: existing.size, synthesized: done, failed },
+        "[letter-tts] prewarm complete",
+      );
+    } catch (err) {
+      logger.error({ err }, "letter TTS pre-warm failed");
+    }
+  })();
 }
