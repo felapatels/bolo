@@ -17,6 +17,13 @@
 #
 # Known flakes (a single re-run clears them, a second failure is real): the
 # web practice-streak toast, the mobile journey-map opening shot.
+#
+# NODE 26, THE MAC'S, NOT THE REPL'S 24. The first run (2026-09-04) went red
+# on Node 24 in ways the Mac never sees: the web suite's storage stand-in in
+# setup.ts is written for Node 26's localStorage behaviour (two storage
+# tests failed), and one api pure test failed on 24 alone. The suites'
+# baselines were all measured on Node 26; CI mirrors that. The api server
+# itself still runs on 24 in the Repl, which its own DB-backed suite covers.
 name: CI
 
 on:
@@ -45,7 +52,7 @@ jobs:
           version: 11
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: node scripts/check-conflict-markers.mjs
@@ -61,7 +68,7 @@ jobs:
           version: 11
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck:libs
@@ -77,7 +84,7 @@ jobs:
           version: 11
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck:libs
@@ -94,8 +101,11 @@ jobs:
           version: 11
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 26
           cache: pnpm
+      # One pure test really runs ffmpeg (gpt-audio's pcm to mp3); the Repl
+      # has it, a bare runner does not.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck:libs
       - run: pnpm --filter @workspace/api-server run test:pure

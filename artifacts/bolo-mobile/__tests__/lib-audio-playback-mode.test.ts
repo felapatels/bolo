@@ -92,6 +92,19 @@ beforeEach(async () => {
   (createAudioPlayer as jest.Mock).mockClear();
 });
 
+// EVERY PLAYBACK IS FINISHED BEFORE THE NEXT TEST, and before this file ends.
+// playBase64Audio arms an 8 s load watchdog (PLAYBACK_LOAD_GRACE_MS). A test
+// that starts a clip and never finishes it leaves that timer pending, and on
+// CI (2026-09-04, first run) it fired inside a LATER test file in the same
+// jest worker, after this file's module registry was torn down: "Cannot read
+// properties of undefined (reading 'OS')" in notification-primer-ui, whose only
+// link to audio was sharing a worker. On the Mac the worker mix hides it.
+// emitFinish settles the watchdog, and is a no-op once a listener is gone.
+afterEach(async () => {
+  for (const p of mockPlayers) p.emitFinish();
+  await flush();
+});
+
 describe('mode-flip ordering', () => {
   test('playBase64Audio flips to playback mode before play and restores recording mode on finish', async () => {
     await playBase64Audio('QUJD', 'mp3');
