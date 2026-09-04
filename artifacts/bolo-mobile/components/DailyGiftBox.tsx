@@ -42,7 +42,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { GIFT_LADDER_CAP, type GiftTier } from '@workspace/daily-gift';
+import { giftOpenedCopy, type GiftTier } from '@workspace/daily-gift';
 import { AppFonts } from '@/constants/fonts';
 import { useColors } from '@/hooks/useColors';
 import { hapticMedium } from '@/lib/haptics';
@@ -238,14 +238,20 @@ export function DailyGiftBox({
   });
   const lift = lid.interpolate({ inputRange: [0, 1], outputRange: [0, GIFT_LID_LIFT] });
 
-  // THE ONE LINE THAT DOES THE WORK is the third one, and it is composed here
-  // from the lib's numbers rather than templated in two client files. At the
-  // cap it stops counting and says a week is the habit, because "Tomorrow: 7"
-  // after "7 Chai" reads as a ladder that has stalled.
-  const openedTomorrow =
-    day >= GIFT_LADDER_CAP
-      ? 'A full week. Same again tomorrow.'
-      : `Tomorrow: ${tomorrowChai}`;
+  // THE ONE LINE THAT DOES THE WORK is the third one, and it comes from the
+  // LIB rather than from a template here. At the cap it stops counting and says
+  // a week is the habit, because "Tomorrow: 7" after "7 Chai" reads as a ladder
+  // that has stalled. That branch was written out by hand in this file first,
+  // which is a second definition of the rule and the exact defect this repo
+  // keeps writing down; the web twin would have been the third.
+  const openedTomorrow = giftOpenedCopy({
+    day,
+    chai,
+    tier,
+    tomorrowChai,
+    claimed,
+    claimable,
+  }).tomorrow;
 
   return (
     <Pressable
