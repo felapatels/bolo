@@ -6,7 +6,7 @@
  * things that, when wrong, leave a learner stuck with no error anywhere: two
  * blocking arrivals on one stop, a stop kind whose data is missing, a run of
  * voice stops with nothing between them (owner rule: no more than two, then
- * a game, the kopitiam, an Emergency or the uncle's call).
+ * a game, the chai stall, an Emergency or the uncle's call).
  *
  * Data-free on purpose: zone sizes are swept from 1 to 12 so the same file
  * runs unchanged in Bolo India, whose zones are 9, 7, 5 and 3 stops.
@@ -22,14 +22,14 @@ const ZONES = 6;
 const SIZES = Array.from({ length: 12 }, (_, i) => i + 1);
 /** A Plus learner's plan-visible phrase count: every game is eligible. */
 const PLUS_VISIBLE = 100;
-const LANG = "th";
+const LANG = "hi";
 
 type Arrival = {
   zoneIndex: number;
   gradedIndex: number;
-  /** 1-based global station, the number the server and the kopitiam use. */
+  /** 1-based global station, the number the server and the chai stall use. */
   station: number;
-  kopitiam: boolean;
+  chaiStall: boolean;
   /** The game a trackside signal offers on arrival, or null. */
   game: string | null;
   emergency: boolean;
@@ -54,7 +54,7 @@ function walk(size: number): Arrival[] {
         zoneIndex: z,
         gradedIndex: i,
         station,
-        kopitiam: isChachaEncounterStation(station),
+        chaiStall: isChachaEncounterStation(station),
         game,
         emergency: emergencyAt === i,
       });
@@ -64,8 +64,8 @@ function walk(size: number): Arrival[] {
 }
 
 /**
- * Stops that carry BOTH the kopitiam and the Emergency on arrival, worked out
- * by hand from the two cadences (kopitiam at global stations 3, 7, 11, ...;
+ * Stops that carry BOTH the chai stall and the Emergency on arrival, worked out
+ * by hand from the two cadences (chai stall at global stations 3, 7, 11, ...;
  * Emergency at min(8, size - 1) of every zone) so the pin is independent of
  * the code it checks. Pinned rather than asserted empty so the walk stays
  * green while the owner decides how to sequence the two: a fix shrinks this
@@ -90,15 +90,22 @@ describe("the zone walk: every zone of journey 1, every plausible size", () => {
     for (const size of SIZES) {
       for (let z = 0; z < ZONES; z += 1) {
         const plan = planZoneRows({ lang: LANG, zoneIndex: z, gradedCount: size });
-        const extras = [plan.traceIndex, plan.storyIndex].filter((x): x is number => x !== null);
+        // THREE SPLICED ROWS HERE, NOT TWO. The fork this file came from has
+        // tracing and story; India added the LETTER row at stop 4 on
+        // 2026-09-04, and it is the reason the walk is written off
+        // `plan.rowCount` and a filtered list rather than off a literal 2.
+        // A fourth row type joins by being added to this array.
+        const extras = [plan.traceIndex, plan.storyIndex, plan.letterIndex].filter(
+          (x): x is number => x !== null,
+        );
         expect(plan.rowCount).toBe(size + extras.length);
         for (const idx of extras) {
           expect(idx).toBeGreaterThanOrEqual(0);
           expect(idx).toBeLessThan(plan.rowCount);
         }
-        if (plan.traceIndex !== null && plan.storyIndex !== null) {
-          expect(plan.traceIndex).not.toBe(plan.storyIndex);
-        }
+        // No two spliced rows may take the same slot: one would be drawn over
+        // the other and a learner would simply never see it.
+        expect(new Set(extras).size).toBe(extras.length);
         const numbers = Array.from({ length: size }, (_, i) => plan.rowNumberOfGraded(i));
         expect(new Set(numbers).size).toBe(size);
         expect(numbers).toEqual([...numbers].sort((a, b) => a - b));
@@ -132,14 +139,19 @@ describe("the zone walk: every zone of journey 1, every plausible size", () => {
       const arrivals = walk(size);
       for (let z = 0; z < ZONES; z += 1) {
         const plan = planZoneRows({ lang: LANG, zoneIndex: z, gradedCount: size });
+        // A breaker is anything that is not voice drilling: the chai stall, a
+        // game offered by a signal, the Emergency, or a drawn story, tracing or
+        // LETTER row sitting directly above the stop.
         const drawnRows = new Set(
-          [plan.traceIndex, plan.storyIndex].filter((x): x is number => x !== null),
+          [plan.traceIndex, plan.storyIndex, plan.letterIndex].filter(
+            (x): x is number => x !== null,
+          ),
         );
         let run = 0;
         for (const a of arrivals.filter((x) => x.zoneIndex === z)) {
           const rowAbove = plan.rowNumberOfGraded(a.gradedIndex) - 2;
           const brokenByRow = rowAbove >= 0 && drawnRows.has(rowAbove);
-          const brokenOnArrival = a.kopitiam || a.game !== null || a.emergency;
+          const brokenOnArrival = a.chaiStall || a.game !== null || a.emergency;
           run = brokenByRow || brokenOnArrival ? 0 : run + 1;
           if (run > 2) {
             throw new Error(
@@ -155,7 +167,7 @@ describe("the zone walk: every zone of journey 1, every plausible size", () => {
     const collisions: string[] = [];
     for (const size of SIZES) {
       for (const a of walk(size)) {
-        if (a.kopitiam && a.emergency) {
+        if (a.chaiStall && a.emergency) {
           collisions.push(`size ${size}: zone ${a.zoneIndex + 1} stop ${a.gradedIndex + 1} (station ${a.station})`);
         }
       }
