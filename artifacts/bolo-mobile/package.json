@@ -40,6 +40,7 @@
     "@types/react-dom": "catalog:",
     "@ungap/structured-clone": "^1.3.0",
     "@workspace/api-client-react": "workspace:*",
+    "@workspace/daily-gift": "workspace:*",
     "@workspace/emergency": "workspace:*",
     "@workspace/referral-link": "workspace:*",
     "@workspace/script-trace": "workspace:*",

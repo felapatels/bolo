@@ -194,6 +194,9 @@ importers:
       '@workspace/api-zod':
         specifier: workspace:*
         version: link:../../lib/api-zod
+      '@workspace/daily-gift':
+        specifier: workspace:*
+        version: link:../../lib/daily-gift
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
@@ -505,6 +508,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/daily-gift':
+        specifier: workspace:*
+        version: link:../../lib/daily-gift
       '@workspace/emergency':
         specifier: workspace:*
         version: link:../../lib/emergency
@@ -628,6 +634,9 @@ importers:
       '@sentry/react':
         specifier: ^10.68.0
         version: 10.68.0(react@19.1.0)
+      '@workspace/daily-gift':
+        specifier: workspace:*
+        version: link:../../lib/daily-gift
       '@workspace/emergency':
         specifier: workspace:*
         version: link:../../lib/emergency
@@ -1067,6 +1076,8 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 3.25.76
+
+  lib/daily-gift: {}
 
   lib/db:
     dependencies:
@@ -13058,7 +13069,7 @@ snapshots:
   '@react-native/babel-plugin-codegen@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)':
     dependencies:
       '@babel/traverse': 7.29.7(supports-color@8.1.1)
-      '@react-native/codegen': 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))
+      '@react-native/codegen': 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
     transitivePeerDependencies:
       - '@babel/core'
       - supports-color
@@ -13113,7 +13124,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@react-native/codegen@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))':
+  '@react-native/codegen@0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)':
     dependencies:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@babel/parser': 7.29.7
@@ -13122,6 +13133,8 @@ snapshots:
       invariant: 2.2.4
       nullthrows: 1.1.1
       yargs: 17.7.3
+    transitivePeerDependencies:
+      - supports-color
 
   '@react-native/community-cli-plugin@0.81.5(supports-color@8.1.1)':
     dependencies:
@@ -19201,7 +19214,7 @@ snapshots:
     dependencies:
       '@jest/create-cache-key-function': 29.7.0
       '@react-native/assets-registry': 0.81.5
-      '@react-native/codegen': 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))
+      '@react-native/codegen': 0.81.5(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
       '@react-native/community-cli-plugin': 0.81.5(supports-color@8.1.1)
       '@react-native/gradle-plugin': 0.81.5
       '@react-native/js-polyfills': 0.81.5
