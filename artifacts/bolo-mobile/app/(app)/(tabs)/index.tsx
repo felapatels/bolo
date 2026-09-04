@@ -67,6 +67,7 @@ import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { NamePromptCard } from '@/components/NamePromptCard';
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
+import { DailyGiftCard } from '@/components/DailyGiftCard';
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import { ChaiGlyph, ChaiStallVignette } from '@/components/ChaiStall';
 import { HomeSocialStrip } from '@/components/HomeSocialStrip';
@@ -829,6 +830,25 @@ export default function HomeScreen() {
           offer={streakRepairOffer}
           balance={tokensQuery.data?.balance}
         />
+
+        {/* THE DAILY GIFT, at the top of the column and above the journey card
+            (owner ruling, 2026-09-04). It renders NOTHING until there is a box
+            to open, so on a day nothing has been practised this row does not
+            exist and the pass stays where it has always been.
+
+            ABOVE the pass rather than below it, which does push "practise" down
+            one row on the days it appears. That is the ruling and it is the
+            right way round: the box is the receipt for practice already done,
+            it names what tomorrow is worth, and it is the one thing on this
+            screen that expires at midnight. A gift under the fold is a gift
+            forfeited, and the forfeit is the half of this ruling that has to be
+            fair. */}
+        <Animated.View
+          entering={skipEnter ? undefined : appearDown(195, 500)}
+          style={colHalf}
+        >
+          <DailyGiftCard testID="home-daily-gift" />
+        </Animated.View>
 
         {/* Spec D1b-M: boarding-pass hero — the journey map is the primary
             path into practice and the sole continue mechanism. */}

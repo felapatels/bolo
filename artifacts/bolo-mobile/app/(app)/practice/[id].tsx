@@ -87,6 +87,7 @@ import {
   shouldShowFirstWordPrimer,
 } from '@/lib/firstWordPrimer';
 import { ChunkyButton } from '@/components/ChunkyButton';
+import { DailyGiftCard } from '@/components/DailyGiftCard';
 import { LessonError } from '@/components/LessonError';
 import { FunFactLoader } from '@/components/FunFactLoader';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
@@ -2352,6 +2353,27 @@ export default function PracticeScreen() {
               />
             </Animated.View>
           )}
+          {/* THE DAILY GIFT, WHERE PRACTICE ENDS, and it is not an extra
+              placement: the tap is the grant now (owner ruling, 2026-09-04), so
+              a learner who practised and never opened the box forfeits the day.
+              That forfeit is only fair if the box is unmissable, which means it
+              cannot live on Home alone. This is the screen the learner is
+              looking at at the exact moment the day becomes earned.
+
+              DIRECTLY UNDER THE CHAI PILL ABOVE, deliberately. That pill was
+              the only thing that ever told anyone the day's Chai had been
+              granted, and it read the `chaiEarned` the attempts path sent. That
+              grant moved into this box, so the pill will be absent on a normal
+              session now; it is kept because it renders whatever the server
+              sends and the server may send one again, and the box takes over
+              the job it was doing.
+
+              It renders NOTHING until the query answers with a box, so a
+              session that did not earn the day (or a screen the learner reaches
+              before the fetch lands) shows no empty slot. */}
+          <View style={styles.sessionGiftWrap}>
+            <DailyGiftCard testID="session-daily-gift" />
+          </View>
           {/* XP breakdown — collapsed by default */}
           {Object.values(xpData).some((d) => d.breakdown) && (
             <Pressable
@@ -3820,6 +3842,10 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   xpChipText: { fontFamily: AppFonts.extrabold, fontSize: 18 },
+  // The gift box is a full-width card rather than a pill: it is the one thing
+  // on this screen that is TAPPABLE and that expires at midnight, so it must
+  // not read as a third badge in the row of receipts above it.
+  sessionGiftWrap: { alignSelf: 'stretch', paddingHorizontal: 20, marginTop: 16 },
   summaryTrailWrap: { alignItems: 'center', marginTop: 20, gap: 6 },
   summaryTrailLabel: { fontFamily: AppFonts.regular, fontSize: 12 },
   resultScoreRow: {

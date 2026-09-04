@@ -55,6 +55,16 @@ jest.mock('expo-router', () => ({
 // Superset of the practice + review data hooks so one harness renders both
 // screens.
 jest.mock('@workspace/api-client-react', () => ({
+  // THE DAILY GIFT BOX renders on home and at the end of practice, so every
+  // suite that mounts either screen needs these three. FULL-REPLACEMENT MOCKS
+  // ARE WHY THIS IS HERE IN THIRTY-TWO FILES: mobile has no shared base like
+  // gujarati-coach's src/test/api-client-mock.ts, so one new hook on a widely
+  // rendered screen breaks every suite that renders it. Worth building the
+  // twin of that base the next time this costs a pass.
+  useGetDailyGift: () => ({ data: undefined, isLoading: false, isError: false }),
+  useClaimDailyGift: () => ({ mutate: jest.fn(), isPending: false }),
+  getGetDailyGiftQueryKey: () => ['daily-gift'],
+
   // Added 2026-08-28: practice and review headers now show a Chai balance
   // beside the XP meter, so this screen reads the tokens query. Same
   // shape every other Chai surface gets.

@@ -103,6 +103,16 @@ jest.mock('@/lib/entrance', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // THE DAILY GIFT BOX renders on home and at the end of practice, so every
+  // suite that mounts either screen needs these three. FULL-REPLACEMENT MOCKS
+  // ARE WHY THIS IS HERE IN THIRTY-TWO FILES: mobile has no shared base like
+  // gujarati-coach's src/test/api-client-mock.ts, so one new hook on a widely
+  // rendered screen breaks every suite that renders it. Worth building the
+  // twin of that base the next time this costs a pass.
+  useGetDailyGift: () => ({ data: undefined, isLoading: false, isError: false }),
+  useClaimDailyGift: () => ({ mutate: jest.fn(), isPending: false }),
+  getGetDailyGiftQueryKey: () => ['daily-gift'],
+
   // Task #1049: the home referral card reads the learner's code. Idle here —
   // an undefined code hides the card, which is not what these files pin.
   useGetReferral: () => ({ data: undefined, isLoading: false, isError: false, error: null, isFetching: false, refetch: jest.fn() }),
