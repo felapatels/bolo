@@ -339,13 +339,33 @@ export default function AccountScreen() {
   };
 
   const pickAvatarFromLibrary = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert(
-        'Photo access needed',
-        'Allow photo access in Settings to choose a profile picture.',
-      );
-      return;
+    /**
+     * ANDROID ASKS FOR NOTHING (Play policy rejection of version code 536,
+     * 2026-09-03: "Use alternative system pickers for the photos / videos").
+     *
+     * Play will not accept READ_MEDIA_IMAGES from an app that only needs
+     * one-time media access, so the permission is blocked in app.json and
+     * expo-image-picker falls through to the SYSTEM PHOTO PICKER, which hands
+     * back a single URI and needs no grant at all.
+     *
+     * THE GATE HAD TO GO WITH IT. `requestMediaLibraryPermissionsAsync` asks
+     * for the permission that is no longer declared, so it can only ever come
+     * back denied, and this function would have bailed with an alert before
+     * ever reaching the picker that works. Removing the permission without
+     * removing this check is a broken avatar picker on every Android device.
+     *
+     * iOS still asks: NSPhotoLibraryUsageDescription is a real prompt there
+     * and the photosPermission string in app.json is what it reads.
+     */
+    if (Platform.OS !== 'android') {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          'Photo access needed',
+          'Allow photo access in Settings to choose a profile picture.',
+        );
+        return;
+      }
     }
     let result: ImagePicker.ImagePickerResult;
     try {

@@ -54,8 +54,11 @@
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES"
+        "android.permission.CAMERA"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
       ]
     },
     "web": {
