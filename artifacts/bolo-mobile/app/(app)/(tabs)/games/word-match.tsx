@@ -733,7 +733,7 @@ export default function WordMatchScreen() {
   };
 
   return (
-    <Screen>
+    <Screen padTop={false}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable

@@ -753,7 +753,7 @@ export default function BoloQuizScreen() {
   const currentQ = questions[currentIndex];
 
   return (
-    <Screen>
+    <Screen padTop={false}>
       {/* Header */}
       <View style={s.header}>
         <Pressable

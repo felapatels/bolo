@@ -23,6 +23,14 @@ import { CONTENT_COLUMN } from '@/lib/contentWidth';
  * the strip sits on it at the safe-area inset; every other screen in this
  * stack keeps the strip in flow above its content, exactly as before, since
  * those screens lay out under it rather than behind it.
+ *
+ * THIS VIEW OWNS THE SAFE-AREA INSET FOR THE WHOLE STACK, so every screen
+ * inside it uses `<Screen padTop={false}>` (owner, 2026-09-03, off TestFlight
+ * on an iPhone: "too much space up top"). Screen pads by insets.top of its
+ * own accord, and a game screen sitting under this padding was getting the
+ * notch cleared TWICE: about 59pt of dead air between the XP strip and the
+ * screen's own title, on every game. The hub is the exception at both ends,
+ * since it takes paddingTop 0 here and floats the strip over its hero.
  */
 export default function GamesLayout() {
   const colors = useColors();

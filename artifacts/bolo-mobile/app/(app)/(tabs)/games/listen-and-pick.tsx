@@ -656,7 +656,7 @@ export default function ListenAndPickScreen() {
   };
 
   return (
-    <Screen>
+    <Screen padTop={false}>
       {/* Header */}
       <View style={styles.header}>
         <Pressable

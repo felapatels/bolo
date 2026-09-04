@@ -1053,7 +1053,7 @@ function ChapterGrid({ onSelect }: { onSelect: (chapter: TraceChapter) => void }
   });
 
   return (
-    <Screen>
+    <Screen padTop={false}>
       <View style={styles.header}>
         <Pressable
           onPress={() => router.back()}
@@ -2192,7 +2192,7 @@ export default function ScriptTraceScreen() {
   };
 
   return (
-    <Screen>
+    <Screen padTop={false}>
       <View style={styles.header}>
         <Pressable
           onPress={leave}

@@ -107,7 +107,7 @@ function SetupScreen({
   const chosen = selectedId ?? categories[0]?.id ?? null;
 
   return (
-    <Screen>
+    <Screen padTop={false}>
       <View style={styles.header}>
         <Pressable
           onPress={() => router.back()}
@@ -397,7 +397,7 @@ function PlayingScreen({
 
   if (isLoading || queue.length === 0) {
     return (
-      <Screen>
+      <Screen padTop={false}>
         <View style={styles.center}>
           <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading phrases…</Text>
         </View>
@@ -411,7 +411,7 @@ function PlayingScreen({
   const nativeStyle = nativeTextStyle(activeLanguage);
 
   return (
-    <Screen>
+    <Screen padTop={false}>
       {/* Timer bar */}
       <View style={[styles.timerBarBg, { backgroundColor: colors.muted }]}>
         <View
@@ -588,7 +588,7 @@ function DoneScreen({
   const canReview = misses.length > 0;
 
   return (
-    <Screen>
+    <Screen padTop={false}>
       <View style={styles.doneContent}>
         <Mascot pose={pose} size={110} motion="float" />
         <Text style={[styles.doneTitle, { color: colors.foreground }]}>

@@ -98,7 +98,7 @@ function SetupScreen({ onStart }: { onStart: (categoryId: number) => void }) {
   const chosen = selectedId ?? categories[0]?.id ?? null;
 
   return (
-    <Screen>
+    <Screen padTop={false}>
       <View style={styles.header}>
         <Pressable
           onPress={() => router.back()}
@@ -344,7 +344,7 @@ function PlayingScreen({
 
   if (isLoading || round.length === 0) {
     return (
-      <Screen>
+      <Screen padTop={false}>
         <View style={styles.center}>
           <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading phrases…</Text>
         </View>
@@ -355,7 +355,7 @@ function PlayingScreen({
   const progressPct = ((phraseIdx + 1) / round.length) * 100;
 
   return (
-    <Screen>
+    <Screen padTop={false}>
       {/* Progress bar */}
       <View style={[styles.progressBg, { backgroundColor: colors.muted }]}>
         <View style={[styles.progressFill, { width: `${progressPct}%` as any, backgroundColor: '#6366F1' }]} />
@@ -591,7 +591,7 @@ function DoneScreen({
   const canReview = misses.length > 0;
 
   return (
-    <Screen>
+    <Screen padTop={false}>
       <View style={styles.doneContent}>
         <Mascot pose={pose} size={110} motion="float" />
         <Text style={[styles.doneTitle, { color: colors.foreground }]}>
