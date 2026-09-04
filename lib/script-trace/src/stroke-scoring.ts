@@ -21,7 +21,25 @@
 // adopted it belongs in a shared lib/ package so the twins cannot drift.
 
 /** A point in the glyph's 0 0 100 100 space, the same box the guides use. */
-export type StrokePoint = { x: number; y: number };
+export type StrokePoint = {
+  x: number;
+  y: number;
+  /**
+   * Milliseconds from the START OF THIS STROKE, when the capture recorded it.
+   *
+   * Optional because it arrived with bolo2 (2026-09-04) and every bolo1 payload
+   * ever collected has only x and y. Nothing in the scoring engine reads it;
+   * it exists so a contributed stroke can be told apart from a hesitant one,
+   * and so rhythm is gradeable later without re-collecting the alphabet.
+   */
+  t?: number;
+  /**
+   * 0..1 from the Pointer Events API, and only ever present for a STYLUS.
+   * Mouse and finger report a constant 0.5 there, which is noise rather than
+   * data, so the capture omits it for them and absent means "not a pen".
+   */
+  pressure?: number;
+};
 
 /**
  * One pen stroke: an ordered polyline. The ORDER of the array is the direction

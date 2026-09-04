@@ -294,11 +294,43 @@ export function serializeAuthoredGlyphs(
 // tested against it rather than being written once on the receiving end.
 
 export const TRACE_PAYLOAD_VERSION = "bolo1";
+/**
+ * bolo2 (2026-09-04) adds ONE header field and two optional numbers per point.
+ *
+ * Header:  bolo2|Script|Contributor|meta|glyph|glyph...
+ * meta:    pointerType,padW,padH,dpr      e.g. "pen,320,320,3"
+ * point:   x,y  |  x,y,t  |  x,y,t,pressure
+ *
+ * WHY IT IS A NEW VERSION RATHER THAN A LOOSER bolo1: the meta field sits where
+ * bolo1 puts its first glyph, so a bolo1 reader handed a bolo2 payload would
+ * read the metadata as a letter. The point tuple alone would not have needed a
+ * bump, since parsePoint has always used Number(), but the header does.
+ *
+ * Both versions are read. Nothing rewrites the bolo1 rows already collected.
+ */
+export const TRACE_PAYLOAD_VERSION_2 = "bolo2";
 
 /** One contributor's traced glyph, before it is matched to a character. */
 export type ParsedTraceGlyph = {
   id: string;
   strokes: AuthoredStroke[];
+};
+
+/**
+ * What the capture could tell us about HOW the strokes were drawn.
+ *
+ * Null for every bolo1 payload, which is every contribution collected before
+ * 2026-09-04. A stylus trace and a fingertip were indistinguishable until this
+ * existed, so neither could be weighted nor filtered out.
+ */
+export type TraceMeta = {
+  /** "pen", "touch", "mouse", or "unknown" when the browser did not say. */
+  pointerType: string;
+  /** The drawing pad's CSS pixel size, so 0..100 can be read back as detail. */
+  padW: number;
+  padH: number;
+  /** devicePixelRatio, because a 320pt pad at 3x is not a 320pt pad at 1x. */
+  dpr: number;
 };
 
 export type ParsedTracePayload = {
@@ -315,6 +347,8 @@ export type ParsedTracePayload = {
    */
   isPractice: boolean;
   glyphs: ParsedTraceGlyph[];
+  /** bolo2 only. Null on every bolo1 payload. */
+  meta: TraceMeta | null;
 };
 
 export class TracePayloadError extends Error {
@@ -325,16 +359,47 @@ export class TracePayloadError extends Error {
 }
 
 function parsePoint(raw: string): StrokePoint {
-  const [xs, ys] = raw.split(",");
-  const x = Number(xs);
-  const y = Number(ys);
+  // TWO, THREE OR FOUR FIELDS. bolo1 wrote "x,y" and every stored payload is
+  // that shape; bolo2 adds "t" and then "pressure". Read positionally and stay
+  // silent about the ones that are absent, so one reader serves both versions.
+  const f = raw.split(",");
+  const x = Number(f[0]);
+  const y = Number(f[1]);
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
     throw new TracePayloadError(`Not a point: ${JSON.stringify(raw)}`);
   }
   if (x < 0 || x > 100 || y < 0 || y > 100) {
     throw new TracePayloadError(`Point outside the 0..100 box: ${raw}`);
   }
-  return { x, y };
+  const point: StrokePoint = { x, y };
+  if (f.length > 2 && f[2] !== "") {
+    const t = Number(f[2]);
+    // Milliseconds from the start of the stroke, so it can never run backwards.
+    if (!Number.isFinite(t) || t < 0) {
+      throw new TracePayloadError(`Not a time: ${JSON.stringify(raw)}`);
+    }
+    point.t = t;
+  }
+  if (f.length > 3 && f[3] !== "") {
+    const pressure = Number(f[3]);
+    if (!Number.isFinite(pressure) || pressure < 0 || pressure > 1) {
+      throw new TracePayloadError(`Pressure outside 0..1: ${JSON.stringify(raw)}`);
+    }
+    point.pressure = pressure;
+  }
+  return point;
+}
+
+/** "pen,320,320,3" into meta, or null when it is unreadable rather than fatal. */
+function parseMeta(raw: string): TraceMeta | null {
+  const f = raw.split(",");
+  if (f.length < 3) return null;
+  const pointerType = /^[a-z]{1,12}$/.test(f[0]!) ? f[0]! : "unknown";
+  const padW = Number(f[1]);
+  const padH = Number(f[2]);
+  const dpr = f.length > 3 ? Number(f[3]) : 1;
+  if (!Number.isFinite(padW) || !Number.isFinite(padH) || padW <= 0 || padH <= 0) return null;
+  return { pointerType, padW, padH, dpr: Number.isFinite(dpr) && dpr > 0 ? dpr : 1 };
 }
 
 /**
@@ -351,20 +416,26 @@ export function parseTracePayload(text: string): ParsedTracePayload {
   if (cleaned.length === 0) throw new TracePayloadError("Empty payload.");
 
   const parts = cleaned.split("|");
-  if (parts[0] !== TRACE_PAYLOAD_VERSION) {
+  const isV2 = parts[0] === TRACE_PAYLOAD_VERSION_2;
+  if (parts[0] !== TRACE_PAYLOAD_VERSION && !isV2) {
     throw new TracePayloadError(
-      `Expected a payload starting "${TRACE_PAYLOAD_VERSION}|", got ${JSON.stringify(parts[0].slice(0, 24))}.`,
+      `Expected a payload starting "${TRACE_PAYLOAD_VERSION}|" or "${TRACE_PAYLOAD_VERSION_2}|", got ${JSON.stringify(parts[0].slice(0, 24))}.`,
     );
   }
-  if (parts.length < 4) throw new TracePayloadError("Payload has no glyphs.");
+  // bolo2 spends one field on meta before the glyphs; bolo1 starts them at 3.
+  const firstGlyph = isV2 ? 4 : 3;
+  if (parts.length < firstGlyph + 1) throw new TracePayloadError("Payload has no glyphs.");
 
   const script = parts[1].replace(/_/g, " ");
   const rawContributor = parts[2] === "" ? "-" : parts[2];
   const isPractice = rawContributor.startsWith("!");
   const contributor = isPractice ? rawContributor.slice(1) || "-" : rawContributor;
+  // Unreadable meta is not worth refusing a whole alphabet over: the strokes
+  // are the contribution and the meta is context.
+  const meta = isV2 ? parseMeta(parts[3] ?? "") : null;
   const glyphs: ParsedTraceGlyph[] = [];
 
-  for (const chunk of parts.slice(3)) {
+  for (const chunk of parts.slice(firstGlyph)) {
     if (chunk === "") continue;
     const colon = chunk.indexOf(":");
     if (colon <= 0) throw new TracePayloadError(`Glyph has no id: ${JSON.stringify(chunk.slice(0, 24))}`);
@@ -385,7 +456,7 @@ export function parseTracePayload(text: string): ParsedTracePayload {
   }
 
   if (glyphs.length === 0) throw new TracePayloadError("Payload has no glyphs.");
-  return { script, contributor, isPractice, glyphs };
+  return { script, contributor, isPractice, glyphs, meta };
 }
 
 /**
@@ -594,12 +665,23 @@ export function mergeTracePayloads(existing: string, incoming: string): string {
   // LATEST of those is the truth: somebody who fixes their name on a second
   // visit means it.
   const incomingParts = incoming.split("|");
-  const header = incomingParts.slice(0, 3).join("|");
+  // THE HEADER LENGTH IS THE VERSION'S (bolo2, 2026-09-04). bolo2 spends a
+  // fourth field on meta before the glyphs, so slicing a fixed 3 here would
+  // have folded the incoming meta in among the letters and lost it.
+  const headerLen = incomingParts[0] === TRACE_PAYLOAD_VERSION_2 ? 4 : 3;
+  const header = incomingParts.slice(0, headerLen).join("|");
   if (before.script !== after.script) return incoming;
 
+  // A MIXED MERGE IS FINE AND WILL HAPPEN. Somebody who contributed before this
+  // shipped comes back to a bolo2 page: the stored payload is bolo1, the new
+  // one is bolo2, and the result takes bolo2's header. The kept bolo1 segments
+  // are still valid glyphs, they simply carry no time or pressure, which is
+  // exactly what parsePoint is tolerant about.
   const segmentsOf = (payload: string): Map<string, string> => {
     const out = new Map<string, string>();
-    for (const seg of payload.split("|").slice(3)) {
+    const parts = payload.split("|");
+    const from = parts[0] === TRACE_PAYLOAD_VERSION_2 ? 4 : 3;
+    for (const seg of parts.slice(from)) {
       const id = seg.slice(0, seg.indexOf(":"));
       if (id) out.set(id, seg);
     }

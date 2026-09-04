@@ -202,6 +202,10 @@
   <section id="s1">
     <div class="steps"><i class="on"></i><i></i><i></i></div>
     <p class="steplabel">Step 1 of 3</p>
+    <!-- Filled in by the welcome-back block at the end of the script when
+         localStorage says this person has been here before. Hidden otherwise,
+         so a first-time visitor sees no trace of it. -->
+    <p class="savenote ok" id="welcomeback" hidden></p>
     <div class="hero">
       <img src="/mascot/mascot-wave.png" alt="Bolo, a small blue and green bird, waving">
       <h1>Will you help teach our children?</h1>
@@ -392,9 +396,12 @@
   var EPSILON = 0.6, PASSES = 2;
   function smooth(p){var c=p.slice(),k,i,n,l;if(c.length<=2)return c;
     for(k=0;k<PASSES;k++){n=new Array(c.length);l=c.length-1;
-      n[0]={x:(2*c[0].x+c[1].x)/3,y:(2*c[0].y+c[1].y)/3};
-      for(i=1;i<l;i++)n[i]={x:(c[i-1].x+c[i].x+c[i+1].x)/3,y:(c[i-1].y+c[i].y+c[i+1].y)/3};
-      n[l]={x:(2*c[l].x+c[l-1].x)/3,y:(2*c[l].y+c[l-1].y)/3};c=n;}return c;}
+      // t and pr ride along from the point being smoothed. Averaging a
+      // timestamp with its neighbours' would invent a moment that never
+      // happened; the centre point's own time is the true one.
+      n[0]={x:(2*c[0].x+c[1].x)/3,y:(2*c[0].y+c[1].y)/3,t:c[0].t,pr:c[0].pr};
+      for(i=1;i<l;i++)n[i]={x:(c[i-1].x+c[i].x+c[i+1].x)/3,y:(c[i-1].y+c[i].y+c[i+1].y)/3,t:c[i].t,pr:c[i].pr};
+      n[l]={x:(2*c[l].x+c[l-1].x)/3,y:(2*c[l].y+c[l-1].y)/3,t:c[l].t,pr:c[l].pr};c=n;}return c;}
   function perp(p,a,b){var dx=b.x-a.x,dy=b.y-a.y;
     if(dx===0&&dy===0)return Math.hypot(p.x-a.x,p.y-a.y);
     return Math.abs(dy*p.x-dx*p.y+b.x*a.y-b.y*a.x)/Math.hypot(dx,dy);}
@@ -414,7 +421,7 @@
   // Math.round(x*10)/10 gives 20 rather than 20.0.
   function q(v){return Math.min(100,Math.max(0,Math.round(v*10)/10));}
   function clean(raw){if(raw.length<2)return null;
-    var s=simplify(smooth(raw)).map(function(p){return{x:q(p.x),y:q(p.y)};});
+    var s=simplify(smooth(raw)).map(function(p){return{x:q(p.x),y:q(p.y),t:p.t,pr:p.pr};});
     var o=s.filter(function(p,i){return i===0||p.x!==s[i-1].x||p.y!==s[i-1].y;});
     return o.length>=2?o:null;}
 
@@ -426,12 +433,45 @@
     try{localStorage.setItem(SKEY,v);}catch(e){}return v;})();
 
   var scriptName=null,who="",roster=[],idx=0,strokes=[],livePts=null,saved=[],
-      tracedCount=0,recordedOk=false;
+      tracedCount=0,recordedOk=false,doneIds=[];
+
+  /**
+   * COMING BACK IS NORMAL AND USED TO LOOK LIKE STARTING OVER (owner,
+   * 2026-09-04: "make sure if they leave and come back, the previous stuff is
+   * recorded. bonus if they can come back to where they left off").
+   *
+   * The letters were never at risk: the session id above already survives in
+   * localStorage and the server merges each submission onto it, so a returning
+   * contributor's work has always been kept. THE PAGE JUST NEVER SAID SO. It
+   * reported "Not started" and put them back on letter one, so the honest
+   * reading of the screen was that an hour of tracing had gone, and the
+   * rational response is to close the tab.
+   *
+   * Only the letter IDS are stored here, never the strokes: the server holds
+   * those, and a second copy on the device is one more thing to go stale.
+   */
+  var PKEY="bolo.aksharmala.progress.v1";
+  function loadProgress(){try{return JSON.parse(localStorage.getItem(PKEY)||"null");}catch(e){return null;}}
+  function saveProgress(){try{localStorage.setItem(PKEY,JSON.stringify({
+    who:who,script:scriptName,ids:doneIds,rec:recordedOk}));}catch(e){}}
+  function markDone(id){if(doneIds.indexOf(id)<0)doneIds.push(id);tracedCount=doneIds.length;saveProgress();}
+  /** The first letter they have not saved, so returning lands on real work. */
+  function firstUnsaved(){for(var i=0;i<roster.length;i++)if(doneIds.indexOf(roster[i].id)<0)return i;return 0;}
 
   function safeName(){return (who||"-").replace(/[|~;:!\s]+/g,"_").slice(0,24)||"-";}
-  function encode(){return "bolo1|"+scriptName.replace(/ /g,"_")+"|"+safeName()+"|"+
+  // bolo2: one meta field before the glyphs, and points that carry their time
+  // and, for a stylus, their pressure. A point still starts "x,y", so the
+  // shape is familiar and parsePoint reads both versions positionally.
+  function meta(){var r=pad?pad.getBoundingClientRect():{width:0,height:0};
+    return [padType,Math.round(r.width)||0,Math.round(r.height)||0,
+            Math.round((window.devicePixelRatio||1)*100)/100].join(",");}
+  function pt(p){var out=p.x+","+p.y;
+    if(typeof p.t==="number")out+=","+p.t;
+    if(typeof p.pr==="number")out+=(typeof p.t==="number"?"":",")+","+p.pr;
+    return out;}
+  function encode(){return "bolo2|"+scriptName.replace(/ /g,"_")+"|"+safeName()+"|"+meta()+"|"+
     saved.map(function(g){return g.id+":"+g.strokes.map(function(s){
-      return s.map(function(p){return p.x+","+p.y;}).join(";");}).join("~");}).join("|");}
+      return s.map(pt).join(";");}).join("~");}).join("|");}
   function note(el,text,kind){var n=$(el);n.textContent=text;n.className="savenote"+(kind?" "+kind:"");}
 
   function autosave(){
@@ -464,7 +504,7 @@
     r.textContent=recordedOk?"Recording saved":"Not started";
     r.className="state"+(recordedOk?" on":"");
     $("thanks").hidden=!(tracedCount||recordedOk);
-    $("thanks").textContent="Thank you. Everything above is already saved.";
+    $("thanks").textContent="Thank you. Everything above is already saved, and it will still be here if you close this page.";
   }
 
   var pad=$("pad");
@@ -493,9 +533,19 @@
     $("undo").disabled=$("clear").disabled=$("next").disabled=strokes.length===0;
     $("next").textContent=idx===roster.length-1?"Save and finish":"Save and next";
   }
+  // TIME AND PRESSURE, CAPTURED HERE OR NOWHERE (bolo2, 2026-09-04). t is ms
+  // from the START OF THIS STROKE, not the epoch, so it stays a small integer
+  // and can never leak when somebody drew. Pressure is kept ONLY for a stylus:
+  // mouse and finger report a constant 0.5, which is noise dressed as data.
+  var strokeT0=0, padType="unknown";
   function at(e){var r=pad.getBoundingClientRect();
-    return {x:((e.clientX-r.left)/r.width)*100,y:((e.clientY-r.top)/r.height)*100};}
-  pad.addEventListener("pointerdown",function(e){e.preventDefault();pad.setPointerCapture(e.pointerId);livePts=[at(e)];draw();});
+    var o={x:((e.clientX-r.left)/r.width)*100,y:((e.clientY-r.top)/r.height)*100,
+           t:Math.round(performance.now()-strokeT0)};
+    if(e.pointerType==="pen"&&typeof e.pressure==="number")o.pr=Math.round(e.pressure*100)/100;
+    return o;}
+  pad.addEventListener("pointerdown",function(e){e.preventDefault();pad.setPointerCapture(e.pointerId);
+    strokeT0=performance.now();if(e.pointerType)padType=e.pointerType;
+    livePts=[at(e)];draw();});
   pad.addEventListener("pointermove",function(e){if(!livePts)return;e.preventDefault();livePts.push(at(e));draw();});
   function endStroke(){if(!livePts)return;var c=clean(livePts);livePts=null;if(c)strokes.push(c);draw();}
   pad.addEventListener("pointerup",endStroke);
@@ -512,7 +562,7 @@
     strokes=[];
     // Count what she DID, synchronously. Setting this inside the autosave
     // promise made the final letter report "19 of 20" after twenty.
-    tracedCount=saved.length;
+    markDone(roster[idx].id);
     autosave();
     advance();
   });
@@ -617,7 +667,7 @@
           audioBase64:b64,mimeType:mime,durationMs:recMs})
       }).then(function(r){
         if(!r.ok)throw new Error("http "+r.status);
-        recordedOk=true;note("recsave","Sent. Thank you.","ok");
+        recordedOk=true;saveProgress();note("recsave","Sent. Thank you.","ok");
         setTimeout(function(){refreshHub();show("s3");},900);
       }).catch(function(){$("sendrec").disabled=false;
         note("recsave","That did not go through. Tap send again in a moment.","bad");});};
@@ -655,12 +705,49 @@
   $("to3").addEventListener("click",function(){
     if(!scriptName)return;
     roster=ALPHABETS[scriptName];
-    idx=0;strokes=[];livePts=null;saved=[];tracedCount=0;recordedOk=false;
+    // A DIFFERENT SCRIPT IS A DIFFERENT ALPHABET, so its letter ids mean
+    // nothing here and the count starts again. The SAME script is a returning
+    // contributor, and their ids still line up with this roster.
+    var prev=loadProgress();
+    if(!prev||prev.script!==scriptName){doneIds=[];recordedOk=false;}
+    else {doneIds=prev.ids||[];recordedOk=!!prev.rec;}
+    tracedCount=doneIds.length;
+    strokes=[];livePts=null;saved=[];
+    idx=firstUnsaved();
+    saveProgress();
     $("tip").textContent=TIPS[scriptName]||"";
     refreshHub();show("s3");});
 
   $("cardtrace").addEventListener("click",function(){note("tracesave","");show("tracer");draw();});
   $("cardread").addEventListener("click",openReader);
+
+  /**
+   * WELCOME BACK. Runs last, after the script buttons exist, so it can press
+   * one. It only ever fills the form in: the contributor still steps through
+   * and still chooses, because silently skipping them to letter 31 of an
+   * alphabet would be its own kind of confusing.
+   *
+   * The name matters more than it looks. Contributions are grouped by the name
+   * typed here, so somebody who wrote "Nani" on Monday and "nani ji" on Tuesday
+   * became two people, and compareContributions had two singletons instead of
+   * one agreement.
+   */
+  (function(){
+    var prev=loadProgress();
+    if(!prev)return;
+    if(prev.who){$("who").value=prev.who;$("to2").disabled=false;}
+    if(prev.script&&ALPHABETS[prev.script]){
+      var b=$("choices").querySelector('[data-script="'+prev.script+'"]');
+      if(b)b.click();
+    }
+    if(prev.ids&&prev.ids.length&&prev.script&&ALPHABETS[prev.script]){
+      var n=prev.ids.length,total=ALPHABETS[prev.script].length;
+      var w=$("welcomeback");
+      if(w){w.hidden=false;
+        w.textContent="Welcome back"+(prev.who?", "+prev.who:"")+". You have already saved "+
+          n+" of "+total+" letters, and they are safe. Carry on where you stopped.";}
+    }
+  })();
 })();
 </script>
 
