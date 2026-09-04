@@ -26,6 +26,9 @@ import {
   languageStudiesChapter,
   traceChapterSize,
   isTraceTeaserCharacter,
+  LETTER_STOP_LENGTH,
+  LETTER_STOP_PASS,
+  letterStopFor,
 } from "@workspace/script-trace";
 import { localDayKey, computeDailyQuizStreak } from "../lib/progressMetrics";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
@@ -851,6 +854,122 @@ publicRouter.post(
     }
 
     res.json({ quizDate: today, results });
+  },
+);
+
+/**
+ * POST /games/letter-stop/complete
+ *
+ * The letter recognition stop, stop 4 of every zone. Hear the sound, pick the
+ * romanisation. Tracing at stop 2 teaches the hand; this is the only thing in
+ * the app that ever asks a learner to READ what they wrote.
+ *
+ * THE QUESTIONS ARE NOT SERVED FROM HERE, on purpose. letterStopFor lives in
+ * @workspace/script-trace and both clients call it directly, exactly as they
+ * already do for traceStopFor. The alphabet is shipped static data; fetching it
+ * would add a round trip and a second source of truth for no secret worth
+ * keeping. What the server owns is what the server must own: the gate, the
+ * ledger and the count.
+ *
+ * FREE TASTE AT JOURNEY 1 ZONE 1, like tracing and story before it, and by the
+ * owner's ruling this stop is a taste in every language. The condition is the
+ * same one the tracing screen already uses (`journey === 1 && zone === 1`), so
+ * a showroom shows four open stops rather than three.
+ *
+ * Scored by the client, like script-trace and unlike the daily quiz. The stop
+ * is practice rather than a contest, the answers are in the shipped lib either
+ * way, and matching script-trace keeps one mental model for two stops made of
+ * the same alphabet. The server still clamps: nothing above the stop's own
+ * length is storable, so a bad client cannot inflate a session.
+ */
+router.post(
+  "/games/letter-stop/complete",
+  async (req: Request, res: Response): Promise<void> => {
+    const { lang, journey, zone, correct, total } = req.body as {
+      lang?: unknown;
+      journey?: unknown;
+      zone?: unknown;
+      correct?: unknown;
+      total?: unknown;
+    };
+
+    if (typeof lang !== "string" || !lang) {
+      res.status(400).json({ error: "Missing lang" });
+      return;
+    }
+    if (!Number.isInteger(journey) || !Number.isInteger(zone)) {
+      res.status(400).json({ error: "journey and zone must be integers" });
+      return;
+    }
+    const j = journey as number;
+    const z = zone as number;
+    if (j < 1 || z < 1) {
+      res.status(400).json({ error: "journey and zone start at 1" });
+      return;
+    }
+    if (!Number.isInteger(correct) || !Number.isInteger(total)) {
+      res.status(400).json({ error: "correct and total must be integers" });
+      return;
+    }
+    // Clamped rather than trusted. The client scores, the server refuses to
+    // store an impossible session.
+    const totalAsked = Math.min(Math.max(total as number, 0), LETTER_STOP_LENGTH);
+    const gotRight = Math.min(Math.max(correct as number, 0), totalAsked);
+    if (totalAsked === 0) {
+      res.status(400).json({ error: "A stop with no questions is not a stop" });
+      return;
+    }
+
+    // The taste, and it is the whole of the gating: journey 1 zone 1 is open in
+    // every language, everything past it is All-Access.
+    const isTaste = j === 1 && z === 1;
+    if (
+      !isTaste &&
+      denyLockedFeature(
+        req,
+        res,
+        "scriptTrace",
+        "Letter practice is a Bolo! Plus feature. Upgrade to keep reading.",
+      )
+    )
+      return;
+
+    // Refuse a zone this language does not actually have a stop for, so a typo
+    // cannot write a session for nothing.
+    const stop = letterStopFor(lang, j, z);
+    if (!stop) {
+      res.status(404).json({ error: "No letter stop for that language and zone" });
+      return;
+    }
+
+    const userId = getUserId(req);
+    const passed = gotRight >= Math.min(LETTER_STOP_PASS, totalAsked);
+    const xpAwarded = computeXp(gotRight, totalAsked);
+    // journey and zone, not the chapter id: a letter stop spans whatever the
+    // zone's tracing stop taught and is addressed the way the map addresses it.
+    const context = `j${j}z${z}`;
+
+    try {
+      const [session] = await db
+        .insert(gameSessionsTable)
+        .values({
+          userId,
+          languageCode: lang,
+          game: "letter-stop",
+          correctCount: gotRight,
+          totalCount: totalAsked,
+          xpAwarded,
+          context,
+        })
+        .returning({ id: gameSessionsTable.id });
+      if (session) await writeGameSessionXp(userId, lang, session.id, xpAwarded);
+    } catch (err) {
+      req.log?.error({ err }, "letter_stop_session_write_failed");
+      res.status(500).json({ error: "Could not record that stop" });
+      return;
+    }
+
+    res.json({ passed, correct: gotRight, total: totalAsked, xpAwarded });
   },
 );
 
