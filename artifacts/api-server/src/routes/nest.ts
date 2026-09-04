@@ -41,6 +41,10 @@ import {
   REPLY_MAX,
 } from "../lib/supportMail";
 import { sql } from "drizzle-orm";
+// The stop's own pass mark, read rather than typed in, so the Nest tile and
+// the screen a learner sees can never disagree about what passing means.
+import { LETTER_STOP_PASS } from "@workspace/script-trace";
+import { DRILL_METRICS } from "../lib/nestDrillMetrics";
 import { db } from "@workspace/db";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { isOwner, nonLearnerUserIds, NEST_ARTIFACT_URL } from "../lib/ownerGate";
@@ -662,93 +666,6 @@ const DRILL_LIMIT = 200;
  * above do, and the note repeats which kind it is so a reader who opened the
  * panel from a 7-day view is not misled by a lifetime number.
  */
-const DRILL_METRICS: Record<
-  string,
-  { label: string; note: string; windowed: boolean }
-> = {
-  accounts: {
-    label: "Accounts",
-    note: "Every account, ignoring the date range. A snapshot of the users table.",
-    windowed: false,
-  },
-  paid: {
-    label: "Paid",
-    note:
-      "tier is not free AND subscription_status is active, right now. A sandbox " +
-      "or TestFlight purchase looks identical here and bills nothing: RevenueCat " +
-      "sends the environment on every webhook and nothing stores it yet, so check " +
-      "the provider and the dates by eye.",
-    windowed: false,
-  },
-  free: {
-    label: "Free",
-    note: "Everybody who is not paid, right now. Paid plus free is the account total.",
-    windowed: false,
-  },
-  reachable: {
-    label: "Reachable by push",
-    note:
-      "Accounts holding at least one live push token, ranked by how many devices. " +
-      "This is the ONLY thing that decides whether a reminder can arrive: the " +
-      "sender gates on the window, the streak, not-already-sent and a token, and " +
-      "never reads the reminder preference. Disabled tokens are excluded because " +
-      "Expo answered DeviceNotRegistered for them.",
-    windowed: false,
-  },
-  remindersOn: {
-    label: "Reminder preference on",
-    note:
-      "Accounts whose dailyReminderEnabled is true. WORTH KNOWING: this column " +
-      "is written by the account screen and read back by it, and nothing else in " +
-      "the product consults it. It does not turn reminders on and clearing it " +
-      "does not turn them off.",
-    windowed: false,
-  },
-  reporters: {
-    label: "Reporters",
-    note:
-      "Accounts that have filed at least one phrase report, ever, ranked by how " +
-      "many they filed. LIFETIME, ignoring the date range, exactly as the tile " +
-      "is. Added build 26 on the owner's ask that every stat drills down; it was " +
-      "the one Flagged tile whose rows are PEOPLE, so it reuses this panel rather " +
-      "than needing a second shape. The other three Flagged numbers count " +
-      "reports and phrases, which this panel cannot describe.",
-    windowed: false,
-  },
-  trialing: {
-    label: "Trialing",
-    note: "subscription_status is trialing, right now.",
-    windowed: false,
-  },
-  signups: {
-    label: "Sign ups",
-    note: "Accounts created inside the selected window.",
-    windowed: true,
-  },
-  activeUsers: {
-    label: "Active learners",
-    note:
-      "Distinct people who recorded an attempt inside the window, ranked by how " +
-      "many. NOT logins: this counts practice. Who is merely SIGNED IN is a " +
-      "different question and /nest/live answers it from Clerk.",
-    windowed: true,
-  },
-  attempts: {
-    label: "Practice attempts",
-    note: "Who made them, ranked. The tile's number is the sum of this column.",
-    windowed: true,
-  },
-  games: {
-    label: "Games",
-    note: "Finished game sessions inside the window, by learner.",
-    windowed: true,
-  },
-  chats: {
-    label: "Chat replies",
-    note: "Chat turns inside the window, by learner.",
-    windowed: true,
-  },
-};
 
 router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => {
   if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
@@ -818,6 +735,37 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
   } else if (metric === "chats") {
     selector = sql`select c.user_id, count(*)::int from chat_turns c
       where c.created_at >= ${from} and c.created_at <= ${to} ${notOwner("c.user_id")}
+      group by 1`;
+  } else if (metric === "letterDrills") {
+    selector = sql`select g.user_id, count(*)::int from game_sessions g
+      where g.game = 'letter-stop'
+        and g.correct_count >= ${LETTER_STOP_PASS}
+        and g.created_at >= ${from} and g.created_at <= ${to}
+      ${notOwner("g.user_id")}
+      group by 1`;
+  } else if (metric === "giftsToday") {
+    selector = sql`select l.user_id, l.delta::int from token_ledger l
+      where l.reason = 'earn_streak_day'
+        and l.ref_id = to_char(now() at time zone 'utc', 'YYYY-MM-DD')
+      ${notOwner("l.user_id")}`;
+  } else if (metric === "giftRuns") {
+    // The same gaps-and-islands the tile counts, kept per learner rather than
+    // maxed, so the panel ranks people by their own longest run. The regex
+    // guard matters here too: ref_id is shared with every other grant reason.
+    selector = sql`select user_id, max(run)::int from (
+        select l.user_id, count(*)::int as run from (
+          select l2.user_id,
+                 l2.ref_id::date as d,
+                 l2.ref_id::date - (row_number() over (
+                   partition by l2.user_id order by l2.ref_id::date
+                 ))::int as grp
+          from token_ledger l2
+          where l2.reason = 'earn_streak_day'
+            and l2.ref_id ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          ${notOwner("l2.user_id")}
+        ) l
+        group by l.user_id, l.grp
+      ) runs
       group by 1`;
   } else {
     // activeUsers and attempts are the same selection ranked the same way; the
@@ -1433,11 +1381,44 @@ type NestRange = {
   attempts: number;
   gameSessions: number;
   chatTurns: number;
+  /**
+   * Letter stops CLEARED inside the window, not merely played.
+   *
+   * The bar is LETTER_STOP_PASS of the stop's own length, which is the same
+   * number the screen shows a learner, so this tile and the stop cannot
+   * disagree about what passing means.
+   */
+  letterDrillsPassed: number;
   // ── SNAPSHOT: the users table as it stands right now ──
   usersTotal: number;
   paidTotal: number;
   freeTotal: number;
   trialingTotal: number;
+  /**
+   * Gift boxes opened TODAY, in UTC.
+   *
+   * DELIBERATELY NOT WINDOWED, and the reason is the feature's own: the box
+   * forfeits at the end of the local day, so "how many were opened today" is
+   * the only question about it that expires. A windowed version would answer a
+   * different question under the same label.
+   *
+   * UTC, not per-learner-local, and it is worth knowing which: the grant's
+   * refId IS the learner's own local day, so a learner in Auckland claiming at
+   * their breakfast writes tomorrow's key by UTC. This counts the key that
+   * matches UTC today, which is right to within a few hours at the edges and is
+   * the honest simple answer. A per-timezone count would need every learner's
+   * zone joined in and would still be a moving target while the day rolls.
+   */
+  giftsClaimedToday: number;
+  /**
+   * The longest run of consecutive days any ONE learner has opened the box.
+   *
+   * The ladder caps the Chai at a week, so this is the number that says whether
+   * anybody is going past it. Computed from the ledger's refIds by gaps and
+   * islands, not from any stored counter, because there is no stored counter:
+   * the gift rides the practice streak and keeps nothing of its own.
+   */
+  longestGiftRun: number;
   /** One row per UTC day in the window, oldest first. Zero-filled. */
   series: NestRangePoint[];
 };
@@ -1517,6 +1498,41 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
         (select count(*) from chat_turns
           where created_at >= ${from} and created_at <= ${to}
           ${notOwner("user_id")})::int                               as chat_turns,
+        -- CLEARED, not merely played. The bar is the stop's own, read from the
+        -- shared lib rather than typed in here, so the tile and the screen can
+        -- never disagree about what passing means.
+        (select count(*) from game_sessions
+          where game = 'letter-stop'
+            and correct_count >= ${LETTER_STOP_PASS}
+            and created_at >= ${from} and created_at <= ${to}
+          ${notOwner("user_id")})::int                               as letter_drills_passed,
+        -- TODAY, in UTC, and deliberately not windowed: the box forfeits at the
+        -- end of the local day, so this is the one question about it that
+        -- expires. See the type for why UTC is the honest simple answer.
+        (select count(*) from token_ledger
+          where reason = 'earn_streak_day'
+            and ref_id = to_char(now() at time zone 'utc', 'YYYY-MM-DD')
+          ${notOwner("user_id")})::int                               as gifts_claimed_today,
+        -- GAPS AND ISLANDS over the ledger's refIds. There is no stored gift
+        -- counter to read: the ladder rides the practice streak and keeps
+        -- nothing of its own, which is exactly why streak repair mends it. The
+        -- regex guard is not decoration; ref_id is a text column shared with
+        -- every other grant reason, and one malformed row would fail the cast
+        -- and take the whole panel down.
+        coalesce((select max(run) from (
+          select count(*)::int as run from (
+            select l.user_id,
+                   l.ref_id::date as d,
+                   l.ref_id::date - (row_number() over (
+                     partition by l.user_id order by l.ref_id::date
+                   ))::int as grp
+            from token_ledger l
+            where l.reason = 'earn_streak_day'
+              and l.ref_id ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+              ${notOwner("l.user_id")}
+          ) islands
+          group by user_id, grp
+        ) runs), 0)::int                                             as longest_gift_run,
         -- SNAPSHOTS. Deliberately unfiltered by the window: see the type above.
         (select count(*) from users where true ${notOwner("id")})::int as users_total,
         (select count(*) from users
@@ -1582,6 +1598,9 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
       attempts: n("attempts"),
       gameSessions: n("game_sessions"),
       chatTurns: n("chat_turns"),
+      letterDrillsPassed: n("letter_drills_passed"),
+      giftsClaimedToday: n("gifts_claimed_today"),
+      longestGiftRun: n("longest_gift_run"),
       usersTotal: n("users_total"),
       paidTotal: n("paid_total"),
       freeTotal: n("free_total"),

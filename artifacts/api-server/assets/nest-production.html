@@ -2563,13 +2563,30 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
       tile(fmt(r.attempts), "Practice attempts",
            per ? per.toFixed(1) + " per active learner over " + days + " days." : "Nobody practised in this window.", false, "attempts") +
       tile(fmt(r.gameSessions), "Games", fmt(r.gameSessions) + " finished sessions.", false, "games") +
-      tile(fmt(r.chatTurns), "Chat replies", "Bolo answering a learner.", false, "chats");
+      tile(fmt(r.chatTurns), "Chat replies", "Bolo answering a learner.", false, "chats") +
+      /* CLEARED, not played. The letter stop is position 4 of every zone and is
+         the only thing in the app that asks somebody to READ; tracing at stop 2
+         teaches the hand. The bar is the stop's own, read from the shared lib
+         server side, so this number and the screen agree by construction. */
+      tile(fmt(r.letterDrillsPassed), "Letter drills passed",
+           "Letter stops cleared, not merely played.", r.letterDrillsPassed > 0, "letterDrills");
 
     snap.innerHTML =
       tile(fmt(r.usersTotal), "Accounts", r.exclOwner ? "Your own accounts and the App Review tester already removed." : "Including your own accounts and the tester.", false, "accounts") +
       tile(fmt(r.paidTotal), "Paid", "Right now. A sandbox or TestFlight purchase looks identical here and bills nothing, so open this and check the dates.", r.paidTotal > 0, "paid") +
       tile(fmt(r.freeTotal), "Free", "Everybody else. Paid plus free is always the account total.", false, "free") +
-      tile(fmt(r.trialingTotal), "Trialing", "subscription_status is trialing.", false, "trialing");
+      tile(fmt(r.trialingTotal), "Trialing", "subscription_status is trialing.", false, "trialing") +
+      /* THE DAILY GIFT. Both of these are snapshots and sit with the other
+         snapshots on purpose: neither answers a question about the window.
+         "Today" expires at midnight because the box does, and the longest run
+         is a lifetime fact. Since 2026-09-04 the tap IS the grant, so the first
+         number is also everybody who earned any Chai for showing up today. */
+      tile(fmt(r.giftsClaimedToday), "Gifts opened today",
+           "The tap is the grant, so this is everybody who earned today's Chai.",
+           r.giftsClaimedToday > 0, "giftsToday") +
+      tile(fmt(r.longestGiftRun), "Longest gift run",
+           "Consecutive days, best of any learner. The Chai caps at seven.",
+           r.longestGiftRun > 0, "giftRuns");
 
     /* The chart. Two stacked bars a day: sign ups on top of active learners,
        so a spike in one is legible against the other without a second chart. */
