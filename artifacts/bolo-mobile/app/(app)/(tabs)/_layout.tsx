@@ -292,6 +292,7 @@ type NavMetrics = {
   pillH: number;
   label: number;
   barHeight: number;
+  barPaddingTop: number;
   bubble: number;
   bubbleFocused: number;
   parrot: number;
@@ -305,6 +306,7 @@ const NAV_PHONE: NavMetrics = {
   pillH: 28,
   label: 12,
   barHeight: 74,
+  barPaddingTop: 6,
   bubble: 58,
   bubbleFocused: 68,
   parrot: 44,
@@ -317,7 +319,8 @@ const NAV_WIDE: NavMetrics = {
   pillW: 60,
   pillH: 36,
   label: 15,
-  barHeight: 92,
+  barHeight: 100,
+  barPaddingTop: 14,
   bubble: 76,
   bubbleFocused: 88,
   parrot: 58,
@@ -873,7 +876,18 @@ export default function TabsLayout() {
           bottom: Math.max(insets.bottom, 14),
           borderRadius: 32,
           height: m.barHeight,
-          paddingTop: 6,
+          /**
+           * THE SELECTED PILL NEEDS AIR ABOVE IT (owner, 2026-09-03: "the icon
+           * is too close to the top when selected. Look at home").
+           *
+           * react-navigation lays its items out from the TOP of the bar, so the
+           * active tab's filled 36pt pill sat 6pt off the edge and read as
+           * jammed against it. The bar is positioned by `bottom`, so height
+           * grows it UPWARD: adding 8 to both the height and this padding buys
+           * the pill 8pt of headroom and leaves every label exactly where it
+           * was, including the two custom slots that anchor to the bottom.
+           */
+          paddingTop: m.barPaddingTop,
           paddingBottom: 8,
           backgroundColor: colors.card,
           borderTopWidth: 0,
