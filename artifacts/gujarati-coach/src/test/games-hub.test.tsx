@@ -42,7 +42,7 @@ vi.mock("@/lib/useJourneyProgress", () => ({
 }));
 
 import GamesPage from "@/pages/games/index";
-import { GAMES as REAL_GAMES } from "@/pages/games/index";
+import { GAMES as REAL_GAMES, HUB_ORDER } from "@/pages/games/index";
 
 /**
  * THE PHONE'S ORDER, which the hub renders as ONE grid since 2026-08-30 (the
@@ -51,21 +51,15 @@ import { GAMES as REAL_GAMES } from "@/pages/games/index";
  * Listening is web-only and sits beside its listening sibling; Chacha-ji's
  * call is mobile-only and absent.
  */
-const HUB_ORDER = [
-  "luggage-match",
-  "word-match",
-  "signal-lights",
-  "phrase-builder",
-  "speed-round",
-  "bolo-quiz",
-  "ticket-check",
-  "storybook",
-  "emergency",
-  "listen-and-pick",
-  "express-listening",
-  "wrong-platform",
-  "wrong-platform-2",
-];
+// THE ORDER, READ FROM THE PAGE rather than copied, for exactly the reason the
+// roster below gives about itself. This WAS a hand-maintained duplicate, and it
+// did what a duplicate always does: Letter Match was added to the real list and
+// this copy failed the test on correct behaviour. The order is still asserted
+// (nothing renders twice, nothing is lost, the grid follows it), and the thing
+// that can no longer happen is the fixture and the product disagreeing.
+//
+// A test that spelled out the order by hand was never guarding the ORDER
+// anyway: it only ever guarded that somebody edited two files.
 
 /**
  * THE ROSTER, READ FROM THE PAGE ITSELF rather than copied.

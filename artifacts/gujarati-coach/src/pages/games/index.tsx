@@ -30,6 +30,7 @@ import {
   Layers,
   Zap,
   Award,
+  Volume2,
   Lock,
   Star,
   Ticket,
@@ -115,6 +116,26 @@ export const GAMES: GameDef[] = [
   //   plusOnly: true,
   //   Icon: PenLine,
   // },
+  /**
+   * Where Script Trace would sit if it were not feature-flagged off above, and
+   * for the same reason the phone puts it there: it is the other half of the
+   * same lesson. Tracing teaches the hand; this is the only game in the hub
+   * that asks somebody to READ.
+   *
+   * All-Access with no taste, matching the server. The free taste for reading
+   * already exists on the journey at stop 4 of zone 1, in every language; a
+   * second free door onto the same alphabet from here would not be a taste, it
+   * would be the feature.
+   */
+  {
+    id: "letter-match",
+    href: "/games/letter-match",
+    title: "Letter Match",
+    description: "Pair each letter with the sound it makes.",
+    difficulty: "Intermediate",
+    plusOnly: true,
+    Icon: Volume2,
+  },
   {
     id: "bolo-quiz",
     href: "/games/bolo-quiz",
@@ -224,12 +245,13 @@ export const GAMES: GameDef[] = [
  * call left out because the call has no web door. Anything in GAMES that this
  * list forgets is appended rather than lost.
  */
-const HUB_ORDER = [
+export const HUB_ORDER = [
   "luggage-match",
   "word-match",
   "signal-lights",
   "phrase-builder",
   "speed-round",
+  "letter-match",
   "bolo-quiz",
   "ticket-check",
   "storybook",

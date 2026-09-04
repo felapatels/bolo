@@ -14,6 +14,7 @@ const PAINTED = new Set([
   "phrase-builder",
   "speed-round",
   "script-trace",
+  "letter-match",
   "bolo-quiz",
   "ticket-check",
   "storybook",

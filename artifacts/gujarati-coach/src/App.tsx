@@ -103,6 +103,7 @@ const GamesExpressListening = lazyRoute(() => import('@/pages/games/express-list
 const GamesSignalLights = lazyRoute(() => import('@/pages/games/signal-lights'));
 const GamesStorybook = lazyRoute(() => import('@/pages/games/storybook'));
 const GamesLetterStop = lazyRoute(() => import('@/pages/games/letter-stop'));
+const GamesLetterMatch = lazyRoute(() => import('@/pages/games/letter-match'));
 const GamesEmergency = lazyRoute(() => import('@/pages/games/emergency'));
 const Bazaar = lazyRoute<{ door?: ShopDoor }>(() => import('@/pages/bazaar'));
 const BazaarHub = lazyRoute(() => import('@/pages/bazaar-hub'));
@@ -600,6 +601,13 @@ function AppRouter() {
       <Route path="/games/letter-stop">
         <Guard>
           <GamesLetterStop />
+        </Guard>
+      </Route>
+      {/* Letter Match is a Games hub game rather than a journey stop, so it
+          takes no query string: the boards come from every letter met. */}
+      <Route path="/games/letter-match">
+        <Guard>
+          <GamesLetterMatch />
         </Guard>
       </Route>
       {/* THE EMERGENCY. Two callers, one screen: the journey sends
