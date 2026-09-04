@@ -1,0 +1,101 @@
+# CI, 2026-09-04. Owner: "i want to know that nothing breaks in one of the
+# games and stops the user from progressing." Until today a push could break
+# main and nobody knew until a publish. Four jobs, in parallel, on every push
+# to main and every pull request:
+#
+#   typecheck   pnpm run typecheck (tsc -b everywhere; tsc -p lies in this repo)
+#   web         vitest, the whole suite
+#   mobile      jest, the whole suite, --forceExit because workers leak
+#   api-pure    the api-server test files that need no database (61 of 122,
+#               listed in artifacts/api-server/pure-tests.txt). The other 61
+#               need the Repl's dev database and still run only in the Repl
+#               Shell before a publish.
+#
+# PORTABLE TO BOLO INDIA AS IS, except pure-tests.txt: regenerate it there by
+# running each api test file alone with SESSION_SECRET=x OPENAI_API_KEY=x and
+# keeping the ones that report "fail 0".
+#
+# Known flakes (a single re-run clears them, a second failure is real): the
+# web practice-streak toast, the mobile journey-map opening shot.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Nothing in CI reads real services. The api's pure tests stub these two.
+  SESSION_SECRET: ci-only
+  OPENAI_API_KEY: ci-only
+  CI: "true"
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/check-conflict-markers.mjs
+      - run: pnpm run typecheck
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck:libs
+      - run: pnpm --filter @workspace/gujarati-coach exec vitest run
+
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck:libs
+      # --forceExit: workers leak (CLAUDE.md). --ci: no snapshot writes.
+      - run: pnpm --filter @workspace/bolo-mobile exec jest --forceExit --ci --maxWorkers=2
+
+  api-pure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck:libs
+      - run: pnpm --filter @workspace/api-server run test:pure

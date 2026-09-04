@@ -18,7 +18,8 @@
     "seed-stripe-products": "node --import tsx ./scripts/seedStripeProducts.ts",
     "purge-stale-tts-cache": "node --import tsx ./scripts/purgeStaleAudioCache.ts",
     "prewarm-full-tts-cache": "node --import tsx ./scripts/prewarmFullTtsCache.ts",
-    "audit-tts-cache": "node \"$(ls ../../node_modules/.pnpm/tsx@*/node_modules/tsx/dist/cli.mjs | head -1)\" scripts/auditTtsCache.ts"
+    "audit-tts-cache": "node \"$(ls ../../node_modules/.pnpm/tsx@*/node_modules/tsx/dist/cli.mjs | head -1)\" scripts/auditTtsCache.ts",
+    "test:pure": "node --import tsx --test --experimental-test-module-mocks $(cat pure-tests.txt)"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1098.0",
