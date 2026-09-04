@@ -1506,6 +1506,12 @@ export default function Practice({
         // once per (user, language) — so this celebration never replays.
         const attemptRes = await createAttempt.mutateAsync({
           data: {
+            // THIS CLIENT CAN DRAW THE GIFT BOX, so the server must not grant
+            // the day's Chai silently on this attempt: the tap is the grant.
+            // A build without the box sends nothing here and keeps being paid
+            // on its first attempt, which is the only reason that ruling could
+            // ship without taking Chai from anybody. Comes out with the shim.
+            canClaimGift: true,
             evaluationToken: evalRes.evaluationToken
           }
         });

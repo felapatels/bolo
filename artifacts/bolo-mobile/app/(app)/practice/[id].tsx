@@ -1879,7 +1879,10 @@ export default function PracticeScreen() {
       } else try {
         // Record the attempt using the server-signed token only.
         const attempt = await createAttempt.mutateAsync({
-          data: { evaluationToken: res.evaluationToken },
+          // canClaimGift: this build draws the gift box, so the server leaves
+          // the day's Chai for the tap. A build without it sends nothing and
+          // keeps being paid on its first attempt. Comes out with the shim.
+          data: { evaluationToken: res.evaluationToken, canClaimGift: true },
         });
         // Optimistic: increment todayXp immediately so the XP strip (and the
         // train class derived from it) reacts before the background refetch

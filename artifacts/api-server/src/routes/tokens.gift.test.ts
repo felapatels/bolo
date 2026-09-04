@@ -41,6 +41,7 @@ import {
 } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { GIFT_LADDER_CAP, giftChaiForStreakDay } from "@workspace/daily-gift";
+import { grantTokensDetailed } from "../lib/tokenService";
 import tokensRouter from "./tokens";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { ensureUsersColumns } from "../lib/testDbCompat";

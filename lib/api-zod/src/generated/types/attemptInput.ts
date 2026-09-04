@@ -12,4 +12,12 @@ export interface AttemptInput {
      * @minLength 1
      */
   evaluationToken: string;
+  /**
+     * A CAPABILITY, NOT A PREFERENCE: true means this client can show the daily gift box, so the server must NOT grant the day's Chai silently here and must leave it for the tap.
+     *
+     * THE TAP IS THE GRANT (owner ruling, 2026-09-04), and this field is the only reason that ruling can ship without taking Chai from people. Absent or false is every build released before the box existed, and those learners keep being paid on their first attempt exactly as they always have, at the same ladder amount the box would have given them. Without it, publishing the server would stop paying every learner who has not updated, silently, for as long as they take to update, which for an app store is weeks and for some people is never.
+     *
+     * TEMPORARY BY CONSTRUCTION AND DELETE IT WHEN IT IS SAFE: the field, the branch in learning.ts and the two client call sites all come out together once builds without the gift box are gone from the field (iOS 538 and Android 540 are the first that have it). A flag nobody removes is how a compatibility shim becomes the architecture.
+     */
+  canClaimGift?: boolean;
 }

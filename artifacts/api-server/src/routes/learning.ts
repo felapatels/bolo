@@ -83,6 +83,7 @@ import {
 // THE streak (Task #1081): one source for the DAY STREAK number here, for the
 // repair offer's promise in routes/tokens.ts, and for streak-badge progress.
 import { loadStreakLadder } from "../lib/streakDays";
+import { giftChaiForStreakDay, giftRefId } from "@workspace/daily-gift";
 import {
   canScorePhrase,
   denyLockedFeature,
@@ -1539,12 +1540,11 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
   // reported on the response as `chaiEarned` so the Session Complete receipt
   // aggregates server-authoritative amounts.
   //
-  // NOTHING FEEDS IT TODAY, and the rail is kept rather than deleted. Its one
-  // contributor was the silent streak-day grant, which became the daily gift's
-  // tap (see HOOK 1c below). `chaiEarned` is optional on the contract and is
-  // simply absent now, which is exactly how it already behaved on an attempt
-  // that granted nothing, so no client changes and no client breaks. The next
-  // per-attempt grant has its rail; deleting it would only mean rebuilding it.
+  // ONLY OLD CLIENTS EVER SEE IT NOW. Its one contributor is HOOK 1c below,
+  // which fires only for a client that cannot draw the gift box; a client that
+  // can gets its receipt from the box instead, and this stays absent, exactly
+  // as it already behaved on an attempt that granted nothing. It goes when the
+  // shim goes.
   let attemptChaiEarned = 0;
   let fsrsRating: number | undefined;
   let fsrsUpdate: ReturnType<typeof applyFsrsRating> | undefined;
@@ -1734,25 +1734,55 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
           .set({ exposureCount: sql`${phrasesTable.exposureCount} + 1` })
           .where(eq(phrasesTable.id, claims.phraseId))
       : Promise.resolve(),
-    // HOOK 1c IS GONE, AND ITS ABSENCE IS THE DAILY GIFT.
+    // HOOK 1c, AND IT NOW FIRES FOR OLD CLIENTS ONLY.
     //
-    // This is where the day's Chai was granted, silently, on the first attempt:
+    // THE TAP IS THE GRANT (owner ruling, 2026-09-04): the day's Chai belongs to
+    // POST /tokens/gift/claim, with the same reason code, the same local-day
+    // refId and the same ledger idempotency it has always had, so the learner
+    // opens a box for it and reads what tomorrow's is worth.
     //
-    //   grantTokensDetailed(userId, "earn_streak_day",
-    //                       localDayKey(now, timezone), TOKEN_EARN_STREAK_DAY)
+    // THIS BRANCH IS THE ONLY REASON THAT RULING CAN SHIP WITHOUT TAKING CHAI
+    // FROM PEOPLE. A client that can draw the box says so (`canClaimGift`), and
+    // the server stays out of the way. Every build released before the box
+    // existed says nothing, and those learners keep being paid on their first
+    // attempt exactly as they always have. Without it, publishing this server
+    // would silently stop paying every learner who has not updated, for as long
+    // as they take to update, which for an app store is weeks and for some
+    // people is never. There is no publish order that avoids that: the fix has
+    // to be here.
     //
-    // It paid a flat 1, nobody ever saw it happen, and the receipt it fed was
-    // the only thing that ever told a learner it had. THE TAP IS THE GRANT now
-    // (owner ruling, 2026-09-04): the same reason code, the same local-day
-    // refId, the same ledger idempotency, moved to POST /tokens/gift/claim so
-    // the learner opens a box for it and sees what tomorrow's is worth.
+    // ONE SOURCE, TWO DOORS, NOT TWO SOURCES. Same reason, same refId, so the
+    // ledger's unique index means whichever fires first is the only payment. An
+    // old client that updates mid-day finds the box already claimed, which is
+    // correct: it was.
     //
-    // IT IS A TAKEAWAY AND THE RULING SAYS SO. A learner who practises and
-    // never taps now gets nothing for that day, where before they were paid
-    // whether they noticed or not. That is only fair if the box is unmissable,
-    // which is why it has to be offered where practice ENDS and not only on
-    // Home. Anything that re-adds a grant here is a second daily Chai source,
-    // which is a bug rather than a safety net.
+    // THE AMOUNT IS THE LADDER'S, not the flat 1 this used to pay. One rule for
+    // what a day is worth; the only difference between the two doors is whether
+    // the learner watches it happen.
+    //
+    // TEMPORARY BY CONSTRUCTION, AND DELETE IT WHEN IT IS SAFE: this branch,
+    // the `canClaimGift` field on AttemptInput and the two client call sites
+    // come out together once builds without the box are gone from the field
+    // (iOS 538 and Android 540 are the first that have it). A flag nobody
+    // removes is how a compatibility shim becomes the architecture.
+    parsed.data.canClaimGift === true
+      ? Promise.resolve()
+      : loadStreakLadder(userId, timezone)
+          .then(({ currentStreakDays }) =>
+            grantTokensDetailed(
+              userId,
+              "earn_streak_day",
+              giftRefId(localDayKey(now, timezone)),
+              giftChaiForStreakDay(currentStreakDays),
+            ).then(({ granted }) => {
+              if (granted) {
+                attemptChaiEarned += giftChaiForStreakDay(currentStreakDays);
+              }
+            }),
+          )
+          .catch((err) => {
+            req.log?.warn({ err }, "token_streak_day_grant_failed");
+          }),
     // HOOK 5: lazy monthly allowance for active subscribers.
     maybeGrantAllowance(req).catch((err) => {
       req.log?.warn({ err }, "token_allowance_grant_failed");

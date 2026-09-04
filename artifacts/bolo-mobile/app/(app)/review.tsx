@@ -1338,7 +1338,10 @@ export default function ReviewScreen() {
 
       try {
         const attempt = await createAttempt.mutateAsync({
-          data: { evaluationToken: res.evaluationToken },
+          // canClaimGift: this build draws the gift box, so the server leaves
+          // the day's Chai for the tap. A build without it sends nothing and
+          // keeps being paid on its first attempt. Comes out with the shim.
+          data: { evaluationToken: res.evaluationToken, canClaimGift: true },
         });
         // Invalidate review list so the badge count updates immediately when
         // the learner returns to the home screen.
