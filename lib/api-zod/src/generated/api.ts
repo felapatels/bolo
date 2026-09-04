@@ -1284,6 +1284,32 @@ export const CompleteDailyQuizResponse = zod.object({
 
 
 /**
+ * The letter stop, position 4 of every zone: hear the sound, pick the romanisation. Tracing at stop 2 teaches the hand and this is the only thing in the app that ever asks a learner to READ what they wrote.
+ *
+ * THE QUESTIONS ARE NOT SERVED FROM HERE, on purpose. letterStopFor lives in @workspace/script-trace and both clients call it directly, exactly as they already do for traceStopFor: the alphabet is shipped static data, so fetching it would buy a round trip and a second source of truth for no secret worth keeping. What the server owns is the gate, the ledger and the count.
+ *
+ * Scored by the client, like script-trace and unlike the daily quiz, and clamped by the server: correct and total are both floored at zero and capped at the stop's own length, and correct can never exceed total.
+ *
+ * THE FREE TASTE is journey 1 zone 1 in every language, matching tracing at stop 2 and the story at stop 3. Everything past it is All-Access.
+ * @summary Record a letter recognition stop
+ */
+export const CompleteLetterStopBody = zod.object({
+  "lang": zod.string().describe('Language code (e.g. \"hi\")'),
+  "journey": zod.number().describe('1-based journey number'),
+  "zone": zod.number().describe('1-based fare zone within the journey'),
+  "correct": zod.number().describe('Letters the learner read correctly at the first attempt. Clamped server-side to the stop\'s own length and never above `total`.'),
+  "total": zod.number().describe('Letters asked. Clamped server-side to the stop\'s own length, which is LETTER_STOP_LENGTH in @workspace\/script-trace.')
+})
+
+export const CompleteLetterStopResponse = zod.object({
+  "passed": zod.boolean().describe('Whether the learner cleared the bar, which is LETTER_STOP_PASS of LETTER_STOP_LENGTH and mirrors the tracing stop\'s own.'),
+  "correct": zod.number().describe('The clamped correct count actually recorded'),
+  "total": zod.number().describe('The clamped total actually recorded'),
+  "xpAwarded": zod.number().describe('XP awarded for this stop, at the station rate')
+})
+
+
+/**
  * Returns the scene graph's vocabulary for a zone's book: each concept the book names, resolved to that language's own phrase (native script, romanized, English). The scenes, their art and their branching are NOT returned, because they are language-neutral and live in @workspace/story on the client; only the lines are per language.
  *
  * A concept the language does not carry is simply ABSENT from `phrases` rather than returned empty, which is what makes the client's resolveScene() return null and skip the scene.

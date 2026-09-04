@@ -1699,6 +1699,30 @@ export interface DailyQuizResult {
   quizStreak: number;
 }
 
+export interface CompleteLetterStopInput {
+  /** Language code (e.g. "hi") */
+  lang: string;
+  /** 1-based journey number */
+  journey: number;
+  /** 1-based fare zone within the journey */
+  zone: number;
+  /** Letters the learner read correctly at the first attempt. Clamped server-side to the stop's own length and never above `total`. */
+  correct: number;
+  /** Letters asked. Clamped server-side to the stop's own length, which is LETTER_STOP_LENGTH in @workspace/script-trace. */
+  total: number;
+}
+
+export interface LetterStopResult {
+  /** Whether the learner cleared the bar, which is LETTER_STOP_PASS of LETTER_STOP_LENGTH and mirrors the tracing stop's own. */
+  passed: boolean;
+  /** The clamped correct count actually recorded */
+  correct: number;
+  /** The clamped total actually recorded */
+  total: number;
+  /** XP awarded for this stop, at the station rate */
+  xpAwarded: number;
+}
+
 export interface TokenState {
   balance: number;
   stationPausesEquipped: number;

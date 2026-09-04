@@ -50,6 +50,7 @@ import type {
   ChatTurnInput,
   ChatTurnResult,
   CompleteDailyQuizInput,
+  CompleteLetterStopInput,
   ContactFormInput,
   ContactFormResult,
   CreateFamilyInvite201,
@@ -88,6 +89,7 @@ import type {
   LessonGroupTestoutInput,
   LessonGroupTestoutResult,
   LessonGroupTestoutSample,
+  LetterStopResult,
   ListBadgesParams,
   ListCategoriesParams,
   ListRecentAttemptsParams,
@@ -3864,6 +3866,84 @@ export const useCompleteDailyQuiz = <TError = ErrorType<Error | UpgradeRequired>
         TContext
       > => {
       return useMutation(getCompleteDailyQuizMutationOptions(options));
+    }
+
+export const getCompleteLetterStopUrl = () => {
+
+
+
+
+  return `/api/games/letter-stop/complete`
+}
+
+/**
+ * The letter stop, position 4 of every zone: hear the sound, pick the romanisation. Tracing at stop 2 teaches the hand and this is the only thing in the app that ever asks a learner to READ what they wrote.
+ *
+ * THE QUESTIONS ARE NOT SERVED FROM HERE, on purpose. letterStopFor lives in @workspace/script-trace and both clients call it directly, exactly as they already do for traceStopFor: the alphabet is shipped static data, so fetching it would buy a round trip and a second source of truth for no secret worth keeping. What the server owns is the gate, the ledger and the count.
+ *
+ * Scored by the client, like script-trace and unlike the daily quiz, and clamped by the server: correct and total are both floored at zero and capped at the stop's own length, and correct can never exceed total.
+ *
+ * THE FREE TASTE is journey 1 zone 1 in every language, matching tracing at stop 2 and the story at stop 3. Everything past it is All-Access.
+ * @summary Record a letter recognition stop
+ */
+export const completeLetterStop = async (completeLetterStopInput: CompleteLetterStopInput, options?: RequestInit): Promise<LetterStopResult> => {
+
+  return customFetch<LetterStopResult>(getCompleteLetterStopUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(completeLetterStopInput)
+  }
+);}
+
+
+
+
+
+export const getCompleteLetterStopMutationOptions = <TError = ErrorType<Error | UpgradeRequired>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeLetterStop>>, TError,{data: BodyType<CompleteLetterStopInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeLetterStop>>, TError,{data: BodyType<CompleteLetterStopInput>}, TContext> => {
+
+const mutationKey = ['completeLetterStop'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeLetterStop>>, {data: BodyType<CompleteLetterStopInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  completeLetterStop(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteLetterStopMutationResult = NonNullable<Awaited<ReturnType<typeof completeLetterStop>>>
+    export type CompleteLetterStopMutationBody = BodyType<CompleteLetterStopInput>
+    export type CompleteLetterStopMutationError = ErrorType<Error | UpgradeRequired>
+
+    /**
+ * @summary Record a letter recognition stop
+ */
+export const useCompleteLetterStop = <TError = ErrorType<Error | UpgradeRequired>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeLetterStop>>, TError,{data: BodyType<CompleteLetterStopInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeLetterStop>>,
+        TError,
+        {data: BodyType<CompleteLetterStopInput>},
+        TContext
+      > => {
+      return useMutation(getCompleteLetterStopMutationOptions(options));
     }
 
 export const getGetStoryBookUrl = (params: GetStoryBookParams,) => {

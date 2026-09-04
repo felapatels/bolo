@@ -1535,6 +1535,70 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /games/letter-stop/complete:
+    post:
+      operationId: completeLetterStop
+      tags: [learning]
+      summary: Record a letter recognition stop
+      description: >-
+        The letter stop, position 4 of every zone: hear the sound, pick the
+        romanisation. Tracing at stop 2 teaches the hand and this is the only
+        thing in the app that ever asks a learner to READ what they wrote.
+
+
+        THE QUESTIONS ARE NOT SERVED FROM HERE, on purpose. letterStopFor lives
+        in @workspace/script-trace and both clients call it directly, exactly as
+        they already do for traceStopFor: the alphabet is shipped static data,
+        so fetching it would buy a round trip and a second source of truth for
+        no secret worth keeping. What the server owns is the gate, the ledger
+        and the count.
+
+
+        Scored by the client, like script-trace and unlike the daily quiz, and
+        clamped by the server: correct and total are both floored at zero and
+        capped at the stop's own length, and correct can never exceed total.
+
+
+        THE FREE TASTE is journey 1 zone 1 in every language, matching tracing
+        at stop 2 and the story at stop 3. Everything past it is All-Access.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteLetterStopInput"
+      responses:
+        "200":
+          description: The stop recorded, with the clamped score and XP awarded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LetterStopResult"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "402":
+          description: Upgrade required (every letter stop past zone 1 is All-Access)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpgradeRequired"
+        "404":
+          description: No letter stop for that language and zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: The session could not be recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /games/story/book:
     get:
       operationId: getStoryBook
@@ -6124,6 +6188,58 @@ components:
         - xpAwarded
         - perfect
         - quizStreak
+
+    CompleteLetterStopInput:
+      type: object
+      properties:
+        lang:
+          type: string
+          description: Language code (e.g. "hi")
+        journey:
+          type: integer
+          description: 1-based journey number
+        zone:
+          type: integer
+          description: 1-based fare zone within the journey
+        correct:
+          type: integer
+          description: >-
+            Letters the learner read correctly at the first attempt. Clamped
+            server-side to the stop's own length and never above `total`.
+        total:
+          type: integer
+          description: >-
+            Letters asked. Clamped server-side to the stop's own length, which
+            is LETTER_STOP_LENGTH in @workspace/script-trace.
+      required:
+        - lang
+        - journey
+        - zone
+        - correct
+        - total
+
+    LetterStopResult:
+      type: object
+      properties:
+        passed:
+          type: boolean
+          description: >-
+            Whether the learner cleared the bar, which is LETTER_STOP_PASS of
+            LETTER_STOP_LENGTH and mirrors the tracing stop's own.
+        correct:
+          type: integer
+          description: The clamped correct count actually recorded
+        total:
+          type: integer
+          description: The clamped total actually recorded
+        xpAwarded:
+          type: integer
+          description: XP awarded for this stop, at the station rate
+      required:
+        - passed
+        - correct
+        - total
+        - xpAwarded
 
     TokenState:
       type: object
