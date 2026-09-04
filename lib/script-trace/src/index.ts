@@ -21,6 +21,7 @@ export * from "./scripts";
 export * from "./trace-levels";
 export * from "./trace-stops";
 export * from "./letter-stops";
+export * from "./letter-match";
 export * from "./trace-feedback";
 export * from "./pen-strokes";
 export * from "./stray-haptics";

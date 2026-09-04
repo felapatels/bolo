@@ -175,6 +175,34 @@ export function letterDistractorsFor(
  * has no tracing stop the stop still runs, on the most recent letters met, so
  * the drill does not simply vanish for half the journey.
  */
+/**
+ * Every letter the learner has met at or before this zone, in journey then zone
+ * order, deduplicated.
+ *
+ * EXTRACTED so the match game can draw the same pool. It was inline in
+ * letterStopFor, and the second caller would have been a second copy of "what
+ * counts as met", which is the rule both games are revision against: a letter
+ * nobody has been shown teaches nothing and tests less.
+ */
+export function lettersMetBy(
+  languageCode: string,
+  journey: number,
+  zone: number,
+): TraceStopCharacter[] {
+  const out: TraceStopCharacter[] = [];
+  const seen = new Set<string>();
+  for (const stop of traceStopsFor(languageCode)) {
+    if (stop.journey > journey) continue;
+    if (stop.journey === journey && stop.zone > zone) continue;
+    for (const c of stop.characters) {
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      out.push(c);
+    }
+  }
+  return out;
+}
+
 export function letterStopFor(
   languageCode: string,
   journey: number,
@@ -183,18 +211,7 @@ export function letterStopFor(
   const script = SCRIPT_BY_LANGUAGE[languageCode];
   if (!script) return null;
 
-  // Every letter met at or before this zone, in journey then zone order.
-  const pool: TraceStopCharacter[] = [];
-  const seen = new Set<string>();
-  for (const stop of traceStopsFor(languageCode)) {
-    if (stop.journey > journey) continue;
-    if (stop.journey === journey && stop.zone > zone) continue;
-    for (const c of stop.characters) {
-      if (seen.has(c.id)) continue;
-      seen.add(c.id);
-      pool.push(c);
-    }
-  }
+  const pool = lettersMetBy(languageCode, journey, zone);
   // Two wrong answers plus the right one is the smallest honest question.
   if (pool.length < LETTER_CHOICES_FIRST) return null;
 
