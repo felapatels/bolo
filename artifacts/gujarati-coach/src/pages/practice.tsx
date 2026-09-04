@@ -85,6 +85,7 @@ import { playCue } from "@/lib/sound";
 import { XpArc } from "@/components/XpArc";
 import { CountUp } from "@/components/ui/count-up";
 import { ChaiGlyph } from "@/components/chai-stall";
+import { DailyGiftCard } from "@/components/daily-gift";
 import { glyphsForLanguage } from "@/lib/scriptGlyphs";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary" | "compare" | "capture_saved";
@@ -2118,6 +2119,29 @@ export default function Practice({
                 </div>
               </div>
             )}
+
+            {/* THE DAILY GIFT, WHERE PRACTICE ENDS, and it is not an extra
+                placement: the tap is the grant now (owner ruling, 2026-09-04),
+                so a learner who practised and never opened the box forfeits the
+                day. That forfeit is only fair if the box is unmissable, which
+                means it cannot live on home alone. This is the screen the
+                learner is looking at at the exact moment the day becomes
+                earned.
+
+                DIRECTLY UNDER THE CHAI PILL ABOVE, deliberately. That pill was
+                the only thing that ever told anyone the day's Chai had been
+                granted, and it read the `chaiEarned` the attempts path used to
+                send. That grant moved into this box, so the pill will be absent
+                on a normal session now; it is kept because it renders whatever
+                the server sends and the server may send one again, and the box
+                takes over the job it was doing.
+
+                It renders NOTHING until the query answers with a box, so a
+                session that did not earn the day shows no empty slot.
+                Mobile twin: session-daily-gift in practice/[id].tsx. */}
+            <div className="mx-auto mt-4 w-full max-w-sm">
+              <DailyGiftCard testId="session-daily-gift" />
+            </div>
 
             {/* XP breakdown — collapsed by default */}
             {orderedSummaryEntries.some(r => r.xpBreakdown) && (

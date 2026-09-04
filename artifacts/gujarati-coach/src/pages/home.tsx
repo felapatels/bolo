@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { ChaiPurchaseReturn } from "@/components/chai-packs";
 import { ChaiGlyph, ChaiStallVignette } from "@/components/chai-stall";
+import { DailyGiftCard } from "@/components/daily-gift";
 import { CountUpNumber } from "@/components/count-up-number";
 import { Link, useLocation } from "wouter";
 import { useGetProgressSummary, getGetProgressSummaryQueryKey, useGetAccount, useListCategories, getListCategoriesQueryKey, useListRecentAttempts, useListReviewPhrases, getListReviewPhrasesQueryKey, useListBadges, useGetTokens, useGetStreakRepair, useRepairStreak, getGetStreakRepairQueryKey, getGetTokensQueryKey } from "@workspace/api-client-react";
@@ -1060,6 +1061,29 @@ export default function Home() {
                 it, and degrades to the generic line blurb when loading,
                 locked, or errored. The topic grid below is demoted to
                 "Browse by topic" and is otherwise untouched. */}
+            {/* THE DAILY GIFT, at the top of the column and above the journey
+                card (owner ruling, 2026-09-04). It renders NOTHING until there
+                is a box to open, so on a day nothing has been practised this
+                row does not exist and the pass stays where it has always been.
+
+                ABOVE the pass rather than below it, which does push "practise"
+                down one row on the days it appears. That is the ruling and it
+                is the right way round: the box is the receipt for practice
+                already done, it names what tomorrow is worth, and it is the one
+                thing on this screen that expires at midnight. A gift under the
+                fold is a gift forfeited, and the forfeit is the half of this
+                ruling that has to be fair.
+
+                Mobile twin: home-daily-gift in (tabs)/index.tsx, in the same
+                place for the same reason. */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springs.gentle, delay: 0.04 }}
+            >
+              <DailyGiftCard testId="home-daily-gift" />
+            </motion.div>
+
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}

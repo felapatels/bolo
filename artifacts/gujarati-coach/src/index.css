@@ -279,6 +279,7 @@
   --pass-breathe-scale: 1.025;   /* clearly visible lift, not frantic */
   --pass-glow-min: 0.4;          /* shadow-pulse opacity floor */
   --pass-glow-max: 0.95;         /* shadow-pulse opacity peak */
+  --gift-wobble: 1.4s;           /* the unopened gift box's tip and back */
   --arrow-cycle: 2.4s;           /* CTA arrow double-pump */
   --arrow-slide: 7px;            /* CTA arrow travel */
   --train-drive-cycle: 4s;       /* home ticket train drive-and-settle */
@@ -736,6 +737,28 @@
    rise and fall together. */
 .animate-view-map-pulse {
   animation: view-map-pulse var(--pass-cycle) ease-in-out infinite;
+}
+/* THE DAILY GIFT BOX'S WOBBLE. A closed box tips a few degrees and back, once
+   every --gift-wobble, so an unopened gift reads as waiting rather than as
+   another card. It is a NUDGE and not a heartbeat: the box is the one thing on
+   home that expires at midnight.
+
+   Mobile twin: GIFT_WOBBLE_MS and GIFT_WOBBLE_DEG in components/DailyGiftBox
+   .tsx. Keep the three numbers in step. The phone drives it with RN Animated on
+   useNativeDriver false, because its native animation driver is dead in release
+   builds; here it is a plain keyframe, and the global prefers-reduced-motion
+   rule above already stops it, which is the whole of "reduced motion just
+   opens". */
+@keyframes gift-wobble {
+  0%, 100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+.animate-gift-wobble {
+  animation: gift-wobble var(--gift-wobble) ease-in-out infinite;
 }
 /* Strong repeating double-pump slide on the CTA arrow. */
 @keyframes cta-arrow-nudge {
