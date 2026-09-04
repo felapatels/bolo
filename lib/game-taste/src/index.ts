@@ -84,3 +84,32 @@ export function gameTasteLabel(state: GameTasteState): string | null {
   if (state.playsLeft === 1) return "1 free play left";
   return `${state.playsLeft} free plays left`;
 }
+
+/**
+ * THE GAMES THAT ARE A TASTE, named once so three artifacts agree.
+ *
+ * These are exactly the five that were FREE before the 2026-09-04 ruling. The
+ * server has no games catalogue of its own (the hub's list lives in each
+ * client), so without this the gate would have to be spelled out in the route
+ * and kept in step with two client files by hand, which is the drift this repo
+ * keeps writing down.
+ *
+ * wrong-platform-2 is deliberately ABSENT: it was already All-Access, and the
+ * ruling's other half is that those do not move.
+ *
+ * ADDED AFTER bd78acea, on finding that the server needs the list too.
+ */
+export const TASTE_GAME_IDS = [
+  "luggage-match",
+  "chacha-call",
+  "signal-lights",
+  "ticket-check",
+  "wrong-platform",
+] as const;
+
+export type TasteGameId = (typeof TASTE_GAME_IDS)[number];
+
+/** Whether this game id is one the free taste applies to. */
+export function isTasteGame(gameId: string): gameId is TasteGameId {
+  return (TASTE_GAME_IDS as readonly string[]).includes(gameId);
+}

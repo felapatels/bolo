@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   GAME_TASTE_PLAYS,
+  TASTE_GAME_IDS,
   gameTasteLabel,
   gameTasteState,
+  isTasteGame,
 } from "@workspace/game-taste";
 
 // THE FREE TASTE ON GAMES. Owner ruling 2026-09-04: the games that were free
@@ -82,5 +84,33 @@ describe("the line under the card", () => {
     for (const playsUsed of [0, 1, 2, 3]) {
       expect(gameTasteLabel(gameTasteState({ ...free, playsUsed }))).not.toContain("—");
     }
+  });
+});
+
+describe("which games are a taste", () => {
+  it("is exactly the five that were free before the ruling", () => {
+    // Named one by one rather than counted: a count passes when one game is
+    // swapped for another, and getting this list wrong either paywalls a game
+    // that was free or gives away one that was paid.
+    expect([...TASTE_GAME_IDS].sort()).toEqual([
+      "chacha-call",
+      "luggage-match",
+      "signal-lights",
+      "ticket-check",
+      "wrong-platform",
+    ]);
+  });
+
+  it("leaves wrong-platform-2 out, because it was already All-Access", () => {
+    // The half of the ruling that is "keep them the way they are". Part 2
+    // shares a name with part 1 and is the easiest thing here to sweep in by
+    // accident.
+    expect(isTasteGame("wrong-platform")).toBe(true);
+    expect(isTasteGame("wrong-platform-2")).toBe(false);
+  });
+
+  it("says no to a game it has never heard of", () => {
+    expect(isTasteGame("letter-match")).toBe(false);
+    expect(isTasteGame("")).toBe(false);
   });
 });
