@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Animated, { FadeOut } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
@@ -16,7 +16,7 @@ const ROTATE_INTERVAL_MS = 4000;
  * Under prefers-reduced-motion or Expo Go the card appears instantly
  * and never rotates — content is always visible.
  */
-export function TipCard() {
+export function TipCard({ style }: { style?: ViewStyle }) {
   const colors = useColors();
   const skipEnter = useAppearSkip();
   const [idx, setIdx] = React.useState<number>(
@@ -39,6 +39,7 @@ export function TipCard() {
       style={[
         styles.card,
         { backgroundColor: colors.card, borderColor: colors.border },
+        style,
       ]}
     >
       <View style={styles.labelRow}>

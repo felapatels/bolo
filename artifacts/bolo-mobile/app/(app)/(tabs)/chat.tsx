@@ -2229,8 +2229,22 @@ export default function ChatScreen() {
         )}
       </Pressable>
 
-      {/* Tip card — shown while Bolo is processing a reply */}
-      {phase === 'processing' && <TipCard />}
+      {/* Tip card, shown while Bolo is processing a reply.
+          IT HAS TO CLEAR THE PERCH (owner, 2026-09-03, off TestFlight on both
+          an iPhone and an iPad: "did you know, 'got it' and bolo all overlap
+          for a moment on the chat screen").
+          Three things claim the band right under the header and only one of
+          them is in flow. Once Bolo perches she goes ABSOLUTE at headerH + 6,
+          and the speaking strip that carries "Got it! 💬" goes absolute at
+          headerH + 14, so this card, which is the first in-flow element on the
+          screen, was laid out underneath both of them. It shows only while
+          processing, which is the same moment the strip does, so the collision
+          is exactly as long as a transcription and no longer.
+          The transcript below already clears her by PERCH_SIZE + 16; this
+          takes the same clearance for the same reason. */}
+      {phase === 'processing' && (
+        <TipCard style={isPerched ? { marginTop: PERCH_SIZE + 16 } : undefined} />
+      )}
 
       {/* THE SPEAKING CLUSTER STAYS CENTRED WHEN BOLO PERCHES (owner,
           2026-08-28: "move the voice visualizer back to center along with the
