@@ -302,3 +302,57 @@ describe('the sent claim requires a confirmed send', () => {
     expect(mockSignUp.verifications.sendEmailCode).not.toHaveBeenCalled();
   });
 });
+
+// ─── 4. the only thing that tells her WHY ────────────────────────────────────
+
+/**
+ * EVERY PASSWORD REFUSAL REACHES THE LEARNER THROUGH ONE PROP, and nothing
+ * else on this screen would say a word if it went.
+ *
+ * All three refusal codes are in EXPECTED_USER_ERROR_CODES (lib/authErrors.ts),
+ * so handleUnexpected returns EARLY and never sets formError. That is correct:
+ * these are the learner's problem, not a crash. The consequence is that the
+ * banner stays empty and the ONLY thing rendering Clerk's reason is
+ * `error={fieldError(errors.fields.password)}` on the password Field. Delete
+ * that one prop and the screen refuses the account in silence.
+ *
+ * THIS MATTERS MOST ON INDIA'S PRODUCTION INSTANCE, which enforces zxcvbn
+ * strength (min_zxcvbn_strength 2) rather than a length floor. The client
+ * checklist knows nothing about zxcvbn, so a dictionary password like
+ * "password1" turns every rule green, enables the button, and is refused by
+ * Clerk. What the learner reads is whatever comes back through this prop.
+ */
+describe('a password refusal is always visible to the learner', () => {
+  it.each([
+    ['form_password_length_too_short', 'Passwords must be 8 characters or more.'],
+    ['form_password_validation_failed', 'Password is too weak. Try a longer phrase.'],
+  ])('renders the reason Clerk gives for %s', async (code, message) => {
+    fillForm();
+    const rejection = clerkError(code, message);
+    mockSignUp.password.mockImplementation(async () => {
+      mockErrors.fields.password = { message };
+      return { error: rejection };
+    });
+
+    await submit();
+
+    // On the form, and the reason is on screen where the field is.
+    expect(screen.getByText('Start speaking today')).toBeOnTheScreen();
+    expect(screen.getByText(message)).toBeOnTheScreen();
+  });
+
+  it('renders nothing when Clerk names no field, rather than inventing a reason', async () => {
+    // The guard on the other side: an empty errors.fields must not put a
+    // stray blank error under the password box.
+    fillForm();
+    mockSignUp.password.mockImplementation(async () => {
+      mockErrors.fields = {};
+      return { error: clerkError('form_password_validation_failed', 'Too weak.') };
+    });
+
+    await submit();
+
+    expect(screen.getByText('Start speaking today')).toBeOnTheScreen();
+    expect(screen.queryByText('Too weak.')).toBeNull();
+  });
+});

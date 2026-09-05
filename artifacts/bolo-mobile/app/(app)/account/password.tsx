@@ -7,7 +7,7 @@ import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { Field } from '@/components/AuthShell';
 import { PasswordChecklist } from '@/components/PasswordChecklist';
-import { passwordProblem } from '@/lib/passwordRules';
+import { passwordProblem, PASSWORD_MIN_LENGTH } from '@/lib/passwordRules';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
 
@@ -107,7 +107,7 @@ export default function ChangePasswordScreen() {
           label="New password"
           value={next}
           onChangeText={setNext}
-          placeholder="At least 8 characters"
+          placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
           secureTextEntry
           autoCapitalize="none"
           autoComplete="new-password"

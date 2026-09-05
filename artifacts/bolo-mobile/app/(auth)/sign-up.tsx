@@ -4,7 +4,7 @@ import { useClerk, useSignUp } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
 import { AuthShell, Field, fieldError } from '@/components/AuthShell';
 import { PasswordChecklist } from '@/components/PasswordChecklist';
-import { passwordMeetsAll } from '@/lib/passwordRules';
+import { passwordMeetsAll, PASSWORD_MIN_LENGTH } from '@/lib/passwordRules';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { AppleAuthButton } from '@/components/AppleAuthButton';
 import { GoogleAuthButton } from '@/components/GoogleAuthButton';
@@ -309,7 +309,7 @@ export default function SignUpScreen() {
       <Field
         label="Password"
         secureTextEntry
-        placeholder="At least 8 characters"
+        placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
         value={password}
         onChangeText={setPassword}
         error={fieldError(errors.fields.password)}
