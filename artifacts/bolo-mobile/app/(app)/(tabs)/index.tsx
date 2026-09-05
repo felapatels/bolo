@@ -72,7 +72,7 @@ import { TrainSteam } from '@/components/journey/TrainSteam';
 /** How far the plume climbs, in points: from the locomotive's chimney on the
  *  pass up to roughly the middle of the blue stats band, where the stats card
  *  takes over in z-order and the last wisps disappear behind the numbers. */
-const STEAM_RISE = 300;
+const STEAM_RISE = 380;
 import { DailyGiftCard } from '@/components/DailyGiftCard';
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import { ChaiGlyph, ChaiStallVignette } from '@/components/ChaiStall';
@@ -1850,9 +1850,13 @@ const styles = StyleSheet.create({
     // sits about 34 points in from the card's right edge and about 300 up from
     // the frame's foot; the first pass at right:58 put the whole plume left of
     // the engine, over the dot rail.
-    right: 16,
-    bottom: 300,
-    width: 110,
+    // MEASURED OFF THE SCREEN, not guessed. The stack tip reads at x 386pt,
+    // y 544pt on a 440pt phone; the plume was starting 22 points BELOW it,
+    // which is the "coming from under the train" the owner saw. bottom is
+    // raised by exactly that.
+    right: 34,
+    bottom: 328,
+    width: 56,
     height: STEAM_RISE,
     zIndex: 20,
   },

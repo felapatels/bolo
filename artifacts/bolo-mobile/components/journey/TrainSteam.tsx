@@ -37,12 +37,43 @@ import { useLoopProgress } from '@/lib/useLoopProgress';
  * trick: a single animated cloud is what makes steam read as fake.
  */
 const PUFFS = [
-  { cycle: 5200, drift: 12, phase: 0.0, size: 26, left: 0 },
-  { cycle: 5900, drift: -19, phase: 0.17, size: 30, left: -6 },
-  { cycle: 5500, drift: 24, phase: 0.35, size: 24, left: 5 },
-  { cycle: 6300, drift: -13, phase: 0.52, size: 32, left: -3 },
-  { cycle: 5700, drift: 18, phase: 0.68, size: 28, left: 7 },
-  { cycle: 6100, drift: -22, phase: 0.84, size: 34, left: -8 },
+  { cycle: 5200, drift: 10, phase: 0.0, size: 22 },
+  { cycle: 5900, drift: -16, phase: 0.17, size: 26 },
+  { cycle: 5500, drift: 20, phase: 0.35, size: 20 },
+  { cycle: 6300, drift: -11, phase: 0.52, size: 28 },
+  { cycle: 5700, drift: 15, phase: 0.68, size: 24 },
+  { cycle: 6100, drift: -19, phase: 0.84, size: 30 },
+] as const;
+
+/**
+ * ONE ORIGIN, WHICH IS THE POINT (owner, 2026-09-05: "single point from smoke
+ * stack"). Every puff starts centred on the same spot and only DRIFT moves it
+ * sideways as it climbs, so the plume opens out of the chimney instead of
+ * appearing as six separate columns. The first pass gave each puff its own
+ * starting offset and it read as a row of clouds.
+ */
+const ORIGIN_LEFT = '50%';
+
+/**
+ * The discs inside one puff, as fractions of its size. SEVEN, NOT THREE, and
+ * heavily overlapped: three hard circles read as bubbles, which is exactly
+ * what the owner saw. Overlapping seven at low individual opacity with a wide
+ * white shadow on each lets the edges dissolve into one another, which is the
+ * only way to get a soft irregular mass out of Views.
+ *
+ * IT CANNOT BE AN SVG. A react-native-svg overlay eats every touch beneath it
+ * even with pointerEvents none, and this layer sits directly over the pass's
+ * own Pressable; an Svg here would swallow taps meant for the boarding pass.
+ * That is a standing rule in CLAUDE.md, paid for by the stop cards.
+ */
+const DISCS = [
+  { dx: 0.0, dy: 0.0, r: 1.0 },
+  { dx: -0.34, dy: 0.16, r: 0.74 },
+  { dx: 0.36, dy: 0.2, r: 0.68 },
+  { dx: -0.16, dy: -0.28, r: 0.62 },
+  { dx: 0.22, dy: -0.24, r: 0.58 },
+  { dx: -0.44, dy: -0.06, r: 0.46 },
+  { dx: 0.48, dy: -0.02, r: 0.44 },
 ] as const;
 
 export function TrainSteam({
@@ -71,7 +102,6 @@ function Puff({
   drift,
   phase,
   size,
-  left,
   rise,
   enabled,
 }: {
@@ -79,7 +109,6 @@ function Puff({
   drift: number;
   phase: number;
   size: number;
-  left: number;
   rise: number;
   enabled: boolean;
 }) {
@@ -94,57 +123,68 @@ function Puff({
     // back sends the steam into the composition instead.
     const lean = -18 * p;
     return {
+      // THICK AT THE STACK, GONE AT THE BAND (owner, 2026-09-05: "thicker to
+      // start", "hit the blue stats bar"). It leaves the chimney at nearly
+      // full strength over a very short ramp, holds, and only lets go in the
+      // last fifth, which is where the stats card is already covering it.
       opacity:
-        p < 0.1 ? (p / 0.1) * 0.6 : p > 0.62 ? Math.max(0, (1 - (p - 0.62) / 0.38) * 0.6) : 0.6,
+        p < 0.04
+          ? (p / 0.04) * 0.95
+          : p > 0.8
+            ? Math.max(0, (1 - (p - 0.8) / 0.2) * 0.95)
+            : 0.95 - (p - 0.04) * 0.22,
       transform: [
         { translateY: -rise * p },
         { translateX: lean + Math.sin(p * Math.PI * 2) * drift },
-        { scale: 0.35 + p * 1.35 },
+        // Small and dense at the stack, wide and thin by the band.
+        { scale: 0.28 + p * 1.75 },
       ],
     };
   });
   return (
-    <Animated.View style={[styles.puff, { left, width: size, height: size }, anim]}>
-      {/* THREE DISCS, NOT ONE. A single circle reads as a bubble; three
-          overlapping at slight offsets give the lumpy edge steam actually has,
-          and they cost nothing next to a blur or an image. */}
-      <View style={[styles.disc, { width: size, height: size, borderRadius: size / 2 }]} />
-      <View
-        style={[
-          styles.disc,
-          {
-            width: size * 0.72,
-            height: size * 0.72,
-            borderRadius: size * 0.36,
-            left: -size * 0.28,
-            top: size * 0.2,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.disc,
-          {
-            width: size * 0.64,
-            height: size * 0.64,
-            borderRadius: size * 0.32,
-            left: size * 0.55,
-            top: size * 0.26,
-          },
-        ]}
-      />
+    <Animated.View
+      style={[styles.puff, { marginLeft: -size / 2, width: size, height: size }, anim]}
+    >
+      {DISCS.map((d, k) => (
+        <View
+          key={k}
+          style={[
+            styles.disc,
+            {
+              width: size * d.r,
+              height: size * d.r,
+              borderRadius: (size * d.r) / 2,
+              left: size * (0.5 + d.dx) - (size * d.r) / 2,
+              top: size * (0.5 + d.dy) - (size * d.r) / 2,
+            },
+          ]}
+        />
+      ))}
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  puff: { position: 'absolute', bottom: 0 },
+  puff: { position: 'absolute', bottom: 0, left: ORIGIN_LEFT },
+  /**
+   * WARM GREY, NOT WHITE, and this is why the first two attempts looked thin.
+   * The plume crosses cream ticket stock and then the frame's white header, so
+   * white steam on it has almost no contrast: it was not too transparent, it
+   * was the wrong colour. rgb(219,208,204) is the MEAN of the smoke the
+   * artwork itself had painted on this locomotive, sampled off the asset
+   * before that smoke was erased, with the shadow taken from its own shading.
+   * Real steam against a light ground reads grey, which is what the original
+   * illustrator drew.
+   *
+   * Low per-disc alpha with a wide soft shadow: seven of these overlapping
+   * read as one mass, where three opaque ones read as bubbles.
+   */
   disc: {
     position: 'absolute',
-    backgroundColor: 'rgba(255, 255, 255, 0.82)',
-    shadowColor: '#FFFFFF',
-    shadowOpacity: 0.55,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
+    backgroundColor: 'rgba(219, 208, 204, 0.62)',
+    shadowColor: '#8F8481',
+    shadowOpacity: 0.38,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 1 },
   },
 });
