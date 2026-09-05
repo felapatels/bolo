@@ -137,6 +137,19 @@ export function ZoneStamp({
         },
       ]}
     >
+      {/* THE DASHED INNER RING (owner's RailTicket.css .stamp::before,
+          2026-09-05). A second ring set in from the first and broken into
+          dashes is what makes a circle read as a rubber stamp rather than as
+          a badge, and it is the one detail the reference has that this stamp
+          did not. Inset proportionally so it holds at every size the pass and
+          the journey header ask for. */}
+      <View
+        pointerEvents="none"
+        style={[
+          styles.stampRing,
+          { margin: Math.max(2, Math.round(size * 0.08)), borderRadius: size / 2, borderColor: ink },
+        ]}
+      />
       <Text
         allowFontScaling={false}
         style={[
@@ -231,6 +244,16 @@ export function TicketPerforationV({
 }
 
 const styles = StyleSheet.create({
+  stampRing: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    opacity: 0.75,
+  },
   stamp: {
     alignItems: 'center',
     justifyContent: 'center',

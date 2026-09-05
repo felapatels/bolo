@@ -44,6 +44,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts, isTallCascadingScript, nativeTextStyle } from '@/constants/fonts';
 import { PARCHMENT_TOP, ParchmentPass } from '@/components/journey/ParchmentPass';
+import { RailTicket, TICKET as RAIL } from '@/components/journey/RailTicket';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import {
   TicketStripes,
@@ -124,6 +125,8 @@ const TORN_EDGE_W = 6;
 // never lower to taste.
 export const HOME_PANEL_H = 222;
 // Home's own column: the tab screen pads its scroll content by 20 a side.
+/** The ticket face, on. False puts the parchment sheet back, unchanged. */
+const RAIL_TICKET_FACE = false;
 const HOME_CONTENT_PAD = 20;
 // THE HERO BLEEDS PAST THAT COLUMN, and the reason is the art rather than a
 // preference for a big card. The board's slices carry TRANSPARENT MARGINS on
@@ -545,6 +548,23 @@ export function JourneyPassCard({
             its pediment stays the journey's zone header; the pass is a sheet
             of aged paper with a brass nameplate on its top edge. Open for the
             length of the tear, as the board was. */}
+        {/* THE RAIL TICKET (owner, 2026-09-05, spec handed over as a component
+            and a stylesheet). Behind RAIL_TICKET_FACE so the parchment is one
+            word away: it is still the twin the web home draws, and it is the
+            fallback if this is not what was meant. */}
+        {RAIL_TICKET_FACE ? (
+          <RailTicket
+            testID="home-rail-ticket"
+            width={boardW}
+            height={boardH}
+            line={line.lineName}
+            city={journey.current ? journey.current.geoName : line.zones[0]}
+            zone={journey.current ? journey.current.zoneIndex + 1 : 1}
+            stop={journey.current ? journey.current.stopNumber : 1}
+            totalStops={journey.current ? journey.current.stopCount : 12}
+            platform={journey.current ? journey.current.zoneIndex + 1 : 1}
+          />
+        ) : (
         <ParchmentPass
           testID="home-parchment-pass"
           width={boardW}
@@ -660,7 +680,7 @@ export function JourneyPassCard({
                 <Animated.View
                   style={[
                     styles.ticketHalf,
-                    { borderColor: colors.primary },
+                    { borderColor: RAIL.gold },
                     styles.ticketBody,
                     ticketBodyTearStyle,
                     tearing && [styles.tearHalf, styles.ticketBodyTorn],
@@ -680,7 +700,9 @@ export function JourneyPassCard({
                     end={{ x: 0.5, y: 1 }}
                     style={styles.stubStock}
                   />
-                  <View pointerEvents="none" style={styles.halfRule} />
+                  <View pointerEvents="none" style={styles.halfRule}>
+                    <View style={styles.halfRuleInner} />
+                  </View>
                   {/* HALF A BITE EACH. A real ticket is notched where it tears,
                       so each half carries a disc of the PANEL'S cream pushed
                       past its own inner edge; `overflow: hidden` crops it to a
@@ -689,8 +711,8 @@ export function JourneyPassCard({
                       A cutout may only ever straddle an EDGE, which is the
                       standing ruling that took the floating punch hole out of
                       this card and off the web twin. */}
-                  <View pointerEvents="none" style={[styles.notch, { borderColor: colors.primary }, styles.notchBodyTop]} />
-                  <View pointerEvents="none" style={[styles.notch, { borderColor: colors.primary }, styles.notchBodyBottom]} />
+                  <View pointerEvents="none" style={[styles.notch, { borderColor: RAIL.gold }, styles.notchBodyTop]} />
+                  <View pointerEvents="none" style={[styles.notch, { borderColor: RAIL.gold }, styles.notchBodyBottom]} />
                   {/* CENTRED, BIGGER AND TRACKED OUT (owner, 2026-08-28: "spread
                       out the words or center them, and make them bigger, maybe
                       add some more rustic details"). It was 9pt and 6pt, hard
@@ -735,7 +757,7 @@ export function JourneyPassCard({
                 <Animated.View
                   style={[
                     styles.ticketHalf,
-                    { borderColor: colors.primary },
+                    { borderColor: RAIL.gold },
                     styles.ticketStub,
                     stubTearStyle,
                     tearing && [styles.tearHalf, styles.ticketStubTorn],
@@ -748,9 +770,11 @@ export function JourneyPassCard({
                     end={{ x: 0.5, y: 1 }}
                     style={styles.stubStock}
                   />
-                  <View pointerEvents="none" style={styles.halfRule} />
-                  <View pointerEvents="none" style={[styles.notch, { borderColor: colors.primary }, styles.notchStubTop]} />
-                  <View pointerEvents="none" style={[styles.notch, { borderColor: colors.primary }, styles.notchStubBottom]} />
+                  <View pointerEvents="none" style={styles.halfRule}>
+                    <View style={styles.halfRuleInner} />
+                  </View>
+                  <View pointerEvents="none" style={[styles.notch, { borderColor: RAIL.gold }, styles.notchStubTop]} />
+                  <View pointerEvents="none" style={[styles.notch, { borderColor: RAIL.gold }, styles.notchStubBottom]} />
                   <View testID="home-stamp-slot" style={styles.stampSlot}>
                     {journey.current && (
                       <ZoneStamp
@@ -857,6 +881,7 @@ export function JourneyPassCard({
             </View>
           </View>
         </ParchmentPass>
+        )}
         {/* The shimmer sweep, once per heartbeat. Warm rather than white: a
             white streak on green read as a highlight, and the same streak on
             cream paper and varnished wood reads as light crossing the board.
@@ -1272,8 +1297,21 @@ const styles = StyleSheet.create({
     left: TICKET_SHAPE.ruleInset,
     right: TICKET_SHAPE.ruleInset,
     borderWidth: 1,
-    borderColor: TICKET.rule,
+    borderColor: 'rgba(141, 96, 23, 0.9)',
     borderRadius: TICKET_SHAPE.radius - TICKET_SHAPE.ruleInset,
+  },
+  /** The stylesheet's .ticket-inner-border::before: a second, fainter rule a
+   *  couple of points inside the first. It is what makes the frame read as
+   *  engraved rather than as one drawn box. */
+  halfRuleInner: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    bottom: 2,
+    left: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(177, 130, 47, 0.45)',
+    borderRadius: 3,
   },
   stubStock: { ...StyleSheet.absoluteFillObject },
   // The ticket's own words, above its own perforation.
@@ -1320,7 +1358,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: TICKET_NOTCH / 2 + 3,
   },
-  miniPerfDash: { width: 1, height: 2, backgroundColor: TICKET.rule },
+  // ROUND DOTS, not dashes (owner's RailTicket.css, 2026-09-05). The
+  // stylesheet punches 7px circles down the fold; at this ticket's scale that
+  // is 3, which is the smallest a circle can be and still read as one rather
+  // than as a square.
+  miniPerfDash: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: RAIL.perfDot },
   stubRule: {
     position: 'absolute',
     top: TICKET_SHAPE.ruleInset,
