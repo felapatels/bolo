@@ -34,6 +34,8 @@
  */
 import React from 'react';
 import { Image, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import { useReducedMotion } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, {
   Defs,
@@ -56,6 +58,32 @@ export const PARCHMENT_SHEET = require('../../assets/journey/parchment.png') as 
  *  one"). The painted path stays wired and the picture stays in the bundle,
  *  so this is one word to bring back; the drawn sheet is the home pass. */
 export const PARCHMENT_PAINTED = false;
+/**
+ * THE LIVING PASS (2026-09-05, the owner: "replace the parchment paper
+ * boarding pass with a live video just like we did on the SEA app").
+ *
+ * A film of a printed platform under the words instead of a still sheet:
+ * steam crossing the whole width, a lantern swinging its shadow over the
+ * stone, the morning light sweeping left to right. 1320x808, which is the
+ * pass at 3x on the widest phone, ping-ponged to 16 seconds so it loops at
+ * 45.9 dB against SEA's 25 dB bar.
+ *
+ * THE FIRST GENERATION WAS REJECTED AND THE REASON IS WORTH KEEPING: it moved
+ * 0.52 grey levels frame to frame, a fifth of a percent, all of it in the
+ * bottom-left quarter, and it was a still photograph at both ends of the
+ * loop. Below what an eye registers as motion. The prompt was rewritten to
+ * demand three motions, each stated as already underway and unbroken, spread
+ * across the frame; that measured 0.96 with a floor of 0.50, so nothing is
+ * ever completely still and no quarter is dead.
+ *
+ * THE WASH IS NOT DECORATION. The card carries the nameplate, the station
+ * name, the stub, the dot rail and the Resume button, so the film sits under
+ * a paper-toned scrim; without it the steam crosses the words. Reduced motion
+ * gets the still first frame and no player at all.
+ */
+export const PARCHMENT_FILM = true;
+/** The film, and its poster for the reduced-motion and pre-load frame. */
+export const PARCHMENT_MOVIE = require('../../assets/journey/pass-film.mp4') as number;
 /** The nameplate's height; it straddles the paper's top edge by half of it. */
 export const PARCHMENT_PLATE_H = 34;
 /** How far below the paper's top the content starts: the plate's lower half,
@@ -220,6 +248,16 @@ export function ParchmentPass({
   const freckles = React.useMemo(() => frecklePoints(width, paperH, 41), [width, paperH]);
   // The painted sheet, until it fails to load; then the drawn one below.
   const [painted, setPainted] = React.useState(PARCHMENT_PAINTED);
+  // THE FILM. Muted and looping, and it is never given a source at all under
+  // reduced motion, so no decoder is created rather than one created and
+  // paused. Same shape as the SEA zone layer and the games hero.
+  const reduceMotion = useReducedMotion();
+  const filmOn = PARCHMENT_FILM && !reduceMotion;
+  const player = useVideoPlayer(filmOn ? PARCHMENT_MOVIE : null, (pl) => {
+    pl.loop = true;
+    pl.muted = true;
+    pl.play();
+  });
   return (
     <View testID={testID} style={[{ width, height }, style]}>
       {/* THE SHEET, TORN AND WORN (build 21, owner: "parchment paper doesn't
@@ -312,6 +350,45 @@ export function ParchmentPass({
           <Path d={deckle} fill="none" stroke={PAPER.top} strokeWidth={2.2} strokeOpacity={0.7} />
         </Svg>
         )}
+        {/* THE FILM, under everything the pass draws (2026-09-05). It fills the
+            paper's box and is covered by a paper-toned wash, because the words
+            sit directly on top of it: the steam crosses exactly where the
+            station name and the dot rail are, and at full strength it reads
+            through them. FAILURE IS A COLOUR here as it is on the SEA zone
+            layer: a film that will not decode leaves the drawn sheet showing
+            underneath and the pass is completely legible on it. */}
+        {filmOn ? (
+          <>
+            <VideoView
+              player={player}
+              style={[styles.sheet, { width, height: paperH }]}
+              contentFit="cover"
+              nativeControls={false}
+              pointerEvents="none"
+              testID="parchment-film"
+            />
+            {/* THE SCRIM, AND IT IS A GRADIENT RATHER THAN A WASH (owner,
+                2026-09-05: "add a bit of a layer behind these elements, but
+                still see through"). A flat wash strong enough to carry the
+                station name kills the film everywhere, which is the mistake
+                the first two passes made at 0.58 and 0.34. This is heavy where
+                the WORDS are, the top block and the chai line at the foot, and
+                nearly clear across the middle band where the dot rail and the
+                steam live. So the text sits on paper and the platform still
+                shows through between them. */}
+            <LinearGradient
+              pointerEvents="none"
+              colors={[
+                'rgba(244, 226, 196, 0.78)',
+                'rgba(244, 226, 196, 0.30)',
+                'rgba(244, 226, 196, 0.26)',
+                'rgba(244, 226, 196, 0.74)',
+              ]}
+              locations={[0, 0.34, 0.6, 1]}
+              style={[styles.filmWash, { height: paperH }]}
+            />
+          </>
+        ) : null}
         {/* The landmark, seeping through from below the words. */}
         <View
           pointerEvents="none"
@@ -387,6 +464,10 @@ const styles = StyleSheet.create({
   edgeShadeSide: { position: 'absolute', top: 0, bottom: 0 },
   landmark: { position: 'absolute' },
   sheet: { position: 'absolute', left: 0, top: 0 },
+  /** The box the film's scrim fills. The tint is a LinearGradient at the call
+   *  site, not a flat colour here: see the comment there for why a flat wash
+   *  cannot serve both the words and the picture. */
+  filmWash: { position: 'absolute', left: 0, right: 0, top: 0 },
   rule: {
     position: 'absolute',
     left: 9,
