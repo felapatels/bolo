@@ -690,11 +690,23 @@ export default function HomeScreen() {
         {/* Stats — genuine three-stop gradient banner (indigo→blue→violet, matches web) */}
         <View style={[styles.statsRowWrapper, colHalf]}>
           <LinearGradient
-            colors={['#4f46e5', '#3b6fef', '#7c3aed']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0.25 }}
+            // THE OWNER'S GRADIENT (2026-09-05 polish pass), and it runs flat
+            // across rather than on a slight diagonal: the diagonal made the
+            // right-hand cell read a shade darker than the left, which is
+            // exactly the sort of thing that looks like a rendering fault
+            // rather than a choice.
+            colors={['#5146F6', '#416EF1', '#963AF2']}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
             style={styles.statsBanner}
           >
+            {/* TWO RINGS, BARELY THERE. The owner's spec draws a pale circle
+                low on the left and a gold one high on the right, both mostly
+                outside the card, so the strip has some depth without anything
+                that competes with the numbers. They are clipped by the card's
+                own overflow and can never take a tap. */}
+            <View pointerEvents="none" style={styles.statsDecorLeft} />
+            <View pointerEvents="none" style={styles.statsDecorRight} />
             {summaryUpgrade ? (
               // Showroom banner: the stats can never load for a locked
               // language, so offer the journey preview and the unlock path
@@ -1936,7 +1948,16 @@ const styles = StyleSheet.create({
   },
   statsBanner: {
     flexDirection: 'row',
-    borderRadius: 18,
+    borderRadius: 24,
+    // The rings sit half outside the card and are cropped to it.
+    overflow: 'hidden',
+    // Lifts the strip off the page as one object. iOS shadow; Android takes
+    // the elevation.
+    shadowColor: '#5A45E8',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.18,
+    shadowRadius: 15,
+    elevation: 7,
     // Bands now total 28 + 40 + 20 = 88, and the padding is deliberately NOT
     // symmetric: the labels are the lowest ink and were sitting too close to the
     // edge, so the bottom carries 15 against the top's 11. The card comes out at
@@ -1951,8 +1972,35 @@ const styles = StyleSheet.create({
   },
   statsDivider: {
     width: 1,
-    alignSelf: 'stretch',
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    // A FIXED 72 RATHER THAN STRETCH (owner's spec). Stretched, the rule ran
+    // the full height of the card and touched its padding at both ends, which
+    // read as four boxes; short and centred, it reads as a separator between
+    // figures, which is what it is.
+    height: 72,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  /** The pale ring, low and left, mostly outside the card. */
+  statsDecorLeft: {
+    position: 'absolute',
+    left: -38,
+    bottom: -50,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  /** The gold ring, high and right. */
+  statsDecorRight: {
+    position: 'absolute',
+    right: -65,
+    top: -50,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,196,72,0.12)',
   },
   gradientStatCell: { flex: 1, alignItems: 'center' },
   gradientStatPress: { alignItems: 'center', alignSelf: 'stretch' },
@@ -1991,16 +2039,21 @@ const styles = StyleSheet.create({
   },
   gradientStatValue: {
     fontFamily: AppFonts.extrabold,
-    fontSize: 26,
+    fontSize: 29,
     color: '#ffffff',
-    lineHeight: 30,
+    lineHeight: 32,
+    letterSpacing: -0.8,
+    // A whisper of depth so the figures sit ON the gradient rather than in it.
+    textShadowColor: 'rgba(34,20,100,0.20)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   gradientStatLabel: {
     fontFamily: AppFonts.bold,
     fontSize: 10,
-    color: 'rgba(255,255,255,0.85)',
+    color: 'rgba(255,255,255,0.94)',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
   },
   cta: {
     flexDirection: 'row',
