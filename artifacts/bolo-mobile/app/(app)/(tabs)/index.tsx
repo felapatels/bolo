@@ -73,6 +73,10 @@ import { TrainSteam } from '@/components/journey/TrainSteam';
  *  pass up to roughly the middle of the blue stats band, where the stats card
  *  takes over in z-order and the last wisps disappear behind the numbers. */
 const STEAM_RISE = 240;
+/** How far the locomotive's chimney sits above the journey card's foot.
+ *  761 - 604 = 157, from the card's reported box and the stack tip measured on
+ *  screen; see the plume's own note on how that was pinned down. */
+const CHIMNEY_ABOVE_FRAME_FOOT = 157;
 import { DailyGiftCard } from '@/components/DailyGiftCard';
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import { ChaiGlyph, ChaiStallVignette } from '@/components/ChaiStall';
@@ -495,6 +499,11 @@ export default function HomeScreen() {
   const prevAttemptsRef = useRef<number | null>(null);
   const goalCelebratedRef = useRef(false);
   const reduceMotion = useReducedMotion();
+  // WHERE THE JOURNEY CARD SITS, reported by the card itself. The steam is a
+  // SIBLING of it rather than a child (see the plume's own comment), so it has
+  // to be told where the chimney is; this is that, and it is measured rather
+  // than assumed.
+  const [journeyBox, setJourneyBox] = React.useState<{ y: number; h: number } | null>(null);
 
   // On mount (and whenever the active language changes), seed goalCelebratedRef
   // from AsyncStorage so a cold restart on the same day skips re-celebration.
@@ -883,14 +892,13 @@ export default function HomeScreen() {
               and the screen reads as three planes rather than one. */}
           <View
             style={styles.journeyWrap}
-
+            onLayout={(e) => {
+              const { y, height } = e.nativeEvent.layout;
+              setJourneyBox((b) =>
+                b && Math.abs(b.y - y) < 1 && Math.abs(b.h - height) < 1 ? b : { y, h: height },
+              );
+            }}
           >
-          <TrainSteam
-            enabled={!reduceMotion}
-            height={STEAM_RISE}
-            style={styles.steam}
-            testID="home-train-steam"
-          />
           <View
             testID="home-journey-frame"
             style={[
@@ -948,6 +956,27 @@ export default function HomeScreen() {
             />
           </View>
           </View>
+          {/* THE PLUME, OVER EVERYTHING AND CLICKABLE THROUGH (owner, 2026-09-05:
+              "it should go over the stats bar but still allow clicks on any
+              button under it"). It was a CHILD of the journey wrapper, which
+              made it unable to paint above the stats band however high its
+              zIndex went: a child cannot escape its parent's stacking context.
+              As a sibling at zIndex 40 it draws over both, and `pointerEvents`
+              none on its root means every tap falls straight through to the
+              boarding pass and the stats cells underneath. It is positioned
+              from the journey card's MEASURED box, so it stays on the chimney
+              without depending on the scroll content's height. */}
+          {journeyBox && (
+            <TrainSteam
+              enabled={!reduceMotion}
+              height={STEAM_RISE}
+              style={[
+                styles.steam,
+                { top: journeyBox.y + journeyBox.h - CHIMNEY_ABOVE_FRAME_FOOT - STEAM_RISE },
+              ]}
+              testID="home-train-steam"
+            />
+          )}
           {/* Chai treatment tier 1 (web parity): Chacha-ji's stall, full width
               at its natural aspect, directly below the pass — the platform the
               boarding pass has just pulled away from. It enters WITH the pass
@@ -1881,10 +1910,11 @@ const styles = StyleSheet.create({
     // measured from a box hundreds of points below the fold, so every value
     // moved the plume by an unpredictable amount.
     right: -3,
-    bottom: 157,
     width: 56,
     height: STEAM_RISE,
-    zIndex: 20,
+    // ABOVE THE STATS BAND (zIndex 30), not behind it. pointerEvents none on
+    // the layer is what keeps every button beneath it live.
+    zIndex: 40,
   },
   /** The box the steam is positioned against. Everything inside it, the frame
    *  and the plume alike, sits BELOW the stats band's zIndex 30, which is what

@@ -1,80 +1,95 @@
 /**
- * THE TRAIN'S STEAM (owner, 2026-09-05, with the particle spec handed over).
+ * THE TRAIN'S STEAM (owner, 2026-09-05, spec refined twice on seeing it).
  *
- * Puffs leave the locomotive's chimney on the boarding pass, drift up with a
- * wobble, swell, thin out and vanish behind the blue stats band. The owner's
- * architecture, and it is the right one:
+ * Wisps, not clouds. Fourteen soft irregular ovals leave the locomotive's
+ * chimney nearly invisible, become visible as they cool and spread, widen,
+ * bend upper-left, and vanish behind the blue stats band.
  *
  *     stats band        zIndex 30   the plume disappears BEHIND this
  *     steam             zIndex 20   here, outside anything clipped
  *     journey card      zIndex 10   the train is in here
  *
- * IT CANNOT LIVE INSIDE THE PASS. The pass clips its own content (the film,
- * the torn paper, the ticket's notches all depend on `overflow: hidden`), so
- * steam drawn in there is chopped off at the card's edge. This layer is a
- * sibling of the card, absolutely positioned over it, and its canvas is far
- * taller than the chimney it starts at.
+ * IT IS A SPRITE, NOT SKIA, AND THAT WAS A DELIBERATE CHOICE. The owner's spec
+ * reached for @shopify/react-native-skia, which would look excellent and is
+ * not installed: it is a NATIVE module, so it shows nothing until a new dev
+ * client is built, rebuilding ios/ risks the hand-patched Info.plist that
+ * keeps the mic and deep links alive, and adding native dependencies to this
+ * app is the exact class of change that cost roughly nineteen builds over
+ * expo-video and worklets. assets/journey/steam-wisp.png carries REAL blur,
+ * baked in at generation: fifty-two overlapping lobes, a light gaussian and a
+ * radial falloff to zero at the frame, so the sprite has no edge. Tinted and
+ * stretched at runtime it gets most of Skia's look for no native risk, and it
+ * behaves identically on Android.
  *
- * ON THE LOOP, AND THIS IS THE ONE PLACE I DEPARTED FROM THE SPEC. The spec
- * uses a bespoke useEffect + withRepeat per puff. This uses `useLoopProgress`,
- * which is the same reanimated loop the pass's own shimmer and glow already
- * ride, for two reasons: one definition of "a loop" in this app rather than
- * two, and it RESTS AT 0 while disabled, so the reduced-motion still frame
- * comes free instead of needing its own branch.
+ * THREE EARLIER ATTEMPTS FAILED AND EACH TAUGHT SOMETHING. Hard circles read
+ * as bubbles. White steam on cream ticket stock and a white frame has almost
+ * no contrast, so it looked thin when it was not. And the plume was anchored
+ * to the scroll content, a box hundreds of points taller than the window, so
+ * every correction moved it unpredictably; it is anchored to the journey
+ * wrapper now, whose geometry the app reports and a screenshot can verify.
  *
- * AND IT MUST BE JUDGED ON TESTFLIGHT, NOT HERE. This app has a documented
- * history of animation that runs perfectly in a dev build and comes out dead
- * flat in release; CLAUDE.md's measurement rules are blunt that only store
- * builds tell the truth. The simulator will call this beautiful either way.
+ * ON THE LOOP: `useLoopProgress`, the same reanimated loop the pass's shimmer
+ * and glow already ride, so this app has one definition of "a loop". It rests
+ * at 0 while disabled, which gives the reduced-motion still frame for free.
+ *
+ * AND IT MUST BE JUDGED ON TESTFLIGHT. This app has a documented history of
+ * animation that runs perfectly in a dev build and comes out dead flat in
+ * release; only store builds tell the truth here.
  */
 import React from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useLoopProgress } from '@/lib/useLoopProgress';
 
-/**
- * One puff's character. Independent duration, drift and phase is the whole
- * trick: a single animated cloud is what makes steam read as fake.
- */
-const PUFFS = [
-  { cycle: 5200, drift: 10, phase: 0.0, size: 22 },
-  { cycle: 5900, drift: -16, phase: 0.17, size: 26 },
-  { cycle: 5500, drift: 20, phase: 0.35, size: 20 },
-  { cycle: 6300, drift: -11, phase: 0.52, size: 28 },
-  { cycle: 5700, drift: 15, phase: 0.68, size: 24 },
-  { cycle: 6100, drift: -19, phase: 0.84, size: 30 },
-] as const;
+const WISP = require('../../assets/journey/steam-wisp.png') as number;
+
+/** What the owner's opacity curve is multiplied by so it clears the eye on a
+ *  cream ground. See the curve for the measurement that set it. */
+const GAIN = 3.3;
 
 /**
- * ONE ORIGIN, WHICH IS THE POINT (owner, 2026-09-05: "single point from smoke
- * stack"). Every puff starts centred on the same spot and only DRIFT moves it
- * sideways as it climbs, so the plume opens out of the chimney instead of
- * appearing as six separate columns. The first pass gave each puff its own
- * starting offset and it read as a row of clouds.
+ * THE CHIMNEY, AS A FRACTION OF THE LOCOMOTIVE'S BOX (owner, 2026-09-05).
+ * Exported so the emitter is defined by the TRAIN rather than by a screen
+ * offset: if the engine is ever resized or moved, this is the one number that
+ * has to stay true. The pass positions the plume from the measured wrapper
+ * today; this is what a derived anchor would read.
  */
-const ORIGIN_LEFT = '50%';
+export const TRAIN_CHIMNEY = { x: 0.66, y: 0.18 } as const;
 
 /**
- * The discs inside one puff, as fractions of its size. SEVEN, NOT THREE, and
- * heavily overlapped: three hard circles read as bubbles, which is exactly
- * what the owner saw. Overlapping seven at low individual opacity with a wide
- * white shadow on each lets the edges dissolve into one another, which is the
- * only way to get a soft irregular mass out of Views.
+ * GREY, AND THIS IS THE THIRD TIME THIS LESSON HAS BEEN PAID FOR HERE.
  *
- * IT CANNOT BE AN SVG. A react-native-svg overlay eats every touch beneath it
- * even with pointerEvents none, and this layer sits directly over the pass's
- * own Pressable; an Svg here would swallow taps meant for the boarding pass.
- * That is a standing rule in CLAUDE.md, paid for by the stop cards.
+ * The owner's three values were near-white (F5F2E8, FFFFFF, DCDAD2), which is
+ * right over the darker station artwork and invisible everywhere else: the
+ * plume also crosses the frame's WHITE header and the page's near-white
+ * ground, and white on those is nothing. It was rendering perfectly the whole
+ * time and could not be seen. Proven rather than guessed: with the sprite
+ * swapped for a flat magenta fill the layer measured from y 281 to 869, over
+ * exactly the right span, so the geometry was never at fault.
+ *
+ * These are the same family as the smoke the artwork itself had painted on
+ * this locomotive, rgb(219,208,204), pulled a little darker so the lighter
+ * particles still read. Weight is each tint's own alpha, kept separate from
+ * the opacity curve so the curve stays one shape for every particle.
  */
-const DISCS = [
-  { dx: 0.0, dy: 0.0, r: 1.0 },
-  { dx: -0.34, dy: 0.16, r: 0.74 },
-  { dx: 0.36, dy: 0.2, r: 0.68 },
-  { dx: -0.16, dy: -0.28, r: 0.62 },
-  { dx: 0.22, dy: -0.24, r: 0.58 },
-  { dx: -0.44, dy: -0.06, r: 0.46 },
-  { dx: 0.48, dy: -0.02, r: 0.44 },
+const TINTS = [
+  { color: '#BEB6AB', weight: 0.9 },
+  { color: '#A79E94', weight: 1.0 },
+  { color: '#CFC8BD', weight: 0.78 },
 ] as const;
+
+/**
+ * FOURTEEN, NOT FOUR. A believable plume is many faint overlapping particles;
+ * a few big ones is a cartoon. Each carries its own cycle, drift, phase and
+ * base width so no two ever coincide.
+ */
+const WISPS = Array.from({ length: 14 }, (_, i) => ({
+  cycle: 4600 + ((i * 617) % 2600),
+  drift: (i % 2 === 0 ? 1 : -1) * (7 + ((i * 5) % 16)),
+  phase: i / 14,
+  base: 42 + ((i * 13) % 30),
+  tint: TINTS[i % TINTS.length],
+}));
 
 export function TrainSteam({
   enabled,
@@ -83,118 +98,101 @@ export function TrainSteam({
   testID,
 }: {
   enabled: boolean;
-  /** How far the plume climbs. The canvas is this tall; the chimney is at its foot. */
+  /** How far the plume climbs. The canvas is this tall; the chimney is its foot. */
   height: number;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }) {
   return (
     <View pointerEvents="none" style={style} testID={testID}>
-      {PUFFS.map((p, i) => (
-        <Puff key={i} {...p} rise={height} enabled={enabled} />
+      {WISPS.map((w, i) => (
+        <Wisp key={i} {...w} rise={height} enabled={enabled} />
       ))}
     </View>
   );
 }
 
-function Puff({
+function Wisp({
   cycle,
   drift,
   phase,
-  size,
+  base,
+  tint,
   rise,
   enabled,
 }: {
   cycle: number;
   drift: number;
   phase: number;
-  size: number;
+  base: number;
+  tint: (typeof TINTS)[number];
   rise: number;
   enabled: boolean;
 }) {
   const progress = useLoopProgress(cycle, enabled);
   const anim = useAnimatedStyle(() => {
-    // The phase is what staggers the six without six delays. Wrapping here
-    // rather than delaying the loop means every puff is already mid-flight on
-    // the first frame, so the plume never starts empty.
+    // Wrapping a phase into the shared progress staggers the fourteen without
+    // fourteen delays, and means every one is already mid-flight on the first
+    // frame, so the plume is never empty.
     const p = (progress.value + phase) % 1;
-    // THE PLUME LEANS UPPER-LEFT, not straight up. The train sits at the
-    // card's right edge, so a vertical plume walks off the screen; leaning it
-    // back sends the steam into the composition instead.
-    const lean = -18 * p;
+
+    // THE OWNER'S CURVE, SHAPE KEPT AND SCALE RAISED, and the raise is
+    // measured rather than preferred. Faint at the lip, brightest once it has
+    // cooled and spread, thinning the rest of the way: that shape is exactly
+    // as specified and it is what stops the plume reading as a puff machine.
+    // At the specified PEAK of 0.35 the corridor measured 0.1 to 1.3 grey
+    // levels between screenshots, against a perceptual floor of about 2 to 3,
+    // so it was invisible. The reason is the background: those numbers assume
+    // a darker ground, and this plume crosses cream ticket stock and a white
+    // frame. GAIN carries the whole curve up without changing its shape.
+    const o =
+      (p < 0.2
+        ? 0.1 + (p / 0.2) * 0.25
+        : p < 0.6
+          ? 0.35 - ((p - 0.2) / 0.4) * 0.17
+          : Math.max(0, 0.18 * (1 - (p - 0.6) / 0.4))) * GAIN;
+
+    // Tight at the chimney, wide by the band. Slightly sub-linear so it opens
+    // gradually rather than ballooning in the first third.
+    const scale = 0.25 + 1.55 * Math.pow(p, 0.8);
+
     return {
-      // THICK AT THE STACK, GONE AT THE BAND (owner, 2026-09-05: "thicker to
-      // start", "hit the blue stats bar"). It leaves the chimney at nearly
-      // full strength over a very short ramp, holds, and only lets go in the
-      // last fifth, which is where the stats card is already covering it.
-      // IT HOLDS ALMOST ALL THE WAY (owner, 2026-09-05). It used to start
-      // letting go at 0.8, so it was already thin by the time it arrived; now
-      // it keeps its weight until 0.9, which is where the stats card is
-      // covering it anyway, so the eye sees it MEET the band rather than
-      // evaporate below it.
-      opacity:
-        p < 0.03
-          ? (p / 0.03) * 0.98
-          : p > 0.9
-            ? Math.max(0, (1 - (p - 0.9) / 0.1) * 0.98)
-            : 0.98 - (p - 0.03) * 0.1,
+      opacity: o * tint.weight,
       transform: [
         { translateY: -rise * p },
-        { translateX: lean + Math.sin(p * Math.PI * 2) * drift },
-        // DENSE AT THE TIP, THEN SPREADING (owner: "much more dense at the tip
-        // coming out then spreading out a little"). Quadratic, not linear: a
-        // linear ramp is already half open a quarter of the way up, which
-        // reads as a cloud sitting on the funnel. Squared, it stays tight
-        // through the first third and only opens once it is clear of the
-        // engine.
-        { scale: 0.16 + p * p * 2.1 },
+        // The plume BENDS upper-left: the engine is at the card's right edge,
+        // so a vertical column walks off the screen and a leaning one carries
+        // back into the composition.
+        { translateX: -26 * p * p + Math.sin(p * Math.PI * 2 + phase * 6) * drift },
+        { scale },
       ],
     };
   });
   return (
     <Animated.View
-      style={[styles.puff, { marginLeft: -size / 2, width: size, height: size }, anim]}
+      style={[
+        styles.wisp,
+        { width: base, height: base * 0.56, marginLeft: -base / 2 },
+        anim,
+      ]}
     >
-      {DISCS.map((d, k) => (
-        <View
-          key={k}
-          style={[
-            styles.disc,
-            {
-              width: size * d.r,
-              height: size * d.r,
-              borderRadius: (size * d.r) / 2,
-              left: size * (0.5 + d.dx) - (size * d.r) / 2,
-              top: size * (0.5 + d.dy) - (size * d.r) / 2,
-            },
-          ]}
-        />
-      ))}
+      {/* EXPLICIT POINTS, NEVER absoluteFill. CLAUDE.md's first render trap:
+          an Image sized by absoluteFill or by width:'100%' plus aspectRatio
+          inside this tree can resolve to its INTRINSIC pixel size on device,
+          which for this sprite is 512x320. That is exactly what happened here
+          and it is why the plume vanished entirely rather than looking wrong.
+          The box is knowable, so it is given. */}
+      <Image
+        source={WISP}
+        resizeMode="stretch"
+        style={{ width: base, height: base * 0.56, tintColor: tint.color }}
+      />
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  puff: { position: 'absolute', bottom: 0, left: ORIGIN_LEFT },
-  /**
-   * WARM GREY, NOT WHITE, and this is why the first two attempts looked thin.
-   * The plume crosses cream ticket stock and then the frame's white header, so
-   * white steam on it has almost no contrast: it was not too transparent, it
-   * was the wrong colour. rgb(219,208,204) is the MEAN of the smoke the
-   * artwork itself had painted on this locomotive, sampled off the asset
-   * before that smoke was erased, with the shadow taken from its own shading.
-   * Real steam against a light ground reads grey, which is what the original
-   * illustrator drew.
-   *
-   * Low per-disc alpha with a wide soft shadow: seven of these overlapping
-   * read as one mass, where three opaque ones read as bubbles.
-   */
-  disc: {
-    position: 'absolute',
-    backgroundColor: 'rgba(219, 208, 204, 0.62)',
-    shadowColor: '#8F8481',
-    shadowOpacity: 0.38,
-    shadowRadius: 9,
-    shadowOffset: { width: 0, height: 1 },
-  },
+  /** Every wisp starts on the SAME point, the chimney's lip; only drift and
+   *  the lean move it sideways as it climbs. */
+  wisp: { position: 'absolute', bottom: 0, left: '50%' },
 });
