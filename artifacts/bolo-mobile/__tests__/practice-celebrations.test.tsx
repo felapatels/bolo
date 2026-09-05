@@ -84,6 +84,8 @@ jest.mock('@workspace/api-client-react', () => ({
   // from here; undefined means "not cached", which shows no lightbox.
   useGetProgressSummary: jest.fn(() => ({ data: mockState.summary, isLoading: false })),
   getGetProgressSummaryQueryKey: () => ['progress'],
+  // The hub's free-taste count, invalidated after a HUB run (2026-09-05).
+  getGetGamePlaysQueryKey: () => ['game-plays'],
   getListRecentAttemptsQueryKey: () => ['attempts'],
   getListCategoryPhrasesQueryKey: () => ['phrases'],
   getListBadgesQueryKey: () => ['badges'],

@@ -43,6 +43,8 @@ jest.mock('@workspace/api-client-react', () => ({
   getListCategoryPhrasesQueryKey: (id: number) => ['phrases', id],
   useRecordGameSession: () => ({ mutate: mockState.recordMutate }),
   getGetProgressSummaryQueryKey: () => ['progress'],
+  // The hub's free-taste count, invalidated after a HUB run (2026-09-05).
+  getGetGamePlaysQueryKey: () => ['game-plays'],
   getGetTokensQueryKey: () => ['tokens'],
 }));
 
@@ -508,7 +510,11 @@ describe('a full Wrong Platform run', () => {
     expect(mockState.recordMutate).toHaveBeenCalledTimes(1);
     const payload = lastPayload();
     expect(payload.phraseResults).toHaveLength(ROUNDS);
-    expect(payload.game).toBe('listen-and-pick');
+    // INVERTED 2026-09-05: every quick game records under its OWN id now. It
+    // used to post the id whose scoring model it rode, which is exactly what
+    // made a free quick-game play indistinguishable from an All-Access game's
+    // and left the free taste with nothing to count.
+    expect(payload.game).toBe('wrong-platform');
     expect(screen.getByText('6 / 6 correct')).toBeTruthy();
   });
 

@@ -444,7 +444,11 @@ describe("Express Listening rounds (unchanged behaviour)", () => {
 
     expect(state.record).toHaveBeenCalledTimes(1);
     const payload = state.record.mock.calls[0]![0].data;
-    expect(payload.game).toBe("listen-and-pick");
+    // INVERTED 2026-09-05: every quick game records under its OWN id now. It
+    // used to post "listen-and-pick", which is precisely what made a free
+    // quick-game play indistinguishable from an All-Access game's and left the
+    // free taste with nothing to count.
+    expect(payload.game).toBe("express-listening");
     expect(payload.phraseResults).toEqual(expected);
   });
 });

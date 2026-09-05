@@ -41,6 +41,8 @@ jest.mock('@workspace/api-client-react', () => ({
   getListCategoryPhrasesQueryKey: () => ['phrases'],
   useRecordGameSession: () => ({ mutate: mockState.recordMutate }),
   getGetProgressSummaryQueryKey: () => ['progress'],
+  // The hub's free-taste count, invalidated after a HUB run (2026-09-05).
+  getGetGamePlaysQueryKey: () => ['game-plays'],
   getGetTokensQueryKey: () => ['tokens'],
 }));
 
@@ -497,7 +499,11 @@ describe('a full Luggage Match run', () => {
 
     expect(mockState.recordMutate).toHaveBeenCalledTimes(1);
     expect(payload().phraseResults).toHaveLength(RUN_PAIRS);
-    expect(payload().game).toBe('word-match');
+    // INVERTED 2026-09-05: every quick game records under its OWN id now. It
+    // used to post the id whose scoring model it rode, which is exactly what
+    // made a free quick-game play indistinguishable from an All-Access game's
+    // and left the free taste with nothing to count.
+    expect(payload().game).toBe('luggage-match');
     expect(screen.getByText('6 / 6 correct')).toBeTruthy();
   });
 

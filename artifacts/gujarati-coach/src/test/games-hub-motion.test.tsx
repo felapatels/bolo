@@ -25,6 +25,16 @@ vi.mock("@/lib/entitlements", () => ({
   useEntitlements: () => ({ isPlus: h.isPlus, isLoading: h.isLoading }),
 }));
 
+// The hub reads GET /games/plays for the free taste (2026-09-05). The shared
+// base derives its export surface from the real module at runtime, so a hook
+// added to the generated client never breaks this file again; see
+// src/test/api-client-mock.ts. Undefined data is the pre-load state, which
+// leaves every card open and is what this motion suite wants.
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
+  useGetGamePlays: () => ({ data: undefined }),
+}));
+
 vi.mock("@/components/mascot", () => ({ Mascot: () => null }));
 // The hero's language line is the LanguagePicker's trigger; the picker
 // itself (the dialog, the entitlement reads) is another file's test.
