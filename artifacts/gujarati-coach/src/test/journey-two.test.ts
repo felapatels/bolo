@@ -257,8 +257,12 @@ describe("journey-aware mini-game roster", () => {
     // This test is the reminder, and it should be inverted the day a
     // server-side trace game type lands.
     expect(QUICK_GAMES.map((g) => g.id)).not.toContain("script-trace");
+    // INVERTED 2026-09-04, and the reminder above it still stands. The enum
+    // is no longer closed at four, so "rides an existing id" is no longer the
+    // rule; what remains true, and is the point of this pin, is that every
+    // game here records under an id the server's enum knows, which is its own.
     for (const g of QUICK_GAMES) {
-      expect(["listen-and-pick", "word-match"]).toContain(g.serverGame);
+      expect(g.serverGame).toBe(g.id);
     }
   });
 });

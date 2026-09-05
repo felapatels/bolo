@@ -55,16 +55,20 @@ describe("quick game roster", () => {
     for (const g of QUICK_GAMES.filter((x) => x.plusOnly)) {
       expect(eligibleQuickGames(99, 1).map((e) => e.id)).not.toContain(g.id);
     }
+    // INVERTED 2026-09-04. These lines used to assert that every quick game
+    // rode "listen-and-pick" or "word-match", because the server's
+    // GameSessionInputGame enum was closed at four. That is precisely what
+    // made a Ticket Check play indistinguishable from a Listen & Pick one and
+    // left the free taste nothing to count. The enum was widened; the game's
+    // own id is now the assertion.
     for (const g of QUICK_GAMES) {
-      // The server's GameSessionInputGame enum is closed; quick games may
-      // only ride these two Model A ids.
-      expect(["listen-and-pick", "word-match"]).toContain(g.serverGame);
+      expect(g.serverGame).toBe(g.id);
     }
-    expect(quickGameById("luggage-match")!.serverGame).toBe("word-match");
-    expect(quickGameById("ticket-check")!.serverGame).toBe("listen-and-pick");
-    expect(quickGameById("wrong-platform")!.serverGame).toBe("listen-and-pick");
-    expect(quickGameById("express-listening")!.serverGame).toBe("listen-and-pick");
-    expect(quickGameById("signal-lights")!.serverGame).toBe("listen-and-pick");
+    expect(quickGameById("luggage-match")!.serverGame).toBe("luggage-match");
+    expect(quickGameById("ticket-check")!.serverGame).toBe("ticket-check");
+    expect(quickGameById("wrong-platform")!.serverGame).toBe("wrong-platform");
+    expect(quickGameById("express-listening")!.serverGame).toBe("express-listening");
+    expect(quickGameById("signal-lights")!.serverGame).toBe("signal-lights");
     expect(quickGameById("nope")).toBeUndefined();
   });
 

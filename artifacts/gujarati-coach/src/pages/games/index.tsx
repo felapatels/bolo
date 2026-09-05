@@ -44,6 +44,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useEntitlements } from "@/lib/entitlements";
+import { useGetGamePlays } from "@workspace/api-client-react";
+import { gameTasteLabel, gameTasteState, isTasteGame } from "@workspace/game-taste";
 import { cn } from "@/lib/utils";
 import { springs } from "@/lib/motion";
 import { useLanguage } from "@/lib/language-context";
@@ -365,6 +367,27 @@ export default function GamesPage() {
   // Fail closed: while entitlements are loading (or undefined), Plus-only
   // tiles render locked rather than briefly unlocked.
   const plusReady = isPlus === true && !isLoading;
+  // THE FREE TASTE (owner ruling, 2026-09-04): three hub plays of each game
+  // that was free, then the card locks. The twin of the phone's, down to the
+  // failure direction: unknown leaves a card OPEN, because the server refuses
+  // the record past three whatever this says, and failing closed would draw a
+  // lock over a game the learner still has plays on.
+  const { data: gamePlays } = useGetGamePlays();
+  const taste = (id: string) => {
+    if (isPlus === true || !isTasteGame(id) || !gamePlays) return null;
+    return gameTasteState({
+      plusOnly: false,
+      isPlus: false,
+      playsUsed: gamePlays.plays[id] ?? 0,
+    });
+  };
+  const tasteLabelFor = (id: string) => {
+    const t = taste(id);
+    return t ? gameTasteLabel(t) : null;
+  };
+  /** Shut: an All-Access game without Plus, or a taste that is spent. */
+  const isLocked = (game: GameDef) =>
+    (game.plusOnly && !plusReady) || taste(game.id)?.playable === false;
   // Task 986 step-in: the card being navigated into scales slightly toward
   // the viewer while the route transitions. State only ever selects the
   // animate target; navigation itself is the Link's default behavior and is
@@ -396,7 +419,7 @@ export default function GamesPage() {
             <SectionEyebrow>Continue playing</SectionEyebrow>
             <ContinueCard
               game={continueGame}
-              locked={continueGame.plusOnly && !plusReady}
+              locked={isLocked(continueGame)}
               onPlay={() => remember(continueGame.id)}
             />
           </section>
@@ -410,7 +433,7 @@ export default function GamesPage() {
           <div className="grid grid-cols-2 gap-2.5" data-testid="games-catalog">
             {ORDERED_GAMES.map((game) => {
               const index = STAGGER_INDEX[game.id] ?? 0;
-              const locked = game.plusOnly && !plusReady;
+              const locked = isLocked(game);
               const entered = enteredId === game.id;
               const Card = (
                 <motion.div
@@ -455,6 +478,7 @@ export default function GamesPage() {
                   <GameCard
                     game={game}
                     locked={locked}
+                    tasteLabel={tasteLabelFor(game.id)}
                     // Negative delays start each ambient loop mid-phase,
                     // using the catalog-wide ordinal so no two vignettes
                     // ever pulse in unison.
@@ -653,8 +677,13 @@ function ContinueCard({
 }
 
 /** Free vs All-Access pill: FREE in green, ALL-ACCESS in gold with its star.
- *  Copy canon: "All-Access", never "Plus". */
-function AccessBadge({ plusOnly }: { plusOnly: boolean }) {
+ *  Copy canon: "All-Access", never "Plus".
+ *
+ *  A card under the free taste (2026-09-04) says how many plays are left
+ *  instead of a bare FREE, and says it in WORDS rather than by changing
+ *  colour: the pill stays green either way, so the state reads without
+ *  needing to see the hue. */
+function AccessBadge({ plusOnly, tasteLabel }: { plusOnly: boolean; tasteLabel: string | null }) {
   return (
     <span
       className={cn(
@@ -663,7 +692,7 @@ function AccessBadge({ plusOnly }: { plusOnly: boolean }) {
       )}
     >
       {plusOnly && <Star className="h-2.5 w-2.5" />}
-      {plusOnly ? "All-Access" : "Free"}
+      {plusOnly ? "All-Access" : (tasteLabel ?? "Free")}
     </span>
   );
 }
@@ -706,10 +735,13 @@ function DifficultyPill({ difficulty, gc }: { difficulty: GameDef["difficulty"];
 function GameCard({
   game,
   locked,
+  tasteLabel,
   previewDelay,
 }: {
   game: GameDef;
   locked: boolean;
+  /** What the free taste has to say about this card, or null if nothing. */
+  tasteLabel: string | null;
   previewDelay: string;
 }) {
   const gc = GAME_COLORS[game.id] ?? FALLBACK_COLOR;
@@ -739,7 +771,7 @@ function GameCard({
             not a broken tile) and take a light dim so the lock reads. */}
         {locked && <div aria-hidden="true" className="absolute inset-0 bg-[rgba(30,22,51,0.28)]" />}
         <div className="absolute right-2 top-2">
-          <AccessBadge plusOnly={game.plusOnly} />
+          <AccessBadge plusOnly={game.plusOnly} tasteLabel={tasteLabel} />
         </div>
         <div
           className="absolute -bottom-2 left-2.5 flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-[#FFF8EC]"

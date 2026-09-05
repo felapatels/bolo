@@ -249,7 +249,12 @@ describe("hub launch (no params)", () => {
       "languageCode",
       "phraseResults",
     ]);
-    expect(data.game).toBe("listen-and-pick");
+    // INVERTED 2026-09-04: the frame posts the GAME'S OWN id now. Posting
+    // "listen-and-pick" is what filed every free quick-game play under an
+    // All-Access game's name. The absence of a context key above is the other
+    // half of the free taste: a hub launch sends none, and the server reads
+    // that null as the hub play it counts.
+    expect(data.game).toBe("signal-lights");
     expect(data.categoryId).toBe(7);
     const results = data.phraseResults as Record<string, unknown>[];
     expect(results).toHaveLength(2);

@@ -1,13 +1,17 @@
 // Chunk 6B: the quick-game roster and trackside-signal memory.
 //
-// The five quick games are all free-visible and ride the two FROZEN server
-// correctness models (routes are truth, see api-server learning.ts):
+// EVERY QUICK GAME RECORDS UNDER ITS OWN ID since 2026-09-04. The generated
+// enum used to be closed at four (speed-round, phrase-builder, word-match,
+// listen-and-pick) and every quick game POSTed under one of them, which made a
+// Ticket Check row indistinguishable from a Listen & Pick one: per-game
+// reporting was wrong for five games, and the free taste's count could not be
+// derived at all. The enum was widened and `serverGame` is now the game's own
+// id. THE CORRECTNESS MODEL IS UNCHANGED, and it is still the server's:
 //   Model A (selection): correct when selectedPhraseId === phraseId.
 //   Model B (assembly):  correct when submittedText matches nativeScript.
-// The generated GameSessionInputGame enum is closed (speed-round,
-// phrase-builder, word-match, listen-and-pick), so every quick game POSTs
-// under an EXISTING free-tier id whose model it rides: selection-style games
-// ride "listen-and-pick", the pairs game rides "word-match". Scoped phrase
+// Every game here is Model A, which is what both ids it used to ride already
+// were, and the server derives that from its own list rather than naming ids
+// by hand. Scoped phrase
 // sets stay inside the session's category so existing validation passes
 // unchanged (a Wrong Platform stray from another category is never submitted;
 // each round is represented by an in-category anchor phrase instead).
@@ -26,8 +30,8 @@ export type QuickGameDef = {
   path: string;
   /** Minimum plan-visible phrases the category needs for this game. */
   floor: number;
-  /** The frozen server game id this quick game rides for scoring. */
-  serverGame: "listen-and-pick" | "word-match";
+  /** The id this game records under. Its own since 2026-09-04. */
+  serverGame: QuickGameId;
   /**
    * Journeys this game appears in. Absent means every journey.
    *
@@ -52,14 +56,14 @@ export const QUICK_GAMES: readonly QuickGameDef[] = [
     title: "Ticket Check",
     path: "/games/ticket-check",
     floor: 4,
-    serverGame: "listen-and-pick",
+    serverGame: "ticket-check",
   },
   {
     id: "wrong-platform",
     title: "Wrong Platform",
     path: "/games/wrong-platform",
     floor: 3,
-    serverGame: "listen-and-pick",
+    serverGame: "wrong-platform",
   },
   {
     // PART 2, All-Access. A separate roster entry rather than a mode flag on
@@ -74,7 +78,7 @@ export const QUICK_GAMES: readonly QuickGameDef[] = [
     title: "Wrong Platform 2",
     path: "/games/wrong-platform-2",
     floor: 5,
-    serverGame: "listen-and-pick",
+    serverGame: "wrong-platform-2",
     plusOnly: true,
   },
   {
@@ -82,21 +86,21 @@ export const QUICK_GAMES: readonly QuickGameDef[] = [
     title: "Luggage Match",
     path: "/games/luggage-match",
     floor: 4,
-    serverGame: "word-match",
+    serverGame: "luggage-match",
   },
   {
     id: "express-listening",
     title: "Express Listening",
     path: "/games/express-listening",
     floor: 4,
-    serverGame: "listen-and-pick",
+    serverGame: "express-listening",
   },
   {
     id: "signal-lights",
     title: "Signal Lights",
     path: "/games/signal-lights",
     floor: 2,
-    serverGame: "listen-and-pick",
+    serverGame: "signal-lights",
   },
 ] as const;
 

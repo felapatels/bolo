@@ -14,10 +14,24 @@ import { memoryLocation } from "wouter/memory-location";
 //   - no card renders an energy or quick/deep chip (difficulty chip only)
 // ---------------------------------------------------------------------------
 
-const h = vi.hoisted(() => ({ isPlus: false as boolean | undefined, isLoading: false }));
+const h = vi.hoisted(() => ({
+  isPlus: false as boolean | undefined,
+  isLoading: false,
+  // THE FREE TASTE (2026-09-04): plays spent per game, or undefined for the
+  // pre-load state, which must leave every card open.
+  gamePlays: undefined as { limit: number; plays: Record<string, number> } | undefined,
+}));
 
 vi.mock("@/lib/entitlements", () => ({
   useEntitlements: () => ({ isPlus: h.isPlus, isLoading: h.isLoading }),
+}));
+
+// The hub reads GET /games/plays for the free taste. Spread the shared base
+// first so a hook added to the generated client never breaks this file again
+// (src/test/api-client-mock.ts says why), then override the one that matters.
+vi.mock("@workspace/api-client-react", async () => ({
+  ...(await (await import("./api-client-mock")).baseApiClientMock()),
+  useGetGamePlays: () => ({ data: h.gamePlays }),
 }));
 
 vi.mock("@/components/mascot", () => ({ Mascot: () => null }));
@@ -114,6 +128,7 @@ function cardLink(gameId: string) {
 beforeEach(() => {
   h.isPlus = false;
   h.isLoading = false;
+  h.gamePlays = undefined;
 });
 
 describe("Games hub grid", () => {
@@ -354,5 +369,65 @@ describe("Games hub vignettes", () => {
     ).map((el) => (el as HTMLElement).style.getPropertyValue("--gv-delay"));
     expect(delays).toHaveLength(5);
     expect(new Set(delays).size).toBe(delays.length);
+  });
+});
+
+describe("Games hub - the free taste", () => {
+  // THE OWNER'S RULING, 2026-09-04: the games that were free become three
+  // plays and then the paywall; the All-Access ones do not move.
+  const played = (n: number) => ({ limit: 3, plays: { "ticket-check": n } });
+
+  test("says how many plays are left, in words rather than in a colour", () => {
+    // The pill keeps its green throughout. A learner who cannot see the hue
+    // still reads the state, because the count is in the pill's TEXT.
+    h.gamePlays = played(1);
+    renderPage();
+    expect(
+      within(catalog()).getByTestId("game-card-ticket-check"),
+    ).toHaveTextContent("2 free plays left");
+  });
+
+  test("locks the card once the third play is spent, and points it at /upgrade", () => {
+    h.gamePlays = played(3);
+    renderPage();
+    const card = within(catalog()).getByTestId("game-card-ticket-check");
+    expect(card).toHaveTextContent("Free taste used");
+    expect(cardLink("ticket-check")).toHaveAttribute("href", "/upgrade");
+  });
+
+  test("leaves the card open while the count is still loading", () => {
+    // FAILS OPEN ON PURPOSE, unlike the Plus gate beside it. The server
+    // refuses the record past three whatever this says, so a slow network
+    // costs one refused run; failing closed would draw a lock over a game the
+    // learner still has plays on every time the page is cold.
+    h.gamePlays = undefined;
+    renderPage();
+    expect(cardLink("ticket-check")).toHaveAttribute("href", "/games/ticket-check");
+  });
+
+  test("never counts down at an entitled learner", () => {
+    h.isPlus = true;
+    h.gamePlays = played(3);
+    renderPage();
+    const card = within(catalog()).getByTestId("game-card-ticket-check");
+    expect(card).not.toHaveTextContent("Free taste used");
+    expect(cardLink("ticket-check")).toHaveAttribute("href", "/games/ticket-check");
+  });
+
+  test("covers Express Listening, which is free HERE and has no phone card", () => {
+    // THE ONE THE FIRST PASS MISSED. The tasted list was written off the
+    // mobile hub, where this game does not exist; left out, it would have been
+    // the only free game still unwalled after the ruling.
+    h.gamePlays = { limit: 3, plays: { "express-listening": 3 } };
+    renderPage();
+    expect(cardLink("express-listening")).toHaveAttribute("href", "/upgrade");
+  });
+
+  test("leaves an All-Access game exactly as it was: a lock, not a taste", () => {
+    h.gamePlays = { limit: 3, plays: {} };
+    renderPage();
+    const card = within(catalog()).getByTestId("game-card-wrong-platform-2");
+    expect(card).not.toHaveTextContent("free play");
+    expect(cardLink("wrong-platform-2")).toHaveAttribute("href", "/upgrade");
   });
 });

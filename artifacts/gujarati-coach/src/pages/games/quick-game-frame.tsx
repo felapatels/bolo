@@ -33,6 +33,7 @@ import {
   useListCategoryPhrases,
   getListCategoryPhrasesQueryKey,
   useRecordGameSession,
+  getGetGamePlaysQueryKey,
   getGetProgressSummaryQueryKey,
   getGetTokensQueryKey,
   type Phrase,
@@ -540,6 +541,14 @@ export function QuickGameShell({
           queryClient.invalidateQueries({
             queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }),
           });
+          // THE HUB'S FREE-TASTE COUNT JUST MOVED, if this was a hub run
+          // (2026-09-04). Without it the learner walks back to a card still
+          // promising three free plays after spending one. Only a hub launch
+          // spends the taste, so only a hub launch refetches it; the journey's
+          // signal and closeout runs are exempt and would refetch for nothing.
+          if (launch.context === null) {
+            queryClient.invalidateQueries({ queryKey: getGetGamePlaysQueryKey() });
+          }
           const granted = data.chaiGranted ?? 0;
           if (granted > 0) {
             setChaiEarned(granted);
