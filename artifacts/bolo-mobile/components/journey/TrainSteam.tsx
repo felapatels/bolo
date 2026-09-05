@@ -73,9 +73,9 @@ export const TRAIN_CHIMNEY = { x: 0.66, y: 0.18 } as const;
  * the opacity curve so the curve stays one shape for every particle.
  */
 const TINTS = [
-  { color: '#BEB6AB', weight: 0.9 },
-  { color: '#A79E94', weight: 1.0 },
-  { color: '#CFC8BD', weight: 0.78 },
+  { color: '#CFC8BD', weight: 0.9 },
+  { color: '#BCB3A8', weight: 1.0 },
+  { color: '#DED8CE', weight: 0.78 },
 ] as const;
 
 /**
@@ -142,24 +142,33 @@ function Wisp({
     // as specified and it is what stops the plume reading as a puff machine.
     // At the specified PEAK of 0.35 the corridor measured 0.1 to 1.3 grey
     // levels between screenshots, against a perceptual floor of about 2 to 3,
-    // so it was invisible. The reason is the background: those numbers assume
+    // so it was invisible. The lip was also raised from 0.10 to 0.22 and the
+    // tail now holds to 0.78 instead of 0.6: the plume has to survive the
+    // whole climb OVER the stats band and only let go under the language
+    // picker, so fading from three fifths of the way up emptied it too early. The reason is the background: those numbers assume
     // a darker ground, and this plume crosses cream ticket stock and a white
     // frame. GAIN carries the whole curve up without changing its shape.
     const o =
       (p < 0.2
-        ? 0.1 + (p / 0.2) * 0.25
-        : p < 0.6
-          ? 0.35 - ((p - 0.2) / 0.4) * 0.17
-          : Math.max(0, 0.18 * (1 - (p - 0.6) / 0.4))) * GAIN;
+        ? 0.22 + (p / 0.2) * 0.13
+        : p < 0.78
+          ? 0.35 - ((p - 0.2) / 0.58) * 0.09
+          : Math.max(0, 0.26 * (1 - (p - 0.78) / 0.22))) * GAIN;
 
     // Tight at the chimney, wide by the band. Slightly sub-linear so it opens
     // gradually rather than ballooning in the first third.
-    const scale = 0.25 + 1.55 * Math.pow(p, 0.8);
+    const scale = 0.34 + 1.5 * Math.pow(p, 0.8);
 
     return {
       opacity: o * tint.weight,
       transform: [
-        { translateY: -rise * p },
+        // EASED, WHICH IS WHAT PUTS DENSITY AT THE STACK (owner, 2026-09-05:
+        // "density near stack"). Linear travel spreads fourteen particles
+        // evenly over the whole climb, so the chimney is as sparse as the top.
+        // Rising slowly at first BUNCHES them where they leave the funnel and
+        // thins them out higher up, which is both denser at the source and
+        // closer to how a plume actually looks.
+        { translateY: -rise * Math.pow(p, 1.35) },
         // The plume BENDS upper-left: the engine is at the card's right edge,
         // so a vertical column walks off the screen and a leaning one carries
         // back into the composition.

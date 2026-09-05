@@ -72,7 +72,7 @@ import { TrainSteam } from '@/components/journey/TrainSteam';
 /** How far the plume climbs, in points: from the locomotive's chimney on the
  *  pass up to roughly the middle of the blue stats band, where the stats card
  *  takes over in z-order and the last wisps disappear behind the numbers. */
-const STEAM_RISE = 240;
+const STEAM_RISE = 375;
 /** How far the locomotive's chimney sits above the journey card's foot.
  *  761 - 604 = 157, from the card's reported box and the stack tip measured on
  *  screen; see the plume's own note on how that was pinned down. */
