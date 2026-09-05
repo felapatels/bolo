@@ -23,6 +23,7 @@
 import type { ScriptId } from "./scripts";
 import { SCRIPT_BY_LANGUAGE } from "./scripts";
 import {
+  TRACE_STOP_LADDER,
   type TraceStopCharacter,
   traceStopFor,
   traceStopsFor,
@@ -210,6 +211,31 @@ export function letterStopFor(
 ): LetterStop | null {
   const script = SCRIPT_BY_LANGUAGE[languageCode];
   if (!script) return null;
+
+  /**
+   * THE ZONE HAS TO BE A REAL ONE, and this guard is a REGRESSION FIX rather
+   * than a new rule (2026-09-05).
+   *
+   * The route that calls this says exactly what it wants: "Refuse a zone this
+   * language does not actually have a stop for, so a typo cannot write a
+   * session for nothing." That held while lettersMetBy was bounded. When
+   * 87ceb0bb redefined what counts as MET, it became cumulative: it walks
+   * every trace stop at or before the requested position, so journey 99 zone
+   * 99 inherits the ENTIRE alphabet, clears the three-letter floor below, and
+   * returns a perfectly valid stop for a zone that does not exist. The route's
+   * 404 became unreachable and a bad client could record a letter-stop session
+   * against nothing. games.letter-stop.test.ts caught it the first time that
+   * suite could run at all.
+   *
+   * THE LADDER IS THE ANSWER RATHER THAN A NUMBER. TRACE_STOP_LADDER is the
+   * explicit list of the twelve real positions, and its own header says
+   * "Journey 3 and beyond extend TRACE_STOP_LADDER and nothing else", so a
+   * future journey is admitted here the moment it is admitted there. A
+   * hardcoded `journey <= 2 && zone <= 6` would have to be remembered.
+   */
+  if (!TRACE_STOP_LADDER.some((r) => r.journey === journey && r.zone === zone)) {
+    return null;
+  }
 
   const pool = lettersMetBy(languageCode, journey, zone);
   // Two wrong answers plus the right one is the smallest honest question.

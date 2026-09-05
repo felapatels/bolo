@@ -196,3 +196,40 @@ describe("the lookalike list", () => {
     }
   });
 });
+
+describe("a zone that does not exist has no letter stop", () => {
+  /**
+   * THE ROUTE PROMISES THIS AND FOR A WHILE IT WAS NOT TRUE.
+   *
+   * POST /games/letter-stop/complete says, in its own comment, "Refuse a zone
+   * this language does not actually have a stop for, so a typo cannot write a
+   * session for nothing", and it enforces that by 404ing when letterStopFor
+   * returns null. When 87ceb0bb redefined what counts as MET, lettersMetBy
+   * became cumulative: it walks every trace stop at or before the requested
+   * position, so journey 99 inherits the WHOLE alphabet, clears the
+   * three-letter floor and yields a perfectly valid stop for a zone nobody can
+   * ever be on. The 404 became unreachable and a bad client could record a
+   * session against nothing.
+   *
+   * These are pinned here, in the pure suite, because the route test that
+   * caught it needs the dev database and cannot run on a Mac.
+   */
+  test("refuses a journey and zone that are not on the ladder", () => {
+    expect(letterStopFor("hi", 99, 99)).toBeNull();
+    expect(letterStopFor("hi", 1, 99)).toBeNull();
+    expect(letterStopFor("hi", 3, 1)).toBeNull();
+    expect(letterStopFor("hi", 0, 0)).toBeNull();
+    expect(letterStopFor("hi", 1, 0)).toBeNull();
+  });
+
+  test("still serves every zone that IS on the ladder", () => {
+    // The other half, and the one that matters more: the guard must not have
+    // closed a door a real learner walks through. Twelve rungs, journeys 1
+    // and 2, zones 1 to 6.
+    for (const journey of [1, 2]) {
+      for (const zone of [1, 2, 3, 4, 5, 6]) {
+        expect(letterStopFor("hi", journey, zone)).not.toBeNull();
+      }
+    }
+  });
+});
