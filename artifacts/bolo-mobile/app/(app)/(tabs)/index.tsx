@@ -111,6 +111,20 @@ function todayDateString(): string {
 // and the inner edge has to clear a 26pt two-digit streak, whose ink corners
 // sit about 16.5px out from the centre. r=18 stroke=2 leaves 1px at the
 // outside and about 0.5px at the inside. A 3pt stroke satisfies neither.
+/**
+ * ONE GOLD FOR ALL THREE STRIP GLYPHS (owner, 2026-09-05: "color should match
+ * the yellow in lightning for other 2 icons").
+ *
+ * The star and the medal used to read colors.gold, the theme token every other
+ * gold on the phone takes, and beside the bolt's lighter yellow that was two
+ * golds sitting next to each other. On a saturated violet gradient the token
+ * is a shade too deep to hold its own; this is the bolt's value, applied to
+ * all three so the strip reads as one set. Deliberately a literal and NOT the
+ * token: it is tuned for this gradient and nowhere else, and pushing it into
+ * the token would drag every other gold in the app with it.
+ */
+const STAT_GLYPH_GOLD = '#FFD268';
+
 const ARC_BOX = 34;
 const ARC_RADIUS = 15;
 const ARC_STROKE = 2;
@@ -708,17 +722,7 @@ export default function HomeScreen() {
                 flourishes, one under each cell, and that is what this is.
                 Absolutely positioned, so it costs the strip no height, and
                 pointerEvents none so the Chai cell still takes its press. */}
-            <View pointerEvents="none" style={styles.statsAccentRow}>
-              {[0, 1, 2, 3].map((i) => (
-                <View key={i} style={styles.statsAccentCell}>
-                  <MaterialCommunityIcons
-                    name="flower-outline"
-                    size={11}
-                    color="rgba(255,255,255,0.30)"
-                  />
-                </View>
-              ))}
-            </View>
+
             {summaryUpgrade ? (
               // Showroom banner: the stats can never load for a locked
               // language, so offer the journey preview and the unlock path
@@ -826,7 +830,7 @@ export default function HomeScreen() {
                   <GradientStatCell
                     index={1}
                     icon="star"
-                    iconColor={colors.gold}
+                    iconColor={STAT_GLYPH_GOLD}
                     value={summary.data?.xp ?? 0}
                     label="Total XP"
                     loading={summary.isLoading}
@@ -835,7 +839,7 @@ export default function HomeScreen() {
                   <GradientStatCell
                     index={2}
                     icon="award"
-                    iconColor={colors.gold}
+                    iconColor={STAT_GLYPH_GOLD}
                     value={summary.data?.phrasesMastered ?? 0}
                     label="Mastered"
                     loading={summary.isLoading}
@@ -1640,6 +1644,10 @@ function GradientStatCell({
   const AnimatedCircle = React.useMemo(() => Animated.createAnimatedComponent(Circle), []);
   const reduceMotion = useReducedMotion();
   const showArc = index === 0 && arcAttemptsToday != null && arcDailyGoal != null;
+  // The bolt, the star and the medal share the collar; the kulhad does not,
+  // because it is a photographed pot rather than a line glyph and a ring round
+  // it reads as a saucer.
+  const showRing = index <= 2;
 
   const arcProgress = useSharedValue(0);
 
@@ -1665,6 +1673,22 @@ function GradientStatCell({
       entering={appear(entrance)}
       style={styles.gradientStatCell}
     >
+      {/* THE FLOURISH LIVES IN THE CELL, not in a row of its own, and that is
+          the whole fix for it sitting off to one side (owner, 2026-09-05: the
+          count and the icon needed to move left to be "directly above the
+          accent"). A separate row spanning the card ignored the card's 6pt
+          side padding and the three 1pt dividers between the cells, so every
+          accent drifted a few points from the glyph above it. Parented to the
+          cell it is centred on the glyph BY CONSTRUCTION and cannot drift
+          again. It hangs into the card's bottom padding, so it costs the strip
+          no height. */}
+      <View pointerEvents="none" style={styles.statsAccent}>
+        <MaterialCommunityIcons
+          name="flower-outline"
+          size={11}
+          color="rgba(255,255,255,0.30)"
+        />
+      </View>
       <Pressable
         onPress={onPress}
         disabled={!onPress}
@@ -1692,7 +1716,7 @@ function GradientStatCell({
             absoluteFill Svg anchored to it drew the ring hard against the
             cell's left edge with the bolt stranded beside it. */}
         <View style={styles.statIconStack}>
-        {showArc ? (
+        {showRing ? (
           <Svg
             width={ARC_BOX}
             height={ARC_BOX}
@@ -1708,20 +1732,26 @@ function GradientStatCell({
               stroke="rgba(255,255,255,0.2)"
               strokeWidth={ARC_STROKE}
             />
-            <AnimatedCircle
-              cx={ARC_CENTER}
-              cy={ARC_CENTER}
-              r={ARC_RADIUS}
-              fill="none"
-              stroke="rgba(255,255,255,0.85)"
-              strokeWidth={ARC_STROKE}
-              strokeDasharray={ARC_CIRCUMFERENCE}
-              strokeLinecap="round"
-              rotation={-90}
-              originX={ARC_CENTER}
-              originY={ARC_CENTER}
-              animatedProps={animatedArcProps}
-            />
+            {/* Only the streak fills its collar. The other two wear the
+                empty ring so the strip reads as one set of glyphs rather than
+                one special cell and two bare ones (owner, 2026-09-05: "other
+                two don't have circles, they should"). */}
+            {showArc ? (
+              <AnimatedCircle
+                cx={ARC_CENTER}
+                cy={ARC_CENTER}
+                r={ARC_RADIUS}
+                fill="none"
+                stroke="rgba(255,255,255,0.85)"
+                strokeWidth={ARC_STROKE}
+                strokeDasharray={ARC_CIRCUMFERENCE}
+                strokeLinecap="round"
+                rotation={-90}
+                originX={ARC_CENTER}
+                originY={ARC_CENTER}
+                animatedProps={animatedArcProps}
+              />
+            ) : null}
           </Svg>
         ) : null}
         {icon === 'chai' ? (
@@ -1736,7 +1766,7 @@ function GradientStatCell({
           <MaterialCommunityIcons
             name="lightning-bolt"
             size={21}
-            color="#FFD268"
+            color={STAT_GLYPH_GOLD}
             style={styles.statGlyphRaised}
           />
         ) : (
@@ -2049,14 +2079,13 @@ const styles = StyleSheet.create({
   /** The flourishes along the card's foot. Absolutely positioned so they cost
    *  the strip no height at all, and pointerEvents none so the Chai cell's
    *  press area is untouched. */
-  statsAccentRow: {
+  statsAccent: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 3,
-    flexDirection: 'row',
+    bottom: -12,
+    alignItems: 'center',
   },
-  statsAccentCell: { flex: 1, alignItems: 'center' },
   statValueBand: {
     // 36, was 40, was 56. The value is 29pt on a 32pt line, so this leaves two
     // points of clearance each side and gives four back to the icon band, which
