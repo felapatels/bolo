@@ -993,8 +993,19 @@ export default function HomeScreen() {
               none on its root means every tap falls straight through to the
               boarding pass and the stats cells underneath. It is positioned
               from the journey card's MEASURED box, so it stays on the chimney
-              without depending on the scroll content's height. */}
-          {journeyBox && (
+              without depending on the scroll content's height.
+
+              PHONE ONLY, AND NOT FOR TASTE. HomeColumns deals its children into
+              two independent tablet columns by reading a STRING width off each
+              one; this layer's width is a number, so it took the
+              "self-positioning, cost it no slot" branch, which pushes the child
+              into the band list WITHOUT flushing the column pair still being
+              filled. Everything below it then came out in the wrong order and
+              the wrong column, which is the ragged lower half on the iPad. Its
+              geometry is calibrated to the phone's journey card anyway, and on
+              a tablet the stats band lives in the OTHER column, so the plume
+              could never have crossed it there. */}
+          {!wideScreen && journeyBox && (
             <TrainSteam
               enabled={!reduceMotion}
               height={STEAM_RISE}
@@ -1107,6 +1118,31 @@ export default function HomeScreen() {
           <HomeSocialStrip />
         </Animated.View>
 
+        {/* ALL-ACCESS, DIRECTLY UNDER THE FEED (owner, 2026-09-05). It sat near
+            the foot of the page, below Recent plays' neighbours, where the
+            offer read as an afterthought. */}
+        {!isPlus ? (
+          <Animated.View entering={skipEnter ? undefined : appearDown(400, 500)} style={colHalf}>
+            <UpgradeBanner onPress={() => router.push('/(app)/paywall')} />
+          </Animated.View>
+        ) : null}
+
+        {/* THE QUIZ IS A HALF NOW, NOT A FULL-WIDTH BAND. At colFull it split the
+            tablet's column pair in two and drew a lone wide slab across a page
+            of cards, which is most of what looked wrong down there. */}
+        <Animated.View entering={skipEnter ? undefined : appearDown(220, 500)} style={colHalf}>
+          <DailyQuizCard
+            isPlus={isPlus}
+            entitlementsLoading={entitlementsLoading}
+            quizDone={quizData?.completed === true}
+            quizLoading={quizLoading}
+            quizStreak={quizData?.quizStreak ?? 0}
+            onPress={() => router.push('/(app)/(tabs)/games/bolo-quiz')}
+            onUpgrade={() => router.push('/(app)/paywall')}
+          />
+        </Animated.View>
+
+
         {/* Phrasebook door (Task #906): the topic grid moved to the
             /(app)/phrasebook library screen; home keeps one quiet bordered
             card directly below the boarding pass so the pass stays the
@@ -1215,19 +1251,6 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        {/* Daily quiz card */}
-        <Animated.View entering={skipEnter ? undefined : appearDown(220, 500)} style={colFull}>
-          <DailyQuizCard
-            isPlus={isPlus}
-            entitlementsLoading={entitlementsLoading}
-            quizDone={quizData?.completed === true}
-            quizLoading={quizLoading}
-            quizStreak={quizData?.quizStreak ?? 0}
-            onPress={() => router.push('/(app)/(tabs)/games/bolo-quiz')}
-            onUpgrade={() => router.push('/(app)/paywall')}
-          />
-        </Animated.View>
-
         {/* Review due badge (Plus only) */}
         {isPlus && reviewDueCount > 0 ? (
           <Animated.View entering={skipEnter ? undefined : appearDown(300, 500)} style={colHalf}>
@@ -1249,12 +1272,6 @@ export default function HomeScreen() {
           </Animated.View>
         ) : null}
 
-        {/* Upgrade prompt (Free plan) */}
-        {!isPlus ? (
-          <Animated.View entering={skipEnter ? undefined : appearDown(400, 500)} style={colHalf}>
-            <UpgradeBanner onPress={() => router.push('/(app)/paywall')} />
-          </Animated.View>
-        ) : null}
 
         {/* Recent plays */}
         {(recent.data ?? []).length > 0 ? (
