@@ -111,8 +111,8 @@ function todayDateString(): string {
 // and the inner edge has to clear a 26pt two-digit streak, whose ink corners
 // sit about 16.5px out from the centre. r=18 stroke=2 leaves 1px at the
 // outside and about 0.5px at the inside. A 3pt stroke satisfies neither.
-const ARC_BOX = 40;
-const ARC_RADIUS = 18;
+const ARC_BOX = 34;
+const ARC_RADIUS = 15;
 const ARC_STROKE = 2;
 const ARC_CENTER = ARC_BOX / 2;
 const ARC_CIRCUMFERENCE = 2 * Math.PI * ARC_RADIUS;
@@ -700,13 +700,25 @@ export default function HomeScreen() {
             end={{ x: 1, y: 0.5 }}
             style={styles.statsBanner}
           >
-            {/* TWO RINGS, BARELY THERE. The owner's spec draws a pale circle
-                low on the left and a gold one high on the right, both mostly
-                outside the card, so the strip has some depth without anything
-                that competes with the numbers. They are clipped by the card's
-                own overflow and can never take a tap. */}
-            <View pointerEvents="none" style={styles.statsDecorLeft} />
-            <View pointerEvents="none" style={styles.statsDecorRight} />
+            {/* THE RINGS ARE GONE (owner, 2026-09-05: "there are faint large
+                circle lines crossing the stats bar"). Half outside the card
+                they did not read as depth, they read as two stray arcs cutting
+                across the figures, which is worse than no decoration at all.
+                What the mockup actually has along the foot is a row of small
+                flourishes, one under each cell, and that is what this is.
+                Absolutely positioned, so it costs the strip no height, and
+                pointerEvents none so the Chai cell still takes its press. */}
+            <View pointerEvents="none" style={styles.statsAccentRow}>
+              {[0, 1, 2, 3].map((i) => (
+                <View key={i} style={styles.statsAccentCell}>
+                  <MaterialCommunityIcons
+                    name="flower-outline"
+                    size={11}
+                    color="rgba(255,255,255,0.30)"
+                  />
+                </View>
+              ))}
+            </View>
             {summaryUpgrade ? (
               // Showroom banner: the stats can never load for a locked
               // language, so offer the journey preview and the unlock path
@@ -1670,26 +1682,24 @@ function GradientStatCell({
           carries a chevron. Three sources of height variance across four cells
           is why this row kept drifting. Owner ruling 2026-08-19. */}
       <View style={styles.statIconBand}>
-        {icon === 'chai' ? (
-          // The kulhad is a photo, not a line icon: it needs more pixels to
-          // read at the same visual weight as a 20 px Feather glyph.
-          <ChaiGlyph size={26} />
-        ) : (
-          <Feather name={icon} size={20} color={iconColor} />
-        )}
-      </View>
-      <View style={styles.statValueBand}>
-      {loading ? (
-        <ActivityIndicator color="rgba(255,255,255,0.7)" />
-      ) : showArc ? (
-        <View style={styles.arcValueWrap}>
+        {/* THE RING GOES ROUND THE GLYPH, NOT THE NUMBER (owner, 2026-09-05:
+            "circle on daily streak should be around the lightning ... no
+            circle around day streak number"). It is the same daily-progress
+            arc it always was, just moved and shrunk to a glyph's collar, so
+            nothing about what it MEANS changed. */}
+        {/* A FIXED 34 BOX, CENTRED, and the ring lives inside IT rather than
+            inside the band. The band stretches to the cell's full width, so an
+            absoluteFill Svg anchored to it drew the ring hard against the
+            cell's left edge with the bolt stranded beside it. */}
+        <View style={styles.statIconStack}>
+        {showArc ? (
           <Svg
             width={ARC_BOX}
             height={ARC_BOX}
             style={StyleSheet.absoluteFillObject}
             viewBox={`0 0 ${ARC_BOX} ${ARC_BOX}`}
+            pointerEvents="none"
           >
-            {/* Track */}
             <Circle
               cx={ARC_CENTER}
               cy={ARC_CENTER}
@@ -1698,7 +1708,6 @@ function GradientStatCell({
               stroke="rgba(255,255,255,0.2)"
               strokeWidth={ARC_STROKE}
             />
-            {/* Progress arc — rotated so 0% starts at the top */}
             <AnimatedCircle
               cx={ARC_CENTER}
               cy={ARC_CENTER}
@@ -1714,8 +1723,35 @@ function GradientStatCell({
               animatedProps={animatedArcProps}
             />
           </Svg>
-          <StatValue value={value} />
+        ) : null}
+        {icon === 'chai' ? (
+          // The kulhad is a photo, not a line icon: it needs more pixels to
+          // read at the same visual weight as a 20 px Feather glyph.
+          <ChaiGlyph size={26} />
+        ) : icon === 'zap' ? (
+          // FILLED AND GOLD (owner, 2026-09-05). Feather's zap is an outline
+          // and read as the palest thing on the strip beside a gold star and a
+          // gold medal; MaterialCommunityIcons' bolt is solid. The star and the
+          // badge are deliberately untouched.
+          <MaterialCommunityIcons
+            name="lightning-bolt"
+            size={21}
+            color="#FFD268"
+            style={styles.statGlyphRaised}
+          />
+        ) : (
+          <MaterialCommunityIcons
+            name={icon === 'star' ? 'star' : 'medal'}
+            size={23}
+            color={iconColor}
+            style={styles.statGlyphRaised}
+          />
+        )}
         </View>
+      </View>
+      <View style={styles.statValueBand}>
+      {loading ? (
+        <ActivityIndicator color="rgba(255,255,255,0.7)" />
       ) : (
         <StatValue value={value} />
       )}
@@ -1980,39 +2016,52 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     backgroundColor: 'rgba(255,255,255,0.22)',
   },
-  /** The pale ring, low and left, mostly outside the card. */
-  statsDecorLeft: {
-    position: 'absolute',
-    left: -38,
-    bottom: -50,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  /** The gold ring, high and right. */
-  statsDecorRight: {
-    position: 'absolute',
-    right: -65,
-    top: -50,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,196,72,0.12)',
-  },
   gradientStatCell: { flex: 1, alignItems: 'center' },
   gradientStatPress: { alignItems: 'center', alignSelf: 'stretch' },
   // The three fixed bands. Heights are set by the tallest possible occupant of
   // each row: a 26px kulhad, the 56px streak arc, and one line of label.
-  statIconBand: { height: 28, justifyContent: 'center', alignItems: 'center' },
+  // 34, NOT 28: the daily-progress ring now sits round the glyph rather than
+  // round the number, and the band has to hold it. The value band gives back
+  // four points so the card lands at 116, inside the 110 to 116 the owner
+  // asked for and only two more than it was.
+  statIconBand: {
+    height: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+  },
+  /** The 34 square the glyph and its ring share, centred in the cell. */
+  statIconStack: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  /** Lightning, star and badge are FONT glyphs, so a text shadow is what
+   *  raises them; a View shadow would need a wrapper each and would not
+   *  follow the glyph's own shape. Owner, 2026-09-05: "all three of those
+   *  should look like they are popping up with proper shadowing". */
+  statGlyphRaised: {
+    textShadowColor: 'rgba(28,16,80,0.45)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 3,
+  },
+  /** The flourishes along the card's foot. Absolutely positioned so they cost
+   *  the strip no height at all, and pointerEvents none so the Chai cell's
+   *  press area is untouched. */
+  statsAccentRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 3,
+    flexDirection: 'row',
+  },
+  statsAccentCell: { flex: 1, alignItems: 'center' },
   statValueBand: {
-    // 40, not 56. The value is 26pt on a 30pt line, so 56 was 26 points of dead
-    // air wrapped around it and the single biggest contributor to how thick this
-    // card reads. 40 gives the line 5 points of clearance top and bottom, which
-    // is plenty, and takes 16 points straight off the card's height.
-    height: 40,
+    // 36, was 40, was 56. The value is 29pt on a 32pt line, so this leaves two
+    // points of clearance each side and gives four back to the icon band, which
+    // now carries the streak ring.
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'stretch',
