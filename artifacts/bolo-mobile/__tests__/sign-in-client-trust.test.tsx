@@ -225,3 +225,51 @@ describe('needs_client_trust without an email_code second factor', () => {
     expect(reported.message).toContain('phone_code');
   });
 });
+
+// ─── the way back in, for a learner who cannot remember their password ──────
+
+/**
+ * THE ESCAPE EXISTED AND WAS UNLABELLED, which is the whole point of this pin.
+ *
+ * "Email me a sign-in code instead" has always run this handler, and it has
+ * always worked; a locked-out learner scanning for the words "forgot" and
+ * "password" simply never recognised it as recovery. These tests hold the
+ * label, and they hold the fact that it does the same thing, so nobody
+ * "tidies" one of the two away and quietly closes the only door out.
+ *
+ * It matters more on this fork than the others: India's Clerk instance runs
+ * min_length 0 with min_zxcvbn_strength 2, so a refused password has no length
+ * rule for the learner to reason about.
+ */
+describe('a locked-out learner can find the way back in', () => {
+  it('offers "Forgot your password?" on the credentials step', () => {
+    render(<SignInScreen />);
+    expect(screen.getByText('Forgot your password?')).toBeOnTheScreen();
+    // The passwordless entry point stays: it answers a DIFFERENT question,
+    // "I never had a password", which is every web sign-up.
+    expect(screen.getByText('Email me a sign-in code instead')).toBeOnTheScreen();
+  });
+
+  it('emails a code from it, rather than dead-ending', async () => {
+    mockSignIn.emailCode.sendCode.mockResolvedValue({});
+    render(<SignInScreen />);
+    fireEvent.changeText(
+      screen.getByPlaceholderText('you@example.com'),
+      'learner@example.com',
+    );
+    await act(async () => {
+      fireEvent.press(screen.getByText('Forgot your password?'));
+    });
+    expect(mockSignIn.emailCode.sendCode).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Enter your code')).toBeOnTheScreen();
+  });
+
+  it('says what to do first when there is no email yet, instead of nothing', async () => {
+    render(<SignInScreen />);
+    await act(async () => {
+      fireEvent.press(screen.getByText('Forgot your password?'));
+    });
+    expect(mockSignIn.emailCode.sendCode).not.toHaveBeenCalled();
+    expect(screen.getByText(/Enter your email above first/)).toBeOnTheScreen();
+  });
+});

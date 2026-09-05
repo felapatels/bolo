@@ -321,6 +321,38 @@ export default function SignInScreen() {
         error={fieldError(errors.fields.password)}
       />
 
+      {/* THE WORDS "FORGOT" AND "PASSWORD", WHICH THIS SCREEN DID NOT HAVE
+          (owner, 2026-09-05). The escape already existed and already worked:
+          "Email me a sign-in code instead", below the button, runs the very
+          same handler, and once in, account/password.tsx sets a new password.
+          What was missing was not the capability, it was the LABEL. A learner
+          who cannot get in scans for "forgot password" and does not read an
+          alternative sign-in method as recovery, so the door was invisible to
+          exactly the person who needed it.
+
+          TWO CONTROLS, ONE ACTION, AND THAT IS DELIBERATE. They answer
+          different questions: this one is "I am locked out", the one below is
+          "I never had a password", which is every web sign-up, since those are
+          passwordless. Collapsing them into one line would leave one of those
+          two learners reading a sentence that is not about them.
+
+          IT MATTERS MORE ON THIS FORK THAN THE OTHERS. India's Clerk instance
+          runs min_length 0 with min_zxcvbn_strength 2, so a refused password
+          has no length rule to reason about, and the client checklist knows
+          nothing about zxcvbn. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Forgot your password? Email yourself a sign-in code"
+        style={styles.forgotRow}
+        disabled={busy}
+        onPress={handleEmailCodeRequest}
+        testID="sign-in-forgot-password"
+      >
+        <Text style={[styles.forgotLink, { color: colors.secondary }]}>
+          Forgot your password?
+        </Text>
+      </Pressable>
+
       {formErrorLine ? (
         <Text
           accessibilityRole="alert"
@@ -408,5 +440,11 @@ const styles = StyleSheet.create({
   },
   footerText: { fontFamily: AppFonts.regular, fontSize: 15 },
   footerLink: { fontFamily: AppFonts.bold, fontSize: 15 },
+  /** Right under the password box, right aligned, the way every sign-in
+   *  screen puts it. Not disabled without an email: the handler already says
+   *  "Enter your email above first, then request a code", which teaches more
+   *  than a dead grey line does. */
+  forgotRow: { alignSelf: 'flex-end', paddingVertical: 6, paddingHorizontal: 2 },
+  forgotLink: { fontFamily: AppFonts.semibold, fontSize: 13 },
   inlineLink: { alignItems: 'center', marginTop: 14 },
 });
