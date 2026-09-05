@@ -67,6 +67,12 @@ import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { NamePromptCard } from '@/components/NamePromptCard';
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
+import { TrainSteam } from '@/components/journey/TrainSteam';
+
+/** How far the plume climbs, in points: from the locomotive's chimney on the
+ *  pass up to roughly the middle of the blue stats band, where the stats card
+ *  takes over in z-order and the last wisps disappear behind the numbers. */
+const STEAM_RISE = 300;
 import { DailyGiftCard } from '@/components/DailyGiftCard';
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import { ChaiGlyph, ChaiStallVignette } from '@/components/ChaiStall';
@@ -866,10 +872,26 @@ export default function HomeScreen() {
               Journey container creates a visual bridge between the modern app
               and the journey world." The board is inset inside it and no
               longer bleeds. */}
+          {/* THE TRAIN'S STEAM (owner, 2026-09-05). A SIBLING of the journey
+              frame, never a child: the frame and the pass inside it both clip,
+              and steam drawn in there is sliced off at the card's edge. It is
+              absolutely positioned over the frame's top-right, where the
+              locomotive sits, and its canvas runs far above the chimney so the
+              plume can climb out of the card entirely.
+              THE STATS BAND IS ABOVE IT IN Z-ORDER, which is the whole trick:
+              the last wisps travel BEHIND the numbers instead of over them,
+              and the screen reads as three planes rather than one. */}
+          <TrainSteam
+            enabled={!reduceMotion}
+            height={STEAM_RISE}
+            style={styles.steam}
+            testID="home-train-steam"
+          />
           <View
             testID="home-journey-frame"
             style={[
               styles.journeyFrame,
+              styles.journeyFrame_zLayer,
               { borderColor: BADGE.brassEdge, backgroundColor: colors.card },
             ]}
           >
@@ -1816,7 +1838,25 @@ const styles = StyleSheet.create({
   langNameTall: { lineHeight: 36 },
   // The stall band and the boarding pass read as one unit: platform, then
   // pass. Only enough gap that the pass looks like it is standing in front.
-  statsRowWrapper: { marginBottom: 18 },
+  // ABOVE THE STEAM (2026-09-05). The plume rises out of the journey card and
+  // must vanish BEHIND these numbers; without this it drifts over them.
+  statsRowWrapper: { marginBottom: 18, zIndex: 30 },
+  /** The steam's canvas: tall, narrow, and pinned over the locomotive at the
+   *  journey card's right edge. The chimney is at its FOOT, so `bottom` is
+   *  what places it and the height is how far the plume climbs. */
+  steam: {
+    position: 'absolute',
+    // MEASURED OFF THE SIMULATOR, not guessed twice. The locomotive's chimney
+    // sits about 34 points in from the card's right edge and about 300 up from
+    // the frame's foot; the first pass at right:58 put the whole plume left of
+    // the engine, over the dot rail.
+    right: 16,
+    bottom: 300,
+    width: 110,
+    height: STEAM_RISE,
+    zIndex: 20,
+  },
+  journeyFrame_zLayer: { zIndex: 10 },
   // Two cells now (Task #1081 pulled Day Streak out), so the group is worth
   // two shares of the row — Day Streak keeps its own one beside it and every
   // cell stays the width it was.
