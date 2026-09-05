@@ -172,6 +172,52 @@ const STREAK_LINES: ((days: number) => Line)[] = [
     title: `\u{1F99C} Day ${d + 1} is right there`,
     body: 'The train is at the platform. It will wait. It always waits.',
   }),
+  // ── THE FRIEND VOICE (owner, 2026-09-05: "like they are coming from a friend
+  //    who wants to hang", gen z and alpha register). Same job as the lines
+  //    above, different mouth: the streak is still the thing at stake, but it
+  //    is a mate texting about it rather than a narrator. Ten here, ten on day
+  //    two, twelve cold, so every state gets the new voice instead of only the
+  //    lapsed learner hearing it.
+  (d) => ({
+    title: `\u{1F99C} ${d} days and u leave me on read`,
+    body: 'brutal. two minutes and all is forgiven',
+  }),
+  (d) => ({
+    title: `\u{1F99C} the ${d} day streak is giving main character`,
+    body: 'dont let it flop today',
+  }),
+  (d) => ({
+    title: `\u{1F99C} not the ${d} day streak in danger`,
+    body: 'we are so back the second you open this',
+  }),
+  (d) => ({
+    title: `\u{1F99C} ur ${d} day streak told me youd come`,
+    body: 'dont make it a liar in front of everyone',
+  }),
+  (d) => ({
+    title: `\u{1F99C} ${d} days, zero skips`,
+    body: 'certified. keeping it that way is a two minute job',
+  }),
+  (d) => ({
+    title: `\u{1F99C} hiii ${d} day streak haver`,
+    body: 'wanna hang? bring your voice, thats the only ask',
+  }),
+  (d) => ({
+    title: `\u{1F99C} ${d} days deep`,
+    body: 'way too invested to fumble it now ngl',
+  }),
+  (d) => ({
+    title: `\u{1F99C} streak check: ${d}`,
+    body: 'this one is free. two minutes free',
+  }),
+  (d) => ({
+    title: `\u{1F99C} ${d} days. no notes`,
+    body: 'ok one note. today. thats the note',
+  }),
+  (d) => ({
+    title: `\u{1F99C} ok but ${d} days tho`,
+    body: 'thats actually insane. round it up?',
+  }),
 ];
 
 /** Day one done, day two pending: the cliff everybody falls off. */
@@ -187,6 +233,48 @@ const DAY_TWO_LINES: Line[] = [
   {
     title: '\u{1F99C} One day is a mood. Two is a habit.',
     body: 'Bolo is choosing to believe in the habit.',
+  },
+  // The friend voice, day two. This is the day everyone quits, so it is the
+  // day the tone matters most: interested, never disappointed.
+  {
+    title: '\u{1F99C} day two is the plot twist',
+    body: 'this is where everyone leaves. be so serious rn',
+  },
+  {
+    title: '\u{1F99C} u came back??',
+    body: 'ok hold on i wasnt ready. two minutes, lets go',
+  },
+  {
+    title: '\u{1F99C} two days is a bit',
+    body: 'three days is a lifestyle. im just putting that out there',
+  },
+  {
+    title: '\u{1F99C} day two hiii',
+    body: 'no agenda. ok slight agenda. its two minutes',
+  },
+  {
+    title: '\u{1F99C} back to back??',
+    body: 'the consistency is unmatched and its been one day',
+  },
+  {
+    title: '\u{1F99C} we move',
+    body: 'day two. lock in with me for two minutes',
+  },
+  {
+    title: '\u{1F99C} ok day two energy',
+    body: 'genuinely rooting for you. also im bored, come practise',
+  },
+  {
+    title: '\u{1F99C} yesterday was not a fluke right',
+    body: 'prove it to me. it takes two minutes',
+  },
+  {
+    title: '\u{1F99C} two in a row is crazy work',
+    body: 'and i mean that in the good way',
+  },
+  {
+    title: '\u{1F99C} day two, no thoughts',
+    body: 'just phrases. come say some out loud',
   },
 ];
 
@@ -211,6 +299,57 @@ const COLD_LINES: Line[] = [
   {
     title: '\u{1F99C} Two minutes',
     body: 'That is the whole pitch. Bolo workshopped it for hours.',
+  },
+  // The friend voice, no streak. NEVER a guilt trip: this learner has already
+  // stopped once, and a reminder that reads as a telling off is a reminder
+  // that gets notifications turned off for good.
+  {
+    title: '\u{1F99C} u up?',
+    body: 'bolo has been watching the door like a golden retriever',
+  },
+  {
+    title: '\u{1F99C} wyd',
+    body: 'because we could be doing two minutes of this rn',
+  },
+  {
+    title: '\u{1F99C} no pressure',
+    body: 'ok slight pressure. affectionate pressure',
+  },
+  {
+    title: '\u{1F99C} hiii',
+    body: 'wanna run it back? two minutes, thats the whole pitch',
+  },
+  {
+    title: '\u{1F99C} lowkey miss u',
+    body: 'highkey miss u. the chai is right here getting cold',
+  },
+  {
+    title: '\u{1F99C} not to be dramatic',
+    body: 'but the train has been idling for you specifically',
+  },
+  {
+    title: '\u{1F99C} free two minutes?',
+    body: 'genuinely thats it. i checked twice',
+  },
+  {
+    title: '\u{1F99C} pls',
+    body: 'thats the notification. that was the whole idea',
+  },
+  {
+    title: '\u{1F99C} come say one thing',
+    body: 'literally one phrase and you can leave. im normal about it',
+  },
+  {
+    title: '\u{1F99C} its giving abandoned parrot',
+    body: 'fixable though. very fixable. two minutes',
+  },
+  {
+    title: '\u{1F99C} bet you cant do two minutes',
+    body: 'thats it thats the reverse psychology. is it working',
+  },
+  {
+    title: '\u{1F99C} ok last one i promise',
+    body: 'lying. but come practise and we both win',
   },
 ];
 
