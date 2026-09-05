@@ -484,7 +484,20 @@ it to one step on 2026-08-24 and again on 2026-08-29 (build 20).
   screen that was not mounted while you edited it may still run the OLD
   code when you navigate to it**; the chooser's padding fix and the practice
   layout both looked unapplied until `simctl terminate` + `launch`. Relaunch
-  before concluding an edit did nothing. Two operational traps: **EAS goes bare-workflow if it sees
+  before concluding an edit did nothing.
+  (d) **A RELAUNCH IS NOT ALWAYS ENOUGH: METRO'S TRANSFORM CACHE CAN SERVE A
+  STALE COPY OF ONE FILE INDEFINITELY (2026-09-05).** A new video layer in
+  `ParchmentPass.tsx` was invisible across three full terminate-and-launch
+  cycles. The file was correct on disk and `tsc` compiled it; the running app
+  simply never had it. **The proof takes one command:** fetch the bundle Metro
+  is actually serving and grep it for a string only your edit contains.
+  `curl -s "http://localhost:<port>/.expo/.virtual-metro-entry.bundle?platform=ios&dev=true&minify=false" | grep -c YOUR_NEW_SYMBOL`
+  Zero means the cache, not your code, and `expo start --clear` fixes it. Note
+  the entry path: `/index.bundle` 404s here with an "Unable to resolve module
+  ./index" error that reads like a project fault rather than a wrong URL. **Do
+  this BEFORE debugging the change itself**, which is the hour this note exists
+  to save.
+  Two operational traps: **EAS goes bare-workflow if it sees
   `artifacts/bolo-mobile/ios`** (excluded in `.easignore`, which REPLACES
   .gitignore on EAS. **THAT FILE IS AT THE GIT ROOT, NOT IN
   artifacts/bolo-mobile**: two handoffs said it did not exist after looking in
