@@ -2586,7 +2586,15 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
            r.giftsClaimedToday > 0, "giftsToday") +
       tile(fmt(r.longestGiftRun), "Longest gift run",
            "Consecutive days, best of any learner. The Chai caps at seven.",
-           r.longestGiftRun > 0, "giftRuns");
+           r.longestGiftRun > 0, "giftRuns") +
+      /* THE PAYWALL'S FRONT DOOR (2026-09-04). Everybody in here has met a
+         locked card on a game they were playing, which is where the upgrade is
+         offered. WATCH IT AGAINST Paid: this climbing while Paid does not is
+         the offer failing, not the wall. A snapshot, because the taste is for
+         life; the journey's own runs never spend one. */
+      tile(fmt(r.tasteSpent), "Free taste used up",
+           "Learners who have spent all three hub plays of at least one free game.",
+           r.tasteSpent > 0, "tasteSpent");
 
     /* The chart. Two stacked bars a day: sign ups on top of active learners,
        so a spike in one is legible against the other without a second chart. */

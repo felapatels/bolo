@@ -44,6 +44,7 @@ import { sql } from "drizzle-orm";
 // The stop's own pass mark, read rather than typed in, so the Nest tile and
 // the screen a learner sees can never disagree about what passing means.
 import { LETTER_STOP_PASS } from "@workspace/script-trace";
+import { GAME_TASTE_PLAYS, TASTE_GAME_IDS } from "@workspace/game-taste";
 import { DRILL_METRICS } from "../lib/nestDrillMetrics";
 import { db } from "@workspace/db";
 import type { AuthedRequest } from "../middlewares/requireAuth";
@@ -748,6 +749,26 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
       where l.reason = 'earn_streak_day'
         and l.ref_id = to_char(now() at time zone 'utc', 'YYYY-MM-DD')
       ${notOwner("l.user_id")}`;
+  } else if (metric === "tasteSpent") {
+    // HOW MANY GAMES THIS LEARNER HAS USED UP, not how many plays. Grouped
+    // twice on purpose: the inner query counts hub plays per game, the outer
+    // keeps only the games at or past the limit and counts THEM. The taste is
+    // per game, so one learner can be three plays into six different games and
+    // have used nothing up.
+    //
+    // The two filters are the ones the wall itself uses, and they must not
+    // drift from lib/gameTasteCounts.ts: only the tasted ids, and only hub
+    // plays (a null context is a hub launch, which is what mobile sends).
+    selector = sql`select user_id, count(*)::int from (
+        select g.user_id, g.game, count(*)::int as plays
+        from game_sessions g
+        where g.game in (${sql.join(TASTE_GAME_IDS.map((id) => sql`${id}`), sql`, `)})
+          and (g.context is null or g.context = 'hub')
+        ${notOwner("g.user_id")}
+        group by 1, 2
+      ) per_game
+      where plays >= ${GAME_TASTE_PLAYS}
+      group by 1`;
   } else if (metric === "giftRuns") {
     // The same gaps-and-islands the tile counts, kept per learner rather than
     // maxed, so the panel ranks people by their own longest run. The regex
@@ -1330,10 +1351,26 @@ router.get("/nest/map", async (req: Request, res: Response): Promise<void> => {
  *
  * NO POSTHOG. Every number here is in this database already, and reading it
  * directly removes the whole reason the Numbers card said "open PostHog": a
- * server-side proxy route plus a key with read access to all analytics. The
- * one thing PostHog would add is PAGEVIEWS, and this project captures none
- * ($pageview and $screen both unseen in 30 days), so the detour would buy a
- * metric that does not exist.
+ * server-side proxy route plus a key with read access to all analytics.
+ *
+ * THE SECOND HALF OF THIS PARAGRAPH WAS WRONG AND IS CORRECTED HERE
+ * (2026-09-04). It said the one thing PostHog would add is pageviews, that
+ * this project captures none, and that the detour would therefore buy a
+ * metric that does not exist. The first clause is right: `$pageview` and
+ * `$screen` really are unseen, because analytics.ts sets `autocapture: false`
+ * and `capture_pageview: false` on purpose. But the conclusion does not
+ * follow. `homepage_view` fires on the landing page's mount and is a real
+ * visitor count under a different name: measured across 30 days it runs from
+ * 2 to 139 a day, 12 on 2026-09-04 and 52 on 2026-09-01. So a VISITORS tile
+ * is buildable, and the only thing standing in its way is the key, not the
+ * data. `per_language_page_view` is the same for /languages/<slug>.
+ *
+ * THE TWO STORE LISTINGS ARE A DIFFERENT ANSWER: neither App Store nor Play
+ * listing views can be reached from here at all. Apple's are in the App Store
+ * Connect Analytics reports, behind an issuer id, a key id and a .p8; Google's
+ * are not in the Play Developer API at all, they are CSVs in a Cloud Storage
+ * bucket behind a service account. Each is a credential the owner has to mint
+ * and an integration to write, and neither is a line of SQL.
  *
  * TWO KINDS OF NUMBER LIVE HERE AND THEY MUST NOT BE READ THE SAME WAY.
  *
@@ -1389,6 +1426,16 @@ type NestRange = {
    * disagree about what passing means.
    */
   letterDrillsPassed: number;
+  /**
+   * Learners who have used up the free taste on at least one game.
+   *
+   * THE PAYWALL'S FRONT DOOR since 2026-09-04. Everybody counted here has met
+   * a locked card on a game they were playing, which is where the upgrade is
+   * offered; this number climbing while Paid does not is the offer failing,
+   * not the wall. Counted per LEARNER, not per game: one learner who has spent
+   * three games is one. Not windowed, because the taste is for life.
+   */
+  tasteSpent: number;
   // ── SNAPSHOT: the users table as it stands right now ──
   usersTotal: number;
   paidTotal: number;
@@ -1533,6 +1580,20 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
           ) islands
           group by user_id, grp
         ) runs), 0)::int                                             as longest_gift_run,
+        -- THE PAYWALL'S FRONT DOOR (2026-09-04): learners who have spent all
+        -- three hub plays of at least one game that was free. Not windowed,
+        -- because the taste is for life. The two filters are the wall's own and
+        -- must not drift from lib/gameTasteCounts.ts: tasted ids only, hub
+        -- plays only, since a signal or a closeout run never spends a taste.
+        (select count(*) from (
+          select g.user_id, g.game
+          from game_sessions g
+          where g.game in (${sql.join(TASTE_GAME_IDS.map((id) => sql`${id}`), sql`, `)})
+            and (g.context is null or g.context = 'hub')
+          ${notOwner("g.user_id")}
+          group by 1, 2
+          having count(*) >= ${GAME_TASTE_PLAYS}
+        ) spent)::int                                                as taste_spent,
         -- SNAPSHOTS. Deliberately unfiltered by the window: see the type above.
         (select count(*) from users where true ${notOwner("id")})::int as users_total,
         (select count(*) from users
@@ -1599,6 +1660,7 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
       gameSessions: n("game_sessions"),
       chatTurns: n("chat_turns"),
       letterDrillsPassed: n("letter_drills_passed"),
+      tasteSpent: n("taste_spent"),
       giftsClaimedToday: n("gifts_claimed_today"),
       longestGiftRun: n("longest_gift_run"),
       usersTotal: n("users_total"),

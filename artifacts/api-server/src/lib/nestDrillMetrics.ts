@@ -119,6 +119,20 @@ export const DRILL_METRICS: Record<
       "hours at the edges.",
     windowed: false,
   },
+  tasteSpent: {
+    label: "Free taste used up",
+    note:
+      "Learners who have spent all three HUB plays of at least one game that " +
+      "was free before the 2026-09-04 ruling, ranked by how many games they " +
+      "have used up. THIS IS THE PAYWALL'S FRONT DOOR: everybody here has met " +
+      "a locked card on a game they were playing, which is the moment the " +
+      "upgrade is offered, so a number that climbs without Paid climbing is " +
+      "the offer failing rather than the wall failing. The journey's own runs " +
+      "are excluded, because a trackside signal and a zone closeout never " +
+      "spend a taste. NOT WINDOWED: the taste is for life, so 'how many did " +
+      "they use up last week' is not a question with an answer.",
+    windowed: false,
+  },
   giftRuns: {
     label: "Longest gift runs",
     note:
