@@ -45,6 +45,8 @@ jest.mock('@workspace/api-client-react', () => ({
   useRecordGameSession: () => ({ mutate: mockState.recordMutate }),
   getGetProgressSummaryQueryKey: () => ['progress'],
   getGetTokensQueryKey: () => ['tokens'],
+  // The hub's free-taste count, refreshed after a hub run (2026-09-04).
+  getGetGamePlaysQueryKey: () => ['game-plays'],
 }));
 
 jest.mock('@tanstack/react-query', () => ({
@@ -419,9 +421,15 @@ describe('parseQuickLaunch', () => {
 // ─── Roster ──────────────────────────────────────────────────────────────────
 
 describe('quick-game roster', () => {
-  test('every game rides a server game id the server actually accepts', () => {
+  test('every game records under ITS OWN id, which the server now accepts', () => {
+    // INVERTED 2026-09-04. This read `toContain(['listen-and-pick',
+    // 'word-match'])`, because the server's enum was closed at four and every
+    // quick game rode one of those two. That is exactly what made a Ticket
+    // Check row indistinguishable from a Listen & Pick row, made per-game
+    // reporting wrong for five games, and left the free taste with nothing to
+    // count. The enum was widened; the identity is now the assertion.
     for (const g of QUICK_GAMES) {
-      expect(['listen-and-pick', 'word-match']).toContain(g.serverGame);
+      expect(g.serverGame).toBe(g.id);
       expect(g.floor).toBeGreaterThan(0);
     }
   });
@@ -916,7 +924,12 @@ describe('posted launch context', () => {
       'languageCode',
       'phraseResults',
     ]);
-    expect(payload.game).toBe('listen-and-pick');
+    // INVERTED 2026-09-04: the shell posts the GAME'S OWN id now. It used to
+    // post 'listen-and-pick', which is what made every free quick-game play
+    // land under an All-Access game's name. The absence of a context key above
+    // is the other half of the free taste: a hub launch sends nothing, and the
+    // server reads that null as the hub play it counts.
+    expect(payload.game).toBe('ticket-check');
     expect(payload.categoryId).toBe(1);
     expect(payload.languageCode).toBe('gu');
   });

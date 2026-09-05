@@ -47,6 +47,7 @@ import {
   useListCategoryPhrases,
   getListCategoryPhrasesQueryKey,
   useRecordGameSession,
+  getGetGamePlaysQueryKey,
   getGetProgressSummaryQueryKey,
   getGetTokensQueryKey,
   type Phrase,
@@ -452,6 +453,18 @@ export function QuickGameShell({
             queryClient.invalidateQueries({
               queryKey: getGetProgressSummaryQueryKey({ lang: activeLang }),
             });
+            // THE HUB'S COUNT JUST MOVED, if this was a hub run (2026-09-04).
+            // Without this the learner walks back to a card still promising
+            // three free plays after spending one, and the number only tells
+            // the truth again after a cold start. Only a hub launch spends the
+            // taste, so only a hub launch refetches it; the journey's contexts
+            // are exempt and would be refetching for nothing. A hub launch on
+            // this platform carries NO context at all (QuickLaunchContext is
+            // signal or closeout, never 'hub'), which is the null the server
+            // reads as a hub play.
+            if (!launch.context) {
+              queryClient.invalidateQueries({ queryKey: getGetGamePlaysQueryKey() });
+            }
             const chai = data.chaiGranted ?? 0;
             if (chai > 0) {
               setChaiEarned(chai);

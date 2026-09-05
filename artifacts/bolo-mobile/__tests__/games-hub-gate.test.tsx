@@ -51,6 +51,13 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
   useEntitlements: () => mockState.entitlements,
 }));
 
+// THE HUB READS THE FREE TASTE (2026-09-04): three hub plays of each game that
+// was free, then the card locks. `undefined` data is the pre-load state and
+// must leave every card open, which is what most of the cases below run on.
+jest.mock('@workspace/api-client-react', () => ({
+  useGetGamePlays: () => ({ data: mockState.gamePlays }),
+}));
+
 jest.mock('@/components/Screen', () => {
   const React = require('react');
   const { View } = require('react-native');
@@ -111,6 +118,7 @@ import GamesScreen from '@/app/(app)/(tabs)/games/index';
 beforeEach(() => {
   mockPush.mockClear();
   mockState.entitlements = { isPlus: false, isLoading: false };
+  mockState.gamePlays = undefined;
 });
 
 describe('games hub - Plus tiles fail closed', () => {
@@ -158,6 +166,58 @@ describe('games hub - Plus tiles fail closed', () => {
     render(<GamesScreen />);
 
     fireEvent.press(screen.getByText('Word Match'));
+    expect(mockPush).toHaveBeenCalledWith('/(app)/paywall');
+  });
+});
+
+describe('games hub - the free taste', () => {
+  // THE OWNER'S RULING, 2026-09-04: the games that were free become three
+  // plays and then the paywall; the All-Access ones do not move.
+  const played = (n: number) => ({ limit: 3, plays: { 'ticket-check': n } });
+
+  it('says how many plays are left, in words rather than in a colour', () => {
+    // The pill keeps its green throughout. A learner who cannot see the hue
+    // still reads the state, which is why the count is on the pill's text.
+    mockState.gamePlays = played(1);
+    render(<GamesScreen />);
+    expect(screen.getByText('2 free plays left')).toBeTruthy();
+  });
+
+  it('locks the card once the third play is spent, and offers the upgrade', () => {
+    mockState.gamePlays = played(3);
+    render(<GamesScreen />);
+    expect(screen.getByText('Free taste used')).toBeTruthy();
+    fireEvent.press(screen.getByText('Ticket Check'));
+    expect(mockPush).toHaveBeenCalledWith('/(app)/paywall');
+  });
+
+  it('leaves the card open while the count is still loading', () => {
+    // FAILS OPEN ON PURPOSE. The server refuses the record past three whatever
+    // this says, so the worst a slow network costs is one refused run; failing
+    // closed would draw a lock over a game the learner still has plays on.
+    mockState.gamePlays = undefined;
+    render(<GamesScreen />);
+    fireEvent.press(screen.getByText('Ticket Check'));
+    expect(mockPush).toHaveBeenCalledWith('/(app)/(tabs)/games/ticket-check');
+  });
+
+  it('never counts down at an entitled learner', () => {
+    // Plus has no ceiling, and a number ticking down at somebody who has paid
+    // to remove it is worse than no number at all.
+    mockState.entitlements = { isPlus: true, isLoading: false };
+    mockState.gamePlays = played(3);
+    render(<GamesScreen />);
+    expect(screen.queryByText('Free taste used')).toBeNull();
+    fireEvent.press(screen.getByText('Ticket Check'));
+    expect(mockPush).toHaveBeenCalledWith('/(app)/(tabs)/games/ticket-check');
+  });
+
+  it('leaves an All-Access game exactly as it was: a lock, not a taste', () => {
+    // The other half of the ruling. Wrong Platform 2 is not in the taste, so
+    // no count is drawn on it and no count can open it.
+    mockState.gamePlays = { limit: 3, plays: {} };
+    render(<GamesScreen />);
+    fireEvent.press(screen.getByText('Wrong Platform 2'));
     expect(mockPush).toHaveBeenCalledWith('/(app)/paywall');
   });
 });

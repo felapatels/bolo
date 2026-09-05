@@ -5,13 +5,14 @@
 // with the shell so the games can land against a fixed contract instead of
 // each one re-deciding its own floor, title and server mapping.
 //
-// The server's game id enum is CLOSED (speed-round, phrase-builder,
-// word-match, listen-and-pick). Quick games therefore have no server id of
-// their own: each one rides an existing id whose correctness model it
-// matches, via `serverGame`.
-//   Model A (selection): correct when selectedPhraseId === phraseId
-//                        → rides "listen-and-pick"
-//   Model B (pairs):     the matching game → rides "word-match"
+// EVERY QUICK GAME RECORDS UNDER ITS OWN ID since 2026-09-04. The server's
+// enum used to be closed at four and each quick game rode "listen-and-pick"
+// or "word-match", so a Ticket Check play was recorded as a Listen & Pick:
+// per-game reporting was wrong for five games, and the free taste's count
+// could not be derived at all. The enum was widened, and `serverGame` is now
+// the game's own id. THE SCORING MODEL IS UNCHANGED: every quick game here is
+// Model A (correct when selectedPhraseId === phraseId), which is what both
+// ids it used to ride already did.
 // Ids, titles, floors and serverGame values are kept identical to the web
 // roster so a signal offering "Ticket Check" means the same game and the same
 // scoring on both platforms.
@@ -37,8 +38,8 @@ export type QuickGameDef = {
   icon: keyof typeof Feather.glyphMap;
   /** Minimum plan-visible phrases the category needs for this game. */
   floor: number;
-  /** The frozen server game id this quick game rides for scoring. */
-  serverGame: 'listen-and-pick' | 'word-match';
+  /** The id this game records under. Its own since 2026-09-04. */
+  serverGame: QuickGameId;
   /**
    * All-Access only. Kept OUT of the trackside signal rotation: a signal is a
    * free-visible encounter offered mid-journey, and offering a locked game
@@ -64,7 +65,7 @@ export const QUICK_GAMES: readonly QuickGameDef[] = [
     difficulty: 'Easy',
     icon: 'check-square',
     floor: 4,
-    serverGame: 'listen-and-pick',
+    serverGame: 'ticket-check',
     route: '/games/ticket-check',
   },
   {
@@ -74,7 +75,7 @@ export const QUICK_GAMES: readonly QuickGameDef[] = [
     difficulty: 'Medium',
     icon: 'alert-triangle',
     floor: 3,
-    serverGame: 'listen-and-pick',
+    serverGame: 'wrong-platform',
     route: '/games/wrong-platform',
   },
   {
@@ -92,7 +93,7 @@ export const QUICK_GAMES: readonly QuickGameDef[] = [
     difficulty: 'Hard',
     icon: 'alert-triangle',
     floor: 5,
-    serverGame: 'listen-and-pick',
+    serverGame: 'wrong-platform-2',
     route: '/games/wrong-platform-2',
     plusOnly: true,
   },
@@ -103,7 +104,7 @@ export const QUICK_GAMES: readonly QuickGameDef[] = [
     difficulty: 'Easy',
     icon: 'briefcase',
     floor: 4,
-    serverGame: 'word-match',
+    serverGame: 'luggage-match',
     route: '/games/luggage-match',
   },
   {
@@ -113,7 +114,7 @@ export const QUICK_GAMES: readonly QuickGameDef[] = [
     difficulty: 'Medium',
     icon: 'radio',
     floor: 2,
-    serverGame: 'listen-and-pick',
+    serverGame: 'signal-lights',
     route: '/games/signal-lights',
   },
 ] as const;

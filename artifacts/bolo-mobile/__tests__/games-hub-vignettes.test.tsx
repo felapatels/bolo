@@ -51,6 +51,12 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
   useEntitlements: () => mockState.entitlements,
 }));
 
+// The hub reads the free taste (2026-09-04). Undefined is the pre-load state,
+// which leaves every card open; this suite is about vignettes, not gating.
+jest.mock('@workspace/api-client-react', () => ({
+  useGetGamePlays: () => ({ data: undefined }),
+}));
+
 jest.mock('@/components/Screen', () => {
   const React = require('react');
   const { View } = require('react-native');

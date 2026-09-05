@@ -50,6 +50,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeInsets } from '@/lib/useSafeInsets';
 import { useAppearSkip } from '@/lib/entrance';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
+import { useGetGamePlays } from '@workspace/api-client-react';
+import { gameTasteLabel, gameTasteState, isTasteGame } from '@workspace/game-taste';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -450,9 +452,43 @@ export default function GamesScreen() {
   const heroH = HERO_H + insets.top;
   const heroWordsTop = insets.top + 52;
   const { isPlus, isLoading: entitlementsLoading } = useEntitlements();
+  // THE FREE TASTE (owner ruling, 2026-09-04): three hub plays of each game
+  // that was free, then the card locks. GET /games/plays is the read; the
+  // count is only ever spent by a HUB launch, so a learner who meets these
+  // games on the journey never sees this number move.
+  const { data: gamePlays } = useGetGamePlays();
   // Fail closed: while entitlements are loading (or undefined), Plus-only
   // tiles render locked rather than briefly unlocked.
   const plusReady = isPlus === true && !entitlementsLoading;
+  /**
+   * What this card's taste says, or null when it has nothing to say.
+   *
+   * Null on three counts, and each of them is a card that must read exactly as
+   * it did yesterday: an entitled learner (no ceiling, and never a number
+   * counting down at them), a game that was already All-Access (a lock, not a
+   * taste), and the moment before the count has loaded. That last one leaves
+   * the card OPEN on purpose. The server refuses the record past three
+   * whatever this says, so failing open here costs a learner one refused run
+   * at worst, while failing closed would draw a lock over a game they still
+   * have plays on every time the network is slow.
+   */
+  const taste = (id: string) => {
+    if (isPlus === true || !isTasteGame(id) || !gamePlays) return null;
+    return gameTasteState({
+      plusOnly: false,
+      isPlus: false,
+      playsUsed: gamePlays.plays[id] ?? 0,
+    });
+  };
+  /** The line under the pill, from the pure package so all three surfaces
+   *  word it the same way. Null when this card has nothing to say. */
+  const tasteLabel = (id: string) => {
+    const t = taste(id);
+    return t ? gameTasteLabel(t) : null;
+  };
+  /** The card is shut: an All-Access game without Plus, or a spent taste. */
+  const isLocked = (game: GameDef) =>
+    (game.plusOnly && !plusReady) || taste(game.id)?.playable === false;
   const { activeLang, activeLanguage } = useLanguage();
   const line = getJourneyLine(activeLang);
   // The learner's current city for the hero's "Hindi · New Delhi" line: the
@@ -503,8 +539,10 @@ export default function GamesScreen() {
   const viewabilityConfig = React.useRef({ itemVisiblePercentThreshold: 5 }).current;
 
   const handleGamePress = (game: GameDef) => {
-    if (game.plusOnly && !plusReady) {
-      // Locked cards route to the paywall and skip the step-in.
+    if (isLocked(game)) {
+      // Locked cards route to the paywall and skip the step-in. A game whose
+      // free taste is spent locks the same way (2026-09-04): the learner has
+      // had the game, and what is on the other side of the tap is the offer.
       router.push('/(app)/paywall');
       return;
     }
@@ -640,7 +678,7 @@ export default function GamesScreen() {
           <SectionEyebrow>Continue playing</SectionEyebrow>
           <ContinueCard
             game={continueGame}
-            locked={continueGame.plusOnly && !plusReady}
+            locked={isLocked(continueGame)}
             onPress={() => handleGamePress(continueGame)}
           />
         </View>
@@ -674,7 +712,8 @@ export default function GamesScreen() {
             game={item}
             index={index}
             cardW={cardW}
-            locked={item.plusOnly && !plusReady}
+            locked={isLocked(item)}
+            tasteLabel={tasteLabel(item.id)}
             entered={enteredId === item.id}
             visible={visibleIds ? visibleIds.has(item.id) : true}
             skipEnter={skipEnter}
@@ -697,13 +736,20 @@ function SectionEyebrow({ children }: { children: string }) {
   );
 }
 
-/** The access badge: FREE in green, ALL-ACCESS in gold with its star. */
-function AccessPill({ plusOnly }: { plusOnly: boolean }) {
+/**
+ * The access badge: FREE in green, ALL-ACCESS in gold with its star.
+ *
+ * A card under the free taste (2026-09-04) says how many plays are left
+ * instead of a bare FREE, and says it in WORDS rather than by going a
+ * different colour: the pill keeps its green either way, so the state is
+ * readable without seeing the hue.
+ */
+function AccessPill({ plusOnly, tasteLabel }: { plusOnly: boolean; tasteLabel: string | null }) {
   return (
     <View style={[styles.pill, plusOnly ? styles.pillAllAccess : styles.pillFree]}>
       {plusOnly && <Feather name="star" size={10} color="#4A2C00" />}
       <Text style={[styles.pillText, { color: plusOnly ? '#4A2C00' : '#FFFFFF' }]}>
-        {plusOnly ? 'All-Access' : 'Free'}
+        {plusOnly ? 'All-Access' : (tasteLabel ?? 'Free')}
       </Text>
     </View>
   );
@@ -780,6 +826,7 @@ function GameCardTile({
   index,
   cardW,
   locked,
+  tasteLabel,
   entered,
   visible,
   skipEnter,
@@ -790,6 +837,8 @@ function GameCardTile({
   index: number;
   cardW: number;
   locked: boolean;
+  /** What the free taste has to say about this card, or null if nothing. */
+  tasteLabel: string | null;
   entered: boolean;
   visible: boolean;
   skipEnter: boolean;
@@ -847,7 +896,15 @@ function GameCardTile({
         }}
         accessibilityRole="button"
         accessibilityLabel={
-          locked ? `${game.title}, All-Access game, locked` : game.title
+          // TWO DIFFERENT LOCKS AND THEY MUST NOT SOUND THE SAME. One says the
+          // game was never yours; the other says you have had it three times.
+          // A learner using VoiceOver gets the same distinction the pill gives
+          // everyone else.
+          locked
+            ? game.plusOnly
+              ? `${game.title}, All-Access game, locked`
+              : `${game.title}, free taste used, locked`
+            : game.title
         }
         style={[
           styles.card,
@@ -876,7 +933,7 @@ function GameCardTile({
           )}
           {locked && <View style={styles.pictureDim} />}
           <View style={styles.badgeCorner}>
-            <AccessPill plusOnly={game.plusOnly} />
+            <AccessPill plusOnly={game.plusOnly} tasteLabel={tasteLabel} />
           </View>
           {/* The vignette medallion, overlapping the picture's foot: the
               same looping preview as before, on its cream disc, now a
