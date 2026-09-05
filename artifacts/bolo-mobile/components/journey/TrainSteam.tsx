@@ -127,17 +127,27 @@ function Puff({
       // start", "hit the blue stats bar"). It leaves the chimney at nearly
       // full strength over a very short ramp, holds, and only lets go in the
       // last fifth, which is where the stats card is already covering it.
+      // IT HOLDS ALMOST ALL THE WAY (owner, 2026-09-05). It used to start
+      // letting go at 0.8, so it was already thin by the time it arrived; now
+      // it keeps its weight until 0.9, which is where the stats card is
+      // covering it anyway, so the eye sees it MEET the band rather than
+      // evaporate below it.
       opacity:
-        p < 0.04
-          ? (p / 0.04) * 0.95
-          : p > 0.8
-            ? Math.max(0, (1 - (p - 0.8) / 0.2) * 0.95)
-            : 0.95 - (p - 0.04) * 0.22,
+        p < 0.03
+          ? (p / 0.03) * 0.98
+          : p > 0.9
+            ? Math.max(0, (1 - (p - 0.9) / 0.1) * 0.98)
+            : 0.98 - (p - 0.03) * 0.1,
       transform: [
         { translateY: -rise * p },
         { translateX: lean + Math.sin(p * Math.PI * 2) * drift },
-        // Small and dense at the stack, wide and thin by the band.
-        { scale: 0.28 + p * 1.75 },
+        // DENSE AT THE TIP, THEN SPREADING (owner: "much more dense at the tip
+        // coming out then spreading out a little"). Quadratic, not linear: a
+        // linear ramp is already half open a quarter of the way up, which
+        // reads as a cloud sitting on the funnel. Squared, it stays tight
+        // through the first third and only opens once it is clear of the
+        // engine.
+        { scale: 0.16 + p * p * 2.1 },
       ],
     };
   });

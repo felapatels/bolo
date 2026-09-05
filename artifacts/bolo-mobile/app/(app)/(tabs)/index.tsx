@@ -72,7 +72,7 @@ import { TrainSteam } from '@/components/journey/TrainSteam';
 /** How far the plume climbs, in points: from the locomotive's chimney on the
  *  pass up to roughly the middle of the blue stats band, where the stats card
  *  takes over in z-order and the last wisps disappear behind the numbers. */
-const STEAM_RISE = 380;
+const STEAM_RISE = 240;
 import { DailyGiftCard } from '@/components/DailyGiftCard';
 import { ChaiWalletSheet } from '@/components/ChaiWallet';
 import { ChaiGlyph, ChaiStallVignette } from '@/components/ChaiStall';
@@ -881,6 +881,10 @@ export default function HomeScreen() {
               THE STATS BAND IS ABOVE IT IN Z-ORDER, which is the whole trick:
               the last wisps travel BEHIND the numbers instead of over them,
               and the screen reads as three planes rather than one. */}
+          <View
+            style={styles.journeyWrap}
+
+          >
           <TrainSteam
             enabled={!reduceMotion}
             height={STEAM_RISE}
@@ -891,7 +895,6 @@ export default function HomeScreen() {
             testID="home-journey-frame"
             style={[
               styles.journeyFrame,
-              styles.journeyFrame_zLayer,
               { borderColor: BADGE.brassEdge, backgroundColor: colors.card },
             ]}
           >
@@ -943,6 +946,7 @@ export default function HomeScreen() {
               onPress={() => router.push('/(app)/journey' as Parameters<typeof router.push>[0])}
               goldPalette={goldPalette}
             />
+          </View>
           </View>
           {/* Chai treatment tier 1 (web parity): Chacha-ji's stall, full width
               at its natural aspect, directly below the pass — the platform the
@@ -1703,6 +1707,16 @@ const styles = StyleSheet.create({
     // Island phone is ~62pt. Another 8 on top of that read as a dead band
     // above the greeting.
     marginTop: 0,
+    // BUT HIS HAT NEEDS THE ROOM (owner, 2026-09-05: the turban's tip was
+    // clipped at the top of his bounce). Mascot floats -8 and mascotDrop puts
+    // him back 6, so his apex is 2 above rest; the row is 84 tall because HE
+    // is, and centred that leaves his crown flush with the row's edge. Ten
+    // points of PADDING, not margin, so only the mascot gains the clearance
+    // and the greeting text does not move down with him. Letting him draw over
+    // the status strip is not on offer: this content sits inside Screen's
+    // safe-area inset, so anything above that line is clipped by the inset
+    // rather than by any style here.
+    paddingTop: 10,
     marginBottom: 18,
   },
   // Purely visual: transform, so the row's layout and the settings button are
@@ -1854,13 +1868,28 @@ const styles = StyleSheet.create({
     // y 544pt on a 440pt phone; the plume was starting 22 points BELOW it,
     // which is the "coming from under the train" the owner saw. bottom is
     // raised by exactly that.
-    right: 34,
-    bottom: 328,
+    // MEASURED AGAIN, TWICE NOW. The stack tip reads at x 379pt, y 544pt on a
+    // 440pt phone. At right:34 bottom:328 the plume's foot measured y 566 to
+    // 583 and its centre x 356: still starting BELOW the engine and to its
+    // left. These numbers are that correction, and the remaining leftward
+    // offset in the plume is the deliberate lean, not a misplacement.
+    // MEASURED, NOT GUESSED, and the measuring is why these numbers can be
+    // trusted. The wrapper reported screenY 398 and height 363, so its foot is
+    // at 761; the locomotive's stack tip photographs at y 604, x 382 on a 440
+    // point phone. 761 - 604 = 157. Anchoring to THIS wrapper rather than to
+    // the scroll content is the fix: `bottom` against the scroll content was
+    // measured from a box hundreds of points below the fold, so every value
+    // moved the plume by an unpredictable amount.
+    right: -3,
+    bottom: 157,
     width: 56,
     height: STEAM_RISE,
     zIndex: 20,
   },
-  journeyFrame_zLayer: { zIndex: 10 },
+  /** The box the steam is positioned against. Everything inside it, the frame
+   *  and the plume alike, sits BELOW the stats band's zIndex 30, which is what
+   *  makes the last wisps pass behind the numbers. */
+  journeyWrap: { position: 'relative', zIndex: 10 },
   // Two cells now (Task #1081 pulled Day Streak out), so the group is worth
   // two shares of the row — Day Streak keeps its own one beside it and every
   // cell stays the width it was.
