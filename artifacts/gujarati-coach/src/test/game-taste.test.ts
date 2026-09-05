@@ -4,6 +4,7 @@ import {
   TASTE_GAME_IDS,
   gameTasteLabel,
   gameTasteState,
+  isHubPlay,
   isTasteGame,
 } from "@workspace/game-taste";
 
@@ -88,12 +89,19 @@ describe("the line under the card", () => {
 });
 
 describe("which games are a taste", () => {
-  it("is exactly the five that were free before the ruling", () => {
+  it("is exactly the games that were free before the ruling, on EITHER hub", () => {
     // Named one by one rather than counted: a count passes when one game is
     // swapped for another, and getting this list wrong either paywalls a game
     // that was free or gives away one that was paid.
+    //
+    // SIX, NOT FIVE, and the sixth is why this assertion is written out. The
+    // first version of this list was read off the mobile hub and stopped at
+    // five; express-listening is free on the WEB hub and has no phone card at
+    // all, so it was invisible from there. A list of "the free games" that is
+    // built from one of two hubs is half a list.
     expect([...TASTE_GAME_IDS].sort()).toEqual([
       "chacha-call",
+      "express-listening",
       "luggage-match",
       "signal-lights",
       "ticket-check",
@@ -112,5 +120,24 @@ describe("which games are a taste", () => {
   it("says no to a game it has never heard of", () => {
     expect(isTasteGame("letter-match")).toBe(false);
     expect(isTasteGame("")).toBe(false);
+  });
+});
+
+describe("which runs the taste can see", () => {
+  // THE RULING MEANS THREE PLAYS YOU WENT LOOKING FOR. A trackside signal and
+  // a zone closeout are the journey's own mechanic, each carrying a once-ever
+  // Chai grant, and a learner meets them because the map put them there.
+  it("counts a hub play, and a launch that names no context at all", () => {
+    expect(isHubPlay("hub")).toBe(true);
+    expect(isHubPlay(undefined)).toBe(true);
+    expect(isHubPlay(null)).toBe(true);
+    expect(isHubPlay("")).toBe(true);
+  });
+
+  it("exempts the journey's own runs, so a crossing is never stranded", () => {
+    // Refusing one of these would break the line mid-journey, on the free tier
+    // the map exists to serve, and would spend a taste on a game nobody chose.
+    expect(isHubPlay("signal")).toBe(false);
+    expect(isHubPlay("closeout")).toBe(false);
   });
 });

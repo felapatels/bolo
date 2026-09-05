@@ -105,6 +105,12 @@ export const TASTE_GAME_IDS = [
   "signal-lights",
   "ticket-check",
   "wrong-platform",
+  // WEB ONLY, AND IT WAS ALMOST MISSED. This list was written off the mobile
+  // hub, where the free games are exactly the other five; the web hub carries
+  // a sixth free card the phone has never had. Leaving it out would have left
+  // one free game unwalled on the surface the ruling was given about, so the
+  // ruling's own words settle it: "the ones we have Free right now".
+  "express-listening",
 ] as const;
 
 export type TasteGameId = (typeof TASTE_GAME_IDS)[number];
@@ -112,4 +118,25 @@ export type TasteGameId = (typeof TASTE_GAME_IDS)[number];
 /** Whether this game id is one the free taste applies to. */
 export function isTasteGame(gameId: string): gameId is TasteGameId {
   return (TASTE_GAME_IDS as readonly string[]).includes(gameId);
+}
+
+/**
+ * WHETHER THIS RUN IS A HUB PLAY, and therefore whether the taste sees it.
+ *
+ * A run carries where it was launched from: nothing (or "hub") from the games
+ * hub, "signal" from a trackside encounter, "closeout" from the end of a zone.
+ * ONLY THE HUB PLAYS ARE COUNTED, AND ONLY THEY ARE EVER REFUSED.
+ *
+ * The journey's two contexts are the journey's own mechanic, each with a
+ * once-ever Chai grant attached, and a learner meets them because the map put
+ * them there rather than because they chose the game. Refusing one would
+ * strand the crossing that the run pays for, in the middle of the line, on the
+ * free tier the map exists to serve. Counting one would spend a learner's
+ * taste on a game they never asked to play.
+ *
+ * This is the rule that turns the taste from "three plays of this game" into
+ * "three plays you went looking for", which is the one the ruling means.
+ */
+export function isHubPlay(context: string | null | undefined): boolean {
+  return !context || context === "hub";
 }
