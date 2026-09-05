@@ -949,7 +949,14 @@ export function stationFontSize(name: string, width: number): number {
 // about 35 narrower than at full bleed, and the stub took none of the loss, so
 // the eyebrow ("BOARDING PASS · बोलो रेल") truncated. The stamp's extent (46)
 // and the wordmark still fit: both size off STUB_W with margin to spare.
-const STUB_W = 148;
+const STUB_W = 207;
+// 207 FROM 2026-09-05, WAS 148 (owner: "left side of the ticket should be
+// wider, should end under Zone 1 text"). Measured rather than nudged: ZONE 1
+// sits at x 200 to 238 on a 440pt phone and the ticket's left edge was at
+// about 218, so it ended under the middle of the word rather than its start.
+// THIS WALKS BACK TOWARD 176, WHICH IS THE WIDTH THAT TRUNCATED THE EYEBROW
+// at build 17, so "BOARDING PASS · बोलो रेल" is the thing to check first if
+// this ever needs to grow again.
 // THE STAMP FITS THE TICKET'S INTERIOR, not its outer width. The ticket now
 // carries a 2pt border AND a hairline rule set 4 in from it, so the usable run
 // is ~20 narrower than the card. Sizing off STUB_W - 8, as this did when the

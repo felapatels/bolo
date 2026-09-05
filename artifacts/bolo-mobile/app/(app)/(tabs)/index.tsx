@@ -1881,9 +1881,15 @@ const styles = StyleSheet.create({
   langNameTall: { lineHeight: 36 },
   // The stall band and the boarding pass read as one unit: platform, then
   // pass. Only enough gap that the pass looks like it is standing in front.
-  // ABOVE THE STEAM (2026-09-05). The plume rises out of the journey card and
-  // must vanish BEHIND these numbers; without this it drifts over them.
-  statsRowWrapper: { marginBottom: 18, zIndex: 30 },
+  // NO zIndex, AND THAT IS THE POINT (2026-09-05, second ruling). It briefly
+  // carried zIndex 30 so the plume would duck behind the numbers; the owner
+  // then wanted the steam OVER the bar, and this one line was what kept it
+  // underneath. The journey section is a LATER sibling of this row, so with no
+  // zIndex here the natural paint order already puts the steam on top. A
+  // zIndex on the steam alone could never have fixed it: the steam lives
+  // inside the journey section, so it was competing as that section, not as
+  // itself, and 30 on this row beat the section's nothing.
+  statsRowWrapper: { marginBottom: 18 },
   /** The steam's canvas: tall, narrow, and pinned over the locomotive at the
    *  journey card's right edge. The chimney is at its FOOT, so `bottom` is
    *  what places it and the height is how far the plume climbs. */

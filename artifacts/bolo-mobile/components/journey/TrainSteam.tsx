@@ -45,7 +45,7 @@ const WISP = require('../../assets/journey/steam-wisp.png') as number;
 
 /** What the owner's opacity curve is multiplied by so it clears the eye on a
  *  cream ground. See the curve for the measurement that set it. */
-const GAIN = 3.3;
+const GAIN = 4.1;
 
 /**
  * THE CHIMNEY, AS A FRACTION OF THE LOCOMOTIVE'S BOX (owner, 2026-09-05).
@@ -67,15 +67,20 @@ export const TRAIN_CHIMNEY = { x: 0.66, y: 0.18 } as const;
  * swapped for a flat magenta fill the layer measured from y 281 to 869, over
  * exactly the right span, so the geometry was never at fault.
  *
- * These are the same family as the smoke the artwork itself had painted on
- * this locomotive, rgb(219,208,204), pulled a little darker so the lighter
- * particles still read. Weight is each tint's own alpha, kept separate from
+ * LIGHTER AGAIN ON THE OWNER'S CHALLENGE, "why can't it be thicker and
+ * lighter", and the answer is that it can: thickness and lightness are
+ * separate axes and I had been trading one for the other. Contrast can come
+ * from COVERAGE instead of from darkness, so the tints move back up toward the
+ * artwork's own rgb(219,208,204) while the particle count, size and gain all
+ * rise to carry it. The one place that cannot be won is pure white over the
+ * frame's white header, where the contrast is zero at any alpha; everywhere
+ * else, and especially over the blue stats band, light steam reads strongly. Weight is each tint's own alpha, kept separate from
  * the opacity curve so the curve stays one shape for every particle.
  */
 const TINTS = [
-  { color: '#CFC8BD', weight: 0.9 },
-  { color: '#BCB3A8', weight: 1.0 },
-  { color: '#DED8CE', weight: 0.78 },
+  { color: '#E4DED4', weight: 0.9 },
+  { color: '#D6CFC4', weight: 1.0 },
+  { color: '#F2EDE4', weight: 0.8 },
 ] as const;
 
 /**
@@ -83,11 +88,11 @@ const TINTS = [
  * a few big ones is a cartoon. Each carries its own cycle, drift, phase and
  * base width so no two ever coincide.
  */
-const WISPS = Array.from({ length: 14 }, (_, i) => ({
+const WISPS = Array.from({ length: 26 }, (_, i) => ({
   cycle: 4600 + ((i * 617) % 2600),
   drift: (i % 2 === 0 ? 1 : -1) * (7 + ((i * 5) % 16)),
-  phase: i / 14,
-  base: 42 + ((i * 13) % 30),
+  phase: i / 26,
+  base: 46 + ((i * 13) % 34),
   tint: TINTS[i % TINTS.length],
 }));
 
@@ -150,14 +155,14 @@ function Wisp({
     // frame. GAIN carries the whole curve up without changing its shape.
     const o =
       (p < 0.2
-        ? 0.22 + (p / 0.2) * 0.13
+        ? 0.32 + (p / 0.2) * 0.03
         : p < 0.78
           ? 0.35 - ((p - 0.2) / 0.58) * 0.09
           : Math.max(0, 0.26 * (1 - (p - 0.78) / 0.22))) * GAIN;
 
     // Tight at the chimney, wide by the band. Slightly sub-linear so it opens
     // gradually rather than ballooning in the first third.
-    const scale = 0.34 + 1.5 * Math.pow(p, 0.8);
+    const scale = 0.5 + 1.4 * Math.pow(p, 0.8);
 
     return {
       opacity: o * tint.weight,
@@ -167,12 +172,22 @@ function Wisp({
         // evenly over the whole climb, so the chimney is as sparse as the top.
         // Rising slowly at first BUNCHES them where they leave the funnel and
         // thins them out higher up, which is both denser at the source and
-        // closer to how a plume actually looks.
-        { translateY: -rise * Math.pow(p, 1.35) },
-        // The plume BENDS upper-left: the engine is at the card's right edge,
-        // so a vertical column walks off the screen and a leaning one carries
-        // back into the composition.
-        { translateX: -26 * p * p + Math.sin(p * Math.PI * 2 + phase * 6) * drift },
+        // closer to how a plume actually looks. RAISED FROM 1.35 TO 1.6 and
+        // the count from fourteen to twenty on the owner's second pass: the
+        // extra particles cost almost nothing up top, because with this
+        // exponent most of their life is spent low, which is precisely where
+        // the density was wanted.
+        { translateY: -rise * Math.pow(p, 1.6) },
+        // THE PLUME TRAILS BACK, as if the engine were pulling away (owner,
+        // 2026-09-05: "curve it toward the left, like the train is moving
+        // forward slightly"). The locomotive faces RIGHT, so forward motion
+        // drags its steam LEFT, and the drag grows the longer a puff has been
+        // in the air: an exponent above 1 leaves the plume near vertical at
+        // the lip and bends it increasingly as it climbs, which is a curve
+        // rather than the straight lean this used to have at -26 * p squared.
+        // It also carries the steam back into the composition instead of off
+        // the screen's right edge.
+        { translateX: -78 * Math.pow(p, 1.7) + Math.sin(p * Math.PI * 2 + phase * 6) * drift },
         { scale },
       ],
     };
