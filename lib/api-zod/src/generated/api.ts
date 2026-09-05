@@ -471,7 +471,7 @@ export const recordGameSessionBodyContextRefRegExp = new RegExp('^gap-[0-9]+$');
 
 export const RecordGameSessionBody = zod.object({
   "languageCode": zod.string().min(1).describe('Language code for the phrases practiced (e.g. \"gu\", \"hi\").'),
-  "game": zod.enum(['speed-round', 'phrase-builder', 'word-match', 'listen-and-pick']).describe('Identifier for the mini game played.'),
+  "game": zod.enum(['speed-round', 'phrase-builder', 'word-match', 'listen-and-pick', 'ticket-check', 'luggage-match', 'signal-lights', 'wrong-platform', 'wrong-platform-2', 'express-listening']).describe('Identifier for the mini game played.\n\nWIDENED 2026-09-04 TO THE GAME\'S OWN ID. The five quick games used to post a `serverGame` of \"listen-and-pick\" or \"word-match\", so the server could not tell a Ticket Check play from a Listen and Pick one, and every free quick-game play was recorded under the name of an All-Access game. That made per-game reporting wrong for five games and made the free taste\'s play count impossible to derive at all.\n\nRows written before this keep their old names, so a learner\'s taste count starts from zero here. That is deliberate: nobody is retroactively locked out of a game they were playing yesterday.'),
   "categoryId": zod.number().describe('The category the phrases were drawn from. Used for server-side phrase validation.'),
   "phraseResults": zod.array(zod.object({
   "phraseId": zod.number().describe('The database ID of the question phrase.'),
@@ -1282,6 +1282,22 @@ export const CompleteDailyQuizResponse = zod.object({
   "perfect": zod.boolean().describe('Whether the learner scored 5\/5'),
   "quizStreak": zod.number().describe('Number of consecutive days (including today) the learner has completed the daily quiz for this language.')
 })
+
+
+/**
+ * Plays already spent on each game the free taste applies to, so the hub can draw "2 free plays left" on a card and lock it at zero without opening the game first.
+ *
+ * ONLY THE TASTED GAMES ARE COUNTED (TASTE_GAME_IDS in @workspace/game-taste): the five that were free before the 2026-09-04 ruling. An All-Access game is not a taste and has no count to report.
+ *
+ * THE COUNT IS PER GAME, NOT PER LANGUAGE. Three plays of Ticket Check is three, in Hindi or Tamil. Per language would hand out 66 free plays across 22 languages.
+ *
+ * A learner with Plus gets zeroes and should never be shown a number: the entitlement, not this payload, is what says they have no ceiling.
+ * @summary How much free taste is left on each tasted game
+ */
+export const GetGamePlaysResponse = zod.object({
+  "plays": zod.record(zod.string(), zod.number()).describe('Game id to plays already spent. Only the ids in TASTE_GAME_IDS appear; an All-Access game is a lock rather than a taste and has nothing to count.'),
+  "limit": zod.number().describe('Plays allowed before the wall, served rather than hardcoded so the number can move without a client release. GAME_TASTE_PLAYS in @workspace\/game-taste is the source.')
+}).describe('Plays spent per tasted game, keyed by the game\'s own id. A game with no plays is present with zero rather than absent, so a client never has to tell \"not played\" from \"not in the payload\".')
 
 
 /**

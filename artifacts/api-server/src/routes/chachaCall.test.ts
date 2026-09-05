@@ -74,6 +74,10 @@ let chaiGrants: Array<{ callId: string; turnIndex: number }> = [];
 let xpGrants: Array<{ languageCode: string; turnIndex: number }> = [];
 /** Set to make the ledger report "already credited", as a retry would. */
 let rewardAlreadyGranted = false;
+/** Set to put this learner past the free taste on game-mode calls. */
+let tasteUsedUp = false;
+/** The language of every game-mode call the route recorded as a taste. */
+let recordedCalls: string[] = [];
 /** Byte lengths the route handed to the decoder, one per turn. */
 let preparedBytes: number[] = [];
 /** What the transcriber was pinned to, one entry per canned-beat turn. */
@@ -140,6 +144,10 @@ before(async () => {
     warmConnection: () => { warmed += 1; },
     // Short, so the 204 case does not sit out a real twelve second wait.
     turnWaitMs: 120,
+    freeTaste: {
+      usedUp: async () => tasteUsedUp,
+      recordCall: async (_userId, languageCode) => { recordedCalls.push(languageCode); },
+    },
   };
 
   app = express();
@@ -169,6 +177,8 @@ beforeEach(() => {
   currentUser = USER;
   liveResult = makeLive();
   liveError = null;
+  tasteUsedUp = false;
+  recordedCalls = [];
   warmed = 0;
   logged = [];
   cannedCalls = [];
@@ -364,6 +374,29 @@ async function startGame(): Promise<string> {
   const { json } = await post("/openai/chacha-call/start", { mode: "game" });
   return json.callId as unknown as string;
 }
+
+// ── The free taste, the call's half (owner ruling, 2026-09-04) ─────────────
+
+test("a game-mode call past the free taste is refused before it rings", async () => {
+  tasteUsedUp = true;
+  const { status, json } = await post("/openai/chacha-call/start", { mode: "game" });
+  assert.equal(status, 402);
+  assert.equal(json.error as never as string, "upgrade_required");
+  assert.equal(json.requiredPlan as never as string, "plus");
+  // A refused call must not spend the very taste it was refused for.
+  assert.deepEqual(recordedCalls, []);
+  // AND THE JOURNEY'S INTERRUPTION STILL OPENS, on the same spent count. He
+  // rings the learner there; a wall on an incoming call is the wrong shape.
+  assert.equal((await post("/openai/chacha-call/start")).status, 200);
+  assert.deepEqual(recordedCalls, []);
+});
+
+test("a game-mode call spends one taste in the call's language; the journey's spends none", async () => {
+  await startGame();
+  assert.deepEqual(recordedCalls, ["gu"]);
+  await startCall();
+  assert.deepEqual(recordedCalls, ["gu"]);
+});
 
 test("a journey turn he heard pays one chai and no XP", async () => {
   const callId = await startCall();
@@ -637,7 +670,16 @@ test("a call never spends the weekly chat allowance", async () => {
   );
   assert.doesNotMatch(source, /chatLimits/, "the call must not reach the chat meter");
   assert.doesNotMatch(source, /recordChatTurn|chatTimeCapDenial/);
-  assert.doesNotMatch(source, /sendUpgradeRequired/, "a call is never an upsell");
+  // INVERTED 2026-09-04. This read "a call is never an upsell", and for the
+  // journey's interruption it still holds: the free-taste tests above prove
+  // that call opens whatever the count says. The free taste put exactly ONE
+  // 402 in this file, on a GAME-MODE start. A second one would mean the
+  // journey's call had become an upsell, which is what this pin now forbids.
+  assert.equal(
+    (source.match(/sendUpgradeRequired\(/g) ?? []).length,
+    1,
+    "the one 402 here is the free taste on a game-mode call; the journey's call is never an upsell",
+  );
 });
 
 test("the bound on a call is its agenda, not a meter", async () => {

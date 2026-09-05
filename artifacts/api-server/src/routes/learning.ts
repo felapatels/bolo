@@ -41,10 +41,61 @@ const MAX_RESULTS: Record<string, number> = {
   "phrase-builder": 8,
   "word-match": 40,
   "listen-and-pick": 40,
+  // The quick games, at the cap of the ids they used to ride. The number did
+  // not move when the name did (2026-09-04).
+  "ticket-check": 40,
+  "wrong-platform": 40,
+  "wrong-platform-2": 40,
+  "luggage-match": 40,
+  "signal-lights": 40,
+  "express-listening": 40,
 };
+
+/**
+ * EVERY GAME RECORDS UNDER ITS OWN ID (2026-09-04), and this enum is where
+ * that becomes true. It was closed at four, and the five quick games each rode
+ * "listen-and-pick" or "word-match", so a Ticket Check row was indistinguishable
+ * from a Listen and Pick one: per-game reporting was wrong for five games, and
+ * the free taste's count could not be derived at all.
+ *
+ * IT MUST STAY IN STEP WITH `GameSessionInput.game` IN openapi.yaml. This is a
+ * hand-written schema, not the generated one, and widening only the spec leaves
+ * the contract saying yes while the route answers 400. That is exactly the state
+ * this half-finished layer was found in.
+ *
+ * chacha-call is deliberately ABSENT: no client posts a call here. The call's
+ * own route writes its row (routes/chachaCall.ts), because it is the one tasted
+ * game the server sees START rather than finish.
+ */
+const GAME_IDS = [
+  "speed-round",
+  "phrase-builder",
+  "word-match",
+  "listen-and-pick",
+  "ticket-check",
+  "wrong-platform",
+  "wrong-platform-2",
+  "luggage-match",
+  "signal-lights",
+  "express-listening",
+] as const;
+
+/**
+ * Model A: correct when the learner tapped the option whose id is the
+ * question's. Every game here but Phrase Builder, which assembles text.
+ *
+ * DERIVED FROM THE LIST RATHER THAN RETYPED, because the version that named
+ * three ids by hand silently scored every new id ZERO correct: the widened
+ * enum would have recorded five games as total failures, taken the signal and
+ * closeout Chai grants away with it, and typechecked perfectly the whole time.
+ */
+const SELECTION_GAMES: ReadonlySet<string> = new Set(
+  GAME_IDS.filter((g) => g !== "phrase-builder"),
+);
+
 const GameSessionBody = z.object({
   languageCode: z.string().min(1),
-  game: z.enum(["speed-round", "phrase-builder", "word-match", "listen-and-pick"]),
+  game: z.enum(GAME_IDS),
   categoryId: z.number().int(),
   phraseResults: z.array(GamePhraseResult).min(1).max(120),
   context: z.enum(["hub", "signal", "closeout"]).optional(),
@@ -84,6 +135,8 @@ import {
 // repair offer's promise in routes/tokens.ts, and for streak-badge progress.
 import { loadStreakLadder } from "../lib/streakDays";
 import { giftChaiForStreakDay, giftRefId } from "@workspace/daily-gift";
+import { gameTasteState, isHubPlay, isTasteGame } from "@workspace/game-taste";
+import { countTastePlays } from "../lib/gameTasteCounts";
 import {
   canScorePhrase,
   denyLockedFeature,
@@ -2361,6 +2414,16 @@ const GAME_XP: Record<string, number> = {
   "speed-round": 25,
   "listen-and-pick": 15,
   "phrase-builder": 20,
+  // THE FIVE QUICK GAMES, BY THEIR OWN NAMES since 2026-09-04. They used to
+  // post a `serverGame` of "listen-and-pick" or "word-match", so their rows
+  // were indistinguishable from those games' and every free quick-game play was
+  // filed under an All-Access game's name. They keep the 15 that mapping gave
+  // them, so no learner's XP changes; only the name it is recorded under does.
+  "ticket-check": 15,
+  "luggage-match": 15,
+  "signal-lights": 15,
+  "wrong-platform": 15,
+  "wrong-platform-2": 15,
 };
 const GAME_XP_BONUS: Record<string, { accuracyThreshold: number; bonus: number }> = {
   "speed-round": { accuracyThreshold: 0.8, bonus: 10 },
@@ -2398,6 +2461,52 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   }
   if (game === "speed-round") {
     if (denyLockedFeature(req, res, "speedRound", "Speed Round is a Bolo! Plus feature. Upgrade to play.")) return;
+  }
+
+  // THE FREE TASTE, three plays and then the wall (owner ruling, 2026-09-04).
+  //
+  // THE BACKSTOP, NOT THE GATE. The hub reads GET /games/plays and locks the
+  // card, which is where a learner actually meets this; these games are drawn
+  // and scored client side and there is no "start a game" for a server to
+  // refuse. What this refusal buys is that the taste cannot be FARMED: a fourth
+  // run records nothing, earns no XP and moves no progress, which is most of
+  // what a game is for.
+  //
+  // HUB PLAYS ONLY. `isHubPlay` carries the reasoning, and it is the half of
+  // this gate that is easiest to leave out and most expensive to leave out: a
+  // trackside signal or a zone closeout refused here would strand a crossing
+  // in the middle of the line, on the free tier the map exists to serve, and
+  // take that stop's once-ever Chai grant with it.
+  //
+  // Counted per GAME and not per language: three plays of Ticket Check is
+  // three, in Hindi or Tamil. Per language would be 66 free plays across 22.
+  if (isTasteGame(game) && isHubPlay(context)) {
+    const plan = (req as EntitledRequest).resolvedPlan?.plan ?? "free";
+    const taste = gameTasteState({
+      plusOnly: false,
+      isPlus: plan === "plus",
+      playsUsed: (await countTastePlays(userId))[game] ?? 0,
+    });
+    if (!taste.playable) {
+      // 402 and the UpgradeRequired envelope, which is what every other plan
+      // boundary in this codebase answers with. A spent taste IS a plan
+      // boundary, unlike a broken streak, which is why this one is not a 409.
+      //
+      // reason "feature_locked" rather than a new vocabulary word: both clients
+      // read only the structural `upgradeRequired` flag, and an installed build
+      // that has never heard of a new reason is the kind of thing this repo has
+      // already paid for once.
+      sendUpgradeRequired(
+        res,
+        upgradeRequired(
+          "feature_locked",
+          "You have used your free plays of this game. Upgrade to keep playing.",
+          "quickGames",
+          "plus",
+        ),
+      );
+      return;
+    }
   }
 
   // Enforce per-game-mode result cap (defence-in-depth beyond schema .max(120)).
@@ -2439,7 +2548,7 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   // Server-side correctness: derived from the submitted answer, never from a
   // client-asserted flag.
   function isCorrect(r: (typeof deduped)[number], phrase: { nativeScript: string }): boolean {
-    if (game === "speed-round" || game === "word-match" || game === "listen-and-pick") {
+    if (SELECTION_GAMES.has(game)) {
       // Correct when the learner tapped the option whose phraseId matches the question.
       return r.selectedPhraseId === r.phraseId;
     }
@@ -2492,6 +2601,12 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
         correctCount,
         totalCount,
         xpAwarded: xpEarned,
+        // WHERE THE RUN WAS LAUNCHED FROM (2026-09-04), so the free taste can
+        // tell a hub play from the journey's own. Absent is a hub launch, and
+        // the count reads it that way. Until this line existed the column held
+        // null for every session, which is why the taste could not have been
+        // counted honestly from the old rows even if their names had been right.
+        context: context ?? null,
       })
       .returning({ id: gameSessionsTable.id }),
     db.insert(attemptsTable).values({

@@ -8,6 +8,10 @@
 
 /**
  * Identifier for the mini game played.
+ *
+ * WIDENED 2026-09-04 TO THE GAME'S OWN ID. The five quick games used to post a `serverGame` of "listen-and-pick" or "word-match", so the server could not tell a Ticket Check play from a Listen and Pick one, and every free quick-game play was recorded under the name of an All-Access game. That made per-game reporting wrong for five games and made the free taste's play count impossible to derive at all.
+ *
+ * Rows written before this keep their old names, so a learner's taste count starts from zero here. That is deliberate: nobody is retroactively locked out of a game they were playing yesterday.
  */
 export type GameSessionInputGame = typeof GameSessionInputGame[keyof typeof GameSessionInputGame];
 
@@ -17,4 +21,10 @@ export const GameSessionInputGame = {
   'phrase-builder': 'phrase-builder',
   'word-match': 'word-match',
   'listen-and-pick': 'listen-and-pick',
+  'ticket-check': 'ticket-check',
+  'luggage-match': 'luggage-match',
+  'signal-lights': 'signal-lights',
+  'wrong-platform': 'wrong-platform',
+  'wrong-platform-2': 'wrong-platform-2',
+  'express-listening': 'express-listening',
 } as const;

@@ -752,6 +752,10 @@ export interface ReferralRedeemResult {
 
 /**
  * Identifier for the mini game played.
+ *
+ * WIDENED 2026-09-04 TO THE GAME'S OWN ID. The five quick games used to post a `serverGame` of "listen-and-pick" or "word-match", so the server could not tell a Ticket Check play from a Listen and Pick one, and every free quick-game play was recorded under the name of an All-Access game. That made per-game reporting wrong for five games and made the free taste's play count impossible to derive at all.
+ *
+ * Rows written before this keep their old names, so a learner's taste count starts from zero here. That is deliberate: nobody is retroactively locked out of a game they were playing yesterday.
  */
 export type GameSessionInputGame = typeof GameSessionInputGame[keyof typeof GameSessionInputGame];
 
@@ -761,6 +765,12 @@ export const GameSessionInputGame = {
   'phrase-builder': 'phrase-builder',
   'word-match': 'word-match',
   'listen-and-pick': 'listen-and-pick',
+  'ticket-check': 'ticket-check',
+  'luggage-match': 'luggage-match',
+  'signal-lights': 'signal-lights',
+  'wrong-platform': 'wrong-platform',
+  'wrong-platform-2': 'wrong-platform-2',
+  'express-listening': 'express-listening',
 } as const;
 
 /**
@@ -793,7 +803,13 @@ export interface GameSessionInput {
      * @minLength 1
      */
   languageCode: string;
-  /** Identifier for the mini game played. */
+  /**
+     * Identifier for the mini game played.
+     *
+     * WIDENED 2026-09-04 TO THE GAME'S OWN ID. The five quick games used to post a `serverGame` of "listen-and-pick" or "word-match", so the server could not tell a Ticket Check play from a Listen and Pick one, and every free quick-game play was recorded under the name of an All-Access game. That made per-game reporting wrong for five games and made the free taste's play count impossible to derive at all.
+     *
+     * Rows written before this keep their old names, so a learner's taste count starts from zero here. That is deliberate: nobody is retroactively locked out of a game they were playing yesterday.
+     */
   game: GameSessionInputGame;
   /** The category the phrases were drawn from. Used for server-side phrase validation. */
   categoryId: number;
@@ -1707,6 +1723,21 @@ export interface DailyQuizResult {
   perfect: boolean;
   /** Number of consecutive days (including today) the learner has completed the daily quiz for this language. */
   quizStreak: number;
+}
+
+/**
+ * Game id to plays already spent. Only the ids in TASTE_GAME_IDS appear; an All-Access game is a lock rather than a taste and has nothing to count.
+ */
+export type GamePlaysPlays = {[key: string]: number};
+
+/**
+ * Plays spent per tasted game, keyed by the game's own id. A game with no plays is present with zero rather than absent, so a client never has to tell "not played" from "not in the payload".
+ */
+export interface GamePlays {
+  /** Game id to plays already spent. Only the ids in TASTE_GAME_IDS appear; an All-Access game is a lock rather than a taste and has nothing to count. */
+  plays: GamePlaysPlays;
+  /** Plays allowed before the wall, served rather than hardcoded so the number can move without a client release. GAME_TASTE_PLAYS in @workspace/game-taste is the source. */
+  limit: number;
 }
 
 export interface CompleteLetterMatchInput {

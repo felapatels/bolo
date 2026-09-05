@@ -1,7 +1,12 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { CHACHA_CALL_SELF_VIEW_ENABLED } from "../lib/featureFlags";
-import { db, languagesTable, usersTable } from "@workspace/db";
+import { db, gameSessionsTable, languagesTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { gameTasteState } from "@workspace/game-taste";
+import { countTastePlays } from "../lib/gameTasteCounts";
+import { upgradeRequired, type Plan } from "../lib/entitlements";
+import { sendUpgradeRequired } from "../lib/gating";
+import type { EntitledRequest } from "../middlewares/loadEntitlements";
 import {
   openai,
   detectAudioFormat,
@@ -175,10 +180,51 @@ export interface ChachaCallDeps {
    * 1350 tests cannot afford a route that blocks for its own timeout.
    */
   turnWaitMs: number;
+  /**
+   * THE FREE TASTE, the call's half (owner ruling, 2026-09-04).
+   *
+   * THE CALL IS THE ONE TASTED GAME THE SERVER SEES BEGIN. Every other one is
+   * drawn and scored on the client and arrives here already finished, so its
+   * wall stands at the record; this one has a real start, so the wall stands
+   * there, and a refused call never rings.
+   *
+   * It also wrote NO game_sessions row at all, which is why its count had
+   * nowhere to come from. `recordCall` writes one, with zero XP because the
+   * turns pay per turn through the ledger, so the hub's single count covers
+   * this card the same way it covers the other five.
+   *
+   * Injected so the route's test never opens a pool, which is the shape every
+   * other dependency on this router already has.
+   */
+  freeTaste: {
+    usedUp: (userId: string, plan: Plan) => Promise<boolean>;
+    recordCall: (userId: string, languageCode: string) => Promise<void>;
+  };
 }
 
 const defaultDeps: ChachaCallDeps = {
   cannedLine: callLine,
+  freeTaste: {
+    usedUp: async (userId, plan) => {
+      const playsUsed = (await countTastePlays(userId))["chacha-call"] ?? 0;
+      return !gameTasteState({ plusOnly: false, isPlus: plan === "plus", playsUsed })
+        .playable;
+    },
+    recordCall: async (userId, languageCode) => {
+      await db.insert(gameSessionsTable).values({
+        userId,
+        languageCode,
+        game: "chacha-call",
+        correctCount: 0,
+        totalCount: 0,
+        // ZERO, and not an oversight. The call pays per answered turn through
+        // writeChachaCallXp; a session-level award here would pay twice for
+        // one call. This row exists to be COUNTED, not to be earned from.
+        xpAwarded: 0,
+        context: "hub",
+      });
+    },
+  },
   resolveLanguage: async (userId) => {
     const user = await db.query.usersTable.findFirst({
       where: eq(usersTable.id, userId),
@@ -278,6 +324,37 @@ export function createChachaCallRouter(
           ? "game"
           : "journey";
       const language = await deps.resolveLanguage(userId);
+
+      // THE FREE TASTE WALL, the call's half (owner ruling, 2026-09-04): three
+      // calls opened from the games hub, then All-Access.
+      //
+      // THE JOURNEY'S INTERRUPTION IS NEVER COUNTED AND NEVER REFUSED, which is
+      // the whole reason `mode` gates this. He rings the LEARNER there, mid
+      // journey, and a paywall on an incoming call is the wrong shape: it turns
+      // a moment the map arranged into an upsell the learner did not open. The
+      // games-hub tile is the door a learner chooses, and that is the one with
+      // three plays behind it.
+      if (mode === "game") {
+        const plan: Plan = (req as EntitledRequest).resolvedPlan?.plan ?? "free";
+        if (await deps.freeTaste.usedUp(userId, plan)) {
+          sendUpgradeRequired(
+            res,
+            upgradeRequired(
+              "feature_locked",
+              "You have used your free calls with Chacha-ji. Upgrade to keep calling.",
+              "quickGames",
+              "plus",
+            ),
+          );
+          return;
+        }
+        // RECORDED AT THE START, because the start is what the learner spent.
+        // A call they hang up on after one question is a call they had; there
+        // is no completion event to hang this on, and waiting for one would
+        // make the taste unlimited for anybody who never says goodbye.
+        await deps.freeTaste.recordCall(userId, language.code);
+      }
+
       const session = createCallSession(
         userId,
         language.code,

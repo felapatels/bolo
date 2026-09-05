@@ -34,6 +34,8 @@ import {
   letterMatchBoards,
   lettersMetBy,
 } from "@workspace/script-trace";
+import { GAME_TASTE_PLAYS } from "@workspace/game-taste";
+import { countTastePlays } from "../lib/gameTasteCounts";
 import { localDayKey, computeDailyQuizStreak } from "../lib/progressMetrics";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
 import { writeGameSessionXp, writeDailyQuizXp, computeGameDecayMultiplier, computeGameDifficultyMultiplier, applyGameXpMultipliers } from "../lib/xpEngine";
@@ -1081,6 +1083,44 @@ router.post(
     }
 
     res.json({ correct: gotRight, total: totalAsked, xpAwarded });
+  },
+);
+
+/**
+ * GET /games/plays
+ *
+ * How much free taste is left on each tasted game, so the hub can draw the
+ * line under a card and lock it at zero WITHOUT opening the game first.
+ *
+ * THIS IS THE GATE THE LEARNER ACTUALLY MEETS. The 402s in POST /game-sessions
+ * and at the call's start are backstops against farming an unrecorded run; a
+ * learner should never reach one, because the card that would take them there
+ * is already locked. A wall a learner only discovers after playing a whole
+ * round is a worse product than a lock they can see, and it is the same
+ * mistake the free flashback made when it listed a phrase the scorer refused.
+ *
+ * ZERO-FILLED for every tasted id, so a client never has to tell "not played"
+ * from "not in the payload". `limit` is served rather than hardcoded so the
+ * three can move without a client release.
+ *
+ * A PLUS CALLER GETS THE SAME PAYLOAD, and their clients must not draw a
+ * number from it: the entitlement says they have no ceiling, and
+ * `gameTasteState` in @workspace/game-taste is what turns the two into a
+ * label. Sending the counts anyway keeps this route free of plan branching
+ * and keeps one shape on the wire.
+ */
+router.get(
+  "/games/plays",
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      res.json({
+        plays: await countTastePlays(getUserId(req)),
+        limit: GAME_TASTE_PLAYS,
+      });
+    } catch (err) {
+      req.log?.error({ err }, "game_taste_plays_read_failed");
+      res.status(500).json({ error: "Could not read your free plays" });
+    }
   },
 );
 

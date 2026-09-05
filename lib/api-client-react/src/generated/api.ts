@@ -72,6 +72,7 @@ import type {
   Friend,
   FriendInviteResult,
   FriendRequest,
+  GamePlays,
   GameSessionInput,
   GameSessionResult,
   GeneratedPhrase,
@@ -3871,6 +3872,90 @@ export const useCompleteDailyQuiz = <TError = ErrorType<Error | UpgradeRequired>
       > => {
       return useMutation(getCompleteDailyQuizMutationOptions(options));
     }
+
+export const getGetGamePlaysUrl = () => {
+
+
+
+
+  return `/api/games/plays`
+}
+
+/**
+ * Plays already spent on each game the free taste applies to, so the hub can draw "2 free plays left" on a card and lock it at zero without opening the game first.
+ *
+ * ONLY THE TASTED GAMES ARE COUNTED (TASTE_GAME_IDS in @workspace/game-taste): the five that were free before the 2026-09-04 ruling. An All-Access game is not a taste and has no count to report.
+ *
+ * THE COUNT IS PER GAME, NOT PER LANGUAGE. Three plays of Ticket Check is three, in Hindi or Tamil. Per language would hand out 66 free plays across 22 languages.
+ *
+ * A learner with Plus gets zeroes and should never be shown a number: the entitlement, not this payload, is what says they have no ceiling.
+ * @summary How much free taste is left on each tasted game
+ */
+export const getGamePlays = async ( options?: RequestInit): Promise<GamePlays> => {
+
+  return customFetch<GamePlays>(getGetGamePlaysUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGamePlaysQueryKey = () => {
+    return [
+    `/api/games/plays`
+    ] as const;
+    }
+
+
+export const getGetGamePlaysQueryOptions = <TData = Awaited<ReturnType<typeof getGamePlays>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGamePlays>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGamePlaysQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGamePlays>>> = ({ signal }) => getGamePlays({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGamePlays>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGamePlaysQueryResult = NonNullable<Awaited<ReturnType<typeof getGamePlays>>>
+export type GetGamePlaysQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary How much free taste is left on each tasted game
+ */
+
+export function useGetGamePlays<TData = Awaited<ReturnType<typeof getGamePlays>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGamePlays>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGamePlaysQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getCompleteLetterMatchUrl = () => {
 

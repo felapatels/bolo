@@ -15,7 +15,13 @@ export interface GameSessionInput {
      * @minLength 1
      */
   languageCode: string;
-  /** Identifier for the mini game played. */
+  /**
+     * Identifier for the mini game played.
+     *
+     * WIDENED 2026-09-04 TO THE GAME'S OWN ID. The five quick games used to post a `serverGame` of "listen-and-pick" or "word-match", so the server could not tell a Ticket Check play from a Listen and Pick one, and every free quick-game play was recorded under the name of an All-Access game. That made per-game reporting wrong for five games and made the free taste's play count impossible to derive at all.
+     *
+     * Rows written before this keep their old names, so a learner's taste count starts from zero here. That is deliberate: nobody is retroactively locked out of a game they were playing yesterday.
+     */
   game: GameSessionInputGame;
   /** The category the phrases were drawn from. Used for server-side phrase validation. */
   categoryId: number;
