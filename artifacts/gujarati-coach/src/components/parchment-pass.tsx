@@ -36,9 +36,31 @@ import { ZONE_BOARD } from "@/lib/zone-backdrops";
 
 /** The nameplate's height; it straddles the paper's top edge by half of it. */
 export const PARCHMENT_PLATE_H = 34;
-/** How far below the paper's top the content starts: the plate's lower half,
- *  the zone line under it, and a breath. */
-export const PARCHMENT_TOP = PARCHMENT_PLATE_H / 2 + 30;
+/**
+ * How far below the paper's top the content starts: the plate's lower half,
+ * the zone line under it, and a breath.
+ *
+ * THE BREATH WAS FIVE PIXELS SHORT OF ONE (owner, 2026-09-06, with a
+ * screenshot: "zone 1 word getting covered"). It was 30 rather than 38, which
+ * put the content's top at y30 of the paper while the zone line's ink ends at
+ * y35. Measured, not guessed: at a 330px column the pass content exactly fills
+ * its box, so justify-center has no slack to give and the ticket sits at the
+ * very top of the padding, five pixels inside the words. At 390 and 430 the
+ * clearance was ONE pixel, which is not clearance, it is luck.
+ *
+ * It only started showing when the corner ticket went from 148 wide to 207 on
+ * 2026-09-06: the zone line is centred across the whole sheet, and until then
+ * the ticket began to the right of where those words end. The collision was
+ * always vertical; widening the ticket is what moved it under them.
+ *
+ * PARCHMENT_ZONE_TOP moved up by four in the same pass, so the gap is ten
+ * pixels rather than three and the next small change does not eat it again.
+ * bolo-mobile's ParchmentPass carries the same two numbers and the same
+ * collision; it needs this in its next build.
+ */
+export const PARCHMENT_TOP = PARCHMENT_PLATE_H / 2 + 38;
+/** Where the faint zone line sits, measured from the top of the whole pass. */
+export const PARCHMENT_ZONE_TOP = PARCHMENT_PLATE_H + 2;
 /** The paper's side and bottom padding around its content. */
 export const PARCHMENT_PAD = 16;
 /** The width the tear is drawn at before the paper has been measured. */
@@ -463,7 +485,7 @@ export function ParchmentPass({
       <div
         data-testid="parchment-zone"
         className="pointer-events-none absolute inset-x-0 truncate text-center text-[9px] font-extrabold tracking-[1.6px]"
-        style={{ top: PARCHMENT_PLATE_H + 6, color: ZONE_BOARD.inkMuted, opacity: 0.55 }}
+        style={{ top: PARCHMENT_ZONE_TOP, color: ZONE_BOARD.inkMuted, opacity: 0.55 }}
       >
         {plate.toUpperCase()}
       </div>

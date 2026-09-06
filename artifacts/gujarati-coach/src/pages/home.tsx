@@ -176,7 +176,11 @@ export function homeBoardScale(contentW: number, contentH: number): number {
 // against its clientHeight in the browser, which is the only thing that can
 // tell "does not fit" from "is not there". Raise it for real content growth,
 // never lower it to taste.
-const HOME_PANEL_H = 240;
+// 248 SINCE 2026-09-06, because PARCHMENT_TOP took eight pixels off the
+// content box to stop the corner ticket sitting on the zone line. Giving them
+// back here keeps the face the height it was: without this, a phone-width
+// column runs out of room and the foot row is what gets squeezed.
+const HOME_PANEL_H = 248;
 // THE PAPER'S SHAPE, so a fluid sheet does not letterbox. Mobile's parchment
 // is 358pt wide over a 222pt sheet (1.61). 2.5 was the carved board's shape
 // and it starved the taller stack the parchment carries (the engine closes
