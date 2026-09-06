@@ -63,6 +63,8 @@ function lazyRoute<P extends object>(loader: () => Promise<RouteModule<P>>) {
   return RouteComponent;
 }
 
+import { RouteErrorBoundary } from '@/components/route-error-boundary';
+
 const Chat = lazyRoute(() => import('@/pages/chat'));
 const ChooseLanguage = lazyRoute(() => import('@/pages/choose-language'));
 const Welcome = lazyRoute(() => import('@/pages/welcome'));
@@ -363,6 +365,11 @@ function Guard({ children }: { children: React.ReactNode }) {
 
 function AppRouter() {
   return (
+    // THE BOUNDARY IS OUTSIDE SUSPENSE, and it has to be. A lazy route reports
+    // a chunk it cannot fetch by THROWING where it renders, and Suspense
+    // catches promises, not throws; a boundary inside it would never see the
+    // one failure this is here for. See components/route-error-boundary.tsx.
+    <RouteErrorBoundary>
     <Suspense fallback={<RouteLoading />}>
       <Switch>
       <Route path="/" component={HomeRedirect} />
@@ -662,6 +669,7 @@ function AppRouter() {
       <Route component={NotFound} />
       </Switch>
     </Suspense>
+    </RouteErrorBoundary>
   );
 }
 
