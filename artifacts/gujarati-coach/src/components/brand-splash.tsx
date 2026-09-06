@@ -51,17 +51,35 @@ import { splashHoldingStyle } from "@/lib/splash-lqip";
  * frame and its film's poster, so the overlay never paints empty before
  * the first video frame lands.
  */
+/**
+ * THE FILENAMES CARRY A VERSION, AND THEY HAVE TO (2026-09-06, the owner on
+ * the first publish of the white opening: "it loads the video for a half
+ * second, then whitescreen then video again").
+ *
+ * That was one file, cached. These live in public/, so Vite never hashes them,
+ * and the host answers them `cache-control: private` with a Last-Modified and
+ * no ETag and no max-age. A browser then caches on the heuristic, which is
+ * roughly a tenth of the file's age: the posters were eleven days old, so a
+ * copy fetched that morning stayed fresh for about a day. Changing the frame
+ * behind an unchanged URL meant a returning visitor painted the OLD poster,
+ * the bazaar, then the NEW film opened on white underneath it, then dissolved
+ * back to the bazaar. Exactly the picture, blank, picture he described.
+ *
+ * A new name cannot be stale. Bump the suffix on any of these whose CONTENT
+ * changes; the two stills were new files on that same publish and have never
+ * needed one.
+ */
 export const SPLASH_V2_ASSETS = {
-  film: `${import.meta.env.BASE_URL}splash/welcome-bolo.mp4`,
-  poster: `${import.meta.env.BASE_URL}splash/welcome-bolo-poster.jpg`,
-  filmWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide.mp4`,
+  film: `${import.meta.env.BASE_URL}splash/welcome-bolo-v2.mp4`,
+  poster: `${import.meta.env.BASE_URL}splash/welcome-bolo-poster-v2.jpg`,
+  filmWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide-v2.mp4`,
   // BOTH POSTERS ARE JPEG NOW. The portrait one was a PNG while the portrait
   // film was flat illustration and the wide one was live-action footage, and
   // that distinction died on 2026-08-26 when both films were replaced by the
   // same densely shaded bazaar. Each poster is frame 0 of its own film, so the
   // still under the video is the frame the video opens on. Since 2026-09-06
   // that frame is white and each poster is 12KB.
-  posterWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide-poster.jpg`,
+  posterWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide-poster-v2.jpg`,
   /**
    * THE REDUCED-MOTION FRAME, AND IT IS NO LONGER THE POSTER (2026-09-06).
    * They were one file while frame 0 was the bazaar. The films now open on
