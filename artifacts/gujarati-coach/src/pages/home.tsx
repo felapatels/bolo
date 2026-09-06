@@ -76,7 +76,12 @@ const PASS_PRESS_SPRING = { type: "spring", stiffness: 480, damping: 12 } as con
 // took none of the loss, so the eyebrow ("BOARDING PASS · બોલો રેલ")
 // truncated. The stamp's extent (46) and ADMIT ONE still fit: both size off
 // STUB_W with margin to spare, and ADMIT ONE eased to 10 over 1.2 with it.
-const STUB_W = 148;
+// 207 FROM 2026-09-06, in step with mobile's same move (owner: "left side of
+// the ticket should be wider. should end under Zone 1 text"). The body half
+// carried a run barely wider than ADMIT ONE, so the line name under it read as
+// crushed; at 207 the ticket reaches the zone line above it and both fit
+// without shrinking. The stamp is unchanged: it sizes off the stub's own run.
+const STUB_W = 207;
 // THE STAMP FITS THE TICKET'S INTERIOR, not its outer width: the ticket carries
 // a 2px border AND a hairline rule set 4 in from it, and it is landscape now,
 // so the stamp is sized off the stub's own run rather than off STUB_W. Mobile

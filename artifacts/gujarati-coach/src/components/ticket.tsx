@@ -8,13 +8,31 @@ import { TICKET, TICKET_SHAPE } from "@/lib/ticket-stock";
 // The bite taken out of the paper where it tears, in px. Sized once and shared
 // by both halves so the two quarter-circles meet as one semicircle.
 const TICKET_NOTCH = 12;
-/** THE CUT EDGE IS THE APP'S INDIGO (build 22, owner: "change the dark black
- *  outline to the same blue/purple color weaved throughout the pass and
- *  journey"). The stock, rules and stamp keep TICKET's ink; the two halves,
- *  the perforation column between them and the notch discs that continue the
- *  edge take the primary. Mobile twin: JourneyPassCard.tsx, colors.primary at
- *  the halves and the notches. */
-const TICKET_OUTLINE = "hsl(var(--primary))";
+/**
+ * THE RAIL TICKET'S PALETTE, three values off the owner's RailTicket spec
+ * (2026-09-05, handed over as a component; mobile took it in
+ * components/journey/RailTicket.tsx and JourneyPassCard imports it as RAIL).
+ * Only the values the corner ticket actually draws are carried here; the rest
+ * of that palette belongs to a full-face ticket web does not render.
+ */
+const RAIL = {
+  gold: "#B48628",
+  /** The second, fainter rule inside the first. */
+  goldFaint: "rgba(177, 130, 47, 0.45)",
+  /** The engraved frame's outer rule. */
+  goldRule: "rgba(141, 96, 23, 0.9)",
+  perfDot: "#A67931",
+} as const;
+
+/** THE CUT EDGE IS GOLD (2026-09-05 on mobile, "the corner ticket takes the
+ *  RailTicket look, gold frame and all"; here 2026-09-06 on the owner's "we
+ *  need parity homepage on web with the new boarding pass"). It was the app's
+ *  indigo from build 22, which was right while the ticket was app furniture
+ *  lying on a board; the RailTicket spec makes it a printed rail ticket, and a
+ *  printed rail ticket is struck in gold. The stock, the words and the stamp
+ *  keep TICKET's ink; the two halves, the perforation column between them and
+ *  the notch discs that continue the edge take the gold. */
+const TICKET_OUTLINE = RAIL.gold;
 
 /** Diagonal ticket-stock stripes (CSS gradient only). `ink` is the stripe
  *  color including alpha, e.g. "rgba(255,255,255,0.05)" on accent, or
@@ -317,16 +335,25 @@ export function MiniTicket({
       }}
     />
   );
-  // The sheet's inner frame, set in from the border, per half.
+  // THE SHEET'S INNER FRAME, set in from the border, per half, and it is TWO
+  // rules now rather than one: the RailTicket stylesheet's .ticket-inner-border
+  // plus its ::before, a second and fainter line a couple of px inside the
+  // first. Two lines is what makes the frame read as engraved into the stock
+  // rather than as one box drawn on it. Mobile twin: halfRule / halfRuleInner.
   const rule = (
     <span
       aria-hidden
       className="pointer-events-none absolute rounded-[6px] border"
       style={{
         inset: TICKET_SHAPE.ruleInset,
-        borderColor: TICKET.rule,
+        borderColor: RAIL.goldRule,
       }}
-    />
+    >
+      <span
+        className="pointer-events-none absolute rounded-[3px] border"
+        style={{ inset: 2, borderColor: RAIL.goldFaint }}
+      />
+    </span>
   );
   // THE TICKET MUST BE AT LEAST AS TALL AS THE STAMP'S ROTATED EXTENT. Its
   // height is otherwise driven by the body's two lines (ADMIT ONE + the line
@@ -418,14 +445,23 @@ export function MiniTicket({
             borderColor: TICKET_OUTLINE,
             paddingTop: notchSize / 2 + 3,
             paddingBottom: notchSize / 2 + 3,
-            width: 5,
+            // Scales with the dots it holds; at scale 1 this is the 5 it was.
+            width: Math.max(5, Math.round(5 * scale)),
           }}
         >
+          {/* ROUND DOTS, not dashes (owner's RailTicket.css, 2026-09-05). The
+              stylesheet punches 7px circles down the fold; at this ticket's
+              scale that is 3, which is the smallest a circle can be and still
+              read as one rather than as a square. Mobile twin: miniPerfDash. */}
           {Array.from({ length: Math.round(7 * scale) }).map((_, i) => (
             <span
               key={i}
-              className="block"
-              style={{ width: 1, height: 2, background: TICKET.rule }}
+              className="block rounded-full"
+              style={{
+                width: 3 * scale,
+                height: 3 * scale,
+                background: RAIL.perfDot,
+              }}
             />
           ))}
         </span>
