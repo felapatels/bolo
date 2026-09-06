@@ -23,15 +23,18 @@ import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
 export const APP_STORE_URL = "https://apps.apple.com/app/id6790907772";
 // LIT on 2026-08-22, at the owner's word and verified against the public
 // listing: apps.apple.com/app/id6790907772 resolves to "Bolo! Speak Hindi &
-// Gujurati", free with in-app purchases. Play stays dark below until the
-// Android listing leaves closed testing.
+// Gujurati", free with in-app purchases.
 export const APP_STORE_LIVE = true;
 
 // The package name is the Android applicationId from bolo-mobile.
 export const PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=com.bolo.mobile";
-// Flip to true when the listing is approved and live in Google Play.
-export const PLAY_STORE_LIVE = false;
+// LIT on 2026-09-06, at the owner's word and verified the same way Apple's
+// was: play.google.com/store/apps/details?id=com.bolo.mobile answers 200 and
+// the page carries itemprop name "Bolo! South Asian Languages" with an Install
+// control, In-app purchases and a Downloads count. Checked com.bolo too, which
+// 404s, so the applicationId in bolo-mobile/app.json is the right one.
+export const PLAY_STORE_LIVE = true;
 
 /**
  * IPADOS SHIPS THROUGH THE SAME APP STORE LISTING, so this is not about a

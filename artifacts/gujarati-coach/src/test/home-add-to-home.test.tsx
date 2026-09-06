@@ -180,11 +180,19 @@ describe("home add-to-home-screen block", () => {
       screen.getByRole("link", { name: /Download on the App Store/i }),
     ).toHaveAttribute("href", "https://apps.apple.com/app/id6790907772");
 
-    // BOTH STORES, ALWAYS (2026-08-30, the owner's ruling): the Play badge
-    // is here too, in its coming-soon state until the listing is live.
+    // BOTH STORES, ALWAYS (2026-08-30, the owner's ruling), and both are LIVE
+    // since 2026-09-06. This asserted the Play badge's coming-soon rendering
+    // until then; the caption went with the flag, which is the behaviour the
+    // flag exists for.
     expect(screen.getByTestId("home-playstore-badge")).toBeInTheDocument();
     expect(screen.getByAltText("Get it on Google Play")).toBeInTheDocument();
-    expect(screen.getByText("Coming soon to Google Play")).toBeInTheDocument();
+    expect(screen.queryByText("Coming soon to Google Play")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: /Get it on Google Play/i }),
+    ).toHaveAttribute(
+      "href",
+      "https://play.google.com/store/apps/details?id=com.bolo.mobile",
+    );
 
     // No cross-contamination of the STEPS.
     expect(screen.queryByTestId("add-to-home-android")).toBeNull();
@@ -201,7 +209,7 @@ describe("home add-to-home-screen block", () => {
     expect(screen.queryByTestId("add-to-home-android")).toBeNull();
   });
 
-  test("Android: Chrome steps, the Play badge in its coming-soon state, no Safari copy, and the Apple badge too", () => {
+  test("Android: Chrome steps, the Play badge linked to the live listing, no Safari copy, and the Apple badge too", () => {
     setNavigator({ ua: ANDROID_UA, platform: "Linux armv8l", maxTouchPoints: 5 });
     renderHome();
 
@@ -209,11 +217,17 @@ describe("home add-to-home-screen block", () => {
     expect(screen.getByText(/Tap the three dot menu in Chrome/)).toBeInTheDocument();
     expect(screen.getByText(/Tap Add to Home screen, then tap Add/)).toBeInTheDocument();
 
-    // Pre-release badge: present, unlinked, captioned, from the shared component.
+    // Live badge: present, linked, no caption, from the shared component.
+    // INVERTED 2026-09-06 with PLAY_STORE_LIVE, not because it broke.
     expect(screen.getByTestId("home-playstore-badge")).toBeInTheDocument();
     expect(screen.getByAltText("Get it on Google Play")).toBeInTheDocument();
-    expect(screen.getByText("Coming soon to Google Play")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Get it on Google Play/i })).toBeNull();
+    expect(screen.queryByText("Coming soon to Google Play")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: /Get it on Google Play/i }),
+    ).toHaveAttribute(
+      "href",
+      "https://play.google.com/store/apps/details?id=com.bolo.mobile",
+    );
 
     // The steps never cross-contaminate; the badges always show both.
     expect(screen.queryByTestId("add-to-home-ios")).toBeNull();

@@ -103,7 +103,18 @@ export function StoreBanner() {
       ? "Google Play is coming very soon. Until then it runs right here in your browser."
       : "Google Play is coming very soon.";
 
+  // EACH VISITOR IS OFFERED THE STORE THEIR DEVICE CAN ACTUALLY USE, and only
+  // that one. A badge that installs nothing on the device holding it is worse
+  // than no badge, which is why the App Store one was already withheld from
+  // Android. The Play side of that rule had nothing to hide behind it until
+  // 2026-09-06: while Play was dark the headline said "coming very soon" and
+  // there was no link to draw. The day the flag was lit, an Android visitor
+  // would have been told Bolo is live on Google Play and handed no way to get
+  // there, so the Play badge arrives with it. A desktop visitor gets both,
+  // because we cannot know which phone is in their pocket.
   const showAppStoreCta = APP_STORE_LIVE && platform !== "android";
+  const showPlayCta = PLAY_STORE_LIVE && platform !== "ios";
+  const showStoreCta = showAppStoreCta || showPlayCta;
 
   return (
     <div
@@ -135,14 +146,21 @@ export function StoreBanner() {
               <AppStoreBadge placement="store-banner-appstore" />
             </span>
           )}
+          {showPlayCta && (
+            <span data-testid="store-banner-play">
+              <AppStoreBadge store="play" placement="store-banner-play" />
+            </span>
+          )}
           {/* THE WEB BADGE IS ALWAYS OFFERED, because the visitor is already in
-              a browser and it is never the wrong answer - on Android it is the
-              ONLY answer, since there is no store link to sit beside yet.
-              It hides under `sm` when the store badge is also present: two
-              badges plus the copy and the dismiss control do not fit a phone's
-              width, and there the store badge is the one worth the room. */}
+              a browser and it is never the wrong answer. It hides under `sm`
+              when a store badge is also present: two badges plus the copy and
+              the dismiss control do not fit a phone's width, and there the
+              store badge is the one worth the room. It used to key off the
+              APP STORE badge alone, which was the same reading as the sub-copy
+              and wrong for the same reason: an Android phone now has a store
+              badge beside it and would otherwise have shown three. */}
           <span
-            className={cn(showAppStoreCta && "hidden sm:inline-flex")}
+            className={cn(showStoreCta && "hidden sm:inline-flex")}
           >
             <WebBadge placement="store-banner-web" />
           </span>

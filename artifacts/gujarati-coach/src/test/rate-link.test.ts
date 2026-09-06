@@ -34,8 +34,11 @@ describe("rateLinkFor", () => {
     expect(rateLinkFor("ios", { appStore: false, play: false })).toBeNull();
   });
 
-  test("the defaults follow the live consts, so today Android has no row", () => {
-    expect(rateLinkFor("android")).toBeNull();
+  // INVERTED 2026-09-06 with PLAY_STORE_LIVE, not because it broke. The case
+  // above still pins the behaviour this one used to assert, by injecting the
+  // flags rather than reading them, which is why that one did not have to move.
+  test("the defaults follow the live consts, so today both stores get a row", () => {
+    expect(rateLinkFor("android")?.store).toBe("Google Play");
     expect(rateLinkFor("ios")?.store).toBe("the App Store");
   });
 });

@@ -129,8 +129,13 @@ describe("store badges (platform-following)", () => {
 
     expect(hero().getByAltText("Get it on Google Play")).toBeInTheDocument();
     expect(screen.getByText("Coming soon to Google Play")).toBeInTheDocument();
+    // SCOPED TO THE HERO 2026-09-06, and the reason is a product change rather
+    // than a test smell: the day Play went live the store banner started
+    // drawing its own Play badge, so a document-wide query for that link now
+    // finds the banner's whether the hero is pre-release or not. This test is
+    // about the HERO badge, so it asks the hero.
     expect(
-      screen.queryByRole("link", { name: /Get it on Google Play/i }),
+      hero().queryByRole("link", { name: /Get it on Google Play/i }),
     ).not.toBeInTheDocument();
     expect(h.track).not.toHaveBeenCalledWith(
       ANALYTICS_EVENTS.CTA_CLICK,
@@ -146,7 +151,8 @@ describe("store badges (platform-following)", () => {
     setUserAgent(ANDROID_UA);
     renderAt(<Landing playStoreLive />);
 
-    const badge = screen.getByRole("link", { name: /Get it on Google Play/i });
+    // Hero-scoped for the same reason as the pre-release case above.
+    const badge = hero().getByRole("link", { name: /Get it on Google Play/i });
     expect(badge).toHaveAttribute(
       "href",
       "https://play.google.com/store/apps/details?id=com.bolo.mobile",
@@ -259,19 +265,20 @@ describe("Landing page", () => {
       expect(screen.getByTestId(`platform-${id}`)).toBeInTheDocument();
     }
 
-    // iPhone is on the App Store and web is the page you are reading; iPad and
-    // Android are not open yet. These come off APP_STORE_LIVE / IPAD_LIVE /
-    // PLAY_STORE_LIVE, so the day a store opens this strip corrects itself
-    // rather than carrying a stale promise.
+    // iPhone, Android and web are open; iPad is not. These come off
+    // APP_STORE_LIVE / IPAD_LIVE / PLAY_STORE_LIVE, so the day a store opens
+    // this strip corrects itself rather than carrying a stale promise. That is
+    // exactly what happened on 2026-09-06: Android moved from "no" to "yes"
+    // with the one const, and this assertion is the proof the wiring held.
     expect(screen.getByTestId("platform-ios")).toHaveAttribute("data-live", "yes");
     expect(screen.getByTestId("platform-web")).toHaveAttribute("data-live", "yes");
     expect(screen.getByTestId("platform-ipad")).toHaveAttribute("data-live", "no");
-    expect(screen.getByTestId("platform-android")).toHaveAttribute("data-live", "no");
+    expect(screen.getByTestId("platform-android")).toHaveAttribute("data-live", "yes");
 
-    // STATE IS IN WORDS, not only in colour. Two of each, spelled out, so a
-    // colour-blind reader is told the same thing everyone else is.
-    expect(screen.getAllByText("Available now")).toHaveLength(2);
-    expect(screen.getAllByText("Coming soon")).toHaveLength(2);
+    // STATE IS IN WORDS, not only in colour, so a colour-blind reader is told
+    // the same thing everyone else is. Three live and one to come now.
+    expect(screen.getAllByText("Available now")).toHaveLength(3);
+    expect(screen.getAllByText("Coming soon")).toHaveLength(1);
 
     // No brand marks were drawn by hand: the licensed Apple and Google artwork
     // is the store badges, and these tiles are form-factor glyphs only.

@@ -25,8 +25,14 @@ let playLive = false;
 // SVG assets into every case for no gain. app-store-badge has its own tests.
 vi.mock("@/components/app-store-badge", () => ({
   APP_STORE_URL: "https://apps.apple.com/app/id6790907772",
-  AppStoreBadge: ({ placement }: { placement: string }) => (
-    <img alt="Download on the App Store" data-placement={placement} />
+  // The `store` prop matters here since 2026-09-06: the bar draws a Play badge
+  // as well now, and a mock that answered to the same alt for both could not
+  // tell "the right store for this device" from "any store at all".
+  AppStoreBadge: ({ store = "apple", placement }: { store?: string; placement: string }) => (
+    <img
+      alt={store === "play" ? "Get it on Google Play" : "Download on the App Store"}
+      data-placement={placement}
+    />
   ),
   WebBadge: ({ placement }: { placement: string }) => (
     <a href="/sign-up" data-placement={placement}>
@@ -94,6 +100,36 @@ describe("StoreBanner", () => {
       screen.getByText("Bolo! is live on the App Store and Google Play"),
     ).toBeTruthy();
     expect(screen.queryByText(/coming very soon/i)).toBeNull();
+  });
+
+  // EACH DEVICE IS OFFERED THE STORE IT CAN ACTUALLY USE, added with the Play
+  // launch on 2026-09-06. Flipping PLAY_STORE_LIVE alone would have told an
+  // Android visitor that Bolo is live on Google Play and handed them nothing
+  // to tap, because the bar only ever drew Apple's badge: while Play was dark
+  // there was no second link to draw, and that assumption expired with it.
+  it("gives Android the Play badge and no App Store badge", () => {
+    platform = "android";
+    playLive = true;
+    render(<StoreBanner />);
+    expect(screen.getByTestId("store-banner-play")).toBeTruthy();
+    expect(screen.getByAltText("Get it on Google Play")).toBeTruthy();
+    expect(screen.queryByTestId("store-banner-appstore")).toBeNull();
+  });
+
+  it("gives iOS the App Store badge and no Play badge", () => {
+    platform = "ios";
+    playLive = true;
+    render(<StoreBanner />);
+    expect(screen.getByTestId("store-banner-appstore")).toBeTruthy();
+    expect(screen.queryByTestId("store-banner-play")).toBeNull();
+  });
+
+  it("gives a visitor we cannot place both, because we do not know their phone", () => {
+    platform = "unknown";
+    playLive = true;
+    render(<StoreBanner />);
+    expect(screen.getByTestId("store-banner-appstore")).toBeTruthy();
+    expect(screen.getByTestId("store-banner-play")).toBeTruthy();
   });
 
   it("renders nothing at all when neither store is live", () => {
