@@ -568,38 +568,59 @@ export default function Home() {
   // moves with it, so the two numbers are READ instead: where the locomotive
   // sits inside the journey frame, and how far it is from there to the frame's
   // top. Nothing here is guessed, so nothing here can drift.
-  const journeyFrameRef = useRef<HTMLDivElement | null>(null);
-  const trainRef = useRef<HTMLImageElement | null>(null);
+  // CALLBACK REFS, NOT `useRef`, AND THAT WAS A BUG BEFORE IT WAS A CHOICE.
+  // The first version held both nodes in refs and re-measured on the journey's
+  // stop number. A ref is not reactive: if the effect ran while either node was
+  // still unmounted, it bailed and the deps had to change to bring it back. On
+  // an account with journey progress they eventually did; on a BRAND NEW
+  // account `journey.current` is null and stays null, so the deps never
+  // changed, the plume never measured, and there was no steam at all. Reported
+  // by the owner on a new account, 2026-09-06. Holding the nodes in STATE
+  // means attaching one is itself the thing that re-runs the effect, so the
+  // measurement cannot be missed by any ordering.
+  const [journeyFrameEl, setJourneyFrameEl] = useState<HTMLDivElement | null>(null);
+  const [trainEl, setTrainEl] = useState<HTMLImageElement | null>(null);
   const [steamAnchor, setSteamAnchor] = useState<{ x: number; rise: number } | null>(null);
   useLayoutEffect(() => {
-    const frame = journeyFrameRef.current;
-    const train = trainRef.current;
-    if (!frame || !train) return;
+    if (!journeyFrameEl || !trainEl) return;
     const measure = () => {
-      const f = frame.getBoundingClientRect();
-      const t = train.getBoundingClientRect();
+      const f = journeyFrameEl.getBoundingClientRect();
+      const t = trainEl.getBoundingClientRect();
+      // The picture has an inline height but `w-auto`, so its width is zero
+      // until it decodes. The observer below brings us back when it does.
       if (t.width === 0 || t.height === 0) return;
       // The chimney, as a fraction of the picture's own box. `object-contain`
       // with a height and `w-auto` means the img's layout box IS the picture,
       // so the fraction lands on the funnel at any size.
       const chimneyY = t.top - f.top + t.height * TRAIN_CHIMNEY.y;
-      setSteamAnchor({
+      const next = {
         x: t.left - f.left + t.width * TRAIN_CHIMNEY.x,
         // THE SHORT PLUME (owner, 2026-09-06): it dies just clear of the
         // frame, not over the card above. STEAM_CLEARANCE is the whole of the
         // difference from mobile, which climbs on past its stats band.
         rise: Math.max(0, chimneyY + STEAM_CLEARANCE),
-      });
+      };
+      // Only on a real change: the observer fires on every layout pass, and an
+      // unconditional setState here is a render loop.
+      setSteamAnchor((prev) =>
+        prev && Math.abs(prev.x - next.x) < 0.5 && Math.abs(prev.rise - next.rise) < 0.5
+          ? prev
+          : next,
+      );
     };
     measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(frame);
-    ro.observe(train);
-    return () => ro.disconnect();
-    // The engine only moves when the frame resizes or the journey's stop row
-    // changes what stands beside it, and both are covered by the observer.
-  }, [journey.current?.stopNumber, journey.current?.stopCount]);
+    // The picture also finishes decoding without any box changing, on a cached
+    // load, so `load` is watched alongside the observer.
+    trainEl.addEventListener("load", measure);
+    const ro =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    ro?.observe(journeyFrameEl);
+    ro?.observe(trainEl);
+    return () => {
+      trainEl.removeEventListener("load", measure);
+      ro?.disconnect();
+    };
+  }, [journeyFrameEl, trainEl]);
   // Progress-aware boarding-pass CTA. Uses only the data the pass already
   // receives from useJourneyProgress (no new API calls); when the current
   // stop is unknown (loading, locked, errored) the copy falls back to the
@@ -1168,7 +1189,7 @@ export default function Home() {
                   about 5px on a phone. The padding now clears the throb with
                   margin at both widths. */}
               <div
-                ref={journeyFrameRef}
+                ref={setJourneyFrameEl}
                 data-testid="home-journey-frame"
                 className="relative -mx-2 rounded-[20px] border-[1.5px] bg-card px-2.5 pb-3 pt-4 lg:px-5 lg:pb-5"
                 style={{ borderColor: BADGE.brassEdge }}
@@ -1428,7 +1449,7 @@ export default function Home() {
                         }
                       >
                         <TrainEngine
-                          imgRef={trainRef}
+                          imgRef={setTrainEl}
                           className={cn(
                             "w-auto shrink-0",
                             !reduceMotion && "animate-train-drive",
