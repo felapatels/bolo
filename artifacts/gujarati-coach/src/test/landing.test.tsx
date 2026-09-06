@@ -265,20 +265,22 @@ describe("Landing page", () => {
       expect(screen.getByTestId(`platform-${id}`)).toBeInTheDocument();
     }
 
-    // iPhone, Android and web are open; iPad is not. These come off
-    // APP_STORE_LIVE / IPAD_LIVE / PLAY_STORE_LIVE, so the day a store opens
-    // this strip corrects itself rather than carrying a stale promise. That is
-    // exactly what happened on 2026-09-06: Android moved from "no" to "yes"
-    // with the one const, and this assertion is the proof the wiring held.
+    // ALL FOUR ARE OPEN. These come off APP_STORE_LIVE / IPAD_LIVE /
+    // PLAY_STORE_LIVE, so the day a platform opens this strip corrects itself
+    // rather than carrying a stale promise. Both of the remaining "no"s went
+    // on 2026-09-06, Android with the Play launch and iPad with the tablet
+    // layout, and this assertion is the proof the wiring held twice.
     expect(screen.getByTestId("platform-ios")).toHaveAttribute("data-live", "yes");
     expect(screen.getByTestId("platform-web")).toHaveAttribute("data-live", "yes");
-    expect(screen.getByTestId("platform-ipad")).toHaveAttribute("data-live", "no");
+    expect(screen.getByTestId("platform-ipad")).toHaveAttribute("data-live", "yes");
     expect(screen.getByTestId("platform-android")).toHaveAttribute("data-live", "yes");
 
     // STATE IS IN WORDS, not only in colour, so a colour-blind reader is told
-    // the same thing everyone else is. Three live and one to come now.
-    expect(screen.getAllByText("Available now")).toHaveLength(3);
-    expect(screen.getAllByText("Coming soon")).toHaveLength(1);
+    // the same thing everyone else is. queryAllByText rather than getAllByText
+    // on the second: there is no "Coming soon" left to find, and getAllByText
+    // throws on none rather than returning an empty list.
+    expect(screen.getAllByText("Available now")).toHaveLength(4);
+    expect(screen.queryAllByText("Coming soon")).toHaveLength(0);
 
     // No brand marks were drawn by hand: the licensed Apple and Google artwork
     // is the store badges, and these tiles are form-factor glyphs only.

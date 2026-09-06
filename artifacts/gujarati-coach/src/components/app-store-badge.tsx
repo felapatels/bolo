@@ -39,10 +39,18 @@ export const PLAY_STORE_LIVE = true;
 /**
  * IPADOS SHIPS THROUGH THE SAME APP STORE LISTING, so this is not about a
  * store being open. It is whether the app has been laid out for a tablet:
- * today it is the iPhone build running letterboxed, which is not something to
- * advertise. Flip it when the iPad layout actually lands.
+ * it was the iPhone build running letterboxed, which is not something to
+ * advertise, so it stayed dark until the iPad layout actually landed.
+ *
+ * LIT 2026-09-06 on the owner's word: "ipad is out... released." The iPad
+ * layout landed over the preceding week (the portrait column ruling, the
+ * bigger nav with labels under the icons, the zone films at 1080 so there is
+ * something to stretch, and the four fixed-size traps that were making the
+ * lower half ragged), so this is no longer an iPhone build running
+ * letterboxed. With it the platform strip has nothing left saying "coming
+ * soon".
  */
-export const IPAD_LIVE = false;
+export const IPAD_LIVE = true;
 
 export type BadgeStore = "apple" | "play";
 
