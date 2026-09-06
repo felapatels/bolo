@@ -44,6 +44,29 @@ export const PARCHMENT_PAD = 16;
 /** The width the tear is drawn at before the paper has been measured. */
 export const PARCHMENT_DEFAULT_W = 358;
 
+/**
+ * THE LIVING PASS, the web twin of mobile's film (2026-09-05 there, the owner:
+ * "replace the parchment paper boarding pass with a live video just like we
+ * did on the SEA app"; ported here 2026-09-06 on "we need parity homepage on
+ * web with the new boarding pass").
+ *
+ * A film of a printed platform under the words instead of a still sheet:
+ * steam crossing the whole width, a lantern swinging its shadow over the
+ * stone, the morning light sweeping left to right. The same 1320x808 file
+ * mobile ships, ping-ponged so the loop point is a crossfade and not a cut.
+ *
+ * FAILURE IS A COLOUR, the same contract as the SEA zone layer and the stall:
+ * a film that will not decode leaves the DRAWN SHEET showing underneath, and
+ * the pass is completely legible on it. Nothing here is load-bearing.
+ *
+ * The kill switch is kept because mobile keeps one, and because the drawn
+ * sheet below it is a finished design in its own right.
+ */
+export const PARCHMENT_FILM = true;
+export const PARCHMENT_FILM_SRC = `${import.meta.env.BASE_URL}journey/pass-film.mp4`;
+/** The film's own first frame, so the poster-to-motion hand-off is seamless. */
+export const PARCHMENT_FILM_POSTER = `${import.meta.env.BASE_URL}journey/pass-film-first.jpg`;
+
 export const PARCHMENT_PAPER = {
   top: "#FBF0DC",
   mid: "#F4E2C4",
@@ -221,6 +244,14 @@ export function ParchmentPass({
   // One pass per page today, but gradient ids are document-global, so the
   // ids are scoped to the instance anyway.
   const uid = useId().replace(/:/g, "");
+  // Reduced motion gets NO <video> element at all, rather than a paused one:
+  // autoplay cannot be stopped by CSS, so the only reliable off switch is not
+  // to mount the decoder. Same shape as chai-stall.tsx.
+  const reduced =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const filmOn = PARCHMENT_FILM && !reduced;
   const gradId = `paperGrad-${uid}`;
   const stainId = `stain-${uid}`;
   const vignetteId = `vignette-${uid}`;
@@ -324,6 +355,49 @@ export function ParchmentPass({
             strokeOpacity={0.7}
           />
         </svg>
+        {/* THE FILM, over the drawn sheet and under everything the pass
+            writes. It fills the paper's box exactly as mobile's does, a
+            rectangle rather than the torn outline, because the tear lives
+            inside a 3px margin and the difference is under a pixel at every
+            width this column runs at. */}
+        {filmOn ? (
+          <>
+            <video
+              data-testid="parchment-film"
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+              poster={PARCHMENT_FILM_POSTER}
+              autoPlay
+              muted
+              loop
+              playsInline
+              aria-hidden="true"
+            >
+              <source src={PARCHMENT_FILM_SRC} type="video/mp4" />
+            </video>
+            {/* THE SCRIM, AND IT IS A GRADIENT RATHER THAN A WASH (owner,
+                2026-09-05: "add a bit of a layer behind these elements, but
+                still see through"). A flat wash strong enough to carry the
+                station name kills the film everywhere, which is the mistake
+                mobile's first two passes made at 0.58 and 0.34. This is heavy
+                where the WORDS are, the top block and the chai line at the
+                foot, and nearly clear across the middle band where the dot
+                rail and the film's own steam live. Mobile's four stops and
+                four locations to the digit. */}
+            <div
+              aria-hidden="true"
+              data-testid="parchment-film-wash"
+              className="pointer-events-none absolute inset-0"
+              style={{
+                backgroundImage:
+                  "linear-gradient(to bottom," +
+                  " rgba(244, 226, 196, 0.78) 0%," +
+                  " rgba(244, 226, 196, 0.30) 34%," +
+                  " rgba(244, 226, 196, 0.26) 60%," +
+                  " rgba(244, 226, 196, 0.74) 100%)",
+              }}
+            />
+          </>
+        ) : null}
         {/* The landmark, seeping through behind the words. A tenth of ink on
             the drawn sheet's flat cream. CENTRED ON THE SHEET, both ways
             (owner, 2026-08-30: "it should be center of card vertically as
