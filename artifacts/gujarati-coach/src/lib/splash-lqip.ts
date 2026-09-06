@@ -1,44 +1,35 @@
-// THE BOOT FILM'S FIRST FRAME AT 160 PIXELS WIDE, pre-blurred, inlined. This is
-// what the page paints before a single byte of the poster or the film has
-// arrived, in place of the flat #89695B plate that used to hold the screen
-// (owner, 2026-08-30, off the Repl preview: "i don't want to see a blank brown
-// page before the video splash loads"). Each is under 1.2KB of base64, so it
-// costs nothing to carry twice: index.html's boot <style> paints it as the
-// document background before React mounts, and the splash overlay paints the
-// same image as its own background from its first render, so the surface never
-// changes when React takes over. The sharp poster and the film then FADE IN
-// over it (splash-scene-enter in index.css), which reads as the picture
-// coming into focus rather than a cut from a colour to a scene.
+// THE BOOT SURFACE, AND IT IS FLAT AGAIN ON PURPOSE (owner, 2026-09-06: "if we
+// can't fix the blurred start, add 1 second of plain white to the splash video
+// so that freezes").
 //
-// index.html carries these two strings verbatim and src/test/splash-lqip.test.ts
-// fails the moment the copies drift. Regenerate both from the posters with PIL
-// (resize to 160 wide, JPEG quality 62) and paste into both. THE BLUR IS PER
-// FRAME, scaled from the width that frame was generated at so the apparent
-// softness is unchanged: portrait 4.00 (from 48px), wide 2.29 (from 84px).
-// Using one radius for both over-blurred the wide frame by 1.75x, which was
-// caught only by rendering the two at viewport size and looking at them.
-// places in the same commit.
-export const SPLASH_PLATE = "#89695B";
+// It used to be the film's own first frame at 160px, pre-blurred and inlined
+// twice, which was the answer to "i don't want to see a blank brown page
+// before the video splash loads" on 2026-08-30. That worked: the wait stopped
+// being a flat colour. What it could not stop being was BLURRY, because a
+// thumbnail small enough to inline before any JavaScript has no detail to
+// give, and the owner read the soft picture as a fault rather than a
+// photograph coming into focus.
+//
+// THE OWNER'S OWN FIX IS THE ONE THAT WORKS, and the reason is worth keeping:
+// blurring a flat frame gives you a flat frame. The films now open on white
+// and dissolve into the bazaar, so the frame this surface has to match IS
+// white, and there is nothing left to be out of focus. That collapses the
+// whole arrangement: no thumbnail to generate, none to inline, none to keep in
+// step across two files, and about 2.4KB out of index.html.
+//
+// index.html carries this colour verbatim and src/test/splash-lqip.test.ts
+// fails the moment the copies drift. If the films' opening ever stops being
+// white, this and the boot <style> both change in the same commit.
+//
+// WHY NOT PURE WHITE ON THE VIDEO SIDE: the films are yuv420p, so a 255 white
+// source decodes at about 253. The posters, which go through JPEG rather than
+// h264, land on a true 255. The difference is a fifth of a percent and below
+// the eye's floor on a screen; this is the posters' value, because the poster
+// is what paints first and longest.
+export const SPLASH_PLATE = "#FFFFFF";
 
-export const SPLASH_LQIP = {
-  portrait: "data:image/jpeg;base64,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",
-  wide: "data:image/jpeg;base64,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",
-} as const;
-
-/** The overlay's holding surface: the plate under the blurred frame, cover-fit
- *  and centred exactly as the boot style paints it. */
-export function splashHoldingStyle(wide: boolean): {
-  backgroundColor: string;
-  backgroundImage: string;
-  backgroundSize: string;
-  backgroundPosition: string;
-  backgroundRepeat: string;
-} {
-  return {
-    backgroundColor: SPLASH_PLATE,
-    backgroundImage: `url("${wide ? SPLASH_LQIP.wide : SPLASH_LQIP.portrait}")`,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-  };
+/** The overlay's holding surface, matching what index.html's boot style paints
+ *  so the surface never changes when React takes over. */
+export function splashHoldingStyle(): { backgroundColor: string } {
+  return { backgroundColor: SPLASH_PLATE };
 }

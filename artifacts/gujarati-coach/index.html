@@ -70,11 +70,12 @@
       } catch (e) {}
     </script>
     <style>
-      /* 2026-08-30: the plate now carries the film's own first frame at 48px,
-         pre-blurred, so the wait is a soft picture of the bazaar and never a
-         flat brown page. Portrait by default, the wide frame in landscape,
-         matching useSplashShape. Both strings are src/lib/splash-lqip.ts
-         verbatim; splash-lqip.test.ts pins that. */
+      /* THE BOOT PLATE IS FLAT WHITE (owner, 2026-09-06: "add 1 second of
+         plain white to the splash video"). It carried the film's first frame
+         at 160px, pre-blurred, from 2026-08-30 until then; the films now open
+         on white and dissolve into the bazaar, so the frame this has to match
+         is white and there is nothing left to blur. src/lib/splash-lqip.ts
+         holds the same colour and splash-lqip.test.ts pins the two copies. */
       /* THE PLATE ONLY PAINTS WHEN A SPLASH IS ACTUALLY COMING, gated by the
          inline script above. It exists to cover the gap before BrandSplash
          renders, and BrandSplash only ever mounts on the signed-in home
@@ -83,27 +84,24 @@
          across the viewport before the page appeared: "a distorted brown
          screen from the splash load first for a half second" (owner,
          2026-08-30). Signed-in boot is unchanged. */
-      /* THE ROOT BOX IS 8px TALL AT BOOT, AND cover HAS NOTHING TO COVER.
-         Owner, build 29: "still seeing glitchy brown screen on url load",
-         after the 160px frame and the per-frame blur had both already landed.
-         Neither was the fault. #root is empty until React mounts, so the html
-         element's own box is 8px high, and background-size: cover resolves
-         against THAT box, not the window. The blurred bazaar was being painted
-         into a sliver at the top and the flat #89695B plate filled everything
-         below it. Measured in a real browser: html box 1280x8 in a 1280x800
-         window.
-
-         100dvh gives the root the window to fill, which is what every reading
-         of this rule has assumed since it was written. dvh rather than vh so a
-         phone's collapsing toolbar cannot reopen the same gap at the bottom. */
-      html[data-boot="app"] {
+      /* THE ROOT BOX IS 8px TALL AT BOOT. Owner, build 29: "still seeing
+         glitchy brown screen on url load". #root is empty until React mounts,
+         so the html element's own box is 8px high and a cover-fit background
+         resolved against THAT box rather than the window. 100dvh gives the
+         root the window to fill; dvh rather than vh so a phone's collapsing
+         toolbar cannot reopen the same gap at the bottom. The background is a
+         flat colour now, which cannot be mis-fitted, but the height still has
+         to be right or the plate stops short of the fold. */
+      /* AND IT STOPS PAINTING THE MOMENT REACT ARRIVES, which it did not
+         before (found 2026-09-06). `data-boot` is set once by the script above
+         and never removed, so this background used to sit on <html> for the
+         whole session with only body's own background hiding it. Gated on the
+         same :has() the body rule below already uses, so the plate covers the
+         boot gap and nothing else; a browser without :has() keeps the old
+         behaviour, which is the one it has had all along. */
+      html[data-boot="app"]:has(#root:empty) {
         min-height: 100dvh;
-        background: #89695B url("data:image/jpeg;base64,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") center / cover no-repeat;
-      }
-      @media (orientation: landscape) {
-        html[data-boot="app"] {
-          background-image: url("data:image/jpeg;base64,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");
-        }
+        background: #FFFFFF;
       }
       /* Until React mounts into #root, let the boot gradient show through
          (in browsers without :has(), body simply paints its app background

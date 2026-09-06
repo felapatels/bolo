@@ -342,15 +342,20 @@
                                     until 2026-08-30 (owner: "smooth it out.
                                     Fade it in and crossfade out"); the JS
                                     fallback in brand-splash.tsx matches */
-  --splash-enter: 520ms;         /* the sharp scene fading in over its own
-                                    blurred first frame once the poster has
-                                    decoded */
+  --splash-enter: 520ms;         /* the sharp scene fading in over the white
+                                    holding surface once the frame it opens on
+                                    has decoded */
   --splash-min-hold: 1500ms;     /* minimum time a MOUNTED splash plays before
                                     the ready signal may release it; clock
                                     starts at overlay mount */
-  --splash-full-play: 5100ms;    /* the day's first cold start plays the
-                                    film through: 5.07s of footage plus
-                                    margin. Ignored on later cold starts. */
+  --splash-full-play: 5800ms;    /* the day's first cold start plays the
+                                    film through: 5.75s of footage plus
+                                    margin, the length it became on 2026-09-06
+                                    when 0.7s of white and a 0.4s dissolve
+                                    went on the front. Must stay UNDER
+                                    --splash-max-hold, which is the failsafe
+                                    and has to sit above it. Ignored on later
+                                    cold starts. */
   --splash-decode-cap: 1200ms;   /* compose-then-reveal decode wait cap; past
                                     it, reveal whatever is ready */
   --station-surface: hsl(40 55% 97.5%); /* warm signboard surface, active stop card */

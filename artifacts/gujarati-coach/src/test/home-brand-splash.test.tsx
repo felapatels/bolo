@@ -302,16 +302,23 @@ describe("home brand splash v2", () => {
       renderHome();
       const overlay = splash() as HTMLElement;
       expect(overlay).not.toBeNull();
-      // The gate is holding: the one still is decoding, and the overlay is
-      // its holding surface with nothing in it. NOT A FLAT COLOUR (2026-08-30,
-      // owner: "i don't want to see a blank brown page before the video
-      // splash loads"): the surface is the film's own first frame, tiny and
-      // pre-blurred, inlined as the overlay's background.
+      // The gate is holding: the one frame is decoding, and the overlay is its
+      // holding surface with nothing in it.
+      //
+      // INVERTED 2026-09-06, because the behaviour changed on purpose. This
+      // asserted the surface was NOT a flat colour: it was the film's own
+      // first frame, tiny and pre-blurred and inlined, which was the answer to
+      // "i don't want to see a blank brown page before the video splash loads"
+      // (owner, 2026-08-30). The owner then read the soft picture as a fault
+      // rather than a photograph, and the fix was his: the films open on white
+      // now, so the frame this surface has to match IS white and there is
+      // nothing left to blur. A flat plate is correct here, and an inlined
+      // thumbnail would be the regression.
       expect(h.decodeResolvers.length).toBe(1);
       expect(overlay.querySelector("img")).toBeNull();
       expect(overlay.textContent).toBe("");
-      expect(overlay.style.backgroundImage).toContain("data:image/jpeg;base64,");
-      expect(overlay.style.backgroundSize).toBe("cover");
+      expect(overlay.style.backgroundColor).toBe("rgb(255, 255, 255)");
+      expect(overlay.style.backgroundImage).toBe("");
       // The decode lands: the film appears in a single reveal, and that
       // reveal FADES IN over the blur (the class carries the keyframes).
       h.decodeResolvers[0]();

@@ -2,7 +2,7 @@ import { Component, useCallback, useEffect, useState, type ReactNode } from "rea
 import { createPortal } from "react-dom";
 import { useReducedMotion } from "framer-motion";
 import { cn, cssTimeMs } from "@/lib/utils";
-import { SPLASH_LQIP, splashHoldingStyle } from "@/lib/splash-lqip";
+import { splashHoldingStyle } from "@/lib/splash-lqip";
 
 // Splash v2 (layered motion boot with ready-signal hold): a cold-load boot
 // moment that overlays the loading home, HOLDS until home's real readiness
@@ -58,11 +58,20 @@ export const SPLASH_V2_ASSETS = {
   // BOTH POSTERS ARE JPEG NOW. The portrait one was a PNG while the portrait
   // film was flat illustration and the wide one was live-action footage, and
   // that distinction died on 2026-08-26 when both films were replaced by the
-  // same densely shaded bazaar. As PNG the new portrait frame is 1.6MB; as a
-  // JPEG it is 237KB, and it is fetched on the one screen where the browser is
-  // busiest. Each poster is frame 0 of its own film, so the still under the
-  // video is the frame the video opens on.
+  // same densely shaded bazaar. Each poster is frame 0 of its own film, so the
+  // still under the video is the frame the video opens on. Since 2026-09-06
+  // that frame is white and each poster is 12KB.
   posterWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide-poster.jpg`,
+  /**
+   * THE REDUCED-MOTION FRAME, AND IT IS NO LONGER THE POSTER (2026-09-06).
+   * They were one file while frame 0 was the bazaar. The films now open on
+   * white, so the poster is white, and a learner who has asked for reduced
+   * motion would have got a white rectangle where the picture should be. This
+   * is the bazaar frame those two posters used to be, byte for byte, kept for
+   * the one place that needs a picture rather than the film's first frame.
+   */
+  still: `${import.meta.env.BASE_URL}splash/welcome-bolo-still.jpg`,
+  stillWide: `${import.meta.env.BASE_URL}splash/welcome-bolo-wide-still.jpg`,
 } as const;
 
 /**
@@ -77,7 +86,12 @@ export const SPLASH_V2_ASSETS = {
  *    five-second film.
  * Failure-safe: anything unexpected yields the portrait pair.
  */
-function useSplashShape(): { film: string; poster: string; lqip: string; wide: boolean } {
+function useSplashShape(): {
+  film: string;
+  poster: string;
+  still: string;
+  wide: boolean;
+} {
   const [wide] = useState(() => {
     try {
       return window.matchMedia("(orientation: landscape)").matches;
@@ -86,8 +100,18 @@ function useSplashShape(): { film: string; poster: string; lqip: string; wide: b
     }
   });
   return wide
-    ? { film: SPLASH_V2_ASSETS.filmWide, poster: SPLASH_V2_ASSETS.posterWide, lqip: SPLASH_LQIP.wide, wide }
-    : { film: SPLASH_V2_ASSETS.film, poster: SPLASH_V2_ASSETS.poster, lqip: SPLASH_LQIP.portrait, wide };
+    ? {
+        film: SPLASH_V2_ASSETS.filmWide,
+        poster: SPLASH_V2_ASSETS.posterWide,
+        still: SPLASH_V2_ASSETS.stillWide,
+        wide,
+      }
+    : {
+        film: SPLASH_V2_ASSETS.film,
+        poster: SPLASH_V2_ASSETS.poster,
+        still: SPLASH_V2_ASSETS.still,
+        wide,
+      };
 }
 
 // jsdom / ancient-UA fallbacks for the :root tuning vars (values in ms).
@@ -103,7 +127,10 @@ const SPLASH_MIN_HOLD_FALLBACK_MS = 1500;
 // gradient indefinitely; the max-hold failsafe still governs total time).
 const SPLASH_DECODE_CAP_FALLBACK_MS = 1200;
 
-const SPLASH_FULL_PLAY_FALLBACK_MS = 5100;
+// The films are 5.75s since the white lead was prepended on 2026-09-06
+// (0.7s of white, a 0.4s dissolve, then the bazaar). --splash-full-play in
+// index.css carries the real value; this is the jsdom fallback.
+const SPLASH_FULL_PLAY_FALLBACK_MS = 5800;
 
 /** The day's first cold start plays the film through. Local calendar day,
  *  so it rolls over at the learner's midnight. Same contract as the bazaar
@@ -374,7 +401,10 @@ function BrandSplashOverlay({
 }) {
   const reduceMotion = useReducedMotion();
   const shape = useSplashShape();
-  const revealed = usePosterReady(shape.poster);
+  // Decode whichever image is actually going to paint. Under reduced motion
+  // that is the bazaar still; otherwise it is the film's own white frame 0,
+  // which decodes at once, so the gate simply stops holding anything back.
+  const revealed = usePosterReady(reduceMotion ? shape.still : shape.poster);
   return createPortal(
     <div
       data-testid="brand-splash"
@@ -397,7 +427,7 @@ function BrandSplashOverlay({
         exiting ? "pointer-events-none" : "cursor-pointer",
         exiting && "brand-splash-exiting",
       )}
-      style={splashHoldingStyle(shape.wide)}
+      style={splashHoldingStyle()}
     >
       {revealed && (
         // FADES IN over the blurred frame (splash-scene-enter): the same
@@ -406,7 +436,7 @@ function BrandSplashOverlay({
         <div className="splash-scene-enter absolute inset-0" data-testid="splash-scene">
           {reduceMotion ? (
             <img
-              src={shape.poster}
+              src={shape.still}
               alt=""
               draggable={false}
               data-testid="splash-still"
