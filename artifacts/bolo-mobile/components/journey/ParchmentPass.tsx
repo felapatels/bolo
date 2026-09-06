@@ -86,9 +86,29 @@ export const PARCHMENT_FILM = true;
 export const PARCHMENT_MOVIE = require('../../assets/journey/pass-film.mp4') as number;
 /** The nameplate's height; it straddles the paper's top edge by half of it. */
 export const PARCHMENT_PLATE_H = 34;
-/** How far below the paper's top the content starts: the plate's lower half,
- *  the zone line under it, and a breath. */
-export const PARCHMENT_TOP = PARCHMENT_PLATE_H / 2 + 30;
+/**
+ * How far below the paper's top the content starts: the plate's lower half,
+ * the zone line under it, and a breath.
+ *
+ * THE BREATH WAS FIVE POINTS SHORT OF ONE (owner, 2026-09-06, on the web twin:
+ * "zone 1 word getting covered"). It was 30, which put the content's top level
+ * with the zone line's own ink rather than below it. On web, where the same two
+ * numbers live, this was measured at five pixels of OVERLAP on a narrow column
+ * and one pixel of clearance on a phone, which is not clearance, it is luck.
+ *
+ * It only started showing when the corner ticket went from 148 to 207 wide on
+ * 2026-09-06: the zone line is centred across the whole sheet, and until then
+ * the ticket began to the right of where those words end. The collision was
+ * always vertical; widening the ticket is what moved it under them.
+ *
+ * PARCHMENT_ZONE_TOP moved up by four in the same pass, so the gap is ten
+ * points rather than three. Ported from gujarati-coach's parchment-pass.tsx,
+ * where it is verified against the live page at seven pixels clear on the
+ * worst width; here it reaches a learner only in a build.
+ */
+export const PARCHMENT_TOP = PARCHMENT_PLATE_H / 2 + 38;
+/** Where the faint zone line sits, measured from the top of the whole pass. */
+export const PARCHMENT_ZONE_TOP = PARCHMENT_PLATE_H + 2;
 /** The paper's side and bottom padding around its content. */
 export const PARCHMENT_PAD = 16;
 
@@ -445,7 +465,7 @@ export function ParchmentPass({
       {/* The zone, faint, under the plate. */}
       <Text
         numberOfLines={1}
-        style={[styles.zone, { top: PARCHMENT_PLATE_H + 6 }]}
+        style={[styles.zone, { top: PARCHMENT_ZONE_TOP }]}
         testID="parchment-zone"
       >
         {plate.toUpperCase()}
