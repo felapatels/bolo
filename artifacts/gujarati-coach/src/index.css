@@ -1126,3 +1126,119 @@
     animation: quick-countdown-pop 300ms ease-out backwards;
   }
 }
+
+/* THE LOCOMOTIVE'S STEAM, the web twin of bolo-mobile/components/journey/
+   TrainSteam.tsx (owner, 2026-09-05, spec refined twice on seeing it; ported
+   here 2026-09-06 on "we need parity homepage on web with the new boarding
+   pass", short-plume variant).
+
+   Wisps, not clouds. Twenty-six soft irregular ovals leave the chimney nearly
+   invisible, become visible as they cool and spread, widen, bend upper-left as
+   if the engine were pulling away, and are gone by the top of the pass frame.
+
+   ONE KEYFRAMES BLOCK FOR TWENTY-SIX PARTICLES. Mobile computes the curve per
+   frame on the UI thread; CSS cannot, so the curve is SAMPLED at twenty-one
+   stops and the per-particle differences ride in custom properties the
+   keyframes read: --wisp-rise (how far it climbs), --wisp-lean (how far it
+   trails back), --wisp-drift (its own sideways wander) and --wisp-weight (its
+   tint's alpha). Each particle then differs only by those four numbers, its
+   duration and a negative delay, so no two ever coincide and every one is
+   already mid-flight on the first frame.
+
+   THE CURVE IS MOBILE'S, SAMPLED, NOT REDRAWN: opacity faint at the lip,
+   brightest once cooled and spread, thinning the rest of the way; travel eased
+   at p^1.6 so the particles BUNCH where they leave the funnel; the lean at
+   p^1.7 so the plume is near vertical at the stack and bends increasingly as
+   it climbs; the width sub-linear at p^0.8 so it opens gradually. The one
+   thing the sampling drops is mobile's per-particle phase offset inside the
+   sine, which only decorrelated the wander; the delays and drift signs already
+   do that. Generated, not typed: see the note in train-steam.tsx.
+
+   The global prefers-reduced-motion rule above would collapse this to its last
+   frame, but the component does not mount under reduced motion at all. */
+@keyframes steam-wisp {
+  0% {
+    opacity: calc(1.312 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.0 + var(--wisp-drift) * 0.0), calc(var(--wisp-rise) * -0.0), 0) scale(0.5);
+  }
+  5% {
+    opacity: calc(1.3427 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.0061 + var(--wisp-drift) * 0.309), calc(var(--wisp-rise) * -0.0083), 0) scale(0.6274);
+  }
+  10% {
+    opacity: calc(1.3735 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.02 + var(--wisp-drift) * 0.5878), calc(var(--wisp-rise) * -0.0251), 0) scale(0.7219);
+  }
+  15% {
+    opacity: calc(1.4042 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.0398 + var(--wisp-drift) * 0.809), calc(var(--wisp-rise) * -0.0481), 0) scale(0.8069);
+  }
+  20% {
+    opacity: calc(1.435 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.0648 + var(--wisp-drift) * 0.9511), calc(var(--wisp-rise) * -0.0761), 0) scale(0.8863);
+  }
+  25% {
+    opacity: calc(1.4032 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.0947 + var(--wisp-drift) * 1.0), calc(var(--wisp-rise) * -0.1088), 0) scale(0.9618);
+  }
+  30% {
+    opacity: calc(1.3714 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.1292 + var(--wisp-drift) * 0.9511), calc(var(--wisp-rise) * -0.1457), 0) scale(1.0343);
+  }
+  35% {
+    opacity: calc(1.3396 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.1678 + var(--wisp-drift) * 0.809), calc(var(--wisp-rise) * -0.1864), 0) scale(1.1045);
+  }
+  40% {
+    opacity: calc(1.3078 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.2106 + var(--wisp-drift) * 0.5878), calc(var(--wisp-rise) * -0.2308), 0) scale(1.1726);
+  }
+  45% {
+    opacity: calc(1.2759 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.2573 + var(--wisp-drift) * 0.309), calc(var(--wisp-rise) * -0.2787), 0) scale(1.2391);
+  }
+  50% {
+    opacity: calc(1.2441 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.3078 + var(--wisp-drift) * 0.0), calc(var(--wisp-rise) * -0.3299), 0) scale(1.3041);
+  }
+  55% {
+    opacity: calc(1.2123 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.3619 + var(--wisp-drift) * -0.309), calc(var(--wisp-rise) * -0.3842), 0) scale(1.3678);
+  }
+  60% {
+    opacity: calc(1.1805 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.4196 + var(--wisp-drift) * -0.5878), calc(var(--wisp-rise) * -0.4416), 0) scale(1.4304);
+  }
+  65% {
+    opacity: calc(1.1487 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.4808 + var(--wisp-drift) * -0.809), calc(var(--wisp-rise) * -0.502), 0) scale(1.4919);
+  }
+  70% {
+    opacity: calc(1.1169 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.5453 + var(--wisp-drift) * -0.9511), calc(var(--wisp-rise) * -0.5651), 0) scale(1.5525);
+  }
+  75% {
+    opacity: calc(1.0851 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.6132 + var(--wisp-drift) * -1.0), calc(var(--wisp-rise) * -0.6311), 0) scale(1.6122);
+  }
+  80% {
+    opacity: calc(0.9691 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.6843 + var(--wisp-drift) * -0.9511), calc(var(--wisp-rise) * -0.6998), 0) scale(1.6711);
+  }
+  85% {
+    opacity: calc(0.7268 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.7586 + var(--wisp-drift) * -0.809), calc(var(--wisp-rise) * -0.771), 0) scale(1.7293);
+  }
+  90% {
+    opacity: calc(0.4845 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.836 + var(--wisp-drift) * -0.5878), calc(var(--wisp-rise) * -0.8449), 0) scale(1.7868);
+  }
+  95% {
+    opacity: calc(0.2423 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -0.9165 + var(--wisp-drift) * -0.309), calc(var(--wisp-rise) * -0.9212), 0) scale(1.8437);
+  }
+  100% {
+    opacity: calc(0.0 * var(--wisp-weight));
+    transform: translate3d(calc(var(--wisp-lean) * -1.0 + var(--wisp-drift) * -0.0), calc(var(--wisp-rise) * -1.0), 0) scale(1.9);
+  }
+}

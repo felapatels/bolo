@@ -37,6 +37,7 @@ import { JOURNEY_ZONES, getRailBrand, getJourneyLine } from "@/lib/journeyLines"
 import { playStopSplash } from "@/lib/stop-splash";
 import { useJourneyProgress } from "@/lib/useJourneyProgress";
 import { TrainEngine } from "@/components/train-svg";
+import { STEAM_CANVAS_SHARE, TRAIN_CHIMNEY, TrainSteam } from "@/components/train-steam";
 import { BandPill, normalizeBand } from "@/components/ui/band-pill";
 import { MiniTicket, stampSizeForExtent, stationFontSize } from "@/components/ticket";
 import { StopDots } from "@/components/stop-dots";
@@ -82,6 +83,11 @@ const PASS_PRESS_SPRING = { type: "spring", stiffness: 480, damping: 12 } as con
 // crushed; at 207 the ticket reaches the zone line above it and both fit
 // without shrinking. The stamp is unchanged: it sizes off the stub's own run.
 const STUB_W = 207;
+// How far past the journey frame's top edge the plume is still climbing when
+// its last wisp goes. Small on purpose: the short plume was the owner's pick
+// on 2026-09-06 precisely so the steam never reaches the card above.
+const STEAM_CLEARANCE = 26;
+
 // THE STAMP FITS THE TICKET'S INTERIOR, not its outer width: the ticket carries
 // a 2px border AND a hairline rule set 4 in from it, and it is landscape now,
 // so the stamp is sized off the stub's own run rather than off STUB_W. Mobile
@@ -555,6 +561,45 @@ export default function Home() {
     ? journey.current.geoName
     : `Ride the ${journeyLine.lineName}`;
   const stationFont = stationFontSize(stationLabel, stationRun, boardScale);
+  // THE PLUME'S ANCHOR, MEASURED RATHER THAN CHOSEN. Mobile pins its steam
+  // with two constants it had to photograph the simulator three times to get
+  // right (the chimney 157pt above the card's foot, a 375pt climb), because a
+  // phone is one width. Web's column runs from a phone to 700px and the engine
+  // moves with it, so the two numbers are READ instead: where the locomotive
+  // sits inside the journey frame, and how far it is from there to the frame's
+  // top. Nothing here is guessed, so nothing here can drift.
+  const journeyFrameRef = useRef<HTMLDivElement | null>(null);
+  const trainRef = useRef<HTMLImageElement | null>(null);
+  const [steamAnchor, setSteamAnchor] = useState<{ x: number; rise: number } | null>(null);
+  useLayoutEffect(() => {
+    const frame = journeyFrameRef.current;
+    const train = trainRef.current;
+    if (!frame || !train) return;
+    const measure = () => {
+      const f = frame.getBoundingClientRect();
+      const t = train.getBoundingClientRect();
+      if (t.width === 0 || t.height === 0) return;
+      // The chimney, as a fraction of the picture's own box. `object-contain`
+      // with a height and `w-auto` means the img's layout box IS the picture,
+      // so the fraction lands on the funnel at any size.
+      const chimneyY = t.top - f.top + t.height * TRAIN_CHIMNEY.y;
+      setSteamAnchor({
+        x: t.left - f.left + t.width * TRAIN_CHIMNEY.x,
+        // THE SHORT PLUME (owner, 2026-09-06): it dies just clear of the
+        // frame, not over the card above. STEAM_CLEARANCE is the whole of the
+        // difference from mobile, which climbs on past its stats band.
+        rise: Math.max(0, chimneyY + STEAM_CLEARANCE),
+      });
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(frame);
+    ro.observe(train);
+    return () => ro.disconnect();
+    // The engine only moves when the frame resizes or the journey's stop row
+    // changes what stands beside it, and both are covered by the observer.
+  }, [journey.current?.stopNumber, journey.current?.stopCount]);
   // Progress-aware boarding-pass CTA. Uses only the data the pass already
   // receives from useJourneyProgress (no new API calls); when the current
   // stop is unknown (loading, locked, errored) the copy falls back to the
@@ -1123,6 +1168,7 @@ export default function Home() {
                   about 5px on a phone. The padding now clears the throb with
                   margin at both widths. */}
               <div
+                ref={journeyFrameRef}
                 data-testid="home-journey-frame"
                 className="relative -mx-2 rounded-[20px] border-[1.5px] bg-card px-2.5 pb-3 pt-4 lg:px-5 lg:pb-5"
                 style={{ borderColor: BADGE.brassEdge }}
@@ -1382,6 +1428,7 @@ export default function Home() {
                         }
                       >
                         <TrainEngine
+                          imgRef={trainRef}
                           className={cn(
                             "w-auto shrink-0",
                             !reduceMotion && "animate-train-drive",
@@ -1518,6 +1565,34 @@ export default function Home() {
               </Link>
               </motion.div>
               </div>
+              {/* THE LOCOMOTIVE'S STEAM, and it is a layer the pass cannot
+                  clip. The parchment's paper box is overflow-hidden while the
+                  ticket is whole, so a plume drawn inside it would be cut off
+                  at the sheet's edge; it is a sibling of the pass instead, the
+                  frame's LAST child, so it paints over everything the frame
+                  holds. pointer-events none is what keeps Resume, View Map and
+                  the ticket itself live underneath it.
+                  It waits for the measurement rather than guessing a start
+                  position: one frame with no plume beats a frame with the
+                  plume in the wrong place. */}
+              {!reduceMotion && steamAnchor !== null && (
+                <TrainSteam
+                  testId="home-train-steam"
+                  className="pointer-events-none absolute"
+                  style={{
+                    left: steamAnchor.x,
+                    // The canvas's FOOT is the chimney and its height is the
+                    // climb, so its top is chimneyY - rise, and rise is
+                    // chimneyY + STEAM_CLEARANCE by construction: the two
+                    // chimneyY terms cancel and what is left is the clearance,
+                    // above the frame's own top edge.
+                    top: -STEAM_CLEARANCE,
+                    marginLeft: -Math.round((steamAnchor.rise * STEAM_CANVAS_SHARE) / 2),
+                  }}
+                  height={steamAnchor.rise}
+                  width={Math.round(steamAnchor.rise * STEAM_CANVAS_SHARE)}
+                />
+              )}
               </div>
               {/* Chai treatment tier 1: Chacha-ji's stall, full width at its
                   natural aspect, directly BELOW the pass (Task #1049) — the
