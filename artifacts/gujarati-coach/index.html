@@ -9,6 +9,16 @@
     <!-- Safari-only Smart App Banner for the native iOS app; the app id is
          ascAppId from bolo-mobile/eas.json. Ignored everywhere else. -->
     <meta name="apple-itunes-app" content="app-id=6790907772" />
+    <!-- THE LABEL UNDER A HOME-SCREEN ICON on iOS (owner, 2026-09-06: "rename
+         the mobile and web icon to BOLO! South Asia or if that doesn't fit,
+         BOLO! SA... like what i see on the iphone under the favicon"). Without
+         this, Add to Home Screen labels the icon from <title>, which is
+         "Bolo! : Learn 22 South Asian Languages" and truncates to nonsense.
+         The full name does not fit either: the home-screen grid gives a label
+         about twelve characters, and "BOLO! South Asia" is sixteen, so this is
+         the owner's own fallback. Matches expo.name in bolo-mobile/app.json,
+         which is the same label for the native app. -->
+    <meta name="apple-mobile-web-app-title" content="BOLO! SA" />
     <!-- Static no-JS defaults. lib/seo.ts (applyDocumentHead) owns these tags
          at runtime on public pages and overwrites them per page; social
          scrapers that skip JS read the values below. -->
