@@ -20,8 +20,31 @@
 // IT WORKS BECAUSE REAL FILES BEAT THE SPA FALLBACK, checked against
 // production rather than assumed: /aksharmala.html returns its own 659KB and
 // /robots.txt returns its own 68 bytes, while /manifest.webmanifest falls
-// through to index.html because no such file is built. So an emitted
-// dist/public/privacy/index.html is served ahead of the catch-all.
+// through to index.html because no such file is built.
+//
+// THE SENTENCE THAT USED TO FOLLOW THAT WAS WRONG, AND IT IS THE WHOLE REASON
+// THIS FILE CHANGED ON 2026-09-07. It read "so an emitted
+// dist/public/privacy/index.html is served ahead of the catch-all", which is a
+// REASONED step sitting where a measured one appears to be. The measurement
+// above covers top-level files WITH EXTENSIONS. It does not cover a directory
+// index, and Replit's router (`router = "application"` in .replit; nothing in
+// this repo serves dist/public) does not resolve one. Measured on the live
+// domain after the first deploy that carried it:
+//
+//   /privacy             301 -> /privacy/
+//   /privacy/            7,971 bytes, the SPA shell, homepage title
+//   /privacy/index.html  32,970 bytes, the real policy
+//   /aksharmala          7,972 bytes, the SPA shell
+//   /aksharmala.html     659,533 bytes, the real file
+//
+// So the router serves EXACT PATHS ONLY: no directory index, no extensionless
+// resolution. The file emitted correctly, deployed correctly, and was
+// unreachable at the URL anybody would file with a store.
+//
+// HENCE BOTH SHAPES ARE EMITTED. The top-level privacy.html is the one the
+// router will serve and the one to give Apple and Google; the directory index
+// stays because it costs one write, cannot drift (same render, same loop), and
+// is the shape a normal static host would serve.
 //
 // THIS SCRIPT MUST NEVER FAIL THE BUILD. It runs after `vite build` in the
 // package's build script, and India is live in both stores: a prerender that
@@ -128,11 +151,16 @@ async function main() {
           '<div id="root"></div>',
           `<div id="root">${body}</div>`,
         );
-        const dir = path.join(OUT, route.url.replace(/^\//, ''));
+        const slug = route.url.replace(/^\//, '');
+        // The one the router actually serves. File THIS url with the stores.
+        const flat = path.join(OUT, `${slug}.html`);
+        await writeFile(flat, html, 'utf8');
+        // The shape a normal static host would serve. Same html, so no drift.
+        const dir = path.join(OUT, slug);
         await mkdir(dir, { recursive: true });
         await writeFile(path.join(dir, 'index.html'), html, 'utf8');
         written += 1;
-        console.log(`prerender: ${route.url} -> ${path.relative(OUT, path.join(dir, 'index.html'))} (${body.length} chars)`);
+        console.log(`prerender: ${route.url} -> ${slug}.html and ${slug}/index.html (${body.length} chars)`);
       } catch (error) {
         warn(`${route.url} failed (${error.message}). Skipped.`);
       }

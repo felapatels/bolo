@@ -1,7 +1,20 @@
 // THE LEGAL PAGES MUST STAY RENDERABLE WITHOUT A BROWSER.
 //
-// scripts/prerender-legal.mjs emits dist/public/privacy/index.html and
-// terms/index.html at build time so a crawler with no JavaScript sees the
+// WHAT THIS FILE CAN AND CANNOT PROVE, and the gap cost a day on 2026-09-07.
+// It renders the components and asserts the words are there, which is the half
+// that can be checked offline. IT CANNOT SEE THE URL. The emitted file was
+// correct, the deploy carried it, and /privacy still served the SPA shell
+// because Replit's router resolves exact paths only and never a directory
+// index. A build step that must never fail needs a check that CAN, and the only
+// check that would have caught this is a no-JS fetch of the LIVE url:
+//
+//   curl -s https://bolo-india.app/privacy.html | wc -c
+//
+// naming the exact path being filed with the store rather than the pretty one.
+// Run it after every publish that touches these pages.
+//
+// scripts/prerender-legal.mjs emits dist/public/privacy.html AND
+// privacy/index.html (same for terms) at build time so a crawler with no JavaScript sees the
 // actual policy instead of the SPA shell. Measured 2026-09-07 before it was
 // built: /privacy, /delete-account and a nonsense path all returned the SAME
 // 7,972 bytes with the homepage title.
