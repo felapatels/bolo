@@ -135,30 +135,49 @@ function renderPage(ui: ReactElement, path = "/learn/1") {
 // test suites in parallel so individual async steps can take longer than the
 // 1 s default without indicating a real failure.
 /**
- * THE PER-WAIT CEILING, AND IT IS THE LEVER. RAISED FROM 8000 ON 2026-09-07.
+ * THE PER-WAIT CEILING. RAISED FROM 8000 ON 2026-09-07, AND IT IS **NOT** THE
+ * FIX FOR THE FLAKE THIS FILE IS FAMOUS FOR. Read the second half before
+ * changing it again.
  *
- * COUNT THE WAITS, NOT THE SECONDS. This is a `waitFor` MAXIMUM, not a wait: it
- * returns the instant its assertion passes, so on an idle machine every one of
- * these costs milliseconds and they all look identical. What differs between
- * the tests below is HOW MANY of them there are, and each one carries its own
- * independent ceiling.
+ * WHAT IS TRUE. `waitFor` is a MAXIMUM, not a wait: it returns the instant its
+ * assertion passes, so on an idle machine every one costs milliseconds and the
+ * tests below all measure the same. What differs is HOW MANY there are, each
+ * with its own independent ceiling:
  *
  *   reachIdle  1 waitFor      scoreOnce  2      scoreAndNext  2
  *
  *   UNSTOPPABLE   1 + (9 x 2) + 2 + 1  =  22 waits
  *   "3 in a row"  1 + (2 x 2) + 2 + 1  =   8 waits
  *
- * **ANY ONE of those twenty-two breaching its ceiling fails the whole test**,
- * immediately, and the test's own outer cap is never reached. So the ten-round
- * test carries nearly three times the exposure of its neighbours while
- * measuring identically on a quiet Mac, which is exactly the shape of a test
- * that only ever fails on a loaded shared runner.
+ * Any one of those breaching its ceiling fails the whole test, so the ten-round
+ * test carries nearly three times the exposure. 20000 buys the INTERMEDIATE
+ * waits room, and those wait on state that persists, so room genuinely helps
+ * them.
  *
- * FOUR EXPLANATIONS WERE OFFERED BEFORE THIS ONE AND ALL FOUR WERE WRONG,
- * including mine twice. Cap pressure (the outer 30s was never approached), the
- * toast's own lifetime (real, but it cannot explain why only this test fails),
- * and raising the outer cap (aimed at the wrong lever entirely). The mechanism
- * came from counting the waits, which nobody had done.
+ * WHAT IS NOT TRUE, AND IT WAS MY OWN CLAIM. The observed CI failure is at the
+ * FINAL assertion, the one waiting for "UNSTOPPABLE!" itself, not at any of the
+ * nine rounds before it. And that toast **cannot come back**: practice.tsx
+ * shows it and sets `setActiveToast(null)` on an 1800ms timer, and those are
+ * the only two call sites. So the text is in the DOM for 1800ms and then gone
+ * for good. **A poll that missed that window will miss it at 8s and at 20s
+ * alike; the extra twelve seconds are spent waiting for something that can
+ * never return.** The disproof was in the sentence used to justify the change:
+ * if a ceiling only changes how long a FAILURE takes to report, it cannot also
+ * be a fix.
+ *
+ * THE LIVE THEORY IS A RACE, NOT A DEADLINE. Under load the main thread stalls,
+ * the 1800ms clear and the assertion both come due, and a toast that appeared
+ * and auto-dismissed is indistinguishable from one that never appeared.
+ *
+ * FIVE EXPLANATIONS HAVE DIED ON THIS TEST. Cap pressure; the outer `}, 30000)`
+ * annotation; the toast lifetime alone (real, but it does not explain why only
+ * this test fails); the wait count (correct arithmetic, wrong axis); and a
+ * green CI run offered as confirmation, which proves nothing because this test
+ * ALREADY passes intermittently. **One pass cannot confirm a fix for an
+ * intermittent failure.** The experiment that discriminates is to stall the
+ * main thread for ~2s between the tenth score and the assertion and see whether
+ * it fails anyway; the likely real fix is fake timers with a deterministic
+ * advance, which removes the race rather than extending the deadline.
  */
 const WT = { timeout: 20000 };
 
