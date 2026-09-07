@@ -1,5 +1,17 @@
 # BOLO
 
+> **BEFORE YOU BUILD ANYTHING WITH A NAME, GREP THE LEDGER.**
+> `~/bolo-supervisor/LEDGER.md` is the one file all five BOLO repos share. Grep
+> its keyword index for the feature, read the sibling's commit if one already
+> exists, and add a line when yours lands. Three gates decide whether a change
+> travels: **REGION** (names a language, place, currency, font, store id or price:
+> write it again per fork), **ENGINE** (pure logic, a server rule, a guard script,
+> a region-free test, or a build or console finding: the other four are owed it,
+> `git cherry-pick -x`), **CONTRACT** (touches `lib/api-spec/openapi.yaml`: STOP,
+> post the proposed names, wait for a ruling). Gate 3 is the only one that blocks,
+> and it exists because one owner ruling became four different wire formats.
+> Seeded 2026-09-06 with thirteen open cross-fork debts, X1 to X13.
+
 South Asian language learning. Product name is **Bolo!**; the web artifact dir is
 still `gujarati-coach` for historical reasons. See `replit.md` for architecture,
 auth, audio flow, and RevenueCat detail.
