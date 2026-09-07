@@ -280,15 +280,23 @@ describe("hot-streak toasts", () => {
       () => expect(screen.getByText("🔥🔥🔥 UNSTOPPABLE!")).toBeInTheDocument(),
       WT,
     );
-    // Ten scoring rounds accumulate. Each individual waitFor is comfortable;
-    // the wall clock is what runs out. Measured 2026-09-07 on an 18-thread Mac:
-    // 646ms with this file run alone, 1935ms with the full 154-file suite
-    // running around it, so contention alone costs 3x. The previous cap here
-    // was 30000, which is also this project's global testTimeout, so it read
-    // like headroom and bought none. A 2-core hosted runner went past it and
-    // failed a sibling fork on a tree that was green (2026-09-07), which is a
-    // false red rather than a defect. 60000 is roughly 31x the measured
-    // in-suite duration.
+    // WHY THIS CAP EXISTS, AND WHAT IT DOES NOT FIX.
+    //
+    // The previous cap was 30000, which is also this project's global
+    // testTimeout, so it read like a considered allowance and bought nothing.
+    // That is the whole reason it changed. Measured 2026-09-07 on an 18-thread
+    // Mac: 646ms with this file alone, 1935ms with the full 154-file suite
+    // running around it, so contention alone costs 3x and the old cap still
+    // had 15x margin.
+    //
+    // THAT MARGIN IS WHY CAP PRESSURE IS NOT THE EXPLANATION for the red this
+    // test produced in a sibling fork on a green tree. Nobody has shown the
+    // 30s was ever reached; that was assumed, including by me, and the numbers
+    // above argue against it. WT is a waitFor MAXIMUM rather than a wait, so
+    // ten rounds do not accumulate ten waits. A live theory elsewhere is that
+    // the toast auto-dismisses before the assertion reads it, which looks
+    // identical to a toast that never appeared. DO NOT RECORD THIS TEST AS
+    // FIXED because of this number.
   }, 60000);
 
   test("resets the streak counter after a retry band", async () => {
