@@ -151,3 +151,10 @@ is trap 1 above, and it is expected rather than broken.
    time an iPad-capable build goes for review.
 5. **`FREE_LANGUAGE` is a single string here** and an array in all four forks. It
    conflicts every cherry-pick. Agreed direction is India widening to the array.
+7. **A RULING, AND IT IS SMALL BUT IT SPREADS.** The gift endpoint has a wire
+   field literally named `chai`. India's contract says `chai` 21 times; SEA's
+   says `kopi` 18 times and `chai` never. **The wire format has already split on
+   the currency noun**, and the four forks are about to copy the gift code.
+   **My recommendation: keep `chai` on the wire everywhere and let each region
+   DISPLAY its own word.** A wire field is an identifier, not a word a learner
+   reads. One schema beats five. Say yes and it is settled before it spreads.
