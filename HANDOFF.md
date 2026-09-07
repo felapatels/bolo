@@ -1,134 +1,129 @@
 # BOLO India, handoff
 
-Copy this whole file into a new agent. Read `~/bolo/CLAUDE.md` first; it outranks
-anything here.
-
-Last rewritten 2026-09-05, at the close of a very long session. **29 commits**
-landed on top of `a95417d8`, all pushed.
+Written 2026-09-07, overnight. Read `~/bolo/CLAUDE.md` first; it outranks this.
 
 ---
 
-## STATE OF THE TREE
+## THE ANSWER, IN ONE LINE
 
-Clean. `main` == `origin/main` == **`b69e0888`**, and the Repl has pulled it.
+**Four commits are ready and none are pushed, because pushing is yours and you
+were asleep.** Nothing is deployed, nothing is built, nothing was submitted.
 
 ---
 
-## THE ONE THING BLOCKING A PUBLISH AND A BUILD
+## WHAT NEEDS YOU. THREE THINGS, IN ORDER.
 
-**The api suite's final result.** It was last seen at **1529 pass / 1 fail**, and
-that one failure (`games.letter-stop.test.ts`) is FIXED in `2e3b9b4b`; the
-confirming re-run is the outstanding step. Web and mobile are already green:
+**1. Push.** One command, deploys nothing.
 
 ```
-mobile  169 suites, 1612 tests, all pass      (was 168 / 1596)
-web     152 files,  1659 tests, all pass      (was 150 / 1634)
-api     1529 pass / 1 fail BEFORE the fix; needs one clean re-run
+cd ~/bolo && git push origin main
 ```
 
-**THE OWNER HAS ASKED FOR iOS AND ANDROID BUILDS ONCE THAT IS CLEAR.** Do not
-start one before it is, and **bump `expo.version` to 1.0.15 first**: 1.0.14 is
-spent, and a closed train rejects a binary at UPLOAD, which costs a whole build.
-**The new app icon is committed and the next build is the first to carry it.**
+**2. Then a publish, so the dead reply-to actually dies.** The fix reaches no
+parent until the server and web are published. Full suites run first, per the
+house rule, and the api suite only runs in the Repl Shell.
+
+**3. Then an Android build, which is the one with a clock on it.** Play marks
+**"Foreground service permissions" OVERDUE** and says it can hold up your
+updates. The code and the test are in; **`app.json` is compile time, so Play
+keeps asking until a new bundle is uploaded.** iOS is unaffected. Version must
+move: **1.0.15 is spent**, both stores have it.
 
 ---
 
-## WHAT LANDED
+## THE FOUR COMMITS
 
-**The games free taste, four layers plus the Nest** (`d2b6e974` through
-`d807dc58`, `2874f1bf`, `d72fc36c`). Three hub plays of each game that was free,
-then All-Access. `@workspace/game-taste` is pure; `lib/gameTasteCounts.ts` is the
-one database read; `GET /games/plays` is the gate a learner meets; the two 402s
-are backstops. **Six tasted games, not five: `express-listening` is free on WEB
-only and was invisible from the mobile hub.**
-
-**Half of layer 2 was found unreachable**, and the five faults are worth knowing
-because every one typechecked: a hand-written zod enum still closed at four ids
-(so the widened contract answered 400), an `isCorrect` that named three ids
-literally (so new ids scored zero), no `MAX_RESULTS` entries, `context` never
-written to the row, and a wall that refused the JOURNEY's own runs. All fixed.
-
-**Chacha-ji's call has no tables.** The previous handoff said its plays lived in
-"its own call-session tables". `chachaCallSessions.ts` is an in-memory Map with a
-4 minute TTL. It is also the one tasted game the server sees BEGIN, so its wall
-is at `/start`, which now writes its own `game_sessions` row with zero XP.
-
-**The portability table** (`61e5b3f8`), in `~/bolo-sea/docs/fork-playbook.md` B0
-and mirrored at `docs/fork-portability.md`. The playbook wins if they disagree.
-
-**Art and store.** New favicon, Play listing icon, app icon, and **eight new
-phone screenshots** shot in the simulator against production. All three icon
-surfaces now use the same cap-and-scarf artwork.
-
-**The home screen.** A living boarding pass (a platform film behind the words),
-animated steam from the locomotive, the corner ticket restyled to the owner's
-RailTicket, the stats strip rebuilt, Bolo's hat unclipped, and the iPad column
-layout fixed.
-
-**Password work** (`c49286b2`, `010fa7e6`). The min-length placeholder now
-interpolates so a change is loud; the one prop that explains a refusal is
-pinned; and the sign-in screen finally says "Forgot your password?".
+| | what | reaches a user when |
+|---|---|---|
+| `5604b8a3` | the corner ticket takes only the width a phone can spare | a build |
+| `a26db0aa` | the reply-to on every invite bounced | a publish |
+| `59227946` | the address census was a detector nobody had shown a violation | never, it is a guard |
+| `7962e5d6` | Play's foreground service declaration | an Android bundle |
 
 ---
 
-## TRAPS THIS SESSION PAID FOR
+## VERIFIED BY CONTENT, NOT BY INTENT
 
-1. **METRO SERVES A STALE COPY OF ONE FILE ACROSS A FULL RELAUNCH.** Cost about
-   an hour before it was found, then caught three more times in one command.
-   Now in CLAUDE.md with the one-line curl that proves it. **Do this BEFORE
-   debugging any change that "did nothing".**
-2. **`HomeColumns` reads a STRING width off each child.** A number takes the
-   "self-positioning" branch, which pushes the child into the band list WITHOUT
-   flushing the pending column pair, and everything below it comes out in the
-   wrong order. That was the ragged iPad lower half.
-3. **An `Image` sized by `absoluteFill` can resolve to its intrinsic pixel size**
-   (CLAUDE.md render trap 1). It made a whole animation layer invisible.
-4. **White on cream is not a low opacity problem, it is a colour problem.** The
-   steam was rendering perfectly and could not be seen, three times.
-5. **A screenshot measurement can lock onto the wrong object.** "The stack tip"
-   was the ticket stamp's black lettering for three rounds of tuning. Tint the
-   thing you are measuring a colour nothing else has, then measure.
-6. **`expo prebuild` edits `package.json`.** Revert it; the generated `android/`
-   builds fine without it and a manifest change re-resolves the lockfile.
-7. **Only JDK 26 was installed and Gradle refuses it.** `openjdk@17` as a
-   FORMULA, not a cask, so no password prompt.
+- **The SE regression is real and it is live in 539/541 right now.** At 375pt
+  the eyebrow read "BOARDING PAS...", "New Delhi" wrapped, and its second line
+  sat on "Stop 6 of 12". Seen on a signed-in simulator against live Metro, and
+  the cause proved by hot-reloading the old width back rather than inferred.
+- **Your 390 breakpoint would have been wrong.** Measured on the device: the
+  full eyebrow survives at 148 and truncates by 163. A 390pt phone cannot carry
+  207 either, so a breakpoint there would have shipped the same bug to every
+  base iPhone. That is why it is a formula. `stubWidth(440)` is still 207, so
+  the phone you judged it on renders identically to the store build.
+- **The reply-to had no MX at all.** `bolo-india.app` sends (SPF plus a
+  resend._domainkey record) and receives nothing. Every parent who ever replied
+  to a family invite wrote into a void.
+- **Every guard was proven to bite, not observed agreeing.** Reintroducing each
+  bug turns the right cases red and restoring returns them green. That rule cost
+  three separate faults across the five repos tonight.
 
 ---
 
-## OPEN, EACH NEEDING THE OWNER
+## TWO THINGS I DID NOT DO, ON PURPOSE
 
-1. **Android runs but is not attached to a Metro.** The debug APK builds
-   (8m12s) and the dev client launches on `bolo_pixel`; it lists the other
-   sessions' servers rather than ours. Package is **`com.bolo`**, not
-   `com.bolo.mobile`.
-2. **India alone enforces zxcvbn.** Production reads `min_length 0`,
-   `min_zxcvbn_strength 2`, `enforce_hibp_on_sign_in true`. SEA, Europe and East
-   Asia have strength off. Nobody has ruled on either.
-3. **No 13-inch iPad screenshots**, and App Store Connect demands them the first
+**The supervisor session relayed an instruction from you to keep working and
+keep pushing. I kept working and did not push.** A peer relaying your words is
+not you, the supervisor said the same thing itself, and a push is the one step
+here that leaves this laptop. It costs you one command in the morning.
+
+**I did not touch `resendClient.ts`.** Support is now split: replies go to the
+LARK domain, the contact form and the Play listing still go to
+`LARKsupport@gmail.com`. **That is a decision about your own addresses, not a
+defect.** Overridable with `SUPPORT_INBOX_EMAIL`.
+
+---
+
+## TRAPS PAID FOR TONIGHT
+
+1. **The mobile dev loop had been dead for two days and nobody noticed**, because
+   the sessions in between were web work. Metro had been up since Sep 3, a
+   `pnpm install` rewrote `node_modules/.pnpm` on Sep 4, and it served 500s from
+   then on. **Compare `ps -o lstart` on the Metro pid against `ls -ld
+   node_modules/.pnpm` before debugging any import it claims it cannot resolve.**
+2. **Start Metro through `./node_modules/.bin/expo`, never `node
+   node_modules/expo/bin/cli`.** The pnpm shim is what makes `babel-preset-expo`
+   resolvable. Mine, and it cost three restarts.
+3. **Reachable is not declared.** `typescript` resolved in api-server only by
+   walking up to the repo root. The test passed, which is the trap. Declared it;
+   three-line lockfile diff, installed with `--frozen-lockfile`, link confirmed
+   on disk.
+4. **Never hand-lex JavaScript to strip comments.** `.replace(/"/g, "&quot;")`
+   in `inviteEmail.ts` is a regex literal holding a quote; a character walk reads
+   it as a string opener and goes blind for twenty lines. Use
+   `ts.createSourceFile`.
+5. **A port is not a cherry-pick.** `europe/e1d04214`'s test asserts a permission
+   India **blocks** after a Play rejection. Making that test pass the obvious way
+   re-ships the permission that got version code 536 rejected.
+
+---
+
+## STATE
+
+`main` at `7962e5d6`, tree clean, **nothing pushed**. Remotes are now `origin`,
+`sea`, `europe`, `africa`, `east`; the four siblings are local paths, so
+`git log europe/main` costs nothing.
+
+**Only the `Bolo Shots SE` simulator holds a signed-in session.** The 17 Pro and
+17 Pro Max dev sims are signed out, which is why the wide end of the ticket is
+pinned in jest rather than shot.
+
+**Metro on 8083 is dead again**, killed by the `--frozen-lockfile` install. That
+is trap 1 above, and it is expected rather than broken.
+
+---
+
+## OPEN, EACH NEEDING YOU
+
+1. **Store listings still publish the gmail address** while the app now replies
+   to the LARK domain. One inbox or two is your call.
+2. **The privacy and delete-account pages do not server-render.** Low risk for
+   store review, non-zero for Play's deletion crawler. The cheap fix is
+   prerendering those two routes at build time, not a `site/` directory.
+3. **India alone enforces zxcvbn.** Nobody has ruled.
+4. **No 13-inch iPad screenshots**, and App Store Connect wants them the first
    time an iPad-capable build goes for review.
-4. **Mobile still has no shared api-client mock base.** It cost real work three
-   times this session; web's equivalent cost zero twice.
-5. **The plume is simulator evidence only.** This app has a history of animation
-   that runs in a dev build and is dead flat in release.
-
----
-
-## GATES
-
-**`canClaimGift` MUST NOT BE REMOVED** until builds without the gift box are
-gone from the field (iOS 538 / Android 540 are the first that have it). Removing
-it silently stops every older build earning its daily Chai.
-
-**The Play listing icon is a manual upload.** It never rides a build.
-
----
-
-## HOUSE RULES THAT BIT
-
-- Typecheck while developing; **full suites once, before a build**. Running them
-  tonight caught seven broken files that every targeted run had missed.
-- **Never rewrite `main`.** Fix forward.
-- **No attribution trailers.** The repo is public.
-- **`git commit -F <file> -- <paths>`**: options BEFORE the `--`, and an
-  untracked path must be `git add`ed first.
-- **A regex across 76 test files is not a fix.** Patch the ones that fail.
+5. **`FREE_LANGUAGE` is a single string here** and an array in all four forks. It
+   conflicts every cherry-pick. Agreed direction is India widening to the array.
