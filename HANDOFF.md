@@ -6,7 +6,7 @@ Written 2026-09-07, overnight. Read `~/bolo/CLAUDE.md` first; it outranks this.
 
 ## THE ANSWER, IN ONE LINE
 
-**Four commits are ready and none are pushed, because pushing is yours and you
+**Seven commits are ready and none are pushed, because pushing is yours and you
 were asleep.** Nothing is deployed, nothing is built, nothing was submitted.
 
 ---
@@ -31,7 +31,7 @@ move: **1.0.15 is spent**, both stores have it.
 
 ---
 
-## THE FOUR COMMITS
+## THE SEVEN COMMITS
 
 | | what | reaches a user when |
 |---|---|---|
@@ -39,6 +39,12 @@ move: **1.0.15 is spent**, both stores have it.
 | `a26db0aa` | the reply-to on every invite bounced | a publish |
 | `59227946` | the address census was a detector nobody had shown a violation | never, it is a guard |
 | `7962e5d6` | Play's foreground service declaration | an Android bundle |
+| `623de6ac` | this handoff | now |
+| `a0f8a945` | seven traps onto the Nest's Reference page | a publish |
+| `13e94fe6` | the one undeclared import in the repo, removed not declared | never, test only |
+
+**Three of the seven reach nobody**, which is the point: two are guards and one
+is this file. **The two that change what a learner sees both need you.**
 
 ---
 
@@ -102,7 +108,7 @@ defect.** Overridable with `SUPPORT_INBOX_EMAIL`.
 
 ## STATE
 
-`main` at `7962e5d6`, tree clean, **nothing pushed**. Remotes are now `origin`,
+`main` at `13e94fe6`, tree clean, **nothing pushed**. Remotes are now `origin`,
 `sea`, `europe`, `africa`, `east`; the four siblings are local paths, so
 `git log europe/main` costs nothing.
 
