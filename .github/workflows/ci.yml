@@ -6,10 +6,16 @@
 #   typecheck   pnpm run typecheck (tsc -b everywhere; tsc -p lies in this repo)
 #   web         vitest, the whole suite
 #   mobile      jest, the whole suite, --forceExit because workers leak
-#   api-pure    the api-server test files that need no database (61 of 122,
-#               listed in artifacts/api-server/pure-tests.txt). The other 61
-#               need the Repl's dev database and still run only in the Repl
-#               Shell before a publish.
+#   api-pure    the api-server test files that need no database (64 of 138,
+#               listed in artifacts/api-server/pure-tests.txt). Fast signal.
+#   api-db      the WHOLE api suite, against a throwaway postgres built from
+#               migrations plus the seed. Added 2026-09-07 on the owner's
+#               approval, and it exists because the deletion lockout (X53) was
+#               a P0 whose only guard could not be executed by anything
+#               automatic. The line that used to sit here said the db-backed
+#               files "run only in the Repl Shell". THAT WAS FALSE and it cost
+#               five forks a day of unverifiable fixes: the suite needs A
+#               database, not the REPL'S database.
 #
 # PORTABLE TO BOLO INDIA AS IS, except pure-tests.txt: regenerate it there by
 # running each api test file alone with SESSION_SECRET=x OPENAI_API_KEY=x and
@@ -109,3 +115,71 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck:libs
       - run: pnpm --filter @workspace/api-server run test:pure
+
+  # THE WHOLE api SUITE, ON A DATABASE THIS JOB BUILDS AND THROWS AWAY.
+  #
+  # Two things make this possible and both were traps first. The suite needs a
+  # SEEDED database, not just a migrated one, because tests resolve fixture ids
+  # from content rows. And it needs OPENAI_API_KEY set to any non-empty string:
+  # integrations-openai-ai-server throws at import without one, which reads as a
+  # broken test rather than a missing variable.
+  #
+  # WHAT A GREEN RUN HERE PROVES, AND WHAT IT DOES NOT.
+  # A fresh database is a stronger proof than a reused one ONLY where a foreign
+  # key exists to bind a fixture id to a real row. Measured on India's schema
+  # 2026-09-07 (pg_constraint, contype='f'):
+  #   lesson_group_progress.lesson_group_id   FK, so a phantom id raises
+  #   lesson_group_testouts.lesson_group_id   FK, so a phantom id raises
+  #   phrase_reports.phrase_id                FK, so a phantom id raises
+  #   user_item_memory.phrase_id              FK, so a phantom id raises
+  #   attempts.phrase_id                      NO FK, a phantom id inserts fine
+  # A sibling fork measured a schema where NEITHER fixture column carries one,
+  # and there the suite passes against rows that do not exist while looking
+  # exactly as green as this. Absence of a foreign key is invisible from the
+  # test file, so read pg_constraint before trusting a green on a clean
+  # database.
+  api-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: bolo
+          POSTGRES_PASSWORD: bolo
+          POSTGRES_DB: bolo_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://bolo:bolo@localhost:5432/bolo_ci
+      # Test-only values. Neither is a credential and neither reaches a real
+      # service: Clerk is faked in the suite and no test calls OpenAI.
+      SESSION_SECRET: ci-test-secret-not-a-credential
+      OPENAI_API_KEY: sk-placeholder-not-a-real-key-import-guard-only
+      # Clerk's backend SDK asserts on key FORMAT at import, not on validity, so
+      # a well-formed fake is enough and no request ever reaches Clerk. Without
+      # these, phraseReports' auth test returns 500 where it asserts 401, which
+      # reads as a broken guard rather than a missing variable.
+      CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+      CLERK_SECRET_KEY: sk_test_ci_placeholder_not_a_credential
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+      # Same ffmpeg reason as api-pure: one test really shells out to it.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck:libs
+      - run: pnpm --filter @workspace/db run migrate
+      - run: pnpm --filter @workspace/db run seed
+      - run: pnpm --filter @workspace/api-server run test
