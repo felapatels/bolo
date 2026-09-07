@@ -68,9 +68,26 @@ require_font "Noto Sans Meetei Mayek" "NotoSansMeeteiMayek_400Regular.ttf"
 require_font "Noto Sans Ol Chiki"   "NotoSansOlChiki_400Regular.ttf"
 
 # --- High-res 512x512 Play Store icon (32-bit PNG, opaque background) ---
-magick -density 384 -background none assets/branding/icon.svg \
-  -resize 512x512 -background "#fffdf0" -flatten \
-  "$OUT/play-store-icon.png"
+#
+# GUARDED OFF BY DEFAULT, ADDED 2026-09-07. This step OVERWRITES committed art
+# rather than refreshing it: the icon in the repo is what the Play listing shows,
+# and a rerun of this script for any other reason (fonts, screenshots, the
+# feature graphic) used to silently replace it from whatever icon.svg happens to
+# say today. A sibling fork hit this and added the guard; the parent never had
+# it, which is the wrong direction for a lesson to travel.
+#
+# sha256 of the committed file when this guard was written, first 16:
+#   play-store-icon.png   1ff84149dc2dcca1
+#
+# Set BOLO_REGEN_PLAY_ICON=1 only when you INTEND to replace the listing icon.
+if [ "${BOLO_REGEN_PLAY_ICON:-0}" = "1" ]; then
+  magick -density 384 -background none assets/branding/icon.svg \
+    -resize 512x512 -background "#fffdf0" -flatten \
+    "$OUT/play-store-icon.png"
+  echo "store-assets: REGENERATED $OUT/play-store-icon.png"
+else
+  echo "store-assets: kept $OUT/play-store-icon.png (set BOLO_REGEN_PLAY_ICON=1 to replace it)"
+fi
 
 # --- Feature graphic (1024x500, required by Play) --------------------------
 # Headline lockup (mark + wordmark + "22 languages" tagline) over a cloud of
@@ -168,9 +185,19 @@ magick -background none "$FC_DIR/feature.svg" \
 magick -density 300 -background none assets/branding/adaptive-icon.svg \
   -resize 150x150 "$FC_DIR/mark.png"
 
-magick "$FC_DIR/feature-flat.png" \
-  "$FC_DIR/mark.png" -gravity NorthWest -geometry +44+30 -compose over -composite \
-  "$OUT/feature-graphic.png"
+# Same guard as the icon above, same reason, and the feature graphic is the
+# larger surface: it is the first thing a Play shopper sees.
+#
+# sha256 of the committed file when this guard was written, first 16:
+#   feature-graphic.png   76d72b55e83b0b8f
+if [ "${BOLO_REGEN_FEATURE_GRAPHIC:-0}" = "1" ]; then
+  magick "$FC_DIR/feature-flat.png" \
+    "$FC_DIR/mark.png" -gravity NorthWest -geometry +44+30 -compose over -composite \
+    "$OUT/feature-graphic.png"
+  echo "store-assets: REGENERATED $OUT/feature-graphic.png"
+else
+  echo "store-assets: kept $OUT/feature-graphic.png (set BOLO_REGEN_FEATURE_GRAPHIC=1 to replace it)"
+fi
 
 # --- Branded, captioned phone screenshots -----------------------------------
 # Wraps each raw capture (assets/store/android/screenshots/*.jpg, 824x1648 — captured at 2x DPR for a pixel-crisp phone plate) in an
