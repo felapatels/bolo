@@ -151,10 +151,13 @@ is trap 1 above, and it is expected rather than broken.
    time an iPad-capable build goes for review.
 5. **`FREE_LANGUAGE` is a single string here** and an array in all four forks. It
    conflicts every cherry-pick. Agreed direction is India widening to the array.
-7. **A RULING, AND IT IS SMALL BUT IT SPREADS.** The gift endpoint has a wire
-   field literally named `chai`. India's contract says `chai` 21 times; SEA's
-   says `kopi` 18 times and `chai` never. **The wire format has already split on
-   the currency noun**, and the four forks are about to copy the gift code.
-   **My recommendation: keep `chai` on the wire everywhere and let each region
-   DISPLAY its own word.** A wire field is an identifier, not a word a learner
-   reads. One schema beats five. Say yes and it is settled before it spreads.
+7. ~~The currency noun splitting the wire contract.~~ **SETTLED overnight,
+   `e08a57a2`, and it needs nothing from you.** The gift endpoint has a field
+   named `chai`; India's contract said `chai` 21 times and SEA's said `kopi` 18
+   times and `chai` never, so the wire format had already split without anyone
+   deciding. Ruled across all five repos: **`chai` stays on the wire, each
+   client renders its own word.** The spec now carries a comment saying the
+   field is an identifier, which is the actual guard: without it the next fork
+   agent "fixes" it and we get a fifth contract by tidiness. **Nothing was
+   regenerated and nothing can have broken**: it is a YAML comment, and parsing
+   the spec before and after gives an identical result.
