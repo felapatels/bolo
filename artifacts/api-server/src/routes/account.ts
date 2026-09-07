@@ -22,6 +22,9 @@ import {
   lessonGroupTestoutsTable,
   scriptTraceProgressTable,
   contactSubmissionsTable,
+  usernameReportsTable,
+  userBlocksTable,
+  zoneTestoutsTable,
   type User,
 } from "@workspace/db";
 import { and, desc, eq, ne, or, sql } from "drizzle-orm";
@@ -564,11 +567,25 @@ export function createAccountRouter(
       //   xp_ledger, user_ability, user_item_memory,
       //   phrase_reports, daily_quiz_completions,
       //   game_sessions, lesson_group_progress, lesson_group_testouts,
-      //   script_trace_progress, contact_submissions, users
-      //   activity_events cascades on user delete (0052), so it is
-      //   deliberately absent from this list.
-      // TODO (build-32): also delete token_ledger and token_spend_ledger
-      //   once those tables are added by the build-32 schema work.
+      //   script_trace_progress, contact_submissions,
+      //   zone_testouts, user_blocks, username_reports, users
+      //
+      // TWO KINDS OF TABLE REFERENCE A USER AND ONLY ONE OF THEM IS SAFE TO
+      // LEAVE OUT. A table whose FK is ON DELETE CASCADE disappears with the
+      // users row and is deliberately absent: activity_events (0052),
+      // chat_memories, chacha_encounters, friend_code_attempts,
+      // referral_redemptions, push_tokens, signal_waves, token_ledger,
+      // user_token_state, zone_conversation_stamps. A table whose FK is ON
+      // DELETE no action must be purged HERE, by name, or the final users
+      // delete raises a foreign key violation and the account is left half
+      // deleted with its Clerk identity already gone. zone_testouts (0036) and
+      // user_blocks / username_reports (0056) were that second kind and were
+      // missing from this list; anyone who had tested out of a zone could not
+      // delete their account at all.
+      //
+      // BEFORE ADDING A TABLE WITH A user_id, CHECK ITS onDelete. If it is not
+      // a cascade it belongs in this handler and in the test that seeds one row
+      // per user-owned table.
       await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, id));
       await db
         .delete(userAbilityTable)
@@ -597,6 +614,28 @@ export function createAccountRouter(
       await db
         .delete(contactSubmissionsTable)
         .where(eq(contactSubmissionsTable.userId, id));
+
+      // No cascade on any of these three, so they must go by name and before
+      // the users row. Blocks and reports name a user on either side.
+      await db
+        .delete(zoneTestoutsTable)
+        .where(eq(zoneTestoutsTable.userId, id));
+      await db
+        .delete(userBlocksTable)
+        .where(
+          or(
+            eq(userBlocksTable.blockerId, id),
+            eq(userBlocksTable.blockedId, id),
+          ),
+        );
+      await db
+        .delete(usernameReportsTable)
+        .where(
+          or(
+            eq(usernameReportsTable.reporterId, id),
+            eq(usernameReportsTable.reportedUserId, id),
+          ),
+        );
 
       await db.delete(usersTable).where(eq(usersTable.id, id));
 

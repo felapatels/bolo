@@ -24,8 +24,11 @@ import {
   lessonGroupTestoutsTable,
   scriptTraceProgressTable,
   contactSubmissionsTable,
+  zoneTestoutsTable,
+  userBlocksTable,
+  usernameReportsTable,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { createAccountRouter } from "./account";
 import type {
@@ -540,14 +543,22 @@ test("POST /account/password enforces a minimum length and calls Clerk", async (
 // --- Deletion --------------------------------------------------------------
 
 test("DELETE /account removes the Clerk user and purges all local rows", async () => {
-  // Covered tables (14 total):
+  // Covered tables (17 total):
   //   attempts, badges, lesson_generations, friendships   — existing
   //   xp_ledger, user_ability, user_item_memory,
   //   phrase_reports, daily_quiz_completions,
   //   game_sessions, lesson_group_progress,
   //   lesson_group_testouts, script_trace_progress,
-  //   contact_submissions                                 — added here
-  // TODO (build-32): extend with token_ledger, token_spend_ledger.
+  //   contact_submissions
+  //   zone_testouts, user_blocks, username_reports        — added 2026-09-07
+  //
+  // THE LAST THREE ARE WHY THIS TEST EXISTS AND WHY IT NEARLY DID NOT BITE.
+  // Their foreign keys are ON DELETE no action, so a user holding any of those
+  // rows could not be deleted at all: the handler removed the Clerk identity
+  // first and then died on the users delete, leaving a locked-out account with
+  // all of its data still present. This test passed throughout, because it
+  // seeded every table the handler already knew about and none that it did not.
+  // A user-keyed table with no cascade belongs in BOTH lists or in neither.
 
   // Seed one row in every user-owned table.
   await db.insert(attemptsTable).values({
@@ -636,6 +647,25 @@ test("DELETE /account removes the Clerk user and purges all local rows", async (
     message: "test message",
   });
 
+  // The three no-cascade tables. Without these seeds the handler's gap is
+  // invisible; with them, an unpatched handler dies on the users delete.
+  await db.insert(zoneTestoutsTable).values({
+    userId: TEST_USER_ID,
+    languageCode: TEST_LANG,
+    categoryId: 1,
+    passed: true,
+  });
+  await db.insert(userBlocksTable).values({
+    blockerId: TEST_USER_ID,
+    blockedId: FRIEND_ID,
+  });
+  await db.insert(usernameReportsTable).values({
+    reporterId: TEST_USER_ID,
+    reportedUserId: FRIEND_ID,
+    reportedUsername: "someone",
+    reason: "other",
+  });
+
   const { status, json } = await del("/account");
   assert.equal(status, 200);
   assert.equal(json.deleted, true);
@@ -716,6 +746,31 @@ test("DELETE /account removes the Clerk user and purges all local rows", async (
     .from(contactSubmissionsTable)
     .where(eq(contactSubmissionsTable.userId, TEST_USER_ID));
   assert.equal(contactRows.length, 0);
+  const testoutRows = await db
+    .select()
+    .from(zoneTestoutsTable)
+    .where(eq(zoneTestoutsTable.userId, TEST_USER_ID));
+  assert.equal(testoutRows.length, 0);
+  const blockRows = await db
+    .select()
+    .from(userBlocksTable)
+    .where(
+      or(
+        eq(userBlocksTable.blockerId, TEST_USER_ID),
+        eq(userBlocksTable.blockedId, TEST_USER_ID),
+      ),
+    );
+  assert.equal(blockRows.length, 0);
+  const usernameReportRows = await db
+    .select()
+    .from(usernameReportsTable)
+    .where(
+      or(
+        eq(usernameReportsTable.reporterId, TEST_USER_ID),
+        eq(usernameReportsTable.reportedUserId, TEST_USER_ID),
+      ),
+    );
+  assert.equal(usernameReportRows.length, 0);
 });
 
 test("DELETE /account dissolves a family plan the user owns", async () => {
