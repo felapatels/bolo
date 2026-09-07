@@ -107,8 +107,35 @@ call and it is not urgent.
 has to look at its own copy, because a re-encode makes an inherited picture hash
 as its own.
 
-**The audio is classified by what it IS, not by what it sounds like.** Nobody
-has listened to every clip in `sounds/`. The band clips and squawks are called
-shared on their function, and if one of them turns out to carry a spoken word,
-that single file becomes REGION and this line is how you know it was never
-checked.
+~~**The audio is classified by what it IS, not by what it sounds like.**~~
+**CLOSED 2026-09-07. Every clip in `sounds/` was round-tripped through Whisper
+and the answer is more interesting than the guess.**
+
+| file | transcript | what it is |
+|---|---|---|
+| `bands/almost.mp3` | "Almost." | **SPEECH** |
+| `bands/good.mp3` | "Good." | **SPEECH** |
+| `bands/great.mp3` | "Great." | **SPEECH** |
+| `bands/nocatch.mp3` | "Didn't catch that." | **SPEECH** |
+| `bands/perfect.mp3` | "Perfect." | **SPEECH** |
+| `bands/retry.mp3` | "Try again." | **SPEECH** |
+| `squawk_a.mp3` | "Bye bye." | noise |
+| `squawk_b.mp3` | "you" | noise |
+| `squawk_c.mp3` | "You" | noise |
+| `squawk.mp3` | "AHHHH!" | noise |
+| `tear-sfx.mp3` | "You" | noise |
+
+**THE BAND CLIPS ARE A VOICE SAYING ENGLISH WORDS, not sound effects.** They stay
+SHARED, but the REASON changes and the reason is what a fork needs: they are
+shared because **English is the fleet's interface language**, not because they
+are language-neutral noise. **The day any fork localises its UI, its six band
+clips become REGION for that fork.** Nothing about them is Indian; nothing about
+them is neutral either.
+
+**THE METHOD HAS A TRAP AND IT WOULD PRODUCE FALSE REGION FLAGS.** Whisper
+HALLUCINATES on short non-speech audio: every squawk and the tear effect came
+back with a confident word ("you", "Bye bye", "AHHHH!") and all of them are
+0.4 to 0.8 seconds of bird noise. **A returned word is not evidence of speech.**
+The tell is the match: a real speech clip returns EXACTLY what its filename
+claims, while noise returns generic filler. Read the transcript against the
+filename, never on its own.
