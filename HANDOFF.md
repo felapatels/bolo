@@ -6,12 +6,24 @@ Written 2026-09-07, overnight. Read `~/bolo/CLAUDE.md` first; it outranks this.
 
 ## THE ANSWER, IN ONE LINE
 
-**Seven commits are ready and none are pushed, because pushing is yours and you
+**Nine commits are ready and none are pushed, because pushing is yours and you
 were asleep.** Nothing is deployed, nothing is built, nothing was submitted.
+
+**And I found one thing that is worse than anything I fixed. It is at the top of
+the list below.**
 
 ---
 
-## WHAT NEEDS YOU. THREE THINGS, IN ORDER.
+## WHAT NEEDS YOU. FOUR THINGS, IN ORDER.
+
+**0. READ THIS ONE FIRST. `bolo-india.app/delete-account` is not a page.** It is
+not a route in the app at all: the route list has `/account` and
+`/account/subscription` and nothing else deletion-shaped, so that URL falls
+through to the app's own **not-found page**, with JavaScript or without it. If
+that is the data-deletion URL you gave Google, it has never worked. **I did not
+write the page**, because its words are a policy statement about what you delete
+and how, and that is yours rather than mine. Read from the routing table, not
+seen in a browser: **one minute to confirm** by opening it.
 
 **1. Push.** One command, deploys nothing.
 
@@ -42,9 +54,10 @@ move: **1.0.15 is spent**, both stores have it.
 | `623de6ac` | this handoff | now |
 | `a0f8a945` | seven traps onto the Nest's Reference page | a publish |
 | `13e94fe6` | the one undeclared import in the repo, removed not declared | never, test only |
+| `e995eb93` | `/privacy` and `/terms` prerendered to real HTML | a publish |
 
-**Three of the seven reach nobody**, which is the point: two are guards and one
-is this file. **The two that change what a learner sees both need you.**
+**Three of these reach nobody**, which is the point: two are guards and one is
+this file. **Everything that changes what a person sees needs you.**
 
 ---
 
@@ -108,7 +121,7 @@ defect.** Overridable with `SUPPORT_INBOX_EMAIL`.
 
 ## STATE
 
-`main` at `13e94fe6`, tree clean, **nothing pushed**. Remotes are now `origin`,
+`main` at `e995eb93`, tree clean, **nothing pushed**. Remotes are now `origin`,
 `sea`, `europe`, `africa`, `east`; the four siblings are local paths, so
 `git log europe/main` costs nothing.
 
@@ -125,10 +138,15 @@ is trap 1 above, and it is expected rather than broken.
 
 1. **Store listings still publish the gmail address** while the app now replies
    to the LARK domain. One inbox or two is your call.
-2. **The privacy and delete-account pages do not server-render.** Low risk for
-   store review, non-zero for Play's deletion crawler. The cheap fix is
-   prerendering those two routes at build time, not a `site/` directory.
+2. **`/privacy` and `/terms` now prerender**, verified by reading the emitted
+   file: 4,654 characters of visible policy where there were none. **Prove it on
+   production after the publish**, the way this repo proves every deploy:
+   `curl -s https://bolo-india.app/privacy | wc -c` should stop being 7972.
 3. **India alone enforces zxcvbn.** Nobody has ruled.
+6. **`/manifest.webmanifest` returns the homepage.** No such file is built, so
+   the PWA manifest the page asks for does not exist. Small, separate, and it is
+   how I proved the prerender would work at all: real files beat the fallback,
+   missing ones fall through.
 4. **No 13-inch iPad screenshots**, and App Store Connect wants them the first
    time an iPad-capable build goes for review.
 5. **`FREE_LANGUAGE` is a single string here** and an array in all four forks. It
