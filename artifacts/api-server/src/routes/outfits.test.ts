@@ -291,11 +291,28 @@ const PRICE_LIST: Record<string, number> = {
 const POSES = ["wave", "cheer", "thumbsup", "thinking", "tryagain"] as const;
 
 test("every item in the shop is priced, and charged, at its listed price", async () => {
+  // INVERTED 2026-09-07 because the behaviour changed on purpose. This used to
+  // assert the catalogue and the id list were "the same shop, in the same
+  // order", and that equality is exactly what the draft gate broke: the
+  // manifest's `status` field was decoration, so an item marked "draft" was
+  // generated into OUTFIT_CATALOG and sold at full price. `pink-beanie2` was.
+  //
+  // The two lists now answer different questions and the test says which:
+  //   OUTFIT_IDS       every item that EXISTS, drafts included, so an id a
+  //                    learner already bought still validates
+  //   OUTFIT_CATALOG   every item that is FOR SALE
+  // The catalogue is therefore a subset, and order is still preserved within
+  // it, which is what a shop rack cares about.
+  const forSale = OUTFIT_CATALOG.map((o) => String(o.id));
+  const allIds = [...OUTFIT_IDS] as string[];
   assert.deepEqual(
-    OUTFIT_CATALOG.map((o) => o.id),
-    [...OUTFIT_IDS],
-    "the id list and the catalog are the same shop, in the same order",
+    forSale,
+    allIds.filter((id) => forSale.includes(id)),
+    "the catalog is the id list with drafts removed, in the same order",
   );
+  // PRICE_LIST still covers EVERY id, drafts included. A draft has a price
+  // band in the manifest and will be sold at it the day it ships; leaving it
+  // unpriced would move the failure to the release rather than to now.
   assert.deepEqual(
     Object.keys(PRICE_LIST).sort(),
     [...OUTFIT_IDS].sort(),
