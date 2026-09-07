@@ -65,6 +65,24 @@ curl -s https://<your-domain>/privacy.html | wc -c
 A number close to your app shell's size means the crawler sees the app, not the
 policy. India filed a deletion URL that had never resolved.
 
+## 4. DOES THIS FORK'S REVENUECAT SECRET KEY READ **V1** IN THE DASHBOARD?
+
+**Every check short of the dashboard reports healthy when it is not.** The
+variable is SET either way, there is no throw and no log line, so a grep, an
+`env` check and the Replit Secrets pane all say fine. **A Replit RevenueCat
+connector issues a v2-scoped token, and the `/v1/subscribers` call this codebase
+makes against it 401s forever.** India carried that exact fault undiagnosed for
+a month in 2026, and a sibling fork spent a day on a 401ing `/api/entitlements`
+in September with no secret key in its RevenueCat project at all.
+
+**The only check that answers it is the API Version column in the RevenueCat
+dashboard reading V1.**
+
+**And the comment in `revenuecatClient.ts` that says a v1 secret key "already
+exists in the environment" is an ENVIRONMENT fact about the repo it was written
+in, not a fact about the code.** It travelled to five forks where it was false
+and still read as verified.
+
 ---
 
 **Add to this file rather than to a task log.** An entry earns its place here by

@@ -25,7 +25,7 @@ const V1_BASE = "https://api.revenuecat.com/v1";
  * non-OK" on every entitlements check while quietly falling back to stored
  * state. Nobody saw it because the API logger has no Sentry transport.
  *
- * A v1 secret key already exists in the environment. Using it directly is both
+ * A v1 secret key already exists in the environment (AN ENVIRONMENT FACT ABOUT THIS REPO, NOT A FACT ABOUT THIS CODE: a fork inherits the sentence and not the key, and the variable reads SET even when it holds a v2-scoped connector token. Check the RevenueCat dashboard's API Version column reads V1). Using it directly is both
  * the fix and one less thread tying this codebase to Replit, which matters
  * while we are moving off it.
  *
