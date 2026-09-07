@@ -1,20 +1,67 @@
 # BOLO India, handoff
 
-Written 2026-09-07, overnight. Read `~/bolo/CLAUDE.md` first; it outranks this.
+Written 2026-09-07 overnight, **updated 2026-09-07 midday while the owner was at
+the keyboard.** Read `~/bolo/CLAUDE.md` first; it outranks this.
 
 ---
 
-## THE ANSWER, IN ONE LINE
+## WHERE IT ACTUALLY STANDS, MIDDAY 2026-09-07
 
-**Nine commits are ready and none are pushed, because pushing is yours and you
-were asleep.** Nothing is deployed, nothing is built, nothing was submitted.
+**The push happened. `58037dcd..cb1cf67b`, seventeen commits, on GitHub.** The
+overnight section below still reads as if nothing had been pushed; it has been,
+and this section is the current one wherever the two disagree.
 
-**And I found one thing that is worse than anything I fixed. It is at the top of
-the list below.**
+**CI is green on the exact pushed tree.** Run `34129178556` on `cb1cf67b`, read
+per job rather than off the top line: `web` success 3m38s, `mobile` success
+2m18s, `typecheck` success 1m33s, `api-pure` success 1m32s. Real durations, so
+not one of the 2-to-5-second billing-dead runs the fleet has been seeing.
+
+**A publish gate that was live is now closed.** `fec82be8` moved the daily Chai
+out of the `/attempts` path and into a gift-box tap, so publishing the server
+before a build carrying the box would have left every mobile learner earning
+nothing. **`48d79945` is an ancestor of `3e1e1803` (1.0.15, iOS 539 / Android
+541) and both stores have it**, proven by `git merge-base --is-ancestor` rather
+than by anyone's memory of the plan. Nothing blocks the server publish on this
+now. The rule outlives the gate: **when a server change moves an earn into a new
+client surface, the build ships first.**
+
+**Replit is not down, at least not on the path that matters.** The MCP connector
+lists all five Repls and reports India's last publish `success` at
+`bolo-india.app`. The browser panes are untested. The connector is the way
+through regardless, because the deploy pane is gated by the external-database
+banner.
+
+**The api suite is the one thing still owed before a publish**, and it is running
+in the India Repl Shell now. Expected **116 suites, 1493 tests, 1491 pass, 2
+skipped**: the 2026-09-04 baseline of 115/1485/1483 plus `appDomain.test.ts`,
+one new file of eight tests that came in with `a26db0aa`.
+
+### The trap this morning paid for
+
+**`git pull` in the Repl Shell fails outright now: "Need to specify how to
+reconcile divergent branches."** The Repl's `main` carries its own `Published
+your App` commits, which is normal and documented, but the Shell has no
+`pull.rebase` configured and git 2.x refuses rather than guessing.
+
+```
+cd ~/workspace && git -c pull.rebase=false pull --no-edit
+```
+
+**Merge, never rebase**, or Replit's own commits get rewritten. **`--no-edit`
+is not cosmetic**: without it the merge opens an editor and the Shell hangs with
+no prompt back.
 
 ---
 
-## WHAT NEEDS YOU. FOUR THINGS, IN ORDER.
+## WHAT THE OVERNIGHT SESSION LEFT. THE ORDER STILL HOLDS.
+
+**Step 1 was the push and it is done.** What follows it: the api suite (running),
+then a publish through the connector, then an Android bundle for Play's overdue
+foreground-service declaration. **1.0.15 is spent; the version must move.**
+
+---
+
+## WHAT NEEDS YOU, AS WRITTEN OVERNIGHT. STEP 1 IS DONE; THE REST STANDS.
 
 **0. READ THIS ONE FIRST. `bolo-india.app/delete-account` is not a page.** It is
 not a route in the app at all: the route list has `/account` and
