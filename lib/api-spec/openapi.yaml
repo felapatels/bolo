@@ -6872,6 +6872,23 @@ components:
           type: integer
           description: >-
             The streak day this box belongs to, clamped to the ladder's cap.
+        # THE NAME `chai` IS AN IDENTIFIER, NOT A DISPLAY NOUN. DO NOT
+        # "FIX" IT PER REGION. Gate 3 ruling, 2026-09-07: this field is
+        # `chai` on the wire in ALL FIVE BOLO repos, and each client renders
+        # its own word (Kopi in Southeast Asia, and so on). Nobody reads this
+        # string unless they open a network tab, and one schema means one
+        # codegen output and one cherry-pick, which is the whole point of the
+        # gate. The currency noun had ALREADY split the contract when this was
+        # written: India said `chai` 21 times and SEA said `kopi` 18 times and
+        # `chai` never. The ruling exists to stop that becoming five, and it
+        # does not unpick the paths where it has already happened.
+        #
+        # A NEUTRAL THIRD NAME (`tokens`) WAS CONSIDERED AND REJECTED: cleaner
+        # on paper, and it costs a breaking change to a LIVE contract to fix a
+        # problem the four forks do not have yet. Deferred rather than closed.
+        # If a contract-breaking version bump ever happens for other reasons,
+        # the rename rides along at near-zero cost. Do not go looking for that
+        # window.
         chai:
           type: integer
           description: What the box holds. Linear from 1, capped at a week.
