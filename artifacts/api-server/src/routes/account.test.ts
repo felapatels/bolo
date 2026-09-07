@@ -296,10 +296,6 @@ before(async () => {
   const phraseRow = await pool.query<{ id: number }>("SELECT id FROM phrases LIMIT 1");
   TEST_PHRASE_ID = phraseRow.rows[0]?.id ?? 1;
 
-  // Resolve a lesson_group id for tables that require one (lesson_group_progress, lesson_group_testouts).
-  const lgRow = await pool.query<{ id: number }>("SELECT id FROM lesson_groups LIMIT 1");
-  TEST_LESSON_GROUP_ID = lgRow.rows[0]?.id ?? 1;
-
   await db
     .insert(languagesTable)
     .values({
@@ -310,6 +306,40 @@ before(async () => {
       fontFamily: "sans-serif",
     })
     .onConflictDoNothing();
+
+  // Resolve a lesson_group id for tables that require one (lesson_group_progress,
+  // lesson_group_testouts), and CREATE ONE IF THE DATABASE HAS NONE.
+  //
+  // This used to be `?? 1`, which is a fallback to a row that may not exist. On
+  // the Repl's development database it always did, because months of real use
+  // had put it there, and that ambient row is the only reason this file was
+  // believed to be Repl-only. On a database built from migrations plus the seed
+  // there are zero lesson groups (the seed makes languages, categories and
+  // phrases, not groups), so every FK to one failed and the whole file died in
+  // before(). Creating the row makes the test depend on nothing but its own
+  // setup, which is what lets it run in CI.
+  const lgRow = await pool.query<{ id: number }>("SELECT id FROM lesson_groups LIMIT 1");
+  if (lgRow.rows[0]) {
+    TEST_LESSON_GROUP_ID = lgRow.rows[0].id;
+  } else {
+    const catRow = await pool.query<{ id: number }>(
+      "SELECT id FROM categories ORDER BY id LIMIT 1",
+    );
+    const categoryId = catRow.rows[0]?.id;
+    if (categoryId === undefined) {
+      throw new Error(
+        "No categories in the database: run `pnpm --filter @workspace/db run setup` first.",
+      );
+    }
+    const made = await pool.query<{ id: number }>(
+      `INSERT INTO lesson_groups (language_code, category_id, position)
+       VALUES ($1, $2, 9999)
+       ON CONFLICT DO NOTHING
+       RETURNING id`,
+      [TEST_LANG, categoryId],
+    );
+    TEST_LESSON_GROUP_ID = made.rows[0]!.id;
+  }
   await db
     .insert(usersTable)
     .values({ id: FRIEND_ID, displayName: "Account Friend" })
@@ -374,6 +404,12 @@ after(async () => {
     .where(eq(friendshipsTable.requesterId, TEST_USER_ID));
   await db.delete(usersTable).where(eq(usersTable.id, TEST_USER_ID));
   await db.delete(usersTable).where(eq(usersTable.id, FRIEND_ID));
+  // Any lesson group in the test language is one before() made, so this both
+  // cleans up after a passing run and repairs a database left dirty by a failed
+  // one. It must come before the language, which the group references.
+  await pool.query("DELETE FROM lesson_groups WHERE language_code = $1", [
+    TEST_LANG,
+  ]);
   await db.delete(languagesTable).where(eq(languagesTable.code, TEST_LANG));
   await pool.end();
 });
