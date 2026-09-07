@@ -1,7 +1,13 @@
 import { Link } from 'wouter';
 import { ArrowLeft } from 'lucide-react';
 
-const CONTACT_EMAIL = 'support@bolo-india.app';
+import { SUPPORT_EMAIL } from '@/lib/appDomain';
+
+// PUBLISHED TO USERS, so it has to be an address that receives.
+// support@bolo-india.app did not: the domain has no MX record, so the
+// contact address on the Terms page was as dead as the invite reply-to.
+// Owner's ruling, 2026-09-06. Twin: api-server/src/lib/appDomain.ts.
+const CONTACT_EMAIL = SUPPORT_EMAIL;
 const LAST_UPDATED = 'July 13, 2026';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

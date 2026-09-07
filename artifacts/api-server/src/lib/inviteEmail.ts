@@ -1,4 +1,5 @@
 import { ReplitConnectors } from "@replit/connectors-sdk";
+import { SUPPORT_EMAIL } from "./appDomain";
 
 // Sends a "download Bolo!" referral email to an address that has no account
 // yet. Uses the Resend connector (managed by Replit) so no API key needs to be
@@ -140,7 +141,9 @@ export async function sendFriendInviteEmail(opts: {
     subject: `${inviterName} wants to practice Indian languages with you`,
     html: buildHtml(inviterName, INVITE_CTA_URL),
     text: buildText(inviterName, INVITE_CTA_URL),
-    reply_to: "support@bolo-india.app",
+    // A DOMAIN THAT RECEIVES. support@bolo-india.app had no MX record
+    // and every reply to an invite bounced. See appDomain.ts.
+    reply_to: SUPPORT_EMAIL,
   };
 
   const response = await connectors.proxy(

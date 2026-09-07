@@ -1,15 +1,26 @@
 import { Resend } from "resend";
 import { logger } from "./logger";
+import { APP_DOMAIN } from "./appDomain";
 
 // Email alert for low ElevenLabs credits. Recipient and sender are
 // env-configurable with sane defaults; sending is best-effort — a failure is
 // logged by the caller and never disturbs the TTS path.
 
 const ALERT_TO = process.env.ELEVENLABS_ALERT_EMAIL ?? "aakeshp@gmail.com";
-// Sender defaults to the verified bolo-india.app domain; override via
-// ELEVENLABS_ALERT_FROM if a different address is needed.
+// SUPPORT_EMAIL IS DELIBERATELY NOT USED HERE, and this is the one consumer
+// that must not inherit it. This is a `from:`, not a reply_to, and Resend
+// sends only from a domain IT has verified. The support address lives on
+// larkenterprisesllc.com, which receives but is not verified with Resend, so
+// dropping it in here would turn a best-effort alert into a guaranteed
+// failure, in the shape that still reads like success in the code.
+//
+// alerts@ RATHER THAN support@, on the same verified domain. Both send, since
+// Resend verifies the DOMAIN and not the mailbox, but support@bolo-india.app
+// is an address with no mailbox behind it, and naming it as the sender of a
+// robot's alert invited exactly the reply that bounces. Override with
+// ELEVENLABS_ALERT_FROM if a verified sender domain ever changes.
 const ALERT_FROM =
-  process.env.ELEVENLABS_ALERT_FROM ?? "Bolo! <support@bolo-india.app>";
+  process.env.ELEVENLABS_ALERT_FROM ?? `Bolo! <alerts@${APP_DOMAIN}>`;
 
 let resend: Resend | null = null;
 

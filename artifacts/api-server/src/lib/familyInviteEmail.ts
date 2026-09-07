@@ -1,4 +1,5 @@
 import { ReplitConnectors } from "@replit/connectors-sdk";
+import { SUPPORT_EMAIL } from "./appDomain";
 
 // Sends a "join my Bolo! family plan" email with the personal invite link.
 // Mirrors inviteEmail.ts (Resend connector, same visual template), but the CTA
@@ -120,7 +121,9 @@ export async function sendFamilyInviteEmail(opts: {
     subject: `${opts.inviterName} invited you to their ${APP_NAME} family plan`,
     html: buildHtml(opts.inviterName, opts.joinUrl),
     text: buildText(opts.inviterName, opts.joinUrl),
-    reply_to: "support@bolo-india.app",
+    // A DOMAIN THAT RECEIVES. support@bolo-india.app had no MX record
+    // and every reply to a family invite bounced. See appDomain.ts.
+    reply_to: SUPPORT_EMAIL,
   };
 
   const response = await connectors.proxy(

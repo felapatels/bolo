@@ -1,3 +1,4 @@
+src/lib/appDomain.test.ts
 src/lib/audioNoise.test.ts
 src/lib/chachaCallLines.test.ts
 src/lib/chachaCallPrewarm.test.ts
