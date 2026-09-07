@@ -183,3 +183,47 @@ their zone savings on a game replay by accident. Absorb X6's shape
 note the owner said **ALL games**, where some forks scoped their taste to a
 subset. All and the-free-ones are different implementations and the difference
 is invisible until somebody hits the game nobody freed.
+
+---
+
+# THE STREAK CURVE, MEASURED RATHER THAN DESCRIBED
+
+The daily gift already scales with a streak, so the earn rate is a curve and it
+already exists. **Read from `lib/daily-gift/src/index.ts` rather than summarised:**
+
+```
+giftChaiForStreakDay(n) = clamp(floor(n), GIFT_DAY_ONE_CHAI, GIFT_LADDER_CAP)
+                        = clamp(floor(n), 1, 7)
+
+day 1 -> 1 chai     day 3 -> 3     day 5 -> 5     day 7 and after -> 7
+```
+
+**Two facts fall out, and one of them answers a question that was about to be
+asked of the owner.**
+
+**THERE IS ALREADY A FLOOR, AND IT IS 1 CHAI A DAY.** The clamp guarantees it,
+whatever the streak. So "does a broken streak leave the free path open" is
+already yes in code: **the free path never closes, it slows.** Nobody needs to
+rule on that; somebody needs to decide whether 1 is enough.
+
+**THE RATIO IS 7 TO 1, AND THAT IS THE NUMBER THE RULING TURNS ON.** Today a
+broken streak costs a hat arriving later. Under this ruling **it costs a
+sevenfold slowdown in reaching your family's language**, and it lands on adults
+returning to a heritage language after life got in the way, not on competitive
+players. **That compounding runs against exactly the learner this product is
+for.**
+
+## THE OWNER'S CALL, AS ONE GROUP
+
+1. **Does the streak multiplier apply to the UNLOCK currency, or only to the
+   cosmetic surplus?** Splitting them keeps the reward and removes the
+   punishment, and it may be the whole answer.
+2. **Is 1 chai a day an acceptable floor** for someone who missed a week? It is
+   already the floor; the question is only whether it is high enough now that it
+   gates content rather than hats.
+3. **Does a broken streak reset to zero or step down?** A step-down is forgiving
+   and it is a config value, not an architecture.
+
+**None of these is a spec question and none should be decided by an agent.**
+They decide what the product says to somebody who missed a week, and that is a
+sentence the owner should choose.
