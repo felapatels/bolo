@@ -6,14 +6,23 @@
     "emitDeclarationOnly": true,
     "outDir": "dist",
     "rootDir": "src",
-    // dom.iterable ADDED 2026-09-07 as forward insurance, not as a fix.
-    // orval 8.22 emits `Object.fromEntries(h.entries())` in its header
-    // handling, and `Headers.entries()` is declared in lib.dom.iterable, not
-    // in lib.dom. India is pinned at 8.20.0 and does NOT emit that call, so
-    // nothing here compiles differently today. A sibling fork whose
-    // package.json had drifted to ^8.22.0 could not build its regenerated
-    // client at all. This line costs nothing and means the next orval bump
-    // is a regeneration rather than an outage.
+    // dom.iterable, added 2026-09-07. orval from 8.22 emits
+    // `Object.fromEntries(h.entries())` in its header handling, and
+    // `Headers.entries()` is declared in lib.dom.iterable rather than in
+    // lib.dom, so a regenerated client fails to compile with TS2339 without
+    // this line.
+    //
+    // WHETHER IT CHANGES ANYTHING IN *THIS* REPO DEPENDS ON *THIS* REPO'S
+    // RESOLVED ORVAL, WHICH IS THE LOCKFILE'S ANSWER AND NOT package.json'S.
+    // Check before assuming, in either direction:
+    //   grep orval lib/api-spec/package.json
+    //   ls node_modules/.pnpm | grep '^orval@'
+    //   head -3 lib/api-client-react/src/generated/api.ts   # the banner
+    //   grep -c fromEntries lib/api-client-react/src/generated/api.ts
+    // A declared range, a resolved version and the version that produced the
+    // committed output are three different facts and have been seen to
+    // disagree across the forks. This line costs nothing where the call is not
+    // emitted and prevents an outage where it is.
     "lib": ["dom", "dom.iterable", "es2022"]
   },
   "include": ["src"]
