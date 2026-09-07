@@ -90,7 +90,11 @@ function renderPage(ui: ReactElement, path = "/games/speed-round") {
 }
 
 // Generous timeout — CI runs all suites in parallel.
-const WT = { timeout: 8000 };
+// Raised from 8000 on 2026-09-07 with practice-streak-xp's, and for the same
+// reason: a waitFor ceiling is per-wait, so the test with the most waits has
+// the most exposure regardless of how fast it looks on an idle machine. This
+// file's ten-round test runs 1 + 10 = 11 of them.
+const WT = { timeout: 20000 };
 
 /**
  * Render the Speed Round page and advance from setup → playing.

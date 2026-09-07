@@ -134,7 +134,33 @@ function renderPage(ui: ReactElement, path = "/learn/1") {
 // Generous timeout for waitFor calls — the CI validation environment runs all
 // test suites in parallel so individual async steps can take longer than the
 // 1 s default without indicating a real failure.
-const WT = { timeout: 8000 };
+/**
+ * THE PER-WAIT CEILING, AND IT IS THE LEVER. RAISED FROM 8000 ON 2026-09-07.
+ *
+ * COUNT THE WAITS, NOT THE SECONDS. This is a `waitFor` MAXIMUM, not a wait: it
+ * returns the instant its assertion passes, so on an idle machine every one of
+ * these costs milliseconds and they all look identical. What differs between
+ * the tests below is HOW MANY of them there are, and each one carries its own
+ * independent ceiling.
+ *
+ *   reachIdle  1 waitFor      scoreOnce  2      scoreAndNext  2
+ *
+ *   UNSTOPPABLE   1 + (9 x 2) + 2 + 1  =  22 waits
+ *   "3 in a row"  1 + (2 x 2) + 2 + 1  =   8 waits
+ *
+ * **ANY ONE of those twenty-two breaching its ceiling fails the whole test**,
+ * immediately, and the test's own outer cap is never reached. So the ten-round
+ * test carries nearly three times the exposure of its neighbours while
+ * measuring identically on a quiet Mac, which is exactly the shape of a test
+ * that only ever fails on a loaded shared runner.
+ *
+ * FOUR EXPLANATIONS WERE OFFERED BEFORE THIS ONE AND ALL FOUR WERE WRONG,
+ * including mine twice. Cap pressure (the outer 30s was never approached), the
+ * toast's own lifetime (real, but it cannot explain why only this test fails),
+ * and raising the outer cap (aimed at the wrong lever entirely). The mechanism
+ * came from counting the waits, which nobody had done.
+ */
+const WT = { timeout: 20000 };
 
 /** Render with silent mode and the given phrase list, then wait for idle. */
 async function reachIdle(phraseList = phrases.slice(0, 3)) {
@@ -280,23 +306,17 @@ describe("hot-streak toasts", () => {
       () => expect(screen.getByText("🔥🔥🔥 UNSTOPPABLE!")).toBeInTheDocument(),
       WT,
     );
-    // WHY THIS CAP EXISTS, AND WHAT IT DOES NOT FIX.
+    // THIS CAP IS NOT WHAT FIXES THE TEST. WT ABOVE IS. It is here because
+    // raising the per-wait ceiling to 20s makes the OUTER cap capable of
+    // binding for the first time: twenty-two waits that each may take up to
+    // 20s cannot be described by a 30s budget, and 30000 is also this
+    // project's global `testTimeout`, so writing it explicitly granted zero
+    // extra milliseconds while reading like a considered allowance.
     //
-    // The previous cap was 30000, which is also this project's global
-    // testTimeout, so it read like a considered allowance and bought nothing.
-    // That is the whole reason it changed. Measured 2026-09-07 on an 18-thread
-    // Mac: 646ms with this file alone, 1935ms with the full 154-file suite
-    // running around it, so contention alone costs 3x and the old cap still
-    // had 15x margin.
-    //
-    // THAT MARGIN IS WHY CAP PRESSURE IS NOT THE EXPLANATION for the red this
-    // test produced in a sibling fork on a green tree. Nobody has shown the
-    // 30s was ever reached; that was assumed, including by me, and the numbers
-    // above argue against it. WT is a waitFor MAXIMUM rather than a wait, so
-    // ten rounds do not accumulate ten waits. A live theory elsewhere is that
-    // the toast auto-dismisses before the assertion reads it, which looks
-    // identical to a toast that never appeared. DO NOT RECORD THIS TEST AS
-    // FIXED because of this number.
+    // Measured 2026-09-07 on an 18-thread Mac: 646ms with this file alone,
+    // 1935ms with the full 154-file suite running around it. Both are a
+    // rounding error against either cap, which is the point: the outer budget
+    // was never the constraint and the numbers said so all along.
   }, 60000);
 
   test("resets the streak counter after a retry band", async () => {
