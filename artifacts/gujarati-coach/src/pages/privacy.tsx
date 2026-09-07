@@ -1,7 +1,7 @@
 import { Link } from 'wouter';
 import { ArrowLeft } from 'lucide-react';
 
-const LAST_UPDATED = 'August 2, 2026';
+const LAST_UPDATED = 'September 7, 2026';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -151,12 +151,17 @@ export default function Privacy() {
             is only available to invited contributors. Recordings made in contribution
             mode are retained, along with the phrase and language they belong to, and
             are used solely to evaluate and improve our scoring system. If a
-            contributor re-records a phrase, the discarded take is deleted. Contributors
-            can request deletion of their contributed recordings at any time by{' '}
+            contributor re-records a phrase, the discarded take is deleted.
+            Contributed recordings are <span className="font-bold text-foreground">not
+            attached to an account</span>: most contributors are family members who
+            never sign in, so a recording carries only the name the contributor typed
+            and the sitting it came from. That means deleting an account does not
+            reach them. Contributors can ask us to remove their recordings at any time
+            by{' '}
             <Link href="/contact" className="font-bold text-primary hover:underline">
               contacting us
-            </Link>
-            , and we delete them when the associated account is deleted.
+            </Link>{' '}
+            and telling us the name they used.
           </p>
         </Section>
 
@@ -179,10 +184,114 @@ export default function Privacy() {
             </li>
             <li>
               <span className="font-bold text-foreground">Access and deletion.</span>{' '}
-              You can request a copy of your data or delete your account and associated
-              data by using the contact form linked below.
+              You can delete your account yourself, from inside the app, at any time.
+              See <span className="font-bold text-foreground">Deleting your
+              account</span> below for exactly where the button is and what it removes.
+              For a copy of your data, use the contact form linked below.
             </li>
           </ul>
+        </Section>
+
+        <Section title="Deleting your account">
+          <p>
+            You can delete your Bolo! account yourself, from inside the app. You do
+            not need to email us and you do not need to ask.
+          </p>
+          <p>
+            <span className="font-bold text-foreground">On the website:</span> open{' '}
+            <span className="font-bold text-foreground">Account &amp; settings</span>{' '}
+            from the navigation, scroll to{' '}
+            <span className="font-bold text-foreground">Delete account</span>, choose{' '}
+            <span className="font-bold text-foreground">Delete my account</span>, then
+            confirm with{' '}
+            <span className="font-bold text-foreground">Delete forever</span>.
+          </p>
+          <p>
+            <span className="font-bold text-foreground">In the mobile app:</span> tap
+            the settings icon on the Home screen to open{' '}
+            <span className="font-bold text-foreground">Account settings</span>, scroll
+            to <span className="font-bold text-foreground">Delete account</span>, tap
+            it, then confirm with{' '}
+            <span className="font-bold text-foreground">Delete</span>.
+          </p>
+          <p className="rounded-2xl border border-card-border bg-muted/40 p-4">
+            <span className="font-bold text-foreground">
+              Deleting your account does not cancel your subscription.
+            </span>{' '}
+            Subscriptions are billed by Apple or Google, not by us, so cancel yours in
+            the App Store or in Google Play first. If you delete your account without
+            cancelling, the store keeps billing you and we have no way to stop it.
+          </p>
+
+          <p className="pt-2">
+            <span className="font-bold text-foreground">What we delete.</span> Your
+            sign-in identity goes first, so nobody can sign back in while the rest is
+            being removed. Then:
+          </p>
+          <ul className="list-disc pl-6 space-y-2">
+            <li>
+              Everything you learned with: your practice attempts, XP, badges, streak
+              and ability records, the phrases Bolo was tracking for you, your script
+              tracing progress, zone and lesson test-outs, daily quizzes and game
+              sessions.
+            </li>
+            <li>
+              Your conversations with Bolo, including the notes Bolo kept about you
+              between sessions.
+            </li>
+            <li>
+              Your social records: friendships, invitations you sent, anyone you
+              blocked, and any report you filed about a username.
+            </li>
+            <li>
+              Your family plan. If you were a member, your seat is freed. If you owned
+              the plan, the plan is dissolved and every seat on it is released.
+            </li>
+            <li>Your Chai wallet and everything it recorded.</li>
+            <li>Messages you sent us through the contact form.</li>
+            <li>
+              Your push notification tokens, so the app can no longer reach your
+              device.
+            </li>
+          </ul>
+
+          <p className="pt-2">
+            <span className="font-bold text-foreground">What we do not delete, and
+            why.</span>
+          </p>
+          <ul className="list-disc pl-6 space-y-2">
+            <li>
+              <span className="font-bold text-foreground">Store receipts.</span> Apple
+              and Google hold your purchase records. We never had them, so we cannot
+              remove them.
+            </li>
+            <li>
+              <span className="font-bold text-foreground">Recordings you contributed
+              as a speaker.</span> These are not attached to an account, so account
+              deletion cannot reach them. Ask us and we will remove them.
+            </li>
+            <li>
+              <span className="font-bold text-foreground">Anonymous totals.</span>{' '}
+              Counts that no longer name anybody, such as how many people practised a
+              phrase, stay in our aggregates.
+            </li>
+          </ul>
+
+          <p className="pt-2">
+            <span className="font-bold text-foreground">It happens immediately and
+            cannot be undone.</span>{' '}
+            There is no restore window. Encrypted backups may retain a copy for a short
+            period before they expire, and we cannot retrieve your account from them.
+          </p>
+
+          <p>
+            <span className="font-bold text-foreground">If you cannot sign in</span>{' '}
+            and therefore cannot reach the button, use our{' '}
+            <Link href="/contact" className="font-bold text-primary hover:underline">
+              contact form
+            </Link>{' '}
+            from the email address on the account and we will delete it for you.
+          </p>
         </Section>
 
         <Section title="Changes to this policy">
