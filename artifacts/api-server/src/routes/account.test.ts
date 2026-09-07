@@ -691,10 +691,14 @@ test("DELETE /account removes the Clerk user and purges all local rows", async (
     categoryId: 1,
     passed: true,
   });
-  await db.insert(userBlocksTable).values({
-    blockerId: TEST_USER_ID,
-    blockedId: FRIEND_ID,
-  });
+  // onConflictDoNothing on the block: user_blocks has a unique constraint on the
+  // pair, and another suite file in the same run may have left this exact pair
+  // behind. The assertion below is that NO row naming this user survives the
+  // delete, which holds whoever inserted it.
+  await db
+    .insert(userBlocksTable)
+    .values({ blockerId: TEST_USER_ID, blockedId: FRIEND_ID })
+    .onConflictDoNothing();
   await db.insert(usernameReportsTable).values({
     reporterId: TEST_USER_ID,
     reportedUserId: FRIEND_ID,
