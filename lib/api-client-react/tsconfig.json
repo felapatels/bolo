@@ -6,7 +6,15 @@
     "emitDeclarationOnly": true,
     "outDir": "dist",
     "rootDir": "src",
-    "lib": ["dom", "es2022"]
+    // dom.iterable ADDED 2026-09-07 as forward insurance, not as a fix.
+    // orval 8.22 emits `Object.fromEntries(h.entries())` in its header
+    // handling, and `Headers.entries()` is declared in lib.dom.iterable, not
+    // in lib.dom. India is pinned at 8.20.0 and does NOT emit that call, so
+    // nothing here compiles differently today. A sibling fork whose
+    // package.json had drifted to ^8.22.0 could not build its regenerated
+    // client at all. This line costs nothing and means the next orval bump
+    // is a regeneration rather than an outage.
+    "lib": ["dom", "dom.iterable", "es2022"]
   },
   "include": ["src"]
 }
