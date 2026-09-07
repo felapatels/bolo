@@ -5,59 +5,108 @@ the keyboard.** Read `~/bolo/CLAUDE.md` first; it outranks this.
 
 ---
 
-## WHERE IT ACTUALLY STANDS, MIDDAY 2026-09-07
+## WHERE IT STANDS, AFTERNOON 2026-09-07
 
-**The push happened. `58037dcd..cb1cf67b`, seventeen commits, on GitHub.** The
-overnight section below still reads as if nothing had been pushed; it has been,
-and this section is the current one wherever the two disagree.
+**Everything is pushed. `origin/main` is `904759ef` and the tree is clean.** The
+overnight section below is kept for its traps and its reasoning; where it and
+this disagree, this is current.
 
-**CI is green on the exact pushed tree.** Run `34129178556` on `cb1cf67b`, read
-per job rather than off the top line: `web` success 3m38s, `mobile` success
-2m18s, `typecheck` success 1m33s, `api-pure` success 1m32s. Real durations, so
-not one of the 2-to-5-second billing-dead runs the fleet has been seeing.
+### THE P0 OF THE DAY, AND IT IS LIVE FOR REAL PEOPLE
 
-**A publish gate that was live is now closed.** `fec82be8` moved the daily Chai
-out of the `/attempts` path and into a gift-box tap, so publishing the server
-before a build carrying the box would have left every mobile learner earning
-nothing. **`48d79945` is an ancestor of `3e1e1803` (1.0.15, iOS 539 / Android
-541) and both stores have it**, proven by `git merge-base --is-ancestor` rather
-than by anyone's memory of the plan. Nothing blocks the server publish on this
-now. The rule outlives the gate: **when a server change moves an earn into a new
-client surface, the build ships first.**
+**Account deletion raises a foreign key violation and leaves the learner locked
+out with all their data still present.** `DELETE /account` removes the Clerk
+identity FIRST, then purges local rows by name, then the `users` row. Three
+user-keyed tables were missing from that list and their FKs are **`ON DELETE no
+action`**: `zone_testouts` (0036), `user_blocks` and `username_reports` (0056).
 
-**Replit is not down, at least not on the path that matters.** The MCP connector
-lists all five Repls and reports India's last publish `success` at
-`bolo-india.app`. The browser panes are untested. The connector is the way
-through regardless, because the deploy pane is gated by the external-database
-banner.
+**Measured on production, 2026-09-07:** 45 users, **zero** with zone test-outs,
+but **28 rows in `user_blocks` and 11 in `username_reports`**, and both name a
+user on either side. So the bug bites through blocking and reporting, not through
+test-outs. **The count of distinct users affected was never taken** and is the one
+open measurement.
 
-**The api suite is the one thing still owed before a publish**, and it is running
-in the India Repl Shell now. Expected **116 suites, 1493 tests, 1491 pass, 2
-skipped**: the 2026-09-04 baseline of 115/1485/1483 plus `appDomain.test.ts`,
-one new file of eight tests that came in with `a26db0aa`.
+Fixed in `14e58209`, and **proven both ways** rather than observed agreeing: 31
+pass 0 fail with the fix, and with the three deletes removed 4 tests fail
+including all three `DELETE /account` tests. **It reaches nobody until a publish.**
 
-### The trap this morning paid for
+### THE CLAIM THAT COST THE FLEET A DAY
 
-**`git pull` in the Repl Shell fails outright now: "Need to specify how to
-reconcile divergent branches."** The Repl's `main` carries its own `Published
-your App` commits, which is normal and documented, but the Shell has no
-`pull.rebase` configured and git 2.x refuses rather than guessing.
+**`CLAUDE.md` says the api suite cannot run on a Mac and that is FALSE.** There is
+a postgres on this machine. The suite needs A database, not the REPL'S database.
+Four forks believed a P0 was unverifiable because of that sentence. **It is still
+in `CLAUDE.md` and only the owner should change his own instruction file.**
+
+The recipe, from `artifacts/api-server`:
 
 ```
-cd ~/workspace && git -c pull.rebase=false pull --no-edit
+DATABASE_URL="postgres://$(whoami)@localhost:5432/bolo_india_ci" \
+SESSION_SECRET="local-test-secret-not-a-credential" \
+OPENAI_API_KEY="sk-placeholder-not-a-real-key-import-guard-only" \
+node --import tsx --test --experimental-test-module-mocks src/routes/account.test.ts
 ```
 
-**Merge, never rebase**, or Replit's own commits get rewritten. **`--no-edit`
-is not cosmetic**: without it the merge opens an editor and the Shell hangs with
-no prompt back.
+Build the database first with `pnpm --filter @workspace/db run migrate` then
+`run seed`, both with that `DATABASE_URL`. **Three traps, each of which reads as a
+broken test rather than a setup problem:** without
+`--experimental-test-module-mocks` it will not import; without `SESSION_SECRET`
+it cannot sign; without `OPENAI_API_KEY` set to any non-empty string it throws at
+import from the openai integration.
 
----
+### CI NOW HAS A DATABASE
 
-## WHAT THE OVERNIGHT SESSION LEFT. THE ORDER STILL HOLDS.
+`904759ef` adds an **`api-db`** job: postgres 17 as a service, migrate, seed, then
+the whole api suite. **Clean-database result measured locally: 1535 pass, 3 fail,
+296s.** One of the three was fixed with a well-formed fake Clerk key (the SDK
+asserts key FORMAT at import, never validity). **Two remain and are the owner's
+open A/B:** `openai.tts-cache` makes a real OpenAI call, and
+`freeTierContentPolicy` wants real premium content. Option A is to skip both in CI
+with the reason stated at the test; option B is a real key in secrets plus a
+content step. **A was recommended. Nothing is irreversible either way.**
 
-**Step 1 was the push and it is done.** What follows it: the api suite (running),
-then a publish through the connector, then an Android bundle for Play's overdue
-foreground-service declaration. **1.0.15 is spent; the version must move.**
+### A CLEAN DATABASE IS NOT AUTOMATICALLY THE STRONGER PROOF
+
+Measured on India, `pg_constraint`, `contype='f'`:
+
+| column | FK? | what a phantom id does |
+|---|---|---|
+| `lesson_group_progress.lesson_group_id` | yes | raises |
+| `lesson_group_testouts.lesson_group_id` | yes | raises |
+| `phrase_reports.phrase_id` | yes | raises |
+| `user_item_memory.phrase_id` | yes | raises |
+| `attempts.phrase_id` | **no** | **inserts silently** |
+
+A sibling measured a schema where NEITHER binds, so its suite passes against rows
+that do not exist while looking exactly as green. **Absence of a foreign key is
+invisible from the test file.**
+
+### THE PRIVACY PAGE NOW DOCUMENTS THE BUTTON
+
+`bf0530dd`. It used to send readers to the contact form while `/account` had had
+one-tap deletion the whole time. It now carries the per-surface path with the real
+labels, the manifest, the subscription warning, and the approved retention
+wording with **no number**, because nobody has measured the backup window.
+
+**It also removed a false claim:** the page said contributed voice recordings are
+deleted with the account. `voice_contributions` has **no user id at all**, on
+purpose, so deletion could never reach them. Say so and give the ask-us route.
+
+### TWO SMALLER THINGS
+
+- `af307722` and `c40bb7e9`: two ten-round test caps, raised because a cap equal
+  to the global `testTimeout` buys nothing. **The second commit takes back the
+  claim that this fixes the sibling's red.** It does not. `WT` is a waitFor
+  maximum, not a wait, and the measured margin was 15x. Rank these by used/cap,
+  never by cap.
+- `d9dc0105`: the account suite creates its own lesson group. It used to resolve
+  one from ambient data with a `?? 1` fallback, and **that ambient row is the only
+  reason this file was thought to be Repl-only.**
+
+### WHAT REACHES A USER, AND WHEN
+
+**Nothing on this list has reached anybody yet.** The deletion fix and the privacy
+page both need a **publish**. The store listing question and Play's overdue
+foreground-service declaration still need an **Android bundle**, and 1.0.15 is
+spent so the version must move.
 
 ---
 
