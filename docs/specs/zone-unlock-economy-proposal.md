@@ -227,3 +227,70 @@ for.**
 **None of these is a spec question and none should be decided by an agent.**
 They decide what the product says to somebody who missed a week, and that is a
 sentence the owner should choose.
+
+---
+
+# THE MIGRATION WINDOW: MEASURED, AND I OVERSTATED THE RISK EARLIER
+
+**The window IS safe.** A server on the new model can serve a binary built for
+the old one. My earlier section called removing `freeLanguage` a client
+migration that could break shipped apps. **That was measured wrong and this
+section replaces it.**
+
+## What actually validates a response: nothing on the client
+
+```
+@workspace/api-zod imported by   artifacts/api-server/src/routes/*   ONLY
+imported by web or mobile        NOWHERE
+```
+
+**The generated zod schemas run on the SERVER, against request bodies.** No
+shipped client validates the entitlements response, so `required` in
+`openapi.yaml` is a contract statement and a compile-time TypeScript type. **It
+is not a runtime gate in anybody's app.**
+
+## And `freeLanguage` only draws a badge
+
+Both clients read it defensively and use it to choose which badge to render:
+
+```
+web     entitlements.ts:104   freeLanguage: data?.freeLanguage ?? ""
+web     language-picker.tsx   lang.code === freeLanguage ? <IncludedFreeBadge/>
+mobile  language.tsx:259      free={item.code === freeLanguage}
+```
+
+**The GATE is `isLanguageAllowed`, which reads `allowedLanguages`.** Drop
+`freeLanguage` and an old client renders no "included free" badge. Nothing
+crashes, nothing locks.
+
+## THE FIELD THAT ACTUALLY CARRIES THE RISK IS `allowedLanguages`
+
+Today `allowedLanguagesForPlan` returns `[FREE_LANGUAGE]` for a Free learner:
+**one language, and the old client treats that list as the whole gate.** It has
+no concept of a per-zone gate, because none existed when it was built.
+
+Under "zone one free in EVERY language", the truthful value becomes **every
+language**. So an old binary will show every language unlocked, let the learner
+in, and then meet the server's per-zone enforcement deeper in the journey.
+
+**That is the real migration behaviour and it is acceptable rather than broken:**
+the learner gets into any language, plays zone one, and hits the wall at zone
+two, **which is exactly what the new model intends.** What the old binary cannot
+do is render the unlock affordance, so on build 6 the wall is a paywall with no
+"earn Chai to open this" path beside it. **Build 7 adds the path; build 6 shows
+the wall.** Nobody is locked out of anything they could reach before.
+
+## What the spec should therefore say
+
+1. **Adding the new fields is safe** and needs no coordination.
+2. **`freeLanguage` may be deprecated in place**, kept truthful, and removed
+   whenever convenient. It is not a blocker and it never was.
+3. **Widening `allowedLanguages` is the change with user-visible consequences**,
+   and it is the one to describe in the release note rather than the one to
+   delay.
+
+**The lesson, since it is the second time today a "required field" reading
+turned out to be about compile time rather than run time: `required` in an
+OpenAPI document tells you what the CONTRACT promises. It tells you nothing
+about what any shipped binary will do when the field is absent. Grep for who
+imports the validator before calling anything a client migration.**
