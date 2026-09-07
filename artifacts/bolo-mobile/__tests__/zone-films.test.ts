@@ -7,7 +7,6 @@
  * the wrong street behind the wrong stops. The dissolve is a look, and a look
  * is checked in the simulator, phone and iPad both, before any build.
  */
-import { describe, it, expect } from '@jest/globals';
 import {
   ZONE_FILM,
   ZONE_FILM_COUNT,
