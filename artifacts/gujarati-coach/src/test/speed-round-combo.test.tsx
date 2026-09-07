@@ -160,7 +160,12 @@ describe("Speed Round combo burst overlay", () => {
       WT,
     );
   // 10 answers × ~400 ms auto-advance each = ~4 s minimum; allow enough headroom.
-  }, 15000);
+    // Same ten-round accumulation as the practice hot-streak test, and this is
+    // the tighter of the two: measured 4369ms inside the full suite on
+    // 2026-09-07, against a cap of 15000. That is 3.4x, where the test that
+    // actually went red on CI had 15x. Raised for the same reason and to the
+    // same number, before it becomes the next false red.
+  }, 60000);
 
   test("combo burst updates its text when the streak crosses a higher threshold", async () => {
     // Streak 3 → "HOT STREAK 🔥", then streak 5 → "ON FIRE ⚡".

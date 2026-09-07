@@ -280,7 +280,16 @@ describe("hot-streak toasts", () => {
       () => expect(screen.getByText("🔥🔥🔥 UNSTOPPABLE!")).toBeInTheDocument(),
       WT,
     );
-  }, 30000);
+    // Ten scoring rounds accumulate. Each individual waitFor is comfortable;
+    // the wall clock is what runs out. Measured 2026-09-07 on an 18-thread Mac:
+    // 646ms with this file run alone, 1935ms with the full 154-file suite
+    // running around it, so contention alone costs 3x. The previous cap here
+    // was 30000, which is also this project's global testTimeout, so it read
+    // like headroom and bought none. A 2-core hosted runner went past it and
+    // failed a sibling fork on a tree that was green (2026-09-07), which is a
+    // false red rather than a defect. 60000 is roughly 31x the measured
+    // in-suite duration.
+  }, 60000);
 
   test("resets the streak counter after a retry band", async () => {
     await reachIdle(phrases.slice(0, 3));
