@@ -32,8 +32,21 @@ cd ~/bolo && git push origin main
 ```
 
 **2. Then a publish, so the dead reply-to actually dies.** The fix reaches no
-parent until the server and web are published. Full suites run first, per the
-house rule, and the api suite only runs in the Repl Shell.
+parent until the server and web are published.
+
+> **TWO OF THE THREE SUITES ARE ALREADY RUN AND GREEN**, at the close of the
+> night, on the final tree. You do not have to wait for them:
+>
+> ```
+> web     154 files,  1677 tests, all pass    (was 152 / 1659)
+> mobile  170 suites, 1622 tests, all pass    (was 169 / 1612)
+> api     NOT RUN. It needs the Repl's dev database and Replit was down.
+> ```
+>
+> **The api suite is the one still owed**, in the Repl Shell, and it is the one
+> that covers tonight's server change. Mobile's run prints "A worker process has
+> failed to exit gracefully": that is the documented leak `--forceExit` exists
+> for, not a failure, and the pass count is the signal.
 
 **3. Then an Android build, which is the one with a clock on it.** Play marks
 **"Foreground service permissions" OVERDUE** and says it can hold up your
