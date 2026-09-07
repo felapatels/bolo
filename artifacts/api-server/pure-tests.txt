@@ -49,6 +49,7 @@ src/lib/sttLanguage.test.ts
 src/lib/supportMail.test.ts
 src/lib/ttsCache.test.ts
 src/lib/ttsCacheAudit.test.ts
+src/lib/wardrobeDraftGate.test.ts
 src/lib/wordSubstitution.test.ts
 src/middlewares/rateLimit.test.ts
 src/middlewares/unreadableTokenGuard.test.ts

@@ -144,12 +144,47 @@ function costExpression(it) {
   return String(it.cost);
 }
 
+/**
+ * THE ONLY THING THAT READS `status`, AND UNTIL 2026-09-07 NOTHING DID.
+ *
+ * The manifest has always marked items "draft" or "shipped" and the sole
+ * mention of the field in this script was the `list` command PRINTING it. So a
+ * draft item was generated into OUTFIT_CATALOG beside the finished ones and
+ * went on sale to learners at full price. India shipped `pink-beanie2` that
+ * way. A field whose value says "not ready", sitting in a file called a
+ * manifest, that every reader assumes is a gate: it was decoration.
+ *
+ * WHAT THE FIX DOES AND WHY IT IS NOT A FAILURE. A draft is a normal
+ * work-in-progress state, so refusing to generate would block ordinary work and
+ * teach people to delete the field. The bug was SILENCE, so the answer is
+ * noise: drafts are excluded from the catalogue and every excluded item is
+ * NAMED on stdout at every codegen.
+ *
+ * IDS STAY. A draft keeps its place in OUTFIT_IDS so an id a learner already
+ * bought remains a valid id and nothing downstream breaks on it. Only the
+ * catalogue, which is what the shop lists and what /outfits/buy looks up,
+ * loses the entry. Pinned by src/lib/wardrobeDraftGate.test.ts, in both
+ * directions.
+ */
+const isShipped = (it) => it.status !== "draft";
+
+function reportExcluded(m) {
+  const drafts = m.items.filter((it) => !isShipped(it));
+  if (drafts.length) {
+    console.log(
+      `wardrobe: EXCLUDED FROM THE CATALOGUE, status draft: ${drafts
+        .map((it) => it.id)
+        .join(", ")}`,
+    );
+  }
+}
+
 function genServerCatalog(m) {
   const lines = [];
   lines.push(GEN_HEADER);
   // Only import the band constants still in use: an all-numeric manifest would
   // otherwise leave a dead import for the linter to trip over.
-  const bands = [...new Set(m.items.map((it) => costExpression(it)))]
+  const bands = [...new Set(m.items.filter(isShipped).map((it) => costExpression(it)))]
     .filter((e) => /^[A-Z_]+$/.test(e))
     .sort();
   if (bands.length) {
@@ -188,8 +223,9 @@ function genServerCatalog(m) {
   lines.push(`  shop: OutfitShopDoor;`);
   lines.push(`};`);
   lines.push("");
+  // Drafts are absent here on purpose. See isShipped above.
   lines.push(`export const OUTFIT_CATALOG: readonly OutfitCatalogEntry[] = [`);
-  for (const it of m.items) {
+  for (const it of m.items.filter(isShipped)) {
     lines.push(`  {`);
     lines.push(`    id: "${it.id}",`);
     lines.push(`    name: ${JSON.stringify(it.name)},`);
@@ -334,6 +370,9 @@ function generated() {
 }
 
 function codegen({ write = true } = {}) {
+  // Named before anything is written, so it is the first thing on screen even
+  // when every generated file is already current.
+  reportExcluded(manifest());
   let stale = 0;
   for (const g of generated()) {
     const current = existsSync(g.path) ? readFileSync(g.path, "utf8") : null;
