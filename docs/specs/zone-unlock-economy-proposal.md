@@ -108,3 +108,78 @@ phones, without waiting for a store review.
 the current rules. **Setting an economy for a fork that has never shipped is a
 different act from changing one people have already paid into.** Spec first,
 then the dark forks, then India.
+
+
+---
+
+# UPDATE, same day: the daily allowance, and the one thing that must not be removed
+
+**The owner refined it to a DAILY allowance rather than open grinding:** "they
+can earn chai daily and unlock certain things every day, or you can just
+subscribe." Plus: **every game free for its first three plays.** The whole model
+is now one sentence with no footnote:
+
+> **Zone one free in every language. Every game free for three plays. Earn chai
+> daily to unlock more, or subscribe and skip the waiting.**
+
+**This SHRINKS the build, because most of the earning already exists.**
+`lib/daily-gift` is written, tested and shipped in India and has never been
+ported to any fork. Read it before designing anything: `giftChaiForStreakDay`,
+`giftTierForStreakDay`, `giftRefId`, `dailyGiftFor`, with `GIFT_LADDER_CAP` and
+`GIFT_DAY_ONE_CHAI` as the tuning constants. **`giftClosedCopy` and
+`giftOpenedCopy` return English display copy naming Chai and are REGION: a port
+must re-author them, never carry them.**
+
+## THE REMOVAL RISK, AND IT IS NOT ABOUT PAYMENTS
+
+The ruling retires the free-language list, and the sequencing argument offered
+for it was that nobody has paid yet. **Verified against India's own contract,
+that argument does not cover the actual risk.**
+
+```
+openapi.yaml   freeLanguage: { type: string }        REQUIRED at line 5819
+api-zod        zod.string()                          not optional, not nullable
+api-client-react  freeLanguage: string               in the shipped types
+```
+
+**`freeLanguage` is a REQUIRED, non-nullable field on `/entitlements`, and the
+validation is compiled into binaries that are live in both stores (1.0.15).**
+The endpoint it sits on is the one that decides what a learner may access.
+
+**So the exposure is SHIPPED CLIENTS, not subscribers.** A learner who has never
+paid a penny, on the current App Store build, breaks the same way as a paying one
+if the server stops sending it. **Zero paying subscribers does not make the
+removal safe and no database count can.**
+
+**The migration that is actually safe, and it is boring on purpose:**
+
+1. **Add** the new fields. Nothing breaks; older clients ignore what they do not
+   read.
+2. **Keep sending `freeLanguage`** with a truthful value for as long as any store
+   build requires it. Mark it deprecated in the spec, not absent.
+3. **Remove it only when the binaries that require it are out of circulation**,
+   which is a store-analytics question and months away.
+
+**A removal from a required field in a live contract is not a spec edit, it is a
+client migration.** That is the reason to be careful here, and it survives the
+owner's point about payments rather than being answered by it.
+
+## THE THREE NEW QUESTIONS THE DAILY MODEL RAISES
+
+**1. One ceiling or two?** "Certain things every day" could cap the EARNING or
+the UNLOCKING. **Recommendation: cap the earning only.** One number to tune, and
+a learner who has saved up is never told they may not spend their own Chai
+today, which is the more insulting of the two refusals.
+
+**2. Does unspent Chai accumulate?** **Recommendation: yes, indefinitely.** A
+patient learner reaching everything eventually is the free tier working, not a
+leak. Expiry is a harsher product, it needs an expiry job and a notification
+nobody has built, and it punishes exactly the learner the app wants.
+
+**3. Does the game taste share the ledger?** **Recommendation: no.** Three free
+plays is a COUNT, not a currency, and mixing them means a learner can spend
+their zone savings on a game replay by accident. Absorb X6's shape
+(`GET /games/taste`, `taste_over` as a 402) into this one contract change, and
+note the owner said **ALL games**, where some forks scoped their taste to a
+subset. All and the-free-ones are different implementations and the difference
+is invisible until somebody hits the game nobody freed.
