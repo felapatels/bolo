@@ -136,6 +136,7 @@ import {
   HOME_PANEL_H,
   JourneyPassCard,
   STAMP_SIZE,
+  stubWidth,
 } from '@/components/journey/JourneyPassCard';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -357,3 +358,54 @@ describe('the stub carries the stamp and nothing else', () => {
   });
 });
 
+
+
+// THE CORNER TICKET IS PER-PHONE FROM 2026-09-06, and this is the pin.
+//
+// STUB_W went 148 to 207 on 2026-09-05, measured on a 440pt phone and applied
+// to every phone, and it shipped that way in 539/541. On a 375pt SE it took 59
+// points the left column did not have: the eyebrow read "BOARDING PAS...", the
+// station name wrapped, and its second line landed on "Stop 6 of 12".
+//
+// What stubWidth() holds constant is the LEFT COLUMN'S RUN, not the ticket. The
+// anchor is measured on the device rather than reasoned about: at 375pt the
+// full eyebrow survives at 148 and truncates by 163, both hot-reloaded onto a
+// signed-in simulator. So a wider phone spends its extra points on the ticket
+// and nothing else, and the left run is the same 227 everywhere below the cap.
+//
+// A JEST CASE IS THE RIGHT PROOF FOR THE WIDE END, not a screenshot: it is the
+// end nobody can see, because the only simulator holding a session is the SE.
+describe('the corner ticket takes only the width a phone can spare', () => {
+  it('is unchanged at the width the owner measured 207 on', () => {
+    // A 440pt phone is where "should end under Zone 1 text" was measured, and
+    // this is the case that must render byte-identically to the store build.
+    expect(stubWidth(440)).toBe(207);
+  });
+
+  it('caps at 207 rather than growing with the screen', () => {
+    expect(stubWidth(600)).toBe(207); // the iPad content column
+    expect(stubWidth(1024)).toBe(207);
+  });
+
+  it('gives the 375pt SE back exactly the width that fits its eyebrow', () => {
+    expect(stubWidth(375)).toBe(148);
+  });
+
+  it('never returns the width that truncated the eyebrow on an SE', () => {
+    // 163 truncated "BOARDING PASS · बोलो रेल" at 375pt, so no phone at or
+    // below the anchor may be handed it.
+    expect(stubWidth(375)).toBeLessThan(163);
+    expect(stubWidth(320)).toBeLessThanOrEqual(148);
+  });
+
+  it('spends a wider phone\'s extra points on the ticket, one for one', () => {
+    expect(stubWidth(402) - stubWidth(375)).toBe(402 - 375);
+    expect(stubWidth(390) - stubWidth(375)).toBe(390 - 375);
+  });
+
+  it('survives a zero width, which is what the first frame can measure', () => {
+    expect(stubWidth(0)).toBe(148);
+    expect(stubWidth(-1)).toBe(148);
+    expect(stubWidth(Number.NaN)).toBe(148);
+  });
+});

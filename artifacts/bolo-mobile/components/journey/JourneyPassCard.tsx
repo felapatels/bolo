@@ -667,7 +667,7 @@ export function JourneyPassCard({
                   one piece of paper, which was true of the old pass and is not
                   true of a ticket lying on a carved board. The only perforation
                   left is the ticket's own. */}
-              <View style={styles.ticket}>
+              <View style={[styles.ticket, { width: stubWidth(windowW) }]}>
                 {/* THE LEFT HALF. Its own paper, its own three borders and its
                     own rounded outer corners: the middle edge is square and
                     borderless so the two halves read as ONE ticket at rest and
@@ -954,6 +954,31 @@ const STUB_W = 207;
 // wider, should end under Zone 1 text"). Measured rather than nudged: ZONE 1
 // sits at x 200 to 238 on a 440pt phone and the ticket's left edge was at
 // about 218, so it ended under the middle of the word rather than its start.
+//
+// 207 IS A CEILING FROM 2026-09-06, NOT A WIDTH, because it was measured on a
+// 440pt phone and applied to every phone. On the 375pt SE it cost the left
+// column 59 points it did not have: the eyebrow read "BOARDING PAS...", the
+// station name wrapped to two lines, and its second line landed on top of
+// "Stop 6 of 12". Shipped that way in 539/541. The comment above called this
+// shot: the eyebrow is the canary and nobody looked at a narrow phone.
+//
+// THE LEFT COLUMN'S RUN IS WHAT HAS TO BE HELD CONSTANT, not the ticket's
+// width. STUB_MIN is the anchor and it is measured on the device: at 375pt the
+// full eyebrow survives at 148 and truncates by 163, checked by hot-reloading
+// both onto a signed-in SE. So every wider phone may spend its extra points on
+// the ticket and nothing else, which is exactly what this returns, and the
+// left run is 227 points on every phone up to the ceiling.
+//
+//   375 (SE) -> 148      402 (17 Pro) -> 175      434 and wider -> 207
+//
+// RAISING STUB_MAX ALONE IS SAFE NOW; lowering STUB_MIN is what would truncate
+// the eyebrow again, so re-measure on the SE if it ever moves.
+const STUB_MIN = 148;
+const STUB_ANCHOR_W = 375;
+export function stubWidth(columnW: number): number {
+  if (!(columnW > 0)) return STUB_MIN;
+  return Math.min(STUB_W, Math.round(STUB_MIN + (columnW - STUB_ANCHOR_W)));
+}
 // THIS WALKS BACK TOWARD 176, WHICH IS THE WIDTH THAT TRUNCATED THE EYEBROW
 // at build 17, so "BOARDING PASS · बोलो रेल" is the thing to check first if
 // this ever needs to grow again.
@@ -1237,7 +1262,11 @@ const styles = StyleSheet.create({
   // and borderless, so at rest the perforation runs between two halves of one
   // ticket, and the moment they part each is a whole piece of paper with a
   // jagged edge where the other used to be.
-  ticket: { width: STUB_W, flexShrink: 0, flexDirection: 'row', alignItems: 'stretch' },
+  // NO WIDTH HERE: it is per-phone since 2026-09-06 and comes from stubWidth()
+  // at the call site. flexShrink stays 0 so the ticket is the size the column
+  // affords it and the left text truncates only after that, rather than the
+  // two of them sharing a deficit neither can report.
+  ticket: { flexShrink: 0, flexDirection: 'row', alignItems: 'stretch' },
   ticketHalf: {
     flexDirection: 'row',
     alignItems: 'center',
