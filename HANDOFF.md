@@ -136,6 +136,17 @@ is trap 1 above, and it is expected rather than broken.
 
 ## OPEN, EACH NEEDING YOU
 
+0b. **ONE PRODUCT QUESTION, ASKED ONCE, THAT DECIDES WORK IN THREE REPOS.**
+   **What is a letter drill when the script has no alphabet?** It came up twice
+   tonight from two directions and it is the same question both times: **Egyptian
+   Arabic is cursive and joins**, so per-letter tracing may be the wrong shape;
+   and **Han has no closed letter set at all**, so there is nothing to author.
+   Between them that is **eight of East Asia's ten languages, two of SEA's six
+   and one of Africa's three**. Nobody should port Letter Drill to those until
+   you have answered it, and nobody but you can. The drill's own code assumes an
+   alphabet and says so: `PLAYABLE_GLYPH_FLOOR = 12`.
+
+
 1. **Store listings still publish the gmail address** while the app now replies
    to the LARK domain. One inbox or two is your call.
 2. **`/privacy` and `/terms` now prerender**, verified by reading the emitted
