@@ -48,6 +48,17 @@ parent until the server and web are published.
 > failed to exit gracefully": that is the documented leak `--forceExit` exists
 > for, not a failure, and the pass count is the signal.
 
+> **THE PUBLISH ITSELF MAY BE BLOCKED, AND IT IS NOT YOUR APP'S FAULT.** Replit
+> was reported down all night across the fleet: Shell, Git, Republish and
+> Publishing panes rendering their chrome and never resolving their data. I could
+> not verify that from here (replit.com answers 200, which tests the marketing
+> page and not the panes), so treat it as a thing to check rather than a fact.
+>
+> **WHAT I DID VERIFY IS THE PART THAT MATTERS: THE LIVE APP IS HEALTHY.**
+> `bolo-india.app/api/languages` answers 200 in 1.0s. **A Replit outage stops you
+> publishing; it has not touched a single learner.** If the panes are still dead,
+> the api suite is blocked too, since it needs that Shell.
+
 **3. Then an Android build, which is the one with a clock on it.** Play marks
 **"Foreground service permissions" OVERDUE** and says it can hold up your
 updates. The code and the test are in; **`app.json` is compile time, so Play
@@ -144,6 +155,18 @@ pinned in jest rather than shot.
 
 **Metro on 8083 is dead again**, killed by the `--frozen-lockfile` install. That
 is trap 1 above, and it is expected rather than broken.
+
+---
+
+## THE OTHER FOUR, IN ONE LINE EACH
+
+Reported by the supervisor session, not verified by me.
+
+- **SEA** done and pushed, seven commits, four green, publish blocked on Replit.
+- **Africa** portrait film committed unwired; the wide cut still rendering.
+- **Europe** blocked on a download permission, which is above the publish on its
+  own board.
+- **East Asia** frozen since 23:42; its flag fix was put in by hand.
 
 ---
 
