@@ -169,6 +169,23 @@ function renderPage(ui: ReactElement, path = "/learn/1") {
  * the 1800ms clear and the assertion both come due, and a toast that appeared
  * and auto-dismissed is indistinguishable from one that never appeared.
  *
+ * THE EVIDENCE THAT SETTLED IT NEEDS NO ARGUMENT ABOUT COUNTS OR BUDGETS.
+ * A sibling fork's CI failed this test and then PASSED IT ON THE SAME SHA with
+ * no edits in between, 144 files passing and this one failing alone. **A flip
+ * on an unchanged commit is timing, and nothing else can produce it.**
+ *
+ * AND THE DURATIONS ARE BIMODAL, WHICH IS THE SIGNATURE TO RECOGNISE:
+ *
+ *   a pass    under 1s
+ *   a failure 8771ms        (the inner waitFor ceiling, sat out in full)
+ *   between   NOTHING
+ *
+ * Measured separately: the toast appears in 166ms and is visible for 1984ms.
+ * So a run that misses that window then waits out the whole ceiling before it
+ * can fail. **A budget problem would show a spread; two clusters with a gap is
+ * a race.** If anyone later sees this test take four seconds and pass, the
+ * mechanism has changed and this comment no longer describes it.
+ *
  * FIVE EXPLANATIONS HAVE DIED ON THIS TEST. Cap pressure; the outer `}, 30000)`
  * annotation; the toast lifetime alone (real, but it does not explain why only
  * this test fails); the wait count (correct arithmetic, wrong axis); and a
