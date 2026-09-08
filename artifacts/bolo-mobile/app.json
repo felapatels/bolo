@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.bolo.mobile",
-      "buildNumber": "542",
+      "buildNumber": "543",
       "associatedDomains": [
         "applinks:bolo-india.app"
       ],
@@ -29,7 +29,7 @@
     "android": {
       "package": "com.bolo.mobile",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 544,
+      "versionCode": 545,
       "intentFilters": [
         {
           "action": "VIEW",
