@@ -450,6 +450,50 @@ function firstSoundNotifier(onStart?: () => void): {
 // restore only runs if no newer playback has claimed the mode since.
 let playbackModeToken = 0;
 
+
+/**
+ * ONE COACH CLIP AT A TIME, AND THE PREVIOUS PLAYER IS ALWAYS RELEASED.
+ *
+ * REPORTED FROM PRODUCTION ON ANDROID 2026-09-07: audio stopped working part
+ * way through a lesson, around the eighth phrase, and only an app restart
+ * brought it back.
+ *
+ * WHY THE EIGHTH. Every path below released its player in exactly two places:
+ * `didJustFinish`, and an explicit `stop()`. **A clip that errors, stalls, or
+ * is abandoned when a screen goes away reaches neither**, so its player is
+ * never removed. Android's media codec pool is small and single digit; leak one
+ * player per phrase and the pool is gone in under ten, at which point EVERY
+ * subsequent play fails silently and nothing recovers it but a process restart.
+ * That is the reported symptom exactly.
+ *
+ * The app plays ONE coach clip at a time by design, so the cap is 1 and this
+ * function enforces it at the only place a player is ever born. It cannot leak
+ * more than one, whatever the clip does or fails to do, because the next
+ * creation releases the last one whether or not it ever finished.
+ *
+ * DELIBERATELY NOT A TIMEOUT. A timeout guesses how long a clip should take and
+ * is wrong for a long sentence on a slow connection. This makes no guess.
+ */
+let liveCoachPlayer: { remove: () => void } | null = null;
+
+function newCoachPlayer<T extends { remove: () => void }>(create: () => T): T {
+  const previous = liveCoachPlayer;
+  liveCoachPlayer = null;
+  if (previous) {
+    try {
+      previous.remove();
+    } catch {}
+  }
+  const player = create();
+  liveCoachPlayer = player;
+  return player;
+}
+
+/** Called wherever a player is released, so the registry never holds a dead one. */
+function forgetCoachPlayer(player: { remove: () => void }): void {
+  if (liveCoachPlayer === player) liveCoachPlayer = null;
+}
+
 /**
  * Play a progressive (still-being-synthesized) audio stream from a URL.
  * Native only: AVPlayer (iOS) and ExoPlayer (Android) handle chunked HTTP
@@ -507,9 +551,8 @@ export async function playStreamingAudio(
   // 29 "replies quieter than the greeting" seam: the greeting is the only
   // clip never preceded by another player's completion. Keeping the session
   // active leaves its lifecycle entirely to the serialized mode-flip queue.
-  const player = createAudioPlayer(
-    { uri: url, headers },
-    { keepAudioSessionActive: true },
+  const player = newCoachPlayer(() =>
+    createAudioPlayer({ uri: url, headers }, { keepAudioSessionActive: true }),
   );
   const started = firstSoundNotifier(onStart);
   const sub = player.addListener('playbackStatusUpdate', (s) => {
@@ -523,6 +566,7 @@ export async function playStreamingAudio(
       try {
         player.remove();
       } catch {}
+      forgetCoachPlayer(player);
       restoreMode();
     }
   });
@@ -540,6 +584,7 @@ export async function playStreamingAudio(
       try {
         player.remove();
       } catch {}
+      forgetCoachPlayer(player);
       restoreMode();
     },
   };
@@ -586,7 +631,9 @@ export async function playAssetAudio(
   };
 
   // keepAudioSessionActive: see playStreamingAudio for the deactivation seam.
-  const player = createAudioPlayer(source, { keepAudioSessionActive: true });
+  const player = newCoachPlayer(() =>
+    createAudioPlayer(source, { keepAudioSessionActive: true }),
+  );
   const started = firstSoundNotifier(onStart);
   const sub = player.addListener('playbackStatusUpdate', (s) => {
     started.note(s);
@@ -599,6 +646,7 @@ export async function playAssetAudio(
       try {
         player.remove();
       } catch {}
+      forgetCoachPlayer(player);
       restoreMode();
     }
   });
@@ -616,6 +664,7 @@ export async function playAssetAudio(
       try {
         player.remove();
       } catch {}
+      forgetCoachPlayer(player);
       restoreMode();
     },
   };
@@ -738,7 +787,9 @@ export async function playBase64Audio(
   // keepAudioSessionActive: prevent expo-audio's automatic session
   // deactivation when this clip finishes or pauses; see playStreamingAudio
   // for the full explanation of the build 29 loudness seam.
-  const player = createAudioPlayer({ uri }, { keepAudioSessionActive: true });
+  const player = newCoachPlayer(() =>
+    createAudioPlayer({ uri }, { keepAudioSessionActive: true }),
+  );
 
   // THE WATCHDOG, AND IT IS THE WHOLE REASON THIS FUNCTION IS NOT JUST A
   // LISTENER. `onDone` used to fire from exactly one place, `didJustFinish`,
@@ -825,6 +876,7 @@ export async function playBase64Audio(
       try {
         player.remove();
       } catch {}
+      forgetCoachPlayer(player);
       restoreMode();
     },
   };

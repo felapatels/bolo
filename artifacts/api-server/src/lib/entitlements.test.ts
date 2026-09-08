@@ -109,17 +109,29 @@ test("a paused subscription past its window resumes to the underlying tier", () 
 });
 
 test("language access follows the plan", () => {
+  // INVERTED 2026-09-07. `isLanguageAllowed("free", "gu")` was FALSE here and
+  // that single assertion was the free-language list: a learner arriving for
+  // Gujarati was refused because Gujarati was not Hindi. The owner's ruling
+  // opens zone one in EVERY language, so Free may now enter any of them and
+  // DEPTH is what the plans differ on, enforced by the premium flag on phrase
+  // rows rather than by this function.
   assert.equal(isLanguageAllowed("free", FREE_LANGUAGE), true);
-  assert.equal(isLanguageAllowed("free", "gu"), false);
+  assert.equal(isLanguageAllowed("free", "gu"), true);
   assert.equal(isLanguageAllowed("plus", "gu"), true);
   assert.equal(isLanguageAllowed("plus", FREE_LANGUAGE), true);
+  // One Language is the only tier left with a restricted list.
+  assert.equal(isLanguageAllowed("one_language", "gu", "gu"), true);
+  assert.equal(isLanguageAllowed("one_language", "ta", "gu"), false);
 });
 
-test("free entitlements report unlimited daily lessons and only the free language", () => {
+test("free entitlements report unlimited daily lessons and EVERY language", () => {
   const r = resolvePlan(state(), NOW);
   const e = buildEntitlements(r, 1, ["hi", "gu", "es"]);
   assert.equal(e.plan, "free");
-  assert.deepEqual(e.allowedLanguages, [FREE_LANGUAGE]);
+  // INVERTED 2026-09-07: was `[FREE_LANGUAGE]`. Free may enter every language
+  // now; `features.allLanguages` below stays FALSE because that flag is about
+  // owning them in full, which is still what All-Access sells.
+  assert.deepEqual(e.allowedLanguages, ["hi", "gu", "es"]);
   assert.equal(e.features.allLanguages, false);
   assert.equal(e.features.review, false);
   assert.equal(e.features.advancedAnalytics, false);

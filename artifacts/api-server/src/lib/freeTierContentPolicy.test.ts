@@ -51,25 +51,27 @@ test("reconciliation is idempotent and both policy invariants hold", async () =>
     "Hindi Zone 3 must still hold premium rows, or the paywall has moved",
   );
 
-  // Ruling 2: zero premium phrase rows in any real language's first stop
-  // (its lowest-position Greetings group), so every journey starts playable.
-  const firstStops = await pool.query(`
-    WITH first_stop AS (
-      SELECT DISTINCT ON (lg.language_code) lg.id
-      FROM lesson_groups lg
-      JOIN categories c ON c.id = lg.category_id
-      WHERE c.slug = 'greetings' AND lg.language_code NOT LIKE '\\_\\_%'
-      ORDER BY lg.language_code, lg.position ASC
-    )
+  // Ruling 2, WIDENED 2026-09-07 BY THE OWNER: zero premium phrase rows
+  // anywhere in ANY real language's ZONE ONE, not just its first stop.
+  //
+  // The old query walked the lowest-position Greetings group per language and
+  // asserted only that. Widening the policy without widening this assertion
+  // would have left the new part of the ruling completely unguarded, which is
+  // the failure mode this file was written to prevent on the other side of the
+  // line.
+  const zoneOne = await pool.query(`
     SELECT count(*)::int AS n
     FROM phrases p
-    JOIN first_stop fs ON fs.id = p.lesson_group_id
-    WHERE p.premium AND p.stage = 'phrase'
+    JOIN lesson_groups lg ON lg.id = p.lesson_group_id
+    JOIN categories c ON c.id = lg.category_id
+    WHERE c.slug = 'greetings'
+      AND lg.language_code NOT LIKE '\\_\\_%'
+      AND p.premium AND p.stage = 'phrase'
   `);
   assert.equal(
-    firstStops.rows[0].n,
+    zoneOne.rows[0].n,
     0,
-    "no premium phrase rows may remain in any first stop",
+    "no premium phrase rows may remain anywhere in zone one, in any language",
   );
 
   // Ruling 3, added 2026-08-25: NOTHING outside the free run is free.
@@ -89,10 +91,11 @@ test("reconciliation is idempotent and both policy invariants hold", async () =>
       AND c.slug IN ('greetings','family','numbers','food','everyday','feelings')
       AND lg.language_code NOT LIKE '\\_\\_%'
       AND NOT (lg.language_code = 'hi' AND c.slug IN ('greetings','family'))
-      AND NOT (c.slug = 'greetings' AND lg.position = (
-        SELECT MIN(lg2.position) FROM lesson_groups lg2
-        JOIN categories c2 ON c2.id = lg2.category_id
-        WHERE c2.slug = 'greetings' AND lg2.language_code = lg.language_code))
+      -- Zone one is free in every language now, so the whole of Greetings is
+      -- excluded from the "must be paid" remainder rather than just its first
+      -- group. Kept as an exclusion rather than deleted: the assertion below
+      -- still has to fail if zones 2 through 6 spring a leak.
+      AND c.slug <> 'greetings'
   `);
   assert.equal(
     openRemainder.rows[0].n,
@@ -109,13 +112,7 @@ test("reconciliation is idempotent and both policy invariants hold", async () =>
     JOIN categories c ON c.id = lg.category_id
     WHERE c.slug = 'greetings' AND p.premium
       AND (p.language_code = 'hi' OR lg.language_code NOT LIKE '\\_\\_%')
-      AND lg.id IN (
-        SELECT DISTINCT ON (lg2.language_code) lg2.id
-        FROM lesson_groups lg2
-        JOIN categories c2 ON c2.id = lg2.category_id
-        WHERE c2.slug = 'greetings'
-        ORDER BY lg2.language_code, lg2.position ASC
-      )
+      -- The whole zone, not the first stop of it. Same widening as above.
   `);
   assert.equal(again.rows[0].n, 0);
 });

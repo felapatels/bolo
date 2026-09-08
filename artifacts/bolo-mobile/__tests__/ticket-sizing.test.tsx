@@ -139,6 +139,25 @@ import {
   stubWidth,
 } from '@/components/journey/JourneyPassCard';
 
+// expo-router's useFocusEffect needs a navigator; these suites render the card
+// on its own. Same per-file mock the chat suites use, running the callback
+// synchronously so the film's play/pause pairing is exercised rather than
+// skipped. ParchmentPass gained that hook on 2026-09-07 to stop the home card's
+// film playing on over the journey after navigation.
+jest.mock('expo-router', () => {
+  const React = require('react');
+  return {
+    ...jest.requireActual('expo-router'),
+    useFocusEffect: (cb: () => (() => void) | void) => {
+      React.useEffect(() => {
+        const cleanup = cb();
+        return cleanup ?? undefined;
+      }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    },
+  };
+});
+
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 const fireLayout = (el: any, width: number, height: number) =>

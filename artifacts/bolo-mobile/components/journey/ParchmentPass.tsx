@@ -36,6 +36,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useReducedMotion } from 'react-native-reanimated';
+import { useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, {
   Defs,
@@ -278,6 +279,36 @@ export function ParchmentPass({
     pl.muted = true;
     pl.play();
   });
+  /**
+   * PAUSE WHEN THE SCREEN IS NOT THE ONE BEING LOOKED AT.
+   *
+   * Reported from production on Android 2026-09-07: "when he moves to the
+   * journey, the home card video still plays through for a second".
+   *
+   * This card lives on the home tab, and an expo-router screen OUTLIVES the
+   * user's mental model of it: navigating away does not unmount it, so this
+   * looping player kept decoding frames behind the screen the learner had just
+   * opened, and they saw it. CLAUDE.md already carries the general form of this
+   * trap ("reset on FOCUS, not on mount") from two earlier bugs; this is the
+   * same shape a third time, on a video instead of a text field.
+   *
+   * Cheap in both directions: a paused player holds its decoder without
+   * spending frames, and resuming is instant, so the card is never blank when
+   * the learner comes back.
+   */
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!filmOn) return;
+      try {
+        player.play();
+      } catch {}
+      return () => {
+        try {
+          player.pause();
+        } catch {}
+      };
+    }, [filmOn, player]),
+  );
   return (
     <View testID={testID} style={[{ width, height }, style]}>
       {/* THE SHEET, TORN AND WORN (build 21, owner: "parchment paper doesn't

@@ -287,7 +287,7 @@ beforeEach(async () => {
   await clearUserRows();
   await db
     .update(usersTable)
-    .set({ tier: "free", subscriptionStatus: null, trialEndsAt: null, currentPeriodEnd: null, chosenLanguage: null })
+    .set({ tier: "one_language", subscriptionStatus: "active", chosenLanguage: "hi" })
     .where(eq(usersTable.id, TEST_USER_ID));
   __resetTeaserCacheForTests();
 });

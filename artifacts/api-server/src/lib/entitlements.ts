@@ -274,7 +274,18 @@ export function allowedLanguagesForPlan(
       ? [FREE_LANGUAGE, chosenLanguage]
       : [FREE_LANGUAGE];
   }
-  return [FREE_LANGUAGE];
+  // FREE MAY ENTER EVERY LANGUAGE (owner ruling 2026-09-07: "zone one free in
+  // every language"). null means no restriction, the same value Plus gets, and
+  // that is deliberate: after this ruling the two tiers no longer differ by
+  // WHICH languages you may open, they differ by HOW FAR you may go in one.
+  // Depth is enforced by the `premium` flag on phrase rows, reconciled in
+  // freeTierContentPolicy.ts, not here.
+  //
+  // This used to return [FREE_LANGUAGE], and that single element was the
+  // free-language list the ruling deletes: a learner arriving for their
+  // family's language got in or hit a wall depending on whether it happened to
+  // be Hindi.
+  return null;
 }
 
 // The weekly Bolo Parrot chat-time ceiling for a plan, in seconds. `null`

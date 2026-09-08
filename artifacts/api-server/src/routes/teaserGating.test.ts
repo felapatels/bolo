@@ -252,10 +252,30 @@ before(async () => {
 
 beforeEach(async () => {
   await clearUserRows();
-  // Free plan: LANG is locked, Hindi is covered.
+  // A PLAN WITH A RESTRICTED LANGUAGE LIST, WHICH SINCE 2026-09-07 IS NOT FREE.
+  //
+  // This used to be `tier: "free"`, because Free meant "Hindi and nothing
+  // else" and LANG was therefore locked. The owner's ruling opened zone one in
+  // EVERY language, so `allowedLanguagesForPlan("free")` now returns null and a
+  // Free learner has no locked language at all: the teaser branch this suite
+  // exists to pin became unreachable for that tier, and every case here failed
+  // for the same reason rather than nine different ones.
+  //
+  // One Language still carries a restricted list (its chosen language plus
+  // Hindi), so it is now the tier that reaches this code. The suite is
+  // unchanged in what it asserts; only the plan that gets there has moved.
+  // Whether the teaser survives at all is the parked economy work's question,
+  // not this suite's: re-pointing it keeps the guard alive rather than deleting
+  // coverage for a decision nobody has taken.
   await db
     .update(usersTable)
-    .set({ tier: "free", subscriptionStatus: null, trialEndsAt: null, currentPeriodEnd: null, chosenLanguage: null })
+    .set({
+      tier: "one_language",
+      subscriptionStatus: "active",
+      trialEndsAt: null,
+      currentPeriodEnd: null,
+      chosenLanguage: FREE_LANGUAGE,
+    })
     .where(eq(usersTable.id, TEST_USER_ID));
   __resetTeaserCacheForTests();
 });

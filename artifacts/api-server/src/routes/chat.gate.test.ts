@@ -253,14 +253,23 @@ test("POST /openai/chat — weekly cap does not decrease after a text-input turn
 // Language gate (Free user)
 // ---------------------------------------------------------------------------
 
-test("POST /openai/chat — 402 language_locked when Free user requests a locked language", async () => {
+test("POST /openai/chat — a Free user is NOT language-locked out of any language", async () => {
+  // INVERTED 2026-09-07. This asserted 402 language_locked for a Free learner
+  // on a language that was not Hindi, which is the free-language list the
+  // owner's ruling deletes: zone one is free in every language, so chat's
+  // language gate no longer refuses a Free caller at all.
+  //
+  // The assertion is kept rather than removed BECAUSE it is the one that would
+  // catch the gate coming back. It cannot assert 200: this route reaches the
+  // AI step and fails there without a real key. What it CAN say, and the only
+  // thing worth saying, is that whatever happens next, it is not the language
+  // gate refusing them.
   const { status, json } = await post("/openai/chat", {
     languageCode: LOCKED_LANG,
     audioBase64: makeMinimalWav(),
   });
-  assert.equal(status, 402);
-  assert.equal(json?.error, "upgrade_required");
-  assert.equal(json?.reason, "language_locked");
+  assert.notEqual(status, 402, "a free learner is never language-locked now");
+  assert.notEqual(json?.reason, "language_locked");
 });
 
 test("POST /openai/chat — language gate passes for Free user on the free language", async () => {

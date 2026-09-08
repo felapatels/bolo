@@ -155,8 +155,14 @@ describe("Language picker gating", () => {
     // (TEASER_LIMIT, api-server lib/teaser.ts), and this line used to read
     // "Locked languages need All-Access", which talked the learner out of it.
     // Corrected 2026-08-28 on the owner's catch.
+    // INVERTED 2026-09-07 because the subtitle changed on purpose. The old line
+    // was "Locked languages start with a free taste", written when one language
+    // was free and the rest offered a teaser. After the owner's ruling zone one
+    // is free in EVERY language, so the sentence that was true of some tiles is
+    // now true of all of them and says so. The locked-routing behaviour this
+    // test is really about is unchanged, and still asserted below.
     expect(
-      screen.getByText(/Locked languages start with a free taste/),
+      screen.getByText(/Zone one is free in every language/),
     ).toBeInTheDocument();
     expect(screen.queryByText(/need All-Access/)).toBeNull();
 

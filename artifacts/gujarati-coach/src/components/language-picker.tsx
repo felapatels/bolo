@@ -85,7 +85,7 @@ function AllAccessBadge({ testId }: { testId: string }) {
 
 export function LanguagePicker({ open: openProp, onOpenChange, trigger }: LanguagePickerProps = {}) {
   const { languages, activeLang, activeLanguage, setActiveLang } = useLanguage();
-  const { isLanguageAllowed, freeLanguage } = useEntitlements();
+  const { isLanguageAllowed } = useEntitlements();
   // An explicit pick here is a real choice: persist it (and the B1
   // hasChosenLanguage flag) server-side, fire-and-forget, so the choice
   // follows the learner across devices and the selection step never re-shows.
@@ -203,7 +203,7 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
               silently the day it changes. */}
           {languages.some((l) => !isLanguageAllowed(l.code)) && (
             <p className="text-xs font-medium text-muted-foreground">
-              Locked languages start with a free taste. All-Access opens the rest.
+              Zone one is free in every language. All-Access opens the rest.
             </p>
           )}
         </DialogHeader>
@@ -330,9 +330,14 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
                     say so in the code rather than leaning on that. */}
                 {locked ? (
                   <AllAccessBadge testId={`picker-locked-${lang.code}`} />
-                ) : lang.code === freeLanguage ? (
-                  <IncludedFreeBadge testId={`picker-free-${lang.code}`} />
                 ) : null}
+                {/* NO PER-LANGUAGE "INCLUDED FREE" BADGE SINCE 2026-09-07.
+                    Zone one is free in EVERY language now, so a badge on one
+                    tile said something false about every other tile. The
+                    subtitle states it once. IncludedFreeBadge is kept below
+                    unused on purpose for the moment: deleting it and its twin
+                    in mobile is a separate tidy, and a half-done twin is how
+                    these two pickers drift. */}
               </button>
             );
           })}

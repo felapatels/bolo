@@ -21,8 +21,14 @@ import { logger } from "./logger";
 //      run than the rest; every other language gets its first stop plus the
 //      two tastes at stops 2 and 3, which is rule 2 below plus the tracing and
 //      story stops.
-//   2) Every language's FIRST stop (position-1 Greetings group) is fully
-//      free, so every journey starts playable.
+//   2) Every language's WHOLE FARE ZONE 1 (the Greetings category, every
+//      lesson group in it) is free.
+//
+//      WIDENED FROM THE FIRST STOP ALONE on 2026-09-07 at the owner's
+//      direction: zone one free in EVERY language, so a learner arriving for
+//      their family's language is never gated by whether that language made a
+//      list. This replaces the free-LANGUAGE list as the thing that decides
+//      who gets in free; depth decides now, not identity.
 export async function reconcileFreeTierContentPolicy(): Promise<void> {
   // The slugs are journey 1's first two fare zones, in order. Listed rather
   // than derived because this file has no business importing the client's zone
@@ -46,11 +52,10 @@ export async function reconcileFreeTierContentPolicy(): Promise<void> {
   const firstStops = await db.execute(sql`
     UPDATE phrases SET premium = false
     WHERE premium AND lesson_group_id IN (
-      SELECT DISTINCT ON (lg.language_code) lg.id
+      SELECT lg.id
       FROM lesson_groups lg
       JOIN categories c ON c.id = lg.category_id
       WHERE c.slug = 'greetings' AND lg.language_code NOT LIKE '\\_\\_%'
-      ORDER BY lg.language_code, lg.position ASC
     )
   `);
   // 3) EVERYTHING ELSE IN JOURNEY 1 IS PAID, and this is the half the policy
@@ -88,15 +93,10 @@ export async function reconcileFreeTierContentPolicy(): Promise<void> {
         AND lg.language_code NOT LIKE '\\_\\_%'
         -- Hindi keeps the whole of zones 1 and 2.
         AND NOT (lg.language_code = 'hi' AND c.slug IN ('greetings','family'))
-        -- Every language keeps its first stop, which is position-1 greetings.
-        AND NOT (
-          c.slug = 'greetings'
-          AND lg.position = (
-            SELECT MIN(lg2.position) FROM lesson_groups lg2
-            JOIN categories c2 ON c2.id = lg2.category_id
-            WHERE c2.slug = 'greetings' AND lg2.language_code = lg.language_code
-          )
-        )
+        -- Every language keeps the WHOLE of zone 1 (2026-09-07 ruling). This
+        -- used to exclude only position-1 greetings; leaving it that way would
+        -- have re-closed, on the next boot, exactly what rule 2 just opened.
+        AND c.slug <> 'greetings'
     )
   `);
 

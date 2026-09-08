@@ -27,7 +27,7 @@ export default function LanguageModal() {
   const colors = useColors();
   const router = useRouter();
   const { languages, activeLang, adoptLanguageLocally, isLoading } = useLanguage();
-  const { isLanguageAllowed, freeLanguage } = useEntitlements();
+  const { isLanguageAllowed } = useEntitlements();
   // Explicit pick: the shared helper PATCHes activeLanguage AND
   // hasChosenLanguage together, so a pick here also retires the first-time
   // language step for good.
@@ -147,7 +147,7 @@ export default function LanguageModal() {
                copy of a constant this client cannot see, and would go stale
                silently the day it changes. */
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              Locked languages start with a free taste. All-Access opens the rest.
+              Zone one is free in every language. All-Access opens the rest.
             </Text>
           ) : null}
         </View>
@@ -256,7 +256,6 @@ export default function LanguageModal() {
                 language={item}
                 active={item.code === activeLang}
                 locked={locked}
-                free={item.code === freeLanguage}
                 onPress={() => pick(item.code, locked)}
               />
             );
@@ -283,18 +282,13 @@ function LanguageTile({
   language,
   active,
   locked,
-  free,
+
   onPress,
 }: {
   language: Language;
   active: boolean;
   locked: boolean;
-  /**
-   * This is the language every tier gets for free, per the server's
-   * entitlements.freeLanguage. It describes the language, not the viewer, so
-   * it is true on every plan.
-   */
-  free: boolean;
+
   onPress: () => void;
 }) {
   const colors = useColors();
@@ -368,21 +362,10 @@ function LanguageTile({
               rows wear the same one for First Class. Same shape, one place. */}
           <GoldChip label="All-Access" />
         </View>
-      ) : free ? (
-        // Explicit branch: the free language is never locked, but say so in
-        // the code rather than leaning on that.
-        <View
-          testID={`picker-free-${language.code}`}
-          accessibilityLabel="Included free"
-          style={styles.chipRow}
-        >
-          <View style={[styles.chip, styles.chipFree]}>
-            <Text style={[styles.chipText, { color: '#FFFFFF' }]}>
-              Included free
-            </Text>
-          </View>
-        </View>
       ) : null}
+      {/* NO PER-LANGUAGE "INCLUDED FREE" CHIP SINCE 2026-09-07. Zone one is free
+          in EVERY language now, so a chip on one tile said something false about
+          the others. The subtitle above states it once, for all of them. */}
     </Pressable>
   );
 }

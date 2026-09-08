@@ -109,7 +109,7 @@ before(async () => {
     .onConflictDoNothing();
   await db
     .update(usersTable)
-    .set({ tier: "free", subscriptionStatus: null })
+    .set({ tier: "one_language", subscriptionStatus: "active", chosenLanguage: "hi" })
     .where(eq(usersTable.id, TEST_USER_ID));
 
   await db
@@ -318,16 +318,25 @@ test("plain-locked language (no teaser set) keeps the pre-M1 402 byte-identical"
     `/categories/${otherCategoryId}/lesson-groups/${encodeURIComponent(LANG_PLAIN)}`,
   );
   assert.equal(status, 402);
-  // BYTE-identical to the pre-M1 payload (upgradeRequired() key order in
-  // lib/entitlements.ts, serialized by express res.json): the showroom
-  // exception provably applies to teaser and exhausted callers only.
+  // BYTE-identical to the payload this caller's plan produces (upgradeRequired()
+  // key order in lib/entitlements.ts, serialized by express res.json): the
+  // showroom exception provably applies to teaser and exhausted callers only.
+  //
+  // THE BYTES CHANGED ON 2026-09-07 AND THE REASON IS THE CALLER, NOT THE
+  // ENVELOPE. This suite's learner used to be Free, and a Free learner was
+  // upsold to the middle tier: "This language is a paid unlock",
+  // requiredPlan "one_language". Free has no locked language any more, so that
+  // exact string is unreachable and the suite now runs as One Language, which
+  // is correctly upsold to Plus instead. The property under test is unchanged:
+  // a plain-locked language returns the standard denial and nothing else, byte
+  // for byte, with no teaser and no lesson groups leaking through.
   const expected = JSON.stringify({
     error: "upgrade_required",
     upgradeRequired: true,
     reason: "language_locked",
-    message: "This language is a paid unlock. Upgrade to start learning it.",
+    message: "Bolo! Plus unlocks every language. Upgrade to learn this one too.",
     feature: "allLanguages",
-    requiredPlan: "one_language",
+    requiredPlan: "plus",
   });
   assert.equal(text, expected, "402 body must be byte-identical to pre-M1");
   assert.equal(json.teaser, undefined);
@@ -544,7 +553,7 @@ test("sentence-stage group phrases: premium-filtered for non-Plus, 402 only when
     // content policy); premium text never rides along.
     await db
       .update(usersTable)
-      .set({ tier: "free", subscriptionStatus: null })
+      .set({ tier: "one_language", subscriptionStatus: "active", chosenLanguage: "hi" })
       .where(eq(usersTable.id, TEST_USER_ID));
     r = await getJson(`/lesson-groups/${hiGroup!.id}/phrases`);
     assert.equal(r.status, 200);

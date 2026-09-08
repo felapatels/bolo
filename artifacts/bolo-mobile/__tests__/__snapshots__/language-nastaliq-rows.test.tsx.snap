@@ -69,7 +69,7 @@ exports[`LanguageRow Nastaliq rendering — dark theme renders the full language
           ]
         }
       >
-        Locked languages start with a free taste. All-Access opens the rest.
+        Zone one is free in every language. All-Access opens the rest.
       </Text>
     </View>
     <View
@@ -783,7 +783,7 @@ exports[`LanguageRow Nastaliq rendering — light theme renders the full languag
           ]
         }
       >
-        Locked languages start with a free taste. All-Access opens the rest.
+        Zone one is free in every language. All-Access opens the rest.
       </Text>
     </View>
     <View

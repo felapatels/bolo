@@ -178,9 +178,16 @@ before(async () => {
       .onConflictDoNothing();
     await db
       .update(usersTable)
+      // ONE_LANGUAGE STANDS IN FOR THE OLD "FREE", 2026-09-07. These suites use
+      // a tier whose language list is RESTRICTED, which Free was until the
+      // owner's ruling opened zone one in every language. Free now has nothing
+      // locked, so the 402-before-unlock precedence these cases pin became
+      // unreachable for it. One Language still restricts, so it reaches the
+      // same branch and the assertions are untouched.
       .set({
-        tier,
-        subscriptionStatus: tier === "plus" ? "active" : null,
+        tier: tier === "free" ? "one_language" : tier,
+        subscriptionStatus: tier === "plus" || tier === "free" ? "active" : null,
+        chosenLanguage: tier === "free" ? "hi" : null,
       })
       .where(eq(usersTable.id, id));
   }

@@ -320,11 +320,22 @@ after(async () => {
   await pool.end();
 });
 
-test("free entitlements snapshot: Hindi only, all Plus features locked", async () => {
+test("free entitlements snapshot: EVERY language, all Plus features locked", async () => {
   const { status, json } = await get("/entitlements");
   assert.equal(status, 200);
   assert.equal(json.plan, "free");
-  assert.deepEqual(json.allowedLanguages, [FREE_LANGUAGE]);
+  // INVERTED 2026-09-07. This asserted `[FREE_LANGUAGE]` and that array WAS the
+  // free-language list. Zone one is free in every language now, so Free may
+  // enter all of them; the feature flags below stay false because those are
+  // about owning a language in full, which is still what All-Access sells.
+  assert.ok(
+    json.allowedLanguages.includes(FREE_LANGUAGE),
+    "the flagship is still in the list",
+  );
+  assert.ok(
+    json.allowedLanguages.length > 1,
+    "Free is no longer restricted to one language",
+  );
   assert.equal(json.features.allLanguages, false);
   assert.equal(json.features.review, false);
   assert.equal(json.features.advancedAnalytics, false);
@@ -334,16 +345,24 @@ test("free entitlements snapshot: Hindi only, all Plus features locked", async (
   assert.equal(json.limits.dailyNewLessons.remaining, null);
 });
 
-test("free is denied a locked language with a structured upgrade payload", async () => {
+test("free is denied NOTHING: every language opens for a free learner", async () => {
+  // INVERTED 2026-09-07, and this is the assertion that pins the ruling.
+  //
+  // It read "free is denied a locked language with a structured upgrade
+  // payload" and asserted 402 / upgrade_required / language_locked. That was
+  // the free-language list doing its work: a learner arriving for a language
+  // that was not Hindi was turned away at the door.
+  //
+  // Zone one is free in EVERY language now, so the door is open and the
+  // paywall has moved inward to depth. The 402 SHAPE is not lost with it: the
+  // one_language cases below still pin the identical envelope, and they always
+  // did it better, since a one_language caller is correctly pointed at Plus
+  // where this test asserted "one_language" at itself.
   const { status, json } = await get(
     `/categories?lang=${encodeURIComponent(LOCKED_LANG)}`,
   );
-  assert.equal(status, 402);
-  assert.equal(json.error, "upgrade_required");
-  assert.equal(json.upgradeRequired, true);
-  assert.equal(json.reason, "language_locked");
-  // A Free learner can unlock a single language with the cheaper middle tier.
-  assert.equal(json.requiredPlan, "one_language");
+  assert.equal(status, 200, "a free learner may open any language");
+  assert.ok(Array.isArray(json.categories) || typeof json === "object");
 });
 
 test("free can browse Hindi categories", async () => {

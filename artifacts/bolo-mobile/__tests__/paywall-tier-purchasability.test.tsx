@@ -223,7 +223,13 @@ describe('PaywallScreen tier resolution (no one_language offering)', () => {
       screen.queryByText('One language + Hindi'),
     ).not.toBeOnTheScreen();
     // All-access benefits should render instead.
-    expect(screen.getByText('Every language')).toBeOnTheScreen();
+    // INVERTED 2026-09-07: the benefit's title changed from "Every language" to
+    // "Every zone, every language" when zone one became free in every language.
+    // The old title sold ACCESS TO A LANGUAGE, which All-Access no longer
+    // uniquely grants; what it grants now is depth. The assertion is still the
+    // same one: the all-access benefit list rendered rather than the dead
+    // one_language list.
+    expect(screen.getByText('Every zone, every language')).toBeOnTheScreen();
   });
 
   test('with no ?lang= param, all_access still renders (unchanged default)', () => {

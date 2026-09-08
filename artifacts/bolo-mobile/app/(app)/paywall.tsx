@@ -43,8 +43,12 @@ import {
   TERMS_OF_USE_URL,
 } from '@/lib/legal';
 
-// Hindi is always free, so it is never a One-Language "chosen" language.
-const FREE_LANGUAGE = 'hi';
+// THERE IS NO LONGER A FREE LANGUAGE (owner ruling 2026-09-07: zone one free
+// in EVERY language). This file used to hold `const FREE_LANGUAGE = 'hi'` and
+// excluded Hindi from being a "chosen" language, because Hindi was free and the
+// rest were not. Now every language's zone one is free and every language's
+// zone two is paid, so Hindi is no longer special and excluding it would hide
+// the paywall from the learner most likely to reach it.
 
 type Benefit = {
   icon: keyof typeof Feather.glyphMap;
@@ -63,8 +67,8 @@ export function allAccessBenefits(monthlyChai: number | null): Benefit[] {
   return [
   {
     icon: 'globe',
-    title: 'Every language',
-    desc: 'Learn any language, not just Hindi.',
+    title: 'Every zone, every language',
+    desc: 'Zone one is free everywhere. This opens all of it.',
   },
   {
     icon: 'zap',
@@ -106,8 +110,8 @@ function oneLanguageBenefits(chosenName: string | null): Benefit[] {
   return [
     {
       icon: 'globe',
-      title: chosenName ? `${chosenName} + Hindi` : 'One language + Hindi',
-      desc: 'Unlock the language you choose, on top of free Hindi.',
+      title: chosenName ? `All of ${chosenName}` : 'One language, all zones',
+      desc: 'Every zone of the language you choose. Zone one stays free everywhere.',
     },
     {
       icon: 'zap',
@@ -165,10 +169,7 @@ export default function PaywallScreen() {
   // ?reason=daily_lesson_limit is forwarded by paywallHrefForDenial so we can
   // surface a contextual trial banner when the learner arrived from the cap.
   const params = useLocalSearchParams<{ lang?: string; reason?: string }>();
-  const requestedLang =
-    typeof params.lang === 'string' && params.lang !== FREE_LANGUAGE
-      ? params.lang
-      : null;
+  const requestedLang = typeof params.lang === 'string' ? params.lang : null;
   const isDailyLimitDenial = params.reason === 'daily_lesson_limit';
 
   const hasOneLanguage = !!(oneLanguageMonthly || oneLanguageAnnual);
@@ -189,17 +190,14 @@ export default function PaywallScreen() {
     text: string;
   } | null>(null);
 
-  // The languages a One-Language buyer can pick from: everything except free
-  // Hindi. Once on the middle tier, the choice is locked to the server value.
-  const choosableLanguages = useMemo(
-    () => languages.filter((l) => l.code !== FREE_LANGUAGE),
-    [languages],
-  );
+  // EVERY language is choosable now. This used to exclude Hindi, because Hindi
+  // was the free one and buying it would have bought nothing; after the
+  // 2026-09-07 ruling every language has paid zones, so excluding any of them
+  // would refuse a sale the learner is entitled to make.
+  const choosableLanguages = languages;
 
   const [chosenLangCode, setChosenLangCode] = useState<string | null>(
-    chosenLanguage ??
-      requestedLang ??
-      (activeLang !== FREE_LANGUAGE ? activeLang : null),
+    chosenLanguage ?? requestedLang ?? activeLang ?? null,
   );
 
   // The paywall surface was reached.

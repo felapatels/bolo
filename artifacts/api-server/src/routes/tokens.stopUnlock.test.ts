@@ -159,7 +159,7 @@ before(async () => {
     .onConflictDoNothing();
   await db
     .update(usersTable)
-    .set({ tier: "free", subscriptionStatus: null })
+    .set({ tier: "one_language", subscriptionStatus: "active", chosenLanguage: "hi" })
     .where(inArray(usersTable.id, [TEST_USER_ID, POOR_USER_ID]));
 
   await db
