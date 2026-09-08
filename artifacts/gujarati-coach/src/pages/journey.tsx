@@ -43,6 +43,7 @@ import {
 } from "@workspace/api-client-react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Lightbulb, Lock, Pencil, Sparkles, Star, Train, Volume2 } from "lucide-react";
 import { ChaiGlyph } from "@/components/chai-stall";
+import { Confetti } from "@/components/ui/confetti";
 import { TrainEngine } from "@/components/train-svg";
 import { useReducedMotion } from "framer-motion";
 import {
@@ -1842,11 +1843,24 @@ export default function Journey() {
   // the zones (the bought stop comes back status "unlocked") and the wallet.
   const tokensQuery = useGetTokens();
   const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [stopOpened, setStopOpened] = useState(false);
   const unlockStop = useUnlockStop({
     mutation: {
       onSuccess: () => {
         setUnlockError(null);
         setLock(null);
+        // THE SECOND CELEBRATION, and it is the bigger of the two on the
+        // owner's ruling. He asked to celebrate at the moment something is
+        // REWARDED, and there are two: the daily draw, which is accumulation
+        // and gets a small beat on the gift card, and THIS, the only point in
+        // the economy where a learner spends real currency and a station
+        // becomes theirs.
+        //
+        // IT BELONGS HERE RATHER THAN ON THE GIFT CARD. The card celebrates a
+        // number going up; firing the same beat for both makes the big one
+        // worth nothing. Mobile twin: journey.tsx's `stopOpened`.
+        setStopOpened(true);
+        window.setTimeout(() => setStopOpened(false), 2600);
         void tokensQuery.refetch();
         zoneQueries.forEach((q) => void q.refetch());
       },
@@ -3860,6 +3874,11 @@ export default function Journey() {
           />
         </>
       )}
+      {/* THE STATION IS YOURS. The gold variant because this is the one moment
+          a learner has actually SPENT for something, and the component is
+          reduced-motion aware so asking for less motion loses the movement and
+          not the unlock. */}
+      <Confetti active={stopOpened} variant="perfect" />
     </div>
   );
 }

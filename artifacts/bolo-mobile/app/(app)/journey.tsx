@@ -79,6 +79,7 @@ import {
 } from '@workspace/api-client-react';
 import { Screen } from '@/components/Screen';
 import { Mascot } from '@/components/Mascot';
+import { Confetti } from '@/components/Confetti';
 import { Landmark } from '@/components/journey/Landmark';
 import { LessonError } from '@/components/LessonError';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
@@ -1514,11 +1515,29 @@ export default function JourneyScreen() {
     return { chassis: '#6B4A0F', body: '#E8B93C', trim: '#FFE39A', steam: '#FFF6E0' } as const;
   })();
   const [unlockError, setUnlockError] = useState<string | null>(null);
+  // Bumped on every successful unlock so the burst remounts and replays; a
+  // boolean would fire once and then sit true for the rest of the session.
+  const [stopOpened, setStopOpened] = useState(0);
   const unlockStop = useUnlockStop({
     mutation: {
       onSuccess: () => {
         setUnlockError(null);
         setLock(null);
+        // THE SECOND CELEBRATION, and it is the bigger of the two on the
+        // owner's ruling. His instruction was to celebrate at the moment
+        // something is REWARDED, and there are two such moments: the daily
+        // draw, which is accumulation and gets a small beat on the gift card,
+        // and THIS, which is the only point in the economy where a learner
+        // spends real currency and a station becomes theirs.
+        //
+        // IT BELONGS HERE RATHER THAN ON THE GIFT CARD, which is why the gift
+        // card does not fire it: the card celebrates a number going up, and
+        // firing the same beat for both makes the big one worth nothing.
+        //
+        // Confetti is reduced-motion aware in the component itself, so a
+        // learner who has asked for less motion still gets the unlock and the
+        // refetches with none of the movement.
+        setStopOpened((n) => n + 1);
         void tokensQuery.refetch();
         zoneQueries.forEach((q) => void q.refetch());
       },
@@ -4468,6 +4487,13 @@ export default function JourneyScreen() {
         <ChaiWalletSheet visible onClose={() => setWalletOpen(false)} />
       )}
       <MilestoneToast message={waveToast.message} toastKey={waveToast.key} />
+      {/* THE STATION IS YOURS. The bigger of the two celebrations, keyed so a
+          second unlock replays it rather than finding the burst already spent.
+          `burst` because it dismisses itself; the gold variant because this is
+          the one moment a learner has actually SPENT for something. */}
+      {stopOpened > 0 ? (
+        <Confetti key={stopOpened} variant="perfect" pace="burst" />
+      ) : null}
     </Screen>
   );
 }
