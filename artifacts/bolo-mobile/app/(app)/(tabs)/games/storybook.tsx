@@ -42,8 +42,8 @@ import {
   Text,
   View } from 'react-native';
 import { CONTENT_COLUMN, useContentWidth } from '@/lib/contentWidth';
+import { TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import {
@@ -113,11 +113,12 @@ export default function StorybookScreen() {
   const router = useRouter();
   const { activeLang, activeLanguage } = useLanguage();
   const width = useContentWidth();
-  // THE GAMES STACK HAS NO HEADER, so nothing reserves the notch and the back
-  // button landed under the status bar: present, painted, and not tappable.
-  // Reported on device, and "I can't click it" is the worst kind of bug to
-  // ship because the screenshot looks correct.
-  const insets = useSafeAreaInsets();
+  // THE GAMES STACK HAS NO HEADER, so something has to reserve the notch or
+  // the back button lands under the status bar: present, painted, and not
+  // tappable. That was reported on device and fixed HERE first, with a
+  // paddingTop of insets.top; games/_layout.tsx then took the job for the
+  // whole stack on 2026-09-03 and this screen kept paying it too. The second
+  // payment was removed 2026-09-08. See the note above the scroller.
   const params = useLocalSearchParams<{ journey?: string; zone?: string }>();
 
   const journey = Number(params.journey) || 1;
@@ -332,12 +333,22 @@ export default function StorybookScreen() {
     );
   }
 
+  /**
+   * THE NOTCH IS CLEARED BY THE STACK, NOT HERE (owner, 2026-09-03, off
+   * TestFlight: "too much space up top"). games/_layout.tsx pads the whole
+   * stack by insets.top, which is why every OTHER game renders inside
+   * `<Screen padTop={false}>`. This screen and its neighbour are raw
+   * ScrollViews, so they never got that fix and cleared the notch TWICE:
+   * roughly 47pt of dead air above the title, which also pushed the bottom of
+   * the page further under the floating tab bar. Found 2026-09-08 while
+   * chasing the storybook's unreachable Next button.
+   */
   const limited = data?.limited === true;
 
   return (
     <ScrollView
       style={[s.root, { backgroundColor: colors.background }]}
-      contentContainerStyle={[s.pad, CONTENT_COLUMN, { paddingTop: insets.top + 12 }]}
+      contentContainerStyle={[s.pad, CONTENT_COLUMN]}
       testID="storybook-screen"
     >
       {/* BACK, and every screen in the games stack has to supply its own: the
@@ -476,6 +487,45 @@ export default function StorybookScreen() {
                 </View>
               </View>
             </Animated.View>
+
+            {/* NEXT SITS ON THE PICTURE, and this is a BUG FIX rather than a
+                layout preference (owner, 2026-09-08, off the phone: "user is
+                unable to press the next button, when they scroll down to see
+                it, when they let go it autoscrolls back to top").
+
+                WHAT WAS ACTUALLY WRONG. This screen's scroller padded its
+                bottom by 40 while the tab bar is a FLOATING PILL absolutely
+                positioned over the content: 74pt of bar plus the home
+                indicator, which is why the rest of the app pads by
+                TAB_BAR_CLEARANCE (132). So Next was drawn UNDER the bar. The
+                content was also short enough not to scroll, so dragging it up
+                was pure iOS rubber band and letting go snapped straight back
+                to zero. Nothing was auto-scrolling; there was nowhere to
+                scroll TO. That padding is fixed below, which is what saves the
+                choice cards and the two upsell buttons behind it.
+
+                THE PADDING ALONE WOULD NOT HAVE BEEN ENOUGH, and that is the
+                owner's call: even reachable, Next was a scroll away from the
+                thing it advances. On the art it is on screen the instant a
+                choice is taken.
+
+                WHITE RING, NOT A COLOUR. The stills are generated art and this
+                button lands on whatever they happen to be, so it carries its
+                own edge and its own shadow instead of relying on the primary
+                reading against the picture. */}
+            {picked !== null && (
+              <Pressable
+                testID="storybook-next"
+                onPress={advance}
+                accessibilityRole="button"
+                accessibilityLabel="Next"
+                hitSlop={10}
+                style={[s.nextOnArt, { backgroundColor: colors.primary }]}
+              >
+                <Text style={s.ctaText}>Next</Text>
+                <Feather name="arrow-right" size={16} color="#fff" />
+              </Pressable>
+            )}
           </View>
 
           {/* MUTE, not "hear". Sound is on by default. */}
@@ -541,16 +591,6 @@ export default function StorybookScreen() {
               </Pressable>
             );
           })}
-
-          {picked !== null && (
-            <Pressable
-              testID="storybook-next"
-              onPress={advance}
-              style={[s.cta, { backgroundColor: colors.primary }]}
-            >
-              <Text style={s.ctaText}>Next</Text>
-            </Pressable>
-          )}
         </>
       )}
     </ScrollView>
@@ -559,7 +599,7 @@ export default function StorybookScreen() {
 
 const s = StyleSheet.create({
   root: { flex: 1 },
-  pad: { padding: 16, gap: 10, paddingBottom: 40 },
+  pad: { padding: 16, gap: 10, paddingBottom: TAB_BAR_CLEARANCE },
   backBtn: {
     width: 38,
     height: 38,
@@ -606,5 +646,23 @@ const s = StyleSheet.create({
   },
   muteText: { fontFamily: AppFonts.bold, fontSize: 13 },
   cta: { borderRadius: 16, paddingVertical: 13, alignItems: 'center' },
+  nextOnArt: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 99,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.92)',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
   ctaText: { fontFamily: AppFonts.bold, fontSize: 15, color: '#fff' },
 });

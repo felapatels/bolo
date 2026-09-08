@@ -1,5 +1,9 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
+
+// The story payload the screen sees. `undefined` is the loading state, which is
+// what every test here opened on before the Next button got its own case.
+let mockStoryData: { limited: boolean; phrases: unknown[] } | undefined;
 
 // A SMOKE TEST, and it is not a formality.
 //
@@ -77,7 +81,10 @@ jest.mock('@/hooks/useColors', () => ({
 jest.mock('@workspace/api-client-react', () => ({
   useListCategoryPhrases: () => ({ data: [], isLoading: false }),
   getListCategoryPhrasesQueryKey: () => ['phrases'],
-  useGetStoryBook: () => ({ data: undefined, isLoading: true }),
+  useGetStoryBook: () =>
+    mockStoryData === undefined
+      ? { data: undefined, isLoading: true }
+      : { data: mockStoryData, isLoading: false },
   getGetStoryBookQueryKey: () => ['storybook'],
   useSynthesizeSpeech: () => ({ mutateAsync: jest.fn() }),
   useNarrateStoryLine: () => ({ mutateAsync: jest.fn() }),
@@ -85,6 +92,10 @@ jest.mock('@workspace/api-client-react', () => ({
 
 import EmergencyScreen from '@/app/(app)/(tabs)/games/emergency';
 import StorybookScreen from '@/app/(app)/(tabs)/games/storybook';
+
+beforeEach(() => {
+  mockStoryData = undefined;
+});
 
 describe('the two screens that arrived with no test', () => {
   test('the Emergency mounts, and with no zone it offers the length picker', () => {
@@ -111,5 +122,57 @@ describe('the two screens that arrived with no test', () => {
     // A book with no data must not render a frame with nothing in it; the
     // loading line is what stands in until the phrases land.
     expect(screen.queryByTestId('storybook-frame')).toBeNull();
+  });
+});
+
+/**
+ * WHERE THE NEXT BUTTON IS, WHICH IS A POSITION AND NOT A PRESENCE.
+ *
+ * Reported by the owner on the phone, 2026-09-08: "user is unable to press the
+ * next button, when they scroll down to see it, when they let go it autoscrolls
+ * back to top." The button had always RENDERED, so a `getByTestId` would have
+ * been green through the whole bug. What was wrong was where it landed: below
+ * the choices, inside a scroller padded 40 at the bottom, under a tab bar that
+ * is absolutely positioned and 74pt tall on top of the home indicator. The
+ * content was too short to scroll, so the drag was iOS rubber band and letting
+ * go snapped back to zero.
+ *
+ * SO THIS ASSERTS CONTAINMENT. `within(frame)` fails the moment somebody moves
+ * Next back out to the end of the page, which is the only way this bug returns.
+ * The padding is pinned separately below, because either one alone leaves the
+ * other half of the fix free to be undone.
+ */
+describe('the storybook Next button', () => {
+  const PHRASES = [
+    { concept: 'good morning', phraseId: 1, nativeScript: 'नमस्ते', romanized: 'namaste', english: 'good morning' },
+    { concept: 'goodbye', phraseId: 2, nativeScript: 'अलविदा', romanized: 'alvida', english: 'goodbye' },
+    { concept: 'how much is this?', phraseId: 3, nativeScript: 'कितने का है', romanized: 'kitne ka hai', english: 'how much is this?' },
+  ];
+
+  test('is not offered until a line has been chosen', async () => {
+    mockStoryData = { limited: false, phrases: PHRASES };
+    render(<StorybookScreen />);
+    await screen.findByTestId('storybook-frame');
+    expect(screen.queryByTestId('storybook-next')).toBeNull();
+  });
+
+  test('sits ON the picture once a line is chosen, not below the choices', async () => {
+    mockStoryData = { limited: false, phrases: PHRASES };
+    render(<StorybookScreen />);
+    const frame = await screen.findByTestId('storybook-frame');
+    fireEvent.press(screen.getByTestId('storybook-choice-good morning'));
+
+    // THE VACUITY GUARD FIRST, and this test needed one as much as any set
+    // difference does. The whole assertion below rests on `within` actually
+    // SCOPING to the frame's subtree; if it quietly searched the whole tree it
+    // would pass with Next back at the bottom of the page, which is precisely
+    // the bug. The back button is unambiguously outside the frame, so it is the
+    // negative control: this line fails the moment `within` stops scoping.
+    expect(within(frame).queryByTestId('storybook-back')).toBeNull();
+    expect(screen.getByTestId('storybook-back')).toBeOnTheScreen();
+
+    // Present, and INSIDE the frame. The second half is the whole test: it was
+    // present all through the bug.
+    expect(within(frame).getByTestId('storybook-next')).toBeTruthy();
   });
 });

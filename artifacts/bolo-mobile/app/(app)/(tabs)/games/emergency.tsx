@@ -27,8 +27,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CONTENT_COLUMN } from '@/lib/contentWidth';
+import { TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
@@ -72,7 +72,6 @@ export default function EmergencyScreen() {
   // Same reason as the storybook: headerShown is false for this whole stack,
   // so every screen has to reserve the notch itself or its own back button is
   // unreachable.
-  const insets = useSafeAreaInsets();
   const { activeLang, activeLanguage } = useLanguage();
   const params = useLocalSearchParams<{ journey?: string; zone?: string }>();
 
@@ -216,6 +215,16 @@ export default function EmergencyScreen() {
   );
 
   const q = questions[drill.index];
+  /**
+   * THE NOTCH IS CLEARED BY THE STACK, NOT HERE (owner, 2026-09-03, off
+   * TestFlight: "too much space up top"). games/_layout.tsx pads the whole
+   * stack by insets.top, which is why every OTHER game renders inside
+   * `<Screen padTop={false}>`. This screen and the storybook are raw
+   * ScrollViews, so they never got that fix and cleared the notch TWICE:
+   * roughly 47pt of dead air above the title, which also pushed the bottom of
+   * the page further under the floating tab bar. Found 2026-09-08 while
+   * chasing the storybook's unreachable Next button.
+   */
   const pct = Math.max(0, drill.msLeft / DRILL_START_MS);
   const s = styles(colors);
 
@@ -223,7 +232,7 @@ export default function EmergencyScreen() {
     <View style={[s.root, { backgroundColor: colors.background }]}>
       {phase === 'picker' && (
         <ScrollView
-          contentContainerStyle={[s.pad, CONTENT_COLUMN, { paddingTop: insets.top + 12 }]}
+          contentContainerStyle={[s.pad, CONTENT_COLUMN]}
           testID="emergency-picker"
         >
       {/* BACK, and every screen in the games stack has to supply its own: the
@@ -398,7 +407,10 @@ export default function EmergencyScreen() {
 function styles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     root: { flex: 1 },
-    pad: { padding: 16, gap: 10 },
+    // paddingBottom clears the FLOATING pill tab bar, which is absolutely
+    // positioned over the content. This had none at all, so its last row sat
+    // under the bar exactly as the storybook's Next button did (2026-09-08).
+    pad: { padding: 16, gap: 10, paddingBottom: TAB_BAR_CLEARANCE },
     backBtn: {
       width: 38,
       height: 38,
@@ -409,7 +421,13 @@ function styles(colors: ReturnType<typeof useColors>) {
       marginBottom: 6,
     },
 
-    padCenter: { padding: 24, gap: 12, alignItems: 'center', paddingTop: 60 },
+    padCenter: {
+      padding: 24,
+      gap: 12,
+      alignItems: 'center',
+      paddingTop: 60,
+      paddingBottom: TAB_BAR_CLEARANCE,
+    },
     stage: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' },
     h1: { fontFamily: AppFonts.extrabold, fontSize: 22 },
     sub: { fontFamily: AppFonts.regular, fontSize: 13 },
