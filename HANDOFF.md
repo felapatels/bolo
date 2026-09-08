@@ -304,3 +304,22 @@ Reported by the supervisor session, not verified by me.
    agent "fixes" it and we get a fifth contract by tidiness. **Nothing was
    regenerated and nothing can have broken**: it is a YAML comment, and parsing
    the spec before and after gives an identical result.
+
+
+---
+
+## STANDING INSTRUCTION FROM THE OWNER, 2026-09-08, NOT YET DONE
+
+**When the daily-wheel feature is finished, report the full work to the
+supervisor and tell it to BROADCAST TO ALL BOLO AGENTS.** His words. Not before
+it is finished.
+
+**The report must include the DesignSync half**, which is the part a fork would
+otherwise never hear about: Claude Design needs no MCP connection, it is already
+reachable from a Claude Code session; `/design-login` authorises it; and the
+owner already has one design-system project, "Modernist"
+(`d4aeb6f5-234f-4b4d-a72e-1a2f5334cede`), which is a generic web kit containing
+none of Bolo's own components.
+
+Written here rather than held in a session's head because a session ends and a
+standing instruction should not end with it.
