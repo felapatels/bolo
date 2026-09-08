@@ -121,21 +121,55 @@ beforeEach(() => {
   mockState.gamePlays = undefined;
 });
 
-describe('games hub - Plus tiles fail closed', () => {
-  it('routes a Plus-only tile to the paywall while entitlements are loading, even if isPlus is already true', () => {
-    mockState.entitlements = { isPlus: true, isLoading: true };
+/**
+ * INVERTED 2026-09-08 BY THE OWNER'S RULING: "3 free games for all games before
+ * paywall." Every game now opens for three plays before anything locks, so the
+ * fail-CLOSED behaviour this block pinned is gone by design.
+ *
+ * It was not deleted, because the fail-closed instinct was right for what it
+ * guarded: an unresolved entitlement must never hand out a paid game. What
+ * changed is that there is no longer a paid game to hand out at the door. The
+ * assertions now pin the replacement, which is that a spent taste locks and a
+ * remaining one does not.
+ *
+ * The taste itself fails OPEN while its count loads, deliberately and with its
+ * own comment in the hub: the server refuses the fourth run whatever the client
+ * says, so failing open costs one refused run and failing closed would draw a
+ * lock over a game the learner still has plays on every time the network is
+ * slow.
+ */
+describe('games hub - every game opens before it locks', () => {
+  it('opens a formerly All-Access tile while it still has plays', () => {
+    mockState.entitlements = { isPlus: false, isLoading: false };
+    mockState.gamePlays = { limit: 3, plays: {} };
+    render(<GamesScreen />);
+
+    fireEvent.press(screen.getByText('Bolo Quiz'));
+    expect(mockPush).toHaveBeenCalledWith('/(app)/(tabs)/games/bolo-quiz');
+  });
+
+  it('locks that same tile and offers the upgrade once three are spent', () => {
+    mockState.entitlements = { isPlus: false, isLoading: false };
+    mockState.gamePlays = { limit: 3, plays: { 'bolo-quiz': 3 } };
     render(<GamesScreen />);
 
     fireEvent.press(screen.getByText('Bolo Quiz'));
     expect(mockPush).toHaveBeenCalledWith('/(app)/paywall');
   });
 
-  it('routes a Plus-only tile to the paywall when isPlus is undefined', () => {
-    mockState.entitlements = { isPlus: undefined, isLoading: false };
-    render(<GamesScreen />);
+  it('hands the badge over: plays left, then All-Access', () => {
+    // The owner's words, 2026-09-08: "make sure after the free plays badge goes
+    // away that the all access badge shows." A card that goes quiet when its
+    // taste runs out reads as broken rather than as an offer.
+    mockState.entitlements = { isPlus: false, isLoading: false };
+    mockState.gamePlays = { limit: 3, plays: { 'speed-round': 1 } };
+    const shown = render(<GamesScreen />);
+    expect(screen.getByText('2 free plays left')).toBeOnTheScreen();
+    shown.unmount();
 
-    fireEvent.press(screen.getByText('Speed Round'));
-    expect(mockPush).toHaveBeenCalledWith('/(app)/paywall');
+    mockState.gamePlays = { limit: 3, plays: { 'speed-round': 3 } };
+    render(<GamesScreen />);
+    expect(screen.getAllByText('All-Access').length).toBeGreaterThan(0);
   });
 
   it('opens the game once entitlements have resolved to Plus', () => {
@@ -158,15 +192,17 @@ describe('games hub - Plus tiles fail closed', () => {
     expect(mockPush).toHaveBeenCalledWith('/(app)/(tabs)/games/luggage-match');
   });
 
-  it('Word Match is Plus-only and bounces to the paywall while loading', () => {
-    // The INVERTED half of the assertion above, kept rather than dropped:
-    // commit 10257678 started charging for Word Match, and gating fails
-    // CLOSED, so an unresolved entitlement sends a learner to the paywall.
+  it('Word Match opens on its taste even while entitlements are unresolved', () => {
+    // INVERTED 2026-09-08. This asserted the fail-CLOSED path: Word Match had
+    // become a paid game, so an unresolved entitlement sent the learner to the
+    // paywall. Every game has three plays now, so an unresolved entitlement is
+    // no longer the question; the play count is, and it fails OPEN on purpose.
     mockState.entitlements = { isPlus: undefined, isLoading: true };
+    mockState.gamePlays = { limit: 3, plays: {} };
     render(<GamesScreen />);
 
     fireEvent.press(screen.getByText('Word Match'));
-    expect(mockPush).toHaveBeenCalledWith('/(app)/paywall');
+    expect(mockPush).toHaveBeenCalledWith('/(app)/(tabs)/games/word-match');
   });
 });
 
@@ -186,7 +222,13 @@ describe('games hub - the free taste', () => {
   it('locks the card once the third play is spent, and offers the upgrade', () => {
     mockState.gamePlays = played(3);
     render(<GamesScreen />);
-    expect(screen.getByText('Free taste used')).toBeTruthy();
+    // INVERTED 2026-09-08. The pill used to read "Free taste used", a
+    // past-tense sentence with nothing to do. The owner asked for the handover
+    // instead: "after the free plays badge goes away the all access badge
+    // shows", so a spent card stops describing what happened and starts
+    // offering what is next.
+    expect(screen.queryByText('Free taste used')).toBeNull();
+    expect(screen.getAllByText('All-Access').length).toBeGreaterThan(0);
     fireEvent.press(screen.getByText('Ticket Check'));
     expect(mockPush).toHaveBeenCalledWith('/(app)/paywall');
   });
@@ -212,12 +254,14 @@ describe('games hub - the free taste', () => {
     expect(mockPush).toHaveBeenCalledWith('/(app)/(tabs)/games/ticket-check');
   });
 
-  it('leaves an All-Access game exactly as it was: a lock, not a taste', () => {
-    // The other half of the ruling. Wrong Platform 2 is not in the taste, so
-    // no count is drawn on it and no count can open it.
+  it('gives even the last All-Access holdout its three plays', () => {
+    // INVERTED. Wrong Platform 2 was deliberately OUTSIDE the taste under the
+    // 2026-09-04 ruling, whose other half was that All-Access games do not
+    // move. The 2026-09-08 ruling moves them: "3 free games for ALL games".
+    // This is the tile that proves the word "all" was taken literally.
     mockState.gamePlays = { limit: 3, plays: {} };
     render(<GamesScreen />);
     fireEvent.press(screen.getByText('Wrong Platform 2'));
-    expect(mockPush).toHaveBeenCalledWith('/(app)/paywall');
+    expect(mockPush).toHaveBeenCalledWith('/(app)/(tabs)/games/wrong-platform-2');
   });
 });

@@ -475,6 +475,10 @@ export default function GamesScreen() {
   const taste = (id: string) => {
     if (isPlus === true || !isTasteGame(id) || !gamePlays) return null;
     return gameTasteState({
+      // ALWAYS false, and it is not a stub. `plusOnly` here asks "is this game
+      // outside the taste", and after the 2026-09-08 ruling no game is: every
+      // one of them gets three plays first. The table's own plusOnly flag now
+      // says only what happens AFTER those three are spent.
       plusOnly: false,
       isPlus: false,
       playsUsed: gamePlays.plays[id] ?? 0,
@@ -484,11 +488,32 @@ export default function GamesScreen() {
    *  word it the same way. Null when this card has nothing to say. */
   const tasteLabel = (id: string) => {
     const t = taste(id);
-    return t ? gameTasteLabel(t) : null;
+    /**
+     * A SPENT TASTE SAYS NOTHING, SO THE ALL-ACCESS BADGE CAN SPEAK.
+     *
+     * `gameTasteLabel` returns "Free taste used" at zero, which is the right
+     * words for a surface that has nothing else to say. This one does: the
+     * owner asked (2026-09-08) that "after the free plays badge goes away the
+     * all access badge shows", so the countdown hands the pill over rather than
+     * sitting on it with a past-tense sentence. Presentation only, decided
+     * here rather than in the shared package, because the other surfaces may
+     * legitimately want the old wording.
+     */
+    return t && t.playsLeft > 0 ? gameTasteLabel(t) : null;
   };
   /** The card is shut: an All-Access game without Plus, or a spent taste. */
+  /**
+   * THE CARD IS SHUT, AND THE RULING MOVED WHEN. It used to read
+   * `(game.plusOnly && !plusReady) || taste spent`, so an All-Access game was
+   * locked before the learner had touched it. Every game now opens for three
+   * plays, so the only thing that shuts a card is spending them; `plusOnly`
+   * decides what the wall SAYS afterwards, not whether there is one.
+   *
+   * Plus is still checked, because a Plus learner has no taste state at all
+   * (`taste()` returns null for them) and must never be locked.
+   */
   const isLocked = (game: GameDef) =>
-    (game.plusOnly && !plusReady) || taste(game.id)?.playable === false;
+    !plusReady && taste(game.id)?.playable === false;
   const { activeLang, activeLanguage } = useLanguage();
   const line = getJourneyLine(activeLang);
   // The learner's current city for the hero's "Hindi · New Delhi" line: the
@@ -744,12 +769,23 @@ function SectionEyebrow({ children }: { children: string }) {
  * different colour: the pill keeps its green either way, so the state is
  * readable without seeing the hue.
  */
+/**
+ * THE PILL, AND THE HANDOVER THE OWNER ASKED FOR (2026-09-08): "make sure after
+ * the free plays badge goes away that the all access badge shows."
+ *
+ * While plays remain the pill counts them down. The moment they are spent the
+ * taste label becomes null and the pill turns into the All-Access badge, so the
+ * card never goes quiet: it stops saying "3 free plays left" and starts saying
+ * what it costs to keep going. A card with nothing to say at all would read as
+ * a broken tile.
+ */
 function AccessPill({ plusOnly, tasteLabel }: { plusOnly: boolean; tasteLabel: string | null }) {
   return (
-    <View style={[styles.pill, plusOnly ? styles.pillAllAccess : styles.pillFree]}>
-      {plusOnly && <Feather name="star" size={10} color="#4A2C00" />}
-      <Text style={[styles.pillText, { color: plusOnly ? '#4A2C00' : '#FFFFFF' }]}>
-        {plusOnly ? 'All-Access' : (tasteLabel ?? 'Free')}
+    // The taste wins while it lasts; All-Access is what is left when it is gone.
+    <View style={[styles.pill, tasteLabel ? styles.pillFree : styles.pillAllAccess]}>
+      {!tasteLabel && <Feather name="star" size={10} color="#4A2C00" />}
+      <Text style={[styles.pillText, { color: tasteLabel ? '#FFFFFF' : '#4A2C00' }]}>
+        {tasteLabel ?? 'All-Access'}
       </Text>
     </View>
   );
@@ -900,11 +936,11 @@ function GameCardTile({
           // game was never yours; the other says you have had it three times.
           // A learner using VoiceOver gets the same distinction the pill gives
           // everyone else.
-          locked
-            ? game.plusOnly
-              ? `${game.title}, All-Access game, locked`
-              : `${game.title}, free taste used, locked`
-            : game.title
+          // ONE LOCK NOW, NOT TWO. This used to split on plusOnly, because a
+          // card could be shut for two different reasons: never yours, or had
+          // three times. After the 2026-09-08 ruling only the second exists,
+          // so a VoiceOver learner hears what everyone else reads on the pill.
+          locked ? `${game.title}, free taste used, locked` : game.title
         }
         style={[
           styles.card,

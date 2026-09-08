@@ -100,17 +100,31 @@ export function gameTasteLabel(state: GameTasteState): string | null {
  * ADDED AFTER bd78acea, on finding that the server needs the list too.
  */
 export const TASTE_GAME_IDS = [
+  // THE SIX THAT WERE FREE BEFORE THE 2026-09-04 RULING.
   "luggage-match",
   "chacha-call",
   "signal-lights",
   "ticket-check",
   "wrong-platform",
-  // WEB ONLY, AND IT WAS ALMOST MISSED. This list was written off the mobile
+  // WEB ONLY, AND IT WAS ALMOST MISSED. The list was written off the mobile
   // hub, where the free games are exactly the other five; the web hub carries
-  // a sixth free card the phone has never had. Leaving it out would have left
-  // one free game unwalled on the surface the ruling was given about, so the
-  // ruling's own words settle it: "the ones we have Free right now".
+  // a sixth free card the phone has never had.
   "express-listening",
+  // AND THE REST, ADDED 2026-09-08 BY THE OWNER'S RULING: "3 free games for
+  // all games before paywall". The earlier ruling's other half said the
+  // All-Access games do not move; this one moves them. **Every game is now a
+  // taste**, so an All-Access card stops being a wall a learner meets before
+  // they have played anything and becomes a wall they meet after three goes.
+  "word-match",
+  "phrase-builder",
+  "speed-round",
+  "script-trace",
+  "letter-match",
+  "bolo-quiz",
+  "storybook",
+  "emergency",
+  "listen-and-pick",
+  "wrong-platform-2",
 ] as const;
 
 export type TasteGameId = (typeof TASTE_GAME_IDS)[number];

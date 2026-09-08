@@ -89,36 +89,51 @@ describe("the line under the card", () => {
 });
 
 describe("which games are a taste", () => {
-  it("is exactly the games that were free before the ruling, on EITHER hub", () => {
-    // Named one by one rather than counted: a count passes when one game is
-    // swapped for another, and getting this list wrong either paywalls a game
-    // that was free or gives away one that was paid.
+  it("is EVERY game on either hub, named one by one", () => {
+    // WIDENED 2026-09-08 BY THE OWNER'S RULING: "3 free games for all games
+    // before paywall." This list used to be exactly the six that were free
+    // before the 2026-09-04 ruling, and its other half explicitly said the
+    // All-Access games do not move. They move now.
     //
-    // SIX, NOT FIVE, and the sixth is why this assertion is written out. The
-    // first version of this list was read off the mobile hub and stopped at
-    // five; express-listening is free on the WEB hub and has no phone card at
-    // all, so it was invisible from there. A list of "the free games" that is
-    // built from one of two hubs is half a list.
+    // STILL NAMED ONE BY ONE RATHER THAN COUNTED, for the reason that has not
+    // changed: a count passes when one game is swapped for another, and getting
+    // this list wrong either paywalls a game that should be free for three
+    // plays or gives away one nobody meant to. And a list read off ONE hub is
+    // half a list: express-listening is web-only and has no phone card at all,
+    // which is how the first version of this came to stop at five.
     expect([...TASTE_GAME_IDS].sort()).toEqual([
+      "bolo-quiz",
       "chacha-call",
+      "emergency",
       "express-listening",
+      "letter-match",
+      "listen-and-pick",
       "luggage-match",
+      "phrase-builder",
+      "script-trace",
       "signal-lights",
+      "speed-round",
+      "storybook",
       "ticket-check",
+      "word-match",
       "wrong-platform",
+      "wrong-platform-2",
     ]);
   });
 
-  it("leaves wrong-platform-2 out, because it was already All-Access", () => {
-    // The half of the ruling that is "keep them the way they are". Part 2
-    // shares a name with part 1 and is the easiest thing here to sweep in by
-    // accident.
+  it("includes wrong-platform-2, which is where the word ALL is tested", () => {
+    // INVERTED. This asserted the opposite, because the 2026-09-04 ruling kept
+    // All-Access games where they were and Part 2 was the easiest one to sweep
+    // in by accident. It is now the one that proves "all games" was taken
+    // literally rather than as "all the free ones".
     expect(isTasteGame("wrong-platform")).toBe(true);
-    expect(isTasteGame("wrong-platform-2")).toBe(false);
+    expect(isTasteGame("wrong-platform-2")).toBe(true);
   });
 
   it("says no to a game it has never heard of", () => {
-    expect(isTasteGame("letter-match")).toBe(false);
+    // letter-match used to be the example of a game outside the taste; it is
+    // inside it now, so the negative case needs a name that is not a game.
+    expect(isTasteGame("not-a-real-game")).toBe(false);
     expect(isTasteGame("")).toBe(false);
   });
 });
