@@ -58,6 +58,7 @@ src/routes/nest.drill-metrics.test.ts
 src/routes/nest.page.test.ts
 src/routes/openai.pronunciation.language-hint.test.ts
 src/routes/openai.pronunciation.pilot-capture.test.ts
+src/routes/tokens.gift.contract.test.ts
 src/test/best-band-regression.test.ts
 src/test/conflict-marker-scan.test.ts
 src/test/greetingBuffer.test.ts
