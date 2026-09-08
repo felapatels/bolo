@@ -20,6 +20,20 @@ export interface DailyGiftState {
      * THIS IS NOT THE PAYWALL'S NUMBER. It says what this learner drew, which for a Free learner is 1 and tells a paywall nothing about what All-Access would give them. That figure is TokenState.allAccessGiftMultiplier on GET /tokens.
      */
   multiplier: number;
+  /**
+     * What one stop costs, so the distance meter has a denominator.
+     *
+     * DECLARED 2026-09-08, HAVING ALREADY SHIPPED UNDECLARED. The route has served this and chaiToNextStop since the wheel's server half landed, and neither was ever in this schema, so the generated types did not carry them and NO CLIENT COULD SEE THEM. That is why the distance meter, which the owner called the more important half of the feature, was never built: the data was on the wire and invisible to the app reading it.
+     *
+     * Served rather than computed on the client for the usual reason: the price is an economy number and tokenEconomy.ts is its single source of truth. A client working out "the price minus my balance" would be a second copy of the price, and the day it moved the two would disagree.
+     */
+  stopCost: number;
+  /**
+     * How much more is needed for the next stop, floored at 0. Zero means the learner can already afford one.
+     *
+     * MEANINGLESS FOR AN ENTITLED LEARNER, who cannot buy a stop at all (lib/stopUnlock.ts sells stops only in a language the plan EXCLUDES). Clients must not draw a bar from it for All-Access: the owner's ruling is that they see their wallet and a door to the bazaar instead, because a bar counting toward something unreachable is a lie.
+     */
+  chaiToNextStop: number;
   /** Which of the four boxes to draw. A function of the DAY and not of the amount: the amount is economy tuning that has moved before, the box is a picture of how long the learner has kept it up. `grand` is the one with the gold ribbon. */
   tier: DailyGiftStateTier;
   /** What tomorrow's box holds. Naming it is the mechanic. At the cap it equals `chai`, never `chai + 1`, because promising an eighth is a promise the ladder breaks the next morning. */
