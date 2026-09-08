@@ -125,8 +125,22 @@ export function giftRefId(localDayKey: string): string {
  * draw is a hash of the learner and the day, so it is stable, unguessable
  * without the id, and needs no stored state.
  */
-export const GIFT_MIN_CHAI = 5;
-export const GIFT_MAX_CHAI = 25;
+/**
+ * THE RANGE, RETUNED 2026-09-08 from 5..25 after the economy audit.
+ *
+ * 5..25 paid a week-streak learner 570 Chai a month against a permanent
+ * catalogue worth 20, and its ceiling of 25 was the whole $1.99 Chai pack: one
+ * lucky tap equalled the smallest thing the shop sells for money, which is the
+ * clearest sign a free draw is too generous. At 2..10 the same learner takes
+ * 225, the $9.99 pack is worth four weeks of gifts instead of ten days, and no
+ * single draw can ever match a pack.
+ *
+ * NOBODY IS WORSE OFF THAN THE FLAT GRANT. The old behaviour paid
+ * TOKEN_EARN_STREAK_DAY, which is 1, and the floor here is 2 on the very first
+ * day. That is the promise GIFT_DAY_ONE_CHAI below carries, and it survives.
+ */
+export const GIFT_MIN_CHAI = 2;
+export const GIFT_MAX_CHAI = 10;
 
 /**
  * A stable 0..1 draw for one learner on one day. FNV-1a over `id:day`, which is
@@ -152,7 +166,53 @@ function dailyDraw(userId: string, dayKey: string): number {
  * was the collision in the old ladder: a broken streak cost sevenfold, and the
  * learner who most needs the free path got the worst of it.
  */
-export function giftChaiForDraw(userId: string, dayKey: string, streakDays: number): number {
+export interface GiftDraw {
+  /**
+   * The draw before any plan multiplier. Always inside GIFT_MIN..GIFT_MAX.
+   *
+   * NAMED NEUTRALLY, ON THE OWNER'S RULING 2026-09-08, and the name is the same
+   * on the wire. `chai` above keeps its name under X33 because renaming a LIVE
+   * field buys a breaking change; this field is new, so the cost that justified
+   * that exception is simply absent. Four of the six forks do not spell their
+   * currency "chai" (cowries, kopi, kopi, Cha), and three separate agents had
+   * already written three different spellings of this one field before the
+   * ruling landed, which is X6 reproducing itself in real time.
+   *
+   * The package is pure arithmetic and carries no currency, so a fork ports it
+   * with no rename at all.
+   */
+  baseAmount: number;
+  /** What the base was multiplied by. 1 for a Free learner. */
+  multiplier: number;
+  /** What is actually banked: baseAmount * multiplier, exactly. */
+  chai: number;
+}
+
+/**
+ * The draw, in its parts.
+ *
+ * ONE FUNCTION, NOT TWO. Both grant paths (the box tap in tokens.ts and the
+ * attempts path in learning.ts) and the payload that draws the screen all call
+ * this, so the number shown and the number banked cannot disagree. A second
+ * function that recomputed any part of this is the exact defect this package
+ * exists to prevent.
+ *
+ * THE MULTIPLIER IS APPLIED TO THE ROUNDED BASE, deliberately, so that
+ * `baseAmount * multiplier === chai` is exact and a learner reading "18 drawn,
+ * doubled to 36" can check it. Rounding after multiplying would produce sums
+ * that do not add up on screen, which on a variable reward is exactly the kind
+ * of arithmetic nobody should have to take on trust.
+ *
+ * IT IS A PARAMETER RATHER THAN AN ENTITLEMENT LOOKUP because this package is
+ * pure and has no idea what a plan is. The caller resolves it; see
+ * ALL_ACCESS_GIFT_MULTIPLIER in the server's tokenEconomy.ts.
+ */
+export function giftDraw(
+  userId: string,
+  dayKey: string,
+  streakDays: number,
+  multiplier = 1,
+): GiftDraw {
   const span = GIFT_MAX_CHAI - GIFT_MIN_CHAI;
   const draw = dailyDraw(userId, dayKey);
   // The streak lifts the FLOOR of the range, never the ceiling: at day 7 the
@@ -160,20 +220,48 @@ export function giftChaiForDraw(userId: string, dayKey: string, streakDays: numb
   // shown a prize they cannot reach.
   const lift = (Math.min(Math.max(streakDays, 1), GIFT_LADDER_CAP) - 1) / (GIFT_LADDER_CAP - 1);
   const floor = GIFT_MIN_CHAI + Math.round(span * 0.4 * lift);
-  return Math.round(floor + (GIFT_MAX_CHAI - floor) * draw);
+  const baseAmount = Math.round(floor + (GIFT_MAX_CHAI - floor) * draw);
+  // Defensive on the multiplier for the same reason as every other input here:
+  // a zero or a fraction arriving from a caller bug must never pay less than
+  // the draw, and must never pay a non-integer number of Chai.
+  const factor =
+    Number.isFinite(multiplier) && multiplier >= 1 ? Math.floor(multiplier) : 1;
+  return { baseAmount, multiplier: factor, chai: baseAmount * factor };
+}
+
+/**
+ * What the box holds, banked. A thin read of `giftDraw` above so that callers
+ * who only need the number do not have to know about its parts.
+ */
+export function giftChaiForDraw(
+  userId: string,
+  dayKey: string,
+  streakDays: number,
+  multiplier = 1,
+): number {
+  return giftDraw(userId, dayKey, streakDays, multiplier).chai;
 }
 
 /** The sentence the wheel puts on screen. The range is never hidden. */
-export function giftRangeCopy(): string {
-  return `Every spin pays ${GIFT_MIN_CHAI} to ${GIFT_MAX_CHAI} Chai`;
+export function giftRangeCopy(multiplier = 1): string {
+  // THE RANGE A LEARNER IS SHOWN MUST BE THE RANGE THEY CAN ACTUALLY DRAW.
+  // An All-Access learner draws 4 to 20, and printing 2 to 10 under a box that
+  // pays 36 is the kind of small dishonesty a variable reward cannot afford.
+  const factor =
+    Number.isFinite(multiplier) && multiplier >= 1 ? Math.floor(multiplier) : 1;
+  return `Every spin pays ${GIFT_MIN_CHAI * factor} to ${GIFT_MAX_CHAI * factor} Chai`;
 }
 
 /** Everything a screen needs to draw the box, resolved in one place. */
 export interface DailyGift {
   /** The streak day this box belongs to, clamped to the ladder. */
   day: number;
-  /** Chai in the box. */
+  /** Chai in the box, banked: the draw after any plan multiplier. */
   chai: number;
+  /** The draw before the multiplier, so a screen can show the sum both ways. */
+  baseAmount: number;
+  /** What the base was multiplied by. 1 for a Free learner. */
+  multiplier: number;
   /** Which of the four boxes to draw. */
   tier: GiftTier;
   /** What tomorrow's box holds if the learner comes back. */
@@ -198,6 +286,7 @@ export function dailyGiftFor({
   claimedDayKey,
   todayKey,
   userId,
+  multiplier = 1,
 }: {
   streakDays: number;
   claimedDayKey: string | null;
@@ -209,14 +298,37 @@ export function dailyGiftFor({
    * than a shared draw everybody can predict.
    */
   userId?: string;
+  /**
+   * What this learner's plan multiplies the draw by. 1 for Free.
+   * Resolved by the caller: this package has no idea what a plan is.
+   */
+  multiplier?: number;
 }): DailyGift {
-  const chai = userId
-    ? giftChaiForDraw(userId, todayKey, streakDays)
-    : giftChaiForStreakDay(streakDays);
+  const drawn = userId
+    ? giftDraw(userId, todayKey, streakDays, multiplier)
+    : {
+        baseAmount: giftChaiForStreakDay(streakDays),
+        multiplier: 1,
+        chai: giftChaiForStreakDay(streakDays),
+      };
+  const chai = drawn.chai;
   const claimed = claimedDayKey !== null && claimedDayKey === todayKey;
   return {
-    day: chai,
+    // THE STREAK DAY, AND IT USED TO BE THE AMOUNT BY ACCIDENT.
+    //
+    // This field read `day: chai`, which was CORRECT under the flat ladder,
+    // because that ladder paid exactly `streakDays` Chai on day N: the two
+    // numbers were the same number. `giftTierForStreakDay`'s own comment says
+    // so, "even though the two happen to agree today".
+    //
+    // The draw broke the agreement and this line was left behind, so a learner
+    // three days into a streak who drew 18 was shown "Day 18" and, once the box
+    // was open, "Day 18 in a row". Clamped to the ladder cap because that is
+    // what the field promises and what the tier beside it uses.
+    day: Math.min(Math.max(Math.floor(streakDays) || 1, 1), GIFT_LADDER_CAP),
     chai,
+    baseAmount: drawn.baseAmount,
+    multiplier: drawn.multiplier,
     tier: giftTierForStreakDay(streakDays),
     // Tomorrow is one rung up, and at the cap it is the same rung. Never
     // day + 1 blindly: promising 8 on day 7 is a promise the ladder does not
@@ -228,8 +340,8 @@ export function dailyGiftFor({
     // amount from a real draw would be the same lie as a rigged wheel, told
     // politely.
     tomorrowChai: userId
-      ? giftChaiForDraw(userId, `${todayKey}+1`, streakDays + 1)
-      : giftChaiForStreakDay(chai + 1),
+      ? giftChaiForDraw(userId, `${todayKey}+1`, streakDays + 1, multiplier)
+      : giftChaiForStreakDay(streakDays + 1),
     claimed,
     claimable: !claimed,
   };
@@ -257,7 +369,13 @@ export function giftClosedCopy(gift: DailyGift): { title: string; body: string }
  * Chai" reads as a ladder that has stalled, and the truth is better: a week is
  * the habit, and the number was never the point past it.
  */
-export function giftOpenedCopy(gift: DailyGift): {
+export function giftOpenedCopy(
+  // NARROWED to what this function actually reads, rather than the whole
+  // DailyGift. Both clients build a literal to pass in here, so demanding
+  // fields the copy never touches would make every new field on the payload a
+  // compile error in two apps for no reason.
+  gift: Pick<DailyGift, "day" | "chai" | "tomorrowChai"> & Partial<DailyGift>,
+): {
   title: string;
   amount: string;
   tomorrow: string;
