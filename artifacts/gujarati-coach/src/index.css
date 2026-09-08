@@ -279,7 +279,7 @@
   --pass-breathe-scale: 1.025;   /* clearly visible lift, not frantic */
   --pass-glow-min: 0.4;          /* shadow-pulse opacity floor */
   --pass-glow-max: 0.95;         /* shadow-pulse opacity peak */
-  --gift-wobble: 1.4s;           /* the unopened gift box's tip and back */
+  --gift-wobble: 2.6s;           /* the unopened gift box: a shake, then a rest */
   --arrow-cycle: 2.4s;           /* CTA arrow double-pump */
   --arrow-slide: 7px;            /* CTA arrow travel */
   --train-drive-cycle: 4s;       /* home ticket train drive-and-settle */
@@ -755,15 +755,71 @@
    rule above already stops it, which is the whole of "reduced motion just
    opens". */
 @keyframes gift-wobble {
-  0%, 100% {
-    transform: rotate(-5deg);
+  /* A SHAKE THEN A REST, changed 2026-09-08 on the owner's instruction that the
+     box should "gently shake like it is alive and begging for you to click it".
+     It used to tip continuously between two angles, which reads as a broken
+     animation rather than as asking. The motion lives in the first 56% and the
+     rest of the cycle is still, so the box nudges and then waits. */
+  0%, 62%, 100% {
+    transform: rotate(0deg) translateY(0);
   }
-  50% {
-    transform: rotate(5deg);
+  8% {
+    transform: rotate(-5deg) translateY(-1px);
+  }
+  18% {
+    transform: rotate(5deg) translateY(-2px);
+  }
+  28% {
+    transform: rotate(-4deg) translateY(-1px);
+  }
+  38% {
+    transform: rotate(3deg) translateY(0);
+  }
+  48% {
+    transform: rotate(-2deg) translateY(0);
+  }
+  56% {
+    transform: rotate(0deg) translateY(0);
   }
 }
 .animate-gift-wobble {
   animation: gift-wobble var(--gift-wobble) ease-in-out infinite;
+}
+/* THE ROLODEX. The fare cards drop into place when the box opens, hinged across
+   the middle so they read as flaps rather than as a number that changed. Mobile
+   twin: the `flip` Animated.Value in components/DailyGiftBox.tsx. */
+@keyframes gift-flap-in {
+  0% {
+    transform: perspective(320px) rotateX(-84deg);
+    opacity: 0.35;
+  }
+  100% {
+    transform: perspective(320px) rotateX(0deg);
+    opacity: 1;
+  }
+}
+.animate-gift-flap-in {
+  animation: gift-flap-in 460ms cubic-bezier(0.2, 1.2, 0.3, 1) both;
+}
+/* THE CONFETTI POP, on the owner's instruction. One keyframe for every piece:
+   the wrapper's rotation aims it and its scale sets how far it flies, so
+   sixteen pieces need one rule rather than sixteen. The inks are the app's own,
+   never a party palette. */
+@keyframes gift-burst {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-108px) rotate(560deg);
+    opacity: 0;
+  }
+}
+.animate-gift-burst {
+  animation: gift-burst 950ms cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
 }
 /* Strong repeating double-pump slide on the CTA arrow. */
 @keyframes cta-arrow-nudge {

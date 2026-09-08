@@ -38,17 +38,34 @@ import {
 } from '@workspace/api-client-react';
 import type { GiftTier } from '@workspace/daily-gift';
 import { DailyGiftBox } from '@/components/DailyGiftBox';
-import { useEntitlements } from '@/contexts/EntitlementsContext';
 
 export function DailyGiftCard({ testID }: { testID?: string }) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const reduceMotion = useReducedMotion();
-  const { isPlus } = useEntitlements();
   const giftQuery = useGetDailyGift();
   const tokensQuery = useGetTokens();
   const claim = useClaimDailyGift();
   const gift = giftQuery.data;
+
+  // WHETHER THIS LEARNER IS ALL-ACCESS, read from the payload this card already
+  // fetches rather than from an entitlements hook.
+  //
+  // THE CONTEXT WAS TRIED FIRST AND IT IS THE WRONG DEPENDENCY. It throws
+  // outside its provider, so reading it here would need a provider in every
+  // suite that renders home OR practice: the gift is offered where practice
+  // ENDS as well as on home, so this component's dependencies are paid for
+  // twice. The web twin had it worse, since its entitlements view reaches
+  // Clerk and broke every practice suite outright.
+  //
+  // `multiplier` is exact for this purpose under the owner's ruling: it is what
+  // THIS learner drew, 1 for Free and ALL_ACCESS_GIFT_MULTIPLIER otherwise. THE
+  // COUPLING IS REAL AND WORTH NAMING: the day All-Access is given a multiplier
+  // of 1, they would be shown a meter they cannot use. If that day comes, the
+  // server should say so in a field of its own rather than this being quietly
+  // adjusted, because a bar counting toward something unreachable is the lie
+  // the ruling exists to prevent.
+  const isPlus = (gift?.multiplier ?? 1) > 1;
 
   const onClaim = useCallback(() => {
     claim.mutate(undefined, {

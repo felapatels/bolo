@@ -71,15 +71,12 @@ jest.mock('@/constants/fonts', () => ({
   nativeTextStyle: () => ({}),
 }));
 
-// THE ENTITLEMENTS CONTEXT, mocked here and NOT given a provider, because the
-// gift card reads `isPlus` to decide between a distance meter and a shop door.
-// One file's mock rather than a provider in every home suite: this is the same
-// bill CLAUDE.md records as costing mobile ninety-six lines across thirty-two
-// files when two hooks landed, and the cheapest time to keep it to one file is
-// the first time it arrives.
-jest.mock('@/contexts/EntitlementsContext', () => ({
-  useEntitlements: () => ({ isPlus: false, isLoading: false, dailyNewLessons: 3 }),
-}));
+// NO ENTITLEMENTS MOCK, DELIBERATELY. The card used to read the entitlements
+// context to choose between a distance meter and a shop door, and that mock
+// lived here. The dependency was removed instead: All-Access is derived from
+// the gift payload's own `multiplier`, which this card already fetches. A
+// component rendered on home AND at the end of practice pays for every
+// dependency twice, and this one cost the web twin every practice suite.
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 

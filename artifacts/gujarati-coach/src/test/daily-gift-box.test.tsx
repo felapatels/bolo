@@ -43,6 +43,15 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@/lib/haptics", () => ({ webHaptic: vi.fn() }));
 
+// NO ENTITLEMENTS MOCK, DELIBERATELY. The card read useEntitlements for one
+// boolean and that reaches Clerk's useUser, which throws outside a
+// ClerkProvider: it broke every suite that renders the practice page, because
+// the gift is offered where practice ENDS as well as on home. The dependency
+// was removed rather than mocked. All-Access is derived from the payload's own
+// `multiplier`, which this card already fetches.
+
+vi.mock("wouter", () => ({ useLocation: () => ["/", vi.fn()] }));
+
 // Imported after the mocks.
 import { DailyGiftBox, DailyGiftCard, GIFT_TIER_SIZE } from "@/components/daily-gift";
 import { GIFT_LADDER_CAP } from "@workspace/daily-gift";
@@ -94,12 +103,17 @@ describe("the card decides whether there is a box at all", () => {
 });
 
 describe("the closed box", () => {
-  test("names the day, not the amount, and invites the click", () => {
+  test("offers the distance the Chai is for, not a second copy of the day", () => {
+    // INVERTED 2026-09-08 with the owner's redesign. This asserted "Day 4" and
+    // "Tap to open" as ROW text. Both moved: the day is now written ON the box
+    // itself ("write directly on it, Day 4 Gift"), and the row carries the one
+    // thing that gives the Chai a reason. His framing: "a spin with nothing to
+    // spend it on is a number going up on its own."
     render(<DailyGiftCard />);
-    expect(screen.getByText("Day 4")).toBeInTheDocument();
-    expect(screen.getByText("Tap to open")).toBeInTheDocument();
-    // The amount is what the click BUYS. Printing it on the closed lid would
-    // make an unopened box a receipt already read.
+    expect(screen.getByTestId("daily-gift-box-remain")).toBeInTheDocument();
+    expect(screen.getByTestId("daily-gift-box-count")).toBeInTheDocument();
+    // And the amount is still not printed on the unopened box: it is what the
+    // click BUYS, and naming it first is the near-miss shape by another route.
     expect(screen.queryByText("4 Chai")).toBeNull();
   });
 
@@ -109,46 +123,45 @@ describe("the closed box", () => {
     expect(h.claim).toHaveBeenCalledTimes(1);
   });
 
-  test("cannot be clicked twice: a claimed box is disabled", () => {
+  test("cannot be clicked twice: an opened box is not a button at all", () => {
+    // INVERTED 2026-09-08. It used to be one button in both states, disabled
+    // once claimed. The opened state is now a panel with its own actions, so
+    // there is no second grant to guard against: the thing that was disabled
+    // no longer exists. Pinned as the stronger property, because a control
+    // that is absent cannot be re-enabled by an accident of styling.
     h.gift = giftState({ claimed: true, claimable: false });
     render(<DailyGiftCard />);
-    const box = screen.getByTestId("daily-gift-box") as HTMLButtonElement;
-    expect(box.disabled).toBe(true);
+    const box = screen.getByTestId("daily-gift-box");
+    expect(box.tagName).not.toBe("BUTTON");
     fireEvent.click(box);
     expect(h.claim).not.toHaveBeenCalled();
   });
 });
 
 describe("the opened box", () => {
-  test("reads Day 4, 4 Chai, Tomorrow 5", () => {
-    // THE ONE LINE THAT DOES THE WORK is the third. A gift that says what it
-    // becomes is a reason to return; a gift that just pays is a transaction.
-    h.gift = giftState({ claimed: true, claimable: false });
+  test("shows the amount, and no longer promises tomorrow", () => {
+    // INVERTED 2026-09-08. Two tests lived here, "reads Day 4, 4 Chai,
+    // Tomorrow 5" and "never promises an eighth day", and BOTH pinned a line
+    // the owner cut: "get rid of tomorrow 5 to 25". They are replaced rather
+    // than deleted, because the thing worth keeping is that the box does not
+    // make a promise about tomorrow AT ALL, which is now true by absence
+    // instead of by careful wording at the cap.
+    h.gift = giftState({ claimed: true, claimable: false, chai: 4 });
     render(<DailyGiftCard />);
-    expect(screen.getByText("4 Chai")).toBeInTheDocument();
-    expect(screen.getByText("Day 4 in a row")).toBeInTheDocument();
-    expect(screen.getByText("Tomorrow: 5")).toBeInTheDocument();
+    expect(screen.getByTestId("daily-gift-box-sum")).toBeInTheDocument();
+    expect(screen.queryByTestId("daily-gift-box-tomorrow")).toBeNull();
+    expect(screen.queryByText(/Tomorrow/)).toBeNull();
   });
 
-  test("never promises an eighth day", () => {
-    h.gift = giftState({
-      day: GIFT_LADDER_CAP,
-      chai: GIFT_LADDER_CAP,
-      tomorrowChai: GIFT_LADDER_CAP,
-      tier: "grand",
-      claimed: true,
-      claimable: false,
-    });
-    render(<DailyGiftCard />);
-    expect(screen.queryByText(/Tomorrow: 8/)).toBeNull();
-    expect(screen.getByText("A full week. Same again tomorrow.")).toBeInTheDocument();
-  });
-
-  test("lifts the lid, which is the only thing that says opened besides the words", () => {
+  test("the opened panel replaces the box rather than opening it in place", () => {
+    // INVERTED 2026-09-08. There is no lid to lift: the opened state is the
+    // fare panel, which is the owner's "expand if needed after clicking the
+    // gift box". What is pinned now is that opening reaches the fare content
+    // and leaves no half-open box behind it.
     h.gift = giftState({ claimed: true, claimable: false });
     render(<DailyGiftCard />);
-    const lid = screen.getByTestId("gift-box-lid");
-    expect(lid.style.transform).toContain("-18px");
+    expect(screen.queryByTestId("gift-box-lid")).toBeNull();
+    expect(screen.getByTestId("daily-gift-box-sum")).toBeInTheDocument();
   });
 });
 
@@ -170,7 +183,11 @@ describe("the four boxes differ by shape, never by hue alone", () => {
         />,
       );
       const frame = screen.getByTestId("gift-box-frame");
-      const width = Number.parseInt(frame.style.width, 10);
+      // The art is ONE svg sized to itself now, rather than a wrapper div with
+      // a style width, so the tier is read off the svg's own attribute. The
+      // guard is unchanged and it is the owner's colour-blind requirement: the
+      // four boxes must be tellable apart by SIZE, never by hue.
+      const width = Number.parseInt(frame.getAttribute("width") ?? "", 10);
       unmount();
       return width;
     });
