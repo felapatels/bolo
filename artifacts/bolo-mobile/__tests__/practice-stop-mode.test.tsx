@@ -7,6 +7,7 @@ import {
   act,
 } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { HOLD_HINT_KEY } from '@/lib/holdHint';
 
 // ---------------------------------------------------------------------------
 // Guards the hold-to-speak practice interaction and silence auto-stop:
@@ -244,9 +245,25 @@ describe('hold-to-speak', () => {
     expect(mockState.evaluate).toHaveBeenCalledTimes(1);
   });
 
-  test('hint text says "Hold and say it out loud" when idle', async () => {
+  // THE IDLE CAPTION HAS TWO FORMS SINCE 2026-09-07, and which one shows is the
+  // whole first-run hint. Reported from a real session: people tap the mic and
+  // let go, then ask what to do. `beforeEach` clears AsyncStorage, so the
+  // default render here IS a first-timer.
+  test('a first-timer is told to hold the button DOWN, and gets the rings', async () => {
+    await renderReady();
+    expect(
+      screen.getByText('Hold the button down while you speak'),
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('hold-hint-rings')).toBeOnTheScreen();
+  });
+
+  test('a learner who has already held once gets the short caption and no rings', async () => {
+    await AsyncStorage.setItem(HOLD_HINT_KEY, 'yes');
     await renderReady();
     expect(screen.getByText('Hold and say it out loud')).toBeOnTheScreen();
+    // The rings are the reminder; a learner who knows the gesture is not
+    // reminded, which is the half that keeps the hint from becoming furniture.
+    expect(screen.queryByTestId('hold-hint-rings')).not.toBeOnTheScreen();
   });
 
   test('no auto-start toggle is shown', async () => {

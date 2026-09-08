@@ -124,6 +124,9 @@ import { playCue } from '@/lib/sound';
 import { XpArc } from '@/components/XpArc';
 import { CountUpText } from '@/components/CountUpText';
 import { glyphsForLanguage } from '@/lib/scriptGlyphs';
+import { HoldHintRings } from '@/components/HoldHintRings';
+import { AttentionPulse } from '@/components/AttentionPulse';
+import { loadHasHeldToRecord, markHasHeldToRecord } from '@/lib/holdHint';
 
 // 'compare' is the unsupported-language stage: the learner recorded but we
 // never sent an evaluation, so instead of a scored 'result' they get a
@@ -588,6 +591,21 @@ export default function PracticeScreen() {
   const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
 
   const recorder = useAudioRecorder(RECORDING_PRESET);
+  /**
+   * FIRST-RUN HOLD HINT. Starts false so a returning learner never sees a flash
+   * of rings while storage is read; the read flips it on for a first-timer.
+   * Reported 2026-09-07: people tap the mic and let go, then ask what to do.
+   */
+  const [showHoldHint, setShowHoldHint] = React.useState(false);
+  React.useEffect(() => {
+    let alive = true;
+    void loadHasHeldToRecord().then((held) => {
+      if (alive && !held) setShowHoldHint(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const synth = useSynthesizeSpeech();
   const evaluate = useEvaluatePronunciation();
   const createAttempt = useCreateAttempt();
@@ -3085,11 +3103,22 @@ export default function PracticeScreen() {
             }}
             onPressOut={() => {
               isPressingRef.current = false;
-              if (phase === 'recording') void stopRecording();
+              if (phase === 'recording') {
+                // A COMPLETED HOLD IS WHAT RETIRES THE HINT, and nothing else.
+                // Not opening practice, not a tap: `phase === 'recording'` only
+                // holds here if the press actually started a recording, so
+                // someone who taps and lets go still gets the rings next time.
+                if (showHoldHint) {
+                  setShowHoldHint(false);
+                  void markHasHeldToRecord();
+                }
+                void stopRecording();
+              }
             }}
             amplitude={liveAmp}
             ampLevel={ampLevel}
             noInput={noInput}
+            showHoldHint={showHoldHint}
           />
         )}
         {/* Express Multiplier offer moment. BELOW the action row on
@@ -3347,6 +3376,7 @@ function RecordButton({
   amplitude,
   ampLevel,
   noInput,
+  showHoldHint,
 }: {
   phase: Phase;
   /** Unsupported languages record without scoring, so the hint copy changes. */
@@ -3356,11 +3386,41 @@ function RecordButton({
   amplitude: SharedValue<number>;
   ampLevel: number;
   noInput: boolean;
+  /**
+   * True until this learner has completed one hold-to-record gesture, ever.
+   * Draws the outward rings and spells the gesture out in the caption.
+   */
+  showHoldHint: boolean;
 }) {
   const colors = useColors();
   const pulse = useSharedValue(0);
   // 0 = idle/recording (primary), 1 = evaluating (amber)
   const ringPhaseVal = useSharedValue(0);
+
+  /**
+   * THE HESITATION BREATH. Asked for 2026-09-08: "if someone sits on the screen
+   * for more than 3 seconds, add a gentle pulse on the mic button."
+   *
+   * It is a DIFFERENT signal from the first-run rings and fires for a different
+   * person. The rings teach the gesture to somebody who has never held the
+   * button. This catches somebody who knows the gesture and is hesitating
+   * anyway, which is most people on a phrase they are unsure of.
+   *
+   * THEY NEVER RUN TOGETHER. A first-timer already has rings travelling outward;
+   * adding a breath under them is two things moving at once, which reads as
+   * noise rather than as an invitation. So this waits for the rings to be gone.
+   *
+   * The clock resets on every phase change, so it measures time spent NOT
+   * acting, rather than time on the screen: a learner who records, scores and
+   * lands on the next phrase gets a fresh three seconds each time.
+   */
+  const [dwelling, setDwelling] = React.useState(false);
+  React.useEffect(() => {
+    setDwelling(false);
+    if (phase !== 'idle') return;
+    const t = setTimeout(() => setDwelling(true), 3000);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   React.useEffect(() => {
     if (phase === 'recording') {
@@ -3411,6 +3471,19 @@ function RecordButton({
             ringStyle,
           ]}
         />
+        {/* The first-run rings, and ONLY while the button is idle: once a hold
+            has started, the recording pulse above is the live signal and two
+            things radiating at once would be noise. */}
+        <HoldHintRings
+          color={colors.primary}
+          size={88}
+          active={showHoldHint && phase !== 'recording' && phase !== 'evaluating'}
+        />
+        <AttentionPulse
+          color={colors.primary}
+          radius={44}
+          active={dwelling && !showHoldHint}
+        >
         <Pressable
           disabled={blocked}
           testID="record-button"
@@ -3433,6 +3506,7 @@ function RecordButton({
             style={evaluating ? styles.recordIconEvaluating : undefined}
           />
         </Pressable>
+        </AttentionPulse>
       </View>
       {/* Spec D2: live waveform — only while actually recording. The slot
           keeps its height in every phase so the button never shifts under a
@@ -3454,7 +3528,9 @@ function RecordButton({
                 : unsupported
                   ? 'Release to compare'
                   : 'Release to score'
-              : 'Hold and say it out loud'}
+              : showHoldHint
+                ? 'Hold the button down while you speak'
+                : 'Hold and say it out loud'}
         </Text>
       </View>
     </View>
