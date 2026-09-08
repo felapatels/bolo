@@ -1346,14 +1346,35 @@ function TraceCanvas({
 
   // Helpers: build the combined SVG path string for all strokes visible so far.
   // Each stroke is a separate M…L subpath so no line connects across pen-lifts.
+  /**
+   * COMPLETED STROKES ARE BUILT ONCE, NOT PER TOUCH POINT.
+   *
+   * Reported on device 2026-08-24 and parked since: "slightly lags when you
+   * draw, doesn't feel smooth." This function is called from `onUpdate`, which
+   * fires on EVERY point the finger moves, and it used to re-serialise every
+   * completed stroke each time. So a learner on their fifth stroke paid for
+   * strokes one to four again on every sample, and the cost grew as they drew,
+   * which is exactly the shape of "it gets worse the more you draw".
+   *
+   * Completed strokes cannot change between lifts, so they are cached and the
+   * cache is invalidated in the two places `allStrokesRef` moves: a finalized
+   * stroke, and a clear. Only the in-progress stroke is serialised per point.
+   */
+  const finishedPathRef = useRef<string | null>(null);
+  const lastBandsTimeRef = useRef(0);
   const buildAllPath = (extraStroke?: Point[]) => {
-    const segs = allStrokesRef.current
-      .map(s => s.length >= 2 ? pointsToPath(s, CANVAS_SIZE) : '')
-      .filter(Boolean);
-    if (extraStroke && extraStroke.length >= 2) {
-      segs.push(pointsToPath(extraStroke, CANVAS_SIZE));
+    if (finishedPathRef.current === null) {
+      finishedPathRef.current = allStrokesRef.current
+        .map(s => (s.length >= 2 ? pointsToPath(s, CANVAS_SIZE) : ''))
+        .filter(Boolean)
+        .join(' ');
     }
-    return segs.join(' ');
+    const finished = finishedPathRef.current;
+    if (extraStroke && extraStroke.length >= 2) {
+      const live = pointsToPath(extraStroke, CANVAS_SIZE);
+      return finished ? `${finished} ${live}` : live;
+    }
+    return finished;
   };
 
   // Rising haptic feedback while a learner drifts off the guide. WHEN to buzz
@@ -1417,9 +1438,22 @@ function TraceCanvas({
       if (level) playStray(level);
       // Re-render: all completed strokes + current in-progress stroke.
       setDrawnPath(buildAllPath(drawnRef.current));
-      setInkBands(inkBands([...allStrokesRef.current, drawnRef.current], CANVAS_SIZE));
-      // Throttled live coverage update (at most every 150 ms).
       const now = Date.now();
+      /**
+       * THE INK BANDS ARE A TEXTURE, AND THEY WERE COSTING A FULL RECOMPUTE PER
+       * POINT. `inkBands` walks every stroke and allocated a fresh array of all
+       * of them on every sample, beside the path rebuild above. The LINE has to
+       * be per-point or the ink lags the finger; the band shading behind it does
+       * not, and at 60ms nobody can see the difference while drawing.
+       *
+       * Same throttle shape as the coverage update below, deliberately: two
+       * timers doing the same job differently is how one of them goes stale.
+       */
+      if (now - lastBandsTimeRef.current > 60) {
+        lastBandsTimeRef.current = now;
+        setInkBands(inkBands([...allStrokesRef.current, drawnRef.current], CANVAS_SIZE));
+      }
+      // Throttled live coverage update (at most every 150 ms).
       if (now - lastCoverageTimeRef.current > 150) {
         lastCoverageTimeRef.current = now;
         const partial = [...allStrokesRef.current, [...drawnRef.current]];
@@ -1434,6 +1468,7 @@ function TraceCanvas({
       // Stash the completed stroke so it stays visible when the finger lifts.
       if (drawnRef.current.length >= 2) {
         allStrokesRef.current = [...allStrokesRef.current, [...drawnRef.current]];
+        finishedPathRef.current = null; // a stroke joined the finished set
       }
       drawnRef.current = [];
       setDrawnPath(buildAllPath());
@@ -1492,6 +1527,8 @@ function TraceCanvas({
     }
     allStrokesRef.current = [];
     drawnRef.current = [];
+    finishedPathRef.current = null; // the finished set emptied
+    lastBandsTimeRef.current = 0;
     setDrawnPath('');
     setInkBands([]);
     setGuidePulsed(false);

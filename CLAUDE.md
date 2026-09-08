@@ -690,17 +690,42 @@ it to one step on 2026-08-24 and again on 2026-08-29 (build 20).
      commit `Podfile.lock`, pin the builder `image` in `eas.json`. **Nineteen
      builds were spent before anyone checked this.**
 
-- **THE NATIVE ANIMATION DRIVER IS DEAD, NOT JUST REANIMATED. Established on
-  device 2026-08-21 by build 270.** A ported animation using react-native's own
-  `Animated` with **`useNativeDriver: true`** came out **dead flat**, while the
-  diagnostic's own bar on **`useNativeDriver: false`** kept pulsing beside it in
-  the same build. **So anything driven per-frame from the NATIVE side does not
-  tick in release builds of this app.** That is also why reanimated 4's frame
-  loop never starts: on the New Architecture it drives from native too.
-  **`useNativeDriver: false` is the only thing that animates here.** Every RN
-  `Animated` port in this codebase must pass `false`, and the cost is that a busy
-  JS thread can stutter idle motion, which is a fair price for it running at all.
-  See `lib/useLoopProgressRN.ts`.
+- ~~**THE NATIVE ANIMATION DRIVER IS DEAD, NOT JUST REANIMATED.**~~
+  **RETIRED 2026-09-08. ALL THREE DRIVERS ANIMATE. Measured by the owner on a
+  physical iPhone 17 Pro Max, TestFlight build 1.0.16 (542): three bars racing
+  the same motion on `useNativeDriver: true`, `useNativeDriver: false` and
+  reanimated. Verdict: "all are moving."**
+
+  **Re-check it rather than trusting either answer:** `bolo-mobile://animdiag`,
+  an unlinked route (`app/(app)/animdiag.tsx`) that also prints both Reduce
+  Motion readings and the build number. **A DEV BUILD CANNOT ANSWER IT** — a
+  development build animates where a release build does not, which is rule 2 of
+  the measurement rules and is how the original finding got over-generalised.
+
+  **WHAT THE OLD RULE SAID AND WHY IT WAS BELIEVED.** On 2026-08-21, build 270,
+  an `Animated` port on `useNativeDriver: true` came out dead flat while the same
+  build's `useNativeDriver: false` bar kept pulsing. That observation was real.
+  The GENERALISATION was not: it was taken during the era documented in the next
+  entry, where two builds of byte-identical source produced different bundles
+  (44,080 functions against 52,900), and a driver measured dead in a poisoned
+  bundle was written down as a property of the platform. The cause of that era
+  has since been removed and nobody went back.
+
+  **THE CONTRADICTION WAS IN THE REPO THE WHOLE TIME, which is the transferable
+  part.** The rule said reanimated's frame loop never starts, while twenty-two
+  call sites animated through `useLoopProgress`, which IS reanimated, including
+  the boarding pass whose own comment says it breathes in the shipped 1.0.5
+  build. **A rule contradicted by twenty-two working call sites above it went
+  unread for three weeks.** When a rule and the code disagree, one of them is
+  stale and it is not always the code.
+
+  **WHAT IT COST.** Five components sit on RN `Animated`'s JS driver citing this
+  rule (`BrandSplash`, `DailyGiftBox`, `LiveFlash`, `NextBadgeSpotlight`,
+  `StopSplash`), which is the slowest path available. **Leave them.** Nobody has
+  reported them stuttering, and migrating working animation on a rule change is
+  regression risk for a theoretical gain. What the retirement buys is that new
+  work is no longer steered away from the good path, and that the Script Trace
+  drawing lag stopped being blamed on a dead driver.
 
 - **THE ANIMATION BUG. THE CAUSE IS NOT IN THIS REPO. Two builds of
   byte-identical source produce different bundles, and the bundle predicts the
