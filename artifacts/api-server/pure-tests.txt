@@ -47,6 +47,7 @@ src/lib/stripePricing.test.ts
 src/lib/stripeSync.test.ts
 src/lib/sttLanguage.test.ts
 src/lib/supportMail.test.ts
+src/lib/testManifest.test.ts
 src/lib/ttsCache.test.ts
 src/lib/ttsCacheAudit.test.ts
 src/lib/wardrobeDraftGate.test.ts
