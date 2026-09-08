@@ -97,6 +97,77 @@ export function giftRefId(localDayKey: string): string {
   return localDayKey;
 }
 
+/**
+ * THE WHEEL, AND WHY IT IS HONEST BY CONSTRUCTION.
+ *
+ * Asked for 2026-09-08. The daily gift was a fixed rung on a streak ladder, and
+ * production says what that bought: **28 learners with any Chai at all and a
+ * median balance of 1.** A median of one means they claimed one box and never
+ * came back for a second. Tuning the ladder was never going to move that; the
+ * box gives the same thing every time and there is no reason to watch it.
+ *
+ * A VARIABLE REWARD IS THE POINT, AND THE RANGE IS PUBLISHED. The owner
+ * considered a wheel that pays out generously five times and is then rigged to
+ * land JUST SHORT of a stop, to push a purchase. That was rejected on the day it
+ * was proposed, and it is worth writing down why rather than quietly not doing
+ * it: this app is rated 4+ and Everyone, a randomiser with a purchase path is
+ * the loot-box shape both stores watch, and a wheel whose odds are not what they
+ * appear is a misrepresentation rather than an undisclosed odd. The learner is
+ * an adult coming back to a family language, and being visibly teased by a
+ * rigged wheel reads as contempt.
+ *
+ * So: a real draw, in a stated range, and the range is on the screen.
+ *
+ * DETERMINISTIC PER LEARNER PER DAY, WHICH IS NOT OPTIONAL. The claim is
+ * idempotent on `giftRefId(localDayKey)`, so a second call must land on the same
+ * number. A fresh `Math.random()` would let a learner reroll by reopening the
+ * app until the grant raced, and would make the closed box's promise a lie. The
+ * draw is a hash of the learner and the day, so it is stable, unguessable
+ * without the id, and needs no stored state.
+ */
+export const GIFT_MIN_CHAI = 5;
+export const GIFT_MAX_CHAI = 25;
+
+/**
+ * A stable 0..1 draw for one learner on one day. FNV-1a over `id:day`, which is
+ * enough for a gift and cheap on both platforms; it is not a security boundary
+ * and must never be used as one.
+ */
+function dailyDraw(userId: string, dayKey: string): number {
+  let h = 0x811c9dc5;
+  const s = `${userId}:${dayKey}`;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h / 0xffffffff;
+}
+
+/**
+ * What today's wheel pays this learner.
+ *
+ * THE STREAK STILL MATTERS AND IT NO LONGER DECIDES EVERYTHING. It shifts the
+ * draw upward rather than replacing it, so a seven-day learner is meaningfully
+ * luckier and a learner who missed a week is not on a seventh of the rate. That
+ * was the collision in the old ladder: a broken streak cost sevenfold, and the
+ * learner who most needs the free path got the worst of it.
+ */
+export function giftChaiForDraw(userId: string, dayKey: string, streakDays: number): number {
+  const span = GIFT_MAX_CHAI - GIFT_MIN_CHAI;
+  const draw = dailyDraw(userId, dayKey);
+  // The streak lifts the FLOOR of the range, never the ceiling: at day 7 the
+  // worst spin is better, and the best spin is the same for everyone. Nobody is
+  // shown a prize they cannot reach.
+  const lift = (Math.min(Math.max(streakDays, 1), GIFT_LADDER_CAP) - 1) / (GIFT_LADDER_CAP - 1);
+  const floor = GIFT_MIN_CHAI + Math.round(span * 0.4 * lift);
+  return Math.round(floor + (GIFT_MAX_CHAI - floor) * draw);
+}
+
+/** The sentence the wheel puts on screen. The range is never hidden. */
+export function giftRangeCopy(): string {
+  return `Every spin pays ${GIFT_MIN_CHAI} to ${GIFT_MAX_CHAI} Chai`;
+}
+
 /** Everything a screen needs to draw the box, resolved in one place. */
 export interface DailyGift {
   /** The streak day this box belongs to, clamped to the ladder. */
@@ -126,12 +197,22 @@ export function dailyGiftFor({
   streakDays,
   claimedDayKey,
   todayKey,
+  userId,
 }: {
   streakDays: number;
   claimedDayKey: string | null;
   todayKey: string;
+  /**
+   * WHOSE WHEEL THIS IS. Optional so every existing caller and test keeps
+   * working: without it the box falls back to the old fixed ladder, which is
+   * exactly what a caller that cannot identify the learner should get rather
+   * than a shared draw everybody can predict.
+   */
+  userId?: string;
 }): DailyGift {
-  const chai = giftChaiForStreakDay(streakDays);
+  const chai = userId
+    ? giftChaiForDraw(userId, todayKey, streakDays)
+    : giftChaiForStreakDay(streakDays);
   const claimed = claimedDayKey !== null && claimedDayKey === todayKey;
   return {
     day: chai,
@@ -141,7 +222,14 @@ export function dailyGiftFor({
     // day + 1 blindly: promising 8 on day 7 is a promise the ladder does not
     // keep, and a gift that lies about what it becomes is worse than a gift
     // that says nothing.
-    tomorrowChai: giftChaiForStreakDay(chai + 1),
+    // TOMORROW IS A RANGE NOW, NOT A NUMBER, so this stops promising one. It
+    // reports the FLOOR the streak will have earned by then: the least tomorrow
+    // can pay, which is a promise the wheel always keeps. Promising a specific
+    // amount from a real draw would be the same lie as a rigged wheel, told
+    // politely.
+    tomorrowChai: userId
+      ? giftChaiForDraw(userId, `${todayKey}+1`, streakDays + 1)
+      : giftChaiForStreakDay(chai + 1),
     claimed,
     claimable: !claimed,
   };

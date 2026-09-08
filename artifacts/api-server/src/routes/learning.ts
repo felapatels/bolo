@@ -134,7 +134,7 @@ import {
 // THE streak (Task #1081): one source for the DAY STREAK number here, for the
 // repair offer's promise in routes/tokens.ts, and for streak-badge progress.
 import { loadStreakLadder } from "../lib/streakDays";
-import { giftChaiForStreakDay, giftRefId } from "@workspace/daily-gift";
+import { giftChaiForDraw, giftRefId } from "@workspace/daily-gift";
 import { gameTasteState, isHubPlay, isTasteGame } from "@workspace/game-taste";
 import { countTastePlays } from "../lib/gameTasteCounts";
 import {
@@ -1821,18 +1821,25 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
     parsed.data.canClaimGift === true
       ? Promise.resolve()
       : loadStreakLadder(userId, timezone)
-          .then(({ currentStreakDays }) =>
-            grantTokensDetailed(
+          .then(({ currentStreakDays }) => {
+            // THE SAME DRAW THE WHEEL WOULD HAVE SHOWN. This path grants the
+            // day's gift from the attempts route when a learner practises
+            // without opening the box, so it must land on the identical number:
+            // giftChaiForDraw is pure in (learner, day, streak), and the refId
+            // makes the second of the two a no-op whichever arrives first.
+            const dayKey = localDayKey(now, timezone);
+            const amount = giftChaiForDraw(userId, dayKey, currentStreakDays);
+            return grantTokensDetailed(
               userId,
               "earn_streak_day",
-              giftRefId(localDayKey(now, timezone)),
-              giftChaiForStreakDay(currentStreakDays),
+              giftRefId(dayKey),
+              amount,
             ).then(({ granted }) => {
               if (granted) {
-                attemptChaiEarned += giftChaiForStreakDay(currentStreakDays);
+                attemptChaiEarned += amount;
               }
-            }),
-          )
+            });
+          })
           .catch((err) => {
             req.log?.warn({ err }, "token_streak_day_grant_failed");
           }),

@@ -42,7 +42,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { giftOpenedCopy, type GiftTier } from '@workspace/daily-gift';
+import { giftOpenedCopy, giftRangeCopy, type GiftTier } from '@workspace/daily-gift';
 import { AppFonts } from '@/constants/fonts';
 import { useColors } from '@/hooks/useColors';
 import { hapticMedium } from '@/lib/haptics';
@@ -261,7 +261,7 @@ export function DailyGiftBox({
       accessibilityLabel={
         claimed
           ? `Day ${day}. ${chai} Chai. ${openedTomorrow}`
-          : `Open today's gift, day ${day}`
+          : `Open today's gift, day ${day}. ${giftRangeCopy()}`
       }
       onPress={press}
       disabled={!claimable || claimed}
@@ -280,6 +280,21 @@ export function DailyGiftBox({
         <Text style={[styles.body, { color: colors.mutedForeground }]}>
           {claimed ? `Day ${day} in a row` : 'Tap to open'}
         </Text>
+        {/* THE RANGE, ON SCREEN, ON THE UNOPENED BOX.
+            The gift became a real draw on 2026-09-08 and the range is published
+            rather than left in the code. A variable reward whose bounds are
+            hidden is the shape both app stores watch, and a learner who cannot
+            see the range has no way to tell a generous day from a mean one. It
+            shows only before the tap: afterwards the amount above IS the
+            answer, and repeating the range would read as a hedge. */}
+        {!claimed ? (
+          <Text
+            testID={`${testID}-range`}
+            style={[styles.body, { color: colors.mutedForeground }]}
+          >
+            {giftRangeCopy()}
+          </Text>
+        ) : null}
         {claimed ? (
           <Text testID={`${testID}-tomorrow`} style={[styles.tomorrow, { color: colors.primary }]}>
             {openedTomorrow}

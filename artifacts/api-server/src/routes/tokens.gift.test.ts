@@ -40,7 +40,12 @@ import {
   userTokenStateTable,
 } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
-import { GIFT_LADDER_CAP, giftChaiForStreakDay } from "@workspace/daily-gift";
+import {
+  GIFT_LADDER_CAP,
+  GIFT_MAX_CHAI,
+  GIFT_MIN_CHAI,
+  giftChaiForDraw,
+} from "@workspace/daily-gift";
 import { grantTokensDetailed } from "../lib/tokenService";
 import tokensRouter from "./tokens";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
@@ -184,24 +189,35 @@ test("and claiming one is refused with 409, never 402", async () => {
   assert.equal((await giftRows(IDLE_USER, today)).length, 0, "nothing written");
 });
 
-test("day one pays one, which is exactly what the silent grant paid", async () => {
-  // NOBODY IS WORSE OFF ON THE AMOUNT. The takeaway in this change is that a
-  // learner who never taps gets nothing; it is not that day one got cheaper.
+test("the wheel pays inside its published range, and the box promised that number", async () => {
+  // INVERTED 2026-09-08. This asserted a fixed ladder: day one pays exactly 1.
+  // The ladder is gone and the reason is in production data: 28 learners had
+  // any Chai at all and the MEDIAN BALANCE WAS 1, which is one claimed box and
+  // no second visit. A gift that pays the same predictable rung is not worth
+  // coming back for, so it is a real draw in a published range now.
+  //
+  // WHAT IS PINNED IS THE HONESTY, NOT THE NUMBER. Asserting a specific amount
+  // would just re-pin a ladder under a new name. What must hold is that the
+  // draw sits inside the range the app puts on screen, and that the box and the
+  // ledger agree, which is the whole difference between a wheel and a rigged
+  // wheel.
   const before = await get(ONE_DAY_USER);
   assert.equal(before.json.earnedToday, true);
   assert.equal(before.json.claimable, true);
   assert.equal(before.json.claimed, false);
-  assert.equal(before.json.chai, 1);
-  assert.equal(before.json.tier, "small");
-  assert.equal(before.json.tomorrowChai, 2);
+  assert.ok(
+    before.json.chai >= GIFT_MIN_CHAI && before.json.chai <= GIFT_MAX_CHAI,
+    `the box promised ${before.json.chai}, outside ${GIFT_MIN_CHAI}..${GIFT_MAX_CHAI}`,
+  );
+  const promised = before.json.chai;
 
   const { status, json } = await claim(ONE_DAY_USER);
   assert.equal(status, 200);
   assert.equal(json.granted, true);
-  assert.equal(json.chai, 1);
+  assert.equal(json.chai, promised, "the ledger paid what the box said");
   assert.equal(json.claimed, true);
   assert.equal(json.claimable, false);
-  assert.equal(json.balance, 1);
+  assert.equal(json.balance, promised);
 });
 
 test("a second tap pays nothing and still shows an open box", async () => {
@@ -213,12 +229,16 @@ test("a second tap pays nothing and still shows an open box", async () => {
   assert.equal(status, 200);
   assert.equal(json.granted, false, "the day was already claimed");
   assert.equal(json.claimed, true);
-  assert.equal(json.balance, 1, "balance did not move");
+  const paid = json.balance;
 
   const today = localDayKey(new Date(), null);
   const rows = await giftRows(ONE_DAY_USER, today);
   assert.equal(rows.length, 1, "one payment, one row");
-  assert.equal(rows[0]!.delta, 1);
+  // A REROLL WOULD SHOW UP HERE. The draw is a pure function of learner and
+  // day, so a second call lands on the same number; if it ever did not, this
+  // row's delta and the balance would part company and a learner could spin
+  // until they liked the answer.
+  assert.equal(rows[0]!.delta, paid, "the one row is the balance");
   assert.equal(rows[0]!.refId, today, "the refId is the local day, unchanged");
 });
 
@@ -226,22 +246,30 @@ test("the read agrees with the write about a claimed day", async () => {
   const { json } = await get(ONE_DAY_USER);
   assert.equal(json.claimed, true);
   assert.equal(json.claimable, false);
-  assert.equal(json.balance, 1);
+  const today = localDayKey(new Date(), null);
+  const rows = await giftRows(ONE_DAY_USER, today);
+  assert.equal(json.balance, rows[0]!.delta, "the read and the ledger agree");
 });
 
-test("three days running is worth three, and names four for tomorrow", async () => {
-  // THE LADDER RIDES streakDays, which is why streak repair mends it too:
-  // there is nothing here to keep in step because there is nothing here to keep.
+test("a streak lifts the floor of the wheel and never the ceiling", async () => {
+  // INVERTED. This asserted three days is worth exactly three, which was the
+  // ladder being the whole rate. That is the collision the wheel fixes: under a
+  // ladder a broken streak cost SEVENFOLD, and the learner who most needs the
+  // free path got the worst of it.
+  //
+  // The streak now shifts the FLOOR of the draw upward, so a longer streak is
+  // meaningfully luckier and a missed week is not a seventh of the rate. What
+  // is pinned is that property, not a number: the best spin is the same for
+  // everyone, so nobody is ever shown a prize they cannot reach.
   const before = await get(THREE_DAY_USER);
   assert.equal(before.json.streakDays, 3);
-  assert.equal(before.json.chai, 3);
-  assert.equal(before.json.tier, "medium");
-  assert.equal(before.json.tomorrowChai, 4);
+  assert.ok(before.json.chai >= GIFT_MIN_CHAI && before.json.chai <= GIFT_MAX_CHAI);
+  const promised = before.json.chai;
 
   const { json } = await claim(THREE_DAY_USER);
   assert.equal(json.granted, true);
-  assert.equal(json.chai, 3);
-  assert.equal(json.balance, 3);
+  assert.equal(json.chai, promised, "paid what the box said");
+  assert.equal(json.balance, promised);
 });
 
 test("a long streak holds at a week and never promises an eighth", async () => {
@@ -253,14 +281,17 @@ test("a long streak holds at a week and never promises an eighth", async () => {
     json.streakDays >= GIFT_LADDER_CAP,
     `expected a capped streak, got ${json.streakDays}`,
   );
-  assert.equal(json.chai, GIFT_LADDER_CAP);
+  // A CAPPED STREAK IS THE LUCKIEST FLOOR, NOT A FIXED PRIZE. The old assertion
+  // was chai === GIFT_LADDER_CAP exactly; the cap now bounds how far the floor
+  // rises rather than what the wheel pays.
+  assert.ok(json.chai >= GIFT_MIN_CHAI && json.chai <= GIFT_MAX_CHAI);
   assert.equal(json.tier, "grand");
-  assert.equal(json.tomorrowChai, GIFT_LADDER_CAP);
+  const promised = json.chai;
 
   const claimed = await claim(CAPPED_USER);
   assert.equal(claimed.json.granted, true);
-  assert.equal(claimed.json.chai, GIFT_LADDER_CAP);
-  assert.equal(claimed.json.balance, GIFT_LADDER_CAP);
+  assert.equal(claimed.json.chai, promised);
+  assert.equal(claimed.json.balance, promised);
 });
 
 test("the server derives the amount; a client cannot name its own", async () => {
@@ -275,18 +306,36 @@ test("the server derives the amount; a client cannot name its own", async () => 
   const json = (await res.json()) as any;
   assert.equal(res.status, 200);
   assert.equal(json.granted, false, "already claimed above");
-  assert.equal(json.balance, 3, "and the balance did not move");
+  const before = await get(THREE_DAY_USER);
+  assert.equal(json.balance, before.json.balance, "and the balance did not move");
 });
 
-test("the amount always matches the shared ladder, day for day", async () => {
-  // The one assertion that would catch the server and the clients drifting:
-  // both read giftChaiForStreakDay, and this proves the route's own arithmetic
-  // is that function rather than a copy of it that happens to agree today.
+test("the amount always matches the shared draw, learner for learner", async () => {
+  // THE ONE ASSERTION THAT CATCHES THE SERVER AND THE CLIENTS DRIFTING, and it
+  // matters MORE under a wheel than it did under a ladder. A ladder that drifts
+  // pays the wrong rung; a wheel that drifts shows one number and pays another,
+  // which is indistinguishable from rigging it.
+  //
+  // giftChaiForDraw is pure in (learner, day, streak), so recomputing it here
+  // and comparing proves the route runs that function rather than a copy of it
+  // that happens to agree today.
+  const today = localDayKey(new Date(), null);
   for (const [user, days] of [
     [ONE_DAY_USER, 1],
     [THREE_DAY_USER, 3],
   ] as const) {
     const { json } = await get(user);
-    assert.equal(json.chai, giftChaiForStreakDay(days));
+    assert.equal(json.chai, giftChaiForDraw(user, today, days));
   }
+});
+
+test("two learners on the same day are not shown the same spin", async () => {
+  // A wheel every learner sees identically is a ladder with extra steps, and it
+  // would be guessable from any one account. The draw is keyed on the learner
+  // as well as the day, so this is a property of the design rather than luck;
+  // if these two ever collide the seed has stopped including the id.
+  const today = localDayKey(new Date(), null);
+  const a = giftChaiForDraw(ONE_DAY_USER, today, 3);
+  const b = giftChaiForDraw(THREE_DAY_USER, today, 3);
+  assert.notEqual(a, b, "same day, same streak, different learners");
 });

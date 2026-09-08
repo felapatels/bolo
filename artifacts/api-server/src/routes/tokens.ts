@@ -6,7 +6,7 @@ import {
 } from "@workspace/api-zod";
 import {
   dailyGiftFor,
-  giftChaiForStreakDay,
+  giftChaiForDraw,
   giftRefId,
   type DailyGift,
 } from "@workspace/daily-gift";
@@ -505,6 +505,9 @@ async function readDailyGift(req: Request): Promise<{
     streakDays: currentStreakDays,
     claimedDayKey: claimedRow ? todayKey : null,
     todayKey,
+    // The draw is per learner per day, so the amount is stable across a reload
+    // and cannot be rerolled by reopening the app.
+    userId,
   });
   return {
     gift: { ...gift, claimable: gift.claimable && earnedToday },
@@ -528,6 +531,25 @@ router.get("/tokens/gift", async (req: Request, res: Response): Promise<void> =>
     // learner's timezone, which is the server's to know.
     localDay: todayKey,
     balance: state.balance,
+    /**
+     * THE DISTANCE, AND IT IS THE HALF THAT ACTUALLY BRINGS SOMEBODY BACK.
+     *
+     * Production said the daily box was not working: 28 learners with any Chai
+     * and a MEDIAN BALANCE OF 1, which is one box claimed and no second visit.
+     * A spin with nothing to spend it on is a number going up on its own. What
+     * gives it a reason is knowing what it is FOR.
+     *
+     * Served rather than computed on the client for the usual reason: the stop
+     * price is an economy number and `tokenEconomy.ts` is its single source of
+     * truth. A client working out "50 minus my balance" would be a second copy
+     * of the price, and the day it moved the two would disagree.
+     *
+     * This is the honest version of the near-miss the owner considered and
+     * rejected: the same pull, told truthfully, available every day rather than
+     * five times.
+     */
+    stopCost: STOP_UNLOCK_COST,
+    chaiToNextStop: Math.max(0, STOP_UNLOCK_COST - state.balance),
   });
 });
 
@@ -549,7 +571,10 @@ router.post(
     // THE AMOUNT IS DERIVED HERE, NOT SENT. A client that could name its own
     // number would be a faucet, and this is the only place in the product where
     // a tap writes to the ledger.
-    const amount = giftChaiForStreakDay(streakDays);
+    // The SAME draw the box promised. `giftChaiForDraw` is a pure function of
+    // (learner, day, streak), so the number the wheel showed and the number the
+    // ledger records cannot disagree, and reopening the app cannot reroll it.
+    const amount = giftChaiForDraw(userId, todayKey, streakDays);
     const { state, granted } = await grantTokensDetailed(
       userId,
       "earn_streak_day",
