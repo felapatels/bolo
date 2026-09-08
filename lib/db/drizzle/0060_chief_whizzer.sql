@@ -1,0 +1,1 @@
+ALTER TABLE "user_token_state" ADD COLUMN "game_credits" integer DEFAULT 0 NOT NULL;

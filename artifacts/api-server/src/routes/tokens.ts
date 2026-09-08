@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   BuyFirstClassBody,
+  BuyGameCreditsBody,
   SpendTokensBody,
   UnlockStopBody,
 } from "@workspace/api-zod";
@@ -20,6 +21,7 @@ import {
   grantTokensDetailed,
   spendTokens,
   buyFirstClass,
+  buyGameCredits,
   unlockStop,
   repairStreak,
   listCoveredDayKeys,
@@ -31,6 +33,8 @@ import {
   STOP_UNLOCK_COST,
   STREAK_REPAIR_COST,
   TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY,
+  ALL_ACCESS_GIFT_MULTIPLIER,
+  getGameCreditPack,
   tokenReasonLabel,
 } from "../lib/tokenEconomy";
 import { findRepairableBreak } from "../lib/streakRepair";
@@ -50,22 +54,21 @@ function getUserId(req: Request): string {
   return (req as AuthedRequest).userId;
 }
 
-// Lazy monthly allowance: every plan-entitled caller (resolved plan "plus";
-// family members resolve to plus via loadEntitlements, Step 0 confirms) gets
-// TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY once per UTC month. refId = YYYY-MM;
-// the ledger's unique index is the idempotency authority. Ruling
-// R-allowance A: individual grants for every entitled user now; the pooled
-// Family 100 ships with the family-surfaces work post-parity.
-export async function maybeGrantAllowance(req: Request): Promise<void> {
-  const { resolvedPlan } = req as EntitledRequest;
-  if (resolvedPlan.plan !== "plus") return;
-  const month = new Date().toISOString().slice(0, 7);
-  await grantTokens(
-    getUserId(req),
-    "earn_allowance_monthly",
-    month,
-    TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY,
-  );
+// THE MONTHLY ALLOWANCE IS DEAD, owner ruling 2026-09-08. All-Access gets
+// ALL_ACCESS_GIFT_MULTIPLIER on the daily gift instead, which is worth about
+// 225 a month against the 15 this paid.
+//
+// KEPT AS A NO-OP RATHER THAN DELETED, and only until the callers are cleaned
+// up: learning.ts calls it on the attempts path and routes/tokens.ts calls it
+// on GET /tokens, both fire-and-forget. Deleting the export in the same change
+// that kills the grant would turn one economy decision into a refactor of two
+// hot paths. It grants nothing from today.
+//
+// THE LEDGER IS NOT TOUCHED. Rows already written under
+// earn_allowance_monthly keep their amount and their label; nobody is clawed
+// back. The refId was the UTC month, so a month already granted stays granted.
+export async function maybeGrantAllowance(_req: Request): Promise<void> {
+  return;
 }
 
 // GET /tokens
@@ -75,11 +78,19 @@ router.get("/tokens", async (req: Request, res: Response): Promise<void> => {
   res.json({
     balance: state.balance,
     stationPausesEquipped: state.stationPausesEquipped,
-    // The paywall's "Free Chai Drop Every Month" figure. Served, never
-    // inlined in a client: tokenEconomy.ts is the single source of truth and
-    // this number already moved once (50 to 15) specifically without a client
-    // release.
+    // WHAT THE PAYWALL PRINTS, and it changed on 2026-09-08 from a monthly
+    // allowance to a multiplier on the daily gift. Served rather than inlined
+    // in a client for the same reason the allowance was: tokenEconomy.ts is
+    // the single source of truth, this number has moved before, and a change
+    // should reach both paywalls with no app release.
+    //
+    // allowanceAllAccessMonthly is kept and now answers 0. Removing a field a
+    // shipped client reads is a breaking change to a live contract, and every
+    // installed build would render "0 Chai" at worst rather than crash on an
+    // absent key. It goes when the store builds carrying the new copy are the
+    // only ones left.
     allowanceAllAccessMonthly: TOKEN_ALLOWANCE_ALL_ACCESS_MONTHLY,
+    allAccessGiftMultiplier: ALL_ACCESS_GIFT_MULTIPLIER,
     expressMultiplierActiveUntil:
       state.expressMultiplierExpiresAt?.toISOString() ?? null,
     // First Class: an absolute deadline, same shape and same reasons as the
@@ -198,6 +209,56 @@ router.post(
 //   409 — money and clock conflicts only (insufficient_tokens,
 //         first_class_horizon). NEVER 402: that is the UpgradeRequired
 //         envelope codebase-wide and clients render it as the Plus paywall.
+// POST /tokens/game-credits — buy counted plays of the tasted games.
+//
+// The pack is resolved from its id server-side, so a request can never name
+// its own price or its own play count. Repeatable, so the idempotency key is
+// the caller's: same shape and same reason as First Class below.
+router.post(
+  "/tokens/game-credits",
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = BuyGameCreditsBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid game credits payload" });
+      return;
+    }
+    const pack = getGameCreditPack(parsed.data.pack);
+    if (!pack) {
+      // Unreachable through the zod enum above, and handled anyway: the
+      // catalogue is the authority on what exists, not the wire enum, and the
+      // day one of them is edited without the other this is what stops a
+      // purchase of nothing.
+      res.status(400).json({ error: "Unknown pack" });
+      return;
+    }
+    try {
+      const { state, charged } = await buyGameCredits(
+        getUserId(req),
+        pack,
+        parsed.data.idempotencyKey,
+      );
+      res.json({
+        charged,
+        balance: state.balance,
+        credits: state.gameCredits,
+      });
+    } catch (e) {
+      if (e instanceof InsufficientTokensError) {
+        // 409 and never 402: running out of Chai is not a plan boundary, and a
+        // learner must never be upsold over one. Same rule every other Chai
+        // spend on this router states in the same words.
+        res.status(409).json({
+          error: "insufficient_tokens",
+          balance: e.balance,
+          cost: e.cost,
+        });
+        return;
+      }
+      throw e;
+    }
+  },
+);
+
 router.post(
   "/tokens/first-class",
   async (req: Request, res: Response): Promise<void> => {
@@ -474,13 +535,30 @@ router.post(
  * box's DAY as well, or a learner could open day 4's box on a day the streak
  * refuses to count and find themselves on day 4 again tomorrow.
  */
+/**
+ * What this learner's plan multiplies the daily draw by.
+ *
+ * ONE READER, used by the payload and by the claim, so the number the box
+ * promises and the number the ledger records cannot disagree. That is the same
+ * reason the draw itself is a single pure function.
+ *
+ * `resolvedPlan.plan === "plus"` is the same test the retired monthly allowance
+ * used, and family members resolve to plus through loadEntitlements.
+ */
+function giftMultiplierFor(req: Request): number {
+  const { resolvedPlan } = req as EntitledRequest;
+  return resolvedPlan?.plan === "plus" ? ALL_ACCESS_GIFT_MULTIPLIER : 1;
+}
+
 async function readDailyGift(req: Request): Promise<{
   gift: DailyGift;
   streakDays: number;
   earnedToday: boolean;
   todayKey: string;
+  multiplier: number;
 }> {
   const userId = getUserId(req);
+  const multiplier = giftMultiplierFor(req);
   const timeZone = (req as EntitledRequest).userTimezone;
   const todayKey = localDayKey(new Date(), timeZone);
   const { earnedDayKeys, currentStreakDays } = await loadStreakLadder(
@@ -508,12 +586,14 @@ async function readDailyGift(req: Request): Promise<{
     // The draw is per learner per day, so the amount is stable across a reload
     // and cannot be rerolled by reopening the app.
     userId,
+    multiplier,
   });
   return {
     gift: { ...gift, claimable: gift.claimable && earnedToday },
     streakDays: currentStreakDays,
     earnedToday,
     todayKey,
+    multiplier,
   };
 }
 
@@ -558,7 +638,8 @@ router.post(
   "/tokens/gift/claim",
   async (req: Request, res: Response): Promise<void> => {
     const userId = getUserId(req);
-    const { gift, streakDays, earnedToday, todayKey } = await readDailyGift(req);
+    const { gift, streakDays, earnedToday, todayKey, multiplier } =
+      await readDailyGift(req);
 
     // Nothing practised today, so there is no box. 409 rather than 402: this is
     // not a plan boundary and a learner must never be upsold over one, which is
@@ -574,7 +655,7 @@ router.post(
     // The SAME draw the box promised. `giftChaiForDraw` is a pure function of
     // (learner, day, streak), so the number the wheel showed and the number the
     // ledger records cannot disagree, and reopening the app cannot reroll it.
-    const amount = giftChaiForDraw(userId, todayKey, streakDays);
+    const amount = giftChaiForDraw(userId, todayKey, streakDays, multiplier);
     const { state, granted } = await grantTokensDetailed(
       userId,
       "earn_streak_day",

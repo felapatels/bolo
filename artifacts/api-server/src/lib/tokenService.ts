@@ -8,6 +8,7 @@ import {
   type TokenReason,
   type SpendItem,
   STATION_PAUSE_COST,
+  type GameCreditPack,
   STATION_PAUSE_MAX_EQUIPPED,
   EXPRESS_MULTIPLIER_COST,
   EXPRESS_MULTIPLIER_MINUTES,
@@ -43,6 +44,8 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export interface TokenStateRow {
   balance: number;
   stationPausesEquipped: number;
+  /** Bought game plays still in the pool. See buyGameCredits below. */
+  gameCredits: number;
   expressMultiplierExpiresAt: Date | null;
   firstClassExpiresAt: Date | null;
   equippedOutfit: string | null;
@@ -113,7 +116,11 @@ export class SpendConflictError extends Error {
       // First Class already reaches past the horizon fence. Distinct from
       // every other conflict code because it is NOT "you already have this":
       // the purchase is repeatable and the refusal is about the clock.
-      | "first_class_horizon",
+      | "first_class_horizon"
+      // The pool is empty. Distinct from insufficient_tokens: the learner may
+      // have plenty of Chai and simply not have bought a credit yet, and the
+      // two refusals send them to different places.
+      | "no_game_credits",
   ) {
     super(code);
   }
@@ -533,6 +540,108 @@ export async function buyFirstClass(
  * license it. The append happens AFTER the transaction commits so a slow or
  * broken log cannot hold the wardrobe's row lock.
  */
+/**
+ * Buy a pack of game credits. Owner ruling 2026-09-08.
+ *
+ * THE PACK IS RESOLVED SERVER-SIDE FROM ITS ID and never from anything the
+ * client sends, exactly as the outfit catalog is: a request that could name
+ * its own cost or its own play count is a faucet with a form on it.
+ *
+ * IDEMPOTENCY IS THE CALLER'S KEY, not a server-composed identity, and this is
+ * the one place that differs from every other spend here. The purchase is
+ * REPEATABLE — a learner may buy ten stacks — so there is nothing about the
+ * thing bought that could make a unique refId. Same shape and same reason as
+ * spend_first_class.
+ *
+ * A REPLAY CHARGES NOTHING AND CREDITS NOTHING. The ledger's unique
+ * (userId, reason, refId) index refuses the second row, and the balance and
+ * the pool are only touched on the call that actually inserted it.
+ */
+export async function buyGameCredits(
+  userId: string,
+  pack: GameCreditPack,
+  idempotencyKey: string,
+): Promise<{ state: TokenStateRow; charged: boolean }> {
+  return db.transaction(async (tx) => {
+    const state = await ensureState(tx, userId);
+    if (state.balance < pack.cost)
+      throw new InsufficientTokensError(state.balance, pack.cost);
+
+    const inserted = await tx
+      .insert(tokenLedgerTable)
+      .values({
+        userId,
+        delta: -pack.cost,
+        balanceAfter: state.balance - pack.cost,
+        reason: "spend_game_credits",
+        refId: idempotencyKey,
+      })
+      .onConflictDoNothing()
+      .returning({ id: tokenLedgerTable.id });
+    if (inserted.length === 0) return { state, charged: false };
+
+    const [updated] = await tx
+      .update(userTokenStateTable)
+      .set({
+        balance: sql`${userTokenStateTable.balance} - ${pack.cost}`,
+        gameCredits: sql`${userTokenStateTable.gameCredits} + ${pack.plays}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(userTokenStateTable.userId, userId))
+      .returning();
+    return { state: toState(updated), charged: true };
+  });
+}
+
+/**
+ * Spend ONE credit from the pool, for one play of a tasted game.
+ *
+ * THE FREE TASTE IS NOT THIS FUNCTION'S BUSINESS. `gameTasteState` decides
+ * whether a play is free, and the caller only reaches here once it is not:
+ * calling this while the learner still has free plays charges for something
+ * already given away.
+ *
+ * THE ROW CARRIES NO CHAI, delta 0 against the unchanged balance, exactly as
+ * station_pause_consumed does. Credits and Chai are different currencies once
+ * the pack is bought, and a consumption that moved the balance would double
+ * count the purchase.
+ *
+ * REFID MUST BE THE PLAY'S OWN IDENTITY (the game session), so a retried
+ * record spends one credit rather than two. The unique index is the authority.
+ */
+export async function consumeGameCredit(
+  userId: string,
+  refId: string,
+): Promise<{ state: TokenStateRow; consumed: boolean }> {
+  return db.transaction(async (tx) => {
+    const state = await ensureState(tx, userId);
+    if (state.gameCredits < 1) throw new SpendConflictError("no_game_credits");
+
+    const inserted = await tx
+      .insert(tokenLedgerTable)
+      .values({
+        userId,
+        delta: 0,
+        balanceAfter: state.balance,
+        reason: "game_credit_consumed",
+        refId,
+      })
+      .onConflictDoNothing()
+      .returning({ id: tokenLedgerTable.id });
+    if (inserted.length === 0) return { state, consumed: false };
+
+    const [updated] = await tx
+      .update(userTokenStateTable)
+      .set({
+        gameCredits: sql`${userTokenStateTable.gameCredits} - 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(userTokenStateTable.userId, userId))
+      .returning();
+    return { state: toState(updated), consumed: true };
+  });
+}
+
 export async function equipOutfit(
   userId: string,
   outfitId: OutfitId | null,
@@ -866,6 +975,7 @@ async function ensureState(tx: Tx, userId: string): Promise<TokenStateRow> {
 const toState = (r: {
   balance: number;
   stationPausesEquipped: number;
+  gameCredits: number;
   expressMultiplierExpiresAt: Date | null;
   firstClassExpiresAt: Date | null;
   equippedOutfit: string | null;
@@ -875,6 +985,7 @@ const toState = (r: {
 }): TokenStateRow => ({
   balance: r.balance,
   stationPausesEquipped: r.stationPausesEquipped,
+  gameCredits: r.gameCredits,
   expressMultiplierExpiresAt: r.expressMultiplierExpiresAt ?? null,
   firstClassExpiresAt: r.firstClassExpiresAt ?? null,
   equippedOutfit: r.equippedOutfit ?? null,

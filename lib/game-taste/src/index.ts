@@ -35,6 +35,15 @@ export interface GameTasteState {
   tasting: boolean;
   /** Plays left before the wall. Zero once spent; always zero for a locked game. */
   playsLeft: number;
+  /**
+   * Bought plays still in the learner's pool, usable on ANY tasted game.
+   *
+   * Separate from `playsLeft` on purpose: the free taste is per game and these
+   * are one shared pool, so adding them together would produce a number that
+   * is right on one card and wrong on the next five. Always zero for an
+   * entitled learner and for an All-Access game.
+   */
+  creditsLeft: number;
   /** True when the learner may start a run right now. */
   playable: boolean;
 }
@@ -53,22 +62,46 @@ export function gameTasteState({
   plusOnly,
   isPlus,
   playsUsed,
+  credits = 0,
 }: {
   plusOnly: boolean;
   isPlus: boolean;
   playsUsed: number;
+  /**
+   * Bought plays in the learner's pool. Defaults to zero so every existing
+   * caller keeps its exact behaviour: this argument was added on 2026-09-08
+   * with the Chai game-credit sink, and a caller that does not know about
+   * credits must not accidentally grant one.
+   */
+  credits?: number;
 }): GameTasteState {
-  // Entitled: no ceiling, and no number counting down at them.
-  if (isPlus) return { tasting: false, playsLeft: 0, playable: true };
+  // Entitled: no ceiling, and no number counting down at them. Checked BEFORE
+  // credits, because Plus has no ceiling to raise and must never be shown a
+  // pool it has no use for.
+  if (isPlus)
+    return { tasting: false, playsLeft: 0, creditsLeft: 0, playable: true };
 
   // An All-Access game is what it always was for a Free learner: shut. It is
   // NOT a taste, and saying "3 plays left" on a door that does not open would
-  // be worse than the lock.
-  if (plusOnly) return { tasting: false, playsLeft: 0, playable: false };
+  // be worse than the lock. CREDITS DO NOT OPEN IT EITHER: Chai buys quantity,
+  // never a ceiling removed, which is the same rule stops past zone one run on.
+  if (plusOnly)
+    return { tasting: false, playsLeft: 0, creditsLeft: 0, playable: false };
 
   const used = Number.isFinite(playsUsed) ? Math.max(0, Math.floor(playsUsed)) : 0;
   const left = Math.max(0, GAME_TASTE_PLAYS - used);
-  return { tasting: true, playsLeft: left, playable: left > 0 };
+  // Defensive on credits for the same reason as playsUsed: a negative or
+  // fractional pool is a caller bug and must never become a free play.
+  const pool = Number.isFinite(credits) ? Math.max(0, Math.floor(credits)) : 0;
+  return {
+    tasting: true,
+    playsLeft: left,
+    creditsLeft: pool,
+    // THE FREE TASTE IS SPENT FIRST. A learner with plays left and credits in
+    // the pool is playing for free, so the pool is only reachable once the
+    // taste is gone. Any other order charges for something already given away.
+    playable: left > 0 || pool > 0,
+  };
 }
 
 /**
@@ -80,9 +113,15 @@ export function gameTasteState({
  */
 export function gameTasteLabel(state: GameTasteState): string | null {
   if (!state.tasting) return null;
-  if (state.playsLeft === 0) return "Free taste used";
   if (state.playsLeft === 1) return "1 free play left";
-  return `${state.playsLeft} free plays left`;
+  if (state.playsLeft > 1) return `${state.playsLeft} free plays left`;
+  // The taste is gone, so the pool is what is left to say. It is named
+  // "credits" rather than "plays" so the learner can tell what they were given
+  // from what they paid for, and so the card does not read as though the free
+  // taste refilled itself overnight.
+  if (state.creditsLeft === 1) return "1 credit left";
+  if (state.creditsLeft > 1) return `${state.creditsLeft} credits left`;
+  return "Free taste used";
 }
 
 /**

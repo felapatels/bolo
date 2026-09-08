@@ -215,6 +215,7 @@ import {
   grantTokens,
   grantTokensDetailed,
   getOrCreateTokenState,
+  consumeGameCredit,
   consumePausesForGap,
   listCoveredDayKeys,
 } from "../lib/tokenService";
@@ -226,6 +227,7 @@ import {
   gameSessionPassed,
   CLOSEOUT_FIRST_CHAI,
   STOP_UNLOCK_COST,
+  ALL_ACCESS_GIFT_MULTIPLIER,
 } from "../lib/tokenEconomy";
 import { maybeGrantAllowance } from "./tokens";
 import { recordActivityEvent } from "../lib/activityEvents";
@@ -1828,7 +1830,18 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
             // giftChaiForDraw is pure in (learner, day, streak), and the refId
             // makes the second of the two a no-op whichever arrives first.
             const dayKey = localDayKey(now, timezone);
-            const amount = giftChaiForDraw(userId, dayKey, currentStreakDays);
+            // THE MULTIPLIER RIDES HERE TOO, and it has to: this path and the
+            // box tap grant the same day under the same refId, so if only one
+            // of them doubled, whichever request arrived first would decide
+            // what an All-Access learner was paid.
+            const amount = giftChaiForDraw(
+              userId,
+              dayKey,
+              currentStreakDays,
+              (req as EntitledRequest).resolvedPlan?.plan === "plus"
+                ? ALL_ACCESS_GIFT_MULTIPLIER
+                : 1,
+            );
             return grantTokensDetailed(
               userId,
               "earn_streak_day",
@@ -2487,12 +2500,28 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   //
   // Counted per GAME and not per language: three plays of Ticket Check is
   // three, in Hindi or Tamil. Per language would be 66 free plays across 22.
+  // WHETHER THIS PLAY IS PAID FOR, decided at the gate and spent after the
+  // session lands. False for a free taste play, for an entitled learner and for
+  // a refused one.
+  let paidFromPool = false;
   if (isTasteGame(game) && isHubPlay(context)) {
     const plan = (req as EntitledRequest).resolvedPlan?.plan ?? "free";
+    const [playCounts, tokenState] = await Promise.all([
+      countTastePlays(userId),
+      getOrCreateTokenState(userId),
+    ]);
     const taste = gameTasteState({
       plusOnly: false,
       isPlus: plan === "plus",
-      playsUsed: (await countTastePlays(userId))[game] ?? 0,
+      playsUsed: playCounts[game] ?? 0,
+      // THE POOL HAS TO REACH THE GATE OR IT IS SOLD AND NOT HONOURED. This
+      // argument was missing when game credits first landed: the purchase
+      // charged, the wallet showed the pool and GET /games/plays reported it,
+      // and then this gate refused the play anyway because `credits` defaults
+      // to 0. Unit tests passed on both sides of the gap because they proved
+      // that gameTasteState honours a pool it is GIVEN, and nothing asserted
+      // that the route gives it one.
+      credits: tokenState.gameCredits,
     });
     if (!taste.playable) {
       // 402 and the UpgradeRequired envelope, which is what every other plan
@@ -2514,6 +2543,9 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
       );
       return;
     }
+    // THE FREE TASTE IS SPENT BEFORE THE POOL, so a play is paid only when
+    // there was no free play left to give it.
+    paidFromPool = taste.playsLeft === 0 && taste.creditsLeft > 0;
   }
 
   // Enforce per-game-mode result cap (defence-in-depth beyond schema .max(120)).
@@ -2629,6 +2661,20 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
       feedback: "",
     }),
   ]);
+
+  // SPEND THE CREDIT, keyed on the session that just landed so a retried
+  // record spends one rather than two and a refused play spends none.
+  //
+  // NON-CRITICAL ON PURPOSE, like the XP write below. If this fails the learner
+  // keeps a play they did not pay for, which is a leak; awaiting it and failing
+  // the request would take a play they already earned, which is a loss. A leak
+  // is the better failure, and the ledger's unique index means a retry cannot
+  // double-spend.
+  if (paidFromPool && session) {
+    consumeGameCredit(userId, `play:${session.id}`).catch((err) => {
+      req.log?.warn({ err }, "game_credit_consume_failed");
+    });
+  }
 
   // XP ledger write (idempotent). Non-critical: does not affect the response.
   if (session && xpEarned > 0) {

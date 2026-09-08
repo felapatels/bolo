@@ -28,6 +28,20 @@ export const userTokenStateTable = pgTable("user_token_state", {
     withTimezone: true,
   }),
   lastAllowanceMonth: text("last_allowance_month"),
+  // GAME CREDITS (Chai sink, owner ruling Sep 8 2026): extra plays of a tasted
+  // game, bought in packs and spent one at a time.
+  //
+  // A STORED BALANCE, WHICH IS THE ONE PLACE THIS DIFFERS FROM THE FREE TASTE.
+  // Plays already used are DERIVED, counted off game_sessions by
+  // countTastePlays, and they are per game. Credits are a single pool usable on
+  // ANY tasted game, so they cannot be derived from a per-game count and need a
+  // number that goes down. Same shape as station_pauses_equipped above, for the
+  // same reason: buy writes a ledger row and increments, use writes a ledger
+  // row and decrements.
+  //
+  // NEVER READ FOR AN ENTITLED LEARNER. gameTasteState short-circuits on isPlus
+  // before it looks at a credit, because Plus has no ceiling to raise.
+  gameCredits: integer("game_credits").notNull().default(0),
   // Outfits (Chai sink, Aug 6 2026): the outfit this learner's Bolo is
   // wearing, or NULL for canonical undressed Bolo. Ownership is NOT here —
   // that is the ledger row (see api-server/src/lib/outfits.ts). This column

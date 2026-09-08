@@ -35,6 +35,7 @@ import {
   lettersMetBy,
 } from "@workspace/script-trace";
 import { GAME_TASTE_PLAYS } from "@workspace/game-taste";
+import { getOrCreateTokenState } from "../lib/tokenService";
 import { countTastePlays } from "../lib/gameTasteCounts";
 import { localDayKey, computeDailyQuizStreak } from "../lib/progressMetrics";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
@@ -1113,9 +1114,18 @@ router.get(
   "/games/plays",
   async (req: Request, res: Response): Promise<void> => {
     try {
+      const userId = getUserId(req);
+      const [plays, state] = await Promise.all([
+        countTastePlays(userId),
+        getOrCreateTokenState(userId),
+      ]);
       res.json({
-        plays: await countTastePlays(getUserId(req)),
+        plays,
         limit: GAME_TASTE_PLAYS,
+        // THE BOUGHT POOL, alongside the free counts and never added to them.
+        // The free taste is per game and this is one shared pool, so a sum
+        // would be right on one card and wrong on the next five.
+        credits: state.gameCredits,
       });
     } catch (err) {
       req.log?.error({ err }, "game_taste_plays_read_failed");

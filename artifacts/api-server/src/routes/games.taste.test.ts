@@ -32,6 +32,8 @@ import {
   db,
   pool,
   usersTable,
+  tokenLedgerTable,
+  userTokenStateTable,
   languagesTable,
   categoriesTable,
   lessonsTable,
@@ -41,15 +43,19 @@ import {
   badgesTable,
   xpLedgerTable,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { GAME_TASTE_PLAYS, TASTE_GAME_IDS } from "@workspace/game-taste";
 import learningRouter from "./learning";
+import { buyGameCredits, getOrCreateTokenState, grantTokens } from "../lib/tokenService";
+import { getGameCreditPack } from "../lib/tokenEconomy";
 import gamesRouter from "./games";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { FREE_LANGUAGE } from "../lib/entitlements";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
 const TEST_USER_ID = "test_game_taste";
+/** The credit tests below get their own learner: see the header note in the app setup. */
+const CREDIT_USER_ID = "test_game_taste_credits";
 const CATEGORY_SLUG = "__test_cat_game_taste";
 
 let app: Express;
@@ -63,17 +69,24 @@ async function get(path: string): Promise<{ status: number; json: any }> {
   return { status: res.status, json: await res.json().catch(() => null) };
 }
 
-async function post(path: string, body: unknown): Promise<{ status: number; json: any }> {
+async function post(
+  path: string,
+  body: unknown,
+  asUser?: string,
+): Promise<{ status: number; json: any }> {
   const res = await fetch(`${baseUrl}${path}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(asUser ? { "x-test-user": asUser } : {}),
+    },
     body: JSON.stringify(body),
   });
   return { status: res.status, json: await res.json().catch(() => null) };
 }
 
 /** One correct round of a selection game, so the session is real and passes. */
-function play(game: string, context?: string) {
+function play(game: string, context?: string, asUser?: string) {
   return post("/game-sessions", {
     languageCode: FREE_LANGUAGE,
     game,
@@ -81,14 +94,18 @@ function play(game: string, context?: string) {
     phraseResults: phraseIds.map((id) => ({ phraseId: id, selectedPhraseId: id })),
     ...(context ? { context } : {}),
     ...(context === "signal" ? { contextRef: "gap-1" } : {}),
-  });
+  }, asUser);
 }
 
-async function setPlan(tier: string, status: string | null): Promise<void> {
+async function setPlan(
+  tier: string,
+  status: string | null,
+  userId: string = TEST_USER_ID,
+): Promise<void> {
   await db
     .update(usersTable)
     .set({ tier, subscriptionStatus: status, trialEndsAt: null, currentPeriodEnd: null })
-    .where(eq(usersTable.id, TEST_USER_ID));
+    .where(eq(usersTable.id, userId));
 }
 
 /** Every taste this user has spent, so each test starts from three plays. */
@@ -101,7 +118,10 @@ before(async () => {
   await ensureUsersColumns();
   await db
     .insert(usersTable)
-    .values({ id: TEST_USER_ID, displayName: "Game Taste Test" })
+    .values([
+      { id: TEST_USER_ID, displayName: "Game Taste Test" },
+      { id: CREDIT_USER_ID, displayName: "Game Credit Test" },
+    ])
     .onConflictDoNothing();
   await db
     .insert(languagesTable)
@@ -152,7 +172,13 @@ before(async () => {
   app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    (req as unknown as { userId: string }).userId = TEST_USER_ID;
+    // A SECOND IDENTITY, opt-in by header. The game-session rate limiter is
+    // 30 a minute PER USER, and the credit tests at the foot of this file
+    // replay the wall several times on top of everything above them, which
+    // exhausted the shared bucket and answered 429 where the test expected a
+    // 402. Existing tests send no header and keep the original id exactly.
+    (req as unknown as { userId: string }).userId =
+      (req.headers["x-test-user"] as string | undefined) ?? TEST_USER_ID;
     next();
   });
   app.use(loadEntitlements);
@@ -173,14 +199,17 @@ after(async () => {
   await new Promise<void>((resolve, reject) =>
     server.close((err) => (err ? reject(err) : resolve())),
   );
-  await db.delete(badgesTable).where(eq(badgesTable.userId, TEST_USER_ID));
-  await db.delete(attemptsTable).where(eq(attemptsTable.userId, TEST_USER_ID));
-  await db.delete(gameSessionsTable).where(eq(gameSessionsTable.userId, TEST_USER_ID));
-  await db.delete(xpLedgerTable).where(eq(xpLedgerTable.userId, TEST_USER_ID));
+  const users = [TEST_USER_ID, CREDIT_USER_ID];
+  await db.delete(badgesTable).where(inArray(badgesTable.userId, users));
+  await db.delete(attemptsTable).where(inArray(attemptsTable.userId, users));
+  await db.delete(gameSessionsTable).where(inArray(gameSessionsTable.userId, users));
+  await db.delete(xpLedgerTable).where(inArray(xpLedgerTable.userId, users));
+  await db.delete(tokenLedgerTable).where(inArray(tokenLedgerTable.userId, users));
+  await db.delete(userTokenStateTable).where(inArray(userTokenStateTable.userId, users));
   await db.delete(phrasesTable).where(eq(phrasesTable.categoryId, categoryId));
   await db.delete(lessonsTable).where(eq(lessonsTable.categoryId, categoryId));
   await db.delete(categoriesTable).where(eq(categoriesTable.slug, CATEGORY_SLUG));
-  await db.delete(usersTable).where(eq(usersTable.id, TEST_USER_ID));
+  await db.delete(usersTable).where(inArray(usersTable.id, users));
   await pool.end();
 });
 
@@ -271,3 +300,71 @@ test("the last All-Access holdout moved too, because the ruling said ALL", async
   // And the wall counts it now, which is the half that was never true before.
   assert.equal((await play("wrong-platform-2")).status, 402, "the fourth play");
 });
+
+// ── The bought pool must reach the gate ────────────────────────────────────
+//
+// THIS IS THE TEST THAT WAS MISSING WHEN GAME CREDITS FIRST LANDED, and its
+// absence is the whole lesson. The unit tests proved that `gameTasteState`
+// honours a pool it is GIVEN, and every one of them passed while the route
+// gave it none: the purchase charged, the wallet showed the pool, GET
+// /games/plays reported it, and this gate refused the play anyway because
+// `credits` defaults to 0. A pool that is sold and not honoured is money taken
+// for nothing, and no unit test on either side of the gap could see it.
+//
+// So this asserts the JOURNEY, not the parts: spend the taste, buy a credit,
+// and the very next play must be served AND the credit spent.
+test("a bought credit is honoured at the wall, and spending it costs exactly one", async () => {
+  // SET THE PLAN EXPLICITLY rather than trusting the row's default. The first
+  // run of this test asserted 402 and got 201, because a freshly inserted
+  // learner does not resolve to "free" on its own and the wall never went up.
+  // A fixture that relies on a default is a fixture that changes meaning the
+  // day the default does.
+  // AND PROVE THE FIXTURE EXISTS BEFORE TRUSTING A REFUSAL. setPlan is an
+  // UPDATE: against a missing row it changes nothing, silently, and the test
+  // then measures a learner the server has never heard of.
+  await db
+    .insert(usersTable)
+    .values({ id: CREDIT_USER_ID, displayName: "Game Credit Test" })
+    .onConflictDoNothing();
+  await setPlan("free", null, CREDIT_USER_ID);
+  const [fixture] = await db
+    .select({ tier: usersTable.tier })
+    .from(usersTable)
+    .where(eq(usersTable.id, CREDIT_USER_ID));
+  assert.equal(fixture?.tier, "free", "the credit learner must exist and be free");
+  // Burn the free taste on a learner of its own, so the rate limiter's
+  // per-user bucket is fresh and a 429 can never be mistaken for a 402.
+  for (let i = 0; i < GAME_TASTE_PLAYS; i += 1) {
+    const burn = await play("ticket-check", undefined, CREDIT_USER_ID);
+    assert.equal(burn.status, 201, `burn play ${i + 1} did not record: ${JSON.stringify(burn.json)}`);
+  }
+  const walled = await play("ticket-check", undefined, CREDIT_USER_ID);
+  assert.equal(walled.status, 402, `the taste is spent and the wall is up, got ${walled.status} ${JSON.stringify(walled.json)}`);
+
+  // FUND THE LEARNER. The first run of this test died on insufficient_tokens
+  // inside buyGameCredits, and the assertion that surfaced was a stale 402
+  // from the test after it, which is why the visible failure named the wrong
+  // thing entirely.
+  await grantTokens(CREDIT_USER_ID, "adjust_manual", "taste-test-fund", 200);
+  const { state } = await buyGameCredits(
+    CREDIT_USER_ID,
+    getGameCreditPack("trio")!,
+    "taste-test-credits-1",
+  );
+  assert.equal(state.gameCredits, 3, "three plays in the pool");
+
+  const served = await play("ticket-check", undefined, CREDIT_USER_ID);
+  assert.equal(served.status, 201, "the pool must open the door the taste closed");
+
+  // The spend is fire-and-forget behind the response, so give it a beat.
+  await new Promise((r) => setTimeout(r, 300));
+  const after = await getOrCreateTokenState(CREDIT_USER_ID);
+  assert.equal(after.gameCredits, 2, "exactly one credit, not none and not two");
+});
+
+// THE "CREDITS NEVER OPEN AN ALL-ACCESS GAME" ASSERTION LIVES IN
+// tokens.gameCredits.test.ts, AT THE PURE LEVEL, AND THAT IS THE RIGHT PLACE.
+// It was drafted here first and was wrong twice over: POST /game-sessions
+// hardcodes `plusOnly: false` and skips the gate entirely for a game outside
+// TASTE_GAME_IDS, so this route never enforces that boundary and a test here
+// would have asserted a rule the code under it does not own.

@@ -4,6 +4,7 @@ import { db, gameSessionsTable, languagesTable, usersTable } from "@workspace/db
 import { eq } from "drizzle-orm";
 import { gameTasteState } from "@workspace/game-taste";
 import { countTastePlays } from "../lib/gameTasteCounts";
+import { getOrCreateTokenState } from "../lib/tokenService";
 import { upgradeRequired, type Plan } from "../lib/entitlements";
 import { sendUpgradeRequired } from "../lib/gating";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
@@ -206,9 +207,19 @@ const defaultDeps: ChachaCallDeps = {
   cannedLine: callLine,
   freeTaste: {
     usedUp: async (userId, plan) => {
-      const playsUsed = (await countTastePlays(userId))["chacha-call"] ?? 0;
-      return !gameTasteState({ plusOnly: false, isPlus: plan === "plus", playsUsed })
-        .playable;
+      const [playCounts, tokenState] = await Promise.all([
+        countTastePlays(userId),
+        getOrCreateTokenState(userId),
+      ]);
+      // The pool reaches this gate too. A learner who bought credits and was
+      // then refused the one tasted game the SERVER sees begin would have paid
+      // for nothing, and this is the harder of the two gates to notice.
+      return !gameTasteState({
+        plusOnly: false,
+        isPlus: plan === "plus",
+        playsUsed: playCounts["chacha-call"] ?? 0,
+        credits: tokenState.gameCredits,
+      }).playable;
     },
     recordCall: async (userId, languageCode) => {
       await db.insert(gameSessionsTable).values({
