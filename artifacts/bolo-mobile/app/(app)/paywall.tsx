@@ -63,7 +63,7 @@ type Benefit = {
  * client release was needed. A paywall with a stale price on it is worse than
  * one that never mentioned the benefit.
  */
-export function allAccessBenefits(monthlyChai: number | null): Benefit[] {
+export function allAccessBenefits(giftMultiplier: number | null): Benefit[] {
   return [
   {
     icon: 'globe',
@@ -94,12 +94,16 @@ export function allAccessBenefits(monthlyChai: number | null): Benefit[] {
   // number, so it is the one a reader carries away from the bottom of a list.
   // Dropped entirely when the figure has not loaded, rather than shown with a
   // blank or a guess where a price should be.
-  ...(monthlyChai != null && monthlyChai > 0
+  // THE MONTHLY DROP BECAME A MULTIPLIER, owner ruling 2026-09-08. The number
+  // is still served rather than written here, so it can move again without an
+  // app release, and the `> 1` guard is what quietly retires the old line on
+  // every build already in the stores: the allowance now answers 0.
+  ...(giftMultiplier != null && giftMultiplier > 1
     ? [
         {
           icon: 'coffee' as const,
-          title: 'Free Chai Drop Every Month!',
-          desc: `${monthlyChai} Chai to spend in BOLO Bazaar`,
+          title: `${giftMultiplier}X Daily Gifts!`,
+          desc: `Every gift you open pays ${giftMultiplier} times, in Chai for the Bazaar`,
         },
       ]
     : []),
@@ -247,7 +251,7 @@ export default function PaywallScreen() {
 
   const benefits =
     tier === 'all_access'
-      ? allAccessBenefits(tokens.data?.allowanceAllAccessMonthly ?? null)
+      ? allAccessBenefits(tokens.data?.allAccessGiftMultiplier ?? null)
       : oneLanguageBenefits(chosenLangName);
 
   const monthlyPackage =

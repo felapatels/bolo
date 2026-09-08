@@ -2197,16 +2197,23 @@ router.post("/openai/chat", async (req: Request, res: Response): Promise<void> =
           // same zone. The refId mirrors the closeout grant's shape. A failure
           // here must never cost the learner the stamp or the XP they earned,
           // so it is caught and logged rather than thrown.
-          try {
-            const { granted } = await grantTokensDetailed(
-              userId,
-              "earn_capstone_first",
-              `${languageCode}:${scenario.zoneIndex}`,
-              CAPSTONE_FIRST_CHAI,
-            );
-            if (granted) tokensEarned = CAPSTONE_FIRST_CHAI;
-          } catch (err) {
-            req.log.warn({ err }, "token_capstone_grant_failed");
+          //
+          // GUARDED ON THE AMOUNT since 2026-09-08, when the owner killed this
+          // payment: CAPSTONE_FIRST_CHAI is 0 and a ledger row worth nothing is
+          // noise in a wallet history. The stamp and the XP above are untouched
+          // and still land; only the Chai stopped.
+          if (CAPSTONE_FIRST_CHAI > 0) {
+            try {
+              const { granted } = await grantTokensDetailed(
+                userId,
+                "earn_capstone_first",
+                `${languageCode}:${scenario.zoneIndex}`,
+                CAPSTONE_FIRST_CHAI,
+              );
+              if (granted) tokensEarned = CAPSTONE_FIRST_CHAI;
+            } catch (err) {
+              req.log.warn({ err }, "token_capstone_grant_failed");
+            }
           }
         }
       }

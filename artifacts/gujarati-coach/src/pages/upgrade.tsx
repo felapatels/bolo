@@ -75,18 +75,21 @@ const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
  * number is worse than one that never mentioned the benefit, so when the
  * figure has not loaded the row is dropped rather than guessed.
  */
-function allAccessBenefits(monthlyChai: number | null) {
+function allAccessBenefits(giftMultiplier: number | null) {
   return [
     { icon: Globe, text: "All 22 South Asian languages" },
     { icon: InfinityIcon, text: "Full phrase library, sentences & every game" },
     { icon: Target, text: "Review your weakest phrases" },
     { icon: BarChart3, text: "Advanced progress analytics" },
     { icon: Award, text: "Exclusive All-Access badges" },
-    ...(monthlyChai != null && monthlyChai > 0
+    // THE MONTHLY DROP BECAME A MULTIPLIER, owner ruling 2026-09-08. Mobile
+    // twin: allAccessBenefits() in paywall.tsx. The `> 1` guard retires the old
+    // line by itself, because the allowance now answers 0.
+    ...(giftMultiplier != null && giftMultiplier > 1
       ? [
           {
             icon: Coffee,
-            text: `Free Chai Drop Every Month! ${monthlyChai} Chai to spend in BOLO Bazaar`,
+            text: `${giftMultiplier}X Daily Gifts! Every gift you open pays ${giftMultiplier} times, in Chai for the Bazaar`,
           },
         ]
       : []),
@@ -384,7 +387,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
             tagline="Every language + every premium tool"
             price={priceForTier("plus")}
             benefits={allAccessBenefits(
-              tokens.data?.allowanceAllAccessMonthly ?? null,
+              tokens.data?.allAccessGiftMultiplier ?? null,
             )}
             highlight="7-day free trial"
             recommended
