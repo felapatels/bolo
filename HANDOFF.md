@@ -2,8 +2,6 @@
 
 Written 2026-09-07 overnight, rewritten 2026-09-08 at handover. Read
 `~/bolo/CLAUDE.md` first; it outranks this.
-Written 2026-09-07 overnight, rewritten 2026-09-08 at handover. Read
-`~/bolo/CLAUDE.md` first; it outranks this.
 
 ---
 
