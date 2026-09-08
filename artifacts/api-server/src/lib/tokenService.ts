@@ -564,9 +564,45 @@ export async function buyGameCredits(
 ): Promise<{ state: TokenStateRow; charged: boolean }> {
   return db.transaction(async (tx) => {
     const state = await ensureState(tx, userId);
+
+    // THE REPLAY IS ANSWERED BEFORE THE WALLET IS READ, and the order is the
+    // whole point rather than a tidiness preference.
+    //
+    // This function shipped with the balance check first, and that made the
+    // contract's own promise false: a repeat call with the same key is
+    // documented as a free 200 replay, and it was, UNLESS the learner had spent
+    // down in between. Buy a pack, spend the rest, lose the response, retry,
+    // and the server answers 409 insufficient_tokens for a purchase that HAD
+    // ALREADY SUCCEEDED.
+    //
+    // AN IDEMPOTENCY CHECK THAT SITS BEHIND A PRECONDITION IS NOT IDEMPOTENT.
+    // It is idempotent while nothing else changed, which is the case a retry
+    // exists to survive. Found by SEA, whose journey test drove the balance to
+    // zero on its way past and then replayed the key; no unit test would think
+    // to run that order.
+    //
+    // `buyFirstClass` and `unlockStop` above both already do this, and this
+    // function claimed to copy their pattern. It copied the ledger row and the
+    // onConflictDoNothing and missed the reason they read the ledger first.
+    const [already] = await tx
+      .select({ id: tokenLedgerTable.id })
+      .from(tokenLedgerTable)
+      .where(
+        and(
+          eq(tokenLedgerTable.userId, userId),
+          eq(tokenLedgerTable.reason, "spend_game_credits"),
+          eq(tokenLedgerTable.refId, idempotencyKey),
+        ),
+      )
+      .limit(1);
+    if (already) return { state, charged: false };
+
     if (state.balance < pack.cost)
       throw new InsufficientTokensError(state.balance, pack.cost);
 
+    // The onConflictDoNothing below stays as the RACE backstop: two concurrent
+    // retries can both pass the read above, and the unique index is what makes
+    // only one of them pay.
     const inserted = await tx
       .insert(tokenLedgerTable)
       .values({

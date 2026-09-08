@@ -46,6 +46,7 @@ import {
   consumeGameCredit,
   grantTokens,
   getOrCreateTokenState,
+  applyChaiAdjustment,
   SpendConflictError,
 } from "../lib/tokenService";
 import tokensRouter from "./tokens";
@@ -320,4 +321,41 @@ test("a caller that knows nothing about credits cannot accidentally grant one", 
   });
   assert.equal(legacy.playable, false);
   assert.equal(legacy.creditsLeft, 0);
+});
+
+test("a replay is still free after the learner has spent down to nothing", async () => {
+  // THE ORDER IS THE TEST. This function shipped with the wallet checked BEFORE
+  // the idempotency key, which made the contract's own promise false: a repeat
+  // call with the same key is documented as a free 200 replay, and it was,
+  // UNLESS the learner spent down in between. Buy a pack, spend the rest, lose
+  // the response, retry, and the server answered 409 for a purchase that had
+  // already succeeded.
+  //
+  // AN IDEMPOTENCY CHECK BEHIND A PRECONDITION IS NOT IDEMPOTENT. It is
+  // idempotent while nothing else changed, which is exactly the case a retry
+  // exists to survive.
+  //
+  // Found by SEA, whose journey test drove the balance to zero on the way past
+  // and then replayed the key. No unit test would think to run that order,
+  // which is the same lesson as the gate hole one layer down.
+  const pack = getGameCreditPack("single")!;
+  const first = await buy(POOL_USER, {
+    pack: "single",
+    idempotencyKey: "replay-when-broke",
+  });
+  assert.equal(first.json.charged, true, "the first buy charges");
+
+  // Spend the wallet down below the pack's price, the way a learner would.
+  const before = await getOrCreateTokenState(POOL_USER);
+  await applyChaiAdjustment(POOL_USER, "drain-for-replay-test", -before.balance);
+  const broke = await getOrCreateTokenState(POOL_USER);
+  assert.ok(broke.balance < pack.cost, "the learner can no longer afford the pack");
+
+  const replay = await buy(POOL_USER, {
+    pack: "single",
+    idempotencyKey: "replay-when-broke",
+  });
+  assert.equal(replay.status, 200, "a replay must not become a refusal");
+  assert.equal(replay.json.charged, false, "and must not charge again");
+  assert.equal(replay.json.credits, broke.gameCredits, "and must not credit again");
 });
