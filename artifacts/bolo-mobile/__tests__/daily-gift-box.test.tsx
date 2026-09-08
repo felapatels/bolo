@@ -24,9 +24,18 @@ import { render, screen, fireEvent, act } from '@testing-library/react-native';
 
 const h: Record<string, any> = {};
 
+// SPREAD THE SHARED BASE FIRST, so this file's own stubs win and so the NEXT
+// hook the card grows costs this file nothing. This mock used to name its four
+// exports by hand, which is why adding `useGetTokens` broke all fifteen tests
+// here at import time with "useGetTokens is not a function": the same bill
+// CLAUDE.md records as costing thirty-two suites three lines each, and the
+// trigger it names for building the base. See __tests__/helpers/apiClientMock.
 jest.mock('@workspace/api-client-react', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  ...require('./helpers/apiClientMock').baseApiClientMock(),
   useGetDailyGift: () => ({ data: h.gift, isLoading: false, isError: false }),
   useClaimDailyGift: () => ({ mutate: h.claim, isPending: h.pending }),
+  useGetTokens: () => ({ data: { balance: h.balance }, isLoading: false }),
   getGetDailyGiftQueryKey: () => ['daily-gift'],
   getGetTokensQueryKey: () => ['tokens'],
 }));
@@ -61,6 +70,18 @@ jest.mock('@/constants/fonts', () => ({
   },
   nativeTextStyle: () => ({}),
 }));
+
+// THE ENTITLEMENTS CONTEXT, mocked here and NOT given a provider, because the
+// gift card reads `isPlus` to decide between a distance meter and a shop door.
+// One file's mock rather than a provider in every home suite: this is the same
+// bill CLAUDE.md records as costing mobile ninety-six lines across thirty-two
+// files when two hooks landed, and the cheapest time to keep it to one file is
+// the first time it arrives.
+jest.mock('@/contexts/EntitlementsContext', () => ({
+  useEntitlements: () => ({ isPlus: false, isLoading: false, dailyNewLessons: 3 }),
+}));
+
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 
 // Imported after the mocks.
 import { DailyGiftCard } from '@/components/DailyGiftCard';
@@ -117,12 +138,17 @@ describe('the card decides whether there is a box at all', () => {
 });
 
 describe('the closed box', () => {
-  it('names the day, not the amount, and invites the tap', () => {
+  it('offers the distance the Chai is for, not a second copy of the day', () => {
+    // INVERTED 2026-09-08 with the owner's redesign. This asserted "Day 4" and
+    // "Tap to open" as ROW text. Both moved: the day is now written ON the box
+    // itself ("write directly on it, Day 4 Gift"), and the row carries the one
+    // thing that gives the Chai a reason. His framing: "a spin with nothing to
+    // spend it on is a number going up on its own."
     render(<DailyGiftCard />);
-    expect(screen.getByText('Day 4')).toBeOnTheScreen();
-    expect(screen.getByText('Tap to open')).toBeOnTheScreen();
-    // The amount is what the tap BUYS. Printing it on the closed lid would
-    // make an unopened box a receipt already read.
+    expect(screen.getByTestId('daily-gift-box-remain')).toBeOnTheScreen();
+    expect(screen.getByTestId('daily-gift-box-count')).toBeOnTheScreen();
+    // And the amount is still not printed on the unopened box: it is what the
+    // tap BUYS, and naming it first is the near-miss shape by another route.
     expect(screen.queryByText('4 Chai')).toBeNull();
   });
 
@@ -141,52 +167,42 @@ describe('the closed box', () => {
 });
 
 describe('the opened box', () => {
-  it('reads Day 4, 4 Chai, Tomorrow 5', () => {
-    // THE ONE LINE THAT DOES THE WORK is the third. A gift that says what it
-    // becomes is a reason to return; a gift that just pays is a transaction.
-    h.gift = giftState({ claimed: true, claimable: false });
+  it('shows the amount, and no longer promises tomorrow', () => {
+    // INVERTED 2026-09-08. Two tests lived here, "reads Day 4, 4 Chai,
+    // Tomorrow 5" and "never promises an eighth day", and BOTH pinned a line
+    // the owner cut: "get rid of tomorrow 5 to 25". They are replaced rather
+    // than deleted, because the thing worth keeping is the assertion that the
+    // box does not make a promise about tomorrow AT ALL, which is now true by
+    // absence instead of by careful wording at the cap.
+    h.gift = giftState({ claimed: true, claimable: false, chai: 4 });
     render(<DailyGiftCard />);
-    expect(screen.getByText('4 Chai')).toBeOnTheScreen();
-    expect(screen.getByText('Day 4 in a row')).toBeOnTheScreen();
-    expect(screen.getByText('Tomorrow: 5')).toBeOnTheScreen();
+    expect(screen.getByTestId('daily-gift-box-sum')).toBeOnTheScreen();
+    expect(screen.queryByTestId('daily-gift-box-tomorrow')).toBeNull();
+    expect(screen.queryByText(/Tomorrow/)).toBeNull();
   });
-
-  it('never promises an eighth day', () => {
-    // "Tomorrow: 8" on day 7 is a promise the cap breaks the next morning. At
-    // the cap the copy stops counting and says what is actually true.
-    h.gift = giftState({
-      day: GIFT_LADDER_CAP,
-      chai: GIFT_LADDER_CAP,
-      tomorrowChai: GIFT_LADDER_CAP,
-      tier: 'grand',
-      claimed: true,
-      claimable: false,
-    });
-    render(<DailyGiftCard />);
-    expect(screen.queryByText(/Tomorrow: 8/)).toBeNull();
-    expect(screen.getByText('A full week. Same again tomorrow.')).toBeOnTheScreen();
-  });
-});
-
-describe('the four boxes differ by shape, never by hue alone', () => {
   it('grows with the streak', () => {
     // The tier is a picture of how long the learner kept it up, and it is read
     // by SIZE. A learner who cannot separate the colours still sees four
     // different boxes.
+    //
+    // RESTORED 2026-09-08 after being swallowed by a careless replacement of
+    // the two tests either side of it. It reads the svg's own width now rather
+    // than a wrapper's style, because the redesign draws the box as one svg
+    // sized to its art. The guard itself is unchanged and it is the owner's
+    // accessibility requirement, not a nicety.
     const widths = (['small', 'medium', 'large', 'grand'] as const).map((tier) => {
       const { unmount } = render(
         <DailyGiftBox
           day={1}
           chai={1}
           tier={tier}
-          tomorrowChai={2}
           claimed={false}
           claimable
           onClaim={jest.fn()}
         />,
       );
       const frame = screen.getByTestId('gift-box-frame');
-      const width = (frame.props.style as { width: number }).width;
+      const width = Number(frame.props.width);
       unmount();
       return width;
     });
@@ -241,9 +257,11 @@ describe('reduced motion', () => {
     const loop = jest.spyOn(Animated, 'loop');
     render(<DailyGiftCard />);
     expect(loop).not.toHaveBeenCalled();
-    // The information is the point; the movement never was.
-    expect(screen.getByText('4 Chai')).toBeOnTheScreen();
-    expect(screen.getByText('Tomorrow: 5')).toBeOnTheScreen();
+    // The information is the point; the movement never was. The tomorrow line
+    // is gone on the owner's instruction, so what is pinned now is that the
+    // OPENED state still says what was drawn without any motion to say it.
+    expect(screen.getByTestId('daily-gift-box-sum')).toBeOnTheScreen();
+    expect(screen.getByTestId('daily-gift-box-remain')).toBeOnTheScreen();
     loop.mockRestore();
   });
 
@@ -261,9 +279,12 @@ describe('reduced motion', () => {
         reduceMotion
       />,
     );
-    // The lift exists as a value the open frame uses; reduced motion simply
-    // starts there. Pinned as a constant so the two cannot drift apart.
+    // INVERTED 2026-09-08. There is no lid to land: the opened state REPLACES
+    // the box with the fare panel rather than opening it in place, which is the
+    // owner's "expand if needed after clicking the gift box". The constant
+    // survives as the panel's entry rise, and what is pinned is that reduced
+    // motion still reaches the opened content with no animation at all.
     expect(GIFT_LID_LIFT).toBeGreaterThan(0);
-    expect(screen.getByTestId('daily-gift-box-tomorrow')).toBeOnTheScreen();
+    expect(screen.getByTestId('daily-gift-box-sum')).toBeOnTheScreen();
   });
 });

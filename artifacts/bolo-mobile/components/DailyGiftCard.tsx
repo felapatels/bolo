@@ -1,5 +1,5 @@
 /**
- * THE GIFT BOX, WIRED. Reads today's box, opens it, and tells the wallet.
+ * THE GIFT, WIRED. Reads today's box, opens it, and tells the wallet.
  *
  * ONE CONNECTED COMPONENT FOR BOTH PLACES IT APPEARS, and that is the ruling
  * rather than tidiness: the box has to be offered where practice ENDS as well
@@ -14,12 +14,19 @@
  * empty one, and the end-of-practice placement is what catches the learner at
  * the moment the day becomes earned anyway.
  *
- * That is also what keeps the wobble out of the test suites. RN Animated is
- * real under jest and an always-on loop on the home screen hung a suite once
+ * That is also what keeps the shake out of the test suites. RN Animated is real
+ * under jest and an always-on loop on the home screen hung a suite once
  * already (see AttentionPulse); with no box there is no loop, so every existing
  * home suite is unaffected by construction rather than by a mock.
+ *
+ * THE MULTIPLIER AND THE METER COME FROM THE SERVER, NOT FROM HERE. `multiplier`
+ * is what THIS learner drew and `chaiToNextStop` is priced off
+ * tokenEconomy.ts, which is the single source of truth for every economy
+ * number. A client working out "the stop price minus my balance" would be a
+ * second copy of the price, and the day it moved the two would disagree.
  */
 import React, { useCallback } from 'react';
+import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useReducedMotion } from 'react-native-reanimated';
 import {
@@ -27,14 +34,19 @@ import {
   getGetTokensQueryKey,
   useClaimDailyGift,
   useGetDailyGift,
+  useGetTokens,
 } from '@workspace/api-client-react';
 import type { GiftTier } from '@workspace/daily-gift';
 import { DailyGiftBox } from '@/components/DailyGiftBox';
+import { useEntitlements } from '@/contexts/EntitlementsContext';
 
 export function DailyGiftCard({ testID }: { testID?: string }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const reduceMotion = useReducedMotion();
+  const { isPlus } = useEntitlements();
   const giftQuery = useGetDailyGift();
+  const tokensQuery = useGetTokens();
   const claim = useClaimDailyGift();
   const gift = giftQuery.data;
 
@@ -51,9 +63,15 @@ export function DailyGiftCard({ testID }: { testID?: string }) {
     });
   }, [claim, queryClient]);
 
+  // THE TWO DOORS, and which one a learner gets is the owner's ruling rather
+  // than a layout choice. All-Access cannot buy a stop at all, so they go to
+  // the bazaar; a Free learner short of one goes to the Chai packs.
+  const onShop = useCallback(() => router.push('/bazaar'), [router]);
+  const onGetMore = useCallback(() => router.push('/bazaar/tickets'), [router]);
+
   // Nothing practised today is not an error and not an empty state: it is a day
   // with no box in it. An opened box stays for the rest of the day, because the
-  // number it names for tomorrow is the reason to come back.
+  // distance it moved you is the reason to come back.
   if (!gift) return null;
   if (!gift.earnedToday && !gift.claimed) return null;
 
@@ -62,11 +80,18 @@ export function DailyGiftCard({ testID }: { testID?: string }) {
       testID={testID}
       day={gift.day}
       chai={gift.chai}
+      baseAmount={gift.baseAmount}
+      multiplier={gift.multiplier}
       tier={gift.tier as GiftTier}
-      tomorrowChai={gift.tomorrowChai}
       claimed={gift.claimed || claim.isPending}
       claimable={gift.claimable && !claim.isPending}
+      chaiToNextStop={gift.chaiToNextStop}
+      stopCost={gift.stopCost}
+      balance={tokensQuery.data?.balance}
+      isPlus={isPlus}
       onClaim={onClaim}
+      onShop={onShop}
+      onGetMore={onGetMore}
       reduceMotion={reduceMotion}
     />
   );
