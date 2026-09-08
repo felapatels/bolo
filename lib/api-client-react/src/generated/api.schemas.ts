@@ -1726,6 +1726,44 @@ export interface DailyQuizResult {
 }
 
 /**
+ * Which pack. Owner ruling 2026-09-08.
+ *
+ * THE NAMES CARRY NO QUANTITY, deliberately: "stack" rather than "ten" means a pack can be retuned without a breaking change to a live wire enum. The play count is data on the server's catalogue row, which is where a number belongs.
+ */
+export type GameCreditsInputPack = typeof GameCreditsInputPack[keyof typeof GameCreditsInputPack];
+
+
+export const GameCreditsInputPack = {
+  single: 'single',
+  trio: 'trio',
+  stack: 'stack',
+} as const;
+
+export interface GameCreditsInput {
+  /**
+     * Which pack. Owner ruling 2026-09-08.
+     *
+     * THE NAMES CARRY NO QUANTITY, deliberately: "stack" rather than "ten" means a pack can be retuned without a breaking change to a live wire enum. The play count is data on the server's catalogue row, which is where a number belongs.
+     */
+  pack: GameCreditsInputPack;
+  /**
+     * The caller's key. Repeating it replays the same purchase rather than making a second one; a new key is a genuine second purchase.
+     * @minLength 1
+     * @maxLength 128
+     */
+  idempotencyKey: string;
+}
+
+export interface GameCreditsResult {
+  /** False when this was a replay of a key already used. */
+  charged: boolean;
+  /** Chai remaining after the purchase. */
+  balance: number;
+  /** Plays in the pool after the purchase. */
+  credits: number;
+}
+
+/**
  * Game id to plays already spent. Only the ids in TASTE_GAME_IDS appear; an All-Access game is a lock rather than a taste and has nothing to count.
  */
 export type GamePlaysPlays = {[key: string]: number};
@@ -1734,6 +1772,14 @@ export type GamePlaysPlays = {[key: string]: number};
  * Plays spent per tasted game, keyed by the game's own id. A game with no plays is present with zero rather than absent, so a client never has to tell "not played" from "not in the payload".
  */
 export interface GamePlays {
+  /**
+     * Bought plays still in this learner's pool, usable on ANY tasted game. Owner ruling 2026-09-08.
+     *
+     * SEPARATE FROM `plays` AND NOT SUMMABLE WITH IT. The free taste is per game and this is one shared pool, so adding them together produces a number that is right on one card and wrong on the next five. The free taste is always spent first: a learner with plays left is playing for free and the pool is only reachable once the taste is gone.
+     *
+     * Always 0 for an entitled learner, who has no ceiling to raise.
+     */
+  credits: number;
   /** Game id to plays already spent. Only the ids in TASTE_GAME_IDS appear; an All-Access game is a lock rather than a taste and has nothing to count. */
   plays: GamePlaysPlays;
   /** Plays allowed before the wall, served rather than hardcoded so the number can move without a client release. GAME_TASTE_PLAYS in @workspace/game-taste is the source. */
@@ -1785,8 +1831,20 @@ export interface LetterStopResult {
 export interface TokenState {
   balance: number;
   stationPausesEquipped: number;
-  /** How much Chai an All-Access subscriber is granted each calendar month. SERVED RATHER THAN HARDCODED because tokenEconomy.ts is the single source of truth for every economy number and says so: this one already moved once (50 to 15, owner ruling 2026-08-11) and was changed server-side precisely so no client release was needed. The paywall renders it, so a future change reaches both paywalls with no build. Present for every caller, subscriber or not, since the paywall is shown to people who are not subscribed yet. */
+  /**
+     * How much Chai an All-Access subscriber is granted each calendar month. SERVED RATHER THAN HARDCODED because tokenEconomy.ts is the single source of truth for every economy number and says so: this one already moved once (50 to 15, owner ruling 2026-08-11) and was changed server-side precisely so no client release was needed. The paywall renders it, so a future change reaches both paywalls with no build. Present for every caller, subscriber or not, since the paywall is shown to people who are not subscribed yet.
+     *
+     * RETIRED 2026-09-08 and now always 0. The monthly allowance was killed and replaced by allAccessGiftMultiplier below. The field is KEPT rather than removed because a shipped client reads it and removing a field from a live contract is a breaking change; both paywalls already drop the line when the figure is not above zero, so every installed build stops advertising it with no release.
+     */
   allowanceAllAccessMonthly?: number;
+  /**
+     * What All-Access multiplies every daily gift draw by. 1 means no multiplier. Owner ruling 2026-09-08: this replaced the monthly allowance above, and the trade is deliberately generous, roughly 15 Chai a month lost against 225 gained.
+     *
+     * SERVED RATHER THAN HARDCODED, for exactly the reason the allowance it replaces was served: both paywalls print it, the number has moved before, and a change should not need two app releases.
+     *
+     * THIS RIDES GET /tokens AND NOT THE GIFT PAYLOAD, deliberately. The paywall is shown to people who are NOT subscribed, and DailyGiftState.multiplier says only what THIS learner drew, which for a Free learner is 1 and tells the paywall nothing about what All-Access would give them.
+     */
+  allAccessGiftMultiplier?: number;
   expressMultiplierActiveUntil?: string | null;
   /** When the caller's First Class status runs out, or null when it is not active. Mirrors expressMultiplierActiveUntil: an absolute deadline written at spend time, so clients derive active/inactive and any countdown from the wall clock rather than holding a timer. */
   firstClassActiveUntil?: string | null;
@@ -2009,8 +2067,16 @@ export const DailyGiftStateTier = {
 export interface DailyGiftState {
   /** The streak day this box belongs to, clamped to the ladder's cap. */
   day: number;
-  /** What the box holds. Linear from 1, capped at a week. */
+  /** What the box holds and what is BANKED: the draw after any plan multiplier. Its meaning is unchanged by the 2026-09-08 multiplier ruling, deliberately, because every shipped client reads this field and none of them rebuild on the day the server ships. */
   chai: number;
+  /** The draw BEFORE the plan multiplier, always inside the published range. NAMED NEUTRALLY on the owner's ruling 2026-09-08: `chai` above keeps its name under X33 because renaming a LIVE field buys a breaking change, and this field is new so that cost is absent. Four of the six forks do not spell their currency "chai". Sent so a screen can show the sum both ways ("18 drawn, doubled to 36"), which is the honesty half of the feature: a doubled number with its base hidden is a number the learner cannot check. Equal to `chai` when `multiplier` is 1. */
+  baseAmount: number;
+  /**
+     * What the base was multiplied by for THIS learner. 1 for Free. `baseAmount * multiplier === chai` exactly, because the multiplier is applied to the already-rounded base; rounding after multiplying would put sums on screen that do not add up.
+     *
+     * THIS IS NOT THE PAYWALL'S NUMBER. It says what this learner drew, which for a Free learner is 1 and tells a paywall nothing about what All-Access would give them. That figure is TokenState.allAccessGiftMultiplier on GET /tokens.
+     */
+  multiplier: number;
   /** Which of the four boxes to draw. A function of the DAY and not of the amount: the amount is economy tuning that has moved before, the box is a picture of how long the learner has kept it up. `grand` is the one with the gold ribbon. */
   tier: DailyGiftStateTier;
   /** What tomorrow's box holds. Naming it is the mechanic. At the cap it equals `chai`, never `chai + 1`, because promising an eighth is a promise the ladder breaks the next morning. */

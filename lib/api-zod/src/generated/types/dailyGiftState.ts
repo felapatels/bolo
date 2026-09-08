@@ -10,8 +10,16 @@ import type { DailyGiftStateTier } from './dailyGiftStateTier';
 export interface DailyGiftState {
   /** The streak day this box belongs to, clamped to the ladder's cap. */
   day: number;
-  /** What the box holds. Linear from 1, capped at a week. */
+  /** What the box holds and what is BANKED: the draw after any plan multiplier. Its meaning is unchanged by the 2026-09-08 multiplier ruling, deliberately, because every shipped client reads this field and none of them rebuild on the day the server ships. */
   chai: number;
+  /** The draw BEFORE the plan multiplier, always inside the published range. NAMED NEUTRALLY on the owner's ruling 2026-09-08: `chai` above keeps its name under X33 because renaming a LIVE field buys a breaking change, and this field is new so that cost is absent. Four of the six forks do not spell their currency "chai". Sent so a screen can show the sum both ways ("18 drawn, doubled to 36"), which is the honesty half of the feature: a doubled number with its base hidden is a number the learner cannot check. Equal to `chai` when `multiplier` is 1. */
+  baseAmount: number;
+  /**
+     * What the base was multiplied by for THIS learner. 1 for Free. `baseAmount * multiplier === chai` exactly, because the multiplier is applied to the already-rounded base; rounding after multiplying would put sums on screen that do not add up.
+     *
+     * THIS IS NOT THE PAYWALL'S NUMBER. It says what this learner drew, which for a Free learner is 1 and tells a paywall nothing about what All-Access would give them. That figure is TokenState.allAccessGiftMultiplier on GET /tokens.
+     */
+  multiplier: number;
   /** Which of the four boxes to draw. A function of the DAY and not of the amount: the amount is economy tuning that has moved before, the box is a picture of how long the learner has kept it up. `grand` is the one with the gold ribbon. */
   tier: DailyGiftStateTier;
   /** What tomorrow's box holds. Naming it is the mechanic. At the cap it equals `chai`, never `chai + 1`, because promising an eighth is a promise the ladder breaks the next morning. */

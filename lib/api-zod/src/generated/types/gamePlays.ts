@@ -11,6 +11,14 @@ import type { GamePlaysPlays } from './gamePlaysPlays';
  * Plays spent per tasted game, keyed by the game's own id. A game with no plays is present with zero rather than absent, so a client never has to tell "not played" from "not in the payload".
  */
 export interface GamePlays {
+  /**
+     * Bought plays still in this learner's pool, usable on ANY tasted game. Owner ruling 2026-09-08.
+     *
+     * SEPARATE FROM `plays` AND NOT SUMMABLE WITH IT. The free taste is per game and this is one shared pool, so adding them together produces a number that is right on one card and wrong on the next five. The free taste is always spent first: a learner with plays left is playing for free and the pool is only reachable once the taste is gone.
+     *
+     * Always 0 for an entitled learner, who has no ceiling to raise.
+     */
+  credits: number;
   /** Game id to plays already spent. Only the ids in TASTE_GAME_IDS appear; an All-Access game is a lock rather than a taste and has nothing to count. */
   plays: GamePlaysPlays;
   /** Plays allowed before the wall, served rather than hardcoded so the number can move without a client release. GAME_TASTE_PLAYS in @workspace/game-taste is the source. */

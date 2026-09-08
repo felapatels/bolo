@@ -2905,6 +2905,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /tokens/game-credits:
+    post:
+      operationId: buyGameCredits
+      tags: [tokens]
+      summary: Spend Chai on a pack of extra game plays
+      description: >-
+        Buys counted plays of the tasted games, spendable once a game's free
+        taste is used up. Owner ruling 2026-09-08, out of the Chai economy
+        audit: the shop had almost no permanent stock against a daily gift
+        paying hundreds a month, and plays were the best sink in the product
+        with nothing charging for them.
+
+
+        THE CALLER NAMES ONLY A PACK ID AND AN IDEMPOTENCY KEY. The play count
+        and the price are read server-side off GAME_CREDIT_PACKS, because a
+        request that could name its own cost or its own play count is a faucet
+        with a form on it.
+
+
+        REPEATABLE, so the key is the caller's rather than a server-composed
+        identity of the thing bought — the same shape and the same reason as
+        /tokens/first-class. A repeat call with the SAME key is a free replay
+        (200, charged=false) that credits nothing.
+
+
+        TWO RULES BOUND THIS AND THEY ARE THE STOP UNLOCK'S RULES. Chai buys
+        QUANTITY, never a ceiling removed, so there is no day pass and no
+        unlimited tier: unlimited is what All-Access sells. And the ten
+        All-Access games stay shut at any price, exactly as stops past zone one
+        do. insufficient_tokens answers 409, matching the other Chai spends;
+        never 402, which is the plan-upgrade envelope.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GameCreditsInput"
+      responses:
+        "200":
+          description: Bought, or a replay of the same key — charged=false
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameCreditsResult"
+        "409":
+          description: insufficient_tokens
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /tokens/unlock-stop:
     post:
       operationId: unlockStop
@@ -6414,14 +6464,65 @@ components:
         - perfect
         - quizStreak
 
+    GameCreditsInput:
+      type: object
+      required: [pack, idempotencyKey]
+      properties:
+        pack:
+          type: string
+          enum: [single, trio, stack]
+          description: >-
+            Which pack. Owner ruling 2026-09-08.
+
+
+            THE NAMES CARRY NO QUANTITY, deliberately: "stack" rather than
+            "ten" means a pack can be retuned without a breaking change to a
+            live wire enum. The play count is data on the server's catalogue
+            row, which is where a number belongs.
+        idempotencyKey:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: >-
+            The caller's key. Repeating it replays the same purchase rather
+            than making a second one; a new key is a genuine second purchase.
+    GameCreditsResult:
+      type: object
+      required: [charged, balance, credits]
+      properties:
+        charged:
+          type: boolean
+          description: False when this was a replay of a key already used.
+        balance:
+          type: integer
+          description: Chai remaining after the purchase.
+        credits:
+          type: integer
+          description: Plays in the pool after the purchase.
     GamePlays:
       type: object
       description: >-
         Plays spent per tasted game, keyed by the game's own id. A game with no
         plays is present with zero rather than absent, so a client never has to
         tell "not played" from "not in the payload".
-      required: [plays, limit]
+      required: [plays, limit, credits]
       properties:
+        credits:
+          type: integer
+          description: >-
+            Bought plays still in this learner's pool, usable on ANY tasted
+            game. Owner ruling 2026-09-08.
+
+
+            SEPARATE FROM `plays` AND NOT SUMMABLE WITH IT. The free taste is
+            per game and this is one shared pool, so adding them together
+            produces a number that is right on one card and wrong on the next
+            five. The free taste is always spent first: a learner with plays
+            left is playing for free and the pool is only reachable once the
+            taste is gone.
+
+
+            Always 0 for an entitled learner, who has no ceiling to raise.
         plays:
           type: object
           additionalProperties:
@@ -6546,6 +6647,33 @@ components:
             paywall renders it, so a future change reaches both paywalls with
             no build. Present for every caller, subscriber or not, since the
             paywall is shown to people who are not subscribed yet.
+
+
+            RETIRED 2026-09-08 and now always 0. The monthly allowance was
+            killed and replaced by allAccessGiftMultiplier below. The field is
+            KEPT rather than removed because a shipped client reads it and
+            removing a field from a live contract is a breaking change; both
+            paywalls already drop the line when the figure is not above zero,
+            so every installed build stops advertising it with no release.
+        allAccessGiftMultiplier:
+          type: integer
+          description: >-
+            What All-Access multiplies every daily gift draw by. 1 means no
+            multiplier. Owner ruling 2026-09-08: this replaced the monthly
+            allowance above, and the trade is deliberately generous, roughly 15
+            Chai a month lost against 225 gained.
+
+
+            SERVED RATHER THAN HARDCODED, for exactly the reason the allowance
+            it replaces was served: both paywalls print it, the number has
+            moved before, and a change should not need two app releases.
+
+
+            THIS RIDES GET /tokens AND NOT THE GIFT PAYLOAD, deliberately. The
+            paywall is shown to people who are NOT subscribed, and
+            DailyGiftState.multiplier says only what THIS learner drew, which
+            for a Free learner is 1 and tells the paywall nothing about what
+            All-Access would give them.
         expressMultiplierActiveUntil:
           type: string
           format: date-time
@@ -6858,6 +6986,8 @@ components:
         [
           day,
           chai,
+          baseAmount,
+          multiplier,
           tier,
           tomorrowChai,
           claimed,
@@ -6891,7 +7021,35 @@ components:
         # window.
         chai:
           type: integer
-          description: What the box holds. Linear from 1, capped at a week.
+          description: >-
+            What the box holds and what is BANKED: the draw after any plan
+            multiplier. Its meaning is unchanged by the 2026-09-08 multiplier
+            ruling, deliberately, because every shipped client reads this field
+            and none of them rebuild on the day the server ships.
+        baseAmount:
+          type: integer
+          description: >-
+            The draw BEFORE the plan multiplier, always inside the published
+            range. NAMED NEUTRALLY on the owner's ruling 2026-09-08: `chai`
+            above keeps its name under X33 because renaming a LIVE field buys a
+            breaking change, and this field is new so that cost is absent. Four
+            of the six forks do not spell their currency "chai". Sent so a screen can show the sum both ways ("18 drawn,
+            doubled to 36"), which is the honesty half of the feature: a
+            doubled number with its base hidden is a number the learner cannot
+            check. Equal to `chai` when `multiplier` is 1.
+        multiplier:
+          type: integer
+          description: >-
+            What the base was multiplied by for THIS learner. 1 for Free.
+            `baseAmount * multiplier === chai` exactly, because the multiplier is
+            applied to the already-rounded base; rounding after multiplying
+            would put sums on screen that do not add up.
+
+
+            THIS IS NOT THE PAYWALL'S NUMBER. It says what this learner drew,
+            which for a Free learner is 1 and tells a paywall nothing about what
+            All-Access would give them. That figure is
+            TokenState.allAccessGiftMultiplier on GET /tokens.
         tier:
           type: string
           enum: [small, medium, large, grand]

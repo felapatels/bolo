@@ -9,8 +9,20 @@
 export interface TokenState {
   balance: number;
   stationPausesEquipped: number;
-  /** How much Chai an All-Access subscriber is granted each calendar month. SERVED RATHER THAN HARDCODED because tokenEconomy.ts is the single source of truth for every economy number and says so: this one already moved once (50 to 15, owner ruling 2026-08-11) and was changed server-side precisely so no client release was needed. The paywall renders it, so a future change reaches both paywalls with no build. Present for every caller, subscriber or not, since the paywall is shown to people who are not subscribed yet. */
+  /**
+     * How much Chai an All-Access subscriber is granted each calendar month. SERVED RATHER THAN HARDCODED because tokenEconomy.ts is the single source of truth for every economy number and says so: this one already moved once (50 to 15, owner ruling 2026-08-11) and was changed server-side precisely so no client release was needed. The paywall renders it, so a future change reaches both paywalls with no build. Present for every caller, subscriber or not, since the paywall is shown to people who are not subscribed yet.
+     *
+     * RETIRED 2026-09-08 and now always 0. The monthly allowance was killed and replaced by allAccessGiftMultiplier below. The field is KEPT rather than removed because a shipped client reads it and removing a field from a live contract is a breaking change; both paywalls already drop the line when the figure is not above zero, so every installed build stops advertising it with no release.
+     */
   allowanceAllAccessMonthly?: number;
+  /**
+     * What All-Access multiplies every daily gift draw by. 1 means no multiplier. Owner ruling 2026-09-08: this replaced the monthly allowance above, and the trade is deliberately generous, roughly 15 Chai a month lost against 225 gained.
+     *
+     * SERVED RATHER THAN HARDCODED, for exactly the reason the allowance it replaces was served: both paywalls print it, the number has moved before, and a change should not need two app releases.
+     *
+     * THIS RIDES GET /tokens AND NOT THE GIFT PAYLOAD, deliberately. The paywall is shown to people who are NOT subscribed, and DailyGiftState.multiplier says only what THIS learner drew, which for a Free learner is 1 and tells the paywall nothing about what All-Access would give them.
+     */
+  allAccessGiftMultiplier?: number;
   expressMultiplierActiveUntil?: Date | null;
   /** When the caller's First Class status runs out, or null when it is not active. Mirrors expressMultiplierActiveUntil: an absolute deadline written at spend time, so clients derive active/inactive and any countdown from the wall clock rather than holding a timer. */
   firstClassActiveUntil?: Date | null;

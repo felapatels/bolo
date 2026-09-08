@@ -1295,6 +1295,7 @@ export const CompleteDailyQuizResponse = zod.object({
  * @summary How much free taste is left on each tasted game
  */
 export const GetGamePlaysResponse = zod.object({
+  "credits": zod.number().describe('Bought plays still in this learner\'s pool, usable on ANY tasted game. Owner ruling 2026-09-08.\n\nSEPARATE FROM `plays` AND NOT SUMMABLE WITH IT. The free taste is per game and this is one shared pool, so adding them together produces a number that is right on one card and wrong on the next five. The free taste is always spent first: a learner with plays left is playing for free and the pool is only reachable once the taste is gone.\n\nAlways 0 for an entitled learner, who has no ceiling to raise.'),
   "plays": zod.record(zod.string(), zod.number()).describe('Game id to plays already spent. Only the ids in TASTE_GAME_IDS appear; an All-Access game is a lock rather than a taste and has nothing to count.'),
   "limit": zod.number().describe('Plays allowed before the wall, served rather than hardcoded so the number can move without a client release. GAME_TASTE_PLAYS in @workspace\/game-taste is the source.')
 }).describe('Plays spent per tasted game, keyed by the game\'s own id. A game with no plays is present with zero rather than absent, so a client never has to tell \"not played\" from \"not in the payload\".')
@@ -2083,7 +2084,8 @@ export const RecordChachaEncounterResponse = zod.object({
 export const GetTokensResponse = zod.object({
   "balance": zod.number(),
   "stationPausesEquipped": zod.number(),
-  "allowanceAllAccessMonthly": zod.number().optional().describe('How much Chai an All-Access subscriber is granted each calendar month. SERVED RATHER THAN HARDCODED because tokenEconomy.ts is the single source of truth for every economy number and says so: this one already moved once (50 to 15, owner ruling 2026-08-11) and was changed server-side precisely so no client release was needed. The paywall renders it, so a future change reaches both paywalls with no build. Present for every caller, subscriber or not, since the paywall is shown to people who are not subscribed yet.'),
+  "allowanceAllAccessMonthly": zod.number().optional().describe('How much Chai an All-Access subscriber is granted each calendar month. SERVED RATHER THAN HARDCODED because tokenEconomy.ts is the single source of truth for every economy number and says so: this one already moved once (50 to 15, owner ruling 2026-08-11) and was changed server-side precisely so no client release was needed. The paywall renders it, so a future change reaches both paywalls with no build. Present for every caller, subscriber or not, since the paywall is shown to people who are not subscribed yet.\n\nRETIRED 2026-09-08 and now always 0. The monthly allowance was killed and replaced by allAccessGiftMultiplier below. The field is KEPT rather than removed because a shipped client reads it and removing a field from a live contract is a breaking change; both paywalls already drop the line when the figure is not above zero, so every installed build stops advertising it with no release.'),
+  "allAccessGiftMultiplier": zod.number().optional().describe('What All-Access multiplies every daily gift draw by. 1 means no multiplier. Owner ruling 2026-09-08: this replaced the monthly allowance above, and the trade is deliberately generous, roughly 15 Chai a month lost against 225 gained.\n\nSERVED RATHER THAN HARDCODED, for exactly the reason the allowance it replaces was served: both paywalls print it, the number has moved before, and a change should not need two app releases.\n\nTHIS RIDES GET \/tokens AND NOT THE GIFT PAYLOAD, deliberately. The paywall is shown to people who are NOT subscribed, and DailyGiftState.multiplier says only what THIS learner drew, which for a Free learner is 1 and tells the paywall nothing about what All-Access would give them.'),
   "expressMultiplierActiveUntil": zod.coerce.date().nullish(),
   "firstClassActiveUntil": zod.coerce.date().nullish().describe('When the caller\'s First Class status runs out, or null when it is not active. Mirrors expressMultiplierActiveUntil: an absolute deadline written at spend time, so clients derive active\/inactive and any countdown from the wall clock rather than holding a timer.'),
   "equippedOutfit": zod.string().nullish().describe('The garment id Bolo is wearing, or null for canonical undressed Bolo. Every mascot surface resolves its art from this value, so clients read it here rather than holding their own copy.'),
@@ -2142,6 +2144,32 @@ export const BuyFirstClassResponse = zod.object({
 
 
 /**
+ * Buys counted plays of the tasted games, spendable once a game's free taste is used up. Owner ruling 2026-09-08, out of the Chai economy audit: the shop had almost no permanent stock against a daily gift paying hundreds a month, and plays were the best sink in the product with nothing charging for them.
+ *
+ * THE CALLER NAMES ONLY A PACK ID AND AN IDEMPOTENCY KEY. The play count and the price are read server-side off GAME_CREDIT_PACKS, because a request that could name its own cost or its own play count is a faucet with a form on it.
+ *
+ * REPEATABLE, so the key is the caller's rather than a server-composed identity of the thing bought — the same shape and the same reason as /tokens/first-class. A repeat call with the SAME key is a free replay (200, charged=false) that credits nothing.
+ *
+ * TWO RULES BOUND THIS AND THEY ARE THE STOP UNLOCK'S RULES. Chai buys QUANTITY, never a ceiling removed, so there is no day pass and no unlimited tier: unlimited is what All-Access sells. And the ten All-Access games stay shut at any price, exactly as stops past zone one do. insufficient_tokens answers 409, matching the other Chai spends; never 402, which is the plan-upgrade envelope.
+ * @summary Spend Chai on a pack of extra game plays
+ */
+export const buyGameCreditsBodyIdempotencyKeyMax = 128;
+
+
+
+export const BuyGameCreditsBody = zod.object({
+  "pack": zod.enum(['single', 'trio', 'stack']).describe('Which pack. Owner ruling 2026-09-08.\n\nTHE NAMES CARRY NO QUANTITY, deliberately: \"stack\" rather than \"ten\" means a pack can be retuned without a breaking change to a live wire enum. The play count is data on the server\'s catalogue row, which is where a number belongs.'),
+  "idempotencyKey": zod.string().min(1).max(buyGameCreditsBodyIdempotencyKeyMax).describe('The caller\'s key. Repeating it replays the same purchase rather than making a second one; a new key is a genuine second purchase.')
+})
+
+export const BuyGameCreditsResponse = zod.object({
+  "charged": zod.boolean().describe('False when this was a replay of a key already used.'),
+  "balance": zod.number().describe('Chai remaining after the purchase.'),
+  "credits": zod.number().describe('Plays in the pool after the purchase.')
+})
+
+
+/**
  * Buys a single station in a language the caller's plan does not include. The caller names only a lesson group id: the language, the price and the ledger idempotency key are all derived server-side, and the purchase is once-ever (a repeat call returns 200 with charged=false and deducts nothing). Only stops inside the language's FIRST zone — the zone that hosts the free-taste stop — are purchasable; anything beyond it answers 402 UpgradeRequired because that is the All-Access boundary. Money and state conflicts (insufficient_tokens, stop_already_free, stop_not_unlockable) answer 409, matching the other Chai spends.
  * @summary Spend Chai to open one stop in a plan-locked language
  */
@@ -2195,7 +2223,9 @@ export const RepairStreakResponse = zod.object({
  */
 export const GetDailyGiftResponse = zod.object({
   "day": zod.number().describe('The streak day this box belongs to, clamped to the ladder\'s cap.'),
-  "chai": zod.number().describe('What the box holds. Linear from 1, capped at a week.'),
+  "chai": zod.number().describe('What the box holds and what is BANKED: the draw after any plan multiplier. Its meaning is unchanged by the 2026-09-08 multiplier ruling, deliberately, because every shipped client reads this field and none of them rebuild on the day the server ships.'),
+  "baseAmount": zod.number().describe('The draw BEFORE the plan multiplier, always inside the published range. NAMED NEUTRALLY on the owner\'s ruling 2026-09-08: `chai` above keeps its name under X33 because renaming a LIVE field buys a breaking change, and this field is new so that cost is absent. Four of the six forks do not spell their currency \"chai\". Sent so a screen can show the sum both ways (\"18 drawn, doubled to 36\"), which is the honesty half of the feature: a doubled number with its base hidden is a number the learner cannot check. Equal to `chai` when `multiplier` is 1.'),
+  "multiplier": zod.number().describe('What the base was multiplied by for THIS learner. 1 for Free. `baseAmount \* multiplier === chai` exactly, because the multiplier is applied to the already-rounded base; rounding after multiplying would put sums on screen that do not add up.\n\nTHIS IS NOT THE PAYWALL\'S NUMBER. It says what this learner drew, which for a Free learner is 1 and tells a paywall nothing about what All-Access would give them. That figure is TokenState.allAccessGiftMultiplier on GET \/tokens.'),
   "tier": zod.enum(['small', 'medium', 'large', 'grand']).describe('Which of the four boxes to draw. A function of the DAY and not of the amount: the amount is economy tuning that has moved before, the box is a picture of how long the learner has kept it up. `grand` is the one with the gold ribbon.'),
   "tomorrowChai": zod.number().describe('What tomorrow\'s box holds. Naming it is the mechanic. At the cap it equals `chai`, never `chai + 1`, because promising an eighth is a promise the ladder breaks the next morning.'),
   "claimed": zod.boolean().describe('True once today\'s box has been tapped. The tap is the grant.'),
@@ -2217,7 +2247,9 @@ export const GetDailyGiftResponse = zod.object({
  */
 export const ClaimDailyGiftResponse = zod.object({
   "day": zod.number().describe('The streak day this box belongs to, clamped to the ladder\'s cap.'),
-  "chai": zod.number().describe('What the box holds. Linear from 1, capped at a week.'),
+  "chai": zod.number().describe('What the box holds and what is BANKED: the draw after any plan multiplier. Its meaning is unchanged by the 2026-09-08 multiplier ruling, deliberately, because every shipped client reads this field and none of them rebuild on the day the server ships.'),
+  "baseAmount": zod.number().describe('The draw BEFORE the plan multiplier, always inside the published range. NAMED NEUTRALLY on the owner\'s ruling 2026-09-08: `chai` above keeps its name under X33 because renaming a LIVE field buys a breaking change, and this field is new so that cost is absent. Four of the six forks do not spell their currency \"chai\". Sent so a screen can show the sum both ways (\"18 drawn, doubled to 36\"), which is the honesty half of the feature: a doubled number with its base hidden is a number the learner cannot check. Equal to `chai` when `multiplier` is 1.'),
+  "multiplier": zod.number().describe('What the base was multiplied by for THIS learner. 1 for Free. `baseAmount \* multiplier === chai` exactly, because the multiplier is applied to the already-rounded base; rounding after multiplying would put sums on screen that do not add up.\n\nTHIS IS NOT THE PAYWALL\'S NUMBER. It says what this learner drew, which for a Free learner is 1 and tells a paywall nothing about what All-Access would give them. That figure is TokenState.allAccessGiftMultiplier on GET \/tokens.'),
   "tier": zod.enum(['small', 'medium', 'large', 'grand']).describe('Which of the four boxes to draw. A function of the DAY and not of the amount: the amount is economy tuning that has moved before, the box is a picture of how long the learner has kept it up. `grand` is the one with the gold ribbon.'),
   "tomorrowChai": zod.number().describe('What tomorrow\'s box holds. Naming it is the mechanic. At the cap it equals `chai`, never `chai + 1`, because promising an eighth is a promise the ladder breaks the next morning.'),
   "claimed": zod.boolean().describe('True once today\'s box has been tapped. The tap is the grant.'),

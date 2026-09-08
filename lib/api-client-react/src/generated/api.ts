@@ -72,6 +72,8 @@ import type {
   Friend,
   FriendInviteResult,
   FriendRequest,
+  GameCreditsInput,
+  GameCreditsResult,
   GamePlays,
   GameSessionInput,
   GameSessionResult,
@@ -7120,6 +7122,84 @@ export const useBuyFirstClass = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getBuyFirstClassMutationOptions(options));
+    }
+
+export const getBuyGameCreditsUrl = () => {
+
+
+
+
+  return `/api/tokens/game-credits`
+}
+
+/**
+ * Buys counted plays of the tasted games, spendable once a game's free taste is used up. Owner ruling 2026-09-08, out of the Chai economy audit: the shop had almost no permanent stock against a daily gift paying hundreds a month, and plays were the best sink in the product with nothing charging for them.
+ *
+ * THE CALLER NAMES ONLY A PACK ID AND AN IDEMPOTENCY KEY. The play count and the price are read server-side off GAME_CREDIT_PACKS, because a request that could name its own cost or its own play count is a faucet with a form on it.
+ *
+ * REPEATABLE, so the key is the caller's rather than a server-composed identity of the thing bought — the same shape and the same reason as /tokens/first-class. A repeat call with the SAME key is a free replay (200, charged=false) that credits nothing.
+ *
+ * TWO RULES BOUND THIS AND THEY ARE THE STOP UNLOCK'S RULES. Chai buys QUANTITY, never a ceiling removed, so there is no day pass and no unlimited tier: unlimited is what All-Access sells. And the ten All-Access games stay shut at any price, exactly as stops past zone one do. insufficient_tokens answers 409, matching the other Chai spends; never 402, which is the plan-upgrade envelope.
+ * @summary Spend Chai on a pack of extra game plays
+ */
+export const buyGameCredits = async (gameCreditsInput: GameCreditsInput, options?: RequestInit): Promise<GameCreditsResult> => {
+
+  return customFetch<GameCreditsResult>(getBuyGameCreditsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(gameCreditsInput)
+  }
+);}
+
+
+
+
+
+export const getBuyGameCreditsMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buyGameCredits>>, TError,{data: BodyType<GameCreditsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof buyGameCredits>>, TError,{data: BodyType<GameCreditsInput>}, TContext> => {
+
+const mutationKey = ['buyGameCredits'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof buyGameCredits>>, {data: BodyType<GameCreditsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  buyGameCredits(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BuyGameCreditsMutationResult = NonNullable<Awaited<ReturnType<typeof buyGameCredits>>>
+    export type BuyGameCreditsMutationBody = BodyType<GameCreditsInput>
+    export type BuyGameCreditsMutationError = ErrorType<Error>
+
+    /**
+ * @summary Spend Chai on a pack of extra game plays
+ */
+export const useBuyGameCredits = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buyGameCredits>>, TError,{data: BodyType<GameCreditsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof buyGameCredits>>,
+        TError,
+        {data: BodyType<GameCreditsInput>},
+        TContext
+      > => {
+      return useMutation(getBuyGameCreditsMutationOptions(options));
     }
 
 export const getUnlockStopUrl = () => {
