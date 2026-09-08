@@ -292,6 +292,10 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 // Hot-streak toasts
 // ---------------------------------------------------------------------------
+// Named once, so the observer and the on-screen queries cannot drift apart.
+const HALFWAY = "Halfway there! 💪";
+const LAST_ONE = "Last one! 🦜 Finish strong!";
+
 describe("hot-streak toasts", () => {
   test('shows "🔥 3 in a row!" after three consecutive nailed/close bands', async () => {
     await reachIdle(phrases.slice(0, 3));
@@ -402,22 +406,62 @@ describe("mid-session toasts", () => {
   });
 
   test("each mid-session toast fires at most once per session", async () => {
-    await reachIdle(fourPhrases);
+    // REWRITTEN 2026-09-08. THIS TEST COULD NOT FAIL. Found by Europe and live
+    // in five forks at once, India's included.
+    //
+    // It asserted `queryAllByText(...).length` was AT MOST 1, and ZERO
+    // SATISFIES THAT. Worse, a toast clears itself after 1800ms, so by the time
+    // the assertion ran the halfway toast was already gone and the count was 0
+    // whether it had fired once, twice, or never. A test named "fires at most
+    // once" could not tell those three apart.
+    //
+    // It is the evening's whole shape one more time: not a broken assertion, an
+    // EMPTY SET reading as a pass. Every guard-on-a-guard written today is the
+    // same refusal.
+    //
+    // THE FIX IS TO RECORD RATHER THAN TO COUNT AFTERWARDS, which is East
+    // Asia's method: a toast that has already cleared cannot be counted, and a
+    // longer waitFor cannot find a shorter-lived element, it only turns a fast
+    // failure into a slow one. The observer sees each toast AS IT APPEARS, so a
+    // second firing is caught even though neither is on screen at the end.
+    const seen: string[] = [];
+    const watch = new MutationObserver((records) => {
+      for (const r of records) {
+        for (const node of Array.from(r.addedNodes)) {
+          const text = (node.textContent ?? "").trim();
+          if (text === HALFWAY || text === LAST_ONE) seen.push(text);
+        }
+      }
+    });
+    watch.observe(document.body, { childList: true, subtree: true });
 
-    await scoreAndNext("great"); // → 1
-    await scoreOnce("great");
-    fireEvent.click(screen.getByTestId("advance-button")); // → 2, halfway toast
-    await waitFor(() => expect(screen.getByText("Halfway there! 💪")).toBeInTheDocument(), WT);
+    try {
+      await reachIdle(fourPhrases);
 
-    await scoreOnce("great");
-    fireEvent.click(screen.getByTestId("advance-button")); // → 3, last toast
-    await waitFor(() => expect(screen.getByText("Last one! 🦜 Finish strong!")).toBeInTheDocument(), WT);
+      await scoreAndNext("great"); // → 1
+      await scoreOnce("great");
+      fireEvent.click(screen.getByTestId("advance-button")); // → 2, halfway toast
+      await waitFor(() => expect(screen.getByText(HALFWAY)).toBeInTheDocument(), WT);
 
-    expect(screen.queryAllByText("Halfway there! 💪").length).toBeLessThanOrEqual(1);
-    expect(screen.queryAllByText("Last one! 🦜 Finish strong!").length).toBeLessThanOrEqual(1);
+      await scoreOnce("great");
+      fireEvent.click(screen.getByTestId("advance-button")); // → 3, last toast
+      await waitFor(() => expect(screen.getByText(LAST_ONE)).toBeInTheDocument(), WT);
+    } finally {
+      watch.disconnect();
+    }
+
+    // NON-TRIVIAL FIRST. A count of zero would satisfy every "at most" check
+    // ever written, and an observer that saw nothing is exactly how this test
+    // failed silently before. Assert it SAW something before asserting how much.
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.filter((t) => t === HALFWAY)).toEqual([HALFWAY]);
+    expect(seen.filter((t) => t === LAST_ONE)).toEqual([LAST_ONE]);
   });
 
   test("halfway toast does not fire for sessions with fewer than 4 phrases", async () => {
+    // This one is honest as written: it asserts an ABSENCE and a null is the
+    // only thing that satisfies it, so an empty screen and a missing toast are
+    // the same claim here rather than two different ones.
     await reachIdle(phrases.slice(0, 3)); // 3 phrases — below the 4-phrase guard
 
     await scoreAndNext("great"); // → 1
