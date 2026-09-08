@@ -4,7 +4,7 @@ import { db, gameSessionsTable, languagesTable, usersTable } from "@workspace/db
 import { eq } from "drizzle-orm";
 import { gameTasteState } from "@workspace/game-taste";
 import { countTastePlays } from "../lib/gameTasteCounts";
-import { getOrCreateTokenState } from "../lib/tokenService";
+import { getOrCreateTokenState, consumeGameCredit } from "../lib/tokenService";
 import { upgradeRequired, type Plan } from "../lib/entitlements";
 import { sendUpgradeRequired } from "../lib/gating";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
@@ -199,11 +199,33 @@ export interface ChachaCallDeps {
    */
   freeTaste: {
     usedUp: (userId: string, plan: Plan) => Promise<boolean>;
-    recordCall: (userId: string, languageCode: string) => Promise<void>;
+    /**
+     * `plan` is REQUIRED and is not decoration. This function decides whether
+     * the call was paid for out of the bought pool, and an entitled learner has
+     * no ceiling, so deciding from the free-play count alone would charge Plus
+     * a credit on their fourth call forever. A NEW PARAMETER rather than a
+     * richer return type, deliberately: SEA turned a gate predicate from a
+     * boolean into an object and both call sites kept reading it as a boolean,
+     * which is always truthy and which TypeScript accepts without a word. An
+     * added argument is a compile error at every call site, which is the
+     * failure mode you want.
+     */
+    recordCall: (
+      userId: string,
+      languageCode: string,
+      plan: Plan,
+    ) => Promise<void>;
   };
 }
 
-const defaultDeps: ChachaCallDeps = {
+// EXPORTED FOR ONE REASON, and it is a structural gap rather than convenience.
+// The route's own suite replaces this object wholesale, so the charging inside
+// recordCall is invisible to every test that goes through the router: the fake
+// takes two parameters and TypeScript accepts it, because a function with
+// FEWER parameters is assignable to one with more. So the compiler cannot flag
+// a fake that ignores the plan either. The only honest way to cover the spend
+// is to call the real dependency, which means exporting it.
+export const defaultDeps: ChachaCallDeps = {
   cannedLine: callLine,
   freeTaste: {
     usedUp: async (userId, plan) => {
@@ -221,8 +243,25 @@ const defaultDeps: ChachaCallDeps = {
         credits: tokenState.gameCredits,
       }).playable;
     },
-    recordCall: async (userId, languageCode) => {
-      await db.insert(gameSessionsTable).values({
+    recordCall: async (userId, languageCode, plan) => {
+      // WHETHER THIS CALL IS PAID FOR, decided BEFORE the row that would change
+      // the answer is written. The gate above has already allowed the call, so
+      // if there is no free play left then the pool is what allowed it.
+      const [playCounts, tokenState] = await Promise.all([
+        countTastePlays(userId),
+        getOrCreateTokenState(userId),
+      ]);
+      const before = gameTasteState({
+        plusOnly: false,
+        isPlus: plan === "plus",
+        playsUsed: playCounts["chacha-call"] ?? 0,
+        credits: tokenState.gameCredits,
+      });
+      const paidFromPool = before.playsLeft === 0 && before.creditsLeft > 0;
+
+      const [row] = await db
+        .insert(gameSessionsTable)
+        .values({
         userId,
         languageCode,
         game: "chacha-call",
@@ -233,7 +272,23 @@ const defaultDeps: ChachaCallDeps = {
         // one call. This row exists to be COUNTED, not to be earned from.
         xpAwarded: 0,
         context: "hub",
-      });
+        })
+        .returning({ id: gameSessionsTable.id });
+
+      // AND CHARGE FOR IT. Without this the gate ALLOWS a call on the pool and
+      // never spends one, so a learner who buys a single credit gets the call
+      // free forever: the same feature broken the other way, and the more
+      // expensive way. SEA named that shape before it was found here.
+      //
+      // Non-critical and keyed on the session row, exactly as the game-sessions
+      // path is: a retried record spends one credit rather than two, and a
+      // failure here leaks a play rather than taking one the learner earned.
+      if (paidFromPool && row) {
+        consumeGameCredit(userId, `play:${row.id}`).catch(() => {
+          // Swallowed deliberately; the caller has no logger in scope here and
+          // a bookkeeping failure must never cost the learner their call.
+        });
+      }
     },
   },
   resolveLanguage: async (userId) => {
@@ -363,7 +418,7 @@ export function createChachaCallRouter(
         // A call they hang up on after one question is a call they had; there
         // is no completion event to hang this on, and waiting for one would
         // make the taste unlimited for anybody who never says goodbye.
-        await deps.freeTaste.recordCall(userId, language.code);
+        await deps.freeTaste.recordCall(userId, language.code, plan);
       }
 
       const session = createCallSession(
