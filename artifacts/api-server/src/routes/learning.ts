@@ -135,7 +135,12 @@ import {
 // repair offer's promise in routes/tokens.ts, and for streak-badge progress.
 import { loadStreakLadder } from "../lib/streakDays";
 import { giftChaiForDraw, giftRefId } from "@workspace/daily-gift";
-import { gameTasteState, isHubPlay, isTasteGame } from "@workspace/game-taste";
+import {
+  gameTasteState,
+  isHubPlay,
+  isTasteGame,
+  GAME_TASTE_PLAYS,
+} from "@workspace/game-taste";
 import { countTastePlays } from "../lib/gameTasteCounts";
 import {
   canScorePhrase,
@@ -2506,10 +2511,15 @@ router.post("/game-sessions", gameSessionRateLimit, async (req: Request, res: Re
   let paidFromPool = false;
   if (isTasteGame(game) && isHubPlay(context)) {
     const plan = (req as EntitledRequest).resolvedPlan?.plan ?? "free";
-    const [playCounts, tokenState] = await Promise.all([
-      countTastePlays(userId),
-      getOrCreateTokenState(userId),
-    ]);
+    const playCounts = await countTastePlays(userId);
+    // THE POOL IS ONLY READ ONCE THE FREE TASTE IS GONE. SEA's refinement, and
+    // it buys two things: a learner inside their three free plays costs no
+    // extra query, and cannot be charged by a bug in the pool reader, because
+    // the reader never runs for them. The free taste is spent before the pool,
+    // so a learner with plays left could not reach the pool anyway.
+    const freeLeft = Math.max(0, GAME_TASTE_PLAYS - (playCounts[game] ?? 0));
+    const tokenState =
+      freeLeft > 0 ? { gameCredits: 0 } : await getOrCreateTokenState(userId);
     const taste = gameTasteState({
       plusOnly: false,
       isPlus: plan === "plus",
