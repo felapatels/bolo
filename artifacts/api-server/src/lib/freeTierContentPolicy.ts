@@ -10,17 +10,26 @@ import { logger } from "./logger";
 // path there. It also re-heals any premium rows a future seeder top-up
 // derives by index into a policy-covered group.
 //
-//   1) The whole of Hindi FARE ZONES 1 AND 2 (every Greetings and Family
-//      lesson group, phrase AND sentence stage) serves free — the paywall
-//      lands at Zone 3.
+//   1) ~~Hindi gets fare zones 1 AND 2.~~ **DELETED 2026-09-08 at the owner's
+//      direction: "i don't want 2 zones for any languages free", "every
+//      language zone 1 free".**
 //
-//      WIDENED FROM ZONE 1 ALONE on 2026-08-24 at the owner's direction:
-//      "let zone [1] and zone 2 for hindi be included free. After zone 2 for
-//      hindi, its all-access paid only." Hindi is the flagship and the one
-//      language a visitor is most likely to try, so it carries a deeper free
-//      run than the rest; every other language gets its first stop plus the
-//      two tastes at stops 2 and 3, which is rule 2 below plus the tracing and
-//      story stops.
+//      It read: the whole of Hindi zones 1 and 2 serves free, widened from zone
+//      1 alone on 2026-08-24 because Hindi was the flagship and the language a
+//      visitor was most likely to try, so it carried a deeper free run than the
+//      rest.
+//
+//      THAT ASYMMETRY IS WHAT THE RULING CANCELS. Rule 2 now frees zone one in
+//      every language, and a flagship keeping a second zone would have put back
+//      the thing the 2026-09-07 ruling removed: a learner's free run depending
+//      on which language they arrived for. There is no rule 1 any more, and
+//      this entry stays as a headstone so the next reader knows the gap is
+//      deliberate rather than an omission.
+//
+//      **IT TAKES SOMETHING AWAY.** Hindi's zone 2 was free in production and
+//      is not any more; rule 3 closes it on the next boot. Recoverable by
+//      re-running the premium backfill, which re-derives the flags from the
+//      content files, but not by re-running this.
 //   2) Every language's WHOLE FARE ZONE 1 (the Greetings category, every
 //      lesson group in it) is free.
 //
@@ -34,15 +43,7 @@ export async function reconcileFreeTierContentPolicy(): Promise<void> {
   // than derived because this file has no business importing the client's zone
   // ladder, and because widening it further should be a deliberate edit here
   // rather than a side effect of renaming a zone somewhere else.
-  const hindiFreeZones = await db.execute(sql`
-    UPDATE phrases SET premium = false
-    WHERE premium AND lesson_group_id IN (
-      SELECT lg.id
-      FROM lesson_groups lg
-      JOIN categories c ON c.id = lg.category_id
-      WHERE c.slug IN ('greetings', 'family') AND lg.language_code = 'hi'
-    )
-  `);
+  // Rule 1 is gone (see the header). Nothing is freed per language any more.
   // Test-scoped languages (double-underscore prefix, self-provisioned by the
   // api-server route suites on the shared dev database) are excluded: some
   // fixtures deliberately seed premium rows in a position-1 Greetings group,
@@ -91,8 +92,10 @@ export async function reconcileFreeTierContentPolicy(): Promise<void> {
       JOIN categories c ON c.id = lg.category_id
       WHERE c.slug IN ('greetings','family','numbers','food','everyday','feelings')
         AND lg.language_code NOT LIKE '\\_\\_%'
-        -- Hindi keeps the whole of zones 1 and 2.
-        AND NOT (lg.language_code = 'hi' AND c.slug IN ('greetings','family'))
+        -- NO PER-LANGUAGE EXCEPTION SINCE 2026-09-08. This line excluded
+        -- Hindi's greetings AND family from the paid remainder, which is what
+        -- gave the flagship a second free zone. Its removal is what actually
+        -- CLOSES Hindi zone 2, since rule 3 flips anything left open.
         -- Every language keeps the WHOLE of zone 1 (2026-09-07 ruling). This
         -- used to exclude only position-1 greetings; leaving it that way would
         -- have re-closed, on the next boot, exactly what rule 2 just opened.
@@ -100,12 +103,11 @@ export async function reconcileFreeTierContentPolicy(): Promise<void> {
     )
   `);
 
-  const hindiCount = hindiFreeZones.rowCount ?? 0;
   const firstStopCount = firstStops.rowCount ?? 0;
   const paidCount = paidRemainder.rowCount ?? 0;
-  if (hindiCount + firstStopCount + paidCount > 0) {
+  if (firstStopCount + paidCount > 0) {
     logger.info(
-      { hindiZones1and2: hindiCount, firstStops: firstStopCount, closedToPaid: paidCount },
+      { zoneOne: firstStopCount, closedToPaid: paidCount },
       "Free-tier content policy: reconciled premium rows.",
     );
   } else {

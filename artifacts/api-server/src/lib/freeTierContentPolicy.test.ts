@@ -19,37 +19,20 @@ after(async () => {
 test("reconciliation is idempotent and both policy invariants hold", async () => {
   await reconcileFreeTierContentPolicy();
 
-  // Ruling 1: every Hindi Greetings AND Family row serves free — phrase AND
-  // sentence stage, both fare zones. The paywall lands at Zone 3.
+  // ~~Ruling 1: Hindi zones 1 and 2.~~ DELETED 2026-09-08 with the rule itself:
+  // "i don't want 2 zones for any languages free". What stood here asserted
+  // that no premium row remained in Hindi Greetings OR Family, and that Hindi
+  // Zone 3 still held premium rows so the widening had not quietly become
+  // "Hindi is free". Both are covered by what follows: zone one is checked for
+  // EVERY language including Hindi, and the paid-remainder scan below now
+  // includes Hindi's family, which is the assertion that actually proves zone 2
+  // closed.
   //
-  // WIDENED FROM GREETINGS ALONE on 2026-08-24. Hindi is the flagship and the
-  // language a visitor is most likely to try, so it carries a deeper free run
-  // than the rest; every other language gets its first stop (ruling 2) plus the
-  // tracing and story tastes at stops 2 and 3.
-  const hi = await pool.query(`
-    SELECT count(*)::int AS n
-    FROM phrases p
-    JOIN lesson_groups lg ON lg.id = p.lesson_group_id
-    JOIN categories c ON c.id = lg.category_id
-    WHERE p.language_code = 'hi' AND c.slug IN ('greetings', 'family') AND p.premium
-  `);
-  assert.equal(hi.rows[0].n, 0, "no premium rows may remain in Hindi Zones 1 and 2");
-
-  // AND ZONE 3 IS STILL PAID, which is the half that stops this widening from
-  // quietly becoming "Hindi is free". Asserted as a NEGATIVE rather than
-  // trusted: a policy that flips too much looks identical to one that flips
-  // correctly, until somebody checks the other side of the line.
-  const hiZone3 = await pool.query(`
-    SELECT count(*)::int AS n
-    FROM phrases p
-    JOIN lesson_groups lg ON lg.id = p.lesson_group_id
-    JOIN categories c ON c.id = lg.category_id
-    WHERE p.language_code = 'hi' AND c.slug = 'numbers' AND p.premium
-  `);
-  assert.ok(
-    hiZone3.rows[0].n > 0,
-    "Hindi Zone 3 must still hold premium rows, or the paywall has moved",
-  );
+  // THE OLD ZONE-3 CHECK IS NOT REPLACED AND THAT IS DELIBERATE. It could only
+  // run where Hindi lesson groups exist, which is not true of a database built
+  // from migrations plus the seed, so it failed for the environment rather than
+  // for the policy. The paid-remainder scan below covers the same ground
+  // without needing one language's content to be present.
 
   // Ruling 2, WIDENED 2026-09-07 BY THE OWNER: zero premium phrase rows
   // anywhere in ANY real language's ZONE ONE, not just its first stop.
@@ -72,6 +55,36 @@ test("reconciliation is idempotent and both policy invariants hold", async () =>
     zoneOne.rows[0].n,
     0,
     "no premium phrase rows may remain anywhere in zone one, in any language",
+  );
+  // VACUITY CHECK, and without it the assertion above passes on an empty set.
+  // "Zero premium rows in zone one" is equally true of a zone one that has no
+  // stops past the first, which is exactly what this policy used to leave
+  // behind. Assert the widening had something to widen INTO.
+  const zoneOneDepth = await pool.query(`
+    SELECT
+      count(*) FILTER (WHERE lg.position > 1)::int AS deep,
+      count(*)::int AS total
+    FROM lesson_groups lg
+    JOIN categories c ON c.id = lg.category_id
+    WHERE c.slug = 'greetings' AND lg.language_code NOT LIKE '\\_\\_%'
+  `);
+  // TWO DIFFERENT FAILURES, AND THEY MUST NOT SHARE A MESSAGE. An empty result
+  // means this database has no journey content at all, which makes the whole
+  // file untestable and is an ENVIRONMENT fault; a non-empty result with no
+  // depth means zone one is one stop deep, which is a POLICY fault and the
+  // thing the scan above would otherwise pass on vacuously. Reporting them the
+  // same way is how a green suite gets believed about content it never saw.
+  assert.ok(
+    zoneOneDepth.rows[0].total > 0,
+    "NO LESSON GROUPS IN THIS DATABASE: the free-tier policy cannot be tested " +
+      "here at all. A migrated-and-seeded database has languages, categories " +
+      "and phrases but no journey content, so this file needs the Repl's dev " +
+      "database or a content import, and everything it asserts about zone one " +
+      "is vacuous until then.",
+  );
+  assert.ok(
+    zoneOneDepth.rows[0].deep > 0,
+    "zone one has no stops past position 1, so the scan above proves nothing",
   );
 
   // Ruling 3, added 2026-08-25: NOTHING outside the free run is free.

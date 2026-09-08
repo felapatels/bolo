@@ -258,13 +258,16 @@ test("an entitled learner has no ceiling", async () => {
   }
 });
 
-test("a game that was already All-Access did not move", async () => {
-  // The other half of the ruling. wrong-platform-2 is not a taste, so the
-  // count never mentions it and the wall never counts it: whatever gate it
-  // had before this layer is the gate it still has.
-  const { json } = await get("/games/plays");
-  assert.equal(json.plays["wrong-platform-2"], undefined);
-  for (let i = 0; i < GAME_TASTE_PLAYS + 1; i += 1) {
+test("the last All-Access holdout moved too, because the ruling said ALL", async () => {
+  // INVERTED 2026-09-08. This asserted the opposite: wrong-platform-2 was not a
+  // taste, the count never mentioned it, and the wall never counted it, because
+  // the 2026-09-04 ruling's other half was that All-Access games do not move.
+  // The owner's 2026-09-08 ruling moves them: "3 free games for all games
+  // before paywall." This tile is where the word ALL is tested, since it is the
+  // one that was deliberately held back last time.
+  for (let i = 0; i < GAME_TASTE_PLAYS; i += 1) {
     assert.equal((await play("wrong-platform-2")).status, 201, `play ${i + 1}`);
   }
+  // And the wall counts it now, which is the half that was never true before.
+  assert.equal((await play("wrong-platform-2")).status, 402, "the fourth play");
 });
