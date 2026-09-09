@@ -65,3 +65,4 @@ src/test/conflict-marker-scan.test.ts
 src/test/greetingBuffer.test.ts
 src/test/scenarios.test.ts
 src/test/scriptTracePayload.test.ts
+src/routes/specRouteParity.test.ts
