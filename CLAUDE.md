@@ -105,10 +105,18 @@ Run from the repo root.
   in the Repl Shell 2026-09-04, after the letter stop, the daily gift, the letter
   match, the script-keyed letter audio and the Nest's three new drill metrics.
   **THAT RUN WAS THE FIRST TIME ANY OF THOSE ROUTE TESTS HAD EXECUTED**, since
-  this suite cannot run on a Mac, and the one it mattered most for is the gift:
-  fec82be8 DELETED the silent earn_streak_day grant from the attempts path, and
-  the only prior evidence that nothing depended on it was a reading of every
-  test that posts to /attempts. Nothing did.
+  nobody had yet run this suite against a local Postgres, and the one it mattered
+  most for is the gift: fec82be8 deleted the silent flat-1 `earn_streak_day`
+  grant from the attempts path, and the only prior evidence that nothing depended
+  on it was a reading of every test that posts to /attempts. Nothing did.
+  **THAT DELETION DID NOT HOLD, AND THIS NOTE READ AS IF IT HAD until 2026-09-08.**
+  The grant is back on the attempts path in a different shape, at
+  `learning.ts` `grantTokensDetailed(userId, "earn_streak_day", giftRefId(dayKey), amount)`:
+  it pays the LADDER's draw rather than a flat 1, and it stands down when the
+  client sends `canClaimGift: true`, which is the compatibility shim that lets
+  the tap-is-the-grant ruling ship without stopping payment to anyone who has not
+  updated. **So there are two doors onto one ledger row and the refId decides
+  which pays.** Cite the symbol, never a line number: forks have drifted.
   (Was 1450/109/1448 on 2026-08-29 (build 20), after the flashback and
   hesitation server change; 1436/106/1434 earlier that day after build 19.) (Was
   1430/105/1428 on 2026-08-28 (build 17), 1251/93/1249 on 2026-08-27,
@@ -121,14 +129,20 @@ Run from the repo root.
   fails to even import, which looks like a broken test and is not.
   **THIS RUN CLOSED THREE THINGS AT ONCE**, which is why the number moved so far.
   `learning.zone-testout.test.ts` was fixed at the end of chat 11 and had sat
-  UNVERIFIED across two handoffs, because this suite cannot run on a Mac; it
+  UNVERIFIED across two handoffs, because nobody had run this suite against a
+  local Postgres yet; it
   passes. The Nest's seven `nest.range.test.ts` failures are gone. And the four
   new username-clearing cases in `account.test.ts` were shipped on reading alone
   and are now proven against the real database.
   **THE PASS COUNT IS THE SIGNAL, NOT THE TOTAL.** A different total is new
   coverage; a different pass count is a regression.
-  **It cannot be run on the Mac at all** — see the dev-database note under
-  Working rules. Repl Shell or nowhere. **Run it alone.**
+  **IT RUNS ON THE MAC.** This line used to say "it cannot be run on the Mac at
+  all". That was false, and it was corrected 2026-09-08 by running it. What a
+  laptop cannot reach is REPLIT's dev database, whose host is an internal name.
+  **Postgres 17 is installed on this Mac and serving on `/tmp:5432`, with
+  `bolo_dev` already on it**: point `DATABASE_URL` at that and the suite runs.
+  The Repl Shell still works and is still the place to run it against dev.
+  **Run it alone.**
   The script runs `sync-schema` first, so running the api tests APPLIES pending
   migrations to the dev database.
 - web: `pnpm --filter @workspace/gujarati-coach run test` (vitest)
@@ -330,8 +344,15 @@ needs that substrate designed rather than a one-off button.
   Production is a public Neon endpoint and connects fine from a Mac. Two
   consequences worth knowing before planning any work around them:
 
-  1. **The api-server test suite CANNOT be run on the Mac**, because it needs the
-     dev database. It runs in the Repl's Shell or not at all.
+  1. **The api-server test suite cannot reach REPLIT's dev database from a Mac.**
+     This used to read "CANNOT be run on the Mac", full stop, and that
+     conclusion did not follow: the suite needs A database, not THAT one.
+     **Postgres 17 is installed on this Mac and serving; `bolo_dev` is already
+     there.** Corrected 2026-09-08, after the false version hid five defects for
+     weeks, the largest of them giving the entire paid library away on a freshly
+     seeded database. **`npm run test:pure` also needs `SESSION_SECRET` and
+     `OPENAI_API_KEY` set to any non-empty value, or roughly a sixth of the
+     tests never import and the summary does not say so** (ledger X77).
   2. **The app cannot be run locally against dev either**, so a UI change that
      needs real data has to be verified in the Repl, or by a test with mocked
      data. The journey tests already do the latter and are the pattern to follow.
