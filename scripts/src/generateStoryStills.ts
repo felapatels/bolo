@@ -130,20 +130,54 @@ function jobsForBook(bookId: string, scenes: readonly Scene[]): Job[] {
 }
 
 /**
- * PNG in, webp out.
+ * WHICH ENCODER CAN ACTUALLY WRITE A WEBP, which is not the same question as
+ * "is ffmpeg installed".
  *
- * gpt-image-1 returns PNG, and ten full-size PNGs is several megabytes shipped
- * to every phone and every page load. webp at q82 is a fraction of that with no
- * visible loss at this size. ffmpeg is already in this toolchain (audioNoise,
- * genBandClips), so this needs no new dependency.
+ * THIS REPLACED A PRESENCE TEST, AND THE PRESENCE TEST WAS ANSWERING THE WRONG
+ * QUESTION (East Asia, 2026-09-08, found by RUNNING the thing rather than
+ * reading it). The old `haveFfmpeg()` shelled `ffmpeg -version` and returned
+ * true if the binary existed. Measured on this Mac:
+ *
+ *     ffmpeg 9.0.1     present
+ *     libx264          present, so every film pipeline is unaffected
+ *     webp encoder     ABSENT. Not disabled, not listed at all.
+ *     cwebp            present at /opt/homebrew/bin/cwebp
+ *
+ * So the check said yes, the conversion failed with "Default encoder for format
+ * webp is probably disabled", the catch below wrote a PNG, and the run printed
+ * `ok`. FIVE OF THE SIX FORKS WERE IN THAT STATE; only bolo-east had cwebp.
+ *
+ * AND A PNG IS NOT A SLIGHTLY-WORSE WEBP HERE, IT IS A MISSING PICTURE. The
+ * clients fetch `<id>.webp` (mediaUrl.ts). A directory full of PNGs is a
+ * successful run, a paid-for batch, and a storybook that renders nothing.
+ *
+ * The fallback itself is still right and is kept: these images cost real money
+ * and dying at the conversion step throws away everything already bought in
+ * that run. What was wrong was that the fallback was SILENT.
  */
-function haveFfmpeg(): boolean {
+type WebpEncoder = "cwebp" | "ffmpeg" | "none";
+
+function webpEncoder(): WebpEncoder {
+  // cwebp FIRST. It is the dedicated tool, it either exists or it does not,
+  // and it cannot be present-but-incapable the way ffmpeg just was.
   try {
-    execFileSync("ffmpeg", ["-version"], { stdio: "ignore" });
-    return true;
+    execFileSync("cwebp", ["-version"], { stdio: "ignore" });
+    return "cwebp";
   } catch {
-    return false;
+    // not installed; fall through
   }
+  // PROBE THE ENCODER LIST, NEVER THE BINARY. `ffmpeg -version` succeeding tells
+  // you nothing about whether this build can emit the format you need.
+  try {
+    const encoders = execFileSync("ffmpeg", ["-hide_banner", "-encoders"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    if (/\bwebp\b/.test(encoders)) return "ffmpeg";
+  } catch {
+    // no ffmpeg at all
+  }
+  return "none";
 }
 
 /**
@@ -160,14 +194,35 @@ function haveFfmpeg(): boolean {
  * already paid for in that run. A larger file is a problem you can fix later;
  * a lost batch is money gone.
  */
-function writeStill(png: Buffer, dir: string, id: string, canWebp: boolean): void {
-  if (!canWebp) {
+function writeStill(
+  png: Buffer,
+  dir: string,
+  id: string,
+  encoder: WebpEncoder,
+): "webp" | "png" {
+  if (encoder === "none") {
     writeFileSync(path.join(dir, `${id}.png`), png);
-    return;
+    return "png";
   }
   const outPath = path.join(dir, `${id}.webp`);
   const tmp = `${outPath}.tmp.png`;
   writeFileSync(tmp, png);
+
+  if (encoder === "cwebp") {
+    try {
+      // -resize W 0 keeps the aspect ratio, the same job scale=1024:-2 does.
+      execFileSync("cwebp", ["-q", "70", "-resize", "1024", "0", tmp, "-o", outPath], {
+        stdio: ["ignore", "ignore", "inherit"],
+      });
+      return "webp";
+    } catch {
+      writeFileSync(path.join(dir, `${id}.png`), png);
+      return "png";
+    } finally {
+      rmSync(tmp, { force: true });
+    }
+  }
+
   try {
     execFileSync(
       "ffmpeg",
@@ -194,10 +249,12 @@ function writeStill(png: Buffer, dir: string, id: string, canWebp: boolean): voi
       ],
       { stdio: ["ignore", "ignore", "inherit"] },
     );
+    return "webp";
   } catch {
     // Keep the pixels. A PNG beside a failed webp is recoverable; a thrown
     // error mid-run is twenty images bought and discarded.
     writeFileSync(path.join(dir, `${id}.png`), png);
+    return "png";
   } finally {
     rmSync(tmp, { force: true });
   }
@@ -206,13 +263,19 @@ function writeStill(png: Buffer, dir: string, id: string, canWebp: boolean): voi
 async function main(): Promise<void> {
   for (const dir of OUT_DIRS) mkdirSync(dir, { recursive: true });
 
-  const canWebp = haveFfmpeg();
-  if (!canWebp) {
+  const encoder = webpEncoder();
+  if (encoder === "none") {
     console.warn(
-      "ffmpeg not found: writing PNG instead of webp. The images are correct, " +
-        "just larger. Convert them later rather than re-buying them.",
+      "NO WEBP ENCODER (no cwebp, and this ffmpeg cannot emit webp). Writing " +
+        "PNG. THE CLIENTS FETCH .webp, so these will NOT render: convert them " +
+        "before shipping rather than re-buying them. `brew install webp`.",
     );
+  } else {
+    console.log(`webp via ${encoder}`);
   }
+
+  /** Counted so a run that produced NOTHING SHIPPABLE cannot read as success. */
+  const wrote = { webp: 0, png: 0 };
 
   const jobs: Job[] = [];
   for (const book of STORY_BOOKS) {
@@ -220,10 +283,22 @@ async function main(): Promise<void> {
       // --scene matches the SCENE, so it pulls a setup and its three outcomes
       // together. Iterating on one beat means looking at all four at once.
       if (onlyScene && !job.id.startsWith(onlyScene)) continue;
+      // A PNG COUNTS AS DONE ONLY WHEN NOTHING HERE CAN MAKE A WEBP, and that
+      // asymmetry is the whole point. The clients fetch `.webp`, so a PNG is an
+      // unfinished asset, not a finished one in another format: once an encoder
+      // is available it must be RETRIED rather than skipped. But when there is
+      // no encoder at all, a PNG is the best this machine can do and re-buying
+      // it every run costs real money for nothing.
+      //
+      // WRITTEN BECAUSE I ALMOST SHIPPED THE OPPOSITE. The failure message
+      // below told the operator that `--force` was not needed, and with a plain
+      // `|| .png` here that sentence was FALSE: every PNG would have been
+      // skipped on the retry and the run would have reported nothing to do.
+      // An instruction that is wrong is worse than no instruction.
       const exists = OUT_DIRS.every(
         (d) =>
           existsSync(path.join(d, `${job.id}.webp`)) ||
-          existsSync(path.join(d, `${job.id}.png`)),
+          (encoder === "none" && existsSync(path.join(d, `${job.id}.png`))),
       );
       if (exists && !force) continue;
       jobs.push(job);
@@ -248,10 +323,17 @@ async function main(): Promise<void> {
         "1536x1024",
       );
       if (png.length === 0) throw new Error("empty image buffer");
+      // THE LOG NAMES THE FORMAT, because the old success line could not fail.
+      // It printed `ok` whether the run produced a shippable webp or a PNG the
+      // clients will never request, which is the same shape as a bite test that
+      // passes on the unfixed code: a check that cannot distinguish the two
+      // outcomes it exists to distinguish.
+      const written = new Set<string>();
       for (const dir of OUT_DIRS) {
-        writeStill(png, dir, job.id, canWebp);
+        written.add(writeStill(png, dir, job.id, encoder));
       }
-      console.log(`  ${label} ok`);
+      for (const f of written) wrote[f as "webp" | "png"] += 1;
+      console.log(`  ${label} ok (${[...written].join("+")})`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`  ${label} FAILED: ${msg}`);
@@ -260,6 +342,17 @@ async function main(): Promise<void> {
   }
 
   console.log(`\nWrote into:\n  ${OUT_DIRS.join("\n  ")}`);
+  console.log(`Formats: ${wrote.webp} webp, ${wrote.png} png`);
+  if (wrote.png > 0) {
+    // LOUD, AND A NON-ZERO EXIT. A PNG here is not a slightly larger webp, it
+    // is a picture the app will never ask for.
+    console.error(
+      `\n${wrote.png} image(s) written as PNG. THE CLIENTS FETCH .webp, so ` +
+        `those stills will not render. Install cwebp (\`brew install webp\`) ` +
+        `and re-run; --force is NOT needed, the existing PNGs do not count as done.`,
+    );
+    process.exitCode = 1;
+  }
   if (failures.length > 0) {
     console.error(`\n${failures.length} failed:\n  ${failures.join("\n  ")}`);
     process.exitCode = 1;
