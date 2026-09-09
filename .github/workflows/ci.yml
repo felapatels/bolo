@@ -157,10 +157,28 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgres://bolo:bolo@localhost:5432/bolo_ci
-      # Test-only values. Neither is a credential and neither reaches a real
-      # service: Clerk is faked in the suite and no test calls OpenAI.
+      # Test-only values. Clerk is faked in the suite and never reached.
       SESSION_SECRET: ci-test-secret-not-a-credential
-      OPENAI_API_KEY: sk-placeholder-not-a-real-key-import-guard-only
+      # "no test calls OpenAI" USED TO BE TRUE AND WAS NOT. The comment above
+      # this line said exactly that, and openai.tts-cache.test.ts deletes
+      # ELEVENLABS_API_KEY on purpose so the gpt-audio fallback has to really
+      # synthesise. With a placeholder it cannot, so that one test has failed on
+      # EVERY run for as long as the history reaches: 16 failures and 8
+      # cancellations in the last 25, and no successes at all. Proven both ways
+      # on 2026-09-08 rather than argued: placeholder red, and with the owner's
+      # real key that file is 19 of 19.
+      #
+      # A BOARD THAT IS RED EVERY TIME IS A BOARD NOBODY READS, and this one had
+      # six commits and a store build pushed past it in one evening by somebody
+      # who never thought to look. The owner's ruling: give it the real key.
+      #
+      # THE FALLBACK IS NOT TIDINESS, IT IS THE IMPORT GUARD. Four files import a
+      # module that THROWS AT TOP LEVEL when this is empty, and a file that fails
+      # to import reports one test and takes the rest with it UNCOUNTED: roughly
+      # a sixth of the suite disappears and the summary says nothing. So an unset
+      # secret must still yield a non-empty string. `${{ }}` gives "" for a
+      # missing secret, which is precisely the value that would do that.
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-placeholder-not-a-real-key-import-guard-only' }}
       # Clerk's backend SDK asserts on key FORMAT at import, not on validity, so
       # a well-formed fake is enough and no request ever reaches Clerk. Without
       # these, phraseReports' auth test returns 500 where it asserts 401, which
