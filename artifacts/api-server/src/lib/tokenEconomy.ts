@@ -320,7 +320,22 @@ export type TokenReason =
 // and App Store purchases apart so their transaction-id spaces cannot collide,
 // but a learner who bought Chai just bought Chai.
 export const TOKEN_REASON_LABELS: Record<TokenReason, string> = {
-  earn_streak_day: "Streak day",
+  // "Daily gift", NOT "Streak day", and this is a correction rather than a
+  // rename. EVERY earn_streak_day ROW IS THE DAILY GIFT: the only two writers
+  // are the box tap (routes/tokens.ts) and the compatibility shim on the
+  // attempts path (routes/learning.ts), and both grant the drawn gift amount.
+  // Nothing has paid a separate "streak day" since the wheel replaced the flat
+  // ladder, so the word a learner reads in their wallet history has been naming
+  // something that no longer exists.
+  //
+  // SEPARABLE FROM THE KEY RENAME ON PURPOSE (supervisor, 2026-09-09). Moving
+  // the REASON to earn_daily_gift is a migration with a deploy-day double
+  // payment, a dual-read window and four raw SQL literals in the Nest behind it,
+  // and it needs the owner's go. Moving the LABEL is none of those: the history
+  // route serves `tokenReasonLabel(row.reason)` and never the reason itself, so
+  // this fixes everything a learner can SEE at zero risk and leaves the key
+  // question where it belongs.
+  earn_streak_day: "Daily gift",
   earn_zone_complete: "Zone finished",
   earn_express_stamp: "Express stamp",
   earn_quiz: "Daily quiz",

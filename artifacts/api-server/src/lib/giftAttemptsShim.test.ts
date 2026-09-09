@@ -26,7 +26,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { GIFT_ATTEMPTS_SHIM } from "./tokenEconomy";
+import { GIFT_ATTEMPTS_SHIM, TOKEN_REASON_LABELS } from "./tokenEconomy";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
@@ -127,5 +127,36 @@ test("and somebody re-decides whether the shim can go, on a date", () => {
       `${GIFT_ATTEMPTS_SHIM.firstBoxBuilds.android} are still in the field. If they are gone, ` +
       `remove every site in GIFT_ATTEMPTS_SHIM.sites together. If they are not, move the date ` +
       `and say why. DO NOT delete this test to make the red go away.`,
+  );
+});
+
+/**
+ * THE WORD A LEARNER READS IN THEIR WALLET HISTORY.
+ *
+ * `GET /tokens/history` serves `tokenReasonLabel(row.reason)` and NEVER the
+ * reason itself, so this string is the only part of the daily gift's ledger
+ * identity that a learner ever sees. It said "Streak day" while every row it
+ * names was the daily gift, because the wheel replaced the flat ladder and the
+ * label did not follow.
+ *
+ * PINNED SEPARATELY FROM THE KEY. The reason rename to `earn_daily_gift` is a
+ * migration with a deploy-day double payment behind it and is the owner's call.
+ * The label is not, and keeping the two apart is what let one of them ship
+ * today. If the key rename ever lands, this test should move to the new reason
+ * rather than be deleted.
+ */
+test("the daily gift is called the daily gift where a learner can read it", () => {
+  assert.equal(
+    TOKEN_REASON_LABELS.earn_streak_day,
+    "Daily gift",
+    "the wallet history is naming the gift after a mechanism that no longer exists",
+  );
+  // AND THE REASON CODE HAS NOT MOVED WITHOUT ITS MIGRATION. If somebody renames
+  // the key to earn_daily_gift, this fails and sends them to the four raw SQL
+  // literals in nest.ts and the dual-read window, rather than letting a rename
+  // look like a label change.
+  assert.ok(
+    "earn_streak_day" in TOKEN_REASON_LABELS,
+    "the reason key moved; the rename needs its migration, see DAILY-GIFT-STRUCTURE.md",
   );
 });
