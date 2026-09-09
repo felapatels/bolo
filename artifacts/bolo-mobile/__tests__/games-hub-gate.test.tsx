@@ -21,10 +21,15 @@ jest.mock('@/lib/useJourneyProgress', () => ({
   useJourneyProgress: () => ({ current: null, zones: [], doneCount: 0, totalCount: 0, isLoading: false, planBlocked: false }),
 }));
 
+// The active language is mutable so one test can ask what a learner in a
+// language with no stroke data is offered. Default stays Hindi, so every
+// existing test in this file is untouched.
+let mockLang = 'hi';
+
 jest.mock('@/contexts/LanguageContext', () => ({
   useLanguage: () => ({
-    activeLang: 'hi',
-    activeLanguage: { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', script: 'devanagari', fontFamily: '', rtl: false, sortOrder: 0 },
+    activeLang: mockLang,
+    activeLanguage: { code: mockLang, name: 'Hindi', nativeName: 'हिन्दी', script: 'devanagari', fontFamily: '', rtl: false, sortOrder: 0 },
     languages: [],
     speechCapability: 'supported',
     timeZone: null,
@@ -344,5 +349,47 @@ describe('games hub - bought plays', () => {
     mockState.gamePlays = spentWith(5);
     render(<GamesScreen />);
     expect(screen.queryByTestId('games-credits-tile')).toBeNull();
+  });
+});
+
+/**
+ * SCRIPT TRACE IS NOT ADVERTISED IN A LANGUAGE THAT CANNOT PLAY IT.
+ *
+ * The catalogue carried a comment saying "the screen still gates itself on
+ * traceReadyFor(), so this entry cannot open onto an empty game". IT DID NOT.
+ * script-trace.tsx never mentions traceReadyFor; there was no readiness gate at
+ * any level. East Asia shipped the consequence in its own tree, a plusOnly tile
+ * advertised to ten languages none of which are trace-ready, and reported the
+ * false comment back because "it came from somewhere". It came from here.
+ *
+ * BENIGN IN INDIA AND MEASURED RATHER THAN ASSUMED: traceReadyFor is false for
+ * exactly one code, `si`, and production /api/languages returns 22 codes with no
+ * si in them. So these tests pin a rule that changes nothing here today and is
+ * correct in every fork that inherits the file, which is the only reason to
+ * write it in the parent.
+ */
+describe('games hub - a game its language cannot play is not offered', () => {
+  afterEach(() => {
+    mockLang = 'hi';
+  });
+
+  it('offers Script Trace in a trace-ready language', () => {
+    // gu has an alphabet a speaker actually traced, so this is the positive
+    // control: without it, a gate that hid the tile ALWAYS would also pass the
+    // test below and look like a fix.
+    mockState.gamePlays = { limit: 3, plays: {}, credits: 0 };
+    render(<GamesScreen />);
+    expect(screen.getByText('Script Trace')).toBeTruthy();
+  });
+
+  it('and withholds it where there is no stroke data to trace', () => {
+    // si is the one code in the library that fails traceReadyFor. India does not
+    // ship Sinhala, so this asserts the RULE rather than a live India state, and
+    // it is the fork case that matters.
+    mockLang = 'si';
+    render(<GamesScreen />);
+    expect(screen.queryByText('Script Trace')).toBeNull();
+    // The rest of the catalogue is untouched: this hides one game, not a grid.
+    expect(screen.getByText('Ticket Check')).toBeTruthy();
   });
 });

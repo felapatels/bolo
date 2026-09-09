@@ -52,6 +52,7 @@ import { useAppearSkip } from '@/lib/entrance';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
 import { useGetGamePlays } from '@workspace/api-client-react';
 import { gameTasteLabel, gameTasteState, isTasteGame } from '@workspace/game-taste';
+import { traceReadyFor } from '@workspace/script-trace';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { AppFonts } from '@/constants/fonts';
@@ -172,9 +173,28 @@ export const GAMES: GameDef[] = [
   // scoring are polished"; what it was really waiting for was authored stroke
   // data, since AUTHORED_GLYPHS held three prototype glyphs and traceReadyFor()
   // was false in all 22 languages. A speaker traced the Gujarati alphabet, and
-  // the other 11 scripts now carry font-derived guesses marked provisional, so
-  // every language clears PLAYABLE_GLYPH_FLOOR. The screen still gates itself
-  // on traceReadyFor(), so this entry cannot open onto an empty game.
+  // the other 11 scripts now carry font-derived guesses marked provisional.
+  //
+  // THE LAST LINE OF THIS COMMENT USED TO SAY "the screen still gates itself on
+  // traceReadyFor(), so this entry cannot open onto an empty game". THAT WAS
+  // FALSE. script-trace.tsx does not mention traceReadyFor anywhere; it imports
+  // glyphsForLanguage and uses it deep inside a per-character component to find
+  // one guide. There was no readiness gate on this game at any level.
+  //
+  // FOUND BY EAST ASIA 2026-09-08, in its own tree, where it was a LIVE BUG: a
+  // plusOnly tile advertised to learners of ten languages, none of them
+  // trace-ready, opening onto nothing. It reported the false comment back
+  // because "it came from somewhere", and it came from here.
+  //
+  // IT WAS BENIGN IN INDIA AND I MEASURED THAT RATHER THAN ASSUMING IT.
+  // traceReadyFor is false for exactly one code, `si`, and Sinhala is not one of
+  // the 22 languages this app ships (checked against production
+  // /api/languages, which returns 22 codes and no si). So no India learner
+  // could reach the empty game. A false comment with no consequence is still
+  // what stops the next reader looking, and the next reader was a fork.
+  //
+  // THE GATE BELOW IS NOW REAL. It is a no-op here by measurement, not by
+  // hope, and it is correct in every fork that inherits this file.
   {
     id: 'script-trace',
     title: 'Script Trace',
@@ -556,6 +576,31 @@ export default function GamesScreen() {
     !plusReady && taste(game.id)?.playable === false;
   const { activeLang, activeLanguage } = useLanguage();
   const line = getJourneyLine(activeLang);
+
+  /**
+   * THE CATALOGUE, MINUS ANY GAME THIS LANGUAGE CANNOT ACTUALLY PLAY.
+   *
+   * Today that is exactly one rule: Script Trace needs authored or provisional
+   * stroke data, and `traceReadyFor` is the shared library's own answer to
+   * "can this be offered at all", the same shape as `journeyIsReady`. A tracing
+   * game with three letters in it is worse than no tracing game.
+   *
+   * THE GATE THE OLD COMMENT CLAIMED ALREADY EXISTED. It did not, at any level,
+   * and East Asia shipped the consequence: a tile advertised to ten languages
+   * that opened onto nothing. Putting it HERE rather than in the screen is
+   * deliberate. The screen is reached by deep link and by the journey as well as
+   * by this grid, but the catalogue is the thing that ADVERTISES the game, and
+   * an offer nobody can accept is the actual defect.
+   *
+   * A NO-OP IN INDIA, MEASURED: `traceReadyFor` is false only for `si`, and
+   * Sinhala is not among the 22 codes production serves. It is not a no-op in a
+   * fork, which is the entire point of writing it in the parent.
+   */
+  const catalogue = useMemo(
+    () => GAMES.filter((g) => g.id !== 'script-trace' || traceReadyFor(activeLang)),
+    [activeLang],
+  );
+
   // The learner's current city for the hero's "Hindi · New Delhi" line: the
   // same journey read the home pass makes, cached between the two.
   const journey = useJourneyProgress(activeLang, line.zones);
@@ -798,7 +843,7 @@ export default function GamesScreen() {
     // now, so Screen's 600pt column would clip the third tile off the right.
     <Screen padTop={false} column={false}>
       <FlatList
-        data={GAMES}
+        data={catalogue}
         keyExtractor={(g) => g.id}
         // FlatList cannot change numColumns in place, so the key forces the one
         // remount that a rotation needs and nothing else does.
