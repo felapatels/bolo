@@ -42,6 +42,8 @@ import {
   MapPin,
   ChevronDown,
   ArrowRight,
+  Play,
+  ChevronRight,
 } from "lucide-react";
 import { useEntitlements } from "@/lib/entitlements";
 import { useGetGamePlays } from "@workspace/api-client-react";
@@ -379,12 +381,41 @@ export default function GamesPage() {
       plusOnly: false,
       isPlus: false,
       playsUsed: gamePlays.plays[id] ?? 0,
+      // The pool reaches this gate too. Twin of the phone's, and it carried the
+      // identical bug: `credits` defaults to 0, so a learner who had bought
+      // plays saw a locked card over a game the server would have let them
+      // play. Fixed 2026-09-08 on both surfaces in one pass, because a fix that
+      // lands on one twin is how they drift.
+      credits: gamePlays.credits,
     });
   };
   const tasteLabelFor = (id: string) => {
     const t = taste(id);
     return t ? gameTasteLabel(t) : null;
   };
+  /**
+   * THE BOUGHT-PLAYS TILE. Twin of the phone's, same rule, same words.
+   *
+   * Chai buys game plays in packs, the server tracks the pool and serves it on
+   * GET /games/plays, and until 2026-09-08 nothing on either surface showed it:
+   * a learner could buy ten plays and see no evidence they owned them, and
+   * could not spend them either, because neither hub passed `credits` into the
+   * gate. Shown when the pool is non-empty, or when it is empty and some game's
+   * taste is spent (that learner is staring at a locked card and this is the
+   * only route past it). Never for All-Access, who have no ceiling. Never for a
+   * new learner with everything still free, because a permanent buy strip above
+   * the grid is a nag.
+   */
+  const creditsTile = (() => {
+    if (!gamePlays || isPlus === true) return null;
+    const credits = gamePlays.credits ?? 0;
+    const anySpent = GAMES.some(
+      (g) => isTasteGame(g.id) && taste(g.id)?.playsLeft === 0,
+    );
+    if (credits === 0 && !anySpent) return null;
+    return { credits };
+  })();
+
   /** Shut: an All-Access game without Plus, or a taste that is spent. */
   const isLocked = (game: GameDef) =>
     (game.plusOnly && !plusReady) || taste(game.id)?.playable === false;
@@ -422,6 +453,43 @@ export default function GamesPage() {
               locked={isLocked(continueGame)}
               onPlay={() => remember(continueGame.id)}
             />
+          </section>
+        )}
+
+        {creditsTile && (
+          <section className="mt-5" data-testid="games-credits-section">
+            <SectionEyebrow>Your plays</SectionEyebrow>
+            <Link
+              href="/bazaar/tickets"
+              data-testid="games-credits-tile"
+              aria-label={`${creditsTile.credits} bought ${
+                creditsTile.credits === 1 ? "play" : "plays"
+              } in your pool. Buy more with Chai.`}
+              className="flex items-center gap-3 rounded-2xl border border-border bg-card px-3.5 py-3 transition-colors hover:bg-accent"
+            >
+              <span className="grid h-8.5 w-8.5 shrink-0 place-items-center rounded-full bg-amber-200 p-2 text-amber-950">
+                <Play className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                {/* The number is the headline and it is a NUMBER. Nothing here
+                    encodes state by hue: an empty pool and a full one differ by
+                    the digit and by the sentence under it. */}
+                <span
+                  className="block text-[15px] font-extrabold text-foreground"
+                  data-testid="games-credits-count"
+                >
+                  {creditsTile.credits === 0
+                    ? "No bought plays left"
+                    : `${creditsTile.credits} bought ${creditsTile.credits === 1 ? "play" : "plays"}`}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  {creditsTile.credits === 0
+                    ? "Buy more with Chai to keep playing"
+                    : "Spent only after a game\u2019s free plays are gone"}
+                </span>
+              </span>
+              <ChevronRight className="h-4.5 w-4.5 shrink-0 text-muted-foreground" />
+            </Link>
           </section>
         )}
 

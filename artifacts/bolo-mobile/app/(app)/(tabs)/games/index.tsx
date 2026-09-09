@@ -26,7 +26,7 @@
  * tiles route to the paywall while entitlements load) and the same push
  * targets.
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   FlatList,
   Image,
@@ -482,6 +482,15 @@ export default function GamesScreen() {
       plusOnly: false,
       isPlus: false,
       playsUsed: gamePlays.plays[id] ?? 0,
+      // THE POOL HAS TO REACH THE CLIENT'S GATE TOO, and it did not until
+      // 2026-09-08. `credits` defaults to 0, so a learner who had BOUGHT plays
+      // saw every spent card still locked and could not reach the game they had
+      // paid for. The server's two gates (learning.ts and chachaCall.ts) both
+      // pass it and would have allowed the play; only the hub refused. Exactly
+      // the shape the api-server comment beside its own gate warns about, one
+      // layer out, and the same shape as the two fields that were on the wire
+      // with no client able to see them.
+      credits: gamePlays.credits,
     });
   };
   /** The line under the pill, from the pure package so all three surfaces
@@ -501,6 +510,37 @@ export default function GamesScreen() {
      */
     return t && t.playsLeft > 0 ? gameTasteLabel(t) : null;
   };
+  /**
+   * THE BOUGHT-PLAYS TILE, or null when this learner has no use for it.
+   *
+   * WHY IT EXISTS AT ALL. Chai buys game plays in packs, the server tracks the
+   * pool and serves it on GET /games/plays, and until now NOTHING IN THE APP
+   * SHOWED IT. A learner could buy ten plays and see no evidence anywhere that
+   * they owned them. (They could not spend them either; the hub was not passing
+   * `credits` into the gate, which is fixed above.)
+   *
+   * WHO SEES IT, and the rule is deliberately not "always":
+   *   - never for All-Access, who have no ceiling and no pool to spend.
+   *   - whenever the pool is NON-EMPTY, because a thing you bought must be
+   *     visible or it may as well not have been sold.
+   *   - when the pool is empty BUT some game's free taste is spent, because
+   *     that learner is looking at a locked card and this is the only route to
+   *     playing it. A tile is a route; a locked card on its own is a dead end.
+   *
+   * AND NOT OTHERWISE. A new learner with three free plays on everything and no
+   * purchases is shown nothing, because a permanent "buy plays" strip above the
+   * grid is a nag, and the same argument that kept the gift box off Home on a
+   * day nothing was practised applies here.
+   */
+  const creditsTile = useMemo(() => {
+    if (!gamePlays || isPlus === true) return null;
+    const credits = gamePlays.credits ?? 0;
+    const anySpent = GAMES.some((g) => isTasteGame(g.id) && taste(g.id)?.playsLeft === 0);
+    if (credits === 0 && !anySpent) return null;
+    return { credits };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gamePlays, isPlus]);
+
   /** The card is shut: an All-Access game without Plus, or a spent taste. */
   /**
    * THE CARD IS SHUT, AND THE RULING MOVED WHEN. It used to read
@@ -706,6 +746,44 @@ export default function GamesScreen() {
             locked={isLocked(continueGame)}
             onPress={() => handleGamePress(continueGame)}
           />
+        </View>
+      )}
+
+      {creditsTile && (
+        <View style={styles.section}>
+          <SectionEyebrow>Your plays</SectionEyebrow>
+          <Pressable
+            testID="games-credits-tile"
+            accessibilityRole="button"
+            accessibilityLabel={`${creditsTile.credits} bought ${
+              creditsTile.credits === 1 ? 'play' : 'plays'
+            } in your pool. Buy more with Chai.`}
+            onPress={() => {
+              hapticTap('light');
+              router.push('/(app)/bazaar/tickets');
+            }}
+            style={styles.creditsTile}
+          >
+            <View style={styles.creditsIcon}>
+              <Feather name="play" size={16} color="#4A2C00" />
+            </View>
+            <View style={styles.creditsWords}>
+              {/* THE NUMBER IS THE HEADLINE and it is a NUMBER, not a colour.
+                  Nothing on this tile encodes state by hue: an empty pool and a
+                  full one differ by the digit and the sentence under it. */}
+              <Text style={styles.creditsCount} testID="games-credits-count">
+                {creditsTile.credits === 0
+                  ? 'No bought plays left'
+                  : `${creditsTile.credits} bought ${creditsTile.credits === 1 ? 'play' : 'plays'}`}
+              </Text>
+              <Text style={styles.creditsSub}>
+                {creditsTile.credits === 0
+                  ? 'Buy more with Chai to keep playing'
+                  : 'Spent only after a game\u2019s free plays are gone'}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={18} color="#6B5B4A" />
+          </Pressable>
         </View>
       )}
 
@@ -1049,6 +1127,28 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
   },
   heroDot: { color: '#8A83B3' },
+  creditsTile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E7DCC8',
+    backgroundColor: '#FFFDF8',
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+  },
+  creditsIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5D98A',
+  },
+  creditsWords: { flex: 1, gap: 2 },
+  creditsCount: { fontFamily: AppFonts.extrabold, fontSize: 15, color: '#2A2118' },
+  creditsSub: { fontFamily: AppFonts.regular, fontSize: 12, color: '#6B5B4A' },
   section: {
     paddingHorizontal: GRID_PAD,
     marginTop: 10,

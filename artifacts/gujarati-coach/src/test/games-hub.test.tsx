@@ -19,7 +19,9 @@ const h = vi.hoisted(() => ({
   isLoading: false,
   // THE FREE TASTE (2026-09-04): plays spent per game, or undefined for the
   // pre-load state, which must leave every card open.
-  gamePlays: undefined as { limit: number; plays: Record<string, number> } | undefined,
+  gamePlays: undefined as
+    | { limit: number; plays: Record<string, number>; credits?: number }
+    | undefined,
 }));
 
 vi.mock("@/lib/entitlements", () => ({
@@ -429,5 +431,78 @@ describe("Games hub - the free taste", () => {
     const card = within(catalog()).getByTestId("game-card-wrong-platform-2");
     expect(card).not.toHaveTextContent("free play");
     expect(cardLink("wrong-platform-2")).toHaveAttribute("href", "/upgrade");
+  });
+});
+
+/**
+ * BOUGHT PLAYS. The twin of the phone's, and it carried the identical bug.
+ *
+ * Chai buys game plays in packs; the server tracks the pool, both server gates
+ * pass it into `gameTasteState`, and GET /games/plays serves it as `credits`.
+ * BOTH HUBS READ THAT FIELD AND THREW IT AWAY, so a learner who had PAID for
+ * plays saw a locked card over a game the server would have let them play, and
+ * had nowhere in the app showing they owned anything.
+ *
+ * NOTHING FAILED WHILE IT WAS BROKEN. The package's unit tests prove
+ * gameTasteState honours a pool it is GIVEN, and every fixture above omits
+ * `credits` entirely, so an absent argument was invisible from both ends. These
+ * fixtures pass it EXPLICITLY; one that omits it tests the old behaviour and
+ * passes either way.
+ */
+describe("Games hub - bought plays", () => {
+  const spentWith = (credits: number) => ({
+    limit: 3,
+    plays: { "ticket-check": 3 },
+    credits,
+  });
+
+  test("a spent taste with credits in the pool is PLAYABLE, not sent to /upgrade", () => {
+    // The regression guard. Before the fix this pointed at /upgrade, which is
+    // the app refusing a learner the thing they had just bought.
+    h.gamePlays = spentWith(5);
+    renderPage();
+    expect(cardLink("ticket-check")).toHaveAttribute(
+      "href",
+      "/games/ticket-check",
+    );
+  });
+
+  test("and an EMPTY pool still locks it, so the fix did not just open the door", () => {
+    // The negative control. Without it, "credits are honoured" and "the lock
+    // was removed" are indistinguishable and only one of them is the fix.
+    h.gamePlays = spentWith(0);
+    renderPage();
+    expect(cardLink("ticket-check")).toHaveAttribute("href", "/upgrade");
+  });
+
+  test("shows the pool, because a thing you bought must be visible", () => {
+    h.gamePlays = spentWith(5);
+    renderPage();
+    expect(screen.getByTestId("games-credits-count")).toHaveTextContent(
+      "5 bought plays",
+    );
+  });
+
+  test('says "play" not "plays" when there is one', () => {
+    h.gamePlays = spentWith(1);
+    renderPage();
+    expect(screen.getByTestId("games-credits-count")).toHaveTextContent(
+      "1 bought play",
+    );
+  });
+
+  test("offers a route past a locked card when the pool is empty", () => {
+    h.gamePlays = spentWith(0);
+    renderPage();
+    expect(screen.getByTestId("games-credits-count")).toHaveTextContent(
+      "No bought plays left",
+    );
+  });
+
+  test("shows NOTHING to a learner who has spent nothing and bought nothing", () => {
+    // A permanent buy strip above the grid is a nag.
+    h.gamePlays = { limit: 3, plays: {}, credits: 0 };
+    renderPage();
+    expect(screen.queryByTestId("games-credits-tile")).toBeNull();
   });
 });

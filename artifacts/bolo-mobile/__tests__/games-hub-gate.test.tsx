@@ -265,3 +265,84 @@ describe('games hub - the free taste', () => {
     expect(mockPush).toHaveBeenCalledWith('/(app)/(tabs)/games/wrong-platform-2');
   });
 });
+
+/**
+ * BOUGHT PLAYS: THE POOL HAD TO REACH THE CLIENT'S GATE, AND IT DID NOT.
+ *
+ * Chai buys game plays in packs. The server tracks the pool, both server gates
+ * (learning.ts and chachaCall.ts) pass it into `gameTasteState`, and
+ * GET /games/plays serves it as `credits`. THE HUB READ THAT FIELD AND THREW IT
+ * AWAY: `credits` defaults to 0 inside gameTasteState, so a learner who had
+ * PAID for plays still saw every spent card locked and could not reach the game
+ * they had bought. The server would have allowed the play. Only the hub refused.
+ *
+ * NOTHING FAILED WHEN IT WAS BROKEN, which is the reason these exist. The
+ * package's own unit tests prove gameTasteState honours a pool it is GIVEN, and
+ * every hub fixture in this file omits `credits` entirely, so the argument being
+ * absent was invisible from both ends. Same shape as the two fields that sat on
+ * the wire with no client able to see them, one layer out.
+ *
+ * The fixtures below therefore pass `credits` EXPLICITLY. A fixture that omits
+ * it tests the old behaviour and passes either way.
+ */
+describe('games hub - bought plays', () => {
+  const spentWith = (credits: number) => ({
+    limit: 3,
+    plays: { 'ticket-check': 3 },
+    credits,
+  });
+
+  it('a spent taste with credits in the pool is PLAYABLE, not locked', () => {
+    // THE REGRESSION GUARD. Before the fix this pressed through to /paywall,
+    // which is the app refusing a learner the thing they had just bought.
+    mockState.gamePlays = spentWith(5);
+    render(<GamesScreen />);
+    fireEvent.press(screen.getByText('Ticket Check'));
+    expect(mockPush).toHaveBeenCalledWith('/(app)/(tabs)/games/ticket-check');
+  });
+
+  it('and an EMPTY pool still locks it, so the fix did not just open the door', () => {
+    // The negative control. Without this, "credits are honoured" and "the lock
+    // was removed" are indistinguishable, and only one of them is the fix.
+    mockState.gamePlays = spentWith(0);
+    render(<GamesScreen />);
+    fireEvent.press(screen.getByText('Ticket Check'));
+    expect(mockPush).toHaveBeenCalledWith('/(app)/paywall');
+  });
+
+  it('shows the pool on the hub, because a thing you bought must be visible', () => {
+    mockState.gamePlays = spentWith(5);
+    render(<GamesScreen />);
+    expect(screen.getByTestId('games-credits-count')).toHaveTextContent('5 bought plays');
+  });
+
+  it('says "play" not "plays" when there is one, because copy is not a template', () => {
+    mockState.gamePlays = spentWith(1);
+    render(<GamesScreen />);
+    expect(screen.getByTestId('games-credits-count')).toHaveTextContent('1 bought play');
+  });
+
+  it('offers the route past a locked card when the pool is empty', () => {
+    // An empty pool AND a spent taste is a learner staring at a locked card.
+    // The tile is the only route to playing it, so it appears rather than
+    // leaving them at a dead end.
+    mockState.gamePlays = spentWith(0);
+    render(<GamesScreen />);
+    expect(screen.getByTestId('games-credits-count')).toHaveTextContent('No bought plays left');
+  });
+
+  it('shows NOTHING to a learner who has spent nothing and bought nothing', () => {
+    // A permanent "buy plays" strip above the grid is a nag. Same argument that
+    // keeps the gift box off Home on a day nothing was practised.
+    mockState.gamePlays = { limit: 3, plays: {}, credits: 0 };
+    render(<GamesScreen />);
+    expect(screen.queryByTestId('games-credits-tile')).toBeNull();
+  });
+
+  it('shows nothing to All-Access, who have no ceiling to raise', () => {
+    mockState.entitlements = { isPlus: true, isLoading: false };
+    mockState.gamePlays = spentWith(5);
+    render(<GamesScreen />);
+    expect(screen.queryByTestId('games-credits-tile')).toBeNull();
+  });
+});
