@@ -360,3 +360,46 @@ export type SpendItem = "station_pause" | "express_multiplier";
 
 /** The ledger reason First Class spends are written under, named once. */
 export const FIRST_CLASS_REASON: TokenReason = "spend_first_class";
+
+/**
+ * THE DAILY-GIFT ATTEMPTS SHIM: WHAT IT IS, WHERE IT LIVES, AND WHEN IT DIES.
+ *
+ * THIS IS A REMOVAL MANIFEST, NOT A COMMENT, AND THE DIFFERENCE IS THE WHOLE
+ * POINT. It is read by `giftAttemptsShim.test.ts`, so it can FAIL. The prose it
+ * replaces could not, and it was already wrong: it said "the two client call
+ * sites" and there are THREE, because the web practice screen was never counted.
+ *
+ * TAKEN FROM EAST ASIA, 2026-09-09, which had the same shim and wrote the better
+ * version of this first. Its note is the argument: the comment it replaced
+ * promised a guard "WHEN THE BOX SHIPS", the box shipped, and nothing noticed
+ * for a day, "BECAUSE NO COMMENT CAN SEE ITS OWN CONDITION BEING MET".
+ *
+ * WHAT THE SHIM DOES. A client too old to draw the gift box sends no
+ * `canClaimGift`, so the attempts path pays that learner's day silently rather
+ * than letting them forfeit it. A client that CAN draw the box says so, and the
+ * server leaves the day for the tap. Without it, publishing the server would
+ * have stopped paying every learner who had not updated, for as long as they
+ * took to update, which for an app store is weeks and for some people is never.
+ *
+ * WHEN IT COMES OUT. When builds without the box are gone from the field. iOS
+ * 538 and Android 540 are the first that have it. `REVIEW_BY` is not that date
+ * and cannot be: nothing in this repo can see the field. It is the date the test
+ * starts failing so that a PERSON re-decides, which is the only honest mechanism
+ * available to a codebase that cannot observe its own users.
+ */
+export const GIFT_ATTEMPTS_SHIM = {
+  /** Every non-generated site that comes out together. Generated clients follow. */
+  sites: [
+    "artifacts/api-server/src/routes/learning.ts",
+    "artifacts/bolo-mobile/app/(app)/review.tsx",
+    "artifacts/bolo-mobile/app/(app)/practice/[id].tsx",
+    "artifacts/gujarati-coach/src/pages/practice.tsx",
+    "lib/api-spec/openapi.yaml",
+  ],
+  /** The wire field the whole shim hangs off. */
+  field: "canClaimGift",
+  /** First builds that can draw the box, so the first that suppress the shim. */
+  firstBoxBuilds: { ios: 538, android: 540 },
+  /** After this, the guard fails and a person decides. Not a delete-by date. */
+  REVIEW_BY: "2026-12-01",
+} as const;

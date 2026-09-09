@@ -66,3 +66,4 @@ src/test/greetingBuffer.test.ts
 src/test/scenarios.test.ts
 src/test/scriptTracePayload.test.ts
 src/routes/specRouteParity.test.ts
+src/lib/giftAttemptsShim.test.ts
