@@ -371,9 +371,34 @@ export function giftClosedCopy(gift: DailyGift): { title: string; body: string }
  */
 export function giftOpenedCopy(
   // NARROWED to what this function actually reads, rather than the whole
-  // DailyGift. Both clients build a literal to pass in here, so demanding
-  // fields the copy never touches would make every new field on the payload a
-  // compile error in two apps for no reason.
+  // DailyGift, so that a caller building a literal is not forced to supply
+  // fields the copy never touches.
+  //
+  // *** DO NOT PORT THIS COMMENT. IT IS SCOPED TO THIS TREE. ***
+  //
+  // It used to read "Both clients build a literal to pass in here", stated as
+  // the reason for the narrowing. THAT IS FALSE IN INDIA: this function has
+  // ZERO callers here, in either client, and always has. The narrowing is
+  // defensible on its own terms and the justification was describing callers
+  // that do not exist.
+  //
+  // BUT IT IS LITERALLY TRUE IN SEA, TWICE, AND IN EUROPE ONCE. Measured
+  // 2026-09-09 across all six forks: SEA calls it from DailyGiftCard.tsx and
+  // daily-gift-card.tsx, Europe from DailyGiftBox.tsx. So in those trees the
+  // old sentence is an accurate description AND the live reason the signature
+  // is narrow.
+  //
+  // A FIX TRAVELS AS BADLY AS A BUG, AND IT TRAVELS WITH MORE AUTHORITY,
+  // BECAUSE NOBODY RE-CHECKS A CORRECTION (SEA, 2026-09-09). Cherry-picking
+  // this repair into SEA would replace a true sentence with a false one and
+  // delete the reason the type is narrowed, inviting the next reader to widen
+  // it and turn every new payload field into a compile error in two apps.
+  //
+  // IT IS THE EXACT MIRROR OF THE upgrade.tsx CASE, and the pair is the lesson:
+  // there, India's VALUE was right in India and wrong in four children. Here,
+  // India's CORRECTION is right in India and wrong in a child. A statement
+  // about our own code is scoped to the tree it sits in. Verify it in the tree
+  // you are about to change, not in the tree it was written for.
   gift: Pick<DailyGift, "day" | "chai" | "tomorrowChai"> & Partial<DailyGift>,
 ): {
   title: string;
