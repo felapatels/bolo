@@ -38,7 +38,7 @@ import { hapticLight } from '@/lib/haptics';
 import { ChatRecordingProvider, useChatRecording } from '@/components/ChatRecordingContext';
 import { accessoryOverlaySource, mascotSource } from '@/lib/mascotOutfits';
 import { useEquippedOutfit } from '@/contexts/OutfitContext';
-import { useContentInset, useIsWideScreen } from '@/lib/contentWidth';
+import { CONTENT_MAX_W, useContentInset, useIsWideScreen } from '@/lib/contentWidth';
 
 // ---------------------------------------------------------------------------
 // Mascot pose assets + type
@@ -873,6 +873,17 @@ export default function TabsLayout() {
           position: 'absolute',
           left: 14 + contentInset,
           right: 14 + contentInset,
+          // MEASURED ON THE REVIEWER'S OWN iPad SCREENSHOT (2026-09-10) in
+          // BOLO SEA, an 820pt-wide iPad 10th gen: the card fill ran the full
+          // window and `left` did not land, while height and borderRadius did.
+          // Additive on purpose, because which mechanism fails is unconfirmed
+          // and all three hypotheses converge on the same centred bar. Under
+          // 600pt maxWidth never binds, so no phone is touched.
+          //
+          // PORTED from BOLO SEA f2a51bb4. UNVERIFIED ON HARDWARE in this fork:
+          // a port is not a cherry-pick and this one re-verifies on its own iPad.
+          maxWidth: CONTENT_MAX_W - 28,
+          alignSelf: 'center',
           bottom: Math.max(insets.bottom, 14),
           borderRadius: 32,
           height: m.barHeight,
