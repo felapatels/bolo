@@ -22,6 +22,7 @@
 import type { IncomingHttpHeaders } from 'http';
 import type { RequestHandler } from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import { APP_DOMAIN } from '../lib/appDomain';
 
 const CLERK_FAPI = 'https://frontend-api.clerk.dev';
 export const CLERK_PROXY_PATH = '/api/__clerk';
@@ -58,8 +59,40 @@ export function clerkProxyMiddleware(): RequestHandler {
     return (_req, _res, next) => next();
   }
 
-  const secretKey = process.env.CLERK_SECRET_KEY;
-  if (!secretKey) {
+  // THE SECRET IS CHOSEN PER REQUEST, NOT ONCE AT BOOT, AND IT HAS TO BE.
+  //
+  // One deployment answers on TWO hostnames and they are two different Clerk
+  // instances: the custom domain, whose client derives a pk_live, and the
+  // .replit.app / .replit.dev URL, which uses the baked pk_test. app.ts's
+  // clerkMiddleware callback already picks CLERK_SECRET_KEY_PROD per host.
+  //
+  // THIS FILE DID NOT, AND THAT BROKE EVERY AUTHENTICATED ROUTE ON THE CUSTOM
+  // DOMAIN THE DAY THE TWO SECRET SLOTS WERE FILLED. It read the bare
+  // CLERK_SECRET_KEY once at boot and sent it as Clerk-Secret-Key on every
+  // proxied call. While a single slot held the sk_live the proxy happened to be
+  // right; splitting the keys correctly moved that accident onto this file,
+  // which nobody updated. The browser's session was then issued against the
+  // development instance and verified against the production one, so /api/
+  // answered 401 for everything while the public /api/languages stayed 200.
+  //
+  // Measured on bolo-africa.app 2026-09-10: 1 request at 200 and 48 at 401.
+  //
+  // The '??' matters as much as the ternary. An unset CLERK_SECRET_KEY_PROD
+  // must fall back rather than send an empty header, because that is the state
+  // every fork is in until its owner fills the second slot.
+  const secretKeyFor = (req: { headers: IncomingHttpHeaders }): string | undefined => {
+    const host = (getClerkProxyHost(req) ?? '').toLowerCase();
+    const isCustomDomain = host === APP_DOMAIN || host === `www.${APP_DOMAIN}`;
+    return (
+      (isCustomDomain ? process.env.CLERK_SECRET_KEY_PROD : undefined) ??
+      process.env.CLERK_SECRET_KEY
+    );
+  };
+
+  // Boot-time presence check only: if NEITHER slot is set there is nothing to
+  // proxy with, so stay out of the way rather than forward an unauthenticated
+  // call that fails further from its cause.
+  if (!process.env.CLERK_SECRET_KEY && !process.env.CLERK_SECRET_KEY_PROD) {
     return (_req, _res, next) => next();
   }
 
@@ -78,7 +111,10 @@ export function clerkProxyMiddleware(): RequestHandler {
         const proxyUrl = `${protocol}://${host}${CLERK_PROXY_PATH}`;
 
         proxyReq.setHeader('Clerk-Proxy-Url', proxyUrl);
-        proxyReq.setHeader('Clerk-Secret-Key', secretKey);
+        const secretKey = secretKeyFor(req);
+        if (secretKey) {
+          proxyReq.setHeader('Clerk-Secret-Key', secretKey);
+        }
 
         const xff = req.headers['x-forwarded-for'];
         const clientIp =

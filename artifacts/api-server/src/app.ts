@@ -18,6 +18,7 @@ import { guardUnreadableToken } from "./middlewares/unreadableTokenGuard";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { stripeWebhookHandler } from "./middlewares/stripeWebhook";
+import { APP_DOMAIN } from "./lib/appDomain";
 
 const app: Express = express();
 
@@ -103,12 +104,35 @@ app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 // Resolve the publishable key from the incoming request host so the same
 // server can serve multiple Clerk custom domains. Falls back to
 // CLERK_PUBLISHABLE_KEY when the host doesn't map to a custom domain.
-const clerk = clerkMiddleware((req) => ({
-  publishableKey: publishableKeyFromHost(
-    getClerkProxyHost(req) ?? "",
-    process.env.CLERK_PUBLISHABLE_KEY,
-  ),
-}));
+// THE SECRET IS CHOSEN PER HOST, THE SAME WAY THE PUBLISHABLE KEY ALREADY IS.
+//
+// One deployment answers on TWO hostnames and they are two different Clerk
+// instances: the custom domain, whose client derives a pk_live, and the
+// .replit.app / .replit.dev URL, which uses the baked pk_test. A session issued
+// by one CANNOT be verified with the other's secret, and the failure is a bare
+// 401 that says nothing about why.
+//
+// THIS CALLBACK PICKED ONLY THE PUBLISHABLE KEY, WHICH WAS HALF AN ANSWER. It
+// worked for as long as the single CLERK_SECRET_KEY slot held the sk_live. The
+// owner filled the second slot on 2026-09-10 (sk_test in CLERK_SECRET_KEY,
+// sk_live in CLERK_SECRET_KEY_PROD), which is the correct arrangement and is
+// what every sibling fork uses, and this file promptly began verifying
+// production sessions with the development key. Every authenticated route 401'd
+// while the public ones stayed 200.
+//
+// The '??' is load-bearing: a fork with only one slot filled must fall back
+// rather than send nothing.
+const clerk = clerkMiddleware((req) => {
+  const host = (getClerkProxyHost(req) ?? "").toLowerCase();
+  const isCustomDomain = host === APP_DOMAIN || host === `www.${APP_DOMAIN}`;
+  const secretKey =
+    (isCustomDomain ? process.env.CLERK_SECRET_KEY_PROD : undefined) ??
+    process.env.CLERK_SECRET_KEY;
+  return {
+    publishableKey: publishableKeyFromHost(host, process.env.CLERK_PUBLISHABLE_KEY),
+    ...(secretKey ? { secretKey } : {}),
+  };
+});
 
 // A token the verifier cannot even read is an auth failure, not a server
 // fault: answered 401 with a reason header instead of the 500 it used to be.
