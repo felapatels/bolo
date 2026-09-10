@@ -15,7 +15,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.bolo.mobile",
-      "buildNumber": "544",
+      "buildNumber": "545",
       "associatedDomains": [
         "applinks:bolo-india.app"
       ],
