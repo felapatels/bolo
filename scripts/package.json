@@ -11,7 +11,8 @@
     "scan-emergency-films": "tsx src/scanEmergencyFilms.ts",
     "build-aksharmala": "tsx src/buildAksharmala.ts",
     "preview-writing-demo": "tsx src/previewWritingDemo.ts",
-    "generate-story-stills": "tsx src/generateStoryStills.ts"
+    "generate-story-stills": "tsx src/generateStoryStills.ts",
+    "check-legal-urls": "tsx src/checkLegalUrls.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

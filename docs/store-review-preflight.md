@@ -19,6 +19,48 @@ inherits no dashboard state at all and nobody asks.
 
 ---
 
+## 0. DO THE URLS YOU FILED SERVE A DOCUMENT? RUN THE CHECK, THEN READ THE CONSOLE.
+
+**Half of this is automated and the half that is not is the half that bit us.**
+
+```bash
+pnpm --filter @workspace/scripts run check-legal-urls
+```
+
+**It EXITS NON-ZERO. It does not warn.** It fetches each legal URL, fetches a
+path that certainly does not exist, and fails if they are the same bytes.
+
+**WHY THE CONTROL IS THE WHOLE INSTRUMENT.** Every fork's host answers **200 with
+the app shell for any unknown path**, so a status code proves nothing. India
+filed `https://bolo-india.app/privacy` with Apple; it 301s to `/privacy/` and
+serves 7,972 bytes of shell, **byte-identical to a nonsense path**, with zero
+policy words without JavaScript. The real 32,970-byte policy is at
+`/privacy.html`. It was live through several approved reviews.
+
+**THE `.html` SUFFIX IS LOAD-BEARING.** The prerenderer writes
+`/privacy/index.html` and the host serves **exact paths only**. *"We prerender
+it"* was never the same statement as *"a crawler can read it"*.
+
+### AND THEN ANSWER THIS YOURSELF, BECAUSE NO SCRIPT CAN
+
+**The script checks the URLs this repo INTENDS to file. It cannot read what is
+actually in the consoles.** Those are behind a login. So:
+
+- **Open App Store Connect > App Privacy and read the Privacy Policy URL. Does it
+  end in `.html`?**
+- **Open the version page and read the Support URL. Same question.**
+- **Open Play > Store presence and read the privacy policy URL and the data
+  deletion URL. Same question.**
+
+**Do not assume they match the site.** India's did not, for a month, and the only
+thing that found it was somebody pasting the filed string into `curl`.
+
+**AND IF THE APP IS IN REVIEW YOU CANNOT EDIT THESE AT ALL.** App Store Connect
+locks App Information behind *"remove the version from review"*. **So this is a
+question for BEFORE you submit, which is why it is section 0.**
+
+---
+
 ## 1. IS CLIENT TRUST BYPASSED FOR THE DEMO ACCOUNT ON *THIS* FORK'S PRODUCTION INSTANCE?
 
 **The reviewer signs in from a device Clerk has never seen, which is exactly what
