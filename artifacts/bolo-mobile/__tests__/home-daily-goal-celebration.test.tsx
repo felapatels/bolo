@@ -142,10 +142,14 @@ jest.mock('@workspace/api-client-react', () => ({
   getGetDailyQuizQueryKey: () => ['quiz'],
   getListReviewPhrasesQueryKey: () => ['review'],
   // Added 2026-08-25 with the Friends/Everyone toggle: the strip keys its
-  // board query by scope and reads the account to know whether the learner
-  // has a public name yet.
+  // board query by scope.
+  //
+  // THE PROFILE IT ALSO READS IS MERGED INTO THE SINGLE useGetAccount ABOVE.
+  // It arrived here as a SECOND `useGetAccount` key in this same object literal
+  // and silently shadowed the first one for a fortnight, because a duplicate key
+  // is legal JavaScript and `__tests__` is excluded from this app's tsconfig, so
+  // no compiler ever saw the TS1117. ONE MOCK PER HOOK, always.
   getGetFriendsLeaderboardQueryKey: () => ['leaderboard'],
-  useGetAccount: () => ({ data: { profile: { username: 'learner', shareStats: true } } }),
   useReportUsername: () => ({ mutateAsync: jest.fn(), isPending: false }),
 }));
 
@@ -304,7 +308,13 @@ function makeSummary(attemptsToday: number, isLoading = false) {
 
 function makeAccount(dailyGoal = 10, isLoading = false) {
   return {
-    data: { preferences: { learning: { dailyGoal } } },
+    // `profile` is here because HomeSocialStrip reads it off the SAME account
+    // query. It used to live in a second `useGetAccount` mock further down the
+    // factory, which shadowed this one entirely and made both parameters below
+    // dead: every test set a goal that never reached the component, and passed
+    // anyway because `index.tsx` defaults to `?? 10` and every call site asked
+    // for 10. Keep one mock per hook so these parameters keep meaning something.
+    data: { preferences: { learning: { dailyGoal } }, profile: { username: 'learner', shareStats: true } },
     isLoading,
   };
 }

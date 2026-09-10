@@ -161,7 +161,7 @@ jest.mock('@workspace/api-client-react', () => ({
   useListCategories: () => ({ data: [], isLoading: false, isError: false, refetch: jest.fn(), isRefetching: false }),
   useListRecentAttempts: () => ({ data: [], isLoading: false, isError: false, refetch: jest.fn(), isRefetching: false }),
   useGetDailyQuiz: () => mockState.quiz,
-  useGetAccount: () => ({ data: { preferences: { learning: { dailyGoal: 10 } } }, isLoading: false }),
+  useGetAccount: () => ({ data: { preferences: { learning: { dailyGoal: 10 } }, profile: { username: 'learner', shareStats: true } }, isLoading: false }),
   useListReviewPhrases: () => ({ data: [] }),
   useListIncomingFriendRequests: () => ({ data: [] }),
   // HomeSocialStrip reads this; idle (no friends) hides the rank rows.
@@ -169,10 +169,14 @@ jest.mock('@workspace/api-client-react', () => ({
   getGetDailyQuizQueryKey: () => ['quiz'],
   getListReviewPhrasesQueryKey: () => ['review'],
   // Added 2026-08-25 with the Friends/Everyone toggle: the strip keys its
-  // board query by scope and reads the account to know whether the learner
-  // has a public name yet.
+  // board query by scope.
+  //
+  // THE PROFILE IT ALSO READS IS MERGED INTO THE SINGLE useGetAccount ABOVE.
+  // It arrived here as a SECOND `useGetAccount` key in this same object literal
+  // and silently shadowed the first one for a fortnight, because a duplicate key
+  // is legal JavaScript and `__tests__` is excluded from this app's tsconfig, so
+  // no compiler ever saw the TS1117. ONE MOCK PER HOOK, always.
   getGetFriendsLeaderboardQueryKey: () => ['leaderboard'],
-  useGetAccount: () => ({ data: { profile: { username: 'learner', shareStats: true } } }),
   useReportUsername: () => ({ mutateAsync: jest.fn(), isPending: false }),
 }));
 
