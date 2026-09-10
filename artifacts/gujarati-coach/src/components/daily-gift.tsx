@@ -81,6 +81,8 @@ const TRACK_SPENT = "#C97F17";
 const RAIL_VIOLET = "#8B5CF6";
 const SLEEPER = "#6B4130";
 const PAPER_EDGE = "#B48628";
+/** The cream the padlock is drawn in, so the lock reads on the marigold box. */
+const PAPER_FACE = "#FBEECF";
 const PAPER_INK = "#8E672D";
 const FLAP_FACE = "#42240F";
 const FLAP_TEXT = "#FFF5DC";
@@ -92,7 +94,16 @@ const CONFETTI_INK = [MARIGOLD, "#4F46E5", RAIL_VIOLET, PAPER_EDGE, FLAP_TEXT, "
  * THE BOX, with its own day written on it so it carries its label even if it is
  * ever seen without its row. Drawn rather than cut: see the file header.
  */
-function BoxArt({ tier, day }: { tier: GiftTier; day: number }) {
+/**
+ * `locked` draws a PADLOCK over the lid. A SHAPE, not a hue: the owner is
+ * partially colour blind, so a dimmed gold box and a gold box are the same box.
+ * A changed silhouette survives greyscale.
+ */
+function BoxArt({
+  tier,
+  day,
+  locked = false,
+}: { tier: GiftTier; day: number; locked?: boolean }) {
   const w = GIFT_TIER_SIZE[tier];
   const h = Math.round(w * (104 / 96));
   const ribbon = hasRibbon(tier);
@@ -146,6 +157,19 @@ function BoxArt({ tier, day }: { tier: GiftTier; day: number }) {
           <path d="M 48 31 C 33 26, 28 11, 39 11 C 47 11, 48 25, 48 31 Z" fill={MARIGOLD_LIGHT} />
           <path d="M 48 31 C 63 26, 68 11, 57 11 C 49 11, 48 25, 48 31 Z" fill={MARIGOLD} />
           <circle cx={48} cy={30} r={5} fill={MARIGOLD_DEEP} />
+        </>
+      ) : null}
+      {locked ? (
+        <>
+          <path
+            d="M 40 46 v -7 a 8 8 0 0 1 16 0 v 7"
+            fill="none"
+            stroke={PAPER_FACE}
+            strokeWidth={5}
+            strokeLinecap="round"
+          />
+          <rect x={36} y={45} width={24} height={19} rx={4} fill={PAPER_FACE} />
+          <rect x={46} y={51} width={4} height={8} rx={2} fill={MARIGOLD_DEEP} />
         </>
       ) : null}
     </svg>
@@ -293,7 +317,11 @@ export function DailyGiftBox({
         type="button"
         data-testid={testId}
         disabled={!openable}
-        aria-label={`Open today's gift, day ${day}. ${giftRangeCopy(multiplier)}`}
+        aria-label={
+          openable
+            ? `Open today's gift, day ${day}. ${giftRangeCopy(multiplier)}`
+            : `Today's gift, locked. Finish a stop today to open it. ${giftRangeCopy(multiplier)}`
+        }
         onClick={() => {
           if (!openable) return;
           webHaptic("success");
@@ -305,10 +333,29 @@ export function DailyGiftBox({
         )}
       >
         <div className={cn(openable && "animate-gift-wobble origin-bottom")}>
-          <BoxArt tier={tier} day={day} />
+          <BoxArt tier={tier} day={day} locked={!openable && !claimed} />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
-          {isPlus ? (
+          {/* LOCKED IS AN INSTRUCTION, NOT A STATE. "Finish a stop today to open
+              it" tells a learner what to do; a dimmed box tells them only that
+              something is wrong. The lock is also a SHAPE on the art, not a hue,
+              because the owner is partially colour blind. */}
+          {!openable && !claimed ? (
+            <>
+              <div className="text-[10px] font-black tracking-widest text-muted-foreground">
+                TODAY&rsquo;S GIFT
+              </div>
+              <div
+                data-testid={`${testId}-locked`}
+                className="text-[13px] font-bold text-foreground"
+              >
+                Finish a stop today to open it
+              </div>
+              <div data-testid={`${testId}-range`} className="text-[11px] text-muted-foreground">
+                {giftRangeCopy(multiplier)}
+              </div>
+            </>
+          ) : isPlus ? (
             <>
               <div className="text-[10px] font-black tracking-widest text-muted-foreground">
                 TODAY&rsquo;S GIFT
@@ -552,21 +599,40 @@ export function DailyGiftCard({ testId }: { testId?: string }) {
   const onShop = useCallback(() => navigate("/bazaar"), [navigate]);
   const onGetMore = useCallback(() => navigate("/bazaar/tickets"), [navigate]);
 
-  if (!gift) return null;
-  if (!gift.earnedToday && !gift.claimed) return null;
+  /**
+   * THE BOX ALWAYS RENDERS. LOCKED IS THE RESTING STATE, NOT THE ABSENT ONE.
+   *
+   * Owner, 2026-09-09, after installing a build and being unable to find the
+   * gift: "I want it to always show but be locked until the lesson is
+   * complete." Twin of the phone's, same reasoning, same day.
+   *
+   * TWO GUARDS CAME OUT AND THE SECOND WAS INDIA'S OWN DESIGN, argued as "a
+   * permanent nag at the top of Home is a worse screen than an empty one". An
+   * absent box teaches nothing: no promise to come back for, and nothing
+   * telling a learner that finishing a stop opens something. The mechanic needs
+   * the box VISIBLE WHILE SHUT.
+   *
+   * NO PAYLOAD IS STILL A BOX, with the BASE range, day 1 and the smallest
+   * tier. Never a drawn number: the range is the promise and it is honest
+   * before the day is earned; a specific number on a box you cannot open is a
+   * promise with no event behind it.
+   */
+  const g = gift ?? null;
 
   return (
     <DailyGiftBox
       testId={testId}
-      day={gift.day}
-      chai={gift.chai}
-      baseAmount={gift.baseAmount}
-      multiplier={gift.multiplier}
-      tier={gift.tier as GiftTier}
-      claimed={gift.claimed || claim.isPending}
-      claimable={gift.claimable && !claim.isPending}
-      chaiToNextStop={gift.chaiToNextStop}
-      stopCost={gift.stopCost}
+      day={g?.day ?? 1}
+      chai={g?.chai ?? 0}
+      baseAmount={g?.baseAmount ?? 0}
+      multiplier={g?.multiplier ?? 1}
+      tier={(g?.tier as GiftTier | undefined) ?? "small"}
+      claimed={(g?.claimed ?? false) || claim.isPending}
+      // The server composes `claimable && earnedToday`, so an unearned day
+      // arrives false and the box locks itself. No payload is false too.
+      claimable={(g?.claimable ?? false) && !claim.isPending}
+      chaiToNextStop={g?.chaiToNextStop}
+      stopCost={g?.stopCost}
       balance={tokensQuery.data?.balance}
       isPlus={isPlus}
       onClaim={onClaim}

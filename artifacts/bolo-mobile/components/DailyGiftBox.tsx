@@ -114,7 +114,18 @@ const CONFETTI_INK = [MARIGOLD, '#4F46E5', RAIL_VIOLET, PAPER_EDGE, FLAP_TEXT, '
  * The day is written ON it, on the owner's instruction, which also means the
  * box carries its own label if it is ever seen without its row.
  */
-function BoxArt({ tier, day, accent }: { tier: GiftTier; day: number; accent: string }) {
+/**
+ * `locked` DRAWS A PADLOCK SHACKLE OVER THE LID, AND IT IS A SHAPE RATHER THAN A
+ * COLOUR ON PURPOSE. The owner is partially colour blind, so a dimmed gold box
+ * and a gold box are the same box to him. A silhouette that changes is readable
+ * without seeing a hue at all, and it survives a greyscale screenshot.
+ */
+function BoxArt({
+  tier,
+  day,
+  accent,
+  locked = false,
+}: { tier: GiftTier; day: number; accent: string; locked?: boolean }) {
   const w = TIER_SIZE[tier];
   const h = Math.round(w * (104 / 96));
   const ribbon = hasRibbon(tier);
@@ -124,6 +135,8 @@ function BoxArt({ tier, day, accent }: { tier: GiftTier; day: number; accent: st
     // tellable apart by SIZE, because the owner is partially colour blind and
     // hue is never allowed to be the only signal.
     <Svg testID="gift-box-frame" width={w} height={h} viewBox="0 0 96 104">
+      {/* The shackle is drawn LAST below so it sits over the lid; declared here
+          only so the testID is findable whatever the tier. */}
       <Defs>
         <LinearGradient id="giftBody" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor="#6366F1" />
@@ -177,6 +190,22 @@ function BoxArt({ tier, day, accent }: { tier: GiftTier; day: number; accent: st
           <Path d="M 48 31 C 33 26, 28 11, 39 11 C 47 11, 48 25, 48 31 Z" fill={MARIGOLD_LIGHT} />
           <Path d="M 48 31 C 63 26, 68 11, 57 11 C 49 11, 48 25, 48 31 Z" fill={MARIGOLD} />
           <Rect x={43} y={25} width={10} height={10} rx={5} fill={MARIGOLD_DEEP} />
+        </>
+      ) : null}
+      {locked ? (
+        <>
+          {/* THE PADLOCK, over the lid. Shackle drawn as a stroked arc so it
+              reads at 60pt as well as 80, and a body beneath it. Cream on the
+              box rather than a new colour, because the CUE IS THE SILHOUETTE. */}
+          <Path
+            d="M 40 46 v -7 a 8 8 0 0 1 16 0 v 7"
+            fill="none"
+            stroke={PAPER_TOP}
+            strokeWidth={5}
+            strokeLinecap="round"
+          />
+          <Rect x={36} y={45} width={24} height={19} rx={4} fill={PAPER_TOP} />
+          <Rect x={46} y={51} width={4} height={8} rx={2} fill={MARIGOLD_DEEP} />
         </>
       ) : null}
     </Svg>
@@ -413,7 +442,11 @@ export function DailyGiftBox({
         testID={testID}
         accessibilityRole="button"
         accessibilityState={{ disabled: !claimable }}
-        accessibilityLabel={`Open today's gift, day ${day}. ${giftRangeCopy(multiplier)}`}
+        accessibilityLabel={
+          claimable
+            ? `Open today's gift, day ${day}. ${giftRangeCopy(multiplier)}`
+            : `Today's gift, locked. Finish a stop today to open it. ${giftRangeCopy(multiplier)}`
+        }
         onPress={press}
         disabled={!claimable}
         style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -423,10 +456,48 @@ export function DailyGiftBox({
             testID={`${testID}-art`}
             style={{ transform: [{ rotate }] }}
           >
-            <BoxArt tier={tier} day={day} accent={colors.primary} />
+            <BoxArt tier={tier} day={day} accent={colors.primary} locked={!claimable} />
           </Animated.View>
           <View style={styles.rowCopy}>
-            {isPlus ? (
+            {/* LOCKED IS THE RESTING STATE, NOT THE ABSENT ONE (owner,
+                2026-09-09: "I want it to always show but be locked until the
+                lesson is complete").
+ 
+                INDIA USED TO HIDE THE CARD ENTIRELY until the day was earned,
+                and that was MY design with a reason written at the guard: a
+                permanent box at the top of Home every morning reads as a nag.
+                THE REASONING WAS WRONG FOR THIS PRODUCT. An absent box teaches
+                nothing: a learner who has not practised sees no gift, so there
+                is no promise to come back for and no visible reason to finish a
+                stop. The whole retention mechanic depends on the box being
+                VISIBLE WHILE IT IS SHUT.
+ 
+                IT IS AN INSTRUCTION, NOT A STATE. "Finish a stop today to open
+                it" tells a learner what to do; a dimmed box tells them only
+                that something is wrong. That is the same ruling as "we should
+                show that on the gift so its obvious".
+ 
+                AND THE RANGE STAYS, THE DRAW NEVER APPEARS. The range is the
+                promise and it is honest before the day is earned. A specific
+                number on a box you cannot open is a promise with no event
+                behind it, which is exactly what Europe shipped. */}
+            {!claimable ? (
+              <>
+                <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>TODAY&apos;S GIFT</Text>
+                <Text
+                  testID={`${testID}-locked`}
+                  style={[styles.remain, { color: colors.foreground }]}
+                >
+                  Finish a stop today to open it
+                </Text>
+                <Text
+                  testID={`${testID}-range`}
+                  style={[styles.body, { color: colors.mutedForeground }]}
+                >
+                  {giftRangeCopy(multiplier)}
+                </Text>
+              </>
+            ) : isPlus ? (
               <>
                 <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>TODAY&apos;S GIFT</Text>
                 <Text style={[styles.remain, { color: colors.foreground }]}>Tap to open</Text>

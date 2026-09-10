@@ -79,20 +79,37 @@ beforeEach(() => {
 });
 
 describe("the card decides whether there is a box at all", () => {
-  test("draws nothing before the query answers", () => {
+  /**
+   * BOTH INVERTED 2026-09-09, NOT DELETED. Twin of the phone's.
+   *
+   * They pinned India's old design: the card drew nothing until the day was
+   * earned. The owner installed a build, could not find the gift, and ruled "I
+   * want it to always show but be locked until the lesson is complete."
+   *
+   * The comment that used to sit in the second test was the argument he
+   * overturned. AN ABSENT BOX TEACHES NOTHING: no promise to come back for, and
+   * nothing telling a learner that finishing a stop opens something.
+   */
+  test("draws a LOCKED box before the query answers, rather than nothing", () => {
     h.gift = undefined;
     render(<DailyGiftCard />);
-    expect(screen.queryByTestId("daily-gift-box")).toBeNull();
+    expect(screen.getByTestId("daily-gift-box")).toBeTruthy();
+    expect(screen.getByTestId("daily-gift-box-locked")).toBeTruthy();
   });
 
-  test("draws nothing on a day with no practice in it", () => {
-    // NOT AN EMPTY STATE AND NOT A NAG. A "practise first" placeholder at the
-    // top of home every morning is a worse screen than an empty one, and the
-    // end-of-practice placement catches the learner the moment the day is
-    // earned anyway.
+  test("draws a LOCKED box on a day with no practice in it", () => {
     h.gift = giftState({ earnedToday: false, claimable: false });
     render(<DailyGiftCard />);
-    expect(screen.queryByTestId("daily-gift-box")).toBeNull();
+    expect(screen.getByTestId("daily-gift-box")).toBeTruthy();
+    // AN INSTRUCTION, NOT A STATE.
+    expect(screen.getByText("Finish a stop today to open it")).toBeTruthy();
+  });
+
+  test("shows the RANGE while locked and never a drawn number", () => {
+    h.gift = giftState({ earnedToday: false, claimable: false, chai: 9 });
+    render(<DailyGiftCard />);
+    expect(screen.getByTestId("daily-gift-box-range")).toBeTruthy();
+    expect(screen.queryByText(/\b9\b/)).toBeNull();
   });
 
   test("keeps an opened box up for the rest of the day", () => {

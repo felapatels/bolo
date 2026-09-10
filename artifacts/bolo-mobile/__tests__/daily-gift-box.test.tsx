@@ -108,21 +108,56 @@ beforeEach(() => {
   h.reduceMotion = false;
 });
 
-describe('the card decides whether there is a box at all', () => {
-  it('draws nothing before the query answers', () => {
+describe('the card always draws a box, and locks it', () => {
+  /**
+   * BOTH OF THESE ARE INVERTED, 2026-09-09, NOT DELETED.
+   *
+   * They pinned India's old design: the card returned null until the day was
+   * earned. The owner installed a build, could not find the gift, and ruled:
+   * "I want it to always show but be locked until the lesson is complete."
+   *
+   * THE COMMENT THAT USED TO SIT IN THE SECOND TEST WAS THE ARGUMENT HE
+   * OVERTURNED, and it was mine: "a 'practise first' placeholder at the top of
+   * home every morning is a worse screen than an empty one". The counter-argument
+   * is the mechanic itself. AN ABSENT BOX TEACHES NOTHING: a learner who has not
+   * practised sees no gift, so there is no promise to come back for and nothing
+   * telling them that finishing a stop opens something. Retention needs the box
+   * visible WHILE IT IS SHUT.
+   */
+  it('draws a LOCKED box before the query answers, rather than nothing', () => {
+    // No payload is still a box. Day 1, smallest tier, base range, no draw.
     h.gift = undefined;
     render(<DailyGiftCard />);
-    expect(screen.queryByTestId('daily-gift-box')).toBeNull();
+    expect(screen.getByTestId('daily-gift-box')).toBeTruthy();
+    expect(screen.getByTestId('daily-gift-box-locked')).toBeTruthy();
   });
 
-  it('draws nothing on a day with no practice in it', () => {
-    // NOT AN EMPTY STATE AND NOT A NAG. A "practise first" placeholder at the
-    // top of home every morning is a worse screen than an empty one, and the
-    // end-of-practice placement catches the learner the moment the day is
-    // earned anyway.
+  it('draws a LOCKED box on a day with no practice in it', () => {
     h.gift = giftState({ earnedToday: false, claimable: false });
     render(<DailyGiftCard />);
-    expect(screen.queryByTestId('daily-gift-box')).toBeNull();
+    expect(screen.getByTestId('daily-gift-box')).toBeTruthy();
+    // AN INSTRUCTION, NOT A STATE. A dimmed box says something is wrong; this
+    // says what to do about it.
+    expect(screen.getByText('Finish a stop today to open it')).toBeTruthy();
+  });
+
+  it('shows the RANGE while locked and never a drawn number', () => {
+    // The range is the promise and it is honest before the day is earned. A
+    // specific number on a box you cannot open is a promise with no event
+    // behind it, which is exactly what Europe shipped.
+    h.gift = giftState({ earnedToday: false, claimable: false, chai: 9 });
+    render(<DailyGiftCard />);
+    expect(screen.getByTestId('daily-gift-box-range')).toBeTruthy();
+    expect(screen.queryByText(/\b9\b/)).toBeNull();
+  });
+
+  it('does not open when tapped while locked', () => {
+    // The lock has to be real, not decorative: the server answers 409 for an
+    // unearned day, so a tap that fired would be a request that cannot succeed.
+    h.gift = giftState({ earnedToday: false, claimable: false });
+    render(<DailyGiftCard />);
+    fireEvent.press(screen.getByTestId('daily-gift-box'));
+    expect(h.claim).not.toHaveBeenCalled();
   });
 
   it('keeps an opened box up for the rest of the day', () => {

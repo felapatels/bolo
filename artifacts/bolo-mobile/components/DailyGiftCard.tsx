@@ -86,24 +86,50 @@ export function DailyGiftCard({ testID }: { testID?: string }) {
   const onShop = useCallback(() => router.push('/bazaar'), [router]);
   const onGetMore = useCallback(() => router.push('/bazaar/tickets'), [router]);
 
-  // Nothing practised today is not an error and not an empty state: it is a day
-  // with no box in it. An opened box stays for the rest of the day, because the
-  // distance it moved you is the reason to come back.
-  if (!gift) return null;
-  if (!gift.earnedToday && !gift.claimed) return null;
+  /**
+   * THE BOX ALWAYS RENDERS. LOCKED IS THE RESTING STATE, NOT THE ABSENT ONE.
+   *
+   * OWNER RULING, 2026-09-09, after installing a TestFlight build and being
+   * unable to find the gift at all: "I want it to always show but be locked
+   * until the lesson is complete."
+   *
+   * THIS REPLACED TWO GUARDS AND THE SECOND WAS MINE, WITH A REASON WRITTEN
+   * BESIDE IT: `if (!gift.earnedToday && !gift.claimed) return null`, argued as
+   * "a permanent nag at the top of Home every morning is a worse screen than an
+   * empty one". THAT REASONING WAS WRONG FOR THIS PRODUCT, and the argument
+   * against it is the mechanic itself: a learner who has not practised saw NO
+   * GIFT, so there was no promise to come back for and nothing visible telling
+   * them that finishing a stop opens something. The retention mechanic depends
+   * on the box being visible WHILE IT IS SHUT.
+   *
+   * India was the only fork that hid it. Every other fork inherited the shape
+   * and stopped at the `!gift` guard, so five apps were closer to right than the
+   * parent that wrote it.
+   *
+   * NO PAYLOAD IS STILL A BOX. While the query is in flight, or if it errors,
+   * the card renders locked with the BASE range: the multiplier is unknown until
+   * the payload lands, and printing the base range then correcting it upward is
+   * honest in a way that printing nothing is not. Day 1 and the smallest tier
+   * are the neutral shape, never a drawn number.
+   */
+  const g = gift ?? null;
 
   return (
     <DailyGiftBox
       testID={testID}
-      day={gift.day}
-      chai={gift.chai}
-      baseAmount={gift.baseAmount}
-      multiplier={gift.multiplier}
-      tier={gift.tier as GiftTier}
-      claimed={gift.claimed || claim.isPending}
-      claimable={gift.claimable && !claim.isPending}
-      chaiToNextStop={gift.chaiToNextStop}
-      stopCost={gift.stopCost}
+      day={g?.day ?? 1}
+      chai={g?.chai ?? 0}
+      baseAmount={g?.baseAmount ?? 0}
+      multiplier={g?.multiplier ?? 1}
+      tier={(g?.tier as GiftTier | undefined) ?? 'small'}
+      claimed={(g?.claimed ?? false) || claim.isPending}
+      // CLAIMABLE IS THE ONLY THING THE BOX RENDERS AGAINST, and the server
+      // already composes it as `claimable && earnedToday` (routes/tokens.ts), so
+      // an unearned day arrives here as false and the box locks itself. With no
+      // payload at all it is false, which is the correct resting state.
+      claimable={(g?.claimable ?? false) && !claim.isPending}
+      chaiToNextStop={g?.chaiToNextStop}
+      stopCost={g?.stopCost}
       balance={tokensQuery.data?.balance}
       isPlus={isPlus}
       onClaim={onClaim}
