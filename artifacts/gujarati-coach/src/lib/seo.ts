@@ -15,18 +15,23 @@ import { useEffect } from 'react';
 //
 // IT IS DERIVED, AND THE COMMENT THAT USED TO SIT HERE ARGUED IT NEED NOT BE.
 // It said the rule against hardcoding the domain "applies to copy, not to
-// canonical link targets". That is true in a single app and false in a fleet of
-// six, and it was the most expensive sentence in this file:
+// canonical link targets". That is defensible in a single app and poor practice
+// in a fleet of six, because of what this constant feeds:
 //
-//   a hardcoded parent domain in a canonical tag tells search engines that the
-//   FORK'S OWN homepage is a duplicate of the parent's, so the fork asks to be
-//   de-indexed in favour of its parent, on every public page. og:image and
-//   twitter:image additionally make five forks hotlink the parent's server for
-//   their own social previews.
+//   canonical, og:url, og:image, twitter:image and the JSON-LD url, on every
+//   PUBLIC page. A wrong value here asks search engines to treat this site as a
+//   duplicate of another, and makes shared links preview with another domain's
+//   URL and image.
 //
-// `APP_DOMAIN` is per-fork and already correct in all six trees. It existed
-// here before this change and NOTHING IMPORTED IT, which is why the duplicate
-// below went unnoticed. `seo.origin.test.ts` now pins the derivation.
+// TO BE ACCURATE ABOUT WHY THIS CHANGED: no fork was ever wrong. All five
+// edited this constant at fork time and every live canonical already names its
+// own domain, measured 2026-09-10. This is hardening against the next fork, not
+// a repair of the last five.
+//
+// `APP_DOMAIN` is per-fork, is already correct in all six trees, and NOTHING
+// IMPORTED IT: a constant with no consumer beside a hardcoded duplicate of
+// itself is the hazard, whatever today's values happen to be.
+// `seo.origin.test.ts` pins the derivation.
 export const SITE_ORIGIN = `https://${APP_DOMAIN}`;
 
 interface HeadProps {

@@ -10,12 +10,17 @@
  *   - every shared link previews with that fork's URL;
  *   - every social preview HOTLINKS that fork's server for the image.
  *
- * It was hardcoded to `https://bolo-india.app` in all six trees, under a comment
- * arguing that canonical targets were exempt from the no-hardcoded-domain rule.
- * True in one app, false in a fleet.
+ * THIS IS HARDENING, NOT A REPAIR, AND THE DISTINCTION IS ON THE RECORD BECAUSE
+ * I GOT IT WRONG FIRST. India hardcoded `https://bolo-india.app` here, and I
+ * concluded from that alone that all five forks carried the same string. They do
+ * not: every fork edited this constant at fork time and every live canonical,
+ * og:url and og:image already names its own domain. Measured across all five,
+ * 2026-09-10. No site was ever asking to be de-indexed.
  *
- * `APP_DOMAIN` in ./appDomain is the per-fork constant and is already correct
- * in every tree, which is why the fix is one line and cherry-picks cleanly.
+ * The guard still earns its place. A per-fork `APP_DOMAIN` that no file imports,
+ * sitting beside a hardcoded duplicate of itself, is a hazard even while every
+ * current value happens to match: THE NEXT FORK IS THE ONE THAT GETS IT WRONG,
+ * and a value that must be remembered at fork time will eventually not be.
  */
 import { describe, it, expect } from 'vitest';
 import { SITE_ORIGIN } from '@/lib/seo';
