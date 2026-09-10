@@ -211,7 +211,35 @@ EXPO_PUBLIC_REVENUECAT_IOS_API_KEY = "appl_yoQNlJYsUmpxjPpPxfCguovDWyd"
 EXPO_PUBLIC_REVENUECAT_TEST_API_KEY = "test_NMSyWVolgRhDCNffsFpwsxEOLdM"
 REVENUECAT_ONE_LANGUAGE_ENTITLEMENT_ID = "one_language"
 STRIPE_FAMILY_ANNUAL_PRICE_ID = "price_1TycPWQGRH9PxNfs4vzQApbY"
-PILOT_CAPTURE_USER_IDS = "user_3H9XG2UWijYqRUXv6Ls0geMmX4Z,user_3HBsumTkU4xtAYmMlH62DKnC5j9,user_3H8vsSZW9Pcc2iZsjVzvOffeG0a,user_3HBsmeNhc3jxT6rCH1WXI4R0Ykv"
+# PILOT_CAPTURE_USER_IDS SENDS RAW LEARNER AUDIO TO A THIRD PARTY. READ THIS
+# BEFORE ADDING AN ID.
+#
+# pilotCapture.ts uploads the raw pronunciation recording, an .m4a, plus a JSON
+# sidecar, to CLOUDFLARE R2 for every id listed here. This scope is
+# [userenv.shared], so it is DEVELOPMENT AND PRODUCTION.
+#
+# THE APP DISCLOSES NOTHING ABOUT THIS. Apple rejected BOLO SEA on 5.1.1(i) and
+# 5.1.2(i) on 2026-09-10 for sending user data to a third party without saying
+# so and without asking. The consent gate being built does not name R2, and it
+# is correct not to, BECAUSE THIS LIST ONLY EVER CONTAINS THE OWNER'S OWN
+# ACCOUNTS. Adding anyone else's makes the shipped disclosure false.
+#
+# SO: THIS LIST CANNOT BE EXTENDED WITHOUT REVISITING THE CONSENT COPY.
+# See ~/bolo-supervisor/AI-CONSENT-SPEC.md. Guarded by pilotCapture.allowlist.test.ts.
+#
+# TWO DEAD IDS WERE REMOVED HERE ON 2026-09-10 AND THE REASON IS THE WHOLE POINT
+# OF THIS COMMENT. They were user_3H9XG2UW... and user_3HBsumTk..., and they
+# resolve to 404 in this fork's Clerk instance while the owner's own id resolves
+# in the same breath, so the absence is real rather than a permissions artefact.
+# They came from ANOTHER APP'S CLERK INSTANCE: a wrong pair was supplied on
+# 2026-08-24, caught then, and never removed from here. Clerk ids look identical
+# across instances and sort into the same era, so shape proves nothing.
+#
+# THEY CAPTURED NOTHING, AND THAT IS NOT WHY THEY WERE REMOVED. A dead id is
+# inert. THE RISK IS SOMEBODY HELPFULLY REPAIRING TWO BROKEN-LOOKING ENTRIES
+# WITH REAL LEARNER IDS, which would turn this into exactly what SEA was
+# rejected for. They are named above so that repair is never attempted.
+PILOT_CAPTURE_USER_IDS = "user_3H8vsSZW9Pcc2iZsjVzvOffeG0a,user_3HBsmeNhc3jxT6rCH1WXI4R0Ykv"
 STRIPE_CHAI_PACK_LARGE_PRICE_ID = "price_1U3OclQGRH9PxNfsZY1tfp4k"
 STRIPE_CHAI_PACK_MEDIUM_PRICE_ID = "price_1U3OckQGRH9PxNfstmlQVapG"
 STRIPE_CHAI_PACK_SMALL_PRICE_ID = "price_1U3OcjQGRH9PxNfstkTTUcM4"
