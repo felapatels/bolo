@@ -1,3 +1,4 @@
+import { APP_DOMAIN } from './appDomain';
 import { useEffect } from 'react';
 
 // Lightweight per-page head metadata for the PUBLIC marketing surface.
@@ -10,10 +11,23 @@ import { useEffect } from 'react';
 // no-JS fallback.
 //
 // SITE_ORIGIN is the production domain used for canonical/OG URLs and the
-// sitemap. It is a functional URL constant (like the support addresses), not
-// marketing prose; the standing rule against hardcoding the domain applies to
-// copy, not to canonical link targets.
-export const SITE_ORIGIN = 'https://bolo-india.app';
+// sitemap.
+//
+// IT IS DERIVED, AND THE COMMENT THAT USED TO SIT HERE ARGUED IT NEED NOT BE.
+// It said the rule against hardcoding the domain "applies to copy, not to
+// canonical link targets". That is true in a single app and false in a fleet of
+// six, and it was the most expensive sentence in this file:
+//
+//   a hardcoded parent domain in a canonical tag tells search engines that the
+//   FORK'S OWN homepage is a duplicate of the parent's, so the fork asks to be
+//   de-indexed in favour of its parent, on every public page. og:image and
+//   twitter:image additionally make five forks hotlink the parent's server for
+//   their own social previews.
+//
+// `APP_DOMAIN` is per-fork and already correct in all six trees. It existed
+// here before this change and NOTHING IMPORTED IT, which is why the duplicate
+// below went unnoticed. `seo.origin.test.ts` now pins the derivation.
+export const SITE_ORIGIN = `https://${APP_DOMAIN}`;
 
 interface HeadProps {
   /** Full document title, e.g. "Learn to speak Gujarati | Bolo!" */
