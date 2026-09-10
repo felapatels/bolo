@@ -14,6 +14,7 @@ import {
   convertToWav,
 } from "@workspace/integrations-openai-ai-server/audio";
 import type { AuthedRequest } from "../middlewares/requireAuth";
+import { requireAiConsent } from "../middlewares/requireAiConsent";
 import { romanizeTranscript } from "../lib/romanizeTranscript";
 import {
   CALL_BEATS,
@@ -376,6 +377,10 @@ export function createChachaCallRouter(
   // connection warms up behind the greeting.
   router.post(
     "/openai/chacha-call/start",
+    // AI DATA CONSENT GATE. Gated at START as well as at each turn so a
+    // declining learner gets one clean refusal instead of a call that opens and
+    // then fails on the first thing they say. Inert while the flag is false.
+    requireAiConsent,
     async (req: Request, res: Response): Promise<void> => {
       const userId = (req as AuthedRequest).userId;
       if (!userId) {
@@ -507,6 +512,10 @@ export function createChachaCallRouter(
   // mid-call cannot make him change tongue between two questions.
   router.post(
     "/openai/chacha-call/:callId/turn",
+    // AI DATA CONSENT GATE. This is the one that sends base64 `input_audio`
+    // inside a chat message, so it is gated even though start already is: a
+    // call could have been started before a learner revoked in Settings.
+    requireAiConsent,
     async (req: Request, res: Response): Promise<void> => {
       const userId = (req as AuthedRequest).userId;
       if (!userId) {

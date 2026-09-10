@@ -40,6 +40,7 @@ import { buildSttOptions, discardAnchorEcho } from "../lib/sttLanguage";
 import { writeNocatchDiagnostic, type NocatchCause } from "../lib/nocatchDiagnostics";
 import { measureAttemptAudio } from "../lib/audioNoise";
 import { denyLockedFeature, denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
+import { requireAiConsent } from "../middlewares/requireAiConsent";
 import { upgradeRequired, featuresForPlan } from "../lib/entitlements";
 import { SCENARIOS, toPublicScenario, resolveScenario } from "../lib/scenarios";
 import {
@@ -823,6 +824,9 @@ router.post("/openai/narrate", async (req: Request, res: Response): Promise<void
 // POST /openai/pronunciation — transcribe the child's attempt and score it.
 router.post(
   "/openai/pronunciation",
+  // AI DATA CONSENT GATE. This route sends the learner's own RECORDING to
+  // OpenAI (twice per attempt, the dual pass). Inert while the flag is false.
+  requireAiConsent,
   async (req: Request, res: Response): Promise<void> => {
     const parsed = EvaluatePronunciationBody.safeParse(req.body);
     if (!parsed.success) {
@@ -1845,7 +1849,12 @@ function sseWrite(res: Response, event: string, data: unknown): void {
 //
 // Clients that send `Accept: application/json` (or omit it) receive the
 // original single JSON response for backward compatibility.
-router.post("/openai/chat", async (req: Request, res: Response): Promise<void> => {
+router.post(
+  "/openai/chat",
+  // AI DATA CONSENT GATE. Sends the learner's conversation to OpenAI for a
+  // reply, and separately for memory-note extraction. Inert while flag is false.
+  requireAiConsent,
+  async (req: Request, res: Response): Promise<void> => {
   const parsed = ChatTurnBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid chat payload" });

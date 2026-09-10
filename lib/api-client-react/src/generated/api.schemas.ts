@@ -1357,6 +1357,55 @@ export interface EntitlementLimits {
   weeklyChatSeconds: WeeklyChatAllowance;
 }
 
+/**
+ * THREE STATES, AND NULL IS NOT FALSE. `null` means NEVER ASKED and a client should show the consent screen. "declined" means asked and refused: the voice features stay off and the learner is NOT asked again. A two-state boolean cannot tell a brand-new learner from one who refused, which is why this is nullable on the wire and in the column behind it.
+ */
+export type AiConsentDecision = typeof AiConsentDecision[keyof typeof AiConsentDecision] | null;
+
+
+export const AiConsentDecision = {
+  granted: 'granted',
+  declined: 'declined',
+} as const;
+
+/**
+ * The learner's decision about sending their voice and conversation to the AI services that power speaking practice, chatting with Bolo and the video call. Apple guidelines 5.1.1(i) and 5.1.2(i).
+ */
+export interface AiConsent {
+  /** THREE STATES, AND NULL IS NOT FALSE. `null` means NEVER ASKED and a client should show the consent screen. "declined" means asked and refused: the voice features stay off and the learner is NOT asked again. A two-state boolean cannot tell a brand-new learner from one who refused, which is why this is nullable on the wire and in the column behind it. */
+  decision: AiConsentDecision;
+  /** When the decision was recorded, or null if never asked. */
+  decidedAt: string | null;
+  /** WHICH DISCLOSURE TEXT WAS AGREED TO. Null when never asked. A consent with no version is a consent to an unknown text, and the disclosure will change as the recipient list does. */
+  version: string | null;
+  /** The disclosure version the server is serving NOW. A client compares it with `version` to notice that a materially different disclosure needs asking about again, without re-nagging about the same one. */
+  currentVersion?: string;
+}
+
+export interface AiConsentInput {
+  /** true to allow, false to refuse. Strictly boolean: the server rejects anything else with 400 rather than coercing it, because reading a stray truthy value as consent records an agreement never given. */
+  granted: boolean;
+}
+
+/**
+ * Machine-readable so a client can tell this apart from auth (401) and from the paywall (402), and open the consent screen rather than an upgrade sheet.
+ */
+export type AiConsentRequiredReason = typeof AiConsentRequiredReason[keyof typeof AiConsentRequiredReason];
+
+
+export const AiConsentRequiredReason = {
+  ai_consent_required: 'ai_consent_required',
+} as const;
+
+/**
+ * The 403 body returned by every route that would send learner audio or conversation onward while consent has not been granted.
+ */
+export interface AiConsentRequired {
+  error: string;
+  /** Machine-readable so a client can tell this apart from auth (401) and from the paywall (402), and open the consent screen rather than an upgrade sheet. */
+  reason: AiConsentRequiredReason;
+}
+
 export interface Entitlements {
   /** The effective plan ("free", "one_language", or "plus"). */
   plan: string;
@@ -1371,6 +1420,7 @@ export interface Entitlements {
   /** The single language every tier gets for free. Plan-independent: it names the language, not the viewer's access, so clients can label it without keeping their own copy of the policy. */
   freeLanguage: string;
   features: PlanFeatures;
+  aiConsent: AiConsent;
   limits: EntitlementLimits;
 }
 

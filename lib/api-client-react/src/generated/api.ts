@@ -25,6 +25,8 @@ import type {
   AccountPreferencesResult,
   AccountProfileResult,
   AddPhrasesInput,
+  AiConsent,
+  AiConsentInput,
   AppendRefused,
   Attempt,
   AttemptInput,
@@ -4564,6 +4566,156 @@ export const useUnblockUser = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getUnblockUserMutationOptions(options));
+    }
+
+export const getGetAiConsentUrl = () => {
+
+
+
+
+  return `/api/ai-consent`
+}
+
+/**
+ * Read the three-state decision. NOT gated on consent itself: this is the door through which consent is given, so gating it would lock every learner out of the only way in.
+ * @summary The caller's AI data consent decision
+ */
+export const getAiConsent = async ( options?: RequestInit): Promise<AiConsent> => {
+
+  return customFetch<AiConsent>(getGetAiConsentUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiConsentQueryKey = () => {
+    return [
+    `/api/ai-consent`
+    ] as const;
+    }
+
+
+export const getGetAiConsentQueryOptions = <TData = Awaited<ReturnType<typeof getAiConsent>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiConsent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiConsentQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiConsent>>> = ({ signal }) => getAiConsent({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiConsent>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiConsentQueryResult = NonNullable<Awaited<ReturnType<typeof getAiConsent>>>
+export type GetAiConsentQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary The caller's AI data consent decision
+ */
+
+export function useGetAiConsent<TData = Awaited<ReturnType<typeof getAiConsent>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiConsent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiConsentQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetAiConsentUrl = () => {
+
+
+
+
+  return `/api/ai-consent`
+}
+
+/**
+ * Records a yes or a no. Posting again overwrites, which is what makes the one switch in Settings work in both directions.
+ * @summary Record an AI data consent decision
+ */
+export const setAiConsent = async (aiConsentInput: AiConsentInput, options?: RequestInit): Promise<AiConsent> => {
+
+  return customFetch<AiConsent>(getSetAiConsentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiConsentInput)
+  }
+);}
+
+
+
+
+
+export const getSetAiConsentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setAiConsent>>, TError,{data: BodyType<AiConsentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setAiConsent>>, TError,{data: BodyType<AiConsentInput>}, TContext> => {
+
+const mutationKey = ['setAiConsent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setAiConsent>>, {data: BodyType<AiConsentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setAiConsent(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetAiConsentMutationResult = NonNullable<Awaited<ReturnType<typeof setAiConsent>>>
+    export type SetAiConsentMutationBody = BodyType<AiConsentInput>
+    export type SetAiConsentMutationError = ErrorType<void>
+
+    /**
+ * @summary Record an AI data consent decision
+ */
+export const useSetAiConsent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setAiConsent>>, TError,{data: BodyType<AiConsentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setAiConsent>>,
+        TError,
+        {data: BodyType<AiConsentInput>},
+        TContext
+      > => {
+      return useMutation(getSetAiConsentMutationOptions(options));
     }
 
 export const getListBlockedUsersUrl = () => {

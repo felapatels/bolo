@@ -25,6 +25,7 @@ import gamesRouter, { gamesPublicRouter } from "./games";
 import storyRouter from "./story";
 import ttsAuditRouter from "./ttsAudit";
 import chachaCallRouter from "./chachaCall";
+import aiConsentRouter from "./aiConsent";
 import { requireAuth } from "../middlewares/requireAuth";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 
@@ -87,6 +88,10 @@ router.use(friendsRouter);
 // Referral R1: code fetch + redeem. Available to every authenticated learner
 // (not Plus-gated); a brand-new Free referee must be able to redeem.
 router.use(referralRouter);
+// AI data consent (Apple 5.1.1(i) / 5.1.2(i)). Open to every authenticated
+// learner and NOT behind requireAiConsent: this is the door through which
+// consent is given, so gating it on consent locks everybody out of it.
+router.use(aiConsentRouter);
 // Spec B2: phrase incorrectness reports (fire-and-forget, silently throttled).
 router.use(phraseReportsRouter);
 // Username reports: the other half of the public-name safety story, alongside

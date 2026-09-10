@@ -10,6 +10,7 @@ import {
 import { countLessonGenerationsToday } from "../lib/lessonLimits";
 import { sumChatSecondsThisWeek } from "../lib/chatLimits";
 import { reconcileOnRead } from "../lib/revenuecatReconcile";
+import { readAiConsent } from "../lib/aiConsent";
 import { resolvePlanWithFamily } from "../lib/familyAccess";
 import type { EntitledRequest } from "../middlewares/loadEntitlements";
 
@@ -21,19 +22,23 @@ const router: IRouter = Router();
 // client calls to know what's unlocked and how to render the paywall.
 async function loadSnapshot(req: Request): Promise<Awaited<ReturnType<typeof buildEntitlements>>> {
   const { userId, resolvedPlan } = req as EntitledRequest;
-  const [usedToday, usedChatSecondsThisWeek, languages] = await Promise.all([
-    countLessonGenerationsToday(userId),
-    sumChatSecondsThisWeek(userId),
-    db
-      .select({ code: languagesTable.code })
-      .from(languagesTable)
-      .orderBy(asc(languagesTable.sortOrder)),
-  ]);
+  const [usedToday, usedChatSecondsThisWeek, languages, aiConsent] =
+    await Promise.all([
+      countLessonGenerationsToday(userId),
+      sumChatSecondsThisWeek(userId),
+      db
+        .select({ code: languagesTable.code })
+        .from(languagesTable)
+        .orderBy(asc(languagesTable.sortOrder)),
+      // Joins the existing parallel batch rather than adding a round trip.
+      readAiConsent(userId),
+    ]);
   return buildEntitlements(
     resolvedPlan,
     usedToday,
     languages.map((l) => l.code),
     usedChatSecondsThisWeek,
+    aiConsent,
   );
 }
 

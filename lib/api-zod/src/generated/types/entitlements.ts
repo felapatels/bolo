@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AiConsent } from './aiConsent';
 import type { EntitlementLimits } from './entitlementLimits';
 import type { PlanFeatures } from './planFeatures';
 
@@ -22,5 +23,6 @@ export interface Entitlements {
   /** The single language every tier gets for free. Plan-independent: it names the language, not the viewer's access, so clients can label it without keeping their own copy of the policy. */
   freeLanguage: string;
   features: PlanFeatures;
+  aiConsent: AiConsent;
   limits: EntitlementLimits;
 }

@@ -1,3 +1,4 @@
+src/lib/aiConsent.test.ts
 src/lib/appDomain.test.ts
 src/lib/audioNoise.test.ts
 src/lib/chachaCallLines.test.ts
@@ -16,6 +17,7 @@ src/lib/errorPulse.test.ts
 src/lib/evaluationToken.test.ts
 src/lib/expoPush.test.ts
 src/lib/fsrsScheduler.test.ts
+src/lib/giftAttemptsShim.test.ts
 src/lib/languageVoice.test.ts
 src/lib/learnerContext.test.ts
 src/lib/lessonGroupUnlock.test.ts
@@ -26,6 +28,7 @@ src/lib/nocatchDiagnostics.test.ts
 src/lib/parrotChat.test.ts
 src/lib/phraseAudioVerify.test.ts
 src/lib/phraseCeilings.test.ts
+src/lib/pilotCapture.allowlist.test.ts
 src/lib/presence.test.ts
 src/lib/prewarmFullTtsCache.test.ts
 src/lib/progressMetrics.test.ts
@@ -59,12 +62,10 @@ src/routes/nest.drill-metrics.test.ts
 src/routes/nest.page.test.ts
 src/routes/openai.pronunciation.language-hint.test.ts
 src/routes/openai.pronunciation.pilot-capture.test.ts
+src/routes/specRouteParity.test.ts
 src/routes/tokens.gift.contract.test.ts
 src/test/best-band-regression.test.ts
 src/test/conflict-marker-scan.test.ts
 src/test/greetingBuffer.test.ts
 src/test/scenarios.test.ts
 src/test/scriptTracePayload.test.ts
-src/routes/specRouteParity.test.ts
-src/lib/giftAttemptsShim.test.ts
-src/lib/pilotCapture.allowlist.test.ts

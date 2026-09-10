@@ -1968,6 +1968,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /ai-consent:
+    get:
+      operationId: getAiConsent
+      tags: [account]
+      summary: The caller's AI data consent decision
+      description: >-
+        Read the three-state decision. NOT gated on consent itself: this is the
+        door through which consent is given, so gating it would lock every
+        learner out of the only way in.
+      responses:
+        "200":
+          description: The decision, plus the version the server serves now
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiConsent"
+    post:
+      operationId: setAiConsent
+      tags: [account]
+      summary: Record an AI data consent decision
+      description: >-
+        Records a yes or a no. Posting again overwrites, which is what makes the
+        one switch in Settings work in both directions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiConsentInput"
+      responses:
+        "200":
+          description: The stored decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiConsent"
+        "400":
+          description: granted was missing or not a boolean
+
   /blocks:
     get:
       operationId: listBlockedUsers
@@ -5821,6 +5860,78 @@ components:
         - dailyNewLessons
         - weeklyChatSeconds
 
+    AiConsent:
+      type: object
+      description: >-
+        The learner's decision about sending their voice and conversation to the
+        AI services that power speaking practice, chatting with Bolo and the
+        video call. Apple guidelines 5.1.1(i) and 5.1.2(i).
+      properties:
+        decision:
+          type: string
+          nullable: true
+          enum: [granted, declined, null]
+          description: >-
+            THREE STATES, AND NULL IS NOT FALSE. `null` means NEVER ASKED and a
+            client should show the consent screen. "declined" means asked and
+            refused: the voice features stay off and the learner is NOT asked
+            again. A two-state boolean cannot tell a brand-new learner from one
+            who refused, which is why this is nullable on the wire and in the
+            column behind it.
+        decidedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the decision was recorded, or null if never asked.
+        version:
+          type: string
+          nullable: true
+          description: >-
+            WHICH DISCLOSURE TEXT WAS AGREED TO. Null when never asked. A consent
+            with no version is a consent to an unknown text, and the disclosure
+            will change as the recipient list does.
+        currentVersion:
+          type: string
+          description: >-
+            The disclosure version the server is serving NOW. A client compares
+            it with `version` to notice that a materially different disclosure
+            needs asking about again, without re-nagging about the same one.
+      required:
+        - decision
+        - decidedAt
+        - version
+
+    AiConsentInput:
+      type: object
+      properties:
+        granted:
+          type: boolean
+          description: >-
+            true to allow, false to refuse. Strictly boolean: the server rejects
+            anything else with 400 rather than coercing it, because reading a
+            stray truthy value as consent records an agreement never given.
+      required:
+        - granted
+
+    AiConsentRequired:
+      type: object
+      description: >-
+        The 403 body returned by every route that would send learner audio or
+        conversation onward while consent has not been granted.
+      properties:
+        error:
+          type: string
+        reason:
+          type: string
+          enum: [ai_consent_required]
+          description: >-
+            Machine-readable so a client can tell this apart from auth (401) and
+            from the paywall (402), and open the consent screen rather than an
+            upgrade sheet.
+      required:
+        - error
+        - reason
+
     Entitlements:
       type: object
       properties:
@@ -5857,6 +5968,8 @@ components:
             it without keeping their own copy of the policy.
         features:
           $ref: "#/components/schemas/PlanFeatures"
+        aiConsent:
+          $ref: "#/components/schemas/AiConsent"
         limits:
           $ref: "#/components/schemas/EntitlementLimits"
       required:
@@ -5868,6 +5981,7 @@ components:
         - allowedLanguages
         - freeLanguage
         - features
+        - aiConsent
         - limits
 
     StoryPhrase:

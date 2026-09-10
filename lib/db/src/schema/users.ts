@@ -128,6 +128,31 @@ export const usersTable = pgTable("users", {
   // Unique, case-insensitively, via a lower() index. Postgres unique indexes
   // ignore NULLs, so every learner without one coexists fine.
   username: text("username"),
+  // ── AI data consent, added 2026-09-10. Apple 5.1.1(i) and 5.1.2(i) ──
+  //
+  // BOLO SEA was rejected under these guidelines for sending learner data to a
+  // third party without saying so and without asking. One consent covers all
+  // three voice features: speaking practice, chatting with Bolo, and the video
+  // call with the elder.
+  //
+  // THE NULL IS LOAD-BEARING AND IT IS NOT A STYLE CHOICE. The owner's ruling is
+  // "asked once, never nagged", and that needs THREE states:
+  //
+  //     null       never asked      -> ask
+  //     true       granted          -> do not ask again
+  //     false      declined         -> do not ask again, features stay off
+  //
+  // A `boolean NOT NULL DEFAULT false` collapses the first two into one and
+  // makes a brand-new learner indistinguishable from one who refused. It would
+  // also silently convert EVERY EXISTING ACCOUNT into a refusal on deploy.
+  // Do not add a default to this column. (LATAM found this while building it.)
+  aiConsent: boolean("ai_consent"),
+  aiConsentAt: timestamp("ai_consent_at", { withTimezone: true }),
+  // WHICH DISCLOSURE WAS AGREED TO. This is the column that cannot be added
+  // later: a consent with no version is a consent to an unknown text, and the
+  // disclosure WILL change, because the recipient list already differs between
+  // forks. Every row written before this column exists is unattributable.
+  aiConsentVersion: text("ai_consent_version"),
   // Set false to stay out of every global surface while KEEPING a username.
   // Distinct from having no username: this is the learner who named themselves
   // and later wanted out, and they should not have to erase the name to leave.

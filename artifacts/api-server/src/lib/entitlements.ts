@@ -4,6 +4,8 @@
 // live, per-user daily-lesson counts are layered on by the DB-touching
 // lessonLimits helpers; everything here is deterministic given its inputs.
 
+import { NEVER_ASKED, type AiConsent } from "./aiConsentTypes";
+
 export type Plan = "free" | "one_language" | "plus";
 
 export type SubscriptionStatus =
@@ -405,6 +407,15 @@ export interface Entitlements {
   // Sourced from FREE_LANGUAGE so no client keeps its own copy of the policy.
   freeLanguage: string;
   features: PlanFeatures;
+  // AI data consent, Apple 5.1.1(i) / 5.1.2(i). Rides the entitlements snapshot
+  // because that is the one call a client already makes on cold start, so the
+  // consent screen can be decided without a second round trip.
+  //
+  // `decision: null` means NEVER ASKED and is NOT the same as "declined".
+  // A client MUST NOT read this field while the snapshot is still loading and
+  // treat undefined as undecided: that draws the consent screen, or a lock, on
+  // every cold start. Derive a `shouldAsk` that is FALSE while loading.
+  aiConsent: AiConsent;
   limits: {
     dailyNewLessons: DailyLessonAllowance;
     // The Bolo Parrot conversational chat time allowance. Chat language
@@ -419,6 +430,9 @@ export function buildEntitlements(
   usedToday: number,
   allLanguageCodes: string[],
   usedChatSecondsThisWeek: number = 0,
+  // Defaults to NEVER_ASKED so this stays a pure function and every existing
+  // caller keeps compiling. The live value is passed by the entitlements route.
+  aiConsent: AiConsent = NEVER_ASKED,
 ): Entitlements {
   const { plan, chosenLanguage } = resolved;
   // No tier has a daily new-lesson ceiling: AI cost is bounded per topic by the
@@ -450,6 +464,7 @@ export function buildEntitlements(
     // Plan-independent: it names the language, not the viewer's access.
     freeLanguage: FREE_LANGUAGE,
     features: featuresForPlan(plan),
+    aiConsent,
     limits: {
       dailyNewLessons: { limit, used: usedToday, remaining },
       weeklyChatSeconds: {

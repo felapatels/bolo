@@ -612,6 +612,12 @@ export const GetEntitlementsResponse = zod.object({
   "phraseBuilder": zod.boolean().describe('Whether the caller can access the Phrase Builder game. Plus only.'),
   "speedRound": zod.boolean().describe('Whether the caller can access the Speed Round game. Plus only.')
 }),
+  "aiConsent": zod.object({
+  "decision": zod.union([zod.literal('granted'),zod.literal('declined'),zod.literal(null)]).nullable().describe('THREE STATES, AND NULL IS NOT FALSE. `null` means NEVER ASKED and a client should show the consent screen. \"declined\" means asked and refused: the voice features stay off and the learner is NOT asked again. A two-state boolean cannot tell a brand-new learner from one who refused, which is why this is nullable on the wire and in the column behind it.'),
+  "decidedAt": zod.coerce.date().nullable().describe('When the decision was recorded, or null if never asked.'),
+  "version": zod.string().nullable().describe('WHICH DISCLOSURE TEXT WAS AGREED TO. Null when never asked. A consent with no version is a consent to an unknown text, and the disclosure will change as the recipient list does.'),
+  "currentVersion": zod.string().optional().describe('The disclosure version the server is serving NOW. A client compares it with `version` to notice that a materially different disclosure needs asking about again, without re-nagging about the same one.')
+}).describe('The learner\'s decision about sending their voice and conversation to the AI services that power speaking practice, chatting with Bolo and the video call. Apple guidelines 5.1.1(i) and 5.1.2(i).'),
   "limits": zod.object({
   "dailyNewLessons": zod.object({
   "limit": zod.number().nullable().describe('Daily new-lesson ceiling; null means unlimited (Plus).'),
@@ -653,6 +659,12 @@ export const SetChosenLanguageResponse = zod.object({
   "phraseBuilder": zod.boolean().describe('Whether the caller can access the Phrase Builder game. Plus only.'),
   "speedRound": zod.boolean().describe('Whether the caller can access the Speed Round game. Plus only.')
 }),
+  "aiConsent": zod.object({
+  "decision": zod.union([zod.literal('granted'),zod.literal('declined'),zod.literal(null)]).nullable().describe('THREE STATES, AND NULL IS NOT FALSE. `null` means NEVER ASKED and a client should show the consent screen. \"declined\" means asked and refused: the voice features stay off and the learner is NOT asked again. A two-state boolean cannot tell a brand-new learner from one who refused, which is why this is nullable on the wire and in the column behind it.'),
+  "decidedAt": zod.coerce.date().nullable().describe('When the decision was recorded, or null if never asked.'),
+  "version": zod.string().nullable().describe('WHICH DISCLOSURE TEXT WAS AGREED TO. Null when never asked. A consent with no version is a consent to an unknown text, and the disclosure will change as the recipient list does.'),
+  "currentVersion": zod.string().optional().describe('The disclosure version the server is serving NOW. A client compares it with `version` to notice that a materially different disclosure needs asking about again, without re-nagging about the same one.')
+}).describe('The learner\'s decision about sending their voice and conversation to the AI services that power speaking practice, chatting with Bolo and the video call. Apple guidelines 5.1.1(i) and 5.1.2(i).'),
   "limits": zod.object({
   "dailyNewLessons": zod.object({
   "limit": zod.number().nullable().describe('Daily new-lesson ceiling; null means unlimited (Plus).'),
@@ -1472,6 +1484,34 @@ export const UnblockUserParams = zod.object({
 export const UnblockUserResponse = zod.object({
   "success": zod.boolean()
 })
+
+
+/**
+ * Read the three-state decision. NOT gated on consent itself: this is the door through which consent is given, so gating it would lock every learner out of the only way in.
+ * @summary The caller's AI data consent decision
+ */
+export const GetAiConsentResponse = zod.object({
+  "decision": zod.union([zod.literal('granted'),zod.literal('declined'),zod.literal(null)]).nullable().describe('THREE STATES, AND NULL IS NOT FALSE. `null` means NEVER ASKED and a client should show the consent screen. \"declined\" means asked and refused: the voice features stay off and the learner is NOT asked again. A two-state boolean cannot tell a brand-new learner from one who refused, which is why this is nullable on the wire and in the column behind it.'),
+  "decidedAt": zod.coerce.date().nullable().describe('When the decision was recorded, or null if never asked.'),
+  "version": zod.string().nullable().describe('WHICH DISCLOSURE TEXT WAS AGREED TO. Null when never asked. A consent with no version is a consent to an unknown text, and the disclosure will change as the recipient list does.'),
+  "currentVersion": zod.string().optional().describe('The disclosure version the server is serving NOW. A client compares it with `version` to notice that a materially different disclosure needs asking about again, without re-nagging about the same one.')
+}).describe('The learner\'s decision about sending their voice and conversation to the AI services that power speaking practice, chatting with Bolo and the video call. Apple guidelines 5.1.1(i) and 5.1.2(i).')
+
+
+/**
+ * Records a yes or a no. Posting again overwrites, which is what makes the one switch in Settings work in both directions.
+ * @summary Record an AI data consent decision
+ */
+export const SetAiConsentBody = zod.object({
+  "granted": zod.boolean().describe('true to allow, false to refuse. Strictly boolean: the server rejects anything else with 400 rather than coercing it, because reading a stray truthy value as consent records an agreement never given.')
+})
+
+export const SetAiConsentResponse = zod.object({
+  "decision": zod.union([zod.literal('granted'),zod.literal('declined'),zod.literal(null)]).nullable().describe('THREE STATES, AND NULL IS NOT FALSE. `null` means NEVER ASKED and a client should show the consent screen. \"declined\" means asked and refused: the voice features stay off and the learner is NOT asked again. A two-state boolean cannot tell a brand-new learner from one who refused, which is why this is nullable on the wire and in the column behind it.'),
+  "decidedAt": zod.coerce.date().nullable().describe('When the decision was recorded, or null if never asked.'),
+  "version": zod.string().nullable().describe('WHICH DISCLOSURE TEXT WAS AGREED TO. Null when never asked. A consent with no version is a consent to an unknown text, and the disclosure will change as the recipient list does.'),
+  "currentVersion": zod.string().optional().describe('The disclosure version the server is serving NOW. A client compares it with `version` to notice that a materially different disclosure needs asking about again, without re-nagging about the same one.')
+}).describe('The learner\'s decision about sending their voice and conversation to the AI services that power speaking practice, chatting with Bolo and the video call. Apple guidelines 5.1.1(i) and 5.1.2(i).')
 
 
 /**
