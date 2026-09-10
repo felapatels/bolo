@@ -96,6 +96,7 @@
     "@workspace/emergency": "workspace:*",
     "@workspace/story": "workspace:*",
     "posthog-js": "^1.407.3",
-    "qrcode.react": "^4.2.0"
+    "qrcode.react": "^4.2.0",
+    "@workspace/ai-consent": "workspace:*"
   }
 }

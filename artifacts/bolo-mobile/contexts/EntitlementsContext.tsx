@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { useAuth } from '@clerk/expo';
 import {
+  shouldAskAiConsent,
+  aiFeaturesAllowed,
+} from '@workspace/ai-consent';
+import {
   useGetEntitlements,
   getGetEntitlementsQueryKey,
   type DailyLessonAllowance,
@@ -45,6 +49,20 @@ type EntitlementsContextValue = {
   canUseAdvancedAnalytics: boolean;
   /** Today's new-lesson allowance (null limit/remaining means unlimited). */
   dailyNewLessons: DailyLessonAllowance | undefined;
+  /**
+   * AI data consent, Apple 5.1.1(i) / 5.1.2(i).
+   *
+   * `aiConsentDecision` is the raw three-state value and is `undefined` until
+   * the snapshot lands. DO NOT READ IT DIRECTLY to decide whether to ask:
+   * undefined is not undecided, and treating it as such draws the consent
+   * screen on every cold start. Use the two derived booleans, which are both
+   * FALSE while loading.
+   */
+  aiConsentDecision: 'granted' | 'declined' | null | undefined;
+  /** True only for a LOADED never-asked learner. */
+  shouldAskAiConsent: boolean;
+  /** True only on an explicit granted. Speaking, chat and the call read this. */
+  aiFeaturesAllowed: boolean;
   refetch: () => void;
 };
 
@@ -76,6 +94,8 @@ export function EntitlementsProvider({
     const isPlus = plan === 'plus';
     const isOneLanguage = plan === 'one_language';
     const allowedLanguages = e?.allowedLanguages ?? [];
+    // undefined until the snapshot lands; null once it has and nobody has asked.
+    const decision = e?.aiConsent?.decision;
     return {
       entitlements: e,
       isLoading: query.isLoading,
@@ -93,6 +113,11 @@ export function EntitlementsProvider({
       canReview: e?.features.review ?? false,
       canUseAdvancedAnalytics: e?.features.advancedAnalytics ?? false,
       dailyNewLessons: e?.limits.dailyNewLessons,
+      aiConsentDecision: decision,
+      // Both derived through the shared helpers so mobile and web cannot drift
+      // on the one rule that matters here: FALSE WHILE LOADING.
+      shouldAskAiConsent: shouldAskAiConsent(decision, query.isLoading),
+      aiFeaturesAllowed: aiFeaturesAllowed(decision, query.isLoading),
       refetch: () => {
         refetch();
       },
