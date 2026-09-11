@@ -247,11 +247,11 @@ export async function spendTokens(
 }
 
 /**
- * Buy one stop in a plan-locked language. The ledger row IS the unlock: the
+ * Buy one stop in a paid zone. The ledger row IS the unlock: the
  * refId encodes language and stop, so the unique (user, reason, ref) index
  * makes a replay a silent no-op that charges nothing (`charged: false`) and,
  * because ownership is derived from that same row, grants nothing new either.
- * The caller has already enforced the first-zone cap (lib/stopUnlock.ts);
+ * The caller has already validated the purchasable stop (lib/stopUnlock.ts);
  * this function owns only the money.
  */
 export async function unlockStop(
@@ -259,7 +259,11 @@ export async function unlockStop(
   languageCode: string,
   lessonGroupId: number,
 ): Promise<{ state: TokenStateRow; charged: boolean }> {
-  const refId = stopUnlockRefId(languageCode, lessonGroupId);
+  return unlockStopRef(userId, stopUnlockRefId(languageCode, lessonGroupId));
+}
+
+/** Shared atomic spend for validated lesson/story/trace targets. */
+export async function unlockStopRef(userId: string, refId: string): Promise<{ state: TokenStateRow; charged: boolean }> {
   return db.transaction(async (tx) => {
     const state = await ensureState(tx, userId);
     // Owned already? Return before the balance check — a replay must never be
@@ -290,6 +294,10 @@ export async function unlockStop(
       .where(eq(userTokenStateTable.userId, userId))
       .for("update");
     const balance = locked?.balance ?? state.balance;
+    // A concurrent identical purchase may have committed while we waited.
+    const [alreadyBought] = await tx.select({ id: tokenLedgerTable.id }).from(tokenLedgerTable)
+      .where(and(eq(tokenLedgerTable.userId, userId), eq(tokenLedgerTable.reason, "spend_stop_unlock"), eq(tokenLedgerTable.refId, refId))).limit(1);
+    if (alreadyBought) return { state: { ...state, balance }, charged: false };
     if (balance < STOP_UNLOCK_COST)
       throw new InsufficientTokensError(balance, STOP_UNLOCK_COST);
 

@@ -1,3 +1,5 @@
+import { Link } from 'wouter';
+import { takeJourneyStopReturn } from '@/lib/journey-stop-access';
 // Chai packs — buying Chai with money, on WEB ONLY.
 //
 // Everything visible here is DARK until the flag below is flipped. The plumbing
@@ -66,11 +68,13 @@ const RETURN_REFETCH_MS = [0, 2000, 5000];
 export function ChaiPurchaseReturn() {
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<string | null>(null);
+  const [stopReturn, setStopReturn] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const outcome = params.get("chai");
     if (!outcome) return;
+    setStopReturn(takeJourneyStopReturn());
 
     setNotice(
       outcome === "success" ? PACK_COPY.success : PACK_COPY.canceled,
@@ -111,6 +115,7 @@ export function ChaiPurchaseReturn() {
     >
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3.5 text-sm font-medium text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
         {notice}
+        {stopReturn && <Link href={stopReturn} className="ml-2 font-bold underline">Return to your stop</Link>}
       </div>
     </div>
   );

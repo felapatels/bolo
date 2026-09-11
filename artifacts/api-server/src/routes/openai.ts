@@ -1,3 +1,4 @@
+import { hasStopUnlockForPhrase } from "../lib/stopUnlock";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, phrasesTable, ttsCacheTable, languagesTable, usersTable, zoneConversationStampsTable } from "@workspace/db";
 import { eq, inArray, asc, and } from "drizzle-orm";
@@ -896,6 +897,7 @@ router.post(
       // the extended library — same denial as serving it by id.
       if (
         phrase.premium &&
+        !(await hasStopUnlockForPhrase((req as AuthedRequest).userId, phrase.languageCode, phrase.id)) &&
         denyLockedFeature(
           req,
           res,

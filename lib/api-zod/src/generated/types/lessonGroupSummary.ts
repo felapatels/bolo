@@ -24,9 +24,9 @@ export interface LessonGroupSummary {
   teaserStation?: boolean;
   /** True when every phrase in this group has been attempted and the learner's best band is "perfect" or "great" (score >= 80) on all of them. Used to show the gold stamp overlay on the journey map when POLISH_ENABLED is on. Optional/additive. */
   allTopBand?: boolean;
-  /** True when the learner has BOUGHT this stop with Chai in a plan-locked language. The stop opens exactly like the free-taste stop, and because ownership is a ledger row it survives a reinstall. Present only in showroom payloads. Optional/additive. */
+  /** True when the learner has BOUGHT this stop with Chai in a plan-locked language. The stop opens exactly like the free-taste stop, and because ownership is a ledger row it survives a reinstall. Present whenever this stop is owned. Optional/additive. */
   chaiUnlocked?: boolean;
-  /** True when this stop is offered for Chai: inside the language's first zone, not the free stop, not already bought, and holding at least one phrase the caller's plan can practise. Absent everywhere else — a station without it can only be opened by All-Access, and the server refuses a purchase attempt on one. Optional/additive. */
+  /** True when this stop can be bought individually with Chai in a paid zone, has lesson content, and is not already owned or included by the subscription. Zone 1 is free. Optional/additive. */
   chaiUnlockable?: boolean;
   /** True when the caller's plan can see ZERO of this group's phrases (every member is premium and the caller lacks extended-library access), so the station is reported locked with a Plus upsell instead of an unlocked stop that would serve an empty practice session. For these callers phraseCount/attemptedCount/ masteredCount count only plan-visible phrases. Absent for extended-library callers and in showroom (teaser/exhausted) payloads. Optional/additive. */
   planLocked?: boolean;

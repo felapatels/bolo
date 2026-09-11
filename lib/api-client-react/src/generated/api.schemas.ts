@@ -382,9 +382,9 @@ export interface LessonGroupSummary {
   teaserStation?: boolean;
   /** True when every phrase in this group has been attempted and the learner's best band is "perfect" or "great" (score >= 80) on all of them. Used to show the gold stamp overlay on the journey map when POLISH_ENABLED is on. Optional/additive. */
   allTopBand?: boolean;
-  /** True when the learner has BOUGHT this stop with Chai in a plan-locked language. The stop opens exactly like the free-taste stop, and because ownership is a ledger row it survives a reinstall. Present only in showroom payloads. Optional/additive. */
+  /** True when the learner has BOUGHT this stop with Chai in a plan-locked language. The stop opens exactly like the free-taste stop, and because ownership is a ledger row it survives a reinstall. Present whenever this stop is owned. Optional/additive. */
   chaiUnlocked?: boolean;
-  /** True when this stop is offered for Chai: inside the language's first zone, not the free stop, not already bought, and holding at least one phrase the caller's plan can practise. Absent everywhere else — a station without it can only be opened by All-Access, and the server refuses a purchase attempt on one. Optional/additive. */
+  /** True when this stop can be bought individually with Chai in a paid zone, has lesson content, and is not already owned or included by the subscription. Zone 1 is free. Optional/additive. */
   chaiUnlockable?: boolean;
   /** True when the caller's plan can see ZERO of this group's phrases (every member is premium and the caller lacks extended-library access), so the station is reported locked with a Plus upsell instead of an unlocked stop that would serve an empty practice session. For these callers phraseCount/attemptedCount/ masteredCount count only plan-visible phrases. Absent for extended-library callers and in showroom (teaser/exhausted) payloads. Optional/additive. */
   planLocked?: boolean;
@@ -453,7 +453,7 @@ export const LessonGroupListAccess = {
 } as const;
 
 /**
- * The served price of a Chai stop unlock. Present on a showroom journey payload only for the first zone, the only zone whose stops are purchasable. Clients must render this number, never a hardcoded one.
+ * The served price of an individual stop in a paid zone. Zone 1 is free. Clients must render this number, never a hardcoded one.
  */
 export interface StopUnlockOffer {
   cost?: number;
@@ -2064,6 +2064,49 @@ export interface ChaiPackCreditsResult {
   credited: string[];
 }
 
+export type JourneyStopTargetKind = typeof JourneyStopTargetKind[keyof typeof JourneyStopTargetKind];
+
+
+export const JourneyStopTargetKind = {
+  lesson: 'lesson',
+  story: 'story',
+  trace: 'trace',
+  letter: 'letter',
+} as const;
+
+export interface JourneyStopTarget {
+  kind: JourneyStopTargetKind;
+  languageCode: string;
+  /**
+     * @minimum 1
+     * @maximum 2
+     */
+  journey: number;
+  /**
+     * @minimum 1
+     * @maximum 6
+     */
+  zone: number;
+  /**
+     * Required for lesson stops; omitted for story and tracing stops.
+     * @minimum 1
+     */
+  lessonGroupId?: number;
+}
+
+export interface JourneyStopUnlocks {
+  cost: number;
+  unlockedStops: JourneyStopTarget[];
+}
+
+export interface JourneyStopUnlockResult {
+  balance: number;
+  cost: number;
+  charged: boolean;
+  unlocked: boolean;
+  stop: JourneyStopTarget;
+}
+
 export interface UnlockStopInput {
   /** The station to open. The server resolves its language from the row itself and mints the ledger refId as stop:<language>:<groupId>, so no client-supplied idempotency key is accepted here. */
   lessonGroupId: number;
@@ -2395,6 +2438,10 @@ export type ListZoneStampsParams = {
  * Language code to filter stamps by.
  */
 lang: string;
+};
+
+export type GetJourneyStopUnlocksParams = {
+languageCode: string;
 };
 
 export type RegisterPushTokenBodyPlatform = typeof RegisterPushTokenBodyPlatform[keyof typeof RegisterPushTokenBodyPlatform];

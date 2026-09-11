@@ -1853,7 +1853,7 @@ export default function ChatPage() {
         onContextMenu={(e) => e.preventDefault()}
         disabled={capExhausted}
         aria-label={phase === "recording" ? "Release to send" : phase === "playing" ? "Tap to interrupt" : "Hold to speak"}
-        className="flex flex-col items-center px-4 py-4 cursor-pointer disabled:cursor-default focus:outline-none select-none touch-none"
+        className="flex shrink-0 flex-col items-center px-4 py-4 cursor-pointer disabled:cursor-default focus:outline-none select-none touch-none"
       >
         {/* Idle pulsing ring + pressed-state scale wrapper */}
         <div className="relative flex items-center justify-center">
@@ -1959,6 +1959,7 @@ export default function ChatPage() {
       <AnimatePresence>
         {phase === "processing" && (
           <motion.div
+            className="shrink-0"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
@@ -1972,7 +1973,7 @@ export default function ChatPage() {
       {/* Conversation transcript */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-2"
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-2"
       >
         <div className="mx-auto flex max-w-lg flex-col gap-2 pb-4">
           {/* Static greeting bubble — shown before the first exchange, never sent to the API */}

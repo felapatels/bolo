@@ -7,7 +7,7 @@
  */
 
 /**
- * The served price of a Chai stop unlock. Present on a showroom journey payload only for the first zone, the only zone whose stops are purchasable. Clients must render this number, never a hardcoded one.
+ * The served price of an individual stop in a paid zone. Zone 1 is free. Clients must render this number, never a hardcoded one.
  */
 export interface StopUnlockOffer {
   cost?: number;

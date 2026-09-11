@@ -3000,15 +3000,10 @@ paths:
       tags: [tokens]
       summary: Spend Chai to open one stop in a plan-locked language
       description: >-
-        Buys a single station in a language the caller's plan does not include.
-        The caller names only a lesson group id: the language, the price and the
-        ledger idempotency key are all derived server-side, and the purchase is
-        once-ever (a repeat call returns 200 with charged=false and deducts
-        nothing). Only stops inside the language's FIRST zone — the zone that
-        hosts the free-taste stop — are purchasable; anything beyond it answers
-        402 UpgradeRequired because that is the All-Access boundary. Money and
-        state conflicts (insufficient_tokens, stop_already_free,
-        stop_not_unlockable) answer 409, matching the other Chai spends.
+        Buys one lesson stop in a paid zone. Zone 1 is free and cannot be sold.
+        Earlier paid stops must be owned first, in journey order. Language, price and idempotency key are resolved server-side. A repeat
+        purchase charges nothing. Purchased stops include their full lesson
+        content and remain owned after reinstall. Insufficient funds answer 409.
       requestBody:
         required: true
         content:
@@ -3023,13 +3018,61 @@ paths:
               schema:
                 $ref: "#/components/schemas/StopUnlockResult"
         "402":
-          description: Beyond the first zone — All-Access required
+          description: Subscription access required
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/UpgradeRequired"
         "409":
           description: insufficient_tokens, stop_already_free, or stop_not_unlockable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /tokens/journey-stops:
+    get:
+      operationId: getJourneyStopUnlocks
+      tags: [Tokens]
+      summary: Chai price and permanent ownership of journey stops
+      parameters:
+        - in: query
+          name: languageCode
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Current stop price and owned stops for this language
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JourneyStopUnlocks"
+  /tokens/journey-stops/unlock:
+    post:
+      operationId: unlockJourneyStop
+      tags: [Tokens]
+      summary: Permanently buy one lesson, story, tracing or letter-listening stop with Chai
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JourneyStopTarget"
+      responses:
+        "200":
+          description: Stop owned; replay does not charge again
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JourneyStopUnlockResult"
+        "400":
+          description: Invalid stop target
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Insufficient Chai, free stop, or already included by subscription
           content:
             application/json:
               schema:
@@ -4099,15 +4142,13 @@ components:
             True when the learner has BOUGHT this stop with Chai in a
             plan-locked language. The stop opens exactly like the free-taste
             stop, and because ownership is a ledger row it survives a
-            reinstall. Present only in showroom payloads. Optional/additive.
+            reinstall. Present whenever this stop is owned. Optional/additive.
         chaiUnlockable:
           type: boolean
           description: >-
-            True when this stop is offered for Chai: inside the language's
-            first zone, not the free stop, not already bought, and holding at
-            least one phrase the caller's plan can practise. Absent everywhere
-            else — a station without it can only be opened by All-Access, and
-            the server refuses a purchase attempt on one. Optional/additive.
+            True when this stop can be bought individually with Chai in a paid
+            zone, has lesson content, and is not already owned or included by
+            the subscription. Zone 1 is free. Optional/additive.
         planLocked:
           type: boolean
           description: >-
@@ -7035,6 +7076,37 @@ components:
           description: >-
             The subset of the given transaction ids that already have a ledger
             row. Anything absent from this list has not been credited.
+    JourneyStopTarget:
+      type: object
+      required: [kind, languageCode, journey, zone]
+      properties:
+        kind: { type: string, enum: [lesson, story, trace, letter] }
+        languageCode: { type: string }
+        journey: { type: integer, minimum: 1, maximum: 2 }
+        zone: { type: integer, minimum: 1, maximum: 6 }
+        lessonGroupId:
+          type: integer
+          minimum: 1
+          description: Required for lesson stops; omitted for story and tracing stops.
+    JourneyStopUnlocks:
+      type: object
+      required: [cost, unlockedStops]
+      properties:
+        cost: { type: integer }
+        unlockedStops:
+          type: array
+          items:
+            $ref: "#/components/schemas/JourneyStopTarget"
+    JourneyStopUnlockResult:
+      type: object
+      required: [balance, cost, charged, unlocked, stop]
+      properties:
+        balance: { type: integer }
+        cost: { type: integer }
+        charged: { type: boolean }
+        unlocked: { type: boolean }
+        stop:
+          $ref: "#/components/schemas/JourneyStopTarget"
     UnlockStopInput:
       type: object
       required: [lessonGroupId]
@@ -7256,9 +7328,8 @@ components:
     StopUnlockOffer:
       type: object
       description: >-
-        The served price of a Chai stop unlock. Present on a showroom journey
-        payload only for the first zone, the only zone whose stops are
-        purchasable. Clients must render this number, never a hardcoded one.
+        The served price of an individual stop in a paid zone. Zone 1 is free.
+        Clients must render this number, never a hardcoded one.
       properties:
         cost:
           type: integer

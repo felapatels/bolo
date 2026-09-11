@@ -2571,6 +2571,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
            per ? per.toFixed(1) + " per active learner over " + days + " days." : "Nobody practised in this window.", false, "attempts") +
       tile(fmt(r.gameSessions), "Games", fmt(r.gameSessions) + " finished sessions.", false, "games") +
       tile(fmt(r.chatTurns), "Chat replies", "Bolo answering a learner.", false, "chats") +
+      tile(fmt(r.stopUnlocks), "Chai stop unlocks", "Permanent stop purchases. Replays count once.", false, "stopUnlocks") +
       /* CLEARED, not played. The letter stop is position 4 of every zone and is
          the only thing in the app that asks somebody to READ; tracing at stop 2
          teaches the hand. The bar is the stop's own, read from the shared lib

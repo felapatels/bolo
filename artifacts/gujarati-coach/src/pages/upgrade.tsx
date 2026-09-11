@@ -1,3 +1,5 @@
+import { JourneyStopPurchase } from '@/components/journey-stop-purchase';
+import { journeyStopFromSearch } from '@/lib/journey-stop-access';
 import { useEffect, useMemo, useState } from "react";
 import { Link, Redirect, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -163,6 +165,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
   // upgradeHrefForDenial so we can surface a contextual trial banner when the
   // learner arrived from the cap. Legacy ?plan=one_language links (the tier is
   // no longer sold on web) land on the All-Access card.
+  const stopTarget = journeyStopFromSearch(search);
   const intent = useMemo(() => {
     const params = new URLSearchParams(search);
     const plan = params.get("plan");
@@ -300,6 +303,8 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
             </div>
           )}
         </motion.div>
+
+        {stopTarget && <JourneyStopPurchase target={stopTarget} />}
 
         {/* Trial banner — shown when the learner arrived after hitting the daily cap */}
         {intent.reason === "daily_lesson_limit" && (

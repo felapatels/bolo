@@ -26,22 +26,13 @@ import { __resetTeaserCacheForTests } from "../lib/teaser";
 import { grantTokens } from "../lib/tokenService";
 import { STOP_UNLOCK_COST } from "../lib/tokenEconomy";
 
-// Chai stop unlocks (owner ruling, Aug 6 2026). A Free learner may buy ONE
-// stop at a time in a language their plan does not include, capped to the
-// first zone — the zone that already hosts the free-taste stop. This suite
-// pins the money and the cap:
-//   - happy path charges exactly once and opens the stop,
-//   - a replayed purchase grants nothing and charges nothing,
-//   - an empty tin is refused in the 409 Chai copy register,
-//   - a stop OUTSIDE the first zone is refused server-side (not just hidden),
-//   - a fresh client with zero local state still sees the stop open, because
-//     ownership is a ledger row and nothing else.
-// Live shared Postgres: test-only ids, self-provisioned tables, full cleanup.
-// See .agents/memory/api-server-tests.md and docs/CODEBASE-FACTS.md section 4.
+// Zone 1 is free; Chai buys full individual stops from Zone 2 onward.
+// These integration cases pin server offers, permanent content access,
+// insufficient funds, replay safety, and both legacy/new purchase endpoints.
 const TEST_USER_ID = "test_stop_unlock";
 const POOR_USER_ID = "test_stop_unlock_poor";
 const LANG = "__test_lang_stopunlock";
-const OTHER_CATEGORY_SLUG = "__test_cat_stopunlock";
+const OTHER_CATEGORY_SLUG = "family";
 
 let app: Express;
 let server: Server;
@@ -49,12 +40,13 @@ let baseUrl: string;
 
 let greetingsId: number;
 let createdGreetings = false;
+let createdPaidCategory = false;
 let otherCategoryId: number;
 let freeStopId: number; // Greetings position 1 — free for everyone
-let paidStopId: number; // Greetings position 2 — the purchasable stop
-let premiumOnlyStopId: number; // Greetings position 3 — all-premium, unsellable
-let secondPaidStopId: number; // Greetings position 4 — a second purchasable stop
-let outsideZoneStopId: number; // another zone entirely — All-Access territory
+let paidStopId: number; // paid category position 1 — purchasable
+let premiumOnlyStopId: number; // Zone 1 cannot be sold, even if fixture phrases are premium
+let secondPaidStopId: number; // paid category position 2 — purchasable
+let outsideZoneStopId: number; // another paid stop
 
 async function post(
   path: string,
@@ -159,7 +151,11 @@ before(async () => {
     .onConflictDoNothing();
   await db
     .update(usersTable)
-    .set({ tier: "one_language", subscriptionStatus: "active", chosenLanguage: "hi" })
+    .set({
+      tier: "free",
+      subscriptionStatus: "active",
+      chosenLanguage: null,
+    })
     .where(inArray(usersTable.id, [TEST_USER_ID, POOR_USER_ID]));
 
   await db
@@ -196,18 +192,13 @@ before(async () => {
     createdGreetings = true;
   }
 
-  const [otherCategory] = await db
-    .insert(categoriesTable)
-    .values({
-      slug: OTHER_CATEGORY_SLUG,
-      title: "Stop Unlock Other Topic",
-      description: "Test topic",
-      iconName: "BookOpen",
-      accent: "#444444",
-      sortOrder: 9401,
-    })
-    .returning();
-  otherCategoryId = otherCategory!.id;
+  const existingPaidCategory = await db.query.categoriesTable.findFirst({ where: eq(categoriesTable.slug, OTHER_CATEGORY_SLUG) });
+  if (existingPaidCategory) otherCategoryId = existingPaidCategory.id;
+  else {
+    const [created] = await db.insert(categoriesTable).values({ slug: OTHER_CATEGORY_SLUG, title: 'Family', description: 'Test-provisioned family', iconName: 'BookOpen', accent: '#444444', sortOrder: 1 }).returning();
+    otherCategoryId = created!.id;
+    createdPaidCategory = true;
+  }
 
   const [greetingsLesson] = await db
     .insert(lessonsTable)
@@ -222,10 +213,10 @@ before(async () => {
     .insert(lessonGroupsTable)
     .values([
       { languageCode: LANG, categoryId: greetingsId, position: 1 },
-      { languageCode: LANG, categoryId: greetingsId, position: 2 },
-      { languageCode: LANG, categoryId: greetingsId, position: 3 },
-      { languageCode: LANG, categoryId: greetingsId, position: 4 },
       { languageCode: LANG, categoryId: otherCategoryId, position: 1 },
+      { languageCode: LANG, categoryId: greetingsId, position: 2 },
+      { languageCode: LANG, categoryId: otherCategoryId, position: 2 },
+      { languageCode: LANG, categoryId: otherCategoryId, position: 3 },
     ])
     .returning();
   freeStopId = groups[0]!.id;
@@ -259,13 +250,13 @@ before(async () => {
     mkPhrase("f1", greetingsLesson!.id, greetingsId, freeStopId, 1),
     mkPhrase("f2", greetingsLesson!.id, greetingsId, freeStopId, 2),
     mkPhrase("f3", greetingsLesson!.id, greetingsId, freeStopId, 3),
-    mkPhrase("p1", greetingsLesson!.id, greetingsId, paidStopId, 1),
-    mkPhrase("p2", greetingsLesson!.id, greetingsId, paidStopId, 2),
+    mkPhrase("p1", otherLesson!.id, otherCategoryId, paidStopId, 1, true),
+    mkPhrase("p2", otherLesson!.id, otherCategoryId, paidStopId, 2, true),
     // Every member is Plus-library, so there is nothing a Free learner could
     // practise here — the offer must never appear and a purchase must fail.
-    mkPhrase("x1", greetingsLesson!.id, greetingsId, premiumOnlyStopId, 1, true),
-    mkPhrase("q1", greetingsLesson!.id, greetingsId, secondPaidStopId, 1),
-    mkPhrase("o1", otherLesson!.id, otherCategoryId, outsideZoneStopId, 1),
+    mkPhrase("x1", greetingsLesson!.id, greetingsId, premiumOnlyStopId, 1),
+    mkPhrase("q1", otherLesson!.id, otherCategoryId, secondPaidStopId, 1, true),
+    mkPhrase("o1", otherLesson!.id, otherCategoryId, outsideZoneStopId, 1, true),
   ]);
 
   // The per-language teaser cache must resolve AFTER the fixtures exist.
@@ -323,9 +314,7 @@ after(async () => {
     .delete(lessonGroupsTable)
     .where(eq(lessonGroupsTable.languageCode, LANG));
   await db.delete(lessonsTable).where(eq(lessonsTable.languageCode, LANG));
-  await db
-    .delete(categoriesTable)
-    .where(eq(categoriesTable.slug, OTHER_CATEGORY_SLUG));
+  if (createdPaidCategory) await db.delete(categoriesTable).where(eq(categoriesTable.id, otherCategoryId));
   if (createdGreetings) {
     await db.delete(categoriesTable).where(eq(categoriesTable.id, greetingsId));
   }
@@ -334,212 +323,89 @@ after(async () => {
   await pool.end();
 });
 
-// ── The offer, before any money moves ───────────────────────────────────────
-
-test("the journey map offers the first zone's stops for Chai and prices them from the server", async () => {
-  const { status, json } = await get(
-    `/categories/${greetingsId}/lesson-groups/${encodeURIComponent(LANG)}`,
-  );
-  assert.equal(status, 200);
-  assert.equal(json.access, "teaser");
-  assert.deepEqual(json.stopUnlock, { cost: STOP_UNLOCK_COST });
-
-  const byId = new Map<number, any>(json.lessonGroups.map((g: any) => [g.id, g]));
-  // The free stop is already open, so it is never for sale.
-  assert.equal(byId.get(freeStopId)!.status, "unlocked");
-  assert.ok(!("chaiUnlockable" in byId.get(freeStopId)!));
-  // The next stop in the same zone is the offer.
-  assert.equal(byId.get(paidStopId)!.status, "locked");
-  assert.equal(byId.get(paidStopId)!.chaiUnlockable, true);
-  // An all-premium stop is never offered: buying it would open an empty stop.
-  assert.ok(!("chaiUnlockable" in byId.get(premiumOnlyStopId)!));
+test("Free learners see paid-zone Chai offers but Zone 1 is never for sale", async () => {
+  const first = await get(`/categories/${greetingsId}/lesson-groups/${LANG}`);
+  assert.equal(first.status, 200);
+  assert.equal(first.json.stopUnlock, undefined);
+  assert.ok(first.json.lessonGroups.every((g: any) => !g.chaiUnlockable));
+  const paid = await get(`/categories/${otherCategoryId}/lesson-groups/${LANG}`);
+  assert.equal(paid.status, 200);
+  assert.equal(paid.json.stopUnlock.cost, STOP_UNLOCK_COST);
+  assert.ok(paid.json.lessonGroups.every((g: any) => g.chaiUnlockable && g.planLocked));
 });
 
-test("a zone beyond the first carries no offer and no price", async () => {
-  const { status, json } = await get(
-    `/categories/${otherCategoryId}/lesson-groups/${encodeURIComponent(LANG)}`,
-  );
-  assert.equal(status, 200);
-  assert.equal(json.stopUnlock, undefined);
-  assert.equal(json.lessonGroups[0].status, "locked");
-  assert.ok(!("chaiUnlockable" in json.lessonGroups[0]));
-});
-
-// ── Happy path ──────────────────────────────────────────────────────────────
-
-test("happy path: 50 Chai opens the stop, exactly once, and the stop starts serving", async () => {
+test("neither purchase endpoint can skip an earlier unowned stop", async () => {
   const before = await balanceOf(TEST_USER_ID);
-  // Locked before the purchase.
-  const denied = await get(`/lesson-groups/${paidStopId}/phrases`);
-  assert.equal(denied.status, 402);
+  const legacy = await post('/tokens/unlock-stop', { lessonGroupId: secondPaidStopId });
+  const story = await post('/tokens/journey-stops/unlock', { kind: 'story', languageCode: LANG, journey: 1, zone: 2 });
+  for (const result of [legacy, story]) {
+    assert.equal(result.status, 409);
+    assert.equal(result.json.error, 'previous_stop_required');
+  }
+  assert.equal(await balanceOf(TEST_USER_ID), before);
+  assert.equal((await unlockRows(TEST_USER_ID)).length, 0);
+});
 
-  const { status, json } = await post("/tokens/unlock-stop", {
-    lessonGroupId: paidStopId,
-  });
-  assert.equal(status, 200);
-  assert.equal(json.unlocked, true);
-  assert.equal(json.charged, true);
-  assert.equal(json.cost, STOP_UNLOCK_COST);
-  assert.equal(json.languageCode, LANG);
-  assert.equal(json.lessonGroupId, paidStopId);
-  assert.equal(json.balance, before - STOP_UNLOCK_COST);
+test("a purchased premium lesson serves its full content and individual phrase reads", async () => {
+  const before = await balanceOf(TEST_USER_ID);
+  const result = await post("/tokens/journey-stops/unlock", { kind: "lesson", languageCode: LANG, journey: 1, zone: 2, lessonGroupId: paidStopId });
+  assert.equal(result.status, 200);
+  assert.equal(result.json.charged, true);
+  assert.equal(result.json.balance, before - STOP_UNLOCK_COST);
+  const served = await get(`/lesson-groups/${paidStopId}/phrases`);
+  assert.equal(served.status, 200);
+  assert.deepEqual(served.json.map((p: any) => p.english), ["p1", "p2"]);
+  assert.equal((await get(`/phrases/${served.json[0].id}`)).status, 200);
+  const map = await get(`/categories/${otherCategoryId}/lesson-groups/${LANG}`);
+  const stop = map.json.lessonGroups.find((g: any) => g.id === paidStopId);
+  assert.equal(stop.chaiUnlocked, true);
+  assert.equal(stop.status, "unlocked");
+  assert.equal(stop.phraseCount, 2);
+  assert.ok(!stop.planLocked && !stop.chaiUnlockable);
+});
+
+test("replay remains free with less than the purchase price remaining", async () => {
+  const before = await balanceOf(TEST_USER_ID);
+  const result = await post("/tokens/unlock-stop", { lessonGroupId: paidStopId });
+  assert.equal(result.status, 200);
+  assert.equal(result.json.charged, false);
+  assert.equal(await balanceOf(TEST_USER_ID), before);
+  assert.equal((await unlockRows(TEST_USER_ID)).length, 1);
+});
+
+test("every Zone 1 stop is refused as already free", async () => {
+  for (const lessonGroupId of [freeStopId, premiumOnlyStopId]) {
+    const result = await post("/tokens/unlock-stop", { lessonGroupId });
+    assert.equal(result.status, 409);
+    assert.equal(result.json.error, "stop_already_free");
+  }
+});
+
+test("insufficient funds do not grant ownership", async () => {
+  const result = await post("/tokens/unlock-stop", { lessonGroupId: paidStopId }, POOR_USER_ID);
+  assert.equal(result.status, 409);
+  assert.equal(result.json.error, "insufficient_tokens");
+  assert.equal((await unlockRows(POOR_USER_ID)).length, 0);
+});
+
+test("simultaneous different purchases cannot overdraw the wallet", async () => {
+  await grantTokens(POOR_USER_ID, "earn_streak_day", "race-funds", STOP_UNLOCK_COST);
+  const results = await Promise.all([paidStopId, secondPaidStopId].map(lessonGroupId => post("/tokens/unlock-stop", { lessonGroupId }, POOR_USER_ID)));
+  assert.deepEqual(results.map(r => r.status).sort(), [200, 409]);
+  assert.equal(await balanceOf(POOR_USER_ID), 0);
+  assert.equal((await unlockRows(POOR_USER_ID)).length, 1);
+});
+
+test("storybook purchases persist by target and concurrent replay only charges once", async () => {
+  await grantTokens(TEST_USER_ID, "earn_streak_day", "story-funds", STOP_UNLOCK_COST);
+  const stop = { kind: "story", languageCode: LANG, journey: 1, zone: 2 };
+  const before = await balanceOf(TEST_USER_ID);
+  const results = await Promise.all([post("/tokens/journey-stops/unlock", stop), post("/tokens/journey-stops/unlock", stop)]);
+  assert.ok(results.every(r => r.status === 200));
+  assert.equal(results.filter(r => r.json.charged).length, 1);
   assert.equal(await balanceOf(TEST_USER_ID), before - STOP_UNLOCK_COST);
-
-  // The purchase IS the ledger row, and the refId names language + stop.
-  const rows = await unlockRows(TEST_USER_ID);
-  assert.deepEqual(rows, [
-    { refId: `stop:${LANG}:${paidStopId}`, delta: -STOP_UNLOCK_COST },
-  ]);
-
-  // And the stop now serves, premium-filtered, like the free first stop.
-  const served = await get(`/lesson-groups/${paidStopId}/phrases`);
-  assert.equal(served.status, 200);
-  assert.deepEqual(
-    served.json.map((p: any) => p.english),
-    ["p1", "p2"],
-  );
-});
-
-// ── Replay ──────────────────────────────────────────────────────────────────
-
-test("buying the same stop again grants nothing and charges nothing", async () => {
-  const before = await balanceOf(TEST_USER_ID);
-  const { status, json } = await post("/tokens/unlock-stop", {
-    lessonGroupId: paidStopId,
-  });
-  assert.equal(status, 200);
-  assert.equal(json.unlocked, true);
-  assert.equal(json.charged, false, "a replay must not re-charge");
-  assert.equal(json.balance, before);
-  assert.equal(await balanceOf(TEST_USER_ID), before);
-  assert.equal(
-    (await unlockRows(TEST_USER_ID)).length,
-    1,
-    "one purchase, one ledger row",
-  );
-});
-
-// ── The cap, enforced server-side ───────────────────────────────────────────
-
-test("a stop outside the first zone is refused by the server, not just hidden", async () => {
-  const before = await balanceOf(TEST_USER_ID);
-  const { status, json } = await post("/tokens/unlock-stop", {
-    lessonGroupId: outsideZoneStopId,
-  });
-  // Not a spend rejection: past the first zone this is All-Access territory,
-  // so it answers with the same upgrade envelope as every other denial.
-  assert.equal(status, 402);
-  assert.equal(json.error, "upgrade_required");
-  assert.equal(json.upgradeRequired, true);
-  assert.equal(await balanceOf(TEST_USER_ID), before, "no Chai may move");
-  assert.equal((await unlockRows(TEST_USER_ID)).length, 1);
-
-  // ...and the stop is still locked afterwards.
-  const stillLocked = await get(`/lesson-groups/${outsideZoneStopId}/phrases`);
-  assert.equal(stillLocked.status, 402);
-});
-
-test("the free first stop and an all-premium stop are refused as unsellable", async () => {
-  const before = await balanceOf(TEST_USER_ID);
-  const free = await post("/tokens/unlock-stop", { lessonGroupId: freeStopId });
-  assert.equal(free.status, 409);
-  assert.equal(free.json.error, "stop_already_free");
-
-  const empty = await post("/tokens/unlock-stop", {
-    lessonGroupId: premiumOnlyStopId,
-  });
-  assert.equal(empty.status, 409);
-  assert.equal(empty.json.error, "stop_not_unlockable");
-
-  assert.equal(await balanceOf(TEST_USER_ID), before);
-  assert.equal((await unlockRows(TEST_USER_ID)).length, 1);
-});
-
-// ── Empty tin ───────────────────────────────────────────────────────────────
-
-test("an empty tin is refused in the Chai copy register (409, never 402)", async () => {
-  const { status, json } = await post(
-    "/tokens/unlock-stop",
-    { lessonGroupId: paidStopId },
-    POOR_USER_ID,
-  );
-  assert.equal(status, 409, "money refusals stay 409");
-  assert.equal(json.error, "insufficient_tokens");
-  assert.equal(json.balance, 0);
-  assert.equal(json.cost, STOP_UNLOCK_COST);
-  assert.equal(
-    (await unlockRows(POOR_USER_ID)).length,
-    0,
-    "a refused purchase writes nothing",
-  );
-  // The refusal did not open anything either.
-  const denied = await get(`/lesson-groups/${paidStopId}/phrases`, POOR_USER_ID);
-  assert.equal(denied.status, 402);
-});
-
-// ── Two tins' worth of stops, one tin's worth of Chai ───────────────────────
-
-test("concurrent purchases of two DIFFERENT stops can never overdraw the tin", async () => {
-  // The ledger's unique index deduplicates a replay of the SAME stop, but two
-  // different stops are two different rows: only the row lock in unlockStop
-  // stops both from spending the same 50 Chai.
-  await grantTokens(
-    POOR_USER_ID,
-    "earn_streak_day",
-    "__test_stop_unlock_exact_change",
-    STOP_UNLOCK_COST,
-  );
-  assert.equal(await balanceOf(POOR_USER_ID), STOP_UNLOCK_COST);
-
-  const [a, b] = await Promise.all([
-    post("/tokens/unlock-stop", { lessonGroupId: paidStopId }, POOR_USER_ID),
-    post(
-      "/tokens/unlock-stop",
-      { lessonGroupId: secondPaidStopId },
-      POOR_USER_ID,
-    ),
-  ]);
-
-  const statuses = [a!.status, b!.status].sort();
-  assert.deepEqual(statuses, [200, 409], "exactly one purchase may go through");
-  const refused = [a!, b!].find((r) => r.status === 409)!;
-  assert.equal(refused.json.error, "insufficient_tokens");
-
-  const balance = await balanceOf(POOR_USER_ID);
-  assert.equal(balance, 0, "the tin must land empty, never negative");
-  assert.equal(
-    (await unlockRows(POOR_USER_ID)).length,
-    1,
-    "one charge, one stop",
-  );
-});
-
-// ── Reinstall survival ──────────────────────────────────────────────────────
-
-test("the unlock survives a fresh client: ownership is read from the ledger alone", async () => {
-  // A reinstalled app carries no local state whatsoever — it just asks the
-  // server again. Same user, brand-new connections, nothing cached client
-  // side: the stop must still be open and marked as bought.
-  const map = await get(
-    `/categories/${greetingsId}/lesson-groups/${encodeURIComponent(LANG)}`,
-  );
-  assert.equal(map.status, 200);
-  const bought = map.json.lessonGroups.find((g: any) => g.id === paidStopId);
-  assert.equal(bought.status, "unlocked");
-  assert.equal(bought.chaiUnlocked, true);
-  assert.ok(
-    !("chaiUnlockable" in bought),
-    "an owned stop is not offered for sale again",
-  );
-
-  const served = await get(`/lesson-groups/${paidStopId}/phrases`);
-  assert.equal(served.status, 200);
-  assert.equal(served.json.length, 2);
-
-  // Individual phrase reads (the practice screen's own fetches) pass the gate
-  // too, so the purchased stop is playable and not a read-only preview.
-  const phraseId = served.json[0].id as number;
-  const one = await get(`/phrases/${phraseId}`);
-  assert.equal(one.status, 200);
-  assert.equal(one.json.english, "p1");
+  const snapshot = await get(`/tokens/journey-stops?languageCode=${LANG}`);
+  assert.ok(snapshot.json.unlockedStops.some((s: any) => s.kind === "story" && s.zone === 2 && s.languageCode === LANG));
+  const invalid = await post("/tokens/journey-stops/unlock", { ...stop, kind: "trace" });
+  assert.equal(invalid.status, 400, "a language with no authored tracing stop cannot be charged");
 });

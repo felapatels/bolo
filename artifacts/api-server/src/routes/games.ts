@@ -1,3 +1,4 @@
+import { canTraceOwnedCharacter, hasJourneyStopUnlock } from "../lib/journeyStopUnlock";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import {
@@ -384,9 +385,10 @@ router.post(
     // Script Trace is Plus, with one carve-out: the first TRACE_TEASER_LIMIT
     // characters of every language, which is the same promise the voice lessons
     // already make through lib/teaser.ts. Only those three, and only from
-    // journey 1 zone 1: the rest of that stop and every later zone stay paid.
+    // journey 1 zone 1; its full stop and individually owned stops also serve.
     if (
       !isTraceTeaserCharacter(languageCode, characterId) &&
+      !(await canTraceOwnedCharacter(getUserId(req), languageCode, characterId, chapter)) &&
       denyLockedFeature(
         req,
         res,
@@ -932,6 +934,7 @@ router.post(
     const isTaste = j === 1 && z === 1;
     if (
       !isTaste &&
+      !(await hasJourneyStopUnlock(getUserId(req), { kind: "letter", languageCode: lang, journey: j, zone: z })) &&
       denyLockedFeature(
         req,
         res,

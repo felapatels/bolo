@@ -11,6 +11,7 @@
  *
  * Web twin: src/pages/map.tsx.
  */
+import { JourneyAllAccessBadge } from '@/components/journey/JourneyAllAccessBadge';
 import React, { useState } from 'react';
 import {
   Image,
@@ -212,6 +213,7 @@ export default function JourneyMapScreen() {
                 <Text style={[styles.zoneCity, { color: colors.mutedForeground }]} numberOfLines={1}>
                   {z.geoName}
                 </Text>
+                {z.zoneIndex >= 1 && <JourneyAllAccessBadge testID={`map-zone-all-access-${z.zoneIndex + 1}`} />}
                 <Text
                   testID={`map-zone-${z.zoneIndex}-status`}
                   style={[

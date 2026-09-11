@@ -1,3 +1,6 @@
+import { JourneyAllAccessBadge } from '@/components/journey-all-access-badge';
+import { ownsJourneyStop, journeyStopUpgradeHref } from '@/lib/journey-stop-access';
+import { useGetJourneyStopUnlocks, type JourneyStopTarget } from '@workspace/api-client-react';
 // Spec D1b: the journey map. One themed rail line per language (structured
 // content in lib/journeyLines.ts), six fare zones in authoritative category
 // order, one station per lesson group (phrase-stage stops before
@@ -719,6 +722,7 @@ function ZonePostcard({
               style={{ color: "#6B5B4E" }}
             >
               {stationCount} {stationCount === 1 ? "stop" : "stops"} in this zone
+              {zoneIndex >= 1 && <JourneyAllAccessBadge testId={`zone-all-access-${zoneIndex + 1}`} />}
               {teaser && (
                 <>
                   {" · "}
@@ -845,20 +849,7 @@ function StationCard({
   // planLocked, no plate.
   const chips = (
     <>
-      {station.planLocked === true && (
-        <span
-          className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide shrink-0"
-          style={{
-            background: BADGE.brassBg,
-            borderColor: BADGE.brassEdge,
-            color: BADGE.ink,
-          }}
-          title="All-Access"
-        >
-          <Sparkles className="w-2.5 h-2.5" />
-          All-Access
-        </span>
-      )}
+      {station.zoneIndex >= 1 && <JourneyAllAccessBadge testId={`stop-all-access-${station.zoneIndex + 1}-${station.stopNumber}`} />}
       {station.status === "tested_out" && (
         <span
           className="inline-block -rotate-6 rounded-sm border-2 border-dashed px-1.5 py-px text-[8px] font-black uppercase tracking-widest shrink-0"
@@ -1841,6 +1832,7 @@ export default function Journey() {
   // Chai stop unlock. The offer, its price and its cap all come from the
   // server payload; this only spends and then re-reads. A success refetches
   // the zones (the bought stop comes back status "unlocked") and the wallet.
+  const stopOwnership = useGetJourneyStopUnlocks({ languageCode: activeLang });
   const tokensQuery = useGetTokens();
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [stopOpened, setStopOpened] = useState(false);
@@ -2103,6 +2095,8 @@ export default function Journey() {
 
     const rowStations: Station[] = withTrace.map((st, gi) => ({
       ...st,
+      ...((st.trace || st.story || st.letter) && (i === 0 || ownsJourneyStop(stopOwnership.data?.unlockedStops, { kind: st.story ? 'story' : st.letter ? 'letter' : 'trace', languageCode: activeLang, journey: 1, zone: i + 1 }))
+        ? { planLocked: false, teaserStation: false, status: st.status === 'locked' ? 'unlocked' as const : st.status } : {}),
       stopNumber: gi + 1,
       stopCount: withTrace.length,
     }));
@@ -3252,7 +3246,10 @@ export default function Journey() {
                 // planLocked sentence stop keeps the first-class upsell.
                 const sentenceGated =
                   s.stage === "sentence" && s.planLocked === true;
-                const accessible = isStatusAccessible(s.status) && !sentenceGated;
+                const stopTarget: JourneyStopTarget = { kind: s.story ? 'story' : s.trace ? 'trace' : s.letter ? 'letter' : 'lesson', languageCode: activeLang, journey: s.story?.journey ?? s.trace?.journey ?? s.letter?.journey ?? 1, zone: s.zoneIndex + 1, ...(!s.story && !s.trace && !s.letter ? { lessonGroupId: s.id } : {}) };
+                const purchased = s.chaiUnlocked === true || ownsJourneyStop(stopOwnership.data?.unlockedStops, stopTarget);
+                const needsPurchase = s.zoneIndex >= 1 && !isPlus && !purchased;
+                const accessible = !needsPurchase && (purchased || (isStatusAccessible(s.status) && !sentenceGated));
                 return (
                   // Keyed by ROW, not by group id. A tracing stop has no
                   // lesson-group id at all, and group ids are not unique across
@@ -3308,7 +3305,7 @@ export default function Journey() {
                         // reason: it teaches the alphabet, which no phrase stop
                         // gates, so only the PLAN can shut it.
                         accessible={
-                          s.trace || s.letter ? s.planLocked !== true : accessible
+                          needsPurchase ? false : purchased || (s.trace || s.letter ? s.planLocked !== true : accessible)
                         }
                         showTeaserChip={s.teaserStation === true}
                         href={
@@ -3333,7 +3330,7 @@ export default function Journey() {
                         }
                         onNavigate={() => playStopSplash(zone.id)}
                         onLocked={() =>
-                          setLock({
+                          needsPurchase ? navigate(journeyStopUpgradeHref(stopTarget)) : setLock({
                             kind: showroom
                               ? "language"
                               : sentenceGated

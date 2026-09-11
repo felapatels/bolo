@@ -1,3 +1,4 @@
+import { JourneyAllAccessBadge } from '@/components/journey-all-access-badge';
 /**
  * THE ONE-PAGER MAP (build 20): the whole line at once.
  *
@@ -166,6 +167,7 @@ export default function JourneyMap() {
                       className={`mt-1 block text-[13px] font-semibold ${here ? "text-primary" : "text-muted-foreground"}`}
                     >
                       {zoneStatusCopy(z)}
+                      {z.zoneIndex >= 1 && <JourneyAllAccessBadge testId={`map-zone-all-access-${z.zoneIndex + 1}`} />}
                     </span>
                     {z.stopCount > 0 ? (
                       <span className="mt-2 block">

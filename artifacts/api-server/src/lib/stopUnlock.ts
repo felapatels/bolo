@@ -3,28 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { getFirstStopGroup } from "./teaser";
 
 // ---------------------------------------------------------------------------
-// Chai stop unlocks (owner ruling, Aug 6 2026)
-//
-// A learner may spend Chai to open ONE stop at a time in a language their plan
-// does not include. Three rules make this safe to sell:
-//
-//   1. CAP — only stops inside the language's FIRST ZONE are purchasable. The
-//      boundary is not invented here: it is the zone that already hosts the
-//      free-taste carve-out (lib/teaser.ts getFirstStopGroup, the position-1
-//      Greetings group). Everything past that zone needs All-Access and no
-//      amount of Chai opens it.
-//   2. ONCE-EVER — the purchase IS the ledger row. refId encodes language and
-//      stop, so the ledger's unique (user, reason, ref) index makes a replay a
-//      no-op that charges nothing and grants nothing.
-//   3. SERVER-AUTHORITATIVE — the refId is composed here from the group row's
-//      own languageCode, never from anything the client sends, and never from
-//      the Date.now() fallback POST /tokens/spend uses for its optional
-//      client-supplied key (that fallback is a fresh key every call, i.e. not
-//      an idempotency key at all).
-//
-// Ownership is DERIVED from the ledger, so an unlock outlives a reinstall, a
-// new device, and a cleared cache — there is no device-side unlock state.
-// ---------------------------------------------------------------------------
+// Chai buys an individual lesson stop from Zone 2 onward. Zone 1 is free.
+// Ownership is the existing permanent ledger row, with an idempotent charge.
 
 export const STOP_UNLOCK_REASON = "spend_stop_unlock" as const;
 
@@ -44,23 +24,16 @@ export function parseStopUnlockRefId(
 
 export type StopUnlockRefusal =
   | "not_found"
-  // The learner already gets this stop for nothing (the free-taste stop).
+  // The whole first zone is already free.
   | "already_free"
-  // Outside the first zone: the All-Access boundary, unreachable by Chai.
-  | "beyond_first_zone"
-  // Nothing this learner's plan could actually practise here (an all-premium
-  // stop), so there is nothing to sell.
+  // Empty stops have no content to sell.
   | "nothing_to_serve";
 
 export type StopUnlockEligibility =
   | { ok: true; lessonGroupId: number; languageCode: string }
   | { ok: false; refusal: StopUnlockRefusal };
 
-/**
- * THE CAP, server-side. A stop is purchasable only when it sits in the same
- * zone as the language's free first stop, is not that free stop itself, and
- * has at least one non-premium phrase to serve.
- */
+/** Zone 1 is free; later nonempty lesson stops can be bought individually. */
 export async function checkStopUnlockEligibility(
   lessonGroupId: number,
 ): Promise<StopUnlockEligibility> {
@@ -69,30 +42,14 @@ export async function checkStopUnlockEligibility(
   });
   if (!group) return { ok: false, refusal: "not_found" };
 
-  const firstStop = await getFirstStopGroup(group.languageCode);
-  if (firstStop == null) return { ok: false, refusal: "beyond_first_zone" };
-  if (firstStop.groupId === group.id) return { ok: false, refusal: "already_free" };
+  const firstZoneId = await getFirstZoneCategoryId(group.languageCode);
+  if (firstZoneId == null) return { ok: false, refusal: "not_found" };
+  if (group.categoryId === firstZoneId) return { ok: false, refusal: "already_free" };
 
-  const firstStopGroup = await db.query.lessonGroupsTable.findFirst({
-    where: (t, { eq: eqFn }) => eqFn(t.id, firstStop.groupId),
-  });
-  if (!firstStopGroup || firstStopGroup.categoryId !== group.categoryId) {
-    return { ok: false, refusal: "beyond_first_zone" };
-  }
-
-  // Same premium filter the serving routes apply, so an unlock can never buy
-  // an empty station (position-2+ stops can be entirely Plus-library rows).
-  const [servable] = await db
-    .select({ id: phrasesTable.id })
-    .from(phrasesTable)
-    .where(
-      and(
-        eq(phrasesTable.lessonGroupId, group.id),
-        eq(phrasesTable.stage, "phrase"),
-        eq(phrasesTable.premium, false),
-      ),
-    )
-    .limit(1);
+  // A purchase includes the stop's premium phrases or sentences; otherwise
+  // every paid-zone stop would sell an empty lesson.
+  const [servable] = await db.select({ id: phrasesTable.id }).from(phrasesTable)
+    .where(eq(phrasesTable.lessonGroupId, group.id)).limit(1);
   if (!servable) return { ok: false, refusal: "nothing_to_serve" };
 
   return { ok: true, lessonGroupId: group.id, languageCode: group.languageCode };
@@ -164,7 +121,7 @@ export async function hasStopUnlockForPhrase(
   return hasStopUnlock(userId, languageCode, row.lessonGroupId);
 }
 
-/** The zone (category) whose stops Chai can open in `lang`, or null. */
+/** The free first zone, which must never be sold for Chai. */
 export async function getFirstZoneCategoryId(
   languageCode: string,
 ): Promise<number | null> {

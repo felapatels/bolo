@@ -1,3 +1,5 @@
+import { useGetJourneyStopUnlocks } from '@workspace/api-client-react';
+import { ownsJourneyStop, journeyStopUpgradeHref } from '@/lib/journey-stop-access';
 /**
  * THE LETTER STOP, position 4 of every zone. Hear the sound, pick the sound.
  *
@@ -477,6 +479,10 @@ export default function LetterStopPage() {
   // same condition inline rather than through a shared helper, on purpose, so
   // neither side learns a new rule.
   const tasting = !isPlus && stop !== null && stop.journey === 1 && stop.zone === 1;
+  const ownership = useGetJourneyStopUnlocks({ languageCode: activeLang });
+  const target = stop ? { kind: 'letter' as const, languageCode: activeLang, journey: stop.journey, zone: stop.zone } : null;
+  const owned = !!target && ownsJourneyStop(ownership.data?.unlockedStops, target);
+
 
   const finish = useCallback(
     (correct: number, total: number) => {
@@ -503,8 +509,9 @@ export default function LetterStopPage() {
   );
 
   // Everything past the taste is still paid.
-  if (!isLoading && !isPlus && !tasting) {
-    return <Redirect to="/upgrade" />;
+  if (isLoading || ownership.isLoading) return <div role="status">Loading letters…</div>;
+  if (!isPlus && !tasting && !owned) {
+    return <Redirect to={target ? journeyStopUpgradeHref(target) : "/upgrade"} />;
   }
 
   const asked = stop ? Math.min(stop.characters.length, LETTER_STOP_LENGTH) : 0;

@@ -203,7 +203,8 @@ export async function canScorePhrase(
   if (denial !== null) return false;
   if (!phrase.premium) return true;
   const { plan } = (req as EntitledRequest).resolvedPlan;
-  return featuresForPlan(plan).extendedLibrary;
+  return featuresForPlan(plan).extendedLibrary ||
+    await hasStopUnlockForPhrase((req as EntitledRequest).userId, phrase.languageCode, phrase.id);
 }
 
 // If the caller's plan lacks a Plus-only feature, sends the 402 and returns

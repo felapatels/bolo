@@ -91,6 +91,7 @@ export const DRILL_METRICS: Record<
     note: "Finished game sessions inside the window, by learner.",
     windowed: true,
   },
+  stopUnlocks: { label: "Chai stop unlocks", note: "Permanent stop purchases inside the window. Replays count once.", windowed: true },
   chats: {
     label: "Chat replies",
     note: "Chat turns inside the window, by learner.",

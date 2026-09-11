@@ -1,3 +1,5 @@
+import { useGetJourneyStopUnlocks } from '@workspace/api-client-react';
+import { ownsJourneyStop } from '@/lib/journeyStopAccess';
 /**
  * THE LETTER STOP, position 4 of every zone. Hear the sound, pick the sound.
  *
@@ -511,10 +513,13 @@ export default function LetterStopScreen() {
   // same condition inline rather than through a shared helper, on purpose, so
   // neither side learns a new rule.
   const tasting = !isPlus && stop !== null && stop.journey === 1 && stop.zone === 1;
+  const ownership = useGetJourneyStopUnlocks({ languageCode: activeLang });
+  const owned = !!stop && ownsJourneyStop(ownership.data?.unlockedStops, { kind: 'letter', languageCode: activeLang, journey: stop.journey, zone: stop.zone });
+
 
   useEffect(() => {
-    if (!isLoading && !isPlus && !tasting) router.replace('/(app)/paywall');
-  }, [isLoading, isPlus, tasting, router]);
+    if (!isLoading && !ownership.isLoading && !isPlus && !tasting && !owned) router.replace({ pathname: '/(app)/paywall', params: { reason: 'journey_stop', lang: activeLang, stopKind: 'letter', journey: String(stop?.journey ?? 1), zone: String(stop?.zone ?? 1) } });
+  }, [isLoading, ownership.isLoading, isPlus, tasting, owned, router, activeLang, stop?.journey, stop?.zone]);
 
   const leave = useCallback(() => router.replace('/(app)/journey'), [router]);
 
@@ -544,7 +549,7 @@ export default function LetterStopScreen() {
 
   // While entitlements load there is nothing safe to draw: the effect above
   // redirects a learner who may not be here once it settles.
-  if (!isPlus && !isLoading && !tasting) return null;
+  if (isLoading || ownership.isLoading || (!isPlus && !tasting && !owned)) return null;
 
   if (!stop) {
     return (

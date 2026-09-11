@@ -1,3 +1,5 @@
+import { useGetJourneyStopUnlocks } from '@workspace/api-client-react';
+import { ownsJourneyStop, journeyStopUpgradeHref } from '@/lib/journey-stop-access';
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Redirect, useLocation, useSearch } from "wouter";
 import { ArrowLeft, ChevronRight, RotateCcw, CheckCircle2, XCircle, Trophy, Play } from "lucide-react";
@@ -1829,6 +1831,10 @@ export default function ScriptTracePage() {
   // menu of whole 36-character chapters, when what the stop promises is its
   // eight letters one after another the way a phrase stop serves its phrases.
   const stop = useStopFromUrl(activeLang);
+  const ownership = useGetJourneyStopUnlocks({ languageCode: activeLang });
+  const target = stop ? { kind: 'trace' as const, languageCode: activeLang, journey: stop.journey, zone: stop.zone } : null;
+  const owned = target != null && ownsJourneyStop(ownership.data?.unlockedStops, target);
+  const freeStop = stop?.journey === 1 && stop.zone === 1;
 
   // THE FREE TASTE. Script Trace is Plus, with one carve-out: the first
   // TRACE_TEASER_LIMIT characters of journey 1 zone 1, in every language. The
@@ -1837,19 +1843,20 @@ export default function ScriptTracePage() {
   // such promise at all: every non-Plus learner who tapped the map's tracing
   // stop was redirected here and then straight to /upgrade, from a card that
   // deliberately never showed a lock.
-  const tasting = !isPlus && stop !== null && stop.journey === 1 && stop.zone === 1;
+  const tasting = false; // All of the first tracing stop is free.
 
   // Everything past the taste is still paid: later zones, the rest of zone 1's
   // characters, and the chapter menu.
-  if (!isLoading && !isPlus && !tasting) {
-    return <Redirect to="/upgrade" />;
+  if (isLoading || ownership.isLoading) return <div role="status">Loading tracing…</div>;
+  if (!isPlus && !freeStop && !owned) {
+    return <Redirect to={target ? journeyStopUpgradeHref(target) : "/upgrade"} />;
   }
 
   // The stop wins over the menu, but never over an explicit pick: choosing a
   // chapter from the grid (reachable by backing out) still plays that chapter.
   const session =
     activeChapter ??
-    (stop ? chapterForStop(stop, tasting ? TRACE_TEASER_LIMIT : undefined) : null);
+    (stop ? chapterForStop(stop) : null);
   const fromStop = !activeChapter && stop !== null;
 
   if (!session) {

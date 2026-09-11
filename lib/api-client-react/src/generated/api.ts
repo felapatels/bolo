@@ -83,6 +83,7 @@ import type {
   GetDailyQuizParams,
   GetFriendsFeedParams,
   GetFriendsLeaderboardParams,
+  GetJourneyStopUnlocksParams,
   GetProgressAnalyticsParams,
   GetProgressSummaryParams,
   GetScenarioParams,
@@ -91,6 +92,9 @@ import type {
   HealthStatus,
   JoinFamily200,
   JoinFamilyInput,
+  JourneyStopTarget,
+  JourneyStopUnlockResult,
+  JourneyStopUnlocks,
   Language,
   LeaderboardEntry,
   LessonGroupList,
@@ -7363,7 +7367,7 @@ export const getUnlockStopUrl = () => {
 }
 
 /**
- * Buys a single station in a language the caller's plan does not include. The caller names only a lesson group id: the language, the price and the ledger idempotency key are all derived server-side, and the purchase is once-ever (a repeat call returns 200 with charged=false and deducts nothing). Only stops inside the language's FIRST zone — the zone that hosts the free-taste stop — are purchasable; anything beyond it answers 402 UpgradeRequired because that is the All-Access boundary. Money and state conflicts (insufficient_tokens, stop_already_free, stop_not_unlockable) answer 409, matching the other Chai spends.
+ * Buys one lesson stop in a paid zone. Zone 1 is free and cannot be sold. Earlier paid stops must be owned first, in journey order. Language, price and idempotency key are resolved server-side. A repeat purchase charges nothing. Purchased stops include their full lesson content and remain owned after reinstall. Insufficient funds answer 409.
  * @summary Spend Chai to open one stop in a plan-locked language
  */
 export const unlockStop = async (unlockStopInput: UnlockStopInput, options?: RequestInit): Promise<StopUnlockResult> => {
@@ -7424,6 +7428,161 @@ export const useUnlockStop = <TError = ErrorType<UpgradeRequired | Error>,
         TContext
       > => {
       return useMutation(getUnlockStopMutationOptions(options));
+    }
+
+export const getGetJourneyStopUnlocksUrl = (params: GetJourneyStopUnlocksParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/tokens/journey-stops?${stringifiedParams}` : `/api/tokens/journey-stops`
+}
+
+/**
+ * @summary Chai price and permanent ownership of journey stops
+ */
+export const getJourneyStopUnlocks = async (params: GetJourneyStopUnlocksParams, options?: RequestInit): Promise<JourneyStopUnlocks> => {
+
+  return customFetch<JourneyStopUnlocks>(getGetJourneyStopUnlocksUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetJourneyStopUnlocksQueryKey = (params?: GetJourneyStopUnlocksParams,) => {
+    return [
+    `/api/tokens/journey-stops`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetJourneyStopUnlocksQueryOptions = <TData = Awaited<ReturnType<typeof getJourneyStopUnlocks>>, TError = ErrorType<unknown>>(params: GetJourneyStopUnlocksParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJourneyStopUnlocks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJourneyStopUnlocksQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJourneyStopUnlocks>>> = ({ signal }) => getJourneyStopUnlocks(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJourneyStopUnlocks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetJourneyStopUnlocksQueryResult = NonNullable<Awaited<ReturnType<typeof getJourneyStopUnlocks>>>
+export type GetJourneyStopUnlocksQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Chai price and permanent ownership of journey stops
+ */
+
+export function useGetJourneyStopUnlocks<TData = Awaited<ReturnType<typeof getJourneyStopUnlocks>>, TError = ErrorType<unknown>>(
+ params: GetJourneyStopUnlocksParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJourneyStopUnlocks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetJourneyStopUnlocksQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUnlockJourneyStopUrl = () => {
+
+
+
+
+  return `/api/tokens/journey-stops/unlock`
+}
+
+/**
+ * @summary Permanently buy one lesson, story, tracing or letter-listening stop with Chai
+ */
+export const unlockJourneyStop = async (journeyStopTarget: JourneyStopTarget, options?: RequestInit): Promise<JourneyStopUnlockResult> => {
+
+  return customFetch<JourneyStopUnlockResult>(getUnlockJourneyStopUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(journeyStopTarget)
+  }
+);}
+
+
+
+
+
+export const getUnlockJourneyStopMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlockJourneyStop>>, TError,{data: BodyType<JourneyStopTarget>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unlockJourneyStop>>, TError,{data: BodyType<JourneyStopTarget>}, TContext> => {
+
+const mutationKey = ['unlockJourneyStop'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unlockJourneyStop>>, {data: BodyType<JourneyStopTarget>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  unlockJourneyStop(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnlockJourneyStopMutationResult = NonNullable<Awaited<ReturnType<typeof unlockJourneyStop>>>
+    export type UnlockJourneyStopMutationBody = BodyType<JourneyStopTarget>
+    export type UnlockJourneyStopMutationError = ErrorType<Error>
+
+    /**
+ * @summary Permanently buy one lesson, story, tracing or letter-listening stop with Chai
+ */
+export const useUnlockJourneyStop = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unlockJourneyStop>>, TError,{data: BodyType<JourneyStopTarget>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unlockJourneyStop>>,
+        TError,
+        {data: BodyType<JourneyStopTarget>},
+        TContext
+      > => {
+      return useMutation(getUnlockJourneyStopMutationOptions(options));
     }
 
 export const getGetStreakRepairUrl = () => {

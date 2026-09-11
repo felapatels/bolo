@@ -1,9 +1,11 @@
+import { canPurchaseInOrder, purchasableJourneyStops, journeyStopRefId, hasJourneyStopUnlock, listJourneyStopUnlocks, validateJourneyStop } from "../lib/journeyStopUnlock";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   BuyFirstClassBody,
   BuyGameCreditsBody,
   SpendTokensBody,
   UnlockStopBody,
+  UnlockJourneyStopBody,
 } from "@workspace/api-zod";
 import {
   dailyGiftFor,
@@ -23,6 +25,7 @@ import {
   buyFirstClass,
   buyGameCredits,
   unlockStop,
+  unlockStopRef,
   repairStreak,
   listCoveredDayKeys,
   InsufficientTokensError,
@@ -40,7 +43,8 @@ import {
 import { findRepairableBreak } from "../lib/streakRepair";
 import { loadStreakLadder } from "../lib/streakDays";
 import { localDayKey } from "../lib/progressMetrics";
-import { checkStopUnlockEligibility } from "../lib/stopUnlock";
+import { checkStopUnlockEligibility, hasStopUnlock } from "../lib/stopUnlock";
+import { featuresForPlan } from "../lib/entitlements";
 import { getLanguageAccess, sendLockedLanguageDenial } from "../lib/gating";
 
 const router: IRouter = Router();
@@ -302,15 +306,12 @@ router.post(
 //
 // Everything that decides WHAT is being bought is server-side: the client
 // names a lesson group id and nothing else. The language comes from the group
-// row, the cap from lib/stopUnlock.ts, and the ledger refId is composed from
+// row, eligibility from lib/stopUnlock.ts, and the ledger refId is composed from
 // both — so there is no client-supplied idempotency key here and no
 // Date.now() fallback (see POST /tokens/spend above for why that matters).
 //
 // Status register:
 //   200 — bought, or already owned (`charged: false`, nothing deducted).
-//   402 — the stop lies beyond the first zone: that is the All-Access
-//         boundary, not a spend rejection, so it uses the same
-//         UpgradeRequired envelope every other locked-language denial sends.
 //   409 — money/state conflicts only (insufficient balance, nothing to buy),
 //         matching the existing Chai copy register.
 router.post(
@@ -332,20 +333,16 @@ router.post(
       return;
     }
 
-    // Only a language the caller's plan does NOT include is purchasable by
-    // the stop; an entitled caller already owns the whole line.
+    // Language access is free; only a plan that includes the full content
+    // makes this individual purchase unnecessary.
     const access = await getLanguageAccess(req, group.languageCode);
-    if (access.state === "allowed") {
+    if (access.state === "allowed" && featuresForPlan((req as EntitledRequest).resolvedPlan.plan).extendedLibrary && !(await hasStopUnlock(userId, group.languageCode, lessonGroupId))) {
       res.status(409).json({ error: "stop_not_unlockable" });
       return;
     }
 
     const eligibility = await checkStopUnlockEligibility(lessonGroupId);
     if (!eligibility.ok) {
-      if (eligibility.refusal === "beyond_first_zone") {
-        sendLockedLanguageDenial(req, res, access);
-        return;
-      }
       res.status(409).json({
         error:
           eligibility.refusal === "already_free"
@@ -353,6 +350,11 @@ router.post(
             : "stop_not_unlockable",
       });
       return;
+    }
+
+    const target = (await purchasableJourneyStops(group.languageCode)).find(s => s.kind === 'lesson' && s.lessonGroupId === lessonGroupId);
+    if (!target || !(await canPurchaseInOrder(userId, target))) {
+      res.status(409).json({ error: "previous_stop_required" }); return;
     }
 
     try {
@@ -681,5 +683,32 @@ router.post(
     });
   },
 );
+
+router.get("/tokens/journey-stops", async (req: Request, res: Response) => {
+  const languageCode = String(req.query.languageCode ?? "");
+  if (languageCode.length < 2 || languageCode.length > 64) { res.status(400).json({ error: "invalid_language" }); return; }
+  res.json({ cost: STOP_UNLOCK_COST, unlockedStops: await listJourneyStopUnlocks(getUserId(req), languageCode) });
+});
+
+router.post("/tokens/journey-stops/unlock", async (req: Request, res: Response) => {
+  const parsed = UnlockJourneyStopBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "invalid_stop" }); return; }
+  const stop = parsed.data;
+  const userId = getUserId(req);
+  if (stop.journey === 1 && stop.zone === 1) { res.status(409).json({ error: "stop_already_free" }); return; }
+  if (!(await validateJourneyStop(stop))) { res.status(400).json({ error: "invalid_stop" }); return; }
+  const owned = await hasJourneyStopUnlock(userId, stop);
+  const features = featuresForPlan((req as EntitledRequest).resolvedPlan.plan);
+  const included = stop.kind === "story" ? features.storybook : (stop.kind === "trace" || stop.kind === "letter") ? features.scriptTrace : features.extendedLibrary && (await getLanguageAccess(req, stop.languageCode)).state === "allowed";
+  if (!owned && included) { res.status(409).json({ error: "stop_already_included" }); return; }
+  if (!owned && !(await canPurchaseInOrder(userId, stop))) { res.status(409).json({ error: "previous_stop_required" }); return; }
+  try {
+    const { state, charged } = await unlockStopRef(userId, journeyStopRefId(stop));
+    res.json({ balance: state.balance, cost: STOP_UNLOCK_COST, charged, unlocked: true, stop });
+  } catch (error) {
+    if (error instanceof InsufficientTokensError) { res.status(409).json({ error: "insufficient_tokens", balance: error.balance, cost: STOP_UNLOCK_COST }); return; }
+    throw error;
+  }
+});
 
 export default router;

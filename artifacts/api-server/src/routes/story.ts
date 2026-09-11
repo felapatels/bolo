@@ -1,13 +1,12 @@
+import { hasJourneyStopUnlock } from "../lib/journeyStopUnlock";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, phrasesTable } from "@workspace/db";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   bookConcepts,
   conceptSpellings,
-  isStoryTeaserBook,
   matchesConcept,
   storyBookFor,
-  storyTeaserConcepts,
   STORY_TEASER_SCENES,
   type StoryBook,
 } from "@workspace/story";
@@ -107,47 +106,23 @@ async function loadConceptPhrases(
   return out;
 }
 
-/**
- * Which concepts this caller may be served, and whether they were cut short.
- *
- * THE GATE IS A CONCEPT LIST, not a 402, for the book that carries the taste.
- * A Free learner asking for the journey 1 zone 1 book gets the taste's
- * concepts, capped at STORY_TEASER_SCENES, and any scene past that cap fails
- * resolveScene() exactly as a language with a thin corpus would, so the client
- * shows the upgrade beat on a scene it already knows how to skip. No second
- * code path, and no 402 on a stop the map deliberately never locks — that
- * pairing is the bug the tracing taste was created to fix.
- *
- * THE TASTE WIDENED TO FIVE SCENES ON 2026-08-24 AND j1z1 HAS EXACTLY FIVE,
- * so today every scene of zone 1 resolves for a Free caller and nothing is
- * actually cut short. This comment said "scene 1's concepts and nothing else"
- * until 2026-08-25, which had stopped being true. `limited` stays true
- * regardless, because it is what puts the ask on the finished book, and the
- * cap is still what does the work: a sixth scene would fall outside it.
- *
- * Every book outside zone 1 answers 402 outright: those stops are All-Access
- * with no taste at all.
- */
-function conceptsForCaller(
+/** Zone 1 is free; later books require All-Access or permanent Chai ownership. */
+async function conceptsForCaller(
   req: Request,
   res: Response,
   book: StoryBook,
-): { concepts: string[]; limited: boolean } | null {
+  languageCode: string,
+): Promise<{ concepts: string[]; limited: boolean } | null> {
   const paid = featuresForPlan(
     (req as EntitledRequest).resolvedPlan.plan,
   ).storybook;
-  if (paid) return { concepts: bookConcepts(book), limited: false };
+  if (paid || (book.journey === 1 && book.zone === 1) || await hasJourneyStopUnlock((req as EntitledRequest).userId, { kind: "story", languageCode, journey: book.journey, zone: book.zone })) return { concepts: bookConcepts(book), limited: false };
 
-  if (!isStoryTeaserBook(book)) {
-    denyLockedFeature(
-      req,
-      res,
-      "storybook",
-      "The storybook is a Bolo! Plus feature. Upgrade to read the whole book.",
-    );
-    return null;
-  }
-  return { concepts: storyTeaserConcepts(book), limited: true };
+  denyLockedFeature(
+    req, res, "storybook",
+    "Open this storybook with Chai or subscribe to All-Access.",
+  );
+  return null;
 }
 
 // GET /games/story/book?lang=&journey=&zone=
@@ -187,7 +162,7 @@ router.get(
       return;
     }
 
-    const allowed = conceptsForCaller(req, res, book);
+    const allowed = await conceptsForCaller(req, res, book, lang);
     if (!allowed) return;
 
     const phrases = await loadConceptPhrases(lang, allowed.concepts);

@@ -1,3 +1,6 @@
+import { JourneyAllAccessBadge } from '@/components/journey/JourneyAllAccessBadge';
+import { ownsJourneyStop } from '@/lib/journeyStopAccess';
+import { useGetJourneyStopUnlocks, type JourneyStopTarget } from '@workspace/api-client-react';
 // Spec D1b-M: the journey map, ported from the shipped web page
 // (gujarati-coach/src/pages/journey.tsx — the source of truth; this is a
 // translation, not a redesign). One themed rail line per language (structured
@@ -353,7 +356,7 @@ type LockInfo = {
   /** Route pieces for the progression dialog's test-out action. */
   zoneId?: number;
   groupId?: number;
-  /** Server says this locked stop can be opened with Chai (first zone only). */
+  /** Server says this locked stop can be opened with Chai (paid zones only). */
   chaiUnlockable?: boolean;
 };
 
@@ -1363,6 +1366,7 @@ export default function JourneyScreen() {
   // Only for placing the free taste: which tracing stops this learner may open.
   // Everything else on this screen gates on the server's own planLocked flag.
   const { isPlus } = useEntitlements();
+  const stopOwnership = useGetJourneyStopUnlocks({ languageCode: activeLang });
   // Which letters are already traced, so each zone's tracing stop shows real
   // progress rather than always reading as untouched.
   const { passedCharacterIds } = useTraceStopProgress(activeLang);
@@ -1596,8 +1600,7 @@ export default function JourneyScreen() {
     zoneQueries.map((q) => (q.data as LessonGroupList | undefined)?.teaser).find(Boolean) ??
     null;
   const showroom = access !== null;
-  // Served price of a Chai stop unlock. Present only for the first zone (the
-  // only zone whose stops the server will sell), never hardcoded here.
+  // Served price of a Chai stop unlock in paid zones, never hardcoded here.
   const stopUnlockCost =
     zoneQueries
       .map((q) => (q.data as LessonGroupList | undefined)?.stopUnlock?.cost)
@@ -1774,11 +1777,18 @@ export default function JourneyScreen() {
       } as Station);
     }
 
-    const rowStations: Station[] = withTrace.map((st, gi) => ({
-      ...st,
-      stopNumber: gi + 1,
-      stopCount: withTrace.length,
-    }));
+    const rowStations: Station[] = withTrace.map((st, gi) => {
+      const freeOrOwned = ((st.story || st.trace || st.letter) &&
+        (i === 0 || ownsJourneyStop(stopOwnership.data?.unlockedStops, {
+          kind: st.story ? 'story' : st.letter ? 'letter' : 'trace', languageCode: activeLang, journey: 1, zone: i + 1,
+        })));
+      return {
+        ...st,
+        ...(freeOrOwned ? { planLocked: false, teaserStation: false, status: st.status === 'locked' ? 'unlocked' as const : st.status } : {}),
+        stopNumber: gi + 1,
+        stopCount: withTrace.length,
+      };
+    });
 
     return {
       ...z,
@@ -1939,7 +1949,8 @@ export default function JourneyScreen() {
                           <Text numberOfLines={1} style={[styles.boardCity, styles.boardClearOfBolo]}>
                             {zone.geoName}
                           </Text>
-                          <Text style={[styles.boardStops, styles.boardClearOfBolo]}>
+                          <View style={[styles.boardStopsRow, styles.boardClearOfBolo]}>
+                          <Text style={styles.boardStops}>
                             {zone.rowStations.length} {zone.rowStations.length === 1 ? 'stop' : 'stops'} in this zone
                             {access === 'teaser' && teaserProgress && (
                               <>
@@ -1950,6 +1961,8 @@ export default function JourneyScreen() {
                               </>
                             )}
                           </Text>
+                          {zi >= 1 && <JourneyAllAccessBadge testID={`zone-all-access-${zi + 1}`} />}
+                          </View>
                           {/* The gold dashed rule went with the crop (build
                               22): the landmark and the bird carry the
                               rustic note now, and the fact box sits closer. */}
@@ -3315,10 +3328,16 @@ export default function JourneyScreen() {
               : s.letter
               ? `${stopLabel}: ${s.letter.title}, ${statusCopy} (letter stop)`
               : `${stopLabel}: ${statusCopy}${s.stage === 'sentence' ? ' (sentence stop)' : ''}`;
+            const stopTarget: JourneyStopTarget = { kind: s.story ? 'story' : s.trace ? 'trace' : s.letter ? 'letter' : 'lesson', languageCode: activeLang, journey: s.story?.journey ?? s.trace?.journey ?? s.letter?.journey ?? 1, zone: s.zoneIndex + 1, ...(!s.story && !s.trace && !s.letter ? { lessonGroupId: s.id } : {}) };
+            const purchased = s.chaiUnlocked === true || ownsJourneyStop(stopOwnership.data?.unlockedStops, stopTarget);
             const onPress = () => {
               hapticLight();
+              if (s.zoneIndex >= 1 && !isPlus && !purchased) {
+                router.push({ pathname: '/(app)/paywall', params: { reason: 'journey_stop', lang: activeLang, stopKind: stopTarget.kind, journey: String(stopTarget.journey), zone: String(stopTarget.zone), ...(stopTarget.lessonGroupId ? { lessonGroupId: String(stopTarget.lessonGroupId) } : {}) } });
+                return;
+              }
               if (s.story) {
-                if (accessible) {
+                if (accessible || purchased) {
               // NO SPLASH ON SELECTION (chat 11). The film played twice on
               // the way to one lesson: once arriving on the map and again on
               // the way off it, "I want to get rid of the second splash
@@ -3339,7 +3358,7 @@ export default function JourneyScreen() {
                 return;
               }
               if (s.letter) {
-                if (accessible) {
+                if (accessible || purchased) {
                   // NO SPLASH ON SELECTION (chat 11), same as the two rows
                   // above it: a second showing of the six-second film between
                   // a tap and the thing tapped is a toll.
@@ -3361,7 +3380,7 @@ export default function JourneyScreen() {
                 return;
               }
               if (s.trace) {
-                if (accessible) {
+                if (accessible || purchased) {
               // NO SPLASH ON SELECTION (chat 11). The film played twice on
               // the way to one lesson: once arriving on the map and again on
               // the way off it, "I want to get rid of the second splash
@@ -3387,7 +3406,7 @@ export default function JourneyScreen() {
                 });
                 return;
               }
-              if (accessible) {
+              if (accessible || purchased) {
               // NO SPLASH ON SELECTION (chat 11). The film played twice on
               // the way to one lesson: once arriving on the map and again on
               // the way off it, "I want to get rid of the second splash
@@ -3419,17 +3438,12 @@ export default function JourneyScreen() {
             // THE CHIPS, ONCE (build 17). The tracing and story stops draw
             // their own bodies now (a chalkboard and a plaque, off the
             // owner's mockup), and all three bodies wear the same plates:
-            // ALL-ACCESS where the server serves the stop plan-locked, EXPRESS
+            // ALL-ACCESS on Zones 2–6 regardless of ownership, EXPRESS
             // on a tested-out stop, FREE TASTE on a taste. One definition.
             const cardChips = (
               <>
-                {s.planLocked === true && (
-                  <View style={[styles.allAccessChip, styles.rusticChip, { backgroundColor: BADGE.brassBg, borderColor: BADGE.brassEdge }]}>
-                    <Feather name="star" size={9} color={colors.secondary} />
-                    <Text style={[styles.allAccessChipText, { color: BADGE.ink }]}>
-                      ALL-ACCESS
-                    </Text>
-                  </View>
+                {s.zoneIndex >= 1 && (
+                  <JourneyAllAccessBadge testID={`stop-all-access-${s.zoneIndex + 1}-${s.stopNumber}`} />
                 )}
                 {s.status === 'tested_out' && (
                   <View style={[styles.expressStamp, { borderColor: zoneColor }]}>
@@ -3766,17 +3780,7 @@ export default function JourneyScreen() {
                             even-width tags, everything hugging the title left
                             half the paper empty. */}
                         <View style={styles.cardTitleSpacer} />
-                        {/* Entitlement chip only where the server actually serves
-                            the stop plan-locked — on stops the caller can ride free
-                            (Hindi Zone 1 carve-out) or already owns (Plus/Family),
-                            the badge is noise. Mirrors the web condition. */}
-                        {/* EVERY plan-locked stop wears the plate (chat 11):
-                            "Zone 3 and onward every stop should have this
-                            badge." It was sentence/trace/story only, which
-                            left a zone of plain Locked word stops with no
-                            hint of WHICH key opens them. Server truth still
-                            gates it: no planLocked, no plate. Web twin needs
-                            the same change. */}
+                        {/* Zone tier is visible even when the learner owns it. */}
                         {cardChips}
                       </View>
                       {/* THE STATUS ROW (chat 11): the kind chip and the
@@ -5015,6 +5019,7 @@ const styles = StyleSheet.create({
   },
   boardLinePillText: { fontFamily: AppFonts.extrabold, fontSize: 9, letterSpacing: 1, color: '#ffffff' },
   boardCity: { fontFamily: AppFonts.extrabold, fontSize: 22, lineHeight: 26, color: '#2B1A0E', marginTop: 5 },
+  boardStopsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 5 },
   boardStops: { fontFamily: AppFonts.semibold, fontSize: 11, lineHeight: 14, color: '#6B5B4E', marginTop: 1 },
   boardFact: {
     flexDirection: 'row',
@@ -5292,15 +5297,6 @@ const styles = StyleSheet.create({
   // Item 2: lineHeight trims the line box, not the type scale; flexShrink 0
   // keeps "Stop 11 of 11" on one line down to 320px (chips wrap instead).
   cardTitle: { fontFamily: AppFonts.semibold, fontSize: 14, lineHeight: 18, flexShrink: 0 },
-  allAccessChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-  },
-  allAccessChipText: { fontFamily: AppFonts.extrabold, fontSize: 8, letterSpacing: 0.8 },
   expressStamp: {
     borderWidth: 2,
     borderStyle: 'dashed',

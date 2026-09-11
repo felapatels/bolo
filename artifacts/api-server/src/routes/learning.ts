@@ -159,6 +159,7 @@ import {
   hasStopUnlock,
   hasStopUnlockForPhrase,
   listUnlockedStopIds,
+  getFirstZoneCategoryId,
 } from "../lib/stopUnlock";
 import {
   manualAppendBurstDenial,
@@ -1402,6 +1403,7 @@ router.get(
     // extended library — even by direct id — so its text can't leak.
     if (
       phrase.premium &&
+      !(await hasStopUnlockForPhrase(userId, phrase.languageCode, phrase.id)) &&
       denyLockedFeature(
         req,
         res,
@@ -1518,7 +1520,7 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
           ),
         )
         .limit(1);
-      if (!prior) {
+      if (!prior && !(await hasStopUnlock(userId, phraseRow.languageCode, phraseRow.lessonGroupId))) {
         const { unlockedGroupIds } = await getUnlockedGroupIds(
           userId,
           phraseRow.categoryId,
@@ -2848,9 +2850,10 @@ router.get(
     // the single free-taste station) and NO completion-latch rows are written
     // for a language the caller's plan doesn't own.
     let teaserGroupId: number | null = null;
-    // Stops in THIS zone the learner has bought with Chai (empty for an
-    // allowed caller — there is nothing to buy in a language they own).
-    let unlockedStopIds = new Set<number>();
+    // Permanent ownership applies in paid zones even when language access is free.
+    const unlockedStopIds = await listUnlockedStopIds(userId, lang);
+    const firstZoneId = await getFirstZoneCategoryId(lang);
+    const canBuyZone = firstZoneId != null && id !== firstZoneId && (showroom != null || !featuresForPlan((req as EntitledRequest).resolvedPlan.plan).extendedLibrary);
     let derived: ReturnType<typeof deriveGroupStatuses> | null = null;
     if (showroom) {
       // Free-tier content policy: the FIRST stop (position-1 Greetings
@@ -2861,10 +2864,8 @@ router.get(
       const firstStop = await getFirstStopGroup(lang);
       if (firstStop != null && groups.some((g) => g.id === firstStop.groupId)) {
         teaserGroupId = firstStop.groupId;
-        // This zone hosts the free stop, so it IS the first zone — the only
-        // zone whose stops Chai can open (lib/stopUnlock.ts). Ownership is
-        // read from the ledger, which is why an unlock survives a reinstall.
-        unlockedStopIds = await listUnlockedStopIds(userId, lang);
+        // Zone 1 remains free; purchased stops are resolved separately above.
+
       }
     } else {
       // Derivation + completion latch live in the shared guard — identical
@@ -2917,7 +2918,8 @@ router.get(
       },
       lessonGroups: groups.map((g) => {
         const allIds = byGroup.get(g.id) ?? [];
-        const phraseIds = canAccessPremium
+        const chaiUnlocked = unlockedStopIds.has(g.id);
+        const phraseIds = (canAccessPremium || chaiUnlocked)
           ? allIds
           : allIds.filter((pid) => !premiumIds.has(pid));
         const planLocked =
@@ -2929,22 +2931,7 @@ router.get(
           if (s && s.attemptCount > 0) attempted++;
           if (s?.mastered) mastered++;
         }
-        // Chai stop unlocks, showroom only. `chaiUnlocked` is a stop this
-        // learner already bought (it opens like the free stop);
-        // `chaiUnlockable` is one they could buy — inside the first zone,
-        // not the free stop, and with at least one non-premium phrase, so
-        // the offer can never sell an all-premium station that would serve
-        // an empty session. Both are absent everywhere else.
-        const chaiUnlocked = unlockedStopIds.has(g.id);
-        const chaiUnlockable =
-          teaserGroupId != null &&
-          !chaiUnlocked &&
-          g.id !== teaserGroupId &&
-          // Same two filters the purchase route applies (lib/stopUnlock.ts):
-          // phrase stage only — first-class sentence stops stay All-Access —
-          // and at least one non-premium row to actually serve.
-          (stageByGroup.get(g.id) ?? "phrase") === "phrase" &&
-          allIds.some((pid) => !premiumIds.has(pid));
+        const chaiUnlockable = canBuyZone && !chaiUnlocked && allIds.length > 0;
         return {
           id: g.id,
           position: g.position,
@@ -2954,7 +2941,9 @@ router.get(
           masteredCount: mastered,
           status: planLocked
             ? "locked"
-            : derived
+            : chaiUnlocked
+              ? (derived?.get(g.id) === "completed" || derived?.get(g.id) === "tested_out" ? derived.get(g.id)! : attempted > 0 ? "in_progress" : "unlocked")
+              : derived
               ? derived.get(g.id) ?? "locked"
               : g.id === teaserGroupId || chaiUnlocked
                 ? "unlocked"
@@ -2984,6 +2973,7 @@ router.get(
               }),
         };
       }),
+      ...(canBuyZone ? { stopUnlock: { cost: STOP_UNLOCK_COST } } : {}),
       unassignedCount: ctx.unassignedCount,
       // D1b showroom envelope: which access state produced the forced-locked
       // structure, plus teaser progress for the map's "free taste" meter.
@@ -2994,12 +2984,6 @@ router.get(
               consumed: Math.min(showroom.consumed, TEASER_LIMIT),
               limit: TEASER_LIMIT,
             },
-            // The price is served, never hardcoded in a client — one source
-            // of truth for every surface (lib/tokenEconomy.ts). Present only
-            // in the first zone, the only place stops are purchasable.
-            ...(teaserGroupId != null
-              ? { stopUnlock: { cost: STOP_UNLOCK_COST } }
-              : {}),
           }
         : {}),
     });
@@ -3039,6 +3023,17 @@ router.get(
     // (lib/lessonGroupAccess.ts CALLER CONTRACT); Stop 1 is position 1, so
     // skipping the guard can never skip a real progression lock. Every other
     // group keeps today's 402 byte-identical via sendLockedLanguageDenial.
+    const boughtGroup = await hasStopUnlock(userId, group.languageCode, id);
+    if (boughtGroup) {
+      const [rows, attempts] = await Promise.all([
+        db.select().from(phrasesTable).where(eq(phrasesTable.lessonGroupId, id))
+          .orderBy(asc(phrasesTable.lessonGroupPosition), asc(phrasesTable.id)),
+        fetchUserAttempts(userId, group.languageCode),
+      ]);
+      const stats = buildPhraseStats(attempts);
+      res.json(rows.map((p) => serializePhrase(p, stats)));
+      return;
+    }
     const access = await getLanguageAccess(req, group.languageCode);
     if (access.state !== "allowed") {
       const firstStop = await getFirstStopGroup(group.languageCode);

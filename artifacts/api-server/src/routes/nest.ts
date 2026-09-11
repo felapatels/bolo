@@ -733,6 +733,11 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
     selector = sql`select g.user_id, count(*)::int from game_sessions g
       where g.created_at >= ${from} and g.created_at <= ${to} ${notOwner("g.user_id")}
       group by 1`;
+  } else if (metric === "stopUnlocks") {
+    selector = sql`select t.user_id, count(*)::int from token_ledger t
+      where t.reason = 'spend_stop_unlock'
+        and t.created_at >= ${from} and t.created_at <= ${to} ${notOwner("t.user_id")}
+      group by 1`;
   } else if (metric === "chats") {
     selector = sql`select c.user_id, count(*)::int from chat_turns c
       where c.created_at >= ${from} and c.created_at <= ${to} ${notOwner("c.user_id")}
@@ -1436,6 +1441,7 @@ type NestRange = {
    * three games is one. Not windowed, because the taste is for life.
    */
   tasteSpent: number;
+  stopUnlocks: number;
   // ── SNAPSHOT: the users table as it stands right now ──
   usersTotal: number;
   paidTotal: number;
@@ -1594,6 +1600,10 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
           group by 1, 2
           having count(*) >= ${GAME_TASTE_PLAYS}
         ) spent)::int                                                as taste_spent,
+        (select count(*) from token_ledger
+          where reason = 'spend_stop_unlock'
+            and created_at >= ${from} and created_at <= ${to}
+          ${notOwner("user_id")})::int                               as stop_unlocks,
         -- SNAPSHOTS. Deliberately unfiltered by the window: see the type above.
         (select count(*) from users where true ${notOwner("id")})::int as users_total,
         (select count(*) from users
@@ -1663,6 +1673,7 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
       tasteSpent: n("taste_spent"),
       giftsClaimedToday: n("gifts_claimed_today"),
       longestGiftRun: n("longest_gift_run"),
+      stopUnlocks: n("stop_unlocks"),
       usersTotal: n("users_total"),
       paidTotal: n("paid_total"),
       freeTotal: n("free_total"),

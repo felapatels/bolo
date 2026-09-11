@@ -1,3 +1,5 @@
+import { useGetJourneyStopUnlocks } from '@workspace/api-client-react';
+import { ownsJourneyStop } from '@/lib/journeyStopAccess';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Pressable,
@@ -47,7 +49,6 @@ import {
   traceFeedback,
   traceHeadline,
   traceStopFor,
-  TRACE_TEASER_LIMIT,
   type TraceBreakdown,
   type TraceFault,
   type TraceChapter,
@@ -2184,6 +2185,7 @@ export default function ScriptTraceScreen() {
   const { isPlus, isLoading } = useEntitlements();
   const { activeLang } = useLanguage();
   const params = useLocalSearchParams<{ journey?: string; zone?: string }>();
+  const ownership = useGetJourneyStopUnlocks({ languageCode: activeLang });
   const [activeChapter, setActiveChapter] = useState<TraceChapter | null>(null);
 
   // A tracing stop on the journey map opens this screen already scoped to its
@@ -2198,25 +2200,20 @@ export default function ScriptTraceScreen() {
     return traceStopFor(activeLang, journey, zone);
   }, [params.journey, params.zone, activeLang]);
 
-  // THE FREE TASTE: the first TRACE_TEASER_LIMIT characters of journey 1 zone
-  // 1, in every language, matching the promise the voice lessons already make.
-  // Everything past it stays All-Access.
-  const tasting = !isPlus && stop !== null && stop.journey === 1 && stop.zone === 1;
-
+  // Zone 1 is free in full. A Chai purchase includes the entire later stop.
+  const ownsStop = stop !== null && ownsJourneyStop(ownership.data?.unlockedStops, { kind: 'trace', languageCode: activeLang, journey: stop.journey, zone: stop.zone });
+  const canEnter = isPlus || ownsStop || (stop?.journey === 1 && stop.zone === 1);
   React.useEffect(() => {
-    if (!isLoading && !isPlus && !tasting) {
-      router.replace('/(app)/paywall');
+    if (!isLoading && !ownership.isLoading && !canEnter) {
+      router.replace({ pathname: '/(app)/paywall', params: stop ? { reason: 'journey_stop', lang: activeLang, stopKind: 'trace', journey: String(stop.journey), zone: String(stop.zone) } : {} });
     }
-  }, [isLoading, isPlus, tasting, router]);
-
-  // While entitlements load, show the chapter grid immediately (static data).
-  // The useEffect above will redirect non-Plus users once loading finishes.
-  if (!isPlus && !isLoading && !tasting) return null;
+  }, [isLoading, ownership.isLoading, canEnter, router, activeLang, stop]);
+  if (!canEnter) return null;
 
   // The stop wins over the menu, but never over an explicit pick.
   const session =
     activeChapter ??
-    (stop ? chapterForStop(stop, tasting ? TRACE_TEASER_LIMIT : undefined) : null);
+    (stop ? chapterForStop(stop) : null);
   const fromStop = !activeChapter && stop !== null;
 
   if (!session) {
@@ -2245,9 +2242,7 @@ export default function ScriptTraceScreen() {
             {session.title}
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            {tasting
-              ? `Free taste · ${session.characters.length} letters`
-              : fromStop && stop
+            {fromStop && stop
                 ? `Zone ${stop.zone} · ${session.scriptName} script`
                 : `${session.scriptName} script`}
           </Text>
@@ -2259,7 +2254,6 @@ export default function ScriptTraceScreen() {
         chapter={session}
         onBack={leave}
         backLabel={fromStop ? 'Back to journey' : 'Chapters'}
-        tasting={tasting}
       />
     </Screen>
   );

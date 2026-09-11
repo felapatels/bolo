@@ -37,6 +37,7 @@ import {
 } from "./lessonGroupUnlock";
 import { CROSS_ZONE_GATE_ENABLED } from "./featureFlags";
 import { grantTokens } from "./tokenService";
+import { listUnlockedStopIds } from "./stopUnlock";
 import { TOKEN_EARN_ZONE_COMPLETE } from "./tokenEconomy";
 
 export interface GroupUnlockContext {
@@ -311,11 +312,13 @@ export async function deriveAndLatchUnlock(
   ctx: GroupUnlockContext,
 ): Promise<UnlockDerivation> {
   // Chunk 4 cross-zone gate (dark): when enabled and the preceding zone is
-  // incomplete, every group here is locked. No derivation, no latch writes
-  // (a fully locked zone can never observe a new completion). Teaser and
+  // incomplete, unowned groups here stay locked. Owned stops still derive
+  // and latch their progress independently. Teaser and
   // showroom callers never reach this function (CALLER CONTRACT above), so
   // the gate is structurally inert for them. Flag off: zero added queries.
   const firstGroup = ctx.groups[0];
+  const ownedIds = firstGroup ? await listUnlockedStopIds(userId, firstGroup.languageCode) : new Set<number>();
+  let zoneAllowed = true;
   if (CROSS_ZONE_GATE_ENABLED && firstGroup) {
     const allowed = await zoneGateAllows(
       userId,
@@ -327,11 +330,7 @@ export async function deriveAndLatchUnlock(
         persistedCompletedGroupIds: ctx.persistedCompletedGroupIds,
       },
     );
-    if (!allowed) {
-      const statuses = new Map<number, LessonGroupStatus>();
-      for (const g of ctx.groups) statuses.set(g.id, "locked");
-      return { statuses, unlockedGroupIds: new Set<number>() };
-    }
+    zoneAllowed = allowed;
   }
 
   const statuses = deriveGroupStatuses(
@@ -345,6 +344,20 @@ export async function deriveAndLatchUnlock(
     ctx.persistedCompletedGroupIds,
     ctx.speechScored,
   );
+
+  // A purchase opens only that stop, independently of its neighbours. Derive
+  // its real progress and persist completion through the same latch below.
+  for (const group of ctx.groups) {
+    if (ownedIds.has(group.id)) {
+      const ownedStatus = deriveGroupStatuses(
+        [{ id: group.id, position: group.position, phraseIds: ctx.byGroup.get(group.id) ?? [] }],
+        ctx.stats, ctx.testedOutGroupIds, ctx.persistedCompletedGroupIds, ctx.speechScored,
+      ).get(group.id)!;
+      statuses.set(group.id, ownedStatus);
+    } else if (!zoneAllowed) {
+      statuses.set(group.id, "locked");
+    }
+  }
 
   const newlyCompleted = ctx.groups
     .map((g) => g.id)

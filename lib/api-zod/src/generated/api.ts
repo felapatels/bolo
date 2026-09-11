@@ -82,8 +82,8 @@ export const ListCategoryLessonGroupsResponse = zod.object({
   "stage": zod.enum(['phrase', 'sentence']).optional().describe('Which learning stage this group\'s members belong to: the starter \"phrase\" list every topic opens with, or the Plus-only \"sentence\" stage. Derived from the group\'s member phrases (groups are homogeneous by construction); an empty group reads as \"phrase\". Optional\/additive - part of the journey-map contract mobile reuses.'),
   "teaserStation": zod.boolean().optional().describe('True on the single station that hosts the M1 teaser phrases when the caller views a plan-locked language in teaser mode (the journey map\'s visibly marked \"free taste\" stop). Absent on every other group and in every other access state.'),
   "allTopBand": zod.boolean().optional().describe('True when every phrase in this group has been attempted and the learner\'s best band is \"perfect\" or \"great\" (score >= 80) on all of them. Used to show the gold stamp overlay on the journey map when POLISH_ENABLED is on. Optional\/additive.'),
-  "chaiUnlocked": zod.boolean().optional().describe('True when the learner has BOUGHT this stop with Chai in a plan-locked language. The stop opens exactly like the free-taste stop, and because ownership is a ledger row it survives a reinstall. Present only in showroom payloads. Optional\/additive.'),
-  "chaiUnlockable": zod.boolean().optional().describe('True when this stop is offered for Chai: inside the language\'s first zone, not the free stop, not already bought, and holding at least one phrase the caller\'s plan can practise. Absent everywhere else — a station without it can only be opened by All-Access, and the server refuses a purchase attempt on one. Optional\/additive.'),
+  "chaiUnlocked": zod.boolean().optional().describe('True when the learner has BOUGHT this stop with Chai in a plan-locked language. The stop opens exactly like the free-taste stop, and because ownership is a ledger row it survives a reinstall. Present whenever this stop is owned. Optional\/additive.'),
+  "chaiUnlockable": zod.boolean().optional().describe('True when this stop can be bought individually with Chai in a paid zone, has lesson content, and is not already owned or included by the subscription. Zone 1 is free. Optional\/additive.'),
   "planLocked": zod.boolean().optional().describe('True when the caller\'s plan can see ZERO of this group\'s phrases (every member is premium and the caller lacks extended-library access), so the station is reported locked with a Plus upsell instead of an unlocked stop that would serve an empty practice session. For these callers phraseCount\/attemptedCount\/ masteredCount count only plan-visible phrases. Absent for extended-library callers and in showroom (teaser\/exhausted) payloads. Optional\/additive.')
 })).optional(),
   "unassignedCount": zod.number().optional(),
@@ -94,7 +94,7 @@ export const ListCategoryLessonGroupsResponse = zod.object({
 }).optional().describe('M1 language teaser progress for a locked language: how many of the free teaser phrases (the first phrases of Greetings group 1) this user has attempted, lifetime. Present on locked-language 402 bodies, on teaser-state phrase rows, and on attempt results recorded through the teaser.'),
   "stopUnlock": zod.object({
   "cost": zod.number().optional()
-}).optional().describe('The served price of a Chai stop unlock. Present on a showroom journey payload only for the first zone, the only zone whose stops are purchasable. Clients must render this number, never a hardcoded one.'),
+}).optional().describe('The served price of an individual stop in a paid zone. Zone 1 is free. Clients must render this number, never a hardcoded one.'),
   "signals": zod.object({
   "rewardChai": zod.number(),
   "encounterChai": zod.number().describe('What Chacha-ji pours at his stall on a first arrival, served on every zone payload since 99bb369e so the invitation chip under the stall can read it. Never a client constant: mobile\'s first cut read rewardChai instead and said 1 where he pours 3.'),
@@ -2210,7 +2210,7 @@ export const BuyGameCreditsResponse = zod.object({
 
 
 /**
- * Buys a single station in a language the caller's plan does not include. The caller names only a lesson group id: the language, the price and the ledger idempotency key are all derived server-side, and the purchase is once-ever (a repeat call returns 200 with charged=false and deducts nothing). Only stops inside the language's FIRST zone — the zone that hosts the free-taste stop — are purchasable; anything beyond it answers 402 UpgradeRequired because that is the All-Access boundary. Money and state conflicts (insufficient_tokens, stop_already_free, stop_not_unlockable) answer 409, matching the other Chai spends.
+ * Buys one lesson stop in a paid zone. Zone 1 is free and cannot be sold. Earlier paid stops must be owned first, in journey order. Language, price and idempotency key are resolved server-side. A repeat purchase charges nothing. Purchased stops include their full lesson content and remain owned after reinstall. Insufficient funds answer 409.
  * @summary Spend Chai to open one stop in a plan-locked language
  */
 export const UnlockStopBody = zod.object({
@@ -2224,6 +2224,72 @@ export const UnlockStopResponse = zod.object({
   "unlocked": zod.boolean(),
   "charged": zod.boolean().describe('False when the learner already owned this stop — the call is a no-op that deducts nothing. Clients must not re-render a \"spent\" animation for it.'),
   "cost": zod.number()
+})
+
+
+/**
+ * @summary Chai price and permanent ownership of journey stops
+ */
+export const GetJourneyStopUnlocksQueryParams = zod.object({
+  "languageCode": zod.coerce.string()
+})
+
+export const getJourneyStopUnlocksResponseUnlockedStopsItemJourneyMax = 2;
+
+export const getJourneyStopUnlocksResponseUnlockedStopsItemZoneMax = 6;
+
+
+
+
+export const GetJourneyStopUnlocksResponse = zod.object({
+  "cost": zod.number(),
+  "unlockedStops": zod.array(zod.object({
+  "kind": zod.enum(['lesson', 'story', 'trace', 'letter']),
+  "languageCode": zod.string(),
+  "journey": zod.number().min(1).max(getJourneyStopUnlocksResponseUnlockedStopsItemJourneyMax),
+  "zone": zod.number().min(1).max(getJourneyStopUnlocksResponseUnlockedStopsItemZoneMax),
+  "lessonGroupId": zod.number().min(1).optional().describe('Required for lesson stops; omitted for story and tracing stops.')
+}))
+})
+
+
+/**
+ * @summary Permanently buy one lesson, story, tracing or letter-listening stop with Chai
+ */
+export const unlockJourneyStopBodyJourneyMax = 2;
+
+export const unlockJourneyStopBodyZoneMax = 6;
+
+
+
+
+export const UnlockJourneyStopBody = zod.object({
+  "kind": zod.enum(['lesson', 'story', 'trace', 'letter']),
+  "languageCode": zod.string(),
+  "journey": zod.number().min(1).max(unlockJourneyStopBodyJourneyMax),
+  "zone": zod.number().min(1).max(unlockJourneyStopBodyZoneMax),
+  "lessonGroupId": zod.number().min(1).optional().describe('Required for lesson stops; omitted for story and tracing stops.')
+})
+
+export const unlockJourneyStopResponseStopJourneyMax = 2;
+
+export const unlockJourneyStopResponseStopZoneMax = 6;
+
+
+
+
+export const UnlockJourneyStopResponse = zod.object({
+  "balance": zod.number(),
+  "cost": zod.number(),
+  "charged": zod.boolean(),
+  "unlocked": zod.boolean(),
+  "stop": zod.object({
+  "kind": zod.enum(['lesson', 'story', 'trace', 'letter']),
+  "languageCode": zod.string(),
+  "journey": zod.number().min(1).max(unlockJourneyStopResponseStopJourneyMax),
+  "zone": zod.number().min(1).max(unlockJourneyStopResponseStopZoneMax),
+  "lessonGroupId": zod.number().min(1).optional().describe('Required for lesson stops; omitted for story and tracing stops.')
+})
 })
 
 

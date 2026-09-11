@@ -1,3 +1,5 @@
+import { parseStopUnlockRefId, STOP_UNLOCK_REASON } from "./stopUnlock";
+import { tokenLedgerTable } from "@workspace/db";
 // THE streak. One computation, server-side, for every surface that shows a
 // streak number or sells one back (Task #1081).
 //
@@ -377,10 +379,13 @@ export async function loadEarnedDayKeys(
       .from(phrasesTable)
       .where(inArray(phrasesTable.lessonGroupId, [...touchedGroupIds]));
 
+    const purchases = await db.select({ refId: tokenLedgerTable.refId }).from(tokenLedgerTable)
+      .where(and(eq(tokenLedgerTable.userId, userId), eq(tokenLedgerTable.reason, STOP_UNLOCK_REASON)));
+    const ownedGroups = new Set(purchases.flatMap(p => { const stop = parseStopUnlockRefId(p.refId); return stop ? [stop.lessonGroupId] : []; }));
     for (const m of members) {
       if (m.lessonGroupId == null) continue;
-      if (m.premium && !features.extendedLibrary) continue;
-      if (m.stage === "sentence" && !features.sentences) continue;
+      if (m.premium && !features.extendedLibrary && !ownedGroups.has(m.lessonGroupId)) continue;
+      if (m.stage === "sentence" && !features.sentences && !ownedGroups.has(m.lessonGroupId)) continue;
       let set = accessibleItemsByGroup.get(m.lessonGroupId);
       if (!set) {
         set = new Set<number>();

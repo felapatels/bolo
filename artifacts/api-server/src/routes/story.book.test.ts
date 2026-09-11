@@ -9,10 +9,7 @@
 // says the same thing in either database.
 //
 // What is under test:
-//   - a Free caller gets the zone 1 book up to STORY_TEASER_SCENES, flagged
-//     `limited`, rather than a 402 on a stop the map never locks. That was
-//     ONE scene when this file was written and is five as of 2026-08-24,
-//     which is every scene j1z1 has;
+//   - a Free caller gets the whole Zone 1 book, without a taste limit;
 //   - a Free caller gets a plain 402 on any other zone's book;
 //   - a paying caller gets the whole book, premium rows included, because
 //     counting free rows only NO language carries a whole book's concepts;
@@ -41,9 +38,6 @@ import { eq } from "drizzle-orm";
 import {
   bookConcepts,
   storyBookFor,
-  storyTeaserConcepts,
-  storyTeaserScenes,
-  STORY_TEASER_SCENES,
 } from "@workspace/story";
 import storyRouter from "./story";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
@@ -208,49 +202,13 @@ after(async () => {
   await pool.end();
 });
 
-test("a Free caller gets the whole zone 1 book, and is told it is a taste", async () => {
-  // Widened from one scene on 2026-08-24. Asserted against the CONSTANT rather
-  // than a literal, because the number is a product decision that will move
-  // again and this test should follow it rather than veto it. What must not
-  // move quietly is `limited`: it stays true even though every scene resolves,
-  // and it is the only thing telling the client to put an ask on the finished
-  // book. Hardcode this to the book length and a future sixth scene silently
-  // becomes free.
+test("a Free caller gets the complete Zone 1 book without a taste limit", async () => {
   currentUserId = FREE_USER_ID;
   const { status, json } = await getBook(1, 1);
-  assert.equal(status, 200, "the taste must never answer 402");
-  assert.equal(json.limited, true);
-  assert.equal(json.teaserScenes, STORY_TEASER_SCENES);
-  assert.deepEqual(conceptsIn(json), storyTeaserConcepts(tasteBook()).sort());
-});
-
-test("the taste is capped at STORY_TEASER_SCENES, so a sixth scene stays paid", async () => {
-  // INVERTED ON 2026-08-25 RATHER THAN DELETED, so what changed is on the
-  // record. This test used to assert that a Free caller receives FEWER
-  // concepts than the whole zone 1 book and never its ending. Both were true
-  // when the taste was one scene. The taste widened to five on 2026-08-24 and
-  // j1z1 has exactly five, so the taste IS the whole book now and both
-  // assertions became false. Nothing caught it because the file could not run
-  // at all: see the lang cap note in story.ts.
-  //
-  // THE GUARD THAT STILL MATTERS IS THE CAP, NOT THE SHORTFALL. Zone 1 being
-  // wholly free is a product decision. A SIXTH scene joining the free taste
-  // by accident would not be, and that is what this watches now.
-  currentUserId = FREE_USER_ID;
-  const { json } = await getBook(1, 1);
-  const book = tasteBook();
-  assert.equal(
-    storyTeaserScenes(book).length,
-    Math.min(STORY_TEASER_SCENES, book.scenes.length),
-    "the taste must never serve more scenes than the cap allows",
-  );
-  const teaser = new Set(storyTeaserConcepts(book));
-  for (const p of json.phrases) {
-    assert.ok(teaser.has(p.concept), `${p.concept} is outside the taste`);
-  }
-  // The ask is the thing that must not drift. Every scene resolving is fine;
-  // a finished book with no upgrade beat attached is not.
-  assert.equal(json.limited, true);
+  assert.equal(status, 200);
+  assert.equal(json.limited, false);
+  assert.equal(json.teaserScenes, null);
+  assert.deepEqual(conceptsIn(json), bookConcepts(tasteBook()).sort());
 });
 
 test("a Free caller gets a plain 402 on any other zone", async () => {

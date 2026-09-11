@@ -1,3 +1,5 @@
+import { JourneyStopPurchase } from '@/components/JourneyStopPurchase';
+import type { JourneyStopTarget } from '@workspace/api-client-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
@@ -172,8 +174,14 @@ export default function PaywallScreen() {
   // purchasable; it can never force a tier the store can't sell.
   // ?reason=daily_lesson_limit is forwarded by paywallHrefForDenial so we can
   // surface a contextual trial banner when the learner arrived from the cap.
-  const params = useLocalSearchParams<{ lang?: string; reason?: string }>();
+  const params = useLocalSearchParams<{ lang?: string; reason?: string; stopKind?: string; journey?: string; zone?: string; lessonGroupId?: string }>();
   const requestedLang = typeof params.lang === 'string' ? params.lang : null;
+  const stopKind = params.stopKind;
+  const journey = Number(params.journey);
+  const zone = Number(params.zone);
+  const lessonGroupId = Number(params.lessonGroupId);
+  const stopTarget: JourneyStopTarget | null = requestedLang && ['lesson', 'story', 'trace', 'letter'].includes(stopKind ?? '') && [1, 2].includes(journey) && Number.isInteger(zone) && zone >= 1 && zone <= 6 && (stopKind !== 'lesson' || (Number.isInteger(lessonGroupId) && lessonGroupId > 0))
+    ? { kind: stopKind as JourneyStopTarget['kind'], languageCode: requestedLang, journey, zone, ...(stopKind === 'lesson' ? { lessonGroupId } : {}) } : null;
   const isDailyLimitDenial = params.reason === 'daily_lesson_limit';
 
   const hasOneLanguage = !!(oneLanguageMonthly || oneLanguageAnnual);
@@ -216,7 +224,7 @@ export default function PaywallScreen() {
   // both are purchasable, honor a locked-language deep link as a (harmless)
   // preselection; otherwise all-access is the default emphasis.
   useEffect(() => {
-    if (plan === 'one_language') {
+    if (params.reason === 'journey_stop' || plan === 'one_language') {
       setTier('all_access');
       return;
     }
@@ -228,8 +236,8 @@ export default function PaywallScreen() {
       setTier('all_access');
       return;
     }
-    setTier(requestedLang ? 'one_language' : 'all_access');
-  }, [plan, hasAllAccess, hasOneLanguage, requestedLang]);
+    setTier(requestedLang && params.reason !== 'journey_stop' ? 'one_language' : 'all_access');
+  }, [plan, hasAllAccess, hasOneLanguage, requestedLang, params.reason]);
 
   // Once on the middle tier the language is fixed to the server's record.
   useEffect(() => {
@@ -267,7 +275,7 @@ export default function PaywallScreen() {
       : null;
 
   const showTierToggle =
-    plan === 'free' && hasOneLanguage && hasAllAccess;
+    params.reason !== 'journey_stop' && plan === 'free' && hasOneLanguage && hasAllAccess;
 
   const close = useCallback(() => router.back(), [router]);
 
@@ -398,6 +406,8 @@ export default function PaywallScreen() {
             ? 'Unlock the full Bolo! experience.'
             : 'Learn Hindi and the language you choose, no daily cap.'}
         </Text>
+
+        {stopTarget && <JourneyStopPurchase target={stopTarget} />}
 
         {/* Trial banner — shown when the learner arrived after hitting the daily cap */}
         {isDailyLimitDenial && tier === 'all_access' && (
