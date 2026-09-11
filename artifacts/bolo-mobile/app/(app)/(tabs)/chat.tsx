@@ -973,6 +973,16 @@ export default function ChatScreen() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const gP: any = gReplyPayload;
+      if (gP.noSpeech === true) {
+        playbackRef.current?.stop();
+        playbackRef.current = null;
+        finishingRef.current = false;
+        setMessages((prev) => prev.filter((m) => !m.pending));
+        setErrorMsg(null);
+        setCantHearMsg(pickCantHearLine());
+        setPhase('idle');
+        return;
+      }
       const gReplyText = (gP.replyText as string) ?? '';
       const gReplyEnglish = (gP.replyEnglish as string) ?? '';
       const gTranscriptEnglish = (gP.transcriptEnglish as string) ?? '';
@@ -1307,6 +1317,18 @@ export default function ChatScreen() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const payload: any = replyPayload;
+      // Match the existing web no-speech handling: this is a retry prompt,
+      // not an empty learner/parrot turn. Validation precedes all transcript
+      // events server-side, so only the pending placeholder needs removing.
+      if (payload.noSpeech === true) {
+        if (activeTurnRef.current !== myTurn) return;
+        finishingRef.current = false;
+        setMessages((prev) => prev.filter((m) => !m.pending));
+        setErrorMsg(null);
+        setCantHearMsg(pickCantHearLine());
+        setPhase('idle');
+        return;
+      }
 
       const transcriptText     = (payload.transcript as string) ?? '';
       const transcriptEnglish  = (payload.transcriptEnglish as string) ?? '';
@@ -1862,17 +1884,6 @@ export default function ChatScreen() {
    * The box cannot depend on the bird, since it is flex:1, so measuring the
    * parent and sizing the child from it cannot loop.
    */
-  /**
-   * WHERE THE TOP CHROME ENDS, measured off the LANGUAGE PILL rather than the
-   * title row. Absolute children sit against Screen's padding box, so anything
-   * floating below the chrome needs the bottom edge of the LAST thing in it.
-   *
-   * Two misses before this landed. Measuring the header's height alone threw
-   * away its offset and put the bird over the status bar. Measuring the header
-   * at all was still wrong, because the language pill is a SIBLING BELOW it, so
-   * the speaking strip landed on top of the pill: "not enough padding from top".
-   */
-  const [headerH, setHeaderH] = React.useState(0);
   const [mascotBoxH, setMascotBoxH] = React.useState(0);
   // Everything inside the area that is NOT the bird: status label, the gaps
   // either side of it, the hold hint on the empty state, and the area's own
@@ -1881,22 +1892,9 @@ export default function ChatScreen() {
   const MASCOT_CHROME = 104;
   const MASCOT_MAX = 156;
   const MASCOT_MIN = 84;
-  /**
-   * SHE FLOATS AND SHRINKS ONCE A CONVERSATION STARTS (owner, 2026-08-28:
-   * "bolo should truly be floating and not boxed, messages should scroll
-   * beneath him", then "shrink" when asked whether to scrim behind her or get
-   * out of the way).
-   *
-   * Empty state: she is the hero, in flow, sized to whatever the measured box
-   * allows. Conversation running: she leaves the layout entirely and perches
-   * top right over the transcript, which then owns the full height and slides
-   * its messages under her.
-   *
-   * SHRINKING RATHER THAN SCRIMMING was the owner's call and it is the right
-   * one. A scrim keeps text legible behind a bird that has no job to do: the
-   * nav button is the microphone now, so mid-conversation she is decoration,
-   * and decoration should take less room rather than defend the room it has.
-   */
+  // Once a conversation starts, the small bird and its status share a row
+  // in normal layout. The row grows with the first-answer note or playback
+  // controls, keeping the fact card and transcript below all of them.
   const PERCH_SIZE = 76;
   const isPerched = messages.length > 0;
   const mascotSize =
@@ -2091,12 +2089,9 @@ export default function ChatScreen() {
         </View>
       ) : null}
 
-      {/* THE HEADER THE BIRD HANGS UNDER, measured as one box (build 25, owner
-          on the iPad: "after a first response mascot covers the meter line").
-          It was the pill row alone, and on a Free account the time bar
-          renders after that row, so the perched bird landed on the bar. Plus
-          accounts never show the bar, which is why it hid. */}
-      <View onLayout={(e) => setHeaderH(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
+      {/* Language pill and optional Free-plan meter precede the mascot band
+          in normal layout, so neither needs a measured absolute offset. */}
+      <View>
       {/* Language pill — tap to switch chat language */}
       <View style={styles.langPillRow}>
         <Pressable
@@ -2139,6 +2134,13 @@ export default function ChatScreen() {
       )}
       </View>
 
+      {/* This band reserves space even on the first processing frame. */}
+      <View
+        testID="chat-mascot-band"
+        style={isPerched
+          ? [styles.perchedBand, { minHeight: PERCH_SIZE + 16 }]
+          : styles.emptyMascotBand}
+      >
       {/* Mascot area — hold the bird to speak, release to send */}
       <Pressable
         onPressIn={() => {
@@ -2163,16 +2165,7 @@ export default function ChatScreen() {
         style={[
           styles.mascotArea,
           messages.length === 0 && styles.mascotAreaFull,
-          // Absolute against Screen, anchored under the MEASURED header rather
-          // than a guessed offset: the header carries a safe-area inset and a
-          // language chip whose height is not knowable from here.
-          messages.length > 0 && {
-            position: 'absolute',
-            top: headerH + 6,
-            right: 10,
-            paddingVertical: 0,
-            zIndex: 10,
-          },
+          isPerched && { paddingVertical: 0, flexShrink: 0 },
         ]}
         onLayout={(e) => setMascotBoxH(e.nativeEvent.layout.height)}
         accessibilityRole="button"
@@ -2216,7 +2209,7 @@ export default function ChatScreen() {
             wait starts. Gated on "Bolo has never replied" rather than on
             message count, because a pending learner bubble is pushed the
             moment recording stops, so the count is already 1 by then. */}
-        {phase === 'processing' && !messages.some((m) => m.role === 'parrot') && (
+        {!isPerched && phase === 'processing' && !messages.some((m) => m.role === 'parrot') && (
           <Animated.Text
             entering={appear(appearDown(0, 250))}
             style={[styles.firstAnswerNote, { color: colors.mutedForeground }]}
@@ -2245,43 +2238,21 @@ export default function ChatScreen() {
         )}
       </Pressable>
 
-      {/* Tip card, shown while Bolo is processing a reply.
-          IT HAS TO CLEAR THE PERCH (owner, 2026-09-03, off TestFlight on both
-          an iPhone and an iPad: "did you know, 'got it' and bolo all overlap
-          for a moment on the chat screen").
-          Three things claim the band right under the header and only one of
-          them is in flow. Once Bolo perches she goes ABSOLUTE at headerH + 6,
-          and the speaking strip that carries "Got it! 💬" goes absolute at
-          headerH + 14, so this card, which is the first in-flow element on the
-          screen, was laid out underneath both of them. It shows only while
-          processing, which is the same moment the strip does, so the collision
-          is exactly as long as a transcription and no longer.
-          The transcript below already clears her by PERCH_SIZE + 16; this
-          takes the same clearance for the same reason. */}
-      {phase === 'processing' && (
-        <TipCard style={isPerched ? { marginTop: PERCH_SIZE + 16 } : undefined} />
-      )}
-
-      {/* THE SPEAKING CLUSTER STAYS CENTRED WHEN BOLO PERCHES (owner,
-          2026-08-28: "move the voice visualizer back to center along with the
-          skip button"). Status line, bars and skip were children of the mascot
-          Pressable, so when she went absolute into the top right corner they
-          went with her and ended up stacked in the corner under a tiny bird.
-
-          They belong to the CONVERSATION, not to her: the bars are what Bolo is
-          saying and skip is what you do about it, and both want the middle of
-          the screen where a thumb and an eye already are. Only mounted while
-          perched; in the empty state they still sit under the full-size bird
-          where they read as part of her. */}
+      {/* Status and playback controls sit beside the small bird, in flow. */}
       {isPerched && (phase === 'playing' || getStatusLabel(phase, processingStep, true) !== '') && (
         <View
-          // Left of the bird's perch, so a long label never runs under her.
-          style={[styles.speakingStrip, { top: headerH + 14, right: PERCH_SIZE + 20 }]}
+          testID="chat-speaking-strip"
+          style={styles.speakingStrip}
           pointerEvents="box-none"
         >
           {getStatusLabel(phase, processingStep, true) !== '' && (
             <Text style={[styles.statusLabel, { color: colors.mutedForeground }]}>
               {getStatusLabel(phase, processingStep, true)}
+            </Text>
+          )}
+          {phase === 'processing' && !messages.some((m) => m.role === 'parrot') && (
+            <Text testID="chat-first-answer-note" style={[styles.firstAnswerNote, { color: colors.mutedForeground }]}>
+              My first answer takes a few seconds. After that I speak straight away.
             </Text>
           )}
           {phase === 'playing' && <SoundBars />}
@@ -2301,6 +2272,11 @@ export default function ChatScreen() {
           )}
         </View>
       )}
+
+      </View>
+
+      {/* The fact card follows the entire mascot/status band. */}
+      {phase === 'processing' && <TipCard />}
 
       {/* KeyboardAvoidingView wraps the transcript + input row so the text
           input floats above the software keyboard on iOS and Android.
@@ -2371,14 +2347,8 @@ export default function ChatScreen() {
       {messages.length > 0 && (
         <ScrollView
           ref={scrollRef}
-          // THE BAND UNDER THE HEADER IS HERS, NOT THE TRANSCRIPT'S (build 25,
-          // owner on the iPad: "make sure this isn't happening on any ios or
-          // ipad os build", with the reply bubble and the "Crafting a reply"
-          // label under the bird). She used to float over the conversation,
-          // with only the first message padded clear of her, so anything
-          // scrolled to the top slid under her and under the status strip.
-          // The viewport now starts below the band, so nothing can.
-          style={[styles.transcript, { marginTop: PERCH_SIZE + 16 }]}
+          // The preceding band reserves the bird and status height in flow.
+          style={styles.transcript}
           contentContainerStyle={styles.transcriptContent}
           showsVerticalScrollIndicator={false}
         >
@@ -3097,12 +3067,22 @@ const styles = StyleSheet.create({
     maxWidth: 260,
     textAlign: 'center',
   },
-  speakingStrip: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
+  emptyMascotBand: {
+    flex: 1,
+    minHeight: 0,
+  },
+  perchedBand: {
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    zIndex: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexShrink: 0,
+  },
+  speakingStrip: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 8,
+    alignItems: 'center',
   },
   transcript: {
     flex: 1,

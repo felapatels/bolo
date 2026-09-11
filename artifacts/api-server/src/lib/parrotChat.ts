@@ -814,6 +814,7 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
 function validateTranscript(
   transcript: string,
   hint: string,
+  seedVariants: readonly (readonly string[])[] = [],
 ): { ok: true } | { ok: false; reason: "empty" | "hint_echo" } {
   const trimmed = transcript.trim();
 
@@ -840,6 +841,18 @@ function validateTranscript(
   // 3. Normalized transcript is identical to the normalized hint.
   if (normTranscript === normHint) {
     return { ok: false, reason: "hint_echo" };
+  }
+
+  // Silent clips can echo just the vocabulary list, dropping "Indonesian or
+  // English." entirely. SEA's reported transcript repeated the romanized and
+  // native lists, including their casing/punctuation differences. Match only
+  // a complete supplied list with at least three distinct entries; never
+  // reject a real short greeting merely because it is one of the hints.
+  for (const seeds of seedVariants) {
+    const entries = seeds.map(normalize).filter(Boolean);
+    if (new Set(entries).size >= 3 && normTranscript === entries.join(" ")) {
+      return { ok: false, reason: "hint_echo" };
+    }
   }
 
   // 4. Substantial word overlap: ≥50 % of the hint's words appear in the
@@ -1059,7 +1072,11 @@ export async function runParrotTurn(
     // Validate before firing onTranscript or making any LLM/TTS call.
     // Whisper echoes the transcription hint back when audio is silent; empty
     // and punctuation-only transcripts cause the model to hallucinate.
-    const transcriptValidation = validateTranscript(transcript, transcriptionHint);
+    const transcriptValidation = validateTranscript(transcript, transcriptionHint, [
+      input.seedWords ?? [],
+      input.seedNativeWords ?? [],
+      [...(input.seedWords ?? []), ...(input.seedNativeWords ?? [])],
+    ]);
     if (!transcriptValidation.ok) {
       return { noSpeech: true, reason: transcriptValidation.reason };
     }

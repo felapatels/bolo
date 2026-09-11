@@ -1583,3 +1583,62 @@ test("system prompt deflection instruction is not gated on turn count or history
     "youth-safe guardrail must be present for a mid-conversation system prompt",
   );
 });
+
+
+// A silent SEA recording echoed the vocabulary hints without the language
+// prefix. Rejection must happen before the UI transcript, reply or voice.
+const indonesianSeeds = ["satu", "ini berapa", "halo", "senang", "ibu"];
+const indonesianNativeSeeds = ["satu", "Ini berapa?", "Halo", "senang", "ibu"];
+for (const transcript of [
+  "satu, ini berapa, halo, senang, ibu, satu, Ini berapa?, Halo, senang, ibu",
+  "Satu. Ini berapa? Halo, senang, ibu!",
+]) {
+  test(`runParrotTurn rejects a prefix-free vocabulary echo: ${transcript}`, async () => {
+    const result = await _runParrotTurn({
+      audioBuffer: makeWavBuffer(2), languageName: "Indonesian", languageCode: "id",
+      history: [], seedWords: indonesianSeeds, seedNativeWords: indonesianNativeSeeds,
+      onTranscript: () => assert.fail("hint echo must not reach the learner bubble"),
+    }, makeDeps({
+      transcribe: async () => transcript,
+      reply: async () => { throw new Error("hint echo must not get a reply"); },
+      synthesize: async () => { throw new Error("hint echo must not get a voice"); },
+    }));
+    assert.deepEqual(result, { noSpeech: true, reason: "hint_echo" });
+  });
+}
+
+for (const transcript of ["Halo", "Ibu", "Halo, ibu. Saya senang hari ini."]) {
+  test(`runParrotTurn keeps genuine speech containing seed words: ${transcript}`, async () => {
+    const result = await runParrotTurn({
+      audioBuffer: makeWavBuffer(2), languageName: "Indonesian", languageCode: "id",
+      history: [], seedWords: indonesianSeeds, seedNativeWords: indonesianNativeSeeds,
+    }, makeDeps({ transcribe: async () => transcript }));
+    assert.equal(result.transcript, transcript);
+  });
+}
+
+test("typed text is never rejected as a transcription-hint echo", async () => {
+  const text = indonesianSeeds.join(", ");
+  const result = await runParrotTurn({
+    textTranscript: text, languageName: "Indonesian", languageCode: "id", history: [], seedWords: indonesianSeeds,
+  }, makeDeps({ transcribe: async () => { throw new Error("typed text must not transcribe"); } }));
+  assert.equal(result.transcript, text);
+});
+
+
+test("runParrotTurn rejects a Hindi romanized/native vocabulary echo", async () => {
+  const seeds = ["namaste", "paani", "dhanyavaad", "haan", "nahin"];
+  const native = ["नमस्ते", "पानी", "धन्यवाद", "हाँ", "नहीं"];
+  for (const transcript of [native.join(", "), [...seeds, ...native].join(", ")]) {
+    const result = await _runParrotTurn({
+      audioBuffer: makeWavBuffer(2), languageName: "Hindi", languageCode: "hi",
+      history: [], seedWords: seeds, seedNativeWords: native,
+      onTranscript: () => assert.fail("seed echo must not become a learner message"),
+    }, makeDeps({
+      transcribe: async () => transcript,
+      reply: async () => { throw new Error("seed echo must not get a reply"); },
+      synthesize: async () => { throw new Error("seed echo must not get speech"); },
+    }));
+    assert.deepEqual(result, { noSpeech: true, reason: "hint_echo" });
+  }
+});
