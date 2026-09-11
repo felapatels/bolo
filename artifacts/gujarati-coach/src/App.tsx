@@ -119,6 +119,7 @@ const Family = lazyRoute(() => import('@/pages/family'));
 const FamilyJoin = lazyRoute(() => import('@/pages/family-join'));
 const Privacy = lazyRoute(() => import('@/pages/privacy'));
 const Terms = lazyRoute(() => import('@/pages/terms'));
+const Support = lazyRoute(() => import('@/pages/support'));
 // Public per-language SEO pages (/languages/<slug>), no auth required.
 const LearnLanguage = lazyRoute(() => import('@/pages/learn-language'));
 // Public: a shared referral link lands here, signed in or not.
@@ -375,8 +376,21 @@ function AppRouter() {
       <Route path="/" component={HomeRedirect} />
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
+      {/* .html aliases: prerendered static files (the URLs filed with
+          Apple/Google) serve real content on first load, then this SPA's
+          own JS hydrates over them. Without a matching route here,
+          hydration replaces that real content with the NotFound catch-all
+          the instant the bundle mounts, so a reviewer clicking the exact
+          URL on file saw "Lost in translation" after the page loaded even
+          though curl (no JS) saw the real document. Same fault found and
+          fixed in SEA 2026-09-11; /support.html had no page at all here
+          until this same commit. */}
       <Route path="/privacy" component={Privacy} />
+      <Route path="/privacy.html" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      <Route path="/terms.html" component={Terms} />
+      <Route path="/support" component={Support} />
+      <Route path="/support.html" component={Support} />
       {/* Public per-language marketing/SEO pages. The /languages prefix is
           deliberate: /learn/:categoryId is the authenticated CategoryDetail. */}
       <Route path="/languages/:slug" component={LearnLanguage} />

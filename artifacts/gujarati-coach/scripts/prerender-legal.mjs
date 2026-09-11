@@ -73,9 +73,15 @@ const OUT = path.resolve(HERE, '../dist/public');
 // so it renders the app's own not-found page, and there is no content here to
 // prerender. That is a bigger problem than this script solves and it needs a
 // page written, not a build step. Do not add it here until it exists.
+//
+// /support ADDED 2026-09-11, alongside the page itself and the App.tsx .html
+// route aliases (privacy/terms/support). Before this it had no component at
+// all, so /support.html was not just clobbered by hydration like the other
+// two, it had never been real content to begin with.
 const ROUTES = [
   { url: '/privacy', module: '/src/pages/privacy.tsx', title: 'Privacy Policy : Bolo!' },
   { url: '/terms', module: '/src/pages/terms.tsx', title: 'Terms of Service : Bolo!' },
+  { url: '/support', module: '/src/pages/support.tsx', title: 'Support : Bolo!' },
 ];
 
 const warn = (message) => console.warn(`prerender: ${message}`);
