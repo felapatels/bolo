@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type SyntheticEvent } from 'react';
 import { springSnappy, springBouncy, springSmooth } from './Scene1Intro';
 
 export default function Scene2Listen() {
@@ -57,7 +57,7 @@ export default function Scene2Listen() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5 }}
-                onError={(e) => (e.currentTarget.style.opacity = '0')}
+                onError={(e: SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.opacity = '0'; }}
               />
               
               {/* Sound waves behind mascot */}

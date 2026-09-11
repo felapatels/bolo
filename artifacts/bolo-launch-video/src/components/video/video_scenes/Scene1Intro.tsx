@@ -1,5 +1,5 @@
 import { motion, type Transition } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type SyntheticEvent } from 'react';
 
 // Common spring configs
 export const springSnappy: Transition = { type: 'spring', stiffness: 400, damping: 30 };
@@ -118,7 +118,7 @@ export default function Scene1Intro() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
-            onError={(e) => (e.currentTarget.style.opacity = '0')}
+            onError={(e: SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.opacity = '0'; }}
           />
           
           {/* Start Badge */}
