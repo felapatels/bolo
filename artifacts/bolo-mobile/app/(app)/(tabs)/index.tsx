@@ -1,3 +1,4 @@
+import { getGetDailyGiftQueryKey } from '@workspace/api-client-react';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
@@ -463,6 +464,10 @@ export default function HomeScreen() {
   const queryClient = useQueryClient();
   useFocusEffect(
     React.useCallback(() => {
+      // A completed stop changes the gift gate; always refresh on return home.
+      void queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+      void queryClient.invalidateQueries({ queryKey: getGetDailyGiftQueryKey() });
+
       if (isPlus && activeLang) {
         queryClient.invalidateQueries({
           queryKey: getListReviewPhrasesQueryKey({ lang: activeLang }),

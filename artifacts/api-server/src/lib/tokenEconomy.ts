@@ -402,10 +402,10 @@ export const FIRST_CLASS_REASON: TokenReason = "spend_first_class";
  * starts failing so that a PERSON re-decides, which is the only honest mechanism
  * available to a codebase that cannot observe its own users.
  */
+// Award branch retired 2026-09-11. Retained inventory is for later wire/client cleanup.
 export const GIFT_ATTEMPTS_SHIM = {
   /** Every non-generated site that comes out together. Generated clients follow. */
   sites: [
-    "artifacts/api-server/src/routes/learning.ts",
     "artifacts/bolo-mobile/app/(app)/review.tsx",
     "artifacts/bolo-mobile/app/(app)/practice/[id].tsx",
     "artifacts/gujarati-coach/src/pages/practice.tsx",

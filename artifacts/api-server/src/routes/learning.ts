@@ -134,7 +134,6 @@ import {
 // THE streak (Task #1081): one source for the DAY STREAK number here, for the
 // repair offer's promise in routes/tokens.ts, and for streak-badge progress.
 import { loadStreakLadder } from "../lib/streakDays";
-import { giftChaiForDraw, giftRefId } from "@workspace/daily-gift";
 import {
   gameTasteState,
   isHubPlay,
@@ -233,7 +232,6 @@ import {
   gameSessionPassed,
   CLOSEOUT_FIRST_CHAI,
   STOP_UNLOCK_COST,
-  ALL_ACCESS_GIFT_MULTIPLIER,
 } from "../lib/tokenEconomy";
 import { maybeGrantAllowance } from "./tokens";
 import { recordActivityEvent } from "../lib/activityEvents";
@@ -1796,73 +1794,8 @@ router.post("/attempts", attemptsRateLimit, async (req: Request, res: Response):
           .set({ exposureCount: sql`${phrasesTable.exposureCount} + 1` })
           .where(eq(phrasesTable.id, claims.phraseId))
       : Promise.resolve(),
-    // HOOK 1c, AND IT NOW FIRES FOR OLD CLIENTS ONLY.
-    //
-    // THE TAP IS THE GRANT (owner ruling, 2026-09-04): the day's Chai belongs to
-    // POST /tokens/gift/claim, with the same reason code, the same local-day
-    // refId and the same ledger idempotency it has always had, so the learner
-    // opens a box for it and reads what tomorrow's is worth.
-    //
-    // THIS BRANCH IS THE ONLY REASON THAT RULING CAN SHIP WITHOUT TAKING CHAI
-    // FROM PEOPLE. A client that can draw the box says so (`canClaimGift`), and
-    // the server stays out of the way. Every build released before the box
-    // existed says nothing, and those learners keep being paid on their first
-    // attempt exactly as they always have. Without it, publishing this server
-    // would silently stop paying every learner who has not updated, for as long
-    // as they take to update, which for an app store is weeks and for some
-    // people is never. There is no publish order that avoids that: the fix has
-    // to be here.
-    //
-    // ONE SOURCE, TWO DOORS, NOT TWO SOURCES. Same reason, same refId, so the
-    // ledger's unique index means whichever fires first is the only payment. An
-    // old client that updates mid-day finds the box already claimed, which is
-    // correct: it was.
-    //
-    // THE AMOUNT IS THE LADDER'S, not the flat 1 this used to pay. One rule for
-    // what a day is worth; the only difference between the two doors is whether
-    // the learner watches it happen.
-    //
-    // TEMPORARY BY CONSTRUCTION, AND DELETE IT WHEN IT IS SAFE: this branch,
-    // the `canClaimGift` field on AttemptInput and the two client call sites
-    // come out together once builds without the box are gone from the field
-    // (iOS 538 and Android 540 are the first that have it). A flag nobody
-    // removes is how a compatibility shim becomes the architecture.
-    parsed.data.canClaimGift === true
-      ? Promise.resolve()
-      : loadStreakLadder(userId, timezone)
-          .then(({ currentStreakDays }) => {
-            // THE SAME DRAW THE WHEEL WOULD HAVE SHOWN. This path grants the
-            // day's gift from the attempts route when a learner practises
-            // without opening the box, so it must land on the identical number:
-            // giftChaiForDraw is pure in (learner, day, streak), and the refId
-            // makes the second of the two a no-op whichever arrives first.
-            const dayKey = localDayKey(now, timezone);
-            // THE MULTIPLIER RIDES HERE TOO, and it has to: this path and the
-            // box tap grant the same day under the same refId, so if only one
-            // of them doubled, whichever request arrived first would decide
-            // what an All-Access learner was paid.
-            const amount = giftChaiForDraw(
-              userId,
-              dayKey,
-              currentStreakDays,
-              (req as EntitledRequest).resolvedPlan?.plan === "plus"
-                ? ALL_ACCESS_GIFT_MULTIPLIER
-                : 1,
-            );
-            return grantTokensDetailed(
-              userId,
-              "earn_streak_day",
-              giftRefId(dayKey),
-              amount,
-            ).then(({ granted }) => {
-              if (granted) {
-                attemptChaiEarned += amount;
-              }
-            });
-          })
-          .catch((err) => {
-            req.log?.warn({ err }, "token_streak_day_grant_failed");
-          }),
+    // Daily gifts are awarded only by POST /tokens/gift/claim after a
+    // completed stop. An attempt must never pay or open the gift implicitly.
     // HOOK 5: lazy monthly allowance for active subscribers.
     maybeGrantAllowance(req).catch((err) => {
       req.log?.warn({ err }, "token_allowance_grant_failed");

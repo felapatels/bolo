@@ -283,6 +283,7 @@ export interface DailyGiftBoxProps {
   balance?: number;
   /** True for All-Access: no meter, a shop door instead. */
   isPlus?: boolean;
+  error?: string;
   onClaim: () => void;
   /** All-Access taps this to reach the bazaar. */
   onShop?: () => void;
@@ -305,6 +306,7 @@ export function DailyGiftBox({
   stopCost,
   balance,
   isPlus = false,
+  error,
   onClaim,
   onShop,
   onGetMore,
@@ -451,6 +453,7 @@ export function DailyGiftBox({
         disabled={!claimable}
         style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
       >
+        {error ? <Text accessibilityLiveRegion="polite" style={{ padding: 8, color: colors.foreground }}>{error}</Text> : null}
         <View style={styles.row}>
           <Animated.View
             testID={`${testID}-art`}

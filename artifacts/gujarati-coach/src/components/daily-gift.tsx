@@ -259,6 +259,7 @@ export interface DailyGiftBoxProps {
   balance?: number;
   /** True for All-Access: no meter, a shop door instead. */
   isPlus?: boolean;
+  error?: string;
   onClaim: () => void;
   onShop?: () => void;
   onGetMore?: () => void;
@@ -277,6 +278,7 @@ export function DailyGiftBox({
   stopCost,
   balance,
   isPlus = false,
+  error,
   onClaim,
   onShop,
   onGetMore,
@@ -336,6 +338,7 @@ export function DailyGiftBox({
           <BoxArt tier={tier} day={day} locked={!openable && !claimed} />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
+          {error ? <p role="status" className="text-sm">{error}</p> : null}
           {/* LOCKED IS AN INSTRUCTION, NOT A STATE. "Finish a stop today to open
               it" tells a learner what to do; a dimmed box tells them only that
               something is wrong. The lock is also a SHAPE on the art, not a hue,
@@ -581,17 +584,14 @@ export function DailyGiftCard({ testId }: { testId?: string }) {
   const isPlus = (gift?.multiplier ?? 1) > 1;
 
   const onClaim = useCallback(() => {
+    if (claim.isPending || !gift?.earnedToday || !gift.claimable || gift.claimed) return;
     claim.mutate(undefined, {
-      onSuccess: () => {
-        // The box's own state and the wallet both moved, and the Chai figures on
-        // this very page read the wallet. Refetching rather than patching: the
-        // balance is server-authoritative everywhere else and this is not the
-        // surface to invent an exception on.
+      onSettled: () => {
         queryClient.invalidateQueries({ queryKey: getGetDailyGiftQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
       },
     });
-  }, [claim, queryClient]);
+  }, [claim, gift, queryClient]);
 
   // THE TWO DOORS, and which one a learner gets is the owner's ruling rather
   // than a layout choice. All-Access cannot buy a stop at all, so they go to the
@@ -627,14 +627,15 @@ export function DailyGiftCard({ testId }: { testId?: string }) {
       baseAmount={g?.baseAmount ?? 0}
       multiplier={g?.multiplier ?? 1}
       tier={(g?.tier as GiftTier | undefined) ?? "small"}
-      claimed={(g?.claimed ?? false) || claim.isPending}
+      claimed={g?.claimed ?? false}
       // The server composes `claimable && earnedToday`, so an unearned day
       // arrives false and the box locks itself. No payload is false too.
-      claimable={(g?.claimable ?? false) && !claim.isPending}
+      claimable={(g?.claimable ?? false) && (g?.earnedToday ?? false) && !claim.isPending}
       chaiToNextStop={g?.chaiToNextStop}
       stopCost={g?.stopCost}
       balance={tokensQuery.data?.balance}
       isPlus={isPlus}
+      error={claim.isError ? "Your gift could not be claimed. Please try again." : undefined}
       onClaim={onClaim}
       onShop={onShop}
       onGetMore={onGetMore}

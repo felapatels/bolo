@@ -1,3 +1,4 @@
+import { getGetDailyGiftQueryKey } from "@workspace/api-client-react";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { ChaiWalletSheet } from "@/components/chai-wallet";
 import {
@@ -447,6 +448,13 @@ function StreakRepairSheet({
 }
 
 export default function Home() {
+  const giftQueryClient = useQueryClient();
+  useEffect(() => {
+    // Refresh earned/claimed state when returning from a stop.
+    void giftQueryClient.invalidateQueries({ queryKey: getGetTokensQueryKey() });
+    void giftQueryClient.invalidateQueries({ queryKey: getGetDailyGiftQueryKey() });
+  }, [giftQueryClient]);
+
   const { user } = useUser();
   const firstName = user?.firstName;
   const { activeLang, activeLanguage } = useLanguage();
