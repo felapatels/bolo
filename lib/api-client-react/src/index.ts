@@ -4,3 +4,5 @@ export { setBaseUrl, setAuthTokenGetter, setFailedResponseObserver, getConfigure
 export type { AuthTokenGetter, ErrorType, CustomFetchOptions, FailedResponseInfo, FailedResponseObserver } from "./custom-fetch";
 export * from './generated/api';
 export * from './generated/api.schemas';
+
+export { setAiConsentRequiredListener, notifyAiConsentRequired } from "./ai-consent-notice";

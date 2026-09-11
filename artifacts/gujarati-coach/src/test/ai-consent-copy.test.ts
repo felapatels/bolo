@@ -8,6 +8,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  AI_CONSENT_ENABLED,
+  AI_CONSENT_CARDS,
   AI_CONSENT_REASSURANCE_AND_MEMORY,
   AI_CONSENT_FEATURES,
   AI_CONSENT_IF_NO,
@@ -88,5 +90,16 @@ describe('the disclosure copy', () => {
     expect(AI_CONSENT_DECLINE_LABEL.trim().length).toBeGreaterThan(0);
     expect(AI_CONSENT_DECLINE_LABEL).not.toMatch(/^(x|close|dismiss|not now|later)$/i);
     expect(AI_CONSENT_ACCEPT_LABEL).not.toBe(AI_CONSENT_DECLINE_LABEL);
+  });
+});
+
+
+describe('India rollout hold', () => {
+  it('keeps the prepared flow disabled until the owner authorizes activation', () => {
+    expect(AI_CONSENT_ENABLED).toBe(false);
+  });
+  it('keeps reassurance and memory together in the rendered privacy card', () => {
+    expect(AI_CONSENT_CARDS.find(card => card.icon === 'shield')?.body)
+      .toBe(AI_CONSENT_REASSURANCE_AND_MEMORY);
   });
 });

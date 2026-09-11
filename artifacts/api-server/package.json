@@ -48,7 +48,8 @@
     "resend": "^6.17.2",
     "stripe": "^22.3.1",
     "ts-fsrs": "^5.4.1",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@workspace/ai-consent": "workspace:*"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

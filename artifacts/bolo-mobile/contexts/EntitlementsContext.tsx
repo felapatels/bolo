@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { useAuth } from '@clerk/expo';
 import {
+  AI_CONSENT_ENABLED,
   shouldAskAiConsent,
   aiFeaturesAllowed,
 } from '@workspace/ai-consent';
@@ -55,13 +56,13 @@ type EntitlementsContextValue = {
    * `aiConsentDecision` is the raw three-state value and is `undefined` until
    * the snapshot lands. DO NOT READ IT DIRECTLY to decide whether to ask:
    * undefined is not undecided, and treating it as such draws the consent
-   * screen on every cold start. Use the two derived booleans, which are both
-   * FALSE while loading.
+   * screen on every cold start. Use the derived booleans. While enabled, both are false during loading;
+   * while disabled, no prompt is shown and AI remains available.
    */
   aiConsentDecision: 'granted' | 'declined' | null | undefined;
   /** True only for a LOADED never-asked learner. */
   shouldAskAiConsent: boolean;
-  /** True only on an explicit granted. Speaking, chat and the call read this. */
+  /** True while rollout is off, otherwise only on an explicit grant. */
   aiFeaturesAllowed: boolean;
   refetch: () => void;
 };
@@ -114,10 +115,9 @@ export function EntitlementsProvider({
       canUseAdvancedAnalytics: e?.features.advancedAnalytics ?? false,
       dailyNewLessons: e?.limits.dailyNewLessons,
       aiConsentDecision: decision,
-      // Both derived through the shared helpers so mobile and web cannot drift
-      // on the one rule that matters here: FALSE WHILE LOADING.
-      shouldAskAiConsent: shouldAskAiConsent(decision, query.isLoading),
-      aiFeaturesAllowed: aiFeaturesAllowed(decision, query.isLoading),
+      // The shared rollout flag bypasses consent without manufacturing a grant.
+      shouldAskAiConsent: AI_CONSENT_ENABLED && shouldAskAiConsent(decision, query.isLoading),
+      aiFeaturesAllowed: !AI_CONSENT_ENABLED || aiFeaturesAllowed(decision, query.isLoading),
       refetch: () => {
         refetch();
       },

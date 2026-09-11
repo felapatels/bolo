@@ -10,24 +10,10 @@
 // The fleet contract lives in bolo-supervisor/AI-CONSENT-SPEC.md, Part 6.
 // ---------------------------------------------------------------------------
 
-/**
- * THE ENFORCEMENT FLAG, AND IT IS DELIBERATELY FALSE.
- *
- * The server half of this gate lands BEFORE the client screens exist. If it
- * enforced on arrival it would 403 speaking practice, chat and the call for
- * EVERY learner, because nobody has been given a way to say yes yet.
- *
- * FLIP THIS IN THE SAME COMMIT AS THE CLIENT SCREENS. Not before, not after.
- * `aiConsent.test.ts` asserts it is false and will fail the moment it is
- * flipped, which is the point: the test is what makes the next person notice
- * that the client half has to land at the same time.
- *
- * The mechanism is LATAM's, and its reasoning is worth keeping at the site:
- * "'do not publish yet' is a hope when fifteen sessions share a tree, and a
- * pinned flag is a mechanism." A flag pinned by a test survives a session
- * ending, a context compacting, and a fork that never read the message.
- */
-export const AI_CONSENT_ENFORCED = false;
+// India remains disabled by owner decision, even though the clients are ready.
+// Enable only with an explicitly authorized, coordinated client/server release.
+import { AI_CONSENT_ENABLED } from "@workspace/ai-consent";
+export const AI_CONSENT_ENFORCED = AI_CONSENT_ENABLED;
 
 /**
  * WHICH DISCLOSURE TEXT WAS AGREED TO.

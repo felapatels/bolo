@@ -1,5 +1,3 @@
-import { AiConsentGate } from '@/components/AiConsentGate';
-import { useAiConsentGate } from '@/hooks/useAiConsentGate';
 import React from 'react';
 import {
   AccessibilityInfo,
@@ -193,7 +191,6 @@ export default function ChatScreen() {
   // before it can. `shouldAsk` is FALSE while the entitlements snapshot loads,
   // so this draws nothing on a cold start. Declared here, above every early
   // return, because it is a hook.
-  const aiConsent = useAiConsentGate();
 
   // The nav bubble and its ring are bigger on an iPad; the flank notes below
   // have to clear whichever size is drawn. See navMetrics in (tabs)/_layout.
@@ -2045,13 +2042,6 @@ export default function ChatScreen() {
 
   return (
     <Screen>
-      {/* THE GATE. Mounted at the door rather than kept as a component nobody
-          renders: a consent screen that exists and is mounted nowhere looks
-          compliant and protects no one. Overlays this screen, so the rest of
-          the app is untouched. */}
-      {aiConsent.shouldAsk && (
-        <AiConsentGate />
-      )}
       {/* Header — no back button: the screen now lives in the tab bar */}
       <View style={styles.header}>
         <View style={styles.headerCenter}>

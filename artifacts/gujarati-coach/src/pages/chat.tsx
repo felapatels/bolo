@@ -1,3 +1,4 @@
+import { notifyAiConsentRequired } from '@workspace/api-client-react';
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import {
@@ -859,6 +860,7 @@ export default function ChatPage() {
 
       if (!res.ok) {
         const body = await res.text().catch(() => "");
+        if (res.status === 403) notifyAiConsentRequired(body);
         throw new Error(`Chat API responded with ${res.status}: ${body.slice(0, 200)}`);
       }
       if (!res.body) {
@@ -1389,6 +1391,7 @@ export default function ChatPage() {
 
       if (!res.ok) {
         const body = await res.text().catch(() => "");
+        if (res.status === 403) notifyAiConsentRequired(body);
         throw new Error(`Chat API responded with ${res.status}: ${body.slice(0, 200)}`);
       }
       if (!res.body) {

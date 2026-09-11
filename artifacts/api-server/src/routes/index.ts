@@ -1,3 +1,4 @@
+import { guardAiRequests } from "../middlewares/guardAiRequests";
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import languagesRouter from "./languages";
@@ -70,6 +71,7 @@ router.use(contactRouter);
 // write the script and have never signed in. See routes/scriptTrace.ts.
 router.use(scriptTraceRouter);
 router.use(requireAuth);
+router.use(guardAiRequests);
 // THE NEST: internal tooling, 404 for everybody but the owner. It sits directly
 // after requireAuth and BEFORE loadEntitlements on purpose: it is not a product
 // feature, so it must not be gated by, counted in, or slowed down by

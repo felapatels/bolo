@@ -8,8 +8,6 @@
  * Navigated to directly from the "Review Now" badge on the home screen so
  * learners can start a session without an extra tap through the progress tab.
  */
-import { AiConsentGate } from '@/components/AiConsentGate';
-import { useAiConsentGate } from '@/hooks/useAiConsentGate';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -511,7 +509,6 @@ export default function ReviewScreen() {
   // before it can. `shouldAsk` is FALSE while the entitlements snapshot loads,
   // so this draws nothing on a cold start. Declared here, above every early
   // return, because it is a hook.
-  const aiConsent = useAiConsentGate();
 
   const colors = useColors();
   const skipEnter = useAppearSkip();
@@ -1615,13 +1612,6 @@ export default function ReviewScreen() {
 
   return (
     <Screen>
-      {/* THE GATE. Mounted at the door rather than kept as a component nobody
-          renders: a consent screen that exists and is mounted nowhere looks
-          compliant and protects no one. Overlays this screen, so the rest of
-          the app is untouched. */}
-      {aiConsent.shouldAsk && (
-        <AiConsentGate />
-      )}
       <ReviewHeader
         onClose={leave}
         label={isFlashback ? `Flashback ${index + 1} of ${list.length}` : `${index + 1} of ${list.length}`}

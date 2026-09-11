@@ -1,3 +1,4 @@
+import { AiConsentBoundary } from '@/components/AiConsentGate';
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { useAuth } from '@clerk/expo';
@@ -95,6 +96,7 @@ export default function AppLayout() {
         {/* What Bolo is wearing, resolved once for every mascot on screen. */}
         <EquippedOutfitProvider>
         <LanguageProvider>
+          <AiConsentBoundary>
             <ReminderScheduler />
             <FirstRunBootstrapper />
             {/* Asks about notifications in Bolo's own words before the OS is
@@ -166,6 +168,7 @@ export default function AppLayout() {
               <Stack.Screen name="language" options={{ presentation: 'modal' }} />
               <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
             </Stack>
+          </AiConsentBoundary>
         </LanguageProvider>
         </EquippedOutfitProvider>
       </PurchasesProvider>

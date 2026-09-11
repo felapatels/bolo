@@ -1,4 +1,5 @@
 import React from 'react';
+import { AiConsentSettings } from '@/components/AiConsentGate';
 import {
   ActivityIndicator,
   Alert,
@@ -702,6 +703,8 @@ export default function AccountScreen() {
               onPress={() => router.push('/(app)/account/memories')}
             />
           </View>
+
+          <AiConsentSettings />
 
           {/* Notifications */}
           <SectionLabel>NOTIFICATIONS</SectionLabel>

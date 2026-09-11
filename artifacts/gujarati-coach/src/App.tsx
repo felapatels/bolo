@@ -1,3 +1,4 @@
+import { AiConsentBoundary } from '@/components/ai-consent-gate';
 import { ClerkProvider, SignIn, SignUp, Show, useUser } from '@clerk/react';
 import { lazy, Suspense, useEffect, type ComponentType } from 'react';
 // Type only, so the bazaar's page stays a lazy chunk.
@@ -356,7 +357,7 @@ function HomeRedirect() {
 function Guard({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <Show when="signed-in">{children}</Show>
+      <Show when="signed-in"><AiConsentBoundary>{children}</AiConsentBoundary></Show>
       <Show when="signed-out">
         <Redirect to="/" />
       </Show>

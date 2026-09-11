@@ -13,14 +13,11 @@ import {
   NEVER_ASKED,
 } from "./aiConsentTypes";
 
-test("the enforcement flag is still false, and flipping it is a two-part commit", () => {
+test("India enforcement remains off until explicitly authorized", () => {
   assert.equal(
     AI_CONSENT_ENFORCED,
     false,
-    "AI_CONSENT_ENFORCED is true. If the consent SCREENS have shipped in this " +
-      "same commit, update this test in that commit and say so in the message. " +
-      "If they have not, this flip 403s speaking practice, chat and the call " +
-      "for EVERY learner, because nobody has been given a way to say yes.",
+    "India consent is held off by the owner. The completed client UI alone does not authorize activation.",
   );
 });
 

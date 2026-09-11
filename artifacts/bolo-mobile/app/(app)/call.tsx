@@ -19,8 +19,6 @@
  *   xcrun simctl openurl booted "bolo-mobile://call?mode=game"           the real games call
  *   xcrun simctl openurl booted "bolo-mobile://call?fake=1&phase=connected"
  */
-import { AiConsentGate } from '@/components/AiConsentGate';
-import { useAiConsentGate } from '@/hooks/useAiConsentGate';
 import React from 'react';
 import { Alert, BackHandler, Platform, StatusBar } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -50,7 +48,6 @@ export default function CallScreen() {
   // before it can. `shouldAsk` is FALSE while the entitlements snapshot loads,
   // so this draws nothing on a cold start. Declared here, above every early
   // return, because it is a hook.
-  const aiConsent = useAiConsentGate();
 
   const params = useLocalSearchParams<{
     backdrop?: string;
@@ -230,13 +227,6 @@ export default function CallScreen() {
 
   return (
     <>
-      {/* THE GATE. Mounted at the door rather than kept as a component nobody
-          renders: a consent screen that exists and is mounted nowhere looks
-          compliant and protects no one. Overlays this screen, so the rest of
-          the app is untouched. */}
-      {aiConsent.shouldAsk && (
-        <AiConsentGate />
-      )}
       <StatusBar barStyle="light-content" />
       {ringing ? (
         <IncomingCall

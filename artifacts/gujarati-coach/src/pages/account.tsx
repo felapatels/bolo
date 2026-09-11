@@ -1,3 +1,4 @@
+import { AiConsentSettings } from '@/components/ai-consent-gate';
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Map } from "lucide-react";
@@ -607,6 +608,8 @@ export default function Account() {
         >
           <BoloMemories />
         </Section>
+
+        <AiConsentSettings />
 
         {/* Notifications */}
         <Section

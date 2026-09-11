@@ -5,7 +5,7 @@
  * other way round from the obvious version. Asserting "the four known doors
  * have a gate" passes forever and catches nothing. This starts from the SENDS:
  * it finds every file that calls one of the gated client hooks, and requires
- * each to mount the gate.
+ * each to live under the authenticated consent boundary.
  *
  * So it fails when somebody adds a FIFTH door, which is the failure that
  * actually happens. LATAM's caveat on its own client gate is the reason this
@@ -89,26 +89,13 @@ describe('the AI consent gate is mounted at every door that sends', () => {
     expect(found.length).toBeGreaterThan(0);
   });
 
-  it('every sending file is covered by a screen that mounts AiConsentGate', () => {
-    const uncovered: string[] = [];
+  it('every sending screen stays under the authenticated consent boundary', () => {
+    const layout = read(path.join(ROOT, 'app/(app)/_layout.tsx'));
+    expect(layout).toMatch(/<AiConsentBoundary>[\s\S]*<Stack[\s\S]*<\/Stack>[\s\S]*<\/AiConsentBoundary>/);
     for (const p of callers) {
       const rel = path.relative(ROOT, p);
-      const target = SCREEN_FOR[rel] ? path.join(ROOT, SCREEN_FOR[rel]) : p;
-      const src = read(target);
-      const mounts = src.includes('<AiConsentGate') && src.includes('useAiConsentGate');
-      if (!mounts) uncovered.push(`${rel}${SCREEN_FOR[rel] ? ` (via ${SCREEN_FOR[rel]})` : ''}`);
-    }
-    expect(uncovered).toEqual([]);
-  });
-
-  it('the gate is guarded by shouldAsk, never rendered unconditionally', () => {
-    // shouldAsk is FALSE while the snapshot loads. An unguarded mount shows the
-    // consent screen on every cold start, which is the exact bug the loading
-    // rule exists to prevent.
-    const doors = SOURCES.filter((p) => read(p).includes('<AiConsentGate'));
-    expect(doors.length).toBeGreaterThan(0);
-    for (const p of doors) {
-      expect(read(p)).toMatch(/aiConsent\.shouldAsk\s*&&\s*\(?\s*<AiConsentGate/);
+      const screen = SCREEN_FOR[rel] ?? rel;
+      expect(screen.startsWith('app/(app)/')).toBe(true);
     }
   });
 });

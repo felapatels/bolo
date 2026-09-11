@@ -1,3 +1,4 @@
+import { notifyAiConsentRequired } from '@workspace/api-client-react';
 import { getConfiguredAuthToken, getConfiguredBaseUrl } from '@workspace/api-client-react';
 
 /**
@@ -210,6 +211,7 @@ async function request<T>(
   if (res.status === 204) return null;
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
+    if (res.status === 403) notifyAiConsentRequired(detail);
     throw new CallApiError(res.status, detail || `Call request failed (${res.status})`);
   }
   return (await res.json()) as T;

@@ -111,3 +111,17 @@ export function aiFeaturesAllowed(
   if (loading) return false;
   return decision === "granted";
 }
+
+
+/** India rollout switch. Owner keeps this OFF until explicitly approving activation.
+ * Shared by both clients and the server; disabling it never writes a consent decision.
+ */
+export const AI_CONSENT_ENABLED: boolean = false;
+export const AI_CONSENT_GREETING = "Let's get Bolo talking!";
+export const AI_CONSENT_SUBTITLE = "Before speaking practice, chat and calls can start, we need your OK to send a few things to outside services.";
+export const AI_CONSENT_CARDS = [
+  { icon: "mic", title: "When you practise speaking", body: "Your recording goes to OpenAI for speaking practice and calls. Not a transcript — the audio itself.", background: "#FDEEDC", color: "#C97A2B" },
+  { icon: "message-circle", title: "When you chat with Bolo", body: "What you type or say goes to OpenAI so Bolo can reply and keep short notes to remember you by.", background: "#E3F2E8", color: "#3A8A5A" },
+  { icon: "volume-2", title: "To give Bolo a voice", body: "Reply text goes to ElevenLabs to be read aloud. Never your recording — just words.", background: "#E8EEFB", color: "#3D63C9" },
+  { icon: "shield", title: "Your details and Bolo's memory", body: AI_CONSENT_REASSURANCE_AND_MEMORY, background: "#F5E9FB", color: "#8B4FBF" },
+] as const;

@@ -1,188 +1,92 @@
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { openPrivacyPolicyAlways } from '@/lib/legal';
+import { AiConsentNotice } from '@/components/AiConsentNotice';
+import { useState, type ReactNode } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, useWindowDimensions, ActivityIndicator, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  AI_CONSENT_TITLE,
-  AI_CONSENT_WHAT_LEAVES,
-  AI_CONSENT_FEATURES,
-  AI_RECIPIENTS,
-  AI_CONSENT_REASSURANCE_AND_MEMORY,
-  AI_CONSENT_IF_NO,
-  AI_CONSENT_ACCEPT_LABEL,
-  AI_CONSENT_DECLINE_LABEL,
-} from '@workspace/ai-consent';
-import { useCallback, useState } from 'react';
+import { Feather } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  useSetAiConsent,
-  getGetEntitlementsQueryKey,
-  getGetAiConsentQueryKey,
-} from '@workspace/api-client-react';
+import { AI_CONSENT_ENABLED, AI_CONSENT_GREETING, AI_CONSENT_SUBTITLE, AI_CONSENT_CARDS, AI_CONSENT_IF_NO, AI_CONSENT_ACCEPT_LABEL, AI_CONSENT_DECLINE_LABEL, AI_CONSENT_SETTINGS_LABEL } from '@workspace/ai-consent';
+import { useGetAiConsent, useSetAiConsent, getGetAiConsentQueryKey, getGetEntitlementsQueryKey, type Entitlements } from '@workspace/api-client-react';
 import { useColors } from '@/hooks/useColors';
-import { useEntitlements } from '@/contexts/EntitlementsContext';
-import { ChunkyButton } from '@/components/ChunkyButton';
+import { Mascot } from '@/components/Mascot';
 
-/**
- * THE CONSENT SCREEN. Apple 5.1.1(i) and 5.1.2(i).
- *
- * Rendered by every door that would send the learner's voice or conversation
- * onward. It is not a route: mounting it at the doors is what makes it
- * unavoidable, and a consent component that exists but is mounted nowhere is a
- * compliance artefact that looks finished and protects nobody.
- *
- * THREE THINGS HERE ARE NOT STYLE CHOICES.
- *
- * 1. The reassurance and the memory clause are ONE <Text>. They arrive as one
- *    string from @workspace/ai-consent for the same reason. Split across two
- *    list items, any truncation or collapse shows the comforting half alone.
- *
- * 2. THE REFUSAL IS A REAL BUTTON. Full width, the same height as the accept,
- *    with a real label. It is OUTLINED where the accept is FILLED, so the two
- *    differ in SHAPE and not only in colour: the owner is partially colour
- *    blind, and Apple reads a hidden or greyed-out "no" as not having offered a
- *    choice at all. Never make this a text link in a corner.
- *
- * 3. It renders only when the caller passes `shouldAsk`, which is FALSE while
- *    the entitlements snapshot is loading. Undefined is not undecided.
- */
+// The wrapper skips even consent-specific requests while the rollout is off.
+export function AiConsentBoundary({ children }: { children: ReactNode }) {
+  return AI_CONSENT_ENABLED ? <EnabledBoundary>{children}</EnabledBoundary> : <>{children}</>;
+}
+function EnabledBoundary({ children }: { children: ReactNode }) {
+  const query = useGetAiConsent();
+  const colors = useColors();
+  if (query.isLoading) return <View style={[s.loading, { backgroundColor: colors.background }]}><ActivityIndicator accessibilityLabel="Checking AI permission" /></View>;
+  if (!query.data) return <View style={[s.loading, { backgroundColor: colors.background }]}><Text style={{ color: colors.foreground }}>Couldn't check AI permission.</Text><Pressable accessibilityRole="button" onPress={() => void query.refetch()}><Text style={{ color: colors.primary, padding: 20 }}>Try again</Text></Pressable></View>;
+  // A saved refusal opens the rest of the app; only an explicit Account action asks again.
+  if (query.data.decision === null) return <AiConsentGate />;
+  return <><AiConsentNotice />{children}</>;
+}
 export function AiConsentGate({ onDecided }: { onDecided?: (granted: boolean) => void }) {
+  return AI_CONSENT_ENABLED ? <ConsentScreen onDecided={onDecided} /> : null;
+}
+function ConsentScreen({ onDecided, onClose }: { onDecided?: (granted: boolean) => void; onClose?: () => void }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { refetch } = useEntitlements();
-  const queryClient = useQueryClient();
+  const wide = useWindowDimensions().width >= 768;
+  const cache = useQueryClient();
   const mutation = useSetAiConsent();
-  const [busy, setBusy] = useState(false);
-
-  // THE WRITE LIVES HERE, not in the door's hook, because this component mounts
-  // only while a learner is being asked. See hooks/useAiConsentGate.ts.
-  const decide = useCallback(
-    async (granted: boolean) => {
-      setBusy(true);
-      try {
-        await mutation.mutateAsync({ data: { granted } });
-        // Both keys: the decision rides the entitlements snapshot AND has its
-        // own endpoint, and a stale entitlements cache leaves the door still
-        // asking after the learner has answered.
-        await queryClient.invalidateQueries({ queryKey: getGetAiConsentQueryKey() });
-        await queryClient.invalidateQueries({ queryKey: getGetEntitlementsQueryKey() });
-        refetch();
-        onDecided?.(granted);
-      } finally {
-        setBusy(false);
-      }
-    },
-    [mutation, queryClient, refetch, onDecided],
-  );
-  const onAccept = useCallback(() => void decide(true), [decide]);
-  const onDecline = useCallback(() => void decide(false), [decide]);
-
-  return (
-    <View
-      style={[s.backdrop, { backgroundColor: colors.background, paddingTop: insets.top }]}
-      testID="ai-consent-gate"
-    >
-      <ScrollView
-        contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 24 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={[s.title, { color: colors.foreground }]} testID="ai-consent-title">
-          {AI_CONSENT_TITLE}
-        </Text>
-
-        <Text style={[s.para, { color: colors.foreground }]} testID="ai-consent-what-leaves">
-          {AI_CONSENT_WHAT_LEAVES}
-        </Text>
-
-        <View style={s.list}>
-          {AI_CONSENT_FEATURES.map((f) => (
-            <View key={f} style={s.row}>
-              {/* A shape, not a colour: the marker has to read for a learner who
-                  cannot separate the accent from the text. */}
-              <Text style={[s.bullet, { color: colors.foreground }]}>•</Text>
-              <Text style={[s.rowText, { color: colors.foreground }]}>{f}</Text>
-            </View>
-          ))}
+  const [error, setError] = useState('');
+  const decide = async (granted: boolean) => {
+    if (mutation.isPending) return;
+    setError('');
+    try {
+      const saved = await mutation.mutateAsync({ data: { granted } });
+      cache.setQueryData(getGetAiConsentQueryKey(), saved);
+      cache.setQueryData<Entitlements>(getGetEntitlementsQueryKey(), current => current ? { ...current, aiConsent: saved } : current);
+      void cache.invalidateQueries({ queryKey: getGetEntitlementsQueryKey() });
+      onDecided?.(granted);
+    } catch {
+      setError("Your choice wasn't saved. Please try again.");
+    }
+  };
+  return <View style={[s.backdrop, { backgroundColor: colors.background }]} testID="ai-consent-gate">
+    <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+      <View style={[s.column, { maxWidth: wide ? 560 : 380 }]}>
+        {onClose && <Pressable accessibilityRole="button" onPress={onClose} disabled={mutation.isPending}><Text style={{ color: colors.primary, textAlign: 'right', padding: 8 }}>Close</Text></Pressable>}
+        <View style={s.headingRow}>
+          <View style={[s.headingCard, { borderColor: colors.border, backgroundColor: colors.card }]}><Text accessibilityRole="header" style={[s.heading, { color: colors.foreground, fontSize: wide ? 22 : 18 }]}>{AI_CONSENT_GREETING}</Text></View>
+          <Mascot pose="wave" size={wide ? 112 : 84} />
         </View>
-
-        {AI_RECIPIENTS.map((r) => (
-          <Text
-            key={r.name}
-            style={[s.para, { color: colors.foreground }]}
-            testID={`ai-consent-recipient-${r.name}`}
-          >
-            <Text style={s.strong}>{r.name}</Text>
-            {' receives '}
-            {r.receives}
-          </Text>
-        ))}
-
-        {/* ONE NODE. See the header comment. The testID is asserted, and so is
-            the fact that BOTH halves are inside this single element. */}
-        <Text
-          style={[s.para, { color: colors.foreground }]}
-          testID="ai-consent-reassurance-and-memory"
-        >
-          {AI_CONSENT_REASSURANCE_AND_MEMORY}
-        </Text>
-
-        <Text style={[s.para, { color: colors.mutedForeground }]} testID="ai-consent-if-no">
-          {AI_CONSENT_IF_NO}
-        </Text>
-      </ScrollView>
-
-      <View style={[s.actions, { paddingBottom: insets.bottom + 12 }]}>
-        <ChunkyButton
-          title={AI_CONSENT_ACCEPT_LABEL}
-          onPress={onAccept}
-          disabled={busy}
-          testID="ai-consent-accept"
-          style={s.fullWidth}
-        />
-        <Pressable
-          onPress={onDecline}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel={AI_CONSENT_DECLINE_LABEL}
-          testID="ai-consent-decline"
-          style={({ pressed }) => [
-            s.decline,
-            {
-              borderColor: colors.foreground,
-              opacity: pressed ? 0.7 : 1,
-            },
-          ]}
-        >
-          <Text style={[s.declineText, { color: colors.foreground }]}>
-            {AI_CONSENT_DECLINE_LABEL}
-          </Text>
-        </Pressable>
+        <Text style={[s.subtitle, { color: colors.mutedForeground, fontSize: wide ? 18 : 14 }]}>{AI_CONSENT_SUBTITLE}</Text>
+        {AI_CONSENT_CARDS.map(card => <View key={card.icon} style={[s.card, { backgroundColor: card.background, padding: wide ? 20 : 12 }]}>
+          <Feather name={card.icon} size={wide ? 26 : 22} color={card.color} />
+          <View style={s.cardText}><Text style={[s.cardTitle, { fontSize: wide ? 18 : 14 }]}>{card.title}</Text><Text testID={card.icon === 'shield' ? 'ai-consent-reassurance-and-memory' : undefined} style={[s.cardBody, { fontSize: wide ? 16 : 12.5, lineHeight: wide ? 23 : 18 }]}>{card.body}</Text></View>
+        </View>)}
+        <Text style={[s.explanation, { color: colors.mutedForeground }]}>{AI_CONSENT_IF_NO}</Text>
+        {!!error && <Text accessibilityRole="alert" style={{ color: colors.foreground }}>{error}</Text>}
+        <View style={s.actions}>
+          <Pressable accessibilityRole="button" disabled={mutation.isPending} onPress={() => void decide(false)} testID="ai-consent-decline" style={[s.button, { borderColor: colors.primary }]}><Text style={[s.buttonText, { color: colors.primary }]}>{AI_CONSENT_DECLINE_LABEL}</Text></Pressable>
+          <Pressable accessibilityRole="button" disabled={mutation.isPending} onPress={() => void decide(true)} testID="ai-consent-accept" style={[s.button, { backgroundColor: colors.primary, borderColor: colors.primary }]}><Text style={[s.buttonText, { color: '#fff' }]}>{AI_CONSENT_ACCEPT_LABEL}</Text></Pressable>
+        </View>
+        {mutation.isPending && <ActivityIndicator accessibilityLabel="Saving your choice" />}
+        <Pressable accessibilityRole="link" onPress={() => void openPrivacyPolicyAlways()}><Text style={[s.privacy, { color: colors.primary }]}>Privacy policy</Text></Pressable>
       </View>
-    </View>
-  );
+    </ScrollView>
+  </View>;
 }
-
+export function AiConsentSettings() {
+  const [open, setOpen] = useState(false);
+  const colors = useColors();
+  if (!AI_CONSENT_ENABLED) return null;
+  return <><Pressable accessibilityRole="button" onPress={() => setOpen(true)} style={{ padding: 16 }}><Text style={{ color: colors.foreground, fontWeight: '700' }}>{AI_CONSENT_SETTINGS_LABEL}</Text><Text style={{ color: colors.mutedForeground }}>Review or change AI permission</Text></Pressable>
+    <Modal visible={open} onRequestClose={() => setOpen(false)} animationType="slide"><ConsentScreen onDecided={() => setOpen(false)} onClose={() => setOpen(false)} /></Modal></>;
+}
 const s = StyleSheet.create({
-  backdrop: { ...StyleSheet.absoluteFillObject, zIndex: 100 },
-  body: { paddingHorizontal: 24, paddingTop: 24, gap: 16 },
-  title: { fontSize: 26, fontWeight: '800', lineHeight: 32 },
-  para: { fontSize: 16, lineHeight: 24 },
-  strong: { fontWeight: '700' },
-  list: { gap: 6 },
-  row: { flexDirection: 'row', gap: 10 },
-  bullet: { fontSize: 16, lineHeight: 24 },
-  rowText: { fontSize: 16, lineHeight: 24, flex: 1 },
-  actions: { paddingHorizontal: 24, paddingTop: 8, gap: 12 },
-  fullWidth: { width: '100%' },
-  // OUTLINED, and the same height as the filled accept above it. The shape is
-  // the difference, so it survives a colour-blind reader and a greyscale
-  // screenshot.
-  decline: {
-    width: '100%',
-    minHeight: 52,
-    borderRadius: 14,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  declineText: { fontSize: 16, fontWeight: '700' },
+  backdrop: { flex: 1 }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scroll: { flexGrow: 1, paddingHorizontal: 24, justifyContent: 'center', alignItems: 'center' },
+  column: { width: '100%', gap: 12 }, headingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headingCard: { flex: 1, borderRadius: 20, borderWidth: 2, padding: 16 }, heading: { fontWeight: '800' },
+  subtitle: { textAlign: 'center', lineHeight: 24, marginBottom: 4 },
+  card: { flexDirection: 'row', gap: 12, borderRadius: 18 }, cardText: { flex: 1, gap: 4 },
+  cardTitle: { color: '#172033', fontWeight: '700' }, cardBody: { color: '#344054' },
+  explanation: { fontSize: 12, lineHeight: 18 }, actions: { flexDirection: 'row', gap: 12 },
+  button: { flex: 1, borderWidth: 2, borderRadius: 16, minHeight: 56, padding: 12, justifyContent: 'center', alignItems: 'center' },
+  buttonText: { fontSize: 15, fontWeight: '700', textAlign: 'center' }, privacy: { textAlign: 'center', padding: 8, textDecorationLine: 'underline' },
 });

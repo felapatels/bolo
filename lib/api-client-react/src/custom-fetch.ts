@@ -1,3 +1,4 @@
+import { notifyAiConsentRequired } from "./ai-consent-notice";
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
   /** Per-request override for the fetch deadline. */
@@ -486,6 +487,7 @@ export async function customFetch<T = unknown>(
       console.warn(`[auth] 401 path=${path} had_bearer=${hadBearer}`);
     }
     const errorData = await parseErrorBody(response, method);
+    if (response.status === 403) notifyAiConsentRequired(errorData);
     throw new ApiError(response, errorData, requestInfo);
   }
 
