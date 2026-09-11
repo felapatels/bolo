@@ -77,9 +77,7 @@ export function DailyGiftCard({ testID }: { testID?: string }) {
     });
   }, [claim, gift, queryClient]);
 
-  // THE TWO DOORS, and which one a learner gets is the owner's ruling rather
-  // than a layout choice. All-Access cannot buy a stop at all, so they go to
-  // the bazaar; a Free learner short of one goes to the Chai packs.
+  // Shopping is available in every gift state; currency packs remain a separate action.
   const onShop = useCallback(() => router.push('/bazaar'), [router]);
   const onGetMore = useCallback(() => router.push('/bazaar/tickets'), [router]);
 

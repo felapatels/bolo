@@ -312,9 +312,21 @@ export function DailyGiftBox({
       ? `${chaiToNextStop} more Chai to open your next stop`
       : "Enough for your next stop";
 
+  const shopButton = (
+    <button
+      type="button"
+      data-testid={`${testId}-shop`}
+      onClick={onShop}
+      className="h-11 w-full rounded-xl bg-primary text-sm font-bold text-primary-foreground"
+    >
+      Go Shopping
+    </button>
+  );
+
   // ── RESTING ───────────────────────────────────────────────────────────────
   if (!claimed) {
     return (
+      <div className="space-y-3 rounded-[18px] border border-border bg-card p-3">
       <button
         type="button"
         data-testid={testId}
@@ -330,7 +342,7 @@ export function DailyGiftBox({
           onClaim();
         }}
         className={cn(
-          "flex w-full items-center gap-3 rounded-[18px] border border-border bg-card p-3 text-left",
+          "flex w-full items-center gap-3 text-left",
           openable && "transition-colors hover:border-primary/40",
         )}
       >
@@ -388,6 +400,8 @@ export function DailyGiftBox({
           )}
         </div>
       </button>
+      {shopButton}
+      </div>
     );
   }
 
@@ -496,14 +510,7 @@ export function DailyGiftBox({
               {balance ?? 0}
             </span>
           </div>
-          <button
-            type="button"
-            data-testid={`${testId}-shop`}
-            onClick={onShop}
-            className="h-11 w-full rounded-xl bg-primary text-sm font-bold text-primary-foreground"
-          >
-            Go Shopping
-          </button>
+
         </>
       ) : (
         <>
@@ -538,6 +545,7 @@ export function DailyGiftBox({
           </button>
         </>
       )}
+      {shopButton}
     </div>
   );
 }

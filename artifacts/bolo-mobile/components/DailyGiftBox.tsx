@@ -437,9 +437,21 @@ export function DailyGiftBox({
       ? `${chaiToNextStop} more Chai to open your next stop`
       : 'Enough for your next stop';
 
+  const shopButton = (
+    <Pressable
+      testID={`${testID}-shop`}
+      accessibilityRole="button"
+      onPress={onShop}
+      style={[styles.button, { backgroundColor: colors.primary, shadowColor: colors.primaryShadow }]}
+    >
+      <Text style={styles.buttonLabel}>Go Shopping</Text>
+    </Pressable>
+  );
+
   // ── RESTING ───────────────────────────────────────────────────────────────
   if (!claimed) {
     return (
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <Pressable
         testID={testID}
         accessibilityRole="button"
@@ -451,7 +463,6 @@ export function DailyGiftBox({
         }
         onPress={press}
         disabled={!claimable}
-        style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
       >
         {error ? <Text accessibilityLiveRegion="polite" style={{ padding: 8, color: colors.foreground }}>{error}</Text> : null}
         <View style={styles.row}>
@@ -535,6 +546,8 @@ export function DailyGiftBox({
           </View>
         </View>
       </Pressable>
+      {shopButton}
+      </View>
     );
   }
 
@@ -646,14 +659,7 @@ export function DailyGiftBox({
               {balance ?? 0}
             </Text>
           </View>
-          <Pressable
-            testID={`${testID}-shop`}
-            accessibilityRole="button"
-            onPress={onShop}
-            style={[styles.button, { backgroundColor: colors.primary, shadowColor: colors.primaryShadow }]}
-          >
-            <Text style={styles.buttonLabel}>Go Shopping</Text>
-          </Pressable>
+
         </>
       ) : (
         <>
@@ -688,6 +694,7 @@ export function DailyGiftBox({
           </Pressable>
         </>
       )}
+      {shopButton}
     </View>
   );
 }
