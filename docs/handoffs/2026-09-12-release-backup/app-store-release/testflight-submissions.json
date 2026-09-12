@@ -1,0 +1,38 @@
+[
+  {
+    "region": "india",
+    "build": 547,
+    "submissionId": "a4a782e9-ce65-4910-82eb-cae2b60aec96",
+    "status": "UPLOADED_APPLE_PROCESSING"
+  },
+  {
+    "region": "sea",
+    "build": 11,
+    "submissionId": "5238a507-380f-4fc3-8825-e6677444c445",
+    "status": "UPLOADED_APPLE_PROCESSING"
+  },
+  {
+    "region": "east",
+    "build": 5,
+    "submissionId": "b15b3b44-4f9c-4963-b8f2-d83040f96279",
+    "status": "UPLOADED_APPLE_PROCESSING"
+  },
+  {
+    "region": "africa",
+    "build": 5,
+    "submissionId": "04715260-7694-465b-94d2-b4aaeec9765c",
+    "status": "UPLOADED_APPLE_PROCESSING"
+  },
+  {
+    "region": "europe",
+    "build": 6,
+    "submissionId": "30c8d8de-6788-402f-b798-257cbe9ed43b",
+    "status": "UPLOADED_APPLE_PROCESSING"
+  },
+  {
+    "region": "latam",
+    "build": 5,
+    "submissionId": "a6ae5b8d-4065-4aa2-97fd-ae6bfd576c14",
+    "status": "UPLOADED_APPLE_PROCESSING"
+  }
+]

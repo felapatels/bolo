@@ -1,0 +1,30 @@
+[
+  {
+    "id": "6810749015",
+    "price": 12.99,
+    "pricedTerritories": 175,
+    "availableTerritories": 175,
+    "futureTerritories": true
+  },
+  {
+    "id": "6810748914",
+    "price": 89.99,
+    "pricedTerritories": 175,
+    "availableTerritories": 175,
+    "futureTerritories": true
+  },
+  {
+    "id": "6810748906",
+    "price": 12.99,
+    "pricedTerritories": 175,
+    "availableTerritories": 175,
+    "futureTerritories": true
+  },
+  {
+    "id": "6810748855",
+    "price": 89.99,
+    "pricedTerritories": 175,
+    "availableTerritories": 175,
+    "futureTerritories": true
+  }
+]

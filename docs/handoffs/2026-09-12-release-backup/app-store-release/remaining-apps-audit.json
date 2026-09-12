@@ -1,0 +1,107 @@
+{
+  "checkedAt": "2026-09-12T16:20:43.920Z",
+  "apps": {
+    "east": {
+      "app": "6809205852",
+      "version": "5ace16cd-a434-40d7-82d8-8918d69739a8",
+      "build": "5",
+      "buildState": "VALID",
+      "locales": [
+        {
+          "locale": "es-MX",
+          "description": true,
+          "privacyInDescription": true,
+          "termsInDescription": true,
+          "sets": []
+        },
+        {
+          "locale": "en-US",
+          "description": true,
+          "privacyInDescription": true,
+          "termsInDescription": true,
+          "sets": [
+            {
+              "display": "APP_IPAD_PRO_3GEN_129",
+              "count": 4,
+              "complete": true
+            },
+            {
+              "display": "APP_IPHONE_67",
+              "count": 7,
+              "complete": true
+            }
+          ]
+        }
+      ],
+      "availableTerritories": 175
+    },
+    "africa": {
+      "app": "6809208363",
+      "version": "e3739224-9823-433d-bd6e-f287b9732279",
+      "build": "5",
+      "buildState": "VALID",
+      "locales": [
+        {
+          "locale": "es-MX",
+          "description": true,
+          "privacyInDescription": true,
+          "termsInDescription": true,
+          "sets": []
+        },
+        {
+          "locale": "en-US",
+          "description": true,
+          "privacyInDescription": true,
+          "termsInDescription": true,
+          "sets": [
+            {
+              "display": "APP_IPHONE_67",
+              "count": 5,
+              "complete": true
+            },
+            {
+              "display": "APP_IPAD_PRO_3GEN_129",
+              "count": 4,
+              "complete": true
+            }
+          ]
+        }
+      ],
+      "availability": "HTTP 404 {\n  \"errors\" : [ {\n    \"id\" : \"d7ccd34b-4f0b-41f0-b352-c3630b5b1da9\",\n    \"status\" : \"404\","
+    },
+    "latam": {
+      "app": "6809805287",
+      "version": "2a60904f-9271-4925-80f1-2bfe62bf4725",
+      "build": "5",
+      "buildState": "VALID",
+      "locales": [
+        {
+          "locale": "es-MX",
+          "description": true,
+          "privacyInDescription": true,
+          "termsInDescription": true,
+          "sets": []
+        },
+        {
+          "locale": "en-US",
+          "description": true,
+          "privacyInDescription": true,
+          "termsInDescription": true,
+          "sets": [
+            {
+              "display": "APP_IPHONE_67",
+              "count": 5,
+              "complete": true
+            },
+            {
+              "display": "APP_IPAD_PRO_3GEN_129",
+              "count": 4,
+              "complete": true
+            }
+          ]
+        }
+      ],
+      "availability": "HTTP 404 {\n  \"errors\" : [ {\n    \"id\" : \"eef173ca-4432-4e49-9c45-5e1c16975570\",\n    \"status\" : \"404\","
+    }
+  }
+}

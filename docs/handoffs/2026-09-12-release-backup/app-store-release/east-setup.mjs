@@ -1,0 +1,7 @@
+import{request}from'./asc-api.mjs';
+const app='6809205852';
+const locs=(await request('/v1/appInfos/1bee303e-4e5c-46a8-932d-8a06fc5ed9f6/appInfoLocalizations')).data;
+for(const l of locs){if(!l.attributes.privacyPolicyUrl)await request('/v1/appInfoLocalizations/'+l.id,'PATCH',{data:{type:l.type,id:l.id,attributes:{privacyPolicyUrl:'https://bolo-east.app/privacy'}}});console.log(l.attributes.locale,'name/subtitle preserved, privacy set');}
+const price=(await request('/v1/apps/'+app+'/appPricePoints?filter[territory]=USA&limit=200')).data.find(x=>Number(x.attributes.customerPrice)===0);
+await request('/v1/appPriceSchedules','POST',{data:{type:'appPriceSchedules',relationships:{app:{data:{type:'apps',id:app}},baseTerritory:{data:{type:'territories',id:'USA'}},manualPrices:{data:[{type:'appPrices',id:'${free}'}]}}},included:[{type:'appPrices',id:'${free}',attributes:{startDate:null,endDate:null},relationships:{appPricePoint:{data:{type:'appPricePoints',id:price.id}}}}]});
+const ts=(await request('/v1/territories?limit=200')).data;const included=ts.map((t,i)=>({type:'territoryAvailabilities',id:'${t'+i+'}',attributes:{available:true},relationships:{territory:{data:{type:'territories',id:t.id}}}}));await request('/v2/appAvailabilities','POST',{data:{type:'appAvailabilities',attributes:{availableInNewTerritories:true},relationships:{app:{data:{type:'apps',id:app}},territoryAvailabilities:{data:included.map(({type,id})=>({type,id}))}}},included});console.log('Free download and worldwide availability saved');

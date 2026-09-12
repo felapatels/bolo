@@ -1,0 +1,23 @@
+{
+  "checkedAt": "2026-09-12T15:43:33.393Z",
+  "app": "6809198565",
+  "version": "1.0",
+  "build": "6",
+  "reviewDraft": "b34ae5b0-58fc-4694-aea4-f5b0624846d2",
+  "items": 7,
+  "state": "READY_FOR_REVIEW",
+  "submitted": false,
+  "screenshots": {
+    "iphone": 5,
+    "ipad": 4
+  },
+  "availability": {
+    "total": 175,
+    "available": 175
+  },
+  "contentRights": "owner-confirmed",
+  "locales": [
+    "en-US",
+    "es-MX"
+  ]
+}

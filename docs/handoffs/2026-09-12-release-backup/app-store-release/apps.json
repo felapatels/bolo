@@ -1,0 +1,62 @@
+[
+  {
+    "region": "india",
+    "directory": "/Users/aakeshpatel/bolo/artifacts/bolo-mobile",
+    "ascAppId": "6790907772",
+    "localVersion": "1.0.18",
+    "localBuildNumber": "546",
+    "bundleId": "com.bolo.mobile",
+    "status": "waiting_for_trybolo_publication",
+    "existingStoreVersionMustBeVerified": true
+  },
+  {
+    "region": "sea",
+    "directory": "/Users/aakeshpatel/bolo-sea/artifacts/bolo-mobile",
+    "ascAppId": "6808769785",
+    "localVersion": "1.0.0",
+    "localBuildNumber": "10",
+    "bundleId": "com.bolo.sea",
+    "status": "waiting_for_trybolo_publication",
+    "existingStoreVersionMustBeVerified": true
+  },
+  {
+    "region": "east",
+    "directory": "/Users/aakeshpatel/bolo-east/artifacts/bolo-mobile",
+    "ascAppId": "6809205852",
+    "localVersion": "1.0.0",
+    "localBuildNumber": "3",
+    "bundleId": "com.bolo.east",
+    "status": "waiting_for_trybolo_publication",
+    "existingStoreVersionMustBeVerified": true
+  },
+  {
+    "region": "africa",
+    "directory": "/Users/aakeshpatel/bolo-africa/artifacts/bolo-mobile",
+    "ascAppId": "6809208363",
+    "localVersion": "1.0.0",
+    "localBuildNumber": "4",
+    "bundleId": "com.bolo.africa",
+    "status": "waiting_for_trybolo_publication",
+    "existingStoreVersionMustBeVerified": true
+  },
+  {
+    "region": "europe",
+    "directory": "/Users/aakeshpatel/bolo-europe/artifacts/bolo-mobile",
+    "ascAppId": "6809198565",
+    "localVersion": "1.0.0",
+    "localBuildNumber": "5",
+    "bundleId": "com.bolo.europe",
+    "status": "waiting_for_trybolo_publication",
+    "existingStoreVersionMustBeVerified": true
+  },
+  {
+    "region": "latam",
+    "directory": "/Users/aakeshpatel/bolo-latam/artifacts/bolo-mobile",
+    "ascAppId": "6809805287",
+    "localVersion": "1.0.0",
+    "localBuildNumber": "4",
+    "bundleId": "com.bolo.latam",
+    "status": "waiting_for_trybolo_publication",
+    "existingStoreVersionMustBeVerified": true
+  }
+]

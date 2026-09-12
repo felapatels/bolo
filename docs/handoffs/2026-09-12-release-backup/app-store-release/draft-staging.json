@@ -1,0 +1,94 @@
+[
+  {
+    "region": "east",
+    "draft": "ee81a380-454f-4e4f-a8ad-c0cd953b0b12",
+    "results": [
+      {
+        "relation": "subscriptionGroupVersion",
+        "state": "READY_FOR_REVIEW"
+      },
+      {
+        "relation": "appStoreVersion",
+        "errors": [
+          "You must provide a value for the attribute 'contests' with this request",
+          "You must provide a value for the attribute 'gambling' with this request",
+          "You must provide a value for the attribute 'parentalControls' with this request",
+          "You must provide a value for the attribute 'gunsOrOtherWeapons' with this request",
+          "You must provide a value for the attribute 'healthOrWellnessTopics' with this request",
+          "You must provide a value for the attribute 'sexualContentOrNudity' with this request",
+          "You must provide a value for the attribute 'violenceCartoonOrFantasy' with this request",
+          "You must provide a value for the attribute 'violenceRealistic' with this request",
+          "You must provide a value for the attribute 'medicalOrTreatmentInformation' with this request",
+          "You must provide a value for the attribute 'horrorOrFearThemes' with this request",
+          "You must provide a value for the attribute 'ageAssurance' with this request",
+          "You must provide a value for the attribute 'messagingAndChat' with this request",
+          "You must provide a value for the attribute 'advertising' with this request",
+          "You must provide a value for the attribute 'userGeneratedContent' with this request",
+          "You must provide a value for the attribute 'profanityOrCrudeHumor' with this request",
+          "You must provide a value for the attribute 'lootBox' with this request",
+          "You must provide a value for the attribute 'sexualContentGraphicAndNudity' with this request",
+          "You must provide a value for the attribute 'gamblingSimulated' with this request",
+          "You must provide a value for the attribute 'violenceRealisticProlongedGraphicOrSadistic' with this request",
+          "You must provide a value for the attribute 'matureOrSuggestiveThemes' with this request",
+          "You must provide a value for the attribute 'alcoholTobaccoOrDrugUseOrReferences' with this request",
+          "You must provide a value for the attribute 'unrestrictedWebAccess' with this request"
+        ]
+      }
+    ]
+  },
+  {
+    "region": "africa",
+    "draft": "aec26e2a-8fab-4998-8b18-db1ec7421720",
+    "results": [
+      {
+        "relation": "subscriptionGroupVersion",
+        "state": "READY_FOR_REVIEW"
+      },
+      {
+        "relation": "appStoreVersion",
+        "errors": [
+          "You must have published answers to your app's data usages."
+        ]
+      }
+    ]
+  },
+  {
+    "region": "latam",
+    "draft": "71aa89de-f205-4d52-bc25-5f9b4dd81557",
+    "results": [
+      {
+        "relation": "subscriptionGroupVersion",
+        "state": "READY_FOR_REVIEW"
+      },
+      {
+        "relation": "appStoreVersion",
+        "errors": [
+          "You must provide a value for the attribute 'gunsOrOtherWeapons' with this request",
+          "You must provide a value for the attribute 'parentalControls' with this request",
+          "You must provide a value for the attribute 'gambling' with this request",
+          "You must provide a value for the attribute 'violenceRealistic' with this request",
+          "You must provide a value for the attribute 'sexualContentOrNudity' with this request",
+          "You must provide a value for the attribute 'medicalOrTreatmentInformation' with this request",
+          "You must provide a value for the attribute 'healthOrWellnessTopics' with this request",
+          "You must provide a value for the attribute 'ageAssurance' with this request",
+          "You must provide a value for the attribute 'messagingAndChat' with this request",
+          "You must provide a value for the attribute 'advertising' with this request",
+          "You must provide a value for the attribute 'profanityOrCrudeHumor' with this request",
+          "You must provide a value for the attribute 'userGeneratedContent' with this request",
+          "You must provide a value for the attribute 'lootBox' with this request",
+          "You must provide a value for the attribute 'sexualContentGraphicAndNudity' with this request",
+          "You must provide a value for the attribute 'gamblingSimulated' with this request",
+          "You must provide a value for the attribute 'violenceRealisticProlongedGraphicOrSadistic' with this request",
+          "You must provide a value for the attribute 'matureOrSuggestiveThemes' with this request",
+          "You must provide a value for the attribute 'alcoholTobaccoOrDrugUseOrReferences' with this request",
+          "You must provide a value for the attribute 'unrestrictedWebAccess' with this request",
+          "You must provide a value for the attribute 'contests' with this request",
+          "You must provide a value for the attribute 'horrorOrFearThemes' with this request",
+          "You must provide a value for the attribute 'violenceCartoonOrFantasy' with this request",
+          "You must have published answers to your app's data usages.",
+          "You must provide a value for the attribute 'contentRightsDeclaration' with this request"
+        ]
+      }
+    ]
+  }
+]

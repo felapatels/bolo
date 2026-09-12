@@ -1,0 +1,50 @@
+[
+  {
+    "id": "9df6ec98-e806-4ce1-a241-6eff9bfab8f3",
+    "status": "FINISHED",
+    "appVersion": "1.0.18",
+    "appBuildVersion": "547",
+    "region": "india",
+    "error": null
+  },
+  {
+    "id": "e2e3934d-364c-46b6-8ff7-2f61d2ad9098",
+    "status": "FINISHED",
+    "appVersion": "1.0.0",
+    "appBuildVersion": "5",
+    "region": "east",
+    "error": null
+  },
+  {
+    "id": "037529c7-971c-4db1-a610-a639632885c4",
+    "status": "FINISHED",
+    "appVersion": "1.0.0",
+    "appBuildVersion": "5",
+    "region": "africa",
+    "error": null
+  },
+  {
+    "id": "ed6a449a-ed81-461b-89ff-bf530a95879d",
+    "status": "FINISHED",
+    "appVersion": "1.0.0",
+    "appBuildVersion": "6",
+    "region": "europe",
+    "error": null
+  },
+  {
+    "id": "984b2843-5263-4b83-924a-decfcd30d065",
+    "status": "FINISHED",
+    "appVersion": "1.0.0",
+    "appBuildVersion": "5",
+    "region": "latam",
+    "error": null
+  },
+  {
+    "id": "74320745-1e45-4ec9-9c9c-e0715ca20bae",
+    "status": "FINISHED",
+    "appVersion": "1.0.0",
+    "appBuildVersion": "11",
+    "region": "sea",
+    "error": null
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "url": "https://bolo-india.app/terms",
+    "status": "200",
+    "ok": true
+  },
+  {
+    "url": "https://bolo-india.app/privacy",
+    "status": "200",
+    "ok": true
+  },
+  {
+    "url": "https://bolo-sea.app/terms",
+    "status": "200",
+    "ok": true
+  },
+  {
+    "url": "https://bolo-sea.app/privacy",
+    "status": "200",
+    "ok": true
+  },
+  {
+    "url": "https://bolo-east.app/terms",
+    "status": "200",
+    "ok": true
+  },
+  {
+    "url": "https://bolo-east.app/privacy",
+    "status": "200",
+    "ok": true
+  },
+  {
+    "url": "https://bolo-africa.app/terms",
+    "status": "200",
+    "ok": true
+  },
+  {
+    "url": "https://bolo-africa.app/privacy",
+    "status": "200",
+    "ok": true
+  },
+  {
+    "url": "https://bolo-europe.app/terms",
+    "status": "200",
+    "ok": true
+  },
+  {
+    "url": "https://bolo-europe.app/privacy",
+    "status": "200",
+    "ok": true
+  },
+  {
+    "url": "https://bolo-latam.app/terms",
+    "status": "200",
+    "ok": true
+  },
+  {
+    "url": "https://bolo-latam.app/privacy",
+    "status": "200",
+    "ok": true
+  }
+]
