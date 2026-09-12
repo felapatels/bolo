@@ -581,7 +581,7 @@ async function readDailyGift(req: Request): Promise<{
       ),
     )
     .limit(1);
-  const earnedToday = earnedDayKeys.has(todayKey) || await canPreviewDailyGift(userId);
+  const earnedToday = earnedDayKeys.has(todayKey) || canPreviewDailyGift(userId);
   const gift = dailyGiftFor({
     streakDays: currentStreakDays,
     claimedDayKey: claimedRow ? todayKey : null,

@@ -1,7 +1,7 @@
 # Owner gift preview
 
-Owner requested a completed-stop exception for aakeshp@gmail.com to visually review the real award flow. Daily gift read and claim share the exception. The server verifies the authenticated user’s primary verified Clerk email; the local email is only a lookup hint. No request-supplied email, broad owner role, or client-only eligibility override is accepted.
+Owner requested a completed-stop exception to review the real gift award flow, then supplied the exact Clerk ID user_3HBsmeNhc3jxT6rCH1WXI4R0Ykv. Daily gift read and claim share an exact comparison against the authenticated server user ID. No client-provided ID/email, broad owner role, or email lookup is accepted. This supersedes the initial email-based implementation.
 
 Normal once-per-local-day ledger uniqueness, gift draw, wallet credit on claim, and subscription multiplier remain intact. No lesson/streak records are created and no gift is claimed on the owner’s behalf. Applies to mobile and web through their existing server gift readers. Remove dailyGiftPreview and its loader call to retire the exception.
 
-API typecheck passed. Deployment and signed-in verification pending. Typecheck only per owner; no suites or native builds.
+Initial API typechecks passed; exact-ID simplification verification and deployment pending. No suites or native builds.
